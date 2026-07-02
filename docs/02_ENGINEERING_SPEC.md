@@ -28,6 +28,8 @@ airflow-demo/
 - 后端使用 FastAPI + SQLAlchemy 2.0 + Alembic。
 - 当前最小后端入口：`backend/app/main.py`。
 - 当前 health API：`GET /api/health`、`GET /api/health/db`、`GET /api/health/airflow`。
+- backend Docker 镜像先复制 `backend/pip.conf` 配置国内 PyPI 源，再在 `/opt/venv` 创建虚拟环境并安装依赖。
+- 远端宿主机如需临时 Python 工具，必须先建 venv 再安装依赖；不要在系统 Python 或用户全局 site-packages 裸装。
 - 类型注解优先。
 - 业务错误返回结构化 JSON。
 - 日志使用标准 logging，禁止 print 密码/token。

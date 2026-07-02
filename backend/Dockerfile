@@ -1,9 +1,15 @@
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:$PATH" \
+    PIP_CONFIG_FILE=/etc/pip.conf
 
 WORKDIR /app
+
+COPY pip.conf /etc/pip.conf
+RUN python -m venv "$VIRTUAL_ENV"
 
 COPY requirements.txt requirements-dev.txt ./
 RUN pip install --no-cache-dir -r requirements-dev.txt

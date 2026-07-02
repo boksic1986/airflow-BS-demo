@@ -156,6 +156,14 @@ backend: 8000 -> 8000
 mailhog: 1025 -> 1025, 8025 -> 8025
 ```
 
+backend 镜像构建时先使用仓库内 `backend/pip.conf` 的国内 PyPI 源配置，并在镜像内 `/opt/venv` 安装依赖。不要在 `fengxian` 宿主机系统 Python 上裸跑 `pip install`；若将来确实需要宿主机 Python 辅助脚本，必须先创建虚拟环境：
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+```
+
 ## 7. 最小启动验收
 
 第一轮只启动基础容器和 backend health，不启动 Airflow、frontend 功能页或 PGT-A。
