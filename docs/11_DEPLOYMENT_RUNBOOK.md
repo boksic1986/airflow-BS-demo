@@ -18,7 +18,60 @@ which qstat || true
 
 把非敏感结果写入 `SERVER_INFO.md`。
 
-## 2. 初始化目录
+## 2. fengxian 代码镜像
+
+服务器目录只作为 GitHub 镜像，不直接开发或提交。
+
+首次同步：
+
+```bash
+test -d /home/jiucheng/project/airflow-demo
+find /home/jiucheng/project/airflow-demo -mindepth 1 -maxdepth 1 | head
+git clone git@github.com:boksic1986/airflow-BS-demo.git /home/jiucheng/project/airflow-demo
+```
+
+如果目录非空且不是 Git 仓库，先停止并确认/备份，不覆盖。
+
+后续更新：
+
+```bash
+cd /home/jiucheng/project/airflow-demo
+git pull --ff-only
+```
+
+## 3. Docker Compose v2 用户级准入
+
+在 `fengxian` 只安装用户级 Docker CLI plugin，不升级系统 Docker，不安装 legacy `docker-compose` v1。
+
+优先使用国内 Docker CE 镜像下载 `docker-compose-plugin` deb 包，并只解包其中的 CLI plugin 二进制到用户目录。`fengxian` 是 Ubuntu 18.04，但 bionic 镜像只到 Compose 2.18.1；为了固定 `v2.24.7`，使用 focal 包解包二进制，不做系统级 dpkg/apt 安装。
+
+```bash
+mkdir -p "$HOME/.docker/cli-plugins"
+tmpdir="$(mktemp -d)"
+curl -fL \
+  "https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/ubuntu/dists/focal/pool/stable/amd64/docker-compose-plugin_2.24.7-1~ubuntu.20.04~focal_amd64.deb" \
+  -o "$tmpdir/docker-compose-plugin.deb"
+dpkg-deb -x "$tmpdir/docker-compose-plugin.deb" "$tmpdir/extract"
+install -m 0755 \
+  "$tmpdir/extract/usr/libexec/docker/cli-plugins/docker-compose" \
+  "$HOME/.docker/cli-plugins/docker-compose"
+rm -rf "$tmpdir"
+docker compose version
+```
+
+验收输出应为：
+
+```text
+Docker Compose version v2.24.7
+```
+
+已探测但不作为优先路线：
+
+- GitHub Release 直连容易受网络限制。
+- 清华/中科大/交大 GitHub-release 路径对 `docker/compose/v2.24.7/docker-compose-linux-x86_64` 返回 404 或错误重定向。
+- 清华、交大、阿里云 Docker CE `focal`/`jammy` 镜像可提供 `docker-compose-plugin_2.24.7`。
+
+## 4. 初始化目录
 
 ```bash
 mkdir -p <PROJECT_ROOT>
@@ -28,7 +81,7 @@ mkdir -p <SHARED_ROOT>/reports
 mkdir -p <SHARED_ROOT>/logs
 ```
 
-## 3. 配置环境变量
+## 5. 配置环境变量
 
 从 `.env.example` 创建 `.env`：
 
@@ -38,13 +91,31 @@ cp .env.example .env
 
 不得提交 `.env`。
 
-## 4. 检查 compose
+## 6. 检查 compose
 
 ```bash
 docker compose config
 ```
 
-## 5. 启动服务
+## 7. 最小启动验收
+
+第一轮只启动基础容器和 backend health，不启动 Airflow、frontend 功能页或 PGT-A。
+
+```bash
+docker compose up -d postgres redis mailhog backend
+curl http://127.0.0.1:8000/api/health
+docker compose down
+```
+
+期望 health：
+
+```json
+{"status":"ok"}
+```
+
+禁止使用 `docker compose down -v` 作为默认停止方式。
+
+## 8. 启动完整服务
 
 ```bash
 docker compose up -d
@@ -58,7 +129,7 @@ docker compose logs --tail=100 airflow-scheduler
 docker compose logs --tail=100 backend
 ```
 
-## 6. 初始化数据库
+## 9. 初始化数据库
 
 示例：
 
@@ -68,7 +139,7 @@ docker compose exec backend alembic upgrade head
 
 实际命令以 backend 实现为准。
 
-## 7. Airflow 初始化
+## 10. Airflow 初始化
 
 示例：
 
@@ -78,14 +149,14 @@ docker compose exec airflow-api-server airflow users list
 
 如需创建用户，必须使用 `.env` 中变量，不在文档写密码。
 
-## 8. 健康检查
+## 11. 健康检查
 
 ```bash
 curl http://<SERVER_HOST>:8000/api/health
 curl http://<SERVER_HOST>:8080/health
 ```
 
-## 9. Smoke test
+## 12. Smoke test
 
 建议命令：
 
@@ -95,7 +166,7 @@ python scripts/submit_mock_run.py --pipeline wes_qsub --sample-sheet examples/sa
 
 或通过前端提交 mock sample sheet。
 
-## 10. 查看日志
+## 13. 查看日志
 
 ```bash
 docker compose logs --tail=200 backend
@@ -109,7 +180,7 @@ Run 日志：
 find <SHARED_ROOT>/runs/<analysis_id>/logs -type f | sort
 ```
 
-## 11. 停止服务
+## 14. 停止服务
 
 安全停止：
 
@@ -125,7 +196,7 @@ docker compose down -v
 
 除非明确需要删除 volume 且已备份。
 
-## 12. 回滚
+## 15. 回滚
 
 ```bash
 git status
@@ -143,7 +214,7 @@ docker compose up -d --build
 
 DB migration 回滚必须先确认不会丢数据。
 
-## 13. 常见故障
+## 16. 常见故障
 
 ### Airflow scheduler 起不来
 

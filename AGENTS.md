@@ -110,6 +110,8 @@ codex/frontend/T050-run-detail-page
 
 ## 7. 测试要求
 
+本地 `D:\pipeline\airflow-demo` 只作为编辑、Git 和文档维护工作区，不作为运行时测试环境。由于本地默认没有完整 Docker、Python、Snakemake、Airflow 和生信依赖，backend/frontend/DAG/Compose/Snakemake 的验收测试一律在远端开发节点执行，当前默认是 `ssh fengxian`。本地可以做非运行时检查，例如 `git status`、文档搜索、manifest 计数；不得把本地 pytest、docker compose、snakemake 或服务启动结果作为验收证据。
+
 根据改动类型执行：
 
 ```text

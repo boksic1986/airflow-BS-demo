@@ -4,6 +4,8 @@
 
 ```text
 airflow-demo/
+  docker-compose.yaml          # Docker Compose service skeleton
+  .env.example                 # non-secret example environment
   dags/                       # Airflow DAGs
   backend/                    # FastAPI app
   frontend/                   # React app
@@ -24,9 +26,33 @@ airflow-demo/
 
 - Python 版本：由 `SERVER_INFO.md` 补齐，建议 3.11 或 3.12。
 - 后端使用 FastAPI + SQLAlchemy/SQLModel + Alembic。
+- 当前最小后端入口：`backend/app/main.py`。
+- 当前最小 health API：`GET /api/health` 返回 `{"status":"ok"}`。
 - 类型注解优先。
 - 业务错误返回结构化 JSON。
 - 日志使用标准 logging，禁止 print 密码/token。
+
+## 2.1 Docker Compose 骨架
+
+第一轮 Compose 骨架只保证基础运行面可渲染和最小服务可启动，不代表 Airflow DAG、biodemo migration 或 PGT-A runner 已经完成。
+
+| Service | Host port | Container IP | Current role |
+|---|---:|---|---|
+| backend | 8000 | `172.30.10.20` | FastAPI health only |
+| frontend | 3000 | `172.30.10.30` | nginx placeholder only |
+| airflow-api-server | 8080 | `172.30.10.10` | Airflow web/api service skeleton |
+| airflow-scheduler | n/a | `172.30.10.11` | Airflow scheduler skeleton |
+| airflow-worker | n/a | `172.30.10.12` | Airflow worker skeleton |
+| postgres | internal | `172.30.10.40` | Airflow metadata DB container; biodemo DB migration pending |
+| redis | internal | `172.30.10.50` | Airflow Celery broker |
+| mailhog | 1025/8025 | `172.30.10.60` | demo SMTP/web UI |
+
+Fixed Docker network:
+
+```text
+subnet: 172.30.10.0/24
+gateway: 172.30.10.1
+```
 
 ## 3. Frontend 规范
 
@@ -79,8 +105,18 @@ shared/reports/<analysis_id>/snakemake_report.html
 |---|---|---|---|
 | PROJECT_ROOT | yes | /opt/airflow-demo | 服务器项目目录 |
 | SHARED_ROOT | yes | /data/airflow-demo | 上传、run、报告目录 |
+| DOCKER_SUBNET | yes | 172.30.10.0/24 | demo Docker network |
+| DOCKER_GATEWAY | yes | 172.30.10.1 | demo Docker gateway |
+| BACKEND_IP | yes | 172.30.10.20 | fixed container IP |
+| FRONTEND_IP | yes | 172.30.10.30 | fixed container IP |
+| POSTGRES_IP | yes | 172.30.10.40 | fixed container IP |
+| REDIS_IP | yes | 172.30.10.50 | fixed container IP |
+| MAILHOG_IP | yes | 172.30.10.60 | fixed container IP |
 | AIRFLOW_BASE_URL | yes | http://airflow-api-server:8080 | 容器内地址 |
 | DATABASE_URL | yes | postgresql+psycopg://demo:***@postgres:5432/biodemo | 不提交真实密码 |
+| PGTA_PIPELINE_ROOT | PGT-A only | /home/jiucheng/pipelines/PGT_A | host read-only mount |
+| BIOSOFTWARE_ROOT | PGT-A only | /biosoftware | host read-only mount |
+| PGTA_DATA_ROOT | PGT-A only | /data/project/CNV/PGT-A | host read-only mount |
 | SMTP_HOST | no | mailhog | demo 邮件 |
 | SMTP_PORT | no | 1025 | demo 邮件 |
 | QSUB_QUEUE | no | all.q | 服务器补齐 |

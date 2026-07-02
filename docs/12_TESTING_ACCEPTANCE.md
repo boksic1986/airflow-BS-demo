@@ -2,6 +2,13 @@
 
 ## 1. 测试层级
 
+测试执行位置约束：
+
+- 本地 `D:\pipeline\airflow-demo` 只做编辑、Git、文档一致性和 manifest 检查。
+- 运行时验收测试一律在远端执行，当前默认节点为 `ssh fengxian`。
+- 不把本地 pytest、Docker Compose、Snakemake、Airflow 或服务启动结果作为验收证据。
+- 如果某项远端测试无法执行，必须在 `HANDOFF.md` 记录命令、原因和下一步环境条件。
+
 ```text
 unit tests
   sample parser, qc parser, airflow client mock, log tail

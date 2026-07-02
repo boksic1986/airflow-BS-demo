@@ -227,13 +227,18 @@ docker version
 mkdir -p "$HOME/.docker/cli-plugins"
 ```
 
-推荐安装方式：
+推荐安装方式是在国内 Docker CE 镜像下载 deb 包，并只解包 CLI plugin 二进制到用户目录，不执行系统级 apt/dpkg 安装。`fengxian` 的 bionic Docker CE 镜像只提供到 Compose 2.18.1；为固定 `v2.24.7`，使用 focal 包中的静态 plugin 二进制。
 
 ```bash
-curl -SL \
-  "https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64" \
-  -o "$HOME/.docker/cli-plugins/docker-compose"
-chmod +x "$HOME/.docker/cli-plugins/docker-compose"
+tmpdir="$(mktemp -d)"
+curl -fL \
+  "https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/ubuntu/dists/focal/pool/stable/amd64/docker-compose-plugin_2.24.7-1~ubuntu.20.04~focal_amd64.deb" \
+  -o "$tmpdir/docker-compose-plugin.deb"
+dpkg-deb -x "$tmpdir/docker-compose-plugin.deb" "$tmpdir/extract"
+install -m 0755 \
+  "$tmpdir/extract/usr/libexec/docker/cli-plugins/docker-compose" \
+  "$HOME/.docker/cli-plugins/docker-compose"
+rm -rf "$tmpdir"
 docker compose version
 ```
 
@@ -249,7 +254,11 @@ Docker Compose version v2.24.7
 rm "$HOME/.docker/cli-plugins/docker-compose"
 ```
 
-不得在本计划任务中执行上述命令；它们属于后续 infra 执行任务。
+国内镜像探测结论：
+
+- 清华、交大、阿里云 Docker CE `focal`/`jammy` 镜像包含 `docker-compose-plugin_2.24.7`。
+- 清华、交大、阿里云 Docker CE `bionic` 镜像仅探测到 `docker-compose-plugin_2.18.1`。
+- 清华/中科大/交大 GitHub-release 路径未探测到可直接下载的 `docker/compose/v2.24.7/docker-compose-linux-x86_64`。
 
 ## 8. BS10610 迁移预检
 

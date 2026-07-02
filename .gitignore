@@ -1,6 +1,16 @@
 .env
+.venv/
 *.local.md
-shared/
+shared/*
+!shared/.gitkeep
+!shared/uploads/
+!shared/uploads/.gitkeep
+!shared/runs/
+!shared/runs/.gitkeep
+!shared/reports/
+!shared/reports/.gitkeep
+!shared/logs/
+!shared/logs/.gitkeep
 data/
 *.fastq.gz
 *.fq.gz

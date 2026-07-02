@@ -1,0 +1,138 @@
+name: ${COMPOSE_PROJECT_NAME:-airflow-demo}
+
+x-airflow-common: &airflow-common
+  image: ${AIRFLOW_IMAGE:-apache/airflow:2.9.3-python3.11}
+  user: "${AIRFLOW_UID:-50000}:0"
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-airflow}
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-airflow}
+    AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    AIRFLOW__EMAIL__EMAIL_BACKEND: airflow.utils.email.send_email_smtp
+    AIRFLOW__SMTP__SMTP_HOST: ${SMTP_HOST:-mailhog}
+    AIRFLOW__SMTP__SMTP_PORT: ${SMTP_PORT:-1025}
+    AIRFLOW__SMTP__SMTP_MAIL_FROM: ${MAIL_FROM:-airflow-demo@example.com}
+    CONTAINER_SHARED_ROOT: ${CONTAINER_SHARED_ROOT:-/data/airflow-demo}
+    PGTA_CONTAINER_ROOT: ${PGTA_CONTAINER_ROOT:-/opt/pipelines/PGT_A}
+    PGTA_CONTAINER_DATA_ROOT: ${PGTA_CONTAINER_DATA_ROOT:-/data/project/CNV/PGT-A}
+  volumes:
+    - ./dags:/opt/airflow/dags:ro
+    - ./shared:/data/airflow-demo
+    - ${PGTA_PIPELINE_ROOT:-/home/jiucheng/pipelines/PGT_A}:${PGTA_CONTAINER_ROOT:-/opt/pipelines/PGT_A}:ro
+    - ${BIOSOFTWARE_ROOT:-/biosoftware}:/biosoftware:ro
+    - ${PGTA_DATA_ROOT:-/data/project/CNV/PGT-A}:${PGTA_CONTAINER_DATA_ROOT:-/data/project/CNV/PGT-A}:ro
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks:
+    biodemo-net:
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-airflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-airflow}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      biodemo-net:
+        ipv4_address: ${POSTGRES_IP:-172.30.10.40}
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      biodemo-net:
+        ipv4_address: ${REDIS_IP:-172.30.10.50}
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_WEB_PORT:-8025}:8025"
+    networks:
+      biodemo-net:
+        ipv4_address: ${MAILHOG_IP:-172.30.10.60}
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      AIRFLOW_BASE_URL: ${AIRFLOW_BASE_URL:-http://airflow-api-server:8080}
+      CONTAINER_SHARED_ROOT: ${CONTAINER_SHARED_ROOT:-/data/airflow-demo}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./shared:/data/airflow-demo
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health').read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      biodemo-net:
+        ipv4_address: ${BACKEND_IP:-172.30.10.20}
+
+  frontend:
+    image: nginx:1.27-alpine
+    command: ["/bin/sh", "-c", "printf 'airflow-demo frontend placeholder\\n' > /usr/share/nginx/html/index.html && nginx -g 'daemon off;'"]
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    networks:
+      biodemo-net:
+        ipv4_address: ${FRONTEND_IP:-172.30.10.30}
+
+  airflow-api-server:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "${AIRFLOW_PORT:-8080}:8080"
+    networks:
+      biodemo-net:
+        ipv4_address: ${AIRFLOW_API_IP:-172.30.10.10}
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    networks:
+      biodemo-net:
+        ipv4_address: ${AIRFLOW_SCHEDULER_IP:-172.30.10.11}
+
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+    networks:
+      biodemo-net:
+        ipv4_address: ${AIRFLOW_WORKER_IP:-172.30.10.12}
+
+volumes:
+  postgres-data:
+
+networks:
+  biodemo-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${DOCKER_SUBNET:-172.30.10.0/24}
+          gateway: ${DOCKER_GATEWAY:-172.30.10.1}

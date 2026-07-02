@@ -7,7 +7,7 @@ Read context
   -> confirm task scope
   -> inspect repo/server state
   -> make focused changes
-  -> run tests
+  -> run remote tests
   -> update docs/state/handoff
   -> summarize result
 ```
@@ -22,12 +22,13 @@ Read context
 - [ ] 检查 `git remote -v`，确认 `origin` 指向 `git@github.com:boksic1986/airflow-BS-demo.git`。
 - [ ] 检查当前分支；默认开发分支为 `main`，功能分支按任务需要从 `main` 创建。
 - [ ] 确认不修改生产数据。
+- [ ] 确认运行时测试将在远端执行；本地只做编辑、Git 和文档一致性检查。
 - [ ] 确认任务 ID 和验收标准。
 
 ## 3. 结束任务 checklist
 
 - [ ] 功能实现或明确部分完成。
-- [ ] 运行最小测试。
+- [ ] 在远端运行最小测试。
 - [ ] 记录未运行测试和原因。
 - [ ] 更新 `CURRENT_STATE.md`。
 - [ ] 更新 `TASKS.md` 状态。
@@ -64,6 +65,7 @@ Read context
 执行任务 <TXXX>。
 只修改任务范围内文件。
 完成后运行相关测试，并更新 CURRENT_STATE.md、TASKS.md、HANDOFF.md。
+运行时测试必须在远端执行；本地只做 Git 和文档一致性检查。
 ```
 
 ## 7. 代码变更范围声明
