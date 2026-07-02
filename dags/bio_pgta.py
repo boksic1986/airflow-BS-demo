@@ -7,7 +7,7 @@ from airflow.operators.python import PythonOperator
 
 from pgta_metadata_runner import (
     build_pgta_config,
-    collect_metadata_artifact,
+    collect_metadata_artifact as collect_pgta_metadata_artifact,
     run_pgta_metadata,
     validate_pgta_conf,
 )
@@ -36,7 +36,7 @@ def _run_metadata(**context):
 def _collect_metadata_artifact(**context):
     task_instance = context["ti"]
     conf = task_instance.xcom_pull(task_ids="run_metadata")
-    return collect_metadata_artifact(conf)
+    return collect_pgta_metadata_artifact(conf)
 
 
 with DAG(
@@ -60,9 +60,9 @@ with DAG(
         task_id="run_metadata",
         python_callable=_run_metadata,
     )
-    collect_metadata_artifact = PythonOperator(
+    collect_metadata_artifact_task = PythonOperator(
         task_id="collect_metadata_artifact",
         python_callable=_collect_metadata_artifact,
     )
 
-    validate_request >> prepare_pgta_config >> run_metadata >> collect_metadata_artifact
+    validate_request >> prepare_pgta_config >> run_metadata >> collect_metadata_artifact_task
