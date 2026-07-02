@@ -25,9 +25,9 @@ airflow-demo/
 ## 2. Python 规范
 
 - Python 版本：由 `SERVER_INFO.md` 补齐，建议 3.11 或 3.12。
-- 后端使用 FastAPI + SQLAlchemy/SQLModel + Alembic。
+- 后端使用 FastAPI + SQLAlchemy 2.0 + Alembic。
 - 当前最小后端入口：`backend/app/main.py`。
-- 当前最小 health API：`GET /api/health` 返回 `{"status":"ok"}`。
+- 当前 health API：`GET /api/health`、`GET /api/health/db`、`GET /api/health/airflow`。
 - 类型注解优先。
 - 业务错误返回结构化 JSON。
 - 日志使用标准 logging，禁止 print 密码/token。
@@ -43,7 +43,7 @@ airflow-demo/
 | airflow-api-server | 12958 | `172.30.10.10` | Airflow web/api service skeleton |
 | airflow-scheduler | n/a | `172.30.10.11` | Airflow scheduler skeleton |
 | airflow-worker | n/a | `172.30.10.12` | Airflow worker skeleton |
-| postgres | internal | `172.30.10.40` | Airflow metadata DB container; biodemo DB migration pending |
+| postgres | internal | `172.30.10.40` | Airflow metadata DB plus separate biodemo business DB |
 | redis | internal | `172.30.10.50` | Airflow Celery broker |
 | mailhog | 1025/8025 | `172.30.10.60` | demo SMTP/web UI |
 
@@ -122,9 +122,14 @@ shared/reports/<analysis_id>/snakemake_report.html
 | FRONTEND_PORT | yes | 12959 | Docker nginx/frontend host port; container port remains 80 |
 | BACKEND_IMAGE | yes | airflow-demo/backend:0.1.0 | explicit project image tag; avoid implicit latest |
 | AIRFLOW_BASE_URL | yes | http://airflow-api-server:8080 | 容器内地址 |
+| AIRFLOW_API_USERNAME | yes | admin | backend 调用 Airflow REST API 的用户名 |
+| AIRFLOW_API_PASSWORD | yes | <SECRET_FROM_ENV> | only in untracked `.env` |
 | AIRFLOW_ADMIN_USERNAME | yes | admin | Airflow init user; no password in Git |
 | AIRFLOW_ADMIN_PASSWORD | yes | <SECRET_FROM_ENV> | only in untracked `.env` |
 | AIRFLOW_ADMIN_EMAIL | yes | airflow-demo@example.com | demo Airflow admin email |
+| BIODEMO_DB | yes | biodemo | 业务数据库名 |
+| BIODEMO_USER | yes | biodemo | 业务数据库用户 |
+| BIODEMO_PASSWORD | yes | <SECRET_FROM_ENV> | only in untracked `.env` |
 | DATABASE_URL | yes | postgresql+psycopg://demo:***@postgres:5432/biodemo | 不提交真实密码 |
 | PGTA_PIPELINE_ROOT | PGT-A only | /home/jiucheng/pipelines/PGT_A | host read-only mount |
 | BIOSOFTWARE_ROOT | PGT-A only | /biosoftware | host read-only mount |

@@ -198,13 +198,28 @@ docker compose logs --tail=100 backend
 
 ## 9. 初始化数据库
 
-示例：
+`biodemo` 业务库和 Airflow metadata DB 共用同一个 Postgres 容器，但使用不同 database/user。先启动 Postgres，再运行可重复的 one-shot 初始化服务：
 
 ```bash
-docker compose exec backend alembic upgrade head
+docker compose -f docker-compose.yaml up -d postgres
+docker compose -f docker-compose.yaml run --rm biodemo-db-init
 ```
 
-实际命令以 backend 实现为准。
+然后用 backend 容器执行 Alembic migration：
+
+```bash
+docker compose -f docker-compose.yaml run --rm backend alembic upgrade head
+```
+
+验证核心表：
+
+```bash
+docker compose -f docker-compose.yaml exec -T postgres \
+  psql -U "$POSTGRES_USER" -d biodemo \
+  -c '\dt'
+```
+
+`.env` 必须包含 `BIODEMO_DB`、`BIODEMO_USER`、`BIODEMO_PASSWORD`、`DATABASE_URL`。不要在命令输出或文档中打印真实密码。
 
 ## 10. Airflow 初始化
 
@@ -226,6 +241,8 @@ docker compose -f docker-compose.yaml exec airflow-api-server airflow users list
 
 ```bash
 curl http://<SERVER_HOST>:8000/api/health
+curl http://<SERVER_HOST>:8000/api/health/db
+curl http://<SERVER_HOST>:8000/api/health/airflow
 curl http://<SERVER_HOST>:12958/health
 curl http://<SERVER_HOST>:12959/
 curl http://<SERVER_HOST>:8025/

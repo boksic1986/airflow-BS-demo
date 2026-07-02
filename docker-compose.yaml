@@ -73,6 +73,43 @@ services:
       biodemo-net:
         ipv4_address: ${MAILHOG_IP:-172.30.10.60}
 
+  biodemo-db-init:
+    image: postgres:15-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-airflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-airflow}
+      BIODEMO_DB: ${BIODEMO_DB:-biodemo}
+      BIODEMO_USER: ${BIODEMO_USER:-biodemo}
+      BIODEMO_PASSWORD: ${BIODEMO_PASSWORD:?Set BIODEMO_PASSWORD in .env}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -eu
+        export PGPASSWORD="$${POSTGRES_PASSWORD}"
+        psql -h postgres -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" \
+          -v ON_ERROR_STOP=1 \
+          -v biodemo_db="$${BIODEMO_DB}" \
+          -v biodemo_user="$${BIODEMO_USER}" \
+          -v biodemo_password="$${BIODEMO_PASSWORD}" <<'SQL'
+        SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'biodemo_user', :'biodemo_password')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'biodemo_user') \gexec
+        SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'biodemo_user', :'biodemo_password') \gexec
+        SELECT format('CREATE DATABASE %I OWNER %I', :'biodemo_db', :'biodemo_user')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'biodemo_db') \gexec
+        SQL
+        psql -h postgres -U "$${POSTGRES_USER}" -d "$${BIODEMO_DB}" \
+          -v ON_ERROR_STOP=1 \
+          -v biodemo_user="$${BIODEMO_USER}" <<'SQL'
+        SELECT format('GRANT USAGE, CREATE ON SCHEMA public TO %I', :'biodemo_user') \gexec
+        SQL
+    networks:
+      biodemo-net:
+
   backend:
     image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
     build:
@@ -80,6 +117,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       AIRFLOW_BASE_URL: ${AIRFLOW_BASE_URL:-http://airflow-api-server:8080}
+      AIRFLOW_API_USERNAME: ${AIRFLOW_API_USERNAME:-admin}
+      AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?Set AIRFLOW_API_PASSWORD in .env}
       CONTAINER_SHARED_ROOT: ${CONTAINER_SHARED_ROOT:-/data/airflow-demo}
     ports:
       - "${BACKEND_PORT:-8000}:8000"

@@ -34,6 +34,38 @@ Response:
 }
 ```
 
+```http
+GET /api/health/db
+```
+
+Response:
+
+```json
+{
+  "status": "ok"
+}
+```
+
+该接口只验证 biodemo DB 连接，不返回连接串、密码或库内数据。
+
+```http
+GET /api/health/airflow
+```
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "airflow": {
+    "metadatabase": {"status": "healthy"},
+    "scheduler": {"status": "healthy"}
+  }
+}
+```
+
+该接口通过 backend 的 `AirflowClient` 访问 Airflow `/health`；第一阶段使用 `.env` 中的 `AIRFLOW_API_USERNAME` / `AIRFLOW_API_PASSWORD`。
+
 ## 3. 创建分析任务
 
 ```http

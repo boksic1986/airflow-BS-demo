@@ -25,7 +25,7 @@ analysis_run 1 -> N run_action
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid/int | primary key |
+| id | bigserial | primary key |
 | name | text | wes_qsub/nipt_qsub/nipt_docker |
 | dag_id | text | Airflow DAG id |
 | version | text | pipeline version |
@@ -37,7 +37,7 @@ analysis_run 1 -> N run_action
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid/int | primary key |
+| id | bigserial | primary key |
 | analysis_id | text unique | WES_YYYYMMDD_000001 |
 | pipeline_name | text | denormalized for easy query |
 | dag_id | text | |
@@ -60,7 +60,7 @@ analysis_run 1 -> N run_action
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid/int | primary key |
+| id | bigserial | primary key |
 | analysis_id | text index | |
 | sample_id | text | |
 | family_id | text nullable | |
@@ -76,7 +76,7 @@ analysis_run 1 -> N run_action
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid/int | primary key |
+| id | bigserial | primary key |
 | analysis_id | text index | |
 | rule | text index | |
 | sample_id | text nullable index | |
@@ -105,7 +105,7 @@ unique(analysis_id, rule, sample_id, snakemake_jobid)
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid/int | primary key |
+| id | bigserial | primary key |
 | analysis_id | text index | |
 | sample_id | text nullable index | |
 | metric_name | text | mean_depth/mapping_rate/etc |
@@ -120,7 +120,7 @@ unique(analysis_id, rule, sample_id, snakemake_jobid)
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid/int | primary key |
+| id | bigserial | primary key |
 | analysis_id | text index | |
 | type | text | multiqc_html/snakemake_report/final_report/qc_tsv/log |
 | path | text | shared path |
@@ -133,7 +133,7 @@ unique(analysis_id, rule, sample_id, snakemake_jobid)
 
 | Field | Type | Notes |
 |---|---|---|
-| id | uuid/int | primary key |
+| id | bigserial | primary key |
 | analysis_id | text | target run |
 | action | text | submit/resume/rerun_failed/rerun_rule/cancel |
 | requested_by | text nullable | |
@@ -147,6 +147,8 @@ unique(analysis_id, rule, sample_id, snakemake_jobid)
 - migration 文件必须可重复部署。
 - 禁止无确认 drop table/drop column。
 - demo 初期可以允许 `alembic upgrade head`，但不允许在生产数据库上运行。
+- 当前初始 migration：`backend/alembic/versions/20260702_0001_initial_biodemo_schema.py`。
+- `biodemo` DB/user 由 Compose one-shot `biodemo-db-init` 创建或修正密码；schema 由 backend 容器执行 `alembic upgrade head`。
 
 ## 5. 示例状态查询
 

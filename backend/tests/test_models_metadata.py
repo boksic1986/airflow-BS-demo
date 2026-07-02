@@ -1,3 +1,5 @@
+from sqlalchemy import UniqueConstraint
+
 from app.models import (
     AnalysisRun,
     Artifact,
@@ -30,7 +32,7 @@ def test_analysis_run_uses_unique_business_analysis_id() -> None:
     unique_columns = {
         column.name
         for constraint in table.constraints
-        if getattr(constraint, "unique", False)
+        if isinstance(constraint, UniqueConstraint)
         for column in constraint.columns
     }
 
