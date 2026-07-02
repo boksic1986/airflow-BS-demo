@@ -36,6 +36,61 @@
 
 ## Records
 
+## 2026-07-02 22:38 - Codex - fengxian host nginx inventory
+
+### Goal
+
+Record the existing host-level nginx on `fengxian` as deployment environment information without changing nginx configuration or service state.
+
+### Completed
+
+- Verified `/usr/sbin/nginx` exists and is executable on `fengxian`.
+- Recorded host nginx path and version in `SERVER_INFO.md`.
+- Added a deployment runbook note that host nginx is only a future reverse-proxy candidate for airflow-demo, not currently configured by this project.
+
+### Changed files
+
+- `SERVER_INFO.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `ssh fengxian '/usr/sbin/nginx -v 2>&1; test -x /usr/sbin/nginx && ls -l /usr/sbin/nginx'` | success | Returned `nginx version: nginx/1.14.0 (Ubuntu)` and executable path metadata |
+
+### Tests
+
+Remote-only read probe passed on `fengxian`; no local runtime test was run.
+
+### Not run / why
+
+- No nginx config test was run because airflow-demo does not yet manage host nginx.
+- No nginx reload/restart was run.
+- No Docker, Airflow, backend, frontend, DB, or Snakemake runtime test was needed for this documentation-only update.
+
+### Current git status
+
+Documentation changes are pending local commit/push at the time of this handoff entry.
+
+### Risks
+
+- Host nginx exists, but no airflow-demo server block or reverse proxy routing has been designed or applied.
+- Future reverse-proxy work must avoid interrupting existing host services.
+
+### Open questions
+
+- Whether T011 or a later infra task should add a dedicated nginx reverse-proxy plan for backend, frontend, Airflow, and MailHog access.
+
+### Next recommended task
+
+Continue with T011 Airflow initialization first; handle host nginx reverse proxy as a separate infra task after service ports and auth behavior are stable.
+
+### Rollback notes
+
+This update is documentation only. Roll back with a normal Git revert if needed; do not edit or reload host nginx as part of rollback.
+
 ## 2026-07-02 22:47 - Codex - Docker image cleanup and tag pinning
 
 ### Goal

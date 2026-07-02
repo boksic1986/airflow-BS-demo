@@ -186,6 +186,18 @@ curl http://<SERVER_HOST>:8000/api/health
 curl http://<SERVER_HOST>:8080/health
 ```
 
+`fengxian` 宿主机已探测到系统 nginx，可作为后续反向代理候选，但当前 airflow-demo 未配置宿主机 nginx，也不应在没有单独计划时修改或 reload nginx。
+
+```bash
+/usr/sbin/nginx -v
+```
+
+已探测版本：
+
+```text
+nginx version: nginx/1.14.0 (Ubuntu)
+```
+
 ## 12. Smoke test
 
 建议命令：
