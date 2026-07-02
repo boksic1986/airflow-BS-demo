@@ -3,6 +3,7 @@ import logging
 import sys
 import tempfile
 import unittest
+from dataclasses import fields
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -15,6 +16,17 @@ except ModuleNotFoundError:  # Airflow's Python env does not provide Snakemake 9
 
 @unittest.skipIf(LogEvent is None, "Snakemake 9 logger interface is not installed in this Python env")
 class SnakemakeLoggerPluginTests(unittest.TestCase):
+    def test_logger_settings_expose_runtime_argparse_types(self) -> None:
+        from snakemake_logger_plugin_airflow_demo import LogHandlerSettings
+
+        field_types = {item.name: item.type for item in fields(LogHandlerSettings)}
+
+        self.assertIs(field_types["analysis_id"], str)
+        self.assertIs(field_types["workdir"], Path)
+        self.assertIs(field_types["events_path"], Path)
+        self.assertIs(field_types["backend_event_url"], str)
+        self.assertIs(field_types["post_timeout_seconds"], float)
+
     def test_logger_writes_job_events_jsonl(self) -> None:
         from snakemake_logger_plugin_airflow_demo import LogHandler, LogHandlerSettings
 
