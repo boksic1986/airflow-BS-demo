@@ -44,6 +44,20 @@ planned_demo_subnet: 172.30.10.0/24
 existing_docker_networks: bridge 172.17.0.0/16; cnv_biosan_local_net 172.18.0.0/16
 compose_config_status: passed on fengxian for commit dd1d8a7
 minimal_smoke_status: postgres/redis/mailhog/backend up, backend /api/health ok, then docker compose down
+image_cleanup_2026_07_02: removed 37 dangling <none>:<none> images with docker image rm, no volumes removed
+image_pull_status_2026_07_02: compose external images pulled successfully; backend built as airflow-demo/backend:0.1.0
+project_latest_images: none after retagging backend; non-project latest images were left untouched
+```
+
+Verified compose images:
+
+```text
+apache/airflow:2.9.3-python3.11
+postgres:15-alpine
+redis:7-alpine
+mailhog/mailhog:v1.0.1
+nginx:1.27-alpine
+airflow-demo/backend:0.1.0
 ```
 
 ## 4. Python/Node

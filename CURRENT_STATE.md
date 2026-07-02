@@ -43,10 +43,10 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from origin/main, cl
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
 | frontend | 3000 | not started | nginx placeholder service defined, not part of current smoke |
-| backend | 8000 | stopped after successful smoke | `/api/health` returned `{"status":"ok"}` on fengxian |
-| airflow web/api | 8080 | not started | service skeleton defined, Airflow initialization pending |
-| postgres | 5432 | stopped after successful smoke | container starts; no biodemo migration yet |
-| redis | 6379 | stopped after successful smoke | container starts |
+| backend | 8000 | stopped after successful smoke | `/api/health` returned `{"status":"ok"}` on fengxian; image `airflow-demo/backend:0.1.0` built |
+| airflow web/api | 8080 | not started | image `apache/airflow:2.9.3-python3.11` pulled; Airflow initialization pending |
+| postgres | 5432 | stopped after successful smoke | image `postgres:15-alpine` pulled; no biodemo migration yet |
+| redis | 6379 | stopped after successful smoke | image `redis:7-alpine` pulled |
 | mailhog | 8025 | stopped after successful smoke | HTTP GET probe passed |
 
 ## 5. 数据库状态
@@ -76,6 +76,8 @@ last_dag_import_tests: not run - no DAG implementation yet
 last_snakemake_dryrun: not run - PGT-A integration intentionally out of scope
 last_compose_config: passed on fengxian with Docker Compose v2.24.7
 last_minimal_smoke: passed on fengxian for postgres redis mailhog backend, then docker compose down
+last_image_check: passed on fengxian; compose external images pulled and backend built with explicit tag
+last_image_cleanup: removed 37 dangling <none> images; no docker system prune, no volume prune
 last_e2e_smoke: not run - Airflow/DAG/frontend functional path not implemented
 ```
 
@@ -85,6 +87,7 @@ last_e2e_smoke: not run - Airflow/DAG/frontend functional path not implemented
 |---|---|---|---|---|
 | K003 | BS10610 与 fengxian 用户和路径不同，不能复用 fengxian 硬编码路径 | medium | infra/coordinator | 迁移前把路径参数化到 `.env` 并重复 Level 0 preflight |
 | K004 | 远端直接访问 GitHub release 不稳定 | low | infra | 优先本地 GitHub 下载后 scp 到 fengxian；国内 Docker CE 镜像作为 Compose fallback |
+| K005 | fengxian 仍有非 airflow-demo 的 `latest` 镜像和未使用 volumes | low | infra | 未经确认不要删除；本轮只清理 dangling images，不碰非项目镜像和 volume |
 
 ## 9. 当前阻塞
 

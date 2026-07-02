@@ -36,6 +36,87 @@
 
 ## Records
 
+## 2026-07-02 22:47 - Codex - Docker image cleanup and tag pinning
+
+### Goal
+
+Clean duplicate/dangling `<none>` Docker images on `fengxian`, avoid implicit `latest` for airflow-demo images, and verify required compose images can be pulled or built without starting services.
+
+### Completed
+
+- Inspected running containers, all images, dangling images, compose images, latest-tag images, and Docker disk usage on `fengxian`.
+- Removed 37 dangling `<none>:<none>` image IDs using exact `docker image rm` IDs.
+- Did not run `docker system prune`, `docker volume prune`, or `docker compose down -v`.
+- Did not touch running containers: `cosmetic-db-web` and `yunse-bio`.
+- Did not delete non-project `latest` images such as `yunse-bio:latest` or `fischbachlab/*:latest`.
+- Added explicit backend image tag `airflow-demo/backend:0.1.0` to compose and `.env.example`.
+- Rebuilt backend on `fengxian` with the fixed tag and removed old project tag `airflow-demo-backend:latest`.
+- Verified `docker compose config --images` now uses explicit tags and no airflow-demo `latest`.
+- Pulled external compose images successfully: Airflow, Postgres, Redis, MailHog, nginx.
+
+### Changed files
+
+- `.env.example`
+- `docker-compose.yaml`
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `SERVER_INFO.md`
+- `CURRENT_STATE.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `docker ps -a` / `docker images` / `docker images --filter dangling=true` | success | Found 37 dangling images; found project backend image using implicit `latest` |
+| `docker image rm <37 dangling ids>` | success | Dangling images reduced to zero; no force used |
+| `docker system df` | success | Images count dropped from 54 to 17; no volume cleanup performed |
+| `docker compose config --images` | success | Shows `airflow-demo/backend:0.1.0`; no project `latest` image |
+| `docker compose build backend` | success | Built/tagged backend as `airflow-demo/backend:0.1.0` using cached layers |
+| `docker image rm airflow-demo-backend:latest` | success | Removed old project latest tag only |
+| `docker compose pull postgres redis mailhog frontend airflow-api-server airflow-scheduler airflow-worker` | success | Pulled external compose images; scheduler/worker reused Airflow image |
+| image inspect loop | success | Verified Airflow, postgres, redis, mailhog, nginx, and backend images exist |
+| `docker compose ps` | success | No airflow-demo containers running after checks |
+
+### Tests
+
+Remote-only evidence on `fengxian`:
+
+- Dangling image list is empty after cleanup.
+- `docker compose config --quiet` passed.
+- Required compose images are present locally.
+- `docker images` has no `airflow-demo*:latest`.
+
+### Not run / why
+
+- Airflow containers were not started; this task only checked image availability and cleanup.
+- No frontend app container was built; frontend is still nginx placeholder only.
+- No database migration was run.
+- No volume cleanup was run, by project safety rule.
+
+### Current git status
+
+Code/docs changes for explicit backend image tag are committed and pushed as `07a63fa`; state docs from this cleanup are expected to be committed and pushed next.
+
+### Risks
+
+- Docker still reports reclaimable space from unused non-project images and unused volumes, but those were intentionally left untouched.
+- Several non-project `latest` images remain on `fengxian`; deleting or retagging them needs separate owner confirmation.
+
+### Open questions
+
+- Whether airflow-demo should later use an internal registry or image digest pinning for stricter reproducibility.
+- Whether to configure Docker registry mirrors for future Airflow/base-image pulls.
+
+### Next recommended task
+
+Proceed to T011: start and initialize Airflow services using the already pulled `apache/airflow:2.9.3-python3.11` image, then verify Airflow `/health`.
+
+### Rollback notes
+
+- The removed dangling images had no tags; rollback would require rebuilding or repulling the workloads that produced them.
+- Revert the backend tag change with a normal Git revert if needed; do not force push.
+
 ## 2026-07-02 22:24 - Codex - T010/T012/T013/T014/T020 fengxian base skeleton
 
 ### Goal
