@@ -114,6 +114,26 @@ cp .env.example .env
 
 不得提交 `.env`。
 
+`fengxian` 当前端口约定：
+
+```text
+AIRFLOW_PORT=12958
+FRONTEND_PORT=12959
+BACKEND_PORT=8000
+MAILHOG_WEB_PORT=8025
+MAILHOG_SMTP_PORT=1025
+```
+
+Airflow admin 密码只写入未跟踪的 `.env`：
+
+```text
+AIRFLOW_ADMIN_USERNAME=admin
+AIRFLOW_ADMIN_PASSWORD=<SECRET_FROM_ENV>
+AIRFLOW_ADMIN_EMAIL=airflow-demo@example.com
+```
+
+Postgres 和 Redis 只在 Docker 网络内使用 `5432` / `6379`，不发布宿主机端口。
+
 ## 6. 检查 compose
 
 ```bash
@@ -125,6 +145,15 @@ docker compose config --images
 
 ```text
 airflow-demo/backend:0.1.0
+```
+
+当前对外端口应渲染为：
+
+```text
+airflow-api-server: 12958 -> 8080
+frontend: 12959 -> 80
+backend: 8000 -> 8000
+mailhog: 1025 -> 1025, 8025 -> 8025
 ```
 
 ## 7. 最小启动验收
@@ -147,8 +176,16 @@ docker compose down
 
 ## 8. 启动完整服务
 
+先初始化 Airflow metadata DB 和 admin 用户：
+
 ```bash
-docker compose up -d
+docker compose up airflow-init
+```
+
+再启动基础服务：
+
+```bash
+docker compose up -d postgres redis mailhog backend frontend airflow-api-server airflow-scheduler airflow-worker
 ```
 
 检查：
@@ -171,7 +208,13 @@ docker compose exec backend alembic upgrade head
 
 ## 10. Airflow 初始化
 
-示例：
+推荐使用 one-shot 初始化服务：
+
+```bash
+docker compose up airflow-init
+```
+
+验证用户列表：
 
 ```bash
 docker compose exec airflow-api-server airflow users list
@@ -183,7 +226,9 @@ docker compose exec airflow-api-server airflow users list
 
 ```bash
 curl http://<SERVER_HOST>:8000/api/health
-curl http://<SERVER_HOST>:8080/health
+curl http://<SERVER_HOST>:12958/health
+curl http://<SERVER_HOST>:12959/
+curl http://<SERVER_HOST>:8025/
 ```
 
 `fengxian` 宿主机已探测到系统 nginx，可作为后续反向代理候选，但当前 airflow-demo 未配置宿主机 nginx，也不应在没有单独计划时修改或 reload nginx。

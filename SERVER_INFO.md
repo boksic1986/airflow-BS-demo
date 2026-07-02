@@ -112,12 +112,12 @@ mailhog_enabled: service defined and HTTP GET probe passed on fengxian 127.0.0.1
 
 | Service | Host port | Container port | Planned container IP | Exposure | Notes |
 |---|---:|---:|---|---|---|
-| frontend | 3000 | 80 | `172.30.10.30` | internal/demo | |
+| frontend | 12959 | 80 | `172.30.10.30` | internal/demo | Docker nginx placeholder; host 3000 is occupied by a non-project next-server |
 | backend | 8000 | 8000 | `172.30.10.20` | internal/demo | |
-| airflow | 8080 | 8080 | `172.30.10.10` | internal/demo | |
+| airflow | 12958 | 8080 | `172.30.10.10` | internal/demo | host 12958 verified free on 2026-07-02 |
 | mailhog | 8025 | 8025 | `172.30.10.60` | internal/demo | |
-| postgres | none/prefer internal | 5432 | `172.30.10.40` | internal | |
-| redis | none/prefer internal | 6379 | `172.30.10.50` | internal | |
+| postgres | none/prefer internal | 5432 | `172.30.10.40` | internal | host 5432 not published |
+| redis | none/prefer internal | 6379 | `172.30.10.50` | internal | host 6379 not published |
 
 ## 9. BS10610 迁移预检快照
 

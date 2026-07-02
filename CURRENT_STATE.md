@@ -42,9 +42,9 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from origin/main, cl
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 3000 | not started | nginx placeholder service defined, not part of current smoke |
+| frontend | 12959 | not started | nginx placeholder service defined; host 3000 is occupied by non-project next-server |
 | backend | 8000 | stopped after successful smoke | `/api/health` returned `{"status":"ok"}` on fengxian; image `airflow-demo/backend:0.1.0` built |
-| airflow web/api | 8080 | not started | image `apache/airflow:2.9.3-python3.11` pulled; Airflow initialization pending |
+| airflow web/api | 12958 | not started | image `apache/airflow:2.9.3-python3.11` pulled; Airflow initialization pending |
 | postgres | 5432 | stopped after successful smoke | image `postgres:15-alpine` pulled; no biodemo migration yet |
 | redis | 6379 | stopped after successful smoke | image `redis:7-alpine` pulled |
 | mailhog | 8025 | stopped after successful smoke | HTTP GET probe passed |

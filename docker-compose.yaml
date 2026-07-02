@@ -99,16 +99,45 @@ services:
     image: nginx:1.27-alpine
     command: ["/bin/sh", "-c", "printf 'airflow-demo frontend placeholder\\n' > /usr/share/nginx/html/index.html && nginx -g 'daemon off;'"]
     ports:
-      - "${FRONTEND_PORT:-3000}:80"
+      - "${FRONTEND_PORT:-12959}:80"
     networks:
       biodemo-net:
         ipv4_address: ${FRONTEND_IP:-172.30.10.30}
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        set -euo pipefail
+        airflow db migrate
+        if airflow users list | grep -F "$${AIRFLOW_ADMIN_USERNAME}" >/dev/null; then
+          echo "Airflow admin user already exists: $${AIRFLOW_ADMIN_USERNAME}"
+        else
+          airflow users create \
+            --username "$${AIRFLOW_ADMIN_USERNAME}" \
+            --firstname "$${AIRFLOW_ADMIN_FIRSTNAME}" \
+            --lastname "$${AIRFLOW_ADMIN_LASTNAME}" \
+            --role Admin \
+            --email "$${AIRFLOW_ADMIN_EMAIL}" \
+            --password "$${AIRFLOW_ADMIN_PASSWORD}"
+        fi
+    environment:
+      <<: *airflow-common-env
+      AIRFLOW_ADMIN_USERNAME: ${AIRFLOW_ADMIN_USERNAME:-admin}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:?Set AIRFLOW_ADMIN_PASSWORD in .env}
+      AIRFLOW_ADMIN_FIRSTNAME: ${AIRFLOW_ADMIN_FIRSTNAME:-Airflow}
+      AIRFLOW_ADMIN_LASTNAME: ${AIRFLOW_ADMIN_LASTNAME:-Admin}
+      AIRFLOW_ADMIN_EMAIL: ${AIRFLOW_ADMIN_EMAIL:-airflow-demo@example.com}
+    networks:
+      biodemo-net:
 
   airflow-api-server:
     <<: *airflow-common
     command: webserver
     ports:
-      - "${AIRFLOW_PORT:-8080}:8080"
+      - "${AIRFLOW_PORT:-12958}:8080"
     networks:
       biodemo-net:
         ipv4_address: ${AIRFLOW_API_IP:-172.30.10.10}

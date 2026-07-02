@@ -130,18 +130,18 @@ unknown
 
 ```text
 docker compose up
-frontend: localhost:3000
+frontend: localhost:12959
 backend: localhost:8000
-airflow: localhost:8080
+airflow: localhost:12958
 mailhog: localhost:8025
 ```
 
 ### 服务器 demo
 
 ```text
-http://<SERVER_HOST>:3000
+http://<SERVER_HOST>:12959
 http://<SERVER_HOST>:8000
-http://<SERVER_HOST>:8080
+http://<SERVER_HOST>:12958
 http://<SERVER_HOST>:8025
 ```
 

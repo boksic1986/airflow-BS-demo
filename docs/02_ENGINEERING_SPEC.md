@@ -39,8 +39,8 @@ airflow-demo/
 | Service | Host port | Container IP | Current role |
 |---|---:|---|---|
 | backend | 8000 | `172.30.10.20` | FastAPI health only |
-| frontend | 3000 | `172.30.10.30` | nginx placeholder only |
-| airflow-api-server | 8080 | `172.30.10.10` | Airflow web/api service skeleton |
+| frontend | 12959 | `172.30.10.30` | nginx placeholder only |
+| airflow-api-server | 12958 | `172.30.10.10` | Airflow web/api service skeleton |
 | airflow-scheduler | n/a | `172.30.10.11` | Airflow scheduler skeleton |
 | airflow-worker | n/a | `172.30.10.12` | Airflow worker skeleton |
 | postgres | internal | `172.30.10.40` | Airflow metadata DB container; biodemo DB migration pending |
@@ -118,8 +118,13 @@ shared/reports/<analysis_id>/snakemake_report.html
 | POSTGRES_IP | yes | 172.30.10.40 | fixed container IP |
 | REDIS_IP | yes | 172.30.10.50 | fixed container IP |
 | MAILHOG_IP | yes | 172.30.10.60 | fixed container IP |
+| AIRFLOW_PORT | yes | 12958 | Airflow web/api host port; container port remains 8080 |
+| FRONTEND_PORT | yes | 12959 | Docker nginx/frontend host port; container port remains 80 |
 | BACKEND_IMAGE | yes | airflow-demo/backend:0.1.0 | explicit project image tag; avoid implicit latest |
 | AIRFLOW_BASE_URL | yes | http://airflow-api-server:8080 | 容器内地址 |
+| AIRFLOW_ADMIN_USERNAME | yes | admin | Airflow init user; no password in Git |
+| AIRFLOW_ADMIN_PASSWORD | yes | <SECRET_FROM_ENV> | only in untracked `.env` |
+| AIRFLOW_ADMIN_EMAIL | yes | airflow-demo@example.com | demo Airflow admin email |
 | DATABASE_URL | yes | postgresql+psycopg://demo:***@postgres:5432/biodemo | 不提交真实密码 |
 | PGTA_PIPELINE_ROOT | PGT-A only | /home/jiucheng/pipelines/PGT_A | host read-only mount |
 | BIOSOFTWARE_ROOT | PGT-A only | /biosoftware | host read-only mount |
