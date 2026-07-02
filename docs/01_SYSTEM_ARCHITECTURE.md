@@ -25,8 +25,9 @@ Airflow DAGs
   +--> notify email
 
 Shared filesystem
-  uploads/
   runs/<analysis_id>/
+    config/samples.selected.tsv
+    config/request.json
   reports/<analysis_id>/
   logs/
 ```
@@ -49,12 +50,22 @@ Shared filesystem
 ### Submit
 
 ```text
-frontend upload/form
-  -> backend /api/runs
-  -> save uploads/<analysis_id>/samples.*
-  -> parse sample sheet
-  -> insert analysis_run/sample rows
+frontend server-path form
+  -> backend /api/input/scan scans allowed rawdata_root
+  -> frontend user selects candidate samples
+  -> backend /api/runs creates analysis_run/sample rows
+  -> write runs/<analysis_id>/config/samples.selected.tsv
+  -> write runs/<analysis_id>/config/request.json
+  -> return analysis_id with status=created
+```
+
+T022/T024 阶段只创建项目，不触发 Airflow。后续 T027/T035 才把已创建 run 转为 DAG run。
+
+```text
+backend trigger step, later phase
+  -> read analysis_run/workdir/sample_sheet_path
   -> trigger Airflow DAG run with conf
+  -> update analysis_run dag_run_id/status
   -> return analysis_id/dag_run_id
 ```
 
@@ -93,6 +104,7 @@ qsub stdout/stderr files
 ### analysis_run.status
 
 ```text
+created
 submitted
 preparing
 running

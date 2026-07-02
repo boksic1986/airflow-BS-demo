@@ -212,7 +212,7 @@ PGT-A 流程目录和数据目录只读挂载。demo 输出只能写入：
 |---|---|---|---|
 | PGTA-001 | infra | 用户级 Compose v2 plugin 准入 | `docker compose version` 输出固定版本 |
 | PGTA-002 | infra | docker compose 基础服务与固定网络 | `docker compose config` 通过，网络为 `172.30.10.0/24` |
-| PGTA-003 | backend | 支持 `pipeline=pgta` 提交与 run 记录 | `/api/runs` 可创建 pgta run |
+| PGTA-003 | backend | 支持 PGT-A 服务器路径扫描、样本勾选和 run 记录 | `/api/input/scan` 返回 R1/R2 候选；`/api/runs` 创建 `created` pgta run 且不触发 DAG |
 | PGTA-004 | airflow | 新增 DAG `bio_pgta` | DAG import/check 通过 |
 | PGTA-005 | airflow/snakemake | pgta metadata runner | `logs/run_metadata.tsv` 生成 |
 | PGTA-006 | backend/frontend | log/artifact/error summary 展示 | 成功和失败 run 都能从页面定位日志 |

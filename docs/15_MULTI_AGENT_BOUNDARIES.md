@@ -88,11 +88,11 @@ docs/04_DATABASE_SCHEMA.md   Backend owns
 
 ```text
 完成了 T021 的 analysis_run/sample/rule_event model。
-运行 pytest backend/tests/test_models.py 通过。
-未运行 docker compose，因为当前环境没有 docker。
+在 fengxian 的 Dockerized backend 测试中 pytest 通过。
+本地未运行 runtime 测试，因为本地只作为编辑/Git/文档工作区。
 修改文件：...
-下一步 T022 可基于 models 实现 upload parser。
-风险：migration 未在真实 Postgres 测试。
+下一步 T022/T024 可基于 models 实现 server-path input scan 和 run create/list/detail。
+风险：PGT-A DAG trigger 尚未实现。
 ```
 
 ## 7. Coordinator 合并前检查

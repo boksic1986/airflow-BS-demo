@@ -27,7 +27,8 @@ airflow-demo/
 - Python 版本：由 `SERVER_INFO.md` 补齐，建议 3.11 或 3.12。
 - 后端使用 FastAPI + SQLAlchemy 2.0 + Alembic。
 - 当前最小后端入口：`backend/app/main.py`。
-- 当前 health API：`GET /api/health`、`GET /api/health/db`、`GET /api/health/airflow`。
+- 当前 API：`GET /api/health`、`GET /api/health/db`、`GET /api/health/airflow`、`POST /api/input/scan`、`POST /api/runs`、`GET /api/runs`、`GET /api/runs/{analysis_id}`、`GET /api/runs/{analysis_id}/samples`。
+- T022/T024 阶段不上传 FASTQ，不上传 sample sheet；backend 只扫描白名单服务器路径、保存 R1/R2 路径并创建 selected manifest。
 - backend Docker 镜像先复制 `backend/pip.conf` 配置国内 PyPI 源，再在 `/opt/venv` 创建虚拟环境并安装依赖。
 - 远端宿主机如需临时 Python 工具，必须先建 venv 再安装依赖；不要在系统 Python 或用户全局 site-packages 裸装。
 - 类型注解优先。
@@ -40,7 +41,7 @@ airflow-demo/
 
 | Service | Host port | Container IP | Current role |
 |---|---:|---|---|
-| backend | 8000 | `172.30.10.20` | FastAPI health only |
+| backend | 8000 | `172.30.10.20` | FastAPI health, biodemo DB, Airflow client, PGT-A server-path scan/run creation |
 | frontend | 12959 | `172.30.10.30` | nginx placeholder only |
 | airflow-api-server | 12958 | `172.30.10.10` | Airflow web/api service skeleton |
 | airflow-scheduler | n/a | `172.30.10.11` | Airflow scheduler skeleton |
@@ -73,9 +74,10 @@ backend image: airflow-demo/backend:0.1.0
 ## 4. Airflow 规范
 
 - DAG 文件放 `dags/`。
-- 每个 pipeline 一个 DAG：`bio_wes_qsub`、`bio_nipt_qsub`、`bio_nipt_docker`。
+- 每个 pipeline 一个 DAG：`bio_wes_qsub`、`bio_nipt_qsub`、`bio_nipt_docker`、`bio_pgta`。
 - DAG task 数量保持项目级，不按 Snakemake rule 拆分。
 - DAG run conf 必须包含：`analysis_id`、`pipeline`、`mode`、`sample_sheet_path`、`workdir`、`email_to`、`params`。
+- 对 PGT-A，`sample_sheet_path` 指向 backend 生成的 `runs/<analysis_id>/config/samples.selected.tsv`，不是上传文件。
 - DAG task 日志中不得打印敏感信息。
 
 ## 5. Snakemake 规范
@@ -96,7 +98,8 @@ backend image: airflow-demo/backend:0.1.0
 ## 7. 文件路径规范
 
 ```text
-shared/uploads/<analysis_id>/samples.{csv,tsv,xlsx}
+shared/runs/<analysis_id>/config/request.json
+shared/runs/<analysis_id>/config/samples.selected.tsv
 shared/runs/<analysis_id>/config/config.yaml
 shared/runs/<analysis_id>/logs/snakemake.stdout.log
 shared/runs/<analysis_id>/logs/snakemake.stderr.log
@@ -112,7 +115,7 @@ shared/reports/<analysis_id>/snakemake_report.html
 | Variable | Required | Example | Notes |
 |---|---|---|---|
 | PROJECT_ROOT | yes | /opt/airflow-demo | 服务器项目目录 |
-| SHARED_ROOT | yes | /data/airflow-demo | 上传、run、报告目录 |
+| SHARED_ROOT | yes | /data/airflow-demo | run、报告和日志根目录 |
 | DOCKER_SUBNET | yes | 172.30.10.0/24 | demo Docker network |
 | DOCKER_GATEWAY | yes | 172.30.10.1 | demo Docker gateway |
 | BACKEND_IP | yes | 172.30.10.20 | fixed container IP |
@@ -134,8 +137,11 @@ shared/reports/<analysis_id>/snakemake_report.html
 | BIODEMO_PASSWORD | yes | <SECRET_FROM_ENV> | only in untracked `.env` |
 | DATABASE_URL | yes | postgresql+psycopg://demo:***@postgres:5432/biodemo | 不提交真实密码 |
 | PGTA_PIPELINE_ROOT | PGT-A only | /home/jiucheng/pipelines/PGT_A | host read-only mount |
+| PGTA_CONTAINER_ROOT | PGT-A only | /opt/pipelines/PGT_A | container read-only mount target |
 | BIOSOFTWARE_ROOT | PGT-A only | /biosoftware | host read-only mount |
 | PGTA_DATA_ROOT | PGT-A only | /data/project/CNV/PGT-A | host read-only mount |
+| PGTA_CONTAINER_DATA_ROOT | PGT-A only | /data/project/CNV/PGT-A | container read-only mount target |
+| INPUT_SCAN_ROOTS | PGT-A only | /data/project/CNV/PGT-A/rawdata | comma-separated backend allowlist for server-path scan |
 | SMTP_HOST | no | mailhog | demo 邮件 |
 | SMTP_PORT | no | 1025 | demo 邮件 |
 | QSUB_QUEUE | no | all.q | 服务器补齐 |

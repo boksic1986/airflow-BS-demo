@@ -21,6 +21,9 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+ID_TYPE = BigInteger().with_variant(Integer, "sqlite")
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -28,7 +31,7 @@ class Base(DeclarativeBase):
 class Pipeline(Base):
     __tablename__ = "pipeline"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
     dag_id: Mapped[str] = mapped_column(String(256), nullable=False)
     version: Mapped[str | None] = mapped_column(String(128))
@@ -44,7 +47,7 @@ class AnalysisRun(Base):
         Index("ix_analysis_run_pipeline_status", "pipeline_name", "status"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
     analysis_id: Mapped[str] = mapped_column(String(128), nullable=False)
     pipeline_name: Mapped[str] = mapped_column(String(128), nullable=False)
     dag_id: Mapped[str] = mapped_column(String(256), nullable=False)
@@ -72,7 +75,7 @@ class Sample(Base):
         Index("ix_sample_sample_id", "sample_id"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
     analysis_id: Mapped[str] = mapped_column(
         String(128),
         ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"),
@@ -104,7 +107,7 @@ class SnakemakeRuleEvent(Base):
         Index("ix_rule_event_sample_id", "sample_id"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
     analysis_id: Mapped[str] = mapped_column(
         String(128),
         ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"),
@@ -133,7 +136,7 @@ class QcMetric(Base):
         Index("ix_qc_metric_sample_id", "sample_id"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
     analysis_id: Mapped[str] = mapped_column(
         String(128),
         ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"),
@@ -153,7 +156,7 @@ class Artifact(Base):
     __tablename__ = "artifact"
     __table_args__ = (Index("ix_artifact_analysis_id", "analysis_id"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
     analysis_id: Mapped[str] = mapped_column(
         String(128),
         ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"),
@@ -171,7 +174,7 @@ class RunAction(Base):
     __tablename__ = "run_action"
     __table_args__ = (Index("ix_run_action_analysis_id", "analysis_id"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
     analysis_id: Mapped[str] = mapped_column(
         String(128),
         ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"),

@@ -11,7 +11,7 @@
 
 ```text
 unit tests
-  sample parser, qc parser, airflow client mock, log tail
+  input scanner, run creation, qc parser, airflow client mock, log tail
 integration tests
   backend + DB, event receiver, artifact registry
 DAG tests
@@ -29,9 +29,10 @@ E2E smoke
 必须覆盖：
 
 - `/api/health`。
-- 样本表解析成功。
-- 样本表缺列失败。
-- 创建 analysis_run。
+- `/api/input/scan` 成功发现白名单路径下的 R1/R2 候选样本。
+- `/api/input/scan` 拒绝白名单外路径。
+- `/api/runs` 用 selected samples 创建 `analysis_run` 和 `sample`。
+- `/api/runs` 生成 `samples.selected.tsv` 和 `request.json`。
 - event receiver 幂等 upsert。
 - log API 防路径穿越。
 - reanalysis mode 生成正确 payload。
@@ -71,8 +72,20 @@ E2E smoke
 ### 成功场景
 
 ```text
-上传 wes_mock.tsv
-  -> 生成 WES_*
+PGT-A v1:
+  扫描服务器 rawdata_root
+  -> 勾选 1-2 个样本
+  -> 创建 PGTA_*
+  -> analysis_run.status = created
+  -> sample.fq1/fq2 保存服务器路径
+  -> 生成 samples.selected.tsv 和 request.json
+  -> 不触发 Airflow DAG
+```
+
+完整 E2E 后续场景：
+
+```text
+提交已创建的 run
   -> Airflow DAG success
   -> Snakemake all success
   -> QC pass/warn
@@ -83,7 +96,7 @@ E2E smoke
 ### 失败场景
 
 ```text
-上传包含 FAIL_SAMPLE 的 mock sheet
+提交包含 FAIL_SAMPLE 的 mock input
   -> mock rule intentional_fail 返回非零
   -> Airflow run failed
   -> rule table 显示 failed

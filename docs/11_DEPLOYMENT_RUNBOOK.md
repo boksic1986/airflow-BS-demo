@@ -98,7 +98,6 @@ Docker Compose version v2.24.7
 
 ```bash
 mkdir -p <PROJECT_ROOT>
-mkdir -p <SHARED_ROOT>/uploads
 mkdir -p <SHARED_ROOT>/runs
 mkdir -p <SHARED_ROOT>/reports
 mkdir -p <SHARED_ROOT>/logs
@@ -133,6 +132,16 @@ AIRFLOW_ADMIN_EMAIL=airflow-demo@example.com
 ```
 
 Postgres 和 Redis 只在 Docker 网络内使用 `5432` / `6379`，不发布宿主机端口。
+
+PGT-A v1 样本发现只允许扫描白名单路径。`fengxian` 默认：
+
+```text
+PGTA_DATA_ROOT=/data/project/CNV/PGT-A
+PGTA_CONTAINER_DATA_ROOT=/data/project/CNV/PGT-A
+INPUT_SCAN_ROOTS=/data/project/CNV/PGT-A/rawdata
+```
+
+backend 只读挂载 PGT-A 数据根目录，不上传或复制 5-6G FASTQ。
 
 ## 6. 检查 compose
 
@@ -268,15 +277,37 @@ curl http://<SERVER_HOST>:8025/
 nginx version: nginx/1.14.0 (Ubuntu)
 ```
 
-## 12. Smoke test
+## 12. PGT-A server-path project smoke
 
-建议命令：
+T022/T024 验收只创建项目，不触发 Airflow DAG，不运行 Snakemake。先启动 Postgres/backend 并完成 biodemo 初始化和 Alembic migration。
+
+扫描候选样本：
 
 ```bash
-python scripts/submit_mock_run.py --pipeline wes_qsub --sample-sheet examples/samples/wes_mock.tsv
+curl -fsS -X POST http://127.0.0.1:8000/api/input/scan \
+  -H 'Content-Type: application/json' \
+  -d '{"pipeline":"pgta","rawdata_root":"/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28","max_samples":5}'
 ```
 
-或通过前端提交 mock sample sheet。
+用扫描结果中的 1-2 个样本创建 run：
+
+```bash
+curl -fsS -X POST http://127.0.0.1:8000/api/runs \
+  -H 'Content-Type: application/json' \
+  -d @/tmp/pgta-create-run.json
+```
+
+验收：
+
+```text
+analysis_run.status = created
+analysis_run.dag_run_id is null
+sample rows contain fq1/fq2 server paths
+shared/runs/<analysis_id>/config/samples.selected.tsv exists
+shared/runs/<analysis_id>/config/request.json exists
+```
+
+后续 T027/T035 才触发 Airflow `bio_pgta`。
 
 ## 13. 查看日志
 

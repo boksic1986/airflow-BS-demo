@@ -16,7 +16,7 @@
 - 前端可访问。
 - Airflow UI 可访问。
 - MailHog 可访问。
-- mock sample sheet 准备好。
+- PGT-A demo rawdata_root 已在 `INPUT_SCAN_ROOTS` 白名单内。
 - 成功场景和失败场景都已 smoke test。
 
 ## 3. 10-15 分钟流程
@@ -26,23 +26,26 @@
 说明：
 
 ```text
-这里是生信任务中心，可以看到 WES、NIPT qsub、NIPT Docker 的运行状态。
+这里是生信任务中心，可以看到 PGT-A、WES、NIPT qsub、NIPT Docker 的运行状态。
 ```
 
-### Step 2: 提交 WES 任务
+### Step 2: 创建 PGT-A 项目
 
 操作：
 
 - 打开 Submit。
-- 选择 WES qsub。
-- 上传 mock sample sheet。
+- 选择 PGT-A。
+- 填写项目名和服务器 `rawdata_root`。
+- 点击 Scan。
+- 勾选 1-2 个候选样本。
+- 目标选择 metadata。
 - 填写 email_to。
-- 点击 Submit。
+- 点击 Create。
 
 说明：
 
 ```text
-后端会解析样本表，生成 analysis_id，创建 workdir，并触发 Airflow DAG run。
+FASTQ 通常有 5-6G，不通过网页上传。后端只扫描白名单服务器路径，保存 R1/R2 路径，生成 analysis_id、workdir 和 selected manifest。本阶段只创建项目，不触发 Airflow。
 ```
 
 ### Step 3: 展示 Airflow DAG

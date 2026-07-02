@@ -7,15 +7,18 @@
 | bio_wes_qsub | WES | Snakemake + qsub | 核心 demo 优先 |
 | bio_nipt_qsub | NIPT | Snakemake/wrapper + qsub | 第二阶段 |
 | bio_nipt_docker | NIPT Docker | docker runner | 第二阶段 |
+| bio_pgta | PGT-A | Snakemake direct in Airflow worker | 先跑 metadata/dry-run，不使用 qsub |
 
 ## 2. 通用 DAG run conf
+
+T022/T024 阶段只创建 `analysis_run.status=created`，不会生成以下 DAG run conf，也不会触发 Airflow。T027/T035 实现触发后再使用本节约定。
 
 ```json
 {
   "analysis_id": "WES_20260702_000001",
   "pipeline": "wes_qsub",
   "mode": "new",
-  "sample_sheet_path": "/data/airflow-demo/uploads/WES_20260702_000001/samples.tsv",
+  "sample_sheet_path": "/data/airflow-demo/runs/WES_20260702_000001/config/samples.selected.tsv",
   "workdir": "/data/airflow-demo/runs/WES_20260702_000001",
   "email_to": "demo@example.com",
   "params": {
@@ -31,7 +34,7 @@
 ```text
 validate_request
   -> prepare_workdir
-  -> parse_sample_sheet
+  -> validate_selected_manifest
   -> generate_pipeline_config
   -> dry_run
   -> run_pipeline
@@ -71,9 +74,16 @@ workdir/tmp
 reports/<analysis_id>
 ```
 
-### parse_sample_sheet
+### validate_selected_manifest
 
-可以调用 backend parser 或共用 Python 模块。输出：
+读取 backend 生成的 selected manifest。T022/T024 的 PGT-A v1 manifest 来自服务器路径扫描和勾选，不是上传文件。检查：
+
+- `sample_id/R1/R2/source_dir` 列存在。
+- R1/R2 路径在允许的 PGT-A 数据根目录内。
+- R1/R2 文件可读。
+- sample_id 在本次 run 内唯一。
+
+必要时输出 DAG 内归一化副本：
 
 ```text
 workdir/config/samples.normalized.tsv
@@ -93,6 +103,7 @@ workdir/config/config.yaml
 analysis_id: ...
 workdir: ...
 sample_sheet: ...
+input_mode: server_path_scan
 backend_event_url: http://backend:8000/api/events/snakemake
 max_jobs: ...
 queue: ...

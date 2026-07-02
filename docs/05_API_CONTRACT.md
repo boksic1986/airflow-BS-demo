@@ -12,9 +12,9 @@ Base URL:
 
 ```json
 {
-  "error": {
+  "detail": {
     "code": "VALIDATION_ERROR",
-    "message": "sample_sheet is missing required column sample_id",
+    "message": "rawdata_root is outside allowed input roots",
     "details": {}
   }
 }
@@ -66,40 +66,107 @@ Response:
 
 该接口通过 backend 的 `AirflowClient` 访问 Airflow `/health`；第一阶段使用 `.env` 中的 `AIRFLOW_API_USERNAME` / `AIRFLOW_API_PASSWORD`。
 
-## 3. 创建分析任务
+## 3. 服务器路径样本发现
 
 ```http
-POST /api/runs
-Content-Type: multipart/form-data
+POST /api/input/scan
+Content-Type: application/json
 ```
 
-Fields:
+第一版只支持 `pipeline=pgta`。接口不上传 FASTQ，不复制 FASTQ，只扫描 `.env` 中 `INPUT_SCAN_ROOTS` 白名单下的服务器路径并返回可勾选的 R1/R2 候选样本。若候选过多，返回 `truncated=true`，前端要求用户缩小 `rawdata_root`。
 
-```text
-pipeline: wes_qsub | nipt_qsub | nipt_docker
-mode: new | resume | rerun_failed | rerun_rule | clone_new
-sample_sheet: file optional
-form_json: stringified JSON optional
-email_to: string optional
-params_json: stringified JSON
+Request:
+
+```json
+{
+  "pipeline": "pgta",
+  "rawdata_root": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28",
+  "max_samples": 200
+}
 ```
 
 Response:
 
 ```json
 {
-  "analysis_id": "WES_20260702_000001",
-  "dag_id": "bio_wes_qsub",
-  "dag_run_id": "manual__2026-07-02T10:00:00+00:00",
-  "status": "submitted",
-  "workdir": "/data/airflow-demo/runs/WES_20260702_000001"
+  "pipeline": "pgta",
+  "rawdata_root": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28",
+  "truncated": false,
+  "items": [
+    {
+      "sample_id": "G1",
+      "r1": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R1.fastq.gz",
+      "r2": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R2.fastq.gz",
+      "source_dir": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28/Sample_DEMO-G1-G1",
+      "r1_size": 123456,
+      "r2_size": 123450,
+      "r1_mtime": 1782810000.0,
+      "r2_mtime": 1782810001.0,
+      "discovery_method": "server_path_scan"
+    }
+  ]
 }
 ```
 
-## 4. 查询任务列表
+## 4. 创建分析任务
 
 ```http
-GET /api/runs?pipeline=wes_qsub&status=running&limit=50&offset=0
+POST /api/runs
+Content-Type: application/json
+```
+
+T022/T024 阶段只创建项目、入库和 selected manifest，不触发 Airflow，不运行 Snakemake。`dag_run_id` 必须为 `null`，状态为 `created`。Airflow trigger 留到 T027/T035 后实现。
+
+Request:
+
+```json
+{
+  "pipeline": "pgta",
+  "project_name": "PGT-A metadata smoke",
+  "target": "metadata",
+  "rawdata_root": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28",
+  "selected_samples": [
+    {
+      "sample_id": "G1",
+      "r1": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R1.fastq.gz",
+      "r2": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R2.fastq.gz",
+      "source_dir": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28/Sample_DEMO-G1-G1",
+      "r1_size": 123456,
+      "r2_size": 123450,
+      "r1_mtime": 1782810000.0,
+      "r2_mtime": 1782810001.0
+    }
+  ],
+  "email_to": "demo@example.com",
+  "note": "create only; no DAG trigger"
+}
+```
+
+Response:
+
+```json
+{
+  "analysis_id": "PGTA_20260702_120000_A1B2C3",
+  "pipeline": "pgta",
+  "dag_id": "bio_pgta",
+  "dag_run_id": null,
+  "status": "created",
+  "workdir": "/data/airflow-demo/runs/PGTA_20260702_120000_A1B2C3",
+  "sample_count": 1
+}
+```
+
+生成文件：
+
+```text
+shared/runs/<analysis_id>/config/samples.selected.tsv
+shared/runs/<analysis_id>/config/request.json
+```
+
+## 5. 查询任务列表
+
+```http
+GET /api/runs?pipeline=pgta&status=created&limit=50&offset=0
 ```
 
 Response:
@@ -108,13 +175,13 @@ Response:
 {
   "items": [
     {
-      "analysis_id": "WES_20260702_000001",
-      "pipeline": "wes_qsub",
-      "status": "running",
-      "created_at": "2026-07-02T10:00:00-07:00",
-      "started_at": "2026-07-02T10:01:00-07:00",
+      "analysis_id": "PGTA_20260702_120000_A1B2C3",
+      "pipeline": "pgta",
+      "status": "created",
+      "created_at": "2026-07-02T12:00:00+00:00",
+      "started_at": null,
       "ended_at": null,
-      "sample_count": 12,
+      "sample_count": 1,
       "qc_status": "unknown"
     }
   ],
@@ -122,7 +189,7 @@ Response:
 }
 ```
 
-## 5. 查询任务详情
+## 6. 查询任务详情
 
 ```http
 GET /api/runs/{analysis_id}
@@ -132,20 +199,27 @@ Response:
 
 ```json
 {
-  "analysis_id": "WES_20260702_000001",
-  "pipeline": "wes_qsub",
-  "status": "running",
+  "analysis_id": "PGTA_20260702_120000_A1B2C3",
+  "pipeline": "pgta",
+  "status": "created",
   "mode": "new",
-  "dag_id": "bio_wes_qsub",
-  "dag_run_id": "...",
-  "airflow_url": "http://...",
-  "workdir": "/data/airflow-demo/runs/WES_20260702_000001",
-  "params": {},
-  "error_summary": null
+  "dag_id": "bio_pgta",
+  "dag_run_id": null,
+  "airflow_url": null,
+  "workdir": "/data/airflow-demo/runs/PGTA_20260702_120000_A1B2C3",
+  "sample_sheet_path": "/data/airflow-demo/runs/PGTA_20260702_120000_A1B2C3/config/samples.selected.tsv",
+  "params": {
+    "rawdata_root": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28",
+    "target": "metadata",
+    "input_mode": "server_path_scan",
+    "selected_count": 1
+  },
+  "error_summary": null,
+  "email_to": "demo@example.com"
 }
 ```
 
-## 6. 查询样本
+## 7. 查询样本
 
 ```http
 GET /api/runs/{analysis_id}/samples
@@ -157,17 +231,24 @@ Response:
 {
   "items": [
     {
-      "sample_id": "S001",
-      "family_id": "F001",
-      "sample_type": "proband",
-      "status": "running",
-      "qc_status": "unknown"
+      "sample_id": "G1",
+      "family_id": null,
+      "sample_type": null,
+      "sex": null,
+      "fq1": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R1.fastq.gz",
+      "fq2": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R2.fastq.gz",
+      "status": "pending",
+      "qc_status": "unknown",
+      "metadata": {
+        "source_dir": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28/Sample_DEMO-G1-G1",
+        "discovery_method": "server_path_scan"
+      }
     }
   ]
 }
 ```
 
-## 7. 查询 Snakemake rule 状态
+## 8. 查询 Snakemake rule 状态
 
 ```http
 GET /api/runs/{analysis_id}/rules
@@ -194,7 +275,7 @@ Response:
 }
 ```
 
-## 8. Snakemake event receiver
+## 9. Snakemake event receiver
 
 ```http
 POST /api/events/snakemake
@@ -231,7 +312,7 @@ Idempotency:
 - Same `analysis_id/rule/sample_id/snakemake_jobid/status` may be posted more than once.
 - Backend must upsert or ignore duplicates.
 
-## 9. QC
+## 10. QC
 
 ```http
 GET /api/runs/{analysis_id}/qc
@@ -258,7 +339,7 @@ Response:
 }
 ```
 
-## 10. Logs
+## 11. Logs
 
 ```http
 GET /api/runs/{analysis_id}/logs?rule=bwa_mem&sample_id=S001&stream=stderr&tail=200
@@ -277,7 +358,7 @@ Response:
 
 必须防止路径穿越：backend 只能读取 `SHARED_ROOT` 内文件。
 
-## 11. Artifacts
+## 12. Artifacts
 
 ```http
 GET /api/runs/{analysis_id}/artifacts
@@ -297,7 +378,7 @@ Response:
 }
 ```
 
-## 12. Reanalysis
+## 13. Reanalysis
 
 ```http
 POST /api/runs/{analysis_id}/actions/reanalyze

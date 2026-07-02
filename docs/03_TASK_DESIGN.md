@@ -38,7 +38,7 @@
 
 - FastAPI app。
 - DB model/migration。
-- upload/sample parser。
+- server-path sample discovery and selected manifest creation for PGT-A v1。
 - Airflow client。
 - run/log/qc/artifact API。
 

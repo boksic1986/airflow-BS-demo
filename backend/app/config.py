@@ -16,6 +16,8 @@ class Settings:
     airflow_base_url: str
     airflow_api_username: str
     airflow_api_password: str
+    container_shared_root: str
+    input_scan_roots: list[str]
 
 
 @lru_cache
@@ -25,4 +27,10 @@ def get_settings() -> Settings:
         airflow_base_url=os.getenv("AIRFLOW_BASE_URL", "http://airflow-api-server:8080"),
         airflow_api_username=os.getenv("AIRFLOW_API_USERNAME", "admin"),
         airflow_api_password=_required_env("AIRFLOW_API_PASSWORD"),
+        container_shared_root=os.getenv("CONTAINER_SHARED_ROOT", "/data/airflow-demo"),
+        input_scan_roots=[
+            item.strip()
+            for item in os.getenv("INPUT_SCAN_ROOTS", "/data/project/CNV/PGT-A/rawdata").split(",")
+            if item.strip()
+        ],
     )

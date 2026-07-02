@@ -24,6 +24,7 @@
 Pipeline cards：
 
 ```text
+PGT-A: created/running/success/failed
 WES qsub: running/success/failed
 NIPT qsub: running/success/failed
 NIPT docker: running/success/failed
@@ -35,14 +36,20 @@ NIPT docker: running/success/failed
 
 ```text
 Pipeline:
+  - PGT-A
   - WES qsub
   - NIPT qsub
   - NIPT docker
 Input mode:
-  - upload sample sheet
-  - manual form
-Sample sheet:
-  - csv/tsv/xlsx
+  - server path scan
+PGT-A v1 fields:
+  - project_name
+  - rawdata_root
+  - scan button
+  - candidate sample checkbox table
+  - target: metadata
+  - email_to
+  - note
 Params:
   - genome
   - queue
@@ -50,6 +57,8 @@ Params:
   - email_to
   - analysis_mode
 ```
+
+PGT-A v1 不上传 FASTQ 或 sample sheet。前端调用 `POST /api/input/scan` 扫描白名单服务器路径下已有 FASTQ，用户勾选样本后用 JSON 调用 `POST /api/runs`。提交成功后状态为 `created`，不会立即出现 Airflow DAG run。
 
 提交后跳转：
 

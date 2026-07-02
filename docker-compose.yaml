@@ -120,10 +120,12 @@ services:
       AIRFLOW_API_USERNAME: ${AIRFLOW_API_USERNAME:-admin}
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?Set AIRFLOW_API_PASSWORD in .env}
       CONTAINER_SHARED_ROOT: ${CONTAINER_SHARED_ROOT:-/data/airflow-demo}
+      INPUT_SCAN_ROOTS: ${INPUT_SCAN_ROOTS:-/data/project/CNV/PGT-A/rawdata}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./shared:/data/airflow-demo
+      - ${PGTA_DATA_ROOT:-/data/project/CNV/PGT-A}:${PGTA_CONTAINER_DATA_ROOT:-/data/project/CNV/PGT-A}:ro
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health').read()\""]
       interval: 10s

@@ -26,7 +26,7 @@ analysis_run 1 -> N run_action
 | Field | Type | Notes |
 |---|---|---|
 | id | bigserial | primary key |
-| name | text | wes_qsub/nipt_qsub/nipt_docker |
+| name | text | pgta/wes_qsub/nipt_qsub/nipt_docker |
 | dag_id | text | Airflow DAG id |
 | version | text | pipeline version |
 | runner_type | text | qsub/docker/local |
@@ -38,16 +38,16 @@ analysis_run 1 -> N run_action
 | Field | Type | Notes |
 |---|---|---|
 | id | bigserial | primary key |
-| analysis_id | text unique | WES_YYYYMMDD_000001 |
+| analysis_id | text unique | PGTA_YYYYMMDD_HHMMSS_<suffix> or WES_YYYYMMDD_000001 |
 | pipeline_name | text | denormalized for easy query |
 | dag_id | text | |
 | dag_run_id | text | Airflow dag run id |
 | parent_analysis_id | text nullable | reanalysis source |
 | mode | text | new/resume/rerun_failed/rerun_rule/clone_new |
-| status | text | submitted/running/success/failed/qc_warning |
-| sample_sheet_path | text | shared path |
+| status | text | created/submitted/running/success/failed/qc_warning |
+| sample_sheet_path | text | generated selected manifest path, e.g. shared/runs/<analysis_id>/config/samples.selected.tsv |
 | workdir | text | shared/runs/<analysis_id> |
-| params_json | jsonb | sanitized params |
+| params_json | jsonb | sanitized params; PGT-A v1 includes rawdata_root, target, input_mode, selected_count |
 | airflow_url | text nullable | UI link |
 | submitted_by | text nullable | demo user |
 | email_to | text nullable | |
@@ -66,9 +66,9 @@ analysis_run 1 -> N run_action
 | family_id | text nullable | |
 | sample_type | text nullable | proband/father/mother/etc |
 | sex | text nullable | M/F/unknown |
-| fq1 | text nullable | path |
-| fq2 | text nullable | path |
-| metadata_json | jsonb | sanitized sample metadata |
+| fq1 | text nullable | server path to R1; do not copy FASTQ into Git/shared |
+| fq2 | text nullable | server path to R2; do not copy FASTQ into Git/shared |
+| metadata_json | jsonb | sanitized sample metadata; PGT-A v1 stores source_dir, file size, mtime, discovery_method |
 | status | text | pending/running/success/failed |
 | qc_status | text | pass/warn/fail/unknown |
 
