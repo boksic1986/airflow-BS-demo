@@ -368,7 +368,62 @@ metadata artifact: shared/runs/PGTA_20260702_171533_9A85B1/logs/run_metadata.tsv
 
 已知边界：`run_metadata.tsv` 中 `git_branch` / `git_commit` 字段在当前 Airflow 容器内显示 git permission error，但 metadata target 和 DAG run 已成功；后续如需干净 provenance，可单独修正 PGT-A metadata rule 的 git 调用环境。
 
-## 14. 查看日志
+## 14. PGT-A diagnostics smoke
+
+T025/T062 验收不重新运行 PGT-A；复用已有 Airflow DAG run，同步状态并读取日志/产物。
+
+同步成功 run：
+
+```bash
+analysis_id=PGTA_20260702_171533_9A85B1
+curl -fsS -X POST \
+  "http://127.0.0.1:8000/api/runs/${analysis_id}/actions/sync-airflow"
+```
+
+验收：
+
+```text
+status = success
+error_summary = null
+```
+
+读取日志和 artifact：
+
+```bash
+curl -fsS \
+  "http://127.0.0.1:8000/api/runs/${analysis_id}/logs?stream=metadata&tail=3"
+curl -fsS \
+  "http://127.0.0.1:8000/api/runs/${analysis_id}/logs?stream=stderr&tail=5"
+curl -fsS \
+  "http://127.0.0.1:8000/api/runs/${analysis_id}/artifacts"
+```
+
+同步历史失败 run：
+
+```bash
+analysis_id=PGTA_20260702_171200_A68C19
+curl -fsS -X POST \
+  "http://127.0.0.1:8000/api/runs/${analysis_id}/actions/sync-airflow"
+```
+
+验收：
+
+```text
+status = failed
+error_summary is not null
+```
+
+缺失日志验收可以使用未提交 run：
+
+```bash
+curl -sS -o /tmp/missing-log.json -w '%{http_code}\n' \
+  "http://127.0.0.1:8000/api/runs/PGTA_20260702_162531_74CE91/logs?stream=stdout"
+cat /tmp/missing-log.json
+```
+
+期望 HTTP 404，错误码为 `LOG_NOT_FOUND`。
+
+## 15. 查看日志
 
 ```bash
 docker compose logs --tail=200 backend
@@ -382,7 +437,7 @@ Run 日志：
 find <SHARED_ROOT>/runs/<analysis_id>/logs -type f | sort
 ```
 
-## 15. 停止服务
+## 16. 停止服务
 
 安全停止：
 
@@ -398,7 +453,7 @@ docker compose down -v
 
 除非明确需要删除 volume 且已备份。
 
-## 16. 回滚
+## 17. 回滚
 
 ```bash
 git status
@@ -416,7 +471,7 @@ docker compose up -d --build
 
 DB migration 回滚必须先确认不会丢数据。
 
-## 17. 常见故障
+## 18. 常见故障
 
 ### Airflow scheduler 起不来
 

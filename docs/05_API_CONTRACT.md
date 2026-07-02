@@ -209,7 +209,47 @@ Errors:
 - `400 VALIDATION_ERROR`: pipeline 不是 `pgta`、状态不是 `created`、target 不是 `metadata`，或 run 缺少必要路径。
 - `502 AIRFLOW_TRIGGER_FAILED`: backend 调用 Airflow API 失败。
 
-## 6. 查询任务列表
+## 6. 同步 Airflow 状态
+
+```http
+POST /api/runs/{analysis_id}/actions/sync-airflow
+```
+
+显式同步 Airflow DAG run 状态到 biodemo DB。读接口不会隐式修改 DB。
+
+行为：
+
+- 要求 run 已有 `dag_id` 和 `dag_run_id`。
+- 调用 Airflow REST API 查询 DAG run。
+- Airflow `success` / `failed` / `running` / `queued` 映射回 `analysis_run.status`。
+- `success` / `failed` 写入 `ended_at`。
+- `failed` 时从 `workdir/logs/snakemake.stderr.log` 提取最后 100 行，写入 `analysis_run.error_summary`。
+
+Response:
+
+```json
+{
+  "analysis_id": "PGTA_20260702_171533_9A85B1",
+  "pipeline": "pgta",
+  "dag_id": "bio_pgta",
+  "dag_run_id": "manual__PGTA_20260702_171533_9A85B1",
+  "status": "success",
+  "workdir": "/data/airflow-demo/runs/PGTA_20260702_171533_9A85B1",
+  "mode": "new",
+  "error_summary": null,
+  "started_at": "2026-07-02T17:15:34.472812+00:00",
+  "ended_at": "2026-07-02T17:15:44.620014+00:00"
+}
+```
+
+Errors:
+
+- `404 RUN_NOT_FOUND`: `analysis_id` 不存在。
+- `400 MISSING_DAG_RUN`: run 没有 `dag_id` 或 `dag_run_id`。
+- `400 INVALID_RUN_PATH`: run workdir 不在 shared root 内。
+- `502 AIRFLOW_SYNC_FAILED`: backend 调用 Airflow API 失败。
+
+## 7. 查询任务列表
 
 ```http
 GET /api/runs?pipeline=pgta&status=created&limit=50&offset=0
@@ -235,7 +275,7 @@ Response:
 }
 ```
 
-## 7. 查询任务详情
+## 8. 查询任务详情
 
 ```http
 GET /api/runs/{analysis_id}
@@ -265,7 +305,7 @@ Response:
 }
 ```
 
-## 8. 查询样本
+## 9. 查询样本
 
 ```http
 GET /api/runs/{analysis_id}/samples
@@ -294,7 +334,7 @@ Response:
 }
 ```
 
-## 9. 查询 Snakemake rule 状态
+## 10. 查询 Snakemake rule 状态
 
 ```http
 GET /api/runs/{analysis_id}/rules
@@ -321,7 +361,7 @@ Response:
 }
 ```
 
-## 10. Snakemake event receiver
+## 11. Snakemake event receiver
 
 ```http
 POST /api/events/snakemake
@@ -358,7 +398,7 @@ Idempotency:
 - Same `analysis_id/rule/sample_id/snakemake_jobid/status` may be posted more than once.
 - Backend must upsert or ignore duplicates.
 
-## 11. QC
+## 12. QC
 
 ```http
 GET /api/runs/{analysis_id}/qc
@@ -385,30 +425,50 @@ Response:
 }
 ```
 
-## 12. Logs
+## 13. Logs
 
 ```http
-GET /api/runs/{analysis_id}/logs?rule=bwa_mem&sample_id=S001&stream=stderr&tail=200
+GET /api/runs/{analysis_id}/logs?stream=stderr&tail=200
 ```
+
+PGT-A v1 第一版固定支持 `stream=stdout|stderr|metadata`：
+
+- `stdout`: `workdir/logs/snakemake.stdout.log`
+- `stderr`: `workdir/logs/snakemake.stderr.log`
+- `metadata`: `workdir/logs/run_metadata.tsv`
+
+`tail` 范围是 `1..1000`，默认 `200`。backend 只读取 `CONTAINER_SHARED_ROOT` 内、且位于该 run `workdir` 内的文件。
 
 Response:
 
 ```json
 {
-  "path": "/data/.../bwa_mem.S001.stderr.log",
+  "path": "/data/airflow-demo/runs/PGTA_20260702_171533_9A85B1/logs/snakemake.stderr.log",
   "stream": "stderr",
   "truncated": true,
-  "lines": ["last line ..."]
+  "lines": ["last stderr line ..."]
 }
 ```
 
-必须防止路径穿越：backend 只能读取 `SHARED_ROOT` 内文件。
+Errors:
 
-## 13. Artifacts
+- `404 RUN_NOT_FOUND`: `analysis_id` 不存在。
+- `404 LOG_NOT_FOUND`: 对应日志文件不存在。
+- `400 INVALID_RUN_PATH`: run workdir 或日志路径越过 shared/workdir 安全边界。
+
+## 14. Artifacts
 
 ```http
 GET /api/runs/{analysis_id}/artifacts
 ```
+
+PGT-A v1 第一版动态发现 metadata 产物，不写 artifact 表：
+
+- `logs/run_metadata.tsv`
+- `logs/snakemake.stdout.log`
+- `logs/snakemake.stderr.log`
+- `config.yaml`
+- `config/pgta_metadata_config.json`
 
 Response:
 
@@ -416,15 +476,18 @@ Response:
 {
   "items": [
     {
-      "type": "multiqc_html",
-      "label": "MultiQC report",
-      "url": "/api/artifacts/123/view"
+      "key": "run_metadata",
+      "type": "pgta_metadata",
+      "label": "PGT-A run metadata",
+      "path": "/data/airflow-demo/runs/PGTA_20260702_171533_9A85B1/logs/run_metadata.tsv",
+      "size_bytes": 1956,
+      "url": "/api/runs/PGTA_20260702_171533_9A85B1/logs?stream=metadata"
     }
   ]
 }
 ```
 
-## 14. Reanalysis
+## 15. Reanalysis
 
 ```http
 POST /api/runs/{analysis_id}/actions/reanalyze

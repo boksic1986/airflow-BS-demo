@@ -78,21 +78,30 @@ nipt:
 
 ## 6. Error summary 提取
 
-失败时 backend/airflow 应提取：
+PGT-A v1 当前已实现 run-level error summary。显式调用：
+
+```http
+POST /api/runs/{analysis_id}/actions/sync-airflow
+```
+
+若 Airflow DAG run 为 failed，backend 会优先读取：
+
+```text
+workdir/logs/snakemake.stderr.log
+```
+
+并把以下 JSON 文本写入 `analysis_run.error_summary`：
 
 ```text
 analysis_id
-pipeline
-failed_task
-failed_rule
-sample_id
-qsub_jobid
+dag_id
+dag_run_id
+status
 stderr_path
 last_100_lines
-suspected_reason
 ```
 
-不要只显示 “subprocess returned non-zero”。
+若 stderr 不存在或为空，`last_100_lines` 使用 `no stderr available`。Airflow task log 抓取、failed task、failed rule、sample_id、qsub_jobid 和 suspected_reason 留到 T026/T043 后补齐；不要把当前 run-level 摘要冒充 rule/qsub 级诊断。
 
 ## 7. Artifact 类型
 
@@ -137,3 +146,9 @@ snakemake --report shared/reports/<analysis_id>/snakemake_report.html
 - 失败 run 显示 failed rule 和 stderr 摘要。
 - artifacts API 返回 report 链接。
 - 邮件中包含 report 链接和错误摘要。
+
+已完成的 PGT-A v1 后端验收：
+
+- `GET /api/runs/{analysis_id}/logs?stream=stdout|stderr|metadata` 可读取固定 metadata run 文件。
+- `GET /api/runs/{analysis_id}/artifacts` 可动态发现 metadata、stdout/stderr 和 config 产物。
+- `POST /api/runs/{analysis_id}/actions/sync-airflow` 可把 Airflow success/failed 同步到 biodemo，并在 failed 时写入 `error_summary`。

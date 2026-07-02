@@ -5,8 +5,8 @@
 ## 1. 当前阶段
 
 ```text
-当前阶段: P3 Airflow DAG metadata 链路
-当前目标: T027/T035 已把 PGT-A `created` run 提交到 Airflow `bio_pgta` 并完成 metadata smoke；后续补日志/API/前端/dry-run/failure smoke
+当前阶段: P6 日志和错误诊断基础
+当前目标: T025/T062 已为 PGT-A metadata run 增加 Airflow 状态同步、日志读取、动态 artifact 列表和 run-level error_summary；后续补前端、dry-run/failure smoke、rule/qsub 级事件
 最近更新时间: 2026-07-03
 最后更新 agent: Codex
 ```
@@ -33,9 +33,9 @@ node_version: <unknown>
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
 active_branch: main
-last_verified_code_commit: 9758c7a
+last_verified_code_commit: 25380e3
 worktree_strategy: single-worktree for now; fengxian is code mirror only
-fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T027/T035 verified on origin/codex/airflow/T027-T035-pgta-submit-metadata and ready to sync from origin/main after merge
+fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T025/T062 verified on origin/codex/backend/T025-T062-logs-artifacts-sync and ready to sync from origin/main after merge
 ```
 
 ## 4. 服务状态
@@ -43,7 +43,7 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T027/T0
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
 | frontend | 12959 | stopped after successful smoke | Docker nginx placeholder returned `airflow-demo frontend placeholder`; host 3000 is occupied by non-project next-server |
-| backend | 8000 | stopped after successful smoke | `/api/health`, `/api/health/db`, `/api/input/scan`, `/api/runs`, run detail/samples, and submit action passed on fengxian; image `airflow-demo/backend:0.1.0` |
+| backend | 8000 | stopped after successful smoke | `/api/health`, `/api/health/db`, `/api/input/scan`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, and artifacts passed on fengxian; image `airflow-demo/backend:0.1.0` |
 | airflow web/api | 12958 | stopped after successful smoke | `/health` returned healthy metadatabase and scheduler; `bio_pgta` DAG run `manual__PGTA_20260702_171533_9A85B1` succeeded |
 | postgres | internal 5432 | stopped after successful smoke | image `postgres:15-alpine`; Airflow metadata initialized; no host port published |
 | redis | internal 6379 | stopped after successful smoke | image `redis:7-alpine`; no host port published |
@@ -63,7 +63,7 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 
 | Pipeline | DAG | Snakemake | qsub | Docker | QC | Status |
 |---|---|---|---|---|---|---|
-| PGT-A demo | `bio_pgta` metadata v1 passed | direct Snakemake metadata target in Airflow worker passed; dry-run not implemented | not used | server-path project creation and submit passed | not started | `/api/input/scan` and `/api/runs` create `created` run; submit action triggers Airflow and writes `logs/run_metadata.tsv`; frontend/log API not yet implemented |
+| PGT-A demo | `bio_pgta` metadata v1 passed | direct Snakemake metadata target in Airflow worker passed; dry-run not implemented | not used | server-path project creation, submit, status sync, logs and artifacts passed | not started | `/api/input/scan` and `/api/runs` create `created` run; submit triggers Airflow; sync/log/artifact APIs expose metadata run diagnostics; frontend not yet implemented |
 | WES qsub | not started | not started | not started | n/a | not started | pending |
 | NIPT qsub | not started | not started | not started | n/a | not started | pending |
 | NIPT docker | not started | optional | n/a | not started | not started | pending |
@@ -71,11 +71,11 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 ## 7. 最近测试结果
 
 ```text
-last_backend_tests: remote Dockerized pytest on fengxian passed, 20 tests; `GET /api/health`, `/api/health/db`, `/api/input/scan`, JSON `POST /api/runs`, run detail/samples, and submit action smoke passed
+last_backend_tests: remote Dockerized pytest on fengxian passed, 26 tests; `GET /api/health`, `/api/health/db`, `/api/input/scan`, JSON `POST /api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, missing-log, and path safety tests passed
 last_frontend_tests: not run - no frontend implementation yet
 last_dag_import_tests: passed on fengxian; `py_compile` with `PYTHONPYCACHEPREFIX=/tmp/pycache`, Airflow unittest discover returned 6 tests OK, and `airflow dags list` showed `bio_pgta` unpaused
 last_snakemake_dryrun: not run - only PGT-A metadata target was executed; dry-run remains a later task
-last_compose_config: passed on fengxian with Docker Compose v2.24.7 for commit 9758c7a; backend now renders `INPUT_SCAN_ROOTS`, read-only PGT-A mounts, and DAG files
+last_compose_config: passed on fengxian with Docker Compose v2.24.7 for commit 25380e3; backend now renders `INPUT_SCAN_ROOTS`, read-only PGT-A mounts, DAG files, and diagnostics endpoints
 last_minimal_smoke: passed on fengxian for postgres redis mailhog backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
 last_airflow_health: passed on fengxian at http://127.0.0.1:12958/health with healthy metadatabase and scheduler
 last_biodemo_migration: `biodemo-db-init` first run created role/database, repeat run succeeded; `alembic upgrade head` applied 20260702_0001 and repeat run succeeded
@@ -83,6 +83,7 @@ last_backend_airflow_client: mock tests covered health/list/get/trigger; real sm
 last_backend_build: backend image built on fengxian using `backend/pip.conf` TUNA PyPI mirror and `/opt/venv`; dependency install step dropped from about 9 minutes to about 11 seconds after mirror config
 last_pgta_project_create_smoke: passed on fengxian; scan root `/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28` returned 5 candidates with `truncated=true`, created `PGTA_20260702_162531_74CE91` with 2 samples, status `created`, `dag_run_id=null`, and generated `samples.selected.tsv` plus `request.json`
 last_pgta_submit_metadata_smoke: passed on fengxian; created/submitted `PGTA_20260702_171533_9A85B1`, backend status `submitted`, `dag_run_id=manual__PGTA_20260702_171533_9A85B1`, Airflow state `success`, and artifact `shared/runs/PGTA_20260702_171533_9A85B1/logs/run_metadata.tsv` exists
+last_pgta_diagnostics_smoke: passed on fengxian; `sync-airflow` changed `PGTA_20260702_171533_9A85B1` to `success` with `error_summary=null`, changed historical failed `PGTA_20260702_171200_A68C19` to `failed` with non-null `error_summary`, log API read metadata/stderr, artifact API returned metadata/stdout/stderr/config files, and missing log returned `LOG_NOT_FOUND`
 last_frontend_placeholder: passed on fengxian at http://127.0.0.1:12959/ using Docker nginx placeholder
 last_image_check: passed on fengxian; compose external images pulled and backend built with explicit tag
 last_image_cleanup: removed 37 dangling <none> images; no docker system prune, no volume prune
@@ -102,16 +103,16 @@ last_e2e_smoke: partial PGT-A backend-to-Airflow metadata smoke passed; full fro
 
 ```text
 真实部署/启动前阻塞:
-- 需要实现 backend log/artifact API 和 Airflow success/failed 状态回写
 - 需要实现 pgta UI 支持
 - 需要实现 frontend 功能页面
 - 需要实现 PGT-A dry-run target 和非法 target failure smoke
+- 需要实现 Snakemake rule/qsub event receiver，才能提供 rule/sample/qsub 级错误摘要
 ```
 
 ## 10. 下一步建议
 
 ```text
-1. 执行 T025/T062：补 log/artifact API、错误摘要提取和 Airflow 状态回写，先让成功/失败 run 可诊断。
-2. 执行 T045 后续范围：扩展 PGT-A dry-run target，并保留 metadata runner 当前隔离写入策略。
-3. 再执行 T057/T084：前端展示和 Level 0-3 smoke 验收。
+1. 执行 T045 后续范围：扩展 PGT-A dry-run target，并保留 metadata runner 当前隔离写入策略。
+2. 执行 T057：做 PGT-A run detail 前端展示，直接消费现有 run/detail/log/artifact/sync API。
+3. 执行 T026/T043：补 Snakemake event receiver 和 rule/qsub 级事件，为更细失败摘要铺路。
 ```

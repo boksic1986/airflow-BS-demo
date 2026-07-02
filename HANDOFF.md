@@ -36,6 +36,100 @@
 
 ## Records
 
+## 2026-07-03 02:13 - Codex - T025/T062 PGT-A diagnostics API
+
+### Goal
+
+Add backend diagnostics for PGT-A metadata runs: explicit Airflow state sync, fixed PGT-A log tail endpoints, dynamic metadata artifact listing, and run-level error summary extraction. Do not build frontend, dry-run target, Snakemake event receiver, qsub integration, or DB migration.
+
+### Completed
+
+- Added `POST /api/runs/{analysis_id}/actions/sync-airflow`.
+- Added `GET /api/runs/{analysis_id}/logs?stream=stdout|stderr|metadata&tail=...`.
+- Added `GET /api/runs/{analysis_id}/artifacts`.
+- Added path safety checks so logs/artifacts must stay inside `CONTAINER_SHARED_ROOT` and the run `workdir`.
+- Added missing log handling with structured `LOG_NOT_FOUND`.
+- Added run-level failed DAG summary extraction from `logs/snakemake.stderr.log` into `analysis_run.error_summary`.
+- Kept artifact discovery dynamic; no artifact table writes and no Alembic migration.
+- Updated API, logging, runbook, task, current state, and manifest docs.
+
+### Changed files
+
+- `backend/app/diagnostics_service.py`
+- `backend/app/main.py`
+- `backend/tests/test_run_diagnostics.py`
+- `docs/05_API_CONTRACT.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `docker compose -f docker-compose.yaml build backend` on `fengxian` before red test | success | Rebuilt image with red tests |
+| `docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q tests/test_run_diagnostics.py` before implementation | failed as expected | 6 failures: missing sync/log/artifact endpoints and structured errors |
+| `docker compose -f docker-compose.yaml build backend` after implementation | success | Rebuilt diagnostics implementation |
+| `docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q tests/test_run_diagnostics.py` | success | `6 passed in 0.91s` |
+| `docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q` | success | `26 passed in 1.56s` |
+| `docker compose -f docker-compose.yaml config --quiet` | success | Compose still valid |
+| service startup for postgres/redis/backend/Airflow | success | Used existing volumes; no `down -v` |
+| `curl /api/health` and Airflow `/health` | success | Backend ok; Airflow metadatabase and scheduler healthy |
+| `POST /api/runs/PGTA_20260702_171533_9A85B1/actions/sync-airflow` | success | Returned `status=success`, `error_summary=null` |
+| `GET /api/runs/PGTA_20260702_171533_9A85B1/logs?stream=metadata&tail=3` | success | Returned last metadata lines from `run_metadata.tsv` |
+| `GET /api/runs/PGTA_20260702_171533_9A85B1/logs?stream=stderr&tail=5` | success | Returned Snakemake stderr tail |
+| `GET /api/runs/PGTA_20260702_171533_9A85B1/artifacts` | success | Returned metadata, stdout/stderr, config YAML, metadata config |
+| `POST /api/runs/PGTA_20260702_171200_A68C19/actions/sync-airflow` | success | Returned `status=failed`, non-null `error_summary` |
+| missing log probe for `PGTA_20260702_162531_74CE91` | success | HTTP 404 with `LOG_NOT_FOUND` |
+| DB latest run query | success | success/failed/created states matched expected runs |
+| `docker compose -f docker-compose.yaml down` | success | Safe stop only; compose ps empty |
+
+### Tests
+
+Remote-only acceptance evidence on `fengxian`:
+
+- Diagnostics unit tests passed: `6 passed`.
+- Full backend test suite passed: `26 passed`.
+- Real success run synced to `success`; real historical failed run synced to `failed` and wrote `error_summary`.
+- Log and artifact APIs returned real files from `shared/runs`.
+- Missing log returned structured `LOG_NOT_FOUND`.
+- Path traversal/workdir safety is covered by unit test.
+
+### Not run / why
+
+- Frontend was not implemented or tested; this remains T057.
+- PGT-A dry-run and invalid target failure smoke were not implemented; this remains T045/T084.
+- Snakemake event receiver and rule/qsub-level errors were not implemented; this remains T026/T043.
+- Airflow task-log API scraping was not implemented; current summary uses Snakemake stderr only.
+- No DB migration was run or needed beyond existing Alembic head.
+
+### Current git status
+
+Implementation is on branch `codex/backend/T025-T062-logs-artifacts-sync` at code commit `25380e3`; final docs/state commit is expected before merging to `main`.
+
+### Risks
+
+- Historical failed run `PGTA_20260702_171200_A68C19` failed because of an Airflow PythonOperator bug, but current run-level summary intentionally reads Snakemake stderr first; it proves summary storage, not full Airflow task root-cause extraction.
+- Artifact URLs for config files are reserved future view URLs; current implemented readable log URLs are stdout/stderr/metadata.
+- `run_metadata.tsv` still contains tool-version probe errors for samtools/WisecondorX; that comes from the PGT-A metadata rule and was already present in the successful metadata smoke.
+
+### Open questions
+
+- Whether T045 should fix PGT-A metadata provenance/tool-version probes before adding dry-run, or leave that as a separate cleanup.
+
+### Next recommended task
+
+Run T045 next for PGT-A dry-run target, or T057 if the priority is visible demo UI using the newly available log/artifact/status APIs.
+
+### Rollback notes
+
+- Stop services with `docker compose -f docker-compose.yaml down`.
+- Revert repository changes with normal `git revert`.
+- Do not use `docker compose down -v`, `docker system prune`, `docker volume prune`, `git reset --hard`, or `git clean -fdx`.
+
 ## 2026-07-03 01:19 - Codex - T027/T035 PGT-A submit to bio_pgta metadata
 
 ### Goal
