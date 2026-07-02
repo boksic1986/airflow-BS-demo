@@ -32,10 +32,10 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/backend/T022-T024-server-path-runs
+active_branch: main
 last_verified_code_commit: 9928b9c
 worktree_strategy: single-worktree for now; fengxian is code mirror only
-fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T022/T024 verified on origin/codex/backend/T022-T024-server-path-runs; server smoke created untracked shared/runs output only
+fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T022/T024 verified on origin/codex/backend/T022-T024-server-path-runs and ready to sync from origin/main
 ```
 
 ## 4. 服务状态

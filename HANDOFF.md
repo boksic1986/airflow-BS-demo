@@ -124,7 +124,7 @@ Remote-only acceptance evidence on `fengxian`:
 
 ### Current git status
 
-Work is on `codex/backend/T022-T024-server-path-runs`. Implementation commit `9928b9c` passed remote runtime verification; this handoff/state-doc update plus `.gitignore` tightening is expected as the final branch commit before merge to `main`.
+Implementation commit `9928b9c` passed remote runtime verification on branch `codex/backend/T022-T024-server-path-runs`; final state-doc and `.gitignore` tightening were merged forward to `main`.
 
 ### Risks
 
