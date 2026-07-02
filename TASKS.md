@@ -6,9 +6,9 @@
 
 | ID | Task | Owner agent | Dependencies | Deliverables | Acceptance | Status |
 |---|---|---|---|---|---|---|
-| T000 | 初始化仓库文档 | coordinator/docs | none | docs, AGENTS, skills | 文档完整、占位符明确 | todo |
-| T001 | 探测服务器环境 | infra | T000 | SERVER_INFO.md 更新 | docker/qsub/python/node 状态清楚 | todo |
-| T002 | 确定部署路径和数据路径 | infra/coordinator | T001 | CURRENT_STATE.md 更新 | 项目路径和 shared 路径确定 | todo |
+| T000 | 初始化仓库文档 | coordinator/docs | none | docs, AGENTS, skills | 文档完整、占位符明确 | done |
+| T001 | 探测服务器环境 | infra | T000 | SERVER_INFO.md 更新 | docker/qsub/python/node 状态清楚 | done |
+| T002 | 确定部署路径和数据路径 | infra/coordinator | T001 | CURRENT_STATE.md 更新 | 项目路径和 shared 路径确定 | done |
 | T003 | 确定 demo 数据策略 | coordinator/snakemake | T000 | mock samples 规范 | 不使用真实患者数据 | todo |
 | T004 | fengxian PGT-A demo 测试计划 | coordinator/docs | T000 | docs/18_PGTA_FENGXIAN_TEST_PLAN.md | pgta/bio_pgta 命名、Compose 准入、Level 0-4 验收、BS10610 迁移注意事项明确 | done |
 | T005 | 本地 Git/GitHub 和插件工作流文档 | coordinator/docs | T000,T004 | git remote, docs/19, plugin usage docs | 本地 main 仓库指向 GitHub remote；superpowers/GitHub 插件和 fengxian 镜像规则写入文档 | done |
@@ -17,17 +17,17 @@
 
 | ID | Task | Owner agent | Dependencies | Deliverables | Acceptance | Status |
 |---|---|---|---|---|---|---|
-| T010 | 创建 docker-compose 基础服务 | infra | T001 | docker-compose.yaml, .env.example | docker compose config 通过 | todo |
+| T010 | 创建 docker-compose 基础服务 | infra | T001 | docker-compose.yaml, .env.example | docker compose config 通过 | done |
 | T011 | 启动 Airflow/Postgres/Redis | infra | T010 | Airflow UI/API 可访问 | airflow health 正常 | todo |
-| T012 | 增加 MailHog demo 邮件服务 | infra | T010 | mailhog service | http://host:8025 可访问 | todo |
-| T013 | 定义 shared volume 目录 | infra | T010 | shared/{uploads,runs,reports,logs} | 容器内路径一致 | todo |
-| T014 | fengxian 用户级 Docker Compose v2 准入 | infra | T001,T004 | `$HOME/.docker/cli-plugins/docker-compose` | `docker compose version` 输出固定 v2 版本，未做系统级 Docker 升级 | todo |
+| T012 | 增加 MailHog demo 邮件服务 | infra | T010 | mailhog service | http://host:8025 可访问 | done |
+| T013 | 定义 shared volume 目录 | infra | T010 | shared/{uploads,runs,reports,logs} | 容器内路径一致 | done |
+| T014 | fengxian 用户级 Docker Compose v2 准入 | infra | T001,T004 | `$HOME/.docker/cli-plugins/docker-compose` | `docker compose version` 输出固定 v2 版本，未做系统级 Docker 升级 | done |
 
 ## P2 Backend API 和数据库
 
 | ID | Task | Owner agent | Dependencies | Deliverables | Acceptance | Status |
 |---|---|---|---|---|---|---|
-| T020 | FastAPI 项目骨架 | backend | T010 | backend/app | /health 返回 ok | todo |
+| T020 | FastAPI 项目骨架 | backend | T010 | backend/app | /health 返回 ok | done |
 | T021 | biodemo DB models/migrations | backend | T020 | analysis_run/sample/rule_event/qc/artifact | migration 可重复执行 | todo |
 | T022 | 文件上传和样本表解析 | backend | T021 | upload API/parser | csv/tsv/xlsx mock 样本可解析 | todo |
 | T023 | Airflow API client | backend | T020,T011 | trigger/list/get dag run | mock 或真实 API 测试通过 | todo |

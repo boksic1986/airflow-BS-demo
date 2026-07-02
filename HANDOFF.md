@@ -36,6 +36,120 @@
 
 ## Records
 
+## 2026-07-02 22:24 - Codex - T010/T012/T013/T014/T020 fengxian base skeleton
+
+### Goal
+
+Build the fengxian base runtime surface before PGT-A DAG/frontend work: user-level Docker Compose v2 readiness, GitHub mirror sync, Docker Compose service skeleton, shared directory contract, and minimal FastAPI `/api/health`.
+
+### Completed
+
+- Added minimal FastAPI backend at `backend/app/main.py` with `GET /api/health -> {"status":"ok"}`.
+- Added backend Dockerfile and pinned minimal backend requirements.
+- Added `docker-compose.yaml` with fixed `172.30.10.0/24` network and services: postgres, redis, mailhog, backend, frontend placeholder, airflow-api-server, airflow-scheduler, airflow-worker.
+- Added tracked shared directory placeholders while keeping runtime contents ignored.
+- Updated `.env.example`, engineering spec, API contract, deployment runbook, testing rules, agent workflow, and PGT-A plan.
+- Added project constraint: local Windows repo is for editing/Git/docs only; runtime tests are remote-only.
+- Re-ran fengxian Level 0 preflight: Docker 20.10.21, PGT-A/Snakemake paths readable, `172.30.10.0/24` non-conflicting.
+- Installed Docker Compose v2.24.7 as a user-level CLI plugin at `/home/jiucheng/.docker/cli-plugins/docker-compose`.
+- After user correction, replaced the plugin using local Windows GitHub Release download plus `scp` to fengxian; final plugin SHA256 is `19c9deb6f4d3915f5c93441b8d2da751a09af82df62d55eab097c2cbfebd519f`.
+- Cloned `git@github.com:boksic1986/airflow-BS-demo.git` into empty `fengxian:/home/jiucheng/project/airflow-demo` as a code mirror.
+- Created remote ignored `.env` for smoke only; no `.env` committed.
+
+### Changed files
+
+- `.env.example`
+- `.gitignore`
+- `AGENTS.md`
+- `backend/Dockerfile`
+- `backend/app/__init__.py`
+- `backend/app/main.py`
+- `backend/requirements-dev.txt`
+- `backend/requirements.txt`
+- `backend/tests/test_health.py`
+- `dags/.gitkeep`
+- `docker-compose.yaml`
+- `shared/.gitkeep`
+- `shared/uploads/.gitkeep`
+- `shared/runs/.gitkeep`
+- `shared/reports/.gitkeep`
+- `shared/logs/.gitkeep`
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/05_API_CONTRACT.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/12_TESTING_ACCEPTANCE.md`
+- `docs/14_AGENT_WORKFLOW.md`
+- `docs/18_PGTA_FENGXIAN_TEST_PLAN.md`
+- `SERVER_INFO.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `ssh fengxian` Level 0 preflight | success | Docker 20.10.21/API 1.41, PGT-A path and Snakefile readable, Snakemake 8.5.4, Python 3.12.2, no `172.30.10.0/24` conflict |
+| direct `curl` GitHub release on fengxian | timed out | Left a partial plugin file, later replaced |
+| TUNA Docker CE focal deb unpack to user plugin | success | Produced `Docker Compose version v2.24.7`; used as fallback path |
+| local `curl.exe --proxy socks5h://127.0.0.1:1080` GitHub Release download + `scp` | success | Official `docker-compose-linux-x86_64` downloaded locally and synced to fengxian |
+| `docker compose version` on fengxian | success | `Docker Compose version v2.24.7` |
+| `git clone git@github.com:boksic1986/airflow-BS-demo.git /home/jiucheng/project/airflow-demo` | success | Directory was empty; mirror is on `main`, clean, commit `dd1d8a7` for tested code |
+| `docker compose config --services` | success | Listed postgres, redis, airflow-worker, backend, frontend, mailhog, airflow-api-server, airflow-scheduler |
+| `docker compose config --quiet` | success | Re-run after local GitHub plugin replacement also passed |
+| `docker compose up -d postgres redis mailhog backend` | success | Built backend image, pulled base images, started minimal services |
+| `curl -fsS http://127.0.0.1:8000/api/health` | success | Returned `{"status":"ok"}` |
+| `docker compose down` | success | Used safe stop only, no `-v` |
+| `curl -fsSI http://127.0.0.1:8025` | failed | MailHog returned 404 for HEAD; not a service failure |
+| `curl -fsS http://127.0.0.1:8025/` | success | MailHog GET probe found page content |
+| `docker compose ps` after cleanup | success | No running demo containers |
+
+### Tests
+
+Remote-only acceptance evidence:
+
+- `docker compose config --quiet` passed on fengxian with user-level Compose v2.24.7.
+- Minimal service smoke passed on fengxian: postgres, redis, mailhog, backend started; backend health returned `{"status":"ok"}`; services were stopped with `docker compose down`.
+- MailHog HTTP GET probe passed on fengxian.
+
+Local note: a local pytest/YAML parse check was run before the user clarified the remote-only testing rule. Those local results are not counted as acceptance evidence, and the temporary `.venv` was removed.
+
+### Not run / why
+
+- Airflow web/scheduler/worker startup: out of scope for this batch; T011 remains next.
+- Airflow `/health`: not run because Airflow services were not started.
+- frontend functional test: out of scope; frontend is only an nginx placeholder.
+- biodemo DB migration: not implemented yet.
+- PGT-A metadata/dry-run/failure smoke: intentionally deferred to T027/T035/T045/T057/T084.
+- Snakemake dry-run: not run in this batch.
+
+### Current git status
+
+Local repo has the implementation commit `dd1d8a7` pushed to `origin/main`; this handoff/state-doc update is expected to be committed and pushed as a follow-up docs/state commit. Fengxian mirror is clean at the tested code commit.
+
+### Risks
+
+- Remote image and pip downloads can be slow; consider adding Docker registry/pip mirror configuration in a later infra task if builds remain slow.
+- The current Postgres smoke starts only the default Airflow database; biodemo DB/schema creation is still pending.
+- Airflow services are defined but not validated; the Airflow image may still require initialization/user setup in T011.
+- The remote `.env` contains local-only demo credentials and is ignored; it must not be committed.
+
+### Open questions
+
+- Whether to keep direct commits to `main` during early bootstrap or switch to task branches/PRs for T011 onward.
+- Which migration tool to use first for biodemo DB: Alembic with SQLAlchemy/SQLModel or plain SQL bootstrap.
+
+### Next recommended task
+
+Run T011: initialize and start Airflow web/scheduler/worker, then verify Airflow `/health` and document the minimal Airflow user/auth setup without adding PGT-A DAG yet.
+
+### Rollback notes
+
+- Stop services with `docker compose down` only.
+- Remove the user-level Compose plugin with `rm "$HOME/.docker/cli-plugins/docker-compose"` if needed.
+- Revert repository changes with a normal `git revert`; do not use `git reset --hard` or force push.
+
 ## 2026-07-02 21:16 - Codex - T005/local Git and plugin workflow
 
 ### Goal

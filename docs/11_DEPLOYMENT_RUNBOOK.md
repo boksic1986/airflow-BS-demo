@@ -43,7 +43,30 @@ git pull --ff-only
 
 在 `fengxian` 只安装用户级 Docker CLI plugin，不升级系统 Docker，不安装 legacy `docker-compose` v1。
 
-优先使用国内 Docker CE 镜像下载 `docker-compose-plugin` deb 包，并只解包其中的 CLI plugin 二进制到用户目录。`fengxian` 是 Ubuntu 18.04，但 bionic 镜像只到 Compose 2.18.1；为了固定 `v2.24.7`，使用 focal 包解包二进制，不做系统级 dpkg/apt 安装。
+优先路线：在本地 Windows 通过 GitHub Release 下载官方 `docker-compose-linux-x86_64`，再用 `scp` 同步到 `fengxian`。如果本地 GitHub 下载需要代理，显式给 `curl.exe` 加 `--proxy socks5h://127.0.0.1:1080`；不要把代理配置写入仓库。
+
+本地 PowerShell：
+
+```powershell
+$url = "https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64"
+$local = "$env:TEMP\docker-compose-v2.24.7-linux-x86_64"
+curl.exe -L --fail --retry 3 --proxy socks5h://127.0.0.1:1080 -o $local $url
+scp $local fengxian:/tmp/docker-compose-v2.24.7-linux-x86_64
+Remove-Item -LiteralPath $local -Force
+```
+
+远端 `fengxian`：
+
+```bash
+mkdir -p "$HOME/.docker/cli-plugins"
+install -m 0755 \
+  /tmp/docker-compose-v2.24.7-linux-x86_64 \
+  "$HOME/.docker/cli-plugins/docker-compose"
+rm -f /tmp/docker-compose-v2.24.7-linux-x86_64
+docker compose version
+```
+
+备用路线：若本地无法访问 GitHub release asset，可使用国内 Docker CE 镜像下载 `docker-compose-plugin` deb 包，并只解包其中的 CLI plugin 二进制到用户目录。`fengxian` 是 Ubuntu 18.04，但 bionic 镜像只到 Compose 2.18.1；为了固定 `v2.24.7`，使用 focal 包解包二进制，不做系统级 dpkg/apt 安装。
 
 ```bash
 mkdir -p "$HOME/.docker/cli-plugins"
@@ -67,7 +90,7 @@ Docker Compose version v2.24.7
 
 已探测但不作为优先路线：
 
-- GitHub Release 直连容易受网络限制。
+- `fengxian` 直连 GitHub Release 容易受网络限制。
 - 清华/中科大/交大 GitHub-release 路径对 `docker/compose/v2.24.7/docker-compose-linux-x86_64` 返回 404 或错误重定向。
 - 清华、交大、阿里云 Docker CE `focal`/`jammy` 镜像可提供 `docker-compose-plugin_2.24.7`。
 

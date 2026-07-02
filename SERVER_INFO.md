@@ -34,11 +34,16 @@ biosoftware_root: /biosoftware
 ```text
 docker_version: Docker version 20.10.21, build 20.10.21-0ubuntu1~18.04.3
 docker_api: client/server API 1.41
-docker_compose_version: not installed on fengxian during read-only preflight
-compose_install_plan: user-level CLI plugin at $HOME/.docker/cli-plugins/docker-compose, recommended v2.24.7
+docker_compose_version: Docker Compose version v2.24.7
+docker_compose_path: /home/jiucheng/.docker/cli-plugins/docker-compose
+docker_compose_sha256: 19c9deb6f4d3915f5c93441b8d2da751a09af82df62d55eab097c2cbfebd519f
+compose_install_source: local Windows GitHub Release download, scp to fengxian, user-level install
+compose_fallback_source: TUNA Docker CE focal docker-compose-plugin_2.24.7 deb unpack only
 user_in_docker_group: unknown, but deploy user could run read-only docker commands
 planned_demo_subnet: 172.30.10.0/24
 existing_docker_networks: bridge 172.17.0.0/16; cnv_biosan_local_net 172.18.0.0/16
+compose_config_status: passed on fengxian for commit dd1d8a7
+minimal_smoke_status: postgres/redis/mailhog/backend up, backend /api/health ok, then docker compose down
 ```
 
 ## 4. Python/Node
@@ -57,7 +62,7 @@ npm_or_pnpm: <TO_BE_FILLED>
 
 ```text
 airflow_image: <TO_BE_FILLED>
-airflow_uid: <TO_BE_FILLED>
+airflow_uid: planned 50000 in .env.example
 airflow_base_url: planned http://airflow-api-server:8080 inside Docker network
 airflow_admin_user: <TO_BE_FILLED_NO_PASSWORD>
 planned_pgta_dag_id: bio_pgta
@@ -83,7 +88,7 @@ max_demo_jobs: <TO_BE_FILLED>
 smtp_host: <TO_BE_FILLED>
 smtp_port: <TO_BE_FILLED>
 mail_from: <TO_BE_FILLED>
-mailhog_enabled: planned for demo, not started
+mailhog_enabled: service defined and HTTP GET probe passed on fengxian 127.0.0.1:8025
 ```
 
 ## 8. 端口规划

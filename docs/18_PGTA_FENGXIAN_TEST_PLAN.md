@@ -227,7 +227,30 @@ docker version
 mkdir -p "$HOME/.docker/cli-plugins"
 ```
 
-推荐安装方式是在国内 Docker CE 镜像下载 deb 包，并只解包 CLI plugin 二进制到用户目录，不执行系统级 apt/dpkg 安装。`fengxian` 的 bionic Docker CE 镜像只提供到 Compose 2.18.1；为固定 `v2.24.7`，使用 focal 包中的静态 plugin 二进制。
+推荐安装方式是在本地 Windows 从 GitHub Release 下载官方二进制，然后用 `scp` 同步到 `fengxian` 用户级 plugin 路径。若本地下载需要代理，显式给 `curl.exe` 加 `--proxy socks5h://127.0.0.1:1080`；不要把代理配置写入仓库。
+
+本地 PowerShell：
+
+```powershell
+$url = "https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64"
+$local = "$env:TEMP\docker-compose-v2.24.7-linux-x86_64"
+curl.exe -L --fail --retry 3 --proxy socks5h://127.0.0.1:1080 -o $local $url
+scp $local fengxian:/tmp/docker-compose-v2.24.7-linux-x86_64
+Remove-Item -LiteralPath $local -Force
+```
+
+远端 `fengxian`：
+
+```bash
+mkdir -p "$HOME/.docker/cli-plugins"
+install -m 0755 \
+  /tmp/docker-compose-v2.24.7-linux-x86_64 \
+  "$HOME/.docker/cli-plugins/docker-compose"
+rm -f /tmp/docker-compose-v2.24.7-linux-x86_64
+docker compose version
+```
+
+备用安装方式是在国内 Docker CE 镜像下载 deb 包，并只解包 CLI plugin 二进制到用户目录，不执行系统级 apt/dpkg 安装。`fengxian` 的 bionic Docker CE 镜像只提供到 Compose 2.18.1；为固定 `v2.24.7`，使用 focal 包中的静态 plugin 二进制。
 
 ```bash
 tmpdir="$(mktemp -d)"
