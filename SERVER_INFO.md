@@ -45,8 +45,10 @@ compose_fallback_source: TUNA Docker CE focal docker-compose-plugin_2.24.7 deb u
 user_in_docker_group: unknown, but deploy user could run read-only docker commands
 planned_demo_subnet: 172.30.10.0/24
 existing_docker_networks: bridge 172.17.0.0/16; cnv_biosan_local_net 172.18.0.0/16
-compose_config_status: passed on fengxian for commit dd1d8a7
-minimal_smoke_status: postgres/redis/mailhog/backend up, backend /api/health ok, then docker compose down
+compose_config_status: passed on fengxian for commit 9c640dc; Airflow 12958 and frontend 12959 rendered correctly
+minimal_smoke_status: postgres/redis/mailhog/backend/frontend/airflow web/scheduler/worker up, health probes ok, then docker compose down
+airflow_init_status: metadata DB migrated and admin user created by airflow-init on 2026-07-02; password only in remote .env
+host_port_probe_2026_07_02: 12958,12959,8000,8025,1025,5432,6379 free before smoke; 3000 busy on 127.0.0.1 by non-project next-server
 image_cleanup_2026_07_02: removed 37 dangling <none>:<none> images with docker image rm, no volumes removed
 image_pull_status_2026_07_02: compose external images pulled successfully; backend built as airflow-demo/backend:0.1.0
 project_latest_images: none after retagging backend; non-project latest images were left untouched
@@ -78,10 +80,11 @@ npm_or_pnpm: <TO_BE_FILLED>
 ## 5. Airflow
 
 ```text
-airflow_image: <TO_BE_FILLED>
+airflow_image: apache/airflow:2.9.3-python3.11
 airflow_uid: planned 50000 in .env.example
 airflow_base_url: planned http://airflow-api-server:8080 inside Docker network
-airflow_admin_user: <TO_BE_FILLED_NO_PASSWORD>
+airflow_host_port: 12958
+airflow_admin_user: admin
 planned_pgta_dag_id: bio_pgta
 ```
 

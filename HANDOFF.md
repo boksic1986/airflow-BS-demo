@@ -36,6 +36,93 @@
 
 ## Records
 
+## 2026-07-02 23:03 - Codex - T011 Airflow 12958 smoke
+
+### Goal
+
+Move Airflow host access to port `12958`, move Docker nginx/frontend placeholder to `12959`, initialize Airflow metadata/admin, and verify the base Docker Compose services on `fengxian`.
+
+### Completed
+
+- Updated Compose defaults: `AIRFLOW_PORT=12958`, `FRONTEND_PORT=12959`.
+- Added `airflow-init` one-shot service for Airflow DB migration and admin user creation.
+- Kept Postgres and Redis internal-only; no `5432:5432` or `6379:6379` host port mapping was added.
+- Updated remote `.env` with new non-secret port/admin keys and generated an Airflow admin password without printing it.
+- Verified `12958`, `12959`, `8000`, `8025`, `1025`, `5432`, and `6379` were free before smoke; `3000` remains occupied by a non-project next-server.
+- Ran `airflow-init`; Airflow metadata migration completed and admin user `admin` was created.
+- Started postgres, redis, mailhog, backend, frontend, airflow-api-server, airflow-scheduler, and airflow-worker.
+- Verified backend `/api/health`, frontend placeholder, MailHog UI, and Airflow `/health`.
+- Stopped services with `docker compose -f docker-compose.yaml down`; no `-v`, prune, or volume deletion was used.
+
+### Changed files
+
+- `.env.example`
+- `docker-compose.yaml`
+- `docs/01_SYSTEM_ARCHITECTURE.md`
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `SERVER_INFO.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git switch -c codex/infra/T011-airflow-12958` | success | Task branch for local edits |
+| `docker compose config --quiet` on `fengxian` | success | Rendered Airflow `12958->8080`, frontend `12959->80`, backend `8000->8000`, MailHog `1025/8025` |
+| remote port probe with `ss -lnt` | success | `12958/12959/8000/8025/1025/5432/6379` free; `3000` busy by non-project next-server |
+| `docker compose -f docker-compose.yaml up airflow-init` | success | Airflow DB migration completed; admin user `admin` created |
+| `docker compose -f docker-compose.yaml up -d postgres redis mailhog backend frontend airflow-api-server airflow-scheduler airflow-worker` | success | All base services started |
+| `curl http://127.0.0.1:8000/api/health` | success | Returned `{"status":"ok"}` |
+| `curl http://127.0.0.1:12959/` | success | Returned `airflow-demo frontend placeholder` |
+| `curl http://127.0.0.1:8025/` | success | Returned MailHog HTML page |
+| `curl http://127.0.0.1:12958/health` | success | Airflow metadatabase and scheduler healthy |
+| `docker compose -f docker-compose.yaml down` | success | Safe stop only; no volume deletion |
+
+### Tests
+
+Remote-only acceptance evidence on `fengxian`:
+
+- Compose config passed for commit `9c640dc`.
+- Airflow `/health` passed at `127.0.0.1:12958`.
+- Docker nginx/frontend placeholder passed at `127.0.0.1:12959`.
+- Backend health and MailHog HTTP GET passed.
+- `docker compose ps` after down showed no running airflow-demo services.
+
+### Not run / why
+
+- PGT-A DAG, Snakemake metadata/dry-run, and failure smoke were not run; they remain later T027/T035/T045/T057/T084 work.
+- React functional page was not implemented or tested; frontend is still Docker nginx placeholder only.
+- biodemo DB migration was not implemented or run; T021 remains next.
+- Airflow API client was not implemented; T023 remains next.
+
+### Current git status
+
+Implementation commit `9c640dc` was pushed to `origin/main` and pulled into `fengxian:/home/jiucheng/project/airflow-demo`. A follow-up state-doc commit is expected after this handoff update.
+
+### Risks
+
+- Airflow admin password exists only in the remote untracked `.env`; do not commit or print it.
+- The Airflow triggerer is not running, so `/health` reports triggerer status as null; this is acceptable for the current CeleryExecutor smoke.
+- Host port `3000` belongs to a non-project next-server and must not be stopped by airflow-demo tasks.
+- PowerShell-to-SSH here-strings can introduce CRLF issues; prefer single-line SSH commands or CR-stripped bash scripts for future remote runs.
+
+### Open questions
+
+- Whether to keep Airflow reachable directly on `12958` for the demo, or later hide it behind a Docker nginx reverse proxy after frontend/API auth stabilizes.
+
+### Next recommended task
+
+Run T021 for biodemo DB models/migrations, then T023 for the FastAPI Airflow API client. Do not jump directly to PGT-A metadata smoke until backend DB/API basics are in place.
+
+### Rollback notes
+
+- Stop services with `docker compose -f docker-compose.yaml down`.
+- Revert repo changes with a normal Git revert if needed.
+- Do not run `docker compose down -v`, `docker system prune`, or `docker volume prune`.
+
 ## 2026-07-02 22:38 - Codex - fengxian host nginx inventory
 
 ### Goal

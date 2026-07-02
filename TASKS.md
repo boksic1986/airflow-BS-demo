@@ -18,7 +18,7 @@
 | ID | Task | Owner agent | Dependencies | Deliverables | Acceptance | Status |
 |---|---|---|---|---|---|---|
 | T010 | 创建 docker-compose 基础服务 | infra | T001 | docker-compose.yaml, .env.example | docker compose config 通过 | done |
-| T011 | 启动 Airflow/Postgres/Redis | infra | T010 | Airflow UI/API 可访问 | airflow health 正常 | todo |
+| T011 | 启动 Airflow/Postgres/Redis | infra | T010 | Airflow UI/API 可访问 | airflow health 正常 | done |
 | T012 | 增加 MailHog demo 邮件服务 | infra | T010 | mailhog service | http://host:8025 可访问 | done |
 | T013 | 定义 shared volume 目录 | infra | T010 | shared/{uploads,runs,reports,logs} | 容器内路径一致 | done |
 | T014 | fengxian 用户级 Docker Compose v2 准入 | infra | T001,T004 | `$HOME/.docker/cli-plugins/docker-compose` | `docker compose version` 输出固定 v2 版本，未做系统级 Docker 升级 | done |

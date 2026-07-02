@@ -179,13 +179,13 @@ docker compose down
 先初始化 Airflow metadata DB 和 admin 用户：
 
 ```bash
-docker compose up airflow-init
+docker compose -f docker-compose.yaml up airflow-init
 ```
 
 再启动基础服务：
 
 ```bash
-docker compose up -d postgres redis mailhog backend frontend airflow-api-server airflow-scheduler airflow-worker
+docker compose -f docker-compose.yaml up -d postgres redis mailhog backend frontend airflow-api-server airflow-scheduler airflow-worker
 ```
 
 检查：
@@ -211,13 +211,13 @@ docker compose exec backend alembic upgrade head
 推荐使用 one-shot 初始化服务：
 
 ```bash
-docker compose up airflow-init
+docker compose -f docker-compose.yaml up airflow-init
 ```
 
 验证用户列表：
 
 ```bash
-docker compose exec airflow-api-server airflow users list
+docker compose -f docker-compose.yaml exec airflow-api-server airflow users list
 ```
 
 如需创建用户，必须使用 `.env` 中变量，不在文档写密码。
