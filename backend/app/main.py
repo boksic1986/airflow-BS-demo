@@ -1,13 +1,14 @@
 import logging
 
 from fastapi import FastAPI, HTTPException, Query, status
+import httpx
 from pydantic import BaseModel, Field
 
 from app.airflow_client import AirflowClient
 from app.config import get_settings
 from app.db import check_database, get_sessionmaker
 from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candidates
-from app.run_service import create_pgta_run, get_run_detail, list_run_samples, list_runs
+from app.run_service import create_pgta_run, get_run_detail, list_run_samples, list_runs, submit_pgta_run
 
 
 logger = logging.getLogger(__name__)
@@ -134,6 +135,35 @@ def runs_list(
 ) -> dict[str, object]:
     with get_sessionmaker()() as session:
         return list_runs(session=session, pipeline=pipeline, status=status_filter, limit=limit, offset=offset)
+
+
+@app.post("/api/runs/{analysis_id}/actions/submit")
+def submit_run(analysis_id: str) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            payload = submit_pgta_run(
+                session=session,
+                airflow_client=get_airflow_client(),
+                analysis_id=analysis_id,
+            )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "VALIDATION_ERROR", "message": str(exc)},
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.exception("airflow dag trigger failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "AIRFLOW_TRIGGER_FAILED", "message": str(exc)},
+        ) from exc
+
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+        )
+    return payload
 
 
 @app.get("/api/runs/{analysis_id}")

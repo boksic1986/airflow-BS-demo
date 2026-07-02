@@ -10,7 +10,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.input_scanner import FastqCandidate, InputPathError, ensure_allowed_path
-from app.models import AnalysisRun, Sample
+from app.models import AnalysisRun, RunAction, Sample
 
 
 PGTA_DAG_ID = "bio_pgta"
@@ -144,6 +144,32 @@ def list_run_samples(*, session: Session, analysis_id: str) -> list[dict]:
     ]
 
 
+def submit_pgta_run(*, session: Session, airflow_client, analysis_id: str) -> dict | None:
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+    if run is None:
+        return None
+    _validate_submit_run(run)
+
+    dag_run_id = f"manual__{analysis_id}"
+    conf = _dag_conf(run)
+    airflow_payload = airflow_client.trigger_dag_run(run.dag_id, dag_run_id=dag_run_id, conf=conf)
+    dag_run_id = airflow_payload.get("dag_run_id") or dag_run_id
+
+    run.status = "submitted"
+    run.dag_run_id = dag_run_id
+    run_action = RunAction(
+        analysis_id=analysis_id,
+        action="submit",
+        payload_json={"dag_id": run.dag_id, "dag_run_id": dag_run_id, "conf": conf},
+        result_status="accepted",
+        message="Airflow DAG run submitted.",
+    )
+    session.add(run_action)
+    session.commit()
+    session.refresh(run)
+    return _run_detail_payload(session, run)
+
+
 def _validate_selected_sample(sample: FastqCandidate, rawdata_root: Path, allowed_roots: list[str]) -> None:
     r1 = ensure_allowed_path(sample.r1, allowed_roots)
     r2 = ensure_allowed_path(sample.r2, allowed_roots)
@@ -152,6 +178,32 @@ def _validate_selected_sample(sample: FastqCandidate, rawdata_root: Path, allowe
         raise InputPathError(f"Selected FASTQ pair is not readable: {sample.sample_id}")
     if not (r1.is_relative_to(rawdata_root) and r2.is_relative_to(rawdata_root) and source_dir.is_relative_to(rawdata_root)):
         raise InputPathError(f"Selected sample is outside rawdata_root: {sample.sample_id}")
+
+
+def _validate_submit_run(run: AnalysisRun) -> None:
+    if run.pipeline_name != "pgta":
+        raise ValueError("Only pipeline=pgta can be submitted by this endpoint.")
+    if run.status != "created":
+        raise ValueError("Run must have status=created before submit.")
+    params = run.params_json or {}
+    if params.get("target") != "metadata":
+        raise ValueError("Only target=metadata can be submitted before PGT-A DAG expansion.")
+    if not run.sample_sheet_path:
+        raise ValueError("Run is missing sample_sheet_path.")
+    if not run.workdir:
+        raise ValueError("Run is missing workdir.")
+
+
+def _dag_conf(run: AnalysisRun) -> dict:
+    return {
+        "analysis_id": run.analysis_id,
+        "pipeline": run.pipeline_name,
+        "mode": run.mode,
+        "sample_sheet_path": run.sample_sheet_path,
+        "workdir": run.workdir,
+        "email_to": run.email_to,
+        "params": run.params_json or {},
+    }
 
 
 def _write_manifest(path: Path, selected_samples: list[FastqCandidate]) -> None:
