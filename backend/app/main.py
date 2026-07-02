@@ -7,6 +7,15 @@ from pydantic import BaseModel, Field
 from app.airflow_client import AirflowClient
 from app.config import get_settings
 from app.db import check_database, get_sessionmaker
+from app.diagnostics_service import (
+    InvalidRunPathError,
+    LogNotFoundError,
+    MissingDagRunError,
+    UnsupportedLogStreamError,
+    get_run_log,
+    list_run_artifacts,
+    sync_airflow_status,
+)
 from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candidates
 from app.run_service import create_pgta_run, get_run_detail, list_run_samples, list_runs, submit_pgta_run
 
@@ -166,6 +175,41 @@ def submit_run(analysis_id: str) -> dict[str, object]:
     return payload
 
 
+@app.post("/api/runs/{analysis_id}/actions/sync-airflow")
+def sync_run_airflow(analysis_id: str) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            payload = sync_airflow_status(
+                session=session,
+                airflow_client=get_airflow_client(),
+                analysis_id=analysis_id,
+                settings=get_settings(),
+            )
+    except MissingDagRunError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "MISSING_DAG_RUN", "message": str(exc)},
+        ) from exc
+    except InvalidRunPathError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_RUN_PATH", "message": str(exc)},
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.exception("airflow dag run sync failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "AIRFLOW_SYNC_FAILED", "message": str(exc)},
+        ) from exc
+
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+        )
+    return payload
+
+
 @app.get("/api/runs/{analysis_id}")
 def run_detail(analysis_id: str) -> dict[str, object]:
     with get_sessionmaker()() as session:
@@ -187,6 +231,68 @@ def run_samples(analysis_id: str) -> dict[str, object]:
                 detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
             )
         return {"items": list_run_samples(session=session, analysis_id=analysis_id)}
+
+
+@app.get("/api/runs/{analysis_id}/logs")
+def run_logs(
+    analysis_id: str,
+    stream: str = Query(default="stderr", pattern="^(stdout|stderr|metadata)$"),
+    tail: int = Query(default=200, ge=1, le=1000),
+) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            payload = get_run_log(
+                session=session,
+                analysis_id=analysis_id,
+                stream=stream,
+                tail=tail,
+                settings=get_settings(),
+            )
+    except UnsupportedLogStreamError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "UNSUPPORTED_LOG_STREAM", "message": str(exc)},
+        ) from exc
+    except InvalidRunPathError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_RUN_PATH", "message": str(exc)},
+        ) from exc
+    except LogNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "LOG_NOT_FOUND", "message": str(exc)},
+        ) from exc
+
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+        )
+    return payload
+
+
+@app.get("/api/runs/{analysis_id}/artifacts")
+def run_artifacts(analysis_id: str) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            payload = list_run_artifacts(
+                session=session,
+                analysis_id=analysis_id,
+                settings=get_settings(),
+            )
+    except InvalidRunPathError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_RUN_PATH", "message": str(exc)},
+        ) from exc
+
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+        )
+    return payload
 
 
 @app.get("/api/health/db")
