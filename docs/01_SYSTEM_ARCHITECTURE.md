@@ -59,26 +59,24 @@ frontend server-path form
   -> return analysis_id with status=created
 ```
 
-T022/T024 阶段只创建项目，不触发 Airflow。后续 T027/T035 才把已创建 run 转为 DAG run。
+PGT-A v1 采用两步模式：创建 run 后，再由 submit action 把已创建 run 转为 Airflow DAG run。
 
 ```text
-backend trigger step, later phase
+backend /api/runs/<analysis_id>/actions/submit
   -> read analysis_run/workdir/sample_sheet_path
-  -> trigger Airflow DAG run with conf
-  -> update analysis_run dag_run_id/status
+  -> trigger Airflow DAG bio_pgta with conf
+  -> update analysis_run dag_run_id/status=submitted
   -> return analysis_id/dag_run_id
 ```
 
 ### Run
 
 ```text
-Airflow validate_request
-  -> prepare_workdir
-  -> generate_snakemake_config
-  -> snakemake dry-run
-  -> snakemake execute
-  -> collect_qc
-  -> notify_email
+Airflow bio_pgta v1
+  -> validate_request
+  -> prepare_pgta_config
+  -> run_metadata
+  -> collect_metadata_artifact
 ```
 
 ### Rule event

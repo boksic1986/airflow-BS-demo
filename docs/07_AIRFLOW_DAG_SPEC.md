@@ -7,11 +7,11 @@
 | bio_wes_qsub | WES | Snakemake + qsub | 核心 demo 优先 |
 | bio_nipt_qsub | NIPT | Snakemake/wrapper + qsub | 第二阶段 |
 | bio_nipt_docker | NIPT Docker | docker runner | 第二阶段 |
-| bio_pgta | PGT-A | Snakemake direct in Airflow worker | 先跑 metadata/dry-run，不使用 qsub |
+| bio_pgta | PGT-A | Snakemake direct in Airflow worker | v1 只跑 metadata target，不使用 qsub；dry-run 后续扩展 |
 
 ## 2. 通用 DAG run conf
 
-T022/T024 阶段只创建 `analysis_run.status=created`，不会生成以下 DAG run conf，也不会触发 Airflow。T027/T035 实现触发后再使用本节约定。
+`POST /api/runs` 只创建 `analysis_run.status=created`，不会触发 Airflow。`POST /api/runs/{analysis_id}/actions/submit` 会读取 DB 中的 `sample_sheet_path`、`workdir` 和 `params_json`，触发 Airflow 并生成以下 DAG run conf。
 
 ```json
 {
@@ -25,6 +25,26 @@ T022/T024 阶段只创建 `analysis_run.status=created`，不会生成以下 DAG
     "genome": "hg19",
     "queue": "<QSUB_QUEUE>",
     "max_jobs": 20
+  }
+}
+```
+
+PGT-A metadata v1 conf example:
+
+```json
+{
+  "analysis_id": "PGTA_20260702_171533_9A85B1",
+  "pipeline": "pgta",
+  "mode": "new",
+  "sample_sheet_path": "/data/airflow-demo/runs/PGTA_20260702_171533_9A85B1/config/samples.selected.tsv",
+  "workdir": "/data/airflow-demo/runs/PGTA_20260702_171533_9A85B1",
+  "email_to": null,
+  "params": {
+    "project_name": "PGT-A metadata smoke",
+    "rawdata_root": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28",
+    "target": "metadata",
+    "input_mode": "server_path_scan",
+    "selected_count": 1
   }
 }
 ```
@@ -176,3 +196,65 @@ airflow dags list
 ```bash
 docker compose exec airflow-scheduler airflow dags list
 ```
+
+## 7. `bio_pgta` v1
+
+第一版 `bio_pgta` 只用于 PGT-A metadata smoke，不跑 mapping、CNV、baseline QC，也不使用 qsub。
+
+Task graph:
+
+```text
+validate_request
+  -> prepare_pgta_config
+  -> run_metadata
+  -> collect_metadata_artifact
+```
+
+### validate_request
+
+检查：
+
+- `analysis_id` 非空。
+- `pipeline = pgta`。
+- `params.target = metadata`。
+- `workdir` 在 `/data/airflow-demo` 下。
+- `sample_sheet_path` 存在，且位于 `workdir` 下。
+
+### prepare_pgta_config
+
+读取 `config/samples.selected.tsv`，检查 `sample_id/R1/R2/source_dir` 列，确认 R1/R2/source_dir 均在 `/data/project/CNV/PGT-A` 只读数据根目录下。
+
+输出：
+
+```text
+shared/runs/<analysis_id>/config.yaml
+shared/runs/<analysis_id>/config/pgta_metadata_config.json
+```
+
+### run_metadata
+
+在 Airflow worker 中直接调用 PGT-A Snakemake 环境：
+
+```bash
+/biosoftware/miniconda/envs/snakemake_env/bin/snakemake \
+  --snakefile /opt/pipelines/PGT_A/Snakefile \
+  --cores 1 \
+  --printshellcmds
+```
+
+执行目录为 `/data/airflow-demo/runs/<analysis_id>`。Snakemake 使用 run-local `config.yaml`，输出只允许写入该 run workdir。stdout/stderr 写入：
+
+```text
+shared/runs/<analysis_id>/logs/snakemake.stdout.log
+shared/runs/<analysis_id>/logs/snakemake.stderr.log
+```
+
+### collect_metadata_artifact
+
+验收 `logs/run_metadata.tsv` 是否存在，并返回 metadata artifact 信息供后续 T025/T057 登记或展示。
+
+本阶段已知边界：
+
+- backend 只把 run 更新到 `submitted`，还没有 Airflow success/failed 状态回写。
+- backend artifact/log API 尚未实现。
+- dry-run、非法 target failure smoke 和前端展示仍在后续任务中。

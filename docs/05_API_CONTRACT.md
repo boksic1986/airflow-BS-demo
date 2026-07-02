@@ -115,7 +115,7 @@ POST /api/runs
 Content-Type: application/json
 ```
 
-T022/T024 阶段只创建项目、入库和 selected manifest，不触发 Airflow，不运行 Snakemake。`dag_run_id` 必须为 `null`，状态为 `created`。Airflow trigger 留到 T027/T035 后实现。
+创建接口只创建项目、入库和 selected manifest，不触发 Airflow，不运行 Snakemake。`dag_run_id` 必须为 `null`，状态为 `created`。提交到 Airflow 使用后续的 submit action。
 
 Request:
 
@@ -163,7 +163,53 @@ shared/runs/<analysis_id>/config/samples.selected.tsv
 shared/runs/<analysis_id>/config/request.json
 ```
 
-## 5. 查询任务列表
+## 5. 提交已创建任务到 Airflow
+
+```http
+POST /api/runs/{analysis_id}/actions/submit
+```
+
+T027/T035 阶段只支持把已存在的 PGT-A metadata run 提交到 Airflow：
+
+- `analysis_run.pipeline_name = pgta`
+- `analysis_run.status = created`
+- `analysis_run.params_json.target = metadata`
+- `sample_sheet_path` 和 `workdir` 必须存在
+
+接口不会重复创建 run 或 sample。成功后会调用 Airflow REST API 触发 `bio_pgta`，写入 `dag_run_id`，并把 `analysis_run.status` 更新为 `submitted`。Airflow DAG 是否最终 success 仍以 Airflow 为准；本阶段还没有后台回写 success/failed 到 biodemo DB。
+
+Response:
+
+```json
+{
+  "analysis_id": "PGTA_20260702_171533_9A85B1",
+  "pipeline": "pgta",
+  "dag_id": "bio_pgta",
+  "dag_run_id": "manual__PGTA_20260702_171533_9A85B1",
+  "status": "submitted",
+  "workdir": "/data/airflow-demo/runs/PGTA_20260702_171533_9A85B1",
+  "sample_count": 1,
+  "mode": "new",
+  "sample_sheet_path": "/data/airflow-demo/runs/PGTA_20260702_171533_9A85B1/config/samples.selected.tsv",
+  "params": {
+    "rawdata_root": "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28",
+    "target": "metadata",
+    "input_mode": "server_path_scan",
+    "selected_count": 1
+  },
+  "airflow_url": null,
+  "error_summary": null,
+  "email_to": null
+}
+```
+
+Errors:
+
+- `404 RUN_NOT_FOUND`: `analysis_id` 不存在。
+- `400 VALIDATION_ERROR`: pipeline 不是 `pgta`、状态不是 `created`、target 不是 `metadata`，或 run 缺少必要路径。
+- `502 AIRFLOW_TRIGGER_FAILED`: backend 调用 Airflow API 失败。
+
+## 6. 查询任务列表
 
 ```http
 GET /api/runs?pipeline=pgta&status=created&limit=50&offset=0
@@ -189,7 +235,7 @@ Response:
 }
 ```
 
-## 6. 查询任务详情
+## 7. 查询任务详情
 
 ```http
 GET /api/runs/{analysis_id}
@@ -219,7 +265,7 @@ Response:
 }
 ```
 
-## 7. 查询样本
+## 8. 查询样本
 
 ```http
 GET /api/runs/{analysis_id}/samples
@@ -248,7 +294,7 @@ Response:
 }
 ```
 
-## 8. 查询 Snakemake rule 状态
+## 9. 查询 Snakemake rule 状态
 
 ```http
 GET /api/runs/{analysis_id}/rules
@@ -275,7 +321,7 @@ Response:
 }
 ```
 
-## 9. Snakemake event receiver
+## 10. Snakemake event receiver
 
 ```http
 POST /api/events/snakemake
@@ -312,7 +358,7 @@ Idempotency:
 - Same `analysis_id/rule/sample_id/snakemake_jobid/status` may be posted more than once.
 - Backend must upsert or ignore duplicates.
 
-## 10. QC
+## 11. QC
 
 ```http
 GET /api/runs/{analysis_id}/qc
@@ -339,7 +385,7 @@ Response:
 }
 ```
 
-## 11. Logs
+## 12. Logs
 
 ```http
 GET /api/runs/{analysis_id}/logs?rule=bwa_mem&sample_id=S001&stream=stderr&tail=200
@@ -358,7 +404,7 @@ Response:
 
 必须防止路径穿越：backend 只能读取 `SHARED_ROOT` 内文件。
 
-## 12. Artifacts
+## 13. Artifacts
 
 ```http
 GET /api/runs/{analysis_id}/artifacts
@@ -378,7 +424,7 @@ Response:
 }
 ```
 
-## 13. Reanalysis
+## 14. Reanalysis
 
 ```http
 POST /api/runs/{analysis_id}/actions/reanalyze

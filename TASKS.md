@@ -34,7 +34,7 @@
 | T024 | run 状态 API | backend | T021 | `/api/runs` list/detail/samples endpoints | 可返回 pgta run 列表、detail 和 sample fq1/fq2 路径 | done |
 | T025 | logs/artifacts API | backend | T021 | tail log/artifact link | 缺失文件返回明确错误 | todo |
 | T026 | Snakemake event receiver | backend | T021 | /events/snakemake | 可幂等 upsert rule event | todo |
-| T027 | PGT-A `pgta` Airflow trigger API 支持 | backend | T021,T022,T023,T004 | created run -> Airflow `bio_pgta` trigger | 可把已创建的 `pgta` metadata run 提交为 DAG run；dryrun/invalid target 后续按 T035/T045/T084 验收 | todo |
+| T027 | PGT-A `pgta` Airflow trigger API 支持 | backend | T021,T022,T023,T004 | created run -> Airflow `bio_pgta` trigger | 已创建的 `pgta` metadata run 可通过 submit action 提交为 DAG run；状态推进到 `submitted` 且 `dag_run_id` 非空 | done |
 
 ## P3 Airflow DAG
 
@@ -45,7 +45,7 @@
 | T032 | bio_nipt_qsub DAG 骨架 | airflow | T030 | dags/bio_nipt_qsub.py | dry run/mock run 成功 | todo |
 | T033 | bio_nipt_docker DAG 骨架 | airflow | T030 | dags/bio_nipt_docker.py | dry run/mock run 成功 | todo |
 | T034 | email notify task | airflow/backend | T030,T012 | success/fail notify | MailHog 收到邮件 | todo |
-| T035 | bio_pgta DAG 骨架 | airflow | T030,T027,T004 | dags/bio_pgta.py | metadata target mock/real-light run 成功，不使用 qsub | todo |
+| T035 | bio_pgta DAG 骨架 | airflow | T030,T027,T004 | dags/bio_pgta.py, pgta metadata runner | metadata target real-light run 成功，不使用 qsub；`logs/run_metadata.tsv` 生成 | done |
 
 ## P4 Snakemake/qsub 接入
 
@@ -56,7 +56,7 @@
 | T042 | qsub profile | snakemake | T041 | profiles/qsub/config.yaml | demo 限额生效 | todo |
 | T043 | rule event logger | snakemake/backend | T026,T040 | logger/POST events | 前端/DB 可见 rule 状态 | todo |
 | T044 | resume/rerun 策略 | snakemake/airflow | T031,T040 | mode -> snakemake flags | 不默认 forceall | todo |
-| T045 | PGT-A Snakemake runner | snakemake/airflow | T035,T004 | pgta config 生成和 metadata/dry-run runner | 输出只写 shared/runs/<analysis_id>，PGT_A 目录只读 | todo |
+| T045 | PGT-A Snakemake runner | snakemake/airflow | T035,T004 | pgta config 生成和 metadata/dry-run runner | metadata runner 已随 T035 通过；dry-run runner 仍待实现；输出只写 shared/runs/<analysis_id>，PGT_A 目录只读 | todo |
 
 ## P5 Frontend
 

@@ -36,6 +36,109 @@
 
 ## Records
 
+## 2026-07-03 01:19 - Codex - T027/T035 PGT-A submit to bio_pgta metadata
+
+### Goal
+
+Move an existing `pgta` run from `analysis_run.status=created` to the first Airflow executable path: submit it through FastAPI, trigger Airflow DAG `bio_pgta`, generate run-local PGT-A metadata config, and execute only the lightweight metadata target. Do not implement frontend, CNV, dry-run expansion, log API, or failure summary extraction.
+
+### Completed
+
+- Added `POST /api/runs/{analysis_id}/actions/submit`.
+- Restricted submit to `pipeline=pgta`, `status=created`, and `target=metadata`.
+- Triggered Airflow through the existing `AirflowClient`, with deterministic `dag_run_id=manual__<analysis_id>`.
+- Updated biodemo `analysis_run.status` to `submitted`, wrote `dag_run_id`, and recorded a `run_action`.
+- Added Airflow DAG `bio_pgta` with `validate_request -> prepare_pgta_config -> run_metadata -> collect_metadata_artifact`.
+- Added PGT-A metadata runner that reads `samples.selected.tsv`, writes run-local `config.yaml` and `config/pgta_metadata_config.json`, runs Snakemake from `/opt/pipelines/PGT_A`, and stores stdout/stderr plus `logs/run_metadata.tsv`.
+- Made created run workdirs/config dirs group-writable so Airflow UID `50000:0` can write metadata outputs.
+- Fixed an Airflow task variable shadowing bug that caused the first DAG smoke to fail after metadata generation.
+- Updated API, DAG, runbook, testing, PGT-A plan, task, current state, and handoff docs.
+
+### Changed files
+
+- `backend/app/main.py`
+- `backend/app/run_service.py`
+- `backend/tests/test_run_creation.py`
+- `backend/tests/test_run_submit.py`
+- `dags/bio_pgta.py`
+- `dags/pgta_metadata_runner.py`
+- `dags/tests/test_bio_pgta_dag.py`
+- `dags/tests/test_pgta_metadata_runner.py`
+- `docs/05_API_CONTRACT.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/12_TESTING_ACCEPTANCE.md`
+- `docs/18_PGTA_FENGXIAN_TEST_PLAN.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q tests/test_run_submit.py` before implementation | failed as expected | Submit endpoint did not exist yet, returned 404 |
+| `docker compose -f docker-compose.yaml run --rm --no-deps --entrypoint python airflow-scheduler -m unittest discover -s /opt/airflow/dags/tests -v` before implementation | failed as expected | `bio_pgta` and `pgta_metadata_runner` were not importable |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | Compose rendered with backend, Airflow, PGT-A read-only mounts |
+| `docker compose -f docker-compose.yaml build backend` on `fengxian` | success | Rebuilt backend image |
+| `docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q` on `fengxian` | success | `20 passed in 1.08s` |
+| Airflow DAG unittest via `--entrypoint python` on `fengxian` | success | `6 tests OK` after the task shadowing fix |
+| Airflow `py_compile` with `PYTHONPYCACHEPREFIX=/tmp/pycache` | success | Needed because mounted DAG directory is read-only for pycache writes |
+| Service startup on `fengxian` | success | Started postgres, redis, backend, airflow-api-server, airflow-scheduler, airflow-worker |
+| `curl /api/health`, `/api/health/db`, and Airflow `/health` | success | Backend DB and Airflow scheduler/metadatabase healthy |
+| `airflow dags list | grep bio_pgta` | success | `bio_pgta` listed and not paused |
+| Submit smoke for `PGTA_20260702_171200_A68C19` | Airflow failed | Metadata generated, then `collect_metadata_artifact` failed due PythonOperator variable shadowing |
+| Submit smoke for `PGTA_20260702_171533_9A85B1` | success | Airflow run `manual__PGTA_20260702_171533_9A85B1` ended `success` |
+| `find shared/runs/PGTA_20260702_171533_9A85B1 -maxdepth 4 -type f` | success | Found `config.yaml`, `config/pgta_metadata_config.json`, selected manifest, Snakemake logs, and `logs/run_metadata.tsv` |
+| `head -5 logs/run_metadata.tsv` | success | Metadata file exists; git fields show permission errors but task succeeded |
+| biodemo DB latest run query | success | `PGTA_20260702_171533_9A85B1|submitted|t|pgta` |
+
+### Tests
+
+Remote-only acceptance evidence on `fengxian`:
+
+- Backend test suite passed: `20 passed`.
+- Airflow DAG tests passed: `6 tests OK`.
+- Compose config and DAG py_compile passed.
+- `bio_pgta` appeared in Airflow and was unpaused.
+- Submit endpoint triggered `manual__PGTA_20260702_171533_9A85B1`.
+- Airflow DAG state was `success`.
+- `shared/runs/PGTA_20260702_171533_9A85B1/logs/run_metadata.tsv` exists.
+- biodemo DB updated the run to `submitted` and `dag_run_id` non-null.
+
+### Not run / why
+
+- Frontend was not implemented or tested; still later T057.
+- Backend log/artifact API and error summary extraction were not implemented; still T025/T062.
+- PGT-A dry-run target and invalid target failure smoke were not implemented; still T045/T084.
+- Airflow success/failed status is not yet written back to biodemo DB; current DB terminal state after submit is `submitted`.
+- No `docker compose down -v`, `docker system prune`, or `docker volume prune` was run.
+
+### Current git status
+
+Implementation commits were pushed on `codex/airflow/T027-T035-pgta-submit-metadata`; tested code commit is `9758c7a`. Final state-doc commit is expected before merging to `main`.
+
+### Risks
+
+- `run_metadata.tsv` currently records permission errors for `git_branch` and `git_commit` because the Airflow container environment cannot run the PGT-A metadata rule's git probe cleanly. The metadata target still succeeded; fix provenance separately if needed.
+- The first failed smoke run `PGTA_20260702_171200_A68C19` remains in Airflow as failure evidence.
+- Submit is intentionally not idempotent for already submitted runs; repeated submit returns validation error because status is no longer `created`.
+
+### Open questions
+
+- Whether to add an Airflow completion callback or polling worker so biodemo DB can move from `submitted` to `success`/`failed`.
+
+### Next recommended task
+
+Run T025/T062 next: implement log/artifact API and error summary extraction, then use that for dry-run/failure smoke and frontend run detail.
+
+### Rollback notes
+
+- Stop services with `docker compose -f docker-compose.yaml down`.
+- Revert repository changes with normal `git revert`.
+- Do not use `docker compose down -v`, `docker system prune`, `docker volume prune`, `git reset --hard`, or `git clean -fdx`.
+
 ## 2026-07-03 00:28 - Codex - T022/T024 PGT-A server-path project creation
 
 ### Goal

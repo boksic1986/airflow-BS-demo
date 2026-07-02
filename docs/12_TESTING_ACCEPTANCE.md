@@ -33,6 +33,7 @@ E2E smoke
 - `/api/input/scan` 拒绝白名单外路径。
 - `/api/runs` 用 selected samples 创建 `analysis_run` 和 `sample`。
 - `/api/runs` 生成 `samples.selected.tsv` 和 `request.json`。
+- `/api/runs/{analysis_id}/actions/submit` 只允许 `created` / `pgta` / `metadata`，并触发 Airflow client。
 - event receiver 幂等 upsert。
 - log API 防路径穿越。
 - reanalysis mode 生成正确 payload。
@@ -79,7 +80,10 @@ PGT-A v1:
   -> analysis_run.status = created
   -> sample.fq1/fq2 保存服务器路径
   -> 生成 samples.selected.tsv 和 request.json
-  -> 不触发 Airflow DAG
+  -> submit action 触发 Airflow bio_pgta
+  -> analysis_run.status = submitted, dag_run_id 非空
+  -> bio_pgta success
+  -> logs/run_metadata.tsv 存在
 ```
 
 完整 E2E 后续场景：

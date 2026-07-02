@@ -28,7 +28,7 @@ deploy user: jiucheng
 os: Ubuntu 18.04.6 LTS
 kernel: 4.15.0-213-generic
 docker: 20.10.21, API 1.41
-docker compose: not installed during read-only preflight
+docker compose: read-only preflight 时未安装；后续已安装用户级 Docker CLI plugin v2.24.7
 host ipv4: 192.168.1.211/24
 existing docker networks:
   - bridge: 172.17.0.0/16
@@ -208,15 +208,27 @@ PGT-A 流程目录和数据目录只读挂载。demo 输出只能写入：
 
 ## 6. 后续实现拆分
 
-| ID | Owner | Task | Acceptance |
-|---|---|---|---|
-| PGTA-001 | infra | 用户级 Compose v2 plugin 准入 | `docker compose version` 输出固定版本 |
-| PGTA-002 | infra | docker compose 基础服务与固定网络 | `docker compose config` 通过，网络为 `172.30.10.0/24` |
-| PGTA-003 | backend | 支持 PGT-A 服务器路径扫描、样本勾选和 run 记录 | `/api/input/scan` 返回 R1/R2 候选；`/api/runs` 创建 `created` pgta run 且不触发 DAG |
-| PGTA-004 | airflow | 新增 DAG `bio_pgta` | DAG import/check 通过 |
-| PGTA-005 | airflow/snakemake | pgta metadata runner | `logs/run_metadata.tsv` 生成 |
-| PGTA-006 | backend/frontend | log/artifact/error summary 展示 | 成功和失败 run 都能从页面定位日志 |
-| PGTA-007 | qa | Level 0-3 smoke 验收报告 | 验收报告记录命令、结果、风险 |
+| ID | Owner | Task | Acceptance | Status |
+|---|---|---|---|---|
+| PGTA-001 | infra | 用户级 Compose v2 plugin 准入 | `docker compose version` 输出固定版本 | done on fengxian |
+| PGTA-002 | infra | docker compose 基础服务与固定网络 | `docker compose config` 通过，网络为 `172.30.10.0/24` | done |
+| PGTA-003 | backend | 支持 PGT-A 服务器路径扫描、样本勾选和 run 记录 | `/api/input/scan` 返回 R1/R2 候选；`/api/runs` 创建 `created` pgta run 且不触发 DAG | done |
+| PGTA-004 | airflow | 新增 DAG `bio_pgta` | DAG import/check 通过 | done |
+| PGTA-005 | airflow/snakemake | pgta metadata runner | `logs/run_metadata.tsv` 生成 | metadata done; dry-run not included |
+| PGTA-006 | backend/frontend | log/artifact/error summary 展示 | 成功和失败 run 都能从页面定位日志 | todo |
+| PGTA-007 | qa | Level 0-3 smoke 验收报告 | 验收报告记录命令、结果、风险 | todo; Level 1 core metadata smoke passed |
+
+T027/T035 验证证据：
+
+```text
+fengxian run: PGTA_20260702_171533_9A85B1
+dag_id: bio_pgta
+dag_run_id: manual__PGTA_20260702_171533_9A85B1
+Airflow state: success
+artifact: shared/runs/PGTA_20260702_171533_9A85B1/logs/run_metadata.tsv
+```
+
+仍未完成的 Level 1 展示项：backend artifacts API、frontend run detail 和失败摘要展示。Level 2 dry-run、Level 3 failure smoke、Level 4 baseline_qc 仍按原计划后续执行。
 
 ## 7. Compose 安装计划
 

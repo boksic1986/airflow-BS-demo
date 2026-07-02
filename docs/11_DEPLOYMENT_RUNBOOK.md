@@ -307,9 +307,68 @@ shared/runs/<analysis_id>/config/samples.selected.tsv exists
 shared/runs/<analysis_id>/config/request.json exists
 ```
 
-后续 T027/T035 才触发 Airflow `bio_pgta`。
+后续使用 submit action 触发 Airflow `bio_pgta`。
 
-## 13. 查看日志
+## 13. PGT-A metadata submit smoke
+
+T027/T035 验收把已存在的 `created` PGT-A run 提交到 Airflow，只跑 metadata target，不跑 CNV、mapping、baseline QC 或 qsub。
+
+先确认配置、测试和 DAG import：
+
+```bash
+docker compose -f docker-compose.yaml config --quiet
+docker compose -f docker-compose.yaml build backend
+docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q
+docker compose -f docker-compose.yaml run --rm --no-deps --entrypoint env \
+  airflow-scheduler PYTHONPYCACHEPREFIX=/tmp/pycache \
+  python -m py_compile /opt/airflow/dags/bio_pgta.py /opt/airflow/dags/pgta_metadata_runner.py
+docker compose -f docker-compose.yaml run --rm --no-deps --entrypoint python \
+  airflow-scheduler -m unittest discover -s /opt/airflow/dags/tests -v
+```
+
+启动所需服务：
+
+```bash
+docker compose -f docker-compose.yaml up -d postgres redis
+docker compose -f docker-compose.yaml run --rm biodemo-db-init
+docker compose -f docker-compose.yaml up airflow-init
+docker compose -f docker-compose.yaml run --rm backend alembic upgrade head
+docker compose -f docker-compose.yaml up -d backend airflow-api-server airflow-scheduler airflow-worker
+```
+
+提交已有 `created` run：
+
+```bash
+analysis_id=<PGTA_CREATED_ANALYSIS_ID>
+curl -fsS -X POST \
+  "http://127.0.0.1:8000/api/runs/${analysis_id}/actions/submit"
+```
+
+验收 Airflow 和产物：
+
+```bash
+docker compose -f docker-compose.yaml exec -T airflow-scheduler \
+  airflow dags list | grep bio_pgta
+docker compose -f docker-compose.yaml exec -T airflow-scheduler \
+  airflow dags list-runs -d bio_pgta --output json
+find "shared/runs/${analysis_id}" -maxdepth 4 -type f | sort
+head -5 "shared/runs/${analysis_id}/logs/run_metadata.tsv"
+```
+
+biodemo DB 中该 run 应更新为 `submitted` 且 `dag_run_id` 非空。Airflow success/failed 状态回写到 biodemo DB 是后续任务，不属于本 smoke 的完成条件。
+
+已验证的 fengxian smoke：
+
+```text
+analysis_id: PGTA_20260702_171533_9A85B1
+dag_run_id: manual__PGTA_20260702_171533_9A85B1
+Airflow state: success
+metadata artifact: shared/runs/PGTA_20260702_171533_9A85B1/logs/run_metadata.tsv
+```
+
+已知边界：`run_metadata.tsv` 中 `git_branch` / `git_commit` 字段在当前 Airflow 容器内显示 git permission error，但 metadata target 和 DAG run 已成功；后续如需干净 provenance，可单独修正 PGT-A metadata rule 的 git 调用环境。
+
+## 14. 查看日志
 
 ```bash
 docker compose logs --tail=200 backend
@@ -323,7 +382,7 @@ Run 日志：
 find <SHARED_ROOT>/runs/<analysis_id>/logs -type f | sort
 ```
 
-## 14. 停止服务
+## 15. 停止服务
 
 安全停止：
 
@@ -339,7 +398,7 @@ docker compose down -v
 
 除非明确需要删除 volume 且已备份。
 
-## 15. 回滚
+## 16. 回滚
 
 ```bash
 git status
@@ -357,7 +416,7 @@ docker compose up -d --build
 
 DB migration 回滚必须先确认不会丢数据。
 
-## 16. 常见故障
+## 17. 常见故障
 
 ### Airflow scheduler 起不来
 
