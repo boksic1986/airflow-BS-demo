@@ -1,0 +1,171 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+import json
+import logging
+from pathlib import Path
+from typing import Any
+
+from snakemake_interface_logger_plugins.base import LogHandlerBase
+from snakemake_interface_logger_plugins.common import LogEvent
+from snakemake_interface_logger_plugins.settings import LogHandlerSettingsBase
+
+
+@dataclass
+class LogHandlerSettings(LogHandlerSettingsBase):
+    analysis_id: str = field(default="", metadata={"help": "airflow-demo analysis id."})
+    workdir: Path = field(default=Path("."), metadata={"help": "Run workdir."})
+    events_path: Path = field(
+        default=Path("logs/events/snakemake_events.jsonl"),
+        metadata={"help": "JSONL file where Snakemake events are written."},
+    )
+    backend_event_url: str = field(
+        default="",
+        metadata={"help": "Reserved backend event receiver URL for future use."},
+    )
+    post_timeout_seconds: float = field(
+        default=2.0,
+        metadata={"help": "Reserved backend POST timeout for future use."},
+    )
+
+
+class LogHandler(LogHandlerBase):
+    def __post_init__(self) -> None:
+        settings = self.settings or LogHandlerSettings()
+        self.analysis_id = str(settings.analysis_id or "")
+        self.workdir = Path(settings.workdir)
+        events_path = Path(settings.events_path)
+        if not events_path.is_absolute():
+            events_path = self.workdir / events_path
+        self.events_path = events_path
+        self.events_path.parent.mkdir(parents=True, exist_ok=True)
+        self.baseFilename = str(self.events_path)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        payload = self._record_to_payload(record)
+        with self.events_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=True, sort_keys=True) + "\n")
+
+    @property
+    def writes_to_stream(self) -> bool:
+        return False
+
+    @property
+    def writes_to_file(self) -> bool:
+        return True
+
+    @property
+    def has_filter(self) -> bool:
+        return False
+
+    @property
+    def has_formatter(self) -> bool:
+        return False
+
+    @property
+    def needs_rulegraph(self) -> bool:
+        return False
+
+    def _record_to_payload(self, record: logging.LogRecord) -> dict[str, Any]:
+        event = _event_name(getattr(record, "event", None))
+        wildcards = _extract_wildcards(record)
+        rule = _extract_rule(record)
+        return {
+            "analysis_id": self.analysis_id,
+            "event": event,
+            "status": _status_for_event(event),
+            "rule": rule,
+            "sample_id": _extract_sample_id(record, wildcards),
+            "wildcards": wildcards,
+            "snakemake_jobid": _string_or_none(_first_present(record, "job_id", "jobid", "snakemake_jobid")),
+            "qsub_jobid": _string_or_none(getattr(record, "qsub_jobid", None)),
+            "stdout_path": _string_or_none(getattr(record, "stdout_path", None)),
+            "stderr_path": _string_or_none(getattr(record, "stderr_path", None)),
+            "message": record.getMessage(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+def _event_name(event: Any) -> str:
+    if event is None:
+        return "log"
+    value = getattr(event, "value", None)
+    return str(value or event).lower()
+
+
+def _status_for_event(event: str) -> str:
+    if event == LogEvent.JOB_STARTED.value:
+        return "running"
+    if event == LogEvent.JOB_FINISHED.value:
+        return "success"
+    if event in {LogEvent.JOB_ERROR.value, LogEvent.GROUP_ERROR.value, LogEvent.ERROR.value}:
+        return "failed"
+    if event == LogEvent.WORKFLOW_STARTED.value:
+        return "started"
+    if event == LogEvent.PROGRESS.value:
+        return "progress"
+    return "info"
+
+
+def _extract_rule(record: logging.LogRecord) -> str | None:
+    value = _first_present(record, "rule", "rule_name")
+    if value:
+        return str(value)
+    job = getattr(record, "job", None)
+    if job is not None:
+        rule = getattr(job, "rule", None)
+        name = getattr(rule, "name", None)
+        return str(name or rule) if rule is not None else None
+    return None
+
+
+def _extract_wildcards(record: logging.LogRecord) -> dict[str, Any]:
+    wildcards = _first_present(record, "wildcards", "wildcards_dict")
+    job = getattr(record, "job", None)
+    if wildcards is None and job is not None:
+        wildcards = _first_present(job, "wildcards_dict", "wildcards")
+    return _mapping_from_object(wildcards)
+
+
+def _extract_sample_id(record: logging.LogRecord, wildcards: dict[str, Any]) -> str | None:
+    sample_id = _first_present(record, "sample_id", "sample")
+    if sample_id:
+        return str(sample_id)
+    for key in ("sample_id", "sample", "sample_name"):
+        if key in wildcards and wildcards[key] is not None:
+            return str(wildcards[key])
+    return None
+
+
+def _mapping_from_object(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return dict(value)
+    if hasattr(value, "_asdict"):
+        return dict(value._asdict())
+    if hasattr(value, "items"):
+        return dict(value.items())
+    data = {}
+    for key in dir(value):
+        if key.startswith("_"):
+            continue
+        item = getattr(value, key)
+        if not callable(item):
+            data[key] = item
+    return data
+
+
+def _first_present(obj: Any, *names: str) -> Any:
+    for name in names:
+        value = getattr(obj, name, None)
+        if value is not None:
+            return value
+    return None
+
+
+def _string_or_none(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
