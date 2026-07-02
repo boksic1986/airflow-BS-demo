@@ -54,6 +54,12 @@ subnet: 172.30.10.0/24
 gateway: 172.30.10.1
 ```
 
+Project-owned images must use explicit tags. Do not rely on implicit `latest`.
+
+```text
+backend image: airflow-demo/backend:0.1.0
+```
+
 ## 3. Frontend 规范
 
 - React + TypeScript。
@@ -112,6 +118,7 @@ shared/reports/<analysis_id>/snakemake_report.html
 | POSTGRES_IP | yes | 172.30.10.40 | fixed container IP |
 | REDIS_IP | yes | 172.30.10.50 | fixed container IP |
 | MAILHOG_IP | yes | 172.30.10.60 | fixed container IP |
+| BACKEND_IMAGE | yes | airflow-demo/backend:0.1.0 | explicit project image tag; avoid implicit latest |
 | AIRFLOW_BASE_URL | yes | http://airflow-api-server:8080 | 容器内地址 |
 | DATABASE_URL | yes | postgresql+psycopg://demo:***@postgres:5432/biodemo | 不提交真实密码 |
 | PGTA_PIPELINE_ROOT | PGT-A only | /home/jiucheng/pipelines/PGT_A | host read-only mount |

@@ -74,6 +74,7 @@ services:
         ipv4_address: ${MAILHOG_IP:-172.30.10.60}
 
   backend:
+    image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
     build:
       context: ./backend
     environment:

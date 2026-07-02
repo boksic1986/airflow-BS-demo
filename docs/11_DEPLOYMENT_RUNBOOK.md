@@ -118,6 +118,13 @@ cp .env.example .env
 
 ```bash
 docker compose config
+docker compose config --images
+```
+
+项目自有镜像必须显式带 tag，不能依赖隐式 `latest`。当前 backend 镜像名应为：
+
+```text
+airflow-demo/backend:0.1.0
 ```
 
 ## 7. 最小启动验收
