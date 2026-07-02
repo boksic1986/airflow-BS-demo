@@ -12,6 +12,7 @@ class BioPgtaDagTests(unittest.TestCase):
         dag = bio_pgta.dag
 
         self.assertEqual(dag.dag_id, "bio_pgta")
+        self.assertFalse(dag.is_paused_upon_creation)
         self.assertEqual(
             set(dag.task_ids),
             {"validate_request", "prepare_pgta_config", "run_metadata", "collect_metadata_artifact"},

@@ -45,6 +45,7 @@ with DAG(
     start_date=datetime(2026, 7, 1),
     schedule=None,
     catchup=False,
+    is_paused_upon_creation=False,
     tags=["airflow-demo", "pgta"],
 ) as dag:
     validate_request = PythonOperator(

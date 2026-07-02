@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import stat
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -76,6 +77,9 @@ def test_create_pgta_run_records_selected_paths_and_writes_manifest(tmp_path, mo
 
     manifest = shared_root / "runs" / payload["analysis_id"] / "config" / "samples.selected.tsv"
     request_json = shared_root / "runs" / payload["analysis_id"] / "config" / "request.json"
+    workdir = shared_root / "runs" / payload["analysis_id"]
+    assert stat.S_IMODE(workdir.stat().st_mode) & stat.S_IWGRP
+    assert stat.S_IMODE(manifest.parent.stat().st_mode) & stat.S_IWGRP
     assert manifest.read_text(encoding="utf-8").splitlines() == [
         "sample_id\tR1\tR2\tsource_dir",
         f"G1\t{r1}\t{r2}\t{source_dir.resolve()}",

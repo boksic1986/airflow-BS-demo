@@ -44,6 +44,8 @@ def create_pgta_run(
     workdir = shared_root / "runs" / analysis_id
     config_dir = workdir / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_airflow_writable(workdir)
+    _ensure_airflow_writable(config_dir)
 
     manifest_path = config_dir / "samples.selected.tsv"
     request_path = config_dir / "request.json"
@@ -192,6 +194,10 @@ def _validate_submit_run(run: AnalysisRun) -> None:
         raise ValueError("Run is missing sample_sheet_path.")
     if not run.workdir:
         raise ValueError("Run is missing workdir.")
+
+
+def _ensure_airflow_writable(path: Path) -> None:
+    path.chmod(0o775)
 
 
 def _dag_conf(run: AnalysisRun) -> dict:
