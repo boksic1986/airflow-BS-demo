@@ -36,6 +36,116 @@
 
 ## Records
 
+## 2026-07-03 00:28 - Codex - T022/T024 PGT-A server-path project creation
+
+### Goal
+
+Replace the old upload/sample-sheet plan with PGT-A server-path sample discovery: scan existing FASTQ paths under an allowlisted rawdata root, select samples, create a biodemo `analysis_run` and `sample` rows, and write a selected manifest. Do not trigger Airflow, write a DAG, run Snakemake, or build frontend pages.
+
+### Completed
+
+- Added backend `POST /api/input/scan` for `pipeline=pgta`, with `INPUT_SCAN_ROOTS` allowlist enforcement and R1/R2 FASTQ pairing.
+- Added JSON `POST /api/runs` for PGT-A `target=metadata`, creating `analysis_run.status=created`, `sample` rows, `samples.selected.tsv`, and `request.json`.
+- Added `GET /api/runs`, `GET /api/runs/{analysis_id}`, and `GET /api/runs/{analysis_id}/samples`.
+- Kept `dag_run_id=null`; no Airflow DAG run is triggered in this phase.
+- Added backend read-only PGT-A data mount and `INPUT_SCAN_ROOTS` env wiring.
+- Updated API, architecture, engineering, frontend, DAG, testing, runbook, task, and state docs to use server-path scan instead of sample upload.
+- Tightened `.gitignore` so generated `shared/runs/*`, `shared/uploads/*`, `shared/reports/*`, and `shared/logs/*` contents stay untracked while `.gitkeep` remains tracked.
+
+### Changed files
+
+- `.env.example`
+- `.gitignore`
+- `backend/app/config.py`
+- `backend/app/input_scanner.py`
+- `backend/app/main.py`
+- `backend/app/models.py`
+- `backend/app/run_service.py`
+- `backend/tests/test_input_scanner.py`
+- `backend/tests/test_input_scan_api.py`
+- `backend/tests/test_run_creation.py`
+- `docker-compose.yaml`
+- `docs/01_SYSTEM_ARCHITECTURE.md`
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/03_TASK_DESIGN.md`
+- `docs/04_DATABASE_SCHEMA.md`
+- `docs/05_API_CONTRACT.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/12_TESTING_ACCEPTANCE.md`
+- `docs/15_MULTI_AGENT_BOUNDARIES.md`
+- `docs/17_DEMO_SCRIPT.md`
+- `docs/18_PGTA_FENGXIAN_TEST_PLAN.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `docker compose run --rm --no-deps backend pytest -q` on `fengxian` before implementation build | failed as expected | `ModuleNotFoundError: No module named 'app.input_scanner'` |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | Rendered backend scan env and PGT-A read-only data mount |
+| `docker compose -f docker-compose.yaml build backend` on `fengxian` | success | Rebuilt `airflow-demo/backend:0.1.0` |
+| `docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q` on `fengxian` | success | `17 passed in 0.97s` |
+| `docker compose -f docker-compose.yaml up -d postgres` on `fengxian` | success | Postgres healthy |
+| `docker compose -f docker-compose.yaml run --rm biodemo-db-init` on `fengxian` | success | Repeat run altered/granted existing role/database |
+| `docker compose -f docker-compose.yaml run --rm backend alembic upgrade head` on `fengxian` | success | No pending migration output, schema already at head |
+| `docker compose -f docker-compose.yaml up -d backend` on `fengxian` | success | Backend healthy |
+| `curl http://127.0.0.1:8000/api/health` and `/api/health/db` | success | Both returned `{"status":"ok"}` |
+| API smoke script for `/api/input/scan` and `/api/runs` | API success, shell exit nonzero | API returned scan 5 candidates, `truncated=true`, create 201 for `PGTA_20260702_162531_74CE91`; PowerShell heredoc CRLF caused trailing `NameError: name 'PY' is not defined` after success |
+| `curl /api/runs/PGTA_20260702_162531_74CE91` | success | status `created`, `dag_run_id=null`, sample_count 2, input_mode `server_path_scan` |
+| `curl /api/runs/PGTA_20260702_162531_74CE91/samples` | success | 2 samples, status `pending`, qc_status `unknown`, fq1/fq2 paths present |
+| `psql` latest run query | success | `PGTA_20260702_162531_74CE91|created|t|pgta` |
+| `wc -l samples.selected.tsv` and `head -n 1` | success | 3 lines total; header `sample_id R1 R2 source_dir` |
+| `test -f request.json` | success | request file exists |
+| `docker compose -f docker-compose.yaml ps` before down | success | Only postgres and backend were running; no Airflow services |
+| `docker compose -f docker-compose.yaml down` | success | Safe stop only; no `-v` or prune |
+
+### Tests
+
+Remote-only acceptance evidence on `fengxian`:
+
+- Dockerized backend tests passed: `17 passed`.
+- Compose config passed.
+- Backend health and DB health passed.
+- `/api/input/scan` found candidates under `/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28`.
+- `/api/runs` created `PGTA_20260702_162531_74CE91` with 2 selected samples, status `created`, and `dag_run_id=null`.
+- DB and generated files were verified; no Airflow containers were started for the smoke.
+
+### Not run / why
+
+- Airflow trigger and `bio_pgta` DAG were not run; this remains T027/T035.
+- Snakemake and PGT-A metadata/dry-run/failure smoke were not run; this remains T045/T084.
+- Frontend UI was not implemented or tested; this remains T051/T052/T057.
+- Local pytest/Docker/Snakemake tests were not run by project rule; local checks were limited to Git, diff, and docs keyword checks.
+
+### Current git status
+
+Work is on `codex/backend/T022-T024-server-path-runs`. Implementation commit `9928b9c` passed remote runtime verification; this handoff/state-doc update plus `.gitignore` tightening is expected as the final branch commit before merge to `main`.
+
+### Risks
+
+- The scan algorithm is intentionally conservative and pairs direct-child FASTQ files by R1/R2 naming; unusual PGT-A layouts may need another parser rule after real examples are reviewed.
+- Smoke created a persistent biodemo `created` run and shared output under `shared/runs/PGTA_20260702_162531_74CE91`; it is ignored by Git and can be left as smoke evidence.
+- `target=metadata` is the only supported create-run target before DAG integration.
+
+### Open questions
+
+- Whether T027 should trigger Airflow from an existing `created` run only, or also allow create-and-trigger in one API call after the safer two-step path is stable.
+
+### Next recommended task
+
+Run T027/T035: trigger Airflow `bio_pgta` from an existing `created` run, generate PGT-A config from `samples.selected.tsv`, and keep execution limited to metadata target.
+
+### Rollback notes
+
+- Stop services with `docker compose -f docker-compose.yaml down`.
+- Revert repo changes with normal `git revert`.
+- Do not use `docker compose down -v`, `docker system prune`, `docker volume prune`, `git reset --hard`, or `git clean -fdx`.
+
 ## 2026-07-02 23:49 - Codex - T021/T023 biodemo DB and Airflow client foundation
 
 ### Goal

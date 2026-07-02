@@ -4,12 +4,16 @@
 shared/*
 !shared/.gitkeep
 !shared/uploads/
+shared/uploads/*
 !shared/uploads/.gitkeep
 !shared/runs/
+shared/runs/*
 !shared/runs/.gitkeep
 !shared/reports/
+shared/reports/*
 !shared/reports/.gitkeep
 !shared/logs/
+shared/logs/*
 !shared/logs/.gitkeep
 data/
 *.fastq.gz

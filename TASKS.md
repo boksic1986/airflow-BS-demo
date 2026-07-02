@@ -29,12 +29,12 @@
 |---|---|---|---|---|---|---|
 | T020 | FastAPI 项目骨架 | backend | T010 | backend/app | /health 返回 ok | done |
 | T021 | biodemo DB models/migrations | backend | T020 | analysis_run/sample/rule_event/qc/artifact | migration 可重复执行 | done |
-| T022 | 文件上传和样本表解析 | backend | T021 | upload API/parser | csv/tsv/xlsx mock 样本可解析 | todo |
+| T022 | PGT-A 服务器路径样本发现和项目创建 | backend | T021 | `/api/input/scan`, JSON `/api/runs`, selected manifest | 白名单 rawdata_root 可扫描 R1/R2；创建 `created` run、sample rows、`samples.selected.tsv` 和 `request.json`；不触发 Airflow | done |
 | T023 | Airflow API client | backend | T020,T011 | trigger/list/get dag run | mock 或真实 API 测试通过 | done |
-| T024 | run 状态 API | backend | T021 | /runs endpoints | 可返回列表和 detail | todo |
+| T024 | run 状态 API | backend | T021 | `/api/runs` list/detail/samples endpoints | 可返回 pgta run 列表、detail 和 sample fq1/fq2 路径 | done |
 | T025 | logs/artifacts API | backend | T021 | tail log/artifact link | 缺失文件返回明确错误 | todo |
 | T026 | Snakemake event receiver | backend | T021 | /events/snakemake | 可幂等 upsert rule event | todo |
-| T027 | PGT-A `pgta` pipeline API 支持 | backend | T021,T023,T004 | `/api/runs` 支持 pipeline=pgta 和 target 参数 | 可提交 metadata/dryrun/invalid target 测试 run | todo |
+| T027 | PGT-A `pgta` Airflow trigger API 支持 | backend | T021,T022,T023,T004 | created run -> Airflow `bio_pgta` trigger | 可把已创建的 `pgta` metadata run 提交为 DAG run；dryrun/invalid target 后续按 T035/T045/T084 验收 | todo |
 
 ## P3 Airflow DAG
 
@@ -63,7 +63,7 @@
 | ID | Task | Owner agent | Dependencies | Deliverables | Acceptance | Status |
 |---|---|---|---|---|---|---|
 | T050 | React 项目骨架 | frontend | T020 | frontend/src | 首页可访问 | todo |
-| T051 | Submit Analysis 页面 | frontend | T022,T023 | upload/form UI | 提交后生成 run | todo |
+| T051 | Submit Analysis 页面 | frontend | T022,T023 | PGT-A server-path form UI | 填写 rawdata_root、扫描候选样本、勾选后创建 run | todo |
 | T052 | Runs Dashboard | frontend | T024 | run list/status cards | 可筛选 pipeline/status | todo |
 | T053 | Run Detail 页面 | frontend | T024,T026 | overview/airflow/snakemake tabs | 展示 rule 状态 | todo |
 | T054 | QC 面板 | frontend | T060 | QC table/MultiQC link | pass/warn/fail 可见 | todo |
