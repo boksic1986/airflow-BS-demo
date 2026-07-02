@@ -1,6 +1,6 @@
-{
-    "created_at":  "2026-07-03T02:16:40+08:00",
-    "file_count":  85,
+﻿{
+    "created_at":  "2026-07-03T07:57:17+08:00",
+    "file_count":  92,
     "files":  [
                   ".agents/skills/airflow-dag-dev/SKILL.md",
                   ".agents/skills/airflow-demo-planning/SKILL.md",
@@ -40,11 +40,18 @@
                   "backend/tests/test_run_diagnostics.py",
                   "backend/tests/test_run_submit.py",
                   "CURRENT_STATE.md",
+                  "dags/.airflowignore",
                   "dags/.gitkeep",
                   "dags/bio_pgta.py",
+                  "dags/bio_pgta_airflow.py",
+                  "dags/pgta_airflow_runner.py",
                   "dags/pgta_metadata_runner.py",
+                  "dags/snakemake_logger_plugin_airflow_demo/__init__.py",
+                  "dags/tests/test_bio_pgta_airflow_dag.py",
                   "dags/tests/test_bio_pgta_dag.py",
+                  "dags/tests/test_pgta_airflow_runner.py",
                   "dags/tests/test_pgta_metadata_runner.py",
+                  "dags/tests/test_snakemake_logger_plugin.py",
                   "docker-compose.yaml",
                   "docs/00_PROJECT_BRIEF.md",
                   "docs/01_SYSTEM_ARCHITECTURE.md",

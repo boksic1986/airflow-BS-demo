@@ -74,6 +74,9 @@ airflow-demo/backend:0.1.0
 system_python: /usr/bin/python3, Python 3.6.9
 pgta_python: /biosoftware/miniconda/envs/snakemake_env/bin/python, Python 3.12.2
 pgta_snakemake: /biosoftware/miniconda/envs/snakemake_env/bin/snakemake, Snakemake 8.5.4
+pgta_snakemake9: /biosoftware/miniconda/envs/snakemake9_env/bin/snakemake, Snakemake 9.23.1
+pgta_snakemake9_python: /biosoftware/miniconda/envs/snakemake9_env/bin/python
+pgta_snakemake9_logger_interface: snakemake_interface_logger_plugins importable; `--logger` and airflow-demo plugin args verified on 2026-07-03
 pip: <TO_BE_FILLED>
 conda_or_mamba: miniconda under /biosoftware/miniconda
 node: <TO_BE_FILLED>
@@ -89,6 +92,7 @@ airflow_base_url: planned http://airflow-api-server:8080 inside Docker network
 airflow_host_port: 12958
 airflow_admin_user: admin
 planned_pgta_dag_id: bio_pgta
+planned_pgta_airflow_only_dag_id: bio_pgta_airflow
 ```
 
 ## 6. qsub/SGE/PBS

@@ -139,6 +139,8 @@ PGT-A v1 样本发现只允许扫描白名单路径。`fengxian` 默认：
 PGTA_DATA_ROOT=/data/project/CNV/PGT-A
 PGTA_CONTAINER_DATA_ROOT=/data/project/CNV/PGT-A
 INPUT_SCAN_ROOTS=/data/project/CNV/PGT-A/rawdata
+PGTA_SNAKEMAKE9_BIN=/biosoftware/miniconda/envs/snakemake9_env/bin/snakemake
+AIRFLOW_DAGS_ROOT=/opt/airflow/dags
 ```
 
 backend 只读挂载 PGT-A 数据根目录，不上传或复制 5-6G FASTQ。
@@ -423,7 +425,64 @@ cat /tmp/missing-log.json
 
 期望 HTTP 404，错误码为 `LOG_NOT_FOUND`。
 
-## 15. 查看日志
+## 15. PGT-A Airflow-only Snakemake 9 logger smoke
+
+该 smoke 不走 FastAPI，不写 biodemo DB，只验证 Airflow UI/CLI 直接触发 PGT-A metadata，并通过 Snakemake 9 logger plugin 在 Airflow task log/XCom 中展示状态。
+
+前置检查：
+
+```bash
+docker compose -f docker-compose.yaml config --quiet
+docker compose -f docker-compose.yaml run --rm --no-deps --entrypoint /biosoftware/miniconda/envs/snakemake9_env/bin/python \
+  airflow-scheduler /opt/airflow/dags/tests/test_snakemake_logger_plugin.py -v
+PYTHONPATH=/home/jiucheng/project/airflow-demo/dags \
+  /biosoftware/miniconda/envs/snakemake9_env/bin/snakemake --help | grep -- --logger-airflow-demo-analysis-id
+```
+
+Airflow import 检查：
+
+```bash
+docker compose -f docker-compose.yaml run --rm airflow-scheduler airflow dags list-import-errors
+docker compose -f docker-compose.yaml run --rm airflow-scheduler airflow dags list | grep bio_pgta_airflow
+```
+
+手工创建 manifest 后触发：
+
+```bash
+analysis_id=PGTA_AIRFLOW_<YYYYMMDD_HHMMSS>
+mkdir -p "shared/runs/${analysis_id}/config"
+# 写入 shared/runs/${analysis_id}/config/samples.selected.tsv
+chmod -R a+rwX "shared/runs/${analysis_id}"
+docker compose -f docker-compose.yaml exec -T airflow-scheduler \
+  airflow dags trigger \
+  --run-id "manual__${analysis_id}" \
+  --conf "$(cat /tmp/${analysis_id}.json)" \
+  bio_pgta_airflow
+```
+
+验收：
+
+```text
+Airflow dag_run state = success
+shared/runs/<analysis_id>/logs/run_metadata.tsv exists
+shared/runs/<analysis_id>/logs/events/snakemake_events.jsonl exists and is non-empty
+shared/runs/<analysis_id>/logs/events/snakemake_rule_summary.tsv exists and is non-empty
+collect_snakemake_events task log includes event count and status counts
+collect_snakemake_events XCom includes snakemake_event_summary
+```
+
+已验证的 fengxian smoke：
+
+```text
+analysis_id: PGTA_AIRFLOW_20260703_074844
+dag_run_id: manual__PGTA_AIRFLOW_20260703_074844
+Airflow state: success
+run_metadata.tsv: 11 lines
+snakemake_events.jsonl: 22 lines
+XCom status_counts: {'info': 15, 'progress': 2, 'running': 2, 'started': 1, 'success': 2}
+```
+
+## 16. 查看日志
 
 ```bash
 docker compose logs --tail=200 backend
@@ -437,7 +496,7 @@ Run 日志：
 find <SHARED_ROOT>/runs/<analysis_id>/logs -type f | sort
 ```
 
-## 16. 停止服务
+## 17. 停止服务
 
 安全停止：
 
@@ -453,7 +512,7 @@ docker compose down -v
 
 除非明确需要删除 volume 且已备份。
 
-## 17. 回滚
+## 18. 回滚
 
 ```bash
 git status
@@ -471,7 +530,7 @@ docker compose up -d --build
 
 DB migration 回滚必须先确认不会丢数据。
 
-## 18. 常见故障
+## 19. 常见故障
 
 ### Airflow scheduler 起不来
 

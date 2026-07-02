@@ -144,6 +144,40 @@ workdir/logs/events/snakemake_events.jsonl
 
 后续 `collect_qc` 或 recovery task 可以补导入。
 
+### PGT-A Snakemake 9 logger plugin
+
+PGT-A Airflow-only DAG 使用仓库内 Python 包 `snakemake_logger_plugin_airflow_demo`，通过 `PYTHONPATH=/opt/airflow/dags` 暴露给 Snakemake 9，不安装进 `/biosoftware/miniconda/envs/snakemake9_env`，也不修改 PGT-A 流程目录。
+
+CLI 约定：
+
+```bash
+snakemake --logger airflow-demo \
+  --logger-airflow-demo-analysis-id <analysis_id> \
+  --logger-airflow-demo-workdir <workdir> \
+  --logger-airflow-demo-events-path <workdir>/logs/events/snakemake_events.jsonl
+```
+
+第一版只写 JSONL，不 POST backend。`backend_event_url` 和 `post_timeout_seconds` 保留为 T026/T043 后续接入钩子。
+
+JSONL 事件字段：
+
+```text
+analysis_id
+event
+status
+rule
+sample_id
+wildcards
+snakemake_jobid
+qsub_jobid
+stdout_path
+stderr_path
+message
+timestamp
+```
+
+Airflow 后置 task 会把 JSONL 汇总成 `snakemake_rule_summary.tsv` 并写入 task log/XCom。
+
 ## 10. 重分析策略
 
 ### resume

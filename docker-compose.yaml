@@ -17,8 +17,10 @@ x-airflow-common: &airflow-common
     AIRFLOW__SMTP__SMTP_PORT: ${SMTP_PORT:-1025}
     AIRFLOW__SMTP__SMTP_MAIL_FROM: ${MAIL_FROM:-airflow-demo@example.com}
     CONTAINER_SHARED_ROOT: ${CONTAINER_SHARED_ROOT:-/data/airflow-demo}
+    AIRFLOW_DAGS_ROOT: ${AIRFLOW_DAGS_ROOT:-/opt/airflow/dags}
     PGTA_CONTAINER_ROOT: ${PGTA_CONTAINER_ROOT:-/opt/pipelines/PGT_A}
     PGTA_CONTAINER_DATA_ROOT: ${PGTA_CONTAINER_DATA_ROOT:-/data/project/CNV/PGT-A}
+    PGTA_SNAKEMAKE9_BIN: ${PGTA_SNAKEMAKE9_BIN:-/biosoftware/miniconda/envs/snakemake9_env/bin/snakemake}
   volumes:
     - ./dags:/opt/airflow/dags:ro
     - ./shared:/data/airflow-demo

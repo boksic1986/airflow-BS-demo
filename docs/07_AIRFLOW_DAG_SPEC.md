@@ -8,6 +8,7 @@
 | bio_nipt_qsub | NIPT | Snakemake/wrapper + qsub | 第二阶段 |
 | bio_nipt_docker | NIPT Docker | docker runner | 第二阶段 |
 | bio_pgta | PGT-A | Snakemake direct in Airflow worker | v1 只跑 metadata target，不使用 qsub；dry-run 后续扩展 |
+| bio_pgta_airflow | PGT-A | Snakemake 9 direct in Airflow worker | Airflow-only metadata DAG，使用 repo-local logger plugin 写 JSONL 并在 Airflow log/XCom 展示状态 |
 
 ## 2. 通用 DAG run conf
 
@@ -258,3 +259,52 @@ shared/runs/<analysis_id>/logs/snakemake.stderr.log
 - backend 只把 run 更新到 `submitted`，还没有 Airflow success/failed 状态回写。
 - backend artifact/log API 尚未实现。
 - dry-run、非法 target failure smoke 和前端展示仍在后续任务中。
+
+## 8. `bio_pgta_airflow` Airflow-only logger v1
+
+`bio_pgta_airflow` 用于验证 PGT-A 在 Snakemake 9.23.1 下通过 logger plugin 接入 Airflow UI。它不走 FastAPI，不写 biodemo DB，也不替代 `bio_pgta`。
+
+DAG run conf 第一版只支持已有 manifest 路径：
+
+```json
+{
+  "analysis_id": "PGTA_AIRFLOW_20260703_074844",
+  "workdir": "/data/airflow-demo/runs/PGTA_AIRFLOW_20260703_074844",
+  "sample_sheet_path": "/data/airflow-demo/runs/PGTA_AIRFLOW_20260703_074844/config/samples.selected.tsv",
+  "target": "metadata",
+  "email_to": null
+}
+```
+
+Task graph:
+
+```text
+validate_request
+  -> prepare_pgta_config
+  -> run_snakemake9_with_logger
+  -> collect_snakemake_events
+  -> collect_metadata_artifact
+```
+
+`run_snakemake9_with_logger` 调用：
+
+```bash
+/biosoftware/miniconda/envs/snakemake9_env/bin/snakemake \
+  --snakefile /opt/pipelines/PGT_A/Snakefile \
+  --cores 1 \
+  --printshellcmds \
+  --show-failed-logs \
+  --logger airflow-demo \
+  --logger-airflow-demo-analysis-id <analysis_id> \
+  --logger-airflow-demo-workdir <workdir> \
+  --logger-airflow-demo-events-path <workdir>/logs/events/snakemake_events.jsonl
+```
+
+`collect_snakemake_events` 读取 JSONL，生成：
+
+```text
+workdir/logs/events/snakemake_events.jsonl
+workdir/logs/events/snakemake_rule_summary.tsv
+```
+
+Airflow 网页第一版通过 task log 和 XCom 查看状态汇总；不实现自定义 Airflow Web 插件。

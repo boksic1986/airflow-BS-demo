@@ -75,6 +75,8 @@ nipt:
 | rule stdout | workdir/logs/rules/...stdout.log | rule 自身输出 |
 | rule stderr | workdir/logs/rules/...stderr.log | rule 自身错误 |
 | events jsonl | workdir/logs/events/*.jsonl | backend 不可用 fallback |
+| PGT-A Snakemake 9 events | workdir/logs/events/snakemake_events.jsonl | Airflow-only logger plugin 事件 |
+| PGT-A rule summary | workdir/logs/events/snakemake_rule_summary.tsv | Airflow task log/XCom 的 rule 状态汇总 |
 
 ## 6. Error summary 提取
 
@@ -152,3 +154,9 @@ snakemake --report shared/reports/<analysis_id>/snakemake_report.html
 - `GET /api/runs/{analysis_id}/logs?stream=stdout|stderr|metadata` 可读取固定 metadata run 文件。
 - `GET /api/runs/{analysis_id}/artifacts` 可动态发现 metadata、stdout/stderr 和 config 产物。
 - `POST /api/runs/{analysis_id}/actions/sync-airflow` 可把 Airflow success/failed 同步到 biodemo，并在 failed 时写入 `error_summary`。
+
+已完成的 PGT-A Airflow-only logger 验收：
+
+- `bio_pgta_airflow` 可用 Snakemake 9.23.1 的 `--logger airflow-demo` 执行 metadata target。
+- repo-local logger plugin 写入 `logs/events/snakemake_events.jsonl`。
+- Airflow `collect_snakemake_events` task 写入 `logs/events/snakemake_rule_summary.tsv`，并在 task log 与 XCom 中展示 event count、status counts 和 failed jobs。

@@ -74,7 +74,8 @@ backend image: airflow-demo/backend:0.1.0
 ## 4. Airflow 规范
 
 - DAG 文件放 `dags/`。
-- 每个 pipeline 一个 DAG：`bio_wes_qsub`、`bio_nipt_qsub`、`bio_nipt_docker`、`bio_pgta`。
+- 每个 pipeline 一个主 DAG：`bio_wes_qsub`、`bio_nipt_qsub`、`bio_nipt_docker`、`bio_pgta`。
+- PGT-A 另有 Airflow-only 验证 DAG `bio_pgta_airflow`，用于从 Airflow UI/CLI 直接读取 manifest 并验证 Snakemake 9 logger plugin，不替代后端触发的 `bio_pgta` 闭环。
 - DAG task 数量保持项目级，不按 Snakemake rule 拆分。
 - DAG run conf 必须包含：`analysis_id`、`pipeline`、`mode`、`sample_sheet_path`、`workdir`、`email_to`、`params`。
 - 对 PGT-A，`sample_sheet_path` 指向 backend 生成的 `runs/<analysis_id>/config/samples.selected.tsv`，不是上传文件。
@@ -132,6 +133,7 @@ shared/reports/<analysis_id>/snakemake_report.html
 | AIRFLOW_ADMIN_USERNAME | yes | admin | Airflow init user; no password in Git |
 | AIRFLOW_ADMIN_PASSWORD | yes | <SECRET_FROM_ENV> | only in untracked `.env` |
 | AIRFLOW_ADMIN_EMAIL | yes | airflow-demo@example.com | demo Airflow admin email |
+| AIRFLOW_DAGS_ROOT | PGT-A logger only | /opt/airflow/dags | Snakemake 9 subprocess `PYTHONPATH` for repo-local logger plugin |
 | BIODEMO_DB | yes | biodemo | 业务数据库名 |
 | BIODEMO_USER | yes | biodemo | 业务数据库用户 |
 | BIODEMO_PASSWORD | yes | <SECRET_FROM_ENV> | only in untracked `.env` |
@@ -139,6 +141,7 @@ shared/reports/<analysis_id>/snakemake_report.html
 | PGTA_PIPELINE_ROOT | PGT-A only | /home/jiucheng/pipelines/PGT_A | host read-only mount |
 | PGTA_CONTAINER_ROOT | PGT-A only | /opt/pipelines/PGT_A | container read-only mount target |
 | BIOSOFTWARE_ROOT | PGT-A only | /biosoftware | host read-only mount |
+| PGTA_SNAKEMAKE9_BIN | PGT-A logger only | /biosoftware/miniconda/envs/snakemake9_env/bin/snakemake | Snakemake 9 executable used by `bio_pgta_airflow` |
 | PGTA_DATA_ROOT | PGT-A only | /data/project/CNV/PGT-A | host read-only mount |
 | PGTA_CONTAINER_DATA_ROOT | PGT-A only | /data/project/CNV/PGT-A | container read-only mount target |
 | INPUT_SCAN_ROOTS | PGT-A only | /data/project/CNV/PGT-A/rawdata | comma-separated backend allowlist for server-path scan |

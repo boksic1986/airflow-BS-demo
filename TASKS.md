@@ -46,6 +46,7 @@
 | T033 | bio_nipt_docker DAG 骨架 | airflow | T030 | dags/bio_nipt_docker.py | dry run/mock run 成功 | todo |
 | T034 | email notify task | airflow/backend | T030,T012 | success/fail notify | MailHog 收到邮件 | todo |
 | T035 | bio_pgta DAG 骨架 | airflow | T030,T027,T004 | dags/bio_pgta.py, pgta metadata runner | metadata target real-light run 成功，不使用 qsub；`logs/run_metadata.tsv` 生成 | done |
+| T036 | PGT-A Airflow-only Snakemake 9 logger DAG | airflow/snakemake | T035,T045 | `bio_pgta_airflow`, repo-local logger plugin | Airflow-only manifest run 使用 Snakemake 9.23.1 `--logger airflow-demo` 成功；生成 events JSONL、summary TSV，并在 Airflow task log/XCom 展示状态 | done |
 
 ## P4 Snakemake/qsub 接入
 
@@ -56,7 +57,7 @@
 | T042 | qsub profile | snakemake | T041 | profiles/qsub/config.yaml | demo 限额生效 | todo |
 | T043 | rule event logger | snakemake/backend | T026,T040 | logger/POST events | 前端/DB 可见 rule 状态 | todo |
 | T044 | resume/rerun 策略 | snakemake/airflow | T031,T040 | mode -> snakemake flags | 不默认 forceall | todo |
-| T045 | PGT-A Snakemake runner | snakemake/airflow | T035,T004 | pgta config 生成和 metadata/dry-run runner | metadata runner 已随 T035 通过；dry-run runner 仍待实现；输出只写 shared/runs/<analysis_id>，PGT_A 目录只读 | todo |
+| T045 | PGT-A Snakemake runner | snakemake/airflow | T035,T004 | pgta config 生成和 metadata/dry-run runner | metadata runner 已随 T035 通过；Airflow-only Snakemake 9 logger 已随 T036 通过；dry-run runner 仍待实现；输出只写 shared/runs/<analysis_id>，PGT_A 目录只读 | todo |
 
 ## P5 Frontend
 

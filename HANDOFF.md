@@ -36,6 +36,110 @@
 
 ## Records
 
+## 2026-07-03 07:56 - Codex - T036 PGT-A Airflow-only Snakemake 9 logger DAG
+
+### Goal
+
+Create an independent PGT-A Airflow-only metadata DAG using Snakemake 9.23.1 and a repo-local logger plugin, without changing the existing backend-triggered `bio_pgta` path or modifying PGT-A production code/environments.
+
+### Completed
+
+- Added DAG `bio_pgta_airflow` with `validate_request -> prepare_pgta_config -> run_snakemake9_with_logger -> collect_snakemake_events -> collect_metadata_artifact`.
+- Added `pgta_airflow_runner.py` for manifest-only Airflow conf validation, PGT-A config generation, Snakemake 9 invocation, event JSONL parsing, summary TSV generation, and Airflow log/XCom summary.
+- Added repo-local Snakemake logger plugin package `snakemake_logger_plugin_airflow_demo`.
+- Added `.airflowignore` so Airflow does not parse DAG test files and create duplicate DAG IDs.
+- Added tests for the new DAG, runner, and Snakemake 9 logger plugin.
+- Added env knobs `PGTA_SNAKEMAKE9_BIN` and `AIRFLOW_DAGS_ROOT`.
+- Updated engineering, DAG, Snakemake, logging, runbook, PGT-A plan, task, state, and manifest docs.
+
+### Changed files
+
+- `.env.example`
+- `docker-compose.yaml`
+- `dags/.airflowignore`
+- `dags/bio_pgta_airflow.py`
+- `dags/pgta_airflow_runner.py`
+- `dags/snakemake_logger_plugin_airflow_demo/__init__.py`
+- `dags/tests/test_bio_pgta_airflow_dag.py`
+- `dags/tests/test_pgta_airflow_runner.py`
+- `dags/tests/test_snakemake_logger_plugin.py`
+- `SERVER_INFO.md`
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/08_SNAKEMAKE_QSUB_INTEGRATION.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/18_PGTA_FENGXIAN_TEST_PLAN.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| Airflow unittest before implementation on `fengxian` | failed as expected | Missing `bio_pgta_airflow` and `pgta_airflow_runner` |
+| Snakemake 9 plugin test before implementation on `fengxian` | failed as expected | Missing `snakemake_logger_plugin_airflow_demo` |
+| Airflow unittest after implementation | success | `13 tests OK`, `2 skipped` in Airflow Python because Snakemake 9 logger interface is not installed there |
+| Snakemake 9 plugin unittest | success | `2 tests OK` with `/biosoftware/miniconda/envs/snakemake9_env/bin/python` |
+| Snakemake 9 CLI logger help check | success | `--logger-airflow-demo-*` args discovered with `PYTHONPATH` |
+| `docker compose -f docker-compose.yaml config --quiet` | success | Compose renders with new env vars |
+| `airflow dags list-import-errors` | success | `No data found` after adding `dags/.airflowignore` |
+| `airflow dags list | grep bio_pgta_airflow` | success | DAG listed |
+| Airflow-only smoke run | success | `manual__PGTA_AIRFLOW_20260703_074844` ended success |
+| artifact checks | success | `run_metadata.tsv`, `snakemake_events.jsonl`, and `snakemake_rule_summary.tsv` exist and are non-empty |
+| XCom query | success | `snakemake_event_summary` contained `event_count=22`, status counts, and no failed jobs |
+
+### Tests
+
+Remote-only acceptance evidence on `fengxian`:
+
+- DAG/runner unit tests passed in Airflow container.
+- Logger plugin tests passed under Snakemake 9 Python.
+- Snakemake 9 CLI discovered the repo-local plugin settings via `PYTHONPATH`.
+- `bio_pgta_airflow` appeared in Airflow with no import errors.
+- Real Airflow-only metadata smoke succeeded:
+  - `analysis_id=PGTA_AIRFLOW_20260703_074844`
+  - `dag_run_id=manual__PGTA_AIRFLOW_20260703_074844`
+  - `run_metadata.tsv`: 11 lines
+  - `snakemake_events.jsonl`: 22 lines
+  - Airflow task log printed event count and status counts
+  - XCom contained `snakemake_event_summary`
+
+### Not run / why
+
+- No frontend was implemented or tested.
+- No FastAPI event receiver was implemented; T026 remains todo.
+- No biodemo `snakemake_rule_event` writes were implemented; T043 remains todo.
+- No PGT-A dry-run/CNV/baseline_qc target was run.
+- No custom Airflow Web plugin was implemented; first UI surface is Airflow task log + XCom.
+
+### Current git status
+
+Work is on branch `codex/airflow/T086-pgta-airflow-logger`. Runtime code smoke passed on `fengxian` at commit `a5e6737`; final docs/state commit follows this handoff.
+
+### Risks
+
+- `bio_pgta_airflow` is intentionally manifest-only and does not create biodemo DB records.
+- Logger events are currently JSONL + Airflow log/XCom only; backend POST is reserved for T026/T043.
+- Snakemake event records expose useful workflow/job messages, but some log events do not include rule/sample fields.
+- Airflow CLI `--conf` JSON is painful through Windows SSH quoting; use a temp JSON file plus `scp` for future manual triggers.
+
+### Open questions
+
+- Whether to make `/api/runs/{analysis_id}/actions/submit` optionally trigger `bio_pgta_airflow` after T026/T043, or keep it as a manual Airflow-only diagnostic DAG.
+
+### Next recommended task
+
+Run T026/T043 next: implement FastAPI `/api/events/snakemake` upsert and optionally let the logger plugin POST events while retaining JSONL fallback.
+
+### Rollback notes
+
+- Stop services with `docker compose -f docker-compose.yaml down`.
+- Revert repository changes with normal `git revert`.
+- Do not use `docker compose down -v`, `docker system prune`, `docker volume prune`, `git reset --hard`, or `git clean -fdx`.
+
 ## 2026-07-03 02:13 - Codex - T025/T062 PGT-A diagnostics API
 
 ### Goal
