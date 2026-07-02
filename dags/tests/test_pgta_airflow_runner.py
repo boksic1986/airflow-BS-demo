@@ -102,13 +102,14 @@ class PgtaAirflowRunnerTests(unittest.TestCase):
             events_path.write_text("\n".join(json.dumps(event) for event in events) + "\n", encoding="utf-8")
 
             summary = collect_snakemake_events({"analysis_id": "PGTA_AIRFLOW_TEST", "workdir": str(workdir)})
+            summary_path = Path(summary["summary_path"])
+            summary_text = summary_path.read_text(encoding="utf-8")
 
-        self.assertEqual(summary["event_count"], 3)
-        self.assertEqual(summary["status_counts"], {"failed": 1, "running": 1, "success": 1})
-        self.assertEqual(summary["failed_jobs"][0]["rule"], "qc")
-        summary_path = Path(summary["summary_path"])
-        self.assertTrue(summary_path.exists())
-        self.assertIn("rule\tstatus\tsample_id", summary_path.read_text(encoding="utf-8"))
+            self.assertEqual(summary["event_count"], 3)
+            self.assertEqual(summary["status_counts"], {"failed": 1, "running": 1, "success": 1})
+            self.assertEqual(summary["failed_jobs"][0]["rule"], "qc")
+            self.assertTrue(summary_path.exists())
+            self.assertIn("rule\tstatus\tsample_id", summary_text)
 
 
 if __name__ == "__main__":
