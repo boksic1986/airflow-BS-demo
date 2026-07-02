@@ -28,9 +28,9 @@
 | ID | Task | Owner agent | Dependencies | Deliverables | Acceptance | Status |
 |---|---|---|---|---|---|---|
 | T020 | FastAPI 项目骨架 | backend | T010 | backend/app | /health 返回 ok | done |
-| T021 | biodemo DB models/migrations | backend | T020 | analysis_run/sample/rule_event/qc/artifact | migration 可重复执行 | todo |
+| T021 | biodemo DB models/migrations | backend | T020 | analysis_run/sample/rule_event/qc/artifact | migration 可重复执行 | done |
 | T022 | 文件上传和样本表解析 | backend | T021 | upload API/parser | csv/tsv/xlsx mock 样本可解析 | todo |
-| T023 | Airflow API client | backend | T020,T011 | trigger/list/get dag run | mock 或真实 API 测试通过 | todo |
+| T023 | Airflow API client | backend | T020,T011 | trigger/list/get dag run | mock 或真实 API 测试通过 | done |
 | T024 | run 状态 API | backend | T021 | /runs endpoints | 可返回列表和 detail | todo |
 | T025 | logs/artifacts API | backend | T021 | tail log/artifact link | 缺失文件返回明确错误 | todo |
 | T026 | Snakemake event receiver | backend | T021 | /events/snakemake | 可幂等 upsert rule event | todo |

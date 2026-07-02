@@ -5,8 +5,8 @@
 ## 1. 当前阶段
 
 ```text
-当前阶段: P1 基础部署准入和最小服务骨架
-当前目标: fengxian Airflow/Postgres/Redis/MailHog/backend/frontend placeholder smoke 已通过；下一步是 biodemo DB migration 和 Airflow API client
+当前阶段: P2 Backend API 和数据库基础
+当前目标: biodemo DB 初始 schema 和 FastAPI AirflowClient 基础已通过 fengxian 远端验收；下一步是 run API / upload API
 最近更新时间: 2026-07-02
 最后更新 agent: Codex
 ```
@@ -33,9 +33,9 @@ node_version: <unknown>
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
 active_branch: main
-last_verified_code_commit: 9c640dc
+last_verified_code_commit: 5e9065d
 worktree_strategy: single-worktree for now; fengxian is code mirror only
-fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from origin/main, clean after local .env ignored
+fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T021/T023 verified on origin/codex/backend/T021-T023-db-airflow-client, clean after local .env ignored
 ```
 
 ## 4. 服务状态
@@ -43,7 +43,7 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from origin/main, cl
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
 | frontend | 12959 | stopped after successful smoke | Docker nginx placeholder returned `airflow-demo frontend placeholder`; host 3000 is occupied by non-project next-server |
-| backend | 8000 | stopped after successful smoke | `/api/health` returned `{"status":"ok"}` on fengxian; image `airflow-demo/backend:0.1.0` built |
+| backend | 8000 | stopped after successful smoke | `/api/health`, `/api/health/db`, `/api/health/airflow` passed on fengxian; image `airflow-demo/backend:0.1.0` built with pip mirror and `/opt/venv` |
 | airflow web/api | 12958 | stopped after successful smoke | `/health` returned healthy metadatabase and scheduler after `airflow-init` |
 | postgres | internal 5432 | stopped after successful smoke | image `postgres:15-alpine`; Airflow metadata initialized; no host port published |
 | redis | internal 6379 | stopped after successful smoke | image `redis:7-alpine`; no host port published |
@@ -53,9 +53,10 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from origin/main, cl
 
 ```text
 airflow_metadata_db: initialized by `docker compose -f docker-compose.yaml up airflow-init`; admin user exists, password only in remote .env
-biodemo_db: not migrated or initialized
-migrations_tool: <alembic | sql scripts | unknown>
-last_migration: none
+biodemo_db: initialized on fengxian by `docker compose -f docker-compose.yaml run --rm biodemo-db-init`
+migrations_tool: Alembic
+last_migration: 20260702_0001 initial biodemo schema
+core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, artifact, run_action
 ```
 
 ## 6. Pipeline 接入状态
@@ -70,13 +71,16 @@ last_migration: none
 ## 7. 最近测试结果
 
 ```text
-last_backend_tests: remote smoke on fengxian passed for GET /api/health returning {"status":"ok"}
+last_backend_tests: remote Dockerized pytest on fengxian passed, 9 tests; `GET /api/health`, `/api/health/db`, `/api/health/airflow` smoke passed
 last_frontend_tests: not run - no frontend implementation yet
 last_dag_import_tests: not run - no DAG implementation yet
 last_snakemake_dryrun: not run - PGT-A integration intentionally out of scope
-last_compose_config: passed on fengxian with Docker Compose v2.24.7 for commit 9c640dc; Airflow host port 12958 and frontend host port 12959 rendered correctly
+last_compose_config: passed on fengxian with Docker Compose v2.24.7 for commit 5e9065d; Airflow host port 12958 and frontend host port 12959 rendered correctly
 last_minimal_smoke: passed on fengxian for postgres redis mailhog backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
 last_airflow_health: passed on fengxian at http://127.0.0.1:12958/health with healthy metadatabase and scheduler
+last_biodemo_migration: `biodemo-db-init` first run created role/database, repeat run succeeded; `alembic upgrade head` applied 20260702_0001 and repeat run succeeded
+last_backend_airflow_client: mock tests covered health/list/get/trigger; real smoke verified backend `/api/health/airflow` against Airflow `/health`
+last_backend_build: backend image built on fengxian using `backend/pip.conf` TUNA PyPI mirror and `/opt/venv`; dependency install step dropped from about 9 minutes to about 11 seconds after mirror config
 last_frontend_placeholder: passed on fengxian at http://127.0.0.1:12959/ using Docker nginx placeholder
 last_image_check: passed on fengxian; compose external images pulled and backend built with explicit tag
 last_image_cleanup: removed 37 dangling <none> images; no docker system prune, no volume prune
@@ -96,7 +100,7 @@ last_e2e_smoke: not run - Airflow/DAG/frontend functional path not implemented
 
 ```text
 真实部署/启动前阻塞:
-- 需要实现 biodemo DB migration
+- 需要实现样本上传、run list/detail/status API
 - 需要实现 bio_pgta DAG 和 pgta API/UI 支持
 - 需要实现 frontend 功能页面
 ```
@@ -104,7 +108,7 @@ last_e2e_smoke: not run - Airflow/DAG/frontend functional path not implemented
 ## 10. 下一步建议
 
 ```text
-1. 执行 T021：确定并实现 biodemo DB migration 工具和基础表。
-2. 执行 T023：实现 FastAPI Airflow API client，使用容器内 `http://airflow-api-server:8080`。
-3. PGT-A 接入仍从 T027/T035/T045/T057/T084 开始，不直接跳到 metadata smoke。
+1. 执行 T022：文件上传和 mock 样本表解析。
+2. 执行 T024：run 列表/detail/status API，基于已迁移的 biodemo schema。
+3. 然后进入 T027/T035/T045/T057/T084 的 PGT-A 接入链路，不直接跳过 backend run API。
 ```

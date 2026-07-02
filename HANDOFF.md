@@ -36,6 +36,113 @@
 
 ## Records
 
+## 2026-07-02 23:49 - Codex - T021/T023 biodemo DB and Airflow client foundation
+
+### Goal
+
+Implement the P2 backend foundation only: biodemo SQLAlchemy/Alembic schema, repeatable DB init service, minimal Airflow REST client, and dependency health endpoints. Do not implement PGT-A, DAGs, React pages, or run submission APIs.
+
+### Completed
+
+- Added SQLAlchemy 2.0 models for `pipeline`, `analysis_run`, `sample`, `snakemake_rule_event`, `qc_metric`, `artifact`, and `run_action`.
+- Added Alembic environment and initial migration `20260702_0001_initial_biodemo_schema.py`.
+- Added repeatable Compose one-shot service `biodemo-db-init` to create/update `BIODEMO_USER` and `BIODEMO_DB`.
+- Added backend `AirflowClient` with `health`, `list_dag_runs`, `get_dag_run`, and `trigger_dag_run`.
+- Added `GET /api/health/db` and `GET /api/health/airflow`.
+- Added `AIRFLOW_API_USERNAME` / `AIRFLOW_API_PASSWORD` env wiring.
+- Added `backend/pip.conf` using the TUNA PyPI mirror and changed the backend image to install dependencies into `/opt/venv`.
+- Verified on `fengxian`; then stopped services with `docker compose -f docker-compose.yaml down` only.
+
+### Changed files
+
+- `.env.example`
+- `backend/Dockerfile`
+- `backend/pip.conf`
+- `backend/alembic.ini`
+- `backend/alembic/env.py`
+- `backend/alembic/versions/20260702_0001_initial_biodemo_schema.py`
+- `backend/app/airflow_client.py`
+- `backend/app/config.py`
+- `backend/app/db.py`
+- `backend/app/main.py`
+- `backend/app/models.py`
+- `backend/requirements.txt`
+- `backend/requirements-dev.txt`
+- `backend/tests/test_airflow_client.py`
+- `backend/tests/test_health_dependencies.py`
+- `backend/tests/test_models_metadata.py`
+- `docker-compose.yaml`
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/04_DATABASE_SCHEMA.md`
+- `docs/05_API_CONTRACT.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `SERVER_INFO.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| red probe importing `app.models` on `fengxian` | failed as expected | `ModuleNotFoundError: No module named 'app.models'` before implementation |
+| `docker compose -f docker-compose.yaml config --quiet` | success | Included `biodemo-db-init` service |
+| `docker compose -f docker-compose.yaml build backend` | success | After `backend/pip.conf`, pip used `https://pypi.tuna.tsinghua.edu.cn/simple`; install step took about 11s |
+| `docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q` | success | `9 passed` |
+| `docker compose -f docker-compose.yaml up -d postgres` | success | Postgres healthy |
+| `docker compose -f docker-compose.yaml run --rm biodemo-db-init` | success | First run created role/database; repeat run only altered role/granted schema privileges |
+| `docker compose -f docker-compose.yaml run --rm backend alembic upgrade head` | success | Applied revision `20260702_0001`; repeat run succeeded |
+| `psql` table list in `biodemo` | success | Found `alembic_version` plus 7 core business tables |
+| `docker compose -f docker-compose.yaml up -d redis airflow-api-server airflow-scheduler airflow-worker backend` | success | Started backend and Airflow basics for smoke only |
+| `curl http://127.0.0.1:8000/api/health` | success | Returned `{"status":"ok"}` |
+| `curl http://127.0.0.1:8000/api/health/db` | success | Returned `{"status":"ok"}` |
+| `curl http://127.0.0.1:12958/health` | success | Airflow metadatabase and scheduler healthy |
+| `curl http://127.0.0.1:8000/api/health/airflow` | success | Backend returned Airflow health payload |
+| `docker compose -f docker-compose.yaml down` | success | Safe stop only; no volume deletion |
+
+### Tests
+
+Remote-only acceptance evidence on `fengxian`:
+
+- Dockerized backend tests passed: `9 passed`.
+- `biodemo-db-init` and Alembic migration are repeatable.
+- `biodemo` contains `pipeline`, `analysis_run`, `sample`, `snakemake_rule_event`, `qc_metric`, `artifact`, and `run_action`.
+- Backend health, DB health, direct Airflow health, and backend Airflow health all passed.
+
+### Not run / why
+
+- PGT-A metadata/dry-run/failure smoke was not run; that remains T027/T035/T045/T057/T084.
+- No `bio_pgta` DAG was written or imported.
+- No React/frontend functional page was implemented.
+- No `/api/runs` submission/list/detail logic was implemented.
+- No host-level Python dependency install was run; server-side installs remain Dockerized, and any future host Python work must use a venv.
+
+### Current git status
+
+Implementation was verified on task branch `codex/backend/T021-T023-db-airflow-client` at code commit `5e9065d`. This handoff/state-doc update is expected as the final docs commit before merging/pushing `main`.
+
+### Risks
+
+- The backend image currently includes `pytest` and tests because this early demo needs Dockerized remote tests; later production image slimming can split runtime and test targets.
+- `AIRFLOW_API_PASSWORD` reuses the demo Airflow admin password in the remote untracked `.env`; do not commit or print it.
+- Airflow triggerer remains absent; `/health` reports triggerer null, which is acceptable for current CeleryExecutor smoke.
+- The initial schema is now applied in the persistent Postgres volume; use normal Alembic forward migrations for future changes, not destructive resets.
+
+### Open questions
+
+- Whether T024 should expose DB-backed `/api/runs` read endpoints first, or whether T022 upload/parser should land before any run listing UI contract.
+
+### Next recommended task
+
+Run T022 for mock sample upload/parser, then T024 for run list/detail/status APIs. Keep PGT-A DAG work behind T027/T035/T045/T057 after backend run contracts exist.
+
+### Rollback notes
+
+- Stop services with `docker compose -f docker-compose.yaml down`.
+- Revert repo changes with a normal Git revert.
+- Do not use `docker compose down -v`, `docker system prune`, `docker volume prune`, `git reset --hard`, or `git clean -fdx`.
+
 ## 2026-07-02 23:03 - Codex - T011 Airflow 12958 smoke
 
 ### Goal

@@ -45,9 +45,12 @@ compose_fallback_source: TUNA Docker CE focal docker-compose-plugin_2.24.7 deb u
 user_in_docker_group: unknown, but deploy user could run read-only docker commands
 planned_demo_subnet: 172.30.10.0/24
 existing_docker_networks: bridge 172.17.0.0/16; cnv_biosan_local_net 172.18.0.0/16
-compose_config_status: passed on fengxian for commit 9c640dc; Airflow 12958 and frontend 12959 rendered correctly
+compose_config_status: passed on fengxian for commit 5e9065d; Airflow 12958 and frontend 12959 rendered correctly
 minimal_smoke_status: postgres/redis/mailhog/backend/frontend/airflow web/scheduler/worker up, health probes ok, then docker compose down
 airflow_init_status: metadata DB migrated and admin user created by airflow-init on 2026-07-02; password only in remote .env
+biodemo_db_status: initialized by biodemo-db-init, migrated by Alembic revision 20260702_0001 on 2026-07-02
+backend_test_status_2026_07_02: Dockerized pytest in backend image passed 9 tests on fengxian
+backend_pip_config: backend/pip.conf uses TUNA PyPI mirror; backend image installs dependencies in /opt/venv
 host_port_probe_2026_07_02: 12958,12959,8000,8025,1025,5432,6379 free before smoke; 3000 busy on 127.0.0.1 by non-project next-server
 image_cleanup_2026_07_02: removed 37 dangling <none>:<none> images with docker image rm, no volumes removed
 image_pull_status_2026_07_02: compose external images pulled successfully; backend built as airflow-demo/backend:0.1.0
