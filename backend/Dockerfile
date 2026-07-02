@@ -4,7 +4,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH" \
-    PIP_CONFIG_FILE=/etc/pip.conf
+    PIP_CONFIG_FILE=/etc/pip.conf \
+    PYTHONPATH=/app
 
 WORKDIR /app
 
