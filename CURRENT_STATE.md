@@ -6,7 +6,7 @@
 
 ```text
 当前阶段: P0 文档和环境探测
-当前目标: 已落地 fengxian PGT-A demo 测试计划；正在初始化本地 Git 仓库和 GitHub/插件工作流文档
+当前目标: 本地 Git 仓库和 GitHub/插件工作流已初始化；下一步是 fengxian Compose 准入和服务骨架
 最近更新时间: 2026-07-02
 最后更新 agent: Codex
 ```
@@ -33,7 +33,7 @@ node_version: <unknown>
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
 active_branch: main
-last_commit: pending initial local commit/push
+last_commit: latest pushed commit on origin/main; use `git rev-parse --short HEAD` for exact value
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 ```
 
@@ -80,7 +80,6 @@ last_e2e_smoke: not run - services not implemented or started
 
 | ID | Issue | Severity | Owner | Next step |
 |---|---|---|---|---|
-| K001 | airflow-demo 正在初始化 Git/GitHub 工作流 | low | coordinator/infra | 完成 initial commit/push 后更新 handoff |
 | K002 | fengxian 已有 Docker 20.10.21，但未安装 Docker Compose v2 | medium | infra | 后续按计划安装用户级 Compose plugin v2.24.7 并验收 |
 | K003 | BS10610 与 fengxian 用户和路径不同，不能复用 fengxian 硬编码路径 | medium | infra/coordinator | 迁移前把路径参数化到 `.env` 并重复 Level 0 preflight |
 
@@ -91,7 +90,6 @@ last_e2e_smoke: not run - services not implemented or started
 - 需要 Docker Compose v2 可用
 - 需要创建实际 compose/backend/frontend/airflow 代码
 - 需要实现 bio_pgta DAG 和 pgta API/UI 支持
-- 需要 initial commit/push 到 `git@github.com:boksic1986/airflow-BS-demo.git`
 ```
 
 ## 10. 下一步建议
