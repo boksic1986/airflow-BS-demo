@@ -24,7 +24,16 @@ describe("PGT-A run dashboard", () => {
   let createdDagRunId: string | null = null;
 
   function runListItems() {
-    const items = [
+    const items: Array<{
+      analysis_id: string;
+      pipeline: string;
+      status: string;
+      created_at: string;
+      started_at: string | null;
+      ended_at: string | null;
+      sample_count: number;
+      qc_status: string;
+    }> = [
       {
         analysis_id: runId,
         pipeline: "pgta",
