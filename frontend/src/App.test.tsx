@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 const runId = "PGTA_20260703_054712_501D8B";
+const createdRunId = "PGTA_20260703_180000_NEW001";
+const rawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28";
 
 function mockJson(payload: object, init?: ResponseInit) {
   return Promise.resolve(
@@ -18,27 +20,95 @@ function mockJson(payload: object, init?: ResponseInit) {
 }
 
 describe("PGT-A run dashboard", () => {
+  let createdRunStatus = "created";
+  let createdDagRunId: string | null = null;
+
+  function runListItems() {
+    const items = [
+      {
+        analysis_id: runId,
+        pipeline: "pgta",
+        status: "success",
+        created_at: "2026-07-03T05:47:12+08:00",
+        started_at: "2026-07-03T05:48:00+08:00",
+        ended_at: "2026-07-03T05:49:00+08:00",
+        sample_count: 2,
+        qc_status: "unknown",
+      },
+    ];
+    if (createdRunStatus) {
+      items.unshift({
+        analysis_id: createdRunId,
+        pipeline: "pgta",
+        status: createdRunStatus,
+        created_at: "2026-07-03T18:00:00+08:00",
+        started_at: null,
+        ended_at: null,
+        sample_count: 1,
+        qc_status: "unknown",
+      });
+    }
+    return items;
+  }
+
   beforeEach(() => {
+    createdRunStatus = "";
+    createdDagRunId = null;
     vi.stubGlobal(
       "fetch",
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
         if (url.endsWith("/api/runs?pipeline=pgta&limit=50&offset=0")) {
           return mockJson({
+            items: runListItems(),
+            total: runListItems().length,
+          });
+        }
+        if (url.endsWith("/api/input/scan") && init?.method === "POST") {
+          return mockJson({
+            pipeline: "pgta",
+            rawdata_root: rawdataRoot,
+            truncated: true,
             items: [
               {
-                analysis_id: runId,
-                pipeline: "pgta",
-                status: "success",
-                created_at: "2026-07-03T05:47:12+08:00",
-                started_at: "2026-07-03T05:48:00+08:00",
-                ended_at: "2026-07-03T05:49:00+08:00",
-                sample_count: 2,
-                qc_status: "unknown",
+                sample_id: "G1",
+                r1: `${rawdataRoot}/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R1.fastq.gz`,
+                r2: `${rawdataRoot}/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R2.fastq.gz`,
+                source_dir: `${rawdataRoot}/Sample_DEMO-G1-G1`,
+                r1_size: 123,
+                r2_size: 124,
+                r1_mtime: 1782810000.0,
+                r2_mtime: 1782810001.0,
+                discovery_method: "server_path_scan",
+              },
+              {
+                sample_id: "G2",
+                r1: `${rawdataRoot}/Sample_DEMO-G2-G2/DEMO-G2-G2_combined_R1.fastq.gz`,
+                r2: `${rawdataRoot}/Sample_DEMO-G2-G2/DEMO-G2-G2_combined_R2.fastq.gz`,
+                source_dir: `${rawdataRoot}/Sample_DEMO-G2-G2`,
+                r1_size: 223,
+                r2_size: 224,
+                r1_mtime: 1782810100.0,
+                r2_mtime: 1782810101.0,
+                discovery_method: "server_path_scan",
               },
             ],
-            total: 1,
           });
+        }
+        if (url.endsWith("/api/runs") && init?.method === "POST") {
+          createdRunStatus = "created";
+          return mockJson(
+            {
+              analysis_id: createdRunId,
+              pipeline: "pgta",
+              dag_id: "bio_pgta",
+              dag_run_id: null,
+              status: "created",
+              workdir: `/data/airflow-demo/runs/${createdRunId}`,
+              sample_count: 1,
+            },
+            {status: 201},
+          );
         }
         if (url.endsWith(`/api/runs/${runId}`)) {
           return mockJson({
@@ -56,6 +126,22 @@ describe("PGT-A run dashboard", () => {
             email_to: null,
           });
         }
+        if (url.endsWith(`/api/runs/${createdRunId}`)) {
+          return mockJson({
+            analysis_id: createdRunId,
+            pipeline: "pgta",
+            status: createdRunStatus || "created",
+            mode: "new",
+            dag_id: "bio_pgta",
+            dag_run_id: createdDagRunId,
+            airflow_url: null,
+            workdir: `/data/airflow-demo/runs/${createdRunId}`,
+            sample_sheet_path: `/data/airflow-demo/runs/${createdRunId}/config/samples.selected.tsv`,
+            params: {target: "metadata", selected_count: 1},
+            error_summary: null,
+            email_to: "demo@example.com",
+          });
+        }
         if (url.endsWith(`/api/runs/${runId}/samples`)) {
           return mockJson({
             items: [
@@ -66,6 +152,20 @@ describe("PGT-A run dashboard", () => {
                 status: "pending",
                 qc_status: "unknown",
                 metadata: {source_dir: "/data/project/CNV/PGT-A/rawdata/G1"},
+              },
+            ],
+          });
+        }
+        if (url.endsWith(`/api/runs/${createdRunId}/samples`)) {
+          return mockJson({
+            items: [
+              {
+                sample_id: "G1",
+                fq1: `${rawdataRoot}/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R1.fastq.gz`,
+                fq2: `${rawdataRoot}/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R2.fastq.gz`,
+                status: "pending",
+                qc_status: "unknown",
+                metadata: {source_dir: `${rawdataRoot}/Sample_DEMO-G1-G1`},
               },
             ],
           });
@@ -104,6 +204,9 @@ describe("PGT-A run dashboard", () => {
             ],
           });
         }
+        if (url.endsWith(`/api/runs/${createdRunId}/rules`)) {
+          return mockJson({items: []});
+        }
         if (url.endsWith(`/api/runs/${runId}/artifacts`)) {
           return mockJson({
             items: [
@@ -118,6 +221,9 @@ describe("PGT-A run dashboard", () => {
             ],
           });
         }
+        if (url.endsWith(`/api/runs/${createdRunId}/artifacts`)) {
+          return mockJson({items: []});
+        }
         if (url.endsWith(`/api/runs/${runId}/logs?stream=metadata&tail=200`)) {
           return mockJson({
             path: `/data/airflow-demo/runs/${runId}/logs/run_metadata.tsv`,
@@ -125,6 +231,9 @@ describe("PGT-A run dashboard", () => {
             truncated: false,
             lines: ["key\tvalue", "target\tmetadata"],
           });
+        }
+        if (url.endsWith(`/api/runs/${createdRunId}/logs?stream=metadata&tail=200`)) {
+          return mockJson({detail: {code: "LOG_NOT_FOUND", message: "metadata log is not ready"}}, {status: 404});
         }
         if (url.endsWith(`/api/runs/${runId}/actions/sync-airflow`) && init?.method === "POST") {
           return mockJson({
@@ -134,6 +243,22 @@ describe("PGT-A run dashboard", () => {
             dag_id: "bio_pgta_airflow",
             dag_run_id: `manual__${runId}_events`,
             workdir: `/data/airflow-demo/runs/${runId}`,
+            error_summary: null,
+          });
+        }
+        if (url.endsWith(`/api/runs/${createdRunId}/actions/submit`) && init?.method === "POST") {
+          createdRunStatus = "submitted";
+          createdDagRunId = `manual__${createdRunId}`;
+          return mockJson({
+            analysis_id: createdRunId,
+            pipeline: "pgta",
+            status: "submitted",
+            dag_id: "bio_pgta",
+            dag_run_id: createdDagRunId,
+            workdir: `/data/airflow-demo/runs/${createdRunId}`,
+            sample_count: 1,
+            sample_sheet_path: `/data/airflow-demo/runs/${createdRunId}/config/samples.selected.tsv`,
+            params: {target: "metadata", selected_count: 1},
             error_summary: null,
           });
         }
@@ -169,5 +294,68 @@ describe("PGT-A run dashboard", () => {
         expect.objectContaining({method: "POST"}),
       );
     });
+  });
+
+  it("scans a server FASTQ path and renders selectable sample candidates", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.clear(await screen.findByLabelText(/rawdata root/i));
+    await user.type(screen.getByLabelText(/rawdata root/i), rawdataRoot);
+    await user.click(screen.getByRole("button", {name: /^scan$/i}));
+
+    const newRunPanel = screen.getByRole("region", {name: /new pgt-a run/i});
+    expect(await within(newRunPanel).findByText("G1")).toBeInTheDocument();
+    expect(within(newRunPanel).getByText("G2")).toBeInTheDocument();
+    expect(screen.getByText(/scan result was truncated/i)).toBeInTheDocument();
+
+    const createButton = screen.getByRole("button", {name: /create run/i});
+    expect(createButton).toBeDisabled();
+    await user.click(screen.getByRole("checkbox", {name: /select sample G1/i}));
+    expect(createButton).toBeEnabled();
+  });
+
+  it("creates a PGT-A run from selected server-path samples and selects the new run", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.clear(await screen.findByLabelText(/project name/i));
+    await user.type(screen.getByLabelText(/project name/i), "metadata smoke");
+    await user.clear(screen.getByLabelText(/rawdata root/i));
+    await user.type(screen.getByLabelText(/rawdata root/i), rawdataRoot);
+    await user.click(screen.getByRole("button", {name: /^scan$/i}));
+    await user.click(await screen.findByRole("checkbox", {name: /select sample G1/i}));
+    await user.click(screen.getByRole("button", {name: /create run/i}));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/runs"),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"project_name":"metadata smoke"'),
+        }),
+      );
+    });
+    expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
+    expect(screen.getByText("bio_pgta")).toBeInTheDocument();
+  });
+
+  it("submits a created metadata run to Airflow and refreshes the submitted state", async () => {
+    const user = userEvent.setup();
+    createdRunStatus = "created";
+    render(<App />);
+
+    expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
+    const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
+    await user.click(within(toolbar).getByRole("button", {name: /submit to airflow/i}));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/api/runs/${createdRunId}/actions/submit`),
+        expect.objectContaining({method: "POST"}),
+      );
+    });
+    expect(await screen.findByText(`manual__${createdRunId}`)).toBeInTheDocument();
+    expect(screen.getAllByText("submitted").length).toBeGreaterThan(0);
   });
 });

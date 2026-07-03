@@ -5,26 +5,33 @@ import {
   Database,
   FileText,
   ListChecks,
+  Play,
+  Plus,
   RefreshCw,
   RotateCw,
+  Search,
 } from "lucide-react";
 import {useEffect, useMemo, useState} from "react";
 
 import {
   ApiError,
   Artifact,
+  ScanCandidate,
   LogStream,
   RuleEvent,
   RunDetail,
   RunLog,
   RunSummary,
   Sample,
+  createRun,
   getRunArtifacts,
   getRunDetail,
   getRunLog,
   getRunRules,
   getRunSamples,
   listRuns,
+  scanInput,
+  submitRun,
   syncAirflow,
 } from "./api";
 
@@ -41,6 +48,8 @@ const emptyBundle: RunBundle = {
   rules: [],
   artifacts: [],
 };
+
+const defaultRawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28";
 
 function statusClass(status?: string | null): string {
   const normalized = (status || "unknown").toLowerCase();
@@ -72,6 +81,11 @@ function errorMessage(error: unknown): string {
   return "Request failed";
 }
 
+function runTarget(detail?: RunDetail | null): string | null {
+  const target = detail?.params?.target;
+  return typeof target === "string" ? target : null;
+}
+
 export default function App() {
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -84,11 +98,27 @@ export default function App() {
   const [loadingRuns, setLoadingRuns] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [projectName, setProjectName] = useState("PGT-A metadata smoke");
+  const [rawdataRoot, setRawdataRoot] = useState(defaultRawdataRoot);
+  const [maxSamples, setMaxSamples] = useState(20);
+  const [emailTo, setEmailTo] = useState("");
+  const [note, setNote] = useState("");
+  const [scanItems, setScanItems] = useState<ScanCandidate[]>([]);
+  const [selectedSamples, setSelectedSamples] = useState<Set<string>>(new Set());
+  const [scanTruncated, setScanTruncated] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [formNotice, setFormNotice] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const selectedRun = useMemo(
     () => runs.find((run) => run.analysis_id === selectedId) || null,
     [runs, selectedId],
   );
+
+  const canSubmitRun = bundle.detail?.status === "created" && runTarget(bundle.detail) === "metadata";
 
   async function refreshRuns(preferredId?: string | null) {
     setLoadingRuns(true);
@@ -156,6 +186,82 @@ export default function App() {
     }
   }
 
+  async function handleScan() {
+    setScanning(true);
+    setScanError(null);
+    setCreateError(null);
+    setFormNotice(null);
+    setSelectedSamples(new Set());
+    try {
+      const payload = await scanInput({
+        pipeline: "pgta",
+        rawdata_root: rawdataRoot,
+        max_samples: maxSamples,
+      });
+      setScanItems(payload.items);
+      setScanTruncated(payload.truncated);
+      setFormNotice(`${payload.items.length} candidate samples found`);
+    } catch (error) {
+      setScanItems([]);
+      setScanTruncated(false);
+      setScanError(errorMessage(error));
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  function toggleSample(sampleId: string) {
+    setSelectedSamples((current) => {
+      const next = new Set(current);
+      if (next.has(sampleId)) {
+        next.delete(sampleId);
+      } else {
+        next.add(sampleId);
+      }
+      return next;
+    });
+  }
+
+  async function handleCreateRun() {
+    const selected = scanItems.filter((item) => selectedSamples.has(item.sample_id));
+    if (selected.length === 0) return;
+    setCreating(true);
+    setCreateError(null);
+    setFormNotice(null);
+    try {
+      const created = await createRun({
+        pipeline: "pgta",
+        project_name: projectName,
+        target: "metadata",
+        rawdata_root: rawdataRoot,
+        selected_samples: selected,
+        email_to: emailTo.trim() || null,
+        note: note.trim() || null,
+      });
+      setSelectedId(created.analysis_id);
+      setFormNotice(`Created ${created.analysis_id}`);
+      await Promise.all([refreshRuns(created.analysis_id), refreshDetail(created.analysis_id), refreshLog(created.analysis_id, logStream)]);
+    } catch (error) {
+      setCreateError(errorMessage(error));
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleSubmitRun() {
+    if (!selectedId) return;
+    setSubmitting(true);
+    setDetailError(null);
+    try {
+      await submitRun(selectedId);
+      await Promise.all([refreshRuns(selectedId), refreshDetail(selectedId), refreshLog(selectedId, logStream)]);
+    } catch (error) {
+      setDetailError(errorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   useEffect(() => {
     void refreshRuns(null);
   }, []);
@@ -194,6 +300,29 @@ export default function App() {
 
       <main className="workspace">
         <aside className="run-list" aria-label="PGT-A run list">
+          <NewRunPanel
+            projectName={projectName}
+            rawdataRoot={rawdataRoot}
+            maxSamples={maxSamples}
+            emailTo={emailTo}
+            note={note}
+            scanItems={scanItems}
+            selectedSamples={selectedSamples}
+            scanTruncated={scanTruncated}
+            scanError={scanError}
+            createError={createError}
+            formNotice={formNotice}
+            scanning={scanning}
+            creating={creating}
+            onProjectNameChange={setProjectName}
+            onRawdataRootChange={setRawdataRoot}
+            onMaxSamplesChange={setMaxSamples}
+            onEmailToChange={setEmailTo}
+            onNoteChange={setNote}
+            onScan={() => void handleScan()}
+            onToggleSample={toggleSample}
+            onCreate={() => void handleCreateRun()}
+          />
           <div className="pane-title">
             <Activity size={17} />
             <span>Runs</span>
@@ -236,6 +365,12 @@ export default function App() {
               </div>
 
               <div className="toolbar" role="toolbar" aria-label="Run actions">
+                {canSubmitRun ? (
+                  <button className="icon-button primary-action" type="button" onClick={handleSubmitRun} disabled={submitting}>
+                    <Play size={16} />
+                    Submit to Airflow
+                  </button>
+                ) : null}
                 <button className="icon-button" type="button" onClick={handleSync} disabled={syncing || !bundle.detail?.dag_run_id}>
                   <RotateCw size={16} />
                   Sync Airflow
@@ -277,6 +412,154 @@ export default function App() {
           )}
         </section>
       </main>
+    </div>
+  );
+}
+
+function NewRunPanel({
+  projectName,
+  rawdataRoot,
+  maxSamples,
+  emailTo,
+  note,
+  scanItems,
+  selectedSamples,
+  scanTruncated,
+  scanError,
+  createError,
+  formNotice,
+  scanning,
+  creating,
+  onProjectNameChange,
+  onRawdataRootChange,
+  onMaxSamplesChange,
+  onEmailToChange,
+  onNoteChange,
+  onScan,
+  onToggleSample,
+  onCreate,
+}: {
+  projectName: string;
+  rawdataRoot: string;
+  maxSamples: number;
+  emailTo: string;
+  note: string;
+  scanItems: ScanCandidate[];
+  selectedSamples: Set<string>;
+  scanTruncated: boolean;
+  scanError: string | null;
+  createError: string | null;
+  formNotice: string | null;
+  scanning: boolean;
+  creating: boolean;
+  onProjectNameChange: (value: string) => void;
+  onRawdataRootChange: (value: string) => void;
+  onMaxSamplesChange: (value: number) => void;
+  onEmailToChange: (value: string) => void;
+  onNoteChange: (value: string) => void;
+  onScan: () => void;
+  onToggleSample: (sampleId: string) => void;
+  onCreate: () => void;
+}) {
+  return (
+    <section className="new-run-panel" aria-label="New PGT-A Run">
+      <div className="pane-title">
+        <Plus size={17} />
+        <span>New PGT-A Run</span>
+      </div>
+      <div className="form-grid">
+        <label>
+          <span>Project name</span>
+          <input value={projectName} onChange={(event) => onProjectNameChange(event.target.value)} />
+        </label>
+        <label>
+          <span>Rawdata root</span>
+          <input value={rawdataRoot} onChange={(event) => onRawdataRootChange(event.target.value)} />
+        </label>
+        <label>
+          <span>Max samples</span>
+          <input
+            min={1}
+            max={1000}
+            type="number"
+            value={maxSamples}
+            onChange={(event) => onMaxSamplesChange(Number(event.target.value) || 1)}
+          />
+        </label>
+        <label>
+          <span>Target</span>
+          <input value="metadata" readOnly />
+        </label>
+        <label>
+          <span>Email</span>
+          <input value={emailTo} onChange={(event) => onEmailToChange(event.target.value)} />
+        </label>
+        <label>
+          <span>Note</span>
+          <textarea value={note} rows={2} onChange={(event) => onNoteChange(event.target.value)} />
+        </label>
+      </div>
+      <div className="submit-toolbar">
+        <button className="icon-button" type="button" onClick={onScan} disabled={scanning || !rawdataRoot.trim()}>
+          <Search size={16} />
+          Scan
+        </button>
+        <button className="icon-button primary-action" type="button" onClick={onCreate} disabled={creating || selectedSamples.size === 0}>
+          <Plus size={16} />
+          Create Run
+        </button>
+      </div>
+      {scanError ? <ErrorBanner message={scanError} /> : null}
+      {createError ? <ErrorBanner message={createError} /> : null}
+      {formNotice ? <p className="form-notice">{formNotice}</p> : null}
+      {scanTruncated ? <p className="form-warning">Scan result was truncated; narrow the rawdata root or lower the range.</p> : null}
+      <CandidateTable items={scanItems} selectedSamples={selectedSamples} onToggleSample={onToggleSample} />
+    </section>
+  );
+}
+
+function CandidateTable({
+  items,
+  selectedSamples,
+  onToggleSample,
+}: {
+  items: ScanCandidate[];
+  selectedSamples: Set<string>;
+  onToggleSample: (sampleId: string) => void;
+}) {
+  if (items.length === 0) {
+    return <p className="empty">No candidate samples scanned.</p>;
+  }
+
+  return (
+    <div className="candidate-table table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>select</th>
+            <th>sample</th>
+            <th>R1</th>
+            <th>R2</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={`${item.sample_id}-${item.r1}`}>
+              <td>
+                <input
+                  aria-label={`Select sample ${item.sample_id}`}
+                  checked={selectedSamples.has(item.sample_id)}
+                  type="checkbox"
+                  onChange={() => onToggleSample(item.sample_id)}
+                />
+              </td>
+              <td>{item.sample_id}</td>
+              <td className="path-cell">{item.r1}</td>
+              <td className="path-cell">{item.r2}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

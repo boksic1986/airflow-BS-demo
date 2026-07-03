@@ -64,7 +64,7 @@
 | ID | Task | Owner agent | Dependencies | Deliverables | Acceptance | Status |
 |---|---|---|---|---|---|---|
 | T050 | React 项目骨架 | frontend | T020 | frontend/src | React/Vite app 由 Docker nginx 在 12959 提供访问 | done |
-| T051 | Submit Analysis 页面 | frontend | T022,T023 | PGT-A server-path form UI | 填写 rawdata_root、扫描候选样本、勾选后创建 run | todo |
+| T051 | Submit Analysis 页面 | frontend | T022,T023 | PGT-A server-path form UI | 填写 rawdata_root、扫描候选样本、勾选后创建 run，并可从 created run 提交 `bio_pgta` metadata | done |
 | T052 | Runs Dashboard | frontend | T024 | run list/status cards | 可筛选 pipeline/status | todo |
 | T053 | Run Detail 页面 | frontend | T024,T026 | overview/airflow/snakemake tabs | 展示 rule 状态 | todo |
 | T054 | QC 面板 | frontend | T060 | QC table/MultiQC link | pass/warn/fail 可见 | todo |

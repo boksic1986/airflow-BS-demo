@@ -44,6 +44,41 @@ export type Sample = {
   metadata?: Record<string, unknown> | null;
 };
 
+export type ScanCandidate = {
+  sample_id: string;
+  r1: string;
+  r2: string;
+  source_dir?: string | null;
+  r1_size?: number | null;
+  r2_size?: number | null;
+  r1_mtime?: number | null;
+  r2_mtime?: number | null;
+  discovery_method?: string | null;
+};
+
+export type ScanInputRequest = {
+  pipeline: "pgta";
+  rawdata_root: string;
+  max_samples?: number;
+};
+
+export type ScanInputResponse = {
+  pipeline: string;
+  rawdata_root: string;
+  truncated: boolean;
+  items: ScanCandidate[];
+};
+
+export type CreateRunRequest = {
+  pipeline: "pgta";
+  project_name: string;
+  target: "metadata";
+  rawdata_root: string;
+  selected_samples: ScanCandidate[];
+  email_to?: string | null;
+  note?: string | null;
+};
+
 export type RuleEvent = {
   rule: string;
   sample_id?: string | null;
@@ -124,6 +159,22 @@ export function listRuns(): Promise<RunListResponse> {
   return requestJson<RunListResponse>("/runs?pipeline=pgta&limit=50&offset=0");
 }
 
+export function scanInput(payload: ScanInputRequest): Promise<ScanInputResponse> {
+  return requestJson<ScanInputResponse>("/input/scan", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  });
+}
+
+export function createRun(payload: CreateRunRequest): Promise<RunDetail> {
+  return requestJson<RunDetail>("/runs", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  });
+}
+
 export function getRunDetail(analysisId: string): Promise<RunDetail> {
   return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}`);
 }
@@ -146,6 +197,12 @@ export function getRunLog(analysisId: string, stream: LogStream): Promise<RunLog
 
 export function syncAirflow(analysisId: string): Promise<RunDetail> {
   return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}/actions/sync-airflow`, {
+    method: "POST",
+  });
+}
+
+export function submitRun(analysisId: string): Promise<RunDetail> {
+  return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}/actions/submit`, {
     method: "POST",
   });
 }

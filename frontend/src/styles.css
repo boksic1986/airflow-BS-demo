@@ -98,6 +98,90 @@ a {
   text-align: center;
 }
 
+.new-run-panel {
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #dbe3ea;
+}
+
+.form-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.form-grid label {
+  display: grid;
+  gap: 5px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.form-grid input,
+.form-grid textarea {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2933;
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.form-grid textarea {
+  resize: vertical;
+}
+
+.submit-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.primary-action {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.primary-action:disabled {
+  border-color: #cbd5e1;
+  background: #e2e8f0;
+  color: #94a3b8;
+}
+
+.form-notice,
+.form-warning {
+  margin: 10px 0;
+  font-size: 13px;
+}
+
+.form-notice {
+  color: #0f766e;
+}
+
+.form-warning {
+  color: #9a3412;
+}
+
+.candidate-table {
+  max-height: 260px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.candidate-table table {
+  min-width: 640px;
+}
+
+.candidate-table input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
 .run-items {
   display: grid;
   gap: 8px;
