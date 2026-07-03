@@ -93,8 +93,8 @@ def test_snakemake_event_receiver_upserts_rule_event(tmp_path, monkeypatch) -> N
     assert event.wildcards_json == {"sample": "G1"}
     assert event.message == "finished"
     assert event.return_code == 0
-    assert event.start_time == datetime(2026, 7, 3, 9, 0, tzinfo=timezone.utc)
-    assert event.end_time == datetime(2026, 7, 3, 9, 1, 30, tzinfo=timezone.utc)
+    assert event.start_time.isoformat() == "2026-07-03T09:00:00"
+    assert event.end_time.isoformat() == "2026-07-03T09:01:30"
 
 
 def test_snakemake_event_receiver_rejects_missing_run(monkeypatch) -> None:
