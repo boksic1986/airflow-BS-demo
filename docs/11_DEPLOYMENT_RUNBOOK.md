@@ -230,6 +230,12 @@ docker compose -f docker-compose.yaml run --rm biodemo-db-init
 docker compose -f docker-compose.yaml run --rm backend alembic upgrade head
 ```
 
+如果 backend 服务已经在运行，使用 `exec`，避免 `run` 创建新 backend 容器时和宿主机 `8000` 端口映射冲突：
+
+```bash
+docker compose -f docker-compose.yaml exec -T backend alembic upgrade head
+```
+
 验证核心表：
 
 ```bash
@@ -425,9 +431,9 @@ cat /tmp/missing-log.json
 
 期望 HTTP 404，错误码为 `LOG_NOT_FOUND`。
 
-## 15. PGT-A Airflow-only Snakemake 9 logger smoke
+## 15. PGT-A Airflow-only Snakemake 9 logger/event smoke
 
-该 smoke 不走 FastAPI，不写 biodemo DB，只验证 Airflow UI/CLI 直接触发 PGT-A metadata，并通过 Snakemake 9 logger plugin 在 Airflow task log/XCom 中展示状态。
+该 smoke 验证 Airflow UI/CLI 直接触发 PGT-A metadata，并通过 Snakemake 9 logger plugin 在 Airflow task log/XCom 中展示状态。默认只写 JSONL；若 DAG conf 传入 `backend_event_url=http://backend:8000/api/events/snakemake`，rule/job 事件会同步 POST 到 FastAPI 并 upsert 到 biodemo `snakemake_rule_event`。
 
 前置检查：
 
@@ -460,6 +466,32 @@ docker compose -f docker-compose.yaml exec -T airflow-scheduler \
   bio_pgta_airflow
 ```
 
+在 stdin bash 脚本中连续执行 `docker compose exec` 时，给 exec 命令追加 `</dev/null`，避免 compose/容器进程吞掉后续脚本内容。
+
+可选 backend event smoke：
+
+```bash
+analysis_id=<PGTA_CREATED_ANALYSIS_ID>
+run_id="manual__${analysis_id}_events"
+conf="$(ANALYSIS_ID="$analysis_id" python3 - <<'PY'
+import json
+import os
+
+aid = os.environ["ANALYSIS_ID"]
+print(json.dumps({
+    "analysis_id": aid,
+    "workdir": f"/data/airflow-demo/runs/{aid}",
+    "sample_sheet_path": f"/data/airflow-demo/runs/{aid}/config/samples.selected.tsv",
+    "target": "metadata",
+    "email_to": None,
+    "backend_event_url": "http://backend:8000/api/events/snakemake",
+}, separators=(",", ":")))
+PY
+)"
+docker compose -f docker-compose.yaml exec -T airflow-scheduler \
+  airflow dags trigger bio_pgta_airflow --run-id "$run_id" --conf "$conf" </dev/null
+```
+
 验收：
 
 ```text
@@ -469,6 +501,7 @@ shared/runs/<analysis_id>/logs/events/snakemake_events.jsonl exists and is non-e
 shared/runs/<analysis_id>/logs/events/snakemake_rule_summary.tsv exists and is non-empty
 collect_snakemake_events task log includes event count and status counts
 collect_snakemake_events XCom includes snakemake_event_summary
+if backend_event_url configured: GET /api/runs/<analysis_id>/rules returns rule rows
 ```
 
 已验证的 fengxian smoke：
@@ -480,6 +513,18 @@ Airflow state: success
 run_metadata.tsv: 11 lines
 snakemake_events.jsonl: 22 lines
 XCom status_counts: {'info': 15, 'progress': 2, 'running': 2, 'started': 1, 'success': 2}
+```
+
+已验证的 T026/T043 backend event smoke：
+
+```text
+analysis_id: PGTA_20260703_054712_501D8B
+dag_run_id: manual__PGTA_20260703_054712_501D8B_events
+Airflow state: success
+run_metadata.tsv: 11 lines
+snakemake_events.jsonl: 22 lines
+snakemake_rule_summary.tsv: 29 lines
+GET /api/runs/<analysis_id>/rules: all=success, collect_run_metadata=success
 ```
 
 ## 16. 查看日志

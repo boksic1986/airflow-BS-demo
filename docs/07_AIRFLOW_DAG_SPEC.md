@@ -272,7 +272,8 @@ DAG run conf 第一版只支持已有 manifest 路径：
   "workdir": "/data/airflow-demo/runs/PGTA_AIRFLOW_20260703_074844",
   "sample_sheet_path": "/data/airflow-demo/runs/PGTA_AIRFLOW_20260703_074844/config/samples.selected.tsv",
   "target": "metadata",
-  "email_to": null
+  "email_to": null,
+  "backend_event_url": "http://backend:8000/api/events/snakemake"
 }
 ```
 
@@ -297,7 +298,8 @@ validate_request
   --logger airflow-demo \
   --logger-airflow-demo-analysis-id <analysis_id> \
   --logger-airflow-demo-workdir <workdir> \
-  --logger-airflow-demo-events-path <workdir>/logs/events/snakemake_events.jsonl
+  --logger-airflow-demo-events-path <workdir>/logs/events/snakemake_events.jsonl \
+  --logger-airflow-demo-backend-event-url http://backend:8000/api/events/snakemake
 ```
 
 `collect_snakemake_events` 读取 JSONL，生成：
@@ -307,4 +309,4 @@ workdir/logs/events/snakemake_events.jsonl
 workdir/logs/events/snakemake_rule_summary.tsv
 ```
 
-Airflow 网页第一版通过 task log 和 XCom 查看状态汇总；不实现自定义 Airflow Web 插件。
+Airflow 网页第一版通过 task log 和 XCom 查看状态汇总；不实现自定义 Airflow Web 插件。若 `backend_event_url` 未配置，logger 只写 JSONL；若配置，则 rule/job 级事件会同步 POST 到 FastAPI 并 upsert 到 biodemo `snakemake_rule_event`。

@@ -340,6 +340,8 @@ Response:
 GET /api/runs/{analysis_id}/rules
 ```
 
+返回 biodemo `snakemake_rule_event` 中当前 run 的 rule/job 最新状态。T026/T043 第一版由 PGT-A Snakemake 9 logger 或后续 qsub wrapper 写入；读接口不触发 Airflow 状态同步。
+
 Response:
 
 ```json
@@ -355,17 +357,25 @@ Response:
       "stderr_path": "...",
       "start_time": "2026-07-02T10:12:00-07:00",
       "end_time": null,
-      "message": null
+      "message": null,
+      "return_code": null,
+      "wildcards": {"sample": "S001"}
     }
   ]
 }
 ```
+
+Errors:
+
+- `404 RUN_NOT_FOUND`: `analysis_id` 不存在。
 
 ## 11. Snakemake event receiver
 
 ```http
 POST /api/events/snakemake
 ```
+
+接收 Snakemake/qsub rule/job 级事件并幂等 upsert 到 `snakemake_rule_event`。第一版要求 `rule` 非空；workflow/progress/generic log 仍保留在 JSONL/Airflow XCom 中，不写 DB。
 
 Request:
 
@@ -395,8 +405,13 @@ Response:
 
 Idempotency:
 
-- Same `analysis_id/rule/sample_id/snakemake_jobid/status` may be posted more than once.
-- Backend must upsert or ignore duplicates.
+- Upsert key: `analysis_id/rule/sample_id/snakemake_jobid`。
+- 同一 job 的 `job_info/running/success/failed` 会更新同一行的 `status/message/return_code/start_time/end_time/updated_at`。
+
+Errors:
+
+- `404 RUN_NOT_FOUND`: `analysis_id` 不存在。
+- `422 VALIDATION_ERROR`: `rule`、`analysis_id`、`event` 或 `status` 缺失。
 
 ## 12. QC
 

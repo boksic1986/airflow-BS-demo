@@ -36,6 +36,110 @@
 
 ## Records
 
+## 2026-07-03 13:49 - Codex - T026/T043 Snakemake event receiver and PGT-A logger POST
+
+### Goal
+
+Implement rule/job event ingestion for Snakemake logger events: FastAPI receives `/api/events/snakemake`, upserts biodemo `snakemake_rule_event`, exposes `/api/runs/{analysis_id}/rules`, and PGT-A Snakemake 9 logger optionally POSTs to backend while retaining JSONL fallback.
+
+### Completed
+
+- Added backend event receiver `POST /api/events/snakemake` with structured `RUN_NOT_FOUND` and validation errors.
+- Added `GET /api/runs/{analysis_id}/rules` for frontend-ready rule/job status.
+- Added idempotent upsert by `analysis_id/rule/sample_id/snakemake_jobid`; later success/failed events update the existing row.
+- Added PGT-A Snakemake 9 logger backend POST via `backend_event_url`, with JSONL fallback on POST failure.
+- Fixed logger job context backfill so Snakemake `job_finished/job_error` events without rule fields inherit rule/sample from earlier `job_info`.
+- Added Airflow-only DAG conf passthrough for `backend_event_url`.
+- Updated API, DB, DAG, Snakemake, logging, runbook, PGT-A plan, task, current state, and manifest docs.
+
+### Changed files
+
+- `backend/app/main.py`
+- `backend/app/rule_event_service.py`
+- `backend/tests/test_snakemake_events_api.py`
+- `dags/pgta_airflow_runner.py`
+- `dags/snakemake_logger_plugin_airflow_demo/__init__.py`
+- `dags/tests/test_pgta_airflow_runner.py`
+- `dags/tests/test_snakemake_logger_plugin.py`
+- `docs/04_DATABASE_SCHEMA.md`
+- `docs/05_API_CONTRACT.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/08_SNAKEMAKE_QSUB_INTEGRATION.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/18_PGTA_FENGXIAN_TEST_PLAN.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `docker compose -f docker-compose.yaml build backend` on `fengxian` | success | Rebuilt backend image with event tests/code |
+| `docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q tests/test_snakemake_events_api.py` before implementation | failed as expected | Missing endpoints returned 404 |
+| Airflow runner unittest before implementation | failed as expected | `backend_event_url` not preserved/passed |
+| Snakemake 9 plugin unittest before implementation | failed as expected | backend POST not called and fallback marker absent |
+| `docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q tests/test_snakemake_events_api.py` | success | `4 passed` |
+| `docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q` | success | `30 passed` |
+| Snakemake 9 plugin unittest after POST implementation | success | `4 tests OK` before context regression was added |
+| T026/T043 first real smoke | partial | `PGTA_20260703_052742_C3A2F5` DAG success, but DB only got `info` rows; exposed missing job context backfill |
+| Snakemake 9 plugin context regression before fix | failed as expected | `job_finished` without rule did not POST |
+| Snakemake 9 plugin unittest after context fix | success | `5 tests OK` |
+| Airflow unittest discover after context fix | success | `18 tests OK`, `5 skipped` in Airflow Python because Snakemake 9 interface is absent there |
+| T026/T043 second real smoke | success | `PGTA_20260703_054712_501D8B` / `manual__PGTA_20260703_054712_501D8B_events` ended Airflow `success` |
+| `GET /api/runs/PGTA_20260703_054712_501D8B/rules` | success | Returned `all=success`, `collect_run_metadata=success` |
+| `docker compose -f docker-compose.yaml down` | success | Safe stop only; no `down -v` or prune |
+
+### Tests
+
+Remote-only acceptance evidence on `fengxian`:
+
+- Backend event API tests passed: `4 passed`.
+- Full backend test suite passed: `30 passed`.
+- Snakemake 9 logger plugin tests passed under `/biosoftware/miniconda/envs/snakemake9_env/bin/python`: `5 tests OK`.
+- Airflow DAG/runner tests passed in Airflow Python: `18 tests OK`, `5 skipped`.
+- Real PGT-A Airflow-only metadata event smoke passed:
+  - `analysis_id=PGTA_20260703_054712_501D8B`
+  - `dag_run_id=manual__PGTA_20260703_054712_501D8B_events`
+  - Airflow state `success`
+  - `run_metadata.tsv`: 11 lines
+  - `snakemake_events.jsonl`: 22 lines
+  - `snakemake_rule_summary.tsv`: 29 lines
+  - rules API returned two success rows.
+
+### Not run / why
+
+- No frontend was implemented or tested; T057 remains next for visible run detail/rule table.
+- No PGT-A dry-run/CNV/baseline_qc target was run; T045 remains pending.
+- No qsub wrapper/profile was implemented; qsub job id and qsub stdout/stderr fields remain pending T041/T042.
+- No DB migration was added; existing `snakemake_rule_event` schema was sufficient.
+
+### Current git status
+
+Implementation is on branch `codex/airflow/T086-pgta-airflow-logger`; code smoke passed on `fengxian` at commit `b917961`, followed by docs/state updates in this handoff batch.
+
+### Risks
+
+- Snakemake 9 emits some useful generic workflow/progress events without rule; backend intentionally ignores those and keeps them only in JSONL/Airflow XCom.
+- `start_time` may remain null for some PGT-A rows because Snakemake `job_started` events do not always carry jobid/rule. Terminal success is still captured through `job_info -> job_finished` context backfill.
+- `bio_pgta_airflow` is still manifest-only and does not replace the backend-triggered `bio_pgta` submit path.
+
+### Open questions
+
+- Whether `/api/runs/{analysis_id}/actions/submit` should eventually support `bio_pgta_airflow` for backend-created runs, or keep it as a diagnostic Airflow-only DAG.
+
+### Next recommended task
+
+Run T057 next: build PGT-A run detail UI that consumes run detail, samples, logs, artifacts, sync-airflow, and the new rules API. T045 dry-run and T041/T042 qsub wrapper remain separate follow-ups.
+
+### Rollback notes
+
+- Stop services with `docker compose -f docker-compose.yaml down`.
+- Revert repository changes with normal `git revert`.
+- Do not use `docker compose down -v`, `docker system prune`, `docker volume prune`, `git reset --hard`, or `git clean -fdx`.
+
 ## 2026-07-03 07:56 - Codex - T036 PGT-A Airflow-only Snakemake 9 logger DAG
 
 ### Goal

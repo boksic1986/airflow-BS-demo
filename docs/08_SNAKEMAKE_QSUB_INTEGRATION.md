@@ -154,10 +154,13 @@ CLI 约定：
 snakemake --logger airflow-demo \
   --logger-airflow-demo-analysis-id <analysis_id> \
   --logger-airflow-demo-workdir <workdir> \
-  --logger-airflow-demo-events-path <workdir>/logs/events/snakemake_events.jsonl
+  --logger-airflow-demo-events-path <workdir>/logs/events/snakemake_events.jsonl \
+  --logger-airflow-demo-backend-event-url http://backend:8000/api/events/snakemake
 ```
 
-第一版只写 JSONL，不 POST backend。`backend_event_url` 和 `post_timeout_seconds` 保留为 T026/T043 后续接入钩子。
+T026/T043 后，logger 默认仍强制写 JSONL；当 `backend_event_url` 非空时，会把 rule/job 级事件 POST 到 FastAPI `/api/events/snakemake`。backend POST 失败不影响 Snakemake 运行，失败信息会追加为本地 JSONL `backend_post_error` 事件。
+
+为了适配 Snakemake 9 部分 `job_finished/job_error` 事件缺少 rule 字段的情况，logger 会缓存 `jobid -> rule/sample/wildcards` 上下文，并用前序 `job_info` 补齐后续 job 事件，再 POST backend。
 
 JSONL 事件字段：
 
@@ -173,10 +176,11 @@ qsub_jobid
 stdout_path
 stderr_path
 message
+return_code
 timestamp
 ```
 
-Airflow 后置 task 会把 JSONL 汇总成 `snakemake_rule_summary.tsv` 并写入 task log/XCom。
+Airflow 后置 task 会把 JSONL 汇总成 `snakemake_rule_summary.tsv` 并写入 task log/XCom。workflow/progress/generic log 可保留在 JSONL 中；第一版 backend 只接收 `rule` 非空的 rule/job 事件。
 
 ## 10. 重分析策略
 

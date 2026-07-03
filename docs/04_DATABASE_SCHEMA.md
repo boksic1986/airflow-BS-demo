@@ -101,6 +101,8 @@ unique(analysis_id, rule, sample_id, snakemake_jobid)
 
 若 sample_id 为空，可使用 wildcards hash。
 
+T026/T043 第一版已复用该表，无新增 migration：FastAPI `/api/events/snakemake` 按 `analysis_id/rule/sample_id/snakemake_jobid` 查询并 upsert；PGT-A Snakemake 9 logger 会把 rule/job 事件写入该表。qsub job id、qsub stdout/stderr 的真实填充留给后续 qsub wrapper。
+
 ### qc_metric
 
 | Field | Type | Notes |

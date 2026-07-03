@@ -33,7 +33,7 @@
 | T023 | Airflow API client | backend | T020,T011 | trigger/list/get dag run | mock 或真实 API 测试通过 | done |
 | T024 | run 状态 API | backend | T021 | `/api/runs` list/detail/samples endpoints | 可返回 pgta run 列表、detail 和 sample fq1/fq2 路径 | done |
 | T025 | logs/artifacts API | backend | T021 | PGT-A v1 log tail + dynamic artifact list | `stdout/stderr/metadata` 可读取；缺失文件返回 `LOG_NOT_FOUND`；路径穿越被拒绝 | done |
-| T026 | Snakemake event receiver | backend | T021 | /events/snakemake | 可幂等 upsert rule event | todo |
+| T026 | Snakemake event receiver | backend | T021 | `/api/events/snakemake`, `/api/runs/{analysis_id}/rules` | 可幂等 upsert rule event；PGT-A logger rule 状态可从 API 查询 | done |
 | T027 | PGT-A `pgta` Airflow trigger API 支持 | backend | T021,T022,T023,T004 | created run -> Airflow `bio_pgta` trigger | 已创建的 `pgta` metadata run 可通过 submit action 提交为 DAG run；状态推进到 `submitted` 且 `dag_run_id` 非空 | done |
 
 ## P3 Airflow DAG
@@ -55,7 +55,7 @@
 | T040 | WES mock Snakefile | snakemake | T013 | pipelines/wes/workflow | snakemake -n 通过 | todo |
 | T041 | qsub submit wrapper | snakemake | T040,T026 | qsub_submit.py | 能记录 qsub jobid 或 mock jobid | todo |
 | T042 | qsub profile | snakemake | T041 | profiles/qsub/config.yaml | demo 限额生效 | todo |
-| T043 | rule event logger | snakemake/backend | T026,T040 | logger/POST events | 前端/DB 可见 rule 状态 | todo |
+| T043 | rule event logger | snakemake/backend | T026,T036 | PGT-A Snakemake 9 logger POST events | PGT-A rule 状态在 biodemo DB 和 `/api/runs/{analysis_id}/rules` 可见；qsub job id 仍由 T041/T042 后续补 | done |
 | T044 | resume/rerun 策略 | snakemake/airflow | T031,T040 | mode -> snakemake flags | 不默认 forceall | todo |
 | T045 | PGT-A Snakemake runner | snakemake/airflow | T035,T004 | pgta config 生成和 metadata/dry-run runner | metadata runner 已随 T035 通过；Airflow-only Snakemake 9 logger 已随 T036 通过；dry-run runner 仍待实现；输出只写 shared/runs/<analysis_id>，PGT_A 目录只读 | todo |
 
@@ -78,7 +78,7 @@
 |---|---|---|---|---|---|---|
 | T060 | QC parser | backend/snakemake | T021,T040 | qc_metric 写库 | mock QC 指标展示 | todo |
 | T061 | MultiQC/Snakemake report artifact | snakemake/backend | T040,T060 | report link | artifact 表有记录 | todo |
-| T062 | PGT-A run-level error summary extractor | backend | T025,T027,T035 | run-level Airflow sync + stderr summary | PGT-A run-level `error_summary` 已完成；rule/qsub 级摘要仍待 T026/T043 | done |
+| T062 | PGT-A run-level error summary extractor | backend | T025,T027,T035 | run-level Airflow sync + stderr summary | PGT-A run-level `error_summary` 已完成；rule 状态基础已由 T026/T043 入库，qsub 级摘要仍待 T041/T042 | done |
 | T063 | 邮件模板 | backend/airflow | T034,T060 | success/fail emails | 邮件含 QC 和错误链接 | todo |
 
 ## P7 NIPT 接入

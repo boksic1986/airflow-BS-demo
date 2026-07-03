@@ -105,6 +105,8 @@ last_100_lines
 
 若 stderr 不存在或为空，`last_100_lines` 使用 `no stderr available`。Airflow task log 抓取、failed task、failed rule、sample_id、qsub_jobid 和 suspected_reason 留到 T026/T043 后补齐；不要把当前 run-level 摘要冒充 rule/qsub 级诊断。
 
+T026/T043 已补齐 PGT-A Snakemake 9 rule/job 事件入库基础：`POST /api/events/snakemake` 可 upsert `snakemake_rule_event`，`GET /api/runs/{analysis_id}/rules` 可返回 rule/job 最新状态。qsub job id、qsub stdout/stderr 细粒度诊断仍留给后续 qsub wrapper 任务。
+
 ## 7. Artifact 类型
 
 ```text
@@ -160,3 +162,4 @@ snakemake --report shared/reports/<analysis_id>/snakemake_report.html
 - `bio_pgta_airflow` 可用 Snakemake 9.23.1 的 `--logger airflow-demo` 执行 metadata target。
 - repo-local logger plugin 写入 `logs/events/snakemake_events.jsonl`。
 - Airflow `collect_snakemake_events` task 写入 `logs/events/snakemake_rule_summary.tsv`，并在 task log 与 XCom 中展示 event count、status counts 和 failed jobs。
+- 配置 `backend_event_url=http://backend:8000/api/events/snakemake` 时，PGT-A metadata smoke 已把 `all` 和 `collect_run_metadata` rule 状态 upsert 为 `success`，并可通过 `/api/runs/{analysis_id}/rules` 查询。

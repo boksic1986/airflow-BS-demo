@@ -218,6 +218,7 @@ PGT-A 流程目录和数据目录只读挂载。demo 输出只能写入：
 | PGTA-004 | airflow | 新增 DAG `bio_pgta` | DAG import/check 通过 | done |
 | PGTA-005 | airflow/snakemake | pgta metadata runner | `logs/run_metadata.tsv` 生成 | metadata done; dry-run not included |
 | PGTA-005B | airflow/snakemake | PGT-A Airflow-only Snakemake 9 logger DAG | `bio_pgta_airflow` success，events JSONL、summary TSV、Airflow log/XCom 状态汇总生成 | done on fengxian |
+| PGTA-005C | backend/snakemake | Snakemake logger backend event POST | `backend_event_url` 写入 FastAPI `/api/events/snakemake`，`/api/runs/<analysis_id>/rules` 返回 rule success | done on fengxian |
 | PGTA-006 | backend/frontend | log/artifact/error summary 展示 | 成功和失败 run 都能从页面定位日志 | todo |
 | PGTA-007 | qa | Level 0-3 smoke 验收报告 | 验收报告记录命令、结果、风险 | todo; Level 1 core metadata smoke passed |
 
