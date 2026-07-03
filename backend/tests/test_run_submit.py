@@ -125,7 +125,7 @@ def test_submit_rejects_runs_that_are_not_created(tmp_path, monkeypatch) -> None
     assert fake_airflow.calls == []
 
 
-def test_submit_rejects_non_metadata_target(tmp_path, monkeypatch) -> None:
+def test_submit_allows_dryrun_cnv_target(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_pgta_run(session_factory, tmp_path, target="dryrun_cnv")
     fake_airflow = FakeAirflowClient()
@@ -135,7 +135,37 @@ def test_submit_rejects_non_metadata_target(tmp_path, monkeypatch) -> None:
 
     response = client.post(f"/api/runs/{analysis_id}/actions/submit")
 
+    assert response.status_code == 200
+    assert response.json()["status"] == "submitted"
+    assert fake_airflow.calls[0]["conf"]["params"]["target"] == "dryrun_cnv"
+
+
+def test_submit_allows_invalid_target_failure_smoke(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_pgta_run(session_factory, tmp_path, target="invalid_target")
+    fake_airflow = FakeAirflowClient()
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    monkeypatch.setattr(main, "get_airflow_client", lambda: fake_airflow)
+    client = TestClient(main.app)
+
+    response = client.post(f"/api/runs/{analysis_id}/actions/submit")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "submitted"
+    assert fake_airflow.calls[0]["conf"]["params"]["target"] == "invalid_target"
+
+
+def test_submit_rejects_uncontrolled_target(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_pgta_run(session_factory, tmp_path, target="baseline_qc")
+    fake_airflow = FakeAirflowClient()
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    monkeypatch.setattr(main, "get_airflow_client", lambda: fake_airflow)
+    client = TestClient(main.app)
+
+    response = client.post(f"/api/runs/{analysis_id}/actions/submit")
+
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "VALIDATION_ERROR"
-    assert "target=metadata" in response.json()["detail"]["message"]
+    assert "Unsupported PGT-A target" in response.json()["detail"]["message"]
     assert fake_airflow.calls == []

@@ -154,7 +154,7 @@ snakemake --report shared/reports/<analysis_id>/snakemake_report.html
 已完成的 PGT-A v1 后端验收：
 
 - `GET /api/runs/{analysis_id}/logs?stream=stdout|stderr|metadata` 可读取固定 metadata run 文件。
-- `GET /api/runs/{analysis_id}/artifacts` 可动态发现 metadata、stdout/stderr 和 config 产物。
+- `GET /api/runs/{analysis_id}/artifacts` 可动态发现 metadata、dry-run stdout/stderr 和 config 产物，包括 `config/pgta_run_config.json`。
 - `POST /api/runs/{analysis_id}/actions/sync-airflow` 可把 Airflow success/failed 同步到 biodemo，并在 failed 时写入 `error_summary`。
 
 已完成的 PGT-A Airflow-only logger 验收：

@@ -7,10 +7,10 @@
 已实现范围：
 
 - 首页即 PGT-A run list/detail workspace。
-- 左侧 `New PGT-A Run` 面板支持 `project_name`、`rawdata_root`、`max_samples`、固定 `target=metadata`、可选 `email_to` 和备注。
+- 左侧 `New PGT-A Run` 面板支持 `project_name`、`rawdata_root`、`max_samples`、`target` 下拉、可选 `email_to` 和备注。
 - `Scan` 调用 `POST /api/input/scan`，展示服务器路径 FASTQ 候选样本，支持勾选样本；`truncated=true` 时显示收窄路径提示。
 - `Create Run` 调用 JSON `POST /api/runs`，创建成功后自动选中新 run 并展示 detail。
-- 对 `status=created` 且 `target=metadata` 的 run，detail toolbar 显示 `Submit to Airflow`，调用 `POST /api/runs/{analysis_id}/actions/submit`。
+- 对 `status=created` 且 `target` 为 `metadata`、`dryrun_cnv` 或 `invalid_target` 的 run，detail toolbar 显示 `Submit to Airflow`，调用 `POST /api/runs/{analysis_id}/actions/submit`。
 - `GET /api/runs?pipeline=pgta` 展示 run 列表。
 - run detail 展示 overview、samples、Snakemake rules、metadata/stdout/stderr logs、artifacts。
 - 手动同步按钮调用 `POST /api/runs/{analysis_id}/actions/sync-airflow`。
@@ -69,7 +69,7 @@ PGT-A v1 fields:
   - rawdata_root
   - scan button
   - candidate sample checkbox table
-  - target: metadata
+  - target: metadata / dryrun_cnv / invalid_target
   - email_to
   - note
 Params:
@@ -82,7 +82,7 @@ Params:
 
 PGT-A v1 不上传 FASTQ 或 sample sheet。前端调用 `POST /api/input/scan` 扫描白名单服务器路径下已有 FASTQ，用户勾选样本后用 JSON 调用 `POST /api/runs`。提交成功后状态为 `created`，不会立即出现 Airflow DAG run。
 
-T051 v1 已在当前单页 workspace 中实现该表单，不引入路由库。创建 run 和提交执行保持两步模式：创建后先进入 `created`，用户在 run detail toolbar 点击 `Submit to Airflow` 后才触发 `bio_pgta`。
+T051/T045 v1 已在当前单页 workspace 中实现该表单，不引入路由库。创建 run 和提交执行保持两步模式：创建后先进入 `created`，用户在 run detail toolbar 点击 `Submit to Airflow` 后才触发 `bio_pgta`。默认 target 是 `metadata`；`dryrun_cnv` 用于 Snakemake dry-run smoke，`invalid_target` 仅用于失败摘要 smoke。
 
 提交后跳转：
 

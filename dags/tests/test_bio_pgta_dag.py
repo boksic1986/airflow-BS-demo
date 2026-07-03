@@ -16,11 +16,11 @@ class BioPgtaDagTests(unittest.TestCase):
         self.assertFalse(dag.is_paused_upon_creation)
         self.assertEqual(
             set(dag.task_ids),
-            {"validate_request", "prepare_pgta_config", "run_metadata", "collect_metadata_artifact"},
+            {"validate_request", "prepare_pgta_config", "run_pgta_target", "collect_pgta_artifact"},
         )
         self.assertTrue(dag.get_task("validate_request").downstream_task_ids == {"prepare_pgta_config"})
-        self.assertTrue(dag.get_task("prepare_pgta_config").downstream_task_ids == {"run_metadata"})
-        self.assertTrue(dag.get_task("run_metadata").downstream_task_ids == {"collect_metadata_artifact"})
+        self.assertTrue(dag.get_task("prepare_pgta_config").downstream_task_ids == {"run_pgta_target"})
+        self.assertTrue(dag.get_task("run_pgta_target").downstream_task_ids == {"collect_pgta_artifact"})
 
     def test_collect_metadata_callable_returns_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -35,9 +35,9 @@ class BioPgtaDagTests(unittest.TestCase):
                     return {"analysis_id": "PGTA_TEST", "workdir": str(workdir)}
 
             task_instance = DummyTaskInstance()
-            artifact = bio_pgta._collect_metadata_artifact(ti=task_instance)
+            artifact = bio_pgta._collect_pgta_artifact(ti=task_instance)
 
-        self.assertEqual(task_instance.task_ids, "run_metadata")
+        self.assertEqual(task_instance.task_ids, "run_pgta_target")
         self.assertEqual(artifact["type"], "pgta_metadata")
         self.assertTrue(artifact["path"].endswith("run_metadata.tsv"))
 

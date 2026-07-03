@@ -7,8 +7,8 @@ from airflow.operators.python import PythonOperator
 
 from pgta_metadata_runner import (
     build_pgta_config,
-    collect_metadata_artifact as collect_pgta_metadata_artifact,
-    run_pgta_metadata,
+    collect_pgta_artifact,
+    run_pgta_target,
     validate_pgta_conf,
 )
 
@@ -25,23 +25,23 @@ def _prepare_pgta_config(**context):
     return conf
 
 
-def _run_metadata(**context):
+def _run_pgta_target(**context):
     task_instance = context["ti"]
     conf = task_instance.xcom_pull(task_ids="prepare_pgta_config")
-    metadata_path = run_pgta_metadata(conf)
-    conf["metadata_path"] = str(metadata_path)
+    artifact_path = run_pgta_target(conf)
+    conf["artifact_path"] = str(artifact_path)
     return conf
 
 
-def _collect_metadata_artifact(**context):
+def _collect_pgta_artifact(**context):
     task_instance = context["ti"]
-    conf = task_instance.xcom_pull(task_ids="run_metadata")
-    return collect_pgta_metadata_artifact(conf)
+    conf = task_instance.xcom_pull(task_ids="run_pgta_target")
+    return collect_pgta_artifact(conf)
 
 
 with DAG(
     dag_id="bio_pgta",
-    description="PGT-A metadata-only demo DAG",
+    description="PGT-A demo DAG for metadata, dry-run, and controlled failure smoke",
     start_date=datetime(2026, 7, 1),
     schedule=None,
     catchup=False,
@@ -56,13 +56,13 @@ with DAG(
         task_id="prepare_pgta_config",
         python_callable=_prepare_pgta_config,
     )
-    run_metadata = PythonOperator(
-        task_id="run_metadata",
-        python_callable=_run_metadata,
+    run_pgta_target_task = PythonOperator(
+        task_id="run_pgta_target",
+        python_callable=_run_pgta_target,
     )
-    collect_metadata_artifact_task = PythonOperator(
-        task_id="collect_metadata_artifact",
-        python_callable=_collect_metadata_artifact,
+    collect_pgta_artifact_task = PythonOperator(
+        task_id="collect_pgta_artifact",
+        python_callable=_collect_pgta_artifact,
     )
 
-    validate_request >> prepare_pgta_config >> run_metadata >> collect_metadata_artifact_task
+    validate_request >> prepare_pgta_config >> run_pgta_target_task >> collect_pgta_artifact_task

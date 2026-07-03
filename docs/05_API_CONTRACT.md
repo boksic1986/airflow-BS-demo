@@ -117,6 +117,12 @@ Content-Type: application/json
 
 创建接口只创建项目、入库和 selected manifest，不触发 Airflow，不运行 Snakemake。`dag_run_id` 必须为 `null`，状态为 `created`。提交到 Airflow 使用后续的 submit action。
 
+PGT-A v1 受控 target：
+
+- `metadata`: 真实执行轻量 metadata target。
+- `dryrun_cnv`: 只运行 CNV 配置方向的 Snakemake dry-run。
+- `invalid_target`: failure smoke 专用，后续提交到 Airflow 时让 Snakemake 自然失败以验证 stderr/error summary。
+
 Request:
 
 ```json
@@ -169,14 +175,14 @@ shared/runs/<analysis_id>/config/request.json
 POST /api/runs/{analysis_id}/actions/submit
 ```
 
-T027/T035 阶段只支持把已存在的 PGT-A metadata run 提交到 Airflow：
+T045/T084 阶段支持把已存在的 PGT-A controlled target run 提交到 Airflow：
 
 - `analysis_run.pipeline_name = pgta`
 - `analysis_run.status = created`
-- `analysis_run.params_json.target = metadata`
+- `analysis_run.params_json.target` 为 `metadata`、`dryrun_cnv` 或 `invalid_target`
 - `sample_sheet_path` 和 `workdir` 必须存在
 
-接口不会重复创建 run 或 sample。成功后会调用 Airflow REST API 触发 `bio_pgta`，写入 `dag_run_id`，并把 `analysis_run.status` 更新为 `submitted`。Airflow DAG 是否最终 success 仍以 Airflow 为准；本阶段还没有后台回写 success/failed 到 biodemo DB。
+接口不会重复创建 run 或 sample。成功后会调用 Airflow REST API 触发 `bio_pgta`，写入 `dag_run_id`，并把 `analysis_run.status` 更新为 `submitted`。Airflow DAG 是否最终 success/failed 仍以 Airflow 为准；需要显式调用 `sync-airflow` 回写 biodemo DB。
 
 Response:
 
@@ -206,7 +212,7 @@ Response:
 Errors:
 
 - `404 RUN_NOT_FOUND`: `analysis_id` 不存在。
-- `400 VALIDATION_ERROR`: pipeline 不是 `pgta`、状态不是 `created`、target 不是 `metadata`，或 run 缺少必要路径。
+- `400 VALIDATION_ERROR`: pipeline 不是 `pgta`、状态不是 `created`、target 不在受控白名单内，或 run 缺少必要路径。
 - `502 AIRFLOW_TRIGGER_FAILED`: backend 调用 Airflow API 失败。
 
 ## 6. 同步 Airflow 状态
@@ -477,12 +483,13 @@ Errors:
 GET /api/runs/{analysis_id}/artifacts
 ```
 
-PGT-A v1 第一版动态发现 metadata 产物，不写 artifact 表：
+PGT-A v1 第一版动态发现 metadata/dry-run 产物，不写 artifact 表：
 
 - `logs/run_metadata.tsv`
 - `logs/snakemake.stdout.log`
 - `logs/snakemake.stderr.log`
 - `config.yaml`
+- `config/pgta_run_config.json`
 - `config/pgta_metadata_config.json`
 
 Response:

@@ -78,6 +78,13 @@ ARTIFACTS = [
         url="/api/runs/{analysis_id}/artifacts/pgta_config_yaml",
     ),
     ArtifactDefinition(
+        key="pgta_run_config",
+        type="pgta_config",
+        label="PGT-A runner config",
+        relative_path=Path("config/pgta_run_config.json"),
+        url="/api/runs/{analysis_id}/artifacts/pgta_run_config",
+    ),
+    ArtifactDefinition(
         key="pgta_metadata_config",
         type="pgta_config",
         label="PGT-A metadata runner config",

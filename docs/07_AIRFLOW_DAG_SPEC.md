@@ -7,7 +7,7 @@
 | bio_wes_qsub | WES | Snakemake + qsub | 核心 demo 优先 |
 | bio_nipt_qsub | NIPT | Snakemake/wrapper + qsub | 第二阶段 |
 | bio_nipt_docker | NIPT Docker | docker runner | 第二阶段 |
-| bio_pgta | PGT-A | Snakemake direct in Airflow worker | v1 只跑 metadata target，不使用 qsub；dry-run 后续扩展 |
+| bio_pgta | PGT-A | Snakemake direct in Airflow worker | v1 支持 metadata、dryrun_cnv 和 invalid_target failure smoke，不使用 qsub |
 | bio_pgta_airflow | PGT-A | Snakemake 9 direct in Airflow worker | Airflow-only metadata DAG，使用 repo-local logger plugin 写 JSONL 并在 Airflow log/XCom 展示状态 |
 
 ## 2. 通用 DAG run conf
@@ -30,7 +30,7 @@
 }
 ```
 
-PGT-A metadata v1 conf example:
+PGT-A v1 conf example:
 
 ```json
 {
@@ -200,15 +200,15 @@ docker compose exec airflow-scheduler airflow dags list
 
 ## 7. `bio_pgta` v1
 
-第一版 `bio_pgta` 只用于 PGT-A metadata smoke，不跑 mapping、CNV、baseline QC，也不使用 qsub。
+第一版 `bio_pgta` 用于 PGT-A metadata、CNV dry-run 和受控 failure smoke。不跑真实 CNV、baseline QC，也不使用 qsub。
 
 Task graph:
 
 ```text
 validate_request
   -> prepare_pgta_config
-  -> run_metadata
-  -> collect_metadata_artifact
+  -> run_pgta_target
+  -> collect_pgta_artifact
 ```
 
 ### validate_request
@@ -217,7 +217,7 @@ validate_request
 
 - `analysis_id` 非空。
 - `pipeline = pgta`。
-- `params.target = metadata`。
+- `params.target` 为 `metadata`、`dryrun_cnv` 或 `invalid_target`。
 - `workdir` 在 `/data/airflow-demo` 下。
 - `sample_sheet_path` 存在，且位于 `workdir` 下。
 
@@ -229,10 +229,19 @@ validate_request
 
 ```text
 shared/runs/<analysis_id>/config.yaml
+shared/runs/<analysis_id>/config/pgta_run_config.json
 shared/runs/<analysis_id>/config/pgta_metadata_config.json
 ```
 
-### run_metadata
+target 映射：
+
+| demo target | Snakemake 行为 |
+|---|---|
+| `metadata` | `pipeline.targets=["metadata"]`，真实执行轻量 metadata |
+| `dryrun_cnv` | `pipeline.targets=["cnv"]`，启用 `wisecondorx.cnv.enable`，只加 `--dry-run` |
+| `invalid_target` | 向 Snakemake 传入 `__airflow_demo_invalid_target__`，用于失败 smoke |
+
+### run_pgta_target
 
 在 Airflow worker 中直接调用 PGT-A Snakemake 环境：
 
@@ -240,25 +249,25 @@ shared/runs/<analysis_id>/config/pgta_metadata_config.json
 /biosoftware/miniconda/envs/snakemake_env/bin/snakemake \
   --snakefile /opt/pipelines/PGT_A/Snakefile \
   --cores 1 \
-  --printshellcmds
+  --printshellcmds \
+  --configfile <workdir>/config.yaml
 ```
 
-执行目录为 `/data/airflow-demo/runs/<analysis_id>`。Snakemake 使用 run-local `config.yaml`，输出只允许写入该 run workdir。stdout/stderr 写入：
+`dryrun_cnv` 会额外传 `--dry-run`；`invalid_target` 会额外传 `__airflow_demo_invalid_target__`。执行目录为 `/data/airflow-demo/runs/<analysis_id>`，输出只允许写入该 run workdir。stdout/stderr 写入：
 
 ```text
 shared/runs/<analysis_id>/logs/snakemake.stdout.log
 shared/runs/<analysis_id>/logs/snakemake.stderr.log
 ```
 
-### collect_metadata_artifact
+### collect_pgta_artifact
 
-验收 `logs/run_metadata.tsv` 是否存在，并返回 metadata artifact 信息供后续 T025/T057 登记或展示。
+`metadata` 验收 `logs/run_metadata.tsv` 是否存在；`dryrun_cnv` 验收 `logs/snakemake.stdout.log` 是否存在并返回 dry-run stdout artifact。`invalid_target` 预期在 `run_pgta_target` failed，不进入 collect task。
 
 本阶段已知边界：
 
-- backend 只把 run 更新到 `submitted`，还没有 Airflow success/failed 状态回写。
-- backend artifact/log API 尚未实现。
-- dry-run、非法 target failure smoke 和前端展示仍在后续任务中。
+- `invalid_target` 是测试错误摘要链路的受控失败入口，不代表生产 target。
+- qsub、baseline_qc 和真实 CNV 运行仍在后续任务中。
 
 ## 8. `bio_pgta_airflow` Airflow-only logger v1
 

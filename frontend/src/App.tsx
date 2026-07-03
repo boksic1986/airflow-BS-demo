@@ -18,6 +18,7 @@ import {
   Artifact,
   ScanCandidate,
   LogStream,
+  PgtaTarget,
   RuleEvent,
   RunDetail,
   RunLog,
@@ -50,6 +51,7 @@ const emptyBundle: RunBundle = {
 };
 
 const defaultRawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28";
+const submitTargets: PgtaTarget[] = ["metadata", "dryrun_cnv", "invalid_target"];
 
 function statusClass(status?: string | null): string {
   const normalized = (status || "unknown").toLowerCase();
@@ -100,6 +102,7 @@ export default function App() {
   const [syncing, setSyncing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [projectName, setProjectName] = useState("PGT-A metadata smoke");
+  const [target, setTarget] = useState<PgtaTarget>("metadata");
   const [rawdataRoot, setRawdataRoot] = useState(defaultRawdataRoot);
   const [maxSamples, setMaxSamples] = useState(20);
   const [emailTo, setEmailTo] = useState("");
@@ -118,7 +121,8 @@ export default function App() {
     [runs, selectedId],
   );
 
-  const canSubmitRun = bundle.detail?.status === "created" && runTarget(bundle.detail) === "metadata";
+  const canSubmitRun =
+    bundle.detail?.status === "created" && submitTargets.includes((runTarget(bundle.detail) || "metadata") as PgtaTarget);
 
   async function refreshRuns(preferredId?: string | null) {
     setLoadingRuns(true);
@@ -232,7 +236,7 @@ export default function App() {
       const created = await createRun({
         pipeline: "pgta",
         project_name: projectName,
-        target: "metadata",
+        target,
         rawdata_root: rawdataRoot,
         selected_samples: selected,
         email_to: emailTo.trim() || null,
@@ -302,6 +306,7 @@ export default function App() {
         <aside className="run-list" aria-label="PGT-A run list">
           <NewRunPanel
             projectName={projectName}
+            target={target}
             rawdataRoot={rawdataRoot}
             maxSamples={maxSamples}
             emailTo={emailTo}
@@ -315,6 +320,7 @@ export default function App() {
             scanning={scanning}
             creating={creating}
             onProjectNameChange={setProjectName}
+            onTargetChange={setTarget}
             onRawdataRootChange={setRawdataRoot}
             onMaxSamplesChange={setMaxSamples}
             onEmailToChange={setEmailTo}
@@ -418,6 +424,7 @@ export default function App() {
 
 function NewRunPanel({
   projectName,
+  target,
   rawdataRoot,
   maxSamples,
   emailTo,
@@ -431,6 +438,7 @@ function NewRunPanel({
   scanning,
   creating,
   onProjectNameChange,
+  onTargetChange,
   onRawdataRootChange,
   onMaxSamplesChange,
   onEmailToChange,
@@ -440,6 +448,7 @@ function NewRunPanel({
   onCreate,
 }: {
   projectName: string;
+  target: PgtaTarget;
   rawdataRoot: string;
   maxSamples: number;
   emailTo: string;
@@ -453,6 +462,7 @@ function NewRunPanel({
   scanning: boolean;
   creating: boolean;
   onProjectNameChange: (value: string) => void;
+  onTargetChange: (value: PgtaTarget) => void;
   onRawdataRootChange: (value: string) => void;
   onMaxSamplesChange: (value: number) => void;
   onEmailToChange: (value: string) => void;
@@ -488,7 +498,11 @@ function NewRunPanel({
         </label>
         <label>
           <span>Target</span>
-          <input value="metadata" readOnly />
+          <select value={target} onChange={(event) => onTargetChange(event.target.value as PgtaTarget)}>
+            <option value="metadata">metadata</option>
+            <option value="dryrun_cnv">dryrun_cnv</option>
+            <option value="invalid_target">invalid_target</option>
+          </select>
         </label>
         <label>
           <span>Email</span>

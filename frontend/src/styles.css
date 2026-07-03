@@ -118,6 +118,7 @@ a {
 }
 
 .form-grid input,
+.form-grid select,
 .form-grid textarea {
   width: 100%;
   min-height: 36px;

@@ -69,10 +69,12 @@ export type ScanInputResponse = {
   items: ScanCandidate[];
 };
 
+export type PgtaTarget = "metadata" | "dryrun_cnv" | "invalid_target";
+
 export type CreateRunRequest = {
   pipeline: "pgta";
   project_name: string;
-  target: "metadata";
+  target: PgtaTarget;
   rawdata_root: string;
   selected_samples: ScanCandidate[];
   email_to?: string | null;

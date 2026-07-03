@@ -14,6 +14,8 @@ DEFAULT_SHARED_ROOT = Path(os.getenv("CONTAINER_SHARED_ROOT", "/data/airflow-dem
 DEFAULT_PGTA_PIPELINE_ROOT = Path(os.getenv("PGTA_CONTAINER_ROOT", "/opt/pipelines/PGT_A"))
 DEFAULT_PGTA_DATA_ROOT = Path(os.getenv("PGTA_CONTAINER_DATA_ROOT", "/data/project/CNV/PGT-A"))
 DEFAULT_SNAKEMAKE_BIN = Path(os.getenv("PGTA_SNAKEMAKE_BIN", "/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"))
+SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target"}
+INVALID_SNAKEMAKE_TARGET = "__airflow_demo_invalid_target__"
 
 
 def validate_pgta_conf(
@@ -25,14 +27,16 @@ def validate_pgta_conf(
     pipeline = str(conf.get("pipeline") or "").strip()
     sample_sheet_path = Path(str(conf.get("sample_sheet_path") or "")).resolve()
     workdir = Path(str(conf.get("workdir") or "")).resolve()
-    params = conf.get("params") or {}
+    params = dict(conf.get("params") or {})
+    target = str(params.get("target") or "metadata").strip()
 
     if not analysis_id:
         raise ValueError("analysis_id is required.")
     if pipeline != "pgta":
         raise ValueError("pipeline must be pgta.")
-    if params.get("target") != "metadata":
-        raise ValueError("Only target=metadata is supported by bio_pgta v1.")
+    if target not in SUPPORTED_PGTA_TARGETS:
+        supported = ", ".join(sorted(SUPPORTED_PGTA_TARGETS))
+        raise ValueError(f"Unsupported PGT-A target: {target}. Supported targets: {supported}.")
     if not sample_sheet_path.is_file():
         raise FileNotFoundError(f"sample_sheet_path is not readable: {sample_sheet_path}")
 
@@ -49,7 +53,7 @@ def validate_pgta_conf(
         "sample_sheet_path": str(sample_sheet_path),
         "workdir": str(workdir),
         "email_to": conf.get("email_to"),
-        "params": params,
+        "params": {**params, "target": target},
     }
 
 
@@ -98,33 +102,39 @@ def build_pgta_config(
     for sample in samples:
         _validate_sample_paths(sample, pgta_data_root)
 
-    snakemake_config = _snakemake_config(workdir, samples)
+    target = _target_from_conf(conf)
+    snakemake_config = _snakemake_config(workdir, samples, target=target)
     config_path = workdir / "config.yaml"
     with config_path.open("w", encoding="utf-8") as handle:
         yaml.safe_dump(snakemake_config, handle, sort_keys=False)
 
-    metadata_config = {
+    runner_config = {
         "analysis_id": conf["analysis_id"],
-        "target": "metadata",
+        "target": target,
         "workdir": str(workdir),
         "pgta_pipeline_root": str(pgta_pipeline_root),
         "config_path": str(config_path),
         "samples": snakemake_config["samples"],
     }
+    (config_dir / "pgta_run_config.json").write_text(
+        json.dumps(runner_config, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     (config_dir / "pgta_metadata_config.json").write_text(
-        json.dumps(metadata_config, indent=2, sort_keys=True) + "\n",
+        json.dumps(runner_config, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     return config_path
 
 
-def run_pgta_metadata(
+def run_pgta_target(
     conf: dict[str, Any],
     *,
     snakemake_bin: Path = DEFAULT_SNAKEMAKE_BIN,
     pgta_pipeline_root: Path = DEFAULT_PGTA_PIPELINE_ROOT,
 ) -> Path:
     workdir = Path(conf["workdir"])
+    target = _target_from_conf(conf)
     logs_dir = workdir / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     stdout_path = logs_dir / "snakemake.stdout.log"
@@ -138,23 +148,52 @@ def run_pgta_metadata(
         "--cores",
         "1",
         "--printshellcmds",
+        "--configfile",
+        str(conf["config_path"]),
     ]
+    if target == "dryrun_cnv":
+        command.append("--dry-run")
+    if target == "invalid_target":
+        command.append(INVALID_SNAKEMAKE_TARGET)
     completed = subprocess.run(command, cwd=str(workdir), text=True, capture_output=True, check=False)
     stdout_path.write_text(completed.stdout or "", encoding="utf-8")
     stderr_path.write_text(completed.stderr or "", encoding="utf-8")
     if completed.returncode != 0:
-        raise RuntimeError(f"PGT-A metadata Snakemake failed with exit code {completed.returncode}. See {stderr_path}")
+        raise RuntimeError(f"PGT-A {target} Snakemake failed with exit code {completed.returncode}. See {stderr_path}")
+    if target == "dryrun_cnv":
+        return stdout_path
     return metadata_path
 
 
-def collect_metadata_artifact(conf: dict[str, Any]) -> dict[str, str]:
+def run_pgta_metadata(
+    conf: dict[str, Any],
+    *,
+    snakemake_bin: Path = DEFAULT_SNAKEMAKE_BIN,
+    pgta_pipeline_root: Path = DEFAULT_PGTA_PIPELINE_ROOT,
+) -> Path:
+    return run_pgta_target(conf, snakemake_bin=snakemake_bin, pgta_pipeline_root=pgta_pipeline_root)
+
+
+def collect_pgta_artifact(conf: dict[str, Any]) -> dict[str, str]:
+    target = _target_from_conf(conf)
+    if target == "dryrun_cnv":
+        stdout_path = Path(conf["workdir"]) / "logs" / "snakemake.stdout.log"
+        if not stdout_path.is_file():
+            raise FileNotFoundError(f"dry-run stdout artifact was not generated: {stdout_path}")
+        return {"type": "pgta_dryrun", "path": str(stdout_path), "label": "PGT-A CNV dry-run stdout"}
+
     metadata_path = Path(conf["workdir"]) / "logs" / "run_metadata.tsv"
     if not metadata_path.is_file():
         raise FileNotFoundError(f"run metadata artifact was not generated: {metadata_path}")
     return {"type": "pgta_metadata", "path": str(metadata_path), "label": "PGT-A run metadata"}
 
 
-def _snakemake_config(workdir: Path, samples: list[dict[str, str]]) -> dict[str, Any]:
+def collect_metadata_artifact(conf: dict[str, Any]) -> dict[str, str]:
+    return collect_pgta_artifact(conf)
+
+
+def _snakemake_config(workdir: Path, samples: list[dict[str, str]], *, target: str) -> dict[str, Any]:
+    pipeline_target = "cnv" if target == "dryrun_cnv" else "metadata"
     return {
         "core": {
             "project_path": str(workdir),
@@ -192,12 +231,12 @@ def _snakemake_config(workdir: Path, samples: list[dict[str, str]]) -> dict[str,
                 "gender_reference_output": "reference/gender/result/ref_gender_best.npz",
                 "common_reference_binsize_output": "reference/gender/common_best_binsize.txt",
                 "use_chr_prefix": True,
-                "cnv": {"enable": False},
+                "cnv": {"enable": target == "dryrun_cnv"},
                 "tuning": {"enable": False},
                 "reference_prefilter": {"binsize": 100000, "max_iterations": 3},
             },
         },
-        "pipeline": {"mode": "predict", "targets": ["metadata"]},
+        "pipeline": {"mode": "predict", "targets": [pipeline_target]},
         "biosoft": {
             "fastp": "/biosoftware/bin/fastp",
             "bwa": "/biosoftware/bin/bwa",
@@ -207,6 +246,15 @@ def _snakemake_config(workdir: Path, samples: list[dict[str, str]]) -> dict[str,
         },
         "samples": {sample["sample_id"]: {"R1": sample["R1"], "R2": sample["R2"]} for sample in samples},
     }
+
+
+def _target_from_conf(conf: dict[str, Any]) -> str:
+    params = conf.get("params") or {}
+    target = str(params.get("target") or "metadata").strip()
+    if target not in SUPPORTED_PGTA_TARGETS:
+        supported = ", ".join(sorted(SUPPORTED_PGTA_TARGETS))
+        raise ValueError(f"Unsupported PGT-A target: {target}. Supported targets: {supported}.")
+    return target
 
 
 def _validate_sample_paths(sample: dict[str, str], pgta_data_root: Path) -> None:

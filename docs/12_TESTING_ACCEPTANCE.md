@@ -86,6 +86,26 @@ PGT-A v1:
   -> logs/run_metadata.tsv 存在
 ```
 
+PGT-A Level 2/3:
+
+```text
+dryrun_cnv:
+  扫描服务器 rawdata_root
+  -> 勾选 1 个样本
+  -> 创建 target=dryrun_cnv run
+  -> submit action 触发 Airflow bio_pgta
+  -> bio_pgta success
+  -> logs/snakemake.stdout.log 和 stderr 存在
+  -> 不产生真实 CNV 结果
+
+invalid_target:
+  创建 target=invalid_target run
+  -> submit action 触发 Airflow bio_pgta
+  -> Snakemake 因 __airflow_demo_invalid_target__ failed
+  -> sync-airflow 后 analysis_run.status = failed
+  -> error_summary 包含 stderr path 和最后 100 行
+```
+
 完整 E2E 后续场景：
 
 ```text

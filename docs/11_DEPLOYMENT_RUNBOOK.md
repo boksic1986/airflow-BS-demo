@@ -355,9 +355,9 @@ shared/runs/<analysis_id>/config/request.json exists
 
 后续使用 submit action 触发 Airflow `bio_pgta`。
 
-## 13. PGT-A metadata submit smoke
+## 13. PGT-A submit smoke
 
-T027/T035 验收把已存在的 `created` PGT-A run 提交到 Airflow，只跑 metadata target，不跑 CNV、mapping、baseline QC 或 qsub。
+T027/T035/T045 验收把已存在的 `created` PGT-A run 提交到 Airflow。当前 `bio_pgta` 支持 `metadata`、`dryrun_cnv` 和 `invalid_target` 三个受控 target；不跑真实 CNV、mapping、baseline QC 或 qsub。
 
 先确认配置、测试和 DAG import：
 
@@ -401,7 +401,7 @@ find "shared/runs/${analysis_id}" -maxdepth 4 -type f | sort
 head -5 "shared/runs/${analysis_id}/logs/run_metadata.tsv"
 ```
 
-biodemo DB 中该 run 应更新为 `submitted` 且 `dag_run_id` 非空。Airflow success/failed 状态回写到 biodemo DB 是后续任务，不属于本 smoke 的完成条件。
+biodemo DB 中该 run 应更新为 `submitted` 且 `dag_run_id` 非空。Airflow success/failed 状态回写需要显式调用 `sync-airflow`。
 
 已验证的 fengxian smoke：
 
@@ -413,6 +413,37 @@ metadata artifact: shared/runs/PGTA_20260702_171533_9A85B1/logs/run_metadata.tsv
 ```
 
 已知边界：`run_metadata.tsv` 中 `git_branch` / `git_commit` 字段在当前 Airflow 容器内显示 git permission error，但 metadata target 和 DAG run 已成功；后续如需干净 provenance，可单独修正 PGT-A metadata rule 的 git 调用环境。
+
+### T045/T084 dry-run 与 failure smoke
+
+`dryrun_cnv` run 通过前端 target 下拉或 API 创建，submit 后 `bio_pgta` 会生成 CNV 配置方向的 run-local `config.yaml`，并执行：
+
+```bash
+snakemake --snakefile /opt/pipelines/PGT_A/Snakefile \
+  --cores 1 --printshellcmds --configfile <workdir>/config.yaml --dry-run
+```
+
+验收：
+
+```bash
+analysis_id=<PGTA_DRYRUN_ANALYSIS_ID>
+curl -fsS -X POST "http://127.0.0.1:8000/api/runs/${analysis_id}/actions/sync-airflow"
+curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}/logs?stream=stdout&tail=50"
+curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}/artifacts"
+```
+
+期望 `status=success`，stdout/stderr 存在，`config/pgta_run_config.json` 可见，且没有真实 CNV 结果写回 PGT-A 流程目录。
+
+`invalid_target` run 只用于 failure smoke。submit 后 Snakemake 会收到 `__airflow_demo_invalid_target__` 并自然失败。验收：
+
+```bash
+analysis_id=<PGTA_INVALID_ANALYSIS_ID>
+curl -fsS -X POST "http://127.0.0.1:8000/api/runs/${analysis_id}/actions/sync-airflow"
+curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}/logs?stream=stderr&tail=100"
+curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}"
+```
+
+期望 `status=failed`，`error_summary` 非空，并包含 stderr 路径和最后 100 行错误内容。
 
 ## 14. PGT-A diagnostics smoke
 

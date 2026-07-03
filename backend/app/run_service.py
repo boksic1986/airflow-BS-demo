@@ -14,6 +14,7 @@ from app.models import AnalysisRun, RunAction, Sample
 
 
 PGTA_DAG_ID = "bio_pgta"
+SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target"}
 
 
 def create_pgta_run(
@@ -27,8 +28,7 @@ def create_pgta_run(
     email_to: str | None = None,
     note: str | None = None,
 ) -> dict:
-    if target != "metadata":
-        raise ValueError("Only target=metadata is supported before Airflow DAG integration.")
+    _validate_pgta_target(target)
     if not selected_samples:
         raise ValueError("At least one sample must be selected.")
     sample_ids = [sample.sample_id for sample in selected_samples]
@@ -188,12 +188,17 @@ def _validate_submit_run(run: AnalysisRun) -> None:
     if run.status != "created":
         raise ValueError("Run must have status=created before submit.")
     params = run.params_json or {}
-    if params.get("target") != "metadata":
-        raise ValueError("Only target=metadata can be submitted before PGT-A DAG expansion.")
+    _validate_pgta_target(str(params.get("target") or "metadata"))
     if not run.sample_sheet_path:
         raise ValueError("Run is missing sample_sheet_path.")
     if not run.workdir:
         raise ValueError("Run is missing workdir.")
+
+
+def _validate_pgta_target(target: str) -> None:
+    if target not in SUPPORTED_PGTA_TARGETS:
+        supported = ", ".join(sorted(SUPPORTED_PGTA_TARGETS))
+        raise ValueError(f"Unsupported PGT-A target: {target}. Supported targets: {supported}.")
 
 
 def _ensure_airflow_writable(path: Path) -> None:

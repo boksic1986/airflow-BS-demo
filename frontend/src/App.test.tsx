@@ -22,6 +22,7 @@ function mockJson(payload: object, init?: ResponseInit) {
 describe("PGT-A run dashboard", () => {
   let createdRunStatus = "created";
   let createdDagRunId: string | null = null;
+  let createdRunTarget: "metadata" | "dryrun_cnv" | "invalid_target" = "metadata";
 
   function runListItems() {
     const items: Array<{
@@ -63,6 +64,7 @@ describe("PGT-A run dashboard", () => {
   beforeEach(() => {
     createdRunStatus = "";
     createdDagRunId = null;
+    createdRunTarget = "metadata";
     vi.stubGlobal(
       "fetch",
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -105,6 +107,8 @@ describe("PGT-A run dashboard", () => {
           });
         }
         if (url.endsWith("/api/runs") && init?.method === "POST") {
+          const requestBody = JSON.parse(String(init.body || "{}")) as {target?: "metadata" | "dryrun_cnv" | "invalid_target"};
+          createdRunTarget = requestBody.target || "metadata";
           createdRunStatus = "created";
           return mockJson(
             {
@@ -146,7 +150,7 @@ describe("PGT-A run dashboard", () => {
             airflow_url: null,
             workdir: `/data/airflow-demo/runs/${createdRunId}`,
             sample_sheet_path: `/data/airflow-demo/runs/${createdRunId}/config/samples.selected.tsv`,
-            params: {target: "metadata", selected_count: 1},
+            params: {target: createdRunTarget, selected_count: 1},
             error_summary: null,
             email_to: "demo@example.com",
           });
@@ -267,7 +271,7 @@ describe("PGT-A run dashboard", () => {
             workdir: `/data/airflow-demo/runs/${createdRunId}`,
             sample_count: 1,
             sample_sheet_path: `/data/airflow-demo/runs/${createdRunId}/config/samples.selected.tsv`,
-            params: {target: "metadata", selected_count: 1},
+            params: {target: createdRunTarget, selected_count: 1},
             error_summary: null,
           });
         }
@@ -349,6 +353,33 @@ describe("PGT-A run dashboard", () => {
     expect(screen.getByText("bio_pgta")).toBeInTheDocument();
   });
 
+  it("creates a dryrun_cnv run when the target selector is changed", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.selectOptions(await screen.findByLabelText(/target/i), "dryrun_cnv");
+    await user.click(screen.getByRole("button", {name: /^scan$/i}));
+    await user.click(await screen.findByRole("checkbox", {name: /select sample G1/i}));
+    await user.click(screen.getByRole("button", {name: /create run/i}));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/runs"),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"target":"dryrun_cnv"'),
+        }),
+      );
+    });
+    expect(
+      await screen.findByText(
+        (_, element) =>
+          element?.tagName.toLowerCase() === "pre" &&
+          (element.textContent?.includes('"target": "dryrun_cnv"') ?? false),
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("submits a created metadata run to Airflow and refreshes the submitted state", async () => {
     const user = userEvent.setup();
     createdRunStatus = "created";
@@ -366,5 +397,24 @@ describe("PGT-A run dashboard", () => {
     });
     expect(await screen.findByText(`manual__${createdRunId}`)).toBeInTheDocument();
     expect(screen.getAllByText("submitted").length).toBeGreaterThan(0);
+  });
+
+  it("submits a created dryrun_cnv run to Airflow", async () => {
+    const user = userEvent.setup();
+    createdRunStatus = "created";
+    createdRunTarget = "dryrun_cnv";
+    render(<App />);
+
+    expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
+    const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
+    await user.click(within(toolbar).getByRole("button", {name: /submit to airflow/i}));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/api/runs/${createdRunId}/actions/submit`),
+        expect.objectContaining({method: "POST"}),
+      );
+    });
+    expect(await screen.findByText(`manual__${createdRunId}`)).toBeInTheDocument();
   });
 });
