@@ -79,13 +79,14 @@ Add the first frontend submission path for PGT-A: scan an allowlisted server FAS
 | frontend/backend health probes | success | `http://127.0.0.1:12959/` returned React HTML; backend `/api/health` returned ok |
 | API T051 smoke | success | Created/submitted `PGTA_20260703_154341_408A29`; sync ended `success`; metadata artifact/log readable |
 | run list probe | success | `/api/runs?pipeline=pgta` contains `PGTA_20260703_154341_408A29`; total was 6 |
+| final direct frontend test-stage run | success | `docker run --rm b1ffb26d16f7 npm test -- --run`; Vitest `5 passed` |
 
 ### Tests
 
 Remote-only acceptance evidence on `fengxian`:
 
 - Frontend production Docker build passed.
-- Frontend Dockerized Vitest target passed: `5 passed`.
+- Frontend Dockerized Vitest target passed: `5 passed`; final direct test-stage run also passed `5 passed`.
 - Real PGT-A metadata create/submit smoke passed:
   - `analysis_id=PGTA_20260703_154341_408A29`
   - `dag_run_id=manual__PGTA_20260703_154341_408A29`
