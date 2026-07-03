@@ -41,6 +41,7 @@ class LogHandler(LogHandlerBase):
         self.events_path.parent.mkdir(parents=True, exist_ok=True)
         self.backend_event_url = str(settings.backend_event_url or "").strip()
         self.post_timeout_seconds = float(settings.post_timeout_seconds)
+        self.job_context: dict[str, dict[str, Any]] = {}
         self.baseFilename = str(self.events_path)
 
     def emit(self, record: logging.LogRecord) -> None:
@@ -107,7 +108,7 @@ class LogHandler(LogHandlerBase):
         event = _event_name(getattr(record, "event", None))
         wildcards = _extract_wildcards(record)
         rule = _extract_rule(record)
-        return {
+        payload = {
             "analysis_id": self.analysis_id,
             "event": event,
             "status": _status_for_event(event),
@@ -122,6 +123,33 @@ class LogHandler(LogHandlerBase):
             "return_code": _int_or_none(_first_present(record, "return_code", "exit_code")),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+        self._fill_payload_from_job_context(payload)
+        self._remember_job_context(payload)
+        return payload
+
+    def _fill_payload_from_job_context(self, payload: dict[str, Any]) -> None:
+        jobid = payload.get("snakemake_jobid")
+        if not jobid:
+            return
+        context = self.job_context.get(str(jobid))
+        if not context:
+            return
+        for key in ("rule", "sample_id", "qsub_jobid", "stdout_path", "stderr_path"):
+            if not payload.get(key) and context.get(key):
+                payload[key] = context[key]
+        if not payload.get("wildcards") and context.get("wildcards"):
+            payload["wildcards"] = context["wildcards"]
+
+    def _remember_job_context(self, payload: dict[str, Any]) -> None:
+        jobid = payload.get("snakemake_jobid")
+        if not jobid or not payload.get("rule"):
+            return
+        existing = self.job_context.setdefault(str(jobid), {})
+        for key in ("rule", "sample_id", "qsub_jobid", "stdout_path", "stderr_path"):
+            if payload.get(key):
+                existing[key] = payload[key]
+        if payload.get("wildcards"):
+            existing["wildcards"] = payload["wildcards"]
 
 
 def _event_name(event: Any) -> str:
