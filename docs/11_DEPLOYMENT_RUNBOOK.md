@@ -123,6 +123,15 @@ MAILHOG_WEB_PORT=8025
 MAILHOG_SMTP_PORT=1025
 ```
 
+Current frontend/backend browser access:
+
+```text
+FRONTEND_IMAGE=airflow-demo/frontend:0.1.0
+BACKEND_CORS_ORIGINS=*
+```
+
+`frontend` now builds this repository's React app and serves it through Docker nginx. The browser API base defaults to `http://<current-host>:8000/api`; override with `window.__AIRFLOW_DEMO_CONFIG__.apiBaseUrl` or `VITE_API_BASE_URL` only when a reverse proxy is added.
+
 Airflow admin 密码只写入未跟踪的 `.env`：
 
 ```text
@@ -152,10 +161,11 @@ docker compose config
 docker compose config --images
 ```
 
-项目自有镜像必须显式带 tag，不能依赖隐式 `latest`。当前 backend 镜像名应为：
+项目自有镜像必须显式带 tag，不能依赖隐式 `latest`。当前项目镜像名应为：
 
 ```text
 airflow-demo/backend:0.1.0
+airflow-demo/frontend:0.1.0
 ```
 
 当前对外端口应渲染为：
@@ -283,6 +293,34 @@ curl http://<SERVER_HOST>:8025/
 
 ```text
 nginx version: nginx/1.14.0 (Ubuntu)
+```
+
+### 11.1 PGT-A frontend run detail smoke
+
+T050/T057 验收启动 `postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker`，不运行新的 PGT-A DAG。前端访问 `12959`，Airflow UI 仍访问 `12958`。
+
+```bash
+docker compose -f docker-compose.yaml config --quiet
+docker compose -f docker-compose.yaml build backend frontend
+docker build --target test -f frontend/Dockerfile frontend
+docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q
+docker compose -f docker-compose.yaml up -d postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker
+curl -fsS http://127.0.0.1:12959/
+curl -fsS 'http://127.0.0.1:8000/api/runs?pipeline=pgta&limit=5&offset=0'
+curl -fsS http://127.0.0.1:8000/api/runs/PGTA_20260703_054712_501D8B/rules
+curl -fsS 'http://127.0.0.1:8000/api/runs/PGTA_20260703_054712_501D8B/logs?stream=metadata&tail=2'
+curl -fsS http://127.0.0.1:8000/api/runs/PGTA_20260703_054712_501D8B/artifacts
+docker compose -f docker-compose.yaml down
+```
+
+已验证的 T050/T057 frontend smoke：
+
+```text
+frontend: http://127.0.0.1:12959/ returned React HTML
+backend tests: 31 passed
+frontend tests: 2 passed
+PGTA_20260703_054712_501D8B rules: all=success, collect_run_metadata=success
+Airflow health: metadatabase healthy, scheduler healthy
 ```
 
 ## 12. PGT-A server-path project smoke

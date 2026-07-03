@@ -42,7 +42,7 @@ airflow-demo/
 | Service | Host port | Container IP | Current role |
 |---|---:|---|---|
 | backend | 8000 | `172.30.10.20` | FastAPI health, biodemo DB, Airflow client, PGT-A server-path scan/run creation |
-| frontend | 12959 | `172.30.10.30` | nginx placeholder only |
+| frontend | 12959 | `172.30.10.30` | React PGT-A run list/detail v1 served by Docker nginx |
 | airflow-api-server | 12958 | `172.30.10.10` | Airflow web/api service skeleton |
 | airflow-scheduler | n/a | `172.30.10.11` | Airflow scheduler skeleton |
 | airflow-worker | n/a | `172.30.10.12` | Airflow worker skeleton |
@@ -61,6 +61,7 @@ Project-owned images must use explicit tags. Do not rely on implicit `latest`.
 
 ```text
 backend image: airflow-demo/backend:0.1.0
+frontend image: airflow-demo/frontend:0.1.0
 ```
 
 ## 3. Frontend 规范
@@ -70,6 +71,14 @@ backend image: airflow-demo/backend:0.1.0
 - 状态颜色统一：success/running/failed/warn/skipped。
 - 日志查看组件必须支持大日志分页或 tail，不一次性加载巨大文件。
 - 所有用户输入在前后端都要校验。
+
+Current T050/T057 frontend v1:
+
+- `frontend/` is a Vite React + TypeScript app.
+- Docker image tag is `airflow-demo/frontend:0.1.0`; nginx only serves the built SPA.
+- The first screen is the PGT-A run list/detail workspace, not a landing page.
+- It consumes backend APIs for run list/detail, samples, logs, artifacts, rules, and explicit Airflow sync.
+- It does not implement login, sample scan/create form, QC panels, or reanalysis controls yet.
 
 ## 4. Airflow 规范
 
@@ -127,6 +136,8 @@ shared/reports/<analysis_id>/snakemake_report.html
 | AIRFLOW_PORT | yes | 12958 | Airflow web/api host port; container port remains 8080 |
 | FRONTEND_PORT | yes | 12959 | Docker nginx/frontend host port; container port remains 80 |
 | BACKEND_IMAGE | yes | airflow-demo/backend:0.1.0 | explicit project image tag; avoid implicit latest |
+| FRONTEND_IMAGE | yes | airflow-demo/frontend:0.1.0 | explicit project image tag; avoid implicit latest |
+| BACKEND_CORS_ORIGINS | frontend only | * | demo CORS allowlist for browser access from `FRONTEND_PORT` |
 | AIRFLOW_BASE_URL | yes | http://airflow-api-server:8080 | 容器内地址 |
 | AIRFLOW_API_USERNAME | yes | admin | backend 调用 Airflow REST API 的用户名 |
 | AIRFLOW_API_PASSWORD | yes | <SECRET_FROM_ENV> | only in untracked `.env` |

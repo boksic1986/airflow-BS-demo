@@ -1,5 +1,24 @@
 # 06 前端设计
 
+## 0. Current T050/T057 v1
+
+第一版前端已经从 nginx placeholder 替换为 Vite React + TypeScript app，由 Docker nginx 镜像服务静态文件，宿主机端口保持 `12959`。
+
+已实现范围：
+
+- 首页即 PGT-A run list/detail workspace。
+- `GET /api/runs?pipeline=pgta` 展示 run 列表。
+- run detail 展示 overview、samples、Snakemake rules、metadata/stdout/stderr logs、artifacts。
+- 手动同步按钮调用 `POST /api/runs/{analysis_id}/actions/sync-airflow`。
+- API base 默认按浏览器当前 host 推导为 `http://<host>:8000/api`，可通过 `window.__AIRFLOW_DEMO_CONFIG__.apiBaseUrl` 或 `VITE_API_BASE_URL` 覆盖。
+
+未实现范围：
+
+- 登录系统。
+- PGT-A server-path scan/create 表单。
+- QC 面板、重分析入口、独立日志查看页。
+- 自定义 Airflow Web 插件或 Airflow task log API 抓取。
+
 ## 1. 页面结构
 
 ```text

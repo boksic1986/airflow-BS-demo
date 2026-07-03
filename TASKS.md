@@ -63,14 +63,14 @@
 
 | ID | Task | Owner agent | Dependencies | Deliverables | Acceptance | Status |
 |---|---|---|---|---|---|---|
-| T050 | React 项目骨架 | frontend | T020 | frontend/src | 首页可访问 | todo |
+| T050 | React 项目骨架 | frontend | T020 | frontend/src | React/Vite app 由 Docker nginx 在 12959 提供访问 | done |
 | T051 | Submit Analysis 页面 | frontend | T022,T023 | PGT-A server-path form UI | 填写 rawdata_root、扫描候选样本、勾选后创建 run | todo |
 | T052 | Runs Dashboard | frontend | T024 | run list/status cards | 可筛选 pipeline/status | todo |
 | T053 | Run Detail 页面 | frontend | T024,T026 | overview/airflow/snakemake tabs | 展示 rule 状态 | todo |
 | T054 | QC 面板 | frontend | T060 | QC table/MultiQC link | pass/warn/fail 可见 | todo |
 | T055 | Log Viewer | frontend | T025 | stdout/stderr tail | 失败默认显示 stderr | todo |
 | T056 | Reanalysis UI | frontend/backend | T044 | resume/rerun buttons | 后端触发正确 mode | todo |
-| T057 | PGT-A run detail 展示 | frontend | T027,T035,T025 | pgta run overview/log/artifact UI | metadata 成功和非法 target 失败均可定位日志 | todo |
+| T057 | PGT-A run detail 展示 | frontend | T027,T035,T025 | pgta run overview/sample/rule/log/artifact/sync UI | PGT-A run detail v1 可查看 `PGTA_20260703_054712_501D8B` rules/logs/artifacts；非法 target failure smoke 留到 T084 | done |
 
 ## P6 QC/日志/报告/邮件
 

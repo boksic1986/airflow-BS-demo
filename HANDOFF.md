@@ -36,6 +36,102 @@
 
 ## Records
 
+## 2026-07-03 16:19 - Codex - T050/T057 frontend run detail v1
+
+### Goal
+
+Safely stop the running demo services on `fengxian`, then replace the nginx placeholder with a minimal React frontend for PGT-A run list/detail. The v1 UI must read existing runs, samples, logs, artifacts, Snakemake rule status, and provide a manual Airflow sync button. Do not implement login, sample creation, new DAG triggers, QC panels, or reanalysis.
+
+### Completed
+
+- Stopped current `fengxian` demo services with `docker compose -f docker-compose.yaml down`; `docker compose ps` was empty.
+- Added Vite React + TypeScript frontend under `frontend/`.
+- Replaced compose `frontend` placeholder with project image `airflow-demo/frontend:0.1.0`, still published on host port `12959`.
+- Added frontend run list/detail workspace consuming existing backend APIs: runs, detail, samples, rules, logs, artifacts, and sync-airflow.
+- Added backend CORS support via `BACKEND_CORS_ORIGINS`, defaulting to `*` for the demo.
+- Added remote Dockerized frontend tests and a backend CORS test.
+- Updated frontend, engineering, runbook, task, current state, handoff, and manifest docs.
+
+### Changed files
+
+- `.env.example`
+- `backend/app/config.py`
+- `backend/app/main.py`
+- `backend/tests/test_cors.py`
+- `docker-compose.yaml`
+- `frontend/*`
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `docker compose -f docker-compose.yaml down` on `fengxian` | success | Safe stop only; no `down -v` or prune |
+| `docker compose -f docker-compose.yaml build backend` before CORS implementation | success | Rebuilt red-test backend image |
+| `docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q tests/test_cors.py` before implementation | failed as expected | CORS preflight returned 405 |
+| `docker build --target test -f frontend/Dockerfile frontend` before implementation | failed as expected | Missing `src/App.tsx` |
+| `docker compose -f docker-compose.yaml config --quiet` | success | Compose rendered frontend build image and ports |
+| `docker compose -f docker-compose.yaml build backend frontend` | success | Built `airflow-demo/backend:0.1.0` and `airflow-demo/frontend:0.1.0` |
+| `docker build --target test -f frontend/Dockerfile frontend` | success | Vitest `2 passed` |
+| `docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q tests/test_cors.py` | success | `1 passed` |
+| `docker compose -f docker-compose.yaml run --rm --no-deps backend pytest -q` | success | `31 passed` |
+| service startup on `fengxian` | success | Started postgres, redis, backend, frontend, airflow-api-server, airflow-scheduler, airflow-worker |
+| `curl http://127.0.0.1:12959/` | success | Returned React HTML |
+| `GET /api/runs?pipeline=pgta` | success | Returned existing PGT-A runs |
+| `GET /api/runs/PGTA_20260703_054712_501D8B/rules` | success | Returned `all=success`, `collect_run_metadata=success` |
+| metadata log/artifact/sample curls | success | Returned data for `PGTA_20260703_054712_501D8B` |
+| Airflow `/health` | success | Metadatabase and scheduler healthy |
+| CORS OPTIONS probe | success | HTTP 200, `access-control-allow-origin: *` |
+| final `docker compose -f docker-compose.yaml down` | success | Safe stop only; `docker compose ps` empty |
+
+### Tests
+
+Remote-only acceptance evidence on `fengxian`:
+
+- Backend test suite passed: `31 passed`.
+- Frontend Dockerized Vitest target passed: `2 passed`.
+- Frontend production Docker build passed.
+- React page served at `http://127.0.0.1:12959/`.
+- Existing run `PGTA_20260703_054712_501D8B` exposed samples, metadata logs, artifacts, and rule statuses through backend APIs.
+
+### Not run / why
+
+- No frontend login was implemented; out of scope for v1.
+- No PGT-A scan/create form was implemented; T051 remains next.
+- No new PGT-A DAG run, dry-run target, CNV, baseline_qc, or invalid target smoke was run; T045/T084 remain pending.
+- No QC panel or reanalysis UI was implemented; T054/T056 remain pending.
+- No browser screenshot automation was run; component tests plus served HTML/API smoke were used.
+
+### Current git status
+
+Implementation is on branch `codex/airflow/T086-pgta-airflow-logger`; runtime smoke passed on `fengxian` at commit `403fa68`, followed by this docs/state update batch.
+
+### Risks
+
+- Frontend API base currently points browsers to `http://<host>:8000/api`; if a reverse proxy is later added, set `window.__AIRFLOW_DEMO_CONFIG__.apiBaseUrl` or `VITE_API_BASE_URL`.
+- CORS default is `*` for demo ergonomics; tighten it before production-like deployment.
+- `PGTA_20260703_054712_501D8B` has rule success rows from the Airflow-only event smoke, while the business run status remains `created` because that smoke did not call `sync-airflow`.
+
+### Open questions
+
+- Whether T051 should live in the same single-page workspace or become a separate `/submit` route once routing is introduced.
+
+### Next recommended task
+
+Run T051 next: add PGT-A server-path scan/create form using `POST /api/input/scan` and JSON `POST /api/runs`, then keep T045/T084 dry-run/failure smoke separate.
+
+### Rollback notes
+
+- Stop services with `docker compose -f docker-compose.yaml down`.
+- Revert repository changes with normal `git revert`.
+- Do not use `docker compose down -v`, `docker system prune`, `docker volume prune`, `git reset --hard`, or `git clean -fdx`.
+
 ## 2026-07-03 13:49 - Codex - T026/T043 Snakemake event receiver and PGT-A logger POST
 
 ### Goal
