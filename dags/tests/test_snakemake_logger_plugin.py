@@ -145,6 +145,56 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
         self.assertEqual(lines[1]["event"], "backend_post_error")
         self.assertIn("backend down", lines[1]["message"])
 
+    def test_logger_uses_job_info_context_for_finished_events_without_rule(self) -> None:
+        from snakemake_logger_plugin_airflow_demo import LogHandler, LogHandlerSettings
+
+        with tempfile.TemporaryDirectory() as tmpdir, patch("urllib.request.urlopen") as urlopen:
+            urlopen.return_value.__enter__.return_value.read.return_value = b'{"status":"ok"}'
+            events_path = Path(tmpdir) / "events" / "snakemake_events.jsonl"
+            handler = LogHandler(
+                common_settings=None,
+                settings=LogHandlerSettings(
+                    analysis_id="PGTA_AIRFLOW_TEST",
+                    workdir=Path(tmpdir),
+                    events_path=events_path,
+                    backend_event_url="http://backend:8000/api/events/snakemake",
+                ),
+            )
+            job_info = logging.LogRecord(
+                name="snakemake",
+                level=logging.INFO,
+                pathname="snakefile",
+                lineno=1,
+                msg="Rule: metadata, Jobid: 1",
+                args=(),
+                exc_info=None,
+            )
+            job_info.event = "job_info"
+            job_info.rule = "metadata"
+            job_info.job_id = 1
+            handler.emit(job_info)
+
+            finished = logging.LogRecord(
+                name="snakemake",
+                level=logging.INFO,
+                pathname="snakefile",
+                lineno=1,
+                msg="Finished jobid: 1 (Rule: metadata)",
+                args=(),
+                exc_info=None,
+            )
+            finished.event = LogEvent.JOB_FINISHED
+            finished.job_id = 1
+            handler.emit(finished)
+
+            payloads = [json.loads(call.args[0].data.decode("utf-8")) for call in urlopen.call_args_list]
+
+        self.assertEqual(payloads[0]["event"], "job_info")
+        self.assertEqual(payloads[0]["rule"], "metadata")
+        self.assertEqual(payloads[1]["event"], "job_finished")
+        self.assertEqual(payloads[1]["rule"], "metadata")
+        self.assertEqual(payloads[1]["status"], "success")
+
 
 if __name__ == "__main__":
     unittest.main()
