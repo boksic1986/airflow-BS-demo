@@ -103,7 +103,7 @@ def build_pgta_config(
         _validate_sample_paths(sample, pgta_data_root)
 
     target = _target_from_conf(conf)
-    snakemake_config = _snakemake_config(workdir, samples, target=target)
+    snakemake_config = _snakemake_config(workdir, samples, target=target, pgta_data_root=pgta_data_root)
     config_path = workdir / "config.yaml"
     with config_path.open("w", encoding="utf-8") as handle:
         yaml.safe_dump(snakemake_config, handle, sort_keys=False)
@@ -152,7 +152,7 @@ def run_pgta_target(
         str(conf["config_path"]),
     ]
     if target == "dryrun_cnv":
-        command.append("--dry-run")
+        command.extend(["--dry-run", "--ignore-incomplete", "--rerun-triggers", "mtime"])
     if target == "invalid_target":
         command.append(INVALID_SNAKEMAKE_TARGET)
     completed = subprocess.run(command, cwd=str(workdir), text=True, capture_output=True, check=False)
@@ -192,8 +192,37 @@ def collect_metadata_artifact(conf: dict[str, Any]) -> dict[str, str]:
     return collect_pgta_artifact(conf)
 
 
-def _snakemake_config(workdir: Path, samples: list[dict[str, str]], *, target: str) -> dict[str, Any]:
+def _snakemake_config(
+    workdir: Path,
+    samples: list[dict[str, str]],
+    *,
+    target: str,
+    pgta_data_root: Path,
+) -> dict[str, Any]:
     pipeline_target = "cnv" if target == "dryrun_cnv" else "metadata"
+    reference_root = pgta_data_root / "refactor_validation_20260419" / "results_build_ref_v2_mask_only" / "reference"
+    wisecondorx_config: dict[str, Any] = {
+        "binsize": 100000,
+        "reference_model_root": "reference",
+        "reference_output": "",
+        "gender_reference_output": "reference/gender/result/ref_gender_best.npz",
+        "common_reference_binsize_output": "reference/gender/common_best_binsize.txt",
+        "use_chr_prefix": True,
+        "cnv": {"enable": target == "dryrun_cnv"},
+        "tuning": {"enable": False},
+        "reference_prefilter": {"binsize": 100000, "max_iterations": 3},
+    }
+    if target == "dryrun_cnv":
+        wisecondorx_config.update(
+            {
+                "reference_output_by_sex": {
+                    "XX": str(reference_root / "XX" / "result" / "ref_xx_best.npz"),
+                    "XY": str(reference_root / "XY" / "result" / "ref_xy_best.npz"),
+                },
+                "gender_reference_output": str(reference_root / "gender" / "result" / "ref_gender_best.npz"),
+                "common_reference_binsize_output": str(reference_root / "gender" / "common_best_binsize.txt"),
+            }
+        )
     return {
         "core": {
             "project_path": str(workdir),
@@ -224,17 +253,7 @@ def _snakemake_config(workdir: Path, samples: list[dict[str, str]], *, target: s
                 "chrX",
                 "chrY",
             ],
-            "wisecondorx": {
-                "binsize": 100000,
-                "reference_model_root": "reference",
-                "reference_output": "",
-                "gender_reference_output": "reference/gender/result/ref_gender_best.npz",
-                "common_reference_binsize_output": "reference/gender/common_best_binsize.txt",
-                "use_chr_prefix": True,
-                "cnv": {"enable": target == "dryrun_cnv"},
-                "tuning": {"enable": False},
-                "reference_prefilter": {"binsize": 100000, "max_iterations": 3},
-            },
+            "wisecondorx": wisecondorx_config,
         },
         "pipeline": {"mode": "predict", "targets": [pipeline_target]},
         "biosoft": {

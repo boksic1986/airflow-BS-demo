@@ -95,7 +95,11 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
                 shared_root=Path(tmpdir),
             )
 
-            config_path = build_pgta_config(conf, pgta_pipeline_root=Path("/opt/pipelines/PGT_A"))
+            config_path = build_pgta_config(
+                conf,
+                pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                pgta_data_root=Path("/data/project/CNV/PGT-A"),
+            )
 
             config = json.loads((workdir / "config" / "pgta_metadata_config.json").read_text(encoding="utf-8"))
             self.assertEqual(config["analysis_id"], "PGTA_TEST")
@@ -131,8 +135,25 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
 
             snakemake_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
             runner_config = json.loads((workdir / "config" / "pgta_run_config.json").read_text(encoding="utf-8"))
+            wisecondorx = snakemake_config["core"]["wisecondorx"]
             self.assertEqual(snakemake_config["pipeline"]["targets"], ["cnv"])
-            self.assertTrue(snakemake_config["core"]["wisecondorx"]["cnv"]["enable"])
+            self.assertTrue(wisecondorx["cnv"]["enable"])
+            self.assertEqual(
+                wisecondorx["reference_output_by_sex"]["XX"],
+                "/data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference/XX/result/ref_xx_best.npz",
+            )
+            self.assertEqual(
+                wisecondorx["reference_output_by_sex"]["XY"],
+                "/data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference/XY/result/ref_xy_best.npz",
+            )
+            self.assertEqual(
+                wisecondorx["gender_reference_output"],
+                "/data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference/gender/result/ref_gender_best.npz",
+            )
+            self.assertEqual(
+                wisecondorx["common_reference_binsize_output"],
+                "/data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference/gender/common_best_binsize.txt",
+            )
             self.assertEqual(runner_config["target"], "dryrun_cnv")
 
     def test_run_pgta_target_metadata_invokes_snakemake_and_writes_logs(self) -> None:
@@ -192,6 +213,8 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             command = run.call_args.args[0]
             self.assertEqual(artifact_path, workdir / "logs" / "snakemake.stdout.log")
             self.assertIn("--dry-run", command)
+            self.assertIn("--ignore-incomplete", command)
+            self.assertEqual(command[command.index("--rerun-triggers") + 1], "mtime")
             self.assertNotIn("__airflow_demo_invalid_target__", command)
 
     def test_run_pgta_target_invalid_target_writes_stderr_and_raises(self) -> None:
