@@ -2,11 +2,12 @@ import logging
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Query, status
+from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from pydantic import BaseModel, Field
 
 from app.airflow_client import AirflowClient
-from app.config import get_settings
+from app.config import get_cors_origins, get_settings
 from app.db import check_database, get_sessionmaker
 from app.diagnostics_service import (
     InvalidRunPathError,
@@ -25,6 +26,12 @@ from app.run_service import create_pgta_run, get_run_detail, list_run_samples, l
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="airflow-demo backend")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_cors_origins(),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class InputScanRequest(BaseModel):

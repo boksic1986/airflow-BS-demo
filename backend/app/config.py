@@ -20,6 +20,12 @@ class Settings:
     input_scan_roots: list[str]
 
 
+def get_cors_origins() -> list[str]:
+    raw = os.getenv("BACKEND_CORS_ORIGINS", "*")
+    origins = [item.strip() for item in raw.split(",") if item.strip()]
+    return origins or ["*"]
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings(

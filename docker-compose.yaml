@@ -123,6 +123,7 @@ services:
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?Set AIRFLOW_API_PASSWORD in .env}
       CONTAINER_SHARED_ROOT: ${CONTAINER_SHARED_ROOT:-/data/airflow-demo}
       INPUT_SCAN_ROOTS: ${INPUT_SCAN_ROOTS:-/data/project/CNV/PGT-A/rawdata}
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-*}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
@@ -139,10 +140,14 @@ services:
         ipv4_address: ${BACKEND_IP:-172.30.10.20}
 
   frontend:
-    image: nginx:1.27-alpine
-    command: ["/bin/sh", "-c", "printf 'airflow-demo frontend placeholder\\n' > /usr/share/nginx/html/index.html && nginx -g 'daemon off;'"]
+    image: ${FRONTEND_IMAGE:-airflow-demo/frontend:0.1.0}
+    build:
+      context: ./frontend
     ports:
       - "${FRONTEND_PORT:-12959}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
     networks:
       biodemo-net:
         ipv4_address: ${FRONTEND_IP:-172.30.10.30}
