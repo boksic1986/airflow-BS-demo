@@ -154,7 +154,7 @@ describe("PGT-A run dashboard", () => {
     expect(screen.getByText("G1")).toBeInTheDocument();
     expect(screen.getByText("collect_run_metadata")).toBeInTheDocument();
     expect(screen.getByText("PGT-A run metadata")).toBeInTheDocument();
-    expect(screen.getByText("key\tvalue")).toBeInTheDocument();
+    expect(await screen.findByText((_, element) => element?.textContent === "key\tvalue")).toBeInTheDocument();
   });
 
   it("syncs Airflow status from the run detail toolbar", async () => {
