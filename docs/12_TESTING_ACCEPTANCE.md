@@ -106,6 +106,11 @@ invalid_target:
   -> error_summary 包含 stderr path 和最后 100 行
 ```
 
+2026-07-04 `fengxian` 验收记录：
+
+- `dryrun_cnv`: `PGTA_20260703_170917_20E8F2`, Airflow `success`, stdout 记录 7 个 dry-run jobs，artifact API 返回 stdout/stderr/config。
+- `invalid_target`: `PGTA_20260703_170957_3DDEC3`, Airflow `failed`, `sync-airflow` 后 `analysis_run.status=failed`，`error_summary` 非空并包含 stderr path 和最后错误内容。
+
 完整 E2E 后续场景：
 
 ```text

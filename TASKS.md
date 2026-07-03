@@ -57,7 +57,7 @@
 | T042 | qsub profile | snakemake | T041 | profiles/qsub/config.yaml | demo 限额生效 | todo |
 | T043 | rule event logger | snakemake/backend | T026,T036 | PGT-A Snakemake 9 logger POST events | PGT-A rule 状态在 biodemo DB 和 `/api/runs/{analysis_id}/rules` 可见；qsub job id 仍由 T041/T042 后续补 | done |
 | T044 | resume/rerun 策略 | snakemake/airflow | T031,T040 | mode -> snakemake flags | 不默认 forceall | todo |
-| T045 | PGT-A Snakemake runner | snakemake/airflow | T035,T004 | pgta config 生成和 metadata/dry-run runner | metadata runner 已随 T035 通过；Airflow-only Snakemake 9 logger 已随 T036 通过；dry-run runner 仍待实现；输出只写 shared/runs/<analysis_id>，PGT_A 目录只读 | todo |
+| T045 | PGT-A Snakemake runner | snakemake/airflow | T035,T004 | pgta config 生成和 metadata/dry-run runner | metadata runner 已随 T035 通过；Airflow-only Snakemake 9 logger 已随 T036 通过；`dryrun_cnv` 和 `invalid_target` runner 已在 `fengxian` 通过 smoke；输出只写 shared/runs/<analysis_id>，PGT_A 目录只读 | done |
 
 ## P5 Frontend
 
@@ -70,7 +70,7 @@
 | T054 | QC 面板 | frontend | T060 | QC table/MultiQC link | pass/warn/fail 可见 | todo |
 | T055 | Log Viewer | frontend | T025 | stdout/stderr tail | 失败默认显示 stderr | todo |
 | T056 | Reanalysis UI | frontend/backend | T044 | resume/rerun buttons | 后端触发正确 mode | todo |
-| T057 | PGT-A run detail 展示 | frontend | T027,T035,T025 | pgta run overview/sample/rule/log/artifact/sync UI | PGT-A run detail v1 可查看 `PGTA_20260703_054712_501D8B` rules/logs/artifacts；非法 target failure smoke 留到 T084 | done |
+| T057 | PGT-A run detail 展示 | frontend | T027,T035,T025 | pgta run overview/sample/rule/log/artifact/sync UI | PGT-A run detail v1 可查看 rules/logs/artifacts；T084 failure smoke 后失败摘要可通过现有 detail/logs API 查看 | done |
 
 ## P6 QC/日志/报告/邮件
 
@@ -97,7 +97,7 @@
 | T081 | Demo script | docs/coordinator | T080 | docs/17_DEMO_SCRIPT.md | 10-15 分钟可演示 | todo |
 | T082 | 回滚和清理 runbook | infra/docs | T080 | docs/11 更新 | 不删除 volume 的停止流程清楚 | todo |
 | T083 | 最终交接 | coordinator | T080-T082 | HANDOFF/CURRENT_STATE | 下一阶段任务明确 | todo |
-| T084 | PGT-A Level 0-3 smoke 验收 | qa | T014,T027,T035,T045,T057 | acceptance report | preflight、metadata、dry-run、failure smoke 记录完整 | todo |
+| T084 | PGT-A Level 0-3 smoke 验收 | qa | T014,T027,T035,T045,T057 | acceptance report | preflight、metadata、dry-run、failure smoke 记录完整；`dryrun_cnv=PGTA_20260703_170917_20E8F2` success，`invalid_target=PGTA_20260703_170957_3DDEC3` failed with error_summary | done |
 
 ## 任务卡模板
 

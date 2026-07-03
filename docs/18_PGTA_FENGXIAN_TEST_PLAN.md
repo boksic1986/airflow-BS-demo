@@ -217,11 +217,11 @@ PGT-A 流程目录和数据目录只读挂载。demo 输出只能写入：
 | PGTA-002 | infra | docker compose 基础服务与固定网络 | `docker compose config` 通过，网络为 `172.30.10.0/24` | done |
 | PGTA-003 | backend | 支持 PGT-A 服务器路径扫描、样本勾选和 run 记录 | `/api/input/scan` 返回 R1/R2 候选；`/api/runs` 创建 `created` pgta run 且不触发 DAG | done |
 | PGTA-004 | airflow | 新增 DAG `bio_pgta` | DAG import/check 通过 | done |
-| PGTA-005 | airflow/snakemake | pgta metadata/dry-run runner | `logs/run_metadata.tsv` 或 dry-run stdout 生成 | metadata/dry-run/failure runner implemented; real Level 2/3 smoke pending |
+| PGTA-005 | airflow/snakemake | pgta metadata/dry-run runner | `logs/run_metadata.tsv` 或 dry-run stdout 生成 | done; metadata, dryrun_cnv, and invalid_target runner smoke passed on fengxian |
 | PGTA-005B | airflow/snakemake | PGT-A Airflow-only Snakemake 9 logger DAG | `bio_pgta_airflow` success，events JSONL、summary TSV、Airflow log/XCom 状态汇总生成 | done on fengxian |
 | PGTA-005C | backend/snakemake | Snakemake logger backend event POST | `backend_event_url` 写入 FastAPI `/api/events/snakemake`，`/api/runs/<analysis_id>/rules` 返回 rule success | done on fengxian |
 | PGTA-006 | backend/frontend | log/artifact/error summary 展示 | 成功和失败 run 都能从页面定位日志 | done for run-level logs/artifacts/error summary v1 |
-| PGTA-007 | qa | Level 0-3 smoke 验收报告 | 验收报告记录命令、结果、风险 | todo; Level 1 core metadata smoke passed; T045 target support implemented |
+| PGTA-007 | qa | Level 0-3 smoke 验收报告 | 验收报告记录命令、结果、风险 | done for current PGT-A demo Level 0-3; Level 4 baseline_qc remains out of scope |
 
 T027/T035 验证证据：
 
@@ -233,7 +233,7 @@ Airflow state: success
 artifact: shared/runs/PGTA_20260702_171533_9A85B1/logs/run_metadata.tsv
 ```
 
-Level 1 backend artifacts API、frontend run detail 和失败摘要展示已完成。T045 已实现 Level 2/3 所需 target 支持；真实 `dryrun_cnv` 与 `invalid_target` Airflow smoke 验收仍需在 `fengxian` 正式镜像目录执行并记录。
+Level 1 backend artifacts API、frontend run detail 和失败摘要展示已完成。2026-07-04 在 `fengxian` 正式镜像目录完成 Level 2/3 smoke：`dryrun_cnv` run `PGTA_20260703_170917_20E8F2` 以 Airflow `success` 结束，stdout 记录 7 个 dry-run jobs；`invalid_target` run `PGTA_20260703_170957_3DDEC3` 以 Airflow `failed` 结束，`sync-airflow` 写入非空 `error_summary`，stderr 路径和最后错误内容可通过 API/前端查看。
 
 PGTA-005B 验证证据：
 

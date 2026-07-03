@@ -238,7 +238,7 @@ target 映射：
 | demo target | Snakemake 行为 |
 |---|---|
 | `metadata` | `pipeline.targets=["metadata"]`，真实执行轻量 metadata |
-| `dryrun_cnv` | `pipeline.targets=["cnv"]`，启用 `wisecondorx.cnv.enable`，只加 `--dry-run` |
+| `dryrun_cnv` | `pipeline.targets=["cnv"]`，启用 `wisecondorx.cnv.enable`，使用只读 sex-specific WisecondorX reference，并加 `--dry-run --ignore-incomplete --rerun-triggers mtime` |
 | `invalid_target` | 向 Snakemake 传入 `__airflow_demo_invalid_target__`，用于失败 smoke |
 
 ### run_pgta_target
@@ -253,7 +253,7 @@ target 映射：
   --configfile <workdir>/config.yaml
 ```
 
-`dryrun_cnv` 会额外传 `--dry-run`；`invalid_target` 会额外传 `__airflow_demo_invalid_target__`。执行目录为 `/data/airflow-demo/runs/<analysis_id>`，输出只允许写入该 run workdir。stdout/stderr 写入：
+`dryrun_cnv` 会额外传 `--dry-run --ignore-incomplete --rerun-triggers mtime`；`invalid_target` 会额外传 `__airflow_demo_invalid_target__`。执行目录为 `/data/airflow-demo/runs/<analysis_id>`，输出只允许写入该 run workdir。stdout/stderr 写入：
 
 ```text
 shared/runs/<analysis_id>/logs/snakemake.stdout.log

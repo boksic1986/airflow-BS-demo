@@ -36,6 +36,115 @@
 
 ## Records
 
+## 2026-07-04 01:18 - Codex - T045/T084 PGT-A dryrun and failure smoke
+
+### Goal
+
+Extend the existing PGT-A create -> submit -> Airflow -> sync chain with two controlled targets: `dryrun_cnv` for Snakemake CNV DAG parsing and `invalid_target` for failure/error-summary smoke. Keep PGT-A source/data mounts read-only, do not run real CNV/baseline_qc/qsub, and keep runtime validation on `ssh fengxian`.
+
+### Completed
+
+- Added controlled backend target support for `metadata`, `dryrun_cnv`, and `invalid_target`.
+- Extended `bio_pgta` from metadata-only to target-aware tasks: `validate_request -> prepare_pgta_config -> run_pgta_target -> collect_pgta_artifact`.
+- Added frontend target selector and submit support for created `dryrun_cnv` / `invalid_target` runs.
+- Fixed `dryrun_cnv` config to use existing read-only WisecondorX XX/XY/gender references under `/data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference`.
+- Added dry-run Snakemake flags `--ignore-incomplete --rerun-triggers mtime` to avoid historical incomplete metadata interfering with DAG parsing.
+- Updated API/DAG/frontend/runbook/testing/PGT-A plan docs and task/current-state/handoff docs.
+
+### Changed files
+
+- `backend/app/run_service.py`
+- `backend/app/diagnostics_service.py`
+- `backend/tests/test_run_creation.py`
+- `backend/tests/test_run_submit.py`
+- `dags/bio_pgta.py`
+- `dags/pgta_metadata_runner.py`
+- `dags/tests/test_bio_pgta_dag.py`
+- `dags/tests/test_pgta_metadata_runner.py`
+- `frontend/src/App.tsx`
+- `frontend/src/App.test.tsx`
+- `frontend/src/api.ts`
+- `docs/05_API_CONTRACT.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/12_TESTING_ACCEPTANCE.md`
+- `docs/18_PGTA_FENGXIAN_TEST_PLAN.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| remote temp backend targeted tests after tests-only patch | failed as expected | metadata-only validation rejected `dryrun_cnv` and `invalid_target` |
+| remote temp DAG tests after tests-only patch | failed as expected | target-aware runner/tasks not implemented yet |
+| remote temp frontend test after tests-only patch | failed as expected | target selector/submit behavior missing |
+| remote temp backend targeted tests after implementation | success | 10 tests passed |
+| remote temp DAG tests after implementation | success | 11 tests OK |
+| remote temp frontend Docker test after implementation | success | Vitest 7 passed |
+| `git pull --ff-only` on `fengxian` | success | Mirror fast-forwarded to `f90b09c` |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | Compose still valid |
+| `docker run --rm airflow-demo/backend:0.1.0 pytest -q` on `fengxian` | success | 35 tests passed |
+| `docker build --target test -f frontend/Dockerfile frontend` on `fengxian` | success | Dockerized frontend test target passed |
+| DAG unittest in Airflow image on `fengxian` | success | 11 tests OK |
+| Airflow import check | success | `airflow dags list-import-errors` returned `No data found` |
+| `docker compose restart airflow-api-server airflow-scheduler airflow-worker` | success | Safe restart only, no volume deletion |
+| `dryrun_cnv` API smoke | success | `PGTA_20260703_170917_20E8F2`, Airflow/backend `success`, stdout recorded 7 dry-run jobs |
+| `invalid_target` API smoke | success | `PGTA_20260703_170957_3DDEC3`, Airflow/backend `failed` as expected, non-null `error_summary` |
+
+### Tests
+
+Remote-only acceptance evidence on `fengxian`:
+
+- Backend suite: `35 passed`.
+- Frontend Dockerized test target: passed.
+- DAG tests: `Ran 11 tests OK`.
+- `dryrun_cnv` smoke:
+  - `analysis_id=PGTA_20260703_170917_20E8F2`
+  - `dag_run_id=manual__PGTA_20260703_170917_20E8F2`
+  - final status `success`
+  - stdout log size 12677 bytes, stderr log size 89 bytes
+  - artifact API returned `snakemake_stdout`, `snakemake_stderr`, `pgta_config_yaml`, `pgta_run_config`, `pgta_metadata_config`
+- `invalid_target` smoke:
+  - `analysis_id=PGTA_20260703_170957_3DDEC3`
+  - `dag_run_id=manual__PGTA_20260703_170957_3DDEC3`
+  - final status `failed`
+  - `error_summary` is non-null and includes stderr path plus last error lines
+
+### Not run / why
+
+- No real CNV, baseline_qc, qsub, or QC parsing was run; out of scope for T045/T084.
+- No custom Airflow Web plugin was added; existing FastAPI/frontend logs/artifacts/status APIs cover this smoke.
+- No Docker volumes were deleted and no prune commands were run.
+
+### Current git status
+
+Implementation and smoke fix are on branch `codex/airflow/T086-pgta-airflow-logger`; verified code commit is `f90b09c`, followed by this docs/state update.
+
+### Risks
+
+- `invalid_target` currently proves the controlled failure/error-summary path. Snakemake reports the sentinel target in stderr, but the exact traceback shape is a CLI parsing detail and should not be treated as a production failure taxonomy.
+- `dryrun_cnv` depends on the existing read-only reference path on `fengxian`; BS10610 migration must parameterize/check this path in Level 0 preflight.
+- Services are left running for user review.
+
+### Open questions
+
+- Whether to parameterize the PGT-A demo reference root into `.env` before BS10610 migration, or keep it as a fengxian-only smoke assumption until the migration batch.
+
+### Next recommended task
+
+Run T041/T042 next for qsub submit wrapper/profile and qsub job-id observability, or T054/T056 if the next demo priority is QC/reanalysis UI.
+
+### Rollback notes
+
+- Stop services with `docker compose -f docker-compose.yaml down`; do not use `down -v`.
+- Revert repository changes with normal `git revert`.
+- Do not use `docker system prune`, `docker volume prune`, `git reset --hard`, or `git clean -fdx`.
+
 ## 2026-07-03 23:48 - Codex - T051 PGT-A frontend submission flow
 
 ### Goal

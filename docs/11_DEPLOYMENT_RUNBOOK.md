@@ -420,8 +420,11 @@ metadata artifact: shared/runs/PGTA_20260702_171533_9A85B1/logs/run_metadata.tsv
 
 ```bash
 snakemake --snakefile /opt/pipelines/PGT_A/Snakefile \
-  --cores 1 --printshellcmds --configfile <workdir>/config.yaml --dry-run
+  --cores 1 --printshellcmds --configfile <workdir>/config.yaml \
+  --dry-run --ignore-incomplete --rerun-triggers mtime
 ```
+
+`dryrun_cnv` 的 run-local config 使用 `/data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference` 下已有只读 WisecondorX XX/XY/gender reference。该 smoke 只验证 Snakemake DAG 可解析，不产生真实 CNV 结果。
 
 验收：
 
@@ -432,7 +435,7 @@ curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}/logs?stream=stdout&tail
 curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}/artifacts"
 ```
 
-期望 `status=success`，stdout/stderr 存在，`config/pgta_run_config.json` 可见，且没有真实 CNV 结果写回 PGT-A 流程目录。
+期望 `status=success`，stdout/stderr 存在，`config/pgta_run_config.json` 可见，且没有真实 CNV 结果写回 PGT-A 流程目录。2026-07-04 验收样例：`PGTA_20260703_170917_20E8F2`，Airflow `success`，stdout 记录 7 个 dry-run jobs。
 
 `invalid_target` run 只用于 failure smoke。submit 后 Snakemake 会收到 `__airflow_demo_invalid_target__` 并自然失败。验收：
 
