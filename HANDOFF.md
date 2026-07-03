@@ -36,6 +36,96 @@
 
 ## Records
 
+## 2026-07-03 23:48 - Codex - T051 PGT-A frontend submission flow
+
+### Goal
+
+Add the first frontend submission path for PGT-A: scan an allowlisted server FASTQ root, select samples, create a `created` run through FastAPI, then submit that run to Airflow from the detail toolbar. Keep the existing two-step create/submit model; do not add login, QC, dry-run/CNV, qsub, or new backend contracts.
+
+### Completed
+
+- Added `New PGT-A Run` panel to the existing single-page React workspace.
+- Added form fields for project name, rawdata root, max samples, fixed `target=metadata`, optional email, and note.
+- Added scan/create frontend API client functions for `POST /api/input/scan` and JSON `POST /api/runs`.
+- Added selectable FASTQ candidate table and truncated-scan warning.
+- Added `Submit to Airflow` action for `status=created` + `target=metadata`, using `POST /api/runs/{analysis_id}/actions/submit`.
+- Preserved run list/detail, samples, rules, logs, artifacts, and sync UI.
+- Updated frontend spec, task table, current state, handoff, and manifest docs.
+
+### Changed files
+
+- `frontend/src/App.tsx`
+- `frontend/src/App.test.tsx`
+- `frontend/src/api.ts`
+- `frontend/src/styles.css`
+- `docs/06_FRONTEND_SPEC.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| remote temp `docker build --target test -f frontend/Dockerfile frontend` after adding tests only | failed as expected | 3 new tests failed because rawdata/project form and submit button did not exist |
+| remote temp `docker build --target test -f frontend/Dockerfile frontend` after implementation | success | Vitest `5 passed` |
+| `git diff --check` | success | Local non-runtime check only |
+| `git pull --ff-only` on `fengxian` | success | Mirror fast-forwarded to T051 commits |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | Compose still valid |
+| `docker compose -f docker-compose.yaml build frontend` on `fengxian` | failed once, then success | First failure was TypeScript test mock inference; fixed in `f5dae66`; production build then passed |
+| `docker build --target test -f frontend/Dockerfile frontend` on `fengxian` | success | Vitest `5 passed` |
+| `docker compose -f docker-compose.yaml up -d postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker` | success | Frontend recreated with new image; services left running for user review |
+| frontend/backend health probes | success | `http://127.0.0.1:12959/` returned React HTML; backend `/api/health` returned ok |
+| API T051 smoke | success | Created/submitted `PGTA_20260703_154341_408A29`; sync ended `success`; metadata artifact/log readable |
+| run list probe | success | `/api/runs?pipeline=pgta` contains `PGTA_20260703_154341_408A29`; total was 6 |
+
+### Tests
+
+Remote-only acceptance evidence on `fengxian`:
+
+- Frontend production Docker build passed.
+- Frontend Dockerized Vitest target passed: `5 passed`.
+- Real PGT-A metadata create/submit smoke passed:
+  - `analysis_id=PGTA_20260703_154341_408A29`
+  - `dag_run_id=manual__PGTA_20260703_154341_408A29`
+  - `sync-airflow` status `success`
+  - artifact API returned 5 items
+  - metadata log tail returned 3 lines
+- Frontend page is available at `http://fengxian:12959/`.
+
+### Not run / why
+
+- No browser automation screenshot was run; React behavior is covered by Dockerized Vitest and remote HTTP/API smoke.
+- No login was implemented; out of scope.
+- No dry-run/CNV/baseline_qc or invalid target failure smoke was run; T045/T084 remain next.
+- No qsub wrapper/profile or qsub job-id events were implemented; T041/T042 remain pending.
+- No QC panel or reanalysis UI was implemented; T054/T056 remain pending.
+
+### Current git status
+
+T051 code was verified on branch `codex/airflow/T086-pgta-airflow-logger` at `f5dae66`; the final docs/state commit records the smoke evidence.
+
+### Risks
+
+- Services are intentionally left running for user review; stop with `docker compose -f docker-compose.yaml down` only when done.
+- The new submit UI triggers real `bio_pgta` metadata runs; it is still limited to `target=metadata`.
+- The UI still uses demo-wide CORS and no auth; production-like access control remains future work.
+
+### Open questions
+
+- Whether the next frontend increment should add route-level navigation, or keep the single-page workspace until QC/reanalysis pages are ready.
+
+### Next recommended task
+
+Run T045/T084 next for PGT-A dry-run and invalid-target failure smoke, or T041/T042 if qsub job-id observability is the priority.
+
+### Rollback notes
+
+- Stop services with `docker compose -f docker-compose.yaml down`; do not use `down -v`.
+- Revert repository changes with normal `git revert`.
+- Do not use `docker system prune`, `docker volume prune`, `git reset --hard`, or `git clean -fdx`.
+
 ## 2026-07-03 16:19 - Codex - T050/T057 frontend run detail v1
 
 ### Goal
