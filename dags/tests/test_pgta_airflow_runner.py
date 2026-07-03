@@ -37,6 +37,26 @@ class PgtaAirflowRunnerTests(unittest.TestCase):
         self.assertEqual(conf["target"], "metadata")
         self.assertEqual(conf["sample_sheet_path"], str(manifest.resolve()))
 
+    def test_validate_conf_preserves_optional_backend_event_url(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_AIRFLOW_TEST"
+            manifest = workdir / "config" / "samples.selected.tsv"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text("sample_id\tR1\tR2\tsource_dir\n", encoding="utf-8")
+
+            conf = validate_pgta_airflow_conf(
+                {
+                    "analysis_id": "PGTA_AIRFLOW_TEST",
+                    "workdir": str(workdir),
+                    "sample_sheet_path": str(manifest),
+                    "target": "metadata",
+                    "backend_event_url": "http://backend:8000/api/events/snakemake",
+                },
+                shared_root=Path(tmpdir),
+            )
+
+        self.assertEqual(conf["backend_event_url"], "http://backend:8000/api/events/snakemake")
+
     def test_validate_conf_rejects_non_metadata_target(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workdir = Path(tmpdir) / "runs" / "PGTA_AIRFLOW_TEST"
@@ -88,6 +108,33 @@ class PgtaAirflowRunnerTests(unittest.TestCase):
             self.assertIn("--logger-airflow-demo-analysis-id", command)
             self.assertIn("--logger-airflow-demo-events-path", command)
             self.assertIn("/opt/airflow/dags", run.call_args.kwargs["env"]["PYTHONPATH"])
+
+    def test_run_snakemake9_passes_optional_backend_event_url_to_logger(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_AIRFLOW_TEST"
+            workdir.mkdir(parents=True)
+            config_path = workdir / "config.yaml"
+            config_path.write_text("samples: {}\n", encoding="utf-8")
+
+            completed = Mock(returncode=0)
+            completed.stdout = ""
+            completed.stderr = ""
+            with patch("pgta_airflow_runner.subprocess.run", return_value=completed) as run:
+                run_snakemake9_with_logger(
+                    {
+                        "analysis_id": "PGTA_AIRFLOW_TEST",
+                        "workdir": str(workdir),
+                        "config_path": str(config_path),
+                        "backend_event_url": "http://backend:8000/api/events/snakemake",
+                    },
+                    snakemake_bin=Path("/biosoftware/miniconda/envs/snakemake9_env/bin/snakemake"),
+                    pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                    dags_root=Path("/opt/airflow/dags"),
+                )
+
+            command = run.call_args.args[0]
+            self.assertIn("--logger-airflow-demo-backend-event-url", command)
+            self.assertIn("http://backend:8000/api/events/snakemake", command)
 
     def test_collect_snakemake_events_writes_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

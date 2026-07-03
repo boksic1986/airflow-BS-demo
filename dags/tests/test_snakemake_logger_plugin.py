@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from dataclasses import fields
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -67,6 +68,82 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
         self.assertEqual(lines[0]["rule"], "metadata")
         self.assertEqual(lines[0]["sample_id"], "G1")
         self.assertEqual(lines[0]["snakemake_jobid"], "1")
+
+    def test_logger_posts_rule_events_when_backend_url_is_configured(self) -> None:
+        from snakemake_logger_plugin_airflow_demo import LogHandler, LogHandlerSettings
+
+        with tempfile.TemporaryDirectory() as tmpdir, patch("urllib.request.urlopen") as urlopen:
+            urlopen.return_value.__enter__.return_value.read.return_value = b'{"status":"ok"}'
+            events_path = Path(tmpdir) / "events" / "snakemake_events.jsonl"
+            handler = LogHandler(
+                common_settings=None,
+                settings=LogHandlerSettings(
+                    analysis_id="PGTA_AIRFLOW_TEST",
+                    workdir=Path(tmpdir),
+                    events_path=events_path,
+                    backend_event_url="http://backend:8000/api/events/snakemake",
+                ),
+            )
+            record = logging.LogRecord(
+                name="snakemake",
+                level=logging.INFO,
+                pathname="snakefile",
+                lineno=1,
+                msg="started",
+                args=(),
+                exc_info=None,
+            )
+            record.event = LogEvent.JOB_STARTED
+            record.rule = "metadata"
+            record.job_id = 1
+            record.wildcards = {"sample": "G1"}
+
+            handler.emit(record)
+
+            request = urlopen.call_args.args[0]
+            payload = json.loads(request.data.decode("utf-8"))
+
+        self.assertEqual(request.full_url, "http://backend:8000/api/events/snakemake")
+        self.assertEqual(request.get_header("Content-type"), "application/json")
+        self.assertEqual(payload["analysis_id"], "PGTA_AIRFLOW_TEST")
+        self.assertEqual(payload["rule"], "metadata")
+        self.assertEqual(payload["status"], "running")
+
+    def test_logger_records_post_failure_without_failing_emit(self) -> None:
+        from snakemake_logger_plugin_airflow_demo import LogHandler, LogHandlerSettings
+
+        with tempfile.TemporaryDirectory() as tmpdir, patch("urllib.request.urlopen", side_effect=OSError("backend down")):
+            events_path = Path(tmpdir) / "events" / "snakemake_events.jsonl"
+            handler = LogHandler(
+                common_settings=None,
+                settings=LogHandlerSettings(
+                    analysis_id="PGTA_AIRFLOW_TEST",
+                    workdir=Path(tmpdir),
+                    events_path=events_path,
+                    backend_event_url="http://backend:8000/api/events/snakemake",
+                ),
+            )
+            record = logging.LogRecord(
+                name="snakemake",
+                level=logging.INFO,
+                pathname="snakefile",
+                lineno=1,
+                msg="started",
+                args=(),
+                exc_info=None,
+            )
+            record.event = LogEvent.JOB_STARTED
+            record.rule = "metadata"
+            record.job_id = 1
+            record.wildcards = {"sample": "G1"}
+
+            handler.emit(record)
+
+            lines = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+
+        self.assertEqual(lines[0]["event"], "job_started")
+        self.assertEqual(lines[1]["event"], "backend_post_error")
+        self.assertIn("backend down", lines[1]["message"])
 
 
 if __name__ == "__main__":
