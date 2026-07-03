@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Query, status
 import httpx
@@ -17,6 +18,7 @@ from app.diagnostics_service import (
     sync_airflow_status,
 )
 from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candidates
+from app.rule_event_service import list_snakemake_rule_events, record_snakemake_event
 from app.run_service import create_pgta_run, get_run_detail, list_run_samples, list_runs, submit_pgta_run
 
 
@@ -51,6 +53,23 @@ class CreateRunRequest(BaseModel):
     selected_samples: list[SelectedSampleRequest] = Field(min_length=1)
     email_to: str | None = None
     note: str | None = None
+
+
+class SnakemakeEventRequest(BaseModel):
+    analysis_id: str = Field(min_length=1)
+    event: str = Field(min_length=1)
+    rule: str = Field(min_length=1)
+    sample_id: str | None = None
+    wildcards: dict[str, object] = Field(default_factory=dict)
+    snakemake_jobid: str | None = None
+    qsub_jobid: str | None = None
+    status: str = Field(min_length=1)
+    stdout_path: str | None = None
+    stderr_path: str | None = None
+    message: str | None = None
+    return_code: int | None = None
+    resources: dict[str, object] | None = None
+    timestamp: datetime | None = None
 
 
 @app.get("/api/health")
@@ -231,6 +250,30 @@ def run_samples(analysis_id: str) -> dict[str, object]:
                 detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
             )
         return {"items": list_run_samples(session=session, analysis_id=analysis_id)}
+
+
+@app.get("/api/runs/{analysis_id}/rules")
+def run_rules(analysis_id: str) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        items = list_snakemake_rule_events(session=session, analysis_id=analysis_id)
+    if items is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+        )
+    return {"items": items}
+
+
+@app.post("/api/events/snakemake")
+def snakemake_event(request: SnakemakeEventRequest) -> dict[str, str]:
+    with get_sessionmaker()() as session:
+        recorded = record_snakemake_event(session=session, event=request.model_dump())
+    if not recorded:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {request.analysis_id}"},
+        )
+    return {"status": "ok"}
 
 
 @app.get("/api/runs/{analysis_id}/logs")

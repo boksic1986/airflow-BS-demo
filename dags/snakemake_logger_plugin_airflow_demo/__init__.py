@@ -4,6 +4,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Any
+import urllib.request
 
 from snakemake_interface_logger_plugins.base import LogHandlerBase
 from snakemake_interface_logger_plugins.common import LogEvent
@@ -38,12 +39,49 @@ class LogHandler(LogHandlerBase):
             events_path = self.workdir / events_path
         self.events_path = events_path
         self.events_path.parent.mkdir(parents=True, exist_ok=True)
+        self.backend_event_url = str(settings.backend_event_url or "").strip()
+        self.post_timeout_seconds = float(settings.post_timeout_seconds)
         self.baseFilename = str(self.events_path)
 
     def emit(self, record: logging.LogRecord) -> None:
         payload = self._record_to_payload(record)
+        self._append_payload(payload)
+        self._post_backend_event(payload)
+
+    def _append_payload(self, payload: dict[str, Any]) -> None:
         with self.events_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, ensure_ascii=True, sort_keys=True) + "\n")
+
+    def _post_backend_event(self, payload: dict[str, Any]) -> None:
+        if not self.backend_event_url or not payload.get("rule"):
+            return
+        body = json.dumps(payload, ensure_ascii=True).encode("utf-8")
+        request = urllib.request.Request(
+            self.backend_event_url,
+            data=body,
+            headers={"Content-type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.post_timeout_seconds) as response:
+                response.read()
+        except Exception as exc:
+            self._append_payload(
+                {
+                    "analysis_id": self.analysis_id,
+                    "event": "backend_post_error",
+                    "status": "warning",
+                    "rule": payload.get("rule"),
+                    "sample_id": payload.get("sample_id"),
+                    "wildcards": payload.get("wildcards") or {},
+                    "snakemake_jobid": payload.get("snakemake_jobid"),
+                    "qsub_jobid": payload.get("qsub_jobid"),
+                    "stdout_path": payload.get("stdout_path"),
+                    "stderr_path": payload.get("stderr_path"),
+                    "message": str(exc),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
 
     @property
     def writes_to_stream(self) -> bool:
@@ -81,6 +119,7 @@ class LogHandler(LogHandlerBase):
             "stdout_path": _string_or_none(getattr(record, "stdout_path", None)),
             "stderr_path": _string_or_none(getattr(record, "stderr_path", None)),
             "message": record.getMessage(),
+            "return_code": _int_or_none(_first_present(record, "return_code", "exit_code")),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -167,3 +206,9 @@ def _string_or_none(value: Any) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+def _int_or_none(value: Any) -> int | None:
+    if value is None:
+        return None
+    return int(value)

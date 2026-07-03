@@ -62,6 +62,7 @@ def validate_pgta_airflow_conf(
             "input_mode": "manifest_path",
             "airflow_only": True,
         },
+        **_optional_logger_backend_settings(conf),
     }
 
 
@@ -102,6 +103,10 @@ def run_snakemake9_with_logger(
         "--logger-airflow-demo-events-path",
         str(events_path),
     ]
+    if conf.get("backend_event_url"):
+        command.extend(["--logger-airflow-demo-backend-event-url", str(conf["backend_event_url"])])
+    if conf.get("post_timeout_seconds") is not None:
+        command.extend(["--logger-airflow-demo-post-timeout-seconds", str(conf["post_timeout_seconds"])])
     completed = subprocess.run(
         command,
         cwd=str(workdir),
@@ -155,6 +160,16 @@ def _snakemake_env(dags_root: Path) -> dict[str, str]:
         paths.append(existing)
     env["PYTHONPATH"] = os.pathsep.join(paths)
     return env
+
+
+def _optional_logger_backend_settings(conf: dict[str, Any]) -> dict[str, Any]:
+    settings: dict[str, Any] = {}
+    backend_event_url = str(conf.get("backend_event_url") or "").strip()
+    if backend_event_url:
+        settings["backend_event_url"] = backend_event_url
+    if conf.get("post_timeout_seconds") is not None:
+        settings["post_timeout_seconds"] = float(conf["post_timeout_seconds"])
+    return settings
 
 
 def _read_events(events_path: Path) -> list[dict[str, Any]]:
