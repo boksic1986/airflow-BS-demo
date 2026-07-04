@@ -58,6 +58,28 @@ E2E smoke
 - resume 后不重复已成功输出。
 - qsub wrapper mock mode 生成 event。
 
+T040/T041/T042 WES mock qsub v1 当前验收：
+
+```text
+WES mock dry-run:
+  使用 pipelines/wes/workflow/Snakefile
+  -> 两个 mock sample
+  -> Snakemake dry-run 显示 all/fastp/bwa_mem/markdup/final_summary 共 8 个 jobs
+
+mock qsub wrapper:
+  使用 AIRFLOW_DEMO_QSUB_MODE=mock
+  -> 不调用真实 qsub
+  -> 生成 MOCK-* qsub_jobid
+  -> 写 logs/qsub/<rule>.<sample>.o/e
+  -> 写 logs/events/snakemake_events.jsonl
+  -> backend run 存在时 POST /api/events/snakemake 并可通过 /api/runs/{analysis_id}/rules 查询
+
+qsub profile:
+  profiles/qsub/config.yaml 已固定 jobs=2 和 rerun-incomplete
+  -> 当前 fengxian Snakemake 环境缺 snakemake-executor-plugin-cluster-generic
+  -> profile runtime smoke 暂不作为通过条件，安装 executor plugin 后补验收
+```
+
 ## 5. Frontend tests
 
 必须覆盖：

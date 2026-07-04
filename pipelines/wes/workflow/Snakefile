@@ -1,0 +1,123 @@
+from pathlib import Path
+
+
+PROJECT = Path(config["workdir"]).resolve()
+ANALYSIS_ID = config["analysis_id"]
+BACKEND_EVENT_URL = config.get("backend_event_url")
+SAMPLES = config.get("samples", {})
+SAMPLE_IDS = sorted(SAMPLES)
+
+
+def project_path(*parts):
+    return str(PROJECT.joinpath(*parts))
+
+
+def sample_input(wildcards):
+    return str(Path(SAMPLES[wildcards.sample]["input"]).resolve())
+
+
+rule all:
+    input:
+        project_path("reports", "final_summary.tsv")
+
+
+rule fastp:
+    input:
+        raw=sample_input
+    output:
+        clean=project_path("fastp", "{sample}.clean.txt")
+    log:
+        stdout=project_path("logs", "rules", "fastp", "{sample}.stdout.log"),
+        stderr=project_path("logs", "rules", "fastp", "{sample}.stderr.log")
+    params:
+        analysis_id=ANALYSIS_ID,
+        workdir=str(PROJECT),
+        backend_event_url=BACKEND_EVENT_URL
+    threads: 1
+    resources:
+        mem_mb=256,
+        runtime=10
+    shell:
+        r"""
+        mkdir -p "$(dirname {output.clean})" "$(dirname {log.stdout})" "$(dirname {log.stderr})"
+        echo "fastp mock {wildcards.sample} from {input.raw}" > {output.clean}
+        echo "fastp stdout {wildcards.sample}" > {log.stdout}
+        : > {log.stderr}
+        """
+
+
+rule bwa_mem:
+    input:
+        clean=rules.fastp.output.clean
+    output:
+        bam=project_path("mapping", "{sample}.bam")
+    log:
+        stdout=project_path("logs", "rules", "bwa_mem", "{sample}.stdout.log"),
+        stderr=project_path("logs", "rules", "bwa_mem", "{sample}.stderr.log")
+    params:
+        analysis_id=ANALYSIS_ID,
+        workdir=str(PROJECT),
+        backend_event_url=BACKEND_EVENT_URL
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10
+    shell:
+        r"""
+        mkdir -p "$(dirname {output.bam})" "$(dirname {log.stdout})" "$(dirname {log.stderr})"
+        echo "bwa_mem mock {wildcards.sample} from {input.clean}" > {output.bam}
+        echo "bwa_mem stdout {wildcards.sample}" > {log.stdout}
+        : > {log.stderr}
+        """
+
+
+rule markdup:
+    input:
+        bam=rules.bwa_mem.output.bam
+    output:
+        bam=project_path("markdup", "{sample}.markdup.bam")
+    log:
+        stdout=project_path("logs", "rules", "markdup", "{sample}.stdout.log"),
+        stderr=project_path("logs", "rules", "markdup", "{sample}.stderr.log")
+    params:
+        analysis_id=ANALYSIS_ID,
+        workdir=str(PROJECT),
+        backend_event_url=BACKEND_EVENT_URL
+    threads: 1
+    resources:
+        mem_mb=512,
+        runtime=10
+    shell:
+        r"""
+        mkdir -p "$(dirname {output.bam})" "$(dirname {log.stdout})" "$(dirname {log.stderr})"
+        echo "markdup mock {wildcards.sample} from {input.bam}" > {output.bam}
+        echo "markdup stdout {wildcards.sample}" > {log.stdout}
+        : > {log.stderr}
+        """
+
+
+rule final_summary:
+    input:
+        expand(project_path("markdup", "{sample}.markdup.bam"), sample=SAMPLE_IDS)
+    output:
+        summary=project_path("reports", "final_summary.tsv")
+    log:
+        stdout=project_path("logs", "rules", "final_summary", "project.stdout.log"),
+        stderr=project_path("logs", "rules", "final_summary", "project.stderr.log")
+    params:
+        analysis_id=ANALYSIS_ID,
+        workdir=str(PROJECT),
+        backend_event_url=BACKEND_EVENT_URL,
+        samples=" ".join(SAMPLE_IDS)
+    threads: 1
+    resources:
+        mem_mb=256,
+        runtime=10
+    shell:
+        r"""
+        mkdir -p "$(dirname {output.summary})" "$(dirname {log.stdout})" "$(dirname {log.stderr})"
+        printf "sample_id\tstatus\n" > {output.summary}
+        for sample in {params.samples}; do printf "%s\tmock_success\n" "$sample" >> {output.summary}; done
+        echo "final_summary stdout" > {log.stdout}
+        : > {log.stderr}
+        """

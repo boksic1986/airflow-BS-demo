@@ -1,0 +1,8 @@
+analysis_id: WES_20260704_MOCK
+workdir: shared/runs/WES_20260704_MOCK
+backend_event_url: null
+samples:
+  S001:
+    input: pipelines/wes/mock_data/S001.input.txt
+  S002:
+    input: pipelines/wes/mock_data/S002.input.txt

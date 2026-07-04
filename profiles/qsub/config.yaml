@@ -1,0 +1,15 @@
+executor: cluster-generic
+jobs: 2
+latency-wait: 30
+rerun-incomplete: true
+printshellcmds: true
+keep-going: false
+
+cluster-generic-submit-cmd: >-
+  AIRFLOW_DEMO_QSUB_MODE=mock
+  /biosoftware/miniconda/envs/snakemake_env/bin/python
+  pipelines/common/qsub_submit.py
+
+default-resources:
+  - mem_mb=512
+  - runtime=10

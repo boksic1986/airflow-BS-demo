@@ -36,6 +36,92 @@
 
 ## Records
 
+## 2026-07-04 18:05 - Codex - T040/T041/T042 WES mock qsub observability
+
+### Goal
+
+Build the first WES mock Snakemake/qsub observability slice: a tiny WES Snakefile, a mock qsub submit wrapper that records qsub job id/stdout/stderr/events, and a qsub profile contract. Do not call real qsub, do not use real WES data, and keep runtime validation on `ssh fengxian`.
+
+### Completed
+
+- Added `pipelines/wes/workflow/Snakefile` with a two-sample mock chain: `fastp -> bwa_mem -> markdup -> final_summary`.
+- Added tiny mock inputs and config under `pipelines/wes/`.
+- Added `pipelines/common/qsub_submit.py` with `AIRFLOW_DEMO_QSUB_MODE=mock`.
+- Mock wrapper reads Snakemake jobscript properties, creates stable `MOCK-*` qsub job ids, writes qsub stdout/stderr, writes JSONL events, optionally POSTs backend events, and records final success/failed status.
+- Added `profiles/qsub/config.yaml` with `jobs=2`, `rerun-incomplete=true`, and explicit Snakemake env Python.
+- Documented that `fengxian` currently lacks both `qsub/qstat` and `snakemake-executor-plugin-cluster-generic`; therefore direct wrapper smoke passes, while full `--profile profiles/qsub` runtime is blocked.
+
+### Changed files
+
+- `pipelines/common/qsub_submit.py`
+- `pipelines/wes/workflow/Snakefile`
+- `pipelines/wes/config/mock_config.yaml`
+- `pipelines/wes/mock_data/S001.input.txt`
+- `pipelines/wes/mock_data/S002.input.txt`
+- `profiles/qsub/config.yaml`
+- `pipelines/tests/test_qsub_submit.py`
+- `pipelines/tests/test_wes_mock_contract.py`
+- `docs/08_SNAKEMAKE_QSUB_INTEGRATION.md`
+- `docs/12_TESTING_ACCEPTANCE.md`
+- `SERVER_INFO.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| remote temp tests after tests-only patch | failed as expected | Missing `pipelines.common`, WES Snakefile, and qsub profile |
+| remote temp `python -m unittest pipelines.tests.test_qsub_submit pipelines.tests.test_wes_mock_contract` | success | 5 tests OK |
+| remote temp WES Snakemake dry-run | success | Snakemake 8.5.4 showed 8 jobs across all/fastp/bwa_mem/markdup/final_summary |
+| remote temp direct mock wrapper smoke | success | Generated `MOCK-WES_20260704_DIRECT-12-bwa_mem-S001`, qsub stdout/stderr, result file, and submitted/success JSONL events |
+| `snakemake --profile profiles/qsub` in remote temp | blocked | Snakemake executor choices are local/dryrun/touch; `cluster-generic` plugin missing |
+| qsub/qstat probe on `fengxian` | not found | `command -v qsub` and `command -v qstat` returned empty |
+
+### Tests
+
+Remote-only evidence from `fengxian` temp workspaces:
+
+- Unit/contract tests: `Ran 5 tests OK`.
+- WES mock dry-run: passed with 8 jobs.
+- Direct mock qsub wrapper: passed and wrote:
+  - `logs/qsub/bwa_mem.S001.o`
+  - `logs/qsub/bwa_mem.S001.e`
+  - `logs/events/snakemake_events.jsonl`
+  - `mock/result.txt`
+
+### Not run / why
+
+- Full `--profile profiles/qsub` execution did not pass because neither Snakemake env has `snakemake-executor-plugin-cluster-generic`.
+- Real qsub was not run because `qsub/qstat` are absent on `fengxian`.
+- Backend DB `/api/runs/{analysis_id}/rules` smoke against an inserted WES run remains for the post-commit official mirror validation batch.
+
+### Current git status
+
+Work is on branch `codex/airflow/T086-pgta-airflow-logger`; files are modified/new locally and ready for official remote validation after commit/push.
+
+### Risks
+
+- T042 should remain blocked until the cluster-generic executor plugin is installed in an isolated environment or added to a runtime image.
+- The mock wrapper uses the Snakemake env Python explicitly; running it with system Python 3.6 fails because the script uses modern Python syntax.
+- The WES workflow is mock-only and does not represent production WES parameters.
+
+### Open questions
+
+- Whether to unblock T042 by installing the executor plugin in a dedicated container image or by creating a separate Snakemake qsub runner environment on `fengxian`.
+
+### Next recommended task
+
+Unblock T042 by adding `snakemake-executor-plugin-cluster-generic` in an isolated runtime, then run `--profile profiles/qsub` end-to-end. After that, proceed to T031 `bio_wes_qsub` DAG skeleton.
+
+### Rollback notes
+
+- Revert repository changes with normal `git revert`.
+- Remove only generated WES mock run directories under `shared/runs/WES_*` if cleanup is needed.
+- Do not use `docker compose down -v`, `docker system prune`, `docker volume prune`, `git reset --hard`, or `git clean -fdx`.
+
 ## 2026-07-04 01:18 - Codex - T045/T084 PGT-A dryrun and failure smoke
 
 ### Goal

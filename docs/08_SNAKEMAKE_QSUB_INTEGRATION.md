@@ -15,15 +15,10 @@ all
   fastp
   bwa_mem
   markdup
-  bqsr
-  haplotypecaller
-  mosdepth
-  annovar
-  multiqc
   final_summary
 ```
 
-Demo 可以先用 mock command 生成小文件，后续替换成真实命令。
+T040 v1 已实现最小 WES mock workflow：`pipelines/wes/workflow/Snakefile` 使用 tiny text input，生成 mock clean reads、BAM、markdup BAM 和 `reports/final_summary.tsv`。每个 rule 都有 input/output/log，rule stdout/stderr 写到 `workdir/logs/rules/<rule>/...`。后续真实 WES 再补 bqsr、haplotypecaller、mosdepth、annovar、multiqc。
 
 ## 3. NIPT qsub rule 设计
 
@@ -60,6 +55,16 @@ all
 6. 解析 qsub job id。
 7. POST backend event：`submitted`。
 8. 返回 job id。
+
+T041 v1 默认只支持 mock 模式：
+
+```bash
+AIRFLOW_DEMO_QSUB_MODE=mock \
+  /biosoftware/miniconda/envs/snakemake_env/bin/python \
+  pipelines/common/qsub_submit.py <snakemake-jobscript>
+```
+
+mock 模式不调用真实 qsub，会同步执行 jobscript，生成稳定 fake job id（如 `MOCK-WES_20260704_DIRECT-12-bwa_mem-S001`），写 `logs/qsub/<rule>.<sample>.o/e`，并写 submitted/final status 事件。`AIRFLOW_DEMO_BACKEND_EVENT_URL` 非空时会 POST FastAPI；不论 POST 是否成功都会写 JSONL fallback。
 
 Event 示例：
 
@@ -98,19 +103,23 @@ qsub \
 
 ```yaml
 executor: cluster-generic
-jobs: 20
-latency-wait: 60
+jobs: 2
+latency-wait: 30
 rerun-incomplete: true
 printshellcmds: true
 keep-going: false
 
 cluster-generic-submit-cmd: >-
-  python pipelines/common/qsub_submit.py
+  AIRFLOW_DEMO_QSUB_MODE=mock
+  /biosoftware/miniconda/envs/snakemake_env/bin/python
+  pipelines/common/qsub_submit.py
 
 default-resources:
-  - mem_mb=4000
-  - runtime=120
+  - mem_mb=512
+  - runtime=10
 ```
+
+T042 v1 profile 已放在 `profiles/qsub/config.yaml`。当前 `fengxian` 的 Snakemake 8.5.4 和 9.23.1 都未安装 `snakemake-executor-plugin-cluster-generic`，因此 `--profile profiles/qsub` 会在 executor 选择阶段失败；在安装/镜像化该 executor plugin 前，远端验收使用 Snakemake dry-run + direct mock wrapper smoke。
 
 ## 7. 日志路径规范
 
@@ -212,6 +221,7 @@ snakemake --forceall
 
 1. mock WES 两个样本 dry-run 通过。
 2. qsub wrapper 能生成 job name 和日志路径。
-3. mock qsub 模式下能写 rule_event。
-4. 故意让一个 rule 失败，前端能看到 stderr。
-5. 修复后 resume，只执行失败/incomplete 目标。
+3. mock qsub 模式下能写 `snakemake_events.jsonl`，并在 backend run 存在时写入 `snakemake_rule_event`。
+4. cluster-generic executor plugin 安装后，再验证 `--profile profiles/qsub` 真正驱动 wrapper。
+5. 故意让一个 rule 失败，前端能看到 stderr。
+6. 修复后 resume，只执行失败/incomplete 目标。

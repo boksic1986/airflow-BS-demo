@@ -97,16 +97,18 @@ planned_pgta_airflow_only_dag_id: bio_pgta_airflow
 
 ## 6. qsub/SGE/PBS
 
-PGT-A first smoke does not use qsub. qsub information remains to be confirmed for later WES/NIPT work.
+PGT-A first smoke does not use qsub. WES/NIPT qsub work currently uses mock mode because `qsub/qstat` are not available on `fengxian`.
 
 ```text
-scheduler_type: <SGE|PBS|UGE|unknown>
-qsub_path: <TO_BE_FILLED>
-qstat_path: <TO_BE_FILLED>
+scheduler_type: none detected on fengxian
+qsub_path: not found by `command -v qsub` on 2026-07-04
+qstat_path: not found by `command -v qstat` on 2026-07-04
 qacct_path: <TO_BE_FILLED>
 default_queue: <TO_BE_FILLED>
 demo_queue: <TO_BE_FILLED>
 max_demo_jobs: <TO_BE_FILLED>
+snakemake_cluster_generic_executor_plugin: not installed in snakemake_env 8.5.4 or snakemake9_env 9.23.1 on 2026-07-04
+mock_qsub_wrapper_status: direct wrapper smoke passed in remote temp workspace; real `--profile profiles/qsub` needs executor plugin before runtime use
 ```
 
 ## 7. SMTP/Mail
