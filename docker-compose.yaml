@@ -4,7 +4,7 @@ x-airflow-common: &airflow-common
   image: ${AIRFLOW_IMAGE:-airflow-demo/airflow:0.1.0}
   build:
     context: ./airflow_image
-  user: "${AIRFLOW_UID:-50000}:0"
+  user: "${AIRFLOW_UID:-1005}:0"
   environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
