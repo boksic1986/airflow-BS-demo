@@ -79,28 +79,36 @@ Build the first WES mock Snakemake/qsub observability slice: a tiny WES Snakefil
 | remote temp direct mock wrapper smoke | success | Generated `MOCK-WES_20260704_DIRECT-12-bwa_mem-S001`, qsub stdout/stderr, result file, and submitted/success JSONL events |
 | `snakemake --profile profiles/qsub` in remote temp | blocked | Snakemake executor choices are local/dryrun/touch; `cluster-generic` plugin missing |
 | qsub/qstat probe on `fengxian` | not found | `command -v qsub` and `command -v qstat` returned empty |
+| official mirror `git pull --ff-only` | success | `/home/jiucheng/project/airflow-demo` synced to implementation commit `a7f03f3` before runtime smoke |
+| official mirror `docker compose -f docker-compose.yaml config --quiet` | success | Compose contract still renders |
+| official mirror `docker run --rm airflow-demo/backend:0.1.0 pytest -q` | success | 35 backend tests passed |
+| official mirror Dockerized unittest for `pipelines.tests.*` | success | 5 WES/qsub contract tests OK |
+| official mirror WES Snakemake dry-run | success | Job stats: all=1, fastp=2, bwa_mem=2, markdup=2, final_summary=1, total=8 |
+| official mirror direct wrapper + backend POST | success | `WES_20260704_180650_MOCK` generated `MOCK-WES_20260704_180650_MOCK-12-bwa_mem-S001` |
+| `GET /api/runs/WES_20260704_180650_MOCK/rules` | success | Returned `bwa_mem/S001=success`, qsub job id, stdout/stderr paths, and `return_code=0` |
 
 ### Tests
 
-Remote-only evidence from `fengxian` temp workspaces:
+Remote-only evidence from `fengxian`:
 
 - Unit/contract tests: `Ran 5 tests OK`.
-- WES mock dry-run: passed with 8 jobs.
-- Direct mock qsub wrapper: passed and wrote:
-  - `logs/qsub/bwa_mem.S001.o`
-  - `logs/qsub/bwa_mem.S001.e`
-  - `logs/events/snakemake_events.jsonl`
-  - `mock/result.txt`
+- Backend image tests: `35 passed`.
+- WES mock dry-run on official mirror: passed with 8 jobs.
+- Direct mock qsub wrapper on official mirror with backend event POST: passed and wrote:
+  - `shared/runs/WES_20260704_180650_MOCK/logs/qsub/bwa_mem.S001.o`
+  - `shared/runs/WES_20260704_180650_MOCK/logs/qsub/bwa_mem.S001.e`
+  - `shared/runs/WES_20260704_180650_MOCK/logs/events/snakemake_events.jsonl`
+  - `shared/runs/WES_20260704_180650_MOCK/mock/result.txt`
+- Backend rule query: `/api/runs/WES_20260704_180650_MOCK/rules` returned `bwa_mem/S001=success` with `qsub_jobid`, stdout/stderr paths, and `return_code=0`.
 
 ### Not run / why
 
 - Full `--profile profiles/qsub` execution did not pass because neither Snakemake env has `snakemake-executor-plugin-cluster-generic`.
 - Real qsub was not run because `qsub/qstat` are absent on `fengxian`.
-- Backend DB `/api/runs/{analysis_id}/rules` smoke against an inserted WES run remains for the post-commit official mirror validation batch.
 
 ### Current git status
 
-Work is on branch `codex/airflow/T086-pgta-airflow-logger`; files are modified/new locally and ready for official remote validation after commit/push.
+Work is on branch `codex/airflow/T086-pgta-airflow-logger`. Implementation commit `a7f03f3` was pushed and validated on the `fengxian` mirror; this handoff entry includes the follow-up docs/status evidence update.
 
 ### Risks
 

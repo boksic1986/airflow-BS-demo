@@ -33,9 +33,9 @@ node_version: <unknown>
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
 active_branch: codex/airflow/T086-pgta-airflow-logger
-last_verified_code_commit: f90b09c for T045/T084 PGT-A dryrun/failure code smoke
+last_verified_code_commit: a7f03f3 for T040/T041 WES mock qsub wrapper code smoke
 worktree_strategy: single-worktree for now; fengxian is code mirror only
-fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; currently checked out to origin/codex/airflow/T086-pgta-airflow-logger at f90b09c for T045/T084 verification
+fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime validation for T040/T041 ran on origin/codex/airflow/T086-pgta-airflow-logger at a7f03f3, followed by docs/status evidence update
 ```
 
 ## 4. 服务状态
@@ -64,7 +64,7 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 | Pipeline | DAG | Snakemake | qsub | Docker | QC | Status |
 |---|---|---|---|---|---|---|
 | PGT-A demo | `bio_pgta` metadata/dryrun/failure smoke passed; `bio_pgta_airflow` Airflow-only logger/event POST passed | direct Snakemake metadata target, `dryrun_cnv`, and controlled `invalid_target` smoke in Airflow worker passed; Snakemake 9.23.1 logger plugin writes JSONL, Airflow log/XCom summary, and optional backend rule/job events | not used | server-path project creation, submit, status sync, logs, artifacts, rule event API, PGT-A run detail frontend v1, and New PGT-A Run frontend scan/create/submit passed | not started | `/api/input/scan` and `/api/runs` create `created` run; submit triggers `bio_pgta`; Airflow-only manifest run can POST rule events to biodemo; frontend can create pgta runs for metadata/dryrun/failure smoke, submit created runs, view run list/detail, samples, rules, logs, artifacts, and sync Airflow |
-| WES qsub | not started | WES mock Snakefile dry-run passed in remote temp workspace | mock qsub wrapper direct smoke passed; real profile blocked by missing cluster-generic executor plugin | n/a | not started | T040/T041 done; T042 profile contract present but runtime blocked until executor plugin is installed or containerized |
+| WES qsub | not started | WES mock Snakefile dry-run passed on fengxian official mirror | mock qsub wrapper direct smoke passed with backend POST and `/api/runs/{analysis_id}/rules`; real profile blocked by missing cluster-generic executor plugin | n/a | not started | T040/T041 done; T042 profile contract present but runtime blocked until executor plugin is installed or containerized |
 | NIPT qsub | not started | not started | not started | n/a | not started | pending |
 | NIPT docker | not started | optional | n/a | not started | not started | pending |
 
@@ -90,8 +90,8 @@ last_frontend_submit_smoke: passed on fengxian; frontend HTML served at `http://
 last_image_check: passed on fengxian; compose external images pulled and backend built with explicit tag
 last_image_cleanup: removed 37 dangling <none> images; no docker system prune, no volume prune
 last_pgta_failure_smoke: passed on fengxian; `invalid_target` run `PGTA_20260703_170957_3DDEC3` ended Airflow/backend `failed` as expected, stderr log size 1322 bytes, `sync-airflow` wrote non-null `error_summary` containing `stderr_path` and last error lines
-last_wes_mock_dryrun: passed in remote temp workspace on fengxian; Snakemake 8.5.4 dry-run for `pipelines/wes/workflow/Snakefile` showed 8 jobs across all/fastp/bwa_mem/markdup/final_summary
-last_mock_qsub_wrapper: passed in remote temp workspace on fengxian; direct wrapper smoke with `AIRFLOW_DEMO_QSUB_MODE=mock` generated `MOCK-WES_20260704_DIRECT-12-bwa_mem-S001`, qsub stdout/stderr files, and submitted/success JSONL events
+last_wes_mock_dryrun: passed on fengxian official mirror at `/home/jiucheng/project/airflow-demo`; Snakemake 8.5.4 dry-run for `pipelines/wes/workflow/Snakefile` showed 8 jobs across all/fastp/bwa_mem/markdup/final_summary
+last_mock_qsub_wrapper: passed on fengxian official mirror with backend POST; analysis `WES_20260704_180650_MOCK` generated `MOCK-WES_20260704_180650_MOCK-12-bwa_mem-S001`, qsub stdout/stderr files, submitted/success JSONL events, and `/api/runs/WES_20260704_180650_MOCK/rules` returned `bwa_mem/S001=success`
 last_qsub_profile_runtime: blocked; both snakemake_env 8.5.4 and snakemake9_env 9.23.1 lack `snakemake-executor-plugin-cluster-generic`, so `--profile profiles/qsub` cannot run yet
 last_e2e_smoke: PGT-A Level 0-3 demo smoke passed for preflight/config, metadata create-submit-success, dryrun_cnv success, and invalid_target failure/error_summary; full QC/email/qsub E2E not run
 ```

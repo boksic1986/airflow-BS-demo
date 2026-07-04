@@ -121,6 +121,8 @@ default-resources:
 
 T042 v1 profile 已放在 `profiles/qsub/config.yaml`。当前 `fengxian` 的 Snakemake 8.5.4 和 9.23.1 都未安装 `snakemake-executor-plugin-cluster-generic`，因此 `--profile profiles/qsub` 会在 executor 选择阶段失败；在安装/镜像化该 executor plugin 前，远端验收使用 Snakemake dry-run + direct mock wrapper smoke。
 
+2026-07-04 official mirror smoke：`WES_20260704_180650_MOCK` 通过 direct mock wrapper 向 backend POST 事件，`/api/runs/WES_20260704_180650_MOCK/rules` 返回 `bwa_mem/S001=success`，并带有 `MOCK-WES_20260704_180650_MOCK-12-bwa_mem-S001`、stdout/stderr path 和 `return_code=0`。
+
 ## 7. 日志路径规范
 
 ```text

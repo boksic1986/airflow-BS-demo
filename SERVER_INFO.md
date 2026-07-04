@@ -108,7 +108,7 @@ default_queue: <TO_BE_FILLED>
 demo_queue: <TO_BE_FILLED>
 max_demo_jobs: <TO_BE_FILLED>
 snakemake_cluster_generic_executor_plugin: not installed in snakemake_env 8.5.4 or snakemake9_env 9.23.1 on 2026-07-04
-mock_qsub_wrapper_status: direct wrapper smoke passed in remote temp workspace; real `--profile profiles/qsub` needs executor plugin before runtime use
+mock_qsub_wrapper_status: direct wrapper smoke passed on official mirror with backend event POST and `/api/runs/WES_20260704_180650_MOCK/rules`; real `--profile profiles/qsub` needs executor plugin before runtime use
 ```
 
 ## 7. SMTP/Mail

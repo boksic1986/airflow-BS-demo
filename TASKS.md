@@ -53,7 +53,7 @@
 | ID | Task | Owner agent | Dependencies | Deliverables | Acceptance | Status |
 |---|---|---|---|---|---|---|
 | T040 | WES mock Snakefile | snakemake | T013 | pipelines/wes/workflow | WES mock 两样本 Snakemake dry-run 通过，显示 all/fastp/bwa_mem/markdup/final_summary 共 8 个 jobs | done |
-| T041 | qsub submit wrapper | snakemake | T040,T026 | qsub_submit.py | mock mode 可生成 `MOCK-*` qsub_jobid、qsub stdout/stderr 和 JSONL/Backend event | done |
+| T041 | qsub submit wrapper | snakemake | T040,T026 | qsub_submit.py | mock mode 可生成 `MOCK-*` qsub_jobid、qsub stdout/stderr 和 JSONL/Backend event；`WES_20260704_180650_MOCK` 已通过 `/rules` 查询 | done |
 | T042 | qsub profile | snakemake | T041 | profiles/qsub/config.yaml | profile contract 已落地并固定 jobs=2/rerun-incomplete；runtime 被 `snakemake-executor-plugin-cluster-generic` 缺失阻塞 | blocked |
 | T043 | rule event logger | snakemake/backend | T026,T036 | PGT-A Snakemake 9 logger POST events | PGT-A rule 状态在 biodemo DB 和 `/api/runs/{analysis_id}/rules` 可见；qsub job id 仍由 T041/T042 后续补 | done |
 | T044 | resume/rerun 策略 | snakemake/airflow | T031,T040 | mode -> snakemake flags | 不默认 forceall | todo |

@@ -80,6 +80,15 @@ qsub profile:
   -> profile runtime smoke 暂不作为通过条件，安装 executor plugin 后补验收
 ```
 
+2026-07-04 `fengxian` WES mock qsub 验收记录：
+- official mirror `/home/jiucheng/project/airflow-demo` 已同步到 `a7f03f3` 后执行。
+- `docker compose -f docker-compose.yaml config --quiet` 通过。
+- `docker run --rm airflow-demo/backend:0.1.0 pytest -q` 通过，35 tests passed。
+- `python -m unittest pipelines.tests.test_qsub_submit pipelines.tests.test_wes_mock_contract` 在 Docker 化 backend 镜像中通过，5 tests OK。
+- WES mock Snakemake dry-run 通过，job stats 为 `all=1, fastp=2, bwa_mem=2, markdup=2, final_summary=1, total=8`。
+- mock qsub wrapper 以 `AIRFLOW_DEMO_QSUB_MODE=mock` 和 `AIRFLOW_DEMO_BACKEND_EVENT_URL=http://127.0.0.1:8000/api/events/snakemake` 执行 `WES_20260704_180650_MOCK`，生成 `MOCK-WES_20260704_180650_MOCK-12-bwa_mem-S001`。
+- `/api/runs/WES_20260704_180650_MOCK/rules` 返回 `bwa_mem/S001=success`，包含 `qsub_jobid`、stdout/stderr path 和 `return_code=0`。
+
 ## 5. Frontend tests
 
 必须覆盖：
