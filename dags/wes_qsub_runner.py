@@ -113,11 +113,13 @@ def run_wes_qsub(
 ) -> dict[str, str | int]:
     workdir = Path(conf["workdir"])
     logs_dir = ensure_directory(workdir / "logs")
+    snakemake_cache_dir = ensure_directory(workdir / "tmp" / "xdg-cache")
     config_path = Path(conf["config_path"])
     command = build_snakemake_command(config_path, pipelines_root=pipelines_root, profiles_root=profiles_root)
     env = os.environ.copy()
     env.setdefault("AIRFLOW_DEMO_QSUB_MODE", "mock")
     env.setdefault("AIRFLOW_DEMO_QSUB_PYTHON", "python")
+    env["XDG_CACHE_HOME"] = str(snakemake_cache_dir)
     return run_command_to_logs(
         command,
         cwd=airflow_root,
