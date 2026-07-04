@@ -109,6 +109,21 @@ T042 profile runtime 已验收：
 - `shared/runs/WES_PROFILE_20260704_230713/logs/events/snakemake_events.jsonl` 共 14 行，包含 `qsub_submitted` 和 `qsub_success`。
 - `shared/runs/WES_PROFILE_20260704_230713/logs/qsub/*.o/e` 存在；未调用真实 qsub。
 
+T030/T031 Airflow WES mock qsub DAG 已验收：
+
+- `airflow-demo/airflow:0.1.0` 构建成功；Airflow version `2.9.3`，Snakemake version `9.23.1`。
+- `snakemake --help` 在 Airflow image 中显示 `cluster-generic` executor。
+- Dockerized contract tests `pipelines.tests.test_wes_mock_contract` 通过，6 tests OK。
+- Dockerized DAG/runner tests `dags.tests.test_bio_wes_qsub_dag` and `dags.tests.test_wes_qsub_runner` 通过，8 tests OK。注意该命令使用 `/usr/local/bin/python`，避免 `PATH` 上的 Snakemake venv Python。
+- `docker compose -f docker-compose.yaml config --quiet` 通过。
+- `docker compose -f docker-compose.yaml build airflow-worker airflow-scheduler airflow-api-server` 通过。
+- Airflow import check `airflow dags list-import-errors` 返回 `No data found`，`bio_wes_qsub` 可见。
+- 2026-07-05 `fengxian` smoke run `manual__WES_AIRFLOW_20260705_004506` ended `success`。
+- `shared/runs/WES_AIRFLOW_20260705_004506/reports/final_summary.tsv` 包含 `S001` 和 `S002` 的 `mock_success`。
+- `shared/runs/WES_AIRFLOW_20260705_004506/logs/events/snakemake_events.jsonl` 共 14 行，包含 `qsub_submitted` 和 `qsub_success`。
+- `collect_wes_artifacts` XCom summary returned `event_count=14` and `qsub_log_count=14`。
+- Real `qsub/qstat` 未调用。
+
 ## 5. Frontend tests
 
 必须覆盖：

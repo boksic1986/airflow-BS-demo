@@ -5,9 +5,9 @@
 ## 1. 当前阶段
 
 ```text
-当前阶段: P4 Snakemake/qsub mock observability
-当前目标: T042 已通过 Dockerized `snakemake-runner` 解阻；WES mock Snakefile -> `--profile profiles/qsub` -> cluster-generic -> mock qsub wrapper runtime 已在 `fengxian` 跑通
-最近更新时间: 2026-07-04
+当前阶段: P3/P4 Airflow + Snakemake/qsub mock observability
+当前目标: T030/T031 已完成；`bio_wes_qsub` 在 `fengxian` Airflow worker 内跑通 WES mock Snakefile -> `profiles/qsub` -> cluster-generic -> mock qsub wrapper
+最近更新时间: 2026-07-05
 最后更新 agent: Codex
 ```
 
@@ -32,10 +32,10 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/airflow/T086-pgta-airflow-logger
-last_verified_code_commit: cd22c90 for T042 Snakemake runner profile runtime smoke
+active_branch: codex/airflow/T031-wes-qsub-dag
+last_verified_code_commit: ec5c9e2 for T031 bio_wes_qsub Airflow smoke before docs/status update
 worktree_strategy: single-worktree for now; fengxian is code mirror only
-fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime validation for T042 ran on origin/codex/airflow/T086-pgta-airflow-logger at cd22c90, followed by docs/status evidence update
+fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime validation for T031 ran on origin/codex/airflow/T031-wes-qsub-dag at ec5c9e2, followed by docs/status evidence update
 ```
 
 ## 4. 服务状态
@@ -44,7 +44,7 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime
 |---|---:|---|---|
 | frontend | 12959 | running after T045/T084 smoke | React/Vite PGT-A run list/detail plus New PGT-A Run scan/create/submit UI served by Docker nginx image `airflow-demo/frontend:0.1.0`; host 3000 is occupied by non-project next-server |
 | backend | 8000 | running, healthy | `/api/health`, `/api/health/db`, `/api/input/scan`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, and frontend CORS preflight passed on fengxian; image `airflow-demo/backend:0.1.0` |
-| airflow web/api | 12958 | running after T045/T084 smoke | `/health` returned healthy metadatabase and scheduler; `bio_pgta` dryrun run `manual__PGTA_20260703_170917_20E8F2` succeeded; `bio_pgta` invalid-target run `manual__PGTA_20260703_170957_3DDEC3` failed as expected with error_summary; `bio_pgta_airflow` event POST smoke also passed earlier |
+| airflow web/api | 12958 | running after T031 smoke | project image `airflow-demo/airflow:0.1.0`; `/health` returned healthy earlier; `bio_pgta` dryrun/failure smoke passed; `bio_pgta_airflow` event POST smoke passed; `bio_wes_qsub` run `manual__WES_AIRFLOW_20260705_004506` succeeded |
 | postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow metadata initialized; no host port published |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
 | mailhog | 8025 | stopped in T051 smoke | HTTP GET probe passed in earlier smoke; not started for T051 |
@@ -64,7 +64,7 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 | Pipeline | DAG | Snakemake | qsub | Docker | QC | Status |
 |---|---|---|---|---|---|---|
 | PGT-A demo | `bio_pgta` metadata/dryrun/failure smoke passed; `bio_pgta_airflow` Airflow-only logger/event POST passed | direct Snakemake metadata target, `dryrun_cnv`, and controlled `invalid_target` smoke in Airflow worker passed; Snakemake 9.23.1 logger plugin writes JSONL, Airflow log/XCom summary, and optional backend rule/job events | not used | server-path project creation, submit, status sync, logs, artifacts, rule event API, PGT-A run detail frontend v1, and New PGT-A Run frontend scan/create/submit passed | not started | `/api/input/scan` and `/api/runs` create `created` run; submit triggers `bio_pgta`; Airflow-only manifest run can POST rule events to biodemo; frontend can create pgta runs for metadata/dryrun/failure smoke, submit created runs, view run list/detail, samples, rules, logs, artifacts, and sync Airflow |
-| WES qsub | not started | WES mock Snakefile dry-run passed on fengxian official mirror; WES mock profile runtime passed with Dockerized Snakemake 9.23.1 | mock qsub wrapper direct smoke passed with backend POST and `/api/runs/{analysis_id}/rules`; `--profile profiles/qsub` now drives the mock wrapper through cluster-generic in `snakemake-runner` | `airflow-demo/snakemake-runner:0.1.0` build passed; no ports exposed | not started | T040/T041/T042 done; next step is T031 `bio_wes_qsub` DAG skeleton |
+| WES qsub | `bio_wes_qsub` Airflow mock DAG passed | WES mock Snakefile dry-run passed; WES mock profile runtime passed in `snakemake-runner`; `bio_wes_qsub` now runs Snakemake 9.23.1 inside Airflow worker with `profiles/qsub` | mock qsub wrapper direct smoke passed with backend POST; Airflow DAG smoke generated mock qsub job ids, stdout/stderr files, and JSONL events | `airflow-demo/snakemake-runner:0.1.0` and `airflow-demo/airflow:0.1.0` builds passed | not started | T040/T041/T042/T030/T031 done; next step is T044/T056 resume/rerun or T060/T054 QC panel |
 | NIPT qsub | not started | not started | not started | n/a | not started | pending |
 | NIPT docker | not started | optional | n/a | not started | not started | pending |
 
@@ -73,7 +73,7 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 ```text
 last_backend_tests: remote Dockerized pytest on fengxian passed, 35 tests; health/input/run/diagnostics/event tests passed
 last_frontend_tests: remote Dockerized frontend test target passed on fengxian; Vitest target passed; production frontend image already built for T051/T045 UI
-last_dag_import_tests: passed on fengxian; Airflow DAG unittest for `test_pgta_metadata_runner.py` and `test_bio_pgta_dag.py` returned 11 tests OK; Airflow import errors returned `No data found`
+last_dag_import_tests: passed on fengxian; Airflow DAG/runner unittest for `test_bio_wes_qsub_dag.py` and `test_wes_qsub_runner.py` returned 8 tests OK; Airflow import errors returned `No data found`; `bio_wes_qsub` listed
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
 last_compose_config: passed on fengxian with Docker Compose v2.24.7 for commit 403fa68; compose now renders backend image `airflow-demo/backend:0.1.0`, frontend image `airflow-demo/frontend:0.1.0`, CORS env, read-only PGT-A mounts, DAG files, and frontend build service
 last_minimal_smoke: passed on fengxian for postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
@@ -93,6 +93,7 @@ last_pgta_failure_smoke: passed on fengxian; `invalid_target` run `PGTA_20260703
 last_wes_mock_dryrun: passed on fengxian official mirror at `/home/jiucheng/project/airflow-demo`; Snakemake 8.5.4 dry-run for `pipelines/wes/workflow/Snakefile` showed 8 jobs across all/fastp/bwa_mem/markdup/final_summary
 last_mock_qsub_wrapper: passed on fengxian official mirror with backend POST; analysis `WES_20260704_180650_MOCK` generated `MOCK-WES_20260704_180650_MOCK-12-bwa_mem-S001`, qsub stdout/stderr files, submitted/success JSONL events, and `/api/runs/WES_20260704_180650_MOCK/rules` returned `bwa_mem/S001=success`
 last_qsub_profile_runtime: passed on fengxian official mirror with `airflow-demo/snakemake-runner:0.1.0`; `WES_PROFILE_20260704_230713` ran `snakemake --profile profiles/qsub`, Snakemake 9.23.1 saw `cluster-generic`, executed 8 WES mock jobs, wrote `reports/final_summary.tsv`, qsub stdout/stderr files, and 14 JSONL events containing `qsub_submitted`/`qsub_success`
+last_wes_airflow_qsub_smoke: passed on fengxian official mirror with `airflow-demo/airflow:0.1.0`; `WES_AIRFLOW_20260705_004506` / `manual__WES_AIRFLOW_20260705_004506` ended Airflow `success`, wrote `reports/final_summary.tsv` with `S001/S002 mock_success`, qsub stdout/stderr files, and 14 JSONL events; `collect_wes_artifacts` XCom returned `event_count=14` and `qsub_log_count=14`
 last_e2e_smoke: PGT-A Level 0-3 demo smoke passed for preflight/config, metadata create-submit-success, dryrun_cnv success, and invalid_target failure/error_summary; full QC/email/qsub E2E not run
 ```
 
@@ -115,7 +116,7 @@ last_e2e_smoke: PGT-A Level 0-3 demo smoke passed for preflight/config, metadata
 ## 10. 下一步建议
 
 ```text
-1. 执行 T031：基于已跑通的 `snakemake-runner` + `profiles/qsub` 接 `bio_wes_qsub` DAG 骨架。
-2. 执行 T044/T056：补 resume/rerun 策略和前端重分析入口。
-3. 执行 T060/T054：补 mock QC parser 和前端 QC 面板。
+1. 执行 T044/T056：基于 `bio_wes_qsub` 补 resume/rerun 策略和前端重分析入口。
+2. 执行 T060/T054：补 mock QC parser 和前端 QC 面板。
+3. 执行 T034/T063：补 MailHog success/failure 邮件通知。
 ```

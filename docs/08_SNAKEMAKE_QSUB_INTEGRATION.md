@@ -123,6 +123,10 @@ T042 v1 profile 已放在 `profiles/qsub/config.yaml`。当前 `fengxian` 的 Sn
 
 `snakemake-runner` 只用于 run-only profile smoke，不暴露宿主机端口；`.:/app:ro` 挂载仓库代码，`./shared:/data/airflow-demo` 写 run 输出，`/app/.snakemake` 使用 writable tmpfs。真实 qsub 仍默认关闭，wrapper 只允许 `AIRFLOW_DEMO_QSUB_MODE=mock`。注意 profile 里的 shell 参数展开必须写成 `${{AIRFLOW_DEMO_QSUB_PYTHON:-python}}`，因为 Snakemake 会先格式化 cluster submit command。
 
+T031 adds a separate Airflow runtime path for the same WES mock profile: `bio_wes_qsub` runs Snakemake directly inside `airflow-demo/airflow:0.1.0`, using read-only mounts `/opt/airflow/pipelines` and `/opt/airflow/profiles`. It does not mount the Docker socket and does not call the standalone `snakemake-runner` service during the DAG. Because Airflow runs as the deploy user's uid on `fengxian`, the DAG sets `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache` before launching Snakemake, avoiding writes to `/home/airflow/.cache`.
+
+2026-07-05 `fengxian` Airflow smoke: `bio_wes_qsub` run `manual__WES_AIRFLOW_20260705_004506` finished `success`, produced `reports/final_summary.tsv`, 14 qsub stdout/stderr files, and 14 JSONL events with `qsub_submitted` / `qsub_success`. Real `qsub/qstat` was not called.
+
 2026-07-04 official mirror smoke：`WES_20260704_180650_MOCK` 通过 direct mock wrapper 向 backend POST 事件，`/api/runs/WES_20260704_180650_MOCK/rules` 返回 `bwa_mem/S001=success`，并带有 `MOCK-WES_20260704_180650_MOCK-12-bwa_mem-S001`、stdout/stderr path 和 `return_code=0`。
 
 ## 7. 日志路径规范

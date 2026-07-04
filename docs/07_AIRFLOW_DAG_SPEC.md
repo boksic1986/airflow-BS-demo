@@ -198,7 +198,88 @@ airflow dags list
 docker compose exec airflow-scheduler airflow dags list
 ```
 
-## 7. `bio_pgta` v1
+## 7. `bio_wes_qsub` v1
+
+`bio_wes_qsub` is the first WES Airflow-only mock DAG. It does not add FastAPI WES submission, frontend WES pages, QC parsing, reanalysis, or real qsub. It proves that Airflow can trigger the already validated WES mock Snakemake workflow through `profiles/qsub` and the mock qsub wrapper.
+
+Task graph:
+
+```text
+validate_request
+  -> prepare_wes_config
+  -> run_wes_qsub
+  -> collect_wes_artifacts
+```
+
+Supported DAG run conf:
+
+```json
+{
+  "analysis_id": "WES_AIRFLOW_20260705_004506",
+  "pipeline": "wes_qsub",
+  "mode": "new",
+  "workdir": "/data/airflow-demo/runs/WES_AIRFLOW_20260705_004506",
+  "backend_event_url": null,
+  "params": {
+    "target": "final_summary",
+    "max_jobs": 2
+  }
+}
+```
+
+Validation rules:
+
+- `pipeline` must be `wes_qsub`.
+- `mode` must be `new`.
+- `params.target` must be `final_summary`.
+- `params.max_jobs` must be `1..2`.
+- `workdir` must be under `/data/airflow-demo`.
+
+`prepare_wes_config` reads `pipelines/wes/config/mock_config.yaml` and writes run-local:
+
+```text
+workdir/config/wes_mock_config.yaml
+workdir/config/wes_airflow_request.json
+```
+
+It rewrites mock sample input paths to Airflow container paths under `/opt/airflow/pipelines/wes/mock_data`.
+
+`run_wes_qsub` runs inside the Airflow worker image `airflow-demo/airflow:0.1.0`:
+
+```bash
+snakemake \
+  --snakefile /opt/airflow/pipelines/wes/workflow/Snakefile \
+  --configfile <workdir>/config/wes_mock_config.yaml \
+  --profile /opt/airflow/profiles/qsub
+```
+
+Runtime environment:
+
+- `AIRFLOW_DEMO_QSUB_MODE=mock`.
+- `AIRFLOW_DEMO_QSUB_PYTHON=python`.
+- `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`, so Snakemake does not write `/home/airflow/.cache`.
+- Airflow services must run with `AIRFLOW_UID=$(id -u)` for the deploy user that owns `./shared`; `fengxian` uses `1005`.
+
+Expected outputs:
+
+```text
+workdir/reports/final_summary.tsv
+workdir/logs/snakemake.stdout.log
+workdir/logs/snakemake.stderr.log
+workdir/logs/qsub/*.o
+workdir/logs/qsub/*.e
+workdir/logs/events/snakemake_events.jsonl
+```
+
+2026-07-05 `fengxian` smoke:
+
+- DAG run `manual__WES_AIRFLOW_20260705_004506` ended `success`.
+- `reports/final_summary.tsv` contains `S001` and `S002` with `mock_success`.
+- `logs/events/snakemake_events.jsonl` has 14 lines and contains `qsub_submitted` / `qsub_success`.
+- `collect_wes_artifacts` returned XCom summary `event_count=14` and `qsub_log_count=14`.
+- Real `qsub/qstat` was not called.
+
+## 8. `bio_pgta` v1
 
 第一版 `bio_pgta` 用于 PGT-A metadata、CNV dry-run 和受控 failure smoke。不跑真实 CNV、baseline QC，也不使用 qsub。
 
@@ -269,7 +350,7 @@ shared/runs/<analysis_id>/logs/snakemake.stderr.log
 - `invalid_target` 是测试错误摘要链路的受控失败入口，不代表生产 target。
 - qsub、baseline_qc 和真实 CNV 运行仍在后续任务中。
 
-## 8. `bio_pgta_airflow` Airflow-only logger v1
+## 9. `bio_pgta_airflow` Airflow-only logger v1
 
 `bio_pgta_airflow` 用于验证 PGT-A 在 Snakemake 9.23.1 下通过 logger plugin 接入 Airflow UI。它不走 FastAPI，不写 biodemo DB，也不替代 `bio_pgta`。
 

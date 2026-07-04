@@ -40,8 +40,8 @@
 
 | ID | Task | Owner agent | Dependencies | Deliverables | Acceptance | Status |
 |---|---|---|---|---|---|---|
-| T030 | DAG 公共工具 | airflow | T011,T023 | dags/common | import check 通过 | todo |
-| T031 | bio_wes_qsub DAG 骨架 | airflow | T030 | dags/bio_wes_qsub.py | dry run/mock run 成功 | todo |
+| T030 | DAG 公共工具 | airflow | T011,T023 | dags/common | shared-root path check, mkdir, subprocess stdout/stderr helpers added; Dockerized DAG tests and import check passed | done |
+| T031 | bio_wes_qsub DAG 骨架 | airflow | T030 | dags/bio_wes_qsub.py | `manual__WES_AIRFLOW_20260705_004506` Airflow smoke success; final summary, qsub logs, and JSONL events generated | done |
 | T032 | bio_nipt_qsub DAG 骨架 | airflow | T030 | dags/bio_nipt_qsub.py | dry run/mock run 成功 | todo |
 | T033 | bio_nipt_docker DAG 骨架 | airflow | T030 | dags/bio_nipt_docker.py | dry run/mock run 成功 | todo |
 | T034 | email notify task | airflow/backend | T030,T012 | success/fail notify | MailHog 收到邮件 | todo |

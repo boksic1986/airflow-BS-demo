@@ -36,6 +36,108 @@
 
 ## Records
 
+## 2026-07-05 00:52 - Codex - T030/T031 bio_wes_qsub Airflow DAG skeleton
+
+### Goal
+
+Add the WES mock project-level Airflow DAG `bio_wes_qsub`, without FastAPI WES submission, frontend WES pages, QC/reanalysis, or real qsub. The DAG should run the already validated WES mock Snakemake workflow through `profiles/qsub` and the mock qsub wrapper inside the Airflow worker.
+
+### Completed
+
+- Added `dags/common` helpers for shared-root validation, directory creation, subprocess stdout/stderr capture, and small summaries.
+- Added `dags/bio_wes_qsub.py` and `dags/wes_qsub_runner.py`.
+- Added project Airflow image `airflow-demo/airflow:0.1.0`, based on `apache/airflow:2.9.3-python3.11`, with Snakemake 9.23.1 and `snakemake-executor-plugin-cluster-generic==1.0.9` isolated in `/opt/airflow/snakemake-venv`.
+- Updated Compose Airflow services to use the project image and mount `./pipelines`, `./profiles`, and `./shared`.
+- Fixed two remote runtime blockers found during smoke:
+  - Airflow worker initially ran as uid `50000` and could not create new `shared/runs/WES_*` workdirs; `AIRFLOW_UID` now defaults to `1005` for `fengxian`, and runbook says to set it to `id -u` on new servers.
+  - Snakemake tried to write `/home/airflow/.cache/snakemake`; `run_wes_qsub` now sets `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`.
+- Verified `bio_wes_qsub` smoke success on `fengxian`: `manual__WES_AIRFLOW_20260705_004506`.
+- Updated DAG, qsub, runbook, acceptance, server, task, current-state, handoff, and manifest docs.
+
+### Changed files
+
+- `.env.example`
+- `airflow_image/Dockerfile`
+- `airflow_image/pip.conf`
+- `airflow_image/requirements.txt`
+- `dags/common/__init__.py`
+- `dags/common/paths.py`
+- `dags/common/subprocess_utils.py`
+- `dags/bio_wes_qsub.py`
+- `dags/wes_qsub_runner.py`
+- `dags/tests/test_bio_wes_qsub_dag.py`
+- `dags/tests/test_wes_qsub_runner.py`
+- `docker-compose.yaml`
+- `pipelines/tests/test_wes_mock_contract.py`
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/08_SNAKEMAKE_QSUB_INTEGRATION.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/12_TESTING_ACCEPTANCE.md`
+- `SERVER_INFO.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| remote targeted UID contract test after tests-only commit | failed as expected | Compose still rendered `AIRFLOW_UID:-50000` |
+| remote targeted cache test after tests-only commit | failed as expected | `XDG_CACHE_HOME` missing from Snakemake subprocess env |
+| `docker compose -f docker-compose.yaml config --quiet` | success | Rendered Airflow `user: "1005:0"` after `.env` update |
+| `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate airflow-api-server airflow-scheduler airflow-worker` | success | Applied new Airflow uid; no volumes deleted |
+| `docker compose -f docker-compose.yaml exec -T airflow-worker id` | success | `uid=1005(default) gid=0(root)` |
+| `docker compose -f docker-compose.yaml build airflow-worker airflow-scheduler airflow-api-server` | success | Cached build, image `airflow-demo/airflow:0.1.0` |
+| `docker run --rm airflow-demo/airflow:0.1.0 airflow version` | success | `2.9.3` |
+| `docker run --rm --entrypoint snakemake airflow-demo/airflow:0.1.0 --version` | success | `9.23.1` |
+| `docker run --rm --entrypoint snakemake airflow-demo/airflow:0.1.0 --help \| grep -F cluster-generic` | success | `cluster-generic` executor visible |
+| `python -m unittest pipelines.tests.test_wes_mock_contract -v` in backend image | success | 6 tests OK |
+| `/usr/local/bin/python -m unittest dags.tests.test_bio_wes_qsub_dag dags.tests.test_wes_qsub_runner -v` in Airflow image | success | 8 tests OK |
+| `airflow dags list-import-errors` | success | `No data found` |
+| trigger `bio_wes_qsub` with `WES_AIRFLOW_20260705_004506` | success | DAG run ended `success` |
+
+### Tests
+
+Remote-only evidence from `fengxian`:
+
+- `manual__WES_AIRFLOW_20260705_004506` ended Airflow `success`.
+- `shared/runs/WES_AIRFLOW_20260705_004506/reports/final_summary.tsv` contains `S001` and `S002` `mock_success`.
+- `shared/runs/WES_AIRFLOW_20260705_004506/logs/events/snakemake_events.jsonl` has 14 lines with `qsub_submitted` and `qsub_success`.
+- `shared/runs/WES_AIRFLOW_20260705_004506/logs/qsub/*.o/e` exists.
+- `collect_wes_artifacts` task log returned XCom summary `event_count=14`, `qsub_log_count=14`.
+
+### Not run / why
+
+- No FastAPI WES create/submit endpoint was added; out of scope for T031.
+- No frontend WES page, QC parser, reanalysis UI, MailHog notification, NIPT DAG, or real qsub was run.
+- No `docker compose down -v`, `docker system prune`, or `docker volume prune` was used.
+
+### Current git status
+
+Work is on branch `codex/airflow/T031-wes-qsub-dag`. Runtime validation ran on the `fengxian` mirror at commit `ec5c9e2`, followed by this docs/status update.
+
+### Risks
+
+- `.env` on any new Linux server must set `AIRFLOW_UID=$(id -u)` for the deploy user; otherwise Airflow-only DAGs may fail to create bind-mounted run directories.
+- The Airflow image puts `/opt/airflow/snakemake-venv/bin` first on `PATH`; use `/usr/local/bin/python` when running tests that require the base Airflow Python packages.
+- WES remains mock-only and does not represent production WES parameters or real cluster scheduling.
+
+### Open questions
+
+- Whether WES should next be exposed through FastAPI/frontend, or whether QC/reanalysis is higher demo priority.
+
+### Next recommended task
+
+Proceed to T044/T056 for resume/rerun behavior on top of `bio_wes_qsub`, or T060/T054 for mock QC parsing and the frontend QC panel.
+
+### Rollback notes
+
+- Revert repository changes with normal `git revert`.
+- If runtime cleanup is needed, remove only generated WES mock run directories under `shared/runs/WES_AIRFLOW_*` after path verification.
+- Stop services only with `docker compose -f docker-compose.yaml down`; do not use `down -v` or prune commands.
+
 ## 2026-07-04 23:11 - Codex - T042 Snakemake cluster-generic profile runtime
 
 ### Goal

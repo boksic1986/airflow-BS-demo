@@ -66,6 +66,7 @@ redis:7-alpine
 mailhog/mailhog:v1.0.1
 nginx:1.27-alpine
 airflow-demo/backend:0.1.0
+airflow-demo/airflow:0.1.0
 ```
 
 ## 4. Python/Node
@@ -86,11 +87,14 @@ npm_or_pnpm: <TO_BE_FILLED>
 ## 5. Airflow
 
 ```text
-airflow_image: apache/airflow:2.9.3-python3.11
-airflow_uid: planned 50000 in .env.example
+airflow_image: airflow-demo/airflow:0.1.0, based on apache/airflow:2.9.3-python3.11
+airflow_uid: 1005 on fengxian so Airflow can write ./shared as deploy user; set to `id -u` on new servers
+airflow_snakemake: /opt/airflow/snakemake-venv/bin/snakemake, Snakemake 9.23.1 in project Airflow image
+airflow_cluster_generic_executor_plugin: available in project Airflow image, plugin version 1.0.9
 airflow_base_url: planned http://airflow-api-server:8080 inside Docker network
 airflow_host_port: 12958
 airflow_admin_user: admin
+planned_wes_dag_id: bio_wes_qsub
 planned_pgta_dag_id: bio_pgta
 planned_pgta_airflow_only_dag_id: bio_pgta_airflow
 ```
@@ -107,8 +111,8 @@ qacct_path: <TO_BE_FILLED>
 default_queue: <TO_BE_FILLED>
 demo_queue: <TO_BE_FILLED>
 max_demo_jobs: <TO_BE_FILLED>
-snakemake_cluster_generic_executor_plugin: available inside Docker image `airflow-demo/snakemake-runner:0.1.0`; not installed in host snakemake_env 8.5.4 or snakemake9_env 9.23.1 on 2026-07-04
-mock_qsub_wrapper_status: direct wrapper smoke passed on official mirror with backend event POST and `/api/runs/WES_20260704_180650_MOCK/rules`; full `--profile profiles/qsub` runtime passed in `snakemake-runner` with `WES_PROFILE_20260704_230713`
+snakemake_cluster_generic_executor_plugin: available inside Docker images `airflow-demo/snakemake-runner:0.1.0` and `airflow-demo/airflow:0.1.0`; not installed in host snakemake_env 8.5.4 or snakemake9_env 9.23.1 on 2026-07-04
+mock_qsub_wrapper_status: direct wrapper smoke passed on official mirror with backend event POST and `/api/runs/WES_20260704_180650_MOCK/rules`; full `--profile profiles/qsub` runtime passed in `snakemake-runner` with `WES_PROFILE_20260704_230713`; Airflow DAG `bio_wes_qsub` passed with `WES_AIRFLOW_20260705_004506`
 ```
 
 ## 7. SMTP/Mail

@@ -44,9 +44,9 @@ airflow-demo/
 |---|---:|---|---|
 | backend | 8000 | `172.30.10.20` | FastAPI health, biodemo DB, Airflow client, PGT-A server-path scan/run creation |
 | frontend | 12959 | `172.30.10.30` | React PGT-A run list/detail v1 served by Docker nginx |
-| airflow-api-server | 12958 | `172.30.10.10` | Airflow web/api service skeleton |
-| airflow-scheduler | n/a | `172.30.10.11` | Airflow scheduler skeleton |
-| airflow-worker | n/a | `172.30.10.12` | Airflow worker skeleton |
+| airflow-api-server | 12958 | `172.30.10.10` | Airflow web/api using project image `airflow-demo/airflow:0.1.0` |
+| airflow-scheduler | n/a | `172.30.10.11` | Airflow scheduler using project image `airflow-demo/airflow:0.1.0` |
+| airflow-worker | n/a | `172.30.10.12` | Airflow worker can run PGT-A direct tasks and WES mock qsub Snakemake |
 | postgres | internal | `172.30.10.40` | Airflow metadata DB plus separate biodemo business DB |
 | redis | internal | `172.30.10.50` | Airflow Celery broker |
 | mailhog | 1025/8025 | `172.30.10.60` | demo SMTP/web UI |
@@ -64,6 +64,7 @@ Project-owned images must use explicit tags. Do not rely on implicit `latest`.
 ```text
 backend image: airflow-demo/backend:0.1.0
 frontend image: airflow-demo/frontend:0.1.0
+airflow image: airflow-demo/airflow:0.1.0
 snakemake runner image: airflow-demo/snakemake-runner:0.1.0
 ```
 
@@ -87,6 +88,9 @@ Current T050/T057 frontend v1:
 
 - DAG 文件放 `dags/`。
 - 每个 pipeline 一个主 DAG：`bio_wes_qsub`、`bio_nipt_qsub`、`bio_nipt_docker`、`bio_pgta`。
+- Airflow services use the project image `airflow-demo/airflow:0.1.0`, based on `apache/airflow:2.9.3-python3.11`.
+- The project Airflow image keeps Snakemake in `/opt/airflow/snakemake-venv` and puts it on `PATH`; use `/usr/local/bin/python` when a test specifically needs the Airflow system Python.
+- On Linux hosts, `AIRFLOW_UID` must match the deploy user's `id -u` so Airflow workers can write bind-mounted `./shared`.
 - PGT-A 另有 Airflow-only 验证 DAG `bio_pgta_airflow`，用于从 Airflow UI/CLI 直接读取 manifest 并验证 Snakemake 9 logger plugin，不替代后端触发的 `bio_pgta` 闭环。
 - DAG task 数量保持项目级，不按 Snakemake rule 拆分。
 - DAG run conf 必须包含：`analysis_id`、`pipeline`、`mode`、`sample_sheet_path`、`workdir`、`email_to`、`params`。
@@ -101,6 +105,7 @@ Current T050/T057 frontend v1:
 - 不得把生产绝对路径硬编码进 Snakefile；使用 config.yaml。
 - 默认开启 `--rerun-incomplete`，禁止默认 `--forceall`。
 - WES/NIPT qsub profile runtime 使用 `snakemake-runner` 容器，不修改 `/biosoftware/miniconda/envs/*` 或宿主机系统 Python。
+- `bio_wes_qsub` v1 runs the same WES mock Snakefile and `profiles/qsub` inside the Airflow worker; it sets `XDG_CACHE_HOME` under the run workdir so Snakemake does not write `/home/airflow/.cache`.
 
 ## 6. qsub 规范
 
@@ -141,7 +146,9 @@ shared/reports/<analysis_id>/snakemake_report.html
 | FRONTEND_PORT | yes | 12959 | Docker nginx/frontend host port; container port remains 80 |
 | BACKEND_IMAGE | yes | airflow-demo/backend:0.1.0 | explicit project image tag; avoid implicit latest |
 | FRONTEND_IMAGE | yes | airflow-demo/frontend:0.1.0 | explicit project image tag; avoid implicit latest |
+| AIRFLOW_IMAGE | yes | airflow-demo/airflow:0.1.0 | project Airflow image with isolated Snakemake 9 runtime |
 | SNAKEMAKE_RUNNER_IMAGE | WES/NIPT qsub | airflow-demo/snakemake-runner:0.1.0 | Snakemake 9.23.1 plus `cluster-generic` executor image |
+| AIRFLOW_UID | yes | 1005 on fengxian | set to `id -u` of the deploy user that owns `./shared` |
 | BACKEND_CORS_ORIGINS | frontend only | * | demo CORS allowlist for browser access from `FRONTEND_PORT` |
 | AIRFLOW_BASE_URL | yes | http://airflow-api-server:8080 | 容器内地址 |
 | AIRFLOW_API_USERNAME | yes | admin | backend 调用 Airflow REST API 的用户名 |
@@ -150,6 +157,8 @@ shared/reports/<analysis_id>/snakemake_report.html
 | AIRFLOW_ADMIN_PASSWORD | yes | <SECRET_FROM_ENV> | only in untracked `.env` |
 | AIRFLOW_ADMIN_EMAIL | yes | airflow-demo@example.com | demo Airflow admin email |
 | AIRFLOW_DAGS_ROOT | PGT-A logger only | /opt/airflow/dags | Snakemake 9 subprocess `PYTHONPATH` for repo-local logger plugin |
+| AIRFLOW_PIPELINES_ROOT | WES qsub | /opt/airflow/pipelines | read-only pipeline mount inside Airflow worker |
+| AIRFLOW_PROFILES_ROOT | WES qsub | /opt/airflow/profiles | read-only Snakemake profile mount inside Airflow worker |
 | BIODEMO_DB | yes | biodemo | 业务数据库名 |
 | BIODEMO_USER | yes | biodemo | 业务数据库用户 |
 | BIODEMO_PASSWORD | yes | <SECRET_FROM_ENV> | only in untracked `.env` |

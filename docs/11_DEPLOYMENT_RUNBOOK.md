@@ -126,6 +126,7 @@ MAILHOG_SMTP_PORT=1025
 Current frontend/backend browser access:
 
 ```text
+AIRFLOW_IMAGE=airflow-demo/airflow:0.1.0
 FRONTEND_IMAGE=airflow-demo/frontend:0.1.0
 SNAKEMAKE_RUNNER_IMAGE=airflow-demo/snakemake-runner:0.1.0
 BACKEND_CORS_ORIGINS=*
@@ -177,6 +178,7 @@ docker compose config --images
 ```text
 airflow-demo/backend:0.1.0
 airflow-demo/frontend:0.1.0
+airflow-demo/airflow:0.1.0
 airflow-demo/snakemake-runner:0.1.0
 ```
 
@@ -198,6 +200,18 @@ pip install -r requirements.txt
 ```
 
 `snakemake-runner` 镜像构建时使用 `snakemake_runner/pip.conf` 的国内 PyPI 源，固定安装 `snakemake==9.23.1` 和 `snakemake-executor-plugin-cluster-generic==1.0.9`。该镜像只用于 WES/NIPT mock qsub profile runtime，不修改 `/biosoftware/miniconda/envs/*`。
+
+Airflow services use the project image `airflow-demo/airflow:0.1.0`, built from `airflow_image/`. It keeps Airflow dependencies on the base image and installs Snakemake 9.23.1 plus `snakemake-executor-plugin-cluster-generic==1.0.9` into `/opt/airflow/snakemake-venv`. Because that venv is first on `PATH`, run Airflow unit tests with `/usr/local/bin/python` when they need the base Airflow Python:
+
+```bash
+docker compose -f docker-compose.yaml build airflow-worker airflow-scheduler airflow-api-server
+docker run --rm airflow-demo/airflow:0.1.0 airflow version
+docker run --rm --entrypoint snakemake airflow-demo/airflow:0.1.0 --version
+docker run --rm --entrypoint /usr/local/bin/python \
+  -v /home/jiucheng/project/airflow-demo:/repo:ro \
+  -w /repo airflow-demo/airflow:0.1.0 \
+  -m unittest dags.tests.test_bio_wes_qsub_dag dags.tests.test_wes_qsub_runner -v
+```
 
 ## 7. 最小启动验收
 
@@ -657,7 +671,59 @@ grep -F qsub_success "shared/runs/${analysis_id}/logs/events/snakemake_events.js
 - 验收输出：`reports/final_summary.tsv`、`logs/qsub/*.o/e`、`logs/events/snakemake_events.jsonl`。
 - JSONL 事件共 14 行，包含 `qsub_submitted` 和 `qsub_success`；真实 `qsub/qstat` 未调用。
 
-## 17. 查看日志
+## 17. WES Airflow mock qsub smoke
+
+T031 验收使用 Airflow worker 直接运行 WES mock Snakemake + `profiles/qsub` + mock qsub wrapper。它不使用 Docker socket，不调用 standalone `snakemake-runner` 服务，不触发真实 qsub。
+
+前置检查：
+
+```bash
+docker compose -f docker-compose.yaml config --quiet
+docker compose -f docker-compose.yaml build airflow-worker airflow-scheduler airflow-api-server
+docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags list-import-errors
+docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags list | grep bio_wes_qsub
+```
+
+触发示例：
+
+```bash
+analysis_id="WES_AIRFLOW_$(date +%Y%m%d_%H%M%S)"
+cat >"/tmp/${analysis_id}.json" <<JSON
+{
+  "analysis_id": "${analysis_id}",
+  "pipeline": "wes_qsub",
+  "mode": "new",
+  "workdir": "/data/airflow-demo/runs/${analysis_id}",
+  "backend_event_url": null,
+  "params": {"target": "final_summary", "max_jobs": 2}
+}
+JSON
+conf="$(cat "/tmp/${analysis_id}.json")"
+docker compose -f docker-compose.yaml exec -T airflow-scheduler \
+  airflow dags trigger bio_wes_qsub --run-id "manual__${analysis_id}" --conf "$conf"
+```
+
+验收：
+
+```bash
+docker compose -f docker-compose.yaml exec -T airflow-scheduler \
+  airflow dags list-runs -d bio_wes_qsub --output json
+find "shared/runs/${analysis_id}" -maxdepth 4 -type f | sort
+test -s "shared/runs/${analysis_id}/reports/final_summary.tsv"
+test -s "shared/runs/${analysis_id}/logs/events/snakemake_events.jsonl"
+grep -F qsub_submitted "shared/runs/${analysis_id}/logs/events/snakemake_events.jsonl"
+grep -F qsub_success "shared/runs/${analysis_id}/logs/events/snakemake_events.jsonl"
+```
+
+2026-07-05 `fengxian` 验收记录：
+
+- `bio_wes_qsub` run `manual__WES_AIRFLOW_20260705_004506` ended `success`.
+- `shared/runs/WES_AIRFLOW_20260705_004506/reports/final_summary.tsv` contains `S001` and `S002` `mock_success`.
+- `logs/events/snakemake_events.jsonl` has 14 lines and contains `qsub_submitted` / `qsub_success`.
+- `collect_wes_artifacts` XCom returned `event_count=14` and `qsub_log_count=14`.
+- Real `qsub/qstat` was not called.
+
+## 18. 查看日志
 
 ```bash
 docker compose logs --tail=200 backend
@@ -671,7 +737,7 @@ Run 日志：
 find <SHARED_ROOT>/runs/<analysis_id>/logs -type f | sort
 ```
 
-## 18. 停止服务
+## 19. 停止服务
 
 安全停止：
 
@@ -687,7 +753,7 @@ docker compose down -v
 
 除非明确需要删除 volume 且已备份。
 
-## 19. 回滚
+## 20. 回滚
 
 ```bash
 git status
@@ -705,7 +771,7 @@ docker compose up -d --build
 
 DB migration 回滚必须先确认不会丢数据。
 
-## 20. 常见故障
+## 21. 常见故障
 
 ### Airflow scheduler 起不来
 
