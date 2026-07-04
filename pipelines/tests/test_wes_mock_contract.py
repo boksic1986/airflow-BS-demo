@@ -59,6 +59,24 @@ class WesMockContractTests(unittest.TestCase):
         self.assertIn("target: /app/.snakemake", text)
         self.assertNotIn("12960:", text)
 
+    def test_airflow_project_image_pins_snakemake_runtime_for_wes_dag(self) -> None:
+        dockerfile = REPO_ROOT / "airflow_image" / "Dockerfile"
+        requirements = REPO_ROOT / "airflow_image" / "requirements.txt"
+        compose = REPO_ROOT / "docker-compose.yaml"
+
+        dockerfile_text = dockerfile.read_text(encoding="utf-8")
+        requirements_text = requirements.read_text(encoding="utf-8")
+        compose_text = compose.read_text(encoding="utf-8")
+
+        self.assertIn("FROM apache/airflow:2.9.3-python3.11", dockerfile_text)
+        self.assertIn("COPY pip.conf /etc/pip.conf", dockerfile_text)
+        self.assertIn("snakemake==9.23.1", requirements_text)
+        self.assertIn("snakemake-executor-plugin-cluster-generic==1.0.9", requirements_text)
+        self.assertIn("image: ${AIRFLOW_IMAGE:-airflow-demo/airflow:0.1.0}", compose_text)
+        self.assertIn("context: ./airflow_image", compose_text)
+        self.assertIn("./pipelines:/opt/airflow/pipelines:ro", compose_text)
+        self.assertIn("./profiles:/opt/airflow/profiles:ro", compose_text)
+
 
 if __name__ == "__main__":
     unittest.main()
