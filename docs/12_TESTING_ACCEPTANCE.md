@@ -97,6 +97,18 @@ T042 profile runtime 验收要求：
 - `logs/events/snakemake_events.jsonl` 包含 `qsub_submitted` 和 `qsub_success`。
 - `logs/qsub/*.o/e` 存在；仍不调用真实 qsub。
 
+T042 profile runtime 已验收：
+- 2026-07-04 official mirror fast-forward 到 `cd22c90`。
+- `docker compose -f docker-compose.yaml config --quiet` 成功。
+- `docker compose -f docker-compose.yaml build snakemake-runner` 成功，镜像为 `airflow-demo/snakemake-runner:0.1.0`。
+- `docker compose -f docker-compose.yaml run --rm snakemake-runner snakemake --version` 返回 `9.23.1`。
+- `snakemake --help` 显示 `cluster-generic` executor 和 `--cluster-generic-submit-cmd`。
+- Dockerized contract tests `python -m unittest pipelines.tests.test_wes_mock_contract -v` 通过，4 tests OK。
+- `WES_PROFILE_20260704_230713` 使用 `--profile profiles/qsub` 成功完成 8 个 WES mock jobs。
+- `shared/runs/WES_PROFILE_20260704_230713/reports/final_summary.tsv` 包含 `S001` 和 `S002` 的 `mock_success`。
+- `shared/runs/WES_PROFILE_20260704_230713/logs/events/snakemake_events.jsonl` 共 14 行，包含 `qsub_submitted` 和 `qsub_success`。
+- `shared/runs/WES_PROFILE_20260704_230713/logs/qsub/*.o/e` 存在；未调用真实 qsub。
+
 ## 5. Frontend tests
 
 必须覆盖：

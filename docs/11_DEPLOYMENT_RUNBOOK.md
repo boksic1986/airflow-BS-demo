@@ -638,6 +638,17 @@ grep -F qsub_submitted "shared/runs/${analysis_id}/logs/events/snakemake_events.
 grep -F qsub_success "shared/runs/${analysis_id}/logs/events/snakemake_events.jsonl"
 ```
 
+2026-07-04 `fengxian` 验收记录：
+
+- official mirror `/home/jiucheng/project/airflow-demo` fast-forward 到 `cd22c90`。
+- `docker compose -f docker-compose.yaml config --quiet` 成功。
+- `docker compose -f docker-compose.yaml build snakemake-runner` 成功，镜像为 `airflow-demo/snakemake-runner:0.1.0`。
+- `docker compose -f docker-compose.yaml run --rm snakemake-runner snakemake --version` 返回 `9.23.1`。
+- `snakemake --help` 显示 `cluster-generic` executor 和 `--cluster-generic-submit-cmd`。
+- `WES_PROFILE_20260704_230713` 通过 `--profile profiles/qsub` 完成 8 个 WES mock jobs。
+- 验收输出：`reports/final_summary.tsv`、`logs/qsub/*.o/e`、`logs/events/snakemake_events.jsonl`。
+- JSONL 事件共 14 行，包含 `qsub_submitted` 和 `qsub_success`；真实 `qsub/qstat` 未调用。
+
 ## 17. 查看日志
 
 ```bash

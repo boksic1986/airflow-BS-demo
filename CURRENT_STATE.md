@@ -6,7 +6,7 @@
 
 ```text
 当前阶段: P4 Snakemake/qsub mock observability
-当前目标: T040/T041 已实现 WES mock Snakefile 和 mock qsub wrapper；T042 profile contract 已落地但 runtime 需补 `snakemake-executor-plugin-cluster-generic`
+当前目标: T042 已通过 Dockerized `snakemake-runner` 解阻；WES mock Snakefile -> `--profile profiles/qsub` -> cluster-generic -> mock qsub wrapper runtime 已在 `fengxian` 跑通
 最近更新时间: 2026-07-04
 最后更新 agent: Codex
 ```
@@ -33,9 +33,9 @@ node_version: <unknown>
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
 active_branch: codex/airflow/T086-pgta-airflow-logger
-last_verified_code_commit: a7f03f3 for T040/T041 WES mock qsub wrapper code smoke
+last_verified_code_commit: cd22c90 for T042 Snakemake runner profile runtime smoke
 worktree_strategy: single-worktree for now; fengxian is code mirror only
-fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime validation for T040/T041 ran on origin/codex/airflow/T086-pgta-airflow-logger at a7f03f3, followed by docs/status evidence update
+fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime validation for T042 ran on origin/codex/airflow/T086-pgta-airflow-logger at cd22c90, followed by docs/status evidence update
 ```
 
 ## 4. 服务状态
@@ -64,7 +64,7 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 | Pipeline | DAG | Snakemake | qsub | Docker | QC | Status |
 |---|---|---|---|---|---|---|
 | PGT-A demo | `bio_pgta` metadata/dryrun/failure smoke passed; `bio_pgta_airflow` Airflow-only logger/event POST passed | direct Snakemake metadata target, `dryrun_cnv`, and controlled `invalid_target` smoke in Airflow worker passed; Snakemake 9.23.1 logger plugin writes JSONL, Airflow log/XCom summary, and optional backend rule/job events | not used | server-path project creation, submit, status sync, logs, artifacts, rule event API, PGT-A run detail frontend v1, and New PGT-A Run frontend scan/create/submit passed | not started | `/api/input/scan` and `/api/runs` create `created` run; submit triggers `bio_pgta`; Airflow-only manifest run can POST rule events to biodemo; frontend can create pgta runs for metadata/dryrun/failure smoke, submit created runs, view run list/detail, samples, rules, logs, artifacts, and sync Airflow |
-| WES qsub | not started | WES mock Snakefile dry-run passed on fengxian official mirror | mock qsub wrapper direct smoke passed with backend POST and `/api/runs/{analysis_id}/rules`; real profile blocked by missing cluster-generic executor plugin | n/a | not started | T040/T041 done; T042 profile contract present but runtime blocked until executor plugin is installed or containerized |
+| WES qsub | not started | WES mock Snakefile dry-run passed on fengxian official mirror; WES mock profile runtime passed with Dockerized Snakemake 9.23.1 | mock qsub wrapper direct smoke passed with backend POST and `/api/runs/{analysis_id}/rules`; `--profile profiles/qsub` now drives the mock wrapper through cluster-generic in `snakemake-runner` | `airflow-demo/snakemake-runner:0.1.0` build passed; no ports exposed | not started | T040/T041/T042 done; next step is T031 `bio_wes_qsub` DAG skeleton |
 | NIPT qsub | not started | not started | not started | n/a | not started | pending |
 | NIPT docker | not started | optional | n/a | not started | not started | pending |
 
@@ -92,7 +92,7 @@ last_image_cleanup: removed 37 dangling <none> images; no docker system prune, n
 last_pgta_failure_smoke: passed on fengxian; `invalid_target` run `PGTA_20260703_170957_3DDEC3` ended Airflow/backend `failed` as expected, stderr log size 1322 bytes, `sync-airflow` wrote non-null `error_summary` containing `stderr_path` and last error lines
 last_wes_mock_dryrun: passed on fengxian official mirror at `/home/jiucheng/project/airflow-demo`; Snakemake 8.5.4 dry-run for `pipelines/wes/workflow/Snakefile` showed 8 jobs across all/fastp/bwa_mem/markdup/final_summary
 last_mock_qsub_wrapper: passed on fengxian official mirror with backend POST; analysis `WES_20260704_180650_MOCK` generated `MOCK-WES_20260704_180650_MOCK-12-bwa_mem-S001`, qsub stdout/stderr files, submitted/success JSONL events, and `/api/runs/WES_20260704_180650_MOCK/rules` returned `bwa_mem/S001=success`
-last_qsub_profile_runtime: blocked; both snakemake_env 8.5.4 and snakemake9_env 9.23.1 lack `snakemake-executor-plugin-cluster-generic`, so `--profile profiles/qsub` cannot run yet
+last_qsub_profile_runtime: passed on fengxian official mirror with `airflow-demo/snakemake-runner:0.1.0`; `WES_PROFILE_20260704_230713` ran `snakemake --profile profiles/qsub`, Snakemake 9.23.1 saw `cluster-generic`, executed 8 WES mock jobs, wrote `reports/final_summary.tsv`, qsub stdout/stderr files, and 14 JSONL events containing `qsub_submitted`/`qsub_success`
 last_e2e_smoke: PGT-A Level 0-3 demo smoke passed for preflight/config, metadata create-submit-success, dryrun_cnv success, and invalid_target failure/error_summary; full QC/email/qsub E2E not run
 ```
 
@@ -109,13 +109,13 @@ last_e2e_smoke: PGT-A Level 0-3 demo smoke passed for preflight/config, metadata
 
 ```text
 真实部署/启动前阻塞:
-- T042 runtime 需要安装或容器化 `snakemake-executor-plugin-cluster-generic`，否则 Snakemake 只能 dry-run 或 local/mock wrapper direct smoke
+- 真实 `qsub/qstat` 在 `fengxian` 仍不可用；当前 WES/NIPT qsub demo 只能使用 mock qsub wrapper，不提交真实集群任务
 ```
 
 ## 10. 下一步建议
 
 ```text
-1. 解除 T042 阻塞：在隔离环境或容器中补 `snakemake-executor-plugin-cluster-generic`，再验证 `--profile profiles/qsub` 真正驱动 wrapper。
-2. 执行 T031：在 qsub profile runtime 可用后接 `bio_wes_qsub` DAG 骨架。
-3. 执行 T044/T056：补 resume/rerun 策略和前端重分析入口。
+1. 执行 T031：基于已跑通的 `snakemake-runner` + `profiles/qsub` 接 `bio_wes_qsub` DAG 骨架。
+2. 执行 T044/T056：补 resume/rerun 策略和前端重分析入口。
+3. 执行 T060/T054：补 mock QC parser 和前端 QC 面板。
 ```

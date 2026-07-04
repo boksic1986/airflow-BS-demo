@@ -107,8 +107,8 @@ qacct_path: <TO_BE_FILLED>
 default_queue: <TO_BE_FILLED>
 demo_queue: <TO_BE_FILLED>
 max_demo_jobs: <TO_BE_FILLED>
-snakemake_cluster_generic_executor_plugin: not installed in snakemake_env 8.5.4 or snakemake9_env 9.23.1 on 2026-07-04
-mock_qsub_wrapper_status: direct wrapper smoke passed on official mirror with backend event POST and `/api/runs/WES_20260704_180650_MOCK/rules`; real `--profile profiles/qsub` needs executor plugin before runtime use
+snakemake_cluster_generic_executor_plugin: available inside Docker image `airflow-demo/snakemake-runner:0.1.0`; not installed in host snakemake_env 8.5.4 or snakemake9_env 9.23.1 on 2026-07-04
+mock_qsub_wrapper_status: direct wrapper smoke passed on official mirror with backend event POST and `/api/runs/WES_20260704_180650_MOCK/rules`; full `--profile profiles/qsub` runtime passed in `snakemake-runner` with `WES_PROFILE_20260704_230713`
 ```
 
 ## 7. SMTP/Mail

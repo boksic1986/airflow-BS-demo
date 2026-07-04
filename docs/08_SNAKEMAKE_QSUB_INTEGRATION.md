@@ -226,6 +226,8 @@ snakemake --forceall
 1. mock WES 两个样本 dry-run 通过。
 2. qsub wrapper 能生成 job name 和日志路径。
 3. mock qsub 模式下能写 `snakemake_events.jsonl`，并在 backend run 存在时写入 `snakemake_rule_event`。
-4. cluster-generic executor plugin 安装后，再验证 `--profile profiles/qsub` 真正驱动 wrapper。
+4. `snakemake-runner` 容器内 cluster-generic executor plugin 可用后，已验证 `--profile profiles/qsub` 真正驱动 wrapper。
+
+2026-07-04 `fengxian` runtime 证据：`airflow-demo/snakemake-runner:0.1.0` 构建成功，`snakemake --version` 返回 `9.23.1`，`cluster-generic` executor 可见；`WES_PROFILE_20260704_230713` 通过 `--profile profiles/qsub` 完成 8 个 WES mock jobs，生成 `reports/final_summary.tsv`、`logs/qsub/*.o/e` 和 14 行 `logs/events/snakemake_events.jsonl`。
 5. 故意让一个 rule 失败，前端能看到 stderr。
 6. 修复后 resume，只执行失败/incomplete 目标。

@@ -36,6 +36,102 @@
 
 ## Records
 
+## 2026-07-04 23:11 - Codex - T042 Snakemake cluster-generic profile runtime
+
+### Goal
+
+Unblock T042 by adding an isolated Dockerized Snakemake runtime that can execute the WES mock workflow through `profiles/qsub` and the `cluster-generic` executor, without modifying `/biosoftware/miniconda/envs/*` or calling real qsub.
+
+### Completed
+
+- Added `snakemake_runner/` with `python:3.12-slim`, `snakemake==9.23.1`, `snakemake-executor-plugin-cluster-generic==1.0.9`, and the repo pip mirror config.
+- Added run-only Compose service `snakemake-runner` with image `airflow-demo/snakemake-runner:0.1.0`, no exposed ports, read-only repo mount, shared run output mount, and writable tmpfs for `/app/.snakemake`.
+- Updated `profiles/qsub/config.yaml` to use `${{AIRFLOW_DEMO_QSUB_PYTHON:-python}} pipelines/common/qsub_submit.py` so Snakemake formatting preserves shell env expansion.
+- Added contract tests for the runner Dockerfile, pinned dependencies, Compose service, and mock-safe profile submit command.
+- Verified on `fengxian` that `--profile profiles/qsub` drives the mock qsub wrapper through `cluster-generic` and produces final summary, qsub stdout/stderr, and JSONL events.
+- Updated qsub, runbook, acceptance, server, task, current-state, handoff, and manifest docs.
+
+### Changed files
+
+- `snakemake_runner/Dockerfile`
+- `snakemake_runner/requirements.txt`
+- `snakemake_runner/pip.conf`
+- `docker-compose.yaml`
+- `.env.example`
+- `profiles/qsub/config.yaml`
+- `pipelines/tests/test_wes_mock_contract.py`
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/08_SNAKEMAKE_QSUB_INTEGRATION.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/12_TESTING_ACCEPTANCE.md`
+- `SERVER_INFO.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| remote temp contract tests after tests-only patch | failed as expected | Missing runner Dockerfile/service and old profile Python command |
+| remote temp `python -m unittest pipelines.tests.test_wes_mock_contract -v` after implementation | success | 4 tests OK |
+| remote profile runtime before env escape fix | failed as expected | Snakemake formatted `${AIRFLOW_DEMO_QSUB_PYTHON:-python}` as an unknown variable |
+| remote temp regression test for escaped env expansion | failed as expected | Confirmed profile needed `${{AIRFLOW_DEMO_QSUB_PYTHON:-python}}` |
+| remote temp regression test after fix | success | Escaped env expansion contract passed |
+| official mirror `git pull --ff-only` | success | `/home/jiucheng/project/airflow-demo` fast-forwarded to `cd22c90` |
+| official mirror `docker compose -f docker-compose.yaml config --quiet` | success | Compose rendered with `snakemake-runner` |
+| official mirror `docker compose -f docker-compose.yaml build snakemake-runner` | success | Built `airflow-demo/snakemake-runner:0.1.0` |
+| official mirror `docker compose -f docker-compose.yaml run --rm snakemake-runner snakemake --version` | success | Returned `9.23.1` |
+| official mirror `snakemake --help` inside runner | success | `cluster-generic` executor and `--cluster-generic-submit-cmd` visible |
+| official mirror plugin import check | success | Imported `snakemake_executor_plugin_cluster_generic` |
+| official mirror Dockerized contract tests | success | `python -m unittest pipelines.tests.test_wes_mock_contract -v`, 4 tests OK |
+| official mirror WES profile runtime smoke | success | `WES_PROFILE_20260704_230713` completed 8 WES mock jobs through `--profile profiles/qsub` |
+
+### Tests
+
+Remote-only evidence from `fengxian`:
+
+- Runner build succeeded and produced image `airflow-demo/snakemake-runner:0.1.0`.
+- Snakemake version inside runner: `9.23.1`.
+- `cluster-generic` executor and settings are visible inside the runner.
+- WES profile runtime smoke:
+  - `analysis_id=WES_PROFILE_20260704_230713`
+  - job stats: `all=1`, `fastp=2`, `bwa_mem=2`, `markdup=2`, `final_summary=1`, `total=8`
+  - `shared/runs/WES_PROFILE_20260704_230713/reports/final_summary.tsv` exists with `S001` and `S002` `mock_success`
+  - `shared/runs/WES_PROFILE_20260704_230713/logs/qsub/*.o/e` exists
+  - `shared/runs/WES_PROFILE_20260704_230713/logs/events/snakemake_events.jsonl` has 14 lines and contains `qsub_submitted`/`qsub_success`
+
+### Not run / why
+
+- Optional DB smoke for `backend_event_url=http://backend:8000/api/events/snakemake` was not repeated in this task; T041 already verified backend POST and `/api/runs/{analysis_id}/rules`, while T042 scope was `cluster-generic` profile runtime.
+- Real qsub was not run because `qsub/qstat` remain unavailable on `fengxian` and the demo is intentionally in mock mode.
+- No `bio_wes_qsub` DAG, QC parser, frontend QC, or reanalysis UI work was done.
+
+### Current git status
+
+Work is on branch `codex/airflow/T086-pgta-airflow-logger`. Implementation commits `83fa789` and `cd22c90` were pushed and verified on the `fengxian` mirror; this handoff entry records the follow-up docs/status evidence update.
+
+### Risks
+
+- `snakemake-runner` is the supported runtime for this profile on `fengxian`; host Snakemake environments still do not contain `snakemake-executor-plugin-cluster-generic`.
+- Generated WES smoke directories remain under `shared/runs/WES_PROFILE_*` on the server as ignored runtime evidence.
+- The WES workflow remains mock-only and does not represent production WES parameters or real qsub scheduling.
+
+### Open questions
+
+- None for T042. Real qsub enablement should be separately planned after a server with `qsub/qstat` is available and authorized.
+
+### Next recommended task
+
+Proceed to T031: add a `bio_wes_qsub` Airflow DAG skeleton that invokes the verified `snakemake-runner` + `profiles/qsub` path for WES mock runs.
+
+### Rollback notes
+
+- Revert repository changes with normal `git revert`.
+- If cleanup is needed, remove only generated WES mock run directories under `shared/runs/WES_PROFILE_*` after path verification.
+- Do not use `docker compose down -v`, `docker system prune`, `docker volume prune`, `git reset --hard`, or `git clean -fdx`.
+
 ## 2026-07-04 18:05 - Codex - T040/T041/T042 WES mock qsub observability
 
 ### Goal
