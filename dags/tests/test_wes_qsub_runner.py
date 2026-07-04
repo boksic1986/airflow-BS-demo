@@ -8,10 +8,12 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import wes_qsub_runner
 from wes_qsub_runner import (
     build_snakemake_command,
     collect_wes_artifacts,
     prepare_wes_config,
+    run_wes_qsub,
     validate_wes_conf,
 )
 
@@ -105,6 +107,45 @@ class WesQsubRunnerTests(unittest.TestCase):
         self.assertIn("/opt/airflow/profiles/qsub", command)
         self.assertIn("--configfile", command)
         self.assertNotIn("--forceall", command)
+
+    def test_run_wes_qsub_uses_run_local_snakemake_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "WES_AIRFLOW_TEST"
+            (workdir / "config").mkdir(parents=True)
+            config_path = workdir / "config" / "wes_mock_config.yaml"
+            config_path.write_text("analysis_id: WES_AIRFLOW_TEST\n", encoding="utf-8")
+            conf = {
+                "analysis_id": "WES_AIRFLOW_TEST",
+                "workdir": str(workdir),
+                "config_path": str(config_path),
+            }
+            captured: dict[str, object] = {}
+
+            original_runner = wes_qsub_runner.run_command_to_logs
+
+            def fake_run_command_to_logs(command, cwd, stdout_path, stderr_path, env):  # type: ignore[no-untyped-def]
+                captured["env"] = env
+                captured["stdout_path"] = stdout_path
+                captured["stderr_path"] = stderr_path
+                return {"exit_code": 0}
+
+            wes_qsub_runner.run_command_to_logs = fake_run_command_to_logs
+            try:
+                run_wes_qsub(
+                    conf,
+                    airflow_root=Path("/opt/airflow"),
+                    pipelines_root=Path("/opt/airflow/pipelines"),
+                    profiles_root=Path("/opt/airflow/profiles"),
+                )
+            finally:
+                wes_qsub_runner.run_command_to_logs = original_runner
+
+            env = captured["env"]
+
+        self.assertEqual(env["XDG_CACHE_HOME"], str(workdir / "tmp" / "xdg-cache"))
+        self.assertTrue((workdir / "tmp" / "xdg-cache").is_dir())
+        self.assertEqual(captured["stdout_path"], workdir / "logs" / "snakemake.stdout.log")
+        self.assertEqual(captured["stderr_path"], workdir / "logs" / "snakemake.stderr.log")
 
     def test_collect_wes_artifacts_requires_summary_and_counts_events_and_qsub_logs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
