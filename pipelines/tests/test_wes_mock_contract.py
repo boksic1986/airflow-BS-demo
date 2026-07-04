@@ -80,6 +80,20 @@ class WesMockContractTests(unittest.TestCase):
         self.assertIn("./pipelines:/opt/airflow/pipelines:ro", compose_text)
         self.assertIn("./profiles:/opt/airflow/profiles:ro", compose_text)
 
+    def test_airflow_uid_matches_fengxian_shared_owner_by_default(self) -> None:
+        compose = REPO_ROOT / "docker-compose.yaml"
+        env_example = REPO_ROOT / ".env.example"
+        runbook = REPO_ROOT / "docs" / "11_DEPLOYMENT_RUNBOOK.md"
+
+        compose_text = compose.read_text(encoding="utf-8")
+        env_text = env_example.read_text(encoding="utf-8")
+        runbook_text = runbook.read_text(encoding="utf-8")
+
+        self.assertIn('user: "${AIRFLOW_UID:-1005}:0"', compose_text)
+        self.assertIn("AIRFLOW_UID=1005", env_text)
+        self.assertIn("AIRFLOW_UID=$(id -u)", runbook_text)
+        self.assertNotIn("AIRFLOW_UID=50000", env_text)
+
 
 if __name__ == "__main__":
     unittest.main()
