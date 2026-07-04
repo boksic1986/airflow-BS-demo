@@ -43,9 +43,6 @@ class WesMockContractTests(unittest.TestCase):
 
         self.assertIn("FROM python:3.12-slim", dockerfile_text)
         self.assertIn("COPY pip.conf /etc/pip.conf", dockerfile_text)
-        self.assertIn("/opt/airflow/snakemake-venv/bin/pip", dockerfile_text)
-        self.assertIn('PATH="/opt/airflow/snakemake-venv/bin:${PATH}"', dockerfile_text)
-        self.assertNotIn("RUN pip install", dockerfile_text)
         self.assertIn("snakemake==9.23.1", requirements_text)
         self.assertIn("snakemake-executor-plugin-cluster-generic==1.0.9", requirements_text)
 
@@ -73,6 +70,9 @@ class WesMockContractTests(unittest.TestCase):
 
         self.assertIn("FROM apache/airflow:2.9.3-python3.11", dockerfile_text)
         self.assertIn("COPY pip.conf /etc/pip.conf", dockerfile_text)
+        self.assertIn("/opt/airflow/snakemake-venv/bin/pip", dockerfile_text)
+        self.assertIn('PATH="/opt/airflow/snakemake-venv/bin:${PATH}"', dockerfile_text)
+        self.assertNotIn("RUN pip install", dockerfile_text)
         self.assertIn("snakemake==9.23.1", requirements_text)
         self.assertIn("snakemake-executor-plugin-cluster-generic==1.0.9", requirements_text)
         self.assertIn("image: ${AIRFLOW_IMAGE:-airflow-demo/airflow:0.1.0}", compose_text)
