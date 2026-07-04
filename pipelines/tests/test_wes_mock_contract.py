@@ -30,7 +30,7 @@ class WesMockContractTests(unittest.TestCase):
         self.assertIn("jobs: 2", text)
         self.assertIn("rerun-incomplete: true", text)
         self.assertIn("AIRFLOW_DEMO_QSUB_MODE=mock", text)
-        self.assertIn("${AIRFLOW_DEMO_QSUB_PYTHON:-python}", text)
+        self.assertIn("${{AIRFLOW_DEMO_QSUB_PYTHON:-python}}", text)
         self.assertIn("pipelines/common/qsub_submit.py", text)
         self.assertNotIn("forceall", text.lower())
 
