@@ -141,11 +141,10 @@ class WesQsubRunnerTests(unittest.TestCase):
                 wes_qsub_runner.run_command_to_logs = original_runner
 
             env = captured["env"]
-
-        self.assertEqual(env["XDG_CACHE_HOME"], str(workdir / "tmp" / "xdg-cache"))
-        self.assertTrue((workdir / "tmp" / "xdg-cache").is_dir())
-        self.assertEqual(captured["stdout_path"], workdir / "logs" / "snakemake.stdout.log")
-        self.assertEqual(captured["stderr_path"], workdir / "logs" / "snakemake.stderr.log")
+            self.assertEqual(env["XDG_CACHE_HOME"], str(workdir / "tmp" / "xdg-cache"))
+            self.assertTrue((workdir / "tmp" / "xdg-cache").is_dir())
+            self.assertEqual(captured["stdout_path"], workdir / "logs" / "snakemake.stdout.log")
+            self.assertEqual(captured["stderr_path"], workdir / "logs" / "snakemake.stderr.log")
 
     def test_collect_wes_artifacts_requires_summary_and_counts_events_and_qsub_logs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
