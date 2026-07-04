@@ -127,6 +127,7 @@ Current frontend/backend browser access:
 
 ```text
 FRONTEND_IMAGE=airflow-demo/frontend:0.1.0
+SNAKEMAKE_RUNNER_IMAGE=airflow-demo/snakemake-runner:0.1.0
 BACKEND_CORS_ORIGINS=*
 ```
 
@@ -150,6 +151,8 @@ PGTA_CONTAINER_DATA_ROOT=/data/project/CNV/PGT-A
 INPUT_SCAN_ROOTS=/data/project/CNV/PGT-A/rawdata
 PGTA_SNAKEMAKE9_BIN=/biosoftware/miniconda/envs/snakemake9_env/bin/snakemake
 AIRFLOW_DAGS_ROOT=/opt/airflow/dags
+AIRFLOW_DEMO_QSUB_MODE=mock
+AIRFLOW_DEMO_QSUB_PYTHON=python
 ```
 
 backend 只读挂载 PGT-A 数据根目录，不上传或复制 5-6G FASTQ。
@@ -166,6 +169,7 @@ docker compose config --images
 ```text
 airflow-demo/backend:0.1.0
 airflow-demo/frontend:0.1.0
+airflow-demo/snakemake-runner:0.1.0
 ```
 
 当前对外端口应渲染为：
@@ -184,6 +188,8 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+`snakemake-runner` 镜像构建时使用 `snakemake_runner/pip.conf` 的国内 PyPI 源，固定安装 `snakemake==9.23.1` 和 `snakemake-executor-plugin-cluster-generic==1.0.9`。该镜像只用于 WES/NIPT mock qsub profile runtime，不修改 `/biosoftware/miniconda/envs/*`。
 
 ## 7. 最小启动验收
 
@@ -599,7 +605,40 @@ snakemake_rule_summary.tsv: 29 lines
 GET /api/runs/<analysis_id>/rules: all=success, collect_run_metadata=success
 ```
 
-## 16. 查看日志
+## 16. WES mock qsub profile runtime smoke
+
+T042 验收使用 Dockerized `snakemake-runner`，不调用真实 qsub，不修改宿主机 Python 或 `/biosoftware` 环境。
+
+```bash
+docker compose -f docker-compose.yaml config --quiet
+docker compose -f docker-compose.yaml build snakemake-runner
+docker compose -f docker-compose.yaml run --rm snakemake-runner snakemake --version
+docker compose -f docker-compose.yaml run --rm snakemake-runner snakemake --help | grep -F cluster-generic
+```
+
+运行唯一 WES mock profile run：
+
+```bash
+analysis_id="WES_PROFILE_$(date +%Y%m%d_%H%M%S)"
+docker compose -f docker-compose.yaml run --rm snakemake-runner \
+  snakemake \
+  --snakefile pipelines/wes/workflow/Snakefile \
+  --configfile pipelines/wes/config/mock_config.yaml \
+  --config "analysis_id=${analysis_id}" "workdir=/data/airflow-demo/runs/${analysis_id}" "backend_event_url=null" \
+  --profile profiles/qsub
+```
+
+验收：
+
+```bash
+find "shared/runs/${analysis_id}" -maxdepth 4 -type f | sort
+test -s "shared/runs/${analysis_id}/reports/final_summary.tsv"
+test -s "shared/runs/${analysis_id}/logs/events/snakemake_events.jsonl"
+grep -F qsub_submitted "shared/runs/${analysis_id}/logs/events/snakemake_events.jsonl"
+grep -F qsub_success "shared/runs/${analysis_id}/logs/events/snakemake_events.jsonl"
+```
+
+## 17. 查看日志
 
 ```bash
 docker compose logs --tail=200 backend
@@ -613,7 +652,7 @@ Run 日志：
 find <SHARED_ROOT>/runs/<analysis_id>/logs -type f | sort
 ```
 
-## 17. 停止服务
+## 18. 停止服务
 
 安全停止：
 
@@ -629,7 +668,7 @@ docker compose down -v
 
 除非明确需要删除 volume 且已备份。
 
-## 18. 回滚
+## 19. 回滚
 
 ```bash
 git status
@@ -647,7 +686,7 @@ docker compose up -d --build
 
 DB migration 回滚必须先确认不会丢数据。
 
-## 19. 常见故障
+## 20. 常见故障
 
 ### Airflow scheduler 起不来
 

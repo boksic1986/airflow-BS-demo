@@ -60,7 +60,7 @@ T041 v1 默认只支持 mock 模式：
 
 ```bash
 AIRFLOW_DEMO_QSUB_MODE=mock \
-  /biosoftware/miniconda/envs/snakemake_env/bin/python \
+  ${AIRFLOW_DEMO_QSUB_PYTHON:-python} \
   pipelines/common/qsub_submit.py <snakemake-jobscript>
 ```
 
@@ -111,7 +111,7 @@ keep-going: false
 
 cluster-generic-submit-cmd: >-
   AIRFLOW_DEMO_QSUB_MODE=mock
-  /biosoftware/miniconda/envs/snakemake_env/bin/python
+  ${AIRFLOW_DEMO_QSUB_PYTHON:-python}
   pipelines/common/qsub_submit.py
 
 default-resources:
@@ -119,7 +119,9 @@ default-resources:
   - runtime=10
 ```
 
-T042 v1 profile 已放在 `profiles/qsub/config.yaml`。当前 `fengxian` 的 Snakemake 8.5.4 和 9.23.1 都未安装 `snakemake-executor-plugin-cluster-generic`，因此 `--profile profiles/qsub` 会在 executor 选择阶段失败；在安装/镜像化该 executor plugin 前，远端验收使用 Snakemake dry-run + direct mock wrapper smoke。
+T042 v1 profile 已放在 `profiles/qsub/config.yaml`。当前 `fengxian` 的 Snakemake 8.5.4 和 9.23.1 都未安装 `snakemake-executor-plugin-cluster-generic`，因此宿主机 `--profile profiles/qsub` 会在 executor 选择阶段失败；T042 v2 通过仓库自带 `snakemake-runner` 容器补齐 `snakemake==9.23.1` 和 `snakemake-executor-plugin-cluster-generic==1.0.9`，不修改 `/biosoftware/miniconda/envs/*`。
+
+`snakemake-runner` 只用于 run-only profile smoke，不暴露宿主机端口；`.:/app:ro` 挂载仓库代码，`./shared:/data/airflow-demo` 写 run 输出，`/app/.snakemake` 使用 writable tmpfs。真实 qsub 仍默认关闭，wrapper 只允许 `AIRFLOW_DEMO_QSUB_MODE=mock`。
 
 2026-07-04 official mirror smoke：`WES_20260704_180650_MOCK` 通过 direct mock wrapper 向 backend POST 事件，`/api/runs/WES_20260704_180650_MOCK/rules` 返回 `bwa_mem/S001=success`，并带有 `MOCK-WES_20260704_180650_MOCK-12-bwa_mem-S001`、stdout/stderr path 和 `return_code=0`。
 

@@ -152,6 +152,22 @@ services:
       biodemo-net:
         ipv4_address: ${FRONTEND_IP:-172.30.10.30}
 
+  snakemake-runner:
+    image: ${SNAKEMAKE_RUNNER_IMAGE:-airflow-demo/snakemake-runner:0.1.0}
+    build:
+      context: ./snakemake_runner
+    working_dir: /app
+    environment:
+      AIRFLOW_DEMO_QSUB_MODE: ${AIRFLOW_DEMO_QSUB_MODE:-mock}
+      AIRFLOW_DEMO_QSUB_PYTHON: ${AIRFLOW_DEMO_QSUB_PYTHON:-python}
+    volumes:
+      - .:/app:ro
+      - ./shared:/data/airflow-demo
+      - type: tmpfs
+        target: /app/.snakemake
+    networks:
+      biodemo-net:
+
   airflow-init:
     <<: *airflow-common
     entrypoint: /bin/bash

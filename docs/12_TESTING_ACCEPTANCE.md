@@ -76,8 +76,9 @@ mock qsub wrapper:
 
 qsub profile:
   profiles/qsub/config.yaml 已固定 jobs=2 和 rerun-incomplete
-  -> 当前 fengxian Snakemake 环境缺 snakemake-executor-plugin-cluster-generic
-  -> profile runtime smoke 暂不作为通过条件，安装 executor plugin 后补验收
+  -> 当前 fengxian 宿主机 Snakemake 环境缺 snakemake-executor-plugin-cluster-generic
+  -> T042 使用 Dockerized snakemake-runner 补齐 Snakemake 9.23.1 和 cluster-generic executor
+  -> profile runtime smoke 必须真正运行 `--profile profiles/qsub`
 ```
 
 2026-07-04 `fengxian` WES mock qsub 验收记录：
@@ -88,6 +89,13 @@ qsub profile:
 - WES mock Snakemake dry-run 通过，job stats 为 `all=1, fastp=2, bwa_mem=2, markdup=2, final_summary=1, total=8`。
 - mock qsub wrapper 以 `AIRFLOW_DEMO_QSUB_MODE=mock` 和 `AIRFLOW_DEMO_BACKEND_EVENT_URL=http://127.0.0.1:8000/api/events/snakemake` 执行 `WES_20260704_180650_MOCK`，生成 `MOCK-WES_20260704_180650_MOCK-12-bwa_mem-S001`。
 - `/api/runs/WES_20260704_180650_MOCK/rules` 返回 `bwa_mem/S001=success`，包含 `qsub_jobid`、stdout/stderr path 和 `return_code=0`。
+
+T042 profile runtime 验收要求：
+- `docker compose -f docker-compose.yaml build snakemake-runner` 成功。
+- `docker compose -f docker-compose.yaml run --rm snakemake-runner snakemake --version` 返回 `9.23.1`。
+- `snakemake --profile profiles/qsub` 运行 WES mock 成功，生成 `reports/final_summary.tsv`。
+- `logs/events/snakemake_events.jsonl` 包含 `qsub_submitted` 和 `qsub_success`。
+- `logs/qsub/*.o/e` 存在；仍不调用真实 qsub。
 
 ## 5. Frontend tests
 

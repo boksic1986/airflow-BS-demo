@@ -7,7 +7,7 @@ keep-going: false
 
 cluster-generic-submit-cmd: >-
   AIRFLOW_DEMO_QSUB_MODE=mock
-  /biosoftware/miniconda/envs/snakemake_env/bin/python
+  ${AIRFLOW_DEMO_QSUB_PYTHON:-python}
   pipelines/common/qsub_submit.py
 
 default-resources:

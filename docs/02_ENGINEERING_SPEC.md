@@ -9,14 +9,15 @@ airflow-demo/
   dags/                       # Airflow DAGs
   backend/                    # FastAPI app
   frontend/                   # React app
+  snakemake_runner/           # Dockerized Snakemake 9 + cluster-generic runner
   pipelines/
     common/                   # common wrappers/scripts
     wes/
       workflow/Snakefile
       config/
-      profiles/qsub/
     nipt_qsub/
     nipt_docker/
+  profiles/qsub/              # Snakemake cluster-generic profile
   shared/                     # local demo volume, usually gitignored
   docs/
   .agents/skills/
@@ -49,6 +50,7 @@ airflow-demo/
 | postgres | internal | `172.30.10.40` | Airflow metadata DB plus separate biodemo business DB |
 | redis | internal | `172.30.10.50` | Airflow Celery broker |
 | mailhog | 1025/8025 | `172.30.10.60` | demo SMTP/web UI |
+| snakemake-runner | n/a | dynamic | run-only Snakemake 9.23.1 + cluster-generic executor for WES/NIPT mock profile smoke |
 
 Fixed Docker network:
 
@@ -62,6 +64,7 @@ Project-owned images must use explicit tags. Do not rely on implicit `latest`.
 ```text
 backend image: airflow-demo/backend:0.1.0
 frontend image: airflow-demo/frontend:0.1.0
+snakemake runner image: airflow-demo/snakemake-runner:0.1.0
 ```
 
 ## 3. Frontend 规范
@@ -97,6 +100,7 @@ Current T050/T057 frontend v1:
 - 所有 rule 输出必须在 workdir 下。
 - 不得把生产绝对路径硬编码进 Snakefile；使用 config.yaml。
 - 默认开启 `--rerun-incomplete`，禁止默认 `--forceall`。
+- WES/NIPT qsub profile runtime 使用 `snakemake-runner` 容器，不修改 `/biosoftware/miniconda/envs/*` 或宿主机系统 Python。
 
 ## 6. qsub 规范
 
@@ -137,6 +141,7 @@ shared/reports/<analysis_id>/snakemake_report.html
 | FRONTEND_PORT | yes | 12959 | Docker nginx/frontend host port; container port remains 80 |
 | BACKEND_IMAGE | yes | airflow-demo/backend:0.1.0 | explicit project image tag; avoid implicit latest |
 | FRONTEND_IMAGE | yes | airflow-demo/frontend:0.1.0 | explicit project image tag; avoid implicit latest |
+| SNAKEMAKE_RUNNER_IMAGE | WES/NIPT qsub | airflow-demo/snakemake-runner:0.1.0 | Snakemake 9.23.1 plus `cluster-generic` executor image |
 | BACKEND_CORS_ORIGINS | frontend only | * | demo CORS allowlist for browser access from `FRONTEND_PORT` |
 | AIRFLOW_BASE_URL | yes | http://airflow-api-server:8080 | 容器内地址 |
 | AIRFLOW_API_USERNAME | yes | admin | backend 调用 Airflow REST API 的用户名 |
@@ -160,6 +165,9 @@ shared/reports/<analysis_id>/snakemake_report.html
 | SMTP_PORT | no | 1025 | demo 邮件 |
 | QSUB_QUEUE | no | all.q | 服务器补齐 |
 | MAX_DEMO_JOBS | yes | 20 | 防止压垮集群 |
+| ALLOW_REAL_QSUB | qsub only | false | real qsub stays disabled unless separately approved |
+| AIRFLOW_DEMO_QSUB_MODE | qsub only | mock | wrapper mode; default must remain mock |
+| AIRFLOW_DEMO_QSUB_PYTHON | qsub only | python | Python executable used by `profiles/qsub` submit command inside runner |
 
 ## 9. Git 忽略建议
 

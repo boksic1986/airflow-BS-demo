@@ -1,6 +1,6 @@
 ﻿{
-    "created_at":  "2026-07-04T18:22:00+08:00",
-    "file_count":  118,
+    "created_at":  "2026-07-04T19:10:00+08:00",
+    "file_count":  121,
     "files":  [
                   ".agents/skills/airflow-dag-dev/SKILL.md",
                   ".agents/skills/airflow-demo-planning/SKILL.md",
@@ -119,6 +119,9 @@
                   "shared/reports/.gitkeep",
                   "shared/runs/.gitkeep",
                   "shared/uploads/.gitkeep",
+                  "snakemake_runner/Dockerfile",
+                  "snakemake_runner/pip.conf",
+                  "snakemake_runner/requirements.txt",
                   "TASKS.md"
               ]
 }

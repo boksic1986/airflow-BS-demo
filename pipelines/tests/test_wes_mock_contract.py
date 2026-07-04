@@ -30,9 +30,34 @@ class WesMockContractTests(unittest.TestCase):
         self.assertIn("jobs: 2", text)
         self.assertIn("rerun-incomplete: true", text)
         self.assertIn("AIRFLOW_DEMO_QSUB_MODE=mock", text)
-        self.assertIn("/biosoftware/miniconda/envs/snakemake_env/bin/python", text)
+        self.assertIn("${AIRFLOW_DEMO_QSUB_PYTHON:-python}", text)
         self.assertIn("pipelines/common/qsub_submit.py", text)
         self.assertNotIn("forceall", text.lower())
+
+    def test_snakemake_runner_image_pins_required_dependencies(self) -> None:
+        dockerfile = REPO_ROOT / "snakemake_runner" / "Dockerfile"
+        requirements = REPO_ROOT / "snakemake_runner" / "requirements.txt"
+
+        dockerfile_text = dockerfile.read_text(encoding="utf-8")
+        requirements_text = requirements.read_text(encoding="utf-8")
+
+        self.assertIn("FROM python:3.12-slim", dockerfile_text)
+        self.assertIn("COPY pip.conf /etc/pip.conf", dockerfile_text)
+        self.assertIn("snakemake==9.23.1", requirements_text)
+        self.assertIn("snakemake-executor-plugin-cluster-generic==1.0.9", requirements_text)
+
+    def test_compose_defines_run_only_snakemake_runner_service(self) -> None:
+        compose = REPO_ROOT / "docker-compose.yaml"
+
+        text = compose.read_text(encoding="utf-8")
+
+        self.assertIn("snakemake-runner:", text)
+        self.assertIn("image: ${SNAKEMAKE_RUNNER_IMAGE:-airflow-demo/snakemake-runner:0.1.0}", text)
+        self.assertIn("context: ./snakemake_runner", text)
+        self.assertIn("./shared:/data/airflow-demo", text)
+        self.assertIn(".:/app:ro", text)
+        self.assertIn("target: /app/.snakemake", text)
+        self.assertNotIn("12960:", text)
 
 
 if __name__ == "__main__":
