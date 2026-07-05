@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -141,6 +142,7 @@ def run_wes_qsub(
         pipelines_root=pipelines_root,
         profiles_root=profiles_root,
     )
+    (logs_dir / "snakemake.command.txt").write_text(shlex.join(command) + "\n", encoding="utf-8")
     env = os.environ.copy()
     env.setdefault("AIRFLOW_DEMO_QSUB_MODE", "mock")
     env.setdefault("AIRFLOW_DEMO_QSUB_PYTHON", "python")

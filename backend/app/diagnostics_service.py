@@ -71,6 +71,13 @@ ARTIFACTS = [
         url="/api/runs/{analysis_id}/logs?stream=stderr",
     ),
     ArtifactDefinition(
+        key="snakemake_command",
+        type="snakemake_log",
+        label="Snakemake command",
+        relative_path=Path("logs/snakemake.command.txt"),
+        url="/api/runs/{analysis_id}/artifacts/snakemake_command",
+    ),
+    ArtifactDefinition(
         key="pgta_config_yaml",
         type="pgta_config",
         label="PGT-A Snakemake config",
