@@ -36,6 +36,70 @@
 
 ## Records
 
+## 2026-07-06 01:35 - Codex - T051 PGT-A submit workspace usability fix
+
+### Goal
+
+Fix the live frontend usability issue where the PGT-A submit form was cramped inside the left run-list sidebar and looked difficult to submit. Keep the backend/API contract unchanged and do not run PGT-A jobs as part of this UI fix.
+
+### Completed
+
+- Confirmed the backend scan API works for `/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28`.
+- Added a failing frontend test that requires a main `Submit new analysis` region, keeps `New PGT-A Run` out of the run-list aside, and shows clear Create Run enablement guidance.
+- Moved `New PGT-A Run` and `New WES Mock Run` into a main submit workspace above run detail.
+- Left sidebar now only contains the run list.
+- Added `Select at least one scanned sample to enable Create Run.` guidance and selected-sample count text.
+- Updated layout CSS so the PGT-A form uses the main content width and the candidate sample table is no longer squeezed into the side rail.
+- Rebuilt and redeployed only the `frontend` service on `fengxian`.
+
+### Modified files
+
+- `frontend/src/App.test.tsx`
+- `frontend/src/App.tsx`
+- `frontend/src/styles.css`
+- `docs/06_FRONTEND_SPEC.md`
+- `CURRENT_STATE.md`
+- `HANDOFF.md`
+
+### Commands and results
+
+| Command | Result |
+|---|---|
+| `git checkout -b codex/frontend/T051-pgta-submit-workspace` | success |
+| `docker build --target test -f frontend/Dockerfile frontend` on `fengxian` after test-only commit | failed as expected: 1 failed, 11 passed; missing `Submit new analysis` region and form still inside run-list aside |
+| `docker build --target test -f frontend/Dockerfile frontend` on `fengxian` after implementation | success: 12 tests passed |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success |
+| `docker compose -f docker-compose.yaml build frontend` on `fengxian` | success; Vite production build generated `index-BJnogiqz.css` and `index-BYax1L4P.js` |
+| `docker compose -f docker-compose.yaml up -d frontend` on `fengxian` | success; recreated only frontend while backend stayed healthy |
+| `curl http://100.112.254.72:12959/` | success, HTTP 200 |
+| `curl http://100.112.254.72:8000/api/health` | success, HTTP 200 |
+| deployed CSS grep for `submit-workspace` | success |
+
+### Not run / why
+
+- No real PGT-A job was submitted; this task only fixed the submit UI layout and guidance.
+- Browser automation was attempted but the in-app browser control timed out; verification used Dockerized frontend tests plus live HTTP/CSS checks.
+- No backend, DAG, Snakemake, DB migration, or Docker volume operation was needed.
+- No `docker compose down -v`, `docker system prune`, or `docker volume prune` was used.
+
+### Current git status
+
+Work is on branch `codex/frontend/T051-pgta-submit-workspace`. Runtime validation and live frontend deployment ran on the `fengxian` mirror at commit `872d59b`, followed by this docs/status update.
+
+### Risks
+
+- The page is still a single-page workspace, not a fully routed dashboard; this fix makes the existing workflow usable but does not add route-level navigation.
+- PGT-A full production flow is still not deployed; this only improves the existing metadata/dry-run/failure-smoke submission UI.
+
+### Next recommended task
+
+Either continue with PGT-A real target staged integration, or add T080 smoke/demo scripting so the current PGT-A/WES demo can be replayed reliably from the UI and API.
+
+### Rollback notes
+
+- Revert the frontend/layout commits with normal `git revert` and rebuild/redeploy `frontend`.
+- Stop services, if needed, with `docker compose -f docker-compose.yaml down` only; do not use `down -v`.
+
 ## 2026-07-06 00:54 - Codex - T060/T054 WES mock QC parser and panel
 
 ### Goal

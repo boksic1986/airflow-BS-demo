@@ -6,9 +6,11 @@
 
 已实现范围：
 
-- 首页即 analysis run list/detail workspace，当前可展示 `pgta` 和 `wes_qsub`。
-- 左侧 `New PGT-A Run` 面板支持 `project_name`、`rawdata_root`、`max_samples`、`target` 下拉、可选 `email_to` 和备注。
+- 首页即 analysis submit/list/detail workspace，当前可展示 `pgta` 和 `wes_qsub`。
+- 主内容顶部 `Submit new analysis` 工作区包含 `New PGT-A Run` 和 `New WES Mock Run`；左侧只保留 run list，避免提交表单被挤在窄侧栏。
+- `New PGT-A Run` 面板支持 `project_name`、`rawdata_root`、`max_samples`、`target` 下拉、可选 `email_to` 和备注。
 - `Scan` 调用 `POST /api/input/scan`，展示服务器路径 FASTQ 候选样本，支持勾选样本；`truncated=true` 时显示收窄路径提示。
+- 未勾选样本时 `Create Run` 禁用，并显示 `Select at least one scanned sample to enable Create Run.` 提示。
 - `Create Run` 调用 JSON `POST /api/runs`，创建成功后自动选中新 run 并展示 detail。
 - 对 `status=created` 且 `target` 为 `metadata`、`dryrun_cnv` 或 `invalid_target` 的 run，detail toolbar 显示 `Submit to Airflow`，调用 `POST /api/runs/{analysis_id}/actions/submit`。
 - 左侧 `New WES Mock Run` 面板可一键创建 `pipeline=wes_qsub,target=final_summary` run 并提交到 `bio_wes_qsub`。
@@ -85,7 +87,7 @@ Params:
 
 PGT-A v1 不上传 FASTQ 或 sample sheet。前端调用 `POST /api/input/scan` 扫描白名单服务器路径下已有 FASTQ，用户勾选样本后用 JSON 调用 `POST /api/runs`。提交成功后状态为 `created`，不会立即出现 Airflow DAG run。
 
-T051/T045 v1 已在当前单页 workspace 中实现该表单，不引入路由库。创建 run 和提交执行保持两步模式：创建后先进入 `created`，用户在 run detail toolbar 点击 `Submit to Airflow` 后才触发 `bio_pgta`。默认 target 是 `metadata`；`dryrun_cnv` 用于 Snakemake dry-run smoke，`invalid_target` 仅用于失败摘要 smoke。
+T051/T045 v1 已在当前单页 workspace 中实现该表单，不引入路由库。T051 usability fix 后，表单位于主内容顶部的 `Submit new analysis` 区域，candidate table 使用主内容宽度，run list 不再混入创建表单。创建 run 和提交执行保持两步模式：创建后先进入 `created`，用户在 run detail toolbar 点击 `Submit to Airflow` 后才触发 `bio_pgta`。默认 target 是 `metadata`；`dryrun_cnv` 用于 Snakemake dry-run smoke，`invalid_target` 仅用于失败摘要 smoke。
 
 WES mock v1 不上传或扫描数据。前端 `New WES Mock Run` 直接调用 JSON `POST /api/runs` 创建固定 `S001/S002` mock run，然后调用 `POST /api/runs/{analysis_id}/actions/submit` 提交 `bio_wes_qsub`。
 

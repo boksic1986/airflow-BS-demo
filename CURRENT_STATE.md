@@ -6,7 +6,7 @@
 
 ```text
 当前阶段: P3/P4/P6 Airflow + Snakemake/qsub mock observability + WES mock QC
-当前目标: T060/T054 已完成；WES mock success run 可通过显式 `sync-airflow` 导入 `qc_summary.tsv` 到 `qc_metric`，并在 React run detail 显示 QC panel
+当前目标: T051 前端可用性修复已部署；PGT-A 提交表单已移到主内容 `Submit new analysis` 工作区，左侧只保留 run list
 最近更新时间: 2026-07-06
 最后更新 agent: Codex
 ```
@@ -32,17 +32,17 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/fullstack/T060-T054-wes-qc-panel
-last_verified_code_commit: e22ea41 for T060/T054 WES mock QC parser/panel smoke before docs/status update
+active_branch: codex/frontend/T051-pgta-submit-workspace
+last_verified_code_commit: 872d59b for T051 PGT-A submit workspace usability fix before docs/status update
 worktree_strategy: single-worktree for now; fengxian is code mirror only
-fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime validation for T060/T054 ran on origin/codex/fullstack/T060-T054-wes-qc-panel at e22ea41, followed by docs/status evidence update
+fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime validation for T051 submit workspace fix ran on origin/codex/frontend/T051-pgta-submit-workspace at 872d59b, followed by docs/status evidence update
 ```
 
 ## 4. 服务状态
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 12959 | running after T060/T054 smoke | React/Vite PGT-A + WES mock workspace served by Docker nginx image `airflow-demo/frontend:0.1.0`; WES run detail QC panel smoke passed; host 3000 is occupied by non-project next-server |
+| frontend | 12959 | running after T051 submit workspace fix | React/Vite PGT-A + WES mock workspace served by Docker nginx image `airflow-demo/frontend:0.1.0`; `Submit new analysis` is in the main content area, run list is left-only, and live CSS contains `submit-workspace`; host 3000 is occupied by non-project next-server |
 | backend | 8000 | running, healthy | `/api/health`, `/api/health/db`, `/api/input/scan`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and frontend CORS preflight passed on fengxian; image `airflow-demo/backend:0.1.0` |
 | airflow web/api | 12958 | running after T060/T054 smoke | project image `airflow-demo/airflow:0.1.0`; `/health` returned healthy earlier; `bio_pgta` dryrun/failure smoke passed; `bio_pgta_airflow` event POST smoke passed; `bio_wes_qsub` WES QC smoke run `manual__WES_20260705_164813_C5561C` succeeded |
 | postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow metadata initialized; no host port published |
@@ -72,7 +72,7 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 
 ```text
 last_backend_tests: remote Dockerized pytest on fengxian passed, 43 tests; includes QC TSV parser, `/api/runs/{analysis_id}/qc`, sync-airflow QC import idempotency, sample qc_status update, diagnostics/event tests, and WES create/submit/reanalyze tests
-last_frontend_tests: remote Dockerized frontend test target passed on fengxian, 11 Vitest tests; production frontend image `airflow-demo/frontend:0.1.0` built after WES mock QC panel changes
+last_frontend_tests: remote Dockerized frontend test target passed on fengxian, 12 Vitest tests; includes red/green coverage for moving PGT-A submit form into main `Submit new analysis` workspace with clear Create Run enablement guidance
 last_dag_import_tests: passed on fengxian; Airflow DAG/runner unittest for `test_bio_wes_qsub_dag.py` and `test_wes_qsub_runner.py` returned 11 tests OK; Airflow import errors returned `No data found`; `bio_wes_qsub` listed
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
 last_compose_config: passed on fengxian with Docker Compose v2.24.7 for commit 403fa68; compose now renders backend image `airflow-demo/backend:0.1.0`, frontend image `airflow-demo/frontend:0.1.0`, CORS env, read-only PGT-A mounts, DAG files, and frontend build service
@@ -87,6 +87,7 @@ last_pgta_diagnostics_smoke: passed on fengxian; `sync-airflow` changed `PGTA_20
 last_pgta_airflow_logger_smoke: passed on fengxian; `bio_pgta_airflow` run `manual__PGTA_AIRFLOW_20260703_054712_501D8B_events` ended `success`, generated `run_metadata.tsv` (11 lines), `snakemake_events.jsonl` (22 lines), `snakemake_rule_summary.tsv` (29 lines), and `/api/runs/PGTA_20260703_054712_501D8B/rules` returned `all=success` and `collect_run_metadata=success`
 last_frontend_run_detail_smoke: passed on fengxian at http://127.0.0.1:12959/; React HTML served, `/api/runs?pipeline=pgta` returned existing PGT-A runs, `PGTA_20260703_054712_501D8B` rules returned `all=success` and `collect_run_metadata=success`, metadata log/artifacts/samples APIs returned data, CORS preflight returned 200
 last_frontend_submit_smoke: passed on fengxian; frontend HTML served at `http://127.0.0.1:12959/`, API scan of `/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28` returned 1 candidate with `truncated=true`, created `PGTA_20260703_154341_408A29`, submit returned `dag_run_id=manual__PGTA_20260703_154341_408A29`, sync ended `success`, artifacts returned 5 items, metadata log tail returned 3 lines, and run list contained the new run
+last_frontend_submit_workspace_fix: passed on fengxian; red test first failed because `Submit new analysis` region was missing and `New PGT-A Run` lived inside the run-list aside, then frontend Docker test target passed with 12 tests after moving submit panels to main content; `docker compose build frontend` succeeded and `docker compose up -d frontend` redeployed 12959, with HTTP 200 and deployed CSS containing `submit-workspace`
 last_image_check: passed on fengxian; compose external images pulled and backend built with explicit tag
 last_image_cleanup: removed 37 dangling <none> images; no docker system prune, no volume prune
 last_pgta_failure_smoke: passed on fengxian; `invalid_target` run `PGTA_20260703_170957_3DDEC3` ended Airflow/backend `failed` as expected, stderr log size 1322 bytes, `sync-airflow` wrote non-null `error_summary` containing `stderr_path` and last error lines

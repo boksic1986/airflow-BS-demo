@@ -150,6 +150,13 @@ T060/T054 WES mock QC parser/panel 已验收：
 - artifacts API included `wes_qc_summary` and `wes_final_summary`.
 - `shared/runs/WES_20260705_164813_C5561C/reports/qc_summary.tsv` exists with deterministic mock rows for `S001/S002`.
 
+T051 PGT-A submit workspace usability fix 已验收：
+
+- Red test first failed because `Submit new analysis` region was missing and `New PGT-A Run` still lived inside the run-list aside.
+- After moving submit panels to the main content area, remote frontend Docker test target passed: `12 passed`.
+- `docker compose -f docker-compose.yaml build frontend` passed and `docker compose -f docker-compose.yaml up -d frontend` redeployed only the frontend service.
+- Live `http://100.112.254.72:12959/` returned HTTP 200; deployed CSS includes `submit-workspace`, `pgta-form-grid`, and `form-hint`.
+
 ## 5. Frontend tests
 
 必须覆盖：
