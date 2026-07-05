@@ -8,6 +8,7 @@ import App from "./App";
 
 const runId = "PGTA_20260703_054712_501D8B";
 const createdRunId = "PGTA_20260703_180000_NEW001";
+const wesRunId = "WES_20260705_010000_NEW001";
 const rawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28";
 
 function mockJson(payload: object, init?: ResponseInit) {
@@ -23,6 +24,8 @@ describe("PGT-A run dashboard", () => {
   let createdRunStatus = "created";
   let createdDagRunId: string | null = null;
   let createdRunTarget: "metadata" | "dryrun_cnv" | "invalid_target" = "metadata";
+  let wesRunStatus = "";
+  let wesDagRunId: string | null = null;
 
   function runListItems() {
     const items: Array<{
@@ -58,6 +61,18 @@ describe("PGT-A run dashboard", () => {
         qc_status: "unknown",
       });
     }
+    if (wesRunStatus) {
+      items.unshift({
+        analysis_id: wesRunId,
+        pipeline: "wes_qsub",
+        status: wesRunStatus,
+        created_at: "2026-07-05T01:00:00+08:00",
+        started_at: null,
+        ended_at: null,
+        sample_count: 2,
+        qc_status: "unknown",
+      });
+    }
     return items;
   }
 
@@ -65,11 +80,13 @@ describe("PGT-A run dashboard", () => {
     createdRunStatus = "";
     createdDagRunId = null;
     createdRunTarget = "metadata";
+    wesRunStatus = "";
+    wesDagRunId = null;
     vi.stubGlobal(
       "fetch",
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
-        if (url.endsWith("/api/runs?pipeline=pgta&limit=50&offset=0")) {
+        if (url.endsWith("/api/runs?pipeline=pgta&limit=50&offset=0") || url.endsWith("/api/runs?limit=50&offset=0")) {
           return mockJson({
             items: runListItems(),
             total: runListItems().length,
@@ -107,7 +124,25 @@ describe("PGT-A run dashboard", () => {
           });
         }
         if (url.endsWith("/api/runs") && init?.method === "POST") {
-          const requestBody = JSON.parse(String(init.body || "{}")) as {target?: "metadata" | "dryrun_cnv" | "invalid_target"};
+          const requestBody = JSON.parse(String(init.body || "{}")) as {
+            pipeline?: string;
+            target?: "metadata" | "dryrun_cnv" | "invalid_target" | "final_summary";
+          };
+          if (requestBody.pipeline === "wes_qsub") {
+            wesRunStatus = "created";
+            return mockJson(
+              {
+                analysis_id: wesRunId,
+                pipeline: "wes_qsub",
+                dag_id: "bio_wes_qsub",
+                dag_run_id: null,
+                status: "created",
+                workdir: `/data/airflow-demo/runs/${wesRunId}`,
+                sample_count: 2,
+              },
+              {status: 201},
+            );
+          }
           createdRunTarget = requestBody.target || "metadata";
           createdRunStatus = "created";
           return mockJson(
@@ -155,6 +190,22 @@ describe("PGT-A run dashboard", () => {
             email_to: "demo@example.com",
           });
         }
+        if (url.endsWith(`/api/runs/${wesRunId}`)) {
+          return mockJson({
+            analysis_id: wesRunId,
+            pipeline: "wes_qsub",
+            status: wesRunStatus || "success",
+            mode: "new",
+            dag_id: "bio_wes_qsub",
+            dag_run_id: wesDagRunId || `manual__${wesRunId}`,
+            airflow_url: null,
+            workdir: `/data/airflow-demo/runs/${wesRunId}`,
+            sample_sheet_path: `/data/airflow-demo/runs/${wesRunId}/config/samples.selected.tsv`,
+            params: {target: "final_summary", selected_count: 2, input_mode: "mock_wes"},
+            error_summary: null,
+            email_to: null,
+          });
+        }
         if (url.endsWith(`/api/runs/${runId}/samples`)) {
           return mockJson({
             items: [
@@ -179,6 +230,28 @@ describe("PGT-A run dashboard", () => {
                 status: "pending",
                 qc_status: "unknown",
                 metadata: {source_dir: `${rawdataRoot}/Sample_DEMO-G1-G1`},
+              },
+            ],
+          });
+        }
+        if (url.endsWith(`/api/runs/${wesRunId}/samples`)) {
+          return mockJson({
+            items: [
+              {
+                sample_id: "S001",
+                fq1: "pipelines/wes/mock_data/S001.input.txt",
+                fq2: null,
+                status: "pending",
+                qc_status: "unknown",
+                metadata: {input_mode: "mock_wes"},
+              },
+              {
+                sample_id: "S002",
+                fq1: "pipelines/wes/mock_data/S002.input.txt",
+                fq2: null,
+                status: "pending",
+                qc_status: "unknown",
+                metadata: {input_mode: "mock_wes"},
               },
             ],
           });
@@ -220,6 +293,23 @@ describe("PGT-A run dashboard", () => {
         if (url.endsWith(`/api/runs/${createdRunId}/rules`)) {
           return mockJson({items: []});
         }
+        if (url.endsWith(`/api/runs/${wesRunId}/rules`)) {
+          return mockJson({
+            items: [
+              {
+                rule: "fastp",
+                sample_id: "S001",
+                status: "success",
+                snakemake_jobid: "1",
+                qsub_jobid: "MOCK-WES-fastp-S001",
+                stdout_path: `/data/airflow-demo/runs/${wesRunId}/logs/qsub/fastp.S001.o`,
+                stderr_path: `/data/airflow-demo/runs/${wesRunId}/logs/qsub/fastp.S001.e`,
+                return_code: 0,
+                wildcards: {sample: "S001"},
+              },
+            ],
+          });
+        }
         if (url.endsWith(`/api/runs/${runId}/artifacts`)) {
           return mockJson({
             items: [
@@ -237,6 +327,20 @@ describe("PGT-A run dashboard", () => {
         if (url.endsWith(`/api/runs/${createdRunId}/artifacts`)) {
           return mockJson({items: []});
         }
+        if (url.endsWith(`/api/runs/${wesRunId}/artifacts`)) {
+          return mockJson({
+            items: [
+              {
+                key: "wes_final_summary",
+                type: "wes_mock_summary",
+                label: "WES mock final summary",
+                path: `/data/airflow-demo/runs/${wesRunId}/reports/final_summary.tsv`,
+                size_bytes: 42,
+                url: `/api/runs/${wesRunId}/artifacts/wes_final_summary`,
+              },
+            ],
+          });
+        }
         if (url.endsWith(`/api/runs/${runId}/logs?stream=metadata&tail=200`)) {
           return mockJson({
             path: `/data/airflow-demo/runs/${runId}/logs/run_metadata.tsv`,
@@ -247,6 +351,17 @@ describe("PGT-A run dashboard", () => {
         }
         if (url.endsWith(`/api/runs/${createdRunId}/logs?stream=metadata&tail=200`)) {
           return mockJson({detail: {code: "LOG_NOT_FOUND", message: "metadata log is not ready"}}, {status: 404});
+        }
+        if (url.endsWith(`/api/runs/${wesRunId}/logs?stream=metadata&tail=200`)) {
+          return mockJson({detail: {code: "LOG_NOT_FOUND", message: "metadata log is not used for WES"}}, {status: 404});
+        }
+        if (url.endsWith(`/api/runs/${wesRunId}/logs?stream=stdout&tail=200`)) {
+          return mockJson({
+            path: `/data/airflow-demo/runs/${wesRunId}/logs/snakemake.stdout.log`,
+            stream: "stdout",
+            truncated: false,
+            lines: ["WES mock snakemake stdout"],
+          });
         }
         if (url.endsWith(`/api/runs/${runId}/actions/sync-airflow`) && init?.method === "POST") {
           return mockJson({
@@ -273,6 +388,33 @@ describe("PGT-A run dashboard", () => {
             sample_sheet_path: `/data/airflow-demo/runs/${createdRunId}/config/samples.selected.tsv`,
             params: {target: createdRunTarget, selected_count: 1},
             error_summary: null,
+          });
+        }
+        if (url.endsWith(`/api/runs/${wesRunId}/actions/submit`) && init?.method === "POST") {
+          wesRunStatus = "submitted";
+          wesDagRunId = `manual__${wesRunId}`;
+          return mockJson({
+            analysis_id: wesRunId,
+            pipeline: "wes_qsub",
+            status: "submitted",
+            dag_id: "bio_wes_qsub",
+            dag_run_id: wesDagRunId,
+            workdir: `/data/airflow-demo/runs/${wesRunId}`,
+            sample_count: 2,
+            sample_sheet_path: `/data/airflow-demo/runs/${wesRunId}/config/samples.selected.tsv`,
+            params: {target: "final_summary", selected_count: 2, input_mode: "mock_wes"},
+            error_summary: null,
+          });
+        }
+        if (url.endsWith(`/api/runs/${wesRunId}/actions/reanalyze`) && init?.method === "POST") {
+          const requestBody = JSON.parse(String(init.body || "{}")) as {mode: string};
+          wesRunStatus = "submitted";
+          wesDagRunId = `manual__${wesRunId}__${requestBody.mode}__20260705T010500`;
+          return mockJson({
+            analysis_id: wesRunId,
+            new_dag_run_id: wesDagRunId,
+            mode: requestBody.mode,
+            status: "submitted",
           });
         }
         return mockJson({detail: {code: "NOT_MOCKED", message: url}}, {status: 404});
@@ -416,5 +558,64 @@ describe("PGT-A run dashboard", () => {
       );
     });
     expect(await screen.findByText(`manual__${createdRunId}`)).toBeInTheDocument();
+  });
+
+  it("creates and submits a WES mock run from the WES panel", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const wesPanel = await screen.findByRole("region", {name: /new wes mock run/i});
+    await user.click(within(wesPanel).getByRole("button", {name: /create and submit wes/i}));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/runs"),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"pipeline":"wes_qsub"'),
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/api/runs/${wesRunId}/actions/submit`),
+        expect.objectContaining({method: "POST"}),
+      );
+    });
+    expect(await screen.findByText(`manual__${wesRunId}`)).toBeInTheDocument();
+  });
+
+  it("triggers WES resume and selected rule rerun from run detail", async () => {
+    const user = userEvent.setup();
+    wesRunStatus = "success";
+    render(<App />);
+
+    expect(await screen.findByText(`Analysis ID: ${wesRunId}`)).toBeInTheDocument();
+    const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
+    await user.click(within(toolbar).getByRole("button", {name: /^resume$/i}));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/api/runs/${wesRunId}/actions/reanalyze`),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"mode":"resume"'),
+        }),
+      );
+    });
+
+    await user.selectOptions(screen.getByLabelText(/rerun rule/i), "fastp");
+    await user.selectOptions(screen.getByLabelText(/rerun sample/i), "S001");
+    await user.click(within(toolbar).getByRole("button", {name: /rerun rule/i}));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/api/runs/${wesRunId}/actions/reanalyze`),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"rule":"fastp"'),
+        }),
+      );
+    });
   });
 });

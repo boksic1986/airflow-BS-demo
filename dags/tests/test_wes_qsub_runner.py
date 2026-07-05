@@ -46,6 +46,51 @@ class WesQsubRunnerTests(unittest.TestCase):
         self.assertEqual(conf["params"]["target"], "final_summary")
         self.assertEqual(conf["params"]["max_jobs"], 2)
 
+    def test_validate_wes_conf_accepts_resume_and_rerun_rule_modes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            shared_root = Path(tmpdir)
+            workdir = shared_root / "runs" / "WES_AIRFLOW_TEST"
+            workdir.mkdir(parents=True)
+
+            resume_conf = self._valid_conf(workdir)
+            resume_conf["mode"] = "resume"
+            resume = validate_wes_conf(resume_conf, shared_root=shared_root)
+
+            rerun_conf = self._valid_conf(workdir)
+            rerun_conf["mode"] = "rerun_rule"
+            rerun_conf["params"]["rule"] = "fastp"
+            rerun_conf["params"]["sample_id"] = "S001"
+            rerun = validate_wes_conf(rerun_conf, shared_root=shared_root)
+
+        self.assertEqual(resume["mode"], "resume")
+        self.assertEqual(rerun["mode"], "rerun_rule")
+        self.assertEqual(rerun["params"]["rule"], "fastp")
+        self.assertEqual(rerun["params"]["sample_id"], "S001")
+
+    def test_validate_wes_conf_rejects_forceall_and_bad_rerun_rule(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            shared_root = Path(tmpdir)
+            workdir = shared_root / "runs" / "WES_AIRFLOW_TEST"
+            workdir.mkdir(parents=True)
+
+            bad_mode = self._valid_conf(workdir)
+            bad_mode["mode"] = "forceall"
+            with self.assertRaisesRegex(ValueError, "Unsupported WES mode"):
+                validate_wes_conf(bad_mode, shared_root=shared_root)
+
+            bad_rule = self._valid_conf(workdir)
+            bad_rule["mode"] = "rerun_rule"
+            bad_rule["params"]["rule"] = "haplotypecaller"
+            bad_rule["params"]["sample_id"] = "S001"
+            with self.assertRaisesRegex(ValueError, "Unsupported WES rerun rule"):
+                validate_wes_conf(bad_rule, shared_root=shared_root)
+
+            missing_sample = self._valid_conf(workdir)
+            missing_sample["mode"] = "rerun_rule"
+            missing_sample["params"]["rule"] = "fastp"
+            with self.assertRaisesRegex(ValueError, "sample_id is required"):
+                validate_wes_conf(missing_sample, shared_root=shared_root)
+
     def test_validate_wes_conf_rejects_unknown_pipeline_or_target(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             shared_root = Path(tmpdir)
@@ -106,6 +151,22 @@ class WesQsubRunnerTests(unittest.TestCase):
         self.assertIn("--profile", command)
         self.assertIn("/opt/airflow/profiles/qsub", command)
         self.assertIn("--configfile", command)
+        self.assertNotIn("--forceall", command)
+
+    def test_build_snakemake_command_adds_forcerun_for_selected_rule_only(self) -> None:
+        command = build_snakemake_command(
+            Path("/data/airflow-demo/runs/WES_TEST/config/wes_mock_config.yaml"),
+            mode="rerun_rule",
+            rule="fastp",
+            sample_id="S001",
+            workdir=Path("/data/airflow-demo/runs/WES_TEST"),
+            pipelines_root=Path("/opt/airflow/pipelines"),
+            profiles_root=Path("/opt/airflow/profiles"),
+        )
+
+        self.assertIn("--forcerun", command)
+        self.assertIn("fastp", command)
+        self.assertIn("/data/airflow-demo/runs/WES_TEST/fastp/S001.clean.txt", command)
         self.assertNotIn("--forceall", command)
 
     def test_run_wes_qsub_uses_run_local_snakemake_cache(self) -> None:
