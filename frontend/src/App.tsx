@@ -652,15 +652,15 @@ function NewWesPanel({
       </div>
       <div className="form-grid">
         <label>
-          <span>Project name</span>
+          <span>WES name</span>
           <input value={projectName} onChange={(event) => onProjectNameChange(event.target.value)} />
         </label>
         <label>
-          <span>Target</span>
+          <span>Output</span>
           <input value="final_summary" readOnly />
         </label>
         <label>
-          <span>Note</span>
+          <span>WES note</span>
           <textarea value={note} rows={2} onChange={(event) => onNoteChange(event.target.value)} />
         </label>
       </div>

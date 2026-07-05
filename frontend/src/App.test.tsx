@@ -585,7 +585,7 @@ describe("PGT-A run dashboard", () => {
     expect(await screen.findByText(`manual__${wesRunId}`)).toBeInTheDocument();
   });
 
-  it("triggers WES resume and selected rule rerun from run detail", async () => {
+  it("triggers WES resume from run detail", async () => {
     const user = userEvent.setup();
     wesRunStatus = "success";
     render(<App />);
@@ -603,6 +603,15 @@ describe("PGT-A run dashboard", () => {
         }),
       );
     });
+  });
+
+  it("triggers WES selected rule rerun from run detail", async () => {
+    const user = userEvent.setup();
+    wesRunStatus = "success";
+    render(<App />);
+
+    expect(await screen.findByText(`Analysis ID: ${wesRunId}`)).toBeInTheDocument();
+    const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
 
     await user.selectOptions(screen.getByLabelText(/rerun rule/i), "fastp");
     await user.selectOptions(screen.getByLabelText(/rerun sample/i), "S001");
