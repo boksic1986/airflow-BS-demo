@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.airflow_client import AirflowClient
 from app.config import get_cors_origins, get_settings
@@ -20,7 +20,15 @@ from app.diagnostics_service import (
 )
 from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candidates
 from app.rule_event_service import list_snakemake_rule_events, record_snakemake_event
-from app.run_service import create_pgta_run, get_run_detail, list_run_samples, list_runs, submit_pgta_run
+from app.run_service import (
+    create_pgta_run,
+    create_wes_mock_run,
+    get_run_detail,
+    list_run_samples,
+    list_runs,
+    reanalyze_wes_run,
+    submit_run_to_airflow,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -56,10 +64,26 @@ class CreateRunRequest(BaseModel):
     pipeline: str
     project_name: str
     target: str = "metadata"
-    rawdata_root: str
-    selected_samples: list[SelectedSampleRequest] = Field(min_length=1)
+    rawdata_root: str | None = None
+    selected_samples: list[SelectedSampleRequest] = Field(default_factory=list)
     email_to: str | None = None
     note: str | None = None
+
+    @model_validator(mode="after")
+    def validate_pipeline_inputs(self):
+        if self.pipeline == "pgta":
+            if not self.rawdata_root:
+                raise ValueError("rawdata_root is required for pipeline=pgta.")
+            if not self.selected_samples:
+                raise ValueError("selected_samples is required for pipeline=pgta.")
+        return self
+
+
+class ReanalysisRequest(BaseModel):
+    mode: str
+    rule: str | None = None
+    sample_id: str | None = None
+    reason: str | None = None
 
 
 class SnakemakeEventRequest(BaseModel):
@@ -123,27 +147,32 @@ def scan_input(request: InputScanRequest) -> dict[str, object]:
 
 @app.post("/api/runs", status_code=status.HTTP_201_CREATED)
 def create_run(request: CreateRunRequest) -> dict[str, object]:
-    if request.pipeline != "pgta":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "UNSUPPORTED_PIPELINE", "message": "Only pipeline=pgta is supported in this phase."},
-        )
-
     settings = get_settings()
     session_factory = get_sessionmaker()
     try:
-        selected_samples = [_selected_sample_to_candidate(item) for item in request.selected_samples]
         with session_factory() as session:
-            return create_pgta_run(
-                session=session,
-                settings=settings,
-                project_name=request.project_name,
-                target=request.target,
-                rawdata_root=request.rawdata_root,
-                selected_samples=selected_samples,
-                email_to=request.email_to,
-                note=request.note,
-            )
+            if request.pipeline == "pgta":
+                selected_samples = [_selected_sample_to_candidate(item) for item in request.selected_samples]
+                return create_pgta_run(
+                    session=session,
+                    settings=settings,
+                    project_name=request.project_name,
+                    target=request.target,
+                    rawdata_root=request.rawdata_root or "",
+                    selected_samples=selected_samples,
+                    email_to=request.email_to,
+                    note=request.note,
+                )
+            if request.pipeline == "wes_qsub":
+                return create_wes_mock_run(
+                    session=session,
+                    settings=settings,
+                    project_name=request.project_name,
+                    target=request.target,
+                    email_to=request.email_to,
+                    note=request.note,
+                )
+            raise ValueError("Only pipeline=pgta or pipeline=wes_qsub is supported in this phase.")
     except InputPathError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -176,10 +205,43 @@ def runs_list(
 def submit_run(analysis_id: str) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
-            payload = submit_pgta_run(
+            payload = submit_run_to_airflow(
                 session=session,
                 airflow_client=get_airflow_client(),
                 analysis_id=analysis_id,
+            )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "VALIDATION_ERROR", "message": str(exc)},
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.exception("airflow dag trigger failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "AIRFLOW_TRIGGER_FAILED", "message": str(exc)},
+        ) from exc
+
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+        )
+    return payload
+
+
+@app.post("/api/runs/{analysis_id}/actions/reanalyze")
+def reanalyze_run(analysis_id: str, request: ReanalysisRequest) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            payload = reanalyze_wes_run(
+                session=session,
+                airflow_client=get_airflow_client(),
+                analysis_id=analysis_id,
+                mode=request.mode,
+                rule=request.rule,
+                sample_id=request.sample_id,
+                reason=request.reason,
             )
     except ValueError as exc:
         raise HTTPException(

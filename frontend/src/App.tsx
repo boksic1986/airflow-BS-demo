@@ -31,6 +31,7 @@ import {
   getRunRules,
   getRunSamples,
   listRuns,
+  reanalyzeRun,
   scanInput,
   submitRun,
   syncAirflow,
@@ -52,6 +53,8 @@ const emptyBundle: RunBundle = {
 
 const defaultRawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28";
 const submitTargets: PgtaTarget[] = ["metadata", "dryrun_cnv", "invalid_target"];
+const wesRerunRules = ["fastp", "bwa_mem", "markdup", "final_summary"];
+const wesSamples = ["S001", "S002"];
 
 function statusClass(status?: string | null): string {
   const normalized = (status || "unknown").toLowerCase();
@@ -115,6 +118,12 @@ export default function App() {
   const [formNotice, setFormNotice] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [wesProjectName, setWesProjectName] = useState("WES mock smoke");
+  const [wesNote, setWesNote] = useState("");
+  const [creatingWes, setCreatingWes] = useState(false);
+  const [reanalyzing, setReanalyzing] = useState(false);
+  const [rerunRule, setRerunRule] = useState("fastp");
+  const [rerunSample, setRerunSample] = useState("S001");
 
   const selectedRun = useMemo(
     () => runs.find((run) => run.analysis_id === selectedId) || null,
@@ -122,7 +131,13 @@ export default function App() {
   );
 
   const canSubmitRun =
-    bundle.detail?.status === "created" && submitTargets.includes((runTarget(bundle.detail) || "metadata") as PgtaTarget);
+    bundle.detail?.status === "created" &&
+    ((bundle.detail.pipeline === "pgta" && submitTargets.includes((runTarget(bundle.detail) || "metadata") as PgtaTarget)) ||
+      bundle.detail.pipeline === "wes_qsub");
+  const canReanalyzeWes =
+    bundle.detail?.pipeline === "wes_qsub" &&
+    Boolean(bundle.detail?.dag_run_id) &&
+    !["submitted", "running", "queued"].includes((bundle.detail?.status || "").toLowerCase());
 
   async function refreshRuns(preferredId?: string | null) {
     setLoadingRuns(true);
@@ -266,6 +281,48 @@ export default function App() {
     }
   }
 
+  async function handleCreateAndSubmitWes() {
+    setCreatingWes(true);
+    setDetailError(null);
+    setCreateError(null);
+    try {
+      const created = await createRun({
+        pipeline: "wes_qsub",
+        project_name: wesProjectName,
+        target: "final_summary",
+        note: wesNote.trim() || null,
+      });
+      setSelectedId(created.analysis_id);
+      await submitRun(created.analysis_id);
+      await Promise.all([refreshRuns(created.analysis_id), refreshDetail(created.analysis_id), refreshLog(created.analysis_id, "stdout")]);
+      setLogStream("stdout");
+    } catch (error) {
+      setDetailError(errorMessage(error));
+    } finally {
+      setCreatingWes(false);
+    }
+  }
+
+  async function handleReanalyze(mode: "resume" | "rerun_rule") {
+    if (!selectedId) return;
+    setReanalyzing(true);
+    setDetailError(null);
+    try {
+      await reanalyzeRun(selectedId, {
+        mode,
+        rule: mode === "rerun_rule" ? rerunRule : null,
+        sample_id: mode === "rerun_rule" && rerunRule !== "final_summary" ? rerunSample : null,
+        reason: mode === "resume" ? "frontend resume" : "frontend rerun selected rule",
+      });
+      await Promise.all([refreshRuns(selectedId), refreshDetail(selectedId), refreshLog(selectedId, "stdout")]);
+      setLogStream("stdout");
+    } catch (error) {
+      setDetailError(errorMessage(error));
+    } finally {
+      setReanalyzing(false);
+    }
+  }
+
   useEffect(() => {
     void refreshRuns(null);
   }, []);
@@ -289,7 +346,7 @@ export default function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">airflow-demo</p>
-          <h1>PGT-A Runs</h1>
+          <h1>Analysis Runs</h1>
         </div>
         <div className="topbar-actions">
           <a className="secondary-link" href={`${window.location.protocol}//${window.location.hostname}:12958`}>
@@ -303,7 +360,7 @@ export default function App() {
       </header>
 
       <main className="workspace">
-        <aside className="run-list" aria-label="PGT-A run list">
+        <aside className="run-list" aria-label="Analysis run list">
           <NewRunPanel
             projectName={projectName}
             target={target}
@@ -329,13 +386,21 @@ export default function App() {
             onToggleSample={toggleSample}
             onCreate={() => void handleCreateRun()}
           />
+          <NewWesPanel
+            projectName={wesProjectName}
+            note={wesNote}
+            creating={creatingWes}
+            onProjectNameChange={setWesProjectName}
+            onNoteChange={setWesNote}
+            onCreateAndSubmit={() => void handleCreateAndSubmitWes()}
+          />
           <div className="pane-title">
             <Activity size={17} />
             <span>Runs</span>
             <span className="count">{runs.length}</span>
           </div>
           {listError ? <ErrorBanner message={listError} /> : null}
-          {runs.length === 0 && !loadingRuns ? <p className="empty">No PGT-A runs returned.</p> : null}
+          {runs.length === 0 && !loadingRuns ? <p className="empty">No runs returned.</p> : null}
           <div className="run-items">
             {runs.map((run) => (
               <button
@@ -381,6 +446,38 @@ export default function App() {
                   <RotateCw size={16} />
                   Sync Airflow
                 </button>
+                {canReanalyzeWes ? (
+                  <>
+                    <button className="icon-button" type="button" onClick={() => void handleReanalyze("resume")} disabled={reanalyzing}>
+                      <RotateCw size={16} />
+                      Resume
+                    </button>
+                    <label className="toolbar-select">
+                      <span>Rerun rule</span>
+                      <select value={rerunRule} onChange={(event) => setRerunRule(event.target.value)}>
+                        {wesRerunRules.map((rule) => (
+                          <option key={rule} value={rule}>
+                            {rule}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="toolbar-select">
+                      <span>Rerun sample</span>
+                      <select value={rerunSample} onChange={(event) => setRerunSample(event.target.value)} disabled={rerunRule === "final_summary"}>
+                        {wesSamples.map((sample) => (
+                          <option key={sample} value={sample}>
+                            {sample}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button className="icon-button" type="button" onClick={() => void handleReanalyze("rerun_rule")} disabled={reanalyzing}>
+                      <Play size={16} />
+                      Rerun rule
+                    </button>
+                  </>
+                ) : null}
                 <button
                   className="icon-button"
                   type="button"
@@ -528,6 +625,51 @@ function NewRunPanel({
       {formNotice ? <p className="form-notice">{formNotice}</p> : null}
       {scanTruncated ? <p className="form-warning">Scan result was truncated; narrow the rawdata root or lower the range.</p> : null}
       <CandidateTable items={scanItems} selectedSamples={selectedSamples} onToggleSample={onToggleSample} />
+    </section>
+  );
+}
+
+function NewWesPanel({
+  projectName,
+  note,
+  creating,
+  onProjectNameChange,
+  onNoteChange,
+  onCreateAndSubmit,
+}: {
+  projectName: string;
+  note: string;
+  creating: boolean;
+  onProjectNameChange: (value: string) => void;
+  onNoteChange: (value: string) => void;
+  onCreateAndSubmit: () => void;
+}) {
+  return (
+    <section className="new-run-panel compact-panel" aria-label="New WES Mock Run">
+      <div className="pane-title">
+        <Plus size={17} />
+        <span>New WES Mock Run</span>
+      </div>
+      <div className="form-grid">
+        <label>
+          <span>Project name</span>
+          <input value={projectName} onChange={(event) => onProjectNameChange(event.target.value)} />
+        </label>
+        <label>
+          <span>Target</span>
+          <input value="final_summary" readOnly />
+        </label>
+        <label>
+          <span>Note</span>
+          <textarea value={note} rows={2} onChange={(event) => onNoteChange(event.target.value)} />
+        </label>
+      </div>
+      <div className="submit-toolbar">
+        <button className="icon-button primary-action" type="button" onClick={onCreateAndSubmit} disabled={creating || !projectName.trim()}>
+          <Play size={16} />
+          Create and Submit WES
+        </button>
+      </div>
     </section>
   );
 }

@@ -14,7 +14,17 @@ from app.models import AnalysisRun, RunAction, Sample
 
 
 PGTA_DAG_ID = "bio_pgta"
+WES_DAG_ID = "bio_wes_qsub"
 SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target"}
+SUPPORTED_WES_TARGETS = {"final_summary"}
+SUPPORTED_WES_REANALYSIS_MODES = {"resume", "rerun_rule"}
+SUPPORTED_WES_RERUN_RULES = {"fastp", "bwa_mem", "markdup", "final_summary"}
+WES_SAMPLE_RULES = {"fastp", "bwa_mem", "markdup"}
+WES_MOCK_SAMPLES = {
+    "S001": "pipelines/wes/mock_data/S001.input.txt",
+    "S002": "pipelines/wes/mock_data/S002.input.txt",
+}
+WES_BACKEND_EVENT_URL = "http://backend:8000/api/events/snakemake"
 
 
 def create_pgta_run(
@@ -106,6 +116,75 @@ def create_pgta_run(
     return _run_payload(run, sample_count=len(selected_samples))
 
 
+def create_wes_mock_run(
+    *,
+    session: Session,
+    settings,
+    project_name: str,
+    target: str,
+    email_to: str | None = None,
+    note: str | None = None,
+) -> dict:
+    _validate_wes_target(target)
+
+    analysis_id = _new_wes_analysis_id()
+    shared_root = Path(settings.container_shared_root)
+    workdir = shared_root / "runs" / analysis_id
+    config_dir = workdir / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_airflow_writable(workdir)
+    _ensure_airflow_writable(config_dir)
+
+    manifest_path = config_dir / "samples.selected.tsv"
+    request_path = config_dir / "request.json"
+    _write_wes_manifest(manifest_path)
+    _write_wes_request(
+        request_path,
+        analysis_id=analysis_id,
+        project_name=project_name,
+        target=target,
+        email_to=email_to,
+        note=note,
+    )
+
+    params = {
+        "project_name": project_name,
+        "target": target,
+        "input_mode": "mock_wes",
+        "selected_count": len(WES_MOCK_SAMPLES),
+        "max_jobs": 2,
+        "note": note,
+    }
+    run = AnalysisRun(
+        analysis_id=analysis_id,
+        pipeline_name="wes_qsub",
+        dag_id=WES_DAG_ID,
+        dag_run_id=None,
+        mode="new",
+        status="created",
+        sample_sheet_path=str(manifest_path),
+        workdir=str(workdir),
+        params_json=params,
+        email_to=email_to,
+    )
+    session.add(run)
+    for sample_id, input_path in WES_MOCK_SAMPLES.items():
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id=sample_id,
+                fq1=input_path,
+                fq2=None,
+                metadata_json={"input_mode": "mock_wes", "source": input_path},
+                status="pending",
+                qc_status="unknown",
+            )
+        )
+    session.commit()
+
+    return _run_payload(run, sample_count=len(WES_MOCK_SAMPLES))
+
+
 def list_runs(*, session: Session, pipeline: str | None = None, status: str | None = None, limit: int = 50, offset: int = 0) -> dict:
     query = select(AnalysisRun)
     count_query = select(func.count()).select_from(AnalysisRun)
@@ -146,7 +225,7 @@ def list_run_samples(*, session: Session, analysis_id: str) -> list[dict]:
     ]
 
 
-def submit_pgta_run(*, session: Session, airflow_client, analysis_id: str) -> dict | None:
+def submit_run_to_airflow(*, session: Session, airflow_client, analysis_id: str) -> dict | None:
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
     if run is None:
         return None
@@ -172,6 +251,64 @@ def submit_pgta_run(*, session: Session, airflow_client, analysis_id: str) -> di
     return _run_detail_payload(session, run)
 
 
+def reanalyze_wes_run(
+    *,
+    session: Session,
+    airflow_client,
+    analysis_id: str,
+    mode: str,
+    rule: str | None = None,
+    sample_id: str | None = None,
+    reason: str | None = None,
+) -> dict | None:
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+    if run is None:
+        return None
+    _validate_wes_reanalysis(run=run, mode=mode, rule=rule, sample_id=sample_id)
+
+    params = dict(run.params_json or {})
+    params["target"] = "final_summary"
+    if mode == "rerun_rule":
+        params["rule"] = rule
+        params["sample_id"] = sample_id
+
+    run.mode = mode
+    run.status = "submitted"
+    run.params_json = params
+    run.error_summary = None
+    run.ended_at = None
+
+    dag_run_id = f"manual__{analysis_id}__{mode}__{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+    conf = _dag_conf(run)
+    airflow_payload = airflow_client.trigger_dag_run(run.dag_id, dag_run_id=dag_run_id, conf=conf)
+    dag_run_id = airflow_payload.get("dag_run_id") or dag_run_id
+    run.dag_run_id = dag_run_id
+    session.add(
+        RunAction(
+            analysis_id=analysis_id,
+            action=mode,
+            payload_json={
+                "dag_id": run.dag_id,
+                "dag_run_id": dag_run_id,
+                "conf": conf,
+                "rule": rule,
+                "sample_id": sample_id,
+                "reason": reason,
+            },
+            result_status="accepted",
+            message="WES mock reanalysis DAG run submitted.",
+        )
+    )
+    session.commit()
+    session.refresh(run)
+    return {
+        "analysis_id": analysis_id,
+        "new_dag_run_id": dag_run_id,
+        "mode": mode,
+        "status": run.status,
+    }
+
+
 def _validate_selected_sample(sample: FastqCandidate, rawdata_root: Path, allowed_roots: list[str]) -> None:
     r1 = ensure_allowed_path(sample.r1, allowed_roots)
     r2 = ensure_allowed_path(sample.r2, allowed_roots)
@@ -183,12 +320,15 @@ def _validate_selected_sample(sample: FastqCandidate, rawdata_root: Path, allowe
 
 
 def _validate_submit_run(run: AnalysisRun) -> None:
-    if run.pipeline_name != "pgta":
-        raise ValueError("Only pipeline=pgta can be submitted by this endpoint.")
     if run.status != "created":
         raise ValueError("Run must have status=created before submit.")
     params = run.params_json or {}
-    _validate_pgta_target(str(params.get("target") or "metadata"))
+    if run.pipeline_name == "pgta":
+        _validate_pgta_target(str(params.get("target") or "metadata"))
+    elif run.pipeline_name == "wes_qsub":
+        _validate_wes_target(str(params.get("target") or "final_summary"))
+    else:
+        raise ValueError("Only pipeline=pgta or pipeline=wes_qsub can be submitted by this endpoint.")
     if not run.sample_sheet_path:
         raise ValueError("Run is missing sample_sheet_path.")
     if not run.workdir:
@@ -201,12 +341,48 @@ def _validate_pgta_target(target: str) -> None:
         raise ValueError(f"Unsupported PGT-A target: {target}. Supported targets: {supported}.")
 
 
+def _validate_wes_target(target: str) -> None:
+    if target not in SUPPORTED_WES_TARGETS:
+        supported = ", ".join(sorted(SUPPORTED_WES_TARGETS))
+        raise ValueError(f"Unsupported WES target: {target}. Supported targets: {supported}.")
+
+
+def _validate_wes_reanalysis(*, run: AnalysisRun, mode: str, rule: str | None, sample_id: str | None) -> None:
+    if run.pipeline_name != "wes_qsub":
+        raise ValueError("Only pipeline=wes_qsub supports reanalysis in this phase.")
+    if mode not in SUPPORTED_WES_REANALYSIS_MODES:
+        supported = ", ".join(sorted(SUPPORTED_WES_REANALYSIS_MODES))
+        raise ValueError(f"Unsupported WES reanalysis mode: {mode}. Supported modes: {supported}.")
+    if run.status in {"submitted", "running", "queued"}:
+        raise ValueError("Run is already active; sync or wait before reanalysis.")
+    if not run.dag_run_id:
+        raise ValueError("Run must have an existing dag_run_id before reanalysis.")
+    if not run.sample_sheet_path:
+        raise ValueError("Run is missing sample_sheet_path.")
+    if not run.workdir:
+        raise ValueError("Run is missing workdir.")
+    _validate_wes_target(str((run.params_json or {}).get("target") or "final_summary"))
+
+    if mode == "resume":
+        return
+
+    if rule not in SUPPORTED_WES_RERUN_RULES:
+        supported = ", ".join(sorted(SUPPORTED_WES_RERUN_RULES))
+        raise ValueError(f"Unsupported WES rerun rule: {rule}. Supported rules: {supported}.")
+    if rule in WES_SAMPLE_RULES:
+        if sample_id not in WES_MOCK_SAMPLES:
+            supported_samples = ", ".join(sorted(WES_MOCK_SAMPLES))
+            raise ValueError(f"sample_id is required for rule {rule}; supported samples: {supported_samples}.")
+    elif sample_id:
+        raise ValueError("sample_id is not supported for final_summary rerun.")
+
+
 def _ensure_airflow_writable(path: Path) -> None:
     path.chmod(0o775)
 
 
 def _dag_conf(run: AnalysisRun) -> dict:
-    return {
+    conf = {
         "analysis_id": run.analysis_id,
         "pipeline": run.pipeline_name,
         "mode": run.mode,
@@ -215,12 +391,22 @@ def _dag_conf(run: AnalysisRun) -> dict:
         "email_to": run.email_to,
         "params": run.params_json or {},
     }
+    if run.pipeline_name == "wes_qsub":
+        conf["backend_event_url"] = WES_BACKEND_EVENT_URL
+    return conf
 
 
 def _write_manifest(path: Path, selected_samples: list[FastqCandidate]) -> None:
     lines = ["sample_id\tR1\tR2\tsource_dir"]
     for item in selected_samples:
         lines.append(f"{item.sample_id}\t{item.r1}\t{item.r2}\t{item.source_dir}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _write_wes_manifest(path: Path) -> None:
+    lines = ["sample_id\tinput"]
+    for sample_id, input_path in WES_MOCK_SAMPLES.items():
+        lines.append(f"{sample_id}\t{input_path}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -248,10 +434,37 @@ def _write_request(
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _write_wes_request(
+    path: Path,
+    *,
+    analysis_id: str,
+    project_name: str,
+    target: str,
+    email_to: str | None,
+    note: str | None,
+) -> None:
+    payload = {
+        "analysis_id": analysis_id,
+        "pipeline": "wes_qsub",
+        "project_name": project_name,
+        "target": target,
+        "samples": WES_MOCK_SAMPLES,
+        "email_to": email_to,
+        "note": note,
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def _new_analysis_id() -> str:
     now = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     suffix = secrets.token_hex(3).upper()
     return f"PGTA_{now}_{suffix}"
+
+
+def _new_wes_analysis_id() -> str:
+    now = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    suffix = secrets.token_hex(3).upper()
+    return f"WES_{now}_{suffix}"
 
 
 def _run_payload(run: AnalysisRun, *, sample_count: int) -> dict:

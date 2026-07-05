@@ -71,7 +71,7 @@ export type ScanInputResponse = {
 
 export type PgtaTarget = "metadata" | "dryrun_cnv" | "invalid_target";
 
-export type CreateRunRequest = {
+export type CreatePgtaRunRequest = {
   pipeline: "pgta";
   project_name: string;
   target: PgtaTarget;
@@ -79,6 +79,30 @@ export type CreateRunRequest = {
   selected_samples: ScanCandidate[];
   email_to?: string | null;
   note?: string | null;
+};
+
+export type CreateWesRunRequest = {
+  pipeline: "wes_qsub";
+  project_name: string;
+  target: "final_summary";
+  email_to?: string | null;
+  note?: string | null;
+};
+
+export type CreateRunRequest = CreatePgtaRunRequest | CreateWesRunRequest;
+
+export type ReanalysisRequest = {
+  mode: "resume" | "rerun_rule";
+  rule?: string | null;
+  sample_id?: string | null;
+  reason?: string | null;
+};
+
+export type ReanalysisResponse = {
+  analysis_id: string;
+  new_dag_run_id: string;
+  mode: string;
+  status: string;
 };
 
 export type RuleEvent = {
@@ -158,7 +182,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function listRuns(): Promise<RunListResponse> {
-  return requestJson<RunListResponse>("/runs?pipeline=pgta&limit=50&offset=0");
+  return requestJson<RunListResponse>("/runs?limit=50&offset=0");
 }
 
 export function scanInput(payload: ScanInputRequest): Promise<ScanInputResponse> {
@@ -206,5 +230,13 @@ export function syncAirflow(analysisId: string): Promise<RunDetail> {
 export function submitRun(analysisId: string): Promise<RunDetail> {
   return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}/actions/submit`, {
     method: "POST",
+  });
+}
+
+export function reanalyzeRun(analysisId: string, payload: ReanalysisRequest): Promise<ReanalysisResponse> {
+  return requestJson<ReanalysisResponse>(`/runs/${encodeURIComponent(analysisId)}/actions/reanalyze`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
   });
 }

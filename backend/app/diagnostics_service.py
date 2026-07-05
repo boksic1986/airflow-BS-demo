@@ -91,6 +91,27 @@ ARTIFACTS = [
         relative_path=Path("config/pgta_metadata_config.json"),
         url="/api/runs/{analysis_id}/artifacts/pgta_metadata_config",
     ),
+    ArtifactDefinition(
+        key="wes_final_summary",
+        type="wes_mock_summary",
+        label="WES mock final summary",
+        relative_path=Path("reports/final_summary.tsv"),
+        url="/api/runs/{analysis_id}/artifacts/wes_final_summary",
+    ),
+    ArtifactDefinition(
+        key="wes_mock_config",
+        type="wes_config",
+        label="WES mock Snakemake config",
+        relative_path=Path("config/wes_mock_config.yaml"),
+        url="/api/runs/{analysis_id}/artifacts/wes_mock_config",
+    ),
+    ArtifactDefinition(
+        key="wes_events_jsonl",
+        type="snakemake_events",
+        label="WES Snakemake events JSONL",
+        relative_path=Path("logs/events/snakemake_events.jsonl"),
+        url="/api/runs/{analysis_id}/artifacts/wes_events_jsonl",
+    ),
 ]
 
 

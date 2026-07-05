@@ -17,7 +17,10 @@ DEFAULT_PIPELINES_ROOT = Path(os.getenv("AIRFLOW_PIPELINES_ROOT", "/opt/airflow/
 DEFAULT_PROFILES_ROOT = Path(os.getenv("AIRFLOW_PROFILES_ROOT", "/opt/airflow/profiles"))
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 SUPPORTED_WES_TARGETS = {"final_summary"}
-SUPPORTED_WES_MODES = {"new"}
+SUPPORTED_WES_MODES = {"new", "resume", "rerun_rule"}
+SUPPORTED_WES_RERUN_RULES = {"fastp", "bwa_mem", "markdup", "final_summary"}
+WES_SAMPLE_RULES = {"fastp", "bwa_mem", "markdup"}
+WES_MOCK_SAMPLES = {"S001", "S002"}
 MAX_WES_MOCK_JOBS = 2
 
 
@@ -39,12 +42,15 @@ def validate_wes_conf(
     if pipeline != "wes_qsub":
         raise ValueError("pipeline must be wes_qsub.")
     if mode not in SUPPORTED_WES_MODES:
-        raise ValueError("mode must be new for WES mock v1.")
+        supported_modes = ", ".join(sorted(SUPPORTED_WES_MODES))
+        raise ValueError(f"Unsupported WES mode: {mode}. Supported modes: {supported_modes}.")
     if target not in SUPPORTED_WES_TARGETS:
         supported = ", ".join(sorted(SUPPORTED_WES_TARGETS))
         raise ValueError(f"Unsupported WES target: {target}. Supported targets: {supported}.")
     if max_jobs < 1 or max_jobs > MAX_WES_MOCK_JOBS:
         raise ValueError(f"max_jobs must be between 1 and {MAX_WES_MOCK_JOBS}.")
+    if mode == "rerun_rule":
+        _validate_rerun_rule_params(params)
 
     shared_root = shared_root.resolve()
     ensure_under_root(workdir, shared_root, label="workdir")
@@ -90,10 +96,14 @@ def prepare_wes_config(
 def build_snakemake_command(
     config_path: Path,
     *,
+    mode: str = "new",
+    rule: str | None = None,
+    sample_id: str | None = None,
+    workdir: Path | None = None,
     pipelines_root: Path = DEFAULT_PIPELINES_ROOT,
     profiles_root: Path = DEFAULT_PROFILES_ROOT,
 ) -> list[str]:
-    return [
+    command = [
         "snakemake",
         "--snakefile",
         str(pipelines_root / "wes" / "workflow" / "Snakefile"),
@@ -102,6 +112,12 @@ def build_snakemake_command(
         "--profile",
         str(profiles_root / "qsub"),
     ]
+    if mode == "rerun_rule":
+        if workdir is None:
+            raise ValueError("workdir is required for rerun_rule command construction.")
+        target = _rerun_target_path(workdir=workdir, rule=str(rule), sample_id=sample_id)
+        command.extend(["--forcerun", str(rule), target])
+    return command
 
 
 def run_wes_qsub(
@@ -115,7 +131,16 @@ def run_wes_qsub(
     logs_dir = ensure_directory(workdir / "logs")
     snakemake_cache_dir = ensure_directory(workdir / "tmp" / "xdg-cache")
     config_path = Path(conf["config_path"])
-    command = build_snakemake_command(config_path, pipelines_root=pipelines_root, profiles_root=profiles_root)
+    params = dict(conf.get("params") or {})
+    command = build_snakemake_command(
+        config_path,
+        mode=str(conf.get("mode") or "new"),
+        rule=params.get("rule"),
+        sample_id=params.get("sample_id"),
+        workdir=workdir,
+        pipelines_root=pipelines_root,
+        profiles_root=profiles_root,
+    )
     env = os.environ.copy()
     env.setdefault("AIRFLOW_DEMO_QSUB_MODE", "mock")
     env.setdefault("AIRFLOW_DEMO_QSUB_PYTHON", "python")
@@ -158,3 +183,28 @@ def _containerized_samples(samples: dict[str, Any], *, pipelines_root: Path) -> 
             container_input = pipelines_root / input_path
         converted[sample_id] = {"input": str(container_input)}
     return converted
+
+
+def _validate_rerun_rule_params(params: dict[str, Any]) -> None:
+    rule = str(params.get("rule") or "").strip()
+    sample_id = str(params.get("sample_id") or "").strip() or None
+    if rule not in SUPPORTED_WES_RERUN_RULES:
+        supported = ", ".join(sorted(SUPPORTED_WES_RERUN_RULES))
+        raise ValueError(f"Unsupported WES rerun rule: {rule}. Supported rules: {supported}.")
+    if rule in WES_SAMPLE_RULES and sample_id not in WES_MOCK_SAMPLES:
+        supported_samples = ", ".join(sorted(WES_MOCK_SAMPLES))
+        raise ValueError(f"sample_id is required for rule {rule}; supported samples: {supported_samples}.")
+    if rule == "final_summary" and sample_id:
+        raise ValueError("sample_id is not supported for final_summary rerun.")
+
+
+def _rerun_target_path(*, workdir: Path, rule: str, sample_id: str | None) -> str:
+    if rule == "fastp":
+        return str(workdir / "fastp" / f"{sample_id}.clean.txt")
+    if rule == "bwa_mem":
+        return str(workdir / "mapping" / f"{sample_id}.bam")
+    if rule == "markdup":
+        return str(workdir / "markdup" / f"{sample_id}.markdup.bam")
+    if rule == "final_summary":
+        return str(workdir / "reports" / "final_summary.tsv")
+    raise ValueError(f"Unsupported WES rerun rule: {rule}.")
