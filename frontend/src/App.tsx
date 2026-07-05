@@ -20,6 +20,7 @@ import {
   LogStream,
   PgtaTarget,
   RuleEvent,
+  RunQc,
   RunDetail,
   RunLog,
   RunSummary,
@@ -28,6 +29,7 @@ import {
   getRunArtifacts,
   getRunDetail,
   getRunLog,
+  getRunQc,
   getRunRules,
   getRunSamples,
   listRuns,
@@ -42,6 +44,7 @@ type RunBundle = {
   samples: Sample[];
   rules: RuleEvent[];
   artifacts: Artifact[];
+  qc: RunQc | null;
 };
 
 const emptyBundle: RunBundle = {
@@ -49,6 +52,7 @@ const emptyBundle: RunBundle = {
   samples: [],
   rules: [],
   artifacts: [],
+  qc: null,
 };
 
 const defaultRawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28";
@@ -161,17 +165,19 @@ export default function App() {
     setLoadingDetail(true);
     setDetailError(null);
     try {
-      const [detail, samples, rules, artifacts] = await Promise.all([
+      const [detail, samples, rules, artifacts, qc] = await Promise.all([
         getRunDetail(analysisId),
         getRunSamples(analysisId),
         getRunRules(analysisId),
         getRunArtifacts(analysisId),
+        getRunQc(analysisId),
       ]);
       setBundle({
         detail,
         samples: samples.items,
         rules: rules.items,
         artifacts: artifacts.items,
+        qc,
       });
     } catch (error) {
       setBundle(emptyBundle);
@@ -491,6 +497,7 @@ export default function App() {
 
               {detailError ? <ErrorBanner message={detailError} /> : null}
               {bundle.detail ? <Overview detail={bundle.detail} sampleCount={bundle.samples.length} /> : null}
+              <QcPanel qc={bundle.qc} />
 
               <div className="detail-grid">
                 <SamplesTable samples={bundle.samples} />
@@ -840,6 +847,59 @@ function RulesTable({rules}: {rules: RuleEvent[]}) {
               <tr>
                 <td colSpan={6} className="empty-cell">
                   No rule events returned.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function QcPanel({qc}: {qc: RunQc | null}) {
+  const summary = qc?.summary || {pass: 0, warn: 0, fail: 0, unknown: 0};
+  const metrics = qc?.items || [];
+  return (
+    <section className="section-band">
+      <div className="section-title">
+        <ListChecks size={17} />
+        <h3>QC</h3>
+      </div>
+      <div className="qc-summary" aria-label="QC summary">
+        {(["pass", "warn", "fail", "unknown"] as const).map((status) => (
+          <span className={`status-pill ${statusClass(status)}`} key={status}>
+            {status}: {summary[status]}
+          </span>
+        ))}
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>sample</th>
+              <th>metric</th>
+              <th>value</th>
+              <th>threshold</th>
+              <th>status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {metrics.map((metric) => (
+              <tr key={`${metric.sample_id || "project"}-${metric.metric_name}`}>
+                <td>{metric.sample_id || "project"}</td>
+                <td>{metric.metric_name}</td>
+                <td>{metric.metric_value ?? metric.metric_numeric ?? "not set"}</td>
+                <td>{metric.threshold || "not set"}</td>
+                <td>
+                  <span className={`status-pill ${statusClass(metric.status)}`}>{metric.status}</span>
+                </td>
+              </tr>
+            ))}
+            {metrics.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="empty-cell">
+                  No QC metrics returned.
                 </td>
               </tr>
             ) : null}

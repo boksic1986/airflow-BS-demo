@@ -339,6 +339,13 @@ a {
   border-radius: 8px;
 }
 
+.qc-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .section-title {
   margin-bottom: 12px;
 }

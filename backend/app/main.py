@@ -19,6 +19,7 @@ from app.diagnostics_service import (
     sync_airflow_status,
 )
 from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candidates
+from app.qc_service import list_run_qc
 from app.rule_event_service import list_snakemake_rule_events, record_snakemake_event
 from app.run_service import (
     create_pgta_run,
@@ -331,6 +332,18 @@ def run_rules(analysis_id: str) -> dict[str, object]:
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
     return {"items": items}
+
+
+@app.get("/api/runs/{analysis_id}/qc")
+def run_qc(analysis_id: str) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        payload = list_run_qc(session=session, analysis_id=analysis_id)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+        )
+    return payload
 
 
 @app.post("/api/events/snakemake")

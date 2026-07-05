@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun
+from app.qc_service import import_wes_qc_metrics
 
 
 class DiagnosticsError(Exception):
@@ -106,6 +107,13 @@ ARTIFACTS = [
         url="/api/runs/{analysis_id}/artifacts/wes_final_summary",
     ),
     ArtifactDefinition(
+        key="wes_qc_summary",
+        type="qc_tsv",
+        label="WES mock QC summary",
+        relative_path=Path("reports/qc_summary.tsv"),
+        url="/api/runs/{analysis_id}/qc",
+    ),
+    ArtifactDefinition(
         key="wes_mock_config",
         type="wes_config",
         label="WES mock Snakemake config",
@@ -139,6 +147,7 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
         run.error_summary = build_error_summary(run=run, airflow_payload=airflow_payload, settings=settings)
     elif run.status == "success":
         run.error_summary = None
+        import_wes_qc_metrics(session=session, run=run, settings=settings)
 
     session.commit()
     session.refresh(run)

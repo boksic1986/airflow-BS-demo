@@ -218,6 +218,11 @@ class WesQsubRunnerTests(unittest.TestCase):
                 "sample_id\tstatus\nS001\tmock_success\nS002\tmock_success\n",
                 encoding="utf-8",
             )
+            (workdir / "reports" / "qc_summary.tsv").write_text(
+                "sample_id\tmetric_name\tmetric_value\tmetric_numeric\tthreshold\tstatus\n"
+                "S001\tworkflow_status\tmock_success\t\tmock_success\tpass\n",
+                encoding="utf-8",
+            )
             (workdir / "logs" / "events" / "snakemake_events.jsonl").write_text(
                 '{"event":"qsub_submitted"}\n{"event":"qsub_success"}\n',
                 encoding="utf-8",
@@ -230,7 +235,9 @@ class WesQsubRunnerTests(unittest.TestCase):
         self.assertEqual(artifact["type"], "wes_mock_summary")
         self.assertEqual(artifact["event_count"], 2)
         self.assertEqual(artifact["qsub_log_count"], 2)
+        self.assertEqual(artifact["qc_metric_count"], 1)
         self.assertTrue(artifact["path"].endswith("reports/final_summary.tsv"))
+        self.assertTrue(artifact["qc_path"].endswith("reports/qc_summary.tsv"))
 
 
 if __name__ == "__main__":

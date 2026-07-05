@@ -32,6 +32,11 @@ class BioWesQsubDagTests(unittest.TestCase):
             events_dir.mkdir(parents=True)
             qsub_dir.mkdir(parents=True)
             (reports_dir / "final_summary.tsv").write_text("sample_id\tstatus\nS001\tmock_success\n", encoding="utf-8")
+            (reports_dir / "qc_summary.tsv").write_text(
+                "sample_id\tmetric_name\tmetric_value\tmetric_numeric\tthreshold\tstatus\n"
+                "S001\tworkflow_status\tmock_success\t\tmock_success\tpass\n",
+                encoding="utf-8",
+            )
             (events_dir / "snakemake_events.jsonl").write_text('{"event":"qsub_success"}\n', encoding="utf-8")
             (qsub_dir / "fastp.S001.o").write_text("ok\n", encoding="utf-8")
             (qsub_dir / "fastp.S001.e").write_text("", encoding="utf-8")
@@ -47,6 +52,8 @@ class BioWesQsubDagTests(unittest.TestCase):
         self.assertEqual(task_instance.task_ids, "run_wes_qsub")
         self.assertEqual(artifact["type"], "wes_mock_summary")
         self.assertTrue(artifact["path"].endswith("final_summary.tsv"))
+        self.assertTrue(artifact["qc_path"].endswith("qc_summary.tsv"))
+        self.assertEqual(artifact["qc_metric_count"], 1)
         self.assertEqual(artifact["event_count"], 1)
         self.assertEqual(artifact["qsub_log_count"], 2)
 

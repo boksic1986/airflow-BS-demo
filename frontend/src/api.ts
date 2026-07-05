@@ -120,6 +120,26 @@ export type RuleEvent = {
   wildcards?: Record<string, unknown> | null;
 };
 
+export type QcMetric = {
+  sample_id?: string | null;
+  metric_name: string;
+  metric_value?: string | null;
+  metric_numeric?: number | null;
+  threshold?: string | null;
+  status: string;
+  source_file?: string | null;
+};
+
+export type RunQc = {
+  summary: {
+    pass: number;
+    warn: number;
+    fail: number;
+    unknown: number;
+  };
+  items: QcMetric[];
+};
+
 export type LogStream = "metadata" | "stdout" | "stderr";
 
 export type RunLog = {
@@ -211,6 +231,10 @@ export function getRunSamples(analysisId: string): Promise<{items: Sample[]}> {
 
 export function getRunRules(analysisId: string): Promise<{items: RuleEvent[]}> {
   return requestJson<{items: RuleEvent[]}>(`/runs/${encodeURIComponent(analysisId)}/rules`);
+}
+
+export function getRunQc(analysisId: string): Promise<RunQc> {
+  return requestJson<RunQc>(`/runs/${encodeURIComponent(analysisId)}/qc`);
 }
 
 export function getRunArtifacts(analysisId: string): Promise<{items: Artifact[]}> {

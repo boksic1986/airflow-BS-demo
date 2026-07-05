@@ -18,7 +18,8 @@ def sample_input(wildcards):
 
 rule all:
     input:
-        project_path("reports", "final_summary.tsv")
+        project_path("reports", "final_summary.tsv"),
+        project_path("reports", "qc_summary.tsv")
 
 
 rule fastp:
@@ -100,7 +101,8 @@ rule final_summary:
     input:
         expand(project_path("markdup", "{sample}.markdup.bam"), sample=SAMPLE_IDS)
     output:
-        summary=project_path("reports", "final_summary.tsv")
+        summary=project_path("reports", "final_summary.tsv"),
+        qc=project_path("reports", "qc_summary.tsv")
     log:
         stdout=project_path("logs", "rules", "final_summary", "project.stdout.log"),
         stderr=project_path("logs", "rules", "final_summary", "project.stderr.log")
@@ -118,6 +120,12 @@ rule final_summary:
         mkdir -p "$(dirname {output.summary})" "$(dirname {log.stdout})" "$(dirname {log.stderr})"
         printf "sample_id\tstatus\n" > {output.summary}
         for sample in {params.samples}; do printf "%s\tmock_success\n" "$sample" >> {output.summary}; done
+        printf "sample_id\tmetric_name\tmetric_value\tmetric_numeric\tthreshold\tstatus\n" > {output.qc}
+        for sample in {params.samples}; do
+          printf "%s\tworkflow_status\tmock_success\t\tmock_success\tpass\n" "$sample" >> {output.qc}
+          printf "%s\tmock_mean_depth\t100\t100\t>=80\tpass\n" "$sample" >> {output.qc}
+          printf "%s\tmock_pct_20x\t0.95\t0.95\t>=0.90\tpass\n" "$sample" >> {output.qc}
+        done
         echo "final_summary stdout" > {log.stdout}
         : > {log.stderr}
         """

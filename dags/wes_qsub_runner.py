@@ -159,14 +159,19 @@ def run_wes_qsub(
 def collect_wes_artifacts(conf: dict[str, Any]) -> dict[str, str | int]:
     workdir = Path(conf["workdir"])
     summary_path = workdir / "reports" / "final_summary.tsv"
+    qc_path = workdir / "reports" / "qc_summary.tsv"
     events_path = workdir / "logs" / "events" / "snakemake_events.jsonl"
     qsub_log_count = len(list((workdir / "logs" / "qsub").glob("*.[oe]")))
     if not summary_path.is_file():
         raise FileNotFoundError(f"WES final summary artifact was not generated: {summary_path}")
+    if not qc_path.is_file():
+        raise FileNotFoundError(f"WES QC summary artifact was not generated: {qc_path}")
     return {
         "type": "wes_mock_summary",
         "path": str(summary_path),
         "label": "WES mock final summary",
+        "qc_path": str(qc_path),
+        "qc_metric_count": max(count_nonempty_lines(qc_path) - 1, 0),
         "event_path": str(events_path),
         "event_count": count_nonempty_lines(events_path),
         "qsub_log_count": qsub_log_count,
