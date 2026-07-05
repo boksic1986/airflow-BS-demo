@@ -289,7 +289,7 @@ def test_sync_airflow_success_imports_wes_qc_metrics_idempotently(tmp_path, monk
 def test_get_run_qc_returns_summary_and_metric_rows(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_wes_submitted_run(session_factory, tmp_path)
-    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared")
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared", FakeAirflowClient("success"))
     client = TestClient(main.app)
 
     client.post(f"/api/runs/{analysis_id}/actions/sync-airflow")
