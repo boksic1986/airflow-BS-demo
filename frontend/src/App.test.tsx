@@ -143,7 +143,8 @@ describe("PGT-A run dashboard", () => {
               {status: 201},
             );
           }
-          createdRunTarget = requestBody.target || "metadata";
+          createdRunTarget =
+            requestBody.target === "dryrun_cnv" || requestBody.target === "invalid_target" ? requestBody.target : "metadata";
           createdRunStatus = "created";
           return mockJson(
             {
