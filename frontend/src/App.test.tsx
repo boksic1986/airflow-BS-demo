@@ -511,6 +511,17 @@ describe("PGT-A run dashboard", () => {
     expect(createButton).toBeEnabled();
   });
 
+  it("keeps the PGT-A submit form in a main submit workspace with clear enablement guidance", async () => {
+    render(<App />);
+
+    const submitWorkspace = await screen.findByRole("region", {name: /submit new analysis/i});
+    expect(within(submitWorkspace).getByRole("region", {name: /new pgt-a run/i})).toBeInTheDocument();
+
+    const runList = screen.getByRole("complementary", {name: /analysis run list/i});
+    expect(within(runList).queryByRole("region", {name: /new pgt-a run/i})).not.toBeInTheDocument();
+    expect(within(submitWorkspace).getByText(/select at least one scanned sample/i)).toBeInTheDocument();
+  });
+
   it("creates a PGT-A run from selected server-path samples and selects the new run", async () => {
     const user = userEvent.setup();
     render(<App />);
