@@ -200,7 +200,7 @@ docker compose exec airflow-scheduler airflow dags list
 
 ## 7. `bio_wes_qsub` v1
 
-`bio_wes_qsub` is the first WES mock project-level DAG. T031 proved Airflow-only execution; T044/T056 adds FastAPI/frontend create, submit, resume, and selected-rule rerun for the same mock workflow. It still does not add QC parsing, email notification, NIPT, production WES data, or real qsub.
+`bio_wes_qsub` is the first WES mock project-level DAG. T031 proved Airflow-only execution; T044/T056 adds FastAPI/frontend create, submit, resume, and selected-rule rerun for the same mock workflow. T060 adds deterministic mock QC output consumed by the backend after explicit `sync-airflow`. It still does not add email notification, NIPT, production WES data, or real qsub.
 
 Task graph:
 
@@ -260,7 +260,7 @@ For `mode=resume`, the command remains profile-based and relies on Snakemake out
 --forcerun <rule> <selected-target>
 ```
 
-Selected targets are limited to the mock output path for `fastp/bwa_mem/markdup` and `reports/final_summary.tsv`.
+Selected targets are limited to the mock output path for `fastp/bwa_mem/markdup` and `reports/final_summary.tsv`. The project-level `final_summary` rule also writes `reports/qc_summary.tsv`.
 
 Runtime environment:
 
@@ -273,6 +273,7 @@ Expected outputs:
 
 ```text
 workdir/reports/final_summary.tsv
+workdir/reports/qc_summary.tsv
 workdir/logs/snakemake.stdout.log
 workdir/logs/snakemake.stderr.log
 workdir/logs/snakemake.command.txt
@@ -297,6 +298,14 @@ workdir/logs/events/snakemake_events.jsonl
 - `manual__WES_20260705_162041_2507AF__rerun_rule__20260705T162151Z` ended `success`.
 - `logs/snakemake.command.txt` for the final run contains `--forcerun fastp` and does not contain `--forceall`.
 - `logs/events/snakemake_events.jsonl` has 28 lines after the sequence.
+
+2026-07-05 `fengxian` T060/T054 smoke:
+
+- API/frontend path created and submitted `WES_20260705_164813_C5561C`.
+- `manual__WES_20260705_164813_C5561C` ended `success` after explicit sync.
+- `reports/qc_summary.tsv` exists with 6 deterministic mock QC rows across `S001/S002`.
+- `GET /api/runs/WES_20260705_164813_C5561C/qc` returned `pass=6`, `warn=0`, `fail=0`, `unknown=0`.
+- Dynamic artifacts include `wes_qc_summary`.
 
 ## 8. `bio_pgta` v1
 

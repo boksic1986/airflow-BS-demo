@@ -137,6 +137,19 @@ T044/T056 WES mock resume/rerun 已验收：
 - `logs/events/snakemake_events.jsonl` has 28 lines.
 - `logs/snakemake.command.txt` contains `--forcerun fastp` and does not contain `--forceall`.
 
+T060/T054 WES mock QC parser/panel 已验收：
+
+- `docker compose -f docker-compose.yaml config --quiet` passed.
+- Remote build passed for `backend`, `frontend`, `airflow-worker`, `airflow-scheduler`, and `airflow-api-server`.
+- Remote backend test suite passed: `43 passed`.
+- Dockerized WES mock contract tests passed: `Ran 7 tests OK`.
+- Dockerized Airflow DAG/runner tests passed: `Ran 11 tests OK`.
+- Frontend Docker test target passed: `11 passed`; production frontend image build passed.
+- API/frontend smoke created and submitted `WES_20260705_164813_C5561C`; explicit `sync-airflow` reached `success`.
+- `/api/runs/WES_20260705_164813_C5561C/qc` returned `pass=6`, `warn=0`, `fail=0`, `unknown=0` and 6 items.
+- artifacts API included `wes_qc_summary` and `wes_final_summary`.
+- `shared/runs/WES_20260705_164813_C5561C/reports/qc_summary.tsv` exists with deterministic mock rows for `S001/S002`.
+
 ## 5. Frontend tests
 
 必须覆盖：

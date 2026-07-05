@@ -67,7 +67,7 @@
 | T051 | Submit Analysis 页面 | frontend | T022,T023 | PGT-A server-path form UI | 填写 rawdata_root、扫描候选样本、勾选后创建 run，并可从 created run 提交 `bio_pgta` metadata | done |
 | T052 | Runs Dashboard | frontend | T024 | run list/status cards | 可筛选 pipeline/status | todo |
 | T053 | Run Detail 页面 | frontend | T024,T026 | overview/airflow/snakemake tabs | 展示 rule 状态 | todo |
-| T054 | QC 面板 | frontend | T060 | QC table/MultiQC link | pass/warn/fail 可见 | todo |
+| T054 | QC 面板 | frontend | T060 | WES mock QC panel | Run detail 显示 WES mock QC pass/warn/fail/unknown summary 和样本级指标表；frontend Docker test target 11 tests passed | done |
 | T055 | Log Viewer | frontend | T025 | stdout/stderr tail | 失败默认显示 stderr | todo |
 | T056 | Reanalysis UI | frontend/backend | T044 | WES mock create/submit panel plus resume/rerun buttons | 前端 Docker test target 10 tests passed；WES detail can trigger `resume` and `rerun_rule` via backend | done |
 | T057 | PGT-A run detail 展示 | frontend | T027,T035,T025 | pgta run overview/sample/rule/log/artifact/sync UI | PGT-A run detail v1 可查看 rules/logs/artifacts；T084 failure smoke 后失败摘要可通过现有 detail/logs API 查看 | done |
@@ -76,7 +76,7 @@
 
 | ID | Task | Owner agent | Dependencies | Deliverables | Acceptance | Status |
 |---|---|---|---|---|---|---|
-| T060 | QC parser | backend/snakemake | T021,T040 | qc_metric 写库 | mock QC 指标展示 | todo |
+| T060 | QC parser | backend/snakemake | T021,T040 | WES mock `reports/qc_summary.tsv` + `qc_metric` 写库 + `/api/runs/{analysis_id}/qc` | `WES_20260705_164813_C5561C` sync 后 `/qc` 返回 6 条 pass metrics；重复 sync 幂等；artifacts include `wes_qc_summary` | done |
 | T061 | MultiQC/Snakemake report artifact | snakemake/backend | T040,T060 | report link | artifact 表有记录 | todo |
 | T062 | PGT-A run-level error summary extractor | backend | T025,T027,T035 | run-level Airflow sync + stderr summary | PGT-A run-level `error_summary` 已完成；rule 状态基础已由 T026/T043 入库，WES mock qsub stdout/stderr 事件路径已由 T041/T042 验证 | done |
 | T063 | 邮件模板 | backend/airflow | T034,T060 | success/fail emails | 邮件含 QC 和错误链接 | todo |

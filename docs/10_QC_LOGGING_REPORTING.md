@@ -108,7 +108,38 @@ last_100_lines
 
 T026/T043 已补齐 PGT-A Snakemake 9 rule/job 事件入库基础：`POST /api/events/snakemake` 可 upsert `snakemake_rule_event`，`GET /api/runs/{analysis_id}/rules` 可返回 rule/job 最新状态。qsub job id、qsub stdout/stderr 细粒度诊断仍留给后续 qsub wrapper 任务。
 
-## 7. Artifact 类型
+## 7. WES mock QC v1
+
+T060/T054 已实现 WES mock QC 的最小闭环：
+
+```text
+workdir/reports/qc_summary.tsv
+```
+
+TSV 固定列：
+
+```text
+sample_id
+metric_name
+metric_value
+metric_numeric
+threshold
+status
+```
+
+当前 mock 指标为每个 `S001/S002` 生成 `workflow_status=mock_success`、`mock_mean_depth=100`、`mock_pct_20x=0.95`，状态均为 `pass`。这些值只用于 demo 展示，不代表真实 WES 生产 QC。
+
+导入规则：
+
+- 只在显式调用 `POST /api/runs/{analysis_id}/actions/sync-airflow` 且 `wes_qsub` Airflow DAG run 为 `success` 时导入。
+- 复用 `qc_metric` 表，不新增 migration。
+- 每次导入先清理同一 `analysis_id` 的旧 QC metrics，再写入当前 TSV，因此重复 sync 不产生重复指标。
+- 同步更新 `sample.qc_status`，聚合优先级为 `fail > warn > unknown > pass`。
+- `GET /api/runs/{analysis_id}/qc` 返回 `summary` 和 `items`，普通 GET 不修改 DB。
+
+前端 T054 v1 在 run detail 中展示 QC panel：pass/warn/fail/unknown 计数、样本级指标表和空状态。MultiQC HTML、Snakemake report artifact 表登记和邮件引用仍留给 T061/T063。
+
+## 8. Artifact 类型
 
 ```text
 multiqc_html
@@ -121,7 +152,7 @@ rule_log
 qsub_log
 ```
 
-## 8. 报告生成
+## 9. 报告生成
 
 MVP 可以生成：
 
@@ -137,7 +168,7 @@ shared/reports/<analysis_id>/final_summary.json
 snakemake --report shared/reports/<analysis_id>/snakemake_report.html
 ```
 
-## 9. 前端日志查看要求
+## 10. 前端日志查看要求
 
 - 默认展示最后 200 行。
 - 支持下载完整日志。
@@ -145,7 +176,7 @@ snakemake --report shared/reports/<analysis_id>/snakemake_report.html
 - failed rule 默认打开 stderr。
 - 日志不存在时显示明确状态，而不是空白。
 
-## 10. 验收
+## 11. 验收
 
 - 成功 run 显示 QC pass/warn/fail。
 - 失败 run 显示 failed rule 和 stderr 摘要。
@@ -164,3 +195,10 @@ snakemake --report shared/reports/<analysis_id>/snakemake_report.html
 - repo-local logger plugin 写入 `logs/events/snakemake_events.jsonl`。
 - Airflow `collect_snakemake_events` task 写入 `logs/events/snakemake_rule_summary.tsv`，并在 task log 与 XCom 中展示 event count、status counts 和 failed jobs。
 - 配置 `backend_event_url=http://backend:8000/api/events/snakemake` 时，PGT-A metadata smoke 已把 `all` 和 `collect_run_metadata` rule 状态 upsert 为 `success`，并可通过 `/api/runs/{analysis_id}/rules` 查询。
+
+已完成的 WES mock QC 验收：
+
+- `bio_wes_qsub` 成功 run `WES_20260705_164813_C5561C` 生成 `reports/qc_summary.tsv`。
+- 显式 `sync-airflow` 后，`GET /api/runs/WES_20260705_164813_C5561C/qc` 返回 `pass=6`、`warn=0`、`fail=0`、`unknown=0` 和 6 条指标。
+- artifacts API 动态发现 `wes_qc_summary`。
+- 前端 Docker test target 覆盖 QC panel 渲染、空 QC 状态和 summary 显示。

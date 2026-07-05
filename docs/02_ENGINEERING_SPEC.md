@@ -28,7 +28,7 @@ airflow-demo/
 - Python 版本：由 `SERVER_INFO.md` 补齐，建议 3.11 或 3.12。
 - 后端使用 FastAPI + SQLAlchemy 2.0 + Alembic。
 - 当前最小后端入口：`backend/app/main.py`。
-- 当前 API：`GET /api/health`、`GET /api/health/db`、`GET /api/health/airflow`、`POST /api/input/scan`、`POST /api/runs`、`GET /api/runs`、`GET /api/runs/{analysis_id}`、`GET /api/runs/{analysis_id}/samples`。
+- 当前 API：`GET /api/health`、`GET /api/health/db`、`GET /api/health/airflow`、`POST /api/input/scan`、`POST /api/runs`、`GET /api/runs`、`GET /api/runs/{analysis_id}`、`GET /api/runs/{analysis_id}/samples`、logs/artifacts/rules/QC 查询和 submit/sync/reanalyze actions。
 - T022/T024 阶段不上传 FASTQ，不上传 sample sheet；backend 只扫描白名单服务器路径、保存 R1/R2 路径并创建 selected manifest。
 - backend Docker 镜像先复制 `backend/pip.conf` 配置国内 PyPI 源，再在 `/opt/venv` 创建虚拟环境并安装依赖。
 - 远端宿主机如需临时 Python 工具，必须先建 venv 再安装依赖；不要在系统 Python 或用户全局 site-packages 裸装。
@@ -42,8 +42,8 @@ airflow-demo/
 
 | Service | Host port | Container IP | Current role |
 |---|---:|---|---|
-| backend | 8000 | `172.30.10.20` | FastAPI health, biodemo DB, Airflow client, PGT-A server-path scan/run creation |
-| frontend | 12959 | `172.30.10.30` | React PGT-A run list/detail v1 served by Docker nginx |
+| backend | 8000 | `172.30.10.20` | FastAPI health, biodemo DB, Airflow client, PGT-A server-path scan/run creation, WES mock lifecycle, diagnostics, rules, QC |
+| frontend | 12959 | `172.30.10.30` | React PGT-A/WES mock run workspace served by Docker nginx |
 | airflow-api-server | 12958 | `172.30.10.10` | Airflow web/api using project image `airflow-demo/airflow:0.1.0` |
 | airflow-scheduler | n/a | `172.30.10.11` | Airflow scheduler using project image `airflow-demo/airflow:0.1.0` |
 | airflow-worker | n/a | `172.30.10.12` | Airflow worker can run PGT-A direct tasks and WES mock qsub Snakemake |
@@ -76,13 +76,13 @@ snakemake runner image: airflow-demo/snakemake-runner:0.1.0
 - 日志查看组件必须支持大日志分页或 tail，不一次性加载巨大文件。
 - 所有用户输入在前后端都要校验。
 
-Current T050/T057 frontend v1:
+Current T050/T051/T054/T056/T057 frontend v1:
 
 - `frontend/` is a Vite React + TypeScript app.
 - Docker image tag is `airflow-demo/frontend:0.1.0`; nginx only serves the built SPA.
-- The first screen is the PGT-A run list/detail workspace, not a landing page.
-- It consumes backend APIs for run list/detail, samples, logs, artifacts, rules, and explicit Airflow sync.
-- It does not implement login, sample scan/create form, QC panels, or reanalysis controls yet.
+- The first screen is the PGT-A/WES mock run workspace, not a landing page.
+- It consumes backend APIs for run list/detail, samples, logs, artifacts, rules, QC, explicit Airflow sync, PGT-A scan/create/submit, and WES mock create/submit/reanalysis.
+- It does not implement login, independent log viewer page, MultiQC report viewer, or custom Airflow Web plugin yet.
 
 ## 4. Airflow 规范
 

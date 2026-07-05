@@ -18,7 +18,7 @@ all
   final_summary
 ```
 
-T040 v1 已实现最小 WES mock workflow：`pipelines/wes/workflow/Snakefile` 使用 tiny text input，生成 mock clean reads、BAM、markdup BAM 和 `reports/final_summary.tsv`。每个 rule 都有 input/output/log，rule stdout/stderr 写到 `workdir/logs/rules/<rule>/...`。后续真实 WES 再补 bqsr、haplotypecaller、mosdepth、annovar、multiqc。
+T040 v1 已实现最小 WES mock workflow：`pipelines/wes/workflow/Snakefile` 使用 tiny text input，生成 mock clean reads、BAM、markdup BAM 和 `reports/final_summary.tsv`。T060 v1 让 `final_summary` 同时生成 `reports/qc_summary.tsv`，用于 demo QC 入库和前端展示。每个 rule 都有 input/output/log，rule stdout/stderr 写到 `workdir/logs/rules/<rule>/...`。后续真实 WES 再补 bqsr、haplotypecaller、mosdepth、annovar、multiqc。
 
 ## 3. NIPT qsub rule 设计
 
@@ -127,6 +127,14 @@ T031 adds a separate Airflow runtime path for the same WES mock profile: `bio_we
 
 2026-07-05 `fengxian` Airflow smoke: `bio_wes_qsub` run `manual__WES_AIRFLOW_20260705_004506` finished `success`, produced `reports/final_summary.tsv`, 14 qsub stdout/stderr files, and 14 JSONL events with `qsub_submitted` / `qsub_success`. Real `qsub/qstat` was not called.
 
+T060/T054 extends the same mock workflow with deterministic QC rows:
+
+```text
+workdir/reports/qc_summary.tsv
+```
+
+Columns are fixed as `sample_id,metric_name,metric_value,metric_numeric,threshold,status`. Current mock metrics are `workflow_status`, `mock_mean_depth`, and `mock_pct_20x` for each `S001/S002`, all with `status=pass`. Backend `sync-airflow` imports this TSV into `qc_metric` only after `bio_wes_qsub` reaches `success`; GET endpoints remain read-only.
+
 T044/T056 extends the same path with backend/frontend `resume` and `rerun_rule`. `run_wes_qsub` writes the exact command to:
 
 ```text
@@ -147,6 +155,7 @@ workdir/logs/qsub/<rule>.<sample>.o
 workdir/logs/qsub/<rule>.<sample>.e
 workdir/logs/rules/<rule>/<sample>.stdout.log
 workdir/logs/rules/<rule>/<sample>.stderr.log
+workdir/reports/qc_summary.tsv
 ```
 
 ## 8. Rule 事件状态
@@ -252,5 +261,6 @@ snakemake --forceall
 4. `snakemake-runner` 容器内 cluster-generic executor plugin 可用后，已验证 `--profile profiles/qsub` 真正驱动 wrapper。
 
 2026-07-04 `fengxian` runtime 证据：`airflow-demo/snakemake-runner:0.1.0` 构建成功，`snakemake --version` 返回 `9.23.1`，`cluster-generic` executor 可见；`WES_PROFILE_20260704_230713` 通过 `--profile profiles/qsub` 完成 8 个 WES mock jobs，生成 `reports/final_summary.tsv`、`logs/qsub/*.o/e` 和 14 行 `logs/events/snakemake_events.jsonl`。
-5. 故意让一个 rule 失败，前端能看到 stderr。
-6. 修复后 resume，只执行失败/incomplete 目标。
+5. `reports/qc_summary.tsv` 能在 `sync-airflow` 后导入 `qc_metric`，前端 QC panel 能看到 pass summary 和样本级指标。
+6. 故意让一个 rule 失败，前端能看到 stderr。
+7. 修复后 resume，只执行失败/incomplete 目标。

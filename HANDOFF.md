@@ -36,6 +36,91 @@
 
 ## Records
 
+## 2026-07-06 00:54 - Codex - T060/T054 WES mock QC parser and panel
+
+### Goal
+
+Add WES mock QC output, parse successful `bio_wes_qsub` run QC into biodemo `qc_metric` through explicit `sync-airflow`, expose `GET /api/runs/{analysis_id}/qc`, and show the QC panel in the React run detail. Keep scope mock-only: no MailHog, NIPT, real qsub, real WES QC, MultiQC, or DB migration.
+
+### Completed
+
+- Added `reports/qc_summary.tsv` generation to the WES mock `final_summary` rule.
+- Added backend QC parser/import service, idempotent refresh into `qc_metric`, sample `qc_status` aggregation, and `GET /api/runs/{analysis_id}/qc`.
+- Extended `sync-airflow` so successful `wes_qsub` DAG runs import QC after Airflow reaches `success`.
+- Extended dynamic artifacts to include `wes_qc_summary`.
+- Added frontend API types/client and a run detail QC panel with pass/warn/fail/unknown summary, metric table, and empty state.
+- Updated API/frontend/DAG/Snakemake/QC/runbook/testing docs, task status, current state, manifest, and this handoff.
+
+### Modified files
+
+- `backend/app/qc_service.py`
+- `backend/app/diagnostics_service.py`
+- `backend/app/main.py`
+- `backend/tests/test_run_diagnostics.py`
+- `dags/wes_qsub_runner.py`
+- `dags/tests/test_wes_qsub_runner.py`
+- `pipelines/wes/workflow/Snakefile`
+- `pipelines/tests/test_wes_mock_contract.py`
+- `frontend/src/api.ts`
+- `frontend/src/App.tsx`
+- `frontend/src/App.test.tsx`
+- `frontend/src/styles.css`
+- `docs/05_API_CONTRACT.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/08_SNAKEMAKE_QSUB_INTEGRATION.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/12_TESTING_ACCEPTANCE.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands and results
+
+| Command | Result |
+|---|---|
+| `git checkout -b codex/fullstack/T060-T054-wes-qc-panel` | success |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success |
+| `docker compose -f docker-compose.yaml build backend frontend airflow-worker airflow-scheduler airflow-api-server` on `fengxian` | success |
+| `docker run --rm airflow-demo/backend:0.1.0 pytest -q` on `fengxian` | success, `43 passed` |
+| `docker run --rm airflow-demo/backend:0.1.0 pytest -q tests/test_run_diagnostics.py` on `fengxian` | success, `9 passed` |
+| Dockerized `python -m unittest pipelines.tests.test_wes_mock_contract -v` on `fengxian` | success, `Ran 7 tests OK` |
+| Dockerized `python -m unittest dags.tests.test_bio_wes_qsub_dag dags.tests.test_wes_qsub_runner -v` on `fengxian` | success, `Ran 11 tests OK` |
+| `docker build --target test -f frontend/Dockerfile frontend` on `fengxian` | success, `11 passed` |
+| `airflow dags list-import-errors` in Airflow scheduler container | success, `No data found` |
+| API/frontend WES QC smoke | success: `WES_20260705_164813_C5561C` reached `success`, `/qc` returned `pass=6,warn=0,fail=0,unknown=0`, artifacts include `wes_qc_summary` |
+| `test -s shared/runs/WES_20260705_164813_C5561C/reports/qc_summary.tsv` on `fengxian` | success; TSV contains deterministic rows for `S001/S002` |
+
+### Not run / why
+
+- No MailHog success/failure email was implemented or tested; T034/T063 remain next.
+- No NIPT, real qsub, real WES data, real production QC, MultiQC HTML, or artifact table registration was implemented.
+- No DB migration was added; existing `qc_metric` and `sample.qc_status` schema was sufficient.
+- One smoke shell bundle exited nonzero only because a final `head` check inherited a CRLF path from a PowerShell here-string; the direct follow-up `test -s .../qc_summary.tsv && head ...` passed.
+- No `docker compose down -v`, `docker system prune`, or `docker volume prune` was used.
+
+### Current git status
+
+Work is on branch `codex/fullstack/T060-T054-wes-qc-panel`. Runtime validation ran on the `fengxian` mirror at commit `e22ea41`, followed by this docs/status update.
+
+### Risks
+
+- WES QC values are deterministic mock values for demo display only; they are not valid production WES QC.
+- QC import is tied to explicit `sync-airflow`; the frontend must sync after DAG success before QC appears.
+- Artifacts are still dynamically discovered; T061 artifact table registration and MultiQC report handling remain open.
+
+### Next recommended task
+
+Proceed to T034/T063: MailHog success/failure notification with QC and error-summary links. T080 smoke script/reporting is also a good next slice now that PGT-A and WES mock visible paths both exist.
+
+### Rollback notes
+
+- Revert repository changes with normal `git revert`.
+- Stop services with `docker compose -f docker-compose.yaml down` only; do not use `down -v`.
+- The WES smoke workdir `shared/runs/WES_20260705_164813_C5561C` is disposable demo output, but do not delete shared data without explicit user approval.
+
 ## 2026-07-06 00:24 - Codex - T044/T056 WES mock resume/rerun lifecycle
 
 ### Goal

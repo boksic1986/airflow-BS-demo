@@ -1,6 +1,6 @@
 # 06 前端设计
 
-## 0. Current T050/T051/T056/T057 v1
+## 0. Current T050/T051/T054/T056/T057 v1
 
 第一版前端已经从 nginx placeholder 替换为 Vite React + TypeScript app，由 Docker nginx 镜像服务静态文件，宿主机端口保持 `12959`。
 
@@ -14,6 +14,7 @@
 - 左侧 `New WES Mock Run` 面板可一键创建 `pipeline=wes_qsub,target=final_summary` run 并提交到 `bio_wes_qsub`。
 - `GET /api/runs?limit=50&offset=0` 展示 run 列表。
 - run detail 展示 overview、samples、Snakemake rules、metadata/stdout/stderr logs、artifacts。
+- WES mock run detail 展示 QC panel：pass/warn/fail/unknown summary 和样本级 mock QC 指标表。
 - 手动同步按钮调用 `POST /api/runs/{analysis_id}/actions/sync-airflow`。
 - 对已有 `wes_qsub` DAG run，detail toolbar 显示 `Resume` 和 `Rerun rule` 控件；`Rerun rule` 支持 `fastp/bwa_mem/markdup/final_summary`，样本级 rule 可选 `S001/S002`。
 - API base 默认按浏览器当前 host 推导为 `http://<host>:8000/api`，可通过 `window.__AIRFLOW_DEMO_CONFIG__.apiBaseUrl` 或 `VITE_API_BASE_URL` 覆盖。
@@ -21,7 +22,7 @@
 未实现范围：
 
 - 登录系统。
-- QC 面板、独立日志查看页。
+- 独立日志查看页、MultiQC iframe/report viewer。
 - 自定义 Airflow Web 插件或 Airflow task log API 抓取。
 
 ## 1. 页面结构
@@ -162,10 +163,11 @@ log actions
 
 ### QC
 
-- QC summary：pass/warn/fail。
-- Sample QC table。
-- MultiQC report link/iframe。
-- Snakemake report link。
+- T054 v1 已实现 WES mock QC panel，调用 `GET /api/runs/{analysis_id}/qc`。
+- QC summary：pass/warn/fail/unknown。
+- Sample QC table：sample_id、metric_name、metric_value、threshold、status。
+- 没有 QC 时显示空状态，不影响 rules/logs/artifacts。
+- MultiQC report link/iframe 和 Snakemake report link 留给 T061/T063 后续。
 
 ### Logs
 

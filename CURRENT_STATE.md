@@ -5,9 +5,9 @@
 ## 1. 当前阶段
 
 ```text
-当前阶段: P3/P4 Airflow + Snakemake/qsub mock observability
-当前目标: T044/T056 已完成；WES mock run 可通过 FastAPI/React 创建、提交到 `bio_wes_qsub`，并可触发同 workdir `resume` 与 `rerun_rule`
-最近更新时间: 2026-07-05
+当前阶段: P3/P4/P6 Airflow + Snakemake/qsub mock observability + WES mock QC
+当前目标: T060/T054 已完成；WES mock success run 可通过显式 `sync-airflow` 导入 `qc_summary.tsv` 到 `qc_metric`，并在 React run detail 显示 QC panel
+最近更新时间: 2026-07-06
 最后更新 agent: Codex
 ```
 
@@ -32,19 +32,19 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/fullstack/T044-T056-wes-rerun
-last_verified_code_commit: 25c0633 for T044/T056 WES mock resume/rerun smoke before docs/status update
+active_branch: codex/fullstack/T060-T054-wes-qc-panel
+last_verified_code_commit: e22ea41 for T060/T054 WES mock QC parser/panel smoke before docs/status update
 worktree_strategy: single-worktree for now; fengxian is code mirror only
-fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime validation for T044/T056 ran on origin/codex/fullstack/T044-T056-wes-rerun at 25c0633, followed by docs/status evidence update
+fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime validation for T060/T054 ran on origin/codex/fullstack/T060-T054-wes-qc-panel at e22ea41, followed by docs/status evidence update
 ```
 
 ## 4. 服务状态
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 12959 | running after T045/T084 smoke | React/Vite PGT-A run list/detail plus New PGT-A Run scan/create/submit UI served by Docker nginx image `airflow-demo/frontend:0.1.0`; host 3000 is occupied by non-project next-server |
-| backend | 8000 | running, healthy | `/api/health`, `/api/health/db`, `/api/input/scan`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, and frontend CORS preflight passed on fengxian; image `airflow-demo/backend:0.1.0` |
-| airflow web/api | 12958 | running after T031 smoke | project image `airflow-demo/airflow:0.1.0`; `/health` returned healthy earlier; `bio_pgta` dryrun/failure smoke passed; `bio_pgta_airflow` event POST smoke passed; `bio_wes_qsub` run `manual__WES_AIRFLOW_20260705_004506` succeeded |
+| frontend | 12959 | running after T060/T054 smoke | React/Vite PGT-A + WES mock workspace served by Docker nginx image `airflow-demo/frontend:0.1.0`; WES run detail QC panel smoke passed; host 3000 is occupied by non-project next-server |
+| backend | 8000 | running, healthy | `/api/health`, `/api/health/db`, `/api/input/scan`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and frontend CORS preflight passed on fengxian; image `airflow-demo/backend:0.1.0` |
+| airflow web/api | 12958 | running after T060/T054 smoke | project image `airflow-demo/airflow:0.1.0`; `/health` returned healthy earlier; `bio_pgta` dryrun/failure smoke passed; `bio_pgta_airflow` event POST smoke passed; `bio_wes_qsub` WES QC smoke run `manual__WES_20260705_164813_C5561C` succeeded |
 | postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow metadata initialized; no host port published |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
 | mailhog | 8025 | stopped in T051 smoke | HTTP GET probe passed in earlier smoke; not started for T051 |
@@ -64,15 +64,15 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 | Pipeline | DAG | Snakemake | qsub | Docker | QC | Status |
 |---|---|---|---|---|---|---|
 | PGT-A demo | `bio_pgta` metadata/dryrun/failure smoke passed; `bio_pgta_airflow` Airflow-only logger/event POST passed | direct Snakemake metadata target, `dryrun_cnv`, and controlled `invalid_target` smoke in Airflow worker passed; Snakemake 9.23.1 logger plugin writes JSONL, Airflow log/XCom summary, and optional backend rule/job events | not used | server-path project creation, submit, status sync, logs, artifacts, rule event API, PGT-A run detail frontend v1, and New PGT-A Run frontend scan/create/submit passed | not started | `/api/input/scan` and `/api/runs` create `created` run; submit triggers `bio_pgta`; Airflow-only manifest run can POST rule events to biodemo; frontend can create pgta runs for metadata/dryrun/failure smoke, submit created runs, view run list/detail, samples, rules, logs, artifacts, and sync Airflow |
-| WES qsub | `bio_wes_qsub` Airflow mock DAG passed with `new/resume/rerun_rule` | WES mock Snakefile dry-run passed; WES mock profile runtime passed in `snakemake-runner`; `bio_wes_qsub` runs Snakemake 9.23.1 inside Airflow worker with `profiles/qsub`, writes command/stdout/stderr/events | mock qsub wrapper direct smoke passed with backend POST; Airflow/API/frontend smoke generated mock qsub job ids, stdout/stderr files, JSONL events, and command log proving `--forcerun fastp` without `--forceall` | `airflow-demo/snakemake-runner:0.1.0` and `airflow-demo/airflow:0.1.0` builds passed | not started | T040/T041/T042/T030/T031/T044/T056 done; next step is T060/T054 QC panel or T034/T063 MailHog notification |
+| WES qsub | `bio_wes_qsub` Airflow mock DAG passed with `new/resume/rerun_rule` and QC smoke | WES mock Snakefile dry-run passed; WES mock profile runtime passed in `snakemake-runner`; `bio_wes_qsub` runs Snakemake 9.23.1 inside Airflow worker with `profiles/qsub`, writes command/stdout/stderr/events and `reports/qc_summary.tsv` | mock qsub wrapper direct smoke passed with backend POST; Airflow/API/frontend smoke generated mock qsub job ids, stdout/stderr files, JSONL events, and command log proving `--forcerun fastp` without `--forceall` | `airflow-demo/snakemake-runner:0.1.0` and `airflow-demo/airflow:0.1.0` builds passed | WES mock QC parser and frontend QC panel done; real WES QC and MultiQC not started | T040/T041/T042/T030/T031/T044/T056/T060/T054 done; next step is T034/T063 MailHog notification or T080 smoke report/demo script |
 | NIPT qsub | not started | not started | not started | n/a | not started | pending |
 | NIPT docker | not started | optional | n/a | not started | not started | pending |
 
 ## 7. 最近测试结果
 
 ```text
-last_backend_tests: remote Dockerized pytest on fengxian passed, 40 tests; health/input/run/diagnostics/event tests plus WES create/submit/reanalyze tests passed
-last_frontend_tests: remote Dockerized frontend test target passed on fengxian, 10 Vitest tests; production frontend image `airflow-demo/frontend:0.1.0` built after WES mock UI/reanalysis changes
+last_backend_tests: remote Dockerized pytest on fengxian passed, 43 tests; includes QC TSV parser, `/api/runs/{analysis_id}/qc`, sync-airflow QC import idempotency, sample qc_status update, diagnostics/event tests, and WES create/submit/reanalyze tests
+last_frontend_tests: remote Dockerized frontend test target passed on fengxian, 11 Vitest tests; production frontend image `airflow-demo/frontend:0.1.0` built after WES mock QC panel changes
 last_dag_import_tests: passed on fengxian; Airflow DAG/runner unittest for `test_bio_wes_qsub_dag.py` and `test_wes_qsub_runner.py` returned 11 tests OK; Airflow import errors returned `No data found`; `bio_wes_qsub` listed
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
 last_compose_config: passed on fengxian with Docker Compose v2.24.7 for commit 403fa68; compose now renders backend image `airflow-demo/backend:0.1.0`, frontend image `airflow-demo/frontend:0.1.0`, CORS env, read-only PGT-A mounts, DAG files, and frontend build service
@@ -95,7 +95,8 @@ last_mock_qsub_wrapper: passed on fengxian official mirror with backend POST; an
 last_qsub_profile_runtime: passed on fengxian official mirror with `airflow-demo/snakemake-runner:0.1.0`; `WES_PROFILE_20260704_230713` ran `snakemake --profile profiles/qsub`, Snakemake 9.23.1 saw `cluster-generic`, executed 8 WES mock jobs, wrote `reports/final_summary.tsv`, qsub stdout/stderr files, and 14 JSONL events containing `qsub_submitted`/`qsub_success`
 last_wes_airflow_qsub_smoke: passed on fengxian official mirror with `airflow-demo/airflow:0.1.0`; `WES_AIRFLOW_20260705_004506` / `manual__WES_AIRFLOW_20260705_004506` ended Airflow `success`, wrote `reports/final_summary.tsv` with `S001/S002 mock_success`, qsub stdout/stderr files, and 14 JSONL events; `collect_wes_artifacts` XCom returned `event_count=14` and `qsub_log_count=14`
 last_wes_reanalysis_smoke: passed on fengxian official mirror; API/frontend-created `WES_20260705_162041_2507AF` initial submit, `resume`, and `rerun_rule fastp/S001` all reached Airflow/backend `success`; `/rules` returned 7 rows; `logs/events/snakemake_events.jsonl` has 28 lines; `logs/snakemake.command.txt` contains `--forcerun fastp` and no `--forceall`
-last_e2e_smoke: PGT-A Level 0-3 demo smoke passed for preflight/config, metadata create-submit-success, dryrun_cnv success, and invalid_target failure/error_summary; full QC/email/qsub E2E not run
+last_wes_qc_smoke: passed on fengxian official mirror; API/frontend-created `WES_20260705_164813_C5561C` submitted to `bio_wes_qsub`, sync reached `success`, `/qc` returned `pass=6,warn=0,fail=0,unknown=0` with 6 items, artifacts included `wes_qc_summary`, and `reports/qc_summary.tsv` exists
+last_e2e_smoke: PGT-A Level 0-3 demo smoke passed for preflight/config, metadata create-submit-success, dryrun_cnv success, and invalid_target failure/error_summary; WES mock create-submit-sync-QC passed; full email/NIPT E2E not run
 ```
 
 ## 8. 已知问题
@@ -117,7 +118,7 @@ last_e2e_smoke: PGT-A Level 0-3 demo smoke passed for preflight/config, metadata
 ## 10. 下一步建议
 
 ```text
-1. 执行 T060/T054：补 WES mock QC parser 和前端 QC 面板。
-2. 执行 T034/T063：补 MailHog success/failure 邮件通知。
-3. 执行 T080：整理 WES/PGT-A 端到端 smoke 脚本和 demo 验收报告。
+1. 执行 T034/T063：补 MailHog success/failure 邮件通知，邮件包含 QC 链接和错误摘要链接。
+2. 执行 T080：整理 WES/PGT-A 端到端 smoke 脚本和 demo 验收报告。
+3. 执行 T061：补 MultiQC/Snakemake report artifact 登记和前端链接。
 ```

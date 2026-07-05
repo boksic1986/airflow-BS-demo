@@ -756,7 +756,32 @@ curl -fsS -X POST http://127.0.0.1:8000/api/runs/<analysis_id>/actions/reanalyze
 - `shared/runs/WES_20260705_162041_2507AF/logs/events/snakemake_events.jsonl` has 28 lines
 - `shared/runs/WES_20260705_162041_2507AF/logs/snakemake.command.txt` contains `--forcerun fastp` and no `--forceall`
 
-## 19. 查看日志
+## 19. WES QC smoke
+
+T060/T054 验收在 `fengxian` 的官方镜像目录执行，服务保持运行，未使用 `down -v` 或 prune。
+
+最小流程：
+
+```bash
+curl -fsS -X POST http://127.0.0.1:8000/api/runs \
+  -H 'Content-Type: application/json' \
+  -d '{"pipeline":"wes_qsub","project_name":"WES mock QC smoke","target":"final_summary"}'
+
+curl -fsS -X POST http://127.0.0.1:8000/api/runs/<analysis_id>/actions/submit
+curl -fsS -X POST http://127.0.0.1:8000/api/runs/<analysis_id>/actions/sync-airflow
+curl -fsS http://127.0.0.1:8000/api/runs/<analysis_id>/qc
+curl -fsS http://127.0.0.1:8000/api/runs/<analysis_id>/artifacts
+```
+
+2026-07-05 smoke evidence:
+
+- `analysis_id=WES_20260705_164813_C5561C`
+- `manual__WES_20260705_164813_C5561C` reached Airflow/backend `success`
+- `/api/runs/WES_20260705_164813_C5561C/qc` returned `pass=6`, `warn=0`, `fail=0`, `unknown=0`
+- artifacts included `wes_qc_summary` and `wes_final_summary`
+- `shared/runs/WES_20260705_164813_C5561C/reports/qc_summary.tsv` exists
+
+## 20. 查看日志
 
 ```bash
 docker compose logs --tail=200 backend
@@ -770,7 +795,7 @@ Run 日志：
 find <SHARED_ROOT>/runs/<analysis_id>/logs -type f | sort
 ```
 
-## 19. 停止服务
+## 21. 停止服务
 
 安全停止：
 
@@ -786,7 +811,7 @@ docker compose down -v
 
 除非明确需要删除 volume 且已备份。
 
-## 20. 回滚
+## 22. 回滚
 
 ```bash
 git status

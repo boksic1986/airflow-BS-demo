@@ -265,6 +265,7 @@ POST /api/runs/{analysis_id}/actions/sync-airflow
 - Airflow `success` / `failed` / `running` / `queued` 映射回 `analysis_run.status`。
 - `success` / `failed` 写入 `ended_at`。
 - `failed` 时从 `workdir/logs/snakemake.stderr.log` 提取最后 100 行，写入 `analysis_run.error_summary`。
+- `wes_qsub` 在 Airflow `success` 时解析 `workdir/reports/qc_summary.tsv`，幂等刷新 `qc_metric`，并更新 `sample.qc_status`。
 
 Response:
 
@@ -460,26 +461,35 @@ Errors:
 GET /api/runs/{analysis_id}/qc
 ```
 
+T060/T054 v1 已支持 WES mock QC 查询。QC 导入只发生在显式调用 `sync-airflow` 且 `wes_qsub` DAG run 为 `success` 时；普通 GET 不修改 DB。
+
 Response:
 
 ```json
 {
   "summary": {
-    "pass": 10,
-    "warn": 1,
-    "fail": 0
+    "pass": 6,
+    "warn": 0,
+    "fail": 0,
+    "unknown": 0
   },
   "items": [
     {
       "sample_id": "S001",
-      "metric_name": "mean_depth",
-      "metric_value": "128.3",
+      "metric_name": "mock_mean_depth",
+      "metric_value": "100",
+      "metric_numeric": 100.0,
       "threshold": ">=80",
-      "status": "pass"
+      "status": "pass",
+      "source_file": "/data/airflow-demo/runs/WES_20260705_164813_C5561C/reports/qc_summary.tsv"
     }
   ]
 }
 ```
+
+Errors:
+
+- `404 RUN_NOT_FOUND`: `analysis_id` 不存在。
 
 ## 13. Logs
 
@@ -530,6 +540,7 @@ PGT-A v1 第一版动态发现 metadata/dry-run 产物，不写 artifact 表：
 WES mock v1 也动态发现：
 
 - `reports/final_summary.tsv`
+- `reports/qc_summary.tsv`
 - `logs/snakemake.command.txt`
 - `logs/snakemake.stdout.log`
 - `logs/snakemake.stderr.log`
