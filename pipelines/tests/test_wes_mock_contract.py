@@ -21,6 +21,17 @@ class WesMockContractTests(unittest.TestCase):
         self.assertIn('"logs", "rules", "final_summary"', text)
         self.assertNotIn("--forceall", text)
 
+    def test_wes_mock_final_summary_writes_qc_summary_contract(self) -> None:
+        snakefile = REPO_ROOT / "pipelines" / "wes" / "workflow" / "Snakefile"
+
+        text = snakefile.read_text(encoding="utf-8")
+
+        self.assertIn('"reports", "qc_summary.tsv"', text)
+        self.assertIn("sample_id\\tmetric_name\\tmetric_value\\tmetric_numeric\\tthreshold\\tstatus", text)
+        self.assertIn("workflow_status", text)
+        self.assertIn("mock_mean_depth", text)
+        self.assertIn("mock_pct_20x", text)
+
     def test_qsub_profile_is_mock_safe_and_limited(self) -> None:
         profile = REPO_ROOT / "profiles" / "qsub" / "config.yaml"
 

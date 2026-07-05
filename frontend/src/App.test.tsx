@@ -325,8 +325,14 @@ describe("PGT-A run dashboard", () => {
             ],
           });
         }
+        if (url.endsWith(`/api/runs/${runId}/qc`)) {
+          return mockJson({summary: {pass: 0, warn: 0, fail: 0, unknown: 0}, items: []});
+        }
         if (url.endsWith(`/api/runs/${createdRunId}/artifacts`)) {
           return mockJson({items: []});
+        }
+        if (url.endsWith(`/api/runs/${createdRunId}/qc`)) {
+          return mockJson({summary: {pass: 0, warn: 0, fail: 0, unknown: 0}, items: []});
         }
         if (url.endsWith(`/api/runs/${wesRunId}/artifacts`)) {
           return mockJson({
@@ -338,6 +344,40 @@ describe("PGT-A run dashboard", () => {
                 path: `/data/airflow-demo/runs/${wesRunId}/reports/final_summary.tsv`,
                 size_bytes: 42,
                 url: `/api/runs/${wesRunId}/artifacts/wes_final_summary`,
+              },
+            ],
+          });
+        }
+        if (url.endsWith(`/api/runs/${wesRunId}/qc`)) {
+          return mockJson({
+            summary: {pass: 6, warn: 0, fail: 0, unknown: 0},
+            items: [
+              {
+                sample_id: "S001",
+                metric_name: "workflow_status",
+                metric_value: "mock_success",
+                metric_numeric: null,
+                threshold: "mock_success",
+                status: "pass",
+                source_file: `/data/airflow-demo/runs/${wesRunId}/reports/qc_summary.tsv`,
+              },
+              {
+                sample_id: "S001",
+                metric_name: "mock_mean_depth",
+                metric_value: "100",
+                metric_numeric: 100,
+                threshold: ">=80",
+                status: "pass",
+                source_file: `/data/airflow-demo/runs/${wesRunId}/reports/qc_summary.tsv`,
+              },
+              {
+                sample_id: "S002",
+                metric_name: "mock_pct_20x",
+                metric_value: "0.95",
+                metric_numeric: 0.95,
+                threshold: ">=0.90",
+                status: "pass",
+                source_file: `/data/airflow-demo/runs/${wesRunId}/reports/qc_summary.tsv`,
               },
             ],
           });
@@ -584,6 +624,18 @@ describe("PGT-A run dashboard", () => {
       );
     });
     expect(await screen.findByText(`manual__${wesRunId}`)).toBeInTheDocument();
+  });
+
+  it("renders WES QC summary and metric rows in run detail", async () => {
+    wesRunStatus = "success";
+    render(<App />);
+
+    expect(await screen.findByText(`Analysis ID: ${wesRunId}`)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", {name: "QC"})).toBeInTheDocument();
+    expect(screen.getByText("pass: 6")).toBeInTheDocument();
+    expect(screen.getByText("mock_mean_depth")).toBeInTheDocument();
+    expect(screen.getByText("mock_pct_20x")).toBeInTheDocument();
+    expect(screen.getAllByText("pass").length).toBeGreaterThan(0);
   });
 
   it("triggers WES resume from run detail", async () => {
