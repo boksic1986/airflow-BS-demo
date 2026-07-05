@@ -367,39 +367,6 @@ export default function App() {
 
       <main className="workspace">
         <aside className="run-list" aria-label="Analysis run list">
-          <NewRunPanel
-            projectName={projectName}
-            target={target}
-            rawdataRoot={rawdataRoot}
-            maxSamples={maxSamples}
-            emailTo={emailTo}
-            note={note}
-            scanItems={scanItems}
-            selectedSamples={selectedSamples}
-            scanTruncated={scanTruncated}
-            scanError={scanError}
-            createError={createError}
-            formNotice={formNotice}
-            scanning={scanning}
-            creating={creating}
-            onProjectNameChange={setProjectName}
-            onTargetChange={setTarget}
-            onRawdataRootChange={setRawdataRoot}
-            onMaxSamplesChange={setMaxSamples}
-            onEmailToChange={setEmailTo}
-            onNoteChange={setNote}
-            onScan={() => void handleScan()}
-            onToggleSample={toggleSample}
-            onCreate={() => void handleCreateRun()}
-          />
-          <NewWesPanel
-            projectName={wesProjectName}
-            note={wesNote}
-            creating={creatingWes}
-            onProjectNameChange={setWesProjectName}
-            onNoteChange={setWesNote}
-            onCreateAndSubmit={() => void handleCreateAndSubmitWes()}
-          />
           <div className="pane-title">
             <Activity size={17} />
             <span>Runs</span>
@@ -426,6 +393,41 @@ export default function App() {
         </aside>
 
         <section className="detail-pane" aria-label="Run detail">
+          <section className="submit-workspace" aria-label="Submit new analysis">
+            <NewRunPanel
+              projectName={projectName}
+              target={target}
+              rawdataRoot={rawdataRoot}
+              maxSamples={maxSamples}
+              emailTo={emailTo}
+              note={note}
+              scanItems={scanItems}
+              selectedSamples={selectedSamples}
+              scanTruncated={scanTruncated}
+              scanError={scanError}
+              createError={createError}
+              formNotice={formNotice}
+              scanning={scanning}
+              creating={creating}
+              onProjectNameChange={setProjectName}
+              onTargetChange={setTarget}
+              onRawdataRootChange={setRawdataRoot}
+              onMaxSamplesChange={setMaxSamples}
+              onEmailToChange={setEmailTo}
+              onNoteChange={setNote}
+              onScan={() => void handleScan()}
+              onToggleSample={toggleSample}
+              onCreate={() => void handleCreateRun()}
+            />
+            <NewWesPanel
+              projectName={wesProjectName}
+              note={wesNote}
+              creating={creatingWes}
+              onProjectNameChange={setWesProjectName}
+              onNoteChange={setWesNote}
+              onCreateAndSubmit={() => void handleCreateAndSubmitWes()}
+            />
+          </section>
           {selectedRun ? (
             <>
               <div className="detail-header">
@@ -581,7 +583,7 @@ function NewRunPanel({
         <Plus size={17} />
         <span>New PGT-A Run</span>
       </div>
-      <div className="form-grid">
+      <div className="form-grid pgta-form-grid">
         <label>
           <span>Project name</span>
           <input value={projectName} onChange={(event) => onProjectNameChange(event.target.value)} />
@@ -627,6 +629,11 @@ function NewRunPanel({
           Create Run
         </button>
       </div>
+      <p className="form-hint">
+        {selectedSamples.size > 0
+          ? `${selectedSamples.size} scanned sample${selectedSamples.size === 1 ? "" : "s"} selected.`
+          : "Select at least one scanned sample to enable Create Run."}
+      </p>
       {scanError ? <ErrorBanner message={scanError} /> : null}
       {createError ? <ErrorBanner message={createError} /> : null}
       {formNotice ? <p className="form-notice">{formNotice}</p> : null}
