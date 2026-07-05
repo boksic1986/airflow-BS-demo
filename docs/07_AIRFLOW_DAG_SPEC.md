@@ -200,7 +200,7 @@ docker compose exec airflow-scheduler airflow dags list
 
 ## 7. `bio_wes_qsub` v1
 
-`bio_wes_qsub` is the first WES Airflow-only mock DAG. It does not add FastAPI WES submission, frontend WES pages, QC parsing, reanalysis, or real qsub. It proves that Airflow can trigger the already validated WES mock Snakemake workflow through `profiles/qsub` and the mock qsub wrapper.
+`bio_wes_qsub` is the first WES mock project-level DAG. T031 proved Airflow-only execution; T044/T056 adds FastAPI/frontend create, submit, resume, and selected-rule rerun for the same mock workflow. It still does not add QC parsing, email notification, NIPT, production WES data, or real qsub.
 
 Task graph:
 
@@ -230,10 +230,11 @@ Supported DAG run conf:
 Validation rules:
 
 - `pipeline` must be `wes_qsub`.
-- `mode` must be `new`.
+- `mode` must be `new`, `resume`, or `rerun_rule`.
 - `params.target` must be `final_summary`.
 - `params.max_jobs` must be `1..2`.
 - `workdir` must be under `/data/airflow-demo`.
+- `rerun_rule` requires `params.rule` in `fastp/bwa_mem/markdup/final_summary`; sample-level rules require `params.sample_id=S001/S002`.
 
 `prepare_wes_config` reads `pipelines/wes/config/mock_config.yaml` and writes run-local:
 
@@ -253,6 +254,14 @@ snakemake \
   --profile /opt/airflow/profiles/qsub
 ```
 
+For `mode=resume`, the command remains profile-based and relies on Snakemake output state plus `rerun-incomplete`; no `--forceall` is added. For `mode=rerun_rule`, `run_wes_qsub` appends:
+
+```bash
+--forcerun <rule> <selected-target>
+```
+
+Selected targets are limited to the mock output path for `fastp/bwa_mem/markdup` and `reports/final_summary.tsv`.
+
 Runtime environment:
 
 - `AIRFLOW_DEMO_QSUB_MODE=mock`.
@@ -266,6 +275,7 @@ Expected outputs:
 workdir/reports/final_summary.tsv
 workdir/logs/snakemake.stdout.log
 workdir/logs/snakemake.stderr.log
+workdir/logs/snakemake.command.txt
 workdir/logs/qsub/*.o
 workdir/logs/qsub/*.e
 workdir/logs/events/snakemake_events.jsonl
@@ -278,6 +288,15 @@ workdir/logs/events/snakemake_events.jsonl
 - `logs/events/snakemake_events.jsonl` has 14 lines and contains `qsub_submitted` / `qsub_success`.
 - `collect_wes_artifacts` returned XCom summary `event_count=14` and `qsub_log_count=14`.
 - Real `qsub/qstat` was not called.
+
+2026-07-05 `fengxian` T044/T056 smoke:
+
+- API/frontend path created `WES_20260705_162041_2507AF`.
+- `manual__WES_20260705_162041_2507AF` ended `success`.
+- `manual__WES_20260705_162041_2507AF__resume__20260705T162142Z` ended `success`.
+- `manual__WES_20260705_162041_2507AF__rerun_rule__20260705T162151Z` ended `success`.
+- `logs/snakemake.command.txt` for the final run contains `--forcerun fastp` and does not contain `--forceall`.
+- `logs/events/snakemake_events.jsonl` has 28 lines after the sequence.
 
 ## 8. `bio_pgta` v1
 

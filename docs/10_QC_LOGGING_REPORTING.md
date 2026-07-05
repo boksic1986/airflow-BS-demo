@@ -70,6 +70,7 @@ nipt:
 | Airflow task log | Airflow managed | DAG/task 级失败 |
 | Snakemake stdout | workdir/logs/snakemake.stdout.log | 主流程命令 |
 | Snakemake stderr | workdir/logs/snakemake.stderr.log | 主流程错误 |
+| Snakemake command | workdir/logs/snakemake.command.txt | WES mock 实际 Snakemake 命令，用于确认 `--forcerun` 且无 `--forceall` |
 | qsub stdout | workdir/logs/qsub/*.o | 集群 job 标准输出 |
 | qsub stderr | workdir/logs/qsub/*.e | 集群 job 标准错误 |
 | rule stdout | workdir/logs/rules/...stdout.log | rule 自身输出 |

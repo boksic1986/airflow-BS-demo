@@ -124,6 +124,19 @@ T030/T031 Airflow WES mock qsub DAG 已验收：
 - `collect_wes_artifacts` XCom summary returned `event_count=14` and `qsub_log_count=14`。
 - Real `qsub/qstat` 未调用。
 
+T044/T056 WES mock resume/rerun 已验收：
+
+- `docker compose -f docker-compose.yaml config --quiet` passed.
+- Remote backend tests passed: `40 passed`.
+- Remote DAG unittest passed: `Ran 11 tests OK`.
+- Remote frontend Docker test target passed: `10 passed`.
+- Remote frontend production image build passed.
+- API/frontend smoke created `WES_20260705_162041_2507AF`.
+- Initial submit, `resume`, and `rerun_rule fastp/S001` all reached Airflow/backend `success`.
+- `/api/runs/WES_20260705_162041_2507AF/rules` returned 7 rule rows.
+- `logs/events/snakemake_events.jsonl` has 28 lines.
+- `logs/snakemake.command.txt` contains `--forcerun fastp` and does not contain `--forceall`.
+
 ## 5. Frontend tests
 
 必须覆盖：

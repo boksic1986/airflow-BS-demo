@@ -723,7 +723,40 @@ grep -F qsub_success "shared/runs/${analysis_id}/logs/events/snakemake_events.js
 - `collect_wes_artifacts` XCom returned `event_count=14` and `qsub_log_count=14`.
 - Real `qsub/qstat` was not called.
 
-## 18. 查看日志
+## 18. WES resume/rerun smoke
+
+T044/T056 验收在 `fengxian` 的官方镜像目录执行，服务保持运行，未使用 `down -v` 或 prune。
+
+最小流程：
+
+```bash
+curl -fsS -X POST http://127.0.0.1:8000/api/runs \
+  -H 'Content-Type: application/json' \
+  -d '{"pipeline":"wes_qsub","project_name":"WES mock rerun smoke","target":"final_summary"}'
+
+curl -fsS -X POST http://127.0.0.1:8000/api/runs/<analysis_id>/actions/submit
+curl -fsS -X POST http://127.0.0.1:8000/api/runs/<analysis_id>/actions/sync-airflow
+
+curl -fsS -X POST http://127.0.0.1:8000/api/runs/<analysis_id>/actions/reanalyze \
+  -H 'Content-Type: application/json' \
+  -d '{"mode":"resume"}'
+
+curl -fsS -X POST http://127.0.0.1:8000/api/runs/<analysis_id>/actions/reanalyze \
+  -H 'Content-Type: application/json' \
+  -d '{"mode":"rerun_rule","rule":"fastp","sample_id":"S001"}'
+```
+
+2026-07-05 smoke evidence:
+
+- `analysis_id=WES_20260705_162041_2507AF`
+- new DAG run: `manual__WES_20260705_162041_2507AF`, success
+- resume DAG run: `manual__WES_20260705_162041_2507AF__resume__20260705T162142Z`, success
+- rerun DAG run: `manual__WES_20260705_162041_2507AF__rerun_rule__20260705T162151Z`, success
+- `/api/runs/WES_20260705_162041_2507AF/rules` returned 7 rule rows
+- `shared/runs/WES_20260705_162041_2507AF/logs/events/snakemake_events.jsonl` has 28 lines
+- `shared/runs/WES_20260705_162041_2507AF/logs/snakemake.command.txt` contains `--forcerun fastp` and no `--forceall`
+
+## 19. 查看日志
 
 ```bash
 docker compose logs --tail=200 backend

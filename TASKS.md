@@ -56,7 +56,7 @@
 | T041 | qsub submit wrapper | snakemake | T040,T026 | qsub_submit.py | mock mode 可生成 `MOCK-*` qsub_jobid、qsub stdout/stderr 和 JSONL/Backend event；`WES_20260704_180650_MOCK` 已通过 `/rules` 查询 | done |
 | T042 | qsub profile | snakemake | T041 | profiles/qsub/config.yaml, snakemake_runner | Dockerized `snakemake-runner` 固定 Snakemake 9.23.1 + `cluster-generic` plugin；`--profile profiles/qsub` 已在 `fengxian` 跑通 WES mock，生成 final summary、qsub stdout/stderr 和 JSONL events | done |
 | T043 | rule event logger | snakemake/backend | T026,T036 | PGT-A Snakemake 9 logger POST events | PGT-A rule 状态在 biodemo DB 和 `/api/runs/{analysis_id}/rules` 可见；WES mock qsub job id 路径已由 T041/T042 跑通 | done |
-| T044 | resume/rerun 策略 | snakemake/airflow | T031,T040 | mode -> snakemake flags | 不默认 forceall | todo |
+| T044 | resume/rerun 策略 | snakemake/airflow | T031,T040 | WES `new/resume/rerun_rule` -> Snakemake flags; command log artifact | `WES_20260705_162041_2507AF` initial/resume/rerun_rule smoke success；`snakemake.command.txt` contains `--forcerun fastp` and no `--forceall` | done |
 | T045 | PGT-A Snakemake runner | snakemake/airflow | T035,T004 | pgta config 生成和 metadata/dry-run runner | metadata runner 已随 T035 通过；Airflow-only Snakemake 9 logger 已随 T036 通过；`dryrun_cnv` 和 `invalid_target` runner 已在 `fengxian` 通过 smoke；输出只写 shared/runs/<analysis_id>，PGT_A 目录只读 | done |
 
 ## P5 Frontend
@@ -69,7 +69,7 @@
 | T053 | Run Detail 页面 | frontend | T024,T026 | overview/airflow/snakemake tabs | 展示 rule 状态 | todo |
 | T054 | QC 面板 | frontend | T060 | QC table/MultiQC link | pass/warn/fail 可见 | todo |
 | T055 | Log Viewer | frontend | T025 | stdout/stderr tail | 失败默认显示 stderr | todo |
-| T056 | Reanalysis UI | frontend/backend | T044 | resume/rerun buttons | 后端触发正确 mode | todo |
+| T056 | Reanalysis UI | frontend/backend | T044 | WES mock create/submit panel plus resume/rerun buttons | 前端 Docker test target 10 tests passed；WES detail can trigger `resume` and `rerun_rule` via backend | done |
 | T057 | PGT-A run detail 展示 | frontend | T027,T035,T025 | pgta run overview/sample/rule/log/artifact/sync UI | PGT-A run detail v1 可查看 rules/logs/artifacts；T084 failure smoke 后失败摘要可通过现有 detail/logs API 查看 | done |
 
 ## P6 QC/日志/报告/邮件

@@ -36,6 +36,106 @@
 
 ## Records
 
+## 2026-07-06 00:24 - Codex - T044/T056 WES mock resume/rerun lifecycle
+
+### Goal
+
+Expose the WES mock `bio_wes_qsub` path through FastAPI/React and add same-workdir `resume` plus selected-rule `rerun_rule` without real qsub, real WES data, QC, email, NIPT, `clone_new`, or `--forceall`.
+
+### Completed
+
+- Added WES mock `POST /api/runs` creation for fixed samples `S001/S002`.
+- Extended submit action to dispatch both `pgta` and `wes_qsub`; WES submit passes `backend_event_url=http://backend:8000/api/events/snakemake`.
+- Added `POST /api/runs/{analysis_id}/actions/reanalyze` for WES `resume` and `rerun_rule`.
+- Extended `bio_wes_qsub` runner validation and command construction for `new/resume/rerun_rule`.
+- Added `logs/snakemake.command.txt` artifact to prove `--forcerun` use and absence of `--forceall`.
+- Added frontend WES mock create-and-submit panel and WES detail `Resume` / `Rerun rule` controls.
+- Verified full remote WES smoke: `WES_20260705_162041_2507AF` initial submit, resume, and `rerun_rule fastp/S001` all reached success.
+- Updated API, frontend, DAG, Snakemake/qsub, logging, runbook, testing, task, current-state, and manifest docs.
+
+### Changed files
+
+- `backend/app/main.py`
+- `backend/app/run_service.py`
+- `backend/app/diagnostics_service.py`
+- `backend/tests/test_wes_run_lifecycle.py`
+- `dags/wes_qsub_runner.py`
+- `dags/tests/test_wes_qsub_runner.py`
+- `frontend/src/api.ts`
+- `frontend/src/App.tsx`
+- `frontend/src/App.test.tsx`
+- `frontend/src/styles.css`
+- `docs/05_API_CONTRACT.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/08_SNAKEMAKE_QSUB_INTEGRATION.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/12_TESTING_ACCEPTANCE.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| red backend WES lifecycle tests on `fengxian` | failed as expected | WES create returned 422; reanalyze route returned 404 |
+| red DAG runner tests on `fengxian` | failed as expected | `resume` rejected; `build_snakemake_command(mode=...)` unsupported |
+| red frontend Docker test target on `fengxian` | failed as expected | missing WES panel and reanalysis controls |
+| `docker compose -f docker-compose.yaml build backend` | success | Built `airflow-demo/backend:0.1.0` |
+| `docker run --rm airflow-demo/backend:0.1.0 pytest -q` | success | 40 tests passed |
+| Airflow/DAG unittest in `airflow-demo/airflow:0.1.0` | success | 11 tests OK; used `/tmp/airflow` for logs |
+| `docker build --target test -f frontend/Dockerfile frontend` | success | 10 Vitest tests passed |
+| `docker compose -f docker-compose.yaml build frontend` | success | TypeScript and Vite production build passed |
+| `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend frontend` | success | Applied rebuilt backend/frontend images; no volumes deleted |
+| `docker compose -f docker-compose.yaml config --quiet` | success | Latest compose config rendered |
+| `docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags list-import-errors` | success | `No data found` |
+| WES API/Airflow smoke for `WES_20260705_162041_2507AF` | success | new, resume, and rerun_rule all reached success |
+| `curl http://127.0.0.1:12959/` and `/api/runs?limit=5` | success | Frontend served; latest run list includes WES smoke run |
+
+### Tests
+
+Remote-only evidence from `fengxian`:
+
+- `WES_20260705_162041_2507AF` initial DAG run `manual__WES_20260705_162041_2507AF` ended `success`.
+- Resume DAG run `manual__WES_20260705_162041_2507AF__resume__20260705T162142Z` ended `success`.
+- Rerun DAG run `manual__WES_20260705_162041_2507AF__rerun_rule__20260705T162151Z` ended `success`.
+- `/api/runs/WES_20260705_162041_2507AF/rules` returned 7 rule rows.
+- `shared/runs/WES_20260705_162041_2507AF/logs/events/snakemake_events.jsonl` has 28 lines.
+- `shared/runs/WES_20260705_162041_2507AF/logs/snakemake.command.txt` contains `--forcerun fastp` and no `--forceall`.
+
+### Not run / why
+
+- No real qsub/qstat was run; `fengxian` still lacks real qsub and this task is mock-only.
+- No QC parser/panel, MailHog notification, NIPT DAG, `rerun_failed`, or `clone_new` was implemented.
+- No `docker compose down -v`, `docker system prune`, or `docker volume prune` was used.
+
+### Current git status
+
+Work is on branch `codex/fullstack/T044-T056-wes-rerun`. Runtime validation ran on the `fengxian` mirror at commit `25c0633`, followed by this docs/status update.
+
+### Risks
+
+- WES remains mock-only and fixed to `S001/S002`; real WES inputs and real qsub require separate planning.
+- The latest reanalysis action overwrites `analysis_run.dag_run_id` with the newest DAG run id; prior actions remain in `run_action`.
+- Frontend reanalysis is intentionally hidden while a WES run is `submitted/running/queued`.
+
+### Open questions
+
+- Whether `rerun_failed` should be implemented as a real failed-rule selector after a controlled WES failure smoke exists.
+
+### Next recommended task
+
+Proceed to T060/T054: parse WES mock QC/final-summary data into `qc_metric` and add the frontend QC panel. T034/T063 MailHog notification is the other good next slice.
+
+### Rollback notes
+
+- Revert repository changes with normal `git revert`.
+- If runtime cleanup is needed, remove only generated WES mock run directories under `shared/runs/WES_*` after path verification.
+- Stop services only with `docker compose -f docker-compose.yaml down`; do not use `down -v` or prune commands.
+
 ## 2026-07-05 00:52 - Codex - T030/T031 bio_wes_qsub Airflow DAG skeleton
 
 ### Goal

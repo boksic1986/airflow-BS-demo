@@ -169,18 +169,53 @@ shared/runs/<analysis_id>/config/samples.selected.tsv
 shared/runs/<analysis_id>/config/request.json
 ```
 
+WES mock v1 也使用同一 JSON endpoint，但不上传/扫描真实 WES 数据；后端固定创建 mock samples `S001/S002`，只支持 `target=final_summary`。
+
+Request:
+
+```json
+{
+  "pipeline": "wes_qsub",
+  "project_name": "WES mock smoke",
+  "target": "final_summary",
+  "email_to": null,
+  "note": "mock WES only"
+}
+```
+
+Response:
+
+```json
+{
+  "analysis_id": "WES_20260705_162041_2507AF",
+  "pipeline": "wes_qsub",
+  "dag_id": "bio_wes_qsub",
+  "dag_run_id": null,
+  "status": "created",
+  "workdir": "/data/airflow-demo/runs/WES_20260705_162041_2507AF",
+  "sample_count": 2
+}
+```
+
 ## 5. 提交已创建任务到 Airflow
 
 ```http
 POST /api/runs/{analysis_id}/actions/submit
 ```
 
-T045/T084 阶段支持把已存在的 PGT-A controlled target run 提交到 Airflow：
+T045/T084 阶段支持把已存在的 PGT-A controlled target run 提交到 Airflow；T044/T056 后也支持把 `wes_qsub` created run 提交到 `bio_wes_qsub`。
 
 - `analysis_run.pipeline_name = pgta`
 - `analysis_run.status = created`
 - `analysis_run.params_json.target` 为 `metadata`、`dryrun_cnv` 或 `invalid_target`
 - `sample_sheet_path` 和 `workdir` 必须存在
+
+WES submit 要求：
+
+- `analysis_run.pipeline_name = wes_qsub`
+- `analysis_run.status = created`
+- `analysis_run.params_json.target = final_summary`
+- DAG run conf 包含 `backend_event_url=http://backend:8000/api/events/snakemake`
 
 接口不会重复创建 run 或 sample。成功后会调用 Airflow REST API 触发 `bio_pgta`，写入 `dag_run_id`，并把 `analysis_run.status` 更新为 `submitted`。Airflow DAG 是否最终 success/failed 仍以 Airflow 为准；需要显式调用 `sync-airflow` 回写 biodemo DB。
 
@@ -212,7 +247,7 @@ Response:
 Errors:
 
 - `404 RUN_NOT_FOUND`: `analysis_id` 不存在。
-- `400 VALIDATION_ERROR`: pipeline 不是 `pgta`、状态不是 `created`、target 不在受控白名单内，或 run 缺少必要路径。
+- `400 VALIDATION_ERROR`: pipeline 不是 `pgta/wes_qsub`、状态不是 `created`、target 不在受控白名单内，或 run 缺少必要路径。
 - `502 AIRFLOW_TRIGGER_FAILED`: backend 调用 Airflow API 失败。
 
 ## 6. 同步 Airflow 状态
@@ -492,6 +527,15 @@ PGT-A v1 第一版动态发现 metadata/dry-run 产物，不写 artifact 表：
 - `config/pgta_run_config.json`
 - `config/pgta_metadata_config.json`
 
+WES mock v1 也动态发现：
+
+- `reports/final_summary.tsv`
+- `logs/snakemake.command.txt`
+- `logs/snakemake.stdout.log`
+- `logs/snakemake.stderr.log`
+- `logs/events/snakemake_events.jsonl`
+- `config/wes_mock_config.yaml`
+
 Response:
 
 ```json
@@ -526,6 +570,11 @@ Request:
 }
 ```
 
+WES mock v1 支持：
+
+- `resume`: 复用同一 `analysis_id/workdir`，提交新的 `bio_wes_qsub` DAG run，Snakemake 依赖已有输出和 `rerun-incomplete` 跳过成功步骤。
+- `rerun_rule`: 复用同一 `analysis_id/workdir`，只允许 `fastp`、`bwa_mem`、`markdup`、`final_summary`；样本级 rule 要求 `sample_id=S001/S002`。
+
 Response:
 
 ```json
@@ -536,3 +585,10 @@ Response:
   "status": "submitted"
 }
 ```
+
+禁止：
+
+- `forceall`
+- `clone_new`
+- 真实 qsub
+- 不在 allowlist 内的 WES rule/sample。
