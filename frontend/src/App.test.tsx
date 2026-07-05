@@ -530,7 +530,7 @@ describe("PGT-A run dashboard", () => {
 
     expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
     const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
-    await user.click(within(toolbar).getByRole("button", {name: /submit to airflow/i}));
+    await user.click(await within(toolbar).findByRole("button", {name: /submit to airflow/i}));
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
