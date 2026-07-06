@@ -192,6 +192,46 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             self.assertFalse(snakemake_config["core"]["wisecondorx"]["cnv"]["enable"])
             self.assertEqual(runner_config["target"], "baseline_qc")
 
+    def test_build_config_writes_run_local_samtools_wrapper(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            manifest = workdir / "config" / "samples.selected.tsv"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(
+                "sample_id\tR1\tR2\tsource_dir\n"
+                "G1\t/data/project/CNV/PGT-A/rawdata/run/G1_R1.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run/G1_R2.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run\n"
+                "G2\t/data/project/CNV/PGT-A/rawdata/run/G2_R1.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run/G2_R2.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run\n",
+                encoding="utf-8",
+            )
+            conf = validate_pgta_conf(
+                {
+                    "analysis_id": "PGTA_TEST",
+                    "pipeline": "pgta",
+                    "sample_sheet_path": str(manifest),
+                    "workdir": str(workdir),
+                    "params": {"target": "baseline_qc"},
+                },
+                shared_root=Path(tmpdir),
+            )
+
+            config_path = build_pgta_config(
+                conf,
+                pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                samtools_bin=Path("/opt/compatible/bin/samtools"),
+                samtools_library_path="/opt/compatible/lib",
+            )
+
+            import yaml
+
+            snakemake_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+            wrapper = workdir / "bin" / "samtools"
+            self.assertEqual(snakemake_config["biosoft"]["samtools"], str(wrapper))
+            self.assertTrue(wrapper.is_file())
+            self.assertTrue(wrapper.stat().st_mode & 0o111)
+            wrapper_text = wrapper.read_text(encoding="utf-8")
+            self.assertIn('export LD_LIBRARY_PATH="/opt/compatible/lib:${LD_LIBRARY_PATH:-}"', wrapper_text)
+            self.assertIn('exec /opt/compatible/bin/samtools "$@"', wrapper_text)
+
     def test_build_config_rejects_baseline_qc_with_one_sample(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
