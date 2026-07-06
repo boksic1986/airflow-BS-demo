@@ -35,6 +35,7 @@
 | T025 | logs/artifacts API | backend | T021 | PGT-A v1 log tail + dynamic artifact list | `stdout/stderr/metadata` 可读取；缺失文件返回 `LOG_NOT_FOUND`；路径穿越被拒绝 | done |
 | T026 | Snakemake event receiver | backend | T021 | `/api/events/snakemake`, `/api/runs/{analysis_id}/rules` | 可幂等 upsert rule event；PGT-A logger rule 状态可从 API 查询 | done |
 | T027 | PGT-A `pgta` Airflow trigger API 支持 | backend | T021,T022,T023,T004 | created run -> Airflow `bio_pgta` trigger | 已创建的 `pgta` metadata run 可通过 submit action 提交为 DAG run；状态推进到 `submitted` 且 `dag_run_id` 非空 | done |
+| T090 | sample lifecycle status sync | backend/docs | T024,T027,T025 | submit/sync updates `sample.status` | submit/reanalyze 后 sample 为 `running`；显式 sync 后随 Airflow 变 `success/failed`；远端 backend pytest 48 passed；已同步近期可见 run 的 sample 状态 | done |
 
 ## P3 Airflow DAG
 

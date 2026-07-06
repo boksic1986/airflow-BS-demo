@@ -36,6 +36,86 @@
 
 ## Records
 
+## 2026-07-06 22:58 - Codex - T090 sample lifecycle status sync
+
+### Goal
+
+Fix the frontend Samples table showing `pending` forever even after a run was submitted or had reached Airflow `success/failed`.
+
+### Completed
+
+- Traced the issue through frontend -> API -> DB and confirmed the frontend was displaying backend data correctly.
+- Root cause: `sample.status` was initialized as `pending`, but backend submit/reanalysis/sync paths only updated `analysis_run.status`, never sample lifecycle status.
+- Added red backend tests showing:
+  - submit left samples as `pending` instead of `running`;
+  - sync success left samples as `pending` instead of `success`;
+  - sync failed left samples as `pending` instead of `failed`.
+- Updated backend submit/reanalyze paths to mark samples `running`.
+- Updated explicit `sync-airflow` to map Airflow state back to sample status: `success -> success`, `failed -> failed`, active states to `running`.
+- Rebuilt and redeployed backend on `fengxian`.
+- Explicitly synced recent visible runs so the live UI no longer shows stale pending values for those runs.
+
+### Changed files
+
+- `backend/app/run_service.py`
+- `backend/app/diagnostics_service.py`
+- `backend/tests/test_run_submit.py`
+- `backend/tests/test_run_diagnostics.py`
+- `docs/04_DATABASE_SCHEMA.md`
+- `docs/05_API_CONTRACT.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `TASKS.md`
+- `CURRENT_STATE.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| targeted backend tests after test-only commit on `fengxian` | failed as expected | 3 failures showed actual sample status was still `pending` |
+| `docker run --rm airflow-demo/backend:0.1.0 pytest -q tests/test_run_submit.py::... tests/test_run_diagnostics.py::...` | success | 3 targeted tests passed after implementation |
+| `docker run --rm airflow-demo/backend:0.1.0 pytest -q` | success | 48 passed |
+| `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend` | success | recreated backend only; no volumes deleted |
+| `curl http://127.0.0.1:8000/api/health` | success | `{"status":"ok"}` |
+| explicit sync for recent visible runs | success | refreshed sample statuses without submitting new DAG runs |
+
+### Tests
+
+- Red targeted tests failed with `pending != running/success/failed`.
+- Green targeted tests passed: 3 passed.
+- Full backend pytest passed: 48 passed.
+- Runtime API sample checks passed:
+  - `PGTA_20260706_141915_5BE5E2`: `E2/E3=success`.
+  - `PGTA_20260706_140854_8F2CA4`: `E2=success`.
+  - `WES_20260705_164813_C5561C`: `S001/S002=success`.
+
+### Not run / why
+
+- Frontend Docker tests were not rerun because the frontend code was not modified; Samples table already reads `sample.status` from the API.
+- No new PGT-A/WES DAG run was submitted. Existing runs were only synced through the existing `sync-airflow` endpoint.
+
+### Current git status
+
+Work is on branch `codex/airflow/T088-pgta-snakemake-cache`. Runtime validation ran on `fengxian` at commit `065907c`; this handoff/status update follows that validation.
+
+### Risks
+
+- Historical runs not included in the recent visible sync batch may still show old `pending` sample statuses until the user clicks `Sync Airflow` on that run.
+- For failed runs, sample status is currently run-level `failed`; fine-grained per-sample failure attribution remains a future rule/qsub enhancement.
+
+### Open questions
+
+- None for this fix.
+
+### Next recommended task
+
+Return to the prior demo roadmap: user-confirmed PGT-A `baseline_qc` Level 4 smoke with at least 2 samples, or T080 demo smoke report/script.
+
+### Rollback notes
+
+- Revert the T090 commits, rebuild/redeploy backend, and re-sync affected runs if needed. Do not delete volumes.
+
 ## 2026-07-06 22:40 - Codex - T089 demo log/timezone alignment
 
 ### Goal

@@ -219,7 +219,7 @@ WES submit 要求：
 - `analysis_run.params_json.target = final_summary`
 - DAG run conf 包含 `backend_event_url=http://backend:8000/api/events/snakemake`
 
-接口不会重复创建 run 或 sample。成功后会调用 Airflow REST API 触发 `bio_pgta`，写入 `dag_run_id`，并把 `analysis_run.status` 更新为 `submitted`。Airflow DAG 是否最终 success/failed 仍以 Airflow 为准；需要显式调用 `sync-airflow` 回写 biodemo DB。
+接口不会重复创建 run 或 sample。成功后会调用 Airflow REST API 触发 `bio_pgta`，写入 `dag_run_id`，并把 `analysis_run.status` 更新为 `submitted`；该 run 下的 `sample.status` 会从 `pending` 更新为 `running`。Airflow DAG 是否最终 success/failed 仍以 Airflow 为准；需要显式调用 `sync-airflow` 回写 biodemo DB。
 
 Response:
 
@@ -254,6 +254,11 @@ Errors:
 - `502 AIRFLOW_TRIGGER_FAILED`: backend 调用 Airflow API 失败。
 
 ## 6. 同步 Airflow 状态
+
+Sample status sync rule:
+- `POST /api/runs/{analysis_id}/actions/submit` sets selected `sample.status` from `pending` to `running`.
+- `POST /api/runs/{analysis_id}/actions/reanalyze` sets WES mock `sample.status` to `running`.
+- `sync-airflow` maps Airflow terminal state back to samples: `success -> success`, `failed -> failed`; active states `running/queued/scheduled` display as `running`.
 
 ```http
 POST /api/runs/{analysis_id}/actions/sync-airflow

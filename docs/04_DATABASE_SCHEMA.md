@@ -69,7 +69,7 @@ analysis_run 1 -> N run_action
 | fq1 | text nullable | server path to R1; do not copy FASTQ into Git/shared |
 | fq2 | text nullable | server path to R2; do not copy FASTQ into Git/shared |
 | metadata_json | jsonb | sanitized sample metadata; PGT-A v1 stores source_dir, file size, mtime, discovery_method |
-| status | text | pending/running/success/failed |
+| status | text | pending/running/success/failed; created runs start pending, submit/reanalyze marks selected samples running, explicit Airflow sync marks them success/failed/running with the run |
 | qc_status | text | pass/warn/fail/unknown |
 
 ### snakemake_rule_event

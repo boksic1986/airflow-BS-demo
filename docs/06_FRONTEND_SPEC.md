@@ -16,6 +16,7 @@
 - 左侧 `New WES Mock Run` 面板可一键创建 `pipeline=wes_qsub,target=final_summary` run 并提交到 `bio_wes_qsub`。
 - `GET /api/runs?limit=50&offset=0` 展示 run 列表。
 - run detail 展示 overview、samples、Snakemake rules、metadata/stdout/stderr logs、artifacts。
+- Samples 表直接展示后端 `/api/runs/{analysis_id}/samples` 的 `sample.status`；提交后应为 `running`，显式 `Sync Airflow` 后应随 Airflow 最终状态变为 `success` 或 `failed`。
 - WES mock run detail 展示 QC panel：pass/warn/fail/unknown summary 和样本级 mock QC 指标表。
 - 手动同步按钮调用 `POST /api/runs/{analysis_id}/actions/sync-airflow`。
 - 对已有 `wes_qsub` DAG run，detail toolbar 显示 `Resume` 和 `Rerun rule` 控件；`Rerun rule` 支持 `fastp/bwa_mem/markdup/final_summary`，样本级 rule 可选 `S001/S002`。

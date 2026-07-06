@@ -225,6 +225,7 @@ snakemake --report shared/reports/<analysis_id>/snakemake_report.html
 - `GET /api/runs/{analysis_id}/logs?stream=stdout|stderr|metadata` 可读取固定 metadata run 文件。
 - `GET /api/runs/{analysis_id}/artifacts` 可动态发现 metadata、dry-run stdout/stderr、command 和 config 产物，包括 `logs/snakemake.command.txt` 与 `config/pgta_run_config.json`。
 - `POST /api/runs/{analysis_id}/actions/sync-airflow` 可把 Airflow success/failed 同步到 biodemo，并在 failed 时写入 `error_summary`。
+- T090 后端会同步维护 `sample.status`：创建时为 `pending`，submit/reanalyze 后为 `running`，显式 `sync-airflow` 后随 Airflow 状态变为 `success` 或 `failed`。
 - T088 后 `bio_pgta` 和 `bio_pgta_airflow` 均设置 `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，避免 Snakemake 写入不可写的 `/home/airflow/.cache/snakemake`。
 
 已完成的 PGT-A Airflow-only logger 验收：
