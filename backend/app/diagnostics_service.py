@@ -9,7 +9,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AnalysisRun
+from app.models import AnalysisRun, Sample
 from app.qc_service import import_run_qc_metrics
 
 
@@ -161,6 +161,7 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
     airflow_payload = airflow_client.get_dag_run(run.dag_id, run.dag_run_id)
     airflow_state = str(airflow_payload.get("state") or "").lower()
     run.status = _map_airflow_state(airflow_state)
+    _sync_sample_statuses(session=session, analysis_id=analysis_id, run_status=run.status)
     run.started_at = _parse_airflow_datetime(airflow_payload.get("start_date")) or run.started_at
     if run.status in {"success", "failed"}:
         run.ended_at = _parse_airflow_datetime(airflow_payload.get("end_date")) or datetime.now(timezone.utc)
@@ -278,6 +279,25 @@ def _map_airflow_state(state: str) -> str:
     if state in {"queued", "scheduled"}:
         return "submitted"
     return state or "unknown"
+
+
+def _sync_sample_statuses(*, session: Session, analysis_id: str, run_status: str) -> None:
+    sample_status = _sample_status_for_run_status(run_status)
+    if sample_status is None:
+        return
+    samples = session.scalars(select(Sample).where(Sample.analysis_id == analysis_id)).all()
+    for sample in samples:
+        sample.status = sample_status
+
+
+def _sample_status_for_run_status(run_status: str) -> str | None:
+    if run_status == "created":
+        return "pending"
+    if run_status in {"submitted", "running"}:
+        return "running"
+    if run_status in {"success", "failed"}:
+        return run_status
+    return None
 
 
 def _parse_airflow_datetime(value: Any) -> datetime | None:

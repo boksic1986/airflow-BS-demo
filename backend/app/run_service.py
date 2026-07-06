@@ -239,6 +239,7 @@ def submit_run_to_airflow(*, session: Session, airflow_client, analysis_id: str)
 
     run.status = "submitted"
     run.dag_run_id = dag_run_id
+    _set_sample_status(session=session, analysis_id=analysis_id, status="running")
     run_action = RunAction(
         analysis_id=analysis_id,
         action="submit",
@@ -275,6 +276,7 @@ def reanalyze_wes_run(
 
     run.mode = mode
     run.status = "submitted"
+    _set_sample_status(session=session, analysis_id=analysis_id, status="running")
     run.params_json = params
     run.error_summary = None
     run.ended_at = None
@@ -404,6 +406,12 @@ def _validate_wes_reanalysis(*, run: AnalysisRun, mode: str, rule: str | None, s
 
 def _ensure_airflow_writable(path: Path) -> None:
     path.chmod(0o775)
+
+
+def _set_sample_status(*, session: Session, analysis_id: str, status: str) -> None:
+    samples = session.scalars(select(Sample).where(Sample.analysis_id == analysis_id)).all()
+    for sample in samples:
+        sample.status = status
 
 
 def _dag_conf(run: AnalysisRun) -> dict:
