@@ -6,6 +6,7 @@ import json
 import logging
 import os
 from pathlib import Path
+import shlex
 import subprocess
 from typing import Any
 
@@ -82,6 +83,8 @@ def run_snakemake9_with_logger(
     events_path = workdir / EVENTS_RELATIVE_PATH
     logs_dir.mkdir(parents=True, exist_ok=True)
     events_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_dir = workdir / "tmp" / "xdg-cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
 
     stdout_path = logs_dir / "snakemake.stdout.log"
     stderr_path = logs_dir / "snakemake.stderr.log"
@@ -107,13 +110,14 @@ def run_snakemake9_with_logger(
         command.extend(["--logger-airflow-demo-backend-event-url", str(conf["backend_event_url"])])
     if conf.get("post_timeout_seconds") is not None:
         command.extend(["--logger-airflow-demo-post-timeout-seconds", str(conf["post_timeout_seconds"])])
+    (logs_dir / "snakemake.command.txt").write_text(shlex.join(command) + "\n", encoding="utf-8")
     completed = subprocess.run(
         command,
         cwd=str(workdir),
         text=True,
         capture_output=True,
         check=False,
-        env=_snakemake_env(dags_root),
+        env=_snakemake_env(dags_root, cache_dir),
     )
     stdout_path.write_text(completed.stdout or "", encoding="utf-8")
     stderr_path.write_text(completed.stderr or "", encoding="utf-8")
@@ -152,13 +156,14 @@ def collect_snakemake_events(conf: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _snakemake_env(dags_root: Path) -> dict[str, str]:
+def _snakemake_env(dags_root: Path, cache_dir: Path) -> dict[str, str]:
     env = os.environ.copy()
     existing = env.get("PYTHONPATH")
     paths = [str(dags_root)]
     if existing:
         paths.append(existing)
     env["PYTHONPATH"] = os.pathsep.join(paths)
+    env["XDG_CACHE_HOME"] = str(cache_dir)
     return env
 
 

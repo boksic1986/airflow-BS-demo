@@ -4,6 +4,7 @@ import csv
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 from typing import Any
 
@@ -139,6 +140,8 @@ def run_pgta_target(
     target = _target_from_conf(conf)
     logs_dir = workdir / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir = workdir / "tmp" / "xdg-cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
     stdout_path = logs_dir / "snakemake.stdout.log"
     stderr_path = logs_dir / "snakemake.stderr.log"
     metadata_path = logs_dir / "run_metadata.tsv"
@@ -158,7 +161,10 @@ def run_pgta_target(
         command.extend(["--dry-run", "--ignore-incomplete", "--rerun-triggers", "mtime"])
     if target == "invalid_target":
         command.append(INVALID_SNAKEMAKE_TARGET)
-    completed = subprocess.run(command, cwd=str(workdir), text=True, capture_output=True, check=False)
+    (logs_dir / "snakemake.command.txt").write_text(shlex.join(command) + "\n", encoding="utf-8")
+    env = os.environ.copy()
+    env["XDG_CACHE_HOME"] = str(cache_dir)
+    completed = subprocess.run(command, cwd=str(workdir), text=True, capture_output=True, check=False, env=env)
     stdout_path.write_text(completed.stdout or "", encoding="utf-8")
     stderr_path.write_text(completed.stderr or "", encoding="utf-8")
     if completed.returncode != 0:
