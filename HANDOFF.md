@@ -36,6 +36,81 @@
 
 ## Records
 
+## 2026-07-06 22:40 - Codex - T089 demo log/timezone alignment
+
+### Goal
+
+Fix the user-visible mismatch where demo logs and timestamps did not line up with the `fengxian` host clock.
+
+### Completed
+
+- Confirmed `fengxian` host time is `Asia/Shanghai`, while backend/Airflow containers previously had `TZ=<unset>` and Airflow was configured as `core.default_timezone=utc`, `webserver.default_ui_timezone=UTC`.
+- Added Compose timezone defaults: `AIRFLOW_DEMO_TZ=Asia/Shanghai`, `AIRFLOW_DEFAULT_TIMEZONE=Asia/Shanghai`, and `AIRFLOW_DEFAULT_UI_TIMEZONE=Asia/Shanghai`.
+- Recreated backend, frontend, and Airflow service containers so their process logs use `+0800 CST`.
+- Updated frontend timestamp rendering to convert timezone-aware backend ISO timestamps into fixed `YYYY-MM-DD HH:mm:ss Asia/Shanghai` text.
+- Added a frontend test covering UTC API timestamp rendering as Shanghai display time.
+- Documented the timezone contract and verification evidence.
+
+### Changed files
+
+- `.env.example`
+- `docker-compose.yaml`
+- `frontend/Dockerfile`
+- `frontend/src/api.ts`
+- `frontend/src/App.tsx`
+- `frontend/src/App.test.tsx`
+- `SERVER_INFO.md`
+- `TASKS.md`
+- `CURRENT_STATE.md`
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | Rendered `AIRFLOW__CORE__DEFAULT_TIMEZONE=Asia/Shanghai`, `AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE=Asia/Shanghai`, `TZ=Asia/Shanghai`, and frontend build arg `VITE_DISPLAY_TIME_ZONE=Asia/Shanghai` |
+| `docker build --target test -f frontend/Dockerfile frontend` on `fengxian` | success | 15 Vitest tests passed |
+| `docker compose -f docker-compose.yaml build frontend` on `fengxian` | success | Production frontend bundle rebuilt with `Asia/Shanghai` display timezone |
+| `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend frontend airflow-api-server airflow-scheduler airflow-worker` on `fengxian` | success | Recreated only affected services; no volumes deleted |
+| Health probes on `fengxian` | success | backend `/api/health`, Airflow `/health`, and frontend HTTP 200 |
+| container date/timezone probe on `fengxian` | success | backend/frontend/Airflow containers report `TZ=Asia/Shanghai` and `date` as `+0800 CST` |
+| Airflow timezone/log probe on `fengxian` | success | Airflow config reports core/UI `Asia/Shanghai`; scheduler/webserver logs show `+0800` and `Configured default timezone Asia/Shanghai` |
+
+### Tests
+
+- Remote frontend Docker test target passed: 15 tests.
+- Remote Compose config passed.
+- Runtime health and timezone probes passed on `fengxian`.
+
+### Not run / why
+
+- No backend pytest or DAG unittest was rerun because this change did not modify backend Python, DAG code, database schema, or Snakemake behavior.
+- No new PGT-A or WES run was submitted; this was a display/log timezone fix only.
+
+### Current git status
+
+Work is on branch `codex/airflow/T088-pgta-snakemake-cache`. Runtime validation ran on `fengxian` at commit `f2fdff2`; this handoff/status update follows that validation.
+
+### Risks
+
+- Airflow `/health` heartbeat and HTTP `Date` headers can still show UTC/GMT by protocol/API convention. Airflow service logs and UI timezone config now use `Asia/Shanghai`.
+- Historical DB timestamps remain timezone-aware values and were not rewritten.
+
+### Open questions
+
+- None for this fix.
+
+### Next recommended task
+
+Return to the prior demo roadmap: user-confirmed PGT-A `baseline_qc` Level 4 smoke with at least 2 samples, or T080 demo smoke report/script.
+
+### Rollback notes
+
+- Revert the T089 commits, rebuild/redeploy frontend if needed, and recreate backend/frontend/Airflow services. Do not delete volumes.
+
 ## 2026-07-06 22:06 - Codex - T088 PGT-A run-local Snakemake cache fix
 
 ### Goal

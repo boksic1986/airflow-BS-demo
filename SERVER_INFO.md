@@ -14,6 +14,7 @@ memory: 1.4T total, read-only preflight on 2026-07-02
 disk: /dev/sda2 20T with 14T available; /data NFS 48T with 21T available
 timezone: Asia/Shanghai observed from date output
 container_timezone_target: AIRFLOW_DEMO_TZ=Asia/Shanghai; Airflow core/UI timezone target Asia/Shanghai; backend API timestamps remain timezone-aware
+container_timezone_status_2026_07_06: after T089 redeploy, backend/frontend/Airflow containers show `TZ=Asia/Shanghai` and `date` reports `+0800 CST`; Airflow `core.default_timezone` and `webserver.default_ui_timezone` report `Asia/Shanghai`
 host_nginx_path: /usr/sbin/nginx
 host_nginx_version: nginx/1.14.0 (Ubuntu)
 host_nginx_probe: verified executable on fengxian 2026-07-02; not configured for airflow-demo

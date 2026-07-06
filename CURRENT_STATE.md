@@ -6,7 +6,7 @@
 
 ```text
 当前阶段: P3/P4/P6 Airflow + Snakemake/qsub mock observability + PGT-A Level 4 staged integration
-当前目标: T088 已修复 PGT-A submit 后 Snakemake cache 权限失败；真实 Level 4 `baseline_qc` smoke 仍需用户确认至少 2 个样本和运行窗口
+当前目标: T089 已修复 demo 日志/前端时间显示与 `fengxian` 时区不一致问题；真实 Level 4 `baseline_qc` smoke 仍需用户确认至少 2 个样本和运行窗口
 最近更新时间: 2026-07-06
 最后更新 agent: Codex
 ```
@@ -33,18 +33,18 @@ node_version: <unknown>
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
 active_branch: codex/airflow/T088-pgta-snakemake-cache
-last_verified_code_commit: dd5c6e7 for T088 PGT-A run-local Snakemake cache fix before final docs/status update
+last_verified_code_commit: f2fdff2 for T089 demo timezone alignment before final docs/status update
 worktree_strategy: single-worktree for now; fengxian is code mirror only
-fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime validation for T088 ran on origin/codex/airflow/T088-pgta-snakemake-cache at dd5c6e7, followed by docs/status evidence update
+fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime validation for T089 ran on origin/codex/airflow/T088-pgta-snakemake-cache at f2fdff2, followed by docs/status evidence update
 ```
 
 ## 4. 服务状态
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 12959 | running after T085/T086/T087 redeploy | React/Vite PGT-A + WES mock workspace served by Docker nginx image `airflow-demo/frontend:0.1.0`; `Submit new analysis` is in the main content area, target selector includes `baseline QC smoke`, and host 3000 is occupied by non-project next-server |
-| backend | 8000 | running, healthy after T085/T086/T087 redeploy | `/api/health`, `/api/health/db`, `/api/input/scan`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and PGT-A baseline_qc parser/artifacts are available; image `airflow-demo/backend:0.1.0` |
-| airflow web/api | 12958 | running after T088 smoke | project image `airflow-demo/airflow:0.1.0`; `/health` returned healthy; `bio_pgta` metadata smoke passed after run-local Snakemake cache fix; real baseline_qc smoke has not been run |
+| frontend | 12959 | running after T089 timezone redeploy | React/Vite PGT-A + WES mock workspace served by Docker nginx image `airflow-demo/frontend:0.1.0`; run timestamps render as `Asia/Shanghai`; `Submit new analysis` is in the main content area, target selector includes `baseline QC smoke`, and host 3000 is occupied by non-project next-server |
+| backend | 8000 | running, healthy after T089 timezone redeploy | `/api/health`, `/api/health/db`, `/api/input/scan`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and PGT-A baseline_qc parser/artifacts are available; image `airflow-demo/backend:0.1.0`; container `TZ=Asia/Shanghai` |
+| airflow web/api | 12958 | running after T089 timezone redeploy | project image `airflow-demo/airflow:0.1.0`; `/health` returned healthy; Airflow core/UI timezone is `Asia/Shanghai`; logs show `+0800`; real baseline_qc smoke has not been run |
 | postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow metadata initialized; no host port published |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
 | mailhog | 8025 | stopped in T051 smoke | HTTP GET probe passed in earlier smoke; not started for T051 |
@@ -72,10 +72,10 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 
 ```text
 last_backend_tests: remote Dockerized pytest on fengxian at commit 4cf6f6e passed, 48 tests; includes PGT-A baseline_qc target validation, submit two-sample guard, artifact discovery, baseline QC parser/import, diagnostics/event tests, and WES lifecycle/QC tests
-last_frontend_tests: remote Dockerized frontend test target on fengxian at commit 4cf6f6e passed, 14 Vitest tests; includes PGT-A target selector, baseline_qc two-sample create guard, submit button behavior, WES QC panel, and WES resume/rerun controls
+last_frontend_tests: remote Dockerized frontend test target on fengxian at commit f2fdff2 passed, 15 Vitest tests; includes PGT-A target selector, baseline_qc two-sample create guard, submit button behavior, WES QC panel, WES resume/rerun controls, and UTC-to-Asia/Shanghai timestamp rendering
 last_dag_import_tests: passed on fengxian at commit dd5c6e7; Airflow image unittest for `test_bio_pgta_dag.py`, `test_pgta_metadata_runner.py`, and `test_pgta_airflow_runner.py` returned 20 tests OK; Airflow scheduler `dags list-import-errors` returned `No data found`
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
-last_compose_config: passed on fengxian with Docker Compose v2.24.7 for commit 4cf6f6e; compose renders backend image `airflow-demo/backend:0.1.0`, frontend image `airflow-demo/frontend:0.1.0`, CORS env, read-only PGT-A mounts, DAG files, and frontend build service
+last_compose_config: passed on fengxian with Docker Compose v2.24.7 for commit f2fdff2; compose renders backend image `airflow-demo/backend:0.1.0`, frontend image `airflow-demo/frontend:0.1.0`, CORS env, read-only PGT-A mounts, DAG files, frontend build service, and Asia/Shanghai timezone env/build args
 last_minimal_smoke: passed on fengxian for postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
 last_airflow_health: passed on fengxian at http://127.0.0.1:12958/health with healthy metadatabase and scheduler
 last_biodemo_migration: `biodemo-db-init` first run created role/database, repeat run succeeded; `alembic upgrade head` applied 20260702_0001 and repeat run succeeded
@@ -91,6 +91,7 @@ last_frontend_submit_workspace_fix: passed on fengxian; red test first failed be
 last_pgta_level4_audit: 2026-07-06 read-only audit on fengxian confirmed `/home/jiucheng/pipelines/PGT_A/Snakefile` has real `baseline_qc`, it requires at least 2 baseline/reference samples and emits `qc/baseline/baseline_qc_summary.tsv`, `baseline_qc_pass_samples.txt`, and `baseline_qc_report.md`; no real Level 4 run executed in this audit
 last_pgta_baseline_staged_integration: passed code-level remote validation on fengxian at commit 4cf6f6e; backend/frontend/Airflow images built, backend pytest 48 passed, frontend Vitest 14 passed, DAG unittest 14 passed, Airflow import errors `No data found`, frontend HTTP 200, backend `/api/health` ok, Airflow `/health` healthy after startup; no real baseline_qc run was executed
 last_pgta_cache_fix_smoke: passed on fengxian at commit dd5c6e7; tests first failed on missing `workdir/tmp/xdg-cache`, then passed after setting `XDG_CACHE_HOME`; new metadata run `PGTA_20260706_140854_8F2CA4` submitted to `bio_pgta`, sync progressed running -> success, Airflow listed the DAG run as success, `logs/run_metadata.tsv` has 11 lines, artifacts include `snakemake_command`, and stderr no longer contains `/home/airflow/.cache/snakemake` PermissionError
+last_timezone_alignment: passed on fengxian at commit f2fdff2; `docker compose config --quiet` rendered `AIRFLOW__CORE__DEFAULT_TIMEZONE=Asia/Shanghai`, `AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE=Asia/Shanghai`, `TZ=Asia/Shanghai`, and frontend build arg `VITE_DISPLAY_TIME_ZONE=Asia/Shanghai`; frontend Docker test target passed 15 tests; backend/frontend/Airflow containers report `date` as `+0800 CST`; Airflow logs show `+0800` and `Configured default timezone Asia/Shanghai`; frontend bundle contains `Asia/Shanghai`
 last_image_check: passed on fengxian; compose external images pulled and backend built with explicit tag
 last_image_cleanup: removed 37 dangling <none> images; no docker system prune, no volume prune
 last_pgta_failure_smoke: passed on fengxian; `invalid_target` run `PGTA_20260703_170957_3DDEC3` ended Airflow/backend `failed` as expected, stderr log size 1322 bytes, `sync-airflow` wrote non-null `error_summary` containing `stderr_path` and last error lines
