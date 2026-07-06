@@ -59,7 +59,7 @@
 | T044 | resume/rerun 策略 | snakemake/airflow | T031,T040 | WES `new/resume/rerun_rule` -> Snakemake flags; command log artifact | `WES_20260705_162041_2507AF` initial/resume/rerun_rule smoke success；`snakemake.command.txt` contains `--forcerun fastp` and no `--forceall` | done |
 | T045 | PGT-A Snakemake runner | snakemake/airflow | T035,T004 | pgta config 生成和 metadata/dry-run runner | metadata runner 已随 T035 通过；Airflow-only Snakemake 9 logger 已随 T036 通过；`dryrun_cnv` 和 `invalid_target` runner 已在 `fengxian` 通过 smoke；输出只写 shared/runs/<analysis_id>，PGT_A 目录只读 | done |
 | T085 | PGT-A real target audit | coordinator/airflow | T045,T084 | docs/20 audit, baseline_qc contract | 只读审计确认 `baseline_qc` 存在、需要至少 2 个样本、会触发 mapping+metadata+baseline QC；未运行重任务 | done |
-| T086 | PGT-A staged baseline_qc integration | backend/airflow/frontend | T085 | baseline_qc allowlist, build_ref config, frontend target label | API/DAG/frontend 支持 `target=baseline_qc`，创建和 submit 均要求至少 2 样本；真实远端 Level 4 smoke 待用户确认 | review |
+| T086 | PGT-A staged baseline_qc integration | backend/airflow/frontend | T085 | baseline_qc allowlist, build_ref config, frontend target label | API/DAG/frontend 支持 `target=baseline_qc`，创建和 submit 均要求至少 2 样本；远端 Docker 化 backend/frontend/DAG tests 通过；真实 Level 4 smoke 待用户确认 | done |
 
 ## P5 Frontend
 
@@ -69,7 +69,7 @@
 | T051 | Submit Analysis 页面 | frontend | T022,T023 | PGT-A server-path form UI | 填写 rawdata_root、扫描候选样本、勾选后创建 run，并可从 created run 提交 `bio_pgta` metadata | done |
 | T052 | Runs Dashboard | frontend | T024 | run list/status cards | 可筛选 pipeline/status | todo |
 | T053 | Run Detail 页面 | frontend | T024,T026 | overview/airflow/snakemake tabs | 展示 rule 状态 | todo |
-| T054 | QC 面板 | frontend | T060 | WES mock QC panel | Run detail 显示 WES mock QC pass/warn/fail/unknown summary 和样本级指标表；frontend Docker test target 11 tests passed | done |
+| T054 | QC 面板 | frontend | T060 | WES mock QC panel | Run detail 显示 WES/PGT-A QC pass/warn/fail/unknown summary 和样本级指标表；frontend Docker test target 14 tests passed | done |
 | T055 | Log Viewer | frontend | T025 | stdout/stderr tail | 失败默认显示 stderr | todo |
 | T056 | Reanalysis UI | frontend/backend | T044 | WES mock create/submit panel plus resume/rerun buttons | 前端 Docker test target 10 tests passed；WES detail can trigger `resume` and `rerun_rule` via backend | done |
 | T057 | PGT-A run detail 展示 | frontend | T027,T035,T025 | pgta run overview/sample/rule/log/artifact/sync UI | PGT-A run detail v1 可查看 rules/logs/artifacts；T084 failure smoke 后失败摘要可通过现有 detail/logs API 查看 | done |
@@ -82,7 +82,7 @@
 | T061 | MultiQC/Snakemake report artifact | snakemake/backend | T040,T060 | report link | artifact 表有记录 | todo |
 | T062 | PGT-A run-level error summary extractor | backend | T025,T027,T035 | run-level Airflow sync + stderr summary | PGT-A run-level `error_summary` 已完成；rule 状态基础已由 T026/T043 入库，WES mock qsub stdout/stderr 事件路径已由 T041/T042 验证 | done |
 | T063 | 邮件模板 | backend/airflow | T034,T060 | success/fail emails | 邮件含 QC 和错误链接 | todo |
-| T087 | PGT-A baseline QC artifact/QC visibility | backend/frontend/docs | T086 | baseline QC artifacts + qc_metric import | artifacts 动态发现 `baseline_qc_summary/pass_samples/report`；sync success 后可导入 baseline QC metrics；真实 run smoke 待用户确认 | review |
+| T087 | PGT-A baseline QC artifact/QC visibility | backend/frontend/docs | T086 | baseline QC artifacts + qc_metric import | artifacts 动态发现 `baseline_qc_summary/pass_samples/report`；sync success 后可导入 baseline QC metrics；远端 backend tests 覆盖 parser/import/artifacts；真实 run smoke 待用户确认 | done |
 
 ## P7 NIPT 接入
 

@@ -36,6 +36,109 @@
 
 ## Records
 
+## 2026-07-06 21:45 - Codex - T085/T086/T087 PGT-A baseline_qc staged integration
+
+### Goal
+
+Re-center the next development phase on the PGT-A demo path: audit the real PGT-A workflow for a safe Level 4 target, add controlled `baseline_qc` support across backend/Airflow/frontend, expose baseline artifacts/QC, and keep real execution gated until the user confirms samples and runtime window.
+
+### Completed
+
+- Performed a read-only audit of `/home/jiucheng/pipelines/PGT_A` on `fengxian`.
+- Confirmed `baseline_qc` exists in the real Snakefile, belongs to `pipeline.mode=build_ref`, requires at least 2 baseline/reference samples, and emits `qc/baseline/baseline_qc_summary.tsv`, `baseline_qc_pass_samples.txt`, and `baseline_qc_report.md`.
+- Added `baseline_qc` to the controlled PGT-A target allowlist.
+- Enforced the 2-selected-sample minimum in both run creation and submit validation.
+- Extended `bio_pgta` config generation for `baseline_qc` with `pipeline.targets=["mapping","metadata","baseline_qc"]`, `build_reference.groups.demo`, `--cores 1`, and no dry-run flag.
+- Added dynamic artifact discovery for PGT-A baseline QC summary/pass-samples/report.
+- Added PGT-A baseline QC TSV parsing into existing `qc_metric` and `/api/runs/{analysis_id}/qc`.
+- Updated the frontend target selector with `baseline QC smoke`, disabled Create Run until 2 samples are selected, and hid Submit for invalid baseline created runs.
+- Rebuilt/redeployed backend, frontend, and Airflow services on `fengxian`.
+
+### Changed files
+
+- `backend/app/run_service.py`
+- `backend/app/diagnostics_service.py`
+- `backend/app/qc_service.py`
+- `backend/tests/test_run_creation.py`
+- `backend/tests/test_run_submit.py`
+- `backend/tests/test_run_diagnostics.py`
+- `dags/pgta_metadata_runner.py`
+- `dags/tests/test_pgta_metadata_runner.py`
+- `frontend/src/api.ts`
+- `frontend/src/App.tsx`
+- `frontend/src/App.test.tsx`
+- `docs/05_API_CONTRACT.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/12_TESTING_ACCEPTANCE.md`
+- `docs/17_DEMO_SCRIPT.md`
+- `docs/18_PGTA_FENGXIAN_TEST_PLAN.md`
+- `docs/20_PGTA_LEVEL4_AUDIT.md`
+- `SERVER_INFO.md`
+- `TASKS.md`
+- `CURRENT_STATE.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git checkout -b codex/fullstack/T085-pgta-main-demo` | success | local feature branch |
+| read-only PGT-A audit via `ssh fengxian` heredoc | success | no remote writes; confirmed `baseline_qc` targets and constraints |
+| `git diff --check` | success | only CRLF warning for `MANIFEST.json` |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | Compose v2.24.7 |
+| `docker compose -f docker-compose.yaml build backend frontend airflow-worker airflow-scheduler airflow-api-server` on `fengxian` | success | frontend production build passed |
+| `docker run --rm airflow-demo/backend:0.1.0 pytest -q` on `fengxian` | success | 48 passed |
+| `docker build --target test -f frontend/Dockerfile frontend` on `fengxian` | failed first, then success | first failure was an async QC test race; after fixing test wait, 14 passed |
+| `docker run --rm --entrypoint /usr/local/bin/python -v /home/jiucheng/project/airflow-demo:/repo:ro -w /repo airflow-demo/airflow:0.1.0 -m unittest dags.tests.test_bio_pgta_dag dags.tests.test_pgta_metadata_runner -v` | success | 14 DAG/runner tests OK |
+| `docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags list-import-errors` | success | `No data found` |
+| `docker compose -f docker-compose.yaml up -d --no-deps backend frontend airflow-api-server airflow-scheduler airflow-worker` | success | recreated only affected services; no volume deletion |
+| `curl http://127.0.0.1:8000/api/health` | success | `{"status":"ok"}` |
+| `curl http://127.0.0.1:12959/` | success | HTTP 200, title `airflow-demo` |
+| `curl http://127.0.0.1:12958/health` | success after startup retry | Airflow scheduler/metadatabase healthy |
+
+### Tests
+
+- Backend Dockerized pytest: 48 passed.
+- Frontend Dockerized Vitest target: 14 passed.
+- Airflow/DAG unittest: 14 passed.
+- Airflow import check: no import errors.
+- Service smoke after redeploy: backend health ok, frontend HTTP 200, Airflow health healthy.
+
+### Not run / why
+
+- No real `baseline_qc` run was submitted. Audit showed it triggers mapping + metadata + baseline QC and requires at least 2 samples, so Level 4 execution must wait for user-confirmed sample selection and runtime window.
+- No CNV production run, qsub, MailHog email, NIPT, BS10610 migration, or true PGT-A report/MultiQC registration was attempted.
+
+### Current git status
+
+Implementation commit `4cf6f6e` is pushed on branch `codex/fullstack/T085-pgta-main-demo`. This handoff/status update is the final docs batch for the same branch.
+
+### Risks
+
+- `baseline_qc` is not a lightweight single-sample smoke; it may consume meaningful runtime and mapping resources even with `--cores 1`.
+- The generated run-local config has not yet been validated by a real `baseline_qc` execution.
+- If the real PGT-A workflow writes unexpected relative paths, the Level 4 smoke should stop and preserve logs rather than retrying.
+
+### Open questions
+
+- Which two PGT-A samples should be used for the first Level 4 staged run?
+- What runtime window and monitoring expectations are acceptable for that run?
+- If `baseline_qc` is too heavy, should we choose a smaller real target after another audit pass?
+
+### Next recommended task
+
+Run a user-confirmed PGT-A Level 4 smoke for `target=baseline_qc` with exactly 2 selected samples, low concurrency, and output isolated under `shared/runs/<analysis_id>`. If that passes, move to T080/T081 demo script/report, then T034/T063 MailHog notifications.
+
+### Rollback notes
+
+- To stop services safely: `docker compose -f docker-compose.yaml down` only.
+- Do not use `down -v`, `docker system prune`, or `docker volume prune`.
+- To revert this branch before merge, revert the commit(s) on `codex/fullstack/T085-pgta-main-demo`; no production PGT-A directory files were modified.
+
 ## 2026-07-06 01:35 - Codex - T051 PGT-A submit workspace usability fix
 
 ### Goal
