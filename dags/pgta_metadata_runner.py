@@ -15,6 +15,8 @@ DEFAULT_SHARED_ROOT = Path(os.getenv("CONTAINER_SHARED_ROOT", "/data/airflow-dem
 DEFAULT_PGTA_PIPELINE_ROOT = Path(os.getenv("PGTA_CONTAINER_ROOT", "/opt/pipelines/PGT_A"))
 DEFAULT_PGTA_DATA_ROOT = Path(os.getenv("PGTA_CONTAINER_DATA_ROOT", "/data/project/CNV/PGT-A"))
 DEFAULT_SNAKEMAKE_BIN = Path(os.getenv("PGTA_SNAKEMAKE_BIN", "/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"))
+DEFAULT_SAMTOOLS_BIN = Path(os.getenv("PGTA_SAMTOOLS_BIN", "/biosoftware/miniconda/pkgs/samtools-1.7-1/bin/samtools"))
+DEFAULT_SAMTOOLS_LIBRARY_PATH = os.getenv("PGTA_SAMTOOLS_LIBRARY_PATH", "/biosoftware/miniconda/pkgs/openssl-1.0.2u-h516909a_0/lib")
 SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc"}
 INVALID_SNAKEMAKE_TARGET = "__airflow_demo_invalid_target__"
 
@@ -92,6 +94,8 @@ def build_pgta_config(
     *,
     pgta_pipeline_root: Path = DEFAULT_PGTA_PIPELINE_ROOT,
     pgta_data_root: Path = DEFAULT_PGTA_DATA_ROOT,
+    samtools_bin: Path = DEFAULT_SAMTOOLS_BIN,
+    samtools_library_path: str | None = DEFAULT_SAMTOOLS_LIBRARY_PATH,
 ) -> Path:
     workdir = Path(conf["workdir"])
     config_dir = workdir / "config"
@@ -106,7 +110,14 @@ def build_pgta_config(
     if target == "baseline_qc" and len(samples) < 2:
         raise ValueError("baseline_qc requires at least 2 selected samples for reference-style baseline comparison.")
 
-    snakemake_config = _snakemake_config(workdir, samples, target=target, pgta_data_root=pgta_data_root)
+    samtools_wrapper = _write_samtools_wrapper(workdir, samtools_bin, samtools_library_path)
+    snakemake_config = _snakemake_config(
+        workdir,
+        samples,
+        target=target,
+        pgta_data_root=pgta_data_root,
+        samtools_path=samtools_wrapper,
+    )
     config_path = workdir / "config.yaml"
     with config_path.open("w", encoding="utf-8") as handle:
         yaml.safe_dump(snakemake_config, handle, sort_keys=False)
@@ -214,6 +225,7 @@ def _snakemake_config(
     *,
     target: str,
     pgta_data_root: Path,
+    samtools_path: Path,
 ) -> dict[str, Any]:
     pipeline_mode = "predict"
     pipeline_targets = ["metadata"]
@@ -287,7 +299,7 @@ def _snakemake_config(
         "biosoft": {
             "fastp": "/biosoftware/bin/fastp",
             "bwa": "/biosoftware/bin/bwa",
-            "samtools": "/biosoftware/bin/samtools",
+            "samtools": str(samtools_path),
             "WisecondorX": "/biosoftware/miniconda/envs/wise_env/bin/WisecondorX",
             "python": "/biosoftware/miniconda/envs/snakemake_env/bin/python",
         },
@@ -296,6 +308,22 @@ def _snakemake_config(
     if build_reference is not None:
         config["build_reference"] = build_reference
     return config
+
+
+def _write_samtools_wrapper(workdir: Path, samtools_bin: Path, samtools_library_path: str | None) -> Path:
+    bin_dir = workdir / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    wrapper = bin_dir / "samtools"
+    lines = [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+    ]
+    if samtools_library_path:
+        lines.append(f'export LD_LIBRARY_PATH="{samtools_library_path}:${{LD_LIBRARY_PATH:-}}"')
+    lines.append(f'exec {shlex.quote(str(samtools_bin))} "$@"')
+    wrapper.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    wrapper.chmod(0o755)
+    return wrapper
 
 
 def _target_from_conf(conf: dict[str, Any]) -> str:
