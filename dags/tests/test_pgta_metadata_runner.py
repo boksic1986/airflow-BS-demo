@@ -247,6 +247,12 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             self.assertNotIn("--dry-run", command)
             self.assertIn("--configfile", command)
             self.assertEqual(run.call_args.kwargs["cwd"], str(workdir))
+            cache_dir = workdir / "tmp" / "xdg-cache"
+            self.assertTrue(cache_dir.is_dir())
+            self.assertEqual(run.call_args.kwargs["env"]["XDG_CACHE_HOME"], str(cache_dir))
+            command_text = (workdir / "logs" / "snakemake.command.txt").read_text(encoding="utf-8")
+            self.assertIn("--snakefile /opt/pipelines/PGT_A/Snakefile", command_text)
+            self.assertIn(f"--configfile {config_path}", command_text)
 
     def test_run_pgta_target_dryrun_adds_dry_run_flag(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

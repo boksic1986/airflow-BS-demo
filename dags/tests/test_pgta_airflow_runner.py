@@ -108,6 +108,12 @@ class PgtaAirflowRunnerTests(unittest.TestCase):
             self.assertIn("--logger-airflow-demo-analysis-id", command)
             self.assertIn("--logger-airflow-demo-events-path", command)
             self.assertIn("/opt/airflow/dags", run.call_args.kwargs["env"]["PYTHONPATH"])
+            cache_dir = workdir / "tmp" / "xdg-cache"
+            self.assertTrue(cache_dir.is_dir())
+            self.assertEqual(run.call_args.kwargs["env"]["XDG_CACHE_HOME"], str(cache_dir))
+            command_text = (workdir / "logs" / "snakemake.command.txt").read_text(encoding="utf-8")
+            self.assertIn("--logger airflow-demo", command_text)
+            self.assertIn(f"--configfile {config_path}", command_text)
 
     def test_run_snakemake9_passes_optional_backend_event_url_to_logger(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
