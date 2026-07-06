@@ -232,6 +232,38 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             self.assertIn('export LD_LIBRARY_PATH="/opt/compatible/lib:${LD_LIBRARY_PATH:-}"', wrapper_text)
             self.assertIn('exec /opt/compatible/bin/samtools "$@"', wrapper_text)
 
+    def test_build_config_uses_configured_reference_genome(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            manifest = workdir / "config" / "samples.selected.tsv"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(
+                "sample_id\tR1\tR2\tsource_dir\n"
+                "G1\t/data/project/CNV/PGT-A/rawdata/run/G1_R1.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run/G1_R2.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run\n",
+                encoding="utf-8",
+            )
+            conf = validate_pgta_conf(
+                {
+                    "analysis_id": "PGTA_TEST",
+                    "pipeline": "pgta",
+                    "sample_sheet_path": str(manifest),
+                    "workdir": str(workdir),
+                    "params": {"target": "metadata"},
+                },
+                shared_root=Path(tmpdir),
+            )
+
+            config_path = build_pgta_config(
+                conf,
+                pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                reference_genome=Path("/refs/hg19/hg19.fa"),
+            )
+
+            import yaml
+
+            snakemake_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+            self.assertEqual(snakemake_config["core"]["reference_genome"], "/refs/hg19/hg19.fa")
+
     def test_build_config_rejects_baseline_qc_with_one_sample(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
