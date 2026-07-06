@@ -26,6 +26,9 @@ x-airflow-common: &airflow-common
     PGTA_CONTAINER_ROOT: ${PGTA_CONTAINER_ROOT:-/opt/pipelines/PGT_A}
     PGTA_CONTAINER_DATA_ROOT: ${PGTA_CONTAINER_DATA_ROOT:-/data/project/CNV/PGT-A}
     PGTA_SNAKEMAKE9_BIN: ${PGTA_SNAKEMAKE9_BIN:-/biosoftware/miniconda/envs/snakemake9_env/bin/snakemake}
+    PGTA_REFERENCE_GENOME: ${PGTA_REFERENCE_GENOME:-/data/Database/index/hg19/hg19.fa}
+    PGTA_SAMTOOLS_BIN: ${PGTA_SAMTOOLS_BIN:-/biosoftware/miniconda/pkgs/samtools-1.7-1/bin/samtools}
+    PGTA_SAMTOOLS_LIBRARY_PATH: ${PGTA_SAMTOOLS_LIBRARY_PATH:-/biosoftware/miniconda/pkgs/openssl-1.0.2u-h516909a_0/lib}
     AIRFLOW_PIPELINES_ROOT: ${AIRFLOW_PIPELINES_ROOT:-/opt/airflow/pipelines}
     AIRFLOW_PROFILES_ROOT: ${AIRFLOW_PROFILES_ROOT:-/opt/airflow/profiles}
     AIRFLOW_DEMO_QSUB_MODE: ${AIRFLOW_DEMO_QSUB_MODE:-mock}
@@ -38,6 +41,7 @@ x-airflow-common: &airflow-common
     - ${PGTA_PIPELINE_ROOT:-/home/jiucheng/pipelines/PGT_A}:${PGTA_CONTAINER_ROOT:-/opt/pipelines/PGT_A}:ro
     - ${BIOSOFTWARE_ROOT:-/biosoftware}:/biosoftware:ro
     - ${PGTA_DATA_ROOT:-/data/project/CNV/PGT-A}:${PGTA_CONTAINER_DATA_ROOT:-/data/project/CNV/PGT-A}:ro
+    - ${REFERENCE_ROOT:-/data/Database}:${CONTAINER_REFERENCE_ROOT:-/data/Database}:ro
   depends_on:
     postgres:
       condition: service_healthy

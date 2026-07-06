@@ -17,6 +17,7 @@ DEFAULT_PGTA_DATA_ROOT = Path(os.getenv("PGTA_CONTAINER_DATA_ROOT", "/data/proje
 DEFAULT_SNAKEMAKE_BIN = Path(os.getenv("PGTA_SNAKEMAKE_BIN", "/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"))
 DEFAULT_SAMTOOLS_BIN = Path(os.getenv("PGTA_SAMTOOLS_BIN", "/biosoftware/miniconda/pkgs/samtools-1.7-1/bin/samtools"))
 DEFAULT_SAMTOOLS_LIBRARY_PATH = os.getenv("PGTA_SAMTOOLS_LIBRARY_PATH", "/biosoftware/miniconda/pkgs/openssl-1.0.2u-h516909a_0/lib")
+DEFAULT_REFERENCE_GENOME = Path(os.getenv("PGTA_REFERENCE_GENOME", "/data/Database/index/hg19/hg19.fa"))
 SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc"}
 INVALID_SNAKEMAKE_TARGET = "__airflow_demo_invalid_target__"
 
@@ -96,6 +97,7 @@ def build_pgta_config(
     pgta_data_root: Path = DEFAULT_PGTA_DATA_ROOT,
     samtools_bin: Path = DEFAULT_SAMTOOLS_BIN,
     samtools_library_path: str | None = DEFAULT_SAMTOOLS_LIBRARY_PATH,
+    reference_genome: Path = DEFAULT_REFERENCE_GENOME,
 ) -> Path:
     workdir = Path(conf["workdir"])
     config_dir = workdir / "config"
@@ -117,6 +119,7 @@ def build_pgta_config(
         target=target,
         pgta_data_root=pgta_data_root,
         samtools_path=samtools_wrapper,
+        reference_genome=reference_genome,
     )
     config_path = workdir / "config.yaml"
     with config_path.open("w", encoding="utf-8") as handle:
@@ -226,6 +229,7 @@ def _snakemake_config(
     target: str,
     pgta_data_root: Path,
     samtools_path: Path,
+    reference_genome: Path,
 ) -> dict[str, Any]:
     pipeline_mode = "predict"
     pipeline_targets = ["metadata"]
@@ -266,7 +270,7 @@ def _snakemake_config(
     config = {
         "core": {
             "project_path": str(workdir),
-            "reference_genome": "/data/Database/index/hg19/hg19.fa",
+            "reference_genome": str(reference_genome),
             "chromosome_list": [
                 "chr1",
                 "chr2",
