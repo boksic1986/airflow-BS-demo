@@ -46,6 +46,17 @@ def insert_submitted_run(session_factory, tmp_path, *, analysis_id: str = "PGTA_
                 email_to="demo@example.com",
             )
         )
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="G1",
+                fq1="/data/project/CNV/PGT-A/rawdata/G1_R1.fastq.gz",
+                fq2="/data/project/CNV/PGT-A/rawdata/G1_R2.fastq.gz",
+                status="pending",
+                qc_status="unknown",
+                metadata_json={"input_mode": "server_path_scan"},
+            )
+        )
         session.commit()
     return analysis_id
 
@@ -208,8 +219,10 @@ def test_sync_airflow_success_updates_run_status(tmp_path, monkeypatch) -> None:
     assert fake_airflow.calls == [{"dag_id": "bio_pgta", "dag_run_id": f"manual__{analysis_id}"}]
     with session_factory() as session:
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        sample = session.scalar(select(Sample).where(Sample.analysis_id == analysis_id))
     assert run.status == "success"
     assert run.ended_at is not None
+    assert sample.status == "success"
 
 
 def test_sync_airflow_failed_writes_error_summary_from_stderr(tmp_path, monkeypatch) -> None:
@@ -228,9 +241,11 @@ def test_sync_airflow_failed_writes_error_summary_from_stderr(tmp_path, monkeypa
     assert "snakemake.stderr.log" in payload["error_summary"]
     with session_factory() as session:
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        sample = session.scalar(select(Sample).where(Sample.analysis_id == analysis_id))
     assert run.status == "failed"
     assert run.error_summary == payload["error_summary"]
     assert run.ended_at is not None
+    assert sample.status == "failed"
 
 
 def test_get_run_log_tails_known_pgta_streams(tmp_path, monkeypatch) -> None:

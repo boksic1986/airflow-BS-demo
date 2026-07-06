@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import main
-from app.models import AnalysisRun, Base, RunAction
+from app.models import AnalysisRun, Base, RunAction, Sample
 
 
 def make_test_sessionmaker():
@@ -56,6 +56,18 @@ def insert_pgta_run(
                 email_to="demo@example.com",
             )
         )
+        for index in range(1, selected_count + 1):
+            session.add(
+                Sample(
+                    analysis_id=analysis_id,
+                    sample_id=f"G{index}",
+                    fq1=f"/data/R{index}_1.fq.gz",
+                    fq2=f"/data/R{index}_2.fq.gz",
+                    metadata_json={"input_mode": "server_path_scan"},
+                    status="pending",
+                    qc_status="unknown",
+                )
+            )
         session.commit()
     return analysis_id
 
@@ -113,8 +125,10 @@ def test_submit_created_pgta_run_triggers_airflow_and_updates_db(tmp_path, monke
     with session_factory() as session:
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
         actions = session.scalars(select(RunAction).where(RunAction.analysis_id == analysis_id)).all()
+        samples = session.scalars(select(Sample).where(Sample.analysis_id == analysis_id)).all()
     assert run.status == "submitted"
     assert run.dag_run_id == f"manual__{analysis_id}"
+    assert [sample.status for sample in samples] == ["running"]
     assert actions[0].action == "submit"
     assert actions[0].result_status == "accepted"
 
