@@ -15,7 +15,7 @@ from app.models import AnalysisRun, RunAction, Sample
 
 PGTA_DAG_ID = "bio_pgta"
 WES_DAG_ID = "bio_wes_qsub"
-SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target"}
+SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc"}
 SUPPORTED_WES_TARGETS = {"final_summary"}
 SUPPORTED_WES_REANALYSIS_MODES = {"resume", "rerun_rule"}
 SUPPORTED_WES_RERUN_RULES = {"fastp", "bwa_mem", "markdup", "final_summary"}
@@ -41,6 +41,7 @@ def create_pgta_run(
     _validate_pgta_target(target)
     if not selected_samples:
         raise ValueError("At least one sample must be selected.")
+    _validate_pgta_sample_count(target=target, selected_count=len(selected_samples))
     sample_ids = [sample.sample_id for sample in selected_samples]
     if len(sample_ids) != len(set(sample_ids)):
         raise ValueError("selected_samples contains duplicate sample_id values.")
@@ -325,6 +326,10 @@ def _validate_submit_run(run: AnalysisRun) -> None:
     params = run.params_json or {}
     if run.pipeline_name == "pgta":
         _validate_pgta_target(str(params.get("target") or "metadata"))
+        _validate_pgta_sample_count(
+            target=str(params.get("target") or "metadata"),
+            selected_count=_pgta_selected_count(run),
+        )
     elif run.pipeline_name == "wes_qsub":
         _validate_wes_target(str(params.get("target") or "final_summary"))
     else:
@@ -339,6 +344,26 @@ def _validate_pgta_target(target: str) -> None:
     if target not in SUPPORTED_PGTA_TARGETS:
         supported = ", ".join(sorted(SUPPORTED_PGTA_TARGETS))
         raise ValueError(f"Unsupported PGT-A target: {target}. Supported targets: {supported}.")
+
+
+def _validate_pgta_sample_count(*, target: str, selected_count: int) -> None:
+    if target == "baseline_qc" and selected_count < 2:
+        raise ValueError("baseline_qc requires at least 2 selected samples for reference-style baseline comparison.")
+
+
+def _pgta_selected_count(run: AnalysisRun) -> int:
+    params = run.params_json or {}
+    selected_count = params.get("selected_count")
+    if isinstance(selected_count, int):
+        return selected_count
+    if isinstance(selected_count, str) and selected_count.isdigit():
+        return int(selected_count)
+    if not run.sample_sheet_path:
+        return 0
+    manifest = Path(run.sample_sheet_path)
+    if not manifest.is_file():
+        return 0
+    return max(0, len([line for line in manifest.read_text(encoding="utf-8").splitlines() if line.strip()]) - 1)
 
 
 def _validate_wes_target(target: str) -> None:

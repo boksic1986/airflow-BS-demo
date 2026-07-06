@@ -50,6 +50,60 @@ def insert_submitted_run(session_factory, tmp_path, *, analysis_id: str = "PGTA_
     return analysis_id
 
 
+def insert_pgta_baseline_submitted_run(session_factory, tmp_path, *, analysis_id: str = "PGTA_20260706_020000_BASE01") -> str:
+    workdir = tmp_path / "shared" / "runs" / analysis_id
+    baseline_dir = workdir / "qc" / "baseline"
+    logs_dir = workdir / "logs"
+    config_dir = workdir / "config"
+    baseline_dir.mkdir(parents=True)
+    logs_dir.mkdir(parents=True)
+    config_dir.mkdir(parents=True)
+    (logs_dir / "snakemake.stdout.log").write_text("baseline stdout\n", encoding="utf-8")
+    (logs_dir / "snakemake.stderr.log").write_text("", encoding="utf-8")
+    (logs_dir / "run_metadata.tsv").write_text("key\tvalue\ntarget\tbaseline_qc\n", encoding="utf-8")
+    (baseline_dir / "baseline_qc_summary.tsv").write_text(
+        "\n".join(
+            [
+                "sample_id\tbin_size\tqc_decision\tqc_reason\tmapped_fragments\tusable_bins\tzero_bin_fraction\tbin_cv\tadjacent_diff_mad\tgini_coefficient\tpearson_r\tspearman_r\tmedian_abs_z\toutlier_frac_abs_z_gt_3\toutlier_frac_abs_z_gt_5\tgc_fraction_mean\tgc_signal_pearson_r\tgc_signal_spearman_r\tgc_signal_slope\ttarget_bam\tsource_tsv",
+                "G1\t100000\tPASS\tok\t123456\t25000\t0.01\t0.12\t0.03\t0.21\t0.95\t0.94\t0.45\t0.02\t0.01\t0.41\t0.02\t0.01\t0.001\t/data/G1.sorted.bam\t/data/G1.qc.tsv",
+                "G2\t100000\tWARN\treview\t120000\t24900\t0.03\t0.18\t0.05\t0.25\t0.90\t0.89\t0.70\t0.04\t0.02\t0.42\t0.03\t0.02\t0.002\t/data/G2.sorted.bam\t/data/G2.qc.tsv",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (baseline_dir / "baseline_qc_pass_samples.txt").write_text("G1\n", encoding="utf-8")
+    (baseline_dir / "baseline_qc_report.md").write_text("# baseline QC\n", encoding="utf-8")
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="pgta",
+                dag_id="bio_pgta",
+                dag_run_id=f"manual__{analysis_id}",
+                mode="new",
+                status="submitted",
+                sample_sheet_path=str(config_dir / "samples.selected.tsv"),
+                workdir=str(workdir),
+                params_json={"target": "baseline_qc", "selected_count": 2},
+            )
+        )
+        for sample_id in ("G1", "G2"):
+            session.add(
+                Sample(
+                    analysis_id=analysis_id,
+                    sample_id=sample_id,
+                    fq1=f"/data/project/CNV/PGT-A/rawdata/{sample_id}_R1.fastq.gz",
+                    fq2=f"/data/project/CNV/PGT-A/rawdata/{sample_id}_R2.fastq.gz",
+                    status="pending",
+                    qc_status="unknown",
+                    metadata_json={"input_mode": "server_path_scan"},
+                )
+            )
+        session.commit()
+    return analysis_id
+
+
 def insert_wes_submitted_run(session_factory, tmp_path, *, analysis_id: str = "WES_20260706_010000_QC01") -> str:
     workdir = tmp_path / "shared" / "runs" / analysis_id
     reports_dir = workdir / "reports"
@@ -260,6 +314,52 @@ def test_list_pgta_artifacts_discovers_existing_files(tmp_path, monkeypatch) -> 
     assert metadata["type"] == "pgta_metadata"
     assert metadata["size_bytes"] > 0
     assert metadata["url"] == f"/api/runs/{analysis_id}/logs?stream=metadata"
+
+
+def test_list_pgta_artifacts_discovers_baseline_qc_outputs(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_pgta_baseline_submitted_run(session_factory, tmp_path)
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared")
+    client = TestClient(main.app)
+
+    response = client.get(f"/api/runs/{analysis_id}/artifacts")
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    keys = {item["key"] for item in items}
+    assert {
+        "pgta_baseline_qc_summary",
+        "pgta_baseline_qc_pass_samples",
+        "pgta_baseline_qc_report",
+    } <= keys
+    summary = next(item for item in items if item["key"] == "pgta_baseline_qc_summary")
+    assert summary["type"] == "qc_tsv"
+    assert summary["label"] == "PGT-A baseline QC summary"
+    assert summary["path"].endswith("qc/baseline/baseline_qc_summary.tsv")
+
+
+def test_sync_airflow_success_imports_pgta_baseline_qc_metrics(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_pgta_baseline_submitted_run(session_factory, tmp_path)
+    fake_airflow = FakeAirflowClient("success")
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared", fake_airflow)
+    client = TestClient(main.app)
+
+    first = client.post(f"/api/runs/{analysis_id}/actions/sync-airflow")
+    second = client.post(f"/api/runs/{analysis_id}/actions/sync-airflow")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    with session_factory() as session:
+        metrics = session.scalars(select(QcMetric).where(QcMetric.analysis_id == analysis_id)).all()
+        samples = session.scalars(select(Sample).where(Sample.analysis_id == analysis_id).order_by(Sample.sample_id)).all()
+    assert len(metrics) == 14
+    assert {(metric.sample_id, metric.metric_name, metric.status) for metric in metrics} >= {
+        ("G1", "baseline_qc_decision", "pass"),
+        ("G1", "bin_cv", "pass"),
+        ("G2", "baseline_qc_decision", "warn"),
+    }
+    assert [sample.qc_status for sample in samples] == ["pass", "warn"]
 
 
 def test_sync_airflow_success_imports_wes_qc_metrics_idempotently(tmp_path, monkeypatch) -> None:

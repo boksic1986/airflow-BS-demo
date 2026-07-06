@@ -41,7 +41,7 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            for target in ("metadata", "dryrun_cnv", "invalid_target"):
+            for target in ("metadata", "dryrun_cnv", "invalid_target", "baseline_qc"):
                 conf = validate_pgta_conf(
                     {
                         "analysis_id": "PGTA_TEST",
@@ -68,7 +68,7 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
                         "pipeline": "pgta",
                         "sample_sheet_path": str(manifest),
                         "workdir": str(workdir),
-                        "params": {"target": "baseline_qc"},
+                        "params": {"target": "real_cnv"},
                     },
                     shared_root=Path(tmpdir),
                 )
@@ -155,6 +155,66 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
                 "/data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference/gender/common_best_binsize.txt",
             )
             self.assertEqual(runner_config["target"], "dryrun_cnv")
+
+    def test_build_config_sets_build_ref_target_for_baseline_qc(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            manifest = workdir / "config" / "samples.selected.tsv"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(
+                "sample_id\tR1\tR2\tsource_dir\n"
+                "G1\t/data/project/CNV/PGT-A/rawdata/run/G1_R1.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run/G1_R2.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run\n"
+                "G2\t/data/project/CNV/PGT-A/rawdata/run/G2_R1.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run/G2_R2.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run\n",
+                encoding="utf-8",
+            )
+            conf = validate_pgta_conf(
+                {
+                    "analysis_id": "PGTA_TEST",
+                    "pipeline": "pgta",
+                    "sample_sheet_path": str(manifest),
+                    "workdir": str(workdir),
+                    "params": {"target": "baseline_qc"},
+                },
+                shared_root=Path(tmpdir),
+            )
+
+            config_path = build_pgta_config(conf, pgta_pipeline_root=Path("/opt/pipelines/PGT_A"))
+
+            import yaml
+
+            snakemake_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+            runner_config = json.loads((workdir / "config" / "pgta_run_config.json").read_text(encoding="utf-8"))
+            self.assertEqual(snakemake_config["pipeline"]["mode"], "build_ref")
+            self.assertEqual(snakemake_config["pipeline"]["targets"], ["mapping", "metadata", "baseline_qc"])
+            self.assertEqual(snakemake_config["build_reference"]["mode"], "selected_samples")
+            self.assertEqual(snakemake_config["build_reference"]["groups"], {"demo": ["G1", "G2"]})
+            self.assertFalse(snakemake_config["core"]["wisecondorx"]["tuning"]["enable"])
+            self.assertFalse(snakemake_config["core"]["wisecondorx"]["cnv"]["enable"])
+            self.assertEqual(runner_config["target"], "baseline_qc")
+
+    def test_build_config_rejects_baseline_qc_with_one_sample(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            manifest = workdir / "config" / "samples.selected.tsv"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(
+                "sample_id\tR1\tR2\tsource_dir\n"
+                "G1\t/data/project/CNV/PGT-A/rawdata/run/G1_R1.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run/G1_R2.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run\n",
+                encoding="utf-8",
+            )
+            conf = validate_pgta_conf(
+                {
+                    "analysis_id": "PGTA_TEST",
+                    "pipeline": "pgta",
+                    "sample_sheet_path": str(manifest),
+                    "workdir": str(workdir),
+                    "params": {"target": "baseline_qc"},
+                },
+                shared_root=Path(tmpdir),
+            )
+
+            with self.assertRaisesRegex(ValueError, "baseline_qc requires at least 2 selected samples"):
+                build_pgta_config(conf, pgta_pipeline_root=Path("/opt/pipelines/PGT_A"))
 
     def test_run_pgta_target_metadata_invokes_snakemake_and_writes_logs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -247,23 +307,57 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
                 "No rule to produce __airflow_demo_invalid_target__\n",
             )
 
+    def test_run_pgta_target_baseline_qc_invokes_snakemake_without_dry_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            workdir.mkdir(parents=True)
+            config_path = workdir / "config.yaml"
+            config_path.write_text("samples: {}\n", encoding="utf-8")
+
+            completed = Mock(returncode=0)
+            completed.stdout = "baseline stdout\n"
+            completed.stderr = ""
+            with patch("pgta_metadata_runner.subprocess.run", return_value=completed) as run:
+                artifact_path = run_pgta_target(
+                    {
+                        "analysis_id": "PGTA_TEST",
+                        "workdir": str(workdir),
+                        "config_path": str(config_path),
+                        "params": {"target": "baseline_qc"},
+                    },
+                    snakemake_bin=Path("/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"),
+                    pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                )
+
+            command = run.call_args.args[0]
+            self.assertEqual(artifact_path, workdir / "qc" / "baseline" / "baseline_qc_summary.tsv")
+            self.assertNotIn("--dry-run", command)
+            self.assertNotIn("__airflow_demo_invalid_target__", command)
+
     def test_collect_pgta_artifact_branches_by_target(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
             logs_dir = workdir / "logs"
+            baseline_dir = workdir / "qc" / "baseline"
             logs_dir.mkdir(parents=True)
+            baseline_dir.mkdir(parents=True)
             metadata = logs_dir / "run_metadata.tsv"
             stdout = logs_dir / "snakemake.stdout.log"
+            baseline_summary = baseline_dir / "baseline_qc_summary.tsv"
             metadata.write_text("key\tvalue\n", encoding="utf-8")
             stdout.write_text("dry-run stdout\n", encoding="utf-8")
+            baseline_summary.write_text("sample_id\tqc_decision\nG1\tPASS\n", encoding="utf-8")
 
             metadata_artifact = collect_pgta_artifact({"workdir": str(workdir), "params": {"target": "metadata"}})
             dryrun_artifact = collect_pgta_artifact({"workdir": str(workdir), "params": {"target": "dryrun_cnv"}})
+            baseline_artifact = collect_pgta_artifact({"workdir": str(workdir), "params": {"target": "baseline_qc"}})
 
         self.assertEqual(metadata_artifact["type"], "pgta_metadata")
         self.assertTrue(metadata_artifact["path"].endswith("run_metadata.tsv"))
         self.assertEqual(dryrun_artifact["type"], "pgta_dryrun")
         self.assertTrue(dryrun_artifact["path"].endswith("snakemake.stdout.log"))
+        self.assertEqual(baseline_artifact["type"], "pgta_baseline_qc")
+        self.assertTrue(baseline_artifact["path"].endswith("baseline_qc_summary.tsv"))
 
 
 if __name__ == "__main__":

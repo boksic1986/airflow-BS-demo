@@ -122,6 +122,7 @@ PGT-A v1 受控 target：
 - `metadata`: 真实执行轻量 metadata target。
 - `dryrun_cnv`: 只运行 CNV 配置方向的 Snakemake dry-run。
 - `invalid_target`: failure smoke 专用，后续提交到 Airflow 时让 Snakemake 自然失败以验证 stderr/error summary。
+- `baseline_qc`: Level 4 staged real target，生成 `pipeline.mode=build_ref`、`pipeline.targets=["mapping","metadata","baseline_qc"]` 的 run-local config。该 target 至少需要 2 个 selected samples，会真实执行 mapping 和 baseline QC；只允许在用户确认的最小样本 smoke 中运行。
 
 Request:
 
@@ -207,7 +208,8 @@ T045/T084 阶段支持把已存在的 PGT-A controlled target run 提交到 Airf
 
 - `analysis_run.pipeline_name = pgta`
 - `analysis_run.status = created`
-- `analysis_run.params_json.target` 为 `metadata`、`dryrun_cnv` 或 `invalid_target`
+- `analysis_run.params_json.target` 为 `metadata`、`dryrun_cnv`、`invalid_target` 或 `baseline_qc`
+- `baseline_qc` 要求 `selected_count >= 2`
 - `sample_sheet_path` 和 `workdir` 必须存在
 
 WES submit 要求：
@@ -248,6 +250,7 @@ Errors:
 
 - `404 RUN_NOT_FOUND`: `analysis_id` 不存在。
 - `400 VALIDATION_ERROR`: pipeline 不是 `pgta/wes_qsub`、状态不是 `created`、target 不在受控白名单内，或 run 缺少必要路径。
+- `400 VALIDATION_ERROR`: `baseline_qc` selected samples 少于 2 个。
 - `502 AIRFLOW_TRIGGER_FAILED`: backend 调用 Airflow API 失败。
 
 ## 6. 同步 Airflow 状态
@@ -266,6 +269,7 @@ POST /api/runs/{analysis_id}/actions/sync-airflow
 - `success` / `failed` 写入 `ended_at`。
 - `failed` 时从 `workdir/logs/snakemake.stderr.log` 提取最后 100 行，写入 `analysis_run.error_summary`。
 - `wes_qsub` 在 Airflow `success` 时解析 `workdir/reports/qc_summary.tsv`，幂等刷新 `qc_metric`，并更新 `sample.qc_status`。
+- `pgta` 且 `target=baseline_qc` 在 Airflow `success` 时解析 `workdir/qc/baseline/baseline_qc_summary.tsv`，导入 `baseline_qc_decision`、`mapped_fragments`、`zero_bin_fraction`、`bin_cv`、`pearson_r`、`median_abs_z`、`gc_signal_slope` 等样本级指标。
 
 Response:
 
@@ -461,7 +465,7 @@ Errors:
 GET /api/runs/{analysis_id}/qc
 ```
 
-T060/T054 v1 已支持 WES mock QC 查询。QC 导入只发生在显式调用 `sync-airflow` 且 `wes_qsub` DAG run 为 `success` 时；普通 GET 不修改 DB。
+T060/T054 v1 已支持 WES mock QC 查询；T087 v1 补充 PGT-A `baseline_qc` summary 查询。QC 导入只发生在显式调用 `sync-airflow` 且 DAG run 为 `success` 时；普通 GET 不修改 DB。
 
 Response:
 
@@ -528,7 +532,7 @@ Errors:
 GET /api/runs/{analysis_id}/artifacts
 ```
 
-PGT-A v1 第一版动态发现 metadata/dry-run 产物，不写 artifact 表：
+PGT-A v1 第一版动态发现 metadata/dry-run/baseline QC 产物，不写 artifact 表：
 
 - `logs/run_metadata.tsv`
 - `logs/snakemake.stdout.log`
@@ -536,6 +540,9 @@ PGT-A v1 第一版动态发现 metadata/dry-run 产物，不写 artifact 表：
 - `config.yaml`
 - `config/pgta_run_config.json`
 - `config/pgta_metadata_config.json`
+- `qc/baseline/baseline_qc_summary.tsv`
+- `qc/baseline/baseline_qc_pass_samples.txt`
+- `qc/baseline/baseline_qc_report.md`
 
 WES mock v1 也动态发现：
 

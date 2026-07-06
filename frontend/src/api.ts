@@ -69,7 +69,7 @@ export type ScanInputResponse = {
   items: ScanCandidate[];
 };
 
-export type PgtaTarget = "metadata" | "dryrun_cnv" | "invalid_target";
+export type PgtaTarget = "metadata" | "dryrun_cnv" | "invalid_target" | "baseline_qc";
 
 export type CreatePgtaRunRequest = {
   pipeline: "pgta";

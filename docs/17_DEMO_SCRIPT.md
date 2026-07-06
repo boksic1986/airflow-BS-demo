@@ -62,6 +62,13 @@ FASTQ 通常有 5-6G，不通过网页上传。后端只扫描白名单服务器
 submit action 只允许 pgta + metadata + created run。Airflow 执行 bio_pgta 的四个项目级步骤，并由 Snakemake 在隔离 workdir 里生成 logs/run_metadata.tsv。
 ```
 
+可选进阶 PGT-A Level 4：
+
+- target 选择 baseline QC smoke。
+- 至少勾选 2 个样本。
+- 明确说明该步骤会真实执行 mapping + baseline QC，运行前需要确认样本和时间窗口。
+- 完成后展示 `qc/baseline/baseline_qc_summary.tsv`、baseline QC report 和前端 QC panel。
+
 ### Step 4: 展示 Airflow DAG
 
 操作：

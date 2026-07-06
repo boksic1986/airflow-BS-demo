@@ -7,7 +7,7 @@
 | bio_wes_qsub | WES | Snakemake + qsub | 核心 demo 优先 |
 | bio_nipt_qsub | NIPT | Snakemake/wrapper + qsub | 第二阶段 |
 | bio_nipt_docker | NIPT Docker | docker runner | 第二阶段 |
-| bio_pgta | PGT-A | Snakemake direct in Airflow worker | v1 支持 metadata、dryrun_cnv 和 invalid_target failure smoke，不使用 qsub |
+| bio_pgta | PGT-A | Snakemake direct in Airflow worker | v1 支持 metadata、dryrun_cnv、invalid_target failure smoke；T085/T086 后受控支持 baseline_qc staged real smoke，不使用 qsub |
 | bio_pgta_airflow | PGT-A | Snakemake 9 direct in Airflow worker | Airflow-only metadata DAG，使用 repo-local logger plugin 写 JSONL 并在 Airflow log/XCom 展示状态 |
 
 ## 2. 通用 DAG run conf
@@ -309,7 +309,7 @@ workdir/logs/events/snakemake_events.jsonl
 
 ## 8. `bio_pgta` v1
 
-第一版 `bio_pgta` 用于 PGT-A metadata、CNV dry-run 和受控 failure smoke。不跑真实 CNV、baseline QC，也不使用 qsub。
+第一版 `bio_pgta` 用于 PGT-A metadata、CNV dry-run 和受控 failure smoke。T085/T086 补充 `baseline_qc` staged real smoke：它会真实执行 mapping + metadata + baseline QC，但要求至少 2 个 selected samples、低并发、隔离 workdir，并且仍不使用 qsub、不跑完整 CNV/reference build。
 
 Task graph:
 
@@ -326,7 +326,8 @@ validate_request
 
 - `analysis_id` 非空。
 - `pipeline = pgta`。
-- `params.target` 为 `metadata`、`dryrun_cnv` 或 `invalid_target`。
+- `params.target` 为 `metadata`、`dryrun_cnv`、`invalid_target` 或 `baseline_qc`。
+- `baseline_qc` 要求 selected manifest 至少 2 个样本。
 - `workdir` 在 `/data/airflow-demo` 下。
 - `sample_sheet_path` 存在，且位于 `workdir` 下。
 
@@ -349,6 +350,7 @@ target 映射：
 | `metadata` | `pipeline.targets=["metadata"]`，真实执行轻量 metadata |
 | `dryrun_cnv` | `pipeline.targets=["cnv"]`，启用 `wisecondorx.cnv.enable`，使用只读 sex-specific WisecondorX reference，并加 `--dry-run --ignore-incomplete --rerun-triggers mtime` |
 | `invalid_target` | 向 Snakemake 传入 `__airflow_demo_invalid_target__`，用于失败 smoke |
+| `baseline_qc` | `pipeline.mode="build_ref"`，`pipeline.targets=["mapping","metadata","baseline_qc"]`，`build_reference.groups.demo` 使用 selected sample IDs；真实执行 baseline QC，但不运行 reference/reference_qc/CNV |
 
 ### run_pgta_target
 
@@ -362,7 +364,7 @@ target 映射：
   --configfile <workdir>/config.yaml
 ```
 
-`dryrun_cnv` 会额外传 `--dry-run --ignore-incomplete --rerun-triggers mtime`；`invalid_target` 会额外传 `__airflow_demo_invalid_target__`。执行目录为 `/data/airflow-demo/runs/<analysis_id>`，输出只允许写入该 run workdir。stdout/stderr 写入：
+`dryrun_cnv` 会额外传 `--dry-run --ignore-incomplete --rerun-triggers mtime`；`invalid_target` 会额外传 `__airflow_demo_invalid_target__`；`baseline_qc` 不加 dry-run，会用 `--cores 1` 真实执行。执行目录为 `/data/airflow-demo/runs/<analysis_id>`，输出只允许写入该 run workdir。stdout/stderr 写入：
 
 ```text
 shared/runs/<analysis_id>/logs/snakemake.stdout.log
@@ -371,12 +373,13 @@ shared/runs/<analysis_id>/logs/snakemake.stderr.log
 
 ### collect_pgta_artifact
 
-`metadata` 验收 `logs/run_metadata.tsv` 是否存在；`dryrun_cnv` 验收 `logs/snakemake.stdout.log` 是否存在并返回 dry-run stdout artifact。`invalid_target` 预期在 `run_pgta_target` failed，不进入 collect task。
+`metadata` 验收 `logs/run_metadata.tsv` 是否存在；`dryrun_cnv` 验收 `logs/snakemake.stdout.log` 是否存在并返回 dry-run stdout artifact；`baseline_qc` 验收 `qc/baseline/baseline_qc_summary.tsv`、`baseline_qc_pass_samples.txt` 和 `baseline_qc_report.md`。`invalid_target` 预期在 `run_pgta_target` failed，不进入 collect task。
 
 本阶段已知边界：
 
 - `invalid_target` 是测试错误摘要链路的受控失败入口，不代表生产 target。
-- qsub、baseline_qc 和真实 CNV 运行仍在后续任务中。
+- `baseline_qc` 是 Level 4 staged real smoke，不代表完整生产 reference/CNV 流程。
+- qsub、真实 CNV、reference build 和生产批量运行仍在后续任务中。
 
 ## 9. `bio_pgta_airflow` Airflow-only logger v1
 

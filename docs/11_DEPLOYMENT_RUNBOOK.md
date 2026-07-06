@@ -385,7 +385,7 @@ shared/runs/<analysis_id>/config/request.json exists
 
 ## 13. PGT-A submit smoke
 
-T027/T035/T045 验收把已存在的 `created` PGT-A run 提交到 Airflow。当前 `bio_pgta` 支持 `metadata`、`dryrun_cnv` 和 `invalid_target` 三个受控 target；不跑真实 CNV、mapping、baseline QC 或 qsub。
+T027/T035/T045 验收把已存在的 `created` PGT-A run 提交到 Airflow。当前 `bio_pgta` 支持 `metadata`、`dryrun_cnv`、`invalid_target` 和受控 `baseline_qc`。默认 smoke 仍使用 metadata/dry-run/failure；`baseline_qc` 是 Level 4 staged real smoke，会真实执行 mapping + baseline QC，必须至少 2 个 selected samples 并经用户确认后再跑。
 
 先确认配置、测试和 DAG import：
 
@@ -475,6 +475,50 @@ curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}"
 ```
 
 期望 `status=failed`，`error_summary` 非空，并包含 stderr 路径和最后 100 行错误内容。
+
+### Level 4 PGT-A baseline_qc staged smoke
+
+只读审计确认 `/home/jiucheng/pipelines/PGT_A/Snakefile` 支持 `baseline_qc`，但它要求至少 2 个 baseline/reference samples，并会运行 `mapping`、`metadata`、`baseline_bam_uniformity_qc` 和 `aggregate_baseline_qc`。不要把它当作单样本轻量 smoke。
+
+前端/API 创建要求：
+
+```text
+pipeline=pgta
+target=baseline_qc
+selected_samples >= 2
+```
+
+submit 后 `bio_pgta` 生成 run-local config：
+
+```yaml
+pipeline:
+  mode: build_ref
+  targets: [mapping, metadata, baseline_qc]
+build_reference:
+  mode: selected_samples
+  groups:
+    demo: [<selected sample ids>]
+```
+
+验收命令：
+
+```bash
+analysis_id=<PGTA_BASELINE_QC_ANALYSIS_ID>
+curl -fsS -X POST "http://127.0.0.1:8000/api/runs/${analysis_id}/actions/sync-airflow"
+curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}/qc"
+curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}/artifacts"
+test -s "shared/runs/${analysis_id}/qc/baseline/baseline_qc_summary.tsv"
+test -s "shared/runs/${analysis_id}/qc/baseline/baseline_qc_report.md"
+```
+
+期望：
+
+```text
+status=success
+QC summary 有 pass/warn/fail/unknown 计数
+artifacts 包含 pgta_baseline_qc_summary、pgta_baseline_qc_pass_samples、pgta_baseline_qc_report
+PGT-A 流程目录和 rawdata 目录没有被写入
+```
 
 ## 14. PGT-A diagnostics smoke
 

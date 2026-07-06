@@ -14,7 +14,7 @@ DEFAULT_SHARED_ROOT = Path(os.getenv("CONTAINER_SHARED_ROOT", "/data/airflow-dem
 DEFAULT_PGTA_PIPELINE_ROOT = Path(os.getenv("PGTA_CONTAINER_ROOT", "/opt/pipelines/PGT_A"))
 DEFAULT_PGTA_DATA_ROOT = Path(os.getenv("PGTA_CONTAINER_DATA_ROOT", "/data/project/CNV/PGT-A"))
 DEFAULT_SNAKEMAKE_BIN = Path(os.getenv("PGTA_SNAKEMAKE_BIN", "/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"))
-SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target"}
+SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc"}
 INVALID_SNAKEMAKE_TARGET = "__airflow_demo_invalid_target__"
 
 
@@ -98,11 +98,13 @@ def build_pgta_config(
     config_dir.mkdir(parents=True, exist_ok=True)
     logs_dir.mkdir(parents=True, exist_ok=True)
 
+    target = _target_from_conf(conf)
     samples = read_selected_manifest(conf["sample_sheet_path"])
     for sample in samples:
         _validate_sample_paths(sample, pgta_data_root)
+    if target == "baseline_qc" and len(samples) < 2:
+        raise ValueError("baseline_qc requires at least 2 selected samples for reference-style baseline comparison.")
 
-    target = _target_from_conf(conf)
     snakemake_config = _snakemake_config(workdir, samples, target=target, pgta_data_root=pgta_data_root)
     config_path = workdir / "config.yaml"
     with config_path.open("w", encoding="utf-8") as handle:
@@ -140,6 +142,7 @@ def run_pgta_target(
     stdout_path = logs_dir / "snakemake.stdout.log"
     stderr_path = logs_dir / "snakemake.stderr.log"
     metadata_path = logs_dir / "run_metadata.tsv"
+    baseline_qc_summary = workdir / "qc" / "baseline" / "baseline_qc_summary.tsv"
 
     command = [
         str(snakemake_bin),
@@ -162,6 +165,8 @@ def run_pgta_target(
         raise RuntimeError(f"PGT-A {target} Snakemake failed with exit code {completed.returncode}. See {stderr_path}")
     if target == "dryrun_cnv":
         return stdout_path
+    if target == "baseline_qc":
+        return baseline_qc_summary
     return metadata_path
 
 
@@ -181,6 +186,11 @@ def collect_pgta_artifact(conf: dict[str, Any]) -> dict[str, str]:
         if not stdout_path.is_file():
             raise FileNotFoundError(f"dry-run stdout artifact was not generated: {stdout_path}")
         return {"type": "pgta_dryrun", "path": str(stdout_path), "label": "PGT-A CNV dry-run stdout"}
+    if target == "baseline_qc":
+        summary_path = Path(conf["workdir"]) / "qc" / "baseline" / "baseline_qc_summary.tsv"
+        if not summary_path.is_file():
+            raise FileNotFoundError(f"baseline QC summary artifact was not generated: {summary_path}")
+        return {"type": "pgta_baseline_qc", "path": str(summary_path), "label": "PGT-A baseline QC summary"}
 
     metadata_path = Path(conf["workdir"]) / "logs" / "run_metadata.tsv"
     if not metadata_path.is_file():
@@ -199,7 +209,19 @@ def _snakemake_config(
     target: str,
     pgta_data_root: Path,
 ) -> dict[str, Any]:
-    pipeline_target = "cnv" if target == "dryrun_cnv" else "metadata"
+    pipeline_mode = "predict"
+    pipeline_targets = ["metadata"]
+    build_reference: dict[str, Any] | None = None
+    if target == "dryrun_cnv":
+        pipeline_targets = ["cnv"]
+    elif target == "baseline_qc":
+        pipeline_mode = "build_ref"
+        pipeline_targets = ["mapping", "metadata", "baseline_qc"]
+        build_reference = {
+            "enabled": True,
+            "mode": "selected_samples",
+            "groups": {"demo": [sample["sample_id"] for sample in samples]},
+        }
     reference_root = pgta_data_root / "refactor_validation_20260419" / "results_build_ref_v2_mask_only" / "reference"
     wisecondorx_config: dict[str, Any] = {
         "binsize": 100000,
@@ -223,7 +245,7 @@ def _snakemake_config(
                 "common_reference_binsize_output": str(reference_root / "gender" / "common_best_binsize.txt"),
             }
         )
-    return {
+    config = {
         "core": {
             "project_path": str(workdir),
             "reference_genome": "/data/Database/index/hg19/hg19.fa",
@@ -255,7 +277,7 @@ def _snakemake_config(
             ],
             "wisecondorx": wisecondorx_config,
         },
-        "pipeline": {"mode": "predict", "targets": [pipeline_target]},
+        "pipeline": {"mode": pipeline_mode, "targets": pipeline_targets},
         "biosoft": {
             "fastp": "/biosoftware/bin/fastp",
             "bwa": "/biosoftware/bin/bwa",
@@ -265,6 +287,9 @@ def _snakemake_config(
         },
         "samples": {sample["sample_id"]: {"R1": sample["R1"], "R2": sample["R2"]} for sample in samples},
     }
+    if build_reference is not None:
+        config["build_reference"] = build_reference
+    return config
 
 
 def _target_from_conf(conf: dict[str, Any]) -> str:

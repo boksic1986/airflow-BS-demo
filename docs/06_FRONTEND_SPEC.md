@@ -8,11 +8,11 @@
 
 - 首页即 analysis submit/list/detail workspace，当前可展示 `pgta` 和 `wes_qsub`。
 - 主内容顶部 `Submit new analysis` 工作区包含 `New PGT-A Run` 和 `New WES Mock Run`；左侧只保留 run list，避免提交表单被挤在窄侧栏。
-- `New PGT-A Run` 面板支持 `project_name`、`rawdata_root`、`max_samples`、`target` 下拉、可选 `email_to` 和备注。
+- `New PGT-A Run` 面板支持 `project_name`、`rawdata_root`、`max_samples`、`target` 下拉、可选 `email_to` 和备注；target 下拉使用可读标签：metadata smoke、CNV dry-run、failure smoke、baseline QC smoke。
 - `Scan` 调用 `POST /api/input/scan`，展示服务器路径 FASTQ 候选样本，支持勾选样本；`truncated=true` 时显示收窄路径提示。
-- 未勾选样本时 `Create Run` 禁用，并显示 `Select at least one scanned sample to enable Create Run.` 提示。
+- 未勾选样本时 `Create Run` 禁用，并显示 `Select at least one scanned sample to enable Create Run.` 提示；`baseline_qc` 少于 2 个样本时继续禁用，并显示 `Baseline QC smoke requires at least 2 selected samples.`。
 - `Create Run` 调用 JSON `POST /api/runs`，创建成功后自动选中新 run 并展示 detail。
-- 对 `status=created` 且 `target` 为 `metadata`、`dryrun_cnv` 或 `invalid_target` 的 run，detail toolbar 显示 `Submit to Airflow`，调用 `POST /api/runs/{analysis_id}/actions/submit`。
+- 对 `status=created` 且 `target` 为 `metadata`、`dryrun_cnv`、`invalid_target` 或 `baseline_qc` 的 run，detail toolbar 显示 `Submit to Airflow`，调用 `POST /api/runs/{analysis_id}/actions/submit`。
 - 左侧 `New WES Mock Run` 面板可一键创建 `pipeline=wes_qsub,target=final_summary` run 并提交到 `bio_wes_qsub`。
 - `GET /api/runs?limit=50&offset=0` 展示 run 列表。
 - run detail 展示 overview、samples、Snakemake rules、metadata/stdout/stderr logs、artifacts。
@@ -74,7 +74,7 @@ PGT-A v1 fields:
   - rawdata_root
   - scan button
   - candidate sample checkbox table
-  - target: metadata / dryrun_cnv / invalid_target
+  - target: metadata / dryrun_cnv / invalid_target / baseline_qc
   - email_to
   - note
 Params:
@@ -87,7 +87,7 @@ Params:
 
 PGT-A v1 不上传 FASTQ 或 sample sheet。前端调用 `POST /api/input/scan` 扫描白名单服务器路径下已有 FASTQ，用户勾选样本后用 JSON 调用 `POST /api/runs`。提交成功后状态为 `created`，不会立即出现 Airflow DAG run。
 
-T051/T045 v1 已在当前单页 workspace 中实现该表单，不引入路由库。T051 usability fix 后，表单位于主内容顶部的 `Submit new analysis` 区域，candidate table 使用主内容宽度，run list 不再混入创建表单。创建 run 和提交执行保持两步模式：创建后先进入 `created`，用户在 run detail toolbar 点击 `Submit to Airflow` 后才触发 `bio_pgta`。默认 target 是 `metadata`；`dryrun_cnv` 用于 Snakemake dry-run smoke，`invalid_target` 仅用于失败摘要 smoke。
+T051/T045 v1 已在当前单页 workspace 中实现该表单，不引入路由库。T051 usability fix 后，表单位于主内容顶部的 `Submit new analysis` 区域，candidate table 使用主内容宽度，run list 不再混入创建表单。创建 run 和提交执行保持两步模式：创建后先进入 `created`，用户在 run detail toolbar 点击 `Submit to Airflow` 后才触发 `bio_pgta`。默认 target 是 `metadata`；`dryrun_cnv` 用于 Snakemake dry-run smoke，`invalid_target` 仅用于失败摘要 smoke，`baseline_qc` 是 Level 4 staged real smoke，要求至少 2 个 selected samples。
 
 WES mock v1 不上传或扫描数据。前端 `New WES Mock Run` 直接调用 JSON `POST /api/runs` 创建固定 `S001/S002` mock run，然后调用 `POST /api/runs/{analysis_id}/actions/submit` 提交 `bio_wes_qsub`。
 
@@ -165,7 +165,7 @@ log actions
 
 ### QC
 
-- T054 v1 已实现 WES mock QC panel，调用 `GET /api/runs/{analysis_id}/qc`。
+- T054 v1 已实现 WES mock QC panel，调用 `GET /api/runs/{analysis_id}/qc`；T087 v1 复用同一 panel 展示 PGT-A `baseline_qc` summary 导入后的样本级指标。
 - QC summary：pass/warn/fail/unknown。
 - Sample QC table：sample_id、metric_name、metric_value、threshold、status。
 - 没有 QC 时显示空状态，不影响 rules/logs/artifacts。

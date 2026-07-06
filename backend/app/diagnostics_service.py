@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun
-from app.qc_service import import_wes_qc_metrics
+from app.qc_service import import_run_qc_metrics
 
 
 class DiagnosticsError(Exception):
@@ -100,6 +100,27 @@ ARTIFACTS = [
         url="/api/runs/{analysis_id}/artifacts/pgta_metadata_config",
     ),
     ArtifactDefinition(
+        key="pgta_baseline_qc_summary",
+        type="qc_tsv",
+        label="PGT-A baseline QC summary",
+        relative_path=Path("qc/baseline/baseline_qc_summary.tsv"),
+        url="/api/runs/{analysis_id}/qc",
+    ),
+    ArtifactDefinition(
+        key="pgta_baseline_qc_pass_samples",
+        type="qc_tsv",
+        label="PGT-A baseline QC pass samples",
+        relative_path=Path("qc/baseline/baseline_qc_pass_samples.txt"),
+        url="/api/runs/{analysis_id}/artifacts/pgta_baseline_qc_pass_samples",
+    ),
+    ArtifactDefinition(
+        key="pgta_baseline_qc_report",
+        type="pgta_report",
+        label="PGT-A baseline QC report",
+        relative_path=Path("qc/baseline/baseline_qc_report.md"),
+        url="/api/runs/{analysis_id}/artifacts/pgta_baseline_qc_report",
+    ),
+    ArtifactDefinition(
         key="wes_final_summary",
         type="wes_mock_summary",
         label="WES mock final summary",
@@ -147,7 +168,7 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
         run.error_summary = build_error_summary(run=run, airflow_payload=airflow_payload, settings=settings)
     elif run.status == "success":
         run.error_summary = None
-        import_wes_qc_metrics(session=session, run=run, settings=settings)
+        import_run_qc_metrics(session=session, run=run, settings=settings)
 
     session.commit()
     session.refresh(run)

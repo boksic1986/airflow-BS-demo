@@ -19,13 +19,23 @@ def make_test_sessionmaker():
     return sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
-def insert_pgta_run(session_factory, tmp_path, *, status_value: str = "created", target: str = "metadata") -> str:
+def insert_pgta_run(
+    session_factory,
+    tmp_path,
+    *,
+    status_value: str = "created",
+    target: str = "metadata",
+    selected_count: int = 1,
+) -> str:
     analysis_id = "PGTA_20260703_010000_TEST01"
     workdir = tmp_path / "shared" / "runs" / analysis_id
     config_dir = workdir / "config"
     config_dir.mkdir(parents=True)
     manifest = config_dir / "samples.selected.tsv"
-    manifest.write_text("sample_id\tR1\tR2\tsource_dir\nG1\t/data/R1.fq.gz\t/data/R2.fq.gz\t/data\n", encoding="utf-8")
+    lines = ["sample_id\tR1\tR2\tsource_dir"]
+    for index in range(1, selected_count + 1):
+        lines.append(f"G{index}\t/data/R{index}_1.fq.gz\t/data/R{index}_2.fq.gz\t/data")
+    manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
     with session_factory() as session:
         session.add(
             AnalysisRun(
@@ -41,7 +51,7 @@ def insert_pgta_run(session_factory, tmp_path, *, status_value: str = "created",
                     "target": target,
                     "rawdata_root": "/data/project/CNV/PGT-A/rawdata/demo",
                     "input_mode": "server_path_scan",
-                    "selected_count": 1,
+                    "selected_count": selected_count,
                 },
                 email_to="demo@example.com",
             )
@@ -155,9 +165,41 @@ def test_submit_allows_invalid_target_failure_smoke(tmp_path, monkeypatch) -> No
     assert fake_airflow.calls[0]["conf"]["params"]["target"] == "invalid_target"
 
 
+def test_submit_allows_baseline_qc_target_with_two_samples(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_pgta_run(session_factory, tmp_path, target="baseline_qc", selected_count=2)
+    fake_airflow = FakeAirflowClient()
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    monkeypatch.setattr(main, "get_airflow_client", lambda: fake_airflow)
+    client = TestClient(main.app)
+
+    response = client.post(f"/api/runs/{analysis_id}/actions/submit")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "submitted"
+    assert fake_airflow.calls[0]["conf"]["params"]["target"] == "baseline_qc"
+    assert fake_airflow.calls[0]["conf"]["params"]["selected_count"] == 2
+
+
+def test_submit_rejects_baseline_qc_target_with_one_sample(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_pgta_run(session_factory, tmp_path, target="baseline_qc", selected_count=1)
+    fake_airflow = FakeAirflowClient()
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    monkeypatch.setattr(main, "get_airflow_client", lambda: fake_airflow)
+    client = TestClient(main.app)
+
+    response = client.post(f"/api/runs/{analysis_id}/actions/submit")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "VALIDATION_ERROR"
+    assert "baseline_qc requires at least 2 selected samples" in response.json()["detail"]["message"]
+    assert fake_airflow.calls == []
+
+
 def test_submit_rejects_uncontrolled_target(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
-    analysis_id = insert_pgta_run(session_factory, tmp_path, target="baseline_qc")
+    analysis_id = insert_pgta_run(session_factory, tmp_path, target="real_cnv")
     fake_airflow = FakeAirflowClient()
     monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
     monkeypatch.setattr(main, "get_airflow_client", lambda: fake_airflow)

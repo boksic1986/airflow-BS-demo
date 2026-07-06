@@ -103,6 +103,8 @@ def test_create_pgta_run_accepts_controlled_pgta_targets(tmp_path, monkeypatch) 
     allowed_root = tmp_path / "rawdata"
     source_dir = allowed_root / "run1" / "Sample_JZ26083055-G1-G1"
     r1, r2 = write_fastq_pair(source_dir, "JZ26083055-G1-G1_combined")
+    source_dir_2 = allowed_root / "run1" / "Sample_JZ26083055-G2-G2"
+    r1_2, r2_2 = write_fastq_pair(source_dir_2, "JZ26083055-G2-G2_combined")
     shared_root = tmp_path / "shared"
     session_factory = make_test_sessionmaker()
     monkeypatch.setattr(
@@ -116,7 +118,24 @@ def test_create_pgta_run_accepts_controlled_pgta_targets(tmp_path, monkeypatch) 
     monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
     client = TestClient(main.app)
 
-    for target in ("dryrun_cnv", "invalid_target"):
+    for target in ("dryrun_cnv", "invalid_target", "baseline_qc"):
+        selected_samples = [
+            {
+                "sample_id": f"G1_{target}",
+                "r1": r1,
+                "r2": r2,
+                "source_dir": str(source_dir.resolve()),
+            }
+        ]
+        if target == "baseline_qc":
+            selected_samples.append(
+                {
+                    "sample_id": f"G2_{target}",
+                    "r1": r1_2,
+                    "r2": r2_2,
+                    "source_dir": str(source_dir_2.resolve()),
+                }
+            )
         response = client.post(
             "/api/runs",
             json={
@@ -124,14 +143,7 @@ def test_create_pgta_run_accepts_controlled_pgta_targets(tmp_path, monkeypatch) 
                 "project_name": f"{target} smoke",
                 "target": target,
                 "rawdata_root": str(allowed_root),
-                "selected_samples": [
-                    {
-                        "sample_id": f"G1_{target}",
-                        "r1": r1,
-                        "r2": r2,
-                        "source_dir": str(source_dir.resolve()),
-                    }
-                ],
+                "selected_samples": selected_samples,
             },
         )
 
@@ -142,6 +154,44 @@ def test_create_pgta_run_accepts_controlled_pgta_targets(tmp_path, monkeypatch) 
         assert detail.json()["params"]["target"] == target
         request_json = shared_root / "runs" / analysis_id / "config" / "request.json"
         assert f'"target": "{target}"' in request_json.read_text(encoding="utf-8")
+
+
+def test_create_pgta_run_rejects_baseline_qc_with_one_sample(tmp_path, monkeypatch) -> None:
+    allowed_root = tmp_path / "rawdata"
+    source_dir = allowed_root / "run1" / "Sample_JZ26083055-G1-G1"
+    r1, r2 = write_fastq_pair(source_dir, "JZ26083055-G1-G1_combined")
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: SimpleNamespace(
+            input_scan_roots=[str(allowed_root)],
+            container_shared_root=str(tmp_path / "shared"),
+        ),
+    )
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: make_test_sessionmaker())
+    client = TestClient(main.app)
+
+    response = client.post(
+        "/api/runs",
+        json={
+            "pipeline": "pgta",
+            "project_name": "baseline smoke",
+            "target": "baseline_qc",
+            "rawdata_root": str(allowed_root),
+            "selected_samples": [
+                {
+                    "sample_id": "G1",
+                    "r1": r1,
+                    "r2": r2,
+                    "source_dir": str(source_dir.resolve()),
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "VALIDATION_ERROR"
+    assert "baseline_qc requires at least 2 selected samples" in response.json()["detail"]["message"]
 
 
 def test_create_pgta_run_rejects_uncontrolled_target(tmp_path, monkeypatch) -> None:
@@ -164,7 +214,7 @@ def test_create_pgta_run_rejects_uncontrolled_target(tmp_path, monkeypatch) -> N
         json={
             "pipeline": "pgta",
             "project_name": "unsupported target",
-            "target": "baseline_qc",
+            "target": "real_cnv",
             "rawdata_root": str(allowed_root),
             "selected_samples": [
                 {

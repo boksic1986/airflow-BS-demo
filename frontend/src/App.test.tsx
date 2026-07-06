@@ -23,7 +23,7 @@ function mockJson(payload: object, init?: ResponseInit) {
 describe("PGT-A run dashboard", () => {
   let createdRunStatus = "created";
   let createdDagRunId: string | null = null;
-  let createdRunTarget: "metadata" | "dryrun_cnv" | "invalid_target" = "metadata";
+  let createdRunTarget: "metadata" | "dryrun_cnv" | "invalid_target" | "baseline_qc" = "metadata";
   let wesRunStatus = "";
   let wesDagRunId: string | null = null;
 
@@ -57,7 +57,7 @@ describe("PGT-A run dashboard", () => {
         created_at: "2026-07-03T18:00:00+08:00",
         started_at: null,
         ended_at: null,
-        sample_count: 1,
+        sample_count: createdRunTarget === "baseline_qc" ? 2 : 1,
         qc_status: "unknown",
       });
     }
@@ -126,7 +126,7 @@ describe("PGT-A run dashboard", () => {
         if (url.endsWith("/api/runs") && init?.method === "POST") {
           const requestBody = JSON.parse(String(init.body || "{}")) as {
             pipeline?: string;
-            target?: "metadata" | "dryrun_cnv" | "invalid_target" | "final_summary";
+            target?: "metadata" | "dryrun_cnv" | "invalid_target" | "baseline_qc" | "final_summary";
           };
           if (requestBody.pipeline === "wes_qsub") {
             wesRunStatus = "created";
@@ -144,7 +144,9 @@ describe("PGT-A run dashboard", () => {
             );
           }
           createdRunTarget =
-            requestBody.target === "dryrun_cnv" || requestBody.target === "invalid_target" ? requestBody.target : "metadata";
+            requestBody.target === "dryrun_cnv" || requestBody.target === "invalid_target" || requestBody.target === "baseline_qc"
+              ? requestBody.target
+              : "metadata";
           createdRunStatus = "created";
           return mockJson(
             {
@@ -154,7 +156,7 @@ describe("PGT-A run dashboard", () => {
               dag_run_id: null,
               status: "created",
               workdir: `/data/airflow-demo/runs/${createdRunId}`,
-              sample_count: 1,
+              sample_count: createdRunTarget === "baseline_qc" ? 2 : 1,
             },
             {status: 201},
           );
@@ -186,7 +188,10 @@ describe("PGT-A run dashboard", () => {
             airflow_url: null,
             workdir: `/data/airflow-demo/runs/${createdRunId}`,
             sample_sheet_path: `/data/airflow-demo/runs/${createdRunId}/config/samples.selected.tsv`,
-            params: {target: createdRunTarget, selected_count: 1},
+            params: {
+              target: createdRunTarget,
+              selected_count: createdRunTarget === "baseline_qc" ? 2 : 1,
+            },
             error_summary: null,
             email_to: "demo@example.com",
           });
@@ -425,9 +430,12 @@ describe("PGT-A run dashboard", () => {
             dag_id: "bio_pgta",
             dag_run_id: createdDagRunId,
             workdir: `/data/airflow-demo/runs/${createdRunId}`,
-            sample_count: 1,
+            sample_count: createdRunTarget === "baseline_qc" ? 2 : 1,
             sample_sheet_path: `/data/airflow-demo/runs/${createdRunId}/config/samples.selected.tsv`,
-            params: {target: createdRunTarget, selected_count: 1},
+            params: {
+              target: createdRunTarget,
+              selected_count: createdRunTarget === "baseline_qc" ? 2 : 1,
+            },
             error_summary: null,
           });
         }
@@ -574,6 +582,34 @@ describe("PGT-A run dashboard", () => {
     ).toBeInTheDocument();
   });
 
+  it("requires two selected samples before creating a baseline_qc run", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.selectOptions(await screen.findByLabelText(/target/i), "baseline_qc");
+    expect(screen.getByRole("option", {name: /baseline QC smoke/i})).toBeInTheDocument();
+    await user.click(screen.getByRole("button", {name: /^scan$/i}));
+    await user.click(await screen.findByRole("checkbox", {name: /select sample G1/i}));
+
+    const createButton = screen.getByRole("button", {name: /create run/i});
+    expect(createButton).toBeDisabled();
+    expect(screen.getByText(/baseline QC smoke requires at least 2 selected samples/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", {name: /select sample G2/i}));
+    expect(createButton).toBeEnabled();
+    await user.click(createButton);
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/runs"),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"target":"baseline_qc"'),
+        }),
+      );
+    });
+  });
+
   it("submits a created metadata run to Airflow and refreshes the submitted state", async () => {
     const user = userEvent.setup();
     createdRunStatus = "created";
@@ -597,6 +633,25 @@ describe("PGT-A run dashboard", () => {
     const user = userEvent.setup();
     createdRunStatus = "created";
     createdRunTarget = "dryrun_cnv";
+    render(<App />);
+
+    expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
+    const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
+    await user.click(within(toolbar).getByRole("button", {name: /submit to airflow/i}));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/api/runs/${createdRunId}/actions/submit`),
+        expect.objectContaining({method: "POST"}),
+      );
+    });
+    expect(await screen.findByText(`manual__${createdRunId}`)).toBeInTheDocument();
+  });
+
+  it("submits a created baseline_qc run to Airflow", async () => {
+    const user = userEvent.setup();
+    createdRunStatus = "created";
+    createdRunTarget = "baseline_qc";
     render(<App />);
 
     expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
@@ -643,7 +698,7 @@ describe("PGT-A run dashboard", () => {
 
     expect(await screen.findByText(`Analysis ID: ${wesRunId}`)).toBeInTheDocument();
     expect(await screen.findByRole("heading", {name: "QC"})).toBeInTheDocument();
-    expect(screen.getByText("pass: 6")).toBeInTheDocument();
+    expect(await screen.findByText(/pass:\s*6/)).toBeInTheDocument();
     expect(screen.getByText("mock_mean_depth")).toBeInTheDocument();
     expect(screen.getByText("mock_pct_20x")).toBeInTheDocument();
     expect(screen.getAllByText("pass").length).toBeGreaterThan(0);

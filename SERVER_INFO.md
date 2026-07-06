@@ -78,6 +78,7 @@ pgta_snakemake: /biosoftware/miniconda/envs/snakemake_env/bin/snakemake, Snakema
 pgta_snakemake9: /biosoftware/miniconda/envs/snakemake9_env/bin/snakemake, Snakemake 9.23.1
 pgta_snakemake9_python: /biosoftware/miniconda/envs/snakemake9_env/bin/python
 pgta_snakemake9_logger_interface: snakemake_interface_logger_plugins importable; `--logger` and airflow-demo plugin args verified on 2026-07-03
+pgta_level4_audit_2026_07_06: Snakefile supports baseline_qc; requires at least 2 baseline/reference samples; staged airflow-demo integration added but real run not executed in audit
 pip: <TO_BE_FILLED>
 conda_or_mamba: miniconda under /biosoftware/miniconda
 node: <TO_BE_FILLED>

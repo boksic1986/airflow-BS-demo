@@ -210,6 +210,22 @@ invalid_target:
 - `dryrun_cnv`: `PGTA_20260703_170917_20E8F2`, Airflow `success`, stdout 记录 7 个 dry-run jobs，artifact API 返回 stdout/stderr/config。
 - `invalid_target`: `PGTA_20260703_170957_3DDEC3`, Airflow `failed`, `sync-airflow` 后 `analysis_run.status=failed`，`error_summary` 非空并包含 stderr path 和最后错误内容。
 
+PGT-A Level 4 staged real smoke:
+
+```text
+baseline_qc:
+  扫描服务器 rawdata_root
+  -> 至少勾选 2 个样本
+  -> 创建 target=baseline_qc run
+  -> submit action 触发 Airflow bio_pgta
+  -> run-local config 为 pipeline.mode=build_ref, targets=mapping/metadata/baseline_qc
+  -> bio_pgta success
+  -> qc/baseline/baseline_qc_summary.tsv、baseline_qc_pass_samples.txt、baseline_qc_report.md 存在
+  -> sync-airflow 后 /qc 返回样本级 baseline QC metrics
+```
+
+该场景尚未做真实远端运行验收；必须用户确认样本和运行窗口后再执行。当前已完成的是只读审计、target 受控接入、测试覆盖和文档约束。
+
 完整 E2E 后续场景：
 
 ```text

@@ -56,7 +56,13 @@ const emptyBundle: RunBundle = {
 };
 
 const defaultRawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28";
-const submitTargets: PgtaTarget[] = ["metadata", "dryrun_cnv", "invalid_target"];
+const targetOptions: Array<{value: PgtaTarget; label: string}> = [
+  {value: "metadata", label: "metadata smoke"},
+  {value: "dryrun_cnv", label: "CNV dry-run"},
+  {value: "invalid_target", label: "failure smoke"},
+  {value: "baseline_qc", label: "baseline QC smoke"},
+];
+const submitTargets = targetOptions.map((option) => option.value);
 const wesRerunRules = ["fastp", "bwa_mem", "markdup", "final_summary"];
 const wesSamples = ["S001", "S002"];
 
@@ -93,6 +99,16 @@ function errorMessage(error: unknown): string {
 function runTarget(detail?: RunDetail | null): string | null {
   const target = detail?.params?.target;
   return typeof target === "string" ? target : null;
+}
+
+function runSelectedCount(detail?: RunDetail | null): number {
+  const selectedCount = detail?.params?.selected_count;
+  if (typeof selectedCount === "number") return selectedCount;
+  if (typeof selectedCount === "string") {
+    const parsed = Number(selectedCount);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
 }
 
 export default function App() {
@@ -136,7 +152,9 @@ export default function App() {
 
   const canSubmitRun =
     bundle.detail?.status === "created" &&
-    ((bundle.detail.pipeline === "pgta" && submitTargets.includes((runTarget(bundle.detail) || "metadata") as PgtaTarget)) ||
+    ((bundle.detail.pipeline === "pgta" &&
+      submitTargets.includes((runTarget(bundle.detail) || "metadata") as PgtaTarget) &&
+      (runTarget(bundle.detail) !== "baseline_qc" || runSelectedCount(bundle.detail) >= 2)) ||
       bundle.detail.pipeline === "wes_qsub");
   const canReanalyzeWes =
     bundle.detail?.pipeline === "wes_qsub" &&
@@ -577,6 +595,17 @@ function NewRunPanel({
   onToggleSample: (sampleId: string) => void;
   onCreate: () => void;
 }) {
+  const minimumSelectedSamples = target === "baseline_qc" ? 2 : 1;
+  const canCreateRun = selectedSamples.size >= minimumSelectedSamples;
+  const selectionHint =
+    selectedSamples.size > 0
+      ? `${selectedSamples.size} scanned sample${selectedSamples.size === 1 ? "" : "s"} selected.`
+      : "Select at least one scanned sample to enable Create Run.";
+  const targetHint =
+    target === "baseline_qc" && selectedSamples.size < 2
+      ? "Baseline QC smoke requires at least 2 selected samples."
+      : selectionHint;
+
   return (
     <section className="new-run-panel" aria-label="New PGT-A Run">
       <div className="pane-title">
@@ -605,9 +634,11 @@ function NewRunPanel({
         <label>
           <span>Target</span>
           <select value={target} onChange={(event) => onTargetChange(event.target.value as PgtaTarget)}>
-            <option value="metadata">metadata</option>
-            <option value="dryrun_cnv">dryrun_cnv</option>
-            <option value="invalid_target">invalid_target</option>
+            {targetOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </label>
         <label>
@@ -624,16 +655,12 @@ function NewRunPanel({
           <Search size={16} />
           Scan
         </button>
-        <button className="icon-button primary-action" type="button" onClick={onCreate} disabled={creating || selectedSamples.size === 0}>
+        <button className="icon-button primary-action" type="button" onClick={onCreate} disabled={creating || !canCreateRun}>
           <Plus size={16} />
           Create Run
         </button>
       </div>
-      <p className="form-hint">
-        {selectedSamples.size > 0
-          ? `${selectedSamples.size} scanned sample${selectedSamples.size === 1 ? "" : "s"} selected.`
-          : "Select at least one scanned sample to enable Create Run."}
-      </p>
+      <p className="form-hint">{targetHint}</p>
       {scanError ? <ErrorBanner message={scanError} /> : null}
       {createError ? <ErrorBanner message={createError} /> : null}
       {formNotice ? <p className="form-notice">{formNotice}</p> : null}

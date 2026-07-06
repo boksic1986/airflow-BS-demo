@@ -195,19 +195,28 @@ PGT-A 流程目录和数据目录只读挂载。demo 输出只能写入：
 
 目的：在 Level 1-3 通过后，单独验证一个更接近真实生信运行的目标。
 
+2026-07-06 只读审计结论：
+
+- `/home/jiucheng/pipelines/PGT_A/Snakefile` 已支持真实 target `baseline_qc`。
+- `baseline_qc` 属于 `pipeline.mode=build_ref`，目标文件为 `qc/baseline/baseline_qc_summary.tsv`、`baseline_qc_pass_samples.txt` 和 `baseline_qc_report.md`。
+- `baseline_qc` 会触发 `mapping`、`metadata` 和 baseline BAM uniformity QC，不是轻量 metadata。
+- `Snakefile` 明确要求至少 2 个 baseline/reference samples：`baseline_qc requires at least 2 baseline/reference samples`。
+
 进入条件：
 
 - Level 1 metadata smoke 通过。
 - Level 2 dry-run smoke 通过。
 - Level 3 failure smoke 通过。
 - 用户明确同意运行较重生信任务。
+- 前端/API 勾选至少 2 个样本，且确认这些样本适合作为 baseline/reference comparison。
 
 约束：
 
 - 使用隔离 workdir。
-- 限制并发。
+- 限制并发；当前 `bio_pgta` 使用 `--cores 1`。
 - 不默认运行 CNV/predict/reference build。
 - 不删除或覆盖 `/data/project/CNV/PGT-A` 既有结果。
+- 输出只允许写入 `shared/runs/<analysis_id>` / 容器内 `/data/airflow-demo/runs/<analysis_id>`。
 
 ## 6. 后续实现拆分
 
@@ -222,6 +231,7 @@ PGT-A 流程目录和数据目录只读挂载。demo 输出只能写入：
 | PGTA-005C | backend/snakemake | Snakemake logger backend event POST | `backend_event_url` 写入 FastAPI `/api/events/snakemake`，`/api/runs/<analysis_id>/rules` 返回 rule success | done on fengxian |
 | PGTA-006 | backend/frontend | log/artifact/error summary 展示 | 成功和失败 run 都能从页面定位日志 | done for run-level logs/artifacts/error summary v1 |
 | PGTA-007 | qa | Level 0-3 smoke 验收报告 | 验收报告记录命令、结果、风险 | done for current PGT-A demo Level 0-3; Level 4 baseline_qc remains out of scope |
+| PGTA-008 | coordinator/airflow/backend/frontend | Level 4 baseline_qc staged integration | target 受控开放，至少 2 样本，config 为 build_ref + mapping/metadata/baseline_qc，QC/artifacts 可见；真实运行需单独确认 | in progress |
 
 T027/T035 验证证据：
 

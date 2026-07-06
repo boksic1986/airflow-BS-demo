@@ -139,6 +139,43 @@ status
 
 前端 T054 v1 在 run detail 中展示 QC panel：pass/warn/fail/unknown 计数、样本级指标表和空状态。MultiQC HTML、Snakemake report artifact 表登记和邮件引用仍留给 T061/T063。
 
+## 7.1 PGT-A baseline QC v1
+
+T087 v1 复用现有 `qc_metric` 表和 `/api/runs/{analysis_id}/qc`，只在 `pgta` 且 `target=baseline_qc` 的 Airflow DAG run 显式 `sync-airflow` 到 `success` 后导入：
+
+```text
+workdir/qc/baseline/baseline_qc_summary.tsv
+```
+
+该 TSV 来自 PGT-A 现有 `aggregate_baseline_qc.py`，稳定列包括：
+
+```text
+sample_id
+qc_decision
+mapped_fragments
+zero_bin_fraction
+bin_cv
+pearson_r
+median_abs_z
+gc_signal_slope
+```
+
+导入规则：
+
+- `qc_decision` 映射为 `baseline_qc_decision`，`PASS/WARN/FAIL` 分别进入 `pass/warn/fail`。
+- 数值列作为样本级 metric 导入，status 继承该样本 `qc_decision`。
+- 每次导入先清理同一 `analysis_id` 旧 QC metrics，因此重复 sync 幂等。
+- 同步更新 `sample.qc_status`。
+- 若 `baseline_qc_summary.tsv` 未生成，sync 只更新 run 状态，不伪造 QC。
+
+动态 artifact 同时发现：
+
+```text
+qc/baseline/baseline_qc_summary.tsv
+qc/baseline/baseline_qc_pass_samples.txt
+qc/baseline/baseline_qc_report.md
+```
+
 ## 8. Artifact 类型
 
 ```text
