@@ -42,7 +42,7 @@ describe("PGT-A run dashboard", () => {
         analysis_id: runId,
         pipeline: "pgta",
         status: "success",
-        created_at: "2026-07-03T05:47:12+08:00",
+        created_at: "2026-07-02T21:47:12+00:00",
         started_at: "2026-07-03T05:48:00+08:00",
         ended_at: "2026-07-03T05:49:00+08:00",
         sample_count: 2,
@@ -484,6 +484,13 @@ describe("PGT-A run dashboard", () => {
     expect(screen.getByText("collect_run_metadata")).toBeInTheDocument();
     expect(screen.getByText("PGT-A run metadata")).toBeInTheDocument();
     expect(await screen.findByText((_, element) => element?.textContent === "key\tvalue")).toBeInTheDocument();
+  });
+
+  it("renders UTC API timestamps in the configured Shanghai display timezone", async () => {
+    render(<App />);
+
+    expect(await screen.findByText(runId)).toBeInTheDocument();
+    expect(screen.getByText(/2026-07-03 05:47:12 Asia\/Shanghai/)).toBeInTheDocument();
   });
 
   it("syncs Airflow status from the run detail toolbar", async () => {

@@ -135,6 +135,9 @@ shared/reports/<analysis_id>/snakemake_report.html
 |---|---|---|---|
 | PROJECT_ROOT | yes | /opt/airflow-demo | 服务器项目目录 |
 | SHARED_ROOT | yes | /data/airflow-demo | run、报告和日志根目录 |
+| AIRFLOW_DEMO_TZ | yes | Asia/Shanghai | Container process/log timezone for demo services |
+| AIRFLOW_DEFAULT_TIMEZONE | yes | Asia/Shanghai | Airflow core default timezone; API timestamps remain timezone-aware |
+| AIRFLOW_DEFAULT_UI_TIMEZONE | yes | Asia/Shanghai | Airflow web UI display timezone |
 | DOCKER_SUBNET | yes | 172.30.10.0/24 | demo Docker network |
 | DOCKER_GATEWAY | yes | 172.30.10.1 | demo Docker gateway |
 | BACKEND_IP | yes | 172.30.10.20 | fixed container IP |
@@ -149,6 +152,7 @@ shared/reports/<analysis_id>/snakemake_report.html
 | AIRFLOW_IMAGE | yes | airflow-demo/airflow:0.1.0 | project Airflow image with isolated Snakemake 9 runtime |
 | SNAKEMAKE_RUNNER_IMAGE | WES/NIPT qsub | airflow-demo/snakemake-runner:0.1.0 | Snakemake 9.23.1 plus `cluster-generic` executor image |
 | AIRFLOW_UID | yes | 1005 on fengxian | set to `id -u` of the deploy user that owns `./shared` |
+| FRONTEND_DISPLAY_TIME_ZONE | frontend only | Asia/Shanghai | Vite build-time display timezone for run timestamps |
 | BACKEND_CORS_ORIGINS | frontend only | * | demo CORS allowlist for browser access from `FRONTEND_PORT` |
 | AIRFLOW_BASE_URL | yes | http://airflow-api-server:8080 | 容器内地址 |
 | AIRFLOW_API_USERNAME | yes | admin | backend 调用 Airflow REST API 的用户名 |

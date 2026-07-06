@@ -13,6 +13,7 @@ cpu: 128 logical cores observed by nproc
 memory: 1.4T total, read-only preflight on 2026-07-02
 disk: /dev/sda2 20T with 14T available; /data NFS 48T with 21T available
 timezone: Asia/Shanghai observed from date output
+container_timezone_target: AIRFLOW_DEMO_TZ=Asia/Shanghai; Airflow core/UI timezone target Asia/Shanghai; backend API timestamps remain timezone-aware
 host_nginx_path: /usr/sbin/nginx
 host_nginx_version: nginx/1.14.0 (Ubuntu)
 host_nginx_probe: verified executable on fengxian 2026-07-02; not configured for airflow-demo

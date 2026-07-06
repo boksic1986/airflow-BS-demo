@@ -6,7 +6,9 @@ x-airflow-common: &airflow-common
     context: ./airflow_image
   user: "${AIRFLOW_UID:-1005}:0"
   environment: &airflow-common-env
+    TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: ${AIRFLOW_DEFAULT_TIMEZONE:-Asia/Shanghai}
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-airflow}
@@ -14,6 +16,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
     AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: ${AIRFLOW_DEFAULT_UI_TIMEZONE:-Asia/Shanghai}
     AIRFLOW__EMAIL__EMAIL_BACKEND: airflow.utils.email.send_email_smtp
     AIRFLOW__SMTP__SMTP_HOST: ${SMTP_HOST:-mailhog}
     AIRFLOW__SMTP__SMTP_PORT: ${SMTP_PORT:-1025}
@@ -47,6 +50,7 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
+      TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
       POSTGRES_USER: ${POSTGRES_USER:-airflow}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-airflow}
@@ -64,6 +68,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    environment:
+      TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -76,6 +82,8 @@ services:
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
+    environment:
+      TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
     ports:
       - "${MAILHOG_SMTP_PORT:-1025}:1025"
       - "${MAILHOG_WEB_PORT:-8025}:8025"
@@ -89,6 +97,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
       POSTGRES_USER: ${POSTGRES_USER:-airflow}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-airflow}
@@ -125,6 +134,7 @@ services:
     build:
       context: ./backend
     environment:
+      TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       AIRFLOW_BASE_URL: ${AIRFLOW_BASE_URL:-http://airflow-api-server:8080}
       AIRFLOW_API_USERNAME: ${AIRFLOW_API_USERNAME:-admin}
@@ -151,6 +161,10 @@ services:
     image: ${FRONTEND_IMAGE:-airflow-demo/frontend:0.1.0}
     build:
       context: ./frontend
+      args:
+        VITE_DISPLAY_TIME_ZONE: ${FRONTEND_DISPLAY_TIME_ZONE:-Asia/Shanghai}
+    environment:
+      TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
     ports:
       - "${FRONTEND_PORT:-12959}:80"
     depends_on:
@@ -166,6 +180,7 @@ services:
       context: ./snakemake_runner
     working_dir: /app
     environment:
+      TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
       AIRFLOW_DEMO_QSUB_MODE: ${AIRFLOW_DEMO_QSUB_MODE:-mock}
       AIRFLOW_DEMO_QSUB_PYTHON: ${AIRFLOW_DEMO_QSUB_PYTHON:-python}
     volumes:

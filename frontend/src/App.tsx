@@ -65,6 +65,8 @@ const targetOptions: Array<{value: PgtaTarget; label: string}> = [
 const submitTargets = targetOptions.map((option) => option.value);
 const wesRerunRules = ["fastp", "bwa_mem", "markdup", "final_summary"];
 const wesSamples = ["S001", "S002"];
+const displayTimeZone =
+  window.__AIRFLOW_DEMO_CONFIG__?.timeZone || import.meta.env.VITE_DISPLAY_TIME_ZONE || "Asia/Shanghai";
 
 function statusClass(status?: string | null): string {
   const normalized = (status || "unknown").toLowerCase();
@@ -79,7 +81,18 @@ function formatDate(value?: string | null): string {
   if (!value) return "not set";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: displayTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "00";
+  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")} ${displayTimeZone}`;
 }
 
 function formatBytes(value: number): string {

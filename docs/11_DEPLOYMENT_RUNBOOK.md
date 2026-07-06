@@ -132,6 +132,17 @@ SNAKEMAKE_RUNNER_IMAGE=airflow-demo/snakemake-runner:0.1.0
 BACKEND_CORS_ORIGINS=*
 ```
 
+Timezone defaults:
+
+```text
+AIRFLOW_DEMO_TZ=Asia/Shanghai
+AIRFLOW_DEFAULT_TIMEZONE=Asia/Shanghai
+AIRFLOW_DEFAULT_UI_TIMEZONE=Asia/Shanghai
+FRONTEND_DISPLAY_TIME_ZONE=Asia/Shanghai
+```
+
+`fengxian` host time is `Asia/Shanghai`. Airflow containers and the React frontend must use the same display timezone so Airflow UI logs, task logs, run list timestamps, and run detail timestamps do not appear 8 hours behind the server clock. Backend and biodemo DB timestamps remain timezone-aware values; do not rewrite historical DB timestamps for a display-only timezone fix.
+
 `frontend` now builds this repository's React app and serves it through Docker nginx. The browser API base defaults to `http://<current-host>:8000/api`; override with `window.__AIRFLOW_DEMO_CONFIG__.apiBaseUrl` or `VITE_API_BASE_URL` only when a reverse proxy is added.
 
 Airflow bind-mounts `./shared` and must run with the deploy user's host uid so Airflow-only DAGs can create new workdirs under `shared/runs`. On `fengxian`, `jiucheng` is uid `1005`, so the tracked default and remote `.env` use `AIRFLOW_UID=1005`. On a new server, set:

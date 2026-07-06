@@ -1,5 +1,7 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
+ARG VITE_DISPLAY_TIME_ZONE=Asia/Shanghai
+ENV VITE_DISPLAY_TIME_ZONE=$VITE_DISPLAY_TIME_ZONE
 COPY package*.json ./
 RUN npm install
 

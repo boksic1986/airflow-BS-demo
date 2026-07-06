@@ -162,6 +162,7 @@ declare global {
   interface Window {
     __AIRFLOW_DEMO_CONFIG__?: {
       apiBaseUrl?: string;
+      timeZone?: string;
     };
   }
 }
