@@ -36,6 +36,90 @@
 
 ## Records
 
+## 2026-07-06 22:06 - Codex - T088 PGT-A run-local Snakemake cache fix
+
+### Goal
+
+Fix the PGT-A submit-after-click failure where backend successfully triggered `bio_pgta`, but the DAG failed almost immediately before the user could see a meaningful running state in Airflow.
+
+### Completed
+
+- Investigated latest failed run `PGTA_20260706_135413_598BA1`.
+- Confirmed backend submit succeeded and Airflow created `manual__PGTA_20260706_135413_598BA1`.
+- Identified root cause in `logs/snakemake.stderr.log`: Snakemake tried to create `/home/airflow/.cache/snakemake` and failed with `PermissionError`.
+- Added TDD tests for `run_pgta_target` and `run_snakemake9_with_logger` requiring run-local cache directories and `XDG_CACHE_HOME`.
+- Updated `bio_pgta` runner to create `<workdir>/tmp/xdg-cache`, set `XDG_CACHE_HOME`, and write `logs/snakemake.command.txt`.
+- Updated `bio_pgta_airflow` Snakemake 9 logger runner with the same run-local cache behavior and command log.
+- Verified a new metadata smoke run `PGTA_20260706_140854_8F2CA4` reaches Airflow/backend `success`.
+
+### Changed files
+
+- `dags/pgta_metadata_runner.py`
+- `dags/pgta_airflow_runner.py`
+- `dags/tests/test_pgta_metadata_runner.py`
+- `dags/tests/test_pgta_airflow_runner.py`
+- `docs/05_API_CONTRACT.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `TASKS.md`
+- `CURRENT_STATE.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `docker run --rm --entrypoint /usr/local/bin/python ... test_run_pgta_target_metadata... test_run_snakemake9...` on `fengxian` after tests-only commit | failed as expected | both tests failed because `<workdir>/tmp/xdg-cache` did not exist |
+| same targeted test command after implementation | success | 2 tests OK |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | no compose errors |
+| `docker run --rm --entrypoint /usr/local/bin/python ... -m unittest dags.tests.test_bio_pgta_dag dags.tests.test_pgta_metadata_runner dags.tests.test_pgta_airflow_runner -v` | success | 20 tests OK |
+| `docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags list-import-errors` | success | `No data found` |
+| remote API metadata smoke for `/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28` | success | created/submitted `PGTA_20260706_140854_8F2CA4`; sync statuses running, running, success |
+| `airflow dags list-runs -d bio_pgta | grep PGTA_20260706_140854_8F2CA4` | success | Airflow state `success` |
+| service health probes | success | backend `{"status":"ok"}`, frontend HTTP 200, Airflow scheduler/metadatabase healthy |
+
+### Tests
+
+- Red test confirmed the missing cache behavior before implementation.
+- Targeted tests passed after implementation.
+- Full PGT-A DAG/runner unit suite passed: 20 tests.
+- Airflow import check passed.
+- Real PGT-A metadata smoke passed and generated:
+  - `logs/run_metadata.tsv` with 11 lines.
+  - `logs/snakemake.command.txt`.
+  - `logs/snakemake.stderr.log` without `/home/airflow/.cache/snakemake` PermissionError.
+  - artifacts including `snakemake_command` and `run_metadata`.
+
+### Not run / why
+
+- No real `baseline_qc` Level 4 run was executed; this fix only targets metadata submit failure and Snakemake cache handling.
+- No Docker volumes were deleted and no prune commands were run.
+- No host `/home/airflow` chmod or PGT-A source directory modification was done.
+
+### Current git status
+
+Work is on branch `codex/airflow/T088-pgta-snakemake-cache`. Code verification passed at commit `dd5c6e7`; this handoff/status update is the final docs batch for the same branch.
+
+### Risks
+
+- Metadata target is fast, so Airflow UI may still show `running` only briefly; the durable evidence is the DAG run final state and frontend/API sync result.
+- `baseline_qc` remains heavier than metadata and still needs user-confirmed samples/window before running.
+
+### Open questions
+
+- Which two samples should be used for the first `baseline_qc` Level 4 smoke?
+
+### Next recommended task
+
+Ask the user to open `http://fengxian:12959/`, create a small `metadata smoke` run, submit, and verify the UI can sync to success. Then proceed to user-confirmed `baseline_qc` Level 4 smoke or T080 demo script.
+
+### Rollback notes
+
+- Stop services safely with `docker compose -f docker-compose.yaml down` only.
+- Revert T088 commits on `codex/airflow/T088-pgta-snakemake-cache` if needed.
+- Do not chmod `/home/airflow`, do not use `down -v`, and do not run Docker prune commands.
+
 ## 2026-07-06 21:45 - Codex - T085/T086/T087 PGT-A baseline_qc staged integration
 
 ### Goal

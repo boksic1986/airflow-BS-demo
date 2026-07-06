@@ -426,6 +426,7 @@ docker compose -f docker-compose.yaml exec -T airflow-scheduler \
 docker compose -f docker-compose.yaml exec -T airflow-scheduler \
   airflow dags list-runs -d bio_pgta --output json
 find "shared/runs/${analysis_id}" -maxdepth 4 -type f | sort
+cat "shared/runs/${analysis_id}/logs/snakemake.command.txt"
 head -5 "shared/runs/${analysis_id}/logs/run_metadata.tsv"
 ```
 
@@ -441,6 +442,26 @@ metadata artifact: shared/runs/PGTA_20260702_171533_9A85B1/logs/run_metadata.tsv
 ```
 
 已知边界：`run_metadata.tsv` 中 `git_branch` / `git_commit` 字段在当前 Airflow 容器内显示 git permission error，但 metadata target 和 DAG run 已成功；后续如需干净 provenance，可单独修正 PGT-A metadata rule 的 git 调用环境。
+
+T088 故障排查记录：如果提交后 Airflow DAG run 约数秒内失败，先查看：
+
+```bash
+curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}/logs?stream=stderr&tail=100"
+```
+
+若 stderr 出现：
+
+```text
+PermissionError: [Errno 13] Permission denied: '/home/airflow/.cache/snakemake'
+```
+
+说明 Snakemake cache 没有指到 run-local 目录。当前修复要求 `bio_pgta` / `bio_pgta_airflow` 在执行 Snakemake 时设置：
+
+```text
+XDG_CACHE_HOME=<workdir>/tmp/xdg-cache
+```
+
+不要通过 chmod `/home/airflow` 修复该问题。
 
 ### T045/T084 dry-run 与 failure smoke
 

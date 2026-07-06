@@ -60,6 +60,7 @@
 | T045 | PGT-A Snakemake runner | snakemake/airflow | T035,T004 | pgta config 生成和 metadata/dry-run runner | metadata runner 已随 T035 通过；Airflow-only Snakemake 9 logger 已随 T036 通过；`dryrun_cnv` 和 `invalid_target` runner 已在 `fengxian` 通过 smoke；输出只写 shared/runs/<analysis_id>，PGT_A 目录只读 | done |
 | T085 | PGT-A real target audit | coordinator/airflow | T045,T084 | docs/20 audit, baseline_qc contract | 只读审计确认 `baseline_qc` 存在、需要至少 2 个样本、会触发 mapping+metadata+baseline QC；未运行重任务 | done |
 | T086 | PGT-A staged baseline_qc integration | backend/airflow/frontend | T085 | baseline_qc allowlist, build_ref config, frontend target label | API/DAG/frontend 支持 `target=baseline_qc`，创建和 submit 均要求至少 2 样本；远端 Docker 化 backend/frontend/DAG tests 通过；真实 Level 4 smoke 待用户确认 | done |
+| T088 | PGT-A Snakemake cache permission fix | airflow/snakemake | T035,T045 | run-local `XDG_CACHE_HOME`, command artifact | `PGTA_20260706_140854_8F2CA4` metadata submit smoke success；stderr 不再出现 `/home/airflow/.cache/snakemake` PermissionError；artifacts include `snakemake_command` | done |
 
 ## P5 Frontend
 

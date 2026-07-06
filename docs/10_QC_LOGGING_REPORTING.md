@@ -70,7 +70,7 @@ nipt:
 | Airflow task log | Airflow managed | DAG/task 级失败 |
 | Snakemake stdout | workdir/logs/snakemake.stdout.log | 主流程命令 |
 | Snakemake stderr | workdir/logs/snakemake.stderr.log | 主流程错误 |
-| Snakemake command | workdir/logs/snakemake.command.txt | WES mock 实际 Snakemake 命令，用于确认 `--forcerun` 且无 `--forceall` |
+| Snakemake command | workdir/logs/snakemake.command.txt | PGT-A/WES 实际 Snakemake 命令，用于复现和确认 flags；WES reanalysis 还用于确认 `--forcerun` 且无 `--forceall` |
 | qsub stdout | workdir/logs/qsub/*.o | 集群 job 标准输出 |
 | qsub stderr | workdir/logs/qsub/*.e | 集群 job 标准错误 |
 | rule stdout | workdir/logs/rules/...stdout.log | rule 自身输出 |
@@ -223,8 +223,9 @@ snakemake --report shared/reports/<analysis_id>/snakemake_report.html
 已完成的 PGT-A v1 后端验收：
 
 - `GET /api/runs/{analysis_id}/logs?stream=stdout|stderr|metadata` 可读取固定 metadata run 文件。
-- `GET /api/runs/{analysis_id}/artifacts` 可动态发现 metadata、dry-run stdout/stderr 和 config 产物，包括 `config/pgta_run_config.json`。
+- `GET /api/runs/{analysis_id}/artifacts` 可动态发现 metadata、dry-run stdout/stderr、command 和 config 产物，包括 `logs/snakemake.command.txt` 与 `config/pgta_run_config.json`。
 - `POST /api/runs/{analysis_id}/actions/sync-airflow` 可把 Airflow success/failed 同步到 biodemo，并在 failed 时写入 `error_summary`。
+- T088 后 `bio_pgta` 和 `bio_pgta_airflow` 均设置 `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，避免 Snakemake 写入不可写的 `/home/airflow/.cache/snakemake`。
 
 已完成的 PGT-A Airflow-only logger 验收：
 

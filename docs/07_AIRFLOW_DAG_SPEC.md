@@ -364,9 +364,10 @@ target 映射：
   --configfile <workdir>/config.yaml
 ```
 
-`dryrun_cnv` 会额外传 `--dry-run --ignore-incomplete --rerun-triggers mtime`；`invalid_target` 会额外传 `__airflow_demo_invalid_target__`；`baseline_qc` 不加 dry-run，会用 `--cores 1` 真实执行。执行目录为 `/data/airflow-demo/runs/<analysis_id>`，输出只允许写入该 run workdir。stdout/stderr 写入：
+`dryrun_cnv` 会额外传 `--dry-run --ignore-incomplete --rerun-triggers mtime`；`invalid_target` 会额外传 `__airflow_demo_invalid_target__`；`baseline_qc` 不加 dry-run，会用 `--cores 1` 真实执行。执行目录为 `/data/airflow-demo/runs/<analysis_id>`，输出只允许写入该 run workdir。T088 后 Snakemake 环境设置 `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，并写出实际命令。stdout/stderr/command 写入：
 
 ```text
+shared/runs/<analysis_id>/logs/snakemake.command.txt
 shared/runs/<analysis_id>/logs/snakemake.stdout.log
 shared/runs/<analysis_id>/logs/snakemake.stderr.log
 ```
@@ -431,3 +432,5 @@ workdir/logs/events/snakemake_rule_summary.tsv
 ```
 
 Airflow 网页第一版通过 task log 和 XCom 查看状态汇总；不实现自定义 Airflow Web 插件。若 `backend_event_url` 未配置，logger 只写 JSONL；若配置，则 rule/job 级事件会同步 POST 到 FastAPI 并 upsert 到 biodemo `snakemake_rule_event`。
+
+T088 后 `bio_pgta_airflow` 也使用 run-local `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，避免 Snakemake 9 logger 路径回退到不可写的 `/home/airflow/.cache/snakemake`。
