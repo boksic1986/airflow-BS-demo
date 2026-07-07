@@ -171,6 +171,9 @@ shared/reports/<analysis_id>/snakemake_report.html
 | PGTA_CONTAINER_ROOT | PGT-A only | /opt/pipelines/PGT_A | container read-only mount target |
 | BIOSOFTWARE_ROOT | PGT-A only | /biosoftware | host read-only mount |
 | PGTA_SNAKEMAKE9_BIN | PGT-A logger only | /biosoftware/miniconda/envs/snakemake9_env/bin/snakemake | Snakemake 9 executable used by `bio_pgta_airflow` |
+| PGTA_SNAKEMAKE_CORES | PGT-A only | 64 | total Snakemake cores used by `bio_pgta` and `bio_pgta_airflow` |
+| PGTA_PYTHON_BIN | PGT-A only | /biosoftware/miniconda/envs/snakemake_env/bin/python | Python executable used for PGT-A baseline QC preflight and PGT-A rule scripts |
+| PGTA_CONDA_LIB | PGT-A only | /biosoftware/miniconda/envs/snakemake_env/lib | prepended to `LD_LIBRARY_PATH` for PGT-A Snakemake subprocesses so compiled Python packages load conda runtime libraries |
 | PGTA_DATA_ROOT | PGT-A only | /data/project/CNV/PGT-A | host read-only mount |
 | PGTA_CONTAINER_DATA_ROOT | PGT-A only | /data/project/CNV/PGT-A | container read-only mount target |
 | INPUT_SCAN_ROOTS | PGT-A only | /data/project/CNV/PGT-A/rawdata | comma-separated backend allowlist for server-path scan |

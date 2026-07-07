@@ -16,10 +16,13 @@ DEFAULT_SHARED_ROOT = Path(os.getenv("CONTAINER_SHARED_ROOT", "/data/airflow-dem
 DEFAULT_PGTA_PIPELINE_ROOT = Path(os.getenv("PGTA_CONTAINER_ROOT", "/opt/pipelines/PGT_A"))
 DEFAULT_PGTA_DATA_ROOT = Path(os.getenv("PGTA_CONTAINER_DATA_ROOT", "/data/project/CNV/PGT-A"))
 DEFAULT_SNAKEMAKE_BIN = Path(os.getenv("PGTA_SNAKEMAKE_BIN", "/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"))
+DEFAULT_PGTA_PYTHON_BIN = Path(os.getenv("PGTA_PYTHON_BIN", "/biosoftware/miniconda/envs/snakemake_env/bin/python"))
+DEFAULT_PGTA_CONDA_LIB = Path(os.getenv("PGTA_CONDA_LIB", "/biosoftware/miniconda/envs/snakemake_env/lib"))
 DEFAULT_SAMTOOLS_BIN = Path(os.getenv("PGTA_SAMTOOLS_BIN", "/biosoftware/miniconda/pkgs/samtools-1.7-1/bin/samtools"))
 DEFAULT_SAMTOOLS_LIBRARY_PATH = os.getenv("PGTA_SAMTOOLS_LIBRARY_PATH", "/biosoftware/miniconda/pkgs/openssl-1.0.2u-h516909a_0/lib")
 DEFAULT_REFERENCE_GENOME = Path(os.getenv("PGTA_REFERENCE_GENOME", "/data/Database/index/hg19/hg19.fa"))
 DEFAULT_SNAKEMAKE_CORES = "64"
+PGTA_BASELINE_PREFLIGHT_IMPORTS = ("matplotlib", "numpy", "pandas", "pysam", "scipy")
 SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc"}
 SUPPORTED_PGTA_MODES = {"new", "resume"}
 INVALID_SNAKEMAKE_TARGET = "__airflow_demo_invalid_target__"
@@ -164,8 +167,6 @@ def run_pgta_target(
     mode = _mode_from_conf(conf)
     logs_dir = workdir / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
-    cache_dir = workdir / "tmp" / "xdg-cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
     stdout_path = logs_dir / "snakemake.stdout.log"
     stderr_path = logs_dir / "snakemake.stderr.log"
     metadata_path = logs_dir / "run_metadata.tsv"
@@ -181,8 +182,7 @@ def run_pgta_target(
         "--configfile",
         str(conf["config_path"]),
     ]
-    env = os.environ.copy()
-    env["XDG_CACHE_HOME"] = str(cache_dir)
+    env = _pgta_subprocess_env(workdir)
     if mode == "resume":
         unlock_command = [*command, "--unlock"]
         (logs_dir / "snakemake.unlock.command.txt").write_text(shlex.join(unlock_command) + "\n", encoding="utf-8")
@@ -205,6 +205,8 @@ def run_pgta_target(
             logs_dir=logs_dir,
         )
         command.append("--rerun-incomplete")
+    if target == "baseline_qc":
+        _run_pgta_python_preflight(workdir=workdir, logs_dir=logs_dir, env=env)
     if target == "dryrun_cnv":
         command.extend(["--dry-run", "--ignore-incomplete", "--rerun-triggers", "mtime"])
     if target == "invalid_target":
@@ -360,6 +362,50 @@ def _write_samtools_wrapper(workdir: Path, samtools_bin: Path, samtools_library_
     wrapper.write_text("\n".join(lines) + "\n", encoding="utf-8")
     wrapper.chmod(0o755)
     return wrapper
+
+
+def _pgta_subprocess_env(workdir: Path) -> dict[str, str]:
+    cache_dir = workdir / "tmp" / "xdg-cache"
+    matplotlib_dir = workdir / "tmp" / "matplotlib"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    matplotlib_dir.mkdir(parents=True, exist_ok=True)
+
+    env = os.environ.copy()
+    env["XDG_CACHE_HOME"] = str(cache_dir)
+    env["MPLCONFIGDIR"] = str(matplotlib_dir)
+
+    conda_lib = str(DEFAULT_PGTA_CONDA_LIB)
+    existing_library_path = env.get("LD_LIBRARY_PATH")
+    if existing_library_path:
+        env["LD_LIBRARY_PATH"] = os.pathsep.join([conda_lib, existing_library_path])
+    else:
+        env["LD_LIBRARY_PATH"] = conda_lib
+    return env
+
+
+def _run_pgta_python_preflight(*, workdir: Path, logs_dir: Path, env: dict[str, str]) -> Path:
+    preflight_log = logs_dir / "pgta.python_preflight.log"
+    import_lines = "\n".join(
+        [
+            "import importlib",
+            f"for name in {PGTA_BASELINE_PREFLIGHT_IMPORTS!r}:",
+            "    module = importlib.import_module(name)",
+            "    print(f'{name}\\t{getattr(module, \"__version__\", \"unknown\")}')",
+        ]
+    )
+    command = [str(DEFAULT_PGTA_PYTHON_BIN), "-c", import_lines]
+    completed = subprocess.run(
+        command,
+        cwd=str(workdir),
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+    preflight_log.write_text((completed.stdout or "") + (completed.stderr or ""), encoding="utf-8")
+    if completed.returncode != 0:
+        raise RuntimeError(f"PGT-A Python preflight failed with exit code {completed.returncode}. See {preflight_log}")
+    return preflight_log
 
 
 def _cleanup_pgta_resume_temp_files(*, workdir: Path, analysis_id: str, logs_dir: Path) -> Path:

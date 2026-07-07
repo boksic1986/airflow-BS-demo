@@ -374,8 +374,16 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             self.assertIn("--configfile", command)
             self.assertEqual(run.call_args.kwargs["cwd"], str(workdir))
             cache_dir = workdir / "tmp" / "xdg-cache"
+            mpl_config_dir = workdir / "tmp" / "matplotlib"
             self.assertTrue(cache_dir.is_dir())
+            self.assertTrue(mpl_config_dir.is_dir())
             self.assertEqual(run.call_args.kwargs["env"]["XDG_CACHE_HOME"], str(cache_dir))
+            self.assertEqual(run.call_args.kwargs["env"]["MPLCONFIGDIR"], str(mpl_config_dir))
+            self.assertTrue(
+                run.call_args.kwargs["env"]["LD_LIBRARY_PATH"].startswith(
+                    "/biosoftware/miniconda/envs/snakemake_env/lib"
+                )
+            )
             command_text = (workdir / "logs" / "snakemake.command.txt").read_text(encoding="utf-8")
             normalized_command_text = command_text.replace("\\", "/").replace("'", "")
             self.assertIn("--snakefile /opt/pipelines/PGT_A/Snakefile", normalized_command_text)
@@ -477,7 +485,10 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             completed = Mock(returncode=0)
             completed.stdout = "baseline stdout\n"
             completed.stderr = ""
-            with patch("pgta_metadata_runner.subprocess.run", return_value=completed) as run:
+            preflight_completed = Mock(returncode=0)
+            preflight_completed.stdout = "pgta python preflight ok\n"
+            preflight_completed.stderr = ""
+            with patch("pgta_metadata_runner.subprocess.run", side_effect=[preflight_completed, completed]) as run:
                 artifact_path = run_pgta_target(
                     {
                         "analysis_id": "PGTA_TEST",
@@ -489,10 +500,48 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
                     pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
                 )
 
-            command = run.call_args.args[0]
+            self.assertEqual(run.call_count, 2)
+            preflight_command = run.call_args_list[0].args[0]
+            command = run.call_args_list[1].args[0]
             self.assertEqual(artifact_path, workdir / "qc" / "baseline" / "baseline_qc_summary.tsv")
+            self.assertEqual(preflight_command[0].replace("\\", "/"), "/biosoftware/miniconda/envs/snakemake_env/bin/python")
+            self.assertIn("matplotlib", preflight_command[-1])
+            self.assertIn("pysam", preflight_command[-1])
+            self.assertEqual(
+                (workdir / "logs" / "pgta.python_preflight.log").read_text(encoding="utf-8"),
+                "pgta python preflight ok\n",
+            )
             self.assertNotIn("--dry-run", command)
             self.assertNotIn("__airflow_demo_invalid_target__", command)
+
+    def test_run_pgta_target_baseline_qc_preflight_failure_stops_before_snakemake(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            workdir.mkdir(parents=True)
+            config_path = workdir / "config.yaml"
+            config_path.write_text("samples: {}\n", encoding="utf-8")
+
+            preflight_completed = Mock(returncode=1)
+            preflight_completed.stdout = ""
+            preflight_completed.stderr = "ImportError: CXXABI_1.3.15 not found\n"
+            with patch("pgta_metadata_runner.subprocess.run", return_value=preflight_completed) as run:
+                with self.assertRaisesRegex(RuntimeError, "PGT-A Python preflight failed"):
+                    run_pgta_target(
+                        {
+                            "analysis_id": "PGTA_TEST",
+                            "workdir": str(workdir),
+                            "config_path": str(config_path),
+                            "params": {"target": "baseline_qc"},
+                        },
+                        snakemake_bin=Path("/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"),
+                        pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                    )
+
+            run.assert_called_once()
+            self.assertEqual(
+                (workdir / "logs" / "pgta.python_preflight.log").read_text(encoding="utf-8"),
+                "ImportError: CXXABI_1.3.15 not found\n",
+            )
 
     def test_run_pgta_target_resume_unlocks_then_reruns_incomplete_without_forceall(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -507,7 +556,10 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             run_completed = Mock(returncode=0)
             run_completed.stdout = "resume stdout\n"
             run_completed.stderr = ""
-            with patch("pgta_metadata_runner.subprocess.run", side_effect=[unlock_completed, run_completed]) as run:
+            preflight_completed = Mock(returncode=0)
+            preflight_completed.stdout = "pgta python preflight ok\n"
+            preflight_completed.stderr = ""
+            with patch("pgta_metadata_runner.subprocess.run", side_effect=[unlock_completed, preflight_completed, run_completed]) as run:
                 artifact_path = run_pgta_target(
                     {
                         "analysis_id": "PGTA_TEST",
@@ -521,11 +573,13 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
                 )
 
             self.assertEqual(artifact_path, workdir / "qc" / "baseline" / "baseline_qc_summary.tsv")
-            self.assertEqual(run.call_count, 2)
+            self.assertEqual(run.call_count, 3)
             unlock_command = run.call_args_list[0].args[0]
-            resume_command = run.call_args_list[1].args[0]
+            preflight_command = run.call_args_list[1].args[0]
+            resume_command = run.call_args_list[2].args[0]
             self.assertIn("--unlock", unlock_command)
             self.assertNotIn("--forceall", unlock_command)
+            self.assertEqual(preflight_command[0].replace("\\", "/"), "/biosoftware/miniconda/envs/snakemake_env/bin/python")
             self.assertIn("--rerun-incomplete", resume_command)
             self.assertEqual(resume_command[resume_command.index("--cores") + 1], "64")
             self.assertNotIn("--forceall", resume_command)
@@ -563,7 +617,10 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             run_completed = Mock(returncode=0)
             run_completed.stdout = "resume stdout\n"
             run_completed.stderr = ""
-            with patch("pgta_metadata_runner.subprocess.run", side_effect=[unlock_completed, run_completed]):
+            preflight_completed = Mock(returncode=0)
+            preflight_completed.stdout = "pgta python preflight ok\n"
+            preflight_completed.stderr = ""
+            with patch("pgta_metadata_runner.subprocess.run", side_effect=[unlock_completed, preflight_completed, run_completed]):
                 run_pgta_target(
                     {
                         "analysis_id": "PGTA_TEST",

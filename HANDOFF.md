@@ -36,6 +36,81 @@
 
 ## Records
 
+## 2026-07-07 21:35 - Codex - T095 PGT-A baseline QC Python library preflight
+
+### Goal
+
+Fix the second `PGTA_20260706_162150_00C4FD` 64-core resume failure. The T094 cleanup resume reached `baseline_bam_uniformity_qc`, but both G10/G11 rule logs failed while importing `matplotlib` because the task loaded the container system `libstdc++.so.6` without `CXXABI_1.3.15`.
+
+### Completed
+
+- Read-only failure check confirmed latest DAG run `manual__PGTA_20260706_162150_00C4FD__resume__20260707T121252Z` is `failed`; `run_pgta_target` failed, mapping outputs `G10/G11.sorted.bam(.bai)` exist, `/qc` is empty, and samples are `failed`.
+- Added TDD red tests for PGT-A subprocess env and baseline QC preflight; red tests failed on missing `MPLCONFIGDIR`, missing conda-lib `LD_LIBRARY_PATH`, and missing preflight call.
+- Updated `bio_pgta` runner env to set `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`, `MPLCONFIGDIR=<workdir>/tmp/matplotlib`, and prepend `PGTA_CONDA_LIB` to `LD_LIBRARY_PATH`.
+- Added baseline-QC-only Python import preflight for `matplotlib/numpy/pandas/pysam/scipy`, writing `logs/pgta.python_preflight.log`.
+- Added dynamic artifact discovery for `pgta_python_preflight`.
+- Updated `.env.example`, Compose Airflow env, API/DAG/QC/runbook docs, `SERVER_INFO.md`, `CURRENT_STATE.md`, and `TASKS.md`.
+
+### Changed files
+
+- `.env.example`
+- `docker-compose.yaml`
+- `dags/pgta_metadata_runner.py`
+- `dags/tests/test_pgta_metadata_runner.py`
+- `backend/app/diagnostics_service.py`
+- `backend/tests/test_run_diagnostics.py`
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/05_API_CONTRACT.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `SERVER_INFO.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `docker compose -f docker-compose.yaml exec -T airflow-worker python -m unittest dags.tests.test_pgta_metadata_runner.PgtaMetadataRunnerTests -v` on `fengxian` before fix | failed as expected | 4 failures: missing matplotlib dir/env and missing preflight |
+| `docker run --rm airflow-demo/backend:0.1.0 pytest -q tests/test_run_diagnostics.py::test_list_pgta_artifacts_discovers_python_preflight_log` before fix | failed as expected | `pgta_python_preflight` artifact not discovered |
+| targeted Airflow runner test after fix | success | 19 tests OK |
+| targeted backend artifact test after fix | success | 1 passed |
+| `git diff --check` | success | local non-runtime check |
+
+### Tests
+
+- Red/green targeted Airflow runner tests passed after implementation.
+- Red/green backend artifact test passed after implementation.
+
+### Not run / why
+
+- Full backend pytest, full Airflow unittest discovery, Compose config, Airflow import check, and runtime resume are pending after commit/push and clean remote mirror sync.
+- Frontend tests not run; no frontend code changed.
+
+### Current git status
+
+Local branch `codex/airflow/T088-pgta-snakemake-cache` has uncommitted T095 changes at this checkpoint.
+
+### Risks
+
+- The next same-workdir resume is a real PGT-A baseline QC run; it may still be long-running or fail later inside QC logic after the Python library path issue is fixed.
+- Do not delete existing `mapping/*.sorted.bam(.bai)` outputs or the shared run directory.
+
+### Open questions
+
+- None for the library path fix.
+
+### Next recommended task
+
+Commit/push T095, cleanly fast-forward `fengxian`, rebuild/recreate Airflow scheduler/worker, verify preflight import in worker, then resume `PGTA_20260706_162150_00C4FD` once.
+
+### Rollback notes
+
+- Revert the T095 commit to remove the env/preflight behavior and rebuild/recreate Airflow scheduler/worker if needed.
+- Do not use `docker compose down -v`, Docker prune commands, destructive Git commands, or broad file deletion.
+
 ## 2026-07-07 20:14 - Codex - T094 PGT-A resume temp BAM cleanup and retry
 
 ### Goal

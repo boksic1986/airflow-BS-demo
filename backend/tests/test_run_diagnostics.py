@@ -375,6 +375,24 @@ def test_list_pgta_artifacts_discovers_resume_cleanup_log(tmp_path, monkeypatch)
     assert cleanup["path"].endswith("logs/pgta.resume.cleanup.tsv")
 
 
+def test_list_pgta_artifacts_discovers_python_preflight_log(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_pgta_baseline_submitted_run(session_factory, tmp_path)
+    preflight_log = tmp_path / "shared" / "runs" / analysis_id / "logs" / "pgta.python_preflight.log"
+    preflight_log.write_text("matplotlib\t3.10.8\n", encoding="utf-8")
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared")
+    client = TestClient(main.app)
+
+    response = client.get(f"/api/runs/{analysis_id}/artifacts")
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    preflight = next(item for item in items if item["key"] == "pgta_python_preflight")
+    assert preflight["type"] == "snakemake_log"
+    assert preflight["label"] == "PGT-A Python preflight log"
+    assert preflight["path"].endswith("logs/pgta.python_preflight.log")
+
+
 def test_sync_airflow_success_imports_pgta_baseline_qc_metrics(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_pgta_baseline_submitted_run(session_factory, tmp_path)

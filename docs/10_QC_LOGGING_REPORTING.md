@@ -73,6 +73,7 @@ nipt:
 | Snakemake command | workdir/logs/snakemake.command.txt | PGT-A/WES 实际 Snakemake 命令，用于复现和确认 flags；WES reanalysis 还用于确认 `--forcerun` 且无 `--forceall` |
 | Snakemake unlock command | workdir/logs/snakemake.unlock.command.txt | PGT-A `baseline_qc` resume 的 unlock 命令；用于确认中断后先清理 lock 再 `--rerun-incomplete` |
 | PGT-A resume cleanup | workdir/logs/pgta.resume.cleanup.tsv | PGT-A `baseline_qc` resume 在主命令前删除的 `mapping/*.sorted.bam.tmp.*.bam` 清单 |
+| PGT-A Python preflight | workdir/logs/pgta.python_preflight.log | PGT-A `baseline_qc` 主命令前的 Python import 检查；用于定位 `matplotlib/pysam/scipy` 等 compiled dependency 的动态库问题 |
 | qsub stdout | workdir/logs/qsub/*.o | 集群 job 标准输出 |
 | qsub stderr | workdir/logs/qsub/*.e | 集群 job 标准错误 |
 | rule stdout | workdir/logs/rules/...stdout.log | rule 自身输出 |
@@ -231,6 +232,7 @@ snakemake --report shared/reports/<analysis_id>/snakemake_report.html
 - T088 后 `bio_pgta` 和 `bio_pgta_airflow` 均设置 `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，避免 Snakemake 写入不可写的 `/home/airflow/.cache/snakemake`。
 - T093 后 PGT-A `baseline_qc` resume 会写 `snakemake.unlock.command.txt` 和 unlock stdout/stderr；主命令应包含 `--cores 64 --rerun-incomplete` 且不包含 `--forceall`。
 - T094 后 PGT-A `baseline_qc` resume 会在 unlock 成功后、主命令前写 `logs/pgta.resume.cleanup.tsv`，并且只删除当前 run 下 `mapping/*.sorted.bam.tmp.*.bam`。
+- T095 后 `bio_pgta` 会在 subprocess env 中设置 `MPLCONFIGDIR=<workdir>/tmp/matplotlib`，并将 `PGTA_CONDA_LIB` prepend 到 `LD_LIBRARY_PATH`；`baseline_qc` 主命令前会写 `logs/pgta.python_preflight.log`，若 Python import preflight 失败则不启动长时间 Snakemake。
 
 已完成的 PGT-A Airflow-only logger 验收：
 

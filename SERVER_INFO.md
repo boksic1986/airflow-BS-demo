@@ -76,6 +76,7 @@ airflow-demo/airflow:0.1.0
 ```text
 system_python: /usr/bin/python3, Python 3.6.9
 pgta_python: /biosoftware/miniconda/envs/snakemake_env/bin/python, Python 3.12.2
+pgta_python_conda_lib: /biosoftware/miniconda/envs/snakemake_env/lib, used by T095 as first `LD_LIBRARY_PATH` entry for baseline QC Python imports
 pgta_snakemake: /biosoftware/miniconda/envs/snakemake_env/bin/snakemake, Snakemake 8.5.4
 pgta_snakemake9: /biosoftware/miniconda/envs/snakemake9_env/bin/snakemake, Snakemake 9.23.1
 pgta_snakemake9_python: /biosoftware/miniconda/envs/snakemake9_env/bin/python

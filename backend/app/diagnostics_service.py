@@ -86,6 +86,13 @@ ARTIFACTS = [
         url="/api/runs/{analysis_id}/artifacts/pgta_resume_cleanup",
     ),
     ArtifactDefinition(
+        key="pgta_python_preflight",
+        type="snakemake_log",
+        label="PGT-A Python preflight log",
+        relative_path=Path("logs/pgta.python_preflight.log"),
+        url="/api/runs/{analysis_id}/artifacts/pgta_python_preflight",
+    ),
+    ArtifactDefinition(
         key="pgta_config_yaml",
         type="pgta_config",
         label="PGT-A Snakemake config",

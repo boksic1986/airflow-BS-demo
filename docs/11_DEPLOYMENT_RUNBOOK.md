@@ -171,6 +171,8 @@ PGTA_CONTAINER_DATA_ROOT=/data/project/CNV/PGT-A
 INPUT_SCAN_ROOTS=/data/project/CNV/PGT-A/rawdata
 PGTA_SNAKEMAKE9_BIN=/biosoftware/miniconda/envs/snakemake9_env/bin/snakemake
 PGTA_SNAKEMAKE_CORES=64
+PGTA_PYTHON_BIN=/biosoftware/miniconda/envs/snakemake_env/bin/python
+PGTA_CONDA_LIB=/biosoftware/miniconda/envs/snakemake_env/lib
 AIRFLOW_DAGS_ROOT=/opt/airflow/dags
 AIRFLOW_DEMO_QSUB_MODE=mock
 AIRFLOW_DEMO_QSUB_PYTHON=python
@@ -632,6 +634,40 @@ curl -fsS -X POST \
   -H 'Content-Type: application/json' \
   -d '{"mode":"resume","reason":"resume after cleaning interrupted samtools sort temp BAMs"}'
 ```
+
+### T095 PGT-A baseline QC Python library preflight
+
+Use this after a `baseline_qc` run reaches `baseline_bam_uniformity_qc` and fails while importing compiled Python dependencies, for example:
+
+```text
+ImportError: /usr/lib/x86_64-linux-gnu/libstdc++.so.6: version `CXXABI_1.3.15' not found
+```
+
+The T095 runner keeps the same run-local cache behavior and additionally sets:
+
+```text
+XDG_CACHE_HOME=<workdir>/tmp/xdg-cache
+MPLCONFIGDIR=<workdir>/tmp/matplotlib
+LD_LIBRARY_PATH=${PGTA_CONDA_LIB:-/biosoftware/miniconda/envs/snakemake_env/lib}:<existing>
+```
+
+Before the long Snakemake command, `baseline_qc` runs a short import preflight with `PGTA_PYTHON_BIN`:
+
+```text
+matplotlib
+numpy
+pandas
+pysam
+scipy
+```
+
+The preflight writes:
+
+```bash
+cat "shared/runs/${analysis_id}/logs/pgta.python_preflight.log"
+```
+
+If the preflight fails, do not resume blindly. Inspect the log and fix the library path/environment first. After deploying T095, confirm there is no matching active process, then call the same `reanalyze` resume endpoint. The new run should still use `--cores 64 --rerun-incomplete` and must not use `--forceall`.
 
 ## 14. PGT-A diagnostics smoke
 
