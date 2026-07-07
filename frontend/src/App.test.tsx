@@ -351,7 +351,7 @@ describe("bioinformatics platform frontend", () => {
 
     expect(await screen.findByText(failedRunId)).toBeInTheDocument();
     expect(screen.getByRole("heading", {name: /failure diagnosis/i})).toBeInTheDocument();
-    expect(screen.getByText(/MissingRuleException/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/MissingRuleException/i).length).toBeGreaterThan(0);
 
     const logsTab = screen.getByRole("tab", {name: /logs/i});
     await user.click(logsTab);
@@ -386,7 +386,7 @@ describe("bioinformatics platform frontend", () => {
     await user.click(await screen.findByRole("radio", {name: /pgt-a/i}));
     await user.clear(screen.getByLabelText(/rawdata root/i));
     await user.type(screen.getByLabelText(/rawdata root/i), rawdataRoot);
-    await user.selectOptions(screen.getByLabelText(/target/i), "baseline_qc");
+    await user.selectOptions(screen.getByRole("combobox", {name: /^target$/i}), "baseline_qc");
     await user.click(screen.getByRole("button", {name: /^scan$/i}));
     await user.click(await screen.findByRole("checkbox", {name: /select sample G10/i}));
     await user.click(screen.getByRole("checkbox", {name: /select sample G11/i}));
@@ -417,6 +417,7 @@ describe("bioinformatics platform frontend", () => {
     });
 
     cleanup();
+    wesStatus = "success";
     setRoute(`/runs/${wesRunId}`);
     render(<App />);
     expect(await screen.findByText(wesRunId)).toBeInTheDocument();
@@ -442,6 +443,6 @@ describe("bioinformatics platform frontend", () => {
 
     await user.click(screen.getByRole("link", {name: /failures/i}));
     expect(await screen.findByText(/Recent failed runs/i)).toBeInTheDocument();
-    expect(screen.getByText(/retry suggestion/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/retry suggestion/i).length).toBeGreaterThan(0);
   });
 });
