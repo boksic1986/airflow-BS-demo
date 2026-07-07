@@ -347,3 +347,22 @@ Remote validation on `ssh fengxian` at frontend code commit `3119be5`:
 - `GET /api/runs/PGTA_20260706_162150_00C4FD`: returned the PGT-A detail payload.
 - `GET /api/runs/PGTA_20260706_162150_00C4FD/qc`: returned `pass=0,warn=0,fail=14,unknown=0`.
 - `GET /api/runs/PGTA_20260706_162150_00C4FD/logs?stream=stderr&tail=20`: returned stderr tail lines.
+
+## 11. T098 Frontend/Airflow data reconciliation
+
+The frontend does not connect directly to Airflow, the Airflow metadata DB, or Postgres. The supported data path remains:
+
+```text
+React frontend -> FastAPI backend -> Airflow REST API + biodemo DB
+```
+
+T098 fixes two places where the PGT-A-only UI could look disconnected from Airflow/backend state:
+
+- PGT-A Run Detail now auto-syncs active runs through `POST /api/runs/{analysis_id}/actions/sync-airflow`. When a selected PGT-A run has `dag_run_id` and status `submitted/running/queued/scheduled`, the page syncs immediately and then every 15 seconds until the backend returns a terminal state.
+- `GET /api/runs` now returns run-level `qc_status` aggregated from sample `qc_status` values, so Dashboard/Runs/Samples no longer show `unknown` while the detail `/qc` endpoint already shows PGT-A baseline QC failures.
+
+Expected product semantics:
+
+- Frontend run counts are analysis-run counts from biodemo, not raw Airflow DAG-run counts.
+- A resumed PGT-A analysis can have multiple historical Airflow DAG runs, but the frontend shows one `analysis_id` with the latest `dag_run_id`.
+- Workflow status and QC status remain separate. `PGTA_20260706_162150_00C4FD` is workflow `success` with sample/run QC `fail`.

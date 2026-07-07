@@ -24,7 +24,7 @@ import {WorkflowTimeline} from "../components/WorkflowTimeline";
 import {parseErrorSummary} from "../lib/errors";
 import {compactPipelineName, formatBytes, formatDate, formatDuration, safeJson} from "../lib/format";
 import {errorMessage} from "../lib/errors";
-import {isFailedStatus, normalizeStatus} from "../lib/status";
+import {isActiveStatus, isFailedStatus, normalizeStatus} from "../lib/status";
 
 const tabs = ["Overview", "Samples", "Workflow", "QC", "Logs", "Files", "Config"] as const;
 type DetailTab = (typeof tabs)[number];
@@ -50,6 +50,7 @@ export function RunDetailPage() {
   const [logError, setLogError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
+  const [lastAutoSyncedAt, setLastAutoSyncedAt] = useState<string | null>(null);
 
   async function loadDetail() {
     if (!analysisId) return;
@@ -93,6 +94,30 @@ export function RunDetailPage() {
   }, [analysisId, logStream]);
 
   const detail = bundle.detail;
+
+  useEffect(() => {
+    if (!analysisId || !detail || detail.pipeline !== "pgta" || !detail.dag_run_id || !isActiveStatus(detail.status)) return;
+
+    let stopped = false;
+    const refreshFromAirflow = async () => {
+      try {
+        await syncAirflow(analysisId);
+        if (stopped) return;
+        setLastAutoSyncedAt(new Date().toISOString());
+        await loadDetail();
+      } catch (syncError) {
+        if (!stopped) setActionError(errorMessage(syncError));
+      }
+    };
+
+    void refreshFromAirflow();
+    const interval = window.setInterval(() => void refreshFromAirflow(), 15000);
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+    };
+  }, [analysisId, detail?.dag_run_id, detail?.pipeline, detail?.status]);
+
   const failedRule = bundle.rules.find((rule) => isFailedStatus(rule.status));
   const diagnosis = parseErrorSummary(detail?.error_summary, failedRule?.rule);
   const workflowSteps = useMemo(() => {
@@ -157,6 +182,9 @@ export function RunDetailPage() {
             </div>
             <div className="summary-actions">
               <StatusBadge status={detail.status} size="lg" />
+              {detail.pipeline === "pgta" && detail.dag_run_id && isActiveStatus(detail.status) ? (
+                <span className="muted">{lastAutoSyncedAt ? `Auto sync active · ${formatDate(lastAutoSyncedAt)}` : "Auto sync active"}</span>
+              ) : null}
               {canSubmit ? (
                 <button className="button primary" type="button" disabled={acting} onClick={() => void runAction("submit")}>
                   <Play size={15} />

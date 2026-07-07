@@ -306,6 +306,13 @@ Errors:
 GET /api/runs?pipeline=pgta&status=created&limit=50&offset=0
 ```
 
+`qc_status` 是 run-level 展示字段，由该 run 下 `sample.qc_status` 聚合得到，不直接查询 Airflow metadata DB，也不在普通 GET 中隐式解析 QC 文件。聚合优先级为 `fail > warn > unknown > pass`：
+
+- 任一样本 `fail/failed/error` => `fail`。
+- 否则任一样本 `warn/warning/qc_warning` => `warn`。
+- 全部样本 `pass/success` => `pass`。
+- 无样本、未导入 QC、或混合未知状态 => `unknown`。
+
 Response:
 
 ```json

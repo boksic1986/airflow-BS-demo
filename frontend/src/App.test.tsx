@@ -311,6 +311,7 @@ describe("bioinformatics platform frontend", () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -365,6 +366,21 @@ describe("bioinformatics platform frontend", () => {
     await user.type(screen.getByLabelText(/search logs/i), "MissingRule");
     expect(screen.getByText(/1 matching line/i)).toBeInTheDocument();
     expect(screen.getByRole("button", {name: /copy visible log excerpt/i})).toBeInTheDocument();
+  });
+
+  it("auto-syncs an active PGT-A run detail through the backend Airflow bridge", async () => {
+    createdPgtaStatus = "submitted";
+    createdPgtaDagRunId = `manual__${createdPgtaRunId}`;
+    setRoute(`/runs/${createdPgtaRunId}`);
+    render(<App />);
+
+    expect(await screen.findByText(createdPgtaRunId)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/api/runs/${createdPgtaRunId}/actions/sync-airflow`),
+        expect.objectContaining({method: "POST"}),
+      );
+    });
   });
 
   it("keeps the existing PGT-A scan, create, and submit flow as the only submit path", async () => {

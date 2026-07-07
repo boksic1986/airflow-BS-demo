@@ -2,12 +2,13 @@ from types import SimpleNamespace
 import stat
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import main
-from app.models import Base
+from app.models import Base, Sample
 
 
 def make_test_sessionmaker():
@@ -291,3 +292,42 @@ def test_run_list_returns_created_runs(tmp_path, monkeypatch) -> None:
     assert response.json()["total"] == 1
     assert response.json()["items"][0]["analysis_id"] == created["analysis_id"]
     assert response.json()["items"][0]["status"] == "created"
+
+
+def test_run_list_aggregates_sample_qc_status(tmp_path, monkeypatch) -> None:
+    allowed_root = tmp_path / "rawdata"
+    source_dir = allowed_root / "run1" / "Sample_JZ26083055-G1-G1"
+    r1, r2 = write_fastq_pair(source_dir, "JZ26083055-G1-G1_combined")
+    session_factory = make_test_sessionmaker()
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: SimpleNamespace(
+            input_scan_roots=[str(allowed_root)],
+            container_shared_root=str(tmp_path / "shared"),
+        ),
+    )
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    client = TestClient(main.app)
+    created = client.post(
+        "/api/runs",
+        json={
+            "pipeline": "pgta",
+            "project_name": "demo project",
+            "target": "metadata",
+            "rawdata_root": str(allowed_root),
+            "selected_samples": [{"sample_id": "G1", "r1": r1, "r2": r2, "source_dir": str(source_dir.resolve())}],
+        },
+    ).json()
+
+    with session_factory() as session:
+        sample = session.scalar(select(Sample).where(Sample.analysis_id == created["analysis_id"], Sample.sample_id == "G1"))
+        assert sample is not None
+        sample.qc_status = "fail"
+        session.commit()
+
+    response = client.get("/api/runs?pipeline=pgta")
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["analysis_id"] == created["analysis_id"]
+    assert response.json()["items"][0]["qc_status"] == "fail"

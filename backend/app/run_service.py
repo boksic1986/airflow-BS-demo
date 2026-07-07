@@ -654,6 +654,7 @@ def _run_payload(run: AnalysisRun, *, sample_count: int) -> dict:
 
 def _run_list_payload(session: Session, run: AnalysisRun) -> dict:
     sample_count = session.scalar(select(func.count()).select_from(Sample).where(Sample.analysis_id == run.analysis_id)) or 0
+    sample_qc_statuses = session.scalars(select(Sample.qc_status).where(Sample.analysis_id == run.analysis_id)).all()
     return {
         "analysis_id": run.analysis_id,
         "pipeline": run.pipeline_name,
@@ -662,7 +663,7 @@ def _run_list_payload(session: Session, run: AnalysisRun) -> dict:
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "ended_at": run.ended_at.isoformat() if run.ended_at else None,
         "sample_count": sample_count,
-        "qc_status": "unknown",
+        "qc_status": _aggregate_sample_qc_status(sample_qc_statuses),
     }
 
 
@@ -682,3 +683,16 @@ def _run_detail_payload(session: Session, run: AnalysisRun) -> dict:
         }
     )
     return payload
+
+
+def _aggregate_sample_qc_status(statuses: list[str | None]) -> str:
+    normalized = {str(status or "unknown").strip().lower() or "unknown" for status in statuses}
+    if not normalized:
+        return "unknown"
+    if normalized & {"fail", "failed", "error"}:
+        return "fail"
+    if normalized & {"warn", "warning", "qc_warning"}:
+        return "warn"
+    if normalized == {"pass"} or normalized == {"success"} or normalized == {"pass", "success"}:
+        return "pass"
+    return "unknown"
