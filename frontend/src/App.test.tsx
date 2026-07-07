@@ -521,11 +521,20 @@ describe("PGT-A run dashboard", () => {
 
   it("auto-syncs selected active Airflow runs and stops after terminal state", async () => {
     const intervalCallbacks: Array<() => void> = [];
-    const setIntervalSpy = vi.spyOn(window, "setInterval").mockImplementation((callback: TimerHandler) => {
-      intervalCallbacks.push(callback as () => void);
-      return 15000;
+    const originalSetInterval = window.setInterval.bind(window);
+    const originalClearInterval = window.clearInterval.bind(window);
+    const setIntervalSpy = vi.spyOn(window, "setInterval").mockImplementation((callback: TimerHandler, timeout?: number) => {
+      if (timeout === 15000) {
+        intervalCallbacks.push(callback as () => void);
+        return 15000;
+      }
+      return originalSetInterval(callback, timeout);
     });
-    const clearIntervalSpy = vi.spyOn(window, "clearInterval").mockImplementation(() => undefined);
+    const clearIntervalSpy = vi.spyOn(window, "clearInterval").mockImplementation((handle?: number) => {
+      if (handle !== 15000) {
+        originalClearInterval(handle);
+      }
+    });
     createdRunStatus = "running";
     createdDagRunId = `manual__${createdRunId}`;
 
