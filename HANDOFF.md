@@ -36,6 +36,96 @@
 
 ## Records
 
+## 2026-07-07 20:14 - Codex - T094 PGT-A resume temp BAM cleanup and retry
+
+### Goal
+
+Fix the failed PGT-A `baseline_qc` resume for `PGTA_20260706_162150_00C4FD` where interrupted `samtools sort` temp BAMs caused `File exists`, then safely trigger another same-workdir 64-core resume.
+
+### Completed
+
+- Added red tests first for PGT-A resume cleanup and backend artifact discovery; both failed at the expected missing behavior.
+- Added `bio_pgta` resume cleanup after successful Snakemake `--unlock` and before the main resume command.
+- Cleanup scope is limited to current `workdir/mapping/*.sorted.bam.tmp.*.bam`; it refuses non run-local workdirs and does not touch final BAM/BAI, FASTQ, QC, logs, config, PGT-A source, or rawdata.
+- Wrote cleanup audit artifact `logs/pgta.resume.cleanup.tsv`.
+- Added `pgta_resume_cleanup` to dynamic artifact discovery.
+- Updated API contract, DAG spec, QC/logging docs, and deployment runbook.
+- Rebuilt backend, recreated backend plus Airflow scheduler/worker only; did not touch Postgres/Redis/frontend and did not delete volumes.
+- Confirmed before retry: no matching `PGTA_20260706_162150_00C4FD` process was running and 16 stale `G11.sorted.bam.tmp.*.bam` files existed.
+- Triggered new resume run `manual__PGTA_20260706_162150_00C4FD__resume__20260707T121252Z`.
+- Verified cleanup log records all 16 deleted tmp BAMs, remaining tmp count is 0, command contains `--cores 64 --rerun-incomplete`, and no `--forceall`.
+- Explicit `sync-airflow` now shows backend status `running`; active worker process shows G11 running with `fastp -w 16`.
+
+### Changed files
+
+- `dags/pgta_metadata_runner.py`
+- `dags/tests/test_pgta_metadata_runner.py`
+- `backend/app/diagnostics_service.py`
+- `backend/tests/test_run_diagnostics.py`
+- `docs/05_API_CONTRACT.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git diff --check` | success | local non-runtime static check |
+| red Airflow test on `fengxian` | failed as expected | tmp files remained before implementation |
+| red backend artifact test on `fengxian` | failed as expected | `pgta_resume_cleanup` not discovered before implementation |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | compose config valid |
+| targeted Airflow runner test on `fengxian` | success | new cleanup test passed |
+| `docker compose -f docker-compose.yaml build backend && docker run --rm airflow-demo/backend:0.1.0 pytest -q` | success | 51 passed |
+| Airflow unittest discover on `fengxian` | success | 44 tests OK, 5 skipped logger interface unavailable in that Python env |
+| `airflow dags list-import-errors` | success | `No data found` |
+| `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend airflow-scheduler airflow-worker` | success | no volumes deleted; Postgres/Redis/frontend left running |
+| pre-resume tmp/process checks | success | 16 stale temp BAMs, no matching running processes |
+| `POST /api/runs/PGTA_20260706_162150_00C4FD/actions/reanalyze` | success | returned new run `manual__PGTA_20260706_162150_00C4FD__resume__20260707T121252Z` |
+| cleanup/command/artifact checks | success | cleanup log has 16 rows; temp count 0; command has `--cores 64 --rerun-incomplete`; artifact API includes `pgta_resume_cleanup` |
+| `POST /api/runs/PGTA_20260706_162150_00C4FD/actions/sync-airflow` | success | backend status `running`, `error_summary=null` for latest DAG run |
+
+### Tests
+
+- Remote backend full pytest passed: 51 passed.
+- Remote Airflow DAG unittest discover passed: 44 OK, 5 skipped for logger-interface availability in that Python env.
+- Airflow import check passed: `No data found`.
+- Runtime cleanup evidence passed: 16 stale temp BAMs were recorded and deleted; remaining tmp count is 0.
+
+### Not run / why
+
+- Did not wait for terminal baseline QC success/failure; the real PGT-A resume is still running.
+- Did not run frontend tests; no frontend files changed.
+- Did not stop frontend/Postgres/Redis or delete any volume.
+- Did not submit a new heavy PGT-A run; only resumed the existing failed workdir.
+
+### Current git status
+
+Code commits `1ce3fa6` and `0a8e756` are pushed to `origin/codex/airflow/T088-pgta-snakemake-cache`. This handoff/status update records runtime evidence after `0a8e756`.
+
+### Risks
+
+- The latest resume is a real baseline QC workload and may still take time. Do not interrupt it unless the user explicitly asks.
+- If the latest resume fails, sync Airflow first and inspect `error_summary`, `snakemake.stderr.log`, and rule logs before deciding on another resume.
+- The cleanup intentionally deletes only matching samtools sort temp BAMs; do not broaden the pattern without another explicit review.
+
+### Open questions
+
+- None for T094 code. Runtime terminal success/failure remains pending.
+
+### Next recommended task
+
+Continue observing `manual__PGTA_20260706_162150_00C4FD__resume__20260707T121252Z`. If it succeeds, call `sync-airflow` and verify `qc/baseline/baseline_qc_summary.tsv`, `baseline_qc_pass_samples.txt`, `baseline_qc_report.md`, `/api/runs/{analysis_id}/qc`, artifacts, and frontend QC panel. If it fails, call `sync-airflow`, record `error_summary` and stderr/rule logs, then decide whether another fix is warranted.
+
+### Rollback notes
+
+- Revert commit `0a8e756` to remove cleanup behavior and rebuild/redeploy backend plus recreate Airflow scheduler/worker if needed.
+- Do not delete `shared/runs/PGTA_20260706_162150_00C4FD`; it contains the active resumed workdir and logs.
+- Do not use `docker compose down -v`, Docker prune commands, destructive Git commands, or broad file deletion.
+
 ## 2026-07-07 18:08 - Codex - T093 PGT-A controlled interrupt and 64-core resume
 
 ### Goal
