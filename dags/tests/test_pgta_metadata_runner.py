@@ -537,6 +537,58 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             self.assertNotIn("--forceall", resume_command_text)
             self.assertEqual((workdir / "logs" / "snakemake.stdout.log").read_text(encoding="utf-8"), "resume stdout\n")
 
+    def test_run_pgta_target_resume_removes_only_samtools_sort_tmp_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            mapping_dir = workdir / "mapping"
+            mapping_dir.mkdir(parents=True)
+            config_path = workdir / "config.yaml"
+            config_path.write_text("samples: {}\n", encoding="utf-8")
+            tmp_0000 = mapping_dir / "G11.sorted.bam.tmp.0000.bam"
+            tmp_0001 = mapping_dir / "G11.sorted.bam.tmp.0001.bam"
+            final_bam = mapping_dir / "G11.sorted.bam"
+            final_bai = mapping_dir / "G11.sorted.bam.bai"
+            non_matching_tmp = mapping_dir / "G11.sorted.bam.tmp.keep.txt"
+            other_rule_tmp = mapping_dir / "G11.fastp.tmp.0000.bam"
+            tmp_0000.write_bytes(b"tmp0000")
+            tmp_0001.write_bytes(b"tmp0001")
+            final_bam.write_bytes(b"final-bam")
+            final_bai.write_bytes(b"final-bai")
+            non_matching_tmp.write_bytes(b"keep")
+            other_rule_tmp.write_bytes(b"keep2")
+
+            unlock_completed = Mock(returncode=0)
+            unlock_completed.stdout = ""
+            unlock_completed.stderr = ""
+            run_completed = Mock(returncode=0)
+            run_completed.stdout = "resume stdout\n"
+            run_completed.stderr = ""
+            with patch("pgta_metadata_runner.subprocess.run", side_effect=[unlock_completed, run_completed]):
+                run_pgta_target(
+                    {
+                        "analysis_id": "PGTA_TEST",
+                        "mode": "resume",
+                        "workdir": str(workdir),
+                        "config_path": str(config_path),
+                        "params": {"target": "baseline_qc"},
+                    },
+                    snakemake_bin=Path("/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"),
+                    pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                )
+
+            self.assertFalse(tmp_0000.exists())
+            self.assertFalse(tmp_0001.exists())
+            self.assertTrue(final_bam.exists())
+            self.assertTrue(final_bai.exists())
+            self.assertTrue(non_matching_tmp.exists())
+            self.assertTrue(other_rule_tmp.exists())
+            cleanup_log = workdir / "logs" / "pgta.resume.cleanup.tsv"
+            cleanup_lines = cleanup_log.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(cleanup_lines[0], "deleted_at\tpath\tsize_bytes")
+            self.assertEqual(len(cleanup_lines), 3)
+            self.assertIn("G11.sorted.bam.tmp.0000.bam\t7", cleanup_lines[1])
+            self.assertIn("G11.sorted.bam.tmp.0001.bam\t7", cleanup_lines[2])
+
     def test_collect_pgta_artifact_branches_by_target(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workdir = Path(tmpdir) / "runs" / "PGTA_TEST"

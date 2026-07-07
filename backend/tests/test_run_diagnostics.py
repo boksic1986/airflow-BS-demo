@@ -353,6 +353,28 @@ def test_list_pgta_artifacts_discovers_baseline_qc_outputs(tmp_path, monkeypatch
     assert summary["path"].endswith("qc/baseline/baseline_qc_summary.tsv")
 
 
+def test_list_pgta_artifacts_discovers_resume_cleanup_log(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_pgta_baseline_submitted_run(session_factory, tmp_path)
+    cleanup_log = tmp_path / "shared" / "runs" / analysis_id / "logs" / "pgta.resume.cleanup.tsv"
+    cleanup_log.write_text(
+        "deleted_at\tpath\tsize_bytes\n"
+        "2026-07-07T10:00:00+00:00\t/data/airflow-demo/runs/PGTA/mapping/G11.sorted.bam.tmp.0000.bam\t180000000\n",
+        encoding="utf-8",
+    )
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared")
+    client = TestClient(main.app)
+
+    response = client.get(f"/api/runs/{analysis_id}/artifacts")
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    cleanup = next(item for item in items if item["key"] == "pgta_resume_cleanup")
+    assert cleanup["type"] == "snakemake_log"
+    assert cleanup["label"] == "PGT-A resume cleanup log"
+    assert cleanup["path"].endswith("logs/pgta.resume.cleanup.tsv")
+
+
 def test_sync_airflow_success_imports_pgta_baseline_qc_metrics(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_pgta_baseline_submitted_run(session_factory, tmp_path)
