@@ -36,6 +36,96 @@
 
 ## Records
 
+## 2026-07-08 01:54 - Codex - T097 PGT-A-only frontend deployment scope
+
+### Goal
+
+Converge the redesigned T096 frontend into a PGT-A-only deployable demo, hide WES/NIPT/WGS frontend entry points, leave historical backend/DAG/Snakemake code untouched, and verify the updated frontend service on port `12959`.
+
+### Completed
+
+- Sidebar now shows Dashboard, Submit Task, Runs, Samples, Failures, and Settings; Workflows is hidden from the main navigation.
+- Dashboard, Runs, Samples, and Failures now display PGT-A data only.
+- Submit Task now exposes only the PGT-A server-path scan/create/submit flow.
+- Run Detail keeps PGT-A Overview/Samples/Workflow/QC/Logs/Files/Config tabs, sync, and baseline_qc `Resume with 64 cores`.
+- Direct `/workflows` remains development-accessible but displays only the PGT-A workflow template.
+- WES qsub, NIPT qsub, NIPT docker, and WGS are hidden from the current frontend demo. Existing backend/DAG/Snakemake code was not removed.
+- Mail notification work was not started; `T034` and `T063` remain todo.
+- Frontend container was rebuilt and recreated on `fengxian`; `http://127.0.0.1:12959/` returns HTTP 200.
+
+### Changed files
+
+- `docs/06_FRONTEND_SPEC.md`
+- `TASKS.md`
+- `CURRENT_STATE.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+- `frontend/src/App.test.tsx`
+- `frontend/src/layout/AppShell.tsx`
+- `frontend/src/mocks/platform.ts`
+- `frontend/src/pages/DashboardPage.tsx`
+- `frontend/src/pages/FailuresPage.tsx`
+- `frontend/src/pages/RunDetailPage.tsx`
+- `frontend/src/pages/RunsPage.tsx`
+- `frontend/src/pages/SamplesPage.tsx`
+- `frontend/src/pages/SettingsPage.tsx`
+- `frontend/src/pages/SubmitPage.tsx`
+- `frontend/src/pages/WorkflowsPage.tsx`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git checkout -b codex/frontend/T097-pgta-only` | success | T097 branch created from T096 worktree |
+| temporary-clone `docker build --target test -f frontend/Dockerfile frontend` on `fengxian` | success | red/green fix validation; 5 Vitest tests passed |
+| temporary-clone `docker build -f frontend/Dockerfile frontend` on `fengxian` | success | production build passed `tsc -b && vite build` |
+| `git push -u origin codex/frontend/T097-pgta-only` | success | branch pushed |
+| remote mirror `git checkout -b codex/frontend/T097-pgta-only --track origin/codex/frontend/T097-pgta-only` | success | remote mirror at frontend code commit `3119be5` |
+| `docker build --target test -f frontend/Dockerfile frontend` on `fengxian` | success | cache-hit preflight before rebuild |
+| `docker build --no-cache --target test -f frontend/Dockerfile frontend` on `fengxian` | success | 1 test file, 5 tests passed |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | compose config valid |
+| `docker compose -f docker-compose.yaml build frontend` on `fengxian` | success | production build passed `tsc -b && vite build` |
+| `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate frontend` on `fengxian` | success | recreated only frontend |
+| `curl -fsSI http://127.0.0.1:12959/` on `fengxian` | success | HTTP 200 from nginx |
+| PGT-A API spot checks on backend port `8000` | success | `/api/health`, `/api/health/airflow`, run detail, QC, and stderr log tail returned data |
+| `git diff --check` | success | local non-runtime whitespace check passed before first commit |
+
+### Tests
+
+- Remote frontend Docker test target passed with `--no-cache`: `1 test file`, `5 tests`.
+- Remote frontend production build passed through Compose: `tsc -b && vite build`.
+- Remote frontend HTTP smoke passed on port `12959`.
+- PGT-A backend/API compatibility spot checks passed for `PGTA_20260706_162150_00C4FD`, including detail, QC summary `pass=0,warn=0,fail=14,unknown=0`, and stderr log tail.
+
+### Not run / why
+
+- `npm run lint` was not run because `frontend/package.json` does not define a `lint` script.
+- Local `npm`, `node`, and `docker` were not used as acceptance evidence because AGENTS.md requires runtime validation on `ssh fengxian`.
+- No new PGT-A run was submitted; spot checks used the existing successful workflow/QC-fail demo run.
+- MailHog/SMTP notification was not implemented or tested by user request.
+
+### Current git status
+
+Frontend code commit `3119be5` is pushed to `origin/codex/frontend/T097-pgta-only` and deployed on `fengxian`. This handoff/state/manifest sync is expected to be committed and pushed as a follow-up docs-state commit on the same branch.
+
+### Risks
+
+- PGT-A demo remains workflow success with QC fail for G10/G11; the UI should narrate this as workflow observability plus QC failure diagnosis, not as a QC-pass sample.
+- WES qsub code remains in the repository and backend storage may still contain WES historical runs, but current frontend demo intentionally hides those surfaces.
+- Direct `/workflows` still resolves for development, but only PGT-A is shown.
+
+### Open questions
+
+- Whether to remove or guard the direct `/workflows` route later, or keep it as a development-only page.
+
+### Next recommended task
+
+Keep the current demo focused on PGT-A. If future scope expands, add one deployable pipeline at a time, starting with a real acceptance plan rather than re-exposing old mock surfaces. Mail notifications remain `T034/T063`.
+
+### Rollback notes
+
+Revert the T097 frontend commit and redeploy the previous T096 frontend image. No backend, DAG, database, shared run directory, or Docker volume rollback is required.
+
 ## 2026-07-08 01:30 - Codex - T096 frontend platform UI redesign
 
 ### Goal

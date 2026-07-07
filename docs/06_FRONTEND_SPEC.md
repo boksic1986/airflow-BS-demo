@@ -332,3 +332,18 @@ The `/workflows` route remains available for direct navigation during developmen
 - NIPT qsub, NIPT docker, and WGS are not shown in the current frontend demo.
 - MailHog/SMTP success/failure notification remains deferred; `T034` and `T063` stay todo.
 - No backend/DAG/Snakemake code is removed by T097.
+
+### T097 verification
+
+Remote validation on `ssh fengxian` at frontend code commit `3119be5`:
+
+- `docker build --no-cache --target test -f frontend/Dockerfile frontend`: passed, `1 test file`, `5 tests`.
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- `docker compose -f docker-compose.yaml build frontend`: passed, including `tsc -b && vite build`.
+- `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate frontend`: passed, recreated only the frontend container.
+- `curl -fsSI http://127.0.0.1:12959/`: HTTP 200 from nginx.
+- `GET /api/health`: `{"status":"ok"}`.
+- `GET /api/health/airflow`: metadatabase and scheduler healthy.
+- `GET /api/runs/PGTA_20260706_162150_00C4FD`: returned the PGT-A detail payload.
+- `GET /api/runs/PGTA_20260706_162150_00C4FD/qc`: returned `pass=0,warn=0,fail=14,unknown=0`.
+- `GET /api/runs/PGTA_20260706_162150_00C4FD/logs?stream=stderr&tail=20`: returned stderr tail lines.

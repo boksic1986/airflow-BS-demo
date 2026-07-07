@@ -189,9 +189,16 @@ The current frontend deployment target is PGT-A-only. This supersedes the T096 v
 - NIPT/WGS remain hidden from the current frontend demo.
 - MailHog/SMTP notification work is not part of T097; `T034` and `T063` remain todo.
 
-Remote validation checkpoint before final deploy:
+Remote validation and deployment on `ssh fengxian`:
 
-- A temporary clone on `ssh fengxian` applied the T097 diff and ran `docker build --target test -f frontend/Dockerfile frontend`.
-- Result: frontend Docker test target passed, `1 test file`, `5 tests`.
-
-Final deployment evidence will be recorded in `HANDOFF.md` after the branch is committed, pushed, pulled on `fengxian`, built, and frontend port `12959` is rechecked.
+- Remote mirror switched to `codex/frontend/T097-pgta-only` at frontend code commit `3119be5`.
+- `docker build --no-cache --target test -f frontend/Dockerfile frontend`: passed, `1 test file`, `5 tests`.
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- `docker compose -f docker-compose.yaml build frontend`: passed, including `tsc -b && vite build`.
+- `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate frontend`: passed, recreated only the frontend container.
+- `curl -fsSI http://127.0.0.1:12959/`: HTTP 200 from nginx.
+- `GET /api/health`: returned `{"status":"ok"}`.
+- `GET /api/health/airflow`: metadatabase and scheduler healthy.
+- `GET /api/runs/PGTA_20260706_162150_00C4FD`: returned PGT-A detail data.
+- `GET /api/runs/PGTA_20260706_162150_00C4FD/qc`: returned `pass=0,warn=0,fail=14,unknown=0`.
+- `GET /api/runs/PGTA_20260706_162150_00C4FD/logs?stream=stderr&tail=20`: returned stderr tail lines.
