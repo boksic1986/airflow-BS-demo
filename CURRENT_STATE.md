@@ -6,8 +6,8 @@
 
 ```text
 当前阶段: P3/P4/P6 Airflow + Snakemake/qsub mock observability + PGT-A Level 4 staged integration
-当前目标: T080/T081 已完成；demo smoke report 和 10-15 分钟演示脚本已收口。PGT-A `PGTA_20260706_162150_00C4FD` 可展示 workflow success + QC fail，WES mock 可展示 QC pass 和 rerun_rule without forceall。
-最近更新时间: 2026-07-07
+当前目标: T096 frontend platform redesign 已完成并远端验证；PGT-A `PGTA_20260706_162150_00C4FD` 可展示 workflow success + QC fail，WES mock 可展示 QC pass 和 rerun_rule without forceall，NIPT/WGS 仍是 demo/mock UI。
+最近更新时间: 2026-07-08
 最后更新 agent: Codex
 ```
 
@@ -32,7 +32,7 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/airflow/T088-pgta-snakemake-cache
+active_branch: codex/frontend/T096-platform-ui-redesign for frontend redesign worktree; previous PGT-A runtime baseline remains documented in T095/T080/T081
 last_verified_code_commit: 3310134 for T095 runtime; T080/T081 is docs-only and used read-only runtime validation before the report update
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T080/T081 used read-only runtime validation on mirror at 3310134 before docs update
@@ -72,10 +72,10 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 
 ```text
 last_backend_tests: remote Dockerized pytest on fengxian at commit 065907c passed, 48 tests; includes PGT-A baseline_qc target validation, submit two-sample guard, sample lifecycle status sync, artifact discovery, baseline QC parser/import, diagnostics/event tests, and WES lifecycle/QC tests
-last_frontend_tests: remote Dockerized frontend test target on fengxian at commit f2fdff2 passed, 15 Vitest tests; includes PGT-A target selector, baseline_qc two-sample create guard, submit button behavior, WES QC panel, WES resume/rerun controls, and UTC-to-Asia/Shanghai timestamp rendering
+last_frontend_tests: remote Dockerized frontend test target on fengxian at commit 3b230cd passed, 7 Vitest tests; T096 covers routed shell, Dashboard, Runs, Run Detail, Submit validation, PGT-A create/submit compatibility, WES create/submit/rerun compatibility, mock NIPT/WGS labels, LogViewer, QC and failure displays
 last_dag_import_tests: passed on fengxian at commit dd5c6e7; Airflow image unittest for `test_bio_pgta_dag.py`, `test_pgta_metadata_runner.py`, and `test_pgta_airflow_runner.py` returned 20 tests OK; Airflow scheduler `dags list-import-errors` returned `No data found`
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
-last_compose_config: passed on fengxian with Docker Compose v2.24.7 for commit f2fdff2; compose renders backend image `airflow-demo/backend:0.1.0`, frontend image `airflow-demo/frontend:0.1.0`, CORS env, read-only PGT-A mounts, DAG files, frontend build service, and Asia/Shanghai timezone env/build args
+last_compose_config: passed on fengxian for T096 branch with `docker compose -f docker-compose.yaml config --quiet`; frontend production build passed `tsc -b && vite build`; frontend container recreated and `http://127.0.0.1:12959/` returned HTTP 200 after nginx readiness
 last_minimal_smoke: passed on fengxian for postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
 last_airflow_health: passed on fengxian at http://127.0.0.1:12958/health with healthy metadatabase and scheduler
 last_biodemo_migration: `biodemo-db-init` first run created role/database, repeat run succeeded; `alembic upgrade head` applied 20260702_0001 and repeat run succeeded
@@ -135,3 +135,39 @@ last_e2e_smoke: T080/T081 read-only demo smoke on fengxian at mirror head 331013
 3. 若演示需要 PGT-A QC pass 样本，先做只读数据/阈值审计，不要盲目重跑 baseline_qc。
 4. 迁移 BS10610 前继续把 PGT-A 路径、数据根目录、`/biosoftware`、shared root 全部参数化到 `.env`。
 ```
+
+## 11. T096 frontend platform redesign checkpoint
+
+Date: 2026-07-08
+Agent: Codex
+Branch/worktree: `codex/frontend/T096-platform-ui-redesign` at `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+
+T096 upgrades the frontend from the prior single workspace into a routed bioinformatics operations platform while preserving the existing PGT-A and WES backend API behavior. New documentation is in `DESIGN.md`, `docs/frontend-design-review.md`, and `docs/frontend-spec.md`; `docs/06_FRONTEND_SPEC.md` now points to the v2 structure.
+
+Implemented frontend routes:
+
+```text
+/dashboard
+/submit
+/runs
+/runs/:analysisId
+/samples
+/workflows
+/failures
+/settings
+```
+
+Implemented shared components include `StatusBadge`, `MetricCard`, `PipelineCard`, `RunTable`, `WorkflowTimeline`, `LogViewer`, `SampleSheetUploader`, `PipelineSelector`, `ErrorPanel`, and `QcMetricCard`. Status semantics are centralized in `frontend/src/lib/status.ts`; mock/demo NIPT, WGS, workflow-template, and resource data are isolated in `frontend/src/mocks/platform.ts`.
+
+Remote validation on `ssh fengxian`:
+
+- `docker build --target test -f frontend/Dockerfile frontend`: passed, 7 Vitest tests.
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- `docker compose -f docker-compose.yaml build frontend`: passed, including `tsc -b && vite build`.
+- `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate frontend`: passed.
+- `curl -fsSI http://127.0.0.1:12959/`: HTTP 200 after nginx readiness.
+- `GET http://127.0.0.1:8000/api/health`, `/api/health/db`, and `/api/health/airflow`: all returned ok/healthy.
+- Existing PGT-A run `PGTA_20260706_162150_00C4FD` detail, samples, and stderr log endpoints returned data.
+- Existing WES run `WES_20260705_170904_5D1C74` detail, rules, and QC endpoints returned data.
+
+Local notes: local Windows has no `node`, `npm`, or `docker`; local checks remain git/docs/manifest only. `frontend/package.json` has no `lint` script, so `npm run lint` was not run.

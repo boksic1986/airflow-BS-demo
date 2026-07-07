@@ -36,6 +36,95 @@
 
 ## Records
 
+## 2026-07-08 01:30 - Codex - T096 frontend platform UI redesign
+
+### Goal
+
+Redesign the demo frontend into a credible bioinformatics task platform prototype while preserving existing PGT-A and WES API behavior.
+
+### Completed
+
+- Added design/audit/spec documentation before implementation: `DESIGN.md`, `docs/frontend-design-review.md`, and `docs/frontend-spec.md`.
+- Replaced the single-page workspace with `react-router-dom` routes and a persistent sidebar/topbar shell.
+- Added Dashboard, Submit Task, Runs, Run Detail, Samples, Workflows, Failures, and Settings pages.
+- Kept real PGT-A server-path scan/create/submit behavior and real WES mock create/submit/reanalysis behavior.
+- Added clearly labeled mock/demo surfaces for NIPT qsub, NIPT docker, WGS, workflow templates, and resource usage.
+- Added shared frontend components for status badges, metrics, pipeline cards, run tables, workflow timeline, log viewer, sample sheet validation, pipeline selection, error diagnosis, and QC metric display.
+- Centralized status semantics in `frontend/src/lib/status.ts`, formatting helpers in `frontend/src/lib/format.ts`, and demo fixtures in `frontend/src/mocks/platform.ts`.
+- Updated `docs/06_FRONTEND_SPEC.md`, `TASKS.md`, `CURRENT_STATE.md`, and `MANIFEST.json`.
+
+### Changed files
+
+- `DESIGN.md`
+- `docs/frontend-design-review.md`
+- `docs/frontend-spec.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `TASKS.md`
+- `CURRENT_STATE.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+- `frontend/package.json`
+- `frontend/package-lock.json`
+- `frontend/src/App.tsx`
+- `frontend/src/App.test.tsx`
+- `frontend/src/api.ts`
+- `frontend/src/styles.css`
+- `frontend/src/components/*`
+- `frontend/src/layout/AppShell.tsx`
+- `frontend/src/lib/*`
+- `frontend/src/mocks/platform.ts`
+- `frontend/src/pages/*`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git worktree add -b codex/frontend/T096-platform-ui-redesign ../airflow-demo-worktrees/T096-platform-ui-redesign` | success | isolated from dirty root worktree |
+| `git status --short --branch` | success | checked local and remote mirror state |
+| `ssh fengxian 'cd /home/jiucheng/project/airflow-demo && git pull --ff-only origin codex/frontend/T096-platform-ui-redesign'` | success | remote mirror fast-forwarded to frontend branch |
+| `docker build --target test -f frontend/Dockerfile frontend` on `fengxian` | success | 7 Vitest tests passed |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | no rendered compose errors |
+| `docker compose -f docker-compose.yaml build frontend` on `fengxian` | success | ran `npm run build`, including `tsc -b && vite build` |
+| `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate frontend` on `fengxian` | success | recreated only frontend |
+| `curl -fsSI http://127.0.0.1:12959/` on `fengxian` | success | first immediate probe reset during nginx readiness; retry returned HTTP 200 |
+| backend API spot checks on `http://127.0.0.1:8000/api` | success | health/db/airflow ok; PGT-A detail/samples/stderr and WES detail/rules/QC returned data |
+
+### Tests
+
+- Remote frontend Docker test target passed: `1 test file`, `7 tests`.
+- Remote production frontend image build passed: `tsc -b && vite build`.
+- Remote frontend HTTP smoke passed on port `12959`.
+- Remote PGT-A/WES API compatibility spot checks passed against backend port `8000`.
+
+### Not run / why
+
+- `npm run lint` was not run because `frontend/package.json` does not define a `lint` script.
+- Local `npm`, `node`, and `docker` checks were not run because the Windows edit environment does not provide those binaries; runtime acceptance was performed on `ssh fengxian` per AGENTS.md.
+- No new PGT-A or WES analysis run was submitted during final acceptance; existing API data was read for compatibility spot checks.
+
+### Current git status
+
+T096 code commits were pushed to `origin/codex/frontend/T096-platform-ui-redesign`; docs/state/manifest updates are pending final commit at this checkpoint.
+
+### Risks
+
+- NIPT/WGS pages are UI/mock surfaces only until backend/DAG tasks exist.
+- The frontend nginx still serves only static assets; browser API calls intentionally target backend port `8000` by the existing API base logic.
+- Current PGT-A demo evidence remains workflow success with QC fail for G10/G11; UI separates workflow status from QC decision.
+
+### Open questions
+
+- Whether to add a real reverse proxy for `/api` through frontend nginx, or keep the current explicit backend port model.
+- Whether NIPT qsub/docker and WGS should be promoted from mock UI fixtures into backend/DAG tasks next.
+
+### Next recommended task
+
+Wire real Airflow/backend contracts for NIPT qsub, NIPT docker, and WGS, or add MailHog success/failure notification links into the redesigned Run Detail.
+
+### Rollback notes
+
+- Revert the T096 frontend branch commits and redeploy the previous frontend image. No database, shared run directory, or Docker volume changes are required.
+
 ## 2026-07-07 23:29 - Codex - T080/T081 demo smoke report and script
 
 ### Goal

@@ -243,3 +243,56 @@ MVP 必须完成：
 - auth。
 - dark mode。
 - WebSocket 实时推送。
+
+## 9. T096 platform UI redesign v2
+
+T096 keeps the existing FastAPI contracts and upgrades the frontend from a single workspace page into a routed bioinformatics operations platform. The detailed v2 design is split into:
+
+- `docs/frontend-design-review.md`: UI audit, reference patterns, and keep/refactor decisions.
+- `docs/frontend-spec.md`: page/resource model, fields, loading/empty/error states, status machine, and WES/PGT-A/NIPT/WGS behavior.
+- `DESIGN.md`: visual tokens, layout rules, component contracts, log/failure interactions, and accessibility requirements.
+
+### Routes
+
+```text
+/dashboard
+/submit
+/runs
+/runs/:analysisId
+/samples
+/workflows
+/failures
+/settings
+```
+
+### Implemented pages
+
+- Dashboard: platform counts, failed/completed runs, pipeline status, backend/Airflow health, and demo resource metrics.
+- Submit Task: PGT-A server-path scan/create/submit remains real; WES mock create/submit remains real; NIPT/WGS are clearly marked mock/demo with validated sample-sheet preview only.
+- Runs: dense table with pipeline/status/keyword filters, sorting, status text plus icon, and batch action shell.
+- Run Detail: summary header, failure diagnosis, workflow timeline, QC summary, tabs for Overview/Samples/Workflow/QC/Logs/Files/Config, PGT-A resume guard, and WES resume/rerun controls.
+- Samples: aggregate sample table from recent backend runs plus mock/demo NIPT/WGS examples.
+- Workflows: WES, PGT-A, NIPT qsub, NIPT docker, and WGS templates with implementation status.
+- Failures: consolidated failed-run triage view with failed step, error type, stderr excerpt, retry suggestion, and detail link.
+- Settings: environment/API display and demo-mode notes; no secrets.
+
+### Component and data rules
+
+- Shared components live under `frontend/src/components`.
+- Status color/icon/text mapping is centralized in `frontend/src/lib/status.ts`.
+- API access remains isolated in `frontend/src/api.ts`; no frontend code connects to Airflow DB or Postgres directly.
+- Mock-only NIPT/WGS/workflow/resource fixtures live in `frontend/src/mocks/platform.ts` and are labeled `demo/mock`.
+- Logs default to stderr for failed runs, support stream tabs, search, copy excerpt, fixed-height scroll, error highlighting, and missing-log states.
+
+### Verification
+
+T096 remote validation on `ssh fengxian`:
+
+- `docker build --target test -f frontend/Dockerfile frontend`: passed, 7 Vitest tests.
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- `docker compose -f docker-compose.yaml build frontend`: passed, including `tsc -b && vite build`.
+- `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate frontend`: passed.
+- `curl -fsSI http://127.0.0.1:12959/`: HTTP 200 after the recreated nginx container was ready.
+- Backend API spot checks on port 8000 confirmed existing PGT-A and WES run detail/samples/rules/QC/log endpoints still return data consumed by the redesigned UI.
+
+`npm run lint` is not available in `frontend/package.json`; the package currently defines only `test` and `build`.

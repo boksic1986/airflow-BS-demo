@@ -71,12 +71,13 @@
 |---|---|---|---|---|---|---|
 | T050 | React 项目骨架 | frontend | T020 | frontend/src | React/Vite app 由 Docker nginx 在 12959 提供访问 | done |
 | T051 | Submit Analysis 页面 | frontend | T022,T023 | PGT-A server-path form UI | 填写 rawdata_root、扫描候选样本、勾选后创建 run，并可从 created run 提交 `bio_pgta` metadata | done |
-| T052 | Runs Dashboard | frontend | T024 | run list/status cards | 可筛选 pipeline/status | todo |
-| T053 | Run Detail 页面 | frontend | T024,T026 | overview/airflow/snakemake tabs | 展示 rule 状态 | todo |
+| T052 | Runs Dashboard | frontend | T024 | run list/status cards | 可筛选 pipeline/status | done |
+| T053 | Run Detail 页面 | frontend | T024,T026 | overview/airflow/snakemake tabs | 展示 rule 状态 | done |
 | T054 | QC 面板 | frontend | T060 | WES mock QC panel | Run detail 显示 WES/PGT-A QC pass/warn/fail/unknown summary 和样本级指标表；frontend Docker test target 14 tests passed | done |
-| T055 | Log Viewer | frontend | T025 | stdout/stderr tail | 失败默认显示 stderr | todo |
+| T055 | Log Viewer | frontend | T025 | stdout/stderr tail | 失败默认显示 stderr | done |
 | T056 | Reanalysis UI | frontend/backend | T044 | WES mock create/submit panel plus resume/rerun buttons | 前端 Docker test target 10 tests passed；WES detail can trigger `resume` and `rerun_rule` via backend | done |
 | T057 | PGT-A run detail 展示 | frontend | T027,T035,T025 | pgta run overview/sample/rule/log/artifact/sync UI | PGT-A run detail v1 可查看 rules/logs/artifacts；T084 failure smoke 后失败摘要可通过现有 detail/logs API 查看 | done |
+| T096 | Frontend platform UI redesign v2 | frontend/docs | T050-T057,T054,T056 | routed app shell, Dashboard/Submit/Runs/Run Detail/Samples/Workflows/Failures/Settings, shared components, design docs | remote frontend Docker test target passed 7 tests; frontend production build passed `tsc -b && vite build`; 12959 HTTP 200; PGT-A/WES backend API spot checks passed | done |
 
 ## P6 QC/日志/报告/邮件
 
