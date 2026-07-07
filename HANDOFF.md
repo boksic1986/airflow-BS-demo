@@ -36,6 +36,83 @@
 
 ## Records
 
+## 2026-07-07 14:13 - Codex - T092 PGT-A baseline_qc current run monitor
+
+### Goal
+
+Safely monitor and record the current real PGT-A `baseline_qc` run `PGTA_20260706_162150_00C4FD` without stopping, restarting, retrying, or submitting another heavy run. If the run had reached terminal state, sync Airflow and verify QC/artifacts; otherwise leave clear evidence and next steps.
+
+### Completed
+
+- Confirmed `fengxian` services are running and `docker compose -f docker-compose.yaml config --quiet` still passes.
+- Confirmed Airflow `bio_pgta` run `manual__PGTA_20260706_162150_00C4FD` is still `running` as of 2026-07-07 14:11 CST.
+- Confirmed Airflow task states: `validate_request=success`, `prepare_pgta_config=success`, `run_pgta_target=running`, `collect_pgta_artifact=None`.
+- Confirmed backend run detail still reports `status=running`, `target=baseline_qc`, `selected_count=2`, and samples `G10/G11` both `running`.
+- Confirmed this historical run still uses `--cores 1` in `logs/snakemake.command.txt`; it started before T091 and cannot prove the new 64-core default.
+- Confirmed G10 mapping completed; `logs/bwa/G10.log` reports BWA real time `33885.400 sec`.
+- Confirmed G11 BWA is still progressing; `logs/bwa/G11.log` and `mapping/G11.sorted.bam.tmp.*` files are updating.
+- Confirmed no terminal baseline QC outputs exist yet: no `qc/baseline` files, `/qc` returns zero metrics, and artifacts currently only include command/config files.
+- Did not call `sync-airflow`, because Airflow has not reached `success` or `failed`.
+- Did not stop, restart, clear, retry, resume, or submit any PGT-A run.
+
+### Changed files
+
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git status --short --branch` | success | local branch `codex/airflow/T088-pgta-snakemake-cache` |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | no compose errors |
+| `docker compose -f docker-compose.yaml ps` on `fengxian` | success | backend/frontend/Airflow/Postgres/Redis running |
+| `airflow dags list-runs -d bio_pgta --output table` on `fengxian` | success | `PGTA_20260706_162150_00C4FD` still `running` |
+| `curl http://127.0.0.1:8000/api/runs/PGTA_20260706_162150_00C4FD` | success | backend status `running`, target `baseline_qc` |
+| `curl http://127.0.0.1:8000/api/runs/PGTA_20260706_162150_00C4FD/samples` | success | `G10/G11` sample status `running` |
+| `curl http://127.0.0.1:8000/api/runs/PGTA_20260706_162150_00C4FD/qc` | success | `pass=0,warn=0,fail=0,unknown=0` because QC output has not been generated |
+| `curl http://127.0.0.1:8000/api/runs/PGTA_20260706_162150_00C4FD/artifacts` | success | currently command/config artifacts only |
+| `airflow tasks states-for-dag-run bio_pgta manual__PGTA_20260706_162150_00C4FD` | success | `run_pgta_target` running, collect task not started |
+| `cat shared/runs/PGTA_20260706_162150_00C4FD/logs/snakemake.command.txt` | success | command contains `--cores 1` |
+| `tail shared/runs/PGTA_20260706_162150_00C4FD/logs/bwa/G11.log` | success | BWA progress lines still updating |
+
+### Tests
+
+- This task is a live-run monitor/status update, not a code change.
+- Remote-only runtime checks above were run on `ssh fengxian`.
+- No local Docker/Python/Snakemake/Airflow tests were run or used as acceptance evidence.
+
+### Not run / why
+
+- `sync-airflow` was not run because the Airflow DAG run is still `running`; syncing now would not validate success/failure artifacts.
+- The 64-core metadata smoke was not run because the plan requires waiting until the current `baseline_qc` run reaches terminal state first.
+- Airflow worker/scheduler were not restarted to avoid perturbing the active `run_pgta_target` task.
+- No new heavy `baseline_qc` run was submitted.
+
+### Current git status
+
+Work is on branch `codex/airflow/T088-pgta-snakemake-cache`. This T092 update only changes state documents; runtime code and services were not modified.
+
+### Risks
+
+- `snakemake.stdout.log` and `snakemake.stderr.log` do not exist while the current Snakemake subprocess is still running; the current runner appears to write captured stdout/stderr only after process exit. Rule logs under `logs/bwa` are the live progress source for this run.
+- The current run is using `--cores 1`; allowing it to finish is safe but slow. Switching it to 64 cores would require a separate stop/resume/rerun decision and is not part of T092.
+- If the run eventually fails, do not blindly retry; sync Airflow first, inspect `error_summary`, stderr, and rule logs, then decide whether to resume.
+
+### Open questions
+
+- After `PGTA_20260706_162150_00C4FD` reaches terminal state, should Airflow worker/scheduler be safely recreated before the lightweight metadata smoke, or is confirming module reload enough?
+
+### Next recommended task
+
+Wait for `PGTA_20260706_162150_00C4FD` to finish. If it succeeds, call `sync-airflow`, verify `qc/baseline/baseline_qc_summary.tsv`, `baseline_qc_pass_samples.txt`, `baseline_qc_report.md`, `/qc`, artifacts, and frontend QC panel. If it fails, call `sync-airflow`, record `error_summary` and stderr tail. Only after terminal state, run one lightweight metadata smoke to verify `logs/snakemake.command.txt` contains `--cores 64`.
+
+### Rollback notes
+
+- This turn only updated docs/status files. Revert the T092 docs commit if needed.
+- Do not use `docker compose down -v`, `docker system prune`, `docker volume prune`, or `git reset --hard`.
+
 ## 2026-07-07 11:45 - Codex - T091 PGT-A 64-core runner and frontend auto-sync
 
 ### Goal

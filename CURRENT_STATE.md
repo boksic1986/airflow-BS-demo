@@ -6,7 +6,7 @@
 
 ```text
 当前阶段: P3/P4/P6 Airflow + Snakemake/qsub mock observability + PGT-A Level 4 staged integration
-当前目标: T091 已完成；后续 PGT-A Snakemake 默认使用 `PGTA_SNAKEMAKE_CORES=64`，前端 selected active run 每 15 秒自动 `sync-airflow`
+当前目标: T092 进行中；等待当前 PGT-A `baseline_qc` run `PGTA_20260706_162150_00C4FD` 进入终态后再同步 Airflow、验收 QC/artifacts，并用后续轻量 metadata smoke 验证 `--cores 64`
 最近更新时间: 2026-07-07
 最后更新 agent: Codex
 ```
@@ -44,7 +44,7 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime
 |---|---:|---|---|
 | frontend | 12959 | running after T091 auto-sync redeploy | React/Vite PGT-A + WES mock workspace served by Docker nginx image `airflow-demo/frontend:0.1.0`; run timestamps render as `Asia/Shanghai`; active selected runs auto-sync Airflow every 15 seconds; `Submit new analysis` is in the main content area, target selector includes `baseline QC smoke`, and host 3000 is occupied by non-project next-server |
 | backend | 8000 | running, healthy after T090 sample-status redeploy | `/api/health`, `/api/health/db`, `/api/input/scan`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and PGT-A baseline_qc parser/artifacts are available; submit/reanalyze now sets sample.status to `running`, and sync-airflow maps samples to `success/failed`; image `airflow-demo/backend:0.1.0`; container `TZ=Asia/Shanghai` |
-| airflow web/api | 12958 | running after T089 timezone redeploy; current `PGTA_20260706_162150_00C4FD` baseline_qc was started before T091 | project image `airflow-demo/airflow:0.1.0`; `/health` returned healthy; Airflow core/UI timezone is `Asia/Shanghai`; logs show `+0800`; new PGT-A runs after T091 should use `PGTA_SNAKEMAKE_CORES=64`; already running DAG tasks keep their original command |
+| airflow web/api | 12958 | running after T089 timezone redeploy; current `PGTA_20260706_162150_00C4FD` baseline_qc was started before T091 and was still `running` at 2026-07-07 14:11 CST | project image `airflow-demo/airflow:0.1.0`; `/health` returned healthy; Airflow core/UI timezone is `Asia/Shanghai`; logs show `+0800`; new PGT-A runs after T091 should use `PGTA_SNAKEMAKE_CORES=64`; already running DAG tasks keep their original command |
 | postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow metadata initialized; no host port published |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
 | mailhog | 8025 | stopped in T051 smoke | HTTP GET probe passed in earlier smoke; not started for T051 |
@@ -63,7 +63,7 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 
 | Pipeline | DAG | Snakemake | qsub | Docker | QC | Status |
 |---|---|---|---|---|---|---|
-| PGT-A demo | `bio_pgta` metadata/dryrun/failure smoke passed; `bio_pgta_airflow` Airflow-only logger/event POST passed; `baseline_qc` staged branch added but not real-smoked | direct Snakemake metadata target, `dryrun_cnv`, and controlled `invalid_target` smoke in Airflow worker passed; T088 sets `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache` for `bio_pgta` and `bio_pgta_airflow`; T085 read-only audit confirmed real `baseline_qc` exists and requires at least 2 samples; Snakemake 9.23.1 logger plugin writes JSONL, Airflow log/XCom summary, and optional backend rule/job events | not used | server-path project creation, submit, status sync, logs, artifacts, rule event API, PGT-A run detail frontend v1, and New PGT-A Run frontend scan/create/submit passed; `baseline_qc` target label and >=2-sample guard added | baseline_qc parser/artifacts added; real run not executed | `/api/input/scan` and `/api/runs` create `created` run; submit triggers `bio_pgta`; Airflow-only manifest run can POST rule events to biodemo; frontend can create pgta runs for metadata/dryrun/failure/baseline_qc smoke, submit created runs, view run list/detail, samples, rules, logs, artifacts, QC, and sync Airflow |
+| PGT-A demo | `bio_pgta` metadata/dryrun/failure smoke passed; `bio_pgta_airflow` Airflow-only logger/event POST passed; `baseline_qc` staged real run `PGTA_20260706_162150_00C4FD` is running, terminal QC/artifact validation pending | direct Snakemake metadata target, `dryrun_cnv`, and controlled `invalid_target` smoke in Airflow worker passed; T088 sets `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache` for `bio_pgta` and `bio_pgta_airflow`; T085 read-only audit confirmed real `baseline_qc` exists and requires at least 2 samples; current baseline_qc run was started before T091 and its command file shows `--cores 1`; Snakemake 9.23.1 logger plugin writes JSONL, Airflow log/XCom summary, and optional backend rule/job events | not used | server-path project creation, submit, status sync, logs, artifacts, rule event API, PGT-A run detail frontend v1, and New PGT-A Run frontend scan/create/submit passed; `baseline_qc` target label and >=2-sample guard added | baseline_qc parser/artifacts added; terminal import still pending for the running baseline_qc smoke | `/api/input/scan` and `/api/runs` create `created` run; submit triggers `bio_pgta`; Airflow-only manifest run can POST rule events to biodemo; frontend can create pgta runs for metadata/dryrun/failure/baseline_qc smoke, submit created runs, view run list/detail, samples, rules, logs, artifacts, QC, and sync Airflow |
 | WES qsub | `bio_wes_qsub` Airflow mock DAG passed with `new/resume/rerun_rule` and QC smoke | WES mock Snakefile dry-run passed; WES mock profile runtime passed in `snakemake-runner`; `bio_wes_qsub` runs Snakemake 9.23.1 inside Airflow worker with `profiles/qsub`, writes command/stdout/stderr/events and `reports/qc_summary.tsv` | mock qsub wrapper direct smoke passed with backend POST; Airflow/API/frontend smoke generated mock qsub job ids, stdout/stderr files, JSONL events, and command log proving `--forcerun fastp` without `--forceall` | `airflow-demo/snakemake-runner:0.1.0` and `airflow-demo/airflow:0.1.0` builds passed | WES mock QC parser and frontend QC panel done; real WES QC and MultiQC not started | T040/T041/T042/T030/T031/T044/T056/T060/T054 done; next step is T034/T063 MailHog notification or T080 smoke report/demo script |
 | NIPT qsub | not started | not started | not started | n/a | not started | pending |
 | NIPT docker | not started | optional | n/a | not started | not started | pending |
@@ -94,6 +94,7 @@ last_pgta_cache_fix_smoke: passed on fengxian at commit dd5c6e7; tests first fai
 last_timezone_alignment: passed on fengxian at commit f2fdff2; `docker compose config --quiet` rendered `AIRFLOW__CORE__DEFAULT_TIMEZONE=Asia/Shanghai`, `AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE=Asia/Shanghai`, `TZ=Asia/Shanghai`, and frontend build arg `VITE_DISPLAY_TIME_ZONE=Asia/Shanghai`; frontend Docker test target passed 15 tests; backend/frontend/Airflow containers report `date` as `+0800 CST`; Airflow logs show `+0800` and `Configured default timezone Asia/Shanghai`; frontend bundle contains `Asia/Shanghai`
 last_sample_status_sync: passed on fengxian at commit 065907c; red backend tests first showed submit/sync left samples `pending`, then implementation passed targeted 3 tests and full backend pytest 48 passed; backend redeployed healthy; explicit sync refreshed visible runs, e.g. `PGTA_20260706_141915_5BE5E2` samples `E2/E3=success`, `PGTA_20260706_140854_8F2CA4` sample `E2=success`, and `WES_20260705_164813_C5561C` samples `S001/S002=success`
 last_pgta_64core_autosync: passed on fengxian at commit fb107a4; compose renders `PGTA_SNAKEMAKE_CORES=64`; Airflow image unit tests for `bio_pgta`/`bio_pgta_airflow` command construction passed 4 tests; frontend Docker test target passed 16 Vitest tests including active-run auto sync and terminal stop; Airflow import errors returned `No data found`; frontend image rebuilt/redeployed at 12959 and returned HTTP 200; current baseline_qc run `PGTA_20260706_162150_00C4FD` remained `running` and was not interrupted
+last_pgta_baseline_t092_monitor: 2026-07-07 14:11 CST read-only check on fengxian found compose config ok and services running; Airflow `bio_pgta` run `manual__PGTA_20260706_162150_00C4FD` still `running`; task states show `validate_request=success`, `prepare_pgta_config=success`, `run_pgta_target=running`, `collect_pgta_artifact=None`; backend run status and samples G10/G11 are `running`; `logs/snakemake.command.txt` contains `--cores 1` because the run started before T091; G10 mapping is complete with BWA real time 33885.400 sec, G11 BWA log is still updating; no `qc/baseline` files, no `/qc` metrics, and artifacts currently only include command/config; no `sync-airflow`, restart, retry, or new run was executed
 last_image_check: passed on fengxian; compose external images pulled and backend built with explicit tag
 last_image_cleanup: removed 37 dangling <none> images; no docker system prune, no volume prune
 last_pgta_failure_smoke: passed on fengxian; `invalid_target` run `PGTA_20260703_170957_3DDEC3` ended Airflow/backend `failed` as expected, stderr log size 1322 bytes, `sync-airflow` wrote non-null `error_summary` containing `stderr_path` and last error lines
@@ -120,13 +121,15 @@ last_e2e_smoke: PGT-A Level 0-3 demo smoke passed for preflight/config, metadata
 ```text
 真实部署/启动前阻塞:
 - 真实 `qsub/qstat` 在 `fengxian` 仍不可用；当前 WES/NIPT qsub demo 只能使用 mock qsub wrapper，不提交真实集群任务
-- PGT-A `baseline_qc` staged real run 尚未执行；运行前需要用户确认至少 2 个样本和运行窗口
+- PGT-A `baseline_qc` staged real run `PGTA_20260706_162150_00C4FD` 已启动但仍在 `run_pgta_target`，等待 Airflow 终态后才能做 `sync-airflow`、QC/artifact/error_summary 验收
+- `PGTA_20260706_162150_00C4FD` 是 T091 前启动的历史 run，命令仍是 `--cores 1`；`--cores 64` 需要当前 run 终态后用新的轻量 metadata smoke 验证
 ```
 
 ## 10. 下一步建议
 
 ```text
-1. 在 `fengxian` 对 `target=baseline_qc` 做一次用户确认后的最小 2 样本 Level 4 smoke，验收 QC/artifacts/frontend。
-2. 执行 T080：整理 WES/PGT-A 端到端 smoke 脚本和 demo 验收报告。
-3. 执行 T034/T063：补 MailHog success/failure 邮件通知，邮件包含 QC 链接和错误摘要链接。
+1. 等待 `PGTA_20260706_162150_00C4FD` 进入 Airflow 终态；若 success，调用 `sync-airflow` 后验收 baseline QC artifacts、`/qc` 和前端 QC panel；若 failed，调用 `sync-airflow` 后读取 `error_summary` 和 stderr/rule logs。
+2. 当前 run 终态后，安全确认 Airflow worker/scheduler 已加载 T091 代码，再提交一个轻量 `metadata` smoke 验证 `logs/snakemake.command.txt` 包含 `--cores 64`。
+3. 执行 T080：整理 WES/PGT-A 端到端 smoke 脚本和 demo 验收报告。
+4. 执行 T034/T063：补 MailHog success/failure 邮件通知，邮件包含 QC 链接和错误摘要链接。
 ```

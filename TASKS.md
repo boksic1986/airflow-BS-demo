@@ -105,6 +105,7 @@
 | T082 | 回滚和清理 runbook | infra/docs | T080 | docs/11 更新 | 不删除 volume 的停止流程清楚 | todo |
 | T083 | 最终交接 | coordinator | T080-T082 | HANDOFF/CURRENT_STATE | 下一阶段任务明确 | todo |
 | T084 | PGT-A Level 0-3 smoke 验收 | qa | T014,T027,T035,T045,T057 | acceptance report | preflight、metadata、dry-run、failure smoke 记录完整；`dryrun_cnv=PGTA_20260703_170917_20E8F2` success，`invalid_target=PGTA_20260703_170957_3DDEC3` failed with error_summary | done |
+| T092 | PGT-A baseline_qc 当前 run 收口与 64-core 生效验证 | qa/coordinator | T086,T087,T091 | current baseline_qc terminal sync evidence; future metadata `--cores 64` smoke evidence | `PGTA_20260706_162150_00C4FD` 终态后完成 `sync-airflow`，若 success 验收 baseline QC artifacts/`/qc`/frontend QC panel，若 failed 记录 `error_summary` 和 stderr；随后仅提交轻量 metadata smoke 验证 command contains `--cores 64` | blocked |
 
 ## 任务卡模板
 
