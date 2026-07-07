@@ -36,6 +36,96 @@
 
 ## Records
 
+## 2026-07-07 11:45 - Codex - T091 PGT-A 64-core runner and frontend auto-sync
+
+### Goal
+
+Make future PGT-A Airflow runs use Snakemake `--cores 64` by default and make the frontend automatically sync selected active runs, without interrupting the already-running `PGTA_20260706_162150_00C4FD` baseline_qc run.
+
+### Completed
+
+- Added `PGTA_SNAKEMAKE_CORES=64` to `.env.example` and Airflow Compose environment.
+- Updated `bio_pgta` and `bio_pgta_airflow` runners to read `PGTA_SNAKEMAKE_CORES`, validate it as a positive integer, and write the resulting value to `logs/snakemake.command.txt`.
+- Added Airflow runner tests for default `--cores 64` and env override behavior.
+- Added frontend selected-run auto sync: active `submitted/running/queued` runs with `dag_run_id` call `sync-airflow` every 15 seconds, refresh run detail/list/samples/rules/artifacts/QC/current log, and stop when terminal.
+- Added frontend UI text `Auto sync active` / `Last synced ...`; manual `Sync Airflow` remains.
+- Rebuilt and redeployed only the frontend container on `fengxian`; Airflow worker/scheduler/API containers were not recreated.
+- Confirmed current run `PGTA_20260706_162150_00C4FD` still reports backend status `running` after the redeploy.
+
+### Changed files
+
+- `.env.example`
+- `docker-compose.yaml`
+- `dags/pgta_metadata_runner.py`
+- `dags/pgta_airflow_runner.py`
+- `dags/tests/test_pgta_metadata_runner.py`
+- `dags/tests/test_pgta_airflow_runner.py`
+- `frontend/src/App.tsx`
+- `frontend/src/App.test.tsx`
+- `frontend/src/styles.css`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/18_PGTA_FENGXIAN_TEST_PLAN.md`
+- `docs/20_PGTA_LEVEL4_AUDIT.md`
+- `TASKS.md`
+- `CURRENT_STATE.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `py -3 -m unittest ...test_pgta_metadata_runner... ...test_pgta_airflow_runner... -v` | success | local development check only, 4 tests OK; not used as acceptance |
+| `git diff --check` | success | no whitespace errors |
+| `git push origin codex/airflow/T088-pgta-snakemake-cache` | success | pushed code commits `b30be7e`, `fb107a4` |
+| `ssh fengxian 'cd /home/jiucheng/project/airflow-demo && git pull --ff-only && docker compose -f docker-compose.yaml config --quiet'` | success | mirror fast-forwarded; Compose config valid |
+| `docker run --rm --entrypoint /usr/local/bin/python ... airflow-demo/airflow:0.1.0 -m unittest ... -v` | success | remote Airflow image, 4 tests OK |
+| `docker build --target test -f frontend/Dockerfile frontend` | failed then success | first failed because the new test captured Testing Library internal intervals; fixed test and reran, 16 Vitest tests passed |
+| `docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags list-import-errors` | success | `No data found` |
+| `docker compose -f docker-compose.yaml build frontend` | success | production frontend image rebuilt |
+| `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate frontend` | success | recreated frontend only; no volumes deleted |
+| `curl -fsS http://127.0.0.1:12959/` | success after nginx startup | returned React HTML |
+| `docker compose -f docker-compose.yaml config \| grep -n PGTA_SNAKEMAKE_CORES` | success | rendered `PGTA_SNAKEMAKE_CORES: "64"` |
+| `curl -fsS http://127.0.0.1:8000/api/runs/PGTA_20260706_162150_00C4FD` | success | run still `status="running"` |
+
+### Tests
+
+- Remote Airflow-image runner tests: 4 passed.
+- Remote frontend Docker test target: 16 Vitest tests passed.
+- Airflow DAG import check: `No data found`.
+- Frontend production build passed and HTTP 12959 returned HTML.
+
+### Not run / why
+
+- Did not submit a new PGT-A `baseline_qc` run because `PGTA_20260706_162150_00C4FD` is still running.
+- Did not stop or resume the current baseline_qc run; T091 intentionally only affects future PGT-A task starts.
+- Did not recreate Airflow worker/scheduler/API containers to avoid interrupting or perturbing the active baseline_qc run. Code defaults still make future imported runner commands default to 64 cores.
+
+### Current git status
+
+Work is on branch `codex/airflow/T088-pgta-snakemake-cache`. Runtime validation ran on `fengxian` at commit `fb107a4`; this handoff/status update follows that validation.
+
+### Risks
+
+- An already-running Snakemake process keeps its original `--cores 1` command; to make `PGTA_20260706_162150_00C4FD` use 64 cores, it would need a separate stop/resume or rerun decision.
+- Running Airflow worker processes were not recreated. The code default is now 64, but if Airflow keeps a stale imported module in a long-lived worker process, a worker restart after the active run finishes may be prudent before a new heavy baseline_qc run.
+- `--cores 64` is Snakemake's available core pool; actual parallelism still depends on the PGT-A Snakefile `threads` declarations and resource rules.
+
+### Open questions
+
+- After the current baseline_qc run finishes, should we run one lightweight metadata smoke to confirm `logs/snakemake.command.txt` contains `--cores 64`, or restart Airflow worker first and then run the next baseline_qc smoke?
+
+### Next recommended task
+
+Wait for `PGTA_20260706_162150_00C4FD` to finish, then sync it from the frontend. If it succeeds, verify baseline QC artifacts/QC panel; if it fails, inspect stderr/error_summary and decide whether to resume with the new 64-core default.
+
+### Rollback notes
+
+- Revert the T091 commits and redeploy frontend if needed.
+- To revert only frontend polling, revert `frontend/src/App.tsx`, `frontend/src/App.test.tsx`, and `frontend/src/styles.css`, rebuild frontend, then `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate frontend`.
+- Do not use `docker compose down -v`, `docker system prune`, or `docker volume prune`.
+
 ## 2026-07-06 22:58 - Codex - T090 sample lifecycle status sync
 
 ### Goal
