@@ -73,6 +73,57 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
                     shared_root=Path(tmpdir),
                 )
 
+    def test_validate_pgta_conf_accepts_resume_only_for_baseline_qc(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            manifest = workdir / "config" / "samples.selected.tsv"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(
+                "sample_id\tR1\tR2\tsource_dir\n"
+                "G1\t/data/project/CNV/PGT-A/rawdata/run/G1_R1.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run/G1_R2.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run\n"
+                "G2\t/data/project/CNV/PGT-A/rawdata/run/G2_R1.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run/G2_R2.fastq.gz\t/data/project/CNV/PGT-A/rawdata/run\n",
+                encoding="utf-8",
+            )
+
+            conf = validate_pgta_conf(
+                {
+                    "analysis_id": "PGTA_TEST",
+                    "pipeline": "pgta",
+                    "mode": "resume",
+                    "sample_sheet_path": str(manifest),
+                    "workdir": str(workdir),
+                    "params": {"target": "baseline_qc"},
+                },
+                shared_root=Path(tmpdir),
+            )
+            self.assertEqual(conf["mode"], "resume")
+
+            with self.assertRaisesRegex(ValueError, "PGT-A resume is only supported for baseline_qc"):
+                validate_pgta_conf(
+                    {
+                        "analysis_id": "PGTA_TEST",
+                        "pipeline": "pgta",
+                        "mode": "resume",
+                        "sample_sheet_path": str(manifest),
+                        "workdir": str(workdir),
+                        "params": {"target": "metadata"},
+                    },
+                    shared_root=Path(tmpdir),
+                )
+
+            with self.assertRaisesRegex(ValueError, "Unsupported PGT-A mode"):
+                validate_pgta_conf(
+                    {
+                        "analysis_id": "PGTA_TEST",
+                        "pipeline": "pgta",
+                        "mode": "forceall",
+                        "sample_sheet_path": str(manifest),
+                        "workdir": str(workdir),
+                        "params": {"target": "baseline_qc"},
+                    },
+                    shared_root=Path(tmpdir),
+                )
+
     def test_build_config_writes_snakemake_compatible_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
@@ -442,6 +493,49 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             self.assertEqual(artifact_path, workdir / "qc" / "baseline" / "baseline_qc_summary.tsv")
             self.assertNotIn("--dry-run", command)
             self.assertNotIn("__airflow_demo_invalid_target__", command)
+
+    def test_run_pgta_target_resume_unlocks_then_reruns_incomplete_without_forceall(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            workdir.mkdir(parents=True)
+            config_path = workdir / "config.yaml"
+            config_path.write_text("samples: {}\n", encoding="utf-8")
+
+            unlock_completed = Mock(returncode=0)
+            unlock_completed.stdout = "unlock stdout\n"
+            unlock_completed.stderr = "unlock stderr\n"
+            run_completed = Mock(returncode=0)
+            run_completed.stdout = "resume stdout\n"
+            run_completed.stderr = ""
+            with patch("pgta_metadata_runner.subprocess.run", side_effect=[unlock_completed, run_completed]) as run:
+                artifact_path = run_pgta_target(
+                    {
+                        "analysis_id": "PGTA_TEST",
+                        "mode": "resume",
+                        "workdir": str(workdir),
+                        "config_path": str(config_path),
+                        "params": {"target": "baseline_qc"},
+                    },
+                    snakemake_bin=Path("/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"),
+                    pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                )
+
+            self.assertEqual(artifact_path, workdir / "qc" / "baseline" / "baseline_qc_summary.tsv")
+            self.assertEqual(run.call_count, 2)
+            unlock_command = run.call_args_list[0].args[0]
+            resume_command = run.call_args_list[1].args[0]
+            self.assertIn("--unlock", unlock_command)
+            self.assertNotIn("--forceall", unlock_command)
+            self.assertIn("--rerun-incomplete", resume_command)
+            self.assertEqual(resume_command[resume_command.index("--cores") + 1], "64")
+            self.assertNotIn("--forceall", resume_command)
+            unlock_command_text = (workdir / "logs" / "snakemake.unlock.command.txt").read_text(encoding="utf-8")
+            resume_command_text = (workdir / "logs" / "snakemake.command.txt").read_text(encoding="utf-8")
+            self.assertIn("--unlock", unlock_command_text)
+            self.assertIn("--rerun-incomplete", resume_command_text)
+            self.assertIn("--cores 64", resume_command_text)
+            self.assertNotIn("--forceall", resume_command_text)
+            self.assertEqual((workdir / "logs" / "snakemake.stdout.log").read_text(encoding="utf-8"), "resume stdout\n")
 
     def test_collect_pgta_artifact_branches_by_target(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

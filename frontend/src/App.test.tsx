@@ -450,6 +450,17 @@ describe("PGT-A run dashboard", () => {
             error_summary: null,
           });
         }
+        if (url.endsWith(`/api/runs/${createdRunId}/actions/reanalyze`) && init?.method === "POST") {
+          const requestBody = JSON.parse(String(init.body || "{}")) as {mode: string};
+          createdRunStatus = "submitted";
+          createdDagRunId = `manual__${createdRunId}__${requestBody.mode}__20260707T100000`;
+          return mockJson({
+            analysis_id: createdRunId,
+            new_dag_run_id: createdDagRunId,
+            mode: requestBody.mode,
+            status: "submitted",
+          });
+        }
         if (url.endsWith(`/api/runs/${wesRunId}/actions/submit`) && init?.method === "POST") {
           wesRunStatus = "submitted";
           wesDagRunId = `manual__${wesRunId}`;
@@ -729,6 +740,28 @@ describe("PGT-A run dashboard", () => {
       );
     });
     expect(await screen.findByText(`manual__${createdRunId}`)).toBeInTheDocument();
+  });
+
+  it("triggers PGT-A baseline_qc resume only from a failed run", async () => {
+    const user = userEvent.setup();
+    createdRunStatus = "failed";
+    createdRunTarget = "baseline_qc";
+    createdDagRunId = `manual__${createdRunId}`;
+    render(<App />);
+
+    expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
+    const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
+    await user.click(within(toolbar).getByRole("button", {name: /resume with 64 cores/i}));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/api/runs/${createdRunId}/actions/reanalyze`),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"mode":"resume"'),
+        }),
+      );
+    });
   });
 
   it("creates and submits a WES mock run from the WES panel", async () => {
