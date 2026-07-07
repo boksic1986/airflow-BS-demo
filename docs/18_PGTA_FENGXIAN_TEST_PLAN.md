@@ -213,7 +213,7 @@ PGT-A 流程目录和数据目录只读挂载。demo 输出只能写入：
 约束：
 
 - 使用隔离 workdir。
-- 限制并发；当前 `bio_pgta` 使用 `--cores 1`。
+- 限制并发；T091 后当前 `bio_pgta` 使用 `PGTA_SNAKEMAKE_CORES`，默认 `--cores 64`。已启动的历史 run 不会被该配置改变。
 - 不默认运行 CNV/predict/reference build。
 - 不删除或覆盖 `/data/project/CNV/PGT-A` 既有结果。
 - 输出只允许写入 `shared/runs/<analysis_id>` / 容器内 `/data/airflow-demo/runs/<analysis_id>`。

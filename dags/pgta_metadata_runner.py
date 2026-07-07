@@ -18,6 +18,7 @@ DEFAULT_SNAKEMAKE_BIN = Path(os.getenv("PGTA_SNAKEMAKE_BIN", "/biosoftware/minic
 DEFAULT_SAMTOOLS_BIN = Path(os.getenv("PGTA_SAMTOOLS_BIN", "/biosoftware/miniconda/pkgs/samtools-1.7-1/bin/samtools"))
 DEFAULT_SAMTOOLS_LIBRARY_PATH = os.getenv("PGTA_SAMTOOLS_LIBRARY_PATH", "/biosoftware/miniconda/pkgs/openssl-1.0.2u-h516909a_0/lib")
 DEFAULT_REFERENCE_GENOME = Path(os.getenv("PGTA_REFERENCE_GENOME", "/data/Database/index/hg19/hg19.fa"))
+DEFAULT_SNAKEMAKE_CORES = "64"
 SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc"}
 INVALID_SNAKEMAKE_TARGET = "__airflow_demo_invalid_target__"
 
@@ -166,7 +167,7 @@ def run_pgta_target(
         "--snakefile",
         str(pgta_pipeline_root / "Snakefile"),
         "--cores",
-        "1",
+        _snakemake_cores(),
         "--printshellcmds",
         "--configfile",
         str(conf["config_path"]),
@@ -337,6 +338,17 @@ def _target_from_conf(conf: dict[str, Any]) -> str:
         supported = ", ".join(sorted(SUPPORTED_PGTA_TARGETS))
         raise ValueError(f"Unsupported PGT-A target: {target}. Supported targets: {supported}.")
     return target
+
+
+def _snakemake_cores() -> str:
+    value = str(os.getenv("PGTA_SNAKEMAKE_CORES", DEFAULT_SNAKEMAKE_CORES)).strip()
+    try:
+        cores = int(value)
+    except ValueError as exc:
+        raise ValueError(f"PGTA_SNAKEMAKE_CORES must be a positive integer, got: {value}") from exc
+    if cores < 1:
+        raise ValueError(f"PGTA_SNAKEMAKE_CORES must be a positive integer, got: {value}")
+    return str(cores)
 
 
 def _validate_sample_paths(sample: dict[str, str], pgta_data_root: Path) -> None:

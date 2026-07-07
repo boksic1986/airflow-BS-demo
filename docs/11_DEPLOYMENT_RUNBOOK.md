@@ -170,6 +170,7 @@ PGTA_DATA_ROOT=/data/project/CNV/PGT-A
 PGTA_CONTAINER_DATA_ROOT=/data/project/CNV/PGT-A
 INPUT_SCAN_ROOTS=/data/project/CNV/PGT-A/rawdata
 PGTA_SNAKEMAKE9_BIN=/biosoftware/miniconda/envs/snakemake9_env/bin/snakemake
+PGTA_SNAKEMAKE_CORES=64
 AIRFLOW_DAGS_ROOT=/opt/airflow/dags
 AIRFLOW_DEMO_QSUB_MODE=mock
 AIRFLOW_DEMO_QSUB_PYTHON=python
@@ -480,7 +481,7 @@ XDG_CACHE_HOME=<workdir>/tmp/xdg-cache
 
 ```bash
 snakemake --snakefile /opt/pipelines/PGT_A/Snakefile \
-  --cores 1 --printshellcmds --configfile <workdir>/config.yaml \
+  --cores ${PGTA_SNAKEMAKE_CORES:-64} --printshellcmds --configfile <workdir>/config.yaml \
   --dry-run --ignore-incomplete --rerun-triggers mtime
 ```
 

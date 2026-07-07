@@ -277,6 +277,19 @@ a {
   flex-wrap: wrap;
 }
 
+.auto-sync-status {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.auto-sync-status.active {
+  color: #0f766e;
+  font-weight: 700;
+}
+
 .toolbar-select {
   min-height: 36px;
   display: inline-flex;

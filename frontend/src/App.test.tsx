@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -420,6 +420,17 @@ describe("PGT-A run dashboard", () => {
             error_summary: null,
           });
         }
+        if (url.endsWith(`/api/runs/${createdRunId}/actions/sync-airflow`) && init?.method === "POST") {
+          return mockJson({
+            analysis_id: createdRunId,
+            pipeline: "pgta",
+            status: createdRunStatus || "running",
+            dag_id: "bio_pgta",
+            dag_run_id: createdDagRunId,
+            workdir: `/data/airflow-demo/runs/${createdRunId}`,
+            error_summary: null,
+          });
+        }
         if (url.endsWith(`/api/runs/${createdRunId}/actions/submit`) && init?.method === "POST") {
           createdRunStatus = "submitted";
           createdDagRunId = `manual__${createdRunId}`;
@@ -472,6 +483,7 @@ describe("PGT-A run dashboard", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -505,6 +517,42 @@ describe("PGT-A run dashboard", () => {
         expect.objectContaining({method: "POST"}),
       );
     });
+  });
+
+  it("auto-syncs selected active Airflow runs and stops after terminal state", async () => {
+    const intervalCallbacks: Array<() => void> = [];
+    const setIntervalSpy = vi.spyOn(window, "setInterval").mockImplementation((callback: TimerHandler) => {
+      intervalCallbacks.push(callback as () => void);
+      return 15000;
+    });
+    const clearIntervalSpy = vi.spyOn(window, "clearInterval").mockImplementation(() => undefined);
+    createdRunStatus = "running";
+    createdDagRunId = `manual__${createdRunId}`;
+
+    render(<App />);
+
+    expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
+    expect(await screen.findByText(/Auto sync active/i)).toBeInTheDocument();
+    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 15000);
+    expect(intervalCallbacks).toHaveLength(1);
+
+    createdRunStatus = "success";
+    await act(async () => {
+      intervalCallbacks[0]();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/api/runs/${createdRunId}/actions/sync-airflow`),
+        expect.objectContaining({method: "POST"}),
+      );
+    });
+    expect(await screen.findByText(/Last synced/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(clearIntervalSpy).toHaveBeenCalledWith(15000);
+    });
+    expect(screen.queryByText(/Auto sync active/i)).not.toBeInTheDocument();
   });
 
   it("scans a server FASTQ path and renders selectable sample candidates", async () => {

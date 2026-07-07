@@ -63,6 +63,7 @@
 | T086 | PGT-A staged baseline_qc integration | backend/airflow/frontend | T085 | baseline_qc allowlist, build_ref config, frontend target label | API/DAG/frontend 支持 `target=baseline_qc`，创建和 submit 均要求至少 2 样本；远端 Docker 化 backend/frontend/DAG tests 通过；真实 Level 4 smoke 待用户确认 | done |
 | T088 | PGT-A Snakemake cache permission fix | airflow/snakemake | T035,T045 | run-local `XDG_CACHE_HOME`, command artifact | `PGTA_20260706_140854_8F2CA4` metadata submit smoke success；stderr 不再出现 `/home/airflow/.cache/snakemake` PermissionError；artifacts include `snakemake_command` | done |
 | T089 | demo log/timezone alignment | infra/frontend | T011,T050 | Compose `TZ`, Airflow core/UI timezone, frontend display timezone | `fengxian` containers and Airflow config use `Asia/Shanghai`; frontend renders UTC API timestamps as `Asia/Shanghai`; DB timestamps remain timezone-aware | done |
+| T091 | PGT-A 64-core runner and frontend auto-sync | airflow/frontend/docs | T086,T089,T090 | `PGTA_SNAKEMAKE_CORES=64`, PGT-A command artifact, frontend active-run polling | `bio_pgta` and `bio_pgta_airflow` default to `--cores 64` with env override; selected active run auto-calls `sync-airflow` every 15s and stops at terminal state; current running baseline_qc is not interrupted | in_progress |
 
 ## P5 Frontend
 

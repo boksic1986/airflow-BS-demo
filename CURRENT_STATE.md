@@ -6,8 +6,8 @@
 
 ```text
 当前阶段: P3/P4/P6 Airflow + Snakemake/qsub mock observability + PGT-A Level 4 staged integration
-当前目标: T090 已修复 Samples 表一直显示 pending 的问题；真实 Level 4 `baseline_qc` smoke 仍需用户确认至少 2 个样本和运行窗口
-最近更新时间: 2026-07-06
+当前目标: T091 正在把后续 PGT-A Snakemake 默认运行核数改为 `PGTA_SNAKEMAKE_CORES=64`，并给前端 selected active run 增加 15 秒自动 `sync-airflow`
+最近更新时间: 2026-07-07
 最后更新 agent: Codex
 ```
 
@@ -42,9 +42,9 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 12959 | running after T089 timezone redeploy | React/Vite PGT-A + WES mock workspace served by Docker nginx image `airflow-demo/frontend:0.1.0`; run timestamps render as `Asia/Shanghai`; `Submit new analysis` is in the main content area, target selector includes `baseline QC smoke`, and host 3000 is occupied by non-project next-server |
+| frontend | 12959 | running after T089 timezone redeploy; T091 auto-sync code pending remote redeploy | React/Vite PGT-A + WES mock workspace served by Docker nginx image `airflow-demo/frontend:0.1.0`; run timestamps render as `Asia/Shanghai`; `Submit new analysis` is in the main content area, target selector includes `baseline QC smoke`, and host 3000 is occupied by non-project next-server |
 | backend | 8000 | running, healthy after T090 sample-status redeploy | `/api/health`, `/api/health/db`, `/api/input/scan`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and PGT-A baseline_qc parser/artifacts are available; submit/reanalyze now sets sample.status to `running`, and sync-airflow maps samples to `success/failed`; image `airflow-demo/backend:0.1.0`; container `TZ=Asia/Shanghai` |
-| airflow web/api | 12958 | running after T089 timezone redeploy | project image `airflow-demo/airflow:0.1.0`; `/health` returned healthy; Airflow core/UI timezone is `Asia/Shanghai`; logs show `+0800`; real baseline_qc smoke has not been run |
+| airflow web/api | 12958 | running after T089 timezone redeploy; current `PGTA_20260706_162150_00C4FD` baseline_qc was started before T091 | project image `airflow-demo/airflow:0.1.0`; `/health` returned healthy; Airflow core/UI timezone is `Asia/Shanghai`; logs show `+0800`; new PGT-A runs after T091 should use `PGTA_SNAKEMAKE_CORES=64`; already running DAG tasks keep their original command |
 | postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow metadata initialized; no host port published |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
 | mailhog | 8025 | stopped in T051 smoke | HTTP GET probe passed in earlier smoke; not started for T051 |
@@ -93,6 +93,7 @@ last_pgta_baseline_staged_integration: passed code-level remote validation on fe
 last_pgta_cache_fix_smoke: passed on fengxian at commit dd5c6e7; tests first failed on missing `workdir/tmp/xdg-cache`, then passed after setting `XDG_CACHE_HOME`; new metadata run `PGTA_20260706_140854_8F2CA4` submitted to `bio_pgta`, sync progressed running -> success, Airflow listed the DAG run as success, `logs/run_metadata.tsv` has 11 lines, artifacts include `snakemake_command`, and stderr no longer contains `/home/airflow/.cache/snakemake` PermissionError
 last_timezone_alignment: passed on fengxian at commit f2fdff2; `docker compose config --quiet` rendered `AIRFLOW__CORE__DEFAULT_TIMEZONE=Asia/Shanghai`, `AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE=Asia/Shanghai`, `TZ=Asia/Shanghai`, and frontend build arg `VITE_DISPLAY_TIME_ZONE=Asia/Shanghai`; frontend Docker test target passed 15 tests; backend/frontend/Airflow containers report `date` as `+0800 CST`; Airflow logs show `+0800` and `Configured default timezone Asia/Shanghai`; frontend bundle contains `Asia/Shanghai`
 last_sample_status_sync: passed on fengxian at commit 065907c; red backend tests first showed submit/sync left samples `pending`, then implementation passed targeted 3 tests and full backend pytest 48 passed; backend redeployed healthy; explicit sync refreshed visible runs, e.g. `PGTA_20260706_141915_5BE5E2` samples `E2/E3=success`, `PGTA_20260706_140854_8F2CA4` sample `E2=success`, and `WES_20260705_164813_C5561C` samples `S001/S002=success`
+last_pgta_64core_autosync: in progress for T091; code changes default future `bio_pgta` and `bio_pgta_airflow` Snakemake commands to `--cores 64` via `PGTA_SNAKEMAKE_CORES`, and add frontend active-run auto sync every 15 seconds; remote Docker/Airflow/frontend validation still pending
 last_image_check: passed on fengxian; compose external images pulled and backend built with explicit tag
 last_image_cleanup: removed 37 dangling <none> images; no docker system prune, no volume prune
 last_pgta_failure_smoke: passed on fengxian; `invalid_target` run `PGTA_20260703_170957_3DDEC3` ended Airflow/backend `failed` as expected, stderr log size 1322 bytes, `sync-airflow` wrote non-null `error_summary` containing `stderr_path` and last error lines

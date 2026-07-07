@@ -15,6 +15,7 @@ from pgta_metadata_runner import (
     DEFAULT_SHARED_ROOT,
     build_pgta_config,
     collect_metadata_artifact,
+    _snakemake_cores,
 )
 
 
@@ -94,7 +95,7 @@ def run_snakemake9_with_logger(
         "--snakefile",
         str(pgta_pipeline_root / "Snakefile"),
         "--cores",
-        "1",
+        _snakemake_cores(),
         "--printshellcmds",
         "--show-failed-logs",
         "--logger",

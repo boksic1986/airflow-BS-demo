@@ -101,18 +101,48 @@ class PgtaAirflowRunnerTests(unittest.TestCase):
             self.assertEqual((workdir / "logs" / "snakemake.stdout.log").read_text(encoding="utf-8"), "snakemake stdout\n")
             self.assertEqual((workdir / "logs" / "snakemake.stderr.log").read_text(encoding="utf-8"), "snakemake stderr\n")
             command = run.call_args.args[0]
-            self.assertEqual(command[:5], ["/biosoftware/miniconda/envs/snakemake9_env/bin/snakemake", "--snakefile", "/opt/pipelines/PGT_A/Snakefile", "--cores", "1"])
+            self.assertEqual(command[0].replace("\\", "/"), "/biosoftware/miniconda/envs/snakemake9_env/bin/snakemake")
+            self.assertEqual(command[1], "--snakefile")
+            self.assertEqual(command[2].replace("\\", "/"), "/opt/pipelines/PGT_A/Snakefile")
+            self.assertEqual(command[3:5], ["--cores", "64"])
             self.assertIn("--show-failed-logs", command)
             self.assertIn("--logger", command)
             self.assertIn("airflow-demo", command)
             self.assertIn("--logger-airflow-demo-analysis-id", command)
             self.assertIn("--logger-airflow-demo-events-path", command)
-            self.assertIn("/opt/airflow/dags", run.call_args.kwargs["env"]["PYTHONPATH"])
+            self.assertIn("/opt/airflow/dags", run.call_args.kwargs["env"]["PYTHONPATH"].replace("\\", "/"))
             cache_dir = workdir / "tmp" / "xdg-cache"
             self.assertTrue(cache_dir.is_dir())
             self.assertEqual(run.call_args.kwargs["env"]["XDG_CACHE_HOME"], str(cache_dir))
             command_text = (workdir / "logs" / "snakemake.command.txt").read_text(encoding="utf-8")
+            self.assertIn("--cores 64", command_text)
             self.assertIn("--logger airflow-demo", command_text)
+
+    def test_run_snakemake9_allows_core_count_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_AIRFLOW_TEST"
+            workdir.mkdir(parents=True)
+            config_path = workdir / "config.yaml"
+            config_path.write_text("samples: {}\n", encoding="utf-8")
+
+            completed = Mock(returncode=0)
+            completed.stdout = ""
+            completed.stderr = ""
+            with patch.dict("pgta_airflow_runner.os.environ", {"PGTA_SNAKEMAKE_CORES": "12"}):
+                with patch("pgta_airflow_runner.subprocess.run", return_value=completed) as run:
+                    run_snakemake9_with_logger(
+                        {
+                            "analysis_id": "PGTA_AIRFLOW_TEST",
+                            "workdir": str(workdir),
+                            "config_path": str(config_path),
+                        },
+                        snakemake_bin=Path("/biosoftware/miniconda/envs/snakemake9_env/bin/snakemake"),
+                        pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                        dags_root=Path("/opt/airflow/dags"),
+                    )
+
+            command = run.call_args.args[0]
+            self.assertEqual(command[command.index("--cores") + 1], "12")
 
     def test_run_snakemake9_passes_optional_backend_event_url_to_logger(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

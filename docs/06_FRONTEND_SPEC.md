@@ -19,6 +19,7 @@
 - Samples 表直接展示后端 `/api/runs/{analysis_id}/samples` 的 `sample.status`；提交后应为 `running`，显式 `Sync Airflow` 后应随 Airflow 最终状态变为 `success` 或 `failed`。
 - WES mock run detail 展示 QC panel：pass/warn/fail/unknown summary 和样本级 mock QC 指标表。
 - 手动同步按钮调用 `POST /api/runs/{analysis_id}/actions/sync-airflow`。
+- T091 后，选中的 active run（`submitted/running/queued` 且已有 `dag_run_id`）每 15 秒自动调用同一 `sync-airflow` endpoint，并刷新 run list、detail、samples、rules、artifacts、QC 和当前 log；进入 `success/failed` 后停止自动同步。toolbar 显示 `Auto sync active` 和 `Last synced ...`。
 - 对已有 `wes_qsub` DAG run，detail toolbar 显示 `Resume` 和 `Rerun rule` 控件；`Rerun rule` 支持 `fastp/bwa_mem/markdup/final_summary`，样本级 rule 可选 `S001/S002`。
 - API base 默认按浏览器当前 host 推导为 `http://<host>:8000/api`，可通过 `window.__AIRFLOW_DEMO_CONFIG__.apiBaseUrl` 或 `VITE_API_BASE_URL` 覆盖。
 - 后端返回的 run 时间保持 timezone-aware ISO 字符串；前端默认按 `Asia/Shanghai` 显示为 `YYYY-MM-DD HH:mm:ss Asia/Shanghai`。如迁移到其他时区，可用 `window.__AIRFLOW_DEMO_CONFIG__.timeZone` 或 build arg `FRONTEND_DISPLAY_TIME_ZONE` 覆盖。

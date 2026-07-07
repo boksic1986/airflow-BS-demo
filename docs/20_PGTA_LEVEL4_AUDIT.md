@@ -27,7 +27,7 @@
   - `pipeline.mode=build_ref`
   - `pipeline.targets=["mapping","metadata","baseline_qc"]`
   - `build_reference.groups.demo=<selected sample ids>`
-- `bio_pgta` 仍使用 `--cores 1`，不使用 qsub，不运行 CNV、reference 或 reference_qc。
+- T091 后 `bio_pgta` 默认使用 `PGTA_SNAKEMAKE_CORES=64`，不使用 qsub，不运行 CNV、reference 或 reference_qc。已启动的历史 run 不会被该默认值改变。
 - artifacts API 动态发现 baseline summary/pass/report。
 - 显式 `sync-airflow` 到 success 后，backend 将 baseline summary 导入 `qc_metric`，复用前端 QC panel。
 

@@ -359,12 +359,12 @@ target 映射：
 ```bash
 /biosoftware/miniconda/envs/snakemake_env/bin/snakemake \
   --snakefile /opt/pipelines/PGT_A/Snakefile \
-  --cores 1 \
+  --cores ${PGTA_SNAKEMAKE_CORES:-64} \
   --printshellcmds \
   --configfile <workdir>/config.yaml
 ```
 
-`dryrun_cnv` 会额外传 `--dry-run --ignore-incomplete --rerun-triggers mtime`；`invalid_target` 会额外传 `__airflow_demo_invalid_target__`；`baseline_qc` 不加 dry-run，会用 `--cores 1` 真实执行。执行目录为 `/data/airflow-demo/runs/<analysis_id>`，输出只允许写入该 run workdir。T088 后 Snakemake 环境设置 `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，并写出实际命令。stdout/stderr/command 写入：
+`dryrun_cnv` 会额外传 `--dry-run --ignore-incomplete --rerun-triggers mtime`；`invalid_target` 会额外传 `__airflow_demo_invalid_target__`；`baseline_qc` 不加 dry-run，会用 `PGTA_SNAKEMAKE_CORES` 真实执行，默认值为 64。执行目录为 `/data/airflow-demo/runs/<analysis_id>`，输出只允许写入该 run workdir。T088 后 Snakemake 环境设置 `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，并写出实际命令。stdout/stderr/command 写入：
 
 ```text
 shared/runs/<analysis_id>/logs/snakemake.command.txt
@@ -414,7 +414,7 @@ validate_request
 ```bash
 /biosoftware/miniconda/envs/snakemake9_env/bin/snakemake \
   --snakefile /opt/pipelines/PGT_A/Snakefile \
-  --cores 1 \
+  --cores ${PGTA_SNAKEMAKE_CORES:-64} \
   --printshellcmds \
   --show-failed-logs \
   --logger airflow-demo \

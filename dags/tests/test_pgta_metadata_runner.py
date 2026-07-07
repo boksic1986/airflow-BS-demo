@@ -315,7 +315,10 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             self.assertEqual((workdir / "logs" / "snakemake.stderr.log").read_text(encoding="utf-8"), "snakemake stderr\n")
             run.assert_called_once()
             command = run.call_args.args[0]
-            self.assertEqual(command[:5], ["/biosoftware/miniconda/envs/snakemake_env/bin/snakemake", "--snakefile", "/opt/pipelines/PGT_A/Snakefile", "--cores", "1"])
+            self.assertEqual(command[0].replace("\\", "/"), "/biosoftware/miniconda/envs/snakemake_env/bin/snakemake")
+            self.assertEqual(command[1], "--snakefile")
+            self.assertEqual(command[2].replace("\\", "/"), "/opt/pipelines/PGT_A/Snakefile")
+            self.assertEqual(command[3:5], ["--cores", "64"])
             self.assertNotIn("--dry-run", command)
             self.assertIn("--configfile", command)
             self.assertEqual(run.call_args.kwargs["cwd"], str(workdir))
@@ -323,8 +326,36 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             self.assertTrue(cache_dir.is_dir())
             self.assertEqual(run.call_args.kwargs["env"]["XDG_CACHE_HOME"], str(cache_dir))
             command_text = (workdir / "logs" / "snakemake.command.txt").read_text(encoding="utf-8")
-            self.assertIn("--snakefile /opt/pipelines/PGT_A/Snakefile", command_text)
-            self.assertIn(f"--configfile {config_path}", command_text)
+            normalized_command_text = command_text.replace("\\", "/").replace("'", "")
+            self.assertIn("--snakefile /opt/pipelines/PGT_A/Snakefile", normalized_command_text)
+            self.assertIn("--cores 64", command_text)
+            self.assertIn(f"--configfile {config_path}".replace("\\", "/"), normalized_command_text)
+
+    def test_run_pgta_target_allows_core_count_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            workdir.mkdir(parents=True)
+            config_path = workdir / "config.yaml"
+            config_path.write_text("samples: {}\n", encoding="utf-8")
+
+            completed = Mock(returncode=0)
+            completed.stdout = ""
+            completed.stderr = ""
+            with patch.dict("pgta_metadata_runner.os.environ", {"PGTA_SNAKEMAKE_CORES": "8"}):
+                with patch("pgta_metadata_runner.subprocess.run", return_value=completed) as run:
+                    run_pgta_target(
+                        {
+                            "analysis_id": "PGTA_TEST",
+                            "workdir": str(workdir),
+                            "config_path": str(config_path),
+                            "params": {"target": "metadata"},
+                        },
+                        snakemake_bin=Path("/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"),
+                        pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                    )
+
+            command = run.call_args.args[0]
+            self.assertEqual(command[command.index("--cores") + 1], "8")
 
     def test_run_pgta_target_dryrun_adds_dry_run_flag(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

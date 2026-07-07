@@ -11,7 +11,7 @@ import {
   RotateCw,
   Search,
 } from "lucide-react";
-import {useEffect, useMemo, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 
 import {
   ApiError,
@@ -136,6 +136,8 @@ export default function App() {
   const [loadingRuns, setLoadingRuns] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [lastAutoSyncedAt, setLastAutoSyncedAt] = useState<string | null>(null);
+  const [autoSyncError, setAutoSyncError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [projectName, setProjectName] = useState("PGT-A metadata smoke");
   const [target, setTarget] = useState<PgtaTarget>("metadata");
@@ -157,6 +159,7 @@ export default function App() {
   const [reanalyzing, setReanalyzing] = useState(false);
   const [rerunRule, setRerunRule] = useState("fastp");
   const [rerunSample, setRerunSample] = useState("S001");
+  const autoSyncInFlightRef = useRef(false);
 
   const selectedRun = useMemo(
     () => runs.find((run) => run.analysis_id === selectedId) || null,
@@ -173,6 +176,10 @@ export default function App() {
     bundle.detail?.pipeline === "wes_qsub" &&
     Boolean(bundle.detail?.dag_run_id) &&
     !["submitted", "running", "queued"].includes((bundle.detail?.status || "").toLowerCase());
+  const currentRunStatus = (bundle.detail?.status || selectedRun?.status || "").toLowerCase();
+  const autoSyncEnabled = Boolean(
+    selectedId && bundle.detail?.dag_run_id && ["submitted", "running", "queued"].includes(currentRunStatus),
+  );
 
   async function refreshRuns(preferredId?: string | null) {
     setLoadingRuns(true);
@@ -228,13 +235,17 @@ export default function App() {
     }
   }
 
+  async function refreshSelectedRun(analysisId: string, stream: LogStream) {
+    await Promise.all([refreshRuns(analysisId), refreshDetail(analysisId), refreshLog(analysisId, stream)]);
+  }
+
   async function handleSync() {
     if (!selectedId) return;
     setSyncing(true);
     setDetailError(null);
     try {
       await syncAirflow(selectedId);
-      await Promise.all([refreshRuns(selectedId), refreshDetail(selectedId), refreshLog(selectedId, logStream)]);
+      await refreshSelectedRun(selectedId, logStream);
     } catch (error) {
       setDetailError(errorMessage(error));
     } finally {
@@ -296,7 +307,7 @@ export default function App() {
       });
       setSelectedId(created.analysis_id);
       setFormNotice(`Created ${created.analysis_id}`);
-      await Promise.all([refreshRuns(created.analysis_id), refreshDetail(created.analysis_id), refreshLog(created.analysis_id, logStream)]);
+      await refreshSelectedRun(created.analysis_id, logStream);
     } catch (error) {
       setCreateError(errorMessage(error));
     } finally {
@@ -310,7 +321,7 @@ export default function App() {
     setDetailError(null);
     try {
       await submitRun(selectedId);
-      await Promise.all([refreshRuns(selectedId), refreshDetail(selectedId), refreshLog(selectedId, logStream)]);
+      await refreshSelectedRun(selectedId, logStream);
     } catch (error) {
       setDetailError(errorMessage(error));
     } finally {
@@ -331,7 +342,7 @@ export default function App() {
       });
       setSelectedId(created.analysis_id);
       await submitRun(created.analysis_id);
-      await Promise.all([refreshRuns(created.analysis_id), refreshDetail(created.analysis_id), refreshLog(created.analysis_id, "stdout")]);
+      await refreshSelectedRun(created.analysis_id, "stdout");
       setLogStream("stdout");
     } catch (error) {
       setDetailError(errorMessage(error));
@@ -351,7 +362,7 @@ export default function App() {
         sample_id: mode === "rerun_rule" && rerunRule !== "final_summary" ? rerunSample : null,
         reason: mode === "resume" ? "frontend resume" : "frontend rerun selected rule",
       });
-      await Promise.all([refreshRuns(selectedId), refreshDetail(selectedId), refreshLog(selectedId, "stdout")]);
+      await refreshSelectedRun(selectedId, "stdout");
       setLogStream("stdout");
     } catch (error) {
       setDetailError(errorMessage(error));
@@ -377,6 +388,45 @@ export default function App() {
     if (!selectedId) return;
     void refreshLog(selectedId, logStream);
   }, [selectedId, logStream]);
+
+  useEffect(() => {
+    setLastAutoSyncedAt(null);
+    setAutoSyncError(null);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!autoSyncEnabled || !selectedId) return undefined;
+    let disposed = false;
+
+    async function syncSelectedActiveRun() {
+      if (autoSyncInFlightRef.current || !selectedId) return;
+      autoSyncInFlightRef.current = true;
+      setAutoSyncError(null);
+      try {
+        await syncAirflow(selectedId);
+        if (disposed) return;
+        await refreshSelectedRun(selectedId, logStream);
+        if (!disposed) {
+          setLastAutoSyncedAt(new Date().toISOString());
+        }
+      } catch (error) {
+        if (!disposed) {
+          setAutoSyncError(errorMessage(error));
+        }
+      } finally {
+        autoSyncInFlightRef.current = false;
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      void syncSelectedActiveRun();
+    }, 15000);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [autoSyncEnabled, selectedId, logStream]);
 
   return (
     <div className="app-shell">
@@ -485,6 +535,12 @@ export default function App() {
                   <RotateCw size={16} />
                   Sync Airflow
                 </button>
+                {bundle.detail?.dag_run_id ? (
+                  <span className={`auto-sync-status ${autoSyncEnabled ? "active" : ""}`} aria-live="polite">
+                    {autoSyncEnabled ? "Auto sync active" : "Auto sync idle"}
+                    {lastAutoSyncedAt ? ` / Last synced ${formatDate(lastAutoSyncedAt)}` : ""}
+                  </span>
+                ) : null}
                 {canReanalyzeWes ? (
                   <>
                     <button className="icon-button" type="button" onClick={() => void handleReanalyze("resume")} disabled={reanalyzing}>
@@ -529,6 +585,7 @@ export default function App() {
               </div>
 
               {detailError ? <ErrorBanner message={detailError} /> : null}
+              {autoSyncError ? <ErrorBanner message={`Auto sync failed: ${autoSyncError}`} /> : null}
               {bundle.detail ? <Overview detail={bundle.detail} sampleCount={bundle.samples.length} /> : null}
               <QcPanel qc={bundle.qc} />
 
