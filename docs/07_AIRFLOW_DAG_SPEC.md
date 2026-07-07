@@ -364,7 +364,7 @@ target 映射：
   --configfile <workdir>/config.yaml
 ```
 
-`dryrun_cnv` 会额外传 `--dry-run --ignore-incomplete --rerun-triggers mtime`；`invalid_target` 会额外传 `__airflow_demo_invalid_target__`；`baseline_qc` 不加 dry-run，会用 `PGTA_SNAKEMAKE_CORES` 真实执行，默认值为 64。执行目录为 `/data/airflow-demo/runs/<analysis_id>`，输出只允许写入该 run workdir。T088 后 Snakemake 环境设置 `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，并写出实际命令。T095 后同一 subprocess env 还会设置 `MPLCONFIGDIR=<workdir>/tmp/matplotlib`，并把 `LD_LIBRARY_PATH` 设为 `PGTA_CONDA_LIB`，默认 `/biosoftware/miniconda/envs/snakemake_env/lib`，避免 baseline QC 的 `matplotlib/scipy/pysam` 等 compiled Python packages 加载到容器系统旧 `libstdc++` 或继承的 `/usr/local/lib`。stdout/stderr/command 写入：
+`dryrun_cnv` 会额外传 `--dry-run --ignore-incomplete --rerun-triggers mtime`；`invalid_target` 会额外传 `__airflow_demo_invalid_target__`；`baseline_qc` 不加 dry-run，会用 `PGTA_SNAKEMAKE_CORES` 真实执行，默认值为 64。执行目录为 `/data/airflow-demo/runs/<analysis_id>`，输出只允许写入该 run workdir。T088 后 Snakemake 环境设置 `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，并写出实际命令。T095 后同一 subprocess env 还会设置 `MPLCONFIGDIR=<workdir>/tmp/matplotlib`，把 `LD_LIBRARY_PATH` 设为 `PGTA_CONDA_LIB`，并在可用时 `LD_PRELOAD=PGTA_LIBSTDCXX`，默认 `/biosoftware/miniconda/envs/snakemake_env/lib/libstdc++.so.6`，避免 baseline QC 的 `matplotlib/scipy/pysam` 等 compiled Python packages 加载到容器系统旧 `libstdc++` 或继承的 `/usr/local/lib`。stdout/stderr/command 写入：
 
 ```text
 shared/runs/<analysis_id>/logs/snakemake.command.txt

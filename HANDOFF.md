@@ -46,7 +46,7 @@ Fix the second `PGTA_20260706_162150_00C4FD` 64-core resume failure. The T094 cl
 
 - Read-only failure check confirmed latest DAG run `manual__PGTA_20260706_162150_00C4FD__resume__20260707T121252Z` is `failed`; `run_pgta_target` failed, mapping outputs `G10/G11.sorted.bam(.bai)` exist, `/qc` is empty, and samples are `failed`.
 - Added TDD red tests for PGT-A subprocess env and baseline QC preflight; red tests failed on missing `MPLCONFIGDIR`, missing conda-lib `LD_LIBRARY_PATH`, and missing preflight call.
-- Updated `bio_pgta` runner env to set `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`, `MPLCONFIGDIR=<workdir>/tmp/matplotlib`, and set `LD_LIBRARY_PATH` to `PGTA_CONDA_LIB` without inheriting container library paths.
+- Updated `bio_pgta` runner env to set `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`, `MPLCONFIGDIR=<workdir>/tmp/matplotlib`, set `LD_LIBRARY_PATH` to `PGTA_CONDA_LIB`, and preload conda `libstdc++.so.6` with `LD_PRELOAD`.
 - Added baseline-QC-only Python import preflight for `matplotlib/numpy/pandas/pysam/scipy`, writing `logs/pgta.python_preflight.log`.
 - Added dynamic artifact discovery for `pgta_python_preflight`.
 - Updated `.env.example`, Compose Airflow env, API/DAG/QC/runbook docs, `SERVER_INFO.md`, `CURRENT_STATE.md`, and `TASKS.md`.

@@ -18,6 +18,9 @@ DEFAULT_PGTA_DATA_ROOT = Path(os.getenv("PGTA_CONTAINER_DATA_ROOT", "/data/proje
 DEFAULT_SNAKEMAKE_BIN = Path(os.getenv("PGTA_SNAKEMAKE_BIN", "/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"))
 DEFAULT_PGTA_PYTHON_BIN = Path(os.getenv("PGTA_PYTHON_BIN", "/biosoftware/miniconda/envs/snakemake_env/bin/python"))
 DEFAULT_PGTA_CONDA_LIB = Path(os.getenv("PGTA_CONDA_LIB", "/biosoftware/miniconda/envs/snakemake_env/lib"))
+DEFAULT_PGTA_LIBSTDCXX = Path(
+    os.getenv("PGTA_LIBSTDCXX", str(DEFAULT_PGTA_CONDA_LIB / "libstdc++.so.6"))
+)
 DEFAULT_SAMTOOLS_BIN = Path(os.getenv("PGTA_SAMTOOLS_BIN", "/biosoftware/miniconda/pkgs/samtools-1.7-1/bin/samtools"))
 DEFAULT_SAMTOOLS_LIBRARY_PATH = os.getenv("PGTA_SAMTOOLS_LIBRARY_PATH", "/biosoftware/miniconda/pkgs/openssl-1.0.2u-h516909a_0/lib")
 DEFAULT_REFERENCE_GENOME = Path(os.getenv("PGTA_REFERENCE_GENOME", "/data/Database/index/hg19/hg19.fa"))
@@ -375,6 +378,10 @@ def _pgta_subprocess_env(workdir: Path) -> dict[str, str]:
     env["MPLCONFIGDIR"] = str(matplotlib_dir)
 
     env["LD_LIBRARY_PATH"] = str(DEFAULT_PGTA_CONDA_LIB)
+    if DEFAULT_PGTA_LIBSTDCXX.exists():
+        env["LD_PRELOAD"] = str(DEFAULT_PGTA_LIBSTDCXX)
+    else:
+        env.pop("LD_PRELOAD", None)
     return env
 
 
@@ -397,7 +404,21 @@ def _run_pgta_python_preflight(*, workdir: Path, logs_dir: Path, env: dict[str, 
         check=False,
         env=env,
     )
-    preflight_log.write_text((completed.stdout or "") + (completed.stderr or ""), encoding="utf-8")
+    header = "\n".join(
+        [
+            "PGT-A Python preflight",
+            f"command\t{shlex.join(command)}",
+            f"LD_LIBRARY_PATH\t{env.get('LD_LIBRARY_PATH', '')}",
+            f"LD_PRELOAD\t{env.get('LD_PRELOAD', '')}",
+            f"MPLCONFIGDIR\t{env.get('MPLCONFIGDIR', '')}",
+            f"XDG_CACHE_HOME\t{env.get('XDG_CACHE_HOME', '')}",
+            "--- output ---",
+        ]
+    )
+    preflight_log.write_text(
+        header + "\n" + (completed.stdout or "") + (completed.stderr or ""),
+        encoding="utf-8",
+    )
     if completed.returncode != 0:
         raise RuntimeError(f"PGT-A Python preflight failed with exit code {completed.returncode}. See {preflight_log}")
     return preflight_log

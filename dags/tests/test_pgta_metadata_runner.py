@@ -444,6 +444,33 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
                 "/biosoftware/miniconda/envs/snakemake_env/lib",
             )
 
+    def test_run_pgta_target_preloads_pgta_conda_libstdcxx_when_available(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            workdir.mkdir(parents=True)
+            config_path = workdir / "config.yaml"
+            config_path.write_text("samples: {}\n", encoding="utf-8")
+            libstdcxx = Path(tmpdir) / "libstdc++.so.6"
+            libstdcxx.write_text("", encoding="utf-8")
+
+            completed = Mock(returncode=0)
+            completed.stdout = ""
+            completed.stderr = ""
+            with patch("pgta_metadata_runner.DEFAULT_PGTA_LIBSTDCXX", libstdcxx):
+                with patch("pgta_metadata_runner.subprocess.run", return_value=completed) as run:
+                    run_pgta_target(
+                        {
+                            "analysis_id": "PGTA_TEST",
+                            "workdir": str(workdir),
+                            "config_path": str(config_path),
+                            "params": {"target": "metadata"},
+                        },
+                        snakemake_bin=Path("/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"),
+                        pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                    )
+
+            self.assertEqual(run.call_args.kwargs["env"]["LD_PRELOAD"], str(libstdcxx))
+
     def test_run_pgta_target_dryrun_adds_dry_run_flag(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
@@ -535,10 +562,9 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             self.assertEqual(preflight_command[0].replace("\\", "/"), "/biosoftware/miniconda/envs/snakemake_env/bin/python")
             self.assertIn("matplotlib", preflight_command[-1])
             self.assertIn("pysam", preflight_command[-1])
-            self.assertEqual(
-                (workdir / "logs" / "pgta.python_preflight.log").read_text(encoding="utf-8"),
-                "pgta python preflight ok\n",
-            )
+            preflight_log = (workdir / "logs" / "pgta.python_preflight.log").read_text(encoding="utf-8")
+            self.assertIn("LD_LIBRARY_PATH\t/biosoftware/miniconda/envs/snakemake_env/lib", preflight_log)
+            self.assertIn("--- output ---\npgta python preflight ok\n", preflight_log)
             self.assertNotIn("--dry-run", command)
             self.assertNotIn("__airflow_demo_invalid_target__", command)
 
@@ -566,9 +592,9 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
                     )
 
             run.assert_called_once()
-            self.assertEqual(
-                (workdir / "logs" / "pgta.python_preflight.log").read_text(encoding="utf-8"),
+            self.assertIn(
                 "ImportError: CXXABI_1.3.15 not found\n",
+                (workdir / "logs" / "pgta.python_preflight.log").read_text(encoding="utf-8"),
             )
 
     def test_run_pgta_target_resume_unlocks_then_reruns_incomplete_without_forceall(self) -> None:

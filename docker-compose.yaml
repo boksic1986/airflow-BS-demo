@@ -29,6 +29,7 @@ x-airflow-common: &airflow-common
     PGTA_SNAKEMAKE_CORES: ${PGTA_SNAKEMAKE_CORES:-64}
     PGTA_PYTHON_BIN: ${PGTA_PYTHON_BIN:-/biosoftware/miniconda/envs/snakemake_env/bin/python}
     PGTA_CONDA_LIB: ${PGTA_CONDA_LIB:-/biosoftware/miniconda/envs/snakemake_env/lib}
+    PGTA_LIBSTDCXX: ${PGTA_LIBSTDCXX:-/biosoftware/miniconda/envs/snakemake_env/lib/libstdc++.so.6}
     PGTA_REFERENCE_GENOME: ${PGTA_REFERENCE_GENOME:-/data/Database/index/hg19/hg19.fa}
     PGTA_SAMTOOLS_BIN: ${PGTA_SAMTOOLS_BIN:-/biosoftware/miniconda/pkgs/samtools-1.7-1/bin/samtools}
     PGTA_SAMTOOLS_LIBRARY_PATH: ${PGTA_SAMTOOLS_LIBRARY_PATH:-/biosoftware/miniconda/pkgs/openssl-1.0.2u-h516909a_0/lib}

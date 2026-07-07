@@ -173,6 +173,7 @@ PGTA_SNAKEMAKE9_BIN=/biosoftware/miniconda/envs/snakemake9_env/bin/snakemake
 PGTA_SNAKEMAKE_CORES=64
 PGTA_PYTHON_BIN=/biosoftware/miniconda/envs/snakemake_env/bin/python
 PGTA_CONDA_LIB=/biosoftware/miniconda/envs/snakemake_env/lib
+PGTA_LIBSTDCXX=/biosoftware/miniconda/envs/snakemake_env/lib/libstdc++.so.6
 AIRFLOW_DAGS_ROOT=/opt/airflow/dags
 AIRFLOW_DEMO_QSUB_MODE=mock
 AIRFLOW_DEMO_QSUB_PYTHON=python
@@ -649,6 +650,7 @@ The T095 runner keeps the same run-local cache behavior and additionally sets:
 XDG_CACHE_HOME=<workdir>/tmp/xdg-cache
 MPLCONFIGDIR=<workdir>/tmp/matplotlib
 LD_LIBRARY_PATH=${PGTA_CONDA_LIB:-/biosoftware/miniconda/envs/snakemake_env/lib}
+LD_PRELOAD=${PGTA_LIBSTDCXX:-/biosoftware/miniconda/envs/snakemake_env/lib/libstdc++.so.6}
 ```
 
 Before the long Snakemake command, `baseline_qc` runs a short import preflight with `PGTA_PYTHON_BIN`:

@@ -232,7 +232,7 @@ snakemake --report shared/reports/<analysis_id>/snakemake_report.html
 - T088 后 `bio_pgta` 和 `bio_pgta_airflow` 均设置 `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，避免 Snakemake 写入不可写的 `/home/airflow/.cache/snakemake`。
 - T093 后 PGT-A `baseline_qc` resume 会写 `snakemake.unlock.command.txt` 和 unlock stdout/stderr；主命令应包含 `--cores 64 --rerun-incomplete` 且不包含 `--forceall`。
 - T094 后 PGT-A `baseline_qc` resume 会在 unlock 成功后、主命令前写 `logs/pgta.resume.cleanup.tsv`，并且只删除当前 run 下 `mapping/*.sorted.bam.tmp.*.bam`。
-- T095 后 `bio_pgta` 会在 subprocess env 中设置 `MPLCONFIGDIR=<workdir>/tmp/matplotlib`，并将 `LD_LIBRARY_PATH` 设为 `PGTA_CONDA_LIB`，不继承容器的 `/usr/local/lib`；`baseline_qc` 主命令前会写 `logs/pgta.python_preflight.log`，若 Python import preflight 失败则不启动长时间 Snakemake。
+- T095 后 `bio_pgta` 会在 subprocess env 中设置 `MPLCONFIGDIR=<workdir>/tmp/matplotlib`，将 `LD_LIBRARY_PATH` 设为 `PGTA_CONDA_LIB`，并在可用时 `LD_PRELOAD=PGTA_LIBSTDCXX`，不继承容器的 `/usr/local/lib`；`baseline_qc` 主命令前会写 `logs/pgta.python_preflight.log`，若 Python import preflight 失败则不启动长时间 Snakemake。
 
 已完成的 PGT-A Airflow-only logger 验收：
 
