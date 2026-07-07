@@ -12,6 +12,7 @@
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "react-router-dom": "latest",
     "vite": "latest"
   },
   "devDependencies": {

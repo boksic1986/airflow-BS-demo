@@ -158,6 +158,14 @@ export type Artifact = {
   url: string;
 };
 
+export type HealthResponse = {
+  status: string;
+  airflow?: {
+    metadatabase?: {status?: string};
+    scheduler?: {status?: string};
+  };
+};
+
 declare global {
   interface Window {
     __AIRFLOW_DEMO_CONFIG__?: {
@@ -204,6 +212,18 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function listRuns(): Promise<RunListResponse> {
   return requestJson<RunListResponse>("/runs?limit=50&offset=0");
+}
+
+export function getHealth(): Promise<HealthResponse> {
+  return requestJson<HealthResponse>("/health");
+}
+
+export function getDbHealth(): Promise<HealthResponse> {
+  return requestJson<HealthResponse>("/health/db");
+}
+
+export function getAirflowHealth(): Promise<HealthResponse> {
+  return requestJson<HealthResponse>("/health/airflow");
 }
 
 export function scanInput(payload: ScanInputRequest): Promise<ScanInputResponse> {

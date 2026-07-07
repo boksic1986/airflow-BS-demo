@@ -1,14 +1,15 @@
 import "@testing-library/jest-dom/vitest";
 
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import {cleanup, render, screen, waitFor, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 import App from "./App";
 
-const runId = "PGTA_20260703_054712_501D8B";
-const createdRunId = "PGTA_20260703_180000_NEW001";
-const wesRunId = "WES_20260705_010000_NEW001";
+const pgtaRunId = "PGTA_20260706_162150_00C4FD";
+const failedRunId = "PGTA_20260703_170957_3DDEC3";
+const wesRunId = "WES_20260705_164813_C5561C";
+const createdPgtaRunId = "PGTA_20260708_100000_UI001";
 const rawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28";
 
 function mockJson(payload: object, init?: ResponseInit) {
@@ -20,191 +21,177 @@ function mockJson(payload: object, init?: ResponseInit) {
   );
 }
 
-describe("PGT-A run dashboard", () => {
-  let createdRunStatus = "created";
-  let createdDagRunId: string | null = null;
-  let createdRunTarget: "metadata" | "dryrun_cnv" | "invalid_target" | "baseline_qc" = "metadata";
-  let wesRunStatus = "";
-  let wesDagRunId: string | null = null;
+function setRoute(path: string) {
+  window.history.pushState({}, "", path);
+}
 
-  function runListItems() {
-    const items: Array<{
-      analysis_id: string;
-      pipeline: string;
-      status: string;
-      created_at: string;
-      started_at: string | null;
-      ended_at: string | null;
-      sample_count: number;
-      qc_status: string;
-    }> = [
-      {
-        analysis_id: runId,
-        pipeline: "pgta",
-        status: "success",
-        created_at: "2026-07-02T21:47:12+00:00",
-        started_at: "2026-07-03T05:48:00+08:00",
-        ended_at: "2026-07-03T05:49:00+08:00",
-        sample_count: 2,
-        qc_status: "unknown",
-      },
-    ];
-    if (createdRunStatus) {
-      items.unshift({
-        analysis_id: createdRunId,
-        pipeline: "pgta",
-        status: createdRunStatus,
-        created_at: "2026-07-03T18:00:00+08:00",
-        started_at: null,
-        ended_at: null,
-        sample_count: createdRunTarget === "baseline_qc" ? 2 : 1,
-        qc_status: "unknown",
-      });
-    }
-    if (wesRunStatus) {
-      items.unshift({
-        analysis_id: wesRunId,
-        pipeline: "wes_qsub",
-        status: wesRunStatus,
-        created_at: "2026-07-05T01:00:00+08:00",
-        started_at: null,
-        ended_at: null,
-        sample_count: 2,
-        qc_status: "unknown",
-      });
-    }
-    return items;
-  }
+describe("bioinformatics platform frontend", () => {
+  let createdPgtaStatus = "created";
+  let createdPgtaDagRunId: string | null = null;
+  let wesStatus = "success";
+  let wesDagRunId = `manual__${wesRunId}`;
+
+  const runs = () => [
+    {
+      analysis_id: failedRunId,
+      pipeline: "pgta",
+      status: "failed",
+      created_at: "2026-07-03T17:09:57+08:00",
+      started_at: "2026-07-03T17:10:00+08:00",
+      ended_at: "2026-07-03T17:11:00+08:00",
+      sample_count: 1,
+      qc_status: "unknown",
+    },
+    {
+      analysis_id: pgtaRunId,
+      pipeline: "pgta",
+      status: "success",
+      created_at: "2026-07-06T16:21:50+08:00",
+      started_at: "2026-07-07T14:41:47+08:00",
+      ended_at: "2026-07-07T22:53:00+08:00",
+      sample_count: 2,
+      qc_status: "fail",
+    },
+    {
+      analysis_id: wesRunId,
+      pipeline: "wes_qsub",
+      status: wesStatus,
+      created_at: "2026-07-05T16:48:13+08:00",
+      started_at: "2026-07-05T16:49:00+08:00",
+      ended_at: "2026-07-05T16:50:00+08:00",
+      sample_count: 2,
+      qc_status: "pass",
+    },
+    {
+      analysis_id: createdPgtaRunId,
+      pipeline: "pgta",
+      status: createdPgtaStatus,
+      created_at: "2026-07-08T10:00:00+08:00",
+      started_at: null,
+      ended_at: null,
+      sample_count: 2,
+      qc_status: "unknown",
+    },
+  ];
 
   beforeEach(() => {
-    createdRunStatus = "";
-    createdDagRunId = null;
-    createdRunTarget = "metadata";
-    wesRunStatus = "";
-    wesDagRunId = null;
+    setRoute("/");
+    createdPgtaStatus = "created";
+    createdPgtaDagRunId = null;
+    wesStatus = "success";
+    wesDagRunId = `manual__${wesRunId}`;
     vi.stubGlobal(
       "fetch",
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
-        if (url.endsWith("/api/runs?pipeline=pgta&limit=50&offset=0") || url.endsWith("/api/runs?limit=50&offset=0")) {
+        if (url.endsWith("/api/runs?limit=50&offset=0")) {
+          return mockJson({items: runs(), total: runs().length});
+        }
+        if (url.endsWith("/api/health")) return mockJson({status: "ok"});
+        if (url.endsWith("/api/health/db")) return mockJson({status: "ok"});
+        if (url.endsWith("/api/health/airflow")) {
           return mockJson({
-            items: runListItems(),
-            total: runListItems().length,
+            status: "ok",
+            airflow: {metadatabase: {status: "healthy"}, scheduler: {status: "healthy"}},
           });
         }
         if (url.endsWith("/api/input/scan") && init?.method === "POST") {
           return mockJson({
             pipeline: "pgta",
             rawdata_root: rawdataRoot,
-            truncated: true,
+            truncated: false,
             items: [
               {
-                sample_id: "G1",
-                r1: `${rawdataRoot}/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R1.fastq.gz`,
-                r2: `${rawdataRoot}/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R2.fastq.gz`,
-                source_dir: `${rawdataRoot}/Sample_DEMO-G1-G1`,
-                r1_size: 123,
-                r2_size: 124,
-                r1_mtime: 1782810000.0,
-                r2_mtime: 1782810001.0,
+                sample_id: "G10",
+                r1: `${rawdataRoot}/Sample_G10/G10_R1.fastq.gz`,
+                r2: `${rawdataRoot}/Sample_G10/G10_R2.fastq.gz`,
+                source_dir: `${rawdataRoot}/Sample_G10`,
+                r1_size: 100,
+                r2_size: 101,
                 discovery_method: "server_path_scan",
               },
               {
-                sample_id: "G2",
-                r1: `${rawdataRoot}/Sample_DEMO-G2-G2/DEMO-G2-G2_combined_R1.fastq.gz`,
-                r2: `${rawdataRoot}/Sample_DEMO-G2-G2/DEMO-G2-G2_combined_R2.fastq.gz`,
-                source_dir: `${rawdataRoot}/Sample_DEMO-G2-G2`,
-                r1_size: 223,
-                r2_size: 224,
-                r1_mtime: 1782810100.0,
-                r2_mtime: 1782810101.0,
+                sample_id: "G11",
+                r1: `${rawdataRoot}/Sample_G11/G11_R1.fastq.gz`,
+                r2: `${rawdataRoot}/Sample_G11/G11_R2.fastq.gz`,
+                source_dir: `${rawdataRoot}/Sample_G11`,
+                r1_size: 200,
+                r2_size: 201,
                 discovery_method: "server_path_scan",
               },
             ],
           });
         }
         if (url.endsWith("/api/runs") && init?.method === "POST") {
-          const requestBody = JSON.parse(String(init.body || "{}")) as {
-            pipeline?: string;
-            target?: "metadata" | "dryrun_cnv" | "invalid_target" | "baseline_qc" | "final_summary";
-          };
-          if (requestBody.pipeline === "wes_qsub") {
-            wesRunStatus = "created";
-            return mockJson(
-              {
-                analysis_id: wesRunId,
-                pipeline: "wes_qsub",
-                dag_id: "bio_wes_qsub",
-                dag_run_id: null,
-                status: "created",
-                workdir: `/data/airflow-demo/runs/${wesRunId}`,
-                sample_count: 2,
-              },
-              {status: 201},
-            );
-          }
-          createdRunTarget =
-            requestBody.target === "dryrun_cnv" || requestBody.target === "invalid_target" || requestBody.target === "baseline_qc"
-              ? requestBody.target
-              : "metadata";
-          createdRunStatus = "created";
-          return mockJson(
-            {
-              analysis_id: createdRunId,
-              pipeline: "pgta",
-              dag_id: "bio_pgta",
+          const body = JSON.parse(String(init.body || "{}")) as {pipeline?: string};
+          if (body.pipeline === "wes_qsub") {
+            wesStatus = "created";
+            return mockJson({
+              analysis_id: wesRunId,
+              pipeline: "wes_qsub",
+              dag_id: "bio_wes_qsub",
               dag_run_id: null,
               status: "created",
-              workdir: `/data/airflow-demo/runs/${createdRunId}`,
-              sample_count: createdRunTarget === "baseline_qc" ? 2 : 1,
-            },
-            {status: 201},
-          );
-        }
-        if (url.endsWith(`/api/runs/${runId}`)) {
+              workdir: `/data/airflow-demo/runs/${wesRunId}`,
+              sample_count: 2,
+            });
+          }
+          createdPgtaStatus = "created";
           return mockJson({
-            analysis_id: runId,
+            analysis_id: createdPgtaRunId,
             pipeline: "pgta",
-            status: "success",
-            mode: "new",
-            dag_id: "bio_pgta_airflow",
-            dag_run_id: `manual__${runId}_events`,
-            airflow_url: null,
-            workdir: `/data/airflow-demo/runs/${runId}`,
-            sample_sheet_path: `/data/airflow-demo/runs/${runId}/config/samples.selected.tsv`,
-            params: {target: "metadata", selected_count: 2},
-            error_summary: null,
-            email_to: null,
+            dag_id: "bio_pgta",
+            dag_run_id: null,
+            status: "created",
+            workdir: `/data/airflow-demo/runs/${createdPgtaRunId}`,
+            sample_count: 2,
           });
         }
-        if (url.endsWith(`/api/runs/${createdRunId}`)) {
+        if (url.endsWith(`/api/runs/${failedRunId}`)) {
           return mockJson({
-            analysis_id: createdRunId,
+            analysis_id: failedRunId,
             pipeline: "pgta",
-            status: createdRunStatus || "created",
+            status: "failed",
             mode: "new",
             dag_id: "bio_pgta",
-            dag_run_id: createdDagRunId,
-            airflow_url: null,
-            workdir: `/data/airflow-demo/runs/${createdRunId}`,
-            sample_sheet_path: `/data/airflow-demo/runs/${createdRunId}/config/samples.selected.tsv`,
-            params: {
-              target: createdRunTarget,
-              selected_count: createdRunTarget === "baseline_qc" ? 2 : 1,
-            },
-            error_summary: null,
+            dag_run_id: `manual__${failedRunId}`,
+            workdir: `/data/airflow-demo/runs/${failedRunId}`,
+            sample_sheet_path: `/data/airflow-demo/runs/${failedRunId}/config/samples.selected.tsv`,
+            params: {target: "invalid_target", selected_count: 1},
+            error_summary:
+              '{"status":"failed","stderr_path":"/data/airflow-demo/runs/PGTA/logs/snakemake.stderr.log","last_100_lines":["MissingRuleException: No rule to produce __airflow_demo_invalid_target__"]}',
             email_to: "demo@example.com",
+            created_at: "2026-07-03T17:09:57+08:00",
+            started_at: "2026-07-03T17:10:00+08:00",
+            ended_at: "2026-07-03T17:11:00+08:00",
+          });
+        }
+        if (url.endsWith(`/api/runs/${pgtaRunId}`)) {
+          return mockJson({
+            analysis_id: pgtaRunId,
+            pipeline: "pgta",
+            status: "success",
+            mode: "resume",
+            dag_id: "bio_pgta",
+            dag_run_id: `manual__${pgtaRunId}__resume__20260707T144147Z`,
+            workdir: `/data/airflow-demo/runs/${pgtaRunId}`,
+            sample_sheet_path: `/data/airflow-demo/runs/${pgtaRunId}/config/samples.selected.tsv`,
+            params: {target: "baseline_qc", selected_count: 2},
+            error_summary: null,
+            email_to: null,
+            created_at: "2026-07-06T16:21:50+08:00",
+            started_at: "2026-07-07T14:41:47+08:00",
+            ended_at: "2026-07-07T22:53:00+08:00",
           });
         }
         if (url.endsWith(`/api/runs/${wesRunId}`)) {
           return mockJson({
             analysis_id: wesRunId,
             pipeline: "wes_qsub",
-            status: wesRunStatus || "success",
+            status: wesStatus,
             mode: "new",
             dag_id: "bio_wes_qsub",
-            dag_run_id: wesDagRunId || `manual__${wesRunId}`,
-            airflow_url: null,
+            dag_run_id: wesDagRunId,
             workdir: `/data/airflow-demo/runs/${wesRunId}`,
             sample_sheet_path: `/data/airflow-demo/runs/${wesRunId}/config/samples.selected.tsv`,
             params: {target: "final_summary", selected_count: 2, input_mode: "mock_wes"},
@@ -212,281 +199,111 @@ describe("PGT-A run dashboard", () => {
             email_to: null,
           });
         }
-        if (url.endsWith(`/api/runs/${runId}/samples`)) {
+        if (url.endsWith(`/api/runs/${createdPgtaRunId}`)) {
+          return mockJson({
+            analysis_id: createdPgtaRunId,
+            pipeline: "pgta",
+            status: createdPgtaStatus,
+            mode: "new",
+            dag_id: "bio_pgta",
+            dag_run_id: createdPgtaDagRunId,
+            workdir: `/data/airflow-demo/runs/${createdPgtaRunId}`,
+            sample_sheet_path: `/data/airflow-demo/runs/${createdPgtaRunId}/config/samples.selected.tsv`,
+            params: {target: "baseline_qc", selected_count: 2},
+            error_summary: null,
+            email_to: null,
+          });
+        }
+        if (url.match(/\/api\/runs\/[^/]+\/samples$/)) {
+          const id = url.split("/api/runs/")[1].split("/samples")[0];
+          if (id === wesRunId) {
+            return mockJson({
+              items: [
+                {sample_id: "S001", family_id: "FAM001", fq1: "pipelines/wes/mock_data/S001.input.txt", status: "success", qc_status: "pass"},
+                {sample_id: "S002", family_id: "FAM001", fq1: "pipelines/wes/mock_data/S002.input.txt", status: "success", qc_status: "pass"},
+              ],
+            });
+          }
           return mockJson({
             items: [
-              {
-                sample_id: "G1",
-                fq1: "/data/project/CNV/PGT-A/rawdata/G1_R1.fastq.gz",
-                fq2: "/data/project/CNV/PGT-A/rawdata/G1_R2.fastq.gz",
-                status: "pending",
-                qc_status: "unknown",
-                metadata: {source_dir: "/data/project/CNV/PGT-A/rawdata/G1"},
-              },
+              {sample_id: "G10", fq1: `${rawdataRoot}/Sample_G10/G10_R1.fastq.gz`, fq2: `${rawdataRoot}/Sample_G10/G10_R2.fastq.gz`, status: id === failedRunId ? "failed" : "success", qc_status: id === pgtaRunId ? "fail" : "unknown"},
+              {sample_id: "G11", fq1: `${rawdataRoot}/Sample_G11/G11_R1.fastq.gz`, fq2: `${rawdataRoot}/Sample_G11/G11_R2.fastq.gz`, status: id === failedRunId ? "failed" : "success", qc_status: id === pgtaRunId ? "fail" : "unknown"},
             ],
           });
         }
-        if (url.endsWith(`/api/runs/${createdRunId}/samples`)) {
+        if (url.match(/\/api\/runs\/[^/]+\/rules$/)) {
+          const id = url.split("/api/runs/")[1].split("/rules")[0];
+          if (id === failedRunId) {
+            return mockJson({
+              items: [{rule: "__airflow_demo_invalid_target__", sample_id: null, status: "failed", snakemake_jobid: "1", return_code: 1, message: "MissingRuleException"}],
+            });
+          }
           return mockJson({
             items: [
-              {
-                sample_id: "G1",
-                fq1: `${rawdataRoot}/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R1.fastq.gz`,
-                fq2: `${rawdataRoot}/Sample_DEMO-G1-G1/DEMO-G1-G1_combined_R2.fastq.gz`,
-                status: "pending",
-                qc_status: "unknown",
-                metadata: {source_dir: `${rawdataRoot}/Sample_DEMO-G1-G1`},
-              },
+              {rule: "fastp", sample_id: id === wesRunId ? "S001" : null, status: "success", snakemake_jobid: "1", qsub_jobid: id === wesRunId ? "MOCK-WES-fastp-S001" : null, return_code: 0},
+              {rule: id === wesRunId ? "final_summary" : "baseline_bam_uniformity_qc", sample_id: null, status: "success", snakemake_jobid: "2", return_code: 0},
             ],
           });
         }
-        if (url.endsWith(`/api/runs/${wesRunId}/samples`)) {
-          return mockJson({
-            items: [
-              {
-                sample_id: "S001",
-                fq1: "pipelines/wes/mock_data/S001.input.txt",
-                fq2: null,
-                status: "pending",
-                qc_status: "unknown",
-                metadata: {input_mode: "mock_wes"},
-              },
-              {
-                sample_id: "S002",
-                fq1: "pipelines/wes/mock_data/S002.input.txt",
-                fq2: null,
-                status: "pending",
-                qc_status: "unknown",
-                metadata: {input_mode: "mock_wes"},
-              },
-            ],
-          });
-        }
-        if (url.endsWith(`/api/runs/${runId}/rules`)) {
-          return mockJson({
-            items: [
-              {
-                rule: "all",
-                sample_id: null,
-                status: "success",
-                snakemake_jobid: "0",
-                qsub_jobid: null,
-                stdout_path: null,
-                stderr_path: null,
-                start_time: "2026-07-03T05:48:00",
-                end_time: "2026-07-03T05:49:00",
-                message: "finished",
-                return_code: 0,
-                wildcards: {},
-              },
-              {
-                rule: "collect_run_metadata",
-                sample_id: null,
-                status: "success",
-                snakemake_jobid: "1",
-                qsub_jobid: null,
-                stdout_path: null,
-                stderr_path: null,
-                start_time: "2026-07-03T05:48:10",
-                end_time: "2026-07-03T05:48:20",
-                message: "finished",
-                return_code: 0,
-                wildcards: {},
-              },
-            ],
-          });
-        }
-        if (url.endsWith(`/api/runs/${createdRunId}/rules`)) {
-          return mockJson({items: []});
-        }
-        if (url.endsWith(`/api/runs/${wesRunId}/rules`)) {
-          return mockJson({
-            items: [
-              {
-                rule: "fastp",
-                sample_id: "S001",
-                status: "success",
-                snakemake_jobid: "1",
-                qsub_jobid: "MOCK-WES-fastp-S001",
-                stdout_path: `/data/airflow-demo/runs/${wesRunId}/logs/qsub/fastp.S001.o`,
-                stderr_path: `/data/airflow-demo/runs/${wesRunId}/logs/qsub/fastp.S001.e`,
-                return_code: 0,
-                wildcards: {sample: "S001"},
-              },
-            ],
-          });
-        }
-        if (url.endsWith(`/api/runs/${runId}/artifacts`)) {
-          return mockJson({
-            items: [
-              {
-                key: "run_metadata",
-                type: "pgta_metadata",
-                label: "PGT-A run metadata",
-                path: `/data/airflow-demo/runs/${runId}/logs/run_metadata.tsv`,
-                size_bytes: 128,
-                url: `/api/runs/${runId}/logs?stream=metadata`,
-              },
-            ],
-          });
-        }
-        if (url.endsWith(`/api/runs/${runId}/qc`)) {
+        if (url.match(/\/api\/runs\/[^/]+\/qc$/)) {
+          const id = url.split("/api/runs/")[1].split("/qc")[0];
+          if (id === pgtaRunId) {
+            return mockJson({
+              summary: {pass: 0, warn: 0, fail: 14, unknown: 0},
+              items: [{sample_id: "G10", metric_name: "baseline_qc_decision", metric_value: "FAIL", metric_numeric: null, threshold: "PASS", status: "fail"}],
+            });
+          }
+          if (id === wesRunId) {
+            return mockJson({
+              summary: {pass: 6, warn: 0, fail: 0, unknown: 0},
+              items: [{sample_id: "S001", metric_name: "mock_mean_depth", metric_value: "100", metric_numeric: 100, threshold: ">=80", status: "pass"}],
+            });
+          }
           return mockJson({summary: {pass: 0, warn: 0, fail: 0, unknown: 0}, items: []});
         }
-        if (url.endsWith(`/api/runs/${createdRunId}/artifacts`)) {
-          return mockJson({items: []});
-        }
-        if (url.endsWith(`/api/runs/${createdRunId}/qc`)) {
-          return mockJson({summary: {pass: 0, warn: 0, fail: 0, unknown: 0}, items: []});
-        }
-        if (url.endsWith(`/api/runs/${wesRunId}/artifacts`)) {
+        if (url.match(/\/api\/runs\/[^/]+\/artifacts$/)) {
+          const id = url.split("/api/runs/")[1].split("/artifacts")[0];
           return mockJson({
             items: [
-              {
-                key: "wes_final_summary",
-                type: "wes_mock_summary",
-                label: "WES mock final summary",
-                path: `/data/airflow-demo/runs/${wesRunId}/reports/final_summary.tsv`,
-                size_bytes: 42,
-                url: `/api/runs/${wesRunId}/artifacts/wes_final_summary`,
-              },
+              {key: "snakemake_command", type: "snakemake_log", label: "Snakemake command", path: `/data/airflow-demo/runs/${id}/logs/snakemake.command.txt`, size_bytes: 256, url: `/api/runs/${id}/logs?stream=metadata`},
+              {key: "qc_summary", type: "qc_tsv", label: "QC summary", path: `/data/airflow-demo/runs/${id}/reports/qc_summary.tsv`, size_bytes: 128, url: `/api/runs/${id}/artifacts/qc_summary`},
             ],
           });
         }
-        if (url.endsWith(`/api/runs/${wesRunId}/qc`)) {
+        if (url.includes("/logs?")) {
+          const stream = new URL(url).searchParams.get("stream");
+          if (url.includes(failedRunId) && stream === "stderr") {
+            return mockJson({
+              path: `/data/airflow-demo/runs/${failedRunId}/logs/snakemake.stderr.log`,
+              stream: "stderr",
+              truncated: false,
+              lines: ["MissingRuleException: No rule to produce __airflow_demo_invalid_target__"],
+            });
+          }
           return mockJson({
-            summary: {pass: 6, warn: 0, fail: 0, unknown: 0},
-            items: [
-              {
-                sample_id: "S001",
-                metric_name: "workflow_status",
-                metric_value: "mock_success",
-                metric_numeric: null,
-                threshold: "mock_success",
-                status: "pass",
-                source_file: `/data/airflow-demo/runs/${wesRunId}/reports/qc_summary.tsv`,
-              },
-              {
-                sample_id: "S001",
-                metric_name: "mock_mean_depth",
-                metric_value: "100",
-                metric_numeric: 100,
-                threshold: ">=80",
-                status: "pass",
-                source_file: `/data/airflow-demo/runs/${wesRunId}/reports/qc_summary.tsv`,
-              },
-              {
-                sample_id: "S002",
-                metric_name: "mock_pct_20x",
-                metric_value: "0.95",
-                metric_numeric: 0.95,
-                threshold: ">=0.90",
-                status: "pass",
-                source_file: `/data/airflow-demo/runs/${wesRunId}/reports/qc_summary.tsv`,
-              },
-            ],
-          });
-        }
-        if (url.endsWith(`/api/runs/${runId}/logs?stream=metadata&tail=200`)) {
-          return mockJson({
-            path: `/data/airflow-demo/runs/${runId}/logs/run_metadata.tsv`,
-            stream: "metadata",
+            path: "/data/airflow-demo/runs/demo/logs/snakemake.stdout.log",
+            stream: stream || "stdout",
             truncated: false,
-            lines: ["key\tvalue", "target\tmetadata"],
+            lines: ["workflow complete"],
           });
         }
-        if (url.endsWith(`/api/runs/${createdRunId}/logs?stream=metadata&tail=200`)) {
-          return mockJson({detail: {code: "LOG_NOT_FOUND", message: "metadata log is not ready"}}, {status: 404});
-        }
-        if (url.endsWith(`/api/runs/${wesRunId}/logs?stream=metadata&tail=200`)) {
-          return mockJson({detail: {code: "LOG_NOT_FOUND", message: "metadata log is not used for WES"}}, {status: 404});
-        }
-        if (url.endsWith(`/api/runs/${wesRunId}/logs?stream=stdout&tail=200`)) {
-          return mockJson({
-            path: `/data/airflow-demo/runs/${wesRunId}/logs/snakemake.stdout.log`,
-            stream: "stdout",
-            truncated: false,
-            lines: ["WES mock snakemake stdout"],
-          });
-        }
-        if (url.endsWith(`/api/runs/${runId}/actions/sync-airflow`) && init?.method === "POST") {
-          return mockJson({
-            analysis_id: runId,
-            pipeline: "pgta",
-            status: "success",
-            dag_id: "bio_pgta_airflow",
-            dag_run_id: `manual__${runId}_events`,
-            workdir: `/data/airflow-demo/runs/${runId}`,
-            error_summary: null,
-          });
-        }
-        if (url.endsWith(`/api/runs/${createdRunId}/actions/sync-airflow`) && init?.method === "POST") {
-          return mockJson({
-            analysis_id: createdRunId,
-            pipeline: "pgta",
-            status: createdRunStatus || "running",
-            dag_id: "bio_pgta",
-            dag_run_id: createdDagRunId,
-            workdir: `/data/airflow-demo/runs/${createdRunId}`,
-            error_summary: null,
-          });
-        }
-        if (url.endsWith(`/api/runs/${createdRunId}/actions/submit`) && init?.method === "POST") {
-          createdRunStatus = "submitted";
-          createdDagRunId = `manual__${createdRunId}`;
-          return mockJson({
-            analysis_id: createdRunId,
-            pipeline: "pgta",
-            status: "submitted",
-            dag_id: "bio_pgta",
-            dag_run_id: createdDagRunId,
-            workdir: `/data/airflow-demo/runs/${createdRunId}`,
-            sample_count: createdRunTarget === "baseline_qc" ? 2 : 1,
-            sample_sheet_path: `/data/airflow-demo/runs/${createdRunId}/config/samples.selected.tsv`,
-            params: {
-              target: createdRunTarget,
-              selected_count: createdRunTarget === "baseline_qc" ? 2 : 1,
-            },
-            error_summary: null,
-          });
-        }
-        if (url.endsWith(`/api/runs/${createdRunId}/actions/reanalyze`) && init?.method === "POST") {
-          const requestBody = JSON.parse(String(init.body || "{}")) as {mode: string};
-          createdRunStatus = "submitted";
-          createdDagRunId = `manual__${createdRunId}__${requestBody.mode}__20260707T100000`;
-          return mockJson({
-            analysis_id: createdRunId,
-            new_dag_run_id: createdDagRunId,
-            mode: requestBody.mode,
-            status: "submitted",
-          });
+        if (url.endsWith(`/api/runs/${createdPgtaRunId}/actions/submit`) && init?.method === "POST") {
+          createdPgtaStatus = "submitted";
+          createdPgtaDagRunId = `manual__${createdPgtaRunId}`;
+          return mockJson({analysis_id: createdPgtaRunId, pipeline: "pgta", status: "submitted", dag_id: "bio_pgta", dag_run_id: createdPgtaDagRunId, sample_count: 2});
         }
         if (url.endsWith(`/api/runs/${wesRunId}/actions/submit`) && init?.method === "POST") {
-          wesRunStatus = "submitted";
-          wesDagRunId = `manual__${wesRunId}`;
-          return mockJson({
-            analysis_id: wesRunId,
-            pipeline: "wes_qsub",
-            status: "submitted",
-            dag_id: "bio_wes_qsub",
-            dag_run_id: wesDagRunId,
-            workdir: `/data/airflow-demo/runs/${wesRunId}`,
-            sample_count: 2,
-            sample_sheet_path: `/data/airflow-demo/runs/${wesRunId}/config/samples.selected.tsv`,
-            params: {target: "final_summary", selected_count: 2, input_mode: "mock_wes"},
-            error_summary: null,
-          });
+          wesStatus = "submitted";
+          wesDagRunId = `manual__${wesRunId}__new`;
+          return mockJson({analysis_id: wesRunId, pipeline: "wes_qsub", status: "submitted", dag_id: "bio_wes_qsub", dag_run_id: wesDagRunId, sample_count: 2});
         }
         if (url.endsWith(`/api/runs/${wesRunId}/actions/reanalyze`) && init?.method === "POST") {
-          const requestBody = JSON.parse(String(init.body || "{}")) as {mode: string};
-          wesRunStatus = "submitted";
-          wesDagRunId = `manual__${wesRunId}__${requestBody.mode}__20260705T010500`;
-          return mockJson({
-            analysis_id: wesRunId,
-            new_dag_run_id: wesDagRunId,
-            mode: requestBody.mode,
-            status: "submitted",
-          });
+          wesStatus = "submitted";
+          wesDagRunId = `manual__${wesRunId}__rerun_rule`;
+          return mockJson({analysis_id: wesRunId, new_dag_run_id: wesDagRunId, mode: "rerun_rule", status: "submitted"});
+        }
+        if (url.match(/\/api\/runs\/[^/]+\/actions\/sync-airflow$/) && init?.method === "POST") {
+          return mockJson({status: "success"});
         }
         return mockJson({detail: {code: "NOT_MOCKED", message: url}}, {status: 404});
       }),
@@ -498,349 +315,133 @@ describe("PGT-A run dashboard", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders the selected PGT-A run with samples, rules, logs, and artifacts", async () => {
+  it("renders a routed app shell dashboard with platform status", async () => {
     render(<App />);
 
-    expect(await screen.findByText(runId)).toBeInTheDocument();
-    expect(await screen.findByText("bio_pgta_airflow")).toBeInTheDocument();
-    expect(screen.getByText("G1")).toBeInTheDocument();
-    expect(screen.getByText("collect_run_metadata")).toBeInTheDocument();
-    expect(screen.getByText("PGT-A run metadata")).toBeInTheDocument();
-    expect(await screen.findByText((_, element) => element?.textContent === "key\tvalue")).toBeInTheDocument();
+    expect(await screen.findByRole("navigation", {name: /primary navigation/i})).toBeInTheDocument();
+    expect(screen.getByRole("link", {name: /dashboard/i})).toHaveAttribute("href", "/dashboard");
+    expect(screen.getByText(/Demo environment/i)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Failed runs/i)).length).toBeGreaterThan(0);
+    expect(screen.getByText(failedRunId)).toBeInTheDocument();
+    expect(screen.getByText(/Airflow scheduler/i)).toBeInTheDocument();
+    expect(screen.getByText(/Mock resource overview/i)).toBeInTheDocument();
   });
 
-  it("renders UTC API timestamps in the configured Shanghai display timezone", async () => {
-    render(<App />);
-
-    expect(await screen.findByText(runId)).toBeInTheDocument();
-    expect(screen.getByText(/2026-07-03 05:47:12 Asia\/Shanghai/)).toBeInTheDocument();
-  });
-
-  it("syncs Airflow status from the run detail toolbar", async () => {
-    render(<App />);
-
-    const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
-    await userEvent.click(within(toolbar).getByRole("button", {name: /sync airflow/i}));
-
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/api/runs/${runId}/actions/sync-airflow`),
-        expect.objectContaining({method: "POST"}),
-      );
-    });
-  });
-
-  it("auto-syncs selected active Airflow runs and stops after terminal state", async () => {
-    const intervalCallbacks: Array<() => void> = [];
-    const originalSetInterval = window.setInterval.bind(window);
-    const originalClearInterval = window.clearInterval.bind(window);
-    const setIntervalSpy = vi.spyOn(window, "setInterval").mockImplementation((callback: TimerHandler, timeout?: number) => {
-      if (timeout === 15000) {
-        intervalCallbacks.push(callback as () => void);
-        return 15000;
-      }
-      return originalSetInterval(callback, timeout);
-    });
-    const clearIntervalSpy = vi.spyOn(window, "clearInterval").mockImplementation((handle?: number) => {
-      if (handle !== 15000) {
-        originalClearInterval(handle);
-      }
-    });
-    createdRunStatus = "running";
-    createdDagRunId = `manual__${createdRunId}`;
-
-    render(<App />);
-
-    expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
-    expect(await screen.findByText(/Auto sync active/i)).toBeInTheDocument();
-    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 15000);
-    expect(intervalCallbacks).toHaveLength(1);
-
-    createdRunStatus = "success";
-    await act(async () => {
-      intervalCallbacks[0]();
-      await Promise.resolve();
-    });
-
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/api/runs/${createdRunId}/actions/sync-airflow`),
-        expect.objectContaining({method: "POST"}),
-      );
-    });
-    expect(await screen.findByText(/Last synced/i)).toBeInTheDocument();
-    await waitFor(() => {
-      expect(clearIntervalSpy).toHaveBeenCalledWith(15000);
-    });
-    expect(screen.queryByText(/Auto sync active/i)).not.toBeInTheDocument();
-  });
-
-  it("scans a server FASTQ path and renders selectable sample candidates", async () => {
+  it("filters and sorts the runs table without hiding status text", async () => {
     const user = userEvent.setup();
+    setRoute("/runs");
     render(<App />);
 
-    await user.clear(await screen.findByLabelText(/rawdata root/i));
-    await user.type(screen.getByLabelText(/rawdata root/i), rawdataRoot);
-    await user.click(screen.getByRole("button", {name: /^scan$/i}));
+    expect(await screen.findByRole("heading", {name: /runs/i})).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText(/pipeline/i), "wes_qsub");
+    expect(screen.getByText(wesRunId)).toBeInTheDocument();
+    expect(screen.queryByText(pgtaRunId)).not.toBeInTheDocument();
 
-    const newRunPanel = screen.getByRole("region", {name: /new pgt-a run/i});
-    expect(await within(newRunPanel).findByText("G1")).toBeInTheDocument();
-    expect(within(newRunPanel).getByText("G2")).toBeInTheDocument();
-    expect(screen.getByText(/scan result was truncated/i)).toBeInTheDocument();
-
-    const createButton = screen.getByRole("button", {name: /create run/i});
-    expect(createButton).toBeDisabled();
-    await user.click(screen.getByRole("checkbox", {name: /select sample G1/i}));
-    expect(createButton).toBeEnabled();
+    await user.selectOptions(screen.getByLabelText(/pipeline/i), "all");
+    await user.selectOptions(screen.getByLabelText(/status/i), "failed");
+    expect(screen.getByText(failedRunId)).toBeInTheDocument();
+    expect(screen.getAllByText(/failed/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(wesRunId)).not.toBeInTheDocument();
   });
 
-  it("keeps the PGT-A submit form in a main submit workspace with clear enablement guidance", async () => {
-    render(<App />);
-
-    const submitWorkspace = await screen.findByRole("region", {name: /submit new analysis/i});
-    expect(within(submitWorkspace).getByRole("region", {name: /new pgt-a run/i})).toBeInTheDocument();
-
-    const runList = screen.getByRole("complementary", {name: /analysis run list/i});
-    expect(within(runList).queryByRole("region", {name: /new pgt-a run/i})).not.toBeInTheDocument();
-    expect(within(submitWorkspace).getByText(/select at least one scanned sample/i)).toBeInTheDocument();
-  });
-
-  it("creates a PGT-A run from selected server-path samples and selects the new run", async () => {
+  it("opens failed run detail with stderr diagnostics and searchable logs", async () => {
     const user = userEvent.setup();
+    setRoute(`/runs/${failedRunId}`);
     render(<App />);
 
-    await user.clear(await screen.findByLabelText(/project name/i));
-    await user.type(screen.getByLabelText(/project name/i), "metadata smoke");
+    expect(await screen.findByText(failedRunId)).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name: /failure diagnosis/i})).toBeInTheDocument();
+    expect(screen.getByText(/MissingRuleException/i)).toBeInTheDocument();
+
+    const logsTab = screen.getByRole("tab", {name: /logs/i});
+    await user.click(logsTab);
+    expect(await screen.findByRole("tab", {name: /stderr/i})).toHaveAttribute("aria-selected", "true");
+    await user.type(screen.getByLabelText(/search logs/i), "MissingRule");
+    expect(screen.getByText(/1 matching line/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /copy visible log excerpt/i})).toBeInTheDocument();
+  });
+
+  it("validates sample-sheet preview before enabling unsupported pipeline submit", async () => {
+    const user = userEvent.setup();
+    setRoute("/submit");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", {name: /submit task/i})).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", {name: /wgs/i}));
+    await user.type(
+      screen.getByLabelText(/sample sheet text/i),
+      "sample_id\tfastq_path\tsex\tproject\nWG001\t/data/mock/WG001_R1.fastq.gz\tF\tWGS\nWG001\t\tM\tWGS\n",
+    );
+
+    expect(await screen.findByText(/duplicate sample_id WG001/i)).toBeInTheDocument();
+    expect(screen.getByText(/row 3 fastq_path is required/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /mock preview only/i})).toBeDisabled();
+  });
+
+  it("keeps the existing PGT-A scan, create, and submit flow", async () => {
+    const user = userEvent.setup();
+    setRoute("/submit");
+    render(<App />);
+
+    await user.click(await screen.findByRole("radio", {name: /pgt-a/i}));
     await user.clear(screen.getByLabelText(/rawdata root/i));
     await user.type(screen.getByLabelText(/rawdata root/i), rawdataRoot);
+    await user.selectOptions(screen.getByLabelText(/target/i), "baseline_qc");
     await user.click(screen.getByRole("button", {name: /^scan$/i}));
-    await user.click(await screen.findByRole("checkbox", {name: /select sample G1/i}));
+    await user.click(await screen.findByRole("checkbox", {name: /select sample G10/i}));
+    await user.click(screen.getByRole("checkbox", {name: /select sample G11/i}));
     await user.click(screen.getByRole("button", {name: /create run/i}));
 
+    expect(await screen.findByText(createdPgtaRunId)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", {name: /submit to airflow/i}));
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/runs"),
-        expect.objectContaining({
-          method: "POST",
-          body: expect.stringContaining('"project_name":"metadata smoke"'),
-        }),
-      );
-    });
-    expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
-    expect(screen.getByText("bio_pgta")).toBeInTheDocument();
-  });
-
-  it("creates a dryrun_cnv run when the target selector is changed", async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
-    await user.selectOptions(await screen.findByLabelText(/target/i), "dryrun_cnv");
-    await user.click(screen.getByRole("button", {name: /^scan$/i}));
-    await user.click(await screen.findByRole("checkbox", {name: /select sample G1/i}));
-    await user.click(screen.getByRole("button", {name: /create run/i}));
-
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/runs"),
-        expect.objectContaining({
-          method: "POST",
-          body: expect.stringContaining('"target":"dryrun_cnv"'),
-        }),
-      );
-    });
-    expect(
-      await screen.findByText(
-        (_, element) =>
-          element?.tagName.toLowerCase() === "pre" &&
-          (element.textContent?.includes('"target": "dryrun_cnv"') ?? false),
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it("requires two selected samples before creating a baseline_qc run", async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
-    await user.selectOptions(await screen.findByLabelText(/target/i), "baseline_qc");
-    expect(screen.getByRole("option", {name: /baseline QC smoke/i})).toBeInTheDocument();
-    await user.click(screen.getByRole("button", {name: /^scan$/i}));
-    await user.click(await screen.findByRole("checkbox", {name: /select sample G1/i}));
-
-    const createButton = screen.getByRole("button", {name: /create run/i});
-    expect(createButton).toBeDisabled();
-    expect(screen.getByText(/baseline QC smoke requires at least 2 selected samples/i)).toBeInTheDocument();
-
-    await user.click(screen.getByRole("checkbox", {name: /select sample G2/i}));
-    expect(createButton).toBeEnabled();
-    await user.click(createButton);
-
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/runs"),
-        expect.objectContaining({
-          method: "POST",
-          body: expect.stringContaining('"target":"baseline_qc"'),
-        }),
-      );
-    });
-  });
-
-  it("submits a created metadata run to Airflow and refreshes the submitted state", async () => {
-    const user = userEvent.setup();
-    createdRunStatus = "created";
-    render(<App />);
-
-    expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
-    const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
-    await user.click(await within(toolbar).findByRole("button", {name: /submit to airflow/i}));
-
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/api/runs/${createdRunId}/actions/submit`),
+        expect.stringContaining(`/api/runs/${createdPgtaRunId}/actions/submit`),
         expect.objectContaining({method: "POST"}),
       );
     });
-    expect(await screen.findByText(`manual__${createdRunId}`)).toBeInTheDocument();
-    expect(screen.getAllByText("submitted").length).toBeGreaterThan(0);
   });
 
-  it("submits a created dryrun_cnv run to Airflow", async () => {
+  it("keeps the WES mock create, submit, and selected-rule rerun flow", async () => {
     const user = userEvent.setup();
-    createdRunStatus = "created";
-    createdRunTarget = "dryrun_cnv";
+    setRoute("/submit");
     render(<App />);
 
-    expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
-    const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
-    await user.click(within(toolbar).getByRole("button", {name: /submit to airflow/i}));
-
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/api/runs/${createdRunId}/actions/submit`),
-        expect.objectContaining({method: "POST"}),
-      );
-    });
-    expect(await screen.findByText(`manual__${createdRunId}`)).toBeInTheDocument();
-  });
-
-  it("submits a created baseline_qc run to Airflow", async () => {
-    const user = userEvent.setup();
-    createdRunStatus = "created";
-    createdRunTarget = "baseline_qc";
-    render(<App />);
-
-    expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
-    const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
-    await user.click(within(toolbar).getByRole("button", {name: /submit to airflow/i}));
-
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/api/runs/${createdRunId}/actions/submit`),
-        expect.objectContaining({method: "POST"}),
-      );
-    });
-    expect(await screen.findByText(`manual__${createdRunId}`)).toBeInTheDocument();
-  });
-
-  it("triggers PGT-A baseline_qc resume only from a failed run", async () => {
-    const user = userEvent.setup();
-    createdRunStatus = "failed";
-    createdRunTarget = "baseline_qc";
-    createdDagRunId = `manual__${createdRunId}`;
-    render(<App />);
-
-    expect(await screen.findByText(`Analysis ID: ${createdRunId}`)).toBeInTheDocument();
-    const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
-    await user.click(within(toolbar).getByRole("button", {name: /resume with 64 cores/i}));
-
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/api/runs/${createdRunId}/actions/reanalyze`),
-        expect.objectContaining({
-          method: "POST",
-          body: expect.stringContaining('"mode":"resume"'),
-        }),
-      );
-    });
-  });
-
-  it("creates and submits a WES mock run from the WES panel", async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
-    const wesPanel = await screen.findByRole("region", {name: /new wes mock run/i});
-    await user.click(within(wesPanel).getByRole("button", {name: /create and submit wes/i}));
-
+    await user.click(await screen.findByRole("radio", {name: /wes/i}));
+    await user.click(screen.getByRole("button", {name: /create and submit wes mock/i}));
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
         expect.stringContaining("/api/runs"),
-        expect.objectContaining({
-          method: "POST",
-          body: expect.stringContaining('"pipeline":"wes_qsub"'),
-        }),
+        expect.objectContaining({method: "POST", body: expect.stringContaining('"pipeline":"wes_qsub"')}),
       );
     });
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/api/runs/${wesRunId}/actions/submit`),
-        expect.objectContaining({method: "POST"}),
-      );
-    });
-    expect(await screen.findByText(`manual__${wesRunId}`)).toBeInTheDocument();
-  });
 
-  it("renders WES QC summary and metric rows in run detail", async () => {
-    wesRunStatus = "success";
+    cleanup();
+    setRoute(`/runs/${wesRunId}`);
     render(<App />);
-
-    expect(await screen.findByText(`Analysis ID: ${wesRunId}`)).toBeInTheDocument();
-    expect(await screen.findByRole("heading", {name: "QC"})).toBeInTheDocument();
-    expect(await screen.findByText(/pass:\s*6/)).toBeInTheDocument();
-    expect(screen.getByText("mock_mean_depth")).toBeInTheDocument();
-    expect(screen.getByText("mock_pct_20x")).toBeInTheDocument();
-    expect(screen.getAllByText("pass").length).toBeGreaterThan(0);
-  });
-
-  it("triggers WES resume from run detail", async () => {
-    const user = userEvent.setup();
-    wesRunStatus = "success";
-    render(<App />);
-
-    expect(await screen.findByText(`Analysis ID: ${wesRunId}`)).toBeInTheDocument();
-    const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
-    await user.click(within(toolbar).getByRole("button", {name: /^resume$/i}));
-
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/api/runs/${wesRunId}/actions/reanalyze`),
-        expect.objectContaining({
-          method: "POST",
-          body: expect.stringContaining('"mode":"resume"'),
-        }),
-      );
-    });
-  });
-
-  it("triggers WES selected rule rerun from run detail", async () => {
-    const user = userEvent.setup();
-    wesRunStatus = "success";
-    render(<App />);
-
-    expect(await screen.findByText(`Analysis ID: ${wesRunId}`)).toBeInTheDocument();
-    const toolbar = await screen.findByRole("toolbar", {name: /run actions/i});
-
+    expect(await screen.findByText(wesRunId)).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText(/rerun rule/i), "fastp");
     await user.selectOptions(screen.getByLabelText(/rerun sample/i), "S001");
-    await user.click(within(toolbar).getByRole("button", {name: /rerun rule/i}));
+    await user.click(screen.getByRole("button", {name: /rerun selected rule/i}));
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
         expect.stringContaining(`/api/runs/${wesRunId}/actions/reanalyze`),
-        expect.objectContaining({
-          method: "POST",
-          body: expect.stringContaining('"rule":"fastp"'),
-        }),
+        expect.objectContaining({method: "POST", body: expect.stringContaining('"rule":"fastp"')}),
       );
     });
+  });
+
+  it("shows workflow and failure resource pages with mock labels for unavailable pipelines", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("link", {name: /workflows/i}));
+    expect((await screen.findAllByText(/NIPT docker/i)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/demo\/mock/i).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("link", {name: /failures/i}));
+    expect(await screen.findByText(/Recent failed runs/i)).toBeInTheDocument();
+    expect(screen.getByText(/retry suggestion/i)).toBeInTheDocument();
   });
 });
