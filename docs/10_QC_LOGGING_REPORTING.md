@@ -72,6 +72,7 @@ nipt:
 | Snakemake stderr | workdir/logs/snakemake.stderr.log | 主流程错误 |
 | Snakemake command | workdir/logs/snakemake.command.txt | PGT-A/WES 实际 Snakemake 命令，用于复现和确认 flags；WES reanalysis 还用于确认 `--forcerun` 且无 `--forceall` |
 | Snakemake unlock command | workdir/logs/snakemake.unlock.command.txt | PGT-A `baseline_qc` resume 的 unlock 命令；用于确认中断后先清理 lock 再 `--rerun-incomplete` |
+| PGT-A resume cleanup | workdir/logs/pgta.resume.cleanup.tsv | PGT-A `baseline_qc` resume 在主命令前删除的 `mapping/*.sorted.bam.tmp.*.bam` 清单 |
 | qsub stdout | workdir/logs/qsub/*.o | 集群 job 标准输出 |
 | qsub stderr | workdir/logs/qsub/*.e | 集群 job 标准错误 |
 | rule stdout | workdir/logs/rules/...stdout.log | rule 自身输出 |
@@ -229,6 +230,7 @@ snakemake --report shared/reports/<analysis_id>/snakemake_report.html
 - T090 后端会同步维护 `sample.status`：创建时为 `pending`，submit/reanalyze 后为 `running`，显式 `sync-airflow` 后随 Airflow 状态变为 `success` 或 `failed`。
 - T088 后 `bio_pgta` 和 `bio_pgta_airflow` 均设置 `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，避免 Snakemake 写入不可写的 `/home/airflow/.cache/snakemake`。
 - T093 后 PGT-A `baseline_qc` resume 会写 `snakemake.unlock.command.txt` 和 unlock stdout/stderr；主命令应包含 `--cores 64 --rerun-incomplete` 且不包含 `--forceall`。
+- T094 后 PGT-A `baseline_qc` resume 会在 unlock 成功后、主命令前写 `logs/pgta.resume.cleanup.tsv`，并且只删除当前 run 下 `mapping/*.sorted.bam.tmp.*.bam`。
 
 已完成的 PGT-A Airflow-only logger 验收：
 

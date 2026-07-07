@@ -382,6 +382,20 @@ shared/runs/<analysis_id>/logs/snakemake.unlock.stderr.log
 
 The main command then adds `--rerun-incomplete` and keeps `--cores ${PGTA_SNAKEMAKE_CORES:-64}`. `--forceall` is explicitly not used; Snakemake is expected to reuse completed outputs from the same workdir and rerun only missing or incomplete work.
 
+T094 adds a run-local cleanup step between successful `--unlock` and the main resume command. It removes only interrupted samtools sort temporary files matching:
+
+```text
+workdir/mapping/*.sorted.bam.tmp.*.bam
+```
+
+It writes:
+
+```text
+shared/runs/<analysis_id>/logs/pgta.resume.cleanup.tsv
+```
+
+The cleanup refuses non run-local workdirs, does not delete `*.sorted.bam`, `*.sorted.bam.bai`, FASTQ, QC, logs, config, PGT-A source files, or rawdata, and still does not use `--forceall`.
+
 ### collect_pgta_artifact
 
 `metadata` 验收 `logs/run_metadata.tsv` 是否存在；`dryrun_cnv` 验收 `logs/snakemake.stdout.log` 是否存在并返回 dry-run stdout artifact；`baseline_qc` 验收 `qc/baseline/baseline_qc_summary.tsv`、`baseline_qc_pass_samples.txt` 和 `baseline_qc_report.md`。`invalid_target` 预期在 `run_pgta_target` failed，不进入 collect task。

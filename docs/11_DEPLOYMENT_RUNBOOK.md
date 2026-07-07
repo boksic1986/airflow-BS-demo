@@ -597,6 +597,42 @@ grep -F -- '--rerun-incomplete' "shared/runs/${analysis_id}/logs/snakemake.comma
 
 2026-07-07 T093 evidence: the old run `manual__PGTA_20260706_162150_00C4FD` was controlled-interrupted and synced to `failed`; resume run `manual__PGTA_20260706_162150_00C4FD__resume__20260707T095201Z` started successfully. At 18:09 CST it was still running `run_pgta_target`; Snakemake command contained `--cores 64 --rerun-incomplete`, unlock command contained `--unlock`, and active rule processes showed `bwa mem -t 16` plus `samtools sort -@ 16`. No `qc/baseline` terminal artifacts existed yet.
 
+### T094 PGT-A resume cleanup for interrupted samtools sort
+
+Use this only after a `baseline_qc` resume failed because interrupted `samtools sort` temporary BAMs already exist, for example:
+
+```text
+samtools sort: failed to create temporary file ".../mapping/G11.sorted.bam.tmp.0000.bam": File exists
+```
+
+The T094 runner cleans only the current run workdir:
+
+```text
+shared/runs/<analysis_id>/mapping/*.sorted.bam.tmp.*.bam
+```
+
+It does not delete `*.sorted.bam`, `*.sorted.bam.bai`, FASTQ, QC, logs, config, PGT-A source files, or rawdata. The cleanup log is:
+
+```bash
+cat "shared/runs/${analysis_id}/logs/pgta.resume.cleanup.tsv"
+```
+
+Before triggering another resume, confirm no matching process is still active:
+
+```bash
+docker top airflow-demo-airflow-worker-1 -eo pid,ppid,etime,pcpu,pmem,args \
+  | grep -F "$analysis_id" | grep -v grep || true
+```
+
+Then call the same resume endpoint:
+
+```bash
+curl -fsS -X POST \
+  "http://127.0.0.1:8000/api/runs/${analysis_id}/actions/reanalyze" \
+  -H 'Content-Type: application/json' \
+  -d '{"mode":"resume","reason":"resume after cleaning interrupted samtools sort temp BAMs"}'
+```
+
 ## 14. PGT-A diagnostics smoke
 
 T025/T062 验收不重新运行 PGT-A；复用已有 Airflow DAG run，同步状态并读取日志/产物。

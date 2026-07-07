@@ -79,6 +79,13 @@ ARTIFACTS = [
         url="/api/runs/{analysis_id}/artifacts/snakemake_command",
     ),
     ArtifactDefinition(
+        key="pgta_resume_cleanup",
+        type="snakemake_log",
+        label="PGT-A resume cleanup log",
+        relative_path=Path("logs/pgta.resume.cleanup.tsv"),
+        url="/api/runs/{analysis_id}/artifacts/pgta_resume_cleanup",
+    ),
+    ArtifactDefinition(
         key="pgta_config_yaml",
         type="pgta_config",
         label="PGT-A Snakemake config",

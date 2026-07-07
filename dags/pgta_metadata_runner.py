@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -198,6 +199,11 @@ def run_pgta_target(
         if unlock_completed.returncode != 0:
             unlock_stderr = logs_dir / "snakemake.unlock.stderr.log"
             raise RuntimeError(f"PGT-A Snakemake unlock failed with exit code {unlock_completed.returncode}. See {unlock_stderr}")
+        _cleanup_pgta_resume_temp_files(
+            workdir=workdir,
+            analysis_id=str(conf.get("analysis_id") or workdir.name),
+            logs_dir=logs_dir,
+        )
         command.append("--rerun-incomplete")
     if target == "dryrun_cnv":
         command.extend(["--dry-run", "--ignore-incomplete", "--rerun-triggers", "mtime"])
@@ -354,6 +360,33 @@ def _write_samtools_wrapper(workdir: Path, samtools_bin: Path, samtools_library_
     wrapper.write_text("\n".join(lines) + "\n", encoding="utf-8")
     wrapper.chmod(0o755)
     return wrapper
+
+
+def _cleanup_pgta_resume_temp_files(*, workdir: Path, analysis_id: str, logs_dir: Path) -> Path:
+    _validate_resume_cleanup_workdir(workdir=workdir, analysis_id=analysis_id)
+    cleanup_path = logs_dir / "pgta.resume.cleanup.tsv"
+    lines = ["deleted_at\tpath\tsize_bytes"]
+    mapping_dir = (workdir / "mapping").resolve()
+    if mapping_dir.is_dir():
+        for path in sorted(mapping_dir.glob("*.sorted.bam.tmp.*.bam")):
+            resolved = path.resolve()
+            if resolved.parent != mapping_dir or not _is_relative_to(resolved, mapping_dir):
+                raise ValueError(f"Refusing to clean path outside PGT-A mapping dir: {resolved}")
+            size_bytes = path.lstat().st_size
+            path.unlink()
+            deleted_at = datetime.now(timezone.utc).isoformat()
+            lines.append(f"{deleted_at}\t{resolved}\t{size_bytes}")
+    cleanup_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return cleanup_path
+
+
+def _validate_resume_cleanup_workdir(*, workdir: Path, analysis_id: str) -> None:
+    resolved = workdir.resolve()
+    normalized_analysis_id = analysis_id.strip()
+    if not normalized_analysis_id:
+        raise ValueError("analysis_id is required for PGT-A resume cleanup.")
+    if resolved.name != normalized_analysis_id or resolved.parent.name != "runs":
+        raise ValueError(f"Refusing PGT-A resume cleanup outside run-local workdir: {resolved}")
 
 
 def _target_from_conf(conf: dict[str, Any]) -> str:

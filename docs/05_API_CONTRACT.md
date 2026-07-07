@@ -541,6 +541,7 @@ PGT-A v1 第一版动态发现 metadata/dry-run/baseline QC 产物，不写 arti
 
 - `logs/run_metadata.tsv`
 - `logs/snakemake.command.txt`
+- `logs/pgta.resume.cleanup.tsv`
 - `logs/snakemake.stdout.log`
 - `logs/snakemake.stderr.log`
 - `config.yaml`
