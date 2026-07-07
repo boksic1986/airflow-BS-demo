@@ -79,6 +79,7 @@
 | T057 | PGT-A run detail 展示 | frontend | T027,T035,T025 | pgta run overview/sample/rule/log/artifact/sync UI | PGT-A run detail v1 可查看 rules/logs/artifacts；T084 failure smoke 后失败摘要可通过现有 detail/logs API 查看 | done |
 | T096 | Frontend platform UI redesign v2 | frontend/docs | T050-T057,T054,T056 | routed app shell, Dashboard/Submit/Runs/Run Detail/Samples/Workflows/Failures/Settings, shared components, design docs | remote frontend Docker test target passed 7 tests; frontend production build passed `tsc -b && vite build`; 12959 HTTP 200; PGT-A/WES backend API spot checks passed | done |
 | T097 | PGT-A-only frontend deployment scope | frontend/docs | T096,T027,T087,T092 | Sidebar/Dashboard/Submit/Runs/Samples/Failures scoped to PGT-A; WES/NIPT/WGS hidden from deployable demo; docs/state updated | remote frontend Docker test target passed 5 PGT-A-only tests; frontend build/deploy on 12959 verified; mail notification remains todo and WES qsub historical code remains untouched | done |
+| T098 | PGT-A frontend/Airflow data reconciliation | frontend/backend/docs | T097,T090,T087,T092 | active PGT-A detail auto-sync through backend `sync-airflow`; `/api/runs` run-level QC aggregation from samples; docs/state updated | remote backend pytest passed 53 tests; remote frontend Docker test target passed 6 tests; backend/frontend build and redeploy passed; `PGTA_20260706_162150_00C4FD` list/detail/Airflow latest state reconciled as workflow success + QC fail | done |
 
 ## P6 QC/日志/报告/邮件
 

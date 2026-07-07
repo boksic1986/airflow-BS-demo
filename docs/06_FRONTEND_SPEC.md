@@ -366,3 +366,16 @@ Expected product semantics:
 - Frontend run counts are analysis-run counts from biodemo, not raw Airflow DAG-run counts.
 - A resumed PGT-A analysis can have multiple historical Airflow DAG runs, but the frontend shows one `analysis_id` with the latest `dag_run_id`.
 - Workflow status and QC status remain separate. `PGTA_20260706_162150_00C4FD` is workflow `success` with sample/run QC `fail`.
+
+### T098 verification
+
+Remote validation on `ssh fengxian` at commit `f64e0d2`:
+
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- `docker run --rm airflow-demo/backend:t098-test pytest -q`: passed, `53 passed`.
+- `docker build --target test -f frontend/Dockerfile frontend`: passed, `6` Vitest tests.
+- `docker compose -f docker-compose.yaml build backend frontend`: passed, including frontend `tsc -b && vite build`.
+- `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend frontend`: passed; backend became healthy and frontend returned HTTP 200 on port `12959`.
+- `GET /api/runs?pipeline=pgta&limit=50&offset=0` returned `17` PGT-A analysis runs; `PGTA_20260706_162150_00C4FD` had `status=success` and `qc_status=fail`.
+- `GET /api/runs/PGTA_20260706_162150_00C4FD/qc` returned `pass=0,warn=0,fail=14,unknown=0`.
+- Airflow `bio_pgta` listed `20` DAG runs total and `5` DAG runs matching `PGTA_20260706_162150_00C4FD`; the latest matching run `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` was `success`.

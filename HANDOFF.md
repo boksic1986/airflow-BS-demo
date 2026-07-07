@@ -36,6 +36,88 @@
 
 ## Records
 
+## 2026-07-08 02:18 - Codex - T098 PGT-A frontend/Airflow data reconciliation
+
+### Goal
+
+Resolve the apparent frontend/Airflow data mismatch in the PGT-A-only demo without exposing WES/NIPT/WGS or adding mail notification work.
+
+### Completed
+
+- Confirmed the frontend data path is `React -> FastAPI -> Airflow REST API + biodemo DB`; the frontend does not connect directly to Airflow metadata DB.
+- Found one real mismatch: `/api/runs` hard-coded `qc_status=unknown`, while `PGTA_20260706_162150_00C4FD/qc` already reported 14 failed PGT-A baseline QC metrics.
+- Fixed `/api/runs` to aggregate run-level QC from sample `qc_status` with priority `fail > warn > unknown > pass`.
+- Restored active PGT-A Run Detail auto-sync: if the selected PGT-A run has a `dag_run_id` and active status, the page calls backend `sync-airflow` immediately and every 15 seconds until terminal state.
+- Rebuilt and redeployed only backend/frontend on `fengxian`.
+- Verified `PGTA_20260706_162150_00C4FD` is reconciled: frontend/backend list and detail show workflow `success`, run/sample QC `fail`; latest matching Airflow DAG run is `success`.
+
+### Changed files
+
+- `backend/app/run_service.py`
+- `backend/tests/test_run_creation.py`
+- `frontend/src/App.test.tsx`
+- `frontend/src/pages/RunDetailPage.tsx`
+- `docs/05_API_CONTRACT.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| red backend targeted test in temporary clone | failed as expected | `qc_status` was `unknown` instead of expected `fail` |
+| red frontend Docker test target in temporary clone | failed as expected | active PGT-A detail did not call `/actions/sync-airflow` |
+| green targeted backend test in temporary clone | success | new QC aggregation test passed |
+| green frontend Docker test target in temporary clone | success | 6 Vitest tests passed |
+| temporary-clone full backend pytest | success | 53 passed |
+| temporary-clone frontend production build | success | `tsc -b && vite build` passed |
+| `git push -u origin codex/frontend/T098-airflow-data-reconcile` | success | pushed commit `f64e0d2` |
+| remote mirror checkout/pull | success | `/home/jiucheng/project/airflow-demo` at `f64e0d2` |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | compose config valid |
+| `docker run --rm airflow-demo/backend:t098-test pytest -q` on `fengxian` | success | 53 passed |
+| `docker build --target test -f frontend/Dockerfile frontend` on `fengxian` | success | cache-hit test target for 6 Vitest tests |
+| `docker compose -f docker-compose.yaml build backend frontend` on `fengxian` | success | backend built; frontend build passed `tsc -b && vite build` |
+| `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend frontend` on `fengxian` | success | recreated only backend/frontend; no volumes deleted |
+| HTTP/API/Airflow spot check on `fengxian` | success | frontend HTTP 200; backend health ok; Airflow healthy; target PGT-A list/detail/QC/Airflow state reconciled |
+
+### Tests
+
+- Backend full pytest passed remotely: 53 tests.
+- Frontend Docker test target passed remotely: 6 Vitest tests.
+- Frontend production build passed remotely through Compose.
+- Runtime spot check passed: `/api/runs?pipeline=pgta&limit=50&offset=0` returned 17 PGT-A analysis runs, and `PGTA_20260706_162150_00C4FD` now has `qc_status=fail`; Airflow `bio_pgta` has 20 DAG runs total and 5 matching that analysis because of resume history, latest matching run `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` is `success`.
+
+### Not run / why
+
+- `npm run lint` was not run because `frontend/package.json` still has no `lint` script.
+- No new PGT-A analysis was submitted; this task only reconciled and displayed existing state.
+- MailHog/SMTP notification remains out of scope by user request.
+- WES qsub UI remains hidden; historical backend/DAG/Snakemake code was not deleted.
+
+### Current git status
+
+At handoff time, code commit `f64e0d2` is pushed and deployed. State-doc updates are pending local commit/push on the same branch.
+
+### Risks
+
+- Frontend analysis-run counts will still differ from raw Airflow DAG-run counts after resumes; this is expected and should be narrated clearly in demos.
+- PGT-A `PGTA_20260706_162150_00C4FD` remains workflow success with QC fail, not a QC-pass biological sample.
+
+### Open questions
+
+- Whether the next frontend iteration should show a small "Airflow attempts/resume history" panel for PGT-A run detail to make the 1 analysis / many DAG runs relationship explicit.
+
+### Next recommended task
+
+Add an Airflow attempt history panel in Run Detail, or continue with `T082` rollback/cleanup runbook. Keep mail notifications paused unless the user reopens `T034/T063`.
+
+### Rollback notes
+
+Revert T098 commits and redeploy backend/frontend. No Airflow DAG code, database migration, shared run directory, or Docker volume rollback is required.
+
 ## 2026-07-08 01:54 - Codex - T097 PGT-A-only frontend deployment scope
 
 ### Goal
