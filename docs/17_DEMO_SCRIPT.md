@@ -2,162 +2,171 @@
 
 ## 1. 演示目标
 
-向团队展示 Airflow + Snakemake 对 WES/NIPT 生信流程的帮助：
+本 demo 用 10-15 分钟展示 airflow-demo 已经具备的核心能力：
 
-- 从手工提交变成网页提交。
-- 从 qstat 手动查看变成 DAG + rule 级监控。
-- 从翻服务器日志变成按 sample/rule 查看 stderr。
-- 从失败后不确定如何续跑变成 resume/rerun。
-- 从流程完成后人工通知变成邮件和报告链接。
+- 前端从服务器路径扫描样本，不上传 5-6G FASTQ。
+- FastAPI 创建 run、记录 samples、触发 Airflow DAG。
+- Airflow 管项目级生命周期，Snakemake 管 rule/file dependency 和 resume。
+- 前端查看 run 状态、samples、logs、artifacts、rules 和 QC。
+- WES mock 展示 qsub job id、rule 状态、QC pass 和 rerun rule。
+- PGT-A Level 4 展示真实 `baseline_qc` workflow success，同时明确当前 G10/G11 样本 QC decision 为 `FAIL`。
 
-## 2. 准备
+## 2. 演示前准备
 
-- 服务已启动。
-- 前端可访问。
-- Airflow UI 可访问。
-- MailHog 可访问。
-- PGT-A demo rawdata_root 已在 `INPUT_SCAN_ROOTS` 白名单内。
-- 成功场景和失败场景都已 smoke test。
+- 前端：`http://fengxian:12959/`。
+- Airflow 管理 UI：`http://fengxian:12958/`，仅作为管理员调试入口。
+- Backend API：`http://fengxian:8000/api`。
+- PGT-A demo rawdata root：`/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28`。
+- 已验证 run：
+  - PGT-A Level 4：`PGTA_20260706_162150_00C4FD`。
+  - WES QC success：`WES_20260705_164813_C5561C`。
+  - WES rerun rule：`WES_20260705_162041_2507AF`。
+- 本轮 MailHog 邮件通知尚未实现，`T034/T063` 仍是后续任务；演示时不要承诺邮件已完成。
 
 ## 3. 10-15 分钟流程
 
-### Step 1: 展示 Dashboard
-
-说明：
-
-```text
-这里是生信任务中心，可以看到 PGT-A、WES、NIPT qsub、NIPT Docker 的运行状态。
-```
-
-### Step 2: 创建 PGT-A 项目
+### Step 1: 打开任务中心
 
 操作：
 
-- 打开 Submit。
-- 选择 PGT-A。
-- 填写项目名和服务器 `rawdata_root`。
-- 点击 Scan。
-- 勾选 1-2 个候选样本。
-- 目标选择 metadata。
-- 填写 email_to。
-- 点击 Create。
+- 打开 `http://fengxian:12959/`。
+- 展示 run list、pipeline/status 筛选、右侧 run detail。
 
-说明：
+讲解：
 
 ```text
-FASTQ 通常有 5-6G，不通过网页上传。后端只扫描白名单服务器路径，保存 R1/R2 路径，生成 analysis_id、workdir 和 selected manifest。当前 PGT-A v1 采用两步模式：先创建项目，再单独 submit 到 Airflow。
+Airflow UI 不是普通用户主入口。前端统一展示 PGT-A 和 WES mock runs，用户通过 FastAPI 获取状态、日志、artifact 和 QC。
 ```
 
-### Step 3: 提交到 Airflow metadata DAG
+### Step 2: PGT-A 创建与提交入口
 
 操作：
 
-- 在 Run Detail 点击 Submit。
-- 确认状态从 created 变成 submitted。
-- 打开 Airflow link。
+- 在 `Submit new analysis` 选择 PGT-A。
+- 填写项目名和 `rawdata_root`。
+- 点击 Scan，展示候选 R1/R2。
+- 选择 target：
+  - `metadata smoke` 用于轻量新建演示。
+  - `baseline QC smoke` 是真实 Level 4，演示时默认只展示历史成功 run，不现场重跑。
 
-说明：
+讲解：
 
 ```text
-submit action 只允许 pgta + metadata + created run。Airflow 执行 bio_pgta 的四个项目级步骤，并由 Snakemake 在隔离 workdir 里生成 logs/run_metadata.tsv。
+PGT-A FASTQ 很大，页面不上传文件。后端只扫描白名单服务器路径，保存 R1/R2 路径，生成 analysis_id、workdir 和 selected manifest。创建和提交是两步，避免误触发重任务。
 ```
 
-可选进阶 PGT-A Level 4：
-
-- target 选择 baseline QC smoke。
-- 至少勾选 2 个样本。
-- 明确说明该步骤会真实执行 mapping + baseline QC，运行前需要确认样本和时间窗口。
-- 完成后展示 `qc/baseline/baseline_qc_summary.tsv`、baseline QC report 和前端 QC panel。
-
-### Step 4: 展示 Airflow DAG
+### Step 3: 展示 PGT-A metadata smoke
 
 操作：
 
-- 打开 Run Detail -> Airflow tab。
-- 点击 Airflow link。
+- 可以现场创建一个 `metadata smoke` run。
+- 点击 `Submit to Airflow`。
+- 通过 `Sync Airflow` 或自动同步观察状态。
+- 展示 metadata log 和 artifacts。
 
-说明：
+讲解：
 
 ```text
-Airflow 管的是项目级步骤，不拆每个 rule，这样 DAG 更稳定、可读。
+metadata smoke 用于证明前端/API/Airflow/Snakemake 的最小闭环。它不会跑 mapping 或 baseline QC。
 ```
 
-### Step 5: 展示 Snakemake rule 状态
+### Step 4: 展示 PGT-A Level 4 baseline_qc
 
 操作：
 
-- 打开 Snakemake tab。
-- 展示 rule/sample/qsub job id/status。
+- 打开历史 run `PGTA_20260706_162150_00C4FD`。
+- 展示 run status 为 `success`，dag_run_id 为 `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z`。
+- 展示 samples：G10/G11 workflow status 为 `success`，QC status 为 `fail`。
+- 展示 artifacts：
+  - `pgta_python_preflight`
+  - `pgta_baseline_qc_summary`
+  - `pgta_baseline_qc_pass_samples`
+  - `pgta_baseline_qc_report`
+  - `snakemake_command`
+- 展示 QC panel：`pass=0,warn=0,fail=14,unknown=0`。
 
-说明：
+讲解：
 
 ```text
-rule 级状态来自 Snakemake/qsub event，失败时可以定位到具体 rule、sample、qsub job 和日志。
+这里要区分 workflow status 和 QC decision。Airflow/Snakemake workflow 已经成功完成，baseline QC 文件也已生成并导入数据库；但当前 G10/G11 样本的 QC decision 是 FAIL，这说明数据或阈值不满足 QC，而不是平台执行失败。
 ```
 
-### Step 6: 展示失败场景
+### Step 5: 展示 Airflow 与 Snakemake 边界
 
 操作：
 
-- 提交或打开一个 mock failed run。
-- 展示 failed rule。
-- 点击 stderr。
+- 从前端打开 Airflow link，或在 Airflow UI 搜索 `bio_pgta`。
+- 展示 task graph：validate、prepare、run、collect。
+- 回到前端展示 logs/artifacts/QC。
 
-说明：
+讲解：
 
 ```text
-以前需要登录服务器找日志，现在页面直接给出失败 rule 和最后错误。
+Airflow 管一次分析的项目级生命周期。Snakemake 管具体 rule、文件依赖、跳过已完成输出和 resume。前端不替代 Airflow UI，而是给实验/生信人员一个更直接的操作入口。
 ```
 
-### Step 7: Resume
+### Step 6: 展示 WES mock QC success
 
 操作：
 
-- 点击 Resume failed run。
-- 展示已成功 rule skipped/cached，失败 rule 重跑。
+- 打开 `WES_20260705_164813_C5561C`。
+- 展示 status 为 `success`。
+- 展示 QC summary：`pass=6,warn=0,fail=0,unknown=0`。
+- 展示 artifacts：`wes_final_summary`、`wes_qc_summary`。
 
-说明：
+讲解：
 
 ```text
-Snakemake 根据文件依赖和 incomplete 状态决定重跑，不需要全量重新分析。
+WES mock 用轻量数据展示平台能力：qsub wrapper、rule events、QC parser、artifact discovery 和前端 QC panel。它不代表真实 WES 生产参数。
 ```
 
-### Step 8: QC 和邮件
+### Step 7: 展示 WES resume/rerun rule
 
 操作：
 
-- 打开 QC tab。
-- 打开 MultiQC/report artifact。
-- 打开 MailHog 邮件。
+- 打开 `WES_20260705_162041_2507AF`。
+- 展示 rules 表中 fastp/bwa_mem/markdup/final_summary 的 success 状态和 mock qsub job id。
+- 展示 command log 包含 `--forcerun fastp`，且不包含 `--forceall`。
 
-说明：
-
-```text
-完成后自动收集 QC，登记 report，并发送成功或失败通知。
-```
-
-## 4. 演示中的重点话术
+讲解：
 
 ```text
-Airflow 不是替代 Snakemake，而是管理一次分析任务的生命周期。
-Snakemake 不负责用户提交界面，但非常适合生信 rule 依赖和断点续跑。
-前端不是重做 Airflow UI，而是提供实验/生信人员更容易理解的入口。
+失败或需要局部重分析时，默认不全量重跑。WES mock 的 rerun_rule 只对指定 rule 生效，保留已有 workdir 和成功输出。
 ```
+
+### Step 8: 结尾与下一步
+
+讲解：
+
+```text
+当前 demo 已完成 PGT-A 主链路、WES mock qsub/QC/resume 和前端可视化。下一步是补 MailHog success/failure 邮件通知，整理最终回滚/清理 runbook；如果需要 PGT-A QC pass 演示样本，需要先做只读数据或阈值审计，不盲目重跑 baseline_qc。
+```
+
+## 4. 已实测证据
+
+详见 `docs/21_DEMO_SMOKE_REPORT.md`。
+
+关键结论：
+
+- 前端、后端、Airflow 当前在 `fengxian` 可访问。
+- PGT-A `baseline_qc` workflow success，但 G10/G11 QC fail。
+- WES mock QC success。
+- WES mock rerun rule 使用 `--forcerun fastp`，没有 `--forceall`。
 
 ## 5. 常见问题回答
 
 ### 为什么不用 Airflow 管每个 rule？
 
-因为生信 rule 数量和 sample 数量会动态变化。Airflow 更适合稳定的项目级 orchestration，Snakemake 更适合文件依赖和 rule 并行。
+生信 rule 和 sample 数会动态变化。Airflow 更适合稳定的项目级 orchestration，Snakemake 更适合文件依赖、rule 并行和断点续跑。
+
+### PGT-A QC fail 是不是流程失败？
+
+不是。`PGTA_20260706_162150_00C4FD` 的 Airflow/backend 状态是 `success`，baseline QC artifacts 已生成并导入 `/qc`。G10/G11 的 QC decision 是样本级 `FAIL`，用于提示数据或阈值问题。
 
 ### 失败后会不会全部重跑？
 
-默认不会。Resume 使用已有 workdir 和 Snakemake 文件依赖，只重跑 incomplete/failed 部分。
-
-### 能接真实流程吗？
-
-可以，但建议先通过 wrapper 接入，不直接重写生产脚本。先让日志、QC、事件、路径规范统一。
+默认不会。Resume 使用同一 workdir 和 Snakemake 文件依赖，只重跑 incomplete/failed 部分；WES mock 的 `rerun_rule` 也明确禁止默认 `--forceall`。
 
 ### 这个能上生产吗？
 
-当前是 demo 架构。生产化需要补充权限、审计、HTTPS、secrets 管理、稳定部署和数据合规。
+当前是 demo 架构。生产化还需要权限、审计、HTTPS、secrets 管理、稳定部署、数据合规、真实队列资源策略和正式运维流程。

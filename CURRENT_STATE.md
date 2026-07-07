@@ -6,7 +6,7 @@
 
 ```text
 当前阶段: P3/P4/P6 Airflow + Snakemake/qsub mock observability + PGT-A Level 4 staged integration
-当前目标: T095 已完成；`PGTA_20260706_162150_00C4FD` final resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` 已在 Airflow/backend 成功，baseline QC artifacts 和 `/qc` 已验收；样本 G10/G11 的 QC decision 为 `FAIL`，属于样本级 QC 结果，不是 workflow 失败。
+当前目标: T080/T081 已完成；demo smoke report 和 10-15 分钟演示脚本已收口。PGT-A `PGTA_20260706_162150_00C4FD` 可展示 workflow success + QC fail，WES mock 可展示 QC pass 和 rerun_rule without forceall。
 最近更新时间: 2026-07-07
 最后更新 agent: Codex
 ```
@@ -33,9 +33,9 @@ node_version: <unknown>
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
 active_branch: codex/airflow/T088-pgta-snakemake-cache
-last_verified_code_commit: 3bd1270 for T095 PGT-A Python preflight, conda `LD_LIBRARY_PATH`, conda `libstdc++.so.6` preload, and successful baseline_qc resume
+last_verified_code_commit: 3310134 for T095 runtime; T080/T081 is docs-only and used read-only runtime validation before the report update
 worktree_strategy: single-worktree for now; fengxian is code mirror only
-fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; runtime validation for T095 ran on origin/codex/airflow/T088-pgta-snakemake-cache at 3bd1270, followed by docs/status evidence update
+fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T080/T081 used read-only runtime validation on mirror at 3310134 before docs update
 ```
 
 ## 4. 服务状态
@@ -107,7 +107,7 @@ last_qsub_profile_runtime: passed on fengxian official mirror with `airflow-demo
 last_wes_airflow_qsub_smoke: passed on fengxian official mirror with `airflow-demo/airflow:0.1.0`; `WES_AIRFLOW_20260705_004506` / `manual__WES_AIRFLOW_20260705_004506` ended Airflow `success`, wrote `reports/final_summary.tsv` with `S001/S002 mock_success`, qsub stdout/stderr files, and 14 JSONL events; `collect_wes_artifacts` XCom returned `event_count=14` and `qsub_log_count=14`
 last_wes_reanalysis_smoke: passed on fengxian official mirror; API/frontend-created `WES_20260705_162041_2507AF` initial submit, `resume`, and `rerun_rule fastp/S001` all reached Airflow/backend `success`; `/rules` returned 7 rows; `logs/events/snakemake_events.jsonl` has 28 lines; `logs/snakemake.command.txt` contains `--forcerun fastp` and no `--forceall`
 last_wes_qc_smoke: passed on fengxian official mirror; API/frontend-created `WES_20260705_164813_C5561C` submitted to `bio_wes_qsub`, sync reached `success`, `/qc` returned `pass=6,warn=0,fail=0,unknown=0` with 6 items, artifacts included `wes_qc_summary`, and `reports/qc_summary.tsv` exists
-last_e2e_smoke: PGT-A Level 0-3 demo smoke passed for preflight/config, metadata create-submit-success, dryrun_cnv success, and invalid_target failure/error_summary; WES mock create-submit-sync-QC passed; full email/NIPT E2E not run
+last_e2e_smoke: T080/T081 read-only demo smoke on fengxian at mirror head 3310134 confirmed frontend HTTP 200, backend health ok, Airflow metadatabase/scheduler healthy; PGT-A `PGTA_20260706_162150_00C4FD` workflow status success with G10/G11 QC status fail and `/qc` summary `pass=0,warn=0,fail=14,unknown=0`; WES QC run `WES_20260705_164813_C5561C` success with `/qc` summary `pass=6,warn=0,fail=0,unknown=0`; WES rerun_rule run `WES_20260705_162041_2507AF` success with command containing `--forcerun fastp` and no `--forceall`; full email/NIPT E2E not run
 ```
 
 ## 8. 已知问题
@@ -130,8 +130,8 @@ last_e2e_smoke: PGT-A Level 0-3 demo smoke passed for preflight/config, metadata
 ## 10. 下一步建议
 
 ```text
-1. 执行 T080/T081：整理 WES/PGT-A 端到端 smoke 脚本和 10-15 分钟 demo 验收报告，明确 PGT-A workflow success 但当前样本 QC fail。
-2. 若演示需要 PGT-A QC pass 样本，先做只读数据/阈值审计，不要盲目重跑 baseline_qc。
-3. 执行 T034/T063：补 MailHog success/failure 邮件通知，邮件包含 run detail、QC/report、错误摘要链接。
+1. 执行 T082：整理回滚/清理 runbook，重点是不删除 volumes、不碰生产 PGT-A 目录、不盲目重跑 baseline_qc。
+2. 执行 T034/T063：补 MailHog success/failure 邮件通知，邮件包含 run detail、QC/report、错误摘要链接。
+3. 若演示需要 PGT-A QC pass 样本，先做只读数据/阈值审计，不要盲目重跑 baseline_qc。
 4. 迁移 BS10610 前继续把 PGT-A 路径、数据根目录、`/biosoftware`、shared root 全部参数化到 `.env`。
 ```

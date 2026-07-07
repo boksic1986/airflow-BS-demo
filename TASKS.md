@@ -100,8 +100,8 @@
 
 | ID | Task | Owner agent | Dependencies | Deliverables | Acceptance | Status |
 |---|---|---|---|---|---|---|
-| T080 | 端到端 smoke test | qa | T050-T063 | smoke script/report | WES mock 成功+失败场景 | todo |
-| T081 | Demo script | docs/coordinator | T080 | docs/17_DEMO_SCRIPT.md | 10-15 分钟可演示 | todo |
+| T080 | 端到端 smoke test | qa | T050-T063 | docs/21_DEMO_SMOKE_REPORT.md | PGT-A workflow success/QC fail、WES mock QC success、WES rerun_rule without forceall 均有远端只读证据；未提交新的重型 PGT-A run | done |
+| T081 | Demo script | docs/coordinator | T080 | docs/17_DEMO_SCRIPT.md | 10-15 分钟演示脚本已更新，明确普通用户主入口是前端，PGT-A workflow success 与 QC fail 分开讲 | done |
 | T082 | 回滚和清理 runbook | infra/docs | T080 | docs/11 更新 | 不删除 volume 的停止流程清楚 | todo |
 | T083 | 最终交接 | coordinator | T080-T082 | HANDOFF/CURRENT_STATE | 下一阶段任务明确 | todo |
 | T084 | PGT-A Level 0-3 smoke 验收 | qa | T014,T027,T035,T045,T057 | acceptance report | preflight、metadata、dry-run、failure smoke 记录完整；`dryrun_cnv=PGTA_20260703_170917_20E8F2` success，`invalid_target=PGTA_20260703_170957_3DDEC3` failed with error_summary | done |

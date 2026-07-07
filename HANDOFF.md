@@ -36,6 +36,76 @@
 
 ## Records
 
+## 2026-07-07 23:29 - Codex - T080/T081 demo smoke report and script
+
+### Goal
+
+Turn the already verified PGT-A/WES capabilities into a reproducible 10-15 minute demo script and smoke report without submitting new heavy PGT-A work.
+
+### Completed
+
+- Rechecked `fengxian` with read-only commands: frontend HTTP 200, backend `/api/health` ok, Airflow metadatabase and scheduler healthy.
+- Verified PGT-A `PGTA_20260706_162150_00C4FD` remains workflow `success`, with G10/G11 sample workflow `success` and QC status `fail`.
+- Verified PGT-A `/qc` summary is `pass=0,warn=0,fail=14,unknown=0`, and artifacts include `pgta_python_preflight`, `pgta_baseline_qc_summary`, `pgta_baseline_qc_pass_samples`, `pgta_baseline_qc_report`, and `snakemake_command`.
+- Verified WES mock QC run `WES_20260705_164813_C5561C` is `success` with `/qc` summary `pass=6,warn=0,fail=0,unknown=0`.
+- Verified WES rerun_rule run `WES_20260705_162041_2507AF` is `success`, has 7 rule rows, and command log contains `--forcerun fastp` without `--forceall`.
+- Rewrote `docs/17_DEMO_SCRIPT.md` around the current demo truth and added `docs/21_DEMO_SMOKE_REPORT.md`.
+- Updated `TASKS.md`, `CURRENT_STATE.md`, and `MANIFEST.json`.
+
+### Changed files
+
+- `docs/17_DEMO_SCRIPT.md`
+- `docs/21_DEMO_SMOKE_REPORT.md`
+- `TASKS.md`
+- `CURRENT_STATE.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git status --short --branch` | success | local branch clean before edits |
+| read-only `fengxian` smoke script | success | no new run submitted; frontend/backend/Airflow and PGT-A/WES evidence checked |
+| `curl http://127.0.0.1:12959/` on `fengxian` | HTTP 200 | frontend reachable |
+| `GET /api/health` | success | backend returned `{"status":"ok"}` |
+| `GET /health` on Airflow | success | metadatabase `healthy`, scheduler `healthy` |
+| `GET /api/runs/PGTA_20260706_162150_00C4FD/qc` | success | `pass=0,warn=0,fail=14,unknown=0` |
+| `GET /api/runs/WES_20260705_164813_C5561C/qc` | success | `pass=6,warn=0,fail=0,unknown=0` |
+| command log grep for `WES_20260705_162041_2507AF` | success | contains `--forcerun fastp`; no `--forceall` |
+
+### Tests
+
+- Runtime validation was read-only and performed on `ssh fengxian`.
+- Local static checks passed before commit: `git diff --check` had no whitespace errors, `rg` found the acceptance keywords, and `MANIFEST.json` reports `file_count=135`, `listed=135`, `missing=0`.
+
+### Not run / why
+
+- No backend/frontend/DAG unit tests were run because this is a docs/QA report-only update.
+- No new PGT-A baseline_qc run was submitted; current evidence is from the existing successful workflow run.
+- MailHog notification was not demonstrated because `T034/T063` is still todo.
+
+### Current git status
+
+Docs/state changes are pending commit at this checkpoint.
+
+### Risks
+
+- PGT-A demo should be narrated as workflow success with QC fail, not as a QC-pass biological sample.
+- If a QC-pass PGT-A demo is required, do a read-only candidate data/threshold audit before another heavy baseline_qc run.
+
+### Open questions
+
+- None for T080/T081; QC-pass sample selection remains a future product/demo decision.
+
+### Next recommended task
+
+T082 rollback/cleanup runbook, or T034/T063 MailHog success/failure notification.
+
+### Rollback notes
+
+- Revert the docs-only T080/T081 commit to remove the new smoke report and restore the old demo script. No runtime service rollback is needed.
+
 ## 2026-07-07 23:05 - Codex - T095 PGT-A baseline QC preflight final resume
 
 ### Goal
