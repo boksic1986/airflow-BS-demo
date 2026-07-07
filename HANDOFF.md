@@ -36,6 +36,84 @@
 
 ## Records
 
+## 2026-07-07 23:05 - Codex - T095 PGT-A baseline QC preflight final resume
+
+### Goal
+
+Finish T095 by fixing the PGT-A baseline QC Python dynamic-library failure and resuming `PGTA_20260706_162150_00C4FD` in the same workdir without deleting BAM/QC/config data.
+
+### Completed
+
+- Confirmed the previous resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T121252Z` had reached baseline QC and failed on `matplotlib` import due the system `libstdc++.so.6` lacking `CXXABI_1.3.15`.
+- Added PGT-A subprocess env isolation: run-local `XDG_CACHE_HOME`, run-local `MPLCONFIGDIR`, `LD_LIBRARY_PATH=PGTA_CONDA_LIB`, and `LD_PRELOAD=PGTA_LIBSTDCXX`.
+- Added `PGTA_LIBSTDCXX` to `.env.example` and Compose Airflow env.
+- Added a preflight log header showing command, `LD_LIBRARY_PATH`, `LD_PRELOAD`, `MPLCONFIGDIR`, and `XDG_CACHE_HOME`.
+- Deployed commit `3bd1270` to `fengxian` via `git pull --ff-only` and recreated only `airflow-scheduler` / `airflow-worker`.
+- Final resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` ended Airflow/backend `success`.
+- Verified artifacts: `baseline_qc_summary.tsv`, `baseline_qc_pass_samples.txt`, `baseline_qc_report.md`, and `pgta.python_preflight.log`.
+- Verified `/api/runs/PGTA_20260706_162150_00C4FD/qc`: 14 metrics imported, all `fail`; samples G10/G11 are workflow `success` with `qc_status=fail`.
+
+### Changed files
+
+- `.env.example`
+- `docker-compose.yaml`
+- `dags/pgta_metadata_runner.py`
+- `dags/tests/test_pgta_metadata_runner.py`
+- `backend/app/diagnostics_service.py`
+- `backend/tests/test_run_diagnostics.py`
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/05_API_CONTRACT.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | no rendered compose errors |
+| `docker compose -f docker-compose.yaml exec -T airflow-worker bash -lc 'python -m unittest discover -s dags/tests -v'` | success | 47 tests OK, 5 expected logger-interface skips |
+| `docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags list-import-errors` | success | `No data found` |
+| direct worker `_run_pgta_python_preflight` in temp workdir | success | logged `matplotlib 3.10.8`, `numpy 1.26.4`, `pandas 2.2.1`, `pysam 0.23.3`, `scipy 1.16.0` |
+| `POST /api/runs/PGTA_20260706_162150_00C4FD/actions/reanalyze` | success | created `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` |
+| `POST /api/runs/PGTA_20260706_162150_00C4FD/actions/sync-airflow` | success | backend status `success` |
+| `GET /api/runs/PGTA_20260706_162150_00C4FD/qc` | success | `pass=0,warn=0,fail=14,unknown=0` |
+| `git diff --check` | success | local non-runtime check |
+
+### Tests
+
+- Remote Airflow/DAG tests passed after the `LD_PRELOAD` fix.
+- Runtime baseline QC final resume passed and generated terminal baseline QC artifacts.
+
+### Not run / why
+
+- Frontend browser click-through was not repeated; backend APIs and generated artifacts were verified, and frontend consumes the same `/qc`/artifacts endpoints.
+- Backend full pytest was not rerun after the second `LD_PRELOAD` commit because no backend code changed after `966e0d8`; previous T095 backend pytest passed 52 tests.
+
+### Current git status
+
+Local branch `codex/airflow/T088-pgta-snakemake-cache` has state-doc updates pending after runtime success evidence.
+
+### Risks
+
+- Workflow success does not mean QC pass: G10/G11 baseline QC decision is `FAIL` (`median_abs_z>1.5;outlier_frac_abs_z_gt_3>0.3`).
+- Do not rerun baseline_qc blindly to chase a QC pass; first audit data suitability or thresholds.
+
+### Open questions
+
+- Whether demo narrative should present this as "workflow success with QC fail" or whether another PGT-A input set should be selected for a QC-pass demonstration.
+
+### Next recommended task
+
+T080/T081: build the end-to-end smoke/demo report, explicitly separating workflow status from QC decision. If a QC-pass PGT-A demo is required, do a read-only candidate data/threshold audit first.
+
+### Rollback notes
+
+- To roll back T095 runtime behavior, revert commits `966e0d8`, `fd1f3cd`, and `3bd1270`, pull on `fengxian`, and recreate only Airflow scheduler/worker. Do not delete shared run directories or Docker volumes.
+
 ## 2026-07-07 21:35 - Codex - T095 PGT-A baseline QC Python library preflight
 
 ### Goal
