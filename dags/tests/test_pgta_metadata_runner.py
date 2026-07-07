@@ -416,6 +416,34 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             command = run.call_args.args[0]
             self.assertEqual(command[command.index("--cores") + 1], "8")
 
+    def test_run_pgta_target_drops_inherited_library_path_for_pgta_conda_lib(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            workdir.mkdir(parents=True)
+            config_path = workdir / "config.yaml"
+            config_path.write_text("samples: {}\n", encoding="utf-8")
+
+            completed = Mock(returncode=0)
+            completed.stdout = ""
+            completed.stderr = ""
+            with patch.dict("pgta_metadata_runner.os.environ", {"LD_LIBRARY_PATH": "/usr/local/lib"}):
+                with patch("pgta_metadata_runner.subprocess.run", return_value=completed) as run:
+                    run_pgta_target(
+                        {
+                            "analysis_id": "PGTA_TEST",
+                            "workdir": str(workdir),
+                            "config_path": str(config_path),
+                            "params": {"target": "metadata"},
+                        },
+                        snakemake_bin=Path("/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"),
+                        pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                    )
+
+            self.assertEqual(
+                run.call_args.kwargs["env"]["LD_LIBRARY_PATH"],
+                "/biosoftware/miniconda/envs/snakemake_env/lib",
+            )
+
     def test_run_pgta_target_dryrun_adds_dry_run_flag(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workdir = Path(tmpdir) / "runs" / "PGTA_TEST"

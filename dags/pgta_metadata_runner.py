@@ -374,12 +374,7 @@ def _pgta_subprocess_env(workdir: Path) -> dict[str, str]:
     env["XDG_CACHE_HOME"] = str(cache_dir)
     env["MPLCONFIGDIR"] = str(matplotlib_dir)
 
-    conda_lib = str(DEFAULT_PGTA_CONDA_LIB)
-    existing_library_path = env.get("LD_LIBRARY_PATH")
-    if existing_library_path:
-        env["LD_LIBRARY_PATH"] = os.pathsep.join([conda_lib, existing_library_path])
-    else:
-        env["LD_LIBRARY_PATH"] = conda_lib
+    env["LD_LIBRARY_PATH"] = str(DEFAULT_PGTA_CONDA_LIB)
     return env
 
 

@@ -648,7 +648,7 @@ The T095 runner keeps the same run-local cache behavior and additionally sets:
 ```text
 XDG_CACHE_HOME=<workdir>/tmp/xdg-cache
 MPLCONFIGDIR=<workdir>/tmp/matplotlib
-LD_LIBRARY_PATH=${PGTA_CONDA_LIB:-/biosoftware/miniconda/envs/snakemake_env/lib}:<existing>
+LD_LIBRARY_PATH=${PGTA_CONDA_LIB:-/biosoftware/miniconda/envs/snakemake_env/lib}
 ```
 
 Before the long Snakemake command, `baseline_qc` runs a short import preflight with `PGTA_PYTHON_BIN`:
