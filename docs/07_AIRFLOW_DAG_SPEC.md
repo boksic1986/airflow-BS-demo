@@ -372,6 +372,16 @@ shared/runs/<analysis_id>/logs/snakemake.stdout.log
 shared/runs/<analysis_id>/logs/snakemake.stderr.log
 ```
 
+T093 adds `mode=resume` for `baseline_qc` only. `validate_request` rejects resume for other PGT-A targets. In resume mode, `run_pgta_target` first runs the same Snakemake command with `--unlock` and writes:
+
+```text
+shared/runs/<analysis_id>/logs/snakemake.unlock.command.txt
+shared/runs/<analysis_id>/logs/snakemake.unlock.stdout.log
+shared/runs/<analysis_id>/logs/snakemake.unlock.stderr.log
+```
+
+The main command then adds `--rerun-incomplete` and keeps `--cores ${PGTA_SNAKEMAKE_CORES:-64}`. `--forceall` is explicitly not used; Snakemake is expected to reuse completed outputs from the same workdir and rerun only missing or incomplete work.
+
 ### collect_pgta_artifact
 
 `metadata` 验收 `logs/run_metadata.tsv` 是否存在；`dryrun_cnv` 验收 `logs/snakemake.stdout.log` 是否存在并返回 dry-run stdout artifact；`baseline_qc` 验收 `qc/baseline/baseline_qc_summary.tsv`、`baseline_qc_pass_samples.txt` 和 `baseline_qc_report.md`。`invalid_target` 预期在 `run_pgta_target` failed，不进入 collect task。

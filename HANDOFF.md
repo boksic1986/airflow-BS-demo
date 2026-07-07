@@ -36,6 +36,104 @@
 
 ## Records
 
+## 2026-07-07 18:08 - Codex - T093 PGT-A controlled interrupt and 64-core resume
+
+### Goal
+
+Implement and validate a safe resume path for the long-running PGT-A `baseline_qc` run `PGTA_20260706_162150_00C4FD`: add backend/API, Airflow, and frontend support for same-workdir PGT-A resume, then perform one controlled interruption of the old `--cores 1` run and resume it with `--cores 64 --rerun-incomplete`.
+
+### Completed
+
+- Added PGT-A `POST /api/runs/{analysis_id}/actions/reanalyze` support for `pipeline=pgta,target=baseline_qc,mode=resume`.
+- Guardrails: PGT-A resume is allowed only for terminal failed/terminated runs; active running/submitted/queued runs, non-`baseline_qc` targets, `rerun_rule`, `clone_new`, rule/sample selectors, and `forceall` are rejected.
+- Extended `bio_pgta` resume mode: first runs Snakemake `--unlock`, then runs the main command with `--cores ${PGTA_SNAKEMAKE_CORES:-64} --rerun-incomplete`; no `--forceall`.
+- Added command artifacts: `logs/snakemake.unlock.command.txt`, unlock stdout/stderr logs, and updated `logs/snakemake.command.txt`.
+- Added frontend `Resume with 64 cores` button for failed/terminated PGT-A `baseline_qc` runs only.
+- Deployed backend/frontend and recreated Airflow scheduler/worker after the old run had failed, so the resume run used fresh code.
+- Controlled-interrupted only exact matching processes for `PGTA_20260706_162150_00C4FD`; did not touch unrelated host processes.
+- Synced the old DAG run to backend `failed`; `error_summary` captured Snakemake interruption and failed `fastp_bwa` context.
+- Submitted resume run `manual__PGTA_20260706_162150_00C4FD__resume__20260707T095201Z`.
+- Verified resume command artifacts:
+  - `snakemake.unlock.command.txt` contains `--cores 64 ... --unlock`.
+  - `snakemake.command.txt` contains `--cores 64 ... --rerun-incomplete`.
+  - `snakemake.command.txt` does not contain `--forceall`.
+- Fresh status at 2026-07-07 18:09 CST: resume DAG run is still `running`, `run_pgta_target=running`; active rule processes show `bwa mem -t 16` and `samtools sort -@ 16`; no `qc/baseline` terminal artifacts yet.
+
+### Changed files
+
+- `backend/app/main.py`
+- `backend/app/run_service.py`
+- `backend/tests/test_pgta_reanalysis.py`
+- `dags/pgta_metadata_runner.py`
+- `dags/tests/test_pgta_metadata_runner.py`
+- `frontend/src/App.tsx`
+- `frontend/src/App.test.tsx`
+- `docs/05_API_CONTRACT.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git status --short --branch` | success | branch `codex/airflow/T088-pgta-snakemake-cache` |
+| red backend/DAG/frontend tests on `fengxian` | failed as expected | backend endpoint only supported WES; DAG had no PGT-A resume/unlock; frontend lacked PGT-A resume button |
+| `docker compose -f docker-compose.yaml config --quiet` on `fengxian` | success | compose config valid |
+| `docker run --rm airflow-demo/backend:0.1.0 pytest -q tests/test_pgta_reanalysis.py tests/test_wes_run_lifecycle.py` | success | 7 passed |
+| `docker run --rm airflow-demo/backend:0.1.0 pytest -q` | success | 50 passed |
+| Airflow image unittest discover on `fengxian` | success | 43 tests OK, 5 skipped logger interface unavailable in that Python env |
+| `docker build --target test -f frontend/Dockerfile frontend` on `fengxian` | success | 17 Vitest tests passed |
+| `airflow dags list-import-errors` on `fengxian` | success | `No data found` |
+| `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend frontend` | success | backend/frontend redeployed, no volumes deleted |
+| `kill -TERM <snakemake pid>` then targeted child TERM if needed | success | only exact `PGTA_20260706_162150_00C4FD` processes were targeted |
+| `POST /api/runs/PGTA_20260706_162150_00C4FD/actions/sync-airflow` | success | old run became backend `failed`, samples failed, `error_summary` non-null |
+| `POST /api/runs/PGTA_20260706_162150_00C4FD/actions/reanalyze` | success | returned `manual__PGTA_20260706_162150_00C4FD__resume__20260707T095201Z`, status `submitted` |
+| final read-only monitor at 18:09 CST | success | resume run still `running`; command has 64 cores/rerun-incomplete; G11 BWA/Samtools active; no baseline QC files yet |
+
+### Tests
+
+- Remote backend full pytest passed: 50 passed.
+- Remote Airflow DAG unittest discover passed: 43 OK, 5 skipped for logger-interface availability in that Python env.
+- Remote frontend Docker test target passed: 17 Vitest tests.
+- Airflow import check passed: `No data found`.
+- Runtime command evidence passed: `--unlock`, `--cores 64`, `--rerun-incomplete`, and no `--forceall`.
+
+### Not run / why
+
+- Did not call final `sync-airflow` for the resume DAG run because it is still running.
+- Did not verify `baseline_qc_summary.tsv`, `/qc`, or frontend QC panel because `qc/baseline` outputs do not exist yet.
+- Did not submit any additional heavy PGT-A run.
+- Did not use `docker compose down -v`, `docker system prune`, or `docker volume prune`.
+
+### Current git status
+
+Code commits `6f9d617` and `2821a5e` are pushed to `origin/codex/airflow/T088-pgta-snakemake-cache`. This handoff/status update records runtime evidence after `2821a5e`.
+
+### Risks
+
+- The resumed baseline QC is still a real mapping/QC workload and may run for a while. Do not interrupt it again unless the user explicitly asks.
+- Backend status may remain `submitted/running` until the frontend auto-sync or manual `sync-airflow` runs; the terminal truth is Airflow.
+- If the resume run fails, sync first and inspect `error_summary`, `snakemake.stderr.log`, and rule logs before deciding on another action.
+
+### Open questions
+
+- None for code capability. Runtime success/failure of the resumed baseline QC is still pending.
+
+### Next recommended task
+
+Continue monitoring `manual__PGTA_20260706_162150_00C4FD__resume__20260707T095201Z`. If it reaches `success`, call `sync-airflow` and verify `qc/baseline/baseline_qc_summary.tsv`, `baseline_qc_pass_samples.txt`, `baseline_qc_report.md`, `/api/runs/{analysis_id}/qc`, artifacts, and frontend QC panel. If it reaches `failed`, call `sync-airflow`, record `error_summary` and stderr/rule logs, then decide whether another resume is warranted.
+
+### Rollback notes
+
+- Revert commit `2821a5e` to remove PGT-A resume support and rebuild/redeploy backend/frontend/Airflow images if needed.
+- Do not delete `shared/runs/PGTA_20260706_162150_00C4FD`; it contains the current resumed workdir and logs.
+- Use only safe service stops/recreates; never use `down -v`, Docker prune commands, or destructive Git commands.
+
 ## 2026-07-07 14:13 - Codex - T092 PGT-A baseline_qc current run monitor
 
 ### Goal

@@ -553,6 +553,50 @@ artifacts 包含 pgta_baseline_qc_summary、pgta_baseline_qc_pass_samples、pgta
 PGT-A 流程目录和 rawdata 目录没有被写入
 ```
 
+### T093 PGT-A controlled interrupt and resume
+
+Use this only for an already active `baseline_qc` run that the user explicitly chooses to interrupt and resume. Do not interrupt unrelated host processes.
+
+1. Re-check Airflow and exact matching processes:
+
+```bash
+analysis_id=PGTA_20260706_162150_00C4FD
+docker compose -f docker-compose.yaml exec -T airflow-scheduler \
+  airflow dags list-runs -d bio_pgta --output table
+docker top airflow-demo-airflow-worker-1 -eo pid,ppid,etime,pcpu,pmem,args \
+  | grep -F "$analysis_id" | grep -v grep
+```
+
+2. If still running and the user has approved interruption, terminate only the matching Snakemake process first. If needed, terminate only child shell/BWA/Samtools processes whose command contains the same `analysis_id`.
+
+3. After the old DAG run reaches `failed`, sync backend state:
+
+```bash
+curl -fsS -X POST \
+  "http://127.0.0.1:8000/api/runs/${analysis_id}/actions/sync-airflow"
+```
+
+4. Resume through FastAPI:
+
+```bash
+curl -fsS -X POST \
+  "http://127.0.0.1:8000/api/runs/${analysis_id}/actions/reanalyze" \
+  -H 'Content-Type: application/json' \
+  -d '{"mode":"resume","reason":"controlled resume after interrupting pre-T091 cores=1 run"}'
+```
+
+5. Verify the new run writes unlock and resume command artifacts:
+
+```bash
+cat "shared/runs/${analysis_id}/logs/snakemake.unlock.command.txt"
+cat "shared/runs/${analysis_id}/logs/snakemake.command.txt"
+grep -F -- '--cores 64' "shared/runs/${analysis_id}/logs/snakemake.command.txt"
+grep -F -- '--rerun-incomplete' "shared/runs/${analysis_id}/logs/snakemake.command.txt"
+! grep -F -- '--forceall' "shared/runs/${analysis_id}/logs/snakemake.command.txt"
+```
+
+2026-07-07 T093 evidence: the old run `manual__PGTA_20260706_162150_00C4FD` was controlled-interrupted and synced to `failed`; resume run `manual__PGTA_20260706_162150_00C4FD__resume__20260707T095201Z` started successfully. At 18:09 CST it was still running `run_pgta_target`; Snakemake command contained `--cores 64 --rerun-incomplete`, unlock command contained `--unlock`, and active rule processes showed `bwa mem -t 16` plus `samtools sort -@ 16`. No `qc/baseline` terminal artifacts existed yet.
+
 ## 14. PGT-A diagnostics smoke
 
 T025/T062 验收不重新运行 PGT-A；复用已有 Airflow DAG run，同步状态并读取日志/产物。

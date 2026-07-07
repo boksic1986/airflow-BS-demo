@@ -257,7 +257,7 @@ Errors:
 
 Sample status sync rule:
 - `POST /api/runs/{analysis_id}/actions/submit` sets selected `sample.status` from `pending` to `running`.
-- `POST /api/runs/{analysis_id}/actions/reanalyze` sets WES mock `sample.status` to `running`.
+- `POST /api/runs/{analysis_id}/actions/reanalyze` sets WES mock and allowed PGT-A resume samples to `running`.
 - `sync-airflow` maps Airflow terminal state back to samples: `success -> success`, `failed -> failed`; active states `running/queued/scheduled` display as `running`.
 
 ```http
@@ -598,6 +598,12 @@ WES mock v1 支持：
 
 - `resume`: 复用同一 `analysis_id/workdir`，提交新的 `bio_wes_qsub` DAG run，Snakemake 依赖已有输出和 `rerun-incomplete` 跳过成功步骤。
 - `rerun_rule`: 复用同一 `analysis_id/workdir`，只允许 `fastp`、`bwa_mem`、`markdup`、`final_summary`；样本级 rule 要求 `sample_id=S001/S002`。
+
+PGT-A v1 支持：
+
+- `resume`: only for `pipeline=pgta`, `target=baseline_qc`, and a terminal interrupted/failed run. It reuses the same `analysis_id/workdir`, submits a new `bio_pgta` DAG run with `mode=resume`, and lets Snakemake skip completed outputs with `--rerun-incomplete`.
+- PGT-A resume is rejected while the run is active (`submitted/running/queued/scheduled`), for non-`baseline_qc` targets, for `rerun_rule`, `clone_new`, `forceall`, or any explicit rule/sample selector.
+- Resume updates `analysis_run.dag_run_id`, sets `analysis_run.status=submitted`, sets existing samples to `running`, and records a `run_action` row.
 
 Response:
 

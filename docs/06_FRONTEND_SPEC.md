@@ -21,6 +21,7 @@
 - 手动同步按钮调用 `POST /api/runs/{analysis_id}/actions/sync-airflow`。
 - T091 后，选中的 active run（`submitted/running/queued` 且已有 `dag_run_id`）每 15 秒自动调用同一 `sync-airflow` endpoint，并刷新 run list、detail、samples、rules、artifacts、QC 和当前 log；进入 `success/failed` 后停止自动同步。toolbar 显示 `Auto sync active` 和 `Last synced ...`。
 - 对已有 `wes_qsub` DAG run，detail toolbar 显示 `Resume` 和 `Rerun rule` 控件；`Rerun rule` 支持 `fastp/bwa_mem/markdup/final_summary`，样本级 rule 可选 `S001/S002`。
+- T093 后，对 `pipeline=pgta,target=baseline_qc` 且状态为 `failed` 或 `terminated` 的 run，detail toolbar 显示 `Resume with 64 cores`；running/success run 不显示该按钮。
 - API base 默认按浏览器当前 host 推导为 `http://<host>:8000/api`，可通过 `window.__AIRFLOW_DEMO_CONFIG__.apiBaseUrl` 或 `VITE_API_BASE_URL` 覆盖。
 - 后端返回的 run 时间保持 timezone-aware ISO 字符串；前端默认按 `Asia/Shanghai` 显示为 `YYYY-MM-DD HH:mm:ss Asia/Shanghai`。如迁移到其他时区，可用 `window.__AIRFLOW_DEMO_CONFIG__.timeZone` 或 build arg `FRONTEND_DISPLAY_TIME_ZONE` 覆盖。
 
@@ -194,7 +195,8 @@ T056 v1 已完成 WES mock 最小入口：
 
 - `Resume` 调用 `POST /api/runs/{analysis_id}/actions/reanalyze`，payload `{"mode":"resume"}`。
 - `Rerun rule` 调用同一 endpoint，payload `{"mode":"rerun_rule","rule":"fastp","sample_id":"S001"}`。
-- `clone_new`、`rerun_failed` 和 PGT-A 重分析仍后置。
+- PGT-A `baseline_qc` failed/terminated run can call the same endpoint with `{"mode":"resume"}` through `Resume with 64 cores`; it reuses the same workdir and relies on the backend/Airflow guardrails.
+- `clone_new`、`rerun_failed` and PGT-A rule-level reanalysis remain deferred.
 
 必须显示提示：
 
