@@ -7,7 +7,6 @@ import {getRunSamples, listRuns} from "../api";
 import {StatusBadge} from "../components/StatusBadge";
 import {errorMessage} from "../lib/errors";
 import {compactPipelineName} from "../lib/format";
-import {mockSamples} from "../mocks/platform";
 
 type SampleRow = {
   sample_id: string;
@@ -33,7 +32,7 @@ export function SamplesPage() {
       setError(null);
       try {
         const runs = await listRuns();
-        const visibleRuns = runs.items.slice(0, 8);
+        const visibleRuns = runs.items.filter((run) => run.pipeline === "pgta").slice(0, 8);
         const samplePayloads = await Promise.all(
           visibleRuns.map(async (run: RunSummary) => ({
             run,
@@ -41,8 +40,8 @@ export function SamplesPage() {
           })),
         );
         if (disposed) return;
-        setRows([
-          ...samplePayloads.flatMap(({run, samples}) =>
+        setRows(
+          samplePayloads.flatMap(({run, samples}) =>
             samples.items.map((sample) => ({
               sample_id: sample.sample_id,
               family_id: sample.family_id,
@@ -55,8 +54,7 @@ export function SamplesPage() {
               error_summary: run.status === "failed" ? "see run detail" : null,
             })),
           ),
-          ...mockSamples,
-        ]);
+        );
       } catch (loadError) {
         if (!disposed) setError(errorMessage(loadError));
       } finally {
@@ -75,7 +73,7 @@ export function SamplesPage() {
         <div>
           <p className="eyebrow">Sample resource</p>
           <h1>Samples</h1>
-          <p>Unified sample view across WES family samples, PGT-A libraries, and mock NIPT/WGS rows.</p>
+          <p>PGT-A sample view across server-path FASTQ selections, workflow status, QC status, and run detail links.</p>
         </div>
       </section>
       <section className="panel">

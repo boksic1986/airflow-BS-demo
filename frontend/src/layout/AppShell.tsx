@@ -8,7 +8,6 @@ import {
   Search,
   Settings,
   TestTube2,
-  Workflow,
 } from "lucide-react";
 import {NavLink, Outlet} from "react-router-dom";
 
@@ -17,7 +16,6 @@ const navItems = [
   {to: "/submit", label: "Submit Task", Icon: ClipboardList},
   {to: "/runs", label: "Runs", Icon: Activity},
   {to: "/samples", label: "Samples", Icon: TestTube2},
-  {to: "/workflows", label: "Workflows", Icon: Workflow},
   {to: "/failures", label: "Failures", Icon: AlertTriangle},
   {to: "/settings", label: "Settings", Icon: Settings},
 ];

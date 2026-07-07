@@ -296,3 +296,39 @@ T096 remote validation on `ssh fengxian`:
 - Backend API spot checks on port 8000 confirmed existing PGT-A and WES run detail/samples/rules/QC/log endpoints still return data consumed by the redesigned UI.
 
 `npm run lint` is not available in `frontend/package.json`; the package currently defines only `test` and `build`.
+
+## 10. T097 PGT-A-only deployment scope
+
+T097 narrows the deployable frontend demo surface to PGT-A only. This is a product/deployment scope change, not a backend/DAG deletion.
+
+### Current visible routes
+
+```text
+/dashboard
+/submit
+/runs
+/runs/:analysisId
+/samples
+/failures
+/settings
+```
+
+The `/workflows` route remains available for direct navigation during development, but the sidebar no longer links to it and the page only shows the PGT-A workflow template.
+
+### Visible PGT-A behavior
+
+- Dashboard cards and pipeline state use only `pipeline=pgta` backend runs.
+- Submit Task defaults to and only allows PGT-A server-path scan/create/submit.
+- Runs is locked to the PGT-A pipeline filter.
+- Samples aggregates PGT-A samples only.
+- Failures shows PGT-A failed runs only.
+- Run Detail keeps the PGT-A tabs: Overview, Samples, Workflow, QC, Logs, Files, Config.
+- PGT-A `baseline_qc` failed/terminated resume remains visible through `Resume with 64 cores`.
+- Workflow success and QC failure remain displayed separately for `PGTA_20260706_162150_00C4FD`.
+
+### Hidden or deferred behavior
+
+- WES qsub is not shown in the current frontend demo and should not be presented as deployed, even though historical backend/DAG/Snakemake code remains in the repository.
+- NIPT qsub, NIPT docker, and WGS are not shown in the current frontend demo.
+- MailHog/SMTP success/failure notification remains deferred; `T034` and `T063` stay todo.
+- No backend/DAG/Snakemake code is removed by T097.

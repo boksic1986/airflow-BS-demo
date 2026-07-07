@@ -118,6 +118,8 @@ export const workflowTemplates: PipelineTemplate[] = [
   },
 ];
 
+export const deployedWorkflowTemplates = workflowTemplates.filter((pipeline) => pipeline.id === "pgta");
+
 export const resourceOverview = [
   {title: "CPU allocation", value: "64", unit: "cores", status: "running", description: "Mock display from PGTA_SNAKEMAKE_CORES"},
   {title: "Memory pressure", value: "42", unit: "%", status: "success", description: "Mock resource telemetry"},

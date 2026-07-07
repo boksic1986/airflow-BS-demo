@@ -78,6 +78,7 @@
 | T056 | Reanalysis UI | frontend/backend | T044 | WES mock create/submit panel plus resume/rerun buttons | 前端 Docker test target 10 tests passed；WES detail can trigger `resume` and `rerun_rule` via backend | done |
 | T057 | PGT-A run detail 展示 | frontend | T027,T035,T025 | pgta run overview/sample/rule/log/artifact/sync UI | PGT-A run detail v1 可查看 rules/logs/artifacts；T084 failure smoke 后失败摘要可通过现有 detail/logs API 查看 | done |
 | T096 | Frontend platform UI redesign v2 | frontend/docs | T050-T057,T054,T056 | routed app shell, Dashboard/Submit/Runs/Run Detail/Samples/Workflows/Failures/Settings, shared components, design docs | remote frontend Docker test target passed 7 tests; frontend production build passed `tsc -b && vite build`; 12959 HTTP 200; PGT-A/WES backend API spot checks passed | done |
+| T097 | PGT-A-only frontend deployment scope | frontend/docs | T096,T027,T087,T092 | Sidebar/Dashboard/Submit/Runs/Samples/Failures scoped to PGT-A; WES/NIPT/WGS hidden from deployable demo; docs/state updated | remote frontend Docker test target passed 5 PGT-A-only tests; frontend build/deploy on 12959 verified; mail notification remains todo and WES qsub historical code remains untouched | done |
 
 ## P6 QC/日志/报告/邮件
 

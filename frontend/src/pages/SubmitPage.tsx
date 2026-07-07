@@ -1,17 +1,14 @@
 import {Play, Plus, Search} from "lucide-react";
-import {useMemo, useState} from "react";
+import {useState} from "react";
 import {Link} from "react-router-dom";
 
 import type {PgtaTarget, ScanCandidate} from "../api";
-import type {PipelineTemplate} from "../mocks/platform";
 
 import {createRun, scanInput, submitRun} from "../api";
-import {PipelineSelector} from "../components/PipelineSelector";
-import {SampleSheetUploader, parseSampleSheetText} from "../components/SampleSheetUploader";
 import {StatusBadge} from "../components/StatusBadge";
 import {errorMessage} from "../lib/errors";
 import {compactPipelineName} from "../lib/format";
-import {workflowTemplates} from "../mocks/platform";
+import {deployedWorkflowTemplates} from "../mocks/platform";
 
 const defaultRawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28";
 const pgtaTargets: Array<{value: PgtaTarget; label: string}> = [
@@ -22,13 +19,11 @@ const pgtaTargets: Array<{value: PgtaTarget; label: string}> = [
 ];
 
 export function SubmitPage() {
-  const [pipeline, setPipeline] = useState<PipelineTemplate["id"]>("wes_qsub");
   const [projectName, setProjectName] = useState("Bioinformatics demo run");
   const [emailTo, setEmailTo] = useState("");
   const [reference, setReference] = useState("hg19");
   const [priority, setPriority] = useState("normal");
   const [runMode, setRunMode] = useState("dry-run");
-  const [sampleText, setSampleText] = useState("");
   const [target, setTarget] = useState<PgtaTarget>("metadata");
   const [rawdataRoot, setRawdataRoot] = useState(defaultRawdataRoot);
   const [maxSamples, setMaxSamples] = useState(20);
@@ -40,11 +35,9 @@ export function SubmitPage() {
   const [creating, setCreating] = useState(false);
   const [createdRunId, setCreatedRunId] = useState<string | null>(null);
 
-  const selectedTemplate = workflowTemplates.find((item) => item.id === pipeline) || workflowTemplates[0];
-  const parsedSheet = useMemo(() => parseSampleSheetText(sampleText), [sampleText]);
+  const selectedTemplate = deployedWorkflowTemplates[0];
   const selectedScanRows = scanItems.filter((item) => selectedSamples.has(item.sample_id));
-  const unsupportedPipeline = !["pgta", "wes_qsub"].includes(pipeline);
-  const pgtaNeedsMoreSamples = pipeline === "pgta" && target === "baseline_qc" && selectedSamples.size < 2;
+  const pgtaNeedsMoreSamples = target === "baseline_qc" && selectedSamples.size < 2;
 
   async function handleScan() {
     setScanning(true);
@@ -109,30 +102,7 @@ export function SubmitPage() {
     }
   }
 
-  async function handleCreateAndSubmitWes() {
-    setCreating(true);
-    setError(null);
-    setNotice(null);
-    try {
-      const created = await createRun({
-        pipeline: "wes_qsub",
-        project_name: projectName || "WES mock smoke",
-        target: "final_summary",
-        email_to: emailTo.trim() || null,
-        note: `reference=${reference}; priority=${priority}; mode=${runMode}`,
-      });
-      await submitRun(created.analysis_id);
-      setCreatedRunId(created.analysis_id);
-      setNotice(`Created and submitted ${created.analysis_id}.`);
-    } catch (createError) {
-      setError(errorMessage(createError));
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  const canCreatePgta = pipeline === "pgta" && selectedScanRows.length > 0 && !pgtaNeedsMoreSamples;
-  const canMockPreview = !unsupportedPipeline && parsedSheet.errors.length === 0 && parsedSheet.rows.length > 0;
+  const canCreatePgta = selectedScanRows.length > 0 && !pgtaNeedsMoreSamples;
 
   return (
     <div className="page-stack">
@@ -140,12 +110,11 @@ export function SubmitPage() {
         <div>
           <p className="eyebrow">Controlled intake</p>
           <h1>Submit Task</h1>
-          <p>Prepare WES, PGT-A, NIPT, or WGS analysis requests with validation and preview before execution.</p>
+          <p>Prepare the current PGT-A demo request with server-path scan, validation, and Airflow submission.</p>
         </div>
       </section>
 
       <div className="submit-grid">
-        <PipelineSelector pipelines={workflowTemplates} value={pipeline} onChange={setPipeline} />
         <section className="panel">
           <div className="section-heading">
             <h2>Run parameters</h2>
@@ -167,7 +136,7 @@ export function SubmitPage() {
             </label>
             <label className="field">
               <span>Panel / capture kit</span>
-              <input value={pipeline === "wes_qsub" ? "mock capture kit" : "demo default"} readOnly />
+              <input value="PGT-A baseline/demo defaults" readOnly />
             </label>
             <label className="field">
               <span>Priority</span>
@@ -192,91 +161,64 @@ export function SubmitPage() {
         </section>
       </div>
 
-      {pipeline === "pgta" ? (
-        <section className="panel">
-          <div className="section-heading split">
-            <div>
-              <h2>PGT-A server-path scan</h2>
-              <p>Real backend path: scan allowlisted FASTQ directory, create run, then submit to Airflow.</p>
-            </div>
-            <StatusBadge status={selectedTemplate.implementationStatus} />
+      <section className="panel">
+        <div className="section-heading split">
+          <div>
+            <h2>PGT-A server-path scan</h2>
+            <p>Real backend path: scan allowlisted FASTQ directory, create run, then submit to Airflow.</p>
           </div>
-          <div className="form-grid pgta-grid">
-            <label className="field full">
-              <span>Rawdata root</span>
-              <input aria-label="Rawdata root" value={rawdataRoot} onChange={(event) => setRawdataRoot(event.target.value)} />
-            </label>
-            <label className="field">
-              <span>Max samples</span>
-              <input type="number" min={1} max={1000} value={maxSamples} onChange={(event) => setMaxSamples(Number(event.target.value) || 1)} />
-            </label>
-            <label className="field">
-              <span>Target</span>
-              <select aria-label="Target" value={target} onChange={(event) => setTarget(event.target.value as PgtaTarget)}>
-                {pgtaTargets.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="panel-actions">
-            <button className="button ghost" type="button" disabled={scanning || !rawdataRoot.trim()} onClick={() => void handleScan()}>
-              <Search size={15} />
-              Scan
-            </button>
-            <button className="button primary" type="button" disabled={creating || !canCreatePgta} onClick={() => void handleCreatePgta()}>
-              <Plus size={15} />
-              Create Run
-            </button>
-            {createdRunId ? (
-              <button className="button primary" type="button" disabled={creating} onClick={() => void handleSubmitCreated()}>
-                <Play size={15} />
-                Submit to Airflow
-              </button>
-            ) : null}
-          </div>
-          {pgtaNeedsMoreSamples ? <p className="inline-error">baseline_qc requires at least two selected PGT-A samples.</p> : null}
-          <CandidateTable items={scanItems} selected={selectedSamples} onToggle={toggleSample} />
-        </section>
-      ) : null}
-
-      {pipeline === "wes_qsub" ? (
-        <section className="panel">
-          <div className="section-heading split">
-            <div>
-              <h2>WES mock submission</h2>
-              <p>Real backend path: create fixed S001/S002 mock WES run and submit `bio_wes_qsub`.</p>
-            </div>
-            <StatusBadge status="live" />
-          </div>
-          <button className="button primary" type="button" disabled={creating || !projectName.trim()} onClick={() => void handleCreateAndSubmitWes()}>
-            <Play size={15} />
-            Create and Submit WES Mock
+          <StatusBadge status={selectedTemplate.implementationStatus} />
+        </div>
+        <div className="form-grid pgta-grid">
+          <label className="field full">
+            <span>Rawdata root</span>
+            <input aria-label="Rawdata root" value={rawdataRoot} onChange={(event) => setRawdataRoot(event.target.value)} />
+          </label>
+          <label className="field">
+            <span>Max samples</span>
+            <input type="number" min={1} max={1000} value={maxSamples} onChange={(event) => setMaxSamples(Number(event.target.value) || 1)} />
+          </label>
+          <label className="field">
+            <span>Target</span>
+            <select aria-label="Target" value={target} onChange={(event) => setTarget(event.target.value as PgtaTarget)}>
+              {pgtaTargets.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="panel-actions">
+          <button className="button ghost" type="button" disabled={scanning || !rawdataRoot.trim()} onClick={() => void handleScan()}>
+            <Search size={15} />
+            Scan
           </button>
-        </section>
-      ) : null}
-
-      {unsupportedPipeline ? (
-        <SampleSheetUploader value={sampleText} onChange={setSampleText} />
-      ) : null}
+          <button className="button primary" type="button" disabled={creating || !canCreatePgta} onClick={() => void handleCreatePgta()}>
+            <Plus size={15} />
+            Create Run
+          </button>
+          {createdRunId ? (
+            <button className="button primary" type="button" disabled={creating} onClick={() => void handleSubmitCreated()}>
+              <Play size={15} />
+              Submit to Airflow
+            </button>
+          ) : null}
+        </div>
+        {pgtaNeedsMoreSamples ? <p className="inline-error">baseline_qc requires at least two selected PGT-A samples.</p> : null}
+        <CandidateTable items={scanItems} selected={selectedSamples} onToggle={toggleSample} />
+      </section>
 
       <section className="panel">
         <div className="section-heading">
           <h2>Submit preview</h2>
-          <p>Execution is blocked until the selected pipeline has validated inputs and a supported backend path.</p>
+          <p>Execution is blocked until PGT-A server-path scan returns selected samples and the target guard passes.</p>
         </div>
         <div className="preview-grid">
-          <div><span>Pipeline</span><strong>{compactPipelineName(pipeline)}</strong></div>
+          <div><span>Pipeline</span><strong>{compactPipelineName("pgta")}</strong></div>
           <div><span>Project</span><strong>{projectName || "not set"}</strong></div>
           <div><span>Reference</span><strong>{reference}</strong></div>
           <div><span>Mode</span><strong>{runMode}</strong></div>
           <div><span>Estimated workflow</span><strong>{selectedTemplate.steps.map((step) => step.name).join(" -> ")}</strong></div>
         </div>
-        {unsupportedPipeline ? (
-          <button className="button primary" type="button" disabled={!canMockPreview}>
-            Mock preview only
-          </button>
-        ) : null}
         {createdRunId ? (
           <p className="success-note">
             Created run <Link to={`/runs/${encodeURIComponent(createdRunId)}`}>{createdRunId}</Link>

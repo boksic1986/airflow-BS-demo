@@ -24,12 +24,10 @@ import {WorkflowTimeline} from "../components/WorkflowTimeline";
 import {parseErrorSummary} from "../lib/errors";
 import {compactPipelineName, formatBytes, formatDate, formatDuration, safeJson} from "../lib/format";
 import {errorMessage} from "../lib/errors";
-import {isActiveStatus, isFailedStatus, normalizeStatus} from "../lib/status";
+import {isFailedStatus, normalizeStatus} from "../lib/status";
 
 const tabs = ["Overview", "Samples", "Workflow", "QC", "Logs", "Files", "Config"] as const;
 type DetailTab = (typeof tabs)[number];
-const wesRerunRules = ["fastp", "bwa_mem", "markdup", "final_summary"];
-const wesSamples = ["S001", "S002"];
 
 type Bundle = {
   detail: RunDetail | null;
@@ -47,8 +45,6 @@ export function RunDetailPage() {
   const [log, setLog] = useState<RunLog | null>(null);
   const [logStream, setLogStream] = useState<LogStream>("metadata");
   const [activeTab, setActiveTab] = useState<DetailTab>("Overview");
-  const [rerunRule, setRerunRule] = useState("fastp");
-  const [rerunSample, setRerunSample] = useState("S001");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [logError, setLogError] = useState<string | null>(null);
@@ -116,16 +112,14 @@ export function RunDetailPage() {
     ];
   }, [bundle.rules, detail]);
 
-  const canSubmit = detail?.status === "created" && (detail.pipeline === "wes_qsub" || detail.pipeline === "pgta");
-  const canReanalyzeWes =
-    detail?.pipeline === "wes_qsub" && Boolean(detail.dag_run_id) && !isActiveStatus(detail.status);
+  const canSubmit = detail?.status === "created" && detail.pipeline === "pgta";
   const canResumePgta =
     detail?.pipeline === "pgta" &&
     detail.params?.target === "baseline_qc" &&
     Boolean(detail.dag_run_id) &&
     ["failed", "terminated"].includes(normalizeStatus(detail.status));
 
-  async function runAction(action: "sync" | "submit" | "resume" | "rerun_rule") {
+  async function runAction(action: "sync" | "submit" | "resume") {
     if (!analysisId) return;
     setActing(true);
     setActionError(null);
@@ -136,14 +130,6 @@ export function RunDetailPage() {
         await reanalyzeRun(analysisId, {
           mode: "resume",
           reason: detail?.pipeline === "pgta" ? "frontend PGT-A baseline_qc 64-core resume" : "frontend resume",
-        });
-      }
-      if (action === "rerun_rule") {
-        await reanalyzeRun(analysisId, {
-          mode: "rerun_rule",
-          rule: rerunRule,
-          sample_id: rerunRule === "final_summary" ? null : rerunSample,
-          reason: "frontend rerun selected rule",
         });
       }
       await loadDetail();
@@ -177,10 +163,12 @@ export function RunDetailPage() {
                   Submit to Airflow
                 </button>
               ) : null}
-              <button className="button ghost" type="button" disabled={acting || !detail.dag_run_id} onClick={() => void runAction("sync")}>
-                <RefreshCw size={15} />
-                Sync Airflow
-              </button>
+              {detail.pipeline === "pgta" ? (
+                <button className="button ghost" type="button" disabled={acting || !detail.dag_run_id} onClick={() => void runAction("sync")}>
+                  <RefreshCw size={15} />
+                  Sync Airflow
+                </button>
+              ) : null}
               {canResumePgta ? (
                 <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("resume")}>
                   <RotateCw size={15} />
@@ -190,8 +178,19 @@ export function RunDetailPage() {
             </div>
           </section>
 
-          {actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
+          {detail.pipeline !== "pgta" ? (
+            <section className="panel">
+              <div className="section-heading">
+                <h2>Current deployment scope</h2>
+                <p>This frontend deployment only exposes PGT-A. Historical non-PGT-A runs remain in backend storage but are hidden from the demo workflow.</p>
+              </div>
+            </section>
+          ) : null}
 
+          {detail.pipeline === "pgta" && actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
+
+          {detail.pipeline === "pgta" ? (
+          <>
           <section className="metric-grid" aria-label="Run summary metrics">
             <MetricCard title="Samples" value={bundle.samples.length} status={bundle.samples.length ? "success" : "unknown"} />
             <MetricCard title="Duration" value={formatDuration(detail.started_at, detail.ended_at)} status={detail.status} />
@@ -240,39 +239,7 @@ export function RunDetailPage() {
             {activeTab === "Config" ? <ConfigTab detail={detail} /> : null}
           </section>
 
-          {canReanalyzeWes ? (
-            <section className="panel">
-              <div className="section-heading">
-                <h2>Reanalysis</h2>
-                <p>Resume reuses the current workdir. Rerun rule uses `--forcerun` for the selected rule and never `--forceall`.</p>
-              </div>
-              <div className="filter-bar">
-                <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("resume")}>
-                  <RotateCw size={15} />
-                  Resume
-                </button>
-                <label>
-                  <span>Rerun rule</span>
-                  <select aria-label="Rerun rule" value={rerunRule} onChange={(event) => setRerunRule(event.target.value)}>
-                    {wesRerunRules.map((rule) => (
-                      <option key={rule} value={rule}>{rule}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>Rerun sample</span>
-                  <select aria-label="Rerun sample" disabled={rerunRule === "final_summary"} value={rerunSample} onChange={(event) => setRerunSample(event.target.value)}>
-                    {wesSamples.map((sample) => (
-                      <option key={sample} value={sample}>{sample}</option>
-                    ))}
-                  </select>
-                </label>
-                <button className="button primary" type="button" disabled={acting} onClick={() => void runAction("rerun_rule")}>
-                  <Play size={15} />
-                  Rerun selected rule
-                </button>
-              </div>
-            </section>
+          </>
           ) : null}
         </>
       ) : null}

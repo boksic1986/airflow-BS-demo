@@ -315,29 +315,35 @@ describe("bioinformatics platform frontend", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders a routed app shell dashboard with platform status", async () => {
+  it("renders a PGT-A-only routed app shell dashboard with platform status", async () => {
     render(<App />);
 
     expect(await screen.findByRole("navigation", {name: /primary navigation/i})).toBeInTheDocument();
     expect(screen.getByRole("link", {name: /dashboard/i})).toHaveAttribute("href", "/dashboard");
+    expect(screen.queryByRole("link", {name: /workflows/i})).not.toBeInTheDocument();
     expect(screen.getByText(/Demo environment/i)).toBeInTheDocument();
     expect((await screen.findAllByText(/Failed runs/i)).length).toBeGreaterThan(0);
     expect(screen.getByText(failedRunId)).toBeInTheDocument();
     expect(screen.getByText(/Airflow scheduler/i)).toBeInTheDocument();
-    expect(screen.getByText(/Mock resource overview/i)).toBeInTheDocument();
+    expect(screen.getByText(/PGT-A resource overview/i)).toBeInTheDocument();
+    expect(screen.queryByText(wesRunId)).not.toBeInTheDocument();
+    expect(screen.queryByText(/WES qsub/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/NIPT/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/WGS/i)).not.toBeInTheDocument();
   });
 
-  it("filters and sorts the runs table without hiding status text", async () => {
+  it("shows only PGT-A runs in the run table without hiding status text", async () => {
     const user = userEvent.setup();
     setRoute("/runs");
     render(<App />);
 
     expect(await screen.findByRole("heading", {name: /runs/i})).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText(/pipeline/i), "wes_qsub");
-    expect(screen.getByText(wesRunId)).toBeInTheDocument();
-    expect(screen.queryByText(pgtaRunId)).not.toBeInTheDocument();
+    const pipelineSelect = screen.getByLabelText(/pipeline/i);
+    expect(pipelineSelect).toHaveValue("pgta");
+    expect(within(pipelineSelect).queryByRole("option", {name: /^WES/i})).not.toBeInTheDocument();
+    expect(within(pipelineSelect).queryByRole("option", {name: /^NIPT/i})).not.toBeInTheDocument();
+    expect(within(pipelineSelect).queryByRole("option", {name: /^WGS/i})).not.toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText(/pipeline/i), "all");
     await user.selectOptions(screen.getByLabelText(/status/i), "failed");
     expect(screen.getByText(failedRunId)).toBeInTheDocument();
     expect(screen.getAllByText(/failed/i).length).toBeGreaterThan(0);
@@ -361,29 +367,15 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByRole("button", {name: /copy visible log excerpt/i})).toBeInTheDocument();
   });
 
-  it("validates sample-sheet preview before enabling unsupported pipeline submit", async () => {
+  it("keeps the existing PGT-A scan, create, and submit flow as the only submit path", async () => {
     const user = userEvent.setup();
     setRoute("/submit");
     render(<App />);
 
     expect(await screen.findByRole("heading", {name: /submit task/i})).toBeInTheDocument();
-    await user.click(screen.getByRole("radio", {name: /wgs/i}));
-    await user.type(
-      screen.getByLabelText(/sample sheet text/i),
-      "sample_id\tfastq_path\tsex\tproject\nWG001\t/data/mock/WG001_R1.fastq.gz\tF\tWGS\nWG001\t\tM\tWGS\n",
-    );
-
-    expect(await screen.findByText(/duplicate sample_id WG001/i)).toBeInTheDocument();
-    expect(screen.getByText(/row 3 fastq_path is required/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", {name: /mock preview only/i})).toBeDisabled();
-  });
-
-  it("keeps the existing PGT-A scan, create, and submit flow", async () => {
-    const user = userEvent.setup();
-    setRoute("/submit");
-    render(<App />);
-
-    await user.click(await screen.findByRole("radio", {name: /pgt-a/i}));
+    expect(screen.queryByRole("radio", {name: /wes/i})).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", {name: /wgs/i})).not.toBeInTheDocument();
+    expect(screen.queryByText(/sample sheet text/i)).not.toBeInTheDocument();
     await user.clear(screen.getByLabelText(/rawdata root/i));
     await user.type(screen.getByLabelText(/rawdata root/i), rawdataRoot);
     await user.selectOptions(screen.getByRole("combobox", {name: /^target$/i}), "baseline_qc");
@@ -402,47 +394,28 @@ describe("bioinformatics platform frontend", () => {
     });
   });
 
-  it("keeps the WES mock create, submit, and selected-rule rerun flow", async () => {
+  it("shows only PGT-A workflow, samples, and failure resources", async () => {
     const user = userEvent.setup();
-    setRoute("/submit");
     render(<App />);
 
-    await user.click(await screen.findByRole("radio", {name: /wes/i}));
-    await user.click(screen.getByRole("button", {name: /create and submit wes mock/i}));
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/runs"),
-        expect.objectContaining({method: "POST", body: expect.stringContaining('"pipeline":"wes_qsub"')}),
-      );
-    });
+    setRoute("/workflows");
+    cleanup();
+    render(<App />);
+    expect((await screen.findAllByText(/PGT-A/i)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/WES qsub/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/NIPT docker/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/WGS/i)).not.toBeInTheDocument();
 
     cleanup();
-    wesStatus = "success";
-    setRoute(`/runs/${wesRunId}`);
+    setRoute("/samples");
     render(<App />);
-    expect(await screen.findByText(wesRunId)).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText(/rerun rule/i), "fastp");
-    await user.selectOptions(screen.getByLabelText(/rerun sample/i), "S001");
-    await user.click(screen.getByRole("button", {name: /rerun selected rule/i}));
-
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/api/runs/${wesRunId}/actions/reanalyze`),
-        expect.objectContaining({method: "POST", body: expect.stringContaining('"rule":"fastp"')}),
-      );
-    });
-  });
-
-  it("shows workflow and failure resource pages with mock labels for unavailable pipelines", async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
-    await user.click(screen.getByRole("link", {name: /workflows/i}));
-    expect((await screen.findAllByText(/NIPT docker/i)).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/demo\/mock/i).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/^G10$/i)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/S001/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/NIPT-DEMO/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("link", {name: /failures/i}));
     expect(await screen.findByText(/Recent failed runs/i)).toBeInTheDocument();
     expect(screen.getAllByText(/retry suggestion/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(wesRunId)).not.toBeInTheDocument();
   });
 });

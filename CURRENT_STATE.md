@@ -171,3 +171,27 @@ Remote validation on `ssh fengxian`:
 - Existing WES run `WES_20260705_170904_5D1C74` detail, rules, and QC endpoints returned data.
 
 Local notes: local Windows has no `node`, `npm`, or `docker`; local checks remain git/docs/manifest only. `frontend/package.json` has no `lint` script, so `npm run lint` was not run.
+
+## 12. T097 PGT-A-only frontend deployment scope
+
+Date: 2026-07-08
+Agent: Codex
+Branch/worktree: `codex/frontend/T097-pgta-only` at `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+
+The current frontend deployment target is PGT-A-only. This supersedes the T096 visible product surface for demo purposes:
+
+- Sidebar shows Dashboard, Submit Task, Runs, Samples, Failures, and Settings. Workflows is not linked in the sidebar.
+- Dashboard, Runs, Samples, and Failures filter to `pipeline=pgta` and do not surface WES/NIPT/WGS demo entries.
+- Submit Task only exposes the PGT-A server-path scan/create/submit path.
+- Run Detail keeps PGT-A tabs, logs, QC, files, config, sync, and baseline_qc `Resume with 64 cores`.
+- Direct `/workflows` navigation remains development-accessible but displays only the PGT-A workflow template.
+- Historical WES qsub backend/DAG/Snakemake code is intentionally left in place but is no longer a current deployable frontend entry.
+- NIPT/WGS remain hidden from the current frontend demo.
+- MailHog/SMTP notification work is not part of T097; `T034` and `T063` remain todo.
+
+Remote validation checkpoint before final deploy:
+
+- A temporary clone on `ssh fengxian` applied the T097 diff and ran `docker build --target test -f frontend/Dockerfile frontend`.
+- Result: frontend Docker test target passed, `1 test file`, `5 tests`.
+
+Final deployment evidence will be recorded in `HANDOFF.md` after the branch is committed, pushed, pulled on `fengxian`, built, and frontend port `12959` is rechecked.

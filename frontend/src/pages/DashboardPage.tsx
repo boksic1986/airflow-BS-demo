@@ -11,7 +11,7 @@ import {StatusBadge} from "../components/StatusBadge";
 import {compactPipelineName} from "../lib/format";
 import {errorMessage} from "../lib/errors";
 import {normalizeStatus, statusPriority} from "../lib/status";
-import {resourceOverview, workflowTemplates} from "../mocks/platform";
+import {deployedWorkflowTemplates, resourceOverview} from "../mocks/platform";
 
 type HealthState = {
   backend: HealthResponse | null;
@@ -52,21 +52,23 @@ export function DashboardPage() {
     };
   }, []);
 
+  const pgtaRuns = useMemo(() => runs.filter((run) => run.pipeline === "pgta"), [runs]);
+
   const counts = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     return {
-      today: runs.filter((run) => (run.created_at || "").slice(0, 10) === today).length,
-      running: runs.filter((run) => ["running", "submitted", "queued", "scheduled"].includes(normalizeStatus(run.status))).length,
-      failed: runs.filter((run) => normalizeStatus(run.status) === "failed").length,
-      success: runs.filter((run) => normalizeStatus(run.status) === "success").length,
-      queued: runs.filter((run) => normalizeStatus(run.status) === "queued").length,
+      today: pgtaRuns.filter((run) => (run.created_at || "").slice(0, 10) === today).length,
+      running: pgtaRuns.filter((run) => ["running", "submitted", "queued", "scheduled"].includes(normalizeStatus(run.status))).length,
+      failed: pgtaRuns.filter((run) => normalizeStatus(run.status) === "failed").length,
+      success: pgtaRuns.filter((run) => normalizeStatus(run.status) === "success").length,
+      queued: pgtaRuns.filter((run) => normalizeStatus(run.status) === "queued").length,
     };
-  }, [runs]);
-  const failedRuns = runs.filter((run) => normalizeStatus(run.status) === "failed").slice(0, 5);
-  const completedRuns = runs.filter((run) => normalizeStatus(run.status) === "success").slice(0, 5);
+  }, [pgtaRuns]);
+  const failedRuns = pgtaRuns.filter((run) => normalizeStatus(run.status) === "failed").slice(0, 5);
+  const completedRuns = pgtaRuns.filter((run) => normalizeStatus(run.status) === "success").slice(0, 5);
 
-  const pipelineCounts = workflowTemplates.map((template) => {
-    const pipelineRuns = runs.filter((run) => run.pipeline === template.id);
+  const pipelineCounts = deployedWorkflowTemplates.map((template) => {
+    const pipelineRuns = pgtaRuns.filter((run) => run.pipeline === template.id);
     return {
       ...template,
       status: pipelineRuns.sort((a, b) => statusPriority(a.status) - statusPriority(b.status))[0]?.status || template.implementationStatus,
@@ -80,7 +82,7 @@ export function DashboardPage() {
         <div>
           <p className="eyebrow">Production task observability</p>
           <h1>Dashboard</h1>
-          <p>Runs, failures, queue pressure, QC alerts, and service health for the demo platform.</p>
+          <p>PGT-A runs, failures, QC alerts, and service health for the current demo deployment.</p>
         </div>
         <Link className="button primary" to="/submit">Submit task</Link>
       </section>
@@ -116,7 +118,7 @@ export function DashboardPage() {
       <section className="panel">
         <div className="section-heading">
           <h2>Pipeline operating state</h2>
-          <p>Live backend runs are mixed with clearly labeled demo/mock workflow templates.</p>
+          <p>Current deployment scope is PGT-A only. Non-PGT-A code paths are not shown.</p>
         </div>
         <div className="pipeline-status-grid">
           {pipelineCounts.map((pipeline) => (
@@ -143,7 +145,7 @@ export function DashboardPage() {
         </div>
         <div className="panel">
           <div className="section-heading">
-            <h2>Mock resource overview</h2>
+            <h2>PGT-A resource overview</h2>
             <p>Displayed as demo telemetry until real scheduler/resource APIs exist.</p>
           </div>
           <div className="metric-grid compact">
@@ -155,7 +157,7 @@ export function DashboardPage() {
       </section>
 
       <section className="card-grid">
-        {workflowTemplates.slice(0, 3).map((pipeline) => (
+        {deployedWorkflowTemplates.map((pipeline) => (
           <PipelineCard key={pipeline.id} pipeline={pipeline} />
         ))}
       </section>

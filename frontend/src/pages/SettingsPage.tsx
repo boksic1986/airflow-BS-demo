@@ -17,7 +17,7 @@ export function SettingsPage() {
           <div><dt>Airflow UI</dt><dd>{`${window.location.protocol}//${window.location.hostname}:12958`}</dd></div>
           <div><dt>Secrets</dt><dd>Not displayed in frontend</dd></div>
           <div><dt>Remote acceptance</dt><dd>Runtime validation must run on ssh fengxian</dd></div>
-          <div><dt>Unsupported pipelines</dt><dd>NIPT/WGS are demo/mock UI surfaces until backend/DAG work lands</dd></div>
+          <div><dt>Deployment scope</dt><dd>Current frontend demo exposes PGT-A only; non-PGT-A backend code remains hidden from the UI.</dd></div>
         </div>
       </section>
     </div>

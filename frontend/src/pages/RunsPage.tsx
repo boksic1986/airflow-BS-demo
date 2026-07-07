@@ -9,7 +9,7 @@ import {statusPriority, normalizeStatus} from "../lib/status";
 
 export function RunsPage() {
   const [runs, setRuns] = useState<RunSummary[]>([]);
-  const [pipeline, setPipeline] = useState("all");
+  const [pipeline] = useState("pgta");
   const [status, setStatus] = useState("all");
   const [keyword, setKeyword] = useState("");
   const [sort, setSort] = useState("created_desc");
@@ -39,7 +39,7 @@ export function RunsPage() {
   const filteredRuns = useMemo(() => {
     const needle = keyword.toLowerCase();
     return runs
-      .filter((run) => pipeline === "all" || run.pipeline === pipeline)
+      .filter((run) => run.pipeline === "pgta")
       .filter((run) => status === "all" || normalizeStatus(run.status) === status)
       .filter((run) => !needle || `${run.analysis_id} ${run.pipeline} ${run.status}`.toLowerCase().includes(needle))
       .sort((a, b) => {
@@ -59,20 +59,15 @@ export function RunsPage() {
         <div>
           <p className="eyebrow">Run resource</p>
           <h1>Runs</h1>
-          <p>Filter, sort, inspect, and prepare retry/cancel/archive operations.</p>
+          <p>Filter, sort, and inspect PGT-A runs for the current demo deployment.</p>
         </div>
       </section>
       <section className="panel">
         <div className="filter-bar">
           <label>
             <span>Pipeline</span>
-            <select aria-label="Pipeline" value={pipeline} onChange={(event) => setPipeline(event.target.value)}>
-              <option value="all">All</option>
+            <select aria-label="Pipeline" value={pipeline} disabled>
               <option value="pgta">PGT-A</option>
-              <option value="wes_qsub">WES qsub</option>
-              <option value="nipt_qsub">NIPT qsub</option>
-              <option value="nipt_docker">NIPT docker</option>
-              <option value="wgs">WGS</option>
             </select>
           </label>
           <label>
@@ -104,7 +99,7 @@ export function RunsPage() {
           <button className="button ghost" type="button" disabled>Retry selected</button>
           <button className="button ghost" type="button" disabled>Cancel selected</button>
           <button className="button ghost" type="button" disabled>Archive selected</button>
-          <span className="muted">Batch actions are UI placeholders until backend endpoints exist.</span>
+          <span className="muted">Batch actions are UI placeholders; PGT-A resume is available from run detail when backend guardrails allow it.</span>
         </div>
         {loading ? <p className="muted">Loading runs...</p> : null}
         {error ? <div className="inline-error" role="alert">{error}</div> : null}
