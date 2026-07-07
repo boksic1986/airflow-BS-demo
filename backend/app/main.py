@@ -27,7 +27,7 @@ from app.run_service import (
     get_run_detail,
     list_run_samples,
     list_runs,
-    reanalyze_wes_run,
+    reanalyze_run_to_airflow,
     submit_run_to_airflow,
 )
 
@@ -235,7 +235,7 @@ def submit_run(analysis_id: str) -> dict[str, object]:
 def reanalyze_run(analysis_id: str, request: ReanalysisRequest) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
-            payload = reanalyze_wes_run(
+            payload = reanalyze_run_to_airflow(
                 session=session,
                 airflow_client=get_airflow_client(),
                 analysis_id=analysis_id,

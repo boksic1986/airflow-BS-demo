@@ -176,6 +176,11 @@ export default function App() {
     bundle.detail?.pipeline === "wes_qsub" &&
     Boolean(bundle.detail?.dag_run_id) &&
     !["submitted", "running", "queued"].includes((bundle.detail?.status || "").toLowerCase());
+  const canResumePgta =
+    bundle.detail?.pipeline === "pgta" &&
+    runTarget(bundle.detail) === "baseline_qc" &&
+    Boolean(bundle.detail?.dag_run_id) &&
+    ["failed", "terminated"].includes((bundle.detail?.status || "").toLowerCase());
   const currentRunStatus = (bundle.detail?.status || selectedRun?.status || "").toLowerCase();
   const autoSyncEnabled = Boolean(
     selectedId && bundle.detail?.dag_run_id && ["submitted", "running", "queued"].includes(currentRunStatus),
@@ -360,7 +365,12 @@ export default function App() {
         mode,
         rule: mode === "rerun_rule" ? rerunRule : null,
         sample_id: mode === "rerun_rule" && rerunRule !== "final_summary" ? rerunSample : null,
-        reason: mode === "resume" ? "frontend resume" : "frontend rerun selected rule",
+        reason:
+          mode === "resume" && bundle.detail?.pipeline === "pgta"
+            ? "frontend PGT-A baseline_qc 64-core resume"
+            : mode === "resume"
+              ? "frontend resume"
+              : "frontend rerun selected rule",
       });
       await refreshSelectedRun(selectedId, "stdout");
       setLogStream("stdout");
@@ -540,6 +550,12 @@ export default function App() {
                     {autoSyncEnabled ? "Auto sync active" : "Auto sync idle"}
                     {lastAutoSyncedAt ? ` / Last synced ${formatDate(lastAutoSyncedAt)}` : ""}
                   </span>
+                ) : null}
+                {canResumePgta ? (
+                  <button className="icon-button" type="button" onClick={() => void handleReanalyze("resume")} disabled={reanalyzing}>
+                    <RotateCw size={16} />
+                    Resume with 64 cores
+                  </button>
                 ) : null}
                 {canReanalyzeWes ? (
                   <>

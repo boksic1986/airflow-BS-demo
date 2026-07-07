@@ -20,6 +20,7 @@ DEFAULT_SAMTOOLS_LIBRARY_PATH = os.getenv("PGTA_SAMTOOLS_LIBRARY_PATH", "/biosof
 DEFAULT_REFERENCE_GENOME = Path(os.getenv("PGTA_REFERENCE_GENOME", "/data/Database/index/hg19/hg19.fa"))
 DEFAULT_SNAKEMAKE_CORES = "64"
 SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc"}
+SUPPORTED_PGTA_MODES = {"new", "resume"}
 INVALID_SNAKEMAKE_TARGET = "__airflow_demo_invalid_target__"
 
 
@@ -34,6 +35,7 @@ def validate_pgta_conf(
     workdir = Path(str(conf.get("workdir") or "")).resolve()
     params = dict(conf.get("params") or {})
     target = str(params.get("target") or "metadata").strip()
+    mode = str(conf.get("mode") or "new").strip()
 
     if not analysis_id:
         raise ValueError("analysis_id is required.")
@@ -42,6 +44,11 @@ def validate_pgta_conf(
     if target not in SUPPORTED_PGTA_TARGETS:
         supported = ", ".join(sorted(SUPPORTED_PGTA_TARGETS))
         raise ValueError(f"Unsupported PGT-A target: {target}. Supported targets: {supported}.")
+    if mode not in SUPPORTED_PGTA_MODES:
+        supported_modes = ", ".join(sorted(SUPPORTED_PGTA_MODES))
+        raise ValueError(f"Unsupported PGT-A mode: {mode}. Supported modes: {supported_modes}.")
+    if mode == "resume" and target != "baseline_qc":
+        raise ValueError("PGT-A resume is only supported for baseline_qc.")
     if not sample_sheet_path.is_file():
         raise FileNotFoundError(f"sample_sheet_path is not readable: {sample_sheet_path}")
 
@@ -54,7 +61,7 @@ def validate_pgta_conf(
     return {
         "analysis_id": analysis_id,
         "pipeline": pipeline,
-        "mode": conf.get("mode") or "new",
+        "mode": mode,
         "sample_sheet_path": str(sample_sheet_path),
         "workdir": str(workdir),
         "email_to": conf.get("email_to"),
@@ -153,6 +160,7 @@ def run_pgta_target(
 ) -> Path:
     workdir = Path(conf["workdir"])
     target = _target_from_conf(conf)
+    mode = _mode_from_conf(conf)
     logs_dir = workdir / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     cache_dir = workdir / "tmp" / "xdg-cache"
@@ -172,13 +180,30 @@ def run_pgta_target(
         "--configfile",
         str(conf["config_path"]),
     ]
+    env = os.environ.copy()
+    env["XDG_CACHE_HOME"] = str(cache_dir)
+    if mode == "resume":
+        unlock_command = [*command, "--unlock"]
+        (logs_dir / "snakemake.unlock.command.txt").write_text(shlex.join(unlock_command) + "\n", encoding="utf-8")
+        unlock_completed = subprocess.run(
+            unlock_command,
+            cwd=str(workdir),
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env,
+        )
+        (logs_dir / "snakemake.unlock.stdout.log").write_text(unlock_completed.stdout or "", encoding="utf-8")
+        (logs_dir / "snakemake.unlock.stderr.log").write_text(unlock_completed.stderr or "", encoding="utf-8")
+        if unlock_completed.returncode != 0:
+            unlock_stderr = logs_dir / "snakemake.unlock.stderr.log"
+            raise RuntimeError(f"PGT-A Snakemake unlock failed with exit code {unlock_completed.returncode}. See {unlock_stderr}")
+        command.append("--rerun-incomplete")
     if target == "dryrun_cnv":
         command.extend(["--dry-run", "--ignore-incomplete", "--rerun-triggers", "mtime"])
     if target == "invalid_target":
         command.append(INVALID_SNAKEMAKE_TARGET)
     (logs_dir / "snakemake.command.txt").write_text(shlex.join(command) + "\n", encoding="utf-8")
-    env = os.environ.copy()
-    env["XDG_CACHE_HOME"] = str(cache_dir)
     completed = subprocess.run(command, cwd=str(workdir), text=True, capture_output=True, check=False, env=env)
     stdout_path.write_text(completed.stdout or "", encoding="utf-8")
     stderr_path.write_text(completed.stderr or "", encoding="utf-8")
@@ -338,6 +363,16 @@ def _target_from_conf(conf: dict[str, Any]) -> str:
         supported = ", ".join(sorted(SUPPORTED_PGTA_TARGETS))
         raise ValueError(f"Unsupported PGT-A target: {target}. Supported targets: {supported}.")
     return target
+
+
+def _mode_from_conf(conf: dict[str, Any]) -> str:
+    mode = str(conf.get("mode") or "new").strip()
+    if mode not in SUPPORTED_PGTA_MODES:
+        supported = ", ".join(sorted(SUPPORTED_PGTA_MODES))
+        raise ValueError(f"Unsupported PGT-A mode: {mode}. Supported modes: {supported}.")
+    if mode == "resume" and _target_from_conf(conf) != "baseline_qc":
+        raise ValueError("PGT-A resume is only supported for baseline_qc.")
+    return mode
 
 
 def _snakemake_cores() -> str:

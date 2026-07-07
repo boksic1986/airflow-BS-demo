@@ -16,6 +16,8 @@ from app.models import AnalysisRun, RunAction, Sample
 PGTA_DAG_ID = "bio_pgta"
 WES_DAG_ID = "bio_wes_qsub"
 SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc"}
+SUPPORTED_PGTA_REANALYSIS_MODES = {"resume"}
+PGTA_REANALYSIS_TERMINAL_STATUSES = {"failed", "terminated"}
 SUPPORTED_WES_TARGETS = {"final_summary"}
 SUPPORTED_WES_REANALYSIS_MODES = {"resume", "rerun_rule"}
 SUPPORTED_WES_RERUN_RULES = {"fastp", "bwa_mem", "markdup", "final_summary"}
@@ -266,6 +268,63 @@ def reanalyze_wes_run(
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
     if run is None:
         return None
+    return _reanalyze_wes_run_object(
+        session=session,
+        airflow_client=airflow_client,
+        run=run,
+        mode=mode,
+        rule=rule,
+        sample_id=sample_id,
+        reason=reason,
+    )
+
+
+def reanalyze_run_to_airflow(
+    *,
+    session: Session,
+    airflow_client,
+    analysis_id: str,
+    mode: str,
+    rule: str | None = None,
+    sample_id: str | None = None,
+    reason: str | None = None,
+) -> dict | None:
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+    if run is None:
+        return None
+    if run.pipeline_name == "pgta":
+        return _reanalyze_pgta_run_object(
+            session=session,
+            airflow_client=airflow_client,
+            run=run,
+            mode=mode,
+            rule=rule,
+            sample_id=sample_id,
+            reason=reason,
+        )
+    if run.pipeline_name == "wes_qsub":
+        return _reanalyze_wes_run_object(
+            session=session,
+            airflow_client=airflow_client,
+            run=run,
+            mode=mode,
+            rule=rule,
+            sample_id=sample_id,
+            reason=reason,
+        )
+    raise ValueError("Only pipeline=pgta or pipeline=wes_qsub supports reanalysis in this phase.")
+
+
+def _reanalyze_wes_run_object(
+    *,
+    session: Session,
+    airflow_client,
+    run: AnalysisRun,
+    mode: str,
+    rule: str | None,
+    sample_id: str | None,
+    reason: str | None,
+) -> dict:
     _validate_wes_reanalysis(run=run, mode=mode, rule=rule, sample_id=sample_id)
 
     params = dict(run.params_json or {})
@@ -276,19 +335,19 @@ def reanalyze_wes_run(
 
     run.mode = mode
     run.status = "submitted"
-    _set_sample_status(session=session, analysis_id=analysis_id, status="running")
+    _set_sample_status(session=session, analysis_id=run.analysis_id, status="running")
     run.params_json = params
     run.error_summary = None
     run.ended_at = None
 
-    dag_run_id = f"manual__{analysis_id}__{mode}__{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+    dag_run_id = f"manual__{run.analysis_id}__{mode}__{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
     conf = _dag_conf(run)
     airflow_payload = airflow_client.trigger_dag_run(run.dag_id, dag_run_id=dag_run_id, conf=conf)
     dag_run_id = airflow_payload.get("dag_run_id") or dag_run_id
     run.dag_run_id = dag_run_id
     session.add(
         RunAction(
-            analysis_id=analysis_id,
+            analysis_id=run.analysis_id,
             action=mode,
             payload_json={
                 "dag_id": run.dag_id,
@@ -305,7 +364,62 @@ def reanalyze_wes_run(
     session.commit()
     session.refresh(run)
     return {
-        "analysis_id": analysis_id,
+        "analysis_id": run.analysis_id,
+        "new_dag_run_id": dag_run_id,
+        "mode": mode,
+        "status": run.status,
+    }
+
+
+def _reanalyze_pgta_run_object(
+    *,
+    session: Session,
+    airflow_client,
+    run: AnalysisRun,
+    mode: str,
+    rule: str | None,
+    sample_id: str | None,
+    reason: str | None,
+) -> dict:
+    _validate_pgta_reanalysis(run=run, mode=mode, rule=rule, sample_id=sample_id)
+
+    params = dict(run.params_json or {})
+    params["target"] = "baseline_qc"
+    previous_dag_run_id = run.dag_run_id
+
+    run.mode = mode
+    run.status = "submitted"
+    _set_sample_status(session=session, analysis_id=run.analysis_id, status="running")
+    run.params_json = params
+    run.error_summary = None
+    run.ended_at = None
+
+    dag_run_id = f"manual__{run.analysis_id}__{mode}__{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+    conf = _dag_conf(run)
+    airflow_payload = airflow_client.trigger_dag_run(run.dag_id, dag_run_id=dag_run_id, conf=conf)
+    dag_run_id = airflow_payload.get("dag_run_id") or dag_run_id
+    run.dag_run_id = dag_run_id
+    session.add(
+        RunAction(
+            analysis_id=run.analysis_id,
+            action=mode,
+            payload_json={
+                "dag_id": run.dag_id,
+                "dag_run_id": dag_run_id,
+                "previous_dag_run_id": previous_dag_run_id,
+                "conf": conf,
+                "rule": rule,
+                "sample_id": sample_id,
+                "reason": reason,
+            },
+            result_status="accepted",
+            message="PGT-A baseline_qc resume DAG run submitted.",
+        )
+    )
+    session.commit()
+    session.refresh(run)
+    return {
+        "analysis_id": run.analysis_id,
         "new_dag_run_id": dag_run_id,
         "mode": mode,
         "status": run.status,
@@ -402,6 +516,32 @@ def _validate_wes_reanalysis(*, run: AnalysisRun, mode: str, rule: str | None, s
             raise ValueError(f"sample_id is required for rule {rule}; supported samples: {supported_samples}.")
     elif sample_id:
         raise ValueError("sample_id is not supported for final_summary rerun.")
+
+
+def _validate_pgta_reanalysis(*, run: AnalysisRun, mode: str, rule: str | None, sample_id: str | None) -> None:
+    if run.pipeline_name != "pgta":
+        raise ValueError("Only pipeline=pgta supports PGT-A reanalysis.")
+    if mode not in SUPPORTED_PGTA_REANALYSIS_MODES:
+        supported = ", ".join(sorted(SUPPORTED_PGTA_REANALYSIS_MODES))
+        raise ValueError(f"Unsupported PGT-A reanalysis mode: {mode}. Supported modes: {supported}.")
+    if run.status in {"submitted", "running", "queued"}:
+        raise ValueError("Run is already active; sync or wait before reanalysis.")
+    if run.status not in PGTA_REANALYSIS_TERMINAL_STATUSES:
+        raise ValueError("PGT-A resume requires a run status of failed or terminated.")
+    if rule or sample_id:
+        raise ValueError("PGT-A resume does not support rule or sample selection in this phase.")
+    if not run.dag_run_id:
+        raise ValueError("Run must have an existing dag_run_id before reanalysis.")
+    if not run.sample_sheet_path:
+        raise ValueError("Run is missing sample_sheet_path.")
+    if not run.workdir:
+        raise ValueError("Run is missing workdir.")
+
+    target = str((run.params_json or {}).get("target") or "metadata")
+    _validate_pgta_target(target)
+    if target != "baseline_qc":
+        raise ValueError("PGT-A resume is only supported for baseline_qc runs.")
+    _validate_pgta_sample_count(target=target, selected_count=_pgta_selected_count(run))
 
 
 def _ensure_airflow_writable(path: Path) -> None:
