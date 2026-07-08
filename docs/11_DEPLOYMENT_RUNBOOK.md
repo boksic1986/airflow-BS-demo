@@ -1255,5 +1255,52 @@ docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags unp
 
 Do not run NIPT `full_run` unless the user explicitly approves the heavy batch
 and `NIPT_ALLOW_HEAVY_RUN=true` has been intentionally set.
+
+## 25. T104 Dashboard Performance And Intake Config Smoke
+
+T104 makes the Dashboard use backend aggregate APIs and moves intake scanner
+configuration into `config/intake.yaml`.
+
+Required config:
+
+```bash
+INTAKE_CONFIG_PATH=/app/config/intake.yaml
+```
+
+The backend service mounts `./config:/app/config:ro`. Environment scan roots are
+fallback only.
+
+Build and deploy:
+
+```bash
+docker compose -f docker-compose.yaml config --quiet
+docker build --target test -f frontend/Dockerfile frontend
+docker build -t airflow-demo/backend:t104-test -f backend/Dockerfile backend
+docker run --rm airflow-demo/backend:t104-test \
+  pytest -q tests/test_dashboard_service.py tests/test_intake_config.py tests/test_system_resources.py
+docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags list-import-errors
+docker compose -f docker-compose.yaml build backend airflow-worker airflow-scheduler frontend
+docker compose -f docker-compose.yaml up -d --no-deps --force-recreate \
+  backend airflow-worker airflow-scheduler frontend
+```
+
+Runtime checks:
+
+```bash
+curl -fsSI http://127.0.0.1:12959/
+curl -fsS 'http://127.0.0.1:8000/api/dashboard/overview?pipeline=all'
+curl -fsS 'http://127.0.0.1:8000/api/dashboard/runs?pipeline=all&limit=10&offset=0'
+curl -fsS 'http://127.0.0.1:8000/api/system/resources'
+curl -fsS 'http://127.0.0.1:8000/api/intake/config'
+```
+
+Dashboard acceptance:
+
+- First screen uses `/api/dashboard/overview`, `/api/dashboard/runs`,
+  `/api/intake/status`, and `/api/system/resources`.
+- Run Tracker default page size is 10.
+- Intake observed/bootstrap rows do not display as queued execution.
+- Do not unpause `bio_intake_scan` during T104 acceptance.
+- Do not run NIPT `full_run` during T104 acceptance.
 - CORS 配置。
 - host port 映射。

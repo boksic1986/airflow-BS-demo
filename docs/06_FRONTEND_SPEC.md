@@ -595,3 +595,51 @@ Remote validation on `ssh fengxian`:
   `POST /api/intake/scan-and-submit`.
 - Automatic create+submit is owned by the Airflow `bio_intake_scan` DAG after
   bootstrap protects historical batches.
+
+## 17. T104 Dashboard Command Center
+
+T104 changes the Dashboard from a run-detail fan-out page into a backend
+aggregation client.
+
+### First-screen data calls
+
+Dashboard first load calls only:
+
+- `GET /api/dashboard/overview?pipeline=...&period=7d`
+- `GET /api/dashboard/runs?pipeline=...&limit=10&offset=0`
+- `GET /api/intake/status?...`
+- `GET /api/system/resources`
+
+The Dashboard page must not loop over visible runs and call
+`/api/runs/{analysis_id}`, `/progress`, or `/rules` for each row. Active rows
+still use the existing `sync-airflow` action every 15 seconds, then reload the
+aggregated page.
+
+### Layout
+
+- Left rail: `All pipelines`, `PGT-A`, `NIPT Docker`.
+- Main top panel: status distribution, 7-day activity sparkline, QC/failure
+  focus.
+- Run Tracker: paginated rows, default `limit=10`, status filter, keyword
+  search, previous/next controls.
+- Intake scanner: `Observed`, `Stable ready`, `Auto-submitted`, `Bootstrap
+  observed`, `Disabled`, and `Error`; observed/bootstrap states must not display
+  as queued execution.
+- Bottom panels: `Service & Node Health`, `Pipeline Resources`, and `Workflow
+  Activity`.
+
+### Run Tracker row fields
+
+Rows render `project_name`, `analysis_id`, `pipeline`, workflow status,
+`qc_status`, `sample_count`, timestamps, progress percent, current Airflow task,
+current pipeline rule, `progress_source`, and `not_in_airflow`.
+
+`current_airflow_task` is the project-level Airflow task. `current_pipeline_rule`
+is the Snakemake/runner event layer. The UI must keep these labels separate so
+operators can tell whether a run is in Airflow handoff, a project task, or an
+inner bioinformatics rule.
+
+### Visual rules
+
+Charts remain lightweight CSS/SVG, with no Recharts/D3/Ant Design dependency in
+T104. Status meaning still comes from `StatusBadge` and `frontend/src/lib/status.ts`.

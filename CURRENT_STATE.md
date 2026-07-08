@@ -5,7 +5,7 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T103 deployed PGT-A and NIPT Docker server-path batch scanning plus safe auto-intake bootstrap; NIPT new submissions use scanned chip batches, not run1/run2 templates.
+current_goal_ascii: T104 Dashboard aggregation, paginated run tracker, resource telemetry, and config/intake.yaml are the current deployment target.
 当前阶段: P3/P4/P6 Airflow + Snakemake/qsub mock observability + PGT-A Level 4 staged integration
 当前目标: T100 PGT-A submit 后 Airflow 状态自动回写已部署；当前前端展示收敛为 PGT-A-only，Dashboard 以 project/run 为主轴展示 PGT-A 运行状态、进度估算和 Airflow handoff，Submit Task 默认 create+submit 到 Airflow 并主动 sync Airflow 终态。
 最近更新时间: 2026-07-08
@@ -33,7 +33,7 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/intake/T103-pgta-nipt-auto-scan in local worktree; fengxian mirror has the same T101/T102/T103 overlay deployed for runtime validation
+active_branch: codex/dashboard/T104-dashboard-intake-config in local worktree; fengxian mirror receives the same T104 overlay for runtime validation
 last_verified_code_commit: 3310134 for T095 runtime; T080/T081 is docs-only and used read-only runtime validation before the report update
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T080/T081 used read-only runtime validation on mirror at 3310134 before docs update
@@ -43,8 +43,8 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T080/T0
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 12959 | running after T103 redeploy | React/Vite PGT-A + NIPT Docker routed UI served by Docker nginx image `airflow-demo/frontend:0.1.0`; Dashboard uses one Run Tracker plus read-only Intake auto scanner panel; Submit Task uses server-path scan for both PGT-A and NIPT Docker, creates one NIPT run per selected chip batch, submits to Airflow, syncs after handoff, and displays `dag_run_id`; host 3000 is occupied by non-project next-server |
-| backend | 8000 | running, healthy after T103 redeploy | `/api/health`, `/api/health/db`, `/api/input/roots`, `/api/input/scan`, `/api/intake/status`, `/api/intake/scan-and-submit`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and `/api/runs/{analysis_id}/progress` are available; NIPT scan uses `NIPT_INPUT_SCAN_ROOTS`; image `airflow-demo/backend:0.1.0`; container `TZ=Asia/Shanghai` |
+| frontend | 12959 | running after T104 redeploy | React/Vite PGT-A + NIPT Docker routed UI served by Docker nginx image `airflow-demo/frontend:0.1.0`; Dashboard is now pipeline-driven with aggregate overview, 10-row paginated Run Tracker, intake scanner state, resource tabs, and workflow activity; Submit Task still uses server-path scan for both PGT-A and NIPT Docker; host 3000 is occupied by non-project next-server |
+| backend | 8000 | running, healthy after T104 redeploy | `/api/health`, `/api/health/db`, `/api/input/roots`, `/api/input/scan`, `/api/intake/status`, `/api/intake/config`, `/api/intake/scan-and-submit`, `/api/dashboard/overview`, `/api/dashboard/runs`, `/api/system/resources`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and `/api/runs/{analysis_id}/progress` are available; scanner roots come from `config/intake.yaml` with env fallback; image `airflow-demo/backend:0.1.0`; container `TZ=Asia/Shanghai` |
 | airflow web/api | 12958 | running; `PGTA_20260706_162150_00C4FD` final resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` ended `success` after T095 `LD_PRELOAD` fix; previous T095-only-`LD_LIBRARY_PATH` attempt `manual__PGTA_20260706_162150_00C4FD__resume__20260707T143132Z` failed preflight | project image `airflow-demo/airflow:0.1.0`; Airflow core/UI timezone is `Asia/Shanghai`; T095 sets run-local `XDG_CACHE_HOME`, `MPLCONFIGDIR`, `LD_LIBRARY_PATH=PGTA_CONDA_LIB`, and `LD_PRELOAD=PGTA_LIBSTDCXX`; `logs/pgta.python_preflight.log` records env header and import versions |
 | postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow metadata initialized; no host port published |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
@@ -233,6 +233,57 @@ Remote validation and deployment on `ssh fengxian`:
 - `curl -fsSI http://127.0.0.1:12959/`: HTTP 200 from nginx.
 - `GET /api/health`: returned `{"status":"ok"}`.
 - `GET /api/health/airflow`: metadatabase and scheduler healthy.
+
+## 14. T104 Dashboard aggregation and intake config checkpoint
+
+Date: 2026-07-08
+Agent: Codex
+Branch/worktree: `codex/dashboard/T104-dashboard-intake-config` at `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+
+T104 changes the Dashboard from frontend fan-out requests into backend
+aggregation:
+
+- New backend APIs: `/api/dashboard/overview`, `/api/dashboard/runs`,
+  `/api/system/resources`, and `/api/intake/config`.
+- New config file: `config/intake.yaml`; backend reads it through
+  `INTAKE_CONFIG_PATH=/app/config/intake.yaml` and keeps env roots as fallback.
+- Dashboard first screen uses overview, dashboard/runs, intake/status, and
+  system/resources; it does not call run detail, `/progress`, or `/rules` for
+  each visible run.
+- Run Tracker defaults to 10 rows per page, supports pipeline selector,
+  status filter, keyword search, previous/next pagination, progress bar,
+  current Airflow task, and current pipeline rule.
+- Intake scanner states distinguish `Observed`, `Stable ready`,
+  `Auto-submitted`, `Bootstrap observed`, `Disabled`, and `Error`; observed
+  bootstrap rows are not displayed as queued workflow execution.
+- Bottom Dashboard panels are `Service & Node Health`, `Pipeline Resources`,
+  and `Workflow Activity`.
+
+Validation completed so far:
+
+- Local Python syntax check passed for changed backend modules.
+- Remote backend Docker targeted pytest passed: 7 tests
+  (`test_dashboard_service.py`, `test_intake_config.py`,
+  `test_system_resources.py`).
+- Remote frontend Docker test target passed: 10 Vitest tests.
+- Remote `docker compose -f docker-compose.yaml config --quiet` passed.
+- Remote `airflow dags list-import-errors` returned `No data found`.
+- Remote build/recreate passed for backend, airflow-worker, airflow-scheduler,
+  and frontend; frontend production build ran `tsc -b && vite build`.
+- Frontend `http://127.0.0.1:12959/` returned HTTP 200.
+- Backend `/api/health` returned ok; `/api/health/airflow` returned healthy
+  scheduler and metadatabase.
+- Runtime `/api/dashboard/overview?pipeline=all` returned 26 visible PGT-A/NIPT
+  runs, 0 running, 8 failed, and intake summary with 21 bootstrap rows.
+- Runtime `/api/dashboard/runs?pipeline=all&limit=10&offset=0` returned
+  `limit=10`, `items=10`, `total=26`.
+- Runtime `/api/system/resources` returned `source=host_proc`, 128 CPU cores,
+  and disks `/` plus `/data`.
+- Runtime `/api/intake/config` returned `source=/app/config/intake.yaml` with
+  pipelines `pgta` and `nipt_docker`.
+- Endpoint timing on `fengxian`: dashboard overview about 0.019s; dashboard runs
+  first page about 1.641s.
+- `bio_intake_scan` remains paused (`airflow dags list` final column `True`).
 - `GET /api/runs?pipeline=pgta&limit=20&offset=0`: returned 19 total PGT-A analysis runs, including `PGTA_20260707_182024_8CA2A0` and `PGTA_20260707_182056_39A374`.
 - Both July 7 run details returned non-null `dag_run_id` and `status=success`.
 - `GET /api/runs/PGTA_20260706_162150_00C4FD/qc`: returned `pass=0,warn=0,fail=14,unknown=0`.

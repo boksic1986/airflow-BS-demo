@@ -36,6 +36,121 @@
 
 ## Records
 
+## 2026-07-08 17:10 - Codex - T104 Dashboard performance, observability, and intake config
+
+### Goal
+
+Replace Dashboard frontend fan-out with backend aggregate APIs, make Run Tracker
+pipeline-driven and paginated, display node/resource/intake state clearly, and
+move intake scanner roots into `config/intake.yaml`.
+
+### Completed
+
+- Added `/api/dashboard/overview`, `/api/dashboard/runs`,
+  `/api/system/resources`, and `/api/intake/config`.
+- Added `config/intake.yaml` and `INTAKE_CONFIG_PATH=/app/config/intake.yaml`;
+  backend falls back to legacy env roots only if the YAML is missing.
+- Added backend resource telemetry from host `/proc` plus Docker stats fallback.
+- Changed Dashboard to left-side pipeline selection (`All pipelines`, `PGT-A`,
+  `NIPT Docker`), visual status distribution/trend/QC panels, paginated
+  10-row Run Tracker, intake scanner cards, and bottom health/resource/activity
+  panels.
+- Changed Run Tracker to consume `/api/dashboard/runs` rows instead of calling
+  run detail/progress/rules for every visible run.
+- Fixed intake display semantics so observed/bootstrap rows are not shown as
+  queued execution.
+- Updated API/frontend/Airflow/NIPT/runbook docs, task/state docs, and manifest.
+
+### Changed files
+
+- `.env.example`
+- `docker-compose.yaml`
+- `config/intake.yaml`
+- `backend/app/config.py`
+- `backend/app/dashboard_service.py`
+- `backend/app/intake_config.py`
+- `backend/app/intake_service.py`
+- `backend/app/main.py`
+- `backend/app/system_resources.py`
+- `backend/requirements.txt`
+- backend tests for dashboard, intake config, and system resources
+- `frontend/src/api.ts`
+- `frontend/src/components/RunTracker.tsx`
+- `frontend/src/pages/DashboardPage.tsx`
+- `frontend/src/styles.css`
+- `frontend/src/App.test.tsx`
+- docs/state/manifest files
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git diff --check` | success | Warning only: `docs/02_ENGINEERING_SPEC.md` CRLF will be normalized next time Git touches it |
+| manifest consistency check | success | `file_count=186`, listed files `186`, missing `0` |
+| local `py -3 -m py_compile ...` | success | Syntax-only check for changed backend modules |
+| `docker compose -f docker-compose.yaml config --quiet` on fengxian | success | Compose rendered with `./config:/app/config:ro` |
+| `docker build --target test -f frontend/Dockerfile frontend` on fengxian | success | 10 Vitest tests passed |
+| backend Docker targeted pytest | success | 7 tests passed: dashboard, intake config, resources |
+| `airflow dags list-import-errors` on fengxian | success | `No data found` |
+| `docker compose -f docker-compose.yaml build backend airflow-worker airflow-scheduler frontend` | success | Frontend production build ran `tsc -b && vite build` |
+| `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend airflow-worker airflow-scheduler frontend` | success | Did not touch Postgres, Redis, volumes, or unpause intake |
+| `curl -fsSI http://127.0.0.1:12959/` | success | HTTP 200 |
+| `GET /api/health` and `/api/health/airflow` | success | Backend ok; Airflow scheduler/metadatabase healthy |
+| `GET /api/dashboard/overview?pipeline=all` | success | `runs=26`, `running=0`, `failed=8`, intake `bootstrap=21` |
+| `GET /api/dashboard/runs?pipeline=all&limit=10&offset=0` | success | `total=26`, `items=10`, `limit=10` |
+| `GET /api/system/resources` | success | `source=host_proc`, `cores=128`, disks `/` and `/data` |
+| `GET /api/intake/config` | success | `source=/app/config/intake.yaml`, pipelines `pgta`, `nipt_docker` |
+| endpoint timing on fengxian | success | overview about `0.019s`; runs first page about `1.641s` |
+| `airflow dags list | grep bio_intake_scan` | success | Final column `True`; DAG remains paused |
+
+### Tests
+
+Remote acceptance passed on `ssh fengxian`. T104 did not submit new PGT-A/NIPT
+runs and did not run NIPT `full_run`.
+
+### Not run / why
+
+- `npm run lint` was not run because `frontend/package.json` has no lint script.
+- NIPT `full_run` was not run because it is a heavy workflow and still requires
+  explicit approval plus `NIPT_ALLOW_HEAVY_RUN=true`.
+- `bio_intake_scan` was not unpaused; T104 acceptance keeps it paused.
+
+### Current git status
+
+Local worktree is `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+on `codex/dashboard/T104-dashboard-intake-config` with T104 changes ready to
+commit.
+
+### Risks
+
+- `/api/dashboard/runs` still calls live progress for active/failed rows on the
+  current page. This is intentionally limited to page size 10, but Airflow REST
+  latency can still affect that endpoint.
+- `GET /api/system/resources` returns `source=host_proc` on fengxian because
+  Docker stats were not available from the backend container; this is an
+  expected degraded mode.
+- The scanner config is now repo-owned. Operators should review
+  `config/intake.yaml` before unpausing `bio_intake_scan`.
+
+### Open questions
+
+- Whether to add a small Settings/Intake admin panel for explicit bootstrap and
+  unpause guidance.
+- Whether to expose per-container Docker stats by granting backend controlled
+  access, or keep host-only resource telemetry.
+
+### Next recommended task
+
+Add an Intake settings page that shows `/api/intake/config`, last scan time,
+bootstrap guidance, and an explicit operator checklist before unpausing
+`bio_intake_scan`.
+
+### Rollback notes
+
+Revert T104 files and recreate backend/frontend. Do not delete Postgres, Docker
+volumes, `shared/runs`, PGT-A rawdata, or NIPT source folders. If rollback is
+needed, keep `bio_intake_scan` paused and continue using T103 submit/scan flows.
+
 ## 2026-07-08 15:27 - Codex - T103 PGT-A/NIPT batch scan and auto intake
 
 ### Goal

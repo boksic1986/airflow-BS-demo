@@ -854,3 +854,100 @@ Rules:
 - PGT-A auto intake uses target `metadata`; NIPT Docker auto intake uses
   `mount_smoke` unless future production settings explicitly opt into heavy
   full-run mode.
+
+## T104 Dashboard, Resource, And Intake Config APIs
+
+### Dashboard Overview
+
+```http
+GET /api/dashboard/overview?pipeline=all&period=7d
+```
+
+`pipeline` may be `all`, `pgta`, or `nipt_docker`. `period` may be `24h`,
+`7d`, or `30d`. This endpoint is a backend aggregation endpoint for the
+Dashboard first screen. It must not call per-run detail, per-run progress, or
+Airflow task-instance APIs.
+
+Response shape:
+
+```json
+{
+  "pipeline": "all",
+  "period": "7d",
+  "totals": {"runs": 12, "running": 1, "failed": 1, "success": 8, "created": 2},
+  "status_distribution": {"created": 2, "submitted": 0, "queued": 0, "running": 1, "success": 8, "failed": 1, "other": 0},
+  "pipeline_breakdown": {
+    "pgta": {"runs": 11, "running": 1, "failed": 1, "success": 8},
+    "nipt_docker": {"runs": 1, "running": 0, "failed": 0, "success": 0}
+  },
+  "trend": [{"date": "2026-07-08", "runs": 7, "failed": 0, "success": 5}],
+  "qc_summary": {"pass": 8, "warn": 0, "fail": 1, "unknown": 3},
+  "failure_summary": [],
+  "intake_summary": {"observed": 1, "ready": 0, "submitted": 1, "bootstrap": 1, "error": 0, "disabled": 0}
+}
+```
+
+### Dashboard Run Tracker Page
+
+```http
+GET /api/dashboard/runs?pipeline=all&status=active&keyword=PGTA&limit=10&offset=0
+```
+
+`status` is optional. Supported values are `active`, `created`, `failed`, and
+`success`. The endpoint returns one page of tracker rows. Active and failed rows
+may call `/progress` internally to read Airflow task instances. Created rows and
+terminal success rows are resolved from biodemo DB/rule events to avoid
+unnecessary Airflow REST calls.
+
+Response shape:
+
+```json
+{
+  "items": [
+    {
+      "project_name": "Fresh transfer 2-sample QC",
+      "analysis_id": "PGTA_20260708_103000_ACTIVE",
+      "pipeline": "pgta",
+      "status": "running",
+      "qc_status": "unknown",
+      "sample_count": 2,
+      "created_at": "2026-07-08T10:30:00+08:00",
+      "started_at": "2026-07-08T10:31:00+08:00",
+      "ended_at": null,
+      "dag_id": "bio_pgta",
+      "dag_run_id": "manual__PGTA_20260708_103000_ACTIVE",
+      "percent": 52,
+      "current_airflow_task": "run_pgta_target",
+      "current_pipeline_rule": "baseline_bam_uniformity_qc",
+      "progress_source": "snakemake_events",
+      "not_in_airflow": false,
+      "note": "Airflow task run_pgta_target; pipeline rule events captured"
+    }
+  ],
+  "total": 12,
+  "limit": 10,
+  "offset": 0,
+  "pipeline": "all"
+}
+```
+
+### System Resources
+
+```http
+GET /api/system/resources
+```
+
+Returns host resource telemetry from `/proc` plus Docker container stats when
+available. If Docker stats cannot be read, the endpoint returns
+`source=host_proc` and an empty `containers` array instead of failing the
+Dashboard.
+
+### Intake Config
+
+```http
+GET /api/intake/config
+```
+
+Returns the sanitized `config/intake.yaml` state. `host_path` is not returned to
+the browser. Environment scan roots are fallback only when `INTAKE_CONFIG_PATH`
+is missing or unreadable.

@@ -100,6 +100,133 @@ describe("bioinformatics platform frontend", () => {
     },
   ];
 
+  const dashboardRows = () => [
+    {
+      analysis_id: activePgtaRunId,
+      project_name: "Fresh transfer 2-sample QC",
+      pipeline: "pgta",
+      status: "running",
+      qc_status: "unknown",
+      sample_count: 2,
+      created_at: "2026-07-08T10:30:00+08:00",
+      started_at: "2026-07-08T10:31:00+08:00",
+      ended_at: null,
+      dag_id: "bio_pgta",
+      dag_run_id: `manual__${activePgtaRunId}`,
+      percent: 52,
+      current_airflow_task: "run_pgta_target",
+      current_pipeline_rule: "baseline_bam_uniformity_qc",
+      progress_source: "snakemake_events",
+      not_in_airflow: false,
+      note: "Airflow task run_pgta_target; pipeline rule events captured",
+    },
+    {
+      analysis_id: failedRunId,
+      project_name: "PGT-A failed smoke",
+      pipeline: "pgta",
+      status: "failed",
+      qc_status: "unknown",
+      sample_count: 1,
+      created_at: "2026-07-03T17:09:57+08:00",
+      started_at: "2026-07-03T17:10:00+08:00",
+      ended_at: "2026-07-03T17:11:00+08:00",
+      dag_id: "bio_pgta",
+      dag_run_id: `manual__${failedRunId}`,
+      percent: 50,
+      current_airflow_task: "run_pgta_target",
+      current_pipeline_rule: "__airflow_demo_invalid_target__",
+      progress_source: "snakemake_events",
+      not_in_airflow: false,
+      note: "Pipeline rule failed",
+    },
+    {
+      analysis_id: createdPgtaRunId,
+      project_name: "Created only PGT-A",
+      pipeline: "pgta",
+      status: "created",
+      qc_status: "unknown",
+      sample_count: 2,
+      created_at: "2026-07-08T10:00:00+08:00",
+      started_at: null,
+      ended_at: null,
+      dag_id: "bio_pgta",
+      dag_run_id: null,
+      percent: 0,
+      current_airflow_task: null,
+      current_pipeline_rule: null,
+      progress_source: "estimate",
+      not_in_airflow: true,
+      note: "Created in backend only",
+    },
+    {
+      analysis_id: niptRunId,
+      project_name: "NIPT scanned batch mount smoke",
+      pipeline: "nipt_docker",
+      status: niptStatus,
+      qc_status: "unknown",
+      sample_count: 96,
+      created_at: "2026-07-08T12:00:00+08:00",
+      started_at: null,
+      ended_at: null,
+      dag_id: "bio_nipt_docker",
+      dag_run_id: niptDagRunId,
+      percent: niptStatus === "created" ? 0 : 100,
+      current_airflow_task: niptStatus === "created" ? null : "run_nipt_docker",
+      current_pipeline_rule: niptStatus === "created" ? null : "nipt_mount_smoke",
+      progress_source: niptStatus === "created" ? "estimate" : "snakemake_events",
+      not_in_airflow: niptStatus === "created",
+      note: niptStatus === "created" ? "Created in backend only" : "Airflow task run_nipt_docker; pipeline event captured",
+    },
+    ...Array.from({length: 8}, (_, index) => ({
+      analysis_id: `PGTA_PAGE_${index + 1}`,
+      project_name: `Paged PGT-A ${index + 1}`,
+      pipeline: "pgta",
+      status: "success",
+      qc_status: "pass",
+      sample_count: 1,
+      created_at: `2026-07-08T09:${String(index).padStart(2, "0")}:00+08:00`,
+      started_at: `2026-07-08T09:${String(index).padStart(2, "0")}:01+08:00`,
+      ended_at: `2026-07-08T09:${String(index).padStart(2, "0")}:10+08:00`,
+      dag_id: "bio_pgta",
+      dag_run_id: `manual__PGTA_PAGE_${index + 1}`,
+      percent: 100,
+      current_airflow_task: "collect_pgta_artifact",
+      current_pipeline_rule: "metadata",
+      progress_source: "snakemake_events",
+      not_in_airflow: false,
+      note: "Airflow success",
+    })),
+  ];
+
+  const dashboardOverview = (pipeline = "all") => ({
+    pipeline,
+    period: "7d",
+    totals: {runs: pipeline === "nipt_docker" ? 1 : 12, running: pipeline === "nipt_docker" ? 0 : 1, failed: pipeline === "nipt_docker" ? 0 : 1, success: pipeline === "nipt_docker" ? 0 : 8, created: pipeline === "nipt_docker" ? 1 : 2},
+    status_distribution: {created: pipeline === "nipt_docker" ? 1 : 2, submitted: 0, queued: 0, running: pipeline === "nipt_docker" ? 0 : 1, success: pipeline === "nipt_docker" ? 0 : 8, failed: pipeline === "nipt_docker" ? 0 : 1, other: 0},
+    pipeline_breakdown: {
+      pgta: {runs: pipeline === "nipt_docker" ? 0 : 11, running: 1, failed: 1, success: 8},
+      nipt_docker: {runs: 1, running: 0, failed: 0, success: 0},
+    },
+    trend: [
+      {date: "2026-07-06", runs: 2, success: 1, failed: 0},
+      {date: "2026-07-07", runs: 3, success: 2, failed: 1},
+      {date: "2026-07-08", runs: 7, success: 5, failed: 0},
+    ],
+    qc_summary: {pass: 8, warn: 0, fail: 1, unknown: 3},
+    failure_summary: [{analysis_id: failedRunId, pipeline: "pgta", project_name: "PGT-A failed smoke", status: "failed", error_summary: "MissingRuleException", created_at: "2026-07-03T17:09:57+08:00"}],
+    intake_summary: {observed: 1, ready: 0, submitted: 1, bootstrap: 1, error: 0, disabled: 0},
+  });
+
+  const systemResources = () => ({
+    source: "host_proc_docker_stats",
+    host: {
+      cpu: {cores: 128, load_average: [3.4, 3.1, 2.8]},
+      memory: {total_bytes: 1024 * 1024 * 1024 * 1024, available_bytes: 900 * 1024 * 1024 * 1024, used_bytes: 124 * 1024 * 1024 * 1024, used_percent: 12.1},
+      disks: [{path: "/data", total_bytes: 1000, used_bytes: 570, free_bytes: 430, used_percent: 57}],
+    },
+    containers: [{name: "airflow-demo-backend-1", cpu_percent: "0.13%", memory_usage: "131MiB / 1.3TiB", block_io: "1.5MB / 0B"}],
+  });
+
   beforeEach(() => {
     setRoute("/");
     createdPgtaStatus = "created";
@@ -112,6 +239,28 @@ describe("bioinformatics platform frontend", () => {
       "fetch",
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
+        if (url.includes("/api/dashboard/overview")) {
+          const pipeline = new URL(url).searchParams.get("pipeline") || "all";
+          return mockJson(dashboardOverview(pipeline));
+        }
+        if (url.includes("/api/dashboard/runs")) {
+          const parsed = new URL(url);
+          const pipeline = parsed.searchParams.get("pipeline") || "all";
+          const status = parsed.searchParams.get("status") || "";
+          const keyword = (parsed.searchParams.get("keyword") || "").toLowerCase();
+          const limit = Number(parsed.searchParams.get("limit") || "10");
+          const offset = Number(parsed.searchParams.get("offset") || "0");
+          let items = dashboardRows();
+          if (pipeline !== "all") items = items.filter((item) => item.pipeline === pipeline);
+          if (status) {
+            if (status === "active") items = items.filter((item) => ["running", "submitted", "queued", "scheduled"].includes(item.status));
+            else if (status === "failed") items = items.filter((item) => item.status === "failed");
+            else items = items.filter((item) => item.status === status);
+          }
+          if (keyword) items = items.filter((item) => `${item.analysis_id} ${item.project_name}`.toLowerCase().includes(keyword));
+          return mockJson({items: items.slice(offset, offset + limit), total: items.length, limit, offset, pipeline});
+        }
+        if (url.endsWith("/api/system/resources")) return mockJson(systemResources());
         if (url.endsWith("/api/runs?limit=50&offset=0") || url.endsWith("/api/runs?pipeline=pgta&limit=50&offset=0")) {
           return mockJson({items: runs(), total: runs().length});
         }
@@ -135,7 +284,7 @@ describe("bioinformatics platform frontend", () => {
                 total_bytes: 201,
                 ready_state: "observed",
                 analysis_id: null,
-                submit_state: "not_submitted",
+                submit_state: "bootstrap",
                 last_seen_at: "2026-07-08T10:00:00+08:00",
               },
               {
@@ -613,35 +762,44 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByRole("link", {name: /workflows/i})).toHaveAttribute("href", "/workflows");
     expect(screen.getByText(/Demo environment/i)).toBeInTheDocument();
     expect(await screen.findByRole("heading", {name: /^Run Tracker$/i})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /All pipelines/i})).toHaveClass("active");
+    expect(screen.getByRole("button", {name: /^PGT-A$/i})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /NIPT Docker/i})).toBeInTheDocument();
     expect(screen.queryByRole("heading", {name: /Recent failed runs/i})).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", {name: /Recent completed runs/i})).not.toBeInTheDocument();
+    expect(screen.getByText(/Status distribution/i)).toBeInTheDocument();
+    expect(screen.getByText(/7-day activity/i)).toBeInTheDocument();
     expect(screen.getByText(/Fresh transfer 2-sample QC/i)).toBeInTheDocument();
     expect(screen.getByText(activePgtaRunId)).toBeInTheDocument();
     expect(screen.getByText(/52%/i)).toBeInTheDocument();
-    expect(screen.getByText(/baseline_bam_uniformity_qc/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/baseline_bam_uniformity_qc/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("progressbar", {name: new RegExp(activePgtaRunId)})).toHaveAttribute("aria-valuenow", "52");
-    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining(`/api/runs/${activePgtaRunId}/progress`), undefined);
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/overview?pipeline=all&period=7d"), undefined);
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/runs?pipeline=all&limit=10&offset=0"), undefined);
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/system/resources"), undefined);
+    expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes("/progress"))).toBe(false);
+    expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes("/rules"))).toBe(false);
     expect(screen.getAllByText(/Not in Airflow/i).length).toBeGreaterThan(0);
     expect(screen.getByText(failedRunId)).toBeInTheDocument();
     expect(screen.getAllByText(niptRunId).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/NIPT docker/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Airflow scheduler/i)).toBeInTheDocument();
-    expect(screen.getByText(/PGT-A \/ NIPT resource overview/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", {name: /Intake auto scanner/i})).toBeInTheDocument();
-    expect(screen.getByRole("heading", {name: /^Deployed workflows$/i})).toBeInTheDocument();
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/api/runs/${activePgtaRunId}/actions/sync-airflow`),
-        expect.objectContaining({method: "POST"}),
-      );
-    });
+    expect(screen.getByText(/Bootstrap observed/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^queued$/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", {name: /Intake scanner/i})).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name: /Service & Node Health/i})).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name: /Pipeline Resources/i})).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name: /Workflow Activity/i})).toBeInTheDocument();
+    expect(screen.queryByRole("heading", {name: /^Deployed workflows$/i})).not.toBeInTheDocument();
+    expect(screen.getByText(/CPU cores/i)).toBeInTheDocument();
+    expect(screen.getByText(/\/data/i)).toBeInTheDocument();
+    expect(screen.getByText(/1-10 of 12/i)).toBeInTheDocument();
     expect(screen.queryByText(wesRunId)).not.toBeInTheDocument();
     expect(screen.queryByText(/WES qsub/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/NIPT qsub/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/WGS/i)).not.toBeInTheDocument();
   });
 
-  it("filters the dashboard tracker around the current PGT-A run state", async () => {
+  it("filters, pages, and switches the dashboard tracker without per-run progress calls", async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -654,6 +812,20 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByText(createdPgtaRunId)).toBeInTheDocument();
     expect(screen.getAllByText(/Not in Airflow/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(activePgtaRunId)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", {name: /^All$/i}));
+    await user.click(screen.getByRole("button", {name: /Next page/i}));
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/runs?pipeline=all&limit=10&offset=10"), undefined);
+    });
+
+    await user.click(screen.getByRole("button", {name: /NIPT Docker/i}));
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/overview?pipeline=nipt_docker&period=7d"), undefined);
+      expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/runs?pipeline=nipt_docker&limit=10&offset=0"), undefined);
+    });
+    expect(screen.getAllByText(/NIPT docker/i).length).toBeGreaterThan(0);
+    expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes("/progress"))).toBe(false);
   });
 
   it("shows only PGT-A runs in the run table without hiding status text", async () => {

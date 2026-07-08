@@ -161,6 +161,7 @@ services:
       INPUT_SCAN_ROOTS: ${INPUT_SCAN_ROOTS:-/data/project/CNV/PGT-A/rawdata}
       PGTA_INPUT_SCAN_ROOTS: ${PGTA_INPUT_SCAN_ROOTS:-}
       NIPT_INPUT_SCAN_ROOTS: ${NIPT_INPUT_SCAN_ROOTS:-${NIPT_CONTAINER_ROOT:-/opt/pipelines/NIPT}/fastq}
+      INTAKE_CONFIG_PATH: ${INTAKE_CONFIG_PATH:-/app/config/intake.yaml}
       NIPT_DOCKER_CORES: ${NIPT_DOCKER_CORES:-40}
       NIPT_ALLOW_HEAVY_RUN: ${NIPT_ALLOW_HEAVY_RUN:-false}
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-*}
@@ -168,6 +169,7 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./shared:/data/airflow-demo
+      - ./config:/app/config:ro
       - ${PGTA_DATA_ROOT:-/data/project/CNV/PGT-A}:${PGTA_CONTAINER_DATA_ROOT:-/data/project/CNV/PGT-A}:ro
       - ${NIPT_PIPELINE_ROOT:-/home/jiucheng/pipelines/NIPT}/fastq:${NIPT_CONTAINER_ROOT:-/opt/pipelines/NIPT}/fastq:ro
     healthcheck:

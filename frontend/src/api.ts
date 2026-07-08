@@ -235,6 +235,65 @@ export type IntakeStatusResponse = {
   items: IntakeDiscovery[];
 };
 
+export type DashboardPipeline = "all" | "pgta" | "nipt_docker";
+
+export type DashboardOverview = {
+  pipeline: DashboardPipeline;
+  period: string;
+  totals: Record<string, number>;
+  status_distribution: Record<string, number>;
+  pipeline_breakdown: Record<string, Record<string, number>>;
+  trend: Array<{date: string; runs: number; failed: number; success: number}>;
+  qc_summary: Record<string, number>;
+  failure_summary: Array<{
+    analysis_id: string;
+    pipeline: string;
+    project_name: string;
+    status: string;
+    error_summary?: string | null;
+    created_at?: string | null;
+  }>;
+  intake_summary: Record<string, number>;
+};
+
+export type DashboardRunTrackerRow = {
+  analysis_id: string;
+  project_name: string;
+  pipeline: string;
+  status: string;
+  qc_status: string;
+  sample_count: number;
+  created_at?: string | null;
+  started_at?: string | null;
+  ended_at?: string | null;
+  dag_id?: string | null;
+  dag_run_id?: string | null;
+  percent: number;
+  current_airflow_task?: string | null;
+  current_pipeline_rule?: string | null;
+  progress_source: string;
+  not_in_airflow: boolean;
+  note?: string | null;
+};
+
+export type DashboardRunsResponse = {
+  items: DashboardRunTrackerRow[];
+  total: number;
+  limit: number;
+  offset: number;
+  pipeline: DashboardPipeline;
+};
+
+export type SystemResourcesResponse = {
+  source: string;
+  host: {
+    cpu: {cores: number; load_average?: number[]};
+    memory: {total_bytes: number; available_bytes: number; used_bytes: number; used_percent: number};
+    disks: Array<{path: string; total_bytes: number; used_bytes: number; free_bytes: number; used_percent: number}>;
+  };
+  containers: Array<{name: string; cpu_percent: string; memory_usage: string; block_io: string}>;
+};
+
 declare global {
   interface Window {
     __AIRFLOW_DEMO_CONFIG__?: {
@@ -286,6 +345,33 @@ export function listRuns(options: RunListOptions = {}): Promise<RunListResponse>
   params.set("limit", String(options.limit ?? 50));
   params.set("offset", String(options.offset ?? 0));
   return requestJson<RunListResponse>(`/runs?${params.toString()}`);
+}
+
+export function getDashboardOverview(options: {pipeline?: DashboardPipeline; period?: "24h" | "7d" | "30d"} = {}): Promise<DashboardOverview> {
+  const params = new URLSearchParams();
+  params.set("pipeline", options.pipeline || "all");
+  params.set("period", options.period || "7d");
+  return requestJson<DashboardOverview>(`/dashboard/overview?${params.toString()}`);
+}
+
+export function getDashboardRuns(options: {
+  pipeline?: DashboardPipeline;
+  status?: string;
+  keyword?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<DashboardRunsResponse> {
+  const params = new URLSearchParams();
+  params.set("pipeline", options.pipeline || "all");
+  if (options.status) params.set("status", options.status);
+  if (options.keyword) params.set("keyword", options.keyword);
+  params.set("limit", String(options.limit ?? 10));
+  params.set("offset", String(options.offset ?? 0));
+  return requestJson<DashboardRunsResponse>(`/dashboard/runs?${params.toString()}`);
+}
+
+export function getSystemResources(): Promise<SystemResourcesResponse> {
+  return requestJson<SystemResourcesResponse>("/system/resources");
 }
 
 export function getHealth(): Promise<HealthResponse> {

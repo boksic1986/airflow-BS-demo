@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.input_scanner import FastqCandidate, scan_fastq_candidates, scan_nipt_batch_candidates
+from app.intake_config import load_intake_config
 from app.models import IntakeDiscovery
 from app.run_service import create_nipt_docker_run, create_pgta_run, submit_run_to_airflow
 
@@ -201,6 +202,14 @@ def _group_scan_result(*, pipeline: str, root_path: str, items: list[FastqCandid
 
 
 def _roots_for_pipeline(settings, pipeline: str) -> list[str]:
+    config = load_intake_config(
+        path=getattr(settings, "intake_config_path", None),
+        fallback_pgta_roots=list(getattr(settings, "pgta_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or []),
+        fallback_nipt_roots=list(getattr(settings, "nipt_input_scan_roots", []) or []),
+    )
+    roots = config.roots_for_pipeline(pipeline)
+    if roots:
+        return roots
     if pipeline == "nipt_docker":
         return list(getattr(settings, "nipt_input_scan_roots", []) or [])
     return list(getattr(settings, "pgta_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or [])

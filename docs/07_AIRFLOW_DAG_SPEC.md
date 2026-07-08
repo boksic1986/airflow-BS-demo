@@ -630,6 +630,12 @@ Safety:
 - The DAG must not mount or modify production pipeline roots. All scanning and
   idempotency state is handled by FastAPI.
 
+T104 moves scanner root and ready-rule configuration into `config/intake.yaml`.
+`bio_intake_scan` still calls only the backend endpoint above; it does not read
+the YAML directly, does not access biodemo DB, and does not scan the filesystem
+itself. The backend exposes the active sanitized config through
+`GET /api/intake/config`.
+
 ## 11. `bio_pgta_airflow` collect events
 
 `collect_snakemake_events` 读取 JSONL，生成：

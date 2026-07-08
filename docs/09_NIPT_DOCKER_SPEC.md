@@ -158,9 +158,18 @@ Default behavior:
 Operational sequence:
 
 1. Deploy backend and migration.
-2. Run a bootstrap scan against existing PGT-A/NIPT roots.
-3. Confirm `/api/intake/status` shows expected observed/bootstrap rows.
-4. Unpause `bio_intake_scan` if automatic intake should run.
+2. Review `config/intake.yaml` and `GET /api/intake/config`.
+3. Run a bootstrap scan against existing PGT-A/NIPT roots.
+4. Confirm `/api/intake/status` shows expected observed/bootstrap rows.
+5. Unpause `bio_intake_scan` if automatic intake should run.
+
+T104 scanner configuration:
+
+- NIPT Docker roots come from `config/intake.yaml` first.
+- `NIPT_INPUT_SCAN_ROOTS` remains only a fallback for missing config files.
+- New NIPT intake uses `file_flavor=clean_fastq`, `r1_pattern=*.R1.clean.fastq.gz`,
+  `r2_pattern=*.R2.clean.fastq.gz`, and ignores `002/*.adapter.fastq.gz`.
+- The default ready rule is `stable_fingerprint` with `stable_scans=2`.
 
 ## 6. QC, Logs, And Artifacts
 

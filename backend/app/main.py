@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.airflow_client import AirflowClient
 from app.config import get_cors_origins, get_settings
+from app.dashboard_service import get_dashboard_overview, get_dashboard_runs
 from app.db import check_database, get_sessionmaker
 from app.diagnostics_service import (
     InvalidRunPathError,
@@ -19,6 +20,7 @@ from app.diagnostics_service import (
     sync_airflow_status,
 )
 from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candidates, scan_nipt_batch_candidates
+from app.intake_config import load_intake_config
 from app.intake_service import list_intake_status, scan_and_submit_intake
 from app.progress_service import get_run_progress
 from app.qc_service import list_run_qc
@@ -33,6 +35,7 @@ from app.run_service import (
     reanalyze_run_to_airflow,
     submit_run_to_airflow,
 )
+from app.system_resources import get_system_resources
 
 
 logger = logging.getLogger(__name__)
@@ -175,6 +178,11 @@ def input_roots(pipeline: str = Query(pattern="^(pgta|nipt_docker)$")) -> dict[s
     }
 
 
+@app.get("/api/intake/config")
+def intake_config() -> dict[str, object]:
+    return _load_intake_config(get_settings()).public_payload()
+
+
 @app.post("/api/runs", status_code=status.HTTP_201_CREATED)
 def create_run(request: CreateRunRequest) -> dict[str, object]:
     settings = get_settings()
@@ -245,6 +253,35 @@ def runs_list(
         return list_runs(session=session, pipeline=pipeline, status=status_filter, limit=limit, offset=offset)
 
 
+@app.get("/api/dashboard/overview")
+def dashboard_overview(
+    pipeline: str = Query(default="all", pattern="^(all|pgta|nipt_docker)$"),
+    period: str = Query(default="7d", pattern="^(24h|7d|30d)$"),
+) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        return get_dashboard_overview(session=session, pipeline=pipeline, period=period)
+
+
+@app.get("/api/dashboard/runs")
+def dashboard_runs(
+    pipeline: str = Query(default="all", pattern="^(all|pgta|nipt_docker)$"),
+    status_filter: str | None = Query(default=None, alias="status"),
+    keyword: str | None = None,
+    limit: int = Query(default=10, ge=1, le=50),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        return get_dashboard_runs(
+            session=session,
+            airflow_client=get_airflow_client(),
+            pipeline=pipeline,
+            status=status_filter,
+            keyword=keyword,
+            limit=limit,
+            offset=offset,
+        )
+
+
 @app.post("/api/runs/{analysis_id}/actions/submit")
 def submit_run(analysis_id: str) -> dict[str, object]:
     try:
@@ -311,6 +348,11 @@ def intake_status(
 ) -> dict[str, object]:
     with get_sessionmaker()() as session:
         return list_intake_status(session=session, pipeline=pipeline, limit=limit)
+
+
+@app.get("/api/system/resources")
+def system_resources() -> dict[str, object]:
+    return get_system_resources()
 
 
 @app.post("/api/runs/{analysis_id}/actions/reanalyze")
@@ -575,9 +617,20 @@ def _selected_sample_to_candidate(item: SelectedSampleRequest) -> FastqCandidate
 
 
 def _scan_roots_for_pipeline(settings, pipeline: str) -> list[str]:
+    roots = _load_intake_config(settings).roots_for_pipeline(pipeline)
+    if roots:
+        return roots
     if pipeline == "nipt_docker":
         return list(getattr(settings, "nipt_input_scan_roots", []) or [])
     return list(getattr(settings, "pgta_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or [])
+
+
+def _load_intake_config(settings):
+    return load_intake_config(
+        path=getattr(settings, "intake_config_path", None),
+        fallback_pgta_roots=list(getattr(settings, "pgta_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or []),
+        fallback_nipt_roots=list(getattr(settings, "nipt_input_scan_roots", []) or []),
+    )
 
 
 def _scan_result_payload(result) -> dict[str, object]:

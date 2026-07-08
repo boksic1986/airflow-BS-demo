@@ -8,6 +8,7 @@ airflow-demo/
   .env.example                 # non-secret example environment
   dags/                       # Airflow DAGs
   backend/                    # FastAPI app
+  config/                     # non-secret runtime config, including intake.yaml
   frontend/                   # React app
   snakemake_runner/           # Dockerized Snakemake 9 + cluster-generic runner
   pipelines/
@@ -231,3 +232,12 @@ node_modules/
 - 是否有最小测试？
 - 是否支持失败定位？
 - 是否支持 resume 而不是强制全量重跑？
+
+## 11. T104 Dashboard And Intake Config Notes
+
+- Backend exposes aggregate Dashboard APIs: `/api/dashboard/overview` and `/api/dashboard/runs`.
+- Frontend Dashboard first load must use aggregate APIs and must not issue per-run `/progress`, `/rules`, or detail fan-out requests.
+- Backend exposes sanitized scanner config at `/api/intake/config`.
+- Primary scanner configuration lives in `config/intake.yaml`, mounted read-only into backend as `/app/config/intake.yaml`.
+- `INTAKE_CONFIG_PATH` points backend at the YAML file. `PGTA_INPUT_SCAN_ROOTS`, `INPUT_SCAN_ROOTS`, and `NIPT_INPUT_SCAN_ROOTS` are fallback roots only.
+- `GET /api/system/resources` returns host `/proc` metrics and Docker stats when available. Missing Docker stats must degrade to `source=host_proc`.

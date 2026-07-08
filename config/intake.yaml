@@ -1,0 +1,26 @@
+version: 1
+defaults:
+  ready_rule: stable_fingerprint
+  stable_scans: 2
+  auto_submit: false
+pipelines:
+  pgta:
+    enabled: true
+    roots:
+      - id: pgta_rawdata
+        container_path: /data/project/CNV/PGT-A/rawdata
+    auto_submit:
+      target: metadata
+  nipt_docker:
+    enabled: true
+    roots:
+      - id: nipt_fastq
+        host_path: /home/jiucheng/pipelines/NIPT/fastq
+        container_path: /opt/pipelines/NIPT/fastq
+    file_flavor: clean_fastq
+    r1_pattern: "*.R1.clean.fastq.gz"
+    r2_pattern: "*.R2.clean.fastq.gz"
+    ignore_patterns:
+      - "002/*.adapter.fastq.gz"
+    auto_submit:
+      run_mode: mount_smoke
