@@ -116,6 +116,12 @@ describe("bioinformatics platform frontend", () => {
       percent: 52,
       current_airflow_task: "run_pgta_target",
       current_pipeline_rule: "baseline_bam_uniformity_qc",
+      current_stage_label: "Baseline BAM uniformity QC",
+      current_stage_source: "Snakemake rule event",
+      elapsed_seconds: 870,
+      average_duration_seconds: 7200,
+      estimated_remaining_seconds: 6330,
+      estimated_finish_at: "2026-07-08T12:16:30+08:00",
       progress_source: "snakemake_events",
       not_in_airflow: false,
       note: "Airflow task run_pgta_target; pipeline rule events captured",
@@ -135,6 +141,12 @@ describe("bioinformatics platform frontend", () => {
       percent: 50,
       current_airflow_task: "run_pgta_target",
       current_pipeline_rule: "__airflow_demo_invalid_target__",
+      current_stage_label: "Demo invalid target",
+      current_stage_source: "Snakemake rule event",
+      elapsed_seconds: 60,
+      average_duration_seconds: null,
+      estimated_remaining_seconds: null,
+      estimated_finish_at: null,
       progress_source: "snakemake_events",
       not_in_airflow: false,
       note: "Pipeline rule failed",
@@ -154,6 +166,12 @@ describe("bioinformatics platform frontend", () => {
       percent: 0,
       current_airflow_task: null,
       current_pipeline_rule: null,
+      current_stage_label: "Created only",
+      current_stage_source: "Backend state",
+      elapsed_seconds: null,
+      average_duration_seconds: null,
+      estimated_remaining_seconds: null,
+      estimated_finish_at: null,
       progress_source: "estimate",
       not_in_airflow: true,
       note: "Created in backend only",
@@ -173,6 +191,12 @@ describe("bioinformatics platform frontend", () => {
       percent: niptStatus === "created" ? 0 : 100,
       current_airflow_task: niptStatus === "created" ? null : "run_nipt_docker",
       current_pipeline_rule: niptStatus === "created" ? null : "nipt_mount_smoke",
+      current_stage_label: niptStatus === "created" ? "Created only" : "NIPT mount smoke",
+      current_stage_source: niptStatus === "created" ? "Backend state" : "Runner event",
+      elapsed_seconds: niptStatus === "created" ? null : 10,
+      average_duration_seconds: 12,
+      estimated_remaining_seconds: niptStatus === "created" ? null : 2,
+      estimated_finish_at: niptStatus === "created" ? null : "2026-07-08T12:00:12+08:00",
       progress_source: niptStatus === "created" ? "estimate" : "snakemake_events",
       not_in_airflow: niptStatus === "created",
       note: niptStatus === "created" ? "Created in backend only" : "Airflow task run_nipt_docker; pipeline event captured",
@@ -192,6 +216,12 @@ describe("bioinformatics platform frontend", () => {
       percent: 100,
       current_airflow_task: "collect_pgta_artifact",
       current_pipeline_rule: "metadata",
+      current_stage_label: "Collect PGT-A artifacts",
+      current_stage_source: "Airflow project task",
+      elapsed_seconds: 540,
+      average_duration_seconds: 540,
+      estimated_remaining_seconds: 0,
+      estimated_finish_at: null,
       progress_source: "snakemake_events",
       not_in_airflow: false,
       note: "Airflow success",
@@ -213,6 +243,12 @@ describe("bioinformatics platform frontend", () => {
       {date: "2026-07-08", runs: 7, success: 5, failed: 0},
     ],
     qc_summary: {pass: 8, warn: 0, fail: 1, unknown: 3},
+    sample_summary: {total: pipeline === "nipt_docker" ? 96 : 112, running: pipeline === "nipt_docker" ? 0 : 2, workflow_failed: pipeline === "nipt_docker" ? 0 : 1, qc_failed: pipeline === "nipt_docker" ? 0 : 2, completed: pipeline === "nipt_docker" ? 0 : 107},
+    sample_trend: [
+      {date: "2026-07-06", total: 24, running: 0, workflow_failed: 0, qc_failed: 1, completed: 23},
+      {date: "2026-07-07", total: 32, running: 2, workflow_failed: 1, qc_failed: 1, completed: 28},
+      {date: "2026-07-08", total: 56, running: 0, workflow_failed: 0, qc_failed: 0, completed: 56},
+    ],
     failure_summary: [{analysis_id: failedRunId, pipeline: "pgta", project_name: "PGT-A failed smoke", status: "failed", error_summary: "MissingRuleException", created_at: "2026-07-03T17:09:57+08:00"}],
     intake_summary: {observed: 1, ready: 0, submitted: 1, bootstrap: 1, error: 0, disabled: 0},
   });
@@ -635,6 +671,33 @@ describe("bioinformatics platform frontend", () => {
               rule_events: visibleStatus === "created" ? [] : [{rule: "nipt_mount_smoke", sample_id: null, status: "success", snakemake_jobid: null, return_code: 0}],
             });
           }
+          if (id === pgtaRunId) {
+            return mockJson({
+              analysis_id: id,
+              pipeline: "pgta",
+              status: "success",
+              dag_id: "bio_pgta",
+              dag_run_id: `manual__${pgtaRunId}__resume__20260707T144147Z`,
+              percent: 100,
+              current_step: "Workflow complete",
+              current_source: "airflow_task_instances",
+              note: "Airflow staged PGT-A baseline QC complete",
+              not_in_airflow: false,
+              progress_source: "airflow_task_instances",
+              airflow_tasks: [
+                ...baseTasks,
+                {task_id: "pgta_pipeline.run_pgta_mapping", state: "success", start_date: "2026-07-07T14:41:49+08:00", end_date: "2026-07-07T16:20:00+08:00", duration: 5891, try_number: 1, operator: "PythonOperator"},
+                {task_id: "pgta_pipeline.run_pgta_metadata", state: "success", start_date: "2026-07-07T16:20:01+08:00", end_date: "2026-07-07T16:22:00+08:00", duration: 119, try_number: 1, operator: "PythonOperator"},
+                {task_id: "pgta_pipeline.run_pgta_baseline_qc", state: "success", start_date: "2026-07-07T16:22:01+08:00", end_date: "2026-07-07T22:52:00+08:00", duration: 23399, try_number: 1, operator: "PythonOperator"},
+                {task_id: "collect_pgta_artifact", state: "success", start_date: "2026-07-07T22:52:01+08:00", end_date: "2026-07-07T22:53:00+08:00", duration: 59, try_number: 1, operator: "PythonOperator"},
+              ],
+              rule_events: [
+                {rule: "mapping", sample_id: null, status: "success", snakemake_jobid: null, return_code: 0},
+                {rule: "metadata", sample_id: null, status: "success", snakemake_jobid: null, return_code: 0},
+                {rule: "baseline_qc", sample_id: null, status: "success", snakemake_jobid: null, return_code: 0},
+              ],
+            });
+          }
           if (id === createdPgtaRunId && createdPgtaStatus === "created") {
             return mockJson({
               analysis_id: id,
@@ -734,9 +797,39 @@ describe("bioinformatics platform frontend", () => {
         if (url.match(/\/api\/runs\/[^/]+\/qc$/)) {
           const id = url.split("/api/runs/")[1].split("/qc")[0];
           if (id === pgtaRunId) {
+            const rows = Array.from({length: 25}, (_, index) => {
+              const sampleId = `G${String(index + 1).padStart(2, "0")}`;
+              const failing = index === 0;
+              return [
+                {
+                  sample_id: sampleId,
+                  metric_name: "qc_decision",
+                  metric_value: failing ? "FAIL" : "PASS",
+                  metric_numeric: null,
+                  threshold: "PASS",
+                  status: failing ? "fail" : "pass",
+                },
+                {
+                  sample_id: sampleId,
+                  metric_name: "mapped_fragments",
+                  metric_value: String(2400000 + index * 1000),
+                  metric_numeric: 2400000 + index * 1000,
+                  threshold: ">=2000000",
+                  status: "pass",
+                },
+                {
+                  sample_id: sampleId,
+                  metric_name: "zero_bin_fraction",
+                  metric_value: (0.01 + index * 0.001).toFixed(3),
+                  metric_numeric: 0.01 + index * 0.001,
+                  threshold: "<=0.05",
+                  status: failing ? "fail" : "pass",
+                },
+              ];
+            }).flat();
             return mockJson({
-              summary: {pass: 0, warn: 0, fail: 14, unknown: 0},
-              items: [{sample_id: "G10", metric_name: "baseline_qc_decision", metric_value: "FAIL", metric_numeric: null, threshold: "PASS", status: "fail"}],
+              summary: {pass: 24, warn: 0, fail: 1, unknown: 0},
+              items: rows,
             });
           }
           if (id === wesRunId) {
@@ -758,6 +851,7 @@ describe("bioinformatics platform frontend", () => {
           return mockJson({
             items: [
               {key: "snakemake_command", type: "snakemake_log", label: "Snakemake command", path: `/data/airflow-demo/runs/${id}/logs/snakemake.command.txt`, size_bytes: 256, url: `/api/runs/${id}/logs?stream=metadata`},
+              {key: "snakemake_config", type: "config_yaml", label: id === niptRunId ? "NIPT run config" : "PGT-A Snakemake config", path: `/data/airflow-demo/runs/${id}/${id === niptRunId ? "config/nipt_run_config.yaml" : "config.yaml"}`, size_bytes: 512, url: `/api/runs/${id}/artifacts/config`},
               {key: "qc_summary", type: "qc_tsv", label: "QC summary", path: `/data/airflow-demo/runs/${id}/reports/qc_summary.tsv`, size_bytes: 128, url: `/api/runs/${id}/artifacts/qc_summary`},
             ],
           });
@@ -798,6 +892,9 @@ describe("bioinformatics platform frontend", () => {
           wesStatus = "submitted";
           wesDagRunId = `manual__${wesRunId}__rerun_rule`;
           return mockJson({analysis_id: wesRunId, new_dag_run_id: wesDagRunId, mode: "rerun_rule", status: "submitted"});
+        }
+        if (url.endsWith(`/api/runs/${pgtaRunId}/actions/reanalyze`) && init?.method === "POST") {
+          return mockJson({analysis_id: pgtaRunId, new_dag_run_id: `manual__${pgtaRunId}__rerun_stage__metadata__20260708T010203Z`, mode: "rerun_stage", stage: "metadata", status: "submitted"});
         }
         if (url.match(/\/api\/runs\/[^/]+\/actions\/sync-airflow$/) && init?.method === "POST") {
           const id = url.split("/api/runs/")[1].split("/actions/sync-airflow")[0];
@@ -855,10 +952,24 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByRole("heading", {name: /Recent completed runs/i})).not.toBeInTheDocument();
     expect(screen.getByText(/Status distribution/i)).toBeInTheDocument();
     expect(screen.getByText(/7-day activity/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name: /Sample throughput/i})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /24h/i})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /7d/i})).toHaveClass("active");
+    expect(screen.getByRole("button", {name: /30d/i})).toBeInTheDocument();
+    expect(screen.getByText(/Running samples/i)).toBeInTheDocument();
+    expect(screen.getByText(/QC failed samples/i)).toBeInTheDocument();
     expect(screen.getByText(/Fresh transfer 2-sample QC/i)).toBeInTheDocument();
-    expect(screen.getByText(activePgtaRunId)).toBeInTheDocument();
+    expect(screen.getByRole("link", {name: activePgtaRunId})).toHaveAttribute("href", `/runs/${activePgtaRunId}`);
+    expect(screen.getByRole("link", {name: /Fresh transfer 2-sample QC/i})).toHaveAttribute("href", `/runs/${activePgtaRunId}`);
     expect(screen.getByText(/52%/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/baseline_bam_uniformity_qc/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Baseline BAM uniformity QC/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/baseline_bam_uniformity_qc/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Snakemake rule event/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Elapsed 14m 30s/i)).toBeInTheDocument();
+    expect(screen.getByText(/ETA ~1h 45m/i)).toBeInTheDocument();
+    expect(screen.getByText("2026-07-08 10:31:00")).toBeInTheDocument();
+    expect(screen.queryByText(/Asia\/Shanghai/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", {name: /^View$/i})).not.toBeInTheDocument();
     expect(screen.getByRole("progressbar", {name: new RegExp(activePgtaRunId)})).toHaveAttribute("aria-valuenow", "52");
     expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/overview?pipeline=all&period=7d"), undefined);
     expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/runs?pipeline=all&limit=10&offset=0"), undefined);
@@ -877,7 +988,7 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByRole("heading", {name: /Workflow Activity/i})).toBeInTheDocument();
     expect(screen.queryByRole("heading", {name: /^Deployed workflows$/i})).not.toBeInTheDocument();
     expect(screen.getByText(/CPU cores/i)).toBeInTheDocument();
-    expect(screen.getByText(/\/data/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/\/data/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/1-10 of 12/i)).toBeInTheDocument();
     expect(screen.queryByText(wesRunId)).not.toBeInTheDocument();
     expect(screen.queryByText(/WES qsub/i)).not.toBeInTheDocument();
@@ -890,6 +1001,9 @@ describe("bioinformatics platform frontend", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", {name: /^Run Tracker$/i})).toBeInTheDocument();
+    await user.click(screen.getByRole("button", {name: /30d/i}));
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/overview?pipeline=all&period=30d"), undefined));
+
     await user.click(screen.getByRole("button", {name: /^Running$/i}));
     expect(screen.getByText(activePgtaRunId)).toBeInTheDocument();
     expect(screen.queryByText(createdPgtaRunId)).not.toBeInTheDocument();
@@ -907,7 +1021,7 @@ describe("bioinformatics platform frontend", () => {
 
     await user.click(screen.getByRole("button", {name: /NIPT Docker/i}));
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/overview?pipeline=nipt_docker&period=7d"), undefined);
+      expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/overview?pipeline=nipt_docker&period=30d"), undefined);
       expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/runs?pipeline=nipt_docker&limit=10&offset=0"), undefined);
     });
     expect(screen.getAllByText(/NIPT docker/i).length).toBeGreaterThan(0);
@@ -986,6 +1100,17 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByText("G10_R1.fastq.gz")).toBeInTheDocument();
     await user.click(screen.getByRole("checkbox", {name: /select folder Sample_G10/i}));
     await user.click(screen.getByRole("checkbox", {name: /select folder Sample_G11/i}));
+
+    const preview = screen.getByRole("heading", {name: /submit preview/i}).closest("section");
+    expect(preview).not.toBeNull();
+    expect((preview as HTMLElement).querySelectorAll(".submit-preview-field").length).toBeGreaterThanOrEqual(8);
+    expect(within(preview as HTMLElement).getByText("Pipeline")).toBeInTheDocument();
+    expect(within(preview as HTMLElement).getByText("PGT-A")).toBeInTheDocument();
+    expect(within(preview as HTMLElement).getByText("Project")).toBeInTheDocument();
+    expect(within(preview as HTMLElement).getByText("Reference")).toBeInTheDocument();
+    expect(within(preview as HTMLElement).getByText("Scan root")).toBeInTheDocument();
+    expect(within(preview as HTMLElement).getByText("Estimated workflow")).toBeInTheDocument();
+
     await user.click(screen.getByRole("button", {name: /create and submit to airflow/i}));
 
     await waitFor(() => {
@@ -1008,6 +1133,91 @@ describe("bioinformatics platform frontend", () => {
     expect(handoffSummary).not.toBeNull();
     expect(within(handoffSummary as HTMLElement).getByText("success")).toBeInTheDocument();
     expect(screen.getByText(/Create only/i)).toBeInTheDocument();
+  });
+
+  it("renders run detail QC as a compact searchable matrix with pagination", async () => {
+    const user = userEvent.setup();
+    setRoute(`/runs/${pgtaRunId}`);
+    render(<App />);
+
+    expect(await screen.findByText(pgtaRunId)).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", {name: /qc/i}));
+
+    expect(await screen.findByRole("heading", {name: /QC failures/i})).toBeInTheDocument();
+    expect(screen.getAllByText(/zero_bin_fraction/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Outside threshold <=0.05/i)).toBeInTheDocument();
+    expect((await screen.findAllByRole("columnheader", {name: /sample/i})).length).toBeGreaterThan(0);
+    expect(screen.getByRole("columnheader", {name: /qc_decision/i})).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", {name: /mapped_fragments/i})).toBeInTheDocument();
+    expect(screen.getByText(/25 sample rows · page 1 \/ 2/i)).toBeInTheDocument();
+    expect(screen.getAllByText("G01").length).toBeGreaterThan(0);
+    expect(screen.queryByText("G25")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", {name: /^next$/i}));
+    expect(screen.getByText(/25 sample rows · page 2 \/ 2/i)).toBeInTheDocument();
+    expect(screen.getByText("G25")).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText(/sample search/i));
+    await user.type(screen.getByLabelText(/sample search/i), "G01");
+    expect(screen.getByText(/1 sample rows · page 1 \/ 1/i)).toBeInTheDocument();
+    expect(screen.getAllByText("G01").length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", {name: /^Fail$/i}));
+    expect(screen.getByText(/1 sample rows · page 1 \/ 1/i)).toBeInTheDocument();
+    expect(screen.getAllByText("G01").length).toBeGreaterThan(0);
+  });
+
+  it("renders run detail manifest, config artifacts, and controlled PGT-A run actions", async () => {
+    const user = userEvent.setup();
+    setRoute(`/runs/${pgtaRunId}`);
+    render(<App />);
+
+    expect(await screen.findByText(pgtaRunId)).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name: /Current progress/i})).toBeInTheDocument();
+    expect(screen.getAllByText(/Workflow complete/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", {name: /Selected samples manifest/i})).toBeInTheDocument();
+    expect(screen.getByText("G10")).toBeInTheDocument();
+    expect(screen.getByText("G10_R1.fastq.gz")).toBeInTheDocument();
+    expect(screen.queryByText(`/data/airflow-demo/runs/${pgtaRunId}/config/samples.selected.tsv`)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", {name: /config/i}));
+    expect(await screen.findByRole("heading", {name: /Snakemake run config/i})).toBeInTheDocument();
+    expect(screen.getByText(/PGT-A Snakemake config/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/config.yaml/i).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", {name: /Run action/i}));
+    expect(await screen.findByRole("dialog", {name: /Run action/i})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /Resume failed baseline_qc/i})).toBeDisabled();
+    await user.click(screen.getByRole("button", {name: /Rerun metadata stage/i}));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/api/runs/${pgtaRunId}/actions/reanalyze`),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"mode":"rerun_stage"'),
+        }),
+      );
+    });
+    const actionCall = vi.mocked(globalThis.fetch).mock.calls.find(([input]) => String(input).endsWith(`/api/runs/${pgtaRunId}/actions/reanalyze`));
+    expect(String(actionCall?.[1]?.body)).toContain('"stage":"metadata"');
+  });
+
+  it("shows staged PGT-A baseline QC tasks in the run detail workflow tab", async () => {
+    const user = userEvent.setup();
+    setRoute(`/runs/${pgtaRunId}`);
+    render(<App />);
+
+    expect(await screen.findByText(pgtaRunId)).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", {name: /workflow/i}));
+
+    expect(await screen.findByRole("heading", {name: /Airflow tasks/i})).toBeInTheDocument();
+    expect(screen.getByText("pgta_pipeline.run_pgta_mapping")).toBeInTheDocument();
+    expect(screen.getByText("pgta_pipeline.run_pgta_metadata")).toBeInTheDocument();
+    expect(screen.getByText("pgta_pipeline.run_pgta_baseline_qc")).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name: /Pipeline steps/i})).toBeInTheDocument();
+    expect(screen.getByText("baseline_qc")).toBeInTheDocument();
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining(`/api/runs/${pgtaRunId}/progress`), undefined);
   });
 
   it("exposes NIPT Docker server batch submission without re-enabling WES or qsub flows", async () => {
@@ -1081,8 +1291,8 @@ describe("bioinformatics platform frontend", () => {
 
     expect(await screen.findByText(niptRunId)).toBeInTheDocument();
     expect(screen.queryByRole("heading", {name: /Current deployment scope/i})).not.toBeInTheDocument();
-    expect(screen.getByText(/100%/i)).toBeInTheDocument();
-    expect(screen.getByText(/nipt_mount_smoke/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/100%/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/nipt_mount_smoke/i).length).toBeGreaterThan(0);
 
     const workflowTab = screen.getByRole("tab", {name: /workflow/i});
     await userEvent.click(workflowTab);
@@ -1158,7 +1368,11 @@ describe("bioinformatics platform frontend", () => {
     render(<App />);
     expect((await screen.findAllByText(/^G10$/i)).length).toBeGreaterThan(0);
     expect(screen.queryByText(/S001/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/source files/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/G10_R1\.fastq\.gz \/ G10_R2\.fastq\.gz/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/NIPT26040207\.A06/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/NIPT26040207\.A06\.R1\.clean\.fastq\.gz \/ NIPT26040207\.A06\.R2\.clean\.fastq\.gz/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Batch 260414_TPNB500380AR_1065_AH32CCBGY2/i).length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("link", {name: /failures/i}));
     expect(await screen.findByText(/Recent failed runs/i)).toBeInTheDocument();

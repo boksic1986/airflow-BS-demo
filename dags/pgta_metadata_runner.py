@@ -29,7 +29,8 @@ DEFAULT_REFERENCE_GENOME = Path(os.getenv("PGTA_REFERENCE_GENOME", "/data/Databa
 DEFAULT_SNAKEMAKE_CORES = "64"
 PGTA_BASELINE_PREFLIGHT_IMPORTS = ("matplotlib", "numpy", "pandas", "pysam", "scipy")
 SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc"}
-SUPPORTED_PGTA_MODES = {"new", "resume"}
+SUPPORTED_PGTA_MODES = {"new", "resume", "rerun_stage"}
+SUPPORTED_PGTA_STAGES = {"mapping", "metadata", "baseline_qc"}
 INVALID_SNAKEMAKE_TARGET = "__airflow_demo_invalid_target__"
 
 
@@ -58,6 +59,13 @@ def validate_pgta_conf(
         raise ValueError(f"Unsupported PGT-A mode: {mode}. Supported modes: {supported_modes}.")
     if mode == "resume" and target != "baseline_qc":
         raise ValueError("PGT-A resume is only supported for baseline_qc.")
+    rerun_stage = str(params.get("rerun_stage") or "").strip()
+    if mode == "rerun_stage":
+        if target != "baseline_qc":
+            raise ValueError("PGT-A rerun_stage is only supported for baseline_qc.")
+        if rerun_stage not in SUPPORTED_PGTA_STAGES:
+            supported = ", ".join(sorted(SUPPORTED_PGTA_STAGES))
+            raise ValueError(f"Unsupported PGT-A rerun stage: {rerun_stage}. Supported stages: {supported}.")
     if not sample_sheet_path.is_file():
         raise FileNotFoundError(f"sample_sheet_path is not readable: {sample_sheet_path}")
 
@@ -170,13 +178,86 @@ def run_pgta_target(
 ) -> Path:
     workdir = Path(conf["workdir"])
     target = _target_from_conf(conf)
+    logs_dir = workdir / "logs"
+    metadata_path = logs_dir / "run_metadata.tsv"
+    baseline_qc_summary = workdir / "qc" / "baseline" / "baseline_qc_summary.tsv"
+    if target == "dryrun_cnv":
+        output_path = logs_dir / "snakemake.stdout.log"
+    elif target == "baseline_qc":
+        output_path = baseline_qc_summary
+    else:
+        output_path = metadata_path
+    return _run_pgta_snakemake(
+        conf,
+        snakemake_bin=snakemake_bin,
+        pgta_pipeline_root=pgta_pipeline_root,
+        config_path=Path(conf["config_path"]),
+        event_rule=target,
+        output_path=output_path,
+        dry_run=target == "dryrun_cnv",
+        invalid_target=target == "invalid_target",
+        run_python_preflight=target == "baseline_qc",
+        resume_prepare=True,
+    )
+
+
+def run_pgta_stage(
+    conf: dict[str, Any],
+    stage: str,
+    *,
+    snakemake_bin: Path = DEFAULT_SNAKEMAKE_BIN,
+    pgta_pipeline_root: Path = DEFAULT_PGTA_PIPELINE_ROOT,
+) -> Path:
+    stage = stage.strip()
+    if stage not in SUPPORTED_PGTA_STAGES:
+        supported = ", ".join(sorted(SUPPORTED_PGTA_STAGES))
+        raise ValueError(f"Unsupported PGT-A stage: {stage}. Supported stages: {supported}.")
+    if _target_from_conf(conf) != "baseline_qc":
+        raise ValueError("PGT-A staged execution is only supported for target=baseline_qc.")
+
+    workdir = Path(conf["workdir"])
+    stage_config_path = _write_pgta_stage_config(base_config_path=Path(conf["config_path"]), workdir=workdir, stage=stage)
+    if stage == "metadata":
+        output_path = workdir / "logs" / "run_metadata.tsv"
+    elif stage == "baseline_qc":
+        output_path = workdir / "qc" / "baseline" / "baseline_qc_summary.tsv"
+    else:
+        output_path = workdir / "logs" / f"snakemake.{stage}.stdout.log"
+
+    return _run_pgta_snakemake(
+        conf,
+        snakemake_bin=snakemake_bin,
+        pgta_pipeline_root=pgta_pipeline_root,
+        config_path=stage_config_path,
+        event_rule=stage,
+        output_path=output_path,
+        log_suffix=stage,
+        run_python_preflight=stage == "mapping",
+        resume_prepare=stage == "mapping",
+    )
+
+
+def _run_pgta_snakemake(
+    conf: dict[str, Any],
+    *,
+    snakemake_bin: Path,
+    pgta_pipeline_root: Path,
+    config_path: Path,
+    event_rule: str,
+    output_path: Path,
+    log_suffix: str | None = None,
+    dry_run: bool = False,
+    invalid_target: bool = False,
+    run_python_preflight: bool = False,
+    resume_prepare: bool = True,
+) -> Path:
+    workdir = Path(conf["workdir"])
     mode = _mode_from_conf(conf)
     logs_dir = workdir / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
-    stdout_path = logs_dir / "snakemake.stdout.log"
-    stderr_path = logs_dir / "snakemake.stderr.log"
-    metadata_path = logs_dir / "run_metadata.tsv"
-    baseline_qc_summary = workdir / "qc" / "baseline" / "baseline_qc_summary.tsv"
+    stdout_path = logs_dir / (f"snakemake.{log_suffix}.stdout.log" if log_suffix else "snakemake.stdout.log")
+    stderr_path = logs_dir / (f"snakemake.{log_suffix}.stderr.log" if log_suffix else "snakemake.stderr.log")
+    command_path = logs_dir / (f"snakemake.{log_suffix}.command.txt" if log_suffix else "snakemake.command.txt")
 
     command = [
         str(snakemake_bin),
@@ -186,10 +267,10 @@ def run_pgta_target(
         _snakemake_cores(),
         "--printshellcmds",
         "--configfile",
-        str(conf["config_path"]),
+        str(config_path),
     ]
     env = _pgta_subprocess_env(workdir)
-    if mode == "resume":
+    if mode == "resume" and resume_prepare:
         unlock_command = [*command, "--unlock"]
         (logs_dir / "snakemake.unlock.command.txt").write_text(shlex.join(unlock_command) + "\n", encoding="utf-8")
         unlock_completed = subprocess.run(
@@ -210,25 +291,26 @@ def run_pgta_target(
             analysis_id=str(conf.get("analysis_id") or workdir.name),
             logs_dir=logs_dir,
         )
+    if mode in {"resume", "rerun_stage"}:
         command.append("--rerun-incomplete")
-    if target == "baseline_qc":
+    if run_python_preflight:
         _run_pgta_python_preflight(workdir=workdir, logs_dir=logs_dir, env=env)
-    if target == "dryrun_cnv":
+    if dry_run:
         command.extend(["--dry-run", "--ignore-incomplete", "--rerun-triggers", "mtime"])
-    if target == "invalid_target":
+    if invalid_target:
         command.append(INVALID_SNAKEMAKE_TARGET)
-    (logs_dir / "snakemake.command.txt").write_text(shlex.join(command) + "\n", encoding="utf-8")
+    command_path.write_text(shlex.join(command) + "\n", encoding="utf-8")
     backend_event_url = conf.get("backend_event_url")
     emit_progress_event(
         analysis_id=str(conf.get("analysis_id") or workdir.name),
         workdir=workdir,
         backend_event_url=str(backend_event_url) if backend_event_url else None,
         event="pipeline_step_started",
-        rule=target,
+        rule=event_rule,
         status="running",
         stdout_path=stdout_path,
         stderr_path=stderr_path,
-        message=f"PGT-A {target} started.",
+        message=f"PGT-A {event_rule} started.",
     )
     completed = subprocess.run(command, cwd=str(workdir), text=True, capture_output=True, check=False, env=env)
     stdout_path.write_text(completed.stdout or "", encoding="utf-8")
@@ -248,31 +330,43 @@ def run_pgta_target(
             workdir=workdir,
             backend_event_url=str(backend_event_url) if backend_event_url else None,
             event="pipeline_step_failed",
-            rule=target,
+            rule=event_rule,
             status="failed",
             stdout_path=stdout_path,
             stderr_path=stderr_path,
-            message=f"PGT-A {target} Snakemake failed with exit code {completed.returncode}.",
+            message=f"PGT-A {event_rule} Snakemake failed with exit code {completed.returncode}.",
             return_code=completed.returncode,
         )
-        raise RuntimeError(f"PGT-A {target} Snakemake failed with exit code {completed.returncode}. See {stderr_path}")
+        raise RuntimeError(f"PGT-A {event_rule} Snakemake failed with exit code {completed.returncode}. See {stderr_path}")
     emit_progress_event(
         analysis_id=str(conf.get("analysis_id") or workdir.name),
         workdir=workdir,
         backend_event_url=str(backend_event_url) if backend_event_url else None,
         event="pipeline_step_finished",
-        rule=target,
+        rule=event_rule,
         status="success",
         stdout_path=stdout_path,
         stderr_path=stderr_path,
-        message=f"PGT-A {target} completed.",
+        message=f"PGT-A {event_rule} completed.",
         return_code=0,
     )
-    if target == "dryrun_cnv":
-        return stdout_path
-    if target == "baseline_qc":
-        return baseline_qc_summary
-    return metadata_path
+    return output_path
+
+
+def _write_pgta_stage_config(*, base_config_path: Path, workdir: Path, stage: str) -> Path:
+    base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(base_config, dict):
+        raise ValueError(f"Invalid PGT-A config content: {base_config_path}")
+    stage_config = dict(base_config)
+    pipeline = dict(stage_config.get("pipeline") or {})
+    pipeline["mode"] = "build_ref"
+    pipeline["targets"] = [stage]
+    stage_config["pipeline"] = pipeline
+    config_dir = workdir / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    stage_config_path = config_dir / f"pgta_stage_{stage}.yaml"
+    stage_config_path.write_text(yaml.safe_dump(stage_config, sort_keys=False), encoding="utf-8")
+    return stage_config_path
 
 
 def run_pgta_metadata(
@@ -515,6 +609,14 @@ def _mode_from_conf(conf: dict[str, Any]) -> str:
         raise ValueError(f"Unsupported PGT-A mode: {mode}. Supported modes: {supported}.")
     if mode == "resume" and _target_from_conf(conf) != "baseline_qc":
         raise ValueError("PGT-A resume is only supported for baseline_qc.")
+    if mode == "rerun_stage":
+        if _target_from_conf(conf) != "baseline_qc":
+            raise ValueError("PGT-A rerun_stage is only supported for baseline_qc.")
+        params = conf.get("params") or {}
+        rerun_stage = str(params.get("rerun_stage") or "").strip()
+        if rerun_stage not in SUPPORTED_PGTA_STAGES:
+            supported = ", ".join(sorted(SUPPORTED_PGTA_STAGES))
+            raise ValueError(f"Unsupported PGT-A rerun stage: {rerun_stage}. Supported stages: {supported}.")
     return mode
 
 

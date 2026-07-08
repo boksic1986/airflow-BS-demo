@@ -13,7 +13,12 @@ from app.rule_event_service import list_snakemake_rule_events
 TASK_WEIGHTS: dict[str, dict[str, int]] = {
     "bio_pgta": {
         "validate_request": 5,
-        "prepare_pgta_config": 15,
+        "prepare_pgta_config": 10,
+        "choose_pgta_path": 10,
+        "pgta_pipeline.run_pgta_mapping": 55,
+        "pgta_pipeline.run_pgta_metadata": 70,
+        "pgta_pipeline.run_pgta_baseline_qc": 90,
+        # Historical runs before T107 used one project-level Snakemake task.
         "run_pgta_target": 90,
         "collect_pgta_artifact": 100,
     },
@@ -26,8 +31,8 @@ TASK_WEIGHTS: dict[str, dict[str, int]] = {
 }
 
 RUN_TASK_IDS = {
-    "bio_pgta": "run_pgta_target",
-    "bio_nipt_docker": "run_nipt_docker",
+    "bio_pgta": {"run_pgta_target", "pgta_pipeline.run_pgta_mapping", "pgta_pipeline.run_pgta_metadata", "pgta_pipeline.run_pgta_baseline_qc"},
+    "bio_nipt_docker": {"run_nipt_docker"},
 }
 
 ACTIVE_STATUSES = {"running", "queued", "scheduled", "submitted", "up_for_retry", "up_for_reschedule", "deferred"}
@@ -110,15 +115,15 @@ def _progress_from_tasks(
     note = _note_from_airflow(status=status, task=latest_task)
     progress_source = "airflow_task_instances" if airflow_tasks else "estimate"
 
-    run_task_id = RUN_TASK_IDS.get(str(run.dag_id or ""))
+    run_task_ids = RUN_TASK_IDS.get(str(run.dag_id or ""), set())
     task_id = str((latest_task or {}).get("task_id") or "")
-    if rule_events and (task_id == run_task_id or status in {"running", "failed", "success"}):
+    if rule_events and (task_id in run_task_ids or status in {"running", "failed", "success"}):
         rule_step = _active_or_failed_rule(rule_events, prefer_failed=_is_failed(status))
         if rule_step:
             current_step = rule_step
             current_source = "snakemake_events"
         percent = _blend_rule_progress(status=status, rule_events=rule_events)
-        note = f"Airflow task {run_task_id or task_id}; pipeline rule events captured"
+        note = f"Airflow task {task_id}; pipeline rule events captured"
         progress_source = "snakemake_events"
 
     if status == "success":
@@ -162,10 +167,11 @@ def _base_payload(run: AnalysisRun) -> dict[str, Any]:
 
 def _normalize_airflow_tasks(dag_id: str | None, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     weights = TASK_WEIGHTS.get(str(dag_id or ""), {})
+    order = {task_id: index for index, task_id in enumerate(weights)}
 
-    def sort_key(task: dict[str, Any]) -> tuple[int, str, str]:
+    def sort_key(task: dict[str, Any]) -> tuple[int, int, str, str]:
         task_id = str(task.get("task_id") or "")
-        return (weights.get(task_id, 1000), str(task.get("start_date") or ""), task_id)
+        return (weights.get(task_id, 1000), order.get(task_id, 1000), str(task.get("start_date") or ""), task_id)
 
     normalized = []
     for task in sorted(tasks, key=sort_key):
@@ -204,6 +210,8 @@ def _percent_from_airflow(*, status: str, task: dict[str, Any] | None, weights: 
 
 
 def _previous_weight(task_id: str, weights: dict[str, int]) -> int:
+    if task_id == "run_pgta_target":
+        return weights.get("choose_pgta_path") or weights.get("prepare_pgta_config") or 15
     current = weights.get(task_id)
     if current is None:
         return 15
@@ -263,7 +271,9 @@ def _note_from_airflow(*, status: str, task: dict[str, Any] | None) -> str:
         return "Airflow success"
     if _is_failed(status):
         return "Airflow failed"
-    if task and str(task.get("task_id") or "") in RUN_TASK_IDS.values() and _status(task.get("state")) in ACTIVE_STATUSES:
+    task_id = str((task or {}).get("task_id") or "")
+    is_pipeline_task = any(task_id in task_ids for task_ids in RUN_TASK_IDS.values())
+    if task and is_pipeline_task and _status(task.get("state")) in ACTIVE_STATUSES:
         return "waiting for pipeline events"
     if task:
         return f"Airflow task {task.get('task_id')} is {_status(task.get('state'))}"

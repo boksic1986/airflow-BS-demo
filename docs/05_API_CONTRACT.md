@@ -8,6 +8,83 @@ Base URL:
 /api
 ```
 
+## T108 Dashboard Samples and Controlled PGT-A Rerun
+
+T108 extends the existing Dashboard and reanalysis contracts without adding a
+database migration.
+
+### Dashboard overview additions
+
+`GET /api/dashboard/overview?pipeline=all|pgta|nipt_docker&period=24h|7d|30d`
+now also returns sample-level throughput fields:
+
+```json
+{
+  "sample_summary": {
+    "total": 112,
+    "running": 2,
+    "workflow_failed": 1,
+    "qc_failed": 2,
+    "completed": 107
+  },
+  "sample_trend": [
+    {
+      "date": "2026-07-08",
+      "total": 56,
+      "running": 0,
+      "workflow_failed": 0,
+      "qc_failed": 0,
+      "completed": 56
+    }
+  ]
+}
+```
+
+### Dashboard runs additions
+
+`GET /api/dashboard/runs` preserves the raw progress fields and adds
+operator-readable fields:
+
+```json
+{
+  "current_stage_label": "Baseline BAM uniformity QC",
+  "current_stage_source": "Snakemake rule event",
+  "elapsed_seconds": 870,
+  "average_duration_seconds": 7200,
+  "estimated_remaining_seconds": 6330,
+  "estimated_finish_at": "2026-07-08T04:16:30+00:00"
+}
+```
+
+ETA is an estimate only. It is calculated from recent successful runs with the
+same `pipeline + target/run_mode`; if there is not enough history the fields are
+`null`.
+
+### Controlled PGT-A stage rerun
+
+`POST /api/runs/{analysis_id}/actions/reanalyze` still supports PGT-A
+`resume`, and now supports a controlled stage rerun:
+
+```json
+{
+  "mode": "rerun_stage",
+  "stage": "metadata",
+  "reason": "operator requested metadata refresh"
+}
+```
+
+Rules:
+
+- only `pipeline=pgta`
+- only `target=baseline_qc`
+- only terminal `failed`, `terminated`, or `success` runs
+- stage must be one of `mapping`, `metadata`, or `baseline_qc`
+- active runs, arbitrary DAG ids, arbitrary Airflow tasks, rule/sample
+  selection, and `--forceall` are rejected
+
+The endpoint records the previous and new DAG run ids in `run_action.payload_json`
+and submits `bio_pgta` with `params.rerun_stage`.
+
 错误格式：
 
 ```json
@@ -447,10 +524,15 @@ Progress rules:
 
 - `created`: `0%`, `current_step=Created only`, `not_in_airflow=true`.
 - `submitted/queued/scheduled`: `5-10%`, current step from the latest Airflow handoff task if available.
-- `bio_pgta` task weights: `validate_request=5`, `prepare_pgta_config=15`, `run_pgta_target=90`, `collect_pgta_artifact=100`.
+- `bio_pgta` task weights after T107: `validate_request=5`, `prepare_pgta_config=10`, `choose_pgta_path=10`, `pgta_pipeline.run_pgta_mapping=55`, `pgta_pipeline.run_pgta_metadata=70`, `pgta_pipeline.run_pgta_baseline_qc=90`, historical `run_pgta_target=90`, `collect_pgta_artifact=100`.
 - `bio_nipt_docker` task weights: `validate_request=5`, `prepare_nipt_docker_run=15`, `run_nipt_docker=90`, `collect_nipt_artifacts=100`.
 - While the run task is active, rule events refine the 15-90% interval and set `progress_source=snakemake_events`.
 - Historical runs without rule events still return Airflow task timelines; `rule_events=[]` means no pipeline-level events were captured for that run.
+
+T107 keeps the response shape unchanged. The only contract change is semantic:
+new PGT-A `baseline_qc` DAG runs can expose the staged Airflow task ids above,
+while existing metadata/dryrun/failure runs and historical baseline runs may
+still expose `run_pgta_target`.
 
 Errors:
 
@@ -709,6 +791,15 @@ PGT-A v1 第一版动态发现 metadata/dry-run/baseline QC 产物，不写 arti
 - `logs/pgta.python_preflight.log`
 - `logs/snakemake.stdout.log`
 - `logs/snakemake.stderr.log`
+- `logs/snakemake.mapping.command.txt`
+- `logs/snakemake.mapping.stdout.log`
+- `logs/snakemake.mapping.stderr.log`
+- `logs/snakemake.metadata.command.txt`
+- `logs/snakemake.metadata.stdout.log`
+- `logs/snakemake.metadata.stderr.log`
+- `logs/snakemake.baseline_qc.command.txt`
+- `logs/snakemake.baseline_qc.stdout.log`
+- `logs/snakemake.baseline_qc.stderr.log`
 - `config.yaml`
 - `config/pgta_run_config.json`
 - `config/pgta_metadata_config.json`

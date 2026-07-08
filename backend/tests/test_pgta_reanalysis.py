@@ -85,6 +85,48 @@ def test_reanalyze_pgta_resume_reuses_failed_baseline_workdir_and_writes_action(
     assert [sample.status for sample in samples] == ["running", "running"]
 
 
+def test_reanalyze_pgta_rerun_stage_reuses_baseline_workdir_and_records_stage(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    shared_root = tmp_path / "shared"
+    analysis_id = _insert_pgta_run(session_factory, shared_root, status_value="success", target="baseline_qc")
+    _patch_backend(monkeypatch, session_factory, shared_root)
+    fake_airflow = FakeAirflowClient()
+    monkeypatch.setattr(main, "get_airflow_client", lambda: fake_airflow)
+    client = TestClient(main.app)
+
+    response = client.post(
+        f"/api/runs/{analysis_id}/actions/reanalyze",
+        json={"mode": "rerun_stage", "stage": "metadata", "reason": "operator requested metadata refresh"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["analysis_id"] == analysis_id
+    assert payload["mode"] == "rerun_stage"
+    assert payload["stage"] == "metadata"
+    assert payload["status"] == "submitted"
+    assert payload["new_dag_run_id"].startswith(f"manual__{analysis_id}__rerun_stage__metadata__")
+    assert fake_airflow.calls[0]["dag_id"] == "bio_pgta"
+    conf = fake_airflow.calls[0]["conf"]
+    assert conf["analysis_id"] == analysis_id
+    assert conf["mode"] == "rerun_stage"
+    assert conf["params"]["target"] == "baseline_qc"
+    assert conf["params"]["rerun_stage"] == "metadata"
+
+    with session_factory() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        action = session.scalar(select(RunAction).where(RunAction.analysis_id == analysis_id))
+        samples = session.scalars(select(Sample).where(Sample.analysis_id == analysis_id).order_by(Sample.sample_id)).all()
+    assert run.status == "submitted"
+    assert run.mode == "rerun_stage"
+    assert run.dag_run_id == payload["new_dag_run_id"]
+    assert action.action == "rerun_stage"
+    assert action.payload_json["stage"] == "metadata"
+    assert action.payload_json["previous_dag_run_id"] == f"manual__{analysis_id}"
+    assert action.payload_json["new_dag_run_id"] == payload["new_dag_run_id"]
+    assert [sample.status for sample in samples] == ["running", "running"]
+
+
 def test_reanalyze_pgta_resume_rejects_active_or_unsupported_requests(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     shared_root = tmp_path / "shared"
@@ -98,8 +140,12 @@ def test_reanalyze_pgta_resume_rejects_active_or_unsupported_requests(tmp_path, 
 
     requests = [
         (running_id, {"mode": "resume"}, "already active"),
+        (running_id, {"mode": "rerun_stage", "stage": "mapping"}, "already active"),
         (success_id, {"mode": "resume"}, "failed or terminated"),
         (metadata_failed_id, {"mode": "resume"}, "baseline_qc"),
+        (metadata_failed_id, {"mode": "rerun_stage", "stage": "mapping"}, "baseline_qc"),
+        (success_id, {"mode": "rerun_stage"}, "stage is required"),
+        (success_id, {"mode": "rerun_stage", "stage": "call_everything"}, "Unsupported PGT-A rerun stage"),
         (metadata_failed_id, {"mode": "rerun_rule", "rule": "mapping", "sample_id": "G1"}, "Unsupported PGT-A reanalysis mode"),
         (metadata_failed_id, {"mode": "clone_new"}, "Unsupported PGT-A reanalysis mode"),
         (metadata_failed_id, {"mode": "forceall"}, "Unsupported PGT-A reanalysis mode"),

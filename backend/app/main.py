@@ -105,6 +105,7 @@ class ReanalysisRequest(BaseModel):
     mode: str
     rule: str | None = None
     sample_id: str | None = None
+    stage: str | None = None
     reason: str | None = None
 
 
@@ -426,6 +427,7 @@ def reanalyze_run(analysis_id: str, request: ReanalysisRequest) -> dict[str, obj
                 mode=request.mode,
                 rule=request.rule,
                 sample_id=request.sample_id,
+                stage=request.stage,
                 reason=request.reason,
             )
     except ValueError as exc:

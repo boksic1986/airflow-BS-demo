@@ -36,6 +36,290 @@
 
 ## Records
 
+## 2026-07-09 00:05 - Codex - T108 Dashboard/Run Detail usability polish and controlled PGT-A rerun
+
+### Goal
+
+Make Dashboard and Run Detail operator-readable for PGT-A/NIPT Docker demo use:
+compact Intake scanner, better status/progress colors, sample throughput instead
+of vague QC/failure focus, table Run Tracker with readable current stage and
+runtime/ETA, Run Detail manifest/QC failure/config views, and a controlled
+PGT-A baseline_qc stage rerun path. Do not unpause intake, do not run heavy
+PGT-A baseline_qc, and do not run NIPT full_run.
+
+### Completed
+
+- Reworked Dashboard `QC / failure focus` into `Sample throughput` with
+  `24h / 7d / 30d` period selector, sample-level totals, stacked distribution,
+  and trend bars.
+- Replaced Intake scanner card wall with a compact table/list using softer
+  status pills for observed/bootstrap/ready/submitted/error states.
+- Rebuilt Run Tracker into a dense table: Project and Run ID are links, no
+  separate View button, timestamps omit the repeated `Asia/Shanghai` suffix,
+  Airflow task and pipeline rule are combined into human-readable Current stage,
+  and running rows show elapsed runtime plus ETA when historical average exists.
+- Extended dashboard backend aggregation with `sample_summary`,
+  `sample_trend`, `current_stage_label`, `current_stage_source`,
+  `elapsed_seconds`, `average_duration_seconds`, `estimated_remaining_seconds`,
+  and `estimated_finish_at`.
+- Updated Run Detail: larger Current progress, selected sample manifest table,
+  QC failure summary before the QC matrix, Files tab prioritizing useful
+  logs/reports with Advanced files collapsed, and Config tab prioritizing
+  Snakemake/NIPT config artifacts.
+- Added controlled PGT-A `rerun_stage` reanalysis mode for baseline_qc runs only:
+  `mapping`, `metadata`, or `baseline_qc`; arbitrary DAG/task trigger remains
+  blocked, active runs are rejected, and runner still avoids `--forceall`.
+- Deployed backend, airflow-worker, airflow-scheduler, and frontend on
+  `fengxian`; light metadata smoke passed.
+
+### Changed files
+
+- `backend/app/dashboard_service.py`
+- `backend/app/main.py`
+- `backend/app/run_service.py`
+- `backend/tests/test_dashboard_service.py`
+- `backend/tests/test_pgta_reanalysis.py`
+- `dags/bio_pgta.py`
+- `dags/pgta_metadata_runner.py`
+- `dags/tests/test_bio_pgta_dag.py`
+- `dags/tests/test_pgta_metadata_runner.py`
+- `frontend/src/api.ts`
+- `frontend/src/components/RunProgressBar.tsx`
+- `frontend/src/components/RunTracker.tsx`
+- `frontend/src/lib/format.ts`
+- `frontend/src/pages/DashboardPage.tsx`
+- `frontend/src/pages/RunDetailPage.tsx`
+- `frontend/src/styles.css`
+- `frontend/src/App.test.tsx`
+- `docs/05_API_CONTRACT.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git switch -c codex/frontend/T108-dashboard-run-detail-usability` | success | Created local T108 branch in the T096 worktree |
+| local `py -m py_compile backend/app/dashboard_service.py backend/app/main.py backend/app/run_service.py dags/bio_pgta.py dags/pgta_metadata_runner.py` | success | Syntax-only local check; local pytest was not used for acceptance |
+| local `git diff --check` | success | Whitespace check before remote overlay |
+| local manifest/path consistency check | success | `file_count=188`, `missing=0`; first read needed `utf-8-sig` because `MANIFEST.json` has a BOM |
+| remote `git diff --check` | success | Only existing CRLF warning for `docs/02_ENGINEERING_SPEC.md` |
+| remote `docker compose -f docker-compose.yaml config --quiet` | success | No compose errors |
+| remote `docker build --target test -f frontend/Dockerfile frontend` | success | 14 Vitest tests passed |
+| remote backend targeted pytest in `airflow-demo/backend:t108-test` | success | 25 passed: dashboard, PGT-A reanalysis, progress, diagnostics |
+| remote `docker build -t airflow-demo/airflow:t108-test airflow_image` | success | Built Airflow test image |
+| remote Airflow test image unittest | success | 28 passed for `bio_pgta` DAG and PGT-A runner |
+| remote `docker compose -f docker-compose.yaml build backend airflow-worker airflow-scheduler frontend` | success | Frontend production build ran `tsc -b && vite build` |
+| remote `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend airflow-worker airflow-scheduler frontend` | success | Recreated changed services only; did not delete volumes |
+| `curl -fsSI http://127.0.0.1:12959/` | success | HTTP 200 from frontend |
+| `GET /api/health` | success | `{"status":"ok"}` |
+| `GET /api/dashboard/overview?pipeline=all&period=7d` | success | Returned `sample_summary` and `sample_trend` |
+| `GET /api/dashboard/runs?pipeline=all&limit=10&offset=0` | success | Returned tracker rows with readable stage and ETA fields |
+| `GET /api/system/resources` | success | Returned host CPU/MEM/disk metrics with `source=host_proc` |
+| `GET /api/intake/status?limit=5` | success | Bootstrap/observed entries remained non-queued |
+| PGT-A metadata smoke `PGTA_20260708_160227_EFAD64` | success | Create + submit + sync reached backend/Airflow `success`; `/progress` returned Airflow tasks plus `metadata=success` rule event |
+
+### Tests
+
+Remote acceptance passed on `ssh fengxian`. Frontend test target passed 14
+Vitest tests. Backend targeted pytest passed 25 tests. Airflow DAG/runner unit
+tests passed 28 tests in the Airflow image. The deployed frontend returned HTTP
+200, backend health was ok, dashboard aggregate APIs returned the new T108
+fields, and the light PGT-A metadata smoke reached success.
+
+### Not run / why
+
+- `npm run lint` was not run because `frontend/package.json` has no lint script.
+- Local pytest/frontend runtime checks were not used as acceptance evidence
+  because AGENTS.md requires runtime validation on `ssh fengxian`.
+- Heavy PGT-A `baseline_qc` was not run; T108 only used tests plus a light
+  `metadata` smoke.
+- NIPT `full_run` was not run and NIPT DAG decomposition was not changed.
+- `bio_intake_scan` was not unpaused and no auto-submit was enabled.
+
+### Current git status
+
+Local worktree is `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+on `codex/frontend/T108-dashboard-run-detail-usability` with T108 changes
+pending commit. Remote `/home/jiucheng/project/airflow-demo` has the T108
+overlay deployed for runtime validation and remains an uncommitted deployment
+mirror.
+
+### Risks
+
+- The remote mirror already had uncommitted overlays before T108. A pre-copy
+  tar backup was attempted, but the remote file list had CRLF path endings and
+  the backup command emitted missing-file warnings, so do not rely on that tar
+  as a complete rollback point.
+- ETA is a demo estimate from recent successful runs with the same
+  pipeline/target or run_mode; UI labels it as an estimate.
+- Controlled `rerun_stage` has unit/API coverage but no heavy baseline_qc
+  runtime acceptance in T108.
+- `bio_pgta` metadata runs now still show skipped TaskGroup stage tasks because
+  the branch keeps metadata on the old `run_pgta_target` path.
+
+### Open questions
+
+- Whether to run a supervised PGT-A staged `baseline_qc` smoke next, or defer
+  until the operator wants to validate compute-heavy behavior.
+- Whether NIPT should get an Airflow TaskGroup decomposition next, or continue
+  relying on runner/Snakemake events until the Docker full-run contract is
+  finalized.
+
+### Next recommended task
+
+Do a short operator UI review of the deployed Dashboard and Run Detail, then
+choose either T109 visual polish/live browser QA or a separate supervised
+baseline_qc stage runtime smoke. Keep intake auto-submit disabled until the
+operator explicitly approves unpausing `bio_intake_scan`.
+
+### Rollback notes
+
+Revert the T108 files and recreate backend, airflow-worker, airflow-scheduler,
+and frontend. Do not run `docker compose down -v`, do not prune Docker volumes,
+and do not delete `shared/runs`, PGT-A rawdata, NIPT source folders, or
+Postgres/Redis volumes. If `rerun_stage` behavior is suspect, stop using
+`mode=rerun_stage` and keep the existing `resume` path only.
+
+## 2026-07-08 22:19 - Codex - T107 UI density fix and PGT-A DAG stages
+
+### Goal
+
+Fix the dense/awkward frontend surfaces reported by the user and stage only the
+PGT-A `baseline_qc` Airflow path so Airflow can show project-level mapping,
+metadata, and baseline QC phases. Do not change NIPT DAGs, do not edit the
+production PGT-A Snakefile, and do not run a heavy baseline QC acceptance job.
+
+### Completed
+
+- Changed Submit Task `Submit preview` to a definition-style layout with
+  consistent label/value spacing and full-width rows for long scan root and
+  workflow fields.
+- Added shared sample source formatting so Samples and Run Detail show R1/R2
+  basenames and batch/folder context instead of raw absolute paths or `not set`.
+- Replaced per-sample QC cards in Run Detail with a compact QC matrix table:
+  one row per sample, metric columns, fail/warn-first sorting, sample search,
+  status filter, and 20-row pagination.
+- Staged PGT-A `baseline_qc` in `bio_pgta` with
+  `TaskGroup("pgta_pipeline")`: mapping -> metadata -> baseline_qc.
+- Preserved the old `run_pgta_target` task for `metadata`, `dryrun_cnv`, and
+  `invalid_target` smoke paths.
+- Added PGT-A runner stage entrypoints and stage-specific Snakemake
+  stdout/stderr/command logs without `--forceall`.
+- Updated progress weights and artifact discovery for the new staged PGT-A
+  task names while retaining historical `run_pgta_target` compatibility.
+- Updated API/frontend/Airflow/QC docs, task/state docs, manifest, and remote
+  deployment.
+
+### Changed files
+
+- `frontend/src/lib/sampleFiles.ts`
+- `frontend/src/pages/SubmitPage.tsx`
+- `frontend/src/pages/SamplesPage.tsx`
+- `frontend/src/pages/RunDetailPage.tsx`
+- `frontend/src/styles.css`
+- `frontend/src/App.test.tsx`
+- `backend/app/progress_service.py`
+- `backend/app/diagnostics_service.py`
+- `backend/tests/test_run_progress.py`
+- `backend/tests/test_run_diagnostics.py`
+- `dags/bio_pgta.py`
+- `dags/pgta_metadata_runner.py`
+- `dags/tests/test_bio_pgta_dag.py`
+- `dags/tests/test_pgta_metadata_runner.py`
+- `docs/05_API_CONTRACT.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/10_QC_LOGGING_REPORTING.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `MANIFEST.json`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git switch -c codex/frontend/T107-ui-pgta-dag-stages` | success | Created local T107 branch in the T096 worktree |
+| `py -m py_compile backend\app\progress_service.py backend\app\diagnostics_service.py dags\pgta_metadata_runner.py` | success | Local syntax-only check |
+| `git diff --check` | success | Local whitespace check before remote overlay |
+| manifest consistency check | success | `file_count=188`, listed files `188`, missing `0` |
+| remote `git diff --check` | success | Only an unrelated CRLF warning was printed |
+| remote `docker compose -f docker-compose.yaml config --quiet` | success | No volume deletion or NIPT full-run changes |
+| remote `docker compose -f docker-compose.yaml build backend airflow-worker airflow-scheduler frontend` | success | Initial full image build |
+| remote `docker compose -f docker-compose.yaml build backend frontend` | success | Rebuilt after final progress/frontend test fixes |
+| remote `docker build --no-cache --target test -f frontend/Dockerfile frontend` | success | 13 Vitest tests passed |
+| remote backend Docker targeted pytest | success | 19 passed: `test_run_progress.py`, `test_run_diagnostics.py` |
+| remote Airflow worker unittest | success | 27 tests passed for `bio_pgta` DAG and PGT-A runner |
+| remote `airflow dags list-import-errors` | success | `No data found` |
+| remote `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend airflow-scheduler airflow-worker frontend` | success | Recreated only changed services; did not delete volumes |
+| `curl -fsSI http://127.0.0.1:12959/` | success | HTTP 200 |
+| `GET /api/health` and `/api/health/airflow` | success | Backend ok; Airflow metadatabase and scheduler healthy |
+| remote `airflow tasks list bio_pgta --tree` | success | Shows `pgta_pipeline.run_pgta_mapping -> run_pgta_metadata -> run_pgta_baseline_qc` and old `run_pgta_target` branch |
+| PGT-A metadata smoke | success | `PGTA_20260708_141653_B57AB6` reached backend/Airflow `success`; no heavy baseline QC run |
+
+### Tests
+
+Remote acceptance passed on `ssh fengxian`. The new staged DAG imported, the
+frontend production Docker build passed `tsc -b && vite build`, the test target
+passed 13 Vitest tests, backend targeted pytest passed, and Airflow worker
+unittest passed. A light PGT-A metadata run verified the old non-baseline branch
+still works after adding the TaskGroup branch.
+
+### Not run / why
+
+- `npm run lint` was not run because `frontend/package.json` has no lint script.
+- Local pytest/frontend runtime checks were not used as acceptance evidence
+  because local Windows lacks the required Python/Node/Airflow dependencies and
+  AGENTS.md requires runtime validation on `ssh fengxian`.
+- A heavy PGT-A `baseline_qc` run was not started; T107 used DAG/import/unit
+  validation for the staged path and a light metadata smoke for runtime safety.
+- NIPT DAG decomposition and NIPT `full_run` were not touched.
+
+### Current git status
+
+Local worktree is `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+on `codex/frontend/T107-ui-pgta-dag-stages` with T107 changes pending commit.
+Remote `/home/jiucheng/project/airflow-demo` has the T107 overlay deployed for
+runtime validation and still contains the earlier uncommitted deployment overlay.
+
+### Risks
+
+- `bio_pgta` metadata/dryrun branches now show skipped TaskGroup tasks in the
+  Airflow task-instance list; this is expected branch behavior and the old
+  `run_pgta_target` task remains the successful execution path.
+- Stage-specific PGT-A Snakemake logs are exposed through artifacts/files; the
+  existing log API stream names were not expanded in this task.
+- Staged `baseline_qc` has not been proven with a real heavy run in T107. Run it
+  only with explicit operator approval and enough compute/runtime window.
+- The remote mirror is still an overlay workspace. Do not use `git reset`,
+  `git checkout`, or broad file overwrites there.
+
+### Open questions
+
+- Whether to run a controlled staged `baseline_qc` smoke next, or first inspect
+  the Airflow UI graph visually with the current import/unit validation.
+- Whether NIPT should be decomposed into Airflow project-level TaskGroups next,
+  or whether its exact rule visibility should stay runner-event-only until the
+  Docker workflow contract is finalized.
+
+### Next recommended task
+
+Do a visual frontend/Airflow UI review on the deployed T107 build, then plan the
+NIPT DAG decomposition separately. Only schedule a real PGT-A staged
+`baseline_qc` smoke if the user explicitly approves the heavy runtime.
+
+### Rollback notes
+
+Revert T107 files and recreate backend, airflow-worker, airflow-scheduler, and
+frontend. Do not delete Postgres, Docker volumes, `shared/runs`, PGT-A rawdata,
+or NIPT source folders. Keep `bio_intake_scan` paused and leave NIPT full-run
+disabled.
+
 ## 2026-07-08 20:47 - Codex - T106 Intake dry-run preview and auto-submit gating
 
 ### Goal
@@ -3999,3 +4283,57 @@ If no push has happened, remove `.git/` and revert the documentation changes. If
 ### <TO_BE_FILLED>
 
 暂无。
+## 2026-07-08 - Codex - T108 Dashboard/Run Detail usability polish
+
+### Goal
+
+Improve Dashboard and Run Detail readability for PGT-A/NIPT operators and add a
+controlled PGT-A `baseline_qc` stage rerun path without enabling arbitrary DAG
+triggers.
+
+### Completed in working tree
+
+- Dashboard backend aggregation adds sample throughput/trend, readable current
+  stage labels, elapsed runtime, matching-history average duration, ETA, and
+  estimated finish time.
+- Dashboard UI switches `QC / failure focus` to `Sample throughput` with
+  `24h / 7d / 30d`, converts Intake scanner to a compact table, and renders Run
+  Tracker as a paginated table with Project/Run ID links.
+- Run Detail UI renders the selected sample manifest table, QC failure summary,
+  config artifacts before raw params, primary/advanced files, larger current
+  progress, and a controlled `Run action` modal.
+- PGT-A reanalysis supports `mode=rerun_stage` with `stage=mapping|metadata|baseline_qc`
+  only for terminal PGT-A `baseline_qc` runs.
+- `bio_pgta` can branch into the staged TaskGroup at mapping, metadata, or
+  baseline_qc according to `params.rerun_stage`; the runner uses
+  `--rerun-incomplete` and no `--forceall`.
+
+### Commands run so far
+
+| Command | Result | Notes |
+|---|---|---|
+| `git status --short --branch` | passed | On `codex/frontend/T108-dashboard-run-detail-usability` |
+| `git diff --check` | passed | No whitespace errors before docs/state finalization |
+
+### Pending validation
+
+- Local feedback checks for backend dashboard/reanalysis tests, DAG/runner
+  tests, and frontend Docker/test target.
+- Remote `fengxian` acceptance after local feedback passes:
+  `docker compose config --quiet`, backend targeted pytest, frontend Docker
+  test target, rebuild/recreate backend/airflow-worker/airflow-scheduler/frontend,
+  HTTP 200, and a light PGT-A metadata smoke only.
+
+### Not run / why
+
+- Heavy PGT-A `baseline_qc` and NIPT `full_run` are intentionally not run in
+  T108 without explicit approval.
+- `bio_intake_scan` is not unpaused and auto-submit remains disabled.
+
+### Risks / rollback
+
+- ETA is an estimate from recent successful runs with the same pipeline target
+  or run mode; it should not be presented as a scheduler guarantee.
+- Controlled PGT-A stage rerun depends on existing run-local workdir and
+  outputs. Revert the T108 code changes or stop using `mode=rerun_stage` if a
+  staged rerun behaves unexpectedly.

@@ -696,3 +696,72 @@ roots:
 - If `bio_intake_scan` is unpaused later while `auto_submit` remains disabled,
   Settings should make it clear that the scanner can discover batches but
   automatic create+submit is blocked by config.
+
+## 20. T107 UI Density and PGT-A Staged Workflow Display
+
+T107 fixes three density problems without changing the routed information
+architecture:
+
+- Submit Task `Submit preview` uses a definition-style layout. Each row has a
+  fixed-width label and a separate value cell; long fields such as `Scan root`
+  and `Estimated workflow` span the full width and wrap instead of colliding
+  with labels.
+- Samples tables use the shared `sampleSourceDisplay()` formatter. The column
+  is named `source files`, shows R1/R2 basenames when available, shows a
+  `Batch <folder>` secondary line from `metadata.source_dir`, and uses
+  `Path not captured for this run` for legacy rows without captured paths.
+- Run Detail QC is a compact matrix: one sample per row, one metric per column,
+  fail/warn rows sorted first, sample search, status filter, and 20-row
+  pagination. This replaces per-sample/per-metric cards so NIPT 96-sample runs
+  remain scannable.
+
+Workflow tab behavior remains two-layered:
+
+- `Airflow tasks` shows project-level task instances from `/progress`.
+- `Pipeline steps` shows Snakemake/runner events.
+- New PGT-A `baseline_qc` runs can show
+  `pgta_pipeline.run_pgta_mapping`, `pgta_pipeline.run_pgta_metadata`, and
+  `pgta_pipeline.run_pgta_baseline_qc`. Historical runs can still show
+  `run_pgta_target`.
+
+## 21. T108 Operator Usability Polish
+
+T108 changes Dashboard and Run Detail from raw technical field display to
+operator-readable production views.
+
+### Dashboard
+
+- `QC / failure focus` is replaced by `Sample throughput`.
+- The period selector supports `24h`, `7d`, and `30d`.
+- Sample throughput shows total samples, running samples, workflow failed
+  samples, QC failed samples, and completed samples with a stacked bar and
+  lightweight mini-bars.
+- Intake scanner displays as a compact table with pipeline, batch, file/size,
+  discovery state, and analysis link. Observed/bootstrap still must not display
+  as queued execution.
+- Run Tracker is table-based and paginated at 10 rows by default.
+- `Project` and `Run ID` are direct links to Run Detail; there is no separate
+  `View` button.
+- `Airflow task` and `Pipeline rule` are merged into `Current stage`, using
+  human-readable labels and a small source label such as `Airflow project task`
+  or `Snakemake rule event`.
+- Dates display as `YYYY-MM-DD HH:mm:ss` in the configured display timezone
+  without appending `Asia/Shanghai` to every cell.
+- Running rows show elapsed runtime and an ETA estimate when enough matching
+  successful run history exists.
+
+### Run Detail
+
+- `Current progress` uses larger type for the current stage and percent.
+- Overview renders the selected samples manifest as a table instead of showing
+  only the manifest file path.
+- QC tab starts with a `QC failures` table that lists fail/warn samples,
+  metric, value, threshold, and reason. The matrix table remains below it.
+- Files tab is renamed semantically to `Run files & logs` behavior: logs,
+  reports, QC, and summary artifacts are primary, lower-value artifacts are
+  folded into `Advanced files`.
+- Config tab prioritizes Snakemake/NIPT run config artifacts and keeps raw
+  backend request params behind an advanced disclosure.
+- The header action becomes `Run action`, opening a controlled modal. It only
+  exposes PGT-A `baseline_qc` resume and `rerun_stage` actions for
+  `mapping`, `metadata`, and `baseline_qc`. Active runs are disabled.

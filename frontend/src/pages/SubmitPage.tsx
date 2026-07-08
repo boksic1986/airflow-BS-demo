@@ -1,4 +1,5 @@
 import {ChevronDown, ChevronRight, Play, Plus, Search} from "lucide-react";
+import type {ReactNode} from "react";
 import {useEffect, useState} from "react";
 import {Link} from "react-router-dom";
 
@@ -379,16 +380,16 @@ export function SubmitPage() {
           <h2>Submit preview</h2>
           <p>Execution is blocked until the selected pipeline scan returns validated FASTQ pairs and the run guard passes.</p>
         </div>
-        <div className="preview-grid submit-preview-grid">
-          <div><span>Pipeline</span><strong className="preview-pill">{compactPipelineName(selectedPipeline)}</strong></div>
-          <div><span>Project</span><strong>{projectName || "not set"}</strong></div>
-          <div><span>Reference</span><strong>{reference}</strong></div>
-          <div><span>Mode</span><strong>{runMode}</strong></div>
-          <div><span>Selected samples</span><strong>{selectedScanRows.length}</strong></div>
-          {selectedPipeline === "pgta" ? <div><span>PGT-A target</span><strong>{target}</strong></div> : null}
-          {selectedPipeline === "nipt_docker" ? <div><span>NIPT run mode</span><strong>{niptRunMode}</strong></div> : null}
-          <div className="full"><span>Scan root</span><strong className="mono">{rawdataRoot || "not set"}</strong></div>
-          <div className="full"><span>Estimated workflow</span><strong>{selectedTemplate.steps.map((step) => step.name).join(" -> ")}</strong></div>
+        <div className="submit-preview-list">
+          <PreviewField label="Pipeline" value={<strong className="preview-pill">{compactPipelineName(selectedPipeline)}</strong>} />
+          <PreviewField label="Project" value={projectName || "not set"} />
+          <PreviewField label="Reference" value={reference} />
+          <PreviewField label="Mode" value={runMode} />
+          <PreviewField label="Selected samples" value={String(selectedScanRows.length)} />
+          {selectedPipeline === "pgta" ? <PreviewField label="PGT-A target" value={target} /> : null}
+          {selectedPipeline === "nipt_docker" ? <PreviewField label="NIPT run mode" value={niptRunMode} /> : null}
+          <PreviewField label="Scan root" value={rawdataRoot || "not set"} wide mono />
+          <PreviewField label="Estimated workflow" value={selectedTemplate.steps.map((step) => step.name).join(" -> ")} wide />
         </div>
         {createdRunIds.length > 0 && handoffRuns.length === 0 ? (
           <p className="success-note">
@@ -407,6 +408,15 @@ export function SubmitPage() {
 
       {notice ? <div className="success-note" role="status">{notice}</div> : null}
       {error ? <div className="inline-error" role="alert">{error}</div> : null}
+    </div>
+  );
+}
+
+function PreviewField({label, value, wide = false, mono = false}: {label: string; value: ReactNode; wide?: boolean; mono?: boolean}) {
+  return (
+    <div className={wide ? "submit-preview-field wide" : "submit-preview-field"}>
+      <span>{label}</span>
+      <strong className={mono ? "mono" : undefined}>{value}</strong>
     </div>
   );
 }

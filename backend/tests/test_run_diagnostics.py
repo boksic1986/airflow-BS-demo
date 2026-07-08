@@ -353,6 +353,34 @@ def test_list_pgta_artifacts_discovers_baseline_qc_outputs(tmp_path, monkeypatch
     assert summary["path"].endswith("qc/baseline/baseline_qc_summary.tsv")
 
 
+def test_list_pgta_artifacts_discovers_staged_baseline_logs(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_pgta_baseline_submitted_run(session_factory, tmp_path)
+    logs_dir = tmp_path / "shared" / "runs" / analysis_id / "logs"
+    for stage in ("mapping", "metadata", "baseline_qc"):
+        (logs_dir / f"snakemake.{stage}.stdout.log").write_text(f"{stage} stdout\n", encoding="utf-8")
+        (logs_dir / f"snakemake.{stage}.stderr.log").write_text("", encoding="utf-8")
+        (logs_dir / f"snakemake.{stage}.command.txt").write_text(f"snakemake --configfile pgta_stage_{stage}.yaml\n", encoding="utf-8")
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared")
+    client = TestClient(main.app)
+
+    response = client.get(f"/api/runs/{analysis_id}/artifacts")
+
+    assert response.status_code == 200
+    keys = {item["key"] for item in response.json()["items"]}
+    assert {
+        "pgta_mapping_stdout",
+        "pgta_mapping_stderr",
+        "pgta_mapping_command",
+        "pgta_metadata_stdout",
+        "pgta_metadata_stderr",
+        "pgta_metadata_command",
+        "pgta_baseline_qc_stdout",
+        "pgta_baseline_qc_stderr",
+        "pgta_baseline_qc_command",
+    } <= keys
+
+
 def test_list_pgta_artifacts_discovers_resume_cleanup_log(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_pgta_baseline_submitted_run(session_factory, tmp_path)

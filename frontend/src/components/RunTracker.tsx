@@ -2,7 +2,7 @@ import {Link} from "react-router-dom";
 
 import type {DashboardRunTrackerRow} from "../api";
 
-import {compactPipelineName, formatDate, formatDuration} from "../lib/format";
+import {compactPipelineName, displayTimeZoneLabel, formatDate, formatSecondsDuration} from "../lib/format";
 import {isActiveStatus, normalizeStatus} from "../lib/status";
 import {RunProgressBar} from "./RunProgressBar";
 import {StatusBadge} from "./StatusBadge";
@@ -79,17 +79,36 @@ export function RunTracker({
           </div>
         </div>
       </div>
-      <div className="run-tracker-list">
-        {rows.map((row) => (
-          <RunTrackerRow
-            key={row.analysis_id}
-            onSubmit={onSubmit}
-            onSync={onSync}
-            row={row}
-          />
-        ))}
-        {rows.length === 0 ? <p className="empty-state">No runs match the current pipeline and status filter.</p> : null}
-      </div>
+      {rows.length ? (
+        <div className="run-tracker-table-wrap">
+          <table className="run-tracker-table">
+            <thead>
+              <tr>
+                <th scope="col">Project</th>
+                <th scope="col">Run ID</th>
+                <th scope="col">Pipeline</th>
+                <th scope="col">Status / QC</th>
+                <th scope="col">Current stage</th>
+                <th scope="col">Progress</th>
+                <th scope="col">Runtime / ETA</th>
+                <th scope="col">Started</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <RunTrackerRow
+                  key={row.analysis_id}
+                  onSubmit={onSubmit}
+                  onSync={onSync}
+                  row={row}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="empty-state">No runs match the current pipeline and status filter.</p>
+      )}
       <div className="pagination-controls" aria-label="Run tracker pagination">
         <span>{pageStart}-{pageEnd} of {total}</span>
         <div>
@@ -115,50 +134,64 @@ function RunTrackerRow({
   onSync: (analysisId: string) => void;
 }) {
   const status = normalizeStatus(row.status);
-  const currentStep = row.current_pipeline_rule || row.current_airflow_task || (row.not_in_airflow ? "Created only" : "No rule events captured");
+  const currentStep = row.current_stage_label || row.current_pipeline_rule || row.current_airflow_task || (row.not_in_airflow ? "Created only" : "No rule events captured");
   const note = row.note || progressNote(row);
   return (
-    <article className="run-tracker-row">
-      <div className="run-tracker-main">
-        <div>
-          <strong>{row.project_name || row.analysis_id}</strong>
-          <span className="mono">{row.analysis_id}</span>
-        </div>
-        <div className="tracker-badges">
+    <tr className={isActiveStatus(status) ? "run-tracker-row active" : "run-tracker-row"}>
+      <td>
+        <Link className="tracker-primary-link" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>
+          {row.project_name || row.analysis_id}
+        </Link>
+        <span className="muted">{row.sample_count ?? 0} samples</span>
+      </td>
+      <td>
+        <Link className="mono tracker-run-link" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>
+          {row.analysis_id}
+        </Link>
+      </td>
+      <td>{compactPipelineName(row.pipeline)}</td>
+      <td>
+        <div className="tracker-badges stacked">
           <StatusBadge status={row.status} />
-          <span className="handoff-pill neutral">{compactPipelineName(row.pipeline)}</span>
           <StatusBadge status={row.qc_status || "unknown"} size="sm" />
           {row.not_in_airflow ? <span className="handoff-pill">Not in Airflow</span> : null}
+          {status === "created" ? (
+            <button className="mini-action" type="button" onClick={() => onSubmit(row.analysis_id)}>Submit</button>
+          ) : null}
+          {isActiveStatus(status) ? (
+            <button className="mini-action" type="button" onClick={() => onSync(row.analysis_id)}>Sync</button>
+          ) : null}
         </div>
-      </div>
-      <RunProgressBar
-        analysisId={row.analysis_id}
-        progress={{
-          percent: row.percent,
-          label: `${Math.round(row.percent)}%`,
-          currentStep,
-          note,
-          notInAirflow: row.not_in_airflow,
-        }}
-      />
-      <dl className="run-tracker-meta">
-        <div><dt>samples</dt><dd>{row.sample_count ?? 0}</dd></div>
-        <div><dt>created</dt><dd>{formatDate(row.created_at)}</dd></div>
-        <div><dt>started</dt><dd>{formatDate(row.started_at)}</dd></div>
-        <div><dt>duration</dt><dd>{formatDuration(row.started_at, row.ended_at)}</dd></div>
-        <div><dt>Airflow task</dt><dd>{row.current_airflow_task || "not reported"}</dd></div>
-        <div><dt>Pipeline rule</dt><dd>{row.current_pipeline_rule || "not captured"}</dd></div>
-      </dl>
-      <div className="run-tracker-actions">
-        <Link className="button ghost" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>View</Link>
-        {status === "created" ? (
-          <button className="button primary" type="button" onClick={() => onSubmit(row.analysis_id)}>Submit</button>
-        ) : null}
-        {isActiveStatus(status) ? (
-          <button className="button ghost" type="button" onClick={() => onSync(row.analysis_id)}>Sync</button>
-        ) : null}
-      </div>
-    </article>
+      </td>
+      <td>
+        <div className="current-stage-cell">
+          <strong>{currentStep}</strong>
+          <span>{row.current_stage_source || sourceFromRow(row)}</span>
+          {row.current_airflow_task === "run_pgta_target" ? (
+            <small>Legacy PGT-A single Airflow task; Snakemake carries the detailed rule progress.</small>
+          ) : null}
+        </div>
+      </td>
+      <td className="tracker-progress-cell">
+        <RunProgressBar
+          analysisId={row.analysis_id}
+          progress={{
+            percent: row.percent,
+            label: `${Math.round(row.percent)}%`,
+            currentStep,
+            note,
+            notInAirflow: row.not_in_airflow,
+          }}
+        />
+      </td>
+      <td>
+        <div className={isActiveStatus(status) ? "runtime-cell active" : "runtime-cell"}>
+          <strong>Elapsed {formatSecondsDuration(row.elapsed_seconds)}</strong>
+          <span>{etaLabel(row)}</span>
+        </div>
+      </td>
+      <td title={`Displayed in ${displayTimeZoneLabel()}`}>{formatDate(row.started_at)}</td>
+    </tr>
   );
 }
 
@@ -167,4 +200,19 @@ function progressNote(row: DashboardRunTrackerRow): string {
   if (row.current_pipeline_rule) return `Pipeline event: ${row.current_pipeline_rule}`;
   if (row.current_airflow_task) return `Airflow task: ${row.current_airflow_task}`;
   return row.progress_source === "estimate" ? "Demo progress estimate" : `Progress source: ${row.progress_source}`;
+}
+
+function sourceFromRow(row: DashboardRunTrackerRow): string {
+  if (row.not_in_airflow) return "Backend state";
+  if (row.current_pipeline_rule) return row.current_pipeline_rule === "nipt_mount_smoke" ? "Runner event" : "Snakemake rule event";
+  if (row.current_airflow_task) return "Airflow project task";
+  return "Backend state";
+}
+
+function etaLabel(row: DashboardRunTrackerRow): string {
+  if (!isActiveStatus(normalizeStatus(row.status))) {
+    return row.elapsed_seconds == null ? "Runtime not captured" : "Finished";
+  }
+  if (row.estimated_remaining_seconds == null) return "ETA needs history";
+  return `ETA ~${formatSecondsDuration(row.estimated_remaining_seconds)}`;
 }

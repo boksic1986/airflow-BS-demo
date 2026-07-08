@@ -317,9 +317,17 @@ Task graph:
 ```text
 validate_request
   -> prepare_pgta_config
-  -> run_pgta_target
+  -> choose_pgta_path
+     -> run_pgta_target
+     -> pgta_pipeline.run_pgta_mapping
+        -> pgta_pipeline.run_pgta_metadata
+        -> pgta_pipeline.run_pgta_baseline_qc
   -> collect_pgta_artifact
 ```
+
+T107 changes only `target=baseline_qc` to use the `pgta_pipeline` TaskGroup.
+`metadata`, `dryrun_cnv`, and `invalid_target` continue to branch to the
+historical `run_pgta_target` task.
 
 ### validate_request
 
@@ -353,7 +361,7 @@ target 映射：
 | `invalid_target` | 向 Snakemake 传入 `__airflow_demo_invalid_target__`，用于失败 smoke |
 | `baseline_qc` | `pipeline.mode="build_ref"`，`pipeline.targets=["mapping","metadata","baseline_qc"]`，`build_reference.groups.demo` 使用 selected sample IDs；真实执行 baseline QC，但不运行 reference/reference_qc/CNV |
 
-### run_pgta_target
+### run_pgta_target and staged baseline_qc tasks
 
 在 Airflow worker 中直接调用 PGT-A Snakemake 环境：
 
@@ -365,12 +373,26 @@ target 映射：
   --configfile <workdir>/config.yaml
 ```
 
-`dryrun_cnv` 会额外传 `--dry-run --ignore-incomplete --rerun-triggers mtime`；`invalid_target` 会额外传 `__airflow_demo_invalid_target__`；`baseline_qc` 不加 dry-run，会用 `PGTA_SNAKEMAKE_CORES` 真实执行，默认值为 64。执行目录为 `/data/airflow-demo/runs/<analysis_id>`，输出只允许写入该 run workdir。T088 后 Snakemake 环境设置 `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，并写出实际命令。T095 后同一 subprocess env 还会设置 `MPLCONFIGDIR=<workdir>/tmp/matplotlib`，把 `LD_LIBRARY_PATH` 设为 `PGTA_CONDA_LIB`，并在可用时 `LD_PRELOAD=PGTA_LIBSTDCXX`，默认 `/biosoftware/miniconda/envs/snakemake_env/lib/libstdc++.so.6`，避免 baseline QC 的 `matplotlib/scipy/pysam` 等 compiled Python packages 加载到容器系统旧 `libstdc++` 或继承的 `/usr/local/lib`。stdout/stderr/command 写入：
+`dryrun_cnv` 会额外传 `--dry-run --ignore-incomplete --rerun-triggers mtime`；`invalid_target` 会额外传 `__airflow_demo_invalid_target__`；`baseline_qc` 不加 dry-run，会用 `PGTA_SNAKEMAKE_CORES` 真实执行，默认值为 64。T107 后，baseline QC 由 `run_pgta_stage(conf, stage)` 分三次调用同一 Snakemake workdir/config family：`mapping`、`metadata`、`baseline_qc`。每个 stage 写 run-local derived config `config/pgta_stage_<stage>.yaml`，将 `pipeline.targets` 缩小为单个 stage；不修改生产 `/opt/pipelines/PGT_A/Snakefile`，不使用 `--forceall`。执行目录为 `/data/airflow-demo/runs/<analysis_id>`，输出只允许写入该 run workdir。T088 后 Snakemake 环境设置 `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，并写出实际命令。T095 后同一 subprocess env 还会设置 `MPLCONFIGDIR=<workdir>/tmp/matplotlib`，把 `LD_LIBRARY_PATH` 设为 `PGTA_CONDA_LIB`，并在可用时 `LD_PRELOAD=PGTA_LIBSTDCXX`，默认 `/biosoftware/miniconda/envs/snakemake_env/lib/libstdc++.so.6`，避免 baseline QC 的 `matplotlib/scipy/pysam` 等 compiled Python packages 加载到容器系统旧 `libstdc++` 或继承的 `/usr/local/lib`。stdout/stderr/command 写入：
 
 ```text
 shared/runs/<analysis_id>/logs/snakemake.command.txt
 shared/runs/<analysis_id>/logs/snakemake.stdout.log
 shared/runs/<analysis_id>/logs/snakemake.stderr.log
+```
+
+For T107 staged baseline runs, stage-specific logs are also written:
+
+```text
+shared/runs/<analysis_id>/logs/snakemake.mapping.command.txt
+shared/runs/<analysis_id>/logs/snakemake.mapping.stdout.log
+shared/runs/<analysis_id>/logs/snakemake.mapping.stderr.log
+shared/runs/<analysis_id>/logs/snakemake.metadata.command.txt
+shared/runs/<analysis_id>/logs/snakemake.metadata.stdout.log
+shared/runs/<analysis_id>/logs/snakemake.metadata.stderr.log
+shared/runs/<analysis_id>/logs/snakemake.baseline_qc.command.txt
+shared/runs/<analysis_id>/logs/snakemake.baseline_qc.stdout.log
+shared/runs/<analysis_id>/logs/snakemake.baseline_qc.stderr.log
 ```
 
 T093 adds `mode=resume` for `baseline_qc` only. `validate_request` rejects resume for other PGT-A targets. In resume mode, `run_pgta_target` first runs the same Snakemake command with `--unlock` and writes:
@@ -565,8 +587,12 @@ Airflow task weights:
 | DAG | Task | Percent |
 |---|---|---:|
 | `bio_pgta` | `validate_request` | 5 |
-| `bio_pgta` | `prepare_pgta_config` | 15 |
-| `bio_pgta` | `run_pgta_target` | 90 |
+| `bio_pgta` | `prepare_pgta_config` | 10 |
+| `bio_pgta` | `choose_pgta_path` | 10 |
+| `bio_pgta` | `pgta_pipeline.run_pgta_mapping` | 55 |
+| `bio_pgta` | `pgta_pipeline.run_pgta_metadata` | 70 |
+| `bio_pgta` | `pgta_pipeline.run_pgta_baseline_qc` | 90 |
+| `bio_pgta` | historical `run_pgta_target` | 90 |
 | `bio_pgta` | `collect_pgta_artifact` | 100 |
 | `bio_nipt_docker` | `validate_request` | 5 |
 | `bio_nipt_docker` | `prepare_nipt_docker_run` | 15 |
@@ -576,7 +602,7 @@ Airflow task weights:
 Runner event behavior:
 
 - `POST /api/runs/{analysis_id}/actions/submit` includes `backend_event_url=http://backend:8000/api/events/snakemake` for both PGT-A and NIPT Docker.
-- PGT-A `run_pgta_target` emits target-level `running/success/failed` events and parses Snakemake stdout/stderr for rule blocks when available.
+- PGT-A `run_pgta_target` emits target-level `running/success/failed` events for historical and non-baseline targets. T107 staged baseline runs emit stage-level `mapping`, `metadata`, and `baseline_qc` events and parse Snakemake stdout/stderr for rule blocks when available.
 - NIPT Docker `mount_smoke` emits `nipt_mount_smoke` `running/success/failed`; `full_run` parses Docker stdout/stderr for Snakemake rule blocks.
 - Every runner event is written to `workdir/logs/events/snakemake_events.jsonl` before optional backend POST.
 - Backend POST failure must not fail the Airflow task; it is recorded as a JSONL `backend_post_error`.
@@ -635,6 +661,37 @@ T104 moves scanner root and ready-rule configuration into `config/intake.yaml`.
 the YAML directly, does not access biodemo DB, and does not scan the filesystem
 itself. The backend exposes the active sanitized config through
 `GET /api/intake/config`.
+
+## 10.3 T108 PGT-A controlled stage rerun
+
+T108 keeps `bio_pgta` as a project-level DAG and adds a controlled branch for
+PGT-A `baseline_qc` stage reruns.
+
+For a normal new `target=baseline_qc` run, the staged path remains:
+
+```text
+validate_request
+prepare_pgta_config
+choose_pgta_path
+pgta_pipeline.run_pgta_mapping
+pgta_pipeline.run_pgta_metadata
+pgta_pipeline.run_pgta_baseline_qc
+collect_pgta_artifact
+```
+
+When the backend submits `mode=rerun_stage` with `params.rerun_stage`, the
+branch starts at the requested stage and then continues downstream:
+
+| `rerun_stage` | First Airflow task |
+|---|---|
+| `mapping` | `pgta_pipeline.run_pgta_mapping` |
+| `metadata` | `pgta_pipeline.run_pgta_metadata` |
+| `baseline_qc` | `pgta_pipeline.run_pgta_baseline_qc` |
+
+This is intentionally not an arbitrary DAG/task trigger. The backend rejects
+non-PGT-A runs, non-`baseline_qc` targets, active runs, unsupported stages, and
+rule/sample selection. The runner still uses the same workdir and
+`--rerun-incomplete`; it must not use `--forceall`.
 
 ## 11. `bio_pgta_airflow` collect events
 

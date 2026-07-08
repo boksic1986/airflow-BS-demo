@@ -7,6 +7,7 @@ import {getRunSamples, listRuns} from "../api";
 import {StatusBadge} from "../components/StatusBadge";
 import {errorMessage} from "../lib/errors";
 import {compactPipelineName} from "../lib/format";
+import {sampleSourceDisplay, type SampleSourceDisplay} from "../lib/sampleFiles";
 import {deployedWorkflowTemplates} from "../mocks/platform";
 
 type SampleRow = {
@@ -15,7 +16,7 @@ type SampleRow = {
   pipeline: string;
   run_id?: string;
   status?: string | null;
-  fastq_path?: string | null;
+  source_files: SampleSourceDisplay;
   qc_status?: string | null;
   report_status?: string | null;
   error_summary?: string | null;
@@ -50,7 +51,7 @@ export function SamplesPage() {
               pipeline: run.pipeline,
               run_id: run.analysis_id,
               status: sample.status,
-              fastq_path: sample.fq1 || sample.fq2,
+              source_files: sampleSourceDisplay(sample),
               qc_status: sample.qc_status,
               report_status: run.status === "success" ? "available if artifact exists" : "not generated",
               error_summary: run.status === "failed" ? "see run detail" : null,
@@ -89,7 +90,7 @@ export function SamplesPage() {
                 <th>family_id</th>
                 <th>pipeline</th>
                 <th>status</th>
-                <th>fastq_path</th>
+                <th>source files</th>
                 <th>qc_status</th>
                 <th>report_status</th>
                 <th>error_summary</th>
@@ -103,7 +104,12 @@ export function SamplesPage() {
                   <td>{row.family_id || "not set"}</td>
                   <td>{compactPipelineName(row.pipeline)}</td>
                   <td><StatusBadge status={row.status || "unknown"} /></td>
-                  <td className="path-text">{row.fastq_path || "not set"}</td>
+                  <td>
+                    <div className={row.source_files.missing ? "source-files missing" : "source-files"}>
+                      <span>{row.source_files.primary}</span>
+                      {row.source_files.secondary ? <small>{row.source_files.secondary}</small> : null}
+                    </div>
+                  </td>
                   <td><StatusBadge status={row.qc_status || "unknown"} size="sm" /></td>
                   <td>{row.report_status || "not set"}</td>
                   <td>{row.error_summary || "none"}</td>

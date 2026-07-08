@@ -53,6 +53,8 @@ def get_dashboard_overview(*, session: Session, pipeline: str, period: str) -> d
         "pipeline_breakdown": pipeline_breakdown,
         "trend": _daily_trend(runs, since=since),
         "qc_summary": _qc_summary(session=session, pipeline=pipeline, since=since),
+        "sample_summary": _sample_summary(session=session, pipeline=pipeline, since=since),
+        "sample_trend": _sample_trend(session=session, pipeline=pipeline, since=since),
         "failure_summary": _failure_summary(runs),
         "intake_summary": _intake_summary(session=session, pipeline=pipeline),
     }
@@ -102,6 +104,16 @@ def _tracker_row(*, session: Session, airflow_client, run: AnalysisRun) -> dict[
     progress = _progress_for_tracker_row(session=session, airflow_client=airflow_client, run=run)
     rules = progress.get("rule_events", []) if progress else []
     airflow_tasks = progress.get("airflow_tasks", []) if progress else []
+    current_airflow_task = _current_airflow_task(airflow_tasks)
+    current_pipeline_rule = _current_pipeline_rule(rules)
+    elapsed_seconds = _elapsed_seconds(run)
+    average_duration_seconds = _average_duration_seconds(session=session, run=run)
+    estimated_remaining_seconds = _estimated_remaining_seconds(
+        run=run,
+        elapsed_seconds=elapsed_seconds,
+        average_duration_seconds=average_duration_seconds,
+    )
+    estimated_finish_at = _estimated_finish_at(estimated_remaining_seconds)
     return {
         "analysis_id": run.analysis_id,
         "project_name": _project_name(run),
@@ -115,8 +127,23 @@ def _tracker_row(*, session: Session, airflow_client, run: AnalysisRun) -> dict[
         "dag_id": run.dag_id,
         "dag_run_id": run.dag_run_id,
         "percent": progress.get("percent", 0) if progress else 0,
-        "current_airflow_task": _current_airflow_task(airflow_tasks),
-        "current_pipeline_rule": _current_pipeline_rule(rules),
+        "current_airflow_task": current_airflow_task,
+        "current_pipeline_rule": current_pipeline_rule,
+        "current_stage_label": _current_stage_label(
+            current_airflow_task=current_airflow_task,
+            current_pipeline_rule=current_pipeline_rule,
+            status=run.status,
+            not_in_airflow=progress.get("not_in_airflow", False) if progress else False,
+        ),
+        "current_stage_source": _current_stage_source(
+            current_airflow_task=current_airflow_task,
+            current_pipeline_rule=current_pipeline_rule,
+            not_in_airflow=progress.get("not_in_airflow", False) if progress else False,
+        ),
+        "elapsed_seconds": elapsed_seconds,
+        "average_duration_seconds": average_duration_seconds,
+        "estimated_remaining_seconds": estimated_remaining_seconds,
+        "estimated_finish_at": _iso(estimated_finish_at),
         "progress_source": progress.get("progress_source", "estimate") if progress else "estimate",
         "not_in_airflow": progress.get("not_in_airflow", False) if progress else False,
         "note": progress.get("note", "") if progress else "",
@@ -191,6 +218,66 @@ def _qc_summary(*, session: Session, pipeline: str, since: datetime) -> dict[str
     if pipeline != "all":
         query = query.where(AnalysisRun.pipeline_name == pipeline)
     return _counts_from_rows(session.execute(query).all(), keys=["pass", "warn", "fail", "unknown"])
+
+
+def _sample_summary(*, session: Session, pipeline: str, since: datetime) -> dict[str, int]:
+    samples = _samples_for_period(session=session, pipeline=pipeline, since=since)
+    return {
+        "total": len(samples),
+        "running": sum(1 for sample in samples if _status(sample.status) in ACTIVE_STATUSES),
+        "workflow_failed": sum(1 for sample in samples if _status(sample.status) in FAILED_STATUSES),
+        "qc_failed": sum(1 for sample in samples if _status(sample.qc_status) in FAILED_STATUSES),
+        "completed": sum(1 for sample in samples if _status(sample.status) == "success"),
+    }
+
+
+def _sample_trend(*, session: Session, pipeline: str, since: datetime) -> list[dict[str, Any]]:
+    query = (
+        select(AnalysisRun.created_at, Sample.status, Sample.qc_status)
+        .join(Sample, Sample.analysis_id == AnalysisRun.analysis_id)
+        .where(AnalysisRun.created_at >= since)
+    )
+    if pipeline != "all":
+        query = query.where(AnalysisRun.pipeline_name == pipeline)
+    else:
+        query = query.where(AnalysisRun.pipeline_name.in_(["pgta", "nipt_docker"]))
+    buckets: dict[str, dict[str, int]] = {}
+    for created_at, sample_status, qc_status in session.execute(query).all():
+        key = (created_at or since).date().isoformat()
+        bucket = buckets.setdefault(
+            key,
+            {
+                "date": key,
+                "total": 0,
+                "running": 0,
+                "workflow_failed": 0,
+                "qc_failed": 0,
+                "completed": 0,
+            },
+        )
+        bucket["total"] += 1
+        if _status(sample_status) in ACTIVE_STATUSES:
+            bucket["running"] += 1
+        if _status(sample_status) in FAILED_STATUSES:
+            bucket["workflow_failed"] += 1
+        if _status(qc_status) in FAILED_STATUSES:
+            bucket["qc_failed"] += 1
+        if _status(sample_status) == "success":
+            bucket["completed"] += 1
+    return [buckets[key] for key in sorted(buckets)]
+
+
+def _samples_for_period(*, session: Session, pipeline: str, since: datetime) -> list[Sample]:
+    query = (
+        select(Sample)
+        .join(AnalysisRun, AnalysisRun.analysis_id == Sample.analysis_id)
+        .where(AnalysisRun.created_at >= since)
+    )
+    if pipeline != "all":
+        query = query.where(AnalysisRun.pipeline_name == pipeline)
+    else:
+        query = query.where(AnalysisRun.pipeline_name.in_(["pgta", "nipt_docker"]))
+    return list(session.scalars(query).all())
 
 
 def _intake_summary(*, session: Session, pipeline: str) -> dict[str, int]:
@@ -286,6 +373,139 @@ def _current_pipeline_rule(rules: list[dict[str, Any]]) -> str | None:
         if rule.get("rule"):
             return str(rule["rule"])
     return None
+
+
+AIRFLOW_TASK_LABELS = {
+    "validate_request": "Validate request",
+    "prepare_pgta_config": "Prepare PGT-A config",
+    "run_pgta_target": "Running PGT-A workflow",
+    "pgta_pipeline.run_pgta_mapping": "Mapping reads",
+    "pgta_pipeline.run_pgta_metadata": "Collect metadata",
+    "pgta_pipeline.run_pgta_baseline_qc": "Baseline QC",
+    "collect_pgta_artifact": "Collect PGT-A artifacts",
+    "prepare_nipt_docker_run": "Prepare NIPT Docker run",
+    "run_nipt_docker": "Run NIPT Docker workflow",
+    "collect_nipt_artifacts": "Collect NIPT artifacts",
+}
+
+PIPELINE_RULE_LABELS = {
+    "fastp": "FASTQ preprocessing",
+    "mapping": "Mapping reads",
+    "metadata": "Collect metadata",
+    "baseline_qc": "Baseline QC",
+    "baseline_bam_uniformity_qc": "Baseline BAM uniformity QC",
+    "__airflow_demo_invalid_target__": "Demo invalid target",
+    "nipt_mount_smoke": "NIPT mount smoke",
+}
+
+
+def _current_stage_label(
+    *,
+    current_airflow_task: str | None,
+    current_pipeline_rule: str | None,
+    status: str | None,
+    not_in_airflow: bool,
+) -> str:
+    if not_in_airflow:
+        return "Created only"
+    if current_pipeline_rule:
+        return PIPELINE_RULE_LABELS.get(current_pipeline_rule, _humanize_identifier(current_pipeline_rule))
+    if current_airflow_task:
+        return AIRFLOW_TASK_LABELS.get(current_airflow_task, _humanize_identifier(current_airflow_task))
+    normalized = _status(status)
+    if normalized == "success":
+        return "Workflow complete"
+    if normalized in FAILED_STATUSES:
+        return "Workflow failed"
+    if normalized in ACTIVE_STATUSES:
+        return "Airflow handoff"
+    return _humanize_identifier(normalized)
+
+
+def _current_stage_source(*, current_airflow_task: str | None, current_pipeline_rule: str | None, not_in_airflow: bool) -> str:
+    if not_in_airflow:
+        return "Backend state"
+    if current_pipeline_rule:
+        if current_pipeline_rule == "nipt_mount_smoke":
+            return "Runner event"
+        return "Snakemake rule event"
+    if current_airflow_task:
+        return "Airflow project task"
+    return "Backend state"
+
+
+def _elapsed_seconds(run: AnalysisRun) -> int | None:
+    if not run.started_at:
+        return None
+    end = run.ended_at or datetime.now(timezone.utc)
+    started_at = _as_aware(run.started_at)
+    ended_at = _as_aware(end)
+    return max(0, int((ended_at - started_at).total_seconds()))
+
+
+def _average_duration_seconds(*, session: Session, run: AnalysisRun) -> int | None:
+    kind_key, kind_value = _run_kind(run)
+    query = (
+        select(AnalysisRun)
+        .where(
+            AnalysisRun.pipeline_name == run.pipeline_name,
+            AnalysisRun.status == "success",
+            AnalysisRun.started_at.is_not(None),
+            AnalysisRun.ended_at.is_not(None),
+            AnalysisRun.analysis_id != run.analysis_id,
+        )
+        .order_by(desc(AnalysisRun.ended_at))
+    )
+    candidates = []
+    for candidate in session.scalars(query).all():
+        if _run_kind(candidate) == (kind_key, kind_value):
+            candidates.append(candidate)
+        if len(candidates) >= 10:
+            break
+    durations = [
+        max(0, int((_as_aware(candidate.ended_at) - _as_aware(candidate.started_at)).total_seconds()))
+        for candidate in candidates
+        if candidate.started_at and candidate.ended_at
+    ]
+    if not durations:
+        return None
+    return int(sum(durations) / len(durations))
+
+
+def _estimated_remaining_seconds(*, run: AnalysisRun, elapsed_seconds: int | None, average_duration_seconds: int | None) -> int | None:
+    if _status(run.status) not in ACTIVE_STATUSES:
+        return None
+    if elapsed_seconds is None or average_duration_seconds is None:
+        return None
+    return max(0, average_duration_seconds - elapsed_seconds)
+
+
+def _estimated_finish_at(estimated_remaining_seconds: int | None) -> datetime | None:
+    if estimated_remaining_seconds is None:
+        return None
+    return datetime.now(timezone.utc) + timedelta(seconds=estimated_remaining_seconds)
+
+
+def _run_kind(run: AnalysisRun) -> tuple[str, str]:
+    params = run.params_json or {}
+    if run.pipeline_name == "pgta":
+        return ("target", str(params.get("target") or "metadata"))
+    if run.pipeline_name == "nipt_docker":
+        return ("run_mode", str(params.get("run_mode") or "mount_smoke"))
+    return ("pipeline", str(run.pipeline_name))
+
+
+def _as_aware(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+def _humanize_identifier(value: str | None) -> str:
+    if not value:
+        return "Unknown"
+    label = value.split(".")[-1].replace("_", " ").strip()
+    return label[:1].upper() + label[1:]
 
 
 def _run_sort_key(run: AnalysisRun) -> tuple[int, float]:

@@ -157,7 +157,7 @@ def test_run_progress_uses_airflow_task_instances(tmp_path, monkeypatch) -> None
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["percent"] == 15
+    assert payload["percent"] == 10
     assert payload["current_step"] == "run_pgta_target"
     assert payload["current_source"] == "airflow_task_instances"
     assert payload["progress_source"] == "airflow_task_instances"
@@ -168,6 +168,42 @@ def test_run_progress_uses_airflow_task_instances(tmp_path, monkeypatch) -> None
         "run_pgta_target",
     ]
     assert fake_airflow.task_calls == [("bio_pgta", "manual__PGTA_20260708_120000_PROGRESS")]
+
+
+def test_run_progress_uses_pgta_staged_airflow_tasks(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_pgta_run(
+        session_factory,
+        tmp_path,
+        status="running",
+        dag_run_id="manual__PGTA_20260708_120000_PROGRESS",
+    )
+    fake_airflow = FakeAirflowClient(
+        tasks=[
+            {"task_id": "validate_request", "state": "success"},
+            {"task_id": "prepare_pgta_config", "state": "success"},
+            {"task_id": "choose_pgta_path", "state": "success"},
+            {"task_id": "pgta_pipeline.run_pgta_mapping", "state": "success"},
+            {"task_id": "pgta_pipeline.run_pgta_metadata", "state": "running"},
+        ]
+    )
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared", fake_airflow)
+    client = TestClient(main.app)
+
+    response = client.get(f"/api/runs/{analysis_id}/progress")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["percent"] == 55
+    assert payload["current_step"] == "pgta_pipeline.run_pgta_metadata"
+    assert payload["progress_source"] == "airflow_task_instances"
+    assert [task["task_id"] for task in payload["airflow_tasks"]] == [
+        "validate_request",
+        "prepare_pgta_config",
+        "choose_pgta_path",
+        "pgta_pipeline.run_pgta_mapping",
+        "pgta_pipeline.run_pgta_metadata",
+    ]
 
 
 def test_run_progress_refines_running_airflow_task_with_rule_events(tmp_path, monkeypatch) -> None:

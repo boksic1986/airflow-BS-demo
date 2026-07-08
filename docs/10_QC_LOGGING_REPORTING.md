@@ -304,3 +304,53 @@ dag_run_id: manual__NIPT_20260708_033450_8362A0
 qc summary: pass=96,warn=0,fail=0,unknown=0
 stdout: mount_smoke_ok NIPT_20260708_033450_8362A0 260414_TPNB500380AR_1065_AH32CCBGY2
 ```
+
+## 12. T107 QC matrix and PGT-A staged logs
+
+Run Detail QC display is a frontend matrix over the unchanged
+`GET /api/runs/{analysis_id}/qc` payload:
+
+- Rows are grouped by `sample_id`.
+- Columns are derived from `metric_name`.
+- PGT-A baseline columns are prioritized as `qc_decision`,
+  `mapped_fragments`, `zero_bin_fraction`, `bin_cv`, `pearson_r`,
+  `median_abs_z`, and `gc_signal_slope`.
+- NIPT full-run columns remain derived from imported NIPT metrics; 96-sample
+  runs must use search/filter/pagination instead of sample cards.
+- Workflow status and QC status stay separate. A workflow `success` with QC
+  `fail` is valid and should be visible.
+
+T107 PGT-A `baseline_qc` Airflow staging writes stage-specific Snakemake logs:
+
+```text
+workdir/logs/snakemake.mapping.stdout.log
+workdir/logs/snakemake.mapping.stderr.log
+workdir/logs/snakemake.metadata.stdout.log
+workdir/logs/snakemake.metadata.stderr.log
+workdir/logs/snakemake.baseline_qc.stdout.log
+workdir/logs/snakemake.baseline_qc.stderr.log
+```
+
+The historical `snakemake.stdout.log` and `snakemake.stderr.log` names remain
+valid for metadata, dry-run, invalid-target, and historical baseline runs.
+
+## 13. T108 QC failure summary and run config display
+
+T108 keeps the `/qc` payload unchanged but adds a front-end QC failure summary
+above the matrix:
+
+- Include metrics with `status=fail|failed|error|warn|warning|qc_warning`.
+- Show `sample_id`, `metric_name`, displayed value, threshold, and a short
+  reason.
+- `qc_decision` failures are explained as the QC decision itself; other metrics
+  with thresholds are explained as outside the threshold.
+- The full matrix remains the scalable view for 96-sample NIPT batches and
+  PGT-A baseline runs.
+
+Run Detail Config now prioritizes run-local config artifacts:
+
+- PGT-A: `config.yaml` and stage-specific `pgta_stage_<stage>.yaml` artifacts
+  when registered.
+- NIPT Docker: `config/nipt_run_config.yaml` or equivalent run-local config.
+- Raw backend request params remain available under an advanced disclosure and
+  should not be the primary operator-facing config display.

@@ -117,9 +117,10 @@ export type CreateNiptDockerRunRequest = {
 export type CreateRunRequest = CreatePgtaRunRequest | CreateWesRunRequest | CreateNiptDockerRunRequest;
 
 export type ReanalysisRequest = {
-  mode: "resume" | "rerun_rule";
+  mode: "resume" | "rerun_rule" | "rerun_stage";
   rule?: string | null;
   sample_id?: string | null;
+  stage?: "mapping" | "metadata" | "baseline_qc" | null;
   reason?: string | null;
 };
 
@@ -127,6 +128,7 @@ export type ReanalysisResponse = {
   analysis_id: string;
   new_dag_run_id: string;
   mode: string;
+  stage?: string | null;
   status: string;
 };
 
@@ -314,6 +316,21 @@ export type DashboardOverview = {
   pipeline_breakdown: Record<string, Record<string, number>>;
   trend: Array<{date: string; runs: number; failed: number; success: number}>;
   qc_summary: Record<string, number>;
+  sample_summary?: {
+    total: number;
+    running: number;
+    workflow_failed: number;
+    qc_failed: number;
+    completed: number;
+  };
+  sample_trend?: Array<{
+    date: string;
+    total: number;
+    running: number;
+    workflow_failed: number;
+    qc_failed: number;
+    completed: number;
+  }>;
   failure_summary: Array<{
     analysis_id: string;
     pipeline: string;
@@ -340,6 +357,12 @@ export type DashboardRunTrackerRow = {
   percent: number;
   current_airflow_task?: string | null;
   current_pipeline_rule?: string | null;
+  current_stage_label?: string | null;
+  current_stage_source?: string | null;
+  elapsed_seconds?: number | null;
+  average_duration_seconds?: number | null;
+  estimated_remaining_seconds?: number | null;
+  estimated_finish_at?: string | null;
   progress_source: string;
   not_in_airflow: boolean;
   note?: string | null;

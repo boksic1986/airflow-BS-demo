@@ -36,7 +36,7 @@ const trackerLimit = 10;
 
 export function DashboardPage() {
   const [pipeline, setPipeline] = useState<DashboardPipeline>("all");
-  const [period] = useState<"7d">("7d");
+  const [period, setPeriod] = useState<"24h" | "7d" | "30d">("7d");
   const [trackerFilter, setTrackerFilter] = useState<RunTrackerFilter>("all");
   const [trackerKeyword, setTrackerKeyword] = useState("");
   const [trackerOffset, setTrackerOffset] = useState(0);
@@ -205,7 +205,7 @@ export function DashboardPage() {
             <div className="dashboard-insight-grid">
               <StatusDistribution overview={overview} />
               <RunTrend overview={overview} />
-              <QcFailureSummary overview={overview} />
+              <SampleThroughput overview={overview} period={period} onPeriodChange={setPeriod} />
             </div>
           </section>
 
@@ -233,24 +233,40 @@ export function DashboardPage() {
           </div>
           <StatusBadge status={intakeItems.some((item) => item.submit_state === "submitted") ? "success" : "skipped"} />
         </div>
-        <div className="intake-grid">
-          {intakeItems.slice(0, 10).map((item) => {
-            const display = intakeDisplay(item);
-            return (
-              <div className="intake-card" key={`${item.pipeline}-${item.root_path}-${item.batch_id}`}>
-                <div>
-                  <strong>{item.batch_id}</strong>
-                  <span>{compactPipelineName(item.pipeline)} / {item.file_count} files / {formatBytes(item.total_bytes)}</span>
-                </div>
-                <span className={`intake-state-pill ${display.tone}`}>{display.label}</span>
-                {item.analysis_id ? <Link to={`/runs/${encodeURIComponent(item.analysis_id)}`}>{item.analysis_id}</Link> : <span className="muted">not submitted</span>}
-              </div>
-            );
-          })}
-          {intakeItems.length === 0 ? (
-            <p className="empty-state">No intake discovery records yet. Run bootstrap first; keep the Airflow intake DAG paused until roots are reviewed.</p>
-          ) : null}
-        </div>
+        {intakeItems.length ? (
+          <div className="intake-table-wrap">
+            <table className="intake-table">
+              <thead>
+                <tr>
+                  <th scope="col">Pipeline</th>
+                  <th scope="col">Batch</th>
+                  <th scope="col">Files / Size</th>
+                  <th scope="col">Discovery state</th>
+                  <th scope="col">Analysis</th>
+                </tr>
+              </thead>
+              <tbody>
+                {intakeItems.slice(0, 10).map((item) => {
+                  const display = intakeDisplay(item);
+                  return (
+                    <tr key={`${item.pipeline}-${item.root_path}-${item.batch_id}`}>
+                      <td>{compactPipelineName(item.pipeline)}</td>
+                      <td>
+                        <strong>{item.batch_id}</strong>
+                        <span className="muted">{item.root_path}</span>
+                      </td>
+                      <td>{item.file_count} files / {formatBytes(item.total_bytes)}</td>
+                      <td><span className={`intake-state-pill ${display.tone}`}>{display.label}</span></td>
+                      <td>{item.analysis_id ? <Link to={`/runs/${encodeURIComponent(item.analysis_id)}`}>{item.analysis_id}</Link> : <span className="muted">not submitted</span>}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="empty-state">No intake discovery records yet. Run bootstrap first; keep the Airflow intake DAG paused until roots are reviewed.</p>
+        )}
       </section>
 
       <section className="dashboard-ops-grid">
@@ -333,27 +349,58 @@ function RunTrend({overview}: {overview: DashboardOverview | null}) {
   );
 }
 
-function QcFailureSummary({overview}: {overview: DashboardOverview | null}) {
-  const qc = overview?.qc_summary || {};
-  const failures = overview?.failure_summary || [];
+function SampleThroughput({
+  overview,
+  period,
+  onPeriodChange,
+}: {
+  overview: DashboardOverview | null;
+  period: "24h" | "7d" | "30d";
+  onPeriodChange: (period: "24h" | "7d" | "30d") => void;
+}) {
+  const summary = overview?.sample_summary || {total: 0, running: 0, workflow_failed: 0, qc_failed: 0, completed: 0};
+  const trend = overview?.sample_trend || [];
+  const maxSamples = Math.max(1, ...trend.map((item) => item.total));
   return (
-    <article className="insight-card alert-card">
+    <article className="insight-card sample-throughput-card">
       <div>
-        <h3>QC / failure focus</h3>
-        <p>{failures.length ? `${failures.length} failed run needs review` : "No failed runs in this view"}</p>
+        <div className="section-heading-inline">
+          <h3>Sample throughput</h3>
+          <div className="period-selector" aria-label="Sample throughput period">
+            {(["24h", "7d", "30d"] as const).map((item) => (
+              <button className={period === item ? "active" : ""} key={item} type="button" onClick={() => onPeriodChange(item)}>
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p>Sample-level workflow and QC state for the selected period</p>
       </div>
-      <div className="qc-mini-grid">
-        <span>QC pass <strong>{qc.pass || 0}</strong></span>
-        <span>QC fail <strong>{qc.fail || 0}</strong></span>
-        <span>Unknown <strong>{qc.unknown || 0}</strong></span>
+      <div className="sample-throughput-grid">
+        <span>Sample total <strong>{summary.total}</strong></span>
+        <span>Running samples <strong>{summary.running}</strong></span>
+        <span>Workflow failed samples <strong>{summary.workflow_failed}</strong></span>
+        <span>QC failed samples <strong>{summary.qc_failed}</strong></span>
+        <span>Completed samples <strong>{summary.completed}</strong></span>
       </div>
-      {failures[0] ? (
-        <Link className="failure-link" to={`/runs/${encodeURIComponent(failures[0].analysis_id)}`}>
-          {failures[0].project_name || failures[0].analysis_id}
-        </Link>
-      ) : null}
+      <div className="sample-stacked-bar" aria-label="Sample throughput distribution">
+        <span className="success" style={{width: `${percent(summary.completed, summary.total)}%`}} title={`Completed: ${summary.completed}`} />
+        <span className="info" style={{width: `${percent(summary.running, summary.total)}%`}} title={`Running: ${summary.running}`} />
+        <span className="danger" style={{width: `${percent(summary.workflow_failed, summary.total)}%`}} title={`Workflow failed: ${summary.workflow_failed}`} />
+        <span className="warning" style={{width: `${percent(summary.qc_failed, summary.total)}%`}} title={`QC failed: ${summary.qc_failed}`} />
+      </div>
+      <div className="mini-bars sample-bars">
+        {trend.map((item) => (
+          <span key={item.date} style={{height: `${Math.max(8, (item.total / maxSamples) * 42)}px`}} title={`${item.date}: ${item.total} samples`} />
+        ))}
+      </div>
     </article>
   );
+}
+
+function percent(value: number, total: number): number {
+  if (!total) return 0;
+  return Math.max(0, Math.min(100, (value / total) * 100));
 }
 
 function ServiceNodeHealth({resources}: {resources: SystemResourcesResponse | null}) {
@@ -420,7 +467,7 @@ function resourceTabLabel(tab: DashboardPipeline): string {
   return `${compactPipelineName(tab)} resource telemetry`;
 }
 
-function WorkflowActivity({overview, rows}: {overview: DashboardOverview | null; rows: Array<{status: string; current_airflow_task?: string | null; current_pipeline_rule?: string | null}>}) {
+function WorkflowActivity({overview, rows}: {overview: DashboardOverview | null; rows: Array<{status: string; current_airflow_task?: string | null; current_pipeline_rule?: string | null; current_stage_label?: string | null}>}) {
   const activeRows = rows.filter((row) => isActiveStatus(row.status));
   return (
     <div className="panel">
@@ -433,7 +480,7 @@ function WorkflowActivity({overview, rows}: {overview: DashboardOverview | null;
           <div key={`${row.current_airflow_task}-${row.current_pipeline_rule}-${index}`}>
             <StatusBadge status={row.status} size="sm" />
             <span>{row.current_airflow_task || "Airflow task pending"}</span>
-            <strong>{row.current_pipeline_rule || "No rule events captured"}</strong>
+            <strong>{row.current_stage_label || row.current_pipeline_rule || "No rule events captured"}</strong>
           </div>
         ))}
         {activeRows.length === 0 ? <p className="empty-state">No active workflow tasks in this page.</p> : null}

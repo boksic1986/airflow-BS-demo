@@ -16,7 +16,7 @@ export function formatDate(value?: string | null): string {
     hourCycle: "h23",
   }).formatToParts(date);
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "00";
-  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")} ${displayTimeZone}`;
+  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")}`;
 }
 
 export function formatDuration(start?: string | null, end?: string | null): string {
@@ -30,6 +30,20 @@ export function formatDuration(start?: string | null, end?: string | null): stri
   if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
   const hours = Math.floor(minutes / 60);
   return `${hours}h ${minutes % 60}m`;
+}
+
+export function formatSecondsDuration(seconds?: number | null): string {
+  if (seconds == null || !Number.isFinite(seconds)) return "not set";
+  const normalized = Math.max(0, Math.floor(seconds));
+  if (normalized < 60) return `${normalized}s`;
+  const minutes = Math.floor(normalized / 60);
+  if (minutes < 60) return `${minutes}m ${normalized % 60}s`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
+}
+
+export function displayTimeZoneLabel(): string {
+  return displayTimeZone;
 }
 
 export function formatBytes(value?: number | null): string {

@@ -11,6 +11,7 @@ from pgta_metadata_runner import (
     build_pgta_config,
     collect_pgta_artifact,
     read_selected_manifest,
+    run_pgta_stage,
     run_pgta_target,
     validate_pgta_conf,
 )
@@ -98,6 +99,20 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             )
             self.assertEqual(conf["mode"], "resume")
 
+            rerun_conf = validate_pgta_conf(
+                {
+                    "analysis_id": "PGTA_TEST",
+                    "pipeline": "pgta",
+                    "mode": "rerun_stage",
+                    "sample_sheet_path": str(manifest),
+                    "workdir": str(workdir),
+                    "params": {"target": "baseline_qc", "rerun_stage": "metadata"},
+                },
+                shared_root=Path(tmpdir),
+            )
+            self.assertEqual(rerun_conf["mode"], "rerun_stage")
+            self.assertEqual(rerun_conf["params"]["rerun_stage"], "metadata")
+
             with self.assertRaisesRegex(ValueError, "PGT-A resume is only supported for baseline_qc"):
                 validate_pgta_conf(
                     {
@@ -107,6 +122,32 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
                         "sample_sheet_path": str(manifest),
                         "workdir": str(workdir),
                         "params": {"target": "metadata"},
+                    },
+                    shared_root=Path(tmpdir),
+                )
+
+            with self.assertRaisesRegex(ValueError, "PGT-A rerun_stage is only supported for baseline_qc"):
+                validate_pgta_conf(
+                    {
+                        "analysis_id": "PGTA_TEST",
+                        "pipeline": "pgta",
+                        "mode": "rerun_stage",
+                        "sample_sheet_path": str(manifest),
+                        "workdir": str(workdir),
+                        "params": {"target": "metadata", "rerun_stage": "mapping"},
+                    },
+                    shared_root=Path(tmpdir),
+                )
+
+            with self.assertRaisesRegex(ValueError, "Unsupported PGT-A rerun stage"):
+                validate_pgta_conf(
+                    {
+                        "analysis_id": "PGTA_TEST",
+                        "pipeline": "pgta",
+                        "mode": "rerun_stage",
+                        "sample_sheet_path": str(manifest),
+                        "workdir": str(workdir),
+                        "params": {"target": "baseline_qc", "rerun_stage": "everything"},
                     },
                     shared_root=Path(tmpdir),
                 )
@@ -399,6 +440,72 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
                 [("metadata", "running"), ("metadata", "success")],
             )
 
+    def test_run_pgta_stage_writes_stage_config_and_stage_logs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            import yaml
+
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            workdir.mkdir(parents=True)
+            config_path = workdir / "config.yaml"
+            config_path.write_text(
+                yaml.safe_dump(
+                    {
+                        "pipeline": {"mode": "build_ref", "targets": ["mapping", "metadata", "baseline_qc"]},
+                        "samples": {},
+                        "build_reference": {"enabled": True, "groups": {"demo": ["G10", "G11"]}},
+                    },
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
+
+            completed = Mock(returncode=0)
+            completed.stdout = "stage stdout\n"
+            completed.stderr = ""
+            with patch("pgta_metadata_runner.subprocess.run", return_value=completed) as run:
+                artifact_path = run_pgta_stage(
+                    {
+                        "analysis_id": "PGTA_TEST",
+                        "workdir": str(workdir),
+                        "config_path": str(config_path),
+                        "params": {"target": "baseline_qc"},
+                    },
+                    "metadata",
+                    snakemake_bin=Path("/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"),
+                    pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                )
+
+            stage_config = yaml.safe_load((workdir / "config" / "pgta_stage_metadata.yaml").read_text(encoding="utf-8"))
+            command = run.call_args.args[0]
+            command_text = (workdir / "logs" / "snakemake.metadata.command.txt").read_text(encoding="utf-8")
+            self.assertEqual(artifact_path, workdir / "logs" / "run_metadata.tsv")
+            self.assertEqual(stage_config["pipeline"]["targets"], ["metadata"])
+            self.assertEqual(stage_config["pipeline"]["mode"], "build_ref")
+            self.assertIn("pgta_stage_metadata.yaml", command_text)
+            self.assertIn("pgta_stage_metadata.yaml", " ".join(command))
+            self.assertNotIn("--forceall", command)
+            self.assertEqual((workdir / "logs" / "snakemake.metadata.stdout.log").read_text(encoding="utf-8"), "stage stdout\n")
+
+    def test_run_pgta_stage_rejects_non_baseline_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            workdir.mkdir(parents=True)
+            config_path = workdir / "config.yaml"
+            config_path.write_text("pipeline:\n  targets: [metadata]\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "target=baseline_qc"):
+                run_pgta_stage(
+                    {
+                        "analysis_id": "PGTA_TEST",
+                        "workdir": str(workdir),
+                        "config_path": str(config_path),
+                        "params": {"target": "metadata"},
+                    },
+                    "metadata",
+                    snakemake_bin=Path("/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"),
+                    pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                )
+
     def test_run_pgta_target_allows_core_count_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
@@ -653,6 +760,43 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             self.assertIn("--cores 64", resume_command_text)
             self.assertNotIn("--forceall", resume_command_text)
             self.assertEqual((workdir / "logs" / "snakemake.stdout.log").read_text(encoding="utf-8"), "resume stdout\n")
+
+    def test_run_pgta_target_rerun_stage_uses_rerun_incomplete_without_unlock_or_forceall(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            workdir.mkdir(parents=True)
+            config_path = workdir / "config.yaml"
+            config_path.write_text("samples: {}\n", encoding="utf-8")
+
+            run_completed = Mock(returncode=0)
+            run_completed.stdout = "stage rerun stdout\n"
+            run_completed.stderr = ""
+            preflight_completed = Mock(returncode=0)
+            preflight_completed.stdout = "pgta python preflight ok\n"
+            preflight_completed.stderr = ""
+            with patch("pgta_metadata_runner.subprocess.run", side_effect=[preflight_completed, run_completed]) as run:
+                artifact_path = run_pgta_target(
+                    {
+                        "analysis_id": "PGTA_TEST",
+                        "mode": "rerun_stage",
+                        "workdir": str(workdir),
+                        "config_path": str(config_path),
+                        "params": {"target": "baseline_qc", "rerun_stage": "baseline_qc"},
+                    },
+                    snakemake_bin=Path("/biosoftware/miniconda/envs/snakemake_env/bin/snakemake"),
+                    pgta_pipeline_root=Path("/opt/pipelines/PGT_A"),
+                )
+
+            self.assertEqual(artifact_path, workdir / "qc" / "baseline" / "baseline_qc_summary.tsv")
+            self.assertEqual(run.call_count, 2)
+            rerun_command = run.call_args_list[1].args[0]
+            self.assertIn("--rerun-incomplete", rerun_command)
+            self.assertNotIn("--unlock", rerun_command)
+            self.assertNotIn("--forceall", rerun_command)
+            command_text = (workdir / "logs" / "snakemake.command.txt").read_text(encoding="utf-8")
+            self.assertIn("--rerun-incomplete", command_text)
+            self.assertNotIn("--unlock", command_text)
+            self.assertNotIn("--forceall", command_text)
 
     def test_run_pgta_target_resume_removes_only_samtools_sort_tmp_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

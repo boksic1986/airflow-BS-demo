@@ -20,8 +20,10 @@ PGTA_DAG_ID = "bio_pgta"
 WES_DAG_ID = "bio_wes_qsub"
 NIPT_DOCKER_DAG_ID = "bio_nipt_docker"
 SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc"}
-SUPPORTED_PGTA_REANALYSIS_MODES = {"resume"}
+SUPPORTED_PGTA_REANALYSIS_MODES = {"resume", "rerun_stage"}
 PGTA_REANALYSIS_TERMINAL_STATUSES = {"failed", "terminated"}
+PGTA_RERUN_STAGE_TERMINAL_STATUSES = {"failed", "terminated", "success"}
+SUPPORTED_PGTA_RERUN_STAGES = {"mapping", "metadata", "baseline_qc"}
 SUPPORTED_WES_TARGETS = {"final_summary"}
 SUPPORTED_WES_REANALYSIS_MODES = {"resume", "rerun_rule"}
 SUPPORTED_WES_RERUN_RULES = {"fastp", "bwa_mem", "markdup", "final_summary"}
@@ -558,6 +560,7 @@ def reanalyze_run_to_airflow(
     mode: str,
     rule: str | None = None,
     sample_id: str | None = None,
+    stage: str | None = None,
     reason: str | None = None,
 ) -> dict | None:
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
@@ -571,6 +574,7 @@ def reanalyze_run_to_airflow(
             mode=mode,
             rule=rule,
             sample_id=sample_id,
+            stage=stage,
             reason=reason,
         )
     if run.pipeline_name == "wes_qsub":
@@ -650,12 +654,17 @@ def _reanalyze_pgta_run_object(
     mode: str,
     rule: str | None,
     sample_id: str | None,
+    stage: str | None,
     reason: str | None,
 ) -> dict:
-    _validate_pgta_reanalysis(run=run, mode=mode, rule=rule, sample_id=sample_id)
+    _validate_pgta_reanalysis(run=run, mode=mode, rule=rule, sample_id=sample_id, stage=stage)
 
     params = dict(run.params_json or {})
     params["target"] = "baseline_qc"
+    if mode == "rerun_stage":
+        params["rerun_stage"] = stage
+    else:
+        params.pop("rerun_stage", None)
     previous_dag_run_id = run.dag_run_id
 
     run.mode = mode
@@ -665,7 +674,8 @@ def _reanalyze_pgta_run_object(
     run.error_summary = None
     run.ended_at = None
 
-    dag_run_id = f"manual__{run.analysis_id}__{mode}__{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+    stage_suffix = f"__{stage}" if mode == "rerun_stage" and stage else ""
+    dag_run_id = f"manual__{run.analysis_id}__{mode}{stage_suffix}__{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
     conf = _dag_conf(run)
     airflow_payload = airflow_client.trigger_dag_run(run.dag_id, dag_run_id=dag_run_id, conf=conf)
     dag_run_id = airflow_payload.get("dag_run_id") or dag_run_id
@@ -678,13 +688,15 @@ def _reanalyze_pgta_run_object(
                 "dag_id": run.dag_id,
                 "dag_run_id": dag_run_id,
                 "previous_dag_run_id": previous_dag_run_id,
+                "new_dag_run_id": dag_run_id,
                 "conf": conf,
                 "rule": rule,
                 "sample_id": sample_id,
+                "stage": stage,
                 "reason": reason,
             },
             result_status="accepted",
-            message="PGT-A baseline_qc resume DAG run submitted.",
+            message="PGT-A baseline_qc controlled DAG run submitted.",
         )
     )
     session.commit()
@@ -693,6 +705,7 @@ def _reanalyze_pgta_run_object(
         "analysis_id": run.analysis_id,
         "new_dag_run_id": dag_run_id,
         "mode": mode,
+        "stage": stage,
         "status": run.status,
     }
 
@@ -819,18 +832,16 @@ def _validate_wes_reanalysis(*, run: AnalysisRun, mode: str, rule: str | None, s
         raise ValueError("sample_id is not supported for final_summary rerun.")
 
 
-def _validate_pgta_reanalysis(*, run: AnalysisRun, mode: str, rule: str | None, sample_id: str | None) -> None:
+def _validate_pgta_reanalysis(*, run: AnalysisRun, mode: str, rule: str | None, sample_id: str | None, stage: str | None) -> None:
     if run.pipeline_name != "pgta":
         raise ValueError("Only pipeline=pgta supports PGT-A reanalysis.")
     if mode not in SUPPORTED_PGTA_REANALYSIS_MODES:
         supported = ", ".join(sorted(SUPPORTED_PGTA_REANALYSIS_MODES))
         raise ValueError(f"Unsupported PGT-A reanalysis mode: {mode}. Supported modes: {supported}.")
-    if run.status in {"submitted", "running", "queued"}:
+    if run.status in {"submitted", "running", "queued", "scheduled"}:
         raise ValueError("Run is already active; sync or wait before reanalysis.")
-    if run.status not in PGTA_REANALYSIS_TERMINAL_STATUSES:
-        raise ValueError("PGT-A resume requires a run status of failed or terminated.")
     if rule or sample_id:
-        raise ValueError("PGT-A resume does not support rule or sample selection in this phase.")
+        raise ValueError("PGT-A reanalysis does not support arbitrary rule or sample selection in this phase.")
     if not run.dag_run_id:
         raise ValueError("Run must have an existing dag_run_id before reanalysis.")
     if not run.sample_sheet_path:
@@ -841,8 +852,24 @@ def _validate_pgta_reanalysis(*, run: AnalysisRun, mode: str, rule: str | None, 
     target = str((run.params_json or {}).get("target") or "metadata")
     _validate_pgta_target(target)
     if target != "baseline_qc":
+        if mode == "rerun_stage":
+            raise ValueError("PGT-A rerun_stage is only supported for baseline_qc runs.")
         raise ValueError("PGT-A resume is only supported for baseline_qc runs.")
     _validate_pgta_sample_count(target=target, selected_count=_pgta_selected_count(run))
+    if mode == "resume":
+        if run.status not in PGTA_REANALYSIS_TERMINAL_STATUSES:
+            raise ValueError("PGT-A resume requires a run status of failed or terminated.")
+        if stage:
+            raise ValueError("PGT-A resume does not accept stage; use mode=rerun_stage for controlled stage reruns.")
+        return
+    if mode == "rerun_stage":
+        if run.status not in PGTA_RERUN_STAGE_TERMINAL_STATUSES:
+            raise ValueError("PGT-A rerun_stage requires a terminal run status of failed, terminated, or success.")
+        if not stage:
+            raise ValueError("PGT-A rerun_stage stage is required.")
+        if stage not in SUPPORTED_PGTA_RERUN_STAGES:
+            supported = ", ".join(sorted(SUPPORTED_PGTA_RERUN_STAGES))
+            raise ValueError(f"Unsupported PGT-A rerun stage: {stage}. Supported stages: {supported}.")
 
 
 def _ensure_airflow_writable(path: Path) -> None:
