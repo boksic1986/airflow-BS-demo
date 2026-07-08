@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
+import json
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
@@ -65,6 +67,34 @@ def list_snakemake_rule_events(*, session: Session, analysis_id: str) -> list[di
         )
     ).all()
     return [_rule_event_payload(row) for row in rows]
+
+
+def import_snakemake_events_jsonl(*, session: Session, analysis_id: str, events_path: str | Path) -> int:
+    path = Path(events_path)
+    if not path.is_file():
+        return 0
+
+    imported = 0
+    for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not raw_line.strip():
+            continue
+        try:
+            event = json.loads(raw_line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        if not event.get("rule") or not event.get("status"):
+            continue
+        event = dict(event)
+        event["analysis_id"] = analysis_id
+        if isinstance(event.get("timestamp"), str):
+            parsed = _parse_timestamp(str(event["timestamp"]))
+            if parsed is not None:
+                event["timestamp"] = parsed
+        if record_snakemake_event(session=session, event=event):
+            imported += 1
+    return imported
 
 
 def _find_existing_event(
@@ -146,3 +176,10 @@ def _sample_id_from_wildcards(wildcards: Mapping[str, Any]) -> str | None:
 
 def _isoformat(value: datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
+
+
+def _parse_timestamp(value: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None

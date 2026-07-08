@@ -14,6 +14,7 @@ from app.models import AnalysisRun, QcMetric, Sample
 
 QC_STATUSES = ("pass", "warn", "fail", "unknown")
 WES_QC_RELATIVE_PATH = Path("reports/qc_summary.tsv")
+NIPT_QC_RELATIVE_PATH = Path("reports/qc_summary.tsv")
 PGTA_BASELINE_QC_RELATIVE_PATH = Path("qc/baseline/baseline_qc_summary.tsv")
 PGTA_BASELINE_METRIC_COLUMNS = (
     "mapped_fragments",
@@ -58,9 +59,21 @@ def import_pgta_baseline_qc_metrics(*, session: Session, run: AnalysisRun, setti
     _replace_qc_metrics(session=session, run=run, metrics=metrics)
 
 
+def import_nipt_qc_metrics(*, session: Session, run: AnalysisRun, settings) -> None:
+    if run.pipeline_name != "nipt_docker":
+        return
+    qc_path = _safe_qc_path(run, settings, relative_path=NIPT_QC_RELATIVE_PATH)
+    if not qc_path.is_file():
+        return
+
+    metrics = parse_qc_summary_tsv(qc_path)
+    _replace_qc_metrics(session=session, run=run, metrics=metrics)
+
+
 def import_run_qc_metrics(*, session: Session, run: AnalysisRun, settings) -> None:
     import_wes_qc_metrics(session=session, run=run, settings=settings)
     import_pgta_baseline_qc_metrics(session=session, run=run, settings=settings)
+    import_nipt_qc_metrics(session=session, run=run, settings=settings)
 
 
 def _replace_qc_metrics(*, session: Session, run: AnalysisRun, metrics: list[ParsedQcMetric]) -> None:

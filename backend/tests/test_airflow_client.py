@@ -56,6 +56,39 @@ def test_airflow_client_lists_and_gets_dag_runs() -> None:
     ]
 
 
+def test_airflow_client_lists_task_instances_for_dag_run() -> None:
+    seen_raw_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_raw_paths.append(request.url.raw_path.decode("utf-8"))
+        return httpx.Response(
+            200,
+            json={
+                "task_instances": [
+                    {
+                        "task_id": "run_pgta_target",
+                        "state": "running",
+                        "operator": "PythonOperator",
+                        "try_number": 1,
+                    }
+                ],
+                "total_entries": 1,
+            },
+        )
+
+    client = AirflowClient(
+        base_url="http://airflow-api-server:8080",
+        username="admin",
+        password="secret",
+        transport=httpx.MockTransport(handler),
+    )
+
+    payload = client.list_task_instances("bio_demo", "manual__demo run")
+
+    assert payload["task_instances"][0]["task_id"] == "run_pgta_target"
+    assert seen_raw_paths == ["/api/v1/dags/bio_demo/dagRuns/manual__demo%20run/taskInstances"]
+
+
 def test_airflow_client_triggers_dag_run_with_conf() -> None:
     captured_json: dict[str, object] = {}
 

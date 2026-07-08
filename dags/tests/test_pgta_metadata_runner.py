@@ -389,6 +389,15 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
             self.assertIn("--snakefile /opt/pipelines/PGT_A/Snakefile", normalized_command_text)
             self.assertIn("--cores 64", command_text)
             self.assertIn(f"--configfile {config_path}".replace("\\", "/"), normalized_command_text)
+            event_lines = [
+                json.loads(line)
+                for line in (workdir / "logs" / "events" / "snakemake_events.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(
+                [(event["rule"], event["status"]) for event in event_lines if event.get("event") != "backend_post_error"],
+                [("metadata", "running"), ("metadata", "success")],
+            )
 
     def test_run_pgta_target_allows_core_count_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

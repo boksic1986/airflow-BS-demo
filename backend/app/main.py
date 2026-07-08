@@ -18,10 +18,13 @@ from app.diagnostics_service import (
     list_run_artifacts,
     sync_airflow_status,
 )
-from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candidates
+from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candidates, scan_nipt_batch_candidates
+from app.intake_service import list_intake_status, scan_and_submit_intake
+from app.progress_service import get_run_progress
 from app.qc_service import list_run_qc
 from app.rule_event_service import list_snakemake_rule_events, record_snakemake_event
 from app.run_service import (
+    create_nipt_docker_run,
     create_pgta_run,
     create_wes_mock_run,
     get_run_detail,
@@ -67,6 +70,9 @@ class CreateRunRequest(BaseModel):
     target: str = "metadata"
     rawdata_root: str | None = None
     selected_samples: list[SelectedSampleRequest] = Field(default_factory=list)
+    template_id: str | None = None
+    run_mode: str = "mount_smoke"
+    cores: int | None = Field(default=None, ge=1, le=40)
     email_to: str | None = None
     note: str | None = None
 
@@ -77,7 +83,18 @@ class CreateRunRequest(BaseModel):
                 raise ValueError("rawdata_root is required for pipeline=pgta.")
             if not self.selected_samples:
                 raise ValueError("selected_samples is required for pipeline=pgta.")
+        if self.pipeline == "nipt_docker" and not self.template_id:
+            if not self.rawdata_root:
+                raise ValueError("rawdata_root is required for pipeline=nipt_docker.")
+            if not self.selected_samples:
+                raise ValueError("selected_samples is required for pipeline=nipt_docker.")
         return self
+
+
+class IntakeScanRequest(BaseModel):
+    pipelines: list[str] = Field(default_factory=lambda: ["pgta", "nipt_docker"])
+    bootstrap: bool = False
+    max_samples: int = Field(default=200, ge=1, le=1000)
 
 
 class ReanalysisRequest(BaseModel):
@@ -120,29 +137,41 @@ def get_airflow_client() -> AirflowClient:
 
 @app.post("/api/input/scan")
 def scan_input(request: InputScanRequest) -> dict[str, object]:
-    if request.pipeline != "pgta":
+    if request.pipeline not in {"pgta", "nipt_docker"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "UNSUPPORTED_PIPELINE", "message": "Only pipeline=pgta supports server path scan."},
+            detail={"code": "UNSUPPORTED_PIPELINE", "message": "Only pipeline=pgta or pipeline=nipt_docker supports server path scan."},
         )
 
     try:
-        result = scan_fastq_candidates(
-            rawdata_root=request.rawdata_root,
-            allowed_roots=get_settings().input_scan_roots,
-            max_samples=request.max_samples,
-        )
+        settings = get_settings()
+        if request.pipeline == "nipt_docker":
+            result = scan_nipt_batch_candidates(
+                rawdata_root=request.rawdata_root,
+                allowed_roots=_scan_roots_for_pipeline(settings, request.pipeline),
+                max_samples=request.max_samples,
+            )
+        else:
+            result = scan_fastq_candidates(
+                rawdata_root=request.rawdata_root,
+                allowed_roots=_scan_roots_for_pipeline(settings, request.pipeline),
+                max_samples=request.max_samples,
+            )
     except InputPathError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "INVALID_INPUT_PATH", "message": str(exc)},
         ) from exc
 
+    return _scan_result_payload(result)
+
+
+@app.get("/api/input/roots")
+def input_roots(pipeline: str = Query(pattern="^(pgta|nipt_docker)$")) -> dict[str, object]:
+    settings = get_settings()
     return {
-        "pipeline": result.pipeline,
-        "rawdata_root": result.rawdata_root,
-        "truncated": result.truncated,
-        "items": [item.__dict__ for item in result.items],
+        "pipeline": pipeline,
+        "roots": _scan_roots_for_pipeline(settings, pipeline),
     }
 
 
@@ -173,7 +202,21 @@ def create_run(request: CreateRunRequest) -> dict[str, object]:
                     email_to=request.email_to,
                     note=request.note,
                 )
-            raise ValueError("Only pipeline=pgta or pipeline=wes_qsub is supported in this phase.")
+            if request.pipeline == "nipt_docker":
+                selected_samples = [_selected_sample_to_candidate(item) for item in request.selected_samples]
+                return create_nipt_docker_run(
+                    session=session,
+                    settings=settings,
+                    project_name=request.project_name,
+                    template_id=request.template_id,
+                    rawdata_root=request.rawdata_root,
+                    selected_samples=selected_samples,
+                    run_mode=request.run_mode,
+                    cores=request.cores,
+                    email_to=request.email_to,
+                    note=request.note,
+                )
+            raise ValueError("Only pipeline=pgta, pipeline=wes_qsub, or pipeline=nipt_docker is supported in this phase.")
     except InputPathError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -229,6 +272,45 @@ def submit_run(analysis_id: str) -> dict[str, object]:
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
     return payload
+
+
+@app.post("/api/intake/scan-and-submit")
+def intake_scan_and_submit(request: IntakeScanRequest) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            return scan_and_submit_intake(
+                session=session,
+                settings=get_settings(),
+                airflow_client=get_airflow_client(),
+                pipelines=request.pipelines,
+                bootstrap=request.bootstrap,
+                max_samples=request.max_samples,
+            )
+    except InputPathError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_INPUT_PATH", "message": str(exc)},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "VALIDATION_ERROR", "message": str(exc)},
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.exception("intake Airflow submit failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "AIRFLOW_TRIGGER_FAILED", "message": str(exc)},
+        ) from exc
+
+
+@app.get("/api/intake/status")
+def intake_status(
+    pipeline: str | None = Query(default=None, pattern="^(pgta|nipt_docker)$"),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        return list_intake_status(session=session, pipeline=pipeline, limit=limit)
 
 
 @app.post("/api/runs/{analysis_id}/actions/reanalyze")
@@ -332,6 +414,30 @@ def run_rules(analysis_id: str) -> dict[str, object]:
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
     return {"items": items}
+
+
+@app.get("/api/runs/{analysis_id}/progress")
+def run_progress(analysis_id: str) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            payload = get_run_progress(
+                session=session,
+                airflow_client=get_airflow_client(),
+                analysis_id=analysis_id,
+            )
+    except httpx.HTTPError as exc:
+        logger.exception("airflow task instance progress fetch failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "AIRFLOW_PROGRESS_FAILED", "message": str(exc)},
+        ) from exc
+
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+        )
+    return payload
 
 
 @app.get("/api/runs/{analysis_id}/qc")
@@ -466,3 +572,18 @@ def _selected_sample_to_candidate(item: SelectedSampleRequest) -> FastqCandidate
         r2_mtime=item.r2_mtime if item.r2_mtime is not None else r2_stat.st_mtime,
         discovery_method=item.discovery_method,
     )
+
+
+def _scan_roots_for_pipeline(settings, pipeline: str) -> list[str]:
+    if pipeline == "nipt_docker":
+        return list(getattr(settings, "nipt_input_scan_roots", []) or [])
+    return list(getattr(settings, "pgta_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or [])
+
+
+def _scan_result_payload(result) -> dict[str, object]:
+    return {
+        "pipeline": result.pipeline,
+        "rawdata_root": result.rawdata_root,
+        "truncated": result.truncated,
+        "items": [item.__dict__ for item in result.items],
+    }

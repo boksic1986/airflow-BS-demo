@@ -35,8 +35,18 @@ x-airflow-common: &airflow-common
     PGTA_SAMTOOLS_LIBRARY_PATH: ${PGTA_SAMTOOLS_LIBRARY_PATH:-/biosoftware/miniconda/pkgs/openssl-1.0.2u-h516909a_0/lib}
     AIRFLOW_PIPELINES_ROOT: ${AIRFLOW_PIPELINES_ROOT:-/opt/airflow/pipelines}
     AIRFLOW_PROFILES_ROOT: ${AIRFLOW_PROFILES_ROOT:-/opt/airflow/profiles}
+    BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://backend:8000}
     AIRFLOW_DEMO_QSUB_MODE: ${AIRFLOW_DEMO_QSUB_MODE:-mock}
     AIRFLOW_DEMO_QSUB_PYTHON: ${AIRFLOW_DEMO_QSUB_PYTHON:-python}
+    NIPT_CONTAINER_ROOT: ${NIPT_CONTAINER_ROOT:-/opt/pipelines/NIPT}
+    NIPT_PIPELINE_ROOT: ${NIPT_PIPELINE_ROOT:-/home/jiucheng/pipelines/NIPT}
+    HOST_SHARED_ROOT: ${HOST_SHARED_ROOT:-/home/jiucheng/project/airflow-demo/shared}
+    NIPT_DOCKER_IMAGE: ${NIPT_DOCKER_IMAGE:-172.17.61.235:2333/niptpro/niptpro:1.0.11}
+    NIPT_FETAL_IMAGE: ${NIPT_FETAL_IMAGE:-172.17.61.235:2333/niptpro/pytorch:biosan}
+    NIPT_DOCKER_NETWORK: ${NIPT_DOCKER_NETWORK:-nipt_analysis_test_net}
+    NIPT_DOCKER_CORES: ${NIPT_DOCKER_CORES:-40}
+    NIPT_DOCKER_OWNER: ${NIPT_DOCKER_OWNER:-6708:520}
+    NIPT_ALLOW_HEAVY_RUN: ${NIPT_ALLOW_HEAVY_RUN:-false}
   volumes:
     - ./dags:/opt/airflow/dags:ro
     - ./pipelines:/opt/airflow/pipelines:ro
@@ -149,12 +159,17 @@ services:
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?Set AIRFLOW_API_PASSWORD in .env}
       CONTAINER_SHARED_ROOT: ${CONTAINER_SHARED_ROOT:-/data/airflow-demo}
       INPUT_SCAN_ROOTS: ${INPUT_SCAN_ROOTS:-/data/project/CNV/PGT-A/rawdata}
+      PGTA_INPUT_SCAN_ROOTS: ${PGTA_INPUT_SCAN_ROOTS:-}
+      NIPT_INPUT_SCAN_ROOTS: ${NIPT_INPUT_SCAN_ROOTS:-${NIPT_CONTAINER_ROOT:-/opt/pipelines/NIPT}/fastq}
+      NIPT_DOCKER_CORES: ${NIPT_DOCKER_CORES:-40}
+      NIPT_ALLOW_HEAVY_RUN: ${NIPT_ALLOW_HEAVY_RUN:-false}
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-*}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./shared:/data/airflow-demo
       - ${PGTA_DATA_ROOT:-/data/project/CNV/PGT-A}:${PGTA_CONTAINER_DATA_ROOT:-/data/project/CNV/PGT-A}:ro
+      - ${NIPT_PIPELINE_ROOT:-/home/jiucheng/pipelines/NIPT}/fastq:${NIPT_CONTAINER_ROOT:-/opt/pipelines/NIPT}/fastq:ro
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health').read()\""]
       interval: 10s
@@ -247,6 +262,19 @@ services:
   airflow-worker:
     <<: *airflow-common
     command: celery worker
+    group_add:
+      - ${DOCKER_SOCKET_GID:-114}
+    volumes:
+      - ./dags:/opt/airflow/dags:ro
+      - ./pipelines:/opt/airflow/pipelines:ro
+      - ./profiles:/opt/airflow/profiles:ro
+      - ./shared:/data/airflow-demo
+      - ${PGTA_PIPELINE_ROOT:-/home/jiucheng/pipelines/PGT_A}:${PGTA_CONTAINER_ROOT:-/opt/pipelines/PGT_A}:ro
+      - ${BIOSOFTWARE_ROOT:-/biosoftware}:/biosoftware:ro
+      - ${PGTA_DATA_ROOT:-/data/project/CNV/PGT-A}:${PGTA_CONTAINER_DATA_ROOT:-/data/project/CNV/PGT-A}:ro
+      - ${REFERENCE_ROOT:-/data/Database}:${CONTAINER_REFERENCE_ROOT:-/data/Database}:ro
+      - ${NIPT_PIPELINE_ROOT:-/home/jiucheng/pipelines/NIPT}:${NIPT_CONTAINER_ROOT:-/opt/pipelines/NIPT}:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       biodemo-net:
         ipv4_address: ${AIRFLOW_WORKER_IP:-172.30.10.12}

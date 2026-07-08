@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from datetime import datetime, timezone
+import hashlib
 from pathlib import Path
 import json
+import os
 import secrets
 
 from sqlalchemy import desc, func, select
@@ -15,6 +17,7 @@ from app.models import AnalysisRun, RunAction, Sample
 
 PGTA_DAG_ID = "bio_pgta"
 WES_DAG_ID = "bio_wes_qsub"
+NIPT_DOCKER_DAG_ID = "bio_nipt_docker"
 SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc"}
 SUPPORTED_PGTA_REANALYSIS_MODES = {"resume"}
 PGTA_REANALYSIS_TERMINAL_STATUSES = {"failed", "terminated"}
@@ -27,6 +30,24 @@ WES_MOCK_SAMPLES = {
     "S002": "pipelines/wes/mock_data/S002.input.txt",
 }
 WES_BACKEND_EVENT_URL = "http://backend:8000/api/events/snakemake"
+SUPPORTED_NIPT_TEMPLATES = {"run1", "run2"}
+SUPPORTED_NIPT_RUN_MODES = {"mount_smoke", "full_run"}
+NIPT_TEMPLATE_DEFINITIONS = {
+    "run1": {
+        "chip_name": "260414_TPNB500380AR_1065_AH32CCBGY2",
+        "library": "NC-20260414",
+        "sample_count": 96,
+        "columns": 12,
+        "comment": "NIPT",
+    },
+    "run2": {
+        "chip_name": "260422_TPNB500380AR_1070_AH33KYBGY2",
+        "library": "NC-20260422",
+        "sample_count": 72,
+        "columns": 9,
+        "comment": "NIPT",
+    },
+}
 
 
 def create_pgta_run(
@@ -188,6 +209,255 @@ def create_wes_mock_run(
     return _run_payload(run, sample_count=len(WES_MOCK_SAMPLES))
 
 
+def create_nipt_docker_run(
+    *,
+    session: Session,
+    settings,
+    project_name: str,
+    template_id: str | None = None,
+    rawdata_root: str | None = None,
+    selected_samples: list[FastqCandidate] | None = None,
+    run_mode: str,
+    cores: int | None = None,
+    email_to: str | None = None,
+    note: str | None = None,
+) -> dict:
+    if selected_samples:
+        return _create_nipt_docker_scan_run(
+            session=session,
+            settings=settings,
+            project_name=project_name,
+            rawdata_root=rawdata_root or "",
+            selected_samples=selected_samples,
+            run_mode=run_mode,
+            cores=cores,
+            email_to=email_to,
+            note=note,
+        )
+    if template_id:
+        return _create_nipt_docker_template_run(
+            session=session,
+            settings=settings,
+            project_name=project_name,
+            template_id=template_id,
+            run_mode=run_mode,
+            cores=cores,
+            email_to=email_to,
+            note=note,
+        )
+    raise ValueError("NIPT Docker requires selected_samples from a server path scan.")
+
+
+def _create_nipt_docker_template_run(
+    *,
+    session: Session,
+    settings,
+    project_name: str,
+    template_id: str,
+    run_mode: str,
+    cores: int | None = None,
+    email_to: str | None = None,
+    note: str | None = None,
+) -> dict:
+    _validate_nipt_template(template_id)
+    _validate_nipt_run_mode(run_mode=run_mode, settings=settings)
+    requested_cores = _normalize_nipt_cores(cores, settings=settings)
+    samples = _nipt_template_samples(template_id)
+    template = NIPT_TEMPLATE_DEFINITIONS[template_id]
+
+    analysis_id = _new_nipt_analysis_id()
+    shared_root = Path(settings.container_shared_root)
+    workdir = shared_root / "runs" / analysis_id
+    config_dir = workdir / "config"
+    logs_dir = workdir / "logs"
+    reports_dir = workdir / "reports"
+    for directory in (config_dir, logs_dir, reports_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+        _ensure_airflow_writable(directory)
+    _ensure_airflow_writable(workdir)
+
+    manifest_path = config_dir / "samples.selected.tsv"
+    request_path = config_dir / "request.json"
+    _write_nipt_manifest(manifest_path, samples)
+    _write_nipt_request(
+        request_path,
+        analysis_id=analysis_id,
+        project_name=project_name,
+        template_id=template_id,
+        run_mode=run_mode,
+        cores=requested_cores,
+        samples=samples,
+        email_to=email_to,
+        note=note,
+    )
+
+    params = {
+        "project_name": project_name,
+        "template_id": template_id,
+        "run_mode": run_mode,
+        "input_mode": "nipt_docker_template",
+        "selected_count": len(samples),
+        "chip_name": template["chip_name"],
+        "cores": requested_cores,
+        "note": note,
+    }
+    run = AnalysisRun(
+        analysis_id=analysis_id,
+        pipeline_name="nipt_docker",
+        dag_id=NIPT_DOCKER_DAG_ID,
+        dag_run_id=None,
+        mode="new",
+        status="created",
+        sample_sheet_path=str(manifest_path),
+        workdir=str(workdir),
+        params_json=params,
+        email_to=email_to,
+    )
+    session.add(run)
+    for sample in samples:
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id=sample["sample_id"],
+                fq1=None,
+                fq2=None,
+                metadata_json={
+                    "input_mode": "nipt_docker_template",
+                    "template_id": template_id,
+                    "chip_name": template["chip_name"],
+                    "library": sample["library"],
+                    "index": sample["index"],
+                    "comment": sample["comment"],
+                },
+                status="pending",
+                qc_status="unknown",
+            )
+        )
+    session.commit()
+
+    return _run_payload(run, sample_count=len(samples))
+
+
+def _create_nipt_docker_scan_run(
+    *,
+    session: Session,
+    settings,
+    project_name: str,
+    rawdata_root: str,
+    selected_samples: list[FastqCandidate],
+    run_mode: str,
+    cores: int | None = None,
+    email_to: str | None = None,
+    note: str | None = None,
+) -> dict:
+    _validate_nipt_run_mode(run_mode=run_mode, settings=settings)
+    requested_cores = _normalize_nipt_cores(cores, settings=settings)
+    if not rawdata_root:
+        raise ValueError("rawdata_root is required for NIPT Docker scan runs.")
+    if not selected_samples:
+        raise ValueError("At least one NIPT sample must be selected.")
+    sample_ids = [sample.sample_id for sample in selected_samples]
+    if len(sample_ids) != len(set(sample_ids)):
+        raise ValueError("selected_samples contains duplicate sample_id values.")
+
+    allowed_roots = _nipt_input_roots(settings)
+    rawdata_root_path = ensure_allowed_path(rawdata_root, allowed_roots)
+    source_dirs = set()
+    for sample in selected_samples:
+        _validate_selected_sample(sample, rawdata_root_path, allowed_roots)
+        source_dirs.add(str(ensure_allowed_path(sample.source_dir, allowed_roots)))
+    if len(source_dirs) != 1:
+        raise ValueError("NIPT Docker scan runs must contain samples from exactly one batch folder.")
+
+    source_batch_dir = Path(next(iter(source_dirs)))
+    chip_name = source_batch_dir.name
+    source_fingerprint = _source_fingerprint(selected_samples)
+
+    analysis_id = _new_nipt_analysis_id()
+    shared_root = Path(settings.container_shared_root)
+    workdir = shared_root / "runs" / analysis_id
+    config_dir = workdir / "config"
+    logs_dir = workdir / "logs"
+    reports_dir = workdir / "reports"
+    for directory in (config_dir, logs_dir, reports_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+        _ensure_airflow_writable(directory)
+    _ensure_airflow_writable(workdir)
+
+    manifest_path = config_dir / "samples.selected.tsv"
+    request_path = config_dir / "request.json"
+    _write_nipt_scan_manifest(manifest_path, selected_samples)
+    _write_nipt_scan_request(
+        request_path,
+        analysis_id=analysis_id,
+        project_name=project_name,
+        rawdata_root=str(rawdata_root_path),
+        source_batch_dir=str(source_batch_dir),
+        chip_name=chip_name,
+        run_mode=run_mode,
+        cores=requested_cores,
+        selected_samples=selected_samples,
+        email_to=email_to,
+        note=note,
+    )
+
+    params = {
+        "project_name": project_name,
+        "rawdata_root": str(rawdata_root_path),
+        "source_batch_dir": str(source_batch_dir),
+        "source_batch_id": _relative_id(source_batch_dir, rawdata_root_path),
+        "source_fingerprint": source_fingerprint,
+        "input_file_flavor": "clean",
+        "run_mode": run_mode,
+        "input_mode": "nipt_docker_scan",
+        "selected_count": len(selected_samples),
+        "chip_name": chip_name,
+        "cores": requested_cores,
+        "note": note,
+    }
+    run = AnalysisRun(
+        analysis_id=analysis_id,
+        pipeline_name="nipt_docker",
+        dag_id=NIPT_DOCKER_DAG_ID,
+        dag_run_id=None,
+        mode="new",
+        status="created",
+        sample_sheet_path=str(manifest_path),
+        workdir=str(workdir),
+        params_json=params,
+        email_to=email_to,
+    )
+    session.add(run)
+    for item in selected_samples:
+        library, index = _nipt_library_index(item.sample_id)
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id=item.sample_id,
+                fq1=item.r1,
+                fq2=item.r2,
+                metadata_json={
+                    "input_mode": "nipt_docker_scan",
+                    "source_dir": item.source_dir,
+                    "chip_name": chip_name,
+                    "library": library,
+                    "index": index,
+                    "comment": "NIPT",
+                    "r1_size": item.r1_size,
+                    "r2_size": item.r2_size,
+                    "r1_mtime": item.r1_mtime,
+                    "r2_mtime": item.r2_mtime,
+                    "discovery_method": item.discovery_method,
+                },
+                status="pending",
+                qc_status="unknown",
+            )
+        )
+    session.commit()
+
+    return _run_payload(run, sample_count=len(selected_samples))
+
+
 def list_runs(*, session: Session, pipeline: str | None = None, status: str | None = None, limit: int = 50, offset: int = 0) -> dict:
     query = select(AnalysisRun)
     count_query = select(func.count()).select_from(AnalysisRun)
@@ -228,11 +498,11 @@ def list_run_samples(*, session: Session, analysis_id: str) -> list[dict]:
     ]
 
 
-def submit_run_to_airflow(*, session: Session, airflow_client, analysis_id: str) -> dict | None:
+def submit_run_to_airflow(*, session: Session, airflow_client, analysis_id: str, settings=None) -> dict | None:
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
     if run is None:
         return None
-    _validate_submit_run(run)
+    _validate_submit_run(run, settings=settings)
 
     dag_run_id = f"manual__{analysis_id}"
     conf = _dag_conf(run)
@@ -436,7 +706,7 @@ def _validate_selected_sample(sample: FastqCandidate, rawdata_root: Path, allowe
         raise InputPathError(f"Selected sample is outside rawdata_root: {sample.sample_id}")
 
 
-def _validate_submit_run(run: AnalysisRun) -> None:
+def _validate_submit_run(run: AnalysisRun, *, settings=None) -> None:
     if run.status != "created":
         raise ValueError("Run must have status=created before submit.")
     params = run.params_json or {}
@@ -448,8 +718,15 @@ def _validate_submit_run(run: AnalysisRun) -> None:
         )
     elif run.pipeline_name == "wes_qsub":
         _validate_wes_target(str(params.get("target") or "final_summary"))
+    elif run.pipeline_name == "nipt_docker":
+        _validate_nipt_run_mode(run_mode=str(params.get("run_mode") or ""), settings=settings)
+        if params.get("input_mode") == "nipt_docker_scan":
+            if not params.get("source_batch_dir"):
+                raise ValueError("NIPT Docker scan run is missing source_batch_dir.")
+        else:
+            _validate_nipt_template(str(params.get("template_id") or ""))
     else:
-        raise ValueError("Only pipeline=pgta or pipeline=wes_qsub can be submitted by this endpoint.")
+        raise ValueError("Only pipeline=pgta, pipeline=wes_qsub, or pipeline=nipt_docker can be submitted by this endpoint.")
     if not run.sample_sheet_path:
         raise ValueError("Run is missing sample_sheet_path.")
     if not run.workdir:
@@ -486,6 +763,29 @@ def _validate_wes_target(target: str) -> None:
     if target not in SUPPORTED_WES_TARGETS:
         supported = ", ".join(sorted(SUPPORTED_WES_TARGETS))
         raise ValueError(f"Unsupported WES target: {target}. Supported targets: {supported}.")
+
+
+def _validate_nipt_template(template_id: str) -> None:
+    if template_id not in SUPPORTED_NIPT_TEMPLATES:
+        supported = ", ".join(sorted(SUPPORTED_NIPT_TEMPLATES))
+        raise ValueError(f"Unsupported NIPT template: {template_id}. Supported templates: {supported}.")
+
+
+def _validate_nipt_run_mode(*, run_mode: str, settings) -> None:
+    if run_mode not in SUPPORTED_NIPT_RUN_MODES:
+        supported = ", ".join(sorted(SUPPORTED_NIPT_RUN_MODES))
+        raise ValueError(f"Unsupported NIPT run_mode: {run_mode}. Supported modes: {supported}.")
+    allow_heavy = bool(getattr(settings, "nipt_allow_heavy_run", _env_bool("NIPT_ALLOW_HEAVY_RUN", default=False)))
+    if run_mode == "full_run" and not allow_heavy:
+        raise ValueError("NIPT full_run is disabled by NIPT_ALLOW_HEAVY_RUN=false; use mount_smoke for demo acceptance.")
+
+
+def _normalize_nipt_cores(cores: int | None, *, settings) -> int:
+    default_cores = int(getattr(settings, "nipt_docker_cores", 40) or 40)
+    requested = int(cores or default_cores)
+    if requested < 1 or requested > 40:
+        raise ValueError("NIPT Docker cores must be between 1 and 40 for this demo.")
+    return requested
 
 
 def _validate_wes_reanalysis(*, run: AnalysisRun, mode: str, rule: str | None, sample_id: str | None) -> None:
@@ -564,7 +864,7 @@ def _dag_conf(run: AnalysisRun) -> dict:
         "email_to": run.email_to,
         "params": run.params_json or {},
     }
-    if run.pipeline_name == "wes_qsub":
+    if run.pipeline_name in {"pgta", "wes_qsub", "nipt_docker"}:
         conf["backend_event_url"] = WES_BACKEND_EVENT_URL
     return conf
 
@@ -580,6 +880,21 @@ def _write_wes_manifest(path: Path) -> None:
     lines = ["sample_id\tinput"]
     for sample_id, input_path in WES_MOCK_SAMPLES.items():
         lines.append(f"{sample_id}\t{input_path}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _write_nipt_manifest(path: Path, samples: list[dict[str, str]]) -> None:
+    lines = ["sample_id\tlibrary\tindex\tcomment"]
+    for sample in samples:
+        lines.append(f"{sample['sample_id']}\t{sample['library']}\t{sample['index']}\t{sample['comment']}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _write_nipt_scan_manifest(path: Path, selected_samples: list[FastqCandidate]) -> None:
+    lines = ["sample_id\tlibrary\tindex\tR1\tR2\tsource_dir\tcomment"]
+    for item in selected_samples:
+        library, index = _nipt_library_index(item.sample_id)
+        lines.append(f"{item.sample_id}\t{library}\t{index}\t{item.r1}\t{item.r2}\t{item.source_dir}\tNIPT")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -628,6 +943,63 @@ def _write_wes_request(
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _write_nipt_request(
+    path: Path,
+    *,
+    analysis_id: str,
+    project_name: str,
+    template_id: str,
+    run_mode: str,
+    cores: int,
+    samples: list[dict[str, str]],
+    email_to: str | None,
+    note: str | None,
+) -> None:
+    payload = {
+        "analysis_id": analysis_id,
+        "pipeline": "nipt_docker",
+        "project_name": project_name,
+        "template_id": template_id,
+        "run_mode": run_mode,
+        "cores": cores,
+        "samples": samples,
+        "email_to": email_to,
+        "note": note,
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _write_nipt_scan_request(
+    path: Path,
+    *,
+    analysis_id: str,
+    project_name: str,
+    rawdata_root: str,
+    source_batch_dir: str,
+    chip_name: str,
+    run_mode: str,
+    cores: int,
+    selected_samples: list[FastqCandidate],
+    email_to: str | None,
+    note: str | None,
+) -> None:
+    payload = {
+        "analysis_id": analysis_id,
+        "pipeline": "nipt_docker",
+        "project_name": project_name,
+        "rawdata_root": rawdata_root,
+        "source_batch_dir": source_batch_dir,
+        "chip_name": chip_name,
+        "run_mode": run_mode,
+        "input_mode": "nipt_docker_scan",
+        "cores": cores,
+        "selected_samples": [asdict(item) for item in selected_samples],
+        "email_to": email_to,
+        "note": note,
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def _new_analysis_id() -> str:
     now = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     suffix = secrets.token_hex(3).upper()
@@ -638,6 +1010,74 @@ def _new_wes_analysis_id() -> str:
     now = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     suffix = secrets.token_hex(3).upper()
     return f"WES_{now}_{suffix}"
+
+
+def _new_nipt_analysis_id() -> str:
+    now = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    suffix = secrets.token_hex(3).upper()
+    return f"NIPT_{now}_{suffix}"
+
+
+def _nipt_template_samples(template_id: str) -> list[dict[str, str]]:
+    template = NIPT_TEMPLATE_DEFINITIONS[template_id]
+    library = str(template["library"])
+    comment = str(template["comment"])
+    sample_count = int(template["sample_count"])
+    columns = int(template["columns"])
+    rows = "ABCDEFGH"
+    samples: list[dict[str, str]] = []
+    for row in rows:
+        for col in range(1, columns + 1):
+            index = f"{row}{col:02d}"
+            samples.append(
+                {
+                    "sample_id": f"{library}.{index}",
+                    "library": library,
+                    "index": index,
+                    "comment": comment,
+                }
+            )
+            if len(samples) == sample_count:
+                return samples
+    return samples
+
+
+def _nipt_input_roots(settings) -> list[str]:
+    return list(getattr(settings, "nipt_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or [])
+
+
+def _nipt_library_index(sample_id: str) -> tuple[str, str]:
+    if "." not in sample_id:
+        return sample_id, ""
+    library, index = sample_id.rsplit(".", 1)
+    return library, index
+
+
+def _source_fingerprint(selected_samples: list[FastqCandidate]) -> str:
+    digest = hashlib.sha256()
+    for item in sorted(selected_samples, key=lambda sample: sample.sample_id):
+        digest.update(
+            "\t".join(
+                [
+                    item.sample_id,
+                    item.r1,
+                    item.r2,
+                    str(item.r1_size),
+                    str(item.r2_size),
+                    str(item.r1_mtime),
+                    str(item.r2_mtime),
+                ]
+            ).encode("utf-8")
+        )
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def _relative_id(path: Path, root: Path) -> str:
+    try:
+        return path.relative_to(root).as_posix() or path.name
+    except ValueError:
+        return path.name
 
 
 def _run_payload(run: AnalysisRun, *, sample_count: int) -> dict:
@@ -696,3 +1136,10 @@ def _aggregate_sample_qc_status(statuses: list[str | None]) -> str:
     if normalized == {"pass"} or normalized == {"success"} or normalized == {"pass", "success"}:
         return "pass"
     return "unknown"
+
+
+def _env_bool(name: str, *, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}

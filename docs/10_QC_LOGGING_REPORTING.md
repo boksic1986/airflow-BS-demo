@@ -82,6 +82,16 @@ nipt:
 | PGT-A Snakemake 9 events | workdir/logs/events/snakemake_events.jsonl | Airflow-only logger plugin 事件 |
 | PGT-A rule summary | workdir/logs/events/snakemake_rule_summary.tsv | Airflow task log/XCom 的 rule 状态汇总 |
 
+## 5.1 T102 progress observability logs
+
+PGT-A and NIPT Docker runners now use `workdir/logs/events/snakemake_events.jsonl` as the durable progress fallback for pipeline-level steps.
+
+- PGT-A metadata smoke writes `metadata running/success/failed` events and parses Snakemake stdout/stderr for rule blocks.
+- NIPT Docker `mount_smoke` writes `nipt_mount_smoke running/success/failed` events.
+- `backend_event_url=http://backend:8000/api/events/snakemake` lets these events appear in `/api/runs/{analysis_id}/progress` during active runs.
+- If backend POST fails, the JSONL fallback is still written and terminal `sync-airflow` can import it idempotently.
+- QC remains separate: a workflow can be `success` while QC metrics are `fail`, as with PGT-A baseline QC.
+
 ## 6. Error summary 提取
 
 PGT-A v1 当前已实现 run-level error summary。显式调用：
@@ -247,3 +257,50 @@ snakemake --report shared/reports/<analysis_id>/snakemake_report.html
 - 显式 `sync-airflow` 后，`GET /api/runs/WES_20260705_164813_C5561C/qc` 返回 `pass=6`、`warn=0`、`fail=0`、`unknown=0` 和 6 条指标。
 - artifacts API 动态发现 `wes_qc_summary`。
 - 前端 Docker test target 覆盖 QC panel 渲染、空 QC 状态和 summary 显示。
+
+## 7.2 NIPT Docker QC v1
+
+T101 adds NIPT Docker QC import through the same `qc_metric` table and `/api/runs/{analysis_id}/qc` endpoint.
+
+The standard NIPT Docker QC file is:
+
+```text
+workdir/reports/qc_summary.tsv
+```
+
+Columns:
+
+```text
+sample_id
+metric_name
+metric_value
+metric_numeric
+threshold
+status
+```
+
+`mount_smoke` writes one `nipt_mount_smoke=pass` row per template sample. Full-run parsing maps NIPT outputs such as `mappingQC.csv` and `*.model.predict.csv` into:
+
+- `read_count`
+- `Q30`
+- `unique_mapping_rate`
+- `pcr_duplication_rate`
+- `chrY_percent`
+- `gender`
+- `fetal_fraction`
+
+Import rules:
+
+- Only import when `pipeline=nipt_docker` and explicit `sync-airflow` observes Airflow `success`.
+- Replace old metrics for the same `analysis_id` before inserting current rows.
+- Update `sample.qc_status` using the shared priority `fail > warn > unknown > pass`.
+- Do not expose WES or PGT-A artifact keys for NIPT runs.
+
+T101 verified run:
+
+```text
+analysis_id: NIPT_20260708_033450_8362A0
+dag_run_id: manual__NIPT_20260708_033450_8362A0
+qc summary: pass=96,warn=0,fail=0,unknown=0
+stdout: mount_smoke_ok NIPT_20260708_033450_8362A0 260414_TPNB500380AR_1065_AH32CCBGY2
+```

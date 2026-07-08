@@ -1064,5 +1064,196 @@ docker compose exec airflow-scheduler airflow dags list-import-errors
 检查：
 
 - 前端构建时 API base URL。
+
+## 22. NIPT Docker template-run smoke
+
+T101 deploys `nipt_docker` as a template-run workflow beside PGT-A. It does not deploy NIPT qsub, WES qsub frontend entry, WGS, or mail notification.
+
+Required `.env` values:
+
+```text
+NIPT_PIPELINE_ROOT=/home/jiucheng/pipelines/NIPT
+NIPT_CONTAINER_ROOT=/opt/pipelines/NIPT
+HOST_SHARED_ROOT=/home/jiucheng/project/airflow-demo/shared
+NIPT_DOCKER_IMAGE=172.17.61.235:2333/niptpro/niptpro:1.0.11
+NIPT_FETAL_IMAGE=172.17.61.235:2333/niptpro/pytorch:biosan
+NIPT_DOCKER_NETWORK=nipt_analysis_test_net
+NIPT_DOCKER_CORES=40
+NIPT_DOCKER_OWNER=6708:520
+NIPT_ALLOW_HEAVY_RUN=false
+DOCKER_SOCKET_GID=114
+```
+
+Only `airflow-worker` should mount `/var/run/docker.sock`. On `fengxian`, the socket is `root:docker` with group id `114`, so the worker must have supplemental group `114`:
+
+```bash
+stat -c '%a %u %g %U %G %n' /var/run/docker.sock
+docker compose -f docker-compose.yaml exec -T airflow-worker id
+```
+
+Expected:
+
+```text
+660 0 114 root docker /var/run/docker.sock
+uid=1005(default) gid=0(root) groups=0(root),114
+```
+
+Build and deploy affected services:
+
+```bash
+docker compose -f docker-compose.yaml config --quiet
+docker build --target test -f frontend/Dockerfile frontend
+docker build -t airflow-demo/backend:t101-test -f backend/Dockerfile backend
+docker run --rm airflow-demo/backend:t101-test \
+  pytest -q tests/test_nipt_docker_lifecycle.py tests/test_run_creation.py tests/test_run_submit.py tests/test_run_diagnostics.py
+docker run --rm --entrypoint /usr/local/bin/python \
+  -v /home/jiucheng/project/airflow-demo/dags:/opt/airflow/dags:ro \
+  -w /opt/airflow airflow-demo/airflow:0.1.0 \
+  -m unittest /opt/airflow/dags/tests/test_bio_nipt_docker_dag.py /opt/airflow/dags/tests/test_nipt_docker_runner.py -v
+docker compose -f docker-compose.yaml build backend airflow-worker airflow-scheduler airflow-api-server frontend
+docker compose -f docker-compose.yaml up -d --no-deps --force-recreate \
+  backend airflow-api-server airflow-scheduler airflow-worker frontend
+```
+
+Create and submit a mount smoke run:
+
+```bash
+curl -fsS -X POST http://127.0.0.1:8000/api/runs \
+  -H 'Content-Type: application/json' \
+  -d '{"pipeline":"nipt_docker","project_name":"T101 NIPT Docker smoke","template_id":"run1","run_mode":"mount_smoke","cores":40,"note":"mount smoke"}'
+
+curl -fsS -X POST "http://127.0.0.1:8000/api/runs/${analysis_id}/actions/submit"
+curl -fsS -X POST "http://127.0.0.1:8000/api/runs/${analysis_id}/actions/sync-airflow"
+```
+
+Acceptance checks:
+
+```bash
+docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags list-import-errors
+docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags list | grep bio_nipt_docker
+docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags list-runs -d bio_nipt_docker --output table
+curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}/qc"
+curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}/logs?stream=stdout&tail=5"
+curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}/artifacts"
+```
+
+Verified T101 run on `fengxian`:
+
+```text
+analysis_id: NIPT_20260708_033450_8362A0
+dag_run_id: manual__NIPT_20260708_033450_8362A0
+Airflow/backend status: success
+QC summary: pass=96,warn=0,fail=0,unknown=0
+Run list qc_status: pass
+stdout: mount_smoke_ok NIPT_20260708_033450_8362A0 260414_TPNB500380AR_1065_AH32CCBGY2
+artifacts: nipt_qc_summary, nipt_docker_compose, nipt_run_config, nipt_airflow_request, nipt_docker_command
+```
+
+Do not run `full_run` unless the user explicitly approves a heavy NIPT batch and `NIPT_ALLOW_HEAVY_RUN=true` has been intentionally set.
+
+## 23. Airflow + pipeline progress observability smoke
+
+T102 validates the `/api/runs/{analysis_id}/progress` endpoint and frontend progress UI. This smoke does not require a heavy PGT-A `baseline_qc` run or NIPT `full_run`.
+
+Build and deploy:
+
+```bash
+docker compose -f docker-compose.yaml config --quiet
+docker build --target test -f frontend/Dockerfile frontend
+docker build -t airflow-demo/backend:t102-test -f backend/Dockerfile backend
+docker run --rm airflow-demo/backend:t102-test \
+  pytest -q tests/test_airflow_client.py tests/test_run_progress.py tests/test_snakemake_events_api.py tests/test_nipt_docker_lifecycle.py tests/test_run_diagnostics.py
+docker compose -f docker-compose.yaml build backend airflow-worker airflow-scheduler airflow-api-server frontend
+docker compose -f docker-compose.yaml up -d --no-deps --force-recreate \
+  backend airflow-api-server airflow-scheduler airflow-worker frontend
+```
+
+Runtime checks:
+
+```bash
+curl -fsSI http://127.0.0.1:12959/
+curl -fsS http://127.0.0.1:8000/api/health
+curl -fsS http://127.0.0.1:8000/api/health/airflow
+docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags list-import-errors
+curl -fsS http://127.0.0.1:8000/api/runs/PGTA_20260706_162150_00C4FD/progress
+```
+
+Light progress smokes:
+
+- Create and submit one PGT-A `metadata` run from server-path scan, then poll `sync-airflow` and `/progress`.
+- Create and submit one NIPT Docker `mount_smoke` run, then poll `sync-airflow` and `/progress`.
+- Do not run PGT-A `baseline_qc` or NIPT `full_run` unless explicitly requested.
+
+Verified T102 runs on `fengxian`:
+
+```text
+PGTA_20260708_050811_A24E36: success, progress_source=snakemake_events, Airflow tasks present, rule event metadata=success.
+NIPT_20260708_050843_B3B05E: success, progress_source=snakemake_events, Airflow tasks present, rule event nipt_mount_smoke=success.
+```
+
+## 24. T103 PGT-A/NIPT batch scan and auto intake smoke
+
+T103 supersedes the T101 `run1/run2` NIPT submit path for new demos. Historical
+template runs remain readable, but the frontend and acceptance flow use scanned
+NIPT chip batches.
+
+Required env additions:
+
+```bash
+PGTA_INPUT_SCAN_ROOTS=/data/project/CNV/PGT-A/rawdata
+NIPT_INPUT_SCAN_ROOTS=/opt/pipelines/NIPT/fastq
+BACKEND_BASE_URL=http://backend:8000
+INTAKE_SCAN_PAUSED_ON_CREATION=true
+```
+
+Build and deploy:
+
+```bash
+docker compose -f docker-compose.yaml config --quiet
+docker build --target test -f frontend/Dockerfile frontend
+docker compose -f docker-compose.yaml build backend airflow-worker airflow-scheduler airflow-api-server frontend
+docker compose -f docker-compose.yaml up -d --no-deps --force-recreate \
+  backend airflow-api-server airflow-scheduler airflow-worker frontend
+```
+
+Scan roots and NIPT batch discovery:
+
+```bash
+curl -fsS 'http://127.0.0.1:8000/api/input/roots?pipeline=nipt_docker'
+curl -fsS -X POST http://127.0.0.1:8000/api/input/scan \
+  -H 'Content-Type: application/json' \
+  -d '{"pipeline":"nipt_docker","rawdata_root":"/opt/pipelines/NIPT/fastq","max_samples":20}'
+```
+
+Create and submit one scanned NIPT mount smoke run using one returned chip
+folder. Do not send `template_id`:
+
+```bash
+curl -fsS -X POST http://127.0.0.1:8000/api/runs \
+  -H 'Content-Type: application/json' \
+  -d @/tmp/nipt-scanned-create.json
+curl -fsS -X POST "http://127.0.0.1:8000/api/runs/${analysis_id}/actions/submit"
+curl -fsS "http://127.0.0.1:8000/api/runs/${analysis_id}/progress"
+```
+
+Bootstrap auto intake before unpausing `bio_intake_scan`:
+
+```bash
+curl -fsS -X POST http://127.0.0.1:8000/api/intake/scan-and-submit \
+  -H 'Content-Type: application/json' \
+  -d '{"pipelines":["pgta","nipt_docker"],"bootstrap":true,"max_samples":200}'
+curl -fsS 'http://127.0.0.1:8000/api/intake/status?limit=50'
+docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags list | grep bio_intake_scan
+```
+
+Only after bootstrap has recorded historical batches, unpause the scanner if
+automatic intake is desired:
+
+```bash
+docker compose -f docker-compose.yaml exec -T airflow-scheduler airflow dags unpause bio_intake_scan
+```
+
+Do not run NIPT `full_run` unless the user explicitly approves the heavy batch
+and `NIPT_ALLOW_HEAVY_RUN=true` has been intentionally set.
 - CORS 配置。
 - host port 映射。

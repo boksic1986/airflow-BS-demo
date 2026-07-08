@@ -108,6 +108,27 @@ Response:
 }
 ```
 
+T103 update: `POST /api/input/scan` now supports `pipeline=pgta` and
+`pipeline=nipt_docker`. PGT-A roots come from `PGTA_INPUT_SCAN_ROOTS` with
+legacy `INPUT_SCAN_ROOTS` fallback. NIPT roots come from `NIPT_INPUT_SCAN_ROOTS`
+and default to `/opt/pipelines/NIPT/fastq` in containers. NIPT scanning returns
+chip-folder grouped `*.clean.fastq.gz` R1/R2 pairs; nested adapter FASTQ files
+are ignored in v1.
+
+```http
+GET /api/input/roots?pipeline=pgta
+GET /api/input/roots?pipeline=nipt_docker
+```
+
+Response:
+
+```json
+{
+  "pipeline": "nipt_docker",
+  "roots": ["/opt/pipelines/NIPT/fastq"]
+}
+```
+
 ## 4. 创建分析任务
 
 ```http
@@ -172,6 +193,60 @@ shared/runs/<analysis_id>/config/request.json
 
 WES mock v1 也使用同一 JSON endpoint，但不上传/扫描真实 WES 数据；后端固定创建 mock samples `S001/S002`，只支持 `target=final_summary`。
 
+T103 changes the current deployable NIPT Docker entrypoint from fixed
+`run1/run2` templates to server-path scanned chip batches. New create requests
+must pass `rawdata_root` and `selected_samples` returned by
+`POST /api/input/scan`. Historical `template_id` runs remain readable for
+compatibility, but the frontend no longer exposes `run1/run2`.
+
+Request:
+
+```json
+{
+  "pipeline": "nipt_docker",
+  "project_name": "NIPT docker scanned chip smoke",
+  "rawdata_root": "/opt/pipelines/NIPT/fastq",
+  "selected_samples": [
+    {
+      "sample_id": "NIPT26040207.A06",
+      "r1": "/opt/pipelines/NIPT/fastq/FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2/NIPT26040207.A06.R1.clean.fastq.gz",
+      "r2": "/opt/pipelines/NIPT/fastq/FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2/NIPT26040207.A06.R2.clean.fastq.gz",
+      "source_dir": "/opt/pipelines/NIPT/fastq/FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2",
+      "discovery_method": "nipt_docker_clean_scan"
+    }
+  ],
+  "run_mode": "mount_smoke",
+  "cores": 40,
+  "email_to": null,
+  "note": "scanned batch smoke only"
+}
+```
+
+Rules:
+
+- `rawdata_root` must be under `NIPT_INPUT_SCAN_ROOTS`.
+- `selected_samples` must all come from exactly one NIPT chip folder; if the
+  UI selects multiple chip folders it creates one run per batch.
+- NIPT v1 only accepts top-level `*.clean.fastq.gz` R1/R2 pairs from the chip
+  folder.
+- `run_mode` must be `mount_smoke` or `full_run`.
+- `full_run` is rejected unless `NIPT_ALLOW_HEAVY_RUN=true`; the default deployed acceptance mode is `mount_smoke`.
+- `cores` must be between 1 and 40.
+
+Response:
+
+```json
+{
+  "analysis_id": "NIPT_20260708_033450_8362A0",
+  "pipeline": "nipt_docker",
+  "dag_id": "bio_nipt_docker",
+  "dag_run_id": null,
+  "status": "created",
+  "workdir": "/data/airflow-demo/runs/NIPT_20260708_033450_8362A0",
+  "sample_count": 1
+}
+```
+
 Request:
 
 ```json
@@ -204,7 +279,7 @@ Response:
 POST /api/runs/{analysis_id}/actions/submit
 ```
 
-T045/T084 阶段支持把已存在的 PGT-A controlled target run 提交到 Airflow；T044/T056 后也支持把 `wes_qsub` created run 提交到 `bio_wes_qsub`。
+T045/T084 阶段支持把已存在的 PGT-A controlled target run 提交到 Airflow；T044/T056 后也支持把 `wes_qsub` created run 提交到 `bio_wes_qsub`。T101 supports submitting `nipt_docker` created runs to `bio_nipt_docker`.
 
 - `analysis_run.pipeline_name = pgta`
 - `analysis_run.status = created`
@@ -218,6 +293,16 @@ WES submit 要求：
 - `analysis_run.status = created`
 - `analysis_run.params_json.target = final_summary`
 - DAG run conf 包含 `backend_event_url=http://backend:8000/api/events/snakemake`
+
+NIPT Docker submit requires:
+
+- `analysis_run.pipeline_name = nipt_docker`
+- `analysis_run.status = created`
+- `analysis_run.params_json.input_mode = nipt_docker_scan`
+- `analysis_run.params_json.source_batch_dir` is present
+- `analysis_run.params_json.run_mode` is `mount_smoke` unless `NIPT_ALLOW_HEAVY_RUN=true`
+- `sample_sheet_path` and `workdir` must exist
+- DAG id is `bio_nipt_docker`
 
 接口不会重复创建 run 或 sample。成功后会调用 Airflow REST API 触发 `bio_pgta`，写入 `dag_run_id`，并把 `analysis_run.status` 更新为 `submitted`；该 run 下的 `sample.status` 会从 `pending` 更新为 `running`。Airflow DAG 是否最终 success/failed 仍以 Airflow 为准；需要显式调用 `sync-airflow` 回写 biodemo DB。
 
@@ -249,7 +334,7 @@ Response:
 Errors:
 
 - `404 RUN_NOT_FOUND`: `analysis_id` 不存在。
-- `400 VALIDATION_ERROR`: pipeline 不是 `pgta/wes_qsub`、状态不是 `created`、target 不在受控白名单内，或 run 缺少必要路径。
+- `400 VALIDATION_ERROR`: pipeline 不是当前允许提交的 `pgta/wes_qsub/nipt_docker`、状态不是 `created`、target/template 不在受控白名单内，或 run 缺少必要路径。
 - `400 VALIDATION_ERROR`: `baseline_qc` selected samples 少于 2 个。
 - `502 AIRFLOW_TRIGGER_FAILED`: backend 调用 Airflow API 失败。
 
@@ -275,6 +360,7 @@ POST /api/runs/{analysis_id}/actions/sync-airflow
 - `failed` 时从 `workdir/logs/snakemake.stderr.log` 提取最后 100 行，写入 `analysis_run.error_summary`。
 - `wes_qsub` 在 Airflow `success` 时解析 `workdir/reports/qc_summary.tsv`，幂等刷新 `qc_metric`，并更新 `sample.qc_status`。
 - `pgta` 且 `target=baseline_qc` 在 Airflow `success` 时解析 `workdir/qc/baseline/baseline_qc_summary.tsv`，导入 `baseline_qc_decision`、`mapped_fragments`、`zero_bin_fraction`、`bin_cv`、`pearson_r`、`median_abs_z`、`gc_signal_slope` 等样本级指标。
+- `nipt_docker` 在 Airflow `success` 时解析 `workdir/reports/qc_summary.tsv`，幂等刷新 `qc_metric`，并更新 `sample.qc_status`。`mount_smoke` mode writes one `nipt_mount_smoke=pass` row per template sample.
 
 Response:
 
@@ -299,6 +385,77 @@ Errors:
 - `400 MISSING_DAG_RUN`: run 没有 `dag_id` 或 `dag_run_id`。
 - `400 INVALID_RUN_PATH`: run workdir 不在 shared root 内。
 - `502 AIRFLOW_SYNC_FAILED`: backend 调用 Airflow API 失败。
+
+## 6.1 Progress
+
+```http
+GET /api/runs/{analysis_id}/progress
+```
+
+T102 adds a read-only progress endpoint for Dashboard and Run Detail. The endpoint does not read the Airflow metadata database directly. It combines:
+
+- biodemo `analysis_run` state.
+- Airflow REST task instances from `/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances`.
+- biodemo `snakemake_rule_event` rows written by PGT-A and NIPT Docker runner events.
+
+Response:
+
+```json
+{
+  "analysis_id": "NIPT_20260708_050843_B3B05E",
+  "pipeline": "nipt_docker",
+  "status": "success",
+  "dag_id": "bio_nipt_docker",
+  "dag_run_id": "manual__NIPT_20260708_050843_B3B05E",
+  "percent": 100,
+  "current_step": "nipt_mount_smoke",
+  "current_source": "snakemake_events",
+  "note": "Airflow task run_nipt_docker; pipeline rule events captured",
+  "not_in_airflow": false,
+  "progress_source": "snakemake_events",
+  "airflow_tasks": [
+    {
+      "task_id": "run_nipt_docker",
+      "state": "success",
+      "start_date": "2026-07-08T05:08:46.578757+00:00",
+      "end_date": "2026-07-08T05:08:48.884719+00:00",
+      "duration": 2.305962,
+      "try_number": 1,
+      "operator": "PythonOperator"
+    }
+  ],
+  "rule_events": [
+    {
+      "rule": "nipt_mount_smoke",
+      "sample_id": null,
+      "status": "success",
+      "snakemake_jobid": null,
+      "qsub_jobid": null,
+      "stdout_path": "/data/airflow-demo/runs/NIPT_20260708_050843_B3B05E/logs/snakemake.stdout.log",
+      "stderr_path": "/data/airflow-demo/runs/NIPT_20260708_050843_B3B05E/logs/snakemake.stderr.log",
+      "start_time": "2026-07-08T05:08:46.989216+00:00",
+      "end_time": "2026-07-08T05:08:48.800137+00:00",
+      "message": "NIPT Docker mount_smoke completed.",
+      "return_code": 0,
+      "wildcards": {}
+    }
+  ]
+}
+```
+
+Progress rules:
+
+- `created`: `0%`, `current_step=Created only`, `not_in_airflow=true`.
+- `submitted/queued/scheduled`: `5-10%`, current step from the latest Airflow handoff task if available.
+- `bio_pgta` task weights: `validate_request=5`, `prepare_pgta_config=15`, `run_pgta_target=90`, `collect_pgta_artifact=100`.
+- `bio_nipt_docker` task weights: `validate_request=5`, `prepare_nipt_docker_run=15`, `run_nipt_docker=90`, `collect_nipt_artifacts=100`.
+- While the run task is active, rule events refine the 15-90% interval and set `progress_source=snakemake_events`.
+- Historical runs without rule events still return Airflow task timelines; `rule_events=[]` means no pipeline-level events were captured for that run.
+
+Errors:
+
+- `404 RUN_NOT_FOUND`: `analysis_id` does not exist.
+- `502 AIRFLOW_PROGRESS_FAILED`: backend could not read Airflow task instances.
 
 ## 7. 查询任务列表
 
@@ -569,6 +726,18 @@ WES mock v1 也动态发现：
 - `logs/events/snakemake_events.jsonl`
 - `config/wes_mock_config.yaml`
 
+NIPT Docker v1 dynamically discovers only NIPT/generic artifacts for `pipeline=nipt_docker`:
+
+- `logs/snakemake.stdout.log`
+- `logs/snakemake.stderr.log`
+- `reports/qc_summary.tsv`
+- `config/nipt_docker_compose.yml`
+- `config/nipt_run_config.yaml`
+- `config/nipt_airflow_request.json`
+- `logs/nipt_docker.command.txt`
+
+Pipeline-specific artifact keys are filtered by pipeline, so a NIPT Docker run must not expose `wes_qc_summary` or PGT-A-only artifacts even if the relative path overlaps.
+
 Response:
 
 ```json
@@ -631,3 +800,57 @@ Response:
 - `clone_new`
 - 真实 qsub
 - 不在 allowlist 内的 WES rule/sample。
+## T103 Intake Scanner APIs
+
+### Read Discovery Status
+
+```http
+GET /api/intake/status?pipeline=nipt_docker&limit=50
+```
+
+`pipeline` is optional and may be `pgta` or `nipt_docker`.
+
+```json
+{
+  "items": [
+    {
+      "pipeline": "nipt_docker",
+      "root_path": "/opt/pipelines/NIPT/fastq",
+      "batch_id": "FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2",
+      "fingerprint": "sha256...",
+      "file_count": 192,
+      "total_bytes": 1234567890,
+      "ready_state": "ready",
+      "analysis_id": "NIPT_20260708_120000_A1B2C3",
+      "submit_state": "submitted",
+      "last_seen_at": "2026-07-08T12:00:00+00:00"
+    }
+  ]
+}
+```
+
+### Scan And Submit Stable Batches
+
+```http
+POST /api/intake/scan-and-submit
+Content-Type: application/json
+```
+
+```json
+{
+  "pipelines": ["pgta", "nipt_docker"],
+  "bootstrap": false,
+  "max_samples": 200
+}
+```
+
+Rules:
+
+- First sighting of a batch records `ready_state=observed` and does not submit.
+- A second scan with the same fingerprint marks the batch `ready` and creates
+  and submits one run if `submit_state` is not already `submitted`.
+- `bootstrap=true` records existing batches as observed/bootstrap so historical
+  data is not automatically re-run during deployment.
+- PGT-A auto intake uses target `metadata`; NIPT Docker auto intake uses
+  `mount_smoke` unless future production settings explicitly opt into heavy
+  full-run mode.

@@ -7,6 +7,7 @@ import {getRunSamples, listRuns} from "../api";
 import {StatusBadge} from "../components/StatusBadge";
 import {errorMessage} from "../lib/errors";
 import {compactPipelineName} from "../lib/format";
+import {deployedWorkflowTemplates} from "../mocks/platform";
 
 type SampleRow = {
   sample_id: string;
@@ -19,6 +20,7 @@ type SampleRow = {
   report_status?: string | null;
   error_summary?: string | null;
 };
+const visiblePipelines = new Set<string>(deployedWorkflowTemplates.map((pipeline) => pipeline.id));
 
 export function SamplesPage() {
   const [rows, setRows] = useState<SampleRow[]>([]);
@@ -32,7 +34,7 @@ export function SamplesPage() {
       setError(null);
       try {
         const runs = await listRuns();
-        const visibleRuns = runs.items.filter((run) => run.pipeline === "pgta").slice(0, 8);
+        const visibleRuns = runs.items.filter((run) => visiblePipelines.has(run.pipeline)).slice(0, 8);
         const samplePayloads = await Promise.all(
           visibleRuns.map(async (run: RunSummary) => ({
             run,
@@ -73,7 +75,7 @@ export function SamplesPage() {
         <div>
           <p className="eyebrow">Sample resource</p>
           <h1>Samples</h1>
-          <p>PGT-A sample view across server-path FASTQ selections, workflow status, QC status, and run detail links.</p>
+          <p>Sample view across deployed PGT-A and NIPT Docker runs, workflow status, QC status, and run detail links.</p>
         </div>
       </section>
       <section className="panel">

@@ -1,84 +1,213 @@
-# 09 NIPT Docker 版本接入设计
+# 09 NIPT Docker Integration Spec
 
-## 1. 目标
+## 1. Scope
 
-把 NIPT Docker 版本作为独立 pipeline 接入 Airflow demo，展示 Docker 化流程与 qsub 流程的差异。
+T103 keeps `nipt_docker` as the second deployable demo pipeline, but changes the
+new submission path from fixed `run1/run2` templates to server-path scanned NIPT
+chip batches.
 
-## 2. 运行模型
+Current v1 scope:
 
-```text
-Airflow bio_nipt_docker DAG
-  -> validate_request
-  -> prepare_workdir
-  -> generate config
-  -> docker run nipt-pipeline:demo
-  -> collect QC
-  -> register artifacts
-  -> notify
-```
+- Input mode: `nipt_docker_scan`.
+- Scan root: `NIPT_INPUT_SCAN_ROOTS`, default container path `/opt/pipelines/NIPT/fastq`.
+- Accepted FASTQ flavor: top-level `*.clean.fastq.gz` R1/R2 pairs in one chip folder.
+- Default runtime: `run_mode=mount_smoke`.
+- Heavy runtime: `run_mode=full_run`, guarded by `NIPT_ALLOW_HEAVY_RUN=true`.
+- Airflow DAG: `bio_nipt_docker`.
+- Auto intake DAG: `bio_intake_scan`, paused on creation until bootstrap is complete.
+- Frontend: Submit Task, Dashboard tracker, intake scanner panel, Runs/Samples/Failures filters, Run Detail QC/logs/files/config.
 
-## 3. Volume contract
+Out of scope:
 
-```text
-host shared root -> container /data/airflow-demo
-input fq dir -> container /input:ro
-reference root -> container /refs:ro
-```
+- NIPT qsub.
+- WES qsub deployment surface.
+- WGS.
+- Mail notification.
+- Nested `002/*.adapter.fastq.gz` input.
+- Re-running a full 40-core production NIPT batch during default acceptance.
 
-## 4. Docker command 模板
+Historical `template_id=run1|run2` runs remain readable and runnable for
+compatibility tests, but the Submit Task UI and new API examples no longer
+expose them.
 
-```bash
-docker run --rm \
-  --name "nipt_${analysis_id}" \
-  -v "${SHARED_ROOT}:/data/airflow-demo" \
-  -v "${INPUT_DIR}:/input:ro" \
-  -v "${REF_ROOT}:/refs:ro" \
-  -e ANALYSIS_ID="${analysis_id}" \
-  -e BACKEND_EVENT_URL="${BACKEND_EVENT_URL}" \
-  nipt-pipeline:demo \
-  run_NIPTPro.py \
-    --fq_dir /input \
-    --out_dir "/data/airflow-demo/runs/${analysis_id}/results" \
-    --config "/data/airflow-demo/runs/${analysis_id}/config/config.yaml"
-```
+## 2. Scanned Batch Contract
 
-## 5. 安全提醒
-
-- demo 阶段可以用 Docker socket，但只限受控服务器。
-- 不要把 docker socket 暴露给公网服务。
-- Docker runner 不得删除宿主机路径。
-- 容器输出必须限制在 workdir。
-
-## 6. QC 输出 contract
-
-NIPT Docker 至少输出：
+The scanner treats a folder such as:
 
 ```text
-results/qc/nipt_qc_summary.tsv
-reports/multiqc_report.html optional
-logs/nipt_docker.stdout.log
-logs/nipt_docker.stderr.log
+/opt/pipelines/NIPT/fastq/FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2
 ```
 
-`nipt_qc_summary.tsv` 建议列：
+as one chip batch when it contains paired files like:
 
 ```text
-sample_id	total_reads	mapped_reads	mapping_rate	fetal_fraction	chr13_z	chr18_z	chr21_z	qc_status
+NIPT26040207.A06.R1.clean.fastq.gz
+NIPT26040207.A06.R2.clean.fastq.gz
 ```
 
-## 7. 前端展示
+The backend creates:
 
-NIPT Docker run detail 与 qsub 版保持一致，但 Snakemake tab 可显示：
+```text
+workdir/config/samples.selected.tsv
+workdir/config/request.json
+```
 
-- Docker step 状态。
-- 内部 pipeline stage 状态，如果容器能产出事件。
-- stdout/stderr。
-- QC 指标。
+Scan manifest columns:
 
-## 8. 验收
+```text
+sample_id
+library
+index
+R1
+R2
+source_dir
+comment
+```
 
-- mock Docker image 能启动。
-- 输入 mock FASTQ 或 mock sample sheet 后生成 QC TSV。
-- Airflow DAG 能捕获非零退出码。
-- 失败时能看到 stderr。
-- 成功后邮件包含 QC summary。
+`library` and `index` are derived from `sample_id` when it follows
+`<library>.<index>`.
+
+## 3. Airflow Runner
+
+Task graph:
+
+```text
+validate_request
+  -> prepare_nipt_docker_run
+  -> run_nipt_docker
+  -> collect_nipt_artifacts
+```
+
+`prepare_nipt_docker_run` writes:
+
+```text
+workdir/<chip_name>.csv
+workdir/config/nipt_run_config.yaml
+workdir/config/nipt_docker_compose.yml
+workdir/config/nipt_airflow_request.json
+```
+
+The runner generates a run-local NIPT samplesheet/config and mounts the source
+batch read-only as `/input_batch`. Large FASTQ files are not copied and the
+external NIPT bundle is not modified.
+
+The generated container name must be unique:
+
+```text
+NIPTPro_<analysis_id>
+```
+
+It must not reuse external container names such as `NIPTPro_runner`.
+
+## 4. Deployment Contract
+
+Required environment:
+
+```text
+NIPT_PIPELINE_ROOT=/home/jiucheng/pipelines/NIPT
+NIPT_CONTAINER_ROOT=/opt/pipelines/NIPT
+NIPT_INPUT_SCAN_ROOTS=/opt/pipelines/NIPT/fastq
+HOST_SHARED_ROOT=/home/jiucheng/project/airflow-demo/shared
+NIPT_DOCKER_IMAGE=172.17.61.235:2333/niptpro/niptpro:1.0.11
+NIPT_FETAL_IMAGE=172.17.61.235:2333/niptpro/pytorch:biosan
+NIPT_DOCKER_NETWORK=nipt_analysis_test_net
+NIPT_DOCKER_CORES=40
+NIPT_DOCKER_OWNER=6708:520
+NIPT_ALLOW_HEAVY_RUN=false
+DOCKER_SOCKET_GID=114
+BACKEND_BASE_URL=http://backend:8000
+```
+
+Only `airflow-worker` mounts the Docker socket:
+
+```text
+/var/run/docker.sock:/var/run/docker.sock
+```
+
+Backend mounts only the NIPT fastq root read-only for scanning:
+
+```text
+${NIPT_PIPELINE_ROOT}/fastq:${NIPT_CONTAINER_ROOT}/fastq:ro
+```
+
+Forbidden runtime operations:
+
+- `docker compose down -v`
+- `docker volume prune`
+- `docker system prune`
+- Deleting host NIPT bundle or shared run roots
+
+## 5. Auto Intake
+
+`bio_intake_scan` calls:
+
+```text
+POST /api/intake/scan-and-submit
+```
+
+Default behavior:
+
+- First sighting of a batch records `ready_state=observed`.
+- A second scan with unchanged file count, size, mtime, and paths marks it
+  `ready` and creates/submits one run.
+- `bootstrap=true` records existing batches as bootstrap so historical data is
+  not automatically re-run during deployment.
+- PGT-A auto intake uses target `metadata`.
+- NIPT Docker auto intake uses `mount_smoke`.
+
+Operational sequence:
+
+1. Deploy backend and migration.
+2. Run a bootstrap scan against existing PGT-A/NIPT roots.
+3. Confirm `/api/intake/status` shows expected observed/bootstrap rows.
+4. Unpause `bio_intake_scan` if automatic intake should run.
+
+## 6. QC, Logs, And Artifacts
+
+Standard logs:
+
+```text
+workdir/logs/snakemake.stdout.log
+workdir/logs/snakemake.stderr.log
+workdir/logs/nipt_docker.command.txt
+workdir/logs/events/snakemake_events.jsonl
+```
+
+Standard QC:
+
+```text
+workdir/reports/qc_summary.tsv
+```
+
+`mount_smoke` writes one `nipt_mount_smoke=pass` row per selected scanned
+sample. Full-run parsing reads outputs such as `mappingQC.csv` and
+`*.model.predict.csv` and maps them into platform metrics:
+
+- `read_count`
+- `Q30`
+- `unique_mapping_rate`
+- `pcr_duplication_rate`
+- `chrY_percent`
+- `gender`
+- `fetal_fraction`
+
+Progress events:
+
+- `mount_smoke` emits `nipt_mount_smoke` `running/success/failed` events.
+- Every event is written to `workdir/logs/events/snakemake_events.jsonl`.
+- If `backend_event_url=http://backend:8000/api/events/snakemake` is present in
+  DAG conf, the runner also POSTs to FastAPI.
+- Backend POST failure is non-fatal and is written locally as
+  `backend_post_error`.
+- `full_run` parses Docker stdout/stderr for Snakemake rule blocks when the
+  heavy path is explicitly enabled.
+
+Artifacts exposed for `pipeline=nipt_docker`:
+
+- `snakemake_stdout`
+- `snakemake_stderr`
+- `nipt_qc_summary`
+- `nipt_docker_compose`
+- `nipt_run_config`
+- `nipt_airflow_request`
+- `nipt_docker_command`

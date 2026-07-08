@@ -65,6 +65,38 @@ def scan_fastq_candidates(
     return ScanResult(pipeline="pgta", rawdata_root=str(root), truncated=False, items=items)
 
 
+def scan_nipt_batch_candidates(
+    *,
+    rawdata_root: str | Path,
+    allowed_roots: list[str | Path],
+    max_samples: int = 200,
+) -> ScanResult:
+    if max_samples < 1:
+        raise InputPathError("max_samples must be at least 1.")
+
+    root = ensure_allowed_path(rawdata_root, allowed_roots)
+    if not root.is_dir():
+        raise InputPathError(f"rawdata_root is not a readable directory: {root}")
+
+    items: list[FastqCandidate] = []
+    batch_dirs = _nipt_batch_dirs(root)
+    for batch_dir in batch_dirs:
+        for sample_stem, r1, r2 in _paired_nipt_clean_fastqs(batch_dir):
+            if len(items) >= max_samples:
+                return ScanResult(pipeline="nipt_docker", rawdata_root=str(root), truncated=True, items=items)
+            items.append(
+                _candidate(
+                    sample_id=sample_stem,
+                    r1=r1,
+                    r2=r2,
+                    source_dir=batch_dir,
+                    discovery_method="nipt_docker_clean_scan",
+                )
+            )
+
+    return ScanResult(pipeline="nipt_docker", rawdata_root=str(root), truncated=False, items=items)
+
+
 def _iter_dirs(root: Path):
     yield root
     for path in sorted(root.rglob("*")):
@@ -78,6 +110,35 @@ def _paired_fastqs(sample_dir: Path) -> list[tuple[str, Path, Path]]:
         if not path.is_file():
             continue
         parsed = _parse_fastq_name(path.name)
+        if parsed is None:
+            continue
+        sample_stem, direction = parsed
+        by_sample.setdefault(sample_stem, {})[direction] = path.resolve()
+
+    pairs = []
+    for sample_stem in sorted(by_sample):
+        item = by_sample[sample_stem]
+        if "R1" in item and "R2" in item:
+            pairs.append((sample_stem, item["R1"], item["R2"]))
+    return pairs
+
+
+def _nipt_batch_dirs(root: Path) -> list[Path]:
+    candidates = [path for path in _iter_dirs(root) if _paired_nipt_clean_fastqs(path)]
+    selected: list[Path] = []
+    for path in sorted(candidates, key=lambda item: (len(item.relative_to(root).parts), str(item))):
+        if any(path != parent and path.is_relative_to(parent) for parent in selected):
+            continue
+        selected.append(path)
+    return selected
+
+
+def _paired_nipt_clean_fastqs(batch_dir: Path) -> list[tuple[str, Path, Path]]:
+    by_sample: dict[str, dict[str, Path]] = {}
+    for path in sorted(batch_dir.iterdir()):
+        if not path.is_file():
+            continue
+        parsed = _parse_nipt_clean_fastq_name(path.name)
         if parsed is None:
             continue
         sample_stem, direction = parsed
@@ -107,6 +168,17 @@ def _parse_fastq_name(name: str) -> tuple[str, str] | None:
     return sample_stem, direction
 
 
+def _parse_nipt_clean_fastq_name(name: str) -> tuple[str, str] | None:
+    match = re.match(r"^(.+)\.R([12])\.clean\.fastq\.gz$", name)
+    if not match:
+        return None
+    sample_stem = match.group(1).strip()
+    if not sample_stem:
+        return None
+    direction = "R1" if match.group(2) == "1" else "R2"
+    return sample_stem, direction
+
+
 def _extract_terminal_repeated_token(name: str) -> str | None:
     match = re.search(r"[-_]([A-Za-z]*\d+|[A-Za-z]+)[-_]([A-Za-z]*\d+|[A-Za-z]+)$", name.strip())
     if not match:
@@ -120,7 +192,14 @@ def _normalize_sample_token(value: str) -> str:
     return value.strip().replace("_", "").replace(" ", "").upper()
 
 
-def _candidate(*, sample_id: str, r1: Path, r2: Path, source_dir: Path) -> FastqCandidate:
+def _candidate(
+    *,
+    sample_id: str,
+    r1: Path,
+    r2: Path,
+    source_dir: Path,
+    discovery_method: str = "server_path_scan",
+) -> FastqCandidate:
     r1_stat = r1.stat()
     r2_stat = r2.stat()
     return FastqCandidate(
@@ -132,4 +211,5 @@ def _candidate(*, sample_id: str, r1: Path, r2: Path, source_dir: Path) -> Fastq
         r2_size=r2_stat.st_size,
         r1_mtime=r1_stat.st_mtime,
         r2_mtime=r2_stat.st_mtime,
+        discovery_method=discovery_method,
     )

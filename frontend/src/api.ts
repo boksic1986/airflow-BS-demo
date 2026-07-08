@@ -14,6 +14,13 @@ export type RunListResponse = {
   total: number;
 };
 
+export type RunListOptions = {
+  pipeline?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+};
+
 export type RunDetail = {
   analysis_id: string;
   pipeline: string;
@@ -57,7 +64,7 @@ export type ScanCandidate = {
 };
 
 export type ScanInputRequest = {
-  pipeline: "pgta";
+  pipeline: "pgta" | "nipt_docker";
   rawdata_root: string;
   max_samples?: number;
 };
@@ -67,6 +74,11 @@ export type ScanInputResponse = {
   rawdata_root: string;
   truncated: boolean;
   items: ScanCandidate[];
+};
+
+export type InputRootsResponse = {
+  pipeline: string;
+  roots: string[];
 };
 
 export type PgtaTarget = "metadata" | "dryrun_cnv" | "invalid_target" | "baseline_qc";
@@ -89,7 +101,20 @@ export type CreateWesRunRequest = {
   note?: string | null;
 };
 
-export type CreateRunRequest = CreatePgtaRunRequest | CreateWesRunRequest;
+export type NiptRunMode = "mount_smoke" | "full_run";
+
+export type CreateNiptDockerRunRequest = {
+  pipeline: "nipt_docker";
+  project_name: string;
+  rawdata_root: string;
+  selected_samples: ScanCandidate[];
+  run_mode: NiptRunMode;
+  cores?: number | null;
+  email_to?: string | null;
+  note?: string | null;
+};
+
+export type CreateRunRequest = CreatePgtaRunRequest | CreateWesRunRequest | CreateNiptDockerRunRequest;
 
 export type ReanalysisRequest = {
   mode: "resume" | "rerun_rule";
@@ -118,6 +143,33 @@ export type RuleEvent = {
   message?: string | null;
   return_code?: number | null;
   wildcards?: Record<string, unknown> | null;
+};
+
+export type AirflowTaskProgress = {
+  task_id: string;
+  state: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  duration?: number | null;
+  try_number?: number | null;
+  operator?: string | null;
+};
+
+export type RunProgressResponse = {
+  analysis_id: string;
+  pipeline: string;
+  status: string;
+  dag_id?: string | null;
+  dag_run_id?: string | null;
+  percent: number;
+  current_step: string;
+  current_source: string;
+  note: string;
+  not_in_airflow: boolean;
+  progress_source: "airflow_task_instances" | "snakemake_events" | "estimate" | string;
+  airflow_tasks: AirflowTaskProgress[];
+  rule_events: RuleEvent[];
+  updated_at?: string | null;
 };
 
 export type QcMetric = {
@@ -166,6 +218,23 @@ export type HealthResponse = {
   };
 };
 
+export type IntakeDiscovery = {
+  pipeline: string;
+  root_path: string;
+  batch_id: string;
+  fingerprint: string;
+  file_count: number;
+  total_bytes: number;
+  ready_state: string;
+  analysis_id?: string | null;
+  submit_state: string;
+  last_seen_at?: string | null;
+};
+
+export type IntakeStatusResponse = {
+  items: IntakeDiscovery[];
+};
+
 declare global {
   interface Window {
     __AIRFLOW_DEMO_CONFIG__?: {
@@ -210,8 +279,13 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function listRuns(): Promise<RunListResponse> {
-  return requestJson<RunListResponse>("/runs?limit=50&offset=0");
+export function listRuns(options: RunListOptions = {}): Promise<RunListResponse> {
+  const params = new URLSearchParams();
+  if (options.pipeline) params.set("pipeline", options.pipeline);
+  if (options.status) params.set("status", options.status);
+  params.set("limit", String(options.limit ?? 50));
+  params.set("offset", String(options.offset ?? 0));
+  return requestJson<RunListResponse>(`/runs?${params.toString()}`);
 }
 
 export function getHealth(): Promise<HealthResponse> {
@@ -234,6 +308,25 @@ export function scanInput(payload: ScanInputRequest): Promise<ScanInputResponse>
   });
 }
 
+export function getInputRoots(pipeline: "pgta" | "nipt_docker"): Promise<InputRootsResponse> {
+  return requestJson<InputRootsResponse>(`/input/roots?pipeline=${encodeURIComponent(pipeline)}`);
+}
+
+export function scanAndSubmitIntake(payload: {pipelines: Array<"pgta" | "nipt_docker">; bootstrap?: boolean; max_samples?: number}): Promise<IntakeStatusResponse> {
+  return requestJson<IntakeStatusResponse>("/intake/scan-and-submit", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getIntakeStatus(options: {pipeline?: "pgta" | "nipt_docker"; limit?: number} = {}): Promise<IntakeStatusResponse> {
+  const params = new URLSearchParams();
+  if (options.pipeline) params.set("pipeline", options.pipeline);
+  params.set("limit", String(options.limit ?? 50));
+  return requestJson<IntakeStatusResponse>(`/intake/status?${params.toString()}`);
+}
+
 export function createRun(payload: CreateRunRequest): Promise<RunDetail> {
   return requestJson<RunDetail>("/runs", {
     method: "POST",
@@ -252,6 +345,10 @@ export function getRunSamples(analysisId: string): Promise<{items: Sample[]}> {
 
 export function getRunRules(analysisId: string): Promise<{items: RuleEvent[]}> {
   return requestJson<{items: RuleEvent[]}>(`/runs/${encodeURIComponent(analysisId)}/rules`);
+}
+
+export function getRunProgress(analysisId: string): Promise<RunProgressResponse> {
+  return requestJson<RunProgressResponse>(`/runs/${encodeURIComponent(analysisId)}/progress`);
 }
 
 export function getRunQc(analysisId: string): Promise<RunQc> {

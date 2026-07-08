@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun, Sample
 from app.qc_service import import_run_qc_metrics
+from app.rule_event_service import import_snakemake_events_jsonl
 
 
 class DiagnosticsError(Exception):
@@ -162,6 +163,41 @@ ARTIFACTS = [
         relative_path=Path("logs/events/snakemake_events.jsonl"),
         url="/api/runs/{analysis_id}/artifacts/wes_events_jsonl",
     ),
+    ArtifactDefinition(
+        key="nipt_qc_summary",
+        type="qc_tsv",
+        label="NIPT Docker QC summary",
+        relative_path=Path("reports/qc_summary.tsv"),
+        url="/api/runs/{analysis_id}/qc",
+    ),
+    ArtifactDefinition(
+        key="nipt_docker_compose",
+        type="nipt_config",
+        label="NIPT Docker compose file",
+        relative_path=Path("config/nipt_docker_compose.yml"),
+        url="/api/runs/{analysis_id}/artifacts/nipt_docker_compose",
+    ),
+    ArtifactDefinition(
+        key="nipt_run_config",
+        type="nipt_config",
+        label="NIPT run config",
+        relative_path=Path("config/nipt_run_config.yaml"),
+        url="/api/runs/{analysis_id}/artifacts/nipt_run_config",
+    ),
+    ArtifactDefinition(
+        key="nipt_airflow_request",
+        type="nipt_config",
+        label="NIPT Airflow request",
+        relative_path=Path("config/nipt_airflow_request.json"),
+        url="/api/runs/{analysis_id}/artifacts/nipt_airflow_request",
+    ),
+    ArtifactDefinition(
+        key="nipt_docker_command",
+        type="docker_log",
+        label="NIPT Docker command",
+        relative_path=Path("logs/nipt_docker.command.txt"),
+        url="/api/runs/{analysis_id}/artifacts/nipt_docker_command",
+    ),
 ]
 
 
@@ -184,6 +220,9 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
     elif run.status == "success":
         run.error_summary = None
         import_run_qc_metrics(session=session, run=run, settings=settings)
+    if run.status in {"success", "failed"}:
+        events_path = _safe_child_path(_safe_workdir(run, settings), Path("logs/events/snakemake_events.jsonl"), settings)
+        import_snakemake_events_jsonl(session=session, analysis_id=analysis_id, events_path=events_path)
 
     session.commit()
     session.refresh(run)
@@ -213,6 +252,8 @@ def list_run_artifacts(*, session: Session, analysis_id: str, settings) -> dict[
     workdir = _safe_workdir(run, settings)
     items = []
     for definition in ARTIFACTS:
+        if not _artifact_applies_to_pipeline(definition, run.pipeline_name):
+            continue
         path = _safe_child_path(workdir, definition.relative_path, settings)
         if not path.is_file():
             continue
@@ -227,6 +268,16 @@ def list_run_artifacts(*, session: Session, analysis_id: str, settings) -> dict[
             }
         )
     return {"items": items}
+
+
+def _artifact_applies_to_pipeline(definition: ArtifactDefinition, pipeline_name: str) -> bool:
+    if definition.key.startswith("pgta_") or definition.type.startswith("pgta_"):
+        return pipeline_name == "pgta"
+    if definition.key.startswith("wes_") or definition.type.startswith("wes_"):
+        return pipeline_name == "wes_qsub"
+    if definition.key.startswith("nipt_") or definition.type.startswith("nipt_"):
+        return pipeline_name == "nipt_docker"
+    return True
 
 
 def build_error_summary(*, run: AnalysisRun, airflow_payload: dict[str, Any], settings) -> str:

@@ -41,6 +41,13 @@ class AirflowClient:
         response.raise_for_status()
         return response.json()
 
+    def list_task_instances(self, dag_id: str, dag_run_id: str) -> dict[str, Any]:
+        response = self._client.get(
+            f"/api/v1/dags/{quote(dag_id, safe='')}/dagRuns/{quote(dag_run_id, safe='')}/taskInstances"
+        )
+        response.raise_for_status()
+        return response.json()
+
     def trigger_dag_run(
         self,
         dag_id: str,

@@ -329,7 +329,7 @@ The `/workflows` route remains available for direct navigation during developmen
 ### Hidden or deferred behavior
 
 - WES qsub is not shown in the current frontend demo and should not be presented as deployed, even though historical backend/DAG/Snakemake code remains in the repository.
-- NIPT qsub, NIPT docker, and WGS are not shown in the current frontend demo.
+- NIPT qsub and WGS are not shown in the current frontend demo. T103 exposes NIPT Docker as a deployable scanned-batch workflow; see sections 14 and 16.
 - MailHog/SMTP success/failure notification remains deferred; `T034` and `T063` stay todo.
 - No backend/DAG/Snakemake code is removed by T097.
 
@@ -379,3 +379,219 @@ Remote validation on `ssh fengxian` at commit `f64e0d2`:
 - `GET /api/runs?pipeline=pgta&limit=50&offset=0` returned `17` PGT-A analysis runs; `PGTA_20260706_162150_00C4FD` had `status=success` and `qc_status=fail`.
 - `GET /api/runs/PGTA_20260706_162150_00C4FD/qc` returned `pass=0,warn=0,fail=14,unknown=0`.
 - Airflow `bio_pgta` listed `20` DAG runs total and `5` DAG runs matching `PGTA_20260706_162150_00C4FD`; the latest matching run `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` was `success`.
+
+## 12. T099 PGT-A Run Tracker and submit handoff
+
+T099 changes the PGT-A-only Dashboard from split recent-failure/recent-success blocks into one run-centric tracker. The primary user story is: a bioinformatics operator enters Dashboard and can immediately find a project/run, see whether it is in Airflow, see current workflow progress, and take View/Submit/Sync action.
+
+### Dashboard tracker
+
+- Dashboard calls `GET /api/runs?pipeline=pgta&limit=50&offset=0`, then enriches the first visible runs with run detail and rule events.
+- The main list is `PGT-A Run Tracker`; it no longer separates failed and completed runs into different panels.
+- Each row shows project name, `analysis_id`, workflow status, QC status, sample count, created/started/duration fields, current step, progress percentage, and a progress bar.
+- Project display name comes from `detail.params.project_name`; if absent it falls back to `analysis_id`.
+- Rows are ordered by operational urgency: active runs, failed/QC failed, created-only, then recent success.
+- Filters are: All, Running, Submitted / queued, Created only, Failed, QC failed, Success.
+- Created-only runs show `Not in Airflow` and can be submitted from the tracker.
+- Active runs can be synced from the tracker; Dashboard polls every 15 seconds only while active PGT-A runs are present.
+- The bottom of Dashboard uses three equal panels: Service health, PGT-A resource overview, and PGT-A workflow.
+
+### Progress semantics
+
+Progress is a frontend demo estimate from current backend contracts, not a true Airflow task-progress API:
+
+- `created`: `0%`, `Created only`, `Not in Airflow`.
+- `submitted/queued/scheduled`: `5-10%`, Airflow handoff visible.
+- `running`: if rule events exist, progress is terminal rule events divided by total rule events; otherwise `15%` with `waiting for workflow events`.
+- `success`: `100%`.
+- `failed`: shows the failed step when available and preserves any rule-derived partial progress.
+
+A future backend endpoint should expose Airflow task instances and Snakemake progress snapshots directly; until then the UI labels this as an estimate.
+
+### Submit handoff
+
+Submit Task now treats "create" and "submit to Airflow" as distinct observable states:
+
+- The primary action is `Create and submit to Airflow`; it performs `POST /api/runs`, then immediately `POST /api/runs/{analysis_id}/actions/submit`, then fetches `GET /api/runs/{analysis_id}`.
+- The secondary action is `Create only`; it creates a backend run and shows that it will not be visible in Airflow until submitted.
+- A successful handoff summary displays `analysis_id`, `dag_run_id`, backend status, and pipeline.
+- If submit returns without `dag_run_id`, the UI shows `Submit returned without dag_run_id; check backend/Airflow handoff.`
+- Submit preview uses separated fields so `Pipeline` and `PGT-A` do not visually collide.
+
+### Scan folder view
+
+PGT-A scan results are grouped by `source_dir`:
+
+- The top-level scan table shows folder name, relative parent path, sample count, and a folder-level checkbox.
+- FASTQ file names are shown only when the folder row is expanded.
+- Absolute FASTQ paths are hidden by default and shown only in a per-sample `full path` disclosure.
+- Selecting a folder selects all samples in that folder; baseline QC still requires at least two selected samples.
+
+### T099 verification
+
+Remote validation on `ssh fengxian`:
+
+- `docker build --target test -f frontend/Dockerfile frontend`: passed, `7` Vitest tests.
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- `docker compose -f docker-compose.yaml build frontend`: passed, including `tsc -b && vite build`.
+- `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate frontend`: passed, recreated only the frontend container.
+- `curl -fsSI http://127.0.0.1:12959/`: HTTP 200 from nginx.
+- `GET /api/health`: `{"status":"ok"}`.
+- `GET /api/health/airflow`: metadatabase and scheduler healthy.
+- `GET /api/runs?pipeline=pgta&limit=20&offset=0`: returned 19 total PGT-A analysis runs and included `PGTA_20260707_182024_8CA2A0` plus `PGTA_20260707_182056_39A374`.
+- `GET /api/runs/PGTA_20260707_182024_8CA2A0` and `GET /api/runs/PGTA_20260707_182056_39A374`: both returned non-null `dag_run_id` and `status=success`.
+- Deployed frontend bundle contains `PGT-A Run Tracker`.
+
+## 13. T100 PGT-A submit/Airflow status auto-sync
+
+T100 fixes the operator-visible gap where a run could be created, submitted to Airflow, and still remain displayed as `submitted` in the frontend/backend after Airflow had already completed it.
+
+### Root cause
+
+Observed run:
+
+```text
+analysis_id: PGTA_20260708_012630_352915
+dag_run_id: manual__PGTA_20260708_012630_352915
+backend status before sync: submitted
+Airflow state: success
+```
+
+The submit endpoint correctly returned a `dag_run_id`, and Airflow completed the DAG run. The missing frontend behavior was a post-handoff reconciliation call to:
+
+```text
+POST /api/runs/{analysis_id}/actions/sync-airflow
+```
+
+Without that call, biodemo could keep `status=submitted` until a user clicked Sync or another page-level poll happened.
+
+### Required frontend behavior
+
+- `Create only` creates a biodemo run and must keep showing `Not visible in Airflow until submitted`.
+- `Create and submit to Airflow` must:
+  - call `POST /api/runs`;
+  - call `POST /api/runs/{analysis_id}/actions/submit`;
+  - if a `dag_run_id` is returned, call `POST /api/runs/{analysis_id}/actions/sync-airflow`;
+  - briefly retry sync so fast metadata runs can display `success` in the handoff summary;
+  - show a warning if submit returns without `dag_run_id`.
+- Dashboard must auto-sync active/submitted PGT-A tracker rows immediately and then every 15 seconds while such rows remain active.
+- The UI must continue to route all Airflow status reconciliation through FastAPI; it must not query Airflow DB directly.
+
+### Product semantics
+
+- `created`: the project exists only in biodemo/shared files and is not visible in Airflow.
+- `submitted`: Airflow handoff has a `dag_run_id`, but biodemo has not yet observed a terminal Airflow state.
+- `running`: Airflow/Snakemake activity is in progress or rule events show activity.
+- `success/failed`: terminal state after backend `sync-airflow` has reconciled Airflow state into biodemo.
+
+### T100 verification
+
+Remote validation on `ssh fengxian`:
+
+- Red frontend test target first failed because Dashboard and Submit did not call `sync-airflow`.
+- `docker build --target test -f frontend/Dockerfile frontend`: passed after implementation, `7` Vitest tests.
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- `docker compose -f docker-compose.yaml build frontend`: passed, including `tsc -b && vite build`.
+- `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate frontend`: passed, recreated only the frontend container.
+- `curl -fsSI http://127.0.0.1:12959/`: HTTP 200 from nginx.
+- `GET /api/health`: `{"status":"ok"}`.
+- `GET /api/health/airflow`: metadatabase and scheduler healthy.
+- Manual sync of `PGTA_20260708_012630_352915` reconciled backend status from `submitted` to `success`; no workflow rerun was submitted.
+- `GET /api/runs?pipeline=pgta&status=submitted&limit=20&offset=0`: returned no stuck submitted PGT-A runs after reconciliation.
+
+Remaining gap: authoritative Airflow task progress still needs a backend task-instance/attempt-history API. Current Dashboard progress remains a demo estimate based on run state and Snakemake rule events.
+
+## 14. T101 PGT-A + NIPT Docker deployment scope
+
+T101 expands the deployable frontend surface from PGT-A-only to two runnable workflows: PGT-A and NIPT Docker. WES qsub, NIPT qsub, WGS, and email notification remain hidden/deferred in the current demo.
+
+### Visible routes and resources
+
+- Sidebar links Dashboard, Submit Task, Runs, Samples, Workflows, Failures, and Settings.
+- Dashboard loads recent runs across `pipeline=pgta` and `pipeline=nipt_docker`, then displays them in one run tracker with pipeline badges, project/run ordering, progress estimate, QC status, and View/Submit/Sync actions.
+- Dashboard bottom panels are Service health, PGT-A/NIPT resource overview, and deployed workflow scope.
+- Submit Task offers only PGT-A and NIPT Docker in `PipelineSelector`.
+- Runs, Samples, and Failures filters include `PGT-A` and `NIPT Docker`; WES/NIPT qsub/WGS are not presented as deployed options.
+- Workflows shows exactly PGT-A and NIPT Docker templates.
+
+### NIPT Docker submit UI
+
+T103 supersedes the template-run UI. The NIPT Docker form now uses server-path scanned chip batches:
+
+- `rawdata_root` from `GET /api/input/roots?pipeline=nipt_docker`.
+- `selected_samples` from `POST /api/input/scan`; `template_id` is no longer sent by new UI submissions.
+- Folder-level checkbox selects all samples in one NIPT chip; expanded rows show sample id and FASTQ file names.
+- `run_mode`: `mount_smoke` by default; `full_run` is visible but guarded by backend `NIPT_ALLOW_HEAVY_RUN=false` unless explicitly enabled for a heavy run.
+- `cores`: integer, default 40, max 40.
+- `project_name` and `note` are sent in `params`.
+- The primary action remains `Create and submit to Airflow`, calling `POST /api/runs`, then `POST /api/runs/{analysis_id}/actions/submit`, then `sync-airflow`.
+- Successful handoff displays `analysis_id`, `dag_run_id`, backend status, and pipeline.
+
+### T101 verification
+
+Remote validation on `ssh fengxian`:
+
+- `docker build --target test -f frontend/Dockerfile frontend`: passed, 9 Vitest tests.
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- `docker compose -f docker-compose.yaml build backend airflow-worker airflow-scheduler airflow-api-server frontend`: passed; frontend production build ran `tsc -b && vite build`.
+- `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend airflow-api-server airflow-scheduler airflow-worker frontend`: passed.
+- `curl -fsSI http://127.0.0.1:12959/`: HTTP 200.
+- Final NIPT Docker smoke `NIPT_20260708_033450_8362A0` submitted to `manual__NIPT_20260708_033450_8362A0` and reached Airflow/backend `success`.
+- `/api/runs/NIPT_20260708_033450_8362A0/qc` returned `pass=96,warn=0,fail=0,unknown=0`.
+- `/api/runs?pipeline=nipt_docker&limit=3&offset=0` returned the final run with `qc_status=pass`.
+- NIPT artifacts included `nipt_qc_summary`, `nipt_docker_compose`, `nipt_run_config`, `nipt_airflow_request`, and `nipt_docker_command`; WES artifact keys were not exposed for the NIPT run.
+
+## 15. T102 Airflow + pipeline progress observability
+
+T102 replaces the Dashboard-only estimate with backend progress data from `GET /api/runs/{analysis_id}/progress`.
+
+### Dashboard tracker
+
+- Dashboard loads recent PGT-A and NIPT Docker runs, calls `sync-airflow` for active runs, then calls `/progress`.
+- Each tracker row shows the backend `percent`, `current_step`, `current_source`, and note from `/progress`.
+- Airflow-only historical runs still show task-instance progress even when no rule events were captured.
+- Active rows keep the 15-second polling behavior; polling refreshes both backend status and progress.
+
+### Run Detail workflow tab
+
+- Run Detail is shared by PGT-A and NIPT Docker; it no longer gates NIPT behind a PGT-A-only message.
+- The Overview tab includes a progress card with percent, current source, and progress note.
+- The Workflow tab is split into `Airflow tasks` and `Pipeline steps`.
+- `Airflow tasks` renders task id, state, operator, try number, start/end time, and duration from `/progress.airflow_tasks`.
+- `Pipeline steps` renders rule/runner events from `/progress.rule_events`.
+- If `rule_events` is empty, the UI shows `No rule events captured` while still keeping Airflow task progress visible.
+
+### Progress display rules
+
+- `created` stays `0%` and shows `Not in Airflow`.
+- Submitted/queued/scheduled runs show Airflow handoff progress.
+- PGT-A run task `run_pgta_target` and NIPT run task `run_nipt_docker` can be refined by pipeline events.
+- `success` shows `100%`.
+- Failed runs show the failed Airflow task or failed pipeline step when available.
+
+### T102 frontend verification
+
+Remote validation on `ssh fengxian`:
+
+- `docker build --target test -f frontend/Dockerfile frontend`: passed, 10 Vitest tests.
+- `docker compose -f docker-compose.yaml build backend airflow-worker airflow-scheduler airflow-api-server frontend`: passed; frontend production build ran `tsc -b && vite build`.
+- `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend airflow-api-server airflow-scheduler airflow-worker frontend`: passed.
+- `curl -fsSI http://127.0.0.1:12959/`: HTTP 200.
+- PGT-A progress smoke `PGTA_20260708_050811_A24E36` reached `success` with Airflow tasks plus `metadata=success` pipeline event.
+- NIPT Docker progress smoke `NIPT_20260708_050843_B3B05E` reached `success` with Airflow tasks plus `nipt_mount_smoke=success` pipeline event.
+
+## 16. T103 Batch Scan And Auto Intake UI
+
+- Submit Task uses one server-path scan experience for PGT-A and NIPT Docker.
+- NIPT Docker no longer shows `run1/run2` or a `NIPT template` selector.
+- Scan roots are loaded from `GET /api/input/roots?pipeline=...`.
+- Batch rows show folder/chip name, relative path, sample count, and a folder
+  checkbox. Expanding a batch shows sample id plus R1/R2 file names; absolute
+  paths stay hidden in a details element.
+- NIPT Docker create requests send `rawdata_root`, `selected_samples`,
+  `run_mode`, `cores`, `project_name`, and optional `note`.
+- Dashboard adds a read-only `Intake auto scanner` panel backed by
+  `GET /api/intake/status`; page refresh must not call
+  `POST /api/intake/scan-and-submit`.
+- Automatic create+submit is owned by the Airflow `bio_intake_scan` DAG after
+  bootstrap protects historical batches.

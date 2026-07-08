@@ -6,10 +6,14 @@ import {listRuns} from "../api";
 import {RunTable} from "../components/RunTable";
 import {errorMessage} from "../lib/errors";
 import {statusPriority, normalizeStatus} from "../lib/status";
+import {deployedWorkflowTemplates} from "../mocks/platform";
+
+const deployedPipelineIds = deployedWorkflowTemplates.map((pipeline) => pipeline.id);
+const visiblePipelines = new Set<string>(deployedPipelineIds);
 
 export function RunsPage() {
   const [runs, setRuns] = useState<RunSummary[]>([]);
-  const [pipeline] = useState("pgta");
+  const [pipeline, setPipeline] = useState("all");
   const [status, setStatus] = useState("all");
   const [keyword, setKeyword] = useState("");
   const [sort, setSort] = useState("created_desc");
@@ -39,7 +43,8 @@ export function RunsPage() {
   const filteredRuns = useMemo(() => {
     const needle = keyword.toLowerCase();
     return runs
-      .filter((run) => run.pipeline === "pgta")
+      .filter((run) => visiblePipelines.has(run.pipeline))
+      .filter((run) => pipeline === "all" || run.pipeline === pipeline)
       .filter((run) => status === "all" || normalizeStatus(run.status) === status)
       .filter((run) => !needle || `${run.analysis_id} ${run.pipeline} ${run.status}`.toLowerCase().includes(needle))
       .sort((a, b) => {
@@ -59,15 +64,17 @@ export function RunsPage() {
         <div>
           <p className="eyebrow">Run resource</p>
           <h1>Runs</h1>
-          <p>Filter, sort, and inspect PGT-A runs for the current demo deployment.</p>
+          <p>Filter, sort, and inspect deployed PGT-A and NIPT Docker runs.</p>
         </div>
       </section>
       <section className="panel">
         <div className="filter-bar">
           <label>
             <span>Pipeline</span>
-            <select aria-label="Pipeline" value={pipeline} disabled>
+            <select aria-label="Pipeline" value={pipeline} onChange={(event) => setPipeline(event.target.value)}>
+              <option value="all">All deployed</option>
               <option value="pgta">PGT-A</option>
+              <option value="nipt_docker">NIPT Docker</option>
             </select>
           </label>
           <label>

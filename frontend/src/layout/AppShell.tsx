@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ClipboardList,
   FlaskConical,
+  GitBranch,
   LayoutDashboard,
   ListChecks,
   Search,
@@ -16,6 +17,7 @@ const navItems = [
   {to: "/submit", label: "Submit Task", Icon: ClipboardList},
   {to: "/runs", label: "Runs", Icon: Activity},
   {to: "/samples", label: "Samples", Icon: TestTube2},
+  {to: "/workflows", label: "Workflows", Icon: GitBranch},
   {to: "/failures", label: "Failures", Icon: AlertTriangle},
   {to: "/settings", label: "Settings", Icon: Settings},
 ];

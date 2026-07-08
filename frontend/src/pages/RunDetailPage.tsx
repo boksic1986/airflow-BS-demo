@@ -1,13 +1,14 @@
 import {RefreshCw, RotateCw, Play} from "lucide-react";
-import {useEffect, useMemo, useState} from "react";
+import {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 
-import type {Artifact, LogStream, RuleEvent, RunDetail, RunLog, RunQc, Sample} from "../api";
+import type {AirflowTaskProgress, Artifact, LogStream, RuleEvent, RunDetail, RunLog, RunProgressResponse, RunQc, Sample} from "../api";
 
 import {
   getRunArtifacts,
   getRunDetail,
   getRunLog,
+  getRunProgress,
   getRunQc,
   getRunRules,
   getRunSamples,
@@ -19,11 +20,12 @@ import {ErrorPanel} from "../components/ErrorPanel";
 import {LogViewer} from "../components/LogViewer";
 import {MetricCard} from "../components/MetricCard";
 import {QcMetricCard} from "../components/QcMetricCard";
+import {RunProgressBar} from "../components/RunProgressBar";
 import {StatusBadge} from "../components/StatusBadge";
-import {WorkflowTimeline} from "../components/WorkflowTimeline";
 import {parseErrorSummary} from "../lib/errors";
 import {compactPipelineName, formatBytes, formatDate, formatDuration, safeJson} from "../lib/format";
 import {errorMessage} from "../lib/errors";
+import {computeRunProgress, progressFromResponse} from "../lib/runProgress";
 import {isActiveStatus, isFailedStatus, normalizeStatus} from "../lib/status";
 
 const tabs = ["Overview", "Samples", "Workflow", "QC", "Logs", "Files", "Config"] as const;
@@ -35,9 +37,10 @@ type Bundle = {
   rules: RuleEvent[];
   artifacts: Artifact[];
   qc: RunQc | null;
+  progress: RunProgressResponse | null;
 };
 
-const emptyBundle: Bundle = {detail: null, samples: [], rules: [], artifacts: [], qc: null};
+const emptyBundle: Bundle = {detail: null, samples: [], rules: [], artifacts: [], qc: null, progress: null};
 
 export function RunDetailPage() {
   const {analysisId = ""} = useParams();
@@ -57,14 +60,15 @@ export function RunDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const [detail, samples, rules, artifacts, qc] = await Promise.all([
+      const [detail, samples, rules, progress, artifacts, qc] = await Promise.all([
         getRunDetail(analysisId),
         getRunSamples(analysisId),
         getRunRules(analysisId),
+        getRunProgress(analysisId).catch(() => null),
         getRunArtifacts(analysisId),
         getRunQc(analysisId),
       ]);
-      setBundle({detail, samples: samples.items, rules: rules.items, artifacts: artifacts.items, qc});
+      setBundle({detail, samples: samples.items, rules: progress?.rule_events || rules.items, progress, artifacts: artifacts.items, qc});
       if (isFailedStatus(detail.status)) setLogStream("stderr");
     } catch (loadError) {
       setBundle(emptyBundle);
@@ -96,7 +100,7 @@ export function RunDetailPage() {
   const detail = bundle.detail;
 
   useEffect(() => {
-    if (!analysisId || !detail || detail.pipeline !== "pgta" || !detail.dag_run_id || !isActiveStatus(detail.status)) return;
+    if (!analysisId || !detail || !detail.dag_run_id || !isActiveStatus(detail.status)) return;
 
     let stopped = false;
     const refreshFromAirflow = async () => {
@@ -116,28 +120,28 @@ export function RunDetailPage() {
       stopped = true;
       window.clearInterval(interval);
     };
-  }, [analysisId, detail?.dag_run_id, detail?.pipeline, detail?.status]);
+  }, [analysisId, detail?.dag_run_id, detail?.status]);
 
   const failedRule = bundle.rules.find((rule) => isFailedStatus(rule.status));
   const diagnosis = parseErrorSummary(detail?.error_summary, failedRule?.rule);
-  const workflowSteps = useMemo(() => {
-    const airflow = detail
-      ? [
-          {name: detail.dag_id || "Airflow DAG", status: detail.status, description: detail.dag_run_id || "No DAG run id"},
-        ]
-      : [];
-    return [
-      ...airflow,
-      ...bundle.rules.slice(0, 10).map((rule) => ({
-        name: rule.rule,
-        status: rule.status,
-        sample: rule.sample_id,
-        description: rule.qsub_jobid ? `qsub ${rule.qsub_jobid}` : rule.message || `job ${rule.snakemake_jobid || "not set"}`,
-      })),
-    ];
-  }, [bundle.rules, detail]);
-
-  const canSubmit = detail?.status === "created" && detail.pipeline === "pgta";
+  const progress = detail && bundle.progress
+    ? progressFromResponse(bundle.progress)
+    : detail
+      ? computeRunProgress(
+          {
+            analysis_id: detail.analysis_id,
+            pipeline: detail.pipeline,
+            status: detail.status,
+            created_at: detail.created_at,
+            started_at: detail.started_at,
+            ended_at: detail.ended_at,
+            sample_count: bundle.samples.length,
+          },
+          detail,
+          bundle.rules,
+        )
+      : null;
+  const canSubmit = detail?.status === "created" && ["pgta", "nipt_docker"].includes(detail.pipeline);
   const canResumePgta =
     detail?.pipeline === "pgta" &&
     detail.params?.target === "baseline_qc" &&
@@ -182,7 +186,7 @@ export function RunDetailPage() {
             </div>
             <div className="summary-actions">
               <StatusBadge status={detail.status} size="lg" />
-              {detail.pipeline === "pgta" && detail.dag_run_id && isActiveStatus(detail.status) ? (
+              {detail.dag_run_id && isActiveStatus(detail.status) ? (
                 <span className="muted">{lastAutoSyncedAt ? `Auto sync active · ${formatDate(lastAutoSyncedAt)}` : "Auto sync active"}</span>
               ) : null}
               {canSubmit ? (
@@ -191,12 +195,10 @@ export function RunDetailPage() {
                   Submit to Airflow
                 </button>
               ) : null}
-              {detail.pipeline === "pgta" ? (
-                <button className="button ghost" type="button" disabled={acting || !detail.dag_run_id} onClick={() => void runAction("sync")}>
-                  <RefreshCw size={15} />
-                  Sync Airflow
-                </button>
-              ) : null}
+              <button className="button ghost" type="button" disabled={acting || !detail.dag_run_id} onClick={() => void runAction("sync")}>
+                <RefreshCw size={15} />
+                Sync Airflow
+              </button>
               {canResumePgta ? (
                 <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("resume")}>
                   <RotateCw size={15} />
@@ -206,19 +208,7 @@ export function RunDetailPage() {
             </div>
           </section>
 
-          {detail.pipeline !== "pgta" ? (
-            <section className="panel">
-              <div className="section-heading">
-                <h2>Current deployment scope</h2>
-                <p>This frontend deployment only exposes PGT-A. Historical non-PGT-A runs remain in backend storage but are hidden from the demo workflow.</p>
-              </div>
-            </section>
-          ) : null}
-
-          {detail.pipeline === "pgta" && actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
-
-          {detail.pipeline === "pgta" ? (
-          <>
+          {actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
           <section className="metric-grid" aria-label="Run summary metrics">
             <MetricCard title="Samples" value={bundle.samples.length} status={bundle.samples.length ? "success" : "unknown"} />
             <MetricCard title="Duration" value={formatDuration(detail.started_at, detail.ended_at)} status={detail.status} />
@@ -229,7 +219,13 @@ export function RunDetailPage() {
           <ErrorPanel diagnosis={diagnosis} />
 
           <div className="split-grid">
-            <WorkflowTimeline steps={workflowSteps} title="Workflow overview" />
+            <section className="panel">
+              <div className="section-heading">
+                <h2>Current progress</h2>
+                <p>{bundle.progress?.progress_source ? `Source: ${bundle.progress.progress_source}` : "Fallback progress estimate"}</p>
+              </div>
+              {progress ? <RunProgressBar analysisId={detail.analysis_id} progress={progress} /> : null}
+            </section>
             <section className="panel">
               <div className="section-heading">
                 <h2>QC summary</h2>
@@ -260,15 +256,13 @@ export function RunDetailPage() {
             </div>
             {activeTab === "Overview" ? <OverviewTab detail={detail} sampleCount={bundle.samples.length} /> : null}
             {activeTab === "Samples" ? <SamplesTab samples={bundle.samples} /> : null}
-            {activeTab === "Workflow" ? <WorkflowTab rules={bundle.rules} /> : null}
+            {activeTab === "Workflow" ? <WorkflowTab progress={bundle.progress} rules={bundle.rules} /> : null}
             {activeTab === "QC" ? <QcTab qc={bundle.qc} /> : null}
             {activeTab === "Logs" ? <LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError} /> : null}
             {activeTab === "Files" ? <FilesTab artifacts={bundle.artifacts} /> : null}
             {activeTab === "Config" ? <ConfigTab detail={detail} /> : null}
           </section>
 
-          </>
-          ) : null}
         </>
       ) : null}
     </div>
@@ -315,28 +309,64 @@ function SamplesTab({samples}: {samples: Sample[]}) {
   );
 }
 
-function WorkflowTab({rules}: {rules: RuleEvent[]}) {
+function WorkflowTab({progress, rules}: {progress: RunProgressResponse | null; rules: RuleEvent[]}) {
+  const airflowTasks = progress?.airflow_tasks || [];
   return (
-    <div className="table-wrap">
-      <table className="data-table">
-        <thead>
-          <tr><th>rule</th><th>sample</th><th>status</th><th>snakemake jobid</th><th>qsub jobid</th><th>return</th><th>message</th></tr>
-        </thead>
-        <tbody>
-          {rules.map((rule) => (
-            <tr key={`${rule.rule}-${rule.sample_id || "project"}-${rule.snakemake_jobid || "none"}`}>
-              <td>{rule.rule}</td>
-              <td>{rule.sample_id || "project"}</td>
-              <td><StatusBadge status={rule.status} /></td>
-              <td>{rule.snakemake_jobid || "not set"}</td>
-              <td>{rule.qsub_jobid || "not set"}</td>
-              <td>{rule.return_code ?? "not set"}</td>
-              <td>{rule.message || "not set"}</td>
-            </tr>
-          ))}
-          {rules.length === 0 ? <tr><td className="empty-cell" colSpan={7}>No rule events returned.</td></tr> : null}
-        </tbody>
-      </table>
+    <div className="workflow-tab-stack">
+      <section>
+        <div className="section-heading">
+          <h2>Airflow tasks</h2>
+          <p>Project-level DAG task instances from the Airflow REST API.</p>
+        </div>
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr><th>task</th><th>state</th><th>operator</th><th>try</th><th>started</th><th>ended</th><th>duration</th></tr>
+            </thead>
+            <tbody>
+              {airflowTasks.map((task: AirflowTaskProgress) => (
+                <tr key={`${task.task_id}-${task.try_number || "try"}`}>
+                  <td>{task.task_id}</td>
+                  <td><StatusBadge status={task.state} /></td>
+                  <td>{task.operator || "not set"}</td>
+                  <td>{task.try_number ?? "not set"}</td>
+                  <td>{formatDate(task.start_date)}</td>
+                  <td>{formatDate(task.end_date)}</td>
+                  <td>{task.duration ?? "not set"}</td>
+                </tr>
+              ))}
+              {airflowTasks.length === 0 ? <tr><td className="empty-cell" colSpan={7}>No Airflow task instances returned yet.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <div className="section-heading">
+          <h2>Pipeline steps</h2>
+          <p>Snakemake or runner-level events captured from JSONL/backend event posts.</p>
+        </div>
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr><th>rule</th><th>sample</th><th>status</th><th>snakemake jobid</th><th>qsub jobid</th><th>return</th><th>message</th></tr>
+            </thead>
+            <tbody>
+              {rules.map((rule) => (
+                <tr key={`${rule.rule}-${rule.sample_id || "project"}-${rule.snakemake_jobid || "none"}`}>
+                  <td>{rule.rule}</td>
+                  <td>{rule.sample_id || "project"}</td>
+                  <td><StatusBadge status={rule.status} /></td>
+                  <td>{rule.snakemake_jobid || "not set"}</td>
+                  <td>{rule.qsub_jobid || "not set"}</td>
+                  <td>{rule.return_code ?? "not set"}</td>
+                  <td>{rule.message || "not set"}</td>
+                </tr>
+              ))}
+              {rules.length === 0 ? <tr><td className="empty-cell" colSpan={7}>No rule events captured. Airflow task progress is still available above.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

@@ -80,20 +80,22 @@ export const workflowTemplates: PipelineTemplate[] = [
   {
     id: "nipt_docker",
     name: "NIPT docker",
-    description: "Docker images are preloaded on fengxian; runner is not implemented yet.",
+    description: "Server-path scanned NIPT Docker flow using clean FASTQ chip batches and Airflow handoff.",
     dagId: "bio_nipt_docker",
-    version: "image-ready",
+    version: "scan-v1",
     owner: "NIPT team",
-    execution: "Docker runner planned",
-    reference: "niptpro:1.0.11",
-    requiredInputs: ["sample sheet", "FASTQ path", "container image tag"],
-    outputs: ["NIPT report", "fetal fraction", "z-score summary"],
+    execution: "Airflow worker + host Docker socket",
+    reference: "niptpro:1.0.11 / pytorch:biosan",
+    requiredInputs: ["allowlisted NIPT fastq root", "*.clean.fastq.gz R1/R2 pairs", "mount_smoke mode", "40-core guarded full-run switch"],
+    outputs: ["run-local NIPT samplesheet", "mount smoke QC TSV", "Docker compose artifact", "stdout/stderr", "NIPT QC summary after full run"],
     latestRun: "not available",
-    successRate: "demo/mock",
-    implementationStatus: "demo/mock",
+    successRate: "scanned-batch smoke pending",
+    implementationStatus: "staged",
     steps: [
-      {name: "validate_images", status: "success", description: "Images loaded; no container smoke yet"},
-      {name: "run_container", status: "planned", description: "Runner task pending"},
+      {name: "validate_request", status: "success", description: "Validate scanned batch, mode, cores, and workdir"},
+      {name: "prepare_nipt_docker_run", status: "success", description: "Generate run-local NIPT samplesheet, config, and compose file"},
+      {name: "run_nipt_docker", status: "running", description: "Run mount smoke or guarded full Docker batch"},
+      {name: "collect_nipt_artifacts", status: "planned", description: "Expose QC, logs, config, and compose artifacts"},
     ],
   },
   {
@@ -118,13 +120,13 @@ export const workflowTemplates: PipelineTemplate[] = [
   },
 ];
 
-export const deployedWorkflowTemplates = workflowTemplates.filter((pipeline) => pipeline.id === "pgta");
+export const deployedWorkflowTemplates = workflowTemplates.filter((pipeline) => pipeline.id === "pgta" || pipeline.id === "nipt_docker");
 
 export const resourceOverview = [
-  {title: "CPU allocation", value: "64", unit: "cores", status: "running", description: "Mock display from PGTA_SNAKEMAKE_CORES"},
+  {title: "CPU allocation", value: "64 / 40", unit: "cores", status: "running", description: "PGT-A default / NIPT Docker guarded default"},
   {title: "Memory pressure", value: "42", unit: "%", status: "success", description: "Mock resource telemetry"},
-  {title: "Queue jobs", value: "0", unit: "jobs", status: "success", description: "Real qsub is not enabled on fengxian"},
-  {title: "QC alerts", value: "14", unit: "metrics", status: "failed", description: "PGT-A baseline QC fail metrics"},
+  {title: "Queue jobs", value: "0", unit: "jobs", status: "success", description: "qsub is not enabled; NIPT uses Docker"},
+  {title: "QC alerts", value: "14", unit: "metrics", status: "failed", description: "PGT-A baseline QC fail metrics; NIPT smoke QC is non-biological"},
 ];
 
 export const mockSamples = [

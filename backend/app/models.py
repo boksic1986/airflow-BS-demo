@@ -186,3 +186,26 @@ class RunAction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
     result_status: Mapped[str] = mapped_column(String(64), nullable=False)
     message: Mapped[str | None] = mapped_column(Text)
+
+
+class IntakeDiscovery(Base):
+    __tablename__ = "intake_discovery"
+    __table_args__ = (
+        UniqueConstraint("pipeline_name", "root_path", "batch_id", name="uq_intake_pipeline_root_batch"),
+        Index("ix_intake_pipeline_state", "pipeline_name", "ready_state", "submit_state"),
+        Index("ix_intake_analysis_id", "analysis_id"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    pipeline_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    root_path: Mapped[str] = mapped_column(Text, nullable=False)
+    batch_id: Mapped[str] = mapped_column(Text, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(128), nullable=False)
+    file_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    max_mtime: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ready_state: Mapped[str] = mapped_column(String(64), nullable=False, default="observed")
+    analysis_id: Mapped[str | None] = mapped_column(String(128))
+    submit_state: Mapped[str] = mapped_column(String(64), nullable=False, default="not_submitted")
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)

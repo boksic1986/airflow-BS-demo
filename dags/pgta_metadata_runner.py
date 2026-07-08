@@ -11,6 +11,8 @@ from typing import Any
 
 import yaml
 
+from common.progress_events import emit_progress_event, parse_snakemake_output_for_events
+
 
 DEFAULT_SHARED_ROOT = Path(os.getenv("CONTAINER_SHARED_ROOT", "/data/airflow-demo"))
 DEFAULT_PGTA_PIPELINE_ROOT = Path(os.getenv("PGTA_CONTAINER_ROOT", "/opt/pipelines/PGT_A"))
@@ -72,6 +74,7 @@ def validate_pgta_conf(
         "sample_sheet_path": str(sample_sheet_path),
         "workdir": str(workdir),
         "email_to": conf.get("email_to"),
+        "backend_event_url": conf.get("backend_event_url"),
         "params": {**params, "target": target},
     }
 
@@ -215,11 +218,56 @@ def run_pgta_target(
     if target == "invalid_target":
         command.append(INVALID_SNAKEMAKE_TARGET)
     (logs_dir / "snakemake.command.txt").write_text(shlex.join(command) + "\n", encoding="utf-8")
+    backend_event_url = conf.get("backend_event_url")
+    emit_progress_event(
+        analysis_id=str(conf.get("analysis_id") or workdir.name),
+        workdir=workdir,
+        backend_event_url=str(backend_event_url) if backend_event_url else None,
+        event="pipeline_step_started",
+        rule=target,
+        status="running",
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+        message=f"PGT-A {target} started.",
+    )
     completed = subprocess.run(command, cwd=str(workdir), text=True, capture_output=True, check=False, env=env)
     stdout_path.write_text(completed.stdout or "", encoding="utf-8")
     stderr_path.write_text(completed.stderr or "", encoding="utf-8")
+    parse_snakemake_output_for_events(
+        analysis_id=str(conf.get("analysis_id") or workdir.name),
+        workdir=workdir,
+        backend_event_url=str(backend_event_url) if backend_event_url else None,
+        stdout_text=completed.stdout or "",
+        stderr_text=completed.stderr or "",
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+    )
     if completed.returncode != 0:
+        emit_progress_event(
+            analysis_id=str(conf.get("analysis_id") or workdir.name),
+            workdir=workdir,
+            backend_event_url=str(backend_event_url) if backend_event_url else None,
+            event="pipeline_step_failed",
+            rule=target,
+            status="failed",
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            message=f"PGT-A {target} Snakemake failed with exit code {completed.returncode}.",
+            return_code=completed.returncode,
+        )
         raise RuntimeError(f"PGT-A {target} Snakemake failed with exit code {completed.returncode}. See {stderr_path}")
+    emit_progress_event(
+        analysis_id=str(conf.get("analysis_id") or workdir.name),
+        workdir=workdir,
+        backend_event_url=str(backend_event_url) if backend_event_url else None,
+        event="pipeline_step_finished",
+        rule=target,
+        status="success",
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+        message=f"PGT-A {target} completed.",
+        return_code=0,
+    )
     if target == "dryrun_cnv":
         return stdout_path
     if target == "baseline_qc":

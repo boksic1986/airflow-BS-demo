@@ -87,6 +87,7 @@ analysis_run 1 -> N run_action
 | stdout_path | text nullable | |
 | stderr_path | text nullable | |
 | message | text nullable | |
+
 | return_code | int nullable | |
 | resources_json | jsonb nullable | threads/mem/runtime |
 | start_time | timestamptz nullable | |
@@ -143,6 +144,35 @@ T026/T043 第一版已复用该表，无新增 migration：FastAPI `/api/events/
 | created_at | timestamptz | |
 | result_status | text | accepted/rejected/success/failed |
 | message | text nullable | |
+
+### intake_discovery
+
+T103 intake scanner state for PGT-A and NIPT Docker batch discovery. This table
+prevents repeated auto-submission of the same stable batch fingerprint.
+
+| Field | Type | Notes |
+|---|---|---|
+| id | bigserial | primary key |
+| pipeline_name | text | `pgta` or `nipt_docker` |
+| root_path | text | scanned allowlisted root |
+| batch_id | text | relative folder id under root |
+| fingerprint | text | hash of selected paths, sizes, and mtimes |
+| file_count | int | paired FASTQ count times two |
+| total_bytes | bigint | summed selected FASTQ bytes |
+| max_mtime | timestamptz nullable | latest input mtime |
+| ready_state | text | observed/ready |
+| analysis_id | text nullable | created run when submitted |
+| submit_state | text | not_submitted/bootstrap/created/submitted |
+| first_seen_at | timestamptz | |
+| last_seen_at | timestamptz | |
+
+Constraints and indexes:
+
+```text
+unique(pipeline_name, root_path, batch_id)
+index(pipeline_name, ready_state, submit_state)
+index(analysis_id)
+```
 
 ## 4. Alembic 约定
 

@@ -46,7 +46,7 @@ airflow-demo/
 | frontend | 12959 | `172.30.10.30` | React PGT-A/WES mock run workspace served by Docker nginx |
 | airflow-api-server | 12958 | `172.30.10.10` | Airflow web/api using project image `airflow-demo/airflow:0.1.0` |
 | airflow-scheduler | n/a | `172.30.10.11` | Airflow scheduler using project image `airflow-demo/airflow:0.1.0` |
-| airflow-worker | n/a | `172.30.10.12` | Airflow worker can run PGT-A direct tasks and WES mock qsub Snakemake |
+| airflow-worker | n/a | `172.30.10.12` | Airflow worker can run PGT-A direct tasks, WES mock qsub Snakemake, and T101 NIPT Docker template-run smoke; only this Airflow service mounts Docker socket |
 | postgres | internal | `172.30.10.40` | Airflow metadata DB plus separate biodemo business DB |
 | redis | internal | `172.30.10.50` | Airflow Celery broker |
 | mailhog | 1025/8025 | `172.30.10.60` | demo SMTP/web UI |
@@ -91,6 +91,7 @@ Current T050/T051/T054/T056/T057 frontend v1:
 - Airflow services use the project image `airflow-demo/airflow:0.1.0`, based on `apache/airflow:2.9.3-python3.11`.
 - The project Airflow image keeps Snakemake in `/opt/airflow/snakemake-venv` and puts it on `PATH`; use `/usr/local/bin/python` when a test specifically needs the Airflow system Python.
 - On Linux hosts, `AIRFLOW_UID` must match the deploy user's `id -u` so Airflow workers can write bind-mounted `./shared`.
+- T101 NIPT Docker requires `airflow-worker` to mount `/var/run/docker.sock` and join `DOCKER_SOCKET_GID`; scheduler and API server should not mount the socket.
 - PGT-A 另有 Airflow-only 验证 DAG `bio_pgta_airflow`，用于从 Airflow UI/CLI 直接读取 manifest 并验证 Snakemake 9 logger plugin，不替代后端触发的 `bio_pgta` 闭环。
 - DAG task 数量保持项目级，不按 Snakemake rule 拆分。
 - DAG run conf 必须包含：`analysis_id`、`pipeline`、`mode`、`sample_sheet_path`、`workdir`、`email_to`、`params`。
@@ -140,6 +141,7 @@ shared/reports/<analysis_id>/snakemake_report.html
 | AIRFLOW_DEFAULT_UI_TIMEZONE | yes | Asia/Shanghai | Airflow web UI display timezone |
 | DOCKER_SUBNET | yes | 172.30.10.0/24 | demo Docker network |
 | DOCKER_GATEWAY | yes | 172.30.10.1 | demo Docker gateway |
+| DOCKER_SOCKET_GID | NIPT Docker | 114 on fengxian | supplemental group for `airflow-worker` to access `/var/run/docker.sock` |
 | BACKEND_IP | yes | 172.30.10.20 | fixed container IP |
 | FRONTEND_IP | yes | 172.30.10.30 | fixed container IP |
 | POSTGRES_IP | yes | 172.30.10.40 | fixed container IP |
@@ -177,7 +179,22 @@ shared/reports/<analysis_id>/snakemake_report.html
 | PGTA_LIBSTDCXX | PGT-A only | /biosoftware/miniconda/envs/snakemake_env/lib/libstdc++.so.6 | preloaded for PGT-A subprocesses so Airflow task executions do not resolve `matplotlib` extensions against the older system `libstdc++` |
 | PGTA_DATA_ROOT | PGT-A only | /data/project/CNV/PGT-A | host read-only mount |
 | PGTA_CONTAINER_DATA_ROOT | PGT-A only | /data/project/CNV/PGT-A | container read-only mount target |
-| INPUT_SCAN_ROOTS | PGT-A only | /data/project/CNV/PGT-A/rawdata | comma-separated backend allowlist for server-path scan |
+| INPUT_SCAN_ROOTS | legacy PGT-A | /data/project/CNV/PGT-A/rawdata | legacy comma-separated backend allowlist; used as fallback for PGT-A |
+| PGTA_INPUT_SCAN_ROOTS | PGT-A | /data/project/CNV/PGT-A/rawdata | comma-separated PGT-A server-path scan allowlist |
+| NIPT_PIPELINE_ROOT | NIPT Docker | /home/jiucheng/pipelines/NIPT | host read-only NIPT bundle root |
+| NIPT_CONTAINER_ROOT | NIPT Docker | /opt/pipelines/NIPT | container mount target for the NIPT bundle |
+| NIPT_INPUT_SCAN_ROOTS | NIPT Docker | /opt/pipelines/NIPT/fastq | comma-separated NIPT FASTQ scan allowlist |
+| HOST_SHARED_ROOT | NIPT Docker | /home/jiucheng/project/airflow-demo/shared | host path corresponding to container `/data/airflow-demo` |
+| NIPT_DOCKER_IMAGE | NIPT Docker | 172.17.61.235:2333/niptpro/niptpro:1.0.11 | NIPT main container image |
+| NIPT_FETAL_IMAGE | NIPT Docker | 172.17.61.235:2333/niptpro/pytorch:biosan | fetal ratio helper image used by the NIPT bundle |
+| NIPT_DOCKER_NETWORK | NIPT Docker | nipt_analysis_test_net | external Docker network for NIPT containers |
+| NIPT_DOCKER_CORES | NIPT Docker | 40 | maximum demo cores for scanned-batch v1 |
+| NIPT_DOCKER_OWNER | NIPT Docker | 6708:520 | owner argument passed to full-run entrypoint |
+| NIPT_ALLOW_HEAVY_RUN | NIPT Docker | false | keeps default acceptance limited to mount smoke |
+| BACKEND_BASE_URL | Airflow intake | http://backend:8000 | Airflow DAG URL for backend API calls |
+| INTAKE_SCAN_SCHEDULE | Airflow intake | */10 * * * * | `bio_intake_scan` schedule |
+| INTAKE_SCAN_PAUSED_ON_CREATION | Airflow intake | true | keep scanner paused until bootstrap protects historical batches |
+| INTAKE_SCAN_PIPELINES | Airflow intake | pgta,nipt_docker | pipelines scanned by the intake DAG |
 | SMTP_HOST | no | mailhog | demo 邮件 |
 | SMTP_PORT | no | 1025 | demo 邮件 |
 | QSUB_QUEUE | no | all.q | 服务器补齐 |

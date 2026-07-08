@@ -4,6 +4,7 @@ from app.models import (
     AnalysisRun,
     Artifact,
     Base,
+    IntakeDiscovery,
     Pipeline,
     QcMetric,
     RunAction,
@@ -21,6 +22,7 @@ def test_initial_biodemo_tables_are_declared() -> None:
         "qc_metric",
         "artifact",
         "run_action",
+        "intake_discovery",
     }
 
     assert expected_tables.issubset(Base.metadata.tables.keys())
@@ -46,3 +48,4 @@ def test_model_classes_map_to_expected_tables() -> None:
     assert QcMetric.__tablename__ == "qc_metric"
     assert Artifact.__tablename__ == "artifact"
     assert RunAction.__tablename__ == "run_action"
+    assert IntakeDiscovery.__tablename__ == "intake_discovery"

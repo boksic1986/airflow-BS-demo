@@ -217,6 +217,40 @@ timestamp
 
 Airflow 后置 task 会把 JSONL 汇总成 `snakemake_rule_summary.tsv` 并写入 task log/XCom。workflow/progress/generic log 可保留在 JSONL 中；第一版 backend 只接收 `rule` 非空的 rule/job 事件。
 
+### T102 runner progress events
+
+T102 adds `dags/common/progress_events.py` for PGT-A and NIPT Docker runner progress. This helper is independent from the older Snakemake 9 logger plugin and can be used by direct Python runners.
+
+Contract:
+
+- Write every event to `workdir/logs/events/snakemake_events.jsonl`.
+- If `backend_event_url` is configured, POST rule events to `POST /api/events/snakemake`.
+- Backend POST failure never fails the workflow; append a local `backend_post_error` JSONL record instead.
+- Events with `rule` and `status` are importable into biodemo `snakemake_rule_event`.
+- `sync-airflow` imports the JSONL fallback when a run reaches `success` or `failed`, using the same idempotent upsert key as the live event API.
+
+Parser coverage:
+
+```text
+rule <name>:
+jobid: <id>
+wildcards: sample=S1, ...
+Finished jobid: <id>
+Error in rule <name>:
+```
+
+PGT-A behavior:
+
+- `run_pgta_target` emits a target-level rule event such as `metadata` or `baseline_qc`.
+- Captured Snakemake stdout/stderr is parsed for additional rule blocks.
+- Existing resume/preflight behavior stays unchanged: `--rerun-incomplete` is used and `--forceall` remains forbidden.
+
+NIPT Docker behavior:
+
+- `mount_smoke` emits `nipt_mount_smoke` `running/success/failed`.
+- `full_run` parses Docker stdout/stderr for Snakemake rule blocks when the heavy path is explicitly enabled.
+- The runner must not run `docker compose down -v`, `docker volume prune`, or `docker system prune`.
+
 ## 10. 重分析策略
 
 ### resume

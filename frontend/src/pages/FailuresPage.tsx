@@ -9,12 +9,14 @@ import {StatusBadge} from "../components/StatusBadge";
 import {errorMessage, parseErrorSummary} from "../lib/errors";
 import {compactPipelineName, formatDate} from "../lib/format";
 import {isFailedStatus} from "../lib/status";
+import {deployedWorkflowTemplates} from "../mocks/platform";
 
 type FailureRow = {
   run: RunSummary;
   failedStep: string | null;
   errorSummary: string | null;
 };
+const visiblePipelines = new Set<string>(deployedWorkflowTemplates.map((pipeline) => pipeline.id));
 
 export function FailuresPage() {
   const [rows, setRows] = useState<FailureRow[]>([]);
@@ -28,7 +30,7 @@ export function FailuresPage() {
       setError(null);
       try {
         const payload = await listRuns();
-        const failed = payload.items.filter((run) => run.pipeline === "pgta" && isFailedStatus(run.status)).slice(0, 10);
+        const failed = payload.items.filter((run) => visiblePipelines.has(run.pipeline) && isFailedStatus(run.status)).slice(0, 10);
         const details = await Promise.all(
           failed.map(async (run) => {
             const [detail, rules] = await Promise.all([
@@ -63,7 +65,7 @@ export function FailuresPage() {
         <div>
           <p className="eyebrow">Failure triage</p>
           <h1>Recent failed runs</h1>
-          <p>PGT-A failed step, error type, stderr excerpt, retry suggestion, and link to detail without SSH first.</p>
+          <p>PGT-A and NIPT Docker failed step, error type, stderr excerpt, retry suggestion, and link to detail without SSH first.</p>
         </div>
       </section>
       {loading ? <p className="muted">Loading failures...</p> : null}

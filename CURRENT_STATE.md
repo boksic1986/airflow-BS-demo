@@ -5,8 +5,9 @@
 ## 1. 当前阶段
 
 ```text
+current_goal_ascii: T103 deployed PGT-A and NIPT Docker server-path batch scanning plus safe auto-intake bootstrap; NIPT new submissions use scanned chip batches, not run1/run2 templates.
 当前阶段: P3/P4/P6 Airflow + Snakemake/qsub mock observability + PGT-A Level 4 staged integration
-当前目标: T098 frontend/Airflow data reconciliation 已部署；当前前端展示收敛为 PGT-A-only，PGT-A detail 通过 FastAPI 自动同步 Airflow active run，`/api/runs` 列表 QC 状态与样本/QC 详情对齐。
+当前目标: T100 PGT-A submit 后 Airflow 状态自动回写已部署；当前前端展示收敛为 PGT-A-only，Dashboard 以 project/run 为主轴展示 PGT-A 运行状态、进度估算和 Airflow handoff，Submit Task 默认 create+submit 到 Airflow 并主动 sync Airflow 终态。
 最近更新时间: 2026-07-08
 最后更新 agent: Codex
 ```
@@ -32,7 +33,7 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/frontend/T098-airflow-data-reconcile for frontend/backend reconciliation worktree; previous PGT-A runtime baseline remains documented in T095/T080/T081
+active_branch: codex/intake/T103-pgta-nipt-auto-scan in local worktree; fengxian mirror has the same T101/T102/T103 overlay deployed for runtime validation
 last_verified_code_commit: 3310134 for T095 runtime; T080/T081 is docs-only and used read-only runtime validation before the report update
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T080/T081 used read-only runtime validation on mirror at 3310134 before docs update
@@ -42,8 +43,8 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T080/T0
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 12959 | running after T098 redeploy | React/Vite PGT-A-only routed UI served by Docker nginx image `airflow-demo/frontend:0.1.0`; run timestamps render as `Asia/Shanghai`; active PGT-A run detail calls backend `sync-airflow` immediately and then every 15 seconds until terminal state; host 3000 is occupied by non-project next-server |
-| backend | 8000 | running, healthy after T098 redeploy | `/api/health`, `/api/health/db`, `/api/input/scan`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and PGT-A baseline_qc parser/artifacts are available; `/api/runs` now aggregates run-level `qc_status` from sample `qc_status`; image `airflow-demo/backend:0.1.0`; container `TZ=Asia/Shanghai` |
+| frontend | 12959 | running after T103 redeploy | React/Vite PGT-A + NIPT Docker routed UI served by Docker nginx image `airflow-demo/frontend:0.1.0`; Dashboard uses one Run Tracker plus read-only Intake auto scanner panel; Submit Task uses server-path scan for both PGT-A and NIPT Docker, creates one NIPT run per selected chip batch, submits to Airflow, syncs after handoff, and displays `dag_run_id`; host 3000 is occupied by non-project next-server |
+| backend | 8000 | running, healthy after T103 redeploy | `/api/health`, `/api/health/db`, `/api/input/roots`, `/api/input/scan`, `/api/intake/status`, `/api/intake/scan-and-submit`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and `/api/runs/{analysis_id}/progress` are available; NIPT scan uses `NIPT_INPUT_SCAN_ROOTS`; image `airflow-demo/backend:0.1.0`; container `TZ=Asia/Shanghai` |
 | airflow web/api | 12958 | running; `PGTA_20260706_162150_00C4FD` final resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` ended `success` after T095 `LD_PRELOAD` fix; previous T095-only-`LD_LIBRARY_PATH` attempt `manual__PGTA_20260706_162150_00C4FD__resume__20260707T143132Z` failed preflight | project image `airflow-demo/airflow:0.1.0`; Airflow core/UI timezone is `Asia/Shanghai`; T095 sets run-local `XDG_CACHE_HOME`, `MPLCONFIGDIR`, `LD_LIBRARY_PATH=PGTA_CONDA_LIB`, and `LD_PRELOAD=PGTA_LIBSTDCXX`; `logs/pgta.python_preflight.log` records env header and import versions |
 | postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow metadata initialized; no host port published |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
@@ -55,8 +56,8 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T080/T0
 airflow_metadata_db: initialized by `docker compose -f docker-compose.yaml up airflow-init`; admin user exists, password only in remote .env
 biodemo_db: initialized on fengxian by `docker compose -f docker-compose.yaml run --rm biodemo-db-init`
 migrations_tool: Alembic
-last_migration: 20260702_0001 initial biodemo schema
-core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, artifact, run_action
+last_migration: 20260708_0002 intake discovery table
+core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, artifact, run_action, intake_discovery
 ```
 
 ## 6. Pipeline 接入状态
@@ -66,19 +67,19 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 | PGT-A demo | `bio_pgta` metadata/dryrun/failure smoke passed; `bio_pgta_airflow` Airflow-only logger/event POST passed; `baseline_qc` staged real run `PGTA_20260706_162150_00C4FD` completed after controlled interrupt/resume sequence; final resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` ended Airflow/backend `success` | direct Snakemake metadata target, `dryrun_cnv`, controlled `invalid_target`, and Level 4 `baseline_qc` smoke in Airflow worker passed; T088 sets `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`; T093 resume runs `--unlock` then `--cores 64 --rerun-incomplete`, no `--forceall`; T094 adds run-local cleanup of `mapping/*.sorted.bam.tmp.*.bam`; T095 sets conda `LD_LIBRARY_PATH`, `LD_PRELOAD=PGTA_LIBSTDCXX`, run-local `MPLCONFIGDIR`, and baseline QC Python preflight; Snakemake 9.23.1 logger plugin writes JSONL, Airflow log/XCom summary, and optional backend rule/job events | not used | server-path project creation, submit, status sync, logs, artifacts, rule event API, PGT-A run detail frontend v1, New PGT-A Run frontend scan/create/submit, active-run auto-sync, failed baseline_qc `Resume with 64 cores`, and QC/artifact panel API are available | baseline_qc parser/artifacts added; `/qc` imports 14 metrics for G10/G11 and both samples have QC decision `FAIL` | `/api/input/scan` and `/api/runs` create `created` run; submit triggers `bio_pgta`; Airflow-only manifest run can POST rule events to biodemo; frontend can create pgta runs for metadata/dryrun/failure/baseline_qc smoke, submit created runs, view run list/detail, samples, rules, logs, artifacts, QC, sync Airflow, and resume failed baseline_qc |
 | WES qsub | `bio_wes_qsub` Airflow mock DAG passed with `new/resume/rerun_rule` and QC smoke | WES mock Snakefile dry-run passed; WES mock profile runtime passed in `snakemake-runner`; `bio_wes_qsub` runs Snakemake 9.23.1 inside Airflow worker with `profiles/qsub`, writes command/stdout/stderr/events and `reports/qc_summary.tsv` | mock qsub wrapper direct smoke passed with backend POST; Airflow/API/frontend smoke generated mock qsub job ids, stdout/stderr files, JSONL events, and command log proving `--forcerun fastp` without `--forceall` | `airflow-demo/snakemake-runner:0.1.0` and `airflow-demo/airflow:0.1.0` builds passed | WES mock QC parser and frontend QC panel done; real WES QC and MultiQC not started | T040/T041/T042/T030/T031/T044/T056/T060/T054 done; next step is T034/T063 MailHog notification or T080 smoke report/demo script |
 | NIPT qsub | not started | not started | not started | n/a | not started | pending |
-| NIPT docker | not started | optional | n/a | not started | not started | pending |
+| NIPT docker | `bio_nipt_docker` scanned-batch v1 deployed; new submissions use `/api/input/scan` clean FASTQ candidates and no `template_id`; `mount_smoke` `NIPT_20260708_072349_4F942A` passed with `/progress` Airflow tasks plus `nipt_mount_smoke` | Dockerized runner, not qsub; `full_run` remains guarded by `NIPT_ALLOW_HEAVY_RUN=false`; legacy run1/run2 remains compatibility-only | n/a | host Docker via airflow-worker socket; worker has Docker socket group access on `fengxian`; source batch mounted read-only as `/input_batch` | `mount_smoke` QC import passed with 1 pass row for scanned sample `PC-20250103-3.A22`; full-run parser code present but not heavy-runtime accepted | done for scanned-batch `mount_smoke`; auto-intake bootstrap recorded existing batches as `observed/bootstrap`; heavy `full_run` deferred until explicit approval |
 
 ## 7. 最近测试结果
 
 ```text
-last_backend_tests: remote Dockerized pytest on fengxian at commit f64e0d2 passed, 53 tests; includes PGT-A baseline_qc target validation, submit two-sample guard, sample lifecycle status sync, run-list QC aggregation, artifact discovery, baseline QC parser/import, diagnostics/event tests, and WES lifecycle/QC tests
-last_frontend_tests: remote Dockerized frontend test target on fengxian at commit f64e0d2 passed, 6 Vitest tests; T098 covers PGT-A-only shell/routes, Runs filtering, failed-run stderr diagnostics, active PGT-A detail auto-sync through backend `sync-airflow`, PGT-A scan/create/submit compatibility, and PGT-A-only samples/failures/workflow scope
-last_dag_import_tests: passed on fengxian at commit dd5c6e7; Airflow image unittest for `test_bio_pgta_dag.py`, `test_pgta_metadata_runner.py`, and `test_pgta_airflow_runner.py` returned 20 tests OK; Airflow scheduler `dags list-import-errors` returned `No data found`
+last_backend_tests: remote Dockerized pytest on fengxian for T103 passed, 25 tests; covered PGT-A/NIPT input scanner, input roots/scan API, intake discovery idempotency, NIPT scanned run creation, models metadata, progress, and Airflow client
+last_frontend_tests: remote Dockerized frontend test target on fengxian for T103 passed, 10 Vitest tests; covers Dashboard tracker + intake panel, PGT-A and NIPT scanned-batch Submit flows, Run Detail progress, Samples/Workflows/Failures deployed scopes, and absence of NIPT template selector
+last_dag_import_tests: passed on fengxian for T103; Airflow scheduler `dags list-import-errors` returned `No data found`; Airflow system Python unittest passed 4 DAG tests for `bio_intake_scan` and `bio_nipt_docker`; runner venv unittest passed 12 NIPT/progress event tests
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
-last_compose_config: passed on fengxian for T098 branch with `docker compose -f docker-compose.yaml config --quiet`; backend/frontend production images rebuilt; frontend production build passed `tsc -b && vite build`; backend and frontend containers recreated; `http://127.0.0.1:12959/` returned HTTP 200
+last_compose_config: passed on fengxian for T103 with `docker compose -f docker-compose.yaml config --quiet`; backend, airflow-worker, airflow-scheduler, and frontend images rebuilt; frontend production build ran `tsc -b && vite build`; backend/scheduler/worker/frontend recreated without deleting volumes; `http://127.0.0.1:12959/` returned HTTP 200
 last_minimal_smoke: passed on fengxian for postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
 last_airflow_health: passed on fengxian at http://127.0.0.1:12958/health with healthy metadatabase and scheduler
-last_biodemo_migration: `biodemo-db-init` first run created role/database, repeat run succeeded; `alembic upgrade head` applied 20260702_0001 and repeat run succeeded
+last_biodemo_migration: `biodemo-db-init` first run created role/database, repeat run succeeded; T103 `alembic upgrade head` applied 20260708_0002 `intake_discovery`
 last_backend_airflow_client: mock tests covered health/list/get/trigger; real smoke verified backend `/api/health/airflow` against Airflow `/health`
 last_backend_build: backend image built on fengxian using `backend/pip.conf` TUNA PyPI mirror and `/opt/venv`; dependency install step dropped from about 9 minutes to about 11 seconds after mirror config
 last_pgta_project_create_smoke: passed on fengxian; scan root `/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28` returned 5 candidates with `truncated=true`, created `PGTA_20260702_162531_74CE91` with 2 samples, status `created`, `dag_run_id=null`, and generated `samples.selected.tsv` plus `request.json`
@@ -99,6 +100,8 @@ last_pgta_t093_resume: 2026-07-07 18:09 CST on fengxian at commit 2821a5e; backe
 last_pgta_t094_resume_cleanup: 2026-07-07 20:13 CST on fengxian at commit 0a8e756; red tests first failed on missing tmp cleanup and missing cleanup artifact; after fix, compose config passed, backend image rebuilt and full pytest passed 51 tests, Airflow DAG unittest discover passed 44 tests with 5 logger-interface skips, Airflow import errors returned `No data found`; backend and Airflow scheduler/worker were recreated without touching Postgres/Redis/frontend or volumes; pre-resume check found 16 stale `mapping/G11.sorted.bam.tmp.*.bam` files and no matching running processes; resume run `manual__PGTA_20260706_162150_00C4FD__resume__20260707T121252Z` started, `logs/pgta.resume.cleanup.tsv` recorded deletion of all 16 tmp BAMs, remaining tmp count is 0, command contains `--cores 64 --rerun-incomplete` and no `--forceall`, artifacts API exposes `pgta_resume_cleanup`, backend sync shows status `running`, and active process currently shows G11 `fastp -w 16`; terminal baseline QC artifacts still pending
 last_pgta_t095_python_preflight: 2026-07-07 22:53 CST on fengxian at commit 3bd1270; initial read-only failure check found T094 resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T121252Z` failed in `baseline_bam_uniformity_qc` with `ImportError: /usr/lib/x86_64-linux-gnu/libstdc++.so.6: version CXXABI_1.3.15 not found`; first T095 commit `966e0d8` added conda `LD_LIBRARY_PATH`, run-local `MPLCONFIGDIR`, and preflight, but Airflow task resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T143132Z` still failed preflight; final fix `3bd1270` adds `LD_PRELOAD=/biosoftware/miniconda/envs/snakemake_env/lib/libstdc++.so.6`, remote DAG unittest passed 47 tests with 5 expected logger-interface skips, `docker compose config --quiet` passed, Airflow import errors returned `No data found`, direct worker preflight logged `matplotlib/numpy/pandas/pysam/scipy` versions, final resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` reached Airflow/backend `success`; artifacts include `pgta_python_preflight`, `pgta_baseline_qc_summary`, `pgta_baseline_qc_pass_samples`, `pgta_baseline_qc_report`; `/api/runs/PGTA_20260706_162150_00C4FD/qc` returns `pass=0,warn=0,fail=14,unknown=0`, and samples G10/G11 are workflow `success` with QC status `fail`
 last_pgta_frontend_airflow_reconcile: 2026-07-08 on fengxian at commit f64e0d2; T098 deployed backend/frontend only, no new analysis submitted; `/api/health` ok and `/api/health/airflow` healthy; `/api/runs?pipeline=pgta&limit=50&offset=0` returned 17 PGT-A analysis runs and `PGTA_20260706_162150_00C4FD` list item now shows `status=success,qc_status=fail`; detail shows latest `dag_run_id=manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z`; `/qc` returns `pass=0,warn=0,fail=14,unknown=0`; Airflow `bio_pgta` lists 20 DAG runs total, with 5 matching that analysis because of resume history, and the latest matching DAG run is `success`
+last_pgta_t099_run_tracker: 2026-07-08 on fengxian; T099 deployed frontend only, no new analysis submitted; frontend bundle contains `PGT-A Run Tracker`; `/api/health` ok and `/api/health/airflow` healthy; `/api/runs?pipeline=pgta&limit=20&offset=0` returned 19 PGT-A analysis runs and includes `PGTA_20260707_182024_8CA2A0` plus `PGTA_20260707_182056_39A374`; both run details return non-null `dag_run_id` (`manual__PGTA_20260707_182024_8CA2A0`, `manual__PGTA_20260707_182056_39A374`) and `status=success`; `PGTA_20260706_162150_00C4FD/qc` remains `pass=0,warn=0,fail=14,unknown=0`
+last_pgta_t100_submit_autosync: 2026-07-08 on fengxian; user-reported stuck run `PGTA_20260708_012630_352915` had backend `status=submitted` and `dag_run_id=manual__PGTA_20260708_012630_352915`, while Airflow CLI showed that DAG run had already reached `success` at `2026-07-08T01:26:43.802222+00:00`; a safe manual `POST /api/runs/PGTA_20260708_012630_352915/actions/sync-airflow` reconciled backend status to `success` without rerunning workflow; T100 frontend fix now calls `sync-airflow` after Submit handoff and auto-syncs active Dashboard tracker runs; frontend Docker test target passed 7 tests, compose config/build/recreate passed, frontend 12959 returned HTTP 200, `/api/health` ok, `/api/health/airflow` healthy, and `/api/runs?pipeline=pgta&status=submitted&limit=20&offset=0` returned no stuck submitted PGT-A runs
 last_image_check: passed on fengxian; compose external images pulled and backend built with explicit tag
 last_image_cleanup: removed 37 dangling <none> images; no docker system prune, no volume prune
 last_pgta_failure_smoke: passed on fengxian; `invalid_target` run `PGTA_20260703_170957_3DDEC3` ended Airflow/backend `failed` as expected, stderr log size 1322 bytes, `sync-airflow` wrote non-null `error_summary` containing `stderr_path` and last error lines
@@ -203,3 +206,195 @@ Remote validation and deployment on `ssh fengxian`:
 - `GET /api/runs/PGTA_20260706_162150_00C4FD`: returned PGT-A detail data.
 - `GET /api/runs/PGTA_20260706_162150_00C4FD/qc`: returned `pass=0,warn=0,fail=14,unknown=0`.
 - `GET /api/runs/PGTA_20260706_162150_00C4FD/logs?stream=stderr&tail=20`: returned stderr tail lines.
+
+## 13. T099 PGT-A Dashboard run tracker and submit handoff
+
+Date: 2026-07-08
+Agent: Codex
+Branch/worktree: `codex/frontend/T099-pgta-run-tracker` at `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+
+The current deployed frontend remains PGT-A-only. T099 changes the main operator experience:
+
+- Dashboard no longer splits recent failed and completed runs into separate blocks. It shows one large `PGT-A Run Tracker` ordered by active, failed/QC failed, created-only, then recent success runs.
+- Each tracker row shows project name from `params.project_name` when available, `analysis_id`, workflow status, QC status, current step, progress estimate, progress bar, samples, created/started/duration fields, and View/Submit/Sync actions.
+- Tracker filters are All, Running, Submitted / queued, Created only, Failed, QC failed, and Success.
+- Created-only runs show `Not in Airflow`; active runs can be synced and are eligible for 15-second Dashboard polling.
+- Dashboard bottom panels are now Service health, PGT-A resource overview, and PGT-A workflow.
+- Submit Task primary action is `Create and submit to Airflow`; it calls `POST /api/runs`, then `POST /api/runs/{analysis_id}/actions/submit`, then fetches detail and displays `dag_run_id`.
+- `Create only` remains available as a secondary action and explicitly warns that the run is not visible in Airflow until submitted.
+- Scan results are grouped by source folder, with FASTQ file names behind an expand control and absolute paths hidden by default behind `full path`.
+
+Remote validation and deployment on `ssh fengxian`:
+
+- `docker build --target test -f frontend/Dockerfile frontend`: passed, `7` Vitest tests.
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- `docker compose -f docker-compose.yaml build frontend`: passed, including `tsc -b && vite build`.
+- `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate frontend`: passed, recreated only frontend.
+- `curl -fsSI http://127.0.0.1:12959/`: HTTP 200 from nginx.
+- `GET /api/health`: returned `{"status":"ok"}`.
+- `GET /api/health/airflow`: metadatabase and scheduler healthy.
+- `GET /api/runs?pipeline=pgta&limit=20&offset=0`: returned 19 total PGT-A analysis runs, including `PGTA_20260707_182024_8CA2A0` and `PGTA_20260707_182056_39A374`.
+- Both July 7 run details returned non-null `dag_run_id` and `status=success`.
+- `GET /api/runs/PGTA_20260706_162150_00C4FD/qc`: returned `pass=0,warn=0,fail=14,unknown=0`.
+
+## 14. T100 PGT-A submit/Airflow status auto-sync
+
+Date: 2026-07-08
+Agent: Codex
+Branch/worktree: `codex/frontend/T099-pgta-run-tracker` at `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+
+T100 addresses the user-reported symptom: after creating and submitting a PGT-A project, the frontend stayed at `submitted` and the operator could not tell whether Airflow had entered the workflow.
+
+Root cause found on `fengxian`:
+
+- `PGTA_20260708_012630_352915` existed in biodemo with `status=submitted`, `dag_run_id=manual__PGTA_20260708_012630_352915`, `started_at=null`, `ended_at=null`, and no rule events.
+- Airflow showed the same DAG run had already completed with `state=success`.
+- The frontend Submit flow fetched run detail after `/actions/submit`, but did not call `/actions/sync-airflow`; Dashboard also waited for user/manual sync rather than reconciling active tracker rows immediately.
+- A manual `POST /api/runs/PGTA_20260708_012630_352915/actions/sync-airflow` reconciled that run to backend `status=success` without creating or rerunning any workflow.
+
+Implemented frontend behavior:
+
+- Dashboard auto-syncs active/submitted PGT-A tracker runs immediately and every 15 seconds through backend `sync-airflow`, then reloads tracker data.
+- Submit Task primary `Create and submit to Airflow` now calls `sync-airflow` after a successful Airflow handoff with `dag_run_id`, retrying briefly so fast metadata runs can move from `submitted` to `success` in the handoff summary.
+- If Airflow is still running after the brief sync window, the Dashboard tracker continues polling and syncing until terminal state.
+
+Remote validation and deployment on `ssh fengxian`:
+
+- Red frontend test target first failed as expected because Dashboard and Submit did not call `sync-airflow`.
+- `docker build --target test -f frontend/Dockerfile frontend`: passed after implementation, `7` Vitest tests.
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- `docker compose -f docker-compose.yaml build frontend`: passed, including `tsc -b && vite build`.
+- `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate frontend`: passed, recreated only frontend.
+- `curl -fsSI http://127.0.0.1:12959/`: HTTP 200 from nginx.
+- `GET /api/health`: returned `{"status":"ok"}`.
+- `GET /api/health/airflow`: metadatabase and scheduler healthy.
+- `GET /api/runs/PGTA_20260708_012630_352915`: returned `status=success`, `dag_run_id=manual__PGTA_20260708_012630_352915`, and Airflow start/end timestamps.
+- `GET /api/runs?pipeline=pgta&status=submitted&limit=20&offset=0`: returned no stuck submitted PGT-A runs.
+
+Remaining limitation: progress is still a frontend estimate from backend run/rule data. A future backend Airflow task-instance endpoint is needed for authoritative per-task progress and Airflow attempt history.
+
+## 15. T101 NIPT Docker template-run deployment
+
+Date: 2026-07-08
+Agent: Codex
+Branch/worktree: `codex/nipt/T101-nipt-docker-demo` at `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+
+Current deployable frontend surface is now PGT-A + NIPT Docker. WES qsub, NIPT qsub, WGS, and mail notification remain hidden/deferred in the current demo.
+
+Implemented:
+
+- Backend `POST /api/runs` supports `pipeline=nipt_docker` with `template_id=run1|run2`, `run_mode=mount_smoke|full_run`, `cores`, `project_name`, and `note`.
+- Backend submit supports `nipt_docker` and triggers Airflow DAG `bio_nipt_docker`.
+- `full_run` remains guarded by `NIPT_ALLOW_HEAVY_RUN=false`; default acceptance uses `mount_smoke`.
+- Airflow DAG `bio_nipt_docker` has task graph `validate_request -> prepare_nipt_docker_run -> run_nipt_docker -> collect_nipt_artifacts`.
+- Runner writes `nipt_run_config.yaml`, `nipt_docker_compose.yml`, `nipt_airflow_request.json`, `nipt_docker.command.txt`, stdout/stderr logs, and `reports/qc_summary.tsv`.
+- Airflow worker mounts the NIPT bundle and Docker socket; `group_add=${DOCKER_SOCKET_GID:-114}` is required on `fengxian` for socket access. Scheduler/API server do not mount the Docker socket.
+- QC import parses NIPT `reports/qc_summary.tsv`, updates `qc_metric`, and refreshes `sample.qc_status`.
+- Artifact API filters pipeline-specific artifacts; NIPT runs expose NIPT artifacts and no longer expose WES `wes_qc_summary`.
+- Frontend Dashboard/Submit/Runs/Samples/Workflows/Failures support PGT-A and NIPT Docker only.
+
+Remote validation on `ssh fengxian`:
+
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- `git diff --check`: passed.
+- `docker build --target test -f frontend/Dockerfile frontend`: passed, 9 Vitest tests.
+- `docker build -t airflow-demo/backend:t101-test -f backend/Dockerfile backend && docker run --rm airflow-demo/backend:t101-test pytest -q tests/test_nipt_docker_lifecycle.py tests/test_run_creation.py tests/test_run_submit.py tests/test_run_diagnostics.py`: passed, 31 tests.
+- After artifact/QC refinement: `pytest -q tests/test_nipt_docker_lifecycle.py tests/test_run_diagnostics.py`: passed, 17 tests.
+- `docker run --rm --entrypoint /usr/local/bin/python -v /home/jiucheng/project/airflow-demo/dags:/opt/airflow/dags:ro -w /opt/airflow airflow-demo/airflow:t101-test -m unittest /opt/airflow/dags/tests/test_bio_nipt_docker_dag.py /opt/airflow/dags/tests/test_nipt_docker_runner.py -v`: passed, 9 tests.
+- `docker compose -f docker-compose.yaml build backend airflow-worker airflow-scheduler airflow-api-server frontend`: passed; frontend build ran `tsc -b && vite build`.
+- `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend airflow-api-server airflow-scheduler airflow-worker frontend`: passed.
+- `curl -fsSI http://127.0.0.1:12959/`: HTTP 200.
+- `/api/health` and `/api/health/airflow`: healthy after Airflow API server readiness.
+- `airflow dags list-import-errors`: `No data found`.
+- `airflow dags list` showed `bio_nipt_docker`.
+- Initial smoke `NIPT_20260708_032949_C7F56B` failed because worker lacked Docker socket group permission; fixed by adding `DOCKER_SOCKET_GID=114` and worker `group_add`.
+- Successful smoke `NIPT_20260708_033128_7B6386` proved Docker execution after socket group fix.
+- Final smoke `NIPT_20260708_033450_8362A0` reached Airflow/backend `success`, QC `pass=96,warn=0,fail=0,unknown=0`, run list `qc_status=pass`, stdout `mount_smoke_ok NIPT_20260708_033450_8362A0 260414_TPNB500380AR_1065_AH32CCBGY2`, and artifacts `nipt_qc_summary`, `nipt_docker_compose`, `nipt_run_config`, `nipt_airflow_request`, `nipt_docker_command`.
+
+Known caveats:
+
+- `full_run` was not executed; this remains intentionally blocked unless the user explicitly approves a heavy NIPT batch.
+- Historical failed smoke `NIPT_20260708_032949_C7F56B` remains in DB/Airflow history as evidence of the pre-fix Docker socket permission issue.
+- T102 supersedes the T101 progress caveat: frontend progress now uses backend `/progress` with Airflow task instances plus runner rule events. Historical runs without captured rule events still show Airflow task progress.
+
+## 16. T102 Airflow + Snakemake progress observability
+
+Date: 2026-07-08
+Agent: Codex
+Branch/worktree: `codex/progress/T102-airflow-snakemake-progress` at `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+
+Implemented:
+
+- Backend endpoint `GET /api/runs/{analysis_id}/progress` combines biodemo run state, Airflow REST task instances, and `snakemake_rule_event` rows.
+- `AirflowClient.list_task_instances()` reads `/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances`; no direct Airflow DB reads.
+- PGT-A and NIPT Docker submit conf includes `backend_event_url=http://backend:8000/api/events/snakemake`.
+- `dags/common/progress_events.py` writes runner events to JSONL and optionally POSTs to backend; POST failure is non-fatal.
+- PGT-A runner emits target-level progress events and parses Snakemake stdout/stderr for rule blocks.
+- NIPT Docker runner emits `nipt_mount_smoke` events and parses full-run Docker stdout/stderr when heavy mode is enabled.
+- `sync-airflow` imports JSONL fallback events on terminal runs.
+- Dashboard and Run Detail use `/progress`; Run Detail Workflow tab shows `Airflow tasks` and `Pipeline steps`.
+
+Remote validation on `ssh fengxian`:
+
+- `git diff --check`: passed.
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- Backend targeted Docker tests passed: `29 passed`.
+- Airflow DAG/runner Docker unittest passed: `35 tests OK`.
+- Frontend Docker test target passed: `10` Vitest tests.
+- Production build passed for backend, Airflow worker/scheduler/API server, and frontend; frontend build ran `tsc -b && vite build`.
+- Recreated backend, Airflow API/scheduler/worker, and frontend without deleting volumes.
+- `curl -fsSI http://127.0.0.1:12959/`: HTTP 200.
+- `/api/health`: ok; `/api/health/airflow`: metadatabase and scheduler healthy.
+- `airflow dags list-import-errors`: `No data found`.
+- Historical `/api/runs/PGTA_20260706_162150_00C4FD/progress` returned Airflow task timeline with `percent=100`.
+- Historical `/api/runs/NIPT_20260708_033450_8362A0/progress` returned Airflow task timeline with `percent=100`.
+- New PGT-A metadata smoke `PGTA_20260708_050811_A24E36` reached success with Airflow tasks and `metadata=success` pipeline event.
+- New NIPT Docker mount smoke `NIPT_20260708_050843_B3B05E` reached success with Airflow tasks and `nipt_mount_smoke=success` pipeline event.
+
+Known caveats:
+
+- Historical runs before T102 cannot reconstruct missing Snakemake/runner events; they still show Airflow task-instance progress.
+- NIPT `full_run` was not executed; it remains guarded by `NIPT_ALLOW_HEAVY_RUN=false`.
+- Mail notification, WES qsub frontend restore, NIPT qsub, and WGS remain out of current deployable scope.
+
+## 17. T103 PGT-A/NIPT batch scan and auto intake
+
+Date: 2026-07-08
+Agent: Codex
+Branch/worktree: `codex/intake/T103-pgta-nipt-auto-scan` at `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+
+Implemented:
+
+- `POST /api/input/scan` supports `pipeline=pgta|nipt_docker`; `GET /api/input/roots` returns pipeline-specific scan roots.
+- NIPT scan discovers chip folders with top-level `*.clean.fastq.gz` R1/R2 pairs and ignores nested adapter FASTQs in v1.
+- New NIPT Docker create requests use `rawdata_root` and `selected_samples` from scan results; `template_id` is compatibility-only and no longer exposed in Submit Task.
+- NIPT run params include `input_mode=nipt_docker_scan`, `source_batch_dir`, `source_batch_id`, `source_fingerprint`, `input_file_flavor=clean`, `chip_name`, and `selected_count`.
+- `bio_nipt_docker` prepares a run-local chip CSV/config/compose and mounts the source batch read-only as `/input_batch`; no large FASTQ copy and no production bundle writes.
+- Added `intake_discovery` table plus `/api/intake/status` and `/api/intake/scan-and-submit`.
+- Added `bio_intake_scan`, paused on creation by default; bootstrap must record historical batches before unpausing automatic intake.
+- Dashboard shows read-only Intake auto scanner status. Submit Task scans PGT-A/NIPT roots and creates one NIPT run per selected chip batch.
+
+Remote validation on `ssh fengxian`:
+
+- `git diff --check`: passed.
+- Manifest check: `file_count=179`, listed files `179`, missing `0`.
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- `docker build --target test -f frontend/Dockerfile frontend`: passed, 10 Vitest tests.
+- Backend Docker targeted pytest passed: 25 tests.
+- Airflow DAG tests passed: 4 tests for `bio_intake_scan`/`bio_nipt_docker`; NIPT runner/progress tests passed: 12 tests.
+- `docker compose -f docker-compose.yaml build backend airflow-worker airflow-scheduler frontend`: passed; frontend build ran `tsc -b && vite build`.
+- Recreated backend, airflow-scheduler, airflow-worker, and frontend without deleting volumes; `alembic upgrade head` applied `20260708_0002`.
+- Frontend HTTP 200 on `http://127.0.0.1:12959/`; `/api/health` ok; `/api/health/airflow` scheduler/metadatabase healthy.
+- `airflow dags list-import-errors`: `No data found`; `bio_intake_scan` listed paused, `bio_nipt_docker` and `bio_pgta` listed unpaused.
+- `/api/input/roots?pipeline=nipt_docker` returned `/opt/pipelines/NIPT/fastq`.
+- NIPT scan of `/opt/pipelines/NIPT/fastq` returned clean FASTQ candidates grouped under chip folder `FQ2025/250103_NDX550692_RUO_0044_AH3H37BGYW`.
+- Scanned NIPT mount smoke `NIPT_20260708_072349_4F942A` submitted to `manual__NIPT_20260708_072349_4F942A` and reached Airflow/backend `success`.
+- `/progress` for that run returned `percent=100`, Airflow task instances, and `nipt_mount_smoke=success` rule event.
+- `/qc` returned `pass=1,warn=0,fail=0,unknown=0`; stdout contained `mount_smoke_ok NIPT_20260708_072349_4F942A 250103_NDX550692_RUO_0044_AH3H37BGYW`; artifacts included NIPT QC/config/compose/command entries.
+- Intake bootstrap with `bootstrap=true,max_samples=20` recorded existing PGT-A/NIPT batches as `observed/bootstrap`; it did not auto-submit historical batches.
+
+Known caveats:
+
+- `bio_intake_scan` remains paused until explicitly unpaused after bootstrap review.
+- NIPT `full_run` was not executed and remains guarded by `NIPT_ALLOW_HEAVY_RUN=false`.
+- Auto-intake currently uses PGT-A `metadata` and NIPT `mount_smoke`; production full-run automation needs a separate explicit approval/config gate.

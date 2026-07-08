@@ -39,6 +39,7 @@ PGT-A v1 conf example:
   "mode": "new",
   "sample_sheet_path": "/data/airflow-demo/runs/PGTA_20260702_171533_9A85B1/config/samples.selected.tsv",
   "workdir": "/data/airflow-demo/runs/PGTA_20260702_171533_9A85B1",
+  "backend_event_url": "http://backend:8000/api/events/snakemake",
   "email_to": null,
   "params": {
     "project_name": "PGT-A metadata smoke",
@@ -455,6 +456,181 @@ validate_request
   --logger-airflow-demo-events-path <workdir>/logs/events/snakemake_events.jsonl \
   --logger-airflow-demo-backend-event-url http://backend:8000/api/events/snakemake
 ```
+
+## 10. `bio_nipt_docker` scanned-batch v1
+
+T103 keeps `bio_nipt_docker` as the second deployable workflow in the demo and
+changes new submissions to scanned NIPT chip batches. It is a Docker integration
+for NIPT, not the deferred NIPT qsub workflow. The default acceptance mode is
+`mount_smoke`; `full_run` is guarded by `NIPT_ALLOW_HEAVY_RUN=false`.
+
+Task graph:
+
+```text
+validate_request
+  -> prepare_nipt_docker_run
+  -> run_nipt_docker
+  -> collect_nipt_artifacts
+```
+
+Supported DAG run conf:
+
+```json
+{
+  "analysis_id": "NIPT_20260708_033450_8362A0",
+  "pipeline": "nipt_docker",
+  "mode": "new",
+  "sample_sheet_path": "/data/airflow-demo/runs/NIPT_20260708_033450_8362A0/config/samples.selected.tsv",
+  "workdir": "/data/airflow-demo/runs/NIPT_20260708_033450_8362A0",
+  "backend_event_url": "http://backend:8000/api/events/snakemake",
+  "email_to": null,
+  "params": {
+    "project_name": "T103 NIPT Docker scanned batch smoke",
+    "rawdata_root": "/opt/pipelines/NIPT/fastq",
+    "source_batch_dir": "/opt/pipelines/NIPT/fastq/FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2",
+    "source_batch_id": "FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2",
+    "source_fingerprint": "sha256...",
+    "run_mode": "mount_smoke",
+    "input_mode": "nipt_docker_scan",
+    "selected_count": 1,
+    "chip_name": "260414_TPNB500380AR_1065_AH32CCBGY2",
+    "cores": 40
+  }
+}
+```
+
+Validation rules:
+
+- `pipeline` must be `nipt_docker`.
+- `mode` must be `new`.
+- `params.input_mode` must be `nipt_docker_scan` for new frontend submissions.
+- `params.source_batch_dir` must be present and point to the scanned NIPT chip folder.
+- `params.run_mode` must be `mount_smoke` or `full_run`.
+- `full_run` is rejected unless `NIPT_ALLOW_HEAVY_RUN=true`.
+- `cores` must be between 1 and 40.
+- `workdir` must be under `CONTAINER_SHARED_ROOT`.
+- `sample_sheet_path` must be inside `workdir` and readable.
+
+`prepare_nipt_docker_run` writes:
+
+```text
+workdir/config/nipt_run_config.yaml
+workdir/config/nipt_docker_compose.yml
+workdir/config/nipt_airflow_request.json
+```
+
+For scan runs, the task also writes `workdir/<chip_name>.csv` from
+`samples.selected.tsv`. The generated config points `input.fastq_dir` at
+`/input_batch`; the Docker runner mounts the host source chip directory
+read-only at that path and does not copy large FASTQ files.
+
+The compose artifact uses a unique container name `NIPTPro_<analysis_id>` and must not reuse the external `NIPTPro_runner` name. The Airflow worker mounts:
+
+```text
+${NIPT_PIPELINE_ROOT}:${NIPT_CONTAINER_ROOT}:ro
+/var/run/docker.sock:/var/run/docker.sock
+```
+
+On `fengxian`, Docker socket access also requires `group_add: ${DOCKER_SOCKET_GID:-114}` for `airflow-worker`; scheduler and API server do not receive the Docker socket.
+
+`run_nipt_docker` generates the compose artifact for auditability, then executes the equivalent `docker run --rm` command because the worker image has Docker CLI but no `docker compose` subcommand. The command is written to:
+
+```text
+workdir/logs/nipt_docker.command.txt
+workdir/logs/snakemake.stdout.log
+workdir/logs/snakemake.stderr.log
+```
+
+For `mount_smoke`, the container verifies the NIPT bundle mounts, reference mount, selected chip samplesheet, read-only `/input_batch`, and run workdir, then writes `reports/qc_summary.tsv` with one `nipt_mount_smoke=pass` row per selected sample.
+
+T101 remote acceptance on `fengxian`:
+
+- `bio_nipt_docker` imported with no DAG import errors.
+- Final smoke `manual__NIPT_20260708_033450_8362A0` reached Airflow/backend `success`.
+- stdout contained `mount_smoke_ok NIPT_20260708_033450_8362A0 260414_TPNB500380AR_1065_AH32CCBGY2`.
+- `/api/runs/NIPT_20260708_033450_8362A0/qc` returned `pass=96,warn=0,fail=0,unknown=0`.
+
+## 10.1 T102 progress observability
+
+T102 keeps Airflow as the project-level scheduler and exposes progress through the FastAPI backend, not by reading the Airflow metadata database directly.
+
+Backend progress source:
+
+```text
+GET /api/v1/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances
+```
+
+Airflow task weights:
+
+| DAG | Task | Percent |
+|---|---|---:|
+| `bio_pgta` | `validate_request` | 5 |
+| `bio_pgta` | `prepare_pgta_config` | 15 |
+| `bio_pgta` | `run_pgta_target` | 90 |
+| `bio_pgta` | `collect_pgta_artifact` | 100 |
+| `bio_nipt_docker` | `validate_request` | 5 |
+| `bio_nipt_docker` | `prepare_nipt_docker_run` | 15 |
+| `bio_nipt_docker` | `run_nipt_docker` | 90 |
+| `bio_nipt_docker` | `collect_nipt_artifacts` | 100 |
+
+Runner event behavior:
+
+- `POST /api/runs/{analysis_id}/actions/submit` includes `backend_event_url=http://backend:8000/api/events/snakemake` for both PGT-A and NIPT Docker.
+- PGT-A `run_pgta_target` emits target-level `running/success/failed` events and parses Snakemake stdout/stderr for rule blocks when available.
+- NIPT Docker `mount_smoke` emits `nipt_mount_smoke` `running/success/failed`; `full_run` parses Docker stdout/stderr for Snakemake rule blocks.
+- Every runner event is written to `workdir/logs/events/snakemake_events.jsonl` before optional backend POST.
+- Backend POST failure must not fail the Airflow task; it is recorded as a JSONL `backend_post_error`.
+- `sync-airflow` can import the JSONL fallback when Airflow reaches a terminal state.
+
+T102 verified progress smokes on `fengxian`:
+
+- `PGTA_20260708_050811_A24E36`: `bio_pgta` metadata smoke reached success with Airflow task instances and `metadata=success` pipeline event.
+- `NIPT_20260708_050843_B3B05E`: `bio_nipt_docker` mount smoke reached success with Airflow task instances and `nipt_mount_smoke=success` pipeline event.
+
+## 10.2 `bio_intake_scan`
+
+T103 adds a scheduled intake DAG that calls the backend API instead of directly
+reading the biodemo database.
+
+Task graph:
+
+```text
+scan_and_submit
+```
+
+Default schedule:
+
+```text
+*/10 * * * *
+```
+
+Runtime endpoint:
+
+```text
+POST ${BACKEND_BASE_URL}/api/intake/scan-and-submit
+```
+
+Default payload:
+
+```json
+{
+  "pipelines": ["pgta", "nipt_docker"],
+  "bootstrap": false,
+  "max_samples": 200
+}
+```
+
+Safety:
+
+- `is_paused_upon_creation` defaults to true through
+  `INTAKE_SCAN_PAUSED_ON_CREATION=true`.
+- Deployment should call `/api/intake/scan-and-submit` with `bootstrap=true`
+  first, confirm `/api/intake/status`, then unpause the DAG if auto intake is
+  desired.
+- The DAG must not mount or modify production pipeline roots. All scanning and
+  idempotency state is handled by FastAPI.
+
+## 11. `bio_pgta_airflow` collect events
 
 `collect_snakemake_events` 读取 JSONL，生成：
 

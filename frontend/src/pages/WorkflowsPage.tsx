@@ -9,7 +9,7 @@ export function WorkflowsPage() {
         <div>
           <p className="eyebrow">Workflow templates</p>
           <h1>Workflows</h1>
-          <p>Current deployment exposes only the PGT-A workflow template. Non-PGT-A workflow surfaces are hidden from the demo.</p>
+          <p>Current deployment exposes the two runnable workflow templates for this demo.</p>
         </div>
       </section>
       <section className="card-grid">
