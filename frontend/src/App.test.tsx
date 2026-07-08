@@ -302,6 +302,40 @@ describe("bioinformatics platform frontend", () => {
             ],
           });
         }
+        if (url.endsWith("/api/intake/config")) {
+          return mockJson({
+            source: "/app/config/intake.yaml",
+            defaults: {ready_rule: "stable_fingerprint", stable_scans: 2, auto_submit: false},
+            pipelines: {
+              pgta: {
+                enabled: true,
+                roots: [{id: "pgta_rawdata", container_path: rawdataRoot}],
+                auto_submit: {target: "metadata"},
+              },
+              nipt_docker: {
+                enabled: true,
+                roots: [{id: "nipt_fastq", container_path: niptRoot}],
+                file_flavor: "clean_fastq",
+                r1_pattern: "*.R1.clean.fastq.gz",
+                r2_pattern: "*.R2.clean.fastq.gz",
+                ignore_patterns: ["002/*.adapter.fastq.gz"],
+                auto_submit: {run_mode: "mount_smoke"},
+              },
+            },
+          });
+        }
+        if (url.endsWith("/api/intake/scanner-state")) {
+          return mockJson({
+            dag_id: "bio_intake_scan",
+            airflow_reachable: true,
+            is_paused: true,
+            latest_dag_run_id: "scheduled__2026-07-08T17:00:00+08:00",
+            latest_dag_run_state: "success",
+            latest_start_date: "2026-07-08T17:00:01+08:00",
+            latest_end_date: "2026-07-08T17:00:05+08:00",
+            message: null,
+          });
+        }
         if (url.includes("/api/input/roots")) {
           const pipeline = new URL(url).searchParams.get("pipeline");
           return mockJson({pipeline, roots: pipeline === "nipt_docker" ? [niptRoot] : [rawdataRoot]});
@@ -1004,6 +1038,40 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getAllByText(/run_nipt_docker/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", {name: /Pipeline steps/i})).toBeInTheDocument();
     expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining(`/api/runs/${niptRunId}/progress`), undefined);
+  });
+
+  it("shows a read-only intake scanner settings console without scanner action buttons", async () => {
+    const user = userEvent.setup();
+    setRoute("/settings");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", {name: /Intake Scanner/i})).toBeInTheDocument();
+    expect(screen.getByText("/app/config/intake.yaml")).toBeInTheDocument();
+    expect(screen.getByText(/stable_fingerprint/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 stable scans/i)).toBeInTheDocument();
+    expect(screen.getByText("bio_intake_scan")).toBeInTheDocument();
+    expect(screen.getByText(/Paused/i)).toBeInTheDocument();
+    expect(screen.getByText(/Airflow reachable/i)).toBeInTheDocument();
+    expect(screen.getByText(/scheduled__2026-07-08T17:00:00\+08:00/i)).toBeInTheDocument();
+    expect(screen.getByText("pgta_rawdata")).toBeInTheDocument();
+    expect(screen.getAllByText(rawdataRoot).length).toBeGreaterThan(0);
+    expect(screen.getByText("nipt_fastq")).toBeInTheDocument();
+    expect(screen.getAllByText(niptRoot).length).toBeGreaterThan(0);
+    expect(screen.getByText(/clean_fastq/i)).toBeInTheDocument();
+    expect(screen.getByText(/\*\.R1\.clean\.fastq\.gz/i)).toBeInTheDocument();
+    expect(screen.getByText(/mount_smoke/i)).toBeInTheDocument();
+    expect(screen.getByText(/Bootstrap observed/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^queued$/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", {name: /Refresh intake scanner/i}));
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/intake/config"), undefined);
+      expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/intake/status?limit=100"), undefined);
+      expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/intake/scanner-state"), undefined);
+    });
+    expect(screen.queryByRole("button", {name: /unpause/i})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: /scan now/i})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: /full run/i})).not.toBeInTheDocument();
   });
 
   it("shows only deployed PGT-A and NIPT Docker workflow, samples, and failure resources", async () => {

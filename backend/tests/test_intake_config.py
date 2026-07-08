@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
+import httpx
 
 from app import main
 from app.intake_config import load_intake_config
@@ -105,3 +106,63 @@ pipelines:
     assert payload["pipelines"]["pgta"]["roots"] == [{"id": "pgta_rawdata", "container_path": "/data/project/CNV/PGT-A/rawdata"}]
     assert payload["pipelines"]["nipt_docker"]["enabled"] is False
     assert "host_path" not in payload["pipelines"]["nipt_docker"]["roots"][0]
+
+
+def test_intake_scanner_state_endpoint_reads_airflow_dag_pause_and_latest_run(monkeypatch) -> None:
+    class FakeAirflowClient:
+        def get_dag(self, dag_id: str) -> dict[str, object]:
+            assert dag_id == "bio_intake_scan"
+            return {"dag_id": dag_id, "is_paused": True}
+
+        def list_dag_runs(self, dag_id: str, *, limit: int = 100, order_by: str | None = None) -> dict[str, object]:
+            assert dag_id == "bio_intake_scan"
+            assert limit == 1
+            assert order_by == "-start_date"
+            return {
+                "dag_runs": [
+                    {
+                        "dag_run_id": "scheduled__2026-07-08T17:00:00+08:00",
+                        "state": "success",
+                        "start_date": "2026-07-08T17:00:01+08:00",
+                        "end_date": "2026-07-08T17:00:05+08:00",
+                    }
+                ]
+            }
+
+    monkeypatch.setattr(main, "get_airflow_client", lambda: FakeAirflowClient())
+    client = TestClient(main.app)
+
+    response = client.get("/api/intake/scanner-state")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == {
+        "dag_id": "bio_intake_scan",
+        "airflow_reachable": True,
+        "is_paused": True,
+        "latest_dag_run_id": "scheduled__2026-07-08T17:00:00+08:00",
+        "latest_dag_run_state": "success",
+        "latest_start_date": "2026-07-08T17:00:01+08:00",
+        "latest_end_date": "2026-07-08T17:00:05+08:00",
+        "message": None,
+    }
+
+
+def test_intake_scanner_state_endpoint_degrades_when_airflow_is_unavailable(monkeypatch) -> None:
+    class BrokenAirflowClient:
+        def get_dag(self, dag_id: str) -> dict[str, object]:
+            raise httpx.ConnectError("airflow unavailable")
+
+    monkeypatch.setattr(main, "get_airflow_client", lambda: BrokenAirflowClient())
+    client = TestClient(main.app)
+
+    response = client.get("/api/intake/scanner-state")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["dag_id"] == "bio_intake_scan"
+    assert payload["airflow_reachable"] is False
+    assert payload["is_paused"] is None
+    assert payload["latest_dag_run_id"] is None
+    assert payload["latest_dag_run_state"] is None
+    assert payload["message"] == "Airflow scanner state unavailable"

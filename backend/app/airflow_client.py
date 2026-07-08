@@ -26,10 +26,18 @@ class AirflowClient:
         response.raise_for_status()
         return response.json()
 
-    def list_dag_runs(self, dag_id: str, *, limit: int = 100) -> dict[str, Any]:
+    def get_dag(self, dag_id: str) -> dict[str, Any]:
+        response = self._client.get(f"/api/v1/dags/{quote(dag_id, safe='')}")
+        response.raise_for_status()
+        return response.json()
+
+    def list_dag_runs(self, dag_id: str, *, limit: int = 100, order_by: str | None = None) -> dict[str, Any]:
+        params: dict[str, object] = {"limit": limit}
+        if order_by:
+            params["order_by"] = order_by
         response = self._client.get(
             f"/api/v1/dags/{quote(dag_id, safe='')}/dagRuns",
-            params={"limit": limit},
+            params=params,
         )
         response.raise_for_status()
         return response.json()

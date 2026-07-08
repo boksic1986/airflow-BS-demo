@@ -1304,3 +1304,44 @@ Dashboard acceptance:
 - Do not run NIPT `full_run` during T104 acceptance.
 - CORS 配置。
 - host port 映射。
+
+## 26. T105 Intake Scanner Settings Console Smoke
+
+T105 adds a read-only Settings surface for automatic intake readiness. It does
+not unpause `bio_intake_scan`, does not call `/api/intake/scan-and-submit` from
+the frontend, and does not run NIPT `full_run`.
+
+Build and deploy:
+
+```bash
+docker compose -f docker-compose.yaml config --quiet
+docker build -t airflow-demo/backend:t105-test -f backend/Dockerfile backend
+docker run --rm airflow-demo/backend:t105-test \
+  pytest -q tests/test_airflow_client.py tests/test_intake_config.py
+docker build --target test -f frontend/Dockerfile frontend
+docker compose -f docker-compose.yaml build backend frontend
+docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend frontend
+```
+
+Runtime checks:
+
+```bash
+curl -fsSI http://127.0.0.1:12959/
+curl -fsS http://127.0.0.1:8000/api/intake/config
+curl -fsS 'http://127.0.0.1:8000/api/intake/status?limit=20'
+curl -fsS http://127.0.0.1:8000/api/intake/scanner-state
+docker compose -f docker-compose.yaml exec -T airflow-scheduler \
+  airflow dags list | grep bio_intake_scan
+```
+
+Acceptance:
+
+- `/api/intake/scanner-state` returns `airflow_reachable`, `is_paused`, latest
+  scanner DAG run fields, and a degraded payload instead of failing the page if
+  Airflow is temporarily unavailable.
+- `/settings` shows intake config source, PGT-A/NIPT roots, bootstrap observed
+  discovery rows, and the `bio_intake_scan` paused state.
+- The Settings page only offers refresh/navigation actions; no unpause,
+  scan-now, or full-run action is present.
+- Confirm `bio_intake_scan` remains paused unless the user separately approves
+  enabling automatic intake.

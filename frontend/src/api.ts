@@ -235,6 +235,42 @@ export type IntakeStatusResponse = {
   items: IntakeDiscovery[];
 };
 
+export type IntakeConfigRoot = {
+  id: string;
+  container_path: string;
+};
+
+export type IntakePipelineConfig = {
+  enabled: boolean;
+  roots: IntakeConfigRoot[];
+  file_flavor?: string | null;
+  r1_pattern?: string | null;
+  r2_pattern?: string | null;
+  ignore_patterns?: string[];
+  auto_submit?: Record<string, string | number | boolean | null>;
+};
+
+export type IntakeConfigResponse = {
+  source: string;
+  defaults?: {
+    ready_rule?: string;
+    stable_scans?: number;
+    auto_submit?: boolean;
+  };
+  pipelines: Record<string, IntakePipelineConfig>;
+};
+
+export type IntakeScannerStateResponse = {
+  dag_id: string;
+  airflow_reachable: boolean;
+  is_paused: boolean | null;
+  latest_dag_run_id?: string | null;
+  latest_dag_run_state?: string | null;
+  latest_start_date?: string | null;
+  latest_end_date?: string | null;
+  message?: string | null;
+};
+
 export type DashboardPipeline = "all" | "pgta" | "nipt_docker";
 
 export type DashboardOverview = {
@@ -411,6 +447,14 @@ export function getIntakeStatus(options: {pipeline?: "pgta" | "nipt_docker"; lim
   if (options.pipeline) params.set("pipeline", options.pipeline);
   params.set("limit", String(options.limit ?? 50));
   return requestJson<IntakeStatusResponse>(`/intake/status?${params.toString()}`);
+}
+
+export function getIntakeConfig(): Promise<IntakeConfigResponse> {
+  return requestJson<IntakeConfigResponse>("/intake/config");
+}
+
+export function getIntakeScannerState(): Promise<IntakeScannerStateResponse> {
+  return requestJson<IntakeScannerStateResponse>("/intake/scanner-state");
 }
 
 export function createRun(payload: CreateRunRequest): Promise<RunDetail> {

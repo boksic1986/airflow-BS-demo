@@ -643,3 +643,37 @@ inner bioinformatics rule.
 
 Charts remain lightweight CSS/SVG, with no Recharts/D3/Ant Design dependency in
 T104. Status meaning still comes from `StatusBadge` and `frontend/src/lib/status.ts`.
+
+## 18. T105 Intake Scanner Settings Console
+
+T105 extends `/settings` with a read-only intake scanner readiness console.
+
+### Data calls
+
+The Settings intake section loads:
+
+- `GET /api/intake/config`
+- `GET /api/intake/status?limit=100`
+- `GET /api/intake/scanner-state`
+
+It does not call `POST /api/intake/scan-and-submit`, does not unpause
+`bio_intake_scan`, and does not expose any NIPT `full_run` trigger.
+
+### Display
+
+- Scanner card: `bio_intake_scan` DAG id, Airflow reachable/unavailable,
+  paused/unpaused/unknown state, latest scanner DAG run id/state/start/end.
+- Config card: sanitized `config/intake.yaml` source, ready rule, stable scan
+  count, and default auto-submit setting.
+- Root cards: PGT-A and NIPT Docker container roots, NIPT file flavor and
+  clean FASTQ patterns, and auto-submit target/run mode.
+- Discovery cards: recent `intake_discovery` rows with
+  `Bootstrap observed`, `Observed`, `Stable ready`, `Auto-submitted`,
+  `Disabled`, or `Error`.
+
+### Product boundary
+
+This page is an operator visibility surface before enabling automatic intake.
+It intentionally provides only `Refresh`, `View Dashboard`, and `View Runs`
+actions. Airflow DAG unpause and bootstrap/scan actions remain runbook-driven
+until explicitly approved.

@@ -56,6 +56,33 @@ def test_airflow_client_lists_and_gets_dag_runs() -> None:
     ]
 
 
+def test_airflow_client_reads_dag_metadata_and_ordered_latest_dag_run() -> None:
+    seen_requests: list[tuple[str, dict[str, str]]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_requests.append((request.url.path, dict(request.url.params)))
+        if request.url.path.endswith("/bio_intake_scan"):
+            return httpx.Response(200, json={"dag_id": "bio_intake_scan", "is_paused": True})
+        return httpx.Response(200, json={"dag_runs": [{"dag_run_id": "scheduled__latest", "state": "success"}]})
+
+    client = AirflowClient(
+        base_url="http://airflow-api-server:8080",
+        username="admin",
+        password="secret",
+        transport=httpx.MockTransport(handler),
+    )
+
+    dag_payload = client.get_dag("bio_intake_scan")
+    latest_payload = client.list_dag_runs("bio_intake_scan", limit=1, order_by="-start_date")
+
+    assert dag_payload["is_paused"] is True
+    assert latest_payload["dag_runs"][0]["dag_run_id"] == "scheduled__latest"
+    assert seen_requests == [
+        ("/api/v1/dags/bio_intake_scan", {}),
+        ("/api/v1/dags/bio_intake_scan/dagRuns", {"limit": "1", "order_by": "-start_date"}),
+    ]
+
+
 def test_airflow_client_lists_task_instances_for_dag_run() -> None:
     seen_raw_paths: list[str] = []
 

@@ -36,6 +36,122 @@
 
 ## Records
 
+## 2026-07-08 20:12 - Codex - T105 Intake settings and scanner readiness console
+
+### Goal
+
+Add a read-only Settings intake console that shows sanitized `config/intake.yaml`,
+bootstrap discovery state, and whether Airflow `bio_intake_scan` is paused,
+without exposing unpause, scan-now, or NIPT full-run actions.
+
+### Completed
+
+- Added `AirflowClient.get_dag()` and optional `order_by` for
+  `list_dag_runs()`.
+- Added `GET /api/intake/scanner-state`, which reads Airflow REST DAG metadata
+  and latest DAG run, and returns a degraded payload if Airflow is unavailable.
+- Added Settings Intake Scanner console with config summary, scanner DAG state,
+  configured PGT-A/NIPT roots, and recent discovery records.
+- Extracted intake discovery status display mapping into
+  `frontend/src/lib/intake.ts` and reused it from Dashboard/Settings.
+- Updated API/frontend/runbook docs, task/state docs, and manifest.
+
+### Changed files
+
+- `backend/app/airflow_client.py`
+- `backend/app/main.py`
+- `backend/tests/test_airflow_client.py`
+- `backend/tests/test_intake_config.py`
+- `frontend/src/api.ts`
+- `frontend/src/lib/intake.ts`
+- `frontend/src/pages/DashboardPage.tsx`
+- `frontend/src/pages/SettingsPage.tsx`
+- `frontend/src/styles.css`
+- `frontend/src/App.test.tsx`
+- `docs/05_API_CONTRACT.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `MANIFEST.json`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git switch -c codex/intake/T105-intake-settings-console` | success | Created local T105 branch in the T096 worktree |
+| `python -m pytest ...` | failed | Local `python` is Windows Store shim with no output; not acceptance evidence |
+| `py -3 -m pytest backend/tests/test_airflow_client.py backend/tests/test_intake_config.py -q` | failed | Local Python lacks `httpx` and `fastapi`; remote Docker pytest used for acceptance |
+| `npm test -- --run src/App.test.tsx -t "read-only intake"` | failed | Local Windows has no `npm`; remote Docker frontend test used for acceptance |
+| `py -3 -m py_compile backend/app/airflow_client.py backend/app/main.py` | success | Local syntax-only check |
+| `git diff --check` | success | Local whitespace check |
+| manifest consistency check | success | `file_count=187`, listed files `187`, missing `0` |
+| remote `docker compose -f docker-compose.yaml config --quiet` | success | No compose changes required by T105 |
+| remote backend Docker targeted pytest | success | 10 tests passed: `test_airflow_client.py`, `test_intake_config.py` |
+| remote `docker build --target test -f frontend/Dockerfile frontend` | success | 11 Vitest tests passed |
+| remote `docker compose -f docker-compose.yaml build backend frontend` | success | Frontend production build ran `tsc -b && vite build` |
+| remote `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend frontend` | success | Did not touch Postgres, Redis, volumes, Airflow services, or intake pause state |
+| `curl -fsSI http://127.0.0.1:12959/` | success | HTTP 200 |
+| `GET /api/health` and `/api/health/airflow` | success | Backend ok; Airflow metadatabase and scheduler healthy |
+| `GET /api/intake/config` | success | Returned source `/app/config/intake.yaml`, PGT-A and NIPT Docker config |
+| `GET /api/intake/status?limit=20` | success | Returned bootstrap observed records; no auto-submit triggered |
+| `GET /api/intake/scanner-state` | success | `airflow_reachable=true`, `is_paused=true`, no latest DAG run yet |
+| `airflow dags list \| grep bio_intake_scan` | success | Final column `True`; DAG remains paused |
+
+### Tests
+
+Remote acceptance passed on `ssh fengxian`. T105 did not submit any new
+analysis run, did not call `/api/intake/scan-and-submit` from the frontend, did
+not unpause `bio_intake_scan`, and did not run NIPT `full_run`.
+
+### Not run / why
+
+- `npm run lint` was not run because `frontend/package.json` has no lint script.
+- Local pytest/frontend runtime checks were not used as acceptance evidence
+  because local Windows lacks required Python/Node dependencies and AGENTS.md
+  requires runtime validation on `ssh fengxian`.
+- Airflow DAG import tests were not rerun because T105 did not modify DAG files.
+- NIPT `full_run` was not run; it remains guarded by
+  `NIPT_ALLOW_HEAVY_RUN=false` and needs explicit approval.
+
+### Current git status
+
+Local worktree is `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+on `codex/intake/T105-intake-settings-console` with T105 changes pending commit.
+Remote `/home/jiucheng/project/airflow-demo` has the T105 overlay deployed for
+runtime validation and still contains the earlier uncommitted deployment overlay.
+
+### Risks
+
+- The Settings page is intentionally read-only; enabling automatic intake still
+  requires operator review and an explicit Airflow unpause outside the UI.
+- `/api/intake/scanner-state` depends on Airflow REST. If Airflow is
+  temporarily unavailable, the endpoint returns `airflow_reachable=false` rather
+  than failing Settings.
+- The remote mirror remains an uncommitted overlay branch from prior frontend
+  work; avoid `git reset`, `git checkout`, or broad overwrites there.
+
+### Open questions
+
+- Whether operators want a future authenticated admin-only action to run
+  bootstrap or unpause `bio_intake_scan` from the UI.
+- Whether to expose Docker container stats to backend, or keep the current
+  `host_proc` resource telemetry fallback.
+
+### Next recommended task
+
+Run an operator review of `/settings` and `/api/intake/status`, then either keep
+`bio_intake_scan` paused for manual demo mode or plan a separate, explicit
+auto-intake enablement task. `T082` rollback/cleanup runbook is also still todo.
+
+### Rollback notes
+
+Revert T105 files and recreate backend/frontend. Do not delete Postgres, Docker
+volumes, `shared/runs`, PGT-A rawdata, or NIPT source folders. Keep
+`bio_intake_scan` paused during rollback unless the user separately approves
+automatic intake.
+
 ## 2026-07-08 17:10 - Codex - T104 Dashboard performance, observability, and intake config
 
 ### Goal

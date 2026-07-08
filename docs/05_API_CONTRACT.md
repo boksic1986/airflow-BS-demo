@@ -951,3 +951,44 @@ GET /api/intake/config
 Returns the sanitized `config/intake.yaml` state. `host_path` is not returned to
 the browser. Environment scan roots are fallback only when `INTAKE_CONFIG_PATH`
 is missing or unreadable.
+
+### Intake Scanner State
+
+```http
+GET /api/intake/scanner-state
+```
+
+T105 adds a read-only scanner readiness endpoint for Settings. It reads Airflow
+through the REST API, not the Airflow metadata DB, and reports whether
+`bio_intake_scan` is paused plus the latest scanner DAG run.
+
+Response:
+
+```json
+{
+  "dag_id": "bio_intake_scan",
+  "airflow_reachable": true,
+  "is_paused": true,
+  "latest_dag_run_id": "scheduled__2026-07-08T17:00:00+08:00",
+  "latest_dag_run_state": "success",
+  "latest_start_date": "2026-07-08T17:00:01+08:00",
+  "latest_end_date": "2026-07-08T17:00:05+08:00",
+  "message": null
+}
+```
+
+If Airflow is unavailable, this endpoint still returns HTTP 200 with a degraded
+payload so the Settings page can render the rest of intake configuration:
+
+```json
+{
+  "dag_id": "bio_intake_scan",
+  "airflow_reachable": false,
+  "is_paused": null,
+  "latest_dag_run_id": null,
+  "latest_dag_run_state": null,
+  "latest_start_date": null,
+  "latest_end_date": null,
+  "message": "Airflow scanner state unavailable"
+}
+```

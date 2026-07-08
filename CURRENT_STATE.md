@@ -5,7 +5,7 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T104 Dashboard aggregation, paginated run tracker, resource telemetry, and config/intake.yaml are the current deployment target.
+current_goal_ascii: T105 Intake Settings read-only scanner readiness console is deployed; bio_intake_scan remains paused pending operator approval.
 当前阶段: P3/P4/P6 Airflow + Snakemake/qsub mock observability + PGT-A Level 4 staged integration
 当前目标: T100 PGT-A submit 后 Airflow 状态自动回写已部署；当前前端展示收敛为 PGT-A-only，Dashboard 以 project/run 为主轴展示 PGT-A 运行状态、进度估算和 Airflow handoff，Submit Task 默认 create+submit 到 Airflow 并主动 sync Airflow 终态。
 最近更新时间: 2026-07-08
@@ -33,7 +33,7 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/dashboard/T104-dashboard-intake-config in local worktree; fengxian mirror receives the same T104 overlay for runtime validation
+active_branch: codex/intake/T105-intake-settings-console in local worktree; fengxian mirror should receive the same T105 overlay for runtime validation
 last_verified_code_commit: 3310134 for T095 runtime; T080/T081 is docs-only and used read-only runtime validation before the report update
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T080/T081 used read-only runtime validation on mirror at 3310134 before docs update
@@ -43,8 +43,8 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T080/T0
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 12959 | running after T104 redeploy | React/Vite PGT-A + NIPT Docker routed UI served by Docker nginx image `airflow-demo/frontend:0.1.0`; Dashboard is now pipeline-driven with aggregate overview, 10-row paginated Run Tracker, intake scanner state, resource tabs, and workflow activity; Submit Task still uses server-path scan for both PGT-A and NIPT Docker; host 3000 is occupied by non-project next-server |
-| backend | 8000 | running, healthy after T104 redeploy | `/api/health`, `/api/health/db`, `/api/input/roots`, `/api/input/scan`, `/api/intake/status`, `/api/intake/config`, `/api/intake/scan-and-submit`, `/api/dashboard/overview`, `/api/dashboard/runs`, `/api/system/resources`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and `/api/runs/{analysis_id}/progress` are available; scanner roots come from `config/intake.yaml` with env fallback; image `airflow-demo/backend:0.1.0`; container `TZ=Asia/Shanghai` |
+| frontend | 12959 | running after T105 redeploy | React/Vite PGT-A + NIPT Docker routed UI served by Docker nginx image `airflow-demo/frontend:0.1.0`; Dashboard is pipeline-driven with aggregate overview, 10-row paginated Run Tracker, intake scanner state, resource tabs, and workflow activity; Settings now includes a read-only Intake Scanner console backed by config/status/scanner-state APIs; Submit Task still uses server-path scan for both PGT-A and NIPT Docker; host 3000 is occupied by non-project next-server |
+| backend | 8000 | running, healthy after T105 redeploy | `/api/health`, `/api/health/db`, `/api/input/roots`, `/api/input/scan`, `/api/intake/status`, `/api/intake/config`, `/api/intake/scanner-state`, `/api/intake/scan-and-submit`, `/api/dashboard/overview`, `/api/dashboard/runs`, `/api/system/resources`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and `/api/runs/{analysis_id}/progress` are available; scanner roots come from `config/intake.yaml` with env fallback; image `airflow-demo/backend:0.1.0`; container `TZ=Asia/Shanghai` |
 | airflow web/api | 12958 | running; `PGTA_20260706_162150_00C4FD` final resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` ended `success` after T095 `LD_PRELOAD` fix; previous T095-only-`LD_LIBRARY_PATH` attempt `manual__PGTA_20260706_162150_00C4FD__resume__20260707T143132Z` failed preflight | project image `airflow-demo/airflow:0.1.0`; Airflow core/UI timezone is `Asia/Shanghai`; T095 sets run-local `XDG_CACHE_HOME`, `MPLCONFIGDIR`, `LD_LIBRARY_PATH=PGTA_CONDA_LIB`, and `LD_PRELOAD=PGTA_LIBSTDCXX`; `logs/pgta.python_preflight.log` records env header and import versions |
 | postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow metadata initialized; no host port published |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
@@ -72,11 +72,11 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 ## 7. 最近测试结果
 
 ```text
-last_backend_tests: remote Dockerized pytest on fengxian for T103 passed, 25 tests; covered PGT-A/NIPT input scanner, input roots/scan API, intake discovery idempotency, NIPT scanned run creation, models metadata, progress, and Airflow client
-last_frontend_tests: remote Dockerized frontend test target on fengxian for T103 passed, 10 Vitest tests; covers Dashboard tracker + intake panel, PGT-A and NIPT scanned-batch Submit flows, Run Detail progress, Samples/Workflows/Failures deployed scopes, and absence of NIPT template selector
+last_backend_tests: remote Dockerized pytest on fengxian for T105 passed, 10 tests; covered AirflowClient dag metadata/latest run support, sanitized intake config, and `/api/intake/scanner-state` normal/degraded payloads
+last_frontend_tests: remote Dockerized frontend test target on fengxian for T105 passed, 11 Vitest tests; covers Dashboard tracker + intake panel, PGT-A and NIPT scanned-batch Submit flows, Run Detail progress, Samples/Workflows/Failures deployed scopes, and Settings read-only Intake Scanner console
 last_dag_import_tests: passed on fengxian for T103; Airflow scheduler `dags list-import-errors` returned `No data found`; Airflow system Python unittest passed 4 DAG tests for `bio_intake_scan` and `bio_nipt_docker`; runner venv unittest passed 12 NIPT/progress event tests
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
-last_compose_config: passed on fengxian for T103 with `docker compose -f docker-compose.yaml config --quiet`; backend, airflow-worker, airflow-scheduler, and frontend images rebuilt; frontend production build ran `tsc -b && vite build`; backend/scheduler/worker/frontend recreated without deleting volumes; `http://127.0.0.1:12959/` returned HTTP 200
+last_compose_config: passed on fengxian for T105 with `docker compose -f docker-compose.yaml config --quiet`; backend and frontend images rebuilt; frontend production build ran `tsc -b && vite build`; backend/frontend recreated without deleting volumes; `http://127.0.0.1:12959/` returned HTTP 200; `/api/intake/scanner-state` returned `airflow_reachable=true,is_paused=true`; `bio_intake_scan` final column remained `True`
 last_minimal_smoke: passed on fengxian for postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
 last_airflow_health: passed on fengxian at http://127.0.0.1:12958/health with healthy metadatabase and scheduler
 last_biodemo_migration: `biodemo-db-init` first run created role/database, repeat run succeeded; T103 `alembic upgrade head` applied 20260708_0002 `intake_discovery`

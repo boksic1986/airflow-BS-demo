@@ -39,6 +39,7 @@ from app.system_resources import get_system_resources
 
 
 logger = logging.getLogger(__name__)
+INTAKE_SCANNER_DAG_ID = "bio_intake_scan"
 
 app = FastAPI(title="airflow-demo backend")
 app.add_middleware(
@@ -181,6 +182,42 @@ def input_roots(pipeline: str = Query(pattern="^(pgta|nipt_docker)$")) -> dict[s
 @app.get("/api/intake/config")
 def intake_config() -> dict[str, object]:
     return _load_intake_config(get_settings()).public_payload()
+
+
+@app.get("/api/intake/scanner-state")
+def intake_scanner_state() -> dict[str, object]:
+    try:
+        airflow_client = get_airflow_client()
+        dag_payload = airflow_client.get_dag(INTAKE_SCANNER_DAG_ID)
+        dag_runs_payload = airflow_client.list_dag_runs(
+            INTAKE_SCANNER_DAG_ID,
+            limit=1,
+            order_by="-start_date",
+        )
+    except Exception:
+        logger.exception("intake scanner Airflow state unavailable")
+        return {
+            "dag_id": INTAKE_SCANNER_DAG_ID,
+            "airflow_reachable": False,
+            "is_paused": None,
+            "latest_dag_run_id": None,
+            "latest_dag_run_state": None,
+            "latest_start_date": None,
+            "latest_end_date": None,
+            "message": "Airflow scanner state unavailable",
+        }
+
+    latest_run = _latest_dag_run(dag_runs_payload)
+    return {
+        "dag_id": str(dag_payload.get("dag_id") or INTAKE_SCANNER_DAG_ID),
+        "airflow_reachable": True,
+        "is_paused": dag_payload.get("is_paused"),
+        "latest_dag_run_id": latest_run.get("dag_run_id") if latest_run else None,
+        "latest_dag_run_state": latest_run.get("state") if latest_run else None,
+        "latest_start_date": latest_run.get("start_date") if latest_run else None,
+        "latest_end_date": latest_run.get("end_date") if latest_run else None,
+        "message": None,
+    }
 
 
 @app.post("/api/runs", status_code=status.HTTP_201_CREATED)
@@ -631,6 +668,14 @@ def _load_intake_config(settings):
         fallback_pgta_roots=list(getattr(settings, "pgta_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or []),
         fallback_nipt_roots=list(getattr(settings, "nipt_input_scan_roots", []) or []),
     )
+
+
+def _latest_dag_run(payload: dict[str, object]) -> dict[str, object] | None:
+    dag_runs = payload.get("dag_runs")
+    if not isinstance(dag_runs, list) or not dag_runs:
+        return None
+    latest = dag_runs[0]
+    return latest if isinstance(latest, dict) else None
 
 
 def _scan_result_payload(result) -> dict[str, object]:
