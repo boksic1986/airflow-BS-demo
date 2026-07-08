@@ -235,6 +235,39 @@ export type IntakeStatusResponse = {
   items: IntakeDiscovery[];
 };
 
+export type IntakeScanPreviewItem = {
+  pipeline: string;
+  root_path: string;
+  batch_id: string;
+  source_dir: string;
+  fingerprint: string;
+  file_count: number;
+  total_bytes: number;
+  max_mtime?: string | null;
+  existing_ready_state?: string | null;
+  existing_submit_state?: string | null;
+  existing_analysis_id?: string | null;
+  would_transition_to: string;
+  would_create_run: boolean;
+  would_submit: boolean;
+  auto_submit_enabled: boolean;
+  reason: string;
+};
+
+export type IntakeScanPreviewResponse = {
+  items: IntakeScanPreviewItem[];
+  summary: {
+    total_batches: number;
+    new_observed: number;
+    stable_ready: number;
+    bootstrap_protected: number;
+    would_create: number;
+    would_submit: number;
+    blocked_auto_submit: number;
+    errors: number;
+  };
+};
+
 export type IntakeConfigRoot = {
   id: string;
   container_path: string;
@@ -436,6 +469,14 @@ export function getInputRoots(pipeline: "pgta" | "nipt_docker"): Promise<InputRo
 
 export function scanAndSubmitIntake(payload: {pipelines: Array<"pgta" | "nipt_docker">; bootstrap?: boolean; max_samples?: number}): Promise<IntakeStatusResponse> {
   return requestJson<IntakeStatusResponse>("/intake/scan-and-submit", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  });
+}
+
+export function previewIntakeScan(payload: {pipelines: Array<"pgta" | "nipt_docker">; bootstrap?: boolean; max_samples?: number}): Promise<IntakeScanPreviewResponse> {
+  return requestJson<IntakeScanPreviewResponse>("/intake/scan-preview", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(payload),

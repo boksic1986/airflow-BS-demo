@@ -847,8 +847,12 @@ Content-Type: application/json
 Rules:
 
 - First sighting of a batch records `ready_state=observed` and does not submit.
-- A second scan with the same fingerprint marks the batch `ready` and creates
-  and submits one run if `submit_state` is not already `submitted`.
+- A second scan with the same fingerprint marks the batch `ready`.
+- Automatic create+submit only happens when `config/intake.yaml` has both
+  `defaults.auto_submit=true` and the matching
+  `pipelines.<name>.auto_submit.enabled=true`.
+- When auto-submit is disabled, the endpoint may update discovery state but
+  must not create an `analysis_run` or trigger Airflow.
 - `bootstrap=true` records existing batches as observed/bootstrap so historical
   data is not automatically re-run during deployment.
 - PGT-A auto intake uses target `metadata`; NIPT Docker auto intake uses
@@ -990,5 +994,63 @@ payload so the Settings page can render the rest of intake configuration:
   "latest_start_date": null,
   "latest_end_date": null,
   "message": "Airflow scanner state unavailable"
+}
+```
+
+### Intake Scan Preview
+
+```http
+POST /api/intake/scan-preview
+Content-Type: application/json
+```
+
+T106 adds a dry-run scanner preview for operator review before unpausing
+`bio_intake_scan`. It scans configured roots and compares the result with
+`intake_discovery`, but it must not write discovery rows, create runs, or call
+Airflow.
+
+Request:
+
+```json
+{
+  "pipelines": ["pgta", "nipt_docker"],
+  "bootstrap": false,
+  "max_samples": 200
+}
+```
+
+Response:
+
+```json
+{
+  "summary": {
+    "total_batches": 2,
+    "new_observed": 0,
+    "stable_ready": 1,
+    "bootstrap_protected": 1,
+    "would_create": 0,
+    "would_submit": 0,
+    "blocked_auto_submit": 1,
+    "errors": 0
+  },
+  "items": [
+    {
+      "pipeline": "nipt_docker",
+      "root_path": "/opt/pipelines/NIPT/fastq",
+      "batch_id": "FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2",
+      "source_dir": "/opt/pipelines/NIPT/fastq/FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2",
+      "fingerprint": "sha256...",
+      "file_count": 4,
+      "total_bytes": 402,
+      "existing_ready_state": "observed",
+      "existing_submit_state": "not_submitted",
+      "existing_analysis_id": null,
+      "would_transition_to": "ready",
+      "would_create_run": false,
+      "would_submit": false,
+      "auto_submit_enabled": false,
+      "reason": "auto_submit_disabled"
+    }
+  ]
 }
 ```

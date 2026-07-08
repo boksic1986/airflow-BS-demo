@@ -12,6 +12,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.input_scanner import FastqCandidate, InputPathError, ensure_allowed_path
+from app.intake_config import load_intake_config
 from app.models import AnalysisRun, RunAction, Sample
 
 
@@ -1043,6 +1044,14 @@ def _nipt_template_samples(template_id: str) -> list[dict[str, str]]:
 
 
 def _nipt_input_roots(settings) -> list[str]:
+    config = load_intake_config(
+        path=getattr(settings, "intake_config_path", None),
+        fallback_pgta_roots=list(getattr(settings, "pgta_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or []),
+        fallback_nipt_roots=list(getattr(settings, "nipt_input_scan_roots", []) or []),
+    )
+    roots = config.roots_for_pipeline("nipt_docker")
+    if roots:
+        return roots
     return list(getattr(settings, "nipt_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or [])
 
 

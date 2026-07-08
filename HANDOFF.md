@@ -36,6 +36,120 @@
 
 ## Records
 
+## 2026-07-08 20:47 - Codex - T106 Intake dry-run preview and auto-submit gating
+
+### Goal
+
+Add a read-only intake dry-run preview and make automatic intake submit obey
+explicit config gates before any future `bio_intake_scan` unpause.
+
+### Completed
+
+- Added `POST /api/intake/scan-preview`, which scans configured PGT-A/NIPT roots
+  and returns per-batch dry-run decisions without DB writes, run creation, or
+  Airflow submit.
+- Changed `scan-and-submit` so stable batches only create/submit when
+  `defaults.auto_submit=true` and
+  `pipelines.<name>.auto_submit.enabled=true`.
+- Updated default `config/intake.yaml` so PGT-A and NIPT Docker auto-submit
+  gates are explicitly disabled.
+- Changed NIPT run creation root validation to read `config/intake.yaml` roots
+  with env fallback, matching scanner behavior.
+- Added Settings dry-run preview UI and frontend API types while keeping the
+  page free of unpause, scan-now-submit, and full-run actions.
+- Updated API/frontend/runbook docs, task/state docs, and remote deployment.
+
+### Changed files
+
+- `backend/app/intake_config.py`
+- `backend/app/intake_service.py`
+- `backend/app/main.py`
+- `backend/app/run_service.py`
+- `backend/tests/test_intake_service.py`
+- `config/intake.yaml`
+- `frontend/src/api.ts`
+- `frontend/src/pages/SettingsPage.tsx`
+- `frontend/src/styles.css`
+- `frontend/src/App.test.tsx`
+- `docs/05_API_CONTRACT.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git switch -c codex/intake/T106-intake-dry-run-gating` | success | Created local T106 branch in the T096 worktree |
+| `py -3 -m pytest backend/tests/test_intake_service.py -q` | failed | Local Windows Python lacks `fastapi`; not acceptance evidence |
+| `py -3 -m py_compile backend/app/intake_config.py backend/app/intake_service.py backend/app/main.py` | success | Local syntax-only check before remote tests |
+| `git diff --check` | success | Local whitespace check before remote deployment |
+| remote `docker compose -f docker-compose.yaml config --quiet` | success | No unsafe volume deletion or DAG unpause |
+| remote backend Docker targeted pytest | success | 8 passed: `test_intake_service.py`, `test_intake_config.py` |
+| remote `docker build --target test -f frontend/Dockerfile frontend` | success | 11 Vitest tests passed |
+| remote `docker compose -f docker-compose.yaml build backend frontend` | success | Frontend production build ran `tsc -b && vite build` |
+| remote `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend frontend` | success | Recreated only backend and frontend; did not touch volumes or Airflow pause state |
+| `curl -fsSI http://127.0.0.1:12959/` | success | HTTP 200 |
+| `GET /api/health` and `/api/health/airflow` | success | Backend ok; Airflow metadatabase and scheduler healthy |
+| `GET /api/intake/config` | success | Global and PGT-A/NIPT pipeline auto-submit gates disabled |
+| `POST /api/intake/scan-preview` | success | `total_batches=21`, `would_submit=0` |
+| preview before/after state comparison | success | intake discovery stayed `21/21`; NIPT run total stayed `5/5` |
+| `airflow dags list \| grep bio_intake_scan` | success | Final column `True`; DAG remains paused |
+
+### Tests
+
+Remote acceptance passed on `ssh fengxian`. T106 did not submit any new PGT-A or
+NIPT run, did not call `/api/intake/scan-and-submit` from the frontend, did not
+unpause `bio_intake_scan`, and did not run NIPT `full_run`.
+
+### Not run / why
+
+- `npm run lint` was not run because `frontend/package.json` has no lint script.
+- Local pytest/frontend runtime checks were not used as acceptance evidence
+  because local Windows lacks required Python/Node dependencies and AGENTS.md
+  requires runtime validation on `ssh fengxian`.
+- Airflow DAG import tests were not rerun because T106 did not modify DAG files.
+- NIPT `full_run` was not run; it remains guarded by
+  `NIPT_ALLOW_HEAVY_RUN=false` and needs explicit approval.
+
+### Current git status
+
+Local worktree is `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+on `codex/intake/T106-intake-dry-run-gating` with T106 changes pending commit.
+Remote `/home/jiucheng/project/airflow-demo` has the T106 overlay deployed for
+runtime validation and still contains the earlier uncommitted deployment overlay.
+
+### Risks
+
+- Automatic intake is still disabled by config and `bio_intake_scan` remains
+  paused. Enabling it requires a separate explicit T107 rollout.
+- `/api/intake/scan-preview` scans real configured source roots; keep
+  `max_samples` conservative for operator previews.
+- The remote mirror remains an uncommitted overlay branch from prior frontend
+  work; avoid `git reset`, `git checkout`, or broad overwrites there.
+
+### Open questions
+
+- Whether T107 should enable only discovery-only scheduled scans first, or
+  also enable create+submit for PGT-A metadata / NIPT mount_smoke.
+- Whether operators want marker-file ready rules before any production-like
+  continuous auto intake.
+
+### Next recommended task
+
+Plan T107 only if the user explicitly approves enabling automatic intake.
+Otherwise, T082 rollback/cleanup runbook remains the safest next housekeeping
+task.
+
+### Rollback notes
+
+Revert T106 files and recreate backend/frontend. Do not delete Postgres, Docker
+volumes, `shared/runs`, PGT-A rawdata, or NIPT source folders. Keep
+`bio_intake_scan` paused during rollback unless the user separately approves
+automatic intake.
+
 ## 2026-07-08 20:12 - Codex - T105 Intake settings and scanner readiness console
 
 ### Goal

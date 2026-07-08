@@ -5,6 +5,7 @@ import type {
   IntakeConfigResponse,
   IntakeDiscovery,
   IntakePipelineConfig,
+  IntakeScanPreviewResponse,
   IntakeScannerStateResponse,
 } from "../api";
 
@@ -13,6 +14,7 @@ import {
   getIntakeConfig,
   getIntakeScannerState,
   getIntakeStatus,
+  previewIntakeScan,
 } from "../api";
 import {StatusBadge} from "../components/StatusBadge";
 import {errorMessage} from "../lib/errors";
@@ -27,8 +29,11 @@ type IntakeSettingsState = {
 
 export function SettingsPage() {
   const [state, setState] = useState<IntakeSettingsState>({config: null, discoveries: [], scanner: null});
+  const [preview, setPreview] = useState<IntakeScanPreviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const loadIntakeSettings = useCallback(async () => {
     setLoading(true);
@@ -44,6 +49,19 @@ export function SettingsPage() {
       setError(errorMessage(err));
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const loadPreview = useCallback(async () => {
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const payload = await previewIntakeScan({pipelines: ["pgta", "nipt_docker"], max_samples: 200});
+      setPreview(payload);
+    } catch (err) {
+      setPreviewError(errorMessage(err));
+    } finally {
+      setPreviewLoading(false);
     }
   }, []);
 
@@ -97,6 +115,9 @@ export function SettingsPage() {
           <div className="panel-actions">
             <Link className="button ghost" to="/dashboard">View Dashboard</Link>
             <Link className="button ghost" to="/runs">View Runs</Link>
+            <button className="button ghost" type="button" onClick={loadPreview} aria-label="Preview configured intake roots">
+              Preview configured roots
+            </button>
             <button className="button" type="button" onClick={loadIntakeSettings} aria-label="Refresh intake scanner">
               Refresh
             </button>
@@ -105,19 +126,28 @@ export function SettingsPage() {
 
         {loading ? <p className="empty-state">Loading intake scanner settings...</p> : null}
         {error ? <p className="error-text">{error}</p> : null}
-        {!loading && !error ? <IntakeSettingsContent {...state} /> : null}
+        {!loading && !error ? <IntakeSettingsContent {...state} preview={preview} previewLoading={previewLoading} previewError={previewError} /> : null}
       </section>
     </div>
   );
 }
 
-function IntakeSettingsContent({config, discoveries, scanner}: IntakeSettingsState) {
+function IntakeSettingsContent({
+  config,
+  discoveries,
+  scanner,
+  preview,
+  previewLoading,
+  previewError,
+}: IntakeSettingsState & {preview: IntakeScanPreviewResponse | null; previewLoading: boolean; previewError: string | null}) {
   return (
     <div className="intake-settings-stack">
       <div className="intake-settings-grid">
         <ScannerStateCard scanner={scanner} />
         <ConfigSummaryCard config={config} />
       </div>
+
+      <PreviewCard preview={preview} loading={previewLoading} error={previewError} />
 
       <div className="section-heading tight">
         <h3>Configured roots</h3>
@@ -153,6 +183,53 @@ function IntakeSettingsContent({config, discoveries, scanner}: IntakeSettingsSta
         })}
         {discoveries.length === 0 ? <p className="empty-state">No intake discovery records yet.</p> : null}
       </div>
+    </div>
+  );
+}
+
+function PreviewCard({preview, loading, error}: {preview: IntakeScanPreviewResponse | null; loading: boolean; error: string | null}) {
+  const summary = preview?.summary;
+  return (
+    <div className="settings-status-card intake-preview-card">
+      <div className="section-heading tight">
+        <div>
+          <h3>Dry-run scan preview</h3>
+          <p>Read-only preview: no DB writes, no run creation, and no Airflow submit.</p>
+        </div>
+        <StatusBadge status={summary?.would_submit ? "warning" : "success"} size="sm" />
+      </div>
+      {loading ? <p className="empty-state">Previewing configured roots...</p> : null}
+      {error ? <p className="error-text">{error}</p> : null}
+      {!loading && !error && !preview ? (
+        <p className="empty-state">Use Preview configured roots to see what automatic intake would do before unpausing Airflow.</p>
+      ) : null}
+      {summary ? (
+        <>
+          <div className="settings-mini-grid preview-summary-grid">
+            <span>batches</span><strong>{summary.total_batches}</strong>
+            <span>stable ready</span><strong>{summary.stable_ready}</strong>
+            <span>would create</span><strong>{summary.would_create}</strong>
+            <span>would submit</span><strong>{summary.would_submit}</strong>
+            <span>blocked by config</span><strong>{summary.blocked_auto_submit}</strong>
+            <span>bootstrap protected</span><strong>{summary.bootstrap_protected}</strong>
+          </div>
+          <div className="settings-preview-list">
+            {preview.items.slice(0, 8).map((item) => (
+              <div className="settings-preview-row" key={`${item.pipeline}-${item.root_path}-${item.batch_id}`}>
+                <div>
+                  <strong>{item.batch_id}</strong>
+                  <span>{pipelineLabel(item.pipeline)} · {reasonLabel(item.reason)}</span>
+                </div>
+                <div className="settings-preview-flags">
+                  <span>{item.would_transition_to}</span>
+                  <span>{item.would_create_run ? "would create" : "no create"}</span>
+                  <span>{item.would_submit ? "would submit" : "no submit"}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -234,4 +311,16 @@ function formatAutoSubmit(value?: Record<string, string | number | boolean | nul
   return Object.entries(value)
     .map(([key, item]) => `${key}: ${String(item)}`)
     .join(", ");
+}
+
+function reasonLabel(reason: string): string {
+  const labels: Record<string, string> = {
+    new_batch_observed: "new batch would be observed",
+    fingerprint_changed: "fingerprint changed; would observe again",
+    bootstrap_protected: "bootstrap protected",
+    already_submitted: "already auto-submitted",
+    auto_submit_enabled: "auto-submit enabled",
+    auto_submit_disabled: "auto-submit disabled by config",
+  };
+  return labels[reason] || reason;
 }

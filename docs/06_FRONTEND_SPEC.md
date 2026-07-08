@@ -677,3 +677,22 @@ This page is an operator visibility surface before enabling automatic intake.
 It intentionally provides only `Refresh`, `View Dashboard`, and `View Runs`
 actions. Airflow DAG unpause and bootstrap/scan actions remain runbook-driven
 until explicitly approved.
+
+## 19. T106 Intake Dry-run Preview
+
+T106 keeps Settings read-only but adds a safe preview action for configured
+roots:
+
+- `Preview configured roots` calls `POST /api/intake/scan-preview`.
+- The button is a dry-run preview, not a submit action; it must not call
+  `POST /api/intake/scan-and-submit`.
+- The preview panel displays summary counts for total batches, stable ready,
+  would create, would submit, blocked by config, and bootstrap protected.
+- Each preview row shows pipeline, batch id, planned transition, create/submit
+  booleans, and reason such as `auto_submit_disabled` or
+  `bootstrap_protected`.
+- The page still must not expose Unpause, Scan now submit, or NIPT full-run
+  buttons.
+- If `bio_intake_scan` is unpaused later while `auto_submit` remains disabled,
+  Settings should make it clear that the scanner can discover batches but
+  automatic create+submit is blocked by config.

@@ -54,6 +54,12 @@ class IntakeConfig:
             return []
         return [root.container_path for root in pipeline.roots]
 
+    def auto_submit_enabled(self, name: str) -> bool:
+        pipeline = self.pipelines.get(name)
+        if pipeline is None:
+            return False
+        return self.defaults.auto_submit and _bool_value(pipeline.auto_submit.get("enabled"), default=False)
+
     def public_payload(self) -> dict[str, Any]:
         return {
             "version": self.version,
@@ -71,7 +77,11 @@ class IntakeConfig:
                     "r1_pattern": pipeline.r1_pattern,
                     "r2_pattern": pipeline.r2_pattern,
                     "ignore_patterns": pipeline.ignore_patterns,
-                    "auto_submit": pipeline.auto_submit,
+                    "auto_submit": {
+                        **pipeline.auto_submit,
+                        "enabled": self.auto_submit_enabled(name),
+                        "pipeline_enabled": _bool_value(pipeline.auto_submit.get("enabled"), default=False),
+                    },
                 }
                 for name, pipeline in self.pipelines.items()
             },
@@ -134,7 +144,7 @@ def _fallback_config(*, fallback_pgta_roots: list[str], fallback_nipt_roots: lis
                 name="pgta",
                 enabled=True,
                 roots=[IntakeRoot(id=f"pgta_root_{index + 1}", container_path=root) for index, root in enumerate(fallback_pgta_roots)],
-                auto_submit={"target": "metadata"},
+                auto_submit={"enabled": False, "target": "metadata"},
             ),
             "nipt_docker": IntakePipelineConfig(
                 name="nipt_docker",
@@ -144,7 +154,7 @@ def _fallback_config(*, fallback_pgta_roots: list[str], fallback_nipt_roots: lis
                 r1_pattern="*.R1.clean.fastq.gz",
                 r2_pattern="*.R2.clean.fastq.gz",
                 ignore_patterns=["002/*.adapter.fastq.gz"],
-                auto_submit={"run_mode": "mount_smoke"},
+                auto_submit={"enabled": False, "run_mode": "mount_smoke"},
             ),
         },
     )

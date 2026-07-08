@@ -1150,6 +1150,65 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.intake-preview-card {
+  display: grid;
+  gap: 12px;
+}
+
+.preview-summary-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.preview-summary-grid span,
+.preview-summary-grid strong {
+  border-top: 1px solid #e7edf4;
+  padding-top: 8px;
+}
+
+.settings-preview-list {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-preview-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #e7edf4;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.settings-preview-row > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.settings-preview-row span {
+  color: #637083;
+  font-size: 12px;
+}
+
+.settings-preview-flags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.settings-preview-flags span {
+  border: 1px solid #d9e2ec;
+  border-radius: 999px;
+  background: #f7f9fc;
+  color: #334155;
+  padding: 4px 8px;
+  font-weight: 700;
+}
+
 .settings-discovery-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1489,7 +1548,8 @@ textarea {
   .dashboard-insight-grid,
   .dashboard-ops-grid,
   .intake-grid,
-  .settings-discovery-grid {
+  .settings-discovery-grid,
+  .preview-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1545,8 +1605,17 @@ textarea {
   .intake-settings-grid,
   .settings-root-grid,
   .settings-discovery-grid,
+  .preview-summary-grid,
   .pipeline-rail {
     grid-template-columns: 1fr;
+  }
+
+  .settings-preview-row {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-preview-flags {
+    justify-content: flex-start;
   }
 
   .tracker-controls {

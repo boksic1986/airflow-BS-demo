@@ -1345,3 +1345,55 @@ Acceptance:
   scan-now, or full-run action is present.
 - Confirm `bio_intake_scan` remains paused unless the user separately approves
   enabling automatic intake.
+
+## 27. T106 Intake Dry-run Preview And Auto-submit Gate Smoke
+
+T106 adds a read-only preview endpoint and makes automatic intake submit obey
+`config/intake.yaml` gates. The default deployed config keeps automatic
+create+submit disabled.
+
+Build and test:
+
+```bash
+docker compose -f docker-compose.yaml config --quiet
+docker build -t airflow-demo/backend:t106-test -f backend/Dockerfile backend
+docker run --rm airflow-demo/backend:t106-test \
+  pytest -q tests/test_intake_service.py tests/test_intake_config.py
+docker build --target test -f frontend/Dockerfile frontend
+docker compose -f docker-compose.yaml build backend frontend
+docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend frontend
+```
+
+Runtime checks:
+
+```bash
+curl -fsSI http://127.0.0.1:12959/
+curl -fsS http://127.0.0.1:8000/api/intake/config
+curl -fsS -X POST http://127.0.0.1:8000/api/intake/scan-preview \
+  -H 'Content-Type: application/json' \
+  -d '{"pipelines":["pgta","nipt_docker"],"max_samples":20}'
+curl -fsS 'http://127.0.0.1:8000/api/intake/status?limit=20'
+curl -fsS 'http://127.0.0.1:8000/api/runs?pipeline=nipt_docker&limit=5&offset=0'
+docker compose -f docker-compose.yaml exec -T airflow-scheduler \
+  airflow dags list | grep bio_intake_scan
+```
+
+Acceptance:
+
+- `/api/intake/scan-preview` returns `summary` and per-batch dry-run rows.
+- Preview does not create discovery rows, analysis runs, or Airflow DAG runs.
+- `/api/intake/config` shows `defaults.auto_submit=false` and pipeline
+  `auto_submit.enabled=false` for PGT-A and NIPT Docker by default.
+- `/settings` shows the dry-run preview and blocked-by-config reasons.
+- `bio_intake_scan` remains paused unless the user separately approves T107.
+
+Before any future unpause:
+
+1. Review `/settings` Intake Scanner and preview results.
+2. Confirm historical records are `Bootstrap observed` or otherwise protected.
+3. Confirm `NIPT_ALLOW_HEAVY_RUN=false` unless a supervised heavy run window is
+   explicitly approved.
+4. Change `config/intake.yaml` auto-submit gates only in a separate reviewed
+   task.
+5. Unpause `bio_intake_scan` only in a separate T107 rollout with before/after
+   run-count checks.

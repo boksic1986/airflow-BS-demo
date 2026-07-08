@@ -10,6 +10,7 @@ pipelines:
       - id: pgta_rawdata
         container_path: /data/project/CNV/PGT-A/rawdata
     auto_submit:
+      enabled: false
       target: metadata
   nipt_docker:
     enabled: true
@@ -23,4 +24,5 @@ pipelines:
     ignore_patterns:
       - "002/*.adapter.fastq.gz"
     auto_submit:
+      enabled: false
       run_mode: mount_smoke

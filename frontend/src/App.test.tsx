@@ -302,6 +302,58 @@ describe("bioinformatics platform frontend", () => {
             ],
           });
         }
+        if (url.endsWith("/api/intake/scan-preview") && init?.method === "POST") {
+          return mockJson({
+            summary: {
+              total_batches: 2,
+              new_observed: 0,
+              stable_ready: 1,
+              bootstrap_protected: 1,
+              would_create: 0,
+              would_submit: 0,
+              blocked_auto_submit: 1,
+              errors: 0,
+            },
+            items: [
+              {
+                pipeline: "pgta",
+                root_path: rawdataRoot,
+                batch_id: "Sample_G10",
+                source_dir: `${rawdataRoot}/Sample_G10`,
+                fingerprint: "pgta-fingerprint",
+                file_count: 2,
+                total_bytes: 201,
+                max_mtime: "2026-07-08T10:00:00+08:00",
+                existing_ready_state: "observed",
+                existing_submit_state: "bootstrap",
+                existing_analysis_id: null,
+                would_transition_to: "observed",
+                would_create_run: false,
+                would_submit: false,
+                auto_submit_enabled: false,
+                reason: "bootstrap_protected",
+              },
+              {
+                pipeline: "nipt_docker",
+                root_path: niptRoot,
+                batch_id: "FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2",
+                source_dir: niptBatchRoot,
+                fingerprint: "nipt-fingerprint",
+                file_count: 4,
+                total_bytes: 402,
+                max_mtime: "2026-07-08T10:05:00+08:00",
+                existing_ready_state: "observed",
+                existing_submit_state: "not_submitted",
+                existing_analysis_id: null,
+                would_transition_to: "ready",
+                would_create_run: false,
+                would_submit: false,
+                auto_submit_enabled: false,
+                reason: "auto_submit_disabled",
+              },
+            ],
+          });
+        }
         if (url.endsWith("/api/intake/config")) {
           return mockJson({
             source: "/app/config/intake.yaml",
@@ -310,7 +362,7 @@ describe("bioinformatics platform frontend", () => {
               pgta: {
                 enabled: true,
                 roots: [{id: "pgta_rawdata", container_path: rawdataRoot}],
-                auto_submit: {target: "metadata"},
+                auto_submit: {enabled: false, pipeline_enabled: false, target: "metadata"},
               },
               nipt_docker: {
                 enabled: true,
@@ -319,7 +371,7 @@ describe("bioinformatics platform frontend", () => {
                 r1_pattern: "*.R1.clean.fastq.gz",
                 r2_pattern: "*.R2.clean.fastq.gz",
                 ignore_patterns: ["002/*.adapter.fastq.gz"],
-                auto_submit: {run_mode: "mount_smoke"},
+                auto_submit: {enabled: false, pipeline_enabled: false, run_mode: "mount_smoke"},
               },
             },
           });
@@ -1062,6 +1114,21 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByText(/mount_smoke/i)).toBeInTheDocument();
     expect(screen.getByText(/Bootstrap observed/i)).toBeInTheDocument();
     expect(screen.queryByText(/^queued$/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Use Preview configured roots/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", {name: /Preview configured intake roots/i}));
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/intake/scan-preview"),
+        expect.objectContaining({method: "POST"}),
+      );
+    });
+    expect(screen.getByText(/Read-only preview: no DB writes/i)).toBeInTheDocument();
+    expect(screen.getByText(/would submit/i)).toBeInTheDocument();
+    expect(screen.getByText(/blocked by config/i)).toBeInTheDocument();
+    expect(screen.getByText(/auto-submit disabled by config/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/bootstrap protected/i).length).toBeGreaterThan(0);
+    expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes("/api/intake/scan-and-submit"))).toBe(false);
 
     await user.click(screen.getByRole("button", {name: /Refresh intake scanner/i}));
     await waitFor(() => {

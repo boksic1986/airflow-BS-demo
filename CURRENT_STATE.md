@@ -5,7 +5,7 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T105 Intake Settings read-only scanner readiness console is deployed; bio_intake_scan remains paused pending operator approval.
+current_goal_ascii: T106 Intake dry-run preview and auto-submit gating is deployed; bio_intake_scan remains paused pending operator approval.
 当前阶段: P3/P4/P6 Airflow + Snakemake/qsub mock observability + PGT-A Level 4 staged integration
 当前目标: T100 PGT-A submit 后 Airflow 状态自动回写已部署；当前前端展示收敛为 PGT-A-only，Dashboard 以 project/run 为主轴展示 PGT-A 运行状态、进度估算和 Airflow handoff，Submit Task 默认 create+submit 到 Airflow 并主动 sync Airflow 终态。
 最近更新时间: 2026-07-08
@@ -33,7 +33,7 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/intake/T105-intake-settings-console in local worktree; fengxian mirror should receive the same T105 overlay for runtime validation
+active_branch: codex/intake/T106-intake-dry-run-gating in local worktree; fengxian mirror should receive the same T106 overlay for runtime validation
 last_verified_code_commit: 3310134 for T095 runtime; T080/T081 is docs-only and used read-only runtime validation before the report update
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T080/T081 used read-only runtime validation on mirror at 3310134 before docs update
@@ -43,8 +43,8 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T080/T0
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 12959 | running after T105 redeploy | React/Vite PGT-A + NIPT Docker routed UI served by Docker nginx image `airflow-demo/frontend:0.1.0`; Dashboard is pipeline-driven with aggregate overview, 10-row paginated Run Tracker, intake scanner state, resource tabs, and workflow activity; Settings now includes a read-only Intake Scanner console backed by config/status/scanner-state APIs; Submit Task still uses server-path scan for both PGT-A and NIPT Docker; host 3000 is occupied by non-project next-server |
-| backend | 8000 | running, healthy after T105 redeploy | `/api/health`, `/api/health/db`, `/api/input/roots`, `/api/input/scan`, `/api/intake/status`, `/api/intake/config`, `/api/intake/scanner-state`, `/api/intake/scan-and-submit`, `/api/dashboard/overview`, `/api/dashboard/runs`, `/api/system/resources`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and `/api/runs/{analysis_id}/progress` are available; scanner roots come from `config/intake.yaml` with env fallback; image `airflow-demo/backend:0.1.0`; container `TZ=Asia/Shanghai` |
+| frontend | 12959 | running after T106 redeploy | React/Vite PGT-A + NIPT Docker routed UI served by Docker nginx image `airflow-demo/frontend:0.1.0`; Dashboard is pipeline-driven with aggregate overview, 10-row paginated Run Tracker, intake scanner state, resource tabs, and workflow activity; Settings includes a read-only Intake Scanner console and dry-run preview for configured roots; Submit Task still uses server-path scan for both PGT-A and NIPT Docker; host 3000 is occupied by non-project next-server |
+| backend | 8000 | running, healthy after T106 redeploy | `/api/health`, `/api/health/db`, `/api/input/roots`, `/api/input/scan`, `/api/intake/status`, `/api/intake/config`, `/api/intake/scanner-state`, `/api/intake/scan-preview`, `/api/intake/scan-and-submit`, `/api/dashboard/overview`, `/api/dashboard/runs`, `/api/system/resources`, `/api/runs`, run detail/samples, submit, sync-airflow, logs, artifacts, `/api/events/snakemake`, `/api/runs/{analysis_id}/rules`, `/api/runs/{analysis_id}/qc`, and `/api/runs/{analysis_id}/progress` are available; scanner roots and NIPT auto-intake run creation roots come from `config/intake.yaml` with env fallback; default auto-submit gates are disabled; image `airflow-demo/backend:0.1.0`; container `TZ=Asia/Shanghai` |
 | airflow web/api | 12958 | running; `PGTA_20260706_162150_00C4FD` final resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` ended `success` after T095 `LD_PRELOAD` fix; previous T095-only-`LD_LIBRARY_PATH` attempt `manual__PGTA_20260706_162150_00C4FD__resume__20260707T143132Z` failed preflight | project image `airflow-demo/airflow:0.1.0`; Airflow core/UI timezone is `Asia/Shanghai`; T095 sets run-local `XDG_CACHE_HOME`, `MPLCONFIGDIR`, `LD_LIBRARY_PATH=PGTA_CONDA_LIB`, and `LD_PRELOAD=PGTA_LIBSTDCXX`; `logs/pgta.python_preflight.log` records env header and import versions |
 | postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow metadata initialized; no host port published |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
@@ -72,11 +72,11 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 ## 7. 最近测试结果
 
 ```text
-last_backend_tests: remote Dockerized pytest on fengxian for T105 passed, 10 tests; covered AirflowClient dag metadata/latest run support, sanitized intake config, and `/api/intake/scanner-state` normal/degraded payloads
-last_frontend_tests: remote Dockerized frontend test target on fengxian for T105 passed, 11 Vitest tests; covers Dashboard tracker + intake panel, PGT-A and NIPT scanned-batch Submit flows, Run Detail progress, Samples/Workflows/Failures deployed scopes, and Settings read-only Intake Scanner console
+last_backend_tests: remote Dockerized pytest on fengxian for T106 passed, 8 tests; covered intake scan preview read-only behavior, auto-submit disabled/enabled gates, bootstrap protection, sanitized intake config, and `/api/intake/scanner-state` normal/degraded payloads
+last_frontend_tests: remote Dockerized frontend test target on fengxian for T106 passed, 11 Vitest tests; covers Dashboard tracker + intake panel, PGT-A and NIPT scanned-batch Submit flows, Run Detail progress, Samples/Workflows/Failures deployed scopes, and Settings read-only Intake Scanner console with dry-run preview
 last_dag_import_tests: passed on fengxian for T103; Airflow scheduler `dags list-import-errors` returned `No data found`; Airflow system Python unittest passed 4 DAG tests for `bio_intake_scan` and `bio_nipt_docker`; runner venv unittest passed 12 NIPT/progress event tests
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
-last_compose_config: passed on fengxian for T105 with `docker compose -f docker-compose.yaml config --quiet`; backend and frontend images rebuilt; frontend production build ran `tsc -b && vite build`; backend/frontend recreated without deleting volumes; `http://127.0.0.1:12959/` returned HTTP 200; `/api/intake/scanner-state` returned `airflow_reachable=true,is_paused=true`; `bio_intake_scan` final column remained `True`
+last_compose_config: passed on fengxian for T106 with `docker compose -f docker-compose.yaml config --quiet`; backend and frontend images rebuilt; frontend production build ran `tsc -b && vite build`; backend/frontend recreated without deleting volumes; `http://127.0.0.1:12959/` returned HTTP 200; `/api/intake/config` showed global and pipeline auto-submit gates disabled; `/api/intake/scan-preview` returned `would_submit=0`; discovery count stayed `21/21` and NIPT run count stayed `5/5`; `bio_intake_scan` final column remained `True`
 last_minimal_smoke: passed on fengxian for postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
 last_airflow_health: passed on fengxian at http://127.0.0.1:12958/health with healthy metadatabase and scheduler
 last_biodemo_migration: `biodemo-db-init` first run created role/database, repeat run succeeded; T103 `alembic upgrade head` applied 20260708_0002 `intake_discovery`
@@ -134,13 +134,53 @@ last_e2e_smoke: T080/T081 read-only demo smoke on fengxian at mirror head 331013
 ## 10. 下一步建议
 
 ```text
-1. 执行 T082：整理回滚/清理 runbook，重点是不删除 volumes、不碰生产 PGT-A 目录、不盲目重跑 baseline_qc。
-2. 执行 T034/T063：补 MailHog success/failure 邮件通知，邮件包含 run detail、QC/report、错误摘要链接。
-3. 若演示需要 PGT-A QC pass 样本，先做只读数据/阈值审计，不要盲目重跑 baseline_qc。
-4. 迁移 BS10610 前继续把 PGT-A 路径、数据根目录、`/biosoftware`、shared root 全部参数化到 `.env`。
+1. 若要正式启用自动扫描，先规划 T107：只在用户明确批准后修改 `config/intake.yaml` gates 并 unpause `bio_intake_scan`，用 before/after run-count 检查收口。
+2. 执行 T082：整理回滚/清理 runbook，重点是不删除 volumes、不碰生产 PGT-A/NIPT 源目录、不盲目重跑 baseline_qc 或 NIPT full_run。
+3. 执行 T034/T063：补 MailHog success/failure 邮件通知，邮件包含 run detail、QC/report、错误摘要链接。
+4. 若演示需要 PGT-A QC pass 样本，先做只读数据/阈值审计，不要盲目重跑 baseline_qc。
 ```
 
-## 11. T096 frontend platform redesign checkpoint
+## 11. T106 Intake dry-run preview and auto-submit gate checkpoint
+
+Date: 2026-07-08
+Agent: Codex
+Branch/worktree: `codex/intake/T106-intake-dry-run-gating` at `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+
+T106 adds a safety layer before automatic intake is ever unpaused:
+
+- New backend `POST /api/intake/scan-preview` scans configured PGT-A/NIPT roots
+  and returns dry-run rows plus summary counts without writing DB state,
+  creating runs, or triggering Airflow.
+- `POST /api/intake/scan-and-submit` now obeys both
+  `defaults.auto_submit` and `pipelines.<name>.auto_submit.enabled` from
+  `config/intake.yaml`.
+- Default `config/intake.yaml` keeps PGT-A and NIPT Docker automatic
+  create+submit disabled.
+- Settings shows `Preview configured roots`, a read-only preview panel, and
+  blocked-by-config reasons; it still has no unpause, scan-now submit, or
+  full-run action.
+- NIPT run creation now uses intake config roots with env fallback, so scanner
+  and run creation validate against the same configured source roots.
+
+Remote validation on `ssh fengxian`:
+
+- `docker compose -f docker-compose.yaml config --quiet`: passed.
+- backend Docker targeted pytest passed: `8 passed`.
+- frontend Docker test target passed: `11 passed`.
+- backend/frontend build and recreate passed; frontend production build ran
+  `tsc -b && vite build`.
+- Frontend `http://127.0.0.1:12959/` returned HTTP 200.
+- `/api/health` and `/api/health/airflow` returned healthy payloads.
+- `/api/intake/config` showed global and pipeline auto-submit gates disabled.
+- `/api/intake/scan-preview` returned `total_batches=21,would_submit=0`.
+- Preview did not mutate state: intake discovery count stayed `21/21`, NIPT
+  run count stayed `5/5`.
+- `bio_intake_scan` remained paused (`airflow dags list` final column `True`).
+
+Known caveat: a future T107 must be explicit and reviewed before changing gates
+or unpausing `bio_intake_scan`.
+
+## 12. T096 frontend platform redesign checkpoint
 
 Date: 2026-07-08
 Agent: Codex

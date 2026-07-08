@@ -21,7 +21,7 @@ from app.diagnostics_service import (
 )
 from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candidates, scan_nipt_batch_candidates
 from app.intake_config import load_intake_config
-from app.intake_service import list_intake_status, scan_and_submit_intake
+from app.intake_service import list_intake_status, preview_intake_scan, scan_and_submit_intake
 from app.progress_service import get_run_progress
 from app.qc_service import list_run_qc
 from app.rule_event_service import list_snakemake_rule_events, record_snakemake_event
@@ -375,6 +375,29 @@ def intake_scan_and_submit(request: IntakeScanRequest) -> dict[str, object]:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={"code": "AIRFLOW_TRIGGER_FAILED", "message": str(exc)},
+        ) from exc
+
+
+@app.post("/api/intake/scan-preview")
+def intake_scan_preview(request: IntakeScanRequest) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            return preview_intake_scan(
+                session=session,
+                settings=get_settings(),
+                pipelines=request.pipelines,
+                bootstrap=request.bootstrap,
+                max_samples=request.max_samples,
+            )
+    except InputPathError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_INPUT_PATH", "message": str(exc)},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "VALIDATION_ERROR", "message": str(exc)},
         ) from exc
 
 
