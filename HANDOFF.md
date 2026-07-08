@@ -122,6 +122,10 @@ PGT-A baseline_qc, and do not run NIPT full_run.
 | `GET /api/system/resources` | success | Returned host CPU/MEM/disk metrics with `source=host_proc` |
 | `GET /api/intake/status?limit=5` | success | Bootstrap/observed entries remained non-queued |
 | PGT-A metadata smoke `PGTA_20260708_160227_EFAD64` | success | Create + submit + sync reached backend/Airflow `success`; `/progress` returned Airflow tasks plus `metadata=success` rule event |
+| `git commit -m "feat: polish dashboard and controlled pgta rerun"` | success | Created T108 commit `0857e3d` with the validated source tree |
+| `git branch -f main codex/frontend/T108-dashboard-run-detail-usability` | success | Fast-forwarded local `main` to T108; `main` was an ancestor |
+| `git push origin main` | success | Fast-forwarded `origin/main` from `8b19b0d` to `0857e3d` |
+| remote `git fetch origin main` on `fengxian` | success | Updated remote mirror `origin/main` to `0857e3d` without switching branches or overwriting the dirty deployment worktree |
 
 ### Tests
 
@@ -144,10 +148,11 @@ fields, and the light PGT-A metadata smoke reached success.
 ### Current git status
 
 Local worktree is `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
-on `codex/frontend/T108-dashboard-run-detail-usability` with T108 changes
-pending commit. Remote `/home/jiucheng/project/airflow-demo` has the T108
-overlay deployed for runtime validation and remains an uncommitted deployment
-mirror.
+on `codex/frontend/T108-dashboard-run-detail-usability`; T108 source was
+committed as `0857e3d` and local/remote `main` were fast-forwarded to that
+commit. Remote `/home/jiucheng/project/airflow-demo` has the T108 overlay
+deployed for runtime validation and remains an uncommitted deployment mirror on
+its existing branch; only its `origin/main` ref was fetched forward.
 
 ### Risks
 

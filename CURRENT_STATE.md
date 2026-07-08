@@ -33,10 +33,10 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/frontend/T108-dashboard-run-detail-usability in local worktree; fengxian mirror has the T108 overlay deployed for runtime validation
-last_verified_code_commit: 3310134 for T095 runtime; T080/T081 is docs-only and used read-only runtime validation before the report update
+active_branch: codex/frontend/T108-dashboard-run-detail-usability in local worktree; local `main` and `origin/main` have been fast-forwarded to the T108 validated code commit `0857e3d`
+last_verified_code_commit: 0857e3d for T108 Dashboard/Run Detail usability polish and controlled PGT-A rerun; remote runtime validation was performed on the same source tree before commit
 worktree_strategy: single-worktree for now; fengxian is code mirror only
-fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T080/T081 used read-only runtime validation on mirror at 3310134 before docs update
+fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 overlay is deployed there and `origin/main` on the mirror has been fetched to `0857e3d`, but the mirror worktree itself remains on its existing dirty deployment branch
 ```
 
 ## 4. 服务状态
