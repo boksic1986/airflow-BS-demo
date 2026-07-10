@@ -1,5 +1,25 @@
 # 07 Airflow DAG 设计
 
+## T111 runtime profiles and config resolution
+
+T111 does not add or rename a DAG or task. `bio_pgta` and `bio_nipt_docker`
+continue to use their existing validate, prepare, execute, and collect graph.
+
+For profile-aware runs, validate/prepare reads the read-only
+`pipeline_profiles.yaml`, checks the profile revision and requested-config
+hash, then merges only schema-approved leaves into the generated pipeline
+config. The prepare task writes `config/snakemake.resolved.yaml` and updates
+`config/config_provenance.json`. PGT-A still executes `config.yaml` (and its
+stage-derived configs); NIPT still executes `config/nipt_run_config.yaml`.
+
+The runtime section of an approved profile may select the PGT-A executable
+environment or NIPT image. Request payloads cannot supply arbitrary runtime
+paths or images. `validate_request` checks the approved PGT-A executables,
+reference, and Snakefile or inspects both approved NIPT images before prepare.
+Existing runs without profile fields keep the historical
+environment-variable behavior. Heavy-run gates, TaskGroups, resume/rerun
+semantics, and the no-`--forceall` rule are unchanged.
+
 ## 1. DAG 列表
 
 | DAG ID | Pipeline | Runner | Notes |

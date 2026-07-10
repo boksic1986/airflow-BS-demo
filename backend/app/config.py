@@ -21,6 +21,7 @@ class Settings:
     pgta_input_scan_roots: list[str]
     nipt_input_scan_roots: list[str]
     intake_config_path: str | None
+    pipeline_profile_config_path: str | None
     nipt_allow_heavy_run: bool
     nipt_docker_cores: int
 
@@ -46,6 +47,10 @@ def get_settings() -> Settings:
         pgta_input_scan_roots=pgta_scan_roots,
         nipt_input_scan_roots=nipt_scan_roots,
         intake_config_path=os.getenv("INTAKE_CONFIG_PATH", "/app/config/intake.yaml"),
+        pipeline_profile_config_path=os.getenv(
+            "PIPELINE_PROFILE_CONFIG_PATH",
+            "/app/config/pipeline_profiles.yaml",
+        ),
         nipt_allow_heavy_run=_parse_bool(os.getenv("NIPT_ALLOW_HEAVY_RUN", "false")),
         nipt_docker_cores=_parse_int(os.getenv("NIPT_DOCKER_CORES", "40"), default=40),
     )

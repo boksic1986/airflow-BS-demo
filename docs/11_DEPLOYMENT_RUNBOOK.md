@@ -1,5 +1,24 @@
 # 11 部署 Runbook
 
+## T111 pipeline profile deployment
+
+`config/pipeline_profiles.yaml` is mounted read-only at
+`/app/config/pipeline_profiles.yaml` for backend and
+`/opt/airflow/config/pipeline_profiles.yaml` for Airflow services. Both use
+`PIPELINE_PROFILE_CONFIG_PATH` to locate it.
+
+Profile release checklist:
+
+1. Add a new immutable profile ID; do not change an ID already referenced by a run.
+2. Confirm PGT-A executables/reference paths are readable or NIPT images already exist.
+3. Call the template and validation endpoints and confirm runtime details are absent.
+4. Run backend, runner, frontend, and Compose tests.
+5. Validate with PGT-A metadata and NIPT mount-smoke only unless a heavy run is explicitly approved.
+
+Adding a compatible software profile does not require a new DAG. Changes to
+Airflow project stages or the Snakemake config contract require a separate
+versioned integration task.
+
 ## 1. 前置检查
 
 ```bash

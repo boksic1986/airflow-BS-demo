@@ -1,5 +1,22 @@
 # 09 NIPT Docker Integration Spec
 
+## T111 NIPT editable config boundary
+
+The initial NIPT profile exposes `sexcutoff`, random seed, mapping/AneuScreen
+threads, mapper workers, worker auto max, and pipe buffer size. Backend
+validation applies numeric limits and ensures thread/worker values do not
+exceed requested NIPT cores.
+
+Database/model paths, `soft`, `input`, chip name, Redis, mapper manager/work
+paths, image, network, owner, mounts, entrypoint, and Docker Compose remain
+locked. The approved profile selects the NIPT and fetal-ratio images internally.
+Airflow `validate_request` inspects both approved images and reports which
+profile image is unavailable before the prepare or runner stage starts.
+The prepare stage reads the NIPT base config from the profile-selected pipeline
+root, so config and mounted pipeline versions cannot drift apart.
+The frontend never displays `nipt_docker_compose.yml`, although the backend
+keeps it as an audit artifact. `NIPT_ALLOW_HEAVY_RUN=false` remains authoritative.
+
 ## 1. Scope
 
 T103 keeps `nipt_docker` as the second deployable demo pipeline, but changes the

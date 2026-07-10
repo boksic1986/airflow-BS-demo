@@ -1,5 +1,16 @@
 # Airflow Demo Frontend Design System
 
+## T111 configuration editor
+
+- Advanced configuration is collapsed by default and visually subordinate to
+  normal run parameters.
+- Runtime profiles use a standard select. The UI shows release labels, never
+  executable paths, image addresses, mounts, or Compose.
+- YAML uses a fixed-height monospace editor with internal scrolling. Validation
+  state, modified-field count, Reset, and Validate remain visible together.
+- Requested and resolved configs use bounded code panels; long YAML scrolls
+  inside the panel and must not create document-level horizontal overflow.
+
 ## Style
 
 Professional, restrained, high-density, low-noise. The UI should feel like a laboratory production monitoring console, not a marketing dashboard. It should help a bioinformatics operator answer:

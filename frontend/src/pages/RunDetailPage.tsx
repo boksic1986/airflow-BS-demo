@@ -2,10 +2,11 @@ import {Play, RefreshCw, RotateCw} from "lucide-react";
 import {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 
-import type {Artifact, LogStream, RuleEvent, RunDetail, RunLog, RunProgressResponse, RunQc, Sample} from "../api";
+import type {Artifact, LogStream, RuleEvent, RunConfig, RunDetail, RunLog, RunProgressResponse, RunQc, Sample} from "../api";
 
 import {
   getRunArtifacts,
+  getRunConfig,
   getRunDetail,
   getRunLog,
   getRunProgress,
@@ -40,9 +41,10 @@ type Bundle = {
   artifacts: Artifact[];
   qc: RunQc | null;
   progress: RunProgressResponse | null;
+  config: RunConfig | null;
 };
 
-const emptyBundle: Bundle = {detail: null, samples: [], rules: [], artifacts: [], qc: null, progress: null};
+const emptyBundle: Bundle = {detail: null, samples: [], rules: [], artifacts: [], qc: null, progress: null, config: null};
 
 export function RunDetailPage() {
   const {analysisId = ""} = useParams();
@@ -63,15 +65,16 @@ export function RunDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const [detail, samples, rules, progress, artifacts, qc] = await Promise.all([
+      const [detail, samples, rules, progress, artifacts, qc, config] = await Promise.all([
         getRunDetail(analysisId),
         getRunSamples(analysisId),
         getRunRules(analysisId),
         getRunProgress(analysisId).catch(() => null),
         getRunArtifacts(analysisId),
         getRunQc(analysisId),
+        getRunConfig(analysisId).catch(() => null),
       ]);
-      setBundle({detail, samples: samples.items, rules: progress?.rule_events || rules.items, progress, artifacts: artifacts.items, qc});
+      setBundle({detail, samples: samples.items, rules: progress?.rule_events || rules.items, progress, artifacts: artifacts.items, qc, config});
       if (isFailedStatus(detail.status)) setLogStream("stderr");
     } catch (loadError) {
       setBundle(emptyBundle);
@@ -183,7 +186,7 @@ export function RunDetailPage() {
           {activeTab === "QC" ? <RunQcTab qc={bundle.qc} /> : null}
           {activeTab === "Logs" ? <LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError} /> : null}
           {activeTab === "Files" ? <RunFilesTab artifacts={bundle.artifacts} /> : null}
-          {activeTab === "Config" ? <RunConfigTab artifacts={bundle.artifacts} detail={detail} /> : null}
+          {activeTab === "Config" ? <RunConfigTab artifacts={bundle.artifacts} config={bundle.config} detail={detail} /> : null}
         </section>
       </> : null}
     </div>

@@ -134,7 +134,52 @@ export type InputRootsResponse = {
 
 export type PgtaTarget = "metadata" | "dryrun_cnv" | "invalid_target" | "baseline_qc";
 
-export type CreatePgtaRunRequest = {
+export type RuntimeProfileSummary = {
+  id: string;
+  label: string;
+  pipeline_version: string;
+  config_version: string;
+};
+
+export type PipelineConfigTemplate = {
+  pipeline: "pgta" | "nipt_docker";
+  profile: RuntimeProfileSummary;
+  profiles: RuntimeProfileSummary[];
+  config_template_hash: string;
+  editable_yaml: string;
+  changed_paths: string[];
+};
+
+export type PipelineConfigValidation = {
+  valid: boolean;
+  profile: RuntimeProfileSummary;
+  config_template_hash: string;
+  normalized_yaml: string;
+  changed_paths: string[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type RunConfig = {
+  analysis_id: string;
+  pipeline: string;
+  state: "waiting_for_prepare" | "resolved" | "legacy" | string;
+  profile?: RuntimeProfileSummary | null;
+  config_template_hash?: string | null;
+  config_requested_hash?: string | null;
+  resolved_config_hash?: string | null;
+  changed_paths: string[];
+  requested_yaml?: string | null;
+  resolved_yaml?: string | null;
+};
+
+type PipelineConfigSelection = {
+  runtime_profile_id: string;
+  config_template_hash: string;
+  snakemake_config_yaml: string;
+};
+
+export type CreatePgtaRunRequest = PipelineConfigSelection & {
   pipeline: "pgta";
   project_name: string;
   target: PgtaTarget;
@@ -154,7 +199,7 @@ export type CreateWesRunRequest = {
 
 export type NiptRunMode = "mount_smoke" | "full_run";
 
-export type CreateNiptDockerRunRequest = {
+export type CreateNiptDockerRunRequest = PipelineConfigSelection & {
   pipeline: "nipt_docker";
   project_name: string;
   rawdata_root: string;
@@ -581,6 +626,37 @@ export function getInputRoots(pipeline: "pgta" | "nipt_docker"): Promise<InputRo
   return requestJson<InputRootsResponse>(`/input/roots?pipeline=${encodeURIComponent(pipeline)}`);
 }
 
+export function getPipelineConfigTemplate(options: {
+  pipeline: "pgta" | "nipt_docker";
+  target?: PgtaTarget;
+  runMode?: NiptRunMode;
+  profileId?: string;
+}): Promise<PipelineConfigTemplate> {
+  const params = new URLSearchParams({
+    pipeline: options.pipeline,
+    target: options.target || "metadata",
+    run_mode: options.runMode || "mount_smoke",
+  });
+  if (options.profileId) params.set("profile_id", options.profileId);
+  return requestJson<PipelineConfigTemplate>(`/pipeline-config/template?${params.toString()}`);
+}
+
+export function validatePipelineConfig(payload: {
+  pipeline: "pgta" | "nipt_docker";
+  target?: PgtaTarget;
+  run_mode?: NiptRunMode;
+  cores?: number | null;
+  runtime_profile_id: string;
+  config_template_hash: string;
+  snakemake_config_yaml: string;
+}): Promise<PipelineConfigValidation> {
+  return requestJson<PipelineConfigValidation>("/pipeline-config/validate", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  });
+}
+
 export function scanAndSubmitIntake(payload: {pipelines: Array<"pgta" | "nipt_docker">; bootstrap?: boolean; max_samples?: number}): Promise<IntakeStatusResponse> {
   return requestJson<IntakeStatusResponse>("/intake/scan-and-submit", {
     method: "POST",
@@ -642,6 +718,10 @@ export function getRunQc(analysisId: string): Promise<RunQc> {
 
 export function getRunArtifacts(analysisId: string): Promise<{items: Artifact[]}> {
   return requestJson<{items: Artifact[]}>(`/runs/${encodeURIComponent(analysisId)}/artifacts`);
+}
+
+export function getRunConfig(analysisId: string): Promise<RunConfig> {
+  return requestJson<RunConfig>(`/runs/${encodeURIComponent(analysisId)}/config`);
 }
 
 export function getRunLog(analysisId: string, stream: LogStream): Promise<RunLog> {

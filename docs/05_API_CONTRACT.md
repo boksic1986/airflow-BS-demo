@@ -1,5 +1,45 @@
 # 05 API Contract
 
+## T111 Snakemake config profiles
+
+T111 adds run-scoped, immutable Snakemake configuration for the deployed
+`pgta` and `nipt_docker` pipelines. Runtime executable paths, Docker images,
+mounts, commands, and Compose content are never returned by the public profile
+API.
+
+```text
+GET  /api/pipeline-config/template?pipeline=pgta&target=metadata&profile_id=pgta-current
+POST /api/pipeline-config/validate
+GET  /api/runs/{analysis_id}/config
+```
+
+The template response contains sanitized profile labels/versions, a profile
+hash, and the editable default YAML. Validation accepts
+`pipeline`, `target`, `run_mode`, `cores`, `runtime_profile_id`,
+`config_template_hash`, and `snakemake_config_yaml`; it returns normalized YAML
+and changed paths. Invalid YAML, protected/unknown fields, duplicate keys,
+anchors/aliases/tags, type/range errors, and payloads over 64 KiB return
+`400 CONFIG_VALIDATION_ERROR`; numeric values must also be finite. A stale profile hash returns
+`409 PROFILE_CHANGED`.
+
+`POST /api/runs` accepts the following three fields together for PGT-A/NIPT:
+
+```json
+{
+  "runtime_profile_id": "pgta-current",
+  "config_template_hash": "sha256",
+  "snakemake_config_yaml": "core:\n  wisecondorx: ...\n"
+}
+```
+
+The backend stores the requested YAML and provenance in the run workdir. The
+provenance file includes the approved runtime snapshot for server-side audit,
+but the API never returns that hidden snapshot. The Airflow prepare task writes
+the resolved YAML. `/config` rejects symlinked config files and returns only requested
+and resolved Snakemake configuration plus sanitized profile provenance; it does
+not return Docker Compose. Legacy clients may omit all three create fields and
+legacy runs return `state=legacy` when no requested config was captured.
+
 ## 1. 通用约定
 
 Base URL:

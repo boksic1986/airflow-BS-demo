@@ -47,10 +47,12 @@ x-airflow-common: &airflow-common
     NIPT_DOCKER_CORES: ${NIPT_DOCKER_CORES:-40}
     NIPT_DOCKER_OWNER: ${NIPT_DOCKER_OWNER:-6708:520}
     NIPT_ALLOW_HEAVY_RUN: ${NIPT_ALLOW_HEAVY_RUN:-false}
+    PIPELINE_PROFILE_CONFIG_PATH: ${AIRFLOW_PIPELINE_PROFILE_CONFIG_PATH:-/opt/airflow/config/pipeline_profiles.yaml}
   volumes:
     - ./dags:/opt/airflow/dags:ro
     - ./pipelines:/opt/airflow/pipelines:ro
     - ./profiles:/opt/airflow/profiles:ro
+    - ./config:/opt/airflow/config:ro
     - ./shared:/data/airflow-demo
     - ${PGTA_PIPELINE_ROOT:-/home/jiucheng/pipelines/PGT_A}:${PGTA_CONTAINER_ROOT:-/opt/pipelines/PGT_A}:ro
     - ${BIOSOFTWARE_ROOT:-/biosoftware}:/biosoftware:ro
@@ -162,6 +164,7 @@ services:
       PGTA_INPUT_SCAN_ROOTS: ${PGTA_INPUT_SCAN_ROOTS:-}
       NIPT_INPUT_SCAN_ROOTS: ${NIPT_INPUT_SCAN_ROOTS:-${NIPT_CONTAINER_ROOT:-/opt/pipelines/NIPT}/fastq}
       INTAKE_CONFIG_PATH: ${INTAKE_CONFIG_PATH:-/app/config/intake.yaml}
+      PIPELINE_PROFILE_CONFIG_PATH: ${PIPELINE_PROFILE_CONFIG_PATH:-/app/config/pipeline_profiles.yaml}
       NIPT_DOCKER_CORES: ${NIPT_DOCKER_CORES:-40}
       NIPT_ALLOW_HEAVY_RUN: ${NIPT_ALLOW_HEAVY_RUN:-false}
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-*}
@@ -270,6 +273,7 @@ services:
       - ./dags:/opt/airflow/dags:ro
       - ./pipelines:/opt/airflow/pipelines:ro
       - ./profiles:/opt/airflow/profiles:ro
+      - ./config:/opt/airflow/config:ro
       - ./shared:/data/airflow-demo
       - ${PGTA_PIPELINE_ROOT:-/home/jiucheng/pipelines/PGT_A}:${PGTA_CONTAINER_ROOT:-/opt/pipelines/PGT_A}:ro
       - ${BIOSOFTWARE_ROOT:-/biosoftware}:/biosoftware:ro

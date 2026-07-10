@@ -1,0 +1,97 @@
+version: 1
+
+pipelines:
+  pgta:
+    default_profile: pgta-current
+    profiles:
+      pgta-current:
+        label: PGT-A current environment
+        pipeline_version: current
+        config_version: pgta-airflow-v1
+        runtime:
+          pipeline_root: /opt/pipelines/PGT_A
+          snakemake_bin: /biosoftware/miniconda/envs/snakemake_env/bin/snakemake
+          python_bin: /biosoftware/miniconda/envs/snakemake_env/bin/python
+          conda_lib: /biosoftware/miniconda/envs/snakemake_env/lib
+          libstdcxx: /biosoftware/miniconda/envs/snakemake_env/lib/libstdc++.so.6
+          samtools_bin: /biosoftware/miniconda/pkgs/samtools-1.7-1/bin/samtools
+          samtools_library_path: /biosoftware/miniconda/pkgs/openssl-1.0.2u-h516909a_0/lib
+          fastp_bin: /biosoftware/bin/fastp
+          bwa_bin: /biosoftware/bin/bwa
+          wisecondorx_bin: /biosoftware/miniconda/envs/wise_env/bin/WisecondorX
+          reference_genome: /data/Database/index/hg19/hg19.fa
+          cores: 64
+        editable_defaults:
+          core:
+            wisecondorx:
+              binsize: 100000
+              use_chr_prefix: true
+              reference_prefilter:
+                binsize: 100000
+                max_iterations: 3
+        editable_schema:
+          core.wisecondorx.binsize:
+            type: integer
+            minimum: 20000
+            maximum: 1000000
+          core.wisecondorx.use_chr_prefix:
+            type: boolean
+          core.wisecondorx.reference_prefilter.binsize:
+            type: integer
+            minimum: 20000
+            maximum: 1000000
+          core.wisecondorx.reference_prefilter.max_iterations:
+            type: integer
+            minimum: 1
+            maximum: 10
+
+  nipt_docker:
+    default_profile: niptpro-1.0.11
+    profiles:
+      niptpro-1.0.11:
+        label: NIPTPro 1.0.11
+        pipeline_version: 1.0.11
+        config_version: v3.2.5.1
+        runtime:
+          docker_image: 172.17.61.235:2333/niptpro/niptpro:1.0.11
+          fetal_image: 172.17.61.235:2333/niptpro/pytorch:biosan
+          cores: 40
+        editable_defaults:
+          params:
+            sexcutoff: 0.00007
+            seed: 9696
+            map_threads: 4
+            aneuscreen_threads: 10
+          mapper_v2:
+            workers: 4
+            worker_auto_max: 4
+            pipe_buffer_bytes: 4194304
+        editable_schema:
+          params.sexcutoff:
+            type: number
+            minimum: 0
+            maximum: 0.01
+          params.seed:
+            type: integer
+            minimum: 0
+            maximum: 2147483647
+          params.map_threads:
+            type: integer
+            minimum: 1
+            maximum: 40
+          params.aneuscreen_threads:
+            type: integer
+            minimum: 1
+            maximum: 40
+          mapper_v2.workers:
+            type: integer
+            minimum: 1
+            maximum: 40
+          mapper_v2.worker_auto_max:
+            type: integer
+            minimum: 1
+            maximum: 40
+          mapper_v2.pipe_buffer_bytes:
+            type: integer
+            minimum: 65536
+            maximum: 67108864

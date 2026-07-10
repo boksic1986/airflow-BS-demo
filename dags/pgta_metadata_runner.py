@@ -11,6 +11,12 @@ from typing import Any
 
 import yaml
 
+from common.pipeline_profiles import (
+    apply_editable_config,
+    resolve_runtime_profile,
+    validate_runtime_profile_availability,
+    write_resolved_config,
+)
 from common.progress_events import emit_progress_event, parse_snakemake_output_for_events
 
 
@@ -75,7 +81,7 @@ def validate_pgta_conf(
     if not _is_relative_to(sample_sheet_path, workdir):
         raise ValueError("sample_sheet_path must be under workdir.")
 
-    return {
+    normalized = {
         "analysis_id": analysis_id,
         "pipeline": pipeline,
         "mode": mode,
@@ -85,6 +91,9 @@ def validate_pgta_conf(
         "backend_event_url": conf.get("backend_event_url"),
         "params": {**params, "target": target},
     }
+    resolved_profile = resolve_runtime_profile(normalized, pipeline="pgta")
+    validate_runtime_profile_availability(resolved_profile, pipeline="pgta")
+    return normalized
 
 
 def read_selected_manifest(path: str | Path) -> list[dict[str, str]]:
@@ -131,6 +140,14 @@ def build_pgta_config(
     config_dir.mkdir(parents=True, exist_ok=True)
     logs_dir.mkdir(parents=True, exist_ok=True)
 
+    resolved_profile = resolve_runtime_profile(conf, pipeline="pgta")
+    runtime = resolved_profile.runtime if resolved_profile else {}
+    pgta_pipeline_root = Path(runtime.get("pipeline_root") or pgta_pipeline_root)
+    pgta_data_root = Path(runtime.get("data_root") or pgta_data_root)
+    samtools_bin = Path(runtime.get("samtools_bin") or samtools_bin)
+    samtools_library_path = runtime.get("samtools_library_path", samtools_library_path)
+    reference_genome = Path(runtime.get("reference_genome") or reference_genome)
+
     target = _target_from_conf(conf)
     samples = read_selected_manifest(conf["sample_sheet_path"])
     for sample in samples:
@@ -146,10 +163,14 @@ def build_pgta_config(
         pgta_data_root=pgta_data_root,
         samtools_path=samtools_wrapper,
         reference_genome=reference_genome,
+        software_paths=runtime,
     )
+    snakemake_config = apply_editable_config(snakemake_config, resolved_profile)
     config_path = workdir / "config.yaml"
     with config_path.open("w", encoding="utf-8") as handle:
         yaml.safe_dump(snakemake_config, handle, sort_keys=False)
+    if resolved_profile:
+        write_resolved_config(workdir=workdir, config=snakemake_config)
 
     runner_config = {
         "analysis_id": conf["analysis_id"],
@@ -176,6 +197,10 @@ def run_pgta_target(
     snakemake_bin: Path = DEFAULT_SNAKEMAKE_BIN,
     pgta_pipeline_root: Path = DEFAULT_PGTA_PIPELINE_ROOT,
 ) -> Path:
+    resolved_profile = resolve_runtime_profile(conf, pipeline="pgta")
+    runtime = resolved_profile.runtime if resolved_profile else {}
+    snakemake_bin = Path(runtime.get("snakemake_bin") or snakemake_bin)
+    pgta_pipeline_root = Path(runtime.get("pipeline_root") or pgta_pipeline_root)
     workdir = Path(conf["workdir"])
     target = _target_from_conf(conf)
     logs_dir = workdir / "logs"
@@ -198,6 +223,7 @@ def run_pgta_target(
         invalid_target=target == "invalid_target",
         run_python_preflight=target == "baseline_qc",
         resume_prepare=True,
+        runtime=runtime,
     )
 
 
@@ -208,6 +234,10 @@ def run_pgta_stage(
     snakemake_bin: Path = DEFAULT_SNAKEMAKE_BIN,
     pgta_pipeline_root: Path = DEFAULT_PGTA_PIPELINE_ROOT,
 ) -> Path:
+    resolved_profile = resolve_runtime_profile(conf, pipeline="pgta")
+    runtime = resolved_profile.runtime if resolved_profile else {}
+    snakemake_bin = Path(runtime.get("snakemake_bin") or snakemake_bin)
+    pgta_pipeline_root = Path(runtime.get("pipeline_root") or pgta_pipeline_root)
     stage = stage.strip()
     if stage not in SUPPORTED_PGTA_STAGES:
         supported = ", ".join(sorted(SUPPORTED_PGTA_STAGES))
@@ -234,6 +264,7 @@ def run_pgta_stage(
         log_suffix=stage,
         run_python_preflight=stage == "mapping",
         resume_prepare=stage == "mapping",
+        runtime=runtime,
     )
 
 
@@ -250,6 +281,7 @@ def _run_pgta_snakemake(
     invalid_target: bool = False,
     run_python_preflight: bool = False,
     resume_prepare: bool = True,
+    runtime: dict[str, Any] | None = None,
 ) -> Path:
     workdir = Path(conf["workdir"])
     mode = _mode_from_conf(conf)
@@ -264,12 +296,12 @@ def _run_pgta_snakemake(
         "--snakefile",
         str(pgta_pipeline_root / "Snakefile"),
         "--cores",
-        _snakemake_cores(),
+        _snakemake_cores(runtime),
         "--printshellcmds",
         "--configfile",
         str(config_path),
     ]
-    env = _pgta_subprocess_env(workdir)
+    env = _pgta_subprocess_env(workdir, runtime)
     if mode == "resume" and resume_prepare:
         unlock_command = [*command, "--unlock"]
         (logs_dir / "snakemake.unlock.command.txt").write_text(shlex.join(unlock_command) + "\n", encoding="utf-8")
@@ -294,7 +326,12 @@ def _run_pgta_snakemake(
     if mode in {"resume", "rerun_stage"}:
         command.append("--rerun-incomplete")
     if run_python_preflight:
-        _run_pgta_python_preflight(workdir=workdir, logs_dir=logs_dir, env=env)
+        _run_pgta_python_preflight(
+            workdir=workdir,
+            logs_dir=logs_dir,
+            env=env,
+            python_bin=Path((runtime or {}).get("python_bin") or DEFAULT_PGTA_PYTHON_BIN),
+        )
     if dry_run:
         command.extend(["--dry-run", "--ignore-incomplete", "--rerun-triggers", "mtime"])
     if invalid_target:
@@ -409,7 +446,9 @@ def _snakemake_config(
     pgta_data_root: Path,
     samtools_path: Path,
     reference_genome: Path,
+    software_paths: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    software_paths = software_paths or {}
     pipeline_mode = "predict"
     pipeline_targets = ["metadata"]
     build_reference: dict[str, Any] | None = None
@@ -480,11 +519,17 @@ def _snakemake_config(
         },
         "pipeline": {"mode": pipeline_mode, "targets": pipeline_targets},
         "biosoft": {
-            "fastp": "/biosoftware/bin/fastp",
-            "bwa": "/biosoftware/bin/bwa",
+            "fastp": str(software_paths.get("fastp_bin") or "/biosoftware/bin/fastp"),
+            "bwa": str(software_paths.get("bwa_bin") or "/biosoftware/bin/bwa"),
             "samtools": str(samtools_path),
-            "WisecondorX": "/biosoftware/miniconda/envs/wise_env/bin/WisecondorX",
-            "python": "/biosoftware/miniconda/envs/snakemake_env/bin/python",
+            "WisecondorX": str(
+                software_paths.get("wisecondorx_bin")
+                or "/biosoftware/miniconda/envs/wise_env/bin/WisecondorX"
+            ),
+            "python": str(
+                software_paths.get("python_bin")
+                or "/biosoftware/miniconda/envs/snakemake_env/bin/python"
+            ),
         },
         "samples": {sample["sample_id"]: {"R1": sample["R1"], "R2": sample["R2"]} for sample in samples},
     }
@@ -509,7 +554,7 @@ def _write_samtools_wrapper(workdir: Path, samtools_bin: Path, samtools_library_
     return wrapper
 
 
-def _pgta_subprocess_env(workdir: Path) -> dict[str, str]:
+def _pgta_subprocess_env(workdir: Path, runtime: dict[str, Any] | None = None) -> dict[str, str]:
     cache_dir = workdir / "tmp" / "xdg-cache"
     matplotlib_dir = workdir / "tmp" / "matplotlib"
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -519,15 +564,24 @@ def _pgta_subprocess_env(workdir: Path) -> dict[str, str]:
     env["XDG_CACHE_HOME"] = str(cache_dir)
     env["MPLCONFIGDIR"] = str(matplotlib_dir)
 
-    env["LD_LIBRARY_PATH"] = str(DEFAULT_PGTA_CONDA_LIB)
-    if DEFAULT_PGTA_LIBSTDCXX.exists():
-        env["LD_PRELOAD"] = str(DEFAULT_PGTA_LIBSTDCXX)
+    runtime = runtime or {}
+    conda_lib = Path(runtime.get("conda_lib") or DEFAULT_PGTA_CONDA_LIB)
+    libstdcxx = Path(runtime.get("libstdcxx") or DEFAULT_PGTA_LIBSTDCXX)
+    env["LD_LIBRARY_PATH"] = str(conda_lib)
+    if libstdcxx.exists():
+        env["LD_PRELOAD"] = str(libstdcxx)
     else:
         env.pop("LD_PRELOAD", None)
     return env
 
 
-def _run_pgta_python_preflight(*, workdir: Path, logs_dir: Path, env: dict[str, str]) -> Path:
+def _run_pgta_python_preflight(
+    *,
+    workdir: Path,
+    logs_dir: Path,
+    env: dict[str, str],
+    python_bin: Path = DEFAULT_PGTA_PYTHON_BIN,
+) -> Path:
     preflight_log = logs_dir / "pgta.python_preflight.log"
     import_lines = "\n".join(
         [
@@ -537,7 +591,7 @@ def _run_pgta_python_preflight(*, workdir: Path, logs_dir: Path, env: dict[str, 
             "    print(f'{name}\\t{getattr(module, \"__version__\", \"unknown\")}')",
         ]
     )
-    command = [str(DEFAULT_PGTA_PYTHON_BIN), "-c", import_lines]
+    command = [str(python_bin), "-c", import_lines]
     completed = subprocess.run(
         command,
         cwd=str(workdir),
@@ -620,8 +674,8 @@ def _mode_from_conf(conf: dict[str, Any]) -> str:
     return mode
 
 
-def _snakemake_cores() -> str:
-    value = str(os.getenv("PGTA_SNAKEMAKE_CORES", DEFAULT_SNAKEMAKE_CORES)).strip()
+def _snakemake_cores(runtime: dict[str, Any] | None = None) -> str:
+    value = str((runtime or {}).get("cores") or os.getenv("PGTA_SNAKEMAKE_CORES", DEFAULT_SNAKEMAKE_CORES)).strip()
     try:
         cores = int(value)
     except ValueError as exc:

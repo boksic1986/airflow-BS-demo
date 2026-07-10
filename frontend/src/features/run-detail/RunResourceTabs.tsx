@@ -1,4 +1,4 @@
-import type {Artifact, RunDetail, Sample} from "../../api";
+import type {Artifact, RunConfig, RunDetail, Sample} from "../../api";
 
 import {StatusBadge} from "../../components/StatusBadge";
 import {compactPipelineName, formatBytes, formatDate, safeJson} from "../../lib/format";
@@ -46,25 +46,43 @@ export function RunSamplesTab({samples}: {samples: Sample[]}) {
 }
 
 export function RunFilesTab({artifacts}: {artifacts: Artifact[]}) {
-  const primary = artifacts.filter(isPrimaryArtifact);
-  const advanced = artifacts.filter((artifact) => !isPrimaryArtifact(artifact));
+  const visibleArtifacts = artifacts.filter((artifact) => !isComposeArtifact(artifact));
+  const primary = visibleArtifacts.filter(isPrimaryArtifact);
+  const advanced = visibleArtifacts.filter((artifact) => !isPrimaryArtifact(artifact));
   return (
     <div className="artifact-list">
-      {(primary.length ? primary : artifacts).map((artifact) => <ArtifactRow artifact={artifact} key={artifact.key} />)}
+      {(primary.length ? primary : visibleArtifacts).map((artifact) => <ArtifactRow artifact={artifact} key={artifact.key} />)}
       {advanced.length ? <details className="advanced-files"><summary>Advanced files</summary>{advanced.map((artifact) => <ArtifactRow artifact={artifact} key={artifact.key} />)}</details> : null}
-      {artifacts.length === 0 ? <p className="empty-state">No files or artifacts returned.</p> : null}
+      {visibleArtifacts.length === 0 ? <p className="empty-state">No files or artifacts returned.</p> : null}
     </div>
   );
 }
 
-export function RunConfigTab({detail, artifacts}: {detail: RunDetail; artifacts: Artifact[]}) {
-  const configArtifacts = artifacts.filter(isConfigArtifact);
+export function RunConfigTab({detail, artifacts, config}: {detail: RunDetail; artifacts: Artifact[]; config: RunConfig | null}) {
+  const configArtifacts = artifacts.filter((artifact) => isConfigArtifact(artifact) && !isComposeArtifact(artifact));
   return (
     <div className="config-tab-stack">
       <section>
-        <div className="section-heading"><h2>Snakemake run config</h2><p>Run-local Snakemake or NIPT configuration</p></div>
-        {configArtifacts.length ? <div className="artifact-list">{configArtifacts.map((artifact) => <ArtifactRow artifact={artifact} key={artifact.key} />)}</div> : <p className="empty-state">No run-local config artifact has been registered yet.</p>}
+        <div className="section-heading"><h2>Snakemake run config</h2><p>Immutable requested and resolved configuration for this run.</p></div>
+        {config?.profile ? (
+          <div className="runtime-profile-summary">
+            <div><span>Runtime profile</span><strong>{config.profile.label}</strong></div>
+            <div><span>Pipeline version</span><strong>{config.profile.pipeline_version}</strong></div>
+            <div><span>Config revision</span><strong>{config.profile.config_version}</strong></div>
+            <div><span>Modified fields</span><strong>{config.changed_paths.length}</strong></div>
+          </div>
+        ) : null}
+        {config?.changed_paths.length ? <p className="config-changed-paths">{config.changed_paths.join(" · ")}</p> : null}
       </section>
+      <section className="run-config-section">
+        <div className="section-heading"><h3>Requested config</h3><p>Editable Snakemake fields captured at run creation.</p></div>
+        {config?.requested_yaml ? <pre className="code-block config-code-block">{config.requested_yaml}</pre> : <p className="empty-state">No requested override was captured for this legacy run.</p>}
+      </section>
+      <section className="run-config-section">
+        <div className="section-heading"><h3>Resolved config</h3><p>The exact Snakemake YAML produced by the Airflow prepare task.</p></div>
+        {config?.resolved_yaml ? <pre className="code-block config-code-block">{config.resolved_yaml}</pre> : <p className="empty-state">{config?.state === "waiting_for_prepare" ? "Waiting for prepare task" : "No resolved Snakemake config captured."}</p>}
+      </section>
+      {!config && configArtifacts.length ? <section><div className="artifact-list">{configArtifacts.map((artifact) => <ArtifactRow artifact={artifact} key={artifact.key} />)}</div></section> : null}
       <details className="advanced-files">
         <summary>Backend request params</summary>
         <pre className="code-block">{safeJson({analysis_id: detail.analysis_id, pipeline: detail.pipeline, dag_id: detail.dag_id, dag_run_id: detail.dag_run_id, params: detail.params})}</pre>
@@ -107,6 +125,11 @@ function isPrimaryArtifact(artifact: Artifact): boolean {
 function isConfigArtifact(artifact: Artifact): boolean {
   const text = `${artifact.key} ${artifact.type} ${artifact.label} ${artifact.path}`.toLowerCase();
   return text.includes("config") || text.endsWith(".yaml") || text.endsWith(".yml") || text.endsWith(".json");
+}
+
+function isComposeArtifact(artifact: Artifact): boolean {
+  const text = `${artifact.key} ${artifact.type} ${artifact.label} ${artifact.path}`.toLowerCase();
+  return text.includes("docker_compose") || text.includes("docker compose") || /compose\.ya?ml/.test(text);
 }
 
 function basename(value?: string | null): string {

@@ -2084,6 +2084,152 @@ textarea {
   max-width: 100%;
 }
 
+.snakemake-config-shell {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e6edf3;
+}
+
+.snakemake-config-shell .field small {
+  color: #637083;
+  font-weight: 500;
+}
+
+.advanced-config-toggle {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #d8e1e8;
+  border-radius: 8px;
+  background: #f7f9fb;
+  color: #243447;
+  padding: 9px 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.advanced-config-toggle span {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.advanced-config-toggle small {
+  color: #637083;
+  font-size: 11px;
+}
+
+.snakemake-config-editor {
+  min-width: 0;
+  display: grid;
+  gap: 11px;
+  border-left: 3px solid #3e7c8d;
+  background: #f8fafb;
+  padding: 12px 12px 12px 14px;
+}
+
+.config-editor-heading {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.config-editor-heading > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.config-editor-heading span {
+  color: #637083;
+  font-size: 12px;
+}
+
+.config-yaml-editor {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: auto;
+  white-space: pre;
+  tab-size: 2;
+  background: #111827;
+  color: #e6edf3;
+  border-color: #293548;
+  font: 12px/1.55 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
+.config-validation-state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.config-validation-state.valid {
+  color: #187255;
+}
+
+.config-validation-state.pending {
+  color: #9a6700;
+}
+
+.config-changed-paths {
+  margin: 0;
+  color: #536579;
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  overflow-wrap: anywhere;
+}
+
+.runtime-profile-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid #e0e7ed;
+  border-radius: 8px;
+  background: #e0e7ed;
+}
+
+.runtime-profile-summary > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  background: #ffffff;
+  padding: 11px;
+}
+
+.runtime-profile-summary span {
+  color: #637083;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.runtime-profile-summary strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+.run-config-section {
+  min-width: 0;
+  border-top: 1px solid #e6edf3;
+  padding-top: 14px;
+}
+
+.config-code-block {
+  max-height: 380px;
+  white-space: pre;
+}
+
 .current-progress-hero {
   display: grid;
   gap: 8px;
@@ -2601,6 +2747,14 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .runtime-profile-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .config-editor-heading {
+    flex-direction: column;
+  }
+
   .submit-preview-field {
     grid-template-columns: 1fr;
   }
@@ -2690,5 +2844,17 @@ textarea {
   .bulk-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .runtime-profile-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .advanced-config-toggle {
+    grid-template-columns: auto 1fr;
+  }
+
+  .advanced-config-toggle small {
+    grid-column: 2;
   }
 }

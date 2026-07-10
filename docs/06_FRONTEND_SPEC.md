@@ -1,5 +1,25 @@
 # 06 前端设计
 
+## T111 Submit Snakemake config workspace
+
+- Submit Run exposes an approved `Runtime profile` selector for PGT-A and NIPT
+  Docker. Only label, pipeline version, and config revision are visible.
+- `Advanced Snakemake config` is collapsed by default and uses a lightweight
+  monospace textarea. Editing invalidates the form until backend validation
+  succeeds; Reset restores profile defaults.
+- Pipeline, target, run mode, cores, or profile changes reload the applicable
+  defaults. A dirty editor requires confirmation before its contents are
+  discarded.
+- Late template/validation responses are ignored after context or YAML changes.
+  A create-time `PROFILE_CHANGED` response remounts the editor with current
+  defaults and requires review/validation before another submit.
+- Submit Preview shows profile, revision, and changed-field count. Create only
+  and Create+Submit send the same validated immutable configuration.
+- Run Detail Config shows requested YAML, resolved YAML, profile provenance,
+  and changed paths. Created-only runs show `Waiting for prepare task`.
+- Docker Compose artifacts are filtered from both Files and Config views. The
+  UI never offers an image, volume, network, executable, or command editor.
+
 ## 0. Current T050/T051/T054/T056/T057 v1
 
 第一版前端已经从 nginx placeholder 替换为 Vite React + TypeScript app，由 Docker nginx 镜像服务静态文件，宿主机端口保持 `12959`。

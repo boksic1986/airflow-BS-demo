@@ -5,9 +5,11 @@ import {Link} from "react-router-dom";
 
 import type {NiptRunMode, PgtaTarget, RunDetail, ScanCandidate} from "../api";
 
-import {createRun, getInputRoots, getRunDetail, scanInput, submitRun, syncAirflow} from "../api";
+import {ApiError, createRun, getInputRoots, getRunDetail, scanInput, submitRun, syncAirflow} from "../api";
 import {PipelineSelector} from "../components/PipelineSelector";
 import {StatusBadge} from "../components/StatusBadge";
+import {SnakemakeConfigEditor} from "../features/submit/SnakemakeConfigEditor";
+import type {SnakemakeConfigSelection} from "../features/submit/SnakemakeConfigEditor";
 import {errorMessage} from "../lib/errors";
 import {compactPipelineName} from "../lib/format";
 import {deployedWorkflowTemplates} from "../mocks/platform";
@@ -47,13 +49,15 @@ export function SubmitPage() {
   const [creating, setCreating] = useState(false);
   const [createdRunIds, setCreatedRunIds] = useState<string[]>([]);
   const [handoffRuns, setHandoffRuns] = useState<RunDetail[]>([]);
+  const [configSelection, setConfigSelection] = useState<SnakemakeConfigSelection | null>(null);
+  const [configEditorRevision, setConfigEditorRevision] = useState(0);
 
   const selectedTemplate = deployedWorkflowTemplates.find((pipeline) => pipeline.id === selectedPipeline) || fallbackTemplate;
   const selectedScanRows = scanItems.filter((item) => selectedSamples.has(item.sample_id));
   const pgtaNeedsMoreSamples = selectedPipeline === "pgta" && target === "baseline_qc" && selectedSamples.size < 2;
   const canCreatePgta = selectedScanRows.length > 0 && !pgtaNeedsMoreSamples;
   const canCreateNipt = selectedScanRows.length > 0 && Boolean(projectName.trim());
-  const canCreateSelected = selectedPipeline === "nipt_docker" ? canCreateNipt : canCreatePgta;
+  const canCreateSelected = (selectedPipeline === "nipt_docker" ? canCreateNipt : canCreatePgta) && Boolean(configSelection?.valid);
 
   useEffect(() => {
     let disposed = false;
@@ -104,7 +108,9 @@ export function SubmitPage() {
 
   function handlePipelineChange(value: string) {
     if (value !== "pgta" && value !== "nipt_docker") return;
+    if (!confirmConfigReset()) return;
     setSelectedPipeline(value);
+    setConfigSelection(null);
     setRawdataRoot(value === "nipt_docker" ? defaultNiptRawdataRoot : defaultPgtaRawdataRoot);
     setRootOptions([value === "nipt_docker" ? defaultNiptRawdataRoot : defaultPgtaRawdataRoot]);
     setScanItems([]);
@@ -148,6 +154,12 @@ export function SubmitPage() {
   }
 
   async function createSelectedRuns(): Promise<RunDetail[]> {
+    if (!configSelection?.valid) throw new Error("Validate the Snakemake config before creating the run.");
+    const configPayload = {
+      runtime_profile_id: configSelection.runtimeProfileId,
+      config_template_hash: configSelection.configTemplateHash,
+      snakemake_config_yaml: configSelection.configYaml,
+    };
     if (selectedPipeline === "nipt_docker") {
       const batches = groupCandidates(selectedScanRows, rawdataRoot);
       return Promise.all(
@@ -159,6 +171,7 @@ export function SubmitPage() {
             selected_samples: batch.items,
             run_mode: niptRunMode,
             cores: niptCores,
+            ...configPayload,
             email_to: emailTo.trim() || null,
             note: `reference=${reference}; priority=${priority}; mode=${runMode}; batch=${batch.relativePath}/${batch.folderName}`,
           }),
@@ -172,10 +185,43 @@ export function SubmitPage() {
         target,
         rawdata_root: rawdataRoot,
         selected_samples: selectedScanRows,
+        ...configPayload,
         email_to: emailTo.trim() || null,
         note: `reference=${reference}; priority=${priority}; mode=${runMode}`,
       }),
     ];
+  }
+
+  function confirmConfigReset(): boolean {
+    return !configSelection?.dirty || window.confirm("Discard the edited Snakemake config and load new defaults?");
+  }
+
+  function handleTargetChange(value: PgtaTarget) {
+    if (!confirmConfigReset()) return;
+    setConfigSelection(null);
+    setTarget(value);
+  }
+
+  function handleNiptRunModeChange(value: NiptRunMode) {
+    if (!confirmConfigReset()) return;
+    setConfigSelection(null);
+    setNiptRunMode(value);
+  }
+
+  function handleNiptCoresChange(value: number) {
+    if (!confirmConfigReset()) return;
+    setConfigSelection(null);
+    setNiptCores(value);
+  }
+
+  function handleCreateError(createError: unknown) {
+    if (createError instanceof ApiError && createError.code === "PROFILE_CHANGED") {
+      setConfigSelection(null);
+      setConfigEditorRevision((current) => current + 1);
+      setError("Runtime profile changed. Defaults were reloaded; review and validate the config again.");
+      return;
+    }
+    setError(errorMessage(createError));
   }
 
   async function handleCreateOnly() {
@@ -190,7 +236,7 @@ export function SubmitPage() {
       setCreatedRunIds(created.map((run) => run.analysis_id));
       setNotice(`Created ${created.length} run${created.length === 1 ? "" : "s"}. Not visible in Airflow until submitted.`);
     } catch (createError) {
-      setError(errorMessage(createError));
+      handleCreateError(createError);
     } finally {
       setCreating(false);
     }
@@ -223,7 +269,7 @@ export function SubmitPage() {
       }
       setNotice(`Submitted ${createdRuns.length} run${createdRuns.length === 1 ? "" : "s"} to Airflow.`);
     } catch (submitError) {
-      setError(errorMessage(submitError));
+      handleCreateError(submitError);
     } finally {
       setCreating(false);
     }
@@ -300,6 +346,14 @@ export function SubmitPage() {
               <input value={emailTo} placeholder="demo@example.com" onChange={(event) => setEmailTo(event.target.value)} />
             </label>
           </div>
+          <SnakemakeConfigEditor
+            key={`${selectedPipeline}-${target}-${niptRunMode}-${niptCores}-${configEditorRevision}`}
+            pipeline={selectedPipeline}
+            target={target}
+            runMode={niptRunMode}
+            cores={niptCores}
+            onChange={setConfigSelection}
+          />
         </section>
       </div>
 
@@ -338,7 +392,7 @@ export function SubmitPage() {
           {selectedPipeline === "pgta" ? (
             <label className="field">
               <span>Target</span>
-              <select aria-label="Target" value={target} onChange={(event) => setTarget(event.target.value as PgtaTarget)}>
+              <select aria-label="Target" value={target} onChange={(event) => handleTargetChange(event.target.value as PgtaTarget)}>
                 {pgtaTargets.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
@@ -348,14 +402,14 @@ export function SubmitPage() {
             <>
               <label className="field">
                 <span>NIPT run mode</span>
-                <select aria-label="NIPT run mode" value={niptRunMode} onChange={(event) => setNiptRunMode(event.target.value as NiptRunMode)}>
+                <select aria-label="NIPT run mode" value={niptRunMode} onChange={(event) => handleNiptRunModeChange(event.target.value as NiptRunMode)}>
                   <option value="mount_smoke">mount_smoke</option>
                   <option value="full_run">full_run (requires backend env)</option>
                 </select>
               </label>
               <label className="field">
                 <span>NIPT cores</span>
-                <input aria-label="NIPT cores" type="number" min={1} max={40} value={niptCores} onChange={(event) => setNiptCores(Number(event.target.value) || 1)} />
+                <input aria-label="NIPT cores" type="number" min={1} max={40} value={niptCores} onChange={(event) => handleNiptCoresChange(Number(event.target.value) || 1)} />
               </label>
             </>
           )}
@@ -403,6 +457,9 @@ export function SubmitPage() {
           <PreviewField label="Selected samples" value={String(selectedScanRows.length)} />
           {selectedPipeline === "pgta" ? <PreviewField label="PGT-A target" value={target} /> : null}
           {selectedPipeline === "nipt_docker" ? <PreviewField label="NIPT run mode" value={niptRunMode} /> : null}
+          <PreviewField label="Runtime profile" value={configSelection?.profile.label || "loading"} />
+          <PreviewField label="Config revision" value={configSelection?.profile.config_version || "loading"} />
+          <PreviewField label="Config changes" value={configSelection ? String(configSelection.changedPaths.length) : "not validated"} />
           <PreviewField label="Scan root" value={rawdataRoot || "not set"} wide mono />
           <PreviewField label="Estimated workflow" value={selectedTemplate.steps.map((step) => step.name).join(" -> ")} wide />
         </div>

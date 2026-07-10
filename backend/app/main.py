@@ -23,6 +23,13 @@ from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candida
 from app.intake_config import load_intake_config
 from app.intake_service import list_intake_status, preview_intake_scan, scan_and_submit_intake
 from app.operator_resources_service import list_failures_resource, list_samples_resource
+from app.pipeline_config_service import (
+    PipelineConfigError,
+    ProfileChangedError,
+    get_pipeline_config_template,
+    get_run_config,
+    validate_pipeline_config,
+)
 from app.progress_service import get_run_progress
 from app.qc_service import list_run_qc
 from app.rule_event_service import list_snakemake_rule_events, record_snakemake_event
@@ -80,6 +87,9 @@ class CreateRunRequest(BaseModel):
     cores: int | None = Field(default=None, ge=1, le=40)
     email_to: str | None = None
     note: str | None = None
+    runtime_profile_id: str | None = None
+    config_template_hash: str | None = None
+    snakemake_config_yaml: str | None = Field(default=None, max_length=65536)
 
     @model_validator(mode="after")
     def validate_pipeline_inputs(self):
@@ -94,6 +104,16 @@ class CreateRunRequest(BaseModel):
             if not self.selected_samples:
                 raise ValueError("selected_samples is required for pipeline=nipt_docker.")
         return self
+
+
+class PipelineConfigValidationRequest(BaseModel):
+    pipeline: str
+    target: str = "metadata"
+    run_mode: str = "mount_smoke"
+    cores: int | None = Field(default=None, ge=1, le=40)
+    runtime_profile_id: str
+    config_template_hash: str
+    snakemake_config_yaml: str = Field(max_length=65536)
 
 
 class IntakeScanRequest(BaseModel):
@@ -222,11 +242,70 @@ def intake_scanner_state() -> dict[str, object]:
     }
 
 
+@app.get("/api/pipeline-config/template")
+def pipeline_config_template(
+    pipeline: str,
+    target: str = "metadata",
+    run_mode: str = "mount_smoke",
+    profile_id: str | None = None,
+) -> dict[str, object]:
+    del target, run_mode
+    try:
+        return get_pipeline_config_template(
+            settings=get_settings(),
+            pipeline=pipeline,
+            profile_id=profile_id,
+        )
+    except PipelineConfigError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "CONFIG_VALIDATION_ERROR", "message": str(exc)},
+        ) from exc
+
+
+@app.post("/api/pipeline-config/validate")
+def pipeline_config_validate(request: PipelineConfigValidationRequest) -> dict[str, object]:
+    try:
+        validated = validate_pipeline_config(
+            settings=get_settings(),
+            pipeline=request.pipeline,
+            profile_id=request.runtime_profile_id,
+            template_hash=request.config_template_hash,
+            config_yaml=request.snakemake_config_yaml,
+            cores=request.cores,
+        )
+    except ProfileChangedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "PROFILE_CHANGED", "message": str(exc)},
+        ) from exc
+    except PipelineConfigError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "CONFIG_VALIDATION_ERROR", "message": str(exc)},
+        ) from exc
+    return {
+        "valid": True,
+        "profile": {
+            "id": validated.profile_id,
+            "label": validated.profile_label,
+            "pipeline_version": validated.pipeline_version,
+            "config_version": validated.config_version,
+        },
+        "config_template_hash": validated.template_hash,
+        "normalized_yaml": validated.normalized_yaml,
+        "changed_paths": validated.changed_paths,
+        "warnings": [],
+        "errors": [],
+    }
+
+
 @app.post("/api/runs", status_code=status.HTTP_201_CREATED)
 def create_run(request: CreateRunRequest) -> dict[str, object]:
     settings = get_settings()
     session_factory = get_sessionmaker()
     try:
+        pipeline_config = _validated_create_config(request=request, settings=settings)
         with session_factory() as session:
             if request.pipeline == "pgta":
                 selected_samples = [_selected_sample_to_candidate(item) for item in request.selected_samples]
@@ -239,6 +318,7 @@ def create_run(request: CreateRunRequest) -> dict[str, object]:
                     selected_samples=selected_samples,
                     email_to=request.email_to,
                     note=request.note,
+                    pipeline_config=pipeline_config,
                 )
             if request.pipeline == "wes_qsub":
                 return create_wes_mock_run(
@@ -262,8 +342,19 @@ def create_run(request: CreateRunRequest) -> dict[str, object]:
                     cores=request.cores,
                     email_to=request.email_to,
                     note=request.note,
+                    pipeline_config=pipeline_config,
                 )
             raise ValueError("Only pipeline=pgta, pipeline=wes_qsub, or pipeline=nipt_docker is supported in this phase.")
+    except ProfileChangedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "PROFILE_CHANGED", "message": str(exc)},
+        ) from exc
+    except PipelineConfigError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "CONFIG_VALIDATION_ERROR", "message": str(exc)},
+        ) from exc
     except InputPathError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -685,6 +776,28 @@ def run_artifacts(analysis_id: str) -> dict[str, object]:
     return payload
 
 
+@app.get("/api/runs/{analysis_id}/config")
+def run_config_detail(analysis_id: str) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            payload = get_run_config(
+                session=session,
+                analysis_id=analysis_id,
+                settings=get_settings(),
+            )
+    except PipelineConfigError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "CONFIG_VALIDATION_ERROR", "message": str(exc)},
+        ) from exc
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+        )
+    return payload
+
+
 @app.get("/api/health/db")
 def database_health() -> dict[str, str]:
     try:
@@ -711,6 +824,30 @@ def airflow_health() -> dict[str, object]:
         ) from None
 
     return {"status": "ok", "airflow": airflow_payload}
+
+
+def _validated_create_config(*, request: CreateRunRequest, settings):
+    values = (
+        request.runtime_profile_id,
+        request.config_template_hash,
+        request.snakemake_config_yaml,
+    )
+    if all(value is None for value in values):
+        return None
+    if request.pipeline not in {"pgta", "nipt_docker"}:
+        raise PipelineConfigError("Editable Snakemake config is only available for PGT-A and NIPT Docker.")
+    if any(value is None for value in values):
+        raise PipelineConfigError(
+            "runtime_profile_id, config_template_hash, and snakemake_config_yaml must be supplied together."
+        )
+    return validate_pipeline_config(
+        settings=settings,
+        pipeline=request.pipeline,
+        profile_id=str(request.runtime_profile_id),
+        template_hash=str(request.config_template_hash),
+        config_yaml=str(request.snakemake_config_yaml),
+        cores=request.cores,
+    )
 
 
 def _selected_sample_to_candidate(item: SelectedSampleRequest) -> FastqCandidate:

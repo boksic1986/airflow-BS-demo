@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 
-import {cleanup, render, screen, waitFor, within} from "@testing-library/react";
+import {act, cleanup, render, screen, waitFor, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
@@ -275,6 +275,40 @@ describe("bioinformatics platform frontend", () => {
       "fetch",
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
+        if (url.includes("/api/pipeline-config/template")) {
+          const pipeline = new URL(url).searchParams.get("pipeline") || "pgta";
+          const nipt = pipeline === "nipt_docker";
+          const profile = nipt
+            ? {id: "niptpro-1.0.11", label: "NIPTPro 1.0.11", pipeline_version: "1.0.11", config_version: "v3.2.5.1"}
+            : {id: "pgta-current", label: "PGT-A current environment", pipeline_version: "current", config_version: "pgta-airflow-v1"};
+          return mockJson({
+            pipeline,
+            profile,
+            profiles: [profile],
+            config_template_hash: `${profile.id}-template-hash`,
+            editable_yaml: nipt
+              ? "params:\n  sexcutoff: 0.00007\n  seed: 9696\n  map_threads: 4\n  aneuscreen_threads: 10\nmapper_v2:\n  workers: 4\n  worker_auto_max: 4\n  pipe_buffer_bytes: 4194304\n"
+              : "core:\n  wisecondorx:\n    binsize: 100000\n    use_chr_prefix: true\n    reference_prefilter:\n      binsize: 100000\n      max_iterations: 3\n",
+            changed_paths: [],
+          });
+        }
+        if (url.endsWith("/api/pipeline-config/validate") && init?.method === "POST") {
+          const body = JSON.parse(String(init.body || "{}")) as {pipeline: string; runtime_profile_id: string; config_template_hash: string; snakemake_config_yaml: string};
+          const changed = body.snakemake_config_yaml.includes("max_iterations: 5")
+            ? ["core.wisecondorx.reference_prefilter.max_iterations"]
+            : [];
+          return mockJson({
+            valid: true,
+            profile: body.pipeline === "nipt_docker"
+              ? {id: "niptpro-1.0.11", label: "NIPTPro 1.0.11", pipeline_version: "1.0.11", config_version: "v3.2.5.1"}
+              : {id: "pgta-current", label: "PGT-A current environment", pipeline_version: "current", config_version: "pgta-airflow-v1"},
+            config_template_hash: body.config_template_hash,
+            normalized_yaml: body.snakemake_config_yaml,
+            changed_paths: changed,
+            warnings: [],
+            errors: [],
+          });
+        }
         if (url.includes("/api/dashboard/overview")) {
           const pipeline = new URL(url).searchParams.get("pipeline") || "all";
           return mockJson(dashboardOverview(pipeline));
@@ -954,8 +988,27 @@ describe("bioinformatics platform frontend", () => {
             items: [
               {key: "snakemake_command", type: "snakemake_log", label: "Snakemake command", path: `/data/airflow-demo/runs/${id}/logs/snakemake.command.txt`, size_bytes: 256, url: `/api/runs/${id}/logs?stream=metadata`},
               {key: "snakemake_config", type: "config_yaml", label: id === niptRunId ? "NIPT run config" : "PGT-A Snakemake config", path: `/data/airflow-demo/runs/${id}/${id === niptRunId ? "config/nipt_run_config.yaml" : "config.yaml"}`, size_bytes: 512, url: `/api/runs/${id}/artifacts/config`},
+              ...(id === niptRunId ? [{key: "nipt_docker_compose", type: "nipt_docker_compose", label: "NIPT Docker compose file", path: `/data/airflow-demo/runs/${id}/config/nipt_docker_compose.yml`, size_bytes: 256, url: `/api/runs/${id}/artifacts/nipt_docker_compose`}] : []),
               {key: "qc_summary", type: "qc_tsv", label: "QC summary", path: `/data/airflow-demo/runs/${id}/reports/qc_summary.tsv`, size_bytes: 128, url: `/api/runs/${id}/artifacts/qc_summary`},
             ],
+          });
+        }
+        if (url.match(/\/api\/runs\/[^/]+\/config$/)) {
+          const id = url.split("/api/runs/")[1].split("/config")[0];
+          const nipt = id === niptRunId;
+          return mockJson({
+            analysis_id: id,
+            pipeline: nipt ? "nipt_docker" : "pgta",
+            state: "resolved",
+            profile: nipt
+              ? {id: "niptpro-1.0.11", label: "NIPTPro 1.0.11", pipeline_version: "1.0.11", config_version: "v3.2.5.1"}
+              : {id: "pgta-current", label: "PGT-A current environment", pipeline_version: "current", config_version: "pgta-airflow-v1"},
+            config_template_hash: "template-hash",
+            config_requested_hash: "requested-hash",
+            resolved_config_hash: "resolved-hash",
+            changed_paths: nipt ? ["params.sexcutoff"] : ["core.wisecondorx.reference_prefilter.max_iterations"],
+            requested_yaml: nipt ? "params:\n  sexcutoff: 0.00008\n" : "core:\n  wisecondorx:\n    reference_prefilter:\n      max_iterations: 5\n",
+            resolved_yaml: nipt ? "params:\n  sexcutoff: 0.00008\ninput:\n  result_dir: /workdir/result\n" : "core:\n  wisecondorx:\n    reference_prefilter:\n      max_iterations: 5\n",
           });
         }
         if (url.includes("/logs?")) {
@@ -1278,6 +1331,156 @@ describe("bioinformatics platform frontend", () => {
     });
   });
 
+  it("keeps advanced Snakemake config collapsed and requires validation after edits", async () => {
+    const user = userEvent.setup();
+    setRoute("/submit");
+    render(<App />);
+
+    const profileSelect = await screen.findByRole("combobox", {name: /Runtime profile/i});
+    await waitFor(() => expect(profileSelect).toHaveValue("pgta-current"));
+    expect(screen.queryByLabelText(/Snakemake config YAML/i)).not.toBeInTheDocument();
+    await user.clear(screen.getByLabelText(/rawdata root/i));
+    await user.type(screen.getByLabelText(/rawdata root/i), rawdataRoot);
+    await user.click(screen.getByRole("button", {name: /^scan$/i}));
+    await user.click(await screen.findByRole("checkbox", {name: /select folder Sample_G10/i}));
+
+    const submitButton = screen.getByRole("button", {name: /create and submit to airflow/i});
+    expect(submitButton).toBeEnabled();
+    await user.click(screen.getByRole("button", {name: /Advanced Snakemake config/i}));
+    const editor = screen.getByLabelText(/Snakemake config YAML/i);
+    expect((editor as HTMLTextAreaElement).value).toContain("max_iterations: 3");
+    await user.clear(editor);
+    await user.type(
+      editor,
+      "core:\n  wisecondorx:\n    binsize: 100000\n    use_chr_prefix: true\n    reference_prefilter:\n      binsize: 100000\n      max_iterations: 5\n",
+    );
+    expect(submitButton).toBeDisabled();
+
+    await user.click(screen.getByRole("button", {name: /^Validate$/i}));
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    expect(screen.getByText(/1 modified field/i)).toBeInTheDocument();
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/pipeline-config/validate"),
+      expect.objectContaining({method: "POST", body: expect.stringContaining("max_iterations: 5")}),
+    );
+  });
+
+  it("ignores a stale validation response after the YAML changes again", async () => {
+    const user = userEvent.setup();
+    setRoute("/submit");
+    render(<App />);
+    await waitFor(() => expect(screen.getByRole("combobox", {name: /Runtime profile/i})).toHaveValue("pgta-current"));
+    await user.click(screen.getByRole("button", {name: /Advanced Snakemake config/i}));
+
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const defaultFetch = fetchMock.getMockImplementation();
+    let releaseValidation: (() => void) | null = null;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const body = String(init?.body || "");
+      if (url.includes("/api/pipeline-config/validate") && body.includes("max_iterations: 5")) {
+        return new Promise<Response>((resolve) => {
+          releaseValidation = () => {
+            void mockJson({
+              valid: true,
+              profile: {id: "pgta-current", label: "PGT-A current environment", pipeline_version: "current", config_version: "pgta-airflow-v1"},
+              config_template_hash: "pgta-current-template-hash",
+              normalized_yaml: "core:\n  wisecondorx:\n    binsize: 100000\n    use_chr_prefix: true\n    reference_prefilter:\n      binsize: 100000\n      max_iterations: 5\n",
+              changed_paths: ["core.wisecondorx.reference_prefilter.max_iterations"],
+              warnings: [],
+              errors: [],
+            }).then(resolve);
+          };
+        });
+      }
+      if (!defaultFetch) throw new Error("Missing default fetch mock");
+      return defaultFetch(input, init);
+    });
+
+    const editor = screen.getByLabelText(/Snakemake config YAML/i);
+    await user.clear(editor);
+    await user.type(editor, "core:\n  wisecondorx:\n    binsize: 100000\n    use_chr_prefix: true\n    reference_prefilter:\n      binsize: 100000\n      max_iterations: 5\n");
+    await user.click(screen.getByRole("button", {name: /^Validate$/i}));
+    await waitFor(() => expect(releaseValidation).not.toBeNull());
+    await user.clear(editor);
+    await user.type(editor, "core:\n  wisecondorx:\n    binsize: 100000\n    use_chr_prefix: true\n    reference_prefilter:\n      binsize: 100000\n      max_iterations: 6\n");
+    await act(async () => {
+      releaseValidation?.();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    await waitFor(() => expect((editor as HTMLTextAreaElement).value).toContain("max_iterations: 6"));
+    expect(screen.getByText(/Validate this edit before creating the run/i)).toBeInTheDocument();
+  });
+
+  it("ignores a stale PGT-A config response after switching to NIPT", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const defaultFetch = fetchMock.getMockImplementation();
+    let releasePgta: (() => void) | null = null;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/api/pipeline-config/template") && new URL(url).searchParams.get("pipeline") === "pgta") {
+        return new Promise<Response>((resolve) => {
+          releasePgta = () => {
+            void mockJson({
+              pipeline: "pgta",
+              profile: {id: "pgta-current", label: "PGT-A current environment", pipeline_version: "current", config_version: "pgta-airflow-v1"},
+              profiles: [{id: "pgta-current", label: "PGT-A current environment", pipeline_version: "current", config_version: "pgta-airflow-v1"}],
+              config_template_hash: "pgta-current-template-hash",
+              editable_yaml: "core:\n  wisecondorx:\n    reference_prefilter:\n      max_iterations: 3\n",
+              changed_paths: [],
+            }).then(resolve);
+          };
+        });
+      }
+      if (!defaultFetch) throw new Error("Missing default fetch mock");
+      return defaultFetch(input, init);
+    });
+
+    setRoute("/submit");
+    render(<App />);
+    await user.click(screen.getByRole("radio", {name: /NIPT Docker/i}));
+    const profileSelect = await screen.findByRole("combobox", {name: /Runtime profile/i});
+    await waitFor(() => expect(profileSelect).toHaveValue("niptpro-1.0.11"));
+    expect(releasePgta).not.toBeNull();
+    await act(async () => {
+      releasePgta?.();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+    await waitFor(() => expect(profileSelect).toHaveValue("niptpro-1.0.11"));
+  });
+
+  it("reloads runtime profile defaults after a PROFILE_CHANGED create response", async () => {
+    const user = userEvent.setup();
+    setRoute("/submit");
+    render(<App />);
+    await waitFor(() => expect(screen.getByRole("combobox", {name: /Runtime profile/i})).toHaveValue("pgta-current"));
+    await user.clear(screen.getByLabelText(/rawdata root/i));
+    await user.type(screen.getByLabelText(/rawdata root/i), rawdataRoot);
+    await user.click(screen.getByRole("button", {name: /^scan$/i}));
+    await user.click(await screen.findByRole("checkbox", {name: /select folder Sample_G10/i}));
+
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const defaultFetch = fetchMock.getMockImplementation();
+    const templateCallsBefore = fetchMock.mock.calls.filter(([input]) => String(input).includes("/api/pipeline-config/template")).length;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/api/runs") && init?.method === "POST") {
+        return mockJson({detail: {code: "PROFILE_CHANGED", message: "profile changed"}}, {status: 409});
+      }
+      if (!defaultFetch) throw new Error("Missing default fetch mock");
+      return defaultFetch(input, init);
+    });
+
+    await user.click(screen.getByRole("button", {name: /create and submit to airflow/i}));
+
+    expect(await screen.findByText(/Defaults were reloaded/i)).toBeInTheDocument();
+    await waitFor(() => {
+      const templateCallsAfter = fetchMock.mock.calls.filter(([input]) => String(input).includes("/api/pipeline-config/template")).length;
+      expect(templateCallsAfter).toBeGreaterThan(templateCallsBefore);
+    });
+  });
+
   it("creates and submits a PGT-A run to Airflow from the primary submit action", async () => {
     const user = userEvent.setup();
     setRoute("/submit");
@@ -1332,6 +1535,12 @@ describe("bioinformatics platform frontend", () => {
     expect(handoffSummary).not.toBeNull();
     expect(within(handoffSummary as HTMLElement).getByText("success")).toBeInTheDocument();
     expect(screen.getByText(/Create only/i)).toBeInTheDocument();
+    const createCall = vi.mocked(globalThis.fetch).mock.calls.find(
+      ([input, init]) => String(input).endsWith("/api/runs") && init?.method === "POST" && String(init.body).includes('"pipeline":"pgta"'),
+    );
+    expect(String(createCall?.[1]?.body)).toContain('"runtime_profile_id":"pgta-current"');
+    expect(String(createCall?.[1]?.body)).toContain('"config_template_hash":"pgta-current-template-hash"');
+    expect(String(createCall?.[1]?.body)).toContain('"snakemake_config_yaml"');
   });
 
   it("renders run detail QC as a compact searchable matrix with pagination", async () => {
@@ -1381,8 +1590,10 @@ describe("bioinformatics platform frontend", () => {
 
     await user.click(screen.getByRole("tab", {name: /config/i}));
     expect(await screen.findByRole("heading", {name: /Snakemake run config/i})).toBeInTheDocument();
-    expect(screen.getByText(/PGT-A Snakemake config/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/config.yaml/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/PGT-A current environment/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name: /Requested config/i})).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name: /Resolved config/i})).toBeInTheDocument();
+    expect(screen.getAllByText(/max_iterations: 5/i)).toHaveLength(2);
 
     await user.click(screen.getByRole("button", {name: /Run action/i}));
     expect(await screen.findByRole("dialog", {name: /Run action/i})).toBeInTheDocument();
@@ -1499,6 +1710,11 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getAllByText(/run_nipt_docker/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", {name: /Pipeline steps/i})).toBeInTheDocument();
     expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining(`/api/runs/${niptRunId}/progress`), undefined);
+
+    await userEvent.click(screen.getByRole("tab", {name: /config/i}));
+    expect(await screen.findByText(/NIPTPro 1.0.11/i)).toBeInTheDocument();
+    expect(screen.queryByText(/NIPT Docker compose file/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/nipt_docker_compose\.yml/i)).not.toBeInTheDocument();
   });
 
   it("shows a read-only intake scanner settings console without scanner action buttons", async () => {

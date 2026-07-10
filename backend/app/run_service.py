@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.input_scanner import FastqCandidate, InputPathError, ensure_allowed_path
 from app.intake_config import load_intake_config
 from app.models import AnalysisRun, RunAction, Sample
+from app.pipeline_config_service import ValidatedPipelineConfig, persist_requested_config
 
 
 PGTA_DAG_ID = "bio_pgta"
@@ -63,6 +64,7 @@ def create_pgta_run(
     selected_samples: list[FastqCandidate],
     email_to: str | None = None,
     note: str | None = None,
+    pipeline_config: ValidatedPipelineConfig | None = None,
 ) -> dict:
     _validate_pgta_target(target)
     if not selected_samples:
@@ -106,6 +108,7 @@ def create_pgta_run(
         "selected_count": len(selected_samples),
         "note": note,
     }
+    _attach_pipeline_config(workdir=workdir, params=params, pipeline_config=pipeline_config)
     run = AnalysisRun(
         analysis_id=analysis_id,
         pipeline_name="pgta",
@@ -224,6 +227,7 @@ def create_nipt_docker_run(
     cores: int | None = None,
     email_to: str | None = None,
     note: str | None = None,
+    pipeline_config: ValidatedPipelineConfig | None = None,
 ) -> dict:
     if selected_samples:
         return _create_nipt_docker_scan_run(
@@ -236,6 +240,7 @@ def create_nipt_docker_run(
             cores=cores,
             email_to=email_to,
             note=note,
+            pipeline_config=pipeline_config,
         )
     if template_id:
         return _create_nipt_docker_template_run(
@@ -247,6 +252,7 @@ def create_nipt_docker_run(
             cores=cores,
             email_to=email_to,
             note=note,
+            pipeline_config=pipeline_config,
         )
     raise ValueError("NIPT Docker requires selected_samples from a server path scan.")
 
@@ -261,6 +267,7 @@ def _create_nipt_docker_template_run(
     cores: int | None = None,
     email_to: str | None = None,
     note: str | None = None,
+    pipeline_config: ValidatedPipelineConfig | None = None,
 ) -> dict:
     _validate_nipt_template(template_id)
     _validate_nipt_run_mode(run_mode=run_mode, settings=settings)
@@ -304,6 +311,7 @@ def _create_nipt_docker_template_run(
         "cores": requested_cores,
         "note": note,
     }
+    _attach_pipeline_config(workdir=workdir, params=params, pipeline_config=pipeline_config)
     run = AnalysisRun(
         analysis_id=analysis_id,
         pipeline_name="nipt_docker",
@@ -352,6 +360,7 @@ def _create_nipt_docker_scan_run(
     cores: int | None = None,
     email_to: str | None = None,
     note: str | None = None,
+    pipeline_config: ValidatedPipelineConfig | None = None,
 ) -> dict:
     _validate_nipt_run_mode(run_mode=run_mode, settings=settings)
     requested_cores = _normalize_nipt_cores(cores, settings=settings)
@@ -418,6 +427,7 @@ def _create_nipt_docker_scan_run(
         "cores": requested_cores,
         "note": note,
     }
+    _attach_pipeline_config(workdir=workdir, params=params, pipeline_config=pipeline_config)
     run = AnalysisRun(
         analysis_id=analysis_id,
         pipeline_name="nipt_docker",
@@ -1152,6 +1162,18 @@ def _relative_id(path: Path, root: Path) -> str:
         return path.relative_to(root).as_posix() or path.name
     except ValueError:
         return path.name
+
+
+def _attach_pipeline_config(
+    *,
+    workdir: Path,
+    params: dict,
+    pipeline_config: ValidatedPipelineConfig | None,
+) -> None:
+    if pipeline_config is None:
+        return
+    persist_requested_config(workdir=workdir, config=pipeline_config)
+    params.update(pipeline_config.params())
 
 
 def _run_payload(run: AnalysisRun, *, sample_count: int) -> dict:

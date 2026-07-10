@@ -5,7 +5,12 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T110 Operator Workspace hardening is validated and deployed for backend/frontend; deployed workflow scope remains PGT-A + NIPT Docker, automatic intake remains disabled, and bio_intake_scan remains paused pending operator approval.
+current_goal_ascii: T111 Snakemake config editor and approved runtime profiles are validated and deployed for PGT-A + NIPT Docker; automatic intake remains disabled and bio_intake_scan remains paused.
+last_t111_backend_tests: remote Dockerized full pytest passed 103 tests.
+last_t111_airflow_tests: full unittest discovery passed 74 tests with 5 expected logger-interface skips; compose worker profile-mount and approved-runtime availability regressions passed.
+last_t111_frontend_tests: remote Dockerized Vitest passed 24 tests; production tsc/vite build passed.
+last_t111_runtime_smoke: PGTA_20260710_110056_DC8A8D metadata and NIPT_20260710_110057_79A631 mount_smoke both reached success with final reviewed profiles and resolved config provenance.
+last_t111_browser_check: Submit and Run Detail Config passed at 1440 and 390 CSS pixels without document overflow; Compose artifacts remained hidden.
 当前阶段: P3/P4/P6 Airflow + Snakemake/qsub mock observability + PGT-A Level 4 staged integration
 当前目标: T110 已将 Dashboard、Batch Runs、Sample Matrix、Failure Triage 和 Run Detail 收敛为可分页、可筛选、无 N+1 的 PGT-A/NIPT 操作员工作区；下一步在不启用自动 intake 的前提下继续做正式流程上线前的审计与权限边界。
 最近更新时间: 2026-07-10
@@ -33,8 +38,8 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/frontend/T110-operator-workspace-hardening in local worktree; T109 baseline is local commit `bcdc439`
-last_verified_code_commit: current T110 branch tip after the final task commit; T109 baseline is `bcdc439`
+active_branch: codex/frontend/T111-snakemake-config-editor in local worktree; T110 baseline is `b56c405`
+last_verified_code_commit: current T111 branch pending final task commit; T110 baseline is `b56c405`
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 overlay is deployed there and `origin/main` on the mirror has been fetched to `0857e3d`, but the mirror worktree itself remains on its existing dirty deployment branch
 ```

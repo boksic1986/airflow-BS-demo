@@ -36,6 +36,84 @@
 
 ## Records
 
+## 2026-07-10 18:30 - Codex - T111 Snakemake config editor and runtime profiles
+
+### Goal
+
+Allow PGT-A and NIPT Docker submissions to select approved runtime profiles and
+edit only schema-approved Snakemake YAML for the current run, without exposing
+Docker Compose or allowing arbitrary images, executables, or host paths.
+
+### Completed
+
+- Added sanitized PGT-A/NIPT profile templates, strict YAML validation, stale
+  profile hash protection, and immutable requested/resolved provenance files.
+- Added the collapsed Submit Run editor with server validation, reset, changed
+  path summary, and create/submit gating.
+- Added Run Detail requested/resolved config display and hid Compose artifacts.
+- Kept existing DAG IDs, TaskGroups, heavy-run gate, rerun behavior, and intake
+  settings unchanged.
+- Fixed a deployment issue found by smoke testing: the worker-specific Compose
+  volume list overrode the common list and omitted `/opt/airflow/config`. A
+  regression test now requires the read-only profile mount in the worker.
+- Closed review findings for non-finite numbers, stale validation responses,
+  `PROFILE_CHANGED` recovery, config symlinks, PGT-A software-path coverage,
+  NIPT profile-root drift, and hidden runtime snapshot provenance.
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| remote full backend pytest | success | 103 passed |
+| remote Airflow unittest discovery | success | 74 passed, 5 expected logger-interface skips |
+| remote frontend Docker test target | success | 24 Vitest tests passed |
+| remote Compose image build | success | backend, worker, scheduler, frontend; production `tsc -b && vite build` passed |
+| remote Compose config and service recreate | success | recreated backend, worker, scheduler, frontend only; no volume deletion |
+| Airflow DAG import check | success | `No data found` |
+| PGT-A metadata config smoke | success | final profile run `PGTA_20260710_110056_DC8A8D` reached success |
+| NIPT config mount smoke | success | final profile run `NIPT_20260710_110057_79A631` reached success |
+| approved runtime availability probe | success | PGT-A executable/reference/Snakefile and both NIPT images available in worker |
+| browser responsive check | success | Submit/Config at 1440 and 390; no document overflow |
+| intake scanner state | success | `airflow_reachable=true`, `is_paused=true` |
+
+### Tests
+
+The first two runtime smokes failed at `validate_request` because the Airflow
+worker did not receive the Profile config mount. After the Compose regression
+test failed and the explicit worker mount was added, fresh PGT-A/NIPT smoke
+runs both succeeded and exposed resolved provenance through the backend API.
+
+### Not run / why
+
+- `npm run lint` is unavailable because the frontend package has no lint script.
+- PGT-A `baseline_qc` and NIPT `full_run` were not run because they are heavy.
+- `bio_intake_scan` was not unpaused and automatic submission remains disabled.
+
+### Current git status
+
+T111 changes are ready for one final verification pass and commit on
+`codex/frontend/T111-snakemake-config-editor`, based on T110 `b56c405`.
+
+### Risks
+
+- Profile IDs/revisions are deployment contracts. Updating an existing profile
+  changes its hash and correctly rejects stale Submit pages with
+  `PROFILE_CHANGED`; operators must reload defaults.
+- Resolved config intentionally includes exact execution paths for run audit;
+  the Submit template never returns hidden runtime/profile path data.
+
+### Next recommended task
+
+Add a read-only Runtime Profile catalog and a clone-run-with-config workflow;
+keep profile file editing and arbitrary runtime paths outside the frontend.
+
+### Rollback notes
+
+Revert the T111 commit and recreate backend, Airflow worker/scheduler, and
+frontend. Do not delete Postgres, Redis, Docker volumes, `shared/runs`, PGT-A
+rawdata, or NIPT inputs. The two successful smoke runs and two failed
+pre-mount diagnostic runs may remain as immutable audit history.
+
 ## 2026-07-10 12:35 - Codex - T110 Operator Workspace stability and action closure
 
 ### Goal

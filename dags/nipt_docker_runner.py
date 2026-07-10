@@ -10,6 +10,12 @@ from typing import Any
 import yaml
 
 from common.paths import count_nonempty_lines, ensure_directory, ensure_under_root
+from common.pipeline_profiles import (
+    apply_editable_config,
+    resolve_runtime_profile,
+    validate_runtime_profile_availability,
+    write_resolved_config,
+)
 from common.progress_events import emit_progress_event, parse_snakemake_output_for_events
 from common.subprocess_utils import run_command_to_logs
 
@@ -83,7 +89,7 @@ def validate_nipt_conf(
     else:
         normalized_params.pop("template_id", None)
         normalized_params["source_batch_dir"] = source_batch_dir
-    return {
+    normalized = {
         "analysis_id": analysis_id,
         "pipeline": pipeline,
         "mode": mode,
@@ -93,6 +99,9 @@ def validate_nipt_conf(
         "backend_event_url": conf.get("backend_event_url"),
         "params": normalized_params,
     }
+    resolved_profile = resolve_runtime_profile(normalized, pipeline="nipt_docker")
+    validate_runtime_profile_availability(resolved_profile, pipeline="nipt_docker")
+    return normalized
 
 
 def prepare_nipt_docker_run(
@@ -111,6 +120,13 @@ def prepare_nipt_docker_run(
     ensure_directory(workdir / "logs")
     ensure_directory(workdir / "reports")
     ensure_directory(workdir / "tmp")
+
+    resolved_profile = resolve_runtime_profile(conf, pipeline="nipt_docker")
+    runtime = resolved_profile.runtime if resolved_profile else {}
+    nipt_pipeline_root = Path(runtime.get("pipeline_root") or nipt_pipeline_root)
+    host_nipt_pipeline_root = Path(runtime.get("host_pipeline_root") or host_nipt_pipeline_root)
+    docker_image = str(runtime.get("docker_image") or docker_image)
+    fetal_image = str(runtime.get("fetal_image") or fetal_image)
 
     params = dict(conf.get("params") or {})
     input_mode = str(params.get("input_mode") or "nipt_docker_template")
@@ -148,10 +164,14 @@ def prepare_nipt_docker_run(
         host_workdir=str(host_workdir),
         container_chip_dir=f"/workdir/analysis/NIPTPro/{chip_name}",
         container_fastq_dir="/input_batch" if input_mode == "nipt_docker_scan" else str(source_batch_dir),
+        nipt_pipeline_root=nipt_pipeline_root,
     )
+    run_config = apply_editable_config(run_config, resolved_profile)
     if input_mode == "nipt_docker_template":
         run_config["template_id"] = template_id
     run_config_path.write_text(yaml.safe_dump(run_config, sort_keys=False), encoding="utf-8")
+    if resolved_profile:
+        write_resolved_config(workdir=workdir, config=run_config)
 
     compose = generate_nipt_compose(
         analysis_id=str(conf["analysis_id"]),
@@ -497,8 +517,9 @@ def _nipt_run_config(
     host_workdir: str,
     container_chip_dir: str,
     container_fastq_dir: str,
+    nipt_pipeline_root: Path = DEFAULT_NIPT_PIPELINE_ROOT,
 ) -> dict[str, Any]:
-    base_config_path = DEFAULT_NIPT_PIPELINE_ROOT / "niptplus" / "config.yaml"
+    base_config_path = nipt_pipeline_root / "niptplus" / "config.yaml"
     if base_config_path.is_file():
         config = yaml.safe_load(base_config_path.read_text(encoding="utf-8")) or {}
     else:
