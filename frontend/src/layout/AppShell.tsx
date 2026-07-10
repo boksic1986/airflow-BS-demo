@@ -13,13 +13,13 @@ import {
 import {NavLink, Outlet} from "react-router-dom";
 
 const navItems = [
-  {to: "/dashboard", label: "Dashboard", Icon: LayoutDashboard},
-  {to: "/submit", label: "Submit Task", Icon: ClipboardList},
-  {to: "/runs", label: "Runs", Icon: Activity},
-  {to: "/samples", label: "Samples", Icon: TestTube2},
-  {to: "/workflows", label: "Workflows", Icon: GitBranch},
-  {to: "/failures", label: "Failures", Icon: AlertTriangle},
-  {to: "/settings", label: "Settings", Icon: Settings},
+  {to: "/dashboard", label: "Command Center", Icon: LayoutDashboard},
+  {to: "/submit", label: "Submit Run", Icon: ClipboardList},
+  {to: "/runs", label: "Batch Runs", Icon: Activity},
+  {to: "/samples", label: "Sample Matrix", Icon: TestTube2},
+  {to: "/workflows", label: "Workflow Catalog", Icon: GitBranch},
+  {to: "/failures", label: "Failure Triage", Icon: AlertTriangle},
+  {to: "/settings", label: "Platform Settings", Icon: Settings},
 ];
 
 export function AppShell() {
@@ -29,8 +29,8 @@ export function AppShell() {
         <div className="brand-lockup">
           <FlaskConical size={24} />
           <div>
-            <strong>BioFlow Demo</strong>
-            <span>Airflow + Snakemake</span>
+            <strong>BioFlow Control</strong>
+            <span>PGT-A + NIPT Docker</span>
           </div>
         </div>
         <nav aria-label="Primary navigation">

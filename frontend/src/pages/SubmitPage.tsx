@@ -234,18 +234,31 @@ export function SubmitPage() {
       <section className="page-header">
         <div>
           <p className="eyebrow">Controlled intake</p>
-          <h1>Submit Task</h1>
-          <p>Prepare deployed PGT-A or NIPT Docker requests from scanned server batches, then submit them to Airflow.</p>
+          <h1>Submit Run</h1>
+          <p>Prepare deployed PGT-A or NIPT Docker requests from scanned server batches, validate the preview, then submit them to Airflow.</p>
         </div>
       </section>
 
-      <section className="panel">
+      <section className="submit-stepper" aria-label="Submit run steps">
+        <StepMarker index={1} title="Pipeline" detail={compactPipelineName(selectedPipeline)} active />
+        <StepMarker index={2} title="Server batch" detail={scanItems.length ? `${scanItems.length} candidates` : "scan required"} active={scanItems.length > 0} />
+        <StepMarker index={3} title="Preview" detail={`${selectedScanRows.length} selected`} active={selectedScanRows.length > 0} />
+        <StepMarker index={4} title="Airflow handoff" detail={handoffRuns.length ? "confirmed" : "pending"} active={handoffRuns.length > 0} />
+      </section>
+
+      <section className="panel submit-wizard-panel">
+        <div className="section-heading">
+          <p className="eyebrow">Step 1</p>
+          <h2>Select deployed workflow</h2>
+          <p>Only PGT-A and NIPT Docker are exposed in the current demo deployment.</p>
+        </div>
         <PipelineSelector pipelines={deployedWorkflowTemplates} value={selectedPipeline} onChange={handlePipelineChange} />
       </section>
 
       <div className="submit-grid">
         <section className="panel">
           <div className="section-heading">
+            <p className="eyebrow">Step 2</p>
             <h2>Run parameters</h2>
             <p>{selectedTemplate.description}</p>
           </div>
@@ -293,6 +306,7 @@ export function SubmitPage() {
       <section className="panel">
         <div className="section-heading split">
           <div>
+            <p className="eyebrow">Step 3</p>
             <h2>{selectedPipeline === "nipt_docker" ? "NIPT Docker server-path scan" : "PGT-A server-path scan"}</h2>
             <p>
               {selectedPipeline === "nipt_docker"
@@ -377,6 +391,7 @@ export function SubmitPage() {
 
       <section className="panel">
         <div className="section-heading">
+          <p className="eyebrow">Step 4</p>
           <h2>Submit preview</h2>
           <p>Execution is blocked until the selected pipeline scan returns validated FASTQ pairs and the run guard passes.</p>
         </div>
@@ -417,6 +432,18 @@ function PreviewField({label, value, wide = false, mono = false}: {label: string
     <div className={wide ? "submit-preview-field wide" : "submit-preview-field"}>
       <span>{label}</span>
       <strong className={mono ? "mono" : undefined}>{value}</strong>
+    </div>
+  );
+}
+
+function StepMarker({index, title, detail, active = false}: {index: number; title: string; detail: string; active?: boolean}) {
+  return (
+    <div className={active ? "submit-step active" : "submit-step"}>
+      <span>{index}</span>
+      <div>
+        <strong>{title}</strong>
+        <small>{detail}</small>
+      </div>
     </div>
   );
 }

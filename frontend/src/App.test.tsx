@@ -941,9 +941,10 @@ describe("bioinformatics platform frontend", () => {
     render(<App />);
 
     expect(await screen.findByRole("navigation", {name: /primary navigation/i})).toBeInTheDocument();
-    expect(screen.getByRole("link", {name: /dashboard/i})).toHaveAttribute("href", "/dashboard");
-    expect(screen.getByRole("link", {name: /workflows/i})).toHaveAttribute("href", "/workflows");
+    expect(screen.getByRole("link", {name: /command center/i})).toHaveAttribute("href", "/dashboard");
+    expect(screen.getByRole("link", {name: /workflow catalog/i})).toHaveAttribute("href", "/workflows");
     expect(screen.getByText(/Demo environment/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", {name: /Command Center/i})).toBeInTheDocument();
     expect(await screen.findByRole("heading", {name: /^Run Tracker$/i})).toBeInTheDocument();
     expect(screen.getByRole("button", {name: /All pipelines/i})).toHaveClass("active");
     expect(screen.getByRole("button", {name: /^PGT-A$/i})).toBeInTheDocument();
@@ -951,7 +952,7 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByRole("heading", {name: /Recent failed runs/i})).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", {name: /Recent completed runs/i})).not.toBeInTheDocument();
     expect(screen.getByText(/Status distribution/i)).toBeInTheDocument();
-    expect(screen.getByText(/7-day activity/i)).toBeInTheDocument();
+    expect(screen.getByText(/7d run activity/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", {name: /Sample throughput/i})).toBeInTheDocument();
     expect(screen.getByRole("button", {name: /24h/i})).toBeInTheDocument();
     expect(screen.getByRole("button", {name: /7d/i})).toHaveClass("active");
@@ -963,7 +964,7 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByRole("link", {name: /Fresh transfer 2-sample QC/i})).toHaveAttribute("href", `/runs/${activePgtaRunId}`);
     expect(screen.getByText(/52%/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Baseline BAM uniformity QC/i).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/baseline_bam_uniformity_qc/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/baseline_bam_uniformity_qc/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Snakemake rule event/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Elapsed 14m 30s/i)).toBeInTheDocument();
     expect(screen.getByText(/ETA ~1h 45m/i)).toBeInTheDocument();
@@ -979,7 +980,7 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getAllByText(/Not in Airflow/i).length).toBeGreaterThan(0);
     expect(screen.getByText(failedRunId)).toBeInTheDocument();
     expect(screen.getAllByText(niptRunId).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/NIPT docker/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/NIPT Docker/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Bootstrap observed/i)).toBeInTheDocument();
     expect(screen.queryByText(/^queued$/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", {name: /Intake scanner/i})).toBeInTheDocument();
@@ -1084,7 +1085,7 @@ describe("bioinformatics platform frontend", () => {
     setRoute("/submit");
     render(<App />);
 
-    expect(await screen.findByRole("heading", {name: /submit task/i})).toBeInTheDocument();
+    expect(await screen.findByRole("heading", {name: /submit run/i})).toBeInTheDocument();
     expect(screen.queryByRole("radio", {name: /wes/i})).not.toBeInTheDocument();
     expect(screen.queryByRole("radio", {name: /wgs/i})).not.toBeInTheDocument();
     expect(screen.queryByText(/sample sheet text/i)).not.toBeInTheDocument();
@@ -1224,7 +1225,7 @@ describe("bioinformatics platform frontend", () => {
     setRoute("/submit");
     render(<App />);
 
-    expect(await screen.findByRole("heading", {name: /submit task/i})).toBeInTheDocument();
+    expect(await screen.findByRole("heading", {name: /submit run/i})).toBeInTheDocument();
     expect(screen.getByRole("radio", {name: /PGT-A/i})).toBeInTheDocument();
     expect(screen.getByRole("radio", {name: /NIPT Docker/i})).toBeInTheDocument();
     expect(screen.queryByRole("combobox", {name: /NIPT template/i})).not.toBeInTheDocument();
@@ -1238,7 +1239,7 @@ describe("bioinformatics platform frontend", () => {
     setRoute("/submit");
     render(<App />);
 
-    expect(await screen.findByRole("heading", {name: /submit task/i})).toBeInTheDocument();
+    expect(await screen.findByRole("heading", {name: /submit run/i})).toBeInTheDocument();
     await user.click(screen.getByRole("radio", {name: /NIPT Docker/i}));
     expect(screen.queryByRole("combobox", {name: /NIPT template/i})).not.toBeInTheDocument();
     await user.clear(screen.getByLabelText(/rawdata root/i));
@@ -1374,8 +1375,8 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getAllByText(/NIPT26040207\.A06\.R1\.clean\.fastq\.gz \/ NIPT26040207\.A06\.R2\.clean\.fastq\.gz/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Batch 260414_TPNB500380AR_1065_AH32CCBGY2/i).length).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole("link", {name: /failures/i}));
-    expect(await screen.findByText(/Recent failed runs/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("link", {name: /failure triage/i}));
+    expect(await screen.findByRole("heading", {name: /Failure Triage/i})).toBeInTheDocument();
     expect(screen.getAllByText(/retry suggestion/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(wesRunId)).not.toBeInTheDocument();
   });

@@ -8,7 +8,7 @@ export function WorkflowsPage() {
       <section className="page-header">
         <div>
           <p className="eyebrow">Workflow templates</p>
-          <h1>Workflows</h1>
+          <h1>Workflow Catalog</h1>
           <p>Current deployment exposes the two runnable workflow templates for this demo.</p>
         </div>
       </section>

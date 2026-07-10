@@ -75,7 +75,7 @@ export function SamplesPage() {
       <section className="page-header">
         <div>
           <p className="eyebrow">Sample resource</p>
-          <h1>Samples</h1>
+          <h1>Sample Matrix</h1>
           <p>Sample view across deployed PGT-A and NIPT Docker runs, workflow status, QC status, and run detail links.</p>
         </div>
       </section>

@@ -765,3 +765,44 @@ operator-readable production views.
 - The header action becomes `Run action`, opening a controlled modal. It only
   exposes PGT-A `baseline_qc` resume and `rerun_stage` actions for
   `mapping`, `metadata`, and `baseline_qc`. Active runs are disabled.
+
+## 22. T109 Control Tower Frontend Polish
+
+T109 applies the reviewed BaseSpace/Seven Bridges inspired frontend-only polish
+without changing deployed workflow scope or backend contracts.
+
+### Scope
+
+- Current deployable workflows remain exactly `PGT-A` and `NIPT Docker`.
+- WES qsub, NIPT qsub, and WGS are not visible in Dashboard, Submit, Runs,
+  Samples, Failures, or Workflow Catalog as current deployment entrypoints.
+- No Tailwind, shadcn, TanStack, Recharts, or Ant Design dependency is added.
+- No backend API, Airflow DAG, intake scheduler, or NIPT full-run behavior is
+  changed.
+
+### Information architecture
+
+- Sidebar labels use production resource language:
+  `Command Center`, `Submit Run`, `Batch Runs`, `Sample Matrix`,
+  `Workflow Catalog`, `Failure Triage`, and `Platform Settings`.
+- `/dashboard` keeps using aggregate endpoints only:
+  `/api/dashboard/overview`, `/api/dashboard/runs`, `/api/intake/status`, and
+  `/api/system/resources`.
+- `/submit` keeps the existing server-path scan and create+submit behavior, but
+  renders it as a four-step workflow: pipeline, server batch, preview, Airflow
+  handoff.
+- `/runs/:analysisId` keeps the same tabs and data calls, but the Workflow tab
+  starts with a layered timeline before the raw tables.
+
+### Visual behavior
+
+- CSS theme tokens define background, surface, border, text, sidebar, status,
+  PGT-A accent, NIPT accent, and progress colors.
+- Sidebar is dark and compact; main content stays light and dense.
+- Dashboard has a command summary strip for runs, samples, QC alerts, and
+  workflow failures before the detailed charts and Run Tracker.
+- Run Tracker keeps 10-row pagination and clickable project/run links.
+- Run Detail primary stage labels use human-readable text such as
+  `Run PGT-A workflow`, `Mapping reads`, `Baseline QC`, and
+  `Run NIPT Docker workflow`; raw Airflow task or pipeline rule ids remain
+  visible as debug text where useful.

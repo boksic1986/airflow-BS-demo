@@ -36,6 +36,129 @@
 
 ## Records
 
+## 2026-07-09 02:40 - Codex - T109 PGT-A/NIPT Control Tower frontend polish
+
+### Goal
+
+Apply the frontend-only Control Tower polish from the review doc while keeping
+the deployed workflow scope to PGT-A and NIPT Docker. Do not add UI framework
+dependencies, do not change backend APIs, do not change DAGs, do not unpause
+intake, and do not run NIPT full_run.
+
+### Completed
+
+- Renamed the operator IA to `Command Center`, `Submit Run`, `Batch Runs`,
+  `Sample Matrix`, `Workflow Catalog`, `Failure Triage`, and
+  `Platform Settings`.
+- Added CSS theme tokens, dark sidebar, softer status/progress color palette,
+  Dashboard command summary strip, and visual polish for cards/tables.
+- Kept Dashboard on aggregate APIs only and preserved 10-row Run Tracker
+  pagination; no per-run detail/progress/rules fan-out was reintroduced.
+- Converted Submit into a visual four-step flow: pipeline, server batch,
+  preview, Airflow handoff, while preserving current PGT-A/NIPT create+submit
+  behavior.
+- Added frontend-only stage label mapping plus a Run Detail layered timeline:
+  Airflow project tasks above Snakemake/runner pipeline steps; raw task/rule ids
+  remain available as debug text.
+- Updated `DESIGN.md`, `docs/06_FRONTEND_SPEC.md`, `TASKS.md`,
+  `CURRENT_STATE.md`, and `MANIFEST.json`.
+
+### Changed files
+
+- `frontend/src/layout/AppShell.tsx`
+- `frontend/src/pages/DashboardPage.tsx`
+- `frontend/src/components/RunTracker.tsx`
+- `frontend/src/pages/SubmitPage.tsx`
+- `frontend/src/pages/RunDetailPage.tsx`
+- `frontend/src/pages/RunsPage.tsx`
+- `frontend/src/pages/SamplesPage.tsx`
+- `frontend/src/pages/FailuresPage.tsx`
+- `frontend/src/pages/WorkflowsPage.tsx`
+- `frontend/src/pages/SettingsPage.tsx`
+- `frontend/src/lib/stageLabels.ts`
+- `frontend/src/lib/format.ts`
+- `frontend/src/mocks/platform.ts`
+- `frontend/src/styles.css`
+- `frontend/src/App.test.tsx`
+- `DESIGN.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `MANIFEST.json`
+- `HANDOFF.md`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `git switch -c codex/frontend/T109-control-tower-polish` | success | Created local T109 branch in the T096 worktree |
+| local `npm test -- --run` | failed to start | Local Windows environment has no `npm` on PATH and no bundled workspace Node runtime |
+| local `git diff --check` | success | No whitespace errors |
+| local manifest consistency check | success | `file_count=189`, listed files `189`, missing `0` |
+| remote `git worktree add /home/jiucheng/project/airflow-demo-worktrees/T109-control-tower-polish origin/main -b codex/frontend/T109-control-tower-polish-remote` | success | Created a clean remote test worktree; did not mutate the dirty deployment source tree |
+| remote `git diff --check` in T109 worktree | success | No whitespace errors |
+| remote `docker build --target test -f frontend/Dockerfile frontend` | success after one test-query fix | 14 Vitest tests passed |
+| remote `docker compose -f docker-compose.yaml config --quiet` in deployment dir | success | Actual deployment dir has the required `.env`; clean test worktree intentionally does not |
+| remote `docker compose --env-file /home/jiucheng/project/airflow-demo/.env -f docker-compose.yaml build frontend` in T109 worktree | success | Frontend production build ran `tsc -b && vite build` |
+| remote `docker compose -f docker-compose.yaml up -d --no-deps --force-recreate frontend` in deployment dir | success | Recreated only frontend; no volumes deleted |
+| remote `curl -fsSI http://127.0.0.1:12959/` | success | HTTP 200 from nginx |
+| remote dashboard runs spot check | success | `/api/dashboard/runs?pipeline=all&limit=10&offset=0` returned JSON items |
+
+### Tests
+
+Remote acceptance passed for the frontend-only change: Dockerized frontend test
+target passed 14 Vitest tests, production frontend build passed, frontend
+container was recreated, and port `12959` returned HTTP 200.
+
+### Not run / why
+
+- `npm run lint` was not run because `frontend/package.json` has no lint script.
+- Local npm tests/build were not run because Windows has no `npm` on PATH in
+  this Codex session.
+- Backend, Airflow, and DAG tests were not run because T109 is frontend-only and
+  does not change backend contracts, DAGs, runner behavior, or DB schema.
+- Heavy PGT-A `baseline_qc`, NIPT `full_run`, and intake auto-submit were not
+  run or enabled.
+
+### Current git status
+
+Local worktree is `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`
+on `codex/frontend/T109-control-tower-polish` with T109 changes pending commit.
+Remote validation used the separate clean worktree
+`/home/jiucheng/project/airflow-demo-worktrees/T109-control-tower-polish`.
+The existing remote deployment source tree remains on its dirty deployment
+branch; only the frontend image/container was updated.
+
+### Risks
+
+- This is visual/information architecture polish; it does not add new backend
+  timeline or failure-diagnosis data beyond existing APIs.
+- The dark sidebar and command center tokens should be visually reviewed in a
+  browser; automated tests cover behavior and text, not full aesthetics.
+- Raw task/rule ids are still visible as debug text in Run Detail and Run
+  Tracker, which is intentional for operator troubleshooting.
+
+### Open questions
+
+- Whether to add a screenshot-based visual QA pass for desktop and narrow
+  widths before committing or merging.
+- Whether future T110 should add real backend endpoints for richer failure
+  diagnosis/config file content instead of continuing frontend-only polish.
+
+### Next recommended task
+
+Do a browser visual QA pass on the deployed T109 frontend, then commit and push
+the T109 branch or fast-forward main according to the user's preferred release
+flow.
+
+### Rollback notes
+
+Rebuild/redeploy the previous `airflow-demo/frontend:0.1.0` image from
+`origin/main`/T108 and recreate only the frontend service. Do not run
+`docker compose down -v`, do not prune volumes, and do not touch shared runs,
+PGT-A rawdata, NIPT source folders, Postgres, Redis, or the paused
+`bio_intake_scan` state.
+
 ## 2026-07-09 00:05 - Codex - T108 Dashboard/Run Detail usability polish and controlled PGT-A rerun
 
 ### Goal

@@ -57,7 +57,7 @@ export function compactPipelineName(pipeline?: string | null): string {
   if (!pipeline) return "unknown";
   if (pipeline === "wes_qsub") return "WES qsub";
   if (pipeline === "nipt_qsub") return "NIPT qsub";
-  if (pipeline === "nipt_docker") return "NIPT docker";
+  if (pipeline === "nipt_docker") return "NIPT Docker";
   if (pipeline === "pgta") return "PGT-A";
   return pipeline.toUpperCase();
 }

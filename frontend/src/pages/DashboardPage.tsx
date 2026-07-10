@@ -164,13 +164,13 @@ export function DashboardPage() {
 
   return (
     <div className="page-stack">
-      <section className="page-header">
+      <section className="page-header control-tower-header">
         <div>
-          <p className="eyebrow">Production task observability</p>
-          <h1>Dashboard</h1>
-          <p>Pipeline command center for run status, rule-level progress, scanner readiness, and node health.</p>
+          <p className="eyebrow">Bioinformatics production control tower</p>
+          <h1>Command Center</h1>
+          <p>Operator view for PGT-A and NIPT Docker run state, sample throughput, intake readiness, and node health.</p>
         </div>
-        <Link className="button primary" to="/submit">Submit task</Link>
+        <Link className="button primary" to="/submit">Submit run</Link>
       </section>
 
       {error ? <div className="inline-error" role="alert">{error}</div> : null}
@@ -194,17 +194,18 @@ export function DashboardPage() {
         </aside>
 
         <div className="dashboard-main-column">
+          <CommandSummaryStrip overview={overview} />
           <section className="panel">
             <div className="section-heading split">
               <div>
-                <h2>{selectedPipeline.label} status</h2>
+                <h2>{selectedPipeline.label} operations</h2>
                 <p>Aggregated by backend; the first screen no longer expands every run into detail/progress calls.</p>
               </div>
               <StatusBadge status={(overview?.totals.failed || 0) > 0 ? "warning" : "success"} />
             </div>
             <div className="dashboard-insight-grid">
               <StatusDistribution overview={overview} />
-              <RunTrend overview={overview} />
+              <RunTrend overview={overview} period={period} />
               <SampleThroughput overview={overview} period={period} onPeriodChange={setPeriod} />
             </div>
           </section>
@@ -278,6 +279,28 @@ export function DashboardPage() {
   );
 }
 
+function CommandSummaryStrip({overview}: {overview: DashboardOverview | null}) {
+  const totals = overview?.totals || {runs: 0, running: 0, failed: 0, success: 0, created: 0};
+  const samples = overview?.sample_summary || {total: 0, running: 0, workflow_failed: 0, qc_failed: 0, completed: 0};
+  const items = [
+    {label: "Runs", value: totals.runs, hint: `${totals.running} running`},
+    {label: "Samples", value: samples.total, hint: `${samples.running} in workflow`},
+    {label: "QC alerts", value: samples.qc_failed, hint: "sample-level fails"},
+    {label: "Workflow fails", value: totals.failed, hint: `${samples.workflow_failed} samples affected`},
+  ];
+  return (
+    <section className="command-summary-strip" aria-label="Command center summary">
+      {items.map((item) => (
+        <article key={item.label}>
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+          <small>{item.hint}</small>
+        </article>
+      ))}
+    </section>
+  );
+}
+
 function trackerStatusParam(filter: RunTrackerFilter): string | undefined {
   if (filter === "all") return undefined;
   if (filter === "active") return "active";
@@ -318,7 +341,7 @@ function StatusDistribution({overview}: {overview: DashboardOverview | null}) {
   );
 }
 
-function RunTrend({overview}: {overview: DashboardOverview | null}) {
+function RunTrend({overview, period}: {overview: DashboardOverview | null; period: "24h" | "7d" | "30d"}) {
   const trend = overview?.trend || [];
   const maxRuns = Math.max(1, ...trend.map((item) => item.runs));
   const points = trend.map((item, index) => {
@@ -329,7 +352,7 @@ function RunTrend({overview}: {overview: DashboardOverview | null}) {
   return (
     <article className="insight-card">
       <div>
-        <h3>7-day activity</h3>
+        <h3>{period} run activity</h3>
         <p>Created runs, with failures called out below</p>
       </div>
       <svg aria-label="7-day activity" className="sparkline" preserveAspectRatio="none" viewBox="0 0 100 50">

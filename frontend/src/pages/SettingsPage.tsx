@@ -89,7 +89,7 @@ export function SettingsPage() {
       <section className="page-header">
         <div>
           <p className="eyebrow">Demo configuration</p>
-          <h1>Settings</h1>
+          <h1>Platform Settings</h1>
           <p>Non-secret frontend configuration and intake scanner readiness.</p>
         </div>
       </section>

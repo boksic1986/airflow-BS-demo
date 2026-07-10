@@ -53,7 +53,9 @@ export const workflowTemplates: PipelineTemplate[] = [
     steps: [
       {name: "validate_request", status: "success", description: "Validate target and selected manifest"},
       {name: "prepare_pgta_config", status: "success", description: "Write PGT-A config under run workdir"},
-      {name: "run_pgta_target", status: "success", description: "Run metadata/dryrun/baseline_qc target"},
+      {name: "pgta_pipeline.run_pgta_mapping", status: "success", description: "Map selected FASTQ pairs for baseline QC runs"},
+      {name: "pgta_pipeline.run_pgta_metadata", status: "success", description: "Collect run metadata and manifest summaries"},
+      {name: "pgta_pipeline.run_pgta_baseline_qc", status: "success", description: "Run baseline QC metrics when target is enabled"},
       {name: "collect_pgta_artifact", status: "success", description: "Expose baseline QC artifacts"},
     ],
   },
@@ -79,7 +81,7 @@ export const workflowTemplates: PipelineTemplate[] = [
   },
   {
     id: "nipt_docker",
-    name: "NIPT docker",
+    name: "NIPT Docker",
     description: "Server-path scanned NIPT Docker flow using clean FASTQ chip batches and Airflow handoff.",
     dagId: "bio_nipt_docker",
     version: "scan-v1",

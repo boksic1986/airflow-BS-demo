@@ -62,8 +62,8 @@ export function RunsPage() {
     <div className="page-stack">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Run resource</p>
-          <h1>Runs</h1>
+          <p className="eyebrow">Batch run resource</p>
+          <h1>Batch Runs</h1>
           <p>Filter, sort, and inspect deployed PGT-A and NIPT Docker runs.</p>
         </div>
       </section>

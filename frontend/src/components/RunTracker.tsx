@@ -3,6 +3,7 @@ import {Link} from "react-router-dom";
 import type {DashboardRunTrackerRow} from "../api";
 
 import {compactPipelineName, displayTimeZoneLabel, formatDate, formatSecondsDuration} from "../lib/format";
+import {humanStageLabel, stageDebugLabel} from "../lib/stageLabels";
 import {isActiveStatus, normalizeStatus} from "../lib/status";
 import {RunProgressBar} from "./RunProgressBar";
 import {StatusBadge} from "./StatusBadge";
@@ -52,7 +53,7 @@ export function RunTracker({
       <div className="section-heading split">
         <div>
           <h2>Run Tracker</h2>
-          <p>Current pipeline context, one page at a time. Active runs stay first; terminal runs are ordered by recency.</p>
+          <p>Current pipeline context, 10 runs per page. Active runs stay first; terminal runs are ordered by recency.</p>
         </div>
         <div className="tracker-controls">
           <label className="tracker-search">
@@ -134,7 +135,9 @@ function RunTrackerRow({
   onSync: (analysisId: string) => void;
 }) {
   const status = normalizeStatus(row.status);
-  const currentStep = row.current_stage_label || row.current_pipeline_rule || row.current_airflow_task || (row.not_in_airflow ? "Created only" : "No rule events captured");
+  const rawStep = row.current_pipeline_rule || row.current_airflow_task;
+  const currentStep = row.current_stage_label || (rawStep ? humanStageLabel(rawStep) : row.not_in_airflow ? "Created only" : "No rule events captured");
+  const debugStep = stageDebugLabel(rawStep);
   const note = row.note || progressNote(row);
   return (
     <tr className={isActiveStatus(status) ? "run-tracker-row active" : "run-tracker-row"}>
@@ -167,6 +170,7 @@ function RunTrackerRow({
         <div className="current-stage-cell">
           <strong>{currentStep}</strong>
           <span>{row.current_stage_source || sourceFromRow(row)}</span>
+          {debugStep ? <small title="Raw Airflow task or pipeline event id">{debugStep}</small> : null}
           {row.current_airflow_task === "run_pgta_target" ? (
             <small>Legacy PGT-A single Airflow task; Snakemake carries the detailed rule progress.</small>
           ) : null}

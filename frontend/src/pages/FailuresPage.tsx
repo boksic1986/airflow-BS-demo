@@ -64,7 +64,7 @@ export function FailuresPage() {
       <section className="page-header">
         <div>
           <p className="eyebrow">Failure triage</p>
-          <h1>Recent failed runs</h1>
+          <h1>Failure Triage</h1>
           <p>PGT-A and NIPT Docker failed step, error type, stderr excerpt, retry suggestion, and link to detail without SSH first.</p>
         </div>
       </section>
