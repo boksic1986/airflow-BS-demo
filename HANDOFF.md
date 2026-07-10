@@ -36,6 +36,112 @@
 
 ## Records
 
+## 2026-07-10 12:35 - Codex - T110 Operator Workspace stability and action closure
+
+### Goal
+
+Harden the T109 Control Tower for real operator use: remove document-level
+horizontal overflow, replace truncated client-side resources with paginated
+backend APIs, eliminate Failure Triage N+1 calls, and split oversized frontend
+pages while preserving PGT-A and NIPT Docker runtime behavior.
+
+### Completed
+
+- Extended `/api/runs` with keyword, sort, pagination, and `project_name` while
+  retaining old call compatibility and page-level sample/QC aggregation.
+- Added paginated `/api/samples` and `/api/failures`; sample list paths expose
+  only folder/file basenames, and workflow failures remain distinct from QC
+  failures.
+- Added `pipeline=deployed` for the operator Runs view so historical WES rows
+  remain available to compatible API callers but are not shown as deployed.
+- Moved resource counting, sorting, and pagination into SQL; Dashboard page
+  sample/QC/rule/history data is bulk loaded instead of queried per row.
+- Sanitized Failure Triage stderr excerpts for absolute server paths and common
+  secret assignments while keeping file basenames and diagnostic text.
+- Kept QC alerts as independent issues even when the same run also has a
+  workflow failure.
+- Changed Dashboard terminal progress to persisted DB/rule state so terminal
+  pages do not call Airflow task-instance REST.
+- Rebuilt Batch Runs, Sample Matrix, and Failure Triage around URL-backed server
+  filters and pagination. Removed unsupported bulk action placeholders.
+- Added real global project/run search and changed the demo user control to a
+  non-interactive environment label.
+- Isolated Dashboard Overview, Tracker, Intake, and Resources loading/errors;
+  summary metrics link to the corresponding resource view.
+- Split Dashboard, Run Detail, and Failure Triage into feature components.
+  Run Detail keeps layered workflow, 96-sample QC matrix, manifest/config, and
+  controlled PGT-A actions.
+- Fixed responsive layout at 1440, 1280, 1024, and 390 CSS pixels, including
+  long run ids, historical manifests, and mobile tracker controls.
+- Rebuilt and recreated backend/frontend only. Airflow services were not
+  restarted, no workflow was submitted, and `bio_intake_scan` remains paused.
+- Independent focused re-review reported no remaining Critical or Important
+  issues after the pagination, scope, sanitization, and debounce fixes.
+
+### Changed files
+
+- `backend/app/main.py`, `backend/app/run_service.py`,
+  `backend/app/dashboard_service.py`, `backend/app/operator_resources_service.py`
+- `backend/tests/test_dashboard_service.py`,
+  `backend/tests/test_operator_resources.py`, `backend/tests/test_run_submit.py`
+- `frontend/src/api.ts`, `frontend/src/App.test.tsx`, `frontend/src/styles.css`
+- `frontend/src/layout/AppShell.tsx`, `frontend/src/components/RunTable.tsx`
+- `frontend/src/pages/DashboardPage.tsx`, `RunsPage.tsx`, `SamplesPage.tsx`,
+  `FailuresPage.tsx`, `RunDetailPage.tsx`
+- `frontend/src/features/dashboard/*`, `features/failures/*`,
+  `features/run-detail/*`
+- `docs/05_API_CONTRACT.md`, `docs/06_FRONTEND_SPEC.md`, `DESIGN.md`,
+  `TASKS.md`, `CURRENT_STATE.md`, `HANDOFF.md`, `MANIFEST.json`
+
+### Commands run
+
+| Command | Result | Notes |
+|---|---|---|
+| `docker run --rm airflow-demo/backend:t110-final-review pytest -q` | passed | 94 tests |
+| `docker build --target test -f frontend/Dockerfile frontend` | passed | 20 Vitest tests |
+| `docker build -f frontend/Dockerfile frontend` | passed | `tsc -b && vite build` |
+| `docker compose ... config --quiet` | passed | isolated remote worktree plus deployment env |
+| `docker compose ... build backend frontend` | passed | production tags rebuilt |
+| `docker compose ... up -d --no-deps --force-recreate backend frontend` | passed | no Airflow/DB/Redis restart |
+| five warm `/api/dashboard/runs?pipeline=all&limit=10&offset=0` requests | passed | final median about 33 ms; no active rows |
+| browser responsive matrix | passed | 6 pages x 4 viewports, 24/24 no document overflow |
+
+### Tests
+
+- Backend full suite: 94 passed.
+- Frontend suite: 20 passed after final review fixes.
+- Production TypeScript/Vite build passed.
+- Live API checks passed for health, runs, samples, failures, and scanner state.
+- Frontend 12959 returned HTTP 200 after final recreate.
+
+### Not run / why
+
+- No PGT-A `baseline_qc`, NIPT `full_run`, or metadata smoke was submitted;
+  T110 does not change execution behavior.
+- No Airflow DAG test was rerun because T110 changes no DAG or runner files.
+
+### Current git status
+
+Clean after the final T110 task commit on
+`codex/frontend/T110-operator-workspace-hardening`.
+
+### Risks
+
+- Sample `report_status` is currently inferred from terminal workflow state;
+  a future artifact-aware field can make report availability exact.
+- Failure diagnosis suggestions are deterministic operational hints, not a
+  replacement for captured stderr review.
+
+### Next recommended task
+
+Add operator authentication/authorization and artifact-aware report status
+before enabling automatic intake or broader production access.
+
+### Rollback notes
+
+Redeploy backend/frontend images from T109 commit `bcdc439`. No schema rollback
+is required because T110 adds no migration. Do not delete volumes.
+
 ## 2026-07-09 02:40 - Codex - T109 PGT-A/NIPT Control Tower frontend polish
 
 ### Goal

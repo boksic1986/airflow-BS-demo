@@ -19,19 +19,17 @@ import {
   syncAirflow,
 } from "../api";
 import {RunTracker} from "../components/RunTracker";
-import {StatusBadge} from "../components/StatusBadge";
-import {compactPipelineName} from "../lib/format";
+import {
+  CommandSummary,
+  dashboardPipelines,
+  OperationsOverview,
+  PipelineRail,
+} from "../features/dashboard/DashboardOverview";
+import {DashboardResourcePanels} from "../features/dashboard/DashboardResourcePanels";
+import {IntakeScannerPanel} from "../features/dashboard/IntakeScannerPanel";
 import {errorMessage} from "../lib/errors";
-import {intakeDisplay} from "../lib/intake";
 import {isActiveStatus} from "../lib/status";
 
-const dashboardPipelines: Array<{value: DashboardPipeline; label: string; description: string}> = [
-  {value: "all", label: "All pipelines", description: "PGT-A + NIPT Docker"},
-  {value: "pgta", label: "PGT-A", description: "Embryo CNV workflow"},
-  {value: "nipt_docker", label: "NIPT Docker", description: "Scanned FASTQ chip batches"},
-];
-
-const resourceTabs: DashboardPipeline[] = ["all", "pgta", "nipt_docker"];
 const trackerLimit = 10;
 
 export function DashboardPage() {
@@ -41,60 +39,83 @@ export function DashboardPage() {
   const [trackerKeyword, setTrackerKeyword] = useState("");
   const [trackerOffset, setTrackerOffset] = useState(0);
   const [resourceTab, setResourceTab] = useState<DashboardPipeline>("all");
+
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [trackerPayload, setTrackerPayload] = useState<DashboardRunsResponse | null>(null);
   const [resources, setResources] = useState<SystemResourcesResponse | null>(null);
   const [intakeItems, setIntakeItems] = useState<IntakeDiscovery[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [trackerLoading, setTrackerLoading] = useState(true);
+  const [intakeLoading, setIntakeLoading] = useState(true);
+  const [resourcesLoading, setResourcesLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+  const [trackerError, setTrackerError] = useState<string | null>(null);
+  const [intakeError, setIntakeError] = useState<string | null>(null);
+  const [resourcesError, setResourcesError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  const loadDashboard = useCallback(async (showSpinner = true) => {
-    if (showSpinner) setLoading(true);
-    setError(null);
+  const loadOverview = useCallback(async (showSpinner = true) => {
+    if (showSpinner) setOverviewLoading(true);
+    setOverviewError(null);
     try {
-      const [overviewPayload, runsPayload, intakePayload, resourcePayload] = await Promise.all([
-        getDashboardOverview({pipeline, period}),
-        getDashboardRuns({
-          pipeline,
-          status: trackerStatusParam(trackerFilter),
-          keyword: trackerKeyword.trim() || undefined,
-          limit: trackerLimit,
-          offset: trackerOffset,
-        }),
-        getIntakeStatus(pipeline === "all" ? {limit: 20} : {pipeline, limit: 20}).catch(() => ({items: []})),
-        getSystemResources().catch(() => null),
-      ]);
-      setOverview(overviewPayload);
-      setTrackerPayload(runsPayload);
-      setIntakeItems(intakePayload.items);
-      setResources(resourcePayload);
+      setOverview(await getDashboardOverview({pipeline, period}));
     } catch (loadError) {
-      setError(errorMessage(loadError));
+      setOverviewError(errorMessage(loadError));
     } finally {
-      if (showSpinner) setLoading(false);
+      if (showSpinner) setOverviewLoading(false);
     }
-  }, [period, pipeline, trackerFilter, trackerKeyword, trackerOffset]);
+  }, [period, pipeline]);
 
-  useEffect(() => {
-    let disposed = false;
-    async function guardedLoad() {
-      if (!disposed) await loadDashboard();
+  const loadTracker = useCallback(async (showSpinner = true) => {
+    if (showSpinner) setTrackerLoading(true);
+    setTrackerError(null);
+    try {
+      setTrackerPayload(await getDashboardRuns({
+        pipeline,
+        status: trackerStatusParam(trackerFilter),
+        keyword: trackerKeyword.trim() || undefined,
+        limit: trackerLimit,
+        offset: trackerOffset,
+      }));
+    } catch (loadError) {
+      setTrackerError(errorMessage(loadError));
+    } finally {
+      if (showSpinner) setTrackerLoading(false);
     }
-    void guardedLoad();
-    return () => {
-      disposed = true;
-    };
-  }, [loadDashboard]);
+  }, [pipeline, trackerFilter, trackerKeyword, trackerOffset]);
+
+  const loadIntake = useCallback(async () => {
+    setIntakeLoading(true);
+    setIntakeError(null);
+    try {
+      const payload = await getIntakeStatus(pipeline === "all" ? {limit: 20} : {pipeline, limit: 20});
+      setIntakeItems(payload.items);
+    } catch (loadError) {
+      setIntakeError(errorMessage(loadError));
+    } finally {
+      setIntakeLoading(false);
+    }
+  }, [pipeline]);
+
+  const loadResources = useCallback(async () => {
+    setResourcesLoading(true);
+    setResourcesError(null);
+    try {
+      setResources(await getSystemResources());
+    } catch (loadError) {
+      setResourcesError(errorMessage(loadError));
+    } finally {
+      setResourcesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadOverview(); }, [loadOverview]);
+  useEffect(() => { void loadTracker(); }, [loadTracker]);
+  useEffect(() => { void loadIntake(); }, [loadIntake]);
+  useEffect(() => { void loadResources(); }, [loadResources]);
 
   const activeRunIds = useMemo(
-    () => [
-      ...new Set(
-        (trackerPayload?.items || [])
-          .filter((row) => isActiveStatus(row.status))
-          .map((row) => row.analysis_id),
-      ),
-    ],
+    () => [...new Set((trackerPayload?.items || []).filter((row) => isActiveStatus(row.status)).map((row) => row.analysis_id))],
     [trackerPayload],
   );
   const activeRunKey = activeRunIds.join("|");
@@ -105,17 +126,15 @@ export function DashboardPage() {
     let disposed = false;
     async function syncActiveRuns() {
       await Promise.all(ids.map((analysisId) => syncAirflow(analysisId).catch(() => null)));
-      if (!disposed) await loadDashboard(false);
+      if (!disposed) await Promise.all([loadOverview(false), loadTracker(false)]);
     }
     void syncActiveRuns();
-    const timer = window.setInterval(() => {
-      void syncActiveRuns();
-    }, 15000);
+    const timer = window.setInterval(() => { void syncActiveRuns(); }, 15000);
     return () => {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [activeRunKey, loadDashboard]);
+  }, [activeRunKey, loadOverview, loadTracker]);
 
   function handlePipelineChange(nextPipeline: DashboardPipeline) {
     setPipeline(nextPipeline);
@@ -137,25 +156,25 @@ export function DashboardPage() {
 
   async function handleTrackerSubmit(analysisId: string) {
     setActionMessage(null);
-    setError(null);
+    setTrackerError(null);
     try {
       const submitted = await submitRun(analysisId);
       setActionMessage(`Submitted ${analysisId} to Airflow${submitted.dag_run_id ? ` as ${submitted.dag_run_id}` : ""}.`);
-      await loadDashboard(false);
+      await Promise.all([loadOverview(false), loadTracker(false)]);
     } catch (submitError) {
-      setError(errorMessage(submitError));
+      setTrackerError(errorMessage(submitError));
     }
   }
 
   async function handleTrackerSync(analysisId: string) {
     setActionMessage(null);
-    setError(null);
+    setTrackerError(null);
     try {
       await syncAirflow(analysisId);
       setActionMessage(`Synced ${analysisId} from Airflow.`);
-      await loadDashboard(false);
+      await Promise.all([loadOverview(false), loadTracker(false)]);
     } catch (syncError) {
-      setError(errorMessage(syncError));
+      setTrackerError(errorMessage(syncError));
     }
   }
 
@@ -163,141 +182,55 @@ export function DashboardPage() {
   const trackerRows = trackerPayload?.items || [];
 
   return (
-    <div className="page-stack">
+    <div className="page-stack dashboard-page">
       <section className="page-header control-tower-header">
         <div>
           <p className="eyebrow">Bioinformatics production control tower</p>
           <h1>Command Center</h1>
-          <p>Operator view for PGT-A and NIPT Docker run state, sample throughput, intake readiness, and node health.</p>
+          <p>PGT-A and NIPT Docker operations, sample throughput, intake readiness, and node health.</p>
         </div>
         <Link className="button primary" to="/submit">Submit run</Link>
       </section>
 
-      {error ? <div className="inline-error" role="alert">{error}</div> : null}
       {actionMessage ? <div className="success-note" role="status">{actionMessage}</div> : null}
-      {loading ? <p className="muted">Loading dashboard...</p> : null}
 
       <section className="dashboard-command-grid">
-        <aside className="pipeline-rail" aria-label="Pipeline selector">
-          {dashboardPipelines.map((item) => (
-            <button
-              aria-label={item.label}
-              className={pipeline === item.value ? "active" : ""}
-              key={item.value}
-              type="button"
-              onClick={() => handlePipelineChange(item.value)}
-            >
-              <strong>{item.label}</strong>
-              <span>{item.description}</span>
-            </button>
-          ))}
-        </aside>
-
+        <PipelineRail pipeline={pipeline} onChange={handlePipelineChange} />
         <div className="dashboard-main-column">
-          <CommandSummaryStrip overview={overview} />
-          <section className="panel">
-            <div className="section-heading split">
-              <div>
-                <h2>{selectedPipeline.label} operations</h2>
-                <p>Aggregated by backend; the first screen no longer expands every run into detail/progress calls.</p>
-              </div>
-              <StatusBadge status={(overview?.totals.failed || 0) > 0 ? "warning" : "success"} />
-            </div>
-            <div className="dashboard-insight-grid">
-              <StatusDistribution overview={overview} />
-              <RunTrend overview={overview} period={period} />
-              <SampleThroughput overview={overview} period={period} onPeriodChange={setPeriod} />
-            </div>
-          </section>
-
-          <RunTracker
-            filter={trackerFilter}
-            keyword={trackerKeyword}
-            limit={trackerPayload?.limit || trackerLimit}
-            offset={trackerPayload?.offset || trackerOffset}
-            rows={trackerRows}
-            total={trackerPayload?.total || 0}
-            onFilterChange={handleFilterChange}
-            onKeywordChange={handleKeywordChange}
-            onPageChange={setTrackerOffset}
-            onSubmit={(analysisId) => void handleTrackerSubmit(analysisId)}
-            onSync={(analysisId) => void handleTrackerSync(analysisId)}
-          />
+          <CommandSummary overview={overview} pipeline={pipeline} loading={overviewLoading} error={overviewError} />
+          <OperationsOverview overview={overview} period={period} loading={overviewLoading} onPeriodChange={setPeriod} />
+          <div className="dashboard-tracker-region" aria-busy={trackerLoading}>
+            {trackerError ? <div className="inline-error" role="alert">Run tracker unavailable: {trackerError}</div> : null}
+            {trackerLoading && !trackerPayload ? <p className="muted panel-loading">Loading run tracker...</p> : null}
+            <RunTracker
+              filter={trackerFilter}
+              keyword={trackerKeyword}
+              limit={trackerPayload?.limit || trackerLimit}
+              offset={trackerPayload?.offset || trackerOffset}
+              rows={trackerRows}
+              total={trackerPayload?.total || 0}
+              onFilterChange={handleFilterChange}
+              onKeywordChange={handleKeywordChange}
+              onPageChange={setTrackerOffset}
+              onSubmit={(analysisId) => void handleTrackerSubmit(analysisId)}
+              onSync={(analysisId) => void handleTrackerSync(analysisId)}
+            />
+          </div>
         </div>
       </section>
 
-      <section className="panel">
-        <div className="section-heading split">
-          <div>
-            <h2>Intake scanner</h2>
-            <p>Discovery state for configured PGT-A and NIPT Docker roots. Observed/bootstrap is not the same as queued execution.</p>
-          </div>
-          <StatusBadge status={intakeItems.some((item) => item.submit_state === "submitted") ? "success" : "skipped"} />
-        </div>
-        {intakeItems.length ? (
-          <div className="intake-table-wrap">
-            <table className="intake-table">
-              <thead>
-                <tr>
-                  <th scope="col">Pipeline</th>
-                  <th scope="col">Batch</th>
-                  <th scope="col">Files / Size</th>
-                  <th scope="col">Discovery state</th>
-                  <th scope="col">Analysis</th>
-                </tr>
-              </thead>
-              <tbody>
-                {intakeItems.slice(0, 10).map((item) => {
-                  const display = intakeDisplay(item);
-                  return (
-                    <tr key={`${item.pipeline}-${item.root_path}-${item.batch_id}`}>
-                      <td>{compactPipelineName(item.pipeline)}</td>
-                      <td>
-                        <strong>{item.batch_id}</strong>
-                        <span className="muted">{item.root_path}</span>
-                      </td>
-                      <td>{item.file_count} files / {formatBytes(item.total_bytes)}</td>
-                      <td><span className={`intake-state-pill ${display.tone}`}>{display.label}</span></td>
-                      <td>{item.analysis_id ? <Link to={`/runs/${encodeURIComponent(item.analysis_id)}`}>{item.analysis_id}</Link> : <span className="muted">not submitted</span>}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="empty-state">No intake discovery records yet. Run bootstrap first; keep the Airflow intake DAG paused until roots are reviewed.</p>
-        )}
-      </section>
-
-      <section className="dashboard-ops-grid">
-        <ServiceNodeHealth resources={resources} />
-        <PipelineResources resourceTab={resourceTab} resources={resources} onResourceTabChange={setResourceTab} />
-        <WorkflowActivity overview={overview} rows={trackerRows} />
-      </section>
+      <IntakeScannerPanel items={intakeItems} loading={intakeLoading} error={intakeError} />
+      <DashboardResourcePanels
+        resources={resources}
+        resourceTab={resourceTab}
+        overview={overview}
+        rows={trackerRows}
+        loading={resourcesLoading}
+        error={resourcesError}
+        onResourceTabChange={setResourceTab}
+      />
+      <span className="sr-only">Selected pipeline: {selectedPipeline.label}</span>
     </div>
-  );
-}
-
-function CommandSummaryStrip({overview}: {overview: DashboardOverview | null}) {
-  const totals = overview?.totals || {runs: 0, running: 0, failed: 0, success: 0, created: 0};
-  const samples = overview?.sample_summary || {total: 0, running: 0, workflow_failed: 0, qc_failed: 0, completed: 0};
-  const items = [
-    {label: "Runs", value: totals.runs, hint: `${totals.running} running`},
-    {label: "Samples", value: samples.total, hint: `${samples.running} in workflow`},
-    {label: "QC alerts", value: samples.qc_failed, hint: "sample-level fails"},
-    {label: "Workflow fails", value: totals.failed, hint: `${samples.workflow_failed} samples affected`},
-  ];
-  return (
-    <section className="command-summary-strip" aria-label="Command center summary">
-      {items.map((item) => (
-        <article key={item.label}>
-          <span>{item.label}</span>
-          <strong>{item.value}</strong>
-          <small>{item.hint}</small>
-        </article>
-      ))}
-    </section>
   );
 }
 
@@ -305,226 +238,4 @@ function trackerStatusParam(filter: RunTrackerFilter): string | undefined {
   if (filter === "all") return undefined;
   if (filter === "active") return "active";
   return filter;
-}
-
-function StatusDistribution({overview}: {overview: DashboardOverview | null}) {
-  const distribution = overview?.status_distribution || {};
-  const segments = [
-    {key: "running", label: "Running", tone: "info"},
-    {key: "created", label: "Created", tone: "neutral"},
-    {key: "success", label: "Success", tone: "success"},
-    {key: "failed", label: "Failed", tone: "danger"},
-  ];
-  const total = Math.max(1, segments.reduce((sum, item) => sum + (distribution[item.key] || 0), 0));
-  return (
-    <article className="insight-card">
-      <div>
-        <h3>Status distribution</h3>
-        <p>{overview?.totals.runs ?? 0} runs in current context</p>
-      </div>
-      <div className="status-distribution" aria-label="Status distribution">
-        {segments.map((segment) => (
-          <span
-            className={`segment ${segment.tone}`}
-            key={segment.key}
-            style={{width: `${Math.max(0, ((distribution[segment.key] || 0) / total) * 100)}%`}}
-            title={`${segment.label}: ${distribution[segment.key] || 0}`}
-          />
-        ))}
-      </div>
-      <div className="distribution-legend">
-        {segments.map((segment) => (
-          <span key={segment.key}><i className={segment.tone} />{segment.label}: {distribution[segment.key] || 0}</span>
-        ))}
-      </div>
-    </article>
-  );
-}
-
-function RunTrend({overview, period}: {overview: DashboardOverview | null; period: "24h" | "7d" | "30d"}) {
-  const trend = overview?.trend || [];
-  const maxRuns = Math.max(1, ...trend.map((item) => item.runs));
-  const points = trend.map((item, index) => {
-    const x = trend.length <= 1 ? 50 : (index / (trend.length - 1)) * 100;
-    const y = 44 - (item.runs / maxRuns) * 34;
-    return `${x},${y}`;
-  }).join(" ");
-  return (
-    <article className="insight-card">
-      <div>
-        <h3>{period} run activity</h3>
-        <p>Created runs, with failures called out below</p>
-      </div>
-      <svg aria-label="7-day activity" className="sparkline" preserveAspectRatio="none" viewBox="0 0 100 50">
-        <polyline fill="none" points={points || "0,44 100,44"} stroke="#176b87" strokeWidth="3" />
-        {trend.map((item, index) => {
-          const x = trend.length <= 1 ? 50 : (index / (trend.length - 1)) * 100;
-          const y = 44 - (item.runs / maxRuns) * 34;
-          return <circle cx={x} cy={y} fill={item.failed ? "#b42318" : "#176b87"} key={item.date} r="2.6" />;
-        })}
-      </svg>
-      <div className="mini-bars">
-        {trend.map((item) => (
-          <span key={item.date} style={{height: `${Math.max(8, (item.runs / maxRuns) * 42)}px`}} title={`${item.date}: ${item.runs}`} />
-        ))}
-      </div>
-    </article>
-  );
-}
-
-function SampleThroughput({
-  overview,
-  period,
-  onPeriodChange,
-}: {
-  overview: DashboardOverview | null;
-  period: "24h" | "7d" | "30d";
-  onPeriodChange: (period: "24h" | "7d" | "30d") => void;
-}) {
-  const summary = overview?.sample_summary || {total: 0, running: 0, workflow_failed: 0, qc_failed: 0, completed: 0};
-  const trend = overview?.sample_trend || [];
-  const maxSamples = Math.max(1, ...trend.map((item) => item.total));
-  return (
-    <article className="insight-card sample-throughput-card">
-      <div>
-        <div className="section-heading-inline">
-          <h3>Sample throughput</h3>
-          <div className="period-selector" aria-label="Sample throughput period">
-            {(["24h", "7d", "30d"] as const).map((item) => (
-              <button className={period === item ? "active" : ""} key={item} type="button" onClick={() => onPeriodChange(item)}>
-                {item}
-              </button>
-            ))}
-          </div>
-        </div>
-        <p>Sample-level workflow and QC state for the selected period</p>
-      </div>
-      <div className="sample-throughput-grid">
-        <span>Sample total <strong>{summary.total}</strong></span>
-        <span>Running samples <strong>{summary.running}</strong></span>
-        <span>Workflow failed samples <strong>{summary.workflow_failed}</strong></span>
-        <span>QC failed samples <strong>{summary.qc_failed}</strong></span>
-        <span>Completed samples <strong>{summary.completed}</strong></span>
-      </div>
-      <div className="sample-stacked-bar" aria-label="Sample throughput distribution">
-        <span className="success" style={{width: `${percent(summary.completed, summary.total)}%`}} title={`Completed: ${summary.completed}`} />
-        <span className="info" style={{width: `${percent(summary.running, summary.total)}%`}} title={`Running: ${summary.running}`} />
-        <span className="danger" style={{width: `${percent(summary.workflow_failed, summary.total)}%`}} title={`Workflow failed: ${summary.workflow_failed}`} />
-        <span className="warning" style={{width: `${percent(summary.qc_failed, summary.total)}%`}} title={`QC failed: ${summary.qc_failed}`} />
-      </div>
-      <div className="mini-bars sample-bars">
-        {trend.map((item) => (
-          <span key={item.date} style={{height: `${Math.max(8, (item.total / maxSamples) * 42)}px`}} title={`${item.date}: ${item.total} samples`} />
-        ))}
-      </div>
-    </article>
-  );
-}
-
-function percent(value: number, total: number): number {
-  if (!total) return 0;
-  return Math.max(0, Math.min(100, (value / total) * 100));
-}
-
-function ServiceNodeHealth({resources}: {resources: SystemResourcesResponse | null}) {
-  const disk = resources?.host.disks.find((item) => item.path === "/data") || resources?.host.disks[0];
-  return (
-    <div className="panel">
-      <div className="section-heading">
-        <h2>Service & Node Health</h2>
-        <p>{resources ? `Telemetry source: ${resources.source}` : "Resource endpoint unavailable"}</p>
-      </div>
-      <div className="resource-stat-grid">
-        <div className="resource-stat"><span>Backend API</span><StatusBadge status="success" /></div>
-        <div className="resource-stat"><span>CPU cores</span><strong>{resources?.host.cpu.cores ?? "not reported"}</strong></div>
-        <div className="resource-stat"><span>MEM used</span><strong>{resources ? `${resources.host.memory.used_percent.toFixed(1)}%` : "not reported"}</strong></div>
-        <div className="resource-stat"><span>{disk?.path || "/data"}</span><strong>{disk ? `${disk.used_percent.toFixed(1)}% used` : "not reported"}</strong></div>
-      </div>
-    </div>
-  );
-}
-
-function PipelineResources({
-  resourceTab,
-  resources,
-  onResourceTabChange,
-}: {
-  resourceTab: DashboardPipeline;
-  resources: SystemResourcesResponse | null;
-  onResourceTabChange: (pipeline: DashboardPipeline) => void;
-}) {
-  const loadAverage = resources?.host.cpu.load_average?.[0];
-  const containerCount = resources?.containers.length ?? 0;
-  return (
-    <div className="panel">
-      <div className="section-heading">
-        <h2>Pipeline Resources</h2>
-        <p>Shared node resources, viewed through the selected workflow context.</p>
-      </div>
-      <div className="resource-tabs" aria-label="Pipeline resource tabs">
-        {resourceTabs.map((tab) => (
-          <button
-            aria-label={resourceTabLabel(tab)}
-            className={resourceTab === tab ? "active" : ""}
-            key={tab}
-            type="button"
-            onClick={() => onResourceTabChange(tab)}
-          >
-            {tab === "all" ? "All resources" : `${compactPipelineName(tab)} resources`}
-          </button>
-        ))}
-      </div>
-      <div className="resource-stat-grid">
-        <div className="resource-stat"><span>Context</span><strong>{resourceTab === "all" ? "All workflows" : compactPipelineName(resourceTab)}</strong></div>
-        <div className="resource-stat"><span>1m load</span><strong>{loadAverage == null ? "not reported" : loadAverage.toFixed(2)}</strong></div>
-        <div className="resource-stat"><span>Containers</span><strong>{containerCount}</strong></div>
-        <div className="resource-stat"><span>Block IO</span><strong>{resources?.containers[0]?.block_io || "not reported"}</strong></div>
-      </div>
-    </div>
-  );
-}
-
-function resourceTabLabel(tab: DashboardPipeline): string {
-  if (tab === "all") return "All resource telemetry";
-  if (tab === "nipt_docker") return "NIPT resource telemetry";
-  return `${compactPipelineName(tab)} resource telemetry`;
-}
-
-function WorkflowActivity({overview, rows}: {overview: DashboardOverview | null; rows: Array<{status: string; current_airflow_task?: string | null; current_pipeline_rule?: string | null; current_stage_label?: string | null}>}) {
-  const activeRows = rows.filter((row) => isActiveStatus(row.status));
-  return (
-    <div className="panel">
-      <div className="section-heading">
-        <h2>Workflow Activity</h2>
-        <p>Airflow stays project-level; Snakemake/runner events show the current bioinformatics rule.</p>
-      </div>
-      <div className="workflow-activity-list">
-        {activeRows.slice(0, 4).map((row, index) => (
-          <div key={`${row.current_airflow_task}-${row.current_pipeline_rule}-${index}`}>
-            <StatusBadge status={row.status} size="sm" />
-            <span>{row.current_airflow_task || "Airflow task pending"}</span>
-            <strong>{row.current_stage_label || row.current_pipeline_rule || "No rule events captured"}</strong>
-          </div>
-        ))}
-        {activeRows.length === 0 ? <p className="empty-state">No active workflow tasks in this page.</p> : null}
-        {(overview?.failure_summary || []).slice(0, 2).map((failure) => (
-          <Link key={failure.analysis_id} to={`/runs/${encodeURIComponent(failure.analysis_id)}`}>
-            {failure.project_name || failure.analysis_id}
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function formatBytes(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let unitIndex = 0;
-  let scaled = value;
-  while (scaled >= 1024 && unitIndex < units.length - 1) {
-    scaled /= 1024;
-    unitIndex += 1;
-  }
-  return `${scaled >= 10 || unitIndex === 0 ? scaled.toFixed(0) : scaled.toFixed(1)} ${units[unitIndex]}`;
 }

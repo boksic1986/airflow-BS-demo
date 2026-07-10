@@ -806,3 +806,35 @@ without changing deployed workflow scope or backend contracts.
   `Run PGT-A workflow`, `Mapping reads`, `Baseline QC`, and
   `Run NIPT Docker workflow`; raw Airflow task or pipeline rule ids remain
   visible as debug text where useful.
+
+## 23. T110 Operator Workspace Hardening
+
+T110 turns the Control Tower surfaces into paginated operator resources while
+keeping deployed scope limited to PGT-A and NIPT Docker.
+
+- Dashboard Overview, Run Tracker, Intake, and Resources load independently. A
+  failed tracker request does not erase already loaded throughput metrics.
+- Command summary metrics link to URL-filtered Batch Runs, Sample Matrix, or
+  Failure Triage resources.
+- Run Tracker remains 10 rows per page. It uses human stage labels and keeps raw
+  task/rule ids as secondary debug text or tooltips.
+- Batch Runs uses `GET /api/runs` with server keyword/filter/sort/pagination and
+  stores filter state in the URL. It has no unsupported retry/cancel/archive
+  placeholders. `All deployed` sends `pipeline=deployed`, which excludes
+  historical WES qsub rows from the current operator surface.
+- Sample Matrix uses `GET /api/samples` with 25-row pagination and never renders
+  full FASTQ server paths.
+- Failure Triage uses one `GET /api/failures` request and a queue/diagnosis
+  workspace. Workflow failures and sample QC alerts have separate filters and
+  semantics.
+- Global search supports project name or run ID and navigates to Batch Runs. It
+  does not claim log search capability.
+- Resource-page keyword controls debounce URL/API updates by 300 ms and replace
+  the current history entry, so typing does not create one browser-history item
+  or backend request per keystroke.
+- Dashboard and Run Detail route modules contain query/orchestration state;
+  charts, resources, workflow, QC, manifest/config, and failure diagnosis are
+  feature components.
+- At 1440, 1280, 1024, and 390 CSS pixels, the document must not scroll
+  horizontally. Wide run/QC/sample tables may scroll only inside their table
+  container.

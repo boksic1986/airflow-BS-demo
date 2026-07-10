@@ -10,7 +10,8 @@ import {
   Settings,
   TestTube2,
 } from "lucide-react";
-import {NavLink, Outlet} from "react-router-dom";
+import {useState, type FormEvent} from "react";
+import {NavLink, Outlet, useNavigate} from "react-router-dom";
 
 const navItems = [
   {to: "/dashboard", label: "Command Center", Icon: LayoutDashboard},
@@ -23,6 +24,16 @@ const navItems = [
 ];
 
 export function AppShell() {
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const keyword = search.trim();
+    if (!keyword) return;
+    navigate(`/runs?keyword=${encodeURIComponent(keyword)}`);
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -45,19 +56,23 @@ export function AppShell() {
       <div className="shell-main">
         <header className="topbar">
           <div className="environment-pill">Demo environment</div>
-          <label className="global-search">
+          <form className="global-search" role="search" onSubmit={submitSearch}>
             <Search size={16} />
-            <span className="sr-only">Search runs, samples, logs</span>
-            <input placeholder="Search runs, samples, logs" />
-          </label>
+            <label className="sr-only" htmlFor="global-run-search">Search project or run ID</label>
+            <input
+              id="global-run-search"
+              type="search"
+              value={search}
+              placeholder="Search project or run ID"
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </form>
           <div className="topbar-actions">
             <a className="button ghost" href={`${window.location.protocol}//${window.location.hostname}:12958`}>
               <ListChecks size={15} />
               Airflow 12958
             </a>
-            <button className="button ghost" type="button">
-              Demo user
-            </button>
+            <span className="operator-pill">Demo operator</span>
           </div>
         </header>
         <main className="content-shell">

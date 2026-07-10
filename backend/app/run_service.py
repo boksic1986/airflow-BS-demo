@@ -8,7 +8,7 @@ import json
 import os
 import secrets
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import String, case, cast, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.input_scanner import FastqCandidate, InputPathError, ensure_allowed_path
@@ -461,19 +461,57 @@ def _create_nipt_docker_scan_run(
     return _run_payload(run, sample_count=len(selected_samples))
 
 
-def list_runs(*, session: Session, pipeline: str | None = None, status: str | None = None, limit: int = 50, offset: int = 0) -> dict:
+def list_runs(
+    *,
+    session: Session,
+    pipeline: str | None = None,
+    status: str | None = None,
+    keyword: str | None = None,
+    sort: str = "created_desc",
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
     query = select(AnalysisRun)
-    count_query = select(func.count()).select_from(AnalysisRun)
-    if pipeline:
+    if pipeline == "deployed":
+        query = query.where(AnalysisRun.pipeline_name.in_(["pgta", "nipt_docker"]))
+    elif pipeline:
         query = query.where(AnalysisRun.pipeline_name == pipeline)
-        count_query = count_query.where(AnalysisRun.pipeline_name == pipeline)
     if status:
         query = query.where(AnalysisRun.status == status)
-        count_query = count_query.where(AnalysisRun.status == status)
+    if keyword:
+        pattern = f"%{keyword.strip().lower()}%"
+        query = query.where(
+            or_(
+                func.lower(AnalysisRun.analysis_id).like(pattern),
+                func.lower(cast(AnalysisRun.params_json, String)).like(pattern),
+            )
+        )
 
-    runs = session.scalars(query.order_by(desc(AnalysisRun.created_at)).limit(limit).offset(offset)).all()
-    total = session.scalar(count_query) or 0
-    return {"items": [_run_list_payload(session, run) for run in runs], "total": total}
+    total = session.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
+    page = list(
+        session.scalars(
+            query.order_by(*_run_list_order(session=session, sort=sort)).limit(limit).offset(offset)
+        ).all()
+    )
+    sample_rows = session.execute(
+        select(Sample.analysis_id, Sample.qc_status).where(
+            Sample.analysis_id.in_([run.analysis_id for run in page])
+        )
+    ).all() if page else []
+    sample_qc: dict[str, list[str | None]] = {}
+    for analysis_id, qc_status in sample_rows:
+        sample_qc.setdefault(analysis_id, []).append(qc_status)
+    return {
+        "items": [
+            _run_list_payload(
+                run,
+                sample_count=len(sample_qc.get(run.analysis_id, [])),
+                sample_qc_statuses=sample_qc.get(run.analysis_id, []),
+            )
+            for run in page
+        ],
+        "total": total,
+    }
 
 
 def get_run_detail(*, session: Session, analysis_id: str) -> dict | None:
@@ -1128,11 +1166,10 @@ def _run_payload(run: AnalysisRun, *, sample_count: int) -> dict:
     }
 
 
-def _run_list_payload(session: Session, run: AnalysisRun) -> dict:
-    sample_count = session.scalar(select(func.count()).select_from(Sample).where(Sample.analysis_id == run.analysis_id)) or 0
-    sample_qc_statuses = session.scalars(select(Sample.qc_status).where(Sample.analysis_id == run.analysis_id)).all()
+def _run_list_payload(run: AnalysisRun, *, sample_count: int, sample_qc_statuses: list[str | None]) -> dict:
     return {
         "analysis_id": run.analysis_id,
+        "project_name": _run_project_name(run),
         "pipeline": run.pipeline_name,
         "status": run.status,
         "created_at": run.created_at.isoformat() if run.created_at else None,
@@ -1141,6 +1178,29 @@ def _run_list_payload(session: Session, run: AnalysisRun) -> dict:
         "sample_count": sample_count,
         "qc_status": _aggregate_sample_qc_status(sample_qc_statuses),
     }
+
+
+def _run_project_name(run: AnalysisRun) -> str:
+    return str((run.params_json or {}).get("project_name") or run.analysis_id)
+
+
+def _run_list_order(*, session: Session, sort: str):
+    if sort == "duration_desc":
+        if session.bind is not None and session.bind.dialect.name == "sqlite":
+            duration = (
+                func.julianday(func.coalesce(AnalysisRun.ended_at, func.current_timestamp()))
+                - func.julianday(AnalysisRun.started_at)
+            ) * 86400
+        else:
+            duration = func.extract(
+                "epoch",
+                func.coalesce(AnalysisRun.ended_at, func.now()) - AnalysisRun.started_at,
+            )
+        return (desc(func.coalesce(duration, 0)), desc(AnalysisRun.created_at))
+    if sort == "status":
+        priority = {"running": 0, "submitted": 1, "queued": 2, "failed": 3, "created": 4, "success": 5}
+        return (case(priority, value=AnalysisRun.status, else_=99), desc(AnalysisRun.created_at))
+    return (desc(AnalysisRun.created_at),)
 
 
 def _run_detail_payload(session: Session, run: AnalysisRun) -> dict:

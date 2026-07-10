@@ -1,74 +1,84 @@
 import {useEffect, useState} from "react";
-import {Link} from "react-router-dom";
+import {Link, useSearchParams} from "react-router-dom";
 
-import type {RunSummary, Sample} from "../api";
+import type {OperatorSampleResponse} from "../api";
 
-import {getRunSamples, listRuns} from "../api";
+import {listSamplesResource} from "../api";
 import {StatusBadge} from "../components/StatusBadge";
 import {errorMessage} from "../lib/errors";
 import {compactPipelineName} from "../lib/format";
-import {sampleSourceDisplay, type SampleSourceDisplay} from "../lib/sampleFiles";
-import {deployedWorkflowTemplates} from "../mocks/platform";
 
-type SampleRow = {
-  sample_id: string;
-  family_id?: string | null;
-  pipeline: string;
-  run_id?: string;
-  status?: string | null;
-  source_files: SampleSourceDisplay;
-  qc_status?: string | null;
-  report_status?: string | null;
-  error_summary?: string | null;
-};
-const visiblePipelines = new Set<string>(deployedWorkflowTemplates.map((pipeline) => pipeline.id));
+const pageSize = 25;
 
 export function SamplesPage() {
-  const [rows, setRows] = useState<SampleRow[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pipeline = searchParams.get("pipeline") || "all";
+  const status = searchParams.get("status") || "all";
+  const qcStatus = searchParams.get("qc_status") || "all";
+  const keyword = searchParams.get("keyword") || "";
+  const [keywordDraft, setKeywordDraft] = useState(keyword);
+  const page = positivePage(searchParams.get("page"));
+  const [payload, setPayload] = useState<OperatorSampleResponse>({items: [], total: 0, limit: pageSize, offset: 0});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => { setKeywordDraft(keyword); }, [keyword]);
+  useEffect(() => {
+    if (keywordDraft === keyword) return undefined;
+    const timer = window.setTimeout(() => {
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        if (keywordDraft.trim()) next.set("keyword", keywordDraft);
+        else next.delete("keyword");
+        next.delete("page");
+        return next;
+      }, {replace: true});
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [keyword, keywordDraft, setSearchParams]);
+
   useEffect(() => {
     let disposed = false;
-    async function loadSamples() {
-      setLoading(true);
-      setError(null);
-      try {
-        const runs = await listRuns();
-        const visibleRuns = runs.items.filter((run) => visiblePipelines.has(run.pipeline)).slice(0, 8);
-        const samplePayloads = await Promise.all(
-          visibleRuns.map(async (run: RunSummary) => ({
-            run,
-            samples: await getRunSamples(run.analysis_id).catch(() => ({items: [] as Sample[]})),
-          })),
-        );
-        if (disposed) return;
-        setRows(
-          samplePayloads.flatMap(({run, samples}) =>
-            samples.items.map((sample) => ({
-              sample_id: sample.sample_id,
-              family_id: sample.family_id,
-              pipeline: run.pipeline,
-              run_id: run.analysis_id,
-              status: sample.status,
-              source_files: sampleSourceDisplay(sample),
-              qc_status: sample.qc_status,
-              report_status: run.status === "success" ? "available if artifact exists" : "not generated",
-              error_summary: run.status === "failed" ? "see run detail" : null,
-            })),
-          ),
-        );
-      } catch (loadError) {
+    setLoading(true);
+    setError(null);
+    listSamplesResource({
+      pipeline: pipeline === "all" ? undefined : pipeline,
+      status: status === "all" ? undefined : status,
+      qcStatus: qcStatus === "all" ? undefined : qcStatus,
+      keyword: keyword.trim() || undefined,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    })
+      .then((result) => {
+        if (!disposed) setPayload(result);
+      })
+      .catch((loadError) => {
         if (!disposed) setError(errorMessage(loadError));
-      } finally {
+      })
+      .finally(() => {
         if (!disposed) setLoading(false);
-      }
-    }
-    void loadSamples();
+      });
     return () => {
       disposed = true;
     };
-  }, []);
+  }, [keyword, page, pipeline, qcStatus, status]);
+
+  function updateFilter(name: string, value: string) {
+    const next = new URLSearchParams(searchParams);
+    if (!value || value === "all") next.delete(name);
+    else next.set(name, value);
+    next.delete("page");
+    setSearchParams(next);
+  }
+
+  function goToPage(nextPage: number) {
+    const next = new URLSearchParams(searchParams);
+    if (nextPage <= 1) next.delete("page");
+    else next.set("page", String(nextPage));
+    setSearchParams(next);
+  }
+
+  const pageCount = Math.max(1, Math.ceil(payload.total / pageSize));
 
   return (
     <div className="page-stack">
@@ -76,51 +86,90 @@ export function SamplesPage() {
         <div>
           <p className="eyebrow">Sample resource</p>
           <h1>Sample Matrix</h1>
-          <p>Sample view across deployed PGT-A and NIPT Docker runs, workflow status, QC status, and run detail links.</p>
+          <p>Paginated sample inventory across deployed PGT-A and NIPT Docker runs.</p>
         </div>
       </section>
       <section className="panel">
+        <div className="filter-bar resource-filter-bar">
+          <label>
+            <span>Pipeline</span>
+            <select aria-label="Sample pipeline" value={pipeline} onChange={(event) => updateFilter("pipeline", event.target.value)}>
+              <option value="all">All deployed</option>
+              <option value="pgta">PGT-A</option>
+              <option value="nipt_docker">NIPT Docker</option>
+            </select>
+          </label>
+          <label>
+            <span>Status</span>
+            <select aria-label="Sample status" value={status} onChange={(event) => updateFilter("status", event.target.value)}>
+              <option value="all">All</option>
+              <option value="pending">pending</option>
+              <option value="running">running</option>
+              <option value="success">success</option>
+              <option value="failed">failed</option>
+            </select>
+          </label>
+          <label>
+            <span>QC</span>
+            <select aria-label="Sample QC status" value={qcStatus} onChange={(event) => updateFilter("qc_status", event.target.value)}>
+              <option value="all">All</option>
+              <option value="pass">pass</option>
+              <option value="warn">warn</option>
+              <option value="fail">fail</option>
+              <option value="unknown">unknown</option>
+            </select>
+          </label>
+          <label className="grow">
+            <span>Keyword</span>
+            <input aria-label="Sample keyword" value={keywordDraft} placeholder="sample, project or run ID" onChange={(event) => setKeywordDraft(event.target.value)} />
+          </label>
+        </div>
         {loading ? <p className="muted">Loading samples...</p> : null}
         {error ? <div className="inline-error" role="alert">{error}</div> : null}
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>sample_id</th>
-                <th>family_id</th>
-                <th>pipeline</th>
-                <th>status</th>
-                <th>source files</th>
-                <th>qc_status</th>
-                <th>report_status</th>
-                <th>error_summary</th>
-                <th>action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={`${row.run_id || "mock"}-${row.sample_id}`}>
-                  <td>{row.sample_id}</td>
-                  <td>{row.family_id || "not set"}</td>
-                  <td>{compactPipelineName(row.pipeline)}</td>
-                  <td><StatusBadge status={row.status || "unknown"} /></td>
-                  <td>
-                    <div className={row.source_files.missing ? "source-files missing" : "source-files"}>
-                      <span>{row.source_files.primary}</span>
-                      {row.source_files.secondary ? <small>{row.source_files.secondary}</small> : null}
-                    </div>
-                  </td>
-                  <td><StatusBadge status={row.qc_status || "unknown"} size="sm" /></td>
-                  <td>{row.report_status || "not set"}</td>
-                  <td>{row.error_summary || "none"}</td>
-                  <td>{row.run_id ? <Link className="button ghost" to={`/runs/${encodeURIComponent(row.run_id)}`}>Run</Link> : "mock"}</td>
-                </tr>
-              ))}
-              {rows.length === 0 ? <tr><td className="empty-cell" colSpan={9}>No samples available.</td></tr> : null}
-            </tbody>
-          </table>
+        {!loading && !error ? (
+          <div className="table-wrap">
+            <table className="data-table sample-resource-table">
+              <thead>
+                <tr><th>sample</th><th>project / run</th><th>pipeline</th><th>status</th><th>QC</th><th>source files</th><th>report</th></tr>
+              </thead>
+              <tbody>
+                {payload.items.map((row) => (
+                  <tr key={`${row.analysis_id}-${row.sample_id}`}>
+                    <td><strong>{row.sample_id}</strong>{row.family_id ? <small className="block muted">{row.family_id}</small> : null}</td>
+                    <td>
+                      <Link className="resource-link" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>{row.project_name}</Link>
+                      <Link className="resource-link secondary mono" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>{row.analysis_id}</Link>
+                    </td>
+                    <td>{compactPipelineName(row.pipeline)}</td>
+                    <td><StatusBadge status={row.status} /></td>
+                    <td><StatusBadge status={row.qc_status} size="sm" /></td>
+                    <td>
+                      <div className="source-files">
+                        <strong>{row.source_folder || "Path not captured for this run"}</strong>
+                        <span>{[row.r1_name, row.r2_name].filter(Boolean).join(" / ") || "File names not captured"}</span>
+                      </div>
+                    </td>
+                    <td>{row.report_status.replaceAll("_", " ")}</td>
+                  </tr>
+                ))}
+                {payload.items.length === 0 ? <tr><td className="empty-cell" colSpan={7}>No samples match the current filters.</td></tr> : null}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+        <div className="pagination-controls" aria-label="Sample pagination">
+          <span>{payload.total} samples · page {Math.min(page, pageCount)} / {pageCount}</span>
+          <div>
+            <button type="button" disabled={page <= 1} onClick={() => goToPage(page - 1)}>Previous</button>
+            <button type="button" disabled={page >= pageCount} onClick={() => goToPage(page + 1)}>Next</button>
+          </div>
         </div>
       </section>
     </div>
   );
+}
+
+function positivePage(value: string | null): number {
+  const parsed = Number(value || "1");
+  return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : 1;
 }

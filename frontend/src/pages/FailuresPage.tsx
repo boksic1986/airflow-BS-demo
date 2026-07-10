@@ -1,106 +1,156 @@
-import {useEffect, useMemo, useState} from "react";
-import {Link} from "react-router-dom";
+import {useEffect, useState} from "react";
+import {useSearchParams} from "react-router-dom";
 
-import type {RunSummary} from "../api";
+import type {FailureItem, FailureListResponse} from "../api";
 
-import {getRunDetail, getRunRules, listRuns} from "../api";
-import {ErrorPanel} from "../components/ErrorPanel";
-import {StatusBadge} from "../components/StatusBadge";
-import {errorMessage, parseErrorSummary} from "../lib/errors";
-import {compactPipelineName, formatDate} from "../lib/format";
-import {isFailedStatus} from "../lib/status";
-import {deployedWorkflowTemplates} from "../mocks/platform";
+import {listFailures} from "../api";
+import {FailureWorkspace} from "../features/failures/FailureWorkspace";
+import {errorMessage} from "../lib/errors";
 
-type FailureRow = {
-  run: RunSummary;
-  failedStep: string | null;
-  errorSummary: string | null;
-};
-const visiblePipelines = new Set<string>(deployedWorkflowTemplates.map((pipeline) => pipeline.id));
+const pageSize = 20;
 
 export function FailuresPage() {
-  const [rows, setRows] = useState<FailureRow[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pipeline = searchParams.get("pipeline") || "all";
+  const kind = (searchParams.get("kind") || "all") as "all" | "workflow" | "qc";
+  const period = (searchParams.get("period") || "7d") as "24h" | "7d" | "30d";
+  const layer = searchParams.get("layer") || "all";
+  const keyword = searchParams.get("keyword") || "";
+  const [keywordDraft, setKeywordDraft] = useState(keyword);
+  const page = positivePage(searchParams.get("page"));
+  const [payload, setPayload] = useState<FailureListResponse>({items: [], total: 0, limit: pageSize, offset: 0});
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => { setKeywordDraft(keyword); }, [keyword]);
+  useEffect(() => {
+    if (keywordDraft === keyword) return undefined;
+    const timer = window.setTimeout(() => {
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        if (keywordDraft.trim()) next.set("keyword", keywordDraft);
+        else next.delete("keyword");
+        next.delete("page");
+        return next;
+      }, {replace: true});
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [keyword, keywordDraft, setSearchParams]);
+
   useEffect(() => {
     let disposed = false;
-    async function loadFailures() {
-      setLoading(true);
-      setError(null);
-      try {
-        const payload = await listRuns();
-        const failed = payload.items.filter((run) => visiblePipelines.has(run.pipeline) && isFailedStatus(run.status)).slice(0, 10);
-        const details = await Promise.all(
-          failed.map(async (run) => {
-            const [detail, rules] = await Promise.all([
-              getRunDetail(run.analysis_id).catch(() => null),
-              getRunRules(run.analysis_id).catch(() => ({items: []})),
-            ]);
-            const failedRule = rules.items.find((rule) => isFailedStatus(rule.status));
-            return {run, failedStep: failedRule?.rule || null, errorSummary: detail?.error_summary || null};
-          }),
-        );
-        if (!disposed) setRows(details);
-      } catch (loadError) {
+    setLoading(true);
+    setError(null);
+    listFailures({
+      pipeline,
+      kind,
+      period,
+      layer: layer === "all" ? undefined : layer,
+      keyword: keyword.trim() || undefined,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    })
+      .then((result) => {
+        if (disposed) return;
+        setPayload(result);
+        setSelectedId(result.items.length ? failureKey(result.items[0]) : null);
+      })
+      .catch((loadError) => {
         if (!disposed) setError(errorMessage(loadError));
-      } finally {
+      })
+      .finally(() => {
         if (!disposed) setLoading(false);
-      }
-    }
-    void loadFailures();
+      });
     return () => {
       disposed = true;
     };
-  }, []);
+  }, [keyword, kind, layer, page, period, pipeline]);
 
-  const firstDiagnosis = useMemo(() => {
-    const first = rows[0];
-    return first ? parseErrorSummary(first.errorSummary, first.failedStep) : null;
-  }, [rows]);
+  function updateFilter(name: string, value: string) {
+    const next = new URLSearchParams(searchParams);
+    if (!value || value === "all" || (name === "period" && value === "7d")) next.delete(name);
+    else next.set(name, value);
+    next.delete("page");
+    setSearchParams(next);
+  }
+
+  function goToPage(nextPage: number) {
+    const next = new URLSearchParams(searchParams);
+    if (nextPage <= 1) next.delete("page");
+    else next.set("page", String(nextPage));
+    setSearchParams(next);
+  }
+
+  const pageCount = Math.max(1, Math.ceil(payload.total / pageSize));
 
   return (
     <div className="page-stack">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Failure triage</p>
+          <p className="eyebrow">Operations workspace</p>
           <h1>Failure Triage</h1>
-          <p>PGT-A and NIPT Docker failed step, error type, stderr excerpt, retry suggestion, and link to detail without SSH first.</p>
+          <p>Workflow failures and QC alerts remain distinct while sharing one investigation queue.</p>
         </div>
       </section>
-      {loading ? <p className="muted">Loading failures...</p> : null}
+      <section className="panel failure-filter-panel">
+        <div className="segmented-control" aria-label="Issue kind">
+          <button className={kind === "all" ? "active" : ""} type="button" onClick={() => updateFilter("kind", "all")}>All issues</button>
+          <button className={kind === "workflow" ? "active" : ""} type="button" onClick={() => updateFilter("kind", "workflow")}>Workflow failures</button>
+          <button className={kind === "qc" ? "active" : ""} type="button" onClick={() => updateFilter("kind", "qc")}>QC alerts</button>
+        </div>
+        <div className="filter-bar resource-filter-bar">
+          <label>
+            <span>Pipeline</span>
+            <select aria-label="Failure pipeline" value={pipeline} onChange={(event) => updateFilter("pipeline", event.target.value)}>
+              <option value="all">All deployed</option>
+              <option value="pgta">PGT-A</option>
+              <option value="nipt_docker">NIPT Docker</option>
+            </select>
+          </label>
+          <label>
+            <span>Period</span>
+            <select aria-label="Failure period" value={period} onChange={(event) => updateFilter("period", event.target.value)}>
+              <option value="24h">24h</option>
+              <option value="7d">7d</option>
+              <option value="30d">30d</option>
+            </select>
+          </label>
+          <label>
+            <span>Layer</span>
+            <select aria-label="Failure layer" value={layer} onChange={(event) => updateFilter("layer", event.target.value)}>
+              <option value="all">All layers</option>
+              <option value="airflow">Airflow task</option>
+              <option value="runner">Runner</option>
+              <option value="pipeline_rule">Pipeline rule</option>
+              <option value="qc">Sample QC</option>
+            </select>
+          </label>
+          <label className="grow">
+            <span>Keyword</span>
+            <input aria-label="Failure keyword" value={keywordDraft} placeholder="project, run, sample or step" onChange={(event) => setKeywordDraft(event.target.value)} />
+          </label>
+        </div>
+      </section>
+      {loading ? <p className="muted">Loading issue queue...</p> : null}
       {error ? <div className="inline-error" role="alert">{error}</div> : null}
-      <ErrorPanel diagnosis={firstDiagnosis} />
-      <section className="panel">
-        <div className="section-heading">
-          <h2>Failure queue</h2>
-          <p>Retry suggestion: inspect stderr, confirm failed rule/sample, then resume or rerun selected rule only.</p>
+      {!loading && !error ? <FailureWorkspace items={payload.items} selectedId={selectedId} onSelect={setSelectedId} /> : null}
+      <div className="pagination-controls" aria-label="Failure pagination">
+        <span>{payload.total} issues · page {Math.min(page, pageCount)} / {pageCount}</span>
+        <div>
+          <button type="button" disabled={page <= 1} onClick={() => goToPage(page - 1)}>Previous</button>
+          <button type="button" disabled={page >= pageCount} onClick={() => goToPage(page + 1)}>Next</button>
         </div>
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr><th>run_id</th><th>pipeline</th><th>status</th><th>failed step</th><th>created_at</th><th>stderr excerpt</th><th>action</th></tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const diagnosis = parseErrorSummary(row.errorSummary, row.failedStep);
-                return (
-                  <tr key={row.run.analysis_id}>
-                    <td className="mono path-text">{row.run.analysis_id}</td>
-                    <td>{compactPipelineName(row.run.pipeline)}</td>
-                    <td><StatusBadge status={row.run.status} /></td>
-                    <td>{diagnosis?.failedStep || "workflow"}</td>
-                    <td>{formatDate(row.run.created_at)}</td>
-                    <td>{diagnosis?.stderrExcerpt.slice(0, 160) || "No stderr excerpt available."}</td>
-                    <td><Link className="button ghost" to={`/runs/${encodeURIComponent(row.run.analysis_id)}`}>Detail</Link></td>
-                  </tr>
-                );
-              })}
-              {rows.length === 0 ? <tr><td className="empty-cell" colSpan={7}>No failed runs returned.</td></tr> : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      </div>
     </div>
   );
+}
+
+function failureKey(item: FailureItem): string {
+  return `${item.failure_kind}:${item.analysis_id}:${item.sample_id || "project"}:${item.failed_step}`;
+}
+
+function positivePage(value: string | null): number {
+  const parsed = Number(value || "1");
+  return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : 1;
 }

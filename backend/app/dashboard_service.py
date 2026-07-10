@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import String, case, cast, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun, IntakeDiscovery, QcMetric, Sample, SnakemakeRuleEvent
@@ -85,29 +85,63 @@ def get_dashboard_runs(
         else:
             base_query = base_query.where(AnalysisRun.status == normalized_status)
 
-    runs = session.scalars(base_query.order_by(desc(AnalysisRun.created_at))).all()
     if keyword:
-        needle = keyword.strip().lower()
-        runs = [run for run in runs if needle in run.analysis_id.lower() or needle in _project_name(run).lower()]
-    sorted_runs = sorted(runs, key=_run_sort_key)
-    page = sorted_runs[offset : offset + limit]
+        pattern = f"%{keyword.strip().lower()}%"
+        base_query = base_query.where(
+            or_(
+                func.lower(AnalysisRun.analysis_id).like(pattern),
+                func.lower(cast(AnalysisRun.params_json, String)).like(pattern),
+            )
+        )
+    total = session.scalar(select(func.count()).select_from(base_query.order_by(None).subquery())) or 0
+    status_order = case(STATUS_ORDER, value=AnalysisRun.status, else_=99)
+    page = list(
+        session.scalars(
+            base_query.order_by(status_order, desc(AnalysisRun.created_at)).limit(limit).offset(offset)
+        ).all()
+    )
+    sample_qc = _sample_qc_by_run(session=session, runs=page)
+    rule_events = _rule_events_by_run(session=session, runs=page)
+    average_durations = _average_durations_by_kind(session=session, runs=page)
     return {
-        "items": [_tracker_row(session=session, airflow_client=airflow_client, run=run) for run in page],
-        "total": len(sorted_runs),
+        "items": [
+            _tracker_row(
+                session=session,
+                airflow_client=airflow_client,
+                run=run,
+                sample_qc_statuses=sample_qc.get(run.analysis_id, []),
+                persisted_rule_events=rule_events.get(run.analysis_id, []),
+                average_duration_seconds=average_durations.get(_run_history_key(run)),
+            )
+            for run in page
+        ],
+        "total": total,
         "limit": limit,
         "offset": offset,
         "pipeline": pipeline,
     }
 
 
-def _tracker_row(*, session: Session, airflow_client, run: AnalysisRun) -> dict[str, Any]:
-    progress = _progress_for_tracker_row(session=session, airflow_client=airflow_client, run=run)
+def _tracker_row(
+    *,
+    session: Session,
+    airflow_client,
+    run: AnalysisRun,
+    sample_qc_statuses: list[str | None],
+    persisted_rule_events: list[dict[str, Any]],
+    average_duration_seconds: int | None,
+) -> dict[str, Any]:
+    progress = _progress_for_tracker_row(
+        session=session,
+        airflow_client=airflow_client,
+        run=run,
+        persisted_rule_events=persisted_rule_events,
+    )
     rules = progress.get("rule_events", []) if progress else []
     airflow_tasks = progress.get("airflow_tasks", []) if progress else []
     current_airflow_task = _current_airflow_task(airflow_tasks)
     current_pipeline_rule = _current_pipeline_rule(rules)
     elapsed_seconds = _elapsed_seconds(run)
-    average_duration_seconds = _average_duration_seconds(session=session, run=run)
     estimated_remaining_seconds = _estimated_remaining_seconds(
         run=run,
         elapsed_seconds=elapsed_seconds,
@@ -119,8 +153,8 @@ def _tracker_row(*, session: Session, airflow_client, run: AnalysisRun) -> dict[
         "project_name": _project_name(run),
         "pipeline": run.pipeline_name,
         "status": run.status,
-        "qc_status": _run_qc_status(session=session, analysis_id=run.analysis_id),
-        "sample_count": session.scalar(select(func.count()).select_from(Sample).where(Sample.analysis_id == run.analysis_id)) or 0,
+        "qc_status": _qc_status_from_values(sample_qc_statuses),
+        "sample_count": len(sample_qc_statuses),
         "created_at": _iso(run.created_at),
         "started_at": _iso(run.started_at),
         "ended_at": _iso(run.ended_at),
@@ -150,7 +184,13 @@ def _tracker_row(*, session: Session, airflow_client, run: AnalysisRun) -> dict[
     }
 
 
-def _progress_for_tracker_row(*, session: Session, airflow_client, run: AnalysisRun) -> dict[str, Any]:
+def _progress_for_tracker_row(
+    *,
+    session: Session,
+    airflow_client,
+    run: AnalysisRun,
+    persisted_rule_events: list[dict[str, Any]],
+) -> dict[str, Any]:
     status = _status(run.status)
     if status == "created":
         return {
@@ -164,7 +204,7 @@ def _progress_for_tracker_row(*, session: Session, airflow_client, run: Analysis
             "rule_events": [],
         }
     if status == "success":
-        rule_events = _latest_rule_events(session=session, analysis_id=run.analysis_id)
+        rule_events = persisted_rule_events
         return {
             "percent": 100,
             "current_step": "Workflow complete",
@@ -175,28 +215,76 @@ def _progress_for_tracker_row(*, session: Session, airflow_client, run: Analysis
             "airflow_tasks": [],
             "rule_events": rule_events,
         }
+    if status in FAILED_STATUSES:
+        rule_events = persisted_rule_events
+        return {
+            "percent": 90 if rule_events else 10,
+            "current_step": _current_pipeline_rule(rule_events) or "Workflow failed",
+            "current_source": "snakemake_events" if rule_events else "estimate",
+            "note": "Workflow failed; open run detail for Airflow task attempts and stderr.",
+            "not_in_airflow": False,
+            "progress_source": "snakemake_events" if rule_events else "estimate",
+            "airflow_tasks": [],
+            "rule_events": rule_events,
+        }
     return get_run_progress(session=session, airflow_client=airflow_client, analysis_id=run.analysis_id)
 
 
-def _latest_rule_events(*, session: Session, analysis_id: str) -> list[dict[str, Any]]:
-    rows = (
-        session.execute(
-            select(SnakemakeRuleEvent)
-            .where(SnakemakeRuleEvent.analysis_id == analysis_id)
-            .order_by(SnakemakeRuleEvent.updated_at)
+def _sample_qc_by_run(*, session: Session, runs: list[AnalysisRun]) -> dict[str, list[str | None]]:
+    run_ids = [run.analysis_id for run in runs]
+    if not run_ids:
+        return {}
+    values: dict[str, list[str | None]] = {}
+    for analysis_id, qc_status in session.execute(
+        select(Sample.analysis_id, Sample.qc_status).where(Sample.analysis_id.in_(run_ids))
+    ).all():
+        values.setdefault(analysis_id, []).append(qc_status)
+    return values
+
+
+def _rule_events_by_run(*, session: Session, runs: list[AnalysisRun]) -> dict[str, list[dict[str, Any]]]:
+    run_ids = [run.analysis_id for run in runs if _status(run.status) not in ACTIVE_STATUSES | {"created"}]
+    if not run_ids:
+        return {}
+    values: dict[str, list[dict[str, Any]]] = {}
+    rows = session.scalars(
+        select(SnakemakeRuleEvent)
+        .where(SnakemakeRuleEvent.analysis_id.in_(run_ids))
+        .order_by(SnakemakeRuleEvent.analysis_id, SnakemakeRuleEvent.updated_at)
+    ).all()
+    for row in rows:
+        values.setdefault(row.analysis_id, []).append(
+            {"rule": row.rule, "sample_id": row.sample_id, "status": row.status, "message": row.message}
         )
-        .scalars()
-        .all()
-    )
-    return [
-        {
-            "rule": row.rule,
-            "sample_id": row.sample_id,
-            "status": row.status,
-            "message": row.message,
-        }
-        for row in rows
-    ]
+    return values
+
+
+def _average_durations_by_kind(*, session: Session, runs: list[AnalysisRun]) -> dict[tuple[str, str, str], int]:
+    keys = {_run_history_key(run) for run in runs}
+    pipelines = {run.pipeline_name for run in runs}
+    if not keys:
+        return {}
+    histories: dict[tuple[str, str, str], list[int]] = {}
+    candidates = session.scalars(
+        select(AnalysisRun)
+        .where(
+            AnalysisRun.pipeline_name.in_(pipelines),
+            AnalysisRun.status == "success",
+            AnalysisRun.started_at.is_not(None),
+            AnalysisRun.ended_at.is_not(None),
+        )
+        .order_by(desc(AnalysisRun.ended_at))
+        .limit(500)
+    ).all()
+    for candidate in candidates:
+        key = _run_history_key(candidate)
+        if key not in keys or len(histories.get(key, [])) >= 10:
+            continue
+        if candidate.started_at and candidate.ended_at:
+            histories.setdefault(key, []).append(
+                max(0, int((_as_aware(candidate.ended_at) - _as_aware(candidate.started_at)).total_seconds()))
+            )
+    return {key: int(sum(values) / len(values)) for key, values in histories.items() if values}
 
 
 def _runs_for_pipeline(*, session: Session, pipeline: str, since: datetime) -> list[AnalysisRun]:
@@ -342,8 +430,8 @@ def _counts_from_rows(rows, *, keys: list[str]) -> dict[str, int]:
     return counts
 
 
-def _run_qc_status(*, session: Session, analysis_id: str) -> str:
-    statuses = [str(value or "unknown").lower() for value in session.scalars(select(Sample.qc_status).where(Sample.analysis_id == analysis_id)).all()]
+def _qc_status_from_values(values: list[str | None]) -> str:
+    statuses = [str(value or "unknown").lower() for value in values]
     if not statuses:
         return "unknown"
     if any(status in {"failed", "fail", "error"} for status in statuses):
@@ -443,35 +531,6 @@ def _elapsed_seconds(run: AnalysisRun) -> int | None:
     return max(0, int((ended_at - started_at).total_seconds()))
 
 
-def _average_duration_seconds(*, session: Session, run: AnalysisRun) -> int | None:
-    kind_key, kind_value = _run_kind(run)
-    query = (
-        select(AnalysisRun)
-        .where(
-            AnalysisRun.pipeline_name == run.pipeline_name,
-            AnalysisRun.status == "success",
-            AnalysisRun.started_at.is_not(None),
-            AnalysisRun.ended_at.is_not(None),
-            AnalysisRun.analysis_id != run.analysis_id,
-        )
-        .order_by(desc(AnalysisRun.ended_at))
-    )
-    candidates = []
-    for candidate in session.scalars(query).all():
-        if _run_kind(candidate) == (kind_key, kind_value):
-            candidates.append(candidate)
-        if len(candidates) >= 10:
-            break
-    durations = [
-        max(0, int((_as_aware(candidate.ended_at) - _as_aware(candidate.started_at)).total_seconds()))
-        for candidate in candidates
-        if candidate.started_at and candidate.ended_at
-    ]
-    if not durations:
-        return None
-    return int(sum(durations) / len(durations))
-
-
 def _estimated_remaining_seconds(*, run: AnalysisRun, elapsed_seconds: int | None, average_duration_seconds: int | None) -> int | None:
     if _status(run.status) not in ACTIVE_STATUSES:
         return None
@@ -495,6 +554,11 @@ def _run_kind(run: AnalysisRun) -> tuple[str, str]:
     return ("pipeline", str(run.pipeline_name))
 
 
+def _run_history_key(run: AnalysisRun) -> tuple[str, str, str]:
+    kind_key, kind_value = _run_kind(run)
+    return (run.pipeline_name, kind_key, kind_value)
+
+
 def _as_aware(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
@@ -506,11 +570,6 @@ def _humanize_identifier(value: str | None) -> str:
         return "Unknown"
     label = value.split(".")[-1].replace("_", " ").strip()
     return label[:1].upper() + label[1:]
-
-
-def _run_sort_key(run: AnalysisRun) -> tuple[int, float]:
-    created = run.created_at.timestamp() if run.created_at else 0
-    return (STATUS_ORDER.get(_status(run.status), 99), -created)
 
 
 def _project_name(run: AnalysisRun) -> str:

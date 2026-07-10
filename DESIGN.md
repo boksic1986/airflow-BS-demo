@@ -130,3 +130,21 @@ ErrorPanel:
   `Batch Runs`, `Sample Matrix`, `Workflow Catalog`, and `Failure Triage`.
 - T109 is frontend-only: no new API, no DAG changes, no intake unpause, and no
   NIPT full-run enablement.
+
+## T110 Operator Workspace Rules
+
+- Primary resource pages are URL-addressable and server-paginated. Search and
+  filters must survive refresh and browser navigation.
+- Dashboard panels have independent loading and error states. One degraded
+  dependency must not clear unrelated data.
+- Summary metrics are navigation affordances, not decorative counters.
+- Use human-readable stage labels as primary text. Raw Airflow task ids and
+  Snakemake/runner rule ids are debug metadata.
+- The app document must fit the viewport at 1440, 1280, 1024, and 390 CSS
+  pixels. Grid children use `min-width: 0`; only explicit table/timeline/log
+  containers may scroll horizontally.
+- At sidebar desktop widths, the pipeline selector becomes a compact horizontal
+  rail, summary metrics use a 2 by 2 grid, and dense detail layouts collapse
+  before content can force document overflow.
+- Failure Triage uses a queue plus diagnosis workspace. Workflow failure and QC
+  failure are distinct layers; action availability must match backend guards.

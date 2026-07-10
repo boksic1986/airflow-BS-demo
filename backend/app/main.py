@@ -22,6 +22,7 @@ from app.diagnostics_service import (
 from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candidates, scan_nipt_batch_candidates
 from app.intake_config import load_intake_config
 from app.intake_service import list_intake_status, preview_intake_scan, scan_and_submit_intake
+from app.operator_resources_service import list_failures_resource, list_samples_resource
 from app.progress_service import get_run_progress
 from app.qc_service import list_run_qc
 from app.rule_event_service import list_snakemake_rule_events, record_snakemake_event
@@ -284,11 +285,65 @@ def create_run(request: CreateRunRequest) -> dict[str, object]:
 def runs_list(
     pipeline: str | None = None,
     status_filter: str | None = Query(default=None, alias="status"),
+    keyword: str | None = None,
+    sort: str = Query(default="created_desc", pattern="^(created_desc|duration_desc|status)$"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
     with get_sessionmaker()() as session:
-        return list_runs(session=session, pipeline=pipeline, status=status_filter, limit=limit, offset=offset)
+        return list_runs(
+            session=session,
+            pipeline=pipeline,
+            status=status_filter,
+            keyword=keyword,
+            sort=sort,
+            limit=limit,
+            offset=offset,
+        )
+
+
+@app.get("/api/samples")
+def samples_list(
+    pipeline: str | None = Query(default=None, pattern="^(pgta|nipt_docker)$"),
+    status_filter: str | None = Query(default=None, alias="status"),
+    qc_status: str | None = None,
+    keyword: str | None = None,
+    limit: int = Query(default=25, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        return list_samples_resource(
+            session=session,
+            pipeline=pipeline,
+            status=status_filter,
+            qc_status=qc_status,
+            keyword=keyword,
+            limit=limit,
+            offset=offset,
+        )
+
+
+@app.get("/api/failures")
+def failures_list(
+    pipeline: str = Query(default="all", pattern="^(all|pgta|nipt_docker)$"),
+    kind: str = Query(default="all", pattern="^(all|workflow|qc)$"),
+    layer: str | None = Query(default=None, pattern="^(airflow|runner|pipeline_rule|qc|unknown)$"),
+    period: str = Query(default="7d", pattern="^(24h|7d|30d)$"),
+    keyword: str | None = None,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        return list_failures_resource(
+            session=session,
+            pipeline=pipeline,
+            kind=kind,
+            layer=layer,
+            period=period,
+            keyword=keyword,
+            limit=limit,
+            offset=offset,
+        )
 
 
 @app.get("/api/dashboard/overview")

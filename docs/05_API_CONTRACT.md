@@ -1145,3 +1145,58 @@ Response:
   ]
 }
 ```
+
+## T110 Operator Resource APIs
+
+T110 adds paginated operator resources without changing run creation, Airflow
+submission, DAG behavior, or the database schema.
+
+### Batch Runs
+
+```http
+GET /api/runs?pipeline=pgta&status=failed&keyword=project-a&sort=created_desc&limit=20&offset=0
+```
+
+Optional filters are `pipeline`, `status`, `keyword`, and `sort`. Supported sort
+values are `created_desc`, `duration_desc`, and `status`. Each list item retains
+the existing fields and adds `project_name`. Existing calls without the new
+parameters remain valid. The operator UI sends `pipeline=deployed` for its
+`All deployed` choice; this returns only PGT-A and NIPT Docker while preserving
+historical all-pipeline API compatibility for callers that omit `pipeline`.
+
+### Sample Matrix
+
+```http
+GET /api/samples?pipeline=nipt_docker&status=success&qc_status=pass&keyword=A06&limit=25&offset=0
+```
+
+The response contains `analysis_id`, `project_name`, `pipeline`, `sample_id`,
+`family_id`, `status`, `qc_status`, `source_folder`, `r1_name`, `r2_name`, and
+`report_status`, plus top-level `total`, `limit`, and `offset`. Full FASTQ server
+paths are never returned by this list endpoint.
+
+### Failure Triage
+
+```http
+GET /api/failures?pipeline=all&kind=workflow&period=7d&layer=pipeline_rule&keyword=samtools&limit=20&offset=0
+```
+
+`kind` is `all`, `workflow`, or `qc`. A workflow-success run with failed sample
+QC is returned only as `failure_kind=qc`; it is not mislabeled as a workflow
+failure. Items include the failure layer, failed step and readable label,
+sample id, return code, stderr excerpt, possible reason, suggested action code,
+and guarded PGT-A recovery flags. NIPT Docker items do not advertise unsupported
+resume or rerun actions. `stderr_excerpt` replaces absolute server path prefixes
+with `<server-path>/` and redacts common `password`, `token`, `secret`, and API
+key assignments. File basenames and error text remain available for diagnosis.
+
+Workflow and QC issues are item-level categories. A workflow-failed run may also
+produce a separate QC item when a captured sample QC status is failed; the QC
+item is never mislabeled as a workflow failure.
+
+### Dashboard Performance Boundary
+
+`GET /api/dashboard/runs` continues to return the T108 response contract. T110
+bulk-loads page-level sample/QC/rule data and calls Airflow task-instance REST
+only for active rows. Terminal rows use persisted business/rule state, so a
+terminal-only page does not fan out to Airflow.

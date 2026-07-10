@@ -111,9 +111,10 @@ def test_submit_created_pgta_run_triggers_airflow_and_updates_db(tmp_path, monke
                 "pipeline": "pgta",
                 "mode": "new",
                 "sample_sheet_path": str(tmp_path / "shared" / "runs" / analysis_id / "config" / "samples.selected.tsv"),
-                "workdir": str(tmp_path / "shared" / "runs" / analysis_id),
-                "email_to": "demo@example.com",
-                "params": {
+                    "workdir": str(tmp_path / "shared" / "runs" / analysis_id),
+                    "email_to": "demo@example.com",
+                    "backend_event_url": "http://backend:8000/api/events/snakemake",
+                    "params": {
                     "target": "metadata",
                     "rawdata_root": "/data/project/CNV/PGT-A/rawdata/demo",
                     "input_mode": "server_path_scan",

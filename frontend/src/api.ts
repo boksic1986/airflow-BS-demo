@@ -1,5 +1,6 @@
 export type RunSummary = {
   analysis_id: string;
+  project_name?: string | null;
   pipeline: string;
   status: string;
   created_at?: string | null;
@@ -17,8 +18,58 @@ export type RunListResponse = {
 export type RunListOptions = {
   pipeline?: string;
   status?: string;
+  keyword?: string;
+  sort?: "created_desc" | "duration_desc" | "status";
   limit?: number;
   offset?: number;
+};
+
+export type OperatorSample = {
+  analysis_id: string;
+  project_name: string;
+  pipeline: string;
+  sample_id: string;
+  family_id?: string | null;
+  status: string;
+  qc_status: string;
+  source_folder?: string | null;
+  r1_name?: string | null;
+  r2_name?: string | null;
+  report_status: string;
+};
+
+export type OperatorSampleResponse = {
+  items: OperatorSample[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type FailureItem = {
+  analysis_id: string;
+  project_name: string;
+  pipeline: string;
+  workflow_status: string;
+  qc_status: string;
+  failure_kind: "workflow" | "qc";
+  failure_layer: "airflow" | "runner" | "pipeline_rule" | "qc" | "unknown";
+  failed_step: string;
+  failed_step_label: string;
+  sample_id?: string | null;
+  return_code?: number | null;
+  stderr_excerpt: string;
+  possible_reason: string;
+  suggested_action_code: string;
+  can_resume: boolean;
+  can_rerun_stage: boolean;
+  created_at?: string | null;
+};
+
+export type FailureListResponse = {
+  items: FailureItem[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type RunDetail = {
@@ -434,9 +485,49 @@ export function listRuns(options: RunListOptions = {}): Promise<RunListResponse>
   const params = new URLSearchParams();
   if (options.pipeline) params.set("pipeline", options.pipeline);
   if (options.status) params.set("status", options.status);
+  if (options.keyword) params.set("keyword", options.keyword);
+  params.set("sort", options.sort || "created_desc");
   params.set("limit", String(options.limit ?? 50));
   params.set("offset", String(options.offset ?? 0));
   return requestJson<RunListResponse>(`/runs?${params.toString()}`);
+}
+
+export function listSamplesResource(options: {
+  pipeline?: string;
+  status?: string;
+  qcStatus?: string;
+  keyword?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<OperatorSampleResponse> {
+  const params = new URLSearchParams();
+  if (options.pipeline) params.set("pipeline", options.pipeline);
+  if (options.status) params.set("status", options.status);
+  if (options.qcStatus) params.set("qc_status", options.qcStatus);
+  if (options.keyword) params.set("keyword", options.keyword);
+  params.set("limit", String(options.limit ?? 25));
+  params.set("offset", String(options.offset ?? 0));
+  return requestJson<OperatorSampleResponse>(`/samples?${params.toString()}`);
+}
+
+export function listFailures(options: {
+  pipeline?: string;
+  kind?: "all" | "workflow" | "qc";
+  layer?: string;
+  period?: "24h" | "7d" | "30d";
+  keyword?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<FailureListResponse> {
+  const params = new URLSearchParams();
+  params.set("pipeline", options.pipeline || "all");
+  params.set("kind", options.kind || "all");
+  params.set("period", options.period || "7d");
+  if (options.layer) params.set("layer", options.layer);
+  if (options.keyword) params.set("keyword", options.keyword);
+  params.set("limit", String(options.limit ?? 20));
+  params.set("offset", String(options.offset ?? 0));
+  return requestJson<FailureListResponse>(`/failures?${params.toString()}`);
 }
 
 export function getDashboardOverview(options: {pipeline?: DashboardPipeline; period?: "24h" | "7d" | "30d"} = {}): Promise<DashboardOverview> {

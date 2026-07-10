@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -161,12 +161,12 @@ def test_dashboard_runs_returns_paginated_tracker_rows_with_current_steps(tmp_pa
     assert first["estimated_finish_at"] is not None
     assert first["progress_source"] == "snakemake_events"
     assert first["not_in_airflow"] is False
-    assert airflow.task_calls == [("bio_pgta", "manual__PGTA_RUNNING"), ("bio_pgta", "manual__PGTA_FAILED")]
+    assert airflow.task_calls == [("bio_pgta", "manual__PGTA_RUNNING")]
 
     second_page = client.get("/api/dashboard/runs?pipeline=all&limit=2&offset=2").json()
     assert len(second_page["items"]) == 2
     assert second_page["items"][0]["analysis_id"] != first["analysis_id"]
-    assert airflow.task_calls == [("bio_pgta", "manual__PGTA_RUNNING"), ("bio_pgta", "manual__PGTA_FAILED")]
+    assert airflow.task_calls == [("bio_pgta", "manual__PGTA_RUNNING")]
 
 
 def test_dashboard_runs_filters_pipeline_status_and_keyword(tmp_path, monkeypatch) -> None:
@@ -185,3 +185,20 @@ def test_dashboard_runs_filters_pipeline_status_and_keyword(tmp_path, monkeypatc
     assert payload["items"][0]["current_pipeline_rule"] == "mapping"
     assert payload["items"][0]["current_stage_label"] == "Mapping reads"
     assert payload["items"][0]["percent"] >= 15
+
+
+def test_terminal_dashboard_page_bulk_loads_without_sql_n_plus_one(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    seed_dashboard_data(session_factory, tmp_path)
+    airflow = FakeAirflowClient()
+    install_dashboard_fixtures(monkeypatch, session_factory, airflow)
+    statements: list[str] = []
+    event.listen(session_factory.kw["bind"], "before_cursor_execute", lambda _conn, _cursor, statement, _params, _context, _many: statements.append(statement))
+    client = TestClient(main.app)
+
+    response = client.get("/api/dashboard/runs?pipeline=all&status=success&limit=10&offset=0")
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+    assert airflow.task_calls == []
+    assert len(statements) <= 6

@@ -19,6 +19,7 @@ export function RunTable({
       <table className={compact ? "data-table compact" : "data-table"}>
         <thead>
           <tr>
+            <th>project</th>
             <th>run_id</th>
             <th>pipeline</th>
             <th>samples</th>
@@ -26,13 +27,21 @@ export function RunTable({
             <th>qc</th>
             <th>created_at</th>
             <th>duration</th>
-            <th>action</th>
           </tr>
         </thead>
         <tbody>
           {runs.map((run) => (
             <tr key={run.analysis_id}>
-              <td className="mono path-text">{run.analysis_id}</td>
+              <td>
+                <Link className="resource-link" to={`/runs/${encodeURIComponent(run.analysis_id)}`}>
+                  {run.project_name || run.analysis_id}
+                </Link>
+              </td>
+              <td className="mono path-text">
+                <Link className="resource-link secondary" to={`/runs/${encodeURIComponent(run.analysis_id)}`}>
+                  {run.analysis_id}
+                </Link>
+              </td>
               <td>{compactPipelineName(run.pipeline)}</td>
               <td>{run.sample_count ?? 0}</td>
               <td>
@@ -43,11 +52,6 @@ export function RunTable({
               </td>
               <td>{formatDate(run.created_at)}</td>
               <td>{formatDuration(run.started_at, run.ended_at)}</td>
-              <td>
-                <Link className="button ghost" to={`/runs/${encodeURIComponent(run.analysis_id)}`}>
-                  View
-                </Link>
-              </td>
             </tr>
           ))}
           {runs.length === 0 ? (

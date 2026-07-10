@@ -297,8 +297,110 @@ describe("bioinformatics platform frontend", () => {
           return mockJson({items: items.slice(offset, offset + limit), total: items.length, limit, offset, pipeline});
         }
         if (url.endsWith("/api/system/resources")) return mockJson(systemResources());
-        if (url.endsWith("/api/runs?limit=50&offset=0") || url.endsWith("/api/runs?pipeline=pgta&limit=50&offset=0")) {
-          return mockJson({items: runs(), total: runs().length});
+        if (url.includes("/api/runs?") && !url.includes("/api/dashboard/runs")) {
+          const parsed = new URL(url);
+          const pipeline = parsed.searchParams.get("pipeline");
+          const status = parsed.searchParams.get("status");
+          const keyword = (parsed.searchParams.get("keyword") || "").toLowerCase();
+          const limit = Number(parsed.searchParams.get("limit") || "20");
+          const offset = Number(parsed.searchParams.get("offset") || "0");
+          let items = runs()
+            .filter((run) => !pipeline || (pipeline === "deployed" ? ["pgta", "nipt_docker"].includes(run.pipeline) : run.pipeline === pipeline))
+            .filter((run) => !status || run.status === status)
+            .map((run) => ({
+              ...run,
+              project_name: run.analysis_id === failedRunId ? "Beta retry batch" : run.analysis_id,
+            }));
+          if (keyword) items = items.filter((run) => `${run.analysis_id} ${run.project_name}`.toLowerCase().includes(keyword));
+          if (keyword === "beta" && offset === 20) {
+            return mockJson({items, total: 21});
+          }
+          return mockJson({items: items.slice(offset, offset + limit), total: items.length});
+        }
+        if (url.includes("/api/samples?")) {
+          const parsed = new URL(url);
+          const pipeline = parsed.searchParams.get("pipeline");
+          const qcStatus = parsed.searchParams.get("qc_status");
+          const keyword = (parsed.searchParams.get("keyword") || "").toLowerCase();
+          const limit = Number(parsed.searchParams.get("limit") || "25");
+          const offset = Number(parsed.searchParams.get("offset") || "0");
+          let items = [
+            {
+              analysis_id: pgtaRunId,
+              project_name: "PGT-A baseline batch",
+              pipeline: "pgta",
+              sample_id: "G10",
+              family_id: "F-G10",
+              status: "success",
+              qc_status: "fail",
+              source_folder: "Sample_G10",
+              r1_name: "G10_R1.fastq.gz",
+              r2_name: "G10_R2.fastq.gz",
+              report_status: "available",
+            },
+            {
+              analysis_id: niptRunId,
+              project_name: "NIPT scanned batch mount smoke",
+              pipeline: "nipt_docker",
+              sample_id: "NIPT26040207.A06",
+              family_id: null,
+              status: "success",
+              qc_status: "pass",
+              source_folder: "260414_TPNB500380AR_1065_AH32CCBGY2",
+              r1_name: "NIPT26040207.A06.R1.clean.fastq.gz",
+              r2_name: "NIPT26040207.A06.R2.clean.fastq.gz",
+              report_status: "available",
+            },
+          ];
+          if (pipeline) items = items.filter((item) => item.pipeline === pipeline);
+          if (qcStatus) items = items.filter((item) => item.qc_status === qcStatus);
+          if (keyword) items = items.filter((item) => `${item.sample_id} ${item.analysis_id} ${item.project_name}`.toLowerCase().includes(keyword));
+          return mockJson({items: items.slice(offset, offset + limit), total: items.length, limit, offset});
+        }
+        if (url.includes("/api/failures?")) {
+          const parsed = new URL(url);
+          const kind = parsed.searchParams.get("kind") || "all";
+          const items = [
+            {
+              analysis_id: failedRunId,
+              project_name: "Beta retry batch",
+              pipeline: "pgta",
+              workflow_status: "failed",
+              qc_status: "unknown",
+              failure_kind: "workflow",
+              failure_layer: "pipeline_rule",
+              failed_step: "mapping",
+              failed_step_label: "Mapping reads",
+              sample_id: "G20",
+              return_code: 17,
+              stderr_excerpt: "samtools sort failed",
+              possible_reason: "A samtools command failed.",
+              suggested_action_code: "resume_pgta",
+              can_resume: true,
+              can_rerun_stage: true,
+              created_at: "2026-07-08T10:00:00+08:00",
+            },
+            {
+              analysis_id: niptRunId,
+              project_name: "NIPT scanned batch mount smoke",
+              pipeline: "nipt_docker",
+              workflow_status: "success",
+              qc_status: "fail",
+              failure_kind: "qc",
+              failure_layer: "qc",
+              failed_step: "fetal_ratio",
+              failed_step_label: "Fetal Ratio",
+              sample_id: "NIPT26040207.A06",
+              return_code: null,
+              stderr_excerpt: "fetal_ratio: 0.015; threshold >=0.03",
+              possible_reason: "Sample QC metric did not meet its configured threshold.",
+              suggested_action_code: "review_qc",
+              can_resume: false,
+              can_rerun_stage: false,
+              created_at: "2026-07-08T11:00:00+08:00",
+            },
+          ].filter((item) => kind === "all" || item.failure_kind === kind);
+          return mockJson({items, total: items.length, limit: 20, offset: 0});
         }
         if (url.endsWith("/api/health")) return mockJson({status: "ok"});
         if (url.endsWith("/api/health/db")) return mockJson({status: "ok"});
@@ -959,7 +1061,7 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByRole("button", {name: /30d/i})).toBeInTheDocument();
     expect(screen.getByText(/Running samples/i)).toBeInTheDocument();
     expect(screen.getByText(/QC failed samples/i)).toBeInTheDocument();
-    expect(screen.getByText(/Fresh transfer 2-sample QC/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Fresh transfer 2-sample QC/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", {name: activePgtaRunId})).toHaveAttribute("href", `/runs/${activePgtaRunId}`);
     expect(screen.getByRole("link", {name: /Fresh transfer 2-sample QC/i})).toHaveAttribute("href", `/runs/${activePgtaRunId}`);
     expect(screen.getByText(/52%/i)).toBeInTheDocument();
@@ -995,6 +1097,24 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByText(/WES qsub/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/NIPT qsub/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/WGS/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps dashboard overview visible when the run tracker request fails", async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const defaultFetch = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("/api/dashboard/runs")) {
+        return mockJson({detail: {code: "TRACKER_UNAVAILABLE", message: "Run tracker unavailable"}}, {status: 503});
+      }
+      if (!defaultFetch) throw new Error("Missing default fetch mock");
+      return defaultFetch(input, init);
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("12")).toBeInTheDocument();
+    expect(screen.getByText(/Run tracker unavailable/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name: /Status distribution/i})).toBeInTheDocument();
   });
 
   it("filters, pages, and switches the dashboard tracker without per-run progress calls", async () => {
@@ -1041,11 +1161,89 @@ describe("bioinformatics platform frontend", () => {
     expect(within(pipelineSelect).getByRole("option", {name: /^NIPT Docker/i})).toBeInTheDocument();
     expect(within(pipelineSelect).queryByRole("option", {name: /^NIPT qsub/i})).not.toBeInTheDocument();
     expect(within(pipelineSelect).queryByRole("option", {name: /^WGS/i})).not.toBeInTheDocument();
+    expect(screen.queryByText(wesRunId)).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText(/status/i), "failed");
     expect(screen.getByText(failedRunId)).toBeInTheDocument();
     expect(screen.getAllByText(/failed/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(wesRunId)).not.toBeInTheDocument();
+  });
+
+  it("submits the global project search to the paginated runs resource", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const search = await screen.findByRole("searchbox", {name: /search project or run id/i});
+    await user.type(search, "Beta retry batch{Enter}");
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/runs");
+      expect(new URLSearchParams(window.location.search).get("keyword")).toBe("Beta retry batch");
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/runs?pipeline=deployed&keyword=Beta+retry+batch&sort=created_desc&limit=20&offset=0"),
+        undefined,
+      );
+    });
+  });
+
+  it("loads Batch Runs from URL-backed server filters and pagination", async () => {
+    setRoute("/runs?pipeline=pgta&status=failed&keyword=Beta&sort=created_desc&page=2");
+    render(<App />);
+
+    expect(await screen.findByText(failedRunId)).toBeInTheDocument();
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/runs?pipeline=pgta&status=failed&keyword=Beta&sort=created_desc&limit=20&offset=20"),
+      undefined,
+    );
+    expect(screen.queryByText(/Retry selected/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Cancel selected/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Archive selected/i)).not.toBeInTheDocument();
+  });
+
+  it("preserves a newly selected pipeline while a keyword debounce is pending", async () => {
+    const user = userEvent.setup();
+    setRoute("/runs");
+    render(<App />);
+
+    await screen.findByRole("heading", {name: /Batch Runs/i});
+    await user.type(screen.getByLabelText("Keyword"), "Beta");
+    await user.selectOptions(screen.getByLabelText("Pipeline"), "pgta");
+
+    await waitFor(() => {
+      const params = new URLSearchParams(window.location.search);
+      expect(params.get("keyword")).toBe("Beta");
+      expect(params.get("pipeline")).toBe("pgta");
+    });
+  });
+
+  it("loads Sample Matrix from the paginated samples resource", async () => {
+    setRoute("/samples?pipeline=nipt_docker&qc_status=pass&keyword=NIPT26040207.A06&page=1");
+    render(<App />);
+
+    expect(await screen.findByText("NIPT26040207.A06")).toBeInTheDocument();
+    expect(screen.getByText("260414_TPNB500380AR_1065_AH32CCBGY2")).toBeInTheDocument();
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/samples?pipeline=nipt_docker&qc_status=pass&keyword=NIPT26040207.A06&limit=25&offset=0"),
+      undefined,
+    );
+    expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).endsWith("/samples"))).toBe(false);
+  });
+
+  it("loads Failure Triage from one aggregate endpoint and keeps QC separate", async () => {
+    const user = userEvent.setup();
+    setRoute("/failures?kind=workflow&period=7d");
+    render(<App />);
+
+    expect((await screen.findAllByText("Beta retry batch")).length).toBeGreaterThan(0);
+    expect(screen.getByText("Mapping reads")).toBeInTheDocument();
+    expect(screen.getByText(/samtools sort failed/i)).toBeInTheDocument();
+    expect(vi.mocked(globalThis.fetch).mock.calls.filter(([input]) => String(input).includes("/api/failures?")).length).toBe(1);
+    expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes("/rules"))).toBe(false);
+
+    await user.click(screen.getByRole("button", {name: /QC alerts/i}));
+    expect(await screen.findByText("fetal_ratio: 0.015; threshold >=0.03")).toBeInTheDocument();
+    expect(screen.getByText(/workflow success/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: /resume/i})).not.toBeInTheDocument();
   });
 
   it("opens failed run detail with stderr diagnostics and searchable logs", async () => {
@@ -1293,7 +1491,7 @@ describe("bioinformatics platform frontend", () => {
     expect(await screen.findByText(niptRunId)).toBeInTheDocument();
     expect(screen.queryByRole("heading", {name: /Current deployment scope/i})).not.toBeInTheDocument();
     expect(screen.getAllByText(/100%/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/nipt_mount_smoke/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/NIPT mount smoke/i).length).toBeGreaterThan(0);
 
     const workflowTab = screen.getByRole("tab", {name: /workflow/i});
     await userEvent.click(workflowTab);
@@ -1373,11 +1571,11 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getAllByText(/G10_R1\.fastq\.gz \/ G10_R2\.fastq\.gz/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/NIPT26040207\.A06/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/NIPT26040207\.A06\.R1\.clean\.fastq\.gz \/ NIPT26040207\.A06\.R2\.clean\.fastq\.gz/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Batch 260414_TPNB500380AR_1065_AH32CCBGY2/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/260414_TPNB500380AR_1065_AH32CCBGY2/i).length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("link", {name: /failure triage/i}));
     expect(await screen.findByRole("heading", {name: /Failure Triage/i})).toBeInTheDocument();
-    expect(screen.getAllByText(/retry suggestion/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Mapping reads/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(wesRunId)).not.toBeInTheDocument();
   });
 });
