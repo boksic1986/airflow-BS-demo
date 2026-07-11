@@ -1,5 +1,34 @@
 # 05 API Contract
 
+## T114 run status, timing, and sample QC
+
+`GET /api/dashboard/runs` adds `display_status`, `pipeline_finished_at`,
+`eta_history_count`, and `eta_model`. `display_status` combines the workflow
+and sample decision without changing the raw `status` and `qc_status` fields:
+
+- workflow failure -> `failed`
+- workflow success plus QC failure -> `qc_failed`
+- workflow success plus QC warning -> `qc_warning`
+- workflow success plus unknown sample QC -> `qc_pending`
+- clean workflow/sample success -> `success`
+
+The `failed` filter includes workflow failures and QC failures; the `success`
+filter excludes QC failures. Terminal success rows report `Completed` instead
+of a stale last rule. Runtime starts at immutable `submitted_at` and ends at
+`pipeline_finished_at` when available.
+
+ETA history accepts only clean `mode=new` successful runs with the same
+pipeline, target/run mode, and runtime profile. Failed, resumed, smoke,
+QC-failed, or incomplete timing records are excluded. Exact sample-count
+history uses a median; multiple sample sizes use a nonnegative overhead plus
+per-sample fit; a single size uses a bounded 0.5x-2x proportional estimate.
+
+`GET /api/runs/{analysis_id}/qc` preserves metric-level `summary` and adds
+sample-level `sample_summary`. Each item adds `decision_metric`. Informational
+read count, chrY, and gender fields do not lower sample QC status. Q30, unique
+mapping, duplication, fetal fraction, and other thresholded fields are
+decision metrics.
+
 ## T113 NIPT rule observability
 
 `GET /api/runs/{analysis_id}/progress` adds `current_phase`, `current_rule`,

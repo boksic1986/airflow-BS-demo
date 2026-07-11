@@ -1,4 +1,5 @@
 const stageLabels: Record<string, string> = {
+  "Workflow complete": "Completed",
   validate_request: "Validate run request",
   prepare_pgta_config: "Prepare PGT-A config",
   choose_pgta_path: "Choose PGT-A execution path",

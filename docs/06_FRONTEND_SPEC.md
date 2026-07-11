@@ -1,5 +1,25 @@
 # 06 前端设计
 
+## T114 operator status and timing
+
+- Run Tracker uses one combined Status badge and never renders per-sample QC
+  highlights in a row. QC metrics remain in Run Detail.
+- Columns are Project, Pipeline, Status, Current stage, Progress, Runtime/ETA,
+  Started, and Finished. Project and run ID remain detail links.
+- Started displays the Airflow handoff (`submitted_at`); created-only runs show
+  `Not submitted`. Finished displays immutable `pipeline_finished_at` and
+  falls back to the latest Airflow end only for legacy runs.
+- Dates are parsed from timezone-aware API values and rendered in
+  `Asia/Shanghai` without printing a timezone suffix.
+- Terminal success displays `Completed`. Active and failed rows alone expose
+  the current/failed technical rule.
+- Intake Scanner shares the same Dashboard main column, panel width, padding,
+  and responsive table behavior as Run Tracker.
+- Run Detail duration/current progress uses the same submit-to-first-finish
+  interval. Its QC summary is sample-level; informational metric statuses do
+  not appear as false unknown samples. The QC tab remains a 20-row paginated
+  matrix.
+
 ## T113 NIPT full-analysis operator view
 
 - NIPT Docker Submit defaults to `Full analysis` after engineering acceptance.

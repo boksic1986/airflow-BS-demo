@@ -63,7 +63,7 @@ def record_snakemake_event(*, session: Session, event: Mapping[str, Any]) -> boo
         session.add(rule_event)
 
     _apply_event(rule_event, event=event, timestamp=timestamp)
-    _update_run_progress(run=run, rule=rule, status=str(event["status"]), timestamp=timestamp)
+    _update_run_progress(run=run, rule_event=rule_event, status=str(event["status"]), timestamp=timestamp)
     session.commit()
     return True
 
@@ -225,13 +225,40 @@ def _rule_event_payload(row: SnakemakeRuleEvent) -> dict[str, Any]:
     }
 
 
-def _update_run_progress(*, run: AnalysisRun, rule: str, status: str, timestamp: datetime) -> None:
+def _update_run_progress(*, run: AnalysisRun, rule_event: SnakemakeRuleEvent, status: str, timestamp: datetime) -> None:
+    rule = rule_event.rule
     weight = RULE_PROGRESS.get(rule, int(run.progress_percent or 10))
     run.progress_percent = max(int(run.progress_percent or 0), weight)
     run.current_stage = rule
     run.progress_updated_at = timestamp
-    if str(status).lower() in {"failed", "error"}:
+    normalized_status = str(status).lower()
+    if normalized_status in {"failed", "error"}:
         run.status = "failed"
+    if (
+        normalized_status == "success"
+        and run.pipeline_finished_at is None
+        and _is_pipeline_completion_event(run=run, rule_event=rule_event)
+    ):
+        run.pipeline_finished_at = timestamp
+
+
+def _is_pipeline_completion_event(*, run: AnalysisRun, rule_event: SnakemakeRuleEvent) -> bool:
+    if rule_event.sample_id is not None:
+        return False
+    params = run.params_json or {}
+    if run.pipeline_name == "pgta":
+        target = str(params.get("target") or "metadata")
+        return rule_event.rule == {
+            "predict": "cnv_predict",
+            "baseline_qc": "baseline_qc",
+            "metadata": "metadata",
+            "dryrun_cnv": "dryrun_cnv",
+        }.get(target)
+    if run.pipeline_name == "nipt_docker":
+        run_mode = str(params.get("run_mode") or "mount_smoke")
+        marker = "all" if run_mode == "full_run" else "nipt_mount_smoke"
+        return rule_event.rule == marker
+    return False
 
 
 def _normalize_optional_string(value: Any) -> str | None:

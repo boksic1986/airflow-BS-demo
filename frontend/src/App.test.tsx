@@ -6,6 +6,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 import App from "./App";
 import {QcHighlights} from "./components/QcHighlights";
+import {formatDate} from "./lib/format";
 
 const pgtaRunId = "PGTA_20260706_162150_00C4FD";
 const failedRunId = "PGTA_20260703_170957_3DDEC3";
@@ -32,6 +33,11 @@ function setRoute(path: string) {
 }
 
 describe("bioinformatics platform frontend", () => {
+  it("converts timezone-aware UTC timestamps to Asia Shanghai without a visible suffix", () => {
+    expect(formatDate("2026-07-11T11:11:40+00:00")).toBe("2026-07-11 19:11:40");
+    expect(formatDate("2026-07-11T11:11:40+00:00")).not.toContain("Asia/Shanghai");
+  });
+
   it("renders NIPT percentage-point QC values without multiplying by 100", () => {
     render(<QcHighlights items={[
       {key: "Q30", value: 93.2, unit: "percent", status: "pass"},
@@ -118,13 +124,15 @@ describe("bioinformatics platform frontend", () => {
       project_name: "Fresh transfer 2-sample QC",
       pipeline: "pgta",
       status: "running",
+      display_status: "running",
       qc_status: "unknown",
       sample_count: 2,
       created_at: "2026-07-08T10:30:00+08:00",
-      submitted_at: "2026-07-08T10:30:30+08:00",
+      submitted_at: "2026-07-08T02:30:30+00:00",
       submitted_by: "operator-a",
       started_at: "2026-07-08T10:31:00+08:00",
       ended_at: null,
+      pipeline_finished_at: null,
       dag_id: "bio_pgta",
       dag_run_id: `manual__${activePgtaRunId}`,
       percent: 52,
@@ -150,11 +158,14 @@ describe("bioinformatics platform frontend", () => {
       project_name: "PGT-A failed smoke",
       pipeline: "pgta",
       status: "failed",
+      display_status: "failed",
       qc_status: "unknown",
       sample_count: 1,
       created_at: "2026-07-03T17:09:57+08:00",
+      submitted_at: "2026-07-03T17:09:58+08:00",
       started_at: "2026-07-03T17:10:00+08:00",
       ended_at: "2026-07-03T17:11:00+08:00",
+      pipeline_finished_at: "2026-07-03T17:11:00+08:00",
       dag_id: "bio_pgta",
       dag_run_id: `manual__${failedRunId}`,
       percent: 50,
@@ -175,6 +186,7 @@ describe("bioinformatics platform frontend", () => {
       project_name: "Created only PGT-A",
       pipeline: "pgta",
       status: "created",
+      display_status: "created",
       qc_status: "unknown",
       sample_count: 2,
       created_at: "2026-07-08T10:00:00+08:00",
@@ -200,6 +212,7 @@ describe("bioinformatics platform frontend", () => {
       project_name: "NIPT scanned batch mount smoke",
       pipeline: "nipt_docker",
       status: niptStatus,
+      display_status: niptStatus === "created" ? "created" : "qc_pending",
       qc_status: "unknown",
       sample_count: 96,
       created_at: "2026-07-08T12:00:00+08:00",
@@ -225,18 +238,20 @@ describe("bioinformatics platform frontend", () => {
       project_name: `Paged PGT-A ${index + 1}`,
       pipeline: "pgta",
       status: "success",
-      qc_status: "pass",
+      display_status: index === 0 ? "qc_failed" : "success",
+      qc_status: index === 0 ? "fail" : "pass",
       sample_count: 1,
       created_at: `2026-07-08T09:${String(index).padStart(2, "0")}:00+08:00`,
       started_at: `2026-07-08T09:${String(index).padStart(2, "0")}:01+08:00`,
       ended_at: `2026-07-08T09:${String(index).padStart(2, "0")}:10+08:00`,
+      pipeline_finished_at: `2026-07-08T09:${String(index).padStart(2, "0")}:10+08:00`,
       dag_id: "bio_pgta",
       dag_run_id: `manual__PGTA_PAGE_${index + 1}`,
       percent: 100,
       current_airflow_task: "collect_pgta_artifact",
-      current_pipeline_rule: "metadata",
-      current_stage_label: "Collect PGT-A artifacts",
-      current_stage_source: "Airflow project task",
+      current_pipeline_rule: null,
+      current_stage_label: "Completed",
+      current_stage_source: "Pipeline state",
       elapsed_seconds: 540,
       average_duration_seconds: 540,
       estimated_remaining_seconds: 0,
@@ -773,6 +788,10 @@ describe("bioinformatics platform frontend", () => {
             },
             error_summary: null,
             email_to: null,
+            submitted_at: "2026-07-11T11:11:40+00:00",
+            started_at: "2026-07-11T11:55:34+00:00",
+            ended_at: "2026-07-11T11:55:57+00:00",
+            pipeline_finished_at: "2026-07-11T11:36:18+00:00",
           });
         }
         if (url.endsWith(`/api/runs/${createdPgtaRunId}`)) {
@@ -825,8 +844,8 @@ describe("bioinformatics platform frontend", () => {
               dag_id: "bio_nipt_docker",
               dag_run_id: niptDagRunId,
               percent: visibleStatus === "success" ? 100 : visibleStatus === "created" ? 0 : 15,
-              current_step: visibleStatus === "created" ? "Created only" : "nipt_mount_smoke",
-              current_source: visibleStatus === "created" ? "backend" : "snakemake_events",
+              current_step: visibleStatus === "created" ? "Created only" : visibleStatus === "success" ? "Workflow complete" : "nipt_mount_smoke",
+              current_source: visibleStatus === "created" ? "backend" : visibleStatus === "success" ? "airflow_task_instances" : "snakemake_events",
               note: visibleStatus === "created" ? "Created in backend only" : "Airflow task run_nipt_docker; pipeline smoke step",
               not_in_airflow: visibleStatus === "created",
               progress_source: visibleStatus === "created" ? "estimate" : "snakemake_events",
@@ -1003,7 +1022,8 @@ describe("bioinformatics platform frontend", () => {
           }
           if (id === niptRunId) {
             return mockJson({
-              summary: {pass: niptStatus === "success" ? 1 : 0, warn: 0, fail: 0, unknown: 0},
+              summary: {pass: niptStatus === "success" ? 4 : 0, warn: 0, fail: 0, unknown: niptStatus === "success" ? 3 : 0},
+              sample_summary: {pass: niptStatus === "success" ? 1 : 0, warn: 0, fail: 0, unknown: 0},
               items: niptStatus === "success" ? [{sample_id: "NC-20260414.A01", metric_name: "nipt_mount_smoke", metric_value: "pass", metric_numeric: null, threshold: "image/mount/config readable", status: "pass"}] : [],
             });
           }
@@ -1151,10 +1171,17 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByText(/Elapsed 14m 30s/i)).toBeInTheDocument();
     expect(screen.getByText(/ETA ~1h 45m/i)).toBeInTheDocument();
     expect(screen.getByText(/Operator operator-a/i)).toBeInTheDocument();
-    expect(screen.getByText("96.3%")).toBeInTheDocument();
-    expect(screen.getByText("0.12x")).toBeInTheDocument();
+    expect(screen.queryByText("96.3%")).not.toBeInTheDocument();
+    expect(screen.queryByText("0.12x")).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", {name: /^Status$/i})).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", {name: /^Started$/i})).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", {name: /^Finished$/i})).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", {name: /Status \/ sample QC/i})).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", {name: /Submitted \/ started/i})).not.toBeInTheDocument();
+    expect(screen.getAllByText(/QC failed/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^Completed$/i).length).toBeGreaterThan(0);
     expect(screen.getByText("2026-07-08 10:30:30")).toBeInTheDocument();
-    expect(screen.getByText("2026-07-08 10:31:00")).toBeInTheDocument();
+    expect(screen.queryByText("2026-07-08 10:31:00")).not.toBeInTheDocument();
     expect(screen.queryByText(/Asia\/Shanghai/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("link", {name: /^View$/i})).not.toBeInTheDocument();
     expect(screen.getByRole("progressbar", {name: new RegExp(activePgtaRunId)})).toHaveAttribute("aria-valuenow", "52");
@@ -1170,6 +1197,10 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByText(/Bootstrap observed/i)).toBeInTheDocument();
     expect(screen.queryByText(/^queued$/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", {name: /Intake scanner/i})).toBeInTheDocument();
+    const trackerColumn = screen.getByRole("heading", {name: /^Run Tracker$/i}).closest(".dashboard-main-column");
+    const intakeColumn = screen.getByRole("heading", {name: /Intake scanner/i}).closest(".dashboard-main-column");
+    expect(trackerColumn).not.toBeNull();
+    expect(intakeColumn).toBe(trackerColumn);
     expect(screen.getByRole("heading", {name: /Service & Node Health/i})).toBeInTheDocument();
     expect(screen.getByRole("heading", {name: /Pipeline Resources/i})).toBeInTheDocument();
     expect(screen.getByRole("heading", {name: /Workflow Activity/i})).toBeInTheDocument();
@@ -1740,13 +1771,19 @@ describe("bioinformatics platform frontend", () => {
     expect(await screen.findByText(niptRunId)).toBeInTheDocument();
     expect(screen.queryByRole("heading", {name: /Current deployment scope/i})).not.toBeInTheDocument();
     expect(screen.getAllByText(/100%/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/NIPT mount smoke/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^Completed$/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("24m 38s").length).toBeGreaterThan(0);
+    expect(screen.getByText("2026-07-11 19:36:18")).toBeInTheDocument();
+    const qcSummary = screen.getByRole("heading", {name: /QC summary/i}).closest("section");
+    expect(qcSummary).not.toBeNull();
+    expect(within(qcSummary as HTMLElement).getByText(/Sample-level decisions/i)).toBeInTheDocument();
 
     const workflowTab = screen.getByRole("tab", {name: /workflow/i});
     await userEvent.click(workflowTab);
     expect(await screen.findByRole("heading", {name: /Airflow tasks/i})).toBeInTheDocument();
     expect(screen.getAllByText(/run_nipt_docker/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", {name: /Pipeline steps/i})).toBeInTheDocument();
+    expect(screen.getAllByText(/NIPT mount smoke/i).length).toBeGreaterThan(0);
     expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining(`/api/runs/${niptRunId}/progress`), undefined);
 
     await userEvent.click(screen.getByRole("tab", {name: /config/i}));

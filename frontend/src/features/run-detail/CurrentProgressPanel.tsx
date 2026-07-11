@@ -23,8 +23,8 @@ export function CurrentProgressPanel({detail, progress, source}: {
           {stageDebugLabel(progress.currentStep) ? <small title="Raw pipeline step ID">{progress.currentStep}</small> : null}
           <span>{Math.round(progress.percent)}% complete</span>
           <small>
-            Elapsed {formatDuration(detail.started_at, detail.ended_at)}
-            {isActiveStatus(detail.status) ? " · ETA based on recent successful runs" : ""}
+            Elapsed {formatDuration(detail.submitted_at || detail.started_at, detail.pipeline_finished_at || detail.ended_at)}
+            {isActiveStatus(detail.status) ? " / ETA based on recent successful runs" : ""}
           </small>
           <RunProgressBar analysisId={detail.analysis_id} progress={progress} />
         </div>

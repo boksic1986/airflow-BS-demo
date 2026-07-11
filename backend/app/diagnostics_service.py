@@ -304,7 +304,6 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
     if run.status in {"success", "failed"}:
         events_path = _safe_child_path(_safe_workdir(run, settings), Path("logs/events/snakemake_events.jsonl"), settings)
         import_snakemake_events_jsonl(session=session, analysis_id=analysis_id, events_path=events_path)
-
     session.commit()
     session.refresh(run)
     return _run_payload(run)

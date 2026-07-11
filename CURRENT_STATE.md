@@ -5,7 +5,11 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T113 NIPT Snakemake 9 full analysis is engineering-validated and deployed beside PGT-A S9.
+current_goal_ascii: T114 run status, immutable timing, NIPT QC repair, and guarded biodemo cleanup are deployed.
+t114_runtime: services are deployed from /home/jiucheng/project/airflow-demo-t114; frontend 12959 and backend 8000 are healthy; bio_intake_scan was restored to its original unpaused state after maintenance.
+t114_data: biodemo was backed up and reduced from 49 runs to PGTA_20260711_062522_4C4FC2, PGTA_20260711_071416_C8C7BA, and NIPT_20260711_111140_63C5A6; 75 samples remain. Airflow metadata, workdirs, logs, outputs, FASTQ, volumes, and pipeline releases were not deleted.
+t114_nipt_qc: NIPT_20260711_111140_63C5A6 has 504 metrics, 72/72 sample QC pass, submitted_at 2026-07-11T11:11:40Z, pipeline_finished_at 2026-07-11T11:36:18Z, and runtime 1477 seconds.
+t114_backup: /home/jiucheng/project/airflow-demo-t114/backups/T114-20260711-2230 contains the pre-cleanup pg_dump, run inventory, cleanup preview, and applied result.
 t113_image: airflow-demo/niptpro:1.0.11-snakemake9.23.1-v1 image sha256:71df36b7f8080762f2db771e13e4daa7f4a666b3e1efc19c3bf12add22187254; original Snakemake 7 image and /opt/conda analysis environment remain unchanged.
 t113_validation: 72-sample run NIPT_20260711_111140_63C5A6 completed all 591 Snakemake jobs in about 24.8 minutes; 592 persisted terminal events include the parent workflow event, with no residual running/failed events.
 t113_comparison: samplesheet, mapping QC, model prediction, chr21 outputs, and four summary CSVs are byte-identical to the approved Snakemake 7 baseline; observed peak memory was 44.61 GiB and input/bundle stat manifests were unchanged.
@@ -47,8 +51,8 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/nipt/T113-nipt-s9-full-run in isolated local worktree; T112 baseline is `14853ee`
-last_verified_code_commit: T113 implementation commit is `b859649`; T112 baseline is `14853ee`
+active_branch: codex/platform/T114-run-status-timing-qc-repair in isolated local worktree; T113 baseline is `6d0ad57`
+last_verified_code_commit: T114 branch is based on `6d0ad57`; final T114 implementation is recorded by this branch head
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 overlay is deployed there and `origin/main` on the mirror has been fetched to `0857e3d`, but the mirror worktree itself remains on its existing dirty deployment branch
 ```
@@ -57,10 +61,10 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 ov
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 12959 | running after T110 redeploy | React/Vite PGT-A + NIPT Docker operator UI served by Docker nginx image `airflow-demo/frontend:0.1.0`; T110 adds independent Dashboard panel states, linked summary metrics, server-backed resource pages, one-request Failure Triage, feature-level Dashboard/Run Detail components, and responsive layouts verified at 1440/1280/1024/390; Submit behavior is unchanged; Settings remains read-only for intake |
-| backend | 8000 | running, healthy after T110 redeploy | T110 extends `/api/runs` with keyword/sort/pagination and adds `/api/samples` plus `/api/failures`; `/api/dashboard/runs` only calls Airflow task-instance REST for active rows; existing run creation, submit, progress, logs, artifacts, intake, QC, and controlled PGT-A reanalysis endpoints remain available; no DB migration was added; default auto-submit gates remain disabled |
+| frontend | 12959 | running after T114 redeploy | Run Tracker uses one combined status, submit-to-first-finish runtime, Shanghai display time, terminal Completed state, and matched-width Intake panel; Run Detail uses immutable finish time and sample-level QC summary; live responsive checks passed at 1280/390 |
+| backend | 8000 | running, healthy after T114 redeploy | migration `20260711_0004` is applied; dashboard status/filter/ETA and immutable completion are active; NIPT decision-metric QC and PGT-A/NIPT collect integrity checks are deployed; cleanup remains CLI-only |
 | airflow web/api | 12958 | running; `PGTA_20260706_162150_00C4FD` final resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` ended `success` after T095 `LD_PRELOAD` fix; previous T095-only-`LD_LIBRARY_PATH` attempt `manual__PGTA_20260706_162150_00C4FD__resume__20260707T143132Z` failed preflight | project image `airflow-demo/airflow:0.1.0`; Airflow core/UI timezone is `Asia/Shanghai`; T095 sets run-local `XDG_CACHE_HOME`, `MPLCONFIGDIR`, `LD_LIBRARY_PATH=PGTA_CONDA_LIB`, and `LD_PRELOAD=PGTA_LIBSTDCXX`; `logs/pgta.python_preflight.log` records env header and import versions |
-| postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow metadata initialized; no host port published |
+| postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow metadata unchanged; biodemo contains 3 retained complete runs and 75 samples after a pg_dump-backed guarded cleanup |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
 | mailhog | 8025 | stopped in T051 smoke | HTTP GET probe passed in earlier smoke; not started for T051 |
 
@@ -70,7 +74,7 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 ov
 airflow_metadata_db: initialized by `docker compose -f docker-compose.yaml up airflow-init`; admin user exists, password only in remote .env
 biodemo_db: initialized on fengxian by `docker compose -f docker-compose.yaml run --rm biodemo-db-init`
 migrations_tool: Alembic
-last_migration: 20260711_0003 PGT-A S9 operations fields and manifest intake audit
+last_migration: 20260711_0004 immutable pipeline completion timestamp
 core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, artifact, run_action, intake_discovery
 ```
 
@@ -87,12 +91,12 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 ## 7. 最近测试结果
 
 ```text
-last_backend_tests: remote Dockerized full T113 pytest passed 117 tests, including progress monotonicity, rules filtering/pagination, event idempotence, and safe relative NIPT rule-log indexing.
-last_frontend_tests: remote Dockerized T113 Vitest passed 26 tests; production `tsc -b && vite build` passed through the Compose frontend build.
-last_dag_import_tests: remote repo-mounted Airflow T113 unittest discovery passed 87 tests with 5 expected logger-interface skips; Airflow DAG import errors returned an empty list.
+last_backend_tests: remote Dockerized full T114 pytest passed 127 tests, including combined status, immutable completion, ETA filtering/scaling, decision-metric QC, progress completion, and cleanup guards.
+last_frontend_tests: remote Dockerized T114 Vitest passed 28 tests; production `tsc -b && vite build` passed through the Compose frontend build.
+last_dag_import_tests: remote repo-mounted Airflow T114 unittest discovery passed 89 tests with 5 expected logger-interface skips.
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
-last_compose_config: passed on fengxian for T113; backend, Airflow API/worker/scheduler, and frontend were rebuilt/recreated without deleting volumes; frontend returned HTTP 200, backend health returned ok, Airflow scheduler/database were healthy, and `nipt_s9_full` has one slot.
-last_browser_responsive: T112 live-data browser acceptance checked Dashboard, Submit, and full manifest Run Detail at 1440 and 390 CSS pixels; all six combinations returned document `scrollWidth <= clientWidth`, loaded backend data, and showed no error boundary.
+last_compose_config: passed on fengxian for T114; backend, Airflow API/worker/scheduler, and frontend were rebuilt/recreated without deleting volumes; frontend returned HTTP 200 and backend health returned ok.
+last_browser_responsive: T114 live-data browser acceptance checked Dashboard at 1280/390 and the 72-sample NIPT Run Detail/QC at 390; document `scrollWidth <= clientWidth`, Tracker and Intake widths matched, and wide tables scrolled only inside their containers.
 last_minimal_smoke: passed on fengxian for postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
 last_airflow_health: passed on fengxian at http://127.0.0.1:12958/health with healthy metadatabase and scheduler
 last_biodemo_migration: `biodemo-db-init` first run created role/database, repeat run succeeded; T103 `alembic upgrade head` applied 20260708_0002 `intake_discovery`

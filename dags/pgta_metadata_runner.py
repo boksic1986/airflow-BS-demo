@@ -446,7 +446,7 @@ def run_pgta_metadata(
     return run_pgta_target(conf, snakemake_bin=snakemake_bin, pgta_pipeline_root=pgta_pipeline_root)
 
 
-def collect_pgta_artifact(conf: dict[str, Any]) -> dict[str, str]:
+def collect_pgta_artifact(conf: dict[str, Any]) -> dict[str, str | int]:
     target = _target_from_conf(conf)
     if target == "dryrun_cnv":
         stdout_path = Path(conf["workdir"]) / "logs" / "snakemake.stdout.log"
@@ -462,7 +462,35 @@ def collect_pgta_artifact(conf: dict[str, Any]) -> dict[str, str]:
         summary_path = Path(conf["workdir"]) / "reports" / "prediction_status.tsv"
         if not summary_path.is_file():
             raise FileNotFoundError(f"PGT-A prediction summary was not generated: {summary_path}")
-        return {"type": "pgta_prediction", "path": str(summary_path), "label": "PGT-A prediction status"}
+        sample_sheet_path = Path(str(conf.get("sample_sheet_path") or ""))
+        if not sample_sheet_path.is_file():
+            raise FileNotFoundError(f"PGT-A selected sample manifest was not found: {sample_sheet_path}")
+        expected_samples = {row["sample_id"] for row in read_selected_manifest(sample_sheet_path)}
+        statuses = _read_pgta_prediction_status(summary_path)
+        if set(statuses) != expected_samples:
+            missing = sorted(expected_samples - set(statuses))
+            unexpected = sorted(set(statuses) - expected_samples)
+            raise ValueError(
+                "PGT-A prediction status/sample manifest mismatch; "
+                f"missing={missing}, unexpected={unexpected}"
+            )
+        invalid = sorted(sample_id for sample_id, status in statuses.items() if status not in {"completed", "skipped_qc"})
+        if invalid:
+            raise ValueError("PGT-A prediction has non-terminal sample status: " + ", ".join(invalid))
+        predict_dir = Path(conf["workdir"]) / "wisecondorx" / "cnv" / "predict"
+        for sample_id, status in statuses.items():
+            if status == "completed":
+                statistics_path = predict_dir / f"{sample_id}_statistics.txt"
+                if not statistics_path.is_file() or statistics_path.stat().st_size == 0:
+                    raise FileNotFoundError(f"PGT-A prediction output is missing: {statistics_path}")
+        return {
+            "type": "pgta_prediction",
+            "path": str(summary_path),
+            "label": "PGT-A prediction status",
+            "sample_count": len(expected_samples),
+            "predicted_count": sum(status == "completed" for status in statuses.values()),
+            "qc_skipped_count": sum(status == "skipped_qc" for status in statuses.values()),
+        }
 
     metadata_path = Path(conf["workdir"]) / "logs" / "run_metadata.tsv"
     if not metadata_path.is_file():
@@ -472,6 +500,23 @@ def collect_pgta_artifact(conf: dict[str, Any]) -> dict[str, str]:
 
 def collect_metadata_artifact(conf: dict[str, Any]) -> dict[str, str]:
     return collect_pgta_artifact(conf)
+
+
+def _read_pgta_prediction_status(path: Path) -> dict[str, str]:
+    statuses: dict[str, str] = {}
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        if not {"sample_id", "prediction_status"}.issubset(set(reader.fieldnames or [])):
+            raise ValueError(f"Unsupported PGT-A prediction status header: {path}")
+        for row in reader:
+            sample_id = str(row.get("sample_id") or "").strip()
+            status = str(row.get("prediction_status") or "").strip().lower()
+            if not sample_id:
+                continue
+            if sample_id in statuses:
+                raise ValueError(f"PGT-A prediction status contains duplicate sample: {sample_id}")
+            statuses[sample_id] = status
+    return statuses
 
 
 def _snakemake_config(

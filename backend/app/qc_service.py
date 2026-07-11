@@ -116,6 +116,9 @@ def list_run_qc(*, session: Session, analysis_id: str) -> dict[str, Any] | None:
         .order_by(QcMetric.sample_id, QcMetric.metric_name)
     ).all()
     summary = {status: 0 for status in QC_STATUSES}
+    sample_summary = {status: 0 for status in QC_STATUSES}
+    for sample_status in session.scalars(select(Sample.qc_status).where(Sample.analysis_id == analysis_id)).all():
+        sample_summary[_normalize_status(sample_status)] += 1
     items = []
     for metric in metrics:
         status = _normalize_status(metric.status)
@@ -128,10 +131,11 @@ def list_run_qc(*, session: Session, analysis_id: str) -> dict[str, Any] | None:
                 "metric_numeric": float(metric.metric_numeric) if metric.metric_numeric is not None else None,
                 "threshold": metric.threshold,
                 "status": status,
+                "decision_metric": _is_decision_metric(metric_name=metric.metric_name, threshold=metric.threshold),
                 "source_file": metric.source_file,
             }
         )
-    return {"summary": summary, "items": items}
+    return {"summary": summary, "sample_summary": sample_summary, "items": items}
 
 
 def parse_qc_summary_tsv(path: Path) -> list[ParsedQcMetric]:
@@ -201,7 +205,7 @@ def parse_pgta_baseline_qc_summary_tsv(path: Path) -> list[ParsedQcMetric]:
 def _refresh_sample_qc_status(*, session: Session, analysis_id: str, metrics: list[ParsedQcMetric]) -> None:
     statuses_by_sample: dict[str, list[str]] = {}
     for metric in metrics:
-        if metric.sample_id:
+        if metric.sample_id and _is_decision_metric(metric_name=metric.metric_name, threshold=metric.threshold):
             statuses_by_sample.setdefault(metric.sample_id, []).append(metric.status)
 
     samples = session.scalars(select(Sample).where(Sample.analysis_id == analysis_id)).all()
@@ -219,6 +223,13 @@ def _aggregate_status(statuses: list[str]) -> str:
     if "unknown" in statuses:
         return "unknown"
     return "pass"
+
+
+def _is_decision_metric(*, metric_name: str, threshold: str | None) -> bool:
+    normalized_threshold = str(threshold or "").strip().lower()
+    if not normalized_threshold or normalized_threshold in {"reported", "informational", "n/a", "na"}:
+        return False
+    return bool(str(metric_name or "").strip())
 
 
 def _safe_qc_path(run: AnalysisRun, settings, *, relative_path: Path) -> Path:

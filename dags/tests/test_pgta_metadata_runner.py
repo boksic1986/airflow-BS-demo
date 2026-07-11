@@ -895,6 +895,47 @@ class PgtaMetadataRunnerTests(unittest.TestCase):
         self.assertEqual(baseline_artifact["type"], "pgta_baseline_qc")
         self.assertTrue(baseline_artifact["path"].endswith("baseline_qc_summary.tsv"))
 
+    def test_collect_pgta_predict_requires_complete_sample_status_and_prediction_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "PGTA_PREDICT"
+            manifest = workdir / "config" / "samples.selected.tsv"
+            summary = workdir / "reports" / "prediction_status.tsv"
+            predict_dir = workdir / "wisecondorx" / "cnv" / "predict"
+            manifest.parent.mkdir(parents=True)
+            summary.parent.mkdir(parents=True)
+            predict_dir.mkdir(parents=True)
+            manifest.write_text(
+                "sample_id\tR1\tR2\tsource_dir\nS1\t/a/S1_R1.fq.gz\t/a/S1_R2.fq.gz\t/a\n"
+                "S2\t/a/S2_R1.fq.gz\t/a/S2_R2.fq.gz\t/a\n",
+                encoding="utf-8",
+            )
+            summary.write_text(
+                "sample_id\tprediction_status\nS1\tcompleted\nS2\tskipped_qc\n",
+                encoding="utf-8",
+            )
+            (predict_dir / "S1_statistics.txt").write_text("Chromosome\tZ-score\n", encoding="utf-8")
+
+            artifact = collect_pgta_artifact(
+                {
+                    "workdir": str(workdir),
+                    "sample_sheet_path": str(manifest),
+                    "params": {"target": "predict"},
+                }
+            )
+            self.assertEqual(artifact["sample_count"], 2)
+            self.assertEqual(artifact["predicted_count"], 1)
+            self.assertEqual(artifact["qc_skipped_count"], 1)
+
+            (predict_dir / "S1_statistics.txt").unlink()
+            with self.assertRaisesRegex(FileNotFoundError, "S1_statistics.txt"):
+                collect_pgta_artifact(
+                    {
+                        "workdir": str(workdir),
+                        "sample_sheet_path": str(manifest),
+                        "params": {"target": "predict"},
+                    }
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

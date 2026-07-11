@@ -1,5 +1,25 @@
 # 10 QC、日志和报告设计
 
+## T114 NIPT QC decision semantics
+
+- NIPT parsing accepts percentage values with a leading or trailing `%`.
+- `read_count` is numeric; Q30, unique mapping, and PCR duplication remain
+  percentage points.
+- Fetal-ratio source values such as `16.95` are normalized to fraction
+  `0.1695`; the decision threshold remains `>=0.04`.
+- Missing fetal ratio emits a thresholded `unknown` decision metric.
+- Read count, chrY percentage, and gender are informational and do not make a
+  sample unknown. Sample QC aggregates thresholded decision metrics only.
+- `/qc.summary` remains metric-level for audit; `/qc.sample_summary` drives the
+  operator summary and matrix status.
+- Full-run collection checks manifest, mapping QC, prediction rows, and every
+  sample's WisecondorX statistics/aberration files before reporting success.
+  PGT-A predict collection likewise requires a terminal status for every
+  selected sample and a non-empty statistics file for each completed sample.
+
+The repaired `NIPT_20260711_111140_63C5A6` import contains 504 metrics and
+72 pass samples, with no sample-level unknown status.
+
 ## T113 NIPT QC and rule logs
 
 The accepted 72-sample S9 run imports 504 structured metrics: read count, Q30,

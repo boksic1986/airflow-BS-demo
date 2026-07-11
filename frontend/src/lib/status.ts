@@ -33,6 +33,8 @@ const metaByStatus: Record<string, StatusMeta> = {
   warning: {label: "warning", tone: "warning", Icon: AlertTriangle, active: false, terminal: false},
   warn: {label: "warn", tone: "warning", Icon: AlertTriangle, active: false, terminal: false},
   qc_warning: {label: "qc warning", tone: "warning", Icon: AlertTriangle, active: false, terminal: false},
+  qc_failed: {label: "QC failed", tone: "danger", Icon: XCircle, active: false, terminal: true},
+  qc_pending: {label: "Success / QC pending", tone: "neutral", Icon: HelpCircle, active: false, terminal: true},
   failed: {label: "failed", tone: "danger", Icon: XCircle, active: false, terminal: true},
   fail: {label: "fail", tone: "danger", Icon: XCircle, active: false, terminal: true},
   error: {label: "error", tone: "danger", Icon: XCircle, active: false, terminal: true},
@@ -63,9 +65,9 @@ export function isFailedStatus(status?: string | null): boolean {
 
 export function statusPriority(status?: string | null): number {
   const normalized = normalizeStatus(status);
-  if (["failed", "fail", "error"].includes(normalized)) return 0;
+  if (["failed", "fail", "error", "qc_failed"].includes(normalized)) return 0;
   if (["running", "submitted", "queued", "scheduled"].includes(normalized)) return 1;
   if (["warning", "warn", "qc_warning"].includes(normalized)) return 2;
-  if (["success", "pass"].includes(normalized)) return 3;
+  if (["success", "pass", "qc_pending"].includes(normalized)) return 3;
   return 4;
 }

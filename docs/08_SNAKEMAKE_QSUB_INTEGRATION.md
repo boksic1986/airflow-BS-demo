@@ -1,5 +1,17 @@
 # 08 Snakemake + qsub 接入设计
 
+## T114 terminal events and output integrity
+
+The first project-level terminal event records immutable pipeline completion:
+PGT-A predict uses `cnv_predict=success`, and NIPT full analysis uses parent
+`all=success`. Event replay and retry remain idempotent and cannot move the
+completion time forward.
+
+Collect tasks validate sample-set integrity rather than trusting a zero exit
+code alone. PGT-A compares the selected manifest with prediction statuses and
+statistics outputs. NIPT compares the selected manifest with mappingQC,
+model-prediction rows, and per-sample CNV statistics/aberration outputs.
+
 ## T113 NIPT Snakemake 9 logger integration
 
 The NIPT derivative image invokes Snakemake with `--cores 40 --keep-going

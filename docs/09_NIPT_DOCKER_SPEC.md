@@ -1,5 +1,17 @@
 # 09 NIPT Docker Integration Spec
 
+## T114 QC normalization and completion contract
+
+- Mapping QC percentage strings accept leading/trailing `%` and are stored as
+  percentage points.
+- Fetal-ratio percentage output is normalized to a 0-1 fraction.
+- Informational read count, chrY, and gender values do not participate in the
+  sample decision; missing thresholded fetal ratio remains unknown.
+- A full run is collectable only when manifest, mapping QC, prediction rows,
+  statistics files, and aberration files contain the same sample set.
+- The first parent `all=success` logger event is the immutable pipeline finish
+  timestamp used by Dashboard and Run Detail.
+
 ## T113 approved full-analysis runtime
 
 - Default approved profile: `niptpro-s9-full-v1`.

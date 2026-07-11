@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from statistics import median
 from typing import Any
 
 from sqlalchemy import String, case, cast, desc, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.models import AnalysisRun, IntakeDiscovery, QcMetric, Sample, SnakemakeRuleEvent
 from app.progress_service import get_run_progress
@@ -77,12 +78,22 @@ def get_dashboard_runs(
         base_query = base_query.where(AnalysisRun.pipeline_name == pipeline)
     else:
         base_query = base_query.where(AnalysisRun.pipeline_name.in_(["pgta", "nipt_docker"]))
+    qc_failed = (
+        select(Sample.id)
+        .where(
+            Sample.analysis_id == AnalysisRun.analysis_id,
+            func.lower(Sample.qc_status).in_(["fail", "failed", "error"]),
+        )
+        .exists()
+    )
     if status:
         normalized_status = _status(status)
         if normalized_status == "active":
             base_query = base_query.where(AnalysisRun.status.in_(ACTIVE_STATUSES))
         elif normalized_status == "failed":
-            base_query = base_query.where(AnalysisRun.status.in_(FAILED_STATUSES))
+            base_query = base_query.where(or_(AnalysisRun.status.in_(FAILED_STATUSES), qc_failed))
+        elif normalized_status == "success":
+            base_query = base_query.where(AnalysisRun.status == "success", ~qc_failed)
         else:
             base_query = base_query.where(AnalysisRun.status == normalized_status)
 
@@ -95,14 +106,6 @@ def get_dashboard_runs(
             )
         )
     total = session.scalar(select(func.count()).select_from(base_query.order_by(None).subquery())) or 0
-    qc_failed = (
-        select(Sample.id)
-        .where(
-            Sample.analysis_id == AnalysisRun.analysis_id,
-            func.lower(Sample.qc_status).in_(["fail", "failed", "error"]),
-        )
-        .exists()
-    )
     status_order = case(
         (AnalysisRun.status.in_(ACTIVE_STATUSES), 0),
         (or_(AnalysisRun.status.in_(FAILED_STATUSES), qc_failed), 1),
@@ -123,7 +126,7 @@ def get_dashboard_runs(
     )
     sample_qc = _sample_qc_by_run(session=session, runs=page)
     rule_events = _rule_events_by_run(session=session, runs=page)
-    average_durations = _average_durations_by_kind(session=session, runs=page)
+    duration_estimates = _duration_estimates_by_run(session=session, runs=page, sample_qc=sample_qc)
     qc_highlights = qc_highlights_by_run(session=session, runs=page)
     return {
         "items": [
@@ -133,7 +136,7 @@ def get_dashboard_runs(
                 run=run,
                 sample_qc_statuses=sample_qc.get(run.analysis_id, []),
                 persisted_rule_events=rule_events.get(run.analysis_id, []),
-                average_duration_seconds=average_durations.get(_run_history_key(run)),
+                duration_estimate=duration_estimates.get(run.analysis_id),
                 qc_highlights=qc_highlights.get(run.analysis_id, []),
             )
             for run in page
@@ -152,7 +155,7 @@ def _tracker_row(
     run: AnalysisRun,
     sample_qc_statuses: list[str | None],
     persisted_rule_events: list[dict[str, Any]],
-    average_duration_seconds: int | None,
+    duration_estimate: dict[str, Any] | None,
     qc_highlights: list[dict[str, Any]],
 ) -> dict[str, Any]:
     progress = _progress_for_tracker_row(
@@ -163,9 +166,11 @@ def _tracker_row(
     )
     rules = progress.get("rule_events", []) if progress else []
     airflow_tasks = progress.get("airflow_tasks", []) if progress else []
-    current_airflow_task = _current_airflow_task(airflow_tasks)
-    current_pipeline_rule = _current_pipeline_rule(rules)
+    terminal_success = _status(run.status) == "success"
+    current_airflow_task = None if terminal_success else _current_airflow_task(airflow_tasks)
+    current_pipeline_rule = None if terminal_success else _current_pipeline_rule(rules)
     elapsed_seconds = _elapsed_seconds(run)
+    average_duration_seconds = int(duration_estimate["seconds"]) if duration_estimate else None
     estimated_remaining_seconds = _estimated_remaining_seconds(
         run=run,
         elapsed_seconds=elapsed_seconds,
@@ -177,6 +182,7 @@ def _tracker_row(
         "project_name": _project_name(run),
         "pipeline": run.pipeline_name,
         "status": run.status,
+        "display_status": _display_status(run_status=run.status, qc_status=_qc_status_from_values(sample_qc_statuses)),
         "qc_status": _qc_status_from_values(sample_qc_statuses),
         "sample_count": len(sample_qc_statuses),
         "created_at": _iso(run.created_at),
@@ -184,6 +190,7 @@ def _tracker_row(
         "submitted_by": run.submitted_by,
         "started_at": _iso(run.started_at),
         "ended_at": _iso(run.ended_at),
+        "pipeline_finished_at": _iso(run.pipeline_finished_at),
         "dag_id": run.dag_id,
         "dag_run_id": run.dag_run_id,
         "percent": progress.get("percent", 0) if progress else 0,
@@ -202,6 +209,8 @@ def _tracker_row(
         ),
         "elapsed_seconds": elapsed_seconds,
         "average_duration_seconds": average_duration_seconds,
+        "eta_history_count": int(duration_estimate["history_count"]) if duration_estimate else 0,
+        "eta_model": str(duration_estimate["model"]) if duration_estimate else None,
         "estimated_remaining_seconds": estimated_remaining_seconds,
         "estimated_finish_at": _iso(estimated_finish_at),
         "progress_source": progress.get("progress_source", "estimate") if progress else "estimate",
@@ -286,32 +295,102 @@ def _rule_events_by_run(*, session: Session, runs: list[AnalysisRun]) -> dict[st
     return values
 
 
-def _average_durations_by_kind(*, session: Session, runs: list[AnalysisRun]) -> dict[tuple[str, str, str], int]:
+def _duration_estimates_by_run(
+    *,
+    session: Session,
+    runs: list[AnalysisRun],
+    sample_qc: dict[str, list[str | None]],
+) -> dict[str, dict[str, Any]]:
     keys = {_run_history_key(run) for run in runs}
     pipelines = {run.pipeline_name for run in runs}
     if not keys:
         return {}
-    histories: dict[tuple[str, str, str], list[int]] = {}
-    candidates = session.scalars(
-        select(AnalysisRun)
+    histories: dict[tuple[str, str, str, str], list[tuple[int, int]]] = {}
+    failed_sample = aliased(Sample)
+    counted_sample = aliased(Sample)
+    failed_qc = (
+        select(failed_sample.id)
+        .where(
+            failed_sample.analysis_id == AnalysisRun.analysis_id,
+            func.lower(failed_sample.qc_status).in_(["fail", "failed", "error"]),
+        )
+        .exists()
+    )
+    candidates = session.execute(
+        select(AnalysisRun, func.count(counted_sample.id).label("sample_count"))
+        .join(counted_sample, counted_sample.analysis_id == AnalysisRun.analysis_id)
         .where(
             AnalysisRun.pipeline_name.in_(pipelines),
             AnalysisRun.status == "success",
-            AnalysisRun.started_at.is_not(None),
-            AnalysisRun.ended_at.is_not(None),
+            AnalysisRun.mode == "new",
+            AnalysisRun.submitted_at.is_not(None),
+            AnalysisRun.pipeline_finished_at.is_not(None),
+            ~failed_qc,
         )
+        .group_by(AnalysisRun.id)
         .order_by(desc(AnalysisRun.ended_at))
         .limit(500)
     ).all()
-    for candidate in candidates:
+    for candidate, sample_count in candidates:
         key = _run_history_key(candidate)
-        if key not in keys or len(histories.get(key, [])) >= 10:
+        if key not in keys or len(histories.get(key, [])) >= 20:
             continue
-        if candidate.started_at and candidate.ended_at:
-            histories.setdefault(key, []).append(
-                max(0, int((_as_aware(candidate.ended_at) - _as_aware(candidate.started_at)).total_seconds()))
+        if candidate.submitted_at and candidate.pipeline_finished_at and sample_count:
+            duration = max(
+                0,
+                int(
+                    (
+                        _as_aware(candidate.pipeline_finished_at)
+                        - _as_aware(candidate.submitted_at)
+                    ).total_seconds()
+                ),
             )
-    return {key: int(sum(values) / len(values)) for key, values in histories.items() if values}
+            histories.setdefault(key, []).append((int(sample_count), duration))
+
+    estimates: dict[str, dict[str, Any]] = {}
+    for run in runs:
+        values = histories.get(_run_history_key(run), [])
+        estimate = _estimate_duration(values=values, sample_count=len(sample_qc.get(run.analysis_id, [])))
+        if estimate is not None:
+            estimates[run.analysis_id] = estimate
+    return estimates
+
+
+def _estimate_duration(*, values: list[tuple[int, int]], sample_count: int) -> dict[str, Any] | None:
+    if not values or sample_count <= 0:
+        return None
+    exact = [duration for count, duration in values if count == sample_count]
+    if exact:
+        return {
+            "seconds": int(median(exact)),
+            "history_count": len(values),
+            "model": "exact_sample_count",
+        }
+
+    distinct_counts = {count for count, _ in values}
+    if len(distinct_counts) >= 2:
+        mean_count = sum(count for count, _ in values) / len(values)
+        mean_duration = sum(duration for _, duration in values) / len(values)
+        variance = sum((count - mean_count) ** 2 for count, _ in values)
+        slope = 0.0 if variance == 0 else max(
+            0.0,
+            sum((count - mean_count) * (duration - mean_duration) for count, duration in values) / variance,
+        )
+        intercept = max(0.0, mean_duration - slope * mean_count)
+        return {
+            "seconds": int(round(intercept + slope * sample_count)),
+            "history_count": len(values),
+            "model": "linear_sample_count",
+        }
+
+    baseline_count = values[0][0]
+    baseline_duration = int(median([duration for _, duration in values]))
+    scale = min(2.0, max(0.5, sample_count / baseline_count))
+    return {
+        "seconds": int(round(baseline_duration * scale)),
+        "history_count": len(values),
+        "model": "scaled_sample_count",
+    }
 
 
 def _runs_for_pipeline(*, session: Session, pipeline: str, since: datetime) -> list[AnalysisRun]:
@@ -470,6 +549,21 @@ def _qc_status_from_values(values: list[str | None]) -> str:
     return "unknown"
 
 
+def _display_status(*, run_status: str | None, qc_status: str) -> str:
+    normalized_run = _status(run_status)
+    if normalized_run in FAILED_STATUSES:
+        return "failed"
+    if normalized_run != "success":
+        return normalized_run
+    if qc_status == "fail":
+        return "qc_failed"
+    if qc_status == "warn":
+        return "qc_warning"
+    if qc_status == "unknown":
+        return "qc_pending"
+    return "success"
+
+
 def _current_airflow_task(tasks: list[dict[str, Any]]) -> str | None:
     for task in tasks:
         if _status(task.get("state")) in ACTIVE_STATUSES | FAILED_STATUSES:
@@ -529,7 +623,7 @@ def _current_stage_label(
         return AIRFLOW_TASK_LABELS.get(current_airflow_task, _humanize_identifier(current_airflow_task))
     normalized = _status(status)
     if normalized == "success":
-        return "Workflow complete"
+        return "Completed"
     if normalized in FAILED_STATUSES:
         return "Workflow failed"
     if normalized in ACTIVE_STATUSES:
@@ -546,14 +640,17 @@ def _current_stage_source(*, current_airflow_task: str | None, current_pipeline_
         return "Snakemake rule event"
     if current_airflow_task:
         return "Airflow project task"
-    return "Backend state"
+    return "Pipeline state" if not_in_airflow is False else "Backend state"
 
 
 def _elapsed_seconds(run: AnalysisRun) -> int | None:
-    if not run.started_at:
+    if not run.submitted_at:
         return None
-    end = run.ended_at or datetime.now(timezone.utc)
-    started_at = _as_aware(run.started_at)
+    terminal = _status(run.status) not in ACTIVE_STATUSES
+    end = (run.pipeline_finished_at or run.ended_at) if terminal else datetime.now(timezone.utc)
+    if end is None:
+        end = datetime.now(timezone.utc)
+    started_at = _as_aware(run.submitted_at)
     ended_at = _as_aware(end)
     return max(0, int((ended_at - started_at).total_seconds()))
 
@@ -581,9 +678,10 @@ def _run_kind(run: AnalysisRun) -> tuple[str, str]:
     return ("pipeline", str(run.pipeline_name))
 
 
-def _run_history_key(run: AnalysisRun) -> tuple[str, str, str]:
+def _run_history_key(run: AnalysisRun) -> tuple[str, str, str, str]:
     kind_key, kind_value = _run_kind(run)
-    return (run.pipeline_name, kind_key, kind_value)
+    profile = str((run.params_json or {}).get("runtime_profile_id") or "legacy")
+    return (run.pipeline_name, kind_key, kind_value, profile)
 
 
 def _as_aware(value: datetime) -> datetime:
@@ -620,7 +718,7 @@ def _validate_pipeline(pipeline: str) -> None:
 
 
 def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value else None
+    return _as_aware(value).astimezone(timezone.utc).isoformat() if value else None
 
 
 def _status(value: Any) -> str:

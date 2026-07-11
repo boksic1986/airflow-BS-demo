@@ -173,6 +173,8 @@ export function RunDetailPage() {
 
   if (loading && !detail) return <p className="muted">Loading run detail...</p>;
 
+  const sampleQcSummary = bundle.qc?.sample_summary || bundle.qc?.summary;
+
   return (
     <div className="page-stack run-detail-page">
       {error ? <div className="inline-error" role="alert">{error}</div> : null}
@@ -191,14 +193,14 @@ export function RunDetailPage() {
         {actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
         <section className="metric-grid" aria-label="Run summary metrics">
           <MetricCard title="Samples" value={bundle.samples.length} />
-          <MetricCard title="Duration" value={formatDuration(detail.started_at, detail.ended_at)} status={detail.status} />
-          <MetricCard title="QC fail" value={bundle.qc?.summary.fail ?? 0} status={(bundle.qc?.summary.fail ?? 0) > 0 ? "failed" : "success"} />
+          <MetricCard title="Duration" value={formatDuration(detail.submitted_at || detail.started_at, detail.pipeline_finished_at || detail.ended_at)} status={detail.status} />
+          <MetricCard title="QC fail" value={sampleQcSummary?.fail ?? 0} status={(sampleQcSummary?.fail ?? 0) > 0 ? "failed" : "success"} />
           <MetricCard title="Rule events" value={bundle.rules.length} status={failedRule ? "failed" : undefined} />
         </section>
         <ErrorPanel diagnosis={diagnosis} />
         <div className="split-grid">
           <CurrentProgressPanel detail={detail} progress={progress} source={bundle.progress?.progress_source} />
-          <section className="panel"><div className="section-heading"><h2>QC summary</h2><p>Workflow and sample QC are separate.</p></div><div className="metric-grid compact">{(["pass", "warn", "fail", "unknown"] as const).map((status) => <MetricCard key={status} title={status} value={bundle.qc?.summary[status] ?? 0} status={status} />)}</div></section>
+          <section className="panel"><div className="section-heading"><h2>QC summary</h2><p>Sample-level decisions; informational metrics do not lower sample status.</p></div><div className="metric-grid compact">{(["pass", "warn", "fail", "unknown"] as const).map((status) => <MetricCard key={status} title={status} value={sampleQcSummary?.[status] ?? 0} status={status} />)}</div></section>
         </div>
         <section className="panel">
           <div className="tabs" role="tablist" aria-label="Run detail tabs">{tabs.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} role="tab" type="button" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}</div>

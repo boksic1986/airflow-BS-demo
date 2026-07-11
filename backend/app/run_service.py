@@ -1213,6 +1213,7 @@ def _run_payload(run: AnalysisRun, *, sample_count: int) -> dict:
         "params": run.params_json,
         "submitted_by": run.submitted_by,
         "submitted_at": run.submitted_at.isoformat() if run.submitted_at else None,
+        "pipeline_finished_at": run.pipeline_finished_at.isoformat() if run.pipeline_finished_at else None,
     }
 
 
@@ -1232,6 +1233,7 @@ def _run_list_payload(
         "submitted_at": run.submitted_at.isoformat() if run.submitted_at else None,
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "ended_at": run.ended_at.isoformat() if run.ended_at else None,
+        "pipeline_finished_at": run.pipeline_finished_at.isoformat() if run.pipeline_finished_at else None,
         "sample_count": sample_count,
         "qc_status": _aggregate_sample_qc_status(sample_qc_statuses),
         "qc_highlights": qc_highlights,
@@ -1276,6 +1278,7 @@ def _run_detail_payload(session: Session, run: AnalysisRun) -> dict:
             "submitted_at": run.submitted_at.isoformat() if run.submitted_at else None,
             "started_at": run.started_at.isoformat() if run.started_at else None,
             "ended_at": run.ended_at.isoformat() if run.ended_at else None,
+            "pipeline_finished_at": run.pipeline_finished_at.isoformat() if run.pipeline_finished_at else None,
         }
     )
     return payload

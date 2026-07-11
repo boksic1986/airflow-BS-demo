@@ -144,9 +144,9 @@ def _progress_from_tasks(
 
     if status == "success":
         percent = 100
-        if not rule_events:
-            current_step = "Workflow complete"
-            note = "Airflow success"
+        current_step = "Workflow complete"
+        current_source = "airflow_task_instances" if airflow_tasks else "backend"
+        note = "Workflow complete"
     elif _is_failed(status):
         if failed_task:
             current_step = str(failed_task.get("task_id") or current_step)

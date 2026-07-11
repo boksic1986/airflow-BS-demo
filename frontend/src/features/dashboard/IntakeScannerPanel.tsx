@@ -12,7 +12,7 @@ export function IntakeScannerPanel({items, loading, error}: {
   error: string | null;
 }) {
   return (
-    <section className="panel" aria-busy={loading}>
+    <section className="panel intake-scanner-panel" aria-busy={loading}>
       <div className="section-heading split">
         <div>
           <h2>Intake scanner</h2>

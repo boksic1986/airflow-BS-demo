@@ -1191,7 +1191,8 @@ textarea {
   font-size: 13px;
 }
 
-.run-tracker-panel {
+.run-tracker-panel,
+.intake-scanner-panel {
   padding: 18px;
 }
 

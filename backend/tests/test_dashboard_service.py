@@ -32,6 +32,8 @@ def seed_dashboard_data(session_factory, tmp_path: Path) -> None:
     with session_factory() as session:
         for analysis_id, pipeline, status, created_at, started_at, ended_at, dag_id, dag_run_id, params in rows:
             workdir = tmp_path / analysis_id
+            submitted_at = None if status == "created" else started_at
+            pipeline_finished_at = ended_at if status == "success" else None
             session.add(
                 AnalysisRun(
                     analysis_id=analysis_id,
@@ -44,8 +46,10 @@ def seed_dashboard_data(session_factory, tmp_path: Path) -> None:
                     workdir=str(workdir),
                     params_json=params,
                     created_at=created_at,
+                    submitted_at=submitted_at,
                     started_at=started_at,
                     ended_at=ended_at,
+                    pipeline_finished_at=pipeline_finished_at,
                     error_summary="Missing rule" if status == "failed" else None,
                 )
             )
@@ -295,3 +299,163 @@ def test_dashboard_nipt_qc_highlights_preserve_percentage_point_units(tmp_path, 
     assert highlights["Q30"]["value"] == 93.2
     assert highlights["unique_mapping_rate"]["unit"] == "percent"
     assert highlights["fetal_fraction"]["unit"] == "fraction"
+
+
+def test_dashboard_failed_filter_includes_qc_failed_success_and_excludes_it_from_success(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime.now(timezone.utc)
+    with session_factory() as session:
+        for analysis_id, status, qc_status in (
+            ("PGTA_WORKFLOW_FAILED", "failed", "unknown"),
+            ("PGTA_QC_FAILED", "success", "fail"),
+            ("PGTA_CLEAN_SUCCESS", "success", "pass"),
+        ):
+            session.add(
+                AnalysisRun(
+                    analysis_id=analysis_id,
+                    pipeline_name="pgta",
+                    dag_id="bio_pgta",
+                    dag_run_id=f"manual__{analysis_id}",
+                    mode="new",
+                    status=status,
+                    workdir=str(tmp_path / analysis_id),
+                    params_json={"project_name": analysis_id, "target": "predict", "runtime_profile_id": "pgta-s9-predict-v1"},
+                    submitted_at=now - timedelta(hours=1),
+                    started_at=now - timedelta(minutes=59),
+                    ended_at=now - timedelta(minutes=10),
+                )
+            )
+            session.add(Sample(analysis_id=analysis_id, sample_id=f"{analysis_id}_S1", status=status, qc_status=qc_status))
+        session.commit()
+    airflow = FakeAirflowClient()
+    install_dashboard_fixtures(monkeypatch, session_factory, airflow)
+    client = TestClient(main.app)
+
+    failed = client.get("/api/dashboard/runs?pipeline=pgta&status=failed&limit=10&offset=0")
+    success = client.get("/api/dashboard/runs?pipeline=pgta&status=success&limit=10&offset=0")
+
+    assert failed.status_code == 200
+    assert {item["analysis_id"] for item in failed.json()["items"]} == {"PGTA_WORKFLOW_FAILED", "PGTA_QC_FAILED"}
+    assert {item["analysis_id"]: item["display_status"] for item in failed.json()["items"]} == {
+        "PGTA_WORKFLOW_FAILED": "failed",
+        "PGTA_QC_FAILED": "qc_failed",
+    }
+    assert success.status_code == 200
+    assert [item["analysis_id"] for item in success.json()["items"]] == ["PGTA_CLEAN_SUCCESS"]
+
+
+def test_dashboard_runtime_uses_submit_to_first_pipeline_finish_and_terminal_stage_is_completed(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime.now(timezone.utc)
+    submitted_at = now - timedelta(seconds=2000)
+    pipeline_finished_at = now - timedelta(seconds=1000)
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id="PGTA_RETRIED_SUCCESS",
+                pipeline_name="pgta",
+                dag_id="bio_pgta",
+                dag_run_id="manual__PGTA_RETRIED_SUCCESS",
+                mode="new",
+                status="success",
+                workdir=str(tmp_path / "PGTA_RETRIED_SUCCESS"),
+                params_json={"project_name": "Retried success", "target": "predict", "runtime_profile_id": "pgta-s9-predict-v1"},
+                submitted_at=submitted_at,
+                started_at=now - timedelta(seconds=20),
+                ended_at=now - timedelta(seconds=10),
+                pipeline_finished_at=pipeline_finished_at,
+            )
+        )
+        session.add(Sample(analysis_id="PGTA_RETRIED_SUCCESS", sample_id="S1", status="success", qc_status="pass"))
+        session.add(
+            SnakemakeRuleEvent(
+                analysis_id="PGTA_RETRIED_SUCCESS",
+                rule="wisecondorx_predict_cnv",
+                sample_id="S1",
+                snakemake_jobid="1",
+                status="success",
+                start_time=pipeline_finished_at - timedelta(seconds=20),
+                end_time=pipeline_finished_at,
+                updated_at=pipeline_finished_at,
+            )
+        )
+        session.commit()
+    airflow = FakeAirflowClient()
+    install_dashboard_fixtures(monkeypatch, session_factory, airflow)
+    client = TestClient(main.app)
+
+    response = client.get("/api/dashboard/runs?pipeline=pgta&status=success&limit=10&offset=0")
+
+    assert response.status_code == 200
+    item = response.json()["items"][0]
+    assert item["display_status"] == "success"
+    assert item["current_stage_label"] == "Completed"
+    assert item["current_pipeline_rule"] is None
+    assert item["pipeline_finished_at"] == pipeline_finished_at.isoformat()
+    assert 999 <= item["elapsed_seconds"] <= 1001
+
+
+def test_dashboard_eta_uses_only_clean_success_history_and_scales_sample_count(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime.now(timezone.utc)
+    with session_factory() as session:
+        histories = (
+            ("PGTA_HISTORY_ONE", "success", 1, 1000, "pass"),
+            ("PGTA_HISTORY_TWO", "success", 2, 1200, "pass"),
+            ("PGTA_FAILED_FAST", "failed", 3, 100, "pass"),
+            ("PGTA_QC_FAILED_FAST", "success", 3, 100, "fail"),
+        )
+        for analysis_id, status, sample_count, duration, qc_status in histories:
+            submitted_at = now - timedelta(hours=4, seconds=duration)
+            session.add(
+                AnalysisRun(
+                    analysis_id=analysis_id,
+                    pipeline_name="pgta",
+                    dag_id="bio_pgta",
+                    dag_run_id=f"manual__{analysis_id}",
+                    mode="new",
+                    status=status,
+                    workdir=str(tmp_path / analysis_id),
+                    params_json={"project_name": analysis_id, "target": "predict", "runtime_profile_id": "pgta-s9-predict-v1"},
+                    submitted_at=submitted_at,
+                    started_at=submitted_at + timedelta(seconds=30),
+                    ended_at=submitted_at + timedelta(seconds=duration + 30),
+                    pipeline_finished_at=submitted_at + timedelta(seconds=duration),
+                )
+            )
+            for index in range(sample_count):
+                session.add(Sample(analysis_id=analysis_id, sample_id=f"{analysis_id}_S{index}", status=status, qc_status=qc_status))
+
+        active_submitted_at = now - timedelta(seconds=400)
+        session.add(
+            AnalysisRun(
+                analysis_id="PGTA_ACTIVE_THREE",
+                pipeline_name="pgta",
+                dag_id="bio_pgta",
+                dag_run_id="manual__PGTA_ACTIVE_THREE",
+                mode="new",
+                status="running",
+                workdir=str(tmp_path / "PGTA_ACTIVE_THREE"),
+                params_json={"project_name": "Active three", "target": "predict", "runtime_profile_id": "pgta-s9-predict-v1"},
+                submitted_at=active_submitted_at,
+                started_at=now - timedelta(seconds=20),
+                progress_percent=50,
+            )
+        )
+        for index in range(3):
+            session.add(Sample(analysis_id="PGTA_ACTIVE_THREE", sample_id=f"ACTIVE_S{index}", status="running", qc_status="unknown"))
+        session.commit()
+    airflow = FakeAirflowClient()
+    install_dashboard_fixtures(monkeypatch, session_factory, airflow)
+    client = TestClient(main.app)
+
+    response = client.get("/api/dashboard/runs?pipeline=pgta&status=active&limit=10&offset=0")
+
+    assert response.status_code == 200
+    item = response.json()["items"][0]
+    assert item["analysis_id"] == "PGTA_ACTIVE_THREE"
+    assert item["average_duration_seconds"] == 1400
+    assert item["eta_history_count"] == 2
+    assert item["eta_model"] == "linear_sample_count"
+    assert 395 <= item["elapsed_seconds"] <= 405
+    assert 990 <= item["estimated_remaining_seconds"] <= 1010

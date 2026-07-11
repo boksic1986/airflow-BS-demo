@@ -582,7 +582,7 @@ def collect_nipt_artifacts(conf: dict[str, Any]) -> dict[str, str | int]:
         raise FileNotFoundError(f"NIPT compose artifact was not generated: {compose_path}")
     if not run_config_path.is_file():
         raise FileNotFoundError(f"NIPT config artifact was not generated: {run_config_path}")
-    return {
+    artifact: dict[str, str | int] = {
         "type": "nipt_docker_summary",
         "label": "NIPT Docker QC summary",
         "qc_path": str(qc_path),
@@ -590,6 +590,65 @@ def collect_nipt_artifacts(conf: dict[str, Any]) -> dict[str, str | int]:
         "compose_path": str(compose_path),
         "run_config_path": str(run_config_path),
     }
+    if str((conf.get("params") or {}).get("run_mode") or "mount_smoke") == "full_run":
+        artifact.update(_validate_nipt_full_run_outputs(conf=conf, workdir=workdir))
+    return artifact
+
+
+def _validate_nipt_full_run_outputs(*, conf: dict[str, Any], workdir: Path) -> dict[str, int]:
+    sample_sheet_path = Path(str(conf.get("sample_sheet_path") or ""))
+    if not sample_sheet_path.is_file():
+        raise FileNotFoundError(f"NIPT selected sample manifest was not found: {sample_sheet_path}")
+    expected_samples = set(_sample_ids(sample_sheet_path))
+    if not expected_samples:
+        raise ValueError("NIPT selected sample manifest has no samples.")
+
+    mapping_path = workdir / "CNV" / "mappingQC.csv"
+    if not mapping_path.is_file():
+        raise FileNotFoundError(f"NIPT mapping QC output was not found: {mapping_path}")
+    mapping_samples = _csv_sample_ids(mapping_path, field="Sample")
+
+    prediction_samples: set[str] = set()
+    prediction_paths = sorted(workdir.rglob("*.model.predict.csv"))
+    if not prediction_paths:
+        raise FileNotFoundError(f"NIPT fetal-ratio prediction output was not found under: {workdir}")
+    for prediction_path in prediction_paths:
+        for sample_id in _csv_sample_ids(prediction_path, field="sample"):
+            if sample_id in prediction_samples:
+                raise ValueError(f"NIPT prediction output contains duplicate sample: {sample_id}")
+            prediction_samples.add(sample_id)
+
+    for label, actual in (("mapping QC", mapping_samples), ("prediction", prediction_samples)):
+        if actual != expected_samples:
+            missing = sorted(expected_samples - actual)
+            unexpected = sorted(actual - expected_samples)
+            raise ValueError(
+                f"NIPT {label}/sample manifest mismatch; missing={missing}, unexpected={unexpected}"
+            )
+
+    cnv_dir = workdir / "CNV"
+    for sample_id in sorted(expected_samples):
+        for suffix in ("_statistics.txt", "_aberrations.bed"):
+            output_path = cnv_dir / f"{sample_id}{suffix}"
+            if not output_path.is_file():
+                raise FileNotFoundError(f"NIPT CNV output is missing: {output_path}")
+    return {"sample_count": len(expected_samples), "prediction_count": len(prediction_samples)}
+
+
+def _csv_sample_ids(path: Path, *, field: str) -> set[str]:
+    sample_ids: set[str] = set()
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        if field not in set(reader.fieldnames or []):
+            raise ValueError(f"NIPT output is missing {field} column: {path}")
+        for row in reader:
+            sample_id = _normalize_nipt_sample_id(row.get(field))
+            if not sample_id:
+                continue
+            if sample_id in sample_ids:
+                raise ValueError(f"NIPT output contains duplicate sample {sample_id}: {path}")
+            sample_ids.add(sample_id)
+    return sample_ids
 
 
 def write_nipt_qc_summary_from_outputs(workdir: Path) -> Path:
@@ -605,13 +664,14 @@ def write_nipt_qc_summary_from_outputs(workdir: Path) -> Path:
             if not sample_id:
                 continue
             q30 = _number(row.get("Q30"))
+            read_count = _number(row.get("read_count"))
             unique_mapping = _number(row.get("uniqueMappedRC%"))
             pcr_dup = _number(row.get("PCRdup%"))
             chr_y = _number(row.get("chrY%"))
             gender = str(row.get("Gender") or "").strip()
             rows.extend(
                 [
-                    _metric_row(sample_id, "read_count", row.get("read_count"), None, "reported", "unknown"),
+                    _metric_row(sample_id, "read_count", row.get("read_count"), read_count, "reported", "unknown"),
                     _metric_row(sample_id, "Q30", row.get("Q30"), q30, ">=85", _pass_warn(q30, warn_min=85)),
                     _metric_row(sample_id, "unique_mapping_rate", row.get("uniqueMappedRC%"), unique_mapping, ">=70", _pass_warn(unique_mapping, warn_min=70)),
                     _metric_row(sample_id, "pcr_duplication_rate", row.get("PCRdup%"), pcr_dup, "<=20", _pass_warn_inverse(pcr_dup, warn_max=20)),
@@ -619,9 +679,17 @@ def write_nipt_qc_summary_from_outputs(workdir: Path) -> Path:
                     _metric_row(sample_id, "gender", gender, None, None, "unknown"),
                 ]
             )
-            fetal_ratio = fetal_ratios.get(sample_id)
-            if fetal_ratio is not None:
-                rows.append(_metric_row(sample_id, "fetal_fraction", str(fetal_ratio), fetal_ratio, ">=0.04", _pass_warn(fetal_ratio, warn_min=0.04)))
+            fetal_fraction = _fraction_from_percent(fetal_ratios.get(sample_id))
+            rows.append(
+                _metric_row(
+                    sample_id,
+                    "fetal_fraction",
+                    None if fetal_fraction is None else str(fetal_fraction),
+                    fetal_fraction,
+                    ">=0.04",
+                    _pass_warn(fetal_fraction, warn_min=0.04),
+                )
+            )
     reports_dir = ensure_directory(workdir / "reports")
     qc_path = reports_dir / "qc_summary.tsv"
     qc_path.write_text("\n".join("\t".join(cell for cell in row) for row in rows) + "\n", encoding="utf-8")
@@ -768,9 +836,16 @@ def _metric_row(
 
 def _number(value: str | None) -> float | None:
     try:
-        return float(str(value or "").strip())
+        normalized = str(value or "").strip().strip("%").replace(",", "")
+        return float(normalized)
     except ValueError:
         return None
+
+
+def _fraction_from_percent(value: float | None) -> float | None:
+    if value is None:
+        return None
+    return value / 100 if value > 1 else value
 
 
 def _pass_warn(value: float | None, *, warn_min: float) -> str:

@@ -284,8 +284,11 @@ def test_sync_success_imports_nipt_qc_metrics_and_artifacts(tmp_path, monkeypatc
         "\n".join(
             [
                 "sample_id\tmetric_name\tmetric_value\tmetric_numeric\tthreshold\tstatus",
+                "NC-20260414.A01\tread_count\t100000\t100000\treported\tunknown",
                 "NC-20260414.A01\tQ30\t93.2\t93.2\t>=85\tpass",
                 "NC-20260414.A01\tunique_mapping_rate\t87.5\t87.5\t>=70\tpass",
+                "NC-20260414.A01\tpcr_duplication_rate\t5.1\t5.1\t<=20\tpass",
+                "NC-20260414.A01\tgender\tFemale\t\t\tunknown",
                 "NC-20260414.A01\tfetal_fraction\t0.083\t0.083\t>=0.04\tpass",
             ]
         )
@@ -309,6 +312,11 @@ def test_sync_success_imports_nipt_qc_metrics_and_artifacts(tmp_path, monkeypatc
         ("NC-20260414.A01", "fetal_fraction", "pass"),
     }
     assert sample.qc_status == "pass"
+    qc_payload = client.get(f"/api/runs/{analysis_id}/qc").json()
+    assert qc_payload["sample_summary"] == {"pass": 1, "warn": 0, "fail": 0, "unknown": 95}
+    metrics_by_name = {item["metric_name"]: item for item in qc_payload["items"] if item["sample_id"] == "NC-20260414.A01"}
+    assert metrics_by_name["read_count"]["decision_metric"] is False
+    assert metrics_by_name["Q30"]["decision_metric"] is True
     artifact_keys = {item["key"] for item in artifacts.json()["items"]}
     assert {"nipt_qc_summary", "nipt_docker_compose", "nipt_run_config"} <= artifact_keys
     assert "wes_qc_summary" not in artifact_keys

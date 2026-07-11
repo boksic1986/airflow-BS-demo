@@ -1,5 +1,54 @@
 # HANDOFF.md
 
+## 2026-07-11 T114 run status, timing, QC, and cleanup complete
+
+- Goal: keep Run Tracker compact, use immutable submit-to-first-finish timing,
+  repair NIPT sample QC semantics, validate CNV output completeness, and remove
+  obsolete biodemo records without exposing a frontend delete action.
+- Branch/worktree: `codex/platform/T114-run-status-timing-qc-repair` in
+  `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`, based on
+  T113 commit `6d0ad57`.
+- Deployment: `/home/jiucheng/project/airflow-demo-t114`; backend, Airflow API,
+  scheduler, worker, and frontend were rebuilt/recreated without deleting a
+  Docker volume or run workdir.
+- UI: Run Tracker now has one combined Status and no sample-QC highlight list.
+  Started means Airflow handoff; Finished uses first pipeline completion.
+  Terminal success shows Completed. Intake and Tracker share the main-column
+  width. Run Detail uses the same timing and sample-level QC summary.
+- Timing: migration `20260711_0004` adds immutable
+  `analysis_run.pipeline_finished_at`. ETA history accepts only clean,
+  successful, same-profile `mode=new` runs and adjusts for sample count.
+- NIPT repair: regenerated and re-imported
+  `NIPT_20260711_111140_63C5A6/reports/qc_summary.tsv`. The run now has 504
+  metrics, 72/72 pass samples, no sample unknown, completion
+  `2026-07-11T11:36:18.353341Z`, and runtime 1477 seconds from submission.
+- Integrity: PGT-A predict collection checks manifest/status/statistics;
+  NIPT full collection checks manifest/mappingQC/model-prediction rows and
+  every sample statistics/aberration output.
+- Backup: `/home/jiucheng/project/airflow-demo-t114/backups/T114-20260711-2230`.
+  The pg_dump SHA256 is
+  `55073a1a77b0ad83069a0b66097dea56e1a870949708b341e536a0b48877d776`;
+  the run-inventory SHA256 is
+  `4ed13baa90a9fe1d57997b5a797d5368478f8a7b4638337aac6a0771ea2f596d`.
+- Cleanup: CLI preview and apply both required an exact 49-run snapshot. It
+  deleted 46 biodemo runs and retained 3 complete runs / 75 samples. The stale
+  WES running mock required an explicit exact-ID override. Airflow metadata,
+  workdirs, logs, outputs, FASTQ, pipeline releases, and volumes remain intact.
+- Intake: `bio_intake_scan` was paused for backup/cleanup and restored to its
+  original unpaused state. PGT-A READY manifest intake remains enabled; NIPT
+  automatic intake remains disabled.
+- Tests: remote backend full pytest passed 127; Airflow/DAG/runner discovery
+  passed 89 with 5 expected logger-interface skips; frontend Vitest passed 28;
+  production TypeScript/Vite build and Compose config passed.
+- Browser: live Dashboard at 1280/390 and NIPT Run Detail/QC at 390 had no
+  document-level horizontal overflow. Tracker/Intake widths matched; wide
+  tables scrolled inside their containers; QC rendered 20 rows per page.
+- Rollback: code can be rolled back by recreating services from the prior
+  image. Deleted biodemo rows require a separately approved, write-stopped
+  restore from the T114 dump; do not restore over a live database casually.
+- Next: add authenticated/admin audit controls before any UI deletion feature.
+  Airflow metadata archival should be a separate task from biodemo retention.
+
 ## 2026-07-11 T113 NIPT Snakemake 9 full analysis complete
 
 - Goal: preserve the approved NIPTPro 1.0.11 analysis tools while moving only

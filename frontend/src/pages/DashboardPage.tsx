@@ -216,10 +216,9 @@ export function DashboardPage() {
               onSync={(analysisId) => void handleTrackerSync(analysisId)}
             />
           </div>
+          <IntakeScannerPanel items={intakeItems} loading={intakeLoading} error={intakeError} />
         </div>
       </section>
-
-      <IntakeScannerPanel items={intakeItems} loading={intakeLoading} error={intakeError} />
       <DashboardResourcePanels
         resources={resources}
         resourceTab={resourceTab}

@@ -6,7 +6,6 @@ import {compactPipelineName, displayTimeZoneLabel, formatDate, formatSecondsDura
 import {humanStageLabel, stageDebugLabel} from "../lib/stageLabels";
 import {isActiveStatus, normalizeStatus} from "../lib/status";
 import {RunProgressBar} from "./RunProgressBar";
-import {QcHighlights} from "./QcHighlights";
 import {StatusBadge} from "./StatusBadge";
 
 export type RunTrackerFilter = "all" | "active" | "created" | "failed" | "success";
@@ -54,7 +53,7 @@ export function RunTracker({
       <div className="section-heading split">
         <div>
           <h2>Run Tracker</h2>
-          <p>Current pipeline context, 10 runs per page. Active runs stay first; terminal runs are ordered by recency.</p>
+          <p>Current pipeline context, 10 runs per page. Active progress ranks first; equal progress uses the oldest submission first.</p>
         </div>
         <div className="tracker-controls">
           <label className="tracker-search">
@@ -88,11 +87,12 @@ export function RunTracker({
               <tr>
                 <th scope="col">Project</th>
                 <th scope="col">Pipeline</th>
-                <th scope="col">Status / sample QC</th>
+                <th scope="col">Status</th>
                 <th scope="col">Current stage</th>
                 <th scope="col">Progress</th>
                 <th scope="col">Runtime / ETA</th>
-                <th scope="col">Submitted / started</th>
+                <th scope="col">Started</th>
+                <th scope="col">Finished</th>
               </tr>
             </thead>
             <tbody>
@@ -135,8 +135,8 @@ function RunTrackerRow({
   onSync: (analysisId: string) => void;
 }) {
   const status = normalizeStatus(row.status);
-  const rawStep = row.current_pipeline_rule || row.current_airflow_task;
-  const currentStep = row.current_stage_label || (rawStep ? humanStageLabel(rawStep) : row.not_in_airflow ? "Created only" : "No rule events captured");
+  const rawStep = status === "success" ? null : row.current_pipeline_rule || row.current_airflow_task;
+  const currentStep = status === "success" ? "Completed" : row.current_stage_label || (rawStep ? humanStageLabel(rawStep) : row.not_in_airflow ? "Created only" : "No rule events captured");
   const debugStep = stageDebugLabel(rawStep);
   const note = row.note || progressNote(row);
   return (
@@ -153,8 +153,7 @@ function RunTrackerRow({
       <td>{compactPipelineName(row.pipeline)}</td>
       <td>
         <div className="tracker-badges stacked">
-          <StatusBadge status={row.status} />
-          <StatusBadge status={row.qc_status || "unknown"} size="sm" />
+          <StatusBadge status={row.display_status || compositeStatus(row.status, row.qc_status)} />
           {row.not_in_airflow ? <span className="handoff-pill">Not in Airflow</span> : null}
           {status === "created" ? (
             <button className="mini-action" type="button" onClick={() => onSubmit(row.analysis_id)}>Submit</button>
@@ -163,7 +162,6 @@ function RunTrackerRow({
             <button className="mini-action" type="button" onClick={() => onSync(row.analysis_id)}>Sync</button>
           ) : null}
         </div>
-        <QcHighlights items={row.qc_highlights} />
       </td>
       <td>
         <div className="current-stage-cell">
@@ -193,14 +191,20 @@ function RunTrackerRow({
           <span>{etaLabel(row)}</span>
         </div>
       </td>
-      <td title={`Displayed in ${displayTimeZoneLabel()}`}>
-        <div className="run-time-pair">
-          <span><small>Submitted</small>{formatDate(row.submitted_at)}</span>
-          <span><small>Started</small>{formatDate(row.started_at)}</span>
-        </div>
-      </td>
+      <td title={`Airflow handoff time, displayed in ${displayTimeZoneLabel()}`}>{row.submitted_at ? formatDate(row.submitted_at) : "Not submitted"}</td>
+      <td title={`Pipeline completion time, displayed in ${displayTimeZoneLabel()}`}>{finishedLabel(row)}</td>
     </tr>
   );
+}
+
+function compositeStatus(runStatus: string, qcStatus: string): string {
+  const workflow = normalizeStatus(runStatus);
+  const qc = normalizeStatus(qcStatus);
+  if (workflow !== "success") return workflow;
+  if (["fail", "failed", "error"].includes(qc)) return "qc_failed";
+  if (["warn", "warning"].includes(qc)) return "qc_warning";
+  if (qc === "unknown") return "qc_pending";
+  return "success";
 }
 
 function progressNote(row: DashboardRunTrackerRow): string {
@@ -223,4 +227,11 @@ function etaLabel(row: DashboardRunTrackerRow): string {
   }
   if (row.estimated_remaining_seconds == null) return "ETA needs history";
   return `ETA ~${formatSecondsDuration(row.estimated_remaining_seconds)}`;
+}
+
+function finishedLabel(row: DashboardRunTrackerRow): string {
+  const finishedAt = row.pipeline_finished_at || row.ended_at;
+  if (finishedAt) return formatDate(finishedAt);
+  if (isActiveStatus(normalizeStatus(row.status))) return "In progress";
+  return "Not captured";
 }

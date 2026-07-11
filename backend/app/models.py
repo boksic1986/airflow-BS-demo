@@ -65,6 +65,7 @@ class AnalysisRun(Base):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    pipeline_finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     progress_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     current_stage: Mapped[str | None] = mapped_column(String(256))
     progress_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

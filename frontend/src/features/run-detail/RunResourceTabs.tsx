@@ -15,8 +15,8 @@ export function RunOverviewTab({detail, samples}: {detail: RunDetail; samples: S
         <div><dt>Operator</dt><dd>{detail.submitted_by || "not captured"}</dd></div>
         <div><dt>Created</dt><dd>{formatDate(detail.created_at)}</dd></div>
         <div><dt>Submitted</dt><dd>{formatDate(detail.submitted_at)}</dd></div>
-        <div><dt>Started</dt><dd>{formatDate(detail.started_at)}</dd></div>
-        <div><dt>Finished</dt><dd>{formatDate(detail.ended_at)}</dd></div>
+        <div><dt>Airflow started</dt><dd>{formatDate(detail.started_at)}</dd></div>
+        <div><dt>Finished</dt><dd>{formatDate(detail.pipeline_finished_at || detail.ended_at)}</dd></div>
         <div><dt>Workdir</dt><dd className="path-text">{detail.workdir || "not set"}</dd></div>
       </div>
       <section>

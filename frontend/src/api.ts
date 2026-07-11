@@ -8,6 +8,7 @@ export type RunSummary = {
   submitted_by?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
+  pipeline_finished_at?: string | null;
   sample_count?: number | null;
   qc_status?: string | null;
   qc_highlights?: QcHighlight[];
@@ -90,6 +91,7 @@ export type RunDetail = {
   email_to?: string | null;
   created_at?: string | null;
   submitted_at?: string | null;
+  pipeline_finished_at?: string | null;
   submitted_by?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
@@ -289,11 +291,18 @@ export type QcMetric = {
   metric_numeric?: number | null;
   threshold?: string | null;
   status: string;
+  decision_metric?: boolean;
   source_file?: string | null;
 };
 
 export type RunQc = {
   summary: {
+    pass: number;
+    warn: number;
+    fail: number;
+    unknown: number;
+  };
+  sample_summary?: {
     pass: number;
     warn: number;
     fail: number;
@@ -480,6 +489,7 @@ export type DashboardRunTrackerRow = {
   project_name: string;
   pipeline: string;
   status: string;
+  display_status?: string;
   qc_status: string;
   sample_count: number;
   created_at?: string | null;
@@ -487,6 +497,7 @@ export type DashboardRunTrackerRow = {
   submitted_by?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
+  pipeline_finished_at?: string | null;
   dag_id?: string | null;
   dag_run_id?: string | null;
   percent: number;
@@ -496,6 +507,8 @@ export type DashboardRunTrackerRow = {
   current_stage_source?: string | null;
   elapsed_seconds?: number | null;
   average_duration_seconds?: number | null;
+  eta_history_count?: number;
+  eta_model?: string | null;
   estimated_remaining_seconds?: number | null;
   estimated_finish_at?: string | null;
   progress_source: string;

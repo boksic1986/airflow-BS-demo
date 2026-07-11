@@ -22,10 +22,11 @@ export function RunQcTab({qc}: {qc: RunQc | null}) {
   const safePage = Math.min(page, pageCount - 1);
   const visibleRows = filteredRows.slice(safePage * pageSize, safePage * pageSize + pageSize);
   const failureRows = qcFailureRows(metrics);
+  const sampleSummary = qc?.sample_summary || qc?.summary;
 
   return (
     <div className="qc-tab-stack">
-      <div className="metric-grid compact qc-summary-grid">{(["pass", "warn", "fail", "unknown"] as const).map((status) => <MetricCard key={status} title={status} value={qc?.summary[status] ?? 0} status={status} />)}</div>
+      <div className="metric-grid compact qc-summary-grid">{(["pass", "warn", "fail", "unknown"] as const).map((status) => <MetricCard key={status} title={status} value={sampleSummary?.[status] ?? 0} status={status} />)}</div>
       <section className="qc-failure-summary">
         <div className="section-heading"><h2>QC failures</h2><p>Failed and warning sample metrics</p></div>
         {failureRows.length ? <div className="table-wrap"><table className="data-table compact"><thead><tr><th>sample</th><th>metric</th><th>value</th><th>threshold</th><th>reason</th></tr></thead><tbody>{failureRows.slice(0, 12).map((row) => <tr key={`${row.sampleId}-${row.metric}-${row.value}`}><td>{row.sampleId}</td><td>{row.metric}</td><td>{row.value}</td><td>{row.threshold}</td><td>{row.reason}</td></tr>)}</tbody></table></div> : <p className="empty-state">No failed or warning QC metrics returned.</p>}
@@ -54,9 +55,16 @@ function qcFailureRows(metrics: QcMetric[]) {
 function buildQcMatrix(metrics: QcMetric[]): {columns: string[]; rows: QcMatrixRow[]} {
   const columns = Array.from(new Set(metrics.map((metric) => metric.metric_name))).sort((left, right) => {const leftPriority = metricPriority.indexOf(left); const rightPriority = metricPriority.indexOf(right); return leftPriority >= 0 || rightPriority >= 0 ? (leftPriority >= 0 ? leftPriority : 999) - (rightPriority >= 0 ? rightPriority : 999) : left.localeCompare(right);});
   const rowsBySample = new Map<string, QcMatrixRow>();
-  for (const metric of metrics) {const sampleId = metric.sample_id || "project"; const row = rowsBySample.get(sampleId) || {sampleId, status: "pass", metrics: {}}; row.metrics[metric.metric_name] = metric; row.status = qcStatusRank(metric.status) < qcStatusRank(row.status) ? normalizeStatus(metric.status) : normalizeStatus(row.status); rowsBySample.set(sampleId, row);}
+  for (const metric of metrics) {const sampleId = metric.sample_id || "project"; const row = rowsBySample.get(sampleId) || {sampleId, status: "unknown", metrics: {}}; row.metrics[metric.metric_name] = metric; rowsBySample.set(sampleId, row);}
+  for (const row of rowsBySample.values()) {
+    const decisionMetrics = Object.values(row.metrics).filter((metric) => metric.decision_metric ?? isDecisionThreshold(metric.threshold));
+    row.status = aggregateDecisionStatus(decisionMetrics.map((metric) => metric.status));
+  }
   return {columns, rows: Array.from(rowsBySample.values()).sort((left, right) => qcStatusRank(left.status) - qcStatusRank(right.status) || left.sampleId.localeCompare(right.sampleId))};
 }
+
+function aggregateDecisionStatus(statuses: string[]): string {if (!statuses.length) return "unknown"; const normalized = statuses.map(normalizeStatus); if (normalized.some((status) => ["failed", "fail", "error"].includes(status))) return "fail"; if (normalized.some((status) => ["warning", "warn", "qc_warning"].includes(status))) return "warn"; if (normalized.some((status) => status === "unknown")) return "unknown"; return "pass";}
+function isDecisionThreshold(threshold?: string | null): boolean {const normalized = String(threshold || "").trim().toLowerCase(); return Boolean(normalized && !["reported", "informational", "n/a", "na"].includes(normalized));}
 
 function qcStatusRank(status: string): number {const value = normalizeStatus(status); if (["failed", "fail", "error"].includes(value)) return 0; if (["warning", "warn", "qc_warning"].includes(value)) return 1; if (value === "unknown") return 2; if (["success", "pass"].includes(value)) return 3; return 4;}
 function metricValue(metric: QcMetric): string {if (metric.metric_value !== null && metric.metric_value !== undefined && metric.metric_value !== "") return String(metric.metric_value); if (metric.metric_numeric !== null && metric.metric_numeric !== undefined) return String(metric.metric_numeric); return "-";}

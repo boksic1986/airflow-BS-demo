@@ -1,5 +1,42 @@
 # 11 部署 Runbook
 
+## T114 biodemo cleanup and NIPT QC repair
+
+This is a CLI-only maintenance operation. Do not expose an unauthenticated
+frontend delete button.
+
+1. Record the current `bio_intake_scan` pause state and pause it temporarily.
+2. Confirm there is no real active PGT-A/NIPT run.
+3. Create a dated backup directory and save both `pg_dump -Fc` and the complete
+   `/api/runs` JSON inventory. Record SHA256 values.
+4. Back up the NIPT `reports/qc_summary.tsv`, regenerate it from mappingQC and
+   fetal-ratio outputs, then call `sync-airflow` to re-import metrics/events.
+5. Preview an exact snapshot cleanup. The command aborts if the expected run
+   count or keep IDs do not match, an unapproved active record exists, or the
+   database changes before apply.
+
+```bash
+python -m app.maintenance_cli \
+  --keep PGTA_20260711_062522_4C4FC2 \
+  --keep PGTA_20260711_071416_C8C7BA \
+  --keep NIPT_20260711_111140_63C5A6 \
+  --expected-total 49 \
+  --allow-active-delete WES_20260704_180650_MOCK
+```
+
+`--allow-active-delete` is an exact-ID override for a known stale record; it is
+never a wildcard. Apply only after reviewing the preview, by adding:
+
+```bash
+--apply --confirmation DELETE_NON_RETAINED_BIODEMO_RUNS
+```
+
+6. Verify 3 runs, 75 samples, NIPT 504 metrics, 72 pass samples, and the NIPT
+   submit/finish timestamps. Restore the original intake pause state.
+
+The cleanup affects biodemo rows only. It must not delete Airflow metadata,
+run workdirs, logs, results, FASTQ, Docker volumes, or pipeline releases.
+
 ## T113 NIPT Snakemake 9 rollout and rollback
 
 1. Verify the local base image ID equals

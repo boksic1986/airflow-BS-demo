@@ -251,3 +251,69 @@ def test_run_rules_endpoint_filters_pages_and_summarizes_nipt_phases(monkeypatch
     assert payload["summary"]["total"] == 4
     assert payload["summary"]["by_status"] == {"failed": 1, "running": 1, "success": 2}
     assert {item["phase"] for item in payload["summary"]["phases"]} == {"Mapping", "T21 classifier", "Final QC"}
+
+
+def test_pipeline_completion_event_sets_first_finish_time_once(monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_run(
+        session_factory,
+        analysis_id="PGTA_20260711_150000_FINISH",
+        pipeline_name="pgta",
+    )
+    with session_factory() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        run.params_json = {"target": "predict", "runtime_profile_id": "pgta-s9-predict-v1"}
+        session.commit()
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    client = TestClient(main.app)
+    first_finish = "2026-07-11T15:46:00+00:00"
+    retry_finish = "2026-07-11T16:10:00+00:00"
+
+    for timestamp in (first_finish, retry_finish):
+        response = client.post(
+            "/api/events/snakemake",
+            json={
+                "analysis_id": analysis_id,
+                "event": "pipeline_step_finished",
+                "rule": "cnv_predict",
+                "status": "success",
+                "timestamp": timestamp,
+            },
+        )
+        assert response.status_code == 200
+
+    with session_factory() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        assert run.pipeline_finished_at.replace(tzinfo=timezone.utc).isoformat() == first_finish
+
+
+def test_nipt_all_rule_is_full_run_completion_marker(monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_run(
+        session_factory,
+        analysis_id="NIPT_20260711_151100_FINISH",
+        pipeline_name="nipt_docker",
+    )
+    with session_factory() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        run.params_json = {"run_mode": "full_run", "runtime_profile_id": "niptpro-s9-full-v1"}
+        session.commit()
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    client = TestClient(main.app)
+
+    response = client.post(
+        "/api/events/snakemake",
+        json={
+            "analysis_id": analysis_id,
+            "event": "job_finished",
+            "rule": "all",
+            "snakemake_jobid": "0",
+            "status": "success",
+            "timestamp": "2026-07-11T15:36:18+00:00",
+        },
+    )
+
+    assert response.status_code == 200
+    with session_factory() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        assert run.pipeline_finished_at.replace(tzinfo=timezone.utc).isoformat() == "2026-07-11T15:36:18+00:00"

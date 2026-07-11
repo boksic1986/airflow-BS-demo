@@ -52,9 +52,17 @@ analysis_run 1 -> N run_action
 | submitted_by | text nullable | demo user |
 | email_to | text nullable | |
 | created_at | timestamptz | |
-| started_at | timestamptz nullable | |
-| ended_at | timestamptz nullable | |
+| submitted_at | timestamptz nullable | immutable backend-to-Airflow handoff time; created-only runs remain null |
+| started_at | timestamptz nullable | latest Airflow DAG run start; task clear/retry may change it |
+| ended_at | timestamptz nullable | latest Airflow DAG run end; task clear/retry may change it |
+| pipeline_finished_at | timestamptz nullable | first successful terminal pipeline event; immutable once set |
 | error_summary | text nullable | last error |
+
+T114 migration `20260711_0004` adds `pipeline_finished_at`. PGT-A predict uses
+the project-level `cnv_predict=success` event; NIPT full analysis uses the first
+parent `all=success` event. Retry or Airflow task clear must not overwrite this
+timestamp. Dashboard runtime is `submitted_at -> pipeline_finished_at` for
+terminal runs and `submitted_at -> now` for active runs.
 
 ### sample
 

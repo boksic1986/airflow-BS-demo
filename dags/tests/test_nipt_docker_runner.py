@@ -440,6 +440,58 @@ class NiptDockerRunnerTests(unittest.TestCase):
         self.assertEqual(artifact["qc_metric_count"], 1)
         self.assertTrue(artifact["qc_path"].endswith("reports/qc_summary.tsv"))
 
+    def test_collect_nipt_full_run_requires_every_sample_prediction_and_cnv_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "NIPT_FULL"
+            (workdir / "reports").mkdir(parents=True)
+            (workdir / "config").mkdir(parents=True)
+            (workdir / "CNV").mkdir(parents=True)
+            manifest = workdir / "config" / "samples.selected.tsv"
+            manifest.write_text(
+                "sample_id\tlibrary\tindex\nLIB1.A01\tLIB1\tA01\nLIB2.A02\tLIB2\tA02\n",
+                encoding="utf-8",
+            )
+            (workdir / "reports" / "qc_summary.tsv").write_text(
+                "sample_id\tmetric_name\tmetric_value\tmetric_numeric\tthreshold\tstatus\n"
+                "LIB1.A01\tQ30\t93.2\t93.2\t>=85\tpass\n",
+                encoding="utf-8",
+            )
+            (workdir / "config" / "nipt_docker_compose.yml").write_text("services: {}\n", encoding="utf-8")
+            (workdir / "config" / "nipt_run_config.yaml").write_text("chip_name: demo\n", encoding="utf-8")
+            (workdir / "CNV" / "mappingQC.csv").write_text(
+                "Sample,Q30\nLIB1.A01.R1.clean.fastq.gz,93.2\nLIB2.A02.R1.clean.fastq.gz,94.1\n",
+                encoding="utf-8",
+            )
+            (workdir / "demo.model.predict.csv").write_text(
+                "fetal_ratio,sample\n12.1,LIB1.A01.R1.clean.fastq.gz\n11.2,LIB2.A02.R1.clean.fastq.gz\n",
+                encoding="utf-8",
+            )
+            for sample_id in ("LIB1.A01", "LIB2.A02"):
+                (workdir / "CNV" / f"{sample_id}_statistics.txt").write_text("ok\n", encoding="utf-8")
+                (workdir / "CNV" / f"{sample_id}_aberrations.bed").write_text("", encoding="utf-8")
+
+            artifact = collect_nipt_artifacts(
+                {
+                    "analysis_id": "NIPT_FULL",
+                    "workdir": str(workdir),
+                    "sample_sheet_path": str(manifest),
+                    "params": {"run_mode": "full_run"},
+                }
+            )
+            self.assertEqual(artifact["sample_count"], 2)
+            self.assertEqual(artifact["prediction_count"], 2)
+
+            (workdir / "CNV" / "LIB2.A02_aberrations.bed").unlink()
+            with self.assertRaisesRegex(FileNotFoundError, "LIB2.A02_aberrations.bed"):
+                collect_nipt_artifacts(
+                    {
+                        "analysis_id": "NIPT_FULL",
+                        "workdir": str(workdir),
+                        "sample_sheet_path": str(manifest),
+                        "params": {"run_mode": "full_run"},
+                    }
+                )
+
     def test_write_nipt_qc_summary_from_mapping_qc_and_fetal_ratio(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workdir = Path(tmpdir) / "runs" / "NIPT_20260708_120000_TEST01"
@@ -447,21 +499,24 @@ class NiptDockerRunnerTests(unittest.TestCase):
             cnv_dir.mkdir(parents=True)
             (cnv_dir / "mappingQC.csv").write_text(
                 "Sample,read_count,base_count,Q20,Q30,PCRdup%,uniqueMappedRC,uniqueMappedRC%,chrY%,Gender\n"
-                "NC-20260414.A01.R1.clean.fastq.gz,100000,5000000,97.1,93.2,5.1,87500,87.5,0.31,Female\n",
+                "NC-20260414.A01.R1.clean.fastq.gz,100000,5000000,97.1,93.2,%5.1,87500,%87.5,0.31,Female\n"
+                "NC-20260414.A02.R1.clean.fastq.gz,120000,6000000,97.5,94.1,%4.5,108000,%90.0,0.12,Male\n",
                 encoding="utf-8",
             )
             (workdir / "NC-20260414.model.predict.csv").write_text(
-                "fetal_ratio,sample\n0.083,NC-20260414.A01.R1.clean.fastq.gz\n",
+                "fetal_ratio,sample\n16.6,NC-20260414.A01.R1.clean.fastq.gz\n",
                 encoding="utf-8",
             )
 
             qc_path = write_nipt_qc_summary_from_outputs(workdir)
             lines = qc_path.read_text(encoding="utf-8").splitlines()
 
+        self.assertIn("NC-20260414.A01\tread_count\t100000\t100000.0\treported\tunknown", lines)
         self.assertIn("NC-20260414.A01\tQ30\t93.2\t93.2\t>=85\tpass", lines)
-        self.assertIn("NC-20260414.A01\tunique_mapping_rate\t87.5\t87.5\t>=70\tpass", lines)
-        self.assertIn("NC-20260414.A01\tpcr_duplication_rate\t5.1\t5.1\t<=20\tpass", lines)
-        self.assertIn("NC-20260414.A01\tfetal_fraction\t0.083\t0.083\t>=0.04\tpass", lines)
+        self.assertIn("NC-20260414.A01\tunique_mapping_rate\t%87.5\t87.5\t>=70\tpass", lines)
+        self.assertIn("NC-20260414.A01\tpcr_duplication_rate\t%5.1\t5.1\t<=20\tpass", lines)
+        self.assertIn("NC-20260414.A01\tfetal_fraction\t0.166\t0.166\t>=0.04\tpass", lines)
+        self.assertIn("NC-20260414.A02\tfetal_fraction\t\t\t>=0.04\tunknown", lines)
 
 
 def _write_nipt_template_root(root: Path) -> None:

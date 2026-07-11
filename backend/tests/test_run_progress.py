@@ -393,6 +393,48 @@ def test_nipt_progress_does_not_fall_below_persisted_event_progress(tmp_path, mo
     assert response.json()["percent"] == 85
 
 
+def test_terminal_success_progress_reports_completed_instead_of_last_rule(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = "NIPT_20260711_153000_COMPLETE"
+    workdir = tmp_path / "shared" / "runs" / analysis_id
+    (workdir / "config").mkdir(parents=True)
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="nipt_docker",
+                dag_id="bio_nipt_docker",
+                dag_run_id=f"manual__{analysis_id}",
+                mode="new",
+                status="success",
+                sample_sheet_path=str(workdir / "config" / "samples.selected.tsv"),
+                workdir=str(workdir),
+                params_json={"run_mode": "full_run"},
+            )
+        )
+        session.add(
+            SnakemakeRuleEvent(
+                analysis_id=analysis_id,
+                rule="all",
+                status="success",
+                snakemake_jobid="0",
+                updated_at=datetime(2026, 7, 11, 15, 36, 18, tzinfo=timezone.utc),
+            )
+        )
+        session.commit()
+    fake_airflow = FakeAirflowClient(
+        state="success",
+        tasks=[{"task_id": "collect_nipt_artifacts", "state": "success"}],
+    )
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared", fake_airflow)
+
+    response = TestClient(main.app).get(f"/api/runs/{analysis_id}/progress")
+
+    assert response.status_code == 200
+    assert response.json()["percent"] == 100
+    assert response.json()["current_step"] == "Workflow complete"
+
+
 def test_sync_airflow_imports_events_jsonl_idempotently(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_pgta_run(
