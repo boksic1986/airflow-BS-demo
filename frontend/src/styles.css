@@ -2453,6 +2453,25 @@ textarea {
   background: rgba(15, 23, 42, 0.36);
 }
 
+.nipt-full-run-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 12px;
+  border: 1px solid #d9b45b;
+  border-left: 4px solid var(--color-warning);
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #73510d;
+  padding: 11px 13px;
+  font-size: 13px;
+}
+
+.nipt-full-run-notice strong {
+  color: #5d430d;
+}
+
 .modal-panel {
   width: min(720px, 100%);
   max-height: calc(100vh - 40px);

@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from datetime import timedelta
 from pathlib import Path
 import sys
 
@@ -14,6 +15,7 @@ class BioNiptDockerDagTests(unittest.TestCase):
 
         self.assertEqual(dag.dag_id, "bio_nipt_docker")
         self.assertFalse(dag.is_paused_upon_creation)
+        self.assertEqual(dag.max_active_runs, 1)
         self.assertEqual(
             set(dag.task_ids),
             {"validate_request", "prepare_nipt_docker_run", "run_nipt_docker", "collect_nipt_artifacts"},
@@ -21,6 +23,8 @@ class BioNiptDockerDagTests(unittest.TestCase):
         self.assertEqual(dag.get_task("validate_request").downstream_task_ids, {"prepare_nipt_docker_run"})
         self.assertEqual(dag.get_task("prepare_nipt_docker_run").downstream_task_ids, {"run_nipt_docker"})
         self.assertEqual(dag.get_task("run_nipt_docker").downstream_task_ids, {"collect_nipt_artifacts"})
+        self.assertEqual(dag.get_task("run_nipt_docker").pool, "nipt_s9_full")
+        self.assertEqual(dag.get_task("run_nipt_docker").execution_timeout, timedelta(minutes=90))
 
     def test_collect_nipt_artifacts_callable_returns_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

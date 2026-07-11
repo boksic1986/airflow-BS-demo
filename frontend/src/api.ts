@@ -237,6 +237,7 @@ export type ReanalysisResponse = {
 
 export type RuleEvent = {
   rule: string;
+  phase?: string;
   sample_id?: string | null;
   status: string;
   snakemake_jobid?: string | null;
@@ -274,6 +275,10 @@ export type RunProgressResponse = {
   progress_source: "airflow_task_instances" | "snakemake_events" | "estimate" | string;
   airflow_tasks: AirflowTaskProgress[];
   rule_events: RuleEvent[];
+  current_phase?: string | null;
+  current_rule?: string | null;
+  current_sample?: string | null;
+  rule_counts?: {total: number; running: number; success: number; failed: number; terminal: number};
   updated_at?: string | null;
 };
 

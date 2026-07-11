@@ -1,5 +1,22 @@
 # 09 NIPT Docker Integration Spec
 
+## T113 approved full-analysis runtime
+
+- Default approved profile: `niptpro-s9-full-v1`.
+- Scheduling runtime: Python 3.12 and Snakemake 9.23.1 in `/opt/snakemake9`.
+- Rule tools: unchanged NIPTPro 1.0.11 `/opt/conda` environment.
+- Resources: 40 cores, one Airflow pool slot, 90-minute timeout, expected
+  operator estimate 25-35 minutes and memory ceiling 60 GiB.
+- Inputs: selected top-level paired `*.clean.fastq.gz` files mounted read-only.
+- Outputs: run-local workdir only; no source FASTQ or production bundle writes.
+- Automatic NIPT intake: disabled. Full analysis is manually scanned,
+  reviewed, confirmed, and submitted.
+
+The 72-sample engineering acceptance run completed 591 Snakemake jobs in about
+24.8 minutes with observed peak memory 44.61 GiB. Key summaries, mapping QC,
+model predictions, and chr21 outputs were byte-identical to the S7 baseline.
+This validates engineering consistency only, not clinical performance.
+
 ## T111 NIPT editable config boundary
 
 The initial NIPT profile exposes `sexcutoff`, random seed, mapping/AneuScreen
@@ -15,7 +32,9 @@ profile image is unavailable before the prepare or runner stage starts.
 The prepare stage reads the NIPT base config from the profile-selected pipeline
 root, so config and mounted pipeline versions cannot drift apart.
 The frontend never displays `nipt_docker_compose.yml`, although the backend
-keeps it as an audit artifact. `NIPT_ALLOW_HEAVY_RUN=false` remains authoritative.
+keeps it as an audit artifact. `NIPT_ALLOW_HEAVY_RUN` remains authoritative:
+the repository/env-example safety default is `false`; the T113 `fengxian`
+deployment is explicitly `true` only after full engineering acceptance.
 
 ## 1. Scope
 
@@ -28,7 +47,8 @@ Current v1 scope:
 - Input mode: `nipt_docker_scan`.
 - Scan root: `NIPT_INPUT_SCAN_ROOTS`, default container path `/opt/pipelines/NIPT/fastq`.
 - Accepted FASTQ flavor: top-level `*.clean.fastq.gz` R1/R2 pairs in one chip folder.
-- Default runtime: `run_mode=mount_smoke`.
+- Default runtime after T113 acceptance: `run_mode=full_run`; `mount_smoke` is
+  retained as a hidden engineering validation mode.
 - Heavy runtime: `run_mode=full_run`, guarded by `NIPT_ALLOW_HEAVY_RUN=true`.
 - Airflow DAG: `bio_nipt_docker`.
 - Auto intake DAG: `bio_intake_scan`, paused on creation until bootstrap is complete.
@@ -41,7 +61,7 @@ Out of scope:
 - WGS.
 - Mail notification.
 - Nested `002/*.adapter.fastq.gz` input.
-- Re-running a full 40-core production NIPT batch during default acceptance.
+- NIPT automatic intake or unsupervised full-batch submission.
 
 Historical `template_id=run1|run2` runs remain readable and runnable for
 compatibility tests, but the Submit Task UI and new API examples no longer
@@ -134,6 +154,11 @@ NIPT_ALLOW_HEAVY_RUN=false
 DOCKER_SOCKET_GID=114
 BACKEND_BASE_URL=http://backend:8000
 ```
+
+The block above is the safe fallback/env-example contract. For profile-aware
+T113 submissions, `niptpro-s9-full-v1` selects the derivative image internally;
+the validated live deployment overrides only `NIPT_ALLOW_HEAVY_RUN=true`.
+Arbitrary request-supplied image values remain prohibited.
 
 Only `airflow-worker` mounts the Docker socket:
 

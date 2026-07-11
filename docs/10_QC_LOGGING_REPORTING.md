@@ -1,5 +1,19 @@
 # 10 QC、日志和报告设计
 
+## T113 NIPT QC and rule logs
+
+The accepted 72-sample S9 run imports 504 structured metrics: read count, Q30,
+unique mapping rate, PCR duplication rate, chrY percentage, gender, and fetal
+ratio. Metric status is independent from workflow status.
+
+Workflow attempts append to `logs/snakemake.stdout.log` and
+`logs/snakemake.stderr.log`. Logger events point to run-relative rule logs such
+as `log/<sample>.map.log`; the backend resolves them under the approved run
+workdir and exposes them through the existing log index/key API. Rule-event
+pages include operator phase, status, rule, sample, job ID, message, and return
+code. Terminal sync imports JSONL idempotently and must leave no false running
+events.
+
 ## 1. QC 总体原则
 
 - QC 指标既要有 HTML 报告，也要有结构化表格。

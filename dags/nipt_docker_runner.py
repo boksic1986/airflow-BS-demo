@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 import os
 import shlex
+import subprocess
+import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+import urllib.request
 
 import yaml
 
@@ -30,6 +34,153 @@ DEFAULT_DOCKER_NETWORK = os.getenv("NIPT_DOCKER_NETWORK", "nipt_analysis_test_ne
 DEFAULT_OWNER = os.getenv("NIPT_DOCKER_OWNER", "6708:520")
 SUPPORTED_TEMPLATES = {"run1", "run2"}
 SUPPORTED_RUN_MODES = {"mount_smoke", "full_run"}
+LOGGER = logging.getLogger(__name__)
+
+NIPT_RULE_PHASES = {
+    "mapper_v2_manager_ready": "Input QC",
+    "fastq_count": "Input QC",
+    "map": "Mapping",
+    "convert": "CNV",
+    "predict": "CNV",
+    "bgzip_bin": "CNV",
+    "bgzip_seg": "CNV",
+    "plot_cnv": "CNV",
+    "gccorrect": "Aneuploidy",
+    "gccorrect_bgzip": "Aneuploidy",
+    "mv_gccorrect_png": "Aneuploidy",
+    "aneuploidy_calling_batch": "Aneuploidy",
+    "aneuploidy_calling_dynamicref": "Aneuploidy",
+    "aneuscreen_direct_ready": "T21 classifier",
+    "aneuscreen_loading": "T21 classifier",
+    "aneuscreen_predict": "T21 classifier",
+    "aneuscreen_loading_correct_matcnv": "T21 classifier",
+    "aneuscreen_predict_correct_matcnv": "T21 classifier",
+    "cal_fetal_ratio": "Fetal fraction",
+    "mapping_qc": "Final QC",
+    "pngquant": "Final QC",
+    "bgzip_blk": "Final QC",
+    "all": "Final QC",
+}
+
+
+class NiptJsonlEventForwarder:
+    def __init__(
+        self,
+        *,
+        events_path: Path,
+        backend_event_url: str | None,
+        service_token: str | None = None,
+        post_event: Callable[[str, dict[str, Any], str | None], None] | None = None,
+        log_event: Callable[[str], None] | None = None,
+        start_at_end: bool = False,
+    ) -> None:
+        self.events_path = events_path
+        self.backend_event_url = str(backend_event_url or "").strip()
+        self.service_token = service_token
+        self.post_event = post_event or _post_backend_event
+        self.log_event = log_event or LOGGER.info
+        self.offset = events_path.stat().st_size if start_at_end and events_path.exists() else 0
+
+    def poll(self) -> int:
+        if not self.events_path.is_file():
+            return 0
+        if self.events_path.stat().st_size < self.offset:
+            self.offset = 0
+        forwarded = 0
+        with self.events_path.open("r", encoding="utf-8", errors="replace") as handle:
+            handle.seek(self.offset)
+            while True:
+                start = handle.tell()
+                line = handle.readline()
+                if not line:
+                    break
+                if not line.endswith("\n"):
+                    handle.seek(start)
+                    break
+                self.offset = handle.tell()
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(payload, dict) or not payload.get("rule") or not payload.get("status"):
+                    continue
+                phase = nipt_phase_for_rule(str(payload["rule"]))
+                sample = str(payload.get("sample_id") or "project")
+                self.log_event(f"{phase} / {payload['rule']} / {sample} / {payload['status']}")
+                if self.backend_event_url:
+                    try:
+                        self.post_event(self.backend_event_url, payload, self.service_token)
+                    except Exception as exc:  # noqa: BLE001 - observability must not fail analysis.
+                        LOGGER.warning("NIPT event forward failed for rule=%s: %s", payload.get("rule"), exc)
+                forwarded += 1
+        return forwarded
+
+
+def nipt_phase_for_rule(rule: str) -> str:
+    return NIPT_RULE_PHASES.get(rule, "NIPT workflow")
+
+
+def _post_backend_event(url: str, payload: dict[str, Any], service_token: str | None) -> None:
+    headers = {"Content-Type": "application/json"}
+    if service_token:
+        headers["X-Airflow-Demo-Token"] = service_token
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=5) as response:
+        response.read()
+
+
+def run_command_with_event_forwarding(
+    command: list[str],
+    *,
+    cwd: Path,
+    stdout_path: Path,
+    stderr_path: Path,
+    events_path: Path,
+    backend_event_url: str | None,
+    env: dict[str, str],
+    poll_seconds: float = 0.5,
+) -> dict[str, str | int]:
+    stdout_path.parent.mkdir(parents=True, exist_ok=True)
+    stderr_path.parent.mkdir(parents=True, exist_ok=True)
+    forwarder = NiptJsonlEventForwarder(
+        events_path=events_path,
+        backend_event_url=backend_event_url,
+        service_token=os.getenv("INTERNAL_SERVICE_TOKEN", "").strip() or None,
+        start_at_end=True,
+    )
+    forwarded = 0
+    attempt_marker = f"\n=== NIPT workflow attempt {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} ===\n"
+    with stdout_path.open("a", encoding="utf-8") as stdout, stderr_path.open("a", encoding="utf-8") as stderr:
+        stdout.write(attempt_marker)
+        stderr.write(attempt_marker)
+        stdout.flush()
+        stderr.flush()
+        process = subprocess.Popen(
+            command,
+            cwd=str(cwd),
+            text=True,
+            stdout=stdout,
+            stderr=stderr,
+            env=env,
+        )
+        while process.poll() is None:
+            forwarded += forwarder.poll()
+            time.sleep(poll_seconds)
+        forwarded += forwarder.poll()
+        return_code = int(process.returncode or 0)
+    if return_code != 0:
+        raise RuntimeError(f"Command failed with exit code {return_code}. See {stderr_path}")
+    return {
+        "return_code": return_code,
+        "stdout_path": str(stdout_path),
+        "stderr_path": str(stderr_path),
+        "forwarded_events": forwarded,
+    }
 
 
 def validate_nipt_conf(
@@ -234,17 +385,21 @@ def generate_nipt_compose(
             ]
         ),
     ]
+    container_workdir = f"/workdir/analysis/NIPTPro/{chip_name}"
+    container_events_path = f"{container_workdir}/logs/events/snakemake_events.jsonl"
     full_run_command = [
-        "/code/NIPTPro_pipeline/niptplus/scripts/run_niptplus_docker_entrypoint.sh",
+        "/opt/airflow-demo/bin/run_nipt_s9.sh",
         container_config_path,
-        f"/workdir/analysis/NIPTPro/{chip_name}",
+        container_workdir,
         str(cores),
         owner,
+        analysis_id,
+        container_events_path,
     ]
     command = mount_smoke_command if run_mode == "mount_smoke" else full_run_command
     volumes = [
         f"{host_nipt_pipeline_root / 'niptplus'}:/code/NIPTPro_pipeline/niptplus:ro",
-        f"{host_nipt_pipeline_root / 'locale'}:/locale:ro",
+        f"{host_nipt_pipeline_root / 'locale'}:/code/locale:ro",
         f"{host_nipt_pipeline_root / 'refdir'}:/refdir:ro",
         f"{host_workdir}:/workdir/analysis/NIPTPro/{chip_name}",
         "/var/run/docker.sock:/var/run/docker.sock",
@@ -271,6 +426,7 @@ def generate_nipt_compose(
                     "NIPTPRO_FETAL_RATIO_DOCKER_IMAGE": fetal_image,
                     "AIRFLOW_DEMO_ANALYSIS_ID": analysis_id,
                     "AIRFLOW_DEMO_RUN_MODE": run_mode,
+                    "PYTHONUNBUFFERED": "1",
                 },
                 "volumes": volumes,
                 "entrypoint": "/bin/bash",
@@ -293,6 +449,7 @@ def run_nipt_docker(conf: dict[str, Any]) -> dict[str, str | int]:
     stdout_path = logs_dir / "snakemake.stdout.log"
     stderr_path = logs_dir / "snakemake.stderr.log"
     command = _docker_run_command(compose_path)
+    events_path = workdir / "logs" / "events" / "snakemake_events.jsonl"
     (logs_dir / "nipt_docker.command.txt").write_text(shlex.join(command) + "\n", encoding="utf-8")
     emit_progress_event(
         analysis_id=analysis_id,
@@ -306,39 +463,54 @@ def run_nipt_docker(conf: dict[str, Any]) -> dict[str, str | int]:
         message=f"NIPT Docker {run_mode} started.",
     )
     try:
-        result = run_command_to_logs(
-            command,
-            cwd=workdir,
-            stdout_path=stdout_path,
-            stderr_path=stderr_path,
-            env=os.environ.copy(),
-        )
+        if run_mode == "full_run":
+            result = run_command_with_event_forwarding(
+                command,
+                cwd=workdir,
+                stdout_path=stdout_path,
+                stderr_path=stderr_path,
+                events_path=events_path,
+                backend_event_url=str(backend_event_url) if backend_event_url else None,
+                env=os.environ.copy(),
+            )
+        else:
+            result = run_command_to_logs(
+                command,
+                cwd=workdir,
+                stdout_path=stdout_path,
+                stderr_path=stderr_path,
+                env=os.environ.copy(),
+            )
         if run_mode == "mount_smoke":
             _write_mount_smoke_qc(conf)
         else:
-            parse_snakemake_output_for_events(
+            if int(result.get("forwarded_events") or 0) == 0:
+                parse_snakemake_output_for_events(
+                    analysis_id=analysis_id,
+                    workdir=workdir,
+                    backend_event_url=str(backend_event_url) if backend_event_url else None,
+                    stdout_text=stdout_path.read_text(encoding="utf-8", errors="replace") if stdout_path.exists() else "",
+                    stderr_text=stderr_path.read_text(encoding="utf-8", errors="replace") if stderr_path.exists() else "",
+                    stdout_path=stdout_path,
+                    stderr_path=stderr_path,
+                )
+            write_nipt_qc_summary_from_outputs(workdir)
+    except Exception as exc:
+        try:
+            emit_progress_event(
                 analysis_id=analysis_id,
                 workdir=workdir,
                 backend_event_url=str(backend_event_url) if backend_event_url else None,
-                stdout_text=stdout_path.read_text(encoding="utf-8", errors="replace") if stdout_path.exists() else "",
-                stderr_text=stderr_path.read_text(encoding="utf-8", errors="replace") if stderr_path.exists() else "",
+                event="pipeline_step_failed",
+                rule=event_rule,
+                status="failed",
                 stdout_path=stdout_path,
                 stderr_path=stderr_path,
+                message=str(exc),
+                return_code=1,
             )
-            write_nipt_qc_summary_from_outputs(workdir)
-    except Exception as exc:
-        emit_progress_event(
-            analysis_id=analysis_id,
-            workdir=workdir,
-            backend_event_url=str(backend_event_url) if backend_event_url else None,
-            event="pipeline_step_failed",
-            rule=event_rule,
-            status="failed",
-            stdout_path=stdout_path,
-            stderr_path=stderr_path,
-            message=str(exc),
-            return_code=1,
-        )
+        except Exception:  # noqa: BLE001 - diagnostics must not mask the workflow failure.
+            LOGGER.exception("Unable to record the NIPT failure event for %s", analysis_id)
         raise
     emit_progress_event(
         analysis_id=analysis_id,
@@ -502,7 +674,10 @@ def _write_chip_samplesheet(manifest_path: Path, chip_samplesheet_path: Path) ->
             comment = str(row.get("comment") or "NIPT").strip() or "NIPT"
             if library and index:
                 rows.append([library, index, comment])
-    chip_samplesheet_path.write_text("\n".join(",".join(cell for cell in row) for row in rows) + "\n", encoding="utf-8")
+    content = "\n".join(",".join(cell for cell in row) for row in rows) + "\n"
+    if chip_samplesheet_path.is_file() and chip_samplesheet_path.read_text(encoding="utf-8") == content:
+        return
+    chip_samplesheet_path.write_text(content, encoding="utf-8")
 
 
 def _nipt_run_config(

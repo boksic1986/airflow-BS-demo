@@ -1,5 +1,19 @@
 # 06 前端设计
 
+## T113 NIPT full-analysis operator view
+
+- NIPT Docker Submit defaults to `Full analysis` after engineering acceptance.
+  Before create/submit, the operator must confirm the displayed 40-core,
+  up-to-60-GiB, 25-35-minute estimate. `mount_smoke` remains a hidden
+  validation path and NIPT automatic intake remains off.
+- Run Detail keeps Airflow's four project tasks as the orchestration lane and
+  groups Snakemake jobs into Input QC, Mapping, CNV, T21 classifier,
+  Aneuploidy, Fetal fraction, and Final QC.
+- Active and failed rule/sample jobs sort first. The job matrix renders 50 rows
+  per page and supports hundreds of events without creating a DAG-node wall.
+- Logs offer indexed workflow and rule sources. Failed stderr is preferred;
+  otherwise the current rule log is preferred when available.
+
 ## T111 Submit Snakemake config workspace
 
 - Submit Run exposes an approved `Runtime profile` selector for PGT-A and NIPT
@@ -541,7 +555,9 @@ T103 supersedes the template-run UI. The NIPT Docker form now uses server-path s
 - `rawdata_root` from `GET /api/input/roots?pipeline=nipt_docker`.
 - `selected_samples` from `POST /api/input/scan`; `template_id` is no longer sent by new UI submissions.
 - Folder-level checkbox selects all samples in one NIPT chip; expanded rows show sample id and FASTQ file names.
-- `run_mode`: `mount_smoke` by default; `full_run` is visible but guarded by backend `NIPT_ALLOW_HEAVY_RUN=false` unless explicitly enabled for a heavy run.
+- Historical T101 behavior defaulted to `mount_smoke`. T113 supersedes this:
+  the deployed UI defaults to confirmed `full_run`, while the backend still
+  rejects it whenever `NIPT_ALLOW_HEAVY_RUN` is false.
 - `cores`: integer, default 40, max 40.
 - `project_name` and `note` are sent in `params`.
 - The primary action remains `Create and submit to Airflow`, calling `POST /api/runs`, then `POST /api/runs/{analysis_id}/actions/submit`, then `sync-airflow`.

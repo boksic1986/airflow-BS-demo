@@ -301,6 +301,44 @@ def test_pgta_log_index_exposes_safe_stage_and_rule_logs(tmp_path, monkeypatch) 
     assert tailed.json()["lines"] == ["predict complete"]
 
 
+def test_nipt_log_index_resolves_relative_rule_paths_inside_run_workdir(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_submitted_run(session_factory, tmp_path, analysis_id="NIPT_S9_LOG_TEST")
+    workdir = tmp_path / "shared" / "runs" / analysis_id
+    rule_log = workdir / "log" / "NIPT001.A01.map.log"
+    rule_log.parent.mkdir(parents=True, exist_ok=True)
+    rule_log.write_text("mapping started\nmapping complete\n", encoding="utf-8")
+    with session_factory() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        assert run is not None
+        run.pipeline_name = "nipt_docker"
+        session.add(
+            SnakemakeRuleEvent(
+                analysis_id=analysis_id,
+                rule="map",
+                sample_id="NIPT001.A01",
+                snakemake_jobid="21",
+                status="success",
+                stdout_path="log/NIPT001.A01.map.log",
+            )
+        )
+        session.commit()
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared")
+    client = TestClient(main.app)
+
+    index = client.get(f"/api/runs/{analysis_id}/logs/index")
+
+    assert index.status_code == 200
+    rule_item = next(item for item in index.json()["items"] if item.get("rule") == "map")
+    assert rule_item["sample_id"] == "NIPT001.A01"
+    assert rule_item["relative_path"] == "log/NIPT001.A01.map.log"
+    assert rule_item["label"] == "map - NIPT001.A01 - stdout"
+
+    tailed = client.get(f"/api/runs/{analysis_id}/logs?key={rule_item['key']}&tail=1")
+    assert tailed.status_code == 200
+    assert tailed.json()["lines"] == ["mapping complete"]
+
+
 def test_get_run_log_returns_404_for_missing_file(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_submitted_run(session_factory, tmp_path)

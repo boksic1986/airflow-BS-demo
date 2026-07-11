@@ -1,5 +1,58 @@
 # HANDOFF.md
 
+## 2026-07-11 T113 NIPT Snakemake 9 full analysis complete
+
+- Goal: preserve the approved NIPTPro 1.0.11 analysis tools while moving only
+  Snakemake scheduling to 9.23.1 and exposing live rule/sample state.
+- Branch/worktree: `codex/nipt/T113-nipt-s9-full-run` in
+  `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`, based on
+  T112 commit `14853ee`.
+- Image: `airflow-demo/niptpro:1.0.11-snakemake9.23.1-v1`, image ID
+  `sha256:71df36b7f8080762f2db771e13e4daa7f4a666b3e1efc19c3bf12add22187254`.
+  `/opt/snakemake9` contains Python 3.12/Snakemake 9.23.1; the original
+  `/opt/conda` Snakemake 7.32.4 analysis toolchain is unchanged.
+- Full validation: `NIPT_20260711_111140_63C5A6` completed the 72-sample,
+  591-job workflow in about 24.8 minutes. The final database contains 592
+  successful terminal events including the parent workflow event, with no
+  residual running or failed jobs.
+- S7 comparison: samplesheet, mapping QC, model prediction, chr21 outputs, and
+  four summary CSVs are byte-identical. Observed peak memory was 44.61 GiB;
+  source FASTQ and NIPT bundle stat manifests did not change.
+- A post-compute permission failure exposed control-directory ownership and
+  samplesheet idempotence defects. Both were fixed; exact Airflow task clear
+  resumed the existing workdir and Snakemake reused completed outputs instead
+  of recomputing the batch.
+- Observability: `/progress` returns current phase/rule/sample and rule counts;
+  `/rules` supports filters/pagination and phase summaries; relative rule logs
+  are safely indexed beneath the run workdir; resume attempts append rather
+  than overwrite workflow logs.
+- Runtime: `bio_nipt_docker` remains a four-task project DAG, with
+  `max_active_runs=1`, pool `nipt_s9_full=1`, and a 90-minute execution timeout.
+  Manual Submit defaults to Full analysis with a 40-core/60-GiB confirmation.
+  NIPT automatic intake remains disabled.
+- Final regression: backend `117 passed`; Airflow/DAG runner `87 passed` with
+  5 expected logger-interface skips; frontend `26 passed`; production frontend
+  build, Compose config, Airflow import check, backend/Airflow health, and
+  frontend HTTP 200 all passed after redeployment.
+- Snakemake 9 dry-run expanded the selected 72-sample batch to 591 jobs and
+  passed. `--lint` reported only pre-existing style warnings in the read-only
+  NIPT workflow (for example missing per-rule log directives); it reported no
+  parse or Snakemake 9 migration error.
+- Runtime API spot-check: the full run is `success`, progress is 100%, all 592
+  events are terminal success, QC exposes 504 metrics, the log index exposes
+  227 workflow/rule sources, and a historical PGT-A detail remains `success`.
+- The local in-app browser could not route to the private `fengxian` host, so a
+  new live visual screenshot was not used as acceptance evidence. Dockerized
+  frontend tests, production build, remote HTTP 200, and API spot-checks passed.
+- Rollback artifact:
+  `/home/jiucheng/pipelines/NIPT/images/niptpro-1.0.11-s9-v1/` contains image
+  inspect/checksum files, both runtime package inventories, a version summary,
+  and a 1.9-GiB OCI gzip archive with SHA256.
+- Safety: this is engineering consistency validation, not clinical validation.
+  Roll back by setting `NIPT_ALLOW_HEAVY_RUN=false`, selecting hidden profile
+  `niptpro-1.0.11`, and recreating backend/worker/frontend without deleting
+  volumes, run workdirs, source FASTQ, or historical records.
+
 ## 2026-07-11 T112 PGT-A Snakemake 9 predict and manifest intake complete
 
 - Goal: deploy a separate PGT-A S9 predict workflow, expose rule-level status,

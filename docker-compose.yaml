@@ -231,6 +231,7 @@ services:
         set -euo pipefail
         airflow db migrate
         airflow pools set pgta_s9_full 1 "Serial PGT-A Snakemake 9 full prediction runs"
+        airflow pools set nipt_s9_full 1 "Serial NIPT Snakemake 9 full analysis runs"
         if airflow users list | grep -F "$${AIRFLOW_ADMIN_USERNAME}" >/dev/null; then
           echo "Airflow admin user already exists: $${AIRFLOW_ADMIN_USERNAME}"
         else

@@ -1,5 +1,31 @@
 # 11 部署 Runbook
 
+## T113 NIPT Snakemake 9 rollout and rollback
+
+1. Verify the local base image ID equals
+   `sha256:1cd289afbd0c48564a530b1a56dd608dc2803b63ed6a4a4c0ca313ef84380b26`.
+2. Run `bash scripts/build_nipt_s9_image.sh`. The script builds the derivative,
+   verifies both S9 and original S7 versions, and writes image provenance.
+3. Optionally set `NIPT_S9_ARCHIVE=true` to write the gzip OCI archive and
+   SHA256 under `/home/jiucheng/pipelines/NIPT/images/niptpro-1.0.11-s9-v1`.
+   Every build also records `software-versions.txt`, the S9 micromamba package
+   inventory, the original analysis Python package inventory, and checksums.
+   `NIPT_S9_SKIP_BUILD=true` may refresh provenance only for an already loaded,
+   explicitly verified image; it must not be used to approve an unvalidated tag.
+4. Keep `NIPT_ALLOW_HEAVY_RUN=false` through lint, dry-run, logger, mount-smoke,
+   and baseline comparison preparation.
+5. Run one approved full batch with source and bundle before/after manifests,
+   resource sampling, all-job terminal-event audit, QC import, and S7 output
+   comparison.
+6. Only after all acceptance gates pass, set the deployment `.env`
+   `NIPT_ALLOW_HEAVY_RUN=true` and recreate backend and Airflow worker. Keep
+   NIPT `auto_submit.enabled=false`.
+
+Rollback: set the heavy gate false, choose hidden approved profile
+`niptpro-1.0.11`, and recreate backend/worker/frontend. Do not remove the S9
+validation run, Docker volumes, source FASTQ, or NIPT bundle. The OCI archive
+and checksum restore the validated derivative without a registry pull.
+
 ## T111 pipeline profile deployment
 
 `config/pipeline_profiles.yaml` is mounted read-only at

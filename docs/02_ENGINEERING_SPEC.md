@@ -1,5 +1,24 @@
 # 02 工程规范
 
+## T113 NIPT dual-runtime image
+
+NIPT full analysis uses
+`airflow-demo/niptpro:1.0.11-snakemake9.23.1-v1`. The derivative is built only
+from the locally verified base image ID and adds `/opt/snakemake9` with Python
+3.12, Snakemake 9.23.1, pandas 2.3.3, docker-py 7.1, logger interface 2.1.0,
+and the `airflow-demo` logger plugin. Existing rule commands continue to use
+the untouched `/opt/conda` NIPTPro toolchain. The image does not replace the
+original S7 tag or modify the mounted production NIPT bundle.
+
+Release provenance includes image inspect JSON, a concise version summary,
+the `/opt/snakemake9` micromamba package inventory, the original `/opt/conda`
+Python package inventory, and SHA256 files. The validated tag also has an
+offline gzip OCI archive for registry-independent rollback.
+
+Airflow uses CeleryExecutor for project tasks. `bio_nipt_docker` occupies one
+`nipt_s9_full` pool slot while Snakemake schedules rule/sample jobs inside the
+Docker execution task.
+
 ## 1. 仓库结构
 
 ```text

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun
 from app.rule_event_service import list_snakemake_rule_events
+from app.workflow_phases import current_rule_event, phase_for_rule, rule_counts
 
 
 TASK_WEIGHTS: dict[str, dict[str, int]] = {
@@ -97,7 +98,7 @@ def _created_or_unsubmitted_payload(*, run: AnalysisRun, rule_events: list[dict[
         current_step = _active_or_failed_rule(rule_events) or "Unknown"
         note = "Progress estimate"
         not_in_airflow = False
-    return {
+    payload = {
         **_base_payload(run),
         "percent": percent,
         "current_step": current_step,
@@ -108,6 +109,8 @@ def _created_or_unsubmitted_payload(*, run: AnalysisRun, rule_events: list[dict[
         "airflow_tasks": [],
         "rule_events": rule_events,
     }
+    payload.update(_rule_observability(rule_events, prefer_failed=_is_failed(status)))
+    return payload
 
 
 def _progress_from_tasks(
@@ -135,7 +138,7 @@ def _progress_from_tasks(
         if rule_step:
             current_step = rule_step
             current_source = "snakemake_events"
-        percent = _blend_rule_progress(status=status, rule_events=rule_events)
+        percent = _blend_rule_progress(run=run, status=status, rule_events=rule_events)
         note = f"Airflow task {task_id}; pipeline rule events captured"
         progress_source = "snakemake_events"
 
@@ -156,7 +159,7 @@ def _progress_from_tasks(
             note = "Pipeline rule failed"
             progress_source = "snakemake_events"
 
-    return {
+    payload = {
         **_base_payload(run),
         "percent": max(0, min(100, percent)),
         "current_step": current_step,
@@ -164,6 +167,19 @@ def _progress_from_tasks(
         "note": note,
         "not_in_airflow": False,
         "progress_source": progress_source,
+    }
+    payload.update(_rule_observability(rule_events, prefer_failed=_is_failed(status)))
+    return payload
+
+
+def _rule_observability(rule_events: list[dict[str, Any]], *, prefer_failed: bool) -> dict[str, Any]:
+    current = current_rule_event(rule_events, prefer_failed=prefer_failed)
+    rule = str((current or {}).get("rule") or "") or None
+    return {
+        "current_phase": phase_for_rule(rule) if rule else None,
+        "current_rule": rule,
+        "current_sample": (current or {}).get("sample_id"),
+        "rule_counts": rule_counts(rule_events),
     }
 
 
@@ -232,16 +248,33 @@ def _previous_weight(task_id: str, weights: dict[str, int]) -> int:
     return max(lower) if lower else min(current, 5)
 
 
-def _blend_rule_progress(*, status: str, rule_events: list[dict[str, Any]]) -> int:
+def _blend_rule_progress(*, run: AnalysisRun, status: str, rule_events: list[dict[str, Any]]) -> int:
     if status == "success":
         return 100
     if not rule_events:
         return 15
-    terminal = sum(1 for item in rule_events if _status(item.get("status")) in TERMINAL_RULE_STATUSES)
-    percent = 15 + int((terminal / len(rule_events)) * 75)
+    terminal_events = [item for item in rule_events if _status(item.get("status")) in TERMINAL_RULE_STATUSES]
+    expected = _expected_nipt_rule_count(run)
+    if expected is not None:
+        terminal = sum(str(item.get("rule") or "") != "nipt_full_run" for item in terminal_events)
+        percent = 15 + int((min(terminal, expected) / expected) * 75)
+    else:
+        percent = 15 + int((len(terminal_events) / len(rule_events)) * 75)
+    percent = max(int(run.progress_percent or 0), percent)
     if _is_failed(status):
         return max(15, min(95, percent))
     return max(15, min(90, percent))
+
+
+def _expected_nipt_rule_count(run: AnalysisRun) -> int | None:
+    params = dict(run.params_json or {})
+    if run.pipeline_name != "nipt_docker" or str(params.get("run_mode") or "") != "full_run":
+        return None
+    try:
+        selected_count = int(params.get("selected_count") or 0)
+    except (TypeError, ValueError):
+        return None
+    return selected_count * 8 + 15 if selected_count > 0 else None
 
 
 def _rule_percent(rule_events: list[dict[str, Any]], *, default: int) -> int:

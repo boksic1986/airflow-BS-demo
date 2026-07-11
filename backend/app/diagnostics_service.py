@@ -364,7 +364,11 @@ def list_run_logs(*, session: Session, analysis_id: str, settings) -> dict[str, 
             if not raw_path:
                 continue
             try:
-                path = _safe_child_path(workdir, Path(raw_path).resolve().relative_to(workdir), settings)
+                candidate = Path(raw_path)
+                if not candidate.is_absolute():
+                    candidate = workdir / candidate
+                relative_path = candidate.resolve().relative_to(workdir.resolve())
+                path = _safe_child_path(workdir, relative_path, settings)
             except (ValueError, InvalidRunPathError):
                 continue
             if not path.is_file():
@@ -372,7 +376,7 @@ def list_run_logs(*, session: Session, analysis_id: str, settings) -> dict[str, 
             item = _log_index_item(
                 path=path,
                 workdir=workdir,
-                label=f"{event.rule} · {event.sample_id or 'project'} · {stream}",
+                label=f"{event.rule} - {event.sample_id or 'project'} - {stream}",
                 stream=stream,
                 rule=event.rule,
                 sample_id=event.sample_id,

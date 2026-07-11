@@ -1,15 +1,28 @@
-import type {AirflowTaskProgress, RuleEvent, RunProgressResponse} from "../../api";
+import {useEffect, useMemo, useState} from "react";
 
+import type {AirflowTaskProgress, RuleEvent, RunProgressResponse} from "../../api";
 import {StatusBadge} from "../../components/StatusBadge";
 import {formatDate} from "../../lib/format";
+import {sortRuleJobs, summarizeRulePhases} from "../../lib/niptPhases";
 import {humanStageLabel, stageDebugLabel} from "../../lib/stageLabels";
 import {normalizeStatus} from "../../lib/status";
 
+const rulePageSize = 50;
+
 export function RunWorkflowTab({progress, rules}: {progress: RunProgressResponse | null; rules: RuleEvent[]}) {
+  const [page, setPage] = useState(0);
   const airflowTasks = progress?.airflow_tasks || [];
+  const phases = useMemo(() => summarizeRulePhases(rules), [rules]);
+  const sortedRules = useMemo(() => sortRuleJobs(rules), [rules]);
+  const pageCount = Math.max(1, Math.ceil(sortedRules.length / rulePageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const visibleRules = sortedRules.slice(safePage * rulePageSize, (safePage + 1) * rulePageSize);
+
+  useEffect(() => setPage(0), [rules]);
+
   return (
     <div className="workflow-tab-stack">
-      <LayeredWorkflowTimeline airflowTasks={airflowTasks} rules={rules} />
+      <LayeredWorkflowTimeline airflowTasks={airflowTasks} phases={phases} />
       <section>
         <div className="section-heading"><h2>Airflow tasks</h2><p>Project-level orchestration stages</p></div>
         <div className="table-wrap">
@@ -28,33 +41,56 @@ export function RunWorkflowTab({progress, rules}: {progress: RunProgressResponse
           </table>
         </div>
       </section>
+      <div className="section-heading">
+        <h2>Pipeline steps</h2>
+        <p>Snakemake rule and sample events reported by the approved runtime logger</p>
+      </div>
       <section>
-        <div className="section-heading"><h2>Pipeline steps</h2><p>Snakemake or runner events</p></div>
+        <div className="section-heading"><h3>Pipeline phase summary</h3><p>Grouped Snakemake jobs across the selected NIPT batch</p></div>
         <div className="table-wrap">
-          <table className="data-table">
-            <thead><tr><th>rule</th><th>sample</th><th>status</th><th>snakemake jobid</th><th>qsub jobid</th><th>return</th><th>message</th></tr></thead>
+          <table className="data-table" aria-label="Pipeline phase summary">
+            <thead><tr><th>phase</th><th>status</th><th>jobs</th><th>running</th><th>success</th><th>failed</th></tr></thead>
             <tbody>
-              {rules.map((rule) => (
-                <tr key={`${rule.rule}-${rule.sample_id || "project"}-${rule.snakemake_jobid || "none"}`}>
-                  <td><strong>{humanStageLabel(rule.rule)}</strong>{stageDebugLabel(rule.rule) ? <span className="muted block" title="Raw pipeline step ID">{rule.rule}</span> : null}</td>
-                  <td>{rule.sample_id || "project"}</td><td><StatusBadge status={rule.status} /></td><td>{rule.snakemake_jobid || "not set"}</td><td>{rule.qsub_jobid || "not set"}</td><td>{rule.return_code ?? "not set"}</td><td>{rule.message || "not set"}</td>
-                </tr>
-              ))}
-              {rules.length === 0 ? <tr><td className="empty-cell" colSpan={7}>No rule events captured. Airflow task progress is still available above.</td></tr> : null}
+              {phases.map((phase) => <tr key={phase.phase}><td><strong>{phase.phase}</strong></td><td><StatusBadge status={phase.status} /></td><td>{phase.total}</td><td>{phase.running}</td><td>{phase.success}</td><td>{phase.failed}</td></tr>)}
+              {phases.length === 0 ? <tr><td className="empty-cell" colSpan={6}>No rule events captured. Airflow task progress is still available above.</td></tr> : null}
             </tbody>
           </table>
+        </div>
+      </section>
+      <section>
+        <div className="section-heading"><h2>Pipeline rule jobs</h2><p>Active and failed jobs appear first</p></div>
+        <div className="table-wrap">
+          <table className="data-table" aria-label="Pipeline rule jobs">
+            <thead><tr><th>rule</th><th>phase</th><th>sample</th><th>status</th><th>jobid</th><th>return</th><th>message</th></tr></thead>
+            <tbody>
+              {visibleRules.map((rule) => (
+                <tr key={`${rule.rule}-${rule.sample_id || "project"}-${rule.snakemake_jobid || "none"}`}>
+                  <td><strong>{humanStageLabel(rule.rule)}</strong>{stageDebugLabel(rule.rule) ? <span className="muted block" title="Raw pipeline step ID">{rule.rule}</span> : null}</td>
+                  <td>{rule.phase || summarizeRulePhases([rule])[0]?.phase || "Pipeline"}</td><td>{rule.sample_id || "project"}</td><td><StatusBadge status={rule.status} /></td><td>{rule.snakemake_jobid || "not set"}</td><td>{rule.return_code ?? "not set"}</td><td>{rule.message || "not set"}</td>
+                </tr>
+              ))}
+              {visibleRules.length === 0 ? <tr><td className="empty-cell" colSpan={7}>No pipeline rule jobs captured.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+        <div className="pagination-row">
+          <span>{sortedRules.length} rule jobs / page {safePage + 1} / {pageCount}</span>
+          <div>
+            <button className="button ghost" type="button" aria-label="Previous rule jobs" disabled={safePage === 0} onClick={() => setPage((current) => Math.max(0, current - 1))}>Previous</button>
+            <button className="button ghost" type="button" aria-label="Next rule jobs" disabled={safePage >= pageCount - 1} onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))}>Next</button>
+          </div>
         </div>
       </section>
     </div>
   );
 }
 
-function LayeredWorkflowTimeline({airflowTasks, rules}: {airflowTasks: AirflowTaskProgress[]; rules: RuleEvent[]}) {
+function LayeredWorkflowTimeline({airflowTasks, phases}: {airflowTasks: AirflowTaskProgress[]; phases: ReturnType<typeof summarizeRulePhases>}) {
   return (
-    <section className="layered-timeline" aria-label="Layered workflow timeline" title="Airflow shows project stages; pipeline events show the current bioinformatics step.">
+    <section className="layered-timeline" aria-label="Layered workflow timeline" title="Airflow shows project stages; pipeline events show the current bioinformatics phase.">
       <div className="section-heading"><h2>Layered timeline</h2><p>Orchestration and pipeline execution</p></div>
       <TimelineLane title="Airflow project tasks" empty="No Airflow task instances returned yet." items={airflowTasks.map((task) => ({id: task.task_id, label: humanStageLabel(task.task_id), status: task.state || "unknown", meta: `${task.operator || "operator not set"} / try ${task.try_number ?? "not set"}`}))} />
-      <TimelineLane title="Pipeline steps" empty="No rule events captured for this run." items={rules.map((rule) => ({id: rule.rule, label: humanStageLabel(rule.rule), status: rule.status || "unknown", meta: rule.sample_id ? `sample ${rule.sample_id}` : "project event"}))} />
+      <TimelineLane title="Pipeline phases" empty="No rule events captured for this run." items={phases.map((phase) => ({id: phase.phase, label: phase.phase, status: phase.status, meta: `${phase.success}/${phase.total} jobs complete`}))} />
     </section>
   );
 }

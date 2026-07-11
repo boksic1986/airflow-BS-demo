@@ -156,17 +156,21 @@ pipelines:
             maximum: 10
 
   nipt_docker:
-    default_profile: niptpro-1.0.11
+    default_profile: niptpro-s9-full-v1
     profiles:
-      niptpro-1.0.11:
-        label: NIPTPro 1.0.11
-        pipeline_version: 1.0.11
-        config_version: v3.2.5.1
+      niptpro-s9-full-v1:
+        label: NIPTPro 1.0.11 / Snakemake 9
+        pipeline_version: 1.0.11-s9-v1
+        config_version: v3.2.5.1-s9-v1
+        submit_visible: true
         runtime:
-          docker_image: 172.17.61.235:2333/niptpro/niptpro:1.0.11
+          docker_image: airflow-demo/niptpro:1.0.11-snakemake9.23.1-v1
           fetal_image: 172.17.61.235:2333/niptpro/pytorch:biosan
+          snakemake_version: 9.23.1
+          python_version: "3.12"
+          logger_plugin: airflow-demo
           cores: 40
-        editable_defaults:
+        editable_defaults: &nipt_editable_defaults
           params:
             sexcutoff: 0.00007
             seed: 9696
@@ -176,7 +180,7 @@ pipelines:
             workers: 4
             worker_auto_max: 4
             pipe_buffer_bytes: 4194304
-        editable_schema:
+        editable_schema: &nipt_editable_schema
           params.sexcutoff:
             type: number
             minimum: 0
@@ -205,3 +209,16 @@ pipelines:
             type: integer
             minimum: 65536
             maximum: 67108864
+      niptpro-1.0.11:
+        label: NIPTPro 1.0.11 / Snakemake 7 rollback
+        pipeline_version: 1.0.11
+        config_version: v3.2.5.1
+        submit_visible: false
+        runtime:
+          docker_image: 172.17.61.235:2333/niptpro/niptpro:1.0.11
+          fetal_image: 172.17.61.235:2333/niptpro/pytorch:biosan
+          snakemake_version: 7.32.4
+          python_version: "3.9"
+          cores: 40
+        editable_defaults: *nipt_editable_defaults
+        editable_schema: *nipt_editable_schema

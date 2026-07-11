@@ -1,5 +1,20 @@
 # 07 Airflow DAG 设计
 
+## T113 NIPT S9 execution gate
+
+`bio_nipt_docker` deliberately remains:
+
+```text
+validate_request -> prepare_nipt_docker_run -> run_nipt_docker -> collect_nipt_artifacts
+```
+
+It does not create one Airflow task per Snakemake job. The DAG has
+`max_active_runs=1`; `run_nipt_docker` uses pool `nipt_s9_full` with one slot
+and `execution_timeout=90 minutes`. Rule/sample concurrency and retry state
+remain Snakemake responsibilities. The worker tails logger JSONL during Docker
+execution and mirrors phase/rule/sample transitions into the Airflow task log
+and backend event API.
+
 ## T111 runtime profiles and config resolution
 
 T111 does not add or rename a DAG or task. `bio_pgta` and `bio_nipt_docker`
@@ -504,7 +519,9 @@ validate_request
 T103 keeps `bio_nipt_docker` as the second deployable workflow in the demo and
 changes new submissions to scanned NIPT chip batches. It is a Docker integration
 for NIPT, not the deferred NIPT qsub workflow. The default acceptance mode is
-`mount_smoke`; `full_run` is guarded by `NIPT_ALLOW_HEAVY_RUN=false`.
+`mount_smoke`; `full_run` is always gated by `NIPT_ALLOW_HEAVY_RUN`. The
+repository safety default is false; T113 sets the validated manual deployment
+to true while leaving NIPT automatic intake disabled.
 
 Task graph:
 

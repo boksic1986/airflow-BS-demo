@@ -27,7 +27,7 @@ export function SubmitPage() {
   const [reference] = useState("hg19");
   const [priority, setPriority] = useState("normal");
   const [runMode, setRunMode] = useState("production-run");
-  const [niptRunMode, setNiptRunMode] = useState<NiptRunMode>("mount_smoke");
+  const [niptRunMode, setNiptRunMode] = useState<NiptRunMode>("full_run");
   const [niptCores, setNiptCores] = useState(40);
   const [target] = useState<PgtaTarget>("predict");
   const [rawdataRoot, setRawdataRoot] = useState(defaultPgtaRawdataRoot);
@@ -45,6 +45,7 @@ export function SubmitPage() {
   const [handoffRuns, setHandoffRuns] = useState<RunDetail[]>([]);
   const [configSelection, setConfigSelection] = useState<SnakemakeConfigSelection | null>(null);
   const [configEditorRevision, setConfigEditorRevision] = useState(0);
+  const [showNiptFullConfirm, setShowNiptFullConfirm] = useState(false);
 
   const selectedTemplate = deployedWorkflowTemplates.find((pipeline) => pipeline.id === selectedPipeline) || fallbackTemplate;
   const selectedScanRows = scanItems.filter((item) => selectedSamples.has(item.sample_id));
@@ -81,6 +82,7 @@ export function SubmitPage() {
   async function handleScan() {
     setScanning(true);
     setError(null);
+    setShowNiptFullConfirm(false);
     setNotice(null);
     setSelectedSamples(new Set());
     setExpandedFolders(new Set());
@@ -264,6 +266,14 @@ export function SubmitPage() {
     }
   }
 
+  function requestCreateAndSubmit() {
+    if (selectedPipeline === "nipt_docker" && niptRunMode === "full_run") {
+      setShowNiptFullConfirm(true);
+      return;
+    }
+    void handleCreateAndSubmit();
+  }
+
   return (
     <div className="page-stack">
       <section className="page-header">
@@ -382,8 +392,7 @@ export function SubmitPage() {
               <label className="field">
                 <span>NIPT run mode</span>
                 <select aria-label="NIPT run mode" value={niptRunMode} onChange={(event) => handleNiptRunModeChange(event.target.value as NiptRunMode)}>
-                  <option value="mount_smoke">mount_smoke</option>
-                  <option value="full_run">full_run (requires backend env)</option>
+                  <option value="full_run">Full analysis</option>
                 </select>
               </label>
               <label className="field">
@@ -398,7 +407,7 @@ export function SubmitPage() {
             <Search size={15} />
             Scan
           </button>
-          <button className="button primary" type="button" disabled={creating || !canCreateSelected} onClick={() => void handleCreateAndSubmit()}>
+          <button className="button primary" type="button" disabled={creating || !canCreateSelected} onClick={requestCreateAndSubmit}>
             <Play size={15} />
             Create and submit to Airflow
           </button>
@@ -408,7 +417,10 @@ export function SubmitPage() {
           </button>
         </div>
         {selectedPipeline === "nipt_docker" && niptRunMode === "full_run" ? (
-          <p className="inline-error">full_run is disabled unless backend NIPT_ALLOW_HEAVY_RUN=true; use mount_smoke for normal demo acceptance.</p>
+          <div className="nipt-full-run-notice" role="note">
+            <strong>Full NIPT analysis</strong>
+            <span>40 cores / up to 60 GiB memory / estimated 25-35 minutes. Runs are serialized by the NIPT Airflow pool.</span>
+          </div>
         ) : null}
         <CandidateFolderTable
           expanded={expandedFolders}
@@ -459,6 +471,21 @@ export function SubmitPage() {
 
       {notice ? <div className="success-note" role="status">{notice}</div> : null}
       {error ? <div className="inline-error" role="alert">{error}</div> : null}
+      {showNiptFullConfirm ? (
+        <div className="modal-backdrop">
+          <section className="modal-panel" role="dialog" aria-modal="true" aria-label="Confirm NIPT full analysis">
+            <div className="section-heading">
+              <p className="eyebrow">Resource confirmation</p>
+              <h2>Start full NIPT analysis?</h2>
+              <p>{selectedScanRows.length} selected samples will use the approved Snakemake 9 runtime with 40 cores and up to 60 GiB memory.</p>
+            </div>
+            <div className="panel-actions">
+              <button className="button ghost" type="button" onClick={() => setShowNiptFullConfirm(false)}>Cancel</button>
+              <button className="button primary" type="button" onClick={() => { setShowNiptFullConfirm(false); void handleCreateAndSubmit(); }}>Confirm full analysis</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

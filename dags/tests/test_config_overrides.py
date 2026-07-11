@@ -23,6 +23,19 @@ from common.pipeline_profiles import (
 
 
 class ConfigOverrideRunnerTests(unittest.TestCase):
+    def test_repository_nipt_s9_profile_is_default_and_keeps_s7_rollback(self) -> None:
+        profile_path = Path(__file__).resolve().parents[2] / "config" / "pipeline_profiles.yaml"
+        payload = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+        nipt = payload["pipelines"]["nipt_docker"]
+        profile = nipt["profiles"]["niptpro-s9-full-v1"]
+        rollback = nipt["profiles"]["niptpro-1.0.11"]
+
+        self.assertEqual(nipt["default_profile"], "niptpro-s9-full-v1")
+        self.assertEqual(profile["runtime"]["docker_image"], "airflow-demo/niptpro:1.0.11-snakemake9.23.1-v1")
+        self.assertEqual(profile["runtime"]["snakemake_version"], "9.23.1")
+        self.assertTrue(profile["submit_visible"])
+        self.assertFalse(rollback["submit_visible"])
+
     def test_repository_pgta_s9_profile_exposes_only_predict_parameters(self) -> None:
         profile_path = Path(__file__).resolve().parents[2] / "config" / "pipeline_profiles.yaml"
         payload = yaml.safe_load(profile_path.read_text(encoding="utf-8"))

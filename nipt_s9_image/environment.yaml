@@ -1,0 +1,9 @@
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.12.13
+  - snakemake=9.23.1
+  - snakemake-interface-logger-plugins=2.1.0
+  - pandas=2.3.3
+  - docker-py=7.1.0

@@ -1,5 +1,19 @@
 # 08 Snakemake + qsub 接入设计
 
+## T113 NIPT Snakemake 9 logger integration
+
+The NIPT derivative image invokes Snakemake with `--cores 40 --keep-going
+--rerun-incomplete --printshellcmds --show-failed-logs --logger airflow-demo`.
+It never uses `--forceall`. The plugin writes one JSONL lifecycle stream with
+rule, sample/wildcards, job ID, timestamps, status, and log paths.
+
+The Airflow worker tails this file while the container runs, posts events to
+`/api/events/snakemake`, and writes concise phase/rule/sample lines to the
+Airflow task log. Backend failures do not fail analysis; JSONL remains the
+authoritative fallback and terminal sync imports it idempotently. Resume uses
+the same workdir and appends attempt logs so completed outputs and prior logs
+remain available.
+
 ## T111 run-local config override contract
 
 Editable configuration is a run-local Snakemake YAML subset, not a shell or

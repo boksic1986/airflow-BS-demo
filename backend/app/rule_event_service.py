@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun, SnakemakeRuleEvent, utc_now
+from app.workflow_phases import phase_for_rule, summarize_rule_events
 
 
 START_STATUSES = {"planned", "submitted", "running", "started"}
@@ -67,7 +68,16 @@ def record_snakemake_event(*, session: Session, event: Mapping[str, Any]) -> boo
     return True
 
 
-def list_snakemake_rule_events(*, session: Session, analysis_id: str) -> list[dict[str, Any]] | None:
+def list_snakemake_rule_events(
+    *,
+    session: Session,
+    analysis_id: str,
+    status: str | None = None,
+    rule: str | None = None,
+    sample_id: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> list[dict[str, Any]] | None:
     run_exists = session.scalar(select(AnalysisRun.analysis_id).where(AnalysisRun.analysis_id == analysis_id))
     if run_exists is None:
         return None
@@ -82,7 +92,45 @@ def list_snakemake_rule_events(*, session: Session, analysis_id: str) -> list[di
             SnakemakeRuleEvent.snakemake_jobid,
         )
     ).all()
-    return [_rule_event_payload(row) for row in rows]
+    items = [_rule_event_payload(row) for row in rows]
+    if status:
+        items = [item for item in items if str(item.get("status") or "").lower() == status.lower()]
+    if rule:
+        items = [item for item in items if str(item.get("rule") or "") == rule]
+    if sample_id:
+        items = [item for item in items if str(item.get("sample_id") or "") == sample_id]
+    if limit is not None:
+        return items[offset : offset + limit]
+    return items[offset:]
+
+
+def get_snakemake_rule_events_page(
+    *,
+    session: Session,
+    analysis_id: str,
+    status: str | None,
+    rule: str | None,
+    sample_id: str | None,
+    limit: int,
+    offset: int,
+) -> dict[str, Any] | None:
+    all_items = list_snakemake_rule_events(session=session, analysis_id=analysis_id)
+    if all_items is None:
+        return None
+    filtered = all_items
+    if status:
+        filtered = [item for item in filtered if str(item.get("status") or "").lower() == status.lower()]
+    if rule:
+        filtered = [item for item in filtered if str(item.get("rule") or "") == rule]
+    if sample_id:
+        filtered = [item for item in filtered if str(item.get("sample_id") or "") == sample_id]
+    return {
+        "items": filtered[offset : offset + limit],
+        "total": len(filtered),
+        "limit": limit,
+        "offset": offset,
+        "summary": summarize_rule_events(all_items),
+    }
 
 
 def import_snakemake_events_jsonl(*, session: Session, analysis_id: str, events_path: str | Path) -> int:
@@ -173,6 +221,7 @@ def _rule_event_payload(row: SnakemakeRuleEvent) -> dict[str, Any]:
         "message": row.message,
         "return_code": row.return_code,
         "wildcards": row.wildcards_json or {},
+        "phase": phase_for_rule(row.rule),
     }
 
 

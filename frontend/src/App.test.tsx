@@ -298,7 +298,7 @@ describe("bioinformatics platform frontend", () => {
           const pipeline = new URL(url).searchParams.get("pipeline") || "pgta";
           const nipt = pipeline === "nipt_docker";
           const profile = nipt
-            ? {id: "niptpro-1.0.11", label: "NIPTPro 1.0.11", pipeline_version: "1.0.11", config_version: "v3.2.5.1"}
+            ? {id: "niptpro-s9-full-v1", label: "NIPTPro 1.0.11 / Snakemake 9", pipeline_version: "1.0.11-s9-v1", config_version: "v3.2.5.1-s9-v1"}
             : {id: "pgta-current", label: "PGT-A current environment", pipeline_version: "current", config_version: "pgta-airflow-v1"};
           return mockJson({
             pipeline,
@@ -319,7 +319,7 @@ describe("bioinformatics platform frontend", () => {
           return mockJson({
             valid: true,
             profile: body.pipeline === "nipt_docker"
-              ? {id: "niptpro-1.0.11", label: "NIPTPro 1.0.11", pipeline_version: "1.0.11", config_version: "v3.2.5.1"}
+              ? {id: "niptpro-s9-full-v1", label: "NIPTPro 1.0.11 / Snakemake 9", pipeline_version: "1.0.11-s9-v1", config_version: "v3.2.5.1-s9-v1"}
               : {id: "pgta-current", label: "PGT-A current environment", pipeline_version: "current", config_version: "pgta-airflow-v1"},
             config_template_hash: body.config_template_hash,
             normalized_yaml: body.snakemake_config_yaml,
@@ -1028,7 +1028,7 @@ describe("bioinformatics platform frontend", () => {
             pipeline: nipt ? "nipt_docker" : "pgta",
             state: "resolved",
             profile: nipt
-              ? {id: "niptpro-1.0.11", label: "NIPTPro 1.0.11", pipeline_version: "1.0.11", config_version: "v3.2.5.1"}
+              ? {id: "niptpro-s9-full-v1", label: "NIPTPro 1.0.11 / Snakemake 9", pipeline_version: "1.0.11-s9-v1", config_version: "v3.2.5.1-s9-v1"}
               : {id: "pgta-current", label: "PGT-A current environment", pipeline_version: "current", config_version: "pgta-airflow-v1"},
             config_template_hash: "template-hash",
             config_requested_hash: "requested-hash",
@@ -1473,13 +1473,13 @@ describe("bioinformatics platform frontend", () => {
     render(<App />);
     await user.click(screen.getByRole("radio", {name: /NIPT Docker/i}));
     const profileSelect = await screen.findByRole("combobox", {name: /Runtime profile/i});
-    await waitFor(() => expect(profileSelect).toHaveValue("niptpro-1.0.11"));
+    await waitFor(() => expect(profileSelect).toHaveValue("niptpro-s9-full-v1"));
     expect(releasePgta).not.toBeNull();
     await act(async () => {
       releasePgta?.();
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
-    await waitFor(() => expect(profileSelect).toHaveValue("niptpro-1.0.11"));
+    await waitFor(() => expect(profileSelect).toHaveValue("niptpro-s9-full-v1"));
   });
 
   it("reloads runtime profile defaults after a PROFILE_CHANGED create response", async () => {
@@ -1687,8 +1687,10 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByRole("combobox", {name: /NIPT template/i})).not.toBeInTheDocument();
     await user.clear(screen.getByLabelText(/rawdata root/i));
     await user.type(screen.getByLabelText(/rawdata root/i), niptRoot);
-    expect(screen.getByRole("combobox", {name: /NIPT run mode/i})).toHaveValue("mount_smoke");
+    expect(screen.getByRole("combobox", {name: /NIPT run mode/i})).toHaveValue("full_run");
     expect(screen.getByLabelText(/NIPT cores/i)).toHaveValue(40);
+    expect(screen.getByText(/60 GiB/i)).toBeInTheDocument();
+    expect(screen.getByText(/25-35 minutes/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", {name: /^scan$/i}));
 
     expect(await screen.findByText(/260414_TPNB500380AR_1065_AH32CCBGY2/i)).toBeInTheDocument();
@@ -1697,6 +1699,8 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByText("NIPT26040207.A06.R1.clean.fastq.gz")).toBeInTheDocument();
     await user.click(screen.getByRole("checkbox", {name: /select folder 260414_TPNB500380AR_1065_AH32CCBGY2/i}));
     await user.click(screen.getByRole("button", {name: /create and submit to airflow/i}));
+    expect(await screen.findByRole("dialog", {name: /Confirm NIPT full analysis/i})).toBeInTheDocument();
+    await user.click(screen.getByRole("button", {name: /Confirm full analysis/i}));
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(

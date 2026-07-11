@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -10,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import nipt_docker_runner
 from nipt_docker_runner import (
+    NiptJsonlEventForwarder,
     collect_nipt_artifacts,
     generate_nipt_compose,
     prepare_nipt_docker_run,
@@ -51,6 +53,34 @@ class NiptDockerRunnerTests(unittest.TestCase):
                 "selected_count": 1,
             },
         }
+
+    def test_streaming_runner_appends_attempt_logs_instead_of_overwriting(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            stdout_path = root / "logs" / "snakemake.stdout.log"
+            stderr_path = root / "logs" / "snakemake.stderr.log"
+            events_path = root / "logs" / "events" / "snakemake_events.jsonl"
+            stdout_path.parent.mkdir(parents=True)
+            events_path.parent.mkdir(parents=True)
+            stdout_path.write_text("first attempt stdout\n", encoding="utf-8")
+            stderr_path.write_text("first attempt stderr\n", encoding="utf-8")
+
+            result = nipt_docker_runner.run_command_with_event_forwarding(
+                [sys.executable, "-c", "import sys; print('resume stdout'); print('resume stderr', file=sys.stderr)"],
+                cwd=root,
+                stdout_path=stdout_path,
+                stderr_path=stderr_path,
+                events_path=events_path,
+                backend_event_url=None,
+                env=os.environ.copy(),
+                poll_seconds=0.01,
+            )
+
+            self.assertEqual(result["return_code"], 0)
+            self.assertIn("first attempt stdout", stdout_path.read_text(encoding="utf-8"))
+            self.assertIn("resume stdout", stdout_path.read_text(encoding="utf-8"))
+            self.assertIn("first attempt stderr", stderr_path.read_text(encoding="utf-8"))
+            self.assertIn("resume stderr", stderr_path.read_text(encoding="utf-8"))
 
     def test_validate_nipt_conf_accepts_template_mount_smoke_only_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -174,6 +204,24 @@ class NiptDockerRunnerTests(unittest.TestCase):
         self.assertEqual(run_config["input_mode"], "nipt_docker_scan")
         self.assertEqual(run_config["source_batch_dir"], str(source_batch_dir))
 
+    def test_prepare_nipt_docker_run_does_not_rewrite_unchanged_chip_samplesheet(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "samples.selected.tsv"
+            destination = root / "CHIP.csv"
+            source.write_text(
+                "sample_id\tlibrary\tindex\tcomment\n"
+                "NIPT26040388-S1.B02\tNIPT26040388-S1\tB02\tNIPT\n",
+                encoding="utf-8",
+            )
+            nipt_docker_runner._write_chip_samplesheet(source, destination)
+            original_mtime = 1_700_000_000_000_000_000
+            os.utime(destination, ns=(original_mtime, original_mtime))
+
+            nipt_docker_runner._write_chip_samplesheet(source, destination)
+
+            self.assertEqual(destination.stat().st_mtime_ns, original_mtime)
+
     def test_generate_nipt_compose_uses_unique_names_and_no_destructive_commands(self) -> None:
         compose = generate_nipt_compose(
             analysis_id="NIPT_20260708_120000_TEST01",
@@ -197,6 +245,60 @@ class NiptDockerRunnerTests(unittest.TestCase):
         self.assertNotIn("down -v", rendered)
         self.assertNotIn("volume prune", rendered)
         self.assertNotIn("system prune", rendered)
+
+    def test_generate_nipt_full_run_uses_snakemake9_wrapper_and_logger_event_path(self) -> None:
+        compose = generate_nipt_compose(
+            analysis_id="NIPT_20260711_120000_S9TEST",
+            run_mode="full_run",
+            workdir=Path("/data/airflow-demo/runs/NIPT_20260711_120000_S9TEST"),
+            host_workdir=Path("/home/jiucheng/project/airflow-demo/shared/runs/NIPT_20260711_120000_S9TEST"),
+            nipt_pipeline_root=Path("/opt/pipelines/NIPT"),
+            host_nipt_pipeline_root=Path("/home/jiucheng/pipelines/NIPT"),
+            chip_name="260422_TPNB500380AR_1070_AH33KYBGY2",
+            template_id="run2",
+            cores=40,
+            docker_image="airflow-demo/niptpro:1.0.11-snakemake9.23.1-v1",
+            fetal_image="172.17.61.235:2333/niptpro/pytorch:biosan",
+            docker_network="nipt_analysis_test_net",
+            owner="6708:520",
+        )
+
+        command = compose["services"]["runner"]["command"]
+        rendered = " ".join(str(item) for item in command)
+        self.assertIn("/opt/airflow-demo/bin/run_nipt_s9.sh", command)
+        self.assertIn("NIPT_20260711_120000_S9TEST", command)
+        self.assertIn("/workdir/analysis/NIPTPro/260422_TPNB500380AR_1070_AH33KYBGY2/logs/events/snakemake_events.jsonl", command)
+        self.assertNotIn("--forceall", rendered)
+        self.assertIn(
+            "/home/jiucheng/pipelines/NIPT/locale:/code/locale:ro",
+            compose["services"]["runner"]["volumes"],
+        )
+
+    def test_jsonl_event_forwarder_posts_each_new_rule_event_once(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            events_path = Path(tmpdir) / "snakemake_events.jsonl"
+            posted: list[dict] = []
+            logged: list[str] = []
+            forwarder = NiptJsonlEventForwarder(
+                events_path=events_path,
+                backend_event_url="http://backend:8000/api/events/snakemake",
+                service_token="service-secret",
+                post_event=lambda _url, payload, _token: posted.append(payload),
+                log_event=logged.append,
+            )
+            events_path.write_text(
+                json.dumps({"analysis_id": "NIPT_TEST", "rule": "map", "sample_id": "S1", "status": "running"}) + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(forwarder.poll(), 1)
+            self.assertEqual(forwarder.poll(), 0)
+            with events_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps({"analysis_id": "NIPT_TEST", "rule": "aneuscreen_predict", "sample_id": "S1", "status": "success"}) + "\n")
+            self.assertEqual(forwarder.poll(), 1)
+
+        self.assertEqual([item["rule"] for item in posted], ["map", "aneuscreen_predict"])
+        self.assertIn("Mapping / map / S1 / running", logged[0])
+        self.assertIn("T21 classifier / aneuscreen_predict / S1 / success", logged[1])
 
     def test_run_nipt_docker_mount_smoke_writes_standard_logs_and_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -271,6 +373,52 @@ class NiptDockerRunnerTests(unittest.TestCase):
         self.assertNotIn("compose", captured["command"])
         self.assertIn("nipt_docker.command.txt", str(workdir / "logs" / "nipt_docker.command.txt"))
         self.assertEqual(captured_events, [("nipt_mount_smoke", "running"), ("nipt_mount_smoke", "success")])
+
+    def test_run_nipt_docker_preserves_original_failure_when_failure_event_cannot_be_written(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir) / "runs" / "NIPT_20260711_FAILURE_TEST"
+            (workdir / "config").mkdir(parents=True)
+            compose_path = workdir / "config" / "nipt_docker_compose.yml"
+            compose_path.write_text(
+                yaml.safe_dump(
+                    {
+                        "services": {
+                            "runner": {
+                                "image": "airflow-demo/niptpro:1.0.11-snakemake9.23.1-v1",
+                                "container_name": "NIPTPro_NIPT_20260711_FAILURE_TEST",
+                                "command": ["-lc", "exit 1"],
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            original_runner = nipt_docker_runner.run_command_to_logs
+            original_emit = nipt_docker_runner.emit_progress_event
+
+            def fail_runner(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+                raise RuntimeError("workflow failed first")
+
+            def fail_second_emit(**kwargs):  # type: ignore[no-untyped-def]
+                if kwargs["status"] == "failed":
+                    raise PermissionError("event file is not writable")
+                return workdir / "logs" / "events" / "snakemake_events.jsonl"
+
+            nipt_docker_runner.run_command_to_logs = fail_runner
+            nipt_docker_runner.emit_progress_event = fail_second_emit
+            try:
+                with self.assertRaisesRegex(RuntimeError, "workflow failed first"):
+                    run_nipt_docker(
+                        {
+                            "analysis_id": "NIPT_20260711_FAILURE_TEST",
+                            "workdir": str(workdir),
+                            "compose_path": str(compose_path),
+                            "params": {"run_mode": "mount_smoke"},
+                        }
+                    )
+            finally:
+                nipt_docker_runner.run_command_to_logs = original_runner
+                nipt_docker_runner.emit_progress_event = original_emit
 
     def test_collect_nipt_artifacts_requires_qc_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

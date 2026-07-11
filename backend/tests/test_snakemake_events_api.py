@@ -19,13 +19,18 @@ def make_test_sessionmaker():
     return sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
-def insert_run(session_factory, *, analysis_id: str = "PGTA_20260703_090000_EVENTS") -> str:
+def insert_run(
+    session_factory,
+    *,
+    analysis_id: str = "PGTA_20260703_090000_EVENTS",
+    pipeline_name: str = "pgta",
+) -> str:
     with session_factory() as session:
         session.add(
             AnalysisRun(
                 analysis_id=analysis_id,
-                pipeline_name="pgta",
-                dag_id="bio_pgta_airflow",
+                pipeline_name=pipeline_name,
+                dag_id="bio_nipt_docker" if pipeline_name == "nipt_docker" else "bio_pgta_airflow",
                 dag_run_id=f"manual__{analysis_id}",
                 mode="new",
                 status="running",
@@ -205,5 +210,44 @@ def test_run_rules_endpoint_returns_rule_events(monkeypatch) -> None:
             "message": "done",
             "return_code": 0,
             "wildcards": {"sample": "G1"},
+            "phase": "Metadata",
         }
     ]
+    assert response.json()["total"] == 1
+    assert response.json()["limit"] == 1000
+    assert response.json()["offset"] == 0
+
+
+def test_run_rules_endpoint_filters_pages_and_summarizes_nipt_phases(monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_run(
+        session_factory,
+        analysis_id="NIPT_20260711_120000_RULES",
+        pipeline_name="nipt_docker",
+    )
+    now = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+    with session_factory() as session:
+        session.add_all(
+            [
+                SnakemakeRuleEvent(analysis_id=analysis_id, rule="map", sample_id="S1", snakemake_jobid="1", status="success", start_time=now, end_time=now, updated_at=now),
+                SnakemakeRuleEvent(analysis_id=analysis_id, rule="map", sample_id="S2", snakemake_jobid="2", status="running", start_time=now, updated_at=now),
+                SnakemakeRuleEvent(analysis_id=analysis_id, rule="aneuscreen_predict", sample_id="S1", snakemake_jobid="3", status="failed", start_time=now, end_time=now, updated_at=now),
+                SnakemakeRuleEvent(analysis_id=analysis_id, rule="mapping_qc", snakemake_jobid="4", status="success", start_time=now, end_time=now, updated_at=now),
+            ]
+        )
+        session.commit()
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    client = TestClient(main.app)
+
+    response = client.get(
+        f"/api/runs/{analysis_id}/rules",
+        params={"status": "running", "rule": "map", "sample_id": "S2", "limit": 1, "offset": 0},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["phase"] == "Mapping"
+    assert payload["summary"]["total"] == 4
+    assert payload["summary"]["by_status"] == {"failed": 1, "running": 1, "success": 2}
+    assert {item["phase"] for item in payload["summary"]["phases"]} == {"Mapping", "T21 classifier", "Final QC"}

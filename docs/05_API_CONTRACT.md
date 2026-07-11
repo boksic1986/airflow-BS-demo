@@ -1,5 +1,22 @@
 # 05 API Contract
 
+## T113 NIPT rule observability
+
+`GET /api/runs/{analysis_id}/progress` adds `current_phase`, `current_rule`,
+`current_sample`, and `rule_counts`. For an active NIPT full run, persisted
+logger events refine the 15-90 percent execution interval. Progress never moves
+backwards when retry/resume events are imported.
+
+`GET /api/runs/{analysis_id}/rules` accepts optional `status`, `rule`,
+`sample_id`, `limit`, and `offset`. Its response keeps `items` and adds
+`total`, `limit`, `offset`, and a status/phase `summary`. Default calls remain
+compatible with existing clients.
+
+`GET /api/runs/{analysis_id}/logs/index` resolves absolute or run-relative
+event log paths only when the resolved file stays beneath that run's approved
+workdir. It exposes workflow logs plus available current/failed rule logs
+without returning arbitrary host files.
+
 ## T111 Snakemake config profiles
 
 T111 adds run-scoped, immutable Snakemake configuration for the deployed

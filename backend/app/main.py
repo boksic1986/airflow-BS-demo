@@ -34,7 +34,7 @@ from app.pipeline_config_service import (
 )
 from app.progress_service import get_run_progress
 from app.qc_service import list_run_qc
-from app.rule_event_service import list_snakemake_rule_events, record_snakemake_event
+from app.rule_event_service import get_snakemake_rule_events_page, record_snakemake_event
 from app.run_service import (
     create_nipt_docker_run,
     create_pgta_run,
@@ -673,15 +673,30 @@ def run_samples(analysis_id: str) -> dict[str, object]:
 
 
 @app.get("/api/runs/{analysis_id}/rules")
-def run_rules(analysis_id: str) -> dict[str, object]:
+def run_rules(
+    analysis_id: str,
+    status_filter: str | None = Query(default=None, alias="status"),
+    rule: str | None = None,
+    sample_id: str | None = None,
+    limit: int = Query(default=1000, ge=1, le=2000),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, object]:
     with get_sessionmaker()() as session:
-        items = list_snakemake_rule_events(session=session, analysis_id=analysis_id)
-    if items is None:
+        payload = get_snakemake_rule_events_page(
+            session=session,
+            analysis_id=analysis_id,
+            status=status_filter,
+            rule=rule,
+            sample_id=sample_id,
+            limit=limit,
+            offset=offset,
+        )
+    if payload is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
-    return {"items": items}
+    return payload
 
 
 @app.get("/api/runs/{analysis_id}/progress")
