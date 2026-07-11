@@ -569,10 +569,24 @@ def intake_scan_preview(request: IntakeScanRequest) -> dict[str, object]:
 @app.get("/api/intake/status")
 def intake_status(
     pipeline: str | None = Query(default=None, pattern="^(pgta|nipt_docker)$"),
+    state_filter: str | None = Query(
+        default=None,
+        alias="state",
+        pattern="^(bootstrap|observed|ready|submitted|error|disabled)$",
+    ),
+    keyword: str | None = None,
     limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
     with get_sessionmaker()() as session:
-        return list_intake_status(session=session, pipeline=pipeline, limit=limit)
+        return list_intake_status(
+            session=session,
+            pipeline=pipeline,
+            state=state_filter,
+            keyword=keyword,
+            limit=limit,
+            offset=offset,
+        )
 
 
 @app.get("/api/system/resources")

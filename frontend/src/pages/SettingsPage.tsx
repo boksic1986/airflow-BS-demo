@@ -1,9 +1,10 @@
-import {useCallback, useEffect, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import {Link} from "react-router-dom";
 
 import type {
   IntakeConfigResponse,
   IntakeDiscovery,
+  IntakeDiscoveryState,
   IntakePipelineConfig,
   IntakeScanPreviewResponse,
   IntakeScannerStateResponse,
@@ -16,73 +17,136 @@ import {
   getIntakeStatus,
   previewIntakeScan,
 } from "../api";
+import {IntakeDiscoveryTable} from "../components/IntakeDiscoveryTable";
 import {StatusBadge} from "../components/StatusBadge";
 import {errorMessage} from "../lib/errors";
 import {formatDate} from "../lib/format";
-import {intakeDisplay} from "../lib/intake";
 
-type IntakeSettingsState = {
-  config: IntakeConfigResponse | null;
-  discoveries: IntakeDiscovery[];
-  scanner: IntakeScannerStateResponse | null;
-};
+const discoveryPageSize = 10;
+
+type DiscoveryPipeline = "all" | "pgta" | "nipt_docker";
+type DiscoveryStateFilter = "all" | IntakeDiscoveryState;
 
 export function SettingsPage() {
-  const [state, setState] = useState<IntakeSettingsState>({config: null, discoveries: [], scanner: null});
+  const [config, setConfig] = useState<IntakeConfigResponse | null>(null);
+  const [scanner, setScanner] = useState<IntakeScannerStateResponse | null>(null);
+  const [discoveries, setDiscoveries] = useState<IntakeDiscovery[]>([]);
+  const [discoveryTotal, setDiscoveryTotal] = useState(0);
+  const [discoveryPipeline, setDiscoveryPipeline] = useState<DiscoveryPipeline>("all");
+  const [discoveryState, setDiscoveryState] = useState<DiscoveryStateFilter>("all");
+  const [discoveryKeyword, setDiscoveryKeyword] = useState("");
+  const [discoveryOffset, setDiscoveryOffset] = useState(0);
   const [preview, setPreview] = useState<IntakeScanPreviewResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [configLoading, setConfigLoading] = useState(true);
+  const [scannerLoading, setScannerLoading] = useState(true);
+  const [discoveryLoading, setDiscoveryLoading] = useState(true);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [configError, setConfigError] = useState<string | null>(null);
+  const [scannerError, setScannerError] = useState<string | null>(null);
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const configRequest = useRef(0);
+  const scannerRequest = useRef(0);
+  const discoveryRequest = useRef(0);
+  const previewRequest = useRef(0);
 
-  const loadIntakeSettings = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadConfig = useCallback(async () => {
+    const requestId = ++configRequest.current;
+    setConfigLoading(true);
+    setConfigError(null);
     try {
-      const [config, status, scanner] = await Promise.all([
-        getIntakeConfig(),
-        getIntakeStatus({limit: 100}),
-        getIntakeScannerState(),
-      ]);
-      setState({config, discoveries: status.items, scanner});
+      const payload = await getIntakeConfig();
+      if (requestId === configRequest.current) setConfig(payload);
     } catch (err) {
-      setError(errorMessage(err));
+      if (requestId === configRequest.current) setConfigError(errorMessage(err));
     } finally {
-      setLoading(false);
+      if (requestId === configRequest.current) setConfigLoading(false);
     }
   }, []);
+
+  const loadScanner = useCallback(async () => {
+    const requestId = ++scannerRequest.current;
+    setScannerLoading(true);
+    setScannerError(null);
+    try {
+      const payload = await getIntakeScannerState();
+      if (requestId === scannerRequest.current) setScanner(payload);
+    } catch (err) {
+      if (requestId === scannerRequest.current) setScannerError(errorMessage(err));
+    } finally {
+      if (requestId === scannerRequest.current) setScannerLoading(false);
+    }
+  }, []);
+
+  const loadDiscoveries = useCallback(async () => {
+    const requestId = ++discoveryRequest.current;
+    setDiscoveryLoading(true);
+    setDiscoveryError(null);
+    setDiscoveries([]);
+    setDiscoveryTotal(0);
+    try {
+      const payload = await getIntakeStatus({
+        pipeline: discoveryPipeline === "all" ? undefined : discoveryPipeline,
+        state: discoveryState === "all" ? undefined : discoveryState,
+        keyword: discoveryKeyword.trim() || undefined,
+        limit: discoveryPageSize,
+        offset: discoveryOffset,
+      });
+      if (requestId !== discoveryRequest.current) return;
+      const total = payload.total ?? payload.items.length;
+      if (discoveryOffset > 0 && discoveryOffset >= total) {
+        const validOffset = total === 0 ? 0 : Math.floor((total - 1) / discoveryPageSize) * discoveryPageSize;
+        setDiscoveryOffset(validOffset);
+        return;
+      }
+      setDiscoveries(payload.items);
+      setDiscoveryTotal(total);
+    } catch (err) {
+      if (requestId === discoveryRequest.current) setDiscoveryError(errorMessage(err));
+    } finally {
+      if (requestId === discoveryRequest.current) setDiscoveryLoading(false);
+    }
+  }, [discoveryKeyword, discoveryOffset, discoveryPipeline, discoveryState]);
 
   const loadPreview = useCallback(async () => {
+    const requestId = ++previewRequest.current;
     setPreviewLoading(true);
     setPreviewError(null);
+    setPreview(null);
     try {
       const payload = await previewIntakeScan({pipelines: ["pgta", "nipt_docker"], max_samples: 200});
-      setPreview(payload);
+      if (requestId === previewRequest.current) setPreview(payload);
     } catch (err) {
-      setPreviewError(errorMessage(err));
+      if (requestId === previewRequest.current) setPreviewError(errorMessage(err));
     } finally {
-      setPreviewLoading(false);
+      if (requestId === previewRequest.current) setPreviewLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError(null);
-    Promise.all([getIntakeConfig(), getIntakeStatus({limit: 100}), getIntakeScannerState()])
-      .then(([config, status, scanner]) => {
-        if (active) setState({config, discoveries: status.items, scanner});
-      })
-      .catch((err) => {
-        if (active) setError(errorMessage(err));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  useEffect(() => { void loadConfig(); }, [loadConfig]);
+  useEffect(() => { void loadScanner(); }, [loadScanner]);
+  useEffect(() => { void loadDiscoveries(); }, [loadDiscoveries]);
+
+  function updateDiscoveryPipeline(value: DiscoveryPipeline) {
+    setDiscoveryPipeline(value);
+    setDiscoveryOffset(0);
+  }
+
+  function updateDiscoveryState(value: DiscoveryStateFilter) {
+    setDiscoveryState(value);
+    setDiscoveryOffset(0);
+  }
+
+  function updateDiscoveryKeyword(value: string) {
+    setDiscoveryKeyword(value);
+    setDiscoveryOffset(0);
+  }
+
+  function refreshSettings() {
+    void loadConfig();
+    void loadScanner();
+    void loadDiscoveries();
+  }
 
   return (
     <div className="page-stack">
@@ -94,23 +158,23 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <section className="panel">
-        <div className="definition-grid">
+      <section className="panel platform-settings-summary">
+        <dl className="definition-grid">
           <div><dt>Environment</dt><dd>Demo / Local</dd></div>
           <div><dt>API base</dt><dd className="path-text">{getApiBaseUrl()}</dd></div>
           <div><dt>Airflow UI</dt><dd>{`${window.location.protocol}//${window.location.hostname}:12958`}</dd></div>
           <div><dt>Secrets</dt><dd>Not displayed in frontend</dd></div>
           <div><dt>Remote acceptance</dt><dd>Runtime validation must run on ssh fengxian</dd></div>
           <div><dt>Deployment scope</dt><dd>Current frontend demo exposes PGT-A and NIPT Docker only.</dd></div>
-        </div>
+        </dl>
       </section>
 
       <section className="panel intake-settings-panel">
-        <div className="section-heading">
+        <div className="section-heading split intake-settings-heading">
           <div>
             <p className="eyebrow">Read-only operator check</p>
             <h2>Intake Scanner</h2>
-          <p>Active intake policy, manifest inbox, discovery state, and Airflow scanner DAG status.</p>
+            <p>Active intake policy, manifest inbox, discovery state, and Airflow scanner DAG status.</p>
           </div>
           <div className="panel-actions">
             <Link className="button ghost" to="/dashboard">View Dashboard</Link>
@@ -118,15 +182,35 @@ export function SettingsPage() {
             <button className="button ghost" type="button" onClick={loadPreview} aria-label="Preview configured intake roots">
               Preview configured roots
             </button>
-            <button className="button" type="button" onClick={loadIntakeSettings} aria-label="Refresh intake scanner">
+            <button className="button" type="button" onClick={refreshSettings} aria-label="Refresh intake scanner">
               Refresh
             </button>
           </div>
         </div>
 
-        {loading ? <p className="empty-state">Loading intake scanner settings...</p> : null}
-        {error ? <p className="error-text">{error}</p> : null}
-        {!loading && !error ? <IntakeSettingsContent {...state} preview={preview} previewLoading={previewLoading} previewError={previewError} /> : null}
+        <IntakeSettingsContent
+          config={config}
+          configError={configError}
+          configLoading={configLoading}
+          discoveries={discoveries}
+          discoveryError={discoveryError}
+          discoveryKeyword={discoveryKeyword}
+          discoveryLoading={discoveryLoading}
+          discoveryOffset={discoveryOffset}
+          discoveryPipeline={discoveryPipeline}
+          discoveryState={discoveryState}
+          discoveryTotal={discoveryTotal}
+          onDiscoveryKeywordChange={updateDiscoveryKeyword}
+          onDiscoveryOffsetChange={setDiscoveryOffset}
+          onDiscoveryPipelineChange={updateDiscoveryPipeline}
+          onDiscoveryStateChange={updateDiscoveryState}
+          preview={preview}
+          previewError={previewError}
+          previewLoading={previewLoading}
+          scanner={scanner}
+          scannerError={scannerError}
+          scannerLoading={scannerLoading}
+        />
       </section>
     </div>
   );
@@ -136,15 +220,54 @@ function IntakeSettingsContent({
   config,
   discoveries,
   scanner,
+  configLoading,
+  configError,
+  scannerLoading,
+  scannerError,
+  discoveryLoading,
+  discoveryError,
+  discoveryTotal,
+  discoveryOffset,
+  discoveryPipeline,
+  discoveryState,
+  discoveryKeyword,
+  onDiscoveryPipelineChange,
+  onDiscoveryStateChange,
+  onDiscoveryKeywordChange,
+  onDiscoveryOffsetChange,
   preview,
   previewLoading,
   previewError,
-}: IntakeSettingsState & {preview: IntakeScanPreviewResponse | null; previewLoading: boolean; previewError: string | null}) {
+}: {
+  config: IntakeConfigResponse | null;
+  discoveries: IntakeDiscovery[];
+  scanner: IntakeScannerStateResponse | null;
+  configLoading: boolean;
+  configError: string | null;
+  scannerLoading: boolean;
+  scannerError: string | null;
+  discoveryLoading: boolean;
+  discoveryError: string | null;
+  discoveryTotal: number;
+  discoveryOffset: number;
+  discoveryPipeline: DiscoveryPipeline;
+  discoveryState: DiscoveryStateFilter;
+  discoveryKeyword: string;
+  onDiscoveryPipelineChange: (value: DiscoveryPipeline) => void;
+  onDiscoveryStateChange: (value: DiscoveryStateFilter) => void;
+  onDiscoveryKeywordChange: (value: string) => void;
+  onDiscoveryOffsetChange: (value: number) => void;
+  preview: IntakeScanPreviewResponse | null;
+  previewLoading: boolean;
+  previewError: string | null;
+}) {
+  const pageStart = discoveryTotal === 0 ? 0 : discoveryOffset + 1;
+  const pageEnd = Math.min(discoveryOffset + discoveryPageSize, discoveryTotal);
   return (
     <div className="intake-settings-stack">
       <div className="intake-settings-grid">
-        <ScannerStateCard scanner={scanner} />
-        <ConfigSummaryCard config={config} />
+        <ScannerStateCard error={scannerError} loading={scannerLoading} scanner={scanner} />
+        <ConfigSummaryCard config={config} error={configError} loading={configLoading} />
       </div>
 
       <PreviewCard preview={preview} loading={previewLoading} error={previewError} />
@@ -153,35 +276,89 @@ function IntakeSettingsContent({
         <h3>Configured roots</h3>
         <p>Browser payloads show container paths only; host paths stay out of the frontend.</p>
       </div>
-      <div className="settings-root-grid">
-        {Object.entries(config?.pipelines || {}).map(([pipeline, pipelineConfig]) => (
-          <PipelineRootCard key={pipeline} pipeline={pipeline} config={pipelineConfig} />
-        ))}
-      </div>
+      {configLoading ? <p className="empty-state">Loading configured roots...</p> : null}
+      {configError ? <p className="error-text">Configured roots unavailable: {configError}</p> : null}
+      {!configLoading && !configError ? (
+        <div className="settings-root-grid">
+          {Object.entries(config?.pipelines || {}).map(([pipeline, pipelineConfig]) => (
+            <PipelineRootCard key={pipeline} pipeline={pipeline} config={pipelineConfig} />
+          ))}
+        </div>
+      ) : null}
 
-      <div className="section-heading tight">
-        <h3>Discovery records</h3>
-        <p>Bootstrap and observed records are passive state; they are not queued workflow execution.</p>
-      </div>
-      <div className="settings-discovery-grid">
-        {discoveries.slice(0, 12).map((item) => {
-          const display = intakeDisplay(item);
-          return (
-            <div className="settings-discovery-card" key={`${item.pipeline}-${item.root_path}-${item.batch_id}`}>
-              <div>
-                <strong>{item.batch_id}</strong>
-                <span>{item.pipeline}</span>
-              </div>
-              <span className={`intake-state-pill ${display.tone}`}>{display.label}</span>
-              <p className="path-text">{item.root_path}</p>
-              <div className="settings-mini-grid">
-                <span>files</span><strong>{item.file_count}</strong>
-                <span>last seen</span><strong>{formatDate(item.last_seen_at)}</strong>
-              </div>
-            </div>
-          );
-        })}
-        {discoveries.length === 0 ? <p className="empty-state">No intake discovery records yet.</p> : null}
+      <div className="settings-discovery-section">
+        <div className="section-heading tight">
+          <h3>Discovery records</h3>
+          <p>One row per discovered batch. Bootstrap and observed records are passive state, not queued workflow execution.</p>
+        </div>
+        <div className="filter-bar resource-filter-bar discovery-controls">
+          <label>
+            <span>Pipeline</span>
+            <select
+              aria-label="Discovery pipeline"
+              value={discoveryPipeline}
+              onChange={(event) => onDiscoveryPipelineChange(event.target.value as DiscoveryPipeline)}
+            >
+              <option value="all">All deployed</option>
+              <option value="pgta">PGT-A</option>
+              <option value="nipt_docker">NIPT Docker</option>
+            </select>
+          </label>
+          <label>
+            <span>Discovery state</span>
+            <select
+              aria-label="Discovery state"
+              value={discoveryState}
+              onChange={(event) => onDiscoveryStateChange(event.target.value as DiscoveryStateFilter)}
+            >
+              <option value="all">All states</option>
+              <option value="bootstrap">Bootstrap observed</option>
+              <option value="observed">Observed</option>
+              <option value="ready">Stable ready</option>
+              <option value="submitted">Auto-submitted</option>
+              <option value="error">Error</option>
+              <option value="disabled">Disabled</option>
+            </select>
+          </label>
+          <label className="grow">
+            <span>Search</span>
+            <input
+              aria-label="Search discovery records"
+              onChange={(event) => onDiscoveryKeywordChange(event.target.value)}
+              placeholder="batch or analysis ID"
+              type="search"
+              value={discoveryKeyword}
+            />
+          </label>
+        </div>
+        <IntakeDiscoveryTable
+          ariaLabel="Discovery records"
+          emptyMessage="No discovery records match the current filters."
+          error={discoveryError ? `Discovery records unavailable: ${discoveryError}` : null}
+          items={discoveries}
+          loading={discoveryLoading}
+        />
+        <div className="pagination-controls" aria-label="Discovery pagination">
+          <span>{pageStart}-{pageEnd} of {discoveryTotal}</span>
+          <div>
+            <button
+              aria-label="Previous discovery page"
+              disabled={discoveryOffset === 0 || discoveryLoading}
+              type="button"
+              onClick={() => onDiscoveryOffsetChange(Math.max(0, discoveryOffset - discoveryPageSize))}
+            >
+              Previous page
+            </button>
+            <button
+              aria-label="Next discovery page"
+              disabled={discoveryOffset + discoveryPageSize >= discoveryTotal || discoveryLoading}
+              type="button"
+              onClick={() => onDiscoveryOffsetChange(discoveryOffset + discoveryPageSize)}
+            >
+              Next page
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -189,6 +366,14 @@ function IntakeSettingsContent({
 
 function PreviewCard({preview, loading, error}: {preview: IntakeScanPreviewResponse | null; loading: boolean; error: string | null}) {
   const summary = preview?.summary;
+  const metrics = summary ? [
+    {label: "Batches", value: summary.total_batches},
+    {label: "Stable ready", value: summary.stable_ready},
+    {label: "Would create", value: summary.would_create},
+    {label: "Would submit", value: summary.would_submit},
+    {label: "Blocked by config", value: summary.blocked_auto_submit},
+    {label: "Bootstrap protected", value: summary.bootstrap_protected},
+  ] : [];
   return (
     <div className="settings-status-card intake-preview-card">
       <div className="section-heading tight">
@@ -196,22 +381,22 @@ function PreviewCard({preview, loading, error}: {preview: IntakeScanPreviewRespo
           <h3>Dry-run scan preview</h3>
           <p>Read-only preview: no DB writes, no run creation, and no Airflow submit.</p>
         </div>
-        <StatusBadge status={summary?.would_submit ? "warning" : "success"} size="sm" />
+        <StatusBadge status={error ? "warning" : summary?.would_submit ? "warning" : summary ? "success" : "unknown"} size="sm" />
       </div>
       {loading ? <p className="empty-state">Previewing configured roots...</p> : null}
-      {error ? <p className="error-text">{error}</p> : null}
+      {error ? <p className="error-text" role="alert">{error}</p> : null}
       {!loading && !error && !preview ? (
         <p className="empty-state">Use Preview configured roots to review discovery behavior before changing intake policy.</p>
       ) : null}
       {summary ? (
         <>
-          <div className="settings-mini-grid preview-summary-grid">
-            <span>batches</span><strong>{summary.total_batches}</strong>
-            <span>stable ready</span><strong>{summary.stable_ready}</strong>
-            <span>would create</span><strong>{summary.would_create}</strong>
-            <span>would submit</span><strong>{summary.would_submit}</strong>
-            <span>blocked by config</span><strong>{summary.blocked_auto_submit}</strong>
-            <span>bootstrap protected</span><strong>{summary.bootstrap_protected}</strong>
+          <div className="settings-preview-summary" aria-label="Intake preview summary">
+            {metrics.map((metric) => (
+              <div key={metric.label}>
+                <span>{metric.label}</span>
+                <strong>{metric.value}</strong>
+              </div>
+            ))}
           </div>
           <div className="settings-preview-list">
             {preview.items.slice(0, 8).map((item) => (
@@ -234,42 +419,66 @@ function PreviewCard({preview, loading, error}: {preview: IntakeScanPreviewRespo
   );
 }
 
-function ScannerStateCard({scanner}: {scanner: IntakeScannerStateResponse | null}) {
+function ScannerStateCard({
+  scanner,
+  loading,
+  error,
+}: {
+  scanner: IntakeScannerStateResponse | null;
+  loading: boolean;
+  error: string | null;
+}) {
   const pausedLabel = scanner?.is_paused == null ? "Unknown" : scanner.is_paused ? "Paused" : "Unpaused";
   return (
     <div className="settings-status-card">
       <div className="section-heading tight">
         <h3>Airflow scanner DAG</h3>
-        <StatusBadge status={scanner?.airflow_reachable ? "success" : "warning"} size="sm" />
+        <StatusBadge status={error ? "warning" : loading ? "running" : scanner?.airflow_reachable ? "success" : "warning"} size="sm" />
       </div>
-      <div className="definition-grid compact">
-        <div><dt>DAG</dt><dd>{scanner?.dag_id || "bio_intake_scan"}</dd></div>
-        <div><dt>Scheduler state</dt><dd>{pausedLabel}</dd></div>
-        <div><dt>Airflow</dt><dd>{scanner?.airflow_reachable ? "Airflow reachable" : "Airflow unavailable"}</dd></div>
-        <div><dt>Latest state</dt><dd>{scanner?.latest_dag_run_state ? <StatusBadge status={scanner.latest_dag_run_state} size="sm" /> : "not reported"}</dd></div>
-        <div><dt>Latest DAG run</dt><dd className="path-text">{scanner?.latest_dag_run_id || "not reported"}</dd></div>
-        <div><dt>Started</dt><dd>{formatDate(scanner?.latest_start_date)}</dd></div>
-        <div><dt>Ended</dt><dd>{formatDate(scanner?.latest_end_date)}</dd></div>
-        <div><dt>Message</dt><dd>{scanner?.message || "Scanner state loaded"}</dd></div>
-      </div>
+      {loading ? <p className="empty-state">Loading scanner DAG state...</p> : null}
+      {error ? <p className="error-text" role="alert">Scanner state unavailable: {error}</p> : null}
+      {!loading && !error ? (
+        <dl className="definition-grid compact">
+          <div><dt>DAG</dt><dd>{scanner?.dag_id || "bio_intake_scan"}</dd></div>
+          <div><dt>Scheduler state</dt><dd>{pausedLabel}</dd></div>
+          <div><dt>Airflow</dt><dd>{scanner?.airflow_reachable ? "Airflow reachable" : "Airflow unavailable"}</dd></div>
+          <div><dt>Latest state</dt><dd>{scanner?.latest_dag_run_state ? <StatusBadge status={scanner.latest_dag_run_state} size="sm" /> : "not reported"}</dd></div>
+          <div><dt>Latest DAG run</dt><dd className="path-text" title={scanner?.latest_dag_run_id || undefined}>{scanner?.latest_dag_run_id || "not reported"}</dd></div>
+          <div><dt>Started</dt><dd>{formatDate(scanner?.latest_start_date)}</dd></div>
+          <div><dt>Ended</dt><dd>{formatDate(scanner?.latest_end_date)}</dd></div>
+          <div><dt>Message</dt><dd>{scanner?.message || "Scanner state loaded"}</dd></div>
+        </dl>
+      ) : null}
     </div>
   );
 }
 
-function ConfigSummaryCard({config}: {config: IntakeConfigResponse | null}) {
+function ConfigSummaryCard({
+  config,
+  loading,
+  error,
+}: {
+  config: IntakeConfigResponse | null;
+  loading: boolean;
+  error: string | null;
+}) {
   const defaults = config?.defaults || {};
   return (
     <div className="settings-status-card">
       <div className="section-heading tight">
         <h3>Intake config</h3>
-        <StatusBadge status={config ? "success" : "unknown"} size="sm" />
+        <StatusBadge status={error ? "warning" : loading ? "running" : config ? "success" : "unknown"} size="sm" />
       </div>
-      <div className="definition-grid compact">
-        <div><dt>Config source</dt><dd className="path-text">{config?.source || "not loaded"}</dd></div>
-        <div><dt>Ready rule</dt><dd>{defaults.ready_rule || "not configured"}</dd></div>
-        <div><dt>Stability</dt><dd>{defaults.stable_scans == null ? "not configured" : `${defaults.stable_scans} stable scans`}</dd></div>
-        <div><dt>Default auto submit</dt><dd>{defaults.auto_submit ? "enabled" : "disabled"}</dd></div>
-      </div>
+      {loading ? <p className="empty-state">Loading intake configuration...</p> : null}
+      {error ? <p className="error-text" role="alert">Intake configuration unavailable: {error}</p> : null}
+      {!loading && !error ? (
+        <dl className="definition-grid compact">
+          <div><dt>Config source</dt><dd className="path-text" title={config?.source || undefined}>{config?.source || "not loaded"}</dd></div>
+          <div><dt>Ready rule</dt><dd>{defaults.ready_rule || "not configured"}</dd></div>
+          <div><dt>Stability</dt><dd>{defaults.stable_scans == null ? "not configured" : `${defaults.stable_scans} stable scans`}</dd></div>
+          <div><dt>Default auto submit</dt><dd>{defaults.auto_submit ? "enabled" : "disabled"}</dd></div>
+        </dl>
+      ) : null}
     </div>
   );
 }
@@ -285,7 +494,7 @@ function PipelineRootCard({pipeline, config}: {pipeline: string; config: IntakeP
         {config.roots.map((root) => (
           <div key={`${pipeline}-${root.id}-${root.container_path}`}>
             <strong>{root.id}</strong>
-            <span className="path-text">{root.container_path}</span>
+            <span className="path-text" title={root.container_path}>{root.container_path}</span>
           </div>
         ))}
       </div>

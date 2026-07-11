@@ -369,7 +369,12 @@ export type IntakeDiscovery = {
 
 export type IntakeStatusResponse = {
   items: IntakeDiscovery[];
+  total?: number;
+  limit?: number;
+  offset?: number;
 };
+
+export type IntakeDiscoveryState = "bootstrap" | "observed" | "ready" | "submitted" | "error" | "disabled";
 
 export type IntakeScanPreviewItem = {
   pipeline: string;
@@ -726,10 +731,19 @@ export function previewIntakeScan(payload: {pipelines: Array<"pgta" | "nipt_dock
   });
 }
 
-export function getIntakeStatus(options: {pipeline?: "pgta" | "nipt_docker"; limit?: number} = {}): Promise<IntakeStatusResponse> {
+export function getIntakeStatus(options: {
+  pipeline?: "pgta" | "nipt_docker";
+  state?: IntakeDiscoveryState;
+  keyword?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<IntakeStatusResponse> {
   const params = new URLSearchParams();
-  if (options.pipeline) params.set("pipeline", options.pipeline);
   params.set("limit", String(options.limit ?? 50));
+  params.set("offset", String(options.offset ?? 0));
+  if (options.pipeline) params.set("pipeline", options.pipeline);
+  if (options.state) params.set("state", options.state);
+  if (options.keyword) params.set("keyword", options.keyword);
   return requestJson<IntakeStatusResponse>(`/intake/status?${params.toString()}`);
 }
 

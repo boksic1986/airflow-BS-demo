@@ -5,8 +5,10 @@ import userEvent from "@testing-library/user-event";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 import App from "./App";
+import type {IntakeDiscovery} from "./api";
 import {QcHighlights} from "./components/QcHighlights";
-import {formatDate} from "./lib/format";
+import {formatBytes, formatDate} from "./lib/format";
+import {intakeDisplay} from "./lib/intake";
 
 const pgtaRunId = "PGTA_20260706_162150_00C4FD";
 const failedRunId = "PGTA_20260703_170957_3DDEC3";
@@ -18,6 +20,56 @@ const rawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28";
 const pgtaInboxRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/pgta_crontab";
 const niptRoot = "/opt/pipelines/NIPT/fastq";
 const niptBatchRoot = `${niptRoot}/FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2`;
+
+function intakeDiscoveries(): IntakeDiscovery[] {
+  return [
+    {
+      pipeline: "pgta",
+      root_path: rawdataRoot,
+      batch_id: "Sample_G10",
+      fingerprint: "pgta-fingerprint",
+      file_count: 2,
+      total_bytes: 201,
+      ready_state: "observed",
+      analysis_id: null,
+      submit_state: "bootstrap",
+      last_seen_at: "2026-07-08T10:00:00+08:00",
+    },
+    {
+      pipeline: "nipt_docker",
+      root_path: niptRoot,
+      batch_id: "FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2",
+      fingerprint: "nipt-fingerprint",
+      file_count: 4,
+      total_bytes: 402,
+      ready_state: "ready",
+      analysis_id: niptRunId,
+      submit_state: "submitted",
+      last_seen_at: "2026-07-08T10:05:00+08:00",
+    },
+    ...Array.from({length: 11}, (_, index): IntakeDiscovery => ({
+      pipeline: index % 2 === 0 ? "pgta" : "nipt_docker",
+      root_path: index % 2 === 0 ? rawdataRoot : niptRoot,
+      batch_id: `Discovery_batch_${String(index + 1).padStart(2, "0")}`,
+      fingerprint: `discovery-fingerprint-${index + 1}`,
+      file_count: (index + 1) * 2,
+      total_bytes: (index + 1) * 1024,
+      ready_state: "observed",
+      analysis_id: null,
+      submit_state: "not_submitted",
+      last_seen_at: `2026-07-08T09:${String(59 - index).padStart(2, "0")}:00+08:00`,
+    })),
+  ];
+}
+
+function mockDiscoveryState(item: IntakeDiscovery): string {
+  if (item.ready_state === "error" || item.submit_state === "error") return "error";
+  if (item.ready_state === "disabled" || item.submit_state === "disabled") return "disabled";
+  if (item.submit_state === "submitted") return "submitted";
+  if (item.submit_state === "bootstrap") return "bootstrap";
+  if (item.ready_state === "ready") return "ready";
+  return "observed";
+}
 
 function mockJson(payload: object, init?: ResponseInit) {
   return Promise.resolve(
@@ -36,6 +88,19 @@ describe("bioinformatics platform frontend", () => {
   it("converts timezone-aware UTC timestamps to Asia Shanghai without a visible suffix", () => {
     expect(formatDate("2026-07-11T11:11:40+00:00")).toBe("2026-07-11 19:11:40");
     expect(formatDate("2026-07-11T11:11:40+00:00")).not.toContain("Asia/Shanghai");
+  });
+
+  it("formats large discovery batches with readable GB and TB units", () => {
+    expect(formatBytes(20 * 1024 ** 3)).toBe("20.0 GB");
+    expect(formatBytes(2 * 1024 ** 4)).toBe("2.0 TB");
+  });
+
+  it("renders intake error ahead of disabled for mixed discovery states", () => {
+    expect(intakeDisplay({
+      ...intakeDiscoveries()[0],
+      ready_state: "disabled",
+      submit_state: "error",
+    })).toEqual({label: "Error", tone: "danger"});
   });
 
   it("renders NIPT percentage-point QC values without multiplying by 100", () => {
@@ -479,34 +544,19 @@ describe("bioinformatics platform frontend", () => {
           });
         }
         if (url.includes("/api/intake/status")) {
-          return mockJson({
-            items: [
-              {
-                pipeline: "pgta",
-                root_path: rawdataRoot,
-                batch_id: "Sample_G10",
-                fingerprint: "pgta-fingerprint",
-                file_count: 2,
-                total_bytes: 201,
-                ready_state: "observed",
-                analysis_id: null,
-                submit_state: "bootstrap",
-                last_seen_at: "2026-07-08T10:00:00+08:00",
-              },
-              {
-                pipeline: "nipt_docker",
-                root_path: niptRoot,
-                batch_id: "FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2",
-                fingerprint: "nipt-fingerprint",
-                file_count: 4,
-                total_bytes: 402,
-                ready_state: "ready",
-                analysis_id: niptRunId,
-                submit_state: "submitted",
-                last_seen_at: "2026-07-08T10:05:00+08:00",
-              },
-            ],
-          });
+          const parsed = new URL(url);
+          const pipeline = parsed.searchParams.get("pipeline");
+          const state = parsed.searchParams.get("state");
+          const keyword = (parsed.searchParams.get("keyword") || "").toLowerCase();
+          const limit = Number(parsed.searchParams.get("limit") || 50);
+          const offset = Number(parsed.searchParams.get("offset") || 0);
+          let items = intakeDiscoveries();
+          if (pipeline) items = items.filter((item) => item.pipeline === pipeline);
+          if (state) items = items.filter((item) => mockDiscoveryState(item) === state);
+          if (keyword) {
+            items = items.filter((item) => `${item.batch_id} ${item.analysis_id || ""}`.toLowerCase().includes(keyword));
+          }
+          return mockJson({items: items.slice(offset, offset + limit), total: items.length, limit, offset});
         }
         if (url.endsWith("/api/intake/scan-preview") && init?.method === "POST") {
           return mockJson({
@@ -1194,9 +1244,10 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByText(failedRunId)).toBeInTheDocument();
     expect(screen.getAllByText(niptRunId).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/NIPT Docker/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Bootstrap observed/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Bootstrap observed/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/^queued$/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", {name: /Intake scanner/i})).toBeInTheDocument();
+    expect(screen.getByRole("table", {name: /Intake discovery records/i})).toHaveClass("intake-discovery-table");
     const trackerColumn = screen.getByRole("heading", {name: /^Run Tracker$/i}).closest(".dashboard-main-column");
     const intakeColumn = screen.getByRole("heading", {name: /Intake scanner/i}).closest(".dashboard-main-column");
     expect(trackerColumn).not.toBeNull();
@@ -1816,9 +1867,61 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByText(/clean_fastq/i)).toBeInTheDocument();
     expect(screen.getByText(/\*\.R1\.clean\.fastq\.gz/i)).toBeInTheDocument();
     expect(screen.getByText(/mount_smoke/i)).toBeInTheDocument();
-    expect(screen.getByText(/Bootstrap observed/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Bootstrap observed/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/^queued$/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Use Preview configured roots/i)).toBeInTheDocument();
+
+    const discoveryTable = screen.getByRole("table", {name: /Discovery records/i});
+    expect(discoveryTable).toHaveClass("intake-discovery-table");
+    expect(within(discoveryTable).getByRole("columnheader", {name: /Batch/i})).toBeInTheDocument();
+    expect(within(discoveryTable).getByRole("columnheader", {name: /Pipeline/i})).toBeInTheDocument();
+    expect(within(discoveryTable).getByRole("columnheader", {name: /Discovery status/i})).toBeInTheDocument();
+    expect(within(discoveryTable).getByRole("columnheader", {name: /Files \/ Size/i})).toBeInTheDocument();
+    expect(within(discoveryTable).getByRole("columnheader", {name: /Last seen/i})).toBeInTheDocument();
+    expect(within(discoveryTable).getByRole("columnheader", {name: /Analysis/i})).toBeInTheDocument();
+    expect(within(discoveryTable).getAllByRole("row")).toHaveLength(11);
+    expect(screen.getByText("1-10 of 13")).toBeInTheDocument();
+    expect(document.querySelector(".settings-discovery-card")).toBeNull();
+    expect(within(discoveryTable).getByRole("link", {name: niptRunId})).toHaveAttribute(
+      "href",
+      `/runs/${niptRunId}`,
+    );
+
+    await user.click(screen.getByRole("button", {name: /Next discovery page/i}));
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/intake/status?limit=10&offset=10"),
+        undefined,
+      );
+    });
+    expect(await screen.findByText("11-13 of 13")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText(/Discovery pipeline/i), "nipt_docker");
+    await waitFor(() => {
+      expect(
+        vi.mocked(globalThis.fetch).mock.calls.some(([input]) => {
+          const url = String(input);
+          return url.includes("/api/intake/status?") && url.includes("pipeline=nipt_docker") && url.includes("offset=0");
+        }),
+      ).toBe(true);
+    });
+    expect(await screen.findByText("1-6 of 6")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText(/Discovery state/i), "submitted");
+    await waitFor(() => {
+      expect(
+        vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes("state=submitted")),
+      ).toBe(true);
+    });
+    expect(await screen.findByText("1-1 of 1")).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText(/Search discovery records/i));
+    await user.type(screen.getByLabelText(/Search discovery records/i), niptRunId);
+    await waitFor(() => {
+      expect(
+        vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes(`keyword=${niptRunId}`)),
+      ).toBe(true);
+    });
 
     await user.click(screen.getByRole("button", {name: /Preview configured intake roots/i}));
     await waitFor(() => {
@@ -1837,12 +1940,183 @@ describe("bioinformatics platform frontend", () => {
     await user.click(screen.getByRole("button", {name: /Refresh intake scanner/i}));
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/intake/config"), undefined);
-      expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/intake/status?limit=100"), undefined);
+      expect(
+        vi.mocked(globalThis.fetch).mock.calls.some(([input]) => {
+          const url = String(input);
+          return url.includes("/api/intake/status?") && url.includes("limit=10") && url.includes("offset=0");
+        }),
+      ).toBe(true);
       expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/intake/scanner-state"), undefined);
     });
     expect(screen.queryByRole("button", {name: /unpause/i})).not.toBeInTheDocument();
     expect(screen.queryByRole("button", {name: /scan now/i})).not.toBeInTheDocument();
     expect(screen.queryByRole("button", {name: /full run/i})).not.toBeInTheDocument();
+  });
+
+  it("keeps intake config and scanner state visible when discovery records fail", async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const defaultFetch = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("/api/intake/status")) {
+        return mockJson({detail: {code: "DISCOVERY_UNAVAILABLE", message: "Discovery records unavailable"}}, {status: 503});
+      }
+      if (!defaultFetch) throw new Error("Missing default fetch mock");
+      return defaultFetch(input, init);
+    });
+    setRoute("/settings");
+
+    render(<App />);
+
+    expect(await screen.findByText("/app/config/intake.yaml")).toBeInTheDocument();
+    expect(screen.getByText(/Airflow reachable/i)).toBeInTheDocument();
+    expect(screen.getByText(/Discovery records unavailable/i)).toHaveAttribute("role", "alert");
+    expect(screen.getByText("pgta_rawdata")).toBeInTheDocument();
+  });
+
+  it("does not keep stale discovery rows after a filtered request fails", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const defaultFetch = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/api/intake/status") && new URL(url).searchParams.get("pipeline") === "nipt_docker") {
+        return mockJson({detail: {code: "DISCOVERY_UNAVAILABLE", message: "Filtered discovery unavailable"}}, {status: 503});
+      }
+      if (!defaultFetch) throw new Error("Missing default fetch mock");
+      return defaultFetch(input, init);
+    });
+    setRoute("/settings");
+    render(<App />);
+
+    expect(await screen.findByRole("table", {name: /Discovery records/i})).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText(/Discovery pipeline/i), "nipt_docker");
+
+    expect(await screen.findByText(/Filtered discovery unavailable/i)).toBeInTheDocument();
+    expect(screen.queryByRole("table", {name: /Discovery records/i})).not.toBeInTheDocument();
+    expect(screen.getByText("0-0 of 0")).toBeInTheDocument();
+  });
+
+  it("returns to a valid discovery page when the dataset shrinks", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const defaultFetch = fetchMock.getMockImplementation();
+    let shrunk = false;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (shrunk && url.includes("/api/intake/status")) {
+        const parsed = new URL(url);
+        const limit = Number(parsed.searchParams.get("limit") || 10);
+        const offset = Number(parsed.searchParams.get("offset") || 0);
+        const items = intakeDiscoveries().slice(0, 6);
+        return mockJson({items: items.slice(offset, offset + limit), total: items.length, limit, offset});
+      }
+      if (!defaultFetch) throw new Error("Missing default fetch mock");
+      return defaultFetch(input, init);
+    });
+    setRoute("/settings");
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", {name: /Next discovery page/i}));
+    expect(await screen.findByText("11-13 of 13")).toBeInTheDocument();
+    shrunk = true;
+    await user.click(screen.getByRole("button", {name: /Refresh intake scanner/i}));
+
+    expect(await screen.findByText("1-6 of 6")).toBeInTheDocument();
+    expect(
+      vi.mocked(globalThis.fetch).mock.calls.some(([input]) => {
+        const url = String(input);
+        return url.includes("/api/intake/status?") && url.includes("limit=10") && url.includes("offset=0");
+      }),
+    ).toBe(true);
+  });
+
+  it("ignores an older dry-run preview response", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const defaultFetch = fetchMock.getMockImplementation();
+    const releases: Array<(batchCount: number) => void> = [];
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/api/intake/scan-preview") && init?.method === "POST") {
+        return new Promise<Response>((resolve) => {
+          releases.push((batchCount) => {
+            void mockJson({
+              summary: {
+                total_batches: batchCount,
+                new_observed: 0,
+                stable_ready: 0,
+                bootstrap_protected: 0,
+                would_create: 0,
+                would_submit: 0,
+                blocked_auto_submit: 0,
+                errors: 0,
+              },
+              items: [],
+            }).then(resolve);
+          });
+        });
+      }
+      if (!defaultFetch) throw new Error("Missing default fetch mock");
+      return defaultFetch(input, init);
+    });
+    setRoute("/settings");
+    render(<App />);
+    const previewButton = await screen.findByRole("button", {name: /Preview configured intake roots/i});
+
+    await user.click(previewButton);
+    await user.click(previewButton);
+    await waitFor(() => expect(releases).toHaveLength(2));
+    await act(async () => { releases[1](2); });
+    expect(await screen.findByText("2")).toBeInTheDocument();
+    await act(async () => { releases[0](99); });
+
+    expect(screen.queryByText("99")).not.toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+  });
+
+  it("clears a previous dry-run preview when the next preview fails", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const defaultFetch = fetchMock.getMockImplementation();
+    let previewRequests = 0;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/api/intake/scan-preview") && init?.method === "POST") {
+        previewRequests += 1;
+        if (previewRequests === 2) {
+          return mockJson({detail: {code: "PREVIEW_UNAVAILABLE", message: "Preview unavailable"}}, {status: 503});
+        }
+      }
+      if (!defaultFetch) throw new Error("Missing default fetch mock");
+      return defaultFetch(input, init);
+    });
+    setRoute("/settings");
+    render(<App />);
+    const previewButton = await screen.findByRole("button", {name: /Preview configured intake roots/i});
+
+    await user.click(previewButton);
+    expect(await screen.findByLabelText("Intake preview summary")).toBeInTheDocument();
+    await user.click(previewButton);
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Intake preview summary")).not.toBeInTheDocument();
+  });
+
+  it("announces an intake config failure only once", async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const defaultFetch = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("/api/intake/config")) {
+        return mockJson({detail: {code: "CONFIG_UNAVAILABLE", message: "Config unavailable"}}, {status: 503});
+      }
+      if (!defaultFetch) throw new Error("Missing default fetch mock");
+      return defaultFetch(input, init);
+    });
+    setRoute("/settings");
+    render(<App />);
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/api/intake/config"))).toBe(true);
+    });
+    expect(await screen.findAllByRole("alert")).toHaveLength(1);
   });
 
   it("shows only deployed PGT-A and NIPT Docker workflow, samples, and failure resources", async () => {

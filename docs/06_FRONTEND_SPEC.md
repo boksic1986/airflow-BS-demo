@@ -709,7 +709,8 @@ T105 extends `/settings` with a read-only intake scanner readiness console.
 The Settings intake section loads:
 
 - `GET /api/intake/config`
-- `GET /api/intake/status?limit=100`
+- `GET /api/intake/status?limit=10&offset=0` plus server-side pipeline,
+  discovery-state, keyword, and pagination parameters
 - `GET /api/intake/scanner-state`
 
 It does not call `POST /api/intake/scan-and-submit`, does not unpause
@@ -723,7 +724,10 @@ It does not call `POST /api/intake/scan-and-submit`, does not unpause
   count, and default auto-submit setting.
 - Root cards: PGT-A and NIPT Docker container roots, NIPT file flavor and
   clean FASTQ patterns, and auto-submit target/run mode.
-- Discovery cards: recent `intake_discovery` rows with
+- Discovery tracker: one compact table row per `intake_discovery` batch with
+  Batch, Pipeline, Discovery status, Files/Size, Last seen, and Analysis. It is
+  paginated at 10 rows and supports pipeline, state, and batch/run keyword
+  filtering. Analysis IDs link to Run Detail. Status labels remain
   `Bootstrap observed`, `Observed`, `Stable ready`, `Auto-submitted`,
   `Disabled`, or `Error`.
 
@@ -912,3 +916,21 @@ keeping deployed scope limited to PGT-A and NIPT Docker.
 - NIPT `Q30` and unique mapping values are percentage points; fetal fraction
   and PGT-A mapping rate are fractions. The frontend formats both contracts
   without multiplying percentage-point values again.
+
+## 25. T115 Platform Settings Discovery Tracker
+
+- Dashboard and Platform Settings share `IntakeDiscoveryTable`; neither page
+  maintains a separate status or column implementation.
+- Settings loads config, scanner state, discovery records, and dry-run preview
+  independently. A discovery API failure remains inside the discovery table
+  and does not erase config or Airflow scanner state.
+- Discovery records use server-side filtering and 10-row pagination. One row
+  represents one discovered batch, not a FASTQ sample or an Airflow run.
+- Batch roots and analysis IDs are ellipsized in dense cells, with full root
+  text available as a tooltip. Only an existing `analysis_id` links to Run
+  Detail; passive records show `Not submitted`.
+- The dry-run summary uses six independent metric cells. Settings action bars
+  wrap before they overflow, and at 390 CSS pixels only the discovery table
+  container may scroll horizontally.
+- The page remains read-only: it does not expose Unpause, Scan now,
+  scan-and-submit, or NIPT full-run actions.

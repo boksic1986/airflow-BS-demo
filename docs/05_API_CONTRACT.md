@@ -982,10 +982,19 @@ Response:
 ### Read Discovery Status
 
 ```http
-GET /api/intake/status?pipeline=nipt_docker&limit=50
+GET /api/intake/status?pipeline=nipt_docker&state=submitted&keyword=NIPT_2026&limit=10&offset=0
 ```
 
-`pipeline` is optional and may be `pgta` or `nipt_docker`.
+All query parameters are optional. `pipeline` may be `pgta` or
+`nipt_docker`; `state` may be `bootstrap`, `observed`, `ready`, `submitted`,
+`error`, or `disabled`. `keyword` matches `batch_id` or `analysis_id`
+case-insensitively; SQL wildcard characters are treated as literal input.
+Results sort by `last_seen_at DESC, id DESC`.
+
+The state filter is a product-level projection of `ready_state` and
+`submit_state`. Error and disabled states take precedence, followed by
+submitted/bootstrap, then ready/observed. Discovery state is never converted
+to an Airflow `queued` run status.
 
 ```json
 {
@@ -1002,9 +1011,16 @@ GET /api/intake/status?pipeline=nipt_docker&limit=50
       "submit_state": "submitted",
       "last_seen_at": "2026-07-08T12:00:00+00:00"
     }
-  ]
+  ],
+  "total": 1,
+  "limit": 10,
+  "offset": 0
 }
 ```
+
+Existing clients that only read `items` remain compatible. The endpoint is
+read-only and does not scan roots, mutate discovery rows, create runs, or
+submit Airflow DAGs.
 
 ### Scan And Submit Stable Batches
 

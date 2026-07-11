@@ -5,7 +5,11 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T114 run status, immutable timing, NIPT QC repair, and guarded biodemo cleanup are deployed.
+current_goal_ascii: T115 Platform Settings and Discovery Tracker consistency are deployed.
+t115_runtime: backend/frontend are deployed from /home/jiucheng/project/airflow-demo-t115; frontend 12959 and backend 8000 are healthy. Airflow services, Postgres, Redis, volumes, and pipeline runners were not recreated.
+t115_intake_ui: Platform Settings and Dashboard share one Discovery Tracker table. Settings uses server-side pipeline/state/keyword filters, 10-row pagination, independent config/scanner/discovery/preview states, and no scan/submit/unpause action.
+t115_data_safety: /api/intake/status reported 25 discovery rows and the deployed run list remained exactly 3 retained successful runs. bio_intake_scan remained unpaused, PGT-A manifest intake remained enabled, and NIPT automatic intake remained disabled.
+t115_validation: backend pytest passed 129; frontend Vitest passed 36; tsc/vite production build and Compose config passed; live Settings at 1440/1280/1024/390 had no document-level horizontal overflow and only the discovery table scrolled internally.
 t114_runtime: services are deployed from /home/jiucheng/project/airflow-demo-t114; frontend 12959 and backend 8000 are healthy; bio_intake_scan was restored to its original unpaused state after maintenance.
 t114_data: biodemo was backed up and reduced from 49 runs to PGTA_20260711_062522_4C4FC2, PGTA_20260711_071416_C8C7BA, and NIPT_20260711_111140_63C5A6; 75 samples remain. Airflow metadata, workdirs, logs, outputs, FASTQ, volumes, and pipeline releases were not deleted.
 t114_nipt_qc: NIPT_20260711_111140_63C5A6 has 504 metrics, 72/72 sample QC pass, submitted_at 2026-07-11T11:11:40Z, pipeline_finished_at 2026-07-11T11:36:18Z, and runtime 1477 seconds.
@@ -51,8 +55,8 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/platform/T114-run-status-timing-qc-repair in isolated local worktree; T113 baseline is `6d0ad57`
-last_verified_code_commit: T114 branch is based on `6d0ad57`; final T114 implementation is recorded by this branch head
+active_branch: codex/platform/T115-settings-discovery-table in isolated local worktree; T114 baseline is `100dd9d`
+last_verified_code_commit: T115 branch is based on `100dd9d`; final T115 implementation is recorded by this branch head
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 overlay is deployed there and `origin/main` on the mirror has been fetched to `0857e3d`, but the mirror worktree itself remains on its existing dirty deployment branch
 ```
@@ -61,8 +65,8 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 ov
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 12959 | running after T114 redeploy | Run Tracker uses one combined status, submit-to-first-finish runtime, Shanghai display time, terminal Completed state, and matched-width Intake panel; Run Detail uses immutable finish time and sample-level QC summary; live responsive checks passed at 1280/390 |
-| backend | 8000 | running, healthy after T114 redeploy | migration `20260711_0004` is applied; dashboard status/filter/ETA and immutable completion are active; NIPT decision-metric QC and PGT-A/NIPT collect integrity checks are deployed; cleanup remains CLI-only |
+| frontend | 12959 | running after T115 redeploy | Platform Settings and Dashboard share the Discovery Tracker table; Settings supports 10-row pagination and filters; live responsive checks passed at 1440/1280/1024/390 with table-local overflow only |
+| backend | 8000 | running, healthy after T115 redeploy | `/api/intake/status` supports compatible total/limit/offset plus pipeline/state/keyword filters; no migration or intake write behavior changed; migration `20260711_0004` remains current |
 | airflow web/api | 12958 | running; `PGTA_20260706_162150_00C4FD` final resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` ended `success` after T095 `LD_PRELOAD` fix; previous T095-only-`LD_LIBRARY_PATH` attempt `manual__PGTA_20260706_162150_00C4FD__resume__20260707T143132Z` failed preflight | project image `airflow-demo/airflow:0.1.0`; Airflow core/UI timezone is `Asia/Shanghai`; T095 sets run-local `XDG_CACHE_HOME`, `MPLCONFIGDIR`, `LD_LIBRARY_PATH=PGTA_CONDA_LIB`, and `LD_PRELOAD=PGTA_LIBSTDCXX`; `logs/pgta.python_preflight.log` records env header and import versions |
 | postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow metadata unchanged; biodemo contains 3 retained complete runs and 75 samples after a pg_dump-backed guarded cleanup |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
@@ -91,12 +95,12 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 ## 7. 最近测试结果
 
 ```text
-last_backend_tests: remote Dockerized full T114 pytest passed 127 tests, including combined status, immutable completion, ETA filtering/scaling, decision-metric QC, progress completion, and cleanup guards.
-last_frontend_tests: remote Dockerized T114 Vitest passed 28 tests; production `tsc -b && vite build` passed through the Compose frontend build.
+last_backend_tests: remote Dockerized full T115 pytest passed 129 tests, including intake pagination, composite discovery-state filtering, keyword filtering, and all T114 regressions.
+last_frontend_tests: remote Dockerized T115 Vitest passed 36 tests; production `tsc -b && vite build` passed through the Compose frontend build.
 last_dag_import_tests: remote repo-mounted Airflow T114 unittest discovery passed 89 tests with 5 expected logger-interface skips.
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
-last_compose_config: passed on fengxian for T114; backend, Airflow API/worker/scheduler, and frontend were rebuilt/recreated without deleting volumes; frontend returned HTTP 200 and backend health returned ok.
-last_browser_responsive: T114 live-data browser acceptance checked Dashboard at 1280/390 and the 72-sample NIPT Run Detail/QC at 390; document `scrollWidth <= clientWidth`, Tracker and Intake widths matched, and wide tables scrolled only inside their containers.
+last_compose_config: passed on fengxian for T115; backend/frontend alone were rebuilt/recreated without deleting volumes or restarting Airflow/Postgres/Redis; frontend returned HTTP 200 and backend health returned ok.
+last_browser_responsive: T115 live-data Platform Settings acceptance passed at 1440/1280/1024/390; document `scrollWidth <= clientWidth`, the Discovery Tracker rendered 10 rows, and its wide table scrolled only inside its container.
 last_minimal_smoke: passed on fengxian for postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
 last_airflow_health: passed on fengxian at http://127.0.0.1:12958/health with healthy metadatabase and scheduler
 last_biodemo_migration: `biodemo-db-init` first run created role/database, repeat run succeeded; T103 `alembic upgrade head` applied 20260708_0002 `intake_discovery`

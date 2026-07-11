@@ -1,5 +1,45 @@
 # HANDOFF.md
 
+## 2026-07-12 T115 Platform Settings discovery tracker complete
+
+- Goal: make Platform Settings operationally readable and align Discovery
+  records with the dense Run Tracker table/pagination experience.
+- Branch/worktree: `codex/platform/T115-settings-discovery-table` in
+  `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`, based on
+  T114 commit `100dd9d`.
+- Backend: `GET /api/intake/status` now supports `pipeline`, composite `state`,
+  `keyword`, `limit`, and `offset`, returning `total/limit/offset` while keeping
+  the existing `items` contract. No DB migration or intake write path changed.
+- Frontend: Dashboard and Settings share `IntakeDiscoveryTable`. Settings
+  renders one batch per row, 10 rows per page, pipeline/state/keyword filters,
+  Analysis links, independent config/scanner/discovery/preview errors, and a
+  corrected six-metric dry-run summary.
+- Review hardening: stale discovery/preview responses are ignored, failed
+  refreshes clear old rows/results, invalid offsets return to the last valid
+  page, and one config failure produces a single live accessibility alert.
+- Responsive UI: action controls wrap without escaping the panel; long paths
+  truncate with full tooltip text. Browser checks at 1440, 1280, 1024, and 390
+  CSS pixels had no document horizontal overflow; only the table container
+  scrolls at narrow widths. Browser console had no errors.
+- Deployment: `/home/jiucheng/project/airflow-demo-t115`; only backend and
+  frontend were recreated. Airflow, Postgres, Redis, volumes, workdirs, and
+  pipeline processes were untouched.
+- Runtime evidence: frontend returned HTTP 200, backend health returned ok,
+  `/api/intake/status` reported 25 records with working ready/pipeline/keyword
+  filtering, and the business run list remained the retained 3 successful
+  runs. `bio_intake_scan` remained unpaused; PGT-A manifest intake remains
+  enabled and NIPT auto intake remains disabled.
+- Tests: backend full pytest passed 129; frontend Docker test target passed 36;
+  production `tsc -b && vite build` and Compose config passed.
+- Startup probe: the curl issued in the same command as the final frontend
+  recreate saw one connection reset while nginx workers were starting. Logs
+  were clean, Compose reported the container Up, and the condition-based
+  follow-up returned HTTP 200 without another rebuild or restart.
+- Lint: `frontend/package.json` has no lint script; no synthetic lint command
+  was added. TypeScript checking remains part of the production build.
+- Rollback: recreate backend/frontend from the T114 images/source. No database
+  restore is needed because T115 has no migration or data mutation.
+
 ## 2026-07-11 T114 run status, timing, QC, and cleanup complete
 
 - Goal: keep Run Tracker compact, use immutable submit-to-first-finish timing,

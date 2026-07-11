@@ -8,8 +8,8 @@ export type IntakeDisplay = {
 export function intakeDisplay(item: IntakeDiscovery): IntakeDisplay {
   const ready = item.ready_state.toLowerCase();
   const submit = item.submit_state.toLowerCase();
-  if (ready === "disabled" || submit === "disabled") return {label: "Disabled", tone: "muted"};
   if (ready === "error" || submit === "error") return {label: "Error", tone: "danger"};
+  if (ready === "disabled" || submit === "disabled") return {label: "Disabled", tone: "muted"};
   if (submit === "submitted") return {label: "Auto-submitted", tone: "success"};
   if (submit === "bootstrap") return {label: "Bootstrap observed", tone: "neutral"};
   if (ready === "ready") return {label: "Stable ready", tone: "warning"};

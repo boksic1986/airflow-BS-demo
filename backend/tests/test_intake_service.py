@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
@@ -124,6 +125,114 @@ def write_pgta_manifest_request(*, data_root, inbox_root, request_id: str, opera
         encoding="utf-8",
     )
     (inbox_root / f"{request_id}.READY").write_text("", encoding="utf-8")
+
+
+def add_discovery(
+    session_factory,
+    *,
+    pipeline: str,
+    batch_id: str,
+    ready_state: str,
+    submit_state: str,
+    last_seen_at: datetime,
+    analysis_id: str | None = None,
+) -> None:
+    with session_factory() as session:
+        session.add(
+            IntakeDiscovery(
+                pipeline_name=pipeline,
+                root_path=f"/data/{pipeline}",
+                batch_id=batch_id,
+                fingerprint=f"fingerprint-{batch_id}",
+                file_count=2,
+                total_bytes=1024,
+                ready_state=ready_state,
+                submit_state=submit_state,
+                analysis_id=analysis_id,
+                last_seen_at=last_seen_at,
+            )
+        )
+        session.commit()
+
+
+def test_intake_status_returns_stable_server_page_and_total(monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    base_time = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+    for index in range(12):
+        add_discovery(
+            session_factory,
+            pipeline="pgta" if index % 2 == 0 else "nipt_docker",
+            batch_id=f"batch-{index:02d}",
+            ready_state="observed",
+            submit_state="not_submitted",
+            last_seen_at=base_time + timedelta(minutes=index),
+        )
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+
+    response = TestClient(main.app).get("/api/intake/status?limit=5&offset=5")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 12
+    assert payload["limit"] == 5
+    assert payload["offset"] == 5
+    assert [item["batch_id"] for item in payload["items"]] == [
+        "batch-06",
+        "batch-05",
+        "batch-04",
+        "batch-03",
+        "batch-02",
+    ]
+    assert [item["pipeline"] for item in payload["items"]] == [
+        "pgta",
+        "nipt_docker",
+        "pgta",
+        "nipt_docker",
+        "pgta",
+    ]
+    assert all(item["last_seen_at"].startswith("2026-07-11T12:") for item in payload["items"])
+
+
+def test_intake_status_filters_composite_state_pipeline_and_keyword(monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    seen_at = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+    records = [
+        ("pgta", "pgta-bootstrap", "observed", "bootstrap", None),
+        ("pgta", "pgta-observed", "observed", "not_submitted", None),
+        ("nipt_docker", "nipt-ready", "ready", "not_submitted", None),
+        ("nipt_docker", "nipt-submitted", "ready", "submitted", "NIPT_MATCH_001"),
+        ("nipt_docker", "nipt-wildcard-decoy", "ready", "submitted", "NIPTXMATCHX001"),
+        ("pgta", "pgta-error", "observed", "error", None),
+        ("nipt_docker", "nipt-disabled", "disabled", "not_submitted", None),
+        ("nipt_docker", "mixed-error-disabled", "disabled", "error", None),
+    ]
+    for index, (pipeline, batch_id, ready_state, submit_state, analysis_id) in enumerate(records):
+        add_discovery(
+            session_factory,
+            pipeline=pipeline,
+            batch_id=batch_id,
+            ready_state=ready_state,
+            submit_state=submit_state,
+            analysis_id=analysis_id,
+            last_seen_at=seen_at + timedelta(minutes=index),
+        )
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    client = TestClient(main.app)
+
+    bootstrap = client.get("/api/intake/status?state=bootstrap&limit=10&offset=0").json()
+    observed = client.get("/api/intake/status?state=observed&limit=10&offset=0").json()
+    submitted = client.get(
+        "/api/intake/status?pipeline=nipt_docker&state=submitted&keyword=match_001&limit=10&offset=0"
+    ).json()
+    error = client.get("/api/intake/status?state=error&limit=10&offset=0").json()
+    disabled = client.get("/api/intake/status?state=disabled&limit=10&offset=0").json()
+
+    assert [item["batch_id"] for item in bootstrap["items"]] == ["pgta-bootstrap"]
+    assert [item["batch_id"] for item in observed["items"]] == ["pgta-observed"]
+    assert [item["batch_id"] for item in submitted["items"]] == ["nipt-submitted"]
+    assert submitted["total"] == 1
+    assert [item["batch_id"] for item in error["items"]] == ["mixed-error-disabled", "pgta-error"]
+    assert [item["batch_id"] for item in disabled["items"]] == ["nipt-disabled"]
 
 
 def test_intake_scan_and_submit_waits_for_stable_batch_then_submits_once(tmp_path, monkeypatch) -> None:

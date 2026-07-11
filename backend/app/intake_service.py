@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import hashlib
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.input_scanner import FastqCandidate, scan_fastq_candidates, scan_nipt_batch_candidates
@@ -97,16 +97,66 @@ def preview_intake_scan(
     return {"items": items, "summary": _preview_summary(items)}
 
 
-def list_intake_status(*, session: Session, pipeline: str | None = None, limit: int = 50) -> dict[str, object]:
-    stmt = select(IntakeDiscovery).order_by(IntakeDiscovery.last_seen_at.desc(), IntakeDiscovery.id.desc()).limit(limit)
+def list_intake_status(
+    *,
+    session: Session,
+    pipeline: str | None = None,
+    state: str | None = None,
+    keyword: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, object]:
+    query = select(IntakeDiscovery)
     if pipeline:
-        stmt = (
-            select(IntakeDiscovery)
-            .where(IntakeDiscovery.pipeline_name == pipeline)
-            .order_by(IntakeDiscovery.last_seen_at.desc(), IntakeDiscovery.id.desc())
-            .limit(limit)
+        query = query.where(IntakeDiscovery.pipeline_name == pipeline)
+    if state:
+        query = query.where(_intake_state_condition(state))
+    if keyword and keyword.strip():
+        keyword_value = keyword.strip().lower()
+        query = query.where(
+            or_(
+                func.lower(IntakeDiscovery.batch_id).contains(keyword_value, autoescape=True),
+                func.lower(func.coalesce(IntakeDiscovery.analysis_id, "")).contains(
+                    keyword_value,
+                    autoescape=True,
+                ),
+            )
         )
-    return {"items": [_row_payload(row) for row in session.scalars(stmt).all()]}
+
+    total = session.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
+    page = session.scalars(
+        query.order_by(IntakeDiscovery.last_seen_at.desc(), IntakeDiscovery.id.desc())
+        .limit(limit)
+        .offset(offset)
+    ).all()
+    return {
+        "items": [_row_payload(row) for row in page],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+def _intake_state_condition(state: str):
+    ready = IntakeDiscovery.ready_state
+    submit = IntakeDiscovery.submit_state
+    if state == "error":
+        return or_(ready == "error", submit == "error")
+    if state == "disabled":
+        return and_(ready != "error", submit != "error", or_(ready == "disabled", submit == "disabled"))
+    if state == "submitted":
+        return and_(ready.notin_(["error", "disabled"]), submit == "submitted")
+    if state == "bootstrap":
+        return and_(ready.notin_(["error", "disabled"]), submit == "bootstrap")
+    if state == "ready":
+        return and_(
+            ready == "ready",
+            submit.notin_(["submitted", "error", "disabled", "bootstrap"]),
+        )
+    return and_(
+        ready == "observed",
+        submit.notin_(["submitted", "error", "disabled", "bootstrap"]),
+    )
 
 
 def _scan_pipeline(
