@@ -48,7 +48,7 @@ node_version: <unknown>
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
 active_branch: codex/nipt/T113-nipt-s9-full-run in isolated local worktree; T112 baseline is `14853ee`
-last_verified_code_commit: T113 branch pending final task commit; T112 baseline is `14853ee`
+last_verified_code_commit: T113 implementation commit is `b859649`; T112 baseline is `14853ee`
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 overlay is deployed there and `origin/main` on the mirror has been fetched to `0857e3d`, but the mirror worktree itself remains on its existing dirty deployment branch
 ```

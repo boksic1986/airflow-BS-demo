@@ -7,6 +7,7 @@
 - Branch/worktree: `codex/nipt/T113-nipt-s9-full-run` in
   `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`, based on
   T112 commit `14853ee`.
+- Implementation commit: `b859649`.
 - Image: `airflow-demo/niptpro:1.0.11-snakemake9.23.1-v1`, image ID
   `sha256:71df36b7f8080762f2db771e13e4daa7f4a666b3e1efc19c3bf12add22187254`.
   `/opt/snakemake9` contains Python 3.12/Snakemake 9.23.1; the original
