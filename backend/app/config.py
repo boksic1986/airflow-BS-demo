@@ -24,12 +24,17 @@ class Settings:
     pipeline_profile_config_path: str | None
     nipt_allow_heavy_run: bool
     nipt_docker_cores: int
+    internal_service_token: str
 
 
 def get_cors_origins() -> list[str]:
     raw = os.getenv("BACKEND_CORS_ORIGINS", "*")
     origins = [item.strip() for item in raw.split(",") if item.strip()]
     return origins or ["*"]
+
+
+def get_internal_service_token() -> str:
+    return os.getenv("INTERNAL_SERVICE_TOKEN", "").strip()
 
 
 @lru_cache
@@ -53,6 +58,7 @@ def get_settings() -> Settings:
         ),
         nipt_allow_heavy_run=_parse_bool(os.getenv("NIPT_ALLOW_HEAVY_RUN", "false")),
         nipt_docker_cores=_parse_int(os.getenv("NIPT_DOCKER_CORES", "40"), default=40),
+        internal_service_token=get_internal_service_token(),
     )
 
 

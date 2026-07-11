@@ -32,13 +32,21 @@ class BioIntakeScanDagTests(unittest.TestCase):
         class DummyDagRun:
             conf = {"pipelines": ["nipt_docker"], "bootstrap": True, "max_samples": 12}
 
-        with patch.dict(os.environ, {"BACKEND_BASE_URL": "http://backend:8000", "INTAKE_SCAN_TIMEOUT_SECONDS": "5"}):
+        with patch.dict(
+            os.environ,
+            {
+                "BACKEND_BASE_URL": "http://backend:8000",
+                "INTAKE_SCAN_TIMEOUT_SECONDS": "5",
+                "INTERNAL_SERVICE_TOKEN": "service-secret",
+            },
+        ):
             with patch("bio_intake_scan.urlopen", return_value=DummyResponse()) as mocked_urlopen:
                 result = bio_intake_scan.run_intake_scan(dag_run=DummyDagRun())
 
         self.assertEqual(result, {"items": []})
         request = mocked_urlopen.call_args.args[0]
         self.assertEqual(request.full_url, "http://backend:8000/api/intake/scan-and-submit")
+        self.assertEqual(request.get_header("X-airflow-demo-token"), "service-secret")
         self.assertEqual(json.loads(request.data.decode("utf-8")), {"pipelines": ["nipt_docker"], "bootstrap": True, "max_samples": 12})
 
 

@@ -23,7 +23,7 @@ def write_nipt_clean_pair(batch_dir: Path, sample_id: str) -> tuple[Path, Path]:
     return r1, r2
 
 
-def test_scan_fastq_candidates_uses_repeated_token_from_sample_dir(tmp_path) -> None:
+def test_scan_fastq_candidates_preserves_full_sample_identifier_from_fastq_stem(tmp_path) -> None:
     allowed_root = tmp_path / "rawdata"
     sample_dir = allowed_root / "run1" / "Sample_JZ26083055-G1-G1"
     r1, r2 = write_fastq_pair(sample_dir, "JZ26083055-G1-G1_combined")
@@ -36,7 +36,7 @@ def test_scan_fastq_candidates_uses_repeated_token_from_sample_dir(tmp_path) -> 
 
     assert result.truncated is False
     assert len(result.items) == 1
-    assert result.items[0].sample_id == "G1"
+    assert result.items[0].sample_id == "JZ26083055-G1-G1"
     assert result.items[0].r1 == str(r1.resolve())
     assert result.items[0].r2 == str(r2.resolve())
     assert result.items[0].source_dir == str(sample_dir.resolve())

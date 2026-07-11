@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 import App from "./App";
+import {QcHighlights} from "./components/QcHighlights";
 
 const pgtaRunId = "PGTA_20260706_162150_00C4FD";
 const failedRunId = "PGTA_20260703_170957_3DDEC3";
@@ -13,6 +14,7 @@ const niptRunId = "NIPT_20260708_120000_UI001";
 const createdPgtaRunId = "PGTA_20260708_100000_UI001";
 const activePgtaRunId = "PGTA_20260708_103000_ACTIVE";
 const rawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28";
+const pgtaInboxRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/pgta_crontab";
 const niptRoot = "/opt/pipelines/NIPT/fastq";
 const niptBatchRoot = `${niptRoot}/FQ2026/260414_TPNB500380AR_1065_AH32CCBGY2`;
 
@@ -30,6 +32,16 @@ function setRoute(path: string) {
 }
 
 describe("bioinformatics platform frontend", () => {
+  it("renders NIPT percentage-point QC values without multiplying by 100", () => {
+    render(<QcHighlights items={[
+      {key: "Q30", value: 93.2, unit: "percent", status: "pass"},
+      {key: "unique_mapping_rate", value: 87.5, unit: "percent", status: "pass"},
+    ]} />);
+
+    expect(screen.getByText("93.2%")).toBeInTheDocument();
+    expect(screen.getByText("87.5%")).toBeInTheDocument();
+    expect(screen.queryByText("9320.0%")).not.toBeInTheDocument();
+  });
   let createdPgtaStatus = "created";
   let createdPgtaDagRunId: string | null = null;
   let wesStatus = "success";
@@ -109,6 +121,8 @@ describe("bioinformatics platform frontend", () => {
       qc_status: "unknown",
       sample_count: 2,
       created_at: "2026-07-08T10:30:00+08:00",
+      submitted_at: "2026-07-08T10:30:30+08:00",
+      submitted_by: "operator-a",
       started_at: "2026-07-08T10:31:00+08:00",
       ended_at: null,
       dag_id: "bio_pgta",
@@ -125,6 +139,11 @@ describe("bioinformatics platform frontend", () => {
       progress_source: "snakemake_events",
       not_in_airflow: false,
       note: "Airflow task run_pgta_target; pipeline rule events captured",
+      qc_highlights: [
+        {key: "clean_read_pairs", value: 1850000, unit: "reads", status: "pass"},
+        {key: "mapping_rate", value: 0.963, unit: "fraction", status: "pass"},
+        {key: "estimated_depth_x", value: 0.12, unit: "x", status: "pass"},
+      ],
     },
     {
       analysis_id: failedRunId,
@@ -534,6 +553,14 @@ describe("bioinformatics platform frontend", () => {
               pgta: {
                 enabled: true,
                 roots: [{id: "pgta_rawdata", container_path: rawdataRoot}],
+                intake: {
+                  mode: "manifest_ready",
+                  inbox_root: pgtaInboxRoot,
+                  data_root: "/data/project/CNV/PGT-A/rawdata/lib_test",
+                  manifest_glob: "*.samples.tsv",
+                  ready_suffix: ".READY",
+                  stable_scans: 2,
+                },
                 auto_submit: {enabled: false, pipeline_enabled: false, target: "metadata"},
               },
               nipt_docker: {
@@ -1123,6 +1150,10 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getAllByText(/Snakemake rule event/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Elapsed 14m 30s/i)).toBeInTheDocument();
     expect(screen.getByText(/ETA ~1h 45m/i)).toBeInTheDocument();
+    expect(screen.getByText(/Operator operator-a/i)).toBeInTheDocument();
+    expect(screen.getByText("96.3%")).toBeInTheDocument();
+    expect(screen.getByText("0.12x")).toBeInTheDocument();
+    expect(screen.getByText("2026-07-08 10:30:30")).toBeInTheDocument();
     expect(screen.getByText("2026-07-08 10:31:00")).toBeInTheDocument();
     expect(screen.queryByText(/Asia\/Shanghai/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("link", {name: /^View$/i})).not.toBeInTheDocument();
@@ -1492,7 +1523,8 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByText(/sample sheet text/i)).not.toBeInTheDocument();
     await user.clear(screen.getByLabelText(/rawdata root/i));
     await user.type(screen.getByLabelText(/rawdata root/i), rawdataRoot);
-    await user.selectOptions(screen.getByRole("combobox", {name: /^target$/i}), "baseline_qc");
+    expect(screen.getByRole("textbox", {name: /^target$/i})).toHaveValue("predict");
+    expect(screen.queryByRole("option", {name: /baseline QC/i})).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", {name: /^scan$/i}));
 
     expect(await screen.findByText(/Sample_G10/i)).toBeInTheDocument();
@@ -1541,6 +1573,8 @@ describe("bioinformatics platform frontend", () => {
     expect(String(createCall?.[1]?.body)).toContain('"runtime_profile_id":"pgta-current"');
     expect(String(createCall?.[1]?.body)).toContain('"config_template_hash":"pgta-current-template-hash"');
     expect(String(createCall?.[1]?.body)).toContain('"snakemake_config_yaml"');
+    expect(String(createCall?.[1]?.body)).toContain('"target":"predict"');
+    expect(String(createCall?.[1]?.body)).toContain('"submitted_by":"local-operator"');
   });
 
   it("renders run detail QC as a compact searchable matrix with pagination", async () => {
@@ -1732,6 +1766,10 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByText(/scheduled__2026-07-08T17:00:00\+08:00/i)).toBeInTheDocument();
     expect(screen.getByText("pgta_rawdata")).toBeInTheDocument();
     expect(screen.getAllByText(rawdataRoot).length).toBeGreaterThan(0);
+    expect(screen.getByText(pgtaInboxRoot)).toBeInTheDocument();
+    expect(screen.getByText(/manifest_ready/i)).toBeInTheDocument();
+    expect(screen.getByText(/\*\.samples\.tsv/i)).toBeInTheDocument();
+    expect(screen.getByText(/\.READY/i)).toBeInTheDocument();
     expect(screen.getByText("nipt_fastq")).toBeInTheDocument();
     expect(screen.getAllByText(niptRoot).length).toBeGreaterThan(0);
     expect(screen.getByText(/clean_fastq/i)).toBeInTheDocument();

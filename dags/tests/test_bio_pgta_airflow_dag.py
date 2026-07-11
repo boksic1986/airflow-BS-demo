@@ -12,7 +12,8 @@ class BioPgtaAirflowDagTests(unittest.TestCase):
         dag = bio_pgta_airflow.dag
 
         self.assertEqual(dag.dag_id, "bio_pgta_airflow")
-        self.assertFalse(dag.is_paused_upon_creation)
+        self.assertTrue(dag.is_paused_upon_creation)
+        self.assertIn("deprecated", str(dag.description).lower())
         self.assertEqual(
             set(dag.task_ids),
             {

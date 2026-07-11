@@ -36,6 +36,7 @@ x-airflow-common: &airflow-common
     AIRFLOW_PIPELINES_ROOT: ${AIRFLOW_PIPELINES_ROOT:-/opt/airflow/pipelines}
     AIRFLOW_PROFILES_ROOT: ${AIRFLOW_PROFILES_ROOT:-/opt/airflow/profiles}
     BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://backend:8000}
+    INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in .env}
     AIRFLOW_DEMO_QSUB_MODE: ${AIRFLOW_DEMO_QSUB_MODE:-mock}
     AIRFLOW_DEMO_QSUB_PYTHON: ${AIRFLOW_DEMO_QSUB_PYTHON:-python}
     NIPT_CONTAINER_ROOT: ${NIPT_CONTAINER_ROOT:-/opt/pipelines/NIPT}
@@ -55,6 +56,7 @@ x-airflow-common: &airflow-common
     - ./config:/opt/airflow/config:ro
     - ./shared:/data/airflow-demo
     - ${PGTA_PIPELINE_ROOT:-/home/jiucheng/pipelines/PGT_A}:${PGTA_CONTAINER_ROOT:-/opt/pipelines/PGT_A}:ro
+    - ${PGTA_S9_PIPELINE_ROOT:-/home/jiucheng/pipelines/PGT_A_S9}:${PGTA_S9_CONTAINER_ROOT:-/opt/pipelines/PGT_A_S9}:ro
     - ${BIOSOFTWARE_ROOT:-/biosoftware}:/biosoftware:ro
     - ${PGTA_DATA_ROOT:-/data/project/CNV/PGT-A}:${PGTA_CONTAINER_DATA_ROOT:-/data/project/CNV/PGT-A}:ro
     - ${REFERENCE_ROOT:-/data/Database}:${CONTAINER_REFERENCE_ROOT:-/data/Database}:ro
@@ -168,6 +170,7 @@ services:
       NIPT_DOCKER_CORES: ${NIPT_DOCKER_CORES:-40}
       NIPT_ALLOW_HEAVY_RUN: ${NIPT_ALLOW_HEAVY_RUN:-false}
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-*}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in .env}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
@@ -227,6 +230,7 @@ services:
       - |
         set -euo pipefail
         airflow db migrate
+        airflow pools set pgta_s9_full 1 "Serial PGT-A Snakemake 9 full prediction runs"
         if airflow users list | grep -F "$${AIRFLOW_ADMIN_USERNAME}" >/dev/null; then
           echo "Airflow admin user already exists: $${AIRFLOW_ADMIN_USERNAME}"
         else
@@ -276,6 +280,7 @@ services:
       - ./config:/opt/airflow/config:ro
       - ./shared:/data/airflow-demo
       - ${PGTA_PIPELINE_ROOT:-/home/jiucheng/pipelines/PGT_A}:${PGTA_CONTAINER_ROOT:-/opt/pipelines/PGT_A}:ro
+      - ${PGTA_S9_PIPELINE_ROOT:-/home/jiucheng/pipelines/PGT_A_S9}:${PGTA_S9_CONTAINER_ROOT:-/opt/pipelines/PGT_A_S9}:ro
       - ${BIOSOFTWARE_ROOT:-/biosoftware}:/biosoftware:ro
       - ${PGTA_DATA_ROOT:-/data/project/CNV/PGT-A}:${PGTA_CONTAINER_DATA_ROOT:-/data/project/CNV/PGT-A}:ro
       - ${REFERENCE_ROOT:-/data/Database}:${CONTAINER_REFERENCE_ROOT:-/data/Database}:ro

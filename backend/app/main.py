@@ -1,13 +1,14 @@
 import logging
+import secrets
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from pydantic import BaseModel, Field, model_validator
 
 from app.airflow_client import AirflowClient
-from app.config import get_cors_origins, get_settings
+from app.config import get_cors_origins, get_internal_service_token, get_settings
 from app.dashboard_service import get_dashboard_overview, get_dashboard_runs
 from app.db import check_database, get_sessionmaker
 from app.diagnostics_service import (
@@ -16,6 +17,7 @@ from app.diagnostics_service import (
     MissingDagRunError,
     UnsupportedLogStreamError,
     get_run_log,
+    list_run_logs,
     list_run_artifacts,
     sync_airflow_status,
 )
@@ -58,6 +60,19 @@ app.add_middleware(
 )
 
 
+def require_internal_service_token(
+    x_airflow_demo_token: str | None = Header(default=None, alias="X-Airflow-Demo-Token"),
+) -> None:
+    expected = get_internal_service_token()
+    if not expected:
+        return
+    if not x_airflow_demo_token or not secrets.compare_digest(x_airflow_demo_token, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INTERNAL_SERVICE_AUTH_REQUIRED", "message": "Valid internal service token required."},
+        )
+
+
 class InputScanRequest(BaseModel):
     pipeline: str
     rawdata_root: str
@@ -87,6 +102,7 @@ class CreateRunRequest(BaseModel):
     cores: int | None = Field(default=None, ge=1, le=40)
     email_to: str | None = None
     note: str | None = None
+    submitted_by: str | None = Field(default=None, max_length=128)
     runtime_profile_id: str | None = None
     config_template_hash: str | None = None
     snakemake_config_yaml: str | None = Field(default=None, max_length=65536)
@@ -316,6 +332,7 @@ def create_run(request: CreateRunRequest) -> dict[str, object]:
                     target=request.target,
                     rawdata_root=request.rawdata_root or "",
                     selected_samples=selected_samples,
+                    submitted_by=request.submitted_by,
                     email_to=request.email_to,
                     note=request.note,
                     pipeline_config=pipeline_config,
@@ -338,6 +355,7 @@ def create_run(request: CreateRunRequest) -> dict[str, object]:
                     template_id=request.template_id,
                     rawdata_root=request.rawdata_root,
                     selected_samples=selected_samples,
+                    submitted_by=request.submitted_by,
                     run_mode=request.run_mode,
                     cores=request.cores,
                     email_to=request.email_to,
@@ -495,7 +513,7 @@ def submit_run(analysis_id: str) -> dict[str, object]:
     return payload
 
 
-@app.post("/api/intake/scan-and-submit")
+@app.post("/api/intake/scan-and-submit", dependencies=[Depends(require_internal_service_token)])
 def intake_scan_and_submit(request: IntakeScanRequest) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
@@ -702,7 +720,7 @@ def run_qc(analysis_id: str) -> dict[str, object]:
     return payload
 
 
-@app.post("/api/events/snakemake")
+@app.post("/api/events/snakemake", dependencies=[Depends(require_internal_service_token)])
 def snakemake_event(request: SnakemakeEventRequest) -> dict[str, str]:
     with get_sessionmaker()() as session:
         recorded = record_snakemake_event(session=session, event=request.model_dump())
@@ -718,6 +736,7 @@ def snakemake_event(request: SnakemakeEventRequest) -> dict[str, str]:
 def run_logs(
     analysis_id: str,
     stream: str = Query(default="stderr", pattern="^(stdout|stderr|metadata)$"),
+    key: str | None = Query(default=None, max_length=64),
     tail: int = Query(default=200, ge=1, le=1000),
 ) -> dict[str, object]:
     try:
@@ -728,6 +747,7 @@ def run_logs(
                 stream=stream,
                 tail=tail,
                 settings=get_settings(),
+                key=key,
             )
     except UnsupportedLogStreamError as exc:
         raise HTTPException(
@@ -745,6 +765,24 @@ def run_logs(
             detail={"code": "LOG_NOT_FOUND", "message": str(exc)},
         ) from exc
 
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+        )
+    return payload
+
+
+@app.get("/api/runs/{analysis_id}/logs/index")
+def run_log_index(analysis_id: str) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            payload = list_run_logs(session=session, analysis_id=analysis_id, settings=get_settings())
+    except InvalidRunPathError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_RUN_PATH", "message": str(exc)},
+        ) from exc
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

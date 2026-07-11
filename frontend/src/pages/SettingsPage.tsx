@@ -110,7 +110,7 @@ export function SettingsPage() {
           <div>
             <p className="eyebrow">Read-only operator check</p>
             <h2>Intake Scanner</h2>
-            <p>Configuration, bootstrap state, and Airflow scanner DAG status before automatic intake is enabled.</p>
+          <p>Active intake policy, manifest inbox, discovery state, and Airflow scanner DAG status.</p>
           </div>
           <div className="panel-actions">
             <Link className="button ghost" to="/dashboard">View Dashboard</Link>
@@ -201,7 +201,7 @@ function PreviewCard({preview, loading, error}: {preview: IntakeScanPreviewRespo
       {loading ? <p className="empty-state">Previewing configured roots...</p> : null}
       {error ? <p className="error-text">{error}</p> : null}
       {!loading && !error && !preview ? (
-        <p className="empty-state">Use Preview configured roots to see what automatic intake would do before unpausing Airflow.</p>
+        <p className="empty-state">Use Preview configured roots to review discovery behavior before changing intake policy.</p>
       ) : null}
       {summary ? (
         <>
@@ -290,6 +290,16 @@ function PipelineRootCard({pipeline, config}: {pipeline: string; config: IntakeP
         ))}
       </div>
       <div className="settings-mini-grid">
+        {config.intake?.mode ? (
+          <>
+            <span>intake mode</span><strong>{config.intake.mode || "not configured"}</strong>
+            <span>manifest inbox</span><strong className="path-text">{config.intake.inbox_root || "not configured"}</strong>
+            <span>data root</span><strong className="path-text">{config.intake.data_root || "not configured"}</strong>
+            <span>manifest pattern</span><strong>{config.intake.manifest_glob || "not configured"}</strong>
+            <span>READY marker</span><strong>{config.intake.ready_suffix || "not configured"}</strong>
+            <span>intake stability</span><strong>{config.intake.stable_scans == null ? "pipeline default" : `${config.intake.stable_scans} scans`}</strong>
+          </>
+        ) : null}
         <span>file flavor</span><strong>{config.file_flavor || "pipeline default"}</strong>
         <span>R1 pattern</span><strong>{config.r1_pattern || "pipeline default"}</strong>
         <span>R2 pattern</span><strong>{config.r2_pattern || "pipeline default"}</strong>
@@ -317,6 +327,7 @@ function reasonLabel(reason: string): string {
   const labels: Record<string, string> = {
     new_batch_observed: "new batch would be observed",
     fingerprint_changed: "fingerprint changed; would observe again",
+    manifest_changed_after_observation: "READY manifest changed; manual review required",
     bootstrap_protected: "bootstrap protected",
     already_submitted: "already auto-submitted",
     auto_submit_enabled: "auto-submit enabled",

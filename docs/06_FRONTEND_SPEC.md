@@ -858,3 +858,21 @@ keeping deployed scope limited to PGT-A and NIPT Docker.
 - At 1440, 1280, 1024, and 390 CSS pixels, the document must not scroll
   horizontally. Wide run/QC/sample tables may scroll only inside their table
   container.
+
+## 24. T112 PGT-A S9 operator workflow
+
+- Normal PGT-A Submit is predict-only with locked hg19 and approved XX/XY/gender
+  references; maintenance build-reference/baseline controls are hidden.
+- Advanced config exposes only predict and CNV-QC parameters.
+- Operator is captured as a label without implying authentication.
+- Run Tracker groups Project, Run ID, Operator, and sample count; it shows
+  submitted and actual Airflow start times plus compact QC highlights.
+- Current stage prefers Snakemake rule events over the enclosing Airflow task.
+- Logs use the indexed workflow/rule selector when available and preserve the
+  historical stdout/stderr/metadata fallback.
+- Platform Settings shows the active PGT-A manifest inbox, data root, manifest
+  pattern, READY suffix, stability rule, and auto-submit target as read-only
+  operational state. NIPT does not show empty manifest-policy rows.
+- NIPT `Q30` and unique mapping values are percentage points; fetal fraction
+  and PGT-A mapping rate are fractions. The frontend formats both contracts
+  without multiplying percentage-point values again.

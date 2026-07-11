@@ -1,7 +1,7 @@
 import {Copy, Search} from "lucide-react";
 import {useMemo, useState} from "react";
 
-import type {LogStream, RunLog} from "../api";
+import type {LogStream, RunLog, RunLogIndexItem} from "../api";
 
 const streams: LogStream[] = ["metadata", "stdout", "stderr"];
 
@@ -10,11 +10,17 @@ export function LogViewer({
   onStreamChange,
   log,
   error,
+  sources = [],
+  activeKey,
+  onKeyChange,
 }: {
   stream: LogStream;
   onStreamChange: (stream: LogStream) => void;
   log: RunLog | null;
   error: string | null;
+  sources?: RunLogIndexItem[];
+  activeKey?: string | null;
+  onKeyChange?: (key: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const lines = log?.lines || [];
@@ -37,20 +43,29 @@ export function LogViewer({
           Copy
         </button>
       </div>
-      <div className="tabs compact-tabs" role="tablist" aria-label="Log stream">
-        {streams.map((item) => (
-          <button
-            key={item}
-            type="button"
-            role="tab"
-            aria-selected={stream === item}
-            className={stream === item ? "active" : ""}
-            onClick={() => onStreamChange(item)}
-          >
-            {item}
-          </button>
-        ))}
-      </div>
+      {sources.length && onKeyChange ? (
+        <label className="field log-source-select">
+          <span>Workflow stage or rule log</span>
+          <select aria-label="Workflow stage or rule log" value={activeKey || ""} onChange={(event) => onKeyChange(event.target.value)}>
+            {sources.map((source) => <option key={source.key} value={source.key}>{source.label}</option>)}
+          </select>
+        </label>
+      ) : (
+        <div className="tabs compact-tabs" role="tablist" aria-label="Log stream">
+          {streams.map((item) => (
+            <button
+              key={item}
+              type="button"
+              role="tab"
+              aria-selected={stream === item}
+              className={stream === item ? "active" : ""}
+              onClick={() => onStreamChange(item)}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      )}
       <label className="search-field">
         <Search size={15} />
         <span className="sr-only">Search logs</span>

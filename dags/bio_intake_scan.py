@@ -18,10 +18,14 @@ def run_intake_scan(**context):
         "bootstrap": bool(conf.get("bootstrap", _bool_env("INTAKE_SCAN_BOOTSTRAP", default=False))),
         "max_samples": int(conf.get("max_samples", os.getenv("INTAKE_SCAN_MAX_SAMPLES", "200"))),
     }
+    headers = {"Content-Type": "application/json"}
+    service_token = os.getenv("INTERNAL_SERVICE_TOKEN", "").strip()
+    if service_token:
+        headers["X-Airflow-Demo-Token"] = service_token
     request = Request(
         _intake_endpoint(),
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         method="POST",
     )
     try:
@@ -57,6 +61,7 @@ with DAG(
     start_date=datetime(2026, 7, 1),
     schedule=os.getenv("INTAKE_SCAN_SCHEDULE", "*/10 * * * *"),
     catchup=False,
+    max_active_runs=1,
     is_paused_upon_creation=_bool_env("INTAKE_SCAN_PAUSED_ON_CREATION", default=True),
     tags=["airflow-demo", "intake", "pgta", "nipt"],
 ) as dag:

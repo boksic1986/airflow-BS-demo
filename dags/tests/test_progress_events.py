@@ -15,16 +15,21 @@ class ProgressEventsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
             posted = []
+            posted_tokens = []
 
             def fake_urlopen(request, timeout=0):  # type: ignore[no-untyped-def]
                 posted.append(json.loads(request.data.decode("utf-8")))
+                posted_tokens.append(request.get_header("X-airflow-demo-token"))
                 response = Mock()
                 response.__enter__ = Mock(return_value=response)
                 response.__exit__ = Mock(return_value=False)
                 response.status = 200
                 return response
 
-            with patch("common.progress_events.urllib.request.urlopen", side_effect=fake_urlopen):
+            with (
+                patch("common.progress_events.urllib.request.urlopen", side_effect=fake_urlopen),
+                patch.dict("os.environ", {"INTERNAL_SERVICE_TOKEN": "service-secret"}),
+            ):
                 event_path = emit_progress_event(
                     analysis_id="PGTA_TEST",
                     workdir=workdir,
@@ -45,6 +50,7 @@ class ProgressEventsTests(unittest.TestCase):
         self.assertEqual(events[0]["rule"], "metadata")
         self.assertEqual(events[0]["sample_id"], "G1")
         self.assertEqual(posted[0]["status"], "running")
+        self.assertEqual(posted_tokens, ["service-secret"])
 
     def test_emit_progress_event_records_backend_post_error_without_raising(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

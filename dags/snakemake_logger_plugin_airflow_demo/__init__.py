@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 import urllib.request
@@ -57,10 +58,14 @@ class LogHandler(LogHandlerBase):
         if not self.backend_event_url or not payload.get("rule"):
             return
         body = json.dumps(payload, ensure_ascii=True).encode("utf-8")
+        headers = {"Content-type": "application/json"}
+        service_token = os.getenv("INTERNAL_SERVICE_TOKEN", "").strip()
+        if service_token:
+            headers["X-Airflow-Demo-Token"] = service_token
         request = urllib.request.Request(
             self.backend_event_url,
             data=body,
-            headers={"Content-type": "application/json"},
+            headers=headers,
             method="POST",
         )
         try:
@@ -108,6 +113,7 @@ class LogHandler(LogHandlerBase):
         event = _event_name(getattr(record, "event", None))
         wildcards = _extract_wildcards(record)
         rule = _extract_rule(record)
+        stdout_path, stderr_path = _extract_log_paths(record)
         payload = {
             "analysis_id": self.analysis_id,
             "event": event,
@@ -117,8 +123,8 @@ class LogHandler(LogHandlerBase):
             "wildcards": wildcards,
             "snakemake_jobid": _string_or_none(_first_present(record, "job_id", "jobid", "snakemake_jobid")),
             "qsub_jobid": _string_or_none(getattr(record, "qsub_jobid", None)),
-            "stdout_path": _string_or_none(getattr(record, "stdout_path", None)),
-            "stderr_path": _string_or_none(getattr(record, "stderr_path", None)),
+            "stdout_path": _string_or_none(getattr(record, "stdout_path", None)) or stdout_path,
+            "stderr_path": _string_or_none(getattr(record, "stderr_path", None)) or stderr_path,
             "message": record.getMessage(),
             "return_code": _int_or_none(_first_present(record, "return_code", "exit_code")),
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -160,7 +166,7 @@ def _event_name(event: Any) -> str:
 
 
 def _status_for_event(event: str) -> str:
-    if event == LogEvent.JOB_STARTED.value:
+    if event in {LogEvent.JOB_STARTED.value, LogEvent.JOB_INFO.value}:
         return "running"
     if event == LogEvent.JOB_FINISHED.value:
         return "success"
@@ -201,6 +207,22 @@ def _extract_sample_id(record: logging.LogRecord, wildcards: dict[str, Any]) -> 
         if key in wildcards and wildcards[key] is not None:
             return str(wildcards[key])
     return None
+
+
+def _extract_log_paths(record: logging.LogRecord) -> tuple[str | None, str | None]:
+    raw = _first_present(record, "log", "logfiles", "logfile")
+    if raw is None:
+        return None, None
+    if isinstance(raw, (str, Path)):
+        paths = [str(raw)]
+    else:
+        try:
+            paths = [str(item) for item in raw if item]
+        except TypeError:
+            paths = [str(raw)]
+    stderr = next((path for path in paths if "stderr" in path.lower() or path.lower().endswith(".err")), None)
+    stdout = next((path for path in paths if path != stderr), None)
+    return stdout, stderr
 
 
 def _mapping_from_object(value: Any) -> dict[str, Any]:

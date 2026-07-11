@@ -34,9 +34,9 @@ DEFAULT_SAMTOOLS_LIBRARY_PATH = os.getenv("PGTA_SAMTOOLS_LIBRARY_PATH", "/biosof
 DEFAULT_REFERENCE_GENOME = Path(os.getenv("PGTA_REFERENCE_GENOME", "/data/Database/index/hg19/hg19.fa"))
 DEFAULT_SNAKEMAKE_CORES = "64"
 PGTA_BASELINE_PREFLIGHT_IMPORTS = ("matplotlib", "numpy", "pandas", "pysam", "scipy")
-SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc"}
+SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc", "predict"}
 SUPPORTED_PGTA_MODES = {"new", "resume", "rerun_stage"}
-SUPPORTED_PGTA_STAGES = {"mapping", "metadata", "baseline_qc"}
+SUPPORTED_PGTA_STAGES = {"mapping", "metadata", "baseline_qc", "cnv_qc", "cnv_predict"}
 INVALID_SNAKEMAKE_TARGET = "__airflow_demo_invalid_target__"
 
 
@@ -242,15 +242,27 @@ def run_pgta_stage(
     if stage not in SUPPORTED_PGTA_STAGES:
         supported = ", ".join(sorted(SUPPORTED_PGTA_STAGES))
         raise ValueError(f"Unsupported PGT-A stage: {stage}. Supported stages: {supported}.")
-    if _target_from_conf(conf) != "baseline_qc":
-        raise ValueError("PGT-A staged execution is only supported for target=baseline_qc.")
+    target = _target_from_conf(conf)
+    allowed_stages = {
+        "baseline_qc": {"mapping", "metadata", "baseline_qc"},
+        "predict": {"mapping", "metadata", "cnv_qc", "cnv_predict"},
+    }.get(target, set())
+    if stage not in allowed_stages:
+        raise ValueError(
+            f"PGT-A staged execution is only supported for target=baseline_qc or target=predict; "
+            f"stage={stage}, target={target}."
+        )
 
     workdir = Path(conf["workdir"])
-    stage_config_path = _write_pgta_stage_config(base_config_path=Path(conf["config_path"]), workdir=workdir, stage=stage)
+    stage_config_path = _write_pgta_stage_config(
+        base_config_path=Path(conf["config_path"]), workdir=workdir, stage=stage, target=target
+    )
     if stage == "metadata":
         output_path = workdir / "logs" / "run_metadata.tsv"
     elif stage == "baseline_qc":
         output_path = workdir / "qc" / "baseline" / "baseline_qc_summary.tsv"
+    elif stage in {"cnv_qc", "cnv_predict"}:
+        output_path = workdir / "reports" / "qc_summary.tsv"
     else:
         output_path = workdir / "logs" / f"snakemake.{stage}.stdout.log"
 
@@ -301,6 +313,25 @@ def _run_pgta_snakemake(
         "--configfile",
         str(config_path),
     ]
+    if (runtime or {}).get("logger_plugin"):
+        events_path = workdir / "logs" / "events" / "snakemake_events.jsonl"
+        command.extend(
+            [
+                "--show-failed-logs",
+                "--logger",
+                str(runtime["logger_plugin"]),
+                "--logger-airflow-demo-analysis-id",
+                str(conf.get("analysis_id") or workdir.name),
+                "--logger-airflow-demo-workdir",
+                str(workdir),
+                "--logger-airflow-demo-events-path",
+                str(events_path),
+            ]
+        )
+        if conf.get("backend_event_url"):
+            command.extend(
+                ["--logger-airflow-demo-backend-event-url", str(conf["backend_event_url"])]
+            )
     env = _pgta_subprocess_env(workdir, runtime)
     if mode == "resume" and resume_prepare:
         unlock_command = [*command, "--unlock"]
@@ -390,14 +421,14 @@ def _run_pgta_snakemake(
     return output_path
 
 
-def _write_pgta_stage_config(*, base_config_path: Path, workdir: Path, stage: str) -> Path:
+def _write_pgta_stage_config(*, base_config_path: Path, workdir: Path, stage: str, target: str) -> Path:
     base_config = yaml.safe_load(base_config_path.read_text(encoding="utf-8")) or {}
     if not isinstance(base_config, dict):
         raise ValueError(f"Invalid PGT-A config content: {base_config_path}")
     stage_config = dict(base_config)
     pipeline = dict(stage_config.get("pipeline") or {})
-    pipeline["mode"] = "build_ref"
-    pipeline["targets"] = [stage]
+    pipeline["mode"] = "predict" if target == "predict" else "build_ref"
+    pipeline["targets"] = ["cnv" if stage == "cnv_predict" else stage]
     stage_config["pipeline"] = pipeline
     config_dir = workdir / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
@@ -427,6 +458,11 @@ def collect_pgta_artifact(conf: dict[str, Any]) -> dict[str, str]:
         if not summary_path.is_file():
             raise FileNotFoundError(f"baseline QC summary artifact was not generated: {summary_path}")
         return {"type": "pgta_baseline_qc", "path": str(summary_path), "label": "PGT-A baseline QC summary"}
+    if target == "predict":
+        summary_path = Path(conf["workdir"]) / "reports" / "prediction_status.tsv"
+        if not summary_path.is_file():
+            raise FileNotFoundError(f"PGT-A prediction summary was not generated: {summary_path}")
+        return {"type": "pgta_prediction", "path": str(summary_path), "label": "PGT-A prediction status"}
 
     metadata_path = Path(conf["workdir"]) / "logs" / "run_metadata.tsv"
     if not metadata_path.is_file():
@@ -452,8 +488,8 @@ def _snakemake_config(
     pipeline_mode = "predict"
     pipeline_targets = ["metadata"]
     build_reference: dict[str, Any] | None = None
-    if target == "dryrun_cnv":
-        pipeline_targets = ["cnv"]
+    if target in {"dryrun_cnv", "predict"}:
+        pipeline_targets = ["cnv"] if target == "dryrun_cnv" else ["mapping", "metadata", "cnv_qc", "cnv"]
     elif target == "baseline_qc":
         pipeline_mode = "build_ref"
         pipeline_targets = ["mapping", "metadata", "baseline_qc"]
@@ -470,19 +506,27 @@ def _snakemake_config(
         "gender_reference_output": "reference/gender/result/ref_gender_best.npz",
         "common_reference_binsize_output": "reference/gender/common_best_binsize.txt",
         "use_chr_prefix": True,
-        "cnv": {"enable": target == "dryrun_cnv"},
+        "cnv": {
+            "enable": target in {"dryrun_cnv", "predict"},
+            "seed": 42,
+            "zscore": 5,
+            "alpha": 0.001,
+            "maskrepeats": 5,
+            "minrefbins": 150,
+            "qc": {"min_total_counts": 1000000, "min_nonzero_fraction": 0.4, "max_mad_log1p": 1.2},
+        },
         "tuning": {"enable": False},
         "reference_prefilter": {"binsize": 100000, "max_iterations": 3},
     }
-    if target == "dryrun_cnv":
+    if target in {"dryrun_cnv", "predict"}:
         wisecondorx_config.update(
             {
                 "reference_output_by_sex": {
-                    "XX": str(reference_root / "XX" / "result" / "ref_xx_best.npz"),
-                    "XY": str(reference_root / "XY" / "result" / "ref_xy_best.npz"),
+                    "XX": str(software_paths.get("reference_xx_npz") or reference_root / "XX" / "result" / "ref_xx_best.npz"),
+                    "XY": str(software_paths.get("reference_xy_npz") or reference_root / "XY" / "result" / "ref_xy_best.npz"),
                 },
-                "gender_reference_output": str(reference_root / "gender" / "result" / "ref_gender_best.npz"),
-                "common_reference_binsize_output": str(reference_root / "gender" / "common_best_binsize.txt"),
+                "gender_reference_output": str(software_paths.get("gender_reference_npz") or reference_root / "gender" / "result" / "ref_gender_best.npz"),
+                "common_reference_binsize_output": str(software_paths.get("common_reference_binsize") or reference_root / "gender" / "common_best_binsize.txt"),
             }
         )
     config = {
@@ -563,8 +607,21 @@ def _pgta_subprocess_env(workdir: Path, runtime: dict[str, Any] | None = None) -
     env = os.environ.copy()
     env["XDG_CACHE_HOME"] = str(cache_dir)
     env["MPLCONFIGDIR"] = str(matplotlib_dir)
+    logger_python_path = str((runtime or {}).get("logger_python_path") or "").strip()
+    if logger_python_path:
+        existing_pythonpath = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = os.pathsep.join(
+            [logger_python_path, existing_pythonpath] if existing_pythonpath else [logger_python_path]
+        )
 
     runtime = runtime or {}
+    rscript_bin = str(runtime.get("rscript_bin") or "").strip()
+    if rscript_bin:
+        existing_path = env.get("PATH") or ""
+        rscript_dir = str(Path(rscript_bin).parent)
+        env["PATH"] = os.pathsep.join(
+            [rscript_dir, existing_path] if existing_path else [rscript_dir]
+        )
     conda_lib = Path(runtime.get("conda_lib") or DEFAULT_PGTA_CONDA_LIB)
     libstdcxx = Path(runtime.get("libstdcxx") or DEFAULT_PGTA_LIBSTDCXX)
     env["LD_LIBRARY_PATH"] = str(conda_lib)

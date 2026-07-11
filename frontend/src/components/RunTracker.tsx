@@ -6,6 +6,7 @@ import {compactPipelineName, displayTimeZoneLabel, formatDate, formatSecondsDura
 import {humanStageLabel, stageDebugLabel} from "../lib/stageLabels";
 import {isActiveStatus, normalizeStatus} from "../lib/status";
 import {RunProgressBar} from "./RunProgressBar";
+import {QcHighlights} from "./QcHighlights";
 import {StatusBadge} from "./StatusBadge";
 
 export type RunTrackerFilter = "all" | "active" | "created" | "failed" | "success";
@@ -86,13 +87,12 @@ export function RunTracker({
             <thead>
               <tr>
                 <th scope="col">Project</th>
-                <th scope="col">Run ID</th>
                 <th scope="col">Pipeline</th>
-                <th scope="col">Status / QC</th>
+                <th scope="col">Status / sample QC</th>
                 <th scope="col">Current stage</th>
                 <th scope="col">Progress</th>
                 <th scope="col">Runtime / ETA</th>
-                <th scope="col">Started</th>
+                <th scope="col">Submitted / started</th>
               </tr>
             </thead>
             <tbody>
@@ -145,12 +145,10 @@ function RunTrackerRow({
         <Link className="tracker-primary-link" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>
           {row.project_name || row.analysis_id}
         </Link>
-        <span className="muted">{row.sample_count ?? 0} samples</span>
-      </td>
-      <td>
         <Link className="mono tracker-run-link" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>
           {row.analysis_id}
         </Link>
+        <span className="muted">Operator {row.submitted_by || "not captured"} / {row.sample_count ?? 0} samples</span>
       </td>
       <td>{compactPipelineName(row.pipeline)}</td>
       <td>
@@ -165,6 +163,7 @@ function RunTrackerRow({
             <button className="mini-action" type="button" onClick={() => onSync(row.analysis_id)}>Sync</button>
           ) : null}
         </div>
+        <QcHighlights items={row.qc_highlights} />
       </td>
       <td>
         <div className="current-stage-cell">
@@ -194,7 +193,12 @@ function RunTrackerRow({
           <span>{etaLabel(row)}</span>
         </div>
       </td>
-      <td title={`Displayed in ${displayTimeZoneLabel()}`}>{formatDate(row.started_at)}</td>
+      <td title={`Displayed in ${displayTimeZoneLabel()}`}>
+        <div className="run-time-pair">
+          <span><small>Submitted</small>{formatDate(row.submitted_at)}</span>
+          <span><small>Started</small>{formatDate(row.started_at)}</span>
+        </div>
+      </td>
     </tr>
   );
 }

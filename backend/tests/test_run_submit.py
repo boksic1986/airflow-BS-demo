@@ -129,6 +129,9 @@ def test_submit_created_pgta_run_triggers_airflow_and_updates_db(tmp_path, monke
         samples = session.scalars(select(Sample).where(Sample.analysis_id == analysis_id)).all()
     assert run.status == "submitted"
     assert run.dag_run_id == f"manual__{analysis_id}"
+    assert run.submitted_at is not None
+    assert run.started_at is None
+    assert response.json()["submitted_at"] is not None
     assert [sample.status for sample in samples] == ["running"]
     assert actions[0].action == "submit"
     assert actions[0].result_status == "accepted"

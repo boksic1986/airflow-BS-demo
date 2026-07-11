@@ -72,7 +72,11 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
     def test_logger_posts_rule_events_when_backend_url_is_configured(self) -> None:
         from snakemake_logger_plugin_airflow_demo import LogHandler, LogHandlerSettings
 
-        with tempfile.TemporaryDirectory() as tmpdir, patch("urllib.request.urlopen") as urlopen:
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            patch("urllib.request.urlopen") as urlopen,
+            patch.dict("os.environ", {"INTERNAL_SERVICE_TOKEN": "service-secret"}),
+        ):
             urlopen.return_value.__enter__.return_value.read.return_value = b'{"status":"ok"}'
             events_path = Path(tmpdir) / "events" / "snakemake_events.jsonl"
             handler = LogHandler(
@@ -105,6 +109,7 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
 
         self.assertEqual(request.full_url, "http://backend:8000/api/events/snakemake")
         self.assertEqual(request.get_header("Content-type"), "application/json")
+        self.assertEqual(request.get_header("X-airflow-demo-token"), "service-secret")
         self.assertEqual(payload["analysis_id"], "PGTA_AIRFLOW_TEST")
         self.assertEqual(payload["rule"], "metadata")
         self.assertEqual(payload["status"], "running")
@@ -172,6 +177,7 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
             job_info.event = "job_info"
             job_info.rule = "metadata"
             job_info.job_id = 1
+            job_info.log = [str(Path(tmpdir) / "logs" / "metadata.log")]
             handler.emit(job_info)
 
             finished = logging.LogRecord(
@@ -191,6 +197,8 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
 
         self.assertEqual(payloads[0]["event"], "job_info")
         self.assertEqual(payloads[0]["rule"], "metadata")
+        self.assertEqual(payloads[0]["status"], "running")
+        self.assertTrue(payloads[0]["stdout_path"].endswith("logs/metadata.log"))
         self.assertEqual(payloads[1]["event"], "job_finished")
         self.assertEqual(payloads[1]["rule"], "metadata")
         self.assertEqual(payloads[1]["status"], "success")

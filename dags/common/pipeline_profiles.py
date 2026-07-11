@@ -169,11 +169,19 @@ def _validate_pgta_runtime_paths(profile: ResolvedRuntimeProfile) -> None:
         ("fastp_bin", "file", True),
         ("bwa_bin", "file", True),
         ("wisecondorx_bin", "file", True),
+        ("rscript_bin", "file", True),
         ("reference_genome", "file", False),
+        ("reference_xx_npz", "file", False),
+        ("reference_xy_npz", "file", False),
+        ("gender_reference_npz", "file", False),
+        ("common_reference_binsize", "file", False),
         ("pipeline_root", "directory", False),
     )
     for key, kind, executable in contracts:
         raw_path = str(profile.runtime.get(key) or "").strip()
+        if key.startswith("reference_") or key in {"gender_reference_npz", "common_reference_binsize"}:
+            if not raw_path:
+                continue
         if not raw_path:
             raise ValueError(f"Approved PGT-A runtime is missing {key}.")
         path = Path(raw_path)
@@ -185,6 +193,41 @@ def _validate_pgta_runtime_paths(profile: ResolvedRuntimeProfile) -> None:
     snakefile = Path(str(profile.runtime["pipeline_root"])) / "Snakefile"
     if not snakefile.is_file():
         raise ValueError(f"Approved PGT-A pipeline_root has no Snakefile: {snakefile}")
+    _verify_pgta_release_integrity(profile.runtime)
+
+
+def _verify_pgta_release_integrity(runtime: dict[str, Any]) -> None:
+    root = Path(str(runtime.get("pipeline_root") or "")).resolve()
+    manifest = Path(str(runtime.get("release_manifest") or root / "SHA256SUMS")).resolve()
+    expected_manifest_hash = str(runtime.get("release_manifest_sha256") or "").strip().lower()
+    if not expected_manifest_hash:
+        raise ValueError("Approved PGT-A runtime is missing release_manifest_sha256.")
+    if not manifest.is_file() or not manifest.is_relative_to(root):
+        raise ValueError(f"Approved PGT-A release manifest is unavailable or outside pipeline_root: {manifest}")
+    actual_manifest_hash = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    if actual_manifest_hash != expected_manifest_hash:
+        raise ValueError(
+            f"Approved PGT-A release manifest checksum mismatch: expected {expected_manifest_hash}, "
+            f"got {actual_manifest_hash}."
+        )
+    for line_number, raw_line in enumerate(manifest.read_text(encoding="utf-8").splitlines(), start=1):
+        line = raw_line.strip()
+        if not line:
+            continue
+        parts = line.split(maxsplit=1)
+        if len(parts) != 2 or len(parts[0]) != 64:
+            raise ValueError(f"Invalid PGT-A SHA256SUMS entry at line {line_number}.")
+        expected_file_hash = parts[0].lower()
+        relative_name = parts[1].lstrip("* ")
+        candidate = (manifest.parent / relative_name).resolve()
+        if not candidate.is_file() or not candidate.is_relative_to(root):
+            raise ValueError(f"Approved PGT-A release file is missing or outside pipeline_root: {relative_name}")
+        actual_file_hash = hashlib.sha256(candidate.read_bytes()).hexdigest()
+        if actual_file_hash != expected_file_hash:
+            raise ValueError(
+                f"Approved PGT-A release file checksum mismatch for {relative_name}: "
+                f"expected {expected_file_hash}, got {actual_file_hash}."
+            )
 
 
 def _sha256_text(value: str) -> str:

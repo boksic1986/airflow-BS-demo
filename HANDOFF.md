@@ -1,5 +1,44 @@
 # HANDOFF.md
 
+## 2026-07-11 T112 PGT-A Snakemake 9 predict and manifest intake complete
+
+- Goal: deploy a separate PGT-A S9 predict workflow, expose rule-level status,
+  add safe READY-manifest intake, and improve timing/QC/log observability.
+- Branch/worktree: `codex/pgta/T112-pgta-s9-predict-intake` in
+  `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`.
+- Release: `/home/jiucheng/pipelines/PGT_A_S9/releases/pgta-s9-v1.4`; `current`
+  points to the SHA256-verified release. Original `/home/jiucheng/pipelines/PGT_A`
+  was not modified.
+- Runtime boundary: Airflow uses `CeleryExecutor` for project-level tasks. A
+  Celery worker runs Snakemake 9, which schedules rule/sample concurrency inside
+  that task; H4 and H5 mapping ran concurrently in one Snakemake execution.
+- Validation passed:
+  - 2 x 1M paired-read run `PGTA_20260711_061816_F1E358`.
+  - Full H3 run `PGTA_20260711_062522_4C4FC2`.
+  - Full H4/H5 READY-manifest run `PGTA_20260711_071416_C8C7BA`.
+- The full manifest run produced 32 successful terminal events, 20 passing QC
+  metrics, complete WisecondorX outputs, and no residual running/failed events.
+  A third scanner pass reused the same analysis ID, proving intake idempotency.
+- Runtime: migration `20260711_0003`; pool `pgta_s9_full=1`;
+  `bio_pgta_airflow` remains deprecated/paused; `bio_intake_scan` is unpaused;
+  PGT-A manifest auto-submit is enabled; NIPT auto-submit and full-run remain
+  disabled.
+- Post-review hardening makes observed READY requests immutable, recovers a run
+  committed before the discovery link, authenticates scanner/event service
+  calls, verifies every S9 release file, fixes NIPT percentage-point display,
+  and exposes the active manifest inbox in read-only Settings.
+- Tests: backend 113 passed; Airflow 79 passed with 5 expected environment
+  skips; actual Snakemake 9 logger 5 passed; frontend 25 passed; production
+  frontend build and Compose config passed.
+- Browser: Dashboard, Submit, and the full manifest Run Detail loaded live data
+  at 1440 and 390 CSS pixels with no document overflow or error boundary;
+  Settings also shows manifest inbox/mode/READY policy at 390 without overflow.
+- Safety statement: this is engineering workflow validation, not a claim of
+  clinical production validation.
+- Rollback: pause `bio_intake_scan`, set PGT-A auto-submit false, point `current`
+  and the approved profile to the prior immutable release, then recreate affected
+  services. Do not delete historical runs, source FASTQ files, or Docker volumes.
+
 > Agent 交接记录。最新记录放在最上面。
 
 ## Handoff Template

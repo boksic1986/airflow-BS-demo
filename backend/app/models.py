@@ -62,8 +62,12 @@ class AnalysisRun(Base):
     submitted_by: Mapped[str | None] = mapped_column(String(128))
     email_to: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    progress_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    current_stage: Mapped[str | None] = mapped_column(String(256))
+    progress_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_summary: Mapped[str | None] = mapped_column(Text)
 
 
@@ -207,5 +211,8 @@ class IntakeDiscovery(Base):
     ready_state: Mapped[str] = mapped_column(String(64), nullable=False, default="observed")
     analysis_id: Mapped[str | None] = mapped_column(String(128))
     submit_state: Mapped[str] = mapped_column(String(64), nullable=False, default="not_submitted")
+    source_manifest_path: Mapped[str | None] = mapped_column(Text)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    stable_observation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)

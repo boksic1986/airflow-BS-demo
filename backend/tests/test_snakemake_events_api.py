@@ -97,6 +97,33 @@ def test_snakemake_event_receiver_upserts_rule_event(tmp_path, monkeypatch) -> N
     assert event.end_time.isoformat() == "2026-07-03T09:01:30"
 
 
+def test_snakemake_event_receiver_requires_configured_internal_service_token(monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_run(session_factory)
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    monkeypatch.setattr(main, "get_internal_service_token", lambda: "service-secret")
+    client = TestClient(main.app)
+    payload = {
+        "analysis_id": analysis_id,
+        "event": "job_started",
+        "rule": "metadata",
+        "snakemake_jobid": "1",
+        "status": "running",
+    }
+
+    assert client.post("/api/events/snakemake", json=payload).status_code == 401
+    assert client.post(
+        "/api/events/snakemake",
+        json=payload,
+        headers={"X-Airflow-Demo-Token": "wrong"},
+    ).status_code == 401
+    assert client.post(
+        "/api/events/snakemake",
+        json=payload,
+        headers={"X-Airflow-Demo-Token": "service-secret"},
+    ).status_code == 200
+
+
 def test_snakemake_event_receiver_rejects_missing_run(monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)

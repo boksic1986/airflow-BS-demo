@@ -241,3 +241,12 @@ node_modules/
 - Primary scanner configuration lives in `config/intake.yaml`, mounted read-only into backend as `/app/config/intake.yaml`.
 - `INTAKE_CONFIG_PATH` points backend at the YAML file. `PGTA_INPUT_SCAN_ROOTS`, `INPUT_SCAN_ROOTS`, and `NIPT_INPUT_SCAN_ROOTS` are fallback roots only.
 - `GET /api/system/resources` returns host `/proc` metrics and Docker stats when available. Missing Docker stats must degrade to `source=host_proc`.
+
+## 12. T112 Internal Service Boundary
+
+- `INTERNAL_SERVICE_TOKEN` is required by Compose and is stored only in the
+  untracked deployment `.env`.
+- Airflow scheduler/worker and backend receive the same value. Browsers never
+  receive or display it.
+- Only machine-to-machine scanner and Snakemake event endpoints use this token;
+  this is service authentication, not a user/account system.

@@ -12,7 +12,9 @@ export function RunOverviewTab({detail, samples}: {detail: RunDetail; samples: S
         <div><dt>Status</dt><dd><StatusBadge status={detail.status} /></dd></div>
         <div><dt>DAG run</dt><dd className="path-text">{detail.dag_run_id || "not set"}</dd></div>
         <div><dt>Samples</dt><dd>{samples.length}</dd></div>
+        <div><dt>Operator</dt><dd>{detail.submitted_by || "not captured"}</dd></div>
         <div><dt>Created</dt><dd>{formatDate(detail.created_at)}</dd></div>
+        <div><dt>Submitted</dt><dd>{formatDate(detail.submitted_at)}</dd></div>
         <div><dt>Started</dt><dd>{formatDate(detail.started_at)}</dd></div>
         <div><dt>Finished</dt><dd>{formatDate(detail.ended_at)}</dd></div>
         <div><dt>Workdir</dt><dd className="path-text">{detail.workdir || "not set"}</dd></div>

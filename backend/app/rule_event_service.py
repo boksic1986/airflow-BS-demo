@@ -14,12 +14,27 @@ from app.models import AnalysisRun, SnakemakeRuleEvent, utc_now
 
 START_STATUSES = {"planned", "submitted", "running", "started"}
 END_STATUSES = {"success", "failed", "skipped", "error"}
+RULE_PROGRESS = {
+    "mapping": 15,
+    "fastp_bwa": 35,
+    "collect_mapping_qc": 45,
+    "metadata": 50,
+    "collect_run_metadata": 50,
+    "cnv_qc": 60,
+    "wisecondorx_convert_for_cnv": 65,
+    "wisecondorx_gender_for_predict": 72,
+    "wisecondorx_qc_for_predict": 80,
+    "cnv_predict": 85,
+    "wisecondorx_predict_cnv": 95,
+    "aggregate_pgta_prediction_status": 98,
+    "baseline_qc": 90,
+}
 
 
 def record_snakemake_event(*, session: Session, event: Mapping[str, Any]) -> bool:
     analysis_id = str(event["analysis_id"])
-    run_exists = session.scalar(select(AnalysisRun.analysis_id).where(AnalysisRun.analysis_id == analysis_id))
-    if run_exists is None:
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+    if run is None:
         return False
 
     rule = str(event["rule"])
@@ -47,6 +62,7 @@ def record_snakemake_event(*, session: Session, event: Mapping[str, Any]) -> boo
         session.add(rule_event)
 
     _apply_event(rule_event, event=event, timestamp=timestamp)
+    _update_run_progress(run=run, rule=rule, status=str(event["status"]), timestamp=timestamp)
     session.commit()
     return True
 
@@ -158,6 +174,15 @@ def _rule_event_payload(row: SnakemakeRuleEvent) -> dict[str, Any]:
         "return_code": row.return_code,
         "wildcards": row.wildcards_json or {},
     }
+
+
+def _update_run_progress(*, run: AnalysisRun, rule: str, status: str, timestamp: datetime) -> None:
+    weight = RULE_PROGRESS.get(rule, int(run.progress_percent or 10))
+    run.progress_percent = max(int(run.progress_percent or 0), weight)
+    run.current_stage = rule
+    run.progress_updated_at = timestamp
+    if str(status).lower() in {"failed", "error"}:
+        run.status = "failed"
 
 
 def _normalize_optional_string(value: Any) -> str | None:

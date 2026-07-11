@@ -2,13 +2,14 @@ import {Play, RefreshCw, RotateCw} from "lucide-react";
 import {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 
-import type {Artifact, LogStream, RuleEvent, RunConfig, RunDetail, RunLog, RunProgressResponse, RunQc, Sample} from "../api";
+import type {Artifact, LogStream, RuleEvent, RunConfig, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, RunQc, Sample} from "../api";
 
 import {
   getRunArtifacts,
   getRunConfig,
   getRunDetail,
   getRunLog,
+  getRunLogIndex,
   getRunProgress,
   getRunQc,
   getRunRules,
@@ -51,6 +52,8 @@ export function RunDetailPage() {
   const [bundle, setBundle] = useState<Bundle>(emptyBundle);
   const [log, setLog] = useState<RunLog | null>(null);
   const [logStream, setLogStream] = useState<LogStream>("metadata");
+  const [logSources, setLogSources] = useState<RunLogIndexItem[]>([]);
+  const [logKey, setLogKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DetailTab>("Overview");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +68,7 @@ export function RunDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const [detail, samples, rules, progress, artifacts, qc, config] = await Promise.all([
+      const [detail, samples, rules, progress, artifacts, qc, config, indexedLogs] = await Promise.all([
         getRunDetail(analysisId),
         getRunSamples(analysisId),
         getRunRules(analysisId),
@@ -73,9 +76,20 @@ export function RunDetailPage() {
         getRunArtifacts(analysisId),
         getRunQc(analysisId),
         getRunConfig(analysisId).catch(() => null),
+        getRunLogIndex(analysisId).catch(() => ({items: []})),
       ]);
       setBundle({detail, samples: samples.items, rules: progress?.rule_events || rules.items, progress, artifacts: artifacts.items, qc, config});
-      if (isFailedStatus(detail.status)) setLogStream("stderr");
+      setLogSources(indexedLogs.items);
+      if (indexedLogs.items.length) {
+        const preferred = indexedLogs.items.find((item) => isFailedStatus(item.status) && item.stream === "stderr")
+          || indexedLogs.items.find((item) => item.rule === progress?.current_step)
+          || indexedLogs.items.find((item) => item.stream === "stderr" && isFailedStatus(detail.status))
+          || indexedLogs.items[0];
+        setLogKey((current) => indexedLogs.items.some((item) => item.key === current) ? current : preferred.key);
+        setLogStream(preferred.stream === "stderr" ? "stderr" : preferred.stream === "metadata" ? "metadata" : "stdout");
+      } else if (isFailedStatus(detail.status)) {
+        setLogStream("stderr");
+      }
     } catch (loadError) {
       setBundle(emptyBundle);
       setError(errorMessage(loadError));
@@ -84,19 +98,27 @@ export function RunDetailPage() {
     }
   }
 
-  async function loadLog(stream: LogStream) {
+  async function loadLog(stream: LogStream, key?: string | null) {
     if (!analysisId) return;
     setLog(null);
     setLogError(null);
     try {
-      setLog(await getRunLog(analysisId, stream));
+      setLog(await getRunLog(analysisId, stream, key || undefined));
     } catch (loadError) {
       setLogError(errorMessage(loadError));
     }
   }
 
   useEffect(() => { void loadDetail(); }, [analysisId]);
-  useEffect(() => { void loadLog(logStream); }, [analysisId, logStream]);
+  useEffect(() => { void loadLog(logStream, logKey); }, [analysisId, logKey, logStream]);
+
+  function handleLogKeyChange(nextKey: string) {
+    const source = logSources.find((item) => item.key === nextKey);
+    setLogKey(nextKey);
+    if (source?.stream === "stderr" || source?.stream === "metadata" || source?.stream === "stdout") {
+      setLogStream(source.stream);
+    }
+  }
 
   const detail = bundle.detail;
 
@@ -184,7 +206,7 @@ export function RunDetailPage() {
           {activeTab === "Samples" ? <RunSamplesTab samples={bundle.samples} /> : null}
           {activeTab === "Workflow" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} /> : null}
           {activeTab === "QC" ? <RunQcTab qc={bundle.qc} /> : null}
-          {activeTab === "Logs" ? <LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError} /> : null}
+          {activeTab === "Logs" ? <LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} /> : null}
           {activeTab === "Files" ? <RunFilesTab artifacts={bundle.artifacts} /> : null}
           {activeTab === "Config" ? <RunConfigTab artifacts={bundle.artifacts} config={bundle.config} detail={detail} /> : null}
         </section>

@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pgta_metadata_runner import (
+    _pgta_subprocess_env,
     build_pgta_config,
     collect_pgta_artifact,
     read_selected_manifest,
@@ -18,6 +19,22 @@ from pgta_metadata_runner import (
 
 
 class PgtaMetadataRunnerTests(unittest.TestCase):
+    def test_pgta_subprocess_env_prepends_approved_rscript_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env = _pgta_subprocess_env(
+                Path(tmpdir),
+                runtime={
+                    "rscript_bin": "/biosoftware/miniconda/envs/wise_env/bin/Rscript",
+                    "conda_lib": tmpdir,
+                    "libstdcxx": str(Path(tmpdir) / "missing-libstdcxx.so.6"),
+                },
+            )
+
+        self.assertEqual(
+            env["PATH"].split(":", 1)[0],
+            "/biosoftware/miniconda/envs/wise_env/bin",
+        )
+
     def test_read_selected_manifest_returns_samples(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             manifest = Path(tmpdir) / "samples.selected.tsv"

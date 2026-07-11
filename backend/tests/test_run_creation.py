@@ -157,6 +157,43 @@ def test_create_pgta_run_accepts_controlled_pgta_targets(tmp_path, monkeypatch) 
         assert f'"target": "{target}"' in request_json.read_text(encoding="utf-8")
 
 
+def test_create_pgta_predict_run_records_operator_and_predict_target(tmp_path, monkeypatch) -> None:
+    allowed_root = tmp_path / "rawdata"
+    source_dir = allowed_root / "run1" / "Sample_PGTA-DEMO-01"
+    r1, r2 = write_fastq_pair(source_dir, "PGTA-DEMO-01_combined")
+    session_factory = make_test_sessionmaker()
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: SimpleNamespace(
+            input_scan_roots=[str(allowed_root)],
+            container_shared_root=str(tmp_path / "shared"),
+        ),
+    )
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    client = TestClient(main.app)
+
+    response = client.post(
+        "/api/runs",
+        json={
+            "pipeline": "pgta",
+            "project_name": "PGT-A S9 predict",
+            "target": "predict",
+            "submitted_by": "demo-operator",
+            "rawdata_root": str(allowed_root),
+            "selected_samples": [
+                {"sample_id": "PGTA-DEMO-01", "r1": r1, "r2": r2, "source_dir": str(source_dir.resolve())}
+            ],
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    payload = response.json()
+    assert payload["params"]["target"] == "predict"
+    assert payload["submitted_by"] == "demo-operator"
+    assert payload["submitted_at"] is None
+
+
 def test_create_pgta_run_rejects_baseline_qc_with_one_sample(tmp_path, monkeypatch) -> None:
     allowed_root = tmp_path / "rawdata"
     source_dir = allowed_root / "run1" / "Sample_JZ26083055-G1-G1"
@@ -331,3 +368,4 @@ def test_run_list_aggregates_sample_qc_status(tmp_path, monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json()["items"][0]["analysis_id"] == created["analysis_id"]
     assert response.json()["items"][0]["qc_status"] == "fail"
+    assert response.json()["items"][0]["qc_highlights"] == []

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import stat
+from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient

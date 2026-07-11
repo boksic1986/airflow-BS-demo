@@ -46,7 +46,7 @@ def test_input_scan_endpoint_returns_discovered_candidates(tmp_path, monkeypatch
     assert payload["truncated"] is False
     assert payload["items"] == [
         {
-            "sample_id": "G1",
+            "sample_id": "JZ26083055-G1-G1",
             "r1": r1,
             "r2": r2,
             "source_dir": str(sample_dir.resolve()),

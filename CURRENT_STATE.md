@@ -5,7 +5,11 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T111 Snakemake config editor and approved runtime profiles are validated and deployed for PGT-A + NIPT Docker; automatic intake remains disabled and bio_intake_scan remains paused.
+current_goal_ascii: T112 PGT-A Snakemake 9 predict rollout is engineering-validated and deployed; NIPT Docker remains unchanged.
+t112_release: pgta-s9-v1.4 is deployed at /home/jiucheng/pipelines/PGT_A_S9/releases/pgta-s9-v1.4; current points to the verified SHA256 release and the original PGT_A directory is unchanged.
+t112_validation: small 2 x 1M run PGTA_20260711_061816_F1E358, full H3 run PGTA_20260711_062522_4C4FC2, and full H4/H5 manifest run PGTA_20260711_071416_C8C7BA all reached success with terminal logger events, passing QC, and WisecondorX predict outputs.
+t112_runtime: frontend/backend/Airflow services are healthy from isolated /home/jiucheng/project/airflow-demo-t112; Airflow uses CeleryExecutor for project tasks, Snakemake 9 manages rule/sample parallelism inside the worker, internal scanner/event endpoints require a shared service token, and the worker verifies the immutable release manifest before execution.
+t112_intake_gate: bio_intake_scan is unpaused after validation; PGT-A READY-manifest auto-submit is enabled and idempotent, NIPT auto-submit remains disabled, and NIPT full-run remains guarded.
 last_t111_backend_tests: remote Dockerized full pytest passed 103 tests.
 last_t111_airflow_tests: full unittest discovery passed 74 tests with 5 expected logger-interface skips; compose worker profile-mount and approved-runtime availability regressions passed.
 last_t111_frontend_tests: remote Dockerized Vitest passed 24 tests; production tsc/vite build passed.
@@ -38,8 +42,8 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/frontend/T111-snakemake-config-editor in local worktree; T110 baseline is `b56c405`
-last_verified_code_commit: current T111 branch pending final task commit; T110 baseline is `b56c405`
+active_branch: codex/pgta/T112-pgta-s9-predict-intake in isolated local worktree; T111 baseline is `48015a6`
+last_verified_code_commit: T112 branch pending final task commit; T111 baseline is `48015a6`
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 overlay is deployed there and `origin/main` on the mirror has been fetched to `0857e3d`, but the mirror worktree itself remains on its existing dirty deployment branch
 ```
@@ -61,7 +65,7 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 ov
 airflow_metadata_db: initialized by `docker compose -f docker-compose.yaml up airflow-init`; admin user exists, password only in remote .env
 biodemo_db: initialized on fengxian by `docker compose -f docker-compose.yaml run --rm biodemo-db-init`
 migrations_tool: Alembic
-last_migration: 20260708_0002 intake discovery table
+last_migration: 20260711_0003 PGT-A S9 operations fields and manifest intake audit
 core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, artifact, run_action, intake_discovery
 ```
 
@@ -69,6 +73,7 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 
 | Pipeline | DAG | Snakemake | qsub | Docker | QC | Status |
 |---|---|---|---|---|---|---|
+| PGT-A S9 predict | `bio_pgta` stages validate, prepare, mapping, metadata, cnv_qc, cnv_predict, collect; full-run pool has one slot | Snakemake 9.23.1 release `pgta-s9-v1.4`; per-rule/sample logger events; fixed approved hg19 XX/XY/gender references | not used | not used | mapping QC, estimated depth, CNV QC, prediction status; QC fail is separate from workflow fail | engineering validation passed for 2 x 1M, one full H3, and full H4/H5 READY-manifest runs; PGT-A manifest intake enabled; not claimed as clinical validation |
 | PGT-A demo | `bio_pgta` metadata/dryrun/failure smoke passed; `bio_pgta_airflow` Airflow-only logger/event POST passed; `baseline_qc` staged real run `PGTA_20260706_162150_00C4FD` completed after controlled interrupt/resume sequence; final resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` ended Airflow/backend `success` | direct Snakemake metadata target, `dryrun_cnv`, controlled `invalid_target`, and Level 4 `baseline_qc` smoke in Airflow worker passed; T088 sets `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`; T093 resume runs `--unlock` then `--cores 64 --rerun-incomplete`, no `--forceall`; T094 adds run-local cleanup of `mapping/*.sorted.bam.tmp.*.bam`; T095 sets conda `LD_LIBRARY_PATH`, `LD_PRELOAD=PGTA_LIBSTDCXX`, run-local `MPLCONFIGDIR`, and baseline QC Python preflight; Snakemake 9.23.1 logger plugin writes JSONL, Airflow log/XCom summary, and optional backend rule/job events | not used | server-path project creation, submit, status sync, logs, artifacts, rule event API, PGT-A run detail frontend v1, New PGT-A Run frontend scan/create/submit, active-run auto-sync, failed baseline_qc `Resume with 64 cores`, and QC/artifact panel API are available | baseline_qc parser/artifacts added; `/qc` imports 14 metrics for G10/G11 and both samples have QC decision `FAIL` | `/api/input/scan` and `/api/runs` create `created` run; submit triggers `bio_pgta`; Airflow-only manifest run can POST rule events to biodemo; frontend can create pgta runs for metadata/dryrun/failure/baseline_qc smoke, submit created runs, view run list/detail, samples, rules, logs, artifacts, QC, sync Airflow, and resume failed baseline_qc |
 | WES qsub | `bio_wes_qsub` Airflow mock DAG passed with `new/resume/rerun_rule` and QC smoke | WES mock Snakefile dry-run passed; WES mock profile runtime passed in `snakemake-runner`; `bio_wes_qsub` runs Snakemake 9.23.1 inside Airflow worker with `profiles/qsub`, writes command/stdout/stderr/events and `reports/qc_summary.tsv` | mock qsub wrapper direct smoke passed with backend POST; Airflow/API/frontend smoke generated mock qsub job ids, stdout/stderr files, JSONL events, and command log proving `--forcerun fastp` without `--forceall` | `airflow-demo/snakemake-runner:0.1.0` and `airflow-demo/airflow:0.1.0` builds passed | WES mock QC parser and frontend QC panel done; real WES QC and MultiQC not started | T040/T041/T042/T030/T031/T044/T056/T060/T054 done; next step is T034/T063 MailHog notification or T080 smoke report/demo script |
 | NIPT qsub | not started | not started | not started | n/a | not started | pending |
@@ -77,12 +82,12 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 ## 7. 最近测试结果
 
 ```text
-last_backend_tests: remote Dockerized full pytest on fengxian for T110 passed, 94 tests; includes SQL-backed Runs/Samples/Failures filters and pagination, deployed pipeline scope, safe sample path projection, sanitized failure excerpts, workflow/QC failure separation, and terminal Dashboard bulk loading without Airflow task-instance calls.
-last_frontend_tests: remote Dockerized frontend test target on fengxian for T110 passed, 20 Vitest tests; includes independent Dashboard error boundaries, global project/run search, URL-backed Batch Runs/Sample Matrix/Failure Triage, filter-safe keyword debounce, readable stage labels, 96-sample QC pagination, and existing PGT-A/NIPT submit/detail behavior.
-last_dag_import_tests: passed on fengxian for T108; Airflow test image unittest passed 28 tests for `bio_pgta` TaskGroup branching, controlled `rerun_stage`, and PGT-A runner resume/rerun flags.
+last_backend_tests: remote Dockerized full pytest for T112 passed, 113 tests; includes immutable READY manifests, crash-window run recovery, internal service authentication, dashboard ordering/timing/QC highlights, dynamic log index, and correct NIPT percentage units.
+last_frontend_tests: remote Dockerized frontend test target for T112 passed, 25 Vitest tests; production `tsc -b && vite build` passed.
+last_dag_import_tests: remote repo-mounted Airflow unittest discovery for T112 passed 79 tests with 5 expected logger-interface skips; actual Snakemake 9 logger tests passed 5 tests; runtime release integrity probe passed inside the worker.
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
-last_compose_config: passed on fengxian for T110; backend/frontend images rebuilt from the isolated worktree, frontend production build ran `tsc -b && vite build`, and only backend/frontend were recreated; frontend returned HTTP 200, backend health returned ok, deployed Runs excluded historical WES, Samples/Failures returned sanitized live PGT-A/NIPT data, `bio_intake_scan` remained paused, terminal-only dashboard runs had no active rows, and five final warm dashboard requests had median response about 33 ms.
-last_browser_responsive: T110 live-data browser acceptance checked Dashboard, Run Detail, Submit, Runs, Samples, and Failures at 1440, 1280, 1024, and 390 CSS pixels; all 24 combinations returned document `scrollWidth <= clientWidth`; no DAG or analysis run was triggered.
+last_compose_config: passed on fengxian for T112; backend, Airflow worker/scheduler, and frontend were rebuilt/recreated without deleting volumes; frontend returned HTTP 200 and backend health returned ok.
+last_browser_responsive: T112 live-data browser acceptance checked Dashboard, Submit, and full manifest Run Detail at 1440 and 390 CSS pixels; all six combinations returned document `scrollWidth <= clientWidth`, loaded backend data, and showed no error boundary.
 last_minimal_smoke: passed on fengxian for postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
 last_airflow_health: passed on fengxian at http://127.0.0.1:12958/health with healthy metadatabase and scheduler
 last_biodemo_migration: `biodemo-db-init` first run created role/database, repeat run succeeded; T103 `alembic upgrade head` applied 20260708_0002 `intake_discovery`

@@ -3,13 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+import hashlib
 from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AnalysisRun, Sample
+from app.models import AnalysisRun, Sample, SnakemakeRuleEvent
 from app.qc_service import import_run_qc_metrics
 from app.rule_event_service import import_snakemake_events_jsonl
 
@@ -199,6 +200,20 @@ ARTIFACTS = [
         url="/api/runs/{analysis_id}/artifacts/pgta_baseline_qc_report",
     ),
     ArtifactDefinition(
+        key="pgta_predict_qc_summary",
+        type="qc_tsv",
+        label="PGT-A prediction QC summary",
+        relative_path=Path("reports/qc_summary.tsv"),
+        url="/api/runs/{analysis_id}/qc",
+    ),
+    ArtifactDefinition(
+        key="pgta_prediction_status",
+        type="pgta_report",
+        label="PGT-A prediction status",
+        relative_path=Path("reports/prediction_status.tsv"),
+        url="/api/runs/{analysis_id}/artifacts/pgta_prediction_status",
+    ),
+    ArtifactDefinition(
         key="wes_final_summary",
         type="wes_mock_summary",
         label="WES mock final summary",
@@ -282,6 +297,9 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
         run.error_summary = build_error_summary(run=run, airflow_payload=airflow_payload, settings=settings)
     elif run.status == "success":
         run.error_summary = None
+        run.progress_percent = 100
+        run.current_stage = "Workflow complete"
+        run.progress_updated_at = run.ended_at or datetime.now(timezone.utc)
         import_run_qc_metrics(session=session, run=run, settings=settings)
     if run.status in {"success", "failed"}:
         events_path = _safe_child_path(_safe_workdir(run, settings), Path("logs/events/snakemake_events.jsonl"), settings)
@@ -292,20 +310,92 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
     return _run_payload(run)
 
 
-def get_run_log(*, session: Session, analysis_id: str, stream: str, tail: int, settings) -> dict[str, Any] | None:
+def get_run_log(
+    *, session: Session, analysis_id: str, stream: str, tail: int, settings, key: str | None = None
+) -> dict[str, Any] | None:
     run = _get_run(session, analysis_id)
     if run is None:
         return None
-    log_path = _log_path(run, stream, settings)
+    log_path = _log_path_for_key(session=session, run=run, key=key, settings=settings) if key else _log_path(run, stream, settings)
     if not log_path.is_file():
         raise LogNotFoundError(f"Log file not found: {log_path}")
     lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-    return {
+    payload = {
         "path": str(log_path),
         "stream": stream,
         "truncated": len(lines) > tail,
         "lines": lines[-tail:],
     }
+    if key:
+        payload["key"] = key
+    return payload
+
+
+def list_run_logs(*, session: Session, analysis_id: str, settings) -> dict[str, list[dict[str, Any]]] | None:
+    run = _get_run(session, analysis_id)
+    if run is None:
+        return None
+    workdir = _safe_workdir(run, settings)
+    items: list[dict[str, Any]] = []
+    for stream, relative_path in LOG_STREAMS.items():
+        path = _safe_child_path(workdir, relative_path, settings)
+        if path.is_file():
+            items.append(_log_index_item(path=path, workdir=workdir, label=stream.title(), stream=stream))
+    stage_labels = {
+        "mapping": "Mapping stage",
+        "metadata": "Metadata stage",
+        "cnv_qc": "CNV QC stage",
+        "cnv_predict": "CNV prediction stage",
+        "baseline_qc": "Baseline QC stage",
+    }
+    for stage, label in stage_labels.items():
+        for stream in ("stdout", "stderr"):
+            path = _safe_child_path(workdir, Path(f"logs/snakemake.{stage}.{stream}.log"), settings)
+            if path.is_file():
+                items.append(_log_index_item(path=path, workdir=workdir, label=f"{label} {stream}", stream=stream))
+    events = session.scalars(
+        select(SnakemakeRuleEvent)
+        .where(SnakemakeRuleEvent.analysis_id == analysis_id)
+        .order_by(SnakemakeRuleEvent.updated_at.desc())
+    ).all()
+    seen = {item["key"] for item in items}
+    for event in events:
+        for stream, raw_path in (("stdout", event.stdout_path), ("stderr", event.stderr_path)):
+            if not raw_path:
+                continue
+            try:
+                path = _safe_child_path(workdir, Path(raw_path).resolve().relative_to(workdir), settings)
+            except (ValueError, InvalidRunPathError):
+                continue
+            if not path.is_file():
+                continue
+            item = _log_index_item(
+                path=path,
+                workdir=workdir,
+                label=f"{event.rule} · {event.sample_id or 'project'} · {stream}",
+                stream=stream,
+                rule=event.rule,
+                sample_id=event.sample_id,
+                status=event.status,
+            )
+            if item["key"] not in seen:
+                items.append(item)
+                seen.add(item["key"])
+    return {"items": items}
+
+
+def _log_index_item(*, path: Path, workdir: Path, label: str, stream: str, **extra) -> dict[str, Any]:
+    relative = path.resolve().relative_to(workdir.resolve()).as_posix()
+    key = hashlib.sha256(relative.encode("utf-8")).hexdigest()[:20]
+    return {"key": key, "label": label, "stream": stream, "relative_path": relative, **extra}
+
+
+def _log_path_for_key(*, session: Session, run: AnalysisRun, key: str | None, settings) -> Path:
+    index = list_run_logs(session=session, analysis_id=run.analysis_id, settings=settings) or {"items": []}
+    item = next((candidate for candidate in index["items"] if candidate["key"] == key), None)
+    if item is None:
+        raise LogNotFoundError(f"Unknown or unavailable log key: {key}")
+    return _safe_child_path(_safe_workdir(run, settings), Path(item["relative_path"]), settings)
 
 
 def list_run_artifacts(*, session: Session, analysis_id: str, settings) -> dict[str, list[dict[str, Any]]] | None:

@@ -2,12 +2,121 @@ version: 1
 
 pipelines:
   pgta:
-    default_profile: pgta-current
+    default_profile: pgta-s9-predict-v1
     profiles:
+      pgta-s9-predict-v1:
+        label: PGT-A Snakemake 9 predict
+        pipeline_version: pgta-s9-v1.4
+        config_version: predict-v1
+        submit_visible: true
+        runtime:
+          pipeline_root: /opt/pipelines/PGT_A_S9/releases/pgta-s9-v1.4
+          release_manifest: /opt/pipelines/PGT_A_S9/releases/pgta-s9-v1.4/SHA256SUMS
+          release_manifest_sha256: 84a1940baabf4a2564c1fcdbea42fafab50062e17dcde63098b2a758ae8b4591
+          snakemake_bin: /biosoftware/miniconda/envs/snakemake9_env/bin/snakemake
+          python_bin: /biosoftware/miniconda/envs/snakemake_env/bin/python
+          conda_lib: /biosoftware/miniconda/envs/snakemake_env/lib
+          libstdcxx: /biosoftware/miniconda/envs/snakemake_env/lib/libstdc++.so.6
+          samtools_bin: /biosoftware/miniconda/pkgs/samtools-1.7-1/bin/samtools
+          samtools_library_path: /biosoftware/miniconda/pkgs/openssl-1.0.2u-h516909a_0/lib
+          fastp_bin: /biosoftware/bin/fastp
+          bwa_bin: /biosoftware/bin/bwa
+          wisecondorx_bin: /biosoftware/miniconda/envs/wise_env/bin/WisecondorX
+          rscript_bin: /biosoftware/miniconda/envs/wise_env/bin/Rscript
+          reference_genome: /data/Database/index/hg19/hg19.fa
+          reference_xx_npz: /data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference/XX/result/ref_xx_best.npz
+          reference_xy_npz: /data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference/XY/result/ref_xy_best.npz
+          gender_reference_npz: /data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference/gender/result/ref_gender_best.npz
+          common_reference_binsize: /data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference/gender/common_best_binsize.txt
+          logger_plugin: airflow-demo
+          logger_python_path: /opt/airflow/dags
+          cores: 64
+        editable_defaults: &pgta_predict_defaults
+          core:
+            wisecondorx:
+              cnv:
+                zscore: 5
+                alpha: 0.001
+                maskrepeats: 5
+                minrefbins: 150
+                qc:
+                  min_total_counts: 1000000
+                  min_nonzero_fraction: 0.4
+                  max_mad_log1p: 1.2
+        editable_schema: &pgta_predict_schema
+          core.wisecondorx.cnv.zscore:
+            type: number
+            minimum: 1
+            maximum: 20
+          core.wisecondorx.cnv.alpha:
+            type: number
+            minimum: 0.000001
+            maximum: 0.1
+          core.wisecondorx.cnv.maskrepeats:
+            type: integer
+            minimum: 0
+            maximum: 20
+          core.wisecondorx.cnv.minrefbins:
+            type: integer
+            minimum: 10
+            maximum: 1000
+          core.wisecondorx.cnv.qc.min_total_counts:
+            type: integer
+            minimum: 10000
+            maximum: 1000000000
+          core.wisecondorx.cnv.qc.min_nonzero_fraction:
+            type: number
+            minimum: 0.01
+            maximum: 1
+          core.wisecondorx.cnv.qc.max_mad_log1p:
+            type: number
+            minimum: 0.01
+            maximum: 10
+      pgta-s9-validation:
+        label: PGT-A Snakemake 9 validation
+        pipeline_version: pgta-s9-v1.4
+        config_version: predict-validation-v1
+        submit_visible: false
+        runtime:
+          pipeline_root: /opt/pipelines/PGT_A_S9/releases/pgta-s9-v1.4
+          release_manifest: /opt/pipelines/PGT_A_S9/releases/pgta-s9-v1.4/SHA256SUMS
+          release_manifest_sha256: 84a1940baabf4a2564c1fcdbea42fafab50062e17dcde63098b2a758ae8b4591
+          snakemake_bin: /biosoftware/miniconda/envs/snakemake9_env/bin/snakemake
+          python_bin: /biosoftware/miniconda/envs/snakemake_env/bin/python
+          conda_lib: /biosoftware/miniconda/envs/snakemake_env/lib
+          libstdcxx: /biosoftware/miniconda/envs/snakemake_env/lib/libstdc++.so.6
+          samtools_bin: /biosoftware/miniconda/pkgs/samtools-1.7-1/bin/samtools
+          samtools_library_path: /biosoftware/miniconda/pkgs/openssl-1.0.2u-h516909a_0/lib
+          fastp_bin: /biosoftware/bin/fastp
+          bwa_bin: /biosoftware/bin/bwa
+          wisecondorx_bin: /biosoftware/miniconda/envs/wise_env/bin/WisecondorX
+          rscript_bin: /biosoftware/miniconda/envs/wise_env/bin/Rscript
+          reference_genome: /data/Database/index/hg19/hg19.fa
+          reference_xx_npz: /data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference/XX/result/ref_xx_best.npz
+          reference_xy_npz: /data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference/XY/result/ref_xy_best.npz
+          gender_reference_npz: /data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference/gender/result/ref_gender_best.npz
+          common_reference_binsize: /data/project/CNV/PGT-A/refactor_validation_20260419/results_build_ref_v2_mask_only/reference/gender/common_best_binsize.txt
+          logger_plugin: airflow-demo
+          logger_python_path: /opt/airflow/dags
+          cores: 16
+        editable_defaults:
+          core:
+            wisecondorx:
+              cnv:
+                zscore: 5
+                alpha: 0.001
+                maskrepeats: 5
+                minrefbins: 150
+                qc:
+                  min_total_counts: 10000
+                  min_nonzero_fraction: 0.01
+                  max_mad_log1p: 10
+        editable_schema: *pgta_predict_schema
       pgta-current:
         label: PGT-A current environment
         pipeline_version: current
         config_version: pgta-airflow-v1
+        submit_visible: false
         runtime:
           pipeline_root: /opt/pipelines/PGT_A
           snakemake_bin: /biosoftware/miniconda/envs/snakemake_env/bin/snakemake
@@ -19,6 +128,7 @@ pipelines:
           fastp_bin: /biosoftware/bin/fastp
           bwa_bin: /biosoftware/bin/bwa
           wisecondorx_bin: /biosoftware/miniconda/envs/wise_env/bin/WisecondorX
+          rscript_bin: /biosoftware/miniconda/envs/wise_env/bin/Rscript
           reference_genome: /data/Database/index/hg19/hg19.fa
           cores: 64
         editable_defaults:

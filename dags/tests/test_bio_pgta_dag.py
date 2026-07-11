@@ -24,6 +24,10 @@ class BioPgtaDagTests(unittest.TestCase):
                 "pgta_pipeline.run_pgta_mapping",
                 "pgta_pipeline.run_pgta_metadata",
                 "pgta_pipeline.run_pgta_baseline_qc",
+                "pgta_predict.run_pgta_mapping",
+                "pgta_predict.run_pgta_metadata",
+                "pgta_predict.run_pgta_cnv_qc",
+                "pgta_predict.run_pgta_cnv_predict",
                 "collect_pgta_artifact",
             },
         )
@@ -36,12 +40,21 @@ class BioPgtaDagTests(unittest.TestCase):
                 "pgta_pipeline.run_pgta_mapping",
                 "pgta_pipeline.run_pgta_metadata",
                 "pgta_pipeline.run_pgta_baseline_qc",
+                "pgta_predict.run_pgta_mapping",
             }
         )
         self.assertTrue(dag.get_task("pgta_pipeline.run_pgta_mapping").downstream_task_ids == {"pgta_pipeline.run_pgta_metadata"})
         self.assertTrue(dag.get_task("pgta_pipeline.run_pgta_metadata").downstream_task_ids == {"pgta_pipeline.run_pgta_baseline_qc"})
         self.assertTrue(dag.get_task("pgta_pipeline.run_pgta_baseline_qc").downstream_task_ids == {"collect_pgta_artifact"})
         self.assertTrue(dag.get_task("run_pgta_target").downstream_task_ids == {"collect_pgta_artifact"})
+        self.assertEqual(
+            dag.get_task("pgta_predict.run_pgta_mapping").downstream_task_ids,
+            {"pgta_predict.run_pgta_metadata"},
+        )
+        self.assertEqual(
+            dag.get_task("pgta_predict.run_pgta_cnv_predict").downstream_task_ids,
+            {"collect_pgta_artifact"},
+        )
 
     def test_collect_metadata_callable_returns_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -53,9 +66,9 @@ class BioPgtaDagTests(unittest.TestCase):
             class DummyTaskInstance:
                 def xcom_pull(self, task_ids: str):
                     self.task_ids = task_ids
-                    if task_ids == "pgta_pipeline.run_pgta_baseline_qc":
-                        return None
-                    return {"analysis_id": "PGTA_TEST", "workdir": str(workdir)}
+                    if task_ids == "run_pgta_target":
+                        return {"analysis_id": "PGTA_TEST", "workdir": str(workdir)}
+                    return None
 
             task_instance = DummyTaskInstance()
             artifact = bio_pgta._collect_pgta_artifact(ti=task_instance)
@@ -122,6 +135,11 @@ class BioPgtaDagTests(unittest.TestCase):
         self.assertEqual(
             bio_pgta._choose_pgta_path(ti=DummyTaskInstance("baseline_qc", "baseline_qc")),
             "pgta_pipeline.run_pgta_baseline_qc",
+        )
+
+        self.assertEqual(
+            bio_pgta._choose_pgta_path(ti=DummyTaskInstance("predict")),
+            "pgta_predict.run_pgta_mapping",
         )
 
 

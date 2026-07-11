@@ -50,12 +50,12 @@ def _collect_metadata_artifact(**context):
 
 with DAG(
     dag_id="bio_pgta_airflow",
-    description="PGT-A Airflow-only metadata DAG with Snakemake 9 logger events",
+    description="Deprecated PGT-A Snakemake 9 logger smoke DAG; use bio_pgta",
     start_date=datetime(2026, 7, 1),
     schedule=None,
     catchup=False,
-    is_paused_upon_creation=False,
-    tags=["airflow-demo", "pgta", "snakemake9"],
+    is_paused_upon_creation=True,
+    tags=["airflow-demo", "pgta", "snakemake9", "deprecated"],
 ) as dag:
     validate_request = PythonOperator(
         task_id="validate_request",

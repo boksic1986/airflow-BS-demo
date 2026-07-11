@@ -41,6 +41,20 @@ def test_analysis_run_uses_unique_business_analysis_id() -> None:
     assert "analysis_id" in unique_columns
 
 
+def test_t112_operational_timestamps_and_progress_snapshots_are_declared() -> None:
+    columns = AnalysisRun.__table__.columns
+
+    assert "submitted_at" in columns
+    assert "progress_percent" in columns
+    assert "current_stage" in columns
+    assert "progress_updated_at" in columns
+
+    intake_columns = IntakeDiscovery.__table__.columns
+    assert "source_manifest_path" in intake_columns
+    assert "last_error" in intake_columns
+    assert "stable_observation_count" in intake_columns
+
+
 def test_model_classes_map_to_expected_tables() -> None:
     assert Pipeline.__tablename__ == "pipeline"
     assert Sample.__tablename__ == "sample"

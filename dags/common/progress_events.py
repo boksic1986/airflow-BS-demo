@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import re
 from typing import Any
@@ -54,10 +55,14 @@ def emit_progress_event(
     _append_jsonl(events_path, payload)
     if backend_event_url:
         try:
+            headers = {"Content-Type": "application/json"}
+            service_token = os.getenv("INTERNAL_SERVICE_TOKEN", "").strip()
+            if service_token:
+                headers["X-Airflow-Demo-Token"] = service_token
             request = urllib.request.Request(
                 backend_event_url,
                 data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
+                headers=headers,
                 method="POST",
             )
             with urllib.request.urlopen(request, timeout=5):

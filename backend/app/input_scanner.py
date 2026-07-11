@@ -59,7 +59,7 @@ def scan_fastq_candidates(
         for sample_stem, r1, r2 in _paired_fastqs(sample_dir):
             if len(items) >= max_samples:
                 return ScanResult(pipeline="pgta", rawdata_root=str(root), truncated=True, items=items)
-            sample_id = _extract_terminal_repeated_token(sample_dir.name) or sample_stem
+            sample_id = _sample_id_from_stem(sample_stem)
             items.append(_candidate(sample_id=sample_id, r1=r1, r2=r2, source_dir=sample_dir))
 
     return ScanResult(pipeline="pgta", rawdata_root=str(root), truncated=False, items=items)
@@ -179,17 +179,8 @@ def _parse_nipt_clean_fastq_name(name: str) -> tuple[str, str] | None:
     return sample_stem, direction
 
 
-def _extract_terminal_repeated_token(name: str) -> str | None:
-    match = re.search(r"[-_]([A-Za-z]*\d+|[A-Za-z]+)[-_]([A-Za-z]*\d+|[A-Za-z]+)$", name.strip())
-    if not match:
-        return None
-    left = _normalize_sample_token(match.group(1))
-    right = _normalize_sample_token(match.group(2))
-    return left if left == right else None
-
-
-def _normalize_sample_token(value: str) -> str:
-    return value.strip().replace("_", "").replace(" ", "").upper()
+def _sample_id_from_stem(sample_stem: str) -> str:
+    return sample_stem[: -len("_combined")] if sample_stem.lower().endswith("_combined") else sample_stem
 
 
 def _candidate(

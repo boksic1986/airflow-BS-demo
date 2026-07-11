@@ -4,6 +4,7 @@ import type {RunSummary} from "../api";
 
 import {compactPipelineName, formatDate, formatDuration} from "../lib/format";
 import {StatusBadge} from "./StatusBadge";
+import {QcHighlights} from "./QcHighlights";
 
 export function RunTable({
   runs,
@@ -20,12 +21,11 @@ export function RunTable({
         <thead>
           <tr>
             <th>project</th>
-            <th>run_id</th>
             <th>pipeline</th>
             <th>samples</th>
             <th>status</th>
-            <th>qc</th>
-            <th>created_at</th>
+            <th>QC highlights</th>
+            <th>submitted / started</th>
             <th>duration</th>
           </tr>
         </thead>
@@ -36,11 +36,10 @@ export function RunTable({
                 <Link className="resource-link" to={`/runs/${encodeURIComponent(run.analysis_id)}`}>
                   {run.project_name || run.analysis_id}
                 </Link>
-              </td>
-              <td className="mono path-text">
                 <Link className="resource-link secondary" to={`/runs/${encodeURIComponent(run.analysis_id)}`}>
                   {run.analysis_id}
                 </Link>
+                <small className="muted">Operator {run.submitted_by || "not captured"}</small>
               </td>
               <td>{compactPipelineName(run.pipeline)}</td>
               <td>{run.sample_count ?? 0}</td>
@@ -49,14 +48,15 @@ export function RunTable({
               </td>
               <td>
                 <StatusBadge status={run.qc_status || "unknown"} size="sm" />
+                <QcHighlights items={run.qc_highlights} />
               </td>
-              <td>{formatDate(run.created_at)}</td>
+              <td><span className="block">Submitted {formatDate(run.submitted_at)}</span><small>Started {formatDate(run.started_at)}</small></td>
               <td>{formatDuration(run.started_at, run.ended_at)}</td>
             </tr>
           ))}
           {runs.length === 0 ? (
             <tr>
-              <td colSpan={8} className="empty-cell">
+              <td colSpan={7} className="empty-cell">
                 {emptyLabel}
               </td>
             </tr>

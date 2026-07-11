@@ -1,0 +1,4 @@
+base_config: "config.yaml"
+pipeline:
+  mode: "predict"
+  targets: ["mapping", "metadata", "cnv_qc", "cnv"]

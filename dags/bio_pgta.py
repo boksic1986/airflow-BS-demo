@@ -48,6 +48,8 @@ def _choose_pgta_path(**context):
         if rerun_stage == "baseline_qc":
             return "pgta_pipeline.run_pgta_baseline_qc"
         return "pgta_pipeline.run_pgta_mapping"
+    if params.get("target") == "predict":
+        return "pgta_predict.run_pgta_mapping"
     return "run_pgta_target"
 
 
@@ -70,6 +72,7 @@ def _collect_pgta_artifact(**context):
     task_instance = context["ti"]
     conf = (
         task_instance.xcom_pull(task_ids="pgta_pipeline.run_pgta_baseline_qc")
+        or task_instance.xcom_pull(task_ids="pgta_predict.run_pgta_cnv_predict")
         or task_instance.xcom_pull(task_ids="run_pgta_target")
     )
     return collect_pgta_artifact(conf)
@@ -77,10 +80,11 @@ def _collect_pgta_artifact(**context):
 
 with DAG(
     dag_id="bio_pgta",
-    description="PGT-A demo DAG for metadata, dry-run, and controlled failure smoke",
+    description="PGT-A project DAG with Snakemake 9 predict stages and legacy maintenance paths",
     start_date=datetime(2026, 7, 1),
     schedule=None,
     catchup=False,
+    max_active_runs=1,
     is_paused_upon_creation=False,
     tags=["airflow-demo", "pgta"],
 ) as dag:
@@ -126,6 +130,32 @@ with DAG(
             trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS,
         )
         run_pgta_mapping_task >> run_pgta_metadata_task >> run_pgta_baseline_qc_task
+    with TaskGroup(group_id="pgta_predict") as pgta_predict:
+        run_pgta_predict_mapping_task = PythonOperator(
+            task_id="run_pgta_mapping",
+            python_callable=_run_pgta_stage,
+            op_kwargs={"stage": "mapping", "upstream_task_ids": ["prepare_pgta_config"]},
+            pool="pgta_s9_full",
+        )
+        run_pgta_predict_metadata_task = PythonOperator(
+            task_id="run_pgta_metadata",
+            python_callable=_run_pgta_stage,
+            op_kwargs={"stage": "metadata", "upstream_task_ids": ["pgta_predict.run_pgta_mapping"]},
+            pool="pgta_s9_full",
+        )
+        run_pgta_cnv_qc_task = PythonOperator(
+            task_id="run_pgta_cnv_qc",
+            python_callable=_run_pgta_stage,
+            op_kwargs={"stage": "cnv_qc", "upstream_task_ids": ["pgta_predict.run_pgta_metadata"]},
+            pool="pgta_s9_full",
+        )
+        run_pgta_cnv_predict_task = PythonOperator(
+            task_id="run_pgta_cnv_predict",
+            python_callable=_run_pgta_stage,
+            op_kwargs={"stage": "cnv_predict", "upstream_task_ids": ["pgta_predict.run_pgta_cnv_qc"]},
+            pool="pgta_s9_full",
+        )
+        run_pgta_predict_mapping_task >> run_pgta_predict_metadata_task >> run_pgta_cnv_qc_task >> run_pgta_cnv_predict_task
     collect_pgta_artifact_task = PythonOperator(
         task_id="collect_pgta_artifact",
         python_callable=_collect_pgta_artifact,
@@ -137,4 +167,6 @@ with DAG(
     choose_pgta_path >> run_pgta_mapping_task
     choose_pgta_path >> run_pgta_metadata_task
     choose_pgta_path >> run_pgta_baseline_qc_task
+    choose_pgta_path >> run_pgta_predict_mapping_task
+    run_pgta_cnv_predict_task >> collect_pgta_artifact_task
     run_pgta_baseline_qc_task >> collect_pgta_artifact_task

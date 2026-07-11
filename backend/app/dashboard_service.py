@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun, IntakeDiscovery, QcMetric, Sample, SnakemakeRuleEvent
 from app.progress_service import get_run_progress
+from app.qc_highlights import qc_highlights_by_run
 
 
 SUPPORTED_DASHBOARD_PIPELINES = {"all", "pgta", "nipt_docker"}
@@ -20,8 +21,8 @@ STATUS_ORDER = {
     "scheduled": 3,
     "failed": 4,
     "terminated": 5,
-    "created": 6,
-    "success": 7,
+    "success": 6,
+    "created": 7,
 }
 
 
@@ -94,15 +95,36 @@ def get_dashboard_runs(
             )
         )
     total = session.scalar(select(func.count()).select_from(base_query.order_by(None).subquery())) or 0
-    status_order = case(STATUS_ORDER, value=AnalysisRun.status, else_=99)
+    qc_failed = (
+        select(Sample.id)
+        .where(
+            Sample.analysis_id == AnalysisRun.analysis_id,
+            func.lower(Sample.qc_status).in_(["fail", "failed", "error"]),
+        )
+        .exists()
+    )
+    status_order = case(
+        (AnalysisRun.status.in_(ACTIVE_STATUSES), 0),
+        (or_(AnalysisRun.status.in_(FAILED_STATUSES), qc_failed), 1),
+        (AnalysisRun.status == "success", 2),
+        (AnalysisRun.status == "created", 3),
+        else_=4,
+    )
     page = list(
         session.scalars(
-            base_query.order_by(status_order, desc(AnalysisRun.created_at)).limit(limit).offset(offset)
+            base_query.order_by(
+                status_order,
+                desc(AnalysisRun.progress_percent),
+                AnalysisRun.submitted_at.asc().nulls_last(),
+                desc(AnalysisRun.ended_at),
+                desc(AnalysisRun.created_at),
+            ).limit(limit).offset(offset)
         ).all()
     )
     sample_qc = _sample_qc_by_run(session=session, runs=page)
     rule_events = _rule_events_by_run(session=session, runs=page)
     average_durations = _average_durations_by_kind(session=session, runs=page)
+    qc_highlights = qc_highlights_by_run(session=session, runs=page)
     return {
         "items": [
             _tracker_row(
@@ -112,6 +134,7 @@ def get_dashboard_runs(
                 sample_qc_statuses=sample_qc.get(run.analysis_id, []),
                 persisted_rule_events=rule_events.get(run.analysis_id, []),
                 average_duration_seconds=average_durations.get(_run_history_key(run)),
+                qc_highlights=qc_highlights.get(run.analysis_id, []),
             )
             for run in page
         ],
@@ -130,6 +153,7 @@ def _tracker_row(
     sample_qc_statuses: list[str | None],
     persisted_rule_events: list[dict[str, Any]],
     average_duration_seconds: int | None,
+    qc_highlights: list[dict[str, Any]],
 ) -> dict[str, Any]:
     progress = _progress_for_tracker_row(
         session=session,
@@ -156,6 +180,8 @@ def _tracker_row(
         "qc_status": _qc_status_from_values(sample_qc_statuses),
         "sample_count": len(sample_qc_statuses),
         "created_at": _iso(run.created_at),
+        "submitted_at": _iso(run.submitted_at),
+        "submitted_by": run.submitted_by,
         "started_at": _iso(run.started_at),
         "ended_at": _iso(run.ended_at),
         "dag_id": run.dag_id,
@@ -181,6 +207,7 @@ def _tracker_row(
         "progress_source": progress.get("progress_source", "estimate") if progress else "estimate",
         "not_in_airflow": progress.get("not_in_airflow", False) if progress else False,
         "note": progress.get("note", "") if progress else "",
+        "qc_highlights": qc_highlights,
     }
 
 

@@ -18,6 +18,10 @@ TASK_WEIGHTS: dict[str, dict[str, int]] = {
         "pgta_pipeline.run_pgta_mapping": 55,
         "pgta_pipeline.run_pgta_metadata": 70,
         "pgta_pipeline.run_pgta_baseline_qc": 90,
+        "pgta_predict.run_pgta_mapping": 45,
+        "pgta_predict.run_pgta_metadata": 50,
+        "pgta_predict.run_pgta_cnv_qc": 80,
+        "pgta_predict.run_pgta_cnv_predict": 95,
         # Historical runs before T107 used one project-level Snakemake task.
         "run_pgta_target": 90,
         "collect_pgta_artifact": 100,
@@ -31,7 +35,16 @@ TASK_WEIGHTS: dict[str, dict[str, int]] = {
 }
 
 RUN_TASK_IDS = {
-    "bio_pgta": {"run_pgta_target", "pgta_pipeline.run_pgta_mapping", "pgta_pipeline.run_pgta_metadata", "pgta_pipeline.run_pgta_baseline_qc"},
+    "bio_pgta": {
+        "run_pgta_target",
+        "pgta_pipeline.run_pgta_mapping",
+        "pgta_pipeline.run_pgta_metadata",
+        "pgta_pipeline.run_pgta_baseline_qc",
+        "pgta_predict.run_pgta_mapping",
+        "pgta_predict.run_pgta_metadata",
+        "pgta_predict.run_pgta_cnv_qc",
+        "pgta_predict.run_pgta_cnv_predict",
+    },
     "bio_nipt_docker": {"run_nipt_docker"},
 }
 
@@ -241,16 +254,34 @@ def _rule_percent(rule_events: list[dict[str, Any]], *, default: int) -> int:
 def _active_or_failed_rule(rule_events: list[dict[str, Any]], *, prefer_failed: bool = False) -> str | None:
     candidates = list(rule_events)
     if prefer_failed:
-        for item in candidates:
-            if _is_failed(item.get("status")):
-                return str(item.get("rule") or "")
-    for item in candidates:
-        if _status(item.get("status")) in ACTIVE_STATUSES:
-            return str(item.get("rule") or "")
+        failed = [item for item in candidates if _is_failed(item.get("status"))]
+        selected = _most_specific_recent_rule(failed)
+        if selected:
+            return selected
+    active = [item for item in candidates if _status(item.get("status")) in ACTIVE_STATUSES]
+    selected = _most_specific_recent_rule(active)
+    if selected:
+        return selected
     for item in reversed(candidates):
         if item.get("rule"):
             return str(item["rule"])
     return None
+
+
+def _most_specific_recent_rule(events: list[dict[str, Any]]) -> str | None:
+    if not events:
+        return None
+
+    def sort_key(item: dict[str, Any]) -> tuple[int, str, str]:
+        is_job_level = bool(item.get("sample_id") or item.get("snakemake_jobid"))
+        return (
+            1 if is_job_level else 0,
+            str(item.get("start_time") or ""),
+            str(item.get("rule") or ""),
+        )
+
+    selected = max(events, key=sort_key)
+    return str(selected.get("rule") or "") or None
 
 
 def _first_task_with_status(tasks: list[dict[str, Any]], statuses: set[str]) -> dict[str, Any] | None:

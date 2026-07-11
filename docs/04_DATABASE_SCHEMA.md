@@ -197,3 +197,11 @@ from snakemake_rule_event
 where analysis_id = :analysis_id
 order by start_time nulls last, rule;
 ```
+
+## T112 PGT-A S9 operational fields
+
+Migration `20260711_0003` adds `analysis_run.submitted_at`,
+`progress_percent`, `current_stage`, and `progress_updated_at`. Created-only
+runs keep `submitted_at` null; historical values are backfilled from the first
+accepted submit RunAction. Intake discovery adds `source_manifest_path`,
+`last_error`, and `stable_observation_count` for READY-manifest audit.

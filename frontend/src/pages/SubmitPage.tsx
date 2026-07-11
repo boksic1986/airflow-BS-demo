@@ -16,12 +16,6 @@ import {deployedWorkflowTemplates} from "../mocks/platform";
 
 const defaultPgtaRawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28";
 const defaultNiptRawdataRoot = "/opt/pipelines/NIPT/fastq";
-const pgtaTargets: Array<{value: PgtaTarget; label: string}> = [
-  {value: "metadata", label: "metadata smoke"},
-  {value: "dryrun_cnv", label: "CNV dry-run"},
-  {value: "invalid_target", label: "failure smoke"},
-  {value: "baseline_qc", label: "baseline QC smoke"},
-];
 const handoffSyncAttempts = 6;
 const handoffSyncDelayMs = 2500;
 const fallbackTemplate = deployedWorkflowTemplates.find((pipeline) => pipeline.id === "pgta") || deployedWorkflowTemplates[0]!;
@@ -29,13 +23,13 @@ const fallbackTemplate = deployedWorkflowTemplates.find((pipeline) => pipeline.i
 export function SubmitPage() {
   const [selectedPipeline, setSelectedPipeline] = useState<"pgta" | "nipt_docker">("pgta");
   const [projectName, setProjectName] = useState("Bioinformatics demo run");
-  const [emailTo, setEmailTo] = useState("");
-  const [reference, setReference] = useState("hg19");
+  const [operator, setOperator] = useState("local-operator");
+  const [reference] = useState("hg19");
   const [priority, setPriority] = useState("normal");
-  const [runMode, setRunMode] = useState("dry-run");
+  const [runMode, setRunMode] = useState("production-run");
   const [niptRunMode, setNiptRunMode] = useState<NiptRunMode>("mount_smoke");
   const [niptCores, setNiptCores] = useState(40);
-  const [target, setTarget] = useState<PgtaTarget>("metadata");
+  const [target] = useState<PgtaTarget>("predict");
   const [rawdataRoot, setRawdataRoot] = useState(defaultPgtaRawdataRoot);
   const [rootOptions, setRootOptions] = useState<string[]>([defaultPgtaRawdataRoot]);
   const [maxSamples, setMaxSamples] = useState(20);
@@ -54,9 +48,8 @@ export function SubmitPage() {
 
   const selectedTemplate = deployedWorkflowTemplates.find((pipeline) => pipeline.id === selectedPipeline) || fallbackTemplate;
   const selectedScanRows = scanItems.filter((item) => selectedSamples.has(item.sample_id));
-  const pgtaNeedsMoreSamples = selectedPipeline === "pgta" && target === "baseline_qc" && selectedSamples.size < 2;
-  const canCreatePgta = selectedScanRows.length > 0 && !pgtaNeedsMoreSamples;
-  const canCreateNipt = selectedScanRows.length > 0 && Boolean(projectName.trim());
+  const canCreatePgta = selectedScanRows.length > 0 && Boolean(projectName.trim()) && Boolean(operator.trim());
+  const canCreateNipt = selectedScanRows.length > 0 && Boolean(projectName.trim()) && Boolean(operator.trim());
   const canCreateSelected = (selectedPipeline === "nipt_docker" ? canCreateNipt : canCreatePgta) && Boolean(configSelection?.valid);
 
   useEffect(() => {
@@ -169,10 +162,11 @@ export function SubmitPage() {
             project_name: batches.length > 1 ? `${projectName} ${batch.folderName}` : projectName,
             rawdata_root: rawdataRoot,
             selected_samples: batch.items,
+            submitted_by: operator.trim() || null,
             run_mode: niptRunMode,
             cores: niptCores,
             ...configPayload,
-            email_to: emailTo.trim() || null,
+            email_to: null,
             note: `reference=${reference}; priority=${priority}; mode=${runMode}; batch=${batch.relativePath}/${batch.folderName}`,
           }),
         ),
@@ -185,8 +179,9 @@ export function SubmitPage() {
         target,
         rawdata_root: rawdataRoot,
         selected_samples: selectedScanRows,
+        submitted_by: operator.trim() || null,
         ...configPayload,
-        email_to: emailTo.trim() || null,
+        email_to: null,
         note: `reference=${reference}; priority=${priority}; mode=${runMode}`,
       }),
     ];
@@ -194,12 +189,6 @@ export function SubmitPage() {
 
   function confirmConfigReset(): boolean {
     return !configSelection?.dirty || window.confirm("Discard the edited Snakemake config and load new defaults?");
-  }
-
-  function handleTargetChange(value: PgtaTarget) {
-    if (!confirmConfigReset()) return;
-    setConfigSelection(null);
-    setTarget(value);
   }
 
   function handleNiptRunModeChange(value: NiptRunMode) {
@@ -315,16 +304,12 @@ export function SubmitPage() {
             </label>
             <label className="field">
               <span>Reference genome</span>
-              <select value={reference} onChange={(event) => setReference(event.target.value)}>
-                <option value="hg19">hg19</option>
-                <option value="hg38">hg38</option>
-                <option value="GRCh37">GRCh37</option>
-                <option value="GRCh38">GRCh38</option>
-              </select>
+              <input value={reference} readOnly aria-describedby="pgta-reference-note" />
+              {selectedPipeline === "pgta" ? <small id="pgta-reference-note">Locked by the approved PGT-A S9 runtime profile.</small> : null}
             </label>
             <label className="field">
               <span>Panel / capture kit</span>
-              <input value={selectedPipeline === "nipt_docker" ? "NIPT Docker scanned chip batch" : "PGT-A baseline/demo defaults"} readOnly />
+              <input value={selectedPipeline === "nipt_docker" ? "NIPT Docker scanned chip batch" : "PGT-A S9 predict / fixed XX, XY and gender references"} readOnly />
             </label>
             <label className="field">
               <span>Priority</span>
@@ -336,14 +321,11 @@ export function SubmitPage() {
             </label>
             <label className="field">
               <span>Run mode</span>
-              <select value={runMode} onChange={(event) => setRunMode(event.target.value)}>
-                <option value="dry-run">dry-run</option>
-                <option value="production-run">production-run</option>
-              </select>
+              <input value={selectedPipeline === "pgta" ? "predict" : runMode} readOnly={selectedPipeline === "pgta"} onChange={(event) => setRunMode(event.target.value)} />
             </label>
             <label className="field">
-              <span>Notification email</span>
-              <input value={emailTo} placeholder="demo@example.com" onChange={(event) => setEmailTo(event.target.value)} />
+              <span>Operator</span>
+              <input value={operator} placeholder="operator name" onChange={(event) => setOperator(event.target.value)} />
             </label>
           </div>
           <SnakemakeConfigEditor
@@ -392,11 +374,8 @@ export function SubmitPage() {
           {selectedPipeline === "pgta" ? (
             <label className="field">
               <span>Target</span>
-              <select aria-label="Target" value={target} onChange={(event) => handleTargetChange(event.target.value as PgtaTarget)}>
-                {pgtaTargets.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
+              <input aria-label="Target" value="predict" readOnly />
+              <small>Reference building and baseline QC are maintenance-only and hidden from normal submission.</small>
             </label>
           ) : (
             <>
@@ -428,7 +407,6 @@ export function SubmitPage() {
             Create only
           </button>
         </div>
-        {pgtaNeedsMoreSamples ? <p className="inline-error">baseline_qc requires at least two selected PGT-A samples.</p> : null}
         {selectedPipeline === "nipt_docker" && niptRunMode === "full_run" ? (
           <p className="inline-error">full_run is disabled unless backend NIPT_ALLOW_HEAVY_RUN=true; use mount_smoke for normal demo acceptance.</p>
         ) : null}
@@ -452,8 +430,9 @@ export function SubmitPage() {
         <div className="submit-preview-list">
           <PreviewField label="Pipeline" value={<strong className="preview-pill">{compactPipelineName(selectedPipeline)}</strong>} />
           <PreviewField label="Project" value={projectName || "not set"} />
+          <PreviewField label="Operator" value={operator || "not set"} />
           <PreviewField label="Reference" value={reference} />
-          <PreviewField label="Mode" value={runMode} />
+          <PreviewField label="Mode" value={selectedPipeline === "pgta" ? "predict" : runMode} />
           <PreviewField label="Selected samples" value={String(selectedScanRows.length)} />
           {selectedPipeline === "pgta" ? <PreviewField label="PGT-A target" value={target} /> : null}
           {selectedPipeline === "nipt_docker" ? <PreviewField label="NIPT run mode" value={niptRunMode} /> : null}

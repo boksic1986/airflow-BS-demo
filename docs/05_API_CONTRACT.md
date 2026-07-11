@@ -1240,3 +1240,21 @@ item is never mislabeled as a workflow failure.
 bulk-loads page-level sample/QC/rule data and calls Airflow task-instance REST
 only for active rows. Terminal rows use persisted business/rule state, so a
 terminal-only page does not fan out to Airflow.
+
+## T112 PGT-A S9 predict operations
+
+- `POST /api/runs` accepts PGT-A `target=predict` and optional `submitted_by`.
+- Run list/detail responses add `submitted_at` and `submitted_by`.
+- Runs and Dashboard rows include pipeline-specific `qc_highlights`.
+- `GET /api/runs/{analysis_id}/logs/index` returns opaque stage/rule log keys;
+  pass a key to the existing `/logs` endpoint. Legacy streams remain valid.
+- PGT-A auto intake reads `<request_id>.samples.tsv` only with a matching READY
+  marker. Required columns are `project_id`, `source_batch`, `sample_id`, and
+  `operator`; invalid manifests are audited and never submitted.
+- `POST /api/intake/scan-and-submit` and `POST /api/events/snakemake` require
+  `X-Airflow-Demo-Token` when `INTERNAL_SERVICE_TOKEN` is configured. The token
+  is for Airflow/backend service calls and is not a frontend credential.
+- An observed READY request is immutable. A changed manifest or resolved FASTQ
+  fingerprint is recorded as `error`; operators must create a new request ID.
+- Auto-intake stores `intake_request_id` and `intake_fingerprint` in run params
+  so a run committed before a worker crash can be recovered without duplication.

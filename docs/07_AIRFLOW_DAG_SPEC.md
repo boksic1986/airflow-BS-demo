@@ -722,6 +722,19 @@ workdir/logs/events/snakemake_events.jsonl
 workdir/logs/events/snakemake_rule_summary.tsv
 ```
 
+## 12. T112 PGT-A predict TaskGroup
+
+`bio_pgta` adds the production path
+`validate -> prepare -> mapping -> metadata -> cnv_qc -> cnv_predict -> collect`
+under TaskGroup `pgta_predict`. All four full stages use one-slot pool
+`pgta_s9_full`; `max_active_runs=1` serializes complete predictions.
+`bio_pgta_airflow` is deprecated and paused. Snakemake rules stay rule/sample
+events instead of becoming hundreds of Airflow tasks.
+
+`bio_intake_scan` has `max_active_runs=1` and sends the internal service token
+header to backend. Intake remains a project-level scanner DAG; it does not read
+the biodemo database or execute Snakemake rules itself.
+
 Airflow 网页第一版通过 task log 和 XCom 查看状态汇总；不实现自定义 Airflow Web 插件。若 `backend_event_url` 未配置，logger 只写 JSONL；若配置，则 rule/job 级事件会同步 POST 到 FastAPI 并 upsert 到 biodemo `snakemake_rule_event`。
 
 T088 后 `bio_pgta_airflow` 也使用 run-local `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，避免 Snakemake 9 logger 路径回退到不可写的 `/home/airflow/.cache/snakemake`。

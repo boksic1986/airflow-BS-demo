@@ -354,3 +354,19 @@ Run Detail Config now prioritizes run-local config artifacts:
 - NIPT Docker: `config/nipt_run_config.yaml` or equivalent run-local config.
 - Raw backend request params remain available under an advanced disclosure and
   should not be the primary operator-facing config display.
+
+## 13. T112 PGT-A predict QC and indexed logs
+
+PGT-A S9 writes long-form `reports/qc_summary.tsv` with raw/clean read pairs,
+mapped reads, mapping fraction, estimated depth, CNV counts, non-zero bin
+fraction, MAD, QC decision, and QC reason. Prediction status is `completed` or
+`skipped_qc`; biological QC failure is not reported as workflow failure.
+
+Stage logs cover mapping, metadata, CNV QC, and CNV prediction. Rule logs are
+indexed from Snakemake events and exposed via opaque log keys. Docker Compose
+configuration remains hidden from the frontend.
+
+QC highlight unit contracts are explicit: PGT-A mapping rate and NIPT fetal
+fraction are stored as fractions; NIPT Q30 and unique mapping rate are stored as
+percentage points. API responses use `unit=fraction|percent` so the frontend
+does not render values 100 times too large.

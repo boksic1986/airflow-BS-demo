@@ -14,13 +14,14 @@ from sqlalchemy.orm import Session
 from app.input_scanner import FastqCandidate, InputPathError, ensure_allowed_path
 from app.intake_config import load_intake_config
 from app.models import AnalysisRun, RunAction, Sample
+from app.qc_highlights import qc_highlights_by_run
 from app.pipeline_config_service import ValidatedPipelineConfig, persist_requested_config
 
 
 PGTA_DAG_ID = "bio_pgta"
 WES_DAG_ID = "bio_wes_qsub"
 NIPT_DOCKER_DAG_ID = "bio_nipt_docker"
-SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc"}
+SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc", "predict"}
 SUPPORTED_PGTA_REANALYSIS_MODES = {"resume", "rerun_stage"}
 PGTA_REANALYSIS_TERMINAL_STATUSES = {"failed", "terminated"}
 PGTA_RERUN_STAGE_TERMINAL_STATUSES = {"failed", "terminated", "success"}
@@ -62,9 +63,13 @@ def create_pgta_run(
     target: str,
     rawdata_root: str,
     selected_samples: list[FastqCandidate],
+    submitted_by: str | None = None,
     email_to: str | None = None,
     note: str | None = None,
     pipeline_config: ValidatedPipelineConfig | None = None,
+    intake_request_id: str | None = None,
+    intake_fingerprint: str | None = None,
+    source_manifest_path: str | None = None,
 ) -> dict:
     _validate_pgta_target(target)
     if not selected_samples:
@@ -108,6 +113,12 @@ def create_pgta_run(
         "selected_count": len(selected_samples),
         "note": note,
     }
+    if intake_request_id:
+        params["intake_request_id"] = intake_request_id
+    if intake_fingerprint:
+        params["intake_fingerprint"] = intake_fingerprint
+    if source_manifest_path:
+        params["source_manifest_path"] = source_manifest_path
     _attach_pipeline_config(workdir=workdir, params=params, pipeline_config=pipeline_config)
     run = AnalysisRun(
         analysis_id=analysis_id,
@@ -119,6 +130,7 @@ def create_pgta_run(
         sample_sheet_path=str(manifest_path),
         workdir=str(workdir),
         params_json=params,
+        submitted_by=_clean_operator(submitted_by),
         email_to=email_to,
     )
     session.add(run)
@@ -223,6 +235,7 @@ def create_nipt_docker_run(
     template_id: str | None = None,
     rawdata_root: str | None = None,
     selected_samples: list[FastqCandidate] | None = None,
+    submitted_by: str | None = None,
     run_mode: str,
     cores: int | None = None,
     email_to: str | None = None,
@@ -236,6 +249,7 @@ def create_nipt_docker_run(
             project_name=project_name,
             rawdata_root=rawdata_root or "",
             selected_samples=selected_samples,
+            submitted_by=submitted_by,
             run_mode=run_mode,
             cores=cores,
             email_to=email_to,
@@ -248,6 +262,7 @@ def create_nipt_docker_run(
             settings=settings,
             project_name=project_name,
             template_id=template_id,
+            submitted_by=submitted_by,
             run_mode=run_mode,
             cores=cores,
             email_to=email_to,
@@ -263,6 +278,7 @@ def _create_nipt_docker_template_run(
     settings,
     project_name: str,
     template_id: str,
+    submitted_by: str | None = None,
     run_mode: str,
     cores: int | None = None,
     email_to: str | None = None,
@@ -322,6 +338,7 @@ def _create_nipt_docker_template_run(
         sample_sheet_path=str(manifest_path),
         workdir=str(workdir),
         params_json=params,
+        submitted_by=submitted_by,
         email_to=email_to,
     )
     session.add(run)
@@ -356,6 +373,7 @@ def _create_nipt_docker_scan_run(
     project_name: str,
     rawdata_root: str,
     selected_samples: list[FastqCandidate],
+    submitted_by: str | None = None,
     run_mode: str,
     cores: int | None = None,
     email_to: str | None = None,
@@ -438,6 +456,7 @@ def _create_nipt_docker_scan_run(
         sample_sheet_path=str(manifest_path),
         workdir=str(workdir),
         params_json=params,
+        submitted_by=submitted_by,
         email_to=email_to,
     )
     session.add(run)
@@ -511,12 +530,14 @@ def list_runs(
     sample_qc: dict[str, list[str | None]] = {}
     for analysis_id, qc_status in sample_rows:
         sample_qc.setdefault(analysis_id, []).append(qc_status)
+    qc_highlights = qc_highlights_by_run(session=session, runs=page)
     return {
         "items": [
             _run_list_payload(
                 run,
                 sample_count=len(sample_qc.get(run.analysis_id, [])),
                 sample_qc_statuses=sample_qc.get(run.analysis_id, []),
+                qc_highlights=qc_highlights.get(run.analysis_id, []),
             )
             for run in page
         ],
@@ -562,6 +583,10 @@ def submit_run_to_airflow(*, session: Session, airflow_client, analysis_id: str,
 
     run.status = "submitted"
     run.dag_run_id = dag_run_id
+    run.submitted_at = datetime.now(timezone.utc)
+    run.progress_percent = max(int(run.progress_percent or 0), 5)
+    run.current_stage = "Airflow handoff"
+    run.progress_updated_at = run.submitted_at
     _set_sample_status(session=session, analysis_id=analysis_id, status="running")
     run_action = RunAction(
         analysis_id=analysis_id,
@@ -1185,20 +1210,31 @@ def _run_payload(run: AnalysisRun, *, sample_count: int) -> dict:
         "status": run.status,
         "workdir": run.workdir,
         "sample_count": sample_count,
+        "params": run.params_json,
+        "submitted_by": run.submitted_by,
+        "submitted_at": run.submitted_at.isoformat() if run.submitted_at else None,
     }
 
 
-def _run_list_payload(run: AnalysisRun, *, sample_count: int, sample_qc_statuses: list[str | None]) -> dict:
+def _run_list_payload(
+    run: AnalysisRun,
+    *,
+    sample_count: int,
+    sample_qc_statuses: list[str | None],
+    qc_highlights: list[dict],
+) -> dict:
     return {
         "analysis_id": run.analysis_id,
         "project_name": _run_project_name(run),
         "pipeline": run.pipeline_name,
         "status": run.status,
         "created_at": run.created_at.isoformat() if run.created_at else None,
+        "submitted_at": run.submitted_at.isoformat() if run.submitted_at else None,
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "ended_at": run.ended_at.isoformat() if run.ended_at else None,
         "sample_count": sample_count,
         "qc_status": _aggregate_sample_qc_status(sample_qc_statuses),
+        "qc_highlights": qc_highlights,
     }
 
 
@@ -1235,12 +1271,19 @@ def _run_detail_payload(session: Session, run: AnalysisRun) -> dict:
             "airflow_url": run.airflow_url,
             "error_summary": run.error_summary,
             "email_to": run.email_to,
+            "submitted_by": run.submitted_by,
             "created_at": run.created_at.isoformat() if run.created_at else None,
+            "submitted_at": run.submitted_at.isoformat() if run.submitted_at else None,
             "started_at": run.started_at.isoformat() if run.started_at else None,
             "ended_at": run.ended_at.isoformat() if run.ended_at else None,
         }
     )
     return payload
+
+
+def _clean_operator(value: str | None) -> str | None:
+    normalized = str(value or "").strip()
+    return normalized[:128] or None
 
 
 def _aggregate_sample_qc_status(statuses: list[str | None]) -> str:

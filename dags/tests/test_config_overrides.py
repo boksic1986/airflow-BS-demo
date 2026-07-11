@@ -15,10 +15,42 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from nipt_docker_runner import prepare_nipt_docker_run
 from pgta_metadata_runner import build_pgta_config
-from common.pipeline_profiles import ResolvedRuntimeProfile, validate_runtime_profile_availability
+from common.pipeline_profiles import (
+    ResolvedRuntimeProfile,
+    _verify_pgta_release_integrity,
+    validate_runtime_profile_availability,
+)
 
 
 class ConfigOverrideRunnerTests(unittest.TestCase):
+    def test_repository_pgta_s9_profile_exposes_only_predict_parameters(self) -> None:
+        profile_path = Path(__file__).resolve().parents[2] / "config" / "pipeline_profiles.yaml"
+        payload = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+        pgta = payload["pipelines"]["pgta"]
+        profile = pgta["profiles"]["pgta-s9-predict-v1"]
+
+        self.assertEqual(pgta["default_profile"], "pgta-s9-predict-v1")
+        self.assertEqual(profile["pipeline_version"], "pgta-s9-v1.4")
+        self.assertTrue(profile["submit_visible"])
+        self.assertEqual(
+            set(profile["editable_schema"]),
+            {
+                "core.wisecondorx.cnv.zscore",
+                "core.wisecondorx.cnv.alpha",
+                "core.wisecondorx.cnv.maskrepeats",
+                "core.wisecondorx.cnv.minrefbins",
+                "core.wisecondorx.cnv.qc.min_total_counts",
+                "core.wisecondorx.cnv.qc.min_nonzero_fraction",
+                "core.wisecondorx.cnv.qc.max_mad_log1p",
+            },
+        )
+        self.assertNotIn("build_reference", profile["editable_defaults"])
+        self.assertNotIn("reference_output", profile["editable_defaults"])
+        self.assertEqual(
+            profile["runtime"]["rscript_bin"],
+            "/biosoftware/miniconda/envs/wise_env/bin/Rscript",
+        )
+
     def test_airflow_worker_mounts_pipeline_profile_config(self) -> None:
         compose = (Path(__file__).resolve().parents[2] / "docker-compose.yaml").read_text(
             encoding="utf-8"
@@ -40,6 +72,26 @@ class ConfigOverrideRunnerTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "snakemake_bin"):
             validate_runtime_profile_availability(profile, pipeline="pgta")
+
+    def test_pgta_release_integrity_rejects_modified_release_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            release = Path(tmpdir)
+            snakefile = release / "Snakefile"
+            snakefile.write_text("rule all:\n    input: []\n", encoding="utf-8")
+            original_hash = hashlib.sha256(snakefile.read_bytes()).hexdigest()
+            manifest = release / "SHA256SUMS"
+            manifest.write_text(f"{original_hash}  ./Snakefile\n", encoding="utf-8")
+            manifest_hash = hashlib.sha256(manifest.read_bytes()).hexdigest()
+            snakefile.write_text("rule changed:\n    input: []\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "release file checksum"):
+                _verify_pgta_release_integrity(
+                    {
+                        "pipeline_root": str(release),
+                        "release_manifest": str(manifest),
+                        "release_manifest_sha256": manifest_hash,
+                    }
+                )
 
     def test_runtime_profile_availability_rejects_missing_nipt_image(self) -> None:
         profile = ResolvedRuntimeProfile(

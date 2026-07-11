@@ -1415,4 +1415,56 @@ Before any future unpause:
 4. Change `config/intake.yaml` auto-submit gates only in a separate reviewed
    task.
 5. Unpause `bio_intake_scan` only in a separate T107 rollout with before/after
-   run-count checks.
+  run-count checks.
+
+## 30. T112 PGT-A Snakemake 9 release and validation
+
+Deploy the sample-free release without modifying the original PGT-A directory:
+
+```bash
+scripts/deploy_pgta_s9_release.sh pipelines/pgta_s9 \
+  /home/jiucheng/pipelines/PGT_A_S9 pgta-s9-v1.4
+cd /home/jiucheng/pipelines/PGT_A_S9/releases/pgta-s9-v1.4
+sha256sum -c SHA256SUMS
+```
+
+Apply both schema layers before creating a run:
+
+```bash
+docker compose run --rm --user 50000:0 airflow-init
+docker exec airflow-demo-backend-1 alembic upgrade head
+```
+
+Acceptance order: Snakemake 9 dry-run/logger tests; two-sample 1M-pair hidden
+validation profile; one full-sample manual Submit; one two-sample manifest plus
+READY automatic Submit; rule terminal-event, QC, logs, timing, and idempotency
+checks. Only after all gates pass may PGT-A auto-submit and `bio_intake_scan` be
+enabled. Keep NIPT auto-submit and `NIPT_ALLOW_HEAVY_RUN` disabled.
+
+Runtime checks for the approved profile must include:
+
+```bash
+/biosoftware/miniconda/envs/snakemake9_env/bin/snakemake --version
+/biosoftware/miniconda/envs/wise_env/bin/Rscript --version
+/biosoftware/miniconda/envs/wise_env/bin/WisecondorX predict -h
+```
+
+The resolved run config must contain the locked CBS seed. The worker subprocess
+environment must resolve `Rscript` from the approved WisecondorX environment,
+and each QC-passing sample must produce a non-empty prediction statistics file.
+
+Rollback pauses intake, disables PGT-A auto-submit, selects the previous
+release/Profile, and recreates services. Never delete historical runs, the
+original PGT-A source, or Docker volumes.
+
+Before enabling or recreating automatic intake, generate a random
+`INTERNAL_SERVICE_TOKEN` in the untracked `.env`. Compose requires it and passes
+the value only to backend and Airflow services. Verify an unauthenticated event
+POST returns HTTP 401 and that a worker-authenticated missing-run probe reaches
+HTTP 404 without writing an event.
+
+The PGT-A profile must pin `release_manifest` and
+`release_manifest_sha256`. Run profile availability validation inside the
+worker after deployment; it checks the manifest hash and every listed release
+file. Never repair a mismatch in place. Deploy a new immutable revision and
+update the profile instead.

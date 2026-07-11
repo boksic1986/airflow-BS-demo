@@ -258,6 +258,48 @@ def test_run_progress_refines_running_airflow_task_with_rule_events(tmp_path, mo
     assert [event["rule"] for event in payload["rule_events"]] == ["fastp", "baseline_bam_uniformity_qc"]
 
 
+def test_run_progress_prefers_latest_sample_rule_over_stage_wrapper(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_pgta_run(
+        session_factory,
+        tmp_path,
+        status="running",
+        dag_run_id="manual__PGTA_20260711_SAMPLE_RULE",
+    )
+    with session_factory() as session:
+        session.add_all(
+            [
+                SnakemakeRuleEvent(
+                    analysis_id=analysis_id,
+                    rule="mapping",
+                    status="running",
+                    start_time=datetime(2026, 7, 11, 6, 0, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 7, 11, 6, 0, tzinfo=timezone.utc),
+                ),
+                SnakemakeRuleEvent(
+                    analysis_id=analysis_id,
+                    rule="fastp_bwa",
+                    sample_id="PGTA-DEMO-01",
+                    status="running",
+                    snakemake_jobid="1",
+                    start_time=datetime(2026, 7, 11, 6, 1, tzinfo=timezone.utc),
+                    updated_at=datetime(2026, 7, 11, 6, 1, tzinfo=timezone.utc),
+                ),
+            ]
+        )
+        session.commit()
+    fake_airflow = FakeAirflowClient(
+        tasks=[{"task_id": "pgta_predict.run_pgta_mapping", "state": "running"}]
+    )
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared", fake_airflow)
+    client = TestClient(main.app)
+
+    response = client.get(f"/api/runs/{analysis_id}/progress")
+
+    assert response.status_code == 200
+    assert response.json()["current_step"] == "fastp_bwa"
+
+
 def test_sync_airflow_imports_events_jsonl_idempotently(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_pgta_run(

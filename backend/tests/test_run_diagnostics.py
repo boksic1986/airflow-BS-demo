@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import main
-from app.models import AnalysisRun, Base, QcMetric, Sample
+from app.models import AnalysisRun, Base, QcMetric, Sample, SnakemakeRuleEvent
 
 
 def make_test_sessionmaker():
@@ -263,6 +263,42 @@ def test_get_run_log_tails_known_pgta_streams(tmp_path, monkeypatch) -> None:
         "truncated": True,
         "lines": ["stdout line 2"],
     }
+
+
+def test_pgta_log_index_exposes_safe_stage_and_rule_logs(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_submitted_run(session_factory, tmp_path, analysis_id="PGTA_S9_LOG_TEST")
+    workdir = tmp_path / "shared" / "runs" / analysis_id
+    rule_log = workdir / "logs" / "cnv" / "G1.predict.log"
+    rule_log.parent.mkdir(parents=True, exist_ok=True)
+    rule_log.write_text("predict started\npredict complete\n", encoding="utf-8")
+    with session_factory() as session:
+        session.add(
+            SnakemakeRuleEvent(
+                analysis_id=analysis_id,
+                rule="wisecondorx_predict_cnv",
+                sample_id="G1",
+                snakemake_jobid="7",
+                status="success",
+                stdout_path=str(rule_log),
+                stderr_path=str(rule_log),
+            )
+        )
+        session.commit()
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared")
+    client = TestClient(main.app)
+
+    index = client.get(f"/api/runs/{analysis_id}/logs/index")
+
+    assert index.status_code == 200
+    items = index.json()["items"]
+    rule_item = next(item for item in items if item.get("rule") == "wisecondorx_predict_cnv")
+    assert rule_item["sample_id"] == "G1"
+    assert "/data/" not in rule_item["label"]
+
+    tailed = client.get(f"/api/runs/{analysis_id}/logs?key={rule_item['key']}&tail=1")
+    assert tailed.status_code == 200
+    assert tailed.json()["lines"] == ["predict complete"]
 
 
 def test_get_run_log_returns_404_for_missing_file(tmp_path, monkeypatch) -> None:

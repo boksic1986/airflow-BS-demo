@@ -238,6 +238,25 @@ Airflow 后置 task 会把 JSONL 汇总成 `snakemake_rule_summary.tsv` 并写�
 
 T102 adds `dags/common/progress_events.py` for PGT-A and NIPT Docker runner progress. This helper is independent from the older Snakemake 9 logger plugin and can be used by direct Python runners.
 
+### T112 PGT-A Snakemake 9 predict release
+
+Sample-free source is versioned in `pipelines/pgta_s9` and deployed as immutable
+releases under `/home/jiucheng/pipelines/PGT_A_S9/releases/<revision>` with a
+`current` symlink and SHA256 manifest. The original PGT-A directory is not
+modified. The approved profile uses Snakemake 9.23.1 and fixed hg19 XX, XY, and
+gender references.
+
+The logger maps Snakemake 9 `job_info` to `running`, caches job context for
+terminal events, and captures rule/sample/job ID plus rule log paths when
+provided. CNV QC failure writes `skipped_qc` for prediction and remains distinct
+from workflow failure.
+
+The approved predict runtime prepends the directory of the profile-owned
+`rscript_bin` to `PATH`, locks the CBS seed to `42`, and checks that
+`<sample>_statistics.txt` is non-empty after WisecondorX predict. This output
+check is required because the deployed WisecondorX release can log an R failure
+while returning process exit code zero.
+
 Contract:
 
 - Write every event to `workdir/logs/events/snakemake_events.jsonl`.
@@ -291,6 +310,17 @@ For WES mock v1, allowed rules are `fastp`, `bwa_mem`, `markdup`, and `final_sum
 ```
 
 and no `--forceall`.
+
+### T112 PGT-A S9 release integrity and service events
+
+The approved runtime profile pins the release directory, `SHA256SUMS` path, and
+the SHA256 of that manifest. DAG validation verifies both the manifest and every
+listed release file before Snakemake starts. An in-place release modification
+therefore fails explicitly instead of running under an unchanged profile ID.
+
+Logger and fallback progress-event POSTs include `X-Airflow-Demo-Token` from the
+worker environment. POST failure still writes `backend_post_error` to JSONL and
+does not hide the original workflow result.
 
 ### rerun selected target
 

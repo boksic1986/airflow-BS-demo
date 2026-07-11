@@ -88,6 +88,7 @@ def get_pipeline_config_template(
     profiles = [
         _public_profile(item_id, item)
         for item_id, item in (pipeline_entry.get("profiles") or {}).items()
+        if item.get("submit_visible", True)
     ]
     defaults = deepcopy(profile.get("editable_defaults") or {})
     normalized_yaml = _dump_yaml(defaults)

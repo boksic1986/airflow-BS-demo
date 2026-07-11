@@ -4,10 +4,13 @@ export type RunSummary = {
   pipeline: string;
   status: string;
   created_at?: string | null;
+  submitted_at?: string | null;
+  submitted_by?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
   sample_count?: number | null;
   qc_status?: string | null;
+  qc_highlights?: QcHighlight[];
 };
 
 export type RunListResponse = {
@@ -86,6 +89,8 @@ export type RunDetail = {
   error_summary?: string | null;
   email_to?: string | null;
   created_at?: string | null;
+  submitted_at?: string | null;
+  submitted_by?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
 };
@@ -132,7 +137,7 @@ export type InputRootsResponse = {
   roots: string[];
 };
 
-export type PgtaTarget = "metadata" | "dryrun_cnv" | "invalid_target" | "baseline_qc";
+export type PgtaTarget = "predict" | "metadata" | "dryrun_cnv" | "invalid_target" | "baseline_qc";
 
 export type RuntimeProfileSummary = {
   id: string;
@@ -185,6 +190,7 @@ export type CreatePgtaRunRequest = PipelineConfigSelection & {
   target: PgtaTarget;
   rawdata_root: string;
   selected_samples: ScanCandidate[];
+  submitted_by?: string | null;
   email_to?: string | null;
   note?: string | null;
 };
@@ -204,6 +210,7 @@ export type CreateNiptDockerRunRequest = PipelineConfigSelection & {
   project_name: string;
   rawdata_root: string;
   selected_samples: ScanCandidate[];
+  submitted_by?: string | null;
   run_mode: NiptRunMode;
   cores?: number | null;
   email_to?: string | null;
@@ -299,6 +306,23 @@ export type RunLog = {
   lines: string[];
 };
 
+export type RunLogIndexItem = {
+  key: string;
+  label: string;
+  stream: string;
+  relative_path: string;
+  rule?: string | null;
+  sample_id?: string | null;
+  status?: string | null;
+};
+
+export type QcHighlight = {
+  key: string;
+  value: number | string | null;
+  unit: string;
+  status: string;
+};
+
 export type Artifact = {
   key: string;
   type: string;
@@ -378,6 +402,14 @@ export type IntakePipelineConfig = {
   r1_pattern?: string | null;
   r2_pattern?: string | null;
   ignore_patterns?: string[];
+  intake?: {
+    mode?: string | null;
+    inbox_root?: string | null;
+    data_root?: string | null;
+    manifest_glob?: string | null;
+    ready_suffix?: string | null;
+    stable_scans?: number | null;
+  };
   auto_submit?: Record<string, string | number | boolean | null>;
 };
 
@@ -446,6 +478,8 @@ export type DashboardRunTrackerRow = {
   qc_status: string;
   sample_count: number;
   created_at?: string | null;
+  submitted_at?: string | null;
+  submitted_by?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
   dag_id?: string | null;
@@ -462,6 +496,7 @@ export type DashboardRunTrackerRow = {
   progress_source: string;
   not_in_airflow: boolean;
   note?: string | null;
+  qc_highlights?: QcHighlight[];
 };
 
 export type DashboardRunsResponse = {
@@ -724,8 +759,14 @@ export function getRunConfig(analysisId: string): Promise<RunConfig> {
   return requestJson<RunConfig>(`/runs/${encodeURIComponent(analysisId)}/config`);
 }
 
-export function getRunLog(analysisId: string, stream: LogStream): Promise<RunLog> {
-  return requestJson<RunLog>(`/runs/${encodeURIComponent(analysisId)}/logs?stream=${stream}&tail=200`);
+export function getRunLog(analysisId: string, stream: LogStream, key?: string): Promise<RunLog> {
+  const params = new URLSearchParams({stream, tail: "200"});
+  if (key) params.set("key", key);
+  return requestJson<RunLog>(`/runs/${encodeURIComponent(analysisId)}/logs?${params.toString()}`);
+}
+
+export function getRunLogIndex(analysisId: string): Promise<{items: RunLogIndexItem[]}> {
+  return requestJson<{items: RunLogIndexItem[]}>(`/runs/${encodeURIComponent(analysisId)}/logs/index`);
 }
 
 export function syncAirflow(analysisId: string): Promise<RunDetail> {

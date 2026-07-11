@@ -34,6 +34,7 @@ class IntakePipelineConfig:
     r2_pattern: str | None = None
     ignore_patterns: list[str] = field(default_factory=list)
     auto_submit: dict[str, Any] = field(default_factory=dict)
+    intake: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -82,6 +83,7 @@ class IntakeConfig:
                         "enabled": self.auto_submit_enabled(name),
                         "pipeline_enabled": _bool_value(pipeline.auto_submit.get("enabled"), default=False),
                     },
+                    "intake": dict(pipeline.intake),
                 }
                 for name, pipeline in self.pipelines.items()
             },
@@ -130,6 +132,7 @@ def _from_mapping(raw: dict[str, Any], *, source: str) -> IntakeConfig:
             r2_pattern=item.get("r2_pattern"),
             ignore_patterns=[str(pattern) for pattern in item.get("ignore_patterns") or []],
             auto_submit=dict(item.get("auto_submit") or {}),
+            intake=dict(item.get("intake") or {}),
         )
     return IntakeConfig(version=_int_value(raw.get("version"), default=1), source=source, defaults=defaults, pipelines=pipelines)
 

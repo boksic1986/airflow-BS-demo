@@ -2,16 +2,24 @@ version: 1
 defaults:
   ready_rule: stable_fingerprint
   stable_scans: 2
-  auto_submit: false
+  auto_submit: true
 pipelines:
   pgta:
     enabled: true
     roots:
       - id: pgta_rawdata
         container_path: /data/project/CNV/PGT-A/rawdata
+    intake:
+      mode: manifest_ready
+      inbox_root: /data/project/CNV/PGT-A/rawdata/lib_test/pgta_crontab
+      data_root: /data/project/CNV/PGT-A/rawdata/lib_test
+      stable_scans: 2
+      manifest_glob: "*.samples.tsv"
+      ready_suffix: ".READY"
     auto_submit:
-      enabled: false
-      target: metadata
+      enabled: true
+      target: predict
+      runtime_profile_id: pgta-s9-predict-v1
   nipt_docker:
     enabled: true
     roots:

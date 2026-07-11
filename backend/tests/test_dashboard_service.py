@@ -202,3 +202,96 @@ def test_terminal_dashboard_page_bulk_loads_without_sql_n_plus_one(tmp_path, mon
     assert response.json()["total"] == 2
     assert airflow.task_calls == []
     assert len(statements) <= 6
+
+
+def test_dashboard_operator_order_uses_progress_then_oldest_submit_time(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime.now(timezone.utc)
+    with session_factory() as session:
+        for analysis_id, percent, submitted_minutes in (
+            ("PGTA_LOW_PROGRESS", 20, 30),
+            ("PGTA_HIGH_NEW", 70, 5),
+            ("PGTA_HIGH_OLD", 70, 20),
+        ):
+            session.add(
+                AnalysisRun(
+                    analysis_id=analysis_id,
+                    pipeline_name="pgta",
+                    dag_id="bio_pgta",
+                    dag_run_id=f"manual__{analysis_id}",
+                    mode="new",
+                    status="running",
+                    workdir=str(tmp_path / analysis_id),
+                    params_json={"project_name": analysis_id, "target": "predict"},
+                    created_at=now - timedelta(hours=1),
+                    submitted_at=now - timedelta(minutes=submitted_minutes),
+                    progress_percent=percent,
+                    current_stage="wisecondorx_predict_cnv" if percent == 70 else "fastp_bwa",
+                    progress_updated_at=now,
+                )
+            )
+        session.commit()
+    airflow = FakeAirflowClient()
+    install_dashboard_fixtures(monkeypatch, session_factory, airflow)
+    client = TestClient(main.app)
+
+    response = client.get("/api/dashboard/runs?pipeline=pgta&limit=10&offset=0")
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [item["analysis_id"] for item in items] == ["PGTA_HIGH_OLD", "PGTA_HIGH_NEW", "PGTA_LOW_PROGRESS"]
+    assert items[0]["submitted_at"] is not None
+
+
+def test_dashboard_runs_returns_pipeline_specific_qc_highlights(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    seed_dashboard_data(session_factory, tmp_path)
+    with session_factory() as session:
+        session.add_all(
+            [
+                QcMetric(analysis_id="PGTA_HISTORY", sample_id="PGTA_HISTORY_S1", metric_name="clean_read_pairs", metric_numeric=1000000, status="pass"),
+                QcMetric(analysis_id="PGTA_HISTORY", sample_id="PGTA_HISTORY_S1", metric_name="mapping_rate", metric_numeric=0.95, status="pass"),
+                QcMetric(analysis_id="PGTA_HISTORY", sample_id="PGTA_HISTORY_S1", metric_name="estimated_depth_x", metric_numeric=0.12, status="pass"),
+            ]
+        )
+        session.commit()
+    airflow = FakeAirflowClient()
+    install_dashboard_fixtures(monkeypatch, session_factory, airflow)
+    client = TestClient(main.app)
+
+    response = client.get("/api/dashboard/runs?pipeline=pgta&status=success&limit=10&offset=0")
+
+    assert response.status_code == 200
+    item = next(row for row in response.json()["items"] if row["analysis_id"] == "PGTA_HISTORY")
+    assert [metric["key"] for metric in item["qc_highlights"]] == [
+        "clean_read_pairs",
+        "mapping_rate",
+        "estimated_depth_x",
+    ]
+    assert next(metric for metric in item["qc_highlights"] if metric["key"] == "mapping_rate")["unit"] == "fraction"
+
+
+def test_dashboard_nipt_qc_highlights_preserve_percentage_point_units(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    seed_dashboard_data(session_factory, tmp_path)
+    with session_factory() as session:
+        session.add_all(
+            [
+                QcMetric(analysis_id="NIPT_SUCCESS", sample_id="NIPT_SUCCESS_S1", metric_name="Q30", metric_numeric=93.2, status="pass"),
+                QcMetric(analysis_id="NIPT_SUCCESS", sample_id="NIPT_SUCCESS_S1", metric_name="unique_mapping_rate", metric_numeric=87.5, status="pass"),
+                QcMetric(analysis_id="NIPT_SUCCESS", sample_id="NIPT_SUCCESS_S1", metric_name="fetal_fraction", metric_numeric=0.08, status="pass"),
+            ]
+        )
+        session.commit()
+    airflow = FakeAirflowClient()
+    install_dashboard_fixtures(monkeypatch, session_factory, airflow)
+    client = TestClient(main.app)
+
+    response = client.get("/api/dashboard/runs?pipeline=nipt_docker&status=success&limit=10&offset=0")
+
+    assert response.status_code == 200
+    highlights = {item["key"]: item for item in response.json()["items"][0]["qc_highlights"]}
+    assert highlights["Q30"]["unit"] == "percent"
+    assert highlights["Q30"]["value"] == 93.2
+    assert highlights["unique_mapping_rate"]["unit"] == "percent"
+    assert highlights["fetal_fraction"]["unit"] == "fraction"
