@@ -1,9 +1,18 @@
+from dataclasses import asdict
+import json
+
 import pytest
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.maintenance_service import CleanupSafetyError, build_cleanup_plan, execute_cleanup_plan
+from app.maintenance_service import (
+    CleanupSafetyError,
+    build_cleanup_plan,
+    build_intake_cleanup_plan,
+    execute_cleanup_plan,
+    execute_intake_cleanup_plan,
+)
 from app.models import AnalysisRun, Base, IntakeDiscovery, QcMetric, RunAction, Sample, SnakemakeRuleEvent
 
 
@@ -132,3 +141,86 @@ def test_cleanup_requires_an_exact_override_for_a_stale_active_record() -> None:
                 expected_total=3,
                 allow_active_delete_ids={"DELETE_FAILED"},
             )
+
+
+def test_intake_cleanup_keeps_only_the_validated_manifest_record() -> None:
+    session_factory = make_test_sessionmaker()
+    seed_runs(session_factory)
+    with session_factory() as session:
+        failed = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == "DELETE_FAILED"))
+        assert failed is not None
+        failed.status = "success"
+        session.add_all(
+            [
+                IntakeDiscovery(
+                    pipeline_name="pgta",
+                    root_path="/data/inbox",
+                    batch_id="validated",
+                    fingerprint="keep",
+                    analysis_id="KEEP_FULL",
+                    ready_state="ready",
+                    submit_state="submitted",
+                ),
+                IntakeDiscovery(
+                    pipeline_name="nipt_docker",
+                    root_path="/data/nipt",
+                    batch_id="old-ready",
+                    fingerprint="delete",
+                    ready_state="ready",
+                    submit_state="not_submitted",
+                ),
+            ]
+        )
+        session.commit()
+
+        plan = build_intake_cleanup_plan(
+            session=session,
+            expected_analysis_ids={"KEEP_FULL", "DELETE_SMOKE", "DELETE_FAILED"},
+            keep_analysis_ids={"KEEP_FULL"},
+            expected_discovery_total=3,
+        )
+        assert len(plan.delete_ids) == 2
+        json.dumps(asdict(plan))
+
+        result = execute_intake_cleanup_plan(session=session, plan=plan)
+
+        assert result == {"before": 3, "deleted": 2, "retained": 1}
+        retained = session.scalars(select(IntakeDiscovery)).all()
+        assert len(retained) == 1
+        assert retained[0].analysis_id == "KEEP_FULL"
+        assert retained[0].submit_state == "submitted"
+
+
+def test_intake_cleanup_rejects_active_or_changed_snapshots() -> None:
+    session_factory = make_test_sessionmaker()
+    seed_runs(session_factory)
+    with session_factory() as session:
+        active = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == "DELETE_SMOKE"))
+        assert active is not None
+        active.status = "running"
+        session.commit()
+        with pytest.raises(CleanupSafetyError, match="active runs"):
+            build_intake_cleanup_plan(
+                session=session,
+                expected_analysis_ids={"KEEP_FULL", "DELETE_SMOKE", "DELETE_FAILED"},
+                keep_analysis_ids={"KEEP_FULL"},
+                expected_discovery_total=1,
+            )
+
+        active.status = "success"
+        failed = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == "DELETE_FAILED"))
+        assert failed is not None
+        failed.status = "success"
+        session.commit()
+        plan = build_intake_cleanup_plan(
+            session=session,
+            expected_analysis_ids={"KEEP_FULL", "DELETE_SMOKE", "DELETE_FAILED"},
+            keep_analysis_ids={"DELETE_SMOKE"},
+            expected_discovery_total=1,
+        )
+        discovery = session.scalar(select(IntakeDiscovery))
+        assert discovery is not None
+        discovery.fingerprint = "changed-after-preview"
+        session.commit()
+        with pytest.raises(CleanupSafetyError, match="changed after preview"):
+            execute_intake_cleanup_plan(session=session, plan=plan)

@@ -141,3 +141,30 @@ def test_airflow_client_triggers_dag_run_with_conf() -> None:
         "dag_run_id": "manual__demo",
         "conf": {"analysis_id": "DEMO_001"},
     }
+
+
+def test_airflow_client_pages_and_deletes_encoded_dag_history() -> None:
+    seen: list[tuple[str, str, dict[str, str]]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.method, request.url.raw_path.decode("utf-8"), dict(request.url.params)))
+        if request.method == "GET":
+            return httpx.Response(200, json={"dag_runs": [], "total_entries": 0})
+        return httpx.Response(204)
+
+    client = AirflowClient(
+        base_url="http://airflow-api-server:8080",
+        username="admin",
+        password="secret",
+        transport=httpx.MockTransport(handler),
+    )
+
+    client.list_dag_runs("bio demo", limit=25, offset=50)
+    client.delete_dag_run("bio demo", "manual__run 1")
+    client.delete_dag("old demo")
+
+    assert seen == [
+        ("GET", "/api/v1/dags/bio%20demo/dagRuns?limit=25&offset=50", {"limit": "25", "offset": "50"}),
+        ("DELETE", "/api/v1/dags/bio%20demo/dagRuns/manual__run%201", {}),
+        ("DELETE", "/api/v1/dags/old%20demo", {}),
+    ]

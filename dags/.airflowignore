@@ -1,1 +1,3 @@
 tests/*
+bio_pgta_airflow.py
+bio_wes_qsub.py

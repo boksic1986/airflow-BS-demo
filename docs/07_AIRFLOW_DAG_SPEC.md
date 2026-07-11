@@ -45,6 +45,14 @@ semantics, and the no-`--forceall` rule are unchanged.
 | bio_pgta | PGT-A | Snakemake direct in Airflow worker | v1 支持 metadata、dryrun_cnv、invalid_target failure smoke；T085/T086 后受控支持 baseline_qc staged real smoke，不使用 qsub |
 | bio_pgta_airflow | PGT-A | Snakemake 9 direct in Airflow worker | Airflow-only metadata DAG，使用 repo-local logger plugin 写 JSONL 并在 Airflow log/XCom 展示状态 |
 
+T116 deployed scope is intentionally narrower than the historical catalog.
+Only `bio_pgta`, `bio_nipt_docker`, and `bio_intake_scan` are parsed in the
+current deployment. `bio_pgta_airflow.py` and `bio_wes_qsub.py` remain in Git
+for audit/rollback but are excluded by `.airflowignore`; their Airflow metadata
+and run history were removed. Scheduled `bio_intake_scan` defaults to the
+`pgta` pipeline only, while manual NIPT input scanning remains a backend/UI
+operation.
+
 ## 2. 通用 DAG run conf
 
 `POST /api/runs` 只创建 `analysis_run.status=created`，不会触发 Airflow。`POST /api/runs/{analysis_id}/actions/submit` 会读取 DB 中的 `sample_sheet_path`、`workdir` 和 `params_json`，触发 Airflow 并生成以下 DAG run conf。

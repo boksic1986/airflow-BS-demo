@@ -14,7 +14,7 @@ def run_intake_scan(**context):
     dag_run = context.get("dag_run")
     conf = getattr(dag_run, "conf", None) or {}
     payload = {
-        "pipelines": conf.get("pipelines") or _pipeline_list(os.getenv("INTAKE_SCAN_PIPELINES", "pgta,nipt_docker")),
+        "pipelines": conf.get("pipelines") or _pipeline_list(os.getenv("INTAKE_SCAN_PIPELINES", "pgta")),
         "bootstrap": bool(conf.get("bootstrap", _bool_env("INTAKE_SCAN_BOOTSTRAP", default=False))),
         "max_samples": int(conf.get("max_samples", os.getenv("INTAKE_SCAN_MAX_SAMPLES", "200"))),
     }

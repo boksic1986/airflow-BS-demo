@@ -99,6 +99,13 @@ python scripts/cleanup_runs.py --older-than-days 30 --dry-run
 
 不得默认删除最近 run 或 reports。
 
+T116 history cleanup is CLI-only and requires all of the following: scanner
+paused, no non-terminal target runs, dual database dumps, JSON inventories,
+SHA256 verification, exact expected counts, explicit keep IDs, a read-only
+preview, and a fixed confirmation token. Airflow history must be removed via
+the stable REST API rather than direct metadata-table SQL. Never add these
+maintenance actions to the unauthenticated frontend.
+
 ## 9. 生产化后续清单
 
 - HTTPS/reverse proxy。

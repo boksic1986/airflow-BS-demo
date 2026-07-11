@@ -1,5 +1,37 @@
 # 11 部署 Runbook
 
+## T116 strict Intake and Airflow history cleanup
+
+This is a destructive CLI-only maintenance operation. It must never be exposed
+as an unauthenticated frontend action.
+
+1. Record and pause `bio_intake_scan`; reject cleanup while any target DAG run
+   is non-terminal.
+2. Back up both `airflow` and `biodemo` with `pg_dump -Fc`, plus complete DAG,
+   DAG-run, business-run, and discovery JSON inventories. Generate SHA256 for
+   every backup and preview/apply artifact.
+3. Preview `app.intake_maintenance_cli` with the exact three business IDs, the
+   single manifest-linked keep ID, and expected discovery count.
+4. Preview `app.airflow_maintenance_cli` with exact per-DAG counts and keep run
+   IDs. Apply only with `DELETE_NON_RETAINED_AIRFLOW_HISTORY`; Intake apply
+   separately requires `DELETE_NON_RETAINED_INTAKE_DISCOVERY`.
+5. Deploy `.airflowignore` before deleting legacy DAG metadata. The deployed
+   DagBag must contain only `bio_pgta`, `bio_nipt_docker`, and
+   `bio_intake_scan` with no import errors.
+6. Restore the original scanner pause state and observe one full scheduled
+   cycle. Discovery must remain limited to valid PGT-A manifest records; the
+   scheduled request must not include NIPT.
+
+T116 evidence is stored at:
+
+```text
+/home/jiucheng/project/airflow-demo-t116/backups/T116-20260712-014626
+```
+
+The cleanup uses Airflow REST DELETE and the biodemo SQLAlchemy maintenance
+CLI. It does not directly mutate Airflow tables and does not delete workdirs,
+FASTQ, logs, reports, Docker volumes, or pipeline releases.
+
 ## T114 biodemo cleanup and NIPT QC repair
 
 This is a CLI-only maintenance operation. Do not expose an unauthenticated

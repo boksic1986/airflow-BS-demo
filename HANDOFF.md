@@ -1,5 +1,42 @@
 # HANDOFF.md
 
+## 2026-07-12 T116 strict Intake and Airflow history cleanup complete
+
+- Goal: retain only the three fully validated analysis runs, remove obsolete
+  discovery/Airflow history, and remove legacy WES/PGT-A validation DAGs from
+  the deployed Airflow UI without deleting analysis files.
+- Branch/worktree: `codex/platform/T116-airflow-intake-history-cleanup` in
+  `D:\pipeline\airflow-demo-worktrees\T096-platform-ui-redesign`, based on
+  T115 commit `69f2b1e`.
+- Safety: `bio_intake_scan` was recorded as unpaused, paused for maintenance,
+  and restored to unpaused. No active PGT-A/NIPT run existed. Cleanup CLIs
+  froze exact snapshots and aborted on count/state/content changes.
+- Backup: `/home/jiucheng/project/airflow-demo-t116/backups/T116-20260712-014626`
+  contains Airflow and biodemo custom-format dumps, before/after JSON
+  inventories, preview/apply output, and verified `SHA256SUMS`.
+- Applied: Airflow deleted 107 individual old runs plus the complete metadata
+  for `bio_pgta_airflow` and `bio_wes_qsub`; Intake Discovery deleted 24 of 25
+  rows. Biodemo remains 3 runs and 75 samples.
+- Final Airflow: only `bio_pgta`, `bio_nipt_docker`, and `bio_intake_scan` are
+  parsed. PGT-A retains 2 full successful runs, NIPT retains 1 full successful
+  run. Scanner retained its maintenance-window latest success and continues to
+  produce normal successful scheduled runs after unpause.
+- Intake recurrence guard: scheduled intake defaults to PGT-A only. The first
+  and subsequent post-cleanup cycles incremented the retained manifest
+  observation and left discovery at one row; NIPT manual server
+  scanning/submission is unchanged.
+- Tests: remote backend pytest passed 134. Full DAG unittest passed 90 with 5
+  expected logger-interface skips after supplying the required repo mounts.
+  Compose config, DagBag import, backend/frontend HTTP, retained workdirs, and
+  post-cleanup API inventories passed.
+- Initial DAG test command omitted config/scripts/pipelines mounts and produced
+  6 file-not-found errors; rerunning with the documented read-only mounts
+  passed. No product code change was needed for those errors.
+- Rollback: before any new run, pause scanner and restore both pg_dump files,
+  then remove the two `.airflowignore` entries and recreate backend/Airflow
+  services. After new runs exist, do not restore whole databases without a new
+  coordinated maintenance window.
+
 ## 2026-07-12 T115 Platform Settings discovery tracker complete
 
 - Goal: make Platform Settings operationally readable and align Discovery
