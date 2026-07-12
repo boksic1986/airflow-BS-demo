@@ -5,7 +5,13 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T116 strict Intake and Airflow history cleanup is deployed.
+current_goal_ascii: T117 Submit semantics, workflow visualization, and PGT-A manifest recovery are deployed.
+t117_runtime: backend/frontend run from /home/jiucheng/project/airflow-demo-t117. Submit defaults the optional Operator audit label to celery, describes both deployed assays as low-pass WGS, and Batch Runs renders bulk workflow phase summaries without per-run requests.
+t117_workflow_ui: Run Detail separates selected Airflow tasks from skipped alternate branches. Browser checks at 1280 and 390 CSS pixels showed no document overflow; mobile Batch Runs collapses the phase rail to current stage and completed/total count.
+t117_operator: PGTA_20260711_062522_4C4FC2 and PGTA_20260711_071416_C8C7BA were changed from codex-validation to jiucheng through an exact-snapshot CLI; each correction has a metadata_correction RunAction. NIPT codex-t113 remains unchanged.
+t117_intake: project-20260712 malformed space-delimited rows were corrected to TSV after backup. Three controlled scans produced exactly one run, PGTA_20260712_171630_AE8239, with 4 samples and operator jiucheng; Airflow/backend are running in fastp_bwa Mapping. Acceptance intentionally did not wait for terminal completion.
+t117_backup: /home/jiucheng/project/airflow-demo-t117/backups/T117-20260713-012000 contains biodemo dump, original/corrected manifest evidence, operator preview/apply output, before/after inventories, and SHA256SUMS.
+t117_validation: backend pytest passed 139; frontend Vitest passed 37; production tsc/vite build passed; DAG unittest passed 90 with 5 expected logger skips; Compose config and HTTP health passed.
 t116_runtime: backend and Airflow API/scheduler/worker run from /home/jiucheng/project/airflow-demo-t116; frontend remains healthy on 12959. Postgres, Redis, volumes, workdirs, FASTQ, logs, results, and pipeline releases were not recreated or deleted.
 t116_airflow: deployed DAGs are only bio_pgta, bio_nipt_docker, and bio_intake_scan. Airflow retains two complete PGT-A runs and one complete NIPT run; legacy bio_pgta_airflow and bio_wes_qsub metadata were deleted and their source files are excluded by .airflowignore.
 t116_intake: discovery was reduced from 25 rows to the submitted PGTA_20260711_071416_C8C7BA manifest row. Scheduled intake defaults to pgta only; manual NIPT server scan/submit remains available. bio_intake_scan was restored unpaused and subsequent successful cycles continue to leave discovery at one row without recreating NIPT/bootstrap rows.
@@ -60,8 +66,8 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/platform/T116-airflow-intake-history-cleanup in isolated local worktree; T115 baseline is `69f2b1e`
-last_verified_code_commit: T116 branch is based on `69f2b1e`; final implementation will be recorded by this branch head
+active_branch: codex/platform/T117-submit-workflow-intake-fix in isolated local worktree; T116 baseline is `a5bf5d5`
+last_verified_code_commit: T117 branch is based on `a5bf5d5`; final implementation will be recorded by this branch head
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 overlay is deployed there and `origin/main` on the mirror has been fetched to `0857e3d`, but the mirror worktree itself remains on its existing dirty deployment branch
 ```
@@ -70,10 +76,10 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 ov
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 12959 | running, healthy after T116 maintenance | Existing T115 frontend now reads the single retained discovery record and three retained business runs |
-| backend | 8000 | running, healthy from T116 | exact-snapshot Intake/Airflow maintenance CLIs are available; no migration was added; migration `20260711_0004` remains current |
-| airflow web/api | 12958 | running, healthy from T116 | only `bio_pgta`, `bio_nipt_docker`, and `bio_intake_scan` are deployed; analysis history is limited to the three complete successful runs; scanner is unpaused and PGT-A-only by default |
-| postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; Airflow and biodemo were backed up before guarded T116 cleanup; biodemo contains 3 complete runs and 75 samples |
+| frontend | 12959 | running, healthy from T117 | Submit semantics and Batch Runs workflow rails are deployed; live responsive checks passed |
+| backend | 8000 | running, healthy from T117 | workflow summaries, recoverable pre-run manifest errors, and CLI-only operator correction are deployed; migration `20260711_0004` remains current |
+| airflow web/api | 12958 | running, healthy | the three T116 DAGs remain deployed; scanner is unpaused and PGT-A-only; PGTA_20260712_171630_AE8239 is running Mapping |
+| postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; T117 backup verified; biodemo contains 4 runs and 79 samples including the active four-sample PGT-A request |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
 | mailhog | 8025 | stopped in T051 smoke | HTTP GET probe passed in earlier smoke; not started for T051 |
 
@@ -100,11 +106,11 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 ## 7. 最近测试结果
 
 ```text
-last_backend_tests: remote Dockerized full T116 pytest passed 134 tests, including exact Intake/Airflow cleanup snapshots and REST DELETE encoding.
-last_frontend_tests: remote Dockerized T115 Vitest passed 36 tests; production `tsc -b && vite build` passed through the Compose frontend build.
-last_dag_import_tests: remote repo-mounted Airflow T116 unittest discovery passed 90 tests with 5 expected logger-interface skips; deployed DagBag contains only bio_pgta, bio_nipt_docker, and bio_intake_scan with no import errors.
+last_backend_tests: remote Dockerized full T117 pytest passed 139 tests, including manifest correction recovery, workflow summaries, operator audit correction, and all T116 regressions.
+last_frontend_tests: remote Dockerized T117 Vitest passed 37 tests; production `tsc -b && vite build` passed.
+last_dag_import_tests: remote repo-mounted Airflow T117 unittest discovery passed 90 tests with 5 expected logger-interface skips; deployed DAG behavior is unchanged.
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
-last_compose_config: passed on fengxian for T116; backend and Airflow API/scheduler/worker were recreated from the isolated deployment tree without recreating Postgres/Redis or deleting volumes; frontend returned HTTP 200 and backend health returned ok.
+last_compose_config: passed on fengxian for T117; backend/frontend were rebuilt and recreated without restarting Airflow/Postgres/Redis or deleting volumes; frontend returned HTTP 200 and backend health returned ok.
 last_browser_responsive: T115 live-data Platform Settings acceptance passed at 1440/1280/1024/390; document `scrollWidth <= clientWidth`, the Discovery Tracker rendered 10 rows, and its wide table scrolled only inside its container.
 last_minimal_smoke: passed on fengxian for postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
 last_airflow_health: passed on fengxian at http://127.0.0.1:12958/health with healthy metadatabase and scheduler

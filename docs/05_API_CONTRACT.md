@@ -1,5 +1,17 @@
 # 05 API Contract
 
+## T117 run workflow summaries and operator semantics
+
+`GET /api/runs` keeps all existing fields and adds `workflow_summary` to each
+item. It is built with one bulk rule-event query for the returned page and
+contains `key`, `label`, `status`, `completed_jobs`, and `total_jobs`.
+
+PGT-A exposes Mapping, Metadata, CNV QC, and CNV prediction. NIPT Docker
+exposes Input QC, Mapping, CNV, T21 classifier, Fetal fraction, and Final QC.
+`submitted_by` remains a nullable audit label; it is not an Airflow RBAC user.
+The T117 operator correction is CLI-only and adds no public metadata editing
+endpoint.
+
 ## T114 run status, timing, and sample QC
 
 `GET /api/dashboard/runs` adds `display_status`, `pipeline_finished_at`,

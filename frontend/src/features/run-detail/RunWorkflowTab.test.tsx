@@ -4,7 +4,7 @@ import {render, screen, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {describe, expect, it} from "vitest";
 
-import type {RuleEvent} from "../../api";
+import type {RuleEvent, RunProgressResponse} from "../../api";
 import {RunWorkflowTab} from "./RunWorkflowTab";
 
 describe("RunWorkflowTab", () => {
@@ -37,5 +37,25 @@ describe("RunWorkflowTab", () => {
     await userEvent.click(screen.getByRole("button", {name: /Next rule jobs/i}));
 
     expect(within(jobsTable).getByText("S060")).toBeInTheDocument();
+  });
+
+  it("separates skipped Airflow branch tasks from the selected execution path", () => {
+    const progress = {
+      airflow_tasks: [
+        {task_id: "validate_request", state: "success"},
+        {task_id: "pgta_predict.run_pgta_mapping", state: "success"},
+        {task_id: "pgta_pipeline.run_pgta_mapping", state: "skipped"},
+        {task_id: "run_pgta_target", state: "skipped"},
+      ],
+    } as RunProgressResponse;
+
+    render(<RunWorkflowTab progress={progress} rules={[]} />);
+
+    const selectedPath = screen.getByLabelText("Selected Airflow execution path");
+    expect(within(selectedPath).getByText("Mapping reads")).toBeInTheDocument();
+    expect(within(selectedPath).queryByText("Run PGT-A workflow")).not.toBeInTheDocument();
+    const alternate = screen.getByText(/Alternate paths/i).closest("details");
+    expect(alternate).not.toBeNull();
+    expect(within(alternate as HTMLElement).getAllByText("Not selected branch")).toHaveLength(2);
   });
 });

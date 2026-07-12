@@ -1,5 +1,32 @@
 # HANDOFF.md
 
+## 2026-07-13 T117 Submit semantics, workflow graph, and PGT-A intake recovery
+
+- Branch/worktree: `codex/platform/T117-submit-workflow-intake-fix` in the
+  isolated T096 worktree, based on T116 commit `a5bf5d5`.
+- Submit: optional Operator select defaults to `celery`; `jiucheng` and null
+  remain available. It is an audit label, not an Airflow user. Target-capture
+  wording was replaced with pipeline-specific low-pass WGS.
+- Runs: `/api/runs` returns one-query workflow summaries. Batch Runs renders a
+  compact phase rail instead of QC metric lists; Run Detail moves skipped
+  Airflow branches to `Alternate paths / Not selected branch`.
+- Operator maintenance: exact preview/apply changed the two retained PGT-A
+  `codex-validation` labels to `jiucheng` and wrote audited RunAction rows.
+- Intake: `project-20260712` contained two space-delimited rows. The parser now
+  reports line errors and permits correction only for an error with no run.
+  Four FASTQ pairs were unchanged.
+- Runtime acceptance: two scans created/submitted only
+  `PGTA_20260712_171630_AE8239`; a third scan kept total=1. The run is active
+  in `pgta_predict.run_pgta_mapping / fastp_bwa`; terminal completion was not
+  required by the approved scope.
+- Verification: backend 139, frontend 37, and DAG/runner 90 tests passed with
+  5 expected logger skips. Production build, Compose, HTTP health, and browser
+  checks at 1280/390 passed without document overflow.
+- Backup: `/home/jiucheng/project/airflow-demo-t117/backups/T117-20260713-012000`.
+- Rollback: pause scanner, restore biodemo only before accepting newer writes,
+  restore the original manifest, and redeploy T116 backend/frontend. Do not
+  delete the active run workdir, FASTQ, results, or Docker volumes.
+
 ## 2026-07-12 T116 strict Intake and Airflow history cleanup complete
 
 - Goal: retain only the three fully validated analysis runs, remove obsolete

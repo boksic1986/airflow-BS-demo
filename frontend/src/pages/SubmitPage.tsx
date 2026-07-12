@@ -23,7 +23,7 @@ const fallbackTemplate = deployedWorkflowTemplates.find((pipeline) => pipeline.i
 export function SubmitPage() {
   const [selectedPipeline, setSelectedPipeline] = useState<"pgta" | "nipt_docker">("pgta");
   const [projectName, setProjectName] = useState("Bioinformatics demo run");
-  const [operator, setOperator] = useState("local-operator");
+  const [operator, setOperator] = useState("celery");
   const [reference] = useState("hg19");
   const [priority, setPriority] = useState("normal");
   const [runMode, setRunMode] = useState("production-run");
@@ -49,8 +49,8 @@ export function SubmitPage() {
 
   const selectedTemplate = deployedWorkflowTemplates.find((pipeline) => pipeline.id === selectedPipeline) || fallbackTemplate;
   const selectedScanRows = scanItems.filter((item) => selectedSamples.has(item.sample_id));
-  const canCreatePgta = selectedScanRows.length > 0 && Boolean(projectName.trim()) && Boolean(operator.trim());
-  const canCreateNipt = selectedScanRows.length > 0 && Boolean(projectName.trim()) && Boolean(operator.trim());
+  const canCreatePgta = selectedScanRows.length > 0 && Boolean(projectName.trim());
+  const canCreateNipt = selectedScanRows.length > 0 && Boolean(projectName.trim());
   const canCreateSelected = (selectedPipeline === "nipt_docker" ? canCreateNipt : canCreatePgta) && Boolean(configSelection?.valid);
 
   useEffect(() => {
@@ -318,8 +318,8 @@ export function SubmitPage() {
               {selectedPipeline === "pgta" ? <small id="pgta-reference-note">Locked by the approved PGT-A S9 runtime profile.</small> : null}
             </label>
             <label className="field">
-              <span>Panel / capture kit</span>
-              <input value={selectedPipeline === "nipt_docker" ? "NIPT Docker scanned chip batch" : "PGT-A S9 predict / fixed XX, XY and gender references"} readOnly />
+              <span>Sequencing strategy</span>
+              <input value={selectedPipeline === "nipt_docker" ? "Low-pass WGS · NIPT aneuploidy screening" : "Low-pass WGS · PGT-A copy-number screening"} readOnly />
             </label>
             <label className="field">
               <span>Priority</span>
@@ -335,7 +335,12 @@ export function SubmitPage() {
             </label>
             <label className="field">
               <span>Operator</span>
-              <input value={operator} placeholder="operator name" onChange={(event) => setOperator(event.target.value)} />
+              <select aria-label="Operator" value={operator} onChange={(event) => setOperator(event.target.value)}>
+                <option value="celery">celery (system default)</option>
+                <option value="jiucheng">jiucheng</option>
+                <option value="">Not specified</option>
+              </select>
+              <small>Audit label only; it is not an Airflow account or permission.</small>
             </label>
           </div>
           <SnakemakeConfigEditor

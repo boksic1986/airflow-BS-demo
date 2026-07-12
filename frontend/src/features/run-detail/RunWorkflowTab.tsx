@@ -12,6 +12,8 @@ const rulePageSize = 50;
 export function RunWorkflowTab({progress, rules}: {progress: RunProgressResponse | null; rules: RuleEvent[]}) {
   const [page, setPage] = useState(0);
   const airflowTasks = progress?.airflow_tasks || [];
+  const selectedAirflowTasks = airflowTasks.filter((task) => normalizeStatus(task.state) !== "skipped");
+  const alternateAirflowTasks = airflowTasks.filter((task) => normalizeStatus(task.state) === "skipped");
   const phases = useMemo(() => summarizeRulePhases(rules), [rules]);
   const sortedRules = useMemo(() => sortRuleJobs(rules), [rules]);
   const pageCount = Math.max(1, Math.ceil(sortedRules.length / rulePageSize));
@@ -22,7 +24,21 @@ export function RunWorkflowTab({progress, rules}: {progress: RunProgressResponse
 
   return (
     <div className="workflow-tab-stack">
-      <LayeredWorkflowTimeline airflowTasks={airflowTasks} phases={phases} />
+      <LayeredWorkflowTimeline airflowTasks={selectedAirflowTasks} phases={phases} />
+      {alternateAirflowTasks.length ? (
+        <details className="alternate-workflow-paths">
+          <summary>Alternate paths · {alternateAirflowTasks.length}</summary>
+          <div className="alternate-workflow-grid">
+            {alternateAirflowTasks.map((task) => (
+              <div key={task.task_id}>
+                <strong>{humanStageLabel(task.task_id)}</strong>
+                <span>Not selected branch</span>
+                <small title="Raw Airflow task ID">{task.task_id}</small>
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
       <section>
         <div className="section-heading"><h2>Airflow tasks</h2><p>Project-level orchestration stages</p></div>
         <div className="table-wrap">
@@ -32,7 +48,7 @@ export function RunWorkflowTab({progress, rules}: {progress: RunProgressResponse
               {airflowTasks.map((task) => (
                 <tr key={`${task.task_id}-${task.try_number || "try"}`}>
                   <td><strong>{humanStageLabel(task.task_id)}</strong>{stageDebugLabel(task.task_id) ? <span className="muted block" title="Raw Airflow task ID">{task.task_id}</span> : null}</td>
-                  <td><StatusBadge status={task.state} /></td><td>{task.operator || "not set"}</td><td>{task.try_number ?? "not set"}</td>
+                  <td><StatusBadge status={task.state} />{normalizeStatus(task.state) === "skipped" ? <small className="muted block">Not selected branch</small> : null}</td><td>{task.operator || "not set"}</td><td>{task.try_number ?? "not set"}</td>
                   <td>{formatDate(task.start_date)}</td><td>{formatDate(task.end_date)}</td><td>{task.duration ?? "not set"}</td>
                 </tr>
               ))}
@@ -89,7 +105,9 @@ function LayeredWorkflowTimeline({airflowTasks, phases}: {airflowTasks: AirflowT
   return (
     <section className="layered-timeline" aria-label="Layered workflow timeline" title="Airflow shows project stages; pipeline events show the current bioinformatics phase.">
       <div className="section-heading"><h2>Layered timeline</h2><p>Orchestration and pipeline execution</p></div>
-      <TimelineLane title="Airflow project tasks" empty="No Airflow task instances returned yet." items={airflowTasks.map((task) => ({id: task.task_id, label: humanStageLabel(task.task_id), status: task.state || "unknown", meta: `${task.operator || "operator not set"} / try ${task.try_number ?? "not set"}`}))} />
+      <div aria-label="Selected Airflow execution path">
+        <TimelineLane title="Airflow project tasks" empty="No Airflow task instances returned yet." items={airflowTasks.map((task) => ({id: task.task_id, label: humanStageLabel(task.task_id), status: task.state || "unknown", meta: `${task.operator || "operator not set"} / try ${task.try_number ?? "not set"}`}))} />
+      </div>
       <TimelineLane title="Pipeline phases" empty="No rule events captured for this run." items={phases.map((phase) => ({id: phase.phase, label: phase.phase, status: phase.status, meta: `${phase.success}/${phase.total} jobs complete`}))} />
     </section>
   );

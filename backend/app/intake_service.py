@@ -317,6 +317,28 @@ def _record_snapshot(
         return _row_payload(row, auto_submit_enabled=auto_submit_enabled, reason="bootstrap_protected" if bootstrap else "new_batch_observed")
 
     if row.fingerprint != snapshot.fingerprint:
+        if (
+            snapshot.source_manifest_path
+            and row.ready_state == "error"
+            and row.submit_state == "error"
+            and not row.analysis_id
+        ):
+            row.fingerprint = snapshot.fingerprint
+            row.file_count = snapshot.file_count
+            row.total_bytes = snapshot.total_bytes
+            row.max_mtime = snapshot.max_mtime
+            row.ready_state = "observed"
+            row.submit_state = "not_submitted"
+            row.source_manifest_path = snapshot.source_manifest_path
+            row.stable_observation_count = 1
+            row.last_error = None
+            row.last_seen_at = now
+            session.commit()
+            return _row_payload(
+                row,
+                auto_submit_enabled=auto_submit_enabled,
+                reason="corrected_manifest_observed",
+            )
         if snapshot.source_manifest_path:
             row.ready_state = "error"
             row.submit_state = "error"

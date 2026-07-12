@@ -12,6 +12,15 @@ export type RunSummary = {
   sample_count?: number | null;
   qc_status?: string | null;
   qc_highlights?: QcHighlight[];
+  workflow_summary?: WorkflowStageSummary[];
+};
+
+export type WorkflowStageSummary = {
+  key: string;
+  label: string;
+  status: string;
+  completed_jobs: number;
+  total_jobs: number;
 };
 
 export type RunListResponse = {

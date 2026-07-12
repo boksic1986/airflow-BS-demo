@@ -1435,6 +1435,70 @@ textarea {
   white-space: nowrap;
 }
 
+.workflow-stage-summary {
+  min-width: 0;
+}
+
+.workflow-stage-rail {
+  display: flex;
+  min-width: 250px;
+}
+
+.workflow-stage-node {
+  align-items: center;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 44px;
+  position: relative;
+  text-align: center;
+}
+
+.workflow-stage-node::before {
+  background: var(--color-border);
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 6px;
+}
+
+.workflow-stage-node:first-child::before { left: 50%; }
+.workflow-stage-node:last-child::before { right: 50%; }
+
+.workflow-stage-dot {
+  background: var(--color-surface);
+  border: 2px solid var(--color-text-muted);
+  border-radius: 50%;
+  height: 12px;
+  position: relative;
+  width: 12px;
+  z-index: 1;
+}
+
+.workflow-stage-node.stage-success .workflow-stage-dot { background: var(--color-success); border-color: var(--color-success); }
+.workflow-stage-node.stage-running .workflow-stage-dot { background: var(--color-running); border-color: var(--color-running); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16); }
+.workflow-stage-node.stage-failed .workflow-stage-dot { background: var(--color-danger); border-color: var(--color-danger); }
+.workflow-stage-node small { color: var(--color-text-muted); font-size: 10px; line-height: 1.2; }
+.workflow-stage-mobile { display: none; color: var(--color-text-muted); font-size: 12px; }
+
+.alternate-workflow-paths {
+  border: 1px solid var(--color-border);
+  padding: 10px 12px;
+}
+
+.alternate-workflow-paths summary { color: var(--color-text-muted); cursor: pointer; font-weight: 700; }
+.alternate-workflow-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 10px; }
+.alternate-workflow-grid > div { display: grid; gap: 2px; }
+.alternate-workflow-grid span, .alternate-workflow-grid small { color: var(--color-text-muted); font-size: 12px; }
+
+@media (max-width: 720px) {
+  .workflow-stage-rail { display: none; }
+  .workflow-stage-mobile { display: inline; }
+}
+
 .timeline-node small {
   color: var(--color-text-muted);
   font-size: 12px;

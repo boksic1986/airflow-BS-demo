@@ -16,6 +16,7 @@ from app.intake_config import load_intake_config
 from app.models import AnalysisRun, RunAction, Sample
 from app.qc_highlights import qc_highlights_by_run
 from app.pipeline_config_service import ValidatedPipelineConfig, persist_requested_config
+from app.workflow_summary_service import workflow_summaries_by_run
 
 
 PGTA_DAG_ID = "bio_pgta"
@@ -531,6 +532,7 @@ def list_runs(
     for analysis_id, qc_status in sample_rows:
         sample_qc.setdefault(analysis_id, []).append(qc_status)
     qc_highlights = qc_highlights_by_run(session=session, runs=page)
+    workflow_summaries = workflow_summaries_by_run(session=session, runs=page)
     return {
         "items": [
             _run_list_payload(
@@ -538,6 +540,7 @@ def list_runs(
                 sample_count=len(sample_qc.get(run.analysis_id, [])),
                 sample_qc_statuses=sample_qc.get(run.analysis_id, []),
                 qc_highlights=qc_highlights.get(run.analysis_id, []),
+                workflow_summary=workflow_summaries.get(run.analysis_id, []),
             )
             for run in page
         ],
@@ -1223,6 +1226,7 @@ def _run_list_payload(
     sample_count: int,
     sample_qc_statuses: list[str | None],
     qc_highlights: list[dict],
+    workflow_summary: list[dict[str, object]],
 ) -> dict:
     return {
         "analysis_id": run.analysis_id,
@@ -1234,9 +1238,11 @@ def _run_list_payload(
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "ended_at": run.ended_at.isoformat() if run.ended_at else None,
         "pipeline_finished_at": run.pipeline_finished_at.isoformat() if run.pipeline_finished_at else None,
+        "submitted_by": run.submitted_by,
         "sample_count": sample_count,
         "qc_status": _aggregate_sample_qc_status(sample_qc_statuses),
         "qc_highlights": qc_highlights,
+        "workflow_summary": workflow_summary,
     }
 
 

@@ -4,7 +4,7 @@ import type {RunSummary} from "../api";
 
 import {compactPipelineName, formatDate, formatDuration} from "../lib/format";
 import {StatusBadge} from "./StatusBadge";
-import {QcHighlights} from "./QcHighlights";
+import {WorkflowStageRail} from "./WorkflowStageRail";
 
 export function RunTable({
   runs,
@@ -24,7 +24,7 @@ export function RunTable({
             <th>pipeline</th>
             <th>samples</th>
             <th>status</th>
-            <th>QC highlights</th>
+            <th>workflow</th>
             <th>submitted / started</th>
             <th>duration</th>
           </tr>
@@ -47,8 +47,7 @@ export function RunTable({
                 <StatusBadge status={run.status} />
               </td>
               <td>
-                <StatusBadge status={run.qc_status || "unknown"} size="sm" />
-                <QcHighlights items={run.qc_highlights} />
+                <WorkflowStageRail analysisId={run.analysis_id} pipeline={run.pipeline} stages={run.workflow_summary} />
               </td>
               <td><span className="block">Submitted {formatDate(run.submitted_at)}</span><small>Started {formatDate(run.started_at)}</small></td>
               <td>{formatDuration(run.started_at, run.ended_at)}</td>

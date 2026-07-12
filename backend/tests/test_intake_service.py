@@ -548,6 +548,66 @@ def test_pgta_submitted_manifest_becomes_error_if_request_fingerprint_changes(tm
     assert len(fake_airflow.trigger_calls) == 1
 
 
+def test_pgta_manifest_validation_error_can_recover_before_a_run_exists(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    data_root = tmp_path / "rawdata"
+    inbox_root = data_root / "pgta_crontab"
+    inbox_root.mkdir(parents=True)
+    request_id = "correctable-request"
+    batch = data_root / "2026-06-08"
+    batch.mkdir(parents=True)
+    (batch / "S1_combined_R1.fastq.gz").write_text("r1\n", encoding="utf-8")
+    (batch / "S1_combined_R2.fastq.gz").write_text("r2\n", encoding="utf-8")
+    manifest = inbox_root / f"{request_id}.samples.tsv"
+    manifest.write_text(
+        "project_id\tsource_batch\tsample_id\toperator\n"
+        "PGTA-DEMO   2026-06-08   S1   jiucheng\n",
+        encoding="utf-8",
+    )
+    (inbox_root / f"{request_id}.READY").write_text("", encoding="utf-8")
+    config_path = write_pgta_manifest_config(
+        tmp_path,
+        data_root=data_root,
+        inbox_root=inbox_root,
+        global_auto_submit=True,
+        pgta_auto_submit=True,
+    )
+    fake_airflow = FakeAirflowClient()
+    settings = SimpleNamespace(
+        intake_config_path=config_path,
+        input_scan_roots=[str(data_root)],
+        pgta_input_scan_roots=[str(data_root)],
+        nipt_input_scan_roots=[],
+        container_shared_root=str(tmp_path / "shared"),
+    )
+    monkeypatch.setattr(main, "get_settings", lambda: settings)
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    monkeypatch.setattr(main, "get_airflow_client", lambda: fake_airflow)
+    monkeypatch.setattr(intake_service, "_auto_pipeline_config", lambda **_: None)
+    client = TestClient(main.app)
+
+    failed = client.post("/api/intake/scan-and-submit", json={"pipelines": ["pgta"]})
+    assert failed.status_code == 200
+    assert failed.json()["items"][0]["submit_state"] == "error"
+
+    manifest.write_text(
+        "project_id\tsource_batch\tsample_id\toperator\n"
+        "PGTA-DEMO\t2026-06-08\tS1\tjiucheng\n",
+        encoding="utf-8",
+    )
+    observed = client.post("/api/intake/scan-and-submit", json={"pipelines": ["pgta"]})
+    submitted = client.post("/api/intake/scan-and-submit", json={"pipelines": ["pgta"]})
+
+    assert observed.status_code == 200
+    assert observed.json()["items"][0]["reason"] == "corrected_manifest_observed"
+    assert observed.json()["items"][0]["stable_observation_count"] == 1
+    assert submitted.status_code == 200
+    item = submitted.json()["items"][0]
+    assert item["submit_state"] == "submitted"
+    assert item["analysis_id"].startswith("PGTA_")
+    assert len(fake_airflow.trigger_calls) == 1
+
+
 def test_pgta_manifest_recovers_created_run_after_crash_before_discovery_link(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     data_root = tmp_path / "rawdata"

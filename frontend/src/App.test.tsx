@@ -140,6 +140,12 @@ describe("bioinformatics platform frontend", () => {
       ended_at: "2026-07-07T22:53:00+08:00",
       sample_count: 2,
       qc_status: "fail",
+      workflow_summary: [
+        {key: "mapping", label: "Mapping", status: "success", completed_jobs: 4, total_jobs: 4},
+        {key: "metadata", label: "Metadata", status: "success", completed_jobs: 1, total_jobs: 1},
+        {key: "cnv_qc", label: "CNV QC", status: "success", completed_jobs: 5, total_jobs: 5},
+        {key: "cnv_prediction", label: "CNV prediction", status: "success", completed_jobs: 4, total_jobs: 4},
+      ],
     },
     {
       analysis_id: wesRunId,
@@ -1364,6 +1370,8 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByText(/Retry selected/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Cancel selected/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Archive selected/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(`Workflow stages for ${failedRunId}`)).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", {name: /QC highlights/i})).not.toBeInTheDocument();
   });
 
   it("preserves a newly selected pipeline while a keyword debounce is pending", async () => {
@@ -1603,6 +1611,10 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByRole("radio", {name: /wes/i})).not.toBeInTheDocument();
     expect(screen.queryByRole("radio", {name: /wgs/i})).not.toBeInTheDocument();
     expect(screen.queryByText(/sample sheet text/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", {name: /^Operator$/i})).toHaveValue("celery");
+    expect(screen.getByText(/audit label only/i)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/Low-pass WGS.*PGT-A copy-number screening/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Panel \/ capture kit/i)).not.toBeInTheDocument();
     await user.clear(screen.getByLabelText(/rawdata root/i));
     await user.type(screen.getByLabelText(/rawdata root/i), rawdataRoot);
     expect(screen.getByRole("textbox", {name: /^target$/i})).toHaveValue("predict");
@@ -1656,7 +1668,7 @@ describe("bioinformatics platform frontend", () => {
     expect(String(createCall?.[1]?.body)).toContain('"config_template_hash":"pgta-current-template-hash"');
     expect(String(createCall?.[1]?.body)).toContain('"snakemake_config_yaml"');
     expect(String(createCall?.[1]?.body)).toContain('"target":"predict"');
-    expect(String(createCall?.[1]?.body)).toContain('"submitted_by":"local-operator"');
+    expect(String(createCall?.[1]?.body)).toContain('"submitted_by":"celery"');
   });
 
   it("renders run detail QC as a compact searchable matrix with pagination", async () => {

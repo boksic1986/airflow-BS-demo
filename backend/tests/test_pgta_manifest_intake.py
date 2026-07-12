@@ -90,3 +90,24 @@ def test_safe_manifest_scan_keeps_valid_requests_and_reports_invalid_request(tmp
     assert [item.request_id for item in result.errors] == ["invalid-request"]
     assert "duplicate sample_id" in result.errors[0].message
     assert len(result.errors[0].fingerprint) == 64
+
+
+def test_manifest_reports_line_number_when_spaces_replace_tsv_delimiters(tmp_path) -> None:
+    data_root = tmp_path / "rawdata"
+    inbox = data_root / "pgta_crontab"
+    write_pair(data_root / "2026-06-08", "PGTA-DEMO-01")
+    write_request(
+        inbox,
+        rows=[
+            "PGTA-DEMO\t2026-06-08\tPGTA-DEMO-01\tdemo-operator",
+            "PGTA-DEMO   2026-06-08   PGTA-DEMO-02   demo-operator",
+        ],
+    )
+    (inbox / "request-001.READY").write_text("", encoding="utf-8")
+
+    result = scan_pgta_manifest_request_results(inbox_root=inbox, data_root=data_root)
+
+    assert result.requests == []
+    assert len(result.errors) == 1
+    assert "line 3" in result.errors[0].message
+    assert "4 tab-separated columns" in result.errors[0].message

@@ -1,5 +1,17 @@
 # 06 前端设计
 
+## T117 submission semantics and workflow visualization
+
+- Submit Run uses an optional Operator select: `celery` by default,
+  `jiucheng`, or Not specified. It is an audit label, not an Airflow account.
+- `Panel / capture kit` is replaced by `Sequencing strategy`; both deployed
+  assays use pipeline-specific low-pass WGS wording.
+- Batch Runs replaces row QC metric lists with a compact workflow phase rail.
+  Mobile widths show the current phase and completed/total stage count.
+- Run Detail removes Airflow `skipped` branch tasks from the selected-path
+  lane and lists them under `Alternate paths` as `Not selected branch` while
+  retaining the raw task table for diagnosis.
+
 ## T114 operator status and timing
 
 - Run Tracker uses one combined Status badge and never renders per-sample QC

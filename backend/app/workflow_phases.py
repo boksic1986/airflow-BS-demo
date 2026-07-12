@@ -35,11 +35,18 @@ NIPT_RULE_PHASES = {
 GENERIC_RULE_PHASES = {
     "fastp_bwa": "Mapping",
     "mapping": "Mapping",
+    "collect_mapping_qc": "Mapping",
     "metadata": "Metadata",
     "collect_run_metadata": "Metadata",
     "cnv_qc": "CNV QC",
     "baseline_qc": "CNV QC",
+    "wisecondorx_convert_for_cnv": "CNV QC",
+    "wisecondorx_qc_for_predict": "CNV QC",
+    "aggregate_pgta_qc": "CNV QC",
     "cnv_predict": "CNV prediction",
+    "wisecondorx_gender_for_predict": "CNV prediction",
+    "wisecondorx_predict_cnv": "CNV prediction",
+    "aggregate_pgta_prediction_status": "CNV prediction",
 }
 
 FAILED_STATUSES = {"failed", "fail", "error"}

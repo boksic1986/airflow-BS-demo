@@ -77,13 +77,21 @@ def scan_pgta_manifest_request_results(
 
 def _parse_request(*, manifest: Path, request_id: str, data_root: Path) -> PgtaManifestRequest:
     with manifest.open("r", encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle, delimiter="\t")
-        required = {"project_id", "source_batch", "sample_id", "operator"}
-        if set(reader.fieldnames or []) != required:
+        reader = csv.reader(handle, delimiter="\t")
+        required = ["project_id", "source_batch", "sample_id", "operator"]
+        header = next(reader, [])
+        if header != required:
             raise ManifestIntakeError(
                 f"Manifest {manifest.name} must contain exactly: project_id,source_batch,sample_id,operator"
             )
-        rows = [{key: str(value or "").strip() for key, value in row.items()} for row in reader]
+        rows = []
+        for line_number, values in enumerate(reader, start=2):
+            if len(values) != len(required):
+                raise ManifestIntakeError(
+                    f"Manifest {manifest.name} line {line_number} must contain "
+                    f"4 tab-separated columns; found {len(values)}."
+                )
+            rows.append({key: str(value or "").strip() for key, value in zip(required, values)})
     if not rows:
         raise ManifestIntakeError(f"Manifest {manifest.name} has no samples.")
 

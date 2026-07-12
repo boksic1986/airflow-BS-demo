@@ -1,5 +1,21 @@
 # 11 部署 Runbook
 
+## T117 operator correction and manifest recovery
+
+1. Record and pause `bio_intake_scan`; back up biodemo, the request
+   manifest/READY files, and API inventories.
+2. Preview `app.operator_maintenance_cli` with exact IDs and expected labels.
+   Apply only with `CORRECT_RETAINED_PGTA_OPERATOR`; each change writes an
+   audited `RunAction(action=metadata_correction)`.
+3. A manifest validation error may be corrected in place only before it has an
+   `analysis_id`. Valid observed or submitted manifests remain immutable.
+4. Rewrite TSV data atomically and preserve READY. Run two PGT-A-only scanner
+   cycles for the stability gate and a third to prove idempotency.
+
+Evidence: `/home/jiucheng/project/airflow-demo-t117/backups/T117-20260713-012000`.
+This operation does not alter Airflow users, FASTQ, results, workdirs, Docker
+volumes, or completed-run source manifests.
+
 ## T116 strict Intake and Airflow history cleanup
 
 This is a destructive CLI-only maintenance operation. It must never be exposed
