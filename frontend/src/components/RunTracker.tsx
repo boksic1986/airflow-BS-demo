@@ -1,8 +1,9 @@
+import {useEffect, useState} from "react";
 import {Link} from "react-router-dom";
 
 import type {DashboardRunTrackerRow} from "../api";
 
-import {compactPipelineName, displayTimeZoneLabel, formatDate, formatSecondsDuration} from "../lib/format";
+import {compactPipelineName, displayTimeZoneLabel, formatDate, formatRelativeAge, formatSecondsDuration} from "../lib/format";
 import {humanStageLabel, stageDebugLabel} from "../lib/stageLabels";
 import {isActiveStatus, normalizeStatus} from "../lib/status";
 import {RunProgressBar} from "./RunProgressBar";
@@ -47,6 +48,12 @@ export function RunTracker({
   const pageEnd = Math.min(offset + limit, total);
   const canGoPrevious = offset > 0;
   const canGoNext = offset + limit < total;
+  const [relativeNow, setRelativeNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setRelativeNow(new Date()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   return (
     <section className="panel run-tracker-panel">
@@ -57,11 +64,11 @@ export function RunTracker({
         </div>
         <div className="tracker-controls">
           <label className="tracker-search">
-            <span>Search tracker</span>
+            <span>Search operations</span>
             <input
-              aria-label="Search tracker"
+              aria-label="Search operations"
               onChange={(event) => onKeywordChange(event.target.value)}
-              placeholder="project or run id"
+              placeholder="project, run, or intake batch"
               type="search"
               value={keyword}
             />
@@ -102,6 +109,7 @@ export function RunTracker({
                   onSubmit={onSubmit}
                   onSync={onSync}
                   row={row}
+                  relativeNow={relativeNow}
                 />
               ))}
             </tbody>
@@ -129,16 +137,22 @@ function RunTrackerRow({
   row,
   onSubmit,
   onSync,
+  relativeNow,
 }: {
   row: DashboardRunTrackerRow;
   onSubmit: (analysisId: string) => void;
   onSync: (analysisId: string) => void;
+  relativeNow: Date;
 }) {
   const status = normalizeStatus(row.status);
   const rawStep = status === "success" ? null : row.current_pipeline_rule || row.current_airflow_task;
   const currentStep = status === "success" ? "Completed" : row.current_stage_label || (rawStep ? humanStageLabel(rawStep) : row.not_in_airflow ? "Created only" : "No rule events captured");
   const debugStep = stageDebugLabel(rawStep);
   const note = row.note || progressNote(row);
+  const terminalAt = row.pipeline_finished_at || row.ended_at;
+  const terminalAge = ["success", "failed", "terminated"].includes(status)
+    ? formatRelativeAge(terminalAt, relativeNow)
+    : null;
   return (
     <tr className={isActiveStatus(status) ? "run-tracker-row active" : "run-tracker-row"}>
       <td>
@@ -166,7 +180,9 @@ function RunTrackerRow({
       <td>
         <div className="current-stage-cell">
           <strong>{currentStep}</strong>
-          <span>{row.current_stage_source || sourceFromRow(row)}</span>
+          {terminalAge ? (
+            <span className="terminal-age" title={`${formatDate(terminalAt)} ${displayTimeZoneLabel()}`}>{terminalAge}</span>
+          ) : <span>{row.current_stage_source || sourceFromRow(row)}</span>}
           {debugStep ? <small title="Raw Airflow task or pipeline event id">{debugStep}</small> : null}
           {row.current_airflow_task === "run_pgta_target" ? (
             <small>Legacy PGT-A single Airflow task; Snakemake carries the detailed rule progress.</small>

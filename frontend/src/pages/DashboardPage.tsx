@@ -31,6 +31,7 @@ import {errorMessage} from "../lib/errors";
 import {isActiveStatus} from "../lib/status";
 
 const trackerLimit = 10;
+const intakeLimit = 10;
 
 export function DashboardPage() {
   const [pipeline, setPipeline] = useState<DashboardPipeline>("all");
@@ -38,6 +39,8 @@ export function DashboardPage() {
   const [trackerFilter, setTrackerFilter] = useState<RunTrackerFilter>("all");
   const [trackerKeyword, setTrackerKeyword] = useState("");
   const [trackerOffset, setTrackerOffset] = useState(0);
+  const [intakeOffset, setIntakeOffset] = useState(0);
+  const [intakeTotal, setIntakeTotal] = useState(0);
   const [resourceTab, setResourceTab] = useState<DashboardPipeline>("all");
 
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
@@ -88,14 +91,21 @@ export function DashboardPage() {
     setIntakeLoading(true);
     setIntakeError(null);
     try {
-      const payload = await getIntakeStatus(pipeline === "all" ? {limit: 20} : {pipeline, limit: 20});
+      const payload = await getIntakeStatus({
+        pipeline: pipeline === "all" ? undefined : pipeline,
+        keyword: trackerKeyword.trim() || undefined,
+        lifecycle: "active",
+        limit: intakeLimit,
+        offset: intakeOffset,
+      });
       setIntakeItems(payload.items);
+      setIntakeTotal(payload.total ?? payload.items.length);
     } catch (loadError) {
       setIntakeError(errorMessage(loadError));
     } finally {
       setIntakeLoading(false);
     }
-  }, [pipeline]);
+  }, [intakeOffset, pipeline, trackerKeyword]);
 
   const loadResources = useCallback(async () => {
     setResourcesLoading(true);
@@ -140,8 +150,8 @@ export function DashboardPage() {
     setPipeline(nextPipeline);
     setResourceTab(nextPipeline);
     setTrackerFilter("all");
-    setTrackerKeyword("");
     setTrackerOffset(0);
+    setIntakeOffset(0);
   }
 
   function handleFilterChange(nextFilter: RunTrackerFilter) {
@@ -152,6 +162,7 @@ export function DashboardPage() {
   function handleKeywordChange(nextKeyword: string) {
     setTrackerKeyword(nextKeyword);
     setTrackerOffset(0);
+    setIntakeOffset(0);
   }
 
   async function handleTrackerSubmit(analysisId: string) {
@@ -216,7 +227,15 @@ export function DashboardPage() {
               onSync={(analysisId) => void handleTrackerSync(analysisId)}
             />
           </div>
-          <IntakeScannerPanel items={intakeItems} loading={intakeLoading} error={intakeError} />
+          <IntakeScannerPanel
+            items={intakeItems}
+            total={intakeTotal}
+            limit={intakeLimit}
+            offset={intakeOffset}
+            loading={intakeLoading}
+            error={intakeError}
+            onPageChange={setIntakeOffset}
+          />
         </div>
       </section>
       <DashboardResourcePanels

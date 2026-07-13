@@ -519,6 +519,45 @@ def test_sync_airflow_success_imports_pgta_baseline_qc_metrics(tmp_path, monkeyp
     assert [sample.qc_status for sample in samples] == ["pass", "warn"]
 
 
+def test_sync_airflow_success_overrides_stale_failed_jsonl_event(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_submitted_run(
+        session_factory,
+        tmp_path,
+        analysis_id="PGTA_20260713_094600_RESUME",
+    )
+    events_dir = tmp_path / "shared" / "runs" / analysis_id / "logs" / "events"
+    events_dir.mkdir(parents=True)
+    (events_dir / "snakemake_events.jsonl").write_text(
+        "\n".join(
+            [
+                '{"rule":"metadata","status":"failed","timestamp":"2026-07-13T09:30:00+00:00"}',
+                '{"rule":"metadata","status":"success","timestamp":"2026-07-13T09:46:00+00:00"}',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    fake_airflow = FakeAirflowClient("success")
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared", fake_airflow)
+    client = TestClient(main.app)
+
+    response = client.post(f"/api/runs/{analysis_id}/actions/sync-airflow")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    with session_factory() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        event = session.scalar(
+            select(SnakemakeRuleEvent).where(
+                SnakemakeRuleEvent.analysis_id == analysis_id,
+                SnakemakeRuleEvent.rule == "metadata",
+            )
+        )
+    assert run.status == "success"
+    assert event.status == "success"
+
+
 def test_sync_airflow_success_imports_wes_qc_metrics_idempotently(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_wes_submitted_run(session_factory, tmp_path)

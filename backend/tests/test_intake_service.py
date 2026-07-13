@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
@@ -75,6 +76,36 @@ pipelines:
     return str(config_path)
 
 
+def write_nipt_scheduled_intake_config(tmp_path, *, manual_root, discovery_root) -> str:
+    config_path = tmp_path / "nipt-scheduled-intake.yaml"
+    manual_root_text = str(manual_root.resolve()).replace("\\", "/")
+    discovery_root_text = str(discovery_root.resolve()).replace("\\", "/")
+    config_path.write_text(
+        f"""
+version: 1
+defaults:
+  ready_rule: stable_fingerprint
+  stable_scans: 2
+  auto_submit: true
+pipelines:
+  nipt_docker:
+    enabled: true
+    roots:
+      - id: nipt_manual
+        container_path: {manual_root_text}
+    intake:
+      discovery_roots:
+        - {discovery_root_text}
+      stable_scans: 2
+    auto_submit:
+      enabled: false
+      run_mode: full_run
+""",
+        encoding="utf-8",
+    )
+    return str(config_path)
+
+
 def write_pgta_manifest_config(
     tmp_path,
     *,
@@ -136,6 +167,7 @@ def add_discovery(
     submit_state: str,
     last_seen_at: datetime,
     analysis_id: str | None = None,
+    archived_at: datetime | None = None,
 ) -> None:
     with session_factory() as session:
         session.add(
@@ -150,6 +182,8 @@ def add_discovery(
                 submit_state=submit_state,
                 analysis_id=analysis_id,
                 last_seen_at=last_seen_at,
+                state_changed_at=last_seen_at,
+                archived_at=archived_at,
             )
         )
         session.commit()
@@ -233,6 +267,303 @@ def test_intake_status_filters_composite_state_pipeline_and_keyword(monkeypatch)
     assert submitted["total"] == 1
     assert [item["batch_id"] for item in error["items"]] == ["mixed-error-disabled", "pgta-error"]
     assert [item["batch_id"] for item in disabled["items"]] == ["nipt-disabled"]
+
+
+def test_intake_status_defaults_to_active_and_enriches_archived_rows_from_run(monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime(2026, 7, 13, 4, 30, tzinfo=timezone.utc)
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id="NIPT_ARCHIVED_001",
+                pipeline_name="nipt_docker",
+                dag_id="bio_nipt_docker",
+                dag_run_id="manual__NIPT_ARCHIVED_001",
+                status="success",
+                mode="new",
+                workdir="/shared/runs/NIPT_ARCHIVED_001",
+                params_json={"project_name": "NIPT-BS-T13-10"},
+                submitted_at=now - timedelta(minutes=31),
+                pipeline_finished_at=now - timedelta(minutes=1),
+                progress_percent=100,
+                current_stage="Workflow complete",
+            )
+        )
+        session.commit()
+    add_discovery(
+        session_factory,
+        pipeline="nipt_docker",
+        batch_id="nipt-bs-t13-10",
+        ready_state="ready",
+        submit_state="submitted",
+        analysis_id="NIPT_ARCHIVED_001",
+        last_seen_at=now - timedelta(minutes=1),
+        archived_at=now,
+    )
+    add_discovery(
+        session_factory,
+        pipeline="pgta",
+        batch_id="active-request",
+        ready_state="observed",
+        submit_state="not_submitted",
+        last_seen_at=now,
+    )
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    client = TestClient(main.app)
+
+    active = client.get("/api/intake/status?limit=10").json()
+    archived = client.get("/api/intake/status?lifecycle=archived&keyword=t13&limit=10").json()
+    all_rows = client.get("/api/intake/status?lifecycle=all&limit=10").json()
+
+    assert [item["batch_id"] for item in active["items"]] == ["active-request"]
+    assert archived["total"] == 1
+    item = archived["items"][0]
+    assert item["project_name"] == "NIPT-BS-T13-10"
+    assert item["analysis_status"] == "success"
+    assert item["display_status"] == "success"
+    assert item["progress_percent"] == 100
+    assert item["current_stage"] == "Completed"
+    assert item["submitted_at"] == (now - timedelta(minutes=31)).isoformat()
+    assert item["pipeline_finished_at"] == (now - timedelta(minutes=1)).isoformat()
+    assert item["archived_at"] == now.isoformat()
+    assert all_rows["total"] == 2
+
+
+def test_submitted_nipt_discovery_does_not_refresh_last_seen_or_fingerprint(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    nipt_root = tmp_path / "nipt" / "fastq"
+    batch_dir = nipt_root / "batch-a"
+    write_nipt_clean_pair(batch_dir, "S1")
+    config_path = write_intake_config(
+        tmp_path,
+        nipt_root=nipt_root,
+        global_auto_submit=False,
+        nipt_auto_submit=False,
+    )
+    snapshot = intake_service._scan_pipeline(
+        session=session_factory(),
+        settings=SimpleNamespace(
+            intake_config_path=config_path,
+            pgta_input_scan_roots=[],
+            nipt_input_scan_roots=[],
+        ),
+        pipeline="nipt_docker",
+        max_samples=200,
+    )[0][0]
+    previous_seen = datetime(2026, 7, 13, 1, 0, tzinfo=timezone.utc)
+    with session_factory() as session:
+        session.add(
+            IntakeDiscovery(
+                pipeline_name="nipt_docker",
+                root_path=snapshot.root_path,
+                batch_id=snapshot.batch_id,
+                fingerprint=snapshot.fingerprint,
+                file_count=snapshot.file_count,
+                total_bytes=snapshot.total_bytes,
+                ready_state="ready",
+                submit_state="submitted",
+                analysis_id="NIPT_RUNNING_001",
+                stable_observation_count=2,
+                first_seen_at=previous_seen,
+                last_seen_at=previous_seen,
+                state_changed_at=previous_seen,
+            )
+        )
+        session.add(
+            AnalysisRun(
+                analysis_id="NIPT_RUNNING_001",
+                pipeline_name="nipt_docker",
+                dag_id="bio_nipt_docker",
+                dag_run_id="manual__NIPT_RUNNING_001",
+                mode="new",
+                status="running",
+                workdir="/shared/runs/NIPT_RUNNING_001",
+                params_json={"project_name": "NIPT running"},
+            )
+        )
+        session.commit()
+    settings = SimpleNamespace(
+        intake_config_path=config_path,
+        pgta_input_scan_roots=[],
+        nipt_input_scan_roots=[],
+    )
+
+    with session_factory() as session:
+        payload = intake_service.scan_and_submit_intake(
+            session=session,
+            settings=settings,
+            airflow_client=FakeAirflowClient(),
+            pipelines=["nipt_docker"],
+        )
+        row = session.scalar(select(IntakeDiscovery))
+
+    assert payload["items"][0]["reason"] == "already_submitted"
+    assert row is not None
+    assert row.last_seen_at.replace(tzinfo=timezone.utc) == previous_seen
+
+
+def test_pgta_success_archives_manifest_and_ready_marker(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    data_root = tmp_path / "rawdata"
+    inbox_root = data_root / "pgta_crontab"
+    inbox_root.mkdir(parents=True)
+    request_id = "archive-success"
+    write_pgta_manifest_request(data_root=data_root, inbox_root=inbox_root, request_id=request_id)
+    config_path = write_pgta_manifest_config(
+        tmp_path,
+        data_root=data_root,
+        inbox_root=inbox_root,
+        global_auto_submit=True,
+        pgta_auto_submit=True,
+    )
+    settings = SimpleNamespace(
+        intake_config_path=config_path,
+        input_scan_roots=[str(data_root)],
+        pgta_input_scan_roots=[str(data_root)],
+        nipt_input_scan_roots=[],
+        container_shared_root=str(tmp_path / "shared"),
+    )
+    monkeypatch.setattr(intake_service, "_auto_pipeline_config", lambda **_: None)
+    with session_factory() as session:
+        first = intake_service.scan_and_submit_intake(
+            session=session,
+            settings=settings,
+            airflow_client=FakeAirflowClient(),
+            pipelines=["pgta"],
+        )
+        assert first["items"][0]["ready_state"] == "observed"
+        submitted = intake_service.scan_and_submit_intake(
+            session=session,
+            settings=settings,
+            airflow_client=FakeAirflowClient(),
+            pipelines=["pgta"],
+        )
+        analysis_id = submitted["items"][0]["analysis_id"]
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        assert run is not None
+        run.status = "success"
+        run.pipeline_finished_at = datetime(2026, 7, 13, 5, 0, tzinfo=timezone.utc)
+        session.commit()
+
+        archived = intake_service.scan_and_submit_intake(
+            session=session,
+            settings=settings,
+            airflow_client=FakeAirflowClient(),
+            pipelines=["pgta"],
+        )
+        row = session.scalar(select(IntakeDiscovery))
+
+    assert archived["items"][0]["reason"] == "workflow_success_archived"
+    assert row is not None and row.archived_at is not None
+    archive_dir = Path(row.archive_path)
+    assert archive_dir.name == request_id
+    assert (archive_dir / f"{request_id}.samples.tsv").is_file()
+    assert (archive_dir / f"{request_id}.READY").is_file()
+    assert not (inbox_root / f"{request_id}.samples.tsv").exists()
+    assert not (inbox_root / f"{request_id}.READY").exists()
+
+
+def test_pgta_archive_error_remains_active_for_retry(tmp_path) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime(2026, 7, 13, 5, 0, tzinfo=timezone.utc)
+    missing_manifest = tmp_path / "pgta_crontab" / "missing.samples.tsv"
+    with session_factory() as session:
+        run = AnalysisRun(
+            analysis_id="PGTA_ARCHIVE_ERROR",
+            pipeline_name="pgta",
+            dag_id="bio_pgta",
+            dag_run_id="manual__PGTA_ARCHIVE_ERROR",
+            mode="new",
+            status="success",
+            workdir="/shared/runs/PGTA_ARCHIVE_ERROR",
+            params_json={"project_name": "archive-error"},
+            pipeline_finished_at=now,
+        )
+        row = IntakeDiscovery(
+            pipeline_name="pgta",
+            root_path=str(missing_manifest.parent),
+            batch_id="missing",
+            fingerprint="sha256:missing",
+            file_count=2,
+            total_bytes=10,
+            ready_state="ready",
+            submit_state="submitted",
+            analysis_id=run.analysis_id,
+            source_manifest_path=str(missing_manifest),
+            stable_observation_count=2,
+            state_changed_at=now,
+        )
+        session.add_all([run, row])
+        session.commit()
+
+        intake_service.archive_linked_intake_for_run(
+            session=session,
+            run=run,
+            settings=SimpleNamespace(),
+        )
+        session.commit()
+        session.refresh(row)
+
+    assert row.archived_at is None
+    assert row.submit_state == "error"
+    assert row.archive_reason == "archive_error"
+    assert "manifest or READY marker is missing" in str(row.last_error)
+
+
+def test_nipt_scheduled_scan_uses_discovery_root_not_manual_root(tmp_path) -> None:
+    session_factory = make_test_sessionmaker()
+    manual_root = tmp_path / "nipt" / "fastq"
+    discovery_root = manual_root / "intake" / "BS_DEMO_20260713"
+    write_nipt_clean_pair(manual_root / "legacy-batch", "LEGACY")
+    write_nipt_clean_pair(discovery_root / "nipt-bs-t13-10", "SYN_T13")
+    config_path = write_nipt_scheduled_intake_config(
+        tmp_path,
+        manual_root=manual_root,
+        discovery_root=discovery_root,
+    )
+    settings = SimpleNamespace(
+        intake_config_path=config_path,
+        pgta_input_scan_roots=[],
+        nipt_input_scan_roots=[],
+    )
+
+    with session_factory() as session:
+        snapshots, errors = intake_service._scan_pipeline(
+            session=session,
+            settings=settings,
+            pipeline="nipt_docker",
+            max_samples=200,
+        )
+
+    assert errors == []
+    assert [snapshot.batch_id for snapshot in snapshots] == ["nipt-bs-t13-10"]
+    assert snapshots[0].root_path == str(discovery_root.resolve())
+
+    with session_factory() as session:
+        session.add(
+            IntakeDiscovery(
+                pipeline_name="nipt_docker",
+                root_path=str(discovery_root.resolve()),
+                batch_id="nipt-bs-t13-10",
+                fingerprint=snapshots[0].fingerprint,
+                file_count=2,
+                total_bytes=snapshots[0].total_bytes,
+                ready_state="ready",
+                submit_state="submitted",
+                stable_observation_count=2,
+                archived_at=datetime.now(timezone.utc),
+            )
+        )
+        session.commit()
+        after_archive, errors = intake_service._scan_pipeline(
+            session=session,
+            settings=settings,
+            pipeline="nipt_docker",
+            max_samples=200,
+        )
+
+    assert errors == []
+    assert after_archive == []
 
 
 def test_intake_scan_and_submit_waits_for_stable_batch_then_submits_once(tmp_path, monkeypatch) -> None:

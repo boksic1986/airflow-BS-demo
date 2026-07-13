@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.input_scanner import FastqCandidate, InputPathError, ensure_allowed_path
 from app.intake_config import load_intake_config
-from app.models import AnalysisRun, RunAction, Sample
+from app.models import AnalysisRun, IntakeDiscovery, RunAction, Sample
 from app.qc_highlights import qc_highlights_by_run
 from app.pipeline_config_service import ValidatedPipelineConfig, persist_requested_config
 from app.workflow_summary_service import workflow_summaries_by_run
@@ -486,6 +486,12 @@ def _create_nipt_docker_scan_run(
                 qc_status="unknown",
             )
         )
+    _link_nipt_intake_discovery(
+        session=session,
+        analysis_id=analysis_id,
+        source_batch_dir=source_batch_dir,
+        source_fingerprint=source_fingerprint,
+    )
     session.commit()
 
     return _run_payload(run, sample_count=len(selected_samples))
@@ -590,6 +596,14 @@ def submit_run_to_airflow(*, session: Session, airflow_client, analysis_id: str,
     run.progress_percent = max(int(run.progress_percent or 0), 5)
     run.current_stage = "Airflow handoff"
     run.progress_updated_at = run.submitted_at
+    for discovery in session.scalars(
+        select(IntakeDiscovery).where(
+            IntakeDiscovery.analysis_id == analysis_id,
+            IntakeDiscovery.archived_at.is_(None),
+        )
+    ).all():
+        discovery.submit_state = "submitted"
+        discovery.state_changed_at = run.submitted_at
     _set_sample_status(session=session, analysis_id=analysis_id, status="running")
     run_action = RunAction(
         analysis_id=analysis_id,
@@ -602,6 +616,36 @@ def submit_run_to_airflow(*, session: Session, airflow_client, analysis_id: str,
     session.commit()
     session.refresh(run)
     return _run_detail_payload(session, run)
+
+
+def _link_nipt_intake_discovery(
+    *,
+    session: Session,
+    analysis_id: str,
+    source_batch_dir: Path,
+    source_fingerprint: str,
+) -> None:
+    candidates = session.scalars(
+        select(IntakeDiscovery).where(
+            IntakeDiscovery.pipeline_name == "nipt_docker",
+            IntakeDiscovery.fingerprint == source_fingerprint,
+            IntakeDiscovery.analysis_id.is_(None),
+            IntakeDiscovery.archived_at.is_(None),
+        )
+    ).all()
+    matches = [
+        row
+        for row in candidates
+        if (Path(row.root_path) / row.batch_id).resolve() == source_batch_dir.resolve()
+    ]
+    if len(matches) > 1:
+        raise ValueError(f"Multiple Intake Discovery rows match NIPT batch {source_batch_dir}.")
+    if not matches:
+        return
+    now = datetime.now(timezone.utc)
+    matches[0].analysis_id = analysis_id
+    matches[0].submit_state = "created"
+    matches[0].state_changed_at = now
 
 
 def reanalyze_wes_run(

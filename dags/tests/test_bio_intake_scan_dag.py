@@ -49,7 +49,7 @@ class BioIntakeScanDagTests(unittest.TestCase):
         self.assertEqual(request.get_header("X-airflow-demo-token"), "service-secret")
         self.assertEqual(json.loads(request.data.decode("utf-8")), {"pipelines": ["nipt_docker"], "bootstrap": True, "max_samples": 12})
 
-    def test_default_scheduled_scan_only_requests_pgta(self) -> None:
+    def test_default_scheduled_scan_requests_pgta_and_nipt_discovery(self) -> None:
         class DummyResponse:
             def __enter__(self):
                 return self
@@ -75,7 +75,7 @@ class BioIntakeScanDagTests(unittest.TestCase):
                 bio_intake_scan.run_intake_scan(dag_run=DummyDagRun())
 
         request = mocked_urlopen.call_args.args[0]
-        self.assertEqual(json.loads(request.data.decode("utf-8"))["pipelines"], ["pgta"])
+        self.assertEqual(json.loads(request.data.decode("utf-8"))["pipelines"], ["pgta", "nipt_docker"])
 
 
 if __name__ == "__main__":

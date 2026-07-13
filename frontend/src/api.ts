@@ -373,7 +373,20 @@ export type IntakeDiscovery = {
   ready_state: string;
   analysis_id?: string | null;
   submit_state: string;
+  stable_observation_count?: number;
   last_seen_at?: string | null;
+  state_changed_at?: string | null;
+  archived_at?: string | null;
+  archive_reason?: string | null;
+  archive_path?: string | null;
+  project_name?: string | null;
+  analysis_status?: string | null;
+  display_status?: string | null;
+  sample_count?: number;
+  progress_percent?: number;
+  current_stage?: string | null;
+  submitted_at?: string | null;
+  pipeline_finished_at?: string | null;
 };
 
 export type IntakeStatusResponse = {
@@ -384,6 +397,7 @@ export type IntakeStatusResponse = {
 };
 
 export type IntakeDiscoveryState = "bootstrap" | "observed" | "ready" | "submitted" | "error" | "disabled";
+export type IntakeLifecycle = "active" | "archived" | "all";
 
 export type IntakeScanPreviewItem = {
   pipeline: string;
@@ -743,6 +757,7 @@ export function previewIntakeScan(payload: {pipelines: Array<"pgta" | "nipt_dock
 export function getIntakeStatus(options: {
   pipeline?: "pgta" | "nipt_docker";
   state?: IntakeDiscoveryState;
+  lifecycle?: IntakeLifecycle;
   keyword?: string;
   limit?: number;
   offset?: number;
@@ -752,6 +767,7 @@ export function getIntakeStatus(options: {
   params.set("offset", String(options.offset ?? 0));
   if (options.pipeline) params.set("pipeline", options.pipeline);
   if (options.state) params.set("state", options.state);
+  if (options.lifecycle) params.set("lifecycle", options.lifecycle);
   if (options.keyword) params.set("keyword", options.keyword);
   return requestJson<IntakeStatusResponse>(`/intake/status?${params.toString()}`);
 }

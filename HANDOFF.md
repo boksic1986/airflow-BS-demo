@@ -1,5 +1,61 @@
 # HANDOFF.md
 
+## 2026-07-13 T119 operations age, Intake archive, and NIPT small batches
+
+- Branch/worktree: `codex/platform/T119-operations-age-intake-archive-nipt-batches`
+  in the isolated T096 worktree, based on T118 commit `224a792`.
+- Dashboard terminal rows add a locally refreshed relative age and one shared
+  Search operations query for Run Tracker and Intake; each table retains its
+  own pagination.
+- Intake lifecycle migration `20260713_0005` preserves completed records as
+  archived audit/idempotency rows. PGT-A manifest/READY publication moves
+  atomically to `.archive/YYYY/MM/<request_id>`; NIPT FASTQ is never moved.
+- Scheduled NIPT discovery is restricted to `BS_DEMO_20260713` and automatic
+  NIPT submission remains disabled. Manual full validation is serialized by
+  the existing one-slot pool.
+- Safety backup created before migration at
+  `/home/jiucheng/project/airflow-demo-backups/T119-20260713T140647` with
+  Airflow/biodemo dumps, inventories, PGT-A inbox tar, and SHA256SUMS.
+- Deployment is healthy from `/home/jiucheng/project/airflow-demo-t119` and
+  Alembic `20260713_0005` is applied. Biodemo now contains 8 successful runs
+  and 129 samples. Intake contains 6 archived rows and 0 active rows: three
+  completed PGT-A manifests and the three T119 NIPT batches.
+- BS transfer produced checksum/gzip/R1-R2 verified synthetic batches with
+  10, 15, and 20 samples under the restricted `BS_DEMO_20260713` root. Transfer
+  provenance is retained on BS under `result/t119_transfer_20260713` and on
+  fengxian beside the intake batches; temporary transfer archives were removed.
+- Full NIPT S9 runs completed serially:
+  `NIPT_20260713_080217_DEC52B` (10 samples, 96/96 terminal success events,
+  10/10 QC pass, 6m57s), `NIPT_20260713_090714_C941EA` (15 samples, 136/136,
+  15/15 QC pass), and `NIPT_20260713_095250_374EA9` (20 samples, 176/176,
+  20/20 QC pass, 9m13s).
+- The 15-sample first attempt exhausted its 60 GiB container cgroup while
+  mapping at 40 cores. A controlled same-workdir resume used 32 cores,
+  `--rerun-incomplete`, and exact Airflow REST task clearing; no `--forceall`
+  or input mutation was used. Its displayed 38m58s includes the failed attempt,
+  diagnosis gap, and resume.
+- A regression found during that resume allowed stale failed JSONL events to
+  overwrite authoritative Airflow success during `sync-airflow`. The sync now
+  imports fallback events and then reapplies terminal Airflow state; the new
+  regression test and full backend suite pass.
+- Engineering signals were present in final artifacts: T13 segment gain
+  z-score 8.41, T18 chromosome-18 z-score 7.40, and T21 chromosome-21 z-score
+  16.23 with classifier `Trisomy 21`. These are workflow checks, not clinical
+  validation claims.
+- Final verification: backend full pytest 168 passed; frontend Vitest 40
+  passed; production `tsc -b && vite build` passed; Intake DAG tests 3 passed;
+  Compose config and HTTP health passed. Live 1280/390 browser checks had no
+  document overflow, showed terminal relative ages, and Settings displayed all
+  6 archived records.
+- Scanner was restored unpaused. Two successful post-rollout cycles left
+  active Intake at 0; NIPT auto-submit remains disabled. A first DAG test used
+  the image default interpreter and could not import Airflow; rerunning with
+  `/home/airflow/.local/bin/python` passed. The first CLI date-based task clear
+  selected nothing, so the recovery used the exact official REST endpoint.
+- Rollback: pause `bio_intake_scan`, restore prior backend/frontend images and
+  config, and preserve databases, FASTQ, workdirs, logs, results, volumes, and
+  pipeline releases.
+
 ## 2026-07-13 T118 manifest hardening and five-sample auto intake
 
 - Branch/worktree: `codex/intake/T118-manifest-hardening-log-retention` in the

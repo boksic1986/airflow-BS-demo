@@ -1,5 +1,48 @@
 # 11 部署 Runbook
 
+## T119 Intake archive and NIPT small-batch rollout
+
+1. Record and pause `bio_intake_scan`; reject maintenance while a PGT-A/NIPT
+   run is active.
+2. Back up Airflow and biodemo with `pg_dump -Fc`, API inventories, the PGT-A
+   intake inbox, and SHA256 checksums.
+3. Apply Alembic `20260713_0005`, deploy backend/frontend/DAG config, then run
+   one controlled PGT-A scan. Successful linked requests must move atomically
+   to `.archive/YYYY/MM/<request_id>` and disappear from `lifecycle=active`.
+4. Stage NIPT data under a hidden `.partial` directory. Validate R1/R2 pairs,
+   `gzip -t`, file count, total bytes, and SHA256 against the BS inventory,
+   then atomically rename the batch directory.
+5. Restore the scanner pause state and wait for two unchanged scans. Confirm
+   three NIPT Discovery rows appear and no NIPT run is automatically created.
+6. Manually create and submit projects `NIPT-BS-T13-10`,
+   `NIPT-BS-T18-15`, and `NIPT-BS-T21-20`, one at a time. Stop immediately on
+   failure; preserve the workdir/events/logs and diagnose or resume before any
+   later batch.
+7. For each success verify terminal rule events, QC/sample counts, classifier,
+   fetal-ratio, CNV, summary artifacts, and logical Intake archive.
+
+T119 completed evidence:
+
+- Backup: `/home/jiucheng/project/airflow-demo-backups/T119-20260713T140647`.
+- Runs: `NIPT_20260713_080217_DEC52B` (10 samples),
+  `NIPT_20260713_090714_C941EA` (15), and
+  `NIPT_20260713_095250_374EA9` (20) all reached backend/Airflow success with
+  45/45 aggregate sample QC pass and no residual running rule events.
+- A 40-core T18 mapping attempt hit the container 60 GiB cgroup limit. The
+  recovery preserved the workdir and used 32 cores plus `--rerun-incomplete`.
+  Clear only the exact failed `run_nipt_docker` and downstream collect task via
+  the official Airflow REST API; never use a broad date-range clear or
+  `--forceall`.
+- After recovery, call `sync-airflow`. The backend imports JSONL fallback events
+  first and then reapplies the terminal Airflow state, so a stale failed event
+  cannot overwrite an authoritative successful DAG run.
+- Final scanner state is unpaused with 6 archived records and 0 active records;
+  NIPT auto-submit remains false.
+
+Rollback: pause the scanner, restore the previous backend/frontend images and
+config, and downgrade only if no T119 lifecycle data is needed. Never delete
+FASTQ, workdirs, logs, results, Postgres/Redis volumes, or pipeline releases.
+
 ## T118 PGT-A manifest publication and scanner retention
 
 Write the manifest first and create READY last:

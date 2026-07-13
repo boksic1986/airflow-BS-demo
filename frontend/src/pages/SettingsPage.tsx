@@ -5,6 +5,7 @@ import type {
   IntakeConfigResponse,
   IntakeDiscovery,
   IntakeDiscoveryState,
+  IntakeLifecycle,
   IntakePipelineConfig,
   IntakeScanPreviewResponse,
   IntakeScannerStateResponse,
@@ -34,6 +35,7 @@ export function SettingsPage() {
   const [discoveryTotal, setDiscoveryTotal] = useState(0);
   const [discoveryPipeline, setDiscoveryPipeline] = useState<DiscoveryPipeline>("all");
   const [discoveryState, setDiscoveryState] = useState<DiscoveryStateFilter>("all");
+  const [discoveryLifecycle, setDiscoveryLifecycle] = useState<IntakeLifecycle>("active");
   const [discoveryKeyword, setDiscoveryKeyword] = useState("");
   const [discoveryOffset, setDiscoveryOffset] = useState(0);
   const [preview, setPreview] = useState<IntakeScanPreviewResponse | null>(null);
@@ -88,6 +90,7 @@ export function SettingsPage() {
       const payload = await getIntakeStatus({
         pipeline: discoveryPipeline === "all" ? undefined : discoveryPipeline,
         state: discoveryState === "all" ? undefined : discoveryState,
+        lifecycle: discoveryLifecycle,
         keyword: discoveryKeyword.trim() || undefined,
         limit: discoveryPageSize,
         offset: discoveryOffset,
@@ -106,7 +109,7 @@ export function SettingsPage() {
     } finally {
       if (requestId === discoveryRequest.current) setDiscoveryLoading(false);
     }
-  }, [discoveryKeyword, discoveryOffset, discoveryPipeline, discoveryState]);
+  }, [discoveryKeyword, discoveryLifecycle, discoveryOffset, discoveryPipeline, discoveryState]);
 
   const loadPreview = useCallback(async () => {
     const requestId = ++previewRequest.current;
@@ -134,6 +137,11 @@ export function SettingsPage() {
 
   function updateDiscoveryState(value: DiscoveryStateFilter) {
     setDiscoveryState(value);
+    setDiscoveryOffset(0);
+  }
+
+  function updateDiscoveryLifecycle(value: IntakeLifecycle) {
+    setDiscoveryLifecycle(value);
     setDiscoveryOffset(0);
   }
 
@@ -195,12 +203,14 @@ export function SettingsPage() {
           discoveries={discoveries}
           discoveryError={discoveryError}
           discoveryKeyword={discoveryKeyword}
+          discoveryLifecycle={discoveryLifecycle}
           discoveryLoading={discoveryLoading}
           discoveryOffset={discoveryOffset}
           discoveryPipeline={discoveryPipeline}
           discoveryState={discoveryState}
           discoveryTotal={discoveryTotal}
           onDiscoveryKeywordChange={updateDiscoveryKeyword}
+          onDiscoveryLifecycleChange={updateDiscoveryLifecycle}
           onDiscoveryOffsetChange={setDiscoveryOffset}
           onDiscoveryPipelineChange={updateDiscoveryPipeline}
           onDiscoveryStateChange={updateDiscoveryState}
@@ -231,9 +241,11 @@ function IntakeSettingsContent({
   discoveryPipeline,
   discoveryState,
   discoveryKeyword,
+  discoveryLifecycle,
   onDiscoveryPipelineChange,
   onDiscoveryStateChange,
   onDiscoveryKeywordChange,
+  onDiscoveryLifecycleChange,
   onDiscoveryOffsetChange,
   preview,
   previewLoading,
@@ -253,9 +265,11 @@ function IntakeSettingsContent({
   discoveryPipeline: DiscoveryPipeline;
   discoveryState: DiscoveryStateFilter;
   discoveryKeyword: string;
+  discoveryLifecycle: IntakeLifecycle;
   onDiscoveryPipelineChange: (value: DiscoveryPipeline) => void;
   onDiscoveryStateChange: (value: DiscoveryStateFilter) => void;
   onDiscoveryKeywordChange: (value: string) => void;
+  onDiscoveryLifecycleChange: (value: IntakeLifecycle) => void;
   onDiscoveryOffsetChange: (value: number) => void;
   preview: IntakeScanPreviewResponse | null;
   previewLoading: boolean;
@@ -292,6 +306,18 @@ function IntakeSettingsContent({
           <p>One row per discovered batch. Bootstrap and observed records are passive state, not queued workflow execution.</p>
         </div>
         <div className="filter-bar resource-filter-bar discovery-controls">
+          <label>
+            <span>Lifecycle</span>
+            <select
+              aria-label="Discovery lifecycle"
+              value={discoveryLifecycle}
+              onChange={(event) => onDiscoveryLifecycleChange(event.target.value as IntakeLifecycle)}
+            >
+              <option value="active">Active</option>
+              <option value="archived">Archived</option>
+              <option value="all">All</option>
+            </select>
+          </label>
           <label>
             <span>Pipeline</span>
             <select

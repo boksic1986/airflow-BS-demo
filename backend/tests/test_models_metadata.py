@@ -53,6 +53,10 @@ def test_t112_operational_timestamps_and_progress_snapshots_are_declared() -> No
     assert "source_manifest_path" in intake_columns
     assert "last_error" in intake_columns
     assert "stable_observation_count" in intake_columns
+    assert "state_changed_at" in intake_columns
+    assert "archived_at" in intake_columns
+    assert "archive_reason" in intake_columns
+    assert "archive_path" in intake_columns
 
 
 def test_model_classes_map_to_expected_tables() -> None:

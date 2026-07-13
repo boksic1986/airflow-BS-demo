@@ -1,5 +1,41 @@
 # 09 NIPT Docker Integration Spec
 
+## T119 small-batch engineering validation
+
+Scheduled NIPT discovery is restricted to:
+
+```text
+/opt/pipelines/NIPT/fastq/intake/BS_DEMO_20260713
+```
+
+Three synthetic, checksum-verified batches contain 10, 15, and 20 paired
+samples. Discovery records them after two stable scans, but
+`auto_submit.enabled=false` remains authoritative. Operators submit full runs
+in 10 -> 15 -> 20 order with profile `niptpro-s9-full-v1`; a failure stops the
+sequence. Source FASTQ remains read-only and is never moved on archive.
+
+Successful NIPT discovery records are archived logically by retaining their
+batch path/fingerprint and excluding that path from future scheduled scans.
+They remain visible under Settings > Archived Intake.
+
+T119 runtime evidence:
+
+- 10 samples: `NIPT_20260713_080217_DEC52B`, 96 terminal success events,
+  10/10 sample QC pass, 6m57s.
+- 15 samples: `NIPT_20260713_090714_C941EA`, 136 terminal success events and
+  15/15 sample QC pass after controlled same-workdir recovery. The initial
+  40-core mapping attempt exhausted the 60 GiB container cgroup; recovery used
+  32 cores and `--rerun-incomplete`, without `--forceall`.
+- 20 samples: `NIPT_20260713_095250_374EA9`, 176 terminal success events,
+  20/20 sample QC pass, 9m13s at 32 cores.
+
+The artifacts contained the expected synthetic engineering signals: a T13
+segment gain z-score of 8.41, chromosome-18 z-score 7.40, and chromosome-21
+z-score 16.23 with classifier `Trisomy 21`. These observations validate the
+integration path only and are not a clinical validation claim. The approved
+profile still permits 40 cores, but 32 cores is the safer recovery/validation
+setting for variable small batches under the current 60 GiB limit.
+
 ## T114 QC normalization and completion contract
 
 - Mapping QC percentage strings accept leading/trailing `%` and are stored as

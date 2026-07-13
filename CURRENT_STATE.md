@@ -5,7 +5,14 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T118 PGT-A manifest hardening and five-sample automatic intake are deployed.
+current_goal_ascii: T119 completed operations age, Intake archive, and three manual NIPT S9 batch validations.
+t119_scope: Dashboard terminal age updates locally every 60 seconds; Search operations drives Run Tracker and Intake; completed Intake records archive while preserving fingerprints and audit history.
+t119_intake: scheduled discovery covers PGT-A READY manifests and the restricted NIPT BS_DEMO_20260713 root; NIPT auto-submit remains disabled and full runs are manually serialized.
+t119_backup: pre-migration remote backup is /home/jiucheng/project/airflow-demo-backups/T119-20260713T140647 with Airflow/biodemo dumps, inventories, PGT-A inbox archive, and SHA256SUMS.
+t119_status: done. T119 is deployed from /home/jiucheng/project/airflow-demo-t119; migration 20260713_0005 is applied; backend/frontend/Airflow health is green.
+t119_data: biodemo has 8 successful runs and 129 samples. Intake has 6 archived rows and 0 active rows; the scanner is unpaused, scheduled PGT-A/NIPT discovery is healthy, and NIPT auto-submit remains disabled.
+t119_nipt_runs: NIPT_20260713_080217_DEC52B has 10/10 QC pass and 96 terminal events; NIPT_20260713_090714_C941EA has 15/15 QC pass and 136 terminal events after a controlled 32-core same-workdir recovery from a 40-core cgroup OOM; NIPT_20260713_095250_374EA9 has 20/20 QC pass and 176 terminal events.
+t119_validation: remote backend pytest 168, frontend Vitest 40, Intake DAG unittest 3, production tsc/vite build, Compose config, health, and live 1280/390 browser checks passed.
 t118_intake_fix: blank and whitespace-only manifest lines are ignored; malformed non-empty rows still fail with a line number. Later parse errors cannot downgrade submitted Discovery, and restoring the valid manifest clears the warning.
 t118_legacy_repair: t112-pgta-s9-full-h4-h5-20260711 was backed up and restored from false error to submitted for successful run PGTA_20260711_071416_C8C7BA; the next scan preserved the repair.
 t118_five_sample: project-20260713-five-samples.samples.tsv and READY contain H1, H2, H6, H8, and H9 from one 2026-06-08 batch. Two scans created only PGTA_20260713_034634_939AFF; a third stayed idempotent. The run is active in Mapping/fastp_bwa and was not awaited to completion.
@@ -72,8 +79,8 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/intake/T118-manifest-hardening-log-retention in isolated local worktree; T117 baseline is `c69623a`
-last_verified_code_commit: T118 branch is based on `c69623a`; final implementation will be recorded by this branch head
+active_branch: codex/platform/T119-operations-age-intake-archive-nipt-batches in isolated local worktree; T118 baseline is `224a792`
+last_verified_code_commit: T119 branch is based on `224a792`; verified implementation is recorded by the current T119 branch head
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 overlay is deployed there and `origin/main` on the mirror has been fetched to `0857e3d`, but the mirror worktree itself remains on its existing dirty deployment branch
 ```
@@ -82,10 +89,10 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 ov
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 12959 | running, healthy from T117 | Submit semantics and Batch Runs workflow rails are deployed; live responsive checks passed |
-| backend | 8000 | running, healthy from T118 | hardened manifest parsing and submitted-discovery protection are deployed; migration `20260711_0004` remains current |
-| airflow web/api | 12958 | running, healthy | the three T116 DAGs remain deployed; scanner is unpaused and PGT-A-only; PGTA_20260713_034634_939AFF is running Mapping |
-| postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; T118 repair backup verified; biodemo contains 5 runs and 84 samples including the active five-sample PGT-A request |
+| frontend | 12959 | running, healthy from T119 | terminal relative age, shared operations search, aligned active/archive Intake tables, and responsive checks are deployed |
+| backend | 8000 | running, healthy from T119 | Intake lifecycle/archive and authoritative terminal Airflow reconciliation are deployed; migration `20260713_0005` is current |
+| airflow web/api | 12958 | running, healthy | deployed DAGs remain `bio_pgta`, `bio_nipt_docker`, and `bio_intake_scan`; scanner is unpaused and its latest scheduled run succeeded |
+| postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; T119 backup verified; biodemo contains 8 successful runs, 129 samples, 6 archived Intake rows, and 0 active Intake rows |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
 | mailhog | 8025 | stopped in T051 smoke | HTTP GET probe passed in earlier smoke; not started for T051 |
 
@@ -95,7 +102,7 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 ov
 airflow_metadata_db: initialized by `docker compose -f docker-compose.yaml up airflow-init`; admin user exists, password only in remote .env
 biodemo_db: initialized on fengxian by `docker compose -f docker-compose.yaml run --rm biodemo-db-init`
 migrations_tool: Alembic
-last_migration: 20260711_0004 immutable pipeline completion timestamp
+last_migration: 20260713_0005 Intake lifecycle fields (applied on fengxian during T119 rollout)
 core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, artifact, run_action, intake_discovery
 ```
 
@@ -107,17 +114,17 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 | PGT-A demo | `bio_pgta` metadata/dryrun/failure smoke passed; `bio_pgta_airflow` Airflow-only logger/event POST passed; `baseline_qc` staged real run `PGTA_20260706_162150_00C4FD` completed after controlled interrupt/resume sequence; final resume `manual__PGTA_20260706_162150_00C4FD__resume__20260707T144147Z` ended Airflow/backend `success` | direct Snakemake metadata target, `dryrun_cnv`, controlled `invalid_target`, and Level 4 `baseline_qc` smoke in Airflow worker passed; T088 sets `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`; T093 resume runs `--unlock` then `--cores 64 --rerun-incomplete`, no `--forceall`; T094 adds run-local cleanup of `mapping/*.sorted.bam.tmp.*.bam`; T095 sets conda `LD_LIBRARY_PATH`, `LD_PRELOAD=PGTA_LIBSTDCXX`, run-local `MPLCONFIGDIR`, and baseline QC Python preflight; Snakemake 9.23.1 logger plugin writes JSONL, Airflow log/XCom summary, and optional backend rule/job events | not used | server-path project creation, submit, status sync, logs, artifacts, rule event API, PGT-A run detail frontend v1, New PGT-A Run frontend scan/create/submit, active-run auto-sync, failed baseline_qc `Resume with 64 cores`, and QC/artifact panel API are available | baseline_qc parser/artifacts added; `/qc` imports 14 metrics for G10/G11 and both samples have QC decision `FAIL` | `/api/input/scan` and `/api/runs` create `created` run; submit triggers `bio_pgta`; Airflow-only manifest run can POST rule events to biodemo; frontend can create pgta runs for metadata/dryrun/failure/baseline_qc smoke, submit created runs, view run list/detail, samples, rules, logs, artifacts, QC, sync Airflow, and resume failed baseline_qc |
 | WES qsub | `bio_wes_qsub` Airflow mock DAG passed with `new/resume/rerun_rule` and QC smoke | WES mock Snakefile dry-run passed; WES mock profile runtime passed in `snakemake-runner`; `bio_wes_qsub` runs Snakemake 9.23.1 inside Airflow worker with `profiles/qsub`, writes command/stdout/stderr/events and `reports/qc_summary.tsv` | mock qsub wrapper direct smoke passed with backend POST; Airflow/API/frontend smoke generated mock qsub job ids, stdout/stderr files, JSONL events, and command log proving `--forcerun fastp` without `--forceall` | `airflow-demo/snakemake-runner:0.1.0` and `airflow-demo/airflow:0.1.0` builds passed | WES mock QC parser and frontend QC panel done; real WES QC and MultiQC not started | T040/T041/T042/T030/T031/T044/T056/T060/T054 done; next step is T034/T063 MailHog notification or T080 smoke report/demo script |
 | NIPT qsub | not started | not started | not started | n/a | not started | pending |
-| NIPT Docker S9 | `bio_nipt_docker` keeps validate, prepare, run, collect project tasks; `max_active_runs=1`, pool `nipt_s9_full=1`, timeout 90 minutes | derivative image runs Snakemake 9.23.1/Python 3.12 logger while rules retain the original `/opt/conda` tools; 591 rule jobs emit real-time phase/rule/sample events | n/a | host Docker via Airflow worker socket; clean FASTQ batch is read-only; original NIPT bundle and S7 image are unchanged | 504 structured QC metrics for 72 samples: reads, Q30, unique mapping, duplication, chrY, gender, fetal ratio | full 72-sample engineering validation passed and matched S7 baseline; manual Full analysis is the visible default; NIPT auto intake remains disabled |
+| NIPT Docker S9 | `bio_nipt_docker` keeps validate, prepare, run, collect project tasks; `max_active_runs=1`, pool `nipt_s9_full=1`, timeout 90 minutes | derivative image runs Snakemake 9.23.1/Python 3.12 logger while rules retain the original `/opt/conda` tools; per-rule/sample events are persisted and streamed | n/a | host Docker via Airflow worker socket; clean FASTQ batch is read-only; original NIPT bundle and S7 image are unchanged | reads, Q30, unique mapping, duplication, chrY, gender, fetal ratio, CNV/classifier artifacts | 72-sample baseline plus T119 10/15/20-sample runs passed; 40 cores can exceed the 60 GiB cgroup on heterogeneous mapping, while controlled 32-core recovery/validation passed; NIPT auto-submit remains disabled |
 
 ## 7. 最近测试结果
 
 ```text
-last_backend_tests: remote Dockerized full T118 pytest passed 141 tests, including blank-line tolerance, submitted Discovery protection, stale-state recovery, and all prior regressions.
-last_frontend_tests: remote Dockerized T117 Vitest passed 38 tests; production `tsc -b && vite build` passed.
-last_dag_import_tests: remote repo-mounted Airflow T117 unittest discovery passed 90 tests with 5 expected logger-interface skips; deployed DAG behavior is unchanged.
+last_backend_tests: remote Dockerized full T119 pytest passed 168 tests, including Intake archive/idempotency and stale JSONL versus authoritative Airflow terminal-state reconciliation.
+last_frontend_tests: remote Dockerized T119 Vitest passed 40 tests; production `tsc -b && vite build` passed.
+last_dag_import_tests: remote repo-mounted T119 Intake DAG unittest passed 3 tests using `/home/airflow/.local/bin/python`; deployed scanner and analysis DAGs are healthy.
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
-last_compose_config: passed on fengxian for T117; backend/frontend were rebuilt and recreated without restarting Airflow/Postgres/Redis or deleting volumes; frontend returned HTTP 200 and backend health returned ok.
-last_browser_responsive: T115 live-data Platform Settings acceptance passed at 1440/1280/1024/390; document `scrollWidth <= clientWidth`, the Discovery Tracker rendered 10 rows, and its wide table scrolled only inside its container.
+last_compose_config: passed on fengxian for T119; backend/frontend/Airflow services were rebuilt/recreated without deleting Postgres/Redis volumes, FASTQ, workdirs, logs, or results.
+last_browser_responsive: T119 live Dashboard and Settings passed at 1280/390; document `scrollWidth <= clientWidth`, terminal age rendered from real data, and Archived Intake displayed all 6 records with only its table scrolling internally.
 last_minimal_smoke: passed on fengxian for postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
 last_airflow_health: passed on fengxian at http://127.0.0.1:12958/health with healthy metadatabase and scheduler
 last_biodemo_migration: `biodemo-db-init` first run created role/database, repeat run succeeded; T103 `alembic upgrade head` applied 20260708_0002 `intake_discovery`

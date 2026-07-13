@@ -153,6 +153,23 @@ T026/T043 第一版已复用该表，无新增 migration：FastAPI `/api/events/
 | result_status | text | accepted/rejected/success/failed |
 | message | text nullable | |
 
+## T119 Intake lifecycle fields
+
+`intake_discovery` keeps completed discovery records as an idempotency audit
+instead of deleting them. Migration `20260713_0005` adds:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `state_changed_at` | timestamptz, not null | Last lifecycle transition; backfilled from `last_seen_at`/`first_seen_at` |
+| `archived_at` | timestamptz, nullable | Workflow completion time used to leave the active scanner view |
+| `archive_reason` | varchar(128), nullable | `workflow_success` or an actionable `archive_error` |
+| `archive_path` | text, nullable | PGT-A archived request directory or immutable NIPT source batch path |
+
+Archived rows retain request ID, fingerprint, analysis linkage, and source
+audit fields. They are never re-created or re-submitted by scheduled scanning.
+NIPT FASTQ directories are not moved; PGT-A manifest and READY files are moved
+atomically to the configured inbox `.archive/YYYY/MM/<request_id>` directory.
+
 ### intake_discovery
 
 T103 intake scanner state for PGT-A and NIPT Docker batch discovery. This table

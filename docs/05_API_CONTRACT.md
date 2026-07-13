@@ -1,5 +1,30 @@
 # 05 API Contract
 
+## T119 Intake operation lifecycle
+
+`GET /api/intake/status` supports the additive lifecycle query:
+
+```http
+GET /api/intake/status?pipeline=nipt_docker&lifecycle=active&keyword=NIPT-BS&limit=10&offset=0
+```
+
+`lifecycle` is `active` (default), `archived`, or `all`. Keyword matching
+covers batch ID, analysis ID, and project name. Each item additionally returns
+`project_name`, `analysis_status`, `display_status`, `sample_count`,
+`progress_percent`, `current_stage`, `submitted_at`, `pipeline_finished_at`,
+`state_changed_at`, `archived_at`, `archive_reason`, and `archive_path`.
+
+The endpoint uses joined run/sample aggregates and does not fetch Airflow per
+row. Completed workflow records, including workflow success plus sample QC
+failure, are archived. Workflow failed/terminated records remain active for
+triage. An archive filesystem error remains active with `archive_error` and is
+safe to retry.
+
+When `sync-airflow` replays the run-local JSONL fallback, terminal Airflow
+state remains authoritative: fallback event import is completed first, then the
+terminal DAG state and sample states are reapplied. This prevents a stale
+failed runner event from downgrading a successfully resumed Airflow DAG run.
+
 ## T118 PGT-A manifest hardening
 
 - PGT-A `*.samples.tsv` parsing ignores empty and whitespace-only lines while

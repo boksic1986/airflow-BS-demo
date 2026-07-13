@@ -1573,7 +1573,7 @@ textarea {
 
 .intake-discovery-table {
   width: 100%;
-  min-width: 900px;
+  min-width: 1040px;
   border-collapse: collapse;
 }
 
@@ -1602,8 +1602,38 @@ textarea {
 }
 
 .discovery-batch-cell strong,
+.discovery-batch-cell .tracker-primary-link,
+.discovery-batch-cell .discovery-analysis-link,
 .discovery-batch-cell .intake-root {
   display: block;
+}
+
+.terminal-age {
+  color: #52606d;
+  font-weight: 700;
+}
+
+.intake-progress {
+  display: grid;
+  gap: 6px;
+  min-width: 96px;
+  color: #52606d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.intake-progress-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #e8eef5;
+}
+
+.intake-progress-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #2786a3;
 }
 
 .discovery-batch-cell .intake-root,

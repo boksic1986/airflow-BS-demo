@@ -475,7 +475,11 @@ def _samples_for_period(*, session: Session, pipeline: str, since: datetime) -> 
 
 
 def _intake_summary(*, session: Session, pipeline: str) -> dict[str, int]:
-    query = select(IntakeDiscovery.ready_state, IntakeDiscovery.submit_state, func.count()).group_by(IntakeDiscovery.ready_state, IntakeDiscovery.submit_state)
+    query = (
+        select(IntakeDiscovery.ready_state, IntakeDiscovery.submit_state, func.count())
+        .where(IntakeDiscovery.archived_at.is_(None))
+        .group_by(IntakeDiscovery.ready_state, IntakeDiscovery.submit_state)
+    )
     if pipeline != "all":
         query = query.where(IntakeDiscovery.pipeline_name == pipeline)
     summary = {"observed": 0, "ready": 0, "submitted": 0, "bootstrap": 0, "error": 0, "disabled": 0}

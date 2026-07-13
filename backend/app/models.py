@@ -217,3 +217,7 @@ class IntakeDiscovery(Base):
     stable_observation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    state_changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    archive_reason: Mapped[str | None] = mapped_column(String(128))
+    archive_path: Mapped[str | None] = mapped_column(Text)

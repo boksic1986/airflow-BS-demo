@@ -1,5 +1,20 @@
 # 06 前端设计
 
+## T119 Operations age and Intake lifecycle
+
+- Run Tracker terminal stages show `Completed/Failed` plus a relative age.
+  Exact Asia/Shanghai time is available in the tooltip. A local 60-second
+  clock refresh updates age text without an API request.
+- `Search operations` is shared by Run Tracker and Intake Scanner and matches
+  project, run ID, and intake batch ID. Both tables keep independent paging and
+  reset to page one when pipeline/search changes.
+- Dashboard Intake columns align with Run Tracker semantics: Project/Batch,
+  Pipeline, Status, Current stage, Progress, Samples, Started, Finished.
+  `Last seen` remains an audit detail in Settings only.
+- Settings adds Active, Archived, and All lifecycle filters. Archived records
+  remain searchable and link to their Run Detail; they are hidden from the
+  default active Dashboard view.
+
 ## T117 submission semantics and workflow visualization
 
 - Submit Run uses an optional free-text `Submitted by` ID. The field defaults

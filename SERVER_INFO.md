@@ -57,6 +57,9 @@ host_port_probe_2026_07_02: 12958,12959,8000,8025,1025,5432,6379 free before smo
 image_cleanup_2026_07_02: removed 37 dangling <none>:<none> images with docker image rm, no volumes removed
 image_pull_status_2026_07_02: compose external images pulled successfully; backend built as airflow-demo/backend:0.1.0
 project_latest_images: none after retagging backend; non-project latest images were left untouched
+t119_runtime_2026_07_13: /home/jiucheng/project/airflow-demo-t119 healthy; Alembic 20260713_0005 applied; backend 168 tests, frontend 40 tests, Intake DAG 3 tests, production build and Compose config passed
+t119_nipt_small_batches: 10/15/20-sample Snakemake 9 full runs all reached success with 45/45 sample QC pass; 40-core T18 mapping hit the 60 GiB cgroup and controlled 32-core same-workdir recovery passed
+t119_intake_state: bio_intake_scan unpaused; 6 completed records archived, active=0; scheduled PGT-A/NIPT discovery enabled but NIPT auto-submit remains disabled
 ```
 
 Verified compose images:

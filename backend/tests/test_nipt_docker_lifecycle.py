@@ -6,7 +6,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import main
-from app.models import AnalysisRun, Base, QcMetric, RunAction, Sample
+from app.input_scanner import FastqCandidate
+from app.models import AnalysisRun, Base, IntakeDiscovery, QcMetric, RunAction, Sample
+from app.run_service import _source_fingerprint
 
 
 def make_test_sessionmaker():
@@ -131,6 +133,94 @@ def test_create_nipt_docker_scan_run_records_fastqs_and_manifest(tmp_path, monke
     assert samples[0]["sample_id"] == "NIPT26040207.A06"
     assert samples[0]["fq1"] == r1
     assert samples[0]["fq2"] == r2
+
+
+def test_manual_nipt_scan_run_links_and_archives_matching_discovery(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    shared_root = tmp_path / "shared"
+    nipt_root = tmp_path / "nipt" / "fastq" / "intake" / "BS_DEMO_20260713"
+    batch_dir = nipt_root / "nipt-bs-t13-10"
+    r1, r2 = write_nipt_clean_pair(batch_dir, "SYN_T13")
+    candidate = FastqCandidate(
+        sample_id="SYN_T13",
+        r1=r1,
+        r2=r2,
+        source_dir=str(batch_dir.resolve()),
+        r1_size=0,
+        r2_size=0,
+        r1_mtime=0.0,
+        r2_mtime=0.0,
+        discovery_method="nipt_docker_clean_scan",
+    )
+    with session_factory() as session:
+        session.add(
+            IntakeDiscovery(
+                pipeline_name="nipt_docker",
+                root_path=str(nipt_root.resolve()),
+                batch_id="nipt-bs-t13-10",
+                fingerprint=_source_fingerprint([candidate]),
+                file_count=2,
+                total_bytes=0,
+                ready_state="ready",
+                submit_state="not_submitted",
+                stable_observation_count=2,
+            )
+        )
+        session.commit()
+    fake_airflow = FakeAirflowClient()
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: SimpleNamespace(
+            input_scan_roots=[],
+            pgta_input_scan_roots=[],
+            nipt_input_scan_roots=[str(nipt_root)],
+            container_shared_root=str(shared_root),
+            nipt_allow_heavy_run=False,
+            nipt_docker_cores=40,
+        ),
+    )
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    monkeypatch.setattr(main, "get_airflow_client", lambda: fake_airflow)
+    client = TestClient(main.app)
+
+    created = client.post(
+        "/api/runs",
+        json={
+            "pipeline": "nipt_docker",
+            "project_name": "NIPT-BS-T13-10",
+            "rawdata_root": str(nipt_root),
+            "selected_samples": [
+                {
+                    "sample_id": "SYN_T13",
+                    "r1": r1,
+                    "r2": r2,
+                    "source_dir": str(batch_dir.resolve()),
+                    "r1_size": 0,
+                    "r2_size": 0,
+                    "r1_mtime": 0,
+                    "r2_mtime": 0,
+                    "discovery_method": "nipt_docker_clean_scan",
+                }
+            ],
+            "run_mode": "mount_smoke",
+            "cores": 40,
+        },
+    )
+    assert created.status_code == 201, created.text
+    analysis_id = created.json()["analysis_id"]
+    assert client.post(f"/api/runs/{analysis_id}/actions/submit").status_code == 200
+    assert client.post(f"/api/runs/{analysis_id}/actions/sync-airflow").status_code == 200
+
+    with session_factory() as session:
+        discovery = session.scalar(select(IntakeDiscovery))
+
+    assert discovery is not None
+    assert discovery.analysis_id == analysis_id
+    assert discovery.submit_state == "submitted"
+    assert discovery.archived_at is not None
+    assert discovery.archive_reason == "workflow_success"
+    assert discovery.archive_path == str(batch_dir.resolve())
 
 
 def test_create_nipt_docker_template_run_records_samples_and_manifest(tmp_path, monkeypatch) -> None:

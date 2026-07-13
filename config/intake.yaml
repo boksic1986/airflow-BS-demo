@@ -31,6 +31,10 @@ pipelines:
     r2_pattern: "*.R2.clean.fastq.gz"
     ignore_patterns:
       - "002/*.adapter.fastq.gz"
+    intake:
+      discovery_roots:
+        - /opt/pipelines/NIPT/fastq/intake/BS_DEMO_20260713
+      stable_scans: 2
     auto_submit:
       enabled: false
-      run_mode: mount_smoke
+      run_mode: full_run

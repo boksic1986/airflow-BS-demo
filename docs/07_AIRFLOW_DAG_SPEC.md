@@ -1,5 +1,17 @@
 # 07 Airflow DAG 设计
 
+## T119 scheduled discovery scope
+
+`bio_intake_scan` calls the backend for both `pgta` and `nipt_docker` discovery.
+This does not enable NIPT automatic submission: the NIPT pipeline config keeps
+`auto_submit.enabled=false`. The NIPT scheduled root is limited to
+`/opt/pipelines/NIPT/fastq/intake/BS_DEMO_20260713`; the broad manual scan root
+continues to be available only from Submit Run.
+
+The DAG remains a scanner/discovery task and does not execute NIPT full runs.
+Full NIPT analyses are created and submitted manually and are serialized by
+the existing one-slot `nipt_s9_full` pool.
+
 ## T113 NIPT S9 execution gate
 
 `bio_nipt_docker` deliberately remains:

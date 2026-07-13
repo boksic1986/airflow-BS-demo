@@ -7,7 +7,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import App from "./App";
 import type {IntakeDiscovery} from "./api";
 import {QcHighlights} from "./components/QcHighlights";
-import {formatBytes, formatDate} from "./lib/format";
+import {formatBytes, formatDate, formatRelativeAge} from "./lib/format";
 import {intakeDisplay} from "./lib/intake";
 
 const pgtaRunId = "PGTA_20260706_162150_00C4FD";
@@ -93,6 +93,13 @@ describe("bioinformatics platform frontend", () => {
   it("formats large discovery batches with readable GB and TB units", () => {
     expect(formatBytes(20 * 1024 ** 3)).toBe("20.0 GB");
     expect(formatBytes(2 * 1024 ** 4)).toBe("2.0 TB");
+  });
+
+  it("formats compact relative operation ages", () => {
+    const now = new Date("2026-07-13T05:10:00+00:00");
+    expect(formatRelativeAge("2026-07-13T05:00:00+00:00", now)).toBe("10 min ago");
+    expect(formatRelativeAge("2026-07-13T03:00:00+00:00", now)).toBe("2 hr ago");
+    expect(formatRelativeAge(null, now)).toBeNull();
   });
 
   it("renders intake error ahead of disabled for mixed discovery states", () => {
@@ -1230,13 +1237,14 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByText(/Operator operator-a/i)).toBeInTheDocument();
     expect(screen.queryByText("96.3%")).not.toBeInTheDocument();
     expect(screen.queryByText("0.12x")).not.toBeInTheDocument();
-    expect(screen.getByRole("columnheader", {name: /^Status$/i})).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", {name: /^Started$/i})).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", {name: /^Finished$/i})).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader", {name: /^Status$/i}).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("columnheader", {name: /^Started$/i}).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("columnheader", {name: /^Finished$/i}).length).toBeGreaterThan(0);
     expect(screen.queryByRole("columnheader", {name: /Status \/ sample QC/i})).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", {name: /Submitted \/ started/i})).not.toBeInTheDocument();
     expect(screen.getAllByText(/QC failed/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/^Completed$/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/ago$/i).length).toBeGreaterThan(0);
     expect(screen.getByText("2026-07-08 10:30:30")).toBeInTheDocument();
     expect(screen.queryByText("2026-07-08 10:31:00")).not.toBeInTheDocument();
     expect(screen.queryByText(/Asia\/Shanghai/i)).not.toBeInTheDocument();
@@ -1255,6 +1263,15 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByText(/^queued$/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", {name: /Intake scanner/i})).toBeInTheDocument();
     expect(screen.getByRole("table", {name: /Intake discovery records/i})).toHaveClass("intake-discovery-table");
+    const intakeTable = screen.getByRole("table", {name: /Intake discovery records/i});
+    expect(within(intakeTable).getByRole("columnheader", {name: /Project \/ Batch/i})).toBeInTheDocument();
+    expect(within(intakeTable).getByRole("columnheader", {name: /^Status$/i})).toBeInTheDocument();
+    expect(within(intakeTable).getByRole("columnheader", {name: /Current stage/i})).toBeInTheDocument();
+    expect(within(intakeTable).getByRole("columnheader", {name: /Progress/i})).toBeInTheDocument();
+    expect(within(intakeTable).getByRole("columnheader", {name: /Samples/i})).toBeInTheDocument();
+    expect(within(intakeTable).getByRole("columnheader", {name: /Started/i})).toBeInTheDocument();
+    expect(within(intakeTable).getByRole("columnheader", {name: /Finished/i})).toBeInTheDocument();
+    expect(within(intakeTable).queryByRole("columnheader", {name: /Last seen/i})).not.toBeInTheDocument();
     const trackerColumn = screen.getByRole("heading", {name: /^Run Tracker$/i}).closest(".dashboard-main-column");
     const intakeColumn = screen.getByRole("heading", {name: /Intake scanner/i}).closest(".dashboard-main-column");
     expect(trackerColumn).not.toBeNull();
@@ -1270,6 +1287,20 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByText(/WES qsub/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/NIPT qsub/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/WGS/i)).not.toBeInTheDocument();
+  });
+
+  it("applies one operations search to run and intake trackers", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const search = await screen.findByLabelText(/Search operations/i);
+
+    await user.type(search, "NIPT-BS-T13-10");
+
+    await waitFor(() => {
+      const urls = vi.mocked(globalThis.fetch).mock.calls.map(([input]) => String(input));
+      expect(urls.some((url) => url.includes("/api/dashboard/runs?") && url.includes("keyword=NIPT-BS-T13-10") && url.includes("offset=0"))).toBe(true);
+      expect(urls.some((url) => url.includes("/api/intake/status?") && url.includes("keyword=NIPT-BS-T13-10") && url.includes("offset=0"))).toBe(true);
+    });
   });
 
   it("keeps dashboard overview visible when the run tracker request fails", async () => {
@@ -1907,12 +1938,14 @@ describe("bioinformatics platform frontend", () => {
 
     const discoveryTable = screen.getByRole("table", {name: /Discovery records/i});
     expect(discoveryTable).toHaveClass("intake-discovery-table");
-    expect(within(discoveryTable).getByRole("columnheader", {name: /Batch/i})).toBeInTheDocument();
+    expect(within(discoveryTable).getByRole("columnheader", {name: /Project \/ Batch/i})).toBeInTheDocument();
     expect(within(discoveryTable).getByRole("columnheader", {name: /Pipeline/i})).toBeInTheDocument();
-    expect(within(discoveryTable).getByRole("columnheader", {name: /Discovery status/i})).toBeInTheDocument();
-    expect(within(discoveryTable).getByRole("columnheader", {name: /Files \/ Size/i})).toBeInTheDocument();
-    expect(within(discoveryTable).getByRole("columnheader", {name: /Last seen/i})).toBeInTheDocument();
-    expect(within(discoveryTable).getByRole("columnheader", {name: /Analysis/i})).toBeInTheDocument();
+    expect(within(discoveryTable).getByRole("columnheader", {name: /^Status$/i})).toBeInTheDocument();
+    expect(within(discoveryTable).getByRole("columnheader", {name: /Current stage/i})).toBeInTheDocument();
+    expect(within(discoveryTable).getByRole("columnheader", {name: /Progress/i})).toBeInTheDocument();
+    expect(within(discoveryTable).getByRole("columnheader", {name: /Samples/i})).toBeInTheDocument();
+    expect(within(discoveryTable).getByRole("columnheader", {name: /Started/i})).toBeInTheDocument();
+    expect(within(discoveryTable).getByRole("columnheader", {name: /Finished/i})).toBeInTheDocument();
     expect(within(discoveryTable).getAllByRole("row")).toHaveLength(11);
     expect(screen.getByText("1-10 of 13")).toBeInTheDocument();
     expect(document.querySelector(".settings-discovery-card")).toBeNull();
@@ -1920,6 +1953,11 @@ describe("bioinformatics platform frontend", () => {
       "href",
       `/runs/${niptRunId}`,
     );
+    expect(screen.getByLabelText(/Discovery lifecycle/i)).toHaveValue("active");
+    await user.selectOptions(screen.getByLabelText(/Discovery lifecycle/i), "archived");
+    await waitFor(() => {
+      expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes("lifecycle=archived"))).toBe(true);
+    });
 
     await user.click(screen.getByRole("button", {name: /Next discovery page/i}));
     await waitFor(() => {
@@ -2100,11 +2138,12 @@ describe("bioinformatics platform frontend", () => {
     await user.click(previewButton);
     await waitFor(() => expect(releases).toHaveLength(2));
     await act(async () => { releases[1](2); });
-    expect(await screen.findByText("2")).toBeInTheDocument();
+    const previewSummary = await screen.findByLabelText(/Intake preview summary/i);
+    expect(within(previewSummary).getByText("2")).toBeInTheDocument();
     await act(async () => { releases[0](99); });
 
-    expect(screen.queryByText("99")).not.toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(within(previewSummary).queryByText("99")).not.toBeInTheDocument();
+    expect(within(previewSummary).getByText("2")).toBeInTheDocument();
   });
 
   it("clears a previous dry-run preview when the next preview fails", async () => {

@@ -3,14 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
+import os
 from pathlib import Path
+import secrets
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import String, and_, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.input_scanner import FastqCandidate, scan_fastq_candidates, scan_nipt_batch_candidates
 from app.intake_config import load_intake_config
-from app.models import AnalysisRun, IntakeDiscovery
+from app.models import AnalysisRun, IntakeDiscovery, Sample
 from app.pgta_manifest_intake import PgtaManifestFailure, scan_pgta_manifest_request_results
 from app.pipeline_config_service import get_pipeline_config_template, validate_pipeline_config
 from app.run_service import create_nipt_docker_run, create_pgta_run, submit_run_to_airflow
@@ -59,7 +61,7 @@ def scan_and_submit_intake(
 
     items: list[dict[str, object]] = []
     for pipeline in normalized_pipelines:
-        snapshots, errors = _scan_pipeline(settings=settings, pipeline=pipeline, max_samples=max_samples)
+        snapshots, errors = _scan_pipeline(session=session, settings=settings, pipeline=pipeline, max_samples=max_samples)
         for error in errors:
             items.append(_record_scan_error(session=session, error=error))
         for snapshot in snapshots:
@@ -90,7 +92,7 @@ def preview_intake_scan(
 
     items: list[dict[str, object]] = []
     for pipeline in normalized_pipelines:
-        snapshots, errors = _scan_pipeline(settings=settings, pipeline=pipeline, max_samples=max_samples)
+        snapshots, errors = _scan_pipeline(session=session, settings=settings, pipeline=pipeline, max_samples=max_samples)
         items.extend(_preview_scan_error(error) for error in errors)
         for snapshot in snapshots:
             items.append(_preview_snapshot(session=session, settings=settings, snapshot=snapshot, bootstrap=bootstrap))
@@ -102,11 +104,27 @@ def list_intake_status(
     session: Session,
     pipeline: str | None = None,
     state: str | None = None,
+    lifecycle: str = "active",
     keyword: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> dict[str, object]:
-    query = select(IntakeDiscovery)
+    sample_counts = (
+        select(Sample.analysis_id.label("analysis_id"), func.count(Sample.id).label("sample_count"))
+        .group_by(Sample.analysis_id)
+        .subquery()
+    )
+    query = (
+        select(IntakeDiscovery, AnalysisRun, func.coalesce(sample_counts.c.sample_count, 0))
+        .outerjoin(AnalysisRun, AnalysisRun.analysis_id == IntakeDiscovery.analysis_id)
+        .outerjoin(sample_counts, sample_counts.c.analysis_id == IntakeDiscovery.analysis_id)
+    )
+    if lifecycle == "active":
+        query = query.where(IntakeDiscovery.archived_at.is_(None))
+    elif lifecycle == "archived":
+        query = query.where(IntakeDiscovery.archived_at.is_not(None))
+    elif lifecycle != "all":
+        raise ValueError("lifecycle must be active, archived, or all.")
     if pipeline:
         query = query.where(IntakeDiscovery.pipeline_name == pipeline)
     if state:
@@ -120,17 +138,21 @@ def list_intake_status(
                     keyword_value,
                     autoescape=True,
                 ),
+                func.lower(cast(AnalysisRun.params_json, String)).contains(keyword_value, autoescape=True),
             )
         )
 
     total = session.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
-    page = session.scalars(
-        query.order_by(IntakeDiscovery.last_seen_at.desc(), IntakeDiscovery.id.desc())
+    page = session.execute(
+        query.order_by(
+            func.coalesce(IntakeDiscovery.state_changed_at, IntakeDiscovery.last_seen_at).desc(),
+            IntakeDiscovery.id.desc(),
+        )
         .limit(limit)
         .offset(offset)
     ).all()
     return {
-        "items": [_row_payload(row) for row in page],
+        "items": [_row_payload(row, run=run, sample_count=int(sample_count or 0)) for row, run, sample_count in page],
         "total": total,
         "limit": limit,
         "offset": offset,
@@ -160,7 +182,7 @@ def _intake_state_condition(state: str):
 
 
 def _scan_pipeline(
-    *, settings, pipeline: str, max_samples: int
+    *, session: Session, settings, pipeline: str, max_samples: int
 ) -> tuple[list[BatchSnapshot], list[IntakeScanFailure]]:
     config = _load_config(settings)
     pipeline_config = config.pipelines.get(pipeline)
@@ -197,11 +219,25 @@ def _scan_pipeline(
             _manifest_scan_failure(error=error, inbox_root=inbox_root)
             for error in scan_result.errors
         ]
-    roots = _roots_for_pipeline(settings, pipeline)
+    roots = _scheduled_roots(settings, pipeline)
     snapshots: list[BatchSnapshot] = []
     for root in roots:
         if pipeline == "nipt_docker":
-            result = scan_nipt_batch_candidates(rawdata_root=root, allowed_roots=roots, max_samples=max_samples)
+            archived_dirs = {
+                str((Path(item.root_path) / item.batch_id).resolve())
+                for item in session.scalars(
+                    select(IntakeDiscovery).where(
+                        IntakeDiscovery.pipeline_name == "nipt_docker",
+                        IntakeDiscovery.archived_at.is_not(None),
+                    )
+                ).all()
+            }
+            result = scan_nipt_batch_candidates(
+                rawdata_root=root,
+                allowed_roots=roots,
+                max_samples=max_samples,
+                excluded_source_dirs=archived_dirs,
+            )
         else:
             result = scan_fastq_candidates(rawdata_root=root, allowed_roots=roots, max_samples=max_samples)
         snapshots.extend(_group_scan_result(pipeline=pipeline, root_path=result.rawdata_root, items=result.items))
@@ -243,6 +279,7 @@ def _record_scan_error(*, session: Session, error: IntakeScanFailure) -> dict[st
             stable_observation_count=0,
             first_seen_at=now,
             last_seen_at=now,
+            state_changed_at=now,
         )
         session.add(row)
     else:
@@ -396,16 +433,31 @@ def _record_snapshot(
         session.commit()
         return _row_payload(row, auto_submit_enabled=auto_submit_enabled, reason="fingerprint_changed")
 
+    archived = _archive_if_success(session=session, row=row, settings=settings, now=now)
+    if archived:
+        session.commit()
+        return _row_payload(row, reason="workflow_success_archived")
+    if row.archive_reason == "archive_error":
+        session.commit()
+        return _row_payload(row, auto_submit_enabled=False, reason="archive_error")
+
+    if row.archived_at is not None:
+        return _row_payload(row, auto_submit_enabled=auto_submit_enabled, reason="archived")
+
     row.file_count = snapshot.file_count
     row.total_bytes = snapshot.total_bytes
     row.max_mtime = snapshot.max_mtime
+    if row.submit_state == "submitted":
+        row.last_error = None
+        session.commit()
+        return _row_payload(row, auto_submit_enabled=auto_submit_enabled, reason="already_submitted")
+
     row.last_seen_at = now
     row.stable_observation_count = int(row.stable_observation_count or 0) + 1
     row.last_error = None
-    if row.submit_state in {"submitted", "bootstrap"} or bootstrap:
+    if row.submit_state == "bootstrap" or bootstrap:
         session.commit()
-        reason = "already_submitted" if row.submit_state == "submitted" else "bootstrap_protected"
-        return _row_payload(row, auto_submit_enabled=auto_submit_enabled, reason=reason)
+        return _row_payload(row, auto_submit_enabled=auto_submit_enabled, reason="bootstrap_protected")
 
     stable_scans = _stable_scans(settings, snapshot.pipeline)
     if row.stable_observation_count < stable_scans:
@@ -563,6 +615,13 @@ def _roots_for_pipeline(settings, pipeline: str) -> list[str]:
     return list(getattr(settings, "pgta_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or [])
 
 
+def _scheduled_roots(settings, pipeline: str) -> list[str]:
+    config = _load_config(settings)
+    pipeline_config = config.pipelines.get(pipeline)
+    configured = list((pipeline_config.intake if pipeline_config else {}).get("discovery_roots") or [])
+    return [str(path) for path in configured] or _roots_for_pipeline(settings, pipeline)
+
+
 def _fingerprint(items: list[FastqCandidate]) -> str:
     digest = hashlib.sha256()
     for item in sorted(items, key=lambda sample: sample.sample_id):
@@ -630,7 +689,28 @@ def _preview_summary(items: list[dict[str, object]]) -> dict[str, int]:
     }
 
 
-def _row_payload(row: IntakeDiscovery, *, auto_submit_enabled: bool | None = None, reason: str | None = None) -> dict[str, object]:
+def _row_payload(
+    row: IntakeDiscovery,
+    *,
+    run: AnalysisRun | None = None,
+    sample_count: int = 0,
+    auto_submit_enabled: bool | None = None,
+    reason: str | None = None,
+) -> dict[str, object]:
+    analysis_status = str(run.status or "") if run else None
+    terminal = analysis_status in {"success", "failed", "terminated"}
+    if analysis_status == "success":
+        display_status = "success"
+        current_stage = "Completed"
+    elif analysis_status in {"failed", "terminated"}:
+        display_status = "failed"
+        current_stage = run.current_stage or "Failed"
+    elif run is not None:
+        display_status = analysis_status
+        current_stage = run.current_stage or "Airflow handoff"
+    else:
+        display_status = row.submit_state if row.submit_state != "not_submitted" else row.ready_state
+        current_stage = f"Stable check {int(row.stable_observation_count or 0)}"
     payload = {
         "pipeline": row.pipeline_name,
         "root_path": row.root_path,
@@ -644,13 +724,121 @@ def _row_payload(row: IntakeDiscovery, *, auto_submit_enabled: bool | None = Non
         "source_manifest_path": row.source_manifest_path,
         "last_error": row.last_error,
         "stable_observation_count": row.stable_observation_count,
-        "last_seen_at": row.last_seen_at.isoformat() if row.last_seen_at else None,
+        "last_seen_at": _iso_datetime(row.last_seen_at),
+        "state_changed_at": _iso_datetime(row.state_changed_at),
+        "archived_at": _iso_datetime(row.archived_at),
+        "archive_reason": row.archive_reason,
+        "archive_path": row.archive_path,
+        "project_name": _project_name(run) if run else None,
+        "analysis_status": analysis_status,
+        "display_status": display_status,
+        "sample_count": sample_count,
+        "progress_percent": int(run.progress_percent or 0) if run else 0,
+        "current_stage": current_stage,
+        "submitted_at": _iso_datetime(run.submitted_at) if run else None,
+        "pipeline_finished_at": (
+            _iso_datetime(run.pipeline_finished_at or run.ended_at)
+            if run and terminal and (run.pipeline_finished_at or run.ended_at)
+            else None
+        ),
     }
     if auto_submit_enabled is not None:
         payload["auto_submit_enabled"] = auto_submit_enabled
     if reason is not None:
         payload["reason"] = reason
     return payload
+
+
+def archive_linked_intake_for_run(*, session: Session, run: AnalysisRun, settings) -> None:
+    if str(run.status or "").lower() != "success":
+        return
+    now = run.pipeline_finished_at or run.ended_at or datetime.now(timezone.utc)
+    rows = session.scalars(
+        select(IntakeDiscovery).where(
+            IntakeDiscovery.analysis_id == run.analysis_id,
+            IntakeDiscovery.archived_at.is_(None),
+        )
+    ).all()
+    for row in rows:
+        _archive_discovery(session=session, row=row, run=run, settings=settings, now=now)
+
+
+def _archive_if_success(*, session: Session, row: IntakeDiscovery, settings, now: datetime) -> bool:
+    if row.archived_at is not None or not row.analysis_id:
+        return row.archived_at is not None
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == row.analysis_id))
+    if run is None or str(run.status or "").lower() != "success":
+        return False
+    return _archive_discovery(
+        session=session,
+        row=row,
+        run=run,
+        settings=settings,
+        now=run.pipeline_finished_at or now,
+    )
+
+
+def _archive_discovery(*, session: Session, row: IntakeDiscovery, run: AnalysisRun, settings, now: datetime) -> bool:
+    archive_path: str | None = None
+    try:
+        if row.pipeline_name == "pgta" and row.source_manifest_path:
+            archive_path = _archive_pgta_request(row, now=now)
+        elif row.pipeline_name == "nipt_docker":
+            archive_path = str((Path(row.root_path) / row.batch_id).resolve())
+    except (OSError, ValueError) as exc:
+        row.submit_state = "error"
+        row.archive_reason = "archive_error"
+        row.last_error = str(exc)
+        row.state_changed_at = datetime.now(timezone.utc)
+        return False
+    row.submit_state = "submitted"
+    row.archived_at = now
+    row.archive_reason = "workflow_success"
+    row.archive_path = archive_path
+    row.last_error = None
+    row.state_changed_at = now
+    return True
+
+
+def _archive_pgta_request(row: IntakeDiscovery, *, now: datetime) -> str:
+    manifest = Path(str(row.source_manifest_path)).resolve()
+    ready = manifest.parent / f"{row.batch_id}.READY"
+    month_dir = manifest.parent / ".archive" / f"{now:%Y}" / f"{now:%m}"
+    final_dir = month_dir / row.batch_id
+    if final_dir.is_dir() and (final_dir / manifest.name).is_file() and (final_dir / ready.name).is_file():
+        return str(final_dir)
+    if not manifest.is_file() or not ready.is_file():
+        raise ValueError(f"Cannot archive PGT-A intake request {row.batch_id}: manifest or READY marker is missing.")
+    month_dir.mkdir(parents=True, exist_ok=True)
+    temp_dir = month_dir / f".{row.batch_id}.partial-{secrets.token_hex(4)}"
+    temp_dir.mkdir()
+    moved: list[tuple[Path, Path]] = []
+    try:
+        for source in (manifest, ready):
+            target = temp_dir / source.name
+            os.replace(source, target)
+            moved.append((target, source))
+        os.replace(temp_dir, final_dir)
+    except Exception:
+        for target, source in reversed(moved):
+            if target.exists():
+                os.replace(target, source)
+        if temp_dir.exists():
+            temp_dir.rmdir()
+        raise
+    return str(final_dir)
+
+
+def _project_name(run: AnalysisRun) -> str:
+    return str((run.params_json or {}).get("project_name") or run.analysis_id)
+
+
+def _iso_datetime(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
 
 
 def _stable_scans(settings, pipeline: str) -> int:

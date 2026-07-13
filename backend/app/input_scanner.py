@@ -70,6 +70,7 @@ def scan_nipt_batch_candidates(
     rawdata_root: str | Path,
     allowed_roots: list[str | Path],
     max_samples: int = 200,
+    excluded_source_dirs: set[str] | None = None,
 ) -> ScanResult:
     if max_samples < 1:
         raise InputPathError("max_samples must be at least 1.")
@@ -79,7 +80,8 @@ def scan_nipt_batch_candidates(
         raise InputPathError(f"rawdata_root is not a readable directory: {root}")
 
     items: list[FastqCandidate] = []
-    batch_dirs = _nipt_batch_dirs(root)
+    excluded = {str(Path(path).resolve()) for path in (excluded_source_dirs or set())}
+    batch_dirs = [path for path in _nipt_batch_dirs(root) if str(path.resolve()) not in excluded]
     for batch_dir in batch_dirs:
         for sample_stem, r1, r2 in _paired_nipt_clean_fastqs(batch_dir):
             if len(items) >= max_samples:

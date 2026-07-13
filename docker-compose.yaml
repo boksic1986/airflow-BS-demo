@@ -36,6 +36,7 @@ x-airflow-common: &airflow-common
     AIRFLOW_PIPELINES_ROOT: ${AIRFLOW_PIPELINES_ROOT:-/opt/airflow/pipelines}
     AIRFLOW_PROFILES_ROOT: ${AIRFLOW_PROFILES_ROOT:-/opt/airflow/profiles}
     BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://backend:8000}
+    INTAKE_SCAN_PIPELINES: ${INTAKE_SCAN_PIPELINES:-pgta,nipt_docker}
     INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in .env}
     AIRFLOW_DEMO_QSUB_MODE: ${AIRFLOW_DEMO_QSUB_MODE:-mock}
     AIRFLOW_DEMO_QSUB_PYTHON: ${AIRFLOW_DEMO_QSUB_PYTHON:-python}
@@ -177,6 +178,7 @@ services:
       - ./shared:/data/airflow-demo
       - ./config:/app/config:ro
       - ${PGTA_DATA_ROOT:-/data/project/CNV/PGT-A}:${PGTA_CONTAINER_DATA_ROOT:-/data/project/CNV/PGT-A}:ro
+      - ${PGTA_INTAKE_HOST_ROOT:-/data/project/CNV/PGT-A/rawdata/lib_test/pgta_crontab}:${PGTA_INTAKE_CONTAINER_ROOT:-/data/project/CNV/PGT-A/rawdata/lib_test/pgta_crontab}:rw
       - ${NIPT_PIPELINE_ROOT:-/home/jiucheng/pipelines/NIPT}/fastq:${NIPT_CONTAINER_ROOT:-/opt/pipelines/NIPT}/fastq:ro
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health').read()\""]

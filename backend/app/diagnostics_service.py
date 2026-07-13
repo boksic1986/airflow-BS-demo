@@ -288,8 +288,8 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
 
     airflow_payload = airflow_client.get_dag_run(run.dag_id, run.dag_run_id)
     airflow_state = str(airflow_payload.get("state") or "").lower()
-    run.status = _map_airflow_state(airflow_state)
-    _sync_sample_statuses(session=session, analysis_id=analysis_id, run_status=run.status)
+    authoritative_status = _map_airflow_state(airflow_state)
+    run.status = authoritative_status
     run.started_at = _parse_airflow_datetime(airflow_payload.get("start_date")) or run.started_at
     if run.status in {"success", "failed"}:
         run.ended_at = _parse_airflow_datetime(airflow_payload.get("end_date")) or datetime.now(timezone.utc)
@@ -304,6 +304,14 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
     if run.status in {"success", "failed"}:
         events_path = _safe_child_path(_safe_workdir(run, settings), Path("logs/events/snakemake_events.jsonl"), settings)
         import_snakemake_events_jsonl(session=session, analysis_id=analysis_id, events_path=events_path)
+        # A resumed run can retain an earlier failed JSONL event. Import the
+        # complete audit trail, then let the terminal Airflow DAG state win.
+        run.status = authoritative_status
+    _sync_sample_statuses(session=session, analysis_id=analysis_id, run_status=run.status)
+    if run.status == "success":
+        from app.intake_service import archive_linked_intake_for_run
+
+        archive_linked_intake_for_run(session=session, run=run, settings=settings)
     session.commit()
     session.refresh(run)
     return _run_payload(run)
