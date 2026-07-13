@@ -199,7 +199,7 @@ def validate_nipt_conf(
     template_id = str(params.get("template_id") or "").strip()
     source_batch_dir = str(params.get("source_batch_dir") or "").strip()
     run_mode = str(params.get("run_mode") or "mount_smoke").strip()
-    cores = int(params.get("cores") or os.getenv("NIPT_DOCKER_CORES", "40"))
+    cores = int(params.get("cores") or os.getenv("NIPT_DOCKER_CORES", "32"))
 
     if not analysis_id:
         raise ValueError("analysis_id is required.")

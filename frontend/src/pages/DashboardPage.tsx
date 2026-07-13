@@ -40,6 +40,7 @@ export function DashboardPage() {
   const [trackerKeyword, setTrackerKeyword] = useState("");
   const [trackerOffset, setTrackerOffset] = useState(0);
   const [intakeOffset, setIntakeOffset] = useState(0);
+  const [intakeView, setIntakeView] = useState<"pending" | "history">("pending");
   const [intakeTotal, setIntakeTotal] = useState(0);
   const [resourceTab, setResourceTab] = useState<DashboardPipeline>("all");
 
@@ -95,6 +96,7 @@ export function DashboardPage() {
         pipeline: pipeline === "all" ? undefined : pipeline,
         keyword: trackerKeyword.trim() || undefined,
         lifecycle: "all",
+        view: intakeView,
         limit: intakeLimit,
         offset: intakeOffset,
       });
@@ -105,7 +107,7 @@ export function DashboardPage() {
     } finally {
       if (showSpinner) setIntakeLoading(false);
     }
-  }, [intakeOffset, pipeline, trackerKeyword]);
+  }, [intakeOffset, intakeView, pipeline, trackerKeyword]);
 
   const loadResources = useCallback(async () => {
     setResourcesLoading(true);
@@ -234,6 +236,8 @@ export function DashboardPage() {
             offset={intakeOffset}
             loading={intakeLoading}
             error={intakeError}
+            view={intakeView}
+            onViewChange={(nextView) => { setIntakeView(nextView); setIntakeOffset(0); }}
             onPageChange={setIntakeOffset}
           />
         </div>

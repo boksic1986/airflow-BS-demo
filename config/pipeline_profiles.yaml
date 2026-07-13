@@ -169,7 +169,7 @@ pipelines:
           snakemake_version: 9.23.1
           python_version: "3.12"
           logger_plugin: airflow-demo
-          cores: 40
+          cores: 32
         editable_defaults: &nipt_editable_defaults
           params:
             sexcutoff: 0.00007

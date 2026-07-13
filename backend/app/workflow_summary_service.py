@@ -29,6 +29,7 @@ WORKFLOW_TEMPLATES = {
 FAILED = {"failed", "fail", "error"}
 RUNNING = {"planned", "submitted", "running", "started"}
 COMPLETED = {"success", "skipped"}
+CANCELED = {"canceled", "cancelled", "terminated"}
 
 
 def workflow_summaries_by_run(*, session: Session, runs: list[AnalysisRun]) -> dict[str, list[dict[str, object]]]:
@@ -65,6 +66,8 @@ def _stage_status(statuses: list[str]) -> str:
         return "failed"
     if any(status in RUNNING for status in statuses):
         return "running"
+    if any(status in CANCELED for status in statuses):
+        return "canceled"
     if statuses and all(status in COMPLETED for status in statuses):
         return "success"
     return "pending"

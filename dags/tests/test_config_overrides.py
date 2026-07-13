@@ -33,6 +33,7 @@ class ConfigOverrideRunnerTests(unittest.TestCase):
         self.assertEqual(nipt["default_profile"], "niptpro-s9-full-v1")
         self.assertEqual(profile["runtime"]["docker_image"], "airflow-demo/niptpro:1.0.11-snakemake9.23.1-v1")
         self.assertEqual(profile["runtime"]["snakemake_version"], "9.23.1")
+        self.assertEqual(profile["runtime"]["cores"], 32)
         self.assertTrue(profile["submit_visible"])
         self.assertFalse(rollback["submit_visible"])
 
@@ -73,6 +74,13 @@ class ConfigOverrideRunnerTests(unittest.TestCase):
         )[0]
 
         self.assertIn("./config:/opt/airflow/config:ro", worker_section)
+
+    def test_airflow_services_use_bounded_docker_logs(self) -> None:
+        compose = (Path(__file__).resolve().parents[2] / "docker-compose.yaml").read_text(encoding="utf-8")
+
+        self.assertIn('max-size: "50m"', compose)
+        self.assertIn('max-file: "3"', compose)
+        self.assertIn("logging: *airflow-logging", compose)
 
     def test_runtime_profile_availability_rejects_missing_pgta_executable(self) -> None:
         profile = ResolvedRuntimeProfile(

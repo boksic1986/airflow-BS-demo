@@ -159,3 +159,20 @@ Rollback:
 - 
 Notes:
 ```
+
+### T123 - Predict path and operations consistency
+
+Owner: platform/frontend/backend/airflow
+Status: done
+Dependencies: T121,T122
+Scope:
+- Predict-only PGT-A UI, consistent Run/Intake state, QC/log semantics, live
+  workflow catalog, 32-core NIPT default, and scanner-only retention.
+Out of scope:
+- Build Reference DAG, NIPT auto-submit, WES/WGS, email notifications.
+Acceptance:
+- [x] Backend tests, frontend tests/build, DAG/config tests, Compose config.
+- [x] Deploy and reconcile failed NIPT rule states.
+- [x] Complete supervised 32-core NIPT clone acceptance.
+Rollback:
+- Redeploy prior images; preserve DB, workdirs, FASTQ, logs, and volumes.

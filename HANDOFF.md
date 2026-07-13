@@ -1,5 +1,67 @@
 # HANDOFF.md
 
+## 2026-07-14 T123 Predict path and operations consistency
+
+- Branch/worktree: `codex/platform/T123-predict-operations-consistency` in the
+  isolated T096 worktree, based on committed T121/T122 baseline `eb5f86f`.
+- Dashboard separates pending/error Discovery from linked Intake history and
+  marks runs Manual or Intake. PGT-A Run Detail exposes only Predict; skipped
+  compatibility branches and the raw rule-job table are hidden.
+- Backend QC projection distinguishes pending/unavailable from decision
+  pass/warn/fail. Terminal failed parents cancel stale running sibling rule
+  events without overwriting true failed rules.
+- Workflow Catalog uses `/api/workflows`, limited to PGT-A Predict and NIPT
+  Docker Full. NIPT S9 defaults to 32 cores.
+- `bio_intake_scan` has scanner-only 30-day retention and Airflow containers
+  use 50 MB x 3 json-file rotation. Retention runs only at 03:00 and the final
+  propagation task keeps a failed scan from being reported as a successful DAG
+  run. Analysis DAG IDs are rejected.
+- Remote validation passed: isolated backend `187 passed`; frontend `47 passed`;
+  production `tsc -b && vite build`; Intake DAG `6 OK`; config override
+  `10 OK`; Compose config; Airflow import with no errors; frontend/backend
+  health; and live browser checks.
+- Deployment gate passed: `PGTA_20260713_144002_E73F72` is success and the
+  active-run query returned no items before service restart.
+- Deployment rebuilt and recreated backend, Airflow API/scheduler/worker, and
+  frontend from `/home/jiucheng/project/airflow-demo-t121` without recreating
+  Postgres, Redis, or volumes. The scanner stayed unpaused on `*/10` and NIPT
+  automatic submit stayed disabled. The pre-deploy inventory backup is
+  `/home/jiucheng/project/airflow-demo-t121/backups/T123-20260714-0025`.
+- Syncing failed run `NIPT_20260713_145457_ACCBDC` preserved the two true
+  failed mapping samples `PRO25010003.A42` and `PRO24120586-S1.A24`, changed
+  eight stale running sibling events to canceled, and left no running event.
+  Run Detail now opens the first failed sample log by default.
+- The supervised 32-core clone `NIPT_20260713_162606_5B5B11` used the same
+  20-sample source batch as the failed 40-core run and completed success in
+  about 14 minutes. All 20 sample QC decisions passed, all 176 rule events are
+  success, and every Airflow task is success. Workflow Catalog reports this
+  run as the current NIPT Docker Full baseline.
+- Browser acceptance confirmed Dashboard Pending/History separation, Manual/
+  Intake provenance, PGT-A Predict-only stages with no legacy alternate path,
+  no historical baseline action controls, failed-sample-first log selection,
+  and live PGT-A/NIPT Workflow Catalog data. A 1280px check found no document
+  overflow on the historical PGT-A detail page.
+- Independent review found that an `all_done` retention leaf could mask a
+  failed scan, the hour-only retention guard ran six times, historical
+  baseline actions remained visible, and Workflow Catalog materialized all
+  runs. These were fixed before commit: a terminal propagation task preserves
+  failure, retention is exactly 03:00, baseline controls are hidden, and the
+  Catalog uses fixed-count SQL aggregation plus one latest row per pipeline.
+- Final read-only verification first used an inline remote Python JSON summary;
+  PowerShell/SSH quote escaping produced `SyntaxError: EOL while scanning string
+  literal` after the HTTP health checks. It made no write request. The same API
+  responses were then parsed locally with PowerShell and confirmed run success,
+  20/20 QC pass, and 176/176 rule events success.
+- Running pytest inside the live backend container inherited the deployment
+  service token, so 14 legacy internal-endpoint tests returned 401 while 173
+  passed. The isolated backend image without deployment secrets then passed
+  all 187 tests. The first DAG-test wrapper used the Snakemake venv Python and
+  the second hit the Airflow image entrypoint; neither executed a DAG. The
+  corrected read-only container command overrode the entrypoint, mounted the
+  repository, and passed all 16 Intake/config tests. One earlier local wrapper
+  using `$PWD` failed PowerShell parsing before SSH and had no remote effect.
+- Rollback preserves DB data, FASTQ, workdirs, logs, results, and volumes.
+
 ## 2026-07-13 T122 NIPT Intake completed-run visibility
 
 - Follow-up was implemented in the existing uncommitted

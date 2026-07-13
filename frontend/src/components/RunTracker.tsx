@@ -163,11 +163,17 @@ function RunTrackerRow({
           {row.analysis_id}
         </Link>
         <span className="muted">Operator {row.submitted_by || "not captured"} / {row.sample_count ?? 0} samples</span>
+        <span className="tracker-source-line">
+          <span className={`run-source-tag source-${row.run_source || "manual"}`}>{row.run_source === "intake" ? "Intake" : "Manual"}</span>
+          {row.source_batch_id ? <span title="Source batch">{row.source_batch_id}</span> : null}
+        </span>
       </td>
       <td>{compactPipelineName(row.pipeline)}</td>
       <td>
         <div className="tracker-badges stacked">
           <StatusBadge status={row.display_status || compositeStatus(row.status, row.qc_status)} />
+          {row.qc_display_status === "pending" ? <span className="qc-state-note" title={row.qc_display_note || undefined}>QC pending</span> : null}
+          {row.qc_display_status === "unavailable" ? <span className="qc-state-note unavailable" title={row.qc_display_note || undefined}>QC unavailable</span> : null}
           {row.not_in_airflow ? <span className="handoff-pill">Not in Airflow</span> : null}
           {status === "created" ? (
             <button className="mini-action" type="button" onClick={() => onSubmit(row.analysis_id)}>Submit</button>
@@ -192,6 +198,7 @@ function RunTrackerRow({
       <td className="tracker-progress-cell">
         <RunProgressBar
           analysisId={row.analysis_id}
+          compact
           progress={{
             percent: row.percent,
             label: `${Math.round(row.percent)}%`,

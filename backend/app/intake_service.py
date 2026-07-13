@@ -110,6 +110,7 @@ def list_intake_status(
     pipeline: str | None = None,
     state: str | None = None,
     lifecycle: str = "active",
+    view: str = "all",
     keyword: str | None = None,
     limit: int = 50,
     offset: int = 0,
@@ -130,6 +131,12 @@ def list_intake_status(
         query = query.where(IntakeDiscovery.archived_at.is_not(None))
     elif lifecycle != "all":
         raise ValueError("lifecycle must be active, archived, or all.")
+    if view == "pending":
+        query = query.where(IntakeDiscovery.analysis_id.is_(None))
+    elif view == "history":
+        query = query.where(IntakeDiscovery.analysis_id.is_not(None))
+    elif view != "all":
+        raise ValueError("view must be pending, history, or all.")
     if pipeline:
         query = query.where(IntakeDiscovery.pipeline_name == pipeline)
     if state:

@@ -4,6 +4,7 @@ import type {IntakeDiscovery} from "../api";
 
 import {compactPipelineName, displayTimeZoneLabel, formatBytes, formatDate} from "../lib/format";
 import {intakeDisplay} from "../lib/intake";
+import {RunProgressBar} from "./RunProgressBar";
 import {StatusBadge} from "./StatusBadge";
 
 export function IntakeDiscoveryTable({
@@ -76,10 +77,18 @@ export function IntakeDiscoveryTable({
                       </div>
                     </td>
                     <td>
-                      <div className="intake-progress" aria-label={`${item.batch_id} progress`}>
-                        <span>{Math.round(item.progress_percent || 0)}%</span>
-                        <div className="intake-progress-track"><i style={{width: `${Math.max(0, Math.min(100, item.progress_percent || 0))}%`}} /></div>
-                      </div>
+                      <RunProgressBar
+                        analysisId={item.analysis_id || item.batch_id}
+                        compact
+                        progress={{
+                          percent: item.progress_percent || 0,
+                          label: `${Math.round(item.progress_percent || 0)}%`,
+                          currentStep: hasIntakeError ? "Intake validation failed" : item.current_stage || discoveryStage(item),
+                          note: item.analysis_id ? "Linked pipeline state" : `${item.file_count} files / ${formatBytes(item.total_bytes)}`,
+                          notInAirflow: !item.analysis_id,
+                          failedStep: hasIntakeError ? "intake" : undefined,
+                        }}
+                      />
                     </td>
                     <td>{item.sample_count || Math.floor(item.file_count / 2) || "-"}</td>
                     <td title={`Displayed in ${displayTimeZoneLabel()}`}>{item.submitted_at ? formatDate(item.submitted_at) : "Not submitted"}</td>

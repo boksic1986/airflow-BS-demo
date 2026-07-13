@@ -1,12 +1,12 @@
 import type {RunProgress} from "../lib/runProgress";
 
-export function RunProgressBar({analysisId, progress}: {analysisId: string; progress: RunProgress}) {
+export function RunProgressBar({analysisId, progress, compact = false}: {analysisId: string; progress: RunProgress; compact?: boolean}) {
   const tone = progressTone(progress);
   return (
     <div className="run-progress">
       <div className="run-progress-meta">
         <strong>{progress.label}</strong>
-        <span>{progress.currentStep}</span>
+        {!compact ? <span>{progress.currentStep}</span> : null}
       </div>
       <div
         aria-label={`${analysisId} progress`}
@@ -18,7 +18,7 @@ export function RunProgressBar({analysisId, progress}: {analysisId: string; prog
       >
         <span style={{width: `${Math.min(100, Math.max(0, progress.percent))}%`}} />
       </div>
-      <p>{progress.note}</p>
+      {!compact ? <p>{progress.note}</p> : null}
     </div>
   );
 }

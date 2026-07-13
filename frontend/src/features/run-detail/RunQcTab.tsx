@@ -11,33 +11,43 @@ const metricPriority = ["qc_decision", "mapped_fragments", "zero_bin_fraction", 
 
 type QcMatrixRow = {sampleId: string; status: string; metrics: Record<string, QcMetric>};
 
-export function RunQcTab({qc}: {qc: RunQc | null}) {
+export function RunQcTab({qc, runStatus}: {qc: RunQc | null; runStatus?: string}) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(0);
   const metrics = qc?.items || [];
-  const matrix = buildQcMatrix(metrics);
+  const decisionMetrics = metrics.filter((metric) => metric.decision_metric ?? isDecisionThreshold(metric.threshold));
+  const informationalMetrics = metrics.filter((metric) => !(metric.decision_metric ?? isDecisionThreshold(metric.threshold)));
+  const matrix = buildQcMatrix(decisionMetrics);
   const filteredRows = matrix.rows.filter((row) => (!query.trim() || row.sampleId.toLowerCase().includes(query.trim().toLowerCase())) && (statusFilter === "all" || qcFilterBucket(row.status) === statusFilter));
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const safePage = Math.min(page, pageCount - 1);
   const visibleRows = filteredRows.slice(safePage * pageSize, safePage * pageSize + pageSize);
   const failureRows = qcFailureRows(metrics);
   const sampleSummary = qc?.sample_summary || qc?.summary;
+  const qcState = displayQcState(runStatus, decisionMetrics.length);
 
   return (
     <div className="qc-tab-stack">
+      {qcState ? <div className={`qc-state-banner qc-state-${qcState.tone}`}><strong>{qcState.label}</strong><span>{qcState.note}</span></div> : null}
       <div className="metric-grid compact qc-summary-grid">{(["pass", "warn", "fail", "unknown"] as const).map((status) => <MetricCard key={status} title={status} value={sampleSummary?.[status] ?? 0} status={status} />)}</div>
       <section className="qc-failure-summary">
         <div className="section-heading"><h2>QC failures</h2><p>Failed and warning sample metrics</p></div>
         {failureRows.length ? <div className="table-wrap"><table className="data-table compact"><thead><tr><th>sample</th><th>metric</th><th>value</th><th>threshold</th><th>reason</th></tr></thead><tbody>{failureRows.slice(0, 12).map((row) => <tr key={`${row.sampleId}-${row.metric}-${row.value}`}><td>{row.sampleId}</td><td>{row.metric}</td><td>{row.value}</td><td>{row.threshold}</td><td>{row.reason}</td></tr>)}</tbody></table></div> : <p className="empty-state">No failed or warning QC metrics returned.</p>}
       </section>
+      {informationalMetrics.length ? (
+        <section className="qc-informational">
+          <div className="section-heading"><h2>Informational</h2><p>Reported values do not change the sample QC decision.</p></div>
+          <div className="table-wrap"><table className="data-table compact"><thead><tr><th>Sample</th><th>Metric</th><th>Value</th></tr></thead><tbody>{informationalMetrics.slice(0, 100).map((metric, index) => <tr key={`${metric.sample_id || "project"}-${metric.metric_name}-${index}`}><td>{metric.sample_id || "project"}</td><td>{metric.metric_name}</td><td>{metricValue(metric)}</td></tr>)}</tbody></table></div>
+        </section>
+      ) : null}
       {metrics.length ? <>
         <div className="qc-toolbar">
           <label><span>Sample search</span><input type="search" value={query} onChange={(event) => {setQuery(event.target.value); setPage(0);}} placeholder="sample_id" /></label>
           <div className="segmented-control" aria-label="QC status filter">{["all", "fail", "warn", "pass", "unknown"].map((status) => <button key={status} className={statusFilter === status ? "active" : ""} type="button" onClick={() => {setStatusFilter(status); setPage(0);}}>{status}</button>)}</div>
         </div>
         <div className="table-wrap qc-matrix-wrap">
-          <table className="data-table compact qc-matrix-table">
+          <table className="data-table compact qc-matrix-table" aria-label="QC decision matrix">
             <thead><tr><th>sample_id</th><th>qc_status</th>{matrix.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
             <tbody>{visibleRows.map((row) => <tr key={row.sampleId}><td className="qc-sample-cell">{row.sampleId}</td><td><StatusBadge status={row.status} size="sm" /></td>{matrix.columns.map((column) => {const metric = row.metrics[column]; return <td key={`${row.sampleId}-${column}`} className={metric ? `qc-status-${normalizeStatus(metric.status)}` : ""}>{metric ? metricValue(metric) : "-"}</td>;})}</tr>)}{visibleRows.length === 0 ? <tr><td className="empty-cell" colSpan={matrix.columns.length + 2}>No QC samples match the current filter.</td></tr> : null}</tbody>
           </table>
@@ -69,3 +79,14 @@ function isDecisionThreshold(threshold?: string | null): boolean {const normaliz
 function qcStatusRank(status: string): number {const value = normalizeStatus(status); if (["failed", "fail", "error"].includes(value)) return 0; if (["warning", "warn", "qc_warning"].includes(value)) return 1; if (value === "unknown") return 2; if (["success", "pass"].includes(value)) return 3; return 4;}
 function metricValue(metric: QcMetric): string {if (metric.metric_value !== null && metric.metric_value !== undefined && metric.metric_value !== "") return String(metric.metric_value); if (metric.metric_numeric !== null && metric.metric_numeric !== undefined) return String(metric.metric_numeric); return "-";}
 function qcFilterBucket(status: string): string {const value = normalizeStatus(status); if (["failed", "fail", "error"].includes(value)) return "fail"; if (["warning", "warn", "qc_warning"].includes(value)) return "warn"; if (["success", "pass"].includes(value)) return "pass"; return "unknown";}
+
+function displayQcState(runStatus: string | undefined, decisionMetricCount: number): {label: string; note: string; tone: string} | null {
+  const status = normalizeStatus(runStatus);
+  if (["created", "submitted", "queued", "scheduled", "running"].includes(status)) {
+    return {label: "QC pending", note: "The workflow has not reached terminal QC collection yet.", tone: "pending"};
+  }
+  if (["failed", "fail", "error", "terminated"].includes(status) && decisionMetricCount === 0) {
+    return {label: "QC unavailable", note: "The workflow ended before decision QC metrics were collected.", tone: "unavailable"};
+  }
+  return null;
+}

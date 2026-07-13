@@ -5,7 +5,16 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T122 completed NIPT Intake completed-run visibility and Airflow-sync refresh.
+current_goal_ascii: T123 Predict-only operator path and runtime-state consistency is deployed and remotely accepted.
+t123_frontend: Dashboard Intake defaults to Pending & errors with History for linked runs; Run Tracker shows Manual/Intake provenance; PGT-A Run Detail shows only Predict and hides historical baseline actions; logs are grouped by failure/current/workflow/other; Workflow Catalog is live.
+t123_backend: dashboard exposes run source and QC display semantics; failed parents cancel stale running rule events; workflows aggregate live persisted state; scanner state exposes trigger/retention contracts.
+t123_runtime_policy: NIPT S9 default is 32 cores; Airflow json logs rotate at 50 MB x 3; scanner-only DAG history/log retention runs at 03:00, cannot target analysis DAGs, and a terminal propagation task prevents cleanup from masking scan failure.
+t123_validation: remote isolated backend pytest 187, frontend Vitest 47, frontend tsc/vite build, Intake DAG unittest 6, config override unittest 10, Compose config, Airflow import, HTTP health, and live browser checks passed.
+t123_safety: PGTA_20260713_144002_E73F72 reached success before any worker restart; no active runs were reported at the deployment gate.
+t123_runtime: backend, Airflow API/scheduler/worker, and frontend are deployed from /home/jiucheng/project/airflow-demo-t121; scanner remains unpaused on */10, NIPT auto-submit remains disabled, and Airflow/Postgres/Redis volumes were not recreated.
+t123_reconciliation: NIPT_20260713_145457_ACCBDC retains two true failed mapping samples while eight stale running siblings are canceled; no rule event remains running, and failed sample logs open first in Run Detail.
+t123_nipt_32c: manual clone NIPT_20260713_162606_5B5B11 completed success in about 14 minutes with 20/20 sample QC pass and 176/176 rule events success; Workflow Catalog now reports it as the latest NIPT Full run.
+t123_backup: /home/jiucheng/project/airflow-demo-t121/backups/T123-20260714-0025 contains the pre-deploy scanner state/run inventory and SHA256SUMS.
 t122_root_cause: NIPT run and Discovery data were already synchronized as success, but successful Discovery rows were archived and hidden by Dashboard lifecycle=active; the Dashboard Intake query also did not refresh after active-run sync, leaving stale submitted rows in an open browser session.
 t122_frontend: Dashboard and Platform Settings default to lifecycle=all. Active polling, manual Sync, and Submit refresh Intake with no loading flash. Linked rows use display_status/analysis_status, so submit_state=submitted does not mask workflow success.
 t122_live_nipt: NIPT_20260713_135001_98E375 is success, QC pass, 72 samples, progress 100, current stage Completed, and archived with workflow_success. The four NIPT Discovery records are visible through lifecycle=all.

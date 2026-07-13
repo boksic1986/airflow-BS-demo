@@ -46,7 +46,7 @@ export function SubmitPage() {
   const [priority, setPriority] = useState("normal");
   const [runMode, setRunMode] = useState("production-run");
   const [niptRunMode, setNiptRunMode] = useState<NiptRunMode>("full_run");
-  const [niptCores, setNiptCores] = useState(40);
+  const [niptCores, setNiptCores] = useState(32);
   const [target] = useState<PgtaTarget>("predict");
   const [rawdataRoot, setRawdataRoot] = useState(defaultPgtaRawdataRoot);
   const [rootOptions, setRootOptions] = useState<string[]>([defaultPgtaRawdataRoot]);
@@ -452,7 +452,7 @@ export function SubmitPage() {
         {selectedPipeline === "nipt_docker" && niptRunMode === "full_run" ? (
           <div className="nipt-full-run-notice" role="note">
             <strong>Full NIPT analysis</strong>
-            <span>40 cores / up to 60 GiB memory / estimated 25-35 minutes. Runs are serialized by the NIPT Airflow pool.</span>
+            <span>32 cores / up to 60 GiB memory / estimated 25-35 minutes. Runs are serialized by the NIPT Airflow pool.</span>
           </div>
         ) : null}
         <CandidateFolderTable
@@ -510,7 +510,7 @@ export function SubmitPage() {
             <div className="section-heading">
               <p className="eyebrow">Resource confirmation</p>
               <h2>Start full NIPT analysis?</h2>
-              <p>{selectedScanRows.length} selected samples will use the approved Snakemake 9 runtime with 40 cores and up to 60 GiB memory.</p>
+              <p>{selectedScanRows.length} selected samples will use the approved Snakemake 9 runtime with 32 cores and up to 60 GiB memory.</p>
             </div>
             <div className="panel-actions">
               <button className="button ghost" type="button" onClick={() => setShowNiptFullConfirm(false)}>Cancel</button>

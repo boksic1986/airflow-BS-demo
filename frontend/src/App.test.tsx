@@ -568,10 +568,13 @@ describe("bioinformatics platform frontend", () => {
           const parsed = new URL(url);
           const pipeline = parsed.searchParams.get("pipeline");
           const state = parsed.searchParams.get("state");
+          const view = parsed.searchParams.get("view") || "all";
           const keyword = (parsed.searchParams.get("keyword") || "").toLowerCase();
           const limit = Number(parsed.searchParams.get("limit") || 50);
           const offset = Number(parsed.searchParams.get("offset") || 0);
           let items = intakeDiscoveries();
+          if (view === "pending") items = items.filter((item) => !item.analysis_id);
+          if (view === "history") items = items.filter((item) => Boolean(item.analysis_id));
           if (pipeline) items = items.filter((item) => item.pipeline === pipeline);
           if (state) items = items.filter((item) => mockDiscoveryState(item) === state);
           if (keyword) {
@@ -939,9 +942,10 @@ describe("bioinformatics platform frontend", () => {
               progress_source: "airflow_task_instances",
               airflow_tasks: [
                 ...baseTasks,
-                {task_id: "pgta_pipeline.run_pgta_mapping", state: "success", start_date: "2026-07-07T14:41:49+08:00", end_date: "2026-07-07T16:20:00+08:00", duration: 5891, try_number: 1, operator: "PythonOperator"},
-                {task_id: "pgta_pipeline.run_pgta_metadata", state: "success", start_date: "2026-07-07T16:20:01+08:00", end_date: "2026-07-07T16:22:00+08:00", duration: 119, try_number: 1, operator: "PythonOperator"},
-                {task_id: "pgta_pipeline.run_pgta_baseline_qc", state: "success", start_date: "2026-07-07T16:22:01+08:00", end_date: "2026-07-07T22:52:00+08:00", duration: 23399, try_number: 1, operator: "PythonOperator"},
+                {task_id: "pgta_predict.run_pgta_mapping", state: "success", start_date: "2026-07-07T14:41:49+08:00", end_date: "2026-07-07T16:20:00+08:00", duration: 5891, try_number: 1, operator: "PythonOperator"},
+                {task_id: "pgta_predict.run_pgta_metadata", state: "success", start_date: "2026-07-07T16:20:01+08:00", end_date: "2026-07-07T16:22:00+08:00", duration: 119, try_number: 1, operator: "PythonOperator"},
+                {task_id: "pgta_predict.run_pgta_cnv_qc", state: "success", start_date: "2026-07-07T16:22:01+08:00", end_date: "2026-07-07T16:25:00+08:00", duration: 179, try_number: 1, operator: "PythonOperator"},
+                {task_id: "pgta_predict.run_pgta_cnv_predict", state: "success", start_date: "2026-07-07T16:25:01+08:00", end_date: "2026-07-07T22:52:00+08:00", duration: 23219, try_number: 1, operator: "PythonOperator"},
                 {task_id: "collect_pgta_artifact", state: "success", start_date: "2026-07-07T22:52:01+08:00", end_date: "2026-07-07T22:53:00+08:00", duration: 59, try_number: 1, operator: "PythonOperator"},
               ],
               rule_events: [
@@ -1035,8 +1039,20 @@ describe("bioinformatics platform frontend", () => {
           if (id === niptRunId) {
             return mockJson({
               items: [
-                {rule: "validate_request", sample_id: null, status: niptStatus === "created" ? "planned" : "success", snakemake_jobid: "1", return_code: 0},
-                {rule: "run_nipt_docker", sample_id: null, status: niptStatus === "running" ? "running" : "planned", snakemake_jobid: "2", return_code: null},
+                {rule: "map", sample_id: "NIPT26040207.A06", status: niptStatus === "created" ? "planned" : "success", snakemake_jobid: "1", return_code: 0},
+                {rule: "aneuscreen_predict", sample_id: "NIPT26040207.A06", status: niptStatus === "running" ? "running" : "success", snakemake_jobid: "2", return_code: niptStatus === "running" ? null : 0},
+                {rule: "cal_fetal_ratio", sample_id: "NIPT26040207.A06", status: niptStatus === "created" ? "planned" : "success", snakemake_jobid: "3", return_code: 0},
+                {rule: "all", sample_id: null, status: niptStatus === "created" ? "planned" : "success", snakemake_jobid: "4", return_code: 0},
+              ],
+            });
+          }
+          if (id === pgtaRunId) {
+            return mockJson({
+              items: [
+                {rule: "fastp_bwa", phase: "Mapping", sample_id: "G10", status: "success", snakemake_jobid: "1", return_code: 0},
+                {rule: "collect_mapping_qc", phase: "Metadata", sample_id: "G10", status: "success", snakemake_jobid: "2", return_code: 0},
+                {rule: "wisecondorx_qc_for_predict", phase: "CNV QC", sample_id: "G10", status: "success", snakemake_jobid: "3", return_code: 0},
+                {rule: "wisecondorx_predict_cnv", phase: "CNV prediction", sample_id: "G10", status: "success", snakemake_jobid: "4", return_code: 0},
               ],
             });
           }
@@ -1274,12 +1290,10 @@ describe("bioinformatics platform frontend", () => {
       const intakeCalls = vi.mocked(globalThis.fetch).mock.calls.filter(([input]) => String(input).includes("/api/intake/status"));
       expect(intakeCalls.length).toBeGreaterThan(1);
       expect(intakeCalls.every(([input]) => String(input).includes("lifecycle=all"))).toBe(true);
+      expect(intakeCalls.every(([input]) => String(input).includes("view=pending"))).toBe(true);
     });
     const intakeTable = screen.getByRole("table", {name: /Intake discovery records/i});
-    const completedNiptRow = within(intakeTable).getByRole("link", {name: niptRunId}).closest("tr");
-    expect(completedNiptRow).not.toBeNull();
-    expect(within(completedNiptRow as HTMLElement).getByText(/^success$/i)).toBeInTheDocument();
-    expect(within(completedNiptRow as HTMLElement).getByText(/^Completed$/i)).toBeInTheDocument();
+    expect(within(intakeTable).queryByRole("link", {name: niptRunId})).not.toBeInTheDocument();
     expect(within(intakeTable).getByText(/Intake validation failed/i)).toBeInTheDocument();
     expect(within(intakeTable).getByText(/source_batch is not a readable directory: 2026-06-08\/batch01/i)).toBeInTheDocument();
     expect(within(intakeTable).getByRole("columnheader", {name: /Project \/ Batch/i})).toBeInTheDocument();
@@ -1300,7 +1314,7 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByRole("heading", {name: /^Deployed workflows$/i})).not.toBeInTheDocument();
     expect(screen.getByText(/CPU cores/i)).toBeInTheDocument();
     expect(screen.getAllByText(/\/data/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/1-10 of 12/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/1-10 of 12/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(wesRunId)).not.toBeInTheDocument();
     expect(screen.queryByText(/WES qsub/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/NIPT qsub/i)).not.toBeInTheDocument();
@@ -1774,7 +1788,7 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getAllByText("G01").length).toBeGreaterThan(0);
   });
 
-  it("renders run detail manifest, config artifacts, and controlled PGT-A run actions", async () => {
+  it("renders run detail manifest and config without legacy baseline actions", async () => {
     const user = userEvent.setup();
     setRoute(`/runs/${pgtaRunId}`);
     render(<App />);
@@ -1794,25 +1808,10 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByRole("heading", {name: /Resolved config/i})).toBeInTheDocument();
     expect(screen.getAllByText(/max_iterations: 5/i)).toHaveLength(2);
 
-    await user.click(screen.getByRole("button", {name: /Run action/i}));
-    expect(await screen.findByRole("dialog", {name: /Run action/i})).toBeInTheDocument();
-    expect(screen.getByRole("button", {name: /Resume failed baseline_qc/i})).toBeDisabled();
-    await user.click(screen.getByRole("button", {name: /Rerun metadata stage/i}));
-
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/api/runs/${pgtaRunId}/actions/reanalyze`),
-        expect.objectContaining({
-          method: "POST",
-          body: expect.stringContaining('"mode":"rerun_stage"'),
-        }),
-      );
-    });
-    const actionCall = vi.mocked(globalThis.fetch).mock.calls.find(([input]) => String(input).endsWith(`/api/runs/${pgtaRunId}/actions/reanalyze`));
-    expect(String(actionCall?.[1]?.body)).toContain('"stage":"metadata"');
+    expect(screen.queryByRole("button", {name: /Run action/i})).not.toBeInTheDocument();
   });
 
-  it("shows staged PGT-A baseline QC tasks in the run detail workflow tab", async () => {
+  it("shows only the PGT-A Predict path in the run detail workflow tab", async () => {
     const user = userEvent.setup();
     setRoute(`/runs/${pgtaRunId}`);
     render(<App />);
@@ -1820,12 +1819,16 @@ describe("bioinformatics platform frontend", () => {
     expect(await screen.findByText(pgtaRunId)).toBeInTheDocument();
     await user.click(screen.getByRole("tab", {name: /workflow/i}));
 
-    expect(await screen.findByRole("heading", {name: /Airflow tasks/i})).toBeInTheDocument();
-    expect(screen.getByText("pgta_pipeline.run_pgta_mapping")).toBeInTheDocument();
-    expect(screen.getByText("pgta_pipeline.run_pgta_metadata")).toBeInTheDocument();
-    expect(screen.getByText("pgta_pipeline.run_pgta_baseline_qc")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", {name: /Predict execution path/i})).toBeInTheDocument();
+    expect(screen.getAllByText("Mapping reads").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Collect run metadata").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("CNV quality control").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("WisecondorX prediction").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Alternate paths/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("run_pgta_target")).not.toBeInTheDocument();
+    expect(screen.queryByText(/pgta_pipeline\./i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", {name: /Pipeline steps/i})).toBeInTheDocument();
-    expect(screen.getByText("baseline_qc")).toBeInTheDocument();
+    expect(screen.queryByRole("table", {name: /Pipeline rule jobs/i})).not.toBeInTheDocument();
     expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining(`/api/runs/${pgtaRunId}/progress`), undefined);
   });
 
@@ -1853,7 +1856,7 @@ describe("bioinformatics platform frontend", () => {
     await user.clear(screen.getByLabelText(/rawdata root/i));
     await user.type(screen.getByLabelText(/rawdata root/i), niptRoot);
     expect(screen.getByRole("combobox", {name: /NIPT run mode/i})).toHaveValue("full_run");
-    expect(screen.getByLabelText(/NIPT cores/i)).toHaveValue(40);
+    expect(screen.getByLabelText(/NIPT cores/i)).toHaveValue(32);
     expect(screen.getByText(/60 GiB/i)).toBeInTheDocument();
     expect(screen.getByText(/25-35 minutes/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", {name: /^scan$/i}));
@@ -1896,7 +1899,7 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByText(/Airflow handoff confirmed/i)).toBeInTheDocument();
   });
 
-  it("shows NIPT Docker run detail with Airflow tasks and pipeline steps", async () => {
+  it("shows NIPT Docker full-analysis path and pipeline steps", async () => {
     niptStatus = "success";
     niptDagRunId = `manual__${niptRunId}`;
     setRoute(`/runs/${niptRunId}`);
@@ -1914,10 +1917,10 @@ describe("bioinformatics platform frontend", () => {
 
     const workflowTab = screen.getByRole("tab", {name: /workflow/i});
     await userEvent.click(workflowTab);
-    expect(await screen.findByRole("heading", {name: /Airflow tasks/i})).toBeInTheDocument();
-    expect(screen.getAllByText(/run_nipt_docker/i).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("heading", {name: /Full analysis execution path/i})).toBeInTheDocument();
+    expect(screen.getAllByText(/Run NIPT Docker workflow/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", {name: /Pipeline steps/i})).toBeInTheDocument();
-    expect(screen.getAllByText(/NIPT mount smoke/i).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("table", {name: /Pipeline rule jobs/i})).not.toBeInTheDocument();
     expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining(`/api/runs/${niptRunId}/progress`), undefined);
 
     await userEvent.click(screen.getByRole("tab", {name: /config/i}));
@@ -1943,8 +1946,8 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getAllByText(rawdataRoot).length).toBeGreaterThan(0);
     expect(screen.getByText(pgtaInboxRoot)).toBeInTheDocument();
     expect(screen.getByText(/manifest_ready/i)).toBeInTheDocument();
-    expect(screen.getByText(/\*\.samples\.tsv/i)).toBeInTheDocument();
-    expect(screen.getByText(/\.READY/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/\*\.samples\.tsv/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/\.READY/i).length).toBeGreaterThan(0);
     expect(screen.getByText("nipt_fastq")).toBeInTheDocument();
     expect(screen.getAllByText(niptRoot).length).toBeGreaterThan(0);
     expect(screen.getByText(/clean_fastq/i)).toBeInTheDocument();

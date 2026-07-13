@@ -1423,3 +1423,25 @@ terminal-only page does not fan out to Airflow.
   fingerprint is recorded as `error`; operators must create a new request ID.
 - Auto-intake stores `intake_request_id` and `intake_fingerprint` in run params
   so a run committed before a worker crash can be recovered without duplication.
+# T123 Operations consistency APIs
+
+- `GET /api/intake/status` accepts `view=pending|history|all`. `pending`
+  returns Discovery records without an `analysis_id`; `history` returns linked
+  runs; `all` is intended for the Settings audit view.
+- `GET /api/dashboard/runs` adds `run_source`, `source_batch_id`,
+  `qc_display_status`, and `qc_display_note`. Intake provenance is identified
+  by the immutable `params.intake_request_id`; a manual server scan remains a
+  manual run.
+- `GET /api/workflows` returns only the deployed `PGT-A Predict` and
+  `NIPT Docker Full` workflows with live latest-run state, success rate, and
+  persisted stage summaries. It does not query Airflow once per run.
+- `GET /api/intake/scanner-state` also returns the schedule, next run,
+  trigger contracts, and scanner-only retention policy.
+- `POST /api/intake/retention` is an internal-token endpoint restricted to
+  terminal `bio_intake_scan` DAG runs older than 30 days. Analysis DAG IDs are
+  rejected.
+
+QC projection uses `pending` before QC, `unavailable` when a failed workflow
+never produced decision metrics, and pass/warn/fail only from decision metrics.
+Informational values such as read count, gender, and chrY do not create an
+unknown sample decision.

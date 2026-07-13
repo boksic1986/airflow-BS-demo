@@ -57,7 +57,7 @@ def get_settings() -> Settings:
             "/app/config/pipeline_profiles.yaml",
         ),
         nipt_allow_heavy_run=_parse_bool(os.getenv("NIPT_ALLOW_HEAVY_RUN", "false")),
-        nipt_docker_cores=_parse_int(os.getenv("NIPT_DOCKER_CORES", "40"), default=40),
+        nipt_docker_cores=_parse_int(os.getenv("NIPT_DOCKER_CORES", "32"), default=32),
         internal_service_token=get_internal_service_token(),
     )
 

@@ -1,10 +1,17 @@
 name: ${COMPOSE_PROJECT_NAME:-airflow-demo}
 
+x-airflow-logging: &airflow-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "3"
+
 x-airflow-common: &airflow-common
   image: ${AIRFLOW_IMAGE:-airflow-demo/airflow:0.1.0}
   build:
     context: ./airflow_image
   user: "${AIRFLOW_UID:-1005}:0"
+  logging: *airflow-logging
   environment: &airflow-common-env
     TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -46,7 +53,7 @@ x-airflow-common: &airflow-common
     NIPT_DOCKER_IMAGE: ${NIPT_DOCKER_IMAGE:-172.17.61.235:2333/niptpro/niptpro:1.0.11}
     NIPT_FETAL_IMAGE: ${NIPT_FETAL_IMAGE:-172.17.61.235:2333/niptpro/pytorch:biosan}
     NIPT_DOCKER_NETWORK: ${NIPT_DOCKER_NETWORK:-nipt_analysis_test_net}
-    NIPT_DOCKER_CORES: ${NIPT_DOCKER_CORES:-40}
+    NIPT_DOCKER_CORES: ${NIPT_DOCKER_CORES:-32}
     NIPT_DOCKER_OWNER: ${NIPT_DOCKER_OWNER:-6708:520}
     NIPT_ALLOW_HEAVY_RUN: ${NIPT_ALLOW_HEAVY_RUN:-false}
     PIPELINE_PROFILE_CONFIG_PATH: ${AIRFLOW_PIPELINE_PROFILE_CONFIG_PATH:-/opt/airflow/config/pipeline_profiles.yaml}
@@ -168,7 +175,7 @@ services:
       NIPT_INPUT_SCAN_ROOTS: ${NIPT_INPUT_SCAN_ROOTS:-${NIPT_CONTAINER_ROOT:-/opt/pipelines/NIPT}/fastq}
       INTAKE_CONFIG_PATH: ${INTAKE_CONFIG_PATH:-/app/config/intake.yaml}
       PIPELINE_PROFILE_CONFIG_PATH: ${PIPELINE_PROFILE_CONFIG_PATH:-/app/config/pipeline_profiles.yaml}
-      NIPT_DOCKER_CORES: ${NIPT_DOCKER_CORES:-40}
+      NIPT_DOCKER_CORES: ${NIPT_DOCKER_CORES:-32}
       NIPT_ALLOW_HEAVY_RUN: ${NIPT_ALLOW_HEAVY_RUN:-false}
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-*}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in .env}

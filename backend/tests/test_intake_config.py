@@ -112,7 +112,12 @@ def test_intake_scanner_state_endpoint_reads_airflow_dag_pause_and_latest_run(mo
     class FakeAirflowClient:
         def get_dag(self, dag_id: str) -> dict[str, object]:
             assert dag_id == "bio_intake_scan"
-            return {"dag_id": dag_id, "is_paused": True}
+            return {
+                "dag_id": dag_id,
+                "is_paused": True,
+                "schedule_interval": {"__type": "CronExpression", "value": "*/10 * * * *"},
+                "next_dagrun": "2026-07-08T17:10:00+08:00",
+            }
 
         def list_dag_runs(self, dag_id: str, *, limit: int = 100, order_by: str | None = None) -> dict[str, object]:
             assert dag_id == "bio_intake_scan"
@@ -136,16 +141,25 @@ def test_intake_scanner_state_endpoint_reads_airflow_dag_pause_and_latest_run(mo
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload == {
-        "dag_id": "bio_intake_scan",
-        "airflow_reachable": True,
-        "is_paused": True,
-        "latest_dag_run_id": "scheduled__2026-07-08T17:00:00+08:00",
-        "latest_dag_run_state": "success",
-        "latest_start_date": "2026-07-08T17:00:01+08:00",
-        "latest_end_date": "2026-07-08T17:00:05+08:00",
-        "message": None,
+    assert payload["dag_id"] == "bio_intake_scan"
+    assert payload["airflow_reachable"] is True
+    assert payload["is_paused"] is True
+    assert payload["schedule"] == "*/10 * * * *"
+    assert payload["next_run"] == "2026-07-08T17:10:00+08:00"
+    assert payload["trigger_contracts"] == {
+        "pgta": "*.samples.tsv + *.READY",
+        "nipt_docker": "*.nipt.yaml or configured discovery root",
     }
+    assert payload["retention"] == {
+        "enabled": True,
+        "days": 30,
+        "scope": "bio_intake_scan only",
+    }
+    assert payload["latest_dag_run_id"] == "scheduled__2026-07-08T17:00:00+08:00"
+    assert payload["latest_dag_run_state"] == "success"
+    assert payload["latest_start_date"] == "2026-07-08T17:00:01+08:00"
+    assert payload["latest_end_date"] == "2026-07-08T17:00:05+08:00"
+    assert payload["message"] is None
 
 
 def test_intake_scanner_state_endpoint_degrades_when_airflow_is_unavailable(monkeypatch) -> None:
@@ -166,3 +180,5 @@ def test_intake_scanner_state_endpoint_degrades_when_airflow_is_unavailable(monk
     assert payload["latest_dag_run_id"] is None
     assert payload["latest_dag_run_state"] is None
     assert payload["message"] == "Airflow scanner state unavailable"
+    assert payload["schedule"] == "*/10 * * * *"
+    assert payload["trigger_contracts"]["pgta"] == "*.samples.tsv + *.READY"

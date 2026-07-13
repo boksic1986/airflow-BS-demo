@@ -467,12 +467,17 @@ function ScannerStateCard({
         <dl className="definition-grid compact">
           <div><dt>DAG</dt><dd>{scanner?.dag_id || "bio_intake_scan"}</dd></div>
           <div><dt>Scheduler state</dt><dd>{pausedLabel}</dd></div>
+          <div><dt>Schedule</dt><dd>{scanner?.schedule || "*/10 * * * *"}</dd></div>
+          <div><dt>Next run</dt><dd>{formatDate(scanner?.next_run)}</dd></div>
           <div><dt>Airflow</dt><dd>{scanner?.airflow_reachable ? "Airflow reachable" : "Airflow unavailable"}</dd></div>
           <div><dt>Latest state</dt><dd>{scanner?.latest_dag_run_state ? <StatusBadge status={scanner.latest_dag_run_state} size="sm" /> : "not reported"}</dd></div>
           <div><dt>Latest DAG run</dt><dd className="path-text" title={scanner?.latest_dag_run_id || undefined}>{scanner?.latest_dag_run_id || "not reported"}</dd></div>
           <div><dt>Started</dt><dd>{formatDate(scanner?.latest_start_date)}</dd></div>
           <div><dt>Ended</dt><dd>{formatDate(scanner?.latest_end_date)}</dd></div>
           <div><dt>Message</dt><dd>{scanner?.message || "Scanner state loaded"}</dd></div>
+          <div><dt>PGT-A trigger</dt><dd>{scanner?.trigger_contracts?.pgta || "*.samples.tsv + *.READY"}</dd></div>
+          <div><dt>NIPT trigger</dt><dd>{scanner?.trigger_contracts?.nipt_docker || "*.nipt.yaml or configured discovery root"}</dd></div>
+          <div><dt>Retention</dt><dd>{scanner?.retention?.enabled ? `${scanner.retention.days} days / ${scanner.retention.scope}` : "Disabled"}</dd></div>
         </dl>
       ) : null}
     </div>

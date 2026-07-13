@@ -930,7 +930,7 @@ def _validate_nipt_run_mode(*, run_mode: str, settings) -> None:
 
 
 def _normalize_nipt_cores(cores: int | None, *, settings) -> int:
-    default_cores = int(getattr(settings, "nipt_docker_cores", 40) or 40)
+    default_cores = int(getattr(settings, "nipt_docker_cores", 32) or 32)
     requested = int(cores or default_cores)
     if requested < 1 or requested > 40:
         raise ValueError("NIPT Docker cores must be between 1 and 40 for this demo.")

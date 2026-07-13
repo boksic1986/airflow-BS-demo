@@ -177,13 +177,25 @@ def _tracker_row(
         average_duration_seconds=average_duration_seconds,
     )
     estimated_finish_at = _estimated_finish_at(estimated_remaining_seconds)
+    qc_status = _qc_status_from_values(sample_qc_statuses)
+    qc_display_status, qc_display_note = _qc_display_state(run_status=run.status, qc_status=qc_status)
+    params = run.params_json or {}
     return {
         "analysis_id": run.analysis_id,
         "project_name": _project_name(run),
         "pipeline": run.pipeline_name,
         "status": run.status,
-        "display_status": _display_status(run_status=run.status, qc_status=_qc_status_from_values(sample_qc_statuses)),
-        "qc_status": _qc_status_from_values(sample_qc_statuses),
+        "display_status": _display_status(run_status=run.status, qc_status=qc_status),
+        "qc_status": qc_status,
+        "qc_display_status": qc_display_status,
+        "qc_display_note": qc_display_note,
+        "run_source": "intake" if params.get("intake_request_id") else "manual",
+        "source_batch_id": str(
+            params.get("intake_request_id")
+            or params.get("source_batch_id")
+            or params.get("chip_name")
+            or ""
+        ) or None,
         "sample_count": len(sample_qc_statuses),
         "created_at": _iso(run.created_at),
         "submitted_at": _iso(run.submitted_at),
@@ -566,6 +578,17 @@ def _display_status(*, run_status: str | None, qc_status: str) -> str:
     if qc_status == "unknown":
         return "qc_pending"
     return "success"
+
+
+def _qc_display_state(*, run_status: str | None, qc_status: str) -> tuple[str, str]:
+    normalized_run = _status(run_status)
+    if qc_status in {"pass", "warn", "fail"}:
+        return qc_status, "Sample QC is based on decision metrics."
+    if normalized_run in ACTIVE_STATUSES | {"created"}:
+        return "pending", "QC is available after the pipeline reaches its QC collection stage."
+    if normalized_run in FAILED_STATUSES:
+        return "unavailable", "The workflow ended before sample QC could be collected."
+    return "unknown", "No decision QC metrics were captured for this run."
 
 
 def _current_airflow_task(tasks: list[dict[str, Any]]) -> str | None:

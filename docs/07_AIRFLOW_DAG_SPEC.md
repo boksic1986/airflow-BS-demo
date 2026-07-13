@@ -775,3 +775,17 @@ the biodemo database or execute Snakemake rules itself.
 Airflow 网页第一版通过 task log 和 XCom 查看状态汇总；不实现自定义 Airflow Web 插件。若 `backend_event_url` 未配置，logger 只写 JSONL；若配置，则 rule/job 级事件会同步 POST 到 FastAPI 并 upsert 到 biodemo `snakemake_rule_event`。
 
 T088 后 `bio_pgta_airflow` 也使用 run-local `XDG_CACHE_HOME=<workdir>/tmp/xdg-cache`，避免 Snakemake 9 logger 路径回退到不可写的 `/home/airflow/.cache/snakemake`。
+# T123 scanner retention and operator path
+
+- `bio_pgta` compatibility branches remain unchanged, but the operator UI
+  projects only `pgta_predict`. Build Reference will use a future dedicated
+  DAG and is not represented by renaming `run_pgta_target`.
+- `bio_intake_scan` remains a ten-minute DAG with `scan_and_submit`,
+  `prune_scanner_history`, and `propagate_scanner_result`. Retention uses
+  `all_done` so it can run after a failed scan, while the final task explicitly
+  propagates either upstream failure so the DAG run cannot become false
+  success. Retention performs work only on the 03:00 scheduled cycle, uses the
+  internal token, and is restricted to the scanner DAG.
+- Scanner logs older than 30 days are removed only below
+  `/opt/airflow/logs/dag_id=bio_intake_scan`; analysis logs/workdirs are excluded.
+- Airflow services use Docker json-file rotation of 50 MB with three files.

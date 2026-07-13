@@ -337,3 +337,16 @@ Artifacts exposed for `pipeline=nipt_docker`:
 - `nipt_run_config`
 - `nipt_airflow_request`
 - `nipt_docker_command`
+# T123 runtime and terminal event policy
+
+- `niptpro-s9-full-v1` defaults to 32 cores. The legacy Snakemake 7 rollback
+  profile retains its historical settings.
+- Full-run parent failure terminates still-running sibling logger events as
+  `canceled`; the actual failed sample/rule stays `failed` with its return code
+  and log path.
+- NIPT Full remains one Airflow pool slot and `max_active_runs=1`. A pool slot
+  limits concurrent batches; it is not a CPU-core count.
+- NIPT automatic submit remains disabled.
+- T123 acceptance run `NIPT_20260713_162606_5B5B11` used 32 cores on the
+  20-sample recovery batch and completed in about 14 minutes with 20/20 sample
+  QC pass and 176/176 terminal rule events in success state.

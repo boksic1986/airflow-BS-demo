@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun, Sample, SnakemakeRuleEvent
 from app.qc_service import import_run_qc_metrics
-from app.rule_event_service import import_snakemake_events_jsonl
+from app.rule_event_service import cancel_incomplete_rule_events, import_snakemake_events_jsonl
 
 
 class DiagnosticsError(Exception):
@@ -304,6 +304,12 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
     if run.status in {"success", "failed"}:
         events_path = _safe_child_path(_safe_workdir(run, settings), Path("logs/events/snakemake_events.jsonl"), settings)
         import_snakemake_events_jsonl(session=session, analysis_id=analysis_id, events_path=events_path)
+        cancel_incomplete_rule_events(
+            session=session,
+            analysis_id=analysis_id,
+            parent_status=authoritative_status,
+            timestamp=run.ended_at or datetime.now(timezone.utc),
+        )
         # A resumed run can retain an earlier failed JSONL event. Import the
         # complete audit trail, then let the terminal Airflow DAG state win.
         run.status = authoritative_status

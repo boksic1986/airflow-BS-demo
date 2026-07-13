@@ -1,4 +1,4 @@
-import {Play, RefreshCw, RotateCw} from "lucide-react";
+import {Play, RefreshCw} from "lucide-react";
 import {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 
@@ -14,23 +14,21 @@ import {
   getRunQc,
   getRunRules,
   getRunSamples,
-  reanalyzeRun,
   submitRun,
   syncAirflow,
 } from "../api";
 import {ErrorPanel} from "../components/ErrorPanel";
-import {LogViewer} from "../components/LogViewer";
+import {LogViewer, preferredLogSource} from "../components/LogViewer";
 import {MetricCard} from "../components/MetricCard";
 import {StatusBadge} from "../components/StatusBadge";
 import {CurrentProgressPanel} from "../features/run-detail/CurrentProgressPanel";
-import {RunActionModal} from "../features/run-detail/RunActionModal";
 import {RunQcTab} from "../features/run-detail/RunQcTab";
 import {RunConfigTab, RunFilesTab, RunOverviewTab, RunSamplesTab} from "../features/run-detail/RunResourceTabs";
 import {RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
 import {errorMessage, parseErrorSummary} from "../lib/errors";
 import {compactPipelineName, formatDate, formatDuration} from "../lib/format";
 import {computeRunProgress, progressFromResponse} from "../lib/runProgress";
-import {isActiveStatus, isFailedStatus, normalizeStatus} from "../lib/status";
+import {isActiveStatus, isFailedStatus} from "../lib/status";
 
 const tabs = ["Overview", "Samples", "Workflow", "QC", "Logs", "Files", "Config"] as const;
 type DetailTab = (typeof tabs)[number];
@@ -61,7 +59,6 @@ export function RunDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
   const [lastAutoSyncedAt, setLastAutoSyncedAt] = useState<string | null>(null);
-  const [runActionOpen, setRunActionOpen] = useState(false);
 
   async function loadDetail() {
     if (!analysisId) return;
@@ -81,10 +78,7 @@ export function RunDetailPage() {
       setBundle({detail, samples: samples.items, rules: progress?.rule_events || rules.items, progress, artifacts: artifacts.items, qc, config});
       setLogSources(indexedLogs.items);
       if (indexedLogs.items.length) {
-        const preferred = indexedLogs.items.find((item) => isFailedStatus(item.status) && item.stream === "stderr")
-          || indexedLogs.items.find((item) => item.rule === progress?.current_step)
-          || indexedLogs.items.find((item) => item.stream === "stderr" && isFailedStatus(detail.status))
-          || indexedLogs.items[0];
+        const preferred = preferredLogSource(indexedLogs.items, detail.status, progress?.current_step) || indexedLogs.items[0];
         setLogKey((current) => indexedLogs.items.some((item) => item.key === current) ? current : preferred.key);
         setLogStream(preferred.stream === "stderr" ? "stderr" : preferred.stream === "metadata" ? "metadata" : "stdout");
       } else if (isFailedStatus(detail.status)) {
@@ -148,22 +142,16 @@ export function RunDetailPage() {
       ? computeRunProgress({analysis_id: detail.analysis_id, pipeline: detail.pipeline, status: detail.status, created_at: detail.created_at, started_at: detail.started_at, ended_at: detail.ended_at, sample_count: bundle.samples.length}, detail, bundle.rules)
       : null;
   const canSubmit = detail?.status === "created" && ["pgta", "nipt_docker"].includes(detail.pipeline);
-  const canResumePgta = detail?.pipeline === "pgta" && detail.params?.target === "baseline_qc" && Boolean(detail.dag_run_id) && ["failed", "terminated"].includes(normalizeStatus(detail.status));
-  const canOpenRunAction = detail?.pipeline === "pgta" && detail.params?.target === "baseline_qc" && Boolean(detail.dag_run_id) && ["failed", "terminated", "success"].includes(normalizeStatus(detail.status));
-
-  async function runAction(action: "sync" | "submit" | "resume" | "rerun_stage", stage?: "mapping" | "metadata" | "baseline_qc") {
+  async function runAction(action: "sync" | "submit") {
     if (!analysisId) return;
     setActing(true);
     setActionError(null);
     try {
       if (action === "sync") await syncAirflow(analysisId);
       if (action === "submit") await submitRun(analysisId);
-      if (action === "resume") await reanalyzeRun(analysisId, {mode: "resume", reason: "frontend PGT-A baseline_qc resume"});
-      if (action === "rerun_stage") await reanalyzeRun(analysisId, {mode: "rerun_stage", stage, reason: `frontend controlled PGT-A rerun from ${stage}`});
       await loadDetail();
       await loadLog(action === "sync" ? logStream : "stdout");
       if (action !== "sync") setLogStream("stdout");
-      setRunActionOpen(false);
     } catch (actionFailure) {
       setActionError(errorMessage(actionFailure));
     } finally {
@@ -186,10 +174,8 @@ export function RunDetailPage() {
             {detail.dag_run_id && isActiveStatus(detail.status) ? <span className="muted">{lastAutoSyncedAt ? `Auto sync / ${formatDate(lastAutoSyncedAt)}` : "Auto sync active"}</span> : null}
             {canSubmit ? <button className="button primary" type="button" disabled={acting} onClick={() => void runAction("submit")}><Play size={15} />Submit to Airflow</button> : null}
             <button className="button ghost" type="button" disabled={acting || !detail.dag_run_id} onClick={() => void runAction("sync")}><RefreshCw size={15} />Sync Airflow</button>
-            {canOpenRunAction ? <button className="button ghost" type="button" disabled={acting} onClick={() => setRunActionOpen(true)}><RotateCw size={15} />Run action</button> : null}
           </div>
         </section>
-        {runActionOpen ? <RunActionModal canResume={canResumePgta} disabled={acting || isActiveStatus(detail.status)} onClose={() => setRunActionOpen(false)} onResume={() => void runAction("resume")} onRerunStage={(stage) => void runAction("rerun_stage", stage)} /> : null}
         {actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
         <section className="metric-grid" aria-label="Run summary metrics">
           <MetricCard title="Samples" value={bundle.samples.length} />
@@ -207,7 +193,7 @@ export function RunDetailPage() {
           {activeTab === "Overview" ? <RunOverviewTab detail={detail} samples={bundle.samples} /> : null}
           {activeTab === "Samples" ? <RunSamplesTab samples={bundle.samples} /> : null}
           {activeTab === "Workflow" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} /> : null}
-          {activeTab === "QC" ? <RunQcTab qc={bundle.qc} /> : null}
+          {activeTab === "QC" ? <RunQcTab qc={bundle.qc} runStatus={detail.status} /> : null}
           {activeTab === "Logs" ? <LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} /> : null}
           {activeTab === "Files" ? <RunFilesTab artifacts={bundle.artifacts} /> : null}
           {activeTab === "Config" ? <RunConfigTab artifacts={bundle.artifacts} config={bundle.config} detail={detail} /> : null}

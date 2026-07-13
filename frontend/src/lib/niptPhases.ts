@@ -36,6 +36,7 @@ export type RulePhaseSummary = {
   running: number;
   success: number;
   failed: number;
+  canceled: number;
   status: string;
 };
 
@@ -54,13 +55,15 @@ export function summarizeRulePhases(rules: RuleEvent[]): RulePhaseSummary[] {
       const running = items.filter((item) => ["running", "started", "submitted", "planned"].includes(item.status.toLowerCase())).length;
       const failed = items.filter((item) => ["failed", "fail", "error"].includes(item.status.toLowerCase())).length;
       const success = items.filter((item) => item.status.toLowerCase() === "success").length;
+      const canceled = items.filter((item) => ["canceled", "cancelled", "terminated"].includes(item.status.toLowerCase())).length;
       return {
         phase,
         total: items.length,
         running,
         success,
         failed,
-        status: failed ? "failed" : running ? "running" : success === items.length ? "success" : "queued",
+        canceled,
+        status: failed ? "failed" : running ? "running" : canceled ? "canceled" : success === items.length ? "success" : "queued",
       };
     })
     .sort((left, right) => phaseIndex(left.phase) - phaseIndex(right.phase));

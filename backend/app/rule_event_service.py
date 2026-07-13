@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun, SnakemakeRuleEvent, utc_now
@@ -14,7 +14,7 @@ from app.workflow_phases import phase_for_rule, summarize_rule_events
 
 
 START_STATUSES = {"planned", "submitted", "running", "started"}
-END_STATUSES = {"success", "failed", "skipped", "error"}
+END_STATUSES = {"success", "failed", "skipped", "error", "canceled", "cancelled", "terminated"}
 RULE_PROGRESS = {
     "mapping": 15,
     "fastp_bwa": 35,
@@ -159,6 +159,26 @@ def import_snakemake_events_jsonl(*, session: Session, analysis_id: str, events_
         if record_snakemake_event(session=session, event=event):
             imported += 1
     return imported
+
+
+def cancel_incomplete_rule_events(
+    *, session: Session, analysis_id: str, parent_status: str, timestamp: datetime
+) -> int:
+    normalized_parent = str(parent_status or "").lower()
+    if normalized_parent not in {"failed", "terminated"}:
+        return 0
+    rows = session.scalars(
+        select(SnakemakeRuleEvent).where(
+            SnakemakeRuleEvent.analysis_id == analysis_id,
+            func.lower(SnakemakeRuleEvent.status).in_(START_STATUSES),
+        )
+    ).all()
+    for row in rows:
+        row.status = "canceled"
+        row.end_time = row.end_time or timestamp
+        row.updated_at = timestamp
+        row.message = f"Canceled because parent workflow {normalized_parent}."
+    return len(rows)
 
 
 def _find_existing_event(

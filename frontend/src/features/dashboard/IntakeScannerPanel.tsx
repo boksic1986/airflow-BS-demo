@@ -1,15 +1,16 @@
-import type {IntakeDiscovery} from "../../api";
+import type {IntakeDiscovery, IntakeView} from "../../api";
 
 import {IntakeDiscoveryTable} from "../../components/IntakeDiscoveryTable";
-import {StatusBadge} from "../../components/StatusBadge";
 
-export function IntakeScannerPanel({items, total, limit, offset, loading, error, onPageChange}: {
+export function IntakeScannerPanel({items, total, limit, offset, loading, error, view, onViewChange, onPageChange}: {
   items: IntakeDiscovery[];
   total: number;
   limit: number;
   offset: number;
   loading: boolean;
   error: string | null;
+  view: Exclude<IntakeView, "all">;
+  onViewChange: (view: Exclude<IntakeView, "all">) => void;
   onPageChange: (offset: number) => void;
 }) {
   const pageStart = total === 0 ? 0 : offset + 1;
@@ -21,7 +22,10 @@ export function IntakeScannerPanel({items, total, limit, offset, loading, error,
           <h2>Intake scanner</h2>
           <p title="Observed and bootstrap states are discovery records, not queued analysis runs.">Active and completed intake operations</p>
         </div>
-        <StatusBadge status={items.some((item) => item.submit_state === "submitted") ? "success" : "skipped"} />
+        <div className="tracker-filters" aria-label="Intake scanner views">
+          <button className={view === "pending" ? "active" : ""} type="button" onClick={() => onViewChange("pending")}>Pending &amp; errors</button>
+          <button className={view === "history" ? "active" : ""} type="button" onClick={() => onViewChange("history")}>History</button>
+        </div>
       </div>
       <IntakeDiscoveryTable
         ariaLabel="Intake discovery records"

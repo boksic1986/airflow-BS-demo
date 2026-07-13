@@ -1,6 +1,6 @@
 import logging
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,6 +23,7 @@ from app.diagnostics_service import (
 )
 from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candidates, scan_nipt_batch_candidates
 from app.intake_config import load_intake_config
+from app.intake_retention_service import prune_scanner_history
 from app.intake_service import list_intake_status, preview_intake_scan, scan_and_submit_intake
 from app.operator_resources_service import list_failures_resource, list_samples_resource
 from app.pipeline_config_service import (
@@ -46,6 +47,7 @@ from app.run_service import (
     submit_run_to_airflow,
 )
 from app.system_resources import get_system_resources
+from app.workflow_catalog_service import get_workflow_catalog
 
 
 logger = logging.getLogger(__name__)
@@ -136,6 +138,12 @@ class IntakeScanRequest(BaseModel):
     pipelines: list[str] = Field(default_factory=lambda: ["pgta", "nipt_docker"])
     bootstrap: bool = False
     max_samples: int = Field(default=200, ge=1, le=1000)
+
+
+class IntakeRetentionRequest(BaseModel):
+    dag_id: str = INTAKE_SCANNER_DAG_ID
+    current_dag_run_id: str | None = None
+    dry_run: bool = False
 
 
 class ReanalysisRequest(BaseModel):
@@ -242,6 +250,10 @@ def intake_scanner_state() -> dict[str, object]:
             "latest_dag_run_state": None,
             "latest_start_date": None,
             "latest_end_date": None,
+            "schedule": "*/10 * * * *",
+            "next_run": None,
+            "trigger_contracts": _intake_trigger_contracts(),
+            "retention": _intake_retention_state(),
             "message": "Airflow scanner state unavailable",
         }
 
@@ -254,8 +266,29 @@ def intake_scanner_state() -> dict[str, object]:
         "latest_dag_run_state": latest_run.get("state") if latest_run else None,
         "latest_start_date": latest_run.get("start_date") if latest_run else None,
         "latest_end_date": latest_run.get("end_date") if latest_run else None,
+        "schedule": _dag_schedule(dag_payload),
+        "next_run": dag_payload.get("next_dagrun") or dag_payload.get("next_dagrun_create_after"),
+        "trigger_contracts": _intake_trigger_contracts(),
+        "retention": _intake_retention_state(),
         "message": None,
     }
+
+
+@app.post("/api/intake/retention", dependencies=[Depends(require_internal_service_token)])
+def intake_retention(request: IntakeRetentionRequest) -> dict[str, object]:
+    try:
+        return prune_scanner_history(
+            airflow_client=get_airflow_client(),
+            dag_id=request.dag_id,
+            cutoff=datetime.now(timezone.utc) - timedelta(days=30),
+            current_dag_run_id=request.current_dag_run_id,
+            dry_run=request.dry_run,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_RETENTION_SCOPE", "message": str(exc)},
+        ) from exc
 
 
 @app.get("/api/pipeline-config/template")
@@ -575,6 +608,7 @@ def intake_status(
         pattern="^(bootstrap|observed|ready|submitted|error|disabled)$",
     ),
     lifecycle: str = Query(default="active", pattern="^(active|archived|all)$"),
+    view_filter: str = Query(default="all", alias="view", pattern="^(pending|history|all)$"),
     keyword: str | None = None,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -585,10 +619,17 @@ def intake_status(
             pipeline=pipeline,
             state=state_filter,
             lifecycle=lifecycle,
+            view=view_filter,
             keyword=keyword,
             limit=limit,
             offset=offset,
         )
+
+
+@app.get("/api/workflows")
+def workflows() -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        return get_workflow_catalog(session=session)
 
 
 @app.get("/api/system/resources")
@@ -962,6 +1003,25 @@ def _latest_dag_run(payload: dict[str, object]) -> dict[str, object] | None:
         return None
     latest = dag_runs[0]
     return latest if isinstance(latest, dict) else None
+
+
+def _dag_schedule(payload: dict[str, object]) -> str:
+    schedule = payload.get("schedule_interval") or payload.get("timetable_description")
+    if isinstance(schedule, dict):
+        value = schedule.get("value")
+        return str(value) if value else "*/10 * * * *"
+    return str(schedule or "*/10 * * * *")
+
+
+def _intake_trigger_contracts() -> dict[str, str]:
+    return {
+        "pgta": "*.samples.tsv + *.READY",
+        "nipt_docker": "*.nipt.yaml or configured discovery root",
+    }
+
+
+def _intake_retention_state() -> dict[str, object]:
+    return {"enabled": True, "days": 30, "scope": "bio_intake_scan only"}
 
 
 def _scan_result_payload(result) -> dict[str, object]:

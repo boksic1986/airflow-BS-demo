@@ -1,14 +1,13 @@
 import "@testing-library/jest-dom/vitest";
 
 import {render, screen, within} from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import {describe, expect, it} from "vitest";
 
 import type {RuleEvent, RunProgressResponse} from "../../api";
 import {RunWorkflowTab} from "./RunWorkflowTab";
 
 describe("RunWorkflowTab", () => {
-  it("groups NIPT rules into operator phases and paginates large job sets", async () => {
+  it("groups NIPT rules into operator phases without rendering the raw rule-job table", () => {
     const rules: RuleEvent[] = Array.from({length: 60}, (_, index) => ({
       rule: "map",
       sample_id: `S${String(index + 1).padStart(3, "0")}`,
@@ -29,17 +28,10 @@ describe("RunWorkflowTab", () => {
     expect(screen.getByRole("heading", {name: /Pipeline phase summary/i})).toBeInTheDocument();
     expect(screen.getAllByText("Mapping").length).toBeGreaterThan(0);
     expect(screen.getAllByText("T21 classifier").length).toBeGreaterThan(0);
-    const jobsTable = screen.getByRole("table", {name: /Pipeline rule jobs/i});
-    expect(within(jobsTable).getAllByRole("row")).toHaveLength(51);
-    expect(within(jobsTable).getByText("S061")).toBeInTheDocument();
-    expect(within(jobsTable).queryByText("S060")).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", {name: /Next rule jobs/i}));
-
-    expect(within(jobsTable).getByText("S060")).toBeInTheDocument();
+    expect(screen.queryByRole("table", {name: /Pipeline rule jobs/i})).not.toBeInTheDocument();
   });
 
-  it("separates skipped Airflow branch tasks from the selected execution path", () => {
+  it("shows only the PGT-A Predict execution path and hides skipped legacy branches", () => {
     const progress = {
       airflow_tasks: [
         {task_id: "validate_request", state: "success"},
@@ -54,8 +46,20 @@ describe("RunWorkflowTab", () => {
     const selectedPath = screen.getByLabelText("Selected Airflow execution path");
     expect(within(selectedPath).getByText("Mapping reads")).toBeInTheDocument();
     expect(within(selectedPath).queryByText("Run PGT-A workflow")).not.toBeInTheDocument();
-    const alternate = screen.getByText(/Alternate paths/i).closest("details");
-    expect(alternate).not.toBeNull();
-    expect(within(alternate as HTMLElement).getAllByText("Not selected branch")).toHaveLength(2);
+    expect(screen.queryByText(/Alternate paths/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("run_pgta_target")).not.toBeInTheDocument();
+    expect(screen.queryByText("pgta_pipeline.run_pgta_mapping")).not.toBeInTheDocument();
+  });
+
+  it("renders canceled rule events as terminal phase work", () => {
+    render(<RunWorkflowTab progress={null} rules={[
+      {rule: "map", sample_id: "S1", status: "failed"},
+      {rule: "map", sample_id: "S2", status: "canceled"},
+    ]} />);
+
+    const phaseTable = screen.getByRole("table", {name: /Pipeline phase summary/i});
+    expect(within(phaseTable).getByText("Canceled")).toBeInTheDocument();
+    const mappingRow = within(phaseTable).getByText("Mapping").closest("tr");
+    expect(mappingRow?.querySelectorAll("td")[6]).toHaveTextContent("1");
   });
 });

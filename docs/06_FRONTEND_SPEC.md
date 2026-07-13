@@ -985,3 +985,26 @@ keeping deployed scope limited to PGT-A and NIPT Docker.
   container may scroll horizontally.
 - The page remains read-only: it does not expose Unpause, Scan now,
   scan-and-submit, or NIPT full-run actions.
+# T123 Predict path and operations consistency
+
+- Dashboard Intake defaults to `Pending & errors`; linked submitted/running/
+  completed records are available under `History`, avoiding duplicate rows in
+  Run Tracker and Intake Scanner.
+- Run Tracker marks `Manual` or `Intake`, shows the source batch, and uses the
+  same StatusBadge, progress bar, sample count, project, and date components as
+  Intake Scanner.
+- PGT-A Run Detail shows only the production Predict path:
+  Validate, Prepare, Mapping, Metadata, CNV QC, CNV prediction, Collect.
+  Skipped legacy/baseline branches, Alternate paths, and the raw rule-job table
+  are hidden from the operator view.
+- Historical `baseline_qc` resume/rerun controls are not shown in the
+  Predict-only operator UI. Backend compatibility remains available for
+  audited maintenance workflows.
+- Parent workflow failure converts sibling running events to canceled while
+  preserving the true failed rules.
+- Logs are grouped into Failed sample logs, Current step logs, Workflow
+  stdout/stderr, and Other rule logs. A failed run opens the first failed
+  sample log before the current-step or workflow stream.
+- QC distinguishes pending, unavailable, decision metrics, and informational
+  metrics. Workflow Catalog is live and contains only PGT-A Predict and NIPT
+  Docker Full.

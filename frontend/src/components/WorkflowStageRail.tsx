@@ -23,14 +23,9 @@ export function WorkflowStageRail({analysisId, pipeline, stages}: {
   pipeline: string;
   stages?: WorkflowStageSummary[];
 }) {
-  const items = stages?.length ? stages : (templates[pipeline] || []).map((stage) => ({
-    ...stage,
-    status: "pending",
-    completed_jobs: 0,
-    total_jobs: 0,
-  }));
+  const items = stages?.length ? stages : (templates[pipeline] || []).map((stage) => ({...stage, status: "pending", completed_jobs: 0, total_jobs: 0}));
   const completed = items.filter((item) => normalizeStatus(item.status) === "success").length;
-  const current = items.find((item) => ["running", "failed"].includes(normalizeStatus(item.status)))
+  const current = items.find((item) => ["running", "failed", "canceled"].includes(normalizeStatus(item.status)))
     || items.find((item) => normalizeStatus(item.status) !== "success")
     || items.at(-1);
   return (
@@ -39,18 +34,14 @@ export function WorkflowStageRail({analysisId, pipeline, stages}: {
         {items.map((item) => {
           const status = normalizeStatus(item.status);
           return (
-            <span
-              className={`workflow-stage-node stage-${status}`}
-              key={item.key}
-              title={`${item.label}: ${item.status}; ${item.completed_jobs}/${item.total_jobs} jobs complete`}
-            >
+            <span className={`workflow-stage-node stage-${status}`} key={item.key} title={`${item.label}: ${item.status}; ${item.completed_jobs}/${item.total_jobs} jobs complete`}>
               <span className="workflow-stage-dot" />
               <small>{item.label}</small>
             </span>
           );
         })}
       </div>
-      <span className="workflow-stage-mobile">{current?.label || "No stages"} · {completed}/{items.length}</span>
+      <span className="workflow-stage-mobile">{current?.label || "No stages"} / {completed}/{items.length}</span>
     </div>
   );
 }

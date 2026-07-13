@@ -1688,3 +1688,25 @@ The PGT-A profile must pin `release_manifest` and
 worker after deployment; it checks the manifest hash and every listed release
 file. Never repair a mismatch in place. Deploy a new immutable revision and
 update the profile instead.
+# T123 rollout and rollback
+
+1. Confirm `/api/dashboard/runs?status=active` is empty before recreating an
+   Airflow worker.
+2. Back up the `bio_intake_scan` DAG-run inventory and record its pause state.
+3. Run backend pytest, Intake DAG tests, frontend test/build, and
+   `docker compose config --quiet` on `fengxian`.
+4. Rebuild backend, Airflow API/scheduler/worker, and frontend without deleting
+   volumes. Restore the scanner pause state.
+5. Sync failed runs so stale running rules become canceled while true failed
+   sample/rules remain failed and selectable.
+6. Run a supervised 32-core NIPT clone only when no analysis is active.
+7. Confirm the scanner task tree ends with `propagate_scanner_result`; a failed
+   `scan_and_submit` must leave the DAG run failed even if retention succeeds.
+
+T123 acceptance baseline: `NIPT_20260713_162606_5B5B11` completed the
+20-sample Full workflow with 20/20 sample QC pass and 176/176 rule events
+success. The failed 40-core audit run remains retained and must not be used as
+an ETA baseline.
+
+Rollback: restore prior images and profile defaults. Preserve DB rows, FASTQ,
+workdirs, logs, results, and Docker volumes. Retention must reject analysis DAGs.

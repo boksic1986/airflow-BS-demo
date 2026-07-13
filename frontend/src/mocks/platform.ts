@@ -89,7 +89,7 @@ export const workflowTemplates: PipelineTemplate[] = [
     owner: "NIPT team",
     execution: "Airflow worker + host Docker socket",
     reference: "niptpro:1.0.11 / pytorch:biosan",
-    requiredInputs: ["allowlisted NIPT fastq root", "*.clean.fastq.gz R1/R2 pairs", "mount_smoke mode", "40-core guarded full-run switch"],
+    requiredInputs: ["allowlisted NIPT fastq root", "*.clean.fastq.gz R1/R2 pairs", "32-core approved full analysis"],
     outputs: ["run-local NIPT samplesheet", "mount smoke QC TSV", "Docker compose artifact", "stdout/stderr", "NIPT QC summary after full run"],
     latestRun: "not available",
     successRate: "scanned-batch smoke pending",
@@ -126,7 +126,7 @@ export const workflowTemplates: PipelineTemplate[] = [
 export const deployedWorkflowTemplates = workflowTemplates.filter((pipeline) => pipeline.id === "pgta" || pipeline.id === "nipt_docker");
 
 export const resourceOverview = [
-  {title: "CPU allocation", value: "64 / 40", unit: "cores", status: "running", description: "PGT-A default / NIPT Docker guarded default"},
+  {title: "CPU allocation", value: "64 / 32", unit: "cores", status: "running", description: "PGT-A default / NIPT Docker approved default"},
   {title: "Memory pressure", value: "42", unit: "%", status: "success", description: "Mock resource telemetry"},
   {title: "Queue jobs", value: "0", unit: "jobs", status: "success", description: "qsub is not enabled; NIPT uses Docker"},
   {title: "QC alerts", value: "14", unit: "metrics", status: "failed", description: "PGT-A baseline QC fail metrics; NIPT smoke QC is non-biological"},

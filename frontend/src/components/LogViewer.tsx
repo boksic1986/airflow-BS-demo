@@ -24,6 +24,7 @@ export function LogViewer({
 }) {
   const [query, setQuery] = useState("");
   const lines = log?.lines || [];
+  const groupedSources = useMemo(() => groupLogSources(sources), [sources]);
   const matching = useMemo(() => {
     if (!query.trim()) return lines;
     const needle = query.toLowerCase();
@@ -45,9 +46,13 @@ export function LogViewer({
       </div>
       {sources.length && onKeyChange ? (
         <label className="field log-source-select">
-          <span>Workflow stage or rule log</span>
+          <span>Log source</span>
           <select aria-label="Workflow stage or rule log" value={activeKey || ""} onChange={(event) => onKeyChange(event.target.value)}>
-            {sources.map((source) => <option key={source.key} value={source.key}>{source.label}</option>)}
+            {groupedSources.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.items.map((source) => <option key={source.key} value={source.key}>{source.label}</option>)}
+              </optgroup>
+            ))}
           </select>
         </label>
       ) : (
@@ -87,4 +92,31 @@ export function LogViewer({
       {log ? <p className="muted path-text">Path: {log.path}</p> : null}
     </section>
   );
+}
+
+function groupLogSources(sources: RunLogIndexItem[]): Array<{label: string; items: RunLogIndexItem[]}> {
+  const failed = sources.filter((item) => item.sample_id && ["failed", "fail", "error"].includes(String(item.status || "").toLowerCase()));
+  const current = sources.filter((item) => ["running", "started"].includes(String(item.status || "").toLowerCase()));
+  const workflow = sources.filter((item) => !item.rule && !item.sample_id);
+  const used = new Set([...failed, ...current, ...workflow].map((item) => item.key));
+  const other = sources.filter((item) => !used.has(item.key));
+  return [
+    {label: "Failed sample logs", items: failed},
+    {label: "Current step logs", items: current},
+    {label: "Workflow stdout/stderr", items: workflow},
+    {label: "Other rule logs", items: other},
+  ].filter((group) => group.items.length > 0);
+}
+
+export function preferredLogSource(
+  sources: RunLogIndexItem[],
+  runStatus?: string | null,
+  currentStep?: string | null,
+): RunLogIndexItem | undefined {
+  const failed = sources.filter((item) => item.sample_id && ["failed", "fail", "error"].includes(String(item.status || "").toLowerCase()));
+  return failed.find((item) => item.stream === "stderr")
+    || failed[0]
+    || sources.find((item) => item.rule === currentStep)
+    || sources.find((item) => item.stream === "stderr" && ["failed", "fail", "error", "terminated"].includes(String(runStatus || "").toLowerCase()))
+    || sources[0];
 }

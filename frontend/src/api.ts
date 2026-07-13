@@ -474,8 +474,14 @@ export type IntakeScannerStateResponse = {
   latest_dag_run_state?: string | null;
   latest_start_date?: string | null;
   latest_end_date?: string | null;
+  schedule?: string;
+  next_run?: string | null;
+  trigger_contracts?: Record<string, string>;
+  retention?: {enabled: boolean; days: number; scope: string};
   message?: string | null;
 };
+
+export type IntakeView = "pending" | "history" | "all";
 
 export type DashboardPipeline = "all" | "pgta" | "nipt_docker";
 
@@ -520,6 +526,10 @@ export type DashboardRunTrackerRow = {
   status: string;
   display_status?: string;
   qc_status: string;
+  qc_display_status?: "pass" | "warn" | "fail" | "pending" | "unavailable" | "unknown" | string;
+  qc_display_note?: string | null;
+  run_source?: "manual" | "intake";
+  source_batch_id?: string | null;
   sample_count: number;
   created_at?: string | null;
   submitted_at?: string | null;
@@ -545,6 +555,27 @@ export type DashboardRunTrackerRow = {
   note?: string | null;
   qc_highlights?: QcHighlight[];
 };
+
+export type WorkflowCatalogItem = {
+  pipeline: "pgta" | "nipt_docker";
+  name: string;
+  dag_id: string;
+  runtime_profile_id: string;
+  runtime: string;
+  stages: WorkflowStageSummary[];
+  latest_run?: {
+    analysis_id: string;
+    project_name: string;
+    status: string;
+    current_stage?: string | null;
+    submitted_at?: string | null;
+    finished_at?: string | null;
+  } | null;
+  run_count: number;
+  success_rate?: number | null;
+};
+
+export type WorkflowCatalogResponse = {items: WorkflowCatalogItem[]};
 
 export type DashboardRunsResponse = {
   items: DashboardRunTrackerRow[];
@@ -759,6 +790,7 @@ export function getIntakeStatus(options: {
   pipeline?: "pgta" | "nipt_docker";
   state?: IntakeDiscoveryState;
   lifecycle?: IntakeLifecycle;
+  view?: IntakeView;
   keyword?: string;
   limit?: number;
   offset?: number;
@@ -769,8 +801,13 @@ export function getIntakeStatus(options: {
   if (options.pipeline) params.set("pipeline", options.pipeline);
   if (options.state) params.set("state", options.state);
   if (options.lifecycle) params.set("lifecycle", options.lifecycle);
+  if (options.view) params.set("view", options.view);
   if (options.keyword) params.set("keyword", options.keyword);
   return requestJson<IntakeStatusResponse>(`/intake/status?${params.toString()}`);
+}
+
+export function getWorkflowCatalog(): Promise<WorkflowCatalogResponse> {
+  return requestJson<WorkflowCatalogResponse>("/workflows");
 }
 
 export function getIntakeConfig(): Promise<IntakeConfigResponse> {
