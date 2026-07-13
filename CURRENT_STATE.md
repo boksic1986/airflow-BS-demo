@@ -6,12 +6,12 @@
 
 ```text
 current_goal_ascii: T117 Submit semantics, workflow visualization, and PGT-A manifest recovery are deployed.
-t117_runtime: backend/frontend run from /home/jiucheng/project/airflow-demo-t117. Submit labels submission provenance as Submitted by, defaults manual submissions to jiucheng, offers airflow only as a system audit tag, describes both deployed assays as low-pass WGS, and Batch Runs renders bulk workflow phase summaries without per-run requests.
+t117_runtime: backend/frontend run from /home/jiucheng/project/airflow-demo-t117. Submit labels submission provenance as Submitted by, defaults manual submissions to jiucheng, accepts arbitrary IDs with jiucheng/airflow suggestions, remembers the last ID in browser storage, describes both deployed assays as low-pass WGS, and Batch Runs renders bulk workflow phase summaries without per-run requests.
 t117_workflow_ui: Run Detail separates selected Airflow tasks from skipped alternate branches. Browser checks at 1280 and 390 CSS pixels showed no document overflow; mobile Batch Runs collapses the phase rail to current stage and completed/total count.
 t117_operator: PGTA_20260711_062522_4C4FC2 and PGTA_20260711_071416_C8C7BA were changed from codex-validation to jiucheng through an exact-snapshot CLI; each correction has a metadata_correction RunAction. NIPT codex-t113 remains unchanged.
 t117_intake: project-20260712 malformed space-delimited rows were corrected to TSV after backup. Three controlled scans produced exactly one run, PGTA_20260712_171630_AE8239, with 4 samples and operator jiucheng; Airflow/backend are running in fastp_bwa Mapping. Acceptance intentionally did not wait for terminal completion.
 t117_backup: /home/jiucheng/project/airflow-demo-t117/backups/T117-20260713-012000 contains biodemo dump, original/corrected manifest evidence, operator preview/apply output, before/after inventories, and SHA256SUMS.
-t117_validation: backend pytest passed 139; frontend Vitest passed 37; production tsc/vite build passed; DAG unittest passed 90 with 5 expected logger skips; Compose config and HTTP health passed.
+t117_validation: backend pytest passed 139; frontend Vitest passed 38; production tsc/vite build passed; DAG unittest passed 90 with 5 expected logger skips; Compose config and HTTP health passed.
 t116_runtime: backend and Airflow API/scheduler/worker run from /home/jiucheng/project/airflow-demo-t116; frontend remains healthy on 12959. Postgres, Redis, volumes, workdirs, FASTQ, logs, results, and pipeline releases were not recreated or deleted.
 t116_airflow: deployed DAGs are only bio_pgta, bio_nipt_docker, and bio_intake_scan. Airflow retains two complete PGT-A runs and one complete NIPT run; legacy bio_pgta_airflow and bio_wes_qsub metadata were deleted and their source files are excluded by .airflowignore.
 t116_intake: discovery was reduced from 25 rows to the submitted PGTA_20260711_071416_C8C7BA manifest row. Scheduled intake defaults to pgta only; manual NIPT server scan/submit remains available. bio_intake_scan was restored unpaused and subsequent successful cycles continue to leave discovery at one row without recreating NIPT/bootstrap rows.
@@ -107,7 +107,7 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 
 ```text
 last_backend_tests: remote Dockerized full T117 pytest passed 139 tests, including manifest correction recovery, workflow summaries, operator audit correction, and all T116 regressions.
-last_frontend_tests: remote Dockerized T117 Vitest passed 37 tests; production `tsc -b && vite build` passed.
+last_frontend_tests: remote Dockerized T117 Vitest passed 38 tests; production `tsc -b && vite build` passed.
 last_dag_import_tests: remote repo-mounted Airflow T117 unittest discovery passed 90 tests with 5 expected logger-interface skips; deployed DAG behavior is unchanged.
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
 last_compose_config: passed on fengxian for T117; backend/frontend were rebuilt and recreated without restarting Airflow/Postgres/Redis or deleting volumes; frontend returned HTTP 200 and backend health returned ok.

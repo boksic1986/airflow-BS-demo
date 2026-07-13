@@ -369,6 +369,7 @@ describe("bioinformatics platform frontend", () => {
   });
 
   beforeEach(() => {
+    window.localStorage.clear();
     setRoute("/");
     createdPgtaStatus = "created";
     createdPgtaDagRunId = null;
@@ -1612,9 +1613,13 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByRole("radio", {name: /wgs/i})).not.toBeInTheDocument();
     expect(screen.queryByText(/sample sheet text/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", {name: /^Operator$/i})).not.toBeInTheDocument();
-    expect(screen.getByRole("combobox", {name: /^Submitted by$/i})).toHaveValue("jiucheng");
-    expect(screen.getByRole("option", {name: /airflow \(system\)/i})).toBeInTheDocument();
-    expect(screen.getByText(/submission audit label only/i)).toBeInTheDocument();
+    const submittedByField = screen.getByRole("combobox", {name: /^Submitted by$/i});
+    expect(submittedByField.tagName).toBe("INPUT");
+    expect(submittedByField).toHaveAttribute("list", "submitted-by-options");
+    expect(submittedByField).toHaveValue("jiucheng");
+    expect(document.querySelector('datalist option[value="jiucheng"]')).toBeInTheDocument();
+    expect(document.querySelector('datalist option[value="airflow"]')).toBeInTheDocument();
+    expect(screen.queryByText(/submission audit label only/i)).not.toBeInTheDocument();
     expect(screen.getByDisplayValue(/Low-pass WGS.*PGT-A copy-number screening/i)).toBeInTheDocument();
     expect(screen.queryByText(/Panel \/ capture kit/i)).not.toBeInTheDocument();
     await user.clear(screen.getByLabelText(/rawdata root/i));
@@ -1671,6 +1676,21 @@ describe("bioinformatics platform frontend", () => {
     expect(String(createCall?.[1]?.body)).toContain('"snakemake_config_yaml"');
     expect(String(createCall?.[1]?.body)).toContain('"target":"predict"');
     expect(String(createCall?.[1]?.body)).toContain('"submitted_by":"jiucheng"');
+  });
+
+  it("remembers a custom Submitted by ID for the next Submit Run visit", async () => {
+    const user = userEvent.setup();
+    setRoute("/submit");
+    const firstRender = render(<App />);
+
+    const submittedBy = await screen.findByRole("combobox", {name: /^Submitted by$/i});
+    await user.clear(submittedBy);
+    await user.type(submittedBy, "lab-operator-07");
+    expect(window.localStorage.getItem("airflow-demo.submitted-by")).toBe("lab-operator-07");
+
+    firstRender.unmount();
+    render(<App />);
+    expect(await screen.findByRole("combobox", {name: /^Submitted by$/i})).toHaveValue("lab-operator-07");
   });
 
   it("renders run detail QC as a compact searchable matrix with pagination", async () => {

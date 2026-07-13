@@ -18,12 +18,30 @@ const defaultPgtaRawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04
 const defaultNiptRawdataRoot = "/opt/pipelines/NIPT/fastq";
 const handoffSyncAttempts = 6;
 const handoffSyncDelayMs = 2500;
+const submittedByStorageKey = "airflow-demo.submitted-by";
 const fallbackTemplate = deployedWorkflowTemplates.find((pipeline) => pipeline.id === "pgta") || deployedWorkflowTemplates[0]!;
+
+function loadSubmittedBy() {
+  try {
+    return window.localStorage.getItem(submittedByStorageKey)?.trim() || "jiucheng";
+  } catch {
+    return "jiucheng";
+  }
+}
+
+function rememberSubmittedBy(value: string) {
+  try {
+    if (value.trim()) window.localStorage.setItem(submittedByStorageKey, value);
+    else window.localStorage.removeItem(submittedByStorageKey);
+  } catch {
+    // Browser storage can be unavailable in restricted sessions; submission still works.
+  }
+}
 
 export function SubmitPage() {
   const [selectedPipeline, setSelectedPipeline] = useState<"pgta" | "nipt_docker">("pgta");
   const [projectName, setProjectName] = useState("Bioinformatics demo run");
-  const [submittedBy, setSubmittedBy] = useState("jiucheng");
+  const [submittedBy, setSubmittedBy] = useState(loadSubmittedBy);
   const [reference] = useState("hg19");
   const [priority, setPriority] = useState("normal");
   const [runMode, setRunMode] = useState("production-run");
@@ -335,12 +353,22 @@ export function SubmitPage() {
             </label>
             <label className="field">
               <span>Submitted by</span>
-              <select aria-label="Submitted by" value={submittedBy} onChange={(event) => setSubmittedBy(event.target.value)}>
-                <option value="jiucheng">jiucheng</option>
-                <option value="airflow">airflow (system)</option>
-                <option value="">Not specified</option>
-              </select>
-              <small>Submission audit label only; it does not select an Airflow Operator, executor, account, or permission.</small>
+              <input
+                aria-label="Submitted by"
+                autoComplete="off"
+                list="submitted-by-options"
+                maxLength={128}
+                placeholder="jiucheng"
+                value={submittedBy}
+                onChange={(event) => {
+                  setSubmittedBy(event.target.value);
+                  rememberSubmittedBy(event.target.value);
+                }}
+              />
+              <datalist id="submitted-by-options">
+                <option value="jiucheng" />
+                <option value="airflow" />
+              </datalist>
             </label>
           </div>
           <SnakemakeConfigEditor

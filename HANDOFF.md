@@ -5,10 +5,10 @@
 - Branch/worktree: `codex/platform/T117-submit-workflow-intake-fix` in the
   isolated T096 worktree, based on T116 commit `a5bf5d5`.
 - Submit: the optional audit field is named `Submitted by` to avoid confusion
-  with Airflow task Operators. Manual submission defaults to `jiucheng`;
-  `airflow (system)` and null remain available. It does not select an Airflow
-  executor, user, or permission. Target-capture wording was replaced with
-  pipeline-specific low-pass WGS.
+  with Airflow task Operators. It is a free-text ID that defaults to
+  `jiucheng`, suggests `jiucheng` and `airflow`, and remembers the last
+  non-empty value in browser localStorage. Target-capture wording was replaced
+  with pipeline-specific low-pass WGS.
 - Runs: `/api/runs` returns one-query workflow summaries. Batch Runs renders a
   compact phase rail instead of QC metric lists; Run Detail moves skipped
   Airflow branches to `Alternate paths / Not selected branch`.
@@ -21,7 +21,7 @@
   `PGTA_20260712_171630_AE8239`; a third scan kept total=1. The run is active
   in `pgta_predict.run_pgta_mapping / fastp_bwa`; terminal completion was not
   required by the approved scope.
-- Verification: backend 139, frontend 37, and DAG/runner 90 tests passed with
+- Verification: backend 139, frontend 38, and DAG/runner 90 tests passed with
   5 expected logger skips. Production build, Compose, HTTP health, and browser
   checks at 1280/390 passed without document overflow.
 - Backup: `/home/jiucheng/project/airflow-demo-t117/backups/T117-20260713-012000`.
