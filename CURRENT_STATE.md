@@ -5,7 +5,13 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T117 Submit semantics, workflow visualization, and PGT-A manifest recovery are deployed.
+current_goal_ascii: T118 PGT-A manifest hardening and five-sample automatic intake are deployed.
+t118_intake_fix: blank and whitespace-only manifest lines are ignored; malformed non-empty rows still fail with a line number. Later parse errors cannot downgrade submitted Discovery, and restoring the valid manifest clears the warning.
+t118_legacy_repair: t112-pgta-s9-full-h4-h5-20260711 was backed up and restored from false error to submitted for successful run PGTA_20260711_071416_C8C7BA; the next scan preserved the repair.
+t118_five_sample: project-20260713-five-samples.samples.tsv and READY contain H1, H2, H6, H8, and H9 from one 2026-06-08 batch. Two scans created only PGTA_20260713_034634_939AFF; a third stayed idempotent. The run is active in Mapping/fastp_bwa and was not awaited to completion.
+t118_log_audit: 212 ten-minute scanner runs occupied about 2.5 MB across 211 worker task-log files; Airflow DB was 13 MB and Docker json-file logging had no rotation. Follow up with 50 MB x 3 rotation and 30-day scanner-only retention.
+t118_backup: /home/jiucheng/project/airflow-demo-t117/backups/T118-20260713-intake-repair contains the biodemo dump, Discovery snapshots, new manifest/READY, and SHA256 evidence.
+t118_validation: remote backend pytest passed 141; dry-run resolved 5 samples, 10 FASTQ, and 17.47 GB; backend/frontend HTTP passed; scanner remains unpaused.
 t117_runtime: backend/frontend run from /home/jiucheng/project/airflow-demo-t117. Submit labels submission provenance as Submitted by, defaults manual submissions to jiucheng, accepts arbitrary IDs with jiucheng/airflow suggestions, remembers the last ID in browser storage, describes both deployed assays as low-pass WGS, and Batch Runs renders bulk workflow phase summaries without per-run requests.
 t117_workflow_ui: Run Detail separates selected Airflow tasks from skipped alternate branches. Browser checks at 1280 and 390 CSS pixels showed no document overflow; mobile Batch Runs collapses the phase rail to current stage and completed/total count.
 t117_operator: PGTA_20260711_062522_4C4FC2 and PGTA_20260711_071416_C8C7BA were changed from codex-validation to jiucheng through an exact-snapshot CLI; each correction has a metadata_correction RunAction. NIPT codex-t113 remains unchanged.
@@ -66,8 +72,8 @@ node_version: <unknown>
 ```text
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 main_branch: main
-active_branch: codex/platform/T117-submit-workflow-intake-fix in isolated local worktree; T116 baseline is `a5bf5d5`
-last_verified_code_commit: T117 branch is based on `a5bf5d5`; final implementation will be recorded by this branch head
+active_branch: codex/intake/T118-manifest-hardening-log-retention in isolated local worktree; T117 baseline is `c69623a`
+last_verified_code_commit: T118 branch is based on `c69623a`; final implementation will be recorded by this branch head
 worktree_strategy: single-worktree for now; fengxian is code mirror only
 fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 overlay is deployed there and `origin/main` on the mirror has been fetched to `0857e3d`, but the mirror worktree itself remains on its existing dirty deployment branch
 ```
@@ -77,9 +83,9 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 ov
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
 | frontend | 12959 | running, healthy from T117 | Submit semantics and Batch Runs workflow rails are deployed; live responsive checks passed |
-| backend | 8000 | running, healthy from T117 | workflow summaries, recoverable pre-run manifest errors, and CLI-only operator correction are deployed; migration `20260711_0004` remains current |
-| airflow web/api | 12958 | running, healthy | the three T116 DAGs remain deployed; scanner is unpaused and PGT-A-only; PGTA_20260712_171630_AE8239 is running Mapping |
-| postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; T117 backup verified; biodemo contains 4 runs and 79 samples including the active four-sample PGT-A request |
+| backend | 8000 | running, healthy from T118 | hardened manifest parsing and submitted-discovery protection are deployed; migration `20260711_0004` remains current |
+| airflow web/api | 12958 | running, healthy | the three T116 DAGs remain deployed; scanner is unpaused and PGT-A-only; PGTA_20260713_034634_939AFF is running Mapping |
+| postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; T118 repair backup verified; biodemo contains 5 runs and 84 samples including the active five-sample PGT-A request |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
 | mailhog | 8025 | stopped in T051 smoke | HTTP GET probe passed in earlier smoke; not started for T051 |
 
@@ -106,7 +112,7 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 ## 7. 最近测试结果
 
 ```text
-last_backend_tests: remote Dockerized full T117 pytest passed 139 tests, including manifest correction recovery, workflow summaries, operator audit correction, and all T116 regressions.
+last_backend_tests: remote Dockerized full T118 pytest passed 141 tests, including blank-line tolerance, submitted Discovery protection, stale-state recovery, and all prior regressions.
 last_frontend_tests: remote Dockerized T117 Vitest passed 38 tests; production `tsc -b && vite build` passed.
 last_dag_import_tests: remote repo-mounted Airflow T117 unittest discovery passed 90 tests with 5 expected logger-interface skips; deployed DAG behavior is unchanged.
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files

@@ -246,6 +246,15 @@ def _record_scan_error(*, session: Session, error: IntakeScanFailure) -> dict[st
         )
         session.add(row)
     else:
+        if row.submit_state == "submitted" and row.analysis_id:
+            row.last_error = error.message
+            row.last_seen_at = now
+            session.commit()
+            return _row_payload(
+                row,
+                auto_submit_enabled=False,
+                reason="submitted_manifest_validation_warning",
+            )
         row.fingerprint = error.fingerprint
         row.ready_state = "error"
         row.submit_state = "error"
@@ -317,6 +326,24 @@ def _record_snapshot(
         return _row_payload(row, auto_submit_enabled=auto_submit_enabled, reason="bootstrap_protected" if bootstrap else "new_batch_observed")
 
     if row.fingerprint != snapshot.fingerprint:
+        recovered = _find_manifest_run(session=session, snapshot=snapshot)
+        if recovered is not None and row.analysis_id == recovered.analysis_id and recovered.dag_run_id:
+            row.fingerprint = snapshot.fingerprint
+            row.file_count = snapshot.file_count
+            row.total_bytes = snapshot.total_bytes
+            row.max_mtime = snapshot.max_mtime
+            row.ready_state = "ready"
+            row.submit_state = "submitted"
+            row.source_manifest_path = snapshot.source_manifest_path
+            row.stable_observation_count = max(int(row.stable_observation_count or 0), 1)
+            row.last_error = None
+            row.last_seen_at = now
+            session.commit()
+            return _row_payload(
+                row,
+                auto_submit_enabled=auto_submit_enabled,
+                reason="submitted_manifest_recovered",
+            )
         if (
             snapshot.source_manifest_path
             and row.ready_state == "error"
@@ -374,6 +401,7 @@ def _record_snapshot(
     row.max_mtime = snapshot.max_mtime
     row.last_seen_at = now
     row.stable_observation_count = int(row.stable_observation_count or 0) + 1
+    row.last_error = None
     if row.submit_state in {"submitted", "bootstrap"} or bootstrap:
         session.commit()
         reason = "already_submitted" if row.submit_state == "submitted" else "bootstrap_protected"

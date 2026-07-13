@@ -548,6 +548,84 @@ def test_pgta_submitted_manifest_becomes_error_if_request_fingerprint_changes(tm
     assert len(fake_airflow.trigger_calls) == 1
 
 
+def test_pgta_submitted_discovery_is_not_downgraded_by_later_manifest_parse_error(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    data_root = tmp_path / "rawdata"
+    inbox_root = data_root / "pgta_crontab"
+    inbox_root.mkdir(parents=True)
+    request_id = "submitted-request"
+    write_pgta_manifest_request(data_root=data_root, inbox_root=inbox_root, request_id=request_id)
+    manifest = inbox_root / f"{request_id}.samples.tsv"
+    original_manifest = manifest.read_text(encoding="utf-8")
+    config_path = write_pgta_manifest_config(
+        tmp_path,
+        data_root=data_root,
+        inbox_root=inbox_root,
+        global_auto_submit=True,
+        pgta_auto_submit=True,
+    )
+    fake_airflow = FakeAirflowClient()
+    settings = SimpleNamespace(
+        intake_config_path=config_path,
+        input_scan_roots=[str(data_root)],
+        pgta_input_scan_roots=[str(data_root)],
+        nipt_input_scan_roots=[],
+        container_shared_root=str(tmp_path / "shared"),
+    )
+    monkeypatch.setattr(main, "get_settings", lambda: settings)
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    monkeypatch.setattr(main, "get_airflow_client", lambda: fake_airflow)
+    monkeypatch.setattr(intake_service, "_auto_pipeline_config", lambda **_: None)
+    client = TestClient(main.app)
+
+    assert client.post("/api/intake/scan-and-submit", json={"pipelines": ["pgta"]}).status_code == 200
+    submitted = client.post("/api/intake/scan-and-submit", json={"pipelines": ["pgta"]})
+    analysis_id = submitted.json()["items"][0]["analysis_id"]
+    manifest.write_text(original_manifest + "not-a-tab-separated-row\n", encoding="utf-8")
+
+    warning = client.post("/api/intake/scan-and-submit", json={"pipelines": ["pgta"]})
+
+    assert warning.status_code == 200
+    item = warning.json()["items"][0]
+    assert item["ready_state"] == "ready"
+    assert item["submit_state"] == "submitted"
+    assert item["analysis_id"] == analysis_id
+    assert item["reason"] == "submitted_manifest_validation_warning"
+    assert "tab-separated columns" in item["last_error"]
+    assert len(fake_airflow.trigger_calls) == 1
+
+    manifest.write_text(original_manifest, encoding="utf-8")
+    recovered = client.post("/api/intake/scan-and-submit", json={"pipelines": ["pgta"]})
+
+    assert recovered.status_code == 200
+    recovered_item = recovered.json()["items"][0]
+    assert recovered_item["submit_state"] == "submitted"
+    assert recovered_item["analysis_id"] == analysis_id
+    assert recovered_item["last_error"] is None
+    assert len(fake_airflow.trigger_calls) == 1
+
+    with session_factory() as session:
+        discovery = session.scalar(select(IntakeDiscovery))
+        assert discovery is not None
+        discovery.fingerprint = "legacy-parser-error-fingerprint"
+        discovery.ready_state = "error"
+        discovery.submit_state = "error"
+        discovery.last_error = "legacy parser rejected a blank line"
+        discovery.stable_observation_count = 0
+        session.commit()
+
+    repaired_legacy_state = client.post("/api/intake/scan-and-submit", json={"pipelines": ["pgta"]})
+
+    assert repaired_legacy_state.status_code == 200
+    repaired_item = repaired_legacy_state.json()["items"][0]
+    assert repaired_item["ready_state"] == "ready"
+    assert repaired_item["submit_state"] == "submitted"
+    assert repaired_item["analysis_id"] == analysis_id
+    assert repaired_item["last_error"] is None
+    assert repaired_item["reason"] == "submitted_manifest_recovered"
+    assert len(fake_airflow.trigger_calls) == 1
+
+
 def test_pgta_manifest_validation_error_can_recover_before_a_run_exists(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     data_root = tmp_path / "rawdata"

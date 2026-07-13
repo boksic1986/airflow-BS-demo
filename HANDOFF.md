@@ -1,5 +1,32 @@
 # HANDOFF.md
 
+## 2026-07-13 T118 manifest hardening and five-sample auto intake
+
+- Branch/worktree: `codex/intake/T118-manifest-hardening-log-retention` in the
+  isolated T096 worktree, based on T117 commit `c69623a`.
+- Parser ignores empty/whitespace-only rows but still rejects malformed
+  non-empty rows. Later parse errors preserve submitted state and analysis ID;
+  restoring the valid request clears the warning.
+- Scanner was paused, biodemo backed up, and the legacy T112 false-error
+  Discovery was repaired by exact batch/run/status conditions. The next scan
+  preserved submitted state; scanner was restored unpaused.
+- `project-20260713-five-samples.samples.tsv` contains H1, H2, H6, H8, and H9
+  from one 2026-06-08 source batch. Dry-run resolved 5 samples, 10 FASTQ, and
+  17.47 GB before manifest and READY were atomically published.
+- Two stable scans created/submitted only `PGTA_20260713_034634_939AFF`; a
+  third scan stayed idempotent. The run is active in Mapping/fastp_bwa and was
+  intentionally not awaited to completion.
+- Targeted 17 and full backend 141 tests passed remotely. Backend, scanner,
+  and frontend HTTP are healthy.
+- 212 scanner runs produced 211 worker task logs totaling about 2.5 MB;
+  Airflow DB is 13 MB. At 10-minute cadence this is 52,560 runs/year. Follow
+  up with 50 MB x 3 Docker rotation and 30-day scanner-only log/metadata
+  retention.
+- Backup: `/home/jiucheng/project/airflow-demo-t117/backups/T118-20260713-intake-repair`.
+- Rollback: pause scanner and redeploy T117 backend. Restore biodemo only in a
+  maintenance window with no newer writes. Never delete FASTQ, workdirs,
+  results, or Docker volumes.
+
 ## 2026-07-13 T117 Submit semantics, workflow graph, and PGT-A intake recovery
 
 - Branch/worktree: `codex/platform/T117-submit-workflow-intake-fix` in the

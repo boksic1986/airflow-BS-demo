@@ -111,3 +111,18 @@ def test_manifest_reports_line_number_when_spaces_replace_tsv_delimiters(tmp_pat
     assert len(result.errors) == 1
     assert "line 3" in result.errors[0].message
     assert "4 tab-separated columns" in result.errors[0].message
+
+
+def test_manifest_ignores_trailing_blank_and_whitespace_only_lines(tmp_path) -> None:
+    data_root = tmp_path / "rawdata"
+    inbox = data_root / "pgta_crontab"
+    write_pair(data_root / "2026-06-08", "PGTA-DEMO-01")
+    manifest = write_request(inbox)
+    manifest.write_bytes(manifest.read_bytes() + b"\r\n \t \r\n")
+    (inbox / "request-001.READY").write_text("", encoding="utf-8")
+
+    result = scan_pgta_manifest_request_results(inbox_root=inbox, data_root=data_root)
+
+    assert result.errors == []
+    assert [request.request_id for request in result.requests] == ["request-001"]
+    assert [sample.sample_id for sample in result.requests[0].samples] == ["PGTA-DEMO-01"]

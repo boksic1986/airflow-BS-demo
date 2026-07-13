@@ -1,5 +1,31 @@
 # 11 部署 Runbook
 
+## T118 PGT-A manifest publication and scanner retention
+
+Write the manifest first and create READY last:
+
+```bash
+inbox=/data/project/CNV/PGT-A/rawdata/lib_test/pgta_crontab
+request_id=project-YYYYMMDD
+tmp="$inbox/$request_id.samples.tsv.partial"
+printf 'project_id\tsource_batch\tsample_id\toperator\n' > "$tmp"
+printf 'PROJECT-ID\t2026-06-08/BATCH-DIR\tSAMPLE-ID\tjiucheng\n' >> "$tmp"
+mv "$tmp" "$inbox/$request_id.samples.tsv"
+touch "$inbox/$request_id.READY.partial"
+mv "$inbox/$request_id.READY.partial" "$inbox/$request_id.READY"
+```
+
+- `source_batch` is relative to the configured PGT-A rawdata root.
+- Every non-empty line has four real Tab-separated columns.
+- Two unchanged scans are required; never publish READY before the manifest.
+- Never modify a submitted manifest. Use a new request ID.
+
+T118 measured 212 ten-minute scanner runs, 211 worker task-log files totaling
+about 2.5 MB, and a 13 MB Airflow database. The cadence creates 144 runs/day
+and 52,560 runs/year. A separate maintenance rollout should rotate Docker
+`json-file` logs at 50 MB x 3 and retain scanner-only task logs and DAG-run
+metadata for 30 days. Do not apply broad deletion to PGT-A/NIPT analysis DAGs.
+
 ## T117 operator correction and manifest recovery
 
 1. Record and pause `bio_intake_scan`; back up biodemo, the request

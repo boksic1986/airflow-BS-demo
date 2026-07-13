@@ -1,5 +1,16 @@
 # 05 API Contract
 
+## T118 PGT-A manifest hardening
+
+- PGT-A `*.samples.tsv` parsing ignores empty and whitespace-only lines while
+  continuing to reject non-empty rows that do not contain exactly four
+  tab-separated columns.
+- A validation error discovered after a request has already been submitted
+  does not downgrade its Discovery state or detach its analysis ID. The error
+  remains a warning until the original valid manifest is restored.
+- A stale submitted Discovery may recover only when its valid fingerprint
+  matches an existing submitted run; recovery never creates another run.
+
 ## T117 run workflow summaries and operator semantics
 
 `GET /api/runs` keeps all existing fields and adds `workflow_summary` to each

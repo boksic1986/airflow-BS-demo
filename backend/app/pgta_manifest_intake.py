@@ -86,6 +86,8 @@ def _parse_request(*, manifest: Path, request_id: str, data_root: Path) -> PgtaM
             )
         rows = []
         for line_number, values in enumerate(reader, start=2):
+            if not values or all(not str(value or "").strip() for value in values):
+                continue
             if len(values) != len(required):
                 raise ManifestIntakeError(
                     f"Manifest {manifest.name} line {line_number} must contain "
