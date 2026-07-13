@@ -1780,6 +1780,18 @@ textarea {
   font-size: 12px;
 }
 
+.current-stage-cell .intake-error-reason {
+  display: -webkit-box;
+  max-width: 320px;
+  overflow: hidden;
+  color: #a33b43;
+  font-weight: 650;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .runtime-cell {
   display: grid;
   gap: 3px;

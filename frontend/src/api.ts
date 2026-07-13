@@ -379,6 +379,7 @@ export type IntakeDiscovery = {
   archived_at?: string | null;
   archive_reason?: string | null;
   archive_path?: string | null;
+  last_error?: string | null;
   project_name?: string | null;
   analysis_status?: string | null;
   display_status?: string | null;

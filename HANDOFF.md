@@ -1,5 +1,76 @@
 # HANDOFF.md
 
+## 2026-07-13 T122 NIPT Intake completed-run visibility
+
+- Follow-up was implemented in the existing uncommitted
+  `codex/frontend/T121-intake-error-visibility` worktree so the deployed T121
+  Intake diagnostics remain intact.
+- Live diagnosis showed no backend/Airflow mismatch. NIPT run
+  `NIPT_20260713_135001_98E375` and its Discovery row are both success with
+  72 samples, QC pass, 100% progress, and Completed. The row is archived with
+  `workflow_success`, so the old Dashboard `lifecycle=active` query hid it.
+- The Dashboard also refreshed only overview/run data after Airflow sync. A
+  browser left open during execution retained the earlier submitted Discovery
+  payload even after the run reached success.
+- Dashboard and Settings now default to `lifecycle=all`. Active-run polling,
+  manual Sync, and Submit refresh Intake together with overview/run data
+  without a spinner. The Intake heading now states that active and completed
+  operations are shown.
+- Status semantics are explicit: `submit_state=submitted` is the immutable
+  handoff audit state; linked rows render `display_status=success`, 100%, and
+  Completed from the business run projection.
+- TDD evidence: the new tests first failed because Dashboard made one active-
+  only Intake request and Settings selected Active. After the fix, remote
+  frontend Vitest passed 40 and production `tsc -b && vite build` passed.
+- Deployment rebuilt/recreated frontend only from
+  `/home/jiucheng/project/airflow-demo-t121`. Frontend returned HTTP 200 and
+  the deployed bundle contains `Active and completed intake operations`.
+  Backend, Airflow, scanner, database, FASTQ, workdirs, and pipelines were not
+  restarted or modified.
+- Rollback: redeploy the pre-T122 frontend image. No data rollback is required.
+
+## 2026-07-13 T121 PGT-A Intake error visibility
+
+- Branch/worktree: `codex/frontend/T121-intake-error-visibility` in the isolated
+  T096 worktree, based on T120 commit `3d2c469`.
+- Root cause: `project-20260713` never created a run. Its manifest used missing
+  `source_batch=2026-06-08/batch01` and unresolved sample IDs `H1/H2`, so Intake
+  failed before Airflow/Snakemake. Backend already persisted the reason, but
+  the shared frontend table rendered only `Stable check 0`.
+- Backend now returns `current_stage=Intake validation failed` for unlinked
+  error Discovery rows. Dashboard and Platform Settings show that stage and a
+  two-line `last_error` excerpt; the full message remains in the title.
+- Corrected the remote non-trigger template to use batch
+  `2026-06-08/HZSW-20260602-L-01-2026-06-062220` and samples
+  `JZ26117424-H1-H1/JZ26117425-H2-H2`. The original was copied to
+  `/home/jiucheng/project/airflow-intack-configs/pgta/backups/T121-20260713`.
+  A read-only parser probe resolved two unique R1/R2 pairs with zero errors.
+- Safety: the template remains `project-20260713.samples.par.tsv` with
+  `project-20260713.par.READY`. No scanner-recognized `.samples.tsv`/`.READY`
+  pair was published, no run was created, and scanner stayed unpaused.
+- TDD evidence: the backend regression first failed with `Stable check 0`; two
+  frontend regressions first failed because `Intake validation failed` was not
+  rendered. After implementation, backend full pytest passed 181, frontend
+  Vitest passed 40, production `tsc -b && vite build` passed, and Compose config
+  passed remotely.
+- Deployment: backend/frontend were rebuilt and recreated from
+  `/home/jiucheng/project/airflow-demo-t121`. Frontend returned HTTP 200,
+  backend health returned ok, and the live error row returns both the explicit
+  stage and `source_batch is not a readable directory: 2026-06-08/batch01`.
+- Failure record 1: `docker build --target test` was attempted for backend, but
+  its Dockerfile has no test target. The isolated full backend image was built
+  and pytest was run directly instead.
+- Failure record 2: the first inline Python parser probe was broken by
+  PowerShell/SSH quote escaping and returned a syntax error. It made no API or
+  DB call. A temporary read-only validation script then passed and was removed.
+- Failure record 3: one multi-file scp used a temporary `PLACEHOLDER` directory
+  and flattened the frontend component path. The intended files were copied to
+  exact destinations and only the accidental T121 files/directories were
+  removed before testing or deployment.
+- Rollback: redeploy T120 backend/frontend images. Restore only the backed-up
+  `.par.tsv` if the corrected draft is unwanted. Do not change Discovery, runs,
+  FASTQ, workdirs, results, volumes, or scanner pause state.
+
 ## 2026-07-13 T120 NIPT YAML request parsing and explicit intake trigger
 
 - Branch/worktree: `codex/intake/T120-nipt-yaml-request` in the isolated T096

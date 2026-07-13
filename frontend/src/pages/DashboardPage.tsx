@@ -87,14 +87,14 @@ export function DashboardPage() {
     }
   }, [pipeline, trackerFilter, trackerKeyword, trackerOffset]);
 
-  const loadIntake = useCallback(async () => {
-    setIntakeLoading(true);
+  const loadIntake = useCallback(async (showSpinner = true) => {
+    if (showSpinner) setIntakeLoading(true);
     setIntakeError(null);
     try {
       const payload = await getIntakeStatus({
         pipeline: pipeline === "all" ? undefined : pipeline,
         keyword: trackerKeyword.trim() || undefined,
-        lifecycle: "active",
+        lifecycle: "all",
         limit: intakeLimit,
         offset: intakeOffset,
       });
@@ -103,7 +103,7 @@ export function DashboardPage() {
     } catch (loadError) {
       setIntakeError(errorMessage(loadError));
     } finally {
-      setIntakeLoading(false);
+      if (showSpinner) setIntakeLoading(false);
     }
   }, [intakeOffset, pipeline, trackerKeyword]);
 
@@ -136,7 +136,7 @@ export function DashboardPage() {
     let disposed = false;
     async function syncActiveRuns() {
       await Promise.all(ids.map((analysisId) => syncAirflow(analysisId).catch(() => null)));
-      if (!disposed) await Promise.all([loadOverview(false), loadTracker(false)]);
+      if (!disposed) await Promise.all([loadOverview(false), loadTracker(false), loadIntake(false)]);
     }
     void syncActiveRuns();
     const timer = window.setInterval(() => { void syncActiveRuns(); }, 15000);
@@ -144,7 +144,7 @@ export function DashboardPage() {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [activeRunKey, loadOverview, loadTracker]);
+  }, [activeRunKey, loadIntake, loadOverview, loadTracker]);
 
   function handlePipelineChange(nextPipeline: DashboardPipeline) {
     setPipeline(nextPipeline);
@@ -171,7 +171,7 @@ export function DashboardPage() {
     try {
       const submitted = await submitRun(analysisId);
       setActionMessage(`Submitted ${analysisId} to Airflow${submitted.dag_run_id ? ` as ${submitted.dag_run_id}` : ""}.`);
-      await Promise.all([loadOverview(false), loadTracker(false)]);
+      await Promise.all([loadOverview(false), loadTracker(false), loadIntake(false)]);
     } catch (submitError) {
       setTrackerError(errorMessage(submitError));
     }
@@ -183,7 +183,7 @@ export function DashboardPage() {
     try {
       await syncAirflow(analysisId);
       setActionMessage(`Synced ${analysisId} from Airflow.`);
-      await Promise.all([loadOverview(false), loadTracker(false)]);
+      await Promise.all([loadOverview(false), loadTracker(false), loadIntake(false)]);
     } catch (syncError) {
       setTrackerError(errorMessage(syncError));
     }

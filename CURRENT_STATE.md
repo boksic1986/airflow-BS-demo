@@ -5,7 +5,18 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T120 completed NIPT YAML request parsing and explicit intake trigger deployment.
+current_goal_ascii: T122 completed NIPT Intake completed-run visibility and Airflow-sync refresh.
+t122_root_cause: NIPT run and Discovery data were already synchronized as success, but successful Discovery rows were archived and hidden by Dashboard lifecycle=active; the Dashboard Intake query also did not refresh after active-run sync, leaving stale submitted rows in an open browser session.
+t122_frontend: Dashboard and Platform Settings default to lifecycle=all. Active polling, manual Sync, and Submit refresh Intake with no loading flash. Linked rows use display_status/analysis_status, so submit_state=submitted does not mask workflow success.
+t122_live_nipt: NIPT_20260713_135001_98E375 is success, QC pass, 72 samples, progress 100, current stage Completed, and archived with workflow_success. The four NIPT Discovery records are visible through lifecycle=all.
+t122_runtime: frontend only was rebuilt/recreated from /home/jiucheng/project/airflow-demo-t121; backend, Airflow services, scanner, DB, FASTQ, workdirs, and pipeline containers were unchanged.
+t122_validation: remote frontend Vitest passed 40; production tsc/vite build and Compose config passed; frontend returned HTTP 200 and deployed bundle contains the completed-intake label.
+t121_root_cause: project-20260713 failed before run creation because source_batch 2026-06-08/batch01 did not exist and H1/H2 were not resolvable FASTQ sample IDs. This was an Intake manifest error, not a Snakemake config or Airflow DAG failure.
+t121_ui: Dashboard and Platform Settings now show Intake validation failed plus the concrete backend last_error in their shared Discovery table.
+t121_template: project-20260713.samples.par.tsv now uses source batch 2026-06-08/HZSW-20260602-L-01-2026-06-062220 and samples JZ26117424-H1-H1/JZ26117425-H2-H2. Read-only parsing resolved two unique R1/R2 pairs with no errors.
+t121_safety: the files retain non-trigger .par.tsv/.par.READY names; no project-20260713.samples.tsv or project-20260713.READY was published, so no PGT-A run was started. The original template is backed up under /home/jiucheng/project/airflow-intack-configs/pgta/backups/T121-20260713.
+t121_runtime: backend/frontend are deployed from /home/jiucheng/project/airflow-demo-t121; health is green, scanner remains unpaused, and the live error row exposes current_stage and last_error.
+t121_validation: remote backend pytest passed 181; frontend Vitest passed 40; production tsc/vite build and Compose config passed; frontend returned HTTP 200.
 t120_scope: operators edit path-free YAML under /home/jiucheng/project/airflow-intack-configs/nipt and atomically publish final *.nipt.yaml files to /home/jiucheng/project/airflow-intake-requests/nipt.
 t120_parser: request_id/project_id/batch_id, all-or-list samples, approved runtime profile, full_run, cores, and explicit submit are validated; batch_id resolves uniquely below approved read-only NIPT FASTQ roots.
 t120_gates: two stable scans, submit=true, defaults.auto_submit=true, request_submit_enabled=true, approved profile, and NIPT heavy-run policy are all required. Ordinary NIPT directory auto_submit.enabled remains false.
@@ -95,8 +106,8 @@ fengxian_mirror: /home/jiucheng/project/airflow-demo cloned from GitHub; T108 ov
 
 | Service | Expected port | Status | Notes |
 |---|---:|---|---|
-| frontend | 12959 | running, healthy from T119 | terminal relative age, shared operations search, aligned active/archive Intake tables, and responsive checks are deployed |
-| backend | 8000 | running, healthy from T119 | Intake lifecycle/archive and authoritative terminal Airflow reconciliation are deployed; migration `20260713_0005` is current |
+| frontend | 12959 | running, healthy from T122 | Intake defaults to active + completed records, refreshes after Airflow sync, and exposes validation reasons |
+| backend | 8000 | running, healthy from T121 | Intake error stage semantics, lifecycle/archive, and authoritative terminal Airflow reconciliation are deployed; migration `20260713_0005` is current |
 | airflow web/api | 12958 | running, healthy | deployed DAGs remain `bio_pgta`, `bio_nipt_docker`, and `bio_intake_scan`; scanner is unpaused and its latest scheduled run succeeded |
 | postgres | internal 5432 | running, healthy | image `postgres:15-alpine`; T119 backup verified; biodemo contains 8 successful runs, 129 samples, 6 archived Intake rows, and 0 active Intake rows |
 | redis | internal 6379 | running, healthy | image `redis:7-alpine`; no host port published |
@@ -125,11 +136,11 @@ core_tables: pipeline, analysis_run, sample, snakemake_rule_event, qc_metric, ar
 ## 7. 最近测试结果
 
 ```text
-last_backend_tests: remote Dockerized full T119 pytest passed 168 tests, including Intake archive/idempotency and stale JSONL versus authoritative Airflow terminal-state reconciliation.
-last_frontend_tests: remote Dockerized T119 Vitest passed 40 tests; production `tsc -b && vite build` passed.
+last_backend_tests: remote Dockerized full T121 pytest passed 181 tests, including explicit Intake validation stage semantics.
+last_frontend_tests: remote Dockerized T122 Vitest passed 40 tests; production `tsc -b && vite build` passed.
 last_dag_import_tests: remote repo-mounted T119 Intake DAG unittest passed 3 tests using `/home/airflow/.local/bin/python`; deployed scanner and analysis DAGs are healthy.
 last_snakemake_dryrun: passed on fengxian; `dryrun_cnv` run `PGTA_20260703_170917_20E8F2` ended Airflow/backend `success`, stdout log size 12677 bytes and recorded 7 dry-run jobs, stderr only had config-extension notice, artifacts returned stdout/stderr/config files
-last_compose_config: passed on fengxian for T119; backend/frontend/Airflow services were rebuilt/recreated without deleting Postgres/Redis volumes, FASTQ, workdirs, logs, or results.
+last_compose_config: passed on fengxian for T122; frontend only was rebuilt/recreated without changing backend, Airflow services, Postgres/Redis volumes, FASTQ, workdirs, logs, or results.
 last_browser_responsive: T119 live Dashboard and Settings passed at 1280/390; document `scrollWidth <= clientWidth`, terminal age rendered from real data, and Archived Intake displayed all 6 records with only its table scrolling internally.
 last_minimal_smoke: passed on fengxian for postgres redis backend frontend airflow-api-server airflow-scheduler airflow-worker, then docker compose down
 last_airflow_health: passed on fengxian at http://127.0.0.1:12958/health with healthy metadatabase and scheduler

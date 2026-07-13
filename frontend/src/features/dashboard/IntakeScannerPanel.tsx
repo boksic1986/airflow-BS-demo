@@ -19,7 +19,7 @@ export function IntakeScannerPanel({items, total, limit, offset, loading, error,
       <div className="section-heading split">
         <div>
           <h2>Intake scanner</h2>
-          <p title="Observed and bootstrap states are discovery records, not queued analysis runs.">Configured root discovery</p>
+          <p title="Observed and bootstrap states are discovery records, not queued analysis runs.">Active and completed intake operations</p>
         </div>
         <StatusBadge status={items.some((item) => item.submit_state === "submitted") ? "success" : "skipped"} />
       </div>

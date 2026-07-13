@@ -41,6 +41,7 @@ export function IntakeDiscoveryTable({
             <tbody>
               {items.map((item) => {
                 const display = intakeDisplay(item);
+                const hasIntakeError = item.ready_state === "error" || item.submit_state === "error";
                 return (
                   <tr key={`${item.pipeline}-${item.root_path}-${item.batch_id}`}>
                     <td className="discovery-batch-cell">
@@ -64,8 +65,14 @@ export function IntakeDiscoveryTable({
                     </td>
                     <td>
                       <div className="current-stage-cell">
-                        <strong>{item.current_stage || discoveryStage(item)}</strong>
-                        <span>{item.analysis_id ? "Pipeline state" : `${item.file_count} files / ${formatBytes(item.total_bytes)}`}</span>
+                        <strong>{hasIntakeError ? "Intake validation failed" : item.current_stage || discoveryStage(item)}</strong>
+                        {hasIntakeError ? (
+                          <span className="intake-error-reason" title={item.last_error || undefined}>
+                            {item.last_error || "Review the scanner configuration and source files."}
+                          </span>
+                        ) : (
+                          <span>{item.analysis_id ? "Pipeline state" : `${item.file_count} files / ${formatBytes(item.total_bytes)}`}</span>
+                        )}
                       </div>
                     </td>
                     <td>

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -9,6 +10,12 @@ from sqlalchemy.pool import StaticPool
 
 from app import intake_service, main
 from app.models import AnalysisRun, Base, IntakeDiscovery
+
+
+@pytest.fixture(autouse=True)
+def isolate_internal_service_auth(monkeypatch) -> None:
+    """Keep ordinary intake tests independent from the deploy-time service token."""
+    monkeypatch.setattr(main, "get_internal_service_token", lambda: "")
 
 
 def make_test_sessionmaker():
@@ -881,6 +888,7 @@ def test_pgta_manifest_error_is_previewed_read_only_then_persisted_without_stopp
     recorded = client.post("/api/intake/scan-and-submit", json={"pipelines": ["pgta"]})
     assert recorded.status_code == 200, recorded.text
     assert recorded.json()["items"][0]["submit_state"] == "error"
+    assert recorded.json()["items"][0]["current_stage"] == "Intake validation failed"
     assert "duplicate sample_id" in recorded.json()["items"][0]["last_error"]
     with session_factory() as session:
         rows = session.scalars(select(IntakeDiscovery)).all()

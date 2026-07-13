@@ -1,5 +1,35 @@
 # 05 API Contract
 
+## T122 Intake lifecycle status projection
+
+`submit_state` records Intake handoff state and intentionally remains
+`submitted` after a linked workflow completes. Clients must use the joined run
+projection for operator-facing state:
+
+- `analysis_status`: the linked business run status
+- `display_status`: the status shown in Dashboard/Settings
+- `progress_percent` and `current_stage`: the persisted workflow progress
+- `archived_at`: the time a successful Intake record left the active queue
+
+For example, a completed NIPT request may correctly return
+`submit_state=submitted`, `analysis_status=success`,
+`display_status=success`, and `current_stage=Completed`.
+
+## T121 Intake validation diagnostics
+
+`GET /api/intake/status` keeps the existing response shape and makes pre-run
+validation failures operator-readable. A Discovery row with `ready_state=error`
+or `submit_state=error` and no linked run returns:
+
+- `display_status: "error"`
+- `current_stage: "Intake validation failed"`
+- `last_error`: the concrete manifest, path, sample-pair, or scanner validation
+  reason
+
+These fields describe an Intake failure before Airflow handoff. They must not be
+presented as a Snakemake rule failure, and the row has no Run Detail link until
+an `analysis_id` exists.
+
 ## T119 Intake operation lifecycle
 
 `GET /api/intake/status` supports the additive lifecycle query:

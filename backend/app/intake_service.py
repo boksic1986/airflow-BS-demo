@@ -799,7 +799,10 @@ def _row_payload(
         current_stage = run.current_stage or "Airflow handoff"
     else:
         display_status = row.submit_state if row.submit_state != "not_submitted" else row.ready_state
-        current_stage = f"Stable check {int(row.stable_observation_count or 0)}"
+        if row.ready_state == "error" or row.submit_state == "error":
+            current_stage = "Intake validation failed"
+        else:
+            current_stage = f"Stable check {int(row.stable_observation_count or 0)}"
     payload = {
         "pipeline": row.pipeline_name,
         "root_path": row.root_path,

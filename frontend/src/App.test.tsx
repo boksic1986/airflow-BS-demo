@@ -45,6 +45,12 @@ function intakeDiscoveries(): IntakeDiscovery[] {
       ready_state: "ready",
       analysis_id: niptRunId,
       submit_state: "submitted",
+      analysis_status: "success",
+      display_status: "success",
+      progress_percent: 100,
+      current_stage: "Completed",
+      submitted_at: "2026-07-08T10:05:00+08:00",
+      pipeline_finished_at: "2026-07-08T10:30:00+08:00",
       last_seen_at: "2026-07-08T10:05:00+08:00",
     },
     ...Array.from({length: 11}, (_, index): IntakeDiscovery => ({
@@ -54,9 +60,10 @@ function intakeDiscoveries(): IntakeDiscovery[] {
       fingerprint: `discovery-fingerprint-${index + 1}`,
       file_count: (index + 1) * 2,
       total_bytes: (index + 1) * 1024,
-      ready_state: "observed",
+      ready_state: index === 0 ? "error" : "observed",
       analysis_id: null,
-      submit_state: "not_submitted",
+      submit_state: index === 0 ? "error" : "not_submitted",
+      last_error: index === 0 ? "source_batch is not a readable directory: 2026-06-08/batch01" : null,
       last_seen_at: `2026-07-08T09:${String(59 - index).padStart(2, "0")}:00+08:00`,
     })),
   ];
@@ -1263,7 +1270,18 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByText(/^queued$/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", {name: /Intake scanner/i})).toBeInTheDocument();
     expect(screen.getByRole("table", {name: /Intake discovery records/i})).toHaveClass("intake-discovery-table");
+    await waitFor(() => {
+      const intakeCalls = vi.mocked(globalThis.fetch).mock.calls.filter(([input]) => String(input).includes("/api/intake/status"));
+      expect(intakeCalls.length).toBeGreaterThan(1);
+      expect(intakeCalls.every(([input]) => String(input).includes("lifecycle=all"))).toBe(true);
+    });
     const intakeTable = screen.getByRole("table", {name: /Intake discovery records/i});
+    const completedNiptRow = within(intakeTable).getByRole("link", {name: niptRunId}).closest("tr");
+    expect(completedNiptRow).not.toBeNull();
+    expect(within(completedNiptRow as HTMLElement).getByText(/^success$/i)).toBeInTheDocument();
+    expect(within(completedNiptRow as HTMLElement).getByText(/^Completed$/i)).toBeInTheDocument();
+    expect(within(intakeTable).getByText(/Intake validation failed/i)).toBeInTheDocument();
+    expect(within(intakeTable).getByText(/source_batch is not a readable directory: 2026-06-08\/batch01/i)).toBeInTheDocument();
     expect(within(intakeTable).getByRole("columnheader", {name: /Project \/ Batch/i})).toBeInTheDocument();
     expect(within(intakeTable).getByRole("columnheader", {name: /^Status$/i})).toBeInTheDocument();
     expect(within(intakeTable).getByRole("columnheader", {name: /Current stage/i})).toBeInTheDocument();
@@ -1937,6 +1955,8 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.getByText(/Use Preview configured roots/i)).toBeInTheDocument();
 
     const discoveryTable = screen.getByRole("table", {name: /Discovery records/i});
+    expect(within(discoveryTable).getByText(/Intake validation failed/i)).toBeInTheDocument();
+    expect(within(discoveryTable).getByText(/source_batch is not a readable directory: 2026-06-08\/batch01/i)).toBeInTheDocument();
     expect(discoveryTable).toHaveClass("intake-discovery-table");
     expect(within(discoveryTable).getByRole("columnheader", {name: /Project \/ Batch/i})).toBeInTheDocument();
     expect(within(discoveryTable).getByRole("columnheader", {name: /Pipeline/i})).toBeInTheDocument();
@@ -1953,7 +1973,8 @@ describe("bioinformatics platform frontend", () => {
       "href",
       `/runs/${niptRunId}`,
     );
-    expect(screen.getByLabelText(/Discovery lifecycle/i)).toHaveValue("active");
+    expect(screen.getByLabelText(/Discovery lifecycle/i)).toHaveValue("all");
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("lifecycle=all"), undefined);
     await user.selectOptions(screen.getByLabelText(/Discovery lifecycle/i), "archived");
     await waitFor(() => {
       expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes("lifecycle=archived"))).toBe(true);

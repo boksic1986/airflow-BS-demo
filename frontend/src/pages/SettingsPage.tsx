@@ -35,7 +35,7 @@ export function SettingsPage() {
   const [discoveryTotal, setDiscoveryTotal] = useState(0);
   const [discoveryPipeline, setDiscoveryPipeline] = useState<DiscoveryPipeline>("all");
   const [discoveryState, setDiscoveryState] = useState<DiscoveryStateFilter>("all");
-  const [discoveryLifecycle, setDiscoveryLifecycle] = useState<IntakeLifecycle>("active");
+  const [discoveryLifecycle, setDiscoveryLifecycle] = useState<IntakeLifecycle>("all");
   const [discoveryKeyword, setDiscoveryKeyword] = useState("");
   const [discoveryOffset, setDiscoveryOffset] = useState(0);
   const [preview, setPreview] = useState<IntakeScanPreviewResponse | null>(null);

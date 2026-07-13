@@ -1,5 +1,28 @@
 # 06 前端设计
 
+## T122 Intake completed-run visibility
+
+- Dashboard Intake Scanner requests `lifecycle=all` by default so active and
+  recently completed archived records remain in one operational timeline.
+- Platform Settings also defaults to `All`, while preserving explicit Active
+  and Archived filters.
+- Active-run Airflow polling, manual Sync, and Submit refresh the Intake table
+  together with Dashboard overview and Run Tracker without showing a loading
+  flash.
+- Linked Discovery rows display `display_status`, not the audit-only
+  `submit_state`; completed NIPT runs therefore show `Success`, `100%`, and
+  `Completed` even though their handoff state remains `submitted`.
+
+## T121 Intake error visibility
+
+- Dashboard and Platform Settings continue to share `IntakeDiscoveryTable`.
+- A pre-run Discovery error displays `Error`, `Intake validation failed`, and
+  the backend `last_error` directly in Current stage. The visible reason is
+  limited to two lines; the full message is available through the cell title.
+- Missing error text falls back to a short configuration/source-files prompt.
+- Intake validation errors without `analysis_id` do not link to Run Detail and
+  are not labeled as Airflow or Snakemake failures.
+
 ## T119 Operations age and Intake lifecycle
 
 - Run Tracker terminal stages show `Completed/Failed` plus a relative age.
@@ -12,8 +35,8 @@
   Pipeline, Status, Current stage, Progress, Samples, Started, Finished.
   `Last seen` remains an audit detail in Settings only.
 - Settings adds Active, Archived, and All lifecycle filters. Archived records
-  remain searchable and link to their Run Detail; they are hidden from the
-  default active Dashboard view.
+  remain searchable and link to their Run Detail. T122 changes Dashboard and
+  Settings defaults to All so completed Intake operations remain visible.
 
 ## T117 submission semantics and workflow visualization
 
