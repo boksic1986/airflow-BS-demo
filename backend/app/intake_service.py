@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.input_scanner import FastqCandidate, scan_fastq_candidates, scan_nipt_batch_candidates
 from app.intake_config import load_intake_config
 from app.models import AnalysisRun, IntakeDiscovery, Sample
+from app.nipt_yaml_intake import NiptYamlFailure, scan_nipt_yaml_request_results
 from app.pgta_manifest_intake import PgtaManifestFailure, scan_pgta_manifest_request_results
 from app.pipeline_config_service import get_pipeline_config_template, validate_pipeline_config
 from app.run_service import create_nipt_docker_run, create_pgta_run, submit_run_to_airflow
@@ -33,6 +34,10 @@ class BatchSnapshot:
     project_name: str | None = None
     submitted_by: str | None = None
     source_manifest_path: str | None = None
+    runtime_profile_id: str | None = None
+    run_mode: str | None = None
+    cores: int | None = None
+    submit_requested: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -219,8 +224,44 @@ def _scan_pipeline(
             _manifest_scan_failure(error=error, inbox_root=inbox_root)
             for error in scan_result.errors
         ]
-    roots = _scheduled_roots(settings, pipeline)
     snapshots: list[BatchSnapshot] = []
+    errors: list[IntakeScanFailure] = []
+    requested_source_dirs: set[str] = set()
+    if pipeline == "nipt_docker":
+        request_inbox = str(intake.get("request_inbox") or "").strip()
+        if request_inbox:
+            request_result = scan_nipt_yaml_request_results(
+                inbox_root=request_inbox,
+                allowed_roots=_roots_for_pipeline(settings, pipeline),
+                max_samples=max_samples,
+                request_glob=str(intake.get("request_glob") or "*.nipt.yaml"),
+            )
+            for request in request_result.requests:
+                requested_source_dirs.add(str(Path(request.source_dir).resolve()))
+                snapshots.append(
+                    BatchSnapshot(
+                        pipeline="nipt_docker",
+                        root_path=str(Path(request_inbox).resolve()),
+                        batch_id=request.request_id,
+                        source_dir=request.source_dir,
+                        items=request.samples,
+                        fingerprint=request.fingerprint,
+                        file_count=len(request.samples) * 2,
+                        total_bytes=sum(item.r1_size + item.r2_size for item in request.samples),
+                        max_mtime=_max_mtime(request.samples),
+                        run_rawdata_root=request.rawdata_root,
+                        project_name=request.project_id,
+                        submitted_by=request.submitted_by,
+                        source_manifest_path=request.manifest_path,
+                        runtime_profile_id=request.runtime_profile_id,
+                        run_mode=request.run_mode,
+                        cores=request.cores,
+                        submit_requested=request.submit,
+                    )
+                )
+            errors.extend(_nipt_request_scan_failure(error=error, inbox_root=request_inbox) for error in request_result.errors)
+
+    roots = _scheduled_roots(settings, pipeline)
     for root in roots:
         if pipeline == "nipt_docker":
             archived_dirs = {
@@ -236,17 +277,28 @@ def _scan_pipeline(
                 rawdata_root=root,
                 allowed_roots=roots,
                 max_samples=max_samples,
-                excluded_source_dirs=archived_dirs,
+                excluded_source_dirs=archived_dirs | requested_source_dirs,
             )
         else:
             result = scan_fastq_candidates(rawdata_root=root, allowed_roots=roots, max_samples=max_samples)
         snapshots.extend(_group_scan_result(pipeline=pipeline, root_path=result.rawdata_root, items=result.items))
-    return snapshots, []
+    return snapshots, errors
 
 
 def _manifest_scan_failure(*, error: PgtaManifestFailure, inbox_root: str) -> IntakeScanFailure:
     return IntakeScanFailure(
         pipeline="pgta",
+        root_path=str(Path(inbox_root).resolve()),
+        batch_id=error.request_id,
+        fingerprint=error.fingerprint,
+        source_manifest_path=error.manifest_path,
+        message=error.message,
+    )
+
+
+def _nipt_request_scan_failure(*, error: NiptYamlFailure, inbox_root: str) -> IntakeScanFailure:
+    return IntakeScanFailure(
+        pipeline="nipt_docker",
         root_path=str(Path(inbox_root).resolve()),
         batch_id=error.request_id,
         fingerprint=error.fingerprint,
@@ -332,7 +384,7 @@ def _record_snapshot(
     snapshot: BatchSnapshot,
     bootstrap: bool,
 ) -> dict[str, object]:
-    auto_submit_enabled = _auto_submit_enabled(settings, snapshot.pipeline)
+    auto_submit_enabled = _snapshot_auto_submit_enabled(settings, snapshot)
     row = session.scalar(
         select(IntakeDiscovery).where(
             IntakeDiscovery.pipeline_name == snapshot.pipeline,
@@ -466,7 +518,11 @@ def _record_snapshot(
     row.ready_state = "ready"
     if not auto_submit_enabled:
         session.commit()
-        return _row_payload(row, auto_submit_enabled=auto_submit_enabled, reason="auto_submit_disabled")
+        return _row_payload(
+            row,
+            auto_submit_enabled=auto_submit_enabled,
+            reason=_snapshot_submit_block_reason(settings, snapshot),
+        )
 
     analysis_id = str(row.analysis_id or "") if row.submit_state == "created" else ""
     if not analysis_id and snapshot.source_manifest_path:
@@ -480,16 +536,25 @@ def _record_snapshot(
                 return _row_payload(row, auto_submit_enabled=auto_submit_enabled, reason="already_submitted")
     if not analysis_id:
         if snapshot.pipeline == "nipt_docker":
-            run_mode = _auto_submit_param(settings, snapshot.pipeline, "run_mode") or "mount_smoke"
+            run_mode = snapshot.run_mode or _auto_submit_param(settings, snapshot.pipeline, "run_mode") or "mount_smoke"
             created = create_nipt_docker_run(
                 session=session,
                 settings=settings,
-                project_name=f"NIPT auto {snapshot.batch_id}",
-                rawdata_root=snapshot.root_path,
+                project_name=snapshot.project_name or f"NIPT auto {snapshot.batch_id}",
+                rawdata_root=snapshot.run_rawdata_root or snapshot.root_path,
                 selected_samples=snapshot.items,
+                submitted_by=snapshot.submitted_by,
                 run_mode=str(run_mode),
-                cores=None,
-                note="auto intake stable scan",
+                cores=snapshot.cores,
+                note="NIPT YAML intake stable scan" if snapshot.source_manifest_path else "auto intake stable scan",
+                pipeline_config=_pipeline_config_for_snapshot(
+                    settings=settings,
+                    pipeline="nipt_docker",
+                    snapshot=snapshot,
+                ),
+                intake_request_id=snapshot.batch_id if snapshot.source_manifest_path else None,
+                intake_fingerprint=snapshot.fingerprint if snapshot.source_manifest_path else None,
+                source_manifest_path=snapshot.source_manifest_path,
             )
         else:
             target = _auto_submit_param(settings, snapshot.pipeline, "target") or "metadata"
@@ -528,7 +593,7 @@ def _preview_snapshot(*, session: Session, settings, snapshot: BatchSnapshot, bo
             IntakeDiscovery.batch_id == snapshot.batch_id,
         )
     )
-    auto_submit_enabled = _auto_submit_enabled(settings, snapshot.pipeline)
+    auto_submit_enabled = _snapshot_auto_submit_enabled(settings, snapshot)
     existing_ready_state = row.ready_state if row else None
     existing_submit_state = row.submit_state if row else None
     existing_analysis_id = row.analysis_id if row else None
@@ -558,7 +623,7 @@ def _preview_snapshot(*, session: Session, settings, snapshot: BatchSnapshot, bo
             would_submit = True
             reason = "auto_submit_enabled"
         else:
-            reason = "auto_submit_disabled"
+            reason = _snapshot_submit_block_reason(settings, snapshot)
 
     return {
         "pipeline": snapshot.pipeline,
@@ -668,6 +733,26 @@ def _auto_submit_enabled(settings, pipeline: str) -> bool:
     return _load_config(settings).auto_submit_enabled(pipeline)
 
 
+def _snapshot_auto_submit_enabled(settings, snapshot: BatchSnapshot) -> bool:
+    if snapshot.pipeline != "nipt_docker" or not snapshot.source_manifest_path:
+        return _auto_submit_enabled(settings, snapshot.pipeline)
+    config = _load_config(settings)
+    pipeline = config.pipelines.get("nipt_docker")
+    request_submit_enabled = bool((pipeline.intake if pipeline else {}).get("request_submit_enabled", False))
+    return bool(config.defaults.auto_submit and request_submit_enabled and snapshot.submit_requested is True)
+
+
+def _snapshot_submit_block_reason(settings, snapshot: BatchSnapshot) -> str:
+    if snapshot.pipeline == "nipt_docker" and snapshot.source_manifest_path:
+        if snapshot.submit_requested is not True:
+            return "request_submit_not_requested"
+        config = _load_config(settings)
+        pipeline = config.pipelines.get("nipt_docker")
+        if not bool((pipeline.intake if pipeline else {}).get("request_submit_enabled", False)):
+            return "request_submit_disabled"
+    return "auto_submit_disabled"
+
+
 def _auto_submit_param(settings, pipeline: str, key: str) -> object | None:
     config = _load_config(settings)
     item = config.pipelines.get(pipeline)
@@ -684,7 +769,11 @@ def _preview_summary(items: list[dict[str, object]]) -> dict[str, int]:
         "bootstrap_protected": sum(1 for item in items if item["reason"] == "bootstrap_protected"),
         "would_create": sum(1 for item in items if item["would_create_run"]),
         "would_submit": sum(1 for item in items if item["would_submit"]),
-        "blocked_auto_submit": sum(1 for item in items if item["reason"] == "auto_submit_disabled"),
+        "blocked_auto_submit": sum(
+            1
+            for item in items
+            if item["reason"] in {"auto_submit_disabled", "request_submit_disabled", "request_submit_not_requested"}
+        ),
         "errors": sum(1 for item in items if item["reason"] == "manifest_validation_error"),
     }
 
@@ -783,6 +872,8 @@ def _archive_discovery(*, session: Session, row: IntakeDiscovery, run: AnalysisR
     try:
         if row.pipeline_name == "pgta" and row.source_manifest_path:
             archive_path = _archive_pgta_request(row, now=now)
+        elif row.pipeline_name == "nipt_docker" and row.source_manifest_path:
+            archive_path = _archive_nipt_request(row, now=now)
         elif row.pipeline_name == "nipt_docker":
             archive_path = str((Path(row.root_path) / row.batch_id).resolve())
     except (OSError, ValueError) as exc:
@@ -829,6 +920,30 @@ def _archive_pgta_request(row: IntakeDiscovery, *, now: datetime) -> str:
     return str(final_dir)
 
 
+def _archive_nipt_request(row: IntakeDiscovery, *, now: datetime) -> str:
+    request = Path(str(row.source_manifest_path)).resolve()
+    month_dir = request.parent / ".archive" / f"{now:%Y}" / f"{now:%m}"
+    final_dir = month_dir / row.batch_id
+    if final_dir.is_dir() and (final_dir / request.name).is_file():
+        return str(final_dir)
+    if not request.is_file():
+        raise ValueError(f"Cannot archive NIPT intake request {row.batch_id}: request YAML is missing.")
+    month_dir.mkdir(parents=True, exist_ok=True)
+    temp_dir = month_dir / f".{row.batch_id}.partial-{secrets.token_hex(4)}"
+    temp_dir.mkdir()
+    moved = temp_dir / request.name
+    try:
+        os.replace(request, moved)
+        os.replace(temp_dir, final_dir)
+    except Exception:
+        if moved.exists():
+            os.replace(moved, request)
+        if temp_dir.exists():
+            temp_dir.rmdir()
+        raise
+    return str(final_dir)
+
+
 def _project_name(run: AnalysisRun) -> str:
     return str((run.params_json or {}).get("project_name") or run.analysis_id)
 
@@ -860,11 +975,26 @@ def _auto_pipeline_config(*, settings, pipeline: str, snapshot: BatchSnapshot):
     )
 
 
+def _pipeline_config_for_snapshot(*, settings, pipeline: str, snapshot: BatchSnapshot):
+    profile_id = snapshot.runtime_profile_id or str(_auto_submit_param(settings, pipeline, "runtime_profile_id") or "").strip() or None
+    if profile_id is None:
+        return None
+    template = get_pipeline_config_template(settings=settings, pipeline=pipeline, profile_id=profile_id)
+    return validate_pipeline_config(
+        settings=settings,
+        pipeline=pipeline,
+        profile_id=str(template["profile"]["id"]),
+        template_hash=str(template["config_template_hash"]),
+        config_yaml=str(template["editable_yaml"]),
+        cores=snapshot.cores,
+    )
+
+
 def _find_manifest_run(*, session: Session, snapshot: BatchSnapshot) -> AnalysisRun | None:
     matches = session.scalars(
         select(AnalysisRun)
         .where(
-            AnalysisRun.pipeline_name == "pgta",
+            AnalysisRun.pipeline_name == snapshot.pipeline,
             AnalysisRun.params_json["intake_request_id"].as_string() == snapshot.batch_id,
             AnalysisRun.params_json["intake_fingerprint"].as_string() == snapshot.fingerprint,
         )
@@ -872,6 +1002,6 @@ def _find_manifest_run(*, session: Session, snapshot: BatchSnapshot) -> Analysis
     ).all()
     if len(matches) > 1:
         raise ValueError(
-            f"Multiple PGT-A runs already exist for intake request {snapshot.batch_id}; manual review is required."
+            f"Multiple {snapshot.pipeline} runs already exist for intake request {snapshot.batch_id}; manual review is required."
         )
     return matches[0] if matches else None

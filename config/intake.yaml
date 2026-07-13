@@ -34,6 +34,9 @@ pipelines:
     intake:
       discovery_roots:
         - /opt/pipelines/NIPT/fastq/intake/BS_DEMO_20260713
+      request_inbox: /data/airflow-intake-requests/nipt
+      request_glob: "*.nipt.yaml"
+      request_submit_enabled: true
       stable_scans: 2
     auto_submit:
       enabled: false

@@ -9,10 +9,10 @@ Scheduled NIPT discovery is restricted to:
 ```
 
 Three synthetic, checksum-verified batches contain 10, 15, and 20 paired
-samples. Discovery records them after two stable scans, but
-`auto_submit.enabled=false` remains authoritative. Operators submit full runs
-in 10 -> 15 -> 20 order with profile `niptpro-s9-full-v1`; a failure stops the
-sequence. Source FASTQ remains read-only and is never moved on archive.
+samples. Directory Discovery records them after two stable scans, but
+`auto_submit.enabled=false` remains authoritative for that mode. T119 runs were
+submitted manually; T120 adds a separate explicit YAML request gate. Source
+FASTQ remains read-only and is never moved on archive.
 
 Successful NIPT discovery records are archived logically by retaining their
 batch path/fingerprint and excluding that path from future scheduled scans.
@@ -57,8 +57,9 @@ setting for variable small batches under the current 60 GiB limit.
   operator estimate 25-35 minutes and memory ceiling 60 GiB.
 - Inputs: selected top-level paired `*.clean.fastq.gz` files mounted read-only.
 - Outputs: run-local workdir only; no source FASTQ or production bundle writes.
-- Automatic NIPT intake: disabled. Full analysis is manually scanned,
-  reviewed, confirmed, and submitted.
+- Directory-discovery auto-submit remains disabled. T120 additionally supports
+  an explicit, operator-published YAML request that can submit a reviewed full
+  analysis after two stable scans and dedicated request-policy checks.
 
 The 72-sample engineering acceptance run completed 591 Snakemake jobs in about
 24.8 minutes with observed peak memory 44.61 GiB. Key summaries, mapping QC,
@@ -109,7 +110,7 @@ Out of scope:
 - WGS.
 - Mail notification.
 - Nested `002/*.adapter.fastq.gz` input.
-- NIPT automatic intake or unsupervised full-batch submission.
+- Unsupervised submission from FASTQ directory discovery.
 
 Historical `template_id=run1|run2` runs remain readable and runnable for
 compatibility tests, but the Submit Task UI and new API examples no longer
@@ -260,6 +261,32 @@ T104 scanner configuration:
 - New NIPT intake uses `file_flavor=clean_fastq`, `r1_pattern=*.R1.clean.fastq.gz`,
   `r2_pattern=*.R2.clean.fastq.gz`, and ignores `002/*.adapter.fastq.gz`.
 - The default ready rule is `stable_fingerprint` with `stable_scans=2`.
+
+### NIPT YAML request trigger
+
+Operators edit requests outside the scanner at:
+
+```text
+/home/jiucheng/project/airflow-intack-configs/nipt/
+```
+
+Publish the final request atomically to:
+
+```text
+/home/jiucheng/project/airflow-intake-requests/nipt/
+```
+
+The file name is `<request_id>.nipt.yaml`. It identifies an approved
+`batch_id`, not an absolute FASTQ path. The backend resolves the batch below
+the configured NIPT roots, validates clean R1/R2 pairs, optionally selects a
+sample subset, and uses the existing `bio_nipt_docker` DAG with
+`niptpro-s9-full-v1`.
+
+The request must explicitly set `submit: true`, while
+`intake.request_submit_enabled` and the global gate must also be true. Ordinary
+NIPT directory Discovery remains non-submitting because
+`auto_submit.enabled=false`. Successful request files are archived; input FASTQ
+and the NIPT bundle remain read-only.
 
 ## 6. QC, Logs, And Artifacts
 

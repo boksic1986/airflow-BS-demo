@@ -106,6 +106,68 @@ pipelines:
     return str(config_path)
 
 
+def write_nipt_request_intake_config(
+    tmp_path,
+    *,
+    nipt_root,
+    request_inbox,
+    request_submit_enabled: bool,
+) -> str:
+    config_path = tmp_path / "nipt-request-intake.yaml"
+    nipt_root_text = str(nipt_root.resolve()).replace("\\", "/")
+    inbox_text = str(request_inbox.resolve()).replace("\\", "/")
+    config_path.write_text(
+        f"""
+version: 1
+defaults:
+  ready_rule: stable_fingerprint
+  stable_scans: 2
+  auto_submit: true
+pipelines:
+  nipt_docker:
+    enabled: true
+    roots:
+      - id: nipt_fastq
+        container_path: {nipt_root_text}
+    intake:
+      request_inbox: {inbox_text}
+      request_glob: "*.nipt.yaml"
+      request_submit_enabled: {str(request_submit_enabled).lower()}
+      stable_scans: 2
+    auto_submit:
+      enabled: false
+      run_mode: full_run
+""",
+        encoding="utf-8",
+    )
+    return str(config_path)
+
+
+def write_nipt_yaml_request(
+    request_inbox,
+    *,
+    request_id: str = "nipt-request-001",
+    submit: bool = True,
+) -> Path:
+    request_inbox.mkdir(parents=True, exist_ok=True)
+    request_path = request_inbox / f"{request_id}.nipt.yaml"
+    request_path.write_text(
+        f"""version: 1
+request_id: {request_id}
+project_id: NIPT-YAML-intake
+batch_id: batch-001
+samples: all
+submitted_by: jiucheng
+runtime_profile_id: niptpro-s9-full-v1
+run_mode: full_run
+cores: 32
+submit: {str(submit).lower()}
+""",
+        encoding="utf-8",
+    )
+    return request_path
+
+
 def write_pgta_manifest_config(
     tmp_path,
     *,
@@ -1066,3 +1128,206 @@ def test_pgta_manifest_recovers_created_run_after_crash_before_discovery_link(tm
         assert len(runs) == 1
         assert runs[0].params_json["intake_request_id"] == request_id
     assert len(fake_airflow.trigger_calls) == 1
+
+
+def test_nipt_yaml_request_requires_two_stable_scans_then_creates_and_submits(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    nipt_root = tmp_path / "nipt" / "fastq"
+    request_inbox = tmp_path / "requests" / "nipt"
+    write_nipt_clean_pair(nipt_root / "FQ2026" / "batch-001", "NIPT001.A01")
+    request_path = write_nipt_yaml_request(request_inbox)
+    config_path = write_nipt_request_intake_config(
+        tmp_path,
+        nipt_root=nipt_root,
+        request_inbox=request_inbox,
+        request_submit_enabled=True,
+    )
+    settings = SimpleNamespace(
+        intake_config_path=config_path,
+        input_scan_roots=[],
+        pgta_input_scan_roots=[],
+        nipt_input_scan_roots=[str(nipt_root)],
+        container_shared_root=str(tmp_path / "shared"),
+        nipt_allow_heavy_run=True,
+        nipt_docker_cores=40,
+    )
+    fake_airflow = FakeAirflowClient()
+    monkeypatch.setattr(intake_service, "_pipeline_config_for_snapshot", lambda **_: None)
+
+    with session_factory() as session:
+        observed = intake_service.scan_and_submit_intake(
+            session=session,
+            settings=settings,
+            airflow_client=fake_airflow,
+            pipelines=["nipt_docker"],
+        )
+        submitted = intake_service.scan_and_submit_intake(
+            session=session,
+            settings=settings,
+            airflow_client=fake_airflow,
+            pipelines=["nipt_docker"],
+        )
+        runs = session.scalars(select(AnalysisRun)).all()
+        row = session.scalar(select(IntakeDiscovery))
+
+    assert observed["items"][0]["reason"] == "new_batch_observed"
+    assert submitted["items"][0]["reason"] == "auto_submitted"
+    assert len(runs) == 1
+    assert row is not None and row.analysis_id == runs[0].analysis_id
+    assert row.root_path == str(request_inbox.resolve())
+    assert row.batch_id == "nipt-request-001"
+    assert row.source_manifest_path == str(request_path.resolve())
+    assert runs[0].params_json["project_name"] == "NIPT-YAML-intake"
+    assert runs[0].params_json["run_mode"] == "full_run"
+    assert runs[0].params_json["cores"] == 32
+    assert runs[0].params_json["intake_request_id"] == "nipt-request-001"
+    assert runs[0].submitted_by == "jiucheng"
+    assert len(fake_airflow.trigger_calls) == 1
+
+
+def test_nipt_yaml_request_submit_false_never_creates_a_run(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    nipt_root = tmp_path / "nipt" / "fastq"
+    request_inbox = tmp_path / "requests" / "nipt"
+    write_nipt_clean_pair(nipt_root / "batch-001", "NIPT001.A01")
+    write_nipt_yaml_request(request_inbox, submit=False)
+    config_path = write_nipt_request_intake_config(
+        tmp_path,
+        nipt_root=nipt_root,
+        request_inbox=request_inbox,
+        request_submit_enabled=True,
+    )
+    settings = SimpleNamespace(
+        intake_config_path=config_path,
+        input_scan_roots=[],
+        pgta_input_scan_roots=[],
+        nipt_input_scan_roots=[str(nipt_root)],
+        container_shared_root=str(tmp_path / "shared"),
+        nipt_allow_heavy_run=True,
+        nipt_docker_cores=40,
+    )
+    fake_airflow = FakeAirflowClient()
+
+    with session_factory() as session:
+        intake_service.scan_and_submit_intake(
+            session=session,
+            settings=settings,
+            airflow_client=fake_airflow,
+            pipelines=["nipt_docker"],
+        )
+        preview = intake_service.preview_intake_scan(
+            session=session,
+            settings=settings,
+            pipelines=["nipt_docker"],
+        )
+        blocked = intake_service.scan_and_submit_intake(
+            session=session,
+            settings=settings,
+            airflow_client=fake_airflow,
+            pipelines=["nipt_docker"],
+        )
+        runs = session.scalars(select(AnalysisRun)).all()
+
+    assert preview["summary"]["blocked_auto_submit"] == 1
+    assert preview["items"][0]["reason"] == "request_submit_not_requested"
+    assert blocked["items"][0]["reason"] == "request_submit_not_requested"
+    assert blocked["items"][0]["ready_state"] == "ready"
+    assert runs == []
+    assert fake_airflow.trigger_calls == []
+
+
+def test_nipt_yaml_request_server_gate_blocks_submit(tmp_path) -> None:
+    session_factory = make_test_sessionmaker()
+    nipt_root = tmp_path / "nipt" / "fastq"
+    request_inbox = tmp_path / "requests" / "nipt"
+    write_nipt_clean_pair(nipt_root / "batch-001", "NIPT001.A01")
+    write_nipt_yaml_request(request_inbox, submit=True)
+    config_path = write_nipt_request_intake_config(
+        tmp_path,
+        nipt_root=nipt_root,
+        request_inbox=request_inbox,
+        request_submit_enabled=False,
+    )
+    settings = SimpleNamespace(
+        intake_config_path=config_path,
+        input_scan_roots=[],
+        pgta_input_scan_roots=[],
+        nipt_input_scan_roots=[str(nipt_root)],
+        container_shared_root=str(tmp_path / "shared"),
+        nipt_allow_heavy_run=True,
+        nipt_docker_cores=40,
+    )
+    fake_airflow = FakeAirflowClient()
+
+    with session_factory() as session:
+        intake_service.scan_and_submit_intake(
+            session=session,
+            settings=settings,
+            airflow_client=fake_airflow,
+            pipelines=["nipt_docker"],
+        )
+        blocked = intake_service.scan_and_submit_intake(
+            session=session,
+            settings=settings,
+            airflow_client=fake_airflow,
+            pipelines=["nipt_docker"],
+        )
+        runs = session.scalars(select(AnalysisRun)).all()
+
+    assert blocked["items"][0]["reason"] == "request_submit_disabled"
+    assert runs == []
+    assert fake_airflow.trigger_calls == []
+
+
+def test_successful_nipt_yaml_request_archives_only_the_request_file(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    nipt_root = tmp_path / "nipt" / "fastq"
+    batch_dir = nipt_root / "batch-001"
+    request_inbox = tmp_path / "requests" / "nipt"
+    r1, r2 = write_nipt_clean_pair(batch_dir, "NIPT001.A01")
+    request_path = write_nipt_yaml_request(request_inbox)
+    config_path = write_nipt_request_intake_config(
+        tmp_path,
+        nipt_root=nipt_root,
+        request_inbox=request_inbox,
+        request_submit_enabled=True,
+    )
+    settings = SimpleNamespace(
+        intake_config_path=config_path,
+        input_scan_roots=[],
+        pgta_input_scan_roots=[],
+        nipt_input_scan_roots=[str(nipt_root)],
+        container_shared_root=str(tmp_path / "shared"),
+        nipt_allow_heavy_run=True,
+        nipt_docker_cores=40,
+    )
+    monkeypatch.setattr(intake_service, "_pipeline_config_for_snapshot", lambda **_: None)
+
+    with session_factory() as session:
+        intake_service.scan_and_submit_intake(
+            session=session,
+            settings=settings,
+            airflow_client=FakeAirflowClient(),
+            pipelines=["nipt_docker"],
+        )
+        submitted = intake_service.scan_and_submit_intake(
+            session=session,
+            settings=settings,
+            airflow_client=FakeAirflowClient(),
+            pipelines=["nipt_docker"],
+        )
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == submitted["items"][0]["analysis_id"]))
+        assert run is not None
+        run.status = "success"
+        run.pipeline_finished_at = datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc)
+        session.commit()
+        intake_service.archive_linked_intake_for_run(session=session, run=run, settings=settings)
+        session.commit()
+        row = session.scalar(select(IntakeDiscovery))
+
+    assert row is not None and row.archived_at is not None
+    archive_dir = Path(str(row.archive_path))
+    assert archive_dir.name == "nipt-request-001"
+    assert (archive_dir / request_path.name).is_file()
+    assert not request_path.exists()
+    assert Path(r1).is_file() and Path(r2).is_file()

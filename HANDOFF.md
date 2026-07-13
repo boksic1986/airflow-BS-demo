@@ -1,5 +1,73 @@
 # HANDOFF.md
 
+## 2026-07-13 T120 NIPT YAML request parsing and explicit intake trigger
+
+- Branch/worktree: `codex/intake/T120-nipt-yaml-request` in the isolated T096
+  worktree, based on T119 commit `49164e1`. The approved design was committed
+  separately as `caccbbc`.
+- Added a hardened, path-free NIPT YAML contract. Requests identify a
+  `batch_id`; backend resolves exactly one batch below approved NIPT roots,
+  validates complete top-level clean FASTQ pairs, and supports `samples: all`
+  or a unique sample-ID list.
+- Parser rejects files over 64 KiB, unknown/duplicate keys, aliases, anchors,
+  custom tags, path-like identifiers, unsupported modes, invalid core counts,
+  ambiguous batches, incomplete pairs, and file/request ID mismatch. Files
+  ending in `.partial` are ignored.
+- Added dedicated trigger inbox mount
+  `/home/jiucheng/project/airflow-intake-requests/nipt` ->
+  `/data/airflow-intake-requests/nipt`. The operator edit workspace
+  `/home/jiucheng/project/airflow-intack-configs/nipt` is not mounted or
+  scanned.
+- Explicit YAML submission requires two stable scans, `submit: true`, global
+  intake permission, `request_submit_enabled=true`, approved runtime Profile,
+  and the existing NIPT heavy-run gate. Ordinary NIPT directory Discovery keeps
+  `auto_submit.enabled=false` and cannot launch a run.
+- Successful request runs archive only the YAML under
+  `.archive/YYYY/MM/<request_id>`. NIPT FASTQ remains read-only and is never
+  moved or deleted.
+- Remote TDD evidence: missing parser module failed collection as expected;
+  parser tests then passed 8, with a ninth unsafe-key regression added during
+  review. A preview-summary regression test failed with
+  `blocked_auto_submit=0` and passed after request-specific blocked reasons
+  were included. Final full backend pytest passed 181.
+- Deployment: backend was rebuilt/recreated only from
+  `/home/jiucheng/project/airflow-demo-t120`; Compose config, health, sanitized
+  intake config, request mount, and read-only preview passed. A temporary
+  `submit:false` probe resolved all 72 samples in
+  `260422_TPNB500380AR_1070_AH33KYBGY2` without DB writes or Airflow submit.
+  Final counts remain 8 runs, 0 active NIPT Discovery, and 3 archived NIPT
+  Discovery rows. The trigger inbox is empty and scanner was restored unpaused.
+- Final backend image is `sha256:d151ecd1...decea135c`. The actual
+  `project-20260713.nipt.yaml` in the non-scanned edit workspace was parsed
+  read-only and resolves 72 samples with cores 32 and `submit=true`. It was not
+  copied to the trigger inbox because publishing it starts a full NIPT run.
+- Failure record 1: the first authenticated preview command returned HTTP 422
+  because the internal service token header was omitted; no write occurred.
+  The command was rerun with the existing untracked `.env` token and returned
+  an empty, error-free preview.
+- Failure record 2: the first direct parser probe omitted `docker run -i`, so
+  Python received no heredoc and emitted no result; it made no API/DB call. The
+  corrected read-only probe printed 72 resolved samples.
+- Failure record 3: a stdin-delivered final deploy script paused the scanner
+  but did not reach its trap-based restore or image rebuild. A direct state
+  check caught `is_paused=true` immediately. A short non-nested Compose command
+  then built image `sha256:6dbf106d...f169d661`, recreated backend, and restored
+  `bio_intake_scan` to `is_paused=false`; health and run/Discovery counts were
+  rechecked afterward.
+- Failure record 4: a read-only parse of every YAML in the edit workspace found
+  an unrelated legacy `project-tmp.nipt.yaml` whose filename does not match its
+  internal request ID. The parser rejected it as designed. No file was removed;
+  the targeted `project-20260713.nipt.yaml` parse then passed.
+- Failure record 5: a final combined PowerShell/SSH verification command was
+  rejected locally because PowerShell parsed the embedded Python list
+  expression. It executed no remote action. The checks were split into simple
+  commands; health, image, scanner state, empty inbox, manifest, and Git checks
+  then passed.
+- Rollback: pause `bio_intake_scan`, restore the T119 backend image and
+  `config/intake.yaml`, remove only the request-inbox bind mount from Compose,
+  then restore the prior scanner pause state. Preserve Discovery, runs, FASTQ,
+  results, logs, volumes, and pipeline releases.
+
 ## 2026-07-13 T119 operations age, Intake archive, and NIPT small batches
 
 - Branch/worktree: `codex/platform/T119-operations-age-intake-archive-nipt-batches`

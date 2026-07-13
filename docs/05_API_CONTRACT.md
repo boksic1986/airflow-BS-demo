@@ -1100,6 +1100,31 @@ Rules:
   `mount_smoke` unless future production settings explicitly opt into heavy
   full-run mode.
 
+#### NIPT YAML Request Intake
+
+T120 adds an explicit request mode to the same endpoint. The backend scans only
+the configured `nipt_docker.intake.request_inbox` for final `*.nipt.yaml`
+files. A request contains `request_id`, `project_id`, `batch_id`, `samples`,
+`submitted_by`, `runtime_profile_id`, `run_mode`, `cores`, and `submit`.
+
+The request never contains a FASTQ path. `batch_id` is resolved uniquely below
+the approved NIPT roots, and only complete top-level
+`*.R1.clean.fastq.gz`/`*.R2.clean.fastq.gz` pairs are accepted. `samples` is
+either `all` or a unique list of resolved sample IDs.
+
+Run creation and Airflow submission require two stable observations,
+`submit: true`, `defaults.auto_submit=true`, and
+`nipt_docker.intake.request_submit_enabled=true`. The ordinary
+`nipt_docker.auto_submit.enabled=false` directory-discovery gate remains
+unchanged. Therefore a discovered FASTQ folder cannot launch a run without an
+explicit YAML request.
+
+Unknown keys, duplicate YAML keys, aliases, custom tags, unsafe identifiers,
+unsupported profiles/modes, and files over 64 KiB are rejected as structured
+Discovery errors. Files ending in `.partial` are ignored. After workflow
+success, only the request YAML moves to `.archive/YYYY/MM/<request_id>`; FASTQ
+is never moved or deleted.
+
 ## T104 Dashboard, Resource, And Intake Config APIs
 
 ### Dashboard Overview

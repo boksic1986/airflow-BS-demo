@@ -204,6 +204,8 @@ shared/reports/<analysis_id>/snakemake_report.html
 | NIPT_PIPELINE_ROOT | NIPT Docker | /home/jiucheng/pipelines/NIPT | host read-only NIPT bundle root |
 | NIPT_CONTAINER_ROOT | NIPT Docker | /opt/pipelines/NIPT | container mount target for the NIPT bundle |
 | NIPT_INPUT_SCAN_ROOTS | NIPT Docker | /opt/pipelines/NIPT/fastq | comma-separated NIPT FASTQ scan allowlist |
+| NIPT_REQUEST_HOST_ROOT | NIPT intake | /home/jiucheng/project/airflow-intake-requests/nipt | host inbox for atomically published NIPT YAML requests |
+| NIPT_REQUEST_CONTAINER_ROOT | NIPT intake | /data/airflow-intake-requests/nipt | backend read/write mount for request discovery and archive |
 | HOST_SHARED_ROOT | NIPT Docker | /home/jiucheng/project/airflow-demo/shared | host path corresponding to container `/data/airflow-demo` |
 | NIPT_DOCKER_IMAGE | NIPT Docker | 172.17.61.235:2333/niptpro/niptpro:1.0.11 | NIPT main container image |
 | NIPT_FETAL_IMAGE | NIPT Docker | 172.17.61.235:2333/niptpro/pytorch:biosan | fetal ratio helper image used by the NIPT bundle |
@@ -259,6 +261,9 @@ node_modules/
 - Backend exposes sanitized scanner config at `/api/intake/config`.
 - Primary scanner configuration lives in `config/intake.yaml`, mounted read-only into backend as `/app/config/intake.yaml`.
 - `INTAKE_CONFIG_PATH` points backend at the YAML file. `PGTA_INPUT_SCAN_ROOTS`, `INPUT_SCAN_ROOTS`, and `NIPT_INPUT_SCAN_ROOTS` are fallback roots only.
+- The NIPT request edit workspace is not mounted or scanned. Only the dedicated
+  request inbox is mounted read/write into backend; NIPT FASTQ remains mounted
+  read-only.
 - `GET /api/system/resources` returns host `/proc` metrics and Docker stats when available. Missing Docker stats must degrade to `source=host_proc`.
 
 ## 12. T112 Internal Service Boundary

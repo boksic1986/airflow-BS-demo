@@ -5,7 +5,13 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T119 completed operations age, Intake archive, and three manual NIPT S9 batch validations.
+current_goal_ascii: T120 completed NIPT YAML request parsing and explicit intake trigger deployment.
+t120_scope: operators edit path-free YAML under /home/jiucheng/project/airflow-intack-configs/nipt and atomically publish final *.nipt.yaml files to /home/jiucheng/project/airflow-intake-requests/nipt.
+t120_parser: request_id/project_id/batch_id, all-or-list samples, approved runtime profile, full_run, cores, and explicit submit are validated; batch_id resolves uniquely below approved read-only NIPT FASTQ roots.
+t120_gates: two stable scans, submit=true, defaults.auto_submit=true, request_submit_enabled=true, approved profile, and NIPT heavy-run policy are all required. Ordinary NIPT directory auto_submit.enabled remains false.
+t120_runtime: backend is deployed from /home/jiucheng/project/airflow-demo-t120; the request inbox mount is active and empty, bio_intake_scan is unpaused, and no run or Discovery row was created during acceptance.
+t120_template: project-20260713.nipt.yaml in the non-scanned edit workspace resolves 72 samples from 260422_TPNB500380AR_1070_AH33KYBGY2 with cores=32 and submit=true; publishing it would start a full run, so acceptance did not copy it to the trigger inbox.
+t120_validation: remote backend pytest passed 181; Compose config passed; a read-only submit=false probe resolved 72 samples from batch 260422_TPNB500380AR_1070_AH33KYBGY2; API health/config/preview passed.
 t119_scope: Dashboard terminal age updates locally every 60 seconds; Search operations drives Run Tracker and Intake; completed Intake records archive while preserving fingerprints and audit history.
 t119_intake: scheduled discovery covers PGT-A READY manifests and the restricted NIPT BS_DEMO_20260713 root; NIPT auto-submit remains disabled and full runs are manually serialized.
 t119_backup: pre-migration remote backup is /home/jiucheng/project/airflow-demo-backups/T119-20260713T140647 with Airflow/biodemo dumps, inventories, PGT-A inbox archive, and SHA256SUMS.

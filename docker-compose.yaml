@@ -180,6 +180,7 @@ services:
       - ${PGTA_DATA_ROOT:-/data/project/CNV/PGT-A}:${PGTA_CONTAINER_DATA_ROOT:-/data/project/CNV/PGT-A}:ro
       - ${PGTA_INTAKE_HOST_ROOT:-/data/project/CNV/PGT-A/rawdata/lib_test/pgta_crontab}:${PGTA_INTAKE_CONTAINER_ROOT:-/data/project/CNV/PGT-A/rawdata/lib_test/pgta_crontab}:rw
       - ${NIPT_PIPELINE_ROOT:-/home/jiucheng/pipelines/NIPT}/fastq:${NIPT_CONTAINER_ROOT:-/opt/pipelines/NIPT}/fastq:ro
+      - ${NIPT_REQUEST_HOST_ROOT:-/home/jiucheng/project/airflow-intake-requests/nipt}:${NIPT_REQUEST_CONTAINER_ROOT:-/data/airflow-intake-requests/nipt}:rw
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health').read()\""]
       interval: 10s

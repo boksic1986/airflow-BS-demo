@@ -242,6 +242,9 @@ def create_nipt_docker_run(
     email_to: str | None = None,
     note: str | None = None,
     pipeline_config: ValidatedPipelineConfig | None = None,
+    intake_request_id: str | None = None,
+    intake_fingerprint: str | None = None,
+    source_manifest_path: str | None = None,
 ) -> dict:
     if selected_samples:
         return _create_nipt_docker_scan_run(
@@ -256,6 +259,9 @@ def create_nipt_docker_run(
             email_to=email_to,
             note=note,
             pipeline_config=pipeline_config,
+            intake_request_id=intake_request_id,
+            intake_fingerprint=intake_fingerprint,
+            source_manifest_path=source_manifest_path,
         )
     if template_id:
         return _create_nipt_docker_template_run(
@@ -380,6 +386,9 @@ def _create_nipt_docker_scan_run(
     email_to: str | None = None,
     note: str | None = None,
     pipeline_config: ValidatedPipelineConfig | None = None,
+    intake_request_id: str | None = None,
+    intake_fingerprint: str | None = None,
+    source_manifest_path: str | None = None,
 ) -> dict:
     _validate_nipt_run_mode(run_mode=run_mode, settings=settings)
     requested_cores = _normalize_nipt_cores(cores, settings=settings)
@@ -446,6 +455,12 @@ def _create_nipt_docker_scan_run(
         "cores": requested_cores,
         "note": note,
     }
+    if intake_request_id:
+        params["intake_request_id"] = intake_request_id
+    if intake_fingerprint:
+        params["intake_fingerprint"] = intake_fingerprint
+    if source_manifest_path:
+        params["source_manifest_path"] = source_manifest_path
     _attach_pipeline_config(workdir=workdir, params=params, pipeline_config=pipeline_config)
     run = AnalysisRun(
         analysis_id=analysis_id,

@@ -1637,6 +1637,46 @@ Rollback pauses intake, disables PGT-A auto-submit, selects the previous
 release/Profile, and recreates services. Never delete historical runs, the
 original PGT-A source, or Docker volumes.
 
+## 31. T120 NIPT YAML request intake
+
+Create the host directories without placing a final request in the inbox:
+
+```bash
+mkdir -p /home/jiucheng/project/airflow-intake-requests/nipt/.archive
+mkdir -p /home/jiucheng/project/airflow-intack-configs/nipt
+```
+
+Edit a request under the config workspace. Publish it atomically only after
+review:
+
+```bash
+src=/home/jiucheng/project/airflow-intack-configs/nipt/project-20260713.nipt.yaml
+inbox=/home/jiucheng/project/airflow-intake-requests/nipt
+cp "$src" "$inbox/project-20260713.nipt.yaml.partial"
+mv "$inbox/project-20260713.nipt.yaml.partial" "$inbox/project-20260713.nipt.yaml"
+```
+
+The YAML uses `batch_id`; do not write an absolute FASTQ path. `samples` may be
+`all` or a list. `submit: true` is an explicit full-analysis authorization.
+Backend policy and `NIPT_ALLOW_HEAVY_RUN` are checked again before creation.
+
+Safe rollout checks:
+
+```bash
+find /home/jiucheng/project/airflow-intake-requests/nipt -maxdepth 1 -type f -printf '%f\n'
+docker compose -f docker-compose.yaml config --quiet
+docker compose -f docker-compose.yaml build backend
+docker compose -f docker-compose.yaml up -d --no-deps --force-recreate backend
+curl -fsS http://127.0.0.1:8000/api/intake/config
+curl -fsS 'http://127.0.0.1:8000/api/intake/status?pipeline=nipt_docker&lifecycle=all&limit=20'
+```
+
+An empty first command is required during deployment acceptance. Do not publish
+a `submit: true` request merely to smoke-test the parser. Parser and gate tests
+run inside the backend test image. Rollback removes the request-inbox mount and
+restores the prior intake config; it does not delete Discovery rows, runs,
+FASTQ, results, logs, or Docker volumes.
+
 Before enabling or recreating automatic intake, generate a random
 `INTERNAL_SERVICE_TOKEN` in the untracked `.env`. Compose requires it and passes
 the value only to backend and Airflow services. Verify an unauthenticated event
