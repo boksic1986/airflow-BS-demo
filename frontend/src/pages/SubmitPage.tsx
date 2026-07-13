@@ -23,7 +23,7 @@ const fallbackTemplate = deployedWorkflowTemplates.find((pipeline) => pipeline.i
 export function SubmitPage() {
   const [selectedPipeline, setSelectedPipeline] = useState<"pgta" | "nipt_docker">("pgta");
   const [projectName, setProjectName] = useState("Bioinformatics demo run");
-  const [operator, setOperator] = useState("celery");
+  const [submittedBy, setSubmittedBy] = useState("jiucheng");
   const [reference] = useState("hg19");
   const [priority, setPriority] = useState("normal");
   const [runMode, setRunMode] = useState("production-run");
@@ -164,7 +164,7 @@ export function SubmitPage() {
             project_name: batches.length > 1 ? `${projectName} ${batch.folderName}` : projectName,
             rawdata_root: rawdataRoot,
             selected_samples: batch.items,
-            submitted_by: operator.trim() || null,
+            submitted_by: submittedBy.trim() || null,
             run_mode: niptRunMode,
             cores: niptCores,
             ...configPayload,
@@ -181,7 +181,7 @@ export function SubmitPage() {
         target,
         rawdata_root: rawdataRoot,
         selected_samples: selectedScanRows,
-        submitted_by: operator.trim() || null,
+        submitted_by: submittedBy.trim() || null,
         ...configPayload,
         email_to: null,
         note: `reference=${reference}; priority=${priority}; mode=${runMode}`,
@@ -334,13 +334,13 @@ export function SubmitPage() {
               <input value={selectedPipeline === "pgta" ? "predict" : runMode} readOnly={selectedPipeline === "pgta"} onChange={(event) => setRunMode(event.target.value)} />
             </label>
             <label className="field">
-              <span>Operator</span>
-              <select aria-label="Operator" value={operator} onChange={(event) => setOperator(event.target.value)}>
-                <option value="celery">celery (system default)</option>
+              <span>Submitted by</span>
+              <select aria-label="Submitted by" value={submittedBy} onChange={(event) => setSubmittedBy(event.target.value)}>
                 <option value="jiucheng">jiucheng</option>
+                <option value="airflow">airflow (system)</option>
                 <option value="">Not specified</option>
               </select>
-              <small>Audit label only; it is not an Airflow account or permission.</small>
+              <small>Submission audit label only; it does not select an Airflow Operator, executor, account, or permission.</small>
             </label>
           </div>
           <SnakemakeConfigEditor
@@ -447,7 +447,7 @@ export function SubmitPage() {
         <div className="submit-preview-list">
           <PreviewField label="Pipeline" value={<strong className="preview-pill">{compactPipelineName(selectedPipeline)}</strong>} />
           <PreviewField label="Project" value={projectName || "not set"} />
-          <PreviewField label="Operator" value={operator || "not set"} />
+          <PreviewField label="Submitted by" value={submittedBy || "not set"} />
           <PreviewField label="Reference" value={reference} />
           <PreviewField label="Mode" value={selectedPipeline === "pgta" ? "predict" : runMode} />
           <PreviewField label="Selected samples" value={String(selectedScanRows.length)} />

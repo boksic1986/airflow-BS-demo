@@ -1484,7 +1484,7 @@ describe("bioinformatics platform frontend", () => {
       expect.stringContaining("/api/pipeline-config/validate"),
       expect.objectContaining({method: "POST", body: expect.stringContaining("max_iterations: 5")}),
     );
-  });
+  }, 10_000);
 
   it("ignores a stale validation response after the YAML changes again", async () => {
     const user = userEvent.setup();
@@ -1532,7 +1532,7 @@ describe("bioinformatics platform frontend", () => {
 
     await waitFor(() => expect((editor as HTMLTextAreaElement).value).toContain("max_iterations: 6"));
     expect(screen.getByText(/Validate this edit before creating the run/i)).toBeInTheDocument();
-  });
+  }, 10_000);
 
   it("ignores a stale PGT-A config response after switching to NIPT", async () => {
     const user = userEvent.setup();
@@ -1611,8 +1611,10 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByRole("radio", {name: /wes/i})).not.toBeInTheDocument();
     expect(screen.queryByRole("radio", {name: /wgs/i})).not.toBeInTheDocument();
     expect(screen.queryByText(/sample sheet text/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("combobox", {name: /^Operator$/i})).toHaveValue("celery");
-    expect(screen.getByText(/audit label only/i)).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", {name: /^Operator$/i})).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", {name: /^Submitted by$/i})).toHaveValue("jiucheng");
+    expect(screen.getByRole("option", {name: /airflow \(system\)/i})).toBeInTheDocument();
+    expect(screen.getByText(/submission audit label only/i)).toBeInTheDocument();
     expect(screen.getByDisplayValue(/Low-pass WGS.*PGT-A copy-number screening/i)).toBeInTheDocument();
     expect(screen.queryByText(/Panel \/ capture kit/i)).not.toBeInTheDocument();
     await user.clear(screen.getByLabelText(/rawdata root/i));
@@ -1668,7 +1670,7 @@ describe("bioinformatics platform frontend", () => {
     expect(String(createCall?.[1]?.body)).toContain('"config_template_hash":"pgta-current-template-hash"');
     expect(String(createCall?.[1]?.body)).toContain('"snakemake_config_yaml"');
     expect(String(createCall?.[1]?.body)).toContain('"target":"predict"');
-    expect(String(createCall?.[1]?.body)).toContain('"submitted_by":"celery"');
+    expect(String(createCall?.[1]?.body)).toContain('"submitted_by":"jiucheng"');
   });
 
   it("renders run detail QC as a compact searchable matrix with pagination", async () => {

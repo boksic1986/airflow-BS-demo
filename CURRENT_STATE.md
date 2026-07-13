@@ -6,7 +6,7 @@
 
 ```text
 current_goal_ascii: T117 Submit semantics, workflow visualization, and PGT-A manifest recovery are deployed.
-t117_runtime: backend/frontend run from /home/jiucheng/project/airflow-demo-t117. Submit defaults the optional Operator audit label to celery, describes both deployed assays as low-pass WGS, and Batch Runs renders bulk workflow phase summaries without per-run requests.
+t117_runtime: backend/frontend run from /home/jiucheng/project/airflow-demo-t117. Submit labels submission provenance as Submitted by, defaults manual submissions to jiucheng, offers airflow only as a system audit tag, describes both deployed assays as low-pass WGS, and Batch Runs renders bulk workflow phase summaries without per-run requests.
 t117_workflow_ui: Run Detail separates selected Airflow tasks from skipped alternate branches. Browser checks at 1280 and 390 CSS pixels showed no document overflow; mobile Batch Runs collapses the phase rail to current stage and completed/total count.
 t117_operator: PGTA_20260711_062522_4C4FC2 and PGTA_20260711_071416_C8C7BA were changed from codex-validation to jiucheng through an exact-snapshot CLI; each correction has a metadata_correction RunAction. NIPT codex-t113 remains unchanged.
 t117_intake: project-20260712 malformed space-delimited rows were corrected to TSV after backup. Three controlled scans produced exactly one run, PGTA_20260712_171630_AE8239, with 4 samples and operator jiucheng; Airflow/backend are running in fastp_bwa Mapping. Acceptance intentionally did not wait for terminal completion.

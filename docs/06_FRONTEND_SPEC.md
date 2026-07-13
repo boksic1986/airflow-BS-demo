@@ -2,8 +2,9 @@
 
 ## T117 submission semantics and workflow visualization
 
-- Submit Run uses an optional Operator select: `celery` by default,
-  `jiucheng`, or Not specified. It is an audit label, not an Airflow account.
+- Submit Run uses an optional `Submitted by` audit label: `jiucheng` by
+  default, `airflow (system)`, or Not specified. It does not select an Airflow
+  Operator, executor, account, or permission.
 - `Panel / capture kit` is replaced by `Sequencing strategy`; both deployed
   assays use pipeline-specific low-pass WGS wording.
 - Batch Runs replaces row QC metric lists with a compact workflow phase rail.

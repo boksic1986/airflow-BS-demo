@@ -4,9 +4,11 @@
 
 - Branch/worktree: `codex/platform/T117-submit-workflow-intake-fix` in the
   isolated T096 worktree, based on T116 commit `a5bf5d5`.
-- Submit: optional Operator select defaults to `celery`; `jiucheng` and null
-  remain available. It is an audit label, not an Airflow user. Target-capture
-  wording was replaced with pipeline-specific low-pass WGS.
+- Submit: the optional audit field is named `Submitted by` to avoid confusion
+  with Airflow task Operators. Manual submission defaults to `jiucheng`;
+  `airflow (system)` and null remain available. It does not select an Airflow
+  executor, user, or permission. Target-capture wording was replaced with
+  pipeline-specific low-pass WGS.
 - Runs: `/api/runs` returns one-query workflow summaries. Batch Runs renders a
   compact phase rail instead of QC metric lists; Run Detail moves skipped
   Airflow branches to `Alternate paths / Not selected branch`.
