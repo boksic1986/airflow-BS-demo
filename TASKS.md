@@ -22,6 +22,7 @@
 | T012 | 增加 MailHog demo 邮件服务 | infra | T010 | mailhog service | http://host:8025 可访问 | done |
 | T013 | 定义 shared volume 目录 | infra | T010 | shared/{uploads,runs,reports,logs} | 容器内路径一致 | done |
 | T014 | fengxian 用户级 Docker Compose v2 准入 | infra | T001,T004 | `$HOME/.docker/cli-plugins/docker-compose` | `docker compose version` 输出固定 v2 版本，未做系统级 Docker 升级 | done |
+| T125 | BS NIPT-only Docker 网络硬约束文档 | infra/docs | T124,T113 | engineering spec、runbook、security、server inventory、BS deployment contract | 明确 `nipt_analysis_test_net` / `192.168.199.0/24` / `192.168.199.1` 为不可变外部网络约束；记录 BS project root、主备角色和验收/回滚边界 | done |
 
 ## P2 Backend API 和数据库
 
@@ -194,3 +195,23 @@ Acceptance:
 - [x] Complete supervised 32-core NIPT clone acceptance.
 Rollback:
 - Redeploy prior images; preserve DB, workdirs, FASTQ, logs, and volumes.
+
+### T125 - BS NIPT-only Docker network constraint documentation
+
+Owner: infra/docs
+Status: done
+Dependencies: T124,T113
+Scope:
+- Document the immutable external Docker network contract for the BS10610
+  primary and BS1069 cold standby NIPT-only deployment.
+- Record the fixed project root and Snakemake 9 runtime requirement.
+Out of scope:
+- Compose implementation, image transfer, remote startup, database migration,
+  or analysis execution.
+Acceptance:
+- [x] Architecture, runbook, security, server inventory, and dedicated BS
+  deployment contract use the same network name, subnet, and gateway.
+- [x] Documentation explicitly forbids creating, recreating, deleting, or
+  substituting the external network.
+Rollback:
+- Revert the T125 documentation commit; no runtime rollback is required.

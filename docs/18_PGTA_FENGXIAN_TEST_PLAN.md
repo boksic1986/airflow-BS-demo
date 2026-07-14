@@ -75,6 +75,10 @@ BS10610 只能作为迁移目标预检记录，不能直接复用 fengxian 路�
 - Compose 建议版本：`v2.24.7`，用于兼容 Docker `20.10.21` / API `1.41`。
 - 不做系统级 Docker 升级，不使用 legacy `docker-compose` v1。
 - 固定 demo Docker 网段：`172.30.10.0/24`，gateway `172.30.10.1`。
+- 上述网段仅适用于本文件的 fengxian PGT-A demo。BS10610/BS1069 的
+  NIPT-only 部署必须使用既有外部网络 `nipt_analysis_test_net`，subnet
+  `192.168.199.0/24`，gateway `192.168.199.1`；不得沿用或替换为
+  `172.30.10.0/24`。详见 `docs/22_BS_NIPT_DEPLOYMENT.md`。
 - 禁止使用 `docker compose down -v`、`docker system prune -a`、`docker volume prune` 作为默认测试或回滚步骤。
 
 ## 4. 运行架构
@@ -336,7 +340,8 @@ BIOSOFTWARE_ROOT
 DOCKER_SUBNET
 ```
 
-BS10610 第一轮只做 Level 0 preflight。只有路径、Docker、Compose、PGT-A 环境都确认后，才能复制 fengxian 的 Level 1-3 测试。
+BS10610 第一轮只做 Level 0 preflight。只有路径、Docker、Compose、PGT-A 环境都确认后，才能复制 fengxian 的 Level 1-3 测试。本节属于旧 PGT-A
+迁移预检，不覆盖当前 BS NIPT-only 网络硬约束。
 
 ## 9. 参考链接
 

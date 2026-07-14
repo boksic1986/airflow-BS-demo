@@ -45,7 +45,7 @@ docker_compose_sha256: 19c9deb6f4d3915f5c93441b8d2da751a09af82df62d55eab097c2cbf
 compose_install_source: local Windows GitHub Release download, scp to fengxian, user-level install
 compose_fallback_source: TUNA Docker CE focal docker-compose-plugin_2.24.7 deb unpack only
 user_in_docker_group: unknown, but deploy user could run read-only docker commands
-planned_demo_subnet: 172.30.10.0/24
+fengxian_planned_demo_subnet: 172.30.10.0/24
 existing_docker_networks: bridge 172.17.0.0/16; cnv_biosan_local_net 172.18.0.0/16
 compose_config_status: passed on fengxian for commit 5e9065d; Airflow 12958 and frontend 12959 rendered correctly
 minimal_smoke_status: postgres/redis/mailhog/backend/frontend/airflow web/scheduler/worker up, health probes ok, then docker compose down
@@ -153,10 +153,23 @@ docker_version: Docker version 28.1.1
 docker_compose_version: Docker Compose version v2.35.1
 host_ipv4: 172.17.106.10/24
 existing_docker_networks: bridge 192.168.192.0/24; nipt_analysis_test_net 192.168.199.0/24
+bs_nipt_network_name: nipt_analysis_test_net
+bs_nipt_network_subnet: 192.168.199.0/24
+bs_nipt_network_gateway: 192.168.199.1
+bs_nipt_network_policy: hard constraint; external network only; do not create/recreate/delete/change IPAM
+bs_nipt_project_root: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT
+bs_nipt_alternate_mapping: /bi/biodevrwbi/33.chenjiucheng maps the same NFS data but is not used for deployment writes
+bs_nipt_write_probe_2026_07_14: BS10610 and BS1069 confirmed writable through /mnt/biodevrwbi/33.chenjiucheng
+bs10610_observed_ssh_client_2026_07_14: 172.17.61.18; covered by proposed nginx allowlist 172.17.61.0/24
+operator_local_address_note: workstation/VPN addresses may differ from the source observed by BS; use nginx access logs for final HTTP allowlist validation
 fengxian_paths_present: false for /home/jiucheng, /biosoftware, /data/project/CNV/PGT-A
 ```
 
 BS10610 迁移前必须将路径参数化到 `.env` 并重新执行 Level 0 preflight。
+BS1069 作为 cold standby 使用相同项目根目录和相同 Docker 网络硬约束；
+两台机器不得同时运行 active intake worker。部署前必须重新执行
+`docker network inspect nipt_analysis_test_net`，确认 subnet/gateway 和计划静态 IP
+没有冲突。
 
 ## 10. 禁止记录的信息
 

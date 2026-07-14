@@ -5215,3 +5215,75 @@ triggers.
 - Controlled PGT-A stage rerun depends on existing run-local workdir and
   outputs. Revert the T108 code changes or stop using `mode=rerun_stage` if a
   staged rerun behaves unexpectedly.
+
+## 2026-07-14 - Codex - T125 BS NIPT-only network constraint documentation
+
+### Goal
+
+Record the BS10610/BS1069 Docker network as a hard deployment constraint before
+implementing the NIPT-only Airflow stack.
+
+### Completed
+
+- Added `docs/22_BS_NIPT_DEPLOYMENT.md` with the NIPT-only scope, primary/cold
+  standby roles, Snakemake 9 runtime requirement, preflight, acceptance, and
+  rollback contract.
+- Updated engineering, deployment, security, and server documentation with the
+  immutable external network values: `nipt_analysis_test_net`,
+  `192.168.199.0/24`, gateway `192.168.199.1`.
+- Recorded project root
+  `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT` and prohibited network
+  creation, recreation, deletion, IPAM changes, or alternate-subnet fallback.
+- Clarified that nginx client CIDR `172.17.61.0/24` does not conflict with the
+  Docker subnet, but BS operations also require an explicit
+  `172.17.106.0/24`/local-health access path while retaining `deny all`.
+
+### Validation
+
+- Documentation-only consistency checks: exact network tuple, project root,
+  task ID, manifest membership/count, JSON parse, and `git diff --check`.
+- Read-only `ssh BS10610 printenv SSH_CONNECTION` showed source
+  `172.17.61.18`, confirming the current operator path is covered by
+  `172.17.61.0/24`; HTTP must still be verified from nginx access logs.
+
+### Changed files
+
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/09_NIPT_DOCKER_SPEC.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/13_SECURITY_AND_OPERATIONS.md`
+- `docs/18_PGTA_FENGXIAN_TEST_PLAN.md`
+- `docs/22_BS_NIPT_DEPLOYMENT.md`
+- `SERVER_INFO.md`, `CURRENT_STATE.md`, `TASKS.md`, `HANDOFF.md`,
+  `MANIFEST.json`
+
+### Not run / why
+
+- No remote Docker, Compose, image transfer, service startup, or NIPT workflow
+  command was run; T125 is documentation-only.
+- BS10610 and BS1069 both passed a writeability probe through
+  `/mnt/biodevrwbi/33.chenjiucheng`; `/bi/biodevrwbi/33.chenjiucheng` is the
+  alternate mapping and is not used for deployment writes.
+
+### Risks / next step
+
+- Live network attachments and planned static IPs may change. Re-run
+  `docker network inspect nipt_analysis_test_net` immediately before startup.
+- Next task should implement a standalone BS NIPT-only Compose stack and stop
+  if the network tuple or project-root write probe fails.
+
+### Current git status
+
+Branch `codex/deploy/T125-bs-nipt-network-constraint` contains only the T125
+documentation changes and remains uncommitted pending user review.
+
+### Open questions
+
+- Confirm whether any additional client networks beyond the currently observed
+  `172.17.61.0/24` and BS operations subnet `172.17.106.0/24` require access.
+- Confirm planned static service addresses after the live attachment preflight;
+  the subnet and gateway themselves are not negotiable.
+
+### Rollback
+
+Revert the T125 documentation commit. No service or data rollback is required.

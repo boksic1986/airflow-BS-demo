@@ -1283,6 +1283,73 @@ NIPT_ALLOW_HEAVY_RUN=false
 DOCKER_SOCKET_GID=114
 ```
 
+## 32. BS10610/BS1069 NIPT-only network gate
+
+The BS NIPT-only deployment root is fixed at:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT
+```
+
+The Docker network is also a hard constraint:
+
+```text
+network=nipt_analysis_test_net
+subnet=192.168.199.0/24
+gateway=192.168.199.1
+```
+
+Do not substitute the general fengxian demo subnet (`172.30.10.0/24`) and do
+not let Compose create the network. The BS Compose file must reference it as an
+external network:
+
+```yaml
+networks:
+  nipt_analysis_test_net:
+    external: true
+    name: nipt_analysis_test_net
+```
+
+Run this read-only gate on the selected BS node before rendering or starting
+Compose:
+
+```bash
+docker network inspect nipt_analysis_test_net \
+  --format '{{json .IPAM.Config}}'
+```
+
+Acceptance requires an entry containing both:
+
+```text
+Subnet=192.168.199.0/24
+Gateway=192.168.199.1
+```
+
+Also list current attachments and allocated addresses before assigning static
+service IPs:
+
+```bash
+docker network inspect nipt_analysis_test_net \
+  --format '{{range $id, $c := .Containers}}{{$c.Name}} {{$c.IPv4Address}}{{println}}{{end}}'
+```
+
+Stop immediately if the network is absent, the IPAM values differ, or a planned
+address is already allocated. Do not run `docker network rm`, do not recreate
+the network, and do not start with an alternate subnet. BS10610 is the planned
+primary and BS1069 is a cold standby; they must not run active intake workers
+against the same shared storage at the same time.
+
+The NIPT analysis image must be the validated Snakemake 9 derivative image.
+The Snakemake 7 image already present on BS is rollback-only and must not be the
+default runtime. See `docs/22_BS_NIPT_DEPLOYMENT.md` for the complete scope and
+preflight contract.
+
+The default nginx client allowlist `172.17.61.0/24` does not conflict with the
+Docker subnet, but it also does not include the BS host subnet. Include
+`172.17.106.0/24` for BS node operations and `127.0.0.1` for local checks. Add
+`192.168.199.0/24` only if a live access-log check proves Docker NAT presents
+local health requests with that source. Keep a final `deny all` rule.
+
 Only `airflow-worker` should mount `/var/run/docker.sock`. On `fengxian`, the socket is `root:docker` with group id `114`, so the worker must have supplemental group `114`:
 
 ```bash

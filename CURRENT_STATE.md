@@ -5,7 +5,12 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T124 QC formatting, Intake alignment, and terminal sorting is deployed and remotely accepted.
+current_goal_ascii: T125 documents the BS10610/BS1069 NIPT-only deployment network hard constraint; runtime deployment has not started.
+t125_network: external network nipt_analysis_test_net, subnet 192.168.199.0/24, gateway 192.168.199.1; deployment must not create, recreate, delete, or alter it.
+t125_scope: writable project root /mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT; BS10610 primary, BS1069 cold standby; NIPT Snakemake 9 only.
+t125_ingress: BS10610 observed the current SSH client as 172.17.61.18, so nginx allowlist 172.17.61.0/24 covers the present operator path; final HTTP source still requires access-log verification.
+t125_status: documentation and BS10610/BS1069 project-root write probes complete; Compose implementation, image transfer, service startup, and runtime acceptance remain pending.
+t124_baseline: T124 QC formatting, Intake alignment, and terminal sorting is deployed and remotely accepted.
 t124_code: terminal runs sort by latest pipeline completion; Intake shares project/runtime cells and the success-only ETA model; QC count/rate/fraction formatting is centralized in the frontend.
 t124_validation: remote backend pytest passed 168; frontend Vitest passed 49; production tsc/vite build and Compose config passed; backend/frontend were rebuilt and recreated; HTTP/API and live browser checks passed at 1280/1024/390 px.
 t124_runtime: latest completed NIPT is first in Run Tracker; linked Intake rows expose elapsed/ETA and hide scan roots; NIPT rate/fetal values and PGT-A count/decimal values render with operator units. Scanner remains unpaused on */10 and no analysis was triggered.
@@ -202,6 +207,7 @@ last_e2e_smoke: T080/T081 read-only demo smoke on fengxian at mirror head 331013
 | K004 | 远端直接访问 GitHub release 不稳定 | low | infra | 优先本地 GitHub 下载后 scp 到 fengxian；国内 Docker CE 镜像作为 Compose fallback |
 | K005 | fengxian 仍有非 airflow-demo 的 `latest` 镜像和未使用 volumes | low | infra | 未经确认不要删除；本轮只清理 dangling images，不碰非项目镜像和 volume |
 | K006 | fengxian 宿主机 3000 已被非项目 `next-server` 占用 | low | infra | airflow-demo frontend 改用 12959；不要停止非项目进程 |
+| K007 | BS NIPT-only 部署依赖共享外部 Docker 网络，错误 IPAM 或静态 IP 冲突会影响同网段服务 | high | infra | 启动前检查 `nipt_analysis_test_net` 必须为 `192.168.199.0/24`、gateway `192.168.199.1`，并核对当前 attachments；不允许自动修复或替换网段 |
 
 ## 9. 当前阻塞
 

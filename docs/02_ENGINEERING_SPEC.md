@@ -79,6 +79,28 @@ subnet: 172.30.10.0/24
 gateway: 172.30.10.1
 ```
 
+### BS NIPT-only Docker network hard constraint
+
+The BS10610/BS1069 NIPT-only deployment does not use the general demo network
+above. It must attach all project services to the pre-existing external Docker
+network with these exact values:
+
+```text
+network: nipt_analysis_test_net
+subnet: 192.168.199.0/24
+gateway: 192.168.199.1
+```
+
+This is a deployment hard constraint. Compose must declare the network as
+`external: true`; it must not create, recreate, resize, or replace the network.
+Static service addresses, when used, must be inside `192.168.199.0/24`, must
+not use the network address, gateway, or broadcast address, and must pass an
+address-conflict preflight before startup. The BS project root is
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT`.
+
+The `/bi/biodevrwbi/33.chenjiucheng` path is an alternate mapping of the same
+NFS data. Deployment automation and release writes must use the `/mnt` path.
+
 Project-owned images must use explicit tags. Do not rely on implicit `latest`.
 
 ```text
@@ -209,7 +231,7 @@ shared/reports/<analysis_id>/snakemake_report.html
 | HOST_SHARED_ROOT | NIPT Docker | /home/jiucheng/project/airflow-demo/shared | host path corresponding to container `/data/airflow-demo` |
 | NIPT_DOCKER_IMAGE | NIPT Docker | 172.17.61.235:2333/niptpro/niptpro:1.0.11 | NIPT main container image |
 | NIPT_FETAL_IMAGE | NIPT Docker | 172.17.61.235:2333/niptpro/pytorch:biosan | fetal ratio helper image used by the NIPT bundle |
-| NIPT_DOCKER_NETWORK | NIPT Docker | nipt_analysis_test_net | external Docker network for NIPT containers |
+| NIPT_DOCKER_NETWORK | NIPT Docker | nipt_analysis_test_net | external Docker network; on BS this name plus subnet `192.168.199.0/24` and gateway `192.168.199.1` are hard constraints |
 | NIPT_DOCKER_CORES | NIPT Docker | 40 | maximum demo cores for scanned-batch v1 |
 | NIPT_DOCKER_OWNER | NIPT Docker | 6708:520 | owner argument passed to full-run entrypoint |
 | NIPT_ALLOW_HEAVY_RUN | NIPT Docker | false | keeps default acceptance limited to mount smoke |

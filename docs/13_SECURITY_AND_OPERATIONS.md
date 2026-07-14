@@ -66,6 +66,14 @@ ALLOW_REAL_QSUB=false
 - 不要把 backend/frontend 直接暴露到公网。
 - Docker 容器不要挂载过宽宿主机目录。
 
+### BS NIPT-only network guard
+
+For BS10610/BS1069, `nipt_analysis_test_net` is shared infrastructure and has a
+fixed IPAM contract: subnet `192.168.199.0/24`, gateway `192.168.199.1`.
+Deployment automation may inspect and attach to this network, but must never
+create, delete, recreate, or change it. A subnet/gateway mismatch or static-IP
+collision is a hard stop, not a condition to repair automatically.
+
 ## 6. 审计
 
 建议记录：

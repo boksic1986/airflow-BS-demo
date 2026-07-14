@@ -204,6 +204,12 @@ DOCKER_SOCKET_GID=114
 BACKEND_BASE_URL=http://backend:8000
 ```
 
+For the BS10610/BS1069 NIPT-only deployment, the network name is not sufficient
+by itself. The existing external network must also have subnet
+`192.168.199.0/24` and gateway `192.168.199.1`. These three values are a hard
+deployment constraint. Compose must attach with `external: true` and must not
+create, delete, recreate, or alter the network IPAM configuration.
+
 The block above is the safe fallback/env-example contract. For profile-aware
 T113 submissions, `niptpro-s9-full-v1` selects the derivative image internally;
 the validated live deployment overrides only `NIPT_ALLOW_HEAVY_RUN=true`.
