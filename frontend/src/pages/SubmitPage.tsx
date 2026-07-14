@@ -1,6 +1,6 @@
 import {ChevronDown, ChevronRight, Play, Plus, Search} from "lucide-react";
 import type {ReactNode} from "react";
-import {useEffect, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {Link} from "react-router-dom";
 
 import type {NiptRunMode, PgtaTarget, RunDetail, ScanCandidate} from "../api";
@@ -9,13 +9,14 @@ import {ApiError, createRun, getInputRoots, getRunDetail, scanInput, submitRun, 
 import {PipelineSelector} from "../components/PipelineSelector";
 import {StatusBadge} from "../components/StatusBadge";
 import {SnakemakeConfigEditor} from "../features/submit/SnakemakeConfigEditor";
+import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import type {SnakemakeConfigSelection} from "../features/submit/SnakemakeConfigEditor";
 import {errorMessage} from "../lib/errors";
 import {compactPipelineName} from "../lib/format";
 import {deployedWorkflowTemplates} from "../mocks/platform";
 
 const defaultPgtaRawdataRoot = "/data/project/CNV/PGT-A/rawdata/lib_test/2026-04-28";
-const defaultNiptRawdataRoot = "/opt/pipelines/NIPT/fastq";
+const defaultNiptRawdataRoot = "/data/nipt-fastq";
 const handoffSyncAttempts = 6;
 const handoffSyncDelayMs = 2500;
 const submittedByStorageKey = "airflow-demo.submitted-by";
@@ -39,6 +40,7 @@ function rememberSubmittedBy(value: string) {
 }
 
 export function SubmitPage() {
+  const capabilities = usePlatformCapabilities();
   const [selectedPipeline, setSelectedPipeline] = useState<"pgta" | "nipt_docker">("pgta");
   const [projectName, setProjectName] = useState("Bioinformatics demo run");
   const [submittedBy, setSubmittedBy] = useState(loadSubmittedBy);
@@ -65,7 +67,11 @@ export function SubmitPage() {
   const [configEditorRevision, setConfigEditorRevision] = useState(0);
   const [showNiptFullConfirm, setShowNiptFullConfirm] = useState(false);
 
-  const selectedTemplate = deployedWorkflowTemplates.find((pipeline) => pipeline.id === selectedPipeline) || fallbackTemplate;
+  const availableTemplates = useMemo(
+    () => deployedWorkflowTemplates.filter((pipeline) => capabilities.deployed_pipelines.includes(pipeline.id as "pgta" | "nipt_docker")),
+    [capabilities.deployed_pipelines],
+  );
+  const selectedTemplate = availableTemplates.find((pipeline) => pipeline.id === selectedPipeline) || availableTemplates[0] || fallbackTemplate;
   const selectedScanRows = scanItems.filter((item) => selectedSamples.has(item.sample_id));
   const canCreatePgta = selectedScanRows.length > 0 && Boolean(projectName.trim());
   const canCreateNipt = selectedScanRows.length > 0 && Boolean(projectName.trim());
@@ -96,6 +102,12 @@ export function SubmitPage() {
       disposed = true;
     };
   }, [selectedPipeline]);
+
+  useEffect(() => {
+    if (capabilities.deployed_pipelines.includes(selectedPipeline)) return;
+    const nextPipeline = capabilities.deployed_pipelines[0];
+    if (nextPipeline) handlePipelineChange(nextPipeline);
+  }, [capabilities.deployed_pipelines, selectedPipeline]);
 
   async function handleScan() {
     setScanning(true);
@@ -298,7 +310,7 @@ export function SubmitPage() {
         <div>
           <p className="eyebrow">Controlled intake</p>
           <h1>Submit Run</h1>
-          <p>Prepare deployed PGT-A or NIPT Docker requests from scanned server batches, validate the preview, then submit them to Airflow.</p>
+          <p>Prepare deployed pipeline requests from scanned server batches, validate the preview, then submit them to Airflow.</p>
         </div>
       </section>
 
@@ -313,9 +325,9 @@ export function SubmitPage() {
         <div className="section-heading">
           <p className="eyebrow">Step 1</p>
           <h2>Select deployed workflow</h2>
-          <p>Only PGT-A and NIPT Docker are exposed in the current demo deployment.</p>
+          <p>{availableTemplates.length === 1 ? `${compactPipelineName(availableTemplates[0]!.id)} is the only deployed workflow in this environment.` : "Only deployed workflows are selectable."}</p>
         </div>
-        <PipelineSelector pipelines={deployedWorkflowTemplates} value={selectedPipeline} onChange={handlePipelineChange} />
+        <PipelineSelector pipelines={availableTemplates} value={selectedPipeline} onChange={handlePipelineChange} />
       </section>
 
       <div className="submit-grid">

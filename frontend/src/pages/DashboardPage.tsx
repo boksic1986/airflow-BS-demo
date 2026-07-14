@@ -27,6 +27,7 @@ import {
 } from "../features/dashboard/DashboardOverview";
 import {DashboardResourcePanels} from "../features/dashboard/DashboardResourcePanels";
 import {IntakeScannerPanel} from "../features/dashboard/IntakeScannerPanel";
+import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {errorMessage} from "../lib/errors";
 import {isActiveStatus} from "../lib/status";
 
@@ -34,6 +35,7 @@ const trackerLimit = 10;
 const intakeLimit = 10;
 
 export function DashboardPage() {
+  const capabilities = usePlatformCapabilities();
   const [pipeline, setPipeline] = useState<DashboardPipeline>("all");
   const [period, setPeriod] = useState<"24h" | "7d" | "30d">("7d");
   const [trackerFilter, setTrackerFilter] = useState<RunTrackerFilter>("all");
@@ -125,6 +127,13 @@ export function DashboardPage() {
   useEffect(() => { void loadTracker(); }, [loadTracker]);
   useEffect(() => { void loadIntake(); }, [loadIntake]);
   useEffect(() => { void loadResources(); }, [loadResources]);
+  useEffect(() => {
+    if (capabilities.deployed_pipelines.length === 1) {
+      const onlyPipeline = capabilities.deployed_pipelines[0]!;
+      setPipeline(onlyPipeline);
+      setResourceTab(onlyPipeline);
+    }
+  }, [capabilities.deployed_pipelines]);
 
   const activeRunIds = useMemo(
     () => [...new Set((trackerPayload?.items || []).filter((row) => isActiveStatus(row.status)).map((row) => row.analysis_id))],
@@ -192,6 +201,9 @@ export function DashboardPage() {
   }
 
   const selectedPipeline = dashboardPipelines.find((item) => item.value === pipeline) || dashboardPipelines[0];
+  const pipelineOptions: DashboardPipeline[] = capabilities.deployed_pipelines.length === 1
+    ? [...capabilities.deployed_pipelines]
+    : ["all", ...capabilities.deployed_pipelines];
   const trackerRows = trackerPayload?.items || [];
 
   return (
@@ -200,7 +212,7 @@ export function DashboardPage() {
         <div>
           <p className="eyebrow">Bioinformatics production control tower</p>
           <h1>Command Center</h1>
-          <p>PGT-A and NIPT Docker operations, sample throughput, intake readiness, and node health.</p>
+          <p>Deployed NIPT operations, sample throughput, intake readiness, and node health.</p>
         </div>
         <Link className="button primary" to="/submit">Submit run</Link>
       </section>
@@ -208,7 +220,7 @@ export function DashboardPage() {
       {actionMessage ? <div className="success-note" role="status">{actionMessage}</div> : null}
 
       <section className="dashboard-command-grid">
-        <PipelineRail pipeline={pipeline} onChange={handlePipelineChange} />
+        <PipelineRail pipeline={pipeline} pipelines={pipelineOptions} onChange={handlePipelineChange} />
         <div className="dashboard-main-column">
           <CommandSummary overview={overview} pipeline={pipeline} loading={overviewLoading} error={overviewError} />
           <OperationsOverview overview={overview} period={period} loading={overviewLoading} onPeriodChange={setPeriod} />
@@ -249,6 +261,7 @@ export function DashboardPage() {
         rows={trackerRows}
         loading={resourcesLoading}
         error={resourcesError}
+        pipelines={pipelineOptions}
         onResourceTabChange={setResourceTab}
       />
       <span className="sr-only">Selected pipeline: {selectedPipeline.label}</span>

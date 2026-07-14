@@ -176,6 +176,16 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/api/platform/capabilities")
+def platform_capabilities() -> dict[str, object]:
+    settings = get_settings()
+    return {
+        "environment": getattr(settings, "platform_environment", "Demo"),
+        "deployed_pipelines": list(_deployed_pipelines(settings)),
+        "airflow_url": getattr(settings, "public_airflow_url", "") or None,
+    }
+
+
 def get_airflow_client() -> AirflowClient:
     settings = get_settings()
     return AirflowClient(
@@ -195,6 +205,7 @@ def scan_input(request: InputScanRequest) -> dict[str, object]:
 
     try:
         settings = get_settings()
+        _require_pipeline_deployed(settings, request.pipeline)
         if request.pipeline == "nipt_docker":
             result = scan_nipt_batch_candidates(
                 rawdata_root=request.rawdata_root,
@@ -219,6 +230,7 @@ def scan_input(request: InputScanRequest) -> dict[str, object]:
 @app.get("/api/input/roots")
 def input_roots(pipeline: str = Query(pattern="^(pgta|nipt_docker)$")) -> dict[str, object]:
     settings = get_settings()
+    _require_pipeline_deployed(settings, pipeline)
     return {
         "pipeline": pipeline,
         "roots": _scan_roots_for_pipeline(settings, pipeline),
@@ -300,6 +312,7 @@ def pipeline_config_template(
 ) -> dict[str, object]:
     del target, run_mode
     try:
+        _require_pipeline_deployed(get_settings(), pipeline)
         return get_pipeline_config_template(
             settings=get_settings(),
             pipeline=pipeline,
@@ -315,6 +328,7 @@ def pipeline_config_template(
 @app.post("/api/pipeline-config/validate")
 def pipeline_config_validate(request: PipelineConfigValidationRequest) -> dict[str, object]:
     try:
+        _require_pipeline_deployed(get_settings(), request.pipeline)
         validated = validate_pipeline_config(
             settings=get_settings(),
             pipeline=request.pipeline,
@@ -354,6 +368,7 @@ def create_run(request: CreateRunRequest) -> dict[str, object]:
     settings = get_settings()
     session_factory = get_sessionmaker()
     try:
+        _require_pipeline_deployed(settings, request.pipeline)
         pipeline_config = _validated_create_config(request=request, settings=settings)
         with session_factory() as session:
             if request.pipeline == "pgta":
@@ -432,6 +447,8 @@ def runs_list(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
+    if pipeline:
+        _require_pipeline_deployed(get_settings(), pipeline)
     with get_sessionmaker()() as session:
         return list_runs(
             session=session,
@@ -453,6 +470,8 @@ def samples_list(
     limit: int = Query(default=25, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
+    if pipeline:
+        _require_pipeline_deployed(get_settings(), pipeline)
     with get_sessionmaker()() as session:
         return list_samples_resource(
             session=session,
@@ -475,6 +494,8 @@ def failures_list(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
+    if pipeline != "all":
+        _require_pipeline_deployed(get_settings(), pipeline)
     with get_sessionmaker()() as session:
         return list_failures_resource(
             session=session,
@@ -493,6 +514,8 @@ def dashboard_overview(
     pipeline: str = Query(default="all", pattern="^(all|pgta|nipt_docker)$"),
     period: str = Query(default="7d", pattern="^(24h|7d|30d)$"),
 ) -> dict[str, object]:
+    if pipeline != "all":
+        _require_pipeline_deployed(get_settings(), pipeline)
     with get_sessionmaker()() as session:
         return get_dashboard_overview(session=session, pipeline=pipeline, period=period)
 
@@ -505,6 +528,8 @@ def dashboard_runs(
     limit: int = Query(default=10, ge=1, le=50),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
+    if pipeline != "all":
+        _require_pipeline_deployed(get_settings(), pipeline)
     with get_sessionmaker()() as session:
         return get_dashboard_runs(
             session=session,
@@ -521,6 +546,9 @@ def dashboard_runs(
 def submit_run(analysis_id: str) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
+            detail = get_run_detail(session=session, analysis_id=analysis_id)
+            if detail is not None:
+                _require_pipeline_deployed(get_settings(), str(detail.get("pipeline") or detail.get("pipeline_name") or ""))
             payload = submit_run_to_airflow(
                 session=session,
                 airflow_client=get_airflow_client(),
@@ -549,6 +577,7 @@ def submit_run(analysis_id: str) -> dict[str, object]:
 @app.post("/api/intake/scan-and-submit", dependencies=[Depends(require_internal_service_token)])
 def intake_scan_and_submit(request: IntakeScanRequest) -> dict[str, object]:
     try:
+        _require_pipelines_deployed(get_settings(), request.pipelines)
         with get_sessionmaker()() as session:
             return scan_and_submit_intake(
                 session=session,
@@ -579,6 +608,7 @@ def intake_scan_and_submit(request: IntakeScanRequest) -> dict[str, object]:
 @app.post("/api/intake/scan-preview")
 def intake_scan_preview(request: IntakeScanRequest) -> dict[str, object]:
     try:
+        _require_pipelines_deployed(get_settings(), request.pipelines)
         with get_sessionmaker()() as session:
             return preview_intake_scan(
                 session=session,
@@ -613,6 +643,8 @@ def intake_status(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
+    if pipeline:
+        _require_pipeline_deployed(get_settings(), pipeline)
     with get_sessionmaker()() as session:
         return list_intake_status(
             session=session,
@@ -629,7 +661,9 @@ def intake_status(
 @app.get("/api/workflows")
 def workflows() -> dict[str, object]:
     with get_sessionmaker()() as session:
-        return get_workflow_catalog(session=session)
+        payload = get_workflow_catalog(session=session)
+        deployed = set(_deployed_pipelines(get_settings()))
+        return {**payload, "items": [item for item in payload.get("items", []) if item.get("pipeline") in deployed]}
 
 
 @app.get("/api/system/resources")
@@ -987,6 +1021,29 @@ def _scan_roots_for_pipeline(settings, pipeline: str) -> list[str]:
     if pipeline == "nipt_docker":
         return list(getattr(settings, "nipt_input_scan_roots", []) or [])
     return list(getattr(settings, "pgta_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or [])
+
+
+def _deployed_pipelines(settings) -> tuple[str, ...]:
+    configured = tuple(getattr(settings, "deployed_pipelines", ()) or ())
+    return configured or ("pgta", "nipt_docker")
+
+
+def _require_pipeline_deployed(settings, pipeline: str) -> None:
+    if pipeline in {"all", "deployed"}:
+        return
+    if pipeline not in _deployed_pipelines(settings):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "PIPELINE_NOT_DEPLOYED",
+                "message": f"Pipeline is not deployed in this environment: {pipeline}",
+            },
+        )
+
+
+def _require_pipelines_deployed(settings, pipelines: list[str]) -> None:
+    for pipeline in pipelines:
+        _require_pipeline_deployed(settings, pipeline)
 
 
 def _load_intake_config(settings):

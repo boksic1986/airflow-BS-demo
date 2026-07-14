@@ -20,6 +20,7 @@ import {
 } from "../api";
 import {IntakeDiscoveryTable} from "../components/IntakeDiscoveryTable";
 import {StatusBadge} from "../components/StatusBadge";
+import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {errorMessage} from "../lib/errors";
 import {formatDate} from "../lib/format";
 
@@ -29,6 +30,7 @@ type DiscoveryPipeline = "all" | "pgta" | "nipt_docker";
 type DiscoveryStateFilter = "all" | IntakeDiscoveryState;
 
 export function SettingsPage() {
+  const capabilities = usePlatformCapabilities();
   const [config, setConfig] = useState<IntakeConfigResponse | null>(null);
   const [scanner, setScanner] = useState<IntakeScannerStateResponse | null>(null);
   const [discoveries, setDiscoveries] = useState<IntakeDiscovery[]>([]);
@@ -117,14 +119,14 @@ export function SettingsPage() {
     setPreviewError(null);
     setPreview(null);
     try {
-      const payload = await previewIntakeScan({pipelines: ["pgta", "nipt_docker"], max_samples: 200});
+      const payload = await previewIntakeScan({pipelines: capabilities.deployed_pipelines, max_samples: 200});
       if (requestId === previewRequest.current) setPreview(payload);
     } catch (err) {
       if (requestId === previewRequest.current) setPreviewError(errorMessage(err));
     } finally {
       if (requestId === previewRequest.current) setPreviewLoading(false);
     }
-  }, []);
+  }, [capabilities.deployed_pipelines]);
 
   useEffect(() => { void loadConfig(); }, [loadConfig]);
   useEffect(() => { void loadScanner(); }, [loadScanner]);
@@ -168,12 +170,12 @@ export function SettingsPage() {
 
       <section className="panel platform-settings-summary">
         <dl className="definition-grid">
-          <div><dt>Environment</dt><dd>Demo / Local</dd></div>
+          <div><dt>Environment</dt><dd>{capabilities.environment}</dd></div>
           <div><dt>API base</dt><dd className="path-text">{getApiBaseUrl()}</dd></div>
-          <div><dt>Airflow UI</dt><dd>{`${window.location.protocol}//${window.location.hostname}:12958`}</dd></div>
+          <div><dt>Airflow UI</dt><dd>{capabilities.airflow_url || `${window.location.protocol}//${window.location.hostname}:12958`}</dd></div>
           <div><dt>Secrets</dt><dd>Not displayed in frontend</dd></div>
           <div><dt>Remote acceptance</dt><dd>Runtime validation must run on ssh fengxian</dd></div>
-          <div><dt>Deployment scope</dt><dd>Current frontend demo exposes PGT-A and NIPT Docker only.</dd></div>
+          <div><dt>Deployment scope</dt><dd>{capabilities.deployed_pipelines.map(pipelineLabel).join(", ")}</dd></div>
         </dl>
       </section>
 
@@ -209,6 +211,7 @@ export function SettingsPage() {
           discoveryPipeline={discoveryPipeline}
           discoveryState={discoveryState}
           discoveryTotal={discoveryTotal}
+          deployedPipelines={capabilities.deployed_pipelines}
           onDiscoveryKeywordChange={updateDiscoveryKeyword}
           onDiscoveryLifecycleChange={updateDiscoveryLifecycle}
           onDiscoveryOffsetChange={setDiscoveryOffset}
@@ -237,6 +240,7 @@ function IntakeSettingsContent({
   discoveryLoading,
   discoveryError,
   discoveryTotal,
+  deployedPipelines,
   discoveryOffset,
   discoveryPipeline,
   discoveryState,
@@ -261,6 +265,7 @@ function IntakeSettingsContent({
   discoveryLoading: boolean;
   discoveryError: string | null;
   discoveryTotal: number;
+  deployedPipelines: Array<"pgta" | "nipt_docker">;
   discoveryOffset: number;
   discoveryPipeline: DiscoveryPipeline;
   discoveryState: DiscoveryStateFilter;
@@ -280,7 +285,7 @@ function IntakeSettingsContent({
   return (
     <div className="intake-settings-stack">
       <div className="intake-settings-grid">
-        <ScannerStateCard error={scannerError} loading={scannerLoading} scanner={scanner} />
+        <ScannerStateCard deployedPipelines={deployedPipelines} error={scannerError} loading={scannerLoading} scanner={scanner} />
         <ConfigSummaryCard config={config} error={configError} loading={configLoading} />
       </div>
 
@@ -326,8 +331,8 @@ function IntakeSettingsContent({
               onChange={(event) => onDiscoveryPipelineChange(event.target.value as DiscoveryPipeline)}
             >
               <option value="all">All deployed</option>
-              <option value="pgta">PGT-A</option>
-              <option value="nipt_docker">NIPT Docker</option>
+              {deployedPipelines.includes("pgta") ? <option value="pgta">PGT-A</option> : null}
+              {deployedPipelines.includes("nipt_docker") ? <option value="nipt_docker">NIPT Docker</option> : null}
             </select>
           </label>
           <label>
@@ -449,10 +454,12 @@ function ScannerStateCard({
   scanner,
   loading,
   error,
+  deployedPipelines,
 }: {
   scanner: IntakeScannerStateResponse | null;
   loading: boolean;
   error: string | null;
+  deployedPipelines: Array<"pgta" | "nipt_docker">;
 }) {
   const pausedLabel = scanner?.is_paused == null ? "Unknown" : scanner.is_paused ? "Paused" : "Unpaused";
   return (
@@ -475,8 +482,8 @@ function ScannerStateCard({
           <div><dt>Started</dt><dd>{formatDate(scanner?.latest_start_date)}</dd></div>
           <div><dt>Ended</dt><dd>{formatDate(scanner?.latest_end_date)}</dd></div>
           <div><dt>Message</dt><dd>{scanner?.message || "Scanner state loaded"}</dd></div>
-          <div><dt>PGT-A trigger</dt><dd>{scanner?.trigger_contracts?.pgta || "*.samples.tsv + *.READY"}</dd></div>
-          <div><dt>NIPT trigger</dt><dd>{scanner?.trigger_contracts?.nipt_docker || "*.nipt.yaml or configured discovery root"}</dd></div>
+          {deployedPipelines.includes("pgta") ? <div><dt>PGT-A trigger</dt><dd>{scanner?.trigger_contracts?.pgta || "*.samples.tsv + *.READY"}</dd></div> : null}
+          {deployedPipelines.includes("nipt_docker") ? <div><dt>NIPT trigger</dt><dd>{scanner?.trigger_contracts?.nipt_docker || "*.nipt.yaml or configured discovery root"}</dd></div> : null}
           <div><dt>Retention</dt><dd>{scanner?.retention?.enabled ? `${scanner.retention.days} days / ${scanner.retention.scope}` : "Disabled"}</dd></div>
         </dl>
       ) : null}

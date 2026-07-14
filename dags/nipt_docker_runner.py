@@ -25,8 +25,21 @@ from common.subprocess_utils import run_command_to_logs
 
 
 DEFAULT_SHARED_ROOT = Path(os.getenv("CONTAINER_SHARED_ROOT", "/data/airflow-demo"))
-DEFAULT_NIPT_PIPELINE_ROOT = Path(os.getenv("NIPT_CONTAINER_ROOT", "/opt/pipelines/NIPT"))
-DEFAULT_HOST_NIPT_PIPELINE_ROOT = Path(os.getenv("NIPT_PIPELINE_ROOT", "/home/jiucheng/pipelines/NIPT"))
+DEFAULT_NIPT_PIPELINE_ROOT = Path(
+    os.getenv("NIPT_WORKFLOW_CONTAINER_ROOT") or os.getenv("NIPT_CONTAINER_ROOT", "/opt/pipelines/NIPT")
+)
+DEFAULT_HOST_NIPT_PIPELINE_ROOT = Path(
+    os.getenv("NIPT_WORKFLOW_HOST_ROOT") or os.getenv("NIPT_PIPELINE_ROOT", "/home/jiucheng/pipelines/NIPT")
+)
+DEFAULT_NIPT_FASTQ_CONTAINER_ROOT = Path(
+    os.getenv("NIPT_FASTQ_CONTAINER_ROOT", str(DEFAULT_NIPT_PIPELINE_ROOT / "fastq"))
+)
+DEFAULT_NIPT_FASTQ_HOST_ROOT = Path(
+    os.getenv("NIPT_FASTQ_HOST_ROOT", str(DEFAULT_HOST_NIPT_PIPELINE_ROOT / "fastq"))
+)
+DEFAULT_NIPT_LOCALE_HOST_ROOT = Path(
+    os.getenv("NIPT_LOCALE_HOST_ROOT", str(DEFAULT_HOST_NIPT_PIPELINE_ROOT / "locale"))
+)
 DEFAULT_HOST_SHARED_ROOT = Path(os.getenv("HOST_SHARED_ROOT", "/home/jiucheng/project/airflow-demo/shared"))
 DEFAULT_DOCKER_IMAGE = os.getenv("NIPT_DOCKER_IMAGE", "172.17.61.235:2333/niptpro/niptpro:1.0.11")
 DEFAULT_FETAL_IMAGE = os.getenv("NIPT_FETAL_IMAGE", "172.17.61.235:2333/niptpro/pytorch:biosan")
@@ -260,6 +273,9 @@ def prepare_nipt_docker_run(
     *,
     nipt_pipeline_root: Path = DEFAULT_NIPT_PIPELINE_ROOT,
     host_nipt_pipeline_root: Path = DEFAULT_HOST_NIPT_PIPELINE_ROOT,
+    nipt_fastq_container_root: Path | None = None,
+    nipt_fastq_host_root: Path | None = None,
+    host_locale_root: Path | None = None,
     host_shared_root: Path = DEFAULT_HOST_SHARED_ROOT,
     docker_image: str = DEFAULT_DOCKER_IMAGE,
     fetal_image: str = DEFAULT_FETAL_IMAGE,
@@ -276,6 +292,13 @@ def prepare_nipt_docker_run(
     runtime = resolved_profile.runtime if resolved_profile else {}
     nipt_pipeline_root = Path(runtime.get("pipeline_root") or nipt_pipeline_root)
     host_nipt_pipeline_root = Path(runtime.get("host_pipeline_root") or host_nipt_pipeline_root)
+    nipt_fastq_container_root = Path(
+        runtime.get("fastq_container_root") or nipt_fastq_container_root or (nipt_pipeline_root / "fastq")
+    )
+    nipt_fastq_host_root = Path(
+        runtime.get("fastq_host_root") or nipt_fastq_host_root or (host_nipt_pipeline_root / "fastq")
+    )
+    host_locale_root = Path(runtime.get("locale_host_root") or host_locale_root or (host_nipt_pipeline_root / "locale"))
     docker_image = str(runtime.get("docker_image") or docker_image)
     fetal_image = str(runtime.get("fetal_image") or fetal_image)
 
@@ -289,10 +312,10 @@ def prepare_nipt_docker_run(
     source_batch_dir = Path(str(params.get("source_batch_dir") or ""))
     host_input_batch_dir = None
     if input_mode == "nipt_docker_scan":
-        host_input_batch_dir = _host_nipt_path(
+        host_input_batch_dir = map_container_path_to_host(
             container_path=source_batch_dir,
-            nipt_pipeline_root=nipt_pipeline_root,
-            host_nipt_pipeline_root=host_nipt_pipeline_root,
+            container_root=nipt_fastq_container_root,
+            host_root=nipt_fastq_host_root,
         )
     else:
         template_root = nipt_pipeline_root / f"nipt_docker_test_{template_id}"
@@ -331,6 +354,7 @@ def prepare_nipt_docker_run(
         host_workdir=host_workdir,
         nipt_pipeline_root=nipt_pipeline_root,
         host_nipt_pipeline_root=host_nipt_pipeline_root,
+        host_locale_root=host_locale_root,
         chip_name=chip_name,
         template_id=template_id or None,
         input_mode=input_mode,
@@ -359,6 +383,7 @@ def generate_nipt_compose(
     host_workdir: Path,
     nipt_pipeline_root: Path,
     host_nipt_pipeline_root: Path,
+    host_locale_root: Path | None = None,
     chip_name: str,
     cores: int,
     docker_image: str,
@@ -370,6 +395,7 @@ def generate_nipt_compose(
     host_input_batch_dir: Path | None = None,
     container_config_path: str = "/code/NIPTPro_pipeline/niptplus/config.yaml",
 ) -> dict[str, Any]:
+    host_locale_root = Path(host_locale_root or (host_nipt_pipeline_root / "locale"))
     container_name = f"NIPTPro_{analysis_id}"
     mount_smoke_command = [
         "-lc",
@@ -398,21 +424,21 @@ def generate_nipt_compose(
     ]
     command = mount_smoke_command if run_mode == "mount_smoke" else full_run_command
     volumes = [
-        f"{host_nipt_pipeline_root / 'niptplus'}:/code/NIPTPro_pipeline/niptplus:ro",
-        f"{host_nipt_pipeline_root / 'locale'}:/code/locale:ro",
-        f"{host_nipt_pipeline_root / 'refdir'}:/refdir:ro",
-        f"{host_workdir}:/workdir/analysis/NIPTPro/{chip_name}",
+        f"{(host_nipt_pipeline_root / 'niptplus').as_posix()}:/code/NIPTPro_pipeline/niptplus:ro",
+        f"{host_locale_root.as_posix()}:/code/locale:ro",
+        f"{(host_nipt_pipeline_root / 'refdir').as_posix()}:/refdir:ro",
+        f"{host_workdir.as_posix()}:/workdir/analysis/NIPTPro/{chip_name}",
         "/var/run/docker.sock:/var/run/docker.sock",
     ]
     if input_mode == "nipt_docker_scan":
         if host_input_batch_dir is None:
             raise ValueError("host_input_batch_dir is required for NIPT Docker scan runs.")
-        volumes.append(f"{host_input_batch_dir}:/input_batch:ro")
+        volumes.append(f"{host_input_batch_dir.as_posix()}:/input_batch:ro")
     else:
         template_value = str(template_id or "")
         if template_value not in SUPPORTED_TEMPLATES:
             raise ValueError(f"Unsupported NIPT template: {template_value}.")
-        volumes.append(f"{host_nipt_pipeline_root / f'nipt_docker_test_{template_value}'}:/template:ro")
+        volumes.append(f"{(host_nipt_pipeline_root / f'nipt_docker_test_{template_value}').as_posix()}:/template:ro")
     return {
         "services": {
             "runner": {
@@ -422,6 +448,7 @@ def generate_nipt_compose(
                 "user": "0:0",
                 "shm_size": "37gb",
                 "mem_limit": "60g",
+                "cpus": str(cores),
                 "environment": {
                     "NIPTPRO_FETAL_RATIO_DOCKER_IMAGE": fetal_image,
                     "AIRFLOW_DEMO_ANALYSIS_ID": analysis_id,
@@ -868,14 +895,26 @@ def _default_chip_name(template_id: str) -> str:
     raise ValueError(f"Unsupported NIPT template: {template_id}.")
 
 
-def _host_nipt_path(*, container_path: Path, nipt_pipeline_root: Path, host_nipt_pipeline_root: Path) -> Path:
-    resolved_container = container_path.resolve()
-    resolved_root = nipt_pipeline_root.resolve()
+def map_container_path_to_host(*, container_path: Path, container_root: Path, host_root: Path) -> Path:
+    resolved_container = container_path.resolve(strict=False)
+    resolved_root = container_root.resolve(strict=False)
     try:
         relative = resolved_container.relative_to(resolved_root)
-    except ValueError:
-        return container_path
-    return host_nipt_pipeline_root / relative
+    except ValueError as exc:
+        raise ValueError(
+            f"NIPT input path is outside approved container root {container_root}: {container_path}"
+        ) from exc
+    if any(part == ".." for part in relative.parts):
+        raise ValueError(f"NIPT input path traversal is not allowed: {container_path}")
+    return host_root / relative
+
+
+def _host_nipt_path(*, container_path: Path, nipt_pipeline_root: Path, host_nipt_pipeline_root: Path) -> Path:
+    return map_container_path_to_host(
+        container_path=container_path,
+        container_root=nipt_pipeline_root,
+        host_root=host_nipt_pipeline_root,
+    )
 
 
 def _host_workdir(*, workdir: Path, host_shared_root: Path) -> Path:

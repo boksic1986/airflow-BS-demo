@@ -28,7 +28,7 @@ export function WorkflowsPage() {
         <div>
           <p className="eyebrow">Live workflow status</p>
           <h1>Workflow Catalog</h1>
-          <p>Only the deployed PGT-A Predict and NIPT Docker Full analysis paths are shown.</p>
+          <p>Only workflows deployed in the current environment are shown.</p>
         </div>
       </section>
       {error ? <div className="inline-error" role="alert">Workflow catalog unavailable: {error}</div> : null}

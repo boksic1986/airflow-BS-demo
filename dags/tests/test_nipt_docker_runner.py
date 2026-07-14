@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 import yaml
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -19,6 +20,63 @@ from nipt_docker_runner import (
     validate_nipt_conf,
     write_nipt_qc_summary_from_outputs,
 )
+
+
+def test_bs_path_adapter_maps_only_approved_fastq_root(tmp_path) -> None:
+    from nipt_docker_runner import map_container_path_to_host
+
+    container_root = Path("/data/nipt-fastq")
+    host_root = tmp_path / "fq"
+    batch = container_root / "FQ2026" / "batch01"
+
+    assert map_container_path_to_host(
+        container_path=batch,
+        container_root=container_root,
+        host_root=host_root,
+    ) == host_root / "FQ2026" / "batch01"
+
+    with pytest.raises(ValueError, match="outside approved container root"):
+        map_container_path_to_host(
+            container_path=Path("/etc/passwd"),
+            container_root=container_root,
+            host_root=host_root,
+        )
+
+
+def test_bs_compose_uses_separate_workflow_locale_and_fastq_mounts(tmp_path) -> None:
+    from nipt_docker_runner import generate_nipt_compose
+
+    workflow_root = tmp_path / "workflow"
+    locale_root = tmp_path / "locale"
+    input_batch = tmp_path / "fastq" / "batch01"
+    workdir = tmp_path / "shared" / "runs" / "NIPT_TEST"
+    for path in (workflow_root / "niptplus", workflow_root / "refdir", locale_root, input_batch, workdir):
+        path.mkdir(parents=True, exist_ok=True)
+
+    payload = generate_nipt_compose(
+        analysis_id="NIPT_TEST",
+        run_mode="full_run",
+        workdir=workdir,
+        host_workdir=workdir,
+        nipt_pipeline_root=Path("/opt/nipt/workflow"),
+        host_nipt_pipeline_root=workflow_root,
+        host_locale_root=locale_root,
+        chip_name="batch01",
+        cores=32,
+        docker_image="172.17.61.235:2333/niptpro/niptpro:1.1.11",
+        fetal_image="172.17.61.235:2333/niptpro/pytorch:biosan",
+        docker_network="nipt_analysis_test_net",
+        owner="6708:520",
+        input_mode="nipt_docker_scan",
+        host_input_batch_dir=input_batch,
+    )
+
+    volumes = payload["services"]["runner"]["volumes"]
+    assert f"{(workflow_root / 'niptplus').as_posix()}:/code/NIPTPro_pipeline/niptplus:ro" in volumes
+    assert f"{(workflow_root / 'refdir').as_posix()}:/refdir:ro" in volumes
+    assert f"{locale_root.as_posix()}:/code/locale:ro" in volumes
+    assert f"{input_batch.as_posix()}:/input_batch:ro" in volumes
+    assert not any(str(workflow_root / "locale") in volume for volume in volumes)
 
 
 class NiptDockerRunnerTests(unittest.TestCase):

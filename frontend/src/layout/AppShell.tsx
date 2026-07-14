@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import {useState, type FormEvent} from "react";
 import {NavLink, Outlet, useNavigate} from "react-router-dom";
+import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 
 const navItems = [
   {to: "/dashboard", label: "Command Center", Icon: LayoutDashboard},
@@ -25,7 +26,9 @@ const navItems = [
 
 export function AppShell() {
   const navigate = useNavigate();
+  const capabilities = usePlatformCapabilities();
   const [search, setSearch] = useState("");
+  const niptOnly = capabilities.deployed_pipelines.length === 1 && capabilities.deployed_pipelines[0] === "nipt_docker";
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,8 +43,8 @@ export function AppShell() {
         <div className="brand-lockup">
           <FlaskConical size={24} />
           <div>
-            <strong>BioFlow Control</strong>
-            <span>PGT-A + NIPT Docker</span>
+            <strong>{niptOnly ? "NIPT Control Tower" : "BioFlow Control"}</strong>
+            <span>{niptOnly ? "NIPT Docker only" : "PGT-A + NIPT Docker"}</span>
           </div>
         </div>
         <nav aria-label="Primary navigation">
@@ -55,7 +58,7 @@ export function AppShell() {
       </aside>
       <div className="shell-main">
         <header className="topbar">
-          <div className="environment-pill">Demo environment</div>
+          <div className="environment-pill">{capabilities.environment}</div>
           <form className="global-search" role="search" onSubmit={submitSearch}>
             <Search size={16} />
             <label className="sr-only" htmlFor="global-run-search">Search project or run ID</label>
@@ -68,7 +71,7 @@ export function AppShell() {
             />
           </form>
           <div className="topbar-actions">
-            <a className="button ghost" href={`${window.location.protocol}//${window.location.hostname}:12958`}>
+            <a className="button ghost" href={capabilities.airflow_url || `${window.location.protocol}//${window.location.hostname}:12958`}>
               <ListChecks size={15} />
               Airflow 12958
             </a>

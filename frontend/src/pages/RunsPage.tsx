@@ -5,6 +5,7 @@ import type {RunListResponse, RunSummary} from "../api";
 
 import {listRuns} from "../api";
 import {RunTable} from "../components/RunTable";
+import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {errorMessage} from "../lib/errors";
 
 const pageSize = 20;
@@ -13,6 +14,7 @@ const validStatuses = new Set(["all", "created", "submitted", "queued", "running
 const validSorts = new Set(["created_desc", "duration_desc", "status"]);
 
 export function RunsPage() {
+  const capabilities = usePlatformCapabilities();
   const [searchParams, setSearchParams] = useSearchParams();
   const pipeline = validValue(searchParams.get("pipeline"), validPipelines, "all");
   const status = validValue(searchParams.get("status"), validStatuses, "all");
@@ -88,7 +90,7 @@ export function RunsPage() {
         <div>
           <p className="eyebrow">Batch run resource</p>
           <h1>Batch Runs</h1>
-          <p>Server-backed PGT-A and NIPT Docker runs with durable filters and pagination.</p>
+          <p>Server-backed deployed runs with durable filters and pagination.</p>
         </div>
       </section>
       <section className="panel">
@@ -97,8 +99,8 @@ export function RunsPage() {
             <span>Pipeline</span>
             <select aria-label="Pipeline" value={pipeline} onChange={(event) => updateFilter("pipeline", event.target.value)}>
               <option value="all">All deployed</option>
-              <option value="pgta">PGT-A</option>
-              <option value="nipt_docker">NIPT Docker</option>
+              {capabilities.isDeployed("pgta") ? <option value="pgta">PGT-A</option> : null}
+              {capabilities.isDeployed("nipt_docker") ? <option value="nipt_docker">NIPT Docker</option> : null}
             </select>
           </label>
           <label>

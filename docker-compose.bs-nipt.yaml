@@ -1,0 +1,275 @@
+name: ${COMPOSE_PROJECT_NAME:-airflow-nipt}
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "3"
+
+x-airflow-common: &airflow-common
+  image: ${AIRFLOW_IMAGE:?Set AIRFLOW_IMAGE in .env}
+  build:
+    context: ./airflow_image
+  user: "${AIRFLOW_UID:?Set AIRFLOW_UID in .env}:0"
+  logging: *default-logging
+  environment: &airflow-environment
+    TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: Asia/Shanghai
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__PARALLELISM: "2"
+    AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: "2"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-airflow}
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-airflow}
+    AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+    AIRFLOW__CELERY__WORKER_CONCURRENCY: "2"
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+    AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: Asia/Shanghai
+    AIRFLOW__WEBSERVER__BASE_URL: ${PUBLIC_AIRFLOW_URL:?Set PUBLIC_AIRFLOW_URL in .env}
+    CONTAINER_SHARED_ROOT: /data/airflow-demo
+    HOST_SHARED_ROOT: ${HOST_SHARED_ROOT:?Set HOST_SHARED_ROOT in .env}
+    BACKEND_BASE_URL: http://backend:8000
+    INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in .env}
+    INTAKE_SCAN_PIPELINES: nipt_docker
+    PIPELINE_PROFILE_CONFIG_PATH: /opt/airflow/config/pipeline_profiles.yaml
+    NIPT_WORKFLOW_CONTAINER_ROOT: /opt/nipt/workflow
+    NIPT_WORKFLOW_HOST_ROOT: ${NIPT_WORKFLOW_HOST_ROOT:?Set NIPT_WORKFLOW_HOST_ROOT in .env}
+    NIPT_FASTQ_CONTAINER_ROOT: /data/nipt-fastq
+    NIPT_FASTQ_HOST_ROOT: ${NIPT_FASTQ_HOST_ROOT:?Set NIPT_FASTQ_HOST_ROOT in .env}
+    NIPT_LOCALE_HOST_ROOT: ${NIPT_LOCALE_HOST_ROOT:?Set NIPT_LOCALE_HOST_ROOT in .env}
+    NIPT_DOCKER_IMAGE: 172.17.61.235:2333/niptpro/niptpro:1.1.11
+    NIPT_FETAL_IMAGE: 172.17.61.235:2333/niptpro/pytorch:biosan
+    NIPT_DOCKER_NETWORK: nipt_analysis_test_net
+    NIPT_DOCKER_CORES: "32"
+    NIPT_DOCKER_OWNER: ${NIPT_DOCKER_OWNER:-6708:520}
+    NIPT_ALLOW_HEAVY_RUN: "true"
+  volumes:
+    - ./dags/bio_nipt_docker.py:/opt/airflow/dags/bio_nipt_docker.py:ro
+    - ./dags/bio_intake_scan.py:/opt/airflow/dags/bio_intake_scan.py:ro
+    - ./dags/nipt_docker_runner.py:/opt/airflow/dags/nipt_docker_runner.py:ro
+    - ./dags/common:/opt/airflow/dags/common:ro
+    - ./dags/snakemake_logger_plugin_airflow_demo:/opt/airflow/dags/snakemake_logger_plugin_airflow_demo:ro
+    - ./config/pipeline_profiles.yaml:/opt/airflow/config/pipeline_profiles.yaml:ro
+    - ${HOST_SHARED_ROOT:?Set HOST_SHARED_ROOT in .env}:/data/airflow-demo
+    - ${NIPT_WORKFLOW_HOST_ROOT:?Set NIPT_WORKFLOW_HOST_ROOT in .env}:/opt/nipt/workflow:ro
+    - ${NIPT_FASTQ_HOST_ROOT:?Set NIPT_FASTQ_HOST_ROOT in .env}:/data/nipt-fastq:ro
+    - ${NIPT_LOCALE_HOST_ROOT:?Set NIPT_LOCALE_HOST_ROOT in .env}:/opt/nipt/locale:ro
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks:
+    nipt_analysis_test_net:
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
+      POSTGRES_USER: ${POSTGRES_USER:-airflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-airflow}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      nipt_analysis_test_net:
+        ipv4_address: 192.168.199.40
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      nipt_analysis_test_net:
+        ipv4_address: 192.168.199.50
+
+  biodemo-db-init:
+    image: postgres:15-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-airflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-airflow}
+      BIODEMO_DB: ${BIODEMO_DB:-biodemo}
+      BIODEMO_USER: ${BIODEMO_USER:-biodemo}
+      BIODEMO_PASSWORD: ${BIODEMO_PASSWORD:?Set BIODEMO_PASSWORD in .env}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -eu
+        export PGPASSWORD="$${POSTGRES_PASSWORD}"
+        psql -h postgres -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -v ON_ERROR_STOP=1 \
+          -v biodemo_db="$${BIODEMO_DB}" -v biodemo_user="$${BIODEMO_USER}" -v biodemo_password="$${BIODEMO_PASSWORD}" <<'SQL'
+        SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'biodemo_user', :'biodemo_password')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'biodemo_user') \gexec
+        SELECT format('CREATE DATABASE %I OWNER %I', :'biodemo_db', :'biodemo_user')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'biodemo_db') \gexec
+        SQL
+    networks:
+      nipt_analysis_test_net:
+
+  biodemo-migrate:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE in .env}
+    restart: "no"
+    depends_on:
+      biodemo-db-init:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+    command: ["alembic", "upgrade", "head"]
+    networks:
+      nipt_analysis_test_net:
+
+  backend:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE in .env}
+    build:
+      context: ./backend
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      biodemo-migrate:
+        condition: service_completed_successfully
+    environment:
+      TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      AIRFLOW_BASE_URL: http://airflow-api-server:8080
+      AIRFLOW_API_USERNAME: ${AIRFLOW_API_USERNAME:-admin}
+      AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?Set AIRFLOW_API_PASSWORD in .env}
+      CONTAINER_SHARED_ROOT: /data/airflow-demo
+      NIPT_INPUT_SCAN_ROOTS: /data/nipt-fastq
+      INTAKE_CONFIG_PATH: /app/config/intake.yaml
+      PIPELINE_PROFILE_CONFIG_PATH: /app/config/pipeline_profiles.yaml
+      NIPT_DOCKER_CORES: "32"
+      NIPT_ALLOW_HEAVY_RUN: "true"
+      DEPLOYED_PIPELINES: nipt_docker
+      PLATFORM_ENVIRONMENT: ${PLATFORM_ENVIRONMENT:-BS10610}
+      PUBLIC_AIRFLOW_URL: ${PUBLIC_AIRFLOW_URL:?Set PUBLIC_AIRFLOW_URL in .env}
+      BACKEND_CORS_ORIGINS: "*"
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in .env}
+    volumes:
+      - ${HOST_SHARED_ROOT:?Set HOST_SHARED_ROOT in .env}:/data/airflow-demo
+      - ./config/intake.bs-nipt.yaml:/app/config/intake.yaml:ro
+      - ./config/pipeline_profiles.yaml:/app/config/pipeline_profiles.yaml:ro
+      - ${NIPT_FASTQ_HOST_ROOT:?Set NIPT_FASTQ_HOST_ROOT in .env}:/data/nipt-fastq:ro
+      - ${NIPT_REQUEST_HOST_ROOT:?Set NIPT_REQUEST_HOST_ROOT in .env}:/data/airflow-intake/nipt:rw
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health').read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      nipt_analysis_test_net:
+        ipv4_address: 192.168.199.20
+
+  airflow-init:
+    <<: *airflow-common
+    restart: "no"
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        set -euo pipefail
+        airflow db migrate
+        airflow pools set nipt_s9_full 1 "Serial NIPT Snakemake 9 full analysis runs"
+        if ! airflow users list | grep -F "$${AIRFLOW_ADMIN_USERNAME}" >/dev/null; then
+          airflow users create --username "$${AIRFLOW_ADMIN_USERNAME}" --firstname Airflow --lastname Admin \
+            --role Admin --email airflow-nipt@example.com --password "$${AIRFLOW_ADMIN_PASSWORD}"
+        fi
+    environment:
+      <<: *airflow-environment
+      AIRFLOW_ADMIN_USERNAME: ${AIRFLOW_ADMIN_USERNAME:-admin}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:?Set AIRFLOW_ADMIN_PASSWORD in .env}
+
+  airflow-api-server:
+    <<: *airflow-common
+    restart: unless-stopped
+    command: webserver
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health').read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+    networks:
+      nipt_analysis_test_net:
+        ipv4_address: 192.168.199.10
+
+  airflow-scheduler:
+    <<: *airflow-common
+    restart: unless-stopped
+    command: scheduler
+    networks:
+      nipt_analysis_test_net:
+        ipv4_address: 192.168.199.11
+
+  airflow-worker:
+    <<: *airflow-common
+    restart: unless-stopped
+    command: celery worker
+    group_add:
+      - ${DOCKER_SOCKET_GID:?Set DOCKER_SOCKET_GID in .env}
+    volumes:
+      - ./dags/bio_nipt_docker.py:/opt/airflow/dags/bio_nipt_docker.py:ro
+      - ./dags/bio_intake_scan.py:/opt/airflow/dags/bio_intake_scan.py:ro
+      - ./dags/nipt_docker_runner.py:/opt/airflow/dags/nipt_docker_runner.py:ro
+      - ./dags/common:/opt/airflow/dags/common:ro
+      - ./dags/snakemake_logger_plugin_airflow_demo:/opt/airflow/dags/snakemake_logger_plugin_airflow_demo:ro
+      - ./config/pipeline_profiles.yaml:/opt/airflow/config/pipeline_profiles.yaml:ro
+      - ${HOST_SHARED_ROOT:?Set HOST_SHARED_ROOT in .env}:/data/airflow-demo
+      - ${NIPT_WORKFLOW_HOST_ROOT:?Set NIPT_WORKFLOW_HOST_ROOT in .env}:/opt/nipt/workflow:ro
+      - ${NIPT_FASTQ_HOST_ROOT:?Set NIPT_FASTQ_HOST_ROOT in .env}:/data/nipt-fastq:ro
+      - ${NIPT_LOCALE_HOST_ROOT:?Set NIPT_LOCALE_HOST_ROOT in .env}:/opt/nipt/locale:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      nipt_analysis_test_net:
+        ipv4_address: 192.168.199.12
+
+  frontend-nginx:
+    image: ${FRONTEND_IMAGE:?Set FRONTEND_IMAGE in .env}
+    build:
+      context: ./frontend
+      args:
+        NGINX_IMAGE: nginx:1.30.3-alpine3.23
+        NGINX_CONF: nginx.bs-nipt.conf
+        VITE_DISPLAY_TIME_ZONE: Asia/Shanghai
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      backend:
+        condition: service_healthy
+      airflow-api-server:
+        condition: service_healthy
+    ports:
+      - "${BS_HOST_IP:-172.17.106.10}:${FRONTEND_PORT:-12959}:80"
+      - "${BS_HOST_IP:-172.17.106.10}:${AIRFLOW_PORT:-12958}:8080"
+    networks:
+      nipt_analysis_test_net:
+        ipv4_address: 192.168.199.5
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  nipt_analysis_test_net:
+    external: true
+    name: nipt_analysis_test_net

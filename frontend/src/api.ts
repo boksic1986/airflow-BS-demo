@@ -494,6 +494,14 @@ export type IntakeView = "pending" | "history" | "all";
 
 export type DashboardPipeline = "all" | "pgta" | "nipt_docker";
 
+export type DeployedPipeline = "pgta" | "nipt_docker";
+
+export type PlatformCapabilities = {
+  environment: string;
+  deployed_pipelines: DeployedPipeline[];
+  airflow_url: string | null;
+};
+
 export type DashboardOverview = {
   pipeline: DashboardPipeline;
   period: string;
@@ -627,7 +635,7 @@ export class ApiError extends Error {
 
 export function getApiBaseUrl(): string {
   const configured = window.__AIRFLOW_DEMO_CONFIG__?.apiBaseUrl || import.meta.env.VITE_API_BASE_URL;
-  const fallback = `${window.location.protocol}//${window.location.hostname}:8000/api`;
+  const fallback = "/api";
   return String(configured || fallback).replace(/\/+$/, "");
 }
 
@@ -726,6 +734,10 @@ export function getSystemResources(): Promise<SystemResourcesResponse> {
 
 export function getHealth(): Promise<HealthResponse> {
   return requestJson<HealthResponse>("/health");
+}
+
+export function getPlatformCapabilities(): Promise<PlatformCapabilities> {
+  return requestJson<PlatformCapabilities>("/platform/capabilities");
 }
 
 export function getDbHealth(): Promise<HealthResponse> {

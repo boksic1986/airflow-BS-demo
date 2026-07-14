@@ -8,19 +8,20 @@ import {isActiveStatus} from "../../lib/status";
 
 const resourceTabs: DashboardPipeline[] = ["all", "pgta", "nipt_docker"];
 
-export function DashboardResourcePanels({resources, resourceTab, overview, rows, loading, error, onResourceTabChange}: {
+export function DashboardResourcePanels({resources, resourceTab, overview, rows, loading, error, pipelines, onResourceTabChange}: {
   resources: SystemResourcesResponse | null;
   resourceTab: DashboardPipeline;
   overview: DashboardOverview | null;
   rows: DashboardRunTrackerRow[];
   loading: boolean;
   error: string | null;
+  pipelines?: DashboardPipeline[];
   onResourceTabChange: (pipeline: DashboardPipeline) => void;
 }) {
   return (
     <section className="dashboard-ops-grid" aria-busy={loading}>
       <ServiceNodeHealth resources={resources} error={error} />
-      <PipelineResources resourceTab={resourceTab} resources={resources} error={error} onResourceTabChange={onResourceTabChange} />
+      <PipelineResources resourceTab={resourceTab} resources={resources} error={error} pipelines={pipelines} onResourceTabChange={onResourceTabChange} />
       <WorkflowActivity overview={overview} rows={rows} />
     </section>
   );
@@ -42,10 +43,11 @@ function ServiceNodeHealth({resources, error}: {resources: SystemResourcesRespon
   );
 }
 
-function PipelineResources({resourceTab, resources, error, onResourceTabChange}: {
+function PipelineResources({resourceTab, resources, error, pipelines = resourceTabs, onResourceTabChange}: {
   resourceTab: DashboardPipeline;
   resources: SystemResourcesResponse | null;
   error: string | null;
+  pipelines?: DashboardPipeline[];
   onResourceTabChange: (pipeline: DashboardPipeline) => void;
 }) {
   const loadAverage = resources?.host.cpu.load_average?.[0];
@@ -53,7 +55,7 @@ function PipelineResources({resourceTab, resources, error, onResourceTabChange}:
     <div className="panel">
       <div className="section-heading"><h2>Pipeline Resources</h2><p>Shared execution node</p></div>
       <div className="resource-tabs" aria-label="Pipeline resource tabs">
-        {resourceTabs.map((tab) => (
+        {pipelines.map((tab) => (
           <button aria-label={resourceTabLabel(tab)} className={resourceTab === tab ? "active" : ""} key={tab} type="button" onClick={() => onResourceTabChange(tab)}>
             {tab === "all" ? "All" : compactPipelineName(tab)}
           </button>

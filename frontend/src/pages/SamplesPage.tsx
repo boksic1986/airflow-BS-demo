@@ -5,12 +5,14 @@ import type {OperatorSampleResponse} from "../api";
 
 import {listSamplesResource} from "../api";
 import {StatusBadge} from "../components/StatusBadge";
+import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {errorMessage} from "../lib/errors";
 import {compactPipelineName} from "../lib/format";
 
 const pageSize = 25;
 
 export function SamplesPage() {
+  const capabilities = usePlatformCapabilities();
   const [searchParams, setSearchParams] = useSearchParams();
   const pipeline = searchParams.get("pipeline") || "all";
   const status = searchParams.get("status") || "all";
@@ -86,7 +88,7 @@ export function SamplesPage() {
         <div>
           <p className="eyebrow">Sample resource</p>
           <h1>Sample Matrix</h1>
-          <p>Paginated sample inventory across deployed PGT-A and NIPT Docker runs.</p>
+          <p>Paginated sample inventory across deployed workflows.</p>
         </div>
       </section>
       <section className="panel">
@@ -95,8 +97,8 @@ export function SamplesPage() {
             <span>Pipeline</span>
             <select aria-label="Sample pipeline" value={pipeline} onChange={(event) => updateFilter("pipeline", event.target.value)}>
               <option value="all">All deployed</option>
-              <option value="pgta">PGT-A</option>
-              <option value="nipt_docker">NIPT Docker</option>
+              {capabilities.isDeployed("pgta") ? <option value="pgta">PGT-A</option> : null}
+              {capabilities.isDeployed("nipt_docker") ? <option value="nipt_docker">NIPT Docker</option> : null}
             </select>
           </label>
           <label>

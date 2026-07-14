@@ -25,6 +25,9 @@ class Settings:
     nipt_allow_heavy_run: bool
     nipt_docker_cores: int
     internal_service_token: str
+    deployed_pipelines: tuple[str, ...]
+    platform_environment: str
+    public_airflow_url: str
 
 
 def get_cors_origins() -> list[str]:
@@ -42,6 +45,12 @@ def get_settings() -> Settings:
     legacy_scan_roots = _parse_list(os.getenv("INPUT_SCAN_ROOTS", "/data/project/CNV/PGT-A/rawdata"))
     pgta_scan_roots = _parse_list(os.getenv("PGTA_INPUT_SCAN_ROOTS") or ",".join(legacy_scan_roots))
     nipt_scan_roots = _parse_list(os.getenv("NIPT_INPUT_SCAN_ROOTS") or "/opt/pipelines/NIPT/fastq")
+    deployed_pipelines = tuple(_parse_list(os.getenv("DEPLOYED_PIPELINES", "pgta,nipt_docker")))
+    unsupported = sorted(set(deployed_pipelines) - {"pgta", "nipt_docker"})
+    if unsupported:
+        raise RuntimeError(f"Unsupported DEPLOYED_PIPELINES values: {', '.join(unsupported)}")
+    if not deployed_pipelines:
+        raise RuntimeError("DEPLOYED_PIPELINES must contain at least one pipeline")
     return Settings(
         database_url=_required_env("DATABASE_URL"),
         airflow_base_url=os.getenv("AIRFLOW_BASE_URL", "http://airflow-api-server:8080"),
@@ -59,6 +68,9 @@ def get_settings() -> Settings:
         nipt_allow_heavy_run=_parse_bool(os.getenv("NIPT_ALLOW_HEAVY_RUN", "false")),
         nipt_docker_cores=_parse_int(os.getenv("NIPT_DOCKER_CORES", "32"), default=32),
         internal_service_token=get_internal_service_token(),
+        deployed_pipelines=deployed_pipelines,
+        platform_environment=os.getenv("PLATFORM_ENVIRONMENT", "Demo").strip() or "Demo",
+        public_airflow_url=os.getenv("PUBLIC_AIRFLOW_URL", "").strip(),
     )
 
 

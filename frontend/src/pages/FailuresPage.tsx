@@ -5,11 +5,13 @@ import type {FailureItem, FailureListResponse} from "../api";
 
 import {listFailures} from "../api";
 import {FailureWorkspace} from "../features/failures/FailureWorkspace";
+import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {errorMessage} from "../lib/errors";
 
 const pageSize = 20;
 
 export function FailuresPage() {
+  const capabilities = usePlatformCapabilities();
   const [searchParams, setSearchParams] = useSearchParams();
   const pipeline = searchParams.get("pipeline") || "all";
   const kind = (searchParams.get("kind") || "all") as "all" | "workflow" | "qc";
@@ -104,8 +106,8 @@ export function FailuresPage() {
             <span>Pipeline</span>
             <select aria-label="Failure pipeline" value={pipeline} onChange={(event) => updateFilter("pipeline", event.target.value)}>
               <option value="all">All deployed</option>
-              <option value="pgta">PGT-A</option>
-              <option value="nipt_docker">NIPT Docker</option>
+              {capabilities.isDeployed("pgta") ? <option value="pgta">PGT-A</option> : null}
+              {capabilities.isDeployed("nipt_docker") ? <option value="nipt_docker">NIPT Docker</option> : null}
             </select>
           </label>
           <label>

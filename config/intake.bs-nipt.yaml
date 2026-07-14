@@ -1,0 +1,25 @@
+version: 1
+defaults:
+  ready_rule: stable_fingerprint
+  stable_scans: 2
+  auto_submit: true
+pipelines:
+  nipt_docker:
+    enabled: true
+    roots:
+      - id: bs_nipt_fastq
+        host_path: /sugon01/fq_backup/NIPT_fq_backup
+        container_path: /data/nipt-fastq
+    file_flavor: clean_fastq
+    r1_pattern: "*.R1.clean.fastq.gz"
+    r2_pattern: "*.R2.clean.fastq.gz"
+    ignore_patterns:
+      - "002/*.adapter.fastq.gz"
+    intake:
+      request_inbox: /data/airflow-intake/nipt
+      request_glob: "*.nipt.yaml"
+      request_submit_enabled: true
+      stable_scans: 2
+    auto_submit:
+      enabled: false
+      run_mode: full_run

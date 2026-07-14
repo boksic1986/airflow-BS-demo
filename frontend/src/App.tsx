@@ -1,6 +1,7 @@
 import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom";
 
 import {AppShell} from "./layout/AppShell";
+import {PlatformCapabilitiesProvider} from "./features/platform/PlatformCapabilitiesContext";
 import {DashboardPage} from "./pages/DashboardPage";
 import {FailuresPage} from "./pages/FailuresPage";
 import {RunDetailPage} from "./pages/RunDetailPage";
@@ -12,8 +13,9 @@ import {WorkflowsPage} from "./pages/WorkflowsPage";
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <PlatformCapabilitiesProvider>
+      <BrowserRouter>
+        <Routes>
         <Route path="/" element={<AppShell />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
@@ -25,7 +27,8 @@ export default function App() {
           <Route path="failures" element={<FailuresPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </PlatformCapabilitiesProvider>
   );
 }

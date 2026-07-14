@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_ROOT="${PROJECT_ROOT:-/mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT}"
+NETWORK_NAME="nipt_analysis_test_net"
+EXPECTED_SUBNET="192.168.199.0/24"
+EXPECTED_GATEWAY="192.168.199.1"
+STATIC_IPS=(192.168.199.5 192.168.199.10 192.168.199.11 192.168.199.12 192.168.199.20 192.168.199.40 192.168.199.50)
+
+test -d "$PROJECT_ROOT"
+probe="$PROJECT_ROOT/.t126-write-probe-$$"
+: > "$probe"
+rm -f "$probe"
+
+ipam="$(docker network inspect "$NETWORK_NAME" --format '{{json .IPAM.Config}}')"
+grep -Fq "\"Subnet\":\"$EXPECTED_SUBNET\"" <<<"$ipam"
+grep -Fq "\"Gateway\":\"$EXPECTED_GATEWAY\"" <<<"$ipam"
+
+attachments="$(docker network inspect "$NETWORK_NAME" --format '{{range $id, $c := .Containers}}{{$c.Name}} {{$c.IPv4Address}}{{println}}{{end}}')"
+for address in "${STATIC_IPS[@]}"; do
+  if grep -Eq "(^|[[:space:]])${address//./\\.}/" <<<"$attachments"; then
+    echo "Static address is already allocated: $address" >&2
+    exit 1
+  fi
+done
+
+for path in \
+  "${NIPT_FASTQ_HOST_ROOT:?Set NIPT_FASTQ_HOST_ROOT}" \
+  "${NIPT_WORKFLOW_HOST_ROOT:?Set NIPT_WORKFLOW_HOST_ROOT}/niptplus/Snakefile" \
+  "${NIPT_WORKFLOW_HOST_ROOT}/refdir" \
+  "${NIPT_LOCALE_HOST_ROOT:?Set NIPT_LOCALE_HOST_ROOT}"; do
+  test -r "$path" || { echo "Required path is not readable: $path" >&2; exit 1; }
+done
+
+echo "T126 preflight passed: project root, external network, static IPs, and NIPT mounts"

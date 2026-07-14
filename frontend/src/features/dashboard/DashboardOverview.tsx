@@ -10,13 +10,14 @@ export const dashboardPipelines: Array<{value: DashboardPipeline; label: string;
   {value: "nipt_docker", label: "NIPT Docker", description: "Scanned FASTQ chip batches"},
 ];
 
-export function PipelineRail({pipeline, onChange}: {
+export function PipelineRail({pipeline, onChange, pipelines = dashboardPipelines.map((item) => item.value)}: {
   pipeline: DashboardPipeline;
   onChange: (pipeline: DashboardPipeline) => void;
+  pipelines?: DashboardPipeline[];
 }) {
   return (
     <aside className="pipeline-rail" aria-label="Pipeline selector">
-      {dashboardPipelines.map((item) => (
+      {dashboardPipelines.filter((item) => pipelines.includes(item.value)).map((item) => (
         <button
           aria-label={item.label}
           className={pipeline === item.value ? "active" : ""}
