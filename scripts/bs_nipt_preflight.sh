@@ -12,6 +12,11 @@ probe="$PROJECT_ROOT/.t126-write-probe-$$"
 : > "$probe"
 rm -f "$probe"
 
+test -d "$PROJECT_ROOT/shared"
+docker run --rm --entrypoint bash --user 50000:0 -v "$PROJECT_ROOT/shared:/shared" \
+  "${AIRFLOW_IMAGE:?Set AIRFLOW_IMAGE}" \
+  -c ': > /shared/.t126-airflow-write-probe && rm -f /shared/.t126-airflow-write-probe'
+
 ipam="$(docker network inspect "$NETWORK_NAME" --format '{{json .IPAM.Config}}')"
 grep -Fq "\"Subnet\":\"$EXPECTED_SUBNET\"" <<<"$ipam"
 grep -Fq "\"Gateway\":\"$EXPECTED_GATEWAY\"" <<<"$ipam"
