@@ -165,14 +165,6 @@ def prepare_run(request: dict[str, Any]) -> None:
     workdir = Path(str(request["host_workdir"])).resolve()
     for relative in ("config", "logs", "logs/events", "logs/resources", "reports", "reports/resources"):
         (workdir / relative).mkdir(parents=True, exist_ok=True)
-    if not DEFAULT_ENV_SCRIPT.is_file():
-        raise FileNotFoundError(f"WGS environment script is not readable: {DEFAULT_ENV_SCRIPT}")
-    if not DEFAULT_SNAKEMAKE_BIN.is_file():
-        raise FileNotFoundError(f"WGS Snakemake 9 executable is not readable: {DEFAULT_SNAKEMAKE_BIN}")
-    for filename in ("WGS_pipeline_fastq2vcf.Snakefile", "WGS_pipeline.Snakefile"):
-        if not (DEFAULT_PIPELINE_ROOT / filename).is_file():
-            raise FileNotFoundError(f"WGS S9 adapter is missing: {DEFAULT_PIPELINE_ROOT / filename}")
-
     roots = _configured_roots("WGS_CONFIG_ROOTS", DEFAULT_CONFIG_ROOTS)
     fastq_roots = _configured_roots("WGS_FASTQ_ROOTS", DEFAULT_FASTQ_ROOTS)
     input_root = (workdir / "config").resolve()
@@ -185,6 +177,13 @@ def prepare_run(request: dict[str, Any]) -> None:
         downstream_config=source_down,
         targets=source_targets,
     )
+    if not DEFAULT_ENV_SCRIPT.is_file():
+        raise FileNotFoundError(f"WGS environment script is not readable: {DEFAULT_ENV_SCRIPT}")
+    if not DEFAULT_SNAKEMAKE_BIN.is_file():
+        raise FileNotFoundError(f"WGS Snakemake 9 executable is not readable: {DEFAULT_SNAKEMAKE_BIN}")
+    for filename in ("WGS_pipeline_fastq2vcf.Snakefile", "WGS_pipeline.Snakefile"):
+        if not (DEFAULT_PIPELINE_ROOT / filename).is_file():
+            raise FileNotFoundError(f"WGS S9 adapter is missing: {DEFAULT_PIPELINE_ROOT / filename}")
     pre_payload = _read_yaml_mapping(source_pre)
     down_payload = _read_yaml_mapping(source_down)
     _validate_wgs_config(pre_payload, roots=roots, fastq_roots=fastq_roots)

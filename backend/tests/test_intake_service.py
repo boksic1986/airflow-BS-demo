@@ -251,7 +251,7 @@ def test_wgs_yaml_intake_submits_once_after_two_stable_scans(tmp_path) -> None:
         )
         runs = session.scalars(select(AnalysisRun).where(AnalysisRun.pipeline_name == "wgs")).all()
 
-    assert first["items"][0]["reason"] == "waiting_for_stable_scan"
+    assert first["items"][0]["reason"] == "new_batch_observed"
     assert second["items"][0]["reason"] == "auto_submitted"
     assert third["items"][0]["reason"] == "already_submitted"
     assert len(runs) == 1

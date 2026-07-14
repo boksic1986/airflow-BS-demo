@@ -258,6 +258,9 @@ def intake_config() -> dict[str, object]:
 
 @app.get("/api/intake/scanner-state")
 def intake_scanner_state() -> dict[str, object]:
+    settings = _deployment_guard_settings()
+    deployed = _deployed_pipelines(settings) if settings is not None else ("pgta", "nipt_docker")
+    trigger_contracts = _intake_trigger_contracts(deployed)
     try:
         airflow_client = get_airflow_client()
         dag_payload = airflow_client.get_dag(INTAKE_SCANNER_DAG_ID)
@@ -278,7 +281,7 @@ def intake_scanner_state() -> dict[str, object]:
             "latest_end_date": None,
             "schedule": "*/10 * * * *",
             "next_run": None,
-            "trigger_contracts": _intake_trigger_contracts(),
+            "trigger_contracts": trigger_contracts,
             "retention": _intake_retention_state(),
             "message": "Airflow scanner state unavailable",
         }
@@ -294,7 +297,7 @@ def intake_scanner_state() -> dict[str, object]:
         "latest_end_date": latest_run.get("end_date") if latest_run else None,
         "schedule": _dag_schedule(dag_payload),
         "next_run": dag_payload.get("next_dagrun") or dag_payload.get("next_dagrun_create_after"),
-        "trigger_contracts": _intake_trigger_contracts(),
+        "trigger_contracts": trigger_contracts,
         "retention": _intake_retention_state(),
         "message": None,
     }
@@ -686,11 +689,10 @@ def intake_status(
 
 @app.get("/api/workflows")
 def workflows() -> dict[str, object]:
+    settings = _deployment_guard_settings()
+    deployed = _deployed_pipelines(settings) if settings is not None else ("pgta", "nipt_docker")
     with get_sessionmaker()() as session:
-        payload = get_workflow_catalog(session=session)
-        settings = _deployment_guard_settings()
-        deployed = set(_deployed_pipelines(settings)) if settings is not None else {"pgta", "nipt_docker"}
-        return {**payload, "items": [item for item in payload.get("items", []) if item.get("pipeline") in deployed]}
+        return get_workflow_catalog(session=session, pipelines=deployed)
 
 
 @app.get("/api/system/resources")
@@ -1137,12 +1139,13 @@ def _dag_schedule(payload: dict[str, object]) -> str:
     return str(schedule or "*/10 * * * *")
 
 
-def _intake_trigger_contracts() -> dict[str, str]:
-    return {
+def _intake_trigger_contracts(pipelines: tuple[str, ...] | list[str]) -> dict[str, str]:
+    contracts = {
         "pgta": "*.samples.tsv + *.READY",
         "nipt_docker": "*.nipt.yaml or configured discovery root",
         "wgs": "*.wgs.yaml + *.READY",
     }
+    return {pipeline: contracts[pipeline] for pipeline in pipelines if pipeline in contracts}
 
 
 def _intake_retention_state() -> dict[str, object]:

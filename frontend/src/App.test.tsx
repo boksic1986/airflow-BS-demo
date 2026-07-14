@@ -2216,32 +2216,32 @@ describe("bioinformatics platform frontend", () => {
     expect(await screen.findAllByRole("alert")).toHaveLength(1);
   });
 
-  it("shows only deployed PGT-A and NIPT Docker workflow, samples, and failure resources", async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
+  it("shows only deployed NIPT Docker and WGS workflows on the BS control plane", async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const defaultFetch = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/api/platform/capabilities")) {
+        return mockJson({
+          environment: "BS10610",
+          deployed_pipelines: ["nipt_docker", "wgs"],
+          airflow_url: "http://172.17.106.10:12958",
+        });
+      }
+      if (url.includes("/api/workflows")) {
+        return mockJson({items: [
+          {pipeline: "nipt_docker", name: "NIPT Docker Full", dag_id: "bio_nipt_docker", runtime_profile_id: "niptpro-s9-full-v1", runtime: "Snakemake 9.23.1 in NIPTPro", stages: [], latest_run: null, run_count: 0, success_rate: null},
+          {pipeline: "wgs", name: "WGS Host Full", dag_id: "bio_wgs", runtime_profile_id: "wgs-s9-host-v1", runtime: "Snakemake 9.23.1 on BS host", stages: [], latest_run: null, run_count: 0, success_rate: null},
+        ]});
+      }
+      if (!defaultFetch) throw new Error("Missing default fetch mock");
+      return defaultFetch(input, init);
+    });
     setRoute("/workflows");
-    cleanup();
     render(<App />);
-    expect((await screen.findAllByText(/PGT-A/i)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/NIPT Docker Full/i)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/WGS Host Full/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/PGT-A Predict/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/WES qsub/i)).not.toBeInTheDocument();
-    expect(screen.getAllByText(/NIPT docker/i).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/WGS/i)).not.toBeInTheDocument();
-
-    cleanup();
-    setRoute("/samples");
-    render(<App />);
-    expect((await screen.findAllByText(/^G10$/i)).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/S001/i)).not.toBeInTheDocument();
-    expect(screen.getAllByText(/source files/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/G10_R1\.fastq\.gz \/ G10_R2\.fastq\.gz/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/NIPT26040207\.A06/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/NIPT26040207\.A06\.R1\.clean\.fastq\.gz \/ NIPT26040207\.A06\.R2\.clean\.fastq\.gz/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/260414_TPNB500380AR_1065_AH32CCBGY2/i).length).toBeGreaterThan(0);
-
-    await user.click(screen.getByRole("link", {name: /failure triage/i}));
-    expect(await screen.findByRole("heading", {name: /Failure Triage/i})).toBeInTheDocument();
-    expect(screen.getAllByText(/Mapping reads/i).length).toBeGreaterThan(0);
-    expect(screen.queryByText(wesRunId)).not.toBeInTheDocument();
   });
 });

@@ -31,8 +31,11 @@ WORKFLOW_DEFINITIONS: dict[str, dict[str, str]] = {
 }
 
 
-def get_workflow_catalog(*, session: Session) -> dict[str, list[dict[str, Any]]]:
-    deployed_filter = or_(*(_deployed_condition(pipeline) for pipeline in WORKFLOW_DEFINITIONS))
+def get_workflow_catalog(*, session: Session, pipelines: tuple[str, ...] | list[str]) -> dict[str, list[dict[str, Any]]]:
+    selected = [pipeline for pipeline in pipelines if pipeline in WORKFLOW_DEFINITIONS]
+    if not selected:
+        return {"items": []}
+    deployed_filter = or_(*(_deployed_condition(pipeline) for pipeline in selected))
     stats_rows = session.execute(
         select(
             AnalysisRun.pipeline_name,
@@ -53,13 +56,14 @@ def get_workflow_catalog(*, session: Session) -> dict[str, list[dict[str, Any]]]
             .order_by(AnalysisRun.created_at.desc(), AnalysisRun.id.desc())
             .limit(1)
         )
-        for pipeline in WORKFLOW_DEFINITIONS
+        for pipeline in selected
     }
 
     latest_runs = [run for run in latest_by_pipeline.values() if run is not None]
     summaries = workflow_summaries_by_run(session=session, runs=latest_runs)
     items: list[dict[str, Any]] = []
-    for pipeline, definition in WORKFLOW_DEFINITIONS.items():
+    for pipeline in selected:
+        definition = WORKFLOW_DEFINITIONS[pipeline]
         latest = latest_by_pipeline.get(pipeline)
         stages = summaries.get(latest.analysis_id, []) if latest else _empty_stages(pipeline)
         stats = stats_by_pipeline.get(pipeline, {"count": 0, "successes": 0})
