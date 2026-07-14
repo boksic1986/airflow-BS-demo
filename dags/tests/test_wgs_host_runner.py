@@ -6,12 +6,37 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from wgs_host_runner import (
+    _precalling_targets,
     _validate_wgs_config,
     build_snakemake_command,
     prepare_run,
     parse_forced_command,
     resolve_request_path,
 )
+
+
+def test_pre_calling_targets_use_config_sample_subset(tmp_path) -> None:
+    sample_info = tmp_path / "samples.tsv"
+    sample_info.write_text(
+        "sample_id\n" + "\n".join(f"WGS-{index:02d}" for index in range(1, 17)) + "\n",
+        encoding="utf-8",
+    )
+    config = tmp_path / "precalling.yaml"
+    config.write_text(
+        "sample_info: "
+        + str(sample_info)
+        + "\nsample:\n  - WGS-01\n  - WGS-02\n  - WGS-03\n",
+        encoding="utf-8",
+    )
+
+    targets = _precalling_targets(config)
+
+    assert len(targets) == 9
+    assert {Path(target).name.split(".")[0] for target in targets} == {
+        "WGS-01",
+        "WGS-02",
+        "WGS-03",
+    }
 
 
 def test_forced_command_accepts_only_generated_analysis_id_and_stage() -> None:

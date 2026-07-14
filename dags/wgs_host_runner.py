@@ -339,10 +339,20 @@ def _stream_process(
 
 def _precalling_targets(config_path: Path) -> list[str]:
     payload = _read_yaml_mapping(config_path)
-    sample_info = Path(str(payload.get("sample_info") or ""))
-    if not sample_info.is_file():
-        raise FileNotFoundError(f"WGS sample_info is not readable: {sample_info}")
-    sample_ids = _sample_ids(sample_info)
+    configured_samples = payload.get("sample")
+    if configured_samples is None:
+        sample_info = Path(str(payload.get("sample_info") or ""))
+        if not sample_info.is_file():
+            raise FileNotFoundError(f"WGS sample_info is not readable: {sample_info}")
+        sample_ids = _sample_ids(sample_info)
+    else:
+        if not isinstance(configured_samples, list):
+            raise ValueError("WGS pre-calling config sample must be a list.")
+        sample_ids = list(
+            dict.fromkeys(str(sample_id).strip() for sample_id in configured_samples if str(sample_id).strip())
+        )
+        if not sample_ids:
+            raise ValueError("WGS pre-calling config sample contains no samples.")
     targets = []
     for sample_id in sample_ids:
         targets.extend(
