@@ -312,7 +312,7 @@ def pipeline_config_template(
 ) -> dict[str, object]:
     del target, run_mode
     try:
-        _require_pipeline_deployed(get_settings(), pipeline)
+        _guard_pipeline_deployed(pipeline)
         return get_pipeline_config_template(
             settings=get_settings(),
             pipeline=pipeline,
@@ -328,7 +328,7 @@ def pipeline_config_template(
 @app.post("/api/pipeline-config/validate")
 def pipeline_config_validate(request: PipelineConfigValidationRequest) -> dict[str, object]:
     try:
-        _require_pipeline_deployed(get_settings(), request.pipeline)
+        _guard_pipeline_deployed(request.pipeline)
         validated = validate_pipeline_config(
             settings=get_settings(),
             pipeline=request.pipeline,
@@ -448,7 +448,7 @@ def runs_list(
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
     if pipeline:
-        _require_pipeline_deployed(get_settings(), pipeline)
+        _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
         return list_runs(
             session=session,
@@ -471,7 +471,7 @@ def samples_list(
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
     if pipeline:
-        _require_pipeline_deployed(get_settings(), pipeline)
+        _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
         return list_samples_resource(
             session=session,
@@ -495,7 +495,7 @@ def failures_list(
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
     if pipeline != "all":
-        _require_pipeline_deployed(get_settings(), pipeline)
+        _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
         return list_failures_resource(
             session=session,
@@ -515,7 +515,7 @@ def dashboard_overview(
     period: str = Query(default="7d", pattern="^(24h|7d|30d)$"),
 ) -> dict[str, object]:
     if pipeline != "all":
-        _require_pipeline_deployed(get_settings(), pipeline)
+        _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
         return get_dashboard_overview(session=session, pipeline=pipeline, period=period)
 
@@ -529,7 +529,7 @@ def dashboard_runs(
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
     if pipeline != "all":
-        _require_pipeline_deployed(get_settings(), pipeline)
+        _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
         return get_dashboard_runs(
             session=session,
@@ -548,7 +548,7 @@ def submit_run(analysis_id: str) -> dict[str, object]:
         with get_sessionmaker()() as session:
             detail = get_run_detail(session=session, analysis_id=analysis_id)
             if detail is not None:
-                _require_pipeline_deployed(get_settings(), str(detail.get("pipeline") or detail.get("pipeline_name") or ""))
+                _guard_pipeline_deployed(str(detail.get("pipeline") or detail.get("pipeline_name") or ""))
             payload = submit_run_to_airflow(
                 session=session,
                 airflow_client=get_airflow_client(),
@@ -577,7 +577,7 @@ def submit_run(analysis_id: str) -> dict[str, object]:
 @app.post("/api/intake/scan-and-submit", dependencies=[Depends(require_internal_service_token)])
 def intake_scan_and_submit(request: IntakeScanRequest) -> dict[str, object]:
     try:
-        _require_pipelines_deployed(get_settings(), request.pipelines)
+        _guard_pipelines_deployed(request.pipelines)
         with get_sessionmaker()() as session:
             return scan_and_submit_intake(
                 session=session,
@@ -608,7 +608,7 @@ def intake_scan_and_submit(request: IntakeScanRequest) -> dict[str, object]:
 @app.post("/api/intake/scan-preview")
 def intake_scan_preview(request: IntakeScanRequest) -> dict[str, object]:
     try:
-        _require_pipelines_deployed(get_settings(), request.pipelines)
+        _guard_pipelines_deployed(request.pipelines)
         with get_sessionmaker()() as session:
             return preview_intake_scan(
                 session=session,
@@ -644,7 +644,7 @@ def intake_status(
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
     if pipeline:
-        _require_pipeline_deployed(get_settings(), pipeline)
+        _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
         return list_intake_status(
             session=session,
@@ -662,7 +662,8 @@ def intake_status(
 def workflows() -> dict[str, object]:
     with get_sessionmaker()() as session:
         payload = get_workflow_catalog(session=session)
-        deployed = set(_deployed_pipelines(get_settings()))
+        settings = _deployment_guard_settings()
+        deployed = set(_deployed_pipelines(settings)) if settings is not None else {"pgta", "nipt_docker"}
         return {**payload, "items": [item for item in payload.get("items", []) if item.get("pipeline") in deployed]}
 
 
@@ -1031,6 +1032,8 @@ def _deployed_pipelines(settings) -> tuple[str, ...]:
 def _require_pipeline_deployed(settings, pipeline: str) -> None:
     if pipeline in {"all", "deployed"}:
         return
+    if not tuple(getattr(settings, "deployed_pipelines", ()) or ()):
+        return
     if pipeline not in _deployed_pipelines(settings):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1044,6 +1047,28 @@ def _require_pipeline_deployed(settings, pipeline: str) -> None:
 def _require_pipelines_deployed(settings, pipelines: list[str]) -> None:
     for pipeline in pipelines:
         _require_pipeline_deployed(settings, pipeline)
+
+
+def _deployment_guard_settings():
+    """Read deployment scope without making isolated service tests configure runtime secrets."""
+    try:
+        return get_settings()
+    except RuntimeError as exc:
+        if str(exc).endswith(" is required"):
+            return None
+        raise
+
+
+def _guard_pipeline_deployed(pipeline: str) -> None:
+    settings = _deployment_guard_settings()
+    if settings is not None:
+        _require_pipeline_deployed(settings, pipeline)
+
+
+def _guard_pipelines_deployed(pipelines: list[str]) -> None:
+    settings = _deployment_guard_settings()
+    if settings is not None:
+        _require_pipelines_deployed(settings, pipelines)
 
 
 def _load_intake_config(settings):

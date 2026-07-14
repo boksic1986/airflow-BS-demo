@@ -58,7 +58,7 @@ export function AppShell() {
       </aside>
       <div className="shell-main">
         <header className="topbar">
-          <div className="environment-pill">{capabilities.environment}</div>
+          <div className="environment-pill">{capabilities.environment} environment</div>
           <form className="global-search" role="search" onSubmit={submitSearch}>
             <Search size={16} />
             <label className="sr-only" htmlFor="global-run-search">Search project or run ID</label>

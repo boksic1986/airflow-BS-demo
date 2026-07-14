@@ -8,11 +8,14 @@ import App from "./App";
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  delete window.__AIRFLOW_DEMO_CONFIG__;
   window.history.pushState({}, "", "/");
 });
 
 
 it("renders the NIPT-only product from backend capabilities", async () => {
+  window.__AIRFLOW_DEMO_CONFIG__ = {apiBaseUrl: "/api"};
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/platform/capabilities")) {

@@ -29,6 +29,7 @@ export function DashboardResourcePanels({resources, resourceTab, overview, rows,
 
 function ServiceNodeHealth({resources, error}: {resources: SystemResourcesResponse | null; error: string | null}) {
   const disk = resources?.host.disks.find((item) => item.path === "/data") || resources?.host.disks[0];
+  const memoryUsed = resources?.host.memory?.used_percent;
   return (
     <div className="panel">
       <div className="section-heading"><h2>Service & Node Health</h2><p>{resources ? `Telemetry: ${resources.source}` : "Node telemetry"}</p></div>
@@ -36,8 +37,8 @@ function ServiceNodeHealth({resources, error}: {resources: SystemResourcesRespon
       <div className="resource-stat-grid">
         <div className="resource-stat"><span>Backend API</span><StatusBadge status={error ? "warning" : "success"} /></div>
         <div className="resource-stat"><span>CPU cores</span><strong>{resources?.host.cpu.cores ?? "not reported"}</strong></div>
-        <div className="resource-stat"><span>MEM used</span><strong>{resources ? `${resources.host.memory.used_percent.toFixed(1)}%` : "not reported"}</strong></div>
-        <div className="resource-stat"><span>{disk?.path || "/data"}</span><strong>{disk ? `${disk.used_percent.toFixed(1)}% used` : "not reported"}</strong></div>
+        <div className="resource-stat"><span>MEM used</span><strong>{Number.isFinite(memoryUsed) ? `${Number(memoryUsed).toFixed(1)}%` : "not reported"}</strong></div>
+        <div className="resource-stat"><span>{disk?.path || "/data"}</span><strong>{disk && Number.isFinite(disk.used_percent) ? `${disk.used_percent.toFixed(1)}% used` : "not reported"}</strong></div>
       </div>
     </div>
   );

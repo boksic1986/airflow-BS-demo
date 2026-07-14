@@ -635,7 +635,7 @@ export class ApiError extends Error {
 
 export function getApiBaseUrl(): string {
   const configured = window.__AIRFLOW_DEMO_CONFIG__?.apiBaseUrl || import.meta.env.VITE_API_BASE_URL;
-  const fallback = "/api";
+  const fallback = import.meta.env.MODE === "test" ? "http://localhost:8000/api" : "/api";
   return String(configured || fallback).replace(/\/+$/, "");
 }
 

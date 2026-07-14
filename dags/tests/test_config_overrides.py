@@ -31,11 +31,12 @@ class ConfigOverrideRunnerTests(unittest.TestCase):
         rollback = nipt["profiles"]["niptpro-1.0.11"]
 
         self.assertEqual(nipt["default_profile"], "niptpro-s9-full-v1")
-        self.assertEqual(profile["runtime"]["docker_image"], "airflow-demo/niptpro:1.0.11-snakemake9.23.1-v1")
+        self.assertEqual(profile["runtime"]["docker_image"], "172.17.61.235:2333/niptpro/niptpro:1.1.11")
         self.assertEqual(profile["runtime"]["snakemake_version"], "9.23.1")
         self.assertEqual(profile["runtime"]["cores"], 32)
         self.assertTrue(profile["submit_visible"])
         self.assertFalse(rollback["submit_visible"])
+        self.assertEqual(rollback["runtime"]["docker_image"], "172.17.61.235:2333/niptpro/niptpro:1.0.11")
 
     def test_repository_pgta_s9_profile_exposes_only_predict_parameters(self) -> None:
         profile_path = Path(__file__).resolve().parents[2] / "config" / "pipeline_profiles.yaml"
