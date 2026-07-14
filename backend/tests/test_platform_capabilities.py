@@ -28,6 +28,25 @@ def test_settings_parse_nipt_only_capability(monkeypatch) -> None:
     monkeypatch.setenv("PUBLIC_AIRFLOW_URL", "http://172.17.106.10:12958")
     get_settings.cache_clear()
 
+
+def test_settings_parse_wgs_only_capability(monkeypatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///test.db")
+    monkeypatch.setenv("AIRFLOW_API_PASSWORD", "test")
+    monkeypatch.setenv("DEPLOYED_PIPELINES", "wgs")
+    monkeypatch.setenv("PLATFORM_ENVIRONMENT", "BS10610-WGS")
+    monkeypatch.setenv("PUBLIC_AIRFLOW_URL", "http://172.17.106.10:13958")
+    monkeypatch.setenv("WGS_CONFIG_ROOTS", "/data/wgs-intake")
+    monkeypatch.setenv("WGS_VALIDATION_ROOTS", "/data/wgs-validation")
+    get_settings.cache_clear()
+
+    settings = get_settings()
+
+    assert settings.deployed_pipelines == ("wgs",)
+    assert settings.wgs_config_roots == ["/data/wgs-intake"]
+    assert settings.wgs_validation_roots == ["/data/wgs-validation"]
+    assert settings.platform_environment == "BS10610-WGS"
+    get_settings.cache_clear()
+
     settings = get_settings()
 
     assert settings.deployed_pipelines == ("nipt_docker",)
@@ -61,4 +80,3 @@ def test_nipt_only_deployment_rejects_pgta_scan(monkeypatch, tmp_path) -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "PIPELINE_NOT_DEPLOYED"
-
