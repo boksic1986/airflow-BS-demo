@@ -188,6 +188,13 @@ def prepare_run(request: dict[str, Any]) -> None:
     down_payload = _read_yaml_mapping(source_down)
     _validate_wgs_config(pre_payload, roots=roots, fastq_roots=fastq_roots)
     _validate_wgs_config(down_payload, roots=roots, fastq_roots=fastq_roots)
+    batch_context = _stage_historical_pre_calling_context(
+        request,
+        workdir=workdir,
+        precalling_config=pre_payload,
+        downstream_config=down_payload,
+        approved_config_roots=roots,
+    )
     targets = _read_target_lines(source_targets)
     config_dir = workdir / "config"
     shutil.copyfile(source_pre, config_dir / "wgs.precalling.resolved.yaml")
@@ -204,6 +211,7 @@ def prepare_run(request: dict[str, Any]) -> None:
         "source_targets": str(source_targets),
         "target_count": len(targets),
         "input_sha256": dict(request.get("input_sha256") or {}),
+        "historical_pre_calling_context": batch_context,
     }
     (config_dir / "wgs_runtime_provenance.json").write_text(
         json.dumps(provenance, indent=2, sort_keys=True) + "\n",
@@ -363,6 +371,89 @@ def _precalling_targets(config_path: Path) -> list[str]:
             ]
         )
     return targets
+
+
+def _stage_historical_pre_calling_context(
+    request: dict[str, Any],
+    *,
+    workdir: Path,
+    precalling_config: dict[str, Any],
+    downstream_config: dict[str, Any],
+    approved_config_roots: tuple[Path, ...],
+) -> dict[str, Any]:
+    if str(request.get("wgs_stage") or "") != "full":
+        return {"sample_count": 0, "file_count": 0, "status": "not_required"}
+    new_samples = set(_configured_sample_names(precalling_config, label="pre-calling"))
+    downstream_samples = set(_configured_sample_names(downstream_config, label="downstream"))
+    historical_samples = sorted(downstream_samples - new_samples)
+    if not historical_samples:
+        return {"sample_count": 0, "file_count": 0, "status": "not_required"}
+    source_root = _approved_directory(
+        request.get("source_analysis_root"),
+        approved_config_roots,
+        "source analysis root",
+    )
+    source_precalling = source_root / "00_PreCalling"
+    if not source_precalling.is_dir():
+        raise FileNotFoundError(f"WGS historical pre-calling directory is not readable: {source_precalling}")
+    allowed_targets = _configured_roots(
+        "WGS_PRECALLING_SOURCE_ROOTS",
+        (str(source_root),),
+    )
+    destination_root = workdir / "00_PreCalling"
+    destination_root.mkdir(parents=True, exist_ok=True)
+    linked_files = 0
+    missing_samples = []
+    for sample_id in historical_samples:
+        matched = 0
+        for source in source_precalling.iterdir():
+            if not _belongs_to_sample(source.name, sample_id):
+                continue
+            resolved = source.resolve(strict=True)
+            if not resolved.is_file() or not any(
+                resolved == root or resolved.is_relative_to(root) for root in allowed_targets
+            ):
+                raise ValueError(f"WGS historical context target is outside approved roots: {source}")
+            destination = destination_root / source.name
+            if destination.exists() or destination.is_symlink():
+                raise FileExistsError(f"WGS historical context destination already exists: {destination}")
+            destination.symlink_to(resolved)
+            matched += 1
+            linked_files += 1
+        if matched == 0:
+            missing_samples.append(sample_id)
+    if missing_samples:
+        raise FileNotFoundError(
+            "WGS historical pre-calling context is missing samples: " + ", ".join(missing_samples)
+        )
+    return {
+        "sample_count": len(historical_samples),
+        "file_count": linked_files,
+        "status": "linked_read_only",
+    }
+
+
+def _configured_sample_names(payload: dict[str, Any], *, label: str) -> list[str]:
+    configured = payload.get("sample")
+    if not isinstance(configured, list):
+        raise ValueError(f"WGS {label} config sample must be a list.")
+    samples = list(dict.fromkeys(str(item).strip() for item in configured if str(item).strip()))
+    if not samples:
+        raise ValueError(f"WGS {label} config sample contains no samples.")
+    return samples
+
+
+def _approved_directory(value: object, roots: tuple[Path, ...], label: str) -> Path:
+    path = Path(str(value or "")).resolve()
+    if not any(path == root or path.is_relative_to(root) for root in roots):
+        raise ValueError(f"WGS {label} is outside approved roots: {path}")
+    if not path.is_dir():
+        raise FileNotFoundError(f"WGS {label} is not readable: {path}")
+    return path
+
+
+def _belongs_to_sample(filename: str, sample_id: str) -> bool:
+    return filename == sample_id or filename.startswith(f"{sample_id}.") or filename.startswith(f"{sample_id}-")
 
 
 def _downstream_targets(path: Path, *, qc_only: bool) -> list[str]:

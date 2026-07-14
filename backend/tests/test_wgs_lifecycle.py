@@ -37,10 +37,16 @@ def test_create_and_submit_controlled_wgs_run(tmp_path, monkeypatch) -> None:
     validation_root = tmp_path / "validation"
     validation_root.mkdir()
     sample_info = validation_root / "sampleinfo.tsv"
-    sample_info.write_text("sample_id\tfamily_id\nWGS-DEMO-01\tFAM-01\n", encoding="utf-8")
+    sample_info.write_text(
+        "样本编号\t家系编号\t数据编号\n"
+        "WGS-DEMO-01\tFAM-01\tWGS-DATA-01\n"
+        "WGS-CONTEXT-02\tFAM-02\tWGS-DATA-02\n",
+        encoding="utf-8",
+    )
     config = validation_root / "config.yaml"
     config.write_text(
-        f"version: V3.8.1-s9\nbatch: WGS-DEMO\nsample_info: {sample_info}\nfastqDir: {validation_root}\n",
+        f"version: V3.8.1-s9\nbatch: WGS-DEMO\nsample_info: {sample_info}\n"
+        f"fastqDir: {validation_root}\nsample:\n  - WGS-DATA-01\n",
         encoding="utf-8",
     )
     targets = validation_root / "targets.txt"
@@ -86,6 +92,7 @@ def test_create_and_submit_controlled_wgs_run(tmp_path, monkeypatch) -> None:
     assert runner_payload["precalling_config_path"] == str(host_run / "config" / "wgs.precalling.requested.yaml")
     assert runner_payload["downstream_config_path"] == str(host_run / "config" / "wgs.downstream.requested.yaml")
     assert runner_payload["targets_path"] == str(host_run / "config" / "targets.requested.txt")
+    assert runner_payload["source_analysis_root"] == str(validation_root)
     assert runner_payload["input_sha256"]["precalling_config"] == hashlib.sha256(config.read_bytes()).hexdigest()
     assert (run_dir / "config" / "targets.requested.txt").read_text(encoding="utf-8").strip() == targets.read_text(encoding="utf-8").strip()
 

@@ -328,7 +328,18 @@ def create_wgs_run(
         raise ValueError("WGS targets file must contain at least one target.")
     if any(line.startswith("/") or ".." in Path(line).parts for line in target_lines):
         raise ValueError("WGS targets must be relative paths without traversal.")
-    sample_rows = _read_wgs_sample_info(sample_info)
+    configured_samples = config_payload.get("sample")
+    if configured_samples is not None and not isinstance(configured_samples, list):
+        raise ValueError("WGS pre-calling config sample must be a list.")
+    selected_data_ids = {
+        str(sample_id).strip() for sample_id in (configured_samples or []) if str(sample_id).strip()
+    }
+    if configured_samples is not None and not selected_data_ids:
+        raise ValueError("WGS pre-calling config sample contains no samples.")
+    sample_rows = _read_wgs_sample_info(
+        sample_info,
+        selected_data_ids=selected_data_ids or None,
+    )
     if not sample_rows:
         raise ValueError("WGS sample_info contains no samples.")
 
@@ -361,6 +372,7 @@ def create_wgs_run(
         "source_downstream_config_path": str(downstream_config_source),
         "downstream_config_derived_for_precalling": not bool(downstream_config_path),
         "source_targets_path": str(targets_source),
+        "source_analysis_root": str(downstream_config_source.parent),
         "requested_config_path": str(requested_config),
         "requested_downstream_config_path": str(requested_downstream_config),
         "requested_targets_path": str(requested_targets),
@@ -379,6 +391,7 @@ def create_wgs_run(
         "precalling_config_path": str(host_workdir / "config" / requested_config.name),
         "downstream_config_path": str(host_workdir / "config" / requested_downstream_config.name),
         "targets_path": str(host_workdir / "config" / requested_targets.name),
+        "source_analysis_root": str(downstream_config_source.parent),
         "input_sha256": {
             "precalling_config": _sha256_file(requested_config),
             "downstream_config": _sha256_file(requested_downstream_config),
@@ -1209,7 +1222,11 @@ def _write_wes_manifest(path: Path) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def _read_wgs_sample_info(path: Path) -> list[dict[str, str | None]]:
+def _read_wgs_sample_info(
+    path: Path,
+    *,
+    selected_data_ids: set[str] | None = None,
+) -> list[dict[str, str | None]]:
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
         fieldnames = list(reader.fieldnames or [])
@@ -1220,15 +1237,32 @@ def _read_wgs_sample_info(path: Path) -> list[dict[str, str | None]]:
             fieldnames[0],
         )
         family_key = next((key for key in ("family_id", "family", "家系编号", "家系ID") if key in fieldnames), None)
+        data_key = next(
+            (key for key in ("data_id", "data_number", "数据编号") if key in fieldnames),
+            sample_key,
+        )
         rows = []
         seen = set()
+        matched_data_ids = set()
         for item in reader:
             sample_id = str(item.get(sample_key) or "").strip()
+            data_id = str(item.get(data_key) or "").strip()
+            if selected_data_ids is not None and data_id not in selected_data_ids:
+                continue
             if not sample_id or sample_id in seen:
                 continue
             seen.add(sample_id)
+            if data_id:
+                matched_data_ids.add(data_id)
             family_id = str(item.get(family_key) or "").strip() if family_key else ""
             rows.append({"sample_id": sample_id, "family_id": family_id or None})
+        if selected_data_ids is not None:
+            missing = sorted(selected_data_ids - matched_data_ids)
+            if missing:
+                raise ValueError(
+                    "WGS pre-calling samples are missing from sample_info data identifiers: "
+                    + ", ".join(missing)
+                )
         return rows
 
 
