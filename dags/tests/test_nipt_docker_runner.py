@@ -79,6 +79,54 @@ def test_bs_compose_uses_separate_workflow_locale_and_fastq_mounts(tmp_path) -> 
     assert not any(str(workflow_root / "locale") in volume for volume in volumes)
 
 
+def test_prepare_uses_bs_fastq_and_locale_environment_defaults(tmp_path, monkeypatch) -> None:
+    shared_root = tmp_path / "shared"
+    workdir = shared_root / "runs" / "NIPT_BS_DEFAULTS"
+    manifest = workdir / "config" / "samples.selected.tsv"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(
+        "sample_id\tlibrary\tindex\tR1\tR2\tsource_dir\tcomment\n"
+        "S1.B01\tS1\tB01\t/data/nipt-fastq/batch/S1.B01.R1.clean.fastq.gz\t"
+        "/data/nipt-fastq/batch/S1.B01.R2.clean.fastq.gz\t/data/nipt-fastq/batch\tNIPT\n",
+        encoding="utf-8",
+    )
+    pipeline_root = tmp_path / "workflow"
+    host_pipeline_root = tmp_path / "host-workflow"
+    host_fastq_root = tmp_path / "host-fastq"
+    host_locale_root = tmp_path / "host-locale"
+    for path in (pipeline_root, host_pipeline_root, host_fastq_root / "batch", host_locale_root):
+        path.mkdir(parents=True)
+    monkeypatch.setenv("NIPT_FASTQ_CONTAINER_ROOT", "/data/nipt-fastq")
+    monkeypatch.setenv("NIPT_FASTQ_HOST_ROOT", str(host_fastq_root))
+    monkeypatch.setenv("NIPT_LOCALE_HOST_ROOT", str(host_locale_root))
+    monkeypatch.setattr(nipt_docker_runner, "resolve_runtime_profile", lambda *_args, **_kwargs: None)
+
+    prepared = prepare_nipt_docker_run(
+        {
+            "analysis_id": "NIPT_BS_DEFAULTS",
+            "pipeline": "nipt_docker",
+            "mode": "new",
+            "workdir": str(workdir),
+            "sample_sheet_path": str(manifest),
+            "params": {
+                "input_mode": "nipt_docker_scan",
+                "source_batch_dir": "/data/nipt-fastq/batch",
+                "run_mode": "mount_smoke",
+                "chip_name": "batch",
+                "cores": 1,
+            },
+        },
+        nipt_pipeline_root=pipeline_root,
+        host_nipt_pipeline_root=host_pipeline_root,
+        host_shared_root=shared_root,
+    )
+
+    compose = yaml.safe_load(Path(prepared["compose_path"]).read_text(encoding="utf-8"))
+    volumes = compose["services"]["runner"]["volumes"]
+    assert f"{(host_fastq_root / 'batch').as_posix()}:/input_batch:ro" in volumes
+    assert f"{host_locale_root.as_posix()}:/code/locale:ro" in volumes
+
+
 class NiptDockerRunnerTests(unittest.TestCase):
     def _valid_conf(self, workdir: Path) -> dict:
         return {

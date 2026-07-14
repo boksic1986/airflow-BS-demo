@@ -293,12 +293,23 @@ def prepare_nipt_docker_run(
     nipt_pipeline_root = Path(runtime.get("pipeline_root") or nipt_pipeline_root)
     host_nipt_pipeline_root = Path(runtime.get("host_pipeline_root") or host_nipt_pipeline_root)
     nipt_fastq_container_root = Path(
-        runtime.get("fastq_container_root") or nipt_fastq_container_root or (nipt_pipeline_root / "fastq")
+        runtime.get("fastq_container_root")
+        or nipt_fastq_container_root
+        or os.getenv("NIPT_FASTQ_CONTAINER_ROOT")
+        or (nipt_pipeline_root / "fastq")
     )
     nipt_fastq_host_root = Path(
-        runtime.get("fastq_host_root") or nipt_fastq_host_root or (host_nipt_pipeline_root / "fastq")
+        runtime.get("fastq_host_root")
+        or nipt_fastq_host_root
+        or os.getenv("NIPT_FASTQ_HOST_ROOT")
+        or (host_nipt_pipeline_root / "fastq")
     )
-    host_locale_root = Path(runtime.get("locale_host_root") or host_locale_root or (host_nipt_pipeline_root / "locale"))
+    host_locale_root = Path(
+        runtime.get("locale_host_root")
+        or host_locale_root
+        or os.getenv("NIPT_LOCALE_HOST_ROOT")
+        or (host_nipt_pipeline_root / "locale")
+    )
     docker_image = str(runtime.get("docker_image") or docker_image)
     fetal_image = str(runtime.get("fetal_image") or fetal_image)
 

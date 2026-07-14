@@ -27,6 +27,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
     AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: Asia/Shanghai
     AIRFLOW__WEBSERVER__BASE_URL: ${PUBLIC_AIRFLOW_URL:?Set PUBLIC_AIRFLOW_URL in .env}
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_WEBSERVER_SECRET_KEY:?Set AIRFLOW_WEBSERVER_SECRET_KEY in .env}
     CONTAINER_SHARED_ROOT: /data/airflow-demo
     HOST_SHARED_ROOT: ${HOST_SHARED_ROOT:?Set HOST_SHARED_ROOT in .env}
     BACKEND_BASE_URL: http://backend:8000

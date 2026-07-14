@@ -22,11 +22,14 @@ grep -Fq "\"Subnet\":\"$EXPECTED_SUBNET\"" <<<"$ipam"
 grep -Fq "\"Gateway\":\"$EXPECTED_GATEWAY\"" <<<"$ipam"
 
 attachments="$(docker network inspect "$NETWORK_NAME" --format '{{range $id, $c := .Containers}}{{$c.Name}} {{$c.IPv4Address}}{{println}}{{end}}')"
+project_prefix="${COMPOSE_PROJECT_NAME:-airflow-nipt}-"
 for address in "${STATIC_IPS[@]}"; do
-  if grep -Eq "(^|[[:space:]])${address//./\\.}/" <<<"$attachments"; then
-    echo "Static address is already allocated: $address" >&2
-    exit 1
-  fi
+  while read -r container_name allocated_address; do
+    if [[ "$allocated_address" == "$address/"* && "$container_name" != "$project_prefix"* ]]; then
+      echo "Static address is already allocated by $container_name: $address" >&2
+      exit 1
+    fi
+  done <<<"$attachments"
 done
 
 for path in \
