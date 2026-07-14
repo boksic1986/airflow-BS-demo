@@ -106,21 +106,31 @@ def get_dashboard_runs(
             )
         )
     total = session.scalar(select(func.count()).select_from(base_query.order_by(None).subquery())) or 0
+    active_run = AnalysisRun.status.in_(ACTIVE_STATUSES)
+    terminal_run = or_(AnalysisRun.status.in_(FAILED_STATUSES), AnalysisRun.status == "success", qc_failed)
+    created_only = AnalysisRun.status == "created"
     status_order = case(
-        (AnalysisRun.status.in_(ACTIVE_STATUSES), 0),
-        (or_(AnalysisRun.status.in_(FAILED_STATUSES), qc_failed), 1),
-        (AnalysisRun.status == "success", 2),
-        (AnalysisRun.status == "created", 3),
-        else_=4,
+        (active_run, 0),
+        (terminal_run, 1),
+        (created_only, 2),
+        else_=3,
+    )
+    terminal_finished_at = func.coalesce(
+        AnalysisRun.pipeline_finished_at,
+        AnalysisRun.ended_at,
+        AnalysisRun.submitted_at,
+        AnalysisRun.created_at,
     )
     page = list(
         session.scalars(
             base_query.order_by(
                 status_order,
-                desc(AnalysisRun.progress_percent),
-                AnalysisRun.submitted_at.asc().nulls_last(),
-                desc(AnalysisRun.ended_at),
+                case((active_run, AnalysisRun.progress_percent), else_=None).desc().nulls_last(),
+                case((active_run, AnalysisRun.submitted_at), else_=None).asc().nulls_last(),
+                case((terminal_run, terminal_finished_at), else_=None).desc().nulls_last(),
+                case((created_only, AnalysisRun.created_at), else_=None).desc().nulls_last(),
                 desc(AnalysisRun.created_at),
+                desc(AnalysisRun.id),
             ).limit(limit).offset(offset)
         ).all()
     )
@@ -366,6 +376,39 @@ def _duration_estimates_by_run(
         if estimate is not None:
             estimates[run.analysis_id] = estimate
     return estimates
+
+
+def run_timing_by_id(
+    *,
+    session: Session,
+    runs: list[AnalysisRun],
+    sample_counts: dict[str, int],
+) -> dict[str, dict[str, Any]]:
+    """Build the same elapsed and history-based ETA payload used by Run Tracker."""
+    sample_qc = {
+        run.analysis_id: [None] * max(0, int(sample_counts.get(run.analysis_id, 0)))
+        for run in runs
+    }
+    duration_estimates = _duration_estimates_by_run(session=session, runs=runs, sample_qc=sample_qc)
+    timing: dict[str, dict[str, Any]] = {}
+    for run in runs:
+        estimate = duration_estimates.get(run.analysis_id)
+        elapsed_seconds = _elapsed_seconds(run)
+        average_duration_seconds = int(estimate["seconds"]) if estimate else None
+        estimated_remaining_seconds = _estimated_remaining_seconds(
+            run=run,
+            elapsed_seconds=elapsed_seconds,
+            average_duration_seconds=average_duration_seconds,
+        )
+        timing[run.analysis_id] = {
+            "elapsed_seconds": elapsed_seconds,
+            "average_duration_seconds": average_duration_seconds,
+            "eta_history_count": int(estimate["history_count"]) if estimate else 0,
+            "eta_model": str(estimate["model"]) if estimate else None,
+            "estimated_remaining_seconds": estimated_remaining_seconds,
+            "estimated_finish_at": _iso(_estimated_finish_at(estimated_remaining_seconds)),
+        }
+    return timing
 
 
 def _estimate_duration(*, values: list[tuple[int, int]], sample_count: int) -> dict[str, Any] | None:

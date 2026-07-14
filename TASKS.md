@@ -160,6 +160,24 @@ Rollback:
 Notes:
 ```
 
+### T124 - QC formatting, Intake alignment, and tracker ordering
+
+Owner: frontend/backend/docs
+Status: done
+Dependencies: T123,T119,T114
+Scope:
+- Normalize PGT-A/NIPT QC display units, sort terminal runs newest-finished
+  first, and align Intake project/sample/runtime cells with Run Tracker.
+Out of scope:
+- DAG/Snakemake changes, database migrations, scanner policy, and new analysis
+  execution.
+Acceptance:
+- [x] Backend ordering and Intake timing tests.
+- [x] Frontend QC and shared operations-cell tests.
+- [x] Remote production build, deployment, API and browser spot-check.
+Rollback:
+- Redeploy T123 backend/frontend images; no data rollback is required.
+
 ### T123 - Predict path and operations consistency
 
 Owner: platform/frontend/backend/airflow

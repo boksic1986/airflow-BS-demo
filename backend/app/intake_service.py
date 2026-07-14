@@ -11,6 +11,7 @@ from sqlalchemy import String, and_, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.input_scanner import FastqCandidate, scan_fastq_candidates, scan_nipt_batch_candidates
+from app.dashboard_service import run_timing_by_id
 from app.intake_config import load_intake_config
 from app.models import AnalysisRun, IntakeDiscovery, Sample
 from app.nipt_yaml_intake import NiptYamlFailure, scan_nipt_yaml_request_results
@@ -163,8 +164,27 @@ def list_intake_status(
         .limit(limit)
         .offset(offset)
     ).all()
+    linked_runs = [run for _, run, _ in page if run is not None]
+    sample_count_by_run = {
+        run.analysis_id: int(sample_count or 0)
+        for _, run, sample_count in page
+        if run is not None
+    }
+    timing_by_run = run_timing_by_id(
+        session=session,
+        runs=linked_runs,
+        sample_counts=sample_count_by_run,
+    )
     return {
-        "items": [_row_payload(row, run=run, sample_count=int(sample_count or 0)) for row, run, sample_count in page],
+        "items": [
+            _row_payload(
+                row,
+                run=run,
+                sample_count=int(sample_count or 0),
+                timing=timing_by_run.get(run.analysis_id) if run else None,
+            )
+            for row, run, sample_count in page
+        ],
         "total": total,
         "limit": limit,
         "offset": offset,
@@ -790,6 +810,7 @@ def _row_payload(
     *,
     run: AnalysisRun | None = None,
     sample_count: int = 0,
+    timing: dict[str, object] | None = None,
     auto_submit_enabled: bool | None = None,
     reason: str | None = None,
 ) -> dict[str, object]:
@@ -829,6 +850,9 @@ def _row_payload(
         "archive_reason": row.archive_reason,
         "archive_path": row.archive_path,
         "project_name": _project_name(run) if run else None,
+        "submitted_by": run.submitted_by if run else None,
+        "run_source": "intake" if run else None,
+        "source_batch_id": row.batch_id if run else None,
         "analysis_status": analysis_status,
         "display_status": display_status,
         "sample_count": sample_count,
@@ -840,6 +864,12 @@ def _row_payload(
             if run and terminal and (run.pipeline_finished_at or run.ended_at)
             else None
         ),
+        "elapsed_seconds": timing.get("elapsed_seconds") if timing else None,
+        "average_duration_seconds": timing.get("average_duration_seconds") if timing else None,
+        "eta_history_count": timing.get("eta_history_count", 0) if timing else 0,
+        "eta_model": timing.get("eta_model") if timing else None,
+        "estimated_remaining_seconds": timing.get("estimated_remaining_seconds") if timing else None,
+        "estimated_finish_at": timing.get("estimated_finish_at") if timing else None,
     }
     if auto_submit_enabled is not None:
         payload["auto_submit_enabled"] = auto_submit_enabled

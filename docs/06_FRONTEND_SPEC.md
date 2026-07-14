@@ -1,5 +1,20 @@
 # 06 前端设计
 
+## T124 QC formatting and operations table consistency
+
+- Run Tracker keeps active runs first. Terminal rows are ordered by immutable
+  pipeline completion time descending, so the newest completed run appears
+  first; created-only rows remain last.
+- Run Detail QC uses one shared value formatter. Read counts use compact K/M
+  units, NIPT percentage-point values place `%` after the number, fetal
+  fraction remains a four-decimal fraction, and PGT-A continuous values use
+  four decimals. Stored audit values are not rewritten.
+- Intake Scanner reuses the Run Tracker project and runtime cells. Linked rows
+  show project, run ID, submit label, source batch, sample wording, elapsed
+  runtime, and history-based ETA. Pending rows show `Not submitted`.
+- Scanner roots are omitted from operational tables. Platform Settings remains
+  the read-only location for configured root-path auditing.
+
 ## T122 Intake completed-run visibility
 
 - Dashboard Intake Scanner requests `lifecycle=all` by default so active and
@@ -32,7 +47,8 @@
   project, run ID, and intake batch ID. Both tables keep independent paging and
   reset to page one when pipeline/search changes.
 - Dashboard Intake columns align with Run Tracker semantics: Project/Batch,
-  Pipeline, Status, Current stage, Progress, Samples, Started, Finished.
+  Pipeline, Status, Current stage, Progress, Samples, Runtime/ETA, Started,
+  Finished.
   `Last seen` remains an audit detail in Settings only.
 - Settings adds Active, Archived, and All lifecycle filters. Archived records
   remain searchable and link to their Run Detail. T122 changes Dashboard and

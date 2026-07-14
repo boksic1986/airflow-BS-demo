@@ -1,5 +1,39 @@
 # HANDOFF.md
 
+## 2026-07-14 T124 QC formatting, Intake alignment, and tracker ordering
+
+- Branch/worktree: `codex/frontend/T124-qc-intake-sort-consistency` in the
+  isolated T096 worktree, based on T123 `5d27e6c`.
+- Dashboard terminal rows now sort by latest `pipeline_finished_at`/`ended_at`
+  after active runs; created-only rows remain last. This fixes old successful
+  batches appearing ahead of newly completed runs.
+- Run Detail QC now formats count metrics as K/M, NIPT mapping/duplication
+  percentage points with a trailing `%`, fetal fraction as a four-decimal
+  fraction, and PGT-A continuous metrics with four decimals. Raw backend values
+  remain unchanged.
+- Intake Scanner reuses Run Tracker project/runtime components, hides root
+  paths, uses `N samples`, and receives the same history-based elapsed/ETA
+  projection without per-row Airflow requests.
+- Test-first evidence: the new backend tests failed on reversed success order
+  and missing Intake timing fields; frontend tests failed on raw QC strings and
+  missing aligned cells. After implementation, isolated remote backend pytest
+  passed 168 and frontend Vitest passed 49.
+- Remote acceptance passed: backend `168 passed`; frontend `49 passed`;
+  production `tsc -b && vite build`; Compose config; frontend HTTP 200; backend
+  health; and API ordering/Intake timing checks. The first returned run is the
+  newest completion `NIPT_20260713_162606_5B5B11`.
+- Live browser checks confirmed NIPT values such as `72.95%`, `2.30%`, and
+  `0.1973`, plus PGT-A `total_counts` as `38.3M`. Intake History has the aligned
+  nine-column table, elapsed runtime, and no visible scanner root. Dashboard
+  had no document overflow at 1280, 1024, or 390 px.
+- Backend/frontend only were rebuilt and recreated. Airflow worker/scheduler,
+  DB, scanner policy, workdirs, FASTQ, and results were unchanged. Scanner
+  remained unpaused on `*/10`, and the active-run API remained empty.
+- Pre-overlay source backup:
+  `/home/jiucheng/project/airflow-demo-t121/backups/T124-20260714-1220/pre-overlay-source.tar.gz`
+  (`ed1f54f5b9114622604c60e95674c1427b0bb02959cdddebae04168083743666`).
+  Rollback is backend/frontend image-only; no DB or analysis data changed.
+
 ## 2026-07-14 T123 Predict path and operations consistency
 
 - Branch/worktree: `codex/platform/T123-predict-operations-consistency` in the

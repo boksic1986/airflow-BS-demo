@@ -5,7 +5,12 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T123 Predict-only operator path and runtime-state consistency is deployed and remotely accepted.
+current_goal_ascii: T124 QC formatting, Intake alignment, and terminal sorting is deployed and remotely accepted.
+t124_code: terminal runs sort by latest pipeline completion; Intake shares project/runtime cells and the success-only ETA model; QC count/rate/fraction formatting is centralized in the frontend.
+t124_validation: remote backend pytest passed 168; frontend Vitest passed 49; production tsc/vite build and Compose config passed; backend/frontend were rebuilt and recreated; HTTP/API and live browser checks passed at 1280/1024/390 px.
+t124_runtime: latest completed NIPT is first in Run Tracker; linked Intake rows expose elapsed/ETA and hide scan roots; NIPT rate/fetal values and PGT-A count/decimal values render with operator units. Scanner remains unpaused on */10 and no analysis was triggered.
+t124_backup: /home/jiucheng/project/airflow-demo-t121/backups/T124-20260714-1220/pre-overlay-source.tar.gz (SHA256 ed1f54f5b9114622604c60e95674c1427b0bb02959cdddebae04168083743666).
+t123_baseline: T123 Predict-only operator path and runtime-state consistency is deployed and remotely accepted.
 t123_frontend: Dashboard Intake defaults to Pending & errors with History for linked runs; Run Tracker shows Manual/Intake provenance; PGT-A Run Detail shows only Predict and hides historical baseline actions; logs are grouped by failure/current/workflow/other; Workflow Catalog is live.
 t123_backend: dashboard exposes run source and QC display semantics; failed parents cancel stale running rule events; workflows aggregate live persisted state; scanner state exposes trigger/retention contracts.
 t123_runtime_policy: NIPT S9 default is 32 cores; Airflow json logs rotate at 50 MB x 3; scanner-only DAG history/log retention runs at 03:00, cannot target analysis DAGs, and a terminal propagation task prevents cleanup from masking scan failure.

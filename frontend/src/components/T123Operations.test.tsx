@@ -7,6 +7,7 @@ import {describe, expect, it, vi} from "vitest";
 
 import type {DashboardRunTrackerRow, IntakeDiscovery} from "../api";
 import {IntakeScannerPanel} from "../features/dashboard/IntakeScannerPanel";
+import {IntakeDiscoveryTable} from "./IntakeDiscoveryTable";
 import {LogViewer, preferredLogSource} from "./LogViewer";
 import {RunTracker} from "./RunTracker";
 
@@ -42,6 +43,43 @@ it("switches Intake scanner between pending records and history", async () => {
 
   await userEvent.click(screen.getByRole("button", {name: "History"}));
   expect(onViewChange).toHaveBeenCalledWith("history");
+});
+
+it("aligns linked intake operations with Run Tracker project and runtime details", () => {
+  const item: IntakeDiscovery = {
+    pipeline: "nipt_docker",
+    root_path: "/data/project/CNV/PGT-A/rawdata/lib_test/pgta_crontab",
+    batch_id: "nipt-batch-20",
+    fingerprint: "x",
+    file_count: 40,
+    total_bytes: 100,
+    ready_state: "ready",
+    submit_state: "submitted",
+    analysis_id: "NIPT_20",
+    project_name: "NIPT Project 20",
+    submitted_by: "jiucheng",
+    run_source: "intake",
+    sample_count: 20,
+    analysis_status: "success",
+    display_status: "success",
+    progress_percent: 100,
+    current_stage: "Completed",
+    elapsed_seconds: 1800,
+    estimated_remaining_seconds: null,
+    submitted_at: "2026-07-14T03:30:00Z",
+    pipeline_finished_at: "2026-07-14T04:00:00Z",
+  };
+
+  render(<MemoryRouter><IntakeDiscoveryTable ariaLabel="Intake operations" items={[item]} /></MemoryRouter>);
+
+  expect(screen.getByText("NIPT Project 20")).toBeInTheDocument();
+  expect(screen.getByText("NIPT_20")).toBeInTheDocument();
+  expect(screen.getByText("Operator jiucheng / 20 samples")).toBeInTheDocument();
+  expect(screen.getByText("20 samples", {selector: "td"})).toBeInTheDocument();
+  expect(screen.getByText("Intake")).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", {name: "Runtime / ETA"})).toBeInTheDocument();
+  expect(screen.getByText(/Elapsed 30m/)).toBeInTheDocument();
+  expect(screen.queryByText(item.root_path)).not.toBeInTheDocument();
 });
 
 describe("LogViewer grouping", () => {

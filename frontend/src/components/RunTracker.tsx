@@ -1,13 +1,13 @@
 import {useEffect, useState} from "react";
-import {Link} from "react-router-dom";
 
 import type {DashboardRunTrackerRow} from "../api";
 
-import {compactPipelineName, displayTimeZoneLabel, formatDate, formatRelativeAge, formatSecondsDuration} from "../lib/format";
+import {compactPipelineName, displayTimeZoneLabel, formatDate, formatRelativeAge} from "../lib/format";
 import {humanStageLabel, stageDebugLabel} from "../lib/stageLabels";
 import {isActiveStatus, normalizeStatus} from "../lib/status";
 import {RunProgressBar} from "./RunProgressBar";
 import {StatusBadge} from "./StatusBadge";
+import {OperationProjectCell, OperationRuntimeCell} from "./OperationCells";
 
 export type RunTrackerFilter = "all" | "active" | "created" | "failed" | "success";
 
@@ -156,17 +156,7 @@ function RunTrackerRow({
   return (
     <tr className={isActiveStatus(status) ? "run-tracker-row active" : "run-tracker-row"}>
       <td>
-        <Link className="tracker-primary-link" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>
-          {row.project_name || row.analysis_id}
-        </Link>
-        <Link className="mono tracker-run-link" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>
-          {row.analysis_id}
-        </Link>
-        <span className="muted">Operator {row.submitted_by || "not captured"} / {row.sample_count ?? 0} samples</span>
-        <span className="tracker-source-line">
-          <span className={`run-source-tag source-${row.run_source || "manual"}`}>{row.run_source === "intake" ? "Intake" : "Manual"}</span>
-          {row.source_batch_id ? <span title="Source batch">{row.source_batch_id}</span> : null}
-        </span>
+        <OperationProjectCell analysisId={row.analysis_id} fallbackId={row.analysis_id} projectName={row.project_name} sampleCount={row.sample_count ?? 0} source={row.run_source || "manual"} sourceBatchId={row.source_batch_id} submittedBy={row.submitted_by} />
       </td>
       <td>{compactPipelineName(row.pipeline)}</td>
       <td>
@@ -209,10 +199,7 @@ function RunTrackerRow({
         />
       </td>
       <td>
-        <div className={isActiveStatus(status) ? "runtime-cell active" : "runtime-cell"}>
-          <strong>Elapsed {formatSecondsDuration(row.elapsed_seconds)}</strong>
-          <span>{etaLabel(row)}</span>
-        </div>
+        <OperationRuntimeCell elapsedSeconds={row.elapsed_seconds} estimatedRemainingSeconds={row.estimated_remaining_seconds} status={row.status} submitted={Boolean(row.submitted_at)} />
       </td>
       <td title={`Airflow handoff time, displayed in ${displayTimeZoneLabel()}`}>{row.submitted_at ? formatDate(row.submitted_at) : "Not submitted"}</td>
       <td title={`Pipeline completion time, displayed in ${displayTimeZoneLabel()}`}>{finishedLabel(row)}</td>
@@ -242,14 +229,6 @@ function sourceFromRow(row: DashboardRunTrackerRow): string {
   if (row.current_pipeline_rule) return row.current_pipeline_rule === "nipt_mount_smoke" ? "Runner event" : "Snakemake rule event";
   if (row.current_airflow_task) return "Airflow project task";
   return "Backend state";
-}
-
-function etaLabel(row: DashboardRunTrackerRow): string {
-  if (!isActiveStatus(normalizeStatus(row.status))) {
-    return row.elapsed_seconds == null ? "Runtime not captured" : "Finished";
-  }
-  if (row.estimated_remaining_seconds == null) return "ETA needs history";
-  return `ETA ~${formatSecondsDuration(row.estimated_remaining_seconds)}`;
 }
 
 function finishedLabel(row: DashboardRunTrackerRow): string {

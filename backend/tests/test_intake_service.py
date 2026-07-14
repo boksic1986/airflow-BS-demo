@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import intake_service, main
-from app.models import AnalysisRun, Base, IntakeDiscovery
+from app.models import AnalysisRun, Base, IntakeDiscovery, Sample
 
 
 @pytest.fixture(autouse=True)
@@ -351,13 +351,27 @@ def test_intake_status_defaults_to_active_and_enriches_archived_rows_from_run(mo
                 status="success",
                 mode="new",
                 workdir="/shared/runs/NIPT_ARCHIVED_001",
-                params_json={"project_name": "NIPT-BS-T13-10"},
+                params_json={
+                    "project_name": "NIPT-BS-T13-10",
+                    "run_mode": "full_run",
+                    "runtime_profile_id": "niptpro-s9-full-v1",
+                },
+                submitted_by="jiucheng",
                 submitted_at=now - timedelta(minutes=31),
                 pipeline_finished_at=now - timedelta(minutes=1),
                 progress_percent=100,
                 current_stage="Workflow complete",
             )
         )
+        for index in range(10):
+            session.add(
+                Sample(
+                    analysis_id="NIPT_ARCHIVED_001",
+                    sample_id=f"NIPT_SAMPLE_{index + 1:02d}",
+                    status="success",
+                    qc_status="pass",
+                )
+            )
         session.commit()
     add_discovery(
         session_factory,
@@ -392,6 +406,13 @@ def test_intake_status_defaults_to_active_and_enriches_archived_rows_from_run(mo
     assert item["display_status"] == "success"
     assert item["progress_percent"] == 100
     assert item["current_stage"] == "Completed"
+    assert item["submitted_by"] == "jiucheng"
+    assert item["sample_count"] == 10
+    assert item["elapsed_seconds"] == 1800
+    assert item["average_duration_seconds"] == 1800
+    assert item["estimated_remaining_seconds"] is None
+    assert item["eta_history_count"] == 1
+    assert item["eta_model"] == "exact_sample_count"
     assert item["submitted_at"] == (now - timedelta(minutes=31)).isoformat()
     assert item["pipeline_finished_at"] == (now - timedelta(minutes=1)).isoformat()
     assert item["archived_at"] == now.isoformat()

@@ -1,5 +1,18 @@
 # 10 QC、日志和报告设计
 
+## T124 operator QC value formatting
+
+- Formatting is a frontend presentation contract; backend metric values remain
+  unchanged for audit and threshold evaluation.
+- `read_count`, mapped fragments/reads, clean read pairs, and related count
+  metrics use adaptive K/M units.
+- NIPT `unique_mapping_rate` and `pcr_duplication_rate` display as
+  percentage-point values with the percent sign after the number.
+- `fetal_fraction` remains a fraction with four decimal places, for example
+  `0.1695`. PGT-A continuous QC values also use four decimal places.
+- The same formatter is used by informational rows, decision matrix cells, and
+  QC failure summaries.
+
 ## T114 NIPT QC decision semantics
 
 - NIPT parsing accepts percentage values with a leading or trailing `%`.

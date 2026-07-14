@@ -1,5 +1,24 @@
 # 05 API Contract
 
+## T124 Intake timing projection and tracker ordering
+
+`GET /api/intake/status` adds linked-run timing metadata without changing its
+existing filters or pagination:
+
+- `submitted_by`, `run_source`, and `source_batch_id`
+- `elapsed_seconds`, `average_duration_seconds`
+- `eta_history_count`, `eta_model`
+- `estimated_remaining_seconds`, `estimated_finish_at`
+
+Pending discoveries return null timing values. Linked discoveries use the same
+success-only, pipeline/target-or-mode/profile/sample-count history model as
+`GET /api/dashboard/runs`; no per-row Airflow request is introduced.
+
+`GET /api/dashboard/runs` remains response-compatible. Active rows sort by
+progress descending and oldest submission first on ties. Terminal rows then
+sort by `pipeline_finished_at DESC`, falling back to `ended_at`; created-only
+rows are last and newest first.
+
 ## T122 Intake lifecycle status projection
 
 `submit_state` records Intake handoff state and intentionally remains

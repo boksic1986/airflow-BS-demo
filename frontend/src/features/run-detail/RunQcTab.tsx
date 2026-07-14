@@ -4,6 +4,7 @@ import type {QcMetric, RunQc} from "../../api";
 
 import {MetricCard} from "../../components/MetricCard";
 import {StatusBadge} from "../../components/StatusBadge";
+import {formatQcMetricValue} from "../../lib/qcFormat";
 import {normalizeStatus} from "../../lib/status";
 
 const pageSize = 20;
@@ -38,7 +39,7 @@ export function RunQcTab({qc, runStatus}: {qc: RunQc | null; runStatus?: string}
       {informationalMetrics.length ? (
         <section className="qc-informational">
           <div className="section-heading"><h2>Informational</h2><p>Reported values do not change the sample QC decision.</p></div>
-          <div className="table-wrap"><table className="data-table compact"><thead><tr><th>Sample</th><th>Metric</th><th>Value</th></tr></thead><tbody>{informationalMetrics.slice(0, 100).map((metric, index) => <tr key={`${metric.sample_id || "project"}-${metric.metric_name}-${index}`}><td>{metric.sample_id || "project"}</td><td>{metric.metric_name}</td><td>{metricValue(metric)}</td></tr>)}</tbody></table></div>
+          <div className="table-wrap"><table className="data-table compact"><thead><tr><th>Sample</th><th>Metric</th><th>Value</th></tr></thead><tbody>{informationalMetrics.slice(0, 100).map((metric, index) => <tr key={`${metric.sample_id || "project"}-${metric.metric_name}-${index}`}><td>{metric.sample_id || "project"}</td><td>{metric.metric_name}</td><td>{formatQcMetricValue(metric)}</td></tr>)}</tbody></table></div>
         </section>
       ) : null}
       {metrics.length ? <>
@@ -49,7 +50,7 @@ export function RunQcTab({qc, runStatus}: {qc: RunQc | null; runStatus?: string}
         <div className="table-wrap qc-matrix-wrap">
           <table className="data-table compact qc-matrix-table" aria-label="QC decision matrix">
             <thead><tr><th>sample_id</th><th>qc_status</th>{matrix.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
-            <tbody>{visibleRows.map((row) => <tr key={row.sampleId}><td className="qc-sample-cell">{row.sampleId}</td><td><StatusBadge status={row.status} size="sm" /></td>{matrix.columns.map((column) => {const metric = row.metrics[column]; return <td key={`${row.sampleId}-${column}`} className={metric ? `qc-status-${normalizeStatus(metric.status)}` : ""}>{metric ? metricValue(metric) : "-"}</td>;})}</tr>)}{visibleRows.length === 0 ? <tr><td className="empty-cell" colSpan={matrix.columns.length + 2}>No QC samples match the current filter.</td></tr> : null}</tbody>
+            <tbody>{visibleRows.map((row) => <tr key={row.sampleId}><td className="qc-sample-cell">{row.sampleId}</td><td><StatusBadge status={row.status} size="sm" /></td>{matrix.columns.map((column) => {const metric = row.metrics[column]; return <td key={`${row.sampleId}-${column}`} className={metric ? `qc-status-${normalizeStatus(metric.status)}` : ""}>{metric ? formatQcMetricValue(metric) : "-"}</td>;})}</tr>)}{visibleRows.length === 0 ? <tr><td className="empty-cell" colSpan={matrix.columns.length + 2}>No QC samples match the current filter.</td></tr> : null}</tbody>
           </table>
         </div>
         <div className="pagination-row"><span>{filteredRows.length} sample rows · page {safePage + 1} / {pageCount}</span><div><button className="button ghost" type="button" disabled={safePage === 0} onClick={() => setPage((current) => Math.max(0, current - 1))}>Previous</button><button className="button ghost" type="button" disabled={safePage >= pageCount - 1} onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))}>Next</button></div></div>
@@ -59,7 +60,7 @@ export function RunQcTab({qc, runStatus}: {qc: RunQc | null; runStatus?: string}
 }
 
 function qcFailureRows(metrics: QcMetric[]) {
-  return metrics.filter((metric) => ["failed", "fail", "error", "warning", "warn", "qc_warning"].includes(normalizeStatus(metric.status))).map((metric) => ({sampleId: metric.sample_id || "project", metric: metric.metric_name, value: metricValue(metric), threshold: metric.threshold || "not set", reason: metric.metric_name === "qc_decision" ? `QC decision is ${metric.metric_value || metric.status}` : metric.threshold ? `Outside threshold ${metric.threshold}` : `Metric status is ${metric.status}`}));
+  return metrics.filter((metric) => ["failed", "fail", "error", "warning", "warn", "qc_warning"].includes(normalizeStatus(metric.status))).map((metric) => ({sampleId: metric.sample_id || "project", metric: metric.metric_name, value: formatQcMetricValue(metric), threshold: metric.threshold || "not set", reason: metric.metric_name === "qc_decision" ? `QC decision is ${metric.metric_value || metric.status}` : metric.threshold ? `Outside threshold ${metric.threshold}` : `Metric status is ${metric.status}`}));
 }
 
 function buildQcMatrix(metrics: QcMetric[]): {columns: string[]; rows: QcMatrixRow[]} {
@@ -77,7 +78,6 @@ function aggregateDecisionStatus(statuses: string[]): string {if (!statuses.leng
 function isDecisionThreshold(threshold?: string | null): boolean {const normalized = String(threshold || "").trim().toLowerCase(); return Boolean(normalized && !["reported", "informational", "n/a", "na"].includes(normalized));}
 
 function qcStatusRank(status: string): number {const value = normalizeStatus(status); if (["failed", "fail", "error"].includes(value)) return 0; if (["warning", "warn", "qc_warning"].includes(value)) return 1; if (value === "unknown") return 2; if (["success", "pass"].includes(value)) return 3; return 4;}
-function metricValue(metric: QcMetric): string {if (metric.metric_value !== null && metric.metric_value !== undefined && metric.metric_value !== "") return String(metric.metric_value); if (metric.metric_numeric !== null && metric.metric_numeric !== undefined) return String(metric.metric_numeric); return "-";}
 function qcFilterBucket(status: string): string {const value = normalizeStatus(status); if (["failed", "fail", "error"].includes(value)) return "fail"; if (["warning", "warn", "qc_warning"].includes(value)) return "warn"; if (["success", "pass"].includes(value)) return "pass"; return "unknown";}
 
 function displayQcState(runStatus: string | undefined, decisionMetricCount: number): {label: string; note: string; tone: string} | null {

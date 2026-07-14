@@ -1,11 +1,10 @@
-import {Link} from "react-router-dom";
-
 import type {IntakeDiscovery} from "../api";
 
 import {compactPipelineName, displayTimeZoneLabel, formatBytes, formatDate} from "../lib/format";
 import {intakeDisplay} from "../lib/intake";
 import {RunProgressBar} from "./RunProgressBar";
 import {StatusBadge} from "./StatusBadge";
+import {OperationProjectCell, OperationRuntimeCell} from "./OperationCells";
 
 export function IntakeDiscoveryTable({
   items,
@@ -35,6 +34,7 @@ export function IntakeDiscoveryTable({
                 <th scope="col">Current stage</th>
                 <th scope="col">Progress</th>
                 <th scope="col">Samples</th>
+                <th scope="col">Runtime / ETA</th>
                 <th scope="col">Started</th>
                 <th scope="col">Finished</th>
               </tr>
@@ -46,17 +46,7 @@ export function IntakeDiscoveryTable({
                 return (
                   <tr key={`${item.pipeline}-${item.root_path}-${item.batch_id}`}>
                     <td className="discovery-batch-cell">
-                      {item.analysis_id ? (
-                        <Link className="tracker-primary-link" to={`/runs/${encodeURIComponent(item.analysis_id)}`}>
-                          {item.project_name || item.batch_id}
-                        </Link>
-                      ) : <strong>{item.batch_id}</strong>}
-                      {item.analysis_id ? (
-                        <Link className="mono discovery-analysis-link" to={`/runs/${encodeURIComponent(item.analysis_id)}`}>
-                          {item.analysis_id}
-                        </Link>
-                      ) : null}
-                      <span className="muted intake-root" title={item.root_path}>{item.root_path}</span>
+                      <OperationProjectCell analysisId={item.analysis_id} fallbackId={item.batch_id} projectName={item.project_name} sampleCount={item.sample_count || Math.floor(item.file_count / 2) || 0} source="intake" sourceBatchId={item.analysis_id ? item.source_batch_id || item.batch_id : null} submittedBy={item.submitted_by} />
                     </td>
                     <td>{compactPipelineName(item.pipeline)}</td>
                     <td>
@@ -90,7 +80,8 @@ export function IntakeDiscoveryTable({
                         }}
                       />
                     </td>
-                    <td>{item.sample_count || Math.floor(item.file_count / 2) || "-"}</td>
+                    <td>{item.sample_count || Math.floor(item.file_count / 2) || 0} samples</td>
+                    <td><OperationRuntimeCell elapsedSeconds={item.elapsed_seconds} estimatedRemainingSeconds={item.estimated_remaining_seconds} status={item.analysis_status || item.submit_state} submitted={Boolean(item.submitted_at)} /></td>
                     <td title={`Displayed in ${displayTimeZoneLabel()}`}>{item.submitted_at ? formatDate(item.submitted_at) : "Not submitted"}</td>
                     <td title={`Displayed in ${displayTimeZoneLabel()}`}>{item.pipeline_finished_at ? formatDate(item.pipeline_finished_at) : item.analysis_id ? "In progress" : "-"}</td>
                   </tr>

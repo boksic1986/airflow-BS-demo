@@ -381,6 +381,9 @@ export type IntakeDiscovery = {
   archive_path?: string | null;
   last_error?: string | null;
   project_name?: string | null;
+  submitted_by?: string | null;
+  run_source?: "intake" | null;
+  source_batch_id?: string | null;
   analysis_status?: string | null;
   display_status?: string | null;
   sample_count?: number;
@@ -388,6 +391,12 @@ export type IntakeDiscovery = {
   current_stage?: string | null;
   submitted_at?: string | null;
   pipeline_finished_at?: string | null;
+  elapsed_seconds?: number | null;
+  average_duration_seconds?: number | null;
+  eta_history_count?: number;
+  eta_model?: string | null;
+  estimated_remaining_seconds?: number | null;
+  estimated_finish_at?: string | null;
 };
 
 export type IntakeStatusResponse = {

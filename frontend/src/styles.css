@@ -1602,9 +1602,9 @@ textarea {
 }
 
 .discovery-batch-cell strong,
-.discovery-batch-cell .tracker-primary-link,
-.discovery-batch-cell .discovery-analysis-link,
-.discovery-batch-cell .intake-root {
+.operation-project-cell > strong,
+.operation-project-cell > .tracker-primary-link,
+.operation-project-cell > .tracker-run-link {
   display: block;
 }
 
@@ -1652,6 +1652,15 @@ textarea {
 .intake-discovery-surface {
   display: grid;
   gap: 10px;
+}
+
+.operation-project-cell {
+  min-width: 0;
+}
+
+.operation-project-cell > .muted {
+  display: block;
+  margin-top: 4px;
 }
 
 .discovery-analysis-link {

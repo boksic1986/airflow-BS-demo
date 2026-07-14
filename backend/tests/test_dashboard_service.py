@@ -173,6 +173,22 @@ def test_dashboard_runs_returns_paginated_tracker_rows_with_current_steps(tmp_pa
     assert airflow.task_calls == [("bio_pgta", "manual__PGTA_RUNNING")]
 
 
+def test_dashboard_runs_orders_terminal_runs_by_latest_completion(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    seed_dashboard_data(session_factory, tmp_path)
+    airflow = FakeAirflowClient()
+    install_dashboard_fixtures(monkeypatch, session_factory, airflow)
+    client = TestClient(main.app)
+
+    response = client.get("/api/dashboard/runs?pipeline=all&status=success&limit=10&offset=0")
+
+    assert response.status_code == 200
+    assert [item["analysis_id"] for item in response.json()["items"]] == [
+        "NIPT_SUCCESS",
+        "PGTA_HISTORY",
+    ]
+
+
 def test_dashboard_runs_filters_pipeline_status_and_keyword(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     seed_dashboard_data(session_factory, tmp_path)
