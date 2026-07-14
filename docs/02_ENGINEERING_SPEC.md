@@ -101,6 +101,13 @@ address-conflict preflight before startup. The BS project root is
 The `/bi/biodevrwbi/33.chenjiucheng` path is an alternate mapping of the same
 NFS data. Deployment automation and release writes must use the `/mnt` path.
 
+T126 deploys a standalone NIPT-only stack on BS10610. It uses fresh biodemo and
+Airflow databases, `CeleryExecutor`, one API server, one scheduler, one worker,
+and one frontend-nginx gateway. Only `bio_nipt_docker` and `bio_intake_scan`
+are parsed. The frontend-nginx service alone publishes `12959` and `12958` on
+`172.17.106.10`; backend, PostgreSQL, and Redis remain internal. BS1069 keeps
+the same images and release as a stopped cold standby.
+
 Project-owned images must use explicit tags. Do not rely on implicit `latest`.
 
 ```text

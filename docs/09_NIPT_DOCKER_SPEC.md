@@ -356,3 +356,19 @@ Artifacts exposed for `pipeline=nipt_docker`:
 - T123 acceptance run `NIPT_20260713_162606_5B5B11` used 32 cores on the
   20-sample recovery batch and completed in about 14 minutes with 20/20 sample
   QC pass and 176/176 terminal rule events in success state.
+
+## T126 BS Snakemake 9 runtime
+
+- Default image: `172.17.61.235:2333/niptpro/niptpro:1.1.11`, derived from the
+  validated S9 image ID `sha256:71df36b7f808...22187254`. The tag is an
+  airflow-demo compatibility label, not an upstream NIPTPro release claim.
+- Rollback image `1.0.11` remains installed and is never overwritten.
+- BS mounts workflow, locale, reference, and FASTQ roots separately. Workflow,
+  locale, reference, and `/input_batch` are read-only; only the run workdir is
+  writable.
+- `NIPT_20260714_140419_F999B0` completed 72 samples in 923 seconds with
+  592/592 rule events success, 72/72 sample QC pass, 42.86 GiB peak memory,
+  and unchanged SHA256 for all 144 input FASTQ files.
+- Mapping QC, T21 classifier, and dynamic-reference summaries match the
+  fengxian S9 baseline. Fetal-fraction differences are at most `4e-6` and the
+  remaining summary floating-point differences are below `1.5e-11`.

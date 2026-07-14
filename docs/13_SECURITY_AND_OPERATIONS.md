@@ -74,6 +74,14 @@ Deployment automation may inspect and attach to this network, but must never
 create, delete, recreate, or change it. A subnet/gateway mismatch or static-IP
 collision is a hard stop, not a condition to repair automatically.
 
+T126 image movement must use a local relay: download signed/checksummed
+archives from fengxian to the Windows staging directory, verify them locally,
+then upload separately to BS10610 or BS1069 and verify again. Direct
+remote-to-remote copy is not an accepted deployment path. BS1069 is a cold
+standby: images and release files may be loaded, but scheduler, worker,
+frontend, backend, PostgreSQL, and Redis must remain stopped until a controlled
+failover explicitly stops BS10610 first.
+
 ## 6. 审计
 
 建议记录：

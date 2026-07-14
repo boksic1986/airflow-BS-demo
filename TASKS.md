@@ -23,6 +23,7 @@
 | T013 | 定义 shared volume 目录 | infra | T010 | shared/{uploads,runs,reports,logs} | 容器内路径一致 | done |
 | T014 | fengxian 用户级 Docker Compose v2 准入 | infra | T001,T004 | `$HOME/.docker/cli-plugins/docker-compose` | `docker compose version` 输出固定 v2 版本，未做系统级 Docker 升级 | done |
 | T125 | BS NIPT-only Docker 网络硬约束文档 | infra/docs | T124,T113 | engineering spec、runbook、security、server inventory、BS deployment contract | 明确 `nipt_analysis_test_net` / `192.168.199.0/24` / `192.168.199.1` 为不可变外部网络约束；记录 BS project root、主备角色和验收/回滚边界 | done |
+| T126 | BS NIPT-only Airflow 平台移植 | infra/backend/airflow/frontend/QA | T125,T113 | NIPT-only capability、BS Compose、S9 images、BS10610 primary、BS1069 cold standby | 10/72-sample full runs success；FASTQ unchanged；BS1069 images verified but services stopped | done |
 
 ## P2 Backend API 和数据库
 
@@ -215,3 +216,26 @@ Acceptance:
   substituting the external network.
 Rollback:
 - Revert the T125 documentation commit; no runtime rollback is required.
+
+### T126 - BS NIPT-only Airflow platform migration
+
+Owner: infra/backend/airflow/frontend/QA
+Status: done
+Dependencies: T125,T113
+Scope:
+- Deploy a fresh NIPT-only CeleryExecutor stack to BS10610 and load a stopped
+  cold-standby image set on BS1069.
+- Keep NIPTPro `1.0.11` for rollback and use the validated Snakemake 9 image as
+  `1.1.11` for new full analyses.
+- Transfer images only through the local Windows staging directory.
+Acceptance:
+- [x] Backend, DAG/runner, frontend, nginx, and Compose validation passed.
+- [x] BS10610 exposes only `bio_nipt_docker` and paused `bio_intake_scan`.
+- [x] 10-sample and 72-sample full analyses completed with all rule events
+  terminal, all samples QC pass, and required outputs present.
+- [x] 144 FASTQ checksums are identical before and after the 72-sample run.
+- [x] BS1069 archives and image IDs are verified; no service is started.
+Rollback:
+- Pause intake, disable heavy submission, stop BS10610 services without `-v`,
+  and select the retained `1.0.11` profile. Never delete the external network,
+  databases, workdirs, results, logs, FASTQ, or image archives.

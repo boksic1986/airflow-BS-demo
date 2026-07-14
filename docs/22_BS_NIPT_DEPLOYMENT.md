@@ -131,6 +131,30 @@ the project release directory.
    QC/CNV/T21/fetal-fraction/summary outputs are present.
 10. Keep BS1069 stopped after cold-standby validation.
 
+## T126 deployment result
+
+BS10610 is the active primary. It runs fresh PostgreSQL/Redis databases,
+FastAPI, the React/nginx gateway, and Airflow API/scheduler/Celery worker. The
+deployed DAG inventory contains only `bio_nipt_docker` and
+`bio_intake_scan`; the scanner remains paused.
+
+Validated runs:
+
+| Run | Samples | Runtime | Rule events | QC | Peak memory |
+|---|---:|---:|---:|---:|---:|
+| `NIPT_20260714_133355_B3081A` | 10 | 277 s | 96/96 success | 10/10 pass | below limit |
+| `NIPT_20260714_140419_F999B0` | 72 | 923 s | 592/592 success | 72/72 pass | 42.86 GiB |
+
+The 72-sample input inventory contains 144 FASTQ files; before/after stat and
+SHA256 manifests are identical. Mapping QC, T21 classifier, and
+dynamic-reference summaries match the fengxian S9 baseline. Fetal-fraction
+differences are <= `4e-6`, below the accepted engineering tolerance.
+
+All image archives were downloaded from fengxian to the local Windows staging
+directory and uploaded separately to each BS node. Direct remote-to-remote
+copy was not used. BS1069 has checksum-verified, loaded images but no running
+platform service, database, scheduler, worker, or scanner.
+
 ## Rollback
 
 Stop services without deleting volumes, restore the previous image/profile,

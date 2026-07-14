@@ -1,5 +1,19 @@
 # 06 前端设计
 
+## T126 BS NIPT Control Tower
+
+- The BS build loads `/api/platform/capabilities` before rendering pipeline
+  navigation and presents the product as `NIPT Control Tower`.
+- Dashboard, Submit Run, Batch Runs, Sample Matrix, Failure Triage, Workflow
+  Catalog, and Settings expose only NIPT Docker on this deployment.
+- Submit defaults to the approved `niptpro-s9-full-v1` profile, 32 cores, and
+  Full analysis. Snakemake config overrides remain schema-controlled.
+- Run Detail keeps the Airflow project task layer and paginated rule/sample
+  logger layer. The BS acceptance run exposes all 592 terminal rule events.
+- The frontend nginx image is also the gateway: port 80 serves React and
+  proxies `/api`, while port 8080 proxies Airflow. No second nginx service is
+  deployed.
+
 ## T124 QC formatting and operations table consistency
 
 - Run Tracker keeps active runs first. Terminal rows are ordered by immutable

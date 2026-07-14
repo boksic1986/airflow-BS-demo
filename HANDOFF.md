@@ -5287,3 +5287,104 @@ documentation changes and remains uncommitted pending user review.
 ### Rollback
 
 Revert the T125 documentation commit. No service or data rollback is required.
+
+## 2026-07-14 - Codex - T126 BS NIPT-only Airflow migration
+
+### Goal
+
+Deploy the existing NIPT Snakemake 9 workflow and Control Tower to BS10610,
+prepare BS1069 as a stopped cold standby, and preserve the fixed external
+Docker network and legacy NIPT `1.0.11` image.
+
+### Completed
+
+- Added a standalone NIPT-only Compose stack with fresh databases,
+  `CeleryExecutor`, one scheduler, one worker, React/nginx gateway, FastAPI,
+  and only `bio_nipt_docker` plus `bio_intake_scan`.
+- Added backend/frontend deployment capabilities so the BS product exposes
+  only NIPT Docker and rejects PGT-A/WES/WGS create, scan, and submit requests.
+- Tagged the validated S9 runtime as `niptpro:1.1.11` without changing source
+  image ID `sha256:71df36b7f808...22187254`; retained `1.0.11` for rollback.
+- Parameterized independent BS workflow, locale, reference, FASTQ, and shared
+  roots. Source mounts are read-only and the run workdir is the only writable
+  NIPT analysis mount.
+- Fixed Airflow task-log 403 by sharing one webserver secret across API,
+  scheduler, and worker. Fixed runner prepare so BS FASTQ/locale roots are read
+  at task runtime. Added regression coverage.
+- Transferred archives only as `fengxian -> D:\pipeline\t126-image-stage -> BS`.
+  SHA256 passed locally and on both BS nodes.
+- BS10610 is live on `172.17.106.10:12959` and `:12958`. The scanner remains
+  paused and automatic NIPT submission remains disabled.
+- BS1069 has the verified images loaded and no running platform service.
+
+### Runtime acceptance
+
+- First run `NIPT_20260714_131523_360744` failed in prepare because the runner
+  used the old `/opt/nipt/workflow/fastq` default. It is retained for audit.
+- Retry `NIPT_20260714_133355_B3081A`: 10 samples, success, 10/10 QC pass,
+  96/96 rule events success, required mapping/CNV/prediction/summary outputs.
+- Full `NIPT_20260714_140419_F999B0`: 72 samples, success, submitted
+  22:04:20 CST, pipeline finished 22:19:43 CST (923 seconds), 72/72 QC pass,
+  504 QC metrics, 592/592 rule events success, no running/failed residue.
+- Observed peak NIPT container memory was 42.86 GiB against the 60 GiB limit.
+  All 144 input FASTQ stat and SHA256 records were identical before/after.
+- Mapping QC, all four T21 classifier files, and dynamic-reference summaries
+  are byte-identical to the fengxian S9 baseline. Fetal-ratio max absolute
+  delta is `4e-6`; other summary floating-point deltas are below `1.5e-11`.
+  The old baseline `params.csv` was empty while the BS run records generated
+  parameters; this is not a result discrepancy.
+
+### Validation
+
+| Check | Result |
+|---|---|
+| fengxian backend full pytest | 171 passed |
+| fengxian DAG/runner tests before final path regression | 91 passed, 5 skipped, 4 subtests |
+| targeted BS path-adapter tests | 18 passed |
+| frontend Vitest | 50 passed |
+| frontend `tsc -b && vite build` | passed |
+| nginx config/version | passed; nginx 1.30.3, Alpine 3.23.5 |
+| BS Compose config and external-network preflight | passed |
+| Airflow task log after shared-secret fix | HTTP 200 with live phase/rule output |
+| BS10610 health/capabilities | healthy; environment BS10610, NIPT only |
+
+The final attempt to run the entire repository DAG suite inside the production
+BS image was not accepted as evidence: the deploy release intentionally omits
+tests and the production image omits pytest. The authoritative full suite is
+the isolated fengxian result above; the only later runner change is covered by
+the 18 passing targeted path-adapter tests and both successful BS full runs.
+
+### Failures and fixes
+
+```text
+failure: initial 10-sample prepare task rejected /data/nipt-fastq as outside the old root
+exit: Airflow task failed
+cause: runner path defaults were resolved before BS runtime environment values
+fix: read NIPT_FASTQ_CONTAINER_ROOT, NIPT_FASTQ_HOST_ROOT, and NIPT_LOCALE_HOST_ROOT during prepare; regression test added
+
+failure: Airflow task-log REST returned 403
+cause: API server and worker generated different webserver secret keys
+fix: require AIRFLOW_WEBSERVER_SECRET_KEY in the untracked environment and pass it to all Airflow services
+
+failure: early remote-to-remote archive copy truncated two large files
+cause: unsupported direct transfer path
+fix: discarded the partial transfer path and used the required local relay with SHA256 at each hop
+```
+
+### Current state and risks
+
+- Branch: `codex/deploy/T126-bs-nipt-only-stack`.
+- BS10610 volumes are live and must not be deleted. `bio_intake_scan` is
+  paused. NIPT heavy manual submission is enabled for the accepted full mode;
+  automatic intake is disabled.
+- Direct workstation access to `172.17.106.10` timed out because no local route
+  was available. Node-local HTTP checks pass; use an SSH tunnel or approved BS
+  route for browser access.
+- BS1069 must remain stopped. Do not run active-active against shared NFS.
+
+### Rollback
+
+Pause intake, set `NIPT_ALLOW_HEAVY_RUN=false`, stop BS10610 Compose without
+`-v`, and select the retained `niptpro:1.0.11` profile. Do not delete or alter
+`nipt_analysis_test_net`, PostgreSQL/Redis volumes, workdirs, logs, results,
+FASTQ, workflow sources, or image archives.

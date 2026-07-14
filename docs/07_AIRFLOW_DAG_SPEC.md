@@ -1,5 +1,17 @@
 # 07 Airflow DAG 设计
 
+## T126 BS10610 deployed DAG scope
+
+The NIPT-only deployment uses `CeleryExecutor` with worker concurrency 2, but
+full NIPT batch concurrency is serialized by `bio_nipt_docker.max_active_runs=1`
+and the one-slot `nipt_s9_full` pool. A pool slot limits concurrent batch runs,
+not the 32 CPU cores assigned inside the NIPT container.
+
+Only `bio_nipt_docker` and `bio_intake_scan` are loaded. The scanner remains
+paused after T126 acceptance and automatic NIPT submission remains disabled.
+Rule/sample detail is emitted by Snakemake 9 `--logger airflow-demo`; it is not
+expanded into hundreds of Airflow tasks.
+
 ## T119 scheduled discovery scope
 
 `bio_intake_scan` calls the backend for both `pgta` and `nipt_docker` discovery.

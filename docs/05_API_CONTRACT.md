@@ -1,5 +1,15 @@
 # 05 API Contract
 
+## T126 NIPT-only platform capabilities
+
+`GET /api/platform/capabilities` is a read-only deployment contract endpoint.
+The BS10610 stack returns `environment=BS10610`,
+`deployed_pipelines=["nipt_docker"]`, and the public Airflow URL. Create,
+scan, and submit requests for PGT-A, WES, or WGS are rejected by the backend;
+the frontend also derives its navigation and filters from this response.
+Existing NIPT run, QC, rule, log, artifact, intake, and dashboard APIs are
+unchanged.
+
 ## T124 Intake timing projection and tracker ordering
 
 `GET /api/intake/status` adds linked-run timing metadata without changing its

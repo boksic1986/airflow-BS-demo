@@ -1777,3 +1777,38 @@ an ETA baseline.
 
 Rollback: restore prior images and profile defaults. Preserve DB rows, FASTQ,
 workdirs, logs, results, and Docker volumes. Retention must reject analysis DAGs.
+
+## 33. T126 BS10610 NIPT-only rollout
+
+Use `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT` for all deployment
+writes. Validate the external network with `scripts/bs_nipt_preflight.sh`; do
+not create or modify `nipt_analysis_test_net`.
+
+Image transfer is always two independent hops:
+
+```text
+fengxian -> D:\pipeline\t126-image-stage -> BS10610 or BS1069
+```
+
+Verify SHA256 after each hop. Load `niptpro:1.1.11` without removing or
+retagging `1.0.11`. Render the standalone stack before startup:
+
+```bash
+docker compose --env-file env/bs10610.env \
+  -f current/docker-compose.bs-nipt.yaml config --quiet
+```
+
+Initialize fresh databases only on BS10610, create `nipt_s9_full` with one
+slot, and keep `bio_intake_scan` paused. Never initialize or start the BS1069
+cold standby during ordinary deployment.
+
+T126 acceptance evidence is under `backups/T126-20260714`. The 10-sample run
+`NIPT_20260714_133355_B3081A` and 72-sample run
+`NIPT_20260714_140419_F999B0` are successful. The latter completed in 923
+seconds with 72/72 QC pass, 592/592 terminal-success events, 42.86 GiB peak
+memory, complete mapping/CNV/T21/fetal-fraction/summary outputs, and identical
+before/after SHA256 for 144 input FASTQ files.
+
+Rollback: pause intake, set `NIPT_ALLOW_HEAVY_RUN=false`, stop Compose without
+`-v`, and select the retained `1.0.11` profile. Do not delete the external
+network, Docker volumes, workdirs, logs, results, FASTQ, or image archives.

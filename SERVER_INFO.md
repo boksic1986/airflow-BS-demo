@@ -1,5 +1,29 @@
 # SERVER_INFO.md
 
+## T126 BS NIPT-only deployment snapshot (2026-07-14)
+
+```text
+primary: BS10610
+cold_standby: BS1069 (images loaded, all platform services stopped)
+project_root: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT
+external_network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
+published_primary: 172.17.106.10:12959 frontend/API, 172.17.106.10:12958 Airflow
+executor: CeleryExecutor
+worker_concurrency: 2
+nipt_pool: nipt_s9_full, 1 slot
+deployed_dags: bio_nipt_docker, bio_intake_scan
+scanner_state: paused
+default_nipt_image: 172.17.61.235:2333/niptpro/niptpro:1.1.11
+default_nipt_image_id: sha256:71df36b7f8080762f2db771e13e4daa7f4a666b3e1efc19c3bf12add22187254
+rollback_nipt_image: 172.17.61.235:2333/niptpro/niptpro:1.0.11
+frontend_nginx: nginx 1.30.3, Alpine 3.23.5
+```
+
+The BS10610 databases are fresh and are not a migration of fengxian history.
+The current workstation could not route directly to `172.17.106.10`; health
+acceptance was performed from the BS node. Use an SSH tunnel or an approved BS
+network route for workstation browser access.
+
 > 服务器信息模板和只读探测记录。Codex 可以补充环境探测结果，但不得写入密码、token、真实患者数据。
 
 ## 1. 基础信息

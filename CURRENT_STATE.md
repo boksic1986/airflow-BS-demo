@@ -5,11 +5,18 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T125 documents the BS10610/BS1069 NIPT-only deployment network hard constraint; runtime deployment has not started.
+current_goal_ascii: T126 deploys the NIPT-only Airflow Control Tower to BS10610 and prepares BS1069 as a stopped cold standby.
+t126_primary: BS10610 runs fresh PostgreSQL/Redis, FastAPI, React/nginx, Airflow CeleryExecutor API/scheduler/worker, bio_nipt_docker, and paused bio_intake_scan under /mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT.
+t126_runtime: NIPT_20260714_133355_B3081A (10 samples) and NIPT_20260714_140419_F999B0 (72 samples) completed with 10/10 and 72/72 QC pass; the 72-sample run completed in 923 seconds with 592/592 terminal-success rule events and 42.86 GiB observed peak memory.
+t126_integrity: all 144 source FASTQ SHA256 and stat records were identical before/after the 72-sample run; mapping QC, T21 classifier, and dynamic-reference summaries match the fengxian S9 baseline, with fetal-fraction deltas <=4e-6.
+t126_images: default 172.17.61.235:2333/niptpro/niptpro:1.1.11 preserves source image ID sha256:71df36b7f8080762f2db771e13e4daa7f4a666b3e1efc19c3bf12add22187254; legacy 1.0.11 remains available and unmodified.
+t126_standby: BS1069 receives archives through fengxian -> local Windows -> BS1069 only; checksums pass and images are loaded, while scheduler/worker/frontend/backend remain stopped.
+t126_network: external nipt_analysis_test_net remains immutable at 192.168.199.0/24 with gateway 192.168.199.1; only frontend-nginx publishes 172.17.106.10:12959 and :12958.
+t126_safety: bio_intake_scan remains paused, NIPT automatic submission remains disabled, FASTQ/workflow/locale mounts are read-only, and no Postgres/Redis volume or historical output was deleted.
 t125_network: external network nipt_analysis_test_net, subnet 192.168.199.0/24, gateway 192.168.199.1; deployment must not create, recreate, delete, or alter it.
 t125_scope: writable project root /mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT; BS10610 primary, BS1069 cold standby; NIPT Snakemake 9 only.
 t125_ingress: BS10610 observed the current SSH client as 172.17.61.18, so nginx allowlist 172.17.61.0/24 covers the present operator path; final HTTP source still requires access-log verification.
-t125_status: documentation and BS10610/BS1069 project-root write probes complete; Compose implementation, image transfer, service startup, and runtime acceptance remain pending.
+t125_status: documentation and BS10610/BS1069 project-root write probes completed and were superseded by the accepted T126 runtime deployment.
 t124_baseline: T124 QC formatting, Intake alignment, and terminal sorting is deployed and remotely accepted.
 t124_code: terminal runs sort by latest pipeline completion; Intake shares project/runtime cells and the success-only ETA model; QC count/rate/fraction formatting is centralized in the frontend.
 t124_validation: remote backend pytest passed 168; frontend Vitest passed 49; production tsc/vite build and Compose config passed; backend/frontend were rebuilt and recreated; HTTP/API and live browser checks passed at 1280/1024/390 px.
