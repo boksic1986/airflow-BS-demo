@@ -1,5 +1,20 @@
 # 08 Snakemake + qsub 接入设计
 
+## T127 WGS host Snakemake 9 integration
+
+WGS uses the host environment at
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/envs/wgs-snakemake9`
+with Snakemake 9.23.1 and Python 3.12. Rule tools continue to come from the
+approved WGS environment script; Airflow does not containerize the WGS
+analysis software.
+
+The host command uses `--executor local --cores 96 --rerun-incomplete
+--keep-going --printshellcmds --show-failed-logs --logger airflow-demo` and
+never uses `--forceall`. One family validation uses three pre-calling samples;
+the additional downstream cohort rows are linked as read-only historical
+pre-calling context from exact approved roots. Logger events and resource
+samples are written below the run workdir and posted to FastAPI when available.
+
 ## T114 terminal events and output integrity
 
 The first project-level terminal event records immutable pipeline completion:

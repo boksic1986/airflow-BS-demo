@@ -5,7 +5,14 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T126 deploys the NIPT-only Airflow Control Tower to BS10610 and prepares BS1069 as a stopped cold standby.
+current_goal_ascii: T127 upgrades BS10610 to one shared NIPT Docker and host WGS Airflow control plane; BS1069 remains a stopped cold standby.
+t127_architecture: one existing Compose project airflow-nipt; shared PostgreSQL, Redis, FastAPI, React/nginx, Airflow API, scheduler, and Celery worker; deployed DAGs are bio_nipt_docker, bio_wgs, and paused bio_intake_scan; PGT-A is absent.
+t127_concurrency: NIPT Docker and host WGS share one-slot bs_heavy_analysis; WGS uses up to 96 host cores and NIPT uses 32 container cores; the two heavy workflows cannot overlap.
+t127_wgs_runtime: host Snakemake 9.23.1/Python 3.12 is deployed under /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; Airflow invokes a restricted forced wgs-run command through SSHOperator; production WGS sources remain read-only.
+t127_validation_scope: one WGS family (three new pre-calling samples) is the default full validation scope, not the 16-row historical batch context; a second family requires an explicit diagnostic need.
+t127_active_run: WGS_20260714_180953_9D7981 is the one-family 96-core full validation run; it was running cleanFastq with three logger events at the latest checkpoint.
+t127_images: BS shared control images use tag bs-control-c706548; backend/frontend archives moved fengxian -> local Windows -> BS and passed SHA256; BS1069 loaded images but remains stopped.
+t127_safety: scanner remains paused, automatic NIPT/WGS submission remains disabled, PostgreSQL/Redis volumes were preserved, and no FASTQ/result/workflow source was deleted or modified.
 t126_primary: BS10610 runs fresh PostgreSQL/Redis, FastAPI, React/nginx, Airflow CeleryExecutor API/scheduler/worker, bio_nipt_docker, and paused bio_intake_scan under /mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT.
 t126_runtime: NIPT_20260714_133355_B3081A (10 samples) and NIPT_20260714_140419_F999B0 (72 samples) completed with 10/10 and 72/72 QC pass; the 72-sample run completed in 923 seconds with 592/592 terminal-success rule events and 42.86 GiB observed peak memory.
 t126_integrity: all 144 source FASTQ SHA256 and stat records were identical before/after the 72-sample run; mapping QC, T21 classifier, and dynamic-reference summaries match the fengxian S9 baseline, with fetal-fraction deltas <=4e-6.

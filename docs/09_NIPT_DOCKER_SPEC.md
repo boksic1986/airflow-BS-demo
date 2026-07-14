@@ -1,5 +1,17 @@
 # 09 NIPT Docker Integration Spec
 
+## T127 shared BS scheduling
+
+The accepted NIPT Snakemake 9 container remains unchanged, but its Airflow DAG
+now shares the BS10610 control plane and one-slot `bs_heavy_analysis` pool with
+host-native WGS. NIPT still uses 32 container cores and writes new results to
+`/mnt/biodevrwbi/33.chenjiucheng/airflow-result/nipt/runs`. The pool slot
+serializes whole batches; it is not a one-core limit.
+
+Additional NIPT validation batches must be submitted serially only after the
+active WGS validation reaches a terminal state. Stop at the first failure.
+Automatic NIPT intake remains disabled.
+
 ## T119 small-batch engineering validation
 
 Scheduled NIPT discovery is restricted to:

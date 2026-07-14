@@ -1,5 +1,18 @@
 # 01 系统架构设计
 
+## T127 BS shared control-plane topology
+
+BS10610 uses one Airflow control plane for NIPT Docker and host-native WGS.
+It is not two platform deployments. One frontend/nginx gateway, FastAPI,
+PostgreSQL/Redis pair, Airflow API server, scheduler, and Celery worker serve
+both `bio_nipt_docker` and `bio_wgs`; a shared paused `bio_intake_scan` handles
+both request contracts. PGT-A is not deployed on BS.
+
+WGS analysis software remains on the host and is invoked through a restricted
+`SSHOperator` gate. NIPT remains inside the validated Snakemake 9 container.
+The one-slot `bs_heavy_analysis` pool serializes both heavy workflows without
+reducing the WGS 96-core or NIPT 32-core runtime allocations.
+
 ## 1. 总体架构
 
 ```text

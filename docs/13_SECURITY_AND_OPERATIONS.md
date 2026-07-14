@@ -82,6 +82,14 @@ standby: images and release files may be loaded, but scheduler, worker,
 frontend, backend, PostgreSQL, and Redis must remain stopped until a controlled
 failover explicitly stops BS10610 first.
 
+T127 WGS execution uses a restricted SSH key. The authorized-key entry uses a
+forced command plus `restrict`; forwarding and PTY access are not allowed. The
+gate validates a generated WGS analysis ID and a fixed stage allowlist, reads
+only the run-local signed request, checks approved roots and SHA256, and uses
+`flock` to prevent duplicate execution. Airflow receives no general host shell
+credential. Historical batch-context symlink targets must resolve below exact
+`WGS_PRECALLING_SOURCE_ROOTS`; a broad `/sg2` allowlist is prohibited.
+
 ## 6. 审计
 
 建议记录：

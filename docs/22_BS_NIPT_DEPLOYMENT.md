@@ -1,5 +1,10 @@
 # BS NIPT-only Airflow Deployment Contract
 
+> T127 supersession: this document remains the historical T125/T126 NIPT-only
+> baseline. BS10610 now upgrades the same Compose project to one shared Airflow
+> control plane with `bio_nipt_docker`, `bio_wgs`, and `bio_intake_scan`.
+> PGT-A remains absent; no second WGS Airflow stack or database is deployed.
+
 ## Scope
 
 This document defines the deployment contract for moving only the Airflow and

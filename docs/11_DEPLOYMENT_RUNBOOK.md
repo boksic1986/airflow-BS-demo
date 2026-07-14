@@ -1812,3 +1812,35 @@ before/after SHA256 for 144 input FASTQ files.
 Rollback: pause intake, set `NIPT_ALLOW_HEAVY_RUN=false`, stop Compose without
 `-v`, and select the retained `1.0.11` profile. Do not delete the external
 network, Docker volumes, workdirs, logs, results, FASTQ, or image archives.
+
+## 34. T127 BS10610 shared NIPT/WGS control plane
+
+T127 upgrades the existing Compose project `airflow-nipt` in place. Do not
+start a second `airflow-wgs` Compose project. Preserve the existing PostgreSQL
+and Redis volumes and expose only `12959` (frontend/API gateway) and `12958`
+(Airflow through nginx).
+
+1. Confirm no running/submitted/queued analysis and record the paused scanner.
+2. Back up Airflow and biodemo with `pg_dump -Fc`, API inventories, network
+   inspect output, the untracked env, and SHA256.
+3. Verify `nipt_analysis_test_net` remains `192.168.199.0/24`, gateway
+   `192.168.199.1`.
+4. Build images on fengxian, download them to local Windows, then upload them
+   to the shared BS archive path. Never copy images server-to-server.
+5. Install WGS Snakemake 9 and immutable releases below
+   `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`.
+6. Install a forced SSH key using `authorized_keys2` when the administrator
+   has intentionally marked `authorized_keys` immutable. The command must be
+   exactly `wgs-run <analysis_id> <stage>`.
+7. Run Compose config, migrations, and Airflow init; create
+   `bs_heavy_analysis` with one slot.
+8. Recreate backend, Airflow API/scheduler/worker, and frontend only. Never use
+   `down -v` and never recreate PostgreSQL/Redis volumes.
+9. Verify capabilities contain only `nipt_docker,wgs`, DAG inventory contains
+   only `bio_nipt_docker,bio_wgs,bio_intake_scan`, and the scanner stays paused.
+10. Run one WGS family at 96 cores. Additional NIPT batches run serially only
+    after WGS is terminal.
+
+WGS results are stored under
+`/mnt/biodevrwbi/33.chenjiucheng/airflow-result/wgs/runs`; NIPT results remain
+under `/mnt/biodevrwbi/33.chenjiucheng/airflow-result/nipt/runs`.

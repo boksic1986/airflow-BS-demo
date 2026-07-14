@@ -1,14 +1,23 @@
 # 05 API Contract
 
-## T126 NIPT-only platform capabilities
+## T127 shared NIPT and WGS platform capabilities
 
 `GET /api/platform/capabilities` is a read-only deployment contract endpoint.
 The BS10610 stack returns `environment=BS10610`,
-`deployed_pipelines=["nipt_docker"]`, and the public Airflow URL. Create,
-scan, and submit requests for PGT-A, WES, or WGS are rejected by the backend;
-the frontend also derives its navigation and filters from this response.
-Existing NIPT run, QC, rule, log, artifact, intake, and dashboard APIs are
-unchanged.
+`deployed_pipelines=["nipt_docker","wgs"]`, and the public Airflow URL.
+PGT-A and WES remain rejected on this deployment; frontend navigation and
+filters derive from this response.
+
+`POST /api/runs` supports WGS controlled requests with
+`wgs_precalling_config_path`, `wgs_downstream_config_path`,
+`wgs_targets_path`, and `wgs_stage=precalling|full`. Run-local copies and
+SHA256 values are immutable. The WGS run sample set is the pre-calling YAML
+`sample` subset, while additional downstream sample rows are batch context.
+`POST /api/runs/{analysis_id}/actions/submit` triggers `bio_wgs`.
+
+`GET /api/runs/{analysis_id}/resources` returns wall time, CPU seconds, peak
+PSS/RSS, read/write I/O, collection completeness, stage summaries, and an
+opaque raw JSONL artifact path. Existing NIPT contracts remain compatible.
 
 ## T124 Intake timing projection and tracker ordering
 

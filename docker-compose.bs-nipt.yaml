@@ -1,4 +1,4 @@
-name: ${COMPOSE_PROJECT_NAME:-airflow-bs-control}
+name: ${COMPOSE_PROJECT_NAME:-airflow-nipt}
 
 x-logging: &default-logging
   driver: json-file

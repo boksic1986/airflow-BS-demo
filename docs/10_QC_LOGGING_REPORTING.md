@@ -1,5 +1,19 @@
 # 10 QC、日志和报告设计
 
+## T127 WGS and NIPT resource telemetry
+
+Host WGS and Docker NIPT runners write five-second resource samples to the run
+workdir and summarize wall time, CPU seconds, peak PSS/RSS, read/write bytes,
+and collection completeness. `GET /api/runs/{analysis_id}/resources` exposes
+the summary without returning arbitrary host paths. Missing PSS or I/O is
+reported as unavailable rather than replaced with a misleading estimate.
+
+Snakemake 9 logger events remain the rule/sample status source. Airflow task
+logs show project stages; Run Detail combines those stages with current and
+failed rule events. WGS acceptance uses one family (three new pre-calling
+samples) and must not count the read-only historical batch context as newly
+executed samples.
+
 ## T124 operator QC value formatting
 
 - Formatting is a frontend presentation contract; backend metric values remain

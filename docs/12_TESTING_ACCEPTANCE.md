@@ -1,5 +1,20 @@
 # 12 测试和验收设计
 
+## T127 BS shared platform acceptance
+
+- Confirm one Compose project and one PostgreSQL/Redis/Celery control plane.
+- Confirm capabilities are exactly `nipt_docker,wgs`; PGT-A is absent.
+- Confirm Airflow lists `bio_nipt_docker`, `bio_wgs`, and paused
+  `bio_intake_scan` only.
+- Confirm `bs_heavy_analysis` has one slot and prevents NIPT/WGS overlap.
+- Run WGS Snakemake 9 dry-run and one family full validation with a 96-core
+  ceiling. A second family is optional and only for diagnosis/comparison.
+- Require terminal rule events, required output targets, input immutability,
+  and resource summary evidence.
+- Submit additional NIPT batches serially only after WGS is terminal, stopping
+  on the first failed batch.
+- Confirm BS1069 has matching release/images/config and no running service.
+
 ## 1. 测试层级
 
 测试执行位置约束：

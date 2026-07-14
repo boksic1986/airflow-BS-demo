@@ -1,21 +1,26 @@
 # SERVER_INFO.md
 
-## T126 BS NIPT-only deployment snapshot (2026-07-14)
+## T127 BS shared NIPT/WGS deployment snapshot (2026-07-15)
 
 ```text
 primary: BS10610
 cold_standby: BS1069 (images loaded, all platform services stopped)
+compose_project: airflow-nipt (shared control plane; do not start airflow-wgs)
 project_root: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT
+wgs_host_project: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS
 external_network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
 published_primary: 172.17.106.10:12959 frontend/API, 172.17.106.10:12958 Airflow
 executor: CeleryExecutor
 worker_concurrency: 2
-nipt_pool: nipt_s9_full, 1 slot
-deployed_dags: bio_nipt_docker, bio_intake_scan
+heavy_pool: bs_heavy_analysis, 1 slot shared by NIPT Docker and WGS
+deployed_dags: bio_nipt_docker, bio_wgs, bio_intake_scan
 scanner_state: paused
 default_nipt_image: 172.17.61.235:2333/niptpro/niptpro:1.1.11
 default_nipt_image_id: sha256:71df36b7f8080762f2db771e13e4daa7f4a666b3e1efc19c3bf12add22187254
 rollback_nipt_image: 172.17.61.235:2333/niptpro/niptpro:1.0.11
+wgs_scheduler: Snakemake 9.23.1, Python 3.12, host-native through restricted SSHOperator
+wgs_default_cores: 96
+wgs_validation_scope: one family / three new pre-calling samples
 frontend_nginx: nginx 1.30.3, Alpine 3.23.5
 ```
 

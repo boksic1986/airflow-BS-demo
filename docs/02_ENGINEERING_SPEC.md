@@ -1,5 +1,18 @@
 # 02 工程规范
 
+## T127 BS shared NIPT and WGS control plane
+
+BS10610 runs one Airflow control plane, not separate NIPT and WGS Airflow
+stacks. The shared deployment contains one PostgreSQL/Redis pair, FastAPI,
+React/nginx, Airflow API server, scheduler, and Celery worker. It loads three
+DAGs only: `bio_nipt_docker`, `bio_wgs`, and paused `bio_intake_scan`.
+
+NIPT remains containerized with `niptpro:1.1.11`. WGS is host-native: the
+Airflow worker invokes a forced `wgs-run <analysis_id> <stage>` command through
+`SSHOperator`; WGS software and source directories are not mounted into the
+worker. Both heavy DAGs use the one-slot `bs_heavy_analysis` pool, while WGS
+Snakemake uses 96 local cores and NIPT uses 32 container cores.
+
 ## T113 NIPT dual-runtime image
 
 NIPT full analysis uses

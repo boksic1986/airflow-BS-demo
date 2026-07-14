@@ -1,5 +1,49 @@
 # HANDOFF.md
 
+## 2026-07-15 - Codex - T127 shared BS NIPT/WGS control plane
+
+- Branch/worktree: `codex/wgs/T127-bs-wgs-s9-platform` in the isolated T096
+  worktree. Implementation commits are `98bb0e0`, `b3af61c`, `4d172ef`,
+  `73af175`, and `c706548` before final state documentation.
+- Architecture: BS10610 reuses the existing `airflow-nipt` Compose project and
+  one PostgreSQL/Redis/FastAPI/React-nginx/Airflow CeleryExecutor control plane.
+  Deployed DAGs are `bio_nipt_docker`, `bio_wgs`, and paused
+  `bio_intake_scan`; PGT-A is absent.
+- Concurrency: NIPT and WGS share one-slot `bs_heavy_analysis`. NIPT uses 32
+  container cores; WGS uses a 96-core host scheduling ceiling. Pool slots
+  serialize batches and do not represent CPU cores.
+- WGS: Snakemake 9.23.1/Python 3.12 is deployed under the WGS host project.
+  Airflow uses a restricted forced SSH command. One-family selection contains
+  three new samples; 13 historical rows are linked as read-only batch context
+  from exact approved roots and are not rerun.
+- Test-first fixes: pre-calling targets now use the YAML sample subset, and
+  host prepare links only historical batch-context outputs. Remote backend
+  pytest passed 181, WGS runner tests passed 7, WGS DAG tests passed 3,
+  frontend Vitest passed 52, and frontend production build passed. The WGS S9
+  pre-calling dry-run reports 18 jobs for three samples.
+- Images: backend/frontend were built on fengxian, downloaded to local Windows,
+  uploaded to BS, SHA256 verified, and independently loaded on BS10610 and
+  BS1069. Airflow image ID was already identical and was retagged locally on
+  each BS node. Direct server-to-server image transfer was not used.
+- BS10610 deployment backup:
+  `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT/backups/T127-shared-control-20260715T020518`.
+  PostgreSQL/Redis volumes were preserved. Services are healthy on 12959/12958,
+  capabilities are exactly `nipt_docker,wgs`, and the external network remains
+  `192.168.199.0/24` with gateway `192.168.199.1`.
+- WGS validation run `WGS_20260714_180953_9D7981` was submitted as one family,
+  full mode, 96-core ceiling. At this checkpoint it is running the mapping
+  rules with no failed logger event. Do not restart the worker or submit NIPT
+  until this run is terminal.
+- Five planned NIPT batches were read-only scanned as 27, 27, 27, 27, and 28
+  samples with zero scanner errors. Submit them serially after WGS success and
+  stop at the first failure.
+- BS1069 has the same c706548 release/images, a complete host-specific Compose
+  env, restricted SSH gate, valid external network, and passing Compose config.
+  Every service remains stopped; do not run active-active.
+- Safety: scanner is paused, auto-submit is disabled, production workflow
+  sources and FASTQ are read-only, and no database volume, result, or input was
+  deleted. Rollback restores the previous shared release/images without `-v`.
+
 ## 2026-07-14 T124 QC formatting, Intake alignment, and tracker ordering
 
 - Branch/worktree: `codex/frontend/T124-qc-intake-sort-consistency` in the

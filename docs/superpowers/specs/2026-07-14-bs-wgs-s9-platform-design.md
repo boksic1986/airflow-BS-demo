@@ -1,214 +1,151 @@
-# T127 BS WGS Snakemake 9 Platform Design
+# T127 BS Shared NIPT and WGS Control Plane Design
 
 ## Goal
 
-Deploy a WGS-only Airflow platform on BS10610 under
-`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`, while keeping the
-existing NIPT platform independent and unchanged. The WGS scheduler uses a
-new Snakemake 9 environment created by
-`/sg2/33.chenjiucheng/software/miniforge3/condabin/conda`.
+Upgrade the accepted BS10610 NIPT deployment into one shared Airflow control
+plane for NIPT Docker and host-native WGS. PGT-A is not deployed on BS.
 
-The platform also records run-level resource telemetry and uses 4-5
-additional NIPT FQ2026 batches to validate the resource collector under real
-workload.
+The existing Compose project, PostgreSQL/Redis volumes, frontend gateway, and
+Airflow CeleryExecutor services are reused. T127 must not create a second WGS
+Compose stack, second scheduler, or second business database.
 
-## Audit Findings
+## Runtime Architecture
 
-- The production WGS repository is
-  `/mnt/biodevrwsg2/33.chenjiucheng/project/wgs` and is a dirty worktree. It is
-  an external read-only dependency; T127 must not modify or commit it.
-- `profiles/bs_direct/env.sh` works on `server10610` and currently resolves
-  Snakemake 7.32.4 from `/bi/software/Python-3.7.11`.
-- The direct profile has no qsub command and is configured for 96 local cores.
-- The existing Airflow image is Debian 12. Mounting the host WGS runtime into
-  that image fails while importing the Python 3.7 standard library. WGS must
-  not run inside the generic Airflow worker process.
-- The validated WGS test run has separate pre-calling and downstream
-  Snakefiles, 16 sample rows, and explicit final targets. Its comparison step
-  deliberately excludes Redis, mail, clinical publishing, and uploads.
-- Existing generated launch scripts use Snakemake 7-only flags such as
-  `--reason` and `--stats`; the Airflow runner must generate a Snakemake 9
-  command instead of executing those scripts verbatim.
+The shared Compose project is `airflow-nipt` and runs:
 
-## Architecture
+- one React/nginx gateway;
+- one FastAPI backend;
+- one PostgreSQL instance with separate Airflow and biodemo databases;
+- one Redis broker;
+- one Airflow API server, scheduler, and Celery worker.
 
-### Independent platform
-
-The WGS deployment is a separate Compose project named `airflow-wgs`. It has
-fresh Airflow and biodemo databases and does not share PostgreSQL, Redis,
-volumes, run history, or scheduler state with `airflow-nipt`.
-
-It reuses the platform code and frontend design but sets:
+Only these DAGs are deployed:
 
 ```text
-DEPLOYED_PIPELINES=wgs
-PLATFORM_ENVIRONMENT=BS10610-WGS
-PROJECT_ROOT=/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS
+bio_nipt_docker
+bio_wgs
+bio_intake_scan  # paused until explicit intake acceptance
 ```
 
-Only `bio_wgs` is deployed initially. WGS automatic intake remains disabled
-until the manual validation contract is complete.
+Both analysis DAGs use the one-slot `bs_heavy_analysis` pool. The slot limits
+concurrent batches, not CPU cores. NIPT uses 32 cores inside its container;
+WGS uses up to 96 host cores. NIPT and WGS heavy runs therefore never overlap.
 
-Run and intake data use platform-level roots rather than living inside the
-Git release tree:
+The existing gateway remains the only published service:
+
+```text
+172.17.106.10:12959 -> frontend and /api
+172.17.106.10:12958 -> Airflow through nginx
+```
+
+The external Docker network is immutable:
+
+```text
+nipt_analysis_test_net
+subnet 192.168.199.0/24
+gateway 192.168.199.1
+```
+
+## NIPT Docker
+
+NIPT continues to run in the validated Snakemake 9 image
+`172.17.61.235:2333/niptpro/niptpro:1.1.11`. The legacy `1.0.11` image is kept
+for rollback. Input FASTQ and workflow/locale sources are read-only; output is
+written below `/mnt/biodevrwbi/33.chenjiucheng/airflow-result/nipt/runs`.
+
+## WGS Host Runtime
+
+WGS does not run in Docker. Airflow uses `SSHOperator` to invoke the exact
+forced command `wgs-run <analysis_id> <stage>` on BS10610. The key has no PTY
+or forwarding rights and cannot execute arbitrary shell commands.
+
+Host assets live under:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS
+```
+
+The dedicated scheduler environment is created with
+`/sg2/33.chenjiucheng/software/miniforge3/condabin/conda` and pins Snakemake
+9.23.1 with Python 3.12. Rule tools continue to come from the approved WGS
+environment script. The production WGS repository is a read-only dependency.
+
+The generated host command uses:
+
+```text
+--executor local --cores 96 --rerun-incomplete --keep-going
+--printshellcmds --show-failed-logs --logger airflow-demo
+```
+
+`--forceall` is forbidden. Historical pre-calling context is linked read-only
+from exact approved roots; broad `/bi` and `/sg2` allowlists are forbidden.
+
+## WGS DAG
+
+`bio_wgs` exposes project-level stages:
+
+```text
+validate_request
+  -> prepare_wgs_run
+  -> wgs_pipeline.pre_calling
+  -> choose_wgs_path
+     -> collect_wgs_artifacts                         # pre-calling only
+     -> wgs_pipeline.variant_analysis
+        -> wgs_pipeline.collect_qc
+        -> collect_wgs_artifacts                      # full
+```
+
+Snakemake logger events provide rule/sample progress. Airflow tasks remain
+project-level stages and do not expand every sample job into the DAG graph.
+
+## Inputs, Outputs, and Intake
+
+WGS run configuration and intake requests are stored below
+`/mnt/biodevrwbi/33.chenjiucheng/airflow-intake-configs/wgs`. NIPT requests
+remain below the sibling `nipt` directory. Results are written to:
 
 ```text
 /mnt/biodevrwbi/33.chenjiucheng/airflow-result/wgs/runs
 /mnt/biodevrwbi/33.chenjiucheng/airflow-result/nipt/runs
-/mnt/biodevrwbi/33.chenjiucheng/airflow-intake-configs/wgs
-/mnt/biodevrwbi/33.chenjiucheng/airflow-intake-configs/nipt
 ```
 
-Existing NIPT run directories are retained at their current location and
-mounted read-only for historical detail access. New NIPT runs use the new
-result root; no historical result is moved or deleted during T127.
+The shared `bio_intake_scan` understands both request contracts, but remains
+paused during T127. Neither pipeline is automatically submitted.
 
-### Snakemake 9 environment
+## Validation Scope
 
-Create a dedicated environment named `wgs-snakemake9` using the approved
-Miniforge executable. The environment contains Snakemake 9, the logger
-interface, YAML support, and resource collector dependencies.
+WGS acceptance is intentionally bounded to one family by default, with a
+second family allowed only if the first result requires comparison. One family
+contains three pre-calling samples in the approved validation contract.
+It runs with a 96-core ceiling and does not execute the original 16-sample
+cohort as new input.
 
-The runtime profile records the environment prefix, exact package list, and a
-SHA256 provenance file. Rule commands continue to use the absolute Python,
-R, Perl, Sentieon, VEP, samtools, bcftools, and reference paths already
-present in the validated WGS config.
+After WGS reaches a terminal state, up to five NIPT batches may run serially.
+Stop immediately at the first failed batch. WGS and NIPT must never overlap.
 
-### Snakemake 9 workflow adapter
+For each run verify Airflow/backend status, terminal logger events, required
+outputs, input immutability, and resource telemetry including wall time, CPU,
+peak PSS/RSS, and read/write I/O when available.
 
-T127 does not run the Snakemake 7 workflow source unchanged. A versioned
-`pipelines/wgs_s9` adapter is maintained in airflow-demo and deployed with the
-platform release. The adapter is derived from the audited production
-Snakefiles and rules, then changed only where required for Snakemake 9:
+## Safety and Rollback
 
-- replace removed CLI/config behavior with the Snakemake 9 local executor;
-- remove generated Snakemake 7-only flags such as `--reason` and `--stats`;
-- make wildcard, resources, shell, log, and target contracts pass S9 lint and
-  dry-run;
-- add `--logger airflow-demo` with per-rule/per-sample terminal events;
-- preserve rule shell commands and approved external tool paths;
-- keep Redis, mail, upload, and clinical publishing rules outside accepted
-  Airflow target sets.
-
-The original WGS repository remains read-only and is used as provenance and
-result-comparison source. Adapter changes are reviewed as explicit diffs and
-never written back to that worktree by this task.
-
-### WGS runner isolation
-
-Airflow orchestrates project-level tasks but launches WGS through a dedicated
-Ubuntu 20.04-compatible runner. The runner receives only an approved config,
-target list, and run workdir. It mounts:
-
-- `/bi/software` read-only.
-- `/bi/6.zhangran/software` read-only for the tools referenced by WGS config.
-- The WGS repository and WGS-prod environment as separate read-only mounts.
-- The dedicated Snakemake 9 conda environment read-only.
-- Only the approved source batch or validation FASTQ root selected for the
-  current run, read-only.
-- The run workdir writable.
-
-The runner never mounts the whole `/bi`, `/sg2`, `/clinical`, or another
-user's project tree. Host and container paths are resolved from a repository
-owned allowlist. The frontend cannot supply arbitrary Docker mount sources.
-
-The runner hostname is `server10610` so the approved `bs_direct` environment
-guard remains effective. No production WGS source file is copied back or
-modified.
-
-### DAG
-
-`bio_wgs` exposes operator-readable stages:
-
-```text
-validate_request
-prepare_wgs_run
-wgs_pipeline.pre_calling
-wgs_pipeline.variant_analysis
-wgs_pipeline.collect_qc
-collect_wgs_artifacts
-```
-
-The DAG has `max_active_runs=1` and uses a one-slot `wgs_full` pool. Snakemake
-rule events provide the detailed sample/rule view; Airflow tasks remain
-project-level stages.
-
-Resume uses the same workdir with `--rerun-incomplete`. `--forceall` is
-forbidden.
-
-## Input And Validation Contract
-
-The initial WGS Submit surface accepts an approved existing config and target
-manifest, not arbitrary production paths. Paths must resolve under configured
-WGS test/source roots and pass traversal checks.
-
-Validation proceeds in gates:
-
-1. Snakemake 9 parser/lint and dry-run against a copied run-local config.
-2. A small pre-calling target set in a new workdir.
-3. A controlled JX25 validation target set using the existing 16-sample test
-   contract.
-4. Full WGS execution only after the previous gates pass and node resources
-   are available.
-
-Redis, mail, clinical/web publication, OSS upload, and production database
-writes are excluded from the accepted target list.
-
-## Resource Telemetry
-
-Each runner writes:
-
-```text
-logs/resources/resource_samples.jsonl
-reports/resource_summary.json
-```
-
-Sampling occurs every 5 seconds and records:
-
-- process-tree PSS and RSS from `/proc/*/smaps_rollup`;
-- cgroup/container memory current and peak when available;
-- CPU time and CPU percentage;
-- process and container read/write bytes;
-- block I/O and network I/O for Docker-backed runs;
-- sample time, source, and collector warnings.
-
-The summary contains peak PSS, peak RSS/cgroup memory, total read/write bytes,
-CPU seconds, wall time, sampling interval, and completeness. Missing PSS is
-reported as unavailable rather than substituted with RSS.
-
-The backend adds a read-only run resource endpoint. Run Detail displays a
-compact Resource Usage section and links to the raw JSONL artifact. The first
-version stores telemetry as run artifacts and does not add high-volume time
-series rows to PostgreSQL.
-
-## NIPT Validation Batches
-
-Select 4-5 complete NIPTPro batches from
-`/sugon01/fq_backup/NIPT_fq_backup/FQ2026`. Require equal non-zero R1/R2 clean
-FASTQ counts and exclude the already accepted 72-sample batch.
-
-Runs are submitted manually and serially through the existing one-slot pool.
-Stop after the first failed batch. For each run, verify final Airflow/backend
-success, terminal rule events, QC import, required outputs, input immutability,
-and resource summary completeness.
-
-## Safety And Rollback
-
-- Do not modify the production WGS repository or NIPT workflow source.
-- Do not enable WGS or NIPT auto-submit.
-- Do not delete Docker networks, volumes, results, logs, or FASTQ.
-- Do not run WGS and NIPT heavy workloads concurrently on BS10610.
-- Rollback stops only `airflow-wgs` without `-v`, disables WGS capability,
-  and retains all run workdirs and provenance.
+- Do not modify production WGS or NIPT workflow sources.
+- Do not enable automatic intake during T127.
+- Do not delete Docker networks, volumes, databases, results, logs, or FASTQ.
+- Image movement is fengxian to local Windows to BS; direct server-to-server
+  transfer is prohibited.
+- BS1069 is a stopped cold standby and must not run active-active with BS10610.
+- Roll back by pausing intake, stopping only recreated application services
+  without `-v`, and restoring the previous shared release/images. Keep the
+  existing `airflow-nipt` project and its PostgreSQL/Redis volumes.
 
 ## Acceptance
 
-- Snakemake 9 environment and package provenance are reproducible.
-- WGS dry-run and controlled validation complete from Airflow with terminal
-  rule events and no forbidden side effects.
-- WGS platform is reachable through its own gateway and shows only WGS.
-- Four or five additional NIPT batches run serially or stop safely at the
-  first failure.
-- Run Detail reports accurate peak PSS/RSS, I/O, CPU, and wall time or an
-  explicit unavailable reason.
-- Existing NIPT platform and accepted runs remain intact.
+- `/api/platform/capabilities` exposes only `nipt_docker,wgs`.
+- Airflow lists only `bio_nipt_docker`, `bio_wgs`, and `bio_intake_scan`.
+- One shared CeleryExecutor control plane and one heavy-analysis pool are used.
+- WGS Snakemake 9 dry-run and one-family full validation complete with logger
+  events and no forbidden side effects.
+- NIPT remains compatible with the accepted S9 runtime and additional batches
+  run serially only after WGS is terminal.
+- BS1069 has matching release/images and remains stopped.

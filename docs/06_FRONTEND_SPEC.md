@@ -1,18 +1,21 @@
 # 06 前端设计
 
-## T126 BS NIPT Control Tower
+## T127 BS NIPT and WGS Control Tower
 
 - The BS build loads `/api/platform/capabilities` before rendering pipeline
-  navigation and presents the product as `NIPT Control Tower`.
+  navigation and presents one shared `NIPT Docker + WGS` control tower.
 - Dashboard, Submit Run, Batch Runs, Sample Matrix, Failure Triage, Workflow
-  Catalog, and Settings expose only NIPT Docker on this deployment.
+  Catalog, and Settings expose only NIPT Docker and WGS on this deployment.
 - Submit defaults to the approved `niptpro-s9-full-v1` profile, 32 cores, and
-  Full analysis. Snakemake config overrides remain schema-controlled.
+  Full analysis for NIPT. WGS Submit accepts only approved config/target paths,
+  defaults to the controlled pre-calling mode, and requires confirmation for
+  Full analysis. WGS execution uses 96 host cores.
 - Run Detail keeps the Airflow project task layer and paginated rule/sample
-  logger layer. The BS acceptance run exposes all 592 terminal rule events.
+  logger layer and adds compact run resource telemetry.
 - The frontend nginx image is also the gateway: port 80 serves React and
   proxies `/api`, while port 8080 proxies Airflow. No second nginx service is
   deployed.
+- PGT-A, WES, NIPT qsub, and WGS-in-Docker are absent from the BS product.
 
 ## T124 QC formatting and operations table consistency
 

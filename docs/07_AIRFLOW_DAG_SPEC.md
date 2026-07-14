@@ -1,16 +1,28 @@
 # 07 Airflow DAG 设计
 
-## T126 BS10610 deployed DAG scope
+## T127 BS10610 shared deployed DAG scope
 
-The NIPT-only deployment uses `CeleryExecutor` with worker concurrency 2, but
-full NIPT batch concurrency is serialized by `bio_nipt_docker.max_active_runs=1`
-and the one-slot `nipt_s9_full` pool. A pool slot limits concurrent batch runs,
-not the 32 CPU cores assigned inside the NIPT container.
+The shared NIPT/WGS deployment uses `CeleryExecutor` with worker concurrency 2.
+Only `bio_nipt_docker`, `bio_wgs`, and `bio_intake_scan` are loaded. PGT-A is
+not deployed on BS. `bio_nipt_docker` and `bio_wgs` both use the one-slot
+`bs_heavy_analysis` pool, so the two heavy workflows cannot overlap. A pool
+slot limits concurrent batches, not NIPT's 32 container cores or WGS's 96 host
+cores.
 
-Only `bio_nipt_docker` and `bio_intake_scan` are loaded. The scanner remains
-paused after T126 acceptance and automatic NIPT submission remains disabled.
-Rule/sample detail is emitted by Snakemake 9 `--logger airflow-demo`; it is not
-expanded into hundreds of Airflow tasks.
+`bio_wgs` uses project-level tasks:
+
+```text
+validate_request -> prepare_wgs_run -> wgs_pipeline.pre_calling
+  -> choose_wgs_path
+     -> collect_wgs_artifacts                         # pre-calling validation
+     -> wgs_pipeline.variant_analysis
+        -> wgs_pipeline.collect_qc -> collect_wgs_artifacts  # full
+```
+
+Each WGS host stage is an `SSHOperator` command accepted only by the forced SSH
+gate. NIPT and WGS rule/sample detail is emitted by Snakemake 9
+`--logger airflow-demo`; it is not expanded into hundreds of Airflow tasks.
+The scanner remains paused and neither NIPT nor WGS auto-submit is enabled.
 
 ## T119 scheduled discovery scope
 

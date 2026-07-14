@@ -22,7 +22,7 @@ grep -Fq "\"Subnet\":\"$EXPECTED_SUBNET\"" <<<"$ipam"
 grep -Fq "\"Gateway\":\"$EXPECTED_GATEWAY\"" <<<"$ipam"
 
 attachments="$(docker network inspect "$NETWORK_NAME" --format '{{range $id, $c := .Containers}}{{$c.Name}} {{$c.IPv4Address}}{{println}}{{end}}')"
-project_prefix="${COMPOSE_PROJECT_NAME:-airflow-bs-control}-"
+project_prefix="${COMPOSE_PROJECT_NAME:-airflow-nipt}-"
 for address in "${STATIC_IPS[@]}"; do
   while read -r container_name allocated_address; do
     if [[ "$allocated_address" == "$address/"* && "$container_name" != "$project_prefix"* ]]; then
