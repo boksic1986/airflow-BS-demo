@@ -130,7 +130,7 @@ def _process_tree(root_pid: int, *, proc_root: Path = Path("/proc")) -> list[int
             stat = (entry / "stat").read_text(encoding="utf-8")
             tail = stat.rsplit(")", 1)[1].strip().split()
             parents[int(entry.name)] = int(tail[1])
-        except (FileNotFoundError, IndexError, PermissionError, ValueError):
+        except (FileNotFoundError, IndexError, PermissionError, ProcessLookupError, ValueError):
             continue
     selected = {int(root_pid)}
     changed = True

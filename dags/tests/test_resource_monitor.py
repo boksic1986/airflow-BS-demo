@@ -6,7 +6,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from common.resource_monitor import ResourceMonitor
+from common.resource_monitor import ResourceMonitor, _process_tree
 
 
 def test_resource_monitor_writes_samples_and_summary(tmp_path) -> None:
@@ -48,3 +48,23 @@ def test_resource_monitor_can_read_an_explicit_proc_root(tmp_path) -> None:
     assert summary["proc_root"] == "/proc"
     assert summary["source"] == "docker_container_host_procfs"
     assert summary["peak_rss_bytes"] > 0
+
+
+def test_process_tree_ignores_process_that_exits_during_scan(tmp_path, monkeypatch) -> None:
+    proc_root = tmp_path / "proc"
+    root_stat = proc_root / "100" / "stat"
+    child_stat = proc_root / "101" / "stat"
+    root_stat.parent.mkdir(parents=True)
+    child_stat.parent.mkdir(parents=True)
+    root_stat.write_text("100 (root) S 0 0 0\n", encoding="utf-8")
+    child_stat.write_text("101 (child) S 100 0 0\n", encoding="utf-8")
+    original_read_text = Path.read_text
+
+    def flaky_read_text(path: Path, *args, **kwargs):
+        if path == child_stat:
+            raise ProcessLookupError("process exited during procfs scan")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", flaky_read_text)
+
+    assert _process_tree(100, proc_root=proc_root) == [100]
