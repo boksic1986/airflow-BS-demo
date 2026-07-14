@@ -17,9 +17,13 @@ class Settings:
     airflow_api_username: str
     airflow_api_password: str
     container_shared_root: str
+    host_results_root: str
+    wgs_host_owner: str
     input_scan_roots: list[str]
     pgta_input_scan_roots: list[str]
     nipt_input_scan_roots: list[str]
+    wgs_config_roots: list[str]
+    wgs_validation_roots: list[str]
     intake_config_path: str | None
     pipeline_profile_config_path: str | None
     nipt_allow_heavy_run: bool
@@ -45,8 +49,10 @@ def get_settings() -> Settings:
     legacy_scan_roots = _parse_list(os.getenv("INPUT_SCAN_ROOTS", "/data/project/CNV/PGT-A/rawdata"))
     pgta_scan_roots = _parse_list(os.getenv("PGTA_INPUT_SCAN_ROOTS") or ",".join(legacy_scan_roots))
     nipt_scan_roots = _parse_list(os.getenv("NIPT_INPUT_SCAN_ROOTS") or "/opt/pipelines/NIPT/fastq")
+    wgs_config_roots = _parse_list(os.getenv("WGS_CONFIG_ROOTS") or "/data/wgs-intake")
+    wgs_validation_roots = _parse_list(os.getenv("WGS_VALIDATION_ROOTS") or "/data/wgs-validation")
     deployed_pipelines = tuple(_parse_list(os.getenv("DEPLOYED_PIPELINES", "pgta,nipt_docker")))
-    unsupported = sorted(set(deployed_pipelines) - {"pgta", "nipt_docker"})
+    unsupported = sorted(set(deployed_pipelines) - {"pgta", "nipt_docker", "wgs"})
     if unsupported:
         raise RuntimeError(f"Unsupported DEPLOYED_PIPELINES values: {', '.join(unsupported)}")
     if not deployed_pipelines:
@@ -57,9 +63,13 @@ def get_settings() -> Settings:
         airflow_api_username=os.getenv("AIRFLOW_API_USERNAME", "admin"),
         airflow_api_password=_required_env("AIRFLOW_API_PASSWORD"),
         container_shared_root=os.getenv("CONTAINER_SHARED_ROOT", "/data/airflow-demo"),
+        host_results_root=os.getenv("HOST_RESULTS_ROOT", os.getenv("CONTAINER_SHARED_ROOT", "/data/airflow-demo")),
+        wgs_host_owner=os.getenv("WGS_HOST_OWNER", "").strip(),
         input_scan_roots=pgta_scan_roots,
         pgta_input_scan_roots=pgta_scan_roots,
         nipt_input_scan_roots=nipt_scan_roots,
+        wgs_config_roots=wgs_config_roots,
+        wgs_validation_roots=wgs_validation_roots,
         intake_config_path=os.getenv("INTAKE_CONFIG_PATH", "/app/config/intake.yaml"),
         pipeline_profile_config_path=os.getenv(
             "PIPELINE_PROFILE_CONFIG_PATH",

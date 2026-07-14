@@ -47,6 +47,13 @@ GENERIC_RULE_PHASES = {
     "wisecondorx_gender_for_predict": "CNV prediction",
     "wisecondorx_predict_cnv": "CNV prediction",
     "aggregate_pgta_prediction_status": "CNV prediction",
+    "fq2cram": "Pre-calling",
+    "cram2gvcf": "Pre-calling",
+    "SNV_Annotation": "Variant analysis",
+    "INDEL_Annotation": "Variant analysis",
+    "CNV_Annotation": "Variant analysis",
+    "SV_Annotation": "Variant analysis",
+    "WGS_QC": "QC",
 }
 
 FAILED_STATUSES = {"failed", "fail", "error"}

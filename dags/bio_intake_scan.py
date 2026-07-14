@@ -135,7 +135,7 @@ with DAG(
     catchup=False,
     max_active_runs=1,
     is_paused_upon_creation=_bool_env("INTAKE_SCAN_PAUSED_ON_CREATION", default=True),
-    tags=["airflow-demo", "intake", "pgta", "nipt"],
+    tags=["airflow-demo", "intake", *_pipeline_list(os.getenv("INTAKE_SCAN_PIPELINES", "pgta,nipt_docker"))],
 ) as dag:
     scan_and_submit = PythonOperator(
         task_id="scan_and_submit",

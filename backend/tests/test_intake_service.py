@@ -175,6 +175,90 @@ submit: {str(submit).lower()}
     return request_path
 
 
+def write_wgs_request_intake(tmp_path) -> tuple[str, Path, Path]:
+    controlled = tmp_path / "wgs-controlled"
+    inbox = tmp_path / "wgs-inbox"
+    fastq = controlled / "fastq"
+    inbox.mkdir()
+    fastq.mkdir(parents=True)
+    sample_info = controlled / "samples.tsv"
+    sample_info.write_text("sample_id\nWGS-01\n", encoding="utf-8")
+    for read in ("R1", "R2"):
+        (fastq / f"WGS-01.{read}.fq.gz").write_text(read, encoding="utf-8")
+    pre = controlled / "pre.yaml"
+    down = controlled / "down.yaml"
+    config_text = f"sample_info: {sample_info}\nfastqDir: {fastq}\n"
+    pre.write_text(config_text, encoding="utf-8")
+    down.write_text(config_text, encoding="utf-8")
+    targets = controlled / "targets.txt"
+    targets.write_text("01_SNV/WGS-01.flt.tsv\n", encoding="utf-8")
+    request = inbox / "wgs-request-001.wgs.yaml"
+    request.write_text(
+        f"version: 1\nrequest_id: wgs-request-001\nproject: WGS-intake\noperator: jiucheng\nprecalling_config: {pre}\ndownstream_config: {down}\ntargets: {targets}\nstage: full\nsubmit: true\n",
+        encoding="utf-8",
+    )
+    (inbox / "wgs-request-001.READY").write_text("", encoding="utf-8")
+    config_path = tmp_path / "wgs-intake.yaml"
+    config_path.write_text(
+        f"""version: 1
+defaults:
+  ready_rule: stable_fingerprint
+  stable_scans: 2
+  auto_submit: true
+pipelines:
+  wgs:
+    enabled: true
+    roots:
+      - id: wgs-controlled
+        container_path: {controlled}
+    intake:
+      request_inbox: {inbox}
+      request_glob: "*.wgs.yaml"
+      request_submit_enabled: true
+      stable_scans: 2
+    auto_submit:
+      enabled: true
+      stage: full
+""",
+        encoding="utf-8",
+    )
+    return str(config_path), controlled, inbox
+
+
+def test_wgs_yaml_intake_submits_once_after_two_stable_scans(tmp_path) -> None:
+    session_factory = make_test_sessionmaker()
+    config_path, controlled, _inbox = write_wgs_request_intake(tmp_path)
+    settings = SimpleNamespace(
+        intake_config_path=config_path,
+        wgs_validation_roots=[str(controlled)],
+        wgs_config_roots=[str(controlled)],
+        pgta_input_scan_roots=[],
+        nipt_input_scan_roots=[],
+        container_shared_root=str(tmp_path / "results"),
+        host_results_root=str(tmp_path / "results"),
+        deployed_pipelines=("wgs",),
+    )
+    airflow = FakeAirflowClient()
+    with session_factory() as session:
+        first = intake_service.scan_and_submit_intake(
+            session=session, settings=settings, airflow_client=airflow, pipelines=["wgs"]
+        )
+        second = intake_service.scan_and_submit_intake(
+            session=session, settings=settings, airflow_client=airflow, pipelines=["wgs"]
+        )
+        third = intake_service.scan_and_submit_intake(
+            session=session, settings=settings, airflow_client=airflow, pipelines=["wgs"]
+        )
+        runs = session.scalars(select(AnalysisRun).where(AnalysisRun.pipeline_name == "wgs")).all()
+
+    assert first["items"][0]["reason"] == "waiting_for_stable_scan"
+    assert second["items"][0]["reason"] == "auto_submitted"
+    assert third["items"][0]["reason"] == "already_submitted"
+    assert len(runs) == 1
+    assert len(airflow.trigger_calls) == 1
+    assert airflow.trigger_calls[0]["dag_id"] == "bio_wgs"
+
+
 def write_pgta_manifest_config(
     tmp_path,
     *,

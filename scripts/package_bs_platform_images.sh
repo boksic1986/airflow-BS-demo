@@ -6,12 +6,13 @@ GIT_SHA="${2:?usage: package_bs_platform_images.sh OUTPUT_DIR GIT_SHA}"
 mkdir -p "$OUTPUT_DIR"
 
 images=(
-  "airflow-demo/airflow:bs-nipt-$GIT_SHA"
-  "airflow-demo/backend:bs-nipt-$GIT_SHA"
-  "airflow-demo/frontend:bs-nipt-$GIT_SHA"
+  "airflow-demo/airflow:bs-control-$GIT_SHA"
+  "airflow-demo/backend:bs-control-$GIT_SHA"
+  "airflow-demo/frontend:bs-control-$GIT_SHA"
   "postgres:15-alpine"
   "redis:7-alpine"
   "172.17.61.235:2333/niptpro/pytorch:biosan"
+  "172.17.61.235:2333/niptpro/niptpro:1.1.11"
 )
 
 for image in "${images[@]}"; do

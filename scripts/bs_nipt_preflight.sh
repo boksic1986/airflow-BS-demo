@@ -12,8 +12,8 @@ probe="$PROJECT_ROOT/.t126-write-probe-$$"
 : > "$probe"
 rm -f "$probe"
 
-test -d "$PROJECT_ROOT/shared"
-docker run --rm --entrypoint bash --user 50000:0 -v "$PROJECT_ROOT/shared:/shared" \
+test -d "${HOST_SHARED_ROOT:?Set HOST_SHARED_ROOT}"
+docker run --rm --entrypoint bash --user 50000:0 -v "$HOST_SHARED_ROOT:/shared" \
   "${AIRFLOW_IMAGE:?Set AIRFLOW_IMAGE}" \
   -c ': > /shared/.t126-airflow-write-probe && rm -f /shared/.t126-airflow-write-probe'
 
@@ -22,7 +22,7 @@ grep -Fq "\"Subnet\":\"$EXPECTED_SUBNET\"" <<<"$ipam"
 grep -Fq "\"Gateway\":\"$EXPECTED_GATEWAY\"" <<<"$ipam"
 
 attachments="$(docker network inspect "$NETWORK_NAME" --format '{{range $id, $c := .Containers}}{{$c.Name}} {{$c.IPv4Address}}{{println}}{{end}}')"
-project_prefix="${COMPOSE_PROJECT_NAME:-airflow-nipt}-"
+project_prefix="${COMPOSE_PROJECT_NAME:-airflow-bs-control}-"
 for address in "${STATIC_IPS[@]}"; do
   while read -r container_name allocated_address; do
     if [[ "$allocated_address" == "$address/"* && "$container_name" != "$project_prefix"* ]]; then
@@ -40,4 +40,15 @@ for path in \
   test -r "$path" || { echo "Required path is not readable: $path" >&2; exit 1; }
 done
 
-echo "T126 preflight passed: project root, external network, static IPs, and NIPT mounts"
+for path in \
+  "${WGS_RESULTS_HOST_ROOT:?Set WGS_RESULTS_HOST_ROOT}" \
+  "${WGS_INTAKE_HOST_ROOT:?Set WGS_INTAKE_HOST_ROOT}" \
+  "${WGS_VALIDATION_HOST_ROOT:?Set WGS_VALIDATION_HOST_ROOT}" \
+  "${WGS_SSH_KEY_PATH:?Set WGS_SSH_KEY_PATH}" \
+  "${WGS_SSH_KNOWN_HOSTS_PATH:?Set WGS_SSH_KNOWN_HOSTS_PATH}" \
+  "/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/current/dags/wgs_host_runner.py" \
+  "/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/envs/wgs-snakemake9/bin/snakemake"; do
+  test -r "$path" || { echo "Required WGS path is not readable: $path" >&2; exit 1; }
+done
+
+echo "T127 preflight passed: shared Airflow control plane, fixed network, NIPT mounts, and WGS host gate"

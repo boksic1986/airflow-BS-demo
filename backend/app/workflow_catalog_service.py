@@ -22,6 +22,12 @@ WORKFLOW_DEFINITIONS: dict[str, dict[str, str]] = {
         "runtime_profile_id": "niptpro-s9-full-v1",
         "runtime": "Snakemake 9.23.1 in NIPTPro",
     },
+    "wgs": {
+        "name": "WGS Host Full",
+        "dag_id": "bio_wgs",
+        "runtime_profile_id": "wgs-s9-host-v1",
+        "runtime": "Snakemake 9.23.1 on BS host",
+    },
 }
 
 
@@ -75,6 +81,8 @@ def _deployed_condition(pipeline: str):
         return and_(AnalysisRun.pipeline_name == pipeline, AnalysisRun.params_json["target"].as_string() == "predict")
     if pipeline == "nipt_docker":
         return and_(AnalysisRun.pipeline_name == pipeline, AnalysisRun.params_json["run_mode"].as_string() == "full_run")
+    if pipeline == "wgs":
+        return and_(AnalysisRun.pipeline_name == pipeline, AnalysisRun.params_json["wgs_stage"].as_string().in_(("precalling", "full")))
     raise ValueError(f"Unsupported deployed workflow: {pipeline}")
 
 

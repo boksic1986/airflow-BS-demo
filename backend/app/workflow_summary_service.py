@@ -24,6 +24,11 @@ WORKFLOW_TEMPLATES = {
         ("fetal_fraction", "Fetal fraction"),
         ("final_qc", "Final QC"),
     ],
+    "wgs": [
+        ("pre_calling", "Pre-calling"),
+        ("variant_analysis", "Variant analysis"),
+        ("qc", "QC"),
+    ],
 }
 
 FAILED = {"failed", "fail", "error"}

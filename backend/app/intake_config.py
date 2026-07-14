@@ -7,7 +7,7 @@ from typing import Any
 import yaml
 
 
-SUPPORTED_PIPELINES = {"pgta", "nipt_docker"}
+SUPPORTED_PIPELINES = {"pgta", "nipt_docker", "wgs"}
 
 
 @dataclass(frozen=True)
@@ -95,11 +95,16 @@ def load_intake_config(
     path: str | None,
     fallback_pgta_roots: list[str],
     fallback_nipt_roots: list[str],
+    fallback_wgs_roots: list[str] | None = None,
 ) -> IntakeConfig:
     if path and Path(path).exists():
         raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
         return _from_mapping(raw, source=str(Path(path)))
-    return _fallback_config(fallback_pgta_roots=fallback_pgta_roots, fallback_nipt_roots=fallback_nipt_roots)
+    return _fallback_config(
+        fallback_pgta_roots=fallback_pgta_roots,
+        fallback_nipt_roots=fallback_nipt_roots,
+        fallback_wgs_roots=fallback_wgs_roots or [],
+    )
 
 
 def _from_mapping(raw: dict[str, Any], *, source: str) -> IntakeConfig:
@@ -137,7 +142,12 @@ def _from_mapping(raw: dict[str, Any], *, source: str) -> IntakeConfig:
     return IntakeConfig(version=_int_value(raw.get("version"), default=1), source=source, defaults=defaults, pipelines=pipelines)
 
 
-def _fallback_config(*, fallback_pgta_roots: list[str], fallback_nipt_roots: list[str]) -> IntakeConfig:
+def _fallback_config(
+    *,
+    fallback_pgta_roots: list[str],
+    fallback_nipt_roots: list[str],
+    fallback_wgs_roots: list[str],
+) -> IntakeConfig:
     return IntakeConfig(
         version=1,
         source="env_fallback",
@@ -158,6 +168,12 @@ def _fallback_config(*, fallback_pgta_roots: list[str], fallback_nipt_roots: lis
                 r2_pattern="*.R2.clean.fastq.gz",
                 ignore_patterns=["002/*.adapter.fastq.gz"],
                 auto_submit={"enabled": False, "run_mode": "mount_smoke"},
+            ),
+            "wgs": IntakePipelineConfig(
+                name="wgs",
+                enabled=bool(fallback_wgs_roots),
+                roots=[IntakeRoot(id=f"wgs_root_{index + 1}", container_path=root) for index, root in enumerate(fallback_wgs_roots)],
+                auto_submit={"enabled": False, "stage": "precalling"},
             ),
         },
     )

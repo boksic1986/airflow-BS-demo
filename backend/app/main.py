@@ -37,6 +37,7 @@ from app.progress_service import get_run_progress
 from app.qc_service import list_run_qc
 from app.rule_event_service import get_snakemake_rule_events_page, record_snakemake_event
 from app.run_service import (
+    create_wgs_run,
     create_nipt_docker_run,
     create_pgta_run,
     create_wes_mock_run,
@@ -46,6 +47,7 @@ from app.run_service import (
     reanalyze_run_to_airflow,
     submit_run_to_airflow,
 )
+from app.run_resources_service import get_run_resource_summary
 from app.system_resources import get_system_resources
 from app.workflow_catalog_service import get_workflow_catalog
 
@@ -108,6 +110,11 @@ class CreateRunRequest(BaseModel):
     runtime_profile_id: str | None = None
     config_template_hash: str | None = None
     snakemake_config_yaml: str | None = Field(default=None, max_length=65536)
+    wgs_config_path: str | None = None
+    wgs_precalling_config_path: str | None = None
+    wgs_downstream_config_path: str | None = None
+    wgs_targets_path: str | None = None
+    wgs_stage: str = "precalling"
 
     @model_validator(mode="after")
     def validate_pipeline_inputs(self):
@@ -121,6 +128,13 @@ class CreateRunRequest(BaseModel):
                 raise ValueError("rawdata_root is required for pipeline=nipt_docker.")
             if not self.selected_samples:
                 raise ValueError("selected_samples is required for pipeline=nipt_docker.")
+        if self.pipeline == "wgs":
+            if not (self.wgs_precalling_config_path or self.wgs_config_path):
+                raise ValueError("wgs_precalling_config_path is required for pipeline=wgs.")
+            if self.wgs_stage == "full" and not (self.wgs_downstream_config_path or self.wgs_config_path):
+                raise ValueError("wgs_downstream_config_path is required for a full WGS run.")
+            if not self.wgs_targets_path:
+                raise ValueError("wgs_targets_path is required for pipeline=wgs.")
         return self
 
 
@@ -410,7 +424,19 @@ def create_run(request: CreateRunRequest) -> dict[str, object]:
                     note=request.note,
                     pipeline_config=pipeline_config,
                 )
-            raise ValueError("Only pipeline=pgta, pipeline=wes_qsub, or pipeline=nipt_docker is supported in this phase.")
+            if request.pipeline == "wgs":
+                return create_wgs_run(
+                    session=session,
+                    settings=settings,
+                    project_name=request.project_name,
+                    precalling_config_path=str(request.wgs_precalling_config_path or request.wgs_config_path or ""),
+                    downstream_config_path=request.wgs_downstream_config_path or request.wgs_config_path,
+                    targets_path=str(request.wgs_targets_path or ""),
+                    stage=request.wgs_stage,
+                    submitted_by=request.submitted_by,
+                    note=request.note,
+                )
+            raise ValueError("Only deployed PGT-A, NIPT Docker, WES demo, or WGS pipelines are supported.")
     except ProfileChangedError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -463,7 +489,7 @@ def runs_list(
 
 @app.get("/api/samples")
 def samples_list(
-    pipeline: str | None = Query(default=None, pattern="^(pgta|nipt_docker)$"),
+    pipeline: str | None = Query(default=None, pattern="^(pgta|nipt_docker|wgs)$"),
     status_filter: str | None = Query(default=None, alias="status"),
     qc_status: str | None = None,
     keyword: str | None = None,
@@ -486,7 +512,7 @@ def samples_list(
 
 @app.get("/api/failures")
 def failures_list(
-    pipeline: str = Query(default="all", pattern="^(all|pgta|nipt_docker)$"),
+    pipeline: str = Query(default="all", pattern="^(all|pgta|nipt_docker|wgs)$"),
     kind: str = Query(default="all", pattern="^(all|workflow|qc)$"),
     layer: str | None = Query(default=None, pattern="^(airflow|runner|pipeline_rule|qc|unknown)$"),
     period: str = Query(default="7d", pattern="^(24h|7d|30d)$"),
@@ -511,7 +537,7 @@ def failures_list(
 
 @app.get("/api/dashboard/overview")
 def dashboard_overview(
-    pipeline: str = Query(default="all", pattern="^(all|pgta|nipt_docker)$"),
+    pipeline: str = Query(default="all", pattern="^(all|pgta|nipt_docker|wgs)$"),
     period: str = Query(default="7d", pattern="^(24h|7d|30d)$"),
 ) -> dict[str, object]:
     if pipeline != "all":
@@ -522,7 +548,7 @@ def dashboard_overview(
 
 @app.get("/api/dashboard/runs")
 def dashboard_runs(
-    pipeline: str = Query(default="all", pattern="^(all|pgta|nipt_docker)$"),
+    pipeline: str = Query(default="all", pattern="^(all|pgta|nipt_docker|wgs)$"),
     status_filter: str | None = Query(default=None, alias="status"),
     keyword: str | None = None,
     limit: int = Query(default=10, ge=1, le=50),
@@ -631,7 +657,7 @@ def intake_scan_preview(request: IntakeScanRequest) -> dict[str, object]:
 
 @app.get("/api/intake/status")
 def intake_status(
-    pipeline: str | None = Query(default=None, pattern="^(pgta|nipt_docker)$"),
+    pipeline: str | None = Query(default=None, pattern="^(pgta|nipt_docker|wgs)$"),
     state_filter: str | None = Query(
         default=None,
         alias="state",
@@ -811,6 +837,22 @@ def run_progress(analysis_id: str) -> dict[str, object]:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+        )
+    return payload
+
+
+@app.get("/api/runs/{analysis_id}/resources")
+def run_resources(analysis_id: str) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        payload = get_run_resource_summary(
+            session=session,
+            analysis_id=analysis_id,
+            settings=get_settings(),
+        )
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_SUMMARY_NOT_FOUND", "message": f"Resource summary not found: {analysis_id}"},
         )
     return payload
 
@@ -1099,6 +1141,7 @@ def _intake_trigger_contracts() -> dict[str, str]:
     return {
         "pgta": "*.samples.tsv + *.READY",
         "nipt_docker": "*.nipt.yaml or configured discovery root",
+        "wgs": "*.wgs.yaml + *.READY",
     }
 
 

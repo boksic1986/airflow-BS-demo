@@ -18,6 +18,8 @@ from app.nipt_yaml_intake import NiptYamlFailure, scan_nipt_yaml_request_results
 from app.pgta_manifest_intake import PgtaManifestFailure, scan_pgta_manifest_request_results
 from app.pipeline_config_service import get_pipeline_config_template, validate_pipeline_config
 from app.run_service import create_nipt_docker_run, create_pgta_run, submit_run_to_airflow
+from app.run_service import create_wgs_run
+from app.wgs_yaml_intake import WgsYamlFailure, scan_wgs_yaml_request_results
 
 
 @dataclass(frozen=True)
@@ -39,6 +41,10 @@ class BatchSnapshot:
     run_mode: str | None = None
     cores: int | None = None
     submit_requested: bool | None = None
+    wgs_precalling_config_path: str | None = None
+    wgs_downstream_config_path: str | None = None
+    wgs_targets_path: str | None = None
+    wgs_stage: str | None = None
 
 
 @dataclass(frozen=True)
@@ -60,10 +66,10 @@ def scan_and_submit_intake(
     bootstrap: bool = False,
     max_samples: int = 200,
 ) -> dict[str, object]:
-    supported = {"pgta", "nipt_docker"}
+    supported = {"pgta", "nipt_docker", "wgs"}
     normalized_pipelines = [pipeline for pipeline in pipelines if pipeline in supported]
     if not normalized_pipelines:
-        raise ValueError("pipelines must include pgta or nipt_docker.")
+        raise ValueError("pipelines must include a deployed intake pipeline.")
 
     items: list[dict[str, object]] = []
     for pipeline in normalized_pipelines:
@@ -91,10 +97,10 @@ def preview_intake_scan(
     bootstrap: bool = False,
     max_samples: int = 200,
 ) -> dict[str, object]:
-    supported = {"pgta", "nipt_docker"}
+    supported = {"pgta", "nipt_docker", "wgs"}
     normalized_pipelines = [pipeline for pipeline in pipelines if pipeline in supported]
     if not normalized_pipelines:
-        raise ValueError("pipelines must include pgta or nipt_docker.")
+        raise ValueError("pipelines must include a deployed intake pipeline.")
 
     items: list[dict[str, object]] = []
     for pipeline in normalized_pipelines:
@@ -287,6 +293,39 @@ def _scan_pipeline(
                     )
                 )
             errors.extend(_nipt_request_scan_failure(error=error, inbox_root=request_inbox) for error in request_result.errors)
+    if pipeline == "wgs":
+        request_inbox = str(intake.get("request_inbox") or "").strip()
+        if not request_inbox:
+            raise ValueError("WGS YAML intake requires request_inbox.")
+        request_result = scan_wgs_yaml_request_results(
+            inbox_root=request_inbox,
+            allowed_roots=_roots_for_pipeline(settings, pipeline),
+            request_glob=str(intake.get("request_glob") or "*.wgs.yaml"),
+        )
+        for request in request_result.requests:
+            snapshots.append(
+                BatchSnapshot(
+                    pipeline="wgs",
+                    root_path=str(Path(request_inbox).resolve()),
+                    batch_id=request.request_id,
+                    source_dir=str(Path(request.precalling_config_path).parent),
+                    items=[],
+                    fingerprint=request.fingerprint,
+                    file_count=request.fastq_file_count + 4,
+                    total_bytes=request.total_bytes,
+                    max_mtime=datetime.fromtimestamp(request.max_mtime_ns / 1_000_000_000, tz=timezone.utc),
+                    project_name=request.project,
+                    submitted_by=request.operator,
+                    source_manifest_path=request.manifest_path,
+                    submit_requested=request.submit,
+                    wgs_precalling_config_path=request.precalling_config_path,
+                    wgs_downstream_config_path=request.downstream_config_path,
+                    wgs_targets_path=request.targets_path,
+                    wgs_stage=request.stage,
+                )
+            )
+        errors.extend(_wgs_request_scan_failure(error=error, inbox_root=request_inbox) for error in request_result.errors)
+        return snapshots, errors
 
     roots = _scheduled_roots(settings, pipeline)
     for root in roots:
@@ -326,6 +365,17 @@ def _manifest_scan_failure(*, error: PgtaManifestFailure, inbox_root: str) -> In
 def _nipt_request_scan_failure(*, error: NiptYamlFailure, inbox_root: str) -> IntakeScanFailure:
     return IntakeScanFailure(
         pipeline="nipt_docker",
+        root_path=str(Path(inbox_root).resolve()),
+        batch_id=error.request_id,
+        fingerprint=error.fingerprint,
+        source_manifest_path=error.manifest_path,
+        message=error.message,
+    )
+
+
+def _wgs_request_scan_failure(*, error: WgsYamlFailure, inbox_root: str) -> IntakeScanFailure:
+    return IntakeScanFailure(
+        pipeline="wgs",
         root_path=str(Path(inbox_root).resolve()),
         batch_id=error.request_id,
         fingerprint=error.fingerprint,
@@ -583,6 +633,21 @@ def _record_snapshot(
                 intake_fingerprint=snapshot.fingerprint if snapshot.source_manifest_path else None,
                 source_manifest_path=snapshot.source_manifest_path,
             )
+        elif snapshot.pipeline == "wgs":
+            created = create_wgs_run(
+                session=session,
+                settings=settings,
+                project_name=snapshot.project_name or f"WGS auto {snapshot.batch_id}",
+                precalling_config_path=str(snapshot.wgs_precalling_config_path or ""),
+                downstream_config_path=snapshot.wgs_downstream_config_path,
+                targets_path=str(snapshot.wgs_targets_path or ""),
+                stage=str(snapshot.wgs_stage or "precalling"),
+                submitted_by=snapshot.submitted_by,
+                note="WGS YAML intake stable scan",
+                intake_request_id=snapshot.batch_id,
+                intake_fingerprint=snapshot.fingerprint,
+                source_manifest_path=snapshot.source_manifest_path,
+            )
         else:
             target = _auto_submit_param(settings, snapshot.pipeline, "target") or "metadata"
             created = create_pgta_run(
@@ -704,6 +769,8 @@ def _roots_for_pipeline(settings, pipeline: str) -> list[str]:
         return roots
     if pipeline == "nipt_docker":
         return list(getattr(settings, "nipt_input_scan_roots", []) or [])
+    if pipeline == "wgs":
+        return list(getattr(settings, "wgs_validation_roots", []) or getattr(settings, "wgs_config_roots", []) or [])
     return list(getattr(settings, "pgta_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or [])
 
 
@@ -753,6 +820,7 @@ def _load_config(settings):
         path=getattr(settings, "intake_config_path", None),
         fallback_pgta_roots=list(getattr(settings, "pgta_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or []),
         fallback_nipt_roots=list(getattr(settings, "nipt_input_scan_roots", []) or []),
+        fallback_wgs_roots=list(getattr(settings, "wgs_validation_roots", []) or getattr(settings, "wgs_config_roots", []) or []),
     )
 
 
@@ -761,20 +829,20 @@ def _auto_submit_enabled(settings, pipeline: str) -> bool:
 
 
 def _snapshot_auto_submit_enabled(settings, snapshot: BatchSnapshot) -> bool:
-    if snapshot.pipeline != "nipt_docker" or not snapshot.source_manifest_path:
+    if snapshot.pipeline not in {"nipt_docker", "wgs"} or not snapshot.source_manifest_path:
         return _auto_submit_enabled(settings, snapshot.pipeline)
     config = _load_config(settings)
-    pipeline = config.pipelines.get("nipt_docker")
+    pipeline = config.pipelines.get(snapshot.pipeline)
     request_submit_enabled = bool((pipeline.intake if pipeline else {}).get("request_submit_enabled", False))
     return bool(config.defaults.auto_submit and request_submit_enabled and snapshot.submit_requested is True)
 
 
 def _snapshot_submit_block_reason(settings, snapshot: BatchSnapshot) -> str:
-    if snapshot.pipeline == "nipt_docker" and snapshot.source_manifest_path:
+    if snapshot.pipeline in {"nipt_docker", "wgs"} and snapshot.source_manifest_path:
         if snapshot.submit_requested is not True:
             return "request_submit_not_requested"
         config = _load_config(settings)
-        pipeline = config.pipelines.get("nipt_docker")
+        pipeline = config.pipelines.get(snapshot.pipeline)
         if not bool((pipeline.intake if pipeline else {}).get("request_submit_enabled", False)):
             return "request_submit_disabled"
     return "auto_submit_disabled"
@@ -914,6 +982,8 @@ def _archive_discovery(*, session: Session, row: IntakeDiscovery, run: AnalysisR
             archive_path = _archive_pgta_request(row, now=now)
         elif row.pipeline_name == "nipt_docker" and row.source_manifest_path:
             archive_path = _archive_nipt_request(row, now=now)
+        elif row.pipeline_name == "wgs" and row.source_manifest_path:
+            archive_path = _archive_wgs_request(row, now=now)
         elif row.pipeline_name == "nipt_docker":
             archive_path = str((Path(row.root_path) / row.batch_id).resolve())
     except (OSError, ValueError) as exc:
@@ -978,6 +1048,35 @@ def _archive_nipt_request(row: IntakeDiscovery, *, now: datetime) -> str:
     except Exception:
         if moved.exists():
             os.replace(moved, request)
+        if temp_dir.exists():
+            temp_dir.rmdir()
+        raise
+    return str(final_dir)
+
+
+def _archive_wgs_request(row: IntakeDiscovery, *, now: datetime) -> str:
+    request = Path(str(row.source_manifest_path)).resolve()
+    ready = request.parent / f"{row.batch_id}.READY"
+    month_dir = request.parent / ".archive" / f"{now:%Y}" / f"{now:%m}"
+    final_dir = month_dir / row.batch_id
+    if final_dir.is_dir() and (final_dir / request.name).is_file() and (final_dir / ready.name).is_file():
+        return str(final_dir)
+    if not request.is_file() or not ready.is_file():
+        raise ValueError(f"Cannot archive WGS intake request {row.batch_id}: YAML or READY marker is missing.")
+    month_dir.mkdir(parents=True, exist_ok=True)
+    temp_dir = month_dir / f".{row.batch_id}.partial-{secrets.token_hex(4)}"
+    temp_dir.mkdir()
+    moved: list[tuple[Path, Path]] = []
+    try:
+        for source in (request, ready):
+            target = temp_dir / source.name
+            os.replace(source, target)
+            moved.append((target, source))
+        os.replace(temp_dir, final_dir)
+    except Exception:
+        for target, source in reversed(moved):
+            if target.exists():
+                os.replace(target, source)
         if temp_dir.exists():
             temp_dir.rmdir()
         raise

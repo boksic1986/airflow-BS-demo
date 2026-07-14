@@ -3,6 +3,7 @@ import {Link} from "react-router-dom";
 
 import type {
   IntakeConfigResponse,
+  DeployedPipeline,
   IntakeDiscovery,
   IntakeDiscoveryState,
   IntakeLifecycle,
@@ -26,7 +27,7 @@ import {formatDate} from "../lib/format";
 
 const discoveryPageSize = 10;
 
-type DiscoveryPipeline = "all" | "pgta" | "nipt_docker";
+type DiscoveryPipeline = "all" | DeployedPipeline;
 type DiscoveryStateFilter = "all" | IntakeDiscoveryState;
 
 export function SettingsPage() {
@@ -265,7 +266,7 @@ function IntakeSettingsContent({
   discoveryLoading: boolean;
   discoveryError: string | null;
   discoveryTotal: number;
-  deployedPipelines: Array<"pgta" | "nipt_docker">;
+  deployedPipelines: DeployedPipeline[];
   discoveryOffset: number;
   discoveryPipeline: DiscoveryPipeline;
   discoveryState: DiscoveryStateFilter;
@@ -333,6 +334,7 @@ function IntakeSettingsContent({
               <option value="all">All deployed</option>
               {deployedPipelines.includes("pgta") ? <option value="pgta">PGT-A</option> : null}
               {deployedPipelines.includes("nipt_docker") ? <option value="nipt_docker">NIPT Docker</option> : null}
+              {deployedPipelines.includes("wgs") ? <option value="wgs">WGS</option> : null}
             </select>
           </label>
           <label>
@@ -459,7 +461,7 @@ function ScannerStateCard({
   scanner: IntakeScannerStateResponse | null;
   loading: boolean;
   error: string | null;
-  deployedPipelines: Array<"pgta" | "nipt_docker">;
+  deployedPipelines: DeployedPipeline[];
 }) {
   const pausedLabel = scanner?.is_paused == null ? "Unknown" : scanner.is_paused ? "Paused" : "Unpaused";
   return (
@@ -484,6 +486,7 @@ function ScannerStateCard({
           <div><dt>Message</dt><dd>{scanner?.message || "Scanner state loaded"}</dd></div>
           {deployedPipelines.includes("pgta") ? <div><dt>PGT-A trigger</dt><dd>{scanner?.trigger_contracts?.pgta || "*.samples.tsv + *.READY"}</dd></div> : null}
           {deployedPipelines.includes("nipt_docker") ? <div><dt>NIPT trigger</dt><dd>{scanner?.trigger_contracts?.nipt_docker || "*.nipt.yaml or configured discovery root"}</dd></div> : null}
+          {deployedPipelines.includes("wgs") ? <div><dt>WGS trigger</dt><dd>{scanner?.trigger_contracts?.wgs || "*.wgs.yaml + *.READY"}</dd></div> : null}
           <div><dt>Retention</dt><dd>{scanner?.retention?.enabled ? `${scanner.retention.days} days / ${scanner.retention.scope}` : "Disabled"}</dd></div>
         </dl>
       ) : null}
@@ -546,6 +549,13 @@ function PipelineRootCard({pipeline, config}: {pipeline: string; config: IntakeP
             <span>READY marker</span><strong>{config.intake.ready_suffix || "not configured"}</strong>
             <span>intake stability</span><strong>{config.intake.stable_scans == null ? "pipeline default" : `${config.intake.stable_scans} scans`}</strong>
           </>
+        ) : config.intake?.request_inbox ? (
+          <>
+            <span>request inbox</span><strong className="path-text" title={config.intake.request_inbox}>{config.intake.request_inbox}</strong>
+            <span>request pattern</span><strong>{config.intake.request_glob || "not configured"}</strong>
+            <span>request submit</span><strong>{config.intake.request_submit_enabled ? "enabled" : "disabled"}</strong>
+            <span>intake stability</span><strong>{config.intake.stable_scans == null ? "pipeline default" : `${config.intake.stable_scans} scans`}</strong>
+          </>
         ) : null}
         <span>file flavor</span><strong>{config.file_flavor || "pipeline default"}</strong>
         <span>R1 pattern</span><strong>{config.r1_pattern || "pipeline default"}</strong>
@@ -560,6 +570,7 @@ function PipelineRootCard({pipeline, config}: {pipeline: string; config: IntakeP
 function pipelineLabel(pipeline: string): string {
   if (pipeline === "pgta") return "PGT-A";
   if (pipeline === "nipt_docker") return "NIPT Docker";
+  if (pipeline === "wgs") return "WGS";
   return pipeline;
 }
 

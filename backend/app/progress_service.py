@@ -33,6 +33,15 @@ TASK_WEIGHTS: dict[str, dict[str, int]] = {
         "run_nipt_docker": 90,
         "collect_nipt_artifacts": 100,
     },
+    "bio_wgs": {
+        "validate_request": 5,
+        "prepare_wgs_run": 10,
+        "wgs_pipeline.pre_calling": 45,
+        "choose_wgs_path": 45,
+        "wgs_pipeline.variant_analysis": 85,
+        "wgs_pipeline.collect_qc": 95,
+        "collect_wgs_artifacts": 100,
+    },
 }
 
 RUN_TASK_IDS = {
@@ -47,6 +56,11 @@ RUN_TASK_IDS = {
         "pgta_predict.run_pgta_cnv_predict",
     },
     "bio_nipt_docker": {"run_nipt_docker"},
+    "bio_wgs": {
+        "wgs_pipeline.pre_calling",
+        "wgs_pipeline.variant_analysis",
+        "wgs_pipeline.collect_qc",
+    },
 }
 
 ACTIVE_STATUSES = {"running", "queued", "scheduled", "submitted", "up_for_retry", "up_for_reschedule", "deferred"}

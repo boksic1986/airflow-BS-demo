@@ -29,12 +29,24 @@ def test_run_list_builds_workflow_stage_summaries_with_one_rule_query() -> None:
                     workdir="/tmp/nipt",
                     params_json={"run_mode": "full_run", "project_name": "NIPT summary"},
                 ),
+                AnalysisRun(
+                    analysis_id="WGS_SUMMARY",
+                    pipeline_name="wgs",
+                    dag_id="bio_wgs",
+                    status="running",
+                    workdir="/tmp/wgs",
+                    submitted_by="jiucheng",
+                    params_json={"stage": "full", "project_name": "WGS summary"},
+                ),
                 Sample(analysis_id="PGTA_SUMMARY", sample_id="P1", status="running", qc_status="unknown"),
                 Sample(analysis_id="NIPT_SUMMARY", sample_id="N1", status="failed", qc_status="unknown"),
+                Sample(analysis_id="WGS_SUMMARY", sample_id="W1", status="running", qc_status="unknown"),
                 SnakemakeRuleEvent(analysis_id="PGTA_SUMMARY", rule="fastp_bwa", sample_id="P1", snakemake_jobid="1", status="success"),
                 SnakemakeRuleEvent(analysis_id="PGTA_SUMMARY", rule="wisecondorx_qc_for_predict", sample_id="P1", snakemake_jobid="2", status="running"),
                 SnakemakeRuleEvent(analysis_id="NIPT_SUMMARY", rule="map", sample_id="N1", snakemake_jobid="1", status="success"),
                 SnakemakeRuleEvent(analysis_id="NIPT_SUMMARY", rule="aneuscreen_predict", sample_id="N1", snakemake_jobid="2", status="failed"),
+                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="fq2cram", sample_id="W1", snakemake_jobid="1", status="success"),
+                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="SNV_Annotation", sample_id="W1", snakemake_jobid="2", status="running"),
             ]
         )
         session.commit()
@@ -58,6 +70,11 @@ def test_run_list_builds_workflow_stage_summaries_with_one_rule_query() -> None:
         ("T21 classifier", "failed"),
         ("Fetal fraction", "pending"),
         ("Final QC", "pending"),
+    ]
+    assert [(item["label"], item["status"]) for item in by_id["WGS_SUMMARY"]["workflow_summary"]] == [
+        ("Pre-calling", "success"),
+        ("Variant analysis", "running"),
+        ("QC", "pending"),
     ]
     rule_selects = [statement for statement in statements if "FROM snakemake_rule_event" in statement]
     assert len(rule_selects) == 1

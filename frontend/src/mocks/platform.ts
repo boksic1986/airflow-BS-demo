@@ -104,26 +104,27 @@ export const workflowTemplates: PipelineTemplate[] = [
   {
     id: "wgs",
     name: "WGS",
-    description: "Roadmap surface for WGS analysis tracking, QC, and report artifacts.",
+    description: "BS10610 host-native WGS workflow orchestrated by Airflow and Snakemake 9.",
     dagId: "bio_wgs",
-    version: "roadmap",
+    version: "wgs-s9-host-v1",
     owner: "WGS team",
-    execution: "planned",
-    reference: "GRCh37/GRCh38 selectable",
-    requiredInputs: ["sample sheet", "FASTQ or BAM path", "reference"],
-    outputs: ["coverage QC", "variant summary", "annotation report"],
+    execution: "Airflow SSHOperator + BS10610 host Snakemake 9.23.1",
+    reference: "GRCh38 / approved WGS V3.8 configuration",
+    requiredInputs: ["pre-calling config", "downstream config", "controlled target list"],
+    outputs: ["CRAM/gVCF", "SNV/SV/CNV results", "QC", "rule events", "resource telemetry"],
     latestRun: "not available",
-    successRate: "demo/mock",
-    implementationStatus: "demo/mock",
+    successRate: "validation pending",
+    implementationStatus: "staged",
     steps: [
-      {name: "sample_qc", status: "planned", description: "Coverage and contamination checks"},
-      {name: "variant_calling", status: "planned", description: "SNV/indel/SV calls"},
-      {name: "report", status: "planned", description: "Report artifact registry"},
+      {name: "prepare_wgs_run", status: "success", description: "Validate the controlled host request"},
+      {name: "pre_calling", status: "planned", description: "FASTQ to CRAM and gVCF"},
+      {name: "variant_analysis", status: "planned", description: "Run approved downstream targets"},
+      {name: "collect_qc", status: "planned", description: "Collect QC and resource telemetry"},
     ],
   },
 ];
 
-export const deployedWorkflowTemplates = workflowTemplates.filter((pipeline) => pipeline.id === "pgta" || pipeline.id === "nipt_docker");
+export const deployedWorkflowTemplates = workflowTemplates.filter((pipeline) => pipeline.id === "pgta" || pipeline.id === "nipt_docker" || pipeline.id === "wgs");
 
 export const resourceOverview = [
   {title: "CPU allocation", value: "64 / 32", unit: "cores", status: "running", description: "PGT-A default / NIPT Docker approved default"},

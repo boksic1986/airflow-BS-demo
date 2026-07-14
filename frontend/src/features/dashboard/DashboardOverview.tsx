@@ -5,9 +5,10 @@ import type {DashboardOverview, DashboardPipeline} from "../../api";
 import {StatusBadge} from "../../components/StatusBadge";
 
 export const dashboardPipelines: Array<{value: DashboardPipeline; label: string; description: string}> = [
-  {value: "all", label: "All pipelines", description: "PGT-A + NIPT Docker"},
+  {value: "all", label: "All pipelines", description: "Deployed workflows"},
   {value: "pgta", label: "PGT-A", description: "Embryo CNV workflow"},
   {value: "nipt_docker", label: "NIPT Docker", description: "Scanned FASTQ chip batches"},
+  {value: "wgs", label: "WGS", description: "Host-native Snakemake 9"},
 ];
 
 export function PipelineRail({pipeline, onChange, pipelines = dashboardPipelines.map((item) => item.value)}: {

@@ -29,6 +29,10 @@ export function AppShell() {
   const capabilities = usePlatformCapabilities();
   const [search, setSearch] = useState("");
   const niptOnly = capabilities.deployed_pipelines.length === 1 && capabilities.deployed_pipelines[0] === "nipt_docker";
+  const wgsOnly = capabilities.deployed_pipelines.length === 1 && capabilities.deployed_pipelines[0] === "wgs";
+  const niptWgs = capabilities.deployed_pipelines.length === 2
+    && capabilities.deployed_pipelines.includes("nipt_docker")
+    && capabilities.deployed_pipelines.includes("wgs");
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,8 +47,8 @@ export function AppShell() {
         <div className="brand-lockup">
           <FlaskConical size={24} />
           <div>
-            <strong>{niptOnly ? "NIPT Control Tower" : "BioFlow Control"}</strong>
-            <span>{niptOnly ? "NIPT Docker only" : "PGT-A + NIPT Docker"}</span>
+            <strong>{wgsOnly ? "WGS Control Tower" : niptOnly ? "NIPT Control Tower" : "BioFlow Control"}</strong>
+            <span>{wgsOnly ? "WGS only" : niptOnly ? "NIPT Docker only" : niptWgs ? "NIPT Docker + WGS" : "Deployed workflows"}</span>
           </div>
         </div>
         <nav aria-label="Primary navigation">

@@ -6,7 +6,7 @@ import {StatusBadge} from "../../components/StatusBadge";
 import {compactPipelineName} from "../../lib/format";
 import {isActiveStatus} from "../../lib/status";
 
-const resourceTabs: DashboardPipeline[] = ["all", "pgta", "nipt_docker"];
+const resourceTabs: DashboardPipeline[] = ["all", "pgta", "nipt_docker", "wgs"];
 
 export function DashboardResourcePanels({resources, resourceTab, overview, rows, loading, error, pipelines, onResourceTabChange}: {
   resources: SystemResourcesResponse | null;

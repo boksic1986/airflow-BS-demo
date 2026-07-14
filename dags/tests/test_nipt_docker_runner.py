@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 import yaml
 import pytest
@@ -20,6 +21,19 @@ from nipt_docker_runner import (
     validate_nipt_conf,
     write_nipt_qc_summary_from_outputs,
 )
+
+
+def test_docker_container_pid_uses_inspect(monkeypatch) -> None:
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        return SimpleNamespace(returncode=0, stdout="4321\n")
+
+    monkeypatch.setattr(nipt_docker_runner.subprocess, "run", fake_run)
+
+    assert nipt_docker_runner._docker_container_pid("NIPTPro_TEST") == 4321
+    assert calls == [["docker", "inspect", "--format", "{{.State.Pid}}", "NIPTPro_TEST"]]
 
 
 def test_bs_path_adapter_maps_only_approved_fastq_root(tmp_path) -> None:

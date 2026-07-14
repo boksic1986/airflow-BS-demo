@@ -21,6 +21,7 @@ from common.pipeline_profiles import (
     write_resolved_config,
 )
 from common.progress_events import emit_progress_event, parse_snakemake_output_for_events
+from common.resource_monitor import ResourceMonitor
 from common.subprocess_utils import run_command_to_logs
 
 
@@ -157,6 +158,10 @@ def run_command_with_event_forwarding(
     backend_event_url: str | None,
     env: dict[str, str],
     poll_seconds: float = 0.5,
+    container_name: str | None = None,
+    resource_samples_path: Path | None = None,
+    resource_summary_path: Path | None = None,
+    proc_root: Path = Path("/host/proc"),
 ) -> dict[str, str | int]:
     stdout_path.parent.mkdir(parents=True, exist_ok=True)
     stderr_path.parent.mkdir(parents=True, exist_ok=True)
@@ -167,6 +172,8 @@ def run_command_with_event_forwarding(
         start_at_end=True,
     )
     forwarded = 0
+    resource_monitor: ResourceMonitor | None = None
+    next_pid_probe = 0.0
     attempt_marker = f"\n=== NIPT workflow attempt {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} ===\n"
     with stdout_path.open("a", encoding="utf-8") as stdout, stderr_path.open("a", encoding="utf-8") as stderr:
         stdout.write(attempt_marker)
@@ -182,10 +189,47 @@ def run_command_with_event_forwarding(
             env=env,
         )
         while process.poll() is None:
+            if (
+                resource_monitor is None
+                and container_name
+                and resource_samples_path is not None
+                and resource_summary_path is not None
+                and time.monotonic() >= next_pid_probe
+            ):
+                next_pid_probe = time.monotonic() + 1.0
+                container_pid = _docker_container_pid(container_name)
+                if container_pid is not None:
+                    resource_monitor = ResourceMonitor(
+                        root_pid=container_pid,
+                        samples_path=resource_samples_path,
+                        summary_path=resource_summary_path,
+                        interval_seconds=float(os.getenv("NIPT_RESOURCE_INTERVAL_SECONDS", "5")),
+                        proc_root=proc_root,
+                        source="docker_container_host_procfs",
+                    )
+                    resource_monitor.start()
             forwarded += forwarder.poll()
             time.sleep(poll_seconds)
         forwarded += forwarder.poll()
         return_code = int(process.returncode or 0)
+    if resource_monitor is not None:
+        resource_monitor.stop(return_code=return_code)
+    elif resource_summary_path is not None:
+        resource_summary_path.parent.mkdir(parents=True, exist_ok=True)
+        resource_summary_path.write_text(
+            json.dumps(
+                {
+                    "complete": False,
+                    "return_code": return_code,
+                    "source": "docker_inspect_unavailable",
+                    "message": "The NIPT container PID was not observable from the Airflow worker.",
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     if return_code != 0:
         raise RuntimeError(f"Command failed with exit code {return_code}. See {stderr_path}")
     return {
@@ -194,6 +238,22 @@ def run_command_with_event_forwarding(
         "stderr_path": str(stderr_path),
         "forwarded_events": forwarded,
     }
+
+
+def _docker_container_pid(container_name: str) -> int | None:
+    result = subprocess.run(
+        ["docker", "inspect", "--format", "{{.State.Pid}}", container_name],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    try:
+        pid = int(result.stdout.strip())
+    except ValueError:
+        return None
+    return pid if pid > 0 else None
 
 
 def validate_nipt_conf(
@@ -510,6 +570,9 @@ def run_nipt_docker(conf: dict[str, Any]) -> dict[str, str | int]:
                 events_path=events_path,
                 backend_event_url=str(backend_event_url) if backend_event_url else None,
                 env=os.environ.copy(),
+                container_name=f"NIPTPro_{analysis_id}",
+                resource_samples_path=workdir / "logs" / "resources" / "nipt_container.jsonl",
+                resource_summary_path=workdir / "reports" / "resource_summary.json",
             )
         else:
             result = run_command_to_logs(

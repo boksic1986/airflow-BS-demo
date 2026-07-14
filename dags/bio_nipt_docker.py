@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import os
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -53,7 +54,7 @@ with DAG(
     run_nipt_docker_task = PythonOperator(
         task_id="run_nipt_docker",
         python_callable=_run_nipt_docker,
-        pool="nipt_s9_full",
+        pool=os.getenv("NIPT_AIRFLOW_POOL", "nipt_s9_full"),
         execution_timeout=timedelta(minutes=90),
     )
     collect_nipt_artifacts_task = PythonOperator(

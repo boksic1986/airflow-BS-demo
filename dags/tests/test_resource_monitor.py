@@ -29,3 +29,22 @@ def test_resource_monitor_writes_samples_and_summary(tmp_path) -> None:
     samples = [json.loads(line) for line in (tmp_path / "resource_samples.jsonl").read_text(encoding="utf-8").splitlines()]
     assert samples
     assert (tmp_path / "resource_summary.json").is_file()
+
+
+def test_resource_monitor_can_read_an_explicit_proc_root(tmp_path) -> None:
+    process = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(0.2)"])
+    monitor = ResourceMonitor(
+        root_pid=process.pid,
+        samples_path=tmp_path / "explicit-proc.jsonl",
+        summary_path=tmp_path / "explicit-proc-summary.json",
+        interval_seconds=0.05,
+        proc_root=Path("/proc"),
+        source="docker_container_host_procfs",
+    )
+    monitor.start()
+    process.wait(timeout=5)
+    summary = monitor.stop(return_code=process.returncode)
+
+    assert summary["proc_root"] == "/proc"
+    assert summary["source"] == "docker_container_host_procfs"
+    assert summary["peak_rss_bytes"] > 0

@@ -9,7 +9,7 @@ import {usePlatformCapabilities} from "../features/platform/PlatformCapabilities
 import {errorMessage} from "../lib/errors";
 
 const pageSize = 20;
-const validPipelines = new Set(["all", "pgta", "nipt_docker"]);
+const validPipelines = new Set(["all", "pgta", "nipt_docker", "wgs"]);
 const validStatuses = new Set(["all", "created", "submitted", "queued", "running", "success", "failed"]);
 const validSorts = new Set(["created_desc", "duration_desc", "status"]);
 
@@ -101,6 +101,7 @@ export function RunsPage() {
               <option value="all">All deployed</option>
               {capabilities.isDeployed("pgta") ? <option value="pgta">PGT-A</option> : null}
               {capabilities.isDeployed("nipt_docker") ? <option value="nipt_docker">NIPT Docker</option> : null}
+              {capabilities.isDeployed("wgs") ? <option value="wgs">WGS</option> : null}
             </select>
           </label>
           <label>

@@ -108,6 +108,7 @@ export function FailuresPage() {
               <option value="all">All deployed</option>
               {capabilities.isDeployed("pgta") ? <option value="pgta">PGT-A</option> : null}
               {capabilities.isDeployed("nipt_docker") ? <option value="nipt_docker">NIPT Docker</option> : null}
+              {capabilities.isDeployed("wgs") ? <option value="wgs">WGS</option> : null}
             </select>
           </label>
           <label>

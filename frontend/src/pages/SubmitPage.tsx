@@ -3,7 +3,7 @@ import type {ReactNode} from "react";
 import {useEffect, useMemo, useState} from "react";
 import {Link} from "react-router-dom";
 
-import type {NiptRunMode, PgtaTarget, RunDetail, ScanCandidate} from "../api";
+import type {DeployedPipeline, NiptRunMode, PgtaTarget, RunDetail, ScanCandidate} from "../api";
 
 import {ApiError, createRun, getInputRoots, getRunDetail, scanInput, submitRun, syncAirflow} from "../api";
 import {PipelineSelector} from "../components/PipelineSelector";
@@ -41,7 +41,7 @@ function rememberSubmittedBy(value: string) {
 
 export function SubmitPage() {
   const capabilities = usePlatformCapabilities();
-  const [selectedPipeline, setSelectedPipeline] = useState<"pgta" | "nipt_docker">("pgta");
+  const [selectedPipeline, setSelectedPipeline] = useState<DeployedPipeline>("pgta");
   const [projectName, setProjectName] = useState("Bioinformatics demo run");
   const [submittedBy, setSubmittedBy] = useState(loadSubmittedBy);
   const [reference] = useState("hg19");
@@ -66,18 +66,37 @@ export function SubmitPage() {
   const [configSelection, setConfigSelection] = useState<SnakemakeConfigSelection | null>(null);
   const [configEditorRevision, setConfigEditorRevision] = useState(0);
   const [showNiptFullConfirm, setShowNiptFullConfirm] = useState(false);
+  const [showWgsFullConfirm, setShowWgsFullConfirm] = useState(false);
+  const [wgsPrecallingConfigPath, setWgsPrecallingConfigPath] = useState("");
+  const [wgsDownstreamConfigPath, setWgsDownstreamConfigPath] = useState("");
+  const [wgsTargetsPath, setWgsTargetsPath] = useState("");
+  const [wgsStage, setWgsStage] = useState<"precalling" | "full">("precalling");
 
   const availableTemplates = useMemo(
-    () => deployedWorkflowTemplates.filter((pipeline) => capabilities.deployed_pipelines.includes(pipeline.id as "pgta" | "nipt_docker")),
+    () => deployedWorkflowTemplates.filter((pipeline) => capabilities.deployed_pipelines.includes(pipeline.id as DeployedPipeline)),
     [capabilities.deployed_pipelines],
   );
   const selectedTemplate = availableTemplates.find((pipeline) => pipeline.id === selectedPipeline) || availableTemplates[0] || fallbackTemplate;
   const selectedScanRows = scanItems.filter((item) => selectedSamples.has(item.sample_id));
   const canCreatePgta = selectedScanRows.length > 0 && Boolean(projectName.trim());
   const canCreateNipt = selectedScanRows.length > 0 && Boolean(projectName.trim());
-  const canCreateSelected = (selectedPipeline === "nipt_docker" ? canCreateNipt : canCreatePgta) && Boolean(configSelection?.valid);
+  const canCreateWgs = Boolean(
+    projectName.trim()
+    && wgsPrecallingConfigPath.trim()
+    && wgsTargetsPath.trim()
+    && (wgsStage === "precalling" || wgsDownstreamConfigPath.trim()),
+  );
+  const canCreateSelected = selectedPipeline === "wgs"
+    ? canCreateWgs
+    : (selectedPipeline === "nipt_docker" ? canCreateNipt : canCreatePgta) && Boolean(configSelection?.valid);
 
   useEffect(() => {
+    if (selectedPipeline === "wgs") {
+      setRootOptions([]);
+      setRawdataRoot("");
+      setScanItems([]);
+      return;
+    }
     let disposed = false;
     const fallbackRoot = selectedPipeline === "nipt_docker" ? defaultNiptRawdataRoot : defaultPgtaRawdataRoot;
     getInputRoots(selectedPipeline)
@@ -110,6 +129,7 @@ export function SubmitPage() {
   }, [capabilities.deployed_pipelines, selectedPipeline]);
 
   async function handleScan() {
+    if (selectedPipeline === "wgs") return;
     setScanning(true);
     setError(null);
     setShowNiptFullConfirm(false);
@@ -132,12 +152,12 @@ export function SubmitPage() {
   }
 
   function handlePipelineChange(value: string) {
-    if (value !== "pgta" && value !== "nipt_docker") return;
+    if (value !== "pgta" && value !== "nipt_docker" && value !== "wgs") return;
     if (!confirmConfigReset()) return;
     setSelectedPipeline(value);
     setConfigSelection(null);
-    setRawdataRoot(value === "nipt_docker" ? defaultNiptRawdataRoot : defaultPgtaRawdataRoot);
-    setRootOptions([value === "nipt_docker" ? defaultNiptRawdataRoot : defaultPgtaRawdataRoot]);
+    setRawdataRoot(value === "wgs" ? "" : value === "nipt_docker" ? defaultNiptRawdataRoot : defaultPgtaRawdataRoot);
+    setRootOptions(value === "wgs" ? [] : [value === "nipt_docker" ? defaultNiptRawdataRoot : defaultPgtaRawdataRoot]);
     setScanItems([]);
     setSelectedSamples(new Set());
     setExpandedFolders(new Set());
@@ -179,6 +199,20 @@ export function SubmitPage() {
   }
 
   async function createSelectedRuns(): Promise<RunDetail[]> {
+    if (selectedPipeline === "wgs") {
+      return [
+        await createRun({
+          pipeline: "wgs",
+          project_name: projectName,
+          wgs_precalling_config_path: wgsPrecallingConfigPath,
+          wgs_downstream_config_path: wgsDownstreamConfigPath || undefined,
+          wgs_targets_path: wgsTargetsPath,
+          wgs_stage: wgsStage,
+          submitted_by: submittedBy.trim() || null,
+          note: "BS10610 host-native Snakemake 9 controlled run",
+        }),
+      ];
+    }
     if (!configSelection?.valid) throw new Error("Validate the Snakemake config before creating the run.");
     const configPayload = {
       runtime_profile_id: configSelection.runtimeProfileId,
@@ -301,6 +335,10 @@ export function SubmitPage() {
       setShowNiptFullConfirm(true);
       return;
     }
+    if (selectedPipeline === "wgs" && wgsStage === "full") {
+      setShowWgsFullConfirm(true);
+      return;
+    }
     void handleCreateAndSubmit();
   }
 
@@ -316,8 +354,8 @@ export function SubmitPage() {
 
       <section className="submit-stepper" aria-label="Submit run steps">
         <StepMarker index={1} title="Pipeline" detail={compactPipelineName(selectedPipeline)} active />
-        <StepMarker index={2} title="Server batch" detail={scanItems.length ? `${scanItems.length} candidates` : "scan required"} active={scanItems.length > 0} />
-        <StepMarker index={3} title="Preview" detail={`${selectedScanRows.length} selected`} active={selectedScanRows.length > 0} />
+        <StepMarker index={2} title={selectedPipeline === "wgs" ? "Host config" : "Server batch"} detail={selectedPipeline === "wgs" ? (canCreateWgs ? "ready" : "paths required") : scanItems.length ? `${scanItems.length} candidates` : "scan required"} active={selectedPipeline === "wgs" ? canCreateWgs : scanItems.length > 0} />
+        <StepMarker index={3} title="Preview" detail={selectedPipeline === "wgs" ? wgsStage : `${selectedScanRows.length} selected`} active={selectedPipeline === "wgs" ? canCreateWgs : selectedScanRows.length > 0} />
         <StepMarker index={4} title="Airflow handoff" detail={handoffRuns.length ? "confirmed" : "pending"} active={handoffRuns.length > 0} />
       </section>
 
@@ -344,12 +382,12 @@ export function SubmitPage() {
             </label>
             <label className="field">
               <span>Reference genome</span>
-              <input value={reference} readOnly aria-describedby="pgta-reference-note" />
+              <input value={selectedPipeline === "wgs" ? "GRCh38" : reference} readOnly aria-describedby="pgta-reference-note" />
               {selectedPipeline === "pgta" ? <small id="pgta-reference-note">Locked by the approved PGT-A S9 runtime profile.</small> : null}
             </label>
             <label className="field">
               <span>Sequencing strategy</span>
-              <input value={selectedPipeline === "nipt_docker" ? "Low-pass WGS · NIPT aneuploidy screening" : "Low-pass WGS · PGT-A copy-number screening"} readOnly />
+              <input value={selectedPipeline === "wgs" ? "Whole-genome sequencing" : selectedPipeline === "nipt_docker" ? "Low-pass WGS / NIPT aneuploidy screening" : "Low-pass WGS / PGT-A copy-number screening"} readOnly />
             </label>
             <label className="field">
               <span>Priority</span>
@@ -361,7 +399,7 @@ export function SubmitPage() {
             </label>
             <label className="field">
               <span>Run mode</span>
-              <input value={selectedPipeline === "pgta" ? "predict" : runMode} readOnly={selectedPipeline === "pgta"} onChange={(event) => setRunMode(event.target.value)} />
+              <input value={selectedPipeline === "wgs" ? wgsStage : selectedPipeline === "pgta" ? "predict" : runMode} readOnly={selectedPipeline !== "nipt_docker"} onChange={(event) => setRunMode(event.target.value)} />
             </label>
             <label className="field">
               <span>Submitted by</span>
@@ -383,14 +421,14 @@ export function SubmitPage() {
               </datalist>
             </label>
           </div>
-          <SnakemakeConfigEditor
+          {selectedPipeline !== "wgs" ? <SnakemakeConfigEditor
             key={`${selectedPipeline}-${target}-${niptRunMode}-${niptCores}-${configEditorRevision}`}
             pipeline={selectedPipeline}
             target={target}
             runMode={niptRunMode}
             cores={niptCores}
             onChange={setConfigSelection}
-          />
+          /> : null}
         </section>
       </div>
 
@@ -398,9 +436,11 @@ export function SubmitPage() {
         <div className="section-heading split">
           <div>
             <p className="eyebrow">Step 3</p>
-            <h2>{selectedPipeline === "nipt_docker" ? "NIPT Docker server-path scan" : "PGT-A server-path scan"}</h2>
+            <h2>{selectedPipeline === "wgs" ? "WGS host configuration" : selectedPipeline === "nipt_docker" ? "NIPT Docker server-path scan" : "PGT-A server-path scan"}</h2>
             <p>
-              {selectedPipeline === "nipt_docker"
+              {selectedPipeline === "wgs"
+                ? "Select approved BS10610 pre-calling and downstream configs. Airflow orchestrates the host workflow through a restricted SSH gate."
+                : selectedPipeline === "nipt_docker"
                 ? "Scan an allowlisted NIPT FASTQ root, select one chip folder or individual clean FASTQ pairs, then create one run for that batch."
                 : "Scan an allowlisted PGT-A FASTQ directory, select samples, create a run, then submit it to Airflow."}
             </p>
@@ -408,6 +448,31 @@ export function SubmitPage() {
           <StatusBadge status={selectedTemplate.implementationStatus} />
         </div>
         <div className="form-grid pgta-grid">
+          {selectedPipeline === "wgs" ? <>
+            <label className="field full">
+              <span>Pre-calling config</span>
+              <input aria-label="WGS pre-calling config" value={wgsPrecallingConfigPath} onChange={(event) => setWgsPrecallingConfigPath(event.target.value)} placeholder="/sg2/.../config_precalling.yaml" />
+            </label>
+            <label className="field full">
+              <span>Downstream config</span>
+              <input aria-label="WGS downstream config" value={wgsDownstreamConfigPath} onChange={(event) => setWgsDownstreamConfigPath(event.target.value)} placeholder="/sg2/.../config_downstream.yaml" />
+            </label>
+            <label className="field full">
+              <span>Controlled targets</span>
+              <input aria-label="WGS targets" value={wgsTargetsPath} onChange={(event) => setWgsTargetsPath(event.target.value)} placeholder="/sg2/.../final_targets.txt" />
+            </label>
+            <label className="field">
+              <span>WGS validation stage</span>
+              <select aria-label="WGS stage" value={wgsStage} onChange={(event) => setWgsStage(event.target.value as "precalling" | "full")}>
+                <option value="precalling">Pre-calling validation only</option>
+                <option value="full">Controlled full workflow</option>
+              </select>
+            </label>
+            <div className="nipt-full-run-notice full" role="note">
+              <strong>Host-native execution</strong>
+              <span>Snakemake 9 runs on BS10610. The Docker control plane does not mount WGS software, references, or FASTQ directories.</span>
+            </div>
+          </> : <>
           <label className="field full">
             <span>Scan root</span>
             <input
@@ -446,12 +511,13 @@ export function SubmitPage() {
               </label>
             </>
           )}
+          </>}
         </div>
         <div className="panel-actions">
-          <button className="button ghost" type="button" disabled={scanning || !rawdataRoot.trim()} onClick={() => void handleScan()}>
+          {selectedPipeline !== "wgs" ? <button className="button ghost" type="button" disabled={scanning || !rawdataRoot.trim()} onClick={() => void handleScan()}>
             <Search size={15} />
             Scan
-          </button>
+          </button> : null}
           <button className="button primary" type="button" disabled={creating || !canCreateSelected} onClick={requestCreateAndSubmit}>
             <Play size={15} />
             Create and submit to Airflow
@@ -467,7 +533,7 @@ export function SubmitPage() {
             <span>32 cores / up to 60 GiB memory / estimated 25-35 minutes. Runs are serialized by the NIPT Airflow pool.</span>
           </div>
         ) : null}
-        <CandidateFolderTable
+        {selectedPipeline !== "wgs" ? <CandidateFolderTable
           expanded={expandedFolders}
           items={scanItems}
           rawdataRoot={rawdataRoot}
@@ -475,28 +541,30 @@ export function SubmitPage() {
           onToggleFolder={toggleFolder}
           onToggleSample={toggleSample}
           onToggleExpanded={toggleExpandedFolder}
-        />
+        /> : null}
       </section>
 
       <section className="panel">
         <div className="section-heading">
           <p className="eyebrow">Step 4</p>
           <h2>Submit preview</h2>
-          <p>Execution is blocked until the selected pipeline scan returns validated FASTQ pairs and the run guard passes.</p>
+          <p>{selectedPipeline === "wgs" ? "Execution is blocked until all host configuration paths pass the WGS runner guard." : "Execution is blocked until the selected pipeline scan returns validated FASTQ pairs and the run guard passes."}</p>
         </div>
         <div className="submit-preview-list">
           <PreviewField label="Pipeline" value={<strong className="preview-pill">{compactPipelineName(selectedPipeline)}</strong>} />
           <PreviewField label="Project" value={projectName || "not set"} />
           <PreviewField label="Submitted by" value={submittedBy || "not set"} />
-          <PreviewField label="Reference" value={reference} />
-          <PreviewField label="Mode" value={selectedPipeline === "pgta" ? "predict" : runMode} />
-          <PreviewField label="Selected samples" value={String(selectedScanRows.length)} />
+          <PreviewField label="Reference" value={selectedPipeline === "wgs" ? "GRCh38" : reference} />
+          <PreviewField label="Mode" value={selectedPipeline === "wgs" ? wgsStage : selectedPipeline === "pgta" ? "predict" : runMode} />
+          <PreviewField label="Selected samples" value={selectedPipeline === "wgs" ? "resolved during prepare" : String(selectedScanRows.length)} />
           {selectedPipeline === "pgta" ? <PreviewField label="PGT-A target" value={target} /> : null}
           {selectedPipeline === "nipt_docker" ? <PreviewField label="NIPT run mode" value={niptRunMode} /> : null}
-          <PreviewField label="Runtime profile" value={configSelection?.profile.label || "loading"} />
-          <PreviewField label="Config revision" value={configSelection?.profile.config_version || "loading"} />
-          <PreviewField label="Config changes" value={configSelection ? String(configSelection.changedPaths.length) : "not validated"} />
-          <PreviewField label="Scan root" value={rawdataRoot || "not set"} wide mono />
+          <PreviewField label="Runtime profile" value={selectedPipeline === "wgs" ? "WGS Snakemake 9 host" : configSelection?.profile.label || "loading"} />
+          <PreviewField label="Config revision" value={selectedPipeline === "wgs" ? "wgs-s9-host-v1" : configSelection?.profile.config_version || "loading"} />
+          <PreviewField label="Config changes" value={selectedPipeline === "wgs" ? "controlled config files" : configSelection ? String(configSelection.changedPaths.length) : "not validated"} />
+          <PreviewField label={selectedPipeline === "wgs" ? "Pre-calling config" : "Scan root"} value={selectedPipeline === "wgs" ? wgsPrecallingConfigPath || "not set" : rawdataRoot || "not set"} wide mono />
+          {selectedPipeline === "wgs" ? <PreviewField label="Downstream config" value={wgsDownstreamConfigPath || "not set"} wide mono /> : null}
+          {selectedPipeline === "wgs" ? <PreviewField label="Targets" value={wgsTargetsPath || "not set"} wide mono /> : null}
           <PreviewField label="Estimated workflow" value={selectedTemplate.steps.map((step) => step.name).join(" -> ")} wide />
         </div>
         {createdRunIds.length > 0 && handoffRuns.length === 0 ? (
@@ -527,6 +595,21 @@ export function SubmitPage() {
             <div className="panel-actions">
               <button className="button ghost" type="button" onClick={() => setShowNiptFullConfirm(false)}>Cancel</button>
               <button className="button primary" type="button" onClick={() => { setShowNiptFullConfirm(false); void handleCreateAndSubmit(); }}>Confirm full analysis</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+      {showWgsFullConfirm ? (
+        <div className="modal-backdrop">
+          <section className="modal-panel" role="dialog" aria-modal="true" aria-label="Confirm WGS full analysis">
+            <div className="section-heading">
+              <p className="eyebrow">Controlled validation gate</p>
+              <h2>Start the full WGS workflow?</h2>
+              <p>This runs host-native Snakemake 9 with up to 96 cores. Use it only after the pre-calling validation for this configuration has passed.</p>
+            </div>
+            <div className="panel-actions">
+              <button className="button ghost" type="button" onClick={() => setShowWgsFullConfirm(false)}>Cancel</button>
+              <button className="button primary" type="button" onClick={() => { setShowWgsFullConfirm(false); void handleCreateAndSubmit(); }}>Confirm controlled full workflow</button>
             </div>
           </section>
         </div>

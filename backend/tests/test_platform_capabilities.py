@@ -28,6 +28,13 @@ def test_settings_parse_nipt_only_capability(monkeypatch) -> None:
     monkeypatch.setenv("PUBLIC_AIRFLOW_URL", "http://172.17.106.10:12958")
     get_settings.cache_clear()
 
+    settings = get_settings()
+
+    assert settings.deployed_pipelines == ("nipt_docker",)
+    assert settings.platform_environment == "BS10610"
+    assert settings.public_airflow_url == "http://172.17.106.10:12958"
+    get_settings.cache_clear()
+
 
 def test_settings_parse_wgs_only_capability(monkeypatch) -> None:
     monkeypatch.setenv("DATABASE_URL", "sqlite:///test.db")
@@ -47,11 +54,19 @@ def test_settings_parse_wgs_only_capability(monkeypatch) -> None:
     assert settings.platform_environment == "BS10610-WGS"
     get_settings.cache_clear()
 
+
+def test_settings_parse_shared_nipt_wgs_control_plane(monkeypatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///test.db")
+    monkeypatch.setenv("AIRFLOW_API_PASSWORD", "test")
+    monkeypatch.setenv("DEPLOYED_PIPELINES", "nipt_docker,wgs")
+    monkeypatch.setenv("PLATFORM_ENVIRONMENT", "BS10610")
+    monkeypatch.setenv("PUBLIC_AIRFLOW_URL", "http://172.17.106.10:12958")
+    get_settings.cache_clear()
+
     settings = get_settings()
 
-    assert settings.deployed_pipelines == ("nipt_docker",)
-    assert settings.platform_environment == "BS10610"
-    assert settings.public_airflow_url == "http://172.17.106.10:12958"
+    assert settings.deployed_pipelines == ("nipt_docker", "wgs")
+    assert settings.public_airflow_url.endswith(":12958")
     get_settings.cache_clear()
 
 

@@ -212,7 +212,7 @@ export function DashboardPage() {
         <div>
           <p className="eyebrow">Bioinformatics production control tower</p>
           <h1>Command Center</h1>
-          <p>Deployed NIPT operations, sample throughput, intake readiness, and node health.</p>
+          <p>Deployed workflow operations, sample throughput, intake readiness, and node health.</p>
         </div>
         <Link className="button primary" to="/submit">Submit run</Link>
       </section>

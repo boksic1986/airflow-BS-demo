@@ -228,7 +228,18 @@ export type CreateNiptDockerRunRequest = PipelineConfigSelection & {
   note?: string | null;
 };
 
-export type CreateRunRequest = CreatePgtaRunRequest | CreateWesRunRequest | CreateNiptDockerRunRequest;
+export type CreateWgsRunRequest = {
+  pipeline: "wgs";
+  project_name: string;
+  wgs_precalling_config_path: string;
+  wgs_downstream_config_path?: string;
+  wgs_targets_path: string;
+  wgs_stage: "precalling" | "full";
+  submitted_by?: string | null;
+  note?: string | null;
+};
+
+export type CreateRunRequest = CreatePgtaRunRequest | CreateWesRunRequest | CreateNiptDockerRunRequest | CreateWgsRunRequest;
 
 export type ReanalysisRequest = {
   mode: "resume" | "rerun_rule" | "rerun_stage";
@@ -461,6 +472,9 @@ export type IntakePipelineConfig = {
     manifest_glob?: string | null;
     ready_suffix?: string | null;
     stable_scans?: number | null;
+    request_inbox?: string | null;
+    request_glob?: string | null;
+    request_submit_enabled?: boolean | null;
   };
   auto_submit?: Record<string, string | number | boolean | null>;
 };
@@ -492,9 +506,9 @@ export type IntakeScannerStateResponse = {
 
 export type IntakeView = "pending" | "history" | "all";
 
-export type DashboardPipeline = "all" | "pgta" | "nipt_docker";
+export type DashboardPipeline = "all" | "pgta" | "nipt_docker" | "wgs";
 
-export type DeployedPipeline = "pgta" | "nipt_docker";
+export type DeployedPipeline = "pgta" | "nipt_docker" | "wgs";
 
 export type PlatformCapabilities = {
   environment: string;
@@ -574,7 +588,7 @@ export type DashboardRunTrackerRow = {
 };
 
 export type WorkflowCatalogItem = {
-  pipeline: "pgta" | "nipt_docker";
+  pipeline: "pgta" | "nipt_docker" | "wgs";
   name: string;
   dag_id: string;
   runtime_profile_id: string;
@@ -610,6 +624,34 @@ export type SystemResourcesResponse = {
     disks: Array<{path: string; total_bytes: number; used_bytes: number; free_bytes: number; used_percent: number}>;
   };
   containers: Array<{name: string; cpu_percent: string; memory_usage: string; block_io: string}>;
+};
+
+export type RunResourceSummary = {
+  analysis_id: string;
+  pipeline: string;
+  wall_seconds: number;
+  peak_pss_bytes?: number | null;
+  peak_rss_bytes: number;
+  read_bytes: number;
+  write_bytes: number;
+  cpu_seconds: number;
+  sample_count: number;
+  complete: boolean;
+  source?: string;
+  summary_artifact?: string;
+  raw_samples_paths?: string[];
+  stages?: Array<{
+    wall_seconds: number;
+    peak_pss_bytes?: number | null;
+    peak_rss_bytes: number;
+    read_bytes: number;
+    write_bytes: number;
+    cpu_seconds: number;
+    sample_count: number;
+    complete: boolean;
+    source?: string;
+    samples_path?: string;
+  }>;
 };
 
 declare global {
@@ -732,6 +774,10 @@ export function getSystemResources(): Promise<SystemResourcesResponse> {
   return requestJson<SystemResourcesResponse>("/system/resources");
 }
 
+export function getRunResources(analysisId: string): Promise<RunResourceSummary> {
+  return requestJson<RunResourceSummary>(`/runs/${encodeURIComponent(analysisId)}/resources`);
+}
+
 export function getHealth(): Promise<HealthResponse> {
   return requestJson<HealthResponse>("/health");
 }
@@ -791,7 +837,7 @@ export function validatePipelineConfig(payload: {
   });
 }
 
-export function scanAndSubmitIntake(payload: {pipelines: Array<"pgta" | "nipt_docker">; bootstrap?: boolean; max_samples?: number}): Promise<IntakeStatusResponse> {
+export function scanAndSubmitIntake(payload: {pipelines: DeployedPipeline[]; bootstrap?: boolean; max_samples?: number}): Promise<IntakeStatusResponse> {
   return requestJson<IntakeStatusResponse>("/intake/scan-and-submit", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
@@ -799,7 +845,7 @@ export function scanAndSubmitIntake(payload: {pipelines: Array<"pgta" | "nipt_do
   });
 }
 
-export function previewIntakeScan(payload: {pipelines: Array<"pgta" | "nipt_docker">; bootstrap?: boolean; max_samples?: number}): Promise<IntakeScanPreviewResponse> {
+export function previewIntakeScan(payload: {pipelines: DeployedPipeline[]; bootstrap?: boolean; max_samples?: number}): Promise<IntakeScanPreviewResponse> {
   return requestJson<IntakeScanPreviewResponse>("/intake/scan-preview", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
@@ -808,7 +854,7 @@ export function previewIntakeScan(payload: {pipelines: Array<"pgta" | "nipt_dock
 }
 
 export function getIntakeStatus(options: {
-  pipeline?: "pgta" | "nipt_docker";
+  pipeline?: DeployedPipeline;
   state?: IntakeDiscoveryState;
   lifecycle?: IntakeLifecycle;
   view?: IntakeView;

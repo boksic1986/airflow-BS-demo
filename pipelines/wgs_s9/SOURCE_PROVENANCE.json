@@ -1,0 +1,22 @@
+{
+  "adaptation": "Snakemake 9 scheduler compatibility copy; production WGS source remains unchanged",
+  "source_commit": "d2f5b931214f297fdd9769530ddde06090b05414",
+  "source_repository": "/mnt/biodevrwsg2/33.chenjiucheng/project/wgs",
+  "source_sha256": {
+    "WGS_pipeline.Snakefile": "c12160680ac38321bbacee210741b18765285dad9f651ca85d44e2b1c49bbe59",
+    "WGS_pipeline_fastq2vcf.Snakefile": "1099d3d0255b87d0598101a0ef3ba710519792b57c30a43c1e13c91af0388e43",
+    "rule/CNV.smk": "643c1787f3de5aa5a0dd4c6e85cccb0d6b8e5cb33c5900b33a2fb62e63b856e7",
+    "rule/MEI.smk": "8428da1d00cbd1cf7acd02e0afacd2685b6d692bb2f874b91051558a91377015",
+    "rule/pre_sampleInfo_solo.smk": "a9515bd866668d2dd93aeddb520609edf6219c70b0ba6db465296af0f25fa17a",
+    "rule/QC.smk": "5bed56668aa8262395c4468461cc3afd7026a7f82347a873404fc8c75476e66d",
+    "rule/ROH.smk": "7bf6a5d86af9dd9d83ebafedf0413c6927ec3797344a37bd3f9567ec2c03fc01",
+    "rule/SMA.smk": "43ae33ccb9d58c53364c4e1def5df5a81ee8bbd404e9bbebbb90d16da7b3913b",
+    "rule/WGS_CS.smk": "273f9e9bcccb9e765efdbe6774d9ddb9d13884237dedf6a27a9363324f666006",
+    "rule/WGS_MT.smk": "5b7c87aae9d69fc4922a21816505c5f95b9414cc1128065e74b257ab15226e26",
+    "rule/WGS_RE.smk": "9167dd70f81645e1ba42637bfeca12340a945a9ca16a9cf06f91c33a901a0203",
+    "rule/WGS_SNV.smk": "6b1dfa56d00e85ae07e999d8c0a7de29716ae5ce2c1f0eeae123bad225c2d1cf",
+    "rule/WGS_SV.smk": "58596bdc504e7bc9df7364dbefc97045003c67ddf603e502ffa18d4bbc0d6613",
+    "script/formatCNV_direct.R": "054139a2ecc0a104aa931b0ca1885873964122ef6c9ee3377c969ccd0d961d6c",
+    "script/subFunction.py": "8b6a48c3cb899589a138fe1f3700aca4d9fb41232c0075c97ddc6689736a98bd"
+  }
+}

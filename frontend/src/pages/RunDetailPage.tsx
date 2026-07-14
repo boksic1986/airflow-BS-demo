@@ -2,7 +2,7 @@ import {Play, RefreshCw} from "lucide-react";
 import {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 
-import type {Artifact, LogStream, RuleEvent, RunConfig, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, RunQc, Sample} from "../api";
+import type {Artifact, LogStream, RuleEvent, RunConfig, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, RunQc, RunResourceSummary, Sample} from "../api";
 
 import {
   getRunArtifacts,
@@ -12,6 +12,7 @@ import {
   getRunLogIndex,
   getRunProgress,
   getRunQc,
+  getRunResources,
   getRunRules,
   getRunSamples,
   submitRun,
@@ -26,7 +27,7 @@ import {RunQcTab} from "../features/run-detail/RunQcTab";
 import {RunConfigTab, RunFilesTab, RunOverviewTab, RunSamplesTab} from "../features/run-detail/RunResourceTabs";
 import {RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
 import {errorMessage, parseErrorSummary} from "../lib/errors";
-import {compactPipelineName, formatDate, formatDuration} from "../lib/format";
+import {compactPipelineName, formatBytes, formatDate, formatDuration, formatSecondsDuration} from "../lib/format";
 import {computeRunProgress, progressFromResponse} from "../lib/runProgress";
 import {isActiveStatus, isFailedStatus} from "../lib/status";
 
@@ -41,9 +42,10 @@ type Bundle = {
   qc: RunQc | null;
   progress: RunProgressResponse | null;
   config: RunConfig | null;
+  resources: RunResourceSummary | null;
 };
 
-const emptyBundle: Bundle = {detail: null, samples: [], rules: [], artifacts: [], qc: null, progress: null, config: null};
+const emptyBundle: Bundle = {detail: null, samples: [], rules: [], artifacts: [], qc: null, progress: null, config: null, resources: null};
 
 export function RunDetailPage() {
   const {analysisId = ""} = useParams();
@@ -57,6 +59,7 @@ export function RunDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [logError, setLogError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [resourceError, setResourceError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
   const [lastAutoSyncedAt, setLastAutoSyncedAt] = useState<string | null>(null);
 
@@ -64,8 +67,9 @@ export function RunDetailPage() {
     if (!analysisId) return;
     setLoading(true);
     setError(null);
+    setResourceError(null);
     try {
-      const [detail, samples, rules, progress, artifacts, qc, config, indexedLogs] = await Promise.all([
+      const [detail, samples, rules, progress, artifacts, qc, config, indexedLogs, resources] = await Promise.all([
         getRunDetail(analysisId),
         getRunSamples(analysisId),
         getRunRules(analysisId),
@@ -74,8 +78,12 @@ export function RunDetailPage() {
         getRunQc(analysisId),
         getRunConfig(analysisId).catch(() => null),
         getRunLogIndex(analysisId).catch(() => ({items: []})),
+        getRunResources(analysisId).catch((resourceLoadError) => {
+          setResourceError(errorMessage(resourceLoadError));
+          return null;
+        }),
       ]);
-      setBundle({detail, samples: samples.items, rules: progress?.rule_events || rules.items, progress, artifacts: artifacts.items, qc, config});
+      setBundle({detail, samples: samples.items, rules: progress?.rule_events || rules.items, progress, artifacts: artifacts.items, qc, config, resources});
       setLogSources(indexedLogs.items);
       if (indexedLogs.items.length) {
         const preferred = preferredLogSource(indexedLogs.items, detail.status, progress?.current_step) || indexedLogs.items[0];
@@ -141,7 +149,7 @@ export function RunDetailPage() {
     : detail
       ? computeRunProgress({analysis_id: detail.analysis_id, pipeline: detail.pipeline, status: detail.status, created_at: detail.created_at, started_at: detail.started_at, ended_at: detail.ended_at, sample_count: bundle.samples.length}, detail, bundle.rules)
       : null;
-  const canSubmit = detail?.status === "created" && ["pgta", "nipt_docker"].includes(detail.pipeline);
+  const canSubmit = detail?.status === "created" && ["pgta", "nipt_docker", "wgs"].includes(detail.pipeline);
   async function runAction(action: "sync" | "submit") {
     if (!analysisId) return;
     setActing(true);
@@ -188,6 +196,21 @@ export function RunDetailPage() {
           <CurrentProgressPanel detail={detail} progress={progress} source={bundle.progress?.progress_source} />
           <section className="panel"><div className="section-heading"><h2>QC summary</h2><p>Sample-level decisions; informational metrics do not lower sample status.</p></div><div className="metric-grid compact">{(["pass", "warn", "fail", "unknown"] as const).map((status) => <MetricCard key={status} title={status} value={sampleQcSummary?.[status] ?? 0} status={status} />)}</div></section>
         </div>
+        {detail.pipeline === "wgs" || detail.pipeline === "nipt_docker" ? <section className="panel">
+          <div className="section-heading"><h2>Resource usage</h2><p>{bundle.resources ? (bundle.resources.complete ? "Complete runner telemetry" : "Partial runner telemetry") : "Telemetry is written after the runner starts."}</p></div>
+          {resourceError && !bundle.resources ? <p className="empty-state">Resource telemetry is not available yet.</p> : null}
+          {bundle.resources ? <>
+            <div className="metric-grid compact">
+              <MetricCard title="Peak PSS" value={formatBytes(bundle.resources.peak_pss_bytes)} />
+              <MetricCard title="Peak RSS" value={formatBytes(bundle.resources.peak_rss_bytes)} />
+              <MetricCard title="CPU time" value={formatSecondsDuration(bundle.resources.cpu_seconds)} />
+              <MetricCard title="Wall time" value={formatSecondsDuration(bundle.resources.wall_seconds)} />
+              <MetricCard title="Read I/O" value={formatBytes(bundle.resources.read_bytes)} />
+              <MetricCard title="Write I/O" value={formatBytes(bundle.resources.write_bytes)} />
+            </div>
+            {bundle.resources.stages?.length ? <div className="table-wrap"><table className="dense-table"><thead><tr><th>Stage</th><th>Wall</th><th>CPU</th><th>Peak PSS</th><th>Read / Write</th></tr></thead><tbody>{bundle.resources.stages.map((stage, index) => <tr key={`${stage.samples_path || "stage"}-${index}`}><td>{stage.samples_path?.split("/").pop()?.replace(".jsonl", "") || `Stage ${index + 1}`}</td><td>{formatSecondsDuration(stage.wall_seconds)}</td><td>{formatSecondsDuration(stage.cpu_seconds)}</td><td>{formatBytes(stage.peak_pss_bytes)}</td><td>{formatBytes(stage.read_bytes)} / {formatBytes(stage.write_bytes)}</td></tr>)}</tbody></table></div> : null}
+          </> : null}
+        </section> : null}
         <section className="panel">
           <div className="tabs" role="tablist" aria-label="Run detail tabs">{tabs.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} role="tab" type="button" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}</div>
           {activeTab === "Overview" ? <RunOverviewTab detail={detail} samples={bundle.samples} /> : null}

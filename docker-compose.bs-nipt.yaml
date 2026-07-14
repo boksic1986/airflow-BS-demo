@@ -1,4 +1,4 @@
-name: ${COMPOSE_PROJECT_NAME:-airflow-nipt}
+name: ${COMPOSE_PROJECT_NAME:-airflow-bs-control}
 
 x-logging: &default-logging
   driver: json-file
@@ -32,7 +32,11 @@ x-airflow-common: &airflow-common
     HOST_SHARED_ROOT: ${HOST_SHARED_ROOT:?Set HOST_SHARED_ROOT in .env}
     BACKEND_BASE_URL: http://backend:8000
     INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in .env}
-    INTAKE_SCAN_PIPELINES: nipt_docker
+    INTAKE_SCAN_PIPELINES: nipt_docker,wgs
+    NIPT_AIRFLOW_POOL: bs_heavy_analysis
+    WGS_AIRFLOW_POOL: bs_heavy_analysis
+    AIRFLOW_CONN_WGS_HOST: >-
+      {"conn_type":"ssh","host":"${WGS_SSH_HOST:-172.17.106.10}","login":"${WGS_SSH_LOGIN:-chenjc}","port":22,"extra":{"key_file":"/opt/airflow/ssh/id_ed25519","no_host_key_check":false,"look_for_keys":false}}
     PIPELINE_PROFILE_CONFIG_PATH: /opt/airflow/config/pipeline_profiles.yaml
     NIPT_WORKFLOW_CONTAINER_ROOT: /opt/nipt/workflow
     NIPT_WORKFLOW_HOST_ROOT: ${NIPT_WORKFLOW_HOST_ROOT:?Set NIPT_WORKFLOW_HOST_ROOT in .env}
@@ -47,6 +51,7 @@ x-airflow-common: &airflow-common
     NIPT_ALLOW_HEAVY_RUN: "true"
   volumes:
     - ./dags/bio_nipt_docker.py:/opt/airflow/dags/bio_nipt_docker.py:ro
+    - ./dags/bio_wgs.py:/opt/airflow/dags/bio_wgs.py:ro
     - ./dags/bio_intake_scan.py:/opt/airflow/dags/bio_intake_scan.py:ro
     - ./dags/nipt_docker_runner.py:/opt/airflow/dags/nipt_docker_runner.py:ro
     - ./dags/common:/opt/airflow/dags/common:ro
@@ -163,7 +168,12 @@ services:
       PIPELINE_PROFILE_CONFIG_PATH: /app/config/pipeline_profiles.yaml
       NIPT_DOCKER_CORES: "32"
       NIPT_ALLOW_HEAVY_RUN: "true"
-      DEPLOYED_PIPELINES: nipt_docker
+      HOST_RESULTS_ROOT: ${WGS_RESULTS_HOST_ROOT:?Set WGS_RESULTS_HOST_ROOT in .env}
+      WGS_CONFIG_ROOTS: /data/wgs-intake,${WGS_VALIDATION_HOST_ROOT:?Set WGS_VALIDATION_HOST_ROOT in .env}
+      WGS_VALIDATION_ROOTS: ${WGS_VALIDATION_HOST_ROOT:?Set WGS_VALIDATION_HOST_ROOT in .env}
+      WGS_HOST_OWNER: ${WGS_HOST_OWNER:-6708:520}
+      HOST_BACKEND_EVENT_URL: http://${BS_HOST_IP:-172.17.106.10}:${FRONTEND_PORT:-12959}/api/events/snakemake
+      DEPLOYED_PIPELINES: nipt_docker,wgs
       PLATFORM_ENVIRONMENT: ${PLATFORM_ENVIRONMENT:-BS10610}
       PUBLIC_AIRFLOW_URL: ${PUBLIC_AIRFLOW_URL:?Set PUBLIC_AIRFLOW_URL in .env}
       BACKEND_CORS_ORIGINS: "*"
@@ -174,6 +184,9 @@ services:
       - ./config/pipeline_profiles.yaml:/app/config/pipeline_profiles.yaml:ro
       - ${NIPT_FASTQ_HOST_ROOT:?Set NIPT_FASTQ_HOST_ROOT in .env}:/data/nipt-fastq:ro
       - ${NIPT_REQUEST_HOST_ROOT:?Set NIPT_REQUEST_HOST_ROOT in .env}:/data/airflow-intake/nipt:rw
+      - ${WGS_RESULTS_HOST_ROOT:?Set WGS_RESULTS_HOST_ROOT in .env}:${WGS_RESULTS_HOST_ROOT:?Set WGS_RESULTS_HOST_ROOT in .env}:rw
+      - ${WGS_INTAKE_HOST_ROOT:?Set WGS_INTAKE_HOST_ROOT in .env}:/data/wgs-intake:rw
+      - ${WGS_VALIDATION_HOST_ROOT:?Set WGS_VALIDATION_HOST_ROOT in .env}:${WGS_VALIDATION_HOST_ROOT:?Set WGS_VALIDATION_HOST_ROOT in .env}:ro
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health').read()\""]
       interval: 10s
@@ -192,7 +205,7 @@ services:
       - |
         set -euo pipefail
         airflow db migrate
-        airflow pools set nipt_s9_full 1 "Serial NIPT Snakemake 9 full analysis runs"
+        airflow pools set bs_heavy_analysis 1 "Serial NIPT Docker or host WGS analysis"
         if ! airflow users list | grep -F "$${AIRFLOW_ADMIN_USERNAME}" >/dev/null; then
           airflow users create --username "$${AIRFLOW_ADMIN_USERNAME}" --firstname Airflow --lastname Admin \
             --role Admin --email airflow-nipt@example.com --password "$${AIRFLOW_ADMIN_PASSWORD}"
@@ -229,8 +242,10 @@ services:
     command: celery worker
     group_add:
       - ${DOCKER_SOCKET_GID:?Set DOCKER_SOCKET_GID in .env}
+      - ${WGS_SSH_KEY_GID:?Set WGS_SSH_KEY_GID in .env}
     volumes:
       - ./dags/bio_nipt_docker.py:/opt/airflow/dags/bio_nipt_docker.py:ro
+      - ./dags/bio_wgs.py:/opt/airflow/dags/bio_wgs.py:ro
       - ./dags/bio_intake_scan.py:/opt/airflow/dags/bio_intake_scan.py:ro
       - ./dags/nipt_docker_runner.py:/opt/airflow/dags/nipt_docker_runner.py:ro
       - ./dags/common:/opt/airflow/dags/common:ro
@@ -240,6 +255,9 @@ services:
       - ${NIPT_WORKFLOW_HOST_ROOT:?Set NIPT_WORKFLOW_HOST_ROOT in .env}:/opt/nipt/workflow:ro
       - ${NIPT_FASTQ_HOST_ROOT:?Set NIPT_FASTQ_HOST_ROOT in .env}:/data/nipt-fastq:ro
       - ${NIPT_LOCALE_HOST_ROOT:?Set NIPT_LOCALE_HOST_ROOT in .env}:/opt/nipt/locale:ro
+      - ${WGS_SSH_KEY_PATH:?Set WGS_SSH_KEY_PATH in .env}:/opt/airflow/ssh/id_ed25519:ro
+      - ${WGS_SSH_KNOWN_HOSTS_PATH:?Set WGS_SSH_KNOWN_HOSTS_PATH in .env}:/home/airflow/.ssh/known_hosts:ro
+      - /proc:/host/proc:ro
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       nipt_analysis_test_net:

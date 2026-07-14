@@ -55,6 +55,33 @@ def insert_pgta_run(
     return analysis_id
 
 
+def insert_wgs_run(
+    session_factory,
+    tmp_path,
+    *,
+    analysis_id: str = "WGS_20260714_120000_PROGRESS",
+    status: str = "running",
+    dag_run_id: str = "manual__WGS_20260714_120000_PROGRESS",
+) -> str:
+    workdir = tmp_path / "shared" / "runs" / analysis_id
+    workdir.mkdir(parents=True)
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                dag_run_id=dag_run_id,
+                mode="new",
+                status=status,
+                workdir=str(workdir),
+                params_json={"stage": "full", "project_name": "WGS progress"},
+            )
+        )
+        session.commit()
+    return analysis_id
+
+
 class FakeAirflowClient:
     def __init__(self, *, state: str = "running", tasks: list[dict] | None = None) -> None:
         self.state = state
@@ -203,6 +230,34 @@ def test_run_progress_uses_pgta_staged_airflow_tasks(tmp_path, monkeypatch) -> N
         "choose_pgta_path",
         "pgta_pipeline.run_pgta_mapping",
         "pgta_pipeline.run_pgta_metadata",
+    ]
+
+
+def test_run_progress_uses_wgs_sshoperator_stages(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_wgs_run(session_factory, tmp_path)
+    fake_airflow = FakeAirflowClient(
+        tasks=[
+            {"task_id": "validate_request", "state": "success", "operator": "PythonOperator"},
+            {"task_id": "prepare_wgs_run", "state": "success", "operator": "SSHOperator"},
+            {"task_id": "wgs_pipeline.pre_calling", "state": "success", "operator": "SSHOperator"},
+            {"task_id": "wgs_pipeline.variant_analysis", "state": "running", "operator": "SSHOperator"},
+        ]
+    )
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared", fake_airflow)
+
+    response = TestClient(main.app).get(f"/api/runs/{analysis_id}/progress")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["percent"] == 45
+    assert payload["current_step"] == "wgs_pipeline.variant_analysis"
+    assert payload["progress_source"] == "airflow_task_instances"
+    assert [task["task_id"] for task in payload["airflow_tasks"]] == [
+        "validate_request",
+        "prepare_wgs_run",
+        "wgs_pipeline.pre_calling",
+        "wgs_pipeline.variant_analysis",
     ]
 
 

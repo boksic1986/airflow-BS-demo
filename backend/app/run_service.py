@@ -4,9 +4,12 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 import hashlib
 from pathlib import Path
+import csv
 import json
 import os
+import re
 import secrets
+import yaml
 
 from sqlalchemy import String, case, cast, desc, func, or_, select
 from sqlalchemy.orm import Session
@@ -22,6 +25,7 @@ from app.workflow_summary_service import workflow_summaries_by_run
 PGTA_DAG_ID = "bio_pgta"
 WES_DAG_ID = "bio_wes_qsub"
 NIPT_DOCKER_DAG_ID = "bio_nipt_docker"
+WGS_DAG_ID = "bio_wgs"
 SUPPORTED_PGTA_TARGETS = {"metadata", "dryrun_cnv", "invalid_target", "baseline_qc", "predict"}
 SUPPORTED_PGTA_REANALYSIS_MODES = {"resume", "rerun_stage"}
 PGTA_REANALYSIS_TERMINAL_STATUSES = {"failed", "terminated"}
@@ -38,6 +42,7 @@ WES_MOCK_SAMPLES = {
 WES_BACKEND_EVENT_URL = "http://backend:8000/api/events/snakemake"
 SUPPORTED_NIPT_TEMPLATES = {"run1", "run2"}
 SUPPORTED_NIPT_RUN_MODES = {"mount_smoke", "full_run"}
+SUPPORTED_WGS_STAGES = {"precalling", "full"}
 NIPT_TEMPLATE_DEFINITIONS = {
     "run1": {
         "chip_name": "260414_TPNB500380AR_1065_AH32CCBGY2",
@@ -277,6 +282,145 @@ def create_nipt_docker_run(
             pipeline_config=pipeline_config,
         )
     raise ValueError("NIPT Docker requires selected_samples from a server path scan.")
+
+
+def create_wgs_run(
+    *,
+    session: Session,
+    settings,
+    project_name: str,
+    precalling_config_path: str,
+    downstream_config_path: str | None,
+    targets_path: str,
+    stage: str,
+    submitted_by: str | None = None,
+    note: str | None = None,
+    intake_request_id: str | None = None,
+    intake_fingerprint: str | None = None,
+    source_manifest_path: str | None = None,
+) -> dict:
+    if stage not in SUPPORTED_WGS_STAGES:
+        raise ValueError(f"Unsupported WGS stage: {stage}. Supported stages: {', '.join(sorted(SUPPORTED_WGS_STAGES))}.")
+    config_roots = list(getattr(settings, "wgs_config_roots", []) or [])
+    validation_roots = list(getattr(settings, "wgs_validation_roots", []) or [])
+    precalling_config_source = ensure_allowed_path(precalling_config_path, config_roots + validation_roots)
+    downstream_config_source = (
+        ensure_allowed_path(downstream_config_path, config_roots + validation_roots)
+        if downstream_config_path
+        else precalling_config_source
+    )
+    if stage == "full" and not downstream_config_path:
+        raise ValueError("WGS full stage requires downstream_config_path.")
+    targets_source = ensure_allowed_path(targets_path, config_roots + validation_roots)
+    if not precalling_config_source.is_file() or not downstream_config_source.is_file() or not targets_source.is_file():
+        raise InputPathError("WGS pre-calling config, downstream config, and targets must be readable files.")
+    config_payload = yaml.safe_load(precalling_config_source.read_text(encoding="utf-8"))
+    if not isinstance(config_payload, dict):
+        raise ValueError("WGS config root must be a YAML mapping.")
+    sample_info_value = str(config_payload.get("sample_info") or "").strip()
+    if not sample_info_value:
+        raise ValueError("WGS config must define sample_info.")
+    sample_info = ensure_allowed_path(sample_info_value, validation_roots + config_roots)
+    if not sample_info.is_file():
+        raise InputPathError(f"WGS sample_info is not readable: {sample_info}")
+    target_lines = [line.strip() for line in targets_source.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if not target_lines:
+        raise ValueError("WGS targets file must contain at least one target.")
+    if any(line.startswith("/") or ".." in Path(line).parts for line in target_lines):
+        raise ValueError("WGS targets must be relative paths without traversal.")
+    sample_rows = _read_wgs_sample_info(sample_info)
+    if not sample_rows:
+        raise ValueError("WGS sample_info contains no samples.")
+
+    analysis_id = _new_wgs_analysis_id()
+    # WGS is executed by the host runner, so its authoritative run directory
+    # must be the host-visible WGS result root mounted into the backend.
+    workdir = Path(getattr(settings, "host_results_root", settings.container_shared_root)) / "runs" / analysis_id
+    host_workdir = workdir
+    config_dir = workdir / "config"
+    reports_dir = workdir / "reports"
+    logs_dir = workdir / "logs"
+    for directory in (workdir, config_dir, reports_dir, logs_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+        _ensure_airflow_writable(directory)
+    requested_config = config_dir / "wgs.precalling.requested.yaml"
+    requested_downstream_config = config_dir / "wgs.downstream.requested.yaml"
+    requested_targets = config_dir / "targets.requested.txt"
+    manifest_path = config_dir / "samples.selected.tsv"
+    request_path = config_dir / "request.json"
+    requested_config.write_text(precalling_config_source.read_text(encoding="utf-8"), encoding="utf-8")
+    requested_downstream_config.write_text(downstream_config_source.read_text(encoding="utf-8"), encoding="utf-8")
+    requested_targets.write_text("\n".join(target_lines) + "\n", encoding="utf-8")
+    _write_wgs_manifest(manifest_path, sample_rows)
+    params = {
+        "project_name": project_name,
+        "input_mode": "controlled_wgs_config",
+        "wgs_stage": stage,
+        "source_config_path": str(precalling_config_source),
+        "source_precalling_config_path": str(precalling_config_source),
+        "source_downstream_config_path": str(downstream_config_source),
+        "downstream_config_derived_for_precalling": not bool(downstream_config_path),
+        "source_targets_path": str(targets_source),
+        "requested_config_path": str(requested_config),
+        "requested_downstream_config_path": str(requested_downstream_config),
+        "requested_targets_path": str(requested_targets),
+        "selected_count": len(sample_rows),
+        "runtime_profile_id": "wgs-s9-host-v1",
+        "note": note,
+        "intake_request_id": intake_request_id,
+        "intake_fingerprint": intake_fingerprint,
+        "source_manifest_path": source_manifest_path,
+    }
+    request_payload = {
+        "analysis_id": analysis_id,
+        "pipeline": "wgs",
+        "project_name": project_name,
+        "wgs_stage": stage,
+        "precalling_config_path": str(host_workdir / "config" / requested_config.name),
+        "downstream_config_path": str(host_workdir / "config" / requested_downstream_config.name),
+        "targets_path": str(host_workdir / "config" / requested_targets.name),
+        "input_sha256": {
+            "precalling_config": _sha256_file(requested_config),
+            "downstream_config": _sha256_file(requested_downstream_config),
+            "targets": _sha256_file(requested_targets),
+        },
+        "host_workdir": str(host_workdir),
+        "backend_event_url": os.getenv(
+            "HOST_BACKEND_EVENT_URL",
+            os.getenv("BACKEND_EVENT_URL", WES_BACKEND_EVENT_URL),
+        ),
+        "submitted_by": _clean_operator(submitted_by),
+        "note": note,
+    }
+    rendered_request = json.dumps(request_payload, indent=2, sort_keys=True) + "\n"
+    request_path.write_text(rendered_request, encoding="utf-8")
+    (config_dir / "wgs_runner_request.json").write_text(rendered_request, encoding="utf-8")
+    _set_numeric_owner(workdir, str(getattr(settings, "wgs_host_owner", "") or ""))
+    run = AnalysisRun(
+        analysis_id=analysis_id,
+        pipeline_name="wgs",
+        dag_id=WGS_DAG_ID,
+        status="created",
+        mode="new",
+        sample_sheet_path=str(manifest_path),
+        workdir=str(workdir),
+        params_json=params,
+        submitted_by=_clean_operator(submitted_by),
+    )
+    session.add(run)
+    for row in sample_rows:
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id=row["sample_id"],
+                family_id=row.get("family_id"),
+                status="pending",
+                qc_status="unknown",
+                metadata_json={"source": "wgs_sample_info", "sample_info_path": str(sample_info)},
+            )
+        )
+    session.commit()
+    return _run_payload(run, sample_count=len(sample_rows))
 
 
 def _create_nipt_docker_template_run(
@@ -524,7 +668,7 @@ def list_runs(
 ) -> dict:
     query = select(AnalysisRun)
     if pipeline == "deployed":
-        query = query.where(AnalysisRun.pipeline_name.in_(["pgta", "nipt_docker"]))
+        query = query.where(AnalysisRun.pipeline_name.in_(["pgta", "nipt_docker", "wgs"]))
     elif pipeline:
         query = query.where(AnalysisRun.pipeline_name == pipeline)
     if status:
@@ -874,8 +1018,14 @@ def _validate_submit_run(run: AnalysisRun, *, settings=None) -> None:
                 raise ValueError("NIPT Docker scan run is missing source_batch_dir.")
         else:
             _validate_nipt_template(str(params.get("template_id") or ""))
+    elif run.pipeline_name == "wgs":
+        if str(params.get("wgs_stage") or "") not in SUPPORTED_WGS_STAGES:
+            raise ValueError("WGS run is missing a supported wgs_stage.")
+        for key in ("requested_config_path", "requested_targets_path"):
+            if not params.get(key) or not Path(str(params[key])).is_file():
+                raise ValueError(f"WGS run is missing {key}.")
     else:
-        raise ValueError("Only pipeline=pgta, pipeline=wes_qsub, or pipeline=nipt_docker can be submitted by this endpoint.")
+        raise ValueError("Only deployed PGT-A, WES demo, NIPT Docker, or WGS runs can be submitted.")
     if not run.sample_sheet_path:
         raise ValueError("Run is missing sample_sheet_path.")
     if not run.workdir:
@@ -1011,6 +1161,19 @@ def _ensure_airflow_writable(path: Path) -> None:
     path.chmod(0o775)
 
 
+def _set_numeric_owner(root: Path, owner: str) -> None:
+    if not owner:
+        return
+    match = re.fullmatch(r"(\d+):(\d+)", owner)
+    if match is None:
+        raise ValueError("WGS_HOST_OWNER must use numeric uid:gid format.")
+    if not hasattr(os, "chown"):
+        raise RuntimeError("WGS host ownership transfer requires a POSIX backend runtime.")
+    uid, gid = int(match.group(1)), int(match.group(2))
+    for path in [root, *root.rglob("*")]:
+        os.chown(path, uid, gid)
+
+
 def _set_sample_status(*, session: Session, analysis_id: str, status: str) -> None:
     samples = session.scalars(select(Sample).where(Sample.analysis_id == analysis_id)).all()
     for sample in samples:
@@ -1027,8 +1190,8 @@ def _dag_conf(run: AnalysisRun) -> dict:
         "email_to": run.email_to,
         "params": run.params_json or {},
     }
-    if run.pipeline_name in {"pgta", "wes_qsub", "nipt_docker"}:
-        conf["backend_event_url"] = WES_BACKEND_EVENT_URL
+    if run.pipeline_name in {"pgta", "wes_qsub", "nipt_docker", "wgs"}:
+        conf["backend_event_url"] = os.getenv("BACKEND_EVENT_URL", WES_BACKEND_EVENT_URL)
     return conf
 
 
@@ -1043,6 +1206,35 @@ def _write_wes_manifest(path: Path) -> None:
     lines = ["sample_id\tinput"]
     for sample_id, input_path in WES_MOCK_SAMPLES.items():
         lines.append(f"{sample_id}\t{input_path}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _read_wgs_sample_info(path: Path) -> list[dict[str, str | None]]:
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        fieldnames = list(reader.fieldnames or [])
+        if not fieldnames:
+            return []
+        sample_key = next(
+            (key for key in ("sample_id", "sample", "样本编号", "样本ID") if key in fieldnames),
+            fieldnames[0],
+        )
+        family_key = next((key for key in ("family_id", "family", "家系编号", "家系ID") if key in fieldnames), None)
+        rows = []
+        seen = set()
+        for item in reader:
+            sample_id = str(item.get(sample_key) or "").strip()
+            if not sample_id or sample_id in seen:
+                continue
+            seen.add(sample_id)
+            family_id = str(item.get(family_key) or "").strip() if family_key else ""
+            rows.append({"sample_id": sample_id, "family_id": family_id or None})
+        return rows
+
+
+def _write_wgs_manifest(path: Path, samples: list[dict[str, str | None]]) -> None:
+    lines = ["sample_id\tfamily_id"]
+    lines.extend(f"{item['sample_id']}\t{item.get('family_id') or ''}" for item in samples)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -1179,6 +1371,20 @@ def _new_nipt_analysis_id() -> str:
     now = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     suffix = secrets.token_hex(3).upper()
     return f"NIPT_{now}_{suffix}"
+
+
+def _new_wgs_analysis_id() -> str:
+    now = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    suffix = secrets.token_hex(3).upper()
+    return f"WGS_{now}_{suffix}"
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def _nipt_template_samples(template_id: str) -> list[dict[str, str]]:

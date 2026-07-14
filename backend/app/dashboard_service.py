@@ -665,6 +665,12 @@ AIRFLOW_TASK_LABELS = {
     "prepare_nipt_docker_run": "Prepare NIPT Docker run",
     "run_nipt_docker": "Run NIPT Docker workflow",
     "collect_nipt_artifacts": "Collect NIPT artifacts",
+    "prepare_wgs_run": "Prepare WGS host run",
+    "choose_wgs_path": "Choose WGS validation path",
+    "wgs_pipeline.pre_calling": "Pre-calling",
+    "wgs_pipeline.variant_analysis": "Variant analysis",
+    "wgs_pipeline.collect_qc": "WGS quality control",
+    "collect_wgs_artifacts": "Collect WGS artifacts",
 }
 
 PIPELINE_RULE_LABELS = {
@@ -675,6 +681,10 @@ PIPELINE_RULE_LABELS = {
     "baseline_bam_uniformity_qc": "Baseline BAM uniformity QC",
     "__airflow_demo_invalid_target__": "Demo invalid target",
     "nipt_mount_smoke": "NIPT mount smoke",
+    "fq2cram": "FASTQ to CRAM",
+    "cram2gvcf": "CRAM to gVCF",
+    "SNV_Annotation": "SNV annotation",
+    "INDEL_Annotation": "INDEL annotation",
 }
 
 

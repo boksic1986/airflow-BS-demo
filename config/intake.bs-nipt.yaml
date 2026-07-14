@@ -23,3 +23,16 @@ pipelines:
     auto_submit:
       enabled: false
       run_mode: full_run
+  wgs:
+    enabled: true
+    roots:
+      - id: wgs_controlled_validation
+        container_path: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/WGS_20260527_T7Hg38V3.8.0_JX25_full_batchaware_direct_20260709_20260709_015245
+    intake:
+      request_inbox: /data/wgs-intake
+      request_glob: "*.wgs.yaml"
+      request_submit_enabled: false
+      stable_scans: 2
+    auto_submit:
+      enabled: false
+      stage: precalling
