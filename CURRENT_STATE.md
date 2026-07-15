@@ -5,7 +5,11 @@
 ## 1. 当前阶段
 
 ```text
-current_goal_ascii: T127 upgrades BS10610 to one shared NIPT Docker and host WGS Airflow control plane; BS1069 remains a stopped cold standby.
+current_goal_ascii: T128 repairs BS10610 NIPT manual FASTQ discovery latency without submitting analysis; BS1069 remains a stopped cold standby.
+t128_root_cause: /api/input/scan eagerly materialized the complete /data/nipt-fastq tree before applying max_samples; the BS root contains hundreds of batches and more than 23,000 clean FASTQ files, so nginx returned 504 after 60 seconds.
+t128_change: NIPT discovery now walks newest directories lazily and exits at max_samples; the BS default approved scan root is /data/nipt-fastq/FQ2026 and Submit Run adopts the root returned by /api/input/roots.
+t128_safety: the existing /data/nipt-fastq read-only mount and historical run paths are unchanged; no run is created/submitted, bio_intake_scan remains paused, and no FASTQ/database/volume/network mutation is allowed.
+t128_status: implementation and isolated backend/frontend tests pass; BS10610 deployment and real FQ2026 latency acceptance remain pending.
 t127_architecture: one existing Compose project airflow-nipt; shared PostgreSQL, Redis, FastAPI, React/nginx, Airflow API, scheduler, and Celery worker; deployed DAGs are bio_nipt_docker, bio_wgs, and paused bio_intake_scan; PGT-A is absent.
 t127_concurrency: NIPT Docker and host WGS share one-slot bs_heavy_analysis; WGS uses up to 96 host cores and NIPT uses 32 container cores; the two heavy workflows cannot overlap.
 t127_wgs_runtime: host Snakemake 9.23.1/Python 3.12 is deployed under /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; Airflow invokes a restricted forced wgs-run command through SSHOperator; production WGS sources remain read-only.

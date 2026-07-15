@@ -25,6 +25,7 @@
 | T125 | BS NIPT-only Docker 网络硬约束文档 | infra/docs | T124,T113 | engineering spec、runbook、security、server inventory、BS deployment contract | 明确 `nipt_analysis_test_net` / `192.168.199.0/24` / `192.168.199.1` 为不可变外部网络约束；记录 BS project root、主备角色和验收/回滚边界 | done |
 | T126 | BS NIPT-only Airflow 平台移植 | infra/backend/airflow/frontend/QA | T125,T113 | NIPT-only capability、BS Compose、S9 images、BS10610 primary、BS1069 cold standby | 10/72-sample full runs success；FASTQ unchanged；BS1069 images verified but services stopped | done |
 | T127 | BS shared NIPT/WGS Airflow control plane | infra/backend/airflow/snakemake/frontend/QA | T126 | one CeleryExecutor stack; NIPT Docker S9; host WGS S9 over restricted SSH; resource telemetry; BS1069 standby | shared deployment healthy; one-family WGS S9 dry-run; three serial NIPT full validations; no PGT-A or active-active | done |
+| T128 | BS NIPT manual FASTQ scan latency repair | backend/frontend/infra/QA | T127 | lazy bounded NIPT directory traversal; BS FQ2026 default scan root; Submit root synchronization | full-root 504 reproduced; targeted scan tests/build pass; BS10610 manual scan returns candidates before nginx timeout; BS1069 remains stopped | in_progress |
 
 ## P2 Backend API 和数据库
 
@@ -273,3 +274,30 @@ Acceptance:
 Rollback:
 - Pause intake and stop only recreated application services without `-v`;
   restore the previous shared release/images and keep all volumes/results.
+
+### T128 - BS NIPT manual FASTQ scan latency repair
+
+Owner: backend/frontend/infra/QA
+Status: in_progress
+Dependencies: T127
+Scope:
+- Replace eager full-tree NIPT FASTQ discovery with deterministic lazy traversal
+  that stops as soon as the requested sample limit is reached.
+- Narrow the BS manual-scan default from `/data/nipt-fastq` to
+  `/data/nipt-fastq/FQ2026` while preserving the existing read-only mount and
+  historical run paths.
+- Make Submit Run adopt the backend-provided root instead of retaining a stale
+  frontend fallback.
+Out of scope:
+- Creating or submitting a NIPT run, unpausing Intake, moving/deleting FASTQ,
+  database changes, or changing the NIPT workflow.
+Acceptance:
+- [x] Reproduce nginx 504 on the old full-root scan and verify a specific batch
+  remains readable.
+- [x] Backend regression test proves scan does not materialize the full tree.
+- [ ] Deploy backend/frontend to BS10610 and verify an FQ2026 scan returns
+  candidates before the gateway timeout.
+- [ ] Load the same release/images on BS1069 while keeping all services stopped.
+Rollback:
+- Restore the T127 backend/frontend images and release pointer. Do not change
+  databases, volumes, FASTQ, results, or the external Docker network.

@@ -1854,3 +1854,33 @@ sample QC decisions passing and all 232 persisted rule events in success.
 in 12 seconds; its 21 graph jobs are planned/skipped and no WGS rule executed.
 The older deliberately stopped `WGS_20260714_180953_9D7981` remains a failed
 historical handoff record and must not be used as current acceptance evidence.
+
+## 35. T128 BS NIPT manual scan latency repair
+
+The BS FASTQ mount remains read-only and unchanged:
+
+```text
+/sugon01/fq_backup/NIPT_fq_backup -> /data/nipt-fastq:ro
+```
+
+Only the approved discovery root is narrowed:
+
+```text
+NIPT_INPUT_SCAN_ROOTS=/data/nipt-fastq/FQ2026
+```
+
+Do not pass the host path `/sugon01/...` to the API. Verify the backend root
+and run a read-only bounded scan before opening Submit Run:
+
+```bash
+curl -fsS http://127.0.0.1:12959/api/input/roots?pipeline=nipt_docker
+curl -fsS -X POST http://127.0.0.1:12959/api/input/scan \
+  -H 'Content-Type: application/json' \
+  -d '{"pipeline":"nipt_docker","rawdata_root":"/data/nipt-fastq/FQ2026","max_samples":20}'
+```
+
+The scan must return candidate samples before the 60-second nginx timeout.
+This is a discovery-only acceptance: do not click Create/Submit, do not
+unpause `bio_intake_scan`, and do not move or delete FASTQ. Roll back by
+restoring the T127 backend/frontend images and release pointer without touching
+PostgreSQL, Redis, results, volumes, or `nipt_analysis_test_net`.

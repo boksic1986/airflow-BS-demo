@@ -139,7 +139,7 @@ it("opens Submit Run on NIPT without issuing a transient PGT-A config request", 
     requestedUrls.push(url);
     if (url.endsWith("/api/platform/capabilities")) return Promise.resolve(sharedCapabilitiesResponse());
     if (url.includes("/api/input/roots")) {
-      return Promise.resolve(new Response(JSON.stringify({pipeline: "nipt_docker", roots: ["/data/nipt-fastq"]}), {status: 200, headers: {"Content-Type": "application/json"}}));
+      return Promise.resolve(new Response(JSON.stringify({pipeline: "nipt_docker", roots: ["/data/nipt-fastq/FQ2026"]}), {status: 200, headers: {"Content-Type": "application/json"}}));
     }
     if (url.includes("/api/pipeline-config/template")) {
       return Promise.resolve(new Response(JSON.stringify({
@@ -159,6 +159,7 @@ it("opens Submit Run on NIPT without issuing a transient PGT-A config request", 
   expect(await screen.findByRole("radio", {name: /NIPT Docker/i})).toBeInTheDocument();
   expect(screen.getByRole("radio", {name: /^WGS/i})).toBeInTheDocument();
   await waitFor(() => expect(requestedUrls.some((url) => url.includes("pipeline=nipt_docker"))).toBe(true));
+  await waitFor(() => expect(screen.getByLabelText("Rawdata root")).toHaveValue("/data/nipt-fastq/FQ2026"));
   expect(requestedUrls.some((url) => url.includes("pipeline=pgta"))).toBe(false);
   expect(screen.queryByText(/PGT-A/i)).not.toBeInTheDocument();
 

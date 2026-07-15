@@ -93,3 +93,27 @@ def test_scan_nipt_batch_candidates_uses_chip_folder_and_clean_fastqs(tmp_path) 
     assert item.r2 == str(r2.resolve())
     assert item.source_dir == str(batch_dir.resolve())
     assert item.discovery_method == "nipt_docker_clean_scan"
+
+
+def test_scan_nipt_stops_at_limit_without_materializing_the_entire_tree(tmp_path, monkeypatch) -> None:
+    allowed_root = tmp_path / "fastq" / "FQ2026"
+    older_batch = allowed_root / "260101_NDX550692_RUO_0182_AHVTGLBGYX"
+    latest_batch = allowed_root / "260709_TPNB500380AR_1117_AHGN5GBGY2"
+    write_nipt_clean_pair(older_batch, "OLD.A01")
+    write_nipt_clean_pair(latest_batch, "LATEST.A01")
+    write_nipt_clean_pair(latest_batch, "LATEST.A02")
+
+    def reject_full_tree_materialization(*_args, **_kwargs):
+        raise AssertionError("NIPT scan must not materialize the entire directory tree")
+
+    monkeypatch.setattr(Path, "rglob", reject_full_tree_materialization)
+
+    result = scan_nipt_batch_candidates(
+        rawdata_root=allowed_root,
+        allowed_roots=[allowed_root],
+        max_samples=1,
+    )
+
+    assert result.truncated is True
+    assert [item.sample_id for item in result.items] == ["LATEST.A01"]
+    assert result.items[0].source_dir == str(latest_batch.resolve())

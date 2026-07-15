@@ -427,12 +427,17 @@ Response:
 }
 ```
 
-T103 update: `POST /api/input/scan` now supports `pipeline=pgta` and
+T103 update: `POST /api/input/scan` supports `pipeline=pgta` and
 `pipeline=nipt_docker`. PGT-A roots come from `PGTA_INPUT_SCAN_ROOTS` with
-legacy `INPUT_SCAN_ROOTS` fallback. NIPT roots come from `NIPT_INPUT_SCAN_ROOTS`
-and default to `/opt/pipelines/NIPT/fastq` in containers. NIPT scanning returns
-chip-folder grouped `*.clean.fastq.gz` R1/R2 pairs; nested adapter FASTQ files
-are ignored in v1.
+legacy `INPUT_SCAN_ROOTS` fallback. NIPT roots come from `NIPT_INPUT_SCAN_ROOTS`.
+NIPT scanning returns chip-folder grouped `*.clean.fastq.gz` R1/R2 pairs;
+nested adapter FASTQ files are ignored in v1.
+
+T128 BS contract: the approved manual NIPT scan root is
+`/data/nipt-fastq/FQ2026`. Discovery traverses candidate batch directories in
+descending name order and stops after `max_samples`; it must not materialize
+the complete FASTQ tree before applying the limit. The read-only
+`/data/nipt-fastq` mount remains available for historical run compatibility.
 
 ```http
 GET /api/input/roots?pipeline=pgta
@@ -444,7 +449,7 @@ Response:
 ```json
 {
   "pipeline": "nipt_docker",
-  "roots": ["/opt/pipelines/NIPT/fastq"]
+  "roots": ["/data/nipt-fastq/FQ2026"]
 }
 ```
 

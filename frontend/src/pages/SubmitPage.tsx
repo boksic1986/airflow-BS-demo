@@ -106,8 +106,7 @@ export function SubmitPage() {
         setRootOptions(roots);
         setRawdataRoot((current) => {
           if (roots.includes(current)) return current;
-          if (selectedPipeline === "pgta" && current === defaultNiptRawdataRoot) return roots[0]!;
-          if (selectedPipeline === "nipt_docker" && current === defaultPgtaRawdataRoot) return roots[0]!;
+          if (current === defaultNiptRawdataRoot || current === defaultPgtaRawdataRoot) return roots[0]!;
           return current.trim() ? current : roots[0]!;
         });
       })

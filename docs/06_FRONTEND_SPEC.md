@@ -1,5 +1,19 @@
 # 06 前端设计
 
+## T128 BS NIPT manual scan behavior
+
+- Submit Run loads the approved server path from
+  `GET /api/input/roots?pipeline=nipt_docker` and replaces only the built-in
+  fallback value. A path deliberately entered by an operator is preserved.
+- The BS default is `/data/nipt-fastq/FQ2026`; operators may select a returned
+  approved root or a batch below it, but host paths such as `/sugon01/...` are
+  never sent to the container API.
+- Scan results remain folder-first: select a batch to select all returned
+  samples, or expand it to choose individual FASTQ pairs. The fix does not
+  create or submit a run automatically.
+- Loading and gateway errors stay inside the scan panel and must not be
+  represented as an empty data directory.
+
 ## T127 BS NIPT and WGS Control Tower
 
 - The BS build loads `/api/platform/capabilities` before rendering pipeline

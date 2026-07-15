@@ -8,8 +8,8 @@ pipelines:
     enabled: true
     roots:
       - id: bs_nipt_fastq
-        host_path: /sugon01/fq_backup/NIPT_fq_backup
-        container_path: /data/nipt-fastq
+        host_path: /sugon01/fq_backup/NIPT_fq_backup/FQ2026
+        container_path: /data/nipt-fastq/FQ2026
     file_flavor: clean_fastq
     r1_pattern: "*.R1.clean.fastq.gz"
     r2_pattern: "*.R2.clean.fastq.gz"

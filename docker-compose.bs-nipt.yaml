@@ -164,7 +164,7 @@ services:
       AIRFLOW_API_USERNAME: ${AIRFLOW_API_USERNAME:-admin}
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?Set AIRFLOW_API_PASSWORD in .env}
       CONTAINER_SHARED_ROOT: /data/airflow-demo
-      NIPT_INPUT_SCAN_ROOTS: /data/nipt-fastq
+      NIPT_INPUT_SCAN_ROOTS: /data/nipt-fastq/FQ2026
       INTAKE_CONFIG_PATH: /app/config/intake.yaml
       PIPELINE_PROFILE_CONFIG_PATH: /app/config/pipeline_profiles.yaml
       NIPT_DOCKER_CORES: "32"

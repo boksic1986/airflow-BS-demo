@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import re
+from typing import Iterator
 
 
 class InputPathError(ValueError):
@@ -81,8 +83,9 @@ def scan_nipt_batch_candidates(
 
     items: list[FastqCandidate] = []
     excluded = {str(Path(path).resolve()) for path in (excluded_source_dirs or set())}
-    batch_dirs = [path for path in _nipt_batch_dirs(root) if str(path.resolve()) not in excluded]
-    for batch_dir in batch_dirs:
+    for batch_dir in _nipt_batch_dirs(root):
+        if str(batch_dir.resolve()) in excluded:
+            continue
         for sample_stem, r1, r2 in _paired_nipt_clean_fastqs(batch_dir):
             if len(items) >= max_samples:
                 return ScanResult(pipeline="nipt_docker", rawdata_root=str(root), truncated=True, items=items)
@@ -125,14 +128,14 @@ def _paired_fastqs(sample_dir: Path) -> list[tuple[str, Path, Path]]:
     return pairs
 
 
-def _nipt_batch_dirs(root: Path) -> list[Path]:
-    candidates = [path for path in _iter_dirs(root) if _paired_nipt_clean_fastqs(path)]
-    selected: list[Path] = []
-    for path in sorted(candidates, key=lambda item: (len(item.relative_to(root).parts), str(item))):
-        if any(path != parent and path.is_relative_to(parent) for parent in selected):
+def _nipt_batch_dirs(root: Path) -> Iterator[Path]:
+    for current_root, dir_names, _file_names in os.walk(root, topdown=True):
+        dir_names[:] = sorted((name for name in dir_names if not name.startswith(".")), reverse=True)
+        batch_dir = Path(current_root)
+        if not _paired_nipt_clean_fastqs(batch_dir):
             continue
-        selected.append(path)
-    return selected
+        yield batch_dir
+        dir_names.clear()
 
 
 def _paired_nipt_clean_fastqs(batch_dir: Path) -> list[tuple[str, Path, Path]]:

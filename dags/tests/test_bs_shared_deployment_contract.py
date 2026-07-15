@@ -13,6 +13,7 @@ class BsSharedDeploymentContractTests(unittest.TestCase):
         self.assertIn("DEPLOYED_PIPELINES: nipt_docker,wgs", compose)
         self.assertIn("NIPT_AIRFLOW_POOL: bs_heavy_analysis", compose)
         self.assertIn("WGS_AIRFLOW_POOL: bs_heavy_analysis", compose)
+        self.assertIn("NIPT_INPUT_SCAN_ROOTS: /data/nipt-fastq/FQ2026", compose)
         self.assertEqual(compose.count('WGS_ALLOW_EXECUTION: "false"'), 2)
         self.assertIn("airflow pools set bs_heavy_analysis 1", compose)
         self.assertIn("./dags/bio_nipt_docker.py:/opt/airflow/dags/bio_nipt_docker.py:ro", compose)
@@ -20,6 +21,10 @@ class BsSharedDeploymentContractTests(unittest.TestCase):
         self.assertNotIn("airflow-wgs", compose)
         self.assertNotIn("13958", compose)
         self.assertNotIn("13959", compose)
+
+        intake = (REPO_ROOT / "config" / "intake.bs-nipt.yaml").read_text(encoding="utf-8")
+        self.assertIn("host_path: /sugon01/fq_backup/NIPT_fq_backup/FQ2026", intake)
+        self.assertIn("container_path: /data/nipt-fastq/FQ2026", intake)
 
     def test_example_env_reuses_the_accepted_compose_project(self) -> None:
         example = (REPO_ROOT / ".env.bs-nipt.example").read_text(encoding="utf-8")
