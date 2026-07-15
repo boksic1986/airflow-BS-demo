@@ -106,6 +106,31 @@ it("renders one shared NIPT and WGS control plane without PGT-A", async () => {
   expect(screen.queryByRole("button", {name: "PGT-A"})).not.toBeInTheDocument();
 });
 
+it("blocks a historical PGT-A run detail in the NIPT and WGS deployment", async () => {
+  window.history.pushState({}, "", "/runs/PGTA_RETIRED");
+  const requestedUrls: string[] = [];
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    requestedUrls.push(url);
+    if (url.endsWith("/api/platform/capabilities")) return Promise.resolve(sharedCapabilitiesResponse());
+    if (url.endsWith("/api/runs/PGTA_RETIRED")) {
+      return Promise.resolve(new Response(JSON.stringify({
+        analysis_id: "PGTA_RETIRED",
+        pipeline: "pgta",
+        status: "success",
+        params: {},
+      }), {status: 200, headers: {"Content-Type": "application/json"}}));
+    }
+    return Promise.resolve(new Response(JSON.stringify({items: []}), {status: 200, headers: {"Content-Type": "application/json"}}));
+  }));
+
+  render(<App />);
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(/not deployed in this environment/i);
+  expect(screen.queryByText("PGTA_RETIRED")).not.toBeInTheDocument();
+  expect(requestedUrls.some((url) => url.endsWith("/api/runs/PGTA_RETIRED/samples"))).toBe(false);
+});
+
 it("opens Submit Run on NIPT without issuing a transient PGT-A config request", async () => {
   window.history.pushState({}, "", "/submit");
   const requestedUrls: string[] = [];

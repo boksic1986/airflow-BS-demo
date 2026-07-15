@@ -804,6 +804,7 @@ def run_detail(analysis_id: str) -> dict[str, object]:
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
+    _guard_pipeline_deployed(str(payload.get("pipeline") or payload.get("pipeline_name") or ""))
     return payload
 
 

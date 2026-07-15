@@ -124,3 +124,23 @@ def test_reanalyze_rejects_run_from_undeployed_pipeline_before_trigger(monkeypat
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "PIPELINE_NOT_DEPLOYED"
     assert triggered is False
+
+
+def test_run_detail_rejects_run_from_undeployed_pipeline(monkeypatch) -> None:
+    monkeypatch.setattr(main, "get_settings", lambda: _settings(deployed_pipelines=("nipt_docker", "wgs")))
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: lambda: nullcontext(object()))
+    monkeypatch.setattr(
+        main,
+        "get_run_detail",
+        lambda **kwargs: {
+            "analysis_id": kwargs["analysis_id"],
+            "pipeline": "pgta",
+            "status": "success",
+            "params": {},
+        },
+    )
+
+    response = TestClient(main.app).get("/api/runs/PGTA_RETIRED")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "PIPELINE_NOT_DEPLOYED"

@@ -2,7 +2,7 @@ import {Play, RefreshCw} from "lucide-react";
 import {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 
-import type {Artifact, LogStream, RuleEvent, RunConfig, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, RunQc, RunResourceSummary, Sample} from "../api";
+import type {Artifact, DeployedPipeline, LogStream, RuleEvent, RunConfig, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, RunQc, RunResourceSummary, Sample} from "../api";
 
 import {
   getRunArtifacts,
@@ -23,6 +23,7 @@ import {LogViewer, preferredLogSource} from "../components/LogViewer";
 import {MetricCard} from "../components/MetricCard";
 import {StatusBadge} from "../components/StatusBadge";
 import {CurrentProgressPanel} from "../features/run-detail/CurrentProgressPanel";
+import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {RunQcTab} from "../features/run-detail/RunQcTab";
 import {RunConfigTab, RunFilesTab, RunOverviewTab, RunSamplesTab} from "../features/run-detail/RunResourceTabs";
 import {RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
@@ -49,6 +50,8 @@ const emptyBundle: Bundle = {detail: null, samples: [], rules: [], artifacts: []
 
 export function RunDetailPage() {
   const {analysisId = ""} = useParams();
+  const capabilities = usePlatformCapabilities();
+  const capabilityKey = capabilities.deployed_pipelines.join(",");
   const [bundle, setBundle] = useState<Bundle>(emptyBundle);
   const [log, setLog] = useState<RunLog | null>(null);
   const [logStream, setLogStream] = useState<LogStream>("metadata");
@@ -58,6 +61,9 @@ export function RunDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [logError, setLogError] = useState<string | null>(null);
+  const [logIndexError, setLogIndexError] = useState<string | null>(null);
+  const [progressError, setProgressError] = useState<string | null>(null);
+  const [configError, setConfigError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [resourceError, setResourceError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
@@ -68,16 +74,31 @@ export function RunDetailPage() {
     setLoading(true);
     setError(null);
     setResourceError(null);
+    setLogIndexError(null);
+    setProgressError(null);
+    setConfigError(null);
     try {
-      const [detail, samples, rules, progress, artifacts, qc, config, indexedLogs, resources] = await Promise.all([
-        getRunDetail(analysisId),
+      const detail = await getRunDetail(analysisId);
+      if (!capabilities.isDeployed(detail.pipeline as DeployedPipeline)) {
+        throw new Error("This run belongs to a pipeline that is not deployed in this environment.");
+      }
+      const [samples, rules, progress, artifacts, qc, config, indexedLogs, resources] = await Promise.all([
         getRunSamples(analysisId),
         getRunRules(analysisId),
-        getRunProgress(analysisId).catch(() => null),
+        getRunProgress(analysisId).catch((progressLoadError) => {
+          setProgressError(errorMessage(progressLoadError));
+          return null;
+        }),
         getRunArtifacts(analysisId),
         getRunQc(analysisId),
-        getRunConfig(analysisId).catch(() => null),
-        getRunLogIndex(analysisId).catch(() => ({items: []})),
+        getRunConfig(analysisId).catch((configLoadError) => {
+          setConfigError(errorMessage(configLoadError));
+          return null;
+        }),
+        getRunLogIndex(analysisId).catch((indexLoadError) => {
+          setLogIndexError(errorMessage(indexLoadError));
+          return {items: []};
+        }),
         getRunResources(analysisId).catch((resourceLoadError) => {
           setResourceError(errorMessage(resourceLoadError));
           return null;
@@ -111,8 +132,13 @@ export function RunDetailPage() {
     }
   }
 
-  useEffect(() => { void loadDetail(); }, [analysisId]);
-  useEffect(() => { void loadLog(logStream, logKey); }, [analysisId, logKey, logStream]);
+  useEffect(() => {
+    if (!capabilities.loading) void loadDetail();
+  }, [analysisId, capabilities.loading, capabilityKey]);
+  useEffect(() => {
+    const pipeline = bundle.detail?.pipeline;
+    if (pipeline && capabilities.isDeployed(pipeline as DeployedPipeline)) void loadLog(logStream, logKey);
+  }, [analysisId, bundle.detail?.pipeline, capabilityKey, logKey, logStream]);
 
   function handleLogKeyChange(nextKey: string) {
     const source = logSources.find((item) => item.key === nextKey);
@@ -149,7 +175,7 @@ export function RunDetailPage() {
     : detail
       ? computeRunProgress({analysis_id: detail.analysis_id, pipeline: detail.pipeline, status: detail.status, created_at: detail.created_at, started_at: detail.started_at, ended_at: detail.ended_at, sample_count: bundle.samples.length}, detail, bundle.rules)
       : null;
-  const canSubmit = detail?.status === "created" && ["pgta", "nipt_docker", "wgs"].includes(detail.pipeline);
+  const canSubmit = detail?.status === "created" && capabilities.isDeployed(detail.pipeline as DeployedPipeline);
   async function runAction(action: "sync" | "submit") {
     if (!analysisId) return;
     setActing(true);
@@ -192,6 +218,7 @@ export function RunDetailPage() {
           <MetricCard title="Rule events" value={bundle.rules.length} status={failedRule ? "failed" : undefined} />
         </section>
         <ErrorPanel diagnosis={diagnosis} />
+        {progressError ? <div className="inline-error" role="alert">Current progress unavailable: {progressError}</div> : null}
         <div className="split-grid">
           <CurrentProgressPanel detail={detail} progress={progress} source={bundle.progress?.progress_source} />
           <section className="panel"><div className="section-heading"><h2>QC summary</h2><p>Sample-level decisions; informational metrics do not lower sample status.</p></div><div className="metric-grid compact">{(["pass", "warn", "fail", "unknown"] as const).map((status) => <MetricCard key={status} title={status} value={sampleQcSummary?.[status] ?? 0} status={status} />)}</div></section>
@@ -221,9 +248,9 @@ export function RunDetailPage() {
           {activeTab === "Samples" ? <RunSamplesTab samples={bundle.samples} /> : null}
           {activeTab === "Workflow" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} /> : null}
           {activeTab === "QC" ? <RunQcTab qc={bundle.qc} runStatus={detail.status} /> : null}
-          {activeTab === "Logs" ? <LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} /> : null}
+          {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} /></> : null}
           {activeTab === "Files" ? <RunFilesTab artifacts={bundle.artifacts} /> : null}
-          {activeTab === "Config" ? <RunConfigTab artifacts={bundle.artifacts} config={bundle.config} detail={detail} /> : null}
+          {activeTab === "Config" ? <>{configError ? <div className="inline-error" role="alert">Run config unavailable: {configError}</div> : null}<RunConfigTab artifacts={bundle.artifacts} config={bundle.config} detail={detail} /></> : null}
         </section>
       </> : null}
     </div>
