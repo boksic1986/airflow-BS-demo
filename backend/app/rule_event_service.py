@@ -203,6 +203,23 @@ def cancel_incomplete_rule_events(
     return len(rows)
 
 
+def finalize_dry_run_rule_events(
+    *, session: Session, analysis_id: str, timestamp: datetime
+) -> int:
+    rows = session.scalars(
+        select(SnakemakeRuleEvent).where(
+            SnakemakeRuleEvent.analysis_id == analysis_id,
+            func.lower(SnakemakeRuleEvent.status).in_(START_STATUSES),
+        )
+    ).all()
+    for row in rows:
+        row.status = "skipped"
+        row.end_time = row.end_time or timestamp
+        row.updated_at = timestamp
+        row.message = "Dry-run planned job; rule was not executed."
+    return len(rows)
+
+
 def _find_existing_event(
     *,
     session: Session,

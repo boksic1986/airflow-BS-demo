@@ -155,6 +155,7 @@ def build_snakemake_command(
     if not dry_run and not allow_execution:
         raise ValueError("WGS is deployed in dry-run validation mode; real execution is disabled.")
     if dry_run:
+        command.append("--logger-airflow-demo-dry-run")
         command.append("--dry-run")
     command.extend(targets)
     return command

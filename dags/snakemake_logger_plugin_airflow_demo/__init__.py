@@ -28,6 +28,10 @@ class LogHandlerSettings(LogHandlerSettingsBase):
         default=2.0,
         metadata={"help": "Reserved backend POST timeout for future use."},
     )
+    dry_run: bool = field(
+        default=False,
+        metadata={"help": "Mark enumerated jobs as dry-run plans instead of running jobs."},
+    )
 
 
 class LogHandler(LogHandlerBase):
@@ -42,6 +46,7 @@ class LogHandler(LogHandlerBase):
         self.events_path.parent.mkdir(parents=True, exist_ok=True)
         self.backend_event_url = str(settings.backend_event_url or "").strip()
         self.post_timeout_seconds = float(settings.post_timeout_seconds)
+        self.dry_run = bool(settings.dry_run)
         self.job_context: dict[str, dict[str, Any]] = {}
         self.baseFilename = str(self.events_path)
 
@@ -130,6 +135,11 @@ class LogHandler(LogHandlerBase):
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         self._fill_payload_from_job_context(payload)
+        if self.dry_run and payload.get("rule") and payload["status"] in {"running", "success"}:
+            payload["event"] = "dry_run_planned"
+            payload["status"] = "skipped"
+            payload["return_code"] = None
+            payload["message"] = f"Dry-run planned job; rule was not executed. {payload['message']}"
         self._remember_job_context(payload)
         return payload
 

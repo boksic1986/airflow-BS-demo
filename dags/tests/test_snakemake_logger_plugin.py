@@ -27,6 +27,43 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
         self.assertIs(field_types["events_path"], Path)
         self.assertIs(field_types["backend_event_url"], str)
         self.assertIs(field_types["post_timeout_seconds"], float)
+        self.assertIs(field_types["dry_run"], bool)
+
+    def test_dry_run_logger_marks_planned_jobs_as_skipped(self) -> None:
+        from snakemake_logger_plugin_airflow_demo import LogHandler, LogHandlerSettings
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            events_path = Path(tmpdir) / "events" / "snakemake_events.jsonl"
+            handler = LogHandler(
+                common_settings=None,
+                settings=LogHandlerSettings(
+                    analysis_id="WGS_DRY_RUN_TEST",
+                    workdir=Path(tmpdir),
+                    events_path=events_path,
+                    dry_run=True,
+                ),
+            )
+            record = logging.LogRecord(
+                name="snakemake",
+                level=logging.INFO,
+                pathname="snakefile",
+                lineno=1,
+                msg="Rule: mapping, Jobid: 1",
+                args=(),
+                exc_info=None,
+            )
+            record.event = LogEvent.JOB_INFO
+            record.rule = "mapping"
+            record.job_id = 1
+            record.wildcards = {"sample": "WGS-01"}
+
+            handler.emit(record)
+
+            payload = json.loads(events_path.read_text(encoding="utf-8").splitlines()[0])
+
+        self.assertEqual(payload["status"], "skipped")
+        self.assertEqual(payload["event"], "dry_run_planned")
+        self.assertIn("not executed", payload["message"])
 
     def test_logger_writes_job_events_jsonl(self) -> None:
         from snakemake_logger_plugin_airflow_demo import LogHandler, LogHandlerSettings

@@ -97,6 +97,7 @@ def test_snakemake9_command_has_logger_and_no_removed_flags(tmp_path) -> None:
     assert command[0] == "/opt/wgs-s9/bin/snakemake"
     assert "--executor local" in joined
     assert "--logger airflow-demo" in joined
+    assert "--logger-airflow-demo-dry-run" in command
     assert "--rerun-incomplete" in command
     assert "--show-failed-logs" in command
     assert "--dry-run" in command

@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 from app import main
 from app.diagnostics_service import sync_airflow_status
 from app.models import AnalysisRun, Base, SnakemakeRuleEvent
+from app.rule_event_service import finalize_dry_run_rule_events
 
 
 def make_test_sessionmaker():
@@ -80,6 +81,49 @@ def insert_wgs_run(
         )
         session.commit()
     return analysis_id
+
+
+def test_finalize_dry_run_rule_events_marks_planned_jobs_skipped(tmp_path) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_wgs_run(session_factory, tmp_path, status="success")
+    finished_at = datetime(2026, 7, 15, 6, 22, 36, tzinfo=timezone.utc)
+    with session_factory() as session:
+        session.add_all(
+            [
+                SnakemakeRuleEvent(
+                    analysis_id=analysis_id,
+                    rule="mapping",
+                    sample_id="WGS-01",
+                    snakemake_jobid="1",
+                    status="running",
+                ),
+                SnakemakeRuleEvent(
+                    analysis_id=analysis_id,
+                    rule="cleanFastq",
+                    sample_id="WGS-01",
+                    snakemake_jobid="2",
+                    status="skipped",
+                ),
+            ]
+        )
+        session.commit()
+
+        updated = finalize_dry_run_rule_events(
+            session=session,
+            analysis_id=analysis_id,
+            timestamp=finished_at,
+        )
+        session.commit()
+        rows = session.scalars(
+            select(SnakemakeRuleEvent)
+            .where(SnakemakeRuleEvent.analysis_id == analysis_id)
+            .order_by(SnakemakeRuleEvent.rule)
+        ).all()
+
+    assert updated == 1
+    assert [row.status for row in rows] == ["skipped", "skipped"]
+    assert rows[1].end_time.replace(tzinfo=timezone.utc) == finished_at
+    assert "dry-run planned" in str(rows[1].message).lower()
 
 
 class FakeAirflowClient:
