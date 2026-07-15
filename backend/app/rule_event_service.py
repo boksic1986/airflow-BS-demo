@@ -78,12 +78,16 @@ def list_snakemake_rule_events(
     limit: int | None = None,
     offset: int = 0,
     pipeline_name: str | None = None,
+    pipeline_stage: str | None = None,
 ) -> list[dict[str, Any]] | None:
-    if pipeline_name is None:
+    if pipeline_name is None or (pipeline_name == "wgs" and pipeline_stage is None):
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
         if run is None:
             return None
         pipeline_name = run.pipeline_name
+        if pipeline_name == "wgs":
+            params = run.params_json or {}
+            pipeline_stage = str(params.get("wgs_stage") or params.get("stage") or "full")
 
     rows = session.scalars(
         select(SnakemakeRuleEvent)
@@ -95,7 +99,10 @@ def list_snakemake_rule_events(
             SnakemakeRuleEvent.snakemake_jobid,
         )
     ).all()
-    items = [_rule_event_payload(row, pipeline_name=pipeline_name) for row in rows]
+    items = [
+        _rule_event_payload(row, pipeline_name=pipeline_name, pipeline_stage=pipeline_stage)
+        for row in rows
+    ]
     if status:
         items = [item for item in items if str(item.get("status") or "").lower() == status.lower()]
     if rule:
@@ -124,6 +131,7 @@ def get_snakemake_rule_events_page(
         session=session,
         analysis_id=analysis_id,
         pipeline_name=run.pipeline_name,
+        pipeline_stage=_wgs_stage(run),
     )
     if all_items is None:
         return None
@@ -139,7 +147,11 @@ def get_snakemake_rule_events_page(
         "total": len(filtered),
         "limit": limit,
         "offset": offset,
-        "summary": summarize_rule_events(all_items, pipeline_name=run.pipeline_name),
+        "summary": summarize_rule_events(
+            all_items,
+            pipeline_name=run.pipeline_name,
+            pipeline_stage=_wgs_stage(run),
+        ),
     }
 
 
@@ -237,7 +249,12 @@ def _apply_event(rule_event: SnakemakeRuleEvent, *, event: Mapping[str, Any], ti
         rule_event.end_time = timestamp
 
 
-def _rule_event_payload(row: SnakemakeRuleEvent, *, pipeline_name: str | None = None) -> dict[str, Any]:
+def _rule_event_payload(
+    row: SnakemakeRuleEvent,
+    *,
+    pipeline_name: str | None = None,
+    pipeline_stage: str | None = None,
+) -> dict[str, Any]:
     return {
         "rule": row.rule,
         "sample_id": row.sample_id,
@@ -251,8 +268,19 @@ def _rule_event_payload(row: SnakemakeRuleEvent, *, pipeline_name: str | None = 
         "message": row.message,
         "return_code": row.return_code,
         "wildcards": row.wildcards_json or {},
-        "phase": phase_for_rule(row.rule, pipeline_name=pipeline_name),
+        "phase": phase_for_rule(
+            row.rule,
+            pipeline_name=pipeline_name,
+            pipeline_stage=pipeline_stage,
+        ),
     }
+
+
+def _wgs_stage(run: AnalysisRun) -> str | None:
+    if run.pipeline_name != "wgs":
+        return None
+    params = run.params_json or {}
+    return str(params.get("wgs_stage") or params.get("stage") or "full")
 
 
 def _update_run_progress(*, run: AnalysisRun, rule_event: SnakemakeRuleEvent, status: str, timestamp: datetime) -> None:

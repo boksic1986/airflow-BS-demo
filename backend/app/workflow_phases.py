@@ -199,9 +199,16 @@ RUNNING_STATUSES = {"planned", "submitted", "running", "started"}
 TERMINAL_STATUSES = {"success", "failed", "fail", "error", "skipped", "canceled", "cancelled", "terminated"}
 
 
-def phase_for_rule(rule: str | None, *, pipeline_name: str | None = None) -> str:
+def phase_for_rule(
+    rule: str | None,
+    *,
+    pipeline_name: str | None = None,
+    pipeline_stage: str | None = None,
+) -> str:
     name = str(rule or "").strip()
     if str(pipeline_name or "").strip().lower() == "wgs":
+        if name == "all":
+            return "Pre-calling" if str(pipeline_stage or "").strip().lower() == "precalling" else "QC"
         # Unknown WGS rules remain on the WGS stage rail rather than becoming generic Pipeline events.
         return WGS_RULE_PHASES.get(name, WGS_UNKNOWN_RULE_PHASE)
     return NIPT_RULE_PHASES.get(name) or GENERIC_RULE_PHASES.get(name) or "Pipeline"
@@ -218,11 +225,19 @@ def rule_counts(events: list[dict[str, Any]]) -> dict[str, int]:
     }
 
 
-def summarize_rule_events(events: list[dict[str, Any]], *, pipeline_name: str | None = None) -> dict[str, Any]:
+def summarize_rule_events(
+    events: list[dict[str, Any]],
+    *,
+    pipeline_name: str | None = None,
+    pipeline_stage: str | None = None,
+) -> dict[str, Any]:
     by_status = Counter(str(item.get("status") or "unknown").lower() for item in events)
     phase_rows: dict[str, list[dict[str, Any]]] = {}
     for item in events:
-        phase_rows.setdefault(phase_for_rule(item.get("rule"), pipeline_name=pipeline_name), []).append(item)
+        phase_rows.setdefault(
+            phase_for_rule(item.get("rule"), pipeline_name=pipeline_name, pipeline_stage=pipeline_stage),
+            [],
+        ).append(item)
     phases = [
         {"phase": phase, **rule_counts(items)}
         for phase, items in phase_rows.items()

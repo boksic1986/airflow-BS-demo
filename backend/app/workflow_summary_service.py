@@ -45,10 +45,19 @@ def workflow_summaries_by_run(*, session: Session, runs: list[AnalysisRun]) -> d
         ).all()
     ) if analysis_ids else []
     pipeline_by_analysis_id = {run.analysis_id: run.pipeline_name for run in runs}
+    stage_by_analysis_id = {
+        run.analysis_id: str((run.params_json or {}).get("wgs_stage") or (run.params_json or {}).get("stage") or "full")
+        for run in runs
+        if run.pipeline_name == "wgs"
+    }
     grouped: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
     for item in events:
         pipeline_name = pipeline_by_analysis_id.get(item.analysis_id)
-        grouped[item.analysis_id][phase_for_rule(item.rule, pipeline_name=pipeline_name)].append(
+        grouped[item.analysis_id][phase_for_rule(
+            item.rule,
+            pipeline_name=pipeline_name,
+            pipeline_stage=stage_by_analysis_id.get(item.analysis_id),
+        )].append(
             str(item.status or "unknown").lower()
         )
 

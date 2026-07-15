@@ -190,11 +190,22 @@ def _rule_observability(*, run: AnalysisRun, rule_events: list[dict[str, Any]], 
     current = current_rule_event(rule_events, prefer_failed=prefer_failed)
     rule = str((current or {}).get("rule") or "") or None
     return {
-        "current_phase": phase_for_rule(rule, pipeline_name=run.pipeline_name) if rule else None,
+        "current_phase": phase_for_rule(
+            rule,
+            pipeline_name=run.pipeline_name,
+            pipeline_stage=_pipeline_stage(run),
+        ) if rule else None,
         "current_rule": rule,
         "current_sample": (current or {}).get("sample_id"),
         "rule_counts": rule_counts(rule_events),
     }
+
+
+def _pipeline_stage(run: AnalysisRun) -> str | None:
+    if run.pipeline_name != "wgs":
+        return None
+    params = run.params_json or {}
+    return str(params.get("wgs_stage") or params.get("stage") or "full")
 
 
 def _base_payload(run: AnalysisRun) -> dict[str, Any]:
