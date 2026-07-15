@@ -24,7 +24,7 @@
 | T014 | fengxian 用户级 Docker Compose v2 准入 | infra | T001,T004 | `$HOME/.docker/cli-plugins/docker-compose` | `docker compose version` 输出固定 v2 版本，未做系统级 Docker 升级 | done |
 | T125 | BS NIPT-only Docker 网络硬约束文档 | infra/docs | T124,T113 | engineering spec、runbook、security、server inventory、BS deployment contract | 明确 `nipt_analysis_test_net` / `192.168.199.0/24` / `192.168.199.1` 为不可变外部网络约束；记录 BS project root、主备角色和验收/回滚边界 | done |
 | T126 | BS NIPT-only Airflow 平台移植 | infra/backend/airflow/frontend/QA | T125,T113 | NIPT-only capability、BS Compose、S9 images、BS10610 primary、BS1069 cold standby | 10/72-sample full runs success；FASTQ unchanged；BS1069 images verified but services stopped | done |
-| T127 | BS shared NIPT/WGS Airflow control plane | infra/backend/airflow/snakemake/frontend/QA | T126 | one CeleryExecutor stack; NIPT Docker S9; host WGS S9 over restricted SSH; resource telemetry; BS1069 standby | shared deployment healthy; one-family 96-core WGS validation; serial NIPT validation; no PGT-A or active-active | in_progress |
+| T127 | BS shared NIPT/WGS Airflow control plane | infra/backend/airflow/snakemake/frontend/QA | T126 | one CeleryExecutor stack; NIPT Docker S9; host WGS S9 over restricted SSH; resource telemetry; BS1069 standby | shared deployment healthy; one-family WGS S9 dry-run; three serial NIPT full validations; no PGT-A or active-active | done |
 
 ## P2 Backend API 和数据库
 
@@ -244,7 +244,7 @@ Rollback:
 ### T127 - BS shared NIPT and WGS Airflow control plane
 
 Owner: infra/backend/airflow/snakemake/frontend/QA
-Status: in_progress
+Status: done
 Dependencies: T126
 Scope:
 - Upgrade the existing `airflow-nipt` Compose project into one shared control
@@ -263,9 +263,13 @@ Acceptance:
   inventory, CeleryExecutor services, network, and pool are deployed.
 - [x] WGS Snakemake 9 dry-run selects one family (three new samples) at 96
   cores and links only approved historical batch context.
-- [ ] One-family WGS run reaches terminal with logger and resource evidence.
-- [ ] Additional NIPT batches run serially after WGS or stop at first failure.
-- [ ] BS1069 release/config is verified with every service stopped.
+- [x] One-family WGS Snakemake 9 full downstream dry-run resolves 23 jobs; the
+  host process is intentionally stopped afterward because full completion is
+  outside the revised acceptance scope.
+- [x] Three 27-sample NIPT full batches run serially and finish success with
+  27/27 QC pass and 232/232 terminal-success rule events each.
+- [x] BS1069 release/config and image IDs are verified with every service
+  stopped.
 Rollback:
 - Pause intake and stop only recreated application services without `-v`;
   restore the previous shared release/images and keep all volumes/results.

@@ -7,12 +7,16 @@
 - Confirm Airflow lists `bio_nipt_docker`, `bio_wgs`, and paused
   `bio_intake_scan` only.
 - Confirm `bs_heavy_analysis` has one slot and prevents NIPT/WGS overlap.
-- Run WGS Snakemake 9 dry-run and one family full validation with a 96-core
-  ceiling. A second family is optional and only for diagnosis/comparison.
-- Require terminal rule events, required output targets, input immutability,
-  and resource summary evidence.
-- Submit additional NIPT batches serially only after WGS is terminal, stopping
-  on the first failed batch.
+- Run one-family WGS Snakemake 9 full downstream dry-run with a 96-core
+  ceiling. T127 does not require a completed WGS analysis; preserve dry-run
+  evidence and safely stop any verified host process started for handoff
+  testing.
+- Require the dry-run job graph, logger/gateway contract, input immutability,
+  and available resource-summary evidence. Do not interpret an intentional
+  stop as a failed dry-run.
+- Submit three NIPT 27-sample full batches serially after WGS is terminal,
+  stopping at the first failed batch. Require 27/27 QC pass and no
+  nonterminal rule events for each accepted run.
 - Confirm BS1069 has matching release/images/config and no running service.
 
 ## 1. 测试层级

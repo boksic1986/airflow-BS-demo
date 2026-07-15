@@ -22,6 +22,12 @@ wgs_scheduler: Snakemake 9.23.1, Python 3.12, host-native through restricted SSH
 wgs_default_cores: 96
 wgs_validation_scope: one family / three new pre-calling samples
 frontend_nginx: nginx 1.30.3, Alpine 3.23.5
+backend_image: airflow-demo/backend:bs-control-bdecbfb, sha256:73c965a2d1ab7964f0131e8778cc30e7a5074e84685efd2dcc6a246c1ab85897
+backend_archive_sha256: c3fd486d5b343bd82519b21fc7370ccdcd26a9292a36b88bb5c70561fd9f79d1
+frontend_image: airflow-demo/frontend:bs-control-fd52f5f, sha256:cf13aa210ed650c0aa5041761c5e1b07ca889500afd97227ee42ea3b388c9c18
+frontend_archive_sha256: 8abe269a4f8c81295857c52b27304b6dcec9c50bdf71a17d9c4c3a914e9988eb
+wgs_acceptance: 23-job full downstream dry-run passed; WGS_20260714_180953_9D7981 intentionally stopped afterward
+nipt_acceptance: three serial 27-sample full runs success; 858s, 783s, 884s; 27/27 QC pass and 232/232 success events each
 ```
 
 The BS10610 databases are fresh and are not a migration of fengxian history.

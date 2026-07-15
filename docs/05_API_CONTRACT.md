@@ -24,7 +24,9 @@ failed WGS rows and does not request Airflow task instances for either state.
 The returned page uses bulk sample, rule-event, timing, and QC queries rather
 than per-run queries. WGS rule events group real workflow rules into
 `Pre-calling`, `Variant analysis`, and `QC`; examples include `Preall`,
-`Dedup`, and `QualCal` in Pre-calling.
+`Dedup`, and `QualCal` in Pre-calling. The top-level WGS `all` target is
+contextual: `wgs_stage=precalling` maps it to Pre-calling, while full mode maps
+it to QC.
 
 The frontend nginx gateway proxies both the exact `/api` path and `/api/` path
 to FastAPI before the SPA fallback in generic and BS configurations. API error
@@ -41,6 +43,9 @@ SHA256 values are immutable. The WGS run sample set is the pre-calling YAML
 `GET /api/runs/{analysis_id}/resources` returns wall time, CPU seconds, peak
 PSS/RSS, read/write I/O, collection completeness, stage summaries, and an
 opaque raw JSONL artifact path. Existing NIPT contracts remain compatible.
+For `source=docker_container_host_procfs`, a null PSS plus non-null RSS means
+RSS is a process-tree sum and may double-count shared pages; clients must label
+it as an upper bound rather than a container memory peak.
 
 ## T124 Intake timing projection and tracker ordering
 

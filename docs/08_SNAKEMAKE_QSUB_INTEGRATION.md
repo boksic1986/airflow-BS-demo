@@ -15,6 +15,12 @@ the additional downstream cohort rows are linked as read-only historical
 pre-calling context from exact approved roots. Logger events and resource
 samples are written below the run workdir and posted to FastAPI when available.
 
+T127 acceptance is the 23-job full downstream dry-run. The corresponding real
+Airflow run was intentionally stopped after dry-run evidence was captured, so
+its terminal `failed` state is expected and is not a completed WGS result.
+Rule phase reporting treats the top-level `all` target as Pre-calling for
+pre-calling runs and QC for full runs.
+
 ## T114 terminal events and output integrity
 
 The first project-level terminal event records immutable pipeline completion:

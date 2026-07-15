@@ -3,8 +3,8 @@
 ## 2026-07-15 - Codex - T127 shared BS NIPT/WGS control plane
 
 - Branch/worktree: `codex/wgs/T127-bs-wgs-s9-platform` in the isolated T096
-  worktree. Implementation commits are `98bb0e0`, `b3af61c`, `4d172ef`,
-  `73af175`, and `c706548` before final state documentation.
+  worktree. The final compatibility series includes `ed4b501`, `57a7316`,
+  `04c182e`, `82be233`, `8b5c62f`, `bdecbfb`, and `fd52f5f`.
 - Architecture: BS10610 reuses the existing `airflow-nipt` Compose project and
   one PostgreSQL/Redis/FastAPI/React-nginx/Airflow CeleryExecutor control plane.
   Deployed DAGs are `bio_nipt_docker`, `bio_wgs`, and paused
@@ -12,37 +12,59 @@
 - Concurrency: NIPT and WGS share one-slot `bs_heavy_analysis`. NIPT uses 32
   container cores; WGS uses a 96-core host scheduling ceiling. Pool slots
   serialize batches and do not represent CPU cores.
-- WGS: Snakemake 9.23.1/Python 3.12 is deployed under the WGS host project.
-  Airflow uses a restricted forced SSH command. One-family selection contains
-  three new samples; 13 historical rows are linked as read-only batch context
-  from exact approved roots and are not rerun.
-- Test-first fixes: pre-calling targets now use the YAML sample subset, and
-  host prepare links only historical batch-context outputs. Remote backend
-  pytest passed 181, WGS runner tests passed 7, WGS DAG tests passed 3,
-  frontend Vitest passed 52, and frontend production build passed. The WGS S9
-  pre-calling dry-run reports 18 jobs for three samples.
+- WGS: Snakemake 9.23.1/Python 3.12 is deployed under the WGS host project and
+  invoked through the restricted forced SSH command. The full downstream
+  Snakemake 9 dry-run resolved 23 jobs for the selected family. Per the revised
+  acceptance scope, the verified process group was intentionally stopped after
+  dry-run evidence. `WGS_20260714_180953_9D7981` is therefore terminal failed
+  in Airflow and must not be described as a completed analysis or failed
+  dry-run. No WGS process remains active.
+- Three NIPT full batches completed serially:
+  `NIPT_20260715_030032_9A815B` (858s),
+  `NIPT_20260715_031706_C435A8` (783s), and
+  `NIPT_20260715_033817_4B4F72` (884s). Each has 27/27 sample QC pass,
+  232/232 rule events success, and zero running rule events.
+- Frontend/backend compatibility: nginx now proxies exact `/api` and `/api/*`
+  before SPA fallback; malformed/HTML responses produce readable API errors;
+  `DEPLOYED_PIPELINES` scopes Runs/Samples/Failures/Dashboard/Intake; Dashboard
+  includes WGS; Workflow Catalog and rule endpoints group all repo-owned WGS
+  rules into Pre-calling, Variant analysis, or QC. The WGS `all` target is
+  stage-aware, and the intentionally stopped run reports Variant analysis.
+- Resource UI labels Docker host-proc RSS as a process-sum upper bound when PSS
+  is unavailable. The current NIPT RSS sum double-counts shared pages and must
+  not be used as container peak memory; read/write I/O is also zero in this
+  collector snapshot.
+- Final remote verification: backend image pytest passed 192 tests with the
+  repo-owned WGS catalog mounted; frontend Vitest passed 69 tests; `tsc -b &&
+  vite build`, nginx config, and both BS Compose configs passed. Live browser
+  checks found zero visible PGT-A labels and zero console errors on Dashboard,
+  Workflow Catalog, and NIPT Run Detail.
 - Images: backend/frontend were built on fengxian, downloaded to local Windows,
   uploaded to BS, SHA256 verified, and independently loaded on BS10610 and
-  BS1069. Airflow image ID was already identical and was retagged locally on
-  each BS node. Direct server-to-server image transfer was not used.
+  BS1069. Final backend is `bs-control-bdecbfb`
+  (`sha256:73c965a2d1ab...`, archive SHA256 `c3fd486d...`) and frontend is
+  `bs-control-fd52f5f` (`sha256:cf13aa210ed6...`, archive SHA256
+  `8abe269a...`). Direct server-to-server image transfer was not used.
 - BS10610 deployment backup:
   `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-NIPT/backups/T127-shared-control-20260715T020518`.
   PostgreSQL/Redis volumes were preserved. Services are healthy on 12959/12958,
   capabilities are exactly `nipt_docker,wgs`, and the external network remains
   `192.168.199.0/24` with gateway `192.168.199.1`.
-- WGS validation run `WGS_20260714_180953_9D7981` was submitted as one family,
-  full mode, 96-core ceiling. At this checkpoint it is running the mapping
-  rules with no failed logger event. Do not restart the worker or submit NIPT
-  until this run is terminal.
-- Five planned NIPT batches were read-only scanned as 27, 27, 27, 27, and 28
-  samples with zero scanner errors. Submit them serially after WGS success and
-  stop at the first failure.
-- BS1069 has the same c706548 release/images, a complete host-specific Compose
-  env, restricted SSH gate, valid external network, and passing Compose config.
-  Every service remains stopped; do not run active-active.
+- BS1069 has the same final backend/frontend images, a complete host-specific
+  Compose env, restricted SSH gate, valid external network, and passing Compose
+  config. Every service remains stopped; do not run active-active.
 - Safety: scanner is paused, auto-submit is disabled, production workflow
   sources and FASTQ are read-only, and no database volume, result, or input was
   deleted. Rollback restores the previous shared release/images without `-v`.
+- Failure records: an early WGS `TERM` left an orphaned Snakemake process; the
+  exact verified process group was then stopped with `KILL`. Standalone nginx
+  validation first failed because Compose DNS names were absent and passed
+  with explicit local host mappings. Several PowerShell-to-SSH multiline
+  commands carried a trailing CR into the last shell argument; commands were
+  rerun as single operations. The first final frontend build wrapper hit the
+  outer 120-second timeout after tests/build/nginx passed but before image save;
+  image save and checksum were rerun separately. None of these failures changed
+  a database, volume, FASTQ, or production workflow source.
 
 ## 2026-07-14 T124 QC formatting, Intake alignment, and tracker ordering
 

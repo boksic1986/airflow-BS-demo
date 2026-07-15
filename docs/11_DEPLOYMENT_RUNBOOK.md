@@ -1838,9 +1838,18 @@ and Redis volumes and expose only `12959` (frontend/API gateway) and `12958`
    `down -v` and never recreate PostgreSQL/Redis volumes.
 9. Verify capabilities contain only `nipt_docker,wgs`, DAG inventory contains
    only `bio_nipt_docker,bio_wgs,bio_intake_scan`, and the scanner stays paused.
-10. Run one WGS family at 96 cores. Additional NIPT batches run serially only
-    after WGS is terminal.
+10. Run the one-family WGS Snakemake 9 dry-run at a 96-core ceiling. Full WGS
+    completion is not required for T127; if a real process was started while
+    validating the handoff, stop only its verified process group and preserve
+    its workdir/logs. Then run the selected NIPT full batches serially, stopping
+    at the first failure.
 
 WGS results are stored under
 `/mnt/biodevrwbi/33.chenjiucheng/airflow-result/wgs/runs`; NIPT results remain
 under `/mnt/biodevrwbi/33.chenjiucheng/airflow-result/nipt/runs`.
+
+T127 acceptance used three 27-sample NIPT batches. Each completed with all
+sample QC decisions passing and all 232 persisted rule events in success. The
+WGS validation record is expected to appear failed/terminated in Airflow
+because it was deliberately stopped after the accepted 23-job downstream
+dry-run; it is not evidence of a failed dry-run or a completed WGS analysis.

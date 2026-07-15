@@ -23,6 +23,9 @@ Each WGS host stage is an `SSHOperator` command accepted only by the forced SSH
 gate. NIPT and WGS rule/sample detail is emitted by Snakemake 9
 `--logger airflow-demo`; it is not expanded into hundreds of Airflow tasks.
 The scanner remains paused and neither NIPT nor WGS auto-submit is enabled.
+T127 validates the full WGS path by dry-run only. The validation DAG run was
+intentionally stopped afterward and may remain terminal `failed` while the UI
+continues to show its last observed biological stage.
 
 ## T119 scheduled discovery scope
 

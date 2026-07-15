@@ -12,6 +12,12 @@
   Full analysis. WGS execution uses 96 host cores.
 - Run Detail keeps the Airflow project task layer and paginated rule/sample
   logger layer and adds compact run resource telemetry.
+- Host WGS rules are grouped into Pre-calling, Variant analysis, and QC. The
+  aggregate `all` target uses the selected WGS stage so pre-calling and full
+  runs do not report the same phase.
+- When Docker `/proc` collection cannot provide PSS, the UI labels summed RSS
+  as an upper bound because shared pages may be counted once per process. It
+  must not be presented as container peak memory.
 - The frontend nginx image is also the gateway: port 80 serves React and
   proxies `/api`, while port 8080 proxies Airflow. No second nginx service is
   deployed.
