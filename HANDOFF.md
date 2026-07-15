@@ -39,6 +39,17 @@
   vite build`, nginx config, and both BS Compose configs passed. Live browser
   checks found zero visible PGT-A labels and zero console errors on Dashboard,
   Workflow Catalog, and NIPT Run Detail.
+- Fresh close-out verification after the documentation commit passed backend
+  pytest with `191 passed, 1 skipped` when only the repo-owned WGS catalog was
+  mounted, plus frontend `69 passed` and a successful production build. The
+  first close-out backend command mistakenly mounted all `pipelines/`, which
+  collected PGT-A NumPy tests that are intentionally outside the BS NIPT/WGS
+  backend image and failed during collection; narrowing the mount to
+  `pipelines/wgs_s9` restored the intended deployment test contract.
+- Fresh live checks found zero active business runs, no WGS host process or
+  NIPT/WGS analysis container, scanner paused, nginx config valid, and the
+  external network fixed at `192.168.199.0/24` with gateway `192.168.199.1`.
+  BS1069 again passed Compose validation with zero running platform services.
 - Images: backend/frontend were built on fengxian, downloaded to local Windows,
   uploaded to BS, SHA256 verified, and independently loaded on BS10610 and
   BS1069. Final backend is `bs-control-bdecbfb`
