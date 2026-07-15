@@ -16,6 +16,11 @@ const templates: Record<string, Array<{key: string; label: string}>> = {
     {key: "fetal_fraction", label: "Fetal fraction"},
     {key: "final_qc", label: "Final QC"},
   ],
+  wgs: [
+    {key: "pre_calling", label: "Pre-calling"},
+    {key: "variant_analysis", label: "Variant analysis"},
+    {key: "qc", label: "QC"},
+  ],
 };
 
 export function WorkflowStageRail({analysisId, pipeline, stages}: {

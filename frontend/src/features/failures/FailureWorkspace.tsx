@@ -104,7 +104,7 @@ function failureLayerLabel(layer: FailureItem["failure_layer"]): string {
 
 function actionLabel(code: string): string {
   return {
-    resume_pgta: "Review stderr, correct the root cause, then use the guarded PGT-A Run action.",
+    resume_pgta: "Review stderr, correct the root cause, then open Run Detail for available actions.",
     review_qc: "Review the failed sample metric and threshold before report handoff.",
     inspect_logs: "Open Run Detail Logs and confirm the failed task before retrying.",
   }[code] || "Open Run Detail and review the captured evidence.";

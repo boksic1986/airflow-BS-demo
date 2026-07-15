@@ -99,20 +99,22 @@ export function SettingsPage() {
         offset: discoveryOffset,
       });
       if (requestId !== discoveryRequest.current) return;
-      const total = payload.total ?? payload.items.length;
+      const visibleItems = payload.items.filter((item) => capabilities.deployed_pipelines.includes(item.pipeline as DeployedPipeline));
+      const hiddenCount = payload.items.length - visibleItems.length;
+      const total = Math.max(0, (payload.total ?? payload.items.length) - hiddenCount);
       if (discoveryOffset > 0 && discoveryOffset >= total) {
         const validOffset = total === 0 ? 0 : Math.floor((total - 1) / discoveryPageSize) * discoveryPageSize;
         setDiscoveryOffset(validOffset);
         return;
       }
-      setDiscoveries(payload.items);
+      setDiscoveries(visibleItems);
       setDiscoveryTotal(total);
     } catch (err) {
       if (requestId === discoveryRequest.current) setDiscoveryError(errorMessage(err));
     } finally {
       if (requestId === discoveryRequest.current) setDiscoveryLoading(false);
     }
-  }, [discoveryKeyword, discoveryLifecycle, discoveryOffset, discoveryPipeline, discoveryState]);
+  }, [capabilities.deployed_pipelines, discoveryKeyword, discoveryLifecycle, discoveryOffset, discoveryPipeline, discoveryState]);
 
   const loadPreview = useCallback(async () => {
     const requestId = ++previewRequest.current;
@@ -131,7 +133,9 @@ export function SettingsPage() {
 
   useEffect(() => { void loadConfig(); }, [loadConfig]);
   useEffect(() => { void loadScanner(); }, [loadScanner]);
-  useEffect(() => { void loadDiscoveries(); }, [loadDiscoveries]);
+  useEffect(() => {
+    if (!capabilities.loading) void loadDiscoveries();
+  }, [capabilities.loading, loadDiscoveries]);
 
   function updateDiscoveryPipeline(value: DiscoveryPipeline) {
     setDiscoveryPipeline(value);
@@ -290,7 +294,7 @@ function IntakeSettingsContent({
         <ConfigSummaryCard config={config} error={configError} loading={configLoading} />
       </div>
 
-      <PreviewCard preview={preview} loading={previewLoading} error={previewError} />
+      <PreviewCard preview={preview} loading={previewLoading} error={previewError} deployedPipelines={deployedPipelines} />
 
       <div className="section-heading tight">
         <h3>Configured roots</h3>
@@ -300,9 +304,11 @@ function IntakeSettingsContent({
       {configError ? <p className="error-text">Configured roots unavailable: {configError}</p> : null}
       {!configLoading && !configError ? (
         <div className="settings-root-grid">
-          {Object.entries(config?.pipelines || {}).map(([pipeline, pipelineConfig]) => (
-            <PipelineRootCard key={pipeline} pipeline={pipeline} config={pipelineConfig} />
-          ))}
+          {Object.entries(config?.pipelines || {})
+            .filter(([pipeline]) => deployedPipelines.includes(pipeline as DeployedPipeline))
+            .map(([pipeline, pipelineConfig]) => (
+              <PipelineRootCard key={pipeline} pipeline={pipeline} config={pipelineConfig} />
+            ))}
         </div>
       ) : null}
 
@@ -397,7 +403,12 @@ function IntakeSettingsContent({
   );
 }
 
-function PreviewCard({preview, loading, error}: {preview: IntakeScanPreviewResponse | null; loading: boolean; error: string | null}) {
+function PreviewCard({preview, loading, error, deployedPipelines}: {
+  preview: IntakeScanPreviewResponse | null;
+  loading: boolean;
+  error: string | null;
+  deployedPipelines: DeployedPipeline[];
+}) {
   const summary = preview?.summary;
   const metrics = summary ? [
     {label: "Batches", value: summary.total_batches},
@@ -432,19 +443,22 @@ function PreviewCard({preview, loading, error}: {preview: IntakeScanPreviewRespo
             ))}
           </div>
           <div className="settings-preview-list">
-            {preview.items.slice(0, 8).map((item) => (
-              <div className="settings-preview-row" key={`${item.pipeline}-${item.root_path}-${item.batch_id}`}>
-                <div>
-                  <strong>{item.batch_id}</strong>
-                  <span>{pipelineLabel(item.pipeline)} · {reasonLabel(item.reason)}</span>
+            {preview.items
+              .filter((item) => deployedPipelines.includes(item.pipeline as DeployedPipeline))
+              .slice(0, 8)
+              .map((item) => (
+                <div className="settings-preview-row" key={`${item.pipeline}-${item.root_path}-${item.batch_id}`}>
+                  <div>
+                    <strong>{item.batch_id}</strong>
+                    <span>{pipelineLabel(item.pipeline)} · {reasonLabel(item.reason)}</span>
+                  </div>
+                  <div className="settings-preview-flags">
+                    <span>{item.would_transition_to}</span>
+                    <span>{item.would_create_run ? "would create" : "no create"}</span>
+                    <span>{item.would_submit ? "would submit" : "no submit"}</span>
+                  </div>
                 </div>
-                <div className="settings-preview-flags">
-                  <span>{item.would_transition_to}</span>
-                  <span>{item.would_create_run ? "would create" : "no create"}</span>
-                  <span>{item.would_submit ? "would submit" : "no submit"}</span>
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
         </>
       ) : null}

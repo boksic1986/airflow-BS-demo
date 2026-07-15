@@ -16,9 +16,26 @@ const PGTA_PREDICT_TASKS = new Set([
   "collect_pgta_artifact",
 ]);
 
+const NIPT_DOCKER_TASKS = new Set([
+  "validate_request",
+  "prepare_nipt_docker_run",
+  "run_nipt_docker",
+  "collect_nipt_artifacts",
+]);
+
+const WGS_TASKS = new Set([
+  "validate_request",
+  "prepare_wgs_run",
+  "choose_wgs_path",
+  "wgs_pipeline.pre_calling",
+  "wgs_pipeline.variant_analysis",
+  "wgs_pipeline.collect_qc",
+  "collect_wgs_artifacts",
+]);
+
 export function RunWorkflowTab({progress, rules}: {progress: RunProgressResponse | null; rules: RuleEvent[]}) {
   const airflowTasks = (progress?.airflow_tasks || []).filter((task) => isSelectedTask(task, progress?.pipeline));
-  const phases = useMemo(() => summarizeRulePhases(rules), [rules]);
+  const phases = useMemo(() => summarizeRulePhases(rules, progress?.pipeline), [progress?.pipeline, rules]);
 
   return (
     <div className="workflow-tab-stack">
@@ -55,6 +72,8 @@ export function RunWorkflowTab({progress, rules}: {progress: RunProgressResponse
 function isSelectedTask(task: AirflowTaskProgress, pipeline?: string): boolean {
   if (normalizeStatus(task.state) === "skipped") return false;
   if (pipeline === "pgta") return PGTA_PREDICT_TASKS.has(task.task_id);
+  if (pipeline === "nipt_docker") return NIPT_DOCKER_TASKS.has(task.task_id);
+  if (pipeline === "wgs") return WGS_TASKS.has(task.task_id);
   return true;
 }
 
@@ -63,7 +82,13 @@ function LayeredWorkflowTimeline({airflowTasks, phases, pipeline}: {
   phases: ReturnType<typeof summarizeRulePhases>;
   pipeline?: string;
 }) {
-  const title = pipeline === "nipt_docker" ? "Full analysis execution path" : "Predict execution path";
+  const title = pipeline === "nipt_docker"
+    ? "NIPT full analysis path"
+    : pipeline === "wgs"
+      ? "WGS host execution path"
+      : pipeline === "pgta"
+        ? "Predict execution path"
+        : "Workflow execution path";
   return (
     <section className="layered-timeline" aria-label="Layered workflow timeline" title="Airflow shows project stages; pipeline events show the current bioinformatics phase.">
       <div className="section-heading"><h2>{title}</h2><p>Project orchestration and biological analysis phases</p></div>

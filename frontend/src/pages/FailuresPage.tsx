@@ -6,6 +6,7 @@ import type {FailureItem, FailureListResponse} from "../api";
 import {listFailures} from "../api";
 import {FailureWorkspace} from "../features/failures/FailureWorkspace";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
+import {deployedPipelineFilter} from "../lib/deployment";
 import {errorMessage} from "../lib/errors";
 
 const pageSize = 20;
@@ -13,7 +14,7 @@ const pageSize = 20;
 export function FailuresPage() {
   const capabilities = usePlatformCapabilities();
   const [searchParams, setSearchParams] = useSearchParams();
-  const pipeline = searchParams.get("pipeline") || "all";
+  const pipeline = deployedPipelineFilter(searchParams.get("pipeline"), capabilities.deployed_pipelines);
   const kind = (searchParams.get("kind") || "all") as "all" | "workflow" | "qc";
   const period = (searchParams.get("period") || "7d") as "24h" | "7d" | "30d";
   const layer = searchParams.get("layer") || "all";

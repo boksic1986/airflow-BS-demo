@@ -31,24 +31,45 @@ describe("RunWorkflowTab", () => {
     expect(screen.queryByRole("table", {name: /Pipeline rule jobs/i})).not.toBeInTheDocument();
   });
 
-  it("shows only the PGT-A Predict execution path and hides skipped legacy branches", () => {
+  it("shows only the WGS host execution path", () => {
     const progress = {
+      pipeline: "wgs",
       airflow_tasks: [
         {task_id: "validate_request", state: "success"},
-        {task_id: "pgta_predict.run_pgta_mapping", state: "success"},
-        {task_id: "pgta_pipeline.run_pgta_mapping", state: "skipped"},
-        {task_id: "run_pgta_target", state: "skipped"},
+        {task_id: "prepare_wgs_run", state: "success"},
+        {task_id: "wgs_pipeline.pre_calling", state: "running"},
+        {task_id: "run_nipt_docker", state: "success"},
       ],
     } as RunProgressResponse;
 
     render(<RunWorkflowTab progress={progress} rules={[]} />);
 
+    expect(screen.getByRole("heading", {name: "WGS host execution path"})).toBeInTheDocument();
     const selectedPath = screen.getByLabelText("Selected Airflow execution path");
-    expect(within(selectedPath).getByText("Mapping reads")).toBeInTheDocument();
-    expect(within(selectedPath).queryByText("Run PGT-A workflow")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Alternate paths/i)).not.toBeInTheDocument();
-    expect(screen.queryByText("run_pgta_target")).not.toBeInTheDocument();
-    expect(screen.queryByText("pgta_pipeline.run_pgta_mapping")).not.toBeInTheDocument();
+    expect(within(selectedPath).getByText("Prepare WGS host run")).toBeInTheDocument();
+    expect(within(selectedPath).getByText("Pre-calling")).toBeInTheDocument();
+    expect(within(selectedPath).queryByText("Run NIPT Docker workflow")).not.toBeInTheDocument();
+  });
+
+  it("shows only the NIPT Docker Airflow path and NIPT rule phases", () => {
+    const progress = {
+      pipeline: "nipt_docker",
+      airflow_tasks: [
+        {task_id: "validate_request", state: "success"},
+        {task_id: "prepare_nipt_docker_run", state: "success"},
+        {task_id: "run_nipt_docker", state: "running"},
+        {task_id: "wgs_pipeline.pre_calling", state: "success"},
+      ],
+    } as RunProgressResponse;
+
+    render(<RunWorkflowTab progress={progress} rules={[{rule: "aneuscreen_predict", sample_id: "N1", status: "running"}]} />);
+
+    expect(screen.getByRole("heading", {name: "NIPT full analysis path"})).toBeInTheDocument();
+    const selectedPath = screen.getByLabelText("Selected Airflow execution path");
+    expect(within(selectedPath).getByText("Prepare NIPT Docker run")).toBeInTheDocument();
+    expect(within(selectedPath).getByText("Run NIPT Docker workflow")).toBeInTheDocument();
+    expect(within(selectedPath).queryByText("Pre-calling")).not.toBeInTheDocument();
+    expect(screen.getAllByText("T21 classifier").length).toBeGreaterThan(0);
   });
 
   it("renders canceled rule events as terminal phase work", () => {

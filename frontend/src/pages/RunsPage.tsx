@@ -6,17 +6,17 @@ import type {RunListResponse, RunSummary} from "../api";
 import {listRuns} from "../api";
 import {RunTable} from "../components/RunTable";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
+import {deployedPipelineFilter} from "../lib/deployment";
 import {errorMessage} from "../lib/errors";
 
 const pageSize = 20;
-const validPipelines = new Set(["all", "pgta", "nipt_docker", "wgs"]);
 const validStatuses = new Set(["all", "created", "submitted", "queued", "running", "success", "failed"]);
 const validSorts = new Set(["created_desc", "duration_desc", "status"]);
 
 export function RunsPage() {
   const capabilities = usePlatformCapabilities();
   const [searchParams, setSearchParams] = useSearchParams();
-  const pipeline = validValue(searchParams.get("pipeline"), validPipelines, "all");
+  const pipeline = deployedPipelineFilter(searchParams.get("pipeline"), capabilities.deployed_pipelines);
   const status = validValue(searchParams.get("status"), validStatuses, "all");
   const sort = validValue(searchParams.get("sort"), validSorts, "created_desc") as "created_desc" | "duration_desc" | "status";
   const keyword = searchParams.get("keyword") || "";

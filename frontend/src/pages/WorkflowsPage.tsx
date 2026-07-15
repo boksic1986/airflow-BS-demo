@@ -5,10 +5,12 @@ import type {WorkflowCatalogItem} from "../api";
 import {getWorkflowCatalog} from "../api";
 import {StatusBadge} from "../components/StatusBadge";
 import {WorkflowStageRail} from "../components/WorkflowStageRail";
+import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {errorMessage} from "../lib/errors";
 import {formatDate} from "../lib/format";
 
 export function WorkflowsPage() {
+  const capabilities = usePlatformCapabilities();
   const [items, setItems] = useState<WorkflowCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +24,8 @@ export function WorkflowsPage() {
     return () => { disposed = true; };
   }, []);
 
+  const visibleItems = items.filter((workflow) => capabilities.isDeployed(workflow.pipeline));
+
   return (
     <div className="page-stack workflow-catalog-page">
       <section className="page-header">
@@ -34,9 +38,9 @@ export function WorkflowsPage() {
       {error ? <div className="inline-error" role="alert">Workflow catalog unavailable: {error}</div> : null}
       {loading ? <p className="muted panel-loading">Loading deployed workflows...</p> : null}
       <section className="workflow-catalog-grid">
-        {items.map((workflow) => <WorkflowCatalogCard key={workflow.pipeline} workflow={workflow} />)}
+        {visibleItems.map((workflow) => <WorkflowCatalogCard key={workflow.pipeline} workflow={workflow} />)}
       </section>
-      {!loading && !error && items.length === 0 ? <p className="empty-state">No deployed workflow state is available.</p> : null}
+      {!loading && !error && visibleItems.length === 0 ? <p className="empty-state">No deployed workflow state is available.</p> : null}
     </div>
   );
 }

@@ -20,7 +20,7 @@ const defaultNiptRawdataRoot = "/data/nipt-fastq";
 const handoffSyncAttempts = 6;
 const handoffSyncDelayMs = 2500;
 const submittedByStorageKey = "airflow-demo.submitted-by";
-const fallbackTemplate = deployedWorkflowTemplates.find((pipeline) => pipeline.id === "pgta") || deployedWorkflowTemplates[0]!;
+const fallbackTemplate = deployedWorkflowTemplates.find((pipeline) => pipeline.id === "nipt_docker") || deployedWorkflowTemplates[0]!;
 
 function loadSubmittedBy() {
   try {
@@ -41,7 +41,7 @@ function rememberSubmittedBy(value: string) {
 
 export function SubmitPage() {
   const capabilities = usePlatformCapabilities();
-  const [selectedPipeline, setSelectedPipeline] = useState<DeployedPipeline>("pgta");
+  const [selectedPipeline, setSelectedPipeline] = useState<DeployedPipeline>("nipt_docker");
   const [projectName, setProjectName] = useState("Bioinformatics demo run");
   const [submittedBy, setSubmittedBy] = useState(loadSubmittedBy);
   const [reference] = useState("hg19");
@@ -50,8 +50,8 @@ export function SubmitPage() {
   const [niptRunMode, setNiptRunMode] = useState<NiptRunMode>("full_run");
   const [niptCores, setNiptCores] = useState(32);
   const [target] = useState<PgtaTarget>("predict");
-  const [rawdataRoot, setRawdataRoot] = useState(defaultPgtaRawdataRoot);
-  const [rootOptions, setRootOptions] = useState<string[]>([defaultPgtaRawdataRoot]);
+  const [rawdataRoot, setRawdataRoot] = useState(defaultNiptRawdataRoot);
+  const [rootOptions, setRootOptions] = useState<string[]>([defaultNiptRawdataRoot]);
   const [maxSamples, setMaxSamples] = useState(20);
   const [scanItems, setScanItems] = useState<ScanCandidate[]>([]);
   const [selectedSamples, setSelectedSamples] = useState<Set<string>>(new Set());

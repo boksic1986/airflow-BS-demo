@@ -1,6 +1,7 @@
 import type {RuleEvent} from "../api";
 
-const phaseOrder = ["Input QC", "Mapping", "CNV", "T21 classifier", "Aneuploidy", "Fetal fraction", "Final QC", "NIPT workflow", "Pipeline"];
+const niptPhaseOrder = ["Input QC", "Mapping", "CNV", "T21 classifier", "Aneuploidy", "Fetal fraction", "Final QC", "NIPT workflow", "Validation", "Pipeline"];
+const wgsPhaseOrder = ["Pre-calling", "Variant analysis", "QC", "Pipeline"];
 
 const rulePhases: Record<string, string> = {
   mapper_v2_manager_ready: "Input QC",
@@ -30,6 +31,37 @@ const rulePhases: Record<string, string> = {
   nipt_mount_smoke: "Validation",
 };
 
+const wgsRulePhases: Record<string, string> = {
+  Preall: "Pre-calling",
+  cleanFastq: "Pre-calling",
+  mapping: "Pre-calling",
+  Dedup: "Pre-calling",
+  Sam2Cram: "Pre-calling",
+  QualCal: "Pre-calling",
+  QCStatic: "Pre-calling",
+  mtQC: "Pre-calling",
+  Haplotyper: "Pre-calling",
+  bam2blockUniq: "Pre-calling",
+  Smooverun: "Pre-calling",
+  mityCall: "Pre-calling",
+  MEICall: "Pre-calling",
+  fq2cram: "Pre-calling",
+  cram2gvcf: "Pre-calling",
+  SNV_Annotation: "Variant analysis",
+  INDEL_Annotation: "Variant analysis",
+  CNV_Annotation: "Variant analysis",
+  SV_Annotation: "Variant analysis",
+  GVCFtyper: "Variant analysis",
+  QCall: "QC",
+  PeddyC: "QC",
+  sceVCF: "QC",
+  gender: "QC",
+  SingleQC_merge: "QC",
+  mergeQC: "QC",
+  plotQC: "QC",
+  WGS_QC: "QC",
+};
+
 export type RulePhaseSummary = {
   phase: string;
   total: number;
@@ -44,10 +76,10 @@ export function niptPhaseForRule(rule: string): string {
   return rulePhases[rule] || "Pipeline";
 }
 
-export function summarizeRulePhases(rules: RuleEvent[]): RulePhaseSummary[] {
+export function summarizeRulePhases(rules: RuleEvent[], pipeline = "nipt_docker"): RulePhaseSummary[] {
   const phases = new Map<string, RuleEvent[]>();
   for (const rule of rules) {
-    const phase = rule.phase || niptPhaseForRule(rule.rule);
+    const phase = rule.phase || (pipeline === "wgs" ? wgsRulePhases[rule.rule] || "Pipeline" : niptPhaseForRule(rule.rule));
     phases.set(phase, [...(phases.get(phase) || []), rule]);
   }
   return [...phases.entries()]
@@ -66,7 +98,7 @@ export function summarizeRulePhases(rules: RuleEvent[]): RulePhaseSummary[] {
         status: failed ? "failed" : running ? "running" : canceled ? "canceled" : success === items.length ? "success" : "queued",
       };
     })
-    .sort((left, right) => phaseIndex(left.phase) - phaseIndex(right.phase));
+    .sort((left, right) => phaseIndex(left.phase, pipeline) - phaseIndex(right.phase, pipeline));
 }
 
 export function sortRuleJobs(rules: RuleEvent[]): RuleEvent[] {
@@ -83,7 +115,8 @@ export function sortRuleJobs(rules: RuleEvent[]): RuleEvent[] {
   });
 }
 
-function phaseIndex(phase: string): number {
-  const index = phaseOrder.indexOf(phase);
-  return index < 0 ? phaseOrder.length : index;
+function phaseIndex(phase: string, pipeline: string): number {
+  const order = pipeline === "wgs" ? wgsPhaseOrder : niptPhaseOrder;
+  const index = order.indexOf(phase);
+  return index < 0 ? order.length : index;
 }

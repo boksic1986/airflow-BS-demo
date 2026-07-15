@@ -83,6 +83,11 @@ export function AppShell() {
           </div>
         </header>
         <main className="content-shell">
+          {capabilities.error ? (
+            <div className="inline-error" role="alert">
+              Deployment capabilities unavailable: {capabilities.error} Showing the NIPT/WGS compatibility view.
+            </div>
+          ) : null}
           <Outlet />
         </main>
       </div>

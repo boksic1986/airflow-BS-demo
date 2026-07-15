@@ -395,6 +395,13 @@ describe("bioinformatics platform frontend", () => {
       "fetch",
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
+        if (url.endsWith("/api/platform/capabilities")) {
+          return mockJson({
+            environment: "Demo",
+            deployed_pipelines: ["pgta", "nipt_docker"],
+            airflow_url: null,
+          });
+        }
         if (url.includes("/api/pipeline-config/template")) {
           const pipeline = new URL(url).searchParams.get("pipeline") || "pgta";
           const nipt = pipeline === "nipt_docker";
@@ -1521,6 +1528,7 @@ describe("bioinformatics platform frontend", () => {
     setRoute("/submit");
     render(<App />);
 
+    await user.click(await screen.findByRole("radio", {name: /PGT-A/i}));
     const profileSelect = await screen.findByRole("combobox", {name: /Runtime profile/i});
     await waitFor(() => expect(profileSelect).toHaveValue("pgta-current"));
     expect(screen.queryByLabelText(/Snakemake config YAML/i)).not.toBeInTheDocument();
@@ -1554,6 +1562,7 @@ describe("bioinformatics platform frontend", () => {
     const user = userEvent.setup();
     setRoute("/submit");
     render(<App />);
+    await user.click(await screen.findByRole("radio", {name: /PGT-A/i}));
     await waitFor(() => expect(screen.getByRole("combobox", {name: /Runtime profile/i})).toHaveValue("pgta-current"));
     await user.click(screen.getByRole("button", {name: /Advanced Snakemake config/i}));
 
@@ -1625,10 +1634,11 @@ describe("bioinformatics platform frontend", () => {
 
     setRoute("/submit");
     render(<App />);
+    await user.click(await screen.findByRole("radio", {name: /PGT-A/i}));
+    await waitFor(() => expect(releasePgta).not.toBeNull());
     await user.click(screen.getByRole("radio", {name: /NIPT Docker/i}));
     const profileSelect = await screen.findByRole("combobox", {name: /Runtime profile/i});
     await waitFor(() => expect(profileSelect).toHaveValue("niptpro-s9-full-v1"));
-    expect(releasePgta).not.toBeNull();
     await act(async () => {
       releasePgta?.();
       await new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -1640,6 +1650,7 @@ describe("bioinformatics platform frontend", () => {
     const user = userEvent.setup();
     setRoute("/submit");
     render(<App />);
+    await user.click(await screen.findByRole("radio", {name: /PGT-A/i}));
     await waitFor(() => expect(screen.getByRole("combobox", {name: /Runtime profile/i})).toHaveValue("pgta-current"));
     await user.clear(screen.getByLabelText(/rawdata root/i));
     await user.type(screen.getByLabelText(/rawdata root/i), rawdataRoot);
@@ -1672,6 +1683,8 @@ describe("bioinformatics platform frontend", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", {name: /submit run/i})).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", {name: /PGT-A/i}));
+    await waitFor(() => expect(screen.getByRole("combobox", {name: /Runtime profile/i})).toHaveValue("pgta-current"));
     expect(screen.queryByRole("radio", {name: /wes/i})).not.toBeInTheDocument();
     expect(screen.queryByRole("radio", {name: /wgs/i})).not.toBeInTheDocument();
     expect(screen.queryByText(/sample sheet text/i)).not.toBeInTheDocument();
@@ -1837,12 +1850,10 @@ describe("bioinformatics platform frontend", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", {name: /submit run/i})).toBeInTheDocument();
-    expect(screen.getByRole("radio", {name: /PGT-A/i})).toBeInTheDocument();
     expect(screen.getByRole("radio", {name: /NIPT Docker/i})).toBeInTheDocument();
     expect(screen.queryByRole("combobox", {name: /NIPT template/i})).not.toBeInTheDocument();
     expect(screen.queryByRole("radio", {name: /WES/i})).not.toBeInTheDocument();
     expect(screen.queryByRole("radio", {name: /NIPT qsub/i})).not.toBeInTheDocument();
-    expect(screen.queryByRole("radio", {name: /WGS/i})).not.toBeInTheDocument();
   });
 
   it("creates and submits a NIPT Docker scanned batch run to Airflow", async () => {
@@ -1917,7 +1928,7 @@ describe("bioinformatics platform frontend", () => {
 
     const workflowTab = screen.getByRole("tab", {name: /workflow/i});
     await userEvent.click(workflowTab);
-    expect(await screen.findByRole("heading", {name: /Full analysis execution path/i})).toBeInTheDocument();
+    expect(await screen.findByRole("heading", {name: /NIPT full analysis path/i})).toBeInTheDocument();
     expect(screen.getAllByText(/Run NIPT Docker workflow/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", {name: /Pipeline steps/i})).toBeInTheDocument();
     expect(screen.queryByRole("table", {name: /Pipeline rule jobs/i})).not.toBeInTheDocument();
@@ -1957,7 +1968,7 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByText(/^queued$/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Use Preview configured roots/i)).toBeInTheDocument();
 
-    const discoveryTable = screen.getByRole("table", {name: /Discovery records/i});
+    const discoveryTable = await screen.findByRole("table", {name: /Discovery records/i});
     expect(within(discoveryTable).getByText(/Intake validation failed/i)).toBeInTheDocument();
     expect(within(discoveryTable).getByText(/source_batch is not a readable directory: 2026-06-08\/batch01/i)).toBeInTheDocument();
     expect(discoveryTable).toHaveClass("intake-discovery-table");
@@ -2065,7 +2076,7 @@ describe("bioinformatics platform frontend", () => {
 
     expect(await screen.findByText("/app/config/intake.yaml")).toBeInTheDocument();
     expect(screen.getByText(/Airflow reachable/i)).toBeInTheDocument();
-    expect(screen.getByText(/Discovery records unavailable/i)).toHaveAttribute("role", "alert");
+    expect(await screen.findByText(/Discovery records unavailable/i)).toHaveAttribute("role", "alert");
     expect(screen.getByText("pgta_rawdata")).toBeInTheDocument();
   });
 

@@ -682,20 +682,75 @@ export function getApiBaseUrl(): string {
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = String(init?.method || "GET").toUpperCase();
   const response = await fetch(`${getApiBaseUrl()}${path}`, init);
+  const body = await response.text();
+  const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+  const looksHtml = contentType.includes("text/html") || /^\s*<!doctype html|^\s*<html/i.test(body);
+  const looksJson = contentType.includes("json") || /^\s*[\[{]/.test(body);
+  const statusLabel = `${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
+
   if (!response.ok) {
-    let message = response.statusText || "Request failed";
-    let code: string | undefined;
-    try {
-      const payload = await response.json();
-      code = payload?.detail?.code;
-      message = payload?.detail?.message || message;
-    } catch {
-      // Keep the HTTP status text when the backend did not return JSON.
+    if (looksHtml) {
+      throw new ApiError(
+        `Request failed: ${statusLabel}. The API gateway returned HTML for ${method} ${path}; check the nginx /api proxy and client allowlist.`,
+        response.status,
+        "NON_JSON_API_ERROR",
+      );
     }
-    throw new ApiError(message, response.status, code);
+    if (looksJson && body.trim()) {
+      try {
+        const payload = JSON.parse(body) as {detail?: string | {code?: string; message?: string}; code?: string; message?: string};
+        const detail = payload.detail;
+        const code = typeof detail === "object" && detail ? detail.code : payload.code;
+        const message = typeof detail === "string"
+          ? detail
+          : (typeof detail === "object" && detail ? detail.message : payload.message);
+        throw new ApiError(message || `Request failed: ${statusLabel}.`, response.status, code);
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
+        throw new ApiError(
+          `Request failed: ${statusLabel}. The API returned malformed JSON for ${method} ${path}.`,
+          response.status,
+          "MALFORMED_API_ERROR",
+        );
+      }
+    }
+    const summary = summarizeResponseText(body);
+    throw new ApiError(
+      `Request failed: ${statusLabel}${summary ? ` - ${summary}` : ""}.`,
+      response.status,
+      "NON_JSON_API_ERROR",
+    );
   }
-  return (await response.json()) as T;
+
+  if (!body.trim()) {
+    throw new ApiError(
+      `The API returned an empty response for ${method} ${path} (${statusLabel}).`,
+      response.status,
+      "EMPTY_API_RESPONSE",
+    );
+  }
+  if (looksHtml || !looksJson) {
+    throw new ApiError(
+      `The API returned HTML instead of JSON for ${method} ${path}; check the nginx /api proxy configuration.`,
+      response.status,
+      "INVALID_API_RESPONSE",
+    );
+  }
+  try {
+    return JSON.parse(body) as T;
+  } catch {
+    throw new ApiError(
+      `The API returned malformed JSON for ${method} ${path} (${statusLabel}).`,
+      response.status,
+      "INVALID_API_RESPONSE",
+    );
+  }
+}
+
+function summarizeResponseText(body: string): string {
+  return body.replace(/\s+/g, " ").trim().slice(0, 240);
 }
 
 export function listRuns(options: RunListOptions = {}): Promise<RunListResponse> {

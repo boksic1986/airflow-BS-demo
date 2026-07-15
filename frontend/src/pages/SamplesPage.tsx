@@ -6,6 +6,7 @@ import type {OperatorSampleResponse} from "../api";
 import {listSamplesResource} from "../api";
 import {StatusBadge} from "../components/StatusBadge";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
+import {deployedPipelineFilter} from "../lib/deployment";
 import {errorMessage} from "../lib/errors";
 import {compactPipelineName} from "../lib/format";
 
@@ -14,7 +15,7 @@ const pageSize = 25;
 export function SamplesPage() {
   const capabilities = usePlatformCapabilities();
   const [searchParams, setSearchParams] = useSearchParams();
-  const pipeline = searchParams.get("pipeline") || "all";
+  const pipeline = deployedPipelineFilter(searchParams.get("pipeline"), capabilities.deployed_pipelines);
   const status = searchParams.get("status") || "all";
   const qcStatus = searchParams.get("qc_status") || "all";
   const keyword = searchParams.get("keyword") || "";
