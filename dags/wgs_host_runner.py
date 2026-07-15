@@ -397,9 +397,17 @@ def _stage_historical_pre_calling_context(
     source_precalling = source_root / "00_PreCalling"
     if not source_precalling.is_dir():
         raise FileNotFoundError(f"WGS historical pre-calling directory is not readable: {source_precalling}")
-    allowed_targets = _configured_roots(
-        "WGS_PRECALLING_SOURCE_ROOTS",
-        (str(source_root),),
+    allowed_targets = tuple(
+        dict.fromkeys(
+            (source_root.resolve(),)
+            + _configured_roots("WGS_PRECALLING_SOURCE_ROOTS", (str(source_root),))
+        )
+    )
+    qc_allowed_targets = tuple(
+        dict.fromkeys(
+            (source_root.resolve(),)
+            + _configured_roots("WGS_QC_SOURCE_ROOTS", (str(source_root),))
+        )
     )
     destination_root = workdir / "00_PreCalling"
     destination_root.mkdir(parents=True, exist_ok=True)
@@ -456,7 +464,7 @@ def _stage_historical_pre_calling_context(
                 if _link_historical_context_file(
                     source=qc_source.resolve(strict=True),
                     destination=qc_destination,
-                    allowed_targets=allowed_targets,
+                    allowed_targets=qc_allowed_targets,
                 ):
                     linked_files += 1
                 break

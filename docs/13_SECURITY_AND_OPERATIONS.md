@@ -88,7 +88,8 @@ gate validates a generated WGS analysis ID and a fixed stage allowlist, reads
 only the run-local signed request, checks approved roots and SHA256, and uses
 `flock` to prevent duplicate execution. Airflow receives no general host shell
 credential. Historical batch-context symlink targets must resolve below exact
-`WGS_PRECALLING_SOURCE_ROOTS`; a broad `/sg2` allowlist is prohibited.
+`WGS_PRECALLING_SOURCE_ROOTS` and the sibling fastp QC directories through
+`WGS_QC_SOURCE_ROOTS`; a broad `/sg2` allowlist is prohibited.
 
 ## 6. 审计
 

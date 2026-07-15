@@ -194,6 +194,7 @@ def test_prepare_links_only_historical_batch_context(tmp_path, monkeypatch) -> N
     monkeypatch.setenv("WGS_CONFIG_ROOTS", str(tmp_path))
     monkeypatch.setenv("WGS_FASTQ_ROOTS", str(tmp_path))
     monkeypatch.setenv("WGS_PRECALLING_SOURCE_ROOTS", str(tmp_path))
+    monkeypatch.setenv("WGS_QC_SOURCE_ROOTS", str(tmp_path))
     request = {
         "analysis_id": "WGS_20260714_123456_A1B2C3",
         "pipeline": "wgs",
@@ -261,6 +262,7 @@ def test_prepare_recovers_historical_blk_beside_resolved_precalling_link(tmp_pat
     monkeypatch.setenv("WGS_CONFIG_ROOTS", str(tmp_path))
     monkeypatch.setenv("WGS_FASTQ_ROOTS", str(tmp_path))
     monkeypatch.setenv("WGS_PRECALLING_SOURCE_ROOTS", str(tmp_path))
+    monkeypatch.setenv("WGS_QC_SOURCE_ROOTS", str(tmp_path))
     request = {
         "analysis_id": "WGS_20260714_123456_A1B2C3",
         "pipeline": "wgs",
