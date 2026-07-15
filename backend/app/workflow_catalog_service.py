@@ -100,10 +100,7 @@ def _empty_stages(pipeline: str) -> list[dict[str, object]]:
 def _latest_run_payload(run: AnalysisRun | None, stages: list[dict[str, Any]]) -> dict[str, Any] | None:
     if run is None:
         return None
-    current_stage = next(
-        (stage["label"] for stage in stages if stage["status"] in {"failed", "running", "canceled"}),
-        "Completed" if str(run.status or "").lower() == "success" else run.current_stage,
-    )
+    current_stage = _current_stage_label(run=run, stages=stages)
     params = run.params_json or {}
     return {
         "analysis_id": run.analysis_id,
@@ -115,3 +112,14 @@ def _latest_run_payload(run: AnalysisRun | None, stages: list[dict[str, Any]]) -
         if (run.pipeline_finished_at or run.ended_at)
         else None,
     }
+
+
+def _current_stage_label(*, run: AnalysisRun, stages: list[dict[str, Any]]) -> str | None:
+    for status in ("failed", "running"):
+        matching = [str(stage["label"]) for stage in stages if stage["status"] == status]
+        if matching:
+            return matching[0]
+    canceled = [str(stage["label"]) for stage in stages if stage["status"] == "canceled"]
+    if canceled:
+        return canceled[-1]
+    return "Completed" if str(run.status or "").lower() == "success" else run.current_stage
