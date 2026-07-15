@@ -46,9 +46,10 @@ def test_run_list_builds_workflow_stage_summaries_with_one_rule_query() -> None:
                 SnakemakeRuleEvent(analysis_id="NIPT_SUMMARY", rule="map", sample_id="N1", snakemake_jobid="1", status="success"),
                 SnakemakeRuleEvent(analysis_id="NIPT_SUMMARY", rule="aneuscreen_predict", sample_id="N1", snakemake_jobid="2", status="failed"),
                 SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="Preall", sample_id=None, snakemake_jobid="1", status="success"),
-                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="Dedup", sample_id="W1", snakemake_jobid="2", status="success"),
+                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="mapping", sample_id="W1", snakemake_jobid="2", status="success"),
                 SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="QualCal", sample_id="W1", snakemake_jobid="3", status="running"),
                 SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="SNV_Annotation", sample_id="W1", snakemake_jobid="4", status="running"),
+                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="mergeMTQC", sample_id="W1", snakemake_jobid="5", status="success"),
             ]
         )
         session.commit()
@@ -76,10 +77,13 @@ def test_run_list_builds_workflow_stage_summaries_with_one_rule_query() -> None:
     assert [(item["label"], item["status"]) for item in by_id["WGS_SUMMARY"]["workflow_summary"]] == [
         ("Pre-calling", "running"),
         ("Variant analysis", "running"),
-        ("QC", "pending"),
+        ("QC", "success"),
     ]
     wgs_pre_calling = by_id["WGS_SUMMARY"]["workflow_summary"][0]
     assert wgs_pre_calling["completed_jobs"] == 2
     assert wgs_pre_calling["total_jobs"] == 3
+    wgs_qc = by_id["WGS_SUMMARY"]["workflow_summary"][2]
+    assert wgs_qc["completed_jobs"] == 1
+    assert wgs_qc["total_jobs"] == 1
     rule_selects = [statement for statement in statements if "FROM snakemake_rule_event" in statement]
     assert len(rule_selects) == 1

@@ -123,7 +123,7 @@ def _created_or_unsubmitted_payload(*, run: AnalysisRun, rule_events: list[dict[
         "airflow_tasks": [],
         "rule_events": rule_events,
     }
-    payload.update(_rule_observability(rule_events, prefer_failed=_is_failed(status)))
+    payload.update(_rule_observability(run=run, rule_events=rule_events, prefer_failed=_is_failed(status)))
     return payload
 
 
@@ -182,15 +182,15 @@ def _progress_from_tasks(
         "not_in_airflow": False,
         "progress_source": progress_source,
     }
-    payload.update(_rule_observability(rule_events, prefer_failed=_is_failed(status)))
+    payload.update(_rule_observability(run=run, rule_events=rule_events, prefer_failed=_is_failed(status)))
     return payload
 
 
-def _rule_observability(rule_events: list[dict[str, Any]], *, prefer_failed: bool) -> dict[str, Any]:
+def _rule_observability(*, run: AnalysisRun, rule_events: list[dict[str, Any]], prefer_failed: bool) -> dict[str, Any]:
     current = current_rule_event(rule_events, prefer_failed=prefer_failed)
     rule = str((current or {}).get("rule") or "") or None
     return {
-        "current_phase": phase_for_rule(rule) if rule else None,
+        "current_phase": phase_for_rule(rule, pipeline_name=run.pipeline_name) if rule else None,
         "current_rule": rule,
         "current_sample": (current or {}).get("sample_id"),
         "rule_counts": rule_counts(rule_events),

@@ -44,9 +44,13 @@ def workflow_summaries_by_run(*, session: Session, runs: list[AnalysisRun]) -> d
             select(SnakemakeRuleEvent).where(SnakemakeRuleEvent.analysis_id.in_(analysis_ids))
         ).all()
     ) if analysis_ids else []
+    pipeline_by_analysis_id = {run.analysis_id: run.pipeline_name for run in runs}
     grouped: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
     for item in events:
-        grouped[item.analysis_id][phase_for_rule(item.rule)].append(str(item.status or "unknown").lower())
+        pipeline_name = pipeline_by_analysis_id.get(item.analysis_id)
+        grouped[item.analysis_id][phase_for_rule(item.rule, pipeline_name=pipeline_name)].append(
+            str(item.status or "unknown").lower()
+        )
 
     result: dict[str, list[dict[str, object]]] = {}
     for run in runs:

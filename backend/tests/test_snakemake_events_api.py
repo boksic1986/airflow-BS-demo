@@ -253,6 +253,42 @@ def test_run_rules_endpoint_filters_pages_and_summarizes_nipt_phases(monkeypatch
     assert {item["phase"] for item in payload["summary"]["phases"]} == {"Mapping", "T21 classifier", "Final QC"}
 
 
+def test_run_rules_endpoint_uses_wgs_specific_rule_phases(monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_run(
+        session_factory,
+        analysis_id="WGS_20260715_120000_RULES",
+        pipeline_name="wgs",
+    )
+    now = datetime(2026, 7, 15, 12, 0, tzinfo=timezone.utc)
+    with session_factory() as session:
+        session.add_all(
+            [
+                SnakemakeRuleEvent(analysis_id=analysis_id, rule="mapping", snakemake_jobid="1", status="success", start_time=now, end_time=now, updated_at=now),
+                SnakemakeRuleEvent(analysis_id=analysis_id, rule="mityCallflt", snakemake_jobid="2", status="running", start_time=now, updated_at=now),
+                SnakemakeRuleEvent(analysis_id=analysis_id, rule="mergeMTQC", snakemake_jobid="3", status="success", start_time=now, end_time=now, updated_at=now),
+                SnakemakeRuleEvent(analysis_id=analysis_id, rule="NormalizeVcf", snakemake_jobid="4", status="success", start_time=now, end_time=now, updated_at=now),
+            ]
+        )
+        session.commit()
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+
+    response = TestClient(main.app).get(f"/api/runs/{analysis_id}/rules")
+
+    assert response.status_code == 200
+    assert {item["rule"]: item["phase"] for item in response.json()["items"]} == {
+        "mapping": "Pre-calling",
+        "mityCallflt": "Variant analysis",
+        "mergeMTQC": "QC",
+        "NormalizeVcf": "Variant analysis",
+    }
+    assert {item["phase"] for item in response.json()["summary"]["phases"]} == {
+        "Pre-calling",
+        "Variant analysis",
+        "QC",
+    }
+
+
 def test_pipeline_completion_event_sets_first_finish_time_once(monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_run(

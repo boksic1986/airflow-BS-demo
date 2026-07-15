@@ -77,10 +77,13 @@ def list_snakemake_rule_events(
     sample_id: str | None = None,
     limit: int | None = None,
     offset: int = 0,
+    pipeline_name: str | None = None,
 ) -> list[dict[str, Any]] | None:
-    run_exists = session.scalar(select(AnalysisRun.analysis_id).where(AnalysisRun.analysis_id == analysis_id))
-    if run_exists is None:
-        return None
+    if pipeline_name is None:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        if run is None:
+            return None
+        pipeline_name = run.pipeline_name
 
     rows = session.scalars(
         select(SnakemakeRuleEvent)
@@ -92,7 +95,7 @@ def list_snakemake_rule_events(
             SnakemakeRuleEvent.snakemake_jobid,
         )
     ).all()
-    items = [_rule_event_payload(row) for row in rows]
+    items = [_rule_event_payload(row, pipeline_name=pipeline_name) for row in rows]
     if status:
         items = [item for item in items if str(item.get("status") or "").lower() == status.lower()]
     if rule:
@@ -114,7 +117,14 @@ def get_snakemake_rule_events_page(
     limit: int,
     offset: int,
 ) -> dict[str, Any] | None:
-    all_items = list_snakemake_rule_events(session=session, analysis_id=analysis_id)
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+    if run is None:
+        return None
+    all_items = list_snakemake_rule_events(
+        session=session,
+        analysis_id=analysis_id,
+        pipeline_name=run.pipeline_name,
+    )
     if all_items is None:
         return None
     filtered = all_items
@@ -129,7 +139,7 @@ def get_snakemake_rule_events_page(
         "total": len(filtered),
         "limit": limit,
         "offset": offset,
-        "summary": summarize_rule_events(all_items),
+        "summary": summarize_rule_events(all_items, pipeline_name=run.pipeline_name),
     }
 
 
@@ -227,7 +237,7 @@ def _apply_event(rule_event: SnakemakeRuleEvent, *, event: Mapping[str, Any], ti
         rule_event.end_time = timestamp
 
 
-def _rule_event_payload(row: SnakemakeRuleEvent) -> dict[str, Any]:
+def _rule_event_payload(row: SnakemakeRuleEvent, *, pipeline_name: str | None = None) -> dict[str, Any]:
     return {
         "rule": row.rule,
         "sample_id": row.sample_id,
@@ -241,7 +251,7 @@ def _rule_event_payload(row: SnakemakeRuleEvent) -> dict[str, Any]:
         "message": row.message,
         "return_code": row.return_code,
         "wildcards": row.wildcards_json or {},
-        "phase": phase_for_rule(row.rule),
+        "phase": phase_for_rule(row.rule, pipeline_name=pipeline_name),
     }
 
 

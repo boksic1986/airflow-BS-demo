@@ -76,13 +76,134 @@ GENERIC_RULE_PHASES = {
     "WGS_QC": "QC",
 }
 
+WGS_PRE_CALLING_RULES = frozenset(
+    {
+        "Preall",
+        "cleanFastq",
+        "mapping",
+        "Dedup",
+        "Sam2Cram",
+        "QualCal",
+        "QCStatic",
+        "mtQC",
+        "Haplotyper",
+        "bam2blockUniq",
+        "Smooverun",
+        "mityCall",
+        "MEICall",
+    }
+)
+WGS_QC_RULES = frozenset(
+    {
+        "QCall",
+        "PeddyC",
+        "sceVCF",
+        "gender",
+        "SingleQC_merge",
+        "mergeQC",
+        "plotQC",
+        "mergeMTQC",
+    }
+)
+WGS_VARIANT_ANALYSIS_RULES = frozenset(
+    {
+        "CNVall",
+        "fastqCount",
+        "GCcorrect",
+        "CNVcalling",
+        "formatCNV",
+        "CNV_VAF_plot",
+        "mergeCNV",
+        "CNVannotation",
+        "insertplot",
+        "MEIall",
+        "MEI",
+        "MEI_vep",
+        "MEI_annotation",
+        "ROHall",
+        "ROHcalling",
+        "vafplot",
+        "format",
+        "imprintRegionR",
+        "MIE",
+        "MIE_ROH_plot",
+        "SMAall",
+        "SMA",
+        "CYP2D6",
+        "CSall",
+        "createCSfile",
+        "fam_split_lenient_CS",
+        "fam_split_lenient_CS_correct",
+        "fam_split_strict_CS",
+        "fam_split_strict_CS_correct",
+        "makecsvcf",
+        "makecsvcf_flt",
+        "fam_slivar_lenient_CS",
+        "fam_slivar_strict_CS",
+        "fam_SNVannotation_strict_CS",
+        "fam_SNVannotation_lenient_CS",
+        "markCS_flt",
+        "markCS",
+        "MTall",
+        "mityCallflt",
+        "NorVcf",
+        "mityreport",
+        "mtAnnot",
+        "mtFlt",
+        "mtCombine",
+        "REall",
+        "expansionhunter",
+        "SNVall",
+        "GVCFtyper",
+        "NormalizeVcf",
+        "qualityFlt",
+        "virtualWES",
+        "vep",
+        "intergenicFlt",
+        "vepLenient",
+        "blacklistCsqFlt",
+        "vepFlt",
+        "createPed",
+        "solo_split_lenient",
+        "solo_split_strict",
+        "trio_split",
+        "fam_split_lenient",
+        "fam_split_lenient_correct",
+        "fam_split_strict",
+        "fam_split_strict_correct",
+        "fam_slivar_lenient",
+        "fam_slivar_strict",
+        "fam_SNVannotation_strict",
+        "fam_SNVannotation_lenient",
+        "solo_SNVannotation_strict",
+        "solo_SNVannotation_lenient",
+        "batchVcf2Vaf",
+        "splitVcf",
+        "bedGraphVaf",
+        "SVall",
+        "splitCNV",
+        "svVep",
+        "SVtsv",
+        "SVsort",
+    }
+)
+WGS_RULE_PHASES = {
+    **{rule: "Pre-calling" for rule in WGS_PRE_CALLING_RULES},
+    **{rule: "Variant analysis" for rule in WGS_VARIANT_ANALYSIS_RULES},
+    **{rule: "QC" for rule in WGS_QC_RULES},
+}
+WGS_UNKNOWN_RULE_PHASE = "Variant analysis"
+
 FAILED_STATUSES = {"failed", "fail", "error"}
 RUNNING_STATUSES = {"planned", "submitted", "running", "started"}
 TERMINAL_STATUSES = {"success", "failed", "fail", "error", "skipped", "canceled", "cancelled", "terminated"}
 
 
-def phase_for_rule(rule: str | None) -> str:
+def phase_for_rule(rule: str | None, *, pipeline_name: str | None = None) -> str:
     name = str(rule or "").strip()
+    if str(pipeline_name or "").strip().lower() == "wgs":
+        # Unknown WGS rules remain on the WGS stage rail rather than becoming generic Pipeline events.
+        return WGS_RULE_PHASES.get(name, WGS_UNKNOWN_RULE_PHASE)
     return NIPT_RULE_PHASES.get(name) or GENERIC_RULE_PHASES.get(name) or "Pipeline"
 
 
@@ -97,11 +218,11 @@ def rule_counts(events: list[dict[str, Any]]) -> dict[str, int]:
     }
 
 
-def summarize_rule_events(events: list[dict[str, Any]]) -> dict[str, Any]:
+def summarize_rule_events(events: list[dict[str, Any]], *, pipeline_name: str | None = None) -> dict[str, Any]:
     by_status = Counter(str(item.get("status") or "unknown").lower() for item in events)
     phase_rows: dict[str, list[dict[str, Any]]] = {}
     for item in events:
-        phase_rows.setdefault(phase_for_rule(item.get("rule")), []).append(item)
+        phase_rows.setdefault(phase_for_rule(item.get("rule"), pipeline_name=pipeline_name), []).append(item)
     phases = [
         {"phase": phase, **rule_counts(items)}
         for phase, items in phase_rows.items()

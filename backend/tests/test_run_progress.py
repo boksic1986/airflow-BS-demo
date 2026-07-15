@@ -261,6 +261,34 @@ def test_run_progress_uses_wgs_sshoperator_stages(tmp_path, monkeypatch) -> None
     ]
 
 
+def test_wgs_progress_uses_the_same_pipeline_specific_phase_as_rules(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_wgs_run(session_factory, tmp_path)
+    now = datetime(2026, 7, 15, 12, 0, tzinfo=timezone.utc)
+    with session_factory() as session:
+        session.add(
+            SnakemakeRuleEvent(
+                analysis_id=analysis_id,
+                rule="mapping",
+                sample_id="W1",
+                status="running",
+                snakemake_jobid="1",
+                start_time=now,
+                updated_at=now,
+            )
+        )
+        session.commit()
+    fake_airflow = FakeAirflowClient(tasks=[{"task_id": "wgs_pipeline.pre_calling", "state": "running"}])
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared", fake_airflow)
+
+    response = TestClient(main.app).get(f"/api/runs/{analysis_id}/progress")
+
+    assert response.status_code == 200
+    assert response.json()["current_rule"] == "mapping"
+    assert response.json()["current_phase"] == "Pre-calling"
+    assert response.json()["rule_events"][0]["phase"] == "Pre-calling"
+
+
 def test_run_progress_refines_running_airflow_task_with_rule_events(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_pgta_run(
