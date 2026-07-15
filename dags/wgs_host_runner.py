@@ -368,6 +368,7 @@ def _precalling_targets(config_path: Path) -> list[str]:
                 f"00_PreCalling/{sample_id}.g.vcf.gz",
                 f"00_PreCalling/{sample_id}.deduped.cram",
                 f"00_PreCalling/{sample_id}.deduped.cram.crai",
+                f"00_PreCalling/{sample_id}.blk",
             ]
         )
     return targets
@@ -404,33 +405,80 @@ def _stage_historical_pre_calling_context(
     destination_root.mkdir(parents=True, exist_ok=True)
     linked_files = 0
     missing_samples = []
+    missing_blocks = []
     for sample_id in historical_samples:
         matched = 0
+        resolved_sources: list[Path] = []
         for source in source_precalling.iterdir():
             if not _belongs_to_sample(source.name, sample_id):
                 continue
             resolved = source.resolve(strict=True)
-            if not resolved.is_file() or not any(
-                resolved == root or resolved.is_relative_to(root) for root in allowed_targets
-            ):
-                raise ValueError(f"WGS historical context target is outside approved roots: {source}")
             destination = destination_root / source.name
-            if destination.exists() or destination.is_symlink():
-                raise FileExistsError(f"WGS historical context destination already exists: {destination}")
-            destination.symlink_to(resolved)
+            if _link_historical_context_file(
+                source=resolved,
+                destination=destination,
+                allowed_targets=allowed_targets,
+            ):
+                linked_files += 1
             matched += 1
-            linked_files += 1
+            resolved_sources.append(resolved)
         if matched == 0:
             missing_samples.append(sample_id)
+            continue
+        block_destination = destination_root / f"{sample_id}.blk"
+        if not block_destination.exists():
+            for resolved_source in resolved_sources:
+                block_source = resolved_source.parent / f"{sample_id}.blk"
+                if not block_source.is_file():
+                    continue
+                if _link_historical_context_file(
+                    source=block_source.resolve(strict=True),
+                    destination=block_destination,
+                    allowed_targets=allowed_targets,
+                ):
+                    linked_files += 1
+                break
+        if not block_destination.is_file():
+            missing_blocks.append(sample_id)
     if missing_samples:
         raise FileNotFoundError(
             "WGS historical pre-calling context is missing samples: " + ", ".join(missing_samples)
+        )
+    if missing_blocks:
+        raise FileNotFoundError(
+            "WGS historical pre-calling context is missing .blk files for samples: "
+            + ", ".join(missing_blocks)
         )
     return {
         "sample_count": len(historical_samples),
         "file_count": linked_files,
         "status": "linked_read_only",
     }
+
+
+def _link_historical_context_file(
+    *,
+    source: Path,
+    destination: Path,
+    allowed_targets: tuple[Path, ...],
+) -> bool:
+    resolved = source.resolve(strict=True)
+    if not resolved.is_file() or not any(
+        resolved == root or resolved.is_relative_to(root) for root in allowed_targets
+    ):
+        raise ValueError(f"WGS historical context target is outside approved roots: {source}")
+    if destination.exists() or destination.is_symlink():
+        try:
+            existing = destination.resolve(strict=True)
+        except FileNotFoundError as exc:
+            raise FileExistsError(
+                f"WGS historical context destination is a broken link: {destination}"
+            ) from exc
+        if destination.is_symlink() and existing == resolved:
+            return False
+        raise FileExistsError(f"WGS historical context destination already exists: {destination}")
+    destination.symlink_to(resolved)
+    return True
 
 
 def _configured_sample_names(payload: dict[str, Any], *, label: str) -> list[str]:

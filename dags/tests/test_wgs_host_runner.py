@@ -33,11 +33,16 @@ def test_pre_calling_targets_use_config_sample_subset(tmp_path) -> None:
 
     targets = _precalling_targets(config)
 
-    assert len(targets) == 9
+    assert len(targets) == 12
     assert {Path(target).name.split(".")[0] for target in targets} == {
         "WGS-01",
         "WGS-02",
         "WGS-03",
+    }
+    assert {Path(target).name for target in targets if target.endswith(".blk")} == {
+        "WGS-01.blk",
+        "WGS-02.blk",
+        "WGS-03.blk",
     }
 
 
@@ -206,3 +211,72 @@ def test_prepare_links_only_historical_batch_context(tmp_path, monkeypatch) -> N
 
     assert (workdir / "00_PreCalling" / "WGS-HIST.blk").is_symlink()
     assert not (workdir / "00_PreCalling" / "WGS-NEW.blk").exists()
+
+
+def test_prepare_recovers_historical_blk_beside_resolved_precalling_link(tmp_path, monkeypatch) -> None:
+    workdir = tmp_path / "runs" / "WGS_20260714_123456_A1B2C3"
+    config_dir = workdir / "config"
+    config_dir.mkdir(parents=True)
+    sample_info = tmp_path / "samples.tsv"
+    sample_info.write_text("sample_id\nWGS-NEW\nWGS-HIST\n", encoding="utf-8")
+    fastq_dir = tmp_path / "fastq"
+    fastq_dir.mkdir()
+    upstream = tmp_path / "upstream" / "00_PreCalling"
+    upstream.mkdir(parents=True)
+    (upstream / "WGS-HIST.g.vcf.gz").write_text("gvcf", encoding="utf-8")
+    (upstream / "WGS-HIST.blk").write_text("blocks", encoding="utf-8")
+    source_root = tmp_path / "source-run"
+    source_precalling = source_root / "00_PreCalling"
+    source_precalling.mkdir(parents=True)
+    (source_precalling / "WGS-HIST.g.vcf.gz").symlink_to(upstream / "WGS-HIST.g.vcf.gz")
+    precalling = config_dir / "wgs.precalling.requested.yaml"
+    downstream = config_dir / "wgs.downstream.requested.yaml"
+    targets = config_dir / "targets.requested.txt"
+    precalling.write_text(
+        f"sample_info: {sample_info}\nfastqDir: {fastq_dir}\nsample:\n  - WGS-NEW\n",
+        encoding="utf-8",
+    )
+    downstream.write_text(
+        f"sample_info: {sample_info}\nfastqDir: {fastq_dir}\nsample:\n  - WGS-NEW\n  - WGS-HIST\n",
+        encoding="utf-8",
+    )
+    targets.write_text("01_SNV/demo.flt.tsv\n", encoding="utf-8")
+    env_script = tmp_path / "env.sh"
+    env_script.write_text("true\n", encoding="utf-8")
+    snakemake = tmp_path / "snakemake"
+    snakemake.write_text("#!/bin/sh\n", encoding="utf-8")
+    pipeline_root = tmp_path / "pipeline"
+    pipeline_root.mkdir()
+    for name in ("WGS_pipeline_fastq2vcf.Snakefile", "WGS_pipeline.Snakefile"):
+        (pipeline_root / name).write_text("rule all:\n    input: []\n", encoding="utf-8")
+    monkeypatch.setattr(wgs_host_runner, "DEFAULT_ENV_SCRIPT", env_script)
+    monkeypatch.setattr(wgs_host_runner, "DEFAULT_SNAKEMAKE_BIN", snakemake)
+    monkeypatch.setattr(wgs_host_runner, "DEFAULT_PIPELINE_ROOT", pipeline_root)
+    monkeypatch.setenv("WGS_CONFIG_ROOTS", str(tmp_path))
+    monkeypatch.setenv("WGS_FASTQ_ROOTS", str(tmp_path))
+    monkeypatch.setenv("WGS_PRECALLING_SOURCE_ROOTS", str(tmp_path))
+    request = {
+        "analysis_id": "WGS_20260714_123456_A1B2C3",
+        "pipeline": "wgs",
+        "wgs_stage": "full",
+        "host_workdir": str(workdir),
+        "precalling_config_path": str(precalling),
+        "downstream_config_path": str(downstream),
+        "targets_path": str(targets),
+        "source_analysis_root": str(source_root),
+        "input_sha256": {
+            "precalling_config": hashlib.sha256(precalling.read_bytes()).hexdigest(),
+            "downstream_config": hashlib.sha256(downstream.read_bytes()).hexdigest(),
+            "targets": hashlib.sha256(targets.read_bytes()).hexdigest(),
+        },
+    }
+
+    prepare_run(request)
+    prepare_run(request)
+
+    assert (workdir / "00_PreCalling" / "WGS-HIST.g.vcf.gz").resolve() == (
+        upstream / "WGS-HIST.g.vcf.gz"
+    ).resolve()
+    assert (workdir / "00_PreCalling" / "WGS-HIST.blk").resolve() == (
+        upstream / "WGS-HIST.blk"
+    ).resolve()

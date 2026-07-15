@@ -485,19 +485,24 @@ def _log_path(run: AnalysisRun, stream: str, settings) -> Path:
 
 
 def _safe_workdir(run: AnalysisRun, settings) -> Path:
-    shared_root = Path(settings.container_shared_root).resolve()
     workdir = Path(run.workdir).resolve()
-    if not _is_relative_to(workdir, shared_root):
-        raise InvalidRunPathError(f"Run workdir is outside shared root: {workdir}")
+    if not any(_is_relative_to(workdir, root) for root in _allowed_run_roots(settings)):
+        raise InvalidRunPathError(f"Run workdir is outside configured result roots: {workdir}")
     return workdir
 
 
 def _safe_child_path(workdir: Path, relative_path: Path, settings) -> Path:
-    shared_root = Path(settings.container_shared_root).resolve()
     path = (workdir / relative_path).resolve()
-    if not _is_relative_to(path, shared_root) or not _is_relative_to(path, workdir):
+    if not _is_relative_to(path, workdir) or not any(
+        _is_relative_to(path, root) for root in _allowed_run_roots(settings)
+    ):
         raise InvalidRunPathError(f"Resolved path is outside run workdir: {path}")
     return path
+
+
+def _allowed_run_roots(settings) -> tuple[Path, ...]:
+    configured = [settings.container_shared_root, getattr(settings, "host_results_root", None)]
+    return tuple(dict.fromkeys(Path(value).resolve() for value in configured if value))
 
 
 def _is_relative_to(path: Path, root: Path) -> bool:

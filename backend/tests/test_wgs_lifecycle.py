@@ -193,6 +193,51 @@ def test_run_resources_returns_summary_artifact(tmp_path, monkeypatch) -> None:
     assert "summary_path" not in response.json()
 
 
+def test_wgs_logs_allow_the_configured_host_results_root(tmp_path, monkeypatch) -> None:
+    session_factory = make_sessionmaker()
+    validation_root = tmp_path / "validation"
+    validation_root.mkdir()
+    sample_info = validation_root / "sampleinfo.tsv"
+    sample_info.write_text("sample_id\nWGS-DEMO-01\n", encoding="utf-8")
+    config = validation_root / "config.yaml"
+    config.write_text(f"sample_info: {sample_info}\nfastqDir: {validation_root}\n", encoding="utf-8")
+    targets = validation_root / "targets.txt"
+    targets.write_text("target\n", encoding="utf-8")
+    host_results_root = tmp_path / "host-results"
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: SimpleNamespace(
+            deployed_pipelines=("wgs",),
+            container_shared_root=str(tmp_path / "shared"),
+            host_results_root=str(host_results_root),
+            wgs_config_roots=[str(validation_root)],
+            wgs_validation_roots=[str(validation_root)],
+            pipeline_profile_config_path=None,
+        ),
+    )
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    client = TestClient(main.app)
+    created = client.post(
+        "/api/runs",
+        json={
+            "pipeline": "wgs",
+            "project_name": "host logs",
+            "wgs_config_path": str(config),
+            "wgs_targets_path": str(targets),
+            "wgs_stage": "precalling",
+        },
+    ).json()
+    stderr_path = host_results_root / "runs" / created["analysis_id"] / "logs" / "snakemake.stderr.log"
+    stderr_path.parent.mkdir(parents=True, exist_ok=True)
+    stderr_path.write_text("WGS downstream failure\n", encoding="utf-8")
+
+    response = client.get(f"/api/runs/{created['analysis_id']}/logs?stream=stderr")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["lines"] == ["WGS downstream failure"]
+
+
 def test_run_resources_treats_corrupt_summary_as_unavailable(tmp_path, monkeypatch) -> None:
     session_factory = make_sessionmaker()
     validation_root = tmp_path / "validation"
