@@ -33,6 +33,12 @@ class BsSharedDeploymentContractTests(unittest.TestCase):
         self.assertIn('COMPOSE_PROJECT_NAME:-airflow-nipt', preflight)
         self.assertNotIn("airflow-bs-control", preflight)
 
+    def test_nginx_allows_the_operator_workstation_subnet(self) -> None:
+        nginx = (REPO_ROOT / "frontend" / "nginx.bs-nipt.conf").read_text(encoding="utf-8")
+
+        self.assertEqual(nginx.count("allow 172.20.8.0/24;"), 2)
+        self.assertEqual(nginx.count("deny all;"), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

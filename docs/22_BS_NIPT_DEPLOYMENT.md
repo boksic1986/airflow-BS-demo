@@ -74,15 +74,17 @@ nginx policy must therefore account for the actual access path:
 ```nginx
 allow 172.17.61.0/24;
 allow 172.17.106.0/24;
+allow 172.20.8.0/24;
 allow 127.0.0.1;
 deny all;
 ```
 
 Read-only SSH verification from the current operator workstation on 2026-07-14
-showed BS10610 receiving source `172.17.61.18`. The workstation-side address
-may differ because of VPN/NAT; nginx policy must use the source observed by the
-BS node, not an unverified local adapter address. Reconfirm the HTTP source in
-the nginx access log during deployment acceptance.
+showed BS10610 receiving source `172.17.61.18`, while the live browser request
+on 2026-07-15 reached nginx as `172.20.8.85`. The allowlist therefore includes
+the operator workstation subnet `172.20.8.0/24`. Reconfirm the HTTP source in
+the nginx access log during deployment acceptance; do not infer it only from
+the SSH path.
 
 If Docker port publishing presents a node-local health request to nginx with a
 `192.168.199.0/24` source, add that internal subnet only after confirming the
