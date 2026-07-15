@@ -448,7 +448,7 @@ describe("bioinformatics platform frontend", () => {
           const limit = Number(parsed.searchParams.get("limit") || "10");
           const offset = Number(parsed.searchParams.get("offset") || "0");
           let items = dashboardRows();
-          if (pipeline !== "all") items = items.filter((item) => item.pipeline === pipeline);
+          if (pipeline !== "all" && pipeline !== "deployed") items = items.filter((item) => item.pipeline === pipeline);
           if (status) {
             if (status === "active") items = items.filter((item) => ["running", "submitted", "queued", "scheduled"].includes(item.status));
             else if (status === "failed") items = items.filter((item) => item.status === "failed");
@@ -513,7 +513,7 @@ describe("bioinformatics platform frontend", () => {
               report_status: "available",
             },
           ];
-          if (pipeline) items = items.filter((item) => item.pipeline === pipeline);
+          if (pipeline && pipeline !== "deployed") items = items.filter((item) => item.pipeline === pipeline);
           if (qcStatus) items = items.filter((item) => item.qc_status === qcStatus);
           if (keyword) items = items.filter((item) => `${item.sample_id} ${item.analysis_id} ${item.project_name}`.toLowerCase().includes(keyword));
           return mockJson({items: items.slice(offset, offset + limit), total: items.length, limit, offset});
@@ -582,7 +582,7 @@ describe("bioinformatics platform frontend", () => {
           let items = intakeDiscoveries();
           if (view === "pending") items = items.filter((item) => !item.analysis_id);
           if (view === "history") items = items.filter((item) => Boolean(item.analysis_id));
-          if (pipeline) items = items.filter((item) => item.pipeline === pipeline);
+          if (pipeline && pipeline !== "deployed") items = items.filter((item) => item.pipeline === pipeline);
           if (state) items = items.filter((item) => mockDiscoveryState(item) === state);
           if (keyword) {
             items = items.filter((item) => `${item.batch_id} ${item.analysis_id || ""}`.toLowerCase().includes(keyword));
@@ -1280,8 +1280,8 @@ describe("bioinformatics platform frontend", () => {
     expect(screen.queryByText(/Asia\/Shanghai/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("link", {name: /^View$/i})).not.toBeInTheDocument();
     expect(screen.getByRole("progressbar", {name: new RegExp(activePgtaRunId)})).toHaveAttribute("aria-valuenow", "52");
-    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/overview?pipeline=all&period=7d"), undefined);
-    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/runs?pipeline=all&limit=10&offset=0"), undefined);
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/overview?pipeline=deployed&period=7d"), undefined);
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/runs?pipeline=deployed&limit=10&offset=0"), undefined);
     expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/system/resources"), undefined);
     expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes("/progress"))).toBe(false);
     expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes("/rules"))).toBe(false);
@@ -1296,6 +1296,7 @@ describe("bioinformatics platform frontend", () => {
     await waitFor(() => {
       const intakeCalls = vi.mocked(globalThis.fetch).mock.calls.filter(([input]) => String(input).includes("/api/intake/status"));
       expect(intakeCalls.length).toBeGreaterThan(1);
+      expect(intakeCalls.every(([input]) => String(input).includes("pipeline=deployed"))).toBe(true);
       expect(intakeCalls.every(([input]) => String(input).includes("lifecycle=all"))).toBe(true);
       expect(intakeCalls.every(([input]) => String(input).includes("view=pending"))).toBe(true);
     });
@@ -1366,7 +1367,7 @@ describe("bioinformatics platform frontend", () => {
 
     expect(await screen.findByRole("heading", {name: /^Run Tracker$/i})).toBeInTheDocument();
     await user.click(screen.getByRole("button", {name: /30d/i}));
-    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/overview?pipeline=all&period=30d"), undefined));
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/overview?pipeline=deployed&period=30d"), undefined));
 
     await user.click(screen.getByRole("button", {name: /^Running$/i}));
     expect(screen.getByText(activePgtaRunId)).toBeInTheDocument();
@@ -1380,7 +1381,7 @@ describe("bioinformatics platform frontend", () => {
     await user.click(screen.getByRole("button", {name: /^All$/i}));
     await user.click(screen.getByRole("button", {name: /Next page/i}));
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/runs?pipeline=all&limit=10&offset=10"), undefined);
+      expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/dashboard/runs?pipeline=deployed&limit=10&offset=10"), undefined);
     });
 
     await user.click(screen.getByRole("button", {name: /NIPT Docker/i}));

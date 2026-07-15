@@ -128,6 +128,41 @@ def test_intake_status_view_separates_pending_records_from_linked_history(monkey
     assert all_rows["total"] == 4
 
 
+def test_intake_status_deployed_scope_uses_settings_for_paginated_bs_rows(monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime.now(timezone.utc)
+    with session_factory() as session:
+        for index, pipeline in enumerate(("pgta", "nipt_docker", "wgs")):
+            session.add(
+                IntakeDiscovery(
+                    pipeline_name=pipeline,
+                    root_path=f"/data/{pipeline}",
+                    batch_id=f"{pipeline}-batch",
+                    fingerprint=f"{pipeline}-fingerprint",
+                    file_count=2,
+                    total_bytes=1024,
+                    ready_state="observed",
+                    submit_state="not_submitted",
+                    last_seen_at=now + timedelta(minutes=index),
+                )
+            )
+        session.commit()
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    monkeypatch.setattr(
+        main,
+        "_deployment_guard_settings",
+        lambda: SimpleNamespace(deployed_pipelines=("nipt_docker", "wgs")),
+    )
+    client = TestClient(main.app)
+
+    for query in ("", "&pipeline=all", "&pipeline=deployed"):
+        first = client.get(f"/api/intake/status?lifecycle=all&view=all&limit=1&offset=0{query}").json()
+        second = client.get(f"/api/intake/status?lifecycle=all&view=all&limit=1&offset=1{query}").json()
+        assert first["total"] == 2
+        assert first["items"][0]["pipeline"] == "wgs"
+        assert second["items"][0]["pipeline"] == "nipt_docker"
+
+
 def test_dashboard_runs_exposes_run_source_batch_and_operator_qc_state(monkeypatch, tmp_path) -> None:
     session_factory = make_test_sessionmaker()
     now = datetime.now(timezone.utc)

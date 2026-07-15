@@ -45,8 +45,10 @@ def test_run_list_builds_workflow_stage_summaries_with_one_rule_query() -> None:
                 SnakemakeRuleEvent(analysis_id="PGTA_SUMMARY", rule="wisecondorx_qc_for_predict", sample_id="P1", snakemake_jobid="2", status="running"),
                 SnakemakeRuleEvent(analysis_id="NIPT_SUMMARY", rule="map", sample_id="N1", snakemake_jobid="1", status="success"),
                 SnakemakeRuleEvent(analysis_id="NIPT_SUMMARY", rule="aneuscreen_predict", sample_id="N1", snakemake_jobid="2", status="failed"),
-                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="fq2cram", sample_id="W1", snakemake_jobid="1", status="success"),
-                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="SNV_Annotation", sample_id="W1", snakemake_jobid="2", status="running"),
+                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="Preall", sample_id=None, snakemake_jobid="1", status="success"),
+                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="Dedup", sample_id="W1", snakemake_jobid="2", status="success"),
+                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="QualCal", sample_id="W1", snakemake_jobid="3", status="running"),
+                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="SNV_Annotation", sample_id="W1", snakemake_jobid="4", status="running"),
             ]
         )
         session.commit()
@@ -72,9 +74,12 @@ def test_run_list_builds_workflow_stage_summaries_with_one_rule_query() -> None:
         ("Final QC", "pending"),
     ]
     assert [(item["label"], item["status"]) for item in by_id["WGS_SUMMARY"]["workflow_summary"]] == [
-        ("Pre-calling", "success"),
+        ("Pre-calling", "running"),
         ("Variant analysis", "running"),
         ("QC", "pending"),
     ]
+    wgs_pre_calling = by_id["WGS_SUMMARY"]["workflow_summary"][0]
+    assert wgs_pre_calling["completed_jobs"] == 2
+    assert wgs_pre_calling["total_jobs"] == 3
     rule_selects = [statement for statement in statements if "FROM snakemake_rule_event" in statement]
     assert len(rule_selects) == 1

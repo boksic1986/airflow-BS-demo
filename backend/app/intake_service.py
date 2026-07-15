@@ -121,6 +121,7 @@ def list_intake_status(
     keyword: str | None = None,
     limit: int = 50,
     offset: int = 0,
+    deployed_pipelines: tuple[str, ...] | None = None,
 ) -> dict[str, object]:
     sample_counts = (
         select(Sample.analysis_id.label("analysis_id"), func.count(Sample.id).label("sample_count"))
@@ -144,7 +145,9 @@ def list_intake_status(
         query = query.where(IntakeDiscovery.analysis_id.is_not(None))
     elif view != "all":
         raise ValueError("view must be pending, history, or all.")
-    if pipeline:
+    if deployed_pipelines is not None:
+        query = query.where(IntakeDiscovery.pipeline_name.in_(deployed_pipelines))
+    elif pipeline:
         query = query.where(IntakeDiscovery.pipeline_name == pipeline)
     if state:
         query = query.where(_intake_state_condition(state))

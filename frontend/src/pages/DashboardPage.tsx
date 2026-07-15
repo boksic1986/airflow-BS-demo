@@ -59,25 +59,26 @@ export function DashboardPage() {
   const [intakeError, setIntakeError] = useState<string | null>(null);
   const [resourcesError, setResourcesError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const deployedPipeline = pipeline === "all" ? "deployed" : pipeline;
 
   const loadOverview = useCallback(async (showSpinner = true) => {
     if (showSpinner) setOverviewLoading(true);
     setOverviewError(null);
     try {
-      setOverview(await getDashboardOverview({pipeline, period}));
+      setOverview(await getDashboardOverview({pipeline: deployedPipeline, period}));
     } catch (loadError) {
       setOverviewError(errorMessage(loadError));
     } finally {
       if (showSpinner) setOverviewLoading(false);
     }
-  }, [period, pipeline]);
+  }, [deployedPipeline, period]);
 
   const loadTracker = useCallback(async (showSpinner = true) => {
     if (showSpinner) setTrackerLoading(true);
     setTrackerError(null);
     try {
       setTrackerPayload(await getDashboardRuns({
-        pipeline,
+        pipeline: deployedPipeline,
         status: trackerStatusParam(trackerFilter),
         keyword: trackerKeyword.trim() || undefined,
         limit: trackerLimit,
@@ -88,14 +89,14 @@ export function DashboardPage() {
     } finally {
       if (showSpinner) setTrackerLoading(false);
     }
-  }, [pipeline, trackerFilter, trackerKeyword, trackerOffset]);
+  }, [deployedPipeline, trackerFilter, trackerKeyword, trackerOffset]);
 
   const loadIntake = useCallback(async (showSpinner = true) => {
     if (showSpinner) setIntakeLoading(true);
     setIntakeError(null);
     try {
       const payload = await getIntakeStatus({
-        pipeline: pipeline === "all" ? undefined : pipeline,
+        pipeline: deployedPipeline,
         keyword: trackerKeyword.trim() || undefined,
         lifecycle: "all",
         view: intakeView,

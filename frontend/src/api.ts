@@ -506,7 +506,7 @@ export type IntakeScannerStateResponse = {
 
 export type IntakeView = "pending" | "history" | "all";
 
-export type DashboardPipeline = "all" | "pgta" | "nipt_docker" | "wgs";
+export type DashboardPipeline = "all" | "deployed" | "pgta" | "nipt_docker" | "wgs";
 
 export type DeployedPipeline = "pgta" | "nipt_docker" | "wgs";
 
@@ -909,7 +909,7 @@ export function previewIntakeScan(payload: {pipelines: DeployedPipeline[]; boots
 }
 
 export function getIntakeStatus(options: {
-  pipeline?: DeployedPipeline;
+  pipeline?: DeployedPipeline | "deployed";
   state?: IntakeDiscoveryState;
   lifecycle?: IntakeLifecycle;
   view?: IntakeView;

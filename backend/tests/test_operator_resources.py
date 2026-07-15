@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, select
@@ -141,6 +142,51 @@ def install_session(monkeypatch, session_factory) -> TestClient:
     return TestClient(main.app)
 
 
+def seed_bs_wgs_failure(session_factory, tmp_path) -> None:
+    now = datetime.now(timezone.utc)
+    analysis_id = "WGS_OMEGA_FAILED"
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                dag_run_id=f"manual__{analysis_id}",
+                mode="new",
+                status="failed",
+                sample_sheet_path=str(tmp_path / analysis_id / "config" / "samples.selected.tsv"),
+                workdir=str(tmp_path / analysis_id),
+                params_json={"project_name": "Omega WGS family", "wgs_stage": "full"},
+                created_at=now,
+                submitted_at=now,
+                started_at=now,
+                ended_at=now,
+                error_summary="QualCal failed",
+            )
+        )
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="WGS-01",
+                family_id="OMEGA",
+                status="failed",
+                qc_status="unknown",
+            )
+        )
+        session.add(
+            SnakemakeRuleEvent(
+                analysis_id=analysis_id,
+                rule="QualCal",
+                sample_id="WGS-01",
+                snakemake_jobid="7",
+                status="failed",
+                return_code=23,
+                message="Sentieon QualCal failed",
+            )
+        )
+        session.commit()
+
+
 def test_runs_support_project_keyword_sort_and_pagination(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     seed_operator_resources(session_factory, tmp_path)
@@ -185,6 +231,47 @@ def test_runs_deployed_scope_excludes_historical_wes_and_uses_sql_pagination(tmp
     assert payload["total"] == 3
     assert all(item["pipeline"] in {"pgta", "nipt_docker"} for item in payload["items"])
     assert any(" limit " in statement.lower() for statement in statements)
+
+
+def test_bs_default_all_and_deployed_resources_share_one_nipt_wgs_page(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    seed_operator_resources(session_factory, tmp_path)
+    seed_bs_wgs_failure(session_factory, tmp_path)
+    monkeypatch.setattr(
+        main,
+        "_deployment_guard_settings",
+        lambda: SimpleNamespace(deployed_pipelines=("nipt_docker", "wgs")),
+    )
+    client = install_session(monkeypatch, session_factory)
+
+    for pipeline_query in ("", "&pipeline=all", "&pipeline=deployed"):
+        first_runs = client.get(f"/api/runs?sort=created_desc&limit=1&offset=0{pipeline_query}").json()
+        second_runs = client.get(f"/api/runs?sort=created_desc&limit=1&offset=1{pipeline_query}").json()
+        assert first_runs["total"] == 2
+        assert first_runs["items"][0]["analysis_id"] == "WGS_OMEGA_FAILED"
+        assert second_runs["items"][0]["analysis_id"] == "NIPT_GAMMA_QC"
+
+        first_samples = client.get(f"/api/samples?limit=1&offset=0{pipeline_query}").json()
+        second_samples = client.get(f"/api/samples?limit=1&offset=1{pipeline_query}").json()
+        assert first_samples["total"] == 2
+        assert first_samples["items"][0]["analysis_id"] == "WGS_OMEGA_FAILED"
+        assert second_samples["items"][0]["analysis_id"] == "NIPT_GAMMA_QC"
+
+        first_failures = client.get(f"/api/failures?kind=all&period=7d&limit=1&offset=0{pipeline_query}").json()
+        second_failures = client.get(f"/api/failures?kind=all&period=7d&limit=1&offset=1{pipeline_query}").json()
+        assert first_failures["total"] == 2
+        assert first_failures["items"][0]["analysis_id"] == "WGS_OMEGA_FAILED"
+        assert second_failures["items"][0]["analysis_id"] == "NIPT_GAMMA_QC"
+
+        returned_ids = {
+            first_runs["items"][0]["analysis_id"],
+            second_runs["items"][0]["analysis_id"],
+            first_samples["items"][0]["analysis_id"],
+            second_samples["items"][0]["analysis_id"],
+            first_failures["items"][0]["analysis_id"],
+            second_failures["items"][0]["analysis_id"],
+        }
+        assert all(not analysis_id.startswith("PGTA_") for analysis_id in returned_ids)
 
 
 def test_samples_resource_is_paginated_and_hides_absolute_paths(tmp_path, monkeypatch) -> None:

@@ -46,7 +46,7 @@ export function FailuresPage() {
     setLoading(true);
     setError(null);
     listFailures({
-      pipeline,
+      pipeline: pipeline === "all" ? "deployed" : pipeline,
       kind,
       period,
       layer: layer === "all" ? undefined : layer,

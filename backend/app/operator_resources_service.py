@@ -32,15 +32,16 @@ def list_samples_resource(
     keyword: str | None,
     limit: int,
     offset: int,
+    deployed_pipelines: tuple[str, ...] = ("pgta", "nipt_docker", "wgs"),
 ) -> dict[str, Any]:
     query = select(Sample, AnalysisRun).join(
         AnalysisRun,
         AnalysisRun.analysis_id == Sample.analysis_id,
     )
-    if pipeline and pipeline != "all":
+    if pipeline and pipeline not in {"all", "deployed"}:
         query = query.where(AnalysisRun.pipeline_name == pipeline)
     else:
-        query = query.where(AnalysisRun.pipeline_name.in_(["pgta", "nipt_docker"]))
+        query = query.where(AnalysisRun.pipeline_name.in_(deployed_pipelines))
     if status:
         query = query.where(Sample.status == status)
     if qc_status:
@@ -80,6 +81,7 @@ def list_failures_resource(
     keyword: str | None,
     limit: int,
     offset: int,
+    deployed_pipelines: tuple[str, ...] = ("pgta", "nipt_docker", "wgs"),
 ) -> dict[str, Any]:
     since = _period_start(period)
     pattern = f"%{keyword.strip().lower()}%" if keyword else None
@@ -100,7 +102,11 @@ def list_failures_resource(
             AnalysisRun.created_at >= since,
             AnalysisRun.status.in_(FAILED_STATUSES),
         )
-        workflow_query = _filter_pipeline_runs(workflow_query, pipeline=pipeline)
+        workflow_query = _filter_pipeline_runs(
+            workflow_query,
+            pipeline=pipeline,
+            deployed_pipelines=deployed_pipelines,
+        )
         if pattern:
             rule_keyword_exists = select(SnakemakeRuleEvent.id).where(
                 SnakemakeRuleEvent.analysis_id == AnalysisRun.analysis_id,
@@ -142,7 +148,11 @@ def list_failures_resource(
                 Sample.qc_status.in_(["fail", "failed", "error"]),
             )
         )
-        qc_query = _filter_pipeline_runs(qc_query, pipeline=pipeline)
+        qc_query = _filter_pipeline_runs(
+            qc_query,
+            pipeline=pipeline,
+            deployed_pipelines=deployed_pipelines,
+        )
         if pattern:
             metric_keyword_exists = select(QcMetric.id).where(
                 QcMetric.analysis_id == AnalysisRun.analysis_id,
@@ -259,9 +269,9 @@ def _sample_item(*, sample: Sample, run: AnalysisRun) -> dict[str, Any]:
     }
 
 
-def _filter_pipeline_runs(query, *, pipeline: str):
-    if pipeline == "all":
-        return query.where(AnalysisRun.pipeline_name.in_(["pgta", "nipt_docker"]))
+def _filter_pipeline_runs(query, *, pipeline: str, deployed_pipelines: tuple[str, ...]):
+    if pipeline in {"all", "deployed"}:
+        return query.where(AnalysisRun.pipeline_name.in_(deployed_pipelines))
     return query.where(AnalysisRun.pipeline_name == pipeline)
 
 

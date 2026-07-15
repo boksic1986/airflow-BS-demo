@@ -8,6 +8,29 @@ The BS10610 stack returns `environment=BS10610`,
 PGT-A and WES remain rejected on this deployment; frontend navigation and
 filters derive from this response.
 
+`DEPLOYED_PIPELINES` is the source of truth for aggregate resource scope. For
+`GET /api/runs`, `GET /api/samples`, `GET /api/failures`,
+`GET /api/dashboard/overview`, `GET /api/dashboard/runs`, and
+`GET /api/intake/status`, omitted
+`pipeline`, `pipeline=all`, and `pipeline=deployed` mean exactly the deployed
+pipeline list. On BS this is `nipt_docker,wgs`: PGT-A is never included in the
+total, page ordering, or paginated result set. Named pipeline requests remain
+validated against the same deployment list. Dashboard `all`/`deployed` also
+applies this scope to `qc_summary`, `sample_summary`, `sample_trend`,
+`failure_summary`, and `intake_summary`.
+
+`GET /api/dashboard/runs` uses persisted terminal state for successful and
+failed WGS rows and does not request Airflow task instances for either state.
+The returned page uses bulk sample, rule-event, timing, and QC queries rather
+than per-run queries. WGS rule events group real workflow rules into
+`Pre-calling`, `Variant analysis`, and `QC`; examples include `Preall`,
+`Dedup`, and `QualCal` in Pre-calling.
+
+The frontend nginx gateway proxies both the exact `/api` path and `/api/` path
+to FastAPI before the SPA fallback in generic and BS configurations. API error
+responses therefore remain JSON-compatible with the existing client error
+handling instead of returning the frontend document.
+
 `POST /api/runs` supports WGS controlled requests with
 `wgs_precalling_config_path`, `wgs_downstream_config_path`,
 `wgs_targets_path`, and `wgs_stage=precalling|full`. Run-local copies and
@@ -1404,8 +1427,10 @@ Optional filters are `pipeline`, `status`, `keyword`, and `sort`. Supported sort
 values are `created_desc`, `duration_desc`, and `status`. Each list item retains
 the existing fields and adds `project_name`. Existing calls without the new
 parameters remain valid. The operator UI sends `pipeline=deployed` for its
-`All deployed` choice; this returns only PGT-A and NIPT Docker while preserving
-historical all-pipeline API compatibility for callers that omit `pipeline`.
+`All deployed` choice. Aggregate callers that omit `pipeline` or send
+`pipeline=all` use the configured `DEPLOYED_PIPELINES` list; named-pipeline
+filters retain their single-pipeline compatibility. Intake applies that
+configured scope before counting, ordering, and paginating rows.
 
 ### Sample Matrix
 

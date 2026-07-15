@@ -13,7 +13,7 @@ from app.qc_highlights import qc_highlights_by_run
 
 
 DASHBOARD_PIPELINES = ("pgta", "nipt_docker", "wgs")
-SUPPORTED_DASHBOARD_PIPELINES = {"all", *DASHBOARD_PIPELINES}
+SUPPORTED_DASHBOARD_PIPELINES = {"all", "deployed", *DASHBOARD_PIPELINES}
 ACTIVE_STATUSES = {"running", "submitted", "queued", "scheduled"}
 FAILED_STATUSES = {"failed", "fail", "error", "terminated"}
 STATUS_ORDER = {
@@ -28,13 +28,20 @@ STATUS_ORDER = {
 }
 
 
-def get_dashboard_overview(*, session: Session, pipeline: str, period: str) -> dict[str, Any]:
+def get_dashboard_overview(
+    *,
+    session: Session,
+    pipeline: str,
+    period: str,
+    deployed_pipelines: tuple[str, ...] = DASHBOARD_PIPELINES,
+) -> dict[str, Any]:
     _validate_pipeline(pipeline)
     since = _period_start(period)
-    runs = _runs_for_pipeline(session=session, pipeline=pipeline, since=since)
+    pipeline_names = _pipeline_names(pipeline, deployed_pipelines)
+    runs = _runs_for_pipeline(session=session, pipeline_names=pipeline_names, since=since)
     status_distribution = _status_distribution(runs)
     pipeline_breakdown = {}
-    for name in DASHBOARD_PIPELINES:
+    for name in pipeline_names:
         pipeline_runs = [run for run in runs if run.pipeline_name == name]
         pipeline_breakdown[name] = {
             "runs": len(pipeline_runs),
@@ -55,11 +62,11 @@ def get_dashboard_overview(*, session: Session, pipeline: str, period: str) -> d
         "status_distribution": status_distribution,
         "pipeline_breakdown": pipeline_breakdown,
         "trend": _daily_trend(runs, since=since),
-        "qc_summary": _qc_summary(session=session, pipeline=pipeline, since=since),
-        "sample_summary": _sample_summary(session=session, pipeline=pipeline, since=since),
-        "sample_trend": _sample_trend(session=session, pipeline=pipeline, since=since),
+        "qc_summary": _qc_summary(session=session, pipeline_names=pipeline_names, since=since),
+        "sample_summary": _sample_summary(session=session, pipeline_names=pipeline_names, since=since),
+        "sample_trend": _sample_trend(session=session, pipeline_names=pipeline_names, since=since),
         "failure_summary": _failure_summary(runs),
-        "intake_summary": _intake_summary(session=session, pipeline=pipeline),
+        "intake_summary": _intake_summary(session=session, pipeline_names=pipeline_names),
     }
 
 
@@ -72,13 +79,11 @@ def get_dashboard_runs(
     keyword: str | None,
     limit: int,
     offset: int,
+    deployed_pipelines: tuple[str, ...] = DASHBOARD_PIPELINES,
 ) -> dict[str, Any]:
     _validate_pipeline(pipeline)
     base_query = select(AnalysisRun)
-    if pipeline != "all":
-        base_query = base_query.where(AnalysisRun.pipeline_name == pipeline)
-    else:
-        base_query = base_query.where(AnalysisRun.pipeline_name.in_(DASHBOARD_PIPELINES))
+    base_query = base_query.where(AnalysisRun.pipeline_name.in_(_pipeline_names(pipeline, deployed_pipelines)))
     qc_failed = (
         select(Sample.id)
         .where(
@@ -449,29 +454,25 @@ def _estimate_duration(*, values: list[tuple[int, int]], sample_count: int) -> d
     }
 
 
-def _runs_for_pipeline(*, session: Session, pipeline: str, since: datetime) -> list[AnalysisRun]:
+def _runs_for_pipeline(*, session: Session, pipeline_names: tuple[str, ...], since: datetime) -> list[AnalysisRun]:
     query = select(AnalysisRun).where(AnalysisRun.created_at >= since)
-    if pipeline != "all":
-        query = query.where(AnalysisRun.pipeline_name == pipeline)
-    else:
-        query = query.where(AnalysisRun.pipeline_name.in_(DASHBOARD_PIPELINES))
+    query = query.where(AnalysisRun.pipeline_name.in_(pipeline_names))
     return list(session.scalars(query).all())
 
 
-def _qc_summary(*, session: Session, pipeline: str, since: datetime) -> dict[str, int]:
+def _qc_summary(*, session: Session, pipeline_names: tuple[str, ...], since: datetime) -> dict[str, int]:
     query = (
         select(QcMetric.status, func.count())
         .join(AnalysisRun, AnalysisRun.analysis_id == QcMetric.analysis_id)
         .where(AnalysisRun.created_at >= since)
         .group_by(QcMetric.status)
     )
-    if pipeline != "all":
-        query = query.where(AnalysisRun.pipeline_name == pipeline)
+    query = query.where(AnalysisRun.pipeline_name.in_(pipeline_names))
     return _counts_from_rows(session.execute(query).all(), keys=["pass", "warn", "fail", "unknown"])
 
 
-def _sample_summary(*, session: Session, pipeline: str, since: datetime) -> dict[str, int]:
-    samples = _samples_for_period(session=session, pipeline=pipeline, since=since)
+def _sample_summary(*, session: Session, pipeline_names: tuple[str, ...], since: datetime) -> dict[str, int]:
+    samples = _samples_for_period(session=session, pipeline_names=pipeline_names, since=since)
     return {
         "total": len(samples),
         "running": sum(1 for sample in samples if _status(sample.status) in ACTIVE_STATUSES),
@@ -481,16 +482,13 @@ def _sample_summary(*, session: Session, pipeline: str, since: datetime) -> dict
     }
 
 
-def _sample_trend(*, session: Session, pipeline: str, since: datetime) -> list[dict[str, Any]]:
+def _sample_trend(*, session: Session, pipeline_names: tuple[str, ...], since: datetime) -> list[dict[str, Any]]:
     query = (
         select(AnalysisRun.created_at, Sample.status, Sample.qc_status)
         .join(Sample, Sample.analysis_id == AnalysisRun.analysis_id)
         .where(AnalysisRun.created_at >= since)
     )
-    if pipeline != "all":
-        query = query.where(AnalysisRun.pipeline_name == pipeline)
-    else:
-        query = query.where(AnalysisRun.pipeline_name.in_(DASHBOARD_PIPELINES))
+    query = query.where(AnalysisRun.pipeline_name.in_(pipeline_names))
     buckets: dict[str, dict[str, int]] = {}
     for created_at, sample_status, qc_status in session.execute(query).all():
         key = (created_at or since).date().isoformat()
@@ -517,27 +515,23 @@ def _sample_trend(*, session: Session, pipeline: str, since: datetime) -> list[d
     return [buckets[key] for key in sorted(buckets)]
 
 
-def _samples_for_period(*, session: Session, pipeline: str, since: datetime) -> list[Sample]:
+def _samples_for_period(*, session: Session, pipeline_names: tuple[str, ...], since: datetime) -> list[Sample]:
     query = (
         select(Sample)
         .join(AnalysisRun, AnalysisRun.analysis_id == Sample.analysis_id)
         .where(AnalysisRun.created_at >= since)
     )
-    if pipeline != "all":
-        query = query.where(AnalysisRun.pipeline_name == pipeline)
-    else:
-        query = query.where(AnalysisRun.pipeline_name.in_(DASHBOARD_PIPELINES))
+    query = query.where(AnalysisRun.pipeline_name.in_(pipeline_names))
     return list(session.scalars(query).all())
 
 
-def _intake_summary(*, session: Session, pipeline: str) -> dict[str, int]:
+def _intake_summary(*, session: Session, pipeline_names: tuple[str, ...]) -> dict[str, int]:
     query = (
         select(IntakeDiscovery.ready_state, IntakeDiscovery.submit_state, func.count())
         .where(IntakeDiscovery.archived_at.is_(None))
         .group_by(IntakeDiscovery.ready_state, IntakeDiscovery.submit_state)
     )
-    if pipeline != "all":
-        query = query.where(IntakeDiscovery.pipeline_name == pipeline)
+    query = query.where(IntakeDiscovery.pipeline_name.in_(pipeline_names))
     summary = {"observed": 0, "ready": 0, "submitted": 0, "bootstrap": 0, "error": 0, "disabled": 0}
     for ready_state, submit_state, count in session.execute(query).all():
         ready_state = _status(ready_state)
@@ -795,7 +789,11 @@ def _period_start(period: str) -> datetime:
 
 def _validate_pipeline(pipeline: str) -> None:
     if pipeline not in SUPPORTED_DASHBOARD_PIPELINES:
-        raise ValueError("pipeline must be all, pgta, nipt_docker, or wgs")
+        raise ValueError("pipeline must be all, deployed, pgta, nipt_docker, or wgs")
+
+
+def _pipeline_names(pipeline: str, deployed_pipelines: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(deployed_pipelines) if pipeline in {"all", "deployed"} else (pipeline,)
 
 
 def _iso(value: datetime | None) -> str | None:

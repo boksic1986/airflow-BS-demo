@@ -157,7 +157,54 @@ it.each([
   await waitFor(() => expect(requestedUrls.some((url) => url.includes(endpoint))).toBe(true));
   const resourceCalls = requestedUrls.filter((url) => url.includes(endpoint));
   expect(resourceCalls.every((url) => !url.includes("pipeline=pgta"))).toBe(true);
+  expect(resourceCalls).toHaveLength(1);
+  expect(resourceCalls[0]).toContain("pipeline=deployed");
   expect(screen.queryByRole("option", {name: "PGT-A"})).not.toBeInTheDocument();
+});
+
+it("loads the shared Dashboard through one deployed-scope overview and run query", async () => {
+  window.history.pushState({}, "", "/dashboard");
+  const requestedUrls: string[] = [];
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    requestedUrls.push(url);
+    if (url.endsWith("/api/platform/capabilities")) return Promise.resolve(sharedCapabilitiesResponse());
+    return Promise.resolve(new Response(JSON.stringify({
+      pipeline: "deployed",
+      period: "7d",
+      totals: {runs: 0, running: 0, failed: 0, success: 0, created: 0},
+      status_distribution: {},
+      pipeline_breakdown: {},
+      trend: [],
+      qc_summary: {},
+      sample_summary: {total: 0, running: 0, workflow_failed: 0, qc_failed: 0, completed: 0},
+      sample_trend: [],
+      failure_summary: [],
+      intake_summary: {},
+      items: [],
+      total: 0,
+      limit: 10,
+      offset: 0,
+      source: "host_proc",
+      services: [],
+      host: {cpu: {}, memory: {}, disks: []},
+      containers: [],
+    }), {status: 200, headers: {"Content-Type": "application/json"}}));
+  }));
+
+  render(<App />);
+
+  await waitFor(() => expect(requestedUrls.some((url) => url.includes("/api/dashboard/runs?"))).toBe(true));
+  const overviewCalls = requestedUrls.filter((url) => url.includes("/api/dashboard/overview?"));
+  const runCalls = requestedUrls.filter((url) => url.includes("/api/dashboard/runs?"));
+  const intakeCalls = requestedUrls.filter((url) => url.includes("/api/intake/status?"));
+  expect(overviewCalls).toHaveLength(1);
+  expect(runCalls).toHaveLength(1);
+  expect(intakeCalls).toHaveLength(1);
+  expect(overviewCalls[0]).toContain("pipeline=deployed");
+  expect(runCalls[0]).toContain("pipeline=deployed");
+  expect(intakeCalls[0]).toContain("pipeline=deployed");
+  expect(screen.queryByRole("button", {name: "PGT-A"})).not.toBeInTheDocument();
 });
 
 it("hides stale PGT-A intake config and discovery records in Platform Settings", async () => {

@@ -115,6 +115,62 @@ def seed_terminal_wgs_failure(session_factory, tmp_path: Path) -> None:
         session.commit()
 
 
+def seed_terminal_wgs_success(session_factory, tmp_path: Path) -> None:
+    now = datetime.now(timezone.utc)
+    analysis_id = "WGS_SUCCESS"
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                dag_run_id=f"manual__{analysis_id}",
+                mode="new",
+                status="success",
+                sample_sheet_path=str(tmp_path / analysis_id / "config" / "samples.selected.tsv"),
+                workdir=str(tmp_path / analysis_id),
+                params_json={"project_name": "WGS completed family", "wgs_stage": "full"},
+                created_at=now - timedelta(minutes=25),
+                submitted_at=now - timedelta(minutes=24),
+                started_at=now - timedelta(minutes=23),
+                ended_at=now - timedelta(minutes=5),
+                pipeline_finished_at=now - timedelta(minutes=5),
+            )
+        )
+        session.add(Sample(analysis_id=analysis_id, sample_id="WGS_DONE_1", status="success", qc_status="pass"))
+        session.add(
+            QcMetric(
+                analysis_id=analysis_id,
+                sample_id="WGS_DONE_1",
+                metric_name="mapping_rate",
+                metric_numeric=0.98,
+                status="pass",
+            )
+        )
+        session.add_all(
+            [
+                SnakemakeRuleEvent(analysis_id=analysis_id, rule="Preall", status="success", snakemake_jobid="1"),
+                SnakemakeRuleEvent(analysis_id=analysis_id, rule="Dedup", sample_id="WGS_DONE_1", status="success", snakemake_jobid="2"),
+                SnakemakeRuleEvent(analysis_id=analysis_id, rule="QualCal", sample_id="WGS_DONE_1", status="success", snakemake_jobid="3"),
+            ]
+        )
+        session.add(
+            IntakeDiscovery(
+                pipeline_name="wgs",
+                root_path="/data/wgs-intake",
+                batch_id="wgs-success-request",
+                fingerprint="wgs-success-fingerprint",
+                file_count=2,
+                total_bytes=200,
+                ready_state="ready",
+                submit_state="submitted",
+                analysis_id=analysis_id,
+                last_seen_at=now,
+            )
+        )
+        session.commit()
+
+
 class FakeAirflowClient:
     def __init__(self) -> None:
         self.task_calls: list[tuple[str, str]] = []
@@ -174,6 +230,7 @@ def test_dashboard_overview_includes_wgs_in_all_and_wgs_scopes(tmp_path, monkeyp
     session_factory = make_test_sessionmaker()
     seed_dashboard_data(session_factory, tmp_path)
     seed_terminal_wgs_failure(session_factory, tmp_path)
+    seed_terminal_wgs_success(session_factory, tmp_path)
     airflow = FakeAirflowClient()
     install_dashboard_fixtures(monkeypatch, session_factory, airflow)
     monkeypatch.setattr(main, "_deployment_guard_settings", lambda: SimpleNamespace(deployed_pipelines=("nipt_docker", "wgs")))
@@ -184,15 +241,24 @@ def test_dashboard_overview_includes_wgs_in_all_and_wgs_scopes(tmp_path, monkeyp
 
     assert all_response.status_code == 200
     all_payload = all_response.json()
-    assert all_payload["totals"]["runs"] == 6
-    assert all_payload["totals"]["failed"] == 2
-    assert all_payload["pipeline_breakdown"]["wgs"] == {"runs": 1, "running": 0, "failed": 1, "success": 0}
-    assert all_payload["sample_summary"]["total"] == 10
-    assert all_payload["sample_summary"]["workflow_failed"] == 3
+    assert all_payload["totals"]["runs"] == 4
+    assert all_payload["totals"]["failed"] == 1
+    assert set(all_payload["pipeline_breakdown"]) == {"nipt_docker", "wgs"}
+    assert all_payload["pipeline_breakdown"]["wgs"] == {"runs": 2, "running": 0, "failed": 1, "success": 1}
+    assert all_payload["sample_summary"]["total"] == 6
+    assert all_payload["sample_summary"]["workflow_failed"] == 2
+    assert all_payload["qc_summary"]["pass"] == 1
+    assert all_payload["qc_summary"]["fail"] == 0
+    assert all_payload["intake_summary"]["submitted"] == 1
+    assert all_payload["intake_summary"]["bootstrap"] == 0
     assert all_payload["failure_summary"][0]["pipeline"] == "wgs"
     assert wgs_response.status_code == 200
-    assert wgs_response.json()["totals"] == {"runs": 1, "running": 0, "failed": 1, "success": 0, "created": 0}
+    assert wgs_response.json()["totals"] == {"runs": 2, "running": 0, "failed": 1, "success": 1, "created": 0}
     assert airflow.task_calls == []
+
+    deployed_response = client.get("/api/dashboard/overview?pipeline=deployed&period=7d")
+    assert deployed_response.status_code == 200
+    assert deployed_response.json()["totals"] == all_payload["totals"]
 
 
 def test_dashboard_runs_returns_paginated_tracker_rows_with_current_steps(tmp_path, monkeypatch) -> None:
@@ -234,6 +300,7 @@ def test_dashboard_runs_includes_terminal_wgs_without_airflow_task_requests(tmp_
     session_factory = make_test_sessionmaker()
     seed_dashboard_data(session_factory, tmp_path)
     seed_terminal_wgs_failure(session_factory, tmp_path)
+    seed_terminal_wgs_success(session_factory, tmp_path)
     airflow = FakeAirflowClient()
     install_dashboard_fixtures(monkeypatch, session_factory, airflow)
     monkeypatch.setattr(main, "_deployment_guard_settings", lambda: SimpleNamespace(deployed_pipelines=("nipt_docker", "wgs")))
@@ -241,6 +308,7 @@ def test_dashboard_runs_includes_terminal_wgs_without_airflow_task_requests(tmp_
 
     wgs_response = client.get("/api/dashboard/runs?pipeline=wgs&status=failed&limit=10&offset=0")
     all_response = client.get("/api/dashboard/runs?pipeline=all&status=failed&limit=10&offset=0")
+    success_response = client.get("/api/dashboard/runs?pipeline=deployed&status=success&limit=10&offset=0")
 
     assert wgs_response.status_code == 200
     assert wgs_response.json()["total"] == 1
@@ -248,7 +316,12 @@ def test_dashboard_runs_includes_terminal_wgs_without_airflow_task_requests(tmp_
     assert wgs_response.json()["items"][0]["current_airflow_task"] is None
     assert wgs_response.json()["items"][0]["current_stage_label"] == "Workflow failed"
     assert all_response.status_code == 200
-    assert {item["analysis_id"] for item in all_response.json()["items"]} == {"PGTA_FAILED", "WGS_FAILED"}
+    assert {item["analysis_id"] for item in all_response.json()["items"]} == {"WGS_FAILED"}
+    assert success_response.status_code == 200
+    success_items = {item["analysis_id"]: item for item in success_response.json()["items"]}
+    assert set(success_items) == {"NIPT_SUCCESS", "WGS_SUCCESS"}
+    assert success_items["WGS_SUCCESS"]["current_stage_label"] == "Completed"
+    assert success_items["WGS_SUCCESS"]["current_airflow_task"] is None
     assert airflow.task_calls == []
 
 
@@ -289,18 +362,22 @@ def test_dashboard_runs_filters_pipeline_status_and_keyword(tmp_path, monkeypatc
 def test_terminal_dashboard_page_bulk_loads_without_sql_n_plus_one(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     seed_dashboard_data(session_factory, tmp_path)
+    seed_terminal_wgs_success(session_factory, tmp_path)
     airflow = FakeAirflowClient()
     install_dashboard_fixtures(monkeypatch, session_factory, airflow)
-    statements: list[str] = []
-    event.listen(session_factory.kw["bind"], "before_cursor_execute", lambda _conn, _cursor, statement, _params, _context, _many: statements.append(statement))
+    monkeypatch.setattr(main, "_deployment_guard_settings", lambda: SimpleNamespace(deployed_pipelines=("nipt_docker", "wgs")))
+    statements: list[tuple[str, object]] = []
+    event.listen(session_factory.kw["bind"], "before_cursor_execute", lambda _conn, _cursor, statement, params, _context, _many: statements.append((statement, params)))
     client = TestClient(main.app)
 
-    response = client.get("/api/dashboard/runs?pipeline=all&status=success&limit=10&offset=0")
+    response = client.get("/api/dashboard/runs?pipeline=deployed&status=success&limit=10&offset=0")
 
     assert response.status_code == 200
     assert response.json()["total"] == 2
+    assert {item["analysis_id"] for item in response.json()["items"]} == {"NIPT_SUCCESS", "WGS_SUCCESS"}
     assert airflow.task_calls == []
     assert len(statements) <= 6
+    assert any("wgs" in str(params) for _statement, params in statements)
 
 
 def test_dashboard_operator_order_uses_progress_then_oldest_submit_time(tmp_path, monkeypatch) -> None:

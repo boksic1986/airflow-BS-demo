@@ -678,10 +678,11 @@ def list_runs(
     sort: str = "created_desc",
     limit: int = 50,
     offset: int = 0,
+    deployed_pipelines: tuple[str, ...] = ("pgta", "nipt_docker", "wgs"),
 ) -> dict:
     query = select(AnalysisRun)
     if pipeline == "deployed":
-        query = query.where(AnalysisRun.pipeline_name.in_(["pgta", "nipt_docker", "wgs"]))
+        query = query.where(AnalysisRun.pipeline_name.in_(deployed_pipelines))
     elif pipeline:
         query = query.where(AnalysisRun.pipeline_name == pipeline)
     if status:

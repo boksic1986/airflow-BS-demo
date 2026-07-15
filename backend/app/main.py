@@ -469,19 +469,21 @@ def create_run(request: CreateRunRequest) -> dict[str, object]:
 
 @app.get("/api/runs")
 def runs_list(
-    pipeline: str | None = None,
+    pipeline: str | None = Query(default=None, pattern="^(all|deployed|pgta|nipt_docker|wgs)$"),
     status_filter: str | None = Query(default=None, alias="status"),
     keyword: str | None = None,
     sort: str = Query(default="created_desc", pattern="^(created_desc|duration_desc|status)$"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
-    if pipeline:
+    deployed_pipelines = _active_deployed_pipelines()
+    if pipeline and pipeline not in {"all", "deployed"}:
         _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
         return list_runs(
             session=session,
-            pipeline=pipeline,
+            pipeline="deployed" if pipeline in {None, "all", "deployed"} else pipeline,
+            deployed_pipelines=deployed_pipelines,
             status=status_filter,
             keyword=keyword,
             sort=sort,
@@ -492,19 +494,21 @@ def runs_list(
 
 @app.get("/api/samples")
 def samples_list(
-    pipeline: str | None = Query(default=None, pattern="^(pgta|nipt_docker|wgs)$"),
+    pipeline: str | None = Query(default=None, pattern="^(all|deployed|pgta|nipt_docker|wgs)$"),
     status_filter: str | None = Query(default=None, alias="status"),
     qc_status: str | None = None,
     keyword: str | None = None,
     limit: int = Query(default=25, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
-    if pipeline:
+    deployed_pipelines = _active_deployed_pipelines()
+    if pipeline and pipeline not in {"all", "deployed"}:
         _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
         return list_samples_resource(
             session=session,
-            pipeline=pipeline,
+            pipeline="deployed" if pipeline in {None, "all", "deployed"} else pipeline,
+            deployed_pipelines=deployed_pipelines,
             status=status_filter,
             qc_status=qc_status,
             keyword=keyword,
@@ -515,7 +519,7 @@ def samples_list(
 
 @app.get("/api/failures")
 def failures_list(
-    pipeline: str = Query(default="all", pattern="^(all|pgta|nipt_docker|wgs)$"),
+    pipeline: str = Query(default="all", pattern="^(all|deployed|pgta|nipt_docker|wgs)$"),
     kind: str = Query(default="all", pattern="^(all|workflow|qc)$"),
     layer: str | None = Query(default=None, pattern="^(airflow|runner|pipeline_rule|qc|unknown)$"),
     period: str = Query(default="7d", pattern="^(24h|7d|30d)$"),
@@ -523,47 +527,57 @@ def failures_list(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
-    if pipeline != "all":
+    deployed_pipelines = _active_deployed_pipelines()
+    if pipeline not in {"all", "deployed"}:
         _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
         return list_failures_resource(
             session=session,
-            pipeline=pipeline,
+            pipeline="deployed" if pipeline in {"all", "deployed"} else pipeline,
             kind=kind,
             layer=layer,
             period=period,
             keyword=keyword,
             limit=limit,
             offset=offset,
+            deployed_pipelines=deployed_pipelines,
         )
 
 
 @app.get("/api/dashboard/overview")
 def dashboard_overview(
-    pipeline: str = Query(default="all", pattern="^(all|pgta|nipt_docker|wgs)$"),
+    pipeline: str = Query(default="all", pattern="^(all|deployed|pgta|nipt_docker|wgs)$"),
     period: str = Query(default="7d", pattern="^(24h|7d|30d)$"),
 ) -> dict[str, object]:
-    if pipeline != "all":
+    deployed_pipelines = _active_deployed_pipelines()
+    if pipeline not in {"all", "deployed"}:
         _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
-        return get_dashboard_overview(session=session, pipeline=pipeline, period=period)
+        return get_dashboard_overview(
+            session=session,
+            pipeline=pipeline,
+            period=period,
+            deployed_pipelines=deployed_pipelines,
+        )
 
 
 @app.get("/api/dashboard/runs")
 def dashboard_runs(
-    pipeline: str = Query(default="all", pattern="^(all|pgta|nipt_docker|wgs)$"),
+    pipeline: str = Query(default="all", pattern="^(all|deployed|pgta|nipt_docker|wgs)$"),
     status_filter: str | None = Query(default=None, alias="status"),
     keyword: str | None = None,
     limit: int = Query(default=10, ge=1, le=50),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
-    if pipeline != "all":
+    deployed_pipelines = _active_deployed_pipelines()
+    if pipeline not in {"all", "deployed"}:
         _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
         return get_dashboard_runs(
             session=session,
             airflow_client=get_airflow_client(),
             pipeline=pipeline,
+            deployed_pipelines=deployed_pipelines,
             status=status_filter,
             keyword=keyword,
             limit=limit,
@@ -660,7 +674,7 @@ def intake_scan_preview(request: IntakeScanRequest) -> dict[str, object]:
 
 @app.get("/api/intake/status")
 def intake_status(
-    pipeline: str | None = Query(default=None, pattern="^(pgta|nipt_docker|wgs)$"),
+    pipeline: str | None = Query(default=None, pattern="^(all|deployed|pgta|nipt_docker|wgs)$"),
     state_filter: str | None = Query(
         default=None,
         alias="state",
@@ -672,18 +686,21 @@ def intake_status(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
-    if pipeline:
+    deployed_pipelines = _active_deployed_pipelines()
+    aggregate_scope = pipeline in {None, "all", "deployed"}
+    if pipeline and not aggregate_scope:
         _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
         return list_intake_status(
             session=session,
-            pipeline=pipeline,
+            pipeline=None if aggregate_scope else pipeline,
             state=state_filter,
             lifecycle=lifecycle,
             view=view_filter,
             keyword=keyword,
             limit=limit,
             offset=offset,
+            deployed_pipelines=deployed_pipelines if aggregate_scope else None,
         )
 
 
@@ -1071,6 +1088,15 @@ def _scan_roots_for_pipeline(settings, pipeline: str) -> list[str]:
 def _deployed_pipelines(settings) -> tuple[str, ...]:
     configured = tuple(getattr(settings, "deployed_pipelines", ()) or ())
     return configured or ("pgta", "nipt_docker")
+
+
+def _active_deployed_pipelines() -> tuple[str, ...]:
+    settings = _deployment_guard_settings()
+    if settings is not None:
+        return _deployed_pipelines(settings)
+    # Direct service tests do not load runtime settings; production requests
+    # always take their scope from DEPLOYED_PIPELINES above.
+    return ("pgta", "nipt_docker", "wgs")
 
 
 def _require_pipeline_deployed(settings, pipeline: str) -> None:

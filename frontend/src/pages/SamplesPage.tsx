@@ -45,7 +45,7 @@ export function SamplesPage() {
     setLoading(true);
     setError(null);
     listSamplesResource({
-      pipeline: pipeline === "all" ? undefined : pipeline,
+      pipeline: pipeline === "all" ? "deployed" : pipeline,
       status: status === "all" ? undefined : status,
       qcStatus: qcStatus === "all" ? undefined : qcStatus,
       keyword: keyword.trim() || undefined,
