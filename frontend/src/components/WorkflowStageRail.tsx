@@ -28,7 +28,14 @@ export function WorkflowStageRail({analysisId, pipeline, stages}: {
   pipeline: string;
   stages?: WorkflowStageSummary[];
 }) {
-  const items = stages?.length ? stages : (templates[pipeline] || []).map((stage) => ({...stage, status: "pending", completed_jobs: 0, total_jobs: 0}));
+  const items: WorkflowStageSummary[] = stages?.length
+    ? stages
+    : (templates[pipeline] || []).map((stage) => ({
+        ...stage,
+        status: "pending",
+        completed_jobs: 0,
+        total_jobs: 0,
+      }));
   const completed = items.filter((item) => normalizeStatus(item.status) === "success").length;
   const current = items.find((item) => ["running", "failed", "canceled"].includes(normalizeStatus(item.status)))
     || items.find((item) => normalizeStatus(item.status) !== "success")
