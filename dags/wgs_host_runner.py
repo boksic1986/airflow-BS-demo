@@ -403,9 +403,12 @@ def _stage_historical_pre_calling_context(
     )
     destination_root = workdir / "00_PreCalling"
     destination_root.mkdir(parents=True, exist_ok=True)
+    qc_destination_root = workdir / "07_QC"
+    qc_destination_root.mkdir(parents=True, exist_ok=True)
     linked_files = 0
     missing_samples = []
     missing_blocks = []
+    missing_qc = []
     for sample_id in historical_samples:
         matched = 0
         resolved_sources: list[Path] = []
@@ -440,6 +443,25 @@ def _stage_historical_pre_calling_context(
                 break
         if not block_destination.is_file():
             missing_blocks.append(sample_id)
+        qc_destination = qc_destination_root / f"{sample_id}.template.json"
+        if not qc_destination.exists():
+            qc_sources = [source_root / "07_QC" / qc_destination.name]
+            qc_sources.extend(
+                resolved_source.parent.parent / "07_QC" / qc_destination.name
+                for resolved_source in resolved_sources
+            )
+            for qc_source in dict.fromkeys(qc_sources):
+                if not qc_source.is_file():
+                    continue
+                if _link_historical_context_file(
+                    source=qc_source.resolve(strict=True),
+                    destination=qc_destination,
+                    allowed_targets=allowed_targets,
+                ):
+                    linked_files += 1
+                break
+        if not qc_destination.is_file():
+            missing_qc.append(sample_id)
     if missing_samples:
         raise FileNotFoundError(
             "WGS historical pre-calling context is missing samples: " + ", ".join(missing_samples)
@@ -448,6 +470,11 @@ def _stage_historical_pre_calling_context(
         raise FileNotFoundError(
             "WGS historical pre-calling context is missing .blk files for samples: "
             + ", ".join(missing_blocks)
+        )
+    if missing_qc:
+        raise FileNotFoundError(
+            "WGS historical pre-calling context is missing fastp QC JSON for samples: "
+            + ", ".join(missing_qc)
         )
     return {
         "sample_count": len(historical_samples),

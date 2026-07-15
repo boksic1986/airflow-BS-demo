@@ -165,6 +165,9 @@ def test_prepare_links_only_historical_batch_context(tmp_path, monkeypatch) -> N
     source_precalling.mkdir(parents=True)
     (source_precalling / "WGS-NEW.blk").write_text("stale-new", encoding="utf-8")
     (source_precalling / "WGS-HIST.blk").write_text("history", encoding="utf-8")
+    source_qc = source_root / "07_QC"
+    source_qc.mkdir()
+    (source_qc / "WGS-HIST.template.json").write_text("{}", encoding="utf-8")
     precalling = config_dir / "wgs.precalling.requested.yaml"
     downstream = config_dir / "wgs.downstream.requested.yaml"
     targets = config_dir / "targets.requested.txt"
@@ -225,6 +228,9 @@ def test_prepare_recovers_historical_blk_beside_resolved_precalling_link(tmp_pat
     upstream.mkdir(parents=True)
     (upstream / "WGS-HIST.g.vcf.gz").write_text("gvcf", encoding="utf-8")
     (upstream / "WGS-HIST.blk").write_text("blocks", encoding="utf-8")
+    upstream_qc = upstream.parent / "07_QC"
+    upstream_qc.mkdir()
+    (upstream_qc / "WGS-HIST.template.json").write_text("{}", encoding="utf-8")
     source_root = tmp_path / "source-run"
     source_precalling = source_root / "00_PreCalling"
     source_precalling.mkdir(parents=True)
@@ -279,4 +285,7 @@ def test_prepare_recovers_historical_blk_beside_resolved_precalling_link(tmp_pat
     ).resolve()
     assert (workdir / "00_PreCalling" / "WGS-HIST.blk").resolve() == (
         upstream / "WGS-HIST.blk"
+    ).resolve()
+    assert (workdir / "07_QC" / "WGS-HIST.template.json").resolve() == (
+        upstream_qc / "WGS-HIST.template.json"
     ).resolve()
