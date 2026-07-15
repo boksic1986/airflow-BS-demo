@@ -1,5 +1,6 @@
 import json
 import os
+import signal
 import sys
 import tempfile
 import unittest
@@ -23,6 +24,10 @@ from nipt_docker_runner import (
 )
 
 
+NIPT_S9_IMAGE_ID = "sha256:71df36b7f8080762f2db771e13e4daa7f4a666b3e1efc19c3bf12add22187254"
+FETAL_IMAGE_ID = "sha256:6ba484985f0bd888c71890dc96bc3a524a1c833c15b931650d756eb346c28bae"
+
+
 def test_docker_container_pid_uses_inspect(monkeypatch) -> None:
     calls = []
 
@@ -34,6 +39,137 @@ def test_docker_container_pid_uses_inspect(monkeypatch) -> None:
 
     assert nipt_docker_runner._docker_container_pid("NIPTPro_TEST") == 4321
     assert calls == [["docker", "inspect", "--format", "{{.State.Pid}}", "NIPTPro_TEST"]]
+
+
+def test_streaming_runner_rejects_untrusted_container_name_before_start(tmp_path, monkeypatch) -> None:
+    def fail_popen(*_args, **_kwargs):
+        pytest.fail("subprocess must not start for an invalid container name")
+
+    monkeypatch.setattr(nipt_docker_runner.subprocess, "Popen", fail_popen)
+
+    with pytest.raises(ValueError, match="container_name"):
+        nipt_docker_runner.run_command_with_event_forwarding(
+            ["docker", "run", "--name", "NIPTPro_SAFE", NIPT_S9_IMAGE_ID],
+            cwd=tmp_path,
+            stdout_path=tmp_path / "stdout.log",
+            stderr_path=tmp_path / "stderr.log",
+            events_path=tmp_path / "events.jsonl",
+            backend_event_url=None,
+            env={},
+            container_name="NIPTPro_SAFE;docker kill unrelated",
+        )
+
+
+@pytest.mark.parametrize("interruption", ["keyboard_interrupt", "sigterm"])
+def test_streaming_runner_interrupt_stops_only_named_container_and_reaps_cli(
+    tmp_path,
+    monkeypatch,
+    interruption,
+) -> None:
+    actions: list[object] = []
+
+    class FakeProcess:
+        returncode = None
+
+        def poll(self):
+            return self.returncode
+
+        def wait(self, timeout):
+            actions.append(("wait", timeout))
+            if self.returncode is None:
+                raise nipt_docker_runner.subprocess.TimeoutExpired("docker run", timeout)
+            return self.returncode
+
+        def kill(self):
+            actions.append("kill_cli")
+            self.returncode = -9
+
+    class FakeMonitor:
+        def __init__(self, **kwargs):
+            actions.append(("monitor_init", kwargs["root_pid"]))
+
+        def start(self):
+            actions.append("monitor_start")
+
+        def stop(self, *, return_code):
+            actions.append(("monitor_stop", return_code))
+
+    process = FakeProcess()
+    docker_calls: list[tuple[list[str], dict[str, object]]] = []
+
+    def fake_run(command, **kwargs):
+        docker_calls.append((command, kwargs))
+        actions.append(("docker_stop", command[-1]))
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    original_sigterm_handler = signal.getsignal(signal.SIGTERM)
+    installed_sigterm_handler = None
+
+    def fake_getsignal(signum):
+        assert signum == signal.SIGTERM
+        return original_sigterm_handler
+
+    def fake_signal(signum, handler):
+        nonlocal installed_sigterm_handler
+        assert signum == signal.SIGTERM
+        previous = installed_sigterm_handler or original_sigterm_handler
+        installed_sigterm_handler = handler
+        return previous
+
+    def interrupt_sleep(_seconds):
+        if interruption == "sigterm":
+            assert callable(installed_sigterm_handler), "runner must install a SIGTERM cleanup handler"
+            installed_sigterm_handler(signal.SIGTERM, None)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(nipt_docker_runner.subprocess, "Popen", lambda *_args, **_kwargs: process)
+    monkeypatch.setattr(nipt_docker_runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(nipt_docker_runner, "_docker_container_pid", lambda _name: 4321)
+    monkeypatch.setattr(nipt_docker_runner, "ResourceMonitor", FakeMonitor)
+    monkeypatch.setattr(nipt_docker_runner.time, "sleep", interrupt_sleep)
+    monkeypatch.setattr(nipt_docker_runner, "signal", signal, raising=False)
+    monkeypatch.setattr(nipt_docker_runner.signal, "getsignal", fake_getsignal)
+    monkeypatch.setattr(nipt_docker_runner.signal, "signal", fake_signal)
+
+    expected_exception = SystemExit if interruption == "sigterm" else KeyboardInterrupt
+    with pytest.raises(expected_exception) as caught:
+        nipt_docker_runner.run_command_with_event_forwarding(
+            ["docker", "run", "--rm", "--name", "NIPTPro_NIPT_TEST", NIPT_S9_IMAGE_ID],
+            cwd=tmp_path,
+            stdout_path=tmp_path / "stdout.log",
+            stderr_path=tmp_path / "stderr.log",
+            events_path=tmp_path / "events.jsonl",
+            backend_event_url=None,
+            env={},
+            poll_seconds=0.01,
+            container_name="NIPTPro_NIPT_TEST",
+            resource_samples_path=tmp_path / "resources.jsonl",
+            resource_summary_path=tmp_path / "resource_summary.json",
+        )
+
+    if interruption == "sigterm":
+        assert caught.value.code == 128 + signal.SIGTERM
+    assert docker_calls == [
+        (
+            ["docker", "stop", "--time", "10", "NIPTPro_NIPT_TEST"],
+            {
+                "text": True,
+                "capture_output": True,
+                "check": False,
+                "timeout": 15,
+            },
+        )
+    ]
+    assert actions == [
+        ("monitor_init", 4321),
+        "monitor_start",
+        ("docker_stop", "NIPTPro_NIPT_TEST"),
+        ("wait", 5),
+        "kill_cli",
+        ("wait", 5),
+        ("monitor_stop", -9),
+    ]
+    assert installed_sigterm_handler == original_sigterm_handler
 
 
 def test_bs_path_adapter_maps_only_approved_fastq_root(tmp_path) -> None:
@@ -435,11 +571,15 @@ class NiptDockerRunnerTests(unittest.TestCase):
                     {
                         "services": {
                             "runner": {
-                                "image": "172.17.61.235:2333/niptpro/niptpro:1.0.11",
+                                "image": NIPT_S9_IMAGE_ID,
                                 "container_name": "NIPTPro_NIPT_20260708_120000_TEST01",
                                 "working_dir": "/code/NIPTPro_pipeline/niptplus",
                                 "user": "0:0",
-                                "environment": {"AIRFLOW_DEMO_ANALYSIS_ID": "NIPT_20260708_120000_TEST01"},
+                                "cpus": "32",
+                                "environment": {
+                                    "AIRFLOW_DEMO_ANALYSIS_ID": "NIPT_20260708_120000_TEST01",
+                                    "NIPTPRO_FETAL_RATIO_DOCKER_IMAGE": FETAL_IMAGE_ID,
+                                },
                                 "volumes": ["/host/workdir:/workdir"],
                                 "entrypoint": "/bin/bash",
                                 "command": ["-lc", "echo mount_smoke_ok"],
@@ -455,19 +595,21 @@ class NiptDockerRunnerTests(unittest.TestCase):
             captured_events: list[tuple[str, str]] = []
 
             original_runner = nipt_docker_runner.run_command_to_logs
+            original_streaming_runner = nipt_docker_runner.run_command_with_event_forwarding
             original_emit = nipt_docker_runner.emit_progress_event
 
-            def fake_run_command_to_logs(command, cwd, stdout_path, stderr_path, env):  # type: ignore[no-untyped-def]
+            def fake_run_command_to_logs(command, cwd, stdout_path, stderr_path, env=None, **_kwargs):  # type: ignore[no-untyped-def]
                 captured["command"] = command
                 captured["stdout_path"] = stdout_path
                 captured["stderr_path"] = stderr_path
-                return {"exit_code": 0}
+                return {"return_code": 0, "forwarded_events": 0}
 
             def fake_emit_progress_event(**kwargs):  # type: ignore[no-untyped-def]
                 captured_events.append((kwargs["rule"], kwargs["status"]))
                 return workdir / "logs" / "events" / "snakemake_events.jsonl"
 
             nipt_docker_runner.run_command_to_logs = fake_run_command_to_logs
+            nipt_docker_runner.run_command_with_event_forwarding = fake_run_command_to_logs
             nipt_docker_runner.emit_progress_event = fake_emit_progress_event
             try:
                 run_nipt_docker(
@@ -482,13 +624,17 @@ class NiptDockerRunnerTests(unittest.TestCase):
                 )
             finally:
                 nipt_docker_runner.run_command_to_logs = original_runner
+                nipt_docker_runner.run_command_with_event_forwarding = original_streaming_runner
                 nipt_docker_runner.emit_progress_event = original_emit
 
         self.assertEqual(captured["stdout_path"], workdir / "logs" / "snakemake.stdout.log")
         self.assertEqual(captured["stderr_path"], workdir / "logs" / "snakemake.stderr.log")
         self.assertEqual(captured["command"][0:2], ["docker", "run"])
         self.assertIn("--rm", captured["command"])
+        self.assertEqual(captured["command"][captured["command"].index("--cpus") + 1], "32")
         self.assertIn("NIPTPro_NIPT_20260708_120000_TEST01", captured["command"])
+        self.assertIn(NIPT_S9_IMAGE_ID, captured["command"])
+        self.assertIn(f"NIPTPRO_FETAL_RATIO_DOCKER_IMAGE={FETAL_IMAGE_ID}", captured["command"])
         self.assertNotIn("down", captured["command"])
         self.assertNotIn("compose", captured["command"])
         self.assertIn("nipt_docker.command.txt", str(workdir / "logs" / "nipt_docker.command.txt"))
@@ -514,6 +660,7 @@ class NiptDockerRunnerTests(unittest.TestCase):
                 encoding="utf-8",
             )
             original_runner = nipt_docker_runner.run_command_to_logs
+            original_streaming_runner = nipt_docker_runner.run_command_with_event_forwarding
             original_emit = nipt_docker_runner.emit_progress_event
 
             def fail_runner(*_args, **_kwargs):  # type: ignore[no-untyped-def]
@@ -525,6 +672,7 @@ class NiptDockerRunnerTests(unittest.TestCase):
                 return workdir / "logs" / "events" / "snakemake_events.jsonl"
 
             nipt_docker_runner.run_command_to_logs = fail_runner
+            nipt_docker_runner.run_command_with_event_forwarding = fail_runner
             nipt_docker_runner.emit_progress_event = fail_second_emit
             try:
                 with self.assertRaisesRegex(RuntimeError, "workflow failed first"):
@@ -538,6 +686,7 @@ class NiptDockerRunnerTests(unittest.TestCase):
                     )
             finally:
                 nipt_docker_runner.run_command_to_logs = original_runner
+                nipt_docker_runner.run_command_with_event_forwarding = original_streaming_runner
                 nipt_docker_runner.emit_progress_event = original_emit
 
     def test_collect_nipt_artifacts_requires_qc_summary(self) -> None:

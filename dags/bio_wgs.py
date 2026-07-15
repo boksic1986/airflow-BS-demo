@@ -26,6 +26,10 @@ def _validate_request(**context) -> dict[str, Any]:
     params = dict(conf.get("params") or {})
     if params.get("wgs_stage") not in {"precalling", "full"}:
         raise ValueError("params.wgs_stage must be precalling or full.")
+    dry_run = bool(params.get("wgs_dry_run", True))
+    allow_execution = os.getenv("WGS_ALLOW_EXECUTION", "false").strip().lower() in {"1", "true", "yes", "on"}
+    if not dry_run and not allow_execution:
+        raise ValueError("WGS is deployed in dry-run validation mode; real execution is disabled.")
     return conf
 
 

@@ -10,6 +10,7 @@ import re
 import selectors
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 from typing import Any
@@ -47,6 +48,14 @@ DEFAULT_CONFIG_ROOTS = (
     "/mnt/biodevrwsg2/33.chenjiucheng/WGS_test",
     "/mnt/biodevrwbi/33.chenjiucheng/airflow-intake-configs/wgs",
 )
+
+
+class _WgsTermination(BaseException):
+    def __init__(self, signum: int) -> None:
+        self.signum = int(signum)
+        super().__init__(f"WGS host runner received signal {self.signum}")
+
+
 DEFAULT_FASTQ_ROOTS = (
     "/sg2/biodevrwsg2/33.chenjiucheng/WGS_test",
     "/mnt/biodevrwsg2/33.chenjiucheng/WGS_test",
@@ -141,6 +150,12 @@ def build_snakemake_command(
     backend_event_url = str(request.get("backend_event_url") or "").strip()
     if backend_event_url:
         command.extend(["--logger-airflow-demo-backend-event-url", backend_event_url])
+    dry_run = bool(request.get("wgs_dry_run", True))
+    allow_execution = os.getenv("WGS_ALLOW_EXECUTION", "false").strip().lower() in {"1", "true", "yes", "on"}
+    if not dry_run and not allow_execution:
+        raise ValueError("WGS is deployed in dry-run validation mode; real execution is disabled.")
+    if dry_run:
+        command.append("--dry-run")
     command.extend(targets)
     return command
 
@@ -318,6 +333,7 @@ def _stream_process(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         bufsize=1,
+        start_new_session=True,
     )
     monitor = ResourceMonitor(
         root_pid=process.pid,
@@ -325,13 +341,26 @@ def _stream_process(
         summary_path=cwd / "reports" / "resources" / f"{stage}.json",
         interval_seconds=float(os.getenv("WGS_RESOURCE_INTERVAL_SECONDS", "5")),
     )
-    monitor.start()
     selector = selectors.DefaultSelector()
-    assert process.stdout is not None and process.stderr is not None
-    selector.register(process.stdout, selectors.EVENT_READ, (stdout_path, sys.stdout))
-    selector.register(process.stderr, selectors.EVENT_READ, (stderr_path, sys.stderr))
-    handles = {stdout_path: stdout_path.open("a", encoding="utf-8"), stderr_path: stderr_path.open("a", encoding="utf-8")}
+    handles: dict[Path, Any] = {}
+    return_code: int | None = None
+    previous_handlers: dict[int, Any] = {}
     try:
+        for signum in (signal.SIGTERM, signal.SIGHUP):
+            try:
+                previous_handlers[signum] = signal.getsignal(signum)
+                signal.signal(signum, _raise_wgs_termination)
+            except ValueError:
+                previous_handlers.clear()
+                break
+        monitor.start()
+        assert process.stdout is not None and process.stderr is not None
+        selector.register(process.stdout, selectors.EVENT_READ, (stdout_path, sys.stdout))
+        selector.register(process.stderr, selectors.EVENT_READ, (stderr_path, sys.stderr))
+        handles = {
+            stdout_path: stdout_path.open("a", encoding="utf-8"),
+            stderr_path: stderr_path.open("a", encoding="utf-8"),
+        }
         while selector.get_map():
             for key, _ in selector.select(timeout=1):
                 line = key.fileobj.readline()
@@ -344,11 +373,44 @@ def _stream_process(
                 terminal.write(line)
                 terminal.flush()
         return_code = process.wait()
+    except BaseException as exc:
+        return_code = _terminate_process_group(process, signal_number=signal.SIGTERM)
+        if isinstance(exc, _WgsTermination):
+            raise SystemExit(128 + exc.signum) from None
+        raise
     finally:
         for handle in handles.values():
             handle.close()
-    monitor.stop(return_code=return_code)
+        for signum, previous in previous_handlers.items():
+            signal.signal(signum, previous)
+        monitor.stop(return_code=return_code)
+    if return_code is None:
+        raise RuntimeError("WGS subprocess ended without a return code.")
     return return_code
+
+
+def _raise_wgs_termination(signum: int, _frame: Any) -> None:
+    raise _WgsTermination(signum)
+
+
+def _terminate_process_group(
+    process: subprocess.Popen[str],
+    *,
+    signal_number: int,
+    grace_seconds: int = 10,
+) -> int:
+    try:
+        os.killpg(process.pid, signal_number)
+    except ProcessLookupError:
+        pass
+    try:
+        return int(process.wait(timeout=grace_seconds))
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        return int(process.wait(timeout=5))
 
 
 def _precalling_targets(config_path: Path) -> list[str]:

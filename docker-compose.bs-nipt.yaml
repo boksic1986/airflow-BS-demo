@@ -35,6 +35,7 @@ x-airflow-common: &airflow-common
     INTAKE_SCAN_PIPELINES: nipt_docker,wgs
     NIPT_AIRFLOW_POOL: bs_heavy_analysis
     WGS_AIRFLOW_POOL: bs_heavy_analysis
+    WGS_ALLOW_EXECUTION: "false"
     AIRFLOW_CONN_WGS_HOST: >-
       {"conn_type":"ssh","host":"${WGS_SSH_HOST:-172.17.106.10}","login":"${WGS_SSH_LOGIN:-chenjc}","port":22,"extra":{"key_file":"/opt/airflow/ssh/id_ed25519","no_host_key_check":false,"look_for_keys":false}}
     PIPELINE_PROFILE_CONFIG_PATH: /opt/airflow/config/pipeline_profiles.yaml
@@ -172,6 +173,7 @@ services:
       WGS_CONFIG_ROOTS: /data/wgs-intake,${WGS_VALIDATION_HOST_ROOT:?Set WGS_VALIDATION_HOST_ROOT in .env}
       WGS_VALIDATION_ROOTS: ${WGS_VALIDATION_HOST_ROOT:?Set WGS_VALIDATION_HOST_ROOT in .env}
       WGS_HOST_OWNER: ${WGS_HOST_OWNER:-6708:520}
+      WGS_ALLOW_EXECUTION: "false"
       HOST_BACKEND_EVENT_URL: http://${BS_HOST_IP:-172.17.106.10}:${FRONTEND_PORT:-12959}/api/events/snakemake
       DEPLOYED_PIPELINES: nipt_docker,wgs
       PLATFORM_ENVIRONMENT: ${PLATFORM_ENVIRONMENT:-BS10610}

@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 
-import {cleanup, render, screen, waitFor} from "@testing-library/react";
+import {cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, expect, it, vi} from "vitest";
 
 import App from "./App";
@@ -136,6 +136,22 @@ it("opens Submit Run on NIPT without issuing a transient PGT-A config request", 
   await waitFor(() => expect(requestedUrls.some((url) => url.includes("pipeline=nipt_docker"))).toBe(true));
   expect(requestedUrls.some((url) => url.includes("pipeline=pgta"))).toBe(false);
   expect(screen.queryByText(/PGT-A/i)).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("radio", {name: /^WGS/i}));
+  expect(await screen.findByText("Dry-run validation only")).toBeInTheDocument();
+  expect(screen.getByRole("option", {name: "Full downstream dry-run"})).toBeInTheDocument();
+  expect(screen.queryByText("Controlled full workflow")).not.toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("WGS pre-calling config"), {target: {value: "/approved/precalling.yaml"}});
+  fireEvent.change(screen.getByLabelText("WGS downstream config"), {target: {value: "/approved/downstream.yaml"}});
+  fireEvent.change(screen.getByLabelText("WGS targets"), {target: {value: "/approved/targets.txt"}});
+  fireEvent.change(screen.getByLabelText("WGS stage"), {target: {value: "full"}});
+  fireEvent.click(screen.getByRole("button", {name: "Create and submit to Airflow"}));
+
+  expect(await screen.findByRole("dialog", {name: "Confirm WGS full dry-run"})).toBeInTheDocument();
+  expect(screen.getByRole("heading", {name: "Resolve the full WGS workflow graph?"})).toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Confirm full dry-run"})).toBeInTheDocument();
+  expect(screen.queryByText(/Start the full WGS workflow/i)).not.toBeInTheDocument();
 });
 
 it.each([

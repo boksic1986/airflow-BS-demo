@@ -1,4 +1,5 @@
 import logging
+import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -115,6 +116,7 @@ class CreateRunRequest(BaseModel):
     wgs_downstream_config_path: str | None = None
     wgs_targets_path: str | None = None
     wgs_stage: str = "precalling"
+    wgs_dry_run: bool = True
 
     @model_validator(mode="after")
     def validate_pipeline_inputs(self):
@@ -428,6 +430,7 @@ def create_run(request: CreateRunRequest) -> dict[str, object]:
                     pipeline_config=pipeline_config,
                 )
             if request.pipeline == "wgs":
+                _guard_wgs_execution(request.wgs_dry_run)
                 return create_wgs_run(
                     session=session,
                     settings=settings,
@@ -436,6 +439,7 @@ def create_run(request: CreateRunRequest) -> dict[str, object]:
                     downstream_config_path=request.wgs_downstream_config_path or request.wgs_config_path,
                     targets_path=str(request.wgs_targets_path or ""),
                     stage=request.wgs_stage,
+                    dry_run=request.wgs_dry_run,
                     submitted_by=request.submitted_by,
                     note=request.note,
                 )
@@ -592,6 +596,8 @@ def submit_run(analysis_id: str) -> dict[str, object]:
             detail = get_run_detail(session=session, analysis_id=analysis_id)
             if detail is not None:
                 _guard_pipeline_deployed(str(detail.get("pipeline") or detail.get("pipeline_name") or ""))
+                if str(detail.get("pipeline") or detail.get("pipeline_name") or "") == "wgs":
+                    _guard_wgs_execution(bool((detail.get("params") or {}).get("wgs_dry_run", True)))
             payload = submit_run_to_airflow(
                 session=session,
                 airflow_client=get_airflow_client(),
@@ -721,6 +727,9 @@ def system_resources() -> dict[str, object]:
 def reanalyze_run(analysis_id: str, request: ReanalysisRequest) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
+            detail = get_run_detail(session=session, analysis_id=analysis_id)
+            if detail is not None:
+                _guard_pipeline_deployed(str(detail.get("pipeline") or detail.get("pipeline_name") or ""))
             payload = reanalyze_run_to_airflow(
                 session=session,
                 airflow_client=get_airflow_client(),
@@ -1139,6 +1148,14 @@ def _guard_pipelines_deployed(pipelines: list[str]) -> None:
     settings = _deployment_guard_settings()
     if settings is not None:
         _require_pipelines_deployed(settings, pipelines)
+
+
+def _guard_wgs_execution(dry_run: bool) -> None:
+    if dry_run:
+        return
+    allow_execution = os.getenv("WGS_ALLOW_EXECUTION", "false").strip().lower() in {"1", "true", "yes", "on"}
+    if not allow_execution:
+        raise ValueError("WGS is deployed in dry-run validation mode; real execution is disabled.")
 
 
 def _load_intake_config(settings):

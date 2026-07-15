@@ -208,6 +208,7 @@ export function SubmitPage() {
           wgs_downstream_config_path: wgsDownstreamConfigPath || undefined,
           wgs_targets_path: wgsTargetsPath,
           wgs_stage: wgsStage,
+          wgs_dry_run: true,
           submitted_by: submittedBy.trim() || null,
           note: "BS10610 host-native Snakemake 9 controlled run",
         }),
@@ -464,13 +465,13 @@ export function SubmitPage() {
             <label className="field">
               <span>WGS validation stage</span>
               <select aria-label="WGS stage" value={wgsStage} onChange={(event) => setWgsStage(event.target.value as "precalling" | "full")}>
-                <option value="precalling">Pre-calling validation only</option>
-                <option value="full">Controlled full workflow</option>
+                <option value="precalling">Pre-calling dry-run</option>
+                <option value="full">Full downstream dry-run</option>
               </select>
             </label>
             <div className="nipt-full-run-notice full" role="note">
-              <strong>Host-native execution</strong>
-              <span>Snakemake 9 runs on BS10610. The Docker control plane does not mount WGS software, references, or FASTQ directories.</span>
+              <strong>Dry-run validation only</strong>
+              <span>Snakemake 9 resolves the selected BS10610 workflow graph without executing WGS rules. Real WGS execution is disabled.</span>
             </div>
           </> : <>
           <label className="field full">
@@ -555,7 +556,7 @@ export function SubmitPage() {
           <PreviewField label="Project" value={projectName || "not set"} />
           <PreviewField label="Submitted by" value={submittedBy || "not set"} />
           <PreviewField label="Reference" value={selectedPipeline === "wgs" ? "GRCh38" : reference} />
-          <PreviewField label="Mode" value={selectedPipeline === "wgs" ? wgsStage : selectedPipeline === "pgta" ? "predict" : runMode} />
+          <PreviewField label="Mode" value={selectedPipeline === "wgs" ? (wgsStage === "full" ? "Full downstream dry-run" : "Pre-calling dry-run") : selectedPipeline === "pgta" ? "predict" : runMode} />
           <PreviewField label="Selected samples" value={selectedPipeline === "wgs" ? "resolved during prepare" : String(selectedScanRows.length)} />
           {selectedPipeline === "pgta" ? <PreviewField label="PGT-A target" value={target} /> : null}
           {selectedPipeline === "nipt_docker" ? <PreviewField label="NIPT run mode" value={niptRunMode} /> : null}
@@ -601,15 +602,15 @@ export function SubmitPage() {
       ) : null}
       {showWgsFullConfirm ? (
         <div className="modal-backdrop">
-          <section className="modal-panel" role="dialog" aria-modal="true" aria-label="Confirm WGS full analysis">
+          <section className="modal-panel" role="dialog" aria-modal="true" aria-label="Confirm WGS full dry-run">
             <div className="section-heading">
-              <p className="eyebrow">Controlled validation gate</p>
-              <h2>Start the full WGS workflow?</h2>
-              <p>This runs host-native Snakemake 9 with up to 96 cores. Use it only after the pre-calling validation for this configuration has passed.</p>
+              <p className="eyebrow">Dry-run validation gate</p>
+              <h2>Resolve the full WGS workflow graph?</h2>
+              <p>Host-native Snakemake 9 validates the downstream graph and inputs without executing WGS rules. Real WGS execution remains disabled.</p>
             </div>
             <div className="panel-actions">
               <button className="button ghost" type="button" onClick={() => setShowWgsFullConfirm(false)}>Cancel</button>
-              <button className="button primary" type="button" onClick={() => { setShowWgsFullConfirm(false); void handleCreateAndSubmit(); }}>Confirm controlled full workflow</button>
+              <button className="button primary" type="button" onClick={() => { setShowWgsFullConfirm(false); void handleCreateAndSubmit(); }}>Confirm full dry-run</button>
             </div>
           </section>
         </div>

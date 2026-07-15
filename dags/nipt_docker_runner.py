@@ -4,7 +4,9 @@ import csv
 import json
 import logging
 import os
+import re
 import shlex
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -42,13 +44,23 @@ DEFAULT_NIPT_LOCALE_HOST_ROOT = Path(
     os.getenv("NIPT_LOCALE_HOST_ROOT", str(DEFAULT_HOST_NIPT_PIPELINE_ROOT / "locale"))
 )
 DEFAULT_HOST_SHARED_ROOT = Path(os.getenv("HOST_SHARED_ROOT", "/home/jiucheng/project/airflow-demo/shared"))
-DEFAULT_DOCKER_IMAGE = os.getenv("NIPT_DOCKER_IMAGE", "172.17.61.235:2333/niptpro/niptpro:1.0.11")
-DEFAULT_FETAL_IMAGE = os.getenv("NIPT_FETAL_IMAGE", "172.17.61.235:2333/niptpro/pytorch:biosan")
+DEFAULT_DOCKER_IMAGE = os.getenv(
+    "NIPT_DOCKER_IMAGE",
+    "sha256:71df36b7f8080762f2db771e13e4daa7f4a666b3e1efc19c3bf12add22187254",
+)
+DEFAULT_FETAL_IMAGE = os.getenv(
+    "NIPT_FETAL_IMAGE",
+    "sha256:6ba484985f0bd888c71890dc96bc3a524a1c833c15b931650d756eb346c28bae",
+)
 DEFAULT_DOCKER_NETWORK = os.getenv("NIPT_DOCKER_NETWORK", "nipt_analysis_test_net")
 DEFAULT_OWNER = os.getenv("NIPT_DOCKER_OWNER", "6708:520")
 SUPPORTED_TEMPLATES = {"run1", "run2"}
 SUPPORTED_RUN_MODES = {"mount_smoke", "full_run"}
 LOGGER = logging.getLogger(__name__)
+NIPT_CONTAINER_NAME_PATTERN = re.compile(r"NIPTPro_[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z")
+DOCKER_STOP_GRACE_SECONDS = 10
+DOCKER_STOP_COMMAND_TIMEOUT_SECONDS = 15
+DOCKER_CLI_WAIT_SECONDS = 5
 
 NIPT_RULE_PHASES = {
     "mapper_v2_manager_ready": "Input QC",
@@ -75,6 +87,12 @@ NIPT_RULE_PHASES = {
     "bgzip_blk": "Final QC",
     "all": "Final QC",
 }
+
+
+class _NiptSigterm(BaseException):
+    def __init__(self, signum: int) -> None:
+        self.signum = int(signum)
+        super().__init__(f"NIPT Docker runner received signal {self.signum}")
 
 
 class NiptJsonlEventForwarder:
@@ -163,6 +181,10 @@ def run_command_with_event_forwarding(
     resource_summary_path: Path | None = None,
     proc_root: Path = Path("/host/proc"),
 ) -> dict[str, str | int]:
+    validated_container_name = None
+    if container_name is not None:
+        validated_container_name = _validate_nipt_container_name(container_name)
+        _validate_docker_run_container_name(command, validated_container_name)
     stdout_path.parent.mkdir(parents=True, exist_ok=True)
     stderr_path.parent.mkdir(parents=True, exist_ok=True)
     forwarder = NiptJsonlEventForwarder(
@@ -173,63 +195,91 @@ def run_command_with_event_forwarding(
     )
     forwarded = 0
     resource_monitor: ResourceMonitor | None = None
+    process: subprocess.Popen[str] | None = None
+    return_code: int | None = None
     next_pid_probe = 0.0
     attempt_marker = f"\n=== NIPT workflow attempt {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} ===\n"
-    with stdout_path.open("a", encoding="utf-8") as stdout, stderr_path.open("a", encoding="utf-8") as stderr:
-        stdout.write(attempt_marker)
-        stderr.write(attempt_marker)
-        stdout.flush()
-        stderr.flush()
-        process = subprocess.Popen(
-            command,
-            cwd=str(cwd),
-            text=True,
-            stdout=stdout,
-            stderr=stderr,
-            env=env,
-        )
-        while process.poll() is None:
-            if (
-                resource_monitor is None
-                and container_name
-                and resource_samples_path is not None
-                and resource_summary_path is not None
-                and time.monotonic() >= next_pid_probe
-            ):
-                next_pid_probe = time.monotonic() + 1.0
-                container_pid = _docker_container_pid(container_name)
-                if container_pid is not None:
-                    resource_monitor = ResourceMonitor(
-                        root_pid=container_pid,
-                        samples_path=resource_samples_path,
-                        summary_path=resource_summary_path,
-                        interval_seconds=float(os.getenv("NIPT_RESOURCE_INTERVAL_SECONDS", "5")),
-                        proc_root=proc_root,
-                        source="docker_container_host_procfs",
-                    )
-                    resource_monitor.start()
-            forwarded += forwarder.poll()
-            time.sleep(poll_seconds)
-        forwarded += forwarder.poll()
-        return_code = int(process.returncode or 0)
-    if resource_monitor is not None:
-        resource_monitor.stop(return_code=return_code)
-    elif resource_summary_path is not None:
-        resource_summary_path.parent.mkdir(parents=True, exist_ok=True)
-        resource_summary_path.write_text(
-            json.dumps(
-                {
-                    "complete": False,
-                    "return_code": return_code,
-                    "source": "docker_inspect_unavailable",
-                    "message": "The NIPT container PID was not observable from the Airflow worker.",
-                },
-                indent=2,
-                sort_keys=True,
+    previous_sigterm_handler: Any = None
+    sigterm_handler_installed = False
+    try:
+        with stdout_path.open("a", encoding="utf-8") as stdout, stderr_path.open("a", encoding="utf-8") as stderr:
+            stdout.write(attempt_marker)
+            stderr.write(attempt_marker)
+            stdout.flush()
+            stderr.flush()
+            process = subprocess.Popen(
+                command,
+                cwd=str(cwd),
+                text=True,
+                stdout=stdout,
+                stderr=stderr,
+                env=env,
             )
-            + "\n",
-            encoding="utf-8",
-        )
+            if validated_container_name is not None:
+                try:
+                    previous_sigterm_handler = signal.getsignal(signal.SIGTERM)
+                    signal.signal(signal.SIGTERM, _raise_nipt_sigterm)
+                    sigterm_handler_installed = True
+                except ValueError:
+                    LOGGER.warning("SIGTERM handler could not be installed outside the main thread.")
+            try:
+                while process.poll() is None:
+                    if (
+                        resource_monitor is None
+                        and validated_container_name
+                        and resource_samples_path is not None
+                        and resource_summary_path is not None
+                        and time.monotonic() >= next_pid_probe
+                    ):
+                        next_pid_probe = time.monotonic() + 1.0
+                        container_pid = _docker_container_pid(validated_container_name)
+                        if container_pid is not None:
+                            resource_monitor = ResourceMonitor(
+                                root_pid=container_pid,
+                                samples_path=resource_samples_path,
+                                summary_path=resource_summary_path,
+                                interval_seconds=float(os.getenv("NIPT_RESOURCE_INTERVAL_SECONDS", "5")),
+                                proc_root=proc_root,
+                                source="docker_container_host_procfs",
+                            )
+                            resource_monitor.start()
+                    forwarded += forwarder.poll()
+                    time.sleep(poll_seconds)
+                forwarded += forwarder.poll()
+                return_code = int(process.returncode or 0)
+            except BaseException as exc:
+                if validated_container_name is not None:
+                    _stop_container_and_reap_docker_cli(process, validated_container_name)
+                return_code = process.poll()
+                if isinstance(exc, _NiptSigterm):
+                    raise SystemExit(128 + exc.signum) from None
+                raise
+            finally:
+                if sigterm_handler_installed:
+                    signal.signal(signal.SIGTERM, previous_sigterm_handler)
+    finally:
+        if process is not None and return_code is None:
+            return_code = process.poll()
+        if resource_monitor is not None:
+            resource_monitor.stop(return_code=return_code)
+        elif resource_summary_path is not None:
+            resource_summary_path.parent.mkdir(parents=True, exist_ok=True)
+            resource_summary_path.write_text(
+                json.dumps(
+                    {
+                        "complete": False,
+                        "return_code": return_code,
+                        "source": "docker_inspect_unavailable",
+                        "message": "The NIPT container PID was not observable from the Airflow worker.",
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+    if return_code is None:
+        raise RuntimeError("Docker CLI process ended without a return code.")
     if return_code != 0:
         raise RuntimeError(f"Command failed with exit code {return_code}. See {stderr_path}")
     return {
@@ -238,6 +288,55 @@ def run_command_with_event_forwarding(
         "stderr_path": str(stderr_path),
         "forwarded_events": forwarded,
     }
+
+
+def _raise_nipt_sigterm(signum: int, _frame: Any) -> None:
+    raise _NiptSigterm(signum)
+
+
+def _validate_nipt_container_name(container_name: str) -> str:
+    value = str(container_name).strip()
+    if not NIPT_CONTAINER_NAME_PATTERN.fullmatch(value):
+        raise ValueError("NIPT container_name must match NIPTPro_[A-Za-z0-9][A-Za-z0-9_.-]{0,127}.")
+    return value
+
+
+def _validate_docker_run_container_name(command: list[str], container_name: str) -> None:
+    if command[:2] != ["docker", "run"] or command.count("--name") != 1:
+        raise ValueError("NIPT docker command must contain exactly one --name container_name.")
+    name_index = command.index("--name")
+    if name_index + 1 >= len(command) or command[name_index + 1] != container_name:
+        raise ValueError("NIPT docker command container_name does not match the validated container_name.")
+
+
+def _stop_container_and_reap_docker_cli(process: subprocess.Popen[str], container_name: str) -> None:
+    validated_name = _validate_nipt_container_name(container_name)
+    try:
+        stopped = subprocess.run(
+            ["docker", "stop", "--time", str(DOCKER_STOP_GRACE_SECONDS), validated_name],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=DOCKER_STOP_COMMAND_TIMEOUT_SECONDS,
+        )
+        if stopped.returncode != 0:
+            LOGGER.warning("docker stop failed for %s: %s", validated_name, str(stopped.stderr or "").strip())
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        LOGGER.warning("docker stop did not finish for %s: %s", validated_name, exc)
+
+    try:
+        process.wait(timeout=DOCKER_CLI_WAIT_SECONDS)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        process.kill()
+    except ProcessLookupError:
+        return
+    try:
+        process.wait(timeout=DOCKER_CLI_WAIT_SECONDS)
+    except subprocess.TimeoutExpired:
+        LOGGER.error("Docker CLI process did not exit after kill for container %s.", validated_name)
 
 
 def _docker_container_pid(container_name: str) -> int | None:
@@ -547,6 +646,7 @@ def run_nipt_docker(conf: dict[str, Any]) -> dict[str, str | int]:
     stdout_path = logs_dir / "snakemake.stdout.log"
     stderr_path = logs_dir / "snakemake.stderr.log"
     command = _docker_run_command(compose_path)
+    container_name = _validate_nipt_container_name(f"NIPTPro_{analysis_id}")
     events_path = workdir / "logs" / "events" / "snakemake_events.jsonl"
     (logs_dir / "nipt_docker.command.txt").write_text(shlex.join(command) + "\n", encoding="utf-8")
     emit_progress_event(
@@ -561,27 +661,20 @@ def run_nipt_docker(conf: dict[str, Any]) -> dict[str, str | int]:
         message=f"NIPT Docker {run_mode} started.",
     )
     try:
-        if run_mode == "full_run":
-            result = run_command_with_event_forwarding(
-                command,
-                cwd=workdir,
-                stdout_path=stdout_path,
-                stderr_path=stderr_path,
-                events_path=events_path,
-                backend_event_url=str(backend_event_url) if backend_event_url else None,
-                env=os.environ.copy(),
-                container_name=f"NIPTPro_{analysis_id}",
-                resource_samples_path=workdir / "logs" / "resources" / "nipt_container.jsonl",
-                resource_summary_path=workdir / "reports" / "resource_summary.json",
-            )
-        else:
-            result = run_command_to_logs(
-                command,
-                cwd=workdir,
-                stdout_path=stdout_path,
-                stderr_path=stderr_path,
-                env=os.environ.copy(),
-            )
+        result = run_command_with_event_forwarding(
+            command,
+            cwd=workdir,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            events_path=events_path,
+            backend_event_url=str(backend_event_url) if backend_event_url else None,
+            env=os.environ.copy(),
+            container_name=container_name,
+            resource_samples_path=(
+                workdir / "logs" / "resources" / "nipt_container.jsonl" if run_mode == "full_run" else None
+            ),
+            resource_summary_path=(workdir / "reports" / "resource_summary.json" if run_mode == "full_run" else None),
+        )
         if run_mode == "mount_smoke":
             _write_mount_smoke_qc(conf)
         else:
@@ -635,9 +728,8 @@ def _docker_run_command(compose_path: Path) -> list[str]:
         raise ValueError(f"NIPT compose artifact has no runner service: {compose_path}")
 
     command = ["docker", "run", "--rm"]
-    container_name = str(service.get("container_name") or "").strip()
-    if container_name:
-        command.extend(["--name", container_name])
+    container_name = _validate_nipt_container_name(str(service.get("container_name") or ""))
+    command.extend(["--name", container_name])
     network = _first_value(service.get("networks"))
     if network:
         command.extend(["--network", network])
@@ -653,6 +745,11 @@ def _docker_run_command(compose_path: Path) -> list[str]:
     mem_limit = str(service.get("mem_limit") or "").strip()
     if mem_limit:
         command.extend(["--memory", mem_limit])
+    cpus = str(service.get("cpus") or "").strip()
+    if cpus:
+        if not re.fullmatch(r"[1-9][0-9]*(?:\.[0-9]+)?", cpus):
+            raise ValueError(f"NIPT compose artifact has invalid runner cpus: {cpus}")
+        command.extend(["--cpus", cpus])
     for key, value in sorted((service.get("environment") or {}).items()):
         command.extend(["-e", f"{key}={value}"])
     for volume in service.get("volumes") or []:

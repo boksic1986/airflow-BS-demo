@@ -31,12 +31,30 @@ class ConfigOverrideRunnerTests(unittest.TestCase):
         rollback = nipt["profiles"]["niptpro-1.0.11"]
 
         self.assertEqual(nipt["default_profile"], "niptpro-s9-full-v1")
-        self.assertEqual(profile["runtime"]["docker_image"], "172.17.61.235:2333/niptpro/niptpro:1.1.11")
+        self.assertEqual(profile["label"], "NIPTPro 1.1.11 / Snakemake 9")
+        self.assertEqual(profile["pipeline_version"], "1.1.11-s9-v1")
+        self.assertEqual(
+            profile["runtime"]["docker_image"],
+            "sha256:71df36b7f8080762f2db771e13e4daa7f4a666b3e1efc19c3bf12add22187254",
+        )
+        self.assertEqual(
+            profile["runtime"]["fetal_image"],
+            "sha256:6ba484985f0bd888c71890dc96bc3a524a1c833c15b931650d756eb346c28bae",
+        )
         self.assertEqual(profile["runtime"]["snakemake_version"], "9.23.1")
         self.assertEqual(profile["runtime"]["cores"], 32)
         self.assertTrue(profile["submit_visible"])
         self.assertFalse(rollback["submit_visible"])
-        self.assertEqual(rollback["runtime"]["docker_image"], "172.17.61.235:2333/niptpro/niptpro:1.0.11")
+        self.assertEqual(rollback["label"], "NIPTPro 1.0.11 / Snakemake 7 rollback")
+        self.assertEqual(rollback["pipeline_version"], "1.0.11")
+        self.assertEqual(
+            rollback["runtime"]["docker_image"],
+            "sha256:1cd289afbd0c48564a530b1a56dd608dc2803b63ed6a4a4c0ca313ef84380b26",
+        )
+        self.assertEqual(
+            rollback["runtime"]["fetal_image"],
+            "sha256:6ba484985f0bd888c71890dc96bc3a524a1c833c15b931650d756eb346c28bae",
+        )
 
     def test_repository_pgta_s9_profile_exposes_only_predict_parameters(self) -> None:
         profile_path = Path(__file__).resolve().parents[2] / "config" / "pipeline_profiles.yaml"

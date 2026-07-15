@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 import hashlib
@@ -29,6 +30,75 @@ class FakeAirflowClient:
     def trigger_dag_run(self, dag_id: str, *, dag_run_id: str | None = None, conf: dict | None = None) -> dict:
         self.calls.append({"dag_id": dag_id, "dag_run_id": dag_run_id, "conf": conf})
         return {"dag_run_id": dag_run_id}
+
+
+def test_wgs_create_rejects_execution_when_gate_defaults_false(monkeypatch) -> None:
+    called = False
+
+    def fake_create_wgs_run(**kwargs):
+        nonlocal called
+        called = True
+        return {"analysis_id": "WGS_SHOULD_NOT_CREATE"}
+
+    monkeypatch.delenv("WGS_ALLOW_EXECUTION", raising=False)
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: SimpleNamespace(deployed_pipelines=("wgs",), pipeline_profile_config_path=None),
+    )
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: lambda: nullcontext(object()))
+    monkeypatch.setattr(main, "create_wgs_run", fake_create_wgs_run)
+
+    response = TestClient(main.app).post(
+        "/api/runs",
+        json={
+            "pipeline": "wgs",
+            "project_name": "unsafe execution request",
+            "wgs_precalling_config_path": "/approved/precalling.yaml",
+            "wgs_downstream_config_path": "/approved/downstream.yaml",
+            "wgs_targets_path": "/approved/targets.txt",
+            "wgs_stage": "full",
+            "wgs_dry_run": False,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "VALIDATION_ERROR"
+    assert "dry-run" in response.json()["detail"]["message"].lower()
+    assert called is False
+
+
+def test_wgs_submit_rechecks_dry_run_gate_before_airflow(monkeypatch) -> None:
+    called = False
+
+    def fake_submit_run_to_airflow(**kwargs):
+        nonlocal called
+        called = True
+        return {"analysis_id": kwargs["analysis_id"], "status": "submitted"}
+
+    monkeypatch.delenv("WGS_ALLOW_EXECUTION", raising=False)
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: SimpleNamespace(deployed_pipelines=("wgs",)),
+    )
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: lambda: nullcontext(object()))
+    monkeypatch.setattr(main, "get_airflow_client", lambda: object())
+    monkeypatch.setattr(
+        main,
+        "get_run_detail",
+        lambda **kwargs: {"pipeline": "wgs", "params": {"wgs_dry_run": False}},
+    )
+    monkeypatch.setattr(main, "submit_run_to_airflow", fake_submit_run_to_airflow)
+
+    response = TestClient(main.app).post(
+        "/api/runs/WGS_20260714_123456_A1B2C3/actions/submit"
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "VALIDATION_ERROR"
+    assert "dry-run" in response.json()["detail"]["message"].lower()
+    assert called is False
 
 
 def test_create_and_submit_controlled_wgs_run(tmp_path, monkeypatch) -> None:
@@ -93,6 +163,7 @@ def test_create_and_submit_controlled_wgs_run(tmp_path, monkeypatch) -> None:
     assert runner_payload["downstream_config_path"] == str(host_run / "config" / "wgs.downstream.requested.yaml")
     assert runner_payload["targets_path"] == str(host_run / "config" / "targets.requested.txt")
     assert runner_payload["source_analysis_root"] == str(validation_root)
+    assert runner_payload["wgs_dry_run"] is True
     assert runner_payload["input_sha256"]["precalling_config"] == hashlib.sha256(config.read_bytes()).hexdigest()
     assert (run_dir / "config" / "targets.requested.txt").read_text(encoding="utf-8").strip() == targets.read_text(encoding="utf-8").strip()
 
@@ -102,6 +173,7 @@ def test_create_and_submit_controlled_wgs_run(tmp_path, monkeypatch) -> None:
     assert submitted.json()["status"] == "submitted"
     assert airflow.calls[0]["dag_id"] == "bio_wgs"
     assert airflow.calls[0]["conf"]["params"]["wgs_stage"] == "precalling"
+    assert airflow.calls[0]["conf"]["params"]["wgs_dry_run"] is True
 
 
 def test_wgs_run_rejects_config_outside_approved_root(tmp_path, monkeypatch) -> None:

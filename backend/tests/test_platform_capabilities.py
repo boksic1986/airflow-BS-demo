@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
@@ -95,3 +96,31 @@ def test_nipt_only_deployment_rejects_pgta_scan(monkeypatch, tmp_path) -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "PIPELINE_NOT_DEPLOYED"
+
+
+def test_reanalyze_rejects_run_from_undeployed_pipeline_before_trigger(monkeypatch) -> None:
+    triggered = False
+
+    def fake_reanalyze_run_to_airflow(**kwargs):
+        nonlocal triggered
+        triggered = True
+        return {"analysis_id": kwargs["analysis_id"], "status": "submitted"}
+
+    monkeypatch.setattr(main, "get_settings", lambda: _settings(deployed_pipelines=("wgs",)))
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: lambda: nullcontext(object()))
+    monkeypatch.setattr(main, "get_airflow_client", lambda: object())
+    monkeypatch.setattr(
+        main,
+        "get_run_detail",
+        lambda **kwargs: {"analysis_id": kwargs["analysis_id"], "pipeline": "pgta", "params": {}},
+    )
+    monkeypatch.setattr(main, "reanalyze_run_to_airflow", fake_reanalyze_run_to_airflow)
+
+    response = TestClient(main.app).post(
+        "/api/runs/PGTA_NOT_DEPLOYED/actions/reanalyze",
+        json={"mode": "resume"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "PIPELINE_NOT_DEPLOYED"
+    assert triggered is False

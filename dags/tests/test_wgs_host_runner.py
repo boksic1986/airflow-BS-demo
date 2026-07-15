@@ -1,5 +1,6 @@
 from pathlib import Path
 import hashlib
+import signal
 import sys
 
 import pytest
@@ -98,10 +99,151 @@ def test_snakemake9_command_has_logger_and_no_removed_flags(tmp_path) -> None:
     assert "--logger airflow-demo" in joined
     assert "--rerun-incomplete" in command
     assert "--show-failed-logs" in command
+    assert "--dry-run" in command
     assert "--forceall" not in command
     assert "--reason" not in command
     assert "--stats" not in command
     assert "--cluster" not in command
+
+
+def test_runner_rejects_real_execution_when_gate_defaults_false(tmp_path, monkeypatch) -> None:
+    workdir = tmp_path / "run"
+    (workdir / "config").mkdir(parents=True)
+    (workdir / "config" / "targets.resolved.txt").write_text(
+        "01_SNV/demo.flt.tsv\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("WGS_ALLOW_EXECUTION", raising=False)
+
+    with pytest.raises(ValueError, match="dry-run"):
+        build_snakemake_command(
+            {
+                "analysis_id": "WGS_20260714_123456_A1B2C3",
+                "host_workdir": str(workdir),
+                "wgs_dry_run": False,
+            },
+            stage="variant_analysis",
+            snakemake_bin=Path("/opt/wgs-s9/bin/snakemake"),
+            pipeline_root=Path("/opt/airflow-wgs/pipelines/wgs_s9"),
+        )
+
+
+def test_terminate_process_group_targets_exact_child_session_and_waits(monkeypatch) -> None:
+    kill_calls = []
+    wait_calls = []
+
+    class FakeProcess:
+        pid = 4321
+
+        def wait(self, timeout=None):
+            wait_calls.append(timeout)
+            return -signal.SIGTERM
+
+    monkeypatch.setattr(wgs_host_runner.os, "killpg", lambda pgid, signum: kill_calls.append((pgid, signum)))
+
+    return_code = wgs_host_runner._terminate_process_group(
+        FakeProcess(),
+        signal_number=signal.SIGTERM,
+    )
+
+    assert kill_calls == [(4321, signal.SIGTERM)]
+    assert wait_calls
+    assert return_code == -signal.SIGTERM
+
+
+def test_stream_process_keyboard_interrupt_terminates_new_process_group(tmp_path, monkeypatch) -> None:
+    popen_kwargs = {}
+    kill_calls = []
+    wait_calls = []
+
+    class FakeProcess:
+        pid = 9876
+        stdout = None
+        stderr = None
+
+        def wait(self, timeout=None):
+            wait_calls.append(timeout)
+            return -signal.SIGTERM
+
+    class InterruptingMonitor:
+        def __init__(self, **kwargs):
+            pass
+
+        def start(self):
+            raise KeyboardInterrupt
+
+        def stop(self, **kwargs):
+            pass
+
+    def fake_popen(command, **kwargs):
+        popen_kwargs.update(kwargs)
+        return FakeProcess()
+
+    monkeypatch.setattr(wgs_host_runner.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(wgs_host_runner, "ResourceMonitor", InterruptingMonitor)
+    monkeypatch.setattr(wgs_host_runner.os, "killpg", lambda pgid, signum: kill_calls.append((pgid, signum)))
+
+    with pytest.raises(KeyboardInterrupt):
+        wgs_host_runner._stream_process(
+            ["/bin/bash", "-lc", "sleep 60"],
+            cwd=tmp_path,
+            env={},
+            stdout_path=tmp_path / "stdout.log",
+            stderr_path=tmp_path / "stderr.log",
+            stage="pre_calling",
+        )
+
+    assert popen_kwargs["start_new_session"] is True
+    assert kill_calls == [(9876, signal.SIGTERM)]
+    assert wait_calls
+
+
+def test_stream_process_sigterm_terminates_new_process_group(tmp_path, monkeypatch) -> None:
+    kill_calls = []
+    installed_handlers = {}
+
+    class FakeProcess:
+        pid = 8765
+        stdout = None
+        stderr = None
+
+        def wait(self, timeout=None):
+            return -signal.SIGTERM
+
+    class TerminatingMonitor:
+        def __init__(self, **kwargs):
+            pass
+
+        def start(self):
+            installed_handlers[signal.SIGTERM](signal.SIGTERM, None)
+
+        def stop(self, **kwargs):
+            pass
+
+    def fake_signal(signum, handler):
+        previous = installed_handlers.get(signum, signal.SIG_DFL)
+        installed_handlers[signum] = handler
+        return previous
+
+    monkeypatch.setattr(wgs_host_runner.subprocess, "Popen", lambda *_args, **_kwargs: FakeProcess())
+    monkeypatch.setattr(wgs_host_runner, "ResourceMonitor", TerminatingMonitor)
+    monkeypatch.setattr(wgs_host_runner.os, "killpg", lambda pgid, signum: kill_calls.append((pgid, signum)))
+    monkeypatch.setattr(wgs_host_runner.signal, "getsignal", lambda _signum: signal.SIG_DFL)
+    monkeypatch.setattr(wgs_host_runner.signal, "signal", fake_signal)
+
+    with pytest.raises(SystemExit) as caught:
+        wgs_host_runner._stream_process(
+            ["/bin/bash", "-lc", "sleep 60"],
+            cwd=tmp_path,
+            env={},
+            stdout_path=tmp_path / "stdout.log",
+            stderr_path=tmp_path / "stderr.log",
+            stage="pre_calling",
+        )
+
+    assert caught.value.code == 128 + signal.SIGTERM
+    assert kill_calls == [(8765, signal.SIGTERM)]
+    assert installed_handlers[signal.SIGTERM] == signal.SIG_DFL
 
 
 def test_wgs_config_rejects_fastq_directory_outside_approved_roots(tmp_path) -> None:

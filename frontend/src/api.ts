@@ -235,6 +235,7 @@ export type CreateWgsRunRequest = {
   wgs_downstream_config_path?: string;
   wgs_targets_path: string;
   wgs_stage: "precalling" | "full";
+  wgs_dry_run: true;
   submitted_by?: string | null;
   note?: string | null;
 };

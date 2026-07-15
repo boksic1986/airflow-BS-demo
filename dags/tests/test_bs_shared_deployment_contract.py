@@ -13,6 +13,7 @@ class BsSharedDeploymentContractTests(unittest.TestCase):
         self.assertIn("DEPLOYED_PIPELINES: nipt_docker,wgs", compose)
         self.assertIn("NIPT_AIRFLOW_POOL: bs_heavy_analysis", compose)
         self.assertIn("WGS_AIRFLOW_POOL: bs_heavy_analysis", compose)
+        self.assertEqual(compose.count('WGS_ALLOW_EXECUTION: "false"'), 2)
         self.assertIn("airflow pools set bs_heavy_analysis 1", compose)
         self.assertIn("./dags/bio_nipt_docker.py:/opt/airflow/dags/bio_nipt_docker.py:ro", compose)
         self.assertIn("./dags/bio_wgs.py:/opt/airflow/dags/bio_wgs.py:ro", compose)
@@ -26,6 +27,10 @@ class BsSharedDeploymentContractTests(unittest.TestCase):
         self.assertIn("COMPOSE_PROJECT_NAME=airflow-nipt", example)
         self.assertIn("WGS_PROJECT_ROOT=", example)
         self.assertIn("WGS_RESULTS_HOST_ROOT=", example)
+        self.assertIn("WGS_ALLOW_EXECUTION=false", example)
+
+        host_example = (REPO_ROOT / "config" / "wgs-host.env.example").read_text(encoding="utf-8")
+        self.assertIn("WGS_ALLOW_EXECUTION=false", host_example)
 
     def test_preflight_uses_the_same_default_project_name(self) -> None:
         preflight = (REPO_ROOT / "scripts" / "bs_nipt_preflight.sh").read_text(encoding="utf-8")

@@ -1,6 +1,8 @@
+import os
 import unittest
 from pathlib import Path
 import sys
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -52,6 +54,25 @@ class BioWgsDagTests(unittest.TestCase):
         context = {"dag_run": type("DagRun", (), {"conf": {"params": {"wgs_stage": "full"}}})()}
 
         self.assertEqual(bio_wgs._choose_wgs_path(**context), "wgs_pipeline.variant_analysis")
+
+    def test_validate_rejects_real_execution_when_gate_is_disabled(self) -> None:
+        context = {
+            "dag_run": type(
+                "DagRun",
+                (),
+                {
+                    "conf": {
+                        "analysis_id": "WGS_20260714_123456_A1B2C3",
+                        "pipeline": "wgs",
+                        "params": {"wgs_stage": "full", "wgs_dry_run": False},
+                    }
+                },
+            )()
+        }
+
+        with patch.dict(os.environ, {"WGS_ALLOW_EXECUTION": "false"}):
+            with self.assertRaisesRegex(ValueError, "dry-run"):
+                bio_wgs._validate_request(**context)
 
 
 if __name__ == "__main__":
