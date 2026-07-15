@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 from app.workflow_phases import WGS_RULE_PHASES, phase_for_rule
 
 
@@ -10,8 +12,10 @@ WGS_RULE_PATTERN = re.compile(r"^\s*rule\s+([A-Za-z_][A-Za-z0-9_]*)\s*:")
 WGS_PHASES = {"Pre-calling", "Variant analysis", "QC"}
 
 
-def _declared_wgs_rules() -> set[str]:
+def _declared_wgs_rules() -> set[str] | None:
     root = Path(__file__).resolve().parents[2] / "pipelines" / "wgs_s9"
+    if not root.is_dir():
+        return None
     return {
         match.group(1)
         for path in root.rglob("*.smk")
@@ -22,6 +26,8 @@ def _declared_wgs_rules() -> set[str]:
 
 def test_wgs_rule_classifier_exhaustively_covers_repo_owned_snakemake_catalog() -> None:
     declared_rules = _declared_wgs_rules()
+    if declared_rules is None:
+        pytest.skip("repo-owned WGS catalog is outside the backend-only image context")
 
     assert declared_rules == set(WGS_RULE_PHASES)
     assert {phase_for_rule(rule, pipeline_name="wgs") for rule in declared_rules} <= WGS_PHASES
