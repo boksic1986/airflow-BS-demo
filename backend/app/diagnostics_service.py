@@ -293,6 +293,9 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
     run.started_at = _parse_airflow_datetime(airflow_payload.get("start_date")) or run.started_at
     if run.status in {"success", "failed"}:
         run.ended_at = _parse_airflow_datetime(airflow_payload.get("end_date")) or datetime.now(timezone.utc)
+    else:
+        run.ended_at = None
+        run.error_summary = None
     if run.status == "failed":
         run.error_summary = build_error_summary(run=run, airflow_payload=airflow_payload, settings=settings)
     elif run.status == "success":

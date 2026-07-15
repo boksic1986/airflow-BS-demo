@@ -225,6 +225,28 @@ def test_sync_airflow_success_updates_run_status(tmp_path, monkeypatch) -> None:
     assert sample.status == "success"
 
 
+def test_sync_airflow_running_clears_stale_terminal_fields(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_submitted_run(session_factory, tmp_path)
+    with session_factory() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        run.status = "failed"
+        run.ended_at = datetime(2026, 7, 3, 0, 5, tzinfo=timezone.utc)
+        run.error_summary = "previous failed attempt"
+        session.commit()
+    fake_airflow = FakeAirflowClient("running")
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared", fake_airflow)
+    client = TestClient(main.app)
+
+    response = client.post(f"/api/runs/{analysis_id}/actions/sync-airflow")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "running"
+    assert payload["ended_at"] is None
+    assert payload["error_summary"] is None
+
+
 def test_sync_airflow_failed_writes_error_summary_from_stderr(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_submitted_run(session_factory, tmp_path, analysis_id="PGTA_20260703_020000_FAIL01")
