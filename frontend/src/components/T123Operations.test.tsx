@@ -9,6 +9,7 @@ import type {DashboardRunTrackerRow, IntakeDiscovery} from "../api";
 import {IntakeScannerPanel} from "../features/dashboard/IntakeScannerPanel";
 import {IntakeDiscoveryTable} from "./IntakeDiscoveryTable";
 import {LogViewer, preferredLogSource} from "./LogViewer";
+import {OperationProjectCell} from "./OperationCells";
 import {RunTracker} from "./RunTracker";
 
 const manualRun: DashboardRunTrackerRow = {
@@ -34,6 +35,12 @@ it("labels manual runs and exposes QC unavailable without sample metric rows", (
   expect(screen.getByText("Manual")).toBeInTheDocument();
   expect(screen.getByText("batch-20")).toBeInTheDocument();
   expect(screen.getByText("QC unavailable")).toBeInTheDocument();
+});
+
+it("hides a dot-only source batch placeholder", () => {
+  render(<MemoryRouter><OperationProjectCell analysisId="NIPT_DOT" fallbackId="NIPT_DOT" projectName="NIPT batch" sampleCount={27} source="manual" sourceBatchId="." submittedBy="jiucheng" /></MemoryRouter>);
+
+  expect(screen.queryByTitle("Source batch")).not.toBeInTheDocument();
 });
 
 it("switches Intake scanner between pending records and history", async () => {

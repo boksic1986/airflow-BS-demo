@@ -21,6 +21,7 @@ export function OperationProjectCell({
   sourceBatchId?: string | null;
 }) {
   const title = projectName || fallbackId;
+  const displaySourceBatchId = sourceBatchId?.trim() && sourceBatchId.trim() !== "." ? sourceBatchId.trim() : null;
   return (
     <div className="operation-project-cell">
       {analysisId ? (
@@ -32,7 +33,7 @@ export function OperationProjectCell({
       <span className="muted">Operator {submittedBy || "not captured"} / {sampleCount} samples</span>
       <span className="tracker-source-line">
         <span className={`run-source-tag source-${source}`}>{source === "intake" ? "Intake" : "Manual"}</span>
-        {sourceBatchId ? <span title="Source batch">{sourceBatchId}</span> : null}
+        {displaySourceBatchId ? <span title="Source batch">{displaySourceBatchId}</span> : null}
       </span>
     </div>
   );

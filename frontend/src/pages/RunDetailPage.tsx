@@ -202,7 +202,11 @@ export function RunDetailPage() {
           {bundle.resources ? <>
             <div className="metric-grid compact">
               <MetricCard title="Peak PSS" value={formatBytes(bundle.resources.peak_pss_bytes)} />
-              <MetricCard title="Peak RSS" value={formatBytes(bundle.resources.peak_rss_bytes)} />
+              <MetricCard
+                title={bundle.resources.source === "docker_container_host_procfs" && bundle.resources.peak_pss_bytes == null ? "RSS process sum" : "Peak RSS"}
+                value={formatBytes(bundle.resources.peak_rss_bytes)}
+                description={bundle.resources.source === "docker_container_host_procfs" && bundle.resources.peak_pss_bytes == null ? "Upper bound; shared pages may be counted once per process." : undefined}
+              />
               <MetricCard title="CPU time" value={formatSecondsDuration(bundle.resources.cpu_seconds)} />
               <MetricCard title="Wall time" value={formatSecondsDuration(bundle.resources.wall_seconds)} />
               <MetricCard title="Read I/O" value={formatBytes(bundle.resources.read_bytes)} />
