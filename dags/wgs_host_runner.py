@@ -198,7 +198,12 @@ def prepare_run(request: dict[str, Any]) -> None:
     targets = _read_target_lines(source_targets)
     config_dir = workdir / "config"
     shutil.copyfile(source_pre, config_dir / "wgs.precalling.resolved.yaml")
-    shutil.copyfile(source_down, config_dir / "wgs.downstream.resolved.yaml")
+    resolved_downstream = dict(down_payload)
+    resolved_downstream["fastqDir"] = str(workdir.resolve())
+    (config_dir / "wgs.downstream.resolved.yaml").write_text(
+        yaml.safe_dump(resolved_downstream, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
     (config_dir / "targets.resolved.txt").write_text("\n".join(targets) + "\n", encoding="utf-8")
     provenance = {
         "analysis_id": request["analysis_id"],
@@ -208,6 +213,7 @@ def prepare_run(request: dict[str, Any]) -> None:
         "pipeline_root": str(DEFAULT_PIPELINE_ROOT),
         "source_precalling_config": str(source_pre),
         "source_downstream_config": str(source_down),
+        "resolved_downstream_fastq_dir": str(workdir.resolve()),
         "source_targets": str(source_targets),
         "target_count": len(targets),
         "input_sha256": dict(request.get("input_sha256") or {}),
@@ -416,6 +422,7 @@ def _stage_historical_pre_calling_context(
     linked_files = 0
     missing_samples = []
     missing_blocks = []
+    missing_logs = []
     missing_qc = []
     for sample_id in historical_samples:
         matched = 0
@@ -451,6 +458,21 @@ def _stage_historical_pre_calling_context(
                 break
         if not block_destination.is_file():
             missing_blocks.append(sample_id)
+        log_destination = destination_root / f"{sample_id}.log"
+        if not log_destination.exists():
+            for resolved_source in resolved_sources:
+                log_source = resolved_source.parent / f"{sample_id}.log"
+                if not log_source.is_file():
+                    continue
+                if _link_historical_context_file(
+                    source=log_source.resolve(strict=True),
+                    destination=log_destination,
+                    allowed_targets=allowed_targets,
+                ):
+                    linked_files += 1
+                break
+        if not log_destination.is_file():
+            missing_logs.append(sample_id)
         qc_destination = qc_destination_root / f"{sample_id}.template.json"
         if not qc_destination.exists():
             qc_sources = [source_root / "07_QC" / qc_destination.name]
@@ -478,6 +500,11 @@ def _stage_historical_pre_calling_context(
         raise FileNotFoundError(
             "WGS historical pre-calling context is missing .blk files for samples: "
             + ", ".join(missing_blocks)
+        )
+    if missing_logs:
+        raise FileNotFoundError(
+            "WGS historical pre-calling context is missing .log files for samples: "
+            + ", ".join(missing_logs)
         )
     if missing_qc:
         raise FileNotFoundError(
