@@ -15,11 +15,12 @@ the additional downstream cohort rows are linked as read-only historical
 pre-calling context from exact approved roots. Logger events and resource
 samples are written below the run workdir and posted to FastAPI when available.
 
-T127 acceptance is the 23-job full downstream dry-run. The corresponding real
-Airflow run was intentionally stopped after dry-run evidence was captured, so
-its terminal `failed` state is expected and is not a completed WGS result.
-Rule phase reporting treats the top-level `all` target as Pre-calling for
-pre-calling runs and QC for full runs.
+T127 final acceptance is `WGS_20260715_062217_351C76`, an Airflow-managed
+pre-calling dry-run with 21 planned jobs. The logger marks planned jobs
+terminal `skipped` with `dry_run_planned` metadata; it does not report them as
+running or executed. The run completed success in 12 seconds and produced no
+WGS biological output. Rule phase reporting treats the top-level `all` target
+as Pre-calling for pre-calling runs and QC for full graph validation.
 
 ## T114 terminal events and output integrity
 

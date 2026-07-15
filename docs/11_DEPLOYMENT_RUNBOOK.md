@@ -1838,18 +1838,19 @@ and Redis volumes and expose only `12959` (frontend/API gateway) and `12958`
    `down -v` and never recreate PostgreSQL/Redis volumes.
 9. Verify capabilities contain only `nipt_docker,wgs`, DAG inventory contains
    only `bio_nipt_docker,bio_wgs,bio_intake_scan`, and the scanner stays paused.
-10. Run the one-family WGS Snakemake 9 dry-run at a 96-core ceiling. Full WGS
-    completion is not required for T127; if a real process was started while
-    validating the handoff, stop only its verified process group and preserve
-    its workdir/logs. Then run the selected NIPT full batches serially, stopping
-    at the first failure.
+10. Run the one-family WGS Snakemake 9 dry-run at a 96-core ceiling with
+    `WGS_ALLOW_EXECUTION=false` in backend, scheduler, worker, and host env.
+    Require the Airflow DAG to finish success and every graph-only job to be a
+    terminal skipped dry-run event. Then run the selected NIPT full batches
+    serially, stopping at the first failure.
 
 WGS results are stored under
 `/mnt/biodevrwbi/33.chenjiucheng/airflow-result/wgs/runs`; NIPT results remain
 under `/mnt/biodevrwbi/33.chenjiucheng/airflow-result/nipt/runs`.
 
 T127 acceptance used three 27-sample NIPT batches. Each completed with all
-sample QC decisions passing and all 232 persisted rule events in success. The
-WGS validation record is expected to appear failed/terminated in Airflow
-because it was deliberately stopped after the accepted 23-job downstream
-dry-run; it is not evidence of a failed dry-run or a completed WGS analysis.
+sample QC decisions passing and all 232 persisted rule events in success.
+`WGS_20260715_062217_351C76` completed an Airflow-managed pre-calling dry-run
+in 12 seconds; its 21 graph jobs are planned/skipped and no WGS rule executed.
+The older deliberately stopped `WGS_20260714_180953_9D7981` remains a failed
+historical handoff record and must not be used as current acceptance evidence.

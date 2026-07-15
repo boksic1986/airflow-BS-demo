@@ -40,6 +40,18 @@ SHA256 values are immutable. The WGS run sample set is the pre-calling YAML
 `sample` subset, while additional downstream sample rows are batch context.
 `POST /api/runs/{analysis_id}/actions/submit` triggers `bio_wgs`.
 
+On BS10610, WGS requests are hard-gated to dry-run. Run params expose
+`wgs_dry_run=true`; the backend, scheduler, worker, and host gate all require
+`WGS_ALLOW_EXECUTION=false`. Successful dry-run rows return
+`display_status=success` and `qc_display_status=not_applicable` rather than
+`QC pending`. Planned Snakemake jobs are stored as terminal `skipped` events
+with dry-run metadata, so `/rules` and `/progress` never leave graph-only jobs
+in a false running state.
+
+Run-detail endpoints validate the requested run pipeline against
+`DEPLOYED_PIPELINES` before issuing child detail/QC/log requests. The BS
+frontend therefore cannot fan out historical PGT-A detail calls.
+
 `GET /api/runs/{analysis_id}/resources` returns wall time, CPU seconds, peak
 PSS/RSS, read/write I/O, collection completeness, stage summaries, and an
 opaque raw JSONL artifact path. Existing NIPT contracts remain compatible.

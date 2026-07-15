@@ -1,6 +1,62 @@
 # HANDOFF.md
 
-## 2026-07-15 - Codex - T127 shared BS NIPT/WGS control plane
+## 2026-07-15 - Codex - T127 final WGS dry-run and frontend closeout
+
+- Goal: keep WGS validation dry-run only, complete two to three NIPT full
+  batches, and make the shared NIPT/WGS frontend report those states without
+  PGT-A labels or JSON parsing failures.
+- Completed: `WGS_20260715_062217_351C76` used `wgs_stage=precalling` and the
+  hard `WGS_ALLOW_EXECUTION=false` gate. Airflow/backend reached success in 12
+  seconds. Its 21 Snakemake graph jobs are persisted as terminal `skipped`
+  dry-run plans; no WGS rule was executed and no host WGS process remains.
+- NIPT evidence: `NIPT_20260715_030032_9A815B`,
+  `NIPT_20260715_031706_C435A8`, and `NIPT_20260715_033817_4B4F72` completed
+  serially in 858.5, 783.6, and 884.9 seconds. Each has 27/27 QC pass,
+  232/232 success rule events, and zero running events.
+- Frontend: Dashboard reports the WGS dry-run as Success, Completed, 100%,
+  elapsed 12s, and QC not applicable. Workflow Catalog reports `WGS Host
+  Dry-run`, `Snakemake 9.23.1 graph validation`, and `21 jobs planned; dry-run
+  only`. Submit exposes only NIPT Docker and WGS and states that WGS is dry-run
+  validation. Browser console warnings/errors were empty; PGT-A text count was
+  zero.
+- Runtime verification: BS10610 services are running, backend/API health is
+  green, capabilities are exactly `nipt_docker,wgs`, and Airflow lists only
+  `bio_nipt_docker`, `bio_wgs`, and paused `bio_intake_scan`. Pools
+  `nipt_s9_full` and `bs_heavy_analysis` each have one slot. No NIPT analysis
+  container or WGS Snakemake process remains active.
+- Tests: backend full pytest `197 passed, 1 skipped`; WGS/NIPT runner and
+  deployment contracts `43 passed`; logger tests `6 passed`; frontend Vitest
+  `70 passed`; production `tsc -b && vite build`, nginx config, and both BS
+  Compose configs passed.
+- Images/release: backend `airflow-demo/backend:bs-control-f11ea02`
+  (`sha256:221955332609...`, archive SHA256 `48d71ebb...`), frontend
+  `airflow-demo/frontend:bs-control-f11ea02` (`sha256:93cf3a076c43...`, archive
+  SHA256 `52e98121...`), release archive SHA256 `74ee973c...`. Both BS nodes
+  loaded exact image IDs through the required fengxian -> local Windows -> BS
+  relay; BS1069 remains stopped.
+- Changed closeout files: `CURRENT_STATE.md`, `TASKS.md`, `HANDOFF.md`,
+  `SERVER_INFO.md`, and T127 API/frontend/DAG/logger/deployment/acceptance docs.
+- Failure note: one final Compose status probe used the wrong relative env
+  path and failed before contacting a service; rerunning with the absolute
+  `/mnt/.../airflow-NIPT/env/bs10610.env` path passed. An earlier test harness
+  mounted only `dags/` and produced six false contract failures; mounting the
+  repository root passed all 43 checks. The first BS1069 closeout wrapper used
+  `readlink current` after changing into `current`; Compose validation and the
+  zero-service check had already passed, and an absolute readlink rerun
+  confirmed `releases/f11ea02` plus both final image IDs.
+- Not run: no real WGS analysis, no additional NIPT batch, and no Intake scan
+  were triggered during final closeout. This matches the revised scope.
+- Risk: the NIPT worker still needs the Docker socket for the current nested
+  fetal-ratio implementation. Pinned image IDs reduce supply-chain drift but
+  do not remove Docker-socket privilege.
+- Rollback: keep Intake paused, restore the previous release and
+  backend/frontend image tags, and recreate only application services. Never
+  use `down -v` or delete databases, workdirs, results, logs, FASTQ, or the
+  external network.
+
+## 2026-07-15 - Codex - T127 pre-final shared control-plane checkpoint
+
+This checkpoint is superseded by the final dry-run/frontend closeout above.
 
 - Branch/worktree: `codex/wgs/T127-bs-wgs-s9-platform` in the isolated T096
   worktree. The final compatibility series includes `ed4b501`, `57a7316`,

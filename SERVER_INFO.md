@@ -22,11 +22,12 @@ wgs_scheduler: Snakemake 9.23.1, Python 3.12, host-native through restricted SSH
 wgs_default_cores: 96
 wgs_validation_scope: one family / three new pre-calling samples
 frontend_nginx: nginx 1.30.3, Alpine 3.23.5
-backend_image: airflow-demo/backend:bs-control-bdecbfb, sha256:73c965a2d1ab7964f0131e8778cc30e7a5074e84685efd2dcc6a246c1ab85897
-backend_archive_sha256: c3fd486d5b343bd82519b21fc7370ccdcd26a9292a36b88bb5c70561fd9f79d1
-frontend_image: airflow-demo/frontend:bs-control-fd52f5f, sha256:cf13aa210ed650c0aa5041761c5e1b07ca889500afd97227ee42ea3b388c9c18
-frontend_archive_sha256: 8abe269a4f8c81295857c52b27304b6dcec9c50bdf71a17d9c4c3a914e9988eb
-wgs_acceptance: 23-job full downstream dry-run passed; WGS_20260714_180953_9D7981 intentionally stopped afterward
+backend_image: airflow-demo/backend:bs-control-f11ea02, sha256:22195533260900e6abde7f971513511da678caa5d04b5bcfefa87ab6952e640d
+backend_archive_sha256: 48d71ebb5b2c0ab1d309b8bad94bcab0bf10e1cef74f9a35cfe683855d2009da
+frontend_image: airflow-demo/frontend:bs-control-f11ea02, sha256:93cf3a076c43e4c9d9eacbf8f0b6e0c7edb22a9acf0e01f561f3eeeaa4c29612
+frontend_archive_sha256: 52e98121b4d94a6aa30c67781ea17b5c6dc90c726b9dc5b42ae79e49dfaff0bb
+release_archive_sha256: 74ee973c55411ab7c6ec2dc7d9d013a2136f90298b26ea692e59490990fd008b
+wgs_acceptance: WGS_20260715_062217_351C76 completed Airflow-managed pre-calling dry-run success in 12s; 21 planned jobs are terminal skipped and no WGS rule executed
 nipt_acceptance: three serial 27-sample full runs success; 858s, 783s, 884s; 27/27 QC pass and 232/232 success events each
 ```
 

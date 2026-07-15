@@ -7,14 +7,17 @@
 - Dashboard, Submit Run, Batch Runs, Sample Matrix, Failure Triage, Workflow
   Catalog, and Settings expose only NIPT Docker and WGS on this deployment.
 - Submit defaults to the approved `niptpro-s9-full-v1` profile, 32 cores, and
-  Full analysis for NIPT. WGS Submit accepts only approved config/target paths,
-  defaults to the controlled pre-calling mode, and requires confirmation for
-  Full analysis. WGS execution uses 96 host cores.
+  Full analysis for NIPT. WGS Submit accepts only approved config/target paths
+  and exposes dry-run validation only; real WGS execution is disabled. The
+  graph-validation ceiling remains 96 host cores.
 - Run Detail keeps the Airflow project task layer and paginated rule/sample
   logger layer and adds compact run resource telemetry.
 - Host WGS rules are grouped into Pre-calling, Variant analysis, and QC. The
   aggregate `all` target uses the selected WGS stage so pre-calling and full
   runs do not report the same phase.
+- Successful WGS dry-runs display `Success`, `QC not applicable`, and terminal
+  planned jobs. Workflow Catalog labels the workflow `WGS Host Dry-run` and
+  describes graph jobs as `planned; dry-run only`, never as running analysis.
 - When Docker `/proc` collection cannot provide PSS, the UI labels summed RSS
   as an upper bound because shared pages may be counted once per process. It
   must not be presented as container peak memory.

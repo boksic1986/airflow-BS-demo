@@ -263,9 +263,9 @@ Acceptance:
   inventory, CeleryExecutor services, network, and pool are deployed.
 - [x] WGS Snakemake 9 dry-run selects one family (three new samples) at 96
   cores and links only approved historical batch context.
-- [x] One-family WGS Snakemake 9 full downstream dry-run resolves 23 jobs; the
-  host process is intentionally stopped afterward because full completion is
-  outside the revised acceptance scope.
+- [x] `WGS_20260715_062217_351C76` completes an Airflow-managed one-family
+  pre-calling dry-run in 12 seconds; all 21 planned jobs are terminal skipped,
+  no biological rule runs, and the UI reports QC as not applicable.
 - [x] Three 27-sample NIPT full batches run serially and finish success with
   27/27 QC pass and 232/232 terminal-success rule events each.
 - [x] BS1069 release/config and image IDs are verified with every service
