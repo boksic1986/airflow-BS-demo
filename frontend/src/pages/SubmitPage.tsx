@@ -50,8 +50,10 @@ export function SubmitPage() {
   const [niptRunMode, setNiptRunMode] = useState<NiptRunMode>("full_run");
   const [niptCores, setNiptCores] = useState(32);
   const [target] = useState<PgtaTarget>("predict");
-  const [rawdataRoot, setRawdataRoot] = useState(defaultNiptRawdataRoot);
-  const [rootOptions, setRootOptions] = useState<string[]>([defaultNiptRawdataRoot]);
+  const [rawdataRoot, setRawdataRoot] = useState("");
+  const [rootOptions, setRootOptions] = useState<string[]>([]);
+  const [rootsLoading, setRootsLoading] = useState(true);
+  const [rootsError, setRootsError] = useState<string | null>(null);
   const [maxSamples, setMaxSamples] = useState(20);
   const [scanItems, setScanItems] = useState<ScanCandidate[]>([]);
   const [selectedSamples, setSelectedSamples] = useState<Set<string>>(new Set());
@@ -94,15 +96,24 @@ export function SubmitPage() {
     if (selectedPipeline === "wgs") {
       setRootOptions([]);
       setRawdataRoot("");
+      setRootsLoading(false);
+      setRootsError(null);
       setScanItems([]);
       return;
     }
     let disposed = false;
-    const fallbackRoot = selectedPipeline === "nipt_docker" ? defaultNiptRawdataRoot : defaultPgtaRawdataRoot;
+    setRootsLoading(true);
+    setRootsError(null);
     getInputRoots(selectedPipeline)
       .then((payload) => {
         if (disposed) return;
-        const roots = payload.roots.length ? payload.roots : [fallbackRoot];
+        const roots = payload.roots;
+        if (!roots.length) {
+          setRootOptions([]);
+          setRawdataRoot("");
+          setRootsError("No approved scan roots are configured for this pipeline.");
+          return;
+        }
         setRootOptions(roots);
         setRawdataRoot((current) => {
           if (roots.includes(current)) return current;
@@ -112,9 +123,13 @@ export function SubmitPage() {
       })
       .catch(() => {
         if (!disposed) {
-          setRootOptions([fallbackRoot]);
-          setRawdataRoot((current) => current.trim() || fallbackRoot);
+          setRootOptions([]);
+          setRawdataRoot("");
+          setRootsError("Approved scan roots are unavailable. Refresh the page before scanning.");
         }
+      })
+      .finally(() => {
+        if (!disposed) setRootsLoading(false);
       });
     return () => {
       disposed = true;
@@ -128,7 +143,7 @@ export function SubmitPage() {
   }, [capabilities.deployed_pipelines, selectedPipeline]);
 
   async function handleScan() {
-    if (selectedPipeline === "wgs") return;
+    if (selectedPipeline === "wgs" || rootsLoading || rootsError || !rawdataRoot.trim()) return;
     setScanning(true);
     setError(null);
     setShowNiptFullConfirm(false);
@@ -155,8 +170,10 @@ export function SubmitPage() {
     if (!confirmConfigReset()) return;
     setSelectedPipeline(value);
     setConfigSelection(null);
-    setRawdataRoot(value === "wgs" ? "" : value === "nipt_docker" ? defaultNiptRawdataRoot : defaultPgtaRawdataRoot);
-    setRootOptions(value === "wgs" ? [] : [value === "nipt_docker" ? defaultNiptRawdataRoot : defaultPgtaRawdataRoot]);
+    setRawdataRoot("");
+    setRootOptions([]);
+    setRootsLoading(value !== "wgs");
+    setRootsError(null);
     setScanItems([]);
     setSelectedSamples(new Set());
     setExpandedFolders(new Set());
@@ -479,6 +496,7 @@ export function SubmitPage() {
               aria-label="Rawdata root"
               list="input-root-options"
               value={rawdataRoot}
+              disabled={rootsLoading || Boolean(rootsError)}
               onChange={(event) => setRawdataRoot(event.target.value)}
             />
             <datalist id="input-root-options">
@@ -486,6 +504,8 @@ export function SubmitPage() {
                 <option key={root} value={root} />
               ))}
             </datalist>
+            {rootsLoading ? <small>Loading approved scan roots...</small> : null}
+            {rootsError ? <small className="field-error" role="alert">{rootsError}</small> : null}
           </label>
           <label className="field">
             <span>Max samples</span>
@@ -514,7 +534,7 @@ export function SubmitPage() {
           </>}
         </div>
         <div className="panel-actions">
-          {selectedPipeline !== "wgs" ? <button className="button ghost" type="button" disabled={scanning || !rawdataRoot.trim()} onClick={() => void handleScan()}>
+          {selectedPipeline !== "wgs" ? <button className="button ghost" type="button" disabled={scanning || rootsLoading || Boolean(rootsError) || !rawdataRoot.trim()} onClick={() => void handleScan()}>
             <Search size={15} />
             Scan
           </button> : null}

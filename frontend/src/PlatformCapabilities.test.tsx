@@ -296,3 +296,60 @@ it("hides stale PGT-A intake config and discovery records in Platform Settings",
   expect(screen.queryByText("legacy-pgta-batch")).not.toBeInTheDocument();
   expect(screen.queryByText("PGT-A")).not.toBeInTheDocument();
 });
+
+it("blocks NIPT scanning until the backend-approved root is loaded", async () => {
+  window.history.pushState({}, "", "/submit");
+  let resolveRoots: ((response: Response) => void) | undefined;
+  const rootsResponse = new Promise<Response>((resolve) => {
+    resolveRoots = resolve;
+  });
+
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/platform/capabilities")) return Promise.resolve(sharedCapabilitiesResponse());
+    if (url.includes("/api/input/roots")) return rootsResponse;
+    if (url.includes("/api/pipeline-config/template")) {
+      return Promise.resolve(new Response(JSON.stringify({
+        pipeline: "nipt_docker",
+        profile: {id: "niptpro-s9-full-v1", label: "NIPT S9", pipeline_version: "1.1.11", config_version: "v1"},
+        profiles: [{id: "niptpro-s9-full-v1", label: "NIPT S9", pipeline_version: "1.1.11", config_version: "v1"}],
+        config_template_hash: "hash",
+        editable_yaml: "params:\n  seed: 9696\n",
+        changed_paths: [],
+      }), {status: 200, headers: {"Content-Type": "application/json"}}));
+    }
+    return Promise.resolve(new Response(JSON.stringify({items: []}), {status: 200, headers: {"Content-Type": "application/json"}}));
+  }));
+
+  render(<App />);
+
+  expect(await screen.findByRole("radio", {name: /NIPT Docker/i})).toBeInTheDocument();
+  expect(screen.getByLabelText("Rawdata root")).toBeDisabled();
+  expect(screen.getByRole("button", {name: "Scan"})).toBeDisabled();
+  expect(screen.getByText("Loading approved scan roots...")).toBeInTheDocument();
+
+  resolveRoots?.(new Response(JSON.stringify({pipeline: "nipt_docker", roots: ["/data/nipt-fastq/FQ2026"]}), {
+    status: 200,
+    headers: {"Content-Type": "application/json"},
+  }));
+
+  await waitFor(() => expect(screen.getByLabelText("Rawdata root")).toHaveValue("/data/nipt-fastq/FQ2026"));
+  expect(screen.getByLabelText("Rawdata root")).toBeEnabled();
+  expect(screen.getByRole("button", {name: "Scan"})).toBeEnabled();
+});
+
+it("keeps NIPT scanning disabled when approved roots cannot be loaded", async () => {
+  window.history.pushState({}, "", "/submit");
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/platform/capabilities")) return Promise.resolve(sharedCapabilitiesResponse());
+    if (url.includes("/api/input/roots")) return Promise.reject(new Error("roots unavailable"));
+    return Promise.resolve(new Response("{}", {status: 500, headers: {"Content-Type": "application/json"}}));
+  }));
+
+  render(<App />);
+
+  expect(await screen.findByText("Approved scan roots are unavailable. Refresh the page before scanning.")).toBeInTheDocument();
+  expect(screen.getByLabelText("Rawdata root")).toBeDisabled();
+  expect(screen.getByRole("button", {name: "Scan"})).toBeDisabled();
+});
