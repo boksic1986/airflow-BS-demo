@@ -12,7 +12,8 @@ from app.progress_service import get_run_progress
 from app.qc_highlights import qc_highlights_by_run
 
 
-SUPPORTED_DASHBOARD_PIPELINES = {"all", "pgta", "nipt_docker"}
+DASHBOARD_PIPELINES = ("pgta", "nipt_docker", "wgs")
+SUPPORTED_DASHBOARD_PIPELINES = {"all", *DASHBOARD_PIPELINES}
 ACTIVE_STATUSES = {"running", "submitted", "queued", "scheduled"}
 FAILED_STATUSES = {"failed", "fail", "error", "terminated"}
 STATUS_ORDER = {
@@ -33,7 +34,7 @@ def get_dashboard_overview(*, session: Session, pipeline: str, period: str) -> d
     runs = _runs_for_pipeline(session=session, pipeline=pipeline, since=since)
     status_distribution = _status_distribution(runs)
     pipeline_breakdown = {}
-    for name in ["pgta", "nipt_docker"]:
+    for name in DASHBOARD_PIPELINES:
         pipeline_runs = [run for run in runs if run.pipeline_name == name]
         pipeline_breakdown[name] = {
             "runs": len(pipeline_runs),
@@ -77,7 +78,7 @@ def get_dashboard_runs(
     if pipeline != "all":
         base_query = base_query.where(AnalysisRun.pipeline_name == pipeline)
     else:
-        base_query = base_query.where(AnalysisRun.pipeline_name.in_(["pgta", "nipt_docker"]))
+        base_query = base_query.where(AnalysisRun.pipeline_name.in_(DASHBOARD_PIPELINES))
     qc_failed = (
         select(Sample.id)
         .where(
@@ -453,7 +454,7 @@ def _runs_for_pipeline(*, session: Session, pipeline: str, since: datetime) -> l
     if pipeline != "all":
         query = query.where(AnalysisRun.pipeline_name == pipeline)
     else:
-        query = query.where(AnalysisRun.pipeline_name.in_(["pgta", "nipt_docker"]))
+        query = query.where(AnalysisRun.pipeline_name.in_(DASHBOARD_PIPELINES))
     return list(session.scalars(query).all())
 
 
@@ -489,7 +490,7 @@ def _sample_trend(*, session: Session, pipeline: str, since: datetime) -> list[d
     if pipeline != "all":
         query = query.where(AnalysisRun.pipeline_name == pipeline)
     else:
-        query = query.where(AnalysisRun.pipeline_name.in_(["pgta", "nipt_docker"]))
+        query = query.where(AnalysisRun.pipeline_name.in_(DASHBOARD_PIPELINES))
     buckets: dict[str, dict[str, int]] = {}
     for created_at, sample_status, qc_status in session.execute(query).all():
         key = (created_at or since).date().isoformat()
@@ -525,7 +526,7 @@ def _samples_for_period(*, session: Session, pipeline: str, since: datetime) -> 
     if pipeline != "all":
         query = query.where(AnalysisRun.pipeline_name == pipeline)
     else:
-        query = query.where(AnalysisRun.pipeline_name.in_(["pgta", "nipt_docker"]))
+        query = query.where(AnalysisRun.pipeline_name.in_(DASHBOARD_PIPELINES))
     return list(session.scalars(query).all())
 
 
@@ -794,7 +795,7 @@ def _period_start(period: str) -> datetime:
 
 def _validate_pipeline(pipeline: str) -> None:
     if pipeline not in SUPPORTED_DASHBOARD_PIPELINES:
-        raise ValueError("pipeline must be all, pgta, or nipt_docker")
+        raise ValueError("pipeline must be all, pgta, nipt_docker, or wgs")
 
 
 def _iso(value: datetime | None) -> str | None:
