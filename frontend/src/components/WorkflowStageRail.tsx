@@ -38,8 +38,11 @@ export function WorkflowStageRail({analysisId, pipeline, stages}: {
       <div className="workflow-stage-rail">
         {items.map((item) => {
           const status = normalizeStatus(item.status);
+          const detail = item.dry_run
+            ? `${item.total_jobs} jobs planned; dry-run only`
+            : `${item.completed_jobs}/${item.total_jobs} jobs complete`;
           return (
-            <span className={`workflow-stage-node stage-${status}`} key={item.key} title={`${item.label}: ${item.status}; ${item.completed_jobs}/${item.total_jobs} jobs complete`}>
+            <span className={`workflow-stage-node stage-${status}`} key={item.key} title={`${item.label}: ${item.status}; ${detail}`}>
               <span className="workflow-stage-dot" />
               <small>{item.label}</small>
             </span>

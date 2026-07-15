@@ -23,10 +23,10 @@ WORKFLOW_DEFINITIONS: dict[str, dict[str, str]] = {
         "runtime": "Snakemake 9.23.1 in NIPTPro",
     },
     "wgs": {
-        "name": "WGS Host Full",
+        "name": "WGS Host Dry-run",
         "dag_id": "bio_wgs",
         "runtime_profile_id": "wgs-s9-host-v1",
-        "runtime": "Snakemake 9.23.1 on BS host",
+        "runtime": "Snakemake 9.23.1 graph validation on BS host",
     },
 }
 
@@ -66,6 +66,8 @@ def get_workflow_catalog(*, session: Session, pipelines: tuple[str, ...] | list[
         definition = WORKFLOW_DEFINITIONS[pipeline]
         latest = latest_by_pipeline.get(pipeline)
         stages = summaries.get(latest.analysis_id, []) if latest else _empty_stages(pipeline)
+        if latest and pipeline == "wgs" and bool((latest.params_json or {}).get("wgs_dry_run", True)):
+            stages = [{**stage, "dry_run": True} for stage in stages]
         stats = stats_by_pipeline.get(pipeline, {"count": 0, "successes": 0})
         items.append(
             {

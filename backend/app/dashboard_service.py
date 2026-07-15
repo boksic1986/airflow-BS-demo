@@ -193,15 +193,26 @@ def _tracker_row(
         average_duration_seconds=average_duration_seconds,
     )
     estimated_finish_at = _estimated_finish_at(estimated_remaining_seconds)
-    qc_status = _qc_status_from_values(sample_qc_statuses)
-    qc_display_status, qc_display_note = _qc_display_state(run_status=run.status, qc_status=qc_status)
     params = run.params_json or {}
+    qc_status = _qc_status_from_values(sample_qc_statuses)
+    is_wgs_dry_run = (
+        terminal_success
+        and run.pipeline_name == "wgs"
+        and bool(params.get("wgs_dry_run", True))
+    )
+    if is_wgs_dry_run:
+        display_status = "success"
+        qc_display_status = "not_applicable"
+        qc_display_note = "QC is not applicable to a WGS dry-run; no analysis rules were executed."
+    else:
+        display_status = _display_status(run_status=run.status, qc_status=qc_status)
+        qc_display_status, qc_display_note = _qc_display_state(run_status=run.status, qc_status=qc_status)
     return {
         "analysis_id": run.analysis_id,
         "project_name": _project_name(run),
         "pipeline": run.pipeline_name,
         "status": run.status,
-        "display_status": _display_status(run_status=run.status, qc_status=qc_status),
+        "display_status": display_status,
         "qc_status": qc_status,
         "qc_display_status": qc_display_status,
         "qc_display_note": qc_display_note,

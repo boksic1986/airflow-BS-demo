@@ -325,6 +325,48 @@ def test_dashboard_runs_includes_terminal_wgs_without_airflow_task_requests(tmp_
     assert airflow.task_calls == []
 
 
+def test_wgs_dry_run_is_success_without_qc_pending_and_catalog_is_explicit(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime.now(timezone.utc)
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id="WGS_DRY_RUN",
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                dag_run_id="manual__WGS_DRY_RUN",
+                mode="new",
+                status="success",
+                workdir=str(tmp_path / "WGS_DRY_RUN"),
+                params_json={
+                    "project_name": "WGS dry-run",
+                    "wgs_stage": "precalling",
+                    "wgs_dry_run": True,
+                },
+                created_at=now - timedelta(minutes=2),
+                submitted_at=now - timedelta(minutes=1),
+                started_at=now - timedelta(minutes=1),
+                ended_at=now,
+            )
+        )
+        session.add(Sample(analysis_id="WGS_DRY_RUN", sample_id="WGS-01", status="success", qc_status="unknown"))
+        session.add(SnakemakeRuleEvent(analysis_id="WGS_DRY_RUN", rule="mapping", sample_id="WGS-01", status="skipped"))
+        session.commit()
+    airflow = FakeAirflowClient()
+    install_dashboard_fixtures(monkeypatch, session_factory, airflow)
+    monkeypatch.setattr(main, "_deployment_guard_settings", lambda: SimpleNamespace(deployed_pipelines=("wgs",)))
+    client = TestClient(main.app)
+
+    tracker = client.get("/api/dashboard/runs?pipeline=wgs&limit=10&offset=0").json()["items"][0]
+    catalog = client.get("/api/workflows").json()["items"][0]
+
+    assert tracker["display_status"] == "success"
+    assert tracker["qc_display_status"] == "not_applicable"
+    assert "dry-run" in tracker["qc_display_note"].lower()
+    assert catalog["name"] == "WGS Host Dry-run"
+    assert catalog["stages"][0]["dry_run"] is True
+
+
 def test_dashboard_runs_orders_terminal_runs_by_latest_completion(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     seed_dashboard_data(session_factory, tmp_path)

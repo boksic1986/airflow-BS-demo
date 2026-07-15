@@ -2243,7 +2243,7 @@ describe("bioinformatics platform frontend", () => {
       if (url.includes("/api/workflows")) {
         return mockJson({items: [
           {pipeline: "nipt_docker", name: "NIPT Docker Full", dag_id: "bio_nipt_docker", runtime_profile_id: "niptpro-s9-full-v1", runtime: "Snakemake 9.23.1 in NIPTPro", stages: [], latest_run: null, run_count: 0, success_rate: null},
-          {pipeline: "wgs", name: "WGS Host Full", dag_id: "bio_wgs", runtime_profile_id: "wgs-s9-host-v1", runtime: "Snakemake 9.23.1 on BS host", stages: [], latest_run: null, run_count: 0, success_rate: null},
+          {pipeline: "wgs", name: "WGS Host Dry-run", dag_id: "bio_wgs", runtime_profile_id: "wgs-s9-host-v1", runtime: "Snakemake 9.23.1 graph validation on BS host", stages: [{key: "pre_calling", label: "Pre-calling", status: "success", completed_jobs: 0, total_jobs: 21, dry_run: true}], latest_run: null, run_count: 0, success_rate: null},
         ]});
       }
       if (!defaultFetch) throw new Error("Missing default fetch mock");
@@ -2252,7 +2252,8 @@ describe("bioinformatics platform frontend", () => {
     setRoute("/workflows");
     render(<App />);
     expect((await screen.findAllByText(/NIPT Docker Full/i)).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/WGS Host Full/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/WGS Host Dry-run/i).length).toBeGreaterThan(0);
+    expect(screen.getByTitle(/21 jobs planned; dry-run only/i)).toBeInTheDocument();
     expect(screen.queryByText(/PGT-A Predict/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/WES qsub/i)).not.toBeInTheDocument();
   });

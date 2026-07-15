@@ -21,6 +21,7 @@ export type WorkflowStageSummary = {
   status: string;
   completed_jobs: number;
   total_jobs: number;
+  dry_run?: boolean;
 };
 
 export type RunListResponse = {
