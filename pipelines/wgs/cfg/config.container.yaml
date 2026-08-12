@@ -1,0 +1,197 @@
+# When BS generates a batch for server10610/server10609, translate only these
+# two execution-node /mnt prefixes to the matching BS storage mounts.
+# Generated config and Step1 retain the execution-node /mnt path unchanged.
+generation:
+  project_path_aliases:
+    /mnt/biodevrwbi: /bi/biodevrwbi
+    /mnt/biodevrwsg2: /sg2/biodevrwsg2
+execution:
+  mode: direct_apptainer
+  performance_profile: standard60  # 新 prepare/Step1 未读取；仅 wgs_resource_monitor.py 用作性能报告标签。
+  cores: 60  # 新 prepare/Step1 未读取；仅旧 wgs_basic_batch.py 用作单节点核数。
+  pipeline_dir: /projectDir  # 当前仅在生成配置时替换为实际 pipeline 路径，没有运行代码读取，未实际使用。
+  runtime_root: /runtimeRoot
+  snakemake_version: "9.23.1"  # 当前仅记录预期版本，没有代码校验实际 Snakemake 版本，未实际使用。
+  apptainer_bin: /usr/bin/apptainer  # 当前没有代码读取；Snakemake 从 PATH 查找 Apptainer，未实际使用。
+  singularity_bin: /usr/bin/singularity  # 当前没有代码读取，未实际使用。
+# Host paths are mounted at stable container destinations. Keep databases,
+# references, FASTQ and the license read-only; only the generated project bind
+# is added as read-write by the batch generator.
+runtime_binds:
+  wgs_resources:
+    source: /runtimeRoot
+    destination: /runtimeRoot
+    mode: ro
+  # The 3.9.2 resource root keeps genome/annotation and QC binaries as links
+  # into this legacy root. Bind the exact link target instead of all of /bi.
+  wgs_legacy_resources:
+    source: /bi/BioCodeHub/WGS/WGS_V3.2.1
+    destination: /bi/BioCodeHub/WGS/WGS_V3.2.1
+    mode: ro
+  fastq:
+    source: /bi/fastq/T7_Fastq
+    destination: /bi/fastq/T7_Fastq
+    mode: ro
+  vep113:
+    source: /bi/software/mamba/envs/VEP/share/ensembl-vep-113.4-0/vep-data
+    destination: /bi/software/mamba/envs/VEP/share/ensembl-vep-113.4-0/vep-data
+    mode: ro
+  vep104:
+    source: /bi/software/ensembl-vep-104/ensembl-vep
+    destination: /bi/software/ensembl-vep-104/ensembl-vep
+    mode: ro
+  mei_reference:
+    source: /bi/software/scramble/cluster_analysis/resources
+    destination: /bi/software/scramble/cluster_analysis/resources
+    mode: ro
+  sentieon_license:
+    source: /bi/software/Sentieon/Zhejiang_Biosan_Biotechnology_Co._LTD_cluster.lic
+    destination: /bi/software/Sentieon/Zhejiang_Biosan_Biotechnology_Co._LTD_cluster.lic
+    mode: ro
+performance:
+  monitor_interval_seconds: 5
+  benchmark_dir: logs/benchmarks
+  rule_threads:
+    pre_process_cleanFastq: 8
+    pre_process_mapping: 12
+    pre_process_Dedup: 8
+    pre_process_Sam2Cram: 8
+    pre_process_QualCal: 8
+    pre_process_QCStatic: 8
+    pre_process_mtQC: 4
+    pre_process_Haplotyper: 8
+    pre_process_bam2blockUniq: 4
+    pre_process_Smooverun: 3
+    SNV_GVCFtyper: 8
+    SNV_NormalizeVcf: 12
+    SNV_qualityFlt: 8
+    SNV_virtualWES: 8
+    SNV_vep: 16
+    SNV_intergenicFlt: 8
+    SNV_intergenicFlt_bkw: 8
+    SNV_vepLenient: 16
+    SNV_vepLenient_bkw: 16
+    SNV_batchVcf2Vaf: 8
+    SNV_bedGraphVaf: 8
+    MEI_MEI_vep: 10
+    QC_PeddyC: 4
+    QC_collect_wgs_metrics: 4
+    QC_collect_insert_metrics: 4
+    QC_collect_alignment_metrics: 4
+    QC_collect_GCBias_metrics: 4
+    SMA_SMA: 16
+    SMA_CYP2D6: 16
+    MT_NorVcf: 4
+containers:
+  pre: /runtimeRoot/sif/wgs-pre-tools_3.9.2.sif
+  SNV: /runtimeRoot/sif/wgs-snv-tools_3.9.2.sif
+  SV: /runtimeRoot/sif/wgs-sv-tools_3.9.2.sif
+  MT: /runtimeRoot/sif/wgs-mt-tools_3.9.2.sif
+  RE: /runtimeRoot/sif/wgs-re-tools_3.9.2.sif
+  ROH: /runtimeRoot/sif/wgs-roh-tools_3.9.2.sif
+  CNV: /runtimeRoot/sif/wgs-cnv-tools_3.9.2.sif
+  MEI: /runtimeRoot/sif/wgs-mei-tools_3.9.2.sif
+  SMA: /runtimeRoot/sif/wgs-sma-tools_3.9.2.sif
+  CS: /runtimeRoot/sif/wgs-cs-tools_3.9.2.sif
+  QC: /runtimeRoot/sif/wgs-qc-tools_3.9.2.sif
+# Each module uses immutable absolute executable paths from its own SIF.
+# Rules that explicitly switch container images must select the matching module
+# tool map instead of reusing the including Snakefile's default tool map.
+container_tools:
+  pre:
+    fastp: /usr/local/bin/fastp
+    sentieon: /usr/local/bin/sentieon
+    bam2bedGraphWGS: /usr/local/bin/bam2bedGraphWGS
+    covDistR: /usr/local/bin/covDistR
+    samtools: /usr/local/bin/samtools
+    smoove: /usr/local/bin/smoove
+    mity: /usr/local/bin/mity
+    bamdst: /usr/local/bin/bamdst
+    cluster_identifier: /usr/local/bin/cluster_identifier
+    python3: /opt/conda/envs/wgs/bin/python3
+    bgzip: /opt/conda/envs/wgs-env/bin/bgzip
+    tabix: /opt/conda/envs/wgs-env/bin/tabix
+  SNV:
+    bgzip: /opt/conda/envs/wgs/bin/bgzip
+    tabix: /opt/conda/envs/wgs/bin/tabix
+    bcftools: /opt/conda/envs/wgs/bin/bcftools
+    bedtools: /opt/wgs-tools/bedtools/bin/bedtools
+    vcfannotate: /opt/wgs-tools/vcflib/bin/vcfannotate
+    vep: /usr/local/bin/vep
+    python3: /opt/conda/envs/wgs/bin/python3
+    slivar: /usr/local/bin/slivar
+    pandepth: /usr/local/bin/pandepth
+    perl: /opt/conda/envs/wgs/bin/perl
+    liftOver: /usr/local/bin/liftOver
+  SV:
+    bgzip: /opt/conda/envs/wgs/bin/bgzip
+    tabix: /opt/conda/envs/wgs/bin/tabix
+    bcftools: /opt/conda/envs/wgs/bin/bcftools
+    bedtools: /usr/local/bin/bedtools
+    liftOver: /usr/local/bin/liftOver
+    vep: /opt/conda/envs/vep104/bin/vep
+    perl: /opt/conda/envs/vep104/bin/perl
+    python3: /opt/conda/envs/wgs/bin/python3
+  MT:
+    mity: /opt/conda/envs/wgs/bin/mity
+    bcftools: /opt/conda/envs/mt/bin/bcftools
+    hmtnote: /opt/conda/envs/mt/bin/hmtnote
+    python3: /opt/conda/envs/wgs/bin/python3
+    bgzip: /opt/conda/envs/mt/bin/bgzip
+    tabix: /opt/conda/envs/mt/bin/tabix
+    perl: /opt/conda/envs/mt/bin/perl
+  RE:
+    ExpansionHunter: /opt/conda/envs/wgs/bin/ExpansionHunter
+    liftOver: /usr/local/bin/liftOver
+    python3: /opt/conda/envs/wgs/bin/python3
+    perl: /usr/bin/perl
+  ROH:
+    bcftools: /opt/conda/envs/wgs/bin/bcftools
+    bedtools: /opt/conda/envs/wgs/bin/bedtools
+    automap: /usr/local/bin/AutoMap
+    Rscript: /opt/conda/envs/wgs/bin/Rscript
+    python3: /opt/conda/envs/wgs/bin/python3
+    slivar: /usr/local/bin/slivar
+    liftOver: /usr/local/bin/liftOver
+  CNV:
+    Rscript: /opt/conda/envs/wgs/bin/Rscript
+    bcftools: /opt/conda/envs/wgs/bin/bcftools
+    bedtools: /opt/conda/envs/wgs/bin/bedtools
+    python3: /opt/conda/envs/wgs/bin/python3
+    bgzip: /opt/conda/envs/wgs/bin/bgzip
+    tabix: /opt/conda/envs/wgs/bin/tabix
+    # AnnotSV程序固化在CNV SIF中；大型注释数据库仍由宿主只读映射。
+    AnnotSV: /usr/local/bin/AnnotSV
+    perl: /opt/conda/envs/wgs/bin/perl
+    liftOver: /usr/local/bin/liftOver
+  MEI:
+    scramble_make_vcf: /usr/local/bin/scramble_make_vcf
+    bgzip: /opt/conda/envs/wgs/bin/bgzip
+    tabix: /opt/conda/envs/wgs/bin/tabix
+    bcftools: /opt/conda/envs/wgs/bin/bcftools
+    vep: /usr/local/bin/vep
+    python3: /opt/conda/envs/wgs/bin/python3
+    liftOver: /usr/local/bin/liftOver
+  SMA:
+    python3: /opt/conda/envs/wgs/bin/python3
+    smn_caller: /usr/local/bin/smn_caller.py
+    smn_charts: /usr/local/bin/smn_charts.py
+    star_caller: /usr/local/bin/star_caller.py
+    samtools: /usr/local/bin/samtools
+  CS:
+    bcftools: /opt/conda/envs/wgs/bin/bcftools
+    slivar: /opt/conda/envs/wgs/bin/slivar
+    pandepth: /opt/conda/envs/wgs/bin/pandepth
+    python3: /opt/conda/envs/wgs/bin/python3
+    perl: /opt/conda/envs/wgs/bin/perl
+    liftOver: /usr/local/bin/liftOver
+  QC:
+    sceVCF: /usr/local/bin/sceVCF
+    Rscript: /usr/local/bin/Rscript
+    peddy: /usr/local/bin/peddy
+    python3: /opt/conda/envs/wgs/bin/python3
+    multiqc: /opt/wgs-tools/multiqc/bin/multiqc
+container_resources:
+  slivar_js: /opt/wgs/resources/slivar/slivar-functions.V6.3.0.js
+  slivar_gnomad: /opt/wgs/resources/slivar/gnomad.hg38.v2.zip
+  smoove_exclude: /opt/wgs/resources/smoove/exclude.cnvnator_100bp.GRCh38.20170403.bed

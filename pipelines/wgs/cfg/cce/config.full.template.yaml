@@ -1,0 +1,174 @@
+version: V3.9.3
+batch: SYNTHETIC_BATCH
+sample:
+- SYNTHETIC_SAMPLE
+pedigree:
+- SYNTHETIC_FAMILY
+trio: []
+trioPair: []
+sample2pedigree:
+- SYNTHETIC_SAMPLE:SYNTHETIC_FAMILY
+BKWsampleList: []
+BKWpedigree: []
+mtPedigreeList:
+- SYNTHETIC_FAMILY
+CS: []
+VariantTypeSet:
+  SNV: 'YES'
+  CNV: 'YES'
+  SV: 'YES'
+  MT: 'YES'
+  ROH: 'YES'
+  RE: 'YES'
+  MEI: 'YES'
+  SMA: 'YES'
+  CS: 'YES'
+phenotype:
+  SYNTHETIC_SAMPLE: ''
+use_reference: ref
+extension: .R1.fq.gz
+sample_info: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/runs/wgs3.9.2/BATCH/RUN_ID/config/sample_info.tsv
+qc_cfg: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/runs/wgs3.9.2/BATCH/RUN_ID/config/qc.yaml
+cloud:
+  resources_root: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2
+  approved_resource_roots:
+  - /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2
+  - /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0
+  sfs_identity:
+    mode: cce_direct
+    csi_volume_handle: REQUIRED_SFS_CSI_VOLUME_HANDLE
+    bs_path: null
+    bs_unavailable_reason: bs_direct_mount_unavailable
+  run_root: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/runs/wgs3.9.2/BATCH/RUN_ID
+  obs_batch_root: /obs-data/wgs-resources/wgs3.9.2/batches/BATCH/RUN_ID
+  pipeline_release: PIPELINE_RELEASE
+  code_root: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/pipelines/wgs3.9.2/PIPELINE_RELEASE
+  evidence_root: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/runs/wgs3.9.2/BATCH/RUN_ID/evidence
+  external_side_effects: false
+execution:
+  executor: cce
+cnv_native:
+  reference_depth: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/cnv-native/reference/depth.npy
+  reference_metadata: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/cnv-native/reference/metadata.json
+  reference_sex: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/cnv-native/reference/sex.tsv
+  cytoband: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/cnv-native/cytoband.tsv
+  par: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/cnv-native/PAR.bed
+  gene_annotation: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/cnv-native/WGS.hg38.CNV.tsv
+reference:
+  MTreference: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/reference/GRCh38/chrM.fa
+  hg38:
+    genome: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/reference/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly_add_chr_sort.fa
+    dbsnp: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/dbsnp_146.GRCh38.vcf.gz
+    known_1000G_indels: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/Homo_sapiens.GRCh38.dna.primary_assembly.known_indels.vcf.gz
+    known_1000G_snps: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/1000G_phase1.snps.high_confidence.GRCh38.vcf.gz
+    known_Mills_indels: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/Mills_and_1000G_gold_standard.indels.GRCh38.vcf.gz
+    cytoband: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/cytoBand.txt
+    MTbed: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/MT.bed
+    ExpansionHunterDatabase: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/Repeat_expansion_info_hg38V20230808.txt
+    QC_bed: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/hg38_QC_noIntron.bed
+    geneBed: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/gene_region.hg38.bed
+    commonSNP: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/dbsnp_146.GRCh38.common.vcf.gz
+    virtualWESBed: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/gencode.v44.virtualWES_50bp.hg38.bed
+    blacklist: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/blacklist.WGS.V4.V20260618.hg38.vcf.gz
+    whitelistV4: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/whitelist.V4.V20260618.hg38.vcf.gz
+    whitelistV1: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/whitelist.V20260618.V1.hg38.vcf.gz
+    whitelistV1_BKW: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/whitelist.V1_BKW.V20260628.hg38.vcf.gz
+    bkwgenelist: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/bkw.genelist.txt
+    localMaf: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/WGS_7905.maf.vcf.gz
+    wgEncodeCrgMapability: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/grch38-no-alt.genmap.36mer_1.bed.gz
+    wgEncodeCrgMapability100mer: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/grch38-no-alt.genmap.100mer.bed.gz
+    meiRef: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/scramble/MEI_consensus_seqs.fa
+    REjson: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/variant_catalog_hg38_V20230808.json
+    gene_MIMnumber: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/wgs-annotation/sv/NCBIGene_MIMnumber_HI_PLi_imprint.20260616.hg38.bed
+    geneDisease: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/wgs-annotation/sv/NCBIGene_MIMdisease_HI_PLi_imprint.20260616.hg38.bed
+    imprint_gene_bed: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/imprint_genes.hg38.bed
+    Pathogenic_UPDBed: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/Pathogenic_UPD.hg38.bed
+    polymorphism: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/Stringent.Gain+Loss.hg38.2015-02-03.bed
+    disease: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/Decipher_hg38_sort.bed
+    BIN2POS: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/grch38_uniqBin1k.bin2pos.gz
+    exonIntron: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/KAPA_HyperExome_hg38_capture_targets_P_U_100bp_map.bed
+    hg38ToHg19Chain: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/wgs-annotation/sv/hg38ToHg19.over.chain.gz
+    SLC25A13_region: chr7:96121188-96209188
+database:
+  databasePath: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly
+  micomapCfm: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/MT_database/mitomap.cfm.20240716.txt
+  mitomapDisease: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/MT_database/mitomap.disease.20240716.vcf.gz
+  mitomapSNP: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/MT_database/mitomap.polymorphisms.20240716.vcf.gz
+  MTclinvar: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/MT_database/clinvar.chrM.hg38.20260615.vcf.gz
+  MitImpact: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/MT_database/MitImpact_db_3.0.6.vcf.gz
+  mitotip: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/MT_database/mitotip.vcf.gz
+  MTlocal: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/MT_database/LocalVarDB.20260618.hg38.chrM.vcf.gz
+  MTgnomad: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/MT_database/gnomad.genomes.v3.1.sites.chrM.vcf.gz
+  MTlocalFreq: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/MT_database/WGS_MT.localFreq.20241206.vcf.gz
+  vepcache: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/vep/113/cache
+  vepcache104: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/vep/104/cache
+  vepPlugin: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/vep/113/plugins
+  VEPseverity: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/VEPseverity.txt
+  VEPseverityPlus: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/wgs-annotation/sv/VEPseverity_plus.txt
+  PARbed: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/PAR.bed
+  HPO_CHPO_gene: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/runs/wgs3.9.2/BATCH/RUN_ID/config/phenotype_key_word_gene_list.txt
+  geneInfo: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/Homo_sapiens.gene_info.20221011.txt
+  dgvBed: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/DGV.hg38.bed
+  gnomadBed: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/gnomad_v2.1_sv.controls_only.GRCh38.bed
+  gnomadSvVcf: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/wgs-annotation/sv/gnomad.v4.0.sv.clean.vcf.gz
+  PGGSV: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/wgs-annotation/sv/PGGSV.hg38.20231210.txt
+  decipherPatientBed: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/Decipher.Phenotype.hg38.liftover.bed
+  transcriptExonIntron: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/hg38_gff_MANE.ExonIntron.20240827.v1.4.bed
+  cytobandBed: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/wgs-annotation/sv/cytoBand.bed
+  HI_TS: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/wgs-annotation/sv/ClinGen_genelist_GRCh38.V20260615.txt
+  transcriptFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/MANE.GRCh38.v1.4.summary.txt
+  hgncFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/hgnc_complete_set_2026-06-05.txt
+  omimFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/OMIM.20260615.txt
+  hpoFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/genes_to_phenotype.txt
+  chpoJson: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/chpo.20230317.json
+  chpoDiseaseJson: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/chpo.disease.20230317.json
+  dualGeneFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/dual_gene201707.txt
+  geneimprintFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/geneimprint20230315_std.txt
+  penetranceFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/penetrance_review_chpo_omim20201228.txt
+  gnomadPLIfile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/gnomad.v4.1.PLI_Zscore.txt
+  clingenHIfile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/ClinGen_gene_curation_list_GRCh38.20260615.tsv
+  clingenGeneValidityFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/Clingen-Gene-Disease-Summary-2026-06-16.csv
+  gene2varTypeFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/clinvar.gene2vartype.hg38.20260615.txt
+  ps1pm5File: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/clinvar.PS1_PM5.hg38.20260615.txt
+  psiFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/TTN_PSI.20230704.hg38.txt
+  highFre_PLPFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/highFre_PLP.txt
+  spliceai_SNV: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/spliceai_scores.snv.hg38.delta_ge_0.1.vcf.gz
+  spliceai_Indel: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/spliceai_scores.indel.hg38.delta_ge_0.1.vcf.gz
+  dbNSFP: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/dbNSFP4.9a.clean_grch38.gz
+  dbscSNV: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/dbscSNV1.1_GRCh38.txt.gz
+  clinvar: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/clinvar.hg38.20260615.vcf.gz
+  HGMD: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/HGMD.2026Q1.hg38.vcf.gz
+  intervar: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/intervar_20180118.sort.GRCh38.vcf.gz
+  LocalVarDB: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/LocalVarDB.20260618.hg38.vcf.gz
+  gnomad_exomes: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/gnomad.exomes.v4.1.sites.clean.vcf.gz
+  gnomad_genomes: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/gnomad.genomes.v4.1.sites.clean.vcf.gz
+  simpleRepeat: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/simpleRepeat20230801.GRCh38.sort.bed.gz
+  genmap_100mer: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/annotation/GRCh38_primary_assembly/Homo_sapiens.GRCh38.dna.primary_assembly_add_chr_sort.genmap.100mer.bed.gz
+  hp2geneFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/keyword2genes/hp2gene.txt
+  hpoPhenotype2GeneFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/keyword2genes/phenotype_to_genes.20240813.txt
+  genecardsFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/genecards_summary.20241122.txt
+  localMEI_AFfile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/WGS.MEI.RAW.AF.tsv
+  keywordFile: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/wgs-annotation/sv/phenotype_key_word_gene_list.txt
+  morbidmap: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/morbidmap.20260615.txt
+  localSVDB: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/wgs-annotation/sv/Local_WGSSV_freq.20251105.bed
+  localCNVDB: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/Local_WGSCNV_freq.20251105.bed
+  localSVsampleDB: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.0/wgs-annotation/sv/Local_WGSSV_sample.20251105.bed
+  localCNVsampleDB: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/GRCh38_primary_assembly/Local_WGSCNV_sample.20251105.bed
+  refCNVdata: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/CNV_annotation/WGS.hg38.20260423.refdata.RData
+  refSexData: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/CNV_annotation/WGS.hg38.20260423.gender.tsv
+  WGS_CNVbed_ExonIntron: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/CNV_annotation/WGS.hg38.CNV.tsv
+  chromCNinfo: /workspace/33.chenjiucheng/wgs_test/WGS-cloude/resources/wgs3.9.2/native/annotation/CNV_annotation/chromCN.info.tsv
+workflow:
+  schema_version: 3
+  pipeline_release: PIPELINE_RELEASE
+  snakefile: WGS_cloud.smk
+  target: cloud_wgs_all
+algorithms:
+  snv_cs: rust_fixed
+  cnv: native_cli
+observability:
+  rule_status_logger: required
+  monitor_interval_seconds: 15
+  reconciliation_seconds: 15
+  evidence_complete_required: true
+  benchmark_dir: logs/benchmarks

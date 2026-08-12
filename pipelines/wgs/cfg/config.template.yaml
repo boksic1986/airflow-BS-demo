@@ -1,0 +1,234 @@
+version: V4.0.1
+fastqDir: inputPath
+extension: .R1.fq.gz
+sample_info: sampleInfo
+batch: batch
+webPath: /sg2/WGS_web
+clinicalPath: /clinical/WGS_V2
+qcClinicalPath: /clinical/BioQC_Control
+SHHCPath: /clinical/BK_WES_V6
+newWebPath: /sg2/NGS_master_data
+newWebPath2: /mnt/data90/MASTER_WEB
+newWebPath2test: /mnt/106.2data/MASTER_WEB
+newSampleinfoPath: /sg2/NGS_master_data/sampleinfo
+mail_cfg: /projectDir/cfg/config.mail.ini
+qc_cfg: /projectDir/cfg/qc_config.json
+fastqPath: /bi/fastq/T7_Fastq
+use_reference: all
+minDepth: 10
+
+biosoft:
+  annotSV: /bi/6.zhangran/software/AnnotSV/bin
+  automap: /bi/6.zhangran/software/AutoMap/AutoMap_v1.0.sh
+  qc: /projectDir/other/bam2bedGraph3/bam2bedGraphWGS
+  bamdst: /bi/software/bamdst/bamdst
+  bcftools: /bi/software/bcftools-1.18/bcftools
+  bedtools: /bi/software/bedtools2/bin/bedtools
+  bgzip: /bi/software/htslib/bgzip
+  clusterIdentifier: /bi/software/scramble/cluster_identifier/src/build/cluster_identifier
+  Cyrius: /bi/6.zhangran/software/Cyrius-1.1.1/star_caller.py
+  expansionHunter: /bi/software/ExpansionHunter-v5.0.0-linux_x86_64/bin/ExpansionHunter
+  fastp: /bi/software/fastp_v0.23.0/fastp
+  hmtnote: /bi/software/Anaconda3/bin/hmtnote
+  lumpy: /bi/software/lumpy-sv
+  mity: /bi/software/Python-3.7.11/bin/mity
+  python: /bi/software/Python-3.7.11/bin/python3
+  peddy: /bi/software/Anaconda3/bin/peddy
+  Rscript: /bi/software/R-4.0.2/bin/Rscript
+  smoove: /bi/software/smoove-0.2.8/smoove
+  slivar: /bi/software/slivar-0.2.4/slivar
+  slivarJs: /bi/software/slivar-0.2.4/js/slivar-functions.V6.3.0.js
+  svtyperPath: /bi/software/Anaconda3/envs/svtyper/bin
+  samtools: /bi/software/samtools-1.10/samtools
+  scrambleRscript: /bi/software/scramble/cluster_analysis/bin/SCRAMble.hg38.R
+  scrambleDir: /bi/software/scramble/cluster_analysis/bin
+  SMNCopyNumberCaller: /bi/6.zhangran/software/SMNCopyNumberCaller-1.1.2/smn_caller.py
+  sentieon: /bi/software/Sentieon/sentieon-genomics-202308.03/bin/sentieon
+  snakemake: /bi/software/micromamba/bin/snakemake
+  tabix: /bi/software/htslib/tabix
+  vcf2vafPy: /projectDir/script/vcf2vaf_multiSamples.py
+  vt: /bi/software/vt/vt
+  vcfannotate: /bi/software/vcflib/bin/vcfannotate
+  vep: /bi/software/mamba/envs/VEP/bin/vep
+  VEP104: /bi/software/ensembl-vep-104/ensembl-vep/
+  vepCache: /bi/software/mamba/envs/VEP/share/ensembl-vep-113.4-0/vep-data/ensembl-vep-113
+  vepCache104: /bi/software/ensembl-vep-104/ensembl-vep/
+  vepPlugin: /bi/software/mamba/envs/VEP/share/ensembl-vep-113.4-0/vep-data/VEP_plugins-release-113
+  vcftools: /bi/6.zhangran/software/vcftools
+  sceVCF: /bi/software/sceVCF/sceVCF
+  pandepth: /bi/software/pandepth
+  liftover: /bi/software/liftover/liftOver
+
+src:
+  bam2block_uniq: /projectDir/other/bam2block_uniq_hg38
+  GCcorrect: /projectDir/other/GCcorrect
+  CNV_R: /projectDir/other/CNVcallingWGS.R
+  LengthDistBatch: /projectDir/other/ggplot2LengthDistBatch.R
+  LengthDist: /projectDir/other/ggplot2LengthDist.R
+  Formatgenotype: /projectDir/script/preprocess.py
+  vafPlotRscript: /projectDir/script/h2.VAF_plot.R
+  CNV_VAF_plot: /projectDir/other/cnvetti_plot_vaf20230818.R
+  CNVannotationPy: /projectDir/script/5.CNV_annotation.py
+  monoExoniCNV: /projectDir/script/dynamicPanelCNV_20230815.R
+  SVsort: /projectDir/script/SV_annot_sort.py
+  correlation: /projectDir/script/c.correlation_of_depth.py
+  chromCNannotationPy: /projectDir/script/d8.chromCN_annotation.py
+  imprintRegion: /projectDir/script/imprintRegion.py
+  slivarPl: /projectDir/script/s.Slivar.pl
+  splitPl: /projectDir/script/p.Split.pl
+  createPed: /projectDir/script/4.CreatePed.py
+  SNVannotation: /projectDir/script/n.SNV_Annotation.V6.3.0.pl
+  replaceBKW: /projectDir/script/replaceBKW.py
+  meiSplitPy: /projectDir/script/r.split_MEIs.py
+  makeCSrankPl: /projectDir/script/k.makeCSrank.pl
+  makeCSvcfPl: /projectDir/script/k.makeCSvcf.pl
+  markCSTagPl: /projectDir/script/k.markCSTag.pl
+  mtAnnotationPy: /projectDir/script/MT_annotation.py
+  mtCombinePl: /projectDir/script/MT_combinePedigree.pl
+  MTQC: /projectDir/script/6.MT_QC.py
+  dpCorrectPy: /projectDir/script/p.dpCorrect.py
+  SLC25A13Py: /projectDir/script/j.SLC25A13.py
+  mieRohPlotRcript: /projectDir/script/m2.MIE_ROH_plot.R
+  plotQC: /projectDir/script/g3.WES_batch_QC.plot.V6.2.0.R
+  keyword2genePy: /projectDir/script/b1.hpo2gene.py
+  ROHannotationPy: /projectDir/script/m3.ROH_Annotation.py
+  uploadPl: /projectDir/script/t.tsv2redis.V6.3.0.pl
+  uploadPltest: /projectDir/script/t.tsv2redis.V6.3.0.test.pl
+  SV_redis: /projectDir/script/10SV2redis.V1.0.py
+  uploadWebPy: /projectDir/script/upload.web.py
+  ZDFSmail: /projectDir/script/z1.ZDFS.send_and_mail.py
+  BJXHformat: /projectDir/script/z2.BJXH.format.py
+  BJXHmail: /projectDir/script/z3.BJXH.send_and_mail.py
+  SHHCmail: /projectDir/script/z4.SHHC.send_mail.py
+  SDSZmail: /projectDir/script/z5.SDSZ.send_and_mail.py
+  BKWmail: /projectDir/script/z6.BKW.send_and_mail.py
+  collectQCPy: /projectDir/script/g1.Collect_QC.py
+  format_special: /projectDir/script/format_special_hospital_data.py
+  gen_copy_clinica: /projectDir/script/gen_copy_clinical.py
+  gen_copy_newmaster: /projectDir/script/gen_copy_newmaster.py
+  gen_copy_oldmaster: /projectDir/script/gen_copy_oldmaster.py
+  uploadAllPy: /projectDir/script/uploadAll.py
+  ruleHelper: /projectDir/script/wgs_rule_helpers.py
+  annotationScript: /projectDir/script/expansionHunter_vcf2tsvV2.pl
+  cnv_native_prepare: /projectDir/script/cnv_native_prepare_manifest.py
+  cnv_native_publish: /projectDir/script/cnv_native_publish.py
+  tagCandidateOtherPy:  /projectDir/script/o.Tag_Candidate_Other.py
+  selectModifierPl: /projectDir/script/o.select_modifier.pl
+
+genome:
+  MTreference: /projectDir/genome/chrM.fa
+  fasta: /projectDir/genome/Homo_sapiens.GRCh38.dna.primary_assembly_add_chr_sort.fa
+  dbsnp: /projectDir/annotation/GRCh38_primary_assembly/dbsnp_146.GRCh38.vcf.gz
+  known_1000G_indels: /projectDir/annotation/GRCh38_primary_assembly/Homo_sapiens.GRCh38.dna.primary_assembly.known_indels.vcf.gz
+  known_1000G_snps: /projectDir/annotation/GRCh38_primary_assembly/1000G_phase1.snps.high_confidence.GRCh38.vcf.gz
+  known_Mills_indels: /projectDir/annotation/GRCh38_primary_assembly/Mills_and_1000G_gold_standard.indels.GRCh38.vcf.gz
+  hg38ToHg19Chain: /projectDir/annotation/GRCh38_primary_assembly/hg38ToHg19.over.chain.gz
+
+bed:
+  MT_bed: /projectDir/annotation/GRCh38_primary_assembly/MT.bed
+  QC_bed: /projectDir/annotation/GRCh38_primary_assembly/hg38_QC_noIntron.bed
+  geneBed: /projectDir/annotation/GRCh38_primary_assembly/gene_region.hg38.bed
+  virtualWESBed: /projectDir/annotation/GRCh38_primary_assembly/gencode.v44.virtualWES_50bp.hg38.bed
+
+database:
+  expansion: /projectDir/annotation/GRCh38_primary_assembly/Repeat_expansion_info_hg38V20230808.txt
+  commonSNP: /projectDir/annotation/GRCh38_primary_assembly/dbsnp_146.GRCh38.common.vcf.gz
+  blacklist: /projectDir/annotation/GRCh38_primary_assembly/blacklist.WGS.V4.V20260730.hg38.vcf.gz
+  whitelistV4: /projectDir/annotation/GRCh38_primary_assembly/whitelist.V4.V20260730.hg38.vcf.gz
+  whitelistV1: /projectDir/annotation/GRCh38_primary_assembly/whitelist.V1.V20260730.hg38.vcf.gz
+  whitelistV1_BKW: /projectDir/annotation/GRCh38_primary_assembly/whitelist.V1_BKW.V20260730.hg38.vcf.gz
+  bkwgenelist: /projectDir/annotation/GRCh38_primary_assembly/bkw.genelist.20260801.txt
+  localMAF: /projectDir/annotation/GRCh38_primary_assembly/WGS_7905.maf.vcf.gz
+  mappability36mer: /projectDir/annotation/GRCh38_primary_assembly/grch38-no-alt.genmap.36mer_1.bed.gz
+  mappability100mer: /projectDir/annotation/GRCh38_primary_assembly/grch38-no-alt.genmap.100mer.bed.gz
+  meiRef: /bi/software/scramble/cluster_analysis/resources/MEI_consensus_seqs.fa
+  expansionCatalog: /projectDir/annotation/GRCh38_primary_assembly/variant_catalog_hg38_V20230808.json
+  gene_MIMnumber: /projectDir/annotation/GRCh38_primary_assembly/NCBIGene_MIMnumber_HI_PLi_imprint.20260730.hg38.bed
+  geneDisease: /projectDir/annotation/GRCh38_primary_assembly/NCBIGene_MIMdisease_HI_PLi_imprint.20260730.hg38.bed
+  imprint_gene_bed: /projectDir/annotation/GRCh38_primary_assembly/imprint_genes.hg38.bed
+  pathogenicUPD: /projectDir/annotation/GRCh38_primary_assembly/Pathogenic_UPD.hg38.bed
+  CNVPolymorphism: /projectDir/annotation/GRCh38_primary_assembly/Stringent.Gain+Loss.hg38.2015-02-03.bed
+  disease: /projectDir/annotation/GRCh38_primary_assembly/Decipher_hg38_sort.bed
+  BIN2POS: /projectDir/annotation/GRCh38_primary_assembly/grch38_uniqBin1k.bin2pos.gz
+  exonIntron: /projectDir/annotation/GRCh38_primary_assembly/KAPA_HyperExome_hg38_capture_targets_P_U_100bp_map.bed
+  SLC25A13_region: chr7:96121188-96209188
+  cytobandTxt: /projectDir/annotation/GRCh38_primary_assembly/cytoBand.txt
+  databasePath: /projectDir/annotation/GRCh38_primary_assembly
+  micomapCfm: /projectDir/annotation/MT_database/mitomap.cfm.20240716.txt
+  mitomapDisease: /projectDir/annotation/MT_database/mitomap.disease.20240716.vcf.gz
+  mitomapSNP: /projectDir/annotation/MT_database/mitomap.polymorphisms.20240716.vcf.gz
+  MTclinvar: /projectDir/annotation/MT_database/clinvar.chrM.hg38.20260720.vcf.gz
+  MitImpact: /projectDir/annotation/MT_database/MitImpact_db_3.0.6.vcf.gz
+  mitotip: /projectDir/annotation/MT_database/mitotip.vcf.gz
+  MTlocal: /projectDir/annotation/MT_database/LocalVarDB.20260721.hg38.chrM.vcf.gz
+  MTgnomad: /projectDir/annotation/MT_database/gnomad.genomes.v3.1.sites.chrM.vcf.gz
+  MTlocalFreq: /projectDir/annotation/MT_database/WGS_MT.localFreq.20241206.vcf.gz
+  VEPseverity: /projectDir/annotation/VEPseverity.txt
+  VEPseverityPlus: /projectDir/annotation/VEPseverity_plus.txt
+  parBed: /projectDir/annotation/PAR.bed
+  keyWords2GeneFile: phenotype_key_word_gene_list.txt
+  geneInfo: /projectDir/annotation/Homo_sapiens.gene_info.20221011.txt
+  dgvBed: /projectDir/annotation/GRCh38_primary_assembly/DGV.hg38.bed
+  gnomadBed: /projectDir/annotation/GRCh38_primary_assembly/gnomad_v2.1_sv.controls_only.GRCh38.bed
+  gnomadSvVcf: /projectDir/annotation/GRCh38_primary_assembly/gnomad.v4.0.sv.clean.vcf.gz
+  PGGSV: /projectDir/annotation/GRCh38_primary_assembly/PGGSV.hg38.20231210.txt
+  decipherPatientBed: /projectDir/annotation/GRCh38_primary_assembly/Decipher.Phenotype.hg38.liftover.bed
+  transcriptExonIntron: /projectDir/annotation/GRCh38_primary_assembly/hg38_gff_MANE.ExonIntron.20240827.v1.4.bed
+  cytobandBed: /projectDir/annotation/GRCh38_primary_assembly/cytoBand.bed
+  HI_TS: /projectDir/annotation/GRCh38_primary_assembly/ClinGen_genelist_GRCh38.V20260730.txt
+  maneFile: /projectDir/annotation/GRCh38_primary_assembly/MANE.GRCh38.v1.4.summary.txt
+  hgncFile: /projectDir/annotation/GRCh38_primary_assembly/hgnc_complete_set_2026-07-07.txt
+  omimFile: /projectDir/annotation/GRCh38_primary_assembly/OMIM.20260729.txt
+  hpoFile: /projectDir/annotation/GRCh38_primary_assembly/genes_to_phenotype.txt
+  chpoJson: /projectDir/annotation/GRCh38_primary_assembly/chpo.20230317.json
+  chpoDiseaseJson: /projectDir/annotation/GRCh38_primary_assembly/chpo.disease.20230317.json
+  dualGeneFile: /projectDir/annotation/GRCh38_primary_assembly/dual_gene201707.txt
+  geneimprintFile: /projectDir/annotation/GRCh38_primary_assembly/geneimprint20230315_std.txt
+  penetranceFile: /projectDir/annotation/GRCh38_primary_assembly/penetrance_review_chpo_omim20201228.txt
+  gnomadPLIfile: /projectDir/annotation/GRCh38_primary_assembly/gnomad.v4.1.PLI_Zscore.txt
+  clingenHIfile: /projectDir/annotation/GRCh38_primary_assembly/ClinGen_gene_curation_list_GRCh38.20260730.tsv
+  clingenGeneValidityFile: /projectDir/annotation/GRCh38_primary_assembly/Clingen-Gene-Disease-Summary-2026-07-30.csv
+  gene2varTypeFile: /projectDir/annotation/GRCh38_primary_assembly/clinvar.gene2vartype.hg38.20260720.txt
+  clinvarPS1PM5: /projectDir/annotation/GRCh38_primary_assembly/clinvar.PS1_PM5.hg38.20260720.txt
+  TTNPSI: /projectDir/annotation/GRCh38_primary_assembly/TTN_PSI.20230704.hg38.txt
+  highFre_PLPFile: /projectDir/annotation/GRCh38_primary_assembly/highFre_PLP.txt
+  spliceaiSNV: /projectDir/annotation/GRCh38_primary_assembly/spliceai_scores.snv.hg38.delta_ge_0.1.vcf.gz
+  spliceaiINDEL: /projectDir/annotation/GRCh38_primary_assembly/spliceai_scores.indel.hg38.delta_ge_0.1.vcf.gz
+  dbNSFP: /projectDir/annotation/GRCh38_primary_assembly/dbNSFP4.9a.clean_grch38.gz
+  dbscSNV: /projectDir/annotation/GRCh38_primary_assembly/dbscSNV1.1_GRCh38.txt.gz
+  clinvar: /projectDir/annotation/GRCh38_primary_assembly/clinvar.hg38.20260720.vcf.gz
+  HGMD: /projectDir/annotation/GRCh38_primary_assembly/HGMD.2026Q2.hg38.vcf.gz
+  intervar: /projectDir/annotation/GRCh38_primary_assembly/intervar_20180118.sort.GRCh38.vcf.gz
+  LocalVarDB: /projectDir/annotation/GRCh38_primary_assembly/LocalVarDB.20260721.hg38.vcf.gz
+  gnomadWES: /projectDir/annotation/GRCh38_primary_assembly/gnomad.exomes.v4.1.sites.clean.vcf.gz
+  gnomadWGS: /projectDir/annotation/GRCh38_primary_assembly/gnomad.genomes.v4.1.sites.clean.vcf.gz
+  simpleRepeat: /projectDir/annotation/GRCh38_primary_assembly/simpleRepeat20230801.GRCh38.sort.bed.gz
+  mappability: /projectDir/annotation/GRCh38_primary_assembly/Homo_sapiens.GRCh38.dna.primary_assembly_add_chr_sort.genmap.100mer.bed.gz
+  hp2gene: /projectDir/annotation/keyword2genes/hp2gene.txt
+  hpoPhenotype2Genes: /projectDir/annotation/keyword2genes/phenotype_to_genes.20240813.txt
+  genecardsFile: /projectDir/annotation/GRCh38_primary_assembly/genecards_summary.20241122.txt
+  localMeiMafFile: /projectDir/annotation/GRCh38_primary_assembly/WGS.MEI.RAW.AF.tsv
+  phen2gene: /projectDir/annotation/keyword2genes/phenotype_key_word_gene_list.txt
+  morbidmapFile: /projectDir/annotation/GRCh38_primary_assembly/morbidmap.20260729.txt
+  localSVDB: /projectDir/annotation/GRCh38_primary_assembly/Local_WGSSV_freq.20251105.bed
+  localCNVDB: /projectDir/annotation/GRCh38_primary_assembly/Local_WGSCNV_freq.20251105.bed
+  localSVsampleDB: /projectDir/annotation/GRCh38_primary_assembly/Local_WGSSV_sample.20251105.bed
+  localCNVsampleDB: /projectDir/annotation/GRCh38_primary_assembly/Local_WGSCNV_sample.20251105.bed
+  refCNVdata: /projectDir/annotation/CNV_annotation/WGS.hg38.20260724.refdata.RData
+  refSexData: /projectDir/annotation/CNV_annotation/WGS.hg38.20260724.gender.tsv
+  WGS_CNVbed_ExonIntron: /projectDir/annotation/CNV_annotation/WGS.hg38.CNV.tsv
+  chromCNinfo: /projectDir/annotation/CNV_annotation/chromCN.info.tsv
+  local_PLP_database: /projectDir/annotation/GRCh38_primary_assembly/LocalVarDB.20260721.hg38.P_LP.vcf.gz
+  clinvar_PLP_database: /projectDir/annotation/GRCh38_primary_assembly/clinvar_VCEP.P_LP_o.V20260730.hg38.vcf.gz
+  exception_database: /projectDir/annotation/GRCh38_primary_assembly/BA1_ExceptionList.20260715.hg38.vcf.gz
+  local_common_database: /projectDir/annotation/GRCh38_primary_assembly/WGS_7905.gt0.1.hg38.vcf.gz
+  gnomad_common_database: /projectDir/annotation/GRCh38_primary_assembly/gnomad.r2.1.1.hg38.PASS.HighFreq.vcf.gz
+  morbidmapBed: /projectDir/annotation/GRCh38_primary_assembly/morbidmap.20260729.hg38.bed.gz
+
+cnv_native:
+  reference_depth: /projectDir/annotation/CNV_native/reference/depth.npy
+  reference_metadata: /projectDir/annotation/CNV_native/reference/metadata.json
+  reference_sex: /projectDir/annotation/CNV_native/reference/sex.tsv
+  cytoband: /projectDir/annotation/CNV_native/cytoband.tsv
+  par: /projectDir/annotation/CNV_native/PAR.bed
+  gene_annotation: /projectDir/annotation/CNV_native/WGS.hg38.CNV.tsv

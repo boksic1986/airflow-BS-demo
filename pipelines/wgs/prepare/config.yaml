@@ -1,0 +1,56 @@
+project_root: ..
+config_template: ../cfg/config.template.yaml
+resource_root: /bi/BioCodeHub/WGS/WGS_V3.2.1
+
+defaults:
+  platform: T7
+  samplelist_dir: /clinical/Data_Reception/Target_Capture2
+  basecount_dir: /clinical/WES_pre/base_count
+  fastq_root: /bi/fastq/T7_Fastq
+  fastq_ready_flag: BarcodeStat.txt
+
+samplelist:
+  filename_glob: Samplelist_*{date}*.txt
+  panel: WGS
+  excluded_project_codes:
+    - KYWGS
+    - Q1045
+
+data_check:
+  low_target_boundary: 100
+  low_minimum: 55
+  high_minimum: 115
+
+metadata:
+  mongo:
+    host: 172.17.61.18
+    port: 11018
+    test_host: 172.17.100.38
+    test_port: 21241
+    username: ddtnReaderWriter
+    password: ddtn2018
+    auth_source: admin
+    auth_mechanism: SCRAM-SHA-1
+    database: passport
+    collection: inheritance
+    active_project_states:
+      - 1
+      - 2
+  http:
+    url: http://172.17.100.90:2042/ngs/bio/querySampleInfoList
+    test_url: http://172.17.106.2:2042/ngs/bio/querySampleInfoList
+    stop_states:
+      - "0"
+      - STOP
+      - 终止
+
+runtime:
+  python: /bi/30.chenxiangjian/software/mamba/envs/sgewgs/bin/python
+  snakemake: /bi/30.chenxiangjian/software/mamba/envs/sgewgs/bin/snakemake
+  sge_jobs: 24
+  local_cores: 96
+  latency_wait: 120
+
+keywords:
+  output_name: phenotype_key_word_gene_list.txt
+  validation_report: keyword_validation.tsv
