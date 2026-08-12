@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-08-12 T130 WGS server-copy observability release
+
+t130_status: deployed on BS10610 as current release `20260812-wgs-observer-553be3f`; WGS execution remains disabled and all three WGS DAGs remain paused.
+t130_source: upstream `/mnt/biodevrwbi/33.chenjiucheng/project/wgs` was not modified. Airflow integration lives in `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs`, source commit `136da1ad9e45ac1abcbeb3efa40bb2e2269b6ab9`, manifest SHA256 `b10cd8af1db19c313e15167c295d007d9eca246d03b2721592c4c0532a05696c`.
+t130_observer: schema `20260812_0007`; binding/catalog validation; durable byte/line cursors; partial-line wait; restart/replacement replay; schema-1 Rule projection; real `pod-events.jsonl`, `pod-metrics.jsonl`, and `job-events.jsonl` normalization.
+t130_ui: authenticated Run Detail displays pinned snapshot, observer freshness/errors, Rule state, and Pod phase/reason/exit/node/resources with five-second active polling.
+t130_network: immutable external `nipt_analysis_test_net`, subnet `192.168.199.0/24`, gateway `192.168.199.1`; only frontend publishes `172.17.106.10:12959`. Preflight runs before every recreate; service DNS is used because internal container IPs may change within the fixed subnet.
+t130_acceptance: backend focused 27 passed; WGS frontend 3 passed plus TypeScript/Vite build; deployment contract 4 passed; synthetic partial append consumed 1 then 4 events and restart consumed 0; OOMKilled/137 and metrics projected; login/RBAC passed; submit HTTP 409; synthetic DB/files removed.
+t130_rollback: restore `/airflow-WGS/env/bs10610.wgs.env` from validation backup, recreate only backend/observer/frontend from the prior release, and if necessary restore biodemo from `validation/t130-observer/backups/biodemo-before-0007.dump`. Never recreate the Docker network or delete volumes.
+
 ## 2026-08-12 T129 WGS-only Phase 1
 
 ```text

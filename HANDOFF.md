@@ -1,5 +1,19 @@
 # HANDOFF.md
 
+## 2026-08-12 - Codex - T130 WGS server-copy observability deployed
+
+- Goal: continue the WGS-only Airflow plan using the current server WGS tree while keeping workflow execution disabled.
+- Source boundary: upstream `/mnt/biodevrwbi/33.chenjiucheng/project/wgs` was not modified. Airflow-owned integration is in `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs`; source commit `136da1ad9e45ac1abcbeb3efa40bb2e2269b6ab9`, snapshot-manifest SHA256 `b10cd8af1db19c313e15167c295d007d9eca246d03b2721592c4c0532a05696c`.
+- Implemented: logger/evidence adapters in the server copy; local release catalog; Alembic `20260812_0007`; durable observer binding/cursors; Rule and Pod/Job/metrics projections; authenticated API and WGS Run Detail; read-only unprivileged observer Compose service; Docker network preflight.
+- Deployed: `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/current` points to `releases/20260812-wgs-observer-553be3f`. Only backend, observer, and frontend were recreated. PostgreSQL, Redis, Airflow services, volumes, shared network, workflow sources, inputs, results, references, and production evidence were preserved.
+- Docker IP contract: `nipt_analysis_test_net`, subnet `192.168.199.0/24`, gateway `192.168.199.1`; only `172.17.106.10:12959` is published. Attachments were recorded before/after; backend/observer dynamically exchanged internal IPs but Compose DNS and health remained correct.
+- Verification: backend focused suite 27 passed; WGS frontend 3 passed; TypeScript and Vite build passed; deployment contract 4 passed; Compose config passed; migration head `0007`; all three WGS DAGs paused; login/admin RBAC passed; submission HTTP 409; observer has no ports, host network, privilege, extra caps, kubeconfig, OBS/SSH/Docker credentials.
+- Synthetic acceptance: `WGS_SYNTH_T130_553BE3F` consumed one complete Rule record while holding a partial line, then consumed the completed line plus Pod/metrics/Job evidence (4), and a fresh observer container consumed 0 on restart. DB projected `mapping=running`, `mapping-7=Failed`, `OOMKilled`, exit 137, node, 1Gi metrics, and job message. Synthetic DB row and files were deleted afterward.
+- Backups: biodemo pre-`0007` dump SHA256 `62831626c2f4142c32f126b6da8ae26304e49a46e5ef6b16c2c8255d3454f110`; prior untracked env copied to `validation/t130-observer/bs10610.wgs.env.before` with mode 600.
+- Known limitation: full legacy frontend tests intentionally fail because 40 old NIPT/PGT-A authless/mixed-shell cases conflict with the WGS-only product. No WGS, CCE, SGE, local Snakemake, OBS transfer, or production evidence execution occurred.
+- Rollback: restore the saved env, select `releases/20260812-wgs-only-phase1`, recreate only backend/observer/frontend, and restore the biodemo dump only if a DB rollback is required. Do not recreate/delete `nipt_analysis_test_net` or remove volumes.
+- Next: T131 refreshes an explicitly accepted WGS snapshot and implements actual execution, OBS `-vmd5`, result reconciliation, four-batch concurrency, and failure acceptance.
+
 ## 2026-08-12 - Codex - T129 WGS-only Phase 1 implementation checkpoint
 
 - Goal: implement and deploy the non-workflow portion of the WGS-only platform while the WGS 3.9.3 workflow remains non-final.

@@ -4,6 +4,20 @@
 
 This release replaces the mixed demo control plane with a WGS-only platform. It delivers the control plane, database, authentication, UI, observer, and paused Airflow topology. The WGS 3.9.3 workflow is still changing, so this release deliberately does not execute CCE, SGE, local Snakemake, or OBS transfer commands.
 
+The T130 observability release now follows the current WGS server working tree,
+not the earlier 3.9.3 directory. Airflow-specific work is isolated in
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs` and the
+upstream `/project/wgs` remains unchanged. The deployed snapshot is still
+execution-disabled; this release validates monitoring with synthetic JSONL
+only. CCE/SGE/local execution and OBS transfer move to T131 after a refreshed
+WGS snapshot is accepted.
+
+The BS10610 Docker network is an immutable external dependency:
+`nipt_analysis_test_net`, `192.168.199.0/24`, gateway `192.168.199.1`. Only
+`172.17.106.10:12959` is published. A preflight rejects IPAM/name/attachment
+conflicts; it never repairs or recreates the shared network. Internal services
+use Compose DNS because their addresses can change within the fixed subnet.
+
 `WGS_EXECUTION_ENABLED=false` is a hard Phase 1 boundary. The FastAPI submit action returns HTTP 409, all three DAGs are paused at creation, and each DAG runner task fails closed even if a DAG is manually triggered. Enabling the environment variable alone cannot execute a workflow because the actual runner integration is deferred to Phase 2.
 
 ## Architecture
