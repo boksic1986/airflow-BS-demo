@@ -8,8 +8,8 @@ t129_scope: FastAPI/biodemo, RBAC sessions and audit, WGS-only React UI, read-on
 t129_execution_gate: WGS_EXECUTION_ENABLED=false; backend submit returns HTTP 409; DAG runner tasks contain no production commands and fail closed.
 t129_deferred: WGS Rules/logger changes, node005 OBS transfer, CCE submission, group_evidence integration, four-real-run concurrency, and CCE/SGE/local biological smoke are Phase 2.
 t129_safety: no WGS 3.9.3 workflow file, production FASTQ/result/reference directory, kubeconfig, or private OBS credential is modified or copied.
-t129_deployment: BS10610 current -> releases/fc5c39c; fresh migration 20260812_0006, eight services healthy/running, three WGS DAGs paused, pools 4/1, auth/RBAC smoke passed, synthetic request created, submit returned 409.
-t129_cleanup: old airflow-NIPT root, its Postgres/Redis volumes, and all old airflow-WGS releases were permanently removed after acceptance; fc5c39c is the only release. Production WGS 3.9.3, CCE evidence, FASTQ, references, and results were preserved.
+t129_deployment: BS10610 current -> releases/eee5e39; fresh migration 20260812_0006, eight services healthy/running, three WGS DAGs paused, pools 4/1, auth/RBAC smoke passed, synthetic request created, submit returned 409.
+t129_cleanup: old airflow-NIPT root, its Postgres/Redis volumes, and all old airflow-WGS releases were permanently removed after acceptance; eee5e39 is the only release. Production WGS 3.9.3, CCE evidence, FASTQ, references, and results were preserved.
 t129_status: Phase 1 deployed and accepted. T130 workflow integration remains todo.
 ```
 
