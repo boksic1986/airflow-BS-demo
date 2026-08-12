@@ -137,8 +137,8 @@ services:
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
       WGS_EXECUTION_ENABLED: "false"
-      INTAKE_CONFIG_PATH: /app/config/intake.wgs.yaml
-      PIPELINE_PROFILE_CONFIG_PATH: /app/config/pipeline_profiles.wgs.yaml
+      INTAKE_CONFIG_PATH: /config/intake.wgs.yaml
+      PIPELINE_PROFILE_CONFIG_PATH: /config/pipeline_profiles.wgs.yaml
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
       HOST_RESULTS_ROOT: /data/wgs-results
       WGS_CONFIG_ROOTS: /data/wgs-intake
@@ -150,7 +150,7 @@ services:
       - ${WGS_INTAKE_HOST_ROOT:?set WGS_INTAKE_HOST_ROOT}:/data/wgs-intake:ro
       - ${WGS_RESULTS_HOST_ROOT:?set WGS_RESULTS_HOST_ROOT}:/data/wgs-results:rw
       - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
-      - ./config:/app/config:ro
+      - ./config:/config:ro
     networks: [wgs-platform]
 
   wgs-observer:
