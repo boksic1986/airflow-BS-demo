@@ -396,3 +396,26 @@ snakemake --forceall
 ## WGS-only Phase 1 boundary
 
 No WGS Snakemake logger or executor is changed because the workflow is not final. Phase 2 must pin one logger contract across CCE, SGE, and local and preserve resume/rerun-failed without `--forceall`.
+
+## T130 server-copy Rule evidence contract
+
+Airflow integration code is developed only in the BS10610 copy at
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs`.
+The upstream `/mnt/biodevrwbi/33.chenjiucheng/project/wgs` tree remains
+unchanged. The development copy emits schema-version-1 newline-delimited Rule
+events under `rule-status/raw/*.jsonl`.
+
+The platform observer no longer infers runs from an `analysis.json` file. A
+platform-owned binding must provide `analysis_id`, positive `attempt`, approved
+`pipeline_snapshot_id`, `run_label`, and a relative evidence path. That binding
+must match both the immutable snapshot pinned in `analysis_run.params_json` and
+the corresponding `run_attempt` row.
+
+The observer consumes only complete newline-terminated UTF-8 JSON objects and
+persists one byte/line cursor per file in biodemo. Raw events, Rule projection,
+and the advanced cursor commit atomically. A partial trailing line waits for a
+later poll; malformed complete JSON stops only that file at the bad record;
+replacement or truncation resets the cursor and replays through deterministic
+event IDs. Supported events are `rule_planned`, `job_info`, `job_started`,
+`job_finished`, and `job_error`. Worker terminal evidence takes precedence
+over conflicting Master terminal evidence.
