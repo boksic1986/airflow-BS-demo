@@ -105,6 +105,14 @@ export type RunDetail = {
   submitted_by?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
+  pipeline_snapshot_id?: string | null;
+  rule_event_schema_version?: string | null;
+  observer?: {
+    status: string;
+    last_success_at?: string | null;
+    last_error?: string | null;
+    updated_at?: string | null;
+  } | null;
 };
 
 export type UserRole = "viewer" | "operator" | "admin";
@@ -126,11 +134,18 @@ export type WgsFamily = {
 };
 
 export type WgsPod = {
-  name: string;
+  attempt: number;
+  pod_hash: string;
+  job_name?: string | null;
   phase?: string | null;
-  status?: string | null;
+  reason?: string | null;
+  exit_code?: number | null;
+  image_id?: string | null;
   node_name?: string | null;
   message?: string | null;
+  resources?: Record<string, unknown> | null;
+  observed_at?: string | null;
+  updated_at?: string | null;
 };
 
 export type WgsTransfer = {

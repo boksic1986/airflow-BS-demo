@@ -1534,3 +1534,20 @@ QC projection uses `pending` before QC, `unavailable` when a failed workflow
 never produced decision metrics, and pass/warn/fail only from decision metrics.
 Informational values such as read count, gender, and chrY do not create an
 unknown sample decision.
+
+## T130 WGS monitoring reads
+
+All endpoints below require an authenticated session and read biodemo only.
+They do not access Kubernetes, SFS, or evidence files during a request.
+
+- `GET /api/runs/{analysis_id}` adds `pipeline_snapshot_id`,
+  `rule_event_schema_version`, and an optional `observer` object containing
+  `status`, `last_success_at`, `last_error`, and `updated_at`.
+- `GET /api/runs/{analysis_id}/rules` returns projected WGS Rule rows with
+  attempt, stable Rule instance ID, name, sample, layer, terminal state, and
+  timestamps.
+- `GET /api/runs/{analysis_id}/pods` returns `pod_hash`, `job_name`, phase,
+  reason, exit code, image ID, node, message, resource summary, observation
+  time, and database update time.
+
+Unknown or non-WGS analysis IDs return HTTP 404 for Rule/Pod reads.

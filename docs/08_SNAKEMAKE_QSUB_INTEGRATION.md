@@ -419,3 +419,12 @@ replacement or truncation resets the cursor and replays through deterministic
 event IDs. Supported events are `rule_planned`, `job_info`, `job_started`,
 `job_finished`, and `job_error`. Worker terminal evidence takes precedence
 over conflicting Master terminal evidence.
+
+CCE evidence additionally consumes the real `group_evidence.py` files
+`pod-events.jsonl`, `pod-metrics.jsonl`, and `job-events.jsonl`. Pod state is
+keyed by `pod_hash`; Kubernetes `resource_version` is compared numerically so
+version 10 supersedes version 9, while a later metrics record enriches resources
+without regressing phase. Container state preserves terminal details such as
+`OOMKilled` with exit code 137 and waiting details such as
+`ImagePullBackOff`. Job conditions enrich the matching Pod rows with status and
+failure message.

@@ -160,11 +160,11 @@ export function RunDetailPage() {
   const detail = bundle.detail;
 
   useEffect(() => {
-    if (!analysisId || !detail?.dag_run_id || !isActiveStatus(detail.status)) return;
+    if (!analysisId || !detail || !isActiveStatus(detail.status)) return;
     let stopped = false;
-    const refreshFromAirflow = async () => {
+    const refreshActiveRun = async () => {
       try {
-        await syncAirflow(analysisId);
+        if (detail.dag_run_id) await syncAirflow(analysisId);
         if (stopped) return;
         setLastAutoSyncedAt(new Date().toISOString());
         await loadDetail();
@@ -172,8 +172,8 @@ export function RunDetailPage() {
         if (!stopped) setActionError(errorMessage(syncError));
       }
     };
-    void refreshFromAirflow();
-    const interval = window.setInterval(() => void refreshFromAirflow(), 5000);
+    void refreshActiveRun();
+    const interval = window.setInterval(() => void refreshActiveRun(), 5000);
     return () => { stopped = true; window.clearInterval(interval); };
   }, [analysisId, detail?.dag_run_id, detail?.status]);
 
@@ -231,6 +231,16 @@ export function RunDetailPage() {
           <MetricCard title="QC fail" value={sampleQcSummary?.fail ?? 0} status={(sampleQcSummary?.fail ?? 0) > 0 ? "failed" : "success"} />
           <MetricCard title="Rule events" value={bundle.rules.length} status={failedRule ? "failed" : undefined} />
         </section>
+        {detail.pipeline === "wgs" ? <section className="panel">
+          <div className="section-heading"><h2>Pipeline evidence</h2><p>Immutable server snapshot and local observer freshness.</p></div>
+          <div className="definition-grid">
+            <div><dt>Snapshot</dt><dd className="path-text">{detail.pipeline_snapshot_id || "not pinned"}</dd></div>
+            <div><dt>Rule schema</dt><dd>{detail.rule_event_schema_version || "unknown"}</dd></div>
+            <div><dt>Observer</dt><dd><StatusBadge status={detail.observer?.status || "not observed"} /></dd></div>
+            <div><dt>Last evidence</dt><dd>{formatDate(detail.observer?.last_success_at || detail.observer?.updated_at)}</dd></div>
+          </div>
+          {detail.observer?.last_error ? <div className="inline-error" role="alert">Observer: {detail.observer.last_error}</div> : null}
+        </section> : null}
         <ErrorPanel diagnosis={diagnosis} />
         {progressError ? <div className="inline-error" role="alert">Current progress unavailable: {progressError}</div> : null}
         <div className="split-grid">
@@ -277,7 +287,7 @@ function WgsFamiliesTab({families}: {families: WgsFamily[]}) {
 }
 
 function WgsPodsTab({pods}: {pods: WgsPod[]}) {
-  return <WgsTable headers={["Pod", "Phase", "Status", "Node", "Message"]} rows={pods.map((pod) => [pod.name, pod.phase ?? "-", pod.status ?? "-", pod.node_name ?? "-", pod.message ?? "-"])} empty="No pods returned." />;
+  return <WgsTable headers={["Job", "Pod hash", "Phase", "Reason", "Exit", "Node", "Resources", "Message"]} rows={pods.map((pod) => [pod.job_name ?? "-", pod.pod_hash, pod.phase ?? "-", pod.reason ?? "-", pod.exit_code ?? "-", pod.node_name ?? "-", compactResources(pod.resources), pod.message ?? "-"])} empty="No pods returned." />;
 }
 
 function WgsTransfersTab({transfers}: {transfers: WgsTransfer[]}) {
@@ -286,4 +296,9 @@ function WgsTransfersTab({transfers}: {transfers: WgsTransfer[]}) {
 
 function WgsTable({headers, rows, empty}: {headers: string[]; rows: Array<Array<string | number>>; empty: string}) {
   return <div className="table-wrap"><table className="data-table"><thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{row.map((value, cell) => <td key={cell}>{value}</td>)}</tr>)}{rows.length === 0 ? <tr><td className="empty-cell" colSpan={headers.length}>{empty}</td></tr> : null}</tbody></table></div>;
+}
+
+function compactResources(resources?: Record<string, unknown> | null): string {
+  if (!resources || Object.keys(resources).length === 0) return "-";
+  return JSON.stringify(resources);
 }

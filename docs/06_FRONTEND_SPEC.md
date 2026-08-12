@@ -1067,3 +1067,10 @@ keeping deployed scope limited to PGT-A and NIPT Docker.
 ## WGS-only shell
 
 The shipped shell contains Login, Runs, Submit WGS, Run Detail, and admin-only Accounts. CCE, SGE, and local are shown as configured but disabled. Active detail pages poll about every five seconds and expose Families, Rules, Pods, Transfers, QC, Logs, and Files.
+
+T130 Run Detail shows the immutable WGS snapshot ID, Rule event schema, and
+observer freshness/error above the resource tabs. The Pods tab uses the actual
+biodemo contract: Job, Pod hash, Kubernetes phase/reason, exit code, node,
+resource summary, and message. Active WGS runs poll FastAPI every five seconds
+even before an Airflow `dag_run_id` exists; Airflow sync is attempted only when
+that ID is present. Empty evidence and observer errors remain visible states.

@@ -8,7 +8,16 @@ from sqlalchemy.pool import StaticPool
 
 from app import main
 from app.auth_service import hash_password
-from app.models import AnalysisRun, AuditLog, Base, MasterSlot, UserAccount
+from app.models import (
+    AnalysisRun,
+    AuditLog,
+    Base,
+    KubernetesWorkload,
+    MasterSlot,
+    ObserverRunState,
+    RuleState,
+    UserAccount,
+)
 
 
 def make_sessionmaker():
@@ -177,3 +186,51 @@ def test_admin_manages_users_but_operator_cannot(tmp_path, monkeypatch):
     )
     assert created.status_code == 201, created.text
     assert "new-viewer" in {item["username"] for item in client.get("/api/users", headers=admin_headers).json()["items"]}
+
+
+def test_wgs_detail_rules_and_pods_are_database_only_authenticated_reads(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "viewer", "viewer-pass")
+    with sessions() as session:
+        run = AnalysisRun(
+            analysis_id="WGS_MONITOR_1",
+            pipeline_name="wgs",
+            dag_id="bio_wgs_cce",
+            execution_mode="cce",
+            workdir=str(tmp_path),
+            status="running",
+            params_json={
+                "pipeline_snapshot_id": "wgs-v4.0.1-dev-136da1a-b10cd8af",
+                "rule_event_schema_version": "1",
+            },
+        )
+        session.add(run)
+        session.add(ObserverRunState(analysis_id=run.analysis_id, attempt=1, pipeline_snapshot_id=run.params_json["pipeline_snapshot_id"], run_label="wgs392-0123456789abcdef", relative_evidence_path="WGS_MONITOR_1/attempt-1", status="healthy"))
+        session.add(RuleState(analysis_id=run.analysis_id, attempt=1, rule_instance_id="0123456789abcdef", rule_name="mapping", status="running"))
+        session.add(KubernetesWorkload(analysis_id=run.analysis_id, attempt=1, event_id="pod:10", pod_hash="abc", job_name="mapping-7", phase="Failed", reason="OOMKilled", exit_code=137, node_name="node-1", message="worker failed", resources_json={"memory": "1Gi"}))
+        session.commit()
+
+    detail = client.get("/api/runs/WGS_MONITOR_1", headers=headers)
+    rules = client.get("/api/runs/WGS_MONITOR_1/rules", headers=headers)
+    pods = client.get("/api/runs/WGS_MONITOR_1/pods", headers=headers)
+
+    assert detail.status_code == 200
+    assert detail.json()["pipeline_snapshot_id"] == "wgs-v4.0.1-dev-136da1a-b10cd8af"
+    assert detail.json()["rule_event_schema_version"] == "1"
+    assert detail.json()["observer"]["status"] == "healthy"
+    assert rules.json()["items"][0]["rule"] == "mapping"
+    assert pods.json()["items"][0] == {
+        "attempt": 1,
+        "pod_hash": "abc",
+        "job_name": "mapping-7",
+        "phase": "Failed",
+        "reason": "OOMKilled",
+        "exit_code": 137,
+        "image_id": None,
+        "node_name": "node-1",
+        "message": "worker failed",
+        "resources": {"memory": "1Gi"},
+        "observed_at": None,
+        "updated_at": pods.json()["items"][0]["updated_at"],
+    }
+    assert client.get("/api/runs/UNKNOWN/pods", headers=headers).status_code == 404

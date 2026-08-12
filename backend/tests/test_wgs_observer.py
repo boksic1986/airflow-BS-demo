@@ -11,6 +11,7 @@ from app.models import (
     AnalysisRun,
     Base,
     EvidenceCursor,
+    KubernetesWorkload,
     ObserverRunState,
     RuleEventRaw,
     RuleState,
@@ -303,3 +304,97 @@ def test_job_info_mapping_and_worker_evidence_win_projection(tmp_path: Path) -> 
         state = session.scalar(select(RuleState))
         assert state.rule_name == "mapping"
         assert state.status == "success"
+
+
+def test_pod_job_and_metrics_events_normalize_with_numeric_resource_versions(tmp_path: Path) -> None:
+    sessions, _, evidence_root, binding_root, catalog_path, rule_dir = prepare_run(tmp_path)
+    raw = rule_dir.parents[1] / "raw"
+    raw.mkdir()
+    pod_events = [
+        {
+            "event_key": "worker-a:9",
+            "observed_at_utc": "2026-08-12T01:00:00+00:00",
+            "job": "mapping-7",
+            "pod_hash": "abc123",
+            "resource_version": "9",
+            "phase": "Running",
+            "node_name": "cce-node-1",
+        },
+        {
+            "event_key": "worker-a:10",
+            "observed_at_utc": "2026-08-12T01:01:00+00:00",
+            "job": "mapping-7",
+            "pod_hash": "abc123",
+            "resource_version": "10",
+            "phase": "Failed",
+            "container_status": {
+                "imageID": "sha256:image",
+                "state": {"terminated": {"reason": "OOMKilled", "exitCode": 137}},
+            },
+        },
+        {
+            "event_key": "worker-a:2",
+            "observed_at_utc": "2026-08-12T00:59:00+00:00",
+            "job": "mapping-7",
+            "pod_hash": "abc123",
+            "resource_version": "2",
+            "phase": "Pending",
+        },
+    ]
+    metrics = {
+        "event_key": "worker-a:metrics:1",
+        "observed_at_utc": "2026-08-12T01:01:05+00:00",
+        "pod_hash": "abc123",
+        "metrics": {"timestamp": "2026-08-12T01:01:04Z", "containers": [{"usage": {"cpu": "2", "memory": "1Gi"}}]},
+    }
+    job = {
+        "event_key": "mapping-7:11",
+        "observed_at_utc": "2026-08-12T01:01:06+00:00",
+        "job": "mapping-7",
+        "resource_version": "11",
+        "status": {"failed": 1, "conditions": [{"type": "Failed", "reason": "BackoffLimitExceeded", "message": "worker failed"}]},
+    }
+    (raw / "pod-events.jsonl").write_text("".join(json.dumps(row) + "\n" for row in pod_events), encoding="utf-8")
+    (raw / "pod-metrics.jsonl").write_text(json.dumps(metrics) + "\n", encoding="utf-8")
+    (raw / "job-events.jsonl").write_text(json.dumps(job) + "\n", encoding="utf-8")
+
+    result = poll(sessions, evidence_root, binding_root, catalog_path)
+
+    assert result == {"bindings": 1, "files": 3, "events_ingested": 5, "errors": 0}
+    with sessions() as session:
+        pod = session.scalar(select(KubernetesWorkload))
+        assert pod.resource_version == "10"
+        assert pod.phase == "Failed"
+        assert pod.reason == "OOMKilled"
+        assert pod.exit_code == 137
+        assert pod.node_name == "cce-node-1"
+        assert pod.image_id == "sha256:image"
+        assert pod.resources_json["containers"][0]["usage"]["memory"] == "1Gi"
+        assert pod.job_status_json["failed"] == 1
+        assert pod.message == "worker failed"
+
+
+def test_image_pull_backoff_detail_is_preserved(tmp_path: Path) -> None:
+    sessions, _, evidence_root, binding_root, catalog_path, rule_dir = prepare_run(tmp_path)
+    raw = rule_dir.parents[1] / "raw"
+    raw.mkdir()
+    payload = {
+        "event_key": "worker-b:20",
+        "observed_at_utc": "2026-08-12T02:00:00+00:00",
+        "job": "qc-8",
+        "pod_hash": "def456",
+        "resource_version": "20",
+        "phase": "Pending",
+        "container_status": {
+            "state": {"waiting": {"reason": "ImagePullBackOff", "message": "pull access denied"}}
+        },
+    }
+    (raw / "pod-events.jsonl").write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    poll(sessions, evidence_root, binding_root, catalog_path)
+
+    with sessions() as session:
+        pod = session.scalar(select(KubernetesWorkload))
+        assert pod.phase == "Pending"
+        assert pod.reason == "ImagePullBackOff"
+        assert pod.message == "pull access denied"

@@ -62,7 +62,7 @@ from app.auth_service import (
     revoke_session,
 )
 from app.wgs_platform_service import action_wgs_run, create_wgs_platform_run, submit_wgs_run
-from app.models import AnalysisRun, KubernetesWorkload, RuleState, Sample, TransferJob, UserAccount
+from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, Sample, TransferJob, UserAccount
 from sqlalchemy import select
 
 
@@ -956,12 +956,17 @@ def sync_run_airflow(analysis_id: str) -> dict[str, object]:
 def run_detail(analysis_id: str) -> dict[str, object]:
     with get_sessionmaker()() as session:
         payload = get_run_detail(session=session, analysis_id=analysis_id)
+        observer = session.scalar(select(ObserverRunState).where(ObserverRunState.analysis_id == analysis_id).order_by(ObserverRunState.attempt.desc()))
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
     _guard_pipeline_deployed(str(payload.get("pipeline") or payload.get("pipeline_name") or ""))
+    params = payload.get("params") if isinstance(payload.get("params"), dict) else {}
+    payload["pipeline_snapshot_id"] = params.get("pipeline_snapshot_id")
+    payload["rule_event_schema_version"] = params.get("rule_event_schema_version")
+    payload["observer"] = ({"status": observer.status, "last_success_at": observer.last_success_at.isoformat() if observer.last_success_at else None, "last_error": observer.last_error, "updated_at": observer.updated_at.isoformat()} if observer else None)
     return payload
 
 
@@ -992,8 +997,11 @@ def run_families(analysis_id: str) -> dict[str, object]:
 @app.get("/api/runs/{analysis_id}/pods")
 def run_pods(analysis_id: str) -> dict[str, object]:
     with get_sessionmaker()() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
+        if run is None:
+            raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"})
         items = session.scalars(select(KubernetesWorkload).where(KubernetesWorkload.analysis_id == analysis_id).order_by(KubernetesWorkload.attempt, KubernetesWorkload.job_name)).all()
-    return {"items": [{"attempt": item.attempt, "pod_hash": item.pod_hash, "job_name": item.job_name, "phase": item.phase, "reason": item.reason, "exit_code": item.exit_code, "image_id": item.image_id, "resources": item.resources_json, "evidence_path": item.evidence_path, "updated_at": item.updated_at.isoformat()} for item in items]}
+    return {"items": [{"attempt": item.attempt, "pod_hash": item.pod_hash, "job_name": item.job_name, "phase": item.phase, "reason": item.reason, "exit_code": item.exit_code, "image_id": item.image_id, "node_name": item.node_name, "message": item.message, "resources": item.resources_json, "observed_at": item.observed_at.isoformat() if item.observed_at else None, "updated_at": item.updated_at.isoformat()} for item in items]}
 
 
 @app.get("/api/runs/{analysis_id}/transfers")
@@ -1013,24 +1021,13 @@ def run_rules(
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
     with get_sessionmaker()() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
+        if run is None:
+            raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"})
         states = session.scalars(select(RuleState).where(RuleState.analysis_id == analysis_id).order_by(RuleState.attempt, RuleState.layer, RuleState.rule_name)).all()
-        if states:
-            return {"items": [{"attempt": row.attempt, "rule_instance_id": row.rule_instance_id, "rule": row.rule_name, "sample_id": row.sample_id, "layer": row.layer, "status": row.status, "start_time": row.started_at.isoformat() if row.started_at else None, "end_time": row.ended_at.isoformat() if row.ended_at else None} for row in states], "total": len(states), "limit": limit, "offset": offset}
-        payload = get_snakemake_rule_events_page(
-            session=session,
-            analysis_id=analysis_id,
-            status=status_filter,
-            rule=rule,
-            sample_id=sample_id,
-            limit=limit,
-            offset=offset,
-        )
-    if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
-        )
-    return payload
+        filtered = [row for row in states if (not status_filter or row.status == status_filter) and (not rule or row.rule_name == rule) and (not sample_id or row.sample_id == sample_id)]
+        page = filtered[offset:offset + limit]
+        return {"items": [{"attempt": row.attempt, "rule_instance_id": row.rule_instance_id, "rule": row.rule_name, "sample_id": row.sample_id, "layer": row.layer, "status": row.status, "start_time": row.started_at.isoformat() if row.started_at else None, "end_time": row.ended_at.isoformat() if row.ended_at else None} for row in page], "total": len(filtered), "limit": limit, "offset": offset}
 
 
 @app.post("/api/runs/{analysis_id}/actions/resume")
