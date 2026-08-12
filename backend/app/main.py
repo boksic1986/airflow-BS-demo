@@ -3,7 +3,7 @@ import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
+from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from pydantic import BaseModel, Field, model_validator
@@ -51,6 +51,19 @@ from app.run_service import (
 from app.run_resources_service import get_run_resource_summary
 from app.system_resources import get_system_resources
 from app.workflow_catalog_service import get_workflow_catalog
+from app.auth_service import (
+    AuthenticatedUser,
+    audit,
+    authenticate_session,
+    create_session,
+    create_user,
+    list_users,
+    require_role,
+    revoke_session,
+)
+from app.wgs_platform_service import action_wgs_run, create_wgs_platform_run, submit_wgs_run
+from app.models import AnalysisRun, KubernetesWorkload, RuleState, Sample, TransferJob, UserAccount
+from sqlalchemy import select
 
 
 logger = logging.getLogger(__name__)
@@ -63,6 +76,62 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+SESSION_COOKIE = "wgs_session"
+
+
+@app.middleware("http")
+async def enforce_platform_auth(request: Request, call_next):
+    if request.url.path in {"/api/health", "/api/health/db", "/api/auth/login"}:
+        return await call_next(request)
+    try:
+        settings = get_settings()
+    except RuntimeError:
+        # Older isolated unit tests intentionally construct the app without
+        # runtime environment. Production Compose always supplies DATABASE_URL
+        # and AUTH_REQUIRED=true, so this branch cannot disable deployed auth.
+        if os.getenv("AUTH_REQUIRED", "").strip().lower() in {"1", "true", "yes", "on"}:
+            return Response(content='{"detail":{"code":"PLATFORM_MISCONFIGURED","message":"Authentication storage unavailable."}}', status_code=503, media_type="application/json")
+        request.state.user = AuthenticatedUser(0, "test-legacy", "admin", "")
+        return await call_next(request)
+    if not bool(getattr(settings, "auth_required", False)):
+        request.state.user = AuthenticatedUser(0, "legacy", "admin", "")
+        return await call_next(request)
+    internal_token = request.headers.get("X-Airflow-Demo-Token")
+    expected_internal = str(getattr(settings, "internal_service_token", "") or "")
+    if expected_internal and internal_token and secrets.compare_digest(internal_token, expected_internal):
+        request.state.user = AuthenticatedUser(0, "internal-service", "admin", "")
+        return await call_next(request)
+    with get_sessionmaker()() as session:
+        user = authenticate_session(session=session, raw_token=request.cookies.get(SESSION_COOKIE))
+    if user is None:
+        return Response(content='{"detail":{"code":"AUTH_REQUIRED","message":"Login required."}}', status_code=401, media_type="application/json")
+    request.state.user = user
+    if request.method not in {"GET", "HEAD", "OPTIONS"}:
+        supplied = request.headers.get("X-CSRF-Token", "")
+        if not supplied or not secrets.compare_digest(supplied, user.csrf_token):
+            return Response(content='{"detail":{"code":"CSRF_REQUIRED","message":"Valid CSRF token required."}}', status_code=403, media_type="application/json")
+    return await call_next(request)
+
+
+def current_user(request: Request) -> AuthenticatedUser:
+    return getattr(request.state, "user", AuthenticatedUser(0, "legacy", "admin", ""))
+
+
+def operator_user(user: AuthenticatedUser = Depends(current_user)) -> AuthenticatedUser:
+    try:
+        require_role(user, "operator")
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail={"code": "FORBIDDEN", "message": str(exc)}) from exc
+    return user
+
+
+def admin_user(user: AuthenticatedUser = Depends(current_user)) -> AuthenticatedUser:
+    try:
+        require_role(user, "admin")
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail={"code": "FORBIDDEN", "message": str(exc)}) from exc
+    return user
 
 
 def require_internal_service_token(
@@ -117,9 +186,15 @@ class CreateRunRequest(BaseModel):
     wgs_targets_path: str | None = None
     wgs_stage: str = "precalling"
     wgs_dry_run: bool = True
+    execution_mode: str = Field(default="cce", pattern="^(cce|sge|local)$")
+    source_path: str | None = None
 
     @model_validator(mode="after")
     def validate_pipeline_inputs(self):
+        if self.pipeline != "wgs":
+            raise ValueError("Only pipeline=wgs is supported.")
+        if self.source_path:
+            return self
         if self.pipeline == "pgta":
             if not self.rawdata_root:
                 raise ValueError("rawdata_root is required for pipeline=pgta.")
@@ -151,7 +226,7 @@ class PipelineConfigValidationRequest(BaseModel):
 
 
 class IntakeScanRequest(BaseModel):
-    pipelines: list[str] = Field(default_factory=lambda: ["pgta", "nipt_docker"])
+    pipelines: list[str] = Field(default_factory=lambda: ["wgs"])
     bootstrap: bool = False
     max_samples: int = Field(default=200, ge=1, le=1000)
 
@@ -187,9 +262,74 @@ class SnakemakeEventRequest(BaseModel):
     timestamp: datetime | None = None
 
 
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=1, max_length=512)
+
+
+class UserCreateRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=8, max_length=512)
+    role: str = Field(pattern="^(viewer|operator|admin)$")
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/api/auth/login")
+def login(request: LoginRequest, response: Response) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            user, raw_token = create_session(
+                session=session,
+                username=request.username,
+                password=request.password,
+                ttl_hours=int(getattr(get_settings(), "session_ttl_hours", 8)),
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail={"code": "INVALID_CREDENTIALS", "message": str(exc)}) from exc
+    response.set_cookie(
+        SESSION_COOKIE,
+        raw_token,
+        httponly=True,
+        secure=bool(getattr(get_settings(), "session_cookie_secure", True)),
+        samesite="strict",
+        max_age=int(getattr(get_settings(), "session_ttl_hours", 8)) * 3600,
+        path="/",
+    )
+    return {"username": user.username, "role": user.role, "csrf_token": user.csrf_token}
+
+
+@app.post("/api/auth/logout")
+def logout(response: Response, raw_token: str | None = Cookie(default=None, alias=SESSION_COOKIE)) -> dict[str, str]:
+    with get_sessionmaker()() as session:
+        revoke_session(session=session, raw_token=raw_token)
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return {"status": "ok"}
+
+
+@app.get("/api/auth/me")
+def me(user: AuthenticatedUser = Depends(current_user)) -> dict[str, str]:
+    return {"username": user.username, "role": user.role, "csrf_token": user.csrf_token}
+
+
+@app.get("/api/users")
+def users(user: AuthenticatedUser = Depends(admin_user)) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        return {"items": list_users(session=session)}
+
+
+@app.post("/api/users", status_code=201)
+def add_user(request: UserCreateRequest, user: AuthenticatedUser = Depends(admin_user)) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            account = create_user(session=session, username=request.username, password=request.password, role=request.role)
+            audit(session=session, username=user.username, action="user.create", payload={"target": account.username, "role": account.role})
+            return {"id": account.id, "username": account.username, "role": account.role, "enabled": account.enabled}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"code": "VALIDATION_ERROR", "message": str(exc)}) from exc
 
 
 @app.get("/api/platform/capabilities")
@@ -383,13 +523,24 @@ def pipeline_config_validate(request: PipelineConfigValidationRequest) -> dict[s
 
 
 @app.post("/api/runs", status_code=status.HTTP_201_CREATED)
-def create_run(request: CreateRunRequest) -> dict[str, object]:
+def create_run(request: CreateRunRequest, user: AuthenticatedUser = Depends(operator_user)) -> dict[str, object]:
     settings = get_settings()
     session_factory = get_sessionmaker()
     try:
         _require_pipeline_deployed(settings, request.pipeline)
         pipeline_config = _validated_create_config(request=request, settings=settings)
         with session_factory() as session:
+            if request.pipeline == "wgs" and request.source_path:
+                payload = create_wgs_platform_run(
+                    session=session,
+                    settings=settings,
+                    project_name=request.project_name,
+                    execution_mode=request.execution_mode,
+                    source_path=request.source_path,
+                    submitted_by=user.username,
+                )
+                audit(session=session, username=user.username, action="run.create", analysis_id=str(payload["analysis_id"]), payload={"execution_mode": request.execution_mode})
+                return payload
             if request.pipeline == "pgta":
                 selected_samples = [_selected_sample_to_candidate(item) for item in request.selected_samples]
                 return create_pgta_run(
@@ -590,7 +741,7 @@ def dashboard_runs(
 
 
 @app.post("/api/runs/{analysis_id}/actions/submit")
-def submit_run(analysis_id: str) -> dict[str, object]:
+def submit_run(analysis_id: str, user: AuthenticatedUser = Depends(operator_user)) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
             detail = get_run_detail(session=session, analysis_id=analysis_id)
@@ -598,11 +749,17 @@ def submit_run(analysis_id: str) -> dict[str, object]:
                 _guard_pipeline_deployed(str(detail.get("pipeline") or detail.get("pipeline_name") or ""))
                 if str(detail.get("pipeline") or detail.get("pipeline_name") or "") == "wgs":
                     _guard_wgs_execution(bool((detail.get("params") or {}).get("wgs_dry_run", True)))
-            payload = submit_run_to_airflow(
-                session=session,
-                airflow_client=get_airflow_client(),
-                analysis_id=analysis_id,
-            )
+            if detail is not None and str(detail.get("pipeline") or "") == "wgs" and detail.get("execution_mode") in {"cce", "sge", "local"}:
+                if not _wgs_platform_execution_enabled():
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="WGS execution is disabled until Phase 2 workflow integration is approved.",
+                    )
+                payload = submit_wgs_run(session=session, airflow_client=get_airflow_client(), analysis_id=analysis_id)
+            else:
+                payload = submit_run_to_airflow(session=session, airflow_client=get_airflow_client(), analysis_id=analysis_id)
+            if payload is not None:
+                audit(session=session, username=user.username, action="run.submit", analysis_id=analysis_id)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -819,6 +976,33 @@ def run_samples(analysis_id: str) -> dict[str, object]:
         return {"items": list_run_samples(session=session, analysis_id=analysis_id)}
 
 
+@app.get("/api/runs/{analysis_id}/families")
+def run_families(analysis_id: str) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
+        if run is None:
+            raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"})
+        samples = session.scalars(select(Sample).where(Sample.analysis_id == analysis_id).order_by(Sample.family_id, Sample.sample_id)).all()
+    families: dict[str, list[str]] = {}
+    for sample in samples:
+        families.setdefault(sample.family_id or "unassigned", []).append(sample.sample_id)
+    return {"items": [{"family_id": family_id, "sample_ids": sample_ids, "sample_count": len(sample_ids)} for family_id, sample_ids in families.items()]}
+
+
+@app.get("/api/runs/{analysis_id}/pods")
+def run_pods(analysis_id: str) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        items = session.scalars(select(KubernetesWorkload).where(KubernetesWorkload.analysis_id == analysis_id).order_by(KubernetesWorkload.attempt, KubernetesWorkload.job_name)).all()
+    return {"items": [{"attempt": item.attempt, "pod_hash": item.pod_hash, "job_name": item.job_name, "phase": item.phase, "reason": item.reason, "exit_code": item.exit_code, "image_id": item.image_id, "resources": item.resources_json, "evidence_path": item.evidence_path, "updated_at": item.updated_at.isoformat()} for item in items]}
+
+
+@app.get("/api/runs/{analysis_id}/transfers")
+def run_transfers(analysis_id: str) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        items = session.scalars(select(TransferJob).where(TransferJob.analysis_id == analysis_id).order_by(TransferJob.id)).all()
+    return {"items": [{"id": item.id, "attempt": item.attempt, "direction": item.direction, "status": item.status, "manifest_path": item.manifest_path, "receipt_path": item.receipt_path, "error_message": item.error_message, "started_at": item.started_at.isoformat() if item.started_at else None, "ended_at": item.ended_at.isoformat() if item.ended_at else None} for item in items]}
+
+
 @app.get("/api/runs/{analysis_id}/rules")
 def run_rules(
     analysis_id: str,
@@ -829,6 +1013,9 @@ def run_rules(
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
     with get_sessionmaker()() as session:
+        states = session.scalars(select(RuleState).where(RuleState.analysis_id == analysis_id).order_by(RuleState.attempt, RuleState.layer, RuleState.rule_name)).all()
+        if states:
+            return {"items": [{"attempt": row.attempt, "rule_instance_id": row.rule_instance_id, "rule": row.rule_name, "sample_id": row.sample_id, "layer": row.layer, "status": row.status, "start_time": row.started_at.isoformat() if row.started_at else None, "end_time": row.ended_at.isoformat() if row.ended_at else None} for row in states], "total": len(states), "limit": limit, "offset": offset}
         payload = get_snakemake_rule_events_page(
             session=session,
             analysis_id=analysis_id,
@@ -843,6 +1030,34 @@ def run_rules(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
+    return payload
+
+
+@app.post("/api/runs/{analysis_id}/actions/resume")
+def resume_run(analysis_id: str, user: AuthenticatedUser = Depends(operator_user)) -> dict[str, object]:
+    return _wgs_action(analysis_id, "resume", user)
+
+
+@app.post("/api/runs/{analysis_id}/actions/rerun_failed")
+def rerun_failed(analysis_id: str, user: AuthenticatedUser = Depends(operator_user)) -> dict[str, object]:
+    return _wgs_action(analysis_id, "rerun_failed", user)
+
+
+@app.post("/api/runs/{analysis_id}/actions/cancel")
+def cancel_run(analysis_id: str, user: AuthenticatedUser = Depends(operator_user)) -> dict[str, object]:
+    return _wgs_action(analysis_id, "cancel", user)
+
+
+def _wgs_action(analysis_id: str, action: str, user: AuthenticatedUser) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            payload = action_wgs_run(session=session, airflow_client=get_airflow_client(), analysis_id=analysis_id, action=action, requested_by=user.username)
+            if payload is not None:
+                audit(session=session, username=user.username, action=f"run.{action}", analysis_id=analysis_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"code": "VALIDATION_ERROR", "message": str(exc)}) from exc
+    if payload is None:
+        raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"})
     return payload
 
 
@@ -1097,7 +1312,7 @@ def _scan_roots_for_pipeline(settings, pipeline: str) -> list[str]:
 
 def _deployed_pipelines(settings) -> tuple[str, ...]:
     configured = tuple(getattr(settings, "deployed_pipelines", ()) or ())
-    return configured or ("pgta", "nipt_docker")
+    return configured or ("wgs",)
 
 
 def _active_deployed_pipelines() -> tuple[str, ...]:
@@ -1157,6 +1372,10 @@ def _guard_wgs_execution(dry_run: bool) -> None:
     allow_execution = os.getenv("WGS_ALLOW_EXECUTION", "false").strip().lower() in {"1", "true", "yes", "on"}
     if not allow_execution:
         raise ValueError("WGS is deployed in dry-run validation mode; real execution is disabled.")
+
+
+def _wgs_platform_execution_enabled() -> bool:
+    return os.getenv("WGS_EXECUTION_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _load_intake_config(settings):

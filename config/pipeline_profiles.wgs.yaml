@@ -1,0 +1,19 @@
+version: 1
+pipelines:
+  wgs:
+    default_profile: wgs-cce-v1
+    profiles:
+      wgs-cce-v1:
+        label: WGS CCE project runner
+        submit_visible: true
+        runtime:
+          execution_mode: cce
+          gate_connection: wgs_cce_gate
+          master_pool: wgs_cce_runs
+          transfer_pool: wgs_obs_transfer
+      wgs-onprem-v1:
+        label: WGS on-prem project runner
+        submit_visible: true
+        runtime:
+          execution_mode: onprem
+          gate_connection: wgs_onprem_gate

@@ -13,26 +13,21 @@ import {
 import {useState, type FormEvent} from "react";
 import {NavLink, Outlet, useNavigate} from "react-router-dom";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
+import {useSession} from "../features/auth/SessionContext";
 
 const navItems = [
   {to: "/dashboard", label: "Command Center", Icon: LayoutDashboard},
-  {to: "/submit", label: "Submit Run", Icon: ClipboardList},
   {to: "/runs", label: "Batch Runs", Icon: Activity},
-  {to: "/samples", label: "Sample Matrix", Icon: TestTube2},
+  {to: "/samples", label: "Families", Icon: TestTube2},
   {to: "/workflows", label: "Workflow Catalog", Icon: GitBranch},
   {to: "/failures", label: "Failure Triage", Icon: AlertTriangle},
-  {to: "/settings", label: "Platform Settings", Icon: Settings},
 ];
 
 export function AppShell() {
   const navigate = useNavigate();
   const capabilities = usePlatformCapabilities();
+  const session = useSession();
   const [search, setSearch] = useState("");
-  const niptOnly = capabilities.deployed_pipelines.length === 1 && capabilities.deployed_pipelines[0] === "nipt_docker";
-  const wgsOnly = capabilities.deployed_pipelines.length === 1 && capabilities.deployed_pipelines[0] === "wgs";
-  const niptWgs = capabilities.deployed_pipelines.length === 2
-    && capabilities.deployed_pipelines.includes("nipt_docker")
-    && capabilities.deployed_pipelines.includes("wgs");
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,17 +42,18 @@ export function AppShell() {
         <div className="brand-lockup">
           <FlaskConical size={24} />
           <div>
-            <strong>{wgsOnly ? "WGS Control Tower" : niptOnly ? "NIPT Control Tower" : "BioFlow Control"}</strong>
-            <span>{wgsOnly ? "WGS only" : niptOnly ? "NIPT Docker only" : niptWgs ? "NIPT Docker + WGS" : "Deployed workflows"}</span>
+            <strong>WGS Control Tower</strong>
+            <span>WGS production</span>
           </div>
         </div>
         <nav aria-label="Primary navigation">
-          {navItems.map(({to, label, Icon}) => (
+          {[...navItems, ...(session.hasRole("operator") ? [{to: "/submit", label: "Submit Run", Icon: ClipboardList}] : [])].map(({to, label, Icon}) => (
             <NavLink key={to} to={to} className={({isActive}) => (isActive ? "active" : "")}>
               <Icon size={17} />
               <span>{label}</span>
             </NavLink>
           ))}
+          {session.hasRole("admin") ? <NavLink to="/accounts"><Settings size={17} /><span>Accounts</span></NavLink> : null}
         </nav>
       </aside>
       <div className="shell-main">
@@ -79,13 +75,14 @@ export function AppShell() {
               <ListChecks size={15} />
               Airflow 12958
             </a>
-            <span className="operator-pill">Demo operator</span>
+            <span className="operator-pill">{session.user?.username} / {session.user?.role}</span>
+            <button className="button ghost" type="button" onClick={() => void session.logout()}>Sign out</button>
           </div>
         </header>
         <main className="content-shell">
           {capabilities.error ? (
             <div className="inline-error" role="alert">
-              Deployment capabilities unavailable: {capabilities.error} Showing the NIPT/WGS compatibility view.
+              Deployment capabilities unavailable: {capabilities.error} Showing the WGS compatibility view.
             </div>
           ) : null}
           <Outlet />

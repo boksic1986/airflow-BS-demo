@@ -1064,3 +1064,6 @@ keeping deployed scope limited to PGT-A and NIPT Docker.
 - QC distinguishes pending, unavailable, decision metrics, and informational
   metrics. Workflow Catalog is live and contains only PGT-A Predict and NIPT
   Docker Full.
+## WGS-only shell
+
+The shipped shell contains Login, Runs, Submit WGS, Run Detail, and admin-only Accounts. CCE, SGE, and local are shown as configured but disabled. Active detail pages poll about every five seconds and expose Families, Rules, Pods, Transfers, QC, Logs, and Files.

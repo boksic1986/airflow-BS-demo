@@ -142,3 +142,6 @@ maintenance actions to the unauthenticated frontend.
 - 监控告警。
 - 多环境部署。
 - CI/CD。
+## WGS-only trust boundary
+
+Only nginx is host-published. The observer has read-only evidence access and no CCE, Docker, SSH, or OBS credential. Passwords are scrypt-hashed; HttpOnly sessions, CSRF, roles, and audit logs protect mutations. Private OBS transfer stays on node005 and CCE administration stays outside Compose.

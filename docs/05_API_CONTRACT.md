@@ -1,5 +1,9 @@
 # 05 API Contract
 
+## WGS-only production profile
+
+The production profile accepts only `pipeline=wgs` with `project_name`, `execution_mode=cce|sge|local`, and an approved `source_path` containing the manifest, `FASTQ.MD5SUMS`, and `READY`. Login/session/user administration and WGS families, rules, pods, transfers, artifacts, and logs are exposed through FastAPI. Mutations require CSRF and role authorization. Phase 1 returns HTTP 409 for submit.
+
 ## T127 shared NIPT and WGS platform capabilities
 
 `GET /api/platform/capabilities` is a read-only deployment contract endpoint.

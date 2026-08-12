@@ -1,0 +1,15 @@
+version: 1
+defaults:
+  ready_rule: stable_fingerprint
+  stable_scans: 2
+  auto_submit: false
+pipelines:
+  wgs:
+    enabled: true
+    intake:
+      mode: yaml_request
+      request_inbox: /data/airflow-demo/intake/wgs
+      request_glob: "*.wgs.yaml"
+      stable_scans: 2
+    auto_submit:
+      enabled: false

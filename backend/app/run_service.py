@@ -1514,6 +1514,8 @@ def _run_payload(run: AnalysisRun, *, sample_count: int) -> dict:
         "dag_id": run.dag_id,
         "dag_run_id": run.dag_run_id,
         "status": run.status,
+        "execution_mode": getattr(run, "execution_mode", "cce"),
+        "attempt": getattr(run, "attempt", 1),
         "workdir": run.workdir,
         "sample_count": sample_count,
         "params": run.params_json,

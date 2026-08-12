@@ -1,0 +1,215 @@
+name: ${COMPOSE_PROJECT_NAME:-airflow-wgs}
+
+x-airflow-common: &airflow-common
+  image: ${AIRFLOW_IMAGE:-airflow-demo/airflow:0.1.0}
+  build:
+    context: ./airflow_image
+  user: "${AIRFLOW_UID:-1000}:0"
+  environment: &airflow-env
+    TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-airflow}
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-airflow}
+    AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+    BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://backend:8000}
+    INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
+    DEPLOYED_PIPELINES: wgs
+    INTAKE_SCAN_PIPELINES: wgs
+    WGS_EXECUTION_ENABLED: "false"
+    PIPELINE_PROFILE_CONFIG_PATH: /opt/airflow/config/pipeline_profiles.wgs.yaml
+  volumes:
+    - ./dags/bio_wgs_cce.py:/opt/airflow/dags/bio_wgs_cce.py:ro
+    - ./dags/bio_wgs_onprem.py:/opt/airflow/dags/bio_wgs_onprem.py:ro
+    - ./dags/bio_wgs_intake_scan.py:/opt/airflow/dags/bio_wgs_intake_scan.py:ro
+    - ./dags/common:/opt/airflow/dags/common:ro
+    - ./config/pipeline_profiles.wgs.yaml:/opt/airflow/config/pipeline_profiles.wgs.yaml:ro
+    - ./shared:/data/airflow-demo
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-airflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-airflow}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  biodemo-db-init:
+    image: postgres:15-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-airflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-airflow}
+      BIODEMO_DB: ${BIODEMO_DB:-biodemo}
+      BIODEMO_USER: ${BIODEMO_USER:-biodemo}
+      BIODEMO_PASSWORD: ${BIODEMO_PASSWORD:?set BIODEMO_PASSWORD}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -eu
+        export PGPASSWORD="$${POSTGRES_PASSWORD}"
+        psql -h postgres -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -v ON_ERROR_STOP=1 \
+          -v biodemo_db="$${BIODEMO_DB}" -v biodemo_user="$${BIODEMO_USER}" -v biodemo_password="$${BIODEMO_PASSWORD}" <<'SQL'
+        SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'biodemo_user', :'biodemo_password')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'biodemo_user') \gexec
+        SELECT format('CREATE DATABASE %I OWNER %I', :'biodemo_db', :'biodemo_user')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'biodemo_db') \gexec
+        SQL
+
+  biodemo-migrate:
+    image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
+    restart: "no"
+    depends_on:
+      biodemo-db-init:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
+    command: ["alembic", "upgrade", "head"]
+    volumes:
+      - ./backend:/app:ro
+
+  platform-admin-init:
+    image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
+    restart: "no"
+    depends_on:
+      biodemo-migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
+    command: ["python", "-m", "app.auth_admin_cli", "--username", "${PLATFORM_ADMIN_USERNAME:-admin}", "--password", "${PLATFORM_ADMIN_PASSWORD:?set PLATFORM_ADMIN_PASSWORD}"]
+    volumes:
+      - ./backend:/app:ro
+
+  backend:
+    image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      platform-admin-init:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      AIRFLOW_BASE_URL: http://airflow-api-server:8080
+      AIRFLOW_API_USERNAME: ${AIRFLOW_API_USERNAME:-admin}
+      AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
+      CONTAINER_SHARED_ROOT: /data/airflow-demo
+      DEPLOYED_PIPELINES: wgs
+      AUTH_REQUIRED: "true"
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
+      WGS_EXECUTION_ENABLED: "false"
+      INTAKE_CONFIG_PATH: /app/config/intake.wgs.yaml
+      PIPELINE_PROFILE_CONFIG_PATH: /app/config/pipeline_profiles.wgs.yaml
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
+      HOST_RESULTS_ROOT: /data/wgs-results
+      WGS_CONFIG_ROOTS: /data/wgs-intake
+      WGS_VALIDATION_ROOTS: /data/wgs-intake
+      WGS_EVIDENCE_ROOT: /data/wgs-evidence
+    volumes:
+      - ./backend:/app:ro
+      - ./shared:/data/airflow-demo
+      - ${WGS_INTAKE_HOST_ROOT:?set WGS_INTAKE_HOST_ROOT}:/data/wgs-intake:ro
+      - ${WGS_RESULTS_HOST_ROOT:?set WGS_RESULTS_HOST_ROOT}:/data/wgs-results:rw
+      - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
+      - ./config/intake.wgs.yaml:/app/config/intake.wgs.yaml:ro
+      - ./config/pipeline_profiles.wgs.yaml:/app/config/pipeline_profiles.wgs.yaml:ro
+
+  wgs-observer:
+    image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
+    restart: unless-stopped
+    depends_on:
+      platform-admin-init:
+        condition: service_completed_successfully
+    command: ["python", "-m", "app.wgs_observer_cli", "--evidence-root", "/data/wgs-evidence", "--interval", "5"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
+      DEPLOYED_PIPELINES: wgs
+      WGS_EVIDENCE_ROOT: /data/wgs-evidence
+    volumes:
+      - ./backend:/app:ro
+      - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        set -euo pipefail
+        airflow db migrate
+        airflow pools set wgs_cce_runs 4 "Maximum concurrent project-level CCE WGS masters"
+        airflow pools set wgs_obs_transfer 1 "Serialized private OBS transfer gate"
+        airflow users create --username "$${AIRFLOW_ADMIN_USERNAME}" --firstname Airflow --lastname Admin --role Admin --email "$${AIRFLOW_ADMIN_EMAIL}" --password "$${AIRFLOW_ADMIN_PASSWORD}" || true
+    environment:
+      <<: *airflow-env
+      AIRFLOW_ADMIN_USERNAME: ${AIRFLOW_ADMIN_USERNAME:-admin}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:?set AIRFLOW_ADMIN_PASSWORD}
+      AIRFLOW_ADMIN_EMAIL: ${AIRFLOW_ADMIN_EMAIL:-airflow-demo@example.com}
+
+  airflow-api-server:
+    <<: *airflow-common
+    command: webserver
+    restart: unless-stopped
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: unless-stopped
+
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+    restart: unless-stopped
+
+  frontend-nginx:
+    image: ${FRONTEND_IMAGE:-airflow-demo/frontend:0.1.0}
+    build:
+      context: ./frontend
+      args:
+        NGINX_CONF: nginx.wgs.conf
+        VITE_DISPLAY_TIME_ZONE: Asia/Shanghai
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "${BS_HOST_IP:-172.17.106.10}:${FRONTEND_PORT:-12959}:80"
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./frontend/nginx.wgs.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  postgres-data:

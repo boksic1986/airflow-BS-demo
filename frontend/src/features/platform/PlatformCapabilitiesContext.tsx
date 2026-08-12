@@ -4,8 +4,8 @@ import {getPlatformCapabilities, type DeployedPipeline, type PlatformCapabilitie
 import {errorMessage} from "../../lib/errors";
 
 const fallbackCapabilities: PlatformCapabilities = {
-  environment: "BS compatibility",
-  deployed_pipelines: ["nipt_docker", "wgs"],
+  environment: "WGS compatibility",
+  deployed_pipelines: ["wgs"],
   airflow_url: null,
 };
 

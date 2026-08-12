@@ -316,3 +316,6 @@ node_modules/
   receive or display it.
 - Only machine-to-machine scanner and Snakemake event endpoints use this token;
   this is service authentication, not a user/account system.
+## WGS-only Phase 1 service profile
+
+The production profile adds `wgs-observer`, database migration/admin-init jobs, and a single nginx ingress. It mounts intake and evidence read-only, results writable, and does not mount Docker socket, kubeconfig, SSH keys, or OBS credentials. `WGS_EXECUTION_ENABLED=false` is mandatory until Phase 2.

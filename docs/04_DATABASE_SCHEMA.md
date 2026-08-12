@@ -230,3 +230,6 @@ Migration `20260711_0003` adds `analysis_run.submitted_at`,
 runs keep `submitted_at` null; historical values are backfilled from the first
 accepted submit RunAction. Intake discovery adds `source_manifest_path`,
 `last_error`, and `stable_observation_count` for READY-manifest audit.
+## 2026-08-12 WGS-only extension
+
+Migration `20260812_0006` adds WGS execution mode and attempt tracking plus account, session, audit, transfer, rule, Pod, and four master-slot tables in biodemo. Airflow metadata remains a separate database.

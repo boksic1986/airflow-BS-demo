@@ -1,5 +1,12 @@
 # TASKS.md
 
+## T129/T130 WGS-only production platform
+
+| ID | Task | Owner | Deliverables | Acceptance | Status |
+|---|---|---|---|---|---|
+| T129 | WGS-only control platform Phase 1 | backend/airflow/frontend/infra/docs | RBAC, biodemo schema, observer, WGS-only UI, paused safe DAGs, Compose and design docs | BS10610 fresh migration, health/login/RBAC, WGS-only UI/API, paused DAGs, submit denied | in_progress |
+| T130 | Final WGS 3.9.3 execution integration Phase 2 | airflow/snakemake/infra/QA | CCE/SGE/local runners, OBS `-vmd5`, group evidence, logger, recovery and result reconciliation | full failure/concurrency/transfer/three-mode acceptance | todo |
+
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
 
 ## P0 文档和环境探测

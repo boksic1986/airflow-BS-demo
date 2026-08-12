@@ -819,3 +819,6 @@ T088 后 `bio_pgta_airflow` 也使用 run-local `XDG_CACHE_HOME=<workdir>/tmp/xd
 - Scanner logs older than 30 days are removed only below
   `/opt/airflow/logs/dag_id=bio_intake_scan`; analysis logs/workdirs are excluded.
 - Airflow services use Docker json-file rotation of 50 MB with three files.
+## WGS-only Phase 1 DAGs
+
+`bio_wgs_intake_scan` is a paused ten-minute scanner. `bio_wgs_cce` is a paused project topology with four CCE slots, one serialized transfer pool, and reschedule sensors. `bio_wgs_onprem` accepts local or SGE. Runner tasks intentionally contain no production commands and fail closed; real 3.9.3 integration is Phase 2.

@@ -1,5 +1,16 @@
 # HANDOFF.md
 
+## 2026-08-12 - Codex - T129 WGS-only Phase 1 implementation checkpoint
+
+- Goal: implement and deploy the non-workflow portion of the WGS-only platform while the WGS 3.9.3 workflow remains non-final.
+- Completed locally: WGS-only request/RBAC APIs; scrypt/HttpOnly/CSRF sessions; audit and account administration; attempts/transfers/rule/Pod/master-slot biodemo models and migration; idempotent read-only observer; WGS-only frontend and five-second active polling; paused CCE/on-prem/intake DAG topology; production Compose contract; design and supporting specifications.
+- Safety: `WGS_EXECUTION_ENABLED=false`; backend submit returns 409 and no Airflow trigger; DAG runner tasks fail closed and contain no CCE, OBS, local, or SGE command. No WGS workflow, FASTQ, result, reference, kubeconfig, or OBS credential was changed.
+- Verification: remote backend new tests plus compatible lifecycle/intake coverage passed 36 before the stricter Phase 1 submission gate. After the gate, the focused new backend suite passes; four legacy tests expect authless or old WGS submission behavior and are intentionally superseded. WGS DAG/deployment contract scripts passed on BS10610. Focused WGS frontend tests passed 4/4 and `tsc -b && vite build` passed; the old mixed NIPT/PGT-A suite is intentionally incompatible with the WGS-only shell.
+- Changed areas: backend auth/models/migration/WGS services/observer, three WGS DAGs and configs, `docker-compose.wgs.yaml`, WGS nginx/frontend pages/tests, docs 04-08 and 11-13, and `docs/22_WGS_ONLY_LOCAL_CCE_PLATFORM_DESIGN.md`.
+- Pending: build/reuse deployable images, perform fresh BS10610 migration and live login/RBAC/submit-denial smoke, atomically switch `current`, then remove only exact obsolete Airflow platform state after validation.
+- Phase 2: pin final WGS 3.9.3, implement node005 OBS transfer, CCE/local/SGE runners, group evidence offsets, logger compatibility, four-run recovery/concurrency, and real acceptance.
+- Rollback before old-state removal: keep all DAGs paused, restore the previous `current` link, and recreate only application services. Never delete production inputs, pipeline sources, references, or results.
+
 ## 2026-07-15 - Codex - T127 final WGS dry-run and frontend closeout
 
 - Goal: keep WGS validation dry-run only, complete two to three NIPT full

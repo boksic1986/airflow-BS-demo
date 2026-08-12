@@ -107,6 +107,42 @@ export type RunDetail = {
   ended_at?: string | null;
 };
 
+export type UserRole = "viewer" | "operator" | "admin";
+
+export type SessionUser = {
+  username: string;
+  role: UserRole;
+  csrf_token?: string;
+  display_name?: string | null;
+};
+
+export type LoginRequest = {username: string; password: string};
+
+export type WgsFamily = {
+  family_id: string;
+  status?: string | null;
+  sample_count?: number | null;
+  message?: string | null;
+};
+
+export type WgsPod = {
+  name: string;
+  phase?: string | null;
+  status?: string | null;
+  node_name?: string | null;
+  message?: string | null;
+};
+
+export type WgsTransfer = {
+  transfer_id?: string | null;
+  source?: string | null;
+  destination?: string | null;
+  status?: string | null;
+  bytes_total?: number | null;
+  bytes_transferred?: number | null;
+  message?: string | null;
+};
+
 export type Sample = {
   sample_id: string;
   family_id?: string | null;
@@ -232,11 +268,8 @@ export type CreateNiptDockerRunRequest = PipelineConfigSelection & {
 export type CreateWgsRunRequest = {
   pipeline: "wgs";
   project_name: string;
-  wgs_precalling_config_path: string;
-  wgs_downstream_config_path?: string;
-  wgs_targets_path: string;
-  wgs_stage: "precalling" | "full";
-  wgs_dry_run: true;
+  source_path: string;
+  execution_mode?: "cce" | "sge" | "local";
   submitted_by?: string | null;
   note?: string | null;
 };
@@ -683,9 +716,15 @@ export function getApiBaseUrl(): string {
   return String(configured || fallback).replace(/\/+$/, "");
 }
 
+let csrfToken = "";
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const method = String(init?.method || "GET").toUpperCase();
-  const response = await fetch(`${getApiBaseUrl()}${path}`, init);
+  const headers = new Headers(init?.headers);
+  if (!{"GET": true, "HEAD": true, "OPTIONS": true}[method] && csrfToken && path !== "/auth/login") {
+    headers.set("X-CSRF-Token", csrfToken);
+  }
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {...init, headers, credentials: "same-origin"});
   const body = await response.text();
   const contentType = String(response.headers.get("content-type") || "").toLowerCase();
   const looksHtml = contentType.includes("text/html") || /^\s*<!doctype html|^\s*<html/i.test(body);
@@ -843,6 +882,34 @@ export function getPlatformCapabilities(): Promise<PlatformCapabilities> {
   return requestJson<PlatformCapabilities>("/platform/capabilities");
 }
 
+export function getSession(): Promise<SessionUser> {
+  return requestJson<SessionUser>("/auth/me").then((user) => {
+    csrfToken = user.csrf_token || "";
+    return user;
+  });
+}
+
+export function login(payload: LoginRequest): Promise<SessionUser> {
+  return requestJson<SessionUser>("/auth/login", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  }).then((user) => {
+    csrfToken = user.csrf_token || "";
+    return user;
+  });
+}
+
+export function logout(): Promise<void> {
+  return requestJson<void>("/auth/logout", {method: "POST"}).finally(() => {
+    csrfToken = "";
+  });
+}
+
+export function listUsers(): Promise<{items: SessionUser[]}> {
+  return requestJson<{items: SessionUser[]}>("/users");
+}
+
 export function getDbHealth(): Promise<HealthResponse> {
   return requestJson<HealthResponse>("/health/db");
 }
@@ -958,8 +1025,20 @@ export function getRunSamples(analysisId: string): Promise<{items: Sample[]}> {
   return requestJson<{items: Sample[]}>(`/runs/${encodeURIComponent(analysisId)}/samples`);
 }
 
+export function getRunFamilies(analysisId: string): Promise<{items: WgsFamily[]}> {
+  return requestJson<{items: WgsFamily[]}>(`/runs/${encodeURIComponent(analysisId)}/families`);
+}
+
 export function getRunRules(analysisId: string): Promise<{items: RuleEvent[]}> {
   return requestJson<{items: RuleEvent[]}>(`/runs/${encodeURIComponent(analysisId)}/rules`);
+}
+
+export function getRunPods(analysisId: string): Promise<{items: WgsPod[]}> {
+  return requestJson<{items: WgsPod[]}>(`/runs/${encodeURIComponent(analysisId)}/pods`);
+}
+
+export function getRunTransfers(analysisId: string): Promise<{items: WgsTransfer[]}> {
+  return requestJson<{items: WgsTransfer[]}>(`/runs/${encodeURIComponent(analysisId)}/transfers`);
 }
 
 export function getRunProgress(analysisId: string): Promise<RunProgressResponse> {
@@ -1006,4 +1085,16 @@ export function reanalyzeRun(analysisId: string, payload: ReanalysisRequest): Pr
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(payload),
   });
+}
+
+export function resumeRun(analysisId: string): Promise<RunDetail> {
+  return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}/actions/resume`, {method: "POST"});
+}
+
+export function rerunFailedRun(analysisId: string): Promise<RunDetail> {
+  return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}/actions/rerun_failed`, {method: "POST"});
+}
+
+export function cancelRun(analysisId: string): Promise<RunDetail> {
+  return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}/actions/cancel`, {method: "POST"});
 }

@@ -300,3 +300,6 @@ Environment:
 - [ ] accepted with issues
 - [ ] rejected
 ```
+## WGS-only Phase 1 gate
+
+Acceptance covers backend RBAC/observer tests, WGS DAG/Compose contracts, focused frontend tests/build, fresh migration, health/login, WGS-only capability, and submit denial. Real CCE/SGE/local, OBS, concurrency, Pod-failure, and result-MD5 tests remain Phase 2 and must not be reported as passed.

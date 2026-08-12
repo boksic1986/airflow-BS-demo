@@ -393,3 +393,6 @@ snakemake --forceall
 5. `reports/qc_summary.tsv` 能在 `sync-airflow` 后导入 `qc_metric`，前端 QC panel 能看到 pass summary 和样本级指标。
 6. 故意让一个 rule 失败，前端能看到 stderr。
 7. 修复后 resume，只执行失败/incomplete 目标。
+## WGS-only Phase 1 boundary
+
+No WGS Snakemake logger or executor is changed because the workflow is not final. Phase 2 must pin one logger contract across CCE, SGE, and local and preserve resume/rerun-failed without `--forceall`.

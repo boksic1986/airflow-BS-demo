@@ -1884,3 +1884,6 @@ This is a discovery-only acceptance: do not click Create/Submit, do not
 unpause `bio_intake_scan`, and do not move or delete FASTQ. Roll back by
 restoring the T127 backend/frontend images and release pointer without touching
 PostgreSQL, Redis, results, volumes, or `nipt_analysis_test_net`.
+## WGS-only Phase 1 release
+
+Use `docker-compose.wgs.yaml` with an untracked `.env.wgs` and keep `WGS_EXECUTION_ENABLED=false`. Publish only nginx; do not mount Docker socket, kubeconfig, SSH keys, or OBS credentials. Verify migration, login/RBAC, WGS-only capabilities, paused DAGs, and explicit submit denial before switching `current`.

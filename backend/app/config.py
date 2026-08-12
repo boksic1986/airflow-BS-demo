@@ -32,6 +32,10 @@ class Settings:
     deployed_pipelines: tuple[str, ...]
     platform_environment: str
     public_airflow_url: str
+    auth_required: bool
+    session_cookie_secure: bool
+    session_ttl_hours: int
+    wgs_evidence_root: str
 
 
 def get_cors_origins() -> list[str]:
@@ -51,8 +55,8 @@ def get_settings() -> Settings:
     nipt_scan_roots = _parse_list(os.getenv("NIPT_INPUT_SCAN_ROOTS") or "/opt/pipelines/NIPT/fastq")
     wgs_config_roots = _parse_list(os.getenv("WGS_CONFIG_ROOTS") or "/data/wgs-intake")
     wgs_validation_roots = _parse_list(os.getenv("WGS_VALIDATION_ROOTS") or "/data/wgs-validation")
-    deployed_pipelines = tuple(_parse_list(os.getenv("DEPLOYED_PIPELINES", "pgta,nipt_docker")))
-    unsupported = sorted(set(deployed_pipelines) - {"pgta", "nipt_docker", "wgs"})
+    deployed_pipelines = tuple(_parse_list(os.getenv("DEPLOYED_PIPELINES", "wgs")))
+    unsupported = sorted(set(deployed_pipelines) - {"wgs"})
     if unsupported:
         raise RuntimeError(f"Unsupported DEPLOYED_PIPELINES values: {', '.join(unsupported)}")
     if not deployed_pipelines:
@@ -81,6 +85,10 @@ def get_settings() -> Settings:
         deployed_pipelines=deployed_pipelines,
         platform_environment=os.getenv("PLATFORM_ENVIRONMENT", "Demo").strip() or "Demo",
         public_airflow_url=os.getenv("PUBLIC_AIRFLOW_URL", "").strip(),
+        auth_required=_parse_bool(os.getenv("AUTH_REQUIRED", "true")),
+        session_cookie_secure=_parse_bool(os.getenv("SESSION_COOKIE_SECURE", "true")),
+        session_ttl_hours=_parse_int(os.getenv("SESSION_TTL_HOURS", "8"), default=8),
+        wgs_evidence_root=os.getenv("WGS_EVIDENCE_ROOT", "/data/wgs-evidence"),
     )
 
 

@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-08-12 T129 WGS-only Phase 1
+
+```text
+t129_goal: deploy the WGS-only control platform on BS10610 while the WGS 3.9.3 workflow remains mutable.
+t129_scope: FastAPI/biodemo, RBAC sessions and audit, WGS-only React UI, read-only wgs-observer, paused Airflow CCE/on-prem/intake topologies, and fresh platform state.
+t129_execution_gate: WGS_EXECUTION_ENABLED=false; backend submit returns HTTP 409; DAG runner tasks contain no production commands and fail closed.
+t129_deferred: WGS Rules/logger changes, node005 OBS transfer, CCE submission, group_evidence integration, four-real-run concurrency, and CCE/SGE/local biological smoke are Phase 2.
+t129_safety: no WGS 3.9.3 workflow file, production FASTQ/result/reference directory, kubeconfig, or private OBS credential is modified or copied.
+t129_local_status: backend focused/broader tests pass; WGS DAG/deployment contracts pass; WGS frontend focused tests and production build pass; deployment acceptance remains pending.
+```
+
 > 本文件由 Codex/agent 持续维护。每次任务开始前先读，每次任务结束前更新。
 
 ## 1. 当前阶段
