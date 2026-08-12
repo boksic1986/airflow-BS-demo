@@ -1,2 +1,0 @@
-"""WGS batch preparation package."""
-
