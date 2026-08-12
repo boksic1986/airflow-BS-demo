@@ -144,6 +144,7 @@ services:
       WGS_CONFIG_ROOTS: /data/wgs-intake
       WGS_VALIDATION_ROOTS: /data/wgs-intake
       WGS_EVIDENCE_ROOT: /data/wgs-evidence
+      WGS_RELEASE_CATALOG_PATH: /config/wgs_releases.yaml
     volumes:
       - ./backend:/app:ro
       - ./shared:/data/airflow-demo
@@ -159,15 +160,20 @@ services:
     depends_on:
       platform-admin-init:
         condition: service_completed_successfully
-    command: ["python", "-m", "app.wgs_observer_cli", "--evidence-root", "/data/wgs-evidence", "--interval", "5"]
+    command: ["python", "-m", "app.wgs_observer_cli", "--evidence-root", "/data/wgs-evidence", "--binding-root", "/config/wgs-bindings", "--catalog", "/config/wgs_releases.yaml", "--interval", "5"]
     environment:
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
       DEPLOYED_PIPELINES: wgs
+      WGS_EXECUTION_ENABLED: "false"
       WGS_EVIDENCE_ROOT: /data/wgs-evidence
+      WGS_BINDING_ROOT: /config/wgs-bindings
+      WGS_RELEASE_CATALOG_PATH: /config/wgs_releases.yaml
     volumes:
       - ./backend:/app:ro
       - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
+      - ${WGS_BINDING_HOST_ROOT:?set WGS_BINDING_HOST_ROOT}:/config/wgs-bindings:ro
+      - ./config/wgs_releases.yaml:/config/wgs_releases.yaml:ro
     networks: [wgs-platform]
 
   airflow-init:
@@ -216,7 +222,6 @@ services:
     ports:
       - "${BS_HOST_IP:-172.17.106.10}:${FRONTEND_PORT:-12959}:80"
     volumes:
-      - ./frontend/dist:/usr/share/nginx/html:ro
       - ./frontend/nginx.wgs.conf:/etc/nginx/conf.d/default.conf:ro
     networks: [wgs-platform]
 

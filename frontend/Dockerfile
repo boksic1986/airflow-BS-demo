@@ -1,10 +1,10 @@
 ARG NGINX_IMAGE=nginx:1.30.3-alpine3.23
-FROM node:20-alpine AS deps
+FROM node:22-bookworm AS deps
 WORKDIR /app
 ARG VITE_DISPLAY_TIME_ZONE=Asia/Shanghai
 ENV VITE_DISPLAY_TIME_ZONE=$VITE_DISPLAY_TIME_ZONE
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 FROM deps AS test
 COPY . .

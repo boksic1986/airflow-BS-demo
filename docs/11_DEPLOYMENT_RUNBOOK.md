@@ -1889,3 +1889,20 @@ PostgreSQL, Redis, results, volumes, or `nipt_analysis_test_net`.
 Use `docker-compose.wgs.yaml` with an untracked `.env.wgs` and keep `WGS_EXECUTION_ENABLED=false`. Publish only nginx; do not mount Docker socket, kubeconfig, SSH keys, or OBS credentials. Verify migration, login/RBAC, WGS-only capabilities, paused DAGs, and explicit submit denial before switching `current`.
 
 On BS10610 the daemon default address pool is exhausted, so this profile reuses the approved existing `nipt_analysis_test_net` as an external application network without recreating or altering it. The deployed Airflow image requires `AIRFLOW_UID=50000`.
+
+Before every WGS Compose `up` or service recreate, run:
+
+```bash
+python3 scripts/check_wgs_docker_network.py
+docker network inspect nipt_analysis_test_net
+```
+
+The preflight must report exactly subnet `192.168.199.0/24`, gateway
+`192.168.199.1`, unique in-range attachments, and network name
+`nipt_analysis_test_net`. A mismatch is a hard stop; do not recreate, delete,
+or repair the shared network automatically. Only `frontend-nginx` may publish a
+port, bound exactly to `172.17.106.10:12959`. PostgreSQL, Redis, backend,
+observer, and Airflow remain internal-only. Record attachments before and after
+recreate; Docker-assigned service IPs may change within the fixed subnet, so
+service communication must use Compose DNS names rather than hard-coded
+container IPs.
