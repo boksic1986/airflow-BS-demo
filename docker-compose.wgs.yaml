@@ -150,8 +150,7 @@ services:
       - ${WGS_INTAKE_HOST_ROOT:?set WGS_INTAKE_HOST_ROOT}:/data/wgs-intake:ro
       - ${WGS_RESULTS_HOST_ROOT:?set WGS_RESULTS_HOST_ROOT}:/data/wgs-results:rw
       - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
-      - ./config/intake.wgs.yaml:/app/config/intake.wgs.yaml:ro
-      - ./config/pipeline_profiles.wgs.yaml:/app/config/pipeline_profiles.wgs.yaml:ro
+      - ./config:/app/config:ro
     networks: [wgs-platform]
 
   wgs-observer:
