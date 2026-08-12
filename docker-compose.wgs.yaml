@@ -32,6 +32,8 @@ x-airflow-common: &airflow-common
       condition: service_healthy
     redis:
       condition: service_healthy
+  networks:
+    - wgs-platform
 
 services:
   postgres:
@@ -48,6 +50,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks: [wgs-platform]
 
   redis:
     image: redis:7-alpine
@@ -57,6 +60,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks: [wgs-platform]
 
   biodemo-db-init:
     image: postgres:15-alpine
@@ -84,6 +88,7 @@ services:
         SELECT format('CREATE DATABASE %I OWNER %I', :'biodemo_db', :'biodemo_user')
         WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'biodemo_db') \gexec
         SQL
+    networks: [wgs-platform]
 
   biodemo-migrate:
     image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
@@ -97,6 +102,7 @@ services:
     command: ["alembic", "upgrade", "head"]
     volumes:
       - ./backend:/app:ro
+    networks: [wgs-platform]
 
   platform-admin-init:
     image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
@@ -110,6 +116,7 @@ services:
     command: ["python", "-m", "app.auth_admin_cli", "--username", "${PLATFORM_ADMIN_USERNAME:-admin}", "--password", "${PLATFORM_ADMIN_PASSWORD:?set PLATFORM_ADMIN_PASSWORD}"]
     volumes:
       - ./backend:/app:ro
+    networks: [wgs-platform]
 
   backend:
     image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
@@ -145,6 +152,7 @@ services:
       - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
       - ./config/intake.wgs.yaml:/app/config/intake.wgs.yaml:ro
       - ./config/pipeline_profiles.wgs.yaml:/app/config/pipeline_profiles.wgs.yaml:ro
+    networks: [wgs-platform]
 
   wgs-observer:
     image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
@@ -161,6 +169,7 @@ services:
     volumes:
       - ./backend:/app:ro
       - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
+    networks: [wgs-platform]
 
   airflow-init:
     <<: *airflow-common
@@ -210,6 +219,12 @@ services:
     volumes:
       - ./frontend/dist:/usr/share/nginx/html:ro
       - ./frontend/nginx.wgs.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [wgs-platform]
 
 volumes:
   postgres-data:
+
+networks:
+  wgs-platform:
+    external: true
+    name: nipt_analysis_test_net
