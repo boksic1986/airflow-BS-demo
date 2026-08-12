@@ -362,7 +362,67 @@ class KubernetesWorkload(Base):
     image_id: Mapped[str | None] = mapped_column(Text)
     resources_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     evidence_path: Mapped[str | None] = mapped_column(Text)
+    resource_version: Mapped[str | None] = mapped_column(String(128))
+    observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    node_name: Mapped[str | None] = mapped_column(String(256))
+    message: Mapped[str | None] = mapped_column(Text)
+    job_status_json: Mapped[dict | None] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class EvidenceCursor(Base):
+    __tablename__ = "evidence_cursor"
+    __table_args__ = (
+        UniqueConstraint(
+            "analysis_id",
+            "attempt",
+            "relative_path",
+            name="uq_evidence_cursor_file",
+        ),
+        Index("ix_evidence_cursor_analysis", "analysis_id"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    analysis_id: Mapped[str] = mapped_column(
+        ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False
+    )
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    relative_path: Mapped[str] = mapped_column(Text, nullable=False)
+    file_identity: Mapped[str | None] = mapped_column(String(256))
+    byte_offset: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    line_number: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    observed_size: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    observed_mtime_ns: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
+class ObserverRunState(Base):
+    __tablename__ = "observer_run_state"
+    __table_args__ = (
+        UniqueConstraint(
+            "analysis_id", "attempt", name="uq_observer_run_state_attempt"
+        ),
+        Index("ix_observer_run_state_analysis", "analysis_id"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    analysis_id: Mapped[str] = mapped_column(
+        ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False
+    )
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    pipeline_snapshot_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    run_label: Mapped[str] = mapped_column(String(128), nullable=False)
+    relative_evidence_path: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(64), nullable=False, default="pending")
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
 
 
 class MasterSlot(Base):

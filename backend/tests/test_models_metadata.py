@@ -4,7 +4,10 @@ from app.models import (
     AnalysisRun,
     Artifact,
     Base,
+    EvidenceCursor,
     IntakeDiscovery,
+    KubernetesWorkload,
+    ObserverRunState,
     Pipeline,
     QcMetric,
     RunAction,
@@ -67,3 +70,31 @@ def test_model_classes_map_to_expected_tables() -> None:
     assert Artifact.__tablename__ == "artifact"
     assert RunAction.__tablename__ == "run_action"
     assert IntakeDiscovery.__tablename__ == "intake_discovery"
+
+
+def test_wgs_observer_cursor_tables_and_identity_constraints_are_declared() -> None:
+    assert {"evidence_cursor", "observer_run_state"}.issubset(Base.metadata.tables.keys())
+
+    cursor_unique_sets = {
+        tuple(column.name for column in constraint.columns)
+        for constraint in EvidenceCursor.__table__.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+    observer_unique_sets = {
+        tuple(column.name for column in constraint.columns)
+        for constraint in ObserverRunState.__table__.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+
+    assert ("analysis_id", "attempt", "relative_path") in cursor_unique_sets
+    assert ("analysis_id", "attempt") in observer_unique_sets
+
+
+def test_kubernetes_workload_has_incremental_observation_fields() -> None:
+    columns = KubernetesWorkload.__table__.columns
+
+    assert "resource_version" in columns
+    assert "observed_at" in columns
+    assert "node_name" in columns
+    assert "message" in columns
+    assert "job_status_json" in columns

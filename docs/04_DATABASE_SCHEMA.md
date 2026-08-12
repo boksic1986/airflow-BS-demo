@@ -233,3 +233,11 @@ accepted submit RunAction. Intake discovery adds `source_manifest_path`,
 ## 2026-08-12 WGS-only extension
 
 Migration `20260812_0006` adds WGS execution mode and attempt tracking plus account, session, audit, transfer, rule, Pod, and four master-slot tables in biodemo. Airflow metadata remains a separate database.
+
+Migration `20260812_0007` adds observer-owned durable state to `biodemo`:
+
+- `evidence_cursor` stores one byte/line cursor per `analysis_id + attempt + relative_path`; observer restarts resume only after the last committed complete JSONL record.
+- `observer_run_state` binds one analysis attempt to its immutable pipeline snapshot, run label, and relative evidence directory.
+- `kubernetes_workload` additionally stores Kubernetes `resource_version`, observation time, node, message, and raw Job status summary.
+
+Evidence paths are always relative to the configured read-only evidence root. Neither table stores kubeconfig, OBS credentials, or unrestricted host paths.
