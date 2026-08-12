@@ -1,0 +1,12 @@
+schema_version: "1"
+default_snapshot_id: wgs-v4.0.1-dev-136da1a-b10cd8af
+snapshots:
+  - snapshot_id: wgs-v4.0.1-dev-136da1a-b10cd8af
+    pipeline: wgs
+    version: V4.0.1
+    server_path: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs
+    source_commit: 136da1ad9e45ac1abcbeb3efa40bb2e2269b6ab9
+    snapshot_manifest_sha256: b10cd8af1db19c313e15167c295d007d9eca246d03b2721592c4c0532a05696c
+    rule_event_schema_version: "1"
+    status: development
+    execution_enabled: false

@@ -34,6 +34,24 @@ def make_client(tmp_path, monkeypatch):
     (tmp_path / "READY").write_text("", encoding="utf-8")
     (tmp_path / "sampleinfo.tsv").write_text("sample_id\tfamily_id\nS1\tF1\n", encoding="utf-8")
     (tmp_path / "FASTQ.MD5SUMS").write_text("d41d8cd98f00b204e9800998ecf8427e  S1.R1.fastq.gz\n", encoding="utf-8")
+    catalog = tmp_path / "wgs_releases.yaml"
+    catalog.write_text(
+        """\
+schema_version: "1"
+default_snapshot_id: wgs-v4.0.1-dev-136da1a-b10cd8af
+snapshots:
+  - snapshot_id: wgs-v4.0.1-dev-136da1a-b10cd8af
+    pipeline: wgs
+    version: V4.0.1
+    server_path: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs
+    source_commit: 136da1ad9e45ac1abcbeb3efa40bb2e2269b6ab9
+    snapshot_manifest_sha256: b10cd8af1db19c313e15167c295d007d9eca246d03b2721592c4c0532a05696c
+    rule_event_schema_version: "1"
+    status: development
+    execution_enabled: false
+""",
+        encoding="utf-8",
+    )
     sessions = make_sessionmaker()
     settings = SimpleNamespace(
         deployed_pipelines=("wgs",),
@@ -47,6 +65,7 @@ def make_client(tmp_path, monkeypatch):
         internal_service_token="internal-test-token",
         platform_environment="test",
         public_airflow_url="",
+        wgs_release_catalog_path=str(catalog),
     )
     airflow = FakeAirflowClient()
     monkeypatch.setattr(main, "get_sessionmaker", lambda: sessions)
@@ -97,6 +116,8 @@ def test_viewer_is_read_only_and_operator_can_create_wgs(tmp_path, monkeypatch):
     assert created.status_code == 201, created.text
     assert created.json()["pipeline"] == "wgs"
     assert created.json()["execution_mode"] == "cce"
+    assert created.json()["params"]["pipeline_snapshot_id"] == "wgs-v4.0.1-dev-136da1a-b10cd8af"
+    assert created.json()["params"]["rule_event_schema_version"] == "1"
     with sessions() as session:
         assert session.scalar(select(AuditLog).where(AuditLog.action == "run.create")) is not None
 

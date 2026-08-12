@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.input_scanner import ensure_allowed_path
 from app.models import AnalysisRun, MasterSlot, RunAction, RunAttempt, Sample, WgsIntakeBatch
+from app.wgs_release_catalog import load_snapshot_catalog
 
 
 EXECUTION_MODES = {"cce", "sge", "local"}
@@ -33,6 +34,9 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
     if not samples:
         raise ValueError("WGS sample manifest contains no samples.")
     manifest_sha256 = hashlib.sha256(sample_manifest.read_bytes() + b"\0" + md5_manifest.read_bytes()).hexdigest()
+    snapshot = load_snapshot_catalog(
+        Path(settings.wgs_release_catalog_path)
+    ).default_development()
     canonical_source = str(source.resolve())
     intake = session.scalar(select(WgsIntakeBatch).where(WgsIntakeBatch.source_path == canonical_source))
     if intake is not None:
@@ -61,6 +65,10 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
             "source_manifest_path": str(sample_manifest),
             "fastq_md5_manifest": str(md5_manifest),
             "manifest_sha256": manifest_sha256,
+            "pipeline_snapshot_id": snapshot.snapshot_id,
+            "source_commit": snapshot.source_commit,
+            "snapshot_manifest_sha256": snapshot.snapshot_manifest_sha256,
+            "rule_event_schema_version": snapshot.rule_event_schema_version,
         },
         submitted_by=submitted_by,
     )

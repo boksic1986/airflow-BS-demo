@@ -36,6 +36,7 @@ class Settings:
     session_cookie_secure: bool
     session_ttl_hours: int
     wgs_evidence_root: str
+    wgs_release_catalog_path: str
 
 
 def get_cors_origins() -> list[str]:
@@ -89,6 +90,9 @@ def get_settings() -> Settings:
         session_cookie_secure=_parse_bool(os.getenv("SESSION_COOKIE_SECURE", "true")),
         session_ttl_hours=_parse_int(os.getenv("SESSION_TTL_HOURS", "8"), default=8),
         wgs_evidence_root=os.getenv("WGS_EVIDENCE_ROOT", "/data/wgs-evidence"),
+        wgs_release_catalog_path=os.getenv(
+            "WGS_RELEASE_CATALOG_PATH", "/config/wgs_releases.yaml"
+        ),
     )
 
 
