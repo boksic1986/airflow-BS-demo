@@ -6,17 +6,17 @@ ENV VITE_DISPLAY_TIME_ZONE=$VITE_DISPLAY_TIME_ZONE
 COPY package*.json ./
 RUN npm ci
 
-FROM deps AS test
-COPY . .
-RUN npm test -- --run
-
 FROM deps AS build
 COPY . .
 RUN npm run build
 
-FROM ${NGINX_IMAGE}
+FROM ${NGINX_IMAGE} AS production
 ARG NGINX_CONF=nginx.bs-nipt.conf
 COPY ${NGINX_CONF} /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 EXPOSE 8080
+
+FROM deps AS test
+COPY . .
+RUN npm test -- --run

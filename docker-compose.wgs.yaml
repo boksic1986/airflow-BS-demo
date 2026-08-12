@@ -212,6 +212,7 @@ services:
     image: ${FRONTEND_IMAGE:-airflow-demo/frontend:0.1.0}
     build:
       context: ./frontend
+      target: production
       args:
         NGINX_CONF: nginx.wgs.conf
         VITE_DISPLAY_TIME_ZONE: Asia/Shanghai
