@@ -8,7 +8,9 @@ t129_scope: FastAPI/biodemo, RBAC sessions and audit, WGS-only React UI, read-on
 t129_execution_gate: WGS_EXECUTION_ENABLED=false; backend submit returns HTTP 409; DAG runner tasks contain no production commands and fail closed.
 t129_deferred: WGS Rules/logger changes, node005 OBS transfer, CCE submission, group_evidence integration, four-real-run concurrency, and CCE/SGE/local biological smoke are Phase 2.
 t129_safety: no WGS 3.9.3 workflow file, production FASTQ/result/reference directory, kubeconfig, or private OBS credential is modified or copied.
-t129_local_status: backend focused/broader tests pass; WGS DAG/deployment contracts pass; WGS frontend focused tests and production build pass; deployment acceptance remains pending.
+t129_deployment: BS10610 current -> releases/fc5c39c; fresh migration 20260812_0006, eight services healthy/running, three WGS DAGs paused, pools 4/1, auth/RBAC smoke passed, synthetic request created, submit returned 409.
+t129_cleanup: old airflow-NIPT root, its Postgres/Redis volumes, and all old airflow-WGS releases were permanently removed after acceptance; fc5c39c is the only release. Production WGS 3.9.3, CCE evidence, FASTQ, references, and results were preserved.
+t129_status: Phase 1 deployed and accepted. T130 workflow integration remains todo.
 ```
 
 > 本文件由 Codex/agent 持续维护。每次任务开始前先读，每次任务结束前更新。

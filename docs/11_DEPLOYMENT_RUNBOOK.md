@@ -1887,3 +1887,5 @@ PostgreSQL, Redis, results, volumes, or `nipt_analysis_test_net`.
 ## WGS-only Phase 1 release
 
 Use `docker-compose.wgs.yaml` with an untracked `.env.wgs` and keep `WGS_EXECUTION_ENABLED=false`. Publish only nginx; do not mount Docker socket, kubeconfig, SSH keys, or OBS credentials. Verify migration, login/RBAC, WGS-only capabilities, paused DAGs, and explicit submit denial before switching `current`.
+
+On BS10610 the daemon default address pool is exhausted, so this profile reuses the approved existing `nipt_analysis_test_net` as an external application network without recreating or altering it. The deployed Airflow image requires `AIRFLOW_UID=50000`.
