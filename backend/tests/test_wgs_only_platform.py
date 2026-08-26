@@ -1,4 +1,6 @@
 from contextlib import contextmanager
+import json
+from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
@@ -13,7 +15,7 @@ from app.models import (
     AuditLog,
     Base,
     KubernetesWorkload,
-    MasterSlot,
+    ObsTransferLease,
     ObserverRunState,
     RuleState,
     UserAccount,
@@ -40,24 +42,33 @@ class FakeAirflowClient:
 
 
 def make_client(tmp_path, monkeypatch):
-    (tmp_path / "READY").write_text("", encoding="utf-8")
-    (tmp_path / "sampleinfo.tsv").write_text("sample_id\tfamily_id\nS1\tF1\n", encoding="utf-8")
-    (tmp_path / "FASTQ.MD5SUMS").write_text("d41d8cd98f00b204e9800998ecf8427e  S1.R1.fastq.gz\n", encoding="utf-8")
+    fastq_source = tmp_path / "fastq-source"
+    fastq_source.mkdir()
+    for read in ("R1", "R2"):
+        target = fastq_source / f"S1_{read}.fastq.gz"
+        target.write_bytes(read.encode())
+        (tmp_path / target.name).symlink_to(target)
     catalog = tmp_path / "wgs_releases.yaml"
     catalog.write_text(
         """\
-schema_version: "1"
-default_snapshot_id: wgs-v4.0.1-dev-136da1a-b10cd8af
-snapshots:
-  - snapshot_id: wgs-v4.0.1-dev-136da1a-b10cd8af
-    pipeline: wgs
-    version: V4.0.1
-    server_path: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs
-    source_commit: 136da1ad9e45ac1abcbeb3efa40bb2e2269b6ab9
-    snapshot_manifest_sha256: b10cd8af1db19c313e15167c295d007d9eca246d03b2721592c4c0532a05696c
-    rule_event_schema_version: "1"
-    status: development
-    execution_enabled: false
+ schema_version: "2"
+ default_snapshot_id: wgs-v4.1.1-candidate-3489b39-64d50022
+ snapshots:
+   - snapshot_id: wgs-v4.1.1-candidate-3489b39-64d50022
+     pipeline: wgs
+     version: V4.1.1
+     server_path: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs-v4.1.1-candidate-3489b39-64d50022
+     source_commit: 3489b3958869e5cfab983aca1eb9c7f158c06dff
+     snapshot_manifest_sha256: 9b1bfe00ebf7e8ed693f1e9eb17ec05174aa43b04900802d67e54f50dc27f52e
+     rule_event_schema_version: "1"
+     cce_pipeline_version: 0.5.0
+     cce_pipeline_source_commit: 70a9a737c62865f232ed0b49f682aa7c9a69e467
+     cce_pipeline_wheel_sha256: 43a4ab478e8b8810b1691bb755e54336b0bc8fd86a16d4fed9be3783036e1756
+     cce_profile_id: wgs-4.1.1-r1
+     cce_profile_sha256: 19a7cc76cfc086c032c5e2329310d4ff90cd67e5cb52632bfb98f1b4fea59276
+     master_image_digest: sha256:815d70a6105b08b8fc6031a425cfed5ced8773e4d66c18ad98502b9a61ffeecc
+     status: development
+     execution_enabled: false
 """,
         encoding="utf-8",
     )
@@ -67,6 +78,7 @@ snapshots:
         container_shared_root=str(tmp_path / "shared"),
         host_results_root=str(tmp_path / "results"),
         wgs_config_roots=[str(tmp_path)],
+        wgs_fastq_roots=[str(fastq_source)],
         wgs_validation_roots=[str(tmp_path)],
         session_cookie_secure=False,
         session_ttl_hours=8,
@@ -75,6 +87,14 @@ snapshots:
         platform_environment="test",
         public_airflow_url="",
         wgs_release_catalog_path=str(catalog),
+        wgs_runtime_request_root=str(tmp_path / "runtime" / "runner-requests"),
+        wgs_runtime_bs_root=str(tmp_path / "runtime"),
+        wgs_runtime_node200_root=str(tmp_path / "node200-runtime"),
+        wgs_results_host_root=str(tmp_path / "results"),
+        wgs_binding_root=str(tmp_path / "bindings"),
+        wgs_intake_container_root=str(tmp_path),
+        wgs_intake_host_root=str(tmp_path),
+        wgs_intake_node200_root=str(tmp_path),
     )
     airflow = FakeAirflowClient()
     monkeypatch.setattr(main, "get_sessionmaker", lambda: sessions)
@@ -84,8 +104,7 @@ snapshots:
         session.add(UserAccount(username="viewer", password_hash=hash_password("viewer-pass"), role="viewer"))
         session.add(UserAccount(username="operator", password_hash=hash_password("operator-pass"), role="operator"))
         session.add(UserAccount(username="admin", password_hash=hash_password("admin-pass"), role="admin"))
-        for number in range(1, 5):
-            session.add(MasterSlot(slot_name=f"wgs-master-pool-{number:02d}"))
+        session.add(ObsTransferLease(slot_name="wgs-obs-transfer-01"))
         session.commit()
     return TestClient(main.app), sessions, airflow
 
@@ -111,7 +130,7 @@ def test_viewer_is_read_only_and_operator_can_create_wgs(tmp_path, monkeypatch):
     denied = client.post(
         "/api/runs",
         headers=viewer_headers,
-        json={"pipeline": "wgs", "project_name": "family-1", "execution_mode": "cce", "source_path": str(tmp_path)},
+        json={"pipeline": "wgs", "project_name": "family-1", "execution_mode": "cce", "batch_no": "BATCH-001", "fq_path": str(tmp_path)},
     )
     assert denied.status_code == 403
 
@@ -120,21 +139,21 @@ def test_viewer_is_read_only_and_operator_can_create_wgs(tmp_path, monkeypatch):
     created = client.post(
         "/api/runs",
         headers=operator_headers,
-        json={"pipeline": "wgs", "project_name": "family-1", "execution_mode": "cce", "source_path": str(tmp_path)},
+        json={"pipeline": "wgs", "project_name": "family-1", "execution_mode": "cce", "batch_no": "BATCH-001", "fq_path": str(tmp_path)},
     )
     assert created.status_code == 201, created.text
     assert created.json()["pipeline"] == "wgs"
     assert created.json()["execution_mode"] == "cce"
-    assert created.json()["params"]["pipeline_snapshot_id"] == "wgs-v4.0.1-dev-136da1a-b10cd8af"
+    assert created.json()["params"]["pipeline_snapshot_id"] == "wgs-v4.1.1-candidate-3489b39-64d50022"
     assert created.json()["params"]["rule_event_schema_version"] == "1"
     with sessions() as session:
         assert session.scalar(select(AuditLog).where(AuditLog.action == "run.create")) is not None
 
 
-def test_controlled_batch_is_idempotent_and_ready_change_is_blocked(tmp_path, monkeypatch):
+def test_controlled_batch_is_idempotent_and_source_change_needs_review(tmp_path, monkeypatch):
     client, sessions, _ = make_client(tmp_path, monkeypatch)
     headers = login(client, "operator", "operator-pass")
-    body = {"pipeline": "wgs", "project_name": "family-1", "execution_mode": "cce", "source_path": str(tmp_path)}
+    body = {"pipeline": "wgs", "project_name": "family-1", "execution_mode": "cce", "batch_no": "BATCH-001", "fq_path": str(tmp_path)}
 
     first = client.post("/api/runs", headers=headers, json=body)
     second = client.post("/api/runs", headers=headers, json=body)
@@ -143,33 +162,114 @@ def test_controlled_batch_is_idempotent_and_ready_change_is_blocked(tmp_path, mo
     with sessions() as session:
         assert len(session.scalars(select(AnalysisRun)).all()) == 1
 
-    (tmp_path / "sampleinfo.tsv").write_text("sample_id\tfamily_id\nS1\tF1\nS2\tF1\n", encoding="utf-8")
-    changed = client.post("/api/runs", headers=headers, json=body)
-    assert changed.status_code == 400
-    assert "changed after READY" in changed.text
+    (tmp_path / "fastq-source" / "S1_R1.fastq.gz").write_bytes(b"changed")
+    changed = client.post(f"/api/runs/{first.json()['analysis_id']}/actions/revalidate", headers=headers)
+    assert changed.status_code == 200
+    assert changed.json()["status"] == "needs_review"
+    issues = client.get(f"/api/runs/{first.json()['analysis_id']}/validation-issues", headers=headers)
+    assert issues.json()["items"][0]["code"] == "WGS_INPUT_INVALID"
 
 
-def test_only_wgs_and_three_execution_modes_are_accepted_but_execution_is_disabled(tmp_path, monkeypatch):
+def test_only_wgs_cce_is_accepted_but_execution_is_disabled(tmp_path, monkeypatch):
     client, _, airflow = make_client(tmp_path, monkeypatch)
     headers = login(client, "operator", "operator-pass")
 
     rejected = client.post(
         "/api/runs",
         headers=headers,
-        json={"pipeline": "nipt_docker", "project_name": "old", "execution_mode": "local", "source_path": str(tmp_path)},
+        json={"pipeline": "nipt_docker", "project_name": "old", "execution_mode": "local", "batch_no": "OLD", "fq_path": str(tmp_path)},
     )
     assert rejected.status_code == 422
 
-    for mode in ("cce", "sge", "local"):
-        created = client.post(
-            "/api/runs",
-            headers=headers,
-            json={"pipeline": "wgs", "project_name": f"wgs-{mode}", "execution_mode": mode, "source_path": str(tmp_path)},
-        )
-        analysis_id = created.json()["analysis_id"]
-        submitted = client.post(f"/api/runs/{analysis_id}/actions/submit", headers=headers)
-        assert submitted.status_code == 409, submitted.text
+    created = client.post(
+        "/api/runs", headers=headers,
+        json={"pipeline": "wgs", "project_name": "wgs-cce", "execution_mode": "cce", "batch_no": "BATCH-C", "fq_path": str(tmp_path)},
+    )
+    analysis_id = created.json()["analysis_id"]
+    submitted = client.post(f"/api/runs/{analysis_id}/actions/submit", headers=headers)
+    assert submitted.status_code == 409, submitted.text
+    for mode in ("sge", "local"):
+        assert client.post("/api/runs", headers=headers, json={"pipeline": "wgs", "project_name": mode, "execution_mode": mode, "batch_no": mode, "fq_path": str(tmp_path)}).status_code == 422
     assert airflow.calls == []
+
+
+def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
+    tmp_path, monkeypatch
+):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "clinical-wgs",
+            "execution_mode": "cce",
+            "batch_no": "BATCH-001",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+    body = {
+        "attempt": 1,
+        "adapter": "wgs-runtime-200",
+        "command": f"wgs-runtime {analysis_id} 1 prepare",
+    }
+
+    prepared = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/prepare",
+        headers=internal,
+        json=body,
+    )
+    assert prepared.status_code == 200, prepared.text
+    request_path = Path(prepared.json()["request_path"])
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    assert request["schema_version"] == "wgs-runtime.request.v2"
+    assert request["project_name"] == "clinical-wgs"
+    assert request["pipeline_snapshot_id"].startswith("wgs-v4.1.1-candidate-")
+
+    acquire = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/acquire_input_transfer_slot",
+        headers=internal,
+        json={**body, "command": "control"},
+    )
+    assert acquire.status_code == 200
+    released = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/release_input_transfer_slot",
+        headers=internal,
+        json={**body, "command": "control"},
+    )
+    assert released.status_code == 200
+    with sessions() as session:
+        lease = session.scalar(select(ObsTransferLease))
+        assert lease.analysis_id is None
+
+    status_path = request_path.with_name("step3_monitor.status.json")
+    status_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step3_monitor",
+                "status": "running",
+                "message": "running",
+                "master": {"master_state": "RUNNING", "percent": 12.5},
+            }
+        ),
+        encoding="utf-8",
+    )
+    status_response = client.get(
+        f"/api/internal/wgs/runs/{analysis_id}/stage-status",
+        params={"attempt": 1, "stage": "step3_monitor"},
+        headers=internal,
+    )
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "running"
+    assert status_response.json()["master"]["percent"] == 12.5
 
 
 def test_admin_manages_users_but_operator_cannot(tmp_path, monkeypatch):
@@ -200,14 +300,15 @@ def test_wgs_detail_rules_and_pods_are_database_only_authenticated_reads(tmp_pat
             workdir=str(tmp_path),
             status="running",
             params_json={
-                "pipeline_snapshot_id": "wgs-v4.0.1-dev-136da1a-b10cd8af",
+                "pipeline_snapshot_id": "wgs-v4.1.1-candidate-3489b39-64d50022",
                 "rule_event_schema_version": "1",
             },
         )
         session.add(run)
         session.add(ObserverRunState(analysis_id=run.analysis_id, attempt=1, pipeline_snapshot_id=run.params_json["pipeline_snapshot_id"], run_label="wgs392-0123456789abcdef", relative_evidence_path="WGS_MONITOR_1/attempt-1", status="healthy"))
         session.add(RuleState(analysis_id=run.analysis_id, attempt=1, rule_instance_id="0123456789abcdef", rule_name="mapping", status="running"))
-        session.add(KubernetesWorkload(analysis_id=run.analysis_id, attempt=1, event_id="pod:10", pod_hash="abc", job_name="mapping-7", phase="Failed", reason="OOMKilled", exit_code=137, node_name="node-1", message="worker failed", resources_json={"memory": "1Gi"}))
+        session.add(KubernetesWorkload(analysis_id=run.analysis_id, attempt=1, event_id="pod:10", pod_hash="abc", job_name="wgs-master-0123456789abcdef0123", phase="Failed", reason="OOMKilled", exit_code=137, node_name="node-1", message="master failed", resources_json={"memory": "1Gi"}))
+        session.add(KubernetesWorkload(analysis_id=run.analysis_id, attempt=1, event_id="pod:11", pod_hash="worker", job_name="mapping-7", phase="Failed", reason="OOMKilled", exit_code=137, node_name="node-2", message="worker hidden", resources_json={"memory": "2Gi"}))
         session.commit()
 
     detail = client.get("/api/runs/WGS_MONITOR_1", headers=headers)
@@ -215,20 +316,21 @@ def test_wgs_detail_rules_and_pods_are_database_only_authenticated_reads(tmp_pat
     pods = client.get("/api/runs/WGS_MONITOR_1/pods", headers=headers)
 
     assert detail.status_code == 200
-    assert detail.json()["pipeline_snapshot_id"] == "wgs-v4.0.1-dev-136da1a-b10cd8af"
+    assert detail.json()["pipeline_snapshot_id"] == "wgs-v4.1.1-candidate-3489b39-64d50022"
     assert detail.json()["rule_event_schema_version"] == "1"
     assert detail.json()["observer"]["status"] == "healthy"
     assert rules.json()["items"][0]["rule"] == "mapping"
+    assert len(pods.json()["items"]) == 1
     assert pods.json()["items"][0] == {
         "attempt": 1,
         "pod_hash": "abc",
-        "job_name": "mapping-7",
+        "job_name": "wgs-master-0123456789abcdef0123",
         "phase": "Failed",
         "reason": "OOMKilled",
         "exit_code": 137,
         "image_id": None,
         "node_name": "node-1",
-        "message": "worker failed",
+        "message": "master failed",
         "resources": {"memory": "1Gi"},
         "observed_at": None,
         "updated_at": pods.json()["items"][0]["updated_at"],

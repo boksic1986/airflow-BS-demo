@@ -153,8 +153,19 @@ export type WgsTransfer = {
   source?: string | null;
   destination?: string | null;
   status?: string | null;
+  progress_detail_available?: boolean;
   bytes_total?: number | null;
   bytes_transferred?: number | null;
+  progress_percent?: number | null;
+  speed_bps?: number | null;
+  eta_seconds?: number | null;
+  estimated_finish_at?: string | null;
+  files_total?: number | null;
+  files_completed?: number | null;
+  current_file?: string | null;
+  checkpoint_ref?: string | null;
+  heartbeat_at?: string | null;
+  verification_status?: string | null;
   message?: string | null;
 };
 
@@ -283,8 +294,9 @@ export type CreateNiptDockerRunRequest = PipelineConfigSelection & {
 export type CreateWgsRunRequest = {
   pipeline: "wgs";
   project_name: string;
-  source_path: string;
-  execution_mode?: "cce" | "sge" | "local";
+  batch_no: string;
+  fq_path: string;
+  execution_mode?: "cce";
   submitted_by?: string | null;
   note?: string | null;
 };
@@ -321,6 +333,18 @@ export type RuleEvent = {
   message?: string | null;
   return_code?: number | null;
   wildcards?: Record<string, unknown> | null;
+  layer?: number | null;
+  elapsed_seconds?: number | null;
+  historical_median_seconds?: number | null;
+  estimated_remaining_seconds?: number | null;
+  eta_history_count?: number;
+  eta_model?: string | null;
+};
+
+export type WgsValidationIssue = {
+  id: number; code: string; severity: string; scope_type?: string | null;
+  sample_id?: string | null; family_id?: string | null; file_path?: string | null;
+  message: string; status: string; created_at: string; resolved_at?: string | null;
 };
 
 export type AirflowTaskProgress = {
@@ -352,6 +376,11 @@ export type RunProgressResponse = {
   current_sample?: string | null;
   rule_counts?: {total: number; running: number; success: number; failed: number; terminal: number};
   updated_at?: string | null;
+  current_airflow_stage?: string | null;
+  overall_progress_percent?: number | null;
+  analysis_eta_seconds?: number | null;
+  analysis_eta_model?: string | null;
+  analysis_eta_history_count?: number;
 };
 
 export type QcMetric = {
@@ -1054,6 +1083,14 @@ export function getRunPods(analysisId: string): Promise<{items: WgsPod[]}> {
 
 export function getRunTransfers(analysisId: string): Promise<{items: WgsTransfer[]}> {
   return requestJson<{items: WgsTransfer[]}>(`/runs/${encodeURIComponent(analysisId)}/transfers`);
+}
+
+export function getRunValidationIssues(analysisId: string): Promise<{items: WgsValidationIssue[]}> {
+  return requestJson<{items: WgsValidationIssue[]}>(`/runs/${encodeURIComponent(analysisId)}/validation-issues`);
+}
+
+export function revalidateRun(analysisId: string): Promise<RunDetail> {
+  return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}/actions/revalidate`, {method: "POST"});
 }
 
 export function getRunProgress(analysisId: string): Promise<RunProgressResponse> {

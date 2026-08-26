@@ -1,5 +1,123 @@
 # CURRENT_STATE.md
 
+## 2026-08-27 T141 - WGS 4.1.1 Master Rule evidence bridge
+
+```text
+t141_release: BS10610 current -> /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260827-wgs-4.1.1-disabled-t141; releases contains only this directory.
+t141_master_runtime: pinned Master digest 815d70a6... contains Snakemake 9.24.0+biosan1 and snakemake_logger_plugin_rule_status; the formal cloud_wgs_all command adds --logger rule-status while preserving analysis.log. node200's local Snakemake is not part of CCE execution.
+t141_event_contract: the installed logger writes schema 1 JSONL under <run_root>/evidence/<run_id>/rule-status/raw/*.jsonl and labels attempts as attempt-N. The observer now accepts positive integers, numeric strings and attempt-N without changing the database attempt identity.
+t141_bridge: node200 has no direct /workspace SFS mount. Step3 therefore uses kubectl to copy only complete JSONL lines by per-stream byte offset into /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/<analysis_id>/attempt-N. After Master exit, an exact one-shot reader Job mounts only the workspace PVC read-only, copies the final increment and is deleted.
+t141_scope: Master Job/Pod remains the only Kubernetes workload exposed by API/UI. The reader is internal transport plumbing; Worker Pods are not enumerated or persisted.
+t141_failure_policy: evidence-copy failure marks stage monitoring_health=degraded but does not fail WGS. Missing terminal Rule events remain unknown_interrupted; batch success still depends on WGS and result delivery gates.
+t141_validation: BS10610 passed backend 193 passed/1 skipped, scripts 17 passed, no-bytecode syntax check, HTTP health, runtime/release SHA256 equality, observer clean polling, one paused bio_wgs and zero DAG import errors. Master image Python 3.11.9 path smoke passed. Real kubectl reader/Rule ingestion awaits the separately approved T140 batch.
+t141_execution_gate: WGS_EXECUTION_ENABLED=false, WGS_RUNTIME_ADAPTER_ENABLED=false and bio_wgs paused remain unchanged.
+```
+
+## 2026-08-26 T139 - WGS 4.1.1 disabled production release
+
+```text
+t139_release: BS10610 current -> /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260826-wgs-4.1.1-disabled-t139.
+t139_wgs_source: /mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1, clean commit 3489b3958869e5cfab983aca1eb9c7f158c06dff.
+t139_snapshot: wgs-v4.1.1-candidate-3489b39-64d50022; manifest SHA256 9b1bfe00ebf7e8ed693f1e9eb17ec05174aa43b04900802d67e54f50dc27f52e; prepare/config.yaml is excluded.
+t139_cce_contract: cce-pipeline 0.5.0, source commit 70a9a737c62865f232ed0b49f682aa7c9a69e467, formal wheel SHA256 43a4ab478e8b8810b1691bb755e54336b0bc8fd86a16d4fed9be3783036e1756, profile wgs-4.1.1-r1.
+t139_dag: only bio_wgs is loaded; it has 18 Step1-Step6 project tasks, no schedule, and remains paused. The old bio_wgs_cce, bio_wgs_intake_scan and bio_wgs_onprem sources and metadata are removed.
+t139_ssh: Airflow runs ssh -tt -F /opt/airflow/ssh/config wgs-node200; the protected config fixes node200 172.17.61.200, user, RSA IdentityFile, known_hosts, BatchMode, IdentitiesOnly and StrictHostKeyChecking. This is direct SSH config login, not an authorized_keys forced-command key.
+t139_ssh_key: the user-provided RSA is installed outside the release at /home/chenjc/.config/airflow-wgs/ssh-node200/id_rsa, owned by Airflow UID 50000 and mounted read-only. It is absent from Git, images, releases, databases and logs.
+t139_runtime_path: BS10610 /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime maps to node200 /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime; a cross-host marker probe passed.
+t139_data: biodemo migration 20260826_0009; one administrator retained; auth sessions and demo run/sample/event/transfer/workload/audit state cleared; Redis state cleared; database and Redis volumes retained.
+t139_cleanup: releases contains only 20260826-wgs-4.1.1-disabled-t139 and backups is empty; the removed old releases/demo-state backups are not recoverable on host. Production WGS sources, inputs, results, database/Redis volumes and Docker network were not removed.
+t139_network: existing external nipt_analysis_test_net remains 192.168.199.0/24; only frontend publishes 172.17.106.10:12959.
+t139_frontend_image: airflow-demo/frontend:t139-wgs-4.1.1-disabled now resolves to sha256:f64b1ed3b2287b5cfa8b12d0a23732339a84a1aeed49a4219de671c2f10a32e6; the image deletes inherited demo assets before copying the fixed WGS build and exposes only the current JS/CSS pair.
+t139_final_tests: backend 193 passed; node/runtime scripts 14 passed; deployment contract 5 passed; live Airflow DAG contract passed with 18 tasks and zero import errors; frontend 27 passed plus TypeScript/Vite build; Compose/network/HTTP/auth/DB/SSH/secret checks passed.
+t139_execution_gate: WGS_EXECUTION_ENABLED=false, WGS_RUNTIME_ADAPTER_ENABLED=false, bio_wgs paused and real submission denied. No real OBS transfer or CCE WGS batch was started.
+t140_blocker: Airflow-side Master Rule evidence integration is implemented in disabled mode, but no real CCE batch has validated kubectl incremental reads, the terminal reader Job, retry events or terminal reconciliation. Keep execution disabled until separately approved T140 acceptance.
+```
+
+## 2026-08-26 T135 planning - WGS 4.1.1 Airflow integration baseline
+
+```text
+t135_scope: doc-only; no DAG/backend/observer/frontend/Compose/migration/runtime code, BS10610 service, database, Docker network/volume, WGS source, OBS object or CCE workload was changed.
+t135_wgs_source: /mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1, branch dev_CJC_4.1.1_cloud, clean commit 29388a81b182011a68d400adeb178ed0de147a49.
+t135_cce_contract: WGS-owned cfg/profiles/cce/runtime.yaml, cce-pipeline 0.5.0, profile wgs-4.1.1-r1, WGS_cloud.smk target cloud_wgs_all, normal chain Step1-Step6.
+t135_operator_boundary: node200 172.17.61.200 owns WGS prepare, private OBS and kubectl; BS10610 owns Airflow/FastAPI/observer/PostgreSQL/Redis/frontend; CCE never calls the local API.
+t135_current_airflow: BS10610 still loads paused bio_wgs_cce, bio_wgs_intake_scan and bio_wgs_onprem; the worktree's uncommitted bio_wgs/T133 implementation is a 4.1.0 candidate and is not deployed 4.1.1 code.
+t135_runtime_gap: cce-pipeline 0.5.0 exists only in the temporary nipttest environment; /bi/software/mamba/envs/WGS/bin/cce-pipeline is absent and must not be installed until wheel/source/build provenance is locked.
+t135_monitoring: target observer consumes SFS rule-status/raw/*.jsonl, normalizes attempt/run_label from BATCH_RUNTIME.yaml, and stores only deterministic Master Job/Pod evidence; Worker Pods are not continuously monitored.
+t135_transfer_decision: first production release exposes reliable stage state only; bytes/speed/ETA remain null with progress_detail_available=false until cce-pipeline publishes a stable machine-readable contract.
+t135_intake_decision: first production release accepts manual frontend/API WGS CCE submission only; automatic intake remains disabled.
+t135_cleanup_decision: production reset preserves user_account/roles, clears sessions and all demo runtime/audit state, and does not delete database volumes or the fixed Docker network.
+t135_security_gate: tracked host prepare configuration and stale Master image labels require secret rotation/externalization and trusted image/build provenance before any real batch; sensitive values are not recorded in repository docs.
+t135_execution_gate: WGS_EXECUTION_ENABLED=false, WGS_RUNTIME_ADAPTER_ENABLED=false and target bio_wgs paused remain mandatory through disabled-mode T139 acceptance.
+t135_status: WGS 4.1.1 source/runtime audit and decision-complete integration documentation are complete; implementation starts at T135 contract freeze and remains todo.
+```
+
+## 2026-08-24 T133 Master logger overlay image follow-up
+
+```text
+t133_cce_followup_doc: cce-pipeline branch jiucheng/cce-pipeline-production-contract has doc-only commits d830d1f and 916c7c1 recording the two-column FASTQ manifest, transfer progress spool, Master logger runner, separate wgs-cloud-delivery boundary, and corrected immutable image contract; no cce-pipeline production code was changed.
+t133_node200: Airflow runner address is fixed to 172.17.61.200 in Compose/example configuration; it remains a restricted OBS/kubectl runner and does not build images.
+t133_delivery_image: wgs-cloud-delivery@sha256:d6d06ff... remains an unchanged Worker image for cloud_stage_cram/cloud_package_results/cloud_finalize_delivery; it receives neither cce-pipeline runtime nor logger plugin.
+t133_master_base: direct inspection confirms the approved r2 digest 834b78c5... already contains Snakemake 9.24.0+biosan1, Kubernetes Executor 0.6.4+biosan3, cce-pipeline 0.2.0, and Master/cleanup/reset scripts.
+t133_logger_image: BS10610 built and pushed tag cce-pipeline-0.2.0-schema3-20260824-r2-biosan-jsonl-v1 at RepoDigest sha256:5d1d977fb21e541582230f31540cc8cd4f7a183e417b41e508162060cfcdf211. The overlay adds only biosan-jsonl 1.0.0 and the logger-aware Master runner; tag- and digest-based container smokes pass.
+```
+
+## 2026-08-24 T133 WGS 4.1.0 logger + single-DAG implementation
+
+```text
+t133_wgs_source: isolated worktree /mnt/biodevrwbi/33.chenjiucheng/project/worktrees/wgs-4.1.0-airflow-logger, base commit b72ebea6616f79432c5ee6378f38f80b53575fa1; upstream worktree was not modified.
+t133_wgs_snapshot: wgs-v4.1.0-candidate-b72ebea-2178aa5b at /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development, manifest SHA256 5f3aa5c0496b1224a8ae61799550392d37ff8269a4596cdc2a9a00e80dcc4631; execution_enabled=false.
+t133_logger: snakemake-logger-plugin-biosan-jsonl 1.0.0 writes SFS rule-event.v1 JSONL only; no HTTP/FastAPI callback; standard analysis.log remains enabled; write failures emit LOGGER_DEGRADED.json without failing WGS.
+t133_master_command: only formal cloud_wgs_all receives --logger biosan-jsonl; unlock, cloud_preflight, final dry-run and local/SGE remain unchanged.
+t133_airflow: target release now publishes only paused CCE DAG bio_wgs with 15 project tasks; old bio_wgs_cce, bio_wgs_onprem and bio_wgs_intake_scan source/mounts are removed.
+t133_runner: restricted wgs-runtime command targets node 200; node 200 is the sole OBS/kubectl operator boundary. WGS_EXECUTION_ENABLED=false and WGS_RUNTIME_ADAPTER_ENABLED=false remain in Compose.
+t133_observer: accepts rule-event.v1 incrementally, deduplicates event_id, supports ISO timestamps and sequence, projects Rule state, recognizes LOGGER_DEGRADED.json, and accepts only Master Kubernetes evidence. Frontend tab is Master, not Worker Pods.
+t133_cce_pipeline: confirmed clean worktree /mnt/biodevrwbi/33.chenjiucheng/project/worktrees/huawei-cloud-runtime-production-contract at 02adcecd85cc052b81330181a17d0377a742c39f; 65 tests pass; Airflow runner is wired to prepare/validate/run using an explicit immutable revision.
+t133_open_contract_1: confirmed cce-pipeline prepare requires source,target,size_bytes,md5, while WGS 4.1.0 emits two-column source,target and the approved Airflow flow must not calculate FASTQ MD5. No FASTQ hash task was reintroduced; real prepare remains blocked until this interface is reconciled.
+t133_image_contract: confirmed cce-pipeline Master digest 834b78c... runs Snakemake 9.24.0+biosan1 and Executor 0.6.4+biosan3 as intended; logger overlay digest 5d1d977f... preserves those versions and cce-pipeline 0.2.0.
+t133_validation: WGS snapshot 27 tests pass; cce-pipeline 65 tests pass; backend focused 46 tests pass; node scripts 12 tests pass; DAG imports as bio_wgs with exactly 15 paused tasks; Compose/DAG contract 4 tests pass; WGS frontend focused tests 7 pass and local TypeScript/Vite production build passes. Full legacy backend suite is 215 pass/30 fail/1 skip and the legacy multi-product frontend capability tests remain incompatible because this WGS-only worktree intentionally rejects old NIPT/PGTA/WES product contracts.
+t133_deployment: code is staged only under WGS_test and Airflow development snapshot; current BS10610 Compose was not recreated and no real OBS/CCE action ran.
+```
+
+## 2026-08-18 T133 WGS 4.0.1 code-driven flow correction
+
+```text
+t133_fastq_hash: WGS 4.0.1 does not generate/upload FASTQ.MD5SUMS; Airflow must not have start/wait FASTQ MD5 tasks.
+t133_fastq_upload: Step1_upload_fastq.sh owns idempotent upload/reuse and writes FASTQ_UPLOAD_COMPLETE; obsutil -vmd5 remains a transfer option, not an Airflow hash stage.
+t133_input_verify: no standalone verify_input_obs task; Step2 checks the upload marker and expected mounted FASTQ as an internal launch precondition.
+t133_target_chain: validate -> prepare_wgs_batch -> upload -> launch batch Master -> wait/monitor -> publish -> download/result verification -> materialize -> finalize.
+t133_rule_monitor: future Master-only Snakemake logger writes SFS Rule JSONL; current Master image/command is not wired yet.
+t133_pod_monitor: future BS10610 host watcher monitors only the batch Master Job/Pod; Worker Job/Pod is not continuously collected or shown, and observer remains kubeconfig-free.
+t133_correlation_scope: Rule state comes from the Master logger; because Worker Pods are outside the UI scope, no Rule-to-Worker-Pod mapping or jobs.ndjson schema extension is required.
+t133_host_gap: upstream assumes one operator host; Airflow must split OBS/SFS actions on node005 from kubectl/CCE actions on BS10610 through restricted adapters.
+t133_status: corrected design and read-only code audit complete; implementation and deployment remain not started.
+```
+
+## 2026-08-18 T133 WGS 4.0.1 单一 DAG 文档设计
+
+```text
+t133_scope: doc-only; no DAG/backend/observer/frontend/Compose/DB/config or BS10610 runtime change was made.
+t133_baseline: WGS release 4.0.1 at commit 6cb1255fc1b218c9b18fb931eb3b6a172afe907b.
+t133_current_dags: bio_wgs_cce, bio_wgs_onprem, and bio_wgs_intake_scan are current paused legacy DAGs; none has been removed.
+t133_target: one CCE-only DAG named bio_wgs; ten-minute automatic scanning moves to wgs-observer.
+t133_master: future runs use one batch-specific Master Job per analysis; fixed Master Deployments and PostgreSQL Master slots are pending deletion.
+t133_evidence: native events.ndjson is batch state only; Rule state requires a separate Snakemake logger JSONL; run-state.json plus RUN_COMPLETE.json/RUN_FAILED.json and result verification determine terminal outcome.
+t133_boundaries: node005 handles private OBS only; BS10610 handles kubectl/CCE only; Step7/Step8 are never automatic.
+t133_gate: WGS_EXECUTION_ENABLED=false and all current DAG pauses remain unchanged.
+t133_status: design and current-state audit complete; single-DAG implementation, launch adapter, runtime validation, and deployment have not started.
+```
+
+## 2026-08-18 T132 WGS 4.0.1 baseline replacement
+
+```text
+t132_wgs_source: /mnt/biodevrwbi/33.chenjiucheng/project/wgs, branch dev_CXJ_4.0.1_docker, clean commit 6cb1255fc1b218c9b18fb931eb3b6a172afe907b.
+t132_airflow_copy: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs was atomically replaced from the tracked upstream HEAD; upstream remained unchanged.
+t132_snapshot: wgs-v4.0.1-dev-6cb1255-53453d5d; SNAPSHOT_MANIFEST.sha256 digest e9ce0f11c8c663ce13e88c7472a67ae36e2666cfba935312275396c3c7f5ce17.
+t132_security: prepare/config.yaml, cfg/config.mail.ini, and legacy site publication/mail helpers were excluded; no literal password/token/access-key/secret-key assignment was found in the Airflow copy.
+t132_runtime_gate: no active WGS DAG runs; bio_wgs_cce, bio_wgs_onprem, and bio_wgs_intake_scan remain paused; WGS_EXECUTION_ENABLED=false; no CCE analysis was launched.
+t132_network: nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1; only frontend publishes 172.17.106.10:12959.
+t132_next: replace the obsolete persistent-Master/group_evidence adapter assumptions with the native 4.0.1 per-batch Master Job and SFS run-state/events/jobs/terminal-marker contracts before mock execution.
+```
+
 ## 2026-08-12 T130 WGS server-copy observability release
 
 t130_status: deployed on BS10610 as current release `20260812-wgs-observer-553be3f`; WGS execution remains disabled and all three WGS DAGs remain paused.
@@ -717,3 +835,19 @@ Not changed:
 - NIPT Docker DAG is not split in this task.
 - NIPT `full_run` and heavy PGT-A `baseline_qc` are not run without explicit
   approval.
+# 2026-08-12 T131 WGS cloud orchestration Phase 1
+
+- BS10610 candidate release:
+  `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260812-wgs-orchestration-t131-candidate`.
+- Input is now `batch_no + fq_path` with paired FASTQ links; Airflow creates
+  manifest, sampleinfo, config and MD5 in its own workdir. READY is obsolete.
+- biodemo is at Alembic `20260812_0008`; snapshot, review issue, transfer
+  progress and OBS lease structures are live.
+- `bio_wgs_cce` has 27 task nodes and six reschedule sensors. All WGS DAGs are
+  paused. Pools are hash=2, OBS=1, Master=4.
+- Backend/frontend/observer/Airflow run on BS10610. Network remains external
+  `192.168.199.0/24`; only `172.17.106.10:12959` is published.
+- Both real and mock execution gates are false. Synthetic smoke
+  `WGS_20260812_152720_643D8D` created run artifacts and submit returned 409;
+  no CCE or OBS command ran.
+- Upstream `/mnt/biodevrwbi/33.chenjiucheng/project/wgs` was not modified.

@@ -16,12 +16,13 @@ from app.models import (
     RuleEventRaw,
     RuleState,
     RunAttempt,
+    TransferJob,
 )
 from app.wgs_observer import ingest_evidence_once
 
 
-SNAPSHOT_ID = "wgs-v4.0.1-dev-136da1a-b10cd8af"
-RUN_LABEL = "wgs392-0123456789abcdef"
+SNAPSHOT_ID = "wgs-v4.1.1-candidate-3489b39-64d50022"
+RUN_LABEL = "WGS_20260812_000001_AAAAAA-a1"
 
 
 def make_sessionmaker():
@@ -38,16 +39,22 @@ def write_catalog(path: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                'schema_version: "1"',
+                'schema_version: "2"',
                 f"default_snapshot_id: {SNAPSHOT_ID}",
                 "snapshots:",
                 f"  - snapshot_id: {SNAPSHOT_ID}",
                 "    pipeline: wgs",
-                "    version: V4.0.1",
+                "    version: V4.1.1",
                 "    server_path: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs",
-                "    source_commit: 136da1ad9e45ac1abcbeb3efa40bb2e2269b6ab9",
-                "    snapshot_manifest_sha256: b10cd8af1db19c313e15167c295d007d9eca246d03b2721592c4c0532a05696c",
+                "    source_commit: 3489b3958869e5cfab983aca1eb9c7f158c06dff",
+                "    snapshot_manifest_sha256: 9b1bfe00ebf7e8ed693f1e9eb17ec05174aa43b04900802d67e54f50dc27f52e",
                 '    rule_event_schema_version: "1"',
+                "    cce_pipeline_version: 0.5.0",
+                "    cce_pipeline_source_commit: 70a9a737c62865f232ed0b49f682aa7c9a69e467",
+                "    cce_pipeline_wheel_sha256: 43a4ab478e8b8810b1691bb755e54336b0bc8fd86a16d4fed9be3783036e1756",
+                "    cce_profile_id: wgs-4.1.1-r1",
+                "    cce_profile_sha256: 19a7cc76cfc086c032c5e2329310d4ff90cd67e5cb52632bfb98f1b4fea59276",
+                "    master_image_digest: sha256:815d70a6105b08b8fc6031a425cfed5ced8773e4d66c18ad98502b9a61ffeecc",
                 "    status: development",
                 "    execution_enabled: false",
             ]
@@ -106,11 +113,11 @@ def prepare_run(tmp_path: Path, *, attempt: int = 1, bind_attempt: int | None = 
     binding_root.mkdir()
     write_catalog(catalog_path)
     binding = {
-        "schema_version": "1",
+        "schema_version": "2",
         "analysis_id": analysis_id,
         "attempt": bind_attempt if bind_attempt is not None else attempt,
         "pipeline_snapshot_id": SNAPSHOT_ID,
-        "run_label": RUN_LABEL,
+        "run_id": RUN_LABEL,
         "evidence_path": relative_evidence.as_posix(),
     }
     (binding_root / "run.json").write_text(json.dumps(binding), encoding="utf-8")
@@ -124,6 +131,136 @@ def poll(sessions, evidence_root, binding_root, catalog_path):
         binding_root=binding_root,
         catalog_path=catalog_path,
     )
+
+
+def test_transfer_progress_spool_is_idempotent(tmp_path: Path) -> None:
+    sessions, analysis_id, evidence_root, binding_root, catalog_path, _ = prepare_run(tmp_path)
+    spool = tmp_path / "transfer-spool"
+    progress = spool / analysis_id / "attempt-1" / "input-1" / "progress.json"
+    progress.parent.mkdir(parents=True)
+    progress.write_text(json.dumps({
+        "analysis_id": analysis_id, "attempt": 1, "transfer_id": "input-1",
+        "transfer_type": "input_upload", "direction": "upload", "status": "running",
+        "source": "/registered/manifest", "destination": "obs://approved/prefix",
+        "bytes_total": 1000, "bytes_transferred": 500, "progress_percent": 50,
+        "files_total": 2, "files_completed": 1, "current_file": "S1_R2.fastq.gz",
+        "speed_bps": 100, "eta_seconds": 5, "checkpoint_ref": "input-1",
+        "heartbeat_at": "2026-08-12T02:00:00Z",
+    }), encoding="utf-8")
+
+    first = ingest_evidence_once(session_factory=sessions, evidence_root=evidence_root, binding_root=binding_root, catalog_path=catalog_path, transfer_spool_root=spool)
+    second = ingest_evidence_once(session_factory=sessions, evidence_root=evidence_root, binding_root=binding_root, catalog_path=catalog_path, transfer_spool_root=spool)
+
+    assert first["events_ingested"] == 1
+    assert second["events_ingested"] == 0
+    with sessions() as session:
+        row = session.scalar(select(TransferJob).where(TransferJob.transfer_id == "input-1"))
+        assert row.bytes_transferred == 500
+        assert row.current_file == "S1_R2.fastq.gz"
+
+
+def test_cce_pipeline_transfer_schema_is_normalized_without_api_breakage(tmp_path: Path) -> None:
+    sessions, analysis_id, evidence_root, binding_root, catalog_path, _ = prepare_run(tmp_path)
+    spool = tmp_path / "transfer-spool"
+    progress = spool / analysis_id / "attempt-1" / "input-2" / "progress.json"
+    progress.parent.mkdir(parents=True)
+    progress.write_text(json.dumps({
+        "schema_version": "cce-pipeline.transfer-progress.v1",
+        "transfer_id": "input-2", "run_id": f"{analysis_id}-a1",
+        "analysis_id": analysis_id, "attempt": 1,
+        "direction": "upload", "state": "running",
+        "bytes_total": 2000, "bytes_done": 750,
+        "files_total": 4, "files_done": 1,
+        "current_file": "S2_R1.fastq.gz",
+        "speed_bytes_per_second": 125, "eta_seconds": 10,
+        "estimated_completion_at": "2026-08-12T02:00:10Z",
+        "checkpoint_path": "/registered/checkpoints/input-2",
+        "heartbeat_at": "2026-08-12T02:00:00Z",
+        "error_summary": "",
+    }), encoding="utf-8")
+
+    result = ingest_evidence_once(
+        session_factory=sessions, evidence_root=evidence_root,
+        binding_root=binding_root, catalog_path=catalog_path,
+        transfer_spool_root=spool,
+    )
+
+    assert result["events_ingested"] == 1
+    with sessions() as session:
+        row = session.scalar(select(TransferJob).where(TransferJob.transfer_id == "input-2"))
+        assert row.transfer_type == "input_upload"
+        assert row.status == "running"
+        assert row.bytes_transferred == 750
+        assert row.files_completed == 1
+        assert row.progress_percent == 38
+        assert row.speed_bps == 125
+        assert row.checkpoint_ref == "/registered/checkpoints/input-2"
+        assert row.estimated_finish_at.isoformat().startswith("2026-08-12T02:00:10")
+
+
+def test_wgs_4_1_1_stage_status_is_phase_only_and_master_only(tmp_path: Path) -> None:
+    sessions, analysis_id, evidence_root, binding_root, catalog_path, _ = prepare_run(tmp_path)
+    runtime = tmp_path / "runtime"
+    request_dir = runtime / "runner-requests" / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    common = {
+        "schema_version": "wgs-runtime.stage-status.v1",
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "updated_at": "2026-08-26T10:00:00Z",
+        "message": "running",
+    }
+    (request_dir / "step1_upload.status.json").write_text(
+        json.dumps({**common, "stage": "step1_upload", "status": "running"}),
+        encoding="utf-8",
+    )
+    (request_dir / "step3_monitor.status.json").write_text(
+        json.dumps(
+            {
+                **common,
+                "stage": "step3_monitor",
+                "status": "running",
+                "monitoring_health": "degraded",
+                "monitoring_error": "Rule evidence bridge failed",
+                "master_job": "wgs-master-0123456789abcdef0123",
+                "master": {
+                    "master_state": "RUNNING",
+                    "normal": True,
+                    "percent": 12.5,
+                    "message": "analysis running",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = ingest_evidence_once(
+        session_factory=sessions,
+        evidence_root=evidence_root,
+        binding_root=binding_root,
+        catalog_path=catalog_path,
+        runtime_root=runtime,
+    )
+    replay = ingest_evidence_once(
+        session_factory=sessions,
+        evidence_root=evidence_root,
+        binding_root=binding_root,
+        catalog_path=catalog_path,
+        runtime_root=runtime,
+    )
+
+    assert result["events_ingested"] == 2
+    assert replay["events_ingested"] == 0
+    with sessions() as session:
+        transfer = session.scalar(select(TransferJob))
+        assert transfer.status == "running"
+        assert transfer.progress_detail_available is False
+        workload = session.scalar(select(KubernetesWorkload))
+        assert workload.job_name.startswith("wgs-master-")
+        assert workload.phase == "Running"
+        observer = session.scalar(select(ObserverRunState))
+        assert observer.status == "degraded"
+        assert observer.last_error == "Rule evidence bridge failed"
 
 
 def test_incremental_append_partial_line_and_restart_resume(tmp_path: Path) -> None:
@@ -162,6 +299,64 @@ def test_incremental_append_partial_line_and_restart_resume(tmp_path: Path) -> N
         observer = session.scalar(select(ObserverRunState))
         assert observer.pipeline_snapshot_id == SNAPSHOT_ID
         assert observer.status == "healthy"
+
+
+def test_master_rule_status_accepts_attempt_label(tmp_path: Path) -> None:
+    sessions, _, evidence_root, binding_root, catalog_path, rule_dir = prepare_run(
+        tmp_path
+    )
+    event = rule_event(
+        "job_started",
+        2.0,
+        rule_instance_id="0123456789abcdef",
+        job_id="7",
+    )
+    event["attempt"] = "attempt-1"
+    (rule_dir / "master.jsonl").write_text(
+        json.dumps(event, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    result = poll(sessions, evidence_root, binding_root, catalog_path)
+
+    assert result == {"bindings": 1, "files": 1, "events_ingested": 1, "errors": 0}
+    with sessions() as session:
+        assert session.scalar(select(RuleState)).status == "running"
+
+
+def test_biosan_jsonl_contract_and_degraded_marker(tmp_path: Path) -> None:
+    sessions, analysis_id, evidence_root, binding_root, catalog_path, rule_dir = prepare_run(tmp_path)
+    path = rule_dir / "master.jsonl"
+    base = {
+        "schema_version": "rule-event.v1",
+        "analysis_id": analysis_id,
+        "run_id": f"{analysis_id}-a1",
+        "attempt": 1,
+        "pipeline_snapshot_id": SNAPSHOT_ID,
+        "rule_instance_id": "biosan-rule-1",
+        "rule_name": "mapping",
+        "sample_id": "S1",
+        "wildcards": {"sample": "S1"},
+    }
+    events = [
+        {**base, "event_id": "evt-1", "sequence": 1, "timestamp": "2026-08-24T01:00:00Z", "event": "job_info", "status": "planned"},
+        {**base, "event_id": "evt-2", "sequence": 2, "timestamp": "2026-08-24T01:00:01Z", "event": "job_started", "status": "running", "snakemake_jobid": 7},
+        {**base, "event_id": "evt-3", "sequence": 3, "timestamp": "2026-08-24T01:00:02Z", "event": "job_finished", "status": "success", "snakemake_jobid": 7},
+    ]
+    path.write_text("".join(json.dumps(item) + "\n" for item in events), encoding="utf-8")
+    marker = rule_dir.parents[1] / "LOGGER_DEGRADED.json"
+    marker.write_text(json.dumps({"message": "disk append failed"}), encoding="utf-8")
+
+    result = poll(sessions, evidence_root, binding_root, catalog_path)
+
+    assert result["events_ingested"] == 3
+    with sessions() as session:
+        state = session.scalar(select(RuleState))
+        assert state.rule_name == "mapping"
+        assert state.sample_id == "S1"
+        assert state.status == "success"
+        observer = session.scalar(select(ObserverRunState))
+        assert observer.status == "degraded"
+        assert observer.last_error == "disk append failed"
 
 
 def test_bad_complete_json_stops_only_that_file(tmp_path: Path) -> None:
@@ -205,8 +400,8 @@ def test_bad_complete_json_stops_only_that_file(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("change", "expected_error"),
     [
-        ({"schema_version": "2"}, "schema_version"),
-        ({"run_label": "unsafe"}, "run_label"),
+        ({"schema_version": "3"}, "schema_version"),
+        ({"run_id": "unsafe"}, "run_label"),
         ({"evidence_path": "../escape"}, "evidence_path"),
         ({"attempt": 2}, "unknown analysis attempt"),
         ({"analysis_id": "WGS_UNKNOWN"}, "unknown analysis"),

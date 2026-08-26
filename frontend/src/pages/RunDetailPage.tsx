@@ -2,7 +2,7 @@ import {Play, RefreshCw, RotateCcw, Square} from "lucide-react";
 import {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 
-import type {Artifact, DeployedPipeline, LogStream, RuleEvent, RunConfig, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, RunQc, RunResourceSummary, Sample, WgsFamily, WgsPod, WgsTransfer} from "../api";
+import type {Artifact, DeployedPipeline, LogStream, RuleEvent, RunConfig, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, RunQc, RunResourceSummary, Sample, WgsFamily, WgsPod, WgsTransfer, WgsValidationIssue} from "../api";
 
 import {
   getRunArtifacts,
@@ -17,10 +17,12 @@ import {
   getRunQc,
   getRunResources,
   getRunRules,
+  getRunValidationIssues,
   getRunSamples,
   submitRun,
-  syncAirflow, cancelRun, rerunFailedRun, resumeRun,
+  syncAirflow, cancelRun, rerunFailedRun, resumeRun, revalidateRun,
 } from "../api";
+import {useSession} from "../features/auth/SessionContext";
 import {ErrorPanel} from "../components/ErrorPanel";
 import {LogViewer, preferredLogSource} from "../components/LogViewer";
 import {MetricCard} from "../components/MetricCard";
@@ -35,7 +37,7 @@ import {compactPipelineName, formatBytes, formatDate, formatDuration, formatSeco
 import {computeRunProgress, progressFromResponse} from "../lib/runProgress";
 import {isActiveStatus, isFailedStatus} from "../lib/status";
 
-const tabs = ["Overview", "Families", "Rules", "Pods", "Transfers", "QC", "Logs", "Files"] as const;
+const tabs = ["Overview", "Families", "Rules", "Master", "Transfers", "QC", "Logs", "Files"] as const;
 type DetailTab = (typeof tabs)[number];
 
 type Bundle = {
@@ -50,13 +52,15 @@ type Bundle = {
   families: WgsFamily[];
   pods: WgsPod[];
   transfers: WgsTransfer[];
+  validationIssues: WgsValidationIssue[];
 };
 
-const emptyBundle: Bundle = {detail: null, samples: [], rules: [], artifacts: [], qc: null, progress: null, config: null, resources: null, families: [], pods: [], transfers: []};
+const emptyBundle: Bundle = {detail: null, samples: [], rules: [], artifacts: [], qc: null, progress: null, config: null, resources: null, families: [], pods: [], transfers: [], validationIssues: []};
 
 export function RunDetailPage() {
   const {analysisId = ""} = useParams();
   const capabilities = usePlatformCapabilities();
+  const session = useSession();
   const capabilityKey = capabilities.deployed_pipelines.join(",");
   const [bundle, setBundle] = useState<Bundle>(emptyBundle);
   const [log, setLog] = useState<RunLog | null>(null);
@@ -88,7 +92,7 @@ export function RunDetailPage() {
       if (!capabilities.isDeployed(detail.pipeline as DeployedPipeline)) {
         throw new Error("This run belongs to a pipeline that is not deployed in this environment.");
       }
-      const [samples, rules, progress, artifacts, qc, config, indexedLogs, resources, families, pods, transfers] = await Promise.all([
+      const [samples, rules, progress, artifacts, qc, config, indexedLogs, resources, families, pods, transfers, validationIssues] = await Promise.all([
         getRunSamples(analysisId),
         getRunRules(analysisId),
         getRunProgress(analysisId).catch((progressLoadError) => {
@@ -112,8 +116,9 @@ export function RunDetailPage() {
         getRunFamilies(analysisId).catch(() => ({items: []})),
         getRunPods(analysisId).catch(() => ({items: []})),
         getRunTransfers(analysisId).catch(() => ({items: []})),
+        getRunValidationIssues(analysisId).catch(() => ({items: []})),
       ]);
-      setBundle({detail, samples: samples.items, rules: progress?.rule_events || rules.items, progress, artifacts: artifacts.items, qc, config, resources, families: families.items, pods: pods.items, transfers: transfers.items});
+      setBundle({detail, samples: samples.items, rules: rules.items, progress, artifacts: artifacts.items, qc, config, resources, families: families.items, pods: pods.items, transfers: transfers.items, validationIssues: validationIssues.items});
       setLogSources(indexedLogs.items);
       if (indexedLogs.items.length) {
         const preferred = preferredLogSource(indexedLogs.items, detail.status, progress?.current_step) || indexedLogs.items[0];
@@ -185,7 +190,7 @@ export function RunDetailPage() {
       ? computeRunProgress({analysis_id: detail.analysis_id, pipeline: detail.pipeline, status: detail.status, created_at: detail.created_at, started_at: detail.started_at, ended_at: detail.ended_at, sample_count: bundle.samples.length}, detail, bundle.rules)
       : null;
   const canSubmit = detail?.status === "created" && capabilities.isDeployed(detail.pipeline as DeployedPipeline);
-  async function runAction(action: "sync" | "submit" | "resume" | "rerun_failed" | "cancel") {
+  async function runAction(action: "sync" | "submit" | "resume" | "rerun_failed" | "cancel" | "revalidate") {
     if (!analysisId) return;
     setActing(true);
     setActionError(null);
@@ -195,6 +200,7 @@ export function RunDetailPage() {
       if (action === "resume") await resumeRun(analysisId);
       if (action === "rerun_failed") await rerunFailedRun(analysisId);
       if (action === "cancel") await cancelRun(analysisId);
+      if (action === "revalidate") await revalidateRun(analysisId);
       await loadDetail();
       await loadLog(action === "sync" ? logStream : "stdout");
       if (action !== "sync") setLogStream("stdout");
@@ -219,12 +225,14 @@ export function RunDetailPage() {
             <StatusBadge status={detail.status} size="lg" />
             {detail.dag_run_id && isActiveStatus(detail.status) ? <span className="muted">{lastAutoSyncedAt ? `Auto sync / ${formatDate(lastAutoSyncedAt)}` : "Auto sync active"}</span> : null}
             {canSubmit ? <button className="button primary" type="button" disabled={acting} onClick={() => void runAction("submit")}><Play size={15} />Submit to Airflow</button> : null}
+            {detail.status === "needs_review" && session.hasRole("operator") ? <button className="button primary" type="button" disabled={acting} onClick={() => void runAction("revalidate")}><RefreshCw size={15} />Revalidate source</button> : null}
             {detail.status === "failed" ? <><button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("resume")}><RotateCcw size={15} />Resume</button><button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("rerun_failed")}><RotateCcw size={15} />Rerun failed</button></> : null}
             {isActiveStatus(detail.status) ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("cancel")}><Square size={15} />Cancel</button> : null}
             <button className="button ghost" type="button" disabled={acting || !detail.dag_run_id} onClick={() => void runAction("sync")}><RefreshCw size={15} />Sync Airflow</button>
           </div>
         </section>
         {actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
+        {detail.status === "needs_review" ? <section className="panel validation-review"><div className="section-heading"><h2>Input needs review</h2><p>Correct the source links or metadata upstream, then revalidate. This page cannot edit sampleinfo.</p></div><WgsTable headers={["Severity", "Code", "Scope", "Message", "Status"]} rows={bundle.validationIssues.map((issue) => [issue.severity, issue.code, issue.sample_id || issue.family_id || issue.file_path || issue.scope_type || "batch", issue.message, issue.status])} empty="No structured issue was returned." /></section> : null}
         <section className="metric-grid" aria-label="Run summary metrics">
           <MetricCard title="Samples" value={bundle.samples.length} />
           <MetricCard title="Duration" value={formatDuration(detail.submitted_at || detail.started_at, detail.pipeline_finished_at || detail.ended_at)} status={detail.status} />
@@ -239,7 +247,7 @@ export function RunDetailPage() {
             <div><dt>Observer</dt><dd><StatusBadge status={detail.observer?.status || "not observed"} /></dd></div>
             <div><dt>Last evidence</dt><dd>{formatDate(detail.observer?.last_success_at || detail.observer?.updated_at)}</dd></div>
           </div>
-          {detail.observer?.last_error ? <div className="inline-error" role="alert">Observer: {detail.observer.last_error}</div> : null}
+          {detail.observer?.last_error ? <div className="inline-error" role="alert">Rule monitoring degraded: {detail.observer.last_error}</div> : null}
         </section> : null}
         <ErrorPanel diagnosis={diagnosis} />
         {progressError ? <div className="inline-error" role="alert">Current progress unavailable: {progressError}</div> : null}
@@ -271,7 +279,7 @@ export function RunDetailPage() {
           {activeTab === "Overview" ? <RunOverviewTab detail={detail} samples={bundle.samples} /> : null}
           {activeTab === "Families" ? <WgsFamiliesTab families={bundle.families} /> : null}
           {activeTab === "Rules" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} /> : null}
-          {activeTab === "Pods" ? <WgsPodsTab pods={bundle.pods} /> : null}
+          {activeTab === "Master" ? <WgsMasterTab pods={bundle.pods} /> : null}
           {activeTab === "Transfers" ? <WgsTransfersTab transfers={bundle.transfers} /> : null}
           {activeTab === "QC" ? <RunQcTab qc={bundle.qc} runStatus={detail.status} /> : null}
           {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} /></> : null}
@@ -286,12 +294,24 @@ function WgsFamiliesTab({families}: {families: WgsFamily[]}) {
   return <WgsTable headers={["Family", "Samples", "Status", "Message"]} rows={families.map((family) => [family.family_id, family.sample_count ?? "-", family.status ?? "-", family.message ?? "-"])} empty="No families returned." />;
 }
 
-function WgsPodsTab({pods}: {pods: WgsPod[]}) {
-  return <WgsTable headers={["Job", "Pod hash", "Phase", "Reason", "Exit", "Node", "Resources", "Message"]} rows={pods.map((pod) => [pod.job_name ?? "-", pod.pod_hash, pod.phase ?? "-", pod.reason ?? "-", pod.exit_code ?? "-", pod.node_name ?? "-", compactResources(pod.resources), pod.message ?? "-"])} empty="No pods returned." />;
+function WgsMasterTab({pods}: {pods: WgsPod[]}) {
+  return <WgsTable headers={["Master Job", "Pod hash", "Phase", "Reason", "Exit", "Node", "Resources", "Message"]} rows={pods.map((pod) => [pod.job_name ?? "-", pod.pod_hash, pod.phase ?? "-", pod.reason ?? "-", pod.exit_code ?? "-", pod.node_name ?? "-", compactResources(pod.resources), pod.message ?? "-"])} empty="Master Pod evidence is not available yet." />;
 }
 
 function WgsTransfersTab({transfers}: {transfers: WgsTransfer[]}) {
-  return <WgsTable headers={["Transfer", "Source", "Destination", "Status", "Progress"]} rows={transfers.map((transfer) => [transfer.transfer_id ?? "-", transfer.source ?? "-", transfer.destination ?? "-", transfer.status ?? "-", `${transfer.bytes_transferred ?? 0} / ${transfer.bytes_total ?? 0}`])} empty="No transfers returned." />;
+  return <div className="transfer-list">{transfers.map((transfer) => {
+    const hasDetail = transfer.progress_detail_available === true;
+    return <section className="transfer-card" key={transfer.transfer_id || `${transfer.source}-${transfer.destination}`}>
+      <div className="section-heading"><div><h3>{transfer.transfer_id || "Transfer"}</h3><p>{transfer.source || "-"} → {transfer.destination || "-"}</p></div><StatusBadge status={transfer.status || "unknown"} /></div>
+      {hasDetail ? <>
+        <progress max={100} value={transfer.progress_percent ?? 0} aria-label={`${transfer.transfer_id || "Transfer"} progress`} />
+        <div className="definition-grid"><div><dt>Progress</dt><dd>{transfer.progress_percent ?? 0}% / {formatBytes(transfer.bytes_transferred)} of {formatBytes(transfer.bytes_total)}</dd></div><div><dt>Speed</dt><dd>{formatBytes(transfer.speed_bps)}/s</dd></div><div><dt>ETA</dt><dd>{transfer.eta_seconds == null ? "-" : formatSecondsDuration(transfer.eta_seconds)}</dd></div><div><dt>Files</dt><dd>{transfer.files_completed ?? "-"} / {transfer.files_total ?? "-"}</dd></div><div><dt>Current file</dt><dd className="path-text">{transfer.current_file || "-"}</dd></div><div><dt>Heartbeat</dt><dd>{formatDate(transfer.heartbeat_at)}</dd></div></div>
+      </> : <div className="transfer-phase-status">
+        <p>阶段状态可用；当前 cce-pipeline 合同未提供可靠的字节、速度或 ETA 明细。</p>
+        <div className="definition-grid"><div><dt>Stage message</dt><dd>{transfer.message || "Waiting for the next stage status."}</dd></div><div><dt>Heartbeat</dt><dd>{formatDate(transfer.heartbeat_at)}</dd></div></div>
+      </div>}
+    </section>;
+  })}{transfers.length === 0 ? <p className="empty-state">No transfers returned.</p> : null}</div>;
 }
 
 function WgsTable({headers, rows, empty}: {headers: string[]; rows: Array<Array<string | number>>; empty: string}) {

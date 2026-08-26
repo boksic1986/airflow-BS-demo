@@ -1,0 +1,20 @@
+{
+  "schema_version": "cce-pipeline.transfer-progress.v1",
+  "transfer_id": "mock-input-1",
+  "run_id": "WGS_20260824_010203_A1B2C3-a1",
+  "analysis_id": "WGS_20260824_010203_A1B2C3",
+  "attempt": 1,
+  "direction": "upload",
+  "state": "running",
+  "bytes_total": 1000,
+  "bytes_done": 500,
+  "files_total": 2,
+  "files_done": 1,
+  "current_file": "S1_R2.fastq.gz",
+  "speed_bytes_per_second": 100,
+  "eta_seconds": 5,
+  "estimated_completion_at": "2026-08-24T01:02:08Z",
+  "checkpoint_path": "/registered/checkpoints/mock-input-1",
+  "heartbeat_at": "2026-08-24T01:02:03Z",
+  "error_summary": ""
+}

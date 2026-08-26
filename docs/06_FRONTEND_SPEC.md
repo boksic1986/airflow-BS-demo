@@ -1,5 +1,18 @@
 # 06 前端设计
 
+> **WGS 说明：** WGS 4.1.1 UI 已随 T139 禁用态 release 发布，当前合同见
+> [`25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)
+>。当 `progress_detail_available=false` 时不显示进度条、速度或 ETA；以下 T133 UI 为历史记录。
+
+## T133 WGS 4.1.0 Run Detail
+
+The WGS Run Detail retains five-second active polling, transfer progress,
+Rule timing/ETA, validation issues, QC/logs/files and RBAC. The Kubernetes tab
+is named `Master` and shows only the batch Master Job/Pod phase, reason, exit
+code, node, resources and message. Worker Pods are absent. Observer errors are
+rendered as `Rule monitoring degraded`; a degraded monitoring badge does not
+by itself convert an otherwise verified WGS run to failed.
+
 ## T128 BS NIPT manual scan behavior
 
 - Submit Run loads the approved server path from
@@ -1074,3 +1087,5 @@ biodemo contract: Job, Pod hash, Kubernetes phase/reason, exit code, node,
 resource summary, and message. Active WGS runs poll FastAPI every five seconds
 even before an Airflow `dag_run_id` exists; Airflow sync is attempted only when
 that ID is present. Empty evidence and observer errors remain visible states.
+# T131: New WGS runs use project, batch number and controlled FASTQ link path.
+# Run Detail adds needs-review, transfer progress and Rule timing/ETA views.

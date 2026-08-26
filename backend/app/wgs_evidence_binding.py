@@ -8,7 +8,9 @@ import re
 from app.wgs_release_catalog import SnapshotCatalog
 
 
-RUN_LABEL_PATTERN = re.compile(r"^wgs392-[0-9a-f]{16}$")
+RUN_LABEL_PATTERN = re.compile(
+    r"^(?:wgs392-[0-9a-f]{16}|WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}-a[1-9][0-9]*)$"
+)
 
 
 @dataclass(frozen=True)
@@ -45,7 +47,8 @@ def load_evidence_bindings(
             payload = json.loads(path.read_text(encoding="utf-8"))
             if not isinstance(payload, dict):
                 raise ValueError("binding must be a JSON object")
-            if str(payload.get("schema_version")) != "1":
+            schema_version = str(payload.get("schema_version"))
+            if schema_version not in {"1", "2"}:
                 raise ValueError("unsupported binding schema_version")
             analysis_id = str(payload.get("analysis_id") or "").strip()
             if not analysis_id:
@@ -56,7 +59,10 @@ def load_evidence_bindings(
             snapshot_id = str(payload.get("pipeline_snapshot_id") or "")
             if snapshot_id not in approved:
                 raise ValueError("pipeline snapshot is not approved by catalog")
-            run_label = str(payload.get("run_label") or "")
+            run_label = str(
+                payload.get("run_id") if schema_version == "2" else payload.get("run_label")
+                or ""
+            )
             if not RUN_LABEL_PATTERN.fullmatch(run_label):
                 raise ValueError("invalid run_label")
             relative = Path(str(payload.get("evidence_path") or ""))

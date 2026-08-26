@@ -1,5 +1,730 @@
 # HANDOFF.md
 
+## 2026-08-27 - Codex - T141 WGS 4.1.1 Master Rule evidence bridge
+
+### Goal
+
+Connect the logger already present in the pinned CCE Master image to the
+Airflow observer without changing WGS Rules, cce-pipeline, Worker images or
+normal Snakemake logs. Keep real execution disabled.
+
+### Completed
+
+- Confirmed the pinned Master digest runs Snakemake `9.24.0+biosan1`, contains
+  `snakemake_logger_plugin_rule_status`, adds it only to formal
+  `cloud_wgs_all`, preserves `analysis.log`, and writes schema-1 events with
+  `attempt-N` under SFS `rule-status/raw/*.jsonl`.
+- Corrected observer validation to accept `attempt-1` while retaining exact
+  binding identity checks.
+- Added Step3 incremental Rule JSONL transfer through node200 kubectl. It
+  mirrors only complete lines, tracks a byte offset per logger stream, and
+  writes to the existing shared `cce-evidence/<analysis_id>/attempt-N` spool.
+- Because node200 does not mount `/workspace` SFS, added a terminal one-shot
+  reader Job. It reuses the pinned Master image and service account, mounts
+  only the workspace PVC read-only, copies the final increment, and is then
+  deleted. It is not exposed by `/pods`; Worker Pods remain out of scope.
+- Bridge failures set `monitoring_health=degraded` without changing the WGS
+  exit code. Missing terminal Rule events remain `unknown_interrupted`.
+- Published disabled release `20260827-wgs-4.1.1-disabled-t141` on BS10610,
+  updated the shared node200 runtime scripts atomically, and recreated only
+  backend/observer. `releases/` contains only T141.
+
+### Verification
+
+- BS10610: backend `193 passed, 1 skipped`; bridge/runtime and other script
+  tests `17 passed`; no-bytecode source compile `syntax-ok`.
+- Local script-only bridge suite: `5 passed`; `git diff --check` passed.
+- Pinned Master image `/opt/python/3.11.9/bin/python3 --version`: Python 3.11.9.
+- No real OBS transfer, CCE Master, reader Job or WGS analysis was started.
+- HTTP health returned `ok`; observer polls with zero errors; release/runtime
+  script SHA256 values match; Airflow lists only paused `bio_wgs` with no
+  import errors. Both host and node200 execution flags remain false.
+
+The first staging `compileall` check used a read-only bind mount and therefore
+failed while trying to create `__pycache__`; this was an invalid write-mode
+check, not a syntax failure. Imported pytest suites passed, and the corrected
+no-bytecode source compile check returned `syntax-ok`. The first inline form of
+that correction was rejected by nested PowerShell/SSH quoting; piping a
+CR-safe Python checker over stdin produced the accepted result.
+
+The first deploy one-liner also let local PowerShell expand remote Bash
+variables and stopped on its first `mv`; read-only checks confirmed that no
+switch or service change occurred. The corrected deployment used the
+CRLF-safe stdin Bash pattern. A subsequent audit found that the initial
+staging copy had preserved the `current` symlink, so T141 was temporarily a
+symlink alias and T139's directory already held the new files. With services
+healthy and `current` fixed on the exact T141 name, the alias was removed and
+the same directory inode was renamed from T139 to T141. No recursive deletion,
+volume, network, database, WGS data, OBS object or CCE workload was involved.
+
+### Changed files
+
+- `backend/app/wgs_observer.py` and its regression tests.
+- `scripts/wgs_runtime_gate.py`, `scripts/wgs_evidence_bridge.py` and their
+  tests.
+- WGS DAG/Snakemake/deployment/integration docs plus `CURRENT_STATE.md`,
+  `TASKS.md` and this handoff.
+
+### Tests not run and why
+
+- No live kubectl exec against a running WGS Master and no terminal reader Job
+  were run because both execution gates are false and T140 has no separate
+  real-batch approval.
+- Therefore live retry events, Master OOM/interruption and four-batch evidence
+  isolation remain acceptance work, not claimed results.
+
+### Current git status
+
+- Worktree: `D:/pipeline/airflow-demo-worktrees/T129-wgs-only`.
+- Branch: `codex/platform/T132-wgs-runtime-integration`.
+- On 2026-08-27 the user authorized committing the T135-T141 implementation
+  and synchronizing it to `main`; the resulting Git revision is reported in
+  the delivery response.
+
+### Remaining gate
+
+T140 still requires separate approval. Its first real batch must prove live
+incremental reads, the post-exit reader, retry/terminal Rule events, Master
+interruption, degraded monitoring, delivery MD5 and cleanup behavior before
+unpausing `bio_wgs`.
+
+### Next recommended task
+
+Obtain explicit T140 approval, keep `bio_wgs` paused, enable the two gates only
+for one approved minimal batch, and validate the full Step1-Step6 chain plus
+live Rule bridge/reader behavior before considering unpause.
+
+### Rollback
+
+Restore the prior disabled application files and keep both execution flags
+false plus `bio_wgs` paused. There is no separate on-host T139 rollback release;
+reconstruct application files from the uncommitted worktree and pinned images
+if rollback is required. Do not delete WGS SFS/OBS data, CCE workloads,
+database volumes or the fixed Docker network.
+
+## 2026-08-26 - Codex - T135-T139 WGS 4.1.1 disabled production release
+
+### Goal
+
+Implement the WGS-only Airflow control plane against the audited WGS 4.1.1
+contract, clear the former demo runtime state, and publish a production-shaped
+but execution-disabled release on BS10610. Real OBS/CCE execution remains out
+of scope until a separate T140 approval.
+
+### Completed
+
+- Frozen the clean WGS source at commit
+  `3489b3958869e5cfab983aca1eb9c7f158c06dff` and created snapshot
+  `wgs-v4.1.1-candidate-3489b39-64d50022`; its manifest SHA256 is
+  `9b1bfe00ebf7e8ed693f1e9eb17ec05174aa43b04900802d67e54f50dc27f52e`.
+  Sensitive `prepare/config.yaml` is not in the snapshot.
+- Fixed cce-pipeline 0.5.0, wheel/source/profile/Master identities and confirmed
+  the formal node200 WGS Python environment owns cce-pipeline. No cce-pipeline
+  source was changed by this task.
+- Replaced the three old WGS DAG sources with one manual, paused `bio_wgs` DAG
+  containing 18 project tasks for prepare and WGS Step1-Step6. There is no
+  FASTQ hash task, post-upload FASTQ verify task, fixed Master slot, automatic
+  intake, local/SGE execution, Step0, Step7 or Step8.
+- Added the WGS 4.1.1 runtime adapter, async stage workers, reschedule sensors,
+  transactional OBS transfer lease, Master-only Kubernetes evidence, Rule
+  cursor/reconciliation, delivery gates, database migration, compatible APIs
+  and observer ingestion.
+- Updated the frontend to WGS-only manual submission and 4.1.1 Run Detail.
+  Transfers explicitly show stage-only state when byte/speed/ETA detail is not
+  available; `/pods` and the UI expose only the Master workload.
+- Fixed offline frontend packaging so the release image deletes inherited demo
+  static assets before copying the WGS build. The running nginx container now
+  contains only the current JS/CSS pair; image ID is
+  `sha256:f64b1ed3b2287b5cfa8b12d0a23732339a84a1aeed49a4219de671c2f10a32e6`.
+- Per the user's final SSH choice, Airflow directly runs
+  `ssh -tt -F /opt/airflow/ssh/config wgs-node200 ...`. The protected config
+  fixes host, user, RSA identity, known_hosts and strict verification. The RSA
+  key is stored outside release/Git/images at
+  `/home/chenjc/.config/airflow-wgs/ssh-node200/id_rsa`, owned by UID 50000 and
+  mounted read-only. No server-side authorized_keys forced-command key is used.
+- Verified the real shared runtime mapping:
+  BS10610 `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime` maps
+  to node200 `/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime`.
+- Published disabled release `20260826-wgs-4.1.1-disabled-t139` and switched
+  `current` to it. Migrated biodemo to `20260826_0009`; preserved one admin,
+  cleared sessions and all demo runtime/audit data, cleared Redis, and removed
+  old WGS DAG metadata. No database/Redis volume or Docker network was reset.
+
+### Changed areas
+
+- `dags/bio_wgs.py`, retired WGS DAG files and DAG contract tests.
+- `scripts/wgs_runtime_gate.py`, runtime/snapshot/evidence helpers and tests.
+- `backend/app/`, migration `20260826_0009`, backend tests and release image.
+- `frontend/src/`, frontend tests/styles and offline release packaging.
+- `docker-compose.wgs.yaml`, `.env.wgs.example`, release Dockerfiles.
+- WGS design/API/DB/DAG/frontend/security/deployment docs plus
+  `CURRENT_STATE.md`, `TASKS.md` and this handoff.
+
+### Commands and verification evidence
+
+- Backend full suite on BS10610: `193 passed`.
+- Node/runtime scripts: `14 passed`.
+- Deployment contract: `5 passed`; live Airflow worker DAG contract passed with
+  exactly 18 tasks. `airflow dags list` returned only paused `bio_wgs` and
+  `airflow dags list-import-errors` returned `[]`.
+- Frontend full suite: 8 files, 27 tests; TypeScript and Vite production build
+  passed. The deployed offline assets match the tested build SHA256 and passed
+  HTTP smoke.
+- Airflow worker command
+  `ssh -tt -F /opt/airflow/ssh/config wgs-node200 hostname` returned `t640`.
+  The pinned ED25519 host fingerprint is
+  `SHA256:KKSrhbpZdPlBe7ej63ZaYhvYwWhQpdEnGejD59NGMv4`.
+- Disabled synthetic smoke: create returned 201, submit returned 409, only the
+  input manifest was created, and no OBS/CCE action ran. Synthetic DB records
+  and exact test directories were then removed.
+- Compose/network/HTTP/auth checks showed all services healthy, anonymous API
+  access denied, external subnet `192.168.199.0/24`, and only
+  `172.17.106.10:12959` published.
+- Final database checks used `ON_ERROR_STOP=1`: biodemo has one admin, one idle
+  OBS lease row, zero sessions/runs/attempts/samples/transfers/Rule events/Rule
+  states/workloads/artifacts/QC/audit/cursors/actions/issues/snapshots/intake;
+  Airflow has zero DAG runs/task instances.
+- Release secret scan found no key/config filename or private-key header and
+  confirmed the WGS snapshot has no `prepare/config.yaml`.
+
+### Tests not run and why
+
+- No real WGS, OBS transfer, Master Job, Worker Pod or Step1-Step6 command was
+  run because both execution gates remain false and T140 lacks approval.
+- No production Rule-event end-to-end test was run because the clean WGS
+  4.1.1 source does not yet invoke a Rule JSONL logger.
+- BS10610 could not rebuild the frontend test image because its configured
+  external Docker mirror DNS was unavailable. The full frontend suite/build
+  ran with the bundled local Node runtime, followed by checksum-controlled
+  offline packaging and BS10610 HTTP smoke.
+
+### Verification corrections
+
+- Compose validation first failed because the external production env file
+  intentionally lacks newly added candidate-only variables. It passed after
+  supplying non-secret, test-only placeholders for render validation; running
+  services were not recreated by that check.
+- The first backend rerun mounted only `backend/`, so one catalog test could
+  not find repository-root `config/wgs_releases.yaml`; mounting the whole
+  release read-only produced `193 passed`.
+- Full scripts testing exposed two stale assertions: the Rule logger test still
+  expected an old snapshot suffix, and the DAG contract still expected
+  `SSHHook/ssh_conn_id`. Both tests were corrected to the fixed 4.1.1 snapshot
+  and direct `ssh -tt -F` contract; final suites passed.
+- A broad historical DAG unittest invocation used a fresh image context without
+  the running container's installed Airflow environment and included retired
+  NIPT/PGTA/WES tests, so it was not a valid WGS-only acceptance. The final
+  dynamic check ran inside the actual Airflow worker with its pinned Python.
+- Post-frontend-recreate listing initially used unsupported BusyBox `find
+  -printf` and a malformed nested quote. The corrected `ls`/`sha256sum`/HTTP
+  checks passed and showed only the two current assets.
+- The first database-count query lost SQL string quotes in nested shell
+  parsing, and psql did not stop by default. The accepted rerun used stdin SQL
+  plus `ON_ERROR_STOP=1` and returned the zero-state counts above.
+
+### Current git status
+
+- Worktree: `D:/pipeline/airflow-demo-worktrees/T129-wgs-only`.
+- Branch: `codex/platform/T132-wgs-runtime-integration`.
+- The implementation remains intentionally uncommitted at the user's request.
+
+### Risks and blockers (superseded by T141 where noted)
+
+- The node200-local Snakemake `9.23.1` observation is not a CCE blocker: formal
+  WGS Snakemake runs inside the pinned Master image. T141 confirmed its actual
+  version and logger contract.
+- The former missing-logger blocker is superseded by T141. Live bridge and
+  terminal-reader behavior still require the separately approved T140 batch;
+  Airflow must not fabricate Rule success when events are absent.
+- Direct SSH with the existing RSA has broader account scope than a dedicated
+  authorized_keys forced-command key. Risk is reduced by strict host key,
+  protected config/key mounts and the explicit stage gate, but key rotation and
+  access audit remain operational responsibilities.
+
+### Final cleanup authorization and scope
+
+The user explicitly required the former demo state to be cleared and only the
+latest Airflow WGS release retained. Before deletion, `current` resolved to
+`releases/20260826-wgs-4.1.1-disabled-t139`. The following resolved targets are
+old Airflow integration artifacts, not production WGS sources, inputs or
+results, and are approved for exact removal after final disabled smoke:
+
+- `releases/20260812-wgs-observer-553be3f`
+- `releases/20260812-wgs-only-phase1`
+- `releases/20260812-wgs-orchestration-t131-candidate`
+- `backups/development-wgs-before-wgs-v4.0.1-dev-6cb1255-53453d5d-20260818T161125+0800`
+- `backups/t139-before-production-cleanup-20260826T232915+0800`
+- `backups/wgs-host.env.before-qc-root-fix.20260715_102200`
+
+Removal is intentional and irreversible. It eliminates old releases, the
+pre-cleanup demo database dump and obsolete Airflow integration backups. It
+does not authorize volume deletion, Docker prune, network changes, WGS source
+deletion, or production data deletion.
+
+Cleanup result: all six exact targets were removed. `releases/` now contains
+only `20260826-wgs-4.1.1-disabled-t139`; `backups/` is empty. The first attempt
+removed two releases and stopped on a root-owned `.pytest_cache/.gitignore` in
+the third release. A second attempt removed that cache but stopped on another
+root-owned `index.json`. Read-only checks confirmed that the target was not
+`current` and was not mounted by a running container. The final retry mounted
+only that exact old release into a no-network, UID-0 container, removed its
+remaining children, then removed the empty release directory and the exact
+backup targets. No broad prune, wildcard deletion, volume deletion or network
+change was used.
+
+### Next recommended task
+
+T140 stays blocked only on separate approval and real-runtime acceptance. Keep
+both gates false and `bio_wgs` paused until one minimal batch validates the
+running-Master bridge, terminal reader, Rule reconciliation and delivery chain.
+
+### Rollback
+
+Set both gates false and keep `bio_wgs` paused. After final cleanup there is no
+on-host old release or demo database backup to restore; reconstruct from Git
+and pinned image/snapshot identities if application rollback is required.
+Never delete PostgreSQL/Redis volumes, the external network, WGS source,
+production inputs or results. The RSA/config can be unmounted and removed from
+the exact protected node200 SSH directory without touching other identities.
+
+## 2026-08-26 - Codex - T135 WGS 4.1.1 integration documentation baseline
+
+### Goal
+
+Freeze the audited WGS 4.1.1 Airflow integration design before changing any
+DAG, backend, observer, frontend, Compose, database or runtime implementation.
+Keep the current BS10610 execution gates and services unchanged.
+
+### Completed
+
+- Added the canonical WGS 4.1.1 integration plan at
+  `docs/25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md` using clean WGS commit
+  `29388a81b182011a68d400adeb178ed0de147a49`, cce-pipeline 0.5.0 and profile
+  `wgs-4.1.1-r1`.
+- Documented the target single paused `bio_wgs`, WGS Step1-Step6 mapping,
+  node200-only operator boundary, stage-only transfers, Rule JSONL,
+  Master-only Kubernetes evidence, delivery gates, RBAC and disabled rollout.
+- Replaced the runtime status document with the 2026-08-26 audit: Airflow is
+  still a 4.1.0 candidate, BS10610 still loads three paused legacy DAGs, and
+  cce-pipeline 0.5.0 is not installed in the formal WGS environment.
+- Added T135-T140 task cards and a current-state entry. The sequence covers
+  contract/security freeze, runner/DAG, backend/observer, frontend, disabled
+  deployment and separately approved real acceptance.
+- Marked WGS 4.0.1/4.1.0 sections in the engineering, DB, API, frontend, DAG,
+  Snakemake, deployment, Phase 1 and WGS design documents as historical or
+  pending replacement, with links to the canonical 4.1.1 plan.
+- Recorded the credential externalization/rotation, cce-pipeline provenance
+  and Master image provenance issues without recording sensitive values.
+
+### Changed files
+
+- `docs/25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`
+- `docs/24_WGS_RUNTIME_INTEGRATION_DEVELOPMENT_STATUS.md`
+- `docs/22_WGS_ONLY_LOCAL_CCE_PLATFORM_DESIGN.md`
+- `docs/02_ENGINEERING_SPEC.md`
+- `docs/04_DATABASE_SCHEMA.md`
+- `docs/05_API_CONTRACT.md`
+- `docs/06_FRONTEND_SPEC.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/08_SNAKEMAKE_QSUB_INTEGRATION.md`
+- `docs/11_DEPLOYMENT_RUNBOOK.md`
+- `docs/23_WGS_CLOUD_ORCHESTRATION_PHASE1.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+
+### Commands run and results
+
+- Read-only WGS 4.1.1/cce-pipeline/profile/Master/Airflow/DB audit was completed
+  before this documentation task; no remote mutation was made.
+- Full worktree `git diff --check`: PASS.
+- New-document trailing-whitespace check: PASS.
+- Relative Markdown link target check across all touched documents: PASS.
+- Canonical identity and execution-gate token check: PASS.
+- Historical-banner/canonical-link check across legacy WGS contract documents:
+  PASS.
+- Credential-like value scan across new/state/task documents: PASS.
+
+The first documentation check correctly failed on Markdown hard-break trailing
+spaces. The spaces were removed without changing content. A second check then
+found the runtime adapter gate was described semantically but not written as
+the exact token `WGS_RUNTIME_ADAPTER_ENABLED=false`; the canonical plan was
+made explicit and the full acceptance check passed.
+
+### Tests not run and why
+
+- Backend pytest, frontend tests/build, DAG import, Compose rendering,
+  migrations and runtime adapter tests were not run because this task is
+  strictly doc-only and changes no implementation.
+- No BS10610 service smoke, node200 package installation, OBS transfer, CCE
+  Job/Pod or real WGS workflow was run.
+
+### Current git status
+
+- Worktree: `D:/pipeline/airflow-demo-worktrees/T129-wgs-only`.
+- Branch: `codex/platform/T132-wgs-runtime-integration`.
+- The worktree already contained broad uncommitted T131-T133 code and document
+  changes before this task. This task preserved them and added only Markdown
+  changes listed above.
+- No Git commit was created, as required.
+
+### Risks
+
+- The current Airflow runtime code and focused tests still encode WGS 4.1.0,
+  older cce-pipeline CLI/terminal contracts and an exact 15-task graph.
+- The formal node200 WGS environment still lacks cce-pipeline 0.5.0.
+- A tracked WGS prepare configuration must be externalized and its credential
+  rotated before any snapshot or real run is approved.
+- The profile Master RepoDigest requires trusted WGS 4.1.1/runtime provenance
+  or a corrected image release before production execution.
+
+### Open questions
+
+No product decision remains open for T135-T139. Fixed choices are manual intake,
+stage-only transfer visibility, administrator preservation during demo cleanup,
+Master-only Pod visibility and disabled/paused first release. T140 still
+requires separate approval for a real batch.
+
+### Next recommended task
+
+Start T135 only: create the allowlist WGS 4.1.1 snapshot and provenance/security
+contract in an isolated worktree. Do not start T136 runtime changes until the
+snapshot, protected prepare config, wheel provenance and Master image gate are
+reviewed.
+
+### Rollback notes
+
+This task changes Markdown only. Revert the T135 documentation hunks and remove
+the untracked document 25 if the design is replaced. No service, data, image,
+database, network, volume, OBS or CCE rollback is required.
+
+## 2026-08-24 - Codex - T133 Master logger overlay image follow-up
+
+### Goal
+
+Record the remaining cce-pipeline changes, fix the node 200 address, determine
+the `wgs-cloud-delivery` boundary, and build an immutable logger overlay on the
+confirmed r2 Master image.
+
+### Completed
+
+- Committed doc-only cce-pipeline follow-ups `d830d1f` and `916c7c1` on
+  `jiucheng/cce-pipeline-production-contract`. It specifies the two-column
+  FASTQ source contract, transfer progress spool, Master logger invocation and
+  separate delivery Worker image, then corrects the Master base versions and
+  records the logger image digest. No cce runtime code changed.
+- Fixed `WGS_RUNNER_200_HOST=172.17.61.200` in the Airflow candidate Compose
+  and example environment; execution flags remain false.
+- Confirmed `wgs-cloud-delivery@sha256:d6d06ff...` is used only by
+  `cloud_stage_cram`, `cloud_package_results` and `cloud_finalize_delivery`.
+  It remains unchanged and receives neither cce-pipeline nor the logger.
+- Rebased the logger-aware Master runner onto the current cce-pipeline script,
+  retaining dynamic storage roots, attempt handling and cce state modules.
+- Directly inspected the exact r2 base digest `834b78c5...`: it contains
+  Snakemake `9.24.0+biosan1`, Kubernetes Executor `0.6.4+biosan3`,
+  cce-pipeline `0.2.0`, and the Master/cleanup/reset lifecycle scripts.
+- Revised the Dockerfile/build script so the overlay installs only
+  biosan-jsonl 1.0.0 and the logger-aware Master runner; it does not reinstall
+  cce-pipeline or replace cleanup/reset.
+- Built and pushed on BS10610:
+  `wgs-cce-master:cce-pipeline-0.2.0-schema3-20260824-r2-biosan-jsonl-v1`,
+  RepoDigest
+  `sha256:5d1d977fb21e541582230f31540cc8cd4f7a183e417b41e508162060cfcdf211`.
+
+### Verification
+
+- Red tests first proved the old image contract incorrectly expected biosan4,
+  reinstalled cce runtime, and that the old logger runner lacked current cce
+  state contracts.
+- The pushed tag and RepoDigest both passed container smokes for Snakemake,
+  Executor, cce-pipeline, logger plugin registration, lifecycle scripts and
+  formal-command logger arguments.
+- Build/push provenance, wheel/context SHA256, image inspect, push log and both
+  smoke logs are under
+  `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/logger-integration/r2-biosan-jsonl-v1`.
+- Full WGS worktree suite after the logger-overlay change: 28 PASS.
+- cce-pipeline suite at doc-only head `d830d1f`: 65 PASS.
+- Master/build shell syntax: PASS.
+- Airflow node-address deployment-contract Red/Green tests: 2 PASS; final
+  BS10610 containerized deployment-contract suite: 4 PASS using the exact
+  running Airflow image ID.
+- cce follow-up document `git diff --check` and content gates: PASS before
+  commit.
+
+The first remote Airflow test command named the absent generic
+`airflow-demo/airflow:0.1.0` tag and Docker attempted an external pull that
+timed out. No image was installed or changed. The test was rerun successfully
+with the exact image ID used by the running scheduler.
+
+A final cce-pipeline test attempt initially used system Python 3.8 without
+`PYTHONPATH=src` and failed during collection. Rerunning the documented command
+with `/bi/software/mamba/envs/WGS/bin/python` and `PYTHONPATH=src` passed 65/65.
+Two Compose evidence renders also stopped before rendering: first because the
+candidate lacked a `validation/` directory, then because the production env
+does not define new candidate-only host roots. The final render used explicit
+non-secret validation paths, passed, and resolved every runner connection to
+`172.17.61.200`.
+
+### Remaining blockers
+
+The image blocker is resolved. Real execution remains blocked by the
+cce-pipeline two-column FASTQ manifest mismatch, missing structured transfer
+progress spool, profile publication/disabled-mode acceptance, and the explicit
+approval gate for a minimal real batch. No profile was activated and no
+CCE/OBS run started.
+
+### Rollback
+
+Revert local Airflow candidate edits normally. In the WGS logger worktree,
+restore only the uncommitted Master image/runner/test files if the overlay
+approach is abandoned. The pushed digest is immutable and can simply remain
+unused; do not retag an active profile to it. Revert cce documentation commits
+only if their handoff contract is no longer wanted. No running service rollback
+is needed.
+
+## 2026-08-24 - Codex - T133 WGS 4.1.0 logger and Airflow implementation
+
+### Goal and scope
+
+Implement the WGS workflow and Airflow portions first: offline CCE Rule logger,
+single WGS DAG, node 200 restricted runner, observer/API/frontend projection,
+and confirmed cce-pipeline CLI integration. Do not start a real CCE analysis,
+modify the confirmed cce-pipeline worktree, recreate BS10610 Compose, reset a
+database/volume/network, or enable execution.
+
+### Completed
+
+- Created isolated WGS worktree
+  `/mnt/biodevrwbi/33.chenjiucheng/project/worktrees/wgs-4.1.0-airflow-logger`
+  from clean base `b72ebea6616f79432c5ee6378f38f80b53575fa1`.
+- Implemented `snakemake-logger-plugin-biosan-jsonl` 1.0.0 and connected it
+  only to formal CCE `cloud_wgs_all`. Standard stream/`analysis.log`, local,
+  SGE, preflight, unlock and final dry-run remain unchanged.
+- Produced immutable Airflow snapshot
+  `wgs-v4.1.0-candidate-b72ebea-2178aa5b`, manifest SHA256
+  `5f3aa5c0496b1224a8ae61799550392d37ff8269a4596cdc2a9a00e80dcc4631`.
+  Host-only prepare config and legacy credential/publication helpers were
+  excluded.
+- Replaced the WGS publication contract with one paused `bio_wgs` DAG and 15
+  tasks. Removed old WGS DAG files/mounts, FASTQ MD5 tasks, upload verification,
+  fixed Master slot allocation and Worker Pod reconciliation.
+- Reworked `wgs-runtime` for node 200 and confirmed cce-pipeline
+  `prepare/validate/run` actions using an explicit immutable profile revision.
+- Extended observer ingestion for `rule-event.v1`, ISO time, sequence and
+  supplied event IDs; added non-fatal logger degraded health; limited evidence
+  bridge/API/UI to the batch Master.
+- Updated catalog, Compose connection contract, frontend workflow task set,
+  state/design/API/DB/frontend/security/deployment documents.
+
+### Confirmed cce-pipeline
+
+Path:
+`/mnt/biodevrwbi/33.chenjiucheng/project/worktrees/huawei-cloud-runtime-production-contract`
+
+- Branch: `jiucheng/cce-pipeline-production-contract`
+- Clean commit: `02adcecd85cc052b81330181a17d0377a742c39f`
+- Profile revision: `revisions/wgs-4.1.0-schema3-20260824`
+- Revision digest:
+  `2a1bb7ffdc201eefe3b3feb9cd210e4bb118493badcfe673a294cb9997a7a6a3`
+- Candidate Master image digest:
+  `834b78c5dabd90b2e8f39a569f730fb3b4d0c94c684b9bcb0a1caa938d0f9a90`
+- Repository evidence explicitly says `candidate-not-activated`; Airflow does
+  not use an active-profile symlink.
+
+### Validation
+
+- WGS isolated worktree: 27/27 unittest PASS; bash syntax and `git diff
+  --check` PASS.
+- Immutable WGS snapshot: manifest verification PASS; 27/27 tests PASS; no
+  private prepare config or HTTP callback token found.
+- cce-pipeline: 65/65 unittest PASS from clean commit.
+- Backend observer/runtime/catalog/platform focused run: 46 PASS after final
+  catalog and WGS-only API changes.
+- Node scripts (`prepare`, runtime gate, evidence bridge, transfer wrapper,
+  snapshot sync): 12 PASS.
+- Airflow image import: DAG ID `bio_wgs`, 15 tasks, paused-on-creation true.
+- Compose/DAG publication contract: 4 PASS.
+- WGS frontend focused tests: 7 PASS; local `tsc -b` and Vite production build
+  PASS. The produced bundle is a compile check only and was not deployed.
+- Full backend legacy run: 215 PASS, 30 FAIL, 1 SKIP. Failures are old
+  NIPT/PGTA/WES and superseded WGS contracts in the intentionally WGS-only
+  branch; do not use it as the focused WGS acceptance result.
+- Full legacy frontend capability run still fails old NIPT/multi-product
+  assertions that are outside the WGS-only release contract. A remote frontend
+  image build was not possible because BS10610 Docker mirror DNS failed to
+  resolve `node:22-bookworm`; the existing frontend was not replaced.
+
+### Blocking issues
+
+1. cce-pipeline `02adcecd` requires a four-column
+   `source,target,size_bytes,md5` FASTQ manifest, while WGS 4.1.0 emits two
+   columns and the approved Airflow design forbids calculating FASTQ MD5. The
+   runtime gate intentionally fails rather than reintroducing a hash task.
+2. Resolved: candidate cce-pipeline Master digest `834b78c...` intentionally
+   provides Snakemake `9.24.0+biosan1`, Executor `0.6.4+biosan3`, and
+   cce-pipeline `0.2.0`. Logger overlay digest `5d1d977f...` preserves them.
+3. Resolved in the later follow-up above: node 200 is `172.17.61.200` and now
+   populates `WGS_RUNNER_200_HOST`.
+4. cce-pipeline captures obsutil output internally and currently exposes no
+   live progress spool; final action JSON is available, but bytes/speed/ETA
+   cannot yet be streamed through the existing transfer UI without a small
+   cce-pipeline progress hook.
+
+### Safety/current runtime
+
+`WGS_EXECUTION_ENABLED=false`, `WGS_RUNTIME_ADAPTER_ENABLED=false`, and the
+candidate `bio_wgs` is paused. Current BS10610 Compose, PostgreSQL/Redis
+volumes, external Docker network and frontend service were not changed. No OBS
+object, CCE Job/Pod or production result was created, deleted or modified.
+
+### Next action
+
+Reconcile the remaining cce-pipeline FASTQ manifest interface, add transfer
+progress output, publish a new immutable profile revision referencing the
+logger overlay, rerun disabled-mode integration, then deploy as a new candidate
+release with both execution flags still false. Only after one explicit mock
+and one minimal real acceptance may `bio_wgs` be unpaused.
+
+### Rollback
+
+No running service rollback is required. Remove only the new candidate release
+or restore the previous `current` symlink if a later deployment is attempted;
+the upstream WGS and cce-pipeline worktrees remain intact. The Airflow WGS
+snapshot is copy-only and can be removed independently after verifying no run
+references it.
+
+## 2026-08-18 - Codex - T133 WGS 4.0.1 flow and monitoring correction
+
+### Goal
+
+Re-read the actual WGS 4.0.1 CCE code, remove the incorrect FASTQ MD5/upload-verification stages from the Airflow design, and document a Rule-first, Master-only Pod monitoring architecture.
+
+### Completed
+
+- Confirmed from `prepare/cce.py` that CCE does not create `FASTQ.MD5SUMS`; Step1 performs its own upload/reuse loop and writes `FASTQ_UPLOAD_COMPLETE`.
+- Confirmed that `obsutil cp -vmd5` remains a transfer option for newly uploaded objects, not an Airflow hash task.
+- Confirmed that Step2 internally checks the marker and mounted FASTQ before Master start; there is no separate `verify_input_obs` Airflow stage.
+- Rewrote the main design around the real Step1-Step6 and Master `cloud_preflight/cloud_wgs_all/final-dryrun` flow.
+- Documented Rule monitoring through a Master-only Snakemake logger JSONL and batch Master Job/Pod monitoring through a BS10610 watcher; no logger or continuous watcher is required in Worker Pods.
+- Fixed `jobs.ndjson` as administrator-only diagnostic evidence. The platform will not show Worker Pods, so no Rule→Worker Pod mapping or receipt extension is required.
+- Recorded the current host mismatch: upstream scripts assume one operator host, while Airflow must keep node005 OBS/SFS credentials separate from BS10610 kubectl/CCE.
+
+### Changed files
+
+- `docs/22_WGS_ONLY_LOCAL_CCE_PLATFORM_DESIGN.md`
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/08_SNAKEMAKE_QSUB_INTEGRATION.md`
+- `docs/24_WGS_RUNTIME_INTEGRATION_DEVELOPMENT_STATUS.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+
+This correction changed only Markdown files; broader uncommitted code changes already exist in the worktree. No Git commit was created.
+
+### Commands and evidence
+
+- Read-only SSH inspection of WGS README/SOP, prepare generator, Step scripts, Master runner, workflow monitor, native state machine, delivery implementation, Master image lock, CCE profile and production evidence.
+- Read local logger plugin/tests, evidence bridge, observer ingestion/projection and DB workload contracts.
+- One read-only SSH connection attempt was aborted during banner exchange; retry succeeded. No remote mutation occurred.
+
+### Tests not run and why
+
+- No backend/frontend/DAG/Compose/Snakemake/CCE test was run because this correction is doc-only and changes no executable artifact.
+- No BS10610 service, Airflow metadata, DAG pause, Docker network, database, CCE resource or OBS object was changed.
+
+### Current state and risk
+
+- `WGS_EXECUTION_ENABLED=false`; current WGS DAGs remain paused.
+- Current Master image and command do not include the logger plugin/arguments.
+- Current `wgs_evidence_bridge.py` targets a legacy Deployment and cannot be reused unchanged for Rule JSONL retrieval or batch Master monitoring.
+- Existing-object FASTQ reuse trusts matching length plus existing remote MD5 metadata; source immutability remains required because no new local FASTQ MD5 is calculated.
+
+### Next recommended task
+
+Implement T133 in disabled mode: simplify the DAG, split node005/BS10610 restricted adapters, install/connect the Master logger, replace the legacy bridge with Rule JSONL retrieval plus Master-only monitoring, then run synthetic failure/retry/interruption acceptance.
+
+### Rollback
+
+Revert only these Markdown changes. No runtime or data rollback is required.
+
+## 2026-08-18 - Codex - T133 WGS 4.0.1 single-DAG documentation
+
+### Goal
+
+Record the confirmed WGS 4.0.1 single-DAG target and separate it from the current three-DAG paused legacy state, without changing or deploying runtime code.
+
+Document baseline: WGS release 4.0.1 at commit `6cb1255fc1b218c9b18fb931eb3b6a172afe907b`.
+
+### Completed
+
+- Documented target DAG `bio_wgs`, CCE-only execution, observer-owned ten-minute scanning, batch-specific Master Job, 4.0.1 native evidence, separate Rule logger JSONL, result verification, and Step7/Step8 exclusion.
+- Recorded that current BS10610 still has paused `bio_wgs_cce`, `bio_wgs_onprem`, and `bio_wgs_intake_scan`; these are pending replacement/removal and were not deleted in this task.
+- Recorded that deployed `bio_wgs_cce` is still Phase 1 mock and that the un-deployed runtime gate retains obsolete persistent Deployment, fixed Master slot, old Step filename, and old snapshot-name assumptions.
+- Fixed the security boundary in the design: node005 handles private OBS only; BS10610 handles kubectl/CCE only.
+- Marked T133 implementation as `todo`: design and current-state audit are complete, while DAG refactor, launch adapter, runtime acceptance, and deployment have not started.
+
+### Changed files
+
+- `docs/07_AIRFLOW_DAG_SPEC.md`
+- `docs/22_WGS_ONLY_LOCAL_CCE_PLATFORM_DESIGN.md`
+- `docs/24_WGS_RUNTIME_INTEGRATION_DEVELOPMENT_STATUS.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+
+No non-Markdown file was changed by this doc-only task. No Git commit was created.
+
+### Commands and results
+
+- Read project instructions, current state/task/handoff material, relevant WGS design documents, current worktree status, and existing diffs.
+- Ran documentation terminology searches for WGS release/commit/DAG IDs, Master assumptions, evidence files, host boundaries, and implementation-status wording.
+- Ran `git diff --check` after the edits.
+- One initial PowerShell consistency-check loop failed before execution with `An empty pipe element is not allowed`; the result variable was separated from the formatting pipeline, then the same checks were rerun successfully. The failed command made no file or runtime change.
+
+### Tests not run and why
+
+- Backend pytest, frontend tests/build, DAG import/list, Compose config, Snakemake dry-run, CCE/OBS smoke, and BS10610 service checks were not run because this task is strictly doc-only and changes no executable artifact.
+- No process was started, no Airflow metadata was deleted, no service was recreated, and no execution gate or DAG pause was changed.
+
+### Current git status
+
+- Worktree: `D:\pipeline\airflow-demo-worktrees\T129-wgs-only`.
+- Branch: `codex/platform/T132-wgs-runtime-integration`.
+- The worktree already contains broader uncommitted T131/T132 code and documentation changes. This task only adds Markdown edits and intentionally does not commit.
+
+### Risks and open questions
+
+- Historical sections elsewhere in the repository still mention old DAGs and fixed Master slots. They are audit history, not implementation guidance; the new authoritative sections explicitly label the current legacy state and future target.
+- The exact code deletion/migration sequence for old DAG metadata must be planned during T133 implementation; this task does not authorize deletion.
+
+### Next recommended task
+
+Implement T133 in disabled mode: create one `bio_wgs`, move scanning to observer, replace the old runtime gate with the 4.0.1 batch Master Job/evidence adapter, and complete synthetic acceptance before any real execution approval.
+
+### Rollback
+
+Revert only these Markdown edits. No runtime, database, network, workflow, or data rollback is required.
+
+## 2026-08-18 - Codex - WGS 4.0.1 Airflow development copy replaced
+
+- Goal: directly replace the Airflow-owned WGS workflow copy with the now-stable upstream WGS release 4.0.1 while preserving all execution and network gates.
+- Source: BS10610 `/mnt/biodevrwbi/33.chenjiucheng/project/wgs`, branch `dev_CXJ_4.0.1_docker`, clean commit `6cb1255fc1b218c9b18fb931eb3b6a172afe907b`, tree `53453d5de867e53261f99c65c492e3e470098d3b`.
+- Replacement: atomically replaced `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs` from tracked Git HEAD. The upstream checkout was not modified.
+- Snapshot/catalog: `wgs-v4.0.1-dev-6cb1255-53453d5d`; manifest digest `e9ce0f11c8c663ce13e88c7472a67ae36e2666cfba935312275396c3c7f5ce17`; backend and observer both see the updated catalog.
+- Security: excluded `prepare/config.yaml`, `cfg/config.mail.ini`, and legacy site upload/archive/mail helpers. A redacted literal-assignment scan found no password, token, access key, or secret key in the Airflow copy. No OBS configuration, kubeconfig, patient data, FASTQ, result, reference, database, or Docker volume was copied or changed.
+- Verification: manifest `sha256sum -c` passed; all copied Python files compiled in memory; Huawei Cloud shell scripts passed `bash -n`; native `05-master-job.yaml`, Master Job runner, evidence collector, run-state module, and `cce_delivery.py` are present.
+- Runtime safety: no active `bio_wgs_cce` or `bio_wgs_onprem` runs; all three WGS DAGs remain paused; `WGS_EXECUTION_ENABLED=false`; no CCE, SGE, local analysis, upload, or download was started.
+- Network safety: `nipt_analysis_test_net` remains at `192.168.199.0/24`, gateway `192.168.199.1`; only frontend publishes `172.17.106.10:12959`; backend has no host port.
+- Changed tracked/worktree files: `config/wgs_releases.yaml`, `CURRENT_STATE.md`, `TASKS.md`, `HANDOFF.md`, and `docs/24_WGS_RUNTIME_INTEGRATION_DEVELOPMENT_STATUS.md`. The server-side Airflow workflow copy and current release catalog were updated; no Git commit was created.
+- Commands/evidence: read-only Airflow run/pause checks; `git archive` into a guarded staging directory; in-memory Python compilation; `bash -n` for Huawei Cloud shell scripts; `sha256sum -c SNAPSHOT_MANIFEST.sha256`; catalog checks from both backend and observer containers; Docker network/port inspection; upstream `git status`/HEAD recheck. All final verification commands exited 0.
+- Benign command failure: two inline PowerShell-to-SSH verification attempts containing remote `$()` were expanded locally and exited 1 before running the remote check. No server mutation occurred. The checks were rerun through the CRLF-safe stdin-to-Bash pattern and passed; final direct manifest/catalog/DAG/source verification exited 0.
+- Tests not run: no Snakemake dry-run, CCE Master Job, OBS transfer, result download, full backend/frontend regression, or biological workflow test. This change only refreshes the development workflow baseline, and the execution gate deliberately remains closed.
+- Current Git status: the T132 worktree still contains the broader uncommitted backend/DAG/frontend/runtime integration changes requested earlier. This snapshot/catalog update is also uncommitted, consistent with the instruction not to commit before development is finished.
+- Risk/open question: the existing runtime gate and observer still encode parts of the pre-`6cb1255` persistent-Master/watcher design. They must be adapted and mock-tested before any execution approval; no additional user decision is required for that safe disabled-mode development.
+- Rollback copy: `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/development-wgs-before-wgs-v4.0.1-dev-6cb1255-53453d5d-20260818T161125+0800`. Keep it until the new adapter passes mock acceptance, then remove only with an explicit cleanup decision.
+- Important design change: 4.0.1 uses a per-batch Master Job and native SFS evidence (`run-state.json`, `events.ndjson`, `jobs.ndjson`, `RUN_COMPLETE.json`, `RUN_FAILED.json`). Do not implement the obsolete four persistent Master Deployment slots or the deleted watcher path.
+- Next: update the runtime gate and observer to consume the native evidence contract, then run synthetic prepare/evidence/result tests with all real execution gates still disabled.
+
 ## 2026-08-12 - Codex - T130 WGS server-copy observability deployed
 
 - Goal: continue the WGS-only Airflow plan using the current server WGS tree while keeping workflow execution disabled.
@@ -5550,3 +6275,49 @@ Pause intake, set `NIPT_ALLOW_HEAVY_RUN=false`, stop BS10610 Compose without
 `-v`, and select the retained `niptpro:1.0.11` profile. Do not delete or alter
 `nipt_analysis_test_net`, PostgreSQL/Redis volumes, workdirs, logs, results,
 FASTQ, workflow sources, or image archives.
+## 2026-08-12 T131 WGS cloud orchestration Phase 1
+
+Goal: implement and deploy the WGS data orchestration/monitoring layer while
+keeping the evolving biological workflow and real cloud execution disabled.
+
+Completed:
+- Implemented batch/fq-path create, immutable symlink-target snapshot,
+  Airflow-owned sampleinfo/config/MD5, needs-review and revalidation.
+- Added migration 0008, full transfer progress/spool ingestion, singleton OBS
+  lease, Rule timing/ETA and enriched APIs/UI.
+- Replaced the CCE placeholder DAG with the fixed project graph, TaskGroups,
+  six reschedule sensors and pools 2/1/4. Mock adapters are double-gated.
+- Built backend/frontend release-layer images on BS10610, migrated biodemo and
+  recreated application services without deleting volumes or network.
+
+Validation on BS10610:
+- backend focused pytest: 23 passed;
+- runtime DAG contract/import: PASS, 27 nodes, six reschedule sensors;
+- temporary PostgreSQL full migration 0001->0008: passed; production
+  0007->0008: passed;
+- frontend focused tests: 7 passed; `tsc -b && vite build`: passed; T131 nginx
+  image is running;
+- Compose config: passed; network `192.168.199.0/24`, gateway `.1`, only
+  frontend `12959` published;
+- `/api/health`: ok; Airflow import errors: none; all three WGS DAGs paused;
+- synthetic API smoke `WGS_20260812_152720_643D8D`: input manifest,
+  sampleinfo and config generated; submit HTTP 409; no real CCE/OBS work.
+
+Incident/fix:
+- First application recreation failed for backend because read-only `/config`
+  overlapped a writable `/config/wgs-bindings` submount. Moved only the
+  container mountpoint to `/data/wgs-bindings`; host directory stayed the same.
+  Backend/frontend then started and health passed.
+- BS10610 could not resolve its configured Docker Hub mirror for the missing
+  Node builder. Frontend code was focused-tested and built, then BS10610 built
+  a runtime layer from its existing T130 nginx image plus the verified dist.
+
+Remaining Phase 2:
+- Copy/pin the then-accepted `/project/wgs` snapshot and implement restricted
+  node005 OBS plus BS10610 kubectl/CCE adapters, final logger/result contracts,
+  and real failure/concurrency acceptance before enabling either gate.
+
+Rollback: atomically repoint `current` to the previous release and recreate
+application services without `-v`. Migration 0008 is additive. Do not delete
+the external network, DB/Redis volumes, source workflows, FASTQ, evidence,
+results, bindings or transfer spool.

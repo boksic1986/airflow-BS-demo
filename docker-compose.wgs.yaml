@@ -17,16 +17,17 @@ x-airflow-common: &airflow-common
     BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://backend:8000}
     INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
     DEPLOYED_PIPELINES: wgs
-    INTAKE_SCAN_PIPELINES: wgs
-    WGS_EXECUTION_ENABLED: "false"
+    WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"
+    WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"
+    WGS_SSH_CONFIG_PATH: /opt/airflow/ssh/config
+    WGS_RUNNER_200_ALIAS: ${WGS_RUNNER_200_ALIAS:-wgs-node200}
     PIPELINE_PROFILE_CONFIG_PATH: /opt/airflow/config/pipeline_profiles.wgs.yaml
   volumes:
-    - ./dags/bio_wgs_cce.py:/opt/airflow/dags/bio_wgs_cce.py:ro
-    - ./dags/bio_wgs_onprem.py:/opt/airflow/dags/bio_wgs_onprem.py:ro
-    - ./dags/bio_wgs_intake_scan.py:/opt/airflow/dags/bio_wgs_intake_scan.py:ro
+    - ./dags/bio_wgs.py:/opt/airflow/dags/bio_wgs.py:ro
     - ./dags/common:/opt/airflow/dags/common:ro
     - ./config/pipeline_profiles.wgs.yaml:/opt/airflow/config/pipeline_profiles.wgs.yaml:ro
     - ./shared:/data/airflow-demo
+    - ${WGS_SSH_KEY_HOST_ROOT:?set WGS_SSH_KEY_HOST_ROOT}:/opt/airflow/ssh:ro
   depends_on:
     postgres:
       condition: service_healthy
@@ -136,21 +137,35 @@ services:
       AUTH_REQUIRED: "true"
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
-      WGS_EXECUTION_ENABLED: "false"
+      WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"
+      WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"
       INTAKE_CONFIG_PATH: /config/intake.wgs.yaml
       PIPELINE_PROFILE_CONFIG_PATH: /config/pipeline_profiles.wgs.yaml
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
       HOST_RESULTS_ROOT: /data/wgs-results
+      WGS_RESULTS_HOST_ROOT: ${WGS_RESULTS_HOST_ROOT:?set WGS_RESULTS_HOST_ROOT}
       WGS_CONFIG_ROOTS: /data/wgs-intake
+      WGS_FASTQ_ROOTS: ${WGS_FASTQ_HOST_ROOT:?set WGS_FASTQ_HOST_ROOT}
       WGS_VALIDATION_ROOTS: /data/wgs-intake
       WGS_EVIDENCE_ROOT: /data/wgs-evidence
+      WGS_BINDING_ROOT: /data/wgs-bindings
+      WGS_TRANSFER_SPOOL_ROOT: /data/wgs-runtime/transfer-progress
+      WGS_RUNTIME_REQUEST_ROOT: /data/wgs-runtime/runner-requests
+      WGS_RUNTIME_BS_ROOT: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime
+      WGS_RUNTIME_NODE200_ROOT: ${WGS_RUNTIME_NODE200_ROOT:-/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime}
+      WGS_INTAKE_CONTAINER_ROOT: /data/wgs-intake
+      WGS_INTAKE_HOST_ROOT: ${WGS_INTAKE_HOST_ROOT:?set WGS_INTAKE_HOST_ROOT}
+      WGS_INTAKE_NODE200_ROOT: ${WGS_INTAKE_NODE200_ROOT:?set WGS_INTAKE_NODE200_ROOT}
       WGS_RELEASE_CATALOG_PATH: /config/wgs_releases.yaml
     volumes:
       - ./backend:/app:ro
       - ./shared:/data/airflow-demo
       - ${WGS_INTAKE_HOST_ROOT:?set WGS_INTAKE_HOST_ROOT}:/data/wgs-intake:ro
+      - ${WGS_FASTQ_HOST_ROOT:?set WGS_FASTQ_HOST_ROOT}:${WGS_FASTQ_HOST_ROOT:?set WGS_FASTQ_HOST_ROOT}:ro
       - ${WGS_RESULTS_HOST_ROOT:?set WGS_RESULTS_HOST_ROOT}:/data/wgs-results:rw
       - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
+      - ${WGS_BINDING_HOST_ROOT:?set WGS_BINDING_HOST_ROOT}:/data/wgs-bindings:rw
+      - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime:rw
       - ./config:/config:ro
     networks: [wgs-platform]
 
@@ -160,19 +175,22 @@ services:
     depends_on:
       platform-admin-init:
         condition: service_completed_successfully
-    command: ["python", "-m", "app.wgs_observer_cli", "--evidence-root", "/data/wgs-evidence", "--binding-root", "/config/wgs-bindings", "--catalog", "/config/wgs_releases.yaml", "--interval", "5"]
+    command: ["python", "-m", "app.wgs_observer_cli", "--evidence-root", "/data/wgs-evidence", "--binding-root", "/config/wgs-bindings", "--catalog", "/config/wgs_releases.yaml", "--transfer-spool-root", "/data/wgs-runtime/transfer-progress", "--runtime-root", "/data/wgs-runtime", "--interval", "5"]
     environment:
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
       DEPLOYED_PIPELINES: wgs
-      WGS_EXECUTION_ENABLED: "false"
+      WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"
       WGS_EVIDENCE_ROOT: /data/wgs-evidence
+      WGS_TRANSFER_SPOOL_ROOT: /data/wgs-runtime/transfer-progress
       WGS_BINDING_ROOT: /config/wgs-bindings
+      WGS_RUNTIME_ROOT: /data/wgs-runtime
       WGS_RELEASE_CATALOG_PATH: /config/wgs_releases.yaml
     volumes:
       - ./backend:/app:ro
       - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
       - ${WGS_BINDING_HOST_ROOT:?set WGS_BINDING_HOST_ROOT}:/config/wgs-bindings:ro
+      - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime:ro
       - ./config/wgs_releases.yaml:/config/wgs_releases.yaml:ro
     networks: [wgs-platform]
 

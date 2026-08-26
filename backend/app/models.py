@@ -295,16 +295,89 @@ class TransferJob(Base):
     __table_args__ = (Index("ix_transfer_job_analysis", "analysis_id"),)
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    transfer_id: Mapped[str | None] = mapped_column(String(128), unique=True)
     analysis_id: Mapped[str] = mapped_column(ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False)
     attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     direction: Mapped[str] = mapped_column(String(16), nullable=False)
+    transfer_type: Mapped[str | None] = mapped_column(String(32))
+    source: Mapped[str | None] = mapped_column(Text)
+    destination: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(64), nullable=False)
+    bytes_total: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    bytes_transferred: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    files_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    files_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    current_file: Mapped[str | None] = mapped_column(Text)
+    progress_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    speed_bps: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    progress_detail_available: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    eta_seconds: Mapped[int | None] = mapped_column(BigInteger)
+    estimated_finish_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    checkpoint_ref: Mapped[str | None] = mapped_column(Text)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verification_status: Mapped[str | None] = mapped_column(String(64))
+    message: Mapped[str | None] = mapped_column(Text)
     manifest_path: Mapped[str | None] = mapped_column(Text)
     receipt_path: Mapped[str | None] = mapped_column(Text)
     error_message: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class WgsInputSnapshot(Base):
+    __tablename__ = "wgs_input_snapshot"
+    __table_args__ = (
+        UniqueConstraint("batch_no", "fq_path", name="uq_wgs_input_snapshot_batch_path"),
+        UniqueConstraint("analysis_id", "attempt", name="uq_wgs_input_snapshot_attempt"),
+        Index("ix_wgs_input_snapshot_analysis", "analysis_id"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    analysis_id: Mapped[str] = mapped_column(ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    batch_no: Mapped[str] = mapped_column(String(128), nullable=False)
+    fq_path: Mapped[str] = mapped_column(Text, nullable=False)
+    file_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    manifest_path: Mapped[str] = mapped_column(Text, nullable=False)
+    manifest_sha256: Mapped[str | None] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(64), nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RunValidationIssue(Base):
+    __tablename__ = "run_validation_issue"
+    __table_args__ = (Index("ix_run_validation_issue_analysis", "analysis_id"),)
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    analysis_id: Mapped[str] = mapped_column(ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    code: Mapped[str] = mapped_column(String(128), nullable=False)
+    severity: Mapped[str] = mapped_column(String(32), nullable=False, default="error")
+    scope_type: Mapped[str | None] = mapped_column(String(32))
+    sample_id: Mapped[str | None] = mapped_column(String(128))
+    family_id: Mapped[str | None] = mapped_column(String(128))
+    file_path: Mapped[str | None] = mapped_column(Text)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ObsTransferLease(Base):
+    __tablename__ = "obs_transfer_lease"
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    slot_name: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    analysis_id: Mapped[str | None] = mapped_column(String(128))
+    attempt: Mapped[int | None] = mapped_column(Integer)
+    transfer_id: Mapped[str | None] = mapped_column(String(128))
+    leased_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class RuleEventRaw(Base):
@@ -399,7 +472,6 @@ class EvidenceCursor(Base):
         DateTime(timezone=True), nullable=False, default=utc_now
     )
 
-
 class ObserverRunState(Base):
     __tablename__ = "observer_run_state"
     __table_args__ = (
@@ -423,14 +495,3 @@ class ObserverRunState(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
-
-
-class MasterSlot(Base):
-    __tablename__ = "master_slot"
-
-    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
-    slot_name: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
-    analysis_id: Mapped[str | None] = mapped_column(String(128))
-    attempt: Mapped[int | None] = mapped_column(Integer)
-    leased_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

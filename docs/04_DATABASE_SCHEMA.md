@@ -1,5 +1,22 @@
 # 04 数据库设计
 
+> **WGS 说明：** biodemo 已迁移到 WGS 4.1.1 revision `20260826_0009`，
+> 当前合同依据
+> [`25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)
+> 和代码模型；以下 T133 projection 仅作历史参考。
+
+## T133 WGS 4.1.0 projection note
+
+No destructive database migration is introduced by T133. Existing
+`rule_event_raw`, `rule_state`, `evidence_cursor`, `observer_run_state`,
+`kubernetes_workload`, `transfer_job`, `wgs_input_snapshot`, validation issue
+and OBS lease tables are reused. `rule_event_raw.payload_json` stores the full
+`rule-event.v1` record; `event_id` remains the idempotency key. Observer health
+uses the existing status/error columns. Kubernetes rows are now admitted only
+for the batch Master Job/Pod. The historical `master_slot` table may remain in
+an upgraded database for compatibility but the current code and DAG do not
+allocate it; concurrency is controlled by the Airflow pool and CCE quota.
+
 ## 1. 原则
 
 - Airflow metadata DB 仅由 Airflow 使用。
@@ -241,3 +258,6 @@ Migration `20260812_0007` adds observer-owned durable state to `biodemo`:
 - `kubernetes_workload` additionally stores Kubernetes `resource_version`, observation time, node, message, and raw Job status summary.
 
 Evidence paths are always relative to the configured read-only evidence root. Neither table stores kubeconfig, OBS credentials, or unrestricted host paths.
+# T131: WGS input snapshots, validation issues, singleton OBS lease, and full
+# transfer progress were added by Alembic `20260812_0008`. Rule timing remains
+# derived from `rule_state.started_at/ended_at/layer`.

@@ -1,5 +1,91 @@
 # 08 Snakemake + qsub 接入设计
 
+> **WGS 说明：** 顶部 T133/WGS 4.1.0 logger overlay 是历史候选。当前固定的
+> WGS 4.1.1 Master 镜像已经包含 `rule-status` logger；Airflow T141 已完成
+> disabled-mode JSONL bridge，真实运行验收仍被 T140 门禁阻塞。当前合同以
+> [`25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)
+> 为准，以下旧插件名称和事件路径不得当成当前功能。
+
+## T141 WGS 4.1.1 CCE Rule logger contract
+
+固定 Master RepoDigest `sha256:815d70a6...`内实际运行 Snakemake
+`9.24.0+biosan1`，并已安装 `snakemake_logger_plugin_rule_status`。正式
+`cloud_wgs_all`命令增加 `--logger rule-status`，输出到：
+
+```text
+<run_root>/evidence/<run_id>/rule-status/raw/*.jsonl
+```
+
+插件不发 HTTP，不改变 Rules、Worker images 或原有 `analysis.log`。事件使用
+schema `1`，`attempt`形如 `attempt-1`；observer 将其规范化为数据库 attempt 1，
+同时继续校验 `run_label`、role 和 stream ID。
+
+node200 不直接挂载 `/workspace` SFS。Airflow Step3 每约五秒通过 kubectl 从运行中
+Master 增量读取各 JSONL，只复制完整换行并为每个 stream 保存 byte offset。Master
+退出后创建一个仅只读挂载 workspace PVC 的一次性 reader Job补最终增量，完成后
+删除。reader 不入库、不展示，Worker Pod 仍不持续监控。bridge 重启按 cursor
+续读；同步失败只产生 monitoring degraded，缺失终态事件按
+`unknown_interrupted`处理。
+
+## T133 WGS 4.1.0 CCE Rule logger implementation
+
+The Airflow-owned WGS snapshot includes the independent package
+`snakemake-logger-plugin-biosan-jsonl` version 1.0.0. It has no HTTP client,
+FastAPI URL, token, callback, or Worker dependency. It declares
+`writes_to_stream=False` and `writes_to_file=True`, so Snakemake's standard
+stream handler and the existing `analysis.log` remain in place while the
+plugin appends:
+
+```text
+<run_root>/evidence/<run_id>/rule-events.jsonl
+```
+
+Only the formal CCE `cloud_wgs_all` invocation receives
+`--logger biosan-jsonl` plus `analysis_id`, `run_id`, `attempt`, snapshot ID and
+events path settings. Unlock, cloud preflight, final dry-run, local, and SGE do
+not enable the plugin. The `rule-event.v1` record includes deterministic
+`event_id`, monotonic `sequence`, batch identity, Rule instance/name, job/retry,
+wildcards, sample/family, status, message and log paths. `job_info`,
+`job_started`, `job_finished`, `job_error`, and `group_error` map to the common
+Rule state model.
+
+Write failure is non-fatal to WGS: the plugin writes a diagnostic to stderr,
+atomically creates `LOGGER_DEGRADED.json` when possible, and never raises into
+Snakemake. The observer then reports `monitoring_health=degraded`; missing
+terminal Rule events are not converted to success.
+
+The node 200 evidence bridge incrementally copies complete newline-delimited
+records by byte offset into `rule-status/raw/master.jsonl`. Restart resumes at
+the local mirror size and observer deduplication uses `event_id`. Kubernetes
+projection accepts only the batch Master Job/Pod; Worker Pods are neither
+persisted nor shown. CCE never calls the BS10610 API.
+
+The approved immutable r2 Master base already contains Snakemake
+`9.24.0+biosan1`, Kubernetes Executor `0.6.4+biosan3`, cce-pipeline `0.2.0`,
+and the three lifecycle scripts. The production overlay does not reinstall
+cce-pipeline or replace cleanup/reset; it adds only the logger plugin and a
+logger-aware Master runner based on the current dynamic-path, attempt and
+state-machine implementation. Only formal analysis receives logger args. The
+pushed overlay is pinned at RepoDigest `sha256:5d1d977fb21e541582230f31540cc8cd4f7a183e417b41e508162060cfcdf211`.
+
+`wgs-cloud-delivery` is not part of this Master logger overlay. It remains the
+separate Worker image for `cloud_stage_cram`, `cloud_package_results` and
+`cloud_finalize_delivery`, and needs neither cce-pipeline nor biosan-jsonl.
+
+## Historical T133 WGS 4.0.1 monitoring design (superseded)
+
+WGS CCE 监控采用两条独立证据链，当前仍是待实现设计：
+
+- Rule：在 Master 的 `cloud_wgs_all` Snakemake 命令中安装并启用 `airflow-demo` logger，只向 SFS `evidence/<run_id>/rule-status/raw/master.jsonl` 追加 `job_info/job_started/job_finished/job_error`；CCE 不回调 FastAPI。
+- Master：BS10610 宿主机 `wgs-cce-monitor` 只查询当前批次唯一的 Master Job/Pod，并保存 phase、reason、exit code、OOM、image、node 和心跳。
+- 入库：无 kubeconfig 的 Compose `wgs-observer` 按 byte/line cursor 和 event ID 幂等消费本地 spool，写 biodemo；前端约五秒轮询。
+
+logger 不安装到每个 Worker Pod，也不负责 Kubernetes phase、OOMKilled、ImagePullBackOff 或 exit code。平台不常驻监控 Worker Pod；Worker 失败和重试由 Snakemake 汇总为 Rule 事件，管理员需要深度排障时再结合 Master 日志和原生 `jobs.ndjson` 临时查询 CCE。
+
+由于前端不展示 Worker Pod，当前不需要扩展 `jobs.ndjson`，也不建立 Rule→Worker Pod 一一映射。Master 状态与 Rule 列表均按 `analysis_id + attempt` 归属同一批次即可。
+
+当前 `run_cce_master_job.sh` 尚未加入 `--logger airflow-demo`，Master 镜像也尚未安装该 logger plugin；旧 `wgs_evidence_bridge.py` 仍对常驻 Deployment 执行 `kubectl exec`，不适用于 4.0.1 batch Master Job。这三项均是 T133 实现前置，不得写成已完成。
+
 ## T127 WGS host Snakemake 9 integration
 
 WGS uses the host environment at
@@ -428,3 +514,5 @@ without regressing phase. Container state preserves terminal details such as
 `OOMKilled` with exit code 137 and waiting details such as
 `ImagePullBackOff`. Job conditions enrich the matching Pod rows with status and
 failure message.
+# T131: Real WGS Rules remain deferred. Timing is calculated from observer
+# `rule_state`; final logger arguments and CCE launch are Phase 2 adapters.

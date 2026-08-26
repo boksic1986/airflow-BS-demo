@@ -24,13 +24,15 @@ const NIPT_DOCKER_TASKS = new Set([
 ]);
 
 const WGS_TASKS = new Set([
-  "validate_request",
-  "prepare_wgs_run",
-  "choose_wgs_path",
-  "wgs_pipeline.pre_calling",
-  "wgs_pipeline.variant_analysis",
-  "wgs_pipeline.collect_qc",
-  "collect_wgs_artifacts",
+  "validate_request", "prepare_wgs_batch",
+  "input_transfer.acquire_obs_transfer_slot", "input_transfer.start_step1_upload",
+  "input_transfer.wait_step1_upload", "input_transfer.release_obs_transfer_slot",
+  "submit_step2_master", "start_step3_monitor", "wait_step3_analysis",
+  "start_step4_publish", "wait_step4_publish",
+  "result_transfer.acquire_obs_transfer_slot", "result_transfer.start_step5_download",
+  "result_transfer.wait_step5_download", "result_transfer.release_obs_transfer_slot",
+  "materialize_step6_results", "finalize_run",
+  "release_leases",
 ]);
 
 export function RunWorkflowTab({progress, rules}: {progress: RunProgressResponse | null; rules: RuleEvent[]}) {
@@ -65,8 +67,16 @@ export function RunWorkflowTab({progress, rules}: {progress: RunProgressResponse
           </table>
         </div>
       </section>
+      {progress?.pipeline === "wgs" ? <section><div className="section-heading"><div><h2>Rule timing</h2><p>ETA appears only after at least three comparable successful batches.</p></div></div><div className="table-wrap"><table className="data-table" aria-label="WGS rule timing"><thead><tr><th>Rule</th><th>Sample</th><th>Layer</th><th>Status</th><th>Elapsed</th><th>Historical median</th><th>Remaining</th><th>Model</th></tr></thead><tbody>{rules.map((rule, index) => <tr key={`${rule.rule}-${rule.sample_id || "all"}-${index}`}><td>{rule.rule}</td><td>{rule.sample_id || "-"}</td><td>{rule.layer ?? "-"}</td><td><StatusBadge status={rule.status} /></td><td>{duration(rule.elapsed_seconds)}</td><td>{duration(rule.historical_median_seconds)}</td><td>{duration(rule.estimated_remaining_seconds)}</td><td>{rule.eta_model === "insufficient_history" ? `No reliable estimate (${rule.eta_history_count || 0}/3)` : rule.eta_model || "-"}</td></tr>)}{rules.length === 0 ? <tr><td colSpan={8} className="empty-cell">No rule events captured.</td></tr> : null}</tbody></table></div></section> : null}
     </div>
   );
+}
+
+function duration(value?: number | null): string {
+  if (value == null) return "-";
+  if (value < 60) return `${Math.round(value)}s`;
+  if (value < 3600) return `${Math.round(value / 60)}m`;
+  return `${(value / 3600).toFixed(1)}h`;
 }
 
 function isSelectedTask(task: AirflowTaskProgress, pipeline?: string): boolean {
@@ -85,7 +95,7 @@ function LayeredWorkflowTimeline({airflowTasks, phases, pipeline}: {
   const title = pipeline === "nipt_docker"
     ? "NIPT full analysis path"
     : pipeline === "wgs"
-      ? "WGS host execution path"
+      ? "WGS CCE orchestration path"
       : pipeline === "pgta"
         ? "Predict execution path"
         : "Workflow execution path";

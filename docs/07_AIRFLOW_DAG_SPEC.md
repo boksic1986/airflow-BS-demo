@@ -1,5 +1,93 @@
 # 07 Airflow DAG 设计
 
+> **WGS 说明：** BS10610 当前只加载 WGS 4.1.1 的 18-task `bio_wgs`，且保持
+> paused。现行 task graph 与 Step1-Step6 合同见
+> [`25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)
+>；以下 T133/WGS 4.1.0 graph 仅为历史记录。
+
+当前 Step3 worker 每约五秒同时执行两项工作：调用 WGS
+`Step3_status.sh --output json`取得唯一 Master Job/Pod 状态，并通过 node200
+kubectl 从 Master 的 SFS `rule-status/raw/*.jsonl`按文件 offset 拉取完整行。
+Master 退出后使用一次性、workspace PVC 只读的 reader Job补齐末尾事件；reader
+和 Worker Pod 都不进入 `/pods`或前端。证据同步失败只标记 monitoring degraded，
+不改变 WGS 退出码。
+
+## T133 WGS 4.1.0 current implementation (2026-08-24)
+
+The WGS-only release now publishes exactly one DAG, `bio_wgs`. It accepts only
+`pipeline=wgs` and `execution_mode=cce`, has `max_active_runs=4`, and is paused
+on creation. Compose mounts only `dags/bio_wgs.py`; the legacy files
+`bio_wgs_cce.py`, `bio_wgs_onprem.py`, and `bio_wgs_intake_scan.py` were removed
+from this candidate. No Airflow metadata cleanup or production Compose recreate
+has been performed yet.
+
+```text
+validate_request
+→ prepare_wgs_batch
+→ input_transfer.acquire_obs_transfer_slot
+→ input_transfer.start_input_upload
+→ input_transfer.wait_input_upload                 # reschedule
+→ validate_cce_bundle
+→ submit_master
+→ wait_analysis_and_rules                          # reschedule
+→ wait_result_publish                              # reschedule
+→ result_transfer.acquire_obs_transfer_slot
+→ result_transfer.start_result_download
+→ result_transfer.wait_result_download             # reschedule
+→ materialize_results
+→ finalize_run
+→ release_leases                                   # all_done
+```
+
+There is no FASTQ MD5 task, upload verification task, database Master slot, or
+Worker Pod reconciliation task. `wgs_cce_runs` limits project concurrency to
+four and `wgs_obs_transfer` serializes private-line transfer. Long waits use
+reschedule sensors. The restricted SSH connection is `wgs_runner_200`; node
+200 is the single operator boundary for private OBS and kubectl. Containers do
+not receive OBS or kubeconfig credentials.
+
+All execution remains gated by both `WGS_EXECUTION_ENABLED=false` and
+`WGS_RUNTIME_ADAPTER_ENABLED=false`. The confirmed cce-pipeline CLI is wired by
+explicit immutable revision to `prepare`, `validate`, and idempotent `run`
+actions, but the real gate cannot be opened until the FASTQ source-manifest
+and transfer-progress contracts described in
+`24_WGS_RUNTIME_INTEGRATION_DEVELOPMENT_STATUS.md` are reconciled.
+
+## Historical T133 WGS 4.0.1 design (superseded)
+
+本节是 WGS 后续实现的权威目标；下方 T127、Phase 1 和 T131 内容仅保留为历史记录。当前 BS10610 仍加载以下三个 paused DAG，它们尚未删除或改名：
+
+| 当前 DAG | 当前性质 | 后续处理 |
+|---|---|---|
+| `bio_wgs_cce` | 已部署的 Phase 1 mock 项目拓扑，没有真实 4.0.1 CCE 启动能力 | 重构并最终由 `bio_wgs` 取代 |
+| `bio_wgs_onprem` | local/SGE 未实现占位 | 待删除，不并入 4.0.1 CCE 发布 |
+| `bio_wgs_intake_scan` | 每十分钟调用后端扫描的独立扫描器 | 扫描职责迁入 `wgs-observer` 后待删除 |
+
+最终 Airflow 只加载一个 WGS 分析 DAG：`bio_wgs`，且只支持 `execution_mode=cce`。自动 FASTQ 扫描不再占用 Airflow DAG，由 `wgs-observer` 每十分钟调用内部扫描接口；扫描发现、幂等入库和是否提交仍受后端策略及执行开关控制。
+
+目标项目级任务链为：
+
+```text
+bio_wgs
+validate/request
+→ prepare_wgs_batch（sampleinfo/config/CCE bundle）
+→ upload_fastq（Step1；无独立 FASTQ MD5/上传后验证 task）
+→ launch_batch_master（Step2）
+→ wait_analysis_terminal（Rule + Master Job/Pod monitoring）
+→ publish_results（Step4）
+→ download_and_verify_results（Step5，仅结果校验）
+→ materialize_results（Step6）
+→ finalize_run
+```
+
+该设计固定 WGS release 4.0.1，源提交为 `6cb1255fc1b218c9b18fb931eb3b6a172afe907b`。每批创建独立 Kubernetes Master Job，不再使用固定四个 Master Deployment 或数据库 Master slot；并发以后由 Airflow pool 与 CCE 配额控制。长时间传输和分析等待继续使用 reschedule sensor。
+
+当前本地未发布 runtime gate 仍依赖旧 Master Deployment、固定槽位以及 4.0.1 已删除的旧 Step 文件名，因此属于待替换遗留实现，不能作为 4.0.1 启动入口。`WGS_EXECUTION_ENABLED=false`、DAG pause 和真实提交禁用状态必须保持，直到后续代码实现与 mock/真实验收完成。
+
+4.0.1 不生成 `FASTQ.MD5SUMS`。`obsutil cp -vmd5` 只属于 Step1 单次传输实现；Airflow 不设置 `start_fastq_md5`、`wait_fastq_md5` 或 `verify_input_obs`。Step2 内部检查 `FASTQ_UPLOAD_COMPLETE` 和预期 FASTQ 可见性后再创建/启动批次 Master，这个检查不展开成独立 DAG task。
+
+监控范围固定为 Rule 优先、Master-only：Snakemake logger 提供逐 Rule 状态，Kubernetes watcher 只轮询每批唯一的 Master Job/Pod。Worker Job/Pod 和原生 `jobs.ndjson` 仅供管理员按需排障，不持续入库、不展示在前端，也不建立 Rule→Worker Pod 映射。
+
 ## T127 BS10610 shared deployed DAG scope
 
 The shared NIPT/WGS deployment uses `CeleryExecutor` with worker concurrency 2.
@@ -821,4 +909,8 @@ T088 后 `bio_pgta_airflow` 也使用 run-local `XDG_CACHE_HOME=<workdir>/tmp/xd
 - Airflow services use Docker json-file rotation of 50 MB with three files.
 ## WGS-only Phase 1 DAGs
 
-`bio_wgs_intake_scan` is a paused ten-minute scanner. `bio_wgs_cce` is a paused project topology with four CCE slots, one serialized transfer pool, and reschedule sensors. `bio_wgs_onprem` accepts local or SGE. Runner tasks intentionally contain no production commands and fail closed; real 3.9.3 integration is Phase 2.
+> Historical Phase 1 record only; it is not the WGS 4.0.1 target.
+
+`bio_wgs_intake_scan` is the paused legacy ten-minute scanner. `bio_wgs_cce` is the paused legacy project topology with fixed CCE slots and reschedule sensors. `bio_wgs_onprem` is an unimplemented local/SGE placeholder. Runner tasks intentionally contain no production commands and fail closed. These three DAGs still exist in the current server metadata and are pending replacement/removal by T133; they have not already been removed.
+
+The historical T131 `bio_wgs_cce` Phase 1 graph is described in `23_WGS_CLOUD_ORCHESTRATION_PHASE1.md`; it must not be used as the WGS 4.0.1 runtime contract.

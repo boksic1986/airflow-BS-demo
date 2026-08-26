@@ -1,6 +1,21 @@
 # 05 API Contract
 
-## WGS-only production profile
+> **WGS 说明：** WGS 4.1.1 API 已随 T139 禁用态 release 发布。当前唯一设计依据为
+> [`25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)；
+> 第一版只承诺传输阶段状态，精确字节、速度和 ETA 不可用。
+
+## T133 WGS 4.1.0 current contract
+
+`POST /api/runs` accepts only WGS CCE requests with `project_name`, `batch_no`
+and an approved `fq_path`. It does not accept `READY` or `FASTQ.MD5SUMS` as
+request fields. `/rules` projects offline `rule-event.v1`; `/pods` returns only
+the batch Master; `/transfers` keeps bytes/files/speed/ETA/heartbeat fields;
+run detail exposes observer health and reports `degraded` when
+`LOGGER_DEGRADED.json` is present. Internal stage writes require the internal
+service token and accept adapter identity `wgs-runtime-200`. Public submit
+continues to return HTTP 409 while `WGS_EXECUTION_ENABLED=false`.
+
+## Historical WGS-only Phase 1 profile
 
 The production profile accepts only `pipeline=wgs` with `project_name`, `execution_mode=cce|sge|local`, and an approved `source_path` containing the manifest, `FASTQ.MD5SUMS`, and `READY`. Login/session/user administration and WGS families, rules, pods, transfers, artifacts, and logs are exposed through FastAPI. Mutations require CSRF and role authorization. Phase 1 returns HTTP 409 for submit.
 
@@ -1551,3 +1566,6 @@ They do not access Kubernetes, SFS, or evidence files during a request.
   time, and database update time.
 
 Unknown or non-WGS analysis IDs return HTTP 404 for Rule/Pod reads.
+# T131: WGS create uses `batch_no + fq_path`; validation-issues and operator
+# revalidate endpoints were added. Transfers, Rules and progress expose full
+# progress and ETA fields from `23_WGS_CLOUD_ORCHESTRATION_PHASE1.md`.

@@ -1305,6 +1305,11 @@ textarea {
   color: #344054;
 }
 
+.transfer-list { display: grid; gap: 1rem; }
+.transfer-card { border: 1px solid var(--line); border-radius: 14px; padding: 1rem; }
+.transfer-card progress { width: 100%; height: 0.9rem; accent-color: var(--accent); }
+.validation-review { border-left: 4px solid var(--warning); }
+
 .run-progress {
   display: grid;
   gap: 6px;

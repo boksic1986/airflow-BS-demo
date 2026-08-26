@@ -20,6 +20,12 @@ class PipelineSnapshot:
     source_commit: str
     snapshot_manifest_sha256: str
     rule_event_schema_version: str
+    cce_pipeline_version: str
+    cce_pipeline_source_commit: str
+    cce_pipeline_wheel_sha256: str
+    cce_profile_id: str
+    cce_profile_sha256: str
+    master_image_digest: str
     status: str
     execution_enabled: bool
 
@@ -41,8 +47,8 @@ class SnapshotCatalog:
 def load_snapshot_catalog(path: Path | str) -> SnapshotCatalog:
     source = Path(path)
     payload = yaml.safe_load(source.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict) or str(payload.get("schema_version")) != "1":
-        raise ValueError("snapshot catalog schema_version must be 1")
+    if not isinstance(payload, dict) or str(payload.get("schema_version")) != "2":
+        raise ValueError("snapshot catalog schema_version must be 2")
     rows = payload.get("snapshots")
     if not isinstance(rows, list) or not rows:
         raise ValueError("snapshot catalog requires snapshots")
@@ -63,6 +69,16 @@ def load_snapshot_catalog(path: Path | str) -> SnapshotCatalog:
             rule_event_schema_version=str(
                 raw.get("rule_event_schema_version") or ""
             ),
+            cce_pipeline_version=str(raw.get("cce_pipeline_version") or ""),
+            cce_pipeline_source_commit=str(
+                raw.get("cce_pipeline_source_commit") or ""
+            ),
+            cce_pipeline_wheel_sha256=str(
+                raw.get("cce_pipeline_wheel_sha256") or ""
+            ),
+            cce_profile_id=str(raw.get("cce_profile_id") or ""),
+            cce_profile_sha256=str(raw.get("cce_profile_sha256") or ""),
+            master_image_digest=str(raw.get("master_image_digest") or ""),
             status=str(raw.get("status") or ""),
             execution_enabled=bool(raw.get("execution_enabled", False)),
         )
@@ -103,5 +119,38 @@ def _validate_snapshot(snapshot: PipelineSnapshot) -> None:
         for character in snapshot.snapshot_manifest_sha256
     ):
         raise ValueError("snapshot manifest must be a lowercase SHA256")
-    if snapshot.rule_event_schema_version != "1":
+    if snapshot.rule_event_schema_version not in {"1", "rule-event.v1"}:
         raise ValueError("unsupported Rule event schema version")
+    if snapshot.cce_pipeline_version != "0.5.0":
+        raise ValueError("cce-pipeline version must be 0.5.0")
+    _validate_hex(
+        snapshot.cce_pipeline_source_commit,
+        length=40,
+        label="cce-pipeline source commit",
+    )
+    _validate_hex(
+        snapshot.cce_pipeline_wheel_sha256,
+        length=64,
+        label="cce-pipeline wheel SHA256",
+    )
+    if snapshot.cce_profile_id != "wgs-4.1.1-r1":
+        raise ValueError("cce profile id must be wgs-4.1.1-r1")
+    _validate_hex(
+        snapshot.cce_profile_sha256,
+        length=64,
+        label="cce profile SHA256",
+    )
+    if not snapshot.master_image_digest.startswith("sha256:"):
+        raise ValueError("master image digest must use sha256")
+    _validate_hex(
+        snapshot.master_image_digest.removeprefix("sha256:"),
+        length=64,
+        label="master image digest",
+    )
+
+
+def _validate_hex(value: str, *, length: int, label: str) -> None:
+    if len(value) != length or any(
+        character not in "0123456789abcdef" for character in value
+    ):
+        raise ValueError(f"{label} must be {length} lowercase hexadecimal characters")

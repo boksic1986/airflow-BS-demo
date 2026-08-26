@@ -1,70 +1,68 @@
 ﻿from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-import csv
-import hashlib
+import json
 from pathlib import Path
+import re
 import secrets
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.input_scanner import ensure_allowed_path
-from app.models import AnalysisRun, MasterSlot, RunAction, RunAttempt, Sample, WgsIntakeBatch
+from app.models import (
+    AnalysisRun, ObsTransferLease, RunAction, RunAttempt,
+    RunValidationIssue, Sample, WgsInputSnapshot,
+)
+from app.wgs_orchestration_service import (
+    SnapshotChangedError, build_fastq_snapshot, verify_fastq_snapshot,
+)
 from app.wgs_release_catalog import load_snapshot_catalog
 
 
-EXECUTION_MODES = {"cce", "sge", "local"}
-WGS_CCE_DAG_ID = "bio_wgs_cce"
-WGS_ONPREM_DAG_ID = "bio_wgs_onprem"
+EXECUTION_MODES = {"cce"}
+WGS_CCE_DAG_ID = "bio_wgs"
 
 
-def create_wgs_platform_run(*, session: Session, settings, project_name: str, execution_mode: str, source_path: str, submitted_by: str) -> dict:
+def create_wgs_platform_run(*, session: Session, settings, project_name: str, execution_mode: str, batch_no: str, fq_path: str, submitted_by: str) -> dict:
     if execution_mode not in EXECUTION_MODES:
-        raise ValueError("execution_mode must be cce, sge, or local.")
-    source = ensure_allowed_path(source_path, list(getattr(settings, "wgs_config_roots", []) or []))
+        raise ValueError("execution_mode must be cce for the cloud orchestration release.")
+    batch_no = batch_no.strip()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", batch_no):
+        raise ValueError("batch_no contains unsupported characters.")
+    source = ensure_allowed_path(fq_path, list(getattr(settings, "wgs_config_roots", []) or []))
     if not source.is_dir():
-        raise ValueError("WGS source_path must be a controlled batch directory.")
-    ready = source / "READY"
-    sample_manifest = _first_existing(source, ("sampleinfo.tsv", "samples.tsv", "sample_info.tsv"))
-    md5_manifest = source / "FASTQ.MD5SUMS"
-    if not ready.is_file() or sample_manifest is None or not md5_manifest.is_file():
-        raise ValueError("WGS batch requires sample manifest, FASTQ.MD5SUMS, and READY.")
-    samples = _read_samples(sample_manifest)
-    if not samples:
-        raise ValueError("WGS sample manifest contains no samples.")
-    manifest_sha256 = hashlib.sha256(sample_manifest.read_bytes() + b"\0" + md5_manifest.read_bytes()).hexdigest()
+        raise ValueError("fq_path must be a controlled FASTQ link directory.")
     snapshot = load_snapshot_catalog(
         Path(settings.wgs_release_catalog_path)
     ).default_development()
-    canonical_source = str(source.resolve())
-    intake = session.scalar(select(WgsIntakeBatch).where(WgsIntakeBatch.source_path == canonical_source))
-    if intake is not None:
-        if intake.manifest_sha256 != manifest_sha256 or intake.ready_mtime_ns != ready.stat().st_mtime_ns:
-            raise ValueError("WGS batch changed after READY; remove READY, correct the batch, and publish a new controlled batch.")
-        existing = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == intake.analysis_id))
+    canonical_source = str(source)
+    existing_snapshot = session.scalar(select(WgsInputSnapshot).where(WgsInputSnapshot.batch_no == batch_no, WgsInputSnapshot.fq_path == canonical_source))
+    if existing_snapshot is not None:
+        existing = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == existing_snapshot.analysis_id))
         if existing is not None:
             return run_payload(session, existing)
     analysis_id = f"WGS_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}_{secrets.token_hex(3).upper()}"
     workdir = Path(getattr(settings, "host_results_root", settings.container_shared_root)) / "runs" / analysis_id
-    (workdir / "config").mkdir(parents=True, exist_ok=False)
+    config_dir = workdir / "config"
+    config_dir.mkdir(parents=True, exist_ok=False)
+    manifest_path = config_dir / "input-manifest.json"
     run = AnalysisRun(
         analysis_id=analysis_id,
         pipeline_name="wgs",
-        dag_id=WGS_CCE_DAG_ID if execution_mode == "cce" else WGS_ONPREM_DAG_ID,
+        dag_id=WGS_CCE_DAG_ID,
         mode="new",
         execution_mode=execution_mode,
         attempt=1,
-        status="created",
-        sample_sheet_path=str(sample_manifest),
+        status="snapshotting",
+        sample_sheet_path=str(config_dir / "sampleinfo.tsv"),
         workdir=str(workdir),
         params_json={
             "project_name": project_name,
             "execution_mode": execution_mode,
-            "source_path": str(source),
-            "source_manifest_path": str(sample_manifest),
-            "fastq_md5_manifest": str(md5_manifest),
-            "manifest_sha256": manifest_sha256,
+            "batch_no": batch_no,
+            "fq_path": canonical_source,
+            "input_manifest_path": str(manifest_path),
             "pipeline_snapshot_id": snapshot.snapshot_id,
             "source_commit": snapshot.source_commit,
             "snapshot_manifest_sha256": snapshot.snapshot_manifest_sha256,
@@ -73,10 +71,29 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
         submitted_by=submitted_by,
     )
     session.add(run)
-    session.add(WgsIntakeBatch(source_path=canonical_source, manifest_sha256=manifest_sha256, analysis_id=analysis_id, ready_mtime_ns=ready.stat().st_mtime_ns))
+    snapshot_row = WgsInputSnapshot(analysis_id=analysis_id, attempt=1, batch_no=batch_no, fq_path=canonical_source, manifest_path=str(manifest_path), status="pending")
+    session.add(snapshot_row)
     session.add(RunAttempt(analysis_id=analysis_id, attempt=1, execution_mode=execution_mode, status="created"))
-    for item in samples:
-        session.add(Sample(analysis_id=analysis_id, sample_id=item["sample_id"], family_id=item.get("family_id"), status="pending", qc_status="unknown", metadata_json={"source": "controlled_manifest"}))
+    session.flush()
+    _revalidate_input(session=session, settings=settings, run=run, snapshot_row=snapshot_row, allow_rebuild=True)
+    session.commit()
+    return run_payload(session, run)
+
+
+def revalidate_wgs_run(*, session: Session, settings, analysis_id: str) -> dict | None:
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
+    if run is None:
+        return None
+    snapshot_row = session.scalar(select(WgsInputSnapshot).where(WgsInputSnapshot.analysis_id == analysis_id, WgsInputSnapshot.attempt == run.attempt))
+    if snapshot_row is None:
+        raise ValueError("WGS input snapshot is missing.")
+    _revalidate_input(
+        session=session,
+        settings=settings,
+        run=run,
+        snapshot_row=snapshot_row,
+        allow_rebuild=not Path(snapshot_row.manifest_path).is_file(),
+    )
     session.commit()
     return run_payload(session, run)
 
@@ -123,29 +140,44 @@ def action_wgs_run(*, session: Session, airflow_client, analysis_id: str, action
     return submit_wgs_run(session=session, airflow_client=airflow_client, analysis_id=analysis_id)
 
 
-def acquire_master_slot(*, session: Session, analysis_id: str, attempt: int, lease_minutes: int = 30) -> str | None:
+def acquire_obs_transfer_slot(*, session: Session, analysis_id: str, attempt: int, transfer_id: str, lease_minutes: int = 30) -> str | None:
     now = datetime.now(timezone.utc)
-    slots = session.scalars(select(MasterSlot).order_by(MasterSlot.slot_name).with_for_update(skip_locked=True)).all()
-    for slot in slots:
-        expires = slot.lease_expires_at
-        if expires is not None and expires.tzinfo is None:
-            expires = expires.replace(tzinfo=timezone.utc)
-        if slot.analysis_id is None or (expires is not None and expires <= now):
-            slot.analysis_id = analysis_id
-            slot.attempt = attempt
-            slot.leased_at = now
-            slot.lease_expires_at = now + timedelta(minutes=lease_minutes)
-            session.commit()
-            return slot.slot_name
-    return None
+    slot = session.scalar(select(ObsTransferLease).where(ObsTransferLease.slot_name == "wgs-obs-transfer-01").with_for_update(skip_locked=True))
+    if slot is None:
+        return None
+    expires = slot.lease_expires_at
+    if expires is not None and expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if slot.analysis_id is not None and (expires is None or expires > now):
+        if slot.analysis_id != analysis_id or slot.attempt != attempt:
+            return None
+        slot.transfer_id = transfer_id
+        slot.lease_expires_at = now + timedelta(minutes=lease_minutes)
+        session.commit()
+        return slot.slot_name
+    slot.analysis_id, slot.attempt, slot.transfer_id = analysis_id, attempt, transfer_id
+    slot.leased_at, slot.lease_expires_at = now, now + timedelta(minutes=lease_minutes)
+    session.commit()
+    return slot.slot_name
 
 
-def release_master_slot(*, session: Session, slot_name: str, analysis_id: str, attempt: int) -> bool:
-    slot = session.scalar(select(MasterSlot).where(MasterSlot.slot_name == slot_name).with_for_update())
-    if slot is None or slot.analysis_id != analysis_id or slot.attempt != attempt:
+def release_obs_transfer_slot(
+    *, session: Session, analysis_id: str, attempt: int, transfer_id: str | None = None
+) -> bool:
+    slot = session.scalar(
+        select(ObsTransferLease)
+        .where(ObsTransferLease.slot_name == "wgs-obs-transfer-01")
+        .with_for_update()
+    )
+    if slot is None or slot.analysis_id is None:
         return False
+    if slot.analysis_id != analysis_id or slot.attempt != attempt:
+        raise ValueError("OBS transfer lease belongs to another WGS attempt")
+    if transfer_id is not None and slot.transfer_id != transfer_id:
+        raise ValueError("OBS transfer lease identifies another transfer")
     slot.analysis_id = None
     slot.attempt = None
+    slot.transfer_id = None
     slot.leased_at = None
     slot.lease_expires_at = None
     session.commit()
@@ -157,17 +189,39 @@ def run_payload(session: Session, run: AnalysisRun) -> dict:
     return {"analysis_id": run.analysis_id, "pipeline": "wgs", "dag_id": run.dag_id, "dag_run_id": run.dag_run_id, "execution_mode": run.execution_mode, "attempt": run.attempt, "status": run.status, "sample_count": count, "workdir": run.workdir, "params": run.params_json, "submitted_by": run.submitted_by}
 
 
-def _first_existing(root: Path, names: tuple[str, ...]) -> Path | None:
-    return next((root / name for name in names if (root / name).is_file()), None)
-
-
-def _read_samples(path: Path) -> list[dict[str, str | None]]:
-    with path.open(encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle, delimiter="\t")
-        rows = []
-        for row in reader:
-            sample_id = str(row.get("sample_id") or row.get("样本编号") or "").strip()
-            if sample_id:
-                family_id = str(row.get("family_id") or row.get("家系编号") or "").strip() or None
-                rows.append({"sample_id": sample_id, "family_id": family_id})
-        return rows
+def _revalidate_input(*, session: Session, settings, run: AnalysisRun, snapshot_row: WgsInputSnapshot, allow_rebuild: bool) -> None:
+    for issue in session.scalars(select(RunValidationIssue).where(RunValidationIssue.analysis_id == run.analysis_id, RunValidationIssue.status == "open")).all():
+        issue.status = "resolved"
+        issue.resolved_at = datetime.now(timezone.utc)
+    try:
+        if allow_rebuild:
+            snapshot = build_fastq_snapshot(
+                fq_path=snapshot_row.fq_path,
+                allowed_link_roots=list(getattr(settings, "wgs_config_roots", []) or []),
+                allowed_fastq_roots=list(getattr(settings, "wgs_fastq_roots", []) or []),
+                manifest_path=Path(snapshot_row.manifest_path),
+            )
+        else:
+            snapshot = verify_fastq_snapshot(Path(snapshot_row.manifest_path))
+    except (OSError, ValueError, SnapshotChangedError) as error:
+        snapshot_row.status = "needs_review"
+        run.status = "needs_review"
+        run.current_stage = "validate_samples_and_families"
+        session.add(RunValidationIssue(analysis_id=run.analysis_id, attempt=run.attempt, code="WGS_INPUT_INVALID", severity="error", scope_type="batch", file_path=snapshot_row.fq_path, message=str(error), status="open"))
+        return
+    snapshot_row.file_count = int(snapshot["file_count"])
+    snapshot_row.total_bytes = int(snapshot["total_bytes"])
+    snapshot_row.manifest_sha256 = str(snapshot["manifest_sha256"])
+    snapshot_row.status = "verified"
+    snapshot_row.verified_at = datetime.now(timezone.utc)
+    run.params_json = {**run.params_json, "input_manifest_sha256": snapshot_row.manifest_sha256, "input_file_count": snapshot_row.file_count, "input_total_bytes": snapshot_row.total_bytes}
+    sample_rows = {row.sample_id: row for row in session.scalars(select(Sample).where(Sample.analysis_id == run.analysis_id)).all()}
+    pairs: dict[str, dict[str, str]] = {}
+    for item in snapshot["files"]:
+        pairs.setdefault(str(item["sample_id"]), {})[str(item["read"])] = str(item["resolved_path"])
+    for sample_id, reads in pairs.items():
+        row = sample_rows.get(sample_id)
+        if row is None:
+            session.add(Sample(analysis_id=run.analysis_id, sample_id=sample_id, family_id=None, fq1=reads["R1"], fq2=reads["R2"], status="pending", qc_status="unknown", metadata_json={"provider": "wgs_prepare_pending"}))
+    run.status = "created"
+    run.current_stage = "validate_request"

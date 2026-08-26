@@ -1,112 +1,309 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import json
 import os
 import re
+import subprocess
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from airflow import DAG
-from airflow.operators.python import BranchPythonOperator
 from airflow.operators.python import PythonOperator
-from airflow.providers.ssh.operators.ssh import SSHOperator
+from airflow.sensors.python import PythonSensor
 from airflow.utils.task_group import TaskGroup
 from airflow.utils.trigger_rule import TriggerRule
 
 
 ANALYSIS_ID_RE = re.compile(r"^WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}$")
+RUNNER_STAGES = {
+    "prepare",
+    "step1_upload",
+    "step2_master",
+    "step3_monitor",
+    "step4_publish",
+    "step5_download",
+    "step6_materialize",
+}
+ASYNC_RUNNER_STAGES = {
+    "step1_upload",
+    "step3_monitor",
+    "step4_publish",
+    "step5_download",
+}
 
 
-def _validate_request(**context) -> dict[str, Any]:
+def validate_request(**context: Any) -> dict[str, Any]:
     conf = dict(context["dag_run"].conf or {})
-    analysis_id = str(conf.get("analysis_id") or "")
-    if conf.get("pipeline") != "wgs":
-        raise ValueError("pipeline must be wgs.")
-    if not ANALYSIS_ID_RE.fullmatch(analysis_id):
-        raise ValueError("analysis_id is not a generated WGS identifier.")
     params = dict(conf.get("params") or {})
-    if params.get("wgs_stage") not in {"precalling", "full"}:
-        raise ValueError("params.wgs_stage must be precalling or full.")
-    dry_run = bool(params.get("wgs_dry_run", True))
-    allow_execution = os.getenv("WGS_ALLOW_EXECUTION", "false").strip().lower() in {"1", "true", "yes", "on"}
-    if not dry_run and not allow_execution:
-        raise ValueError("WGS is deployed in dry-run validation mode; real execution is disabled.")
+    analysis_id = str(conf.get("analysis_id") or "")
+    if conf.get("pipeline") != "wgs" or conf.get("execution_mode") != "cce":
+        raise ValueError("pipeline=wgs and execution_mode=cce are required")
+    if not ANALYSIS_ID_RE.fullmatch(analysis_id):
+        raise ValueError("analysis_id must be a generated WGS identifier")
+    if not isinstance(conf.get("attempt"), int) or int(conf["attempt"]) < 1:
+        raise ValueError("attempt must be a positive integer")
+    if not str(conf.get("workdir") or "").strip():
+        raise ValueError("workdir is required")
+    for field in ("project_name", "batch_no", "fq_path"):
+        if not str(params.get(field) or "").strip():
+            raise ValueError(f"{field} is required")
     return conf
 
 
-def _host_task(
-    *,
-    task_id: str,
-    stage: str,
-    timeout_hours: int,
-    pool: str | None = None,
-    trigger_rule: str = TriggerRule.ALL_SUCCESS,
-) -> SSHOperator:
-    return SSHOperator(
-        task_id=task_id,
-        ssh_conn_id="wgs_host",
-        command=f"wgs-run {{{{ dag_run.conf['analysis_id'] }}}} {stage}",
-        cmd_timeout=None,
-        conn_timeout=10,
-        banner_timeout=30,
-        get_pty=False,
-        execution_timeout=timedelta(hours=timeout_hours),
-        pool=pool,
-        trigger_rule=trigger_rule,
+def register_stage(stage: str, **context: Any) -> dict[str, Any]:
+    _require_runtime_enabled()
+    conf = dict(context["dag_run"].conf or {})
+    return _backend_json(
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/{stage}",
+        method="POST",
+        payload={
+            "attempt": conf["attempt"],
+            "adapter": "wgs-runtime-200",
+            "command": f"wgs-runtime {conf['analysis_id']} {conf['attempt']} {stage}",
+        },
     )
 
 
-def _choose_wgs_path(**context) -> str:
-    params = dict((context["dag_run"].conf or {}).get("params") or {})
-    if params.get("wgs_stage") == "precalling":
-        return "collect_wgs_artifacts"
-    return "wgs_pipeline.variant_analysis"
+def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
+    if stage not in RUNNER_STAGES:
+        raise ValueError(f"unsupported runner stage: {stage}")
+    registered = register_stage(stage, **context)
+    conf = dict(context["dag_run"].conf or {})
+    command = [
+        "ssh",
+        "-tt",
+        "-F",
+        os.getenv("WGS_SSH_CONFIG_PATH", "/opt/airflow/ssh/config"),
+        os.getenv("WGS_RUNNER_200_ALIAS", "wgs-node200"),
+        "/home/chenjc/.config/airflow-wgs/forced-command.sh",
+        "wgs-runtime",
+        str(conf["analysis_id"]),
+        str(conf["attempt"]),
+        stage,
+    ]
+    completed = subprocess.run(
+        command,
+        check=False,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        error = (completed.stderr or completed.stdout or "")[-2000:]
+        raise RuntimeError(
+            f"restricted node200 WGS stage failed ({completed.returncode}): {error}"
+        )
+    return {**registered, "runner_status": "accepted"}
+
+
+def stage_ready(stage: str, **context: Any) -> bool:
+    _require_runtime_enabled()
+    conf = dict(context["dag_run"].conf or {})
+    query = urlencode({"attempt": conf["attempt"], "stage": stage})
+    payload = _backend_json(
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/stage-status?{query}"
+    )
+    if payload.get("failed"):
+        raise RuntimeError(str(payload.get("message") or f"WGS stage failed: {stage}"))
+    return bool(payload.get("ready"))
+
+
+def release_leases(**context: Any) -> dict[str, Any]:
+    conf = dict(context["dag_run"].conf or {})
+    if not _runtime_enabled():
+        return {"released": False, "reason": "runtime adapter disabled"}
+    return _backend_json(
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/release_leases",
+        method="POST",
+        payload={"attempt": conf["attempt"], "adapter": "wgs-runtime-200"},
+    )
+
+
+def acquire_transfer_slot(stage: str, **context: Any) -> bool:
+    return bool(register_stage(stage, **context).get("acquired"))
+
+
+def _backend_json(
+    path: str, *, method: str = "GET", payload: dict | None = None
+) -> dict[str, Any]:
+    base_url = os.getenv("BACKEND_BASE_URL", "http://backend:8000").rstrip("/")
+    token = os.getenv("INTERNAL_SERVICE_TOKEN", "").strip()
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    if token:
+        headers["X-Airflow-Demo-Token"] = token
+    body = json.dumps(payload).encode() if payload is not None else None
+    request = Request(f"{base_url}{path}", headers=headers, data=body, method=method)
+    try:
+        with urlopen(request, timeout=15) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"backend WGS stage API is unavailable: {exc}") from exc
+
+
+def _truthy(name: str) -> bool:
+    return os.getenv(name, "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _runtime_enabled() -> bool:
+    return _truthy("WGS_EXECUTION_ENABLED") and _truthy(
+        "WGS_RUNTIME_ADAPTER_ENABLED"
+    )
+
+
+def _require_runtime_enabled() -> None:
+    if not _runtime_enabled():
+        raise RuntimeError("WGS runtime adapter is disabled")
+
+
+def control_stage(
+    task_id: str, *, stage: str, pool: str | None = None
+) -> PythonOperator:
+    return PythonOperator(
+        task_id=task_id,
+        python_callable=register_stage,
+        op_kwargs={"stage": stage},
+        pool=pool,
+        execution_timeout=timedelta(minutes=2),
+    )
+
+
+def transfer_slot_sensor(task_id: str, *, stage: str) -> PythonSensor:
+    return PythonSensor(
+        task_id=task_id,
+        python_callable=acquire_transfer_slot,
+        op_kwargs={"stage": stage},
+        mode="reschedule",
+        poke_interval=5,
+        timeout=48 * 3600,
+        pool="wgs_obs_transfer",
+    )
+
+
+def runner_stage(
+    task_id: str,
+    *,
+    stage: str,
+    pool: str | None = None,
+    timeout_hours: int = 2,
+) -> PythonOperator:
+    return PythonOperator(
+        task_id=task_id,
+        python_callable=run_stage_on_200,
+        op_kwargs={"stage": stage},
+        pool=pool,
+        execution_timeout=(
+            timedelta(minutes=2)
+            if stage in ASYNC_RUNNER_STAGES
+            else timedelta(hours=timeout_hours)
+        ),
+    )
+
+
+def stage_sensor(
+    task_id: str,
+    *,
+    stage: str,
+    pool: str | None = None,
+    timeout_hours: int = 72,
+) -> PythonSensor:
+    return PythonSensor(
+        task_id=task_id,
+        python_callable=stage_ready,
+        op_kwargs={"stage": stage},
+        mode="reschedule",
+        poke_interval=5,
+        timeout=timeout_hours * 3600,
+        pool=pool,
+    )
 
 
 with DAG(
     dag_id="bio_wgs",
-    description="WGS Snakemake 9 workflow executed on the BS10610 host through a restricted SSH gate",
-    start_date=datetime(2026, 7, 14),
+    description="WGS 4.1.1 CCE Step1-Step6 orchestration through node200",
+    start_date=datetime(2026, 8, 26),
     schedule=None,
     catchup=False,
-    max_active_runs=1,
-    is_paused_upon_creation=False,
-    tags=["airflow-demo", "wgs", "snakemake9", "host-runner"],
+    max_active_runs=4,
+    is_paused_upon_creation=True,
+    tags=["airflow-demo", "wgs", "4.1.1", "cce", "node200"],
 ) as dag:
-    validate_request = PythonOperator(task_id="validate_request", python_callable=_validate_request)
-    prepare_wgs_run = _host_task(task_id="prepare_wgs_run", stage="prepare", timeout_hours=1)
-
-    with TaskGroup(group_id="wgs_pipeline"):
-        pre_calling = _host_task(
-            task_id="pre_calling",
-            stage="pre_calling",
-            timeout_hours=48,
-            pool=os.getenv("WGS_AIRFLOW_POOL", "wgs_full"),
-        )
-        variant_analysis = _host_task(
-            task_id="variant_analysis",
-            stage="variant_analysis",
-            timeout_hours=72,
-            pool=os.getenv("WGS_AIRFLOW_POOL", "wgs_full"),
-        )
-        collect_qc = _host_task(
-            task_id="collect_qc",
-            stage="collect_qc",
-            timeout_hours=12,
-            pool=os.getenv("WGS_AIRFLOW_POOL", "wgs_full"),
-        )
-        variant_analysis >> collect_qc
-
-    choose_wgs_path = BranchPythonOperator(task_id="choose_wgs_path", python_callable=_choose_wgs_path)
-
-    collect_wgs_artifacts = _host_task(
-        task_id="collect_wgs_artifacts",
-        stage="collect_artifacts",
-        timeout_hours=1,
-        trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS,
+    validate = PythonOperator(
+        task_id="validate_request", python_callable=validate_request
+    )
+    prepare = runner_stage(
+        "prepare_wgs_batch", stage="prepare", timeout_hours=2
     )
 
-    validate_request >> prepare_wgs_run >> pre_calling
-    pre_calling >> choose_wgs_path
-    choose_wgs_path >> variant_analysis
-    choose_wgs_path >> collect_wgs_artifacts
-    collect_qc >> collect_wgs_artifacts
+    with TaskGroup(group_id="input_transfer") as input_transfer:
+        input_lease = transfer_slot_sensor(
+            "acquire_obs_transfer_slot",
+            stage="acquire_input_transfer_slot",
+        )
+        input_upload = runner_stage(
+            "start_step1_upload",
+            stage="step1_upload",
+            pool="wgs_obs_transfer",
+            timeout_hours=48,
+        )
+        input_wait = stage_sensor(
+            "wait_step1_upload", stage="step1_upload", timeout_hours=48
+        )
+        input_release = control_stage(
+            "release_obs_transfer_slot", stage="release_input_transfer_slot"
+        )
+        input_lease >> input_upload >> input_wait >> input_release
+
+    submit = runner_stage(
+        "submit_step2_master", stage="step2_master", pool="wgs_cce_runs"
+    )
+    start_monitor = runner_stage(
+        "start_step3_monitor", stage="step3_monitor", pool="wgs_cce_runs"
+    )
+    wait_analysis = stage_sensor(
+        "wait_step3_analysis",
+        stage="step3_monitor",
+        pool="wgs_cce_runs",
+        timeout_hours=120,
+    )
+    start_publish = runner_stage(
+        "start_step4_publish", stage="step4_publish", timeout_hours=48
+    )
+    wait_publish = stage_sensor(
+        "wait_step4_publish", stage="step4_publish", timeout_hours=48
+    )
+
+    with TaskGroup(group_id="result_transfer") as result_transfer:
+        result_lease = transfer_slot_sensor(
+            "acquire_obs_transfer_slot",
+            stage="acquire_result_transfer_slot",
+        )
+        result_download = runner_stage(
+            "start_step5_download",
+            stage="step5_download",
+            pool="wgs_obs_transfer",
+            timeout_hours=48,
+        )
+        result_wait = stage_sensor(
+            "wait_step5_download", stage="step5_download", timeout_hours=48
+        )
+        result_release = control_stage(
+            "release_obs_transfer_slot", stage="release_result_transfer_slot"
+        )
+        result_lease >> result_download >> result_wait >> result_release
+
+    materialize = runner_stage(
+        "materialize_step6_results", stage="step6_materialize", timeout_hours=24
+    )
+    finalize = control_stage("finalize_run", stage="finalize_run")
+    release = PythonOperator(
+        task_id="release_leases",
+        python_callable=release_leases,
+        trigger_rule=TriggerRule.ALL_DONE,
+    )
+
+    validate >> prepare >> input_transfer >> submit
+    submit >> start_monitor >> wait_analysis >> start_publish >> wait_publish
+    wait_publish >> result_transfer >> materialize >> finalize >> release

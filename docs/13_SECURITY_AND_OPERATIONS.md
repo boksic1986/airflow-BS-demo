@@ -1,5 +1,21 @@
 # 13 安全和运维约束
 
+> **当前 WGS 4.1.1 边界：** 按用户最终决定，Airflow 使用现有 RSA 与
+> `/opt/airflow/ssh/config`，通过 `ssh -tt -F ... wgs-node200` 登录；config
+> 固定 host key、BatchMode、IdentityFile 和 TTY。私钥只读挂载给 UID 50000，
+> 不进入 release、镜像、数据库或日志。当前两个 execution gate 均为 false。
+> 以下 T133 forced-key 描述为历史候选。
+
+## T133 node 200 boundary
+
+Node 200 (`172.17.61.200`) is the only host allowed to hold the private OBS configuration and
+CCE kubeconfig for this release. Airflow reaches only the forced
+`wgs-runtime <analysis_id> <attempt> <stage>` command. Compose services,
+biodemo, logs, Rule JSONL and release artifacts must not contain OBS secrets,
+kubeconfig, FastAPI callback tokens or patient names. CCE writes SFS evidence
+only and never calls BS10610. The observer is read-only, unprivileged and has
+neither cloud credential.
+
 ## 1. Demo 安全边界
 
 该项目是 demo，不默认达到生产安全级别。服务器部署时至少保证：

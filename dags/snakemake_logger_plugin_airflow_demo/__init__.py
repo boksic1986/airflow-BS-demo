@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import hashlib
 import json
 import logging
 import os
@@ -32,6 +33,11 @@ class LogHandlerSettings(LogHandlerSettingsBase):
         default=False,
         metadata={"help": "Mark enumerated jobs as dry-run plans instead of running jobs."},
     )
+    attempt: int = field(default=1, metadata={"help": "WGS run attempt."})
+    pipeline_snapshot_id: str = field(default="", metadata={"help": "Immutable WGS snapshot id."})
+    run_label: str = field(default="", metadata={"help": "Opaque CCE Kubernetes label."})
+    role: str = field(default="master", metadata={"help": "Event producer role."})
+    stream_id: str = field(default="master", metadata={"help": "Stable JSONL stream id."})
 
 
 class LogHandler(LogHandlerBase):
@@ -47,6 +53,11 @@ class LogHandler(LogHandlerBase):
         self.backend_event_url = str(settings.backend_event_url or "").strip()
         self.post_timeout_seconds = float(settings.post_timeout_seconds)
         self.dry_run = bool(settings.dry_run)
+        self.attempt = int(settings.attempt)
+        self.pipeline_snapshot_id = str(settings.pipeline_snapshot_id or "")
+        self.run_label = str(settings.run_label or "")
+        self.role = str(settings.role or "master")
+        self.stream_id = str(settings.stream_id or "master")
         self.job_context: dict[str, dict[str, Any]] = {}
         self.baseFilename = str(self.events_path)
 
@@ -141,7 +152,37 @@ class LogHandler(LogHandlerBase):
             payload["return_code"] = None
             payload["message"] = f"Dry-run planned job; rule was not executed. {payload['message']}"
         self._remember_job_context(payload)
+        if self.pipeline_snapshot_id or self.run_label:
+            payload = self._observer_payload(payload)
         return payload
+
+    def _observer_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        rule = str(payload.get("rule") or "")
+        job_id = str(payload.get("snakemake_jobid") or "")
+        wildcards = dict(payload.get("wildcards") or {})
+        identity = json.dumps(
+            [self.analysis_id, self.attempt, self.stream_id, rule, job_id, wildcards],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        instance_id = hashlib.sha256(identity.encode()).hexdigest()
+        now = datetime.now(timezone.utc)
+        return {
+            **payload,
+            "schema_version": "1",
+            "event_id": hashlib.sha256(
+                f"{instance_id}\0{payload.get('event')}\0{now.timestamp()}".encode()
+            ).hexdigest(),
+            "attempt": self.attempt,
+            "pipeline_snapshot_id": self.pipeline_snapshot_id,
+            "run_label": self.run_label,
+            "role": self.role,
+            "stream_id": self.stream_id,
+            "rule_instance_id": instance_id,
+            "rule_name": rule or None,
+            "job_id": job_id or None,
+            "timestamp": now.timestamp(),
+        }
 
     def _fill_payload_from_job_context(self, payload: dict[str, Any]) -> None:
         jobid = payload.get("snakemake_jobid")

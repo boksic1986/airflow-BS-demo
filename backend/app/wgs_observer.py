@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 from sqlalchemy import select
 
 from app.models import (
@@ -14,6 +15,7 @@ from app.models import (
     RuleEventRaw,
     RuleState,
     RunAttempt,
+    TransferJob,
 )
 from app.wgs_evidence_binding import EvidenceBinding, load_evidence_bindings
 from app.wgs_release_catalog import load_snapshot_catalog
@@ -25,8 +27,13 @@ RULE_EVENT_TYPES = {
     "job_started",
     "job_finished",
     "job_error",
+    "group_error",
 }
-TERMINAL_RULE_EVENTS = {"job_finished": "success", "job_error": "failed"}
+TERMINAL_RULE_EVENTS = {
+    "job_finished": "success",
+    "job_error": "failed",
+    "group_error": "failed",
+}
 
 
 def ingest_evidence_once(
@@ -35,6 +42,8 @@ def ingest_evidence_once(
     evidence_root: Path,
     binding_root: Path,
     catalog_path: Path,
+    transfer_spool_root: Path | None = None,
+    runtime_root: Path | None = None,
 ) -> dict[str, int]:
     catalog = load_snapshot_catalog(catalog_path)
     bindings, diagnostics = load_evidence_bindings(
@@ -94,15 +103,256 @@ def ingest_evidence_once(
                 _record_file_error(
                     session_factory, evidence_root.resolve(), binding, path, str(error)
                 )
+        degraded_marker = binding.evidence_directory / "LOGGER_DEGRADED.json"
+        if not degraded_marker.is_file():
+            degraded_marker = (
+                binding.evidence_directory / "rule-status" / "LOGGER_DEGRADED.json"
+            )
+        monitoring_error = None
+        if degraded_marker.is_file():
+            try:
+                marker = json.loads(degraded_marker.read_text(encoding="utf-8"))
+                monitoring_error = str(
+                    marker.get("message") or marker.get("error") or "Rule logger degraded"
+                )
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                monitoring_error = "Rule logger degraded (marker is unreadable)"
         _set_observer_status(
             session_factory,
             binding,
-            status="degraded" if binding_errors else "healthy",
-            error="one or more evidence files could not be consumed"
-            if binding_errors
-            else None,
+            status="degraded" if binding_errors or monitoring_error else "healthy",
+            error=(
+                "one or more evidence files could not be consumed"
+                if binding_errors
+                else monitoring_error
+            ),
         )
+    if transfer_spool_root is not None and transfer_spool_root.is_dir():
+        for path in sorted(transfer_spool_root.glob("**/progress.json")):
+            result["files"] += 1
+            try:
+                if _ingest_transfer_progress(session_factory, transfer_spool_root.resolve(), path):
+                    result["events_ingested"] += 1
+            except (OSError, UnicodeError, ValueError, TypeError, json.JSONDecodeError):
+                result["errors"] += 1
+    if runtime_root is not None and runtime_root.is_dir():
+        request_root = runtime_root / "runner-requests"
+        for path in sorted(request_root.glob("**/*.status.json")):
+            if path.name not in {
+                "step1_upload.status.json",
+                "step3_monitor.status.json",
+                "step5_download.status.json",
+            }:
+                continue
+            result["files"] += 1
+            try:
+                if _ingest_runtime_stage_status(
+                    session_factory, request_root.resolve(), path
+                ):
+                    result["events_ingested"] += 1
+            except (OSError, UnicodeError, ValueError, TypeError, json.JSONDecodeError):
+                result["errors"] += 1
     return result
+
+
+def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path) -> bool:
+    resolved = path.resolve()
+    if request_root not in resolved.parents:
+        raise ValueError("runtime stage status escapes request root")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("schema_version") != "wgs-runtime.stage-status.v1":
+        raise ValueError("unsupported runtime stage status schema")
+    analysis_id = str(payload.get("analysis_id") or "")
+    attempt = int(payload.get("attempt") or 0)
+    stage = str(payload.get("stage") or "")
+    status = str(payload.get("status") or "")
+    heartbeat = datetime.fromisoformat(
+        str(payload.get("updated_at") or "").replace("Z", "+00:00")
+    )
+    if stage not in {"step1_upload", "step3_monitor", "step5_download"}:
+        raise ValueError("unsupported runtime stage status")
+    with session_factory() as session:
+        analysis = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        if analysis is None or analysis.attempt != attempt:
+            raise ValueError("runtime stage status references an unknown active attempt")
+        if stage in {"step1_upload", "step5_download"}:
+            kind = "input" if stage == "step1_upload" else "result"
+            transfer_id = f"{analysis_id}-a{attempt}-{kind}"
+            row = session.scalar(
+                select(TransferJob).where(TransferJob.transfer_id == transfer_id)
+            )
+            if row is not None and row.heartbeat_at is not None:
+                previous = row.heartbeat_at
+                if previous.tzinfo is None:
+                    previous = previous.replace(tzinfo=timezone.utc)
+                if heartbeat <= previous:
+                    return False
+            if row is None:
+                row = TransferJob(
+                    analysis_id=analysis_id,
+                    attempt=attempt,
+                    transfer_id=transfer_id,
+                    direction="upload" if kind == "input" else "download",
+                    status=status,
+                )
+                session.add(row)
+            row.transfer_type = "input_upload" if kind == "input" else "result_download"
+            row.status = status
+            row.progress_detail_available = False
+            row.heartbeat_at = heartbeat
+            row.message = str(payload.get("message") or "") or None
+            row.error_message = row.message if status == "failed" else None
+            row.updated_at = datetime.now(timezone.utc)
+        else:
+            monitoring_health = str(payload.get("monitoring_health") or "healthy")
+            if monitoring_health not in {"healthy", "degraded"}:
+                raise ValueError("Step3 monitoring health is invalid")
+            if monitoring_health == "degraded":
+                _mark_runtime_monitoring_degraded(
+                    session,
+                    analysis_id,
+                    attempt,
+                    str(
+                        payload.get("monitoring_error")
+                        or "Rule evidence bridge failed"
+                    ),
+                )
+            master_job = str(payload.get("master_job") or "")
+            if not master_job.startswith("wgs-master-"):
+                raise ValueError("Step3 status is missing the opaque Master Job name")
+            master = payload.get("master") if isinstance(payload.get("master"), dict) else {}
+            master_state = str(master.get("master_state") or "PENDING")
+            phase = {
+                "PENDING": "Pending",
+                "RUNNING": "Running",
+                "SUCCEEDED": "Succeeded",
+                "FAILED": "Failed",
+            }.get(master_state)
+            if phase is None:
+                raise ValueError("Step3 Master state is invalid")
+            pod_hash = hashlib.sha256(master_job.encode("utf-8")).hexdigest()[:32]
+            row = session.scalar(
+                select(KubernetesWorkload).where(
+                    KubernetesWorkload.analysis_id == analysis_id,
+                    KubernetesWorkload.attempt == attempt,
+                    KubernetesWorkload.pod_hash == pod_hash,
+                )
+            )
+            if row is not None and row.observed_at is not None:
+                previous = row.observed_at
+                if previous.tzinfo is None:
+                    previous = previous.replace(tzinfo=timezone.utc)
+                if heartbeat <= previous:
+                    if monitoring_health == "degraded":
+                        session.commit()
+                    return False
+            if row is None:
+                row = KubernetesWorkload(
+                    analysis_id=analysis_id,
+                    attempt=attempt,
+                    event_id=f"step3:{master_job}",
+                    pod_hash=pod_hash,
+                    job_name=master_job,
+                    phase=phase,
+                )
+                session.add(row)
+            row.phase = phase
+            row.reason = "MasterFailed" if master_state == "FAILED" else None
+            row.message = str(master.get("message") or payload.get("message") or "") or None
+            row.job_status_json = master
+            row.observed_at = heartbeat
+            row.updated_at = datetime.now(timezone.utc)
+        session.commit()
+        return True
+
+
+def _mark_runtime_monitoring_degraded(
+    session, analysis_id: str, attempt: int, error: str
+) -> None:
+    observer = session.scalar(
+        select(ObserverRunState).where(
+            ObserverRunState.analysis_id == analysis_id,
+            ObserverRunState.attempt == attempt,
+        )
+    )
+    if observer is not None:
+        observer.status = "degraded"
+        observer.last_error = error[-2000:]
+        observer.updated_at = datetime.now(timezone.utc)
+
+
+def _ingest_transfer_progress(session_factory, spool_root: Path, path: Path) -> bool:
+    resolved = path.resolve()
+    if spool_root not in resolved.parents:
+        raise ValueError("transfer progress file escapes spool root")
+    payload = _normalize_transfer_progress(
+        json.loads(path.read_text(encoding="utf-8"))
+    )
+    required = ("analysis_id", "attempt", "transfer_id", "transfer_type", "direction", "status", "heartbeat_at")
+    if any(payload.get(name) in {None, ""} for name in required):
+        raise ValueError("transfer progress is missing required fields")
+    heartbeat = datetime.fromisoformat(str(payload["heartbeat_at"]).replace("Z", "+00:00"))
+    with session_factory() as session:
+        analysis = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == str(payload["analysis_id"])))
+        if analysis is None or analysis.attempt != int(payload["attempt"]):
+            raise ValueError("transfer progress references an unknown active attempt")
+        row = session.scalar(select(TransferJob).where(TransferJob.transfer_id == str(payload["transfer_id"])))
+        if row is not None and row.heartbeat_at is not None:
+            previous = row.heartbeat_at if row.heartbeat_at.tzinfo else row.heartbeat_at.replace(tzinfo=timezone.utc)
+            if heartbeat <= previous:
+                return False
+        if row is None:
+            row = TransferJob(analysis_id=analysis.analysis_id, attempt=analysis.attempt, transfer_id=str(payload["transfer_id"]), direction=str(payload["direction"]), status=str(payload["status"]))
+            session.add(row)
+        elif row.analysis_id != analysis.analysis_id or row.attempt != analysis.attempt:
+            raise ValueError("transfer_id is already bound to another attempt")
+        row.transfer_type = str(payload["transfer_type"])
+        row.source = str(payload.get("source") or "") or None
+        row.destination = str(payload.get("destination") or "") or None
+        row.status = str(payload["status"])
+        row.bytes_total = max(0, int(payload.get("bytes_total") or 0))
+        row.bytes_transferred = max(0, int(payload.get("bytes_transferred") or 0))
+        row.files_total = max(0, int(payload.get("files_total") or 0))
+        row.files_completed = max(0, int(payload.get("files_completed") or 0))
+        row.current_file = str(payload.get("current_file") or "") or None
+        row.progress_percent = max(0, min(100, int(round(float(payload.get("progress_percent") or 0)))))
+        row.speed_bps = max(0, int(payload.get("speed_bps") or 0))
+        row.progress_detail_available = True
+        row.eta_seconds = max(0, int(payload["eta_seconds"])) if payload.get("eta_seconds") is not None else None
+        row.estimated_finish_at = datetime.fromisoformat(str(payload["estimated_finish_at"]).replace("Z", "+00:00")) if payload.get("estimated_finish_at") else None
+        row.checkpoint_ref = str(payload.get("checkpoint_ref") or "") or None
+        row.heartbeat_at = heartbeat
+        row.verification_status = str(payload.get("verification_status") or "") or None
+        row.message = str(payload.get("message") or "") or None
+        row.error_message = str(payload.get("error_message") or "") or None
+        row.updated_at = datetime.now(timezone.utc)
+        session.commit()
+        return True
+
+
+def _normalize_transfer_progress(payload: dict) -> dict:
+    """Translate cce-pipeline schema v1 to the stable biodemo/API vocabulary."""
+    if payload.get("schema_version") != "cce-pipeline.transfer-progress.v1":
+        return payload
+    normalized = dict(payload)
+    direction = str(payload.get("direction") or "")
+    normalized["transfer_type"] = {
+        "upload": "input_upload",
+        "download": "result_download",
+    }.get(direction, direction)
+    normalized["status"] = payload.get("state")
+    normalized["bytes_transferred"] = payload.get("bytes_done", 0)
+    normalized["files_completed"] = payload.get("files_done", 0)
+    normalized["speed_bps"] = payload.get("speed_bytes_per_second", 0)
+    normalized["estimated_finish_at"] = payload.get("estimated_completion_at")
+    normalized["checkpoint_ref"] = payload.get("checkpoint_path")
+    normalized["error_message"] = payload.get("error_summary")
+    total = max(0, int(payload.get("bytes_total") or 0))
+    done = max(0, int(payload.get("bytes_done") or 0))
+    normalized["progress_percent"] = min(100, (done * 100 / total) if total else 0)
+    return normalized
 
 
 def _validate_database_binding(session_factory, binding: EvidenceBinding) -> str | None:
@@ -122,7 +372,9 @@ def _validate_database_binding(session_factory, binding: EvidenceBinding) -> str
             return "unknown analysis attempt"
         if analysis.attempt != binding.attempt:
             return "binding attempt is not the active analysis attempt"
-        if attempt.run_label != binding.run_label:
+        if attempt.run_label is None:
+            attempt.run_label = binding.run_label
+        elif attempt.run_label != binding.run_label:
             return "binding run_label does not match analysis attempt"
         if analysis.params_json.get("pipeline_snapshot_id") != binding.pipeline_snapshot_id:
             return "binding snapshot does not match analysis"
@@ -197,7 +449,9 @@ def _ingest_rule_file(
 
         inserted = 0
         for payload in payloads:
-            event_id = _event_id(binding.pipeline_snapshot_id, payload)
+            event_id = str(
+                payload.get("event_id") or _event_id(binding.pipeline_snapshot_id, payload)
+            )
             exists = session.scalar(
                 select(RuleEventRaw.id).where(
                     RuleEventRaw.analysis_id == binding.analysis_id,
@@ -234,23 +488,57 @@ def _ingest_rule_file(
 def _validate_rule_event(payload: object, binding: EvidenceBinding) -> None:
     if not isinstance(payload, dict):
         raise ValueError("event must be a JSON object")
-    if str(payload.get("schema_version")) != "1":
+    schema_version = str(payload.get("schema_version"))
+    if schema_version not in {"1", "rule-event.v1"}:
         raise ValueError("unsupported event schema_version")
     if payload.get("event") not in RULE_EVENT_TYPES:
         raise ValueError("unsupported Rule event")
-    if str(payload.get("run_label")) != binding.run_label:
-        raise ValueError("event run_label does not match binding")
-    try:
-        attempt = int(payload.get("attempt"))
-        float(payload.get("timestamp"))
-    except (TypeError, ValueError) as error:
-        raise ValueError("event attempt and timestamp must be numeric") from error
+    attempt = _normalize_event_attempt(payload.get("attempt"))
+    if schema_version == "rule-event.v1":
+        if str(payload.get("analysis_id")) != binding.analysis_id:
+            raise ValueError("event analysis_id does not match binding")
+        if str(payload.get("run_id") or "") == "":
+            raise ValueError("event run_id is required")
+        if str(payload.get("pipeline_snapshot_id")) != binding.pipeline_snapshot_id:
+            raise ValueError("event pipeline_snapshot_id does not match binding")
+        if not str(payload.get("event_id") or ""):
+            raise ValueError("event_id is required")
+        try:
+            int(payload.get("sequence"))
+            datetime.fromisoformat(str(payload.get("timestamp")).replace("Z", "+00:00"))
+        except (TypeError, ValueError) as error:
+            raise ValueError("event sequence and timestamp are invalid") from error
+    else:
+        if str(payload.get("run_label")) != binding.run_label:
+            raise ValueError("event run_label does not match binding")
+        try:
+            float(payload.get("timestamp"))
+        except (TypeError, ValueError) as error:
+            raise ValueError("event timestamp must be numeric") from error
     if attempt != binding.attempt:
         raise ValueError("event attempt does not match binding")
-    if payload.get("role") not in {"master", "worker"}:
-        raise ValueError("event role must be master or worker")
-    if not str(payload.get("stream_id") or ""):
-        raise ValueError("event stream_id is required")
+    if schema_version == "1":
+        if payload.get("role") not in {"master", "worker"}:
+            raise ValueError("event role must be master or worker")
+        if not str(payload.get("stream_id") or ""):
+            raise ValueError("event stream_id is required")
+
+
+def _normalize_event_attempt(value: object) -> int:
+    if isinstance(value, bool):
+        raise ValueError("event attempt must be a positive integer or attempt-N")
+    if isinstance(value, int):
+        attempt = value
+    elif isinstance(value, str):
+        match = re.fullmatch(r"(?:attempt-)?([1-9][0-9]*)", value.strip())
+        if match is None:
+            raise ValueError("event attempt must be a positive integer or attempt-N")
+        attempt = int(match.group(1))
+    else:
+        raise ValueError("event attempt must be a positive integer or attempt-N")
+    if attempt < 1:
+        raise ValueError("event attempt must be a positive integer or attempt-N")
+    return attempt
 
 
 def _ingest_kubernetes_file(
@@ -320,6 +608,8 @@ def _validate_kubernetes_event(payload: object, filename: str) -> None:
         raise ValueError("event must be a JSON object")
     if not str(payload.get("event_key") or ""):
         raise ValueError("event_key is required")
+    if payload.get("workload_role", "master") != "master":
+        raise ValueError("only Master workload evidence is accepted")
     _iso_time(payload.get("observed_at_utc"))
     if filename in {"pod-events.jsonl", "pod-metrics.jsonl"} and not str(
         payload.get("pod_hash") or ""
@@ -459,12 +749,12 @@ def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
             grouped.setdefault(instance, []).append(event)
 
     for instance, instance_events in grouped.items():
-        ordered = sorted(instance_events, key=lambda item: float(item.get("timestamp", 0)))
+        ordered = sorted(instance_events, key=_event_order)
         descriptive = next(
             (
                 event
                 for event in ordered
-                if event.get("rule_name") and event.get("event") in {"rule_planned", "job_info"}
+                if event.get("rule_name") and event.get("event") in {"rule_planned", "job_info", "job_started"}
             ),
             {},
         )
@@ -486,6 +776,7 @@ def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
             )
             session.add(state)
         state.rule_name = str(descriptive.get("rule_name") or state.rule_name)
+        state.sample_id = str(descriptive.get("sample_id") or "") or state.sample_id
         state.layer = descriptive.get("layer", state.layer)
         state.status = "planned"
         state.started_at = None
@@ -501,7 +792,7 @@ def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
                 state.status = "running"
                 state.started_at = state.started_at or when
             elif event_type in TERMINAL_RULE_EVENTS:
-                if worker_terminal and event.get("role") != "worker":
+                if worker_terminal and event.get("role") not in {None, "worker"}:
                     continue
                 state.status = TERMINAL_RULE_EVENTS[event_type]
                 state.ended_at = when
@@ -584,4 +875,15 @@ def _event_id(snapshot_id: str, payload: dict) -> str:
 
 
 def _event_time(payload: dict) -> datetime:
-    return datetime.fromtimestamp(float(payload["timestamp"]), tz=timezone.utc)
+    value = payload["timestamp"]
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(float(value), tz=timezone.utc)
+    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+
+def _event_order(payload: dict) -> tuple[int, datetime]:
+    try:
+        sequence = int(payload.get("sequence") or 0)
+    except (TypeError, ValueError):
+        sequence = 0
+    return sequence, _event_time(payload)

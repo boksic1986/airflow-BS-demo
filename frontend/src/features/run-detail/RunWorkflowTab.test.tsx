@@ -31,23 +31,29 @@ describe("RunWorkflowTab", () => {
     expect(screen.queryByRole("table", {name: /Pipeline rule jobs/i})).not.toBeInTheDocument();
   });
 
-  it("shows only the WGS host execution path", () => {
+  it("shows only the WGS CCE orchestration path", () => {
     const progress = {
       pipeline: "wgs",
       airflow_tasks: [
         {task_id: "validate_request", state: "success"},
-        {task_id: "prepare_wgs_run", state: "success"},
-        {task_id: "wgs_pipeline.pre_calling", state: "running"},
+        {task_id: "prepare_wgs_batch", state: "success"},
+        {task_id: "input_transfer.start_step1_upload", state: "success"},
+        {task_id: "submit_step2_master", state: "running"},
+        {task_id: "start_step3_monitor", state: "queued"},
+        {task_id: "submit_master", state: "success"},
         {task_id: "run_nipt_docker", state: "success"},
       ],
     } as RunProgressResponse;
 
     render(<RunWorkflowTab progress={progress} rules={[]} />);
 
-    expect(screen.getByRole("heading", {name: "WGS host execution path"})).toBeInTheDocument();
+    expect(screen.getByRole("heading", {name: "WGS CCE orchestration path"})).toBeInTheDocument();
     const selectedPath = screen.getByLabelText("Selected Airflow execution path");
-    expect(within(selectedPath).getByText("Prepare WGS host run")).toBeInTheDocument();
-    expect(within(selectedPath).getByText("Pre-calling")).toBeInTheDocument();
+    expect(within(selectedPath).getByText("Validate run request")).toBeInTheDocument();
+    expect(within(selectedPath).getByText("Start Step1 input upload")).toBeInTheDocument();
+    expect(within(selectedPath).getByText("Submit Step2 Master")).toBeInTheDocument();
+    expect(within(selectedPath).getByText("Start Step3 monitoring")).toBeInTheDocument();
+    expect(within(selectedPath).queryByText("Submit Master")).not.toBeInTheDocument();
     expect(within(selectedPath).queryByText("Run NIPT Docker workflow")).not.toBeInTheDocument();
   });
 

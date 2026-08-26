@@ -13,6 +13,8 @@ def main() -> int:
     parser.add_argument("--evidence-root", type=Path, default=Path(os.getenv("WGS_EVIDENCE_ROOT", "/data/wgs-evidence")))
     parser.add_argument("--binding-root", type=Path, default=Path(os.getenv("WGS_BINDING_ROOT", "/config/wgs-bindings")))
     parser.add_argument("--catalog", type=Path, default=Path(os.getenv("WGS_RELEASE_CATALOG_PATH", "/config/wgs_releases.yaml")))
+    parser.add_argument("--transfer-spool-root", type=Path, default=Path(os.getenv("WGS_TRANSFER_SPOOL_ROOT", "/data/wgs-transfer-spool")))
+    parser.add_argument("--runtime-root", type=Path, default=Path(os.getenv("WGS_RUNTIME_ROOT", "/data/wgs-runtime")))
     parser.add_argument("--interval", type=float, default=float(os.getenv("WGS_OBSERVER_INTERVAL", "5")))
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
@@ -22,6 +24,8 @@ def main() -> int:
             evidence_root=args.evidence_root,
             binding_root=args.binding_root,
             catalog_path=args.catalog,
+            transfer_spool_root=args.transfer_spool_root,
+            runtime_root=args.runtime_root,
         )
         print(json.dumps(result, sort_keys=True), flush=True)
         if args.once:

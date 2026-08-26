@@ -1,5 +1,35 @@
 # 11 部署 Runbook
 
+> **WGS 说明：** T141 WGS 4.1.1 禁用态 release 已部署；两个 execution gate
+> 仍为 false，`bio_wgs` 仍 paused。T141 已接入 Master Rule JSONL bridge，但
+> 尚未运行真实 CCE reader；现行发布与 T140 启用门禁见
+> [`25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)
+>；以下 T133 runbook 为历史记录。
+
+## T133 WGS 4.1.0 deployment gate
+
+Do not recreate the current BS10610 Compose or unpause `bio_wgs` yet. The
+candidate must first receive (1) a reconciled cce-pipeline FASTQ source
+manifest that does not make Airflow calculate FASTQ MD5, (2) structured
+transfer progress from cce-pipeline, (3) installation and disabled-mode
+acceptance of the restricted `wgs-runtime` command on node 200, (4) a new
+immutable profile revision referencing Master logger image digest
+`5d1d977f...`, and (5) a successful remote frontend test/build. Keep
+`WGS_EXECUTION_ENABLED=false` and
+`WGS_RUNTIME_ADAPTER_ENABLED=false` throughout installation.
+
+The Master image prerequisite itself is complete: the approved r2 base
+contains Snakemake `9.24.0+biosan1`, Executor `0.6.4+biosan3`, and
+cce-pipeline `0.2.0`; the BS10610-built logger overlay passed tag/digest smokes
+and is pinned at RepoDigest `sha256:5d1d977fb21e541582230f31540cc8cd4f7a183e417b41e508162060cfcdf211`.
+
+When those gates pass, build a fresh release containing only `dags/bio_wgs.py`,
+run `docker compose config`, migrations, focused backend/frontend/DAG tests,
+and verify the immutable external network remains `192.168.199.0/24` with only
+`172.17.106.10:12959` published. Pause/remove old DAG metadata only after the
+new DAG import check; never reset volumes or the network. Step7/Step8 cleanup
+requires a separate explicit operator action and is not part of Airflow.
+
 ## T119 Intake archive and NIPT small-batch rollout
 
 1. Record and pause `bio_intake_scan`; reject maintenance while a PGT-A/NIPT
@@ -1906,3 +1936,6 @@ observer, and Airflow remain internal-only. Record attachments before and after
 recreate; Docker-assigned service IPs may change within the fixed subnet, so
 service communication must use Compose DNS names rather than hard-coded
 container IPs.
+# T131: Apply biodemo migration non-destructively; recreate application
+# services without volumes. Keep both gates false, all WGS DAGs paused, fixed
+# network `192.168.199.0/24`, and only frontend `172.17.106.10:12959` published.

@@ -1,0 +1,5 @@
+ARG FRONTEND_BASE_IMAGE=airflow-demo/frontend:t131-phase1
+FROM ${FRONTEND_BASE_IMAGE}
+COPY nginx.wgs.conf /etc/nginx/conf.d/default.conf
+RUN rm -rf /usr/share/nginx/html/*
+COPY dist /usr/share/nginx/html

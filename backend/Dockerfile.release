@@ -1,0 +1,5 @@
+ARG BACKEND_BASE_IMAGE=airflow-demo/backend:t131-phase1
+FROM ${BACKEND_BASE_IMAGE}
+COPY alembic.ini /app/alembic.ini
+COPY alembic /app/alembic
+COPY app /app/app

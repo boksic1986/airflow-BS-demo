@@ -23,6 +23,7 @@ class Settings:
     pgta_input_scan_roots: list[str]
     nipt_input_scan_roots: list[str]
     wgs_config_roots: list[str]
+    wgs_fastq_roots: list[str]
     wgs_validation_roots: list[str]
     intake_config_path: str | None
     pipeline_profile_config_path: str | None
@@ -36,7 +37,16 @@ class Settings:
     session_cookie_secure: bool
     session_ttl_hours: int
     wgs_evidence_root: str
+    wgs_binding_root: str
+    wgs_transfer_spool_root: str
     wgs_release_catalog_path: str
+    wgs_runtime_request_root: str
+    wgs_runtime_bs_root: str
+    wgs_runtime_node200_root: str
+    wgs_results_host_root: str
+    wgs_intake_container_root: str
+    wgs_intake_host_root: str
+    wgs_intake_node200_root: str
 
 
 def get_cors_origins() -> list[str]:
@@ -55,6 +65,7 @@ def get_settings() -> Settings:
     pgta_scan_roots = _parse_list(os.getenv("PGTA_INPUT_SCAN_ROOTS") or ",".join(legacy_scan_roots))
     nipt_scan_roots = _parse_list(os.getenv("NIPT_INPUT_SCAN_ROOTS") or "/opt/pipelines/NIPT/fastq")
     wgs_config_roots = _parse_list(os.getenv("WGS_CONFIG_ROOTS") or "/data/wgs-intake")
+    wgs_fastq_roots = _parse_list(os.getenv("WGS_FASTQ_ROOTS") or "/data/wgs-fastq")
     wgs_validation_roots = _parse_list(os.getenv("WGS_VALIDATION_ROOTS") or "/data/wgs-validation")
     deployed_pipelines = tuple(_parse_list(os.getenv("DEPLOYED_PIPELINES", "wgs")))
     unsupported = sorted(set(deployed_pipelines) - {"wgs"})
@@ -74,6 +85,7 @@ def get_settings() -> Settings:
         pgta_input_scan_roots=pgta_scan_roots,
         nipt_input_scan_roots=nipt_scan_roots,
         wgs_config_roots=wgs_config_roots,
+        wgs_fastq_roots=wgs_fastq_roots,
         wgs_validation_roots=wgs_validation_roots,
         intake_config_path=os.getenv("INTAKE_CONFIG_PATH", "/app/config/intake.yaml"),
         pipeline_profile_config_path=os.getenv(
@@ -90,8 +102,35 @@ def get_settings() -> Settings:
         session_cookie_secure=_parse_bool(os.getenv("SESSION_COOKIE_SECURE", "true")),
         session_ttl_hours=_parse_int(os.getenv("SESSION_TTL_HOURS", "8"), default=8),
         wgs_evidence_root=os.getenv("WGS_EVIDENCE_ROOT", "/data/wgs-evidence"),
+        wgs_binding_root=os.getenv("WGS_BINDING_ROOT", "/config/wgs-bindings"),
+        wgs_transfer_spool_root=os.getenv("WGS_TRANSFER_SPOOL_ROOT", "/data/wgs-transfer-spool"),
         wgs_release_catalog_path=os.getenv(
             "WGS_RELEASE_CATALOG_PATH", "/config/wgs_releases.yaml"
+        ),
+        wgs_runtime_request_root=os.getenv(
+            "WGS_RUNTIME_REQUEST_ROOT", "/data/wgs-runner-requests"
+        ),
+        wgs_runtime_bs_root=os.getenv(
+            "WGS_RUNTIME_BS_ROOT",
+            "/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime",
+        ),
+        wgs_runtime_node200_root=os.getenv(
+            "WGS_RUNTIME_NODE200_ROOT",
+            "/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime",
+        ),
+        wgs_results_host_root=os.getenv(
+            "WGS_RESULTS_HOST_ROOT",
+            "/mnt/biodevrwbi/33.chenjiucheng/airflow-result/wgs",
+        ),
+        wgs_intake_container_root=os.getenv(
+            "WGS_INTAKE_CONTAINER_ROOT", "/data/wgs-intake"
+        ),
+        wgs_intake_host_root=os.getenv(
+            "WGS_INTAKE_HOST_ROOT",
+            "/mnt/biodevrwsg2/33.chenjiucheng/WGS_input",
+        ),
+        wgs_intake_node200_root=os.getenv(
+            "WGS_INTAKE_NODE200_ROOT", "/sg2/33.chenjiucheng/WGS_input"
         ),
     )
 

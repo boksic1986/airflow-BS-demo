@@ -28,6 +28,48 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
         self.assertIs(field_types["backend_event_url"], str)
         self.assertIs(field_types["post_timeout_seconds"], float)
         self.assertIs(field_types["dry_run"], bool)
+        self.assertIs(field_types["attempt"], int)
+        self.assertIs(field_types["pipeline_snapshot_id"], str)
+        self.assertIs(field_types["run_label"], str)
+        self.assertIs(field_types["role"], str)
+        self.assertIs(field_types["stream_id"], str)
+
+    def test_cce_logger_writes_offline_observer_contract(self) -> None:
+        from snakemake_logger_plugin_airflow_demo import LogHandler, LogHandlerSettings
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "rule-status" / "raw" / "master.jsonl"
+            handler = LogHandler(
+                common_settings=None,
+                settings=LogHandlerSettings(
+                    analysis_id="WGS_20260813_010203_A1B2C3",
+                    attempt=2,
+                    pipeline_snapshot_id="wgs-v4.1.1-candidate-3489b39-64d50022",
+                    run_label="wgs401-0123456789abcdef",
+                    role="master",
+                    stream_id="master",
+                    workdir=Path(tmpdir),
+                    events_path=path,
+                ),
+            )
+            record = logging.LogRecord("snakemake", logging.INFO, "Snakefile", 1, "started", (), None)
+            record.event = LogEvent.JOB_STARTED
+            record.rule = "pre_process_mapping"
+            record.job_id = 7
+            record.wildcards = {"sample": "S1"}
+            handler.emit(record)
+            payload = json.loads(path.read_text(encoding="utf-8").strip())
+
+        self.assertEqual(payload["schema_version"], "1")
+        self.assertEqual(payload["analysis_id"], "WGS_20260813_010203_A1B2C3")
+        self.assertEqual(payload["attempt"], 2)
+        self.assertEqual(payload["pipeline_snapshot_id"], "wgs-v4.1.1-candidate-3489b39-64d50022")
+        self.assertEqual(payload["run_label"], "wgs401-0123456789abcdef")
+        self.assertEqual(payload["role"], "master")
+        self.assertEqual(payload["stream_id"], "master")
+        self.assertEqual(payload["rule_name"], "pre_process_mapping")
+        self.assertTrue(payload["rule_instance_id"])
+        self.assertIsInstance(payload["timestamp"], float)
 
     def test_dry_run_logger_marks_planned_jobs_as_skipped(self) -> None:
         from snakemake_logger_plugin_airflow_demo import LogHandler, LogHandlerSettings

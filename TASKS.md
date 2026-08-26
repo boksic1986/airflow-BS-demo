@@ -6,9 +6,206 @@
 |---|---|---|---|---|---|
 | T129 | WGS-only control platform Phase 1 | backend/airflow/frontend/infra/docs | RBAC, biodemo schema, observer, WGS-only UI, paused safe DAGs, Compose and design docs | BS10610 fresh migration, health/login/RBAC, WGS-only UI/API, paused DAGs, submit denied | done |
 | T130 | Current WGS server-copy observability foundation | airflow/snakemake/backend/frontend/infra/QA | immutable snapshot catalog, logger/evidence adapters in server development copy, durable observer cursors, Rule/Pod APIs/UI, isolated deployment | synthetic incremental/restart/Pod/API/RBAC/network acceptance; execution remains disabled | done |
-| T131 | WGS execution and transfer integration | airflow/snakemake/infra/QA | refresh accepted server WGS snapshot, wire CCE/SGE/local runners, OBS `-vmd5`, result reconciliation and recovery | full failure/concurrency/transfer/three-mode acceptance | todo |
+| T131 | WGS execution and transfer integration | airflow/snakemake/infra/QA | refresh accepted server WGS snapshot, wire CCE/SGE/local runners, OBS `-vmd5`, result reconciliation and recovery | full failure/concurrency/transfer/three-mode acceptance | superseded by T132 |
+| T132 | WGS 4.0.1 native Master Job/evidence integration | airflow/snakemake/backend/infra/QA | historical 4.0.1 design/audit baseline | superseded by the WGS 4.1.0 T133 implementation | superseded |
+| T133 | WGS 4.1.0 single-DAG and Rule logger integration | airflow/backend/observer/QA | immutable Airflow WGS snapshot; offline biosan-jsonl plugin; one CCE-only `bio_wgs`; node 200 `172.17.61.200` restricted runner; immutable logger-overlay Master; Master-only evidence | disabled-mode contracts pass; cce follow-up docs committed; logger image pushed and smoke-tested; real execution still awaits cce FASTQ/progress implementation and approved runtime acceptance | blocked |
+| T135 | WGS 4.1.1 contract freeze and security | coordinator/infra/security/docs | safe immutable snapshot, source/profile/image/wheel provenance, protected prepare-config contract | manifest and provenance checks pass; secret scan clean; no runtime execution | done |
+| T136 | WGS 4.1.1 node200 runner and single DAG | airflow/infra/QA | SSH-config `wgs-runtime`, Step1-Step6 adapter, leases/reschedule sensors, only paused `bio_wgs` | synthetic idempotency/recovery and DAG import pass; both gates false | done |
+| T137 | WGS 4.1.1 backend and observer | backend/observer/QA | DB/API contracts, Rule JSONL offsets, Master-only evidence, result reconciliation | restart/dedupe/interruption/result-manifest tests pass | done |
+| T138 | WGS 4.1.1 frontend production alignment | frontend/backend/QA | manual submit, stage transfer state, Rule/Master/results/review/RBAC UI | focused frontend/API/RBAC tests and production build pass | done |
+| T139 | WGS 4.1.1 disabled-mode production release | infra/QA/docs | migration, demo-state cleanup preserving admin, BS10610 release and smoke | only paused `bio_wgs`; gates false; network/volume/data boundaries pass | done |
+| T140 | WGS 4.1.1 minimal real acceptance | airflow/infra/QA | approved real batch, transfer/Master/Rule/result recovery and four-run concurrency evidence | all real-runtime gates pass before unpause | blocked |
+| T141 | WGS 4.1.1 Master Rule evidence bridge | airflow/backend/observer/QA | accept logger `attempt-N`; Step3 incremental JSONL copy; read-only terminal reader Job; disabled release | focused observer/bridge/runtime tests pass; gates remain false; real reader acceptance deferred to T140 | done in disabled mode |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
+
+## T135-T140 WGS 4.1.1 production integration
+
+### T135 - Contract freeze and security
+
+Owner: coordinator/infra/security/docs
+Status: done
+Dependencies: WGS commit `3489b3958869e5cfab983aca1eb9c7f158c06dff`
+
+Deliverables:
+
+- Generate a tracked-file allowlist snapshot without host credentials,
+  runtime caches or patient data.
+- Lock WGS commit, `wgs-4.1.1-r1` profile, Master RepoDigest,
+  cce-pipeline 0.5.0 wheel SHA256 and source/build provenance.
+- Define node200 protected `--prepare-config`, shared runtime paths and SSH
+  config/host-key contracts.
+- Record remediation for the tracked sensitive prepare configuration and stale
+  Master image labels.
+
+Acceptance:
+
+- [x] Snapshot manifest and source/profile/image/wheel identities are complete.
+- [x] Repository/release/snapshot/log secret scans pass.
+- [x] No WGS source, OBS object or CCE workload was modified during contract
+  freeze.
+
+Rollback: remove only the unreferenced Airflow snapshot/catalog candidate;
+never modify or delete the upstream WGS 4.1.1 repository.
+
+### T136 - node200 runner and single Airflow DAG
+
+Owner: airflow/infra/QA
+Status: done in disabled mode
+Dependencies: T135
+
+Deliverables:
+
+- Replace the 4.1.0 runtime gate with a node200 adapter for WGS prepare and
+  generated Step1-Step6 scripts. Airflow uses `ssh -tt -F` with a protected
+  configuration, fixed host key and explicit run-local wrapper command.
+- Publish only one CCE DAG, `bio_wgs`; keep manual intake, both execution gates
+  false and DAG paused.
+- Use async start plus five-second reschedule sensors, one OBS transfer lease,
+  Airflow CCE pools and durable stage status.
+- Keep Step0/Step7/Step8 manual and reject automatic reset of failed Masters.
+
+Acceptance:
+
+- [x] DAG import and task graph match the 4.1.1 design; no FASTQ MD5, upload
+  verify, fixed Master slot or old DAG source remains.
+- [x] Duplicate start, stale PID, resume, cancel and failed-Master reset gates
+  pass synthetic node200 tests.
+- [x] No real OBS/CCE action ran during disabled acceptance.
+
+Rollback: restore the prior disabled release/current symlink without deleting
+volumes, the external network, WGS sources or runtime data.
+
+### T137 - Backend, observer and terminal reconciliation
+
+Owner: backend/observer/QA
+Status: done in disabled mode
+Dependencies: T135, T136 internal stage contract
+
+Deliverables:
+
+- Update WGS snapshot, run, transfer, Rule, Master workload and six-column
+  delivery-manifest contracts.
+- Consume `rule-status/raw/*.jsonl` by event ID/file/byte offset, normalize
+  `attempt-<n>` and use the `BATCH_RUNTIME.yaml` run label.
+- Persist only deterministic Master Job/Pod evidence and reconcile unfinished
+  Rules to `unknown_interrupted`.
+- Implement success only after Master, Step4, Step5 and Step6 delivery gates.
+
+Acceptance:
+
+- [x] Partial-line, restart, replay, truncation, duplicate and four-run
+  isolation tests pass.
+- [x] Master OOM/interruption and logger-degraded behavior are correctly
+  projected without false Rule or run success.
+- [x] Invalid length/MD5 or missing `MATERIALIZED` blocks success.
+
+Rollback: downgrade application services while leaving additive migration
+structures in place; never delete production business data automatically.
+
+### T138 - Frontend and RBAC production alignment
+
+Owner: frontend/backend/QA
+Status: done in disabled mode
+Dependencies: T137 API contract
+
+Deliverables:
+
+- Keep only WGS login, run list, manual submit, Run Detail and account
+  management paths.
+- Display project stage, stage-only transfer state, Rule timing, Master-only
+  Kubernetes evidence, validation issues, logs and verified artifacts.
+- Explicitly show that byte/speed/ETA progress is unavailable rather than
+  rendering a false percentage.
+
+Acceptance:
+
+- [x] viewer/operator/admin allow/deny tests pass.
+- [x] Active run polling is configured at the documented five-second target.
+- [x] Focused frontend tests and production build pass; the fixed build was
+  packaged offline on BS10610 and verified by SHA256/HTTP smoke.
+
+Rollback: restore the prior frontend image; backend/API execution gates stay
+false throughout rollback.
+
+### T139 - Disabled-mode BS10610 production release
+
+Owner: infra/QA/docs
+Status: done
+Dependencies: T135-T138
+
+Deliverables:
+
+- Build a new release, migrate biodemo non-destructively and recreate only the
+  required application services.
+- Preserve administrator/roles; clear auth sessions and all demo run/event/
+  transfer/lease/cursor/audit state.
+- Remove the three legacy WGS DAG sources and supported Airflow metadata after
+  confirming no active run; publish only paused `bio_wgs`.
+- Preserve the external `192.168.199.0/24` network and publish only frontend
+  `172.17.106.10:12959`.
+
+Acceptance:
+
+- [x] Compose, migration, backend/frontend/DAG, login/API and HTTP smokes pass.
+- [x] Both execution flags are false and real submit remains denied.
+- [x] Admin login remains available and demo business data/old DAG metadata are
+  zero without deleting volumes or production data.
+
+Rollback: atomically restore the prior `current` release before final cleanup;
+do not run volume/network/global Docker prune commands.
+
+### T140 - Minimal real batch and production enablement
+
+Owner: airflow/infra/QA
+Status: blocked pending separate approval
+Dependencies: accepted T139/T141 disabled release and explicit user approval
+
+Deliverables:
+
+- Enable the runtime adapter while keeping `bio_wgs` paused, then submit one
+  approved minimal real batch through the API.
+- Validate OBS upload, Master/Rule evidence, result publish, download MD5,
+  materialization, recovery and four-run launcher isolation.
+- Unpause only after all real-runtime acceptance is complete.
+
+Acceptance:
+
+- [ ] Minimal batch reaches success only through the complete Step1-Step6
+  contract.
+- [ ] Transfer interruption, Master interruption, Rule failure/logger
+  degraded, wrong result MD5 and four concurrent launchers are accepted.
+- [ ] Old release cleanup occurs only after the production result is accepted.
+
+Rollback: disable both execution gates, pause `bio_wgs`, stop new submissions
+and preserve all batch evidence for diagnosis; cleanup remains manual.
+
+### T141 - Master Rule evidence bridge
+
+Owner: airflow/backend/observer/QA
+Status: done in disabled mode
+Dependencies: T139 and the logger-enabled pinned Master image
+
+Deliverables:
+
+- Normalize the production logger's `attempt-N` identity in observer without
+  weakening binding checks.
+- During Step3, copy complete records from every Master
+  `rule-status/raw/*.jsonl` stream into the shared evidence root using durable
+  per-file offsets.
+- After Master exit, use one exact reader Job with only the workspace PVC
+  mounted read-only, then delete it. Do not expose it or Worker Pods in API/UI.
+- Treat bridge failures as degraded monitoring, not WGS analysis failure.
+
+Acceptance:
+
+- [x] Focused observer attempt-label regression passes on BS10610.
+- [x] Incremental/partial-line/restart and read-only reader manifest tests pass.
+- [x] Both execution gates remain false and `bio_wgs` remains paused.
+- [ ] Real running-Master and post-exit reader behavior is accepted in T140.
+
+Rollback: restore the prior disabled application files; do not touch WGS SFS,
+OBS, CCE Master Jobs, database volumes or the external Docker network.
 
 ## P0 文档和环境探测
 
@@ -309,3 +506,68 @@ Acceptance:
 Rollback:
 - Restore the T127 backend/frontend images and release pointer. Do not change
   databases, volumes, FASTQ, results, or the external Docker network.
+### T133 - WGS 4.0.1 single-DAG refactor
+
+Owner: airflow/backend/observer/QA
+
+Status: todo (design confirmed; implementation not started)
+
+Dependencies: T132 WGS 4.0.1 baseline
+
+Scope:
+- Replace the current paused `bio_wgs_cce`, `bio_wgs_onprem`, and
+  `bio_wgs_intake_scan` legacy layout with one CCE-only `bio_wgs` DAG.
+- Move the ten-minute automatic scan into `wgs-observer`.
+- Remove standalone FASTQ MD5 generation/wait and `verify_input_obs`; Step1
+  owns upload completion and Step2 owns its internal launch precondition.
+- Replace persistent Master Deployment/fixed-slot assumptions with one
+  batch-specific Master Job per analysis.
+- Consume native `run-state.json`, `events.ndjson`,
+  `RUN_COMPLETE.json`, and `RUN_FAILED.json`; add a separate Snakemake Rule
+  logger JSONL because native batch events are not Rule events.
+- Keep node005 private OBS transfer separate from BS10610 kubectl/CCE.
+- Install/connect the logger only in Master for Rule JSONL; use a BS10610 host
+  watcher only for the batch Master Job/Pod. Do not install a logger in every
+  Worker Pod and do not continuously project Worker Pod state.
+- Keep native `jobs.ndjson` only for administrator diagnostics; no
+  Rule-to-Worker-Pod mapping or receipt schema extension is required.
+- Do not automate Step7/Step8 cleanup.
+
+Acceptance:
+- [x] Target architecture and current legacy status documented consistently.
+- [x] 4.0.1 code audit corrected the obsolete FASTQ hash/verify design and
+  documented the Rule-first and Master-only monitoring scope.
+- [ ] Only `bio_wgs` is loaded in the disabled-mode candidate release.
+- [ ] Observer scanner, Master Job adapter, Rule/Master reconciliation, and
+  result verification pass synthetic acceptance.
+- [ ] Real CCE/OBS execution remains disabled until a separate approval and
+  real-runtime acceptance.
+
+Rollback:
+- Documentation can be reverted without service or data rollback. Future code
+  work must preserve current DAG pause and execution gates until acceptance.
+
+### T131 - WGS cloud data orchestration Phase 1
+
+Owner: platform/backend/airflow/frontend/infra/QA
+Status: done
+Dependencies: T130
+Scope:
+- Replace READY/source-path intake with batch number plus controlled FASTQ
+  symbolic-link directory.
+- Add immutable snapshot, review issues, monitored transfer projection,
+  Rule/analysis ETA, paused full DAG topology and Phase-1 mock adapters.
+- Deploy on BS10610 only; keep real WGS/CCE/OBS execution disabled.
+Acceptance:
+- [x] BS10610 Docker backend focused tests: 23 passed.
+- [x] Runtime DAG topology: 27 nodes, six reschedule sensors, paused.
+- [x] Alembic 0001->0008 test DB and production 0007->0008 migration passed.
+- [x] Frontend focused tests 7 passed and production build passed; image runs
+  on BS10610 with the new batch/path form.
+- [x] Synthetic BS10610 API smoke generated manifest/sampleinfo/config and
+  submit returned 409 without starting CCE.
+- [x] External network/IP and only-one-published-port contract preserved.
+Rollback:
+- Repoint `current` to the previous release and recreate application services
+  without `-v`; migration 0008 is additive and may remain. Never delete data,
+  volumes, network, WGS sources, FASTQ, evidence or results.

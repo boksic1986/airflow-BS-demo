@@ -1,5 +1,7 @@
 import logging
+import json
 import os
+from pathlib import Path
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -61,8 +63,11 @@ from app.auth_service import (
     require_role,
     revoke_session,
 )
-from app.wgs_platform_service import action_wgs_run, create_wgs_platform_run, submit_wgs_run
-from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, Sample, TransferJob, UserAccount
+from app.wgs_platform_service import action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run
+from app.wgs_release_catalog import load_snapshot_catalog
+from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferJob, UserAccount
+from app.wgs_timing_service import enrich_progress, serialize_rule_states
+from app.wgs_runtime_adapter import build_stage_request, container_workdir_to_host, write_stage_request
 from sqlalchemy import select
 
 
@@ -186,14 +191,15 @@ class CreateRunRequest(BaseModel):
     wgs_targets_path: str | None = None
     wgs_stage: str = "precalling"
     wgs_dry_run: bool = True
-    execution_mode: str = Field(default="cce", pattern="^(cce|sge|local)$")
-    source_path: str | None = None
+    execution_mode: str = Field(default="cce", pattern="^cce$")
+    batch_no: str | None = Field(default=None, min_length=1, max_length=128)
+    fq_path: str | None = None
 
     @model_validator(mode="after")
     def validate_pipeline_inputs(self):
         if self.pipeline != "wgs":
             raise ValueError("Only pipeline=wgs is supported.")
-        if self.source_path:
+        if self.pipeline == "wgs" and self.batch_no and self.fq_path:
             return self
         if self.pipeline == "pgta":
             if not self.rawdata_root:
@@ -206,12 +212,7 @@ class CreateRunRequest(BaseModel):
             if not self.selected_samples:
                 raise ValueError("selected_samples is required for pipeline=nipt_docker.")
         if self.pipeline == "wgs":
-            if not (self.wgs_precalling_config_path or self.wgs_config_path):
-                raise ValueError("wgs_precalling_config_path is required for pipeline=wgs.")
-            if self.wgs_stage == "full" and not (self.wgs_downstream_config_path or self.wgs_config_path):
-                raise ValueError("wgs_downstream_config_path is required for a full WGS run.")
-            if not self.wgs_targets_path:
-                raise ValueError("wgs_targets_path is required for pipeline=wgs.")
+            raise ValueError("batch_no and fq_path are required for pipeline=wgs.")
         return self
 
 
@@ -235,6 +236,12 @@ class IntakeRetentionRequest(BaseModel):
     dag_id: str = INTAKE_SCANNER_DAG_ID
     current_dag_run_id: str | None = None
     dry_run: bool = False
+
+
+class WgsRuntimeStageRequest(BaseModel):
+    attempt: int = Field(ge=1)
+    adapter: str
+    command: str | None = None
 
 
 class ReanalysisRequest(BaseModel):
@@ -530,13 +537,14 @@ def create_run(request: CreateRunRequest, user: AuthenticatedUser = Depends(oper
         _require_pipeline_deployed(settings, request.pipeline)
         pipeline_config = _validated_create_config(request=request, settings=settings)
         with session_factory() as session:
-            if request.pipeline == "wgs" and request.source_path:
+            if request.pipeline == "wgs":
                 payload = create_wgs_platform_run(
                     session=session,
                     settings=settings,
                     project_name=request.project_name,
                     execution_mode=request.execution_mode,
-                    source_path=request.source_path,
+                    batch_no=str(request.batch_no or ""),
+                    fq_path=str(request.fq_path or ""),
                     submitted_by=user.username,
                 )
                 audit(session=session, username=user.username, action="run.create", analysis_id=str(payload["analysis_id"]), payload={"execution_mode": request.execution_mode})
@@ -579,20 +587,6 @@ def create_run(request: CreateRunRequest, user: AuthenticatedUser = Depends(oper
                     email_to=request.email_to,
                     note=request.note,
                     pipeline_config=pipeline_config,
-                )
-            if request.pipeline == "wgs":
-                _guard_wgs_execution(request.wgs_dry_run)
-                return create_wgs_run(
-                    session=session,
-                    settings=settings,
-                    project_name=request.project_name,
-                    precalling_config_path=str(request.wgs_precalling_config_path or request.wgs_config_path or ""),
-                    downstream_config_path=request.wgs_downstream_config_path or request.wgs_config_path,
-                    targets_path=str(request.wgs_targets_path or ""),
-                    stage=request.wgs_stage,
-                    dry_run=request.wgs_dry_run,
-                    submitted_by=request.submitted_by,
-                    note=request.note,
                 )
             raise ValueError("Only deployed PGT-A, NIPT Docker, WES demo, or WGS pipelines are supported.")
     except ProfileChangedError as exc:
@@ -1000,7 +994,14 @@ def run_pods(analysis_id: str) -> dict[str, object]:
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
         if run is None:
             raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"})
-        items = session.scalars(select(KubernetesWorkload).where(KubernetesWorkload.analysis_id == analysis_id).order_by(KubernetesWorkload.attempt, KubernetesWorkload.job_name)).all()
+        items = session.scalars(
+            select(KubernetesWorkload)
+            .where(
+                KubernetesWorkload.analysis_id == analysis_id,
+                KubernetesWorkload.job_name.like("wgs-master-%"),
+            )
+            .order_by(KubernetesWorkload.attempt, KubernetesWorkload.job_name)
+        ).all()
     return {"items": [{"attempt": item.attempt, "pod_hash": item.pod_hash, "job_name": item.job_name, "phase": item.phase, "reason": item.reason, "exit_code": item.exit_code, "image_id": item.image_id, "node_name": item.node_name, "message": item.message, "resources": item.resources_json, "observed_at": item.observed_at.isoformat() if item.observed_at else None, "updated_at": item.updated_at.isoformat()} for item in items]}
 
 
@@ -1008,7 +1009,7 @@ def run_pods(analysis_id: str) -> dict[str, object]:
 def run_transfers(analysis_id: str) -> dict[str, object]:
     with get_sessionmaker()() as session:
         items = session.scalars(select(TransferJob).where(TransferJob.analysis_id == analysis_id).order_by(TransferJob.id)).all()
-    return {"items": [{"id": item.id, "attempt": item.attempt, "direction": item.direction, "status": item.status, "manifest_path": item.manifest_path, "receipt_path": item.receipt_path, "error_message": item.error_message, "started_at": item.started_at.isoformat() if item.started_at else None, "ended_at": item.ended_at.isoformat() if item.ended_at else None} for item in items]}
+    return {"items": [{"id": item.id, "transfer_id": item.transfer_id, "attempt": item.attempt, "transfer_type": item.transfer_type, "direction": item.direction, "source": item.source, "destination": item.destination, "status": item.status, "progress_detail_available": item.progress_detail_available, "bytes_total": item.bytes_total if item.progress_detail_available else None, "bytes_transferred": item.bytes_transferred if item.progress_detail_available else None, "files_total": item.files_total if item.progress_detail_available else None, "files_completed": item.files_completed if item.progress_detail_available else None, "current_file": item.current_file if item.progress_detail_available else None, "progress_percent": item.progress_percent if item.progress_detail_available else None, "speed_bps": item.speed_bps if item.progress_detail_available else None, "eta_seconds": item.eta_seconds if item.progress_detail_available else None, "estimated_finish_at": item.estimated_finish_at.isoformat() if item.progress_detail_available and item.estimated_finish_at else None, "checkpoint_ref": item.checkpoint_ref, "heartbeat_at": item.heartbeat_at.isoformat() if item.heartbeat_at else None, "verification_status": item.verification_status, "message": item.message, "error_message": item.error_message, "started_at": item.started_at.isoformat() if item.started_at else None, "ended_at": item.ended_at.isoformat() if item.ended_at else None} for item in items]}
 
 
 @app.get("/api/runs/{analysis_id}/rules")
@@ -1027,7 +1028,142 @@ def run_rules(
         states = session.scalars(select(RuleState).where(RuleState.analysis_id == analysis_id).order_by(RuleState.attempt, RuleState.layer, RuleState.rule_name)).all()
         filtered = [row for row in states if (not status_filter or row.status == status_filter) and (not rule or row.rule_name == rule) and (not sample_id or row.sample_id == sample_id)]
         page = filtered[offset:offset + limit]
-        return {"items": [{"attempt": row.attempt, "rule_instance_id": row.rule_instance_id, "rule": row.rule_name, "sample_id": row.sample_id, "layer": row.layer, "status": row.status, "start_time": row.started_at.isoformat() if row.started_at else None, "end_time": row.ended_at.isoformat() if row.ended_at else None} for row in page], "total": len(filtered), "limit": limit, "offset": offset}
+        return {"items": serialize_rule_states(session=session, run=run, rows=page), "total": len(filtered), "limit": limit, "offset": offset}
+
+
+@app.get("/api/runs/{analysis_id}/validation-issues")
+def validation_issues(analysis_id: str) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
+        if run is None:
+            raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"})
+        rows = session.scalars(select(RunValidationIssue).where(RunValidationIssue.analysis_id == analysis_id).order_by(RunValidationIssue.id)).all()
+        return {"items": [{"id": row.id, "attempt": row.attempt, "code": row.code, "severity": row.severity, "scope_type": row.scope_type, "sample_id": row.sample_id, "family_id": row.family_id, "file_path": row.file_path, "message": row.message, "status": row.status, "created_at": row.created_at.isoformat(), "resolved_at": row.resolved_at.isoformat() if row.resolved_at else None} for row in rows]}
+
+
+@app.post("/api/runs/{analysis_id}/actions/revalidate")
+def revalidate_run(analysis_id: str, user: AuthenticatedUser = Depends(operator_user)) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        payload = revalidate_wgs_run(session=session, settings=get_settings(), analysis_id=analysis_id)
+        if payload is not None:
+            audit(session=session, username=user.username, action="run.revalidate", analysis_id=analysis_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"})
+    return payload
+
+
+@app.post("/api/internal/wgs/runs/{analysis_id}/stages/{stage_name}", dependencies=[Depends(require_internal_service_token)])
+def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRuntimeStageRequest) -> dict[str, object]:
+    if request.adapter != "wgs-runtime-200" or not _wgs_runtime_adapter_enabled():
+        raise HTTPException(status_code=409, detail={"code": "WGS_RUNTIME_DISABLED", "message": "WGS runtime adapter is disabled."})
+    try:
+        with get_sessionmaker()() as session:
+            run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
+            if run is None or run.attempt != request.attempt:
+                raise ValueError("unknown active WGS attempt")
+            params = dict(run.params_json or {})
+            snapshot_id = str(params["pipeline_snapshot_id"])
+            snapshot = load_snapshot_catalog(Path(get_settings().wgs_release_catalog_path)).default_development()
+            if snapshot.snapshot_id != snapshot_id:
+                raise ValueError("active WGS snapshot is not the catalog default")
+            if stage_name in {"acquire_input_transfer_slot", "acquire_result_transfer_slot"}:
+                transfer_kind = "input" if stage_name == "acquire_input_transfer_slot" else "result"
+                transfer_id = f"{analysis_id}-a{request.attempt}-{transfer_kind}"
+                slot = acquire_obs_transfer_slot(session=session, analysis_id=analysis_id, attempt=request.attempt, transfer_id=transfer_id)
+                if slot is None:
+                    return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "waiting", "acquired": False}
+                run.current_stage = stage_name
+                session.commit()
+                return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "acquired", "acquired": True, "slot": slot}
+            if stage_name in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+                transfer_kind = None
+                if stage_name == "release_input_transfer_slot":
+                    transfer_kind = "input"
+                elif stage_name == "release_result_transfer_slot":
+                    transfer_kind = "result"
+                transfer_id = f"{analysis_id}-a{request.attempt}-{transfer_kind}" if transfer_kind else None
+                released = release_obs_transfer_slot(
+                    session=session,
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                    transfer_id=transfer_id,
+                )
+                return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "released", "released": released}
+            if stage_name == "finalize_run":
+                marker = Path(get_settings().wgs_runtime_request_root) / analysis_id / f"attempt-{request.attempt}" / "step6_materialize.status.json"
+                status_payload = json.loads(marker.read_text(encoding="utf-8")) if marker.is_file() else {}
+                if status_payload.get("status") != "success":
+                    raise ValueError("Step6 materialization is not complete")
+                run.status = "success"
+                run.current_stage = "finalize_run"
+                session.commit()
+                return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "success"}
+            expected_command = f"wgs-runtime {analysis_id} {request.attempt} {stage_name}"
+            if request.command != expected_command:
+                raise ValueError("runtime command does not match the registered stage")
+            settings = get_settings()
+            fq_host = container_workdir_to_host(
+                str(params["fq_path"]),
+                container_root=settings.wgs_intake_container_root,
+                host_root=settings.wgs_intake_host_root,
+            )
+            fq_node200 = container_workdir_to_host(
+                fq_host,
+                container_root=settings.wgs_intake_host_root,
+                host_root=settings.wgs_intake_node200_root,
+            )
+            payload = build_stage_request(
+                analysis_id=analysis_id, attempt=request.attempt, stage=stage_name,
+                snapshot_id=snapshot_id, snapshot_path=snapshot.server_path,
+                workdir=container_workdir_to_host(
+                    run.workdir,
+                    container_root=settings.host_results_root,
+                    host_root=settings.wgs_results_host_root,
+                ),
+                bs_runtime_root=settings.wgs_runtime_bs_root,
+                node200_runtime_root=settings.wgs_runtime_node200_root,
+                project_name=str(params["project_name"]),
+                batch_no=str(params["batch_no"]),
+                fq_path=fq_node200,
+            )
+            path = write_stage_request(settings.wgs_runtime_request_root, payload)
+            if stage_name == "prepare":
+                binding_root = Path(settings.wgs_binding_root)
+                binding_root.mkdir(parents=True, exist_ok=True)
+                binding_path = binding_root / f"{analysis_id}-attempt-{request.attempt}.json"
+                binding_payload = {
+                    "schema_version": "2",
+                    "analysis_id": analysis_id,
+                    "attempt": request.attempt,
+                    "pipeline_snapshot_id": snapshot_id,
+                    "run_id": f"{analysis_id}-a{request.attempt}",
+                    "evidence_path": f"{analysis_id}/attempt-{request.attempt}",
+                }
+                partial = binding_path.with_suffix(".json.partial")
+                partial.write_text(json.dumps(binding_payload, sort_keys=True) + "\n", encoding="utf-8")
+                os.replace(partial, binding_path)
+            run.current_stage = stage_name
+            session.commit()
+            return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "registered", "request_path": str(path)}
+    except (OSError, ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=400, detail={"code": "WGS_RUNTIME_STAGE_FAILED", "message": str(exc)}) from exc
+
+
+@app.get("/api/internal/wgs/runs/{analysis_id}/stage-status", dependencies=[Depends(require_internal_service_token)])
+def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=1), stage: str = Query(min_length=1)) -> dict[str, object]:
+    if not _wgs_runtime_adapter_enabled():
+        raise HTTPException(status_code=409, detail={"code": "WGS_RUNTIME_DISABLED", "message": "WGS runtime adapter is disabled."})
+    marker = Path(get_settings().wgs_runtime_request_root) / analysis_id / f"attempt-{attempt}" / f"{stage}.status.json"
+    payload = json.loads(marker.read_text(encoding="utf-8")) if marker.is_file() else {}
+    if payload and (
+        payload.get("schema_version") != "wgs-runtime.stage-status.v1"
+        or payload.get("analysis_id") != analysis_id
+        or int(payload.get("attempt", 0)) != attempt
+        or payload.get("stage") != stage
+    ):
+        raise HTTPException(status_code=500, detail={"code": "WGS_STAGE_STATUS_INVALID", "message": "stage status identity mismatch"})
+    status_value = str(payload.get("status") or "pending")
+    return {"analysis_id": analysis_id, "attempt": attempt, "stage": stage, "ready": status_value in {"success", "complete", "succeeded"}, "failed": status_value == "failed", "status": status_value, "message": payload.get("message", ""), "master": payload.get("master")}
 
 
 @app.post("/api/runs/{analysis_id}/actions/resume")
@@ -1079,6 +1215,11 @@ def run_progress(analysis_id: str) -> dict[str, object]:
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
+    if str(payload.get("pipeline") or "") == "wgs":
+        with get_sessionmaker()() as session:
+            run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+            if run is not None:
+                payload = enrich_progress(session=session, run=run, payload=payload)
     return payload
 
 
@@ -1373,6 +1514,10 @@ def _guard_wgs_execution(dry_run: bool) -> None:
 
 def _wgs_platform_execution_enabled() -> bool:
     return os.getenv("WGS_EXECUTION_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _wgs_runtime_adapter_enabled() -> bool:
+    return os.getenv("WGS_RUNTIME_ADAPTER_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _load_intake_config(settings):

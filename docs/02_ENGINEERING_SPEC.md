@@ -1,5 +1,37 @@
 # 02 工程规范
 
+> **WGS 说明：** WGS 4.1.1 T135-T139 已在 BS10610 以禁用态发布；当前工程基线以
+> [`25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)
+> 为准。以下 T133/WGS 4.1.0 内容仅为历史记录。
+
+## T133 WGS 4.1.0 CCE production candidate
+
+The WGS-only candidate publishes one paused DAG, `bio_wgs`. Airflow performs
+project orchestration and calls a restricted `wgs-runtime` entry over the
+`wgs_runner_200` SSH connection at `172.17.61.200`. Node 200 is the only host boundary for both
+private OBS actions and CCE `kubectl`; Airflow containers receive neither OBS
+credentials nor kubeconfig.
+
+The runtime sources are pinned independently:
+
+- WGS snapshot: `wgs-v4.1.0-candidate-b72ebea-2178aa5b`.
+- cce-pipeline commit: `02adcecd85cc052b81330181a17d0377a742c39f`.
+- cce profile revision: `revisions/wgs-4.1.0-schema3-20260824`.
+
+Rule state is written by the Master-only offline `biosan-jsonl` logger to SFS
+and pulled by the node 200 runner. Kubernetes evidence is limited to the batch
+Master Job/Pod; Worker Pods are not continuously enumerated. The candidate
+must keep `WGS_EXECUTION_ENABLED=false`, `WGS_RUNTIME_ADAPTER_ENABLED=false`,
+and the DAG paused until the FASTQ source-manifest and transfer-progress
+contracts are reconciled and a disabled-mode release is accepted.
+
+The approved r2 Master base digest `834b78c5...` already contains Snakemake
+`9.24.0+biosan1`, Kubernetes Executor `0.6.4+biosan3`, cce-pipeline `0.2.0`,
+and all lifecycle scripts. The logger overlay adds only biosan-jsonl 1.0.0 and
+the logger-aware Master runner. It is pinned at digest `5d1d977f...`.
+`wgs-cloud-delivery` remains a separate, unchanged Worker image for the three
+cloud delivery Rules; it does not contain cce runtime or the logger.
+
 ## T127 BS shared NIPT and WGS control plane
 
 BS10610 runs one Airflow control plane, not separate NIPT and WGS Airflow
@@ -319,3 +351,6 @@ node_modules/
 ## WGS-only Phase 1 service profile
 
 The production profile adds `wgs-observer`, database migration/admin-init jobs, and a single nginx ingress. It mounts intake and evidence read-only, results writable, and does not mount Docker socket, kubeconfig, SSH keys, or OBS credentials. `WGS_EXECUTION_ENABLED=false` is mandatory until Phase 2.
+# T131 trust boundary: containers have no OBS credential, kubeconfig or Docker
+# socket. Observer reads evidence/transfer spools; internal writes require the
+# service token and separate mock gate. Only nginx publishes a host port.
