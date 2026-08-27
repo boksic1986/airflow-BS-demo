@@ -18,7 +18,7 @@ from app.models import (
     TransferJob,
 )
 from app.wgs_evidence_binding import EvidenceBinding, load_evidence_bindings
-from app.wgs_release_catalog import load_snapshot_catalog
+from app.wgs_release_catalog import load_wgs_release_catalog
 
 
 RULE_EVENT_TYPES = {
@@ -45,7 +45,7 @@ def ingest_evidence_once(
     transfer_spool_root: Path | None = None,
     runtime_root: Path | None = None,
 ) -> dict[str, int]:
-    catalog = load_snapshot_catalog(catalog_path)
+    catalog = load_wgs_release_catalog(catalog_path)
     bindings, diagnostics = load_evidence_bindings(
         binding_root, evidence_root, catalog
     )
@@ -136,6 +136,15 @@ def ingest_evidence_once(
             except (OSError, UnicodeError, ValueError, TypeError, json.JSONDecodeError):
                 result["errors"] += 1
     if runtime_root is not None and runtime_root.is_dir():
+        for path in sorted(runtime_root.glob("runs/*/attempt-*/batch-binding.json")):
+            result["files"] += 1
+            try:
+                if _ingest_runtime_binding(
+                    session_factory, runtime_root.resolve(), path
+                ):
+                    result["events_ingested"] += 1
+            except (OSError, UnicodeError, ValueError, TypeError, json.JSONDecodeError):
+                result["errors"] += 1
         request_root = runtime_root / "runner-requests"
         for path in sorted(request_root.glob("**/*.status.json")):
             if path.name not in {
@@ -153,6 +162,49 @@ def ingest_evidence_once(
             except (OSError, UnicodeError, ValueError, TypeError, json.JSONDecodeError):
                 result["errors"] += 1
     return result
+
+
+def _ingest_runtime_binding(session_factory, runtime_root: Path, path: Path) -> bool:
+    resolved = path.resolve()
+    if runtime_root not in resolved.parents:
+        raise ValueError("runtime binding escapes runtime root")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("schema_version") != "wgs-runtime.batch-binding.v2":
+        raise ValueError("unsupported runtime binding schema")
+    analysis_id = str(payload.get("analysis_id") or "")
+    attempt = int(payload.get("attempt") or 0)
+    release_id = str(payload.get("pipeline_release_id") or "")
+    source_commit = str(payload.get("wgs_source_commit") or "")
+    source = payload.get("resolved_runtime")
+    if not isinstance(source, dict):
+        raise ValueError("runtime binding resolved_runtime is required")
+    allowed = {
+        "cce_pipeline_version",
+        "cce_pipeline_source_commit",
+        "profile_id",
+        "profile_revision",
+        "profile_sha256",
+        "master_image_digest",
+        "pipeline_build_sha256",
+        "resource_manifest_sha256",
+    }
+    resolved_runtime = {key: str(source.get(key) or "") for key in sorted(allowed)}
+    with session_factory() as session:
+        analysis = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        if analysis is None or analysis.attempt != attempt:
+            raise ValueError("runtime binding references an unknown active attempt")
+        params = dict(analysis.params_json or {})
+        if params.get("pipeline_release_id") != release_id:
+            raise ValueError("runtime binding release does not match analysis")
+        if params.get("wgs_source_commit") != source_commit:
+            raise ValueError("runtime binding WGS commit does not match analysis")
+        if params.get("resolved_runtime") == resolved_runtime:
+            return False
+        analysis.params_json = {**params, "resolved_runtime": resolved_runtime}
+        session.commit()
+    return True
 
 
 def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path) -> bool:
@@ -376,8 +428,8 @@ def _validate_database_binding(session_factory, binding: EvidenceBinding) -> str
             attempt.run_label = binding.run_label
         elif attempt.run_label != binding.run_label:
             return "binding run_label does not match analysis attempt"
-        if analysis.params_json.get("pipeline_snapshot_id") != binding.pipeline_snapshot_id:
-            return "binding snapshot does not match analysis"
+        if analysis.params_json.get("pipeline_release_id") != binding.pipeline_release_id:
+            return "binding release does not match analysis"
         state = session.scalar(
             select(ObserverRunState).where(
                 ObserverRunState.analysis_id == binding.analysis_id,
@@ -388,14 +440,14 @@ def _validate_database_binding(session_factory, binding: EvidenceBinding) -> str
             state = ObserverRunState(
                 analysis_id=binding.analysis_id,
                 attempt=binding.attempt,
-                pipeline_snapshot_id=binding.pipeline_snapshot_id,
+                pipeline_release_id=binding.pipeline_release_id,
                 run_label=binding.run_label,
                 relative_evidence_path=binding.evidence_path,
                 status="pending",
             )
             session.add(state)
         elif (
-            state.pipeline_snapshot_id != binding.pipeline_snapshot_id
+            state.pipeline_release_id != binding.pipeline_release_id
             or state.run_label != binding.run_label
             or state.relative_evidence_path != binding.evidence_path
         ):
@@ -450,7 +502,7 @@ def _ingest_rule_file(
         inserted = 0
         for payload in payloads:
             event_id = str(
-                payload.get("event_id") or _event_id(binding.pipeline_snapshot_id, payload)
+                payload.get("event_id") or _event_id(binding.pipeline_release_id, payload)
             )
             exists = session.scalar(
                 select(RuleEventRaw.id).where(
@@ -499,8 +551,8 @@ def _validate_rule_event(payload: object, binding: EvidenceBinding) -> None:
             raise ValueError("event analysis_id does not match binding")
         if str(payload.get("run_id") or "") == "":
             raise ValueError("event run_id is required")
-        if str(payload.get("pipeline_snapshot_id")) != binding.pipeline_snapshot_id:
-            raise ValueError("event pipeline_snapshot_id does not match binding")
+        if str(payload.get("pipeline_release_id")) != binding.pipeline_release_id:
+            raise ValueError("event pipeline_release_id does not match binding")
         if not str(payload.get("event_id") or ""):
             raise ValueError("event_id is required")
         try:

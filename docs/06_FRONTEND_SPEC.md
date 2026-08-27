@@ -1,5 +1,14 @@
 # 06 前端设计
 
+## T142 单一 release 展示
+
+Submit Run 在表单上方读取`GET /api/wgs/release`，只读展示
+`WGS V4.1.1 / 1778fca`和 release ID；没有版本选择器，create 请求也不携带版本
+字段。Run Detail 的 Pipeline evidence 展示 run 绑定的 release/version/commit，
+以及 prepare 后解析出的 cce-pipeline、profile 和 Master image；prepare 前明确
+显示 not resolved。Rules、Transfers 和 Master 继续使用同一 run identity，且
+Master 页面仍不展示 Worker Pod。
+
 > **WGS 说明：** WGS 4.1.1 UI 已随 T139 禁用态 release 发布，当前合同见
 > [`25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)
 >。当 `progress_detail_available=false` 时不显示进度条、速度或 ETA；以下 T133 UI 为历史记录。

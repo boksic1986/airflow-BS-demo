@@ -1,5 +1,15 @@
 # 07 Airflow DAG 设计
 
+## T142 当前单一 DAG 合同
+
+`bio_wgs`保持版本无关、18 tasks、manual schedule、`max_active_runs=4`和
+`is_paused_upon_creation=true`。`validate_request`要求后端绑定的
+`pipeline_release_id`、`wgs_version`和`wgs_source_commit`，但客户端不能提交这些
+字段。prepare 使用 request v3 调用 node200 固定 WGS 仓库；其余 Step1-Step6
+只执行冻结 bundle。DAG 不包含 snapshot path、cce-pipeline version gate、
+FASTQ MD5、上传后 FASTQ verify、local/SGE 或 Worker Pod task。六个长等待仍为
+五秒 `reschedule` sensor。
+
 > **WGS 说明：** BS10610 当前只加载 WGS 4.1.1 的 18-task `bio_wgs`，且保持
 > paused。现行 task graph 与 Step1-Step6 合同见
 > [`25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)

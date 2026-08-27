@@ -9,10 +9,8 @@ from app.wgs_runtime_adapter import (
 )
 
 
-SNAPSHOT = "wgs-v4.1.1-candidate-3489b39-64d50022"
-SNAPSHOT_PATH = (
-    "/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/" + SNAPSHOT
-)
+RELEASE_ID = "wgs-4.1.1-1778fca"
+WGS_COMMIT = "1778fcabd99b5253aa90cd410112dc2f78e0c51a"
 
 
 def _request(tmp_path: Path, *, stage: str = "step2_master") -> dict[str, object]:
@@ -20,8 +18,9 @@ def _request(tmp_path: Path, *, stage: str = "step2_master") -> dict[str, object
         analysis_id="WGS_20260826_010203_A1B2C3",
         attempt=1,
         stage=stage,
-        snapshot_id=SNAPSHOT,
-        snapshot_path=SNAPSHOT_PATH,
+        pipeline_release_id=RELEASE_ID,
+        wgs_version="V4.1.1",
+        wgs_source_commit=WGS_COMMIT,
         workdir=tmp_path / "runs" / "WGS_20260826_010203_A1B2C3",
         bs_runtime_root="/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime",
         node200_runtime_root="/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime",
@@ -31,25 +30,23 @@ def _request(tmp_path: Path, *, stage: str = "step2_master") -> dict[str, object
     )
 
 
-def test_stage_request_pins_4_1_1_and_contains_only_runtime_references(
+def test_stage_request_v3_binds_release_without_pipeline_path_or_cce_version(
     tmp_path: Path,
 ) -> None:
     request = _request(tmp_path)
 
-    assert request["schema_version"] == "wgs-runtime.request.v2"
-    assert request["pipeline_snapshot_id"] == SNAPSHOT
-    assert request["node200_pipeline_snapshot_path"].startswith("/bi/biodevrwbi/")
+    assert request["schema_version"] == "wgs-runtime.request.v3"
+    assert request["pipeline_release_id"] == RELEASE_ID
+    assert request["wgs_version"] == "V4.1.1"
+    assert request["wgs_source_commit"] == WGS_COMMIT
     assert request["node200_workdir"].endswith(
         "/runtime/runs/WGS_20260826_010203_A1B2C3/attempt-1"
     )
-    assert request["project_name"] == "clinical-wgs"
-    assert request["batch_no"] == "BATCH-01"
-    assert request["fq_path"] == "/sg2/33.chenjiucheng/WGS_input/BATCH-01"
-    assert "run_label" not in request
-    assert "sampleinfo" not in request
-    assert "config" not in request
-    assert "kubeconfig" not in request
-    assert "obs_config" not in request
+    assert "pipeline_snapshot_id" not in request
+    assert "pipeline_snapshot_path" not in request
+    assert "node200_pipeline_snapshot_path" not in request
+    assert "cce_pipeline_version" not in request
+    assert "cce_pipeline_wheel_sha256" not in request
 
 
 @pytest.mark.parametrize(
@@ -64,7 +61,7 @@ def test_stage_request_pins_4_1_1_and_contains_only_runtime_references(
         "step6_materialize",
     ],
 )
-def test_request_accepts_only_wgs_4_1_1_step1_to_step6_stages(
+def test_request_accepts_only_wgs_step1_to_step6_stages(
     tmp_path: Path, stage: str
 ) -> None:
     assert _request(tmp_path, stage=stage)["stage"] == stage

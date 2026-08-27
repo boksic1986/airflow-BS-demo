@@ -1,18 +1,8 @@
-schema_version: "2"
-default_snapshot_id: wgs-v4.1.1-candidate-3489b39-64d50022
-snapshots:
-  - snapshot_id: wgs-v4.1.1-candidate-3489b39-64d50022
-    pipeline: wgs
-    version: V4.1.1
-    server_path: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs-v4.1.1-candidate-3489b39-64d50022
-    source_commit: 3489b3958869e5cfab983aca1eb9c7f158c06dff
-    snapshot_manifest_sha256: 9b1bfe00ebf7e8ed693f1e9eb17ec05174aa43b04900802d67e54f50dc27f52e
-    rule_event_schema_version: "1"
-    cce_pipeline_version: 0.5.0
-    cce_pipeline_source_commit: 70a9a737c62865f232ed0b49f682aa7c9a69e467
-    cce_pipeline_wheel_sha256: 43a4ab478e8b8810b1691bb755e54336b0bc8fd86a16d4fed9be3783036e1756
-    cce_profile_id: wgs-4.1.1-r1
-    cce_profile_sha256: 19a7cc76cfc086c032c5e2329310d4ff90cd67e5cb52632bfb98f1b4fea59276
-    master_image_digest: sha256:815d70a6105b08b8fc6031a425cfed5ced8773e4d66c18ad98502b9a61ffeecc
-    status: development
-    execution_enabled: false
+schema_version: "3"
+release:
+  release_id: wgs-4.1.1-1778fca
+  version: V4.1.1
+  source_commit: 1778fcabd99b5253aa90cd410112dc2f78e0c51a
+  bs10610_repo_path: /mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
+  node200_repo_path: /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
+  rule_event_schema_version: "1"

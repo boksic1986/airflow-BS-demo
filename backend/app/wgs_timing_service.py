@@ -32,16 +32,28 @@ def enrich_progress(*, session, run: AnalysisRun, payload: dict) -> dict:
     else:
         baseline = float(median(totals))
         percent = float(payload["overall_progress_percent"])
-        payload.update({"analysis_eta_seconds": max(0, int(baseline * (100 - percent) / 100)), "analysis_eta_model": "snapshot_stage_wall_median_v1", "analysis_eta_history_count": len(totals)})
+        payload.update({"analysis_eta_seconds": max(0, int(baseline * (100 - percent) / 100)), "analysis_eta_model": "release_stage_wall_median_v1", "analysis_eta_history_count": len(totals)})
     active = session.scalar(select(RuleState).where(RuleState.analysis_id == run.analysis_id, RuleState.status == "running").order_by(RuleState.updated_at.desc()))
     payload["current_rule"] = active.rule_name if active else payload.get("current_rule")
     return payload
 
 
 def _history_runs(session, run: AnalysisRun) -> list[AnalysisRun]:
-    snapshot = str((run.params_json or {}).get("pipeline_snapshot_id") or "")
-    rows = session.scalars(select(AnalysisRun).where(AnalysisRun.pipeline_name == "wgs", AnalysisRun.execution_mode == run.execution_mode, AnalysisRun.status == "success").order_by(AnalysisRun.ended_at.desc()).limit(20)).all()
-    return [item for item in rows if str((item.params_json or {}).get("pipeline_snapshot_id") or "") == snapshot]
+    release_id = str((run.params_json or {}).get("pipeline_release_id") or "")
+    if not release_id:
+        return []
+    return session.scalars(
+        select(AnalysisRun)
+        .where(
+            AnalysisRun.pipeline_name == "wgs",
+            AnalysisRun.execution_mode == run.execution_mode,
+            AnalysisRun.status == "success",
+            AnalysisRun.params_json["pipeline_release_id"].as_string()
+            == release_id,
+        )
+        .order_by(AnalysisRun.ended_at.desc())
+        .limit(20)
+    ).all()
 
 
 def _rule_durations(session, runs, rule_name, layer) -> list[float]:

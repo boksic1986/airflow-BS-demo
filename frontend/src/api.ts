@@ -105,7 +105,19 @@ export type RunDetail = {
   submitted_by?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
-  pipeline_snapshot_id?: string | null;
+  pipeline_release_id?: string | null;
+  wgs_version?: string | null;
+  wgs_source_commit?: string | null;
+  resolved_runtime?: {
+    cce_pipeline_version?: string | null;
+    cce_pipeline_source_commit?: string | null;
+    profile_id?: string | null;
+    profile_revision?: string | null;
+    profile_sha256?: string | null;
+    master_image_digest?: string | null;
+    pipeline_build_sha256?: string | null;
+    resource_manifest_sha256?: string | null;
+  } | null;
   rule_event_schema_version?: string | null;
   observer?: {
     status: string;
@@ -125,6 +137,14 @@ export type SessionUser = {
 };
 
 export type LoginRequest = {username: string; password: string};
+
+export type WgsRelease = {
+  release_id: string;
+  version: string;
+  source_commit: string;
+  execution_enabled: boolean;
+  runtime_adapter_enabled: boolean;
+};
 
 export type WgsFamily = {
   family_id: string;
@@ -924,6 +944,10 @@ export function getHealth(): Promise<HealthResponse> {
 
 export function getPlatformCapabilities(): Promise<PlatformCapabilities> {
   return requestJson<PlatformCapabilities>("/platform/capabilities");
+}
+
+export function getWgsRelease(): Promise<WgsRelease> {
+  return requestJson<WgsRelease>("/wgs/release");
 }
 
 export function getSession(): Promise<SessionUser> {

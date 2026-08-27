@@ -1,6 +1,17 @@
 # 02 工程规范
 
-> **WGS 说明：** WGS 4.1.1 T135-T139 已在 BS10610 以禁用态发布；当前工程基线以
+## T142 单一 WGS release 工程合同
+
+Airflow 当前只保存 `config/wgs_releases.yaml`中的一个发布身份：
+`wgs-4.1.1-1778fca` / commit
+`1778fcabd99b5253aa90cd410112dc2f78e0c51a`。它不复制 WGS 源码、不维护
+pipeline snapshot，也不把 cce-pipeline wheel/profile/Master digest 作为部署
+门禁。node200 runner 只从固定
+`/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1`执行 prepare；prepare 后只执行
+冻结 bundle。真实 runtime identity 作为审计信息入库。架构、网络和执行门禁见
+[文档 25](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)。
+
+> **历史说明：** WGS 4.1.1 T135-T139 已在 BS10610 以禁用态发布；当前工程基线以
 > [`25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)
 > 为准。以下 T133/WGS 4.1.0 内容仅为历史记录。
 

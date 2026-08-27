@@ -21,7 +21,7 @@ from app.models import (
 from app.wgs_observer import ingest_evidence_once
 
 
-SNAPSHOT_ID = "wgs-v4.1.1-candidate-3489b39-64d50022"
+RELEASE_ID = "wgs-4.1.1-1778fca"
 RUN_LABEL = "WGS_20260812_000001_AAAAAA-a1"
 
 
@@ -39,24 +39,14 @@ def write_catalog(path: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                'schema_version: "2"',
-                f"default_snapshot_id: {SNAPSHOT_ID}",
-                "snapshots:",
-                f"  - snapshot_id: {SNAPSHOT_ID}",
-                "    pipeline: wgs",
-                "    version: V4.1.1",
-                "    server_path: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs",
-                "    source_commit: 3489b3958869e5cfab983aca1eb9c7f158c06dff",
-                "    snapshot_manifest_sha256: 9b1bfe00ebf7e8ed693f1e9eb17ec05174aa43b04900802d67e54f50dc27f52e",
-                '    rule_event_schema_version: "1"',
-                "    cce_pipeline_version: 0.5.0",
-                "    cce_pipeline_source_commit: 70a9a737c62865f232ed0b49f682aa7c9a69e467",
-                "    cce_pipeline_wheel_sha256: 43a4ab478e8b8810b1691bb755e54336b0bc8fd86a16d4fed9be3783036e1756",
-                "    cce_profile_id: wgs-4.1.1-r1",
-                "    cce_profile_sha256: 19a7cc76cfc086c032c5e2329310d4ff90cd67e5cb52632bfb98f1b4fea59276",
-                "    master_image_digest: sha256:815d70a6105b08b8fc6031a425cfed5ced8773e4d66c18ad98502b9a61ffeecc",
-                "    status: development",
-                "    execution_enabled: false",
+                'schema_version: "3"',
+                "release:",
+                f"  release_id: {RELEASE_ID}",
+                "  version: V4.1.1",
+                "  source_commit: 1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+                "  bs10610_repo_path: /mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
+                "  node200_repo_path: /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
+                '  rule_event_schema_version: "1"',
             ]
         )
         + "\n",
@@ -90,7 +80,10 @@ def prepare_run(tmp_path: Path, *, attempt: int = 1, bind_attempt: int | None = 
                 attempt=attempt,
                 workdir=str(tmp_path),
                 status="running",
-                params_json={"pipeline_snapshot_id": SNAPSHOT_ID},
+                params_json={
+                    "pipeline_release_id": RELEASE_ID,
+                    "wgs_source_commit": "1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+                },
             )
         )
         session.add(
@@ -113,10 +106,10 @@ def prepare_run(tmp_path: Path, *, attempt: int = 1, bind_attempt: int | None = 
     binding_root.mkdir()
     write_catalog(catalog_path)
     binding = {
-        "schema_version": "2",
+        "schema_version": "3",
         "analysis_id": analysis_id,
         "attempt": bind_attempt if bind_attempt is not None else attempt,
-        "pipeline_snapshot_id": SNAPSHOT_ID,
+        "pipeline_release_id": RELEASE_ID,
         "run_id": RUN_LABEL,
         "evidence_path": relative_evidence.as_posix(),
     }
@@ -131,6 +124,50 @@ def poll(sessions, evidence_root, binding_root, catalog_path):
         binding_root=binding_root,
         catalog_path=catalog_path,
     )
+
+
+def test_prepare_binding_persists_resolved_runtime_audit(tmp_path: Path) -> None:
+    sessions, analysis_id, evidence_root, binding_root, catalog_path, _ = prepare_run(
+        tmp_path
+    )
+    runtime_root = tmp_path / "runtime"
+    binding = runtime_root / "runs" / analysis_id / "attempt-1" / "batch-binding.json"
+    binding.parent.mkdir(parents=True)
+    binding.write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.batch-binding.v2",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "pipeline_release_id": RELEASE_ID,
+                "wgs_version": "V4.1.1",
+                "wgs_source_commit": "1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+                "resolved_runtime": {
+                    "cce_pipeline_version": "0.7.0",
+                    "profile_id": "wgs-4.1.1",
+                    "profile_revision": "r1",
+                    "profile_sha256": "a" * 64,
+                    "master_image_digest": "swr.example/wgs-master@sha256:" + "b" * 64,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    ingest_evidence_once(
+        session_factory=sessions,
+        evidence_root=evidence_root,
+        binding_root=binding_root,
+        catalog_path=catalog_path,
+        runtime_root=runtime_root,
+    )
+
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        assert run.params_json["resolved_runtime"]["cce_pipeline_version"] == "0.7.0"
+        assert run.params_json["resolved_runtime"]["profile_revision"] == "r1"
 
 
 def test_transfer_progress_spool_is_idempotent(tmp_path: Path) -> None:
@@ -297,7 +334,7 @@ def test_incremental_append_partial_line_and_restart_resume(tmp_path: Path) -> N
         assert cursor.byte_offset == path.stat().st_size
         assert cursor.line_number == 2
         observer = session.scalar(select(ObserverRunState))
-        assert observer.pipeline_snapshot_id == SNAPSHOT_ID
+        assert observer.pipeline_release_id == RELEASE_ID
         assert observer.status == "healthy"
 
 
@@ -331,7 +368,7 @@ def test_biosan_jsonl_contract_and_degraded_marker(tmp_path: Path) -> None:
         "analysis_id": analysis_id,
         "run_id": f"{analysis_id}-a1",
         "attempt": 1,
-        "pipeline_snapshot_id": SNAPSHOT_ID,
+        "pipeline_release_id": RELEASE_ID,
         "rule_instance_id": "biosan-rule-1",
         "rule_name": "mapping",
         "sample_id": "S1",
@@ -400,12 +437,12 @@ def test_bad_complete_json_stops_only_that_file(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("change", "expected_error"),
     [
-        ({"schema_version": "3"}, "schema_version"),
+        ({"schema_version": "4"}, "schema_version"),
         ({"run_id": "unsafe"}, "run_label"),
         ({"evidence_path": "../escape"}, "evidence_path"),
         ({"attempt": 2}, "unknown analysis attempt"),
         ({"analysis_id": "WGS_UNKNOWN"}, "unknown analysis"),
-        ({"pipeline_snapshot_id": "unapproved"}, "snapshot"),
+        ({"pipeline_release_id": "unapproved"}, "release"),
     ],
 )
 def test_invalid_binding_isolated_as_diagnostic(tmp_path: Path, change: dict, expected_error: str) -> None:

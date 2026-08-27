@@ -1,5 +1,20 @@
 # CURRENT_STATE.md
 
+## 2026-08-28 T142 - single WGS release disabled production deployment
+
+```text
+t142_target: replace the Airflow development snapshot catalog with one server-owned WGS release, request v3, release-bound observer/API/UI, and no Airflow cce-pipeline version gate.
+t142_baseline: the user approved shared WGS commit 1778fcabd99b5253aa90cd410112dc2f78e0c51a and release wgs-4.1.1-1778fca; BS10610 and node200 resolve the same commit and only docs/WGS_V4.1.1_LOCAL_CCE_RESULT_CONSISTENCY_TEST_REPORT.md is untracked.
+t142_release: BS10610 current -> /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260828-wgs-4.1.1-single-release-disabled-t142; schema-3 release wgs-4.1.1-1778fca is the only task binding contract.
+t142_implementation: request v3, fixed-repository prepare validation, frozen bundle reuse, migration 0010, release-bound observer/ETA/API/UI and removal of obsolete candidate copy adapters are deployed.
+t142_validation: isolated BS10610 backend 202 passed, scripts 16 passed, Airflow focused DAG tests plus py_compile/DagBag passed with only one 18-task paused bio_wgs, frontend 27 tests and production build passed, temporary and production PostgreSQL 0009-to-0010 migrations passed, and disabled HTTP create/detail/submit-409 smoke passed before exact synthetic cleanup.
+t142_runtime_ssh: node200 noninteractive SSH was blocked by unconditional conda initialization in ~/.bashrc. A preserved backup was made and a noninteractive early-return guard plus fixed /usr/local/bin PATH restored Airflow command execution; host t640, WGS HEAD 1778fca, allowed docs-only drift and invalid forced-command rejection were verified without running a WGS stage.
+t142_platform_state: biodemo revision 20260827_0010; 1 admin and zero sessions/runs/attempts/snapshots/issues/transfers/Rule events/states/workloads/audit/cursors. Airflow has zero DAG runs. Network remains 192.168.199.0/24 and only frontend publishes 172.17.106.10:12959.
+t142_frontend: airflow-demo/frontend:t142-wgs-4.1.1-single-release-disabled -> sha256:59cbfce7c8537c3a943f6c35a1ccea8bcfe6dc2ae1bba02fbe0d6ff6bb8b0903; deployed index/CSS/JS SHA256 match the locally tested dist.
+t142_cleanup: after all disabled smokes passed, the exact T141 release and the redundant failed-attempt T142 backup were irreversibly removed with no-network root containers; releases contains only T142 and backups retains only t142-before-single-release-20260828T002349+0800.
+t142_safety: WGS_EXECUTION_ENABLED=false, WGS_RUNTIME_ADAPTER_ENABLED=false and bio_wgs paused remain mandatory. No OBS transfer, CCE workload, WGS source edit or cce-pipeline install/update is authorized.
+```
+
 ## 2026-08-27 T141 - WGS 4.1.1 Master Rule evidence bridge
 
 ```text

@@ -18,7 +18,7 @@ def test_logger_writes_observer_schema_without_backend_callback(tmp_path: Path) 
     handler = module.WgsRuleStatusHandler(
         analysis_id="WGS_20260813_010203_A1B2C3",
         attempt=1,
-        pipeline_snapshot_id="wgs-v4.1.1-candidate-3489b39-64d50022",
+        pipeline_release_id="wgs-4.1.1-1778fca",
         run_label="wgs401-0123456789abcdef",
         events_path=tmp_path / "raw" / "master.jsonl",
         role="master",
@@ -35,8 +35,7 @@ def test_logger_writes_observer_schema_without_backend_callback(tmp_path: Path) 
     assert payload["analysis_id"] == "WGS_20260813_010203_A1B2C3"
     assert payload["attempt"] == 1
     assert (
-        payload["pipeline_snapshot_id"]
-        == "wgs-v4.1.1-candidate-3489b39-64d50022"
+        payload["pipeline_release_id"] == "wgs-4.1.1-1778fca"
     )
     assert payload["run_label"] == "wgs401-0123456789abcdef"
     assert payload["rule_name"] == "pre_process_mapping"

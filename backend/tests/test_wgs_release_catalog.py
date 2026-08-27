@@ -2,101 +2,88 @@ from pathlib import Path
 
 import pytest
 
-from app.wgs_release_catalog import load_snapshot_catalog
+from app.wgs_release_catalog import load_wgs_release_catalog
 
 
-def write_catalog(
-    tmp_path: Path,
-    *,
-    status: str = "development",
-    execution_enabled: bool = False,
-) -> Path:
+RELEASE_ID = "wgs-4.1.1-1778fca"
+WGS_COMMIT = "1778fcabd99b5253aa90cd410112dc2f78e0c51a"
+
+
+def write_catalog(tmp_path: Path, **overrides: str) -> Path:
+    values = {
+        "release_id": RELEASE_ID,
+        "version": "V4.1.1",
+        "source_commit": WGS_COMMIT,
+        "bs10610_repo_path": "/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
+        "node200_repo_path": "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
+        "rule_event_schema_version": "1",
+        **overrides,
+    }
     path = tmp_path / "wgs_releases.yaml"
     path.write_text(
-        f"""\
-schema_version: "2"
-default_snapshot_id: wgs-v4.1.1-candidate-3489b39-11111111
-snapshots:
-  - snapshot_id: wgs-v4.1.1-candidate-3489b39-11111111
-    pipeline: wgs
-    version: V4.1.1
-    server_path: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs-v4.1.1-candidate-3489b39-11111111
-    source_commit: 3489b3958869e5cfab983aca1eb9c7f158c06dff
-    snapshot_manifest_sha256: f95dddf3592c0b3b5e75b60e00e5359d5f9f607bbb7759b27107612e725ad91e
-    rule_event_schema_version: "1"
-    cce_pipeline_version: 0.5.0
-    cce_pipeline_source_commit: 70a9a737c62865f232ed0b49f682aa7c9a69e467
-    cce_pipeline_wheel_sha256: 43a4ab478e8b8810b1691bb755e54336b0bc8fd86a16d4fed9be3783036e1756
-    cce_profile_id: wgs-4.1.1-r1
-    cce_profile_sha256: 19a7cc76cfc086c032c5e2329310d4ff90cd67e5cb52632bfb98f1b4fea59276
-    master_image_digest: sha256:815d70a6105b08b8fc6031a425cfed5ced8773e4d66c18ad98502b9a61ffeecc
-    status: {status}
-    execution_enabled: {str(execution_enabled).lower()}
-""",
+        "schema_version: \"3\"\n"
+        "release:\n"
+        + "".join(f"  {key}: {value}\n" for key, value in values.items()),
         encoding="utf-8",
     )
     return path
 
 
-def test_catalog_selects_the_server_development_snapshot(tmp_path: Path) -> None:
-    snapshot = load_snapshot_catalog(write_catalog(tmp_path)).default_development()
+def test_catalog_loads_one_shared_wgs_release_without_cce_gate(tmp_path: Path) -> None:
+    release = load_wgs_release_catalog(write_catalog(tmp_path)).release
 
-    assert snapshot.snapshot_id == "wgs-v4.1.1-candidate-3489b39-11111111"
-    assert snapshot.server_path.endswith("/development/wgs-v4.1.1-candidate-3489b39-11111111")
-    assert snapshot.source_commit == "3489b3958869e5cfab983aca1eb9c7f158c06dff"
-    assert snapshot.snapshot_manifest_sha256 == "f95dddf3592c0b3b5e75b60e00e5359d5f9f607bbb7759b27107612e725ad91e"
-    assert snapshot.rule_event_schema_version == "1"
-    assert snapshot.cce_pipeline_version == "0.5.0"
-    assert snapshot.cce_pipeline_source_commit == "70a9a737c62865f232ed0b49f682aa7c9a69e467"
-    assert snapshot.cce_pipeline_wheel_sha256 == "43a4ab478e8b8810b1691bb755e54336b0bc8fd86a16d4fed9be3783036e1756"
-    assert snapshot.cce_profile_id == "wgs-4.1.1-r1"
-    assert snapshot.master_image_digest.startswith("sha256:")
-    assert snapshot.execution_enabled is False
+    assert release.release_id == RELEASE_ID
+    assert release.version == "V4.1.1"
+    assert release.source_commit == WGS_COMMIT
+    assert release.bs10610_repo_path.endswith("/project/wgs-4.1.1")
+    assert release.node200_repo_path.endswith("/project/wgs-4.1.1")
+    assert release.rule_event_schema_version == "1"
+    assert not hasattr(release, "cce_pipeline_version")
+    assert not hasattr(release, "snapshot_manifest_sha256")
 
 
-def test_catalog_rejects_execution_enabled_development_snapshot(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="execution must remain disabled"):
-        load_snapshot_catalog(write_catalog(tmp_path, execution_enabled=True))
+def test_catalog_rejects_old_snapshot_or_multiple_release_shape(tmp_path: Path) -> None:
+    path = tmp_path / "wgs_releases.yaml"
+    path.write_text('schema_version: "2"\nsnapshots: []\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="schema_version must be 3"):
+        load_wgs_release_catalog(path)
 
 
-def test_catalog_rejects_snapshot_outside_airflow_development_root(tmp_path: Path) -> None:
-    path = write_catalog(tmp_path)
-    path.write_text(
-        path.read_text(encoding="utf-8").replace(
-            "/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs",
-            "/mnt/biodevrwbi/33.chenjiucheng/project/wgs",
-        ),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ValueError, match="Airflow development root"):
-        load_snapshot_catalog(path)
-
-
-def test_catalog_rejects_missing_cce_runtime_provenance(tmp_path: Path) -> None:
-    path = write_catalog(tmp_path)
-    payload = path.read_text(encoding="utf-8").replace(
-        "    cce_pipeline_source_commit: 70a9a737c62865f232ed0b49f682aa7c9a69e467\n",
-        "",
-    )
-    path.write_text(payload, encoding="utf-8")
-
-    with pytest.raises(ValueError, match="cce-pipeline source commit"):
-        load_snapshot_catalog(path)
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("release_id", "../../wgs", "release_id"),
+        ("source_commit", "ade88f9", "source_commit"),
+        ("bs10610_repo_path", "/tmp/wgs", "BS10610"),
+        ("node200_repo_path", "/tmp/wgs", "node200"),
+        ("rule_event_schema_version", "2", "Rule event"),
+    ],
+)
+def test_catalog_rejects_invalid_release_contract(
+    tmp_path: Path, field: str, value: str, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        load_wgs_release_catalog(write_catalog(tmp_path, **{field: value}))
 
 
-def test_checked_in_catalog_pins_the_final_4_1_1_runtime_contract() -> None:
-    catalog = load_snapshot_catalog(
+def test_catalog_rejects_release_id_that_does_not_match_commit(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="release_id commit prefix"):
+        load_wgs_release_catalog(
+            write_catalog(tmp_path, release_id="wgs-4.1.1-deadbee")
+        )
+
+
+def test_checked_in_catalog_pins_current_wgs_repository_only() -> None:
+    catalog = load_wgs_release_catalog(
         Path(__file__).resolve().parents[2] / "config" / "wgs_releases.yaml"
     )
-    snapshot = catalog.default_development()
 
-    assert snapshot.snapshot_id.startswith("wgs-v4.1.1-candidate-3489b39-")
-    assert snapshot.source_commit == "3489b3958869e5cfab983aca1eb9c7f158c06dff"
-    assert snapshot.rule_event_schema_version == "1"
-    assert snapshot.cce_pipeline_version == "0.5.0"
-    assert snapshot.cce_pipeline_source_commit == "70a9a737c62865f232ed0b49f682aa7c9a69e467"
-    assert snapshot.cce_profile_id == "wgs-4.1.1-r1"
-    assert snapshot.cce_profile_sha256 == "19a7cc76cfc086c032c5e2329310d4ff90cd67e5cb52632bfb98f1b4fea59276"
-    assert snapshot.master_image_digest == "sha256:815d70a6105b08b8fc6031a425cfed5ced8773e4d66c18ad98502b9a61ffeecc"
-    assert snapshot.execution_enabled is False
+    assert catalog.release.release_id == RELEASE_ID
+    assert catalog.release.source_commit == WGS_COMMIT
+    assert catalog.release.bs10610_repo_path == (
+        "/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1"
+    )
+    assert catalog.release.node200_repo_path == (
+        "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1"
+    )

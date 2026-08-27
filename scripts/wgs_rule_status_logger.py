@@ -17,7 +17,7 @@ class WgsRuleStatusHandler(logging.Handler):
         *,
         analysis_id: str,
         attempt: int,
-        pipeline_snapshot_id: str,
+        pipeline_release_id: str,
         run_label: str,
         events_path: Path,
         role: str,
@@ -30,7 +30,7 @@ class WgsRuleStatusHandler(logging.Handler):
             raise ValueError("role must be master or worker")
         self.analysis_id = analysis_id
         self.attempt = int(attempt)
-        self.pipeline_snapshot_id = pipeline_snapshot_id
+        self.pipeline_release_id = pipeline_release_id
         self.run_label = run_label
         self.events_path = Path(events_path)
         self.role = role
@@ -53,7 +53,7 @@ class WgsRuleStatusHandler(logging.Handler):
             ).hexdigest(),
             "analysis_id": self.analysis_id,
             "attempt": self.attempt,
-            "pipeline_snapshot_id": self.pipeline_snapshot_id,
+            "pipeline_release_id": self.pipeline_release_id,
             "timestamp": datetime.now(timezone.utc).timestamp(),
             "run_label": self.run_label,
             "role": self.role,

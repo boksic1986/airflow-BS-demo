@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.airflow_client import AirflowClient
 from app.config import get_cors_origins, get_internal_service_token, get_settings
@@ -64,7 +64,7 @@ from app.auth_service import (
     revoke_session,
 )
 from app.wgs_platform_service import action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run
-from app.wgs_release_catalog import load_snapshot_catalog
+from app.wgs_release_catalog import load_wgs_release_catalog
 from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferJob, UserAccount
 from app.wgs_timing_service import enrich_progress, serialize_rule_states
 from app.wgs_runtime_adapter import build_stage_request, container_workdir_to_host, write_stage_request
@@ -171,6 +171,8 @@ class SelectedSampleRequest(BaseModel):
 
 
 class CreateRunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     pipeline: str
     project_name: str
     target: str = "metadata"
@@ -283,6 +285,20 @@ class UserCreateRequest(BaseModel):
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/wgs/release")
+def current_wgs_release() -> dict[str, object]:
+    release = load_wgs_release_catalog(
+        Path(get_settings().wgs_release_catalog_path)
+    ).release
+    return {
+        "release_id": release.release_id,
+        "version": release.version,
+        "source_commit": release.source_commit,
+        "execution_enabled": _wgs_platform_execution_enabled(),
+        "runtime_adapter_enabled": _wgs_runtime_adapter_enabled(),
+    }
 
 
 @app.post("/api/auth/login")
@@ -958,7 +974,10 @@ def run_detail(analysis_id: str) -> dict[str, object]:
         )
     _guard_pipeline_deployed(str(payload.get("pipeline") or payload.get("pipeline_name") or ""))
     params = payload.get("params") if isinstance(payload.get("params"), dict) else {}
-    payload["pipeline_snapshot_id"] = params.get("pipeline_snapshot_id")
+    payload["pipeline_release_id"] = params.get("pipeline_release_id")
+    payload["wgs_version"] = params.get("wgs_version")
+    payload["wgs_source_commit"] = params.get("wgs_source_commit")
+    payload["resolved_runtime"] = params.get("resolved_runtime")
     payload["rule_event_schema_version"] = params.get("rule_event_schema_version")
     payload["observer"] = ({"status": observer.status, "last_success_at": observer.last_success_at.isoformat() if observer.last_success_at else None, "last_error": observer.last_error, "updated_at": observer.updated_at.isoformat()} if observer else None)
     return payload
@@ -1062,10 +1081,15 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
             if run is None or run.attempt != request.attempt:
                 raise ValueError("unknown active WGS attempt")
             params = dict(run.params_json or {})
-            snapshot_id = str(params["pipeline_snapshot_id"])
-            snapshot = load_snapshot_catalog(Path(get_settings().wgs_release_catalog_path)).default_development()
-            if snapshot.snapshot_id != snapshot_id:
-                raise ValueError("active WGS snapshot is not the catalog default")
+            release_id = str(params["pipeline_release_id"])
+            release = load_wgs_release_catalog(
+                Path(get_settings().wgs_release_catalog_path)
+            ).release
+            if stage_name == "prepare":
+                if release.release_id != release_id:
+                    raise ValueError("release_unavailable: run WGS release is not current")
+                if str(params.get("wgs_source_commit") or "") != release.source_commit:
+                    raise ValueError("release_unavailable: run WGS commit is not current")
             if stage_name in {"acquire_input_transfer_slot", "acquire_result_transfer_slot"}:
                 transfer_kind = "input" if stage_name == "acquire_input_transfer_slot" else "result"
                 transfer_id = f"{analysis_id}-a{request.attempt}-{transfer_kind}"
@@ -1114,7 +1138,9 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
             )
             payload = build_stage_request(
                 analysis_id=analysis_id, attempt=request.attempt, stage=stage_name,
-                snapshot_id=snapshot_id, snapshot_path=snapshot.server_path,
+                pipeline_release_id=release_id,
+                wgs_version=str(params["wgs_version"]),
+                wgs_source_commit=str(params["wgs_source_commit"]),
                 workdir=container_workdir_to_host(
                     run.workdir,
                     container_root=settings.host_results_root,
@@ -1132,10 +1158,10 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 binding_root.mkdir(parents=True, exist_ok=True)
                 binding_path = binding_root / f"{analysis_id}-attempt-{request.attempt}.json"
                 binding_payload = {
-                    "schema_version": "2",
+                    "schema_version": "3",
                     "analysis_id": analysis_id,
                     "attempt": request.attempt,
-                    "pipeline_snapshot_id": snapshot_id,
+                    "pipeline_release_id": release_id,
                     "run_id": f"{analysis_id}-a{request.attempt}",
                     "evidence_path": f"{analysis_id}/attempt-{request.attempt}",
                 }
@@ -1146,7 +1172,16 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
             session.commit()
             return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "registered", "request_path": str(path)}
     except (OSError, ValueError, RuntimeError) as exc:
-        raise HTTPException(status_code=400, detail={"code": "WGS_RUNTIME_STAGE_FAILED", "message": str(exc)}) from exc
+        message = str(exc)
+        if message.startswith("release_unavailable:"):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "WGS_RELEASE_UNAVAILABLE",
+                    "message": message,
+                },
+            ) from exc
+        raise HTTPException(status_code=400, detail={"code": "WGS_RUNTIME_STAGE_FAILED", "message": message}) from exc
 
 
 @app.get("/api/internal/wgs/runs/{analysis_id}/stage-status", dependencies=[Depends(require_internal_service_token)])

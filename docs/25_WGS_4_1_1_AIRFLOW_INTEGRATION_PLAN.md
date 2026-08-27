@@ -1,48 +1,69 @@
-# WGS 4.1.1 Airflow 生产接入方案
+# WGS 4.1.1 单一发布版本 Airflow 接入方案
 
-更新时间：2026-08-26
+更新时间：2026-08-27
 
-本文是当前唯一有效的 WGS Airflow 接入设计。`22_WGS_ONLY_LOCAL_CCE_PLATFORM_DESIGN.md`、T131-T133 和 WGS 4.0.1/4.1.0 内容仅保留为历史记录。
+本文是当前唯一有效的 WGS Airflow 接入设计。文档 22、T131-T141 中的
+Airflow-owned snapshot、固定 cce-pipeline wheel/profile/image 门禁和 WGS
+4.0.1/4.1.0 内容均为历史记录。
 
-## 1. 固定基线
+## 1. 固定发布合同
 
-| 组件 | 固定身份 |
+生产同一时间只提供一个 WGS 发布版本：
+
+| 字段 | 当前值 |
 |---|---|
-| WGS source | `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1`，commit `3489b3958869e5cfab983aca1eb9c7f158c06dff` |
-| Airflow snapshot | `wgs-v4.1.1-candidate-3489b39-64d50022` |
-| snapshot manifest | `9b1bfe00ebf7e8ed693f1e9eb17ec05174aa43b04900802d67e54f50dc27f52e` |
-| cce-pipeline | `0.5.0`, source commit `70a9a737c62865f232ed0b49f682aa7c9a69e467` |
-| cce wheel | SHA256 `43a4ab478e8b8810b1691bb755e54336b0bc8fd86a16d4fed9be3783036e1756` |
-| CCE profile | `wgs-4.1.1-r1`, SHA256 `19a7cc76cfc086c032c5e2329310d4ff90cd67e5cb52632bfb98f1b4fea59276` |
-| Master RepoDigest | `sha256:815d70a6105b08b8fc6031a425cfed5ced8773e4d66c18ad98502b9a61ffeecc` |
+| release ID | `wgs-4.1.1-1778fca` |
+| WGS version | `V4.1.1` |
+| source commit | `1778fcabd99b5253aa90cd410112dc2f78e0c51a` |
+| BS10610 path | `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
+| node200 path | `/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
+| Rule event schema | `1` |
 
-Airflow snapshot 排除 `prepare/config.yaml`、Git/cache/runtime 文件、OBS 配置、kubeconfig、SSH key、token 和患者数据。上游 WGS 仓库保持只读。
+两个路径是同一共享仓库。Airflow 不复制 WGS 源码，不维护 pipeline snapshot
+或 snapshot manifest，也不在 node200 创建额外 WGS 发布目录。前端不允许用户
+选择或提交版本；后端创建 run 时自动绑定当前 release ID、version 和 commit。
 
-## 2. 主机边界
+prepare 前 node200 必须验证：
+
+- 固定仓库、`prepare/prepare_wgs_batch.py` 存在且不是符号链接。
+- `git rev-parse HEAD` 等于 run 绑定的 commit。
+- 已跟踪文件无变化。
+- 未跟踪内容只允许位于 `docs/`；其他未跟踪运行代码触发
+  `release_unavailable`。
+
+prepare 成功后，Step1-Step6 只运行批次目录中的冻结 CCE bundle。Airflow task
+重试复用同一 binding/bundle；`resume`和`rerun_failed`的新 attempt 继续绑定原
+release。原 commit 不可用时返回 `WGS_RELEASE_UNAVAILABLE`，不得静默切换。
+
+## 2. 责任边界
 
 ```text
 React/FastAPI/Airflow/observer/PostgreSQL/Redis       BS10610
-WGS prepare/cce-pipeline/obsutil/kubectl/Step1-Step6 node200 (172.17.61.200)
+WGS prepare/obsutil/kubectl/Step1-Step6              node200 172.17.61.200
 Master + Snakemake scheduler                         CCE
 Rule JSONL/result evidence                           SFS
 input/result objects                                 OBS
 ```
 
-- CCE 不调用 BS10610 API；状态只通过 SFS 和 node200 单向拉取。
-- observer 不持有 SSH key、OBS 凭据或 kubeconfig。
-- node200 不运行 Airflow，也不保存 biodemo 数据库。
-- `wgs-cloud-delivery` 保持独立，不安装 Airflow adapter 或 logger。
+- Airflow 只调度外部 CCE，不执行本地/SGE WGS，也不运行 Snakemake。
+- cce-pipeline 的版本兼容由 WGS prepare/adapter 负责；Airflow 不安装、升级或
+  校验 cce-pipeline 版本、wheel SHA、profile SHA 或 Master digest。
+- `RESOLVED_PROFILE.yaml`中的实际 cce-pipeline、profile 和 Master image 信息
+  仅在 prepare 后作为审计字段入库，不是 Airflow 部署门禁。
+- CCE 不回调 BS10610 API；node200 将状态和证据单向写入共享 spool。
+- observer 不持有 SSH key、OBS credential、kubeconfig 或 Docker socket。
+- `wgs-cloud-delivery`保持独立，不安装 Airflow adapter 或 logger。
 
-共享 runtime 映射必须使用：
+共享 runtime 路径：
 
 ```text
 BS10610 /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime
 node200  /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime
 ```
 
-## 3. 输入与唯一 DAG
+## 3. 请求、DAG 与 WGS Step
 
-公开请求：
+公开创建请求固定为：
 
 ```json
 {
@@ -54,9 +75,11 @@ node200  /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime
 }
 ```
 
-第一版只允许手工提交。自动扫描、local、SGE、Step0、Step7 和 Step8 不在自动 DAG 中。
+未知字段被拒绝，因此客户端不能伪造 release、commit、snapshot path 或运行时
+版本。第一版只支持前端/API 手工创建；自动扫描、local、SGE、Step0、Step7 和
+Step8 不进入自动 DAG。
 
-唯一 `bio_wgs` 共 18 个 task：
+唯一、版本无关的 `bio_wgs` 有 18 个 task：
 
 ```text
 validate_request
@@ -79,26 +102,45 @@ validate_request
 -> release_leases
 ```
 
-`bio_wgs` 无 schedule，默认 paused，最大四批项目级并发；OBS 传输租约只允许一个 active transfer。所有长等待均使用 `reschedule` sensor。
+`bio_wgs`无 schedule、默认 paused、`max_active_runs=4`。`wgs_cce_runs`控制
+CCE 批次并发，`wgs_obs_transfer`和 PostgreSQL lease 共同保证仅一个输入上传或
+结果下载。六个长等待使用五秒 `reschedule` sensor。
 
-## 4. WGS Step 合同
-
-| Airflow 阶段 | WGS 入口 | 完成条件 |
+| Airflow 阶段 | 冻结 bundle 入口 | 完成条件 |
 |---|---|---|
-| prepare | `prepare_wgs_batch.py all` | bundle、`RESOLVED_PROFILE.yaml`、`BATCH_RUNTIME.yaml` 有效 |
-| upload | `Step1_upload_fastq.sh` | WGS/cce-pipeline 上传完成合同成功 |
+| prepare | `prepare_wgs_batch.py all --run-mode cce` | `BATCH_RUNTIME.yaml`、`RESOLVED_PROFILE.yaml`和 Step1-Step6 有效 |
+| input | `Step1_upload_fastq.sh` | WGS/cce-pipeline 上传合同成功 |
 | Master | `Step2_run.sh` | 批次 Master Job 已提交 |
-| analysis | `Step3_status.sh` | 精确 Master 终态与 Rule reconciliation |
-| publish | `Step4_publish_results.sh` | payload manifest/READY 成功 |
-| download | `Step5_download_verify.sh` | 长度与 MD5 验证、`DOWNLOAD_VERIFIED` 成功 |
-| materialize | `Step6_materialize_results.sh` | 原子物化、`MATERIALIZED` 成功 |
-| finalize | backend reconciliation | 分析、交付、监控状态一致 |
+| analysis | `Step3_status.sh --output json` | Master 终态与 Rule reconciliation |
+| publish | `Step4_publish_results.sh` | SFS/OBS 结果发布合同成功 |
+| download | `Step5_download_verify.sh` | 结果长度/MD5 和下载 marker 成功 |
+| materialize | `Step6_materialize_results.sh` | 本地原子物化 marker 成功 |
+| finalize | backend reconciliation | Step6 和业务终态一致 |
 
-Airflow 不计算 FASTQ MD5，不生成 `FASTQ.MD5SUMS`，不增加上传后 FASTQ 验证，也不在 API create 阶段生成 `sampleinfo.tsv` 或 `config.yaml`。这些文件由 node200 的 WGS prepare 生成。
+Airflow 不计算 FASTQ MD5、不生成 `FASTQ.MD5SUMS`、不增加上传后 FASTQ 验证
+task，也不在 create API 阶段生成 sampleinfo/config；这些均由 WGS prepare 和
+Step 合同负责。
 
-## 5. node200 adapter 与 SSH
+## 4. node200 request 与冻结 binding
 
-按用户最终决定使用现有 RSA 和 SSH config：
+内部请求使用 `wgs-runtime.request.v3`：
+
+```text
+schema_version, analysis_id, attempt, stage,
+pipeline_release_id, wgs_version, wgs_source_commit,
+bs10610_workdir, node200_workdir, project_name, batch_no, fq_path
+```
+
+请求不包含 pipeline snapshot path、WGS repo path、cce-pipeline version、wheel
+hash、profile hash 或 Master digest。node200 runner 从固定 `WGS_REPO_ROOT`调用
+prepare；请求不能覆盖该路径。
+
+prepare 写 `wgs-runtime.batch-binding.v2`，至少保存：release/version/commit、
+batch root、CCE bundle、run ID、namespace、Master Job、Rule evidence path 和
+从 `RESOLVED_PROFILE.yaml`解析的 `resolved_runtime`。后续 Step 只读取 binding
+内路径，不再读取 WGS 仓库。
+
+Airflow 使用现有受保护 RSA 配置：
 
 ```text
 ssh -tt -F /opt/airflow/ssh/config wgs-node200 \
@@ -106,54 +148,62 @@ ssh -tt -F /opt/airflow/ssh/config wgs-node200 \
   wgs-runtime <analysis_id> <attempt> <stage>
 ```
 
-配置固定 host、user、IdentityFile、known_hosts、`BatchMode yes`、`IdentitiesOnly yes`、`StrictHostKeyChecking yes` 和 `RequestTTY force`。私钥只读挂载给 Airflow UID 50000，不进入 Git、release、镜像、数据库或日志。
+SSH config 固定 host key、BatchMode、IdentitiesOnly 和 IdentityFile；私钥只读
+挂载给 UID 50000，不进入 Git、release、镜像、日志或数据库。异步阶段使用
+`nohup + setsid + flock`，记录 request SHA256、PID、boot ID、启动时间和原子
+status；重复调用只能恢复相同请求。
 
-adapter 只接受以下 stage：
+## 5. Rule、Master、数据库和 API
+
+Master 内 Snakemake logger 写：
 
 ```text
-prepare step1_upload step2_master step3_monitor
-step4_publish step5_download step6_materialize
+<run_root>/evidence/<run_id>/rule-status/raw/*.jsonl
 ```
 
-异步阶段使用 `nohup + setsid + flock`，记录请求 SHA256、PID、boot ID、启动时间和原子 status。重复调用只能恢复同一请求。
+node200 Step3 每约五秒通过 kubectl 复制完整 JSONL 行并保存逐 stream byte
+offset。Master 退出后使用一次性只读 reader Job补齐末尾事件。Worker Pod 不持续
+枚举、不入库、不展示；`/pods`只返回 Master Job/Pod。证据同步失败标记
+monitoring degraded，未终结 Rule 转为 `unknown_interrupted`，但批次业务终态仍由
+WGS/结果交付合同决定。
 
-## 6. 状态、数据库、API 与前端
+Alembic `20260827_0010`：
 
-- biodemo 保存 run/attempt/sample/family/snapshot/validation/transfer/Rule/Master/artifact/QC/audit 状态；Airflow metadata DB 只保存调度元数据。
-- `/pods` 只返回批次 Master Job/Pod，不持续枚举 Worker Pod。
-- transfer 第一版只承诺阶段状态、heartbeat 和错误摘要；`progress_detail_available=false` 时字节、速度和 ETA 为 null，前端不渲染进度条和虚假 0 值。
-- Rule JSONL 必须由 Master Snakemake logger 写 SFS；observer 按完整换行、event ID 和 byte offset 幂等消费。
-- API 除 health/login 外要求认证；viewer 只读，operator 可创建/提交/恢复/重跑/取消，admin 管理账号。
-- 前端活动任务约五秒刷新；Airflow UI、backend、PostgreSQL、Redis、observer 不发布宿主机端口。
+- `observer_run_state.pipeline_snapshot_id`重命名为
+  `pipeline_release_id`。
+- WGS `analysis_run.params_json`中的残留 snapshot/source 字段迁移为
+  release/source 字段。
+- 不删除用户账号、角色或平台配置。
 
-## 7. Rule logger 与单向 bridge
+公开接口：
 
-固定 Master RepoDigest `sha256:815d70a6...`已包含 Snakemake
-`9.24.0+biosan1`及 `snakemake_logger_plugin_rule_status`。正式
-`cloud_wgs_all`命令写 SFS
-`<run_root>/evidence/<run_id>/rule-status/raw/*.jsonl`，不修改 Rules、Worker
-images、stdout/stderr 或 `analysis.log`，也不包含 FastAPI URL、token 或 HTTP
-callback。node200 本地 Python/Snakemake 版本不参与云端分析。
+- `GET /api/wgs/release`：当前 release/version/commit 和两个执行门禁。
+- `POST /api/runs`：服务端绑定当前 release，不接受客户端版本。
+- `GET /api/runs/{id}`：返回 `pipeline_release_id`、`wgs_version`、
+  `wgs_source_commit`和 prepare 后的 `resolved_runtime`。
+- Rule 去重、observer binding 和 ETA 历史均按 `pipeline_release_id`隔离；ETA
+  选择同 release 最近 20 个成功 CCE run。
 
-node200 没有 `/workspace` SFS 宿主机挂载，因此 Step3 通过 kubectl 每约五秒从
-运行中 Master 读取完整 JSONL 行并按 stream byte offset 写入共享
-`cce-evidence/<analysis_id>/attempt-N`。Master 退出后，一次性 reader Job仅只读
-挂载 workspace PVC，补齐最终增量后删除。reader 与 Worker Pod 均不进入前端。
+前端 Submit 页只读显示 `WGS V4.1.1 / 1778fca`和 release ID，不提供版本选择
+器。Run Detail、Rules、Transfers 和 Master 页面显示本次 run 的 release；
+resolved runtime 在 prepare 前明确显示为未解析。
 
-disabled-mode 代码和合成测试已经完成；真实启用仍需 T140 验证
-planned/running/success/failed/retry、offset 续读、Master 中断、reader 清理、四批
-隔离和 logger degraded。缺失终态事件不得伪造成功，显示为
-`unknown_interrupted`。
+## 6. 禁用态发布与启用门禁
 
-## 8. 发布和启用门禁
-
-当前禁用态 release：
+T142 发布必须保持：
 
 ```text
-20260827-wgs-4.1.1-disabled-t141
 WGS_EXECUTION_ENABLED=false
 WGS_RUNTIME_ADAPTER_ENABLED=false
 bio_wgs paused
 ```
 
-禁用态已完成 migration、demo-state cleanup、登录/API/HTTP/SSH/network smoke。任何真实 OBS/CCE 操作都需要单独批准，并按顺序：启用两个 gate、保持 DAG paused、手工提交一个最小批次、完成中断/失败/MD5/四批并发验收，最后才允许解除 pause。
+BS10610 只做测试、migration、Compose/service rebuild 和 HTTP smoke，不启动 OBS
+传输或 CCE Job。不删除数据库/Redis volume，不重建外部 Docker network；
+`nipt_analysis_test_net`必须保持 `192.168.199.0/24`、gateway
+`192.168.199.1`，且只有 frontend 发布 `172.17.106.10:12959`。
+
+禁用态验收包括：backend/observer/migration、runner/DAG import、frontend
+test/build、Compose/network、登录、release API、禁用态 create、Run Detail、真实
+submit 409、SSH/repo commit 和 secret boundary。真实批次、启用两个 gate 和 DAG
+unpause均需要单独批准。

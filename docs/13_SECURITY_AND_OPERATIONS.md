@@ -1,10 +1,25 @@
 # 13 安全和运维约束
 
+## T142 单一 release 信任边界
+
+WGS repo path 由 node200 runner 固定，request v3 不接受任意 repository path。
+prepare 前验证 commit 和 working tree；只有`docs/`未跟踪文件被允许。Airflow
+容器和 catalog 不保存 cce-pipeline wheel、OBS credential、kubeconfig 或运行时
+secret。prepare 解析出的 runtime identity只作为审计数据。SSH 私钥继续只读
+挂载给 UID 50000；observer 只读访问 evidence/runtime spool。部署不得修改
+`nipt_analysis_test_net`，不得发布 backend/PostgreSQL/Redis/observer/Airflow
+端口，也不得打开两个 WGS execution gate。
+
 > **当前 WGS 4.1.1 边界：** 按用户最终决定，Airflow 使用现有 RSA 与
 > `/opt/airflow/ssh/config`，通过 `ssh -tt -F ... wgs-node200` 登录；config
 > 固定 host key、BatchMode、IdentityFile 和 TTY。私钥只读挂载给 UID 50000，
 > 不进入 release、镜像、数据库或日志。当前两个 execution gate 均为 false。
 > 以下 T133 forced-key 描述为历史候选。
+
+node200 shell profile不得在非交互SSH command session中运行conda初始化。最小
+固定PATH必须位于early-return之前，以避免共享环境启动阻塞，同时不改变交互操作
+行为。profile修改前保留owner/mode不变的备份；备份路径不得包含SSH私钥或OBS
+配置。本约束只处理Airflow命令入口，不授权终止node200上的其他用户或传输任务。
 
 ## T133 node 200 boundary
 

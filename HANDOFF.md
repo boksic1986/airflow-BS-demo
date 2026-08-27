@@ -1,5 +1,104 @@
 # HANDOFF.md
 
+## 2026-08-28 - Codex - T142 single-release disabled integration
+
+### Goal
+
+Replace the Airflow-owned WGS candidate snapshot with one release contract that
+points to shared WGS 4.1.1 commit
+`1778fcabd99b5253aa90cd410112dc2f78e0c51a`, while keeping all execution
+disabled.
+
+### Completed
+
+- Implemented the schema-3 single release catalog for
+  `wgs-4.1.1-1778fca`. BS10610 and node200 resolve the same shared repository
+  commit; the only untracked WGS item is an allowed `docs/` report.
+- Changed runtime requests to `wgs-runtime.request.v3`, removed snapshot paths
+  and Airflow-side cce-pipeline version/wheel checks, and made prepare validate
+  the fixed node200 WGS repository before creating a frozen batch binding.
+- Added migration `20260827_0010`, release-bound observer/Rule timing behavior,
+  `GET /api/wgs/release`, and read-only release/runtime fields in the frontend.
+  Historical ETA selection now filters by release before applying the latest-20
+  limit.
+- Removed obsolete candidate-copy and snapshot prepare-adapter scripts and
+  replaced the stale DAG test with the current 18-task paused `bio_wgs` graph.
+- Published
+  `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260828-wgs-4.1.1-single-release-disabled-t142`
+  and atomically switched `current`. The external Docker network and database/
+  Redis volumes were retained.
+- Migrated production biodemo from `20260826_0009` to `20260827_0010`; retained
+  one administrator and zero run state. The retained rollback dump is
+  `backups/t142-before-single-release-20260828T002349+0800`.
+- Packaged the tested frontend dist offline as
+  `airflow-demo/frontend:t142-wgs-4.1.1-single-release-disabled` at image ID
+  `sha256:59cbfce7c8537c3a943f6c35a1ccea8bcfe6dc2ae1bba02fbe0d6ff6bb8b0903`.
+- Diagnosed node200 SSH command hangs to unconditional conda initialization in
+  `~/.bashrc`. Backed up the file as
+  `~/.bashrc.before-airflow-t142-20260828`, kept the WGS/local/Git PATH
+  available, and returned before conda setup for noninteractive shells.
+- After final smoke, irreversibly removed only the exact T141 release and the
+  redundant failed-attempt T142 backup with no-network root containers.
+  `releases/` now contains only T142; `backups/` retains only the successful
+  pre-migration dump named above.
+
+### Validation completed
+
+```text
+BS10610 isolated backend full suite: 202 passed
+BS10610 scripts suite: 16 passed
+BS10610 Airflow DAG: 5 unittest tests, py_compile and DagBag all passed;
+bio_wgs has 18 tasks and is paused at creation
+frontend: 8 files, 27 tests; TypeScript/Vite production build passed
+temporary PostgreSQL migration smoke: 20260826_0009 -> 20260827_0010 passed;
+the administrator sentinel and migrated release fields were preserved and the
+exact temporary database was removed
+production migration: revision 20260827_0010; one admin; zero sessions, runs,
+attempts, snapshots, issues, transfers, Rule rows, workloads, audit or cursors
+HTTP smoke: anonymous release API 401; admin login 200; disabled run create 201;
+Run Detail 200 with release 1778fca; submit 409; exact DB/workdir cleanup passed
+Airflow live: only paused bio_wgs; no import errors; DagBag 18 tasks, no schedule
+node200: hostname t640; fixed repository HEAD 1778fca; allowed docs-only drift;
+invalid forced-command returned 1 without timing out or starting a stage
+network: external 192.168.199.0/24 retained; only 172.17.106.10:12959 published
+```
+
+Initial validation corrections are recorded for reproducibility: the backend
+staging container needed the whole repository mounted so it could read the
+catalog; the Airflow image has no pytest, so its project tests used unittest,
+py_compile and the installed DagBag; the migration smoke inherited the running
+backend environment without printing credentials.
+
+### Deployment corrections
+
+- The first deployment attempt migrated successfully but a Bash `sed`
+  expression expanded `$#` and failed before changing the frontend env. The
+  rollback trap restored T141, downgraded biodemo to 0009, restored its runtime
+  gate and recreated services; health and clean DB state were verified before
+  the corrected second attempt.
+- The HTTP smoke cleanup first stopped on a root-owned synthetic manifest.
+  Database/session/audit cleanup had already completed. A no-network root
+  container mounted only the exact synthetic directory and removed it; no
+  production input or result was touched.
+- A supplemental DagBag probe first used the Snakemake venv `python` and then an
+  Airflow-version-incompatible `DAG.schedule` attribute. The accepted probe
+  used `/home/airflow/.local/bin/python` and `schedule_interval`; live Airflow
+  CLI independently showed one paused DAG and zero import errors.
+
+### Safety and rollback
+
+Both execution gates remain false and `bio_wgs` remains paused. No OBS/CCE
+operation, WGS source edit or cce-pipeline install/update occurred. Application
+rollback is reconstruction from Git plus the retained biodemo dump after the
+required single-release cleanup; never downgrade migration 0010 after new
+release-bound rows exist.
+
+### Tests not run
+
+No real Step1-Step6, OBS transfer, CCE Master/Worker, Rule evidence bridge,
+result delivery or four-run concurrency test ran. Those remain T140 and require
+separate approval to enable both gates and submit a minimal real batch.
+
 ## 2026-08-27 - Codex - T141 WGS 4.1.1 Master Rule evidence bridge
 
 ### Goal

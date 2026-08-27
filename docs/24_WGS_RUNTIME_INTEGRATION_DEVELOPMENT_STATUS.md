@@ -1,89 +1,119 @@
 # WGS 4.1.1 Runtime Integration Development Status
 
-更新时间：2026-08-26
+更新时间：2026-08-28
 
-当前结论：T135-T139 的 Airflow 控制面开发、禁用态部署和 demo 状态清理已经完成；T140 真实 OBS/CCE 批次仍未获批准，也不具备 Rule logger 启用条件。
+当前结论：T142 已按用户确认的 WGS commit
+`1778fcabd99b5253aa90cd410112dc2f78e0c51a`完成 Airflow 单一发布版本接入、
+BS10610 禁用态发布和 smoke。真实 OBS/CCE 批次仍未获批准。
 
-## 1. 已部署状态
+## 1. 当前发布合同
 
-| 项目 | 当前值 |
+| 项目 | 当前目标值 |
 |---|---|
-| BS10610 release | `20260826-wgs-4.1.1-disabled-t139` |
-| 唯一 DAG | `bio_wgs`，18 tasks，manual schedule，paused |
-| execution gates | `WGS_EXECUTION_ENABLED=false`、`WGS_RUNTIME_ADAPTER_ENABLED=false` |
-| WGS snapshot | `wgs-v4.1.1-candidate-3489b39-64d50022` |
-| snapshot manifest SHA256 | `9b1bfe00ebf7e8ed693f1e9eb17ec05174aa43b04900802d67e54f50dc27f52e` |
-| WGS source | clean commit `3489b3958869e5cfab983aca1eb9c7f158c06dff` |
-| cce-pipeline | `0.5.0`; formal wheel SHA256 `43a4ab478e8b8810b1691bb755e54336b0bc8fd86a16d4fed9be3783036e1756` |
-| profile | `wgs-4.1.1-r1`, SHA256 `19a7cc76cfc086c032c5e2329310d4ff90cd67e5cb52632bfb98f1b4fea59276` |
-| biodemo | revision `20260826_0009`; 1 admin; 0 sessions/runs/samples/events/transfers/workloads |
-| Docker network | external `nipt_analysis_test_net`, `192.168.199.0/24` |
-| published port | only `172.17.106.10:12959` |
+| release ID | `wgs-4.1.1-1778fca` |
+| WGS version | `V4.1.1` |
+| WGS commit | `1778fcabd99b5253aa90cd410112dc2f78e0c51a` |
+| BS10610 repo | `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
+| node200 repo | `/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
+| runtime request | `wgs-runtime.request.v3` |
+| batch binding | `wgs-runtime.batch-binding.v2` |
+| Rule event schema | `1` |
+| unique DAG | `bio_wgs`, 18 tasks, manual, paused |
 
-旧 `bio_wgs_cce`、`bio_wgs_intake_scan`、`bio_wgs_onprem` 的 source mount 和 Airflow metadata 已删除。PostgreSQL/Redis volume 与外部 Docker network 未重建或删除。
-旧 Airflow WGS release 与 demo-state 清理备份已精确删除；`releases/` 只保留上述当前 release，`backups/` 为空。该清理不可恢复，但未触及生产 WGS 仓库、输入或结果。
+两个共享仓库路径已读核对为相同 HEAD。prepare 前 runner 检查 HEAD 和
+`git status --porcelain`；仅允许 `docs/` 下未跟踪文档，任何已跟踪漂移或其他未跟踪
+运行代码都返回 `release_unavailable`。prepare 成功后 Step1-Step6 只使用批次冻结
+bundle，因此仓库后续更新不会改变已开始 attempt。
 
-## 2. 已完成开发
+Airflow 不复制 WGS 源码，也不在 node200 创建 Airflow-owned release。Airflow 不固定
+或校验 cce-pipeline 版本、wheel、profile SHA 或 Master digest；WGS prepare 负责兼容性，
+生成的 `RESOLVED_PROFILE.yaml`只作为审计信息写入 `resolved_runtime`。
 
-- 安全生成不含 `prepare/config.yaml` 的 WGS 4.1.1 allowlist snapshot，并固定 WGS、profile、wheel 与 Master RepoDigest 身份。
-- `bio_wgs` 只编排 WGS prepare 和 Step1-Step6；不生成 FASTQ MD5，不增加上传后 FASTQ 验证，不自动执行 Step0/Step7/Step8。
-- node200 adapter 使用 WGS 生成的 Step 脚本、原子 stage status、`nohup + setsid + flock` 异步 worker和五秒 reschedule sensor。
-- backend/observer 支持 4.1.1 snapshot、运行 attempt、阶段型 transfer、Master-only workload、Rule cursor、结果门禁和审计。
-- transfer 没有精确合同时返回 `progress_detail_available=false`；前端不显示虚假的 0%、0 B/s 或 ETA 0。
-- 前端只提供 WGS 手工提交、Run Detail、Families、Rules、Master、Transfers、QC、Logs、Files 与 RBAC 页面。
-- demo run、样本、session、事件、传输、workload、audit 与 Redis 状态已清理；管理员账号保留。
+## 2. 已完成代码改造
 
-## 3. node200 SSH 与共享路径
+- 单一 schema-3 `wgs_releases.yaml`取代 development snapshot catalog。
+- `POST /api/runs`不接受客户端版本字段，后端自动绑定当前 release、WGS version 和
+  source commit；新增 `GET /api/wgs/release`。
+- Run Detail、Rule timing、observer binding、Rule event去重和历史 ETA 均按
+  `pipeline_release_id`隔离。
+- migration `20260827_0010`将
+  `observer_run_state.pipeline_snapshot_id`改名为`pipeline_release_id`，并迁移残留
+  WGS run params；用户、角色和平台设置不重置。
+- runtime request v3 不再携带 snapshot path、cce-pipeline version 或 wheel hash。
+- node200 runner固定 `WGS_REPO_ROOT`，prepare重试复用已有 binding；resume 和
+  rerun attempt 继续使用原 release，原 commit不可用时明确阻断，不能静默换版本。
+- 前端提交页只读显示 `WGS V4.1.1 / 1778fca`，没有版本选择器；Run Detail显示
+  release、commit和prepare后解析的 runtime审计字段。
+- 已删除 Airflow-owned WGS复制脚本、candidate sync脚本及其旧测试。
 
-按用户最终决定，Airflow 使用专用 SSH 配置和现有 RSA：
+## 3. 编排和运行边界
+
+唯一 DAG 保持现有 18-task项目编排：
 
 ```text
-ssh -tt -F /opt/airflow/ssh/config wgs-node200 <registered-wrapper-command>
+validate
+→ prepare
+→ Step1 upload
+→ Step2 Master
+→ Step3 monitor
+→ Step4 publish
+→ Step5 download
+→ Step6 materialize
+→ finalize
 ```
 
-Celery 没有本地终端，因此使用 `-tt` 强制分配 TTY。配置同时固定 `BatchMode yes`、`IdentitiesOnly yes`、`StrictHostKeyChecking yes`、known_hosts 和私钥路径。实际 host key 指纹为 `SHA256:KKSrhbpZdPlBe7ej63ZaYhvYwWhQpdEnGejD59NGMv4`。
+不增加 FASTQ MD5、上传后 FASTQ验证、固定 Master slot、local/SGE DAG、Step0、
+Step7或Step8。OBS阶段使用单槽位，长任务使用五秒 reschedule sensor。Rule JSONL和
+Master Job/Pod evidence仍由node200写入共享spool，observer不持有kubeconfig或SSH
+私钥；API/UI只展示Master，不持续枚举Worker Pod。
 
-实测共享路径不是早期文档中的 `/sg2/33.chenjiucheng/...`。正确映射为：
+## 4. 禁用态预验收
+
+- BS10610 isolated backend：`202 passed`。
+- BS10610 runtime/scripts：`16 passed`。
+- Airflow：5个DAG unittest、py_compile和运行镜像DagBag均通过；`bio_wgs`为18
+  tasks且`is_paused_upon_creation=true`。
+- frontend：8个test files、27 tests通过；TypeScript和Vite production build通过。
+- PostgreSQL临时库验证`20260826_0009 → 20260827_0010`通过：release字段、observer
+  列和管理员sentinel均保留，随后精确删除临时数据库。
+- `git diff --check`和迁移smoke脚本`bash -n`通过。
+
+正式 `current` 已切到：
 
 ```text
-BS10610: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime
-node200:  /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/
+20260828-wgs-4.1.1-single-release-disabled-t142
 ```
 
-两端 marker 探针已通过。旧路径属于不同的 NFS export 位置，不能用于共享 spool。
+biodemo正式迁移到`20260827_0010`，保留1个管理员且运行数据为零。HTTP验证覆盖
+匿名401、登录200、禁用任务创建201、Run Detail 200和submit 409；synthetic数据库
+记录、session、audit和workdir随后精确清理。网络仍为`192.168.199.0/24`，只有
+`172.17.106.10:12959`发布。
 
-## 4. 禁用态验收证据
+node200的非交互SSH曾被`~/.bashrc`无条件执行共享盘conda hook阻塞。保留备份后在
+固定WGS PATH导出之后增加非交互early-return，并加入`/usr/local/bin`供Git commit
+校验。Airflow worker现可返回`t640`、读取WGS HEAD和拒绝非法forced-command。
 
-- backend：`193 passed`。
-- node/runtime scripts：`14 passed`。
-- deployment contract：`5 passed`；实际 Airflow worker 中 DAG 动态合同通过，
-  `bio_wgs` 为 18 tasks、paused，Airflow import errors 为 `[]`。
-- 前端：27 tests、TypeScript build、Vite production build 通过；部署产物 SHA256 与本地构建一致。
-- frontend release image 会先删除基底中的旧 demo 静态文件，再复制固定 dist；运行容器只剩当前 JS/CSS 两个资源。
-- Compose config、HTTP 200、backend health、匿名 API 401、管理员登录均通过。
-- 禁用态 synthetic run：create 201，submit 409，真实 CCE 未启动；只生成 `input-manifest.json`，没有生成 `sampleinfo.tsv` 或 `config.yaml`。测试记录和文件随后全部删除。
-- Airflow worker 内 `ssh -tt -F ... wgs-node200 hostname` 返回 `t640`。
+最终清理后`releases/`只保留T142；`backups/`只保留成功切换前的T142 biodemo dump。
+被删除的T141 release和第一次回滚生成的冗余dump不可恢复；生产WGS源码、输入、结果、
+PostgreSQL/Redis volume及Docker network均未删除。
 
-BS10610 无可用 Node 基础镜像且外部 mirror DNS 失败，因此 Vitest 不能在 BS10610 重新构建测试镜像；前端使用本机 bundled Node 完整测试/构建，并在 BS10610 完成固定 SHA256 离线 packaging 与 HTTP smoke。
+## 5. 生产启用门禁
 
-## 5. T140 启用阻塞点
+在另行批准真实批次前必须继续满足：
 
-以下问题未解决前不得把两个 gate 改为 true，也不得解除 DAG pause：
+```text
+WGS_EXECUTION_ENABLED=false
+WGS_RUNTIME_ADAPTER_ENABLED=false
+bio_wgs paused
+```
 
-1. node200 正式 WGS 环境的 Snakemake 当前为 `9.23.1`，不是预期的 `9.24.0+biosan4`。
-2. clean WGS commit `3489b395...` 中没有 `rule-status`/`biosan-jsonl` 启动参数、Rule JSONL 路径或 `LOGGER_DEGRADED` 合同；当前 Rule 页面只能保持无事件状态。
-3. 必须用最终 Master image完成一个最小批次 dry-run 一致性与 logger 不影响 `analysis.log`/退出码的验证。
-4. 必须完成真实上传中断恢复、Master 中断、Rule failure/logger degraded、错误结果 MD5 和四批并发验收。
+本轮不运行Step1-Step6，不访问OBS对象，不创建CCE Master/Worker，不修改WGS仓库，
+不安装或升级cce-pipeline，不重建PostgreSQL/Redis volume，也不重建外部
+`nipt_analysis_test_net`网络。T140最小真实批次和故障/并发验收仍是独立任务。
 
-cce-pipeline 0.5.0 已安装在正式 WGS Python 环境，`PYTHONNOUSERSITE=1` 下版本检查通过；“正式环境缺少 cce-pipeline”不再是当前阻塞点。
+## 6. 历史状态说明
 
-## 6. 任务状态
-
-| Task | 状态 |
-|---|---|
-| T135 snapshot/provenance | done |
-| T136 node200 adapter/single DAG | done in disabled mode |
-| T137 backend/observer | done in disabled mode |
-| T138 frontend | done in disabled mode |
-| T139 disabled production release | done |
-| T140 real batch acceptance | blocked pending upstream logger/runtime and explicit approval |
+T139的candidate snapshot、cce-pipeline 0.5.0 Airflow门禁和T141旧release均为历史
+实现证据，不再是新任务绑定合同。旧`bio_wgs_cce`、`bio_wgs_intake_scan`和
+`bio_wgs_onprem`已在早期清理；当前目标和后续新任务只使用`bio_wgs`。

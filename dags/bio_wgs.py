@@ -47,7 +47,14 @@ def validate_request(**context: Any) -> dict[str, Any]:
         raise ValueError("attempt must be a positive integer")
     if not str(conf.get("workdir") or "").strip():
         raise ValueError("workdir is required")
-    for field in ("project_name", "batch_no", "fq_path"):
+    for field in (
+        "project_name",
+        "batch_no",
+        "fq_path",
+        "pipeline_release_id",
+        "wgs_version",
+        "wgs_source_commit",
+    ):
         if not str(params.get(field) or "").strip():
             raise ValueError(f"{field} is required")
     return conf
@@ -222,13 +229,13 @@ def stage_sensor(
 
 with DAG(
     dag_id="bio_wgs",
-    description="WGS 4.1.1 CCE Step1-Step6 orchestration through node200",
+    description="Current WGS release CCE Step1-Step6 orchestration through node200",
     start_date=datetime(2026, 8, 26),
     schedule=None,
     catchup=False,
     max_active_runs=4,
     is_paused_upon_creation=True,
-    tags=["airflow-demo", "wgs", "4.1.1", "cce", "node200"],
+    tags=["airflow-demo", "wgs", "cce", "node200"],
 ) as dag:
     validate = PythonOperator(
         task_id="validate_request", python_callable=validate_request

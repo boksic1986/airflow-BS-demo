@@ -1,6 +1,19 @@
 # 05 API Contract
 
-> **WGS 说明：** WGS 4.1.1 API 已随 T139 禁用态 release 发布。当前唯一设计依据为
+## T142 单一 WGS release API
+
+- `GET /api/wgs/release`返回当前 `release_id`、`version`、完整 source commit 和
+  两个 execution gate；除 health/login 外仍需登录。
+- `POST /api/runs`只接受 WGS CCE 的 `project_name + batch_no + fq_path`；未知
+  字段被拒绝，客户端不能指定 release、commit、snapshot path 或 cce-pipeline
+  version。后端自动绑定 `wgs-4.1.1-1778fca`。
+- `GET /api/runs/{analysis_id}`返回`pipeline_release_id`、`wgs_version`、
+  `wgs_source_commit`和 prepare 后的`resolved_runtime`。
+- 内部 stage request 是`wgs-runtime.request.v3`，不包含 snapshot/repository
+  path 或 cce-pipeline wheel/profile/image 门禁。原 release 不可用时 prepare
+  返回 HTTP 409 / `WGS_RELEASE_UNAVAILABLE`，不得自动改绑。
+
+> **历史说明：** WGS 4.1.1 API 已随 T139 禁用态 release 发布。当前唯一设计依据为
 > [`25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)；
 > 第一版只承诺传输阶段状态，精确字节、速度和 ETA 不可用。
 
@@ -1550,7 +1563,11 @@ never produced decision metrics, and pass/warn/fail only from decision metrics.
 Informational values such as read count, gender, and chrY do not create an
 unknown sample decision.
 
-## T130 WGS monitoring reads
+## Historical T130 WGS monitoring reads
+
+This section records the retired snapshot-era API. The current WGS 4.1.1
+release-bound contract is defined in the T142 section above and uses
+`pipeline_release_id`.
 
 All endpoints below require an authenticated session and read biodemo only.
 They do not access Kubernetes, SFS, or evidence files during a request.

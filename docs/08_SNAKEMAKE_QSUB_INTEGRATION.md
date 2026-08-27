@@ -1,5 +1,14 @@
 # 08 Snakemake + qsub 接入设计
 
+## T142 release-bound Rule evidence
+
+WGS 4.1.1 Master logger 的业务输出和路径不变；Airflow observer 只把事件中的
+pipeline identity 解释为`pipeline_release_id`。Evidence binding schema 3 保存
+release ID、run ID 和相对 evidence path，Rule raw-event 去重和 ETA 历史不再使用
+Airflow snapshot ID。Airflow 不修改 Master logger、Rules、Worker images 或
+`analysis.log`，也不把已解析的 cce-pipeline/profile/Master identity当作执行
+门禁。
+
 > **WGS 说明：** 顶部 T133/WGS 4.1.0 logger overlay 是历史候选。当前固定的
 > WGS 4.1.1 Master 镜像已经包含 `rule-status` logger；Airflow T141 已完成
 > disabled-mode JSONL bridge，真实运行验收仍被 T140 门禁阻塞。当前合同以
@@ -483,7 +492,11 @@ snakemake --forceall
 
 No WGS Snakemake logger or executor is changed because the workflow is not final. Phase 2 must pin one logger contract across CCE, SGE, and local and preserve resume/rerun-failed without `--forceall`.
 
-## T130 server-copy Rule evidence contract
+## Historical T130 server-copy Rule evidence contract
+
+This section describes the retired development-copy/snapshot design. The
+current WGS 4.1.1 contract uses the fixed shared release and
+`pipeline_release_id`, as defined in the T142 section above.
 
 Airflow integration code is developed only in the BS10610 copy at
 `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs`.

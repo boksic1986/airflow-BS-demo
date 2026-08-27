@@ -1,5 +1,15 @@
 # 04 数据库设计
 
+## T142 WGS release identity migration
+
+Alembic `20260827_0010`非破坏性地将
+`observer_run_state.pipeline_snapshot_id`重命名为`pipeline_release_id`，并将
+残留 WGS `analysis_run.params_json`中的 snapshot/source 字段迁移为
+`pipeline_release_id`和`wgs_source_commit`。用户、角色、平台配置及运行大表均
+不删除。prepare 后的 cce-pipeline/profile/Master identity 写入
+`analysis_run.params_json.resolved_runtime`作为审计信息；Rule 状态、observer
+binding 和 ETA 历史按 release ID 隔离。
+
 > **WGS 说明：** biodemo 已迁移到 WGS 4.1.1 revision `20260826_0009`，
 > 当前合同依据
 > [`25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)

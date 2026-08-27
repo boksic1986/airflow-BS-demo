@@ -42,26 +42,21 @@ STEP_SCRIPTS = {
     "step5_download": "Step5_download_verify.sh",
     "step6_materialize": "Step6_materialize_results.sh",
 }
-REQUIRED_CCE_PIPELINE_VERSION = "0.5.0"
-REQUIRED_CCE_PIPELINE_WHEEL_SHA256 = (
-    "43a4ab478e8b8810b1691bb755e54336b0bc8fd86a16d4fed9be3783036e1756"
-)
-REQUIRED_WGS_COMMIT = "3489b3958869e5cfab983aca1eb9c7f158c06dff"
 STAGE_STATUS_SCHEMA = "wgs-runtime.stage-status.v1"
-BINDING_SCHEMA = "wgs-runtime.batch-binding.v1"
+BINDING_SCHEMA = "wgs-runtime.batch-binding.v2"
 REQUEST_ROOT = Path(
     os.getenv(
         "WGS_RUNTIME_REQUEST_ROOT",
         "/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runner-requests",
     )
 )
-NODE200_DEVELOPMENT_ROOT = Path(
-    "/bi/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development"
+WGS_REPO_ROOT = Path(
+    os.getenv(
+        "WGS_REPO_ROOT",
+        "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
+    )
 )
 WGS_PYTHON = os.getenv("WGS_PYTHON", "/bi/software/mamba/envs/WGS/bin/python")
-CCE_PIPELINE = os.getenv(
-    "CCE_PIPELINE_BIN", "/bi/software/mamba/envs/WGS/bin/cce-pipeline"
-)
 WGS_PREPARE_CONFIG = os.getenv(
     "WGS_PREPARE_CONFIG", "/home/chenjc/.config/wgs/prepare.yaml"
 )
@@ -109,7 +104,7 @@ def load_request(analysis_id: str, attempt: int, stage: str) -> dict[str, Any]:
         raise ValueError("registered runtime request is missing")
     payload = json.loads(path.read_text(encoding="utf-8"))
     if (
-        payload.get("schema_version") != "wgs-runtime.request.v2"
+        payload.get("schema_version") != "wgs-runtime.request.v3"
         or payload.get("analysis_id") != analysis_id
         or int(payload.get("attempt", 0)) != attempt
         or payload.get("stage") != stage
@@ -154,20 +149,33 @@ def _truthy(name: str) -> bool:
     return os.getenv(name, "false").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _approved_snapshot(payload: dict[str, Any]) -> Path:
-    snapshot = Path(str(payload["node200_pipeline_snapshot_path"])).resolve()
-    root = NODE200_DEVELOPMENT_ROOT.resolve()
-    if root not in snapshot.parents or not snapshot.is_dir() or snapshot.is_symlink():
-        raise ValueError("pipeline snapshot is outside the node200 development root")
-    provenance = json.loads(
-        (snapshot / "SOURCE_PROVENANCE.json").read_text(encoding="utf-8")
-    )
-    if (
-        provenance.get("source_commit") != REQUIRED_WGS_COMMIT
-        or provenance.get("execution_enabled") is not False
-    ):
-        raise ValueError("pipeline snapshot provenance does not match WGS 4.1.1")
-    return snapshot
+def validate_release_repository(payload: dict[str, Any]) -> Path:
+    repo = WGS_REPO_ROOT.resolve()
+    prepare = repo / "prepare" / "prepare_wgs_batch.py"
+    if not repo.is_dir() or repo.is_symlink() or not prepare.is_file() or prepare.is_symlink():
+        raise RuntimeError("release_unavailable: fixed WGS repository is unavailable")
+    revision = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if revision != str(payload.get("wgs_source_commit") or ""):
+        raise RuntimeError(
+            "release_unavailable: fixed WGS repository commit does not match the run"
+        )
+    status = subprocess.run(
+        ["git", "-C", str(repo), "status", "--porcelain"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    unsafe = [line for line in status if not line.startswith("?? docs/")]
+    if unsafe:
+        raise RuntimeError(
+            "release_unavailable: fixed WGS repository contains runtime changes"
+        )
+    return repo
 
 
 def _workdir(payload: dict[str, Any]) -> Path:
@@ -185,7 +193,6 @@ def _binding_path(payload: dict[str, Any]) -> Path:
 
 
 def build_prepare_command(payload: dict[str, Any]) -> list[str]:
-    snapshot = Path(str(payload["node200_pipeline_snapshot_path"]))
     workdir = Path(str(payload["node200_workdir"]))
     project_name = str(payload["project_name"])
     batch_no = str(payload["batch_no"])
@@ -195,7 +202,7 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
             raise ValueError("project_name and batch_no must be safe path components")
     command = [
         WGS_PYTHON,
-        str(snapshot / "prepare" / "prepare_wgs_batch.py"),
+        str(WGS_REPO_ROOT / "prepare" / "prepare_wgs_batch.py"),
         "all",
         "--outpath",
         str(workdir / project_name),
@@ -222,44 +229,14 @@ def _clean_env() -> dict[str, str]:
     return {**os.environ, "PYTHONNOUSERSITE": "1"}
 
 
-def _assert_runtime_versions() -> None:
-    version = subprocess.run(
-        [CCE_PIPELINE, "--version"],
-        check=True,
-        capture_output=True,
-        text=True,
-        env=_clean_env(),
-    )
-    actual = (version.stdout or version.stderr).strip().split()[-1]
-    if actual != REQUIRED_CCE_PIPELINE_VERSION:
-        raise RuntimeError(
-            f"cce-pipeline {REQUIRED_CCE_PIPELINE_VERSION} is required; got {actual}"
-        )
-    code = (
-        "import importlib.metadata as m,json;"
-        "d=m.distribution('cce-pipeline');"
-        "p=d.locate_file('cce_pipeline-0.5.0.dist-info/direct_url.json');"
-        "print(json.loads(p.read_text())['archive_info']['hash'])"
-    )
-    installed = subprocess.run(
-        [WGS_PYTHON, "-c", code],
-        check=True,
-        capture_output=True,
-        text=True,
-        env=_clean_env(),
-    ).stdout.strip()
-    if installed != f"sha256={REQUIRED_CCE_PIPELINE_WHEEL_SHA256}":
-        raise RuntimeError("installed cce-pipeline wheel does not match the release catalog")
-
-
 def _run_prepare(payload: dict[str, Any]) -> None:
-    snapshot = _approved_snapshot(payload)
-    workdir = _workdir(payload)
-    workdir.mkdir(parents=True, exist_ok=True)
     binding_path = _binding_path(payload)
     if binding_path.is_file():
         _load_binding(payload)
         return
+    validate_release_repository(payload)
+    workdir = _workdir(payload)
+    workdir.mkdir(parents=True, exist_ok=True)
     project_root = workdir / str(payload["project_name"])
     project_root.mkdir(parents=True, exist_ok=True)
     subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
@@ -274,17 +251,43 @@ def _run_prepare(payload: dict[str, Any]) -> None:
     runtime = yaml.safe_load(
         (batch_root / "cce" / "BATCH_RUNTIME.yaml").read_text(encoding="utf-8")
     )
+    profile = yaml.safe_load(
+        (batch_root / "cce" / "RESOLVED_PROFILE.yaml").read_text(encoding="utf-8")
+    )
     identity = runtime.get("identity") if isinstance(runtime, dict) else None
     expected_run_id = f"{payload['analysis_id']}-a{int(payload['attempt'])}"
     if not isinstance(identity, dict) or identity.get("run_id") != expected_run_id:
         raise RuntimeError("BATCH_RUNTIME.yaml identifies a different run")
+    if not isinstance(profile, dict):
+        raise RuntimeError("RESOLVED_PROFILE.yaml is invalid")
+    platform = profile.get("platform") if isinstance(profile.get("platform"), dict) else {}
+    pipeline = profile.get("pipeline") if isinstance(profile.get("pipeline"), dict) else {}
+    resolved_runtime = {
+        "cce_pipeline_version": str(
+            platform.get("wheel_version") or platform.get("version") or ""
+        ),
+        "cce_pipeline_source_commit": str(platform.get("source_commit") or ""),
+        "profile_id": str(profile.get("profile_id") or ""),
+        "profile_revision": str(
+            profile.get("profile_revision") or profile.get("revision") or ""
+        ),
+        "profile_sha256": str(profile.get("sha256") or ""),
+        "master_image_digest": str(pipeline.get("master_image") or ""),
+        "pipeline_build_sha256": str(pipeline.get("build_sha256") or ""),
+        "resource_manifest_sha256": str(
+            pipeline.get("resource_manifest_sha256") or ""
+        ),
+    }
     _atomic_json(
         binding_path,
         {
             "schema_version": BINDING_SCHEMA,
             "analysis_id": payload["analysis_id"],
             "attempt": payload["attempt"],
-            "pipeline_snapshot_id": payload["pipeline_snapshot_id"],
+            "pipeline_release_id": payload["pipeline_release_id"],
+            "wgs_version": payload["wgs_version"],
+            "wgs_source_commit": payload["wgs_source_commit"],
+            "resolved_runtime": resolved_runtime,
             "batch_root": str(batch_root),
             "cce_bundle": str(batch_root / "cce"),
             "project": identity.get("project"),
@@ -302,7 +305,6 @@ def _run_prepare(payload: dict[str, Any]) -> None:
             "created_at": datetime.now(timezone.utc).isoformat(),
         },
     )
-    del snapshot
 
 
 def _load_binding(payload: dict[str, Any]) -> dict[str, Any]:
@@ -312,7 +314,7 @@ def _load_binding(payload: dict[str, Any]) -> dict[str, Any]:
         value.get("schema_version") != BINDING_SCHEMA
         or value.get("analysis_id") != payload["analysis_id"]
         or int(value.get("attempt", 0)) != int(payload["attempt"])
-        or value.get("pipeline_snapshot_id") != payload["pipeline_snapshot_id"]
+        or value.get("pipeline_release_id") != payload["pipeline_release_id"]
     ):
         raise ValueError("batch binding identity mismatch")
     bundle = Path(str(value["cce_bundle"])).resolve()
@@ -457,7 +459,6 @@ def run_stage(payload: dict[str, Any]) -> None:
         "WGS_RUNTIME_ADAPTER_ENABLED"
     ):
         raise RuntimeError("WGS execution gate is disabled")
-    _assert_runtime_versions()
     stage = str(payload["stage"])
     if stage == "prepare":
         _run_prepare(payload)

@@ -486,7 +486,7 @@ class ObserverRunState(Base):
         ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False
     )
     attempt: Mapped[int] = mapped_column(Integer, nullable=False)
-    pipeline_snapshot_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    pipeline_release_id: Mapped[str] = mapped_column(String(256), nullable=False)
     run_label: Mapped[str] = mapped_column(String(128), nullable=False)
     relative_evidence_path: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(64), nullable=False, default="pending")

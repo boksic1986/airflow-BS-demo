@@ -1,6 +1,33 @@
 # 11 部署 Runbook
 
-> **WGS 说明：** T141 WGS 4.1.1 禁用态 release 已部署；两个 execution gate
+## T142 单一 WGS release 禁用态发布
+
+1. 只读确认 BS10610 和 node200 的共享 WGS 仓库 HEAD 均为
+   `1778fcabd99b5253aa90cd410112dc2f78e0c51a`，已跟踪文件无漂移，未跟踪文件
+   仅位于`docs/`。
+2. 运行 backend/observer/runner/DAG/frontend 测试、Alembic 临时库升级和
+   `docker compose config`；不得调用 Step1-Step6。
+3. 在任何 Compose recreate 前运行`python3 scripts/check_wgs_docker_network.py`
+   和`docker network inspect nipt_analysis_test_net`；不创建、修改或删除网络。
+4. 创建一个新的 disabled release；运行`alembic upgrade head`，只重建相关
+   application service，不使用`down -v`，不删除数据库/Redis volume。
+5. 验证只发布`172.17.106.10:12959`、唯一`bio_wgs`有18 tasks且 paused、两个
+   execution gate 均为 false。
+6. HTTP smoke覆盖登录、`GET /api/wgs/release`、禁用态 create、Run Detail 和
+   submit 409。真实 OBS/CCE 操作与 DAG unpause须另行批准。
+
+node200 的`forced-command.sh`继续执行共享 runtime 下的`wgs_runtime_gate.py`；
+不要复制 WGS 仓库或在 node200 创建 WGS release。回滚只切回上一 disabled
+control-plane release并重建应用服务，不回滚 migration、不删除 volume/network。
+
+node200 的 SSH command session 即使非交互也会读取`~/.bashrc`。必须先导出固定
+runner PATH（包含`/home/chenjc/.local/bin`、WGS环境、`/usr/local/bin`、
+`/usr/bin`和`/bin`），随后对非交互 shell直接`return`，再执行交互登录需要的
+conda初始化。修改前保留`.bashrc`的owner/mode备份并运行`bash -n`；从Airflow
+worker验证`hostname`、Git路径、固定WGS HEAD和非法forced-command快速拒绝。
+不得中断或修改node200上与本次发布无关的传输进程。
+
+> **历史说明：** T141 WGS 4.1.1 禁用态 release 已部署；两个 execution gate
 > 仍为 false，`bio_wgs` 仍 paused。T141 已接入 Master Rule JSONL bridge，但
 > 尚未运行真实 CCE reader；现行发布与 T140 启用门禁见
 > [`25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md`](25_WGS_4_1_1_AIRFLOW_INTEGRATION_PLAN.md)

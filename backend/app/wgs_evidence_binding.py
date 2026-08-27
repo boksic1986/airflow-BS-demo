@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import re
 
-from app.wgs_release_catalog import SnapshotCatalog
+from app.wgs_release_catalog import WgsReleaseCatalog
 
 
 RUN_LABEL_PATTERN = re.compile(
@@ -17,7 +17,7 @@ RUN_LABEL_PATTERN = re.compile(
 class EvidenceBinding:
     analysis_id: str
     attempt: int
-    pipeline_snapshot_id: str
+    pipeline_release_id: str
     run_label: str
     evidence_path: str
     evidence_directory: Path
@@ -31,11 +31,11 @@ class BindingDiagnostic:
 
 
 def load_evidence_bindings(
-    binding_root: Path, evidence_root: Path, catalog: SnapshotCatalog
+    binding_root: Path, evidence_root: Path, catalog: WgsReleaseCatalog
 ) -> tuple[list[EvidenceBinding], list[BindingDiagnostic]]:
     bindings: list[EvidenceBinding] = []
     diagnostics: list[BindingDiagnostic] = []
-    approved = {snapshot.snapshot_id for snapshot in catalog.snapshots}
+    approved = catalog.release.release_id
     root = evidence_root.resolve()
     try:
         paths = sorted(binding_root.glob("*.json"))
@@ -48,7 +48,7 @@ def load_evidence_bindings(
             if not isinstance(payload, dict):
                 raise ValueError("binding must be a JSON object")
             schema_version = str(payload.get("schema_version"))
-            if schema_version not in {"1", "2"}:
+            if schema_version not in {"1", "2", "3"}:
                 raise ValueError("unsupported binding schema_version")
             analysis_id = str(payload.get("analysis_id") or "").strip()
             if not analysis_id:
@@ -56,11 +56,11 @@ def load_evidence_bindings(
             attempt = int(payload.get("attempt"))
             if attempt <= 0:
                 raise ValueError("attempt must be positive")
-            snapshot_id = str(payload.get("pipeline_snapshot_id") or "")
-            if snapshot_id not in approved:
-                raise ValueError("pipeline snapshot is not approved by catalog")
+            release_id = str(payload.get("pipeline_release_id") or "")
+            if release_id != approved:
+                raise ValueError("pipeline release is not approved by catalog")
             run_label = str(
-                payload.get("run_id") if schema_version == "2" else payload.get("run_label")
+                payload.get("run_id") if schema_version in {"2", "3"} else payload.get("run_label")
                 or ""
             )
             if not RUN_LABEL_PATTERN.fullmatch(run_label):
@@ -75,7 +75,7 @@ def load_evidence_bindings(
                 EvidenceBinding(
                     analysis_id=analysis_id,
                     attempt=attempt,
-                    pipeline_snapshot_id=snapshot_id,
+                    pipeline_release_id=release_id,
                     run_label=run_label,
                     evidence_path=relative.as_posix(),
                     evidence_directory=directory,

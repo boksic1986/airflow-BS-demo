@@ -1,5 +1,7 @@
 import importlib.util
 from pathlib import Path
+import sys
+import types
 
 import pytest
 
@@ -8,6 +10,11 @@ ROOT = Path(__file__).parents[1]
 
 
 def load_gate():
+    if sys.platform == "win32" and "fcntl" not in sys.modules:
+        sys.modules["fcntl"] = types.SimpleNamespace(
+            LOCK_EX=1,
+            flock=lambda *_args, **_kwargs: None,
+        )
     spec = importlib.util.spec_from_file_location(
         "wgs_runtime_gate_test", ROOT / "wgs_runtime_gate.py"
     )
@@ -32,7 +39,7 @@ def test_forced_command_accepts_only_registered_wgs_stages() -> None:
             gate.parse_command(command)
 
 
-def test_gate_uses_wgs_generated_step_scripts_and_never_old_cce_cli() -> None:
+def test_gate_uses_wgs_generated_steps_without_airflow_cce_version_gate() -> None:
     source = (ROOT / "wgs_runtime_gate.py").read_text(encoding="utf-8")
 
     for script in (
@@ -44,20 +51,24 @@ def test_gate_uses_wgs_generated_step_scripts_and_never_old_cce_cli() -> None:
         "Step6_materialize_results.sh",
     ):
         assert script in source
-    assert 'REQUIRED_CCE_PIPELINE_VERSION = "0.5.0"' in source
+    assert "REQUIRED_CCE_PIPELINE_VERSION" not in source
+    assert "REQUIRED_CCE_PIPELINE_WHEEL_SHA256" not in source
+    assert "_assert_runtime_versions" not in source
     assert "cce-pipeline run" not in source
     assert "FASTQ_SOURCES.tsv" not in source
     assert "WGS_EXECUTION_ENABLED" in source
     assert "shell=True" not in source
 
 
-def test_prepare_command_uses_4_1_1_snapshot_and_host_only_configs(tmp_path: Path) -> None:
+def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> None:
     gate = load_gate()
     payload = {
         "analysis_id": "WGS_20260826_010203_A1B2C3",
         "attempt": 1,
         "stage": "prepare",
-        "node200_pipeline_snapshot_path": "/bi/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs-v4.1.1-candidate-3489b39-64d50022",
+        "pipeline_release_id": "wgs-4.1.1-1778fca",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "1778fcabd99b5253aa90cd410112dc2f78e0c51a",
         "node200_workdir": str(tmp_path / "attempt-1"),
         "project_name": "clinical-wgs",
         "batch_no": "BATCH-01",
@@ -66,7 +77,7 @@ def test_prepare_command_uses_4_1_1_snapshot_and_host_only_configs(tmp_path: Pat
 
     command = gate.build_prepare_command(payload)
 
-    assert command[1].endswith("/prepare/prepare_wgs_batch.py")
+    assert command[1] == str(gate.WGS_REPO_ROOT / "prepare" / "prepare_wgs_batch.py")
     assert command[2] == "all"
     assert "--run-mode" in command and "cce" in command
     assert "--run-id" in command and "WGS_20260826_010203_A1B2C3-a1" in command
@@ -74,6 +85,62 @@ def test_prepare_command_uses_4_1_1_snapshot_and_host_only_configs(tmp_path: Pat
     assert gate.WGS_PREPARE_CONFIG in command
     assert gate.CCE_OPERATOR_CONFIG in command
     assert not any("SECRET" in item for item in command)
+
+
+def test_release_repository_validation_rejects_commit_or_runtime_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    repo = tmp_path / "wgs-4.1.1"
+    (repo / "prepare").mkdir(parents=True)
+    (repo / "prepare" / "prepare_wgs_batch.py").write_text("# tracked\n")
+    calls: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        if command[-2:] == ["rev-parse", "HEAD"]:
+            return type("Result", (), {"stdout": "wrong-commit\n"})()
+        return type("Result", (), {"stdout": ""})()
+
+    monkeypatch.setattr(gate, "WGS_REPO_ROOT", repo)
+    monkeypatch.setattr(gate.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="release_unavailable"):
+        gate.validate_release_repository(
+            {
+                "pipeline_release_id": "wgs-4.1.1-1778fca",
+                "wgs_source_commit": "1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+            }
+        )
+    assert calls[0][-2:] == ["rev-parse", "HEAD"]
+
+
+def test_prepare_retry_reuses_frozen_binding_without_repository_access(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    binding = tmp_path / "batch-binding.json"
+    binding.write_text("{}\n", encoding="utf-8")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "pipeline_release_id": "wgs-4.1.1-1778fca",
+    }
+    reused: list[dict] = []
+
+    monkeypatch.setattr(gate, "_binding_path", lambda _payload: binding)
+    monkeypatch.setattr(
+        gate,
+        "validate_release_repository",
+        lambda _payload: (_ for _ in ()).throw(
+            AssertionError("repository must not be consulted after bundle freeze")
+        ),
+    )
+    monkeypatch.setattr(gate, "_load_binding", lambda value: reused.append(value))
+
+    gate._run_prepare(payload)
+
+    assert reused == [payload]
 
 
 def test_step3_status_contract_is_strict_and_master_only() -> None:

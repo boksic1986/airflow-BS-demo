@@ -17,7 +17,7 @@ from app.models import (
 from app.wgs_orchestration_service import (
     SnapshotChangedError, build_fastq_snapshot, verify_fastq_snapshot,
 )
-from app.wgs_release_catalog import load_snapshot_catalog
+from app.wgs_release_catalog import load_wgs_release_catalog
 
 
 EXECUTION_MODES = {"cce"}
@@ -33,9 +33,9 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
     source = ensure_allowed_path(fq_path, list(getattr(settings, "wgs_config_roots", []) or []))
     if not source.is_dir():
         raise ValueError("fq_path must be a controlled FASTQ link directory.")
-    snapshot = load_snapshot_catalog(
+    release = load_wgs_release_catalog(
         Path(settings.wgs_release_catalog_path)
-    ).default_development()
+    ).release
     canonical_source = str(source)
     existing_snapshot = session.scalar(select(WgsInputSnapshot).where(WgsInputSnapshot.batch_no == batch_no, WgsInputSnapshot.fq_path == canonical_source))
     if existing_snapshot is not None:
@@ -63,10 +63,10 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
             "batch_no": batch_no,
             "fq_path": canonical_source,
             "input_manifest_path": str(manifest_path),
-            "pipeline_snapshot_id": snapshot.snapshot_id,
-            "source_commit": snapshot.source_commit,
-            "snapshot_manifest_sha256": snapshot.snapshot_manifest_sha256,
-            "rule_event_schema_version": snapshot.rule_event_schema_version,
+            "pipeline_release_id": release.release_id,
+            "wgs_version": release.version,
+            "wgs_source_commit": release.source_commit,
+            "rule_event_schema_version": release.rule_event_schema_version,
         },
         submitted_by=submitted_by,
     )

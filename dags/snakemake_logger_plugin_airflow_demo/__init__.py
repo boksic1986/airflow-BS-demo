@@ -34,7 +34,7 @@ class LogHandlerSettings(LogHandlerSettingsBase):
         metadata={"help": "Mark enumerated jobs as dry-run plans instead of running jobs."},
     )
     attempt: int = field(default=1, metadata={"help": "WGS run attempt."})
-    pipeline_snapshot_id: str = field(default="", metadata={"help": "Immutable WGS snapshot id."})
+    pipeline_release_id: str = field(default="", metadata={"help": "Immutable WGS release id."})
     run_label: str = field(default="", metadata={"help": "Opaque CCE Kubernetes label."})
     role: str = field(default="master", metadata={"help": "Event producer role."})
     stream_id: str = field(default="master", metadata={"help": "Stable JSONL stream id."})
@@ -54,7 +54,7 @@ class LogHandler(LogHandlerBase):
         self.post_timeout_seconds = float(settings.post_timeout_seconds)
         self.dry_run = bool(settings.dry_run)
         self.attempt = int(settings.attempt)
-        self.pipeline_snapshot_id = str(settings.pipeline_snapshot_id or "")
+        self.pipeline_release_id = str(settings.pipeline_release_id or "")
         self.run_label = str(settings.run_label or "")
         self.role = str(settings.role or "master")
         self.stream_id = str(settings.stream_id or "master")
@@ -152,7 +152,7 @@ class LogHandler(LogHandlerBase):
             payload["return_code"] = None
             payload["message"] = f"Dry-run planned job; rule was not executed. {payload['message']}"
         self._remember_job_context(payload)
-        if self.pipeline_snapshot_id or self.run_label:
+        if self.pipeline_release_id or self.run_label:
             payload = self._observer_payload(payload)
         return payload
 
@@ -174,7 +174,7 @@ class LogHandler(LogHandlerBase):
                 f"{instance_id}\0{payload.get('event')}\0{now.timestamp()}".encode()
             ).hexdigest(),
             "attempt": self.attempt,
-            "pipeline_snapshot_id": self.pipeline_snapshot_id,
+            "pipeline_release_id": self.pipeline_release_id,
             "run_label": self.run_label,
             "role": self.role,
             "stream_id": self.stream_id,

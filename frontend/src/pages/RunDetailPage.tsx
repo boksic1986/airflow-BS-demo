@@ -240,9 +240,14 @@ export function RunDetailPage() {
           <MetricCard title="Rule events" value={bundle.rules.length} status={failedRule ? "failed" : undefined} />
         </section>
         {detail.pipeline === "wgs" ? <section className="panel">
-          <div className="section-heading"><h2>Pipeline evidence</h2><p>Immutable server snapshot and local observer freshness.</p></div>
+          <div className="section-heading"><h2>Pipeline evidence</h2><p>Fixed WGS release, resolved CCE runtime and local observer freshness.</p></div>
           <div className="definition-grid">
-            <div><dt>Snapshot</dt><dd className="path-text">{detail.pipeline_snapshot_id || "not pinned"}</dd></div>
+            <div><dt>Release</dt><dd className="path-text">{detail.pipeline_release_id || "not pinned"}</dd></div>
+            <div><dt>WGS version</dt><dd>{detail.wgs_version || "unknown"}</dd></div>
+            <div><dt>WGS commit</dt><dd className="path-text">{detail.wgs_source_commit || "unknown"}</dd></div>
+            <div><dt>cce-pipeline</dt><dd>{detail.resolved_runtime?.cce_pipeline_version || "not resolved"}</dd></div>
+            <div><dt>CCE profile</dt><dd>{detail.resolved_runtime?.profile_id ? `${detail.resolved_runtime.profile_id}/${detail.resolved_runtime.profile_revision || "-"}` : "not resolved"}</dd></div>
+            <div><dt>Master image</dt><dd className="path-text">{detail.resolved_runtime?.master_image_digest || "not resolved"}</dd></div>
             <div><dt>Rule schema</dt><dd>{detail.rule_event_schema_version || "unknown"}</dd></div>
             <div><dt>Observer</dt><dd><StatusBadge status={detail.observer?.status || "not observed"} /></dd></div>
             <div><dt>Last evidence</dt><dd>{formatDate(detail.observer?.last_success_at || detail.observer?.updated_at)}</dd></div>

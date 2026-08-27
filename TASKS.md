@@ -16,6 +16,7 @@
 | T139 | WGS 4.1.1 disabled-mode production release | infra/QA/docs | migration, demo-state cleanup preserving admin, BS10610 release and smoke | only paused `bio_wgs`; gates false; network/volume/data boundaries pass | done |
 | T140 | WGS 4.1.1 minimal real acceptance | airflow/infra/QA | approved real batch, transfer/Master/Rule/result recovery and four-run concurrency evidence | all real-runtime gates pass before unpause | blocked |
 | T141 | WGS 4.1.1 Master Rule evidence bridge | airflow/backend/observer/QA | accept logger `attempt-N`; Step3 incremental JSONL copy; read-only terminal reader Job; disabled release | focused observer/bridge/runtime tests pass; gates remain false; real reader acceptance deferred to T140 | done in disabled mode |
+| T142 | Single published WGS release Airflow integration | airflow/backend/observer/frontend/infra/docs | one server-owned release contract at `1778fca`; request v3; fixed-repository runner; release-bound DB/API/UI; disabled BS release | BS10610 tests and smoke pass with gates false and paused DAG; no real OBS/CCE execution | done in disabled mode |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
 

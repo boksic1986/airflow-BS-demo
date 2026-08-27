@@ -7,16 +7,9 @@ import re
 
 
 ANALYSIS_ID_RE = re.compile(r"^WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}$")
-SNAPSHOT_ID_RE = re.compile(
-    r"^wgs-v4\.1\.1-candidate-[0-9a-f]{7}-[0-9a-f]{8}$"
-)
+RELEASE_ID_RE = re.compile(r"^wgs-[0-9]+\.[0-9]+\.[0-9]+-[0-9a-f]{7}$")
+COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
-DEVELOPMENT_ROOT = PurePosixPath(
-    "/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development"
-)
-NODE200_DEVELOPMENT_ROOT = PurePosixPath(
-    "/bi/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development"
-)
 STAGES = {
     "prepare",
     "step1_upload",
@@ -48,8 +41,9 @@ def build_stage_request(
     analysis_id: str,
     attempt: int,
     stage: str,
-    snapshot_id: str,
-    snapshot_path: str,
+    pipeline_release_id: str,
+    wgs_version: str,
+    wgs_source_commit: str,
     workdir: Path | str,
     bs_runtime_root: str,
     node200_runtime_root: str,
@@ -63,12 +57,12 @@ def build_stage_request(
         raise ValueError("attempt must be positive")
     if stage not in STAGES:
         raise ValueError("unsupported WGS runtime stage")
-    if SNAPSHOT_ID_RE.fullmatch(snapshot_id) is None:
-        raise ValueError("invalid WGS 4.1.1 candidate snapshot id")
-    snapshot = PurePosixPath(snapshot_path)
-    if snapshot.name != snapshot_id or DEVELOPMENT_ROOT not in snapshot.parents:
-        raise ValueError("snapshot path is outside the approved Airflow development root")
-    node200_snapshot = NODE200_DEVELOPMENT_ROOT / snapshot.name
+    if RELEASE_ID_RE.fullmatch(pipeline_release_id) is None:
+        raise ValueError("invalid WGS pipeline_release_id")
+    if not str(wgs_version).startswith("V"):
+        raise ValueError("invalid WGS version")
+    if COMMIT_RE.fullmatch(wgs_source_commit) is None:
+        raise ValueError("invalid WGS source commit")
     for label, value in (("project name", project_name), ("batch number", batch_no)):
         if SAFE_COMPONENT_RE.fullmatch(str(value).strip()) is None:
             raise ValueError(f"invalid {label}")
@@ -81,13 +75,13 @@ def build_stage_request(
         raise ValueError("runtime roots must be absolute")
     relative = PurePosixPath("runs") / analysis_id / f"attempt-{attempt}"
     return {
-        "schema_version": "wgs-runtime.request.v2",
+        "schema_version": "wgs-runtime.request.v3",
         "analysis_id": analysis_id,
         "attempt": attempt,
         "stage": stage,
-        "pipeline_snapshot_id": snapshot_id,
-        "pipeline_snapshot_path": str(snapshot),
-        "node200_pipeline_snapshot_path": str(node200_snapshot),
+        "pipeline_release_id": pipeline_release_id,
+        "wgs_version": str(wgs_version),
+        "wgs_source_commit": wgs_source_commit,
         "workdir": str(Path(workdir)),
         "bs10610_workdir": str(bs_root / relative),
         "node200_workdir": str(node_root / relative),

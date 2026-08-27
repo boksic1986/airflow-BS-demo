@@ -20,7 +20,14 @@ class WgsOnlyDagTests(unittest.TestCase):
             "execution_mode": "cce",
             "attempt": 1,
             "workdir": "/data/wgs-results/runs/WGS_20260812_000001_A1B2C3",
-            "params": {"project_name": "clinical-wgs", "batch_no": "BATCH-1", "fq_path": "/data/wgs-intake/BATCH-1"},
+            "params": {
+                "project_name": "clinical-wgs",
+                "batch_no": "BATCH-1",
+                "fq_path": "/data/wgs-intake/BATCH-1",
+                "pipeline_release_id": "wgs-4.1.1-1778fca",
+                "wgs_version": "V4.1.1",
+                "wgs_source_commit": "1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+            },
         }
         self.assertEqual(bio_wgs.validate_request(**_context(conf))["analysis_id"], conf["analysis_id"])
         conf["execution_mode"] = "local"
