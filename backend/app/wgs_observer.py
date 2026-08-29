@@ -166,6 +166,123 @@ def ingest_evidence_once(
     return result
 
 
+def ingest_observer_attempt_once(
+    *,
+    session_factory,
+    evidence_root: Path,
+    analysis_id: str,
+    attempt: int,
+) -> dict[str, int | str]:
+    """Consume evidence for one explicitly activated WGS attempt only."""
+
+    root = evidence_root.resolve()
+    with session_factory() as session:
+        state = session.scalar(
+            select(ObserverRunState).where(
+                ObserverRunState.analysis_id == analysis_id,
+                ObserverRunState.attempt == attempt,
+                ObserverRunState.lifecycle_status.in_(("active", "draining")),
+            )
+        )
+        if state is None:
+            return {
+                "files": 0,
+                "events_ingested": 0,
+                "errors": 0,
+                "lifecycle_status": "stopped",
+            }
+        relative = Path(state.relative_evidence_path)
+        directory = (root / relative).resolve()
+        if (
+            relative.is_absolute()
+            or ".." in relative.parts
+            or root not in directory.parents
+        ):
+            raise ValueError("observer evidence path escapes evidence root")
+        binding = EvidenceBinding(
+            analysis_id=state.analysis_id,
+            attempt=state.attempt,
+            pipeline_release_id=state.pipeline_release_id,
+            run_label=state.run_label,
+            evidence_path=relative.as_posix(),
+            evidence_directory=directory,
+            source_path=Path("<database-activation>"),
+        )
+        initial_lifecycle = state.lifecycle_status
+
+    result: dict[str, int | str] = {
+        "files": 0,
+        "events_ingested": 0,
+        "errors": 0,
+        "lifecycle_status": initial_lifecycle,
+    }
+    rule_paths = sorted((directory / "rule-status" / "raw").glob("*.jsonl"))
+    raw_root = directory / "raw"
+    k8s_paths = [
+        raw_root / name
+        for name in ("pod-events.jsonl", "pod-metrics.jsonl", "job-events.jsonl")
+        if (raw_root / name).is_file()
+    ]
+    binding_errors = 0
+    for path, reader in [
+        *((path, _ingest_rule_file) for path in rule_paths),
+        *((path, _ingest_kubernetes_file) for path in k8s_paths),
+    ]:
+        result["files"] = int(result["files"]) + 1
+        try:
+            count, had_error = reader(session_factory, root, binding, path)
+            result["events_ingested"] = int(result["events_ingested"]) + count
+            if had_error:
+                binding_errors += 1
+                result["errors"] = int(result["errors"]) + 1
+        except (OSError, UnicodeError, ValueError) as error:
+            binding_errors += 1
+            result["errors"] = int(result["errors"]) + 1
+            _record_file_error(session_factory, root, binding, path, str(error))
+
+    degraded = directory / "LOGGER_DEGRADED.json"
+    if not degraded.is_file():
+        degraded = directory / "rule-status" / "LOGGER_DEGRADED.json"
+    monitoring_error = None
+    if degraded.is_file():
+        try:
+            marker = json.loads(degraded.read_text(encoding="utf-8"))
+            monitoring_error = str(
+                marker.get("message") or marker.get("error") or "Rule logger degraded"
+            )
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            monitoring_error = "Rule logger degraded (marker is unreadable)"
+    _set_observer_status(
+        session_factory,
+        binding,
+        status="degraded" if binding_errors or monitoring_error else "healthy",
+        error=(
+            "one or more evidence files could not be consumed"
+            if binding_errors
+            else monitoring_error
+        ),
+    )
+
+    with session_factory() as session:
+        current = session.scalar(
+            select(ObserverRunState).where(
+                ObserverRunState.analysis_id == analysis_id,
+                ObserverRunState.attempt == attempt,
+            )
+        )
+        if current is None or current.lifecycle_status == "stopped":
+            result["lifecycle_status"] = "stopped"
+        elif current.lifecycle_status == "draining":
+            current.lifecycle_status = "stopped"
+            current.deactivated_at = datetime.now(timezone.utc)
+            current.updated_at = current.deactivated_at
+            session.commit()
+            result["lifecycle_status"] = "stopped"
+        else:
+            result["lifecycle_status"] = "active"
+    return result
+
+
 def _ingest_runtime_binding(session_factory, runtime_root: Path, path: Path) -> bool:
     resolved = path.resolve()
     if runtime_root not in resolved.parents:
@@ -213,6 +330,63 @@ def _ingest_runtime_binding(session_factory, runtime_root: Path, path: Path) -> 
         analysis.params_json = {**params, "resolved_runtime": resolved_runtime}
         session.commit()
     return True
+
+
+def sync_runtime_stage_artifacts(
+    *,
+    session_factory,
+    request_root: Path,
+    transfer_spool_root: Path,
+    analysis_id: str,
+    attempt: int,
+    stage: str,
+) -> dict[str, int]:
+    """Sync only the status/progress files registered for one sensor poke."""
+
+    if stage not in {
+        "step1_upload",
+        "step3_monitor",
+        "step4_publish",
+        "step4_repair_cram",
+        "step5_download",
+        "step6_materialize",
+    }:
+        raise ValueError("unsupported runtime stage sync")
+    result = {"files": 0, "events_ingested": 0}
+    request_root = request_root.resolve()
+    transfer_spool_root = transfer_spool_root.resolve()
+    status_path = (
+        request_root
+        / analysis_id
+        / f"attempt-{attempt}"
+        / f"{stage}.status.json"
+    )
+    if status_path.is_file() and stage in {
+        "step1_upload",
+        "step3_monitor",
+        "step4_repair_cram",
+        "step5_download",
+    }:
+        result["files"] += 1
+        if _ingest_runtime_stage_status(session_factory, request_root, status_path):
+            result["events_ingested"] += 1
+    if stage in {"step1_upload", "step5_download"}:
+        kind = "input" if stage == "step1_upload" else "result"
+        transfer_id = f"{analysis_id}-a{attempt}-{kind}"
+        progress_path = (
+            transfer_spool_root
+            / analysis_id
+            / f"attempt-{attempt}"
+            / transfer_id
+            / "progress.json"
+        )
+        if progress_path.is_file():
+            result["files"] += 1
+            if _ingest_transfer_progress(
+                session_factory, transfer_spool_root, progress_path
+            ):
+                result["events_ingested"] += 1
+    return result
 
 
 def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path) -> bool:
@@ -379,7 +553,7 @@ def _mark_runtime_monitoring_degraded(
         )
     )
     if observer is not None:
-        observer.status = "degraded"
+        observer.monitoring_health = "degraded"
         observer.last_error = error[-2000:]
         observer.updated_at = datetime.now(timezone.utc)
 
@@ -492,7 +666,8 @@ def _validate_database_binding(session_factory, binding: EvidenceBinding) -> str
                 pipeline_release_id=binding.pipeline_release_id,
                 run_label=binding.run_label,
                 relative_evidence_path=binding.evidence_path,
-                status="pending",
+                lifecycle_status="stopped",
+                monitoring_health="healthy",
             )
             session.add(state)
         elif (
@@ -956,7 +1131,7 @@ def _set_observer_status(
         )
         if state is None:
             return
-        state.status = status
+        state.monitoring_health = status
         state.last_error = error
         state.last_success_at = datetime.now(timezone.utc) if not error else state.last_success_at
         state.updated_at = datetime.now(timezone.utc)

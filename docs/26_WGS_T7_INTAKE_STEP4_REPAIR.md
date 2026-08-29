@@ -1,5 +1,9 @@
 # 26 WGS T7 自动扫描与 Step4 人工修复
 
+> T145 修正：本文中 scanner/observer 混合服务、`bootstrap_ignored`和
+> `waiting_barcode_stat`入库行为已被
+> [文档 27](27_WGS_SCANNER_OBSERVER_LIFECYCLE.md)取代。Step4 repair 合同仍有效。
+
 ## 1. 当前边界
 
 本功能绑定唯一 WGS 发布 `wgs-4.1.1-1656b5d`，版本 `V4.1.1`，提交

@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from app.wgs_observer_cli import run_intake_worker, run_observer_cycle
+from app.wgs_intake_scanner_cli import run_intake_worker
+from app.wgs_observer_cli import run_observer_iteration
 
 
 def test_intake_worker_runs_immediately_and_uses_an_independent_wait() -> None:
@@ -30,71 +31,33 @@ def test_intake_worker_runs_immediately_and_uses_an_independent_wait() -> None:
     ]
 
 
-def test_observer_keeps_five_second_evidence_cycle_and_runs_intake_only_when_due() -> None:
+def test_active_observer_ingests_only_registered_keys_then_waits_five_seconds() -> None:
     calls: list[tuple[str, object]] = []
 
-    def ingest(**kwargs):
-        calls.append(("evidence", kwargs["evidence_root"]))
-        return {"events": 2}
+    class Source:
+        def wait(self, timeout):
+            calls.append(("wait", timeout))
+            return []
 
-    def scan(**kwargs):
-        calls.append(("intake", kwargs["root"]))
-        assert kwargs["scan_interval_seconds"] == 1800
-        assert kwargs["auto_dispatch_enabled"] is False
-        return {"scanned": 3}
+    active = run_observer_iteration(
+        active={
+            ("WGS_20260830_010203_A1B2C3", 1),
+            ("WGS_20260830_010204_D4E5F6", 2),
+        },
+        notification_source=Source(),
+        ingest_fn=lambda analysis_id, attempt: calls.append(
+            (analysis_id, attempt)
+        )
+        or {"lifecycle_status": "active", "events_ingested": 0, "errors": 0},
+        interval_seconds=5,
+    )
 
-    common = {
-        "session_factory": object(),
-        "evidence_root": Path("/evidence"),
-        "binding_root": Path("/bindings"),
-        "catalog_path": Path("/catalog.yaml"),
-        "transfer_spool_root": Path("/transfers"),
-        "runtime_root": Path("/runtime"),
-        "intake_enabled": True,
-        "intake_root": Path("/bi/fastq/T7_Fastq"),
-        "intake_interval_seconds": 1800,
-        "auto_dispatch_enabled": False,
-        "ingest_fn": ingest,
-        "scan_fn": scan,
+    assert active == {
+        ("WGS_20260830_010203_A1B2C3", 1),
+        ("WGS_20260830_010204_D4E5F6", 2),
     }
-
-    first, next_due = run_observer_cycle(**common, scanner_due=0.0, monotonic_now=100.0)
-    second, next_due = run_observer_cycle(
-        **common,
-        scanner_due=next_due,
-        monotonic_now=105.0,
-    )
-
     assert calls == [
-        ("evidence", Path("/evidence")),
-        ("intake", Path("/bi/fastq/T7_Fastq")),
-        ("evidence", Path("/evidence")),
+        ("WGS_20260830_010203_A1B2C3", 1),
+        ("WGS_20260830_010204_D4E5F6", 2),
+        ("wait", 5),
     ]
-    assert first == {"evidence": {"events": 2}, "intake": {"scanned": 3}}
-    assert second == {"evidence": {"events": 2}}
-    assert next_due == 1900.0
-
-
-def test_disabled_intake_never_scans() -> None:
-    calls: list[str] = []
-
-    result, next_due = run_observer_cycle(
-        session_factory=object(),
-        evidence_root=Path("/evidence"),
-        binding_root=Path("/bindings"),
-        catalog_path=Path("/catalog.yaml"),
-        transfer_spool_root=Path("/transfers"),
-        runtime_root=Path("/runtime"),
-        intake_enabled=False,
-        intake_root=Path("/bi/fastq/T7_Fastq"),
-        intake_interval_seconds=1800,
-        auto_dispatch_enabled=False,
-        scanner_due=0.0,
-        monotonic_now=100.0,
-        ingest_fn=lambda **kwargs: {"events": 0},
-        scan_fn=lambda **kwargs: calls.append("scan"),
-    )
-
-    assert result == {"evidence": {"events": 0}}
-    assert next_due == 0.0
-    assert calls == []

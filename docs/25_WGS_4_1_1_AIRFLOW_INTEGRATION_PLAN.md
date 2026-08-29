@@ -7,6 +7,10 @@
 Airflow-owned snapshot、固定 cce-pipeline wheel/profile/image 门禁和 WGS
 4.0.1/4.1.0 内容均为历史记录。
 
+> T145 更新：scanner 稀疏入库和 event-driven CCE observer 生命周期以
+> [文档 27](27_WGS_SCANNER_OBSERVER_LIFECYCLE.md)为准；它取代文档 26 中的混合
+> `wgs-observer` 运行方式，不改变 WGS release 或 Step1–Step6 业务合同。
+
 ## 1. 固定发布合同
 
 生产同一时间只提供一个 WGS 发布版本：

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import os
 from pathlib import Path
 
 from sqlalchemy import create_engine, select
@@ -40,71 +41,106 @@ def scan(sessions, root: Path, *, now: datetime):
     )
 
 
+def set_mtime(path: Path, when: datetime) -> None:
+    timestamp = when.timestamp()
+    os.utime(path, (timestamp, timestamp))
+
+
+def complete_after(directory: Path, when: datetime) -> None:
+    marker = directory / "BarcodeStat.txt"
+    marker.write_text("complete\n", encoding="utf-8")
+    set_mtime(marker, when)
+
+
 def test_first_scan_bootstraps_completed_batches_without_creating_runs(tmp_path: Path) -> None:
     root = tmp_path / "T7_Fastq"
     root.mkdir()
-    chip(
+    completed = chip(
         root,
         "998th_20250409A_E250065164",
         ready=True,
         files=("NORMAL-WGS.R1.fq.gz", "NORMAL-WGS.R2.fq.gz"),
     )
+    baseline = datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc)
+    set_mtime(completed / "BarcodeStat.txt", baseline - timedelta(minutes=1))
     chip(root, "999th_20250409B_E250065165", ready=False)
     chip(root, "invalid-directory", ready=True)
     sessions = make_sessionmaker()
 
-    result = scan(sessions, root, now=datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc))
+    result = scan(sessions, root, now=baseline)
 
     assert result == {
         "scanned": 2,
-        "created": 2,
+        "created": 0,
         "updated": 0,
         "ready": 0,
         "needs_review": 0,
-        "bootstrap_ignored": 1,
+        "no_new_wgs": 0,
         "errors": 0,
     }
     with sessions() as session:
-        rows = session.scalars(select(WgsIntakeBatch).order_by(WgsIntakeBatch.chip_id)).all()
-        assert [(row.chip_id, row.sequencing_batch, row.state) for row in rows] == [
-            ("998th_20250409A_E250065164", "20250409A", "bootstrap_ignored"),
-            ("999th_20250409B_E250065165", "20250409B", "waiting_barcode_stat"),
-        ]
+        assert session.scalars(select(WgsIntakeBatch)).all() == []
         assert session.scalars(select(AnalysisRun)).all() == []
         scanner = session.scalar(select(WgsIntakeScannerState))
         assert scanner is not None
-        assert scanner.bootstrap_completed_at is not None
-        assert scanner.scan_interval_seconds == 1800
-        assert scanner.auto_dispatch_enabled is False
+        assert scanner.first_scan_at.replace(tzinfo=timezone.utc) == baseline
+        assert scanner.last_scan_at.replace(tzinfo=timezone.utc) == baseline
+        assert scanner.last_scanned_directory_count == 2
+        assert scanner.last_error is None
 
 
-def test_bootstrap_ignored_batch_skips_future_fastq_enumeration(
+def test_historical_completed_batch_skips_future_fastq_enumeration_without_a_row(
     tmp_path: Path, monkeypatch
 ) -> None:
     root = tmp_path / "T7_Fastq"
     root.mkdir()
-    chip(
+    directory = chip(
         root,
         "998th_20250409A_E250065164",
         ready=True,
         files=("NORMAL-WGS.R1.fq.gz", "NORMAL-WGS.R2.fq.gz"),
     )
     sessions = make_sessionmaker()
-    scan(sessions, root, now=datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc))
+    baseline = datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc)
+    set_mtime(directory / "BarcodeStat.txt", baseline - timedelta(minutes=1))
+    scan(sessions, root, now=baseline)
 
     monkeypatch.setattr(
         wgs_t7_intake,
         "inspect_chip_directory",
         lambda *args, **kwargs: (_ for _ in ()).throw(
-            AssertionError("bootstrap-ignored FASTQ files must not be enumerated again")
+            AssertionError("historical FASTQ files must not be enumerated")
         ),
     )
     result = scan(
         sessions, root, now=datetime(2026, 8, 29, 8, 30, tzinfo=timezone.utc)
     )
 
-    assert result["bootstrap_ignored"] == 1
     assert result["errors"] == 0
+    with sessions() as session:
+        assert session.scalars(select(WgsIntakeBatch)).all() == []
+
+
+def test_waiting_directory_is_not_persisted_until_barcode_stat_appears(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "T7_Fastq"
+    root.mkdir()
+    waiting = chip(root, "2200th_20260821A_E250208843")
+    sessions = make_sessionmaker()
+    baseline = datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc)
+
+    scan(sessions, root, now=baseline)
+    scan(sessions, root, now=baseline + timedelta(minutes=30))
+    with sessions() as session:
+        assert session.scalars(select(WgsIntakeBatch)).all() == []
+
+    complete_after(waiting, baseline + timedelta(minutes=31))
+    scan(sessions, root, now=baseline + timedelta(minutes=60))
+    with sessions() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        assert row.state == "no_new_wgs"
 
 
 def test_post_bootstrap_ready_batch_classifies_normal_and_addon_pairs(tmp_path: Path) -> None:
@@ -113,7 +149,7 @@ def test_post_bootstrap_ready_batch_classifies_normal_and_addon_pairs(tmp_path: 
     waiting = chip(root, "2201th_20260821B_E250208844")
     sessions = make_sessionmaker()
     scan(sessions, root, now=datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc))
-    (waiting / "BarcodeStat.txt").write_text("complete\n", encoding="utf-8")
+    complete_after(waiting, datetime(2026, 8, 29, 8, 1, tzinfo=timezone.utc))
     for filename in (
         "NEW1-WGS.R1.fq.gz",
         "NEW1-WGS.R2.fq.gz",
@@ -147,7 +183,7 @@ def test_no_wgs_or_only_addon_is_no_new_wgs_and_candidate_count_is_informational
     sessions = make_sessionmaker()
     scan(sessions, root, now=datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc))
     for directory in (empty, addon):
-        (directory / "BarcodeStat.txt").write_text("complete\n", encoding="utf-8")
+        complete_after(directory, datetime(2026, 8, 29, 8, 1, tzinfo=timezone.utc))
     (addon / "SAMPLE-S1-WGS.R1.fq.gz").write_bytes(b"1")
     (addon / "SAMPLE-S1-WGS.R2.fq.gz").write_bytes(b"2")
 
@@ -167,7 +203,7 @@ def test_unpaired_normal_fastq_requires_review(tmp_path: Path) -> None:
     directory = chip(root, "2204th_20260822B_E250208833")
     sessions = make_sessionmaker()
     scan(sessions, root, now=datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc))
-    (directory / "BarcodeStat.txt").write_text("complete\n", encoding="utf-8")
+    complete_after(directory, datetime(2026, 8, 29, 8, 1, tzinfo=timezone.utc))
     (directory / "NORMAL-WGS.R1.fq.gz").write_bytes(b"1")
 
     result = scan(sessions, root, now=datetime(2026, 8, 29, 8, 30, tzinfo=timezone.utc))
@@ -194,7 +230,7 @@ def test_ready_input_drift_requires_review_but_addon_only_change_does_not(tmp_pa
     directory = chip(root, "2205th_20260823A_E250207440")
     sessions = make_sessionmaker()
     scan(sessions, root, now=datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc))
-    (directory / "BarcodeStat.txt").write_text("complete\n", encoding="utf-8")
+    complete_after(directory, datetime(2026, 8, 29, 8, 1, tzinfo=timezone.utc))
     r1 = directory / "NORMAL-WGS.R1.fq.gz"
     r2 = directory / "NORMAL-WGS.R2.fq.gz"
     r1.write_bytes(b"1")
@@ -225,7 +261,7 @@ def test_repeated_scan_is_idempotent(tmp_path: Path) -> None:
     directory = chip(root, "2206th_20260823B_E250208848")
     sessions = make_sessionmaker()
     scan(sessions, root, now=datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc))
-    (directory / "BarcodeStat.txt").write_text("complete\n", encoding="utf-8")
+    complete_after(directory, datetime(2026, 8, 29, 8, 1, tzinfo=timezone.utc))
     (directory / "NORMAL-WGS.R1.fq.gz").write_bytes(b"1")
     (directory / "NORMAL-WGS.R2.fq.gz").write_bytes(b"2")
     first = scan(sessions, root, now=datetime(2026, 8, 29, 8, 30, tzinfo=timezone.utc))
@@ -246,6 +282,7 @@ def test_ready_batch_losing_barcode_stat_requires_review(tmp_path: Path) -> None
     scan(sessions, root, now=datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc))
     marker = directory / "BarcodeStat.txt"
     marker.write_text("complete\n", encoding="utf-8")
+    set_mtime(marker, datetime(2026, 8, 29, 8, 1, tzinfo=timezone.utc))
     (directory / "NORMAL-WGS.R1.fq.gz").write_bytes(b"1")
     (directory / "NORMAL-WGS.R2.fq.gz").write_bytes(b"2")
     scan(sessions, root, now=datetime(2026, 8, 29, 8, 30, tzinfo=timezone.utc))

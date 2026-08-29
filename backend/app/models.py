@@ -316,20 +316,12 @@ class WgsIntakeScannerState(Base):
     __tablename__ = "wgs_intake_scanner_state"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
-    root_path: Mapped[str] = mapped_column(Text, nullable=False)
-    scan_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    scan_interval_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=1800)
-    auto_dispatch_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    bootstrap_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    bootstrap_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    last_scan_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    last_scan_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    next_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    last_scan_duration_ms: Mapped[int | None] = mapped_column(BigInteger)
-    last_status: Mapped[str] = mapped_column(String(32), nullable=False, default="never_run")
-    last_counts_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    first_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_scanned_directory_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
     last_error: Mapped[str | None] = mapped_column(Text)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
 
 class WgsMaintenanceAction(Base):
@@ -553,6 +545,7 @@ class ObserverRunState(Base):
             "analysis_id", "attempt", name="uq_observer_run_state_attempt"
         ),
         Index("ix_observer_run_state_analysis", "analysis_id"),
+        Index("ix_observer_run_state_lifecycle", "lifecycle_status"),
     )
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
@@ -563,9 +556,25 @@ class ObserverRunState(Base):
     pipeline_release_id: Mapped[str] = mapped_column(String(256), nullable=False)
     run_label: Mapped[str] = mapped_column(String(128), nullable=False)
     relative_evidence_path: Mapped[str] = mapped_column(Text, nullable=False)
-    status: Mapped[str] = mapped_column(String(64), nullable=False, default="pending")
+    lifecycle_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="stopped"
+    )
+    monitoring_health: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="healthy"
+    )
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deactivated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_error: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
+
+    @property
+    def status(self) -> str:
+        """Compatibility alias for callers migrating to monitoring_health."""
+        return self.monitoring_health
+
+    @status.setter
+    def status(self, value: str) -> None:
+        self.monitoring_health = value

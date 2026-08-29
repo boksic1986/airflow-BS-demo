@@ -1,5 +1,12 @@
 # 08 Snakemake + qsub 接入设计
 
+## T145 event-driven evidence consumption
+
+Rule JSONL 和 Master Job/Pod evidence 的 schema/path 不变。本地
+`wgs-run-observer`只为数据库中`active|draining`的 attempt 恢复 byte/line cursor和
+event-ID 去重；它不扫描 Worker Pod、binding 目录或 OBS spool。`draining`的最后
+增量读取完成后转为`stopped`。
+
 ## T142 release-bound Rule evidence
 
 WGS 4.1.1 Master logger 的业务输出和路径不变；Airflow observer 只把事件中的

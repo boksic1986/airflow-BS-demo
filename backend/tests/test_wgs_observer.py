@@ -19,7 +19,7 @@ from app.models import (
     TransferJob,
     WgsMaintenanceAction,
 )
-from app.wgs_observer import ingest_evidence_once
+from app.wgs_observer import ingest_evidence_once, sync_runtime_stage_artifacts
 
 
 RELEASE_ID = "wgs-4.1.1-1656b5d"
@@ -304,6 +304,50 @@ def test_cce_pipeline_transfer_schema_is_normalized_without_api_breakage(tmp_pat
         assert row.speed_bps == 125
         assert row.checkpoint_ref == "/registered/checkpoints/input-2"
         assert row.estimated_finish_at.isoformat().startswith("2026-08-12T02:00:10")
+
+
+def test_stage_sensor_sync_reads_only_the_registered_transfer_path(tmp_path: Path) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    request_root = tmp_path / "runtime" / "runner-requests"
+    request_root.mkdir(parents=True)
+    spool = tmp_path / "transfer-spool"
+    expected_id = f"{analysis_id}-a1-input"
+    for transfer_id in (expected_id, "unrelated-transfer"):
+        progress = spool / analysis_id / "attempt-1" / transfer_id / "progress.json"
+        progress.parent.mkdir(parents=True)
+        progress.write_text(
+            json.dumps(
+                {
+                    "schema_version": "cce-pipeline.transfer-progress.v1",
+                    "transfer_id": transfer_id,
+                    "run_id": f"{analysis_id}-a1",
+                    "analysis_id": analysis_id,
+                    "attempt": 1,
+                    "direction": "upload",
+                    "state": "running",
+                    "bytes_total": 100,
+                    "bytes_done": 50,
+                    "files_total": 2,
+                    "files_done": 1,
+                    "heartbeat_at": "2026-08-30T02:00:00Z",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    result = sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=request_root,
+        transfer_spool_root=spool,
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="step1_upload",
+    )
+
+    assert result == {"files": 1, "events_ingested": 1}
+    with sessions() as session:
+        rows = session.scalars(select(TransferJob)).all()
+        assert [row.transfer_id for row in rows] == [expected_id]
 
 
 def test_wgs_4_1_1_stage_status_is_phase_only_and_master_only(tmp_path: Path) -> None:

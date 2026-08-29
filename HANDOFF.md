@@ -1,5 +1,74 @@
 # HANDOFF.md
 
+## 2026-08-30 - Codex - T145 scanner sparse persistence and observer lifecycle
+
+### Goal
+
+将混合`wgs-observer`拆为稀疏 T7 scanner 和仅对 Step3 活动任务工作的
+event-driven observer，清理 demo 生成的 1830 条历史明细，保持所有分析门禁
+关闭。
+
+### Completed
+
+- 新增 migration `20260830_0012`，精简 scanner singleton，分离 observer
+  lifecycle/health，并增加活动查询索引。
+- 新增带精确 confirm 的 cleanup CLI。它在同一事务中先拒绝任何已关联
+  AnalysisRun 的 intake，再删除 batch/state。
+- scanner 首次只记录基线；后续不保存 missing BarcodeStat、
+  `bootstrap_ignored`或`waiting_barcode_stat`，只持久化三种业务状态。
+- observer 先 LISTEN 再恢复`active/draining`，空闲时无超时轮询；Step3
+  终态和`release_leases`请求最终 drain。Step1/Step5 sensor只同步精确传输文件。
+- API/UI 分开 observer lifecycle 和 health，Dashboard 显示本轮目录数但不显示
+  历史明细；Settings 也使用 T7 scanner 而不是旧 Airflow scanner DAG 投影。
+- Compose 已切换为`wgs-intake-scanner`和`wgs-run-observer`，旧容器已移除；
+  最小挂载和20m x 3日志轮转已在运行容器核对。
+
+### Production data operation
+
+- 清理前查询：`wgs_intake_batch=1830`，linked rows=0，AnalysisRun=0。
+- 备份：`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/
+  t145-before-sparse-observer-20260830T045310+0800/biodemo.dump`。
+- 备份 SHA256：`6cd7026498748c2e6ec231f01ebde7867c5bee3d2e97827d24b3bf36bc11b4e8`。
+- cleanup 输出：`deleted_batches=1830`、`deleted_scanner_states=1`。
+- 生产首次和第二次 sparse scan 都得到`scanned=1830`、created/updated/errors=0；
+  intake details=0、AnalysisRun=0、Airflow DagRun=0。
+
+### Deployment and validation
+
+```text
+release: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260830-wgs-4.1.1-observer-lifecycle-disabled-t145
+frontend image: airflow-demo/frontend:t145-wgs-observer-lifecycle-disabled
+frontend image ID: sha256:21468c83853c873559b4805c65f58b49cf72c86a4aca5f3a2415cea6db95579a
+backend: 227 passed on the deployed release
+DAG: 7 passed
+Compose/network contract: 5 passed
+frontend: 9 files / 30 tests; TypeScript and Vite production build passed
+PostgreSQL: fresh migration and populated 0011->0012 + 1830-row cleanup passed
+PostgreSQL LISTEN/NOTIFY: 4 concurrent attempt notifications arrived with exact identities
+HTTP: health, admin login, scanner-state, empty intake and frontend static assets passed
+observer idle: 10-minute log bytes=0
+```
+
+### Failed commands and correction
+
+- 第一次完整 backend 容器测试将仓库挂在`/workspace`，但镜像的
+  `PYTHONPATH=/app`使它误用镜像旧源码。显式设置`PYTHONPATH=/workspace/backend`后
+  226 passed / 1 skipped。
+- 第一次 populated 临时库 restore 由`airflow`拥有对象，生产应用用户
+  `biodemo`无权读 Alembic 表。重建且用`pg_restore --role=biodemo`恢复后通过；
+  正式库未受该失败影响。
+- 两次远程 here-script 在`docker compose run`后续步骤被它的 stdin 消费；
+  将 one-off Compose 命令与后续查询拆成独立 SSH 命令后通过。
+- 追加验收时有一次 SSH banner exchange 中断；重新连接后仅执行幂等
+  scanner/API 验收并通过。
+
+### Safety and next step
+
+`WGS_EXECUTION_ENABLED=false`、`WGS_RUNTIME_ADAPTER_ENABLED=false`、
+`WGS_AUTO_DISPATCH_ENABLED=false`，`bio_wgs` paused。本次没有 OBS、CCE、WGS 分析、
+volume 删除或 Docker 网络重建。真实 Step3 notification/Rule JSONL/Master 终态验收
+仍属于 T140，需要单独批准。
+
 ## 2026-08-29 - Codex - T143/T144 T7 scan-only and Step4 repair
 
 ### Goal

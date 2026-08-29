@@ -1,5 +1,11 @@
 # 02 工程规范
 
+## T145 scanner/observer 服务拆分
+
+`wgs-intake-scanner`只执行 1800 秒 T7 发现；`wgs-run-observer`只消费经
+PostgreSQL LISTEN/NOTIFY 激活的 Step3 attempt。无分析时 run observer 无轮询、无证据
+读取、无空心跳。完整边界见[doc 27](27_WGS_SCANNER_OBSERVER_LIFECYCLE.md)。
+
 ## T143/T144 T7 scan-only 与 Step4 repair
 
 当前唯一发布身份更新为`wgs-4.1.1-1656b5d` / commit

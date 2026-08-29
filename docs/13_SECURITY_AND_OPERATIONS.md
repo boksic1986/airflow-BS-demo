@@ -1,5 +1,12 @@
 # 13 安全和运维约束
 
+## T145 least-privilege service split
+
+`wgs-run-observer`只读 evidence，不挂载 T7、runtime、binding、SSH key、kubeconfig 或
+OBS credential。`wgs-intake-scanner`只读 T7 根，不挂载 evidence/runtime。两者不发布
+端口，并开启 20 MiB x 3 日志轮转。历史数据清理必须在备份后、关联
+分析数为 0 的单事务中执行。
+
 ## T143/T144 新边界
 
 T7源目录只读挂载给 observer；扫描器不递归、不读取FASTQ内容、不计算MD5。

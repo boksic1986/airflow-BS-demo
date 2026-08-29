@@ -121,7 +121,10 @@ export type RunDetail = {
   } | null;
   rule_event_schema_version?: string | null;
   observer?: {
-    status: string;
+    lifecycle_status: "active" | "draining" | "stopped";
+    monitoring_health: "healthy" | "degraded" | "error";
+    activated_at?: string | null;
+    deactivated_at?: string | null;
     last_success_at?: string | null;
     last_error?: string | null;
     updated_at?: string | null;
@@ -632,11 +635,14 @@ export type IntakeScannerStateResponse = {
   trigger_contracts?: Record<string, string>;
   retention?: {enabled: boolean; days: number; scope: string};
   message?: string | null;
-  scanner?: "wgs-observer";
+  scanner?: "wgs-intake-scanner";
   root?: string;
   enabled?: boolean;
   schedule_seconds?: number;
   auto_dispatch_enabled?: boolean;
+  first_scan_at?: string | null;
+  last_scan_at?: string | null;
+  last_scanned_directory_count?: number;
   bootstrap_completed_at?: string | null;
   last_scan_started_at?: string | null;
   last_scan_completed_at?: string | null;

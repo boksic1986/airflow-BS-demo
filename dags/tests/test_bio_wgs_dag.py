@@ -115,6 +115,91 @@ class BioWgsDagTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cram"):
             bio_wgs.validate_request(**context)
 
+    def test_step3_runner_activates_observer_only_after_node200_accepts(self) -> None:
+        calls = []
+        conf = {"analysis_id": "WGS_20260830_010203_A1B2C3", "attempt": 1}
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        original_backend = bio_wgs._backend_json
+        original_run = bio_wgs.subprocess.run
+        original_enabled = bio_wgs._require_runtime_enabled
+        try:
+            bio_wgs._require_runtime_enabled = lambda: None
+            bio_wgs._backend_json = lambda path, **kwargs: calls.append(
+                (path, kwargs.get("method"), kwargs.get("payload"))
+            ) or {"status": "registered"}
+            bio_wgs.subprocess.run = lambda *args, **kwargs: type(
+                "Completed", (), {"returncode": 0, "stdout": "", "stderr": ""}
+            )()
+            result = bio_wgs.run_stage_on_200("step3_monitor", **context)
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs.subprocess.run = original_run
+            bio_wgs._require_runtime_enabled = original_enabled
+
+        assert result["runner_status"] == "accepted"
+        assert calls[-1] == (
+            "/api/internal/wgs/runs/WGS_20260830_010203_A1B2C3/observer/activate",
+            "POST",
+            {"attempt": 1},
+        )
+
+    def test_step3_terminal_status_requests_observer_drain(self) -> None:
+        calls = []
+        conf = {"analysis_id": "WGS_20260830_010203_A1B2C3", "attempt": 1}
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        original_backend = bio_wgs._backend_json
+        original_enabled = bio_wgs._require_runtime_enabled
+        try:
+            bio_wgs._require_runtime_enabled = lambda: None
+
+            def backend(path, **kwargs):
+                calls.append((path, kwargs.get("method"), kwargs.get("payload")))
+                if path.endswith("stage-status?attempt=1&stage=step3_monitor"):
+                    return {"ready": True, "failed": False, "status": "success"}
+                return {"lifecycle_status": "draining"}
+
+            bio_wgs._backend_json = backend
+            assert bio_wgs.stage_ready("step3_monitor", **context) is True
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs._require_runtime_enabled = original_enabled
+
+        assert calls[-1] == (
+            "/api/internal/wgs/runs/WGS_20260830_010203_A1B2C3/observer/deactivate",
+            "POST",
+            {"attempt": 1},
+        )
+
+    def test_release_leases_always_requests_final_observer_drain(self) -> None:
+        calls = []
+        context = {
+            "dag_run": type(
+                "DagRun",
+                (),
+                {"conf": {"analysis_id": "WGS_20260830_010203_A1B2C3", "attempt": 1}},
+            )()
+        }
+        original_backend = bio_wgs._backend_json
+        original_runtime = bio_wgs._runtime_enabled
+        try:
+            bio_wgs._runtime_enabled = lambda: True
+
+            def backend(path, **kwargs):
+                calls.append((path, kwargs.get("method"), kwargs.get("payload")))
+                if path.endswith("observer/deactivate"):
+                    return {"lifecycle_status": "draining"}
+                return {"released": True}
+
+            bio_wgs._backend_json = backend
+            result = bio_wgs.release_leases(**context)
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs._runtime_enabled = original_runtime
+
+        assert result == {"released": True, "observer_lifecycle_status": "draining"}
+        assert calls[0][0].endswith("/observer/deactivate")
+        assert calls[-1][0].endswith("/stages/release_leases")
+
 
 if __name__ == "__main__":
     unittest.main()

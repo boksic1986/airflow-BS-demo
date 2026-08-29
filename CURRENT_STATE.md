@@ -1,5 +1,21 @@
 # CURRENT_STATE.md
 
+## 2026-08-30 T145 - scanner 稀疏入库与 event-driven observer
+
+```text
+t145_release: current -> /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260830-wgs-4.1.1-observer-lifecycle-disabled-t145。
+t145_services: 旧wgs-observer已停止并移除；wgs-intake-scanner只读T7根并每1800秒扫描，wgs-run-observer只读evidence并在无active/draining attempt时阻塞PostgreSQL LISTEN/NOTIFY。
+t145_sparse_intake: 生产首次和第二次扫描均统计1830个匹配目录，wgs_intake_batch仍为0；bootstrap_ignored和waiting_barcode_stat不再入库。
+t145_cleanup: 清理前1830行中关联analysis数为0；受保护单事务删除1830个batch和1个scanner state。清理后AnalysisRun、observer state均为0。
+t145_backup: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/t145-before-sparse-observer-20260830T045310+0800/biodemo.dump，SHA256 6cd7026498748c2e6ec231f01ebde7867c5bee3d2e97827d24b3bf36bc11b4e8。
+t145_database: biodemo Alembic revision 20260830_0012；populated临时库完成0011->0012、1830行清理和零副作用验收后已删除临时库。
+t145_observer_idle: 生产wgs-run-observer启动后无活动分析，10分钟日志字节数为0，不读取binding/runtime/transfer也不输出空心跳。
+t145_validation: 当前release在BS10610通过backend 227 tests、DAG 7 tests、Compose/network 5 tests、frontend 30 tests及TypeScript/Vite build；隔离PostgreSQL实测4个attempt通知全部按identity到达；登录、health、scanner-state和intake API HTTP smoke通过。
+t145_frontend: airflow-demo/frontend:t145-wgs-observer-lifecycle-disabled -> sha256:21468c83853c873559b4805c65f58b49cf72c86a4aca5f3a2415cea6db95579a；UI包含“本轮扫描”和“CCE监控尚未启动”。
+t145_gates: WGS_EXECUTION_ENABLED=false、WGS_RUNTIME_ADAPTER_ENABLED=false、WGS_AUTO_DISPATCH_ENABLED=false，bio_wgs paused且DagRun=0。
+t145_network: 外部nipt_analysis_test_net保持192.168.199.0/24、gateway 192.168.199.1；仅frontend发布172.17.106.10:12959。
+```
+
 ## 2026-08-29 T143/T144 - T7 scan-only 与 Step4 repair
 
 ```text

@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import {MemoryRouter} from "react-router-dom";
 import {describe, expect, it, vi} from "vitest";
 
-import type {DashboardRunTrackerRow, IntakeDiscovery} from "../api";
+import type {DashboardRunTrackerRow, IntakeDiscovery, IntakeScannerStateResponse} from "../api";
 import {IntakeScannerPanel} from "../features/dashboard/IntakeScannerPanel";
 import {IntakeDiscoveryTable} from "./IntakeDiscoveryTable";
 import {LogViewer, preferredLogSource} from "./LogViewer";
@@ -66,13 +66,25 @@ it("shows T7 scan-only discovery counts without sample identifiers", () => {
     pair_issue_count: 0,
   };
 
-  render(<MemoryRouter><IntakeScannerPanel items={[item]} total={1} limit={10} offset={0} loading={false} error={null} view="pending" onViewChange={vi.fn()} onPageChange={vi.fn()} /></MemoryRouter>);
+  const scanner: IntakeScannerStateResponse = {
+    scanner: "wgs-intake-scanner",
+    enabled: true,
+    schedule_seconds: 1800,
+    auto_dispatch_enabled: false,
+    first_scan_at: "2026-08-30T01:00:00Z",
+    last_scan_at: "2026-08-30T01:30:00Z",
+    last_scanned_directory_count: 1830,
+    last_error: null,
+  };
+
+  render(<MemoryRouter><IntakeScannerPanel scanner={scanner} items={[item]} total={1} limit={10} offset={0} loading={false} error={null} view="pending" onViewChange={vi.fn()} onPageChange={vi.fn()} /></MemoryRouter>);
 
   expect(screen.getByRole("heading", {name: "T7自动扫描"})).toBeInTheDocument();
   expect(screen.getByText(/自动分析关闭/)).toBeInTheDocument();
   expect(screen.getByText("20260821B")).toBeInTheDocument();
   expect(screen.getByText("17")).toBeInTheDocument();
   expect(screen.getByText("5")).toBeInTheDocument();
+  expect(screen.getByText(/本轮扫描 1830 个目录/)).toBeInTheDocument();
   expect(screen.queryByText(/sample/i)).not.toBeInTheDocument();
 });
 

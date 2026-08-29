@@ -477,6 +477,29 @@ function ScannerStateCard({
   error: string | null;
   deployedPipelines: DeployedPipeline[];
 }) {
+  if (scanner?.scanner === "wgs-intake-scanner") {
+    return (
+      <div className="settings-status-card">
+        <div className="section-heading tight">
+          <h3>T7 intake scanner</h3>
+          <StatusBadge status={error ? "warning" : loading ? "running" : scanner.enabled ? "success" : "skipped"} size="sm" />
+        </div>
+        {loading ? <p className="empty-state">Loading T7 scanner state...</p> : null}
+        {error ? <p className="error-text" role="alert">Scanner state unavailable: {error}</p> : null}
+        {!loading && !error ? (
+          <dl className="definition-grid compact">
+            <div><dt>Root</dt><dd className="path-text">{scanner.root || "/bi/fastq/T7_Fastq"}</dd></div>
+            <div><dt>Schedule</dt><dd>{scanner.schedule_seconds ?? 1800} seconds</dd></div>
+            <div><dt>First baseline</dt><dd>{formatDate(scanner.first_scan_at)}</dd></div>
+            <div><dt>Last scan</dt><dd>{formatDate(scanner.last_scan_at)}</dd></div>
+            <div><dt>Directories scanned</dt><dd>{scanner.last_scanned_directory_count ?? 0}</dd></div>
+            <div><dt>Automatic analysis</dt><dd>{scanner.auto_dispatch_enabled ? "enabled" : "disabled"}</dd></div>
+            <div><dt>Last error</dt><dd>{scanner.last_error || "none"}</dd></div>
+          </dl>
+        ) : null}
+      </div>
+    );
+  }
   const pausedLabel = scanner?.is_paused == null ? "Unknown" : scanner.is_paused ? "Paused" : "Unpaused";
   return (
     <div className="settings-status-card">

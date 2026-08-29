@@ -1,5 +1,13 @@
 # 05 API Contract
 
+## T145 sparse intake 与 observer lifecycle API
+
+`GET /api/intake/scanner-state`持久层只返回首次/最近扫描、本轮目录数和
+错误；开关、间隔、根目录和 auto-dispatch 从运行配置补充。WGS intake
+列表只包含`ready|needs_review|no_new_wgs`。内部 Step3 activate/deactivate 按
+`analysis_id + attempt`幂等；Run Detail 分别返回`lifecycle_status`和
+`monitoring_health`。详见[doc 27](27_WGS_SCANNER_OBSERVER_LIFECYCLE.md)。
+
 ## T143/T144 T7 intake 与 Step4 repair API
 
 - `GET /api/intake/status?pipeline=wgs`返回芯片、上机批次、状态和三类计数，支持

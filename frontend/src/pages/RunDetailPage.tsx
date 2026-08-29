@@ -252,7 +252,8 @@ export function RunDetailPage() {
             <div><dt>CCE profile</dt><dd>{detail.resolved_runtime?.profile_id ? `${detail.resolved_runtime.profile_id}/${detail.resolved_runtime.profile_revision || "-"}` : "not resolved"}</dd></div>
             <div><dt>Master image</dt><dd className="path-text">{detail.resolved_runtime?.master_image_digest || "not resolved"}</dd></div>
             <div><dt>Rule schema</dt><dd>{detail.rule_event_schema_version || "unknown"}</dd></div>
-            <div><dt>Observer</dt><dd><StatusBadge status={detail.observer?.status || "not observed"} /></dd></div>
+            <div><dt>CCE monitor</dt><dd>{detail.observer ? <StatusBadge status={detail.observer.lifecycle_status} /> : "CCE监控尚未启动"}</dd></div>
+            <div><dt>Monitoring health</dt><dd>{detail.observer ? <StatusBadge status={detail.observer.monitoring_health} /> : "not applicable"}</dd></div>
             <div><dt>Last evidence</dt><dd>{formatDate(detail.observer?.last_success_at || detail.observer?.updated_at)}</dd></div>
           </div>
           {detail.observer?.last_error ? <div className="inline-error" role="alert">Rule monitoring degraded: {detail.observer.last_error}</div> : null}

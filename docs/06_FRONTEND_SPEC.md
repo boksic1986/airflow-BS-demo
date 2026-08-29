@@ -1,5 +1,11 @@
 # 06 前端设计
 
+## T145 稀疏扫描和监控状态
+
+T7 面板显示本轮扫描目录数、最近扫描时间、错误和“自动分析关闭”；
+只列出基线后的三种持久化发现。Run Detail 将 CCE observer lifecycle 与
+monitoring health 分开；没有 Step3 activation 时显示“CCE监控尚未启动”。
+
 ## T143/T144 T7 与 Step4 页面
 
 Dashboard新增“T7自动扫描”面板，显示 scanner健康、bootstrap、下一次扫描及

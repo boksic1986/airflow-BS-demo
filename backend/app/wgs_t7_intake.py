@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
 import re
-import time
 from typing import Callable
 
 from sqlalchemy import func, or_, select, text
@@ -23,6 +22,7 @@ ADDON_SAMPLE_PATTERN = re.compile(r"-S\d+$")
 SCANNER_STATE_ID = 1
 SCANNER_ADVISORY_LOCK_ID = 743_701_143_829
 FINGERPRINT_FROZEN_STATES = {"ready", "no_new_wgs"}
+PERSISTED_STATES = {"ready", "needs_review", "no_new_wgs"}
 
 
 @dataclass(frozen=True)
@@ -59,14 +59,13 @@ def scan_wgs_t7_intake(
 
     scan_now = now or datetime.now(timezone.utc)
     root_path = Path(root)
-    started = time.monotonic()
     counts = {
         "scanned": 0,
         "created": 0,
         "updated": 0,
         "ready": 0,
         "needs_review": 0,
-        "bootstrap_ignored": 0,
+        "no_new_wgs": 0,
         "errors": 0,
     }
 
@@ -75,26 +74,12 @@ def scan_wgs_t7_intake(
             return counts
 
         scanner = session.get(WgsIntakeScannerState, SCANNER_STATE_ID)
-        is_bootstrap = scanner is None or scanner.bootstrap_completed_at is None
+        is_bootstrap = scanner is None or scanner.first_scan_at is None
         if scanner is None:
-            scanner = WgsIntakeScannerState(
-                id=SCANNER_STATE_ID,
-                root_path=str(root_path),
-                scan_enabled=scan_enabled,
-                scan_interval_seconds=scan_interval_seconds,
-                auto_dispatch_enabled=auto_dispatch_enabled,
-                bootstrap_started_at=scan_now,
-            )
+            scanner = WgsIntakeScannerState(id=SCANNER_STATE_ID)
             session.add(scanner)
 
-        scanner.root_path = str(root_path)
-        scanner.scan_enabled = scan_enabled
-        scanner.scan_interval_seconds = scan_interval_seconds
-        scanner.auto_dispatch_enabled = auto_dispatch_enabled
-        scanner.last_scan_started_at = scan_now
-        scanner.last_status = "running"
         scanner.last_error = None
-        scanner.updated_at = scan_now
 
         try:
             if not root_path.is_dir():
@@ -112,14 +97,19 @@ def scan_wgs_t7_intake(
                     continue
 
                 counts["scanned"] += 1
+                if is_bootstrap:
+                    continue
                 source_path = str(directory.resolve())
                 row = existing_by_path.get(source_path)
-                if row is not None and row.state == "bootstrap_ignored":
-                    counts["updated"] += 1
-                    counts["bootstrap_ignored"] += 1
-                    row.last_scanned_at = scan_now
-                    row.updated_at = scan_now
-                    continue
+                if row is None:
+                    barcode = directory / "BarcodeStat.txt"
+                    if (
+                        not barcode.is_file()
+                        or barcode.is_symlink()
+                        or barcode.stat().st_mtime_ns
+                        <= int(scanner.first_scan_at.timestamp() * 1_000_000_000)
+                    ):
+                        continue
                 observation = inspect_chip_directory(
                     directory,
                     sequencing_batch=match.group("sequencing_batch"),
@@ -138,24 +128,19 @@ def scan_wgs_t7_intake(
                 else:
                     counts["updated"] += 1
 
-                _apply_observation(row, observation, now=scan_now, bootstrap=is_bootstrap)
+                _apply_observation(row, observation, now=scan_now)
                 if row.state in counts:
                     counts[row.state] += 1
 
             if is_bootstrap:
-                scanner.bootstrap_completed_at = scan_now
-            scanner.last_status = "success"
+                scanner.first_scan_at = scan_now
         except Exception as exc:
             counts["errors"] += 1
-            scanner.last_status = "failed"
             scanner.last_error = str(exc)
             raise
         finally:
-            scanner.last_scan_completed_at = scan_now
-            scanner.next_scan_at = scan_now + timedelta(seconds=scan_interval_seconds)
-            scanner.last_scan_duration_ms = max(0, int((time.monotonic() - started) * 1000))
-            scanner.last_counts_json = dict(counts)
-            scanner.updated_at = scan_now
+            scanner.last_scan_at = scan_now
+            scanner.last_scanned_directory_count = counts["scanned"]
             session.commit()
 
     return counts
@@ -239,17 +224,13 @@ def list_wgs_t7_intake(
     limit: int,
     offset: int,
 ) -> dict[str, object]:
-    query = select(WgsIntakeBatch)
-    if state:
+    query = select(WgsIntakeBatch).where(WgsIntakeBatch.state.in_(PERSISTED_STATES))
+    if state in PERSISTED_STATES:
         query = query.where(WgsIntakeBatch.state == state)
     elif view == "pending":
-        query = query.where(
-            WgsIntakeBatch.state.in_(("waiting_barcode_stat", "ready", "needs_review"))
-        )
+        query = query.where(WgsIntakeBatch.state.in_(("ready", "needs_review")))
     elif view == "history":
-        query = query.where(
-            WgsIntakeBatch.state.in_(("no_new_wgs", "bootstrap_ignored"))
-        )
+        query = query.where(WgsIntakeBatch.state == "no_new_wgs")
     if keyword:
         search = f"%{keyword.strip()}%"
         query = query.where(
@@ -273,38 +254,27 @@ def list_wgs_t7_intake(
     }
 
 
-def get_wgs_t7_scanner_state(*, session: Session) -> dict[str, object]:
+def get_wgs_t7_scanner_state(
+    *,
+    session: Session,
+    root: str = "/bi/fastq/T7_Fastq",
+    enabled: bool = False,
+    schedule_seconds: int = 1800,
+    auto_dispatch_enabled: bool = False,
+) -> dict[str, object]:
     row = session.get(WgsIntakeScannerState, SCANNER_STATE_ID)
-    if row is None:
-        return {
-            "scanner": "wgs-observer",
-            "root": "/bi/fastq/T7_Fastq",
-            "enabled": False,
-            "schedule_seconds": 1800,
-            "auto_dispatch_enabled": False,
-            "bootstrap_completed_at": None,
-            "last_scan_started_at": None,
-            "last_scan_completed_at": None,
-            "next_scan_at": None,
-            "last_scan_duration_ms": None,
-            "last_status": "never_run",
-            "last_counts": {},
-            "last_error": None,
-        }
     return {
-        "scanner": "wgs-observer",
-        "root": row.root_path,
-        "enabled": row.scan_enabled,
-        "schedule_seconds": row.scan_interval_seconds,
-        "auto_dispatch_enabled": row.auto_dispatch_enabled,
-        "bootstrap_completed_at": _iso_datetime(row.bootstrap_completed_at),
-        "last_scan_started_at": _iso_datetime(row.last_scan_started_at),
-        "last_scan_completed_at": _iso_datetime(row.last_scan_completed_at),
-        "next_scan_at": _iso_datetime(row.next_scan_at),
-        "last_scan_duration_ms": row.last_scan_duration_ms,
-        "last_status": row.last_status,
-        "last_counts": dict(row.last_counts_json or {}),
-        "last_error": row.last_error,
+        "scanner": "wgs-intake-scanner",
+        "root": root,
+        "enabled": enabled,
+        "schedule_seconds": schedule_seconds,
+        "auto_dispatch_enabled": auto_dispatch_enabled,
+        "first_scan_at": _iso_datetime(row.first_scan_at) if row else None,
+        "last_scan_at": _iso_datetime(row.last_scan_at) if row else None,
+        "last_scanned_directory_count": (
+            row.last_scanned_directory_count if row else 0
+        ),
+        "last_error": row.last_error if row else None,
     }
 
 
@@ -338,7 +308,6 @@ def _apply_observation(
     observation: ChipObservation,
     *,
     now: datetime,
-    bootstrap: bool,
 ) -> None:
     previous_state = row.state
     previous_error = row.last_error
@@ -354,28 +323,9 @@ def _apply_observation(
     row.last_scanned_at = now
     row.updated_at = now
 
-    if previous_state == "bootstrap_ignored":
-        row.last_error = None
-        return
-
     if not observation.barcode_present:
-        if previous_fingerprint is not None and previous_state in {
-            "ready",
-            "no_new_wgs",
-            "needs_review",
-        }:
-            row.state = "needs_review"
-            row.last_error = "eligible WGS input changed after ready"
-        else:
-            row.state = "waiting_barcode_stat"
-            row.last_error = None
-        return
-
-    if bootstrap and row.eligible_fingerprint is None:
-        row.state = "bootstrap_ignored"
-        row.eligible_fingerprint = observation.fingerprint
-        row.ready_at = now
-        row.last_error = None
+        row.state = "needs_review"
+        row.last_error = "eligible WGS input changed after ready"
         return
 
     if (

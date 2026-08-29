@@ -1,5 +1,12 @@
 # 04 数据库设计
 
+## T145 migration 0012
+
+`wgs_intake_scanner_state`只保存`first_scan_at`、`last_scan_at`、
+`last_scanned_directory_count`、`last_error`。`observer_run_state`将健康度与
+`active|draining|stopped`生命周期分离。历史 intake 明细通过有备份和关联
+保护的部署 CLI 清理，不混入 Alembic。见[doc 27](27_WGS_SCANNER_OBSERVER_LIFECYCLE.md)。
+
 ## T143/T144 migration 0011
 
 Alembic `20260829_0011`扩展`wgs_intake_batch`为可独立于 AnalysisRun 的芯片发现

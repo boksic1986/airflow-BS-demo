@@ -6,6 +6,7 @@ import type {
   DashboardPipeline,
   DashboardRunsResponse,
   IntakeDiscovery,
+  IntakeScannerStateResponse,
   SystemResourcesResponse,
 } from "../api";
 import type {RunTrackerFilter} from "../components/RunTracker";
@@ -13,6 +14,7 @@ import type {RunTrackerFilter} from "../components/RunTracker";
 import {
   getDashboardOverview,
   getDashboardRuns,
+  getIntakeScannerState,
   getIntakeStatus,
   getSystemResources,
   submitRun,
@@ -50,6 +52,7 @@ export function DashboardPage() {
   const [trackerPayload, setTrackerPayload] = useState<DashboardRunsResponse | null>(null);
   const [resources, setResources] = useState<SystemResourcesResponse | null>(null);
   const [intakeItems, setIntakeItems] = useState<IntakeDiscovery[]>([]);
+  const [intakeScanner, setIntakeScanner] = useState<IntakeScannerStateResponse | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [trackerLoading, setTrackerLoading] = useState(true);
   const [intakeLoading, setIntakeLoading] = useState(true);
@@ -95,16 +98,20 @@ export function DashboardPage() {
     if (showSpinner) setIntakeLoading(true);
     setIntakeError(null);
     try {
-      const payload = await getIntakeStatus({
-        pipeline: deployedPipeline,
-        keyword: trackerKeyword.trim() || undefined,
-        lifecycle: "all",
-        view: intakeView,
-        limit: intakeLimit,
-        offset: intakeOffset,
-      });
+      const [payload, scanner] = await Promise.all([
+        getIntakeStatus({
+          pipeline: deployedPipeline,
+          keyword: trackerKeyword.trim() || undefined,
+          lifecycle: "all",
+          view: intakeView,
+          limit: intakeLimit,
+          offset: intakeOffset,
+        }),
+        getIntakeScannerState(),
+      ]);
       setIntakeItems(payload.items);
       setIntakeTotal(payload.total ?? payload.items.length);
+      setIntakeScanner(scanner);
     } catch (loadError) {
       setIntakeError(errorMessage(loadError));
     } finally {
@@ -243,6 +250,7 @@ export function DashboardPage() {
             />
           </div>
           <IntakeScannerPanel
+            scanner={intakeScanner}
             items={intakeItems}
             total={intakeTotal}
             limit={intakeLimit}

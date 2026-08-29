@@ -52,30 +52,52 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertIn("wgs-cce-v1", profiles)
         self.assertIn("wgs-onprem-v1", profiles)
 
-    def test_observer_is_read_only_unprivileged_and_has_no_external_credentials(self):
+    def test_scanner_and_run_observer_are_isolated_unprivileged_services(self):
         compose_path = REPO_ROOT / "docker-compose.wgs.yaml"
         payload = yaml.safe_load(compose_path.read_text(encoding="utf-8"))
-        observer = payload["services"]["wgs-observer"]
-        rendered = str(observer)
+        observer = payload["services"]["wgs-run-observer"]
+        scanner = payload["services"]["wgs-intake-scanner"]
 
-        self.assertNotIn("ports", observer)
-        self.assertNotEqual(observer.get("network_mode"), "host")
-        self.assertFalse(observer.get("privileged", False))
-        self.assertNotIn("cap_add", observer)
-        for forbidden in ("KUBECONFIG", "OBS_", "SSH_", "docker.sock"):
-            self.assertNotIn(forbidden, rendered)
-        self.assertEqual(observer["environment"]["WGS_EXECUTION_ENABLED"], "${WGS_EXECUTION_ENABLED:-false}")
-        self.assertEqual(observer["environment"]["WGS_INTAKE_SCAN_ENABLED"], "${WGS_INTAKE_SCAN_ENABLED:-true}")
-        self.assertEqual(observer["environment"]["WGS_INTAKE_SCAN_INTERVAL_SECONDS"], "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-1800}")
-        self.assertEqual(observer["environment"]["WGS_AUTO_DISPATCH_ENABLED"], "${WGS_AUTO_DISPATCH_ENABLED:-false}")
-        volumes = observer["volumes"]
-        self.assertTrue(any("/data/wgs-evidence:ro" in item for item in volumes))
-        self.assertTrue(any("/config/wgs-bindings:ro" in item for item in volumes))
-        self.assertTrue(any("/config/wgs_releases.yaml:ro" in item for item in volumes))
-        self.assertIn("${WGS_T7_FASTQ_HOST_ROOT:-/bi/fastq/T7_Fastq}:/bi/fastq/T7_Fastq:ro", volumes)
-        command = " ".join(observer["command"])
-        self.assertIn("--binding-root /config/wgs-bindings", command)
-        self.assertIn("--catalog /config/wgs_releases.yaml", command)
+        for service in (observer, scanner):
+            rendered = str(service)
+            self.assertNotIn("ports", service)
+            self.assertNotEqual(service.get("network_mode"), "host")
+            self.assertFalse(service.get("privileged", False))
+            self.assertNotIn("cap_add", service)
+            for forbidden in ("KUBECONFIG", "OBS_", "SSH_", "docker.sock"):
+                self.assertNotIn(forbidden, rendered)
+            self.assertEqual(
+                service["logging"],
+                {"driver": "json-file", "options": {"max-size": "20m", "max-file": "3"}},
+            )
+
+        observer_rendered = str(observer)
+        self.assertIn("/data/wgs-evidence:ro", observer_rendered)
+        for forbidden in (
+            "WGS_BINDING_ROOT",
+            "WGS_TRANSFER_SPOOL_ROOT",
+            "WGS_RUNTIME_ROOT",
+            "WGS_T7_FASTQ_ROOT",
+            "/config/wgs-bindings",
+            "/data/wgs-runtime",
+            "/bi/fastq/T7_Fastq",
+        ):
+            self.assertNotIn(forbidden, observer_rendered)
+        self.assertEqual(
+            observer["command"],
+            ["python", "-m", "app.wgs_observer_cli", "--evidence-root", "/data/wgs-evidence", "--interval", "5"],
+        )
+
+        scanner_rendered = str(scanner)
+        self.assertIn(
+            "${WGS_T7_FASTQ_HOST_ROOT:-/bi/fastq/T7_Fastq}:/bi/fastq/T7_Fastq:ro",
+            scanner["volumes"],
+        )
+        for forbidden in ("/data/wgs-evidence", "/config/wgs-bindings", "/data/wgs-runtime"):
+            self.assertNotIn(forbidden, scanner_rendered)
+        self.assertEqual(scanner["environment"]["WGS_INTAKE_SCAN_ENABLED"], "${WGS_INTAKE_SCAN_ENABLED:-true}")
+        self.assertEqual(scanner["environment"]["WGS_INTAKE_SCAN_INTERVAL_SECONDS"], "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-1800}")
+        self.assertEqual(scanner["environment"]["WGS_AUTO_DISPATCH_ENABLED"], "${WGS_AUTO_DISPATCH_ENABLED:-false}")
 
     def test_bs10610_network_and_host_binding_are_immutable_contracts(self):
         payload = yaml.safe_load((REPO_ROOT / "docker-compose.wgs.yaml").read_text(encoding="utf-8"))

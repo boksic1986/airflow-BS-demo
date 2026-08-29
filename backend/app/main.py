@@ -68,6 +68,8 @@ from app.wgs_release_catalog import load_wgs_release_catalog
 from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferJob, UserAccount
 from app.wgs_timing_service import enrich_progress, serialize_rule_states
 from app.wgs_runtime_adapter import build_stage_request, container_workdir_to_host, write_stage_request
+from app.wgs_observer import sync_runtime_stage_artifacts
+from app.wgs_observer_lifecycle import activate_observer, request_observer_drain
 from app.wgs_t7_intake import get_wgs_t7_scanner_state, list_wgs_t7_intake
 from app.wgs_step4_service import get_step4_repair_capability, request_step4_repair
 from sqlalchemy import select
@@ -246,6 +248,10 @@ class WgsRuntimeStageRequest(BaseModel):
     attempt: int = Field(ge=1)
     adapter: str
     command: str | None = None
+
+
+class WgsObserverLifecycleRequest(BaseModel):
+    attempt: int = Field(ge=1)
 
 
 class ReanalysisRequest(BaseModel):
@@ -429,7 +435,13 @@ def intake_scanner_state() -> dict[str, object]:
     deployed = _deployed_pipelines(settings) if settings is not None else ("pgta", "nipt_docker")
     if deployed == ("wgs",):
         with get_sessionmaker()() as session:
-            return get_wgs_t7_scanner_state(session=session)
+            return get_wgs_t7_scanner_state(
+                session=session,
+                root=settings.wgs_t7_fastq_root,
+                enabled=settings.wgs_intake_scan_enabled,
+                schedule_seconds=settings.wgs_intake_scan_interval_seconds,
+                auto_dispatch_enabled=settings.wgs_auto_dispatch_enabled,
+            )
     trigger_contracts = _intake_trigger_contracts(deployed)
     try:
         airflow_client = get_airflow_client()
@@ -1008,7 +1020,15 @@ def run_detail(analysis_id: str) -> dict[str, object]:
     payload["wgs_source_commit"] = params.get("wgs_source_commit")
     payload["resolved_runtime"] = params.get("resolved_runtime")
     payload["rule_event_schema_version"] = params.get("rule_event_schema_version")
-    payload["observer"] = ({"status": observer.status, "last_success_at": observer.last_success_at.isoformat() if observer.last_success_at else None, "last_error": observer.last_error, "updated_at": observer.updated_at.isoformat()} if observer else None)
+    payload["observer"] = ({
+        "lifecycle_status": observer.lifecycle_status,
+        "monitoring_health": observer.monitoring_health,
+        "activated_at": observer.activated_at.isoformat() if observer.activated_at else None,
+        "deactivated_at": observer.deactivated_at.isoformat() if observer.deactivated_at else None,
+        "last_success_at": observer.last_success_at.isoformat() if observer.last_success_at else None,
+        "last_error": observer.last_error,
+        "updated_at": observer.updated_at.isoformat(),
+    } if observer else None)
     payload["step4_repair"] = step4_repair
     return payload
 
@@ -1214,11 +1234,70 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
         raise HTTPException(status_code=400, detail={"code": "WGS_RUNTIME_STAGE_FAILED", "message": message}) from exc
 
 
+@app.post(
+    "/api/internal/wgs/runs/{analysis_id}/observer/activate",
+    dependencies=[Depends(require_internal_service_token)],
+)
+def internal_wgs_observer_activate(
+    analysis_id: str, request: WgsObserverLifecycleRequest
+) -> dict[str, object]:
+    try:
+        with get_sessionmaker().begin() as session:
+            state = activate_observer(
+                session, analysis_id=analysis_id, attempt=request.attempt
+            )
+            return {
+                "analysis_id": analysis_id,
+                "attempt": request.attempt,
+                "lifecycle_status": state.lifecycle_status,
+                "monitoring_health": state.monitoring_health,
+            }
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "WGS_OBSERVER_ACTIVATION_FAILED", "message": str(exc)},
+        ) from exc
+
+
+@app.post(
+    "/api/internal/wgs/runs/{analysis_id}/observer/deactivate",
+    dependencies=[Depends(require_internal_service_token)],
+)
+def internal_wgs_observer_deactivate(
+    analysis_id: str, request: WgsObserverLifecycleRequest
+) -> dict[str, object]:
+    try:
+        with get_sessionmaker().begin() as session:
+            state = request_observer_drain(
+                session, analysis_id=analysis_id, attempt=request.attempt
+            )
+            return {
+                "analysis_id": analysis_id,
+                "attempt": request.attempt,
+                "lifecycle_status": state.lifecycle_status if state else "stopped",
+                "monitoring_health": state.monitoring_health if state else "healthy",
+            }
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "WGS_OBSERVER_DEACTIVATION_FAILED", "message": str(exc)},
+        ) from exc
+
+
 @app.get("/api/internal/wgs/runs/{analysis_id}/stage-status", dependencies=[Depends(require_internal_service_token)])
 def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=1), stage: str = Query(min_length=1)) -> dict[str, object]:
     if not _wgs_runtime_adapter_enabled():
         raise HTTPException(status_code=409, detail={"code": "WGS_RUNTIME_DISABLED", "message": "WGS runtime adapter is disabled."})
-    marker = Path(get_settings().wgs_runtime_request_root) / analysis_id / f"attempt-{attempt}" / f"{stage}.status.json"
+    settings = get_settings()
+    sync_runtime_stage_artifacts(
+        session_factory=get_sessionmaker(),
+        request_root=Path(settings.wgs_runtime_request_root),
+        transfer_spool_root=Path(settings.wgs_transfer_spool_root),
+        analysis_id=analysis_id,
+        attempt=attempt,
+        stage=stage,
+    )
+    marker = Path(settings.wgs_runtime_request_root) / analysis_id / f"attempt-{attempt}" / f"{stage}.status.json"
     payload = json.loads(marker.read_text(encoding="utf-8")) if marker.is_file() else {}
     if payload and (
         payload.get("schema_version") != "wgs-runtime.stage-status.v1"

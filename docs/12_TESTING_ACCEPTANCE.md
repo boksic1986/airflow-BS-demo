@@ -1,5 +1,12 @@
 # 12 测试和验收设计
 
+## T145 acceptance
+
+覆盖 1830 行无关联清理、关联保护整体回滚、首次基线零明细、历史
+完成/等待不入库、新 BarcodeStat 三分类、通知激活、四 attempt 隔离、
+cursor 重启幂等、最终 drain、精确 transfer sync、无任务无扫描/无心跳，
+以及 frontend/Compose/network/gate 合同。
+
 ## T143/T144 验收
 
 测试必须覆盖 T7目录格式、普通BarcodeStat、无WGS、正常/混合/仅加测、缺对、

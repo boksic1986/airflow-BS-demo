@@ -173,34 +173,54 @@ services:
       - ./config:/config:ro
     networks: [wgs-platform]
 
-  wgs-observer:
+  wgs-run-observer:
     image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
     restart: unless-stopped
     depends_on:
       platform-admin-init:
         condition: service_completed_successfully
-    command: ["python", "-m", "app.wgs_observer_cli", "--evidence-root", "/data/wgs-evidence", "--binding-root", "/config/wgs-bindings", "--catalog", "/config/wgs_releases.yaml", "--transfer-spool-root", "/data/wgs-runtime/transfer-progress", "--runtime-root", "/data/wgs-runtime", "--interval", "5"]
+    command: ["python", "-m", "app.wgs_observer_cli", "--evidence-root", "/data/wgs-evidence", "--interval", "5"]
     environment:
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
       DEPLOYED_PIPELINES: wgs
-      WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"
       WGS_EVIDENCE_ROOT: /data/wgs-evidence
-      WGS_TRANSFER_SPOOL_ROOT: /data/wgs-runtime/transfer-progress
-      WGS_BINDING_ROOT: /config/wgs-bindings
-      WGS_RUNTIME_ROOT: /data/wgs-runtime
-      WGS_RELEASE_CATALOG_PATH: /config/wgs_releases.yaml
+      WGS_OBSERVER_INTERVAL: "5"
+    volumes:
+      - ./backend:/app:ro
+      - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "3"
+    networks: [wgs-platform]
+
+  wgs-intake-scanner:
+    image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
+    restart: unless-stopped
+    depends_on:
+      platform-admin-init:
+        condition: service_completed_successfully
+    command: ["python", "-m", "app.wgs_intake_scanner_cli", "--intake-root", "/bi/fastq/T7_Fastq", "--intake-interval", "1800"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
+      DEPLOYED_PIPELINES: wgs
       WGS_T7_FASTQ_ROOT: /bi/fastq/T7_Fastq
       WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-true}"
       WGS_INTAKE_SCAN_INTERVAL_SECONDS: "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-1800}"
       WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"
     volumes:
       - ./backend:/app:ro
-      - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
-      - ${WGS_BINDING_HOST_ROOT:?set WGS_BINDING_HOST_ROOT}:/config/wgs-bindings:ro
-      - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime:ro
       - ${WGS_T7_FASTQ_HOST_ROOT:-/bi/fastq/T7_Fastq}:/bi/fastq/T7_Fastq:ro
-      - ./config/wgs_releases.yaml:/config/wgs_releases.yaml:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "3"
     networks: [wgs-platform]
 
   airflow-init:

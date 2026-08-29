@@ -148,6 +148,12 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         raise RuntimeError(
             f"restricted node200 WGS stage failed ({completed.returncode}): {error}"
         )
+    if runner_stage == "step3_monitor":
+        _backend_json(
+            f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/activate",
+            method="POST",
+            payload={"attempt": conf["attempt"]},
+        )
     return {**registered, "runner_status": "accepted"}
 
 
@@ -161,6 +167,14 @@ def stage_ready(stage: str, **context: Any) -> bool:
     payload = _backend_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/stage-status?{query}"
     )
+    if runner_stage == "step3_monitor" and (
+        payload.get("failed") or payload.get("ready")
+    ):
+        _backend_json(
+            f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/deactivate",
+            method="POST",
+            payload={"attempt": conf["attempt"]},
+        )
     if payload.get("failed"):
         raise RuntimeError(str(payload.get("message") or f"WGS stage failed: {stage}"))
     return bool(payload.get("ready"))
@@ -170,11 +184,17 @@ def release_leases(**context: Any) -> dict[str, Any]:
     conf = dict(context["dag_run"].conf or {})
     if not _runtime_enabled():
         return {"released": False, "reason": "runtime adapter disabled"}
-    return _backend_json(
+    observer = _backend_json(
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/deactivate",
+        method="POST",
+        payload={"attempt": conf["attempt"]},
+    )
+    released = _backend_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/release_leases",
         method="POST",
         payload={"attempt": conf["attempt"], "adapter": "wgs-runtime-200"},
     )
+    return {**released, "observer_lifecycle_status": observer.get("lifecycle_status")}
 
 
 def acquire_transfer_slot(stage: str, **context: Any) -> bool:

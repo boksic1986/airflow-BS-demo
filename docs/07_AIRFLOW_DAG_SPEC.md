@@ -1,5 +1,11 @@
 # 07 Airflow DAG 设计
 
+## T145 Step3 observer lifecycle
+
+`start_step3_monitor`只在 node200 接受后激活 observer。`wait_step3_analysis`看到终态
+后请求 draining；`release_leases`也始终执行最终 drain，覆盖失败、取消和
+上游 skip。Step1/Step5 sensor 各自只同步当前 transfer 的精确路径。
+
 ## T144 Step4 maintenance mode
 
 唯一`bio_wgs`仍为18 tasks、manual、paused。`maintenance_mode=repair_step4`复用

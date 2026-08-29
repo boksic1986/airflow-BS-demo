@@ -82,6 +82,7 @@ def make_client(tmp_path, monkeypatch):
         public_airflow_url="",
         wgs_release_catalog_path=str(catalog),
         wgs_runtime_request_root=str(tmp_path / "runtime" / "runner-requests"),
+        wgs_transfer_spool_root=str(tmp_path / "runtime" / "transfer-progress"),
         wgs_runtime_bs_root=str(tmp_path / "runtime"),
         wgs_runtime_node200_root=str(tmp_path / "node200-runtime"),
         wgs_results_host_root=str(tmp_path / "results"),
@@ -89,6 +90,10 @@ def make_client(tmp_path, monkeypatch):
         wgs_intake_container_root=str(tmp_path),
         wgs_intake_host_root=str(tmp_path),
         wgs_intake_node200_root=str(tmp_path),
+        wgs_t7_fastq_root="/bi/fastq/T7_Fastq",
+        wgs_intake_scan_enabled=True,
+        wgs_intake_scan_interval_seconds=1800,
+        wgs_auto_dispatch_enabled=False,
     )
     airflow = FakeAirflowClient()
     monkeypatch.setattr(main, "get_sessionmaker", lambda: sessions)
@@ -140,14 +145,9 @@ def test_wgs_t7_intake_endpoints_are_read_only_and_do_not_expose_sample_ids(tmp_
         session.add(
             WgsIntakeScannerState(
                 id=1,
-                root_path="/bi/fastq/T7_Fastq",
-                scan_enabled=True,
-                scan_interval_seconds=1800,
-                auto_dispatch_enabled=False,
-                bootstrap_completed_at=observed_at,
-                last_scan_completed_at=observed_at,
-                next_scan_at=observed_at + timedelta(seconds=1800),
-                last_status="success",
+                first_scan_at=observed_at,
+                last_scan_at=observed_at,
+                last_scanned_directory_count=1830,
             )
         )
         session.commit()
@@ -186,18 +186,14 @@ def test_wgs_t7_intake_endpoints_are_read_only_and_do_not_expose_sample_ids(tmp_
     scanner = client.get("/api/intake/scanner-state")
     assert scanner.status_code == 200, scanner.text
     assert scanner.json() == {
-        "scanner": "wgs-observer",
+        "scanner": "wgs-intake-scanner",
         "root": "/bi/fastq/T7_Fastq",
         "enabled": True,
         "schedule_seconds": 1800,
         "auto_dispatch_enabled": False,
-        "bootstrap_completed_at": "2026-08-29T08:30:00+00:00",
-        "last_scan_started_at": None,
-        "last_scan_completed_at": "2026-08-29T08:30:00+00:00",
-        "next_scan_at": "2026-08-29T09:00:00+00:00",
-        "last_scan_duration_ms": None,
-        "last_status": "success",
-        "last_counts": {},
+        "first_scan_at": "2026-08-29T08:30:00+00:00",
+        "last_scan_at": "2026-08-29T08:30:00+00:00",
+        "last_scanned_directory_count": 1830,
         "last_error": None,
     }
 
@@ -461,9 +457,12 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
                 "analysis_id": analysis_id,
                 "attempt": 1,
                 "stage": "step3_monitor",
-                "status": "running",
-                "message": "running",
-                "master": {"master_state": "RUNNING", "percent": 12.5},
+                    "status": "running",
+                    "updated_at": "2026-08-30T02:00:00Z",
+                    "message": "running",
+                    "monitoring_health": "healthy",
+                    "master_job": "wgs-master-0123456789abcdef0123",
+                    "master": {"master_state": "RUNNING", "percent": 12.5},
             }
         ),
         encoding="utf-8",
@@ -523,6 +522,45 @@ def test_prepare_reports_release_unavailable_without_silent_rebinding(
     assert response.json()["detail"]["code"] == "WGS_RELEASE_UNAVAILABLE"
 
 
+def test_internal_step3_observer_activation_and_drain_are_exposed_in_run_detail(
+    tmp_path, monkeypatch
+):
+    client, _, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "clinical-wgs",
+            "execution_mode": "cce",
+            "batch_no": "BATCH-OBSERVER",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+
+    activated = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/observer/activate",
+        headers=internal,
+        json={"attempt": 1},
+    )
+    assert activated.status_code == 200, activated.text
+    assert activated.json()["lifecycle_status"] == "active"
+    detail = client.get(f"/api/runs/{analysis_id}", headers=headers).json()
+    assert detail["observer"]["lifecycle_status"] == "active"
+    assert detail["observer"]["monitoring_health"] == "healthy"
+
+    drained = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/observer/deactivate",
+        headers=internal,
+        json={"attempt": 1},
+    )
+    assert drained.status_code == 200, drained.text
+    assert drained.json()["lifecycle_status"] == "draining"
+
+
 def test_admin_manages_users_but_operator_cannot(tmp_path, monkeypatch):
     client, _, _ = make_client(tmp_path, monkeypatch)
     operator_headers = login(client, "operator", "operator-pass")
@@ -575,7 +613,8 @@ def test_wgs_detail_rules_and_pods_are_database_only_authenticated_reads(tmp_pat
     assert detail.json()["resolved_runtime"] is None
     assert "pipeline_snapshot_id" not in detail.json()
     assert detail.json()["rule_event_schema_version"] == "1"
-    assert detail.json()["observer"]["status"] == "healthy"
+    assert detail.json()["observer"]["monitoring_health"] == "healthy"
+    assert detail.json()["observer"]["lifecycle_status"] == "stopped"
     assert rules.json()["items"][0]["rule"] == "mapping"
     assert len(pods.json()["items"]) == 1
     assert pods.json()["items"][0] == {

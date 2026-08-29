@@ -19,8 +19,25 @@
 | T142 | Single published WGS release Airflow integration | airflow/backend/observer/frontend/infra/docs | one server-owned release contract at `1778fca`; request v3; fixed-repository runner; release-bound DB/API/UI; disabled BS release | BS10610 tests and smoke pass with gates false and paused DAG; no real OBS/CCE execution | done in disabled mode |
 | T143 | T7 scan-only intake | backend/observer/frontend/infra/QA/docs | 30-minute read-only T7 scanner, bootstrap, chip-level DB/API/UI, auto-dispatch hard-off | unit/integration/migration/network pass; two production cycles remain idempotent with zero AnalysisRun and DagRun | done |
 | T144 | WGS Step4 CRAM repair contract | backend/airflow/observer/frontend/QA/docs | fixed-cram service action, same-attempt maintenance mode, 0.7.1 frozen-bundle command, RBAC and audit | disabled-mode tests pass; gates-off returns 409 before Airflow/SSH; real repair deferred | done in disabled mode |
+| T145 | WGS scanner sparse persistence and CCE observer lifecycle | backend/airflow/observer/frontend/infra/QA/docs | split scanner/run observer, LISTEN/NOTIFY lifecycle, exact transfer sync, migration 0012, protected 1830-row cleanup and disabled release | baseline stores zero details; idle observer does no polling/logging; tests/API/network/gates pass | done in disabled mode |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
+
+## T145 - WGS scanner sparse persistence and observer lifecycle
+
+Owner: backend/airflow/observer/frontend/infra/QA/docs
+
+Status: done in disabled mode
+
+Acceptance:
+
+- [x] `wgs-intake-scanner`与`wgs-run-observer`独立服务、最小只读挂载和20m x 3日志轮转。
+- [x] 无活动任务时 run observer阻塞LISTEN/NOTIFY，无全局扫描和空心跳。
+- [x] scanner singleton只保存四个基线字段；首次和第二次生产扫描后均为1830个目录、0条明细。
+- [x] 清理前备份、关联分析保护和1830行单事务清理通过。
+- [x] Step3 activation/drain、重启恢复、四attempt隔离、精确transfer sync和前端状态合同通过。
+- [x] BS10610 disabled release、migration 0012、登录/API/HTTP、DAG pause、三门禁和Docker网络验收通过。
+- [ ] 真实Step3/CCE Rule JSONL活动验收仍属于T140，本任务未启动分析。
 
 ## T143/T144 T7 scan-only 与 Step4 repair
 

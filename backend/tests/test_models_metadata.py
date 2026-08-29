@@ -88,6 +88,12 @@ def test_wgs_observer_cursor_tables_and_identity_constraints_are_declared() -> N
 
     assert ("analysis_id", "attempt", "relative_path") in cursor_unique_sets
     assert ("analysis_id", "attempt") in observer_unique_sets
+    assert {
+        "lifecycle_status",
+        "monitoring_health",
+        "activated_at",
+        "deactivated_at",
+    }.issubset(ObserverRunState.__table__.columns.keys())
 
 
 def test_kubernetes_workload_has_incremental_observation_fields() -> None:

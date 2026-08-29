@@ -1,5 +1,13 @@
 # 11 部署 Runbook
 
+## T145 稀疏基线和 observer 拆分发布
+
+发布前停止旧`wgs-observer`，备份 biodemo 并校验 SHA256。重新查询 intake
+关联分析数；非 0 立即中止。迁移到`20260830_0012`后运行带精确 confirm
+的 cleanup CLI，再启动`wgs-intake-scanner`和`wgs-run-observer`。首次 scanner
+只建立基线；验收 batch/run/DagRun 均为 0，run observer 空闲时无日志。
+网络和三个门禁保持不变。完整步骤见[doc 27](27_WGS_SCANNER_OBSERVER_LIFECYCLE.md)。
+
 ## T143 T7 scan-only 禁用态发布
 
 1. 确认 catalog绑定`wgs-4.1.1-1656b5d`，两个 execution gate为 false，
