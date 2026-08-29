@@ -1,6 +1,14 @@
 # 06 前端设计
 
-## T142 单一 release 展示
+## T143/T144 T7 与 Step4 页面
+
+Dashboard新增“T7自动扫描”面板，显示 scanner健康、bootstrap、下一次扫描及
+芯片级状态/计数，并固定提示“自动分析关闭”；不显示样本编号或源路径。Run
+Detail只在合同满足时向 operator/admin展示“修复CRAM联动并继续”，使用二次
+确认且不允许用户输入 repair参数。门禁或0.7.1运行环境不可用时显示“运行环境尚
+不可用”。viewer保持只读。见[文档 26](26_WGS_T7_INTAKE_STEP4_REPAIR.md)。
+
+## T142 单一 release 展示（历史基线）
 
 Submit Run 在表单上方读取`GET /api/wgs/release`，只读展示
 `WGS V4.1.1 / 1778fca`和 release ID；没有版本选择器，create 请求也不携带版本

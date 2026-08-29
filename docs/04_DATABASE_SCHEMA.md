@@ -1,5 +1,12 @@
 # 04 数据库设计
 
+## T143/T144 migration 0011
+
+Alembic `20260829_0011`扩展`wgs_intake_batch`为可独立于 AnalysisRun 的芯片发现
+表，并新增单例`wgs_intake_scanner_state`和幂等`wgs_maintenance_action`。intake
+公开投影不得泄露 sample ID、源路径或 fingerprint；nullable `analysis_id`外键用
+`ON DELETE SET NULL`保留扫描证据。字段、状态和唯一键见[文档 26](26_WGS_T7_INTAKE_STEP4_REPAIR.md)。
+
 ## T142 WGS release identity migration
 
 Alembic `20260827_0010`非破坏性地将

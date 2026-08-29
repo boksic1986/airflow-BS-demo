@@ -26,7 +26,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         for dag in ("bio_wgs_cce.py", "bio_wgs_onprem.py", "bio_wgs_intake_scan.py"):
             self.assertNotIn(f"./dags/{dag}:/opt/airflow/dags/{dag}:ro", compose)
             self.assertFalse((REPO_ROOT / "dags" / dag).exists())
-        for required in ("wgs_cce_runs 4", "wgs_obs_transfer 1", "DEPLOYED_PIPELINES: wgs", 'WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"', 'WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"', "WGS_SSH_CONFIG_PATH"):
+        for required in ("wgs_cce_runs 4", "wgs_obs_transfer 1", "DEPLOYED_PIPELINES: wgs", 'WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"', 'WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"', 'WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-true}"', 'WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"', "WGS_SSH_CONFIG_PATH"):
             self.assertIn(required, compose)
         self.assertIn('${WGS_RUNNER_200_ALIAS:-wgs-node200}', compose)
         self.assertNotIn("AIRFLOW_CONN_WGS_RUNNER_200", compose)
@@ -45,7 +45,10 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertIn("WGS_RUNNER_200_HOST=172.17.61.200", env)
         self.assertIn("WGS_RUNNER_200_ALIAS=wgs-node200", env)
         self.assertIn("wgs:", intake)
-        self.assertIn("*.wgs.yaml", intake)
+        self.assertIn("mode: t7_scan_only", intake)
+        self.assertIn("root: /bi/fastq/T7_Fastq", intake)
+        self.assertIn("interval_seconds: 1800", intake)
+        self.assertIn("auto_dispatch_enabled: false", intake)
         self.assertIn("wgs-cce-v1", profiles)
         self.assertIn("wgs-onprem-v1", profiles)
 
@@ -62,10 +65,14 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         for forbidden in ("KUBECONFIG", "OBS_", "SSH_", "docker.sock"):
             self.assertNotIn(forbidden, rendered)
         self.assertEqual(observer["environment"]["WGS_EXECUTION_ENABLED"], "${WGS_EXECUTION_ENABLED:-false}")
+        self.assertEqual(observer["environment"]["WGS_INTAKE_SCAN_ENABLED"], "${WGS_INTAKE_SCAN_ENABLED:-true}")
+        self.assertEqual(observer["environment"]["WGS_INTAKE_SCAN_INTERVAL_SECONDS"], "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-1800}")
+        self.assertEqual(observer["environment"]["WGS_AUTO_DISPATCH_ENABLED"], "${WGS_AUTO_DISPATCH_ENABLED:-false}")
         volumes = observer["volumes"]
         self.assertTrue(any("/data/wgs-evidence:ro" in item for item in volumes))
         self.assertTrue(any("/config/wgs-bindings:ro" in item for item in volumes))
         self.assertTrue(any("/config/wgs_releases.yaml:ro" in item for item in volumes))
+        self.assertIn("${WGS_T7_FASTQ_HOST_ROOT:-/bi/fastq/T7_Fastq}:/bi/fastq/T7_Fastq:ro", volumes)
         command = " ".join(observer["command"])
         self.assertIn("--binding-root /config/wgs-bindings", command)
         self.assertIn("--catalog /config/wgs_releases.yaml", command)

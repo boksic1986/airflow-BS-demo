@@ -24,9 +24,9 @@ class WgsOnlyDagTests(unittest.TestCase):
                 "project_name": "clinical-wgs",
                 "batch_no": "BATCH-1",
                 "fq_path": "/data/wgs-intake/BATCH-1",
-                "pipeline_release_id": "wgs-4.1.1-1778fca",
+                "pipeline_release_id": "wgs-4.1.1-1656b5d",
                 "wgs_version": "V4.1.1",
-                "wgs_source_commit": "1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
             },
         }
         self.assertEqual(bio_wgs.validate_request(**_context(conf))["analysis_id"], conf["analysis_id"])

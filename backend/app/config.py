@@ -47,6 +47,10 @@ class Settings:
     wgs_intake_container_root: str
     wgs_intake_host_root: str
     wgs_intake_node200_root: str
+    wgs_t7_fastq_root: str
+    wgs_intake_scan_enabled: bool
+    wgs_intake_scan_interval_seconds: int
+    wgs_auto_dispatch_enabled: bool
 
 
 def get_cors_origins() -> list[str]:
@@ -131,6 +135,16 @@ def get_settings() -> Settings:
         ),
         wgs_intake_node200_root=os.getenv(
             "WGS_INTAKE_NODE200_ROOT", "/sg2/33.chenjiucheng/WGS_input"
+        ),
+        wgs_t7_fastq_root=os.getenv("WGS_T7_FASTQ_ROOT", "/bi/fastq/T7_Fastq"),
+        wgs_intake_scan_enabled=_parse_bool(
+            os.getenv("WGS_INTAKE_SCAN_ENABLED", "true")
+        ),
+        wgs_intake_scan_interval_seconds=_parse_int(
+            os.getenv("WGS_INTAKE_SCAN_INTERVAL_SECONDS", "1800"), default=1800
+        ),
+        wgs_auto_dispatch_enabled=_parse_bool(
+            os.getenv("WGS_AUTO_DISPATCH_ENABLED", "false")
         ),
     )
 

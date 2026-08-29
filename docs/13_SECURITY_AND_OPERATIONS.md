@@ -1,5 +1,13 @@
 # 13 安全和运维约束
 
+## T143/T144 新边界
+
+T7源目录只读挂载给 observer；扫描器不递归、不读取FASTQ内容、不计算MD5。
+API/UI不得返回样本编号、源路径或fingerprint。Step4维修参数全部来自冻结binding，
+只允许固定cram组和服务端确认串；浏览器不能提交路径或shell参数。门禁关闭时必须
+在任何Airflow/SSH动作前返回409。Docker外部网络继续为`192.168.199.0/24`，只
+发布`172.17.106.10:12959`。详见[文档 26](26_WGS_T7_INTAKE_STEP4_REPAIR.md)。
+
 ## T142 单一 release 信任边界
 
 WGS repo path 由 node200 runner 固定，request v3 不接受任意 repository path。

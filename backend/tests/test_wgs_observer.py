@@ -17,11 +17,12 @@ from app.models import (
     RuleState,
     RunAttempt,
     TransferJob,
+    WgsMaintenanceAction,
 )
 from app.wgs_observer import ingest_evidence_once
 
 
-RELEASE_ID = "wgs-4.1.1-1778fca"
+RELEASE_ID = "wgs-4.1.1-1656b5d"
 RUN_LABEL = "WGS_20260812_000001_AAAAAA-a1"
 
 
@@ -43,7 +44,7 @@ def write_catalog(path: Path) -> None:
                 "release:",
                 f"  release_id: {RELEASE_ID}",
                 "  version: V4.1.1",
-                "  source_commit: 1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+                "  source_commit: 1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
                 "  bs10610_repo_path: /mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
                 "  node200_repo_path: /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
                 '  rule_event_schema_version: "1"',
@@ -82,7 +83,7 @@ def prepare_run(tmp_path: Path, *, attempt: int = 1, bind_attempt: int | None = 
                 status="running",
                 params_json={
                     "pipeline_release_id": RELEASE_ID,
-                    "wgs_source_commit": "1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+                    "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
                 },
             )
         )
@@ -141,13 +142,14 @@ def test_prepare_binding_persists_resolved_runtime_audit(tmp_path: Path) -> None
                 "attempt": 1,
                 "pipeline_release_id": RELEASE_ID,
                 "wgs_version": "V4.1.1",
-                "wgs_source_commit": "1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
                 "resolved_runtime": {
                     "cce_pipeline_version": "0.7.0",
                     "profile_id": "wgs-4.1.1",
                     "profile_revision": "r1",
                     "profile_sha256": "a" * 64,
                     "master_image_digest": "swr.example/wgs-master@sha256:" + "b" * 64,
+                    "repair_groups": {"cram": {"target": "linkage/cram"}},
                 },
             }
         ),
@@ -168,6 +170,75 @@ def test_prepare_binding_persists_resolved_runtime_audit(tmp_path: Path) -> None
         )
         assert run.params_json["resolved_runtime"]["cce_pipeline_version"] == "0.7.0"
         assert run.params_json["resolved_runtime"]["profile_revision"] == "r1"
+        assert run.params_json["resolved_runtime"]["repair_groups"] == {
+            "cram": {"target": "linkage/cram"}
+        }
+
+
+def test_step4_repair_status_updates_the_idempotent_maintenance_action(tmp_path: Path) -> None:
+    sessions, analysis_id, evidence_root, binding_root, catalog_path, _ = prepare_run(
+        tmp_path
+    )
+    runtime_root = tmp_path / "runtime"
+    status_path = (
+        runtime_root
+        / "runner-requests"
+        / analysis_id
+        / "attempt-1"
+        / "step4_repair_cram.status.json"
+    )
+    status_path.parent.mkdir(parents=True)
+    with sessions() as session:
+        session.add(
+            WgsMaintenanceAction(
+                action_id="step4-cram-test",
+                analysis_id=analysis_id,
+                attempt=1,
+                action_type="repair_step4_cram",
+                linkage_group="cram",
+                status="queued",
+                requested_by="operator",
+            )
+        )
+        session.commit()
+    status_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step4_repair_cram",
+                "status": "success",
+                "message": "CRAM linkage repaired",
+                "updated_at": "2026-08-29T10:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    first = ingest_evidence_once(
+        session_factory=sessions,
+        evidence_root=evidence_root,
+        binding_root=binding_root,
+        catalog_path=catalog_path,
+        runtime_root=runtime_root,
+    )
+    second = ingest_evidence_once(
+        session_factory=sessions,
+        evidence_root=evidence_root,
+        binding_root=binding_root,
+        catalog_path=catalog_path,
+        runtime_root=runtime_root,
+    )
+
+    assert first["events_ingested"] == 1
+    assert second["events_ingested"] == 0
+    with sessions() as session:
+        action = session.scalar(select(WgsMaintenanceAction))
+        assert action.status == "success"
+        assert action.ended_at is not None
+        assert action.evidence_path.endswith("step4_repair_cram.status.json")
+        assert action.error_message is None
 
 
 def test_transfer_progress_spool_is_idempotent(tmp_path: Path) -> None:

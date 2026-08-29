@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 from sqlalchemy import select
 
@@ -16,6 +16,7 @@ from app.models import (
     RuleState,
     RunAttempt,
     TransferJob,
+    WgsMaintenanceAction,
 )
 from app.wgs_evidence_binding import EvidenceBinding, load_evidence_bindings
 from app.wgs_release_catalog import load_wgs_release_catalog
@@ -150,6 +151,7 @@ def ingest_evidence_once(
             if path.name not in {
                 "step1_upload.status.json",
                 "step3_monitor.status.json",
+                "step4_repair_cram.status.json",
                 "step5_download.status.json",
             }:
                 continue
@@ -189,6 +191,12 @@ def _ingest_runtime_binding(session_factory, runtime_root: Path, path: Path) -> 
         "resource_manifest_sha256",
     }
     resolved_runtime = {key: str(source.get(key) or "") for key in sorted(allowed)}
+    repair_groups = source.get("repair_groups")
+    if isinstance(repair_groups, dict) and isinstance(repair_groups.get("cram"), dict):
+        target = str(repair_groups["cram"].get("target") or "")
+        target_path = PurePosixPath(target)
+        if target and not target_path.is_absolute() and ".." not in target_path.parts:
+            resolved_runtime["repair_groups"] = {"cram": {"target": target}}
     with session_factory() as session:
         analysis = session.scalar(
             select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
@@ -221,7 +229,12 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
     heartbeat = datetime.fromisoformat(
         str(payload.get("updated_at") or "").replace("Z", "+00:00")
     )
-    if stage not in {"step1_upload", "step3_monitor", "step5_download"}:
+    if stage not in {
+        "step1_upload",
+        "step3_monitor",
+        "step4_repair_cram",
+        "step5_download",
+    }:
         raise ValueError("unsupported runtime stage status")
     with session_factory() as session:
         analysis = session.scalar(
@@ -229,7 +242,43 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
         )
         if analysis is None or analysis.attempt != attempt:
             raise ValueError("runtime stage status references an unknown active attempt")
-        if stage in {"step1_upload", "step5_download"}:
+        if stage == "step4_repair_cram":
+            action = session.scalar(
+                select(WgsMaintenanceAction).where(
+                    WgsMaintenanceAction.analysis_id == analysis_id,
+                    WgsMaintenanceAction.attempt == attempt,
+                    WgsMaintenanceAction.action_type == "repair_step4_cram",
+                )
+            )
+            if action is None:
+                raise ValueError("Step4 repair status has no registered maintenance action")
+            previous = action.updated_at
+            if previous is not None:
+                if previous.tzinfo is None:
+                    previous = previous.replace(tzinfo=timezone.utc)
+                if action.evidence_path and heartbeat <= previous:
+                    return False
+            normalized = {
+                "accepted": "queued",
+                "running": "running",
+                "success": "success",
+                "failed": "failed",
+            }.get(status)
+            if normalized is None:
+                raise ValueError("Step4 repair status is invalid")
+            action.status = normalized
+            action.evidence_path = str(resolved.relative_to(request_root))
+            action.error_message = (
+                str(payload.get("message") or "") or None
+                if normalized == "failed"
+                else None
+            )
+            if normalized == "running" and action.started_at is None:
+                action.started_at = heartbeat
+            if normalized in {"success", "failed"}:
+                action.ended_at = heartbeat
+            action.updated_at = heartbeat
+        elif stage in {"step1_upload", "step5_download"}:
             kind = "input" if stage == "step1_upload" else "result"
             transfer_id = f"{analysis_id}-a{attempt}-{kind}"
             row = session.scalar(

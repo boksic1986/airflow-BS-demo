@@ -282,12 +282,86 @@ class RunAttempt(Base):
 class WgsIntakeBatch(Base):
     __tablename__ = "wgs_intake_batch"
 
+    __table_args__ = (
+        Index("ix_wgs_intake_batch_state", "state"),
+        Index("ix_wgs_intake_batch_sequencing_batch", "sequencing_batch"),
+    )
+
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
     source_path: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-    manifest_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    analysis_id: Mapped[str] = mapped_column(ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False, unique=True)
-    ready_mtime_ns: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    chip_id: Mapped[str] = mapped_column(String(256), nullable=False, unique=True)
+    sequencing_batch: Mapped[str] = mapped_column(String(16), nullable=False)
+    analysis_id: Mapped[str | None] = mapped_column(
+        ForeignKey("analysis_run.analysis_id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+    )
+    barcode_stat_mtime_ns: Mapped[int | None] = mapped_column(BigInteger)
+    barcode_stat_size: Mapped[int | None] = mapped_column(BigInteger)
+    eligible_pair_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    excluded_addon_pair_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    pair_issue_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    eligible_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    observed_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    state: Mapped[str] = mapped_column(String(64), nullable=False, default="waiting_barcode_stat")
+    last_error: Mapped[str | None] = mapped_column(Text)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    last_scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class WgsIntakeScannerState(Base):
+    __tablename__ = "wgs_intake_scanner_state"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    root_path: Mapped[str] = mapped_column(Text, nullable=False)
+    scan_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    scan_interval_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=1800)
+    auto_dispatch_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    bootstrap_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    bootstrap_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_scan_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_scan_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_scan_duration_ms: Mapped[int | None] = mapped_column(BigInteger)
+    last_status: Mapped[str] = mapped_column(String(32), nullable=False, default="never_run")
+    last_counts_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class WgsMaintenanceAction(Base):
+    __tablename__ = "wgs_maintenance_action"
+    __table_args__ = (
+        UniqueConstraint(
+            "analysis_id",
+            "attempt",
+            "action_type",
+            name="uq_wgs_maintenance_action_attempt_type",
+        ),
+        Index("ix_wgs_maintenance_action_analysis", "analysis_id"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    action_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    analysis_id: Mapped[str] = mapped_column(
+        ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False
+    )
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    action_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    linkage_group: Mapped[str] = mapped_column(String(32), nullable=False, default="cram")
+    status: Mapped[str] = mapped_column(String(64), nullable=False, default="requested")
+    requested_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_dag_run_id: Mapped[str | None] = mapped_column(String(256))
+    maintenance_dag_run_id: Mapped[str | None] = mapped_column(String(256))
+    evidence_path: Mapped[str | None] = mapped_column(Text)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
 
 class TransferJob(Base):

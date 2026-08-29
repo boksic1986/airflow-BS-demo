@@ -1,18 +1,19 @@
 # WGS 4.1.1 Runtime Integration Development Status
 
-更新时间：2026-08-28
+更新时间：2026-08-29
 
-当前结论：T142 已按用户确认的 WGS commit
-`1778fcabd99b5253aa90cd410112dc2f78e0c51a`完成 Airflow 单一发布版本接入、
-BS10610 禁用态发布和 smoke。真实 OBS/CCE 批次仍未获批准。
+当前结论：T143/T144 已按 WGS commit
+`1656b5d7a6e2f24242c38149f6d1c92ac266cd37`完成 T7 scan-only和Step4 repair
+禁用态接入与发布。两个真实1800秒周期通过。真实sampleinfo、AnalysisRun、
+Airflow DagRun、OBS/CCE批次和Step4 repair均未获批准。
 
 ## 1. 当前发布合同
 
 | 项目 | 当前目标值 |
 |---|---|
-| release ID | `wgs-4.1.1-1778fca` |
+| release ID | `wgs-4.1.1-1656b5d` |
 | WGS version | `V4.1.1` |
-| WGS commit | `1778fcabd99b5253aa90cd410112dc2f78e0c51a` |
+| WGS commit | `1656b5d7a6e2f24242c38149f6d1c92ac266cd37` |
 | BS10610 repo | `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | node200 repo | `/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | runtime request | `wgs-runtime.request.v3` |
@@ -31,6 +32,14 @@ Airflow 不复制 WGS 源码，也不在 node200 创建 Airflow-owned release。
 
 ## 2. 已完成代码改造
 
+- observer增加只读 T7扫描、首次bootstrap、eligible/add-on配对分类、fingerprint
+  漂移和advisory lock；1800秒扫描与5秒evidence轮询独立。
+- migration `20260829_0011`增加scanner状态、芯片发现和Step4维护操作。
+- 后端/UI增加无样本标识的intake投影，以及固定cram的Step4 repair能力、RBAC、
+  二次确认和执行关闭409。
+- 唯一`bio_wgs`增加同attempt的`repair_step4`维护模式，但任务数、paused状态和
+  正常Step1-Step6图不变。
+
 - 单一 schema-3 `wgs_releases.yaml`取代 development snapshot catalog。
 - `POST /api/runs`不接受客户端版本字段，后端自动绑定当前 release、WGS version 和
   source commit；新增 `GET /api/wgs/release`。
@@ -42,7 +51,7 @@ Airflow 不复制 WGS 源码，也不在 node200 创建 Airflow-owned release。
 - runtime request v3 不再携带 snapshot path、cce-pipeline version 或 wheel hash。
 - node200 runner固定 `WGS_REPO_ROOT`，prepare重试复用已有 binding；resume 和
   rerun attempt 继续使用原 release，原 commit不可用时明确阻断，不能静默换版本。
-- 前端提交页只读显示 `WGS V4.1.1 / 1778fca`，没有版本选择器；Run Detail显示
+- 前端提交页只读显示 `WGS V4.1.1 / 1656b5d`，没有版本选择器；Run Detail显示
   release、commit和prepare后解析的 runtime审计字段。
 - 已删除 Airflow-owned WGS复制脚本、candidate sync脚本及其旧测试。
 
@@ -68,6 +77,25 @@ Master Job/Pod evidence仍由node200写入共享spool，observer不持有kubecon
 私钥；API/UI只展示Master，不持续枚举Worker Pod。
 
 ## 4. 禁用态预验收
+
+T143/T144当前结果：BS10610 backend `216 passed, 1 skipped`，runtime/scripts
+`17 passed`，唯一 paused `bio_wgs`有18 tasks且无import error；frontend 9个测试
+文件、30 tests、TypeScript和Vite build通过。临时PostgreSQL已完成
+`0010 → 0011 → 0010 → 0011`往返，并核对nullable分析关联和`ON DELETE SET NULL`。
+生产已迁移0011并启动新服务，`current`已切换到T143。
+首次bootstrap记录1817个`bootstrap_ignored`和11个`waiting_barcode_stat`，且
+AnalysisRun、RunAttempt、maintenance action和Airflow DagRun均为0。
+
+部署时发现旧evidence遍历可延后原先同循环中的首次扫描，因此scanner已改为
+observer进程内的独立线程和独立1800秒时钟；evidence的5秒循环不再阻塞T7扫描。
+扫描调度按每轮开始时间计算，不把扫描耗时叠加到1800秒间隔。首次全量扫描约
+325秒；永久`bootstrap_ignored`随后跳过FASTQ枚举，稳定扫描约1.4秒。bootstrap后
+新完成但无eligible WGS的芯片只登记为`no_new_wgs`，未创建运行。
+稳定基线为`10:20:30.971949 UTC`；两个自然周期分别推进到
+`10:50:30.972362`和`11:20:30.972623 UTC`，耗时516ms和1216ms。两轮分类计数
+保持1817/11/1，业务run/attempt/maintenance及Airflow DagRun均为0。T143验收完成。
+
+以下为T142历史预验收结果：
 
 - BS10610 isolated backend：`202 passed`。
 - BS10610 runtime/scripts：`16 passed`。

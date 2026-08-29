@@ -1,8 +1,9 @@
 # WGS 4.1.1 单一发布版本 Airflow 接入方案
 
-更新时间：2026-08-27
+更新时间：2026-08-29
 
-本文是当前唯一有效的 WGS Airflow 接入设计。文档 22、T131-T141 中的
+本文定义单一发布和正常Step1-Step6边界；T7 scan-only和Step4 repair的当前增量
+设计以[文档 26](26_WGS_T7_INTAKE_STEP4_REPAIR.md)为准。文档 22、T131-T142 中的
 Airflow-owned snapshot、固定 cce-pipeline wheel/profile/image 门禁和 WGS
 4.0.1/4.1.0 内容均为历史记录。
 
@@ -12,9 +13,9 @@ Airflow-owned snapshot、固定 cce-pipeline wheel/profile/image 门禁和 WGS
 
 | 字段 | 当前值 |
 |---|---|
-| release ID | `wgs-4.1.1-1778fca` |
+| release ID | `wgs-4.1.1-1656b5d` |
 | WGS version | `V4.1.1` |
-| source commit | `1778fcabd99b5253aa90cd410112dc2f78e0c51a` |
+| source commit | `1656b5d7a6e2f24242c38149f6d1c92ac266cd37` |
 | BS10610 path | `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | node200 path | `/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | Rule event schema | `1` |
@@ -184,7 +185,7 @@ Alembic `20260827_0010`：
 - Rule 去重、observer binding 和 ETA 历史均按 `pipeline_release_id`隔离；ETA
   选择同 release 最近 20 个成功 CCE run。
 
-前端 Submit 页只读显示 `WGS V4.1.1 / 1778fca`和 release ID，不提供版本选择
+前端 Submit 页只读显示 `WGS V4.1.1 / 1656b5d`和 release ID，不提供版本选择
 器。Run Detail、Rules、Transfers 和 Master 页面显示本次 run 的 release；
 resolved runtime 在 prepare 前明确显示为未解析。
 

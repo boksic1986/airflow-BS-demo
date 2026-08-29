@@ -1,5 +1,14 @@
 # 12 测试和验收设计
 
+## T143/T144 验收
+
+测试必须覆盖 T7目录格式、普通BarcodeStat、无WGS、正常/混合/仅加测、缺对、
+bootstrap、重复扫描、advisory lock和 eligible漂移；并断言扫描前后 AnalysisRun、
+Airflow DagRun、sampleinfo及分析目录均不增加。Step4覆盖viewer拒绝、
+operator/admin允许、固定cram、服务端确认、同attempt、幂等、两种DagRun继续语义
+及门禁关闭409。生产验收节点是BS10610，不是fengxian；必须按真实1800秒间隔
+观察两个周期。完整矩阵见[文档 26](26_WGS_T7_INTAKE_STEP4_REPAIR.md)。
+
 ## T127 BS shared platform acceptance
 
 - Confirm one Compose project and one PostgreSQL/Redis/Celery control plane.

@@ -9,8 +9,8 @@ from app.wgs_runtime_adapter import (
 )
 
 
-RELEASE_ID = "wgs-4.1.1-1778fca"
-WGS_COMMIT = "1778fcabd99b5253aa90cd410112dc2f78e0c51a"
+RELEASE_ID = "wgs-4.1.1-1656b5d"
+WGS_COMMIT = "1656b5d7a6e2f24242c38149f6d1c92ac266cd37"
 
 
 def _request(tmp_path: Path, *, stage: str = "step2_master") -> dict[str, object]:
@@ -57,6 +57,7 @@ def test_stage_request_v3_binds_release_without_pipeline_path_or_cce_version(
         "step2_master",
         "step3_monitor",
         "step4_publish",
+        "step4_repair_cram",
         "step5_download",
         "step6_materialize",
     ],
@@ -68,7 +69,7 @@ def test_request_accepts_only_wgs_step1_to_step6_stages(
 
 
 def test_request_rejects_old_or_manual_stages(tmp_path: Path) -> None:
-    for stage in ("validate_cce_bundle", "step0_reset", "step7_cleanup", "step8_cleanup"):
+    for stage in ("validate_cce_bundle", "step0_reset", "step4_repair_vcf", "step7_cleanup", "step8_cleanup"):
         with pytest.raises(ValueError, match="stage"):
             _request(tmp_path, stage=stage)
 

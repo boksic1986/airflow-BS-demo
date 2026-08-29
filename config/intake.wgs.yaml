@@ -1,15 +1,16 @@
-version: 1
+version: 2
 defaults:
-  ready_rule: stable_fingerprint
-  stable_scans: 2
   auto_submit: false
 pipelines:
   wgs:
     enabled: true
     intake:
-      mode: yaml_request
-      request_inbox: /data/airflow-demo/intake/wgs
-      request_glob: "*.wgs.yaml"
-      stable_scans: 2
+      mode: t7_scan_only
+      root: /bi/fastq/T7_Fastq
+      interval_seconds: 1800
+      completion_marker: BarcodeStat.txt
+      chip_directory_pattern: '^\d+th_(\d{8}[A-Z])_[A-Za-z0-9.-]+$'
+      exclude_addon_sample_pattern: '-S\d+$'
+      auto_dispatch_enabled: false
     auto_submit:
       enabled: false

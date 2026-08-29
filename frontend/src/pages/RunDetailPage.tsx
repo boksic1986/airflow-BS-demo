@@ -20,7 +20,7 @@ import {
   getRunValidationIssues,
   getRunSamples,
   submitRun,
-  syncAirflow, cancelRun, rerunFailedRun, resumeRun, revalidateRun,
+  syncAirflow, cancelRun, rerunFailedRun, resumeRun, revalidateRun, repairStep4,
 } from "../api";
 import {useSession} from "../features/auth/SessionContext";
 import {ErrorPanel} from "../components/ErrorPanel";
@@ -32,6 +32,7 @@ import {usePlatformCapabilities} from "../features/platform/PlatformCapabilities
 import {RunQcTab} from "../features/run-detail/RunQcTab";
 import {RunFilesTab, RunOverviewTab} from "../features/run-detail/RunResourceTabs";
 import {RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
+import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
 import {errorMessage, parseErrorSummary} from "../lib/errors";
 import {compactPipelineName, formatBytes, formatDate, formatDuration, formatSecondsDuration} from "../lib/format";
 import {computeRunProgress, progressFromResponse} from "../lib/runProgress";
@@ -190,7 +191,7 @@ export function RunDetailPage() {
       ? computeRunProgress({analysis_id: detail.analysis_id, pipeline: detail.pipeline, status: detail.status, created_at: detail.created_at, started_at: detail.started_at, ended_at: detail.ended_at, sample_count: bundle.samples.length}, detail, bundle.rules)
       : null;
   const canSubmit = detail?.status === "created" && capabilities.isDeployed(detail.pipeline as DeployedPipeline);
-  async function runAction(action: "sync" | "submit" | "resume" | "rerun_failed" | "cancel" | "revalidate") {
+  async function runAction(action: "sync" | "submit" | "resume" | "rerun_failed" | "cancel" | "revalidate" | "repair_step4") {
     if (!analysisId) return;
     setActing(true);
     setActionError(null);
@@ -201,6 +202,7 @@ export function RunDetailPage() {
       if (action === "rerun_failed") await rerunFailedRun(analysisId);
       if (action === "cancel") await cancelRun(analysisId);
       if (action === "revalidate") await revalidateRun(analysisId);
+      if (action === "repair_step4") await repairStep4(analysisId);
       await loadDetail();
       await loadLog(action === "sync" ? logStream : "stdout");
       if (action !== "sync") setLogStream("stdout");
@@ -232,6 +234,7 @@ export function RunDetailPage() {
           </div>
         </section>
         {actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
+        {detail.step4_repair ? <Step4RepairPanel capability={detail.step4_repair} canOperate={session.hasRole("operator")} acting={acting} onRepair={() => void runAction("repair_step4")} /> : null}
         {detail.status === "needs_review" ? <section className="panel validation-review"><div className="section-heading"><h2>Input needs review</h2><p>Correct the source links or metadata upstream, then revalidate. This page cannot edit sampleinfo.</p></div><WgsTable headers={["Severity", "Code", "Scope", "Message", "Status"]} rows={bundle.validationIssues.map((issue) => [issue.severity, issue.code, issue.sample_id || issue.family_id || issue.file_path || issue.scope_type || "batch", issue.message, issue.status])} empty="No structured issue was returned." /></section> : null}
         <section className="metric-grid" aria-label="Run summary metrics">
           <MetricCard title="Samples" value={bundle.samples.length} />

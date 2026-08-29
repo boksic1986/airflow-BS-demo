@@ -52,6 +52,30 @@ it("switches Intake scanner between pending records and history", async () => {
   expect(onViewChange).toHaveBeenCalledWith("history");
 });
 
+it("shows T7 scan-only discovery counts without sample identifiers", () => {
+  const item: IntakeDiscovery = {
+    pipeline: "wgs",
+    chip_id: "2201th_20260821B_E250208844",
+    batch_id: "2201th_20260821B_E250208844",
+    sequencing_batch: "20260821B",
+    ready_state: "ready",
+    submit_state: "disabled",
+    analysis_id: null,
+    eligible_pair_count: 17,
+    excluded_addon_pair_count: 5,
+    pair_issue_count: 0,
+  };
+
+  render(<MemoryRouter><IntakeScannerPanel items={[item]} total={1} limit={10} offset={0} loading={false} error={null} view="pending" onViewChange={vi.fn()} onPageChange={vi.fn()} /></MemoryRouter>);
+
+  expect(screen.getByRole("heading", {name: "T7自动扫描"})).toBeInTheDocument();
+  expect(screen.getByText(/自动分析关闭/)).toBeInTheDocument();
+  expect(screen.getByText("20260821B")).toBeInTheDocument();
+  expect(screen.getByText("17")).toBeInTheDocument();
+  expect(screen.getByText("5")).toBeInTheDocument();
+  expect(screen.queryByText(/sample/i)).not.toBeInTheDocument();
+});
+
 it("aligns linked intake operations with Run Tracker project and runtime details", () => {
   const item: IntakeDiscovery = {
     pipeline: "nipt_docker",
@@ -86,7 +110,7 @@ it("aligns linked intake operations with Run Tracker project and runtime details
   expect(screen.getByText("Intake")).toBeInTheDocument();
   expect(screen.getByRole("columnheader", {name: "Runtime / ETA"})).toBeInTheDocument();
   expect(screen.getByText(/Elapsed 30m/)).toBeInTheDocument();
-  expect(screen.queryByText(item.root_path)).not.toBeInTheDocument();
+  expect(screen.queryByText(item.root_path!)).not.toBeInTheDocument();
 });
 
 describe("LogViewer grouping", () => {

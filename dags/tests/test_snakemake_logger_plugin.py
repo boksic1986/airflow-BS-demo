@@ -44,7 +44,7 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
                 settings=LogHandlerSettings(
                     analysis_id="WGS_20260813_010203_A1B2C3",
                     attempt=2,
-                    pipeline_release_id="wgs-4.1.1-1778fca",
+                    pipeline_release_id="wgs-4.1.1-1656b5d",
                     run_label="wgs401-0123456789abcdef",
                     role="master",
                     stream_id="master",
@@ -63,7 +63,7 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
         self.assertEqual(payload["schema_version"], "1")
         self.assertEqual(payload["analysis_id"], "WGS_20260813_010203_A1B2C3")
         self.assertEqual(payload["attempt"], 2)
-        self.assertEqual(payload["pipeline_release_id"], "wgs-4.1.1-1778fca")
+        self.assertEqual(payload["pipeline_release_id"], "wgs-4.1.1-1656b5d")
         self.assertEqual(payload["run_label"], "wgs401-0123456789abcdef")
         self.assertEqual(payload["role"], "master")
         self.assertEqual(payload["stream_id"], "master")

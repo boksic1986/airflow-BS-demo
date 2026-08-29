@@ -1,8 +1,8 @@
 schema_version: "3"
 release:
-  release_id: wgs-4.1.1-1778fca
+  release_id: wgs-4.1.1-1656b5d
   version: V4.1.1
-  source_commit: 1778fcabd99b5253aa90cd410112dc2f78e0c51a
+  source_commit: 1656b5d7a6e2f24242c38149f6d1c92ac266cd37
   bs10610_repo_path: /mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
   node200_repo_path: /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
   rule_event_schema_version: "1"

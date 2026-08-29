@@ -1,6 +1,14 @@
 # 02 工程规范
 
-## T142 单一 WGS release 工程合同
+## T143/T144 T7 scan-only 与 Step4 repair
+
+当前唯一发布身份更新为`wgs-4.1.1-1656b5d` / commit
+`1656b5d7a6e2f24242c38149f6d1c92ac266cd37`。observer以独立1800秒时钟只读扫描
+`/bi/fastq/T7_Fastq`；扫描和证据同步互不阻塞，自动 dispatch关闭。Step4 repair
+复用唯一`bio_wgs`维护模式，并且只能由服务端从冻结 binding生成固定 cram命令。
+完整合同见[文档 26](26_WGS_T7_INTAKE_STEP4_REPAIR.md)。
+
+## T142 单一 WGS release 工程合同（历史基线）
 
 Airflow 当前只保存 `config/wgs_releases.yaml`中的一个发布身份：
 `wgs-4.1.1-1778fca` / commit

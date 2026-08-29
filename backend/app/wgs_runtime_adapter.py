@@ -16,6 +16,7 @@ STAGES = {
     "step2_master",
     "step3_monitor",
     "step4_publish",
+    "step4_repair_cram",
     "step5_download",
     "step6_materialize",
 }

@@ -19,8 +19,8 @@ export function IntakeScannerPanel({items, total, limit, offset, loading, error,
     <section className="panel intake-scanner-panel" aria-busy={loading}>
       <div className="section-heading split">
         <div>
-          <h2>Intake scanner</h2>
-          <p title="Observed and bootstrap states are discovery records, not queued analysis runs.">Active and completed intake operations</p>
+          <h2>T7自动扫描</h2>
+          <p title="扫描记录不会创建分析任务。">每30分钟检查 BarcodeStat.txt；自动分析关闭</p>
         </div>
         <div className="tracker-filters" aria-label="Intake scanner views">
           <button className={view === "pending" ? "active" : ""} type="button" onClick={() => onViewChange("pending")}>Pending &amp; errors</button>

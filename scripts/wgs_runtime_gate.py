@@ -25,6 +25,7 @@ STAGES = {
     "step2_master",
     "step3_monitor",
     "step4_publish",
+    "step4_repair_cram",
     "step5_download",
     "step6_materialize",
 }
@@ -32,6 +33,7 @@ ASYNC_STAGES = {
     "step1_upload",
     "step3_monitor",
     "step4_publish",
+    "step4_repair_cram",
     "step5_download",
 }
 STEP_SCRIPTS = {
@@ -39,6 +41,7 @@ STEP_SCRIPTS = {
     "step2_master": "Step2_run.sh",
     "step3_monitor": "Step3_status.sh",
     "step4_publish": "Step4_publish_results.sh",
+    "step4_repair_cram": "Step4_publish_results.sh",
     "step5_download": "Step5_download_verify.sh",
     "step6_materialize": "Step6_materialize_results.sh",
 }
@@ -278,6 +281,19 @@ def _run_prepare(payload: dict[str, Any]) -> None:
             pipeline.get("resource_manifest_sha256") or ""
         ),
     }
+    analysis = runtime.get("analysis") if isinstance(runtime.get("analysis"), dict) else {}
+    delivery = analysis.get("delivery") if isinstance(analysis.get("delivery"), dict) else {}
+    raw_repair_groups = delivery.get("repair_groups")
+    repair_groups = {
+        str(name): {
+            "target": str((contract or {}).get("target") or "")
+            if isinstance(contract, dict)
+            else ""
+        }
+        for name, contract in (raw_repair_groups or {}).items()
+        if SAFE_COMPONENT_RE.fullmatch(str(name))
+    } if isinstance(raw_repair_groups, dict) else {}
+    resolved_runtime["repair_groups"] = repair_groups
     _atomic_json(
         binding_path,
         {
@@ -293,6 +309,7 @@ def _run_prepare(payload: dict[str, Any]) -> None:
             "project": identity.get("project"),
             "batch": identity.get("batch"),
             "run_id": identity.get("run_id"),
+            "repair_groups": repair_groups,
             "master_job": (runtime.get("kubernetes") or {}).get("master_job"),
             "namespace": (runtime.get("kubernetes") or {}).get("namespace"),
             "rule_source_dir": str(
@@ -330,6 +347,29 @@ def _step_command(payload: dict[str, Any], stage: str, *arguments: str) -> list[
     if not script.is_file() or script.is_symlink():
         raise FileNotFoundError(f"frozen WGS step is missing: {script.name}")
     return ["bash", str(script), *arguments]
+
+
+def build_step4_repair_command(payload: dict[str, Any]) -> list[str]:
+    binding = _load_binding(payload)
+    repair_groups = binding.get("repair_groups")
+    if not isinstance(repair_groups, dict) or "cram" not in repair_groups:
+        raise RuntimeError("frozen WGS bundle does not declare the cram repair contract")
+    components = [
+        str(binding.get("project") or ""),
+        str(binding.get("batch") or ""),
+        str(binding.get("run_id") or ""),
+    ]
+    if any(SAFE_COMPONENT_RE.fullmatch(value) is None for value in components):
+        raise RuntimeError("frozen WGS repair identity is invalid")
+    confirmation = f"REPAIR-LINKAGE:{components[0]}/{components[1]}/{components[2]}:cram"
+    return _step_command(
+        payload,
+        "step4_repair_cram",
+        "--repair-linkage-group",
+        "cram",
+        "--confirm",
+        confirmation,
+    )
 
 
 def validate_step3_status(value: dict[str, Any]) -> dict[str, Any]:
@@ -466,6 +506,8 @@ def run_stage(payload: dict[str, Any]) -> None:
         _monitor_step3(payload)
     elif stage == "step4_publish":
         _wait_step4(payload)
+    elif stage == "step4_repair_cram":
+        subprocess.run(build_step4_repair_command(payload), check=True)
     else:
         subprocess.run(_step_command(payload, stage), check=True)
 

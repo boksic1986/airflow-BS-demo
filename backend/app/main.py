@@ -68,6 +68,8 @@ from app.wgs_release_catalog import load_wgs_release_catalog
 from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferJob, UserAccount
 from app.wgs_timing_service import enrich_progress, serialize_rule_states
 from app.wgs_runtime_adapter import build_stage_request, container_workdir_to_host, write_stage_request
+from app.wgs_t7_intake import get_wgs_t7_scanner_state, list_wgs_t7_intake
+from app.wgs_step4_service import get_step4_repair_capability, request_step4_repair
 from sqlalchemy import select
 
 
@@ -425,6 +427,9 @@ def intake_config() -> dict[str, object]:
 def intake_scanner_state() -> dict[str, object]:
     settings = _deployment_guard_settings()
     deployed = _deployed_pipelines(settings) if settings is not None else ("pgta", "nipt_docker")
+    if deployed == ("wgs",):
+        with get_sessionmaker()() as session:
+            return get_wgs_t7_scanner_state(session=session)
     trigger_contracts = _intake_trigger_contracts(deployed)
     try:
         airflow_client = get_airflow_client()
@@ -851,7 +856,7 @@ def intake_status(
     state_filter: str | None = Query(
         default=None,
         alias="state",
-        pattern="^(bootstrap|observed|ready|submitted|error|disabled)$",
+        pattern="^(bootstrap|observed|ready|submitted|error|disabled|waiting_barcode_stat|no_new_wgs|needs_review|bootstrap_ignored)$",
     ),
     lifecycle: str = Query(default="active", pattern="^(active|archived|all)$"),
     view_filter: str = Query(default="all", alias="view", pattern="^(pending|history|all)$"),
@@ -864,6 +869,19 @@ def intake_status(
     if pipeline and not aggregate_scope:
         _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
+        if pipeline == "wgs" or (
+            aggregate_scope
+            and len(deployed_pipelines) == 1
+            and deployed_pipelines[0] == "wgs"
+        ):
+            return list_wgs_t7_intake(
+                session=session,
+                state=state_filter,
+                view=view_filter,
+                keyword=keyword,
+                limit=limit,
+                offset=offset,
+            )
         return list_intake_status(
             session=session,
             pipeline=None if aggregate_scope else pipeline,
@@ -967,6 +985,17 @@ def run_detail(analysis_id: str) -> dict[str, object]:
     with get_sessionmaker()() as session:
         payload = get_run_detail(session=session, analysis_id=analysis_id)
         observer = session.scalar(select(ObserverRunState).where(ObserverRunState.analysis_id == analysis_id).order_by(ObserverRunState.attempt.desc()))
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        step4_repair = (
+            get_step4_repair_capability(
+                session=session,
+                run=run,
+                execution_enabled=_wgs_platform_execution_enabled(),
+                runtime_adapter_enabled=_wgs_runtime_adapter_enabled(),
+            )
+            if run is not None and run.pipeline_name == "wgs"
+            else None
+        )
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -980,6 +1009,7 @@ def run_detail(analysis_id: str) -> dict[str, object]:
     payload["resolved_runtime"] = params.get("resolved_runtime")
     payload["rule_event_schema_version"] = params.get("rule_event_schema_version")
     payload["observer"] = ({"status": observer.status, "last_success_at": observer.last_success_at.isoformat() if observer.last_success_at else None, "last_error": observer.last_error, "updated_at": observer.updated_at.isoformat()} if observer else None)
+    payload["step4_repair"] = step4_repair
     return payload
 
 
@@ -1209,6 +1239,51 @@ def resume_run(analysis_id: str, user: AuthenticatedUser = Depends(operator_user
 @app.post("/api/runs/{analysis_id}/actions/rerun_failed")
 def rerun_failed(analysis_id: str, user: AuthenticatedUser = Depends(operator_user)) -> dict[str, object]:
     return _wgs_action(analysis_id, "rerun_failed", user)
+
+
+@app.post(
+    "/api/runs/{analysis_id}/actions/repair-step4",
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def repair_step4(
+    analysis_id: str,
+    user: AuthenticatedUser = Depends(operator_user),
+) -> dict[str, object]:
+    if not _wgs_platform_execution_enabled() or not _wgs_runtime_adapter_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "WGS_RUNTIME_DISABLED",
+                "message": "WGS runtime is not enabled; no repair action was started.",
+            },
+        )
+    try:
+        with get_sessionmaker()() as session:
+            payload = request_step4_repair(
+                session=session,
+                airflow_client=get_airflow_client(),
+                analysis_id=analysis_id,
+                requested_by=user.username,
+            )
+            if payload is not None:
+                audit(
+                    session=session,
+                    username=user.username,
+                    action="run.repair_step4_cram",
+                    analysis_id=analysis_id,
+                    payload={"action_id": payload["action_id"]},
+                )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "STEP4_REPAIR_UNAVAILABLE", "message": str(exc)},
+        ) from exc
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+        )
+    return payload
 
 
 @app.post("/api/runs/{analysis_id}/actions/cancel")

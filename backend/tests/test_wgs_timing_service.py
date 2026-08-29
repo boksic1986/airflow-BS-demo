@@ -17,7 +17,7 @@ def test_analysis_eta_selects_last_twenty_runs_from_same_release() -> None:
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     now = datetime.now(timezone.utc)
-    release_id = "wgs-4.1.1-1778fca"
+    release_id = "wgs-4.1.1-1656b5d"
 
     with sessions() as session:
         current = AnalysisRun(

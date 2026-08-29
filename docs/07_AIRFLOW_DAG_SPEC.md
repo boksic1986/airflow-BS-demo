@@ -1,6 +1,15 @@
 # 07 Airflow DAG 设计
 
-## T142 当前单一 DAG 合同
+## T144 Step4 maintenance mode
+
+唯一`bio_wgs`仍为18 tasks、manual、paused。`maintenance_mode=repair_step4`复用
+同一 DAG和同一 analysis attempt：Step1-Step3只做无副作用跳过，Step4执行固定
+`step4_repair_cram`；原 DagRun已失败时继续普通Step4核验、Step5、Step6和
+finalize，原 DagRun仍等待时由原 DagRun继续。浏览器不能提供 group、路径或确认
+串。执行门禁关闭时后端在触发 DagRun前返回409。T7扫描属于 observer，不新增
+扫描 DAG。完整设计见[文档 26](26_WGS_T7_INTAKE_STEP4_REPAIR.md)。
+
+## T142 当前单一 DAG 合同（历史基线）
 
 `bio_wgs`保持版本无关、18 tasks、manual schedule、`max_active_runs=4`和
 `is_paused_upon_creation=true`。`validate_request`要求后端绑定的

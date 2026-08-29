@@ -1,5 +1,20 @@
 # CURRENT_STATE.md
 
+## 2026-08-29 T143/T144 - T7 scan-only 与 Step4 repair
+
+```text
+t143_baseline: WGS V4.1.1 commit 1656b5d7a6e2f24242c38149f6d1c92ac266cd37, release wgs-4.1.1-1656b5d; Airflow不安装或校验cce-pipeline 0.7.1。
+t143_scanner: wgs-observer独立线程按扫描开始时间每1800秒只读扫描/bi/fastq/T7_Fastq；首次completed目录bootstrap_ignored，未完成目录waiting_barcode_stat；eligible/add-on配对、fingerprint漂移和PostgreSQL advisory lock已实现。永久bootstrap_ignored只更新扫描时间，不再重复枚举FASTQ。
+t143_side_effect_gate: WGS_AUTO_DISPATCH_ENABLED=false；scanner不运行sampleinfo、不建分析目录、不创建AnalysisRun/DagRun、不访问OBS/CCE。
+t143_data_api_ui: migration 20260829_0011增加nullable intake、scanner singleton和maintenance action；API/UI只暴露芯片、批次、计数和状态，不暴露sample ID、源路径或fingerprint。
+t144_repair: operator/admin可请求固定cram Step4维护；后端从冻结binding生成确认串，同bio_wgs和同attempt执行；viewer与任意参数被拒绝，重复点击返回同一操作。
+t144_disabled: WGS_EXECUTION_ENABLED=false、WGS_RUNTIME_ADAPTER_ENABLED=false时repair在Airflow/SSH前返回409。真实0.7.1修复未执行。
+t143_local_remote_validation: BS10610 backend 217 passed/1 skipped，scripts 17 passed，DAG/Compose合同通过；frontend 30 tests、TypeScript和Vite build通过；临时PostgreSQL 0010->0011->0010->0011迁移往返及SET NULL外键检查通过。
+t143_deployment: current -> /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260829-wgs-4.1.1-t7-scan-disabled-t143；biodemo revision 0011。bootstrap得到1817 bootstrap_ignored和11 waiting_barcode_stat，随后新发现1个no_new_wgs。
+t143_cycle_acceptance: stable baseline 10:20:30.971949 UTC；cycle1 10:50:30.972362 / 516ms；cycle2 11:20:30.972623 / 1216ms。两次均保持1817 bootstrap_ignored、11 waiting、1 no_new_wgs，business run/attempt/maintenance和Airflow DagRun均为0。
+t143_network: 必须保留外部nipt_analysis_test_net 192.168.199.0/24，gateway 192.168.199.1，且只发布172.17.106.10:12959。
+```
+
 ## 2026-08-28 T142 - single WGS release disabled production deployment
 
 ```text

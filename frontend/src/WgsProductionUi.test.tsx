@@ -18,7 +18,7 @@ it("uses batch number and a controlled FASTQ link directory on the WGS submissio
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
     if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
-    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-1778fca", version: "V4.1.1", source_commit: "1778fcabd99b5253aa90cd410112dc2f78e0c51a", execution_enabled: false, runtime_adapter_enabled: false});
+    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-1656b5d", version: "V4.1.1", source_commit: "1656b5d7a6e2f24242c38149f6d1c92ac266cd37", execution_enabled: false, runtime_adapter_enabled: false});
     return json({items: [], total: 0});
   }));
 
@@ -27,7 +27,7 @@ it("uses batch number and a controlled FASTQ link directory on the WGS submissio
   expect(await screen.findByRole("heading", {name: "Submit WGS run"})).toBeInTheDocument();
   expect(screen.getByLabelText("Batch number")).toBeInTheDocument();
   expect(screen.getByLabelText("Controlled FASTQ link directory")).toBeInTheDocument();
-  expect(await screen.findByText("WGS V4.1.1 / 1778fca")).toBeInTheDocument();
+  expect(await screen.findByText("WGS V4.1.1 / 1656b5d")).toBeInTheDocument();
   expect(screen.queryByRole("combobox", {name: /WGS version/i})).not.toBeInTheDocument();
   expect(screen.queryByText(/READY/)).not.toBeInTheDocument();
   expect(screen.getByText(/will not start CCE/i)).toBeInTheDocument();
@@ -41,7 +41,7 @@ it("loads WGS resource tabs for an active run", async () => {
     urls.push(url);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
     if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
-    if (url.includes("/api/runs/WGS_001?") || url.endsWith("/api/runs/WGS_001")) return json({analysis_id: "WGS_001", pipeline: "wgs", status: "running", pipeline_release_id: "wgs-4.1.1-1778fca", wgs_version: "V4.1.1", wgs_source_commit: "1778fcabd99b5253aa90cd410112dc2f78e0c51a", resolved_runtime: {cce_pipeline_version: "0.7.0", profile_id: "wgs-4.1.1-r1", master_image_digest: "sha256:abc"}, rule_event_schema_version: "rule-event.v1", observer: {status: "healthy", last_success_at: "2026-08-26T01:01:05Z", last_error: null, updated_at: "2026-08-26T01:01:05Z"}});
+    if (url.includes("/api/runs/WGS_001?") || url.endsWith("/api/runs/WGS_001")) return json({analysis_id: "WGS_001", pipeline: "wgs", status: "running", pipeline_release_id: "wgs-4.1.1-1656b5d", wgs_version: "V4.1.1", wgs_source_commit: "1656b5d7a6e2f24242c38149f6d1c92ac266cd37", resolved_runtime: {cce_pipeline_version: "0.7.1", profile_id: "wgs-4.1.1-r1", master_image_digest: "sha256:abc"}, rule_event_schema_version: "rule-event.v1", observer: {status: "healthy", last_success_at: "2026-08-26T01:01:05Z", last_error: null, updated_at: "2026-08-26T01:01:05Z"}});
     if (url.includes("/api/runs/WGS_001/families")) return json({items: []});
     if (url.includes("/api/runs/WGS_001/rules")) return json({items: []});
     if (url.includes("/api/runs/WGS_001/pods")) return json({items: [{attempt: 1, pod_hash: "abc123", job_name: "wgs-master-a1", phase: "Failed", reason: "OOMKilled", exit_code: 137, node_name: "cce-node-1", message: "Master failed", resources: {memory: "4Gi"}, observed_at: "2026-08-24T01:01:00Z", updated_at: "2026-08-24T01:01:05Z"}]});
@@ -58,9 +58,9 @@ it("loads WGS resource tabs for an active run", async () => {
   render(<App />);
   expect(await screen.findByRole("tab", {name: "Families"})).toBeInTheDocument();
   expect(screen.getByRole("tab", {name: "Master"})).toBeInTheDocument();
-  expect(screen.getByText("wgs-4.1.1-1778fca")).toBeInTheDocument();
+  expect(screen.getByText("wgs-4.1.1-1656b5d")).toBeInTheDocument();
   expect(screen.getByText("V4.1.1")).toBeInTheDocument();
-  expect(screen.getByText("0.7.0")).toBeInTheDocument();
+  expect(screen.getByText("0.7.1")).toBeInTheDocument();
   expect(screen.getByText(/healthy/i)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("tab", {name: "Master"}));
   expect(await screen.findByText("wgs-master-a1")).toBeInTheDocument();

@@ -17,8 +17,46 @@
 | T140 | WGS 4.1.1 minimal real acceptance | airflow/infra/QA | approved real batch, transfer/Master/Rule/result recovery and four-run concurrency evidence | all real-runtime gates pass before unpause | blocked |
 | T141 | WGS 4.1.1 Master Rule evidence bridge | airflow/backend/observer/QA | accept logger `attempt-N`; Step3 incremental JSONL copy; read-only terminal reader Job; disabled release | focused observer/bridge/runtime tests pass; gates remain false; real reader acceptance deferred to T140 | done in disabled mode |
 | T142 | Single published WGS release Airflow integration | airflow/backend/observer/frontend/infra/docs | one server-owned release contract at `1778fca`; request v3; fixed-repository runner; release-bound DB/API/UI; disabled BS release | BS10610 tests and smoke pass with gates false and paused DAG; no real OBS/CCE execution | done in disabled mode |
+| T143 | T7 scan-only intake | backend/observer/frontend/infra/QA/docs | 30-minute read-only T7 scanner, bootstrap, chip-level DB/API/UI, auto-dispatch hard-off | unit/integration/migration/network pass; two production cycles remain idempotent with zero AnalysisRun and DagRun | done |
+| T144 | WGS Step4 CRAM repair contract | backend/airflow/observer/frontend/QA/docs | fixed-cram service action, same-attempt maintenance mode, 0.7.1 frozen-bundle command, RBAC and audit | disabled-mode tests pass; gates-off returns 409 before Airflow/SSH; real repair deferred | done in disabled mode |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
+
+## T143/T144 T7 scan-only 与 Step4 repair
+
+### T143 - T7 scan-only intake
+
+Owner: backend/observer/frontend/infra/QA/docs
+
+Status: done
+
+Dependencies: T142; WGS release `wgs-4.1.1-1656b5d`
+
+Acceptance:
+
+- [x] 扫描器只读直属文件，支持bootstrap、普通/加测配对、eligible fingerprint、
+  漂移阻断、advisory lock和1800秒独立调度。
+- [x] API/UI只展示芯片、批次、状态和计数；不展示sample ID、路径或fingerprint。
+- [x] `WGS_AUTO_DISPATCH_ENABLED=false`，代码测试断言不创建AnalysisRun/DagRun、
+  sampleinfo或分析目录。
+- [x] BS10610部署migration 0011和新disabled release。
+- [x] 生产bootstrap及两个真实1800秒周期保持幂等，AnalysisRun/DagRun均为零。
+
+### T144 - Step4 CRAM repair
+
+Owner: backend/airflow/observer/frontend/QA/docs
+
+Status: done in disabled mode
+
+Dependencies: cce-pipeline 0.7.1合同；本阶段不安装或升级
+
+Acceptance:
+
+- [x] operator/admin固定cram，服务端从冻结binding生成确认串；viewer拒绝。
+- [x] 同attempt、同维护操作幂等；原DagRun等待/失败两种继续语义已测试。
+- [x] observer幂等同步维护状态，前端二次确认且不发送任意运行参数。
+- [x] 两个execution gate关闭时返回409且不创建DB记录、DagRun或SSH操作。
+- [ ] 真实0.7.1 Step4修复需另行审批，不属于本任务完成条件。
 
 ## T135-T140 WGS 4.1.1 production integration
 

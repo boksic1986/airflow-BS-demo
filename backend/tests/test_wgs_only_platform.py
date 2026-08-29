@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,6 +20,9 @@ from app.models import (
     ObserverRunState,
     RuleState,
     UserAccount,
+    WgsIntakeBatch,
+    WgsIntakeScannerState,
+    WgsMaintenanceAction,
 )
 
 
@@ -53,9 +57,9 @@ def make_client(tmp_path, monkeypatch):
         """\
  schema_version: "3"
  release:
-   release_id: wgs-4.1.1-1778fca
+   release_id: wgs-4.1.1-1656b5d
    version: V4.1.1
-   source_commit: 1778fcabd99b5253aa90cd410112dc2f78e0c51a
+   source_commit: 1656b5d7a6e2f24242c38149f6d1c92ac266cd37
    bs10610_repo_path: /mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
    node200_repo_path: /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
    rule_event_schema_version: "1"
@@ -113,6 +117,184 @@ def test_all_non_health_endpoints_require_login(tmp_path, monkeypatch):
     assert client.get("/api/runs").status_code == 401
 
 
+def test_wgs_t7_intake_endpoints_are_read_only_and_do_not_expose_sample_ids(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    observed_at = datetime(2026, 8, 29, 8, 30, tzinfo=timezone.utc)
+    with sessions() as session:
+        session.add(
+            WgsIntakeBatch(
+                source_path="/bi/fastq/T7_Fastq/2201th_20260821B_E250208844",
+                chip_id="2201th_20260821B_E250208844",
+                sequencing_batch="20260821B",
+                state="ready",
+                eligible_pair_count=17,
+                excluded_addon_pair_count=5,
+                pair_issue_count=0,
+                eligible_fingerprint="a" * 64,
+                observed_fingerprint="a" * 64,
+                first_seen_at=observed_at,
+                last_scanned_at=observed_at,
+                ready_at=observed_at,
+            )
+        )
+        session.add(
+            WgsIntakeScannerState(
+                id=1,
+                root_path="/bi/fastq/T7_Fastq",
+                scan_enabled=True,
+                scan_interval_seconds=1800,
+                auto_dispatch_enabled=False,
+                bootstrap_completed_at=observed_at,
+                last_scan_completed_at=observed_at,
+                next_scan_at=observed_at + timedelta(seconds=1800),
+                last_status="success",
+            )
+        )
+        session.commit()
+
+    login(client, "viewer", "viewer-pass")
+    response = client.get("/api/intake/status?pipeline=wgs&state=ready&limit=10&offset=0")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"] == [
+        {
+            "pipeline": "wgs",
+            "chip_id": "2201th_20260821B_E250208844",
+            "batch_id": "2201th_20260821B_E250208844",
+            "sequencing_batch": "20260821B",
+            "ready_state": "ready",
+            "submit_state": "disabled",
+            "analysis_id": None,
+            "eligible_pair_count": 17,
+            "excluded_addon_pair_count": 5,
+            "pair_issue_count": 0,
+            "last_error": None,
+            "last_seen_at": "2026-08-29T08:30:00+00:00",
+        }
+    ]
+    assert "source_path" not in response.text
+    assert "eligible_fingerprint" not in response.text
+
+    dashboard = client.get(
+        "/api/intake/status?pipeline=deployed&view=pending&limit=10&offset=0"
+    )
+    assert dashboard.status_code == 200, dashboard.text
+    assert dashboard.json()["total"] == 1
+    assert dashboard.json()["items"][0]["chip_id"] == "2201th_20260821B_E250208844"
+
+    scanner = client.get("/api/intake/scanner-state")
+    assert scanner.status_code == 200, scanner.text
+    assert scanner.json() == {
+        "scanner": "wgs-observer",
+        "root": "/bi/fastq/T7_Fastq",
+        "enabled": True,
+        "schedule_seconds": 1800,
+        "auto_dispatch_enabled": False,
+        "bootstrap_completed_at": "2026-08-29T08:30:00+00:00",
+        "last_scan_started_at": None,
+        "last_scan_completed_at": "2026-08-29T08:30:00+00:00",
+        "next_scan_at": "2026-08-29T09:00:00+00:00",
+        "last_scan_duration_ms": None,
+        "last_status": "success",
+        "last_counts": {},
+        "last_error": None,
+    }
+
+
+def test_step4_repair_is_fixed_to_cram_idempotent_and_blocked_by_runtime_gates(tmp_path, monkeypatch):
+    client, sessions, airflow = make_client(tmp_path, monkeypatch)
+    operator_headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=operator_headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "WGS_Clinical",
+            "execution_mode": "cce",
+            "batch_no": "20260821B",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    with sessions() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        run.status = "failed"
+        run.current_stage = "step4_publish"
+        run.dag_run_id = f"manual__{analysis_id}__a1"
+        run.params_json = {
+            **run.params_json,
+            "resolved_runtime": {
+                "repair_groups": {"cram": {"target": "linkage/cram"}},
+            },
+        }
+        session.commit()
+
+    detail = client.get(f"/api/runs/{analysis_id}")
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["step4_repair"] == {
+        "linkage_group": "cram",
+        "available": False,
+        "reason": "runtime_unavailable",
+        "latest_action": None,
+    }
+
+    blocked = client.post(f"/api/runs/{analysis_id}/actions/repair-step4", headers=operator_headers)
+    assert blocked.status_code == 409
+    assert blocked.json()["detail"]["code"] == "WGS_RUNTIME_DISABLED"
+    with sessions() as session:
+        assert session.scalars(select(WgsMaintenanceAction)).all() == []
+    assert airflow.calls == []
+
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    missing_master = client.post(
+        f"/api/runs/{analysis_id}/actions/repair-step4", headers=operator_headers
+    )
+    assert missing_master.status_code == 409
+    assert "master" in missing_master.json()["detail"]["message"]
+    assert airflow.calls == []
+    with sessions() as session:
+        session.add(
+            KubernetesWorkload(
+                analysis_id=analysis_id,
+                attempt=1,
+                event_id="step3:wgs-master-test",
+                pod_hash="master-success",
+                job_name="wgs-master-test",
+                phase="Succeeded",
+            )
+        )
+        session.commit()
+    accepted = client.post(f"/api/runs/{analysis_id}/actions/repair-step4", headers=operator_headers)
+    assert accepted.status_code == 202, accepted.text
+    repeated = client.post(f"/api/runs/{analysis_id}/actions/repair-step4", headers=operator_headers)
+    assert repeated.status_code == 202, repeated.text
+    assert repeated.json()["action_id"] == accepted.json()["action_id"]
+    assert len(airflow.calls) == 1
+    dag_id, dag_run_id, conf = airflow.calls[0]
+    assert dag_id == "bio_wgs"
+    assert dag_run_id.startswith(f"maintenance__{analysis_id}__a1__step4_cram__")
+    assert conf["maintenance_mode"] == "repair_step4"
+    assert conf["repair_group"] == "cram"
+    assert conf["attempt"] == 1
+    assert conf["continue_after_repair"] is True
+    assert "confirm" not in conf
+    assert "path" not in conf
+
+
+def test_viewer_cannot_request_step4_repair(tmp_path, monkeypatch):
+    client, _, _ = make_client(tmp_path, monkeypatch)
+    viewer_headers = login(client, "viewer", "viewer-pass")
+
+    response = client.post(
+        "/api/runs/WGS_20260829_000000_A1B2C3/actions/repair-step4",
+        headers=viewer_headers,
+    )
+
+    assert response.status_code == 403
+
+
 def test_viewer_is_read_only_and_operator_can_create_wgs(tmp_path, monkeypatch):
     client, sessions, _ = make_client(tmp_path, monkeypatch)
     viewer_headers = login(client, "viewer", "viewer-pass")
@@ -134,9 +316,9 @@ def test_viewer_is_read_only_and_operator_can_create_wgs(tmp_path, monkeypatch):
     assert created.status_code == 201, created.text
     assert created.json()["pipeline"] == "wgs"
     assert created.json()["execution_mode"] == "cce"
-    assert created.json()["params"]["pipeline_release_id"] == "wgs-4.1.1-1778fca"
+    assert created.json()["params"]["pipeline_release_id"] == "wgs-4.1.1-1656b5d"
     assert created.json()["params"]["wgs_version"] == "V4.1.1"
-    assert created.json()["params"]["wgs_source_commit"] == "1778fcabd99b5253aa90cd410112dc2f78e0c51a"
+    assert created.json()["params"]["wgs_source_commit"] == "1656b5d7a6e2f24242c38149f6d1c92ac266cd37"
     assert "pipeline_snapshot_id" not in created.json()["params"]
     assert created.json()["params"]["rule_event_schema_version"] == "1"
     with sessions() as session:
@@ -189,9 +371,9 @@ def test_current_release_api_is_read_only_and_execution_is_disabled(tmp_path, mo
     release = client.get("/api/wgs/release", headers=headers)
     assert release.status_code == 200
     assert release.json() == {
-        "release_id": "wgs-4.1.1-1778fca",
+        "release_id": "wgs-4.1.1-1656b5d",
         "version": "V4.1.1",
-        "source_commit": "1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+        "source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
         "execution_enabled": False,
         "runtime_adapter_enabled": False,
     }
@@ -251,8 +433,8 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     request = json.loads(request_path.read_text(encoding="utf-8"))
     assert request["schema_version"] == "wgs-runtime.request.v3"
     assert request["project_name"] == "clinical-wgs"
-    assert request["pipeline_release_id"] == "wgs-4.1.1-1778fca"
-    assert request["wgs_source_commit"] == "1778fcabd99b5253aa90cd410112dc2f78e0c51a"
+    assert request["pipeline_release_id"] == "wgs-4.1.1-1656b5d"
+    assert request["wgs_source_commit"] == "1656b5d7a6e2f24242c38149f6d1c92ac266cd37"
     assert "node200_pipeline_snapshot_path" not in request
 
     acquire = client.post(
@@ -369,9 +551,9 @@ def test_wgs_detail_rules_and_pods_are_database_only_authenticated_reads(tmp_pat
             workdir=str(tmp_path),
             status="running",
             params_json={
-                "pipeline_release_id": "wgs-4.1.1-1778fca",
+                "pipeline_release_id": "wgs-4.1.1-1656b5d",
                 "wgs_version": "V4.1.1",
-                "wgs_source_commit": "1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
                 "rule_event_schema_version": "1",
             },
         )
@@ -387,9 +569,9 @@ def test_wgs_detail_rules_and_pods_are_database_only_authenticated_reads(tmp_pat
     pods = client.get("/api/runs/WGS_MONITOR_1/pods", headers=headers)
 
     assert detail.status_code == 200
-    assert detail.json()["pipeline_release_id"] == "wgs-4.1.1-1778fca"
+    assert detail.json()["pipeline_release_id"] == "wgs-4.1.1-1656b5d"
     assert detail.json()["wgs_version"] == "V4.1.1"
-    assert detail.json()["wgs_source_commit"].startswith("1778fca")
+    assert detail.json()["wgs_source_commit"].startswith("1656b5d")
     assert detail.json()["resolved_runtime"] is None
     assert "pipeline_snapshot_id" not in detail.json()
     assert detail.json()["rule_event_schema_version"] == "1"

@@ -1,5 +1,101 @@
 # HANDOFF.md
 
+## 2026-08-29 - Codex - T143/T144 T7 scan-only and Step4 repair
+
+### Goal
+
+Bind Airflow to WGS `V4.1.1` commit
+`1656b5d7a6e2f24242c38149f6d1c92ac266cd37`, add a read-only T7 discovery
+scanner and the cce-pipeline 0.7.1 Step4 CRAM repair contract, while keeping all
+analysis execution and auto-dispatch disabled.
+
+### Completed
+
+- Updated the single release to `wgs-4.1.1-1656b5d`; no WGS source was copied
+  or modified and cce-pipeline was not installed or upgraded.
+- Added the T7 scanner to `wgs-observer`: exact chip/BarcodeStat/FASTQ pair
+  rules, `-S\d+` exclusion, bootstrap protection, eligible fingerprint drift,
+  PostgreSQL advisory lock and chip-only public projection. It runs in an
+  independent thread on a start-to-start 1800-second clock.
+- Added migration `20260829_0011` for nullable intake linkage, scanner state and
+  Step4 maintenance actions. The intake foreign key is explicitly
+  `ON DELETE SET NULL`.
+- Added WGS-only intake/scanner APIs and Dashboard UI. Aggregate aliases
+  `deployed`, `all` and omitted pipeline correctly use the T7 table; sample IDs,
+  source paths and fingerprints are absent from the intake response.
+- Added operator/admin-only, fixed-CRAM Step4 repair. The current attempt must
+  have a `wgs-master-*` workload in `Succeeded`, the frozen bundle must declare
+  `repair_groups.cram`, and the server derives the confirmation string. The
+  same 18-task `bio_wgs` DAG uses maintenance mode without rerunning Step1-Step3.
+- Added observer ingestion for Step4 repair status, frontend confirmation and
+  disabled-runtime messaging. With either execution gate false, the API returns
+  409 before creating a maintenance action, DagRun or SSH operation.
+- Created the disabled release
+  `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260829-wgs-4.1.1-t7-scan-disabled-t143`,
+  migrated biodemo to 0011 and recreated only application services. Database/
+  Redis volumes and the external Docker network were retained.
+- Initial production bootstrap created 1817 `bootstrap_ignored` and 11
+  `waiting_barcode_stat` rows. A later completed chip without eligible WGS was
+  classified `no_new_wgs`. No analysis side effect occurred.
+
+### Validation
+
+```text
+BS10610 backend: 217 passed, 1 skipped
+BS10610 runner/evidence/logger scripts: 17 passed
+WGS Airflow modules: 12 passed, 7 expected logger-interface skips
+live Airflow: only paused bio_wgs, 18 tasks, zero import errors and zero DagRuns
+frontend: 9 files / 30 tests; TypeScript and Vite build passed
+frontend dist: local and deployed JS/CSS/index SHA256 values match
+temporary PostgreSQL: 0010 -> 0011 -> 0010 -> 0011 passed
+production PostgreSQL: 0011, nullable intake analysis_id, SET NULL foreign key
+HTTP: login/release/scanner/intake/default Dashboard projection and static UI pass
+network: 192.168.199.0/24, gateway 192.168.199.1; only 172.17.106.10:12959 published
+execution: WGS_EXECUTION_ENABLED=false, WGS_RUNTIME_ADAPTER_ENABLED=false,
+           WGS_AUTO_DISPATCH_ENABLED=false
+```
+
+The first full T7 scan took about 325 seconds because it enumerated all historic
+FASTQs. A regression test and implementation change now skip FASTQ enumeration
+for permanently `bootstrap_ignored` rows; the stable scan took about 1.4 seconds.
+Another regression fixed the interval from “1800 seconds after completion” to
+1800 seconds between scan starts.
+
+### Two-cycle acceptance
+
+The corrected observer started its stable baseline scan at
+`2026-08-29 10:20:30.971949+00`. The two naturally scheduled cycles advanced to
+`10:50:30.972362+00` (516ms) and `11:20:30.972623+00` (1216ms). Both retained
+1817 `bootstrap_ignored`, 11 `waiting_barcode_stat` and one `no_new_wgs`, with
+business run/attempt/maintenance and Airflow DagRun counts all zero. This gate
+passed without reducing the 1800-second interval or manually invoking a scan.
+
+### Corrections and failed commands
+
+- The first observer design ran intake after evidence traversal, delaying
+  bootstrap. Root cause: the clocks shared one loop. Intake now has an
+  independent thread.
+- The first schedule implementation waited 1800 seconds after a 325-second
+  scan. Root cause: completion-relative sleep. It now subtracts scan duration.
+- A full historical DAG discovery was mistakenly run against the partial T143
+  staging tree; 12 missing legacy NIPT/WES files and two unavailable-pytest
+  imports failed. The complete new release then passed all four WGS modules.
+- One scripts command named a nonexistent old evidence test and ran no tests;
+  rerunning the three current files passed 17 tests.
+- The first release env update assumed `.env.wgs` lived inside the release and
+  stopped before mutation. The protected env was located from Compose labels at
+  `airflow-WGS/env/bs10610.wgs.env`, backed up, and safely updated there.
+
+### Safety and rollback
+
+No sampleinfo, analysis directory, OBS transfer, CCE workload or real Step4
+repair was started. A pre-migration biodemo dump is retained as
+`backups/t143-before-t7-scan-20260829.dump`; the protected env backup is
+`env/bs10610.wgs.env.before-t143-20260829`. `current` now points to the T143
+release. Roll back by recreating application services from T142 and
+restoring its protected env values; do not delete volumes/network or downgrade
+0011 after new scanner/maintenance data exists.
+
 ## 2026-08-28 - Codex - T142 single-release disabled integration
 
 ### Goal

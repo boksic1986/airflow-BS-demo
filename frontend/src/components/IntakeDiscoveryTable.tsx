@@ -19,11 +19,14 @@ export function IntakeDiscoveryTable({
   error?: string | null;
   emptyMessage?: string;
 }) {
+  const wgsScanOnly = items.length > 0 && items.every((item) => item.pipeline === "wgs" && Boolean(item.chip_id));
   return (
     <div className="intake-discovery-surface" aria-busy={loading}>
       {error ? <div className="inline-error" role="alert">{error}</div> : null}
       {loading && items.length === 0 ? <p className="muted panel-loading">Loading intake records...</p> : null}
-      {items.length ? (
+      {items.length && wgsScanOnly ? (
+        <WgsT7DiscoveryTable ariaLabel={ariaLabel} items={items} />
+      ) : items.length ? (
         <div className="intake-discovery-table-wrap">
           <table aria-label={ariaLabel} className="intake-discovery-table">
             <thead>
@@ -46,7 +49,7 @@ export function IntakeDiscoveryTable({
                 return (
                   <tr key={`${item.pipeline}-${item.root_path}-${item.batch_id}`}>
                     <td className="discovery-batch-cell">
-                      <OperationProjectCell analysisId={item.analysis_id} fallbackId={item.batch_id} projectName={item.project_name} sampleCount={item.sample_count || Math.floor(item.file_count / 2) || 0} source="intake" sourceBatchId={item.analysis_id ? item.source_batch_id || item.batch_id : null} submittedBy={item.submitted_by} />
+                      <OperationProjectCell analysisId={item.analysis_id} fallbackId={item.batch_id} projectName={item.project_name} sampleCount={item.sample_count || Math.floor((item.file_count ?? 0) / 2) || 0} source="intake" sourceBatchId={item.analysis_id ? item.source_batch_id || item.batch_id : null} submittedBy={item.submitted_by} />
                     </td>
                     <td>{compactPipelineName(item.pipeline)}</td>
                     <td>
@@ -80,7 +83,7 @@ export function IntakeDiscoveryTable({
                         }}
                       />
                     </td>
-                    <td>{item.sample_count || Math.floor(item.file_count / 2) || 0} samples</td>
+                    <td>{item.sample_count || Math.floor((item.file_count ?? 0) / 2) || 0} samples</td>
                     <td><OperationRuntimeCell elapsedSeconds={item.elapsed_seconds} estimatedRemainingSeconds={item.estimated_remaining_seconds} status={item.analysis_status || item.submit_state} submitted={Boolean(item.submitted_at)} /></td>
                     <td title={`Displayed in ${displayTimeZoneLabel()}`}>{item.submitted_at ? formatDate(item.submitted_at) : "Not submitted"}</td>
                     <td title={`Displayed in ${displayTimeZoneLabel()}`}>{item.pipeline_finished_at ? formatDate(item.pipeline_finished_at) : item.analysis_id ? "In progress" : "-"}</td>
@@ -93,6 +96,13 @@ export function IntakeDiscoveryTable({
       ) : !loading && !error ? <p className="empty-state">{emptyMessage}</p> : null}
     </div>
   );
+}
+
+function WgsT7DiscoveryTable({items, ariaLabel}: {items: IntakeDiscovery[]; ariaLabel: string}) {
+  return <div className="intake-discovery-table-wrap"><table aria-label={ariaLabel} className="intake-discovery-table"><thead><tr><th>芯片</th><th>上机批次</th><th>状态</th><th>可分析配对</th><th>排除加测</th><th>异常配对</th><th>最近扫描</th></tr></thead><tbody>{items.map((item) => {
+    const display = intakeDisplay(item);
+    return <tr key={item.chip_id || item.batch_id}><td>{item.chip_id || item.batch_id}</td><td>{item.sequencing_batch || "-"}</td><td><span className={`intake-state-pill ${display.tone}`}>{display.label}</span>{item.last_error ? <span className="intake-error-reason">{item.last_error}</span> : null}</td><td>{item.eligible_pair_count ?? 0}</td><td>{item.excluded_addon_pair_count ?? 0}</td><td>{item.pair_issue_count ?? 0}</td><td>{formatDate(item.last_seen_at)}</td></tr>;
+  })}</tbody></table></div>;
 }
 
 function discoveryStage(item: IntakeDiscovery): string {

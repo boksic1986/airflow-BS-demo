@@ -157,6 +157,10 @@ services:
       WGS_INTAKE_HOST_ROOT: ${WGS_INTAKE_HOST_ROOT:?set WGS_INTAKE_HOST_ROOT}
       WGS_INTAKE_NODE200_ROOT: ${WGS_INTAKE_NODE200_ROOT:?set WGS_INTAKE_NODE200_ROOT}
       WGS_RELEASE_CATALOG_PATH: /config/wgs_releases.yaml
+      WGS_T7_FASTQ_ROOT: /bi/fastq/T7_Fastq
+      WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-true}"
+      WGS_INTAKE_SCAN_INTERVAL_SECONDS: "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-1800}"
+      WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"
     volumes:
       - ./backend:/app:ro
       - ./shared:/data/airflow-demo
@@ -186,11 +190,16 @@ services:
       WGS_BINDING_ROOT: /config/wgs-bindings
       WGS_RUNTIME_ROOT: /data/wgs-runtime
       WGS_RELEASE_CATALOG_PATH: /config/wgs_releases.yaml
+      WGS_T7_FASTQ_ROOT: /bi/fastq/T7_Fastq
+      WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-true}"
+      WGS_INTAKE_SCAN_INTERVAL_SECONDS: "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-1800}"
+      WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"
     volumes:
       - ./backend:/app:ro
       - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
       - ${WGS_BINDING_HOST_ROOT:?set WGS_BINDING_HOST_ROOT}:/config/wgs-bindings:ro
       - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime:ro
+      - ${WGS_T7_FASTQ_HOST_ROOT:-/bi/fastq/T7_Fastq}:/bi/fastq/T7_Fastq:ro
       - ./config/wgs_releases.yaml:/config/wgs_releases.yaml:ro
     networks: [wgs-platform]
 

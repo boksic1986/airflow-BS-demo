@@ -117,6 +117,7 @@ export type RunDetail = {
     master_image_digest?: string | null;
     pipeline_build_sha256?: string | null;
     resource_manifest_sha256?: string | null;
+    repair_groups?: Record<string, {target?: string | null}>;
   } | null;
   rule_event_schema_version?: string | null;
   observer?: {
@@ -125,6 +126,31 @@ export type RunDetail = {
     last_error?: string | null;
     updated_at?: string | null;
   } | null;
+  step4_repair?: Step4RepairCapability | null;
+};
+
+export type WgsMaintenanceAction = {
+  action_id: string;
+  analysis_id: string;
+  attempt: number;
+  action_type: string;
+  linkage_group: "cram";
+  status: string;
+  requested_by: string;
+  source_dag_run_id?: string | null;
+  maintenance_dag_run_id?: string | null;
+  evidence_path?: string | null;
+  error_message?: string | null;
+  created_at?: string | null;
+  started_at?: string | null;
+  ended_at?: string | null;
+};
+
+export type Step4RepairCapability = {
+  linkage_group: "cram";
+  available: boolean;
+  reason?: string | null;
+  latest_action?: WgsMaintenanceAction | null;
 };
 
 export type UserRole = "viewer" | "operator" | "admin";
@@ -475,11 +501,13 @@ export type HealthResponse = {
 
 export type IntakeDiscovery = {
   pipeline: string;
-  root_path: string;
+  root_path?: string;
+  chip_id?: string;
   batch_id: string;
-  fingerprint: string;
-  file_count: number;
-  total_bytes: number;
+  sequencing_batch?: string;
+  fingerprint?: string;
+  file_count?: number;
+  total_bytes?: number;
   ready_state: string;
   analysis_id?: string | null;
   submit_state: string;
@@ -507,6 +535,9 @@ export type IntakeDiscovery = {
   eta_model?: string | null;
   estimated_remaining_seconds?: number | null;
   estimated_finish_at?: string | null;
+  eligible_pair_count?: number;
+  excluded_addon_pair_count?: number;
+  pair_issue_count?: number;
 };
 
 export type IntakeStatusResponse = {
@@ -516,7 +547,7 @@ export type IntakeStatusResponse = {
   offset?: number;
 };
 
-export type IntakeDiscoveryState = "bootstrap" | "observed" | "ready" | "submitted" | "error" | "disabled";
+export type IntakeDiscoveryState = "bootstrap" | "observed" | "ready" | "submitted" | "error" | "disabled" | "waiting_barcode_stat" | "no_new_wgs" | "needs_review" | "bootstrap_ignored";
 export type IntakeLifecycle = "active" | "archived" | "all";
 
 export type IntakeScanPreviewItem = {
@@ -589,9 +620,9 @@ export type IntakeConfigResponse = {
 };
 
 export type IntakeScannerStateResponse = {
-  dag_id: string;
-  airflow_reachable: boolean;
-  is_paused: boolean | null;
+  dag_id?: string;
+  airflow_reachable?: boolean;
+  is_paused?: boolean | null;
   latest_dag_run_id?: string | null;
   latest_dag_run_state?: string | null;
   latest_start_date?: string | null;
@@ -601,6 +632,19 @@ export type IntakeScannerStateResponse = {
   trigger_contracts?: Record<string, string>;
   retention?: {enabled: boolean; days: number; scope: string};
   message?: string | null;
+  scanner?: "wgs-observer";
+  root?: string;
+  enabled?: boolean;
+  schedule_seconds?: number;
+  auto_dispatch_enabled?: boolean;
+  bootstrap_completed_at?: string | null;
+  last_scan_started_at?: string | null;
+  last_scan_completed_at?: string | null;
+  next_scan_at?: string | null;
+  last_scan_duration_ms?: number | null;
+  last_status?: string;
+  last_counts?: Record<string, number>;
+  last_error?: string | null;
 };
 
 export type IntakeView = "pending" | "history" | "all";
@@ -1173,4 +1217,8 @@ export function rerunFailedRun(analysisId: string): Promise<RunDetail> {
 
 export function cancelRun(analysisId: string): Promise<RunDetail> {
   return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}/actions/cancel`, {method: "POST"});
+}
+
+export function repairStep4(analysisId: string): Promise<WgsMaintenanceAction> {
+  return requestJson<WgsMaintenanceAction>(`/runs/${encodeURIComponent(analysisId)}/actions/repair-step4`, {method: "POST"});
 }

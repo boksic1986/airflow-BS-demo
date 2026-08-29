@@ -57,19 +57,61 @@ def validate_request(**context: Any) -> dict[str, Any]:
     ):
         if not str(params.get(field) or "").strip():
             raise ValueError(f"{field} is required")
+    maintenance_mode = conf.get("maintenance_mode")
+    if maintenance_mode is not None:
+        if maintenance_mode != "repair_step4":
+            raise ValueError("unsupported WGS maintenance mode")
+        if conf.get("repair_group") != "cram":
+            raise ValueError("Step4 maintenance is fixed to the cram linkage group")
+        if not isinstance(conf.get("continue_after_repair"), bool):
+            raise ValueError("continue_after_repair must be boolean")
     return conf
 
 
+def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
+    if conf.get("maintenance_mode") != "repair_step4":
+        return True
+    if stage == "step4_publish":
+        return True
+    if stage in {
+        "prepare",
+        "acquire_input_transfer_slot",
+        "step1_upload",
+        "release_input_transfer_slot",
+        "step2_master",
+        "step3_monitor",
+    }:
+        return False
+    if stage in {
+        "acquire_result_transfer_slot",
+        "step5_download",
+        "release_result_transfer_slot",
+        "step6_materialize",
+        "finalize_run",
+    }:
+        return bool(conf.get("continue_after_repair"))
+    return True
+
+
+def effective_runner_stage(stage: str, conf: dict[str, Any]) -> str:
+    if conf.get("maintenance_mode") == "repair_step4" and stage == "step4_publish":
+        return "step4_repair_cram"
+    return stage
+
+
 def register_stage(stage: str, **context: Any) -> dict[str, Any]:
-    _require_runtime_enabled()
     conf = dict(context["dag_run"].conf or {})
+    if not stage_should_run(stage, conf):
+        return {"skipped": True, "stage": stage, "maintenance_mode": "repair_step4"}
+    _require_runtime_enabled()
+    runner_stage = effective_runner_stage(stage, conf)
     return _backend_json(
-        f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/{stage}",
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/{runner_stage}",
         method="POST",
         payload={
             "attempt": conf["attempt"],
             "adapter": "wgs-runtime-200",
-            "command": f"wgs-runtime {conf['analysis_id']} {conf['attempt']} {stage}",
+            "command": f"wgs-runtime {conf['analysis_id']} {conf['attempt']} {runner_stage}",
         },
     )
 
@@ -79,6 +121,9 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         raise ValueError(f"unsupported runner stage: {stage}")
     registered = register_stage(stage, **context)
     conf = dict(context["dag_run"].conf or {})
+    if registered.get("skipped"):
+        return registered
+    runner_stage = effective_runner_stage(stage, conf)
     command = [
         "ssh",
         "-tt",
@@ -89,7 +134,7 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         "wgs-runtime",
         str(conf["analysis_id"]),
         str(conf["attempt"]),
-        stage,
+        runner_stage,
     ]
     completed = subprocess.run(
         command,
@@ -107,9 +152,12 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
 
 
 def stage_ready(stage: str, **context: Any) -> bool:
-    _require_runtime_enabled()
     conf = dict(context["dag_run"].conf or {})
-    query = urlencode({"attempt": conf["attempt"], "stage": stage})
+    if not stage_should_run(stage, conf):
+        return True
+    _require_runtime_enabled()
+    runner_stage = effective_runner_stage(stage, conf)
+    query = urlencode({"attempt": conf["attempt"], "stage": runner_stage})
     payload = _backend_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/stage-status?{query}"
     )

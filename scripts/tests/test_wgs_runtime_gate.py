@@ -30,6 +30,9 @@ def test_forced_command_accepts_only_registered_wgs_stages() -> None:
     assert gate.parse_command(
         "wgs-runtime WGS_20260826_010203_A1B2C3 1 step1_upload"
     ) == ("WGS_20260826_010203_A1B2C3", 1, "step1_upload")
+    assert gate.parse_command(
+        "wgs-runtime WGS_20260826_010203_A1B2C3 1 step4_repair_cram"
+    ) == ("WGS_20260826_010203_A1B2C3", 1, "step4_repair_cram")
     for command in (
         "bash -c id",
         "wgs-runtime WGS_20260826_010203_A1B2C3 1 step0_reset",
@@ -66,9 +69,9 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
         "analysis_id": "WGS_20260826_010203_A1B2C3",
         "attempt": 1,
         "stage": "prepare",
-        "pipeline_release_id": "wgs-4.1.1-1778fca",
+        "pipeline_release_id": "wgs-4.1.1-1656b5d",
         "wgs_version": "V4.1.1",
-        "wgs_source_commit": "1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+        "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
         "node200_workdir": str(tmp_path / "attempt-1"),
         "project_name": "clinical-wgs",
         "batch_no": "BATCH-01",
@@ -108,8 +111,8 @@ def test_release_repository_validation_rejects_commit_or_runtime_drift(
     with pytest.raises(RuntimeError, match="release_unavailable"):
         gate.validate_release_repository(
             {
-                "pipeline_release_id": "wgs-4.1.1-1778fca",
-                "wgs_source_commit": "1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+                "pipeline_release_id": "wgs-4.1.1-1656b5d",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
             }
         )
     assert calls[0][-2:] == ["rev-parse", "HEAD"]
@@ -124,7 +127,7 @@ def test_prepare_retry_reuses_frozen_binding_without_repository_access(
     payload = {
         "analysis_id": "WGS_20260826_010203_A1B2C3",
         "attempt": 1,
-        "pipeline_release_id": "wgs-4.1.1-1778fca",
+        "pipeline_release_id": "wgs-4.1.1-1656b5d",
     }
     reused: list[dict] = []
 
@@ -162,6 +165,53 @@ def test_step3_status_contract_is_strict_and_master_only() -> None:
     assert "pods" not in value
     with pytest.raises(ValueError, match="master_state"):
         gate.validate_step3_status({"normal": True})
+
+
+def test_step4_repair_command_is_derived_only_from_frozen_binding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    cce = tmp_path / "cce"
+    cce.mkdir()
+    script = cce / "Step4_publish_results.sh"
+    script.write_text("#!/bin/bash\n", encoding="utf-8")
+    binding = {
+        "cce_bundle": str(cce),
+        "project": "WGS_Clinical",
+        "batch": "20260821B",
+        "run_id": "WGS_20260829_010203_A1B2C3-a1",
+        "repair_groups": {"cram": {"target": "linkage/cram"}},
+    }
+    monkeypatch.setattr(gate, "_load_binding", lambda _payload: binding)
+
+    command = gate.build_step4_repair_command({"analysis_id": "WGS_20260829_010203_A1B2C3", "attempt": 1})
+
+    assert command == [
+        "bash",
+        str(script),
+        "--repair-linkage-group",
+        "cram",
+        "--confirm",
+        "REPAIR-LINKAGE:WGS_Clinical/20260821B/WGS_20260829_010203_A1B2C3-a1:cram",
+    ]
+
+
+def test_step4_repair_rejects_bundle_without_cram_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    gate = load_gate()
+    monkeypatch.setattr(
+        gate,
+        "_load_binding",
+        lambda _payload: {
+            "cce_bundle": "/frozen/cce",
+            "project": "WGS_Clinical",
+            "batch": "20260821B",
+            "run_id": "run-1",
+            "repair_groups": {},
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="cram"):
+        gate.build_step4_repair_command({"analysis_id": "WGS_20260829_010203_A1B2C3", "attempt": 1})
 
 
 def test_step3_evidence_bridge_command_uses_frozen_binding_and_shared_spool(

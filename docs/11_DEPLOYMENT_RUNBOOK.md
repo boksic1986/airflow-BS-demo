@@ -1,6 +1,25 @@
 # 11 部署 Runbook
 
-## T142 单一 WGS release 禁用态发布
+## T143 T7 scan-only 禁用态发布
+
+1. 确认 catalog绑定`wgs-4.1.1-1656b5d`，两个 execution gate为 false，
+   `bio_wgs` paused；不得安装或升级 cce-pipeline。
+2. 运行远端 backend/observer/DAG/runner/frontend、Alembic往返、Compose和网络
+   验收。不得调用 sampleinfo、Step1-Step6、OBS或 CCE。
+3. observer只读挂载宿主`/bi/fastq/T7_Fastq`到同路径，并设置：
+   `WGS_INTAKE_SCAN_ENABLED=true`、`WGS_INTAKE_SCAN_INTERVAL_SECONDS=1800`、
+   `WGS_AUTO_DISPATCH_ENABLED=false`。
+4. 迁移到`20260829_0011`并只重建相关服务；不删除 volume，不重建外部
+   `192.168.199.0/24`网络。
+5. 首次扫描仅建立 bootstrap。核对 AnalysisRun和 Airflow DagRun均为零；随后按
+   真实1800秒间隔连续观察至少两个周期，确认状态计数幂等且仍无运行副作用。
+6. 只在上述验收通过后切换`current`。真实自动 prepare、分析目录创建、Step4
+   repair执行和 CCE分析均需单独审批。
+
+回滚仅切回前一个 disabled release并重建应用；不要降级含新 intake/maintenance
+数据的数据库，不删除扫描源、WGS仓库、volume或 Docker网络。
+
+## T142 单一 WGS release 禁用态发布（历史）
 
 1. 只读确认 BS10610 和 node200 的共享 WGS 仓库 HEAD 均为
    `1778fcabd99b5253aa90cd410112dc2f78e0c51a`，已跟踪文件无漂移，未跟踪文件

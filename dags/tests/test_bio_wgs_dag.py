@@ -59,9 +59,9 @@ class BioWgsDagTests(unittest.TestCase):
                 "project_name": "clinical-wgs",
                 "batch_no": "BATCH-1",
                 "fq_path": "/data/wgs-intake/BATCH-1",
-                "pipeline_release_id": "wgs-4.1.1-1778fca",
+                "pipeline_release_id": "wgs-4.1.1-1656b5d",
                 "wgs_version": "V4.1.1",
-                "wgs_source_commit": "1778fcabd99b5253aa90cd410112dc2f78e0c51a",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
             },
         }
         context = {"dag_run": type("DagRun", (), {"conf": conf})()}
@@ -70,6 +70,49 @@ class BioWgsDagTests(unittest.TestCase):
         )
         del conf["params"]["pipeline_release_id"]
         with self.assertRaisesRegex(ValueError, "pipeline_release_id"):
+            bio_wgs.validate_request(**context)
+
+    def test_step4_maintenance_mode_reuses_same_dag_without_running_step1_to_step3(self) -> None:
+        conf = {
+            "maintenance_mode": "repair_step4",
+            "repair_group": "cram",
+            "continue_after_repair": True,
+        }
+
+        self.assertFalse(bio_wgs.stage_should_run("prepare", conf))
+        self.assertFalse(bio_wgs.stage_should_run("step3_monitor", conf))
+        self.assertTrue(bio_wgs.stage_should_run("step4_publish", conf))
+        self.assertTrue(bio_wgs.stage_should_run("step5_download", conf))
+        self.assertEqual(
+            bio_wgs.effective_runner_stage("step4_publish", conf),
+            "step4_repair_cram",
+        )
+        conf["continue_after_repair"] = False
+        self.assertFalse(bio_wgs.stage_should_run("step5_download", conf))
+        self.assertFalse(bio_wgs.stage_should_run("step6_materialize", conf))
+
+    def test_maintenance_validation_rejects_any_non_cram_group(self) -> None:
+        conf = {
+            "analysis_id": "WGS_20260827_123456_A1B2C3",
+            "pipeline": "wgs",
+            "execution_mode": "cce",
+            "attempt": 1,
+            "workdir": "/data/wgs-results/runs/WGS_20260827_123456_A1B2C3",
+            "maintenance_mode": "repair_step4",
+            "repair_group": "vcf",
+            "continue_after_repair": False,
+            "params": {
+                "project_name": "clinical-wgs",
+                "batch_no": "BATCH-1",
+                "fq_path": "/data/wgs-intake/BATCH-1",
+                "pipeline_release_id": "wgs-4.1.1-1656b5d",
+                "wgs_version": "V4.1.1",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
+            },
+        }
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+
+        with self.assertRaisesRegex(ValueError, "cram"):
             bio_wgs.validate_request(**context)
 
 

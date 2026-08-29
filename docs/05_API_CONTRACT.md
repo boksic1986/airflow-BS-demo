@@ -1,6 +1,22 @@
 # 05 API Contract
 
-## T142 单一 WGS release API
+## T143/T144 T7 intake 与 Step4 repair API
+
+- `GET /api/intake/status?pipeline=wgs`返回芯片、上机批次、状态和三类计数，支持
+  分页/状态过滤；不返回样本编号、源路径或 fingerprint。
+- WGS-only部署中，`pipeline=deployed|all`和省略pipeline与显式`pipeline=wgs`
+  使用同一T7投影，保证Dashboard默认筛选不会回落到历史intake表。
+- `GET /api/intake/scanner-state`返回 bootstrap、最近/下次扫描、1800秒间隔和
+  `auto_dispatch_enabled=false`。
+- `GET /api/runs/{analysis_id}`增加`step4_repair`能力和最近维护操作。
+- `POST /api/runs/{analysis_id}/actions/repair-step4`只允许 operator/admin，固定
+  cram。服务端生成确认串；任意客户端 path/group/confirm字段均不属于合同。
+- 两个执行门禁关闭时 repair返回409，且不创建维护记录、不触发 Airflow/SSH。
+
+详细状态与继续语义见[文档 26](26_WGS_T7_INTAKE_STEP4_REPAIR.md)。当前发布自动
+绑定`wgs-4.1.1-1656b5d`。
+
+## T142 单一 WGS release API（历史基线）
 
 - `GET /api/wgs/release`返回当前 `release_id`、`version`、完整 source commit 和
   两个 execution gate；除 health/login 外仍需登录。
