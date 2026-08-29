@@ -22,6 +22,9 @@ event-driven observer，清理 demo 生成的 1830 条历史明细，保持所�
   历史明细；Settings 也使用 T7 scanner 而不是旧 Airflow scanner DAG 投影。
 - Compose 已切换为`wgs-intake-scanner`和`wgs-run-observer`，旧容器已移除；
   最小挂载和20m x 3日志轮转已在运行容器核对。
+- 当前 release 通过后，已核对无容器挂载 T142/T143，并用无网络 root
+  容器删除这两个旧 release。`releases/`现只保留 T145；该目录删除不可
+  就地恢复，但代码可由 Git 提交重建。数据库备份和 Docker 镜像未删除。
 
 ### Production data operation
 

@@ -4,6 +4,7 @@
 
 ```text
 t145_release: current -> /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260830-wgs-4.1.1-observer-lifecycle-disabled-t145。
+t145_release_cleanup: 验收后已用无网络root容器精确删除T142和T143旧release；releases目录只保留T145。旧release目录删除不可就地恢复，代码仍可从Git重建。
 t145_services: 旧wgs-observer已停止并移除；wgs-intake-scanner只读T7根并每1800秒扫描，wgs-run-observer只读evidence并在无active/draining attempt时阻塞PostgreSQL LISTEN/NOTIFY。
 t145_sparse_intake: 生产首次和第二次扫描均统计1830个匹配目录，wgs_intake_batch仍为0；bootstrap_ignored和waiting_barcode_stat不再入库。
 t145_cleanup: 清理前1830行中关联analysis数为0；受保护单事务删除1830个batch和1个scanner state。清理后AnalysisRun、observer state均为0。
