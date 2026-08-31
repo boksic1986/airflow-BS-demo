@@ -3,9 +3,10 @@
 更新时间：2026-09-01
 
 当前结论：T146 已按 WGS commit
-`cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d`完成禁用态代码适配和测试，node200
-当前cce-pipeline为0.8.1。真实手工批次已获批准，但在disabled release、网络和
-HTTP smoke通过前仍保持两个execution gate关闭和`bio_wgs` paused。
+`cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d`完成代码适配、部署和一次真实手工提交，
+node200当前cce-pipeline为0.8.1。Airflow Step3解析错误已修复，但真实Master暴露出
+0.8.1 operator与resolved 0.7.0系列Master镜像的启动合同不一致。当前两个execution
+gate已恢复关闭，`bio_wgs`重新paused；对齐Master前不得继续重试。
 
 ## 1. 当前发布合同
 
@@ -81,6 +82,26 @@ Master Job/Pod evidence仍由node200写入共享spool，observer不持有kubecon
 私钥；API/UI只展示Master，不持续枚举Worker Pod。
 
 ## 4. 禁用态预验收
+
+### T146真实运行结论
+
+- Airflow分析根实际位于runtime attempt下的`WGS_Clinical/<batch>`；未读取或重建
+  旧`/sg2/.../wgs_test/WGS_Clinical`路径。
+- prepare、OBS Step1和Master提交均能由Airflow执行；已上传OBS FASTQ可复用。
+- `Step3_status.sh --output json`会先输出kubectl提示，旧runtime gate对完整stdout
+  `json.loads`而失败。现已改为从后向前选择最后一个合法JSON并严格校验；远端
+  scripts测试`22 passed`，生产Step3能够正确返回Master `FAILED`。
+- 失败Master的受保护日志确认：node200 cce-pipeline 0.8.1在Step2发送START前调用
+  `_prepare_worker_manifest`，创建`run_root/evidence/<run_id>/jobs.ndjson`；当前profile
+  解析出的Master镜像仍使用0.7.0系列启动脚本，该脚本看到已有run目录却没有
+  `config/run-id`后立即退出。这不是Airflow路径错误，也不能靠Airflow重试修复。
+- 失败后的Master Job、仅含0字节`jobs.ndjson`的SFS stub和精确batch lock已清理；
+  OBS result为空，已上传OBS FASTQ保留。AnalysisRun和审计记录保留为attempt 7
+  `failed`，前端/API显示失败和传输历史。
+
+恢复门禁：WGS/profile必须解析到与0.8.1 Step2顺序一致的Master镜像，或cce-pipeline
+调整为Master写入`run-id`前不创建run root。生成新冻结bundle并验证resolved runtime
+后，才可再次打开gate并恢复真实批次。
 
 T143/T144当前结果：BS10610 backend `216 passed, 1 skipped`，runtime/scripts
 `17 passed`，唯一 paused `bio_wgs`有18 tasks且无import error；frontend 9个测试

@@ -48,6 +48,16 @@ Airflow的`batch_no`保存完整分析目录名，但WGS CLI的`--analysis-batch
 `runs/.../batch-binding.json`并写入`resolved_runtime`。这不是恢复全局runtime扫描；
 不得glob其他run，也不得让空闲observer轮询binding。
 
+`Step3_status.sh --output json`可能先输出kubectl资源提示，再在最后一行输出JSON。
+runtime gate必须从后向前选择最后一个合法JSON记录并执行严格schema校验，不能对整个
+stdout直接`json.loads`，也不能忽略非零退出码。
+
+T146真实运行发现的兼容性门禁：cce-pipeline 0.8.1 Step2会在Master START前建立
+`run_root/evidence/<run_id>/jobs.ndjson`。resolved Master镜像必须接受这一精确stub并
+原子写入`config/run-id`；0.7.0系列Master会将其判为无身份的既有run目录并立即失败。
+出现该组合时应关闭两个execution gate并暂停DAG，不得通过重试、修改Airflow分析
+目录或热补丁冻结bundle绕过。
+
 网络不得重建：`nipt_analysis_test_net=192.168.199.0/24`、gateway
 `192.168.199.1`，只有`172.17.106.10:12959`可发布。
 

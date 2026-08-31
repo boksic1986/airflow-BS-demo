@@ -405,6 +405,20 @@ def validate_step3_status(value: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def parse_step3_status_output(value: str) -> dict[str, Any]:
+    for line in reversed(value.splitlines()):
+        candidate = line.strip()
+        if not candidate.startswith("{"):
+            continue
+        try:
+            payload = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return validate_step3_status(payload)
+    raise ValueError("Step3 output does not contain a valid JSON status record")
+
+
 def build_evidence_bridge_command(
     payload: dict[str, Any], binding: dict[str, Any], *, terminal: bool
 ) -> list[str]:
@@ -462,7 +476,7 @@ def _monitor_step3(payload: dict[str, Any]) -> None:
         )
         if completed.returncode != 0:
             raise RuntimeError((completed.stderr or completed.stdout)[-2000:])
-        value = validate_step3_status(json.loads(completed.stdout))
+        value = parse_step3_status_output(completed.stdout)
         terminal = value["master_state"] in {"SUCCEEDED", "FAILED"}
         if terminal:
             monitoring_error = _sync_rule_evidence(payload, binding, terminal=True)

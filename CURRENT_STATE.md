@@ -1,15 +1,17 @@
 # CURRENT_STATE.md
 
-## 2026-09-01 T146 - WGS cdee32c / cce-pipeline 0.8.1 manual run（进行中）
+## 2026-09-01 T146 - WGS cdee32c / cce-pipeline 0.8.1 manual run（运行时阻断）
 
 ```text
 t146_release_contract: WGS V4.1.1 commit cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d, release wgs-4.1.1-cdee32c；BS10610和node200共享同一仓库，只有docs/下允许的未跟踪文档。
 t146_runtime: node200 /bi/software/mamba/envs/WGS/bin/cce-pipeline 为0.8.1；Airflow不校验其版本，只记录prepare产生的resolved runtime。
 t146_prepare_fix: Airflow从batch_no WGS_20260825A_T7Hg38V4.1.1提取sequencing batch 20260825A并传入--batch；--outpath仍是Airflow attempt runtime下的WGS_Clinical，不重建旧/sg2/.../wgs_test目录。
-t146_validation: BS10610 runner 19 passed、backend 227 passed、DAG 10 passed、Compose/network contract 5 passed；frontend 31 passed且TypeScript/Vite build通过。
+t146_validation: BS10610 runner 19 passed、backend 227 passed、DAG 10 passed、Compose/network contract 5 passed；frontend 31 passed且TypeScript/Vite build通过；Step3多行stdout解析回归后scripts全量22 passed。
 t146_intake: 3对FASTQ软链接已原样复制到Airflow受控intake，两端可见；软链接源文件保持不变。
-t146_cleanup: 旧批次Master/Worker活动数为0；SFS run/linkage经一次性只读Job验证不存在；OBS input/result均为0B；同批次已完成维护Job和陈旧lock已删除。旧本地分析目录受NFS服务端写权限限制仍保留，但新流程不会读取它。
-t146_deployment: staging和离线frontend image已完成；current仍为T145、两个execution gate仍false、bio_wgs仍paused，尚未提交真实run。
+t146_cleanup: 初始旧批次SFS/OBS和CCE状态已清理；真实attempt 5/7失败后产生的Master、空SFS evidence stub和批次lock也已按精确身份清理。OBS input保留已上传FASTQ，OBS result为空；旧本地分析目录仍保留但从未被新流程读取或重建。
+t146_deployment: current已切换到20260901-wgs-4.1.1-cdee32c-t146。真实run保留为attempt 7 failed，前端/API可见；发现兼容性阻断后BS10610和node200两个execution gate已恢复false，bio_wgs已重新paused，自动提交仍false。
+t146_airflow_fix: Step3_status.sh允许kubectl提示后最后一行JSON；runtime gate从后向前解析最后一个合法JSON并严格校验。修复后Step3正确报告Master FAILED，不再被JSONDecodeError掩盖。
+t146_blocker: node200 cce-pipeline 0.8.1的Step2在START前创建run_root/evidence/<run_id>/jobs.ndjson；当前resolved Master image仍为cce-pipeline 0.7.0系列并拒绝“已有run目录但缺run-id”，Master立即退出。须先发布/选择与0.8.1合同一致的Master镜像或修正该顺序，Airflow不得继续重试。
 t146_scanner: Compose命令改为读取WGS_INTAKE_SCAN_INTERVAL_SECONDS；生产受保护值为600秒，保持10分钟扫描且不新增记录膨胀。
 t146_network: 必须继续保留nipt_analysis_test_net 192.168.199.0/24、gateway 192.168.199.1，且只发布172.17.106.10:12959。
 ```

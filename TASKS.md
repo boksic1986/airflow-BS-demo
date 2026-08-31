@@ -20,7 +20,7 @@
 | T143 | T7 scan-only intake | backend/observer/frontend/infra/QA/docs | 30-minute read-only T7 scanner, bootstrap, chip-level DB/API/UI, auto-dispatch hard-off | unit/integration/migration/network pass; two production cycles remain idempotent with zero AnalysisRun and DagRun | done |
 | T144 | WGS Step4 CRAM repair contract | backend/airflow/observer/frontend/QA/docs | fixed-cram service action, same-attempt maintenance mode, 0.7.1 frozen-bundle command, RBAC and audit | disabled-mode tests pass; gates-off returns 409 before Airflow/SSH; real repair deferred | done in disabled mode |
 | T145 | WGS scanner sparse persistence and CCE observer lifecycle | backend/airflow/observer/frontend/infra/QA/docs | split scanner/run observer, LISTEN/NOTIFY lifecycle, exact transfer sync, migration 0012, protected 1830-row cleanup and disabled release | baseline stores zero details; idle observer does no polling/logging; tests/API/network/gates pass | done in disabled mode |
-| T146 | WGS cdee32c / cce-pipeline 0.8.1 manual production run | airflow/backend/frontend/infra/QA/docs | bind current WGS release, pass sequencing batch to prepare, deploy enabled manual flow, rebuild one approved batch from controlled intake | disabled tests and network pass; exact old batch cloud state cleared; one manual run is visible through API/UI and reaches a verified terminal state | in progress |
+| T146 | WGS cdee32c / cce-pipeline 0.8.1 manual production run | airflow/backend/frontend/infra/QA/docs | bind current WGS release, pass sequencing batch to prepare, deploy enabled manual flow, rebuild one approved batch from controlled intake | disabled tests and network pass; exact old batch cloud state cleared; one manual run is visible through API/UI and reaches a verified terminal state | blocked on resolved Master/runtime compatibility |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
 
@@ -28,7 +28,7 @@
 
 Owner: airflow/backend/frontend/infra/QA/docs
 
-Status: in progress
+Status: blocked on resolved Master/runtime compatibility
 
 Acceptance:
 
@@ -42,9 +42,13 @@ Acceptance:
 - [x] 已把3对FASTQ软链接复制到Airflow受控intake；源FASTQ未删除。
 - [x] 旧批次SFS run/linkage、OBS input/result、已完成CCE维护Job和陈旧batch lock
   已精确清理并验证为空。
-- [ ] 新release禁用态部署、网络/API/DAG smoke通过后启用两个runtime gate。
-- [ ] operator手工创建并提交一个真实run；Run Detail、Transfers、Rules和Master
-  状态可见，最终结果通过Step5/Step6校验。
+- [x] 新release、网络/API/DAG smoke通过；在批准窗口内启用两个runtime gate并完成
+  operator手工提交。兼容性失败后两个gate恢复false且DAG重新paused。
+- [x] Step3多行stdout解析已修复并部署，失败状态和传输状态可由Run Detail/API查询。
+- [ ] cce-pipeline 0.8.1 Step2与resolved 0.7.0系列Master镜像必须先对齐：当前Step2
+  在START前创建空`jobs.ndjson`，旧Master因目录缺`run-id`立即失败。
+- [ ] 对齐后从清洁CCE/SFS状态恢复；Rules和Master状态可见，最终结果通过Step5/Step6
+  校验。本轮不得继续盲目重试。
 
 ## T145 - WGS scanner sparse persistence and observer lifecycle
 

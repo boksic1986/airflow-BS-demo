@@ -1,5 +1,28 @@
 # SERVER_INFO.md
 
+## T146 BS10610 WGS runtime snapshot (2026-09-01)
+
+```text
+primary: BS10610
+compose_project: airflow-wgs
+release: 20260901-wgs-4.1.1-cdee32c-t146
+wgs_release: wgs-4.1.1-cdee32c
+node200_runtime: cce-pipeline 0.8.1
+resolved_master_runtime: cce-pipeline 0.7.0 series (incompatible with 0.8.1 Step2 pre-start manifest)
+execution_gates: false on BS10610 and node200 after failed real acceptance
+bio_wgs: paused
+auto_dispatch: false
+external_network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
+published: only 172.17.106.10:12959 frontend/API gateway
+accepted_stage: prepare and Step1 input transfer
+blocked_stage: Master startup before Snakemake; existing evidence stub lacks run-id contract
+```
+
+The failed Master, exact empty SFS evidence stub, diagnostic Jobs and batch lock
+were removed after evidence capture. Uploaded OBS FASTQ and the failed Airflow/
+biodemo audit records were preserved. Do not reopen the gates until the resolved
+Master image implements the same pre-start run-root contract as cce-pipeline 0.8.1.
+
 ## T127 BS shared NIPT/WGS deployment snapshot (2026-07-15)
 
 ```text

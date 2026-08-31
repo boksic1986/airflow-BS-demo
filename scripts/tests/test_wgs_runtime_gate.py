@@ -217,6 +217,25 @@ def test_step3_status_contract_is_strict_and_master_only() -> None:
         gate.validate_step3_status({"normal": True})
 
 
+def test_step3_output_uses_last_json_record_after_kubectl_messages() -> None:
+    gate = load_gate()
+    parsed = gate.parse_step3_status_output(
+        "pod/reader condition met\n"
+        'job.batch "reader" deleted\n'
+        '{"master_state":"FAILED","normal":false,"completed":0,'
+        '"total":0,"percent":0,"message":"master failed"}\n'
+    )
+
+    assert parsed["master_state"] == "FAILED"
+    assert parsed["message"] == "master failed"
+
+
+def test_step3_output_rejects_missing_json_record() -> None:
+    gate = load_gate()
+    with pytest.raises(ValueError, match="valid JSON"):
+        gate.parse_step3_status_output("pod/reader condition met\n")
+
+
 def test_step4_repair_command_is_derived_only_from_frozen_binding(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

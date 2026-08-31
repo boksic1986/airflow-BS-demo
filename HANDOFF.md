@@ -1,5 +1,41 @@
 # HANDOFF.md
 
+## 2026-09-01 - Codex - T146真实运行阻断与安全停用
+
+### Outcome
+
+- T146 release已部署，分析目录确认使用Airflow runtime下的
+  `WGS_Clinical/<batch>`；旧`/sg2/.../wgs_test/WGS_Clinical`目录未被使用。
+- 修复并部署Step3 stdout解析：kubectl提示可位于JSON前，最后一个合法JSON仍执行
+  严格schema校验。BS10610 scripts全量`22 passed`。
+- 真实attempt 7完成prepare、Step1和Step2提交，前端/API最终显示run `failed`；没有
+  进入Step4-Step6，也没有发布结果。
+
+### Root cause
+
+node200 operator为cce-pipeline 0.8.1，其Step2在Master START前建立
+`run_root/evidence/<run_id>/jobs.ndjson`。冻结profile解析出的Master镜像仍为
+cce-pipeline 0.7.0系列；其启动脚本拒绝任何缺少`config/run-id`的既有run目录，
+因此立即退出。日志已保存在task-specific、mode 0600 evidence目录；不得复制患者
+信息到Git或普通日志。
+
+### Cleanup and current safety state
+
+- 失败Master、只含0字节manifest的精确SFS stub、attempt 7 batch lock和一次性诊断
+  Job均已删除；这些空状态不可恢复且无业务结果。
+- 已上传OBS FASTQ保留，OBS result为空；源FASTQ和Airflow DB运行/审计记录保留。
+- BS10610与node200的`WGS_EXECUTION_ENABLED`、
+  `WGS_RUNTIME_ADAPTER_ENABLED`均恢复false；`bio_wgs`重新paused，自动提交仍关闭。
+- Docker网络仍是`192.168.199.0/24`、gateway`192.168.199.1`，只有
+  `172.17.106.10:12959`发布。
+
+### Next step
+
+先发布或选择与0.8.1 Step2合同一致的Master镜像（或修正Step2在Master写
+`run-id`前创建run root的顺序），更新WGS/profile后重新prepare并核对resolved
+runtime。完成前不得再次打开gate或恢复批次。Airflow无需改分析目录，也不得在
+runtime中热补丁冻结bundle。
+
 ## 2026-09-01 - Codex - T146 WGS cdee32c / cce-pipeline 0.8.1 manual run checkpoint
 
 ### Goal
