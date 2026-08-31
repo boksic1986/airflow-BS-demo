@@ -10,6 +10,7 @@ t146_validation: BS10610 runner 19 passed、backend 227 passed、DAG 10 passed�
 t146_intake: 3对FASTQ软链接已原样复制到Airflow受控intake，两端可见；软链接源文件保持不变。
 t146_cleanup: 旧批次Master/Worker活动数为0；SFS run/linkage经一次性只读Job验证不存在；OBS input/result均为0B；同批次已完成维护Job和陈旧lock已删除。旧本地分析目录受NFS服务端写权限限制仍保留，但新流程不会读取它。
 t146_deployment: staging和离线frontend image已完成；current仍为T145、两个execution gate仍false、bio_wgs仍paused，尚未提交真实run。
+t146_scanner: Compose命令改为读取WGS_INTAKE_SCAN_INTERVAL_SECONDS；生产受保护值为600秒，保持10分钟扫描且不新增记录膨胀。
 t146_network: 必须继续保留nipt_analysis_test_net 192.168.199.0/24、gateway 192.168.199.1，且只发布172.17.106.10:12959。
 ```
 

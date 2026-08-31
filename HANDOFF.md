@@ -17,6 +17,7 @@
   Airflow runtime attempt下的`WGS_Clinical/<batch>`。
 - Submit页在两个gate打开时显示生产创建动作；关闭时继续显示禁用提示。未增加版本
   选择器，也未改变create/submit两步权限合同。
+- Compose scanner命令不再硬编码1800秒，而是读取受保护环境变量；生产值保持600秒。
 - 3对FASTQ软链接已复制到Airflow受控intake，BS10610/node200均能看到6条有效
   链接；源FASTQ未删除。
 

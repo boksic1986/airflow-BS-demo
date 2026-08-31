@@ -203,7 +203,7 @@ services:
     depends_on:
       platform-admin-init:
         condition: service_completed_successfully
-    command: ["python", "-m", "app.wgs_intake_scanner_cli", "--intake-root", "/bi/fastq/T7_Fastq", "--intake-interval", "1800"]
+    command: ["python", "-m", "app.wgs_intake_scanner_cli", "--intake-root", "/bi/fastq/T7_Fastq", "--intake-interval", "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-1800}"]
     environment:
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}

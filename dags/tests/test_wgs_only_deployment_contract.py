@@ -58,6 +58,11 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         observer = payload["services"]["wgs-run-observer"]
         scanner = payload["services"]["wgs-intake-scanner"]
 
+        self.assertEqual(
+            scanner["command"][-1],
+            "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-1800}",
+        )
+
         for service in (observer, scanner):
             rendered = str(service)
             self.assertNotIn("ports", service)
