@@ -7,6 +7,12 @@
 prepare后的`resolved_runtime`中审计展示。创建和提交仍是两个operator操作；
 两个execution gate关闭时submit返回409。
 
+`POST /api/runs/{analysis_id}/actions/resume`和`rerun_failed`同样必须在修改
+attempt或调用Airflow前检查两个门禁。execution关闭返回HTTP 409和
+`WGS_EXECUTION_DISABLED`；execution开启但runtime adapter关闭返回HTTP 409和
+`WGS_RUNTIME_DISABLED`。两种拒绝均不得改变原attempt/status或Airflow DagRun；
+`cancel`保持可用，以便停止已经活动的任务。
+
 ## T145 sparse intake 与 observer lifecycle API
 
 `GET /api/intake/scanner-state`持久层只返回首次/最近扫描、本轮目录数和

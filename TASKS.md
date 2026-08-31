@@ -45,6 +45,8 @@ Acceptance:
 - [x] 新release、网络/API/DAG smoke通过；在批准窗口内启用两个runtime gate并完成
   operator手工提交。兼容性失败后两个gate恢复false且DAG重新paused。
 - [x] Step3多行stdout解析已修复并部署，失败状态和传输状态可由Run Detail/API查询。
+- [x] execution/runtime gate关闭时resume和rerun_failed返回409，不递增attempt或调用
+  Airflow；聚焦后端测试14 passed。
 - [ ] cce-pipeline 0.8.1 Step2与resolved 0.7.0系列Master镜像必须先对齐：当前Step2
   在START前创建空`jobs.ndjson`，旧Master因目录缺`run-id`立即失败。
 - [ ] 对齐后从清洁CCE/SFS状态恢复；Rules和Master状态可见，最终结果通过Step5/Step6

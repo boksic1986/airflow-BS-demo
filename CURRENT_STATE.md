@@ -11,6 +11,7 @@ t146_intake: 3对FASTQ软链接已原样复制到Airflow受控intake，两端可
 t146_cleanup: 初始旧批次SFS/OBS和CCE状态已清理；真实attempt 5/7失败后产生的Master、空SFS evidence stub和批次lock也已按精确身份清理。OBS input保留已上传FASTQ，OBS result为空；旧本地分析目录仍保留但从未被新流程读取或重建。
 t146_deployment: current已切换到20260901-wgs-4.1.1-cdee32c-t146。真实run保留为attempt 7 failed，前端/API可见；发现兼容性阻断后BS10610和node200两个execution gate已恢复false，bio_wgs已重新paused，自动提交仍false。
 t146_airflow_fix: Step3_status.sh允许kubectl提示后最后一行JSON；runtime gate从后向前解析最后一个合法JSON并严格校验。修复后Step3正确报告Master FAILED，不再被JSONDecodeError掩盖。
+t146_recovery_gate: backend的resume/rerun_failed现同时检查execution和runtime adapter gate；生产复核HTTP 409、attempt保持7且attempt8 DagRun为0。cancel仍可用。
 t146_blocker: node200 cce-pipeline 0.8.1的Step2在START前创建run_root/evidence/<run_id>/jobs.ndjson；当前resolved Master image仍为cce-pipeline 0.7.0系列并拒绝“已有run目录但缺run-id”，Master立即退出。须先发布/选择与0.8.1合同一致的Master镜像或修正该顺序，Airflow不得继续重试。
 t146_scanner: Compose命令改为读取WGS_INTAKE_SCAN_INTERVAL_SECONDS；生产受保护值为600秒，保持10分钟扫描且不新增记录膨胀。
 t146_network: 必须继续保留nipt_analysis_test_net 192.168.199.0/24、gateway 192.168.199.1，且只发布172.17.106.10:12959。

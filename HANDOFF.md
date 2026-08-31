@@ -8,6 +8,9 @@
   `WGS_Clinical/<batch>`；旧`/sg2/.../wgs_test/WGS_Clinical`目录未被使用。
 - 修复并部署Step3 stdout解析：kubectl提示可位于JSON前，最后一个合法JSON仍执行
   严格schema校验。BS10610 scripts全量`22 passed`。
+- 补齐恢复门禁：execution或runtime adapter关闭时，resume/rerun_failed在修改attempt
+  或调用Airflow前返回409；聚焦后端测试`14 passed`。生产HTTP复核返回
+  `WGS_EXECUTION_DISABLED`，attempt保持7且没有attempt 8 DagRun。cancel不受影响。
 - 真实attempt 7完成prepare、Step1和Step2提交，前端/API最终显示run `failed`；没有
   进入Step4-Step6，也没有发布结果。
 

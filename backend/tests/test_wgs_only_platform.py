@@ -393,6 +393,54 @@ def test_current_release_api_is_read_only_and_execution_is_disabled(tmp_path, mo
     assert airflow.calls == []
 
 
+def test_disabled_execution_gate_blocks_wgs_resume(tmp_path, monkeypatch):
+    client, sessions, airflow = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "wgs-cce",
+            "execution_mode": "cce",
+            "batch_no": "BATCH-RESUME-BLOCKED",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(
+                AnalysisRun.analysis_id == created["analysis_id"]
+            )
+        )
+        run.status = "failed"
+        session.commit()
+
+    response = client.post(
+        f"/api/runs/{created['analysis_id']}/actions/resume",
+        headers=headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "WGS_EXECUTION_DISABLED"
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    adapter_blocked = client.post(
+        f"/api/runs/{created['analysis_id']}/actions/resume",
+        headers=headers,
+    )
+    assert adapter_blocked.status_code == 409
+    assert adapter_blocked.json()["detail"]["code"] == "WGS_RUNTIME_DISABLED"
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(
+                AnalysisRun.analysis_id == created["analysis_id"]
+            )
+        )
+        assert run.attempt == 1
+        assert run.status == "failed"
+    assert airflow.calls == []
+
+
 def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     tmp_path, monkeypatch
 ):

@@ -1375,6 +1375,23 @@ def cancel_run(analysis_id: str, user: AuthenticatedUser = Depends(operator_user
 
 
 def _wgs_action(analysis_id: str, action: str, user: AuthenticatedUser) -> dict[str, object]:
+    if action in {"resume", "rerun_failed"}:
+        if not _wgs_platform_execution_enabled():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "WGS_EXECUTION_DISABLED",
+                    "message": "WGS execution is disabled; no recovery attempt was created.",
+                },
+            )
+        if not _wgs_runtime_adapter_enabled():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "WGS_RUNTIME_DISABLED",
+                    "message": "WGS runtime adapter is disabled; no recovery attempt was created.",
+                },
+            )
     try:
         with get_sessionmaker()() as session:
             payload = action_wgs_run(session=session, airflow_client=get_airflow_client(), analysis_id=analysis_id, action=action, requested_by=user.username)
