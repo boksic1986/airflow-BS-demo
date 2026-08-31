@@ -33,6 +33,23 @@ it("uses batch number and a controlled FASTQ link directory on the WGS submissio
   expect(screen.getByText(/will not start CCE/i)).toBeInTheDocument();
 });
 
+it("shows the production submission action when both WGS execution gates are enabled", async () => {
+  window.history.pushState({}, "", "/submit");
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
+    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-cdee32c", version: "V4.1.1", source_commit: "cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d", execution_enabled: true, runtime_adapter_enabled: true});
+    return json({items: [], total: 0});
+  }));
+
+  render(<App />);
+
+  expect(await screen.findByRole("button", {name: "Create WGS request"})).toBeInTheDocument();
+  expect(screen.getByText(/request can be submitted to the production CCE workflow/i)).toBeInTheDocument();
+  expect(screen.queryByText(/will not start CCE/i)).not.toBeInTheDocument();
+});
+
 it("loads WGS resource tabs for an active run", async () => {
   window.history.pushState({}, "", "/runs/WGS_001");
   const urls: string[] = [];

@@ -1,5 +1,12 @@
 # 07 Airflow DAG 设计
 
+## T146 WGS prepare batch identity
+
+唯一`bio_wgs`任务数和拓扑不变。`prepare_wgs_batch`从完整`batch_no`中提取
+`YYYYMMDDA`并传入WGS `--batch`，完整值继续作为`--analysis-batch`。如果批次名不含
+唯一合法字段则在node200 prepare前失败。输出目录保持Airflow runtime attempt下的
+`<project_name>/<batch_no>`；DAG不访问旧`/sg2/.../wgs_test`分析目录。
+
 ## T145 Step3 observer lifecycle
 
 `start_step3_monitor`只在 node200 接受后激活 observer。`wait_step3_analysis`看到终态

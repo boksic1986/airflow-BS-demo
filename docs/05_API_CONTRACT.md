@@ -1,5 +1,12 @@
 # 05 API Contract
 
+## T146 current WGS release
+
+`POST /api/runs`仍只接受`project_name + batch_no + fq_path`，服务端自动绑定
+`wgs-4.1.1-cdee32c`。客户端不能指定cce-pipeline版本；node200当前0.8.1只在
+prepare后的`resolved_runtime`中审计展示。创建和提交仍是两个operator操作；
+两个execution gate关闭时submit返回409。
+
 ## T145 sparse intake 与 observer lifecycle API
 
 `GET /api/intake/scanner-state`持久层只返回首次/最近扫描、本轮目录数和

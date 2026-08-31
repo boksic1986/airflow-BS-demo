@@ -19,6 +19,7 @@ import yaml
 
 ANALYSIS_RE = re.compile(r"^WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}$")
 SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+SEQUENCING_BATCH_RE = re.compile(r"(?:^|_)([0-9]{8}[A-Z])(?:_|$)")
 STAGES = {
     "prepare",
     "step1_upload",
@@ -203,12 +204,20 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
     for value in (project_name, batch_no):
         if SAFE_COMPONENT_RE.fullmatch(value) is None:
             raise ValueError("project_name and batch_no must be safe path components")
+    sequencing_batch_match = SEQUENCING_BATCH_RE.search(batch_no)
+    if sequencing_batch_match is None:
+        raise ValueError(
+            "analysis batch does not contain a valid sequencing batch"
+        )
+    sequencing_batch = sequencing_batch_match.group(1)
     command = [
         WGS_PYTHON,
         str(WGS_REPO_ROOT / "prepare" / "prepare_wgs_batch.py"),
         "all",
         "--outpath",
         str(workdir / project_name),
+        "--batch",
+        sequencing_batch,
         "--analysis-batch",
         batch_no,
         "--run-mode",

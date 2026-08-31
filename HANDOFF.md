@@ -1,5 +1,65 @@
 # HANDOFF.md
 
+## 2026-09-01 - Codex - T146 WGS cdee32c / cce-pipeline 0.8.1 manual run checkpoint
+
+### Goal
+
+将Airflow单一WGS release更新到commit
+`cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d`，适配WGS prepare的普通批次参数，
+清理指定旧批次状态，并在禁用态验收后通过前端/API手工提交一次真实CCE分析。
+
+### Completed before deployment
+
+- `wgs_releases.yaml`现只绑定`wgs-4.1.1-cdee32c`。node200只读核对同一WGS
+  HEAD、允许的docs-only未跟踪文件和cce-pipeline 0.8.1。
+- runtime gate从`WGS_20260825A_T7Hg38V4.1.1`提取`20260825A`作为
+  `--batch`，完整值继续作为`--analysis-batch`。`--outpath`未改变，分析目录仍在
+  Airflow runtime attempt下的`WGS_Clinical/<batch>`。
+- Submit页在两个gate打开时显示生产创建动作；关闭时继续显示禁用提示。未增加版本
+  选择器，也未改变create/submit两步权限合同。
+- 3对FASTQ软链接已复制到Airflow受控intake，BS10610/node200均能看到6条有效
+  链接；源FASTQ未删除。
+
+### Authorized production cleanup
+
+- 只处理`WGS_Clinical/WGS_20260825A_T7Hg38V4.1.1`。清理前Master/目标run
+  label的Job和Pod均为0。
+- 原Step0因历史bundle缺`jobs.ndjson`而fail closed。对task-specific可写bundle副本
+  建立审计mirror前，再次核对目标run Job/Pod=0；原WGS仓库和旧bundle未修改。
+- 已精确删除OBS result约173.8 GB和FASTQ约403.9 GB，两个前缀复核均为0 B。
+- Step0 reset Job成功；一次性只读验证Job确认SFS run和linkage两个精确目录不存在。
+- 同批次已完成的reset/cleanup Job和`run1`陈旧batch lock在核对无活动Pod后删除。
+- 旧本地`/sg2/.../wgs_test/WGS_Clinical/<batch>`因NFS服务端拒绝当前客户端写入而
+  未能删除；目录仍在但不属于新run输入或输出。Airflow不会读取或重建该路径。
+- 删除操作不可恢复；OBS/SFS将由新run重新生成。task-specific清理证据保留在
+  `/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/`下。
+
+### Validation
+
+```text
+scripts/runner: 19 passed
+backend: 227 passed
+DAG unittest: 10 passed
+Compose/network contract: 5 passed
+frontend: 9 files / 31 tests
+frontend: TypeScript and Vite production build passed
+frontend image: airflow-demo/frontend:t146-wgs-cdee32c
+frontend image ID: sha256:e5b2bb307aaa885661a71ff742734da52cf70d642308cfc4bcf893a09b289727
+```
+
+BS10610 Docker Hub mirror无法解析，远程多阶段frontend build在拉取
+`node:22-bookworm` metadata前失败。改用Codex固定Node运行时、package-lock导入和
+相同测试/build命令生成dist，再在BS10610基于已验收T145 nginx镜像无网络封装；
+dist与镜像内三个文件SHA256一致。
+
+### Current gate and next step
+
+截至本checkpoint，`current`仍指向T145，两个execution gate仍false，`bio_wgs`
+仍paused且尚未创建真实AnalysisRun。下一步是创建T146 release、修正受保护
+`CCE_PIPELINE_BIN`、disabled Compose/API/network smoke，随后按已批准范围开启两个
+gate并手工create/submit一个run。回滚只切回T145并重建应用服务；不得恢复已清理的
+旧OBS/SFS状态、删除volume或重建Docker网络。
+
 ## 2026-08-30 - Codex - T145 scanner sparse persistence and observer lifecycle
 
 ### Goal

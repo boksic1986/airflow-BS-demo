@@ -20,8 +20,31 @@
 | T143 | T7 scan-only intake | backend/observer/frontend/infra/QA/docs | 30-minute read-only T7 scanner, bootstrap, chip-level DB/API/UI, auto-dispatch hard-off | unit/integration/migration/network pass; two production cycles remain idempotent with zero AnalysisRun and DagRun | done |
 | T144 | WGS Step4 CRAM repair contract | backend/airflow/observer/frontend/QA/docs | fixed-cram service action, same-attempt maintenance mode, 0.7.1 frozen-bundle command, RBAC and audit | disabled-mode tests pass; gates-off returns 409 before Airflow/SSH; real repair deferred | done in disabled mode |
 | T145 | WGS scanner sparse persistence and CCE observer lifecycle | backend/airflow/observer/frontend/infra/QA/docs | split scanner/run observer, LISTEN/NOTIFY lifecycle, exact transfer sync, migration 0012, protected 1830-row cleanup and disabled release | baseline stores zero details; idle observer does no polling/logging; tests/API/network/gates pass | done in disabled mode |
+| T146 | WGS cdee32c / cce-pipeline 0.8.1 manual production run | airflow/backend/frontend/infra/QA/docs | bind current WGS release, pass sequencing batch to prepare, deploy enabled manual flow, rebuild one approved batch from controlled intake | disabled tests and network pass; exact old batch cloud state cleared; one manual run is visible through API/UI and reaches a verified terminal state | in progress |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
+
+## T146 - WGS cdee32c / cce-pipeline 0.8.1 manual production run
+
+Owner: airflow/backend/frontend/infra/QA/docs
+
+Status: in progress
+
+Acceptance:
+
+- [x] Airflow current release更新为`wgs-4.1.1-cdee32c`，prepare从分析批次名提取
+  `20260825A`并显式传入WGS `--batch`；分析目录仍位于Airflow runtime下的
+  `WGS_Clinical/<batch>`。
+- [x] BS10610 isolated tests通过：runner 19、backend 227、DAG 10、部署合同5；
+  frontend 31 tests和TypeScript/Vite build通过。
+- [x] node200只读验收WGS HEAD `cdee32c9...`和cce-pipeline 0.8.1；不把
+  cce-pipeline版本变成Airflow gate。
+- [x] 已把3对FASTQ软链接复制到Airflow受控intake；源FASTQ未删除。
+- [x] 旧批次SFS run/linkage、OBS input/result、已完成CCE维护Job和陈旧batch lock
+  已精确清理并验证为空。
+- [ ] 新release禁用态部署、网络/API/DAG smoke通过后启用两个runtime gate。
+- [ ] operator手工创建并提交一个真实run；Run Detail、Transfers、Rules和Master
+  状态可见，最终结果通过Step5/Step6校验。
 
 ## T145 - WGS scanner sparse persistence and observer lifecycle
 

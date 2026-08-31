@@ -1,24 +1,25 @@
 # WGS 4.1.1 Runtime Integration Development Status
 
-更新时间：2026-08-29
+更新时间：2026-09-01
 
-当前结论：T143/T144 已按 WGS commit
-`1656b5d7a6e2f24242c38149f6d1c92ac266cd37`完成 T7 scan-only和Step4 repair
-禁用态接入与发布。两个真实1800秒周期通过。真实sampleinfo、AnalysisRun、
-Airflow DagRun、OBS/CCE批次和Step4 repair均未获批准。
+当前结论：T146 已按 WGS commit
+`cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d`完成禁用态代码适配和测试，node200
+当前cce-pipeline为0.8.1。真实手工批次已获批准，但在disabled release、网络和
+HTTP smoke通过前仍保持两个execution gate关闭和`bio_wgs` paused。
 
 ## 1. 当前发布合同
 
 | 项目 | 当前目标值 |
 |---|---|
-| release ID | `wgs-4.1.1-1656b5d` |
+| release ID | `wgs-4.1.1-cdee32c` |
 | WGS version | `V4.1.1` |
-| WGS commit | `1656b5d7a6e2f24242c38149f6d1c92ac266cd37` |
+| WGS commit | `cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d` |
 | BS10610 repo | `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | node200 repo | `/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | runtime request | `wgs-runtime.request.v3` |
 | batch binding | `wgs-runtime.batch-binding.v2` |
 | Rule event schema | `1` |
+| node200 runtime | cce-pipeline `0.8.1`（审计字段，不是Airflow gate） |
 | unique DAG | `bio_wgs`, 18 tasks, manual, paused |
 
 两个共享仓库路径已读核对为相同 HEAD。prepare 前 runner 检查 HEAD 和
@@ -51,8 +52,11 @@ Airflow 不复制 WGS 源码，也不在 node200 创建 Airflow-owned release。
 - runtime request v3 不再携带 snapshot path、cce-pipeline version 或 wheel hash。
 - node200 runner固定 `WGS_REPO_ROOT`，prepare重试复用已有 binding；resume 和
   rerun attempt 继续使用原 release，原 commit不可用时明确阻断，不能静默换版本。
-- 前端提交页只读显示 `WGS V4.1.1 / 1656b5d`，没有版本选择器；Run Detail显示
+- 前端提交页只读显示 `WGS V4.1.1 / cdee32c`，没有版本选择器；Run Detail显示
   release、commit和prepare后解析的 runtime审计字段。
+- T146 prepare adapter从`batch_no`中的`YYYYMMDDA`片段生成WGS `--batch`，同时以
+  完整`batch_no`传入`--analysis-batch`。`--outpath`保持在Airflow attempt runtime
+  下，因而OBS仍使用`WGS_Clinical/<analysis-batch>`，不会依赖旧本地分析目录。
 - 已删除 Airflow-owned WGS复制脚本、candidate sync脚本及其旧测试。
 
 ## 3. 编排和运行边界

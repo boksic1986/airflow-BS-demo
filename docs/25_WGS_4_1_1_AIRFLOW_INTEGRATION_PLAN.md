@@ -1,6 +1,6 @@
 # WGS 4.1.1 单一发布版本 Airflow 接入方案
 
-更新时间：2026-08-29
+更新时间：2026-09-01
 
 本文定义单一发布和正常Step1-Step6边界；T7 scan-only和Step4 repair的当前增量
 设计以[文档 26](26_WGS_T7_INTAKE_STEP4_REPAIR.md)为准。文档 22、T131-T142 中的
@@ -17,9 +17,9 @@ Airflow-owned snapshot、固定 cce-pipeline wheel/profile/image 门禁和 WGS
 
 | 字段 | 当前值 |
 |---|---|
-| release ID | `wgs-4.1.1-1656b5d` |
+| release ID | `wgs-4.1.1-cdee32c` |
 | WGS version | `V4.1.1` |
-| source commit | `1656b5d7a6e2f24242c38149f6d1c92ac266cd37` |
+| source commit | `cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d` |
 | BS10610 path | `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | node200 path | `/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | Rule event schema | `1` |
@@ -113,7 +113,7 @@ CCE 批次并发，`wgs_obs_transfer`和 PostgreSQL lease 共同保证仅一个�
 
 | Airflow 阶段 | 冻结 bundle 入口 | 完成条件 |
 |---|---|---|
-| prepare | `prepare_wgs_batch.py all --run-mode cce` | `BATCH_RUNTIME.yaml`、`RESOLVED_PROFILE.yaml`和 Step1-Step6 有效 |
+| prepare | `prepare_wgs_batch.py all --batch <YYYYMMDDA> --analysis-batch <batch_no> --run-mode cce` | `BATCH_RUNTIME.yaml`、`RESOLVED_PROFILE.yaml`和 Step1-Step6 有效 |
 | input | `Step1_upload_fastq.sh` | WGS/cce-pipeline 上传合同成功 |
 | Master | `Step2_run.sh` | 批次 Master Job 已提交 |
 | analysis | `Step3_status.sh --output json` | Master 终态与 Rule reconciliation |
@@ -121,6 +121,11 @@ CCE 批次并发，`wgs_obs_transfer`和 PostgreSQL lease 共同保证仅一个�
 | download | `Step5_download_verify.sh` | 结果长度/MD5 和下载 marker 成功 |
 | materialize | `Step6_materialize_results.sh` | 本地原子物化 marker 成功 |
 | finalize | backend reconciliation | Step6 和业务终态一致 |
+
+Airflow从完整分析批次名中提取上机批次字段传给`--batch`，但分析根仍为Airflow
+attempt workdir下的`<project_name>/<batch_no>`；不重建或复用旧
+`/sg2/.../wgs_test/WGS_Clinical`目录。这样OBS前缀继续由固定的
+`WGS_Clinical/<batch_no>`决定。
 
 Airflow 不计算 FASTQ MD5、不生成 `FASTQ.MD5SUMS`、不增加上传后 FASTQ 验证
 task，也不在 create API 阶段生成 sampleinfo/config；这些均由 WGS prepare 和
@@ -189,7 +194,7 @@ Alembic `20260827_0010`：
 - Rule 去重、observer binding 和 ETA 历史均按 `pipeline_release_id`隔离；ETA
   选择同 release 最近 20 个成功 CCE run。
 
-前端 Submit 页只读显示 `WGS V4.1.1 / 1656b5d`和 release ID，不提供版本选择
+前端 Submit 页只读显示 `WGS V4.1.1 / cdee32c`和 release ID，不提供版本选择
 器。Run Detail、Rules、Transfers 和 Master 页面显示本次 run 的 release；
 resolved runtime 在 prepare 前明确显示为未解析。
 

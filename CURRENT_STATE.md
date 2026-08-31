@@ -1,5 +1,18 @@
 # CURRENT_STATE.md
 
+## 2026-09-01 T146 - WGS cdee32c / cce-pipeline 0.8.1 manual run（进行中）
+
+```text
+t146_release_contract: WGS V4.1.1 commit cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d, release wgs-4.1.1-cdee32c；BS10610和node200共享同一仓库，只有docs/下允许的未跟踪文档。
+t146_runtime: node200 /bi/software/mamba/envs/WGS/bin/cce-pipeline 为0.8.1；Airflow不校验其版本，只记录prepare产生的resolved runtime。
+t146_prepare_fix: Airflow从batch_no WGS_20260825A_T7Hg38V4.1.1提取sequencing batch 20260825A并传入--batch；--outpath仍是Airflow attempt runtime下的WGS_Clinical，不重建旧/sg2/.../wgs_test目录。
+t146_validation: BS10610 runner 19 passed、backend 227 passed、DAG 10 passed、Compose/network contract 5 passed；frontend 31 passed且TypeScript/Vite build通过。
+t146_intake: 3对FASTQ软链接已原样复制到Airflow受控intake，两端可见；软链接源文件保持不变。
+t146_cleanup: 旧批次Master/Worker活动数为0；SFS run/linkage经一次性只读Job验证不存在；OBS input/result均为0B；同批次已完成维护Job和陈旧lock已删除。旧本地分析目录受NFS服务端写权限限制仍保留，但新流程不会读取它。
+t146_deployment: staging和离线frontend image已完成；current仍为T145、两个execution gate仍false、bio_wgs仍paused，尚未提交真实run。
+t146_network: 必须继续保留nipt_analysis_test_net 192.168.199.0/24、gateway 192.168.199.1，且只发布172.17.106.10:12959。
+```
+
 ## 2026-08-30 T145 - scanner 稀疏入库与 event-driven observer
 
 ```text

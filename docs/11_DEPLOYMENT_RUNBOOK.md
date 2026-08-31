@@ -1,5 +1,25 @@
 # 11 部署 Runbook
 
+## T146 cdee32c / cce-pipeline 0.8.1 手工批次
+
+1. 只读核对BS10610/node200共享WGS HEAD为`cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d`，
+   node200实际cce-pipeline为0.8.1，仓库漂移仅允许`docs/`未跟踪文件。
+2. 在两个execution gate为false时运行runner/backend/DAG/frontend/Compose测试，创建
+   新disabled release并保持`bio_wgs` paused；不得先启动OBS或CCE。
+3. node200受保护runtime env中的`CCE_PIPELINE_BIN`必须指向
+   `/bi/software/mamba/envs/WGS/bin/cce-pipeline`。BS10610只读挂载受控FASTQ目标根；
+   私钥、OBS配置和kubeconfig不得进入release或容器。
+4. 旧批次重建时先保存受控FASTQ软链接，再以Step0合同清理SFS和OBS result；如还要
+   删除OBS FASTQ，必须使用精确`Project_fastq/<project>/<batch>`前缀并复核0B。
+   不删除软链接目标。旧本地分析目录不属于新run输入，也不需要重建。
+5. disabled HTTP smoke确认登录、release API、create/detail和submit 409后，才开启两个
+   gate；保持DAG paused，通过operator API手工create再submit一个run。
+6. 前端必须显示release、Transfers、Rules和Master-only状态；Step5/Step6与最终业务
+   状态一致后才判定成功。任何失败保留attempt evidence并按resume优先处理。
+
+网络不得重建：`nipt_analysis_test_net=192.168.199.0/24`、gateway
+`192.168.199.1`，只有`172.17.106.10:12959`可发布。
+
 ## T145 稀疏基线和 observer 拆分发布
 
 发布前停止旧`wgs-observer`，备份 biodemo 并校验 SHA256。重新查询 intake

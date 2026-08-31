@@ -5,8 +5,8 @@ import pytest
 from app.wgs_release_catalog import load_wgs_release_catalog
 
 
-RELEASE_ID = "wgs-4.1.1-1656b5d"
-WGS_COMMIT = "1656b5d7a6e2f24242c38149f6d1c92ac266cd37"
+RELEASE_ID = "wgs-4.1.1-cdee32c"
+WGS_COMMIT = "cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d"
 
 
 def write_catalog(tmp_path: Path, **overrides: str) -> Path:
