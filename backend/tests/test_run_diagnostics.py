@@ -189,6 +189,16 @@ class FakeAirflowClient:
         }
 
 
+class FakeWgsLeafAirflowClient(FakeAirflowClient):
+    def list_task_instances(self, dag_id: str, dag_run_id: str) -> dict:
+        return {
+            "task_instances": [
+                {"task_id": "prepare_wgs_batch", "state": "failed"},
+                {"task_id": "release_leases", "state": "success"},
+            ]
+        }
+
+
 def install_app_fixtures(monkeypatch, session_factory, shared_root, airflow_client=None) -> None:
     monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
     monkeypatch.setattr(
@@ -223,6 +233,34 @@ def test_sync_airflow_success_updates_run_status(tmp_path, monkeypatch) -> None:
     assert run.status == "success"
     assert run.ended_at is not None
     assert sample.status == "success"
+
+
+def test_sync_wgs_rejects_success_leaf_when_an_upstream_task_failed(
+    tmp_path, monkeypatch
+) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_submitted_run(
+        session_factory,
+        tmp_path,
+        analysis_id="WGS_20260831_194429_ABCDEF",
+    )
+    with session_factory() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.pipeline_name = "wgs"
+        session.commit()
+    fake_airflow = FakeWgsLeafAirflowClient("success")
+    install_app_fixtures(
+        monkeypatch, session_factory, tmp_path / "shared", fake_airflow
+    )
+
+    response = TestClient(main.app).post(
+        f"/api/runs/{analysis_id}/actions/sync-airflow"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "failed"
 
 
 def test_sync_airflow_running_clears_stale_terminal_fields(tmp_path, monkeypatch) -> None:

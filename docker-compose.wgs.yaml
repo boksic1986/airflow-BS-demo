@@ -14,6 +14,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-airflow}
     AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
     AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_WEBSERVER_SECRET_KEY:?set AIRFLOW_WEBSERVER_SECRET_KEY}
     BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://backend:8000}
     INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
     DEPLOYED_PIPELINES: wgs
@@ -151,6 +152,7 @@ services:
       WGS_BINDING_ROOT: /data/wgs-bindings
       WGS_TRANSFER_SPOOL_ROOT: /data/wgs-runtime/transfer-progress
       WGS_RUNTIME_REQUEST_ROOT: /data/wgs-runtime/runner-requests
+      WGS_RUNTIME_SHARED_GID: ${WGS_RUNTIME_SHARED_GID:-520}
       WGS_RUNTIME_BS_ROOT: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime
       WGS_RUNTIME_NODE200_ROOT: ${WGS_RUNTIME_NODE200_ROOT:-/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime}
       WGS_INTAKE_CONTAINER_ROOT: /data/wgs-intake

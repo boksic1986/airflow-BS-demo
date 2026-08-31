@@ -13,9 +13,40 @@
    删除OBS FASTQ，必须使用精确`Project_fastq/<project>/<batch>`前缀并复核0B。
    不删除软链接目标。旧本地分析目录不属于新run输入，也不需要重建。
 5. disabled HTTP smoke确认登录、release API、create/detail和submit 409后，才开启两个
-   gate；保持DAG paused，通过operator API手工create再submit一个run。
+   gate；确认自动提交仍关闭后，解除`bio_wgs`的pause，再通过operator API手工create
+   和submit一个run。paused DAG会接受DagRun但不会调度task，不能作为手工运行方式。
 6. 前端必须显示release、Transfers、Rules和Master-only状态；Step5/Step6与最终业务
    状态一致后才判定成功。任何失败保留attempt evidence并按resume优先处理。
+
+所有Airflow组件必须共享受保护的`AIRFLOW_WEBSERVER_SECRET_KEY`。缺少该值时API
+server与Celery worker会生成不同密钥，任务日志代理会返回HTTP 403；密钥只保存在
+未跟踪的生产环境文件中，不进入release、镜像或日志。
+
+`runner-requests/<analysis_id>/attempt-N`必须由backend设置为共享组
+`WGS_RUNTIME_SHARED_GID`（BS10610/node200当前为520）和mode `2770`。否则backend
+虽能登记request，node200却无法原子写入`*.status.json.partial`，prepare会在任何
+OBS/CCE操作之前失败。不要用全局`chmod 777`规避该边界。
+
+`release_leases`采用`all_done`只为确保清理总会执行；清理结束后必须检查同一DagRun
+的失败和`upstream_failed` task并主动失败。后端同步WGS状态时也必须核对task实例，
+不能仅信任Airflow叶节点汇总状态，否则清理task成功会把上游失败误报为run成功。
+
+WGS prepare配置固定使用当前共享WGS release内的`prepare/config.yaml`；不要指向
+不存在的`~/.config/wgs/prepare.yaml`。CCE operator配置仍必须显式使用node200上
+受保护且可读的绝对`cce.yaml`，其内容不得进入Airflow release或日志。
+
+手工Airflow任务的`fq_path`是受控、重新校验过的软链接目录，代表人工确认上云；
+prepare调用必须显式传`--skip-samplelist-ready-check`，避免再次要求线下Samplelist和
+FASTQ ready标志。该开关不绕过Airflow输入快照、R1/R2配对、批次字段和目录唯一性。
+
+Airflow的`batch_no`保存完整分析目录名，但WGS CLI的`--analysis-batch`只接受从中
+提取的上机批次（例如`20260825A`），由WGS自行生成最终
+`WGS_<batch>_<platform>Hg38<version>`。`fq_path`绑定具体受控芯片目录，而CLI的
+`--fastq-root`传该目录的父目录；提交前必须验证目录名包含同一个上机批次。
+
+传输sensor每次只同步当前`analysis_id + attempt`的状态文件，同时读取同一attempt的
+`runs/.../batch-binding.json`并写入`resolved_runtime`。这不是恢复全局runtime扫描；
+不得glob其他run，也不得让空闲observer轮询binding。
 
 网络不得重建：`nipt_analysis_test_net=192.168.199.0/24`、gateway
 `192.168.199.1`，只有`172.17.106.10:12959`可发布。

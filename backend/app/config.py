@@ -41,6 +41,7 @@ class Settings:
     wgs_transfer_spool_root: str
     wgs_release_catalog_path: str
     wgs_runtime_request_root: str
+    wgs_runtime_shared_gid: int
     wgs_runtime_bs_root: str
     wgs_runtime_node200_root: str
     wgs_results_host_root: str
@@ -113,6 +114,9 @@ def get_settings() -> Settings:
         ),
         wgs_runtime_request_root=os.getenv(
             "WGS_RUNTIME_REQUEST_ROOT", "/data/wgs-runner-requests"
+        ),
+        wgs_runtime_shared_gid=_parse_int(
+            os.getenv("WGS_RUNTIME_SHARED_GID", "520"), default=520
         ),
         wgs_runtime_bs_root=os.getenv(
             "WGS_RUNTIME_BS_ROOT",

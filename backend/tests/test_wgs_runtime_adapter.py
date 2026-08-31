@@ -1,4 +1,5 @@
 from pathlib import Path
+import stat
 
 import pytest
 
@@ -86,6 +87,28 @@ def test_request_is_atomically_registered_below_request_root(tmp_path: Path) -> 
         / "step1_upload.json"
     )
     assert not path.with_suffix(".json.partial").exists()
+
+
+def test_request_directory_is_writable_by_node200_shared_group(tmp_path: Path) -> None:
+    request = _request(tmp_path, stage="prepare")
+    shared_gid = 520
+    path = write_stage_request(
+        tmp_path / "requests",
+        request,
+        shared_gid=shared_gid,
+    )
+
+    assert path.parent.stat().st_gid == shared_gid
+    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o2770
+
+
+def test_request_rejects_invalid_shared_group(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="group id"):
+        write_stage_request(
+            tmp_path / "requests",
+            _request(tmp_path, stage="prepare"),
+            shared_gid=0,
+        )
 
 
 def test_container_path_maps_only_below_approved_root() -> None:

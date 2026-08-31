@@ -61,9 +61,7 @@ WGS_REPO_ROOT = Path(
     )
 )
 WGS_PYTHON = os.getenv("WGS_PYTHON", "/bi/software/mamba/envs/WGS/bin/python")
-WGS_PREPARE_CONFIG = os.getenv(
-    "WGS_PREPARE_CONFIG", "/home/chenjc/.config/wgs/prepare.yaml"
-)
+WGS_PREPARE_CONFIG = str(WGS_REPO_ROOT / "prepare" / "config.yaml")
 CCE_OPERATOR_CONFIG = os.getenv(
     "CCE_OPERATOR_CONFIG", "/home/chenjc/.config/wgs/cce.yaml"
 )
@@ -210,6 +208,9 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
             "analysis batch does not contain a valid sequencing batch"
         )
     sequencing_batch = sequencing_batch_match.group(1)
+    fastq_directory = Path(fq_path)
+    if sequencing_batch not in fastq_directory.name:
+        raise ValueError("FASTQ directory does not identify the sequencing batch")
     command = [
         WGS_PYTHON,
         str(WGS_REPO_ROOT / "prepare" / "prepare_wgs_batch.py"),
@@ -219,17 +220,18 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
         "--batch",
         sequencing_batch,
         "--analysis-batch",
-        batch_no,
+        sequencing_batch,
         "--run-mode",
         "cce",
         "--run-id",
         f"{payload['analysis_id']}-a{int(payload['attempt'])}",
         "--fastq-root",
-        fq_path,
+        str(fastq_directory.parent),
         "--prepare-config",
         WGS_PREPARE_CONFIG,
         "--cce-config",
         CCE_OPERATOR_CONFIG,
+        "--skip-samplelist-ready-check",
     ]
     platform = str(payload.get("platform") or "").strip()
     if platform:

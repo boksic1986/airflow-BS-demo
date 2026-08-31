@@ -13,6 +13,23 @@ def _context(conf):
 
 
 class WgsOnlyDagTests(unittest.TestCase):
+    def test_release_leaf_reports_upstream_failures(self):
+        task_instances = [
+            type("TaskInstance", (), {"task_id": "prepare_wgs_batch", "state": "failed"})(),
+            type("TaskInstance", (), {"task_id": "release_leases", "state": "running"})(),
+        ]
+        dag_run = type(
+            "DagRun", (), {"get_task_instances": lambda _self: task_instances}
+        )()
+        task_instance = type(
+            "CurrentTask", (), {"task_id": "release_leases", "get_dagrun": lambda _self: dag_run}
+        )()
+
+        self.assertEqual(
+            bio_wgs._upstream_failure_task_ids({"ti": task_instance}),
+            ["prepare_wgs_batch"],
+        )
+
     def test_single_cce_contract_rejects_wrong_mode_and_fails_closed(self):
         conf = {
             "analysis_id": "WGS_20260812_000001_A1B2C3",

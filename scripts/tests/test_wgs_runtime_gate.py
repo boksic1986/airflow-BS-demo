@@ -75,7 +75,7 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
         "node200_workdir": str(tmp_path / "attempt-1"),
         "project_name": "clinical-wgs",
         "batch_no": "WGS_20260825A_T7Hg38V4.1.1",
-        "fq_path": "/sg2/33.chenjiucheng/WGS_input/BATCH-01",
+        "fq_path": "/sg2/33.chenjiucheng/WGS_input/WGS_20260825A_T7Hg38V4.1.1",
     }
 
     command = gate.build_prepare_command(payload)
@@ -85,13 +85,18 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
     assert command[command.index("--batch") + 1] == "20260825A"
     assert (
         command[command.index("--analysis-batch") + 1]
-        == "WGS_20260825A_T7Hg38V4.1.1"
+        == "20260825A"
     )
     assert "--run-mode" in command and "cce" in command
     assert "--run-id" in command and "WGS_20260826_010203_A1B2C3-a1" in command
-    assert "--fastq-root" in command
+    assert command[command.index("--fastq-root") + 1] == "/sg2/33.chenjiucheng/WGS_input"
+    assert gate.WGS_PREPARE_CONFIG == str(
+        gate.WGS_REPO_ROOT / "prepare" / "config.yaml"
+    )
     assert gate.WGS_PREPARE_CONFIG in command
+    assert "/home/chenjc/.config/wgs/prepare.yaml" not in command
     assert gate.CCE_OPERATOR_CONFIG in command
+    assert "--skip-samplelist-ready-check" in command
     assert not any("SECRET" in item for item in command)
 
 
@@ -111,6 +116,27 @@ def test_prepare_command_rejects_batch_without_sequencing_batch() -> None:
     }
 
     with pytest.raises(ValueError, match="sequencing batch"):
+        gate.build_prepare_command(payload)
+
+
+def test_prepare_command_rejects_fastq_directory_for_another_batch(
+    tmp_path: Path,
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "prepare",
+        "pipeline_release_id": "wgs-4.1.1-cdee32c",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d",
+        "node200_workdir": str(tmp_path / "attempt-1"),
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260825A_T7Hg38V4.1.1",
+        "fq_path": "/bi/airflow-wgs/runtime/intake/WGS_20260826A_T7Hg38V4.1.1",
+    }
+
+    with pytest.raises(ValueError, match="FASTQ directory"):
         gate.build_prepare_command(payload)
 
 

@@ -28,6 +28,10 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
             self.assertFalse((REPO_ROOT / "dags" / dag).exists())
         for required in ("wgs_cce_runs 4", "wgs_obs_transfer 1", "DEPLOYED_PIPELINES: wgs", 'WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"', 'WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"', 'WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-true}"', 'WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"', "WGS_SSH_CONFIG_PATH"):
             self.assertIn(required, compose)
+        self.assertIn(
+            "AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_WEBSERVER_SECRET_KEY:?set AIRFLOW_WEBSERVER_SECRET_KEY}",
+            compose,
+        )
         self.assertIn('${WGS_RUNNER_200_ALIAS:-wgs-node200}', compose)
         self.assertNotIn("AIRFLOW_CONN_WGS_RUNNER_200", compose)
         self.assertIn('${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime', compose)
@@ -42,6 +46,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertNotIn("KUBECONFIG", env)
         self.assertNotIn("OBS_", env)
         self.assertIn("WGS_EXECUTION_ENABLED=false", env)
+        self.assertIn("AIRFLOW_WEBSERVER_SECRET_KEY=<CHANGE_ME_LOCAL_ONLY>", env)
         self.assertIn("WGS_RUNNER_200_HOST=172.17.61.200", env)
         self.assertIn("WGS_RUNNER_200_ALIAS=wgs-node200", env)
         self.assertIn("wgs:", intake)

@@ -175,6 +175,55 @@ def test_prepare_binding_persists_resolved_runtime_audit(tmp_path: Path) -> None
         }
 
 
+def test_stage_sensor_sync_ingests_only_its_attempt_runtime_binding(
+    tmp_path: Path,
+) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    runtime_root = tmp_path / "runtime"
+    request_root = runtime_root / "runner-requests"
+    request_root.mkdir(parents=True)
+    spool = runtime_root / "transfer-progress"
+    binding = (
+        runtime_root / "runs" / analysis_id / "attempt-1" / "batch-binding.json"
+    )
+    binding.parent.mkdir(parents=True)
+    binding.write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.batch-binding.v2",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "pipeline_release_id": RELEASE_ID,
+                "wgs_version": "V4.1.1",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
+                "resolved_runtime": {
+                    "cce_pipeline_version": "0.8.1",
+                    "profile_id": "wgs-4.1.1-r1",
+                    "profile_revision": "r1",
+                    "master_image_digest": "swr.example/master@sha256:" + "b" * 64,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=request_root,
+        transfer_spool_root=spool,
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="step1_upload",
+    )
+
+    assert result == {"files": 1, "events_ingested": 1}
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        assert run.params_json["resolved_runtime"]["cce_pipeline_version"] == "0.8.1"
+
+
 def test_step4_repair_status_updates_the_idempotent_maintenance_action(tmp_path: Path) -> None:
     sessions, analysis_id, evidence_root, binding_root, catalog_path, _ = prepare_run(
         tmp_path

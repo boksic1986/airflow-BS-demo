@@ -1202,7 +1202,11 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 batch_no=str(params["batch_no"]),
                 fq_path=fq_node200,
             )
-            path = write_stage_request(settings.wgs_runtime_request_root, payload)
+            path = write_stage_request(
+                settings.wgs_runtime_request_root,
+                payload,
+                shared_gid=getattr(settings, "wgs_runtime_shared_gid", None),
+            )
             if stage_name == "prepare":
                 binding_root = Path(settings.wgs_binding_root)
                 binding_root.mkdir(parents=True, exist_ok=True)

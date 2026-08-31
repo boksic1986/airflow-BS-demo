@@ -92,7 +92,12 @@ def build_stage_request(
     }
 
 
-def write_stage_request(root: Path | str, request: dict[str, object]) -> Path:
+def write_stage_request(
+    root: Path | str,
+    request: dict[str, object],
+    *,
+    shared_gid: int | None = None,
+) -> Path:
     base = Path(root).resolve()
     analysis_id = str(request["analysis_id"])
     attempt = int(request["attempt"])
@@ -107,6 +112,11 @@ def write_stage_request(root: Path | str, request: dict[str, object]) -> Path:
     if base not in target.parents:
         raise ValueError("runtime request path escapes request root")
     target.parent.mkdir(parents=True, exist_ok=True)
+    if shared_gid is not None:
+        if shared_gid < 1:
+            raise ValueError("shared runtime group id must be positive")
+        os.chown(target.parent, -1, shared_gid)
+        os.chmod(target.parent, 0o2770)
     partial = target.with_suffix(".json.partial")
     partial.write_text(json.dumps(request, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(partial, target)

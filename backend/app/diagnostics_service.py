@@ -293,6 +293,15 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
     airflow_payload = airflow_client.get_dag_run(run.dag_id, run.dag_run_id)
     airflow_state = str(airflow_payload.get("state") or "").lower()
     authoritative_status = _map_airflow_state(airflow_state)
+    if run.pipeline_name == "wgs" and authoritative_status == "success":
+        task_payload = airflow_client.list_task_instances(run.dag_id, run.dag_run_id)
+        task_instances = task_payload.get("task_instances", [])
+        if any(
+            str(item.get("state") or "").lower() in {"failed", "upstream_failed"}
+            for item in task_instances
+        ):
+            authoritative_status = "failed"
+            airflow_payload = {**airflow_payload, "state": "failed"}
     run.status = authoritative_status
     run.started_at = _parse_airflow_datetime(airflow_payload.get("start_date")) or run.started_at
     if run.status in {"success", "failed"}:

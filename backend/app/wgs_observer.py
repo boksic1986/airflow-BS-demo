@@ -355,6 +355,18 @@ def sync_runtime_stage_artifacts(
     result = {"files": 0, "events_ingested": 0}
     request_root = request_root.resolve()
     transfer_spool_root = transfer_spool_root.resolve()
+    runtime_root = request_root.parent
+    binding_path = (
+        runtime_root
+        / "runs"
+        / analysis_id
+        / f"attempt-{attempt}"
+        / "batch-binding.json"
+    )
+    if binding_path.is_file():
+        result["files"] += 1
+        if _ingest_runtime_binding(session_factory, runtime_root, binding_path):
+            result["events_ingested"] += 1
     status_path = (
         request_root
         / analysis_id
