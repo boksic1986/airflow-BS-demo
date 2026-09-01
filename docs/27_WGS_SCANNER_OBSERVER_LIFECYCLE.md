@@ -1,18 +1,19 @@
 # WGS Scanner 稀疏入库与 CCE Observer 生命周期
 
-更新日期：2026-08-30
+更新日期：2026-09-01
 
-本文是 T145 的当前合同，修正文档 26 中将 T7 scanner 和 CCE
+本文以 T145 的服务拆分为基础，并由 T150 更新 FASTQ 识别合同。T145 修正文档
+26 中将 T7 scanner 和 CCE
 observer 放在同一常驻进程、并为 1830 个历史目录保存明细的实现。
 WGS release、Step1–Step6 和 Step4 repair 合同仍分别以文档 25/26 为准。
 
-当前 disabled release 为
-`20260830-wgs-4.1.1-observer-lifecycle-disabled-t145`；生产基线和第二次扫描
-均统计 1830 个目录且保持 0 条 intake 明细。
+当前 release 为
+`20260901-wgs-4.1.1-2499749-t150-t7-scanner-r5`。scanner 每次统计约1837个
+目录，但只保留基线后已完成的7条芯片发现；它不自动创建分析。
 
 ## 1. 服务边界
 
-- `wgs-intake-scanner`每 1800 秒只读扫描`/bi/fastq/T7_Fastq`，只负责
+- `wgs-intake-scanner`每 600 秒只读扫描`/bi/fastq/T7_Fastq`，只负责
   芯片目录发现和分类。
 - `wgs-run-observer`只处理已被 Step3 激活的`analysis_id + attempt`。无活动
   任务时阻塞在 PostgreSQL `LISTEN wgs_observer_activation`，不扫描 binding、
@@ -47,6 +48,18 @@ last_error
 `ready`、`needs_review`、`no_new_wgs`。规范化芯片路径唯一，重复扫描更新
 原记录。每轮最多一条汇总日志，不打印逐目录日志。
 
+T150以后，FASTQ分类只看目录直属项的basename：普通文件、硬链接、有效或失效
+软链接都使用同一`<sample>-WGS.R1/R2.fq.gz`配对规则。scanner不对FASTQ目录项
+调用`resolve()`，不读取链接目标，也不检查目标是否在容器中可见；目标与内容完整性
+留给后续prepare/上传。`-S\d+`结尾的加测样本仍排除，普通样本缺R1或R2进入
+`needs_review`。
+
+`wgs-t7-entry-fingerprint.v2`只包含芯片、上机批次、BarcodeStat的stat和排序后的
+eligible FASTQ名称，不包含FASTQ大小、mtime、目标路径或MD5。已ready记录的名称
+新增、删除或重命名仍触发漂移保护；内容或目标变化不触发scanner漂移。旧v1普通
+文件ready记录可在名称未变化时一次性升级；历史`no_new_wgs`不再冻结fingerprint，
+可重新分类为`ready`或`needs_review`。
+
 ## 3. 数据清理和迁移
 
 Alembic `20260830_0012`精简 scanner singleton，并为`observer_run_state`增加：
@@ -75,11 +88,11 @@ Alembic `20260830_0012`精简 scanner singleton，并为`observer_run_state`增�
 - Run Detail 分开显示 lifecycle 和 monitoring health。无 observer 时显示
   “CCE监控尚未启动”，不标记为错误。
 - Dashboard 显示“本轮扫描 N 个目录”，发现列表不展示历史/等待目录。
+- Dashboard使用API的`schedule_seconds`动态显示扫描周期；生产600秒显示“每10分钟”。
 
 ## 5. 安全与启用门禁
 
-T145 只做 disabled release。`WGS_EXECUTION_ENABLED=false`、
-`WGS_RUNTIME_ADAPTER_ENABLED=false`、`WGS_AUTO_DISPATCH_ENABLED=false`，
-`bio_wgs` paused。不启动 OBS、CCE 或真实 WGS，不删除 volume，不重建
-`nipt_analysis_test_net` (`192.168.199.0/24`)；仅 nginx 发布
-`172.17.106.10:12959`。
+T150不改变分析门禁或当前手工运行状态；scanner唯一固定门禁是
+`WGS_AUTO_DISPATCH_ENABLED=false`，因此扫描不会创建AnalysisRun或DagRun。
+发布不得删除 volume、重建`nipt_analysis_test_net` (`192.168.199.0/24`)或
+干预活动CCE attempt；仅 nginx 发布`172.17.106.10:12959`。

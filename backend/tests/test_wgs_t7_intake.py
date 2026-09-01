@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import hashlib
+import json
 import os
 from pathlib import Path
 
@@ -175,6 +177,68 @@ def test_post_bootstrap_ready_batch_classifies_normal_and_addon_pairs(tmp_path: 
         assert row.eligible_fingerprint
 
 
+def test_broken_symlink_pairs_are_classified_by_entry_name(tmp_path: Path) -> None:
+    root = tmp_path / "T7_Fastq"
+    root.mkdir()
+    directory = chip(root, "2210th_20260825A_E250208851")
+    sessions = make_sessionmaker()
+    baseline = datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc)
+    scan(sessions, root, now=baseline)
+    complete_after(directory, baseline + timedelta(minutes=1))
+    r1_target = tmp_path / "missing-r1.fq.gz"
+    r2_target = tmp_path / "missing-r2.fq.gz"
+    (directory / "NORMAL-WGS.R1.fq.gz").symlink_to(r1_target)
+    (directory / "NORMAL-WGS.R2.fq.gz").symlink_to(r2_target)
+
+    result = scan(sessions, root, now=baseline + timedelta(minutes=30))
+
+    assert result["ready"] == 1
+    with sessions() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        assert row.state == "ready"
+        assert row.eligible_pair_count == 1
+        assert row.pair_issue_count == 0
+        fingerprint = row.eligible_fingerprint
+
+    r1_target.write_bytes(b"target appeared after discovery")
+    r2_target.write_bytes(b"target contents are validated later")
+    scan(sessions, root, now=baseline + timedelta(minutes=60))
+    with sessions() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        assert row.state == "ready"
+        assert row.eligible_fingerprint == fingerprint
+
+
+def test_regular_hardlink_and_symlink_entries_share_pairing_rules(tmp_path: Path) -> None:
+    root = tmp_path / "T7_Fastq"
+    root.mkdir()
+    directory = chip(root, "2211th_20260825B_E250208852")
+    source = tmp_path / "source.fq.gz"
+    source.write_bytes(b"fq")
+    sessions = make_sessionmaker()
+    baseline = datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc)
+    scan(sessions, root, now=baseline)
+    complete_after(directory, baseline + timedelta(minutes=1))
+    os.link(source, directory / "HARD-WGS.R1.fq.gz")
+    (directory / "HARD-WGS.R2.fq.gz").write_bytes(b"fq")
+    (directory / "SOFT-WGS.R1.fq.gz").symlink_to(tmp_path / "missing-soft-r1")
+    (directory / "SOFT-WGS.R2.fq.gz").symlink_to(tmp_path / "missing-soft-r2")
+    (directory / "ADDON-S1-WGS.R1.fq.gz").symlink_to(tmp_path / "missing-addon-r1")
+    (directory / "ADDON-S1-WGS.R2.fq.gz").symlink_to(tmp_path / "missing-addon-r2")
+
+    scan(sessions, root, now=baseline + timedelta(minutes=30))
+
+    with sessions() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        assert row.state == "ready"
+        assert row.eligible_pair_count == 2
+        assert row.excluded_addon_pair_count == 1
+        assert row.pair_issue_count == 0
+
+
 def test_no_wgs_or_only_addon_is_no_new_wgs_and_candidate_count_is_informational(tmp_path: Path) -> None:
     root = tmp_path / "T7_Fastq"
     root.mkdir()
@@ -195,6 +259,50 @@ def test_no_wgs_or_only_addon_is_no_new_wgs_and_candidate_count_is_informational
         assert rows[empty.name].eligible_pair_count == 0
         assert rows[addon.name].state == "no_new_wgs"
         assert rows[addon.name].excluded_addon_pair_count == 1
+
+
+def test_historical_no_new_wgs_becomes_ready_when_named_pair_appears(tmp_path: Path) -> None:
+    root = tmp_path / "T7_Fastq"
+    root.mkdir()
+    directory = chip(root, "2212th_20260825C_E250208853")
+    sessions = make_sessionmaker()
+    baseline = datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc)
+    scan(sessions, root, now=baseline)
+    complete_after(directory, baseline + timedelta(minutes=1))
+    scan(sessions, root, now=baseline + timedelta(minutes=30))
+
+    (directory / "LATE-WGS.R1.fq.gz").write_bytes(b"1")
+    (directory / "LATE-WGS.R2.fq.gz").write_bytes(b"2")
+    result = scan(sessions, root, now=baseline + timedelta(minutes=60))
+
+    assert result["ready"] == 1
+    with sessions() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        assert row.state == "ready"
+        assert row.eligible_pair_count == 1
+        assert row.last_error is None
+
+
+def test_historical_no_new_wgs_requires_review_when_only_one_read_appears(tmp_path: Path) -> None:
+    root = tmp_path / "T7_Fastq"
+    root.mkdir()
+    directory = chip(root, "2213th_20260825D_E250208854")
+    sessions = make_sessionmaker()
+    baseline = datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc)
+    scan(sessions, root, now=baseline)
+    complete_after(directory, baseline + timedelta(minutes=1))
+    scan(sessions, root, now=baseline + timedelta(minutes=30))
+
+    (directory / "LATE-WGS.R1.fq.gz").symlink_to(tmp_path / "missing-late-r1")
+    result = scan(sessions, root, now=baseline + timedelta(minutes=60))
+
+    assert result["needs_review"] == 1
+    with sessions() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        assert row.state == "needs_review"
+        assert row.pair_issue_count == 1
 
 
 def test_unpaired_normal_fastq_requires_review(tmp_path: Path) -> None:
@@ -224,7 +332,7 @@ def test_unpaired_normal_fastq_requires_review(tmp_path: Path) -> None:
         assert row.last_error is None
 
 
-def test_ready_input_drift_requires_review_but_addon_only_change_does_not(tmp_path: Path) -> None:
+def test_ready_name_drift_requires_review_but_content_and_addon_changes_do_not(tmp_path: Path) -> None:
     root = tmp_path / "T7_Fastq"
     root.mkdir()
     directory = chip(root, "2205th_20260823A_E250207440")
@@ -246,13 +354,67 @@ def test_ready_input_drift_requires_review_but_addon_only_change_does_not(tmp_pa
         assert row.excluded_addon_pair_count == 1
         original_fingerprint = row.eligible_fingerprint
 
-    r1.write_bytes(b"changed")
+    r1.write_bytes(b"changed-content-is-validated-later")
     scan(sessions, root, now=datetime(2026, 8, 29, 9, 30, tzinfo=timezone.utc))
+    with sessions() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row.state == "ready"
+        assert row.eligible_fingerprint == original_fingerprint
+        assert row.last_error is None
+
+    r1.rename(directory / "RENAMED-WGS.R1.fq.gz")
+    scan(sessions, root, now=datetime(2026, 8, 29, 10, 0, tzinfo=timezone.utc))
     with sessions() as session:
         row = session.scalar(select(WgsIntakeBatch))
         assert row.state == "needs_review"
         assert row.eligible_fingerprint == original_fingerprint
         assert row.last_error == "eligible WGS input changed after ready"
+
+
+def test_ready_v1_regular_file_fingerprint_upgrades_without_false_drift(tmp_path: Path) -> None:
+    root = tmp_path / "T7_Fastq"
+    root.mkdir()
+    directory = chip(root, "2214th_20260825E_E250208855")
+    sessions = make_sessionmaker()
+    baseline = datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc)
+    scan(sessions, root, now=baseline)
+    complete_after(directory, baseline + timedelta(minutes=1))
+    r1 = directory / "LEGACY-WGS.R1.fq.gz"
+    r2 = directory / "LEGACY-WGS.R2.fq.gz"
+    r1.write_bytes(b"r1")
+    r2.write_bytes(b"r2")
+    scan(sessions, root, now=baseline + timedelta(minutes=30))
+
+    barcode_stat = (directory / "BarcodeStat.txt").stat()
+    legacy_payload = {
+        "schema_version": "wgs-t7-eligible-fingerprint.v1",
+        "chip_id": directory.name,
+        "sequencing_batch": "20260825E",
+        "barcode_stat": {
+            "size": barcode_stat.st_size,
+            "mtime_ns": barcode_stat.st_mtime_ns,
+        },
+        "eligible_files": [
+            {"name": path.name, "size": path.stat().st_size, "mtime_ns": path.stat().st_mtime_ns}
+            for path in (r1, r2)
+        ],
+    }
+    legacy_fingerprint = hashlib.sha256(
+        json.dumps(legacy_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    with sessions.begin() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        row.eligible_fingerprint = legacy_fingerprint
+
+    scan(sessions, root, now=baseline + timedelta(minutes=60))
+
+    with sessions() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        assert row.state == "ready"
+        assert row.eligible_fingerprint != legacy_fingerprint
+        assert row.last_error is None
 
 
 def test_repeated_scan_is_idempotent(tmp_path: Path) -> None:

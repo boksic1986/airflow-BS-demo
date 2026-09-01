@@ -1,5 +1,27 @@
 # 11 部署 Runbook
 
+## T150 T7 scanner滚动修复
+
+1. 在BS10610隔离环境运行scanner focused和完整backend测试；使用固定Node构建并
+   测试frontend。软链接测试必须包含目标不存在的R1/R2，证明scanner不访问目标。
+2. 部署前`pg_dump -Fc`备份biodemo并记录AnalysisRun、RunAttempt、Airflow
+   DagRun和intake行数。不得清空或修改这些表。
+3. 从当前release建立新的不可变release；scanner继续只读挂载
+   `/bi/fastq/T7_Fastq`，不要增加`/sg2/T7new`。设置600秒周期并确认
+   `WGS_AUTO_DISPATCH_ENABLED=false`。
+4. Docker Hub不可用时，以已验收frontend nginx镜像为base，删除继承静态文件后
+   离线复制本地tested `dist`；逐项核对index/CSS/JS SHA256，禁止旧hash资产残留。
+5. 只重建`wgs-intake-scanner`和`frontend-nginx`。不重建backend、Airflow、
+   run observer、PostgreSQL、Redis、volume或网络，不清理或重提活动CCE批次。
+6. 触发一次scanner后核对2227为10对ready，历史no-new-WGS按实际名称重新分类，
+   且AnalysisRun/RunAttempt/DagRun计数完全不变。通过内部token只读API确认
+   `schedule_seconds=600`及前端HTTP 200。
+7. 验证scanner只有T7只读挂载；`nipt_analysis_test_net`仍为
+   `192.168.199.0/24`/gateway`.1`，仅frontend发布`172.17.106.10:12959`。
+
+回滚只切回前一release、恢复旧frontend tag并重建scanner/frontend。不要恢复
+数据库或删除重新分类的intake行；T150没有schema迁移。
+
 ## T149 在途 Step3 接管
 
 This procedure is only for a Step3 monitoring/control-plane failure when the

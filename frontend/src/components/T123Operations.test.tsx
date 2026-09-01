@@ -69,7 +69,7 @@ it("shows T7 scan-only discovery counts without sample identifiers", () => {
   const scanner: IntakeScannerStateResponse = {
     scanner: "wgs-intake-scanner",
     enabled: true,
-    schedule_seconds: 1800,
+    schedule_seconds: 600,
     auto_dispatch_enabled: false,
     first_scan_at: "2026-08-30T01:00:00Z",
     last_scan_at: "2026-08-30T01:30:00Z",
@@ -80,6 +80,7 @@ it("shows T7 scan-only discovery counts without sample identifiers", () => {
   render(<MemoryRouter><IntakeScannerPanel scanner={scanner} items={[item]} total={1} limit={10} offset={0} loading={false} error={null} view="pending" onViewChange={vi.fn()} onPageChange={vi.fn()} /></MemoryRouter>);
 
   expect(screen.getByRole("heading", {name: "T7自动扫描"})).toBeInTheDocument();
+  expect(screen.getByText(/每10分钟检查 BarcodeStat\.txt/)).toBeInTheDocument();
   expect(screen.getByText(/自动分析关闭/)).toBeInTheDocument();
   expect(screen.getByText("20260821B")).toBeInTheDocument();
   expect(screen.getByText("17")).toBeInTheDocument();

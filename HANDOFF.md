@@ -1,5 +1,50 @@
 # HANDOFF.md
 
+## 2026-09-01 - Codex - T150 T7 FASTQ scanner repair
+
+### Goal and completed work
+
+修复T7 scanner将软链接FASTQ误判为`no_new_wgs`，按目录项名称识别WGS和
+R1/R2，不访问链接目标。名称级fingerprint升级为v2；保留旧v1普通文件ready
+记录的兼容升级，并允许历史`no_new_wgs`按当前名称重新分类。Dashboard根据API
+的`schedule_seconds`显示“每10分钟”，不再硬编码30分钟。
+
+创建并切换到release
+`20260901-wgs-4.1.1-2499749-t150-t7-scanner-r5`。只重建
+`wgs-intake-scanner`和`frontend-nginx`；PostgreSQL、Redis、Airflow、backend、
+run observer、volume、网络和当前CCE Master均未重建。离线frontend镜像为
+`airflow-demo/frontend:t150-t7-scanner-10m` / `sha256:cef9e111...e386cdb`，
+镜像内只有本次index、CSS和JS，SHA256与本地tested dist一致。
+
+### Validation and production evidence
+
+```text
+BS10610 backend: 243 passed, 1 skipped
+frontend Vitest: 9 files / 31 tests passed
+frontend TypeScript + Vite production build: passed
+HTTP: 172.17.106.10:12959 -> 200
+scanner: interval 600, auto dispatch false, scanned 1837, errors 0
+2227: ready, 10 eligible pairs
+2222/2223/2224: ready, 96/12/8 eligible pairs
+2221/2225: no_new_wgs
+2226: retained pre-existing needs_review state
+before/after: AnalysisRun 1, RunAttempt 1, Airflow DagRun 1
+active run: WGS_20260901_031616_C74E6C, attempt 1, same DagRun, step3_monitor
+network: 192.168.199.0/24 gateway 192.168.199.1; only 172.17.106.10:12959 published
+```
+
+备份保存在
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T150-t7-scanner-20260901T151336+0800`，
+`biodemo.dump` SHA256为
+`b606f3f284ffc7d72e992cae79534c5d3580f20dcb6890d2902dbdb2f2026380`。
+
+### Remaining work and rollback
+
+T150没有启用自动prepare/dispatch，也没有创建分析目录、OBS传输或CCE任务。
+当前T149批次仍由原DagRun定时监控到真实终态。回滚T150只需切回T149 r4、恢复
+frontend tag并重建scanner/frontend；不要恢复数据库、删除intake记录、重建网络或
+干预当前CCE批次。名称重新分类是对已有7条scanner记录的正常幂等更新。
+
 ## 2026-09-01 - Codex - T149 Step3 repair and in-flight takeover
 
 ### Outcome

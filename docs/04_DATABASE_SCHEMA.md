@@ -1,5 +1,13 @@
 # 04 数据库设计
 
+## T150 name-level intake fingerprint（无迁移）
+
+T150不增加字段、不运行Alembic或手工改表。`wgs_intake_batch`现有
+`eligible_fingerprint/observed_fingerprint`保存名称级v2摘要；旧v1摘要通过
+运行时兼容比较升级。只有`ready`冻结输入名称，历史`no_new_wgs`允许按后续出现的
+WGS名称转为`ready/needs_review`。FASTQ目标、大小、mtime和MD5不进入scanner
+fingerprint；完整性由后续prepare/上传合同负责。
+
 ## T145 migration 0012
 
 `wgs_intake_scanner_state`只保存`first_scan_at`、`last_scan_at`、

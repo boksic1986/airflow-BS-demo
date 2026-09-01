@@ -1,5 +1,14 @@
 # 05 API Contract
 
+## T150 T7 name-level scanner projection
+
+公开endpoint和响应结构不变。`GET /api/intake/scanner-state`从运行配置返回
+`schedule_seconds=600`和`auto_dispatch_enabled=false`；
+`GET /api/intake/status?pipeline=wgs`中的eligible/add-on/pair issue计数来自目录项
+名称配对，普通/硬/软链接不作区分。API仍只返回芯片、批次、状态和聚合计数，不
+返回sample ID、软链接目标或fingerprint。历史`no_new_wgs`可在后续扫描中转换为
+`ready/needs_review`，但扫描本身不创建AnalysisRun或DagRun。
+
 ## T149 Step3 internal status and recovery contract
 
 The public API and database schema are unchanged. The internal

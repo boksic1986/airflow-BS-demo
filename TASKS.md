@@ -24,8 +24,35 @@
 | T147 | Airflow worktree reconciliation and PR workflow | coordinator/docs | audit every local worktree against origin/main, fast-forward safe ancestors, preserve dirty or obsolete branches, merge reconciliation through GitHub PR | no user changes overwritten; current WGS mainline unchanged except state docs; PR checks and merge verified | done |
 | T148 | Prune completed worktrees and branches | coordinator/docs | retain root main and active T146 worktree, delete historical worktrees/local branches/remote branches, merge cleanup record through PR | exactly two worktrees, two local branches and only origin/main remain; T146 artifacts/runtime untouched | done |
 | T149 | WGS Step3 monitor protocol repair and in-flight takeover | airflow/backend/infra/QA/docs | atomic monotonic node200 stage status, binding-authoritative Master validation, transitional status handling, same-attempt business-state recovery, exact Step3/downstream restart | existing attempt and Master retained; Step1/Step2 unchanged; UI resumes Master/Rule state; original DagRun continues to verified terminal state | in progress: takeover complete; awaiting real terminal state |
+| T150 | T7 FASTQ name-level scanner repair | backend/frontend/infra/QA/docs | accept regular/hard/symlink entries without resolving targets, v2 name fingerprint, historical reclassification, dynamic interval UI, rolling scanner/frontend release | 2227 is ready with 10 pairs; no AnalysisRun/RunAttempt/DagRun added; 600-second schedule, read-only mount and fixed network verified | done |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
+
+## T150 - T7 FASTQ name-level scanner repair
+
+Owner: backend/frontend/infra/QA/docs
+
+Status: done
+
+Acceptance:
+
+- [x] Scanner pairs WGS entries by basename for regular files, hard links,
+  valid symlinks and dangling symlinks without resolving or reading targets.
+- [x] `-S\d+` add-ons remain excluded; incomplete normal pairs become
+  `needs_review`; fingerprint v2 uses sorted eligible names rather than FASTQ
+  metadata, target paths or MD5.
+- [x] Historical `no_new_wgs` rows can become `ready/needs_review`; old v1
+  regular-file `ready` fingerprints upgrade without a false drift alert.
+- [x] BS10610 backend suite passed 243 tests with 1 skip; frontend passed 31
+  tests and the TypeScript/Vite production build.
+- [x] biodemo backup and checksums were recorded before rolling only scanner
+  and frontend. AnalysisRun, RunAttempt and Airflow DagRun counts stayed 1/1/1.
+- [x] Production scan classified 2227 as ready with 10 pairs, 2222/2223/2224
+  as ready with 96/12/8 pairs, and kept 2221/2225 as no-new-WGS.
+- [x] API/UI report the 600-second schedule and auto-dispatch disabled;
+  scanner has only the read-only T7 mount. Network remains 192.168.199.0/24
+  and only frontend publishes 172.17.106.10:12959.
+- [x] The active T149 analysis/attempt/DagRun and Step3 stage were unchanged.
 
 ## T149 - WGS Step3 monitor protocol repair and in-flight takeover
 
