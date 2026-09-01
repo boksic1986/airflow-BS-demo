@@ -18,7 +18,7 @@
   projection lags, without fabricating a RuleState row.
 - Deployed release
   `20260901-wgs-4.1.1-2499749-t149-step3-recovery-r4` with control commit
-  `b7730bc1a09481f67663b2c3d7f37e50b5770b93`.
+  `c56b0e91f3d63e1398e961452f9c754eea8083f6`.
 
 ### In-flight run state
 
@@ -41,14 +41,14 @@
 - Pre-takeover backup:
   `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T149-step3-recovery-20260901T132953+0800`;
   all recorded SHA256 checks passed.
-- Earlier T149 regression checkpoint: backend 238 passed, runner 30 passed and
-  DAG 7 passed. Final focused WGS backend regression after the progress fallback:
-  48 passed. Shared-SFS concurrency smoke completed 200 writes with no partial
-  file.
-- A full backend invocation under production WGS-only environment variables is
-  not the canonical unit-test environment: it produced 29 legacy PGTA/NIPT
-  expectation failures. The WGS-focused suite passed; this mismatch was not
-  hidden or treated as a WGS regression.
+- Final canonical isolated backend suite: 238 passed and 1 skipped; final
+  focused WGS suite: 48 passed. Runner 30 and DAG 7 passed at the preceding
+  T149 checkpoint. Shared-SFS concurrency smoke completed 200 writes with no
+  partial file.
+- One diagnostic invocation inherited production WGS-only deployment scope and
+  therefore exercised legacy PGTA/NIPT tests under the wrong environment. The
+  canonical rerun explicitly removed required runtime settings, as those unit
+  tests expect, and passed in full.
 - Network remains `192.168.199.0/24`, gateway `192.168.199.1`; only
   `172.17.106.10:12959` is published. PostgreSQL, Redis, volumes, OBS/SFS data
   and the CCE Master were not rebuilt or deleted. Scheduler is unpaused.
