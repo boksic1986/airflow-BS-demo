@@ -168,6 +168,73 @@ def test_release_repository_validation_rejects_commit_or_runtime_drift(
     assert calls[0][-2:] == ["rev-parse", "HEAD"]
 
 
+def test_release_repository_validation_allows_documentation_only_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    repo = tmp_path / "wgs-4.1.1"
+    (repo / "prepare").mkdir(parents=True)
+    (repo / "prepare" / "prepare_wgs_batch.py").write_text("# tracked\n")
+    expected_commit = "cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d"
+
+    def fake_run(command, **kwargs):
+        if command[-2:] == ["rev-parse", "HEAD"]:
+            return type("Result", (), {"stdout": expected_commit + "\n"})()
+        if command[-2:] == ["status", "--porcelain"]:
+            return type(
+                "Result",
+                (),
+                {"stdout": " M README.md\n?? docs/runtime-contract.md\n"},
+            )()
+        raise AssertionError(f"unexpected git command: {command}")
+
+    monkeypatch.setattr(gate, "WGS_REPO_ROOT", repo)
+    monkeypatch.setattr(gate.subprocess, "run", fake_run)
+
+    assert gate.validate_release_repository(
+        {
+            "pipeline_release_id": "wgs-4.1.1-cdee32c",
+            "wgs_source_commit": expected_commit,
+        }
+    ) == repo.resolve()
+
+
+@pytest.mark.parametrize(
+    "porcelain_status",
+    (
+        " M prepare/prepare_wgs_batch.py\n",
+        "?? README.md.bak\n",
+    ),
+)
+def test_release_repository_validation_still_rejects_runtime_or_similar_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, porcelain_status: str
+) -> None:
+    gate = load_gate()
+    repo = tmp_path / "wgs-4.1.1"
+    (repo / "prepare").mkdir(parents=True)
+    (repo / "prepare" / "prepare_wgs_batch.py").write_text("# tracked\n")
+    expected_commit = "cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d"
+
+    def fake_run(command, **kwargs):
+        stdout = (
+            expected_commit + "\n"
+            if command[-2:] == ["rev-parse", "HEAD"]
+            else porcelain_status
+        )
+        return type("Result", (), {"stdout": stdout})()
+
+    monkeypatch.setattr(gate, "WGS_REPO_ROOT", repo)
+    monkeypatch.setattr(gate.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="runtime changes"):
+        gate.validate_release_repository(
+            {
+                "pipeline_release_id": "wgs-4.1.1-cdee32c",
+                "wgs_source_commit": expected_commit,
+            }
+        )
+
+
 def test_prepare_retry_reuses_frozen_binding_without_repository_access(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

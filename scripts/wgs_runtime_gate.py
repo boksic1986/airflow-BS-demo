@@ -172,7 +172,11 @@ def validate_release_repository(payload: dict[str, Any]) -> Path:
         capture_output=True,
         text=True,
     ).stdout.splitlines()
-    unsafe = [line for line in status if not line.startswith("?? docs/")]
+    def is_documentation_change(line: str) -> bool:
+        path = line[3:].strip()
+        return path == "README.md" or path.startswith("docs/")
+
+    unsafe = [line for line in status if not is_documentation_change(line)]
     if unsafe:
         raise RuntimeError(
             "release_unavailable: fixed WGS repository contains runtime changes"
