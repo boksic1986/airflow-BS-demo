@@ -36,6 +36,7 @@ Acceptance:
 
 - [x] 根worktree已恢复并同步到`main`；T146 worktree保留并同步到合并后的主线。
 - [x] 删除7个完成或历史secondary worktree，包括T096、T127、T129和T145系列。
+- [x] 删除未注册为worktree的旧T133 staging artifacts目录（30个文件，约2.1 MB）。
 - [x] 根据用户明确授权删除T096的4个未提交文件改动和未跟踪PPT目录。
 - [x] 删除54个本地历史分支；本地只保留`main`和当前开发T146。
 - [x] 删除16个远端历史分支；远端只保留`origin/main`。
