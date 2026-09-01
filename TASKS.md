@@ -22,8 +22,25 @@
 | T145 | WGS scanner sparse persistence and CCE observer lifecycle | backend/airflow/observer/frontend/infra/QA/docs | split scanner/run observer, LISTEN/NOTIFY lifecycle, exact transfer sync, migration 0012, protected 1830-row cleanup and disabled release | baseline stores zero details; idle observer does no polling/logging; tests/API/network/gates pass | done in disabled mode |
 | T146 | WGS 2499749 / cce-pipeline 0.8.1 manual production run | airflow/backend/frontend/infra/QA/docs | bind current WGS release, pass sequencing batch to prepare, deploy enabled manual flow, rebuild one approved batch from controlled intake | disabled tests and network pass; exact old batch state cleared; one manual run is visible through API/UI and reaches a verified terminal state | in progress: clean attempt 1 Step1 upload |
 | T147 | Airflow worktree reconciliation and PR workflow | coordinator/docs | audit every local worktree against origin/main, fast-forward safe ancestors, preserve dirty or obsolete branches, merge reconciliation through GitHub PR | no user changes overwritten; current WGS mainline unchanged except state docs; PR checks and merge verified | done |
+| T148 | Prune completed worktrees and branches | coordinator/docs | retain root main and active T146 worktree, delete historical worktrees/local branches/remote branches, merge cleanup record through PR | exactly two worktrees, two local branches and only origin/main remain; T146 artifacts/runtime untouched | done |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
+
+## T148 - Prune completed worktrees and branches
+
+Owner: coordinator/docs
+
+Status: done
+
+Acceptance:
+
+- [x] 根worktree已恢复并同步到`main`；T146 worktree保留并同步到合并后的主线。
+- [x] 删除7个完成或历史secondary worktree，包括T096、T127、T129和T145系列。
+- [x] 根据用户明确授权删除T096的4个未提交文件改动和未跟踪PPT目录。
+- [x] 删除54个本地历史分支；本地只保留`main`和当前开发T146。
+- [x] 删除16个远端历史分支；远端只保留`origin/main`。
+- [x] T146 `.artifacts/`、运行状态、服务、数据库和Docker网络均未修改。
+- [x] 清理记录经GitHub PR合并，临时T148分支随后删除。
 
 ## T147 - Airflow worktree reconciliation and PR workflow
 

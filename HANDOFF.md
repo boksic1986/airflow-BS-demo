@@ -1,5 +1,47 @@
 # HANDOFF.md
 
+## 2026-09-01 - Codex - T148 prune completed worktrees and branches
+
+### Outcome
+
+- Retained exactly two worktrees: the repository root on `main` and
+  `D:/pipeline/airflow-demo-worktrees/T146-wgs-081-manual-run` on the only
+  active development branch.
+- Deleted seven completed or historical secondary worktrees: T096, four T127
+  worktrees, T129 and T145.
+- Deleted 54 local historical branches and 16 remote historical branches.
+  After the cleanup, local branches are only `main` and
+  `jiucheng/platform/T146-wgs-081-manual-run`; the GitHub remote exposes only
+  `origin/main` (plus its symbolic `origin/HEAD`).
+- Merged this cleanup record through a temporary T148 pull request, then removed
+  the temporary local and remote branch so it did not become another stale
+  branch.
+
+### Destructive scope and recovery
+
+- Under the user's explicit cleanup authorization, discarded the four tracked
+  T096 edits and the untracked `airflow-snakemake-ppt/` directory (308 files,
+  29 directories). The working-tree copies are not recoverable.
+- T129 removal initially left generated frontend dependencies because Windows
+  could not remove a long nested path. Git had already removed its worktree
+  registration; the exact residual T129 directory was then removed using its
+  verified extended absolute path.
+- Deleted branch names can be recreated from known commits while those objects
+  remain reachable or in reflogs, but no recovery guarantee is made after Git
+  garbage collection. Deleted remote branch refs require recreation and push.
+
+### Runtime boundary and verification
+
+- Preserved the T146 `.artifacts/` directory and did not inspect, restart,
+  cancel, pause or otherwise modify its active WGS analysis.
+- Did not operate Airflow services, WGS/CCE/OBS, PostgreSQL, Docker volumes or
+  the fixed Docker network.
+- Final verification requires exactly two registered worktrees, two local
+  branches, only `origin/main`, no open PRs, root/main equality and a clean
+  tracked T146 worktree apart from its preserved `.artifacts/`.
+- No application test suite was run because this task changes repository state
+  and Markdown records only.
+
 ## 2026-09-01 - Codex - T147 Airflow worktree reconciliation
 
 ### Goal and outcome
