@@ -1,5 +1,42 @@
 # HANDOFF.md
 
+## 2026-09-01 - Codex - T147 Airflow worktree reconciliation
+
+### Goal and outcome
+
+- Audited all nine local Airflow worktrees against `origin/main` before changing
+  any branch.
+- Fast-forwarded the clean T132 and T145 worktrees to the current mainline.
+- Confirmed with `git cherry` that the T127 dashboard, frontend compatibility,
+  review-fix and rule-phase commits are patch-equivalent to changes already in
+  main, so they were not merged a second time.
+- Preserved the dirty T096 documentation/PPT worktree exactly as found. Its
+  tracked edits and untracked presentation directory were not staged, moved or
+  overwritten. Preserved the obsolete T128 NIPT scan branch outside the current
+  WGS-only mainline.
+- Created the T147 reconciliation branch from current main for these state-only
+  records and merged it through a GitHub pull request.
+
+### Runtime boundary
+
+- This task changed no backend, frontend, DAG, observer, Compose, migration or
+  runtime configuration.
+- The active T146 WGS run was not queried repeatedly, restarted, cancelled or
+  otherwise altered. Airflow scheduled sensors and the task-scoped observer
+  remain responsible for monitoring it.
+- Docker network and published-port state were not touched.
+
+### Verification and residual worktrees
+
+- `git diff --check` and worktree/branch reference checks passed for this PR.
+- T132 and T145 now point at the pre-PR `origin/main` commit. T146/T147 carries
+  the PR commit; other T127 branches remain as historical local branch labels.
+- T096 requires an explicit future decision about its five local changes.
+  T128 requires an explicit decision to archive or delete; it must not be
+  silently merged into the WGS-only product.
+- No runtime test suite was run because this PR contains state documentation
+  only and does not change executable code.
+
 ## 2026-09-01 - Codex - T146 clean replacement run active
 
 ### Goal and outcome

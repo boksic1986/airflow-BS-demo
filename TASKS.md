@@ -21,8 +21,24 @@
 | T144 | WGS Step4 CRAM repair contract | backend/airflow/observer/frontend/QA/docs | fixed-cram service action, same-attempt maintenance mode, 0.7.1 frozen-bundle command, RBAC and audit | disabled-mode tests pass; gates-off returns 409 before Airflow/SSH; real repair deferred | done in disabled mode |
 | T145 | WGS scanner sparse persistence and CCE observer lifecycle | backend/airflow/observer/frontend/infra/QA/docs | split scanner/run observer, LISTEN/NOTIFY lifecycle, exact transfer sync, migration 0012, protected 1830-row cleanup and disabled release | baseline stores zero details; idle observer does no polling/logging; tests/API/network/gates pass | done in disabled mode |
 | T146 | WGS 2499749 / cce-pipeline 0.8.1 manual production run | airflow/backend/frontend/infra/QA/docs | bind current WGS release, pass sequencing batch to prepare, deploy enabled manual flow, rebuild one approved batch from controlled intake | disabled tests and network pass; exact old batch state cleared; one manual run is visible through API/UI and reaches a verified terminal state | in progress: clean attempt 1 Step1 upload |
+| T147 | Airflow worktree reconciliation and PR workflow | coordinator/docs | audit every local worktree against origin/main, fast-forward safe ancestors, preserve dirty or obsolete branches, merge reconciliation through GitHub PR | no user changes overwritten; current WGS mainline unchanged except state docs; PR checks and merge verified | done |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
+
+## T147 - Airflow worktree reconciliation and PR workflow
+
+Owner: coordinator/docs
+
+Status: done
+
+Acceptance:
+
+- [x] 已审计全部9个本地worktree的分支、脏文件和相对`origin/main`的提交关系。
+- [x] T132、T145干净且提交已在主线中，已用fast-forward同步到`origin/main`。
+- [x] T127三个修复分支已通过`git cherry`确认补丁等价，不重复合并。
+- [x] T096的5项未提交内容保持原样；T128的旧NIPT扫描提交不进入WGS-only主线。
+- [x] T146运行态及`.artifacts/`保持不变；没有执行部署、数据库或流程操作。
+- [x] 本条状态更新经GitHub PR合并到`main`。
 
 ## T146 - WGS 2499749 / cce-pipeline 0.8.1 manual production run
 
