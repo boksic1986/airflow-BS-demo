@@ -5,13 +5,13 @@
 ```text
 t152_airflow_fix: node200 runner只在Step3已success且Master与冻结binding完全一致时，将"Step4 requires a successful Master Job"作为短暂状态每5秒重试，最长600秒；其他Master错误继续硬失败。
 t152_retry_generation: 已退出的failed step4_publish可在相同request SHA下归档status/worker/log到history/step4_publish/retry-N后重启；活动worker、请求漂移和其他stage不允许该行为。
-t152_backend: 同attempt重新登记已知Master完成竞争时恢复业务状态为publishing并写run.step4_publish_recovered审计；Step4 repair不再依赖wgs-master-*前缀，而使用Step3绑定后生成的canonical event identity。
-t152_deployment: current -> 20260901-wgs-4.1.1-2499749-t152-step4-recovery-r7；Airflow代码commit 29c8378b2b4e5cf860e7978d9e23233f710035af。backend/API/scheduler/worker和共享runner已更新，数据库、volume、网络、WGS仓库和冻结bundle未修改。
+t152_backend: 同attempt重新登记已知Master完成竞争时恢复业务状态为publishing并写run.step4_publish_recovered审计；后续真实Step4 terminal failure会写回biodemo为failed和错误摘要，前端不再滞留publishing；Step4 repair不再依赖wgs-master-*前缀，而使用Step3绑定后生成的canonical event identity。
+t152_deployment: current -> 20260901-wgs-4.1.1-2499749-t152-step4-recovery-r8；Airflow实现commit为29c8378b2b4e5cf860e7978d9e23233f710035af和1bd7530f2a55bab530475fffb48eeabb025fea21。backend/API/scheduler/worker和共享runner已更新，数据库、volume、网络、WGS仓库和冻结bundle未修改。
 t152_recovery: 原DagRun同attempt只清除了Step4、Step5、Step6、finalize和release_leases。Step1、Step2、Step3仍success；Master仍是cce-master-79c59ff6401e15d76aa5，UID 8ef69ad6-96cd-4dd2-a94a-b214287af1d2，Complete时间08:26:26Z；没有重新上传FASTQ或创建Master。
 t152_new_blocker: 普通Step4已经越过Master前置检查，但在OBS交付核验时报ANALYSIS_COMPLETE is invalid。OBS marker是149-byte schema-1 JSON且身份/status=PASS正确；冻结WGS 2499749的cce_delivery.py仍只接受字面量status=PASS\\n。这是WGS内部producer/consumer合同不一致，不是cloud_finalize_delivery重复执行，也不是Airflow Master时序问题。
 t152_safety_stop: 按本任务“不修改WGS仓库或冻结bundle、不修改OBS/SFS”边界，未热补丁bundle、未覆盖OBS marker、未使用CRAM repair、未再次清Task。当前DagRun再次failed于普通Step4；Step5-Step6未执行，最终成功尚未达成。
 t152_backup: backups/T152-step4-recovery-20260901T173906+0800；biodemo.dump SHA256 08af9e4f6a50945affb355380858a4ab11653356dbfa43fa44fdccf6174e6c3e，airflow.dump SHA256 3ac29e63f3dcb4dba401a2490e8485acd6c246550a2b9955e6330790f4da4256。
-t152_validation: runner 28 passed；backend 249 passed；DAG import errors=0；Compose config和network preflight通过。网络仍192.168.199.0/24、gateway 192.168.199.1，仅172.17.106.10:12959发布。
+t152_validation: runner 28 passed；backend 250 passed；DAG import errors=0；Compose config和network preflight通过；生产API已显示failed/step4_publish及真实错误。网络仍192.168.199.0/24、gateway 192.168.199.1，仅172.17.106.10:12959发布。
 ```
 
 ## 2026-09-01 T151 - exclude YF non-clinical samples

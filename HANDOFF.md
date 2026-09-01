@@ -5,8 +5,9 @@
 ### Completed
 
 - Implemented and deployed Airflow commit
-  `29c8378b2b4e5cf860e7978d9e23233f710035af` in release
-  `20260901-wgs-4.1.1-2499749-t152-step4-recovery-r7`.
+  `29c8378b2b4e5cf860e7978d9e23233f710035af` plus failure-projection commit
+  `1bd7530f2a55bab530475fffb48eeabb025fea21` in release
+  `20260901-wgs-4.1.1-2499749-t152-step4-recovery-r8`.
 - Step4 now waits up to 600 seconds for the exact bound Master after a trusted
   Step3 success. Failed Step4 generations can restart only with the same
   request SHA after the old worker exits; prior status/worker/log are retained
@@ -15,6 +16,9 @@
   failure to `publishing` and audits `run.step4_publish_recovered`. Repair
   capability uses the canonical Step3 Master event identity rather than a
   `wgs-master-*` prefix.
+- A real terminal Step4 failure now updates biodemo/Run Detail to `failed`
+  with its evidence message; the production API no longer remains stale at
+  `publishing` after the DagRun fails.
 
 ### Production recovery and new blocker
 
@@ -44,7 +48,7 @@
 
 ```text
 runner: 28 passed
-backend: 249 passed
+backend: 250 passed
 DAG import errors: 0
 Compose config: passed
 network: 192.168.199.0/24, gateway 192.168.199.1

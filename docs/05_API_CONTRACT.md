@@ -9,6 +9,12 @@ attempt and stage identity and contains the known Master-completion race error.
 It clears that false terminal timestamp/error and writes
 `run.step4_publish_recovered` as `airflow-internal`.
 
+The same internal stage-status read projects a later terminal
+`step4_publish=failed` to `AnalysisRun.status=failed`, preserves
+`current_stage=step4_publish`, stores the evidence message, and sets terminal
+timestamps. This prevents Run Detail from remaining at `publishing` after the
+Airflow DagRun has truthfully failed.
+
 Step4 repair capability no longer requires a `wgs-master-*` name. It accepts a
 Succeeded workload only when Step3 ingestion produced the canonical
 `event_id=step3:<job_name>` identity after frozen-binding validation. The

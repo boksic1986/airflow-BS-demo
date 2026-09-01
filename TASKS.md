@@ -47,7 +47,10 @@ Acceptance:
 - [x] Backend restores the known same-attempt control-plane false failure to
   `publishing` with an audit event; Step4 repair accepts canonical bound
   `cce-master-*` evidence without a name-prefix allowlist.
-- [x] BS10610 validation passed: runner 28, backend 249, DAG import errors 0,
+- [x] A subsequent real Step4 terminal failure is projected to biodemo and the
+  frontend as `failed` with its evidence message instead of remaining stale at
+  `publishing`.
+- [x] BS10610 validation passed: runner 28, backend 250, DAG import errors 0,
   Compose/network checks passed.
 - [x] Backed up both databases and runtime state, deployed r7, and retried only
   Step4 and downstream in the original DagRun. Step1-Step3 and the Master UID
