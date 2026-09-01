@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-01 T147 - Airflow worktree reconciliation
+
+```text
+t147_main: origin/main is cf9b716bf2b712fc802e9d6d44d500ca998d4773 before this documentation-only PR; it already contains the T146 WGS production checkpoint.
+t147_fast_forwarded: clean T132 and T145 worktrees were fast-forwarded to origin/main without rewriting history.
+t147_equivalent: T127 dashboard, frontend compatibility, review fixes and WGS rule-phase branches have patch-equivalent commits already present in main; they were not merged again.
+t147_preserved: the dirty T096 documentation/PPT worktree and its five local changes were left untouched; the clean T128 NIPT manual-scan branch remains isolated because it is obsolete for the WGS-only platform.
+t147_active: T146 production analysis WGS_20260901_031616_C74E6C remains under Airflow scheduled monitoring; this repository reconciliation does not restart, cancel, pause or otherwise alter the run.
+t147_scope: no application, DAG, deployment, database, Docker network or runtime configuration changes; only repository state documentation is included in the PR.
+```
+
 ## 2026-09-01 T146 - WGS 2499749 clean reanalysis（运行中）
 
 ```text
