@@ -1,5 +1,30 @@
 # SERVER_INFO.md
 
+## T146 BS10610 WGS 2499749 active acceptance (2026-09-01)
+
+```text
+primary: BS10610
+compose_project: airflow-wgs
+release: 20260901-wgs-4.1.1-2499749-t146-r3
+wgs_release: wgs-4.1.1-2499749
+wgs_commit: 2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68
+node200_runtime: cce-pipeline 0.8.1
+resolved_master_digest: sha256:965473cf89539ec67869cb38265f1416de508aa71ab5f35ad9be6a979548dab0
+active_analysis: WGS_20260901_031616_C74E6C attempt 1
+active_stage_at_checkpoint: input_transfer.wait_step1_upload
+execution_gates: true on BS10610 and node200 for the approved manual run
+bio_wgs: unpaused
+auto_dispatch: false
+external_network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
+published: only 172.17.106.10:12959 frontend/API gateway
+```
+
+The old `WGS_20260831_194429_145176` business rows, 11 DagRuns, runtime and
+batch evidence, SFS/OBS prefixes and CCE lock/workloads were removed after
+separate mode-0600 biodemo and Airflow metadata backups. One cleanup audit row
+is retained. The active replacement uses a new analysis ID and is monitored by
+Airflow reschedule sensors; the run observer activates only at Step3.
+
 ## T146 BS10610 WGS runtime snapshot (2026-09-01)
 
 ```text

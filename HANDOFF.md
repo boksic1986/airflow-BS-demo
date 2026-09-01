@@ -1,5 +1,71 @@
 # HANDOFF.md
 
+## 2026-09-01 - Codex - T146 clean replacement run active
+
+### Goal and outcome
+
+- Cleared all workflow evidence and data for the old `20260825A` acceptance
+  analysis without touching source FASTQ, WGS source, user accounts, scanner
+  state, Docker volumes or the external network.
+- Created and submitted a new run through the authenticated frontend-equivalent
+  API. The replacement is `WGS_20260901_031616_C74E6C`, attempt 1, bound to
+  `wgs-4.1.1-2499749` / commit `2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68`.
+- At handoff, validate and prepare are successful and Step1 input upload is
+  running. The frontend API reports `15% / input_transfer.wait_step1_upload`.
+  Per operator direction, stop manual high-frequency polling; Airflow's
+  reschedule sensor and the Step3 event-driven observer remain responsible for
+  scheduled monitoring.
+
+### Controlled cleanup
+
+- Before deletion, created mode-0600 PostgreSQL custom dumps:
+  - `biodemo-before-20260825A-clean-20260901.dump`, SHA256
+    `129f0e1b70fcaa75f9220f63fec755a3f30f3d539ce9707ce734b6973a5a6590`.
+  - `airflow-before-20260825A-clean-20260901.dump`, SHA256
+    `b13e807f0ba9d423b1616e8028a865ac6943865478c8aca4b41aa105cd49f2ce`.
+- Deleted the exact old analysis and cascaded biodemo run/sample/transfer/
+  observer/snapshot rows, 11 exact terminal Airflow DagRuns, its Airflow runtime
+  and three task-specific evidence directories. Thirteen old run audit events
+  were removed; one `run.purge_for_clean_release_reanalysis` audit remains.
+- Read-only CCE readers verified SFS run/linkage and OBS FASTQ/result prefixes
+  absent. The readers, manifests and helper scripts were then deleted. Exact
+  analysis-labelled CCE Job/Pod and the batch lock are absent.
+- The first OBS reader attempt failed before container start because Huawei OBS
+  CSI rejects a read-only PVC mount. A second reader used the same PVC mount
+  mode as production but ran only `test` commands; it made no object changes and
+  was deleted after both prefixes were confirmed absent.
+
+### Current safety and next check
+
+- `WGS_EXECUTION_ENABLED=true`, `WGS_RUNTIME_ADAPTER_ENABLED=true`,
+  `WGS_AUTO_DISPATCH_ENABLED=false`; `bio_wgs` is unpaused only for the approved
+  manual run. Network remains `nipt_analysis_test_net` (`192.168.199.0/24`,
+  gateway `.1`) and only `172.17.106.10:12959` is published.
+- Do not reset or retry while the replacement run is active. Inspect it through
+  Run Detail first. If it fails, capture the exact stage status, Master terminal
+  evidence and Rule JSONL health before deciding on recovery.
+- Terminal Step4-Step6 acceptance, state-doc finalization and old release cleanup
+  remain pending. No terminal success is claimed in this checkpoint.
+
+### Changed files and verification
+
+- Release/config tests: `config/wgs_releases.yaml`,
+  `backend/tests/test_wgs_release_catalog.py`,
+  `scripts/tests/test_wgs_runtime_gate.py`, and the frontend release fixture.
+- Contracts/state: `docs/05_API_CONTRACT.md`, deployment/runtime/design docs,
+  `CURRENT_STATE.md`, `TASKS.md`, `SERVER_INFO.md`, and this handoff.
+- Fresh BS10610 checks: release catalog `9 passed`, runtime gate `18 passed`,
+  Compose config exit 0, fixed network checker exit 0, no Airflow import errors,
+  and `/api/health` returned `ok`.
+- Supplemental fixed-Node focused frontend run: `WgsProductionUi.test.tsx`
+  `4 passed`. `git diff --check` passed.
+
+Not run: the full backend suite, full frontend suite/build and terminal real-WGS
+acceptance were not repeated at this checkpoint. Production code did not change
+after the previously deployed r3 release; the remaining evidence depends on the
+currently active Step1-Step6 run. Do not report this run as successful until its
+terminal API, Rule/Master evidence and result-delivery gates are all verified.
+
 ## 2026-09-01 - Codex - T146真实运行阻断与安全停用
 
 ### Outcome

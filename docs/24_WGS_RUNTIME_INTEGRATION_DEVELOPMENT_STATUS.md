@@ -2,26 +2,26 @@
 
 更新时间：2026-09-01
 
-当前结论：T146 已按 WGS commit
-`cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d`完成代码适配、部署和一次真实手工提交，
-node200当前cce-pipeline为0.8.1。Airflow Step3解析错误已修复，但真实Master暴露出
-0.8.1 operator与resolved 0.7.0系列Master镜像的启动合同不一致。当前两个execution
-gate已恢复关闭，`bio_wgs`重新paused；对齐Master前不得继续重试。
+当前结论：T146 当前 WGS 发布已更新到 commit
+`2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68`，node200 cce-pipeline为0.8.1。
+该提交相对`cdee32c`只同步0.8.1生产说明，运行代码未变化；Airflow仍以完整commit
+绑定每个新AnalysisRun。旧失败analysis已按operator授权在备份后清理，新的
+`WGS_20260901_031616_C74E6C`绑定2499749并正在执行Step1输入上传。
 
 ## 1. 当前发布合同
 
 | 项目 | 当前目标值 |
 |---|---|
-| release ID | `wgs-4.1.1-cdee32c` |
+| release ID | `wgs-4.1.1-2499749` |
 | WGS version | `V4.1.1` |
-| WGS commit | `cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d` |
+| WGS commit | `2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68` |
 | BS10610 repo | `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | node200 repo | `/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | runtime request | `wgs-runtime.request.v3` |
 | batch binding | `wgs-runtime.batch-binding.v2` |
 | Rule event schema | `1` |
 | node200 runtime | cce-pipeline `0.8.1`（审计字段，不是Airflow gate） |
-| unique DAG | `bio_wgs`, 18 tasks, manual, paused |
+| unique DAG | `bio_wgs`, 18 tasks, manual；当前为批准的真实批次临时unpaused |
 
 两个共享仓库路径已读核对为相同 HEAD。prepare 前 runner 检查 HEAD 和
 `git status --porcelain`；仅允许 `docs/` 下未跟踪文档，任何已跟踪漂移或其他未跟踪
@@ -53,7 +53,7 @@ Airflow 不复制 WGS 源码，也不在 node200 创建 Airflow-owned release。
 - runtime request v3 不再携带 snapshot path、cce-pipeline version 或 wheel hash。
 - node200 runner固定 `WGS_REPO_ROOT`，prepare重试复用已有 binding；resume 和
   rerun attempt 继续使用原 release，原 commit不可用时明确阻断，不能静默换版本。
-- 前端提交页只读显示 `WGS V4.1.1 / cdee32c`，没有版本选择器；Run Detail显示
+- 前端提交页只读显示 `WGS V4.1.1 / 2499749`，没有版本选择器；Run Detail显示
   release、commit和prepare后解析的 runtime审计字段。
 - T146 prepare adapter从`batch_no`中的`YYYYMMDDA`片段生成WGS `--batch`，同时以
   完整`batch_no`传入`--analysis-batch`。`--outpath`保持在Airflow attempt runtime
@@ -81,9 +81,20 @@ Step7或Step8。OBS阶段使用单槽位，长任务使用五秒 reschedule sens
 Master Job/Pod evidence仍由node200写入共享spool，observer不持有kubeconfig或SSH
 私钥；API/UI只展示Master，不持续枚举Worker Pod。
 
-## 4. 禁用态预验收
+## 4. 真实批次当前状态与历史阻断
 
-### T146真实运行结论
+### 2499749 clean replacement（当前）
+
+- 清理前分别备份biodemo和Airflow metadata；随后精确删除旧analysis业务状态、
+  11个旧DagRun、runtime/evidence、SFS/OBS批次前缀和CCE锁/工作负载。
+- 前端等价API创建新analysis`WGS_20260901_031616_C74E6C`，release/commit绑定正确；
+  validate和prepare已成功，Step1上传正在运行。
+- Airflow以五秒reschedule sensor监控传输；Step3才激活run observer。按operator要求
+  不再人工高频轮询，终态尚未验收。
+
+### cdee32c attempt 7（历史阻断）
+
+以下内容只记录前一轮根因，不代表当前2499749运行状态：
 
 - Airflow分析根实际位于runtime attempt下的`WGS_Clinical/<batch>`；未读取或重建
   旧`/sg2/.../wgs_test/WGS_Clinical`路径。
@@ -99,9 +110,10 @@ Master Job/Pod evidence仍由node200写入共享spool，observer不持有kubecon
   OBS result为空，已上传OBS FASTQ保留。AnalysisRun和审计记录保留为attempt 7
   `failed`，前端/API显示失败和传输历史。
 
-恢复门禁：WGS/profile必须解析到与0.8.1 Step2顺序一致的Master镜像，或cce-pipeline
-调整为Master写入`run-id`前不创建run root。生成新冻结bundle并验证resolved runtime
-后，才可再次打开gate并恢复真实批次。
+该历史门禁已由更新后的WGS/runtime发布侧处理；当前resolved Master digest为
+`sha256:965473cf89539ec67869cb38265f1416de508aa71ab5f35ad9be6a979548dab0`。
+是否完整解决仍以当前clean replacement实际进入Step2/Step3后的证据为准，不能在
+Master尚未启动时提前宣称通过。
 
 T143/T144当前结果：BS10610 backend `216 passed, 1 skipped`，runtime/scripts
 `17 passed`，唯一 paused `bio_wgs`有18 tasks且无import error；frontend 9个测试

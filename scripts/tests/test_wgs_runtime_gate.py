@@ -106,9 +106,9 @@ def test_prepare_command_rejects_batch_without_sequencing_batch() -> None:
         "analysis_id": "WGS_20260826_010203_A1B2C3",
         "attempt": 1,
         "stage": "prepare",
-        "pipeline_release_id": "wgs-4.1.1-cdee32c",
+        "pipeline_release_id": "wgs-4.1.1-2499749",
         "wgs_version": "V4.1.1",
-        "wgs_source_commit": "cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d",
+        "wgs_source_commit": "2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68",
         "node200_workdir": "/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runs/WGS_20260826_010203_A1B2C3/attempt-1",
         "project_name": "WGS_Clinical",
         "batch_no": "WGS_BATCH_WITHOUT_DATE",
@@ -127,9 +127,9 @@ def test_prepare_command_rejects_fastq_directory_for_another_batch(
         "analysis_id": "WGS_20260826_010203_A1B2C3",
         "attempt": 1,
         "stage": "prepare",
-        "pipeline_release_id": "wgs-4.1.1-cdee32c",
+        "pipeline_release_id": "wgs-4.1.1-2499749",
         "wgs_version": "V4.1.1",
-        "wgs_source_commit": "cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d",
+        "wgs_source_commit": "2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68",
         "node200_workdir": str(tmp_path / "attempt-1"),
         "project_name": "WGS_Clinical",
         "batch_no": "WGS_20260825A_T7Hg38V4.1.1",
@@ -175,7 +175,7 @@ def test_release_repository_validation_allows_documentation_only_drift(
     repo = tmp_path / "wgs-4.1.1"
     (repo / "prepare").mkdir(parents=True)
     (repo / "prepare" / "prepare_wgs_batch.py").write_text("# tracked\n")
-    expected_commit = "cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d"
+    expected_commit = "2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68"
 
     def fake_run(command, **kwargs):
         if command[-2:] == ["rev-parse", "HEAD"]:
@@ -193,7 +193,7 @@ def test_release_repository_validation_allows_documentation_only_drift(
 
     assert gate.validate_release_repository(
         {
-            "pipeline_release_id": "wgs-4.1.1-cdee32c",
+            "pipeline_release_id": "wgs-4.1.1-2499749",
             "wgs_source_commit": expected_commit,
         }
     ) == repo.resolve()
@@ -213,7 +213,7 @@ def test_release_repository_validation_still_rejects_runtime_or_similar_paths(
     repo = tmp_path / "wgs-4.1.1"
     (repo / "prepare").mkdir(parents=True)
     (repo / "prepare" / "prepare_wgs_batch.py").write_text("# tracked\n")
-    expected_commit = "cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d"
+    expected_commit = "2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68"
 
     def fake_run(command, **kwargs):
         stdout = (
@@ -229,7 +229,7 @@ def test_release_repository_validation_still_rejects_runtime_or_similar_paths(
     with pytest.raises(RuntimeError, match="runtime changes"):
         gate.validate_release_repository(
             {
-                "pipeline_release_id": "wgs-4.1.1-cdee32c",
+                "pipeline_release_id": "wgs-4.1.1-2499749",
                 "wgs_source_commit": expected_commit,
             }
         )

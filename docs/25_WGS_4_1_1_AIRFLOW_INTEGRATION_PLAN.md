@@ -17,9 +17,9 @@ Airflow-owned snapshot、固定 cce-pipeline wheel/profile/image 门禁和 WGS
 
 | 字段 | 当前值 |
 |---|---|
-| release ID | `wgs-4.1.1-cdee32c` |
+| release ID | `wgs-4.1.1-2499749` |
 | WGS version | `V4.1.1` |
-| source commit | `cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d` |
+| source commit | `2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68` |
 | BS10610 path | `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | node200 path | `/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | Rule event schema | `1` |
@@ -194,7 +194,7 @@ Alembic `20260827_0010`：
 - Rule 去重、observer binding 和 ETA 历史均按 `pipeline_release_id`隔离；ETA
   选择同 release 最近 20 个成功 CCE run。
 
-前端 Submit 页只读显示 `WGS V4.1.1 / cdee32c`和 release ID，不提供版本选择
+前端 Submit 页只读显示 `WGS V4.1.1 / 2499749`和 release ID，不提供版本选择
 器。Run Detail、Rules、Transfers 和 Master 页面显示本次 run 的 release；
 resolved runtime 在 prepare 前明确显示为未解析。
 

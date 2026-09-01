@@ -1,8 +1,8 @@
 # 11 部署 Runbook
 
-## T146 cdee32c / cce-pipeline 0.8.1 手工批次
+## T146 2499749 / cce-pipeline 0.8.1 手工批次
 
-1. 只读核对BS10610/node200共享WGS HEAD为`cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d`，
+1. 只读核对BS10610/node200共享WGS HEAD为`2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68`，
    node200实际cce-pipeline为0.8.1，仓库漂移仅允许`docs/`未跟踪文件。
 2. 在两个execution gate为false时运行runner/backend/DAG/frontend/Compose测试，创建
    新disabled release并保持`bio_wgs` paused；不得先启动OBS或CCE。

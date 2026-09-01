@@ -39,7 +39,7 @@ it("shows the production submission action when both WGS execution gates are ena
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
     if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
-    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-cdee32c", version: "V4.1.1", source_commit: "cdee32c9d3c689f4af6ea8a0f7a8296f79c10a1d", execution_enabled: true, runtime_adapter_enabled: true});
+    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-2499749", version: "V4.1.1", source_commit: "2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68", execution_enabled: true, runtime_adapter_enabled: true});
     return json({items: [], total: 0});
   }));
 

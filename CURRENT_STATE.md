@@ -1,5 +1,18 @@
 # CURRENT_STATE.md
 
+## 2026-09-01 T146 - WGS 2499749 clean reanalysis（运行中）
+
+```text
+t146_release_contract: WGS V4.1.1 commit 2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68，release wgs-4.1.1-2499749；BS10610和node200共享仓库HEAD一致。
+t146_cleanup: 旧analysis WGS_20260831_194429_145176的biodemo业务行、11个Airflow DagRun、Airflow runtime、三处task evidence、SFS run/linkage、OBS FASTQ/result和CCE Job/Pod/batch lock均已精确清空；只保留一条受控清理审计。
+t146_backups: 清理前biodemo和Airflow metadata均已生成mode 0600 pg_dump备份；不删除用户、scanner singleton、Docker volume或network。
+t146_active_run: 前端等价API新建并提交WGS_20260901_031616_C74E6C attempt 1，DagRun manual__WGS_20260901_031616_C74E6C__a1，未复用旧analysis/run-id。
+t146_checkpoint: validate和prepare成功，Step1输入上传正在运行；前端/API显示15% input_transfer.wait_step1_upload。用户要求停止人工高频轮询，后续由Airflow 5秒reschedule sensor和Step3按任务激活的observer持续同步。
+t146_runtime: node200 cce-pipeline 0.8.1，resolved Master digest sha256:965473cf89539ec67869cb38265f1416de508aa71ab5f35ad9be6a979548dab0。
+t146_gates: WGS_EXECUTION_ENABLED=true、WGS_RUNTIME_ADAPTER_ENABLED=true、WGS_AUTO_DISPATCH_ENABLED=false；bio_wgs已unpaused以运行本次手工批次。
+t146_network: nipt_analysis_test_net保持192.168.199.0/24、gateway 192.168.199.1，只发布172.17.106.10:12959。
+```
+
 ## 2026-09-01 T146 - WGS cdee32c / cce-pipeline 0.8.1 manual run（运行时阻断）
 
 ```text
