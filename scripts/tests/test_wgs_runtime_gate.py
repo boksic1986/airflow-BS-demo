@@ -517,6 +517,9 @@ def test_step3_terminal_success_is_written_with_frozen_master_identity(
     cce_bundle = tmp_path / "cce"
     cce_bundle.mkdir()
     (cce_bundle / "Step3_status.sh").write_text("#!/bin/bash\n", encoding="utf-8")
+    (cce_bundle / "RESOLVED_PROFILE.yaml").write_text(
+        "run_label: cce-run-0123456789abcdef\n", encoding="utf-8"
+    )
     payload = {
         "analysis_id": "WGS_20260826_010203_A1B2C3",
         "attempt": 1,
@@ -572,6 +575,7 @@ def test_step3_terminal_success_is_written_with_frozen_master_identity(
     assert status == "success"
     assert details["master_job"] == "cce-master-0123456789abcdef0123"
     assert details["namespace"] == "snakemake-ns"
+    assert details["run_label"] == "cce-run-0123456789abcdef"
     assert details["master"]["master_state"] == "SUCCEEDED"
     assert details["monitoring_health"] == "healthy"
 

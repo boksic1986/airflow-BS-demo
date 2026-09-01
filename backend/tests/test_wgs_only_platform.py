@@ -536,6 +536,7 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
                     "monitoring_health": "healthy",
                     "master_job": "wgs-master-0123456789abcdef0123",
                     "namespace": "snakemake-ns",
+                    "run_label": "cce-run-0123456789abcdef",
                     "master": {"master_state": "RUNNING", "percent": 12.5},
             }
         ),

@@ -19,7 +19,11 @@ from app.models import (
     TransferJob,
     WgsMaintenanceAction,
 )
-from app.wgs_observer import ingest_evidence_once, sync_runtime_stage_artifacts
+from app.wgs_observer import (
+    ingest_evidence_once,
+    ingest_observer_attempt_once,
+    sync_runtime_stage_artifacts,
+)
 
 
 RELEASE_ID = "wgs-4.1.1-1656b5d"
@@ -462,6 +466,7 @@ def test_wgs_4_1_1_stage_status_is_phase_only_and_master_only(tmp_path: Path) ->
                 "monitoring_error": "Rule evidence bridge failed",
                 "master_job": "wgs-master-0123456789abcdef0123",
                 "namespace": "snakemake-ns",
+                "run_label": "cce-run-0123456789abcdef",
                 "master": {
                     "master_state": "RUNNING",
                     "normal": True,
@@ -543,13 +548,25 @@ def test_step3_transitional_status_without_master_is_not_an_ingest_error(
 def test_step3_accepts_cce_master_only_when_it_matches_frozen_binding(
     tmp_path: Path,
 ) -> None:
-    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    sessions, analysis_id, evidence_root, _, _, rule_dir = prepare_run(tmp_path)
     runtime = tmp_path / "runtime"
     request_root = runtime / "runner-requests"
     request_dir = request_root / analysis_id / "attempt-1"
     request_dir.mkdir(parents=True)
     master_job = "cce-master-0123456789abcdef0123"
     write_runtime_binding(runtime, analysis_id, master_job=master_job)
+    with sessions.begin() as session:
+        session.add(
+            ObserverRunState(
+                analysis_id=analysis_id,
+                attempt=1,
+                pipeline_release_id=RELEASE_ID,
+                run_label=RUN_LABEL,
+                relative_evidence_path=f"{analysis_id}/attempt-1",
+                lifecycle_status="active",
+                monitoring_health="healthy",
+            )
+        )
     status_path = request_dir / "step3_monitor.status.json"
     status_path.write_text(
         json.dumps(
@@ -564,6 +581,7 @@ def test_step3_accepts_cce_master_only_when_it_matches_frozen_binding(
                 "monitoring_health": "healthy",
                 "master_job": master_job,
                 "namespace": "snakemake-ns",
+                "run_label": "cce-run-0123456789abcdef",
                 "master": {"master_state": "RUNNING", "percent": 1.4},
             }
         ),
@@ -584,6 +602,35 @@ def test_step3_accepts_cce_master_only_when_it_matches_frozen_binding(
         workload = session.scalar(select(KubernetesWorkload))
         assert workload.job_name == master_job
         assert workload.phase == "Running"
+        observer = session.scalar(select(ObserverRunState))
+        assert observer.run_label == "cce-run-0123456789abcdef"
+
+    (rule_dir / "master.jsonl").write_text(
+        json.dumps(
+            {
+                "schema_version": "1",
+                "event": "job_info",
+                "timestamp": 1788236700.0,
+                "run_label": "cce-run-0123456789abcdef",
+                "attempt": "attempt-1",
+                "role": "master",
+                "stream_id": "master-a",
+                "event_id": "event-1",
+                "rule_instance_id": "mapping:sample-a",
+                "rule_name": "mapping",
+                "snakemake_jobid": "1",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    evidence = ingest_observer_attempt_once(
+        session_factory=sessions,
+        evidence_root=evidence_root,
+        analysis_id=analysis_id,
+        attempt=1,
+    )
+    assert evidence["events_ingested"] == 1
 
 
 def test_step3_rejects_master_that_differs_from_frozen_binding(
@@ -608,6 +655,7 @@ def test_step3_rejects_master_that_differs_from_frozen_binding(
                 "monitoring_health": "healthy",
                 "master_job": "cce-master-other",
                 "namespace": "snakemake-ns",
+                "run_label": "cce-run-fedcba9876543210",
                 "master": {"master_state": "RUNNING", "percent": 1.4},
             }
         ),

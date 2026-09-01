@@ -45,8 +45,12 @@ Acceptance:
 - [x] Backend treats incomplete transitions as HTTP 200/not-ready, validates
   the exact frozen Master/namespace, remains Master-only, and audits same-attempt
   monitor recovery.
-- [x] BS10610 tests pass: backend 237, scripts 30, DAG 7; node200 shared-SFS
+- [x] BS10610 tests pass: backend 238, scripts 30, DAG 7; node200 shared-SFS
   concurrent atomic-write smoke completed 200 writes with no partial file.
+- [x] Live Rule evidence mismatch was traced to the authoritative CCE
+  `run_label`; Step3 now binds the observer to the label from the frozen
+  profile only after exact Master/namespace validation, and regression tests
+  prove schema-1 JSONL ingestion.
 - [ ] Back up databases/runtime, deploy the immutable repair release and node200
   gate, then clear only Step3 and downstream in the original DagRun.
 - [ ] Verify the same analysis/attempt/run ID/Master continues, Step1/Step2 are

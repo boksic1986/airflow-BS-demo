@@ -15,6 +15,14 @@ validated as a Kubernetes DNS label; no `wgs-master-*` or `cce-master-*`
 prefix is trusted independently of the frozen binding. Only that bound Master
 is projected through `/pods`; Worker Pods remain outside the API.
 
+Schema-1 Rule events use the CCE runtime label (`cce-run-<16 hex>`), not the
+Airflow `analysis_id-aN` run ID. The node200 monitor reads that label from the
+frozen `RESOLVED_PROFILE.yaml` and includes it in each complete Step3 status.
+Only after the exact Master and namespace checks pass may the backend bind the
+observer to that CCE label. A later attempt to change an already bound CCE
+label is rejected, preventing Rule JSONL from another Master from being mixed
+into the attempt.
+
 Re-registering Step3 for the same active attempt after a control-plane monitor
 failure restores the business run to `running`, clears the monitor-generated
 terminal timestamps and error summary, and writes the internal audit action

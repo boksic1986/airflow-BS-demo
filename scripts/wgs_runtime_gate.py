@@ -21,6 +21,7 @@ import yaml
 ANALYSIS_RE = re.compile(r"^WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}$")
 SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 SEQUENCING_BATCH_RE = re.compile(r"(?:^|_)([0-9]{8}[A-Z])(?:_|$)")
+CCE_RUN_LABEL_RE = re.compile(r"^cce-run-[0-9a-f]{16}$")
 STAGES = {
     "prepare",
     "step1_upload",
@@ -308,6 +309,9 @@ def _run_prepare(payload: dict[str, Any]) -> None:
         raise RuntimeError("BATCH_RUNTIME.yaml identifies a different run")
     if not isinstance(profile, dict):
         raise RuntimeError("RESOLVED_PROFILE.yaml is invalid")
+    run_label = str(profile.get("run_label") or "")
+    if CCE_RUN_LABEL_RE.fullmatch(run_label) is None:
+        raise RuntimeError("RESOLVED_PROFILE.yaml run_label is invalid")
     platform = profile.get("platform") if isinstance(profile.get("platform"), dict) else {}
     pipeline = profile.get("pipeline") if isinstance(profile.get("pipeline"), dict) else {}
     resolved_runtime = {
@@ -354,6 +358,7 @@ def _run_prepare(payload: dict[str, Any]) -> None:
             "project": identity.get("project"),
             "batch": identity.get("batch"),
             "run_id": identity.get("run_id"),
+            "run_label": run_label,
             "repair_groups": repair_groups,
             "master_job": (runtime.get("kubernetes") or {}).get("master_job"),
             "namespace": (runtime.get("kubernetes") or {}).get("namespace"),
@@ -384,6 +389,17 @@ def _load_binding(payload: dict[str, Any]) -> dict[str, Any]:
     if workdir not in bundle.parents or not bundle.is_dir() or bundle.is_symlink():
         raise ValueError("frozen CCE bundle is outside the attempt workdir")
     return value
+
+
+def _binding_run_label(binding: dict[str, Any]) -> str:
+    run_label = str(binding.get("run_label") or "")
+    if not run_label:
+        profile_path = Path(str(binding["cce_bundle"])) / "RESOLVED_PROFILE.yaml"
+        profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+        run_label = str(profile.get("run_label") or "") if isinstance(profile, dict) else ""
+    if CCE_RUN_LABEL_RE.fullmatch(run_label) is None:
+        raise ValueError("frozen CCE run label is invalid")
+    return run_label
 
 
 def _step_command(payload: dict[str, Any], stage: str, *arguments: str) -> list[str]:
@@ -524,6 +540,7 @@ def _monitor_step3(payload: dict[str, Any]) -> None:
             master=value,
             master_job=binding.get("master_job"),
             namespace=binding.get("namespace"),
+            run_label=_binding_run_label(binding),
             monitoring_health="degraded" if monitoring_error else "healthy",
             monitoring_error=monitoring_error,
         )

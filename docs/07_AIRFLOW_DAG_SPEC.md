@@ -10,7 +10,7 @@ frozen batch binding, existing Master Job, and the same analysis attempt.
 
 The Step3 launcher publishes `accepted` before spawning the worker. Its first
 `running` record includes the frozen Master Job, namespace, parsed
-`cce-pipeline.step3-status.v2` payload, and monitoring health. Status writes
+`cce-pipeline.step3-status.v2` payload, frozen CCE run label, and monitoring health. Status writes
 are serialized and monotonic (`accepted -> running -> success|failed`) and use
 unique same-directory temporary files followed by `fsync` and `os.replace`.
 The five-second `wait_step3_analysis` sensor remains in `reschedule` mode.

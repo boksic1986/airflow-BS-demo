@@ -8,6 +8,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun, ObserverRunState, RunAttempt
+from app.wgs_evidence_binding import CCE_RUN_LABEL_PATTERN
 
 
 OBSERVER_CHANNEL = "wgs_observer_activation"
@@ -48,9 +49,12 @@ def activate_observer(
         )
         session.add(state)
     else:
+        runtime_label_bound = (
+            CCE_RUN_LABEL_PATTERN.fullmatch(state.run_label or "") is not None
+        )
         if (
             state.pipeline_release_id != release_id
-            or state.run_label != run_label
+            or (state.run_label != run_label and not runtime_label_bound)
             or state.relative_evidence_path != evidence_path
         ):
             raise ValueError("observer activation conflicts with persisted binding")

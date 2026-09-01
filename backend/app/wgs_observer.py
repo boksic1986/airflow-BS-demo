@@ -18,7 +18,11 @@ from app.models import (
     TransferJob,
     WgsMaintenanceAction,
 )
-from app.wgs_evidence_binding import EvidenceBinding, load_evidence_bindings
+from app.wgs_evidence_binding import (
+    CCE_RUN_LABEL_PATTERN,
+    EvidenceBinding,
+    load_evidence_bindings,
+)
 from app.wgs_release_catalog import load_wgs_release_catalog
 
 
@@ -542,6 +546,24 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
             namespace = str(payload.get("namespace") or "")
             if namespace != expected_namespace:
                 raise ValueError("Step3 namespace does not match frozen binding")
+            run_label = str(payload.get("run_label") or "")
+            if CCE_RUN_LABEL_PATTERN.fullmatch(run_label) is None:
+                raise ValueError("Step3 CCE run label is invalid")
+            observer = session.scalar(
+                select(ObserverRunState).where(
+                    ObserverRunState.analysis_id == analysis_id,
+                    ObserverRunState.attempt == attempt,
+                )
+            )
+            if observer is not None and observer.run_label != run_label:
+                existing_runtime_label = (
+                    CCE_RUN_LABEL_PATTERN.fullmatch(observer.run_label or "")
+                    is not None
+                )
+                expected_airflow_label = f"{analysis_id}-a{attempt}"
+                if existing_runtime_label or observer.run_label != expected_airflow_label:
+                    raise ValueError("Step3 CCE run label conflicts with observer binding")
+                observer.run_label = run_label
             master_state = str(master.get("master_state") or "PENDING")
             phase = {
                 "PENDING": "Pending",
