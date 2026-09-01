@@ -1,5 +1,40 @@
 # HANDOFF.md
 
+## 2026-09-01 - Codex - T151 YF non-clinical scanner exclusion
+
+### Goal and implementation
+
+T7 scanner现在在配对统计前排除sample ID以大写`YF`开头的非临检样本。YF不计入
+eligible、add-on或pair issue；YF-only为`no_new_wgs`，YF缺对不触发
+`needs_review`。名称fingerprint升为v3，并计算一次旧v2策略摘要，保证已有ready
+记录只因YF过滤升级时不会误报输入漂移。数据库/API结构和前端均未修改。
+
+### Validation and deployment
+
+```text
+TDD RED: 3 YF behavior failures, then 1 v2 migration failure
+focused scanner: 18 passed
+full backend: 247 passed, 1 skipped
+release: 20260901-wgs-4.1.1-2499749-t151-yf-filter-r6
+services recreated: wgs-intake-scanner only
+2222: 192 YF entries / 96 pairs; ready(96) -> no_new_wgs(0)
+2223/2224/2227: remain ready with 12/8/10 pairs
+before/after: AnalysisRun 1, RunAttempt 1, Airflow DagRun 1
+active run: WGS_20260901_031616_C74E6C, attempt 1, same DagRun, step3_monitor
+scanner: 600 seconds, auto dispatch false, 1837 directories, no error
+network: 192.168.199.0/24 gateway 192.168.199.1; only frontend publishes 12959
+```
+
+部署前biodemo备份为
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T151-yf-filter-20260901T162127+0800/biodemo.dump`，
+SHA256为`ed7dfe046d19a53b6cee0f52da2e0925e5e58e844eeca19d2b37848cb52d0ae3`。
+
+### Remaining work and rollback
+
+自动prepare/dispatch仍关闭；T151未创建分析、上传OBS或启动CCE。当前T149批次继续
+由原DagRun监控。回滚只需切回T150 r5并重建scanner；不要恢复数据库、删除intake
+记录、重建网络或干预当前CCE批次。
+
 ## 2026-09-01 - Codex - T150 T7 FASTQ scanner repair
 
 ### Goal and completed work

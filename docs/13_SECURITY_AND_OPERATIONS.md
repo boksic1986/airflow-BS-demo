@@ -1,5 +1,11 @@
 # 13 安全和运维约束
 
+## T151 non-clinical intake boundary
+
+T7 scanner只根据直属目录项名称排除大写`YF`前缀，不解析或输出YF样本编号，不读取
+FASTQ或软链接目标。过滤仅改变芯片级聚合状态；自动提交仍必须关闭，且scanner不
+获得新增挂载、网络端口或凭据。
+
 ## T145 least-privilege service split
 
 `wgs-run-observer`只读 evidence，不挂载 T7、runtime、binding、SSH key、kubeconfig 或

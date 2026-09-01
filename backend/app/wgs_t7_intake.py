@@ -19,6 +19,7 @@ CHIP_DIRECTORY_PATTERN = re.compile(
 )
 WGS_FASTQ_PATTERN = re.compile(r"^(?P<sample>.+)-WGS\.R(?P<read>[12])\.fq\.gz$")
 ADDON_SAMPLE_PATTERN = re.compile(r"-S\d+$")
+NON_CLINICAL_SAMPLE_PREFIX = "YF"
 SCANNER_STATE_ID = 1
 SCANNER_ADVISORY_LOCK_ID = 743_701_143_829
 FINGERPRINT_FROZEN_STATES = {"ready"}
@@ -43,6 +44,7 @@ class ChipObservation:
     pair_issue_count: int
     fingerprint: str | None
     legacy_fingerprint: str | None
+    pre_yf_filter_fingerprint: str | None
 
 
 def scan_wgs_t7_intake(
@@ -168,12 +170,18 @@ def inspect_chip_directory(directory: Path, *, sequencing_batch: str) -> ChipObs
             )
 
     eligible_files: list[FastqObservation] = []
+    pre_yf_filter_files: list[FastqObservation] = []
     eligible_pair_count = 0
     excluded_addon_pair_count = 0
     pair_issue_count = 0
     for sample, reads in samples.items():
         complete = set(reads) == {1, 2}
-        if ADDON_SAMPLE_PATTERN.search(sample):
+        is_addon = ADDON_SAMPLE_PATTERN.search(sample) is not None
+        if complete and not is_addon:
+            pre_yf_filter_files.extend((reads[1], reads[2]))
+        if sample.startswith(NON_CLINICAL_SAMPLE_PREFIX):
+            continue
+        if is_addon:
             if complete:
                 excluded_addon_pair_count += 1
             continue
@@ -185,9 +193,10 @@ def inspect_chip_directory(directory: Path, *, sequencing_batch: str) -> ChipObs
 
     fingerprint = None
     legacy_fingerprint = None
+    pre_yf_filter_fingerprint = None
     if barcode_present:
         payload = {
-            "schema_version": "wgs-t7-entry-fingerprint.v2",
+            "schema_version": "wgs-t7-entry-fingerprint.v3",
             "chip_id": directory.name,
             "sequencing_batch": sequencing_batch,
             "barcode_stat": {
@@ -216,6 +225,23 @@ def inspect_chip_directory(directory: Path, *, sequencing_batch: str) -> ChipObs
         legacy_fingerprint = hashlib.sha256(
             json.dumps(legacy_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest()
+        pre_yf_filter_payload = {
+            "schema_version": "wgs-t7-entry-fingerprint.v2",
+            "chip_id": directory.name,
+            "sequencing_batch": sequencing_batch,
+            "barcode_stat": {
+                "size": barcode_stat.st_size,
+                "mtime_ns": barcode_stat.st_mtime_ns,
+            },
+            "eligible_file_names": sorted(item.name for item in pre_yf_filter_files),
+        }
+        pre_yf_filter_fingerprint = hashlib.sha256(
+            json.dumps(
+                pre_yf_filter_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
 
     return ChipObservation(
         source_path=str(directory.resolve()),
@@ -229,6 +255,7 @@ def inspect_chip_directory(directory: Path, *, sequencing_batch: str) -> ChipObs
         pair_issue_count=pair_issue_count,
         fingerprint=fingerprint,
         legacy_fingerprint=legacy_fingerprint,
+        pre_yf_filter_fingerprint=pre_yf_filter_fingerprint,
     )
 
 
@@ -355,7 +382,11 @@ def _apply_observation(
         )
         and previous_fingerprint is not None
         and previous_fingerprint
-        not in {observation.fingerprint, observation.legacy_fingerprint}
+        not in {
+            observation.fingerprint,
+            observation.legacy_fingerprint,
+            observation.pre_yf_filter_fingerprint,
+        }
     ):
         row.state = "needs_review"
         row.last_error = "eligible WGS input changed after ready"

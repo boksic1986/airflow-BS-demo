@@ -25,8 +25,31 @@
 | T148 | Prune completed worktrees and branches | coordinator/docs | retain root main and active T146 worktree, delete historical worktrees/local branches/remote branches, merge cleanup record through PR | exactly two worktrees, two local branches and only origin/main remain; T146 artifacts/runtime untouched | done |
 | T149 | WGS Step3 monitor protocol repair and in-flight takeover | airflow/backend/infra/QA/docs | atomic monotonic node200 stage status, binding-authoritative Master validation, transitional status handling, same-attempt business-state recovery, exact Step3/downstream restart | existing attempt and Master retained; Step1/Step2 unchanged; UI resumes Master/Rule state; original DagRun continues to verified terminal state | in progress: takeover complete; awaiting real terminal state |
 | T150 | T7 FASTQ name-level scanner repair | backend/frontend/infra/QA/docs | accept regular/hard/symlink entries without resolving targets, v2 name fingerprint, historical reclassification, dynamic interval UI, rolling scanner/frontend release | 2227 is ready with 10 pairs; no AnalysisRun/RunAttempt/DagRun added; 600-second schedule, read-only mount and fixed network verified | done |
+| T151 | Exclude non-clinical YF samples from T7 intake | backend/infra/QA/docs | ignore `YF*` sample IDs before pairing, v3 fingerprint with v2 compatibility, scanner-only rolling release | YF-only is no-new-WGS, YF missing mate is not review, existing ready rows upgrade without drift, no run side effects | done |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
+
+## T151 - Exclude non-clinical YF samples from T7 intake
+
+Owner: backend/infra/QA/docs
+
+Status: done
+
+Acceptance:
+
+- [x] RED tests prove the old scanner counts complete YF pairs and treats an
+  incomplete YF sample as a clinical pair issue.
+- [x] Mixed, YF-only and incomplete-YF behavior passes with YF excluded before
+  eligible/add-on/pair-issue accounting.
+- [x] Fingerprint v3 excludes YF names and accepts the equivalent pre-filter v2
+  fingerprint once, avoiding false drift for existing ready rows.
+- [x] Focused scanner tests pass 18/18 and full backend tests pass 247 with 1 skip.
+- [x] Back up biodemo, deploy a scanner-only immutable release, and verify no
+  AnalysisRun, RunAttempt or Airflow DagRun is created or changed.
+- [x] Confirm 600-second schedule, auto-dispatch false, read-only T7 mount,
+  fixed Docker network and current CCE attempt are unchanged.
+- [x] Production 2222 contained 192 YF FASTQ entries (96 pairs) and correctly
+  changed from ready/96 to no-new-WGS/0; 2223/2224/2227 remained ready.
 
 ## T150 - T7 FASTQ name-level scanner repair
 

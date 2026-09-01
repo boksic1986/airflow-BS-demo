@@ -60,6 +60,13 @@ eligible FASTQ名称，不包含FASTQ大小、mtime、目标路径或MD5。已re
 文件ready记录可在名称未变化时一次性升级；历史`no_new_wgs`不再冻结fingerprint，
 可重新分类为`ready`或`needs_review`。
 
+T151增加非临检样本过滤：从文件名解析出的sample ID以大写`YF`开头时，在
+eligible、加测和缺对统计之前直接忽略。YF-only批次为`no_new_wgs`；YF缺R1/R2不
+触发`needs_review`；混合批次仅由其余临检样本决定状态。数据库不新增YF计数字段，
+API/UI也不展示样本ID。名称指纹升为`wgs-t7-entry-fingerprint.v3`并排除YF名称；
+scanner同时计算一次旧v2策略摘要，使已ready记录只因该过滤规则升级时不会产生
+虚假漂移。
+
 ## 3. 数据清理和迁移
 
 Alembic `20260830_0012`精简 scanner singleton，并为`observer_run_state`增加：

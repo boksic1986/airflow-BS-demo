@@ -261,6 +261,136 @@ def test_no_wgs_or_only_addon_is_no_new_wgs_and_candidate_count_is_informational
         assert rows[addon.name].excluded_addon_pair_count == 1
 
 
+def test_yf_pairs_are_ignored_in_a_mixed_clinical_batch(tmp_path: Path) -> None:
+    root = tmp_path / "T7_Fastq"
+    root.mkdir()
+    directory = chip(root, "2215th_20260825F_E250208856")
+    sessions = make_sessionmaker()
+    baseline = datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc)
+    scan(sessions, root, now=baseline)
+    complete_after(directory, baseline + timedelta(minutes=1))
+    for filename in (
+        "WGS26080504-WGS.R1.fq.gz",
+        "WGS26080504-WGS.R2.fq.gz",
+        "YF26080504-WGS.R1.fq.gz",
+        "YF26080504-WGS.R2.fq.gz",
+    ):
+        (directory / filename).write_bytes(b"fq")
+
+    scan(sessions, root, now=baseline + timedelta(minutes=30))
+
+    with sessions() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        assert row.state == "ready"
+        assert row.eligible_pair_count == 1
+        assert row.excluded_addon_pair_count == 0
+        assert row.pair_issue_count == 0
+        fingerprint = row.eligible_fingerprint
+
+    (directory / "YF26080505-WGS.R1.fq.gz").write_bytes(b"fq")
+    (directory / "YF26080505-WGS.R2.fq.gz").write_bytes(b"fq")
+    scan(sessions, root, now=baseline + timedelta(minutes=60))
+    with sessions() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        assert row.state == "ready"
+        assert row.eligible_fingerprint == fingerprint
+
+
+def test_ready_v2_fingerprint_with_yf_pair_upgrades_without_false_drift(tmp_path: Path) -> None:
+    root = tmp_path / "T7_Fastq"
+    root.mkdir()
+    directory = chip(root, "2218th_20260825I_E250208859")
+    sessions = make_sessionmaker()
+    baseline = datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc)
+    scan(sessions, root, now=baseline)
+    complete_after(directory, baseline + timedelta(minutes=1))
+    file_names = (
+        "WGS26080504-WGS.R1.fq.gz",
+        "WGS26080504-WGS.R2.fq.gz",
+        "YF26080504-WGS.R1.fq.gz",
+        "YF26080504-WGS.R2.fq.gz",
+    )
+    for filename in file_names:
+        (directory / filename).write_bytes(b"fq")
+    scan(sessions, root, now=baseline + timedelta(minutes=30))
+
+    barcode_stat = (directory / "BarcodeStat.txt").stat()
+    v2_payload = {
+        "schema_version": "wgs-t7-entry-fingerprint.v2",
+        "chip_id": directory.name,
+        "sequencing_batch": "20260825I",
+        "barcode_stat": {
+            "size": barcode_stat.st_size,
+            "mtime_ns": barcode_stat.st_mtime_ns,
+        },
+        "eligible_file_names": sorted(file_names),
+    }
+    old_v2_fingerprint = hashlib.sha256(
+        json.dumps(v2_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    with sessions.begin() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        row.eligible_fingerprint = old_v2_fingerprint
+
+    scan(sessions, root, now=baseline + timedelta(minutes=60))
+
+    with sessions() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        assert row.state == "ready"
+        assert row.eligible_pair_count == 1
+        assert row.eligible_fingerprint != old_v2_fingerprint
+        assert row.last_error is None
+
+
+def test_yf_only_batch_is_no_new_wgs(tmp_path: Path) -> None:
+    root = tmp_path / "T7_Fastq"
+    root.mkdir()
+    directory = chip(root, "2216th_20260825G_E250208857")
+    sessions = make_sessionmaker()
+    baseline = datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc)
+    scan(sessions, root, now=baseline)
+    complete_after(directory, baseline + timedelta(minutes=1))
+    (directory / "YF26080504-WGS.R1.fq.gz").write_bytes(b"1")
+    (directory / "YF26080504-WGS.R2.fq.gz").write_bytes(b"2")
+
+    result = scan(sessions, root, now=baseline + timedelta(minutes=30))
+
+    assert result["no_new_wgs"] == 1
+    with sessions() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        assert row.state == "no_new_wgs"
+        assert row.eligible_pair_count == 0
+        assert row.excluded_addon_pair_count == 0
+        assert row.pair_issue_count == 0
+
+
+def test_incomplete_yf_sample_does_not_require_review(tmp_path: Path) -> None:
+    root = tmp_path / "T7_Fastq"
+    root.mkdir()
+    directory = chip(root, "2217th_20260825H_E250208858")
+    sessions = make_sessionmaker()
+    baseline = datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc)
+    scan(sessions, root, now=baseline)
+    complete_after(directory, baseline + timedelta(minutes=1))
+    (directory / "YF26080504-WGS.R1.fq.gz").symlink_to(tmp_path / "missing-yf-r1")
+
+    result = scan(sessions, root, now=baseline + timedelta(minutes=30))
+
+    assert result["needs_review"] == 0
+    assert result["no_new_wgs"] == 1
+    with sessions() as session:
+        row = session.scalar(select(WgsIntakeBatch))
+        assert row is not None
+        assert row.state == "no_new_wgs"
+        assert row.eligible_pair_count == 0
+        assert row.pair_issue_count == 0
+
+
 def test_historical_no_new_wgs_becomes_ready_when_named_pair_appears(tmp_path: Path) -> None:
     root = tmp_path / "T7_Fastq"
     root.mkdir()

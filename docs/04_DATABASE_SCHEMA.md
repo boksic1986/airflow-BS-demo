@@ -1,5 +1,11 @@
 # 04 数据库设计
 
+## T151 YF exclusion fingerprint（无迁移）
+
+T151不增加数据库字段。现有fingerprint值升级为v3并排除`YF*`非临检样本名称；
+运行时可识别等价的旧v2摘要并原位升级，避免把策略变化误报为输入漂移。YF不计入
+eligible、add-on或pair issue，数据库不单独保存YF数量。
+
 ## T150 name-level intake fingerprint（无迁移）
 
 T150不增加字段、不运行Alembic或手工改表。`wgs_intake_batch`现有

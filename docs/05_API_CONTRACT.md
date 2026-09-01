@@ -1,5 +1,11 @@
 # 05 API Contract
 
+## T151 YF non-clinical exclusion
+
+公开API结构不变。sample ID以大写`YF`开头时不参与eligible、add-on或pair issue
+计数；YF-only目录通过`GET /api/intake/status?pipeline=wgs`显示为
+`no_new_wgs`，混合目录只反映其他临检WGS样本。API不返回YF样本ID或新增YF计数。
+
 ## T150 T7 name-level scanner projection
 
 公开endpoint和响应结构不变。`GET /api/intake/scanner-state`从运行配置返回

@@ -1,5 +1,20 @@
 # 11 部署 Runbook
 
+## T151 YF非临检过滤滚动发布
+
+1. 先验证mixed/YF-only/YF缺对三个RED用例，再验证旧v2 ready指纹兼容升级；运行
+   focused和完整backend测试。
+2. 备份biodemo并记录AnalysisRun、RunAttempt、DagRun及7条intake状态。确认
+   `WGS_AUTO_DISPATCH_ENABLED=false`和600秒周期。
+3. 从当前release建立经`realpath`验证的真实目录，禁止使用staging软链接；复制
+   scanner代码/测试/文档并先运行`docker compose config --quiet`。
+4. 原子切换`current`后只重建`wgs-intake-scanner`，不重建frontend、backend、
+   Airflow、observer、PostgreSQL、Redis、volume或Docker网络。
+5. 扫描后确认YF被排除、原ready记录没有虚假漂移、业务run计数和当前CCE attempt
+   不变；网络仍为`192.168.199.0/24`且仅frontend发布`172.17.106.10:12959`。
+
+回滚只切回前一release并重建scanner。T151无数据库迁移，不删除或恢复intake行。
+
 ## T150 T7 scanner滚动修复
 
 1. 在BS10610隔离环境运行scanner focused和完整backend测试；使用固定Node构建并
