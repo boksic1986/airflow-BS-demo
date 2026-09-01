@@ -5,8 +5,9 @@
 当前结论：T146 当前 WGS 发布已更新到 commit
 `2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68`，node200 cce-pipeline为0.8.1。
 该提交相对`cdee32c`只同步0.8.1生产说明，运行代码未变化；Airflow仍以完整commit
-绑定每个新AnalysisRun。旧失败analysis已按operator授权在备份后清理，新的
-`WGS_20260901_031616_C74E6C`绑定2499749并正在执行Step1输入上传。
+绑定每个新AnalysisRun。旧失败analysis已按operator授权在备份后清理。新的
+`WGS_20260901_031616_C74E6C`绑定2499749；T149已在不重跑Step1/Step2、不重建
+Master的前提下修复并接管Step3，当前由原DagRun等待真实CCE终态。
 
 ## 1. 当前发布合同
 
@@ -83,14 +84,19 @@ Master Job/Pod evidence仍由node200写入共享spool，observer不持有kubecon
 
 ## 4. 真实批次当前状态与历史阻断
 
-### 2499749 clean replacement（当前）
+### 2499749 clean replacement及T149 Step3接管（当前）
 
 - 清理前分别备份biodemo和Airflow metadata；随后精确删除旧analysis业务状态、
   11个旧DagRun、runtime/evidence、SFS/OBS批次前缀和CCE锁/工作负载。
-- 前端等价API创建新analysis`WGS_20260901_031616_C74E6C`，release/commit绑定正确；
-  validate和prepare已成功，Step1上传正在运行。
-- Airflow以五秒reschedule sensor监控传输；Step3才激活run observer。按operator要求
-  不再人工高频轮询，终态尚未验收。
+- 前端等价API创建新analysis`WGS_20260901_031616_C74E6C`，release/commit绑定正确。
+  Step1上传和Step2 Master均保持success/try 1，未因接管重试；现有Master仍为
+  `cce-master-79c59ff6401e15d76aa5`。
+- T149修复Step3状态原子性、单调状态、冻结Master身份校验和过渡态HTTP 200；observer
+  绑定冻结profile中的`cce-run-650a0767d41b3157`，不再误用Airflow run label。
+- `start_step3_monitor`为success/try 2，`wait_step3_analysis`为up_for_reschedule/try 2；
+  authenticated API显示当前Rule `MEI_MEICall`、41条Rule状态及唯一Master Running。
+- 原DagRun将在真实CCE成功后自动进入Step4-Step6；若CCE真实失败则如实失败。本次不再
+  人工高频轮询，最终结果尚未验收。
 
 ### cdee32c attempt 7（历史阻断）
 

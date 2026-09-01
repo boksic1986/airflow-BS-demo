@@ -23,7 +23,7 @@
 | T146 | WGS 2499749 / cce-pipeline 0.8.1 manual production run | airflow/backend/frontend/infra/QA/docs | bind current WGS release, pass sequencing batch to prepare, deploy enabled manual flow, rebuild one approved batch from controlled intake | disabled tests and network pass; exact old batch state cleared; one manual run is visible through API/UI and reaches a verified terminal state | in progress: clean attempt 1 Step1 upload |
 | T147 | Airflow worktree reconciliation and PR workflow | coordinator/docs | audit every local worktree against origin/main, fast-forward safe ancestors, preserve dirty or obsolete branches, merge reconciliation through GitHub PR | no user changes overwritten; current WGS mainline unchanged except state docs; PR checks and merge verified | done |
 | T148 | Prune completed worktrees and branches | coordinator/docs | retain root main and active T146 worktree, delete historical worktrees/local branches/remote branches, merge cleanup record through PR | exactly two worktrees, two local branches and only origin/main remain; T146 artifacts/runtime untouched | done |
-| T149 | WGS Step3 monitor protocol repair and in-flight takeover | airflow/backend/infra/QA/docs | atomic monotonic node200 stage status, binding-authoritative Master validation, transitional status handling, same-attempt business-state recovery, exact Step3/downstream restart | existing attempt and Master retained; Step1/Step2 unchanged; UI resumes Master/Rule state; original DagRun continues to verified terminal state | in progress |
+| T149 | WGS Step3 monitor protocol repair and in-flight takeover | airflow/backend/infra/QA/docs | atomic monotonic node200 stage status, binding-authoritative Master validation, transitional status handling, same-attempt business-state recovery, exact Step3/downstream restart | existing attempt and Master retained; Step1/Step2 unchanged; UI resumes Master/Rule state; original DagRun continues to verified terminal state | in progress: takeover complete; awaiting real terminal state |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
 
@@ -31,7 +31,8 @@
 
 Owner: airflow/backend/infra/QA/docs
 
-Status: in progress; code regression passed and the existing Master is still running
+Status: in progress; repair and takeover are deployed, existing Master is still
+running, and the original DagRun is waiting on the real Step3 terminal state
 
 Acceptance:
 
@@ -54,11 +55,12 @@ Acceptance:
 - [x] Public Master projection now keys current workloads by the bound Step3
   event identity, so `cce-master-*` is visible without exposing Worker rows;
   historical `wgs-master-*` rows remain readable.
-- [ ] Back up databases/runtime, deploy the immutable repair release and node200
+- [x] Back up databases/runtime, deploy the immutable repair release and node200
   gate, then clear only Step3 and downstream in the original DagRun.
-- [ ] Verify the same analysis/attempt/run ID/Master continues, Step1/Step2 are
-  not retried, frontend monitoring returns, and Step4-Step6 follow the real CCE
-  terminal state.
+- [x] Verify the same analysis/attempt/run ID/Master continues, Step1/Step2 are
+  not retried, and frontend Master/Rule monitoring returns.
+- [ ] Let the original DagRun follow the real CCE terminal state through
+  Step4-Step6 and record its final delivery result; do not manually poll it.
 
 ## T148 - Prune completed worktrees and branches
 

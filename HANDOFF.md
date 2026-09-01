@@ -1,5 +1,65 @@
 # HANDOFF.md
 
+## 2026-09-01 - Codex - T149 Step3 repair and in-flight takeover
+
+### Outcome
+
+- Repaired the node200 stage protocol with unique same-directory temporary
+  files, file and directory fsync, atomic replace and monotonic
+  `accepted -> running -> terminal` transitions. Step3 no longer publishes a
+  generic running state without the frozen Master identity.
+- Replaced the hard-coded Master prefix check with exact validation against
+  `batch-binding.json`; incomplete accepted/running transitions return not-ready
+  instead of HTTP 500. Same-attempt registration recovers the monitoring-induced
+  business failure and writes one `run.step3_monitor_recovered` audit event.
+- Bound Rule evidence to the authoritative frozen CCE run label
+  `cce-run-650a0767d41b3157`; public workload projection remains Master-only.
+  Progress now falls back to the bound Master Step3 `current_rule` when logger
+  projection lags, without fabricating a RuleState row.
+- Deployed release
+  `20260901-wgs-4.1.1-2499749-t149-step3-recovery-r4` with control commit
+  `b7730bc1a09481f67663b2c3d7f37e50b5770b93`.
+
+### In-flight run state
+
+- Preserved `WGS_20260901_031616_C74E6C`, attempt 1, DagRun
+  `manual__WGS_20260901_031616_C74E6C__a1` and Master
+  `cce-master-79c59ff6401e15d76aa5`.
+- Step1 upload and Step2 Master remain `success`, try 1. Step3 launcher is
+  `success`, try 2; the sensor is `up_for_reschedule`, try 2. There was no new
+  OBS upload or CCE Master submission.
+- Business state is running with no terminal timestamp/error; observer is
+  active and healthy. Authenticated UI-equivalent API shows current Rule
+  `MEI_MEICall`, 41 Rule rows (19 success, 2 running, 20 planned), and the same
+  Master in Running phase.
+- The original DagRun must continue from the real CCE terminal state into
+  Step4-Step6. Do not manually poll continuously; terminal delivery remains the
+  only unfinished T149 acceptance item.
+
+### Verification and safety
+
+- Pre-takeover backup:
+  `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T149-step3-recovery-20260901T132953+0800`;
+  all recorded SHA256 checks passed.
+- Earlier T149 regression checkpoint: backend 238 passed, runner 30 passed and
+  DAG 7 passed. Final focused WGS backend regression after the progress fallback:
+  48 passed. Shared-SFS concurrency smoke completed 200 writes with no partial
+  file.
+- A full backend invocation under production WGS-only environment variables is
+  not the canonical unit-test environment: it produced 29 legacy PGTA/NIPT
+  expectation failures. The WGS-focused suite passed; this mismatch was not
+  hidden or treated as a WGS regression.
+- Network remains `192.168.199.0/24`, gateway `192.168.199.1`; only
+  `172.17.106.10:12959` is published. PostgreSQL, Redis, volumes, OBS/SFS data
+  and the CCE Master were not rebuilt or deleted. Scheduler is unpaused.
+
+### Rollback
+
+- Point `current` back to the previous immutable r3 release and recreate only
+  backend if the progress projection must be reverted. The runner/database
+  repair is separately recoverable from the T149 backup; do not roll back by
+  resubmitting Step1 or Step2.
+
 ## 2026-09-01 - Codex - T148 prune completed worktrees and branches
 
 ### Outcome
