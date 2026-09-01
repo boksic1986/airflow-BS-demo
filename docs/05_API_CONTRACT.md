@@ -23,6 +23,12 @@ observer to that CCE label. A later attempt to change an already bound CCE
 label is rejected, preventing Rule JSONL from another Master from being mixed
 into the attempt.
 
+`GET /api/runs/{analysis_id}/pods` selects the workload created by the bound
+Step3 status (`event_id=step3:<master_job>`), regardless of whether the current
+name starts with `cce-master-` or the historical `wgs-master-`. The legacy
+prefix is retained only for already persisted pre-Step3-protocol Master rows;
+arbitrary Worker workload rows remain hidden.
+
 Re-registering Step3 for the same active attempt after a control-plane monitor
 failure restores the business run to `running`, clears the monitor-generated
 terminal timestamps and error summary, and writes the internal audit action

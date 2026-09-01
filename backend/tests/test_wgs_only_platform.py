@@ -515,7 +515,7 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
                 "pipeline_release_id": "wgs-4.1.1-1656b5d",
                 "wgs_version": "V4.1.1",
                 "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
-                "master_job": "wgs-master-0123456789abcdef0123",
+                "master_job": "cce-master-0123456789abcdef0123",
                 "namespace": "snakemake-ns",
                 "resolved_runtime": {"cce_pipeline_version": "0.8.1"},
             }
@@ -534,7 +534,7 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
                     "updated_at": "2026-08-30T02:00:00Z",
                     "message": "running",
                     "monitoring_health": "healthy",
-                    "master_job": "wgs-master-0123456789abcdef0123",
+                    "master_job": "cce-master-0123456789abcdef0123",
                     "namespace": "snakemake-ns",
                     "run_label": "cce-run-0123456789abcdef",
                     "master": {"master_state": "RUNNING", "percent": 12.5},
@@ -550,6 +550,11 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     assert status_response.status_code == 200
     assert status_response.json()["status"] == "running"
     assert status_response.json()["master"]["percent"] == 12.5
+    pods_response = client.get(f"/api/runs/{analysis_id}/pods", headers=headers)
+    assert pods_response.status_code == 200
+    assert [item["job_name"] for item in pods_response.json()["items"]] == [
+        "cce-master-0123456789abcdef0123"
+    ]
 
 
 def test_prepare_reports_release_unavailable_without_silent_rebinding(

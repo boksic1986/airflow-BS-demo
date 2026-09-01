@@ -72,7 +72,7 @@ from app.wgs_observer import sync_runtime_stage_artifacts
 from app.wgs_observer_lifecycle import activate_observer, request_observer_drain
 from app.wgs_t7_intake import get_wgs_t7_scanner_state, list_wgs_t7_intake
 from app.wgs_step4_service import get_step4_repair_capability, request_step4_repair
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 
 logger = logging.getLogger(__name__)
@@ -1067,7 +1067,10 @@ def run_pods(analysis_id: str) -> dict[str, object]:
             select(KubernetesWorkload)
             .where(
                 KubernetesWorkload.analysis_id == analysis_id,
-                KubernetesWorkload.job_name.like("wgs-master-%"),
+                or_(
+                    KubernetesWorkload.event_id.like("step3:%"),
+                    KubernetesWorkload.job_name.like("wgs-master-%"),
+                ),
             )
             .order_by(KubernetesWorkload.attempt, KubernetesWorkload.job_name)
         ).all()

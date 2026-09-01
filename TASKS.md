@@ -51,6 +51,9 @@ Acceptance:
   `run_label`; Step3 now binds the observer to the label from the frozen
   profile only after exact Master/namespace validation, and regression tests
   prove schema-1 JSONL ingestion.
+- [x] Public Master projection now keys current workloads by the bound Step3
+  event identity, so `cce-master-*` is visible without exposing Worker rows;
+  historical `wgs-master-*` rows remain readable.
 - [ ] Back up databases/runtime, deploy the immutable repair release and node200
   gate, then clear only Step3 and downstream in the original DagRun.
 - [ ] Verify the same analysis/attempt/run ID/Master continues, Step1/Step2 are
