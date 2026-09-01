@@ -38,6 +38,15 @@ network: 192.168.199.0/24 gateway 192.168.199.1; only 172.17.106.10:12959 publis
 `biodemo.dump` SHA256为
 `b606f3f284ffc7d72e992cae79534c5d3580f20dcb6890d2902dbdb2f2026380`。
 
+### Deployment incident and correction
+
+测试staging `T150-t7-scanner-red`实际是指向T149 r4的软链接，不是独立副本；早期
+测试覆盖因此改写了r4的scanner源码和测试。受控清理的realpath检查阻止了递归
+删除。随后从T150直接父提交`ea71adf`归档并恢复r4的两个文件，Git blob分别严格
+匹配`4239f157...`和`7eaa5bf9...`；r5文件匹配T150提交`b5afe9c`的
+`1ea06387...`和`cfd811dc...`。最后只删除该staging软链接和临时脚本，r4回滚
+release、当前r5和生产数据均完整保留。
+
 ### Remaining work and rollback
 
 T150没有启用自动prepare/dispatch，也没有创建分析目录、OBS传输或CCE任务。

@@ -7,6 +7,7 @@ t150_behavior: scanner classifies regular files, hard links and symlinks only by
 t150_production: 2227th_20260830C_E250197831 is ready with 10 complete pairs; 2222/2223/2224 are ready with 96/12/8 pairs; 2221/2225 remain no_new_wgs; 2226 retains its pre-existing needs_review drift state.
 t150_side_effect_gate: before and after deployment, AnalysisRun=1, RunAttempt=1 and Airflow DagRun=1. WGS_20260901_031616_C74E6C attempt 1 stayed running in step3_monitor with the same DagRun; no automatic analysis was created.
 t150_release: current -> 20260901-wgs-4.1.1-2499749-t150-t7-scanner-r5; only wgs-intake-scanner and frontend-nginx were recreated. Tested frontend image airflow-demo/frontend:t150-t7-scanner-10m is sha256:cef9e1117810e0482b9099281d00dcea329a47e19e838959b004c24a4e386cdb.
+t150_source: scanner/frontend implementation is commit b5afe9c0349557ff710e0f1ee6f3bfc49a393d36. The T149 r4 rollback scanner files were restored byte-for-byte from its parent commit after a test staging symlink was detected, and the staging link was removed.
 t150_backup: protected biodemo backup is backups/T150-t7-scanner-20260901T151336+0800; biodemo.dump SHA256 b606f3f284ffc7d72e992cae79534c5d3580f20dcb6890d2902dbdb2f2026380.
 t150_validation: BS10610 backend 243 passed / 1 skipped; frontend 31 passed plus TypeScript/Vite build; API reports schedule_seconds=600 and auto_dispatch=false. Scanner only mounts /bi/fastq/T7_Fastq read-only.
 t150_network: nipt_analysis_test_net remains 192.168.199.0/24, gateway 192.168.199.1; only frontend publishes 172.17.106.10:12959.
