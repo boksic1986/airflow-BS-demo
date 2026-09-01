@@ -8,6 +8,7 @@ T7 scanner现在在配对统计前排除sample ID以大写`YF`开头的非临检
 eligible、add-on或pair issue；YF-only为`no_new_wgs`，YF缺对不触发
 `needs_review`。名称fingerprint升为v3，并计算一次旧v2策略摘要，保证已有ready
 记录只因YF过滤升级时不会误报输入漂移。数据库/API结构和前端均未修改。
+实现提交为`9ab2dd2c95528875b11cf8b82a7e4350eedb08b8`。
 
 ### Validation and deployment
 

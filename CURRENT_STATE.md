@@ -8,6 +8,7 @@ t151_fingerprint: name fingerprint is v3 and excludes YF names; an equivalent ol
 t151_production: 2222 contained 192 YF FASTQ entries (96 pairs) and changed from ready/96 to no_new_wgs/0. 2223/2224/2227 remain ready with 12/8/10 eligible pairs; 2221/2225 remain no_new_wgs and 2226 retains its prior needs_review.
 t151_side_effect_gate: AnalysisRun, RunAttempt and Airflow DagRun counts remained 1/1/1. WGS_20260901_031616_C74E6C stayed running in step3_monitor with the same attempt and DagRun.
 t151_release: current -> 20260901-wgs-4.1.1-2499749-t151-yf-filter-r6; only wgs-intake-scanner was recreated. The scanner bind-mounts only the release backend and /bi/fastq/T7_Fastq read-only.
+t151_source: scanner policy, regression tests and contracts are committed as 9ab2dd2c95528875b11cf8b82a7e4350eedb08b8.
 t151_backup: backups/T151-yf-filter-20260901T162127+0800/biodemo.dump SHA256 ed7dfe046d19a53b6cee0f52da2e0925e5e58e844eeca19d2b37848cb52d0ae3.
 t151_validation: focused scanner 18 passed; full backend 247 passed / 1 skipped; API reports schedule_seconds=600, auto_dispatch=false and 1837 scanned directories with no scanner error.
 t151_network: nipt_analysis_test_net remains 192.168.199.0/24, gateway 192.168.199.1; only frontend publishes 172.17.106.10:12959.
