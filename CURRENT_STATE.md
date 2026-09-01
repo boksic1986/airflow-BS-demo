@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-01 T148 - historical worktree and branch cleanup
+
+```text
+t148_worktrees: only the root main worktree and D:/pipeline/airflow-demo-worktrees/T146-wgs-081-manual-run remain; seven completed/historical secondary worktrees were deleted.
+t148_branches: only local main and jiucheng/platform/T146-wgs-081-manual-run remain; 54 local historical branches and 16 remote historical branches were deleted. GitHub now exposes only origin/main.
+t148_discarded: the obsolete T096 root edits and untracked airflow-snakemake-ppt directory were explicitly deleted under the user's cleanup authorization and are not recoverable from the working tree; committed history remains in Git objects until normal repository maintenance removes it.
+t148_preserved: T146 .artifacts and its active WGS analysis state remain untouched; the T146 worktree is synchronized to the merged main baseline.
+t148_runtime: no Airflow, WGS, CCE, OBS, database, Docker service, network or production-run operation was performed.
+```
+
 ## 2026-09-01 T147 - Airflow worktree reconciliation
 
 ```text
