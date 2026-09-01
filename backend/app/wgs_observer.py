@@ -383,6 +383,7 @@ def sync_runtime_stage_artifacts(
     if status_path.is_file() and stage in {
         "step1_upload",
         "step3_monitor",
+        "step4_publish",
         "step4_repair_cram",
         "step5_download",
     }:
@@ -425,6 +426,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
     if stage not in {
         "step1_upload",
         "step3_monitor",
+        "step4_publish",
         "step4_repair_cram",
         "step5_download",
     }:
@@ -435,7 +437,26 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
         )
         if analysis is None or analysis.attempt != attempt:
             raise ValueError("runtime stage status references an unknown active attempt")
-        if stage == "step4_repair_cram":
+        if stage == "step4_publish":
+            if status not in {"accepted", "running", "success", "failed"}:
+                raise ValueError("Step4 publish status is invalid")
+            analysis.current_stage = stage
+            if status == "failed":
+                analysis.status = "failed"
+                analysis.error_summary = str(payload.get("message") or "") or None
+                analysis.ended_at = heartbeat
+                analysis.pipeline_finished_at = heartbeat
+            elif str(analysis.status or "").lower() not in {
+                "failed",
+                "cancelled",
+                "success",
+                "unknown_interrupted",
+            }:
+                analysis.status = "publishing"
+                analysis.error_summary = None
+                analysis.ended_at = None
+                analysis.pipeline_finished_at = None
+        elif stage == "step4_repair_cram":
             action = session.scalar(
                 select(WgsMaintenanceAction).where(
                     WgsMaintenanceAction.analysis_id == analysis_id,

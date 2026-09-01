@@ -739,6 +739,58 @@ def test_step4_stage_registration_recovers_known_master_completion_race(
         assert recovery.username == "airflow-internal"
 
 
+def test_step4_terminal_failure_is_projected_to_business_run(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "WGS_Clinical",
+            "execution_mode": "cce",
+            "batch_no": "WGS_20260825A_T7Hg38V4.1.1",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    status_dir = tmp_path / "runtime" / "runner-requests" / analysis_id / "attempt-1"
+    status_dir.mkdir(parents=True)
+    (status_dir / "step4_publish.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step4_publish",
+                "status": "failed",
+                "message": "ANALYSIS_COMPLETE is invalid",
+                "updated_at": "2026-09-01T09:45:07+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+
+    response = client.get(
+        f"/api/internal/wgs/runs/{analysis_id}/stage-status",
+        headers={"X-Airflow-Demo-Token": "internal-test-token"},
+        params={"attempt": 1, "stage": "step4_publish"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["failed"] is True
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        assert run.status == "failed"
+        assert run.current_stage == "step4_publish"
+        assert run.error_summary == "ANALYSIS_COMPLETE is invalid"
+        assert run.ended_at == datetime(2026, 9, 1, 9, 45, 7)
+        assert run.pipeline_finished_at == datetime(2026, 9, 1, 9, 45, 7)
+
+
 def test_step3_stage_status_api_treats_accepted_as_transitional(
     tmp_path, monkeypatch
 ):
