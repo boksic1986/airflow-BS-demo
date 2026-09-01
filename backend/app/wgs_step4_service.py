@@ -151,17 +151,22 @@ def _repair_block_reason(
         return "runtime_unavailable"
     if run.attempt < 1:
         return "attempt_unavailable"
-    master_succeeded = session.scalar(
-        select(KubernetesWorkload.id)
+    succeeded_workloads = session.scalars(
+        select(KubernetesWorkload)
         .where(
             KubernetesWorkload.analysis_id == run.analysis_id,
             KubernetesWorkload.attempt == run.attempt,
-            KubernetesWorkload.job_name.like("wgs-master-%"),
             KubernetesWorkload.phase == "Succeeded",
         )
-        .limit(1)
+    ).all()
+    # Step3 ingestion has already checked the exact frozen binding identity.
+    # Require its canonical event key instead of coupling repair to a name prefix.
+    master_succeeded = any(
+        workload.job_name
+        and workload.event_id == f"step3:{workload.job_name}"
+        for workload in succeeded_workloads
     )
-    if master_succeeded is None:
+    if not master_succeeded:
         return "master_not_successful"
     stage = str(run.current_stage or "").lower()
     if "step4" not in stage and "publish" not in stage:

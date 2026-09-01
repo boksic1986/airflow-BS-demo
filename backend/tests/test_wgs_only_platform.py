@@ -255,9 +255,9 @@ def test_step4_repair_is_fixed_to_cram_idempotent_and_blocked_by_runtime_gates(t
             KubernetesWorkload(
                 analysis_id=analysis_id,
                 attempt=1,
-                event_id="step3:wgs-master-test",
+                event_id="step3:cce-master-test",
                 pod_hash="master-success",
-                job_name="wgs-master-test",
+                job_name="cce-master-test",
                 phase="Succeeded",
             )
         )
@@ -657,6 +657,82 @@ def test_step3_stage_registration_recovers_same_failed_attempt_and_audits(
             select(AuditLog).where(
                 AuditLog.analysis_id == analysis_id,
                 AuditLog.action == "run.step3_monitor_recovered",
+            )
+        )
+        assert recovery is not None
+        assert recovery.username == "airflow-internal"
+
+
+def test_step4_stage_registration_recovers_known_master_completion_race(
+    tmp_path, monkeypatch
+):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "WGS_Clinical",
+            "execution_mode": "cce",
+            "batch_no": "WGS_20260825A_T7Hg38V4.1.1",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    failed_at = datetime(2026, 9, 1, 8, 26, tzinfo=timezone.utc)
+    status_dir = tmp_path / "runtime" / "runner-requests" / analysis_id / "attempt-1"
+    status_dir.mkdir(parents=True)
+    (status_dir / "step4_publish.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step4_publish",
+                "status": "failed",
+                "message": "RuntimeError: Step4 requires a successful Master Job",
+            }
+        ),
+        encoding="utf-8",
+    )
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.status = "failed"
+        run.current_stage = "step4_publish"
+        run.ended_at = failed_at
+        run.pipeline_finished_at = failed_at
+        run.error_summary = "Step4 requires a successful Master Job"
+        session.commit()
+
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    response = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/step4_publish",
+        headers={"X-Airflow-Demo-Token": "internal-test-token"},
+        json={
+            "attempt": 1,
+            "adapter": "wgs-runtime-200",
+            "command": f"wgs-runtime {analysis_id} 1 step4_publish",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        assert run.status == "publishing"
+        assert run.current_stage == "step4_publish"
+        assert run.ended_at is None
+        assert run.pipeline_finished_at is None
+        assert run.error_summary is None
+        recovery = session.scalar(
+            select(AuditLog).where(
+                AuditLog.analysis_id == analysis_id,
+                AuditLog.action == "run.step4_publish_recovered",
             )
         )
         assert recovery is not None

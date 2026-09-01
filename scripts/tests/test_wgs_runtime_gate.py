@@ -353,6 +353,274 @@ def test_step4_repair_rejects_bundle_without_cram_contract(monkeypatch: pytest.M
         gate.build_step4_repair_command({"analysis_id": "WGS_20260829_010203_A1B2C3", "attempt": 1})
 
 
+def test_step4_wait_retries_short_master_completion_race_for_bound_successful_step3(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "WGS_20260826_010203_A1B2C3"
+    request_root = tmp_path / "requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "stage": "step4_publish",
+    }
+    (request_dir / "step3_monitor.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": gate.STAGE_STATUS_SCHEMA,
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step3_monitor",
+                "status": "success",
+                "master_job": "cce-master-0123456789abcdef0123",
+            }
+        ),
+        encoding="utf-8",
+    )
+    responses = iter(
+        [
+            type(
+                "Result",
+                (),
+                {
+                    "returncode": 1,
+                    "stdout": "",
+                    "stderr": "RuntimeError: Step4 requires a successful Master Job",
+                },
+            )(),
+            type("Result", (), {"returncode": 0, "stdout": "", "stderr": ""})(),
+        ]
+    )
+    sleeps: list[int] = []
+    statuses: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(gate, "REQUEST_ROOT", request_root)
+    monkeypatch.setattr(
+        gate,
+        "_load_binding",
+        lambda _payload: {"master_job": "cce-master-0123456789abcdef0123"},
+    )
+    monkeypatch.setattr(gate, "_step_command", lambda *_args: ["step4"])
+    monkeypatch.setattr(gate.subprocess, "run", lambda *_args, **_kwargs: next(responses))
+    monkeypatch.setattr(gate.time, "sleep", sleeps.append)
+    monkeypatch.setattr(
+        gate,
+        "_write_status",
+        lambda _payload, status, message="", **_details: statuses.append(
+            (status, message)
+        ),
+    )
+
+    gate._wait_step4(payload)
+
+    assert sleeps == [gate.MONITOR_INTERVAL_SECONDS]
+    assert statuses[0][0] == "running"
+    assert "successful Master Job" in statuses[0][1]
+
+
+def test_step4_wait_rejects_master_error_without_matching_step3_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "WGS_20260826_010203_A1B2C3"
+    request_root = tmp_path / "requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    (request_dir / "step3_monitor.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": gate.STAGE_STATUS_SCHEMA,
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step3_monitor",
+                "status": "failed",
+                "master_job": "cce-master-0123456789abcdef0123",
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "stage": "step4_publish",
+    }
+
+    monkeypatch.setattr(gate, "REQUEST_ROOT", request_root)
+    monkeypatch.setattr(
+        gate,
+        "_load_binding",
+        lambda _payload: {"master_job": "cce-master-0123456789abcdef0123"},
+    )
+    monkeypatch.setattr(gate, "_step_command", lambda *_args: ["step4"])
+    monkeypatch.setattr(
+        gate.subprocess,
+        "run",
+        lambda *_args, **_kwargs: type(
+            "Result",
+            (),
+            {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": "RuntimeError: Step4 requires a successful Master Job",
+            },
+        )(),
+    )
+
+    with pytest.raises(RuntimeError, match="successful Master Job"):
+        gate._wait_step4(payload)
+
+
+def test_step4_wait_rejects_successful_step3_for_different_bound_master(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "WGS_20260826_010203_A1B2C3"
+    request_root = tmp_path / "requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    (request_dir / "step3_monitor.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": gate.STAGE_STATUS_SCHEMA,
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step3_monitor",
+                "status": "success",
+                "master_job": "cce-master-forged",
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = {"analysis_id": analysis_id, "attempt": 1, "stage": "step4_publish"}
+
+    monkeypatch.setattr(gate, "REQUEST_ROOT", request_root)
+    monkeypatch.setattr(
+        gate, "_load_binding", lambda _payload: {"master_job": "cce-master-bound"}
+    )
+    monkeypatch.setattr(gate, "_step_command", lambda *_args: ["step4"])
+    monkeypatch.setattr(
+        gate.subprocess,
+        "run",
+        lambda *_args, **_kwargs: type(
+            "Result",
+            (),
+            {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": "RuntimeError: Step4 requires a successful Master Job",
+            },
+        )(),
+    )
+
+    with pytest.raises(RuntimeError, match="successful Master Job"):
+        gate._wait_step4(payload)
+
+
+def test_step4_wait_times_out_after_master_completion_grace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "WGS_20260826_010203_A1B2C3"
+    request_root = tmp_path / "requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    master_job = "cce-master-bound"
+    (request_dir / "step3_monitor.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": gate.STAGE_STATUS_SCHEMA,
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step3_monitor",
+                "status": "success",
+                "master_job": master_job,
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = {"analysis_id": analysis_id, "attempt": 1, "stage": "step4_publish"}
+    clock = iter([0.0, 0.0, 0.0, 0.0, 601.0])
+
+    monkeypatch.setattr(gate, "REQUEST_ROOT", request_root)
+    monkeypatch.setattr(gate, "STEP4_MASTER_COMPLETION_GRACE_SECONDS", 600)
+    monkeypatch.setattr(gate, "_load_binding", lambda _payload: {"master_job": master_job})
+    monkeypatch.setattr(gate, "_step_command", lambda *_args: ["step4"])
+    monkeypatch.setattr(gate.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(gate.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(gate, "_write_status", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(
+        gate.subprocess,
+        "run",
+        lambda *_args, **_kwargs: type(
+            "Result",
+            (),
+            {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": "RuntimeError: Step4 requires a successful Master Job",
+            },
+        )(),
+    )
+
+    with pytest.raises(TimeoutError, match="bound Master Job"):
+        gate._wait_step4(payload)
+
+
+def test_failed_step4_relaunch_archives_terminal_generation_before_restart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "WGS_20260826_010203_A1B2C3"
+    request_path = tmp_path / "step4_publish.json"
+    request_path.write_text("{}\n", encoding="utf-8")
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "stage": "step4_publish",
+    }
+    request_sha = gate.hashlib.sha256(request_path.read_bytes()).hexdigest()
+    request_path.with_suffix(".status.json").write_text(
+        json.dumps({"status": "failed", "message": "old failure"}),
+        encoding="utf-8",
+    )
+    request_path.with_suffix(".worker.json").write_text(
+        json.dumps({"pid": 1234, "request_sha256": request_sha}),
+        encoding="utf-8",
+    )
+    request_path.with_suffix(".worker.log").write_text(
+        "old worker evidence\n", encoding="utf-8"
+    )
+
+    monkeypatch.setattr(gate, "_request_path", lambda *_args: request_path)
+    monkeypatch.setattr(gate, "_truthy", lambda _name: True)
+    monkeypatch.setattr(gate, "_process_matches", lambda _state: False)
+    monkeypatch.setattr(gate, "_boot_id", lambda: "boot-id")
+    monkeypatch.setattr(gate, "_process_start_time", lambda _pid: "456")
+
+    class FakeProcess:
+        pid = 5678
+
+    monkeypatch.setattr(gate.subprocess, "Popen", lambda *_args, **_kwargs: FakeProcess())
+
+    result = gate.start_async_stage(payload)
+
+    assert result["status"] == "accepted"
+    assert result["retry_no"] == 1
+    status = json.loads(
+        request_path.with_suffix(".status.json").read_text(encoding="utf-8")
+    )
+    assert status["status"] == "accepted"
+    history = tmp_path / "history" / "step4_publish" / "retry-1"
+    assert json.loads((history / "status.json").read_text(encoding="utf-8"))[
+        "message"
+    ] == "old failure"
+    assert (history / "worker.log").read_text(encoding="utf-8") == (
+        "old worker evidence\n"
+    )
+
+
 def test_step3_evidence_bridge_command_uses_frozen_binding_and_shared_spool(
     tmp_path: Path,
 ) -> None:

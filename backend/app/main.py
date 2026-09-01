@@ -87,6 +87,7 @@ app.add_middleware(
 )
 
 SESSION_COOKIE = "wgs_session"
+STEP4_MASTER_NOT_SUCCESSFUL = "Step4 requires a successful Master Job"
 
 
 @app.middleware("http")
@@ -141,6 +142,32 @@ def admin_user(user: AuthenticatedUser = Depends(current_user)) -> Authenticated
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail={"code": "FORBIDDEN", "message": str(exc)}) from exc
     return user
+
+
+def _is_known_step4_master_completion_race(
+    *, request_root: str, analysis_id: str, attempt: int
+) -> bool:
+    marker = (
+        Path(request_root)
+        / analysis_id
+        / f"attempt-{attempt}"
+        / "step4_publish.status.json"
+    )
+    if not marker.is_file() or marker.is_symlink():
+        return False
+    try:
+        value = json.loads(marker.read_text(encoding="utf-8"))
+        marker_attempt = int(value.get("attempt", 0))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return False
+    return (
+        value.get("schema_version") == "wgs-runtime.stage-status.v1"
+        and value.get("analysis_id") == analysis_id
+        and marker_attempt == attempt
+        and value.get("stage") == "step4_publish"
+        and value.get("status") == "failed"
+        and STEP4_MASTER_NOT_SUCCESSFUL in str(value.get("message") or "")
+    )
 
 
 def require_internal_service_token(
@@ -1234,6 +1261,26 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     session=session,
                     username="airflow-internal",
                     action="run.step3_monitor_recovered",
+                    analysis_id=analysis_id,
+                    payload={"attempt": request.attempt},
+                )
+            if (
+                stage_name == "step4_publish"
+                and run.status == "failed"
+                and _is_known_step4_master_completion_race(
+                    request_root=settings.wgs_runtime_request_root,
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                )
+            ):
+                run.status = "publishing"
+                run.ended_at = None
+                run.pipeline_finished_at = None
+                run.error_summary = None
+                audit(
+                    session=session,
+                    username="airflow-internal",
+                    action="run.step4_publish_recovered",
                     analysis_id=analysis_id,
                     payload={"attempt": request.attempt},
                 )

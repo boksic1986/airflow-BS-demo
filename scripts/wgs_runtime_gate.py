@@ -69,6 +69,10 @@ CCE_OPERATOR_CONFIG = os.getenv(
 )
 MONITOR_INTERVAL_SECONDS = int(os.getenv("WGS_MONITOR_INTERVAL_SECONDS", "5"))
 MONITOR_TIMEOUT_SECONDS = int(os.getenv("WGS_MONITOR_TIMEOUT_SECONDS", "432000"))
+STEP4_MASTER_COMPLETION_GRACE_SECONDS = int(
+    os.getenv("WGS_STEP4_MASTER_COMPLETION_GRACE_SECONDS", "600")
+)
+STEP4_MASTER_NOT_SUCCESSFUL = "Step4 requires a successful Master Job"
 CCE_EVIDENCE_ROOT = Path(
     os.getenv(
         "WGS_CCE_EVIDENCE_ROOT",
@@ -555,6 +559,7 @@ def _monitor_step3(payload: dict[str, Any]) -> None:
 
 def _wait_step4(payload: dict[str, Any]) -> None:
     started = time.monotonic()
+    master_wait_started: float | None = None
     retry_text = "SFS backend export is not ready in OBS; retry Step4"
     while True:
         completed = subprocess.run(
@@ -566,12 +571,46 @@ def _wait_step4(payload: dict[str, Any]) -> None:
         if completed.returncode == 0:
             return
         message = (completed.stderr or completed.stdout)[-2000:]
-        if retry_text not in message:
+        retry_master = (
+            STEP4_MASTER_NOT_SUCCESSFUL in message
+            and _step3_success_matches_binding(payload)
+        )
+        if retry_master:
+            if master_wait_started is None:
+                master_wait_started = time.monotonic()
+            if (
+                time.monotonic() - master_wait_started
+                > STEP4_MASTER_COMPLETION_GRACE_SECONDS
+            ):
+                raise TimeoutError(
+                    "Step4 timed out waiting for the bound Master Job to become Complete"
+                )
+        elif retry_text not in message:
             raise RuntimeError(message)
         _write_status(payload, "running", message)
         if time.monotonic() - started > MONITOR_TIMEOUT_SECONDS:
             raise TimeoutError("Step4 publish monitoring timed out")
         time.sleep(MONITOR_INTERVAL_SECONDS)
+
+
+def _step3_success_matches_binding(payload: dict[str, Any]) -> bool:
+    step3_path = _request_path(
+        str(payload["analysis_id"]), int(payload["attempt"]), "step3_monitor"
+    ).with_suffix(".status.json")
+    step3 = _read_json(step3_path)
+    try:
+        binding = _load_binding(payload)
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return (
+        step3.get("schema_version") == STAGE_STATUS_SCHEMA
+        and step3.get("analysis_id") == payload["analysis_id"]
+        and int(step3.get("attempt", 0)) == int(payload["attempt"])
+        and step3.get("stage") == "step3_monitor"
+        and step3.get("status") == "success"
+        and bool(step3.get("master_job"))
+        and step3.get("master_job") == binding.get("master_job")
+    )
 
 
 def run_stage(payload: dict[str, Any]) -> None:
@@ -636,6 +675,36 @@ def build_async_worker_command(
     ]
 
 
+def _archive_failed_step4_generation(payload: dict[str, Any]) -> int:
+    request_path = _request_path(
+        str(payload["analysis_id"]), int(payload["attempt"]), str(payload["stage"])
+    )
+    history_root = request_path.parent / "history" / "step4_publish"
+    history_root.mkdir(parents=True, exist_ok=True)
+    retry_no = 1
+    while (history_root / f"retry-{retry_no}").exists() or (
+        history_root / f".retry-{retry_no}.partial"
+    ).exists():
+        retry_no += 1
+    partial = history_root / f".retry-{retry_no}.partial"
+    partial.mkdir(mode=0o750)
+    for source, destination_name in (
+        (request_path.with_suffix(".status.json"), "status.json"),
+        (request_path.with_suffix(".worker.json"), "worker.json"),
+        (request_path.with_suffix(".worker.log"), "worker.log"),
+    ):
+        if source.exists():
+            os.replace(source, partial / destination_name)
+    final = history_root / f"retry-{retry_no}"
+    os.replace(partial, final)
+    directory_descriptor = os.open(history_root, os.O_RDONLY)
+    try:
+        os.fsync(directory_descriptor)
+    finally:
+        os.close(directory_descriptor)
+    return retry_no
+
+
 def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
     if not _truthy("WGS_EXECUTION_ENABLED") or not _truthy(
         "WGS_RUNTIME_ADAPTER_ENABLED"
@@ -660,6 +729,13 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             return {"status": "complete", "pid": previous.get("pid")}
         if previous and _process_matches(previous):
             return {"status": "running", "pid": previous["pid"]}
+        retry_no = 0
+        if status.get("status") == "failed":
+            if payload["stage"] != "step4_publish":
+                raise RuntimeError(
+                    "failed runtime stages cannot be restarted by the restricted runner"
+                )
+            retry_no = _archive_failed_step4_generation(payload)
         command = build_async_worker_command(
             analysis_id=str(payload["analysis_id"]),
             attempt=int(payload["attempt"]),
@@ -667,7 +743,7 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             lock_path=worker_lock,
         )
         with log_path.open("ab", buffering=0) as log_handle:
-            _write_status(payload, "accepted")
+            _write_status(payload, "accepted", retry_no=retry_no)
             process = subprocess.Popen(
                 command,
                 stdin=subprocess.DEVNULL,
@@ -683,10 +759,11 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             "boot_id": _boot_id(),
             "process_start_time": _process_start_time(process.pid),
             "request_sha256": request_sha,
+            "retry_no": retry_no,
             "started_at": datetime.now(timezone.utc).isoformat(),
         }
         _atomic_json(state_path, state)
-        return {"status": "accepted", "pid": process.pid}
+        return {"status": "accepted", "pid": process.pid, "retry_no": retry_no}
 
 
 def _run_worker(payload: dict[str, Any]) -> int:
