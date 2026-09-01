@@ -9,6 +9,9 @@
   active development branch.
 - Deleted seven completed or historical secondary worktrees: T096, four T127
   worktrees, T129 and T145.
+- Deleted the unregistered historical `T133-local-staging-artifacts` directory
+  after the final directory-level audit (30 files, 4 subdirectories, 2,114,815
+  bytes).
 - Deleted 54 local historical branches and 16 remote historical branches.
   After the cleanup, local branches are only `main` and
   `jiucheng/platform/T146-wgs-081-manual-run`; the GitHub remote exposes only
