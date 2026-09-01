@@ -127,6 +127,38 @@ def poll(sessions, evidence_root, binding_root, catalog_path):
     )
 
 
+def write_runtime_binding(
+    runtime_root: Path,
+    analysis_id: str,
+    *,
+    master_job: str = "cce-master-0123456789abcdef0123",
+) -> Path:
+    path = runtime_root / "runs" / analysis_id / "attempt-1" / "batch-binding.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.batch-binding.v2",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "pipeline_release_id": RELEASE_ID,
+                "wgs_version": "V4.1.1",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
+                "master_job": master_job,
+                "namespace": "snakemake-ns",
+                "resolved_runtime": {
+                    "cce_pipeline_version": "0.8.1",
+                    "profile_id": "wgs-4.1.1-r1",
+                    "profile_revision": "r1",
+                    "master_image_digest": "swr.example/master@sha256:" + "b" * 64,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
 def test_prepare_binding_persists_resolved_runtime_audit(tmp_path: Path) -> None:
     sessions, analysis_id, evidence_root, binding_root, catalog_path, _ = prepare_run(
         tmp_path
@@ -404,6 +436,11 @@ def test_wgs_4_1_1_stage_status_is_phase_only_and_master_only(tmp_path: Path) ->
     runtime = tmp_path / "runtime"
     request_dir = runtime / "runner-requests" / analysis_id / "attempt-1"
     request_dir.mkdir(parents=True)
+    write_runtime_binding(
+        runtime,
+        analysis_id,
+        master_job="wgs-master-0123456789abcdef0123",
+    )
     common = {
         "schema_version": "wgs-runtime.stage-status.v1",
         "analysis_id": analysis_id,
@@ -424,6 +461,7 @@ def test_wgs_4_1_1_stage_status_is_phase_only_and_master_only(tmp_path: Path) ->
                 "monitoring_health": "degraded",
                 "monitoring_error": "Rule evidence bridge failed",
                 "master_job": "wgs-master-0123456789abcdef0123",
+                "namespace": "snakemake-ns",
                 "master": {
                     "master_state": "RUNNING",
                     "normal": True,
@@ -450,7 +488,7 @@ def test_wgs_4_1_1_stage_status_is_phase_only_and_master_only(tmp_path: Path) ->
         runtime_root=runtime,
     )
 
-    assert result["events_ingested"] == 2
+    assert result["events_ingested"] == 3
     assert replay["events_ingested"] == 0
     with sessions() as session:
         transfer = session.scalar(select(TransferJob))
@@ -462,6 +500,129 @@ def test_wgs_4_1_1_stage_status_is_phase_only_and_master_only(tmp_path: Path) ->
         observer = session.scalar(select(ObserverRunState))
         assert observer.status == "degraded"
         assert observer.last_error == "Rule evidence bridge failed"
+
+
+def test_step3_transitional_status_without_master_is_not_an_ingest_error(
+    tmp_path: Path,
+) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    runtime = tmp_path / "runtime"
+    request_root = runtime / "runner-requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    write_runtime_binding(runtime, analysis_id)
+    (request_dir / "step3_monitor.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step3_monitor",
+                "status": "accepted",
+                "message": "",
+                "updated_at": "2026-09-01T04:24:41Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=request_root,
+        transfer_spool_root=runtime / "transfer-progress",
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="step3_monitor",
+    )
+
+    assert result == {"files": 2, "events_ingested": 1}
+    with sessions() as session:
+        assert session.scalar(select(KubernetesWorkload)) is None
+
+
+def test_step3_accepts_cce_master_only_when_it_matches_frozen_binding(
+    tmp_path: Path,
+) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    runtime = tmp_path / "runtime"
+    request_root = runtime / "runner-requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    master_job = "cce-master-0123456789abcdef0123"
+    write_runtime_binding(runtime, analysis_id, master_job=master_job)
+    status_path = request_dir / "step3_monitor.status.json"
+    status_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step3_monitor",
+                "status": "running",
+                "message": "running",
+                "updated_at": "2026-09-01T04:25:00Z",
+                "monitoring_health": "healthy",
+                "master_job": master_job,
+                "namespace": "snakemake-ns",
+                "master": {"master_state": "RUNNING", "percent": 1.4},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=request_root,
+        transfer_spool_root=runtime / "transfer-progress",
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="step3_monitor",
+    )
+
+    assert result == {"files": 2, "events_ingested": 2}
+    with sessions() as session:
+        workload = session.scalar(select(KubernetesWorkload))
+        assert workload.job_name == master_job
+        assert workload.phase == "Running"
+
+
+def test_step3_rejects_master_that_differs_from_frozen_binding(
+    tmp_path: Path,
+) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    runtime = tmp_path / "runtime"
+    request_root = runtime / "runner-requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    write_runtime_binding(runtime, analysis_id, master_job="cce-master-expected")
+    (request_dir / "step3_monitor.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step3_monitor",
+                "status": "running",
+                "message": "running",
+                "updated_at": "2026-09-01T04:25:00Z",
+                "monitoring_health": "healthy",
+                "master_job": "cce-master-other",
+                "namespace": "snakemake-ns",
+                "master": {"master_state": "RUNNING", "percent": 1.4},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="frozen binding"):
+        sync_runtime_stage_artifacts(
+            session_factory=sessions,
+            request_root=request_root,
+            transfer_spool_root=runtime / "transfer-progress",
+            analysis_id=analysis_id,
+            attempt=1,
+            stage="step3_monitor",
+        )
 
 
 def test_incremental_append_partial_line_and_restart_resume(tmp_path: Path) -> None:

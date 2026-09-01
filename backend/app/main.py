@@ -1222,6 +1222,18 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 partial = binding_path.with_suffix(".json.partial")
                 partial.write_text(json.dumps(binding_payload, sort_keys=True) + "\n", encoding="utf-8")
                 os.replace(partial, binding_path)
+            if stage_name == "step3_monitor" and run.status == "failed":
+                run.status = "running"
+                run.ended_at = None
+                run.pipeline_finished_at = None
+                run.error_summary = None
+                audit(
+                    session=session,
+                    username="airflow-internal",
+                    action="run.step3_monitor_recovered",
+                    analysis_id=analysis_id,
+                    payload={"attempt": request.attempt},
+                )
             run.current_stage = stage_name
             session.commit()
             return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "registered", "request_path": str(path)}

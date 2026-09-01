@@ -1,5 +1,35 @@
 # 11 部署 Runbook
 
+## T149 在途 Step3 接管
+
+This procedure is only for a Step3 monitoring/control-plane failure when the
+frozen CCE Master still exists. It must not be used to hide or automatically
+rerun a real analysis failure.
+
+1. Record the exact `analysis_id`, attempt, DagRun ID, frozen Master Job, and
+   namespace. Run the frozen `Step3_status.sh --output json` read-only. Stop if
+   it reports `FAILED`; continue only for `RUNNING` or `SUCCEEDED`.
+2. Back up biodemo, Airflow metadata, the exact attempt's runner status files,
+   and the deployed node200 gate. Store checksums and mode `0600`; do not copy
+   private keys, OBS credentials, kubeconfig, or clinical config into Git.
+3. Validate backend, runner, DAG import, Compose, and network contracts before
+   switching the immutable release. Deploy the node200 gate atomically and
+   recreate only the application services that need the new bind mount. Never
+   recreate PostgreSQL, Redis, volumes, or `nipt_analysis_test_net`.
+4. Clear only `start_step3_monitor` and downstream task instances in the same
+   DagRun. Confirm `submit_step2_master` and Step1 remain `success` with their
+   original try numbers. Do not create a new DagRun or attempt.
+5. Confirm the restarted monitor binds to the identical Master Job and
+   namespace, the business run returns from the monitor-generated `failed` to
+   `running`, and the observer becomes `active`. Verify no new OBS upload,
+   Step2 submission, or CCE Master Job appears.
+6. Let the original DagRun continue through Step4-Step6. Final state remains
+   governed by the CCE terminal evidence and result verification.
+
+Rollback is limited to restoring the previous release/gate and recreating the
+same application services. Do not clear Step1/Step2, delete evidence, or submit
+a replacement Master during rollback.
+
 ## T146 2499749 / cce-pipeline 0.8.1 手工批次
 
 1. 只读核对BS10610/node200共享WGS HEAD为`2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68`，

@@ -35,6 +35,9 @@ TERMINAL_RULE_EVENTS = {
     "job_error": "failed",
     "group_error": "failed",
 }
+KUBERNETES_DNS_LABEL_RE = re.compile(
+    r"^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$"
+)
 
 
 def ingest_evidence_once(
@@ -507,9 +510,38 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                     ),
                 )
             master_job = str(payload.get("master_job") or "")
-            if not master_job.startswith("wgs-master-"):
-                raise ValueError("Step3 status is missing the opaque Master Job name")
             master = payload.get("master") if isinstance(payload.get("master"), dict) else {}
+            if not master_job or not master:
+                if status in {"accepted", "running", "failed"}:
+                    if monitoring_health == "degraded":
+                        session.commit()
+                    return False
+                raise ValueError("Step3 terminal success is missing Master evidence")
+            if KUBERNETES_DNS_LABEL_RE.fullmatch(master_job) is None:
+                raise ValueError("Step3 Master Job name is not a Kubernetes DNS label")
+            binding_path = (
+                request_root.parent
+                / "runs"
+                / analysis_id
+                / f"attempt-{attempt}"
+                / "batch-binding.json"
+            )
+            if not binding_path.is_file() or binding_path.is_symlink():
+                raise ValueError("Step3 frozen binding is unavailable")
+            binding = json.loads(binding_path.read_text(encoding="utf-8"))
+            if (
+                binding.get("schema_version") != "wgs-runtime.batch-binding.v2"
+                or binding.get("analysis_id") != analysis_id
+                or int(binding.get("attempt") or 0) != attempt
+            ):
+                raise ValueError("Step3 frozen binding identity is invalid")
+            expected_master_job = str(binding.get("master_job") or "")
+            expected_namespace = str(binding.get("namespace") or "")
+            if master_job != expected_master_job:
+                raise ValueError("Step3 Master Job does not match frozen binding")
+            namespace = str(payload.get("namespace") or "")
+            if namespace != expected_namespace:
+                raise ValueError("Step3 namespace does not match frozen binding")
             master_state = str(master.get("master_state") or "PENDING")
             phase = {
                 "PENDING": "Pending",

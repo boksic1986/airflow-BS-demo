@@ -1,7 +1,10 @@
 import importlib.util
+import json
 from pathlib import Path
 import sys
+import threading
 import types
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -395,6 +398,182 @@ def test_async_worker_is_nohup_setsid_flock_and_stage_status_is_versioned(
     assert "--worker" in command
     assert gate.STAGE_STATUS_SCHEMA == "wgs-runtime.stage-status.v1"
     assert all(";" not in item and "$(" not in item for item in command)
+
+
+def test_atomic_json_uses_independent_temporary_files_for_concurrent_writers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    destination = tmp_path / "step3_monitor.status.json"
+    barrier = threading.Barrier(2)
+    original_replace = gate.os.replace
+
+    def synchronized_replace(source, target):
+        barrier.wait(timeout=5)
+        original_replace(source, target)
+
+    monkeypatch.setattr(gate.os, "replace", synchronized_replace)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [
+            pool.submit(gate._atomic_json, destination, {"writer": writer})
+            for writer in ("launcher", "worker")
+        ]
+        for future in futures:
+            future.result(timeout=5)
+
+    assert json.loads(destination.read_text(encoding="utf-8"))["writer"] in {
+        "launcher",
+        "worker",
+    }
+
+
+def test_stage_status_never_moves_backward_from_running_to_accepted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    request_path = tmp_path / "step3_monitor.json"
+    request_path.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(gate, "_request_path", lambda *_args: request_path)
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step3_monitor",
+    }
+
+    gate._write_status(payload, "running", master_job="cce-master-abc")
+    gate._write_status(payload, "accepted")
+
+    status = json.loads(
+        request_path.with_suffix(".status.json").read_text(encoding="utf-8")
+    )
+    assert status["status"] == "running"
+    assert status["master_job"] == "cce-master-abc"
+
+
+def test_async_stage_publishes_accepted_before_spawning_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    request_path = tmp_path / "step3_monitor.json"
+    request_path.write_text("{}\n", encoding="utf-8")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step3_monitor",
+    }
+    events: list[str] = []
+
+    monkeypatch.setattr(gate, "_request_path", lambda *_args: request_path)
+    monkeypatch.setattr(gate, "_truthy", lambda _name: True)
+    monkeypatch.setattr(gate, "_boot_id", lambda: "boot-id")
+    monkeypatch.setattr(gate, "_process_start_time", lambda _pid: "123")
+    monkeypatch.setattr(
+        gate,
+        "_write_status",
+        lambda _payload, status, *_args, **_kwargs: events.append(status),
+    )
+
+    class FakeProcess:
+        pid = 4321
+
+    def fake_popen(*_args, **_kwargs):
+        events.append("spawn")
+        return FakeProcess()
+
+    monkeypatch.setattr(gate.subprocess, "Popen", fake_popen)
+
+    gate.start_async_stage(payload)
+
+    assert events[:2] == ["accepted", "spawn"]
+
+
+def test_step3_worker_does_not_publish_generic_running_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gate = load_gate()
+    statuses: list[str] = []
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step3_monitor",
+    }
+    monkeypatch.setattr(gate, "run_stage", lambda _payload: None)
+    monkeypatch.setattr(
+        gate,
+        "_write_status",
+        lambda _payload, status, *_args, **_kwargs: statuses.append(status),
+    )
+
+    assert gate._run_worker(payload) == 0
+    assert statuses == ["success"]
+
+
+def test_step3_terminal_success_is_written_with_frozen_master_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gate = load_gate()
+    cce_bundle = tmp_path / "cce"
+    cce_bundle.mkdir()
+    (cce_bundle / "Step3_status.sh").write_text("#!/bin/bash\n", encoding="utf-8")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step3_monitor",
+    }
+    binding = {
+        "cce_bundle": str(cce_bundle),
+        "master_job": "cce-master-0123456789abcdef0123",
+        "namespace": "snakemake-ns",
+    }
+    writes: list[tuple[str, dict]] = []
+
+    monkeypatch.setattr(gate, "_load_binding", lambda _payload: binding)
+    monkeypatch.setattr(
+        gate,
+        "_sync_rule_evidence",
+        lambda _payload, _binding, *, terminal: None,
+    )
+    monkeypatch.setattr(
+        gate.subprocess,
+        "run",
+        lambda *_args, **_kwargs: type(
+            "Result",
+            (),
+            {
+                "returncode": 0,
+                "stdout": json.dumps(
+                    {
+                        "master_state": "SUCCEEDED",
+                        "normal": True,
+                        "completed": 209,
+                        "total": 209,
+                        "percent": 100.0,
+                        "message": "complete",
+                    }
+                ),
+                "stderr": "",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        gate,
+        "_write_status",
+        lambda _payload, status, _message="", **details: writes.append(
+            (status, details)
+        ),
+    )
+
+    gate._monitor_step3(payload)
+
+    assert len(writes) == 1
+    status, details = writes[0]
+    assert status == "success"
+    assert details["master_job"] == "cce-master-0123456789abcdef0123"
+    assert details["namespace"] == "snakemake-ns"
+    assert details["master"]["master_state"] == "SUCCEEDED"
+    assert details["monitoring_health"] == "healthy"
 
 
 def test_node005_transfer_wrapper_remains_retired() -> None:

@@ -1,5 +1,20 @@
 # 07 Airflow DAG 设计
 
+## T149 Step3 monitor restart semantics
+
+The 18-task `bio_wgs` topology is unchanged. A Step3 control-plane failure is
+recovered by clearing only `start_step3_monitor` and its downstream tasks for
+the same DagRun. `submit_step2_master` and every Step1 task remain successful
+and are never re-executed. The node200 launcher reuses the immutable request,
+frozen batch binding, existing Master Job, and the same analysis attempt.
+
+The Step3 launcher publishes `accepted` before spawning the worker. Its first
+`running` record includes the frozen Master Job, namespace, parsed
+`cce-pipeline.step3-status.v2` payload, and monitoring health. Status writes
+are serialized and monotonic (`accepted -> running -> success|failed`) and use
+unique same-directory temporary files followed by `fsync` and `os.replace`.
+The five-second `wait_step3_analysis` sensor remains in `reschedule` mode.
+
 ## T146 WGS prepare batch identity
 
 唯一`bio_wgs`任务数和拓扑不变。`prepare_wgs_batch`从完整`batch_no`中提取

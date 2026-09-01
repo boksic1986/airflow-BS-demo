@@ -11,6 +11,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 import time
 from typing import Any
 
@@ -123,17 +124,33 @@ def _sidecar_path(payload: dict[str, Any], suffix: str) -> Path:
 
 def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".partial")
-    temporary.write_text(
-        json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n",
-        encoding="utf-8",
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".partial",
     )
-    os.replace(temporary, path)
+    temporary = Path(temporary_name)
+    try:
+        os.fchmod(descriptor, 0o644)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n"
+            )
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        directory_descriptor = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _write_status(
     payload: dict[str, Any], status: str, message: str = "", **details: Any
-) -> None:
+) -> bool:
     value = {
         "schema_version": STAGE_STATUS_SCHEMA,
         "analysis_id": payload["analysis_id"],
@@ -144,7 +161,20 @@ def _write_status(
         "updated_at": datetime.now(timezone.utc).isoformat(),
         **details,
     }
-    _atomic_json(_sidecar_path(payload, ".status.json"), value)
+    status_path = _sidecar_path(payload, ".status.json")
+    lock_path = _sidecar_path(payload, ".status.lock")
+    rank = {"accepted": 0, "running": 1, "success": 2, "failed": 2}
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as lock_handle:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        current = _read_json(status_path)
+        current_status = str(current.get("status") or "")
+        if current_status in {"success", "failed"}:
+            return False
+        if rank.get(current_status, -1) > rank.get(status, -1):
+            return False
+        _atomic_json(status_path, value)
+    return True
 
 
 def _truthy(name: str) -> bool:
@@ -486,10 +516,14 @@ def _monitor_step3(payload: dict[str, Any]) -> None:
             monitoring_error = _sync_rule_evidence(payload, binding, terminal=True)
         _write_status(
             payload,
-            "running" if value["master_state"] not in {"SUCCEEDED", "FAILED"} else value["master_state"].lower(),
+            {
+                "SUCCEEDED": "success",
+                "FAILED": "failed",
+            }.get(value["master_state"], "running"),
             value["message"],
             master=value,
             master_job=binding.get("master_job"),
+            namespace=binding.get("namespace"),
             monitoring_health="degraded" if monitoring_error else "healthy",
             monitoring_error=monitoring_error,
         )
@@ -616,6 +650,7 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             lock_path=worker_lock,
         )
         with log_path.open("ab", buffering=0) as log_handle:
+            _write_status(payload, "accepted")
             process = subprocess.Popen(
                 command,
                 stdin=subprocess.DEVNULL,
@@ -634,12 +669,12 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             "started_at": datetime.now(timezone.utc).isoformat(),
         }
         _atomic_json(state_path, state)
-        _write_status(payload, "accepted")
         return {"status": "accepted", "pid": process.pid}
 
 
 def _run_worker(payload: dict[str, Any]) -> int:
-    _write_status(payload, "running")
+    if payload["stage"] != "step3_monitor":
+        _write_status(payload, "running")
     try:
         run_stage(payload)
     except Exception as error:

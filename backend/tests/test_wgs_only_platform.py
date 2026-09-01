@@ -497,6 +497,31 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
         lease = session.scalar(select(ObsTransferLease))
         assert lease.analysis_id is None
 
+    binding_path = (
+        tmp_path
+        / "runtime"
+        / "runs"
+        / analysis_id
+        / "attempt-1"
+        / "batch-binding.json"
+    )
+    binding_path.parent.mkdir(parents=True)
+    binding_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.batch-binding.v2",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "pipeline_release_id": "wgs-4.1.1-1656b5d",
+                "wgs_version": "V4.1.1",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
+                "master_job": "wgs-master-0123456789abcdef0123",
+                "namespace": "snakemake-ns",
+                "resolved_runtime": {"cce_pipeline_version": "0.8.1"},
+            }
+        ),
+        encoding="utf-8",
+    )
     status_path = request_path.with_name("step3_monitor.status.json")
     status_path.write_text(
         json.dumps(
@@ -510,6 +535,7 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
                     "message": "running",
                     "monitoring_health": "healthy",
                     "master_job": "wgs-master-0123456789abcdef0123",
+                    "namespace": "snakemake-ns",
                     "master": {"master_state": "RUNNING", "percent": 12.5},
             }
         ),
@@ -568,6 +594,139 @@ def test_prepare_reports_release_unavailable_without_silent_rebinding(
 
     assert response.status_code == 409
     assert response.json()["detail"]["code"] == "WGS_RELEASE_UNAVAILABLE"
+
+
+def test_step3_stage_registration_recovers_same_failed_attempt_and_audits(
+    tmp_path, monkeypatch
+):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "WGS_Clinical",
+            "execution_mode": "cce",
+            "batch_no": "WGS_20260825A_T7Hg38V4.1.1",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    failed_at = datetime(2026, 9, 1, 4, 24, tzinfo=timezone.utc)
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.status = "failed"
+        run.current_stage = "step3_monitor"
+        run.ended_at = failed_at
+        run.pipeline_finished_at = failed_at
+        run.error_summary = "monitor API returned HTTP 500"
+        session.commit()
+
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    response = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/step3_monitor",
+        headers={"X-Airflow-Demo-Token": "internal-test-token"},
+        json={
+            "attempt": 1,
+            "adapter": "wgs-runtime-200",
+            "command": f"wgs-runtime {analysis_id} 1 step3_monitor",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        assert run.status == "running"
+        assert run.current_stage == "step3_monitor"
+        assert run.ended_at is None
+        assert run.pipeline_finished_at is None
+        assert run.error_summary is None
+        recovery = session.scalar(
+            select(AuditLog).where(
+                AuditLog.analysis_id == analysis_id,
+                AuditLog.action == "run.step3_monitor_recovered",
+            )
+        )
+        assert recovery is not None
+        assert recovery.username == "airflow-internal"
+
+
+def test_step3_stage_status_api_treats_accepted_as_transitional(
+    tmp_path, monkeypatch
+):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "WGS_Clinical",
+            "execution_mode": "cce",
+            "batch_no": "WGS_20260825A_T7Hg38V4.1.1",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    runtime = tmp_path / "runtime"
+    binding = runtime / "runs" / analysis_id / "attempt-1" / "batch-binding.json"
+    binding.parent.mkdir(parents=True)
+    binding.write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.batch-binding.v2",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "pipeline_release_id": "wgs-4.1.1-1656b5d",
+                "wgs_version": "V4.1.1",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
+                "master_job": "cce-master-0123456789abcdef0123",
+                "namespace": "snakemake-ns",
+                "resolved_runtime": {"cce_pipeline_version": "0.8.1"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    status_path = (
+        runtime
+        / "runner-requests"
+        / analysis_id
+        / "attempt-1"
+        / "step3_monitor.status.json"
+    )
+    status_path.parent.mkdir(parents=True)
+    status_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step3_monitor",
+                "status": "accepted",
+                "message": "",
+                "updated_at": "2026-09-01T04:24:41Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+
+    response = client.get(
+        f"/api/internal/wgs/runs/{analysis_id}/stage-status",
+        params={"attempt": 1, "stage": "step3_monitor"},
+        headers={"X-Airflow-Demo-Token": "internal-test-token"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "accepted"
+    assert response.json()["ready"] is False
+    assert response.json()["failed"] is False
 
 
 def test_internal_step3_observer_activation_and_drain_are_exposed_in_run_detail(

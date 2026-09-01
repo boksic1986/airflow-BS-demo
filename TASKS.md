@@ -23,8 +23,35 @@
 | T146 | WGS 2499749 / cce-pipeline 0.8.1 manual production run | airflow/backend/frontend/infra/QA/docs | bind current WGS release, pass sequencing batch to prepare, deploy enabled manual flow, rebuild one approved batch from controlled intake | disabled tests and network pass; exact old batch state cleared; one manual run is visible through API/UI and reaches a verified terminal state | in progress: clean attempt 1 Step1 upload |
 | T147 | Airflow worktree reconciliation and PR workflow | coordinator/docs | audit every local worktree against origin/main, fast-forward safe ancestors, preserve dirty or obsolete branches, merge reconciliation through GitHub PR | no user changes overwritten; current WGS mainline unchanged except state docs; PR checks and merge verified | done |
 | T148 | Prune completed worktrees and branches | coordinator/docs | retain root main and active T146 worktree, delete historical worktrees/local branches/remote branches, merge cleanup record through PR | exactly two worktrees, two local branches and only origin/main remain; T146 artifacts/runtime untouched | done |
+| T149 | WGS Step3 monitor protocol repair and in-flight takeover | airflow/backend/infra/QA/docs | atomic monotonic node200 stage status, binding-authoritative Master validation, transitional status handling, same-attempt business-state recovery, exact Step3/downstream restart | existing attempt and Master retained; Step1/Step2 unchanged; UI resumes Master/Rule state; original DagRun continues to verified terminal state | in progress |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
+
+## T149 - WGS Step3 monitor protocol repair and in-flight takeover
+
+Owner: airflow/backend/infra/QA/docs
+
+Status: in progress; code regression passed and the existing Master is still running
+
+Acceptance:
+
+- [x] Reproduced the fixed `.partial` race, backward status transition, generic
+  Step3 `running`, hard-coded Master prefix rejection, and HTTP 500 transition.
+- [x] Runner uses unique same-directory temporary files, file/directory fsync,
+  atomic replace, serialized monotonic status, and publishes `accepted` before
+  worker spawn.
+- [x] Step3 first `running` and terminal status retain frozen Master identity,
+  namespace, parsed status, and monitoring health.
+- [x] Backend treats incomplete transitions as HTTP 200/not-ready, validates
+  the exact frozen Master/namespace, remains Master-only, and audits same-attempt
+  monitor recovery.
+- [x] BS10610 tests pass: backend 237, scripts 30, DAG 7; node200 shared-SFS
+  concurrent atomic-write smoke completed 200 writes with no partial file.
+- [ ] Back up databases/runtime, deploy the immutable repair release and node200
+  gate, then clear only Step3 and downstream in the original DagRun.
+- [ ] Verify the same analysis/attempt/run ID/Master continues, Step1/Step2 are
+  not retried, frontend monitoring returns, and Step4-Step6 follow the real CCE
+  terminal state.
 
 ## T148 - Prune completed worktrees and branches
 

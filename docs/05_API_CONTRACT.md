@@ -1,5 +1,27 @@
 # 05 API Contract
 
+## T149 Step3 internal status and recovery contract
+
+The public API and database schema are unchanged. The internal
+`GET /api/internal/wgs/runs/{analysis_id}/stage-status` endpoint accepts an
+`accepted` or an early `running` Step3 status without Master details as a valid
+transition: it returns HTTP 200 with `ready=false` and does not create a
+Kubernetes workload. A terminal Step3 success must include Master evidence.
+
+Once Master details are present, the backend reads the immutable
+`runs/<analysis_id>/attempt-N/batch-binding.json` and requires exact equality
+for `analysis_id`, `attempt`, `master_job`, and `namespace`. `master_job` is
+validated as a Kubernetes DNS label; no `wgs-master-*` or `cce-master-*`
+prefix is trusted independently of the frozen binding. Only that bound Master
+is projected through `/pods`; Worker Pods remain outside the API.
+
+Re-registering Step3 for the same active attempt after a control-plane monitor
+failure restores the business run to `running`, clears the monitor-generated
+terminal timestamps and error summary, and writes the internal audit action
+`run.step3_monitor_recovered`. It does not create a new attempt or authorize a
+new Step2 submission. The resumed sensor still reports the real CCE terminal
+state and does not convert an actual Master failure to success.
+
 ## T146 current WGS release
 
 `POST /api/runs`仍只接受`project_name + batch_no + fq_path`，服务端自动绑定
