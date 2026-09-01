@@ -8,7 +8,7 @@ t149_preserved: Step1 upload and Step2 Master remain success/try 1; the existing
 t149_repair: runner status writes are unique-temp/fsync/atomic/monotonic; accepted precedes worker launch; Step3 carries frozen Master identity and cce-pipeline status. Backend validates the exact binding rather than a name prefix, accepts incomplete transitions as not-ready, and recovers the same failed business attempt with an audit event.
 t149_evidence: observer is active/healthy on cce-run-650a0767d41b3157. Authenticated API shows current Rule MEI_MEICall, 41 Rule rows (19 success, 2 running, 20 planned), and only the bound Master workload.
 t149_airflow: start_step3_monitor is success/try 2 and wait_step3_analysis is up_for_reschedule/try 2. The original DagRun will advance to Step4-Step6 only after the real CCE terminal state; no manual high-frequency polling remains.
-t149_release: current -> 20260901-wgs-4.1.1-2499749-t149-step3-recovery-r4; control commit c56b0e91f3d63e1398e961452f9c754eea8083f6.
+t149_release: current -> 20260901-wgs-4.1.1-2499749-t149-step3-recovery-r4; deployed runtime code commit b7730bc1a09481f67663b2c3d7f37e50b5770b93.
 t149_backup: pre-takeover biodemo, Airflow metadata, runner state and binding are retained at backups/T149-step3-recovery-20260901T132953+0800 with verified SHA256 checksums.
 t149_network: nipt_analysis_test_net remains 192.168.199.0/24, gateway 192.168.199.1; only frontend publishes 172.17.106.10:12959 and the scheduler is not paused.
 ```

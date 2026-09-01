@@ -17,8 +17,8 @@
   Progress now falls back to the bound Master Step3 `current_rule` when logger
   projection lags, without fabricating a RuleState row.
 - Deployed release
-  `20260901-wgs-4.1.1-2499749-t149-step3-recovery-r4` with control commit
-  `c56b0e91f3d63e1398e961452f9c754eea8083f6`.
+  `20260901-wgs-4.1.1-2499749-t149-step3-recovery-r4` with deployed runtime
+  code commit `b7730bc1a09481f67663b2c3d7f37e50b5770b93`.
 
 ### In-flight run state
 
