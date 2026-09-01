@@ -5,7 +5,7 @@ from statistics import median
 
 from sqlalchemy import select
 
-from app.models import AnalysisRun, RuleState
+from app.models import AnalysisRun, KubernetesWorkload, RuleState
 
 
 def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState]) -> list[dict]:
@@ -34,7 +34,21 @@ def enrich_progress(*, session, run: AnalysisRun, payload: dict) -> dict:
         percent = float(payload["overall_progress_percent"])
         payload.update({"analysis_eta_seconds": max(0, int(baseline * (100 - percent) / 100)), "analysis_eta_model": "release_stage_wall_median_v1", "analysis_eta_history_count": len(totals)})
     active = session.scalar(select(RuleState).where(RuleState.analysis_id == run.analysis_id, RuleState.status == "running").order_by(RuleState.updated_at.desc()))
-    payload["current_rule"] = active.rule_name if active else payload.get("current_rule")
+    current_rule = active.rule_name if active else payload.get("current_rule")
+    if not current_rule:
+        master = session.scalar(
+            select(KubernetesWorkload)
+            .where(
+                KubernetesWorkload.analysis_id == run.analysis_id,
+                KubernetesWorkload.attempt == run.attempt,
+                KubernetesWorkload.event_id.like("step3:%"),
+            )
+            .order_by(KubernetesWorkload.updated_at.desc())
+        )
+        if master is not None:
+            status = master.job_status_json or {}
+            current_rule = str(status.get("current_rule") or "").strip() or None
+    payload["current_rule"] = current_rule
     return payload
 
 
