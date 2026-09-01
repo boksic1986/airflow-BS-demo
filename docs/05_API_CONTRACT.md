@@ -1,5 +1,20 @@
 # 05 API Contract
 
+## T152 Step4 internal recovery
+
+Public API and database schema are unchanged. Re-registering the same
+`step4_publish` attempt restores a control-plane-generated failed run to
+`publishing` only when its protected sidecar has matching schema, analysis,
+attempt and stage identity and contains the known Master-completion race error.
+It clears that false terminal timestamp/error and writes
+`run.step4_publish_recovered` as `airflow-internal`.
+
+Step4 repair capability no longer requires a `wgs-master-*` name. It accepts a
+Succeeded workload only when Step3 ingestion produced the canonical
+`event_id=step3:<job_name>` identity after frozen-binding validation. The
+current T152 batch uses ordinary Step4; this change does not authorize CRAM
+repair for generic publish errors.
+
 ## T151 YF non-clinical exclusion
 
 公开API结构不变。sample ID以大写`YF`开头时不参与eligible、add-on或pair issue

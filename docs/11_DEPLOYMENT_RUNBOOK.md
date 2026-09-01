@@ -1,5 +1,25 @@
 # 11 部署 Runbook
 
+## T152 Step4 Master时序恢复
+
+1. 只读核对Step3成功sidecar、冻结binding、Master名称/UID/namespace和Kubernetes
+   Complete终态。任一身份不一致或Master真实失败时停止。
+2. 备份biodemo、Airflow metadata、完整attempt runner sidecar/log、binding和Task状态，
+   校验SHA256；不要备份私钥、OBS凭据或kubeconfig。
+3. 运行runner/backend/DAG import/Compose/network测试后，原子部署runner和不可变
+   control-plane release。不要重建PostgreSQL、Redis、volume或网络。
+4. 只清除原DagRun的Step4、Step5、Step6、finalize和release_leases。明确核对
+   Step1-Step3仍success且try number不变。
+5. 同request SHA的failed Step4只有在旧worker退出后才可形成retry generation。
+   正常Step4最多等待Master Complete 600秒；不得用该等待掩盖其他错误。
+6. 如果重试越过Master检查后出现新的交付合同错误，立即停止继续清Task。不得在未
+   审批时热补丁冻结bundle、覆盖OBS marker或改用CRAM repair。
+
+本次真实恢复在第6步停止：WGS 2499749的`cloud_runtime.py`生成带身份的schema-1
+JSON `ANALYSIS_COMPLETE`，但同一冻结bundle的`cce_delivery.py`只接受字面量
+`status=PASS\n`。完成Step5-Step6前必须先由WGS/runtime侧统一该合同并确定受控的
+在途恢复方式。
+
 ## T151 YF非临检过滤滚动发布
 
 1. 先验证mixed/YF-only/YF缺对三个RED用例，再验证旧v2 ready指纹兼容升级；运行

@@ -1,5 +1,61 @@
 # HANDOFF.md
 
+## 2026-09-01 - Codex - T152 Step4 race repair and WGS marker blocker
+
+### Completed
+
+- Implemented and deployed Airflow commit
+  `29c8378b2b4e5cf860e7978d9e23233f710035af` in release
+  `20260901-wgs-4.1.1-2499749-t152-step4-recovery-r7`.
+- Step4 now waits up to 600 seconds for the exact bound Master after a trusted
+  Step3 success. Failed Step4 generations can restart only with the same
+  request SHA after the old worker exits; prior status/worker/log are retained
+  under `history/step4_publish/retry-N`.
+- Backend same-attempt recovery resets only the known Master timing false
+  failure to `publishing` and audits `run.step4_publish_recovered`. Repair
+  capability uses the canonical Step3 Master event identity rather than a
+  `wgs-master-*` prefix.
+
+### Production recovery and new blocker
+
+- Backed up both databases, the complete attempt sidecars/logs, binding and
+  Airflow Task state at
+  `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T152-step4-recovery-20260901T173906+0800`.
+  `biodemo.dump` SHA256 is
+  `08af9e4f6a50945affb355380858a4ab11653356dbfa43fa44fdccf6174e6c3e`;
+  `airflow.dump` SHA256 is
+  `3ac29e63f3dcb4dba401a2490e8485acd6c246550a2b9955e6330790f4da4256`.
+- Cleared only Step4 and downstream in the original DagRun. Step1-Step3 stayed
+  success; Master `cce-master-79c59ff6401e15d76aa5` retained UID
+  `8ef69ad6-96cd-4dd2-a94a-b214287af1d2` and its original Complete timestamp.
+  No upload or Master submission was repeated, and CRAM repair was not used.
+- The retry crossed the repaired Master gate, then failed at a second,
+  independent WGS contract error: `ANALYSIS_COMPLETE is invalid`. The OBS
+  object is a valid 149-byte schema-1 JSON identity marker with `status=PASS`,
+  while frozen `cce_delivery.py` accepts only the legacy literal
+  `status=PASS\n`. This is a producer/consumer mismatch inside WGS 2499749,
+  not duplicate `cloud_finalize_delivery` execution.
+- Stopped without modifying the WGS repository, frozen bundle, OBS/SFS data or
+  marker. The original DagRun is failed at ordinary Step4; Step5-Step6 have not
+  run. Do not clear it again until the WGS contract and recovery method are
+  explicitly approved.
+
+### Validation and rollback
+
+```text
+runner: 28 passed
+backend: 249 passed
+DAG import errors: 0
+Compose config: passed
+network: 192.168.199.0/24, gateway 192.168.199.1
+published port: only 172.17.106.10:12959
+```
+
+Rollback the Airflow fix by restoring the backed-up runner and previous r6
+release, then recreating only backend/API/scheduler/worker. Do not restore the
+databases merely to roll back code, delete retry evidence, rerun Step1-Step3,
+or replace the CCE Master.
+
 ## 2026-09-01 - Codex - T151 YF non-clinical scanner exclusion
 
 ### Goal and implementation

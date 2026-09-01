@@ -1,5 +1,25 @@
 # 07 Airflow DAG 设计
 
+## T152 Step4 bounded wait and retry generation
+
+The 18-task topology is unchanged. `step4_publish` treats
+`Step4 requires a successful Master Job` as transient only when the same
+attempt's Step3 sidecar is terminal success and its Master name equals the
+immutable batch binding. It retries every five seconds for at most 600 seconds.
+Real Master failure, missing/mismatched identity and timeout still fail closed.
+
+Only `step4_publish` may restart a terminal failed runner generation. The
+request SHA must be unchanged and the old worker must be dead. Its status,
+worker metadata and log are moved to
+`history/step4_publish/retry-N/` before the new generation publishes
+`accepted -> running -> terminal`. Other stages retain their previous
+fail-closed restart behavior.
+
+The production recovery clears only Step4 and downstream tasks in the same
+DagRun. It never clears Step1-Step3 or submits a replacement Master. A new
+error after the Master gate is a separate WGS/result-contract failure and must
+not be converted to CRAM repair or hidden by the 600-second wait.
+
 ## T149 Step3 monitor restart semantics
 
 The 18-task `bio_wgs` topology is unchanged. A Step3 control-plane failure is

@@ -2,12 +2,21 @@
 
 更新时间：2026-09-01
 
+T152更新：Airflow侧Step3/Step4 Master完成时序竞争已经修复并以同一attempt在生产
+复现验证。普通Step4已越过Master前置检查，但随后发现WGS 2499749冻结bundle内部的
+结果marker合同不一致：`cloud_runtime.py finalize-delivery`写入包含project、batch、
+run_id、schema_version和`status=PASS`的JSON；`cce_delivery.py`
+`reconcile_publish_status`仍要求文件严格等于`status=PASS\n`。因此当前DagRun再次在
+普通Step4失败，Step5-Step6未运行。本任务没有修改WGS仓库、冻结bundle或OBS对象，
+也没有使用CRAM repair；需先由WGS/runtime侧批准并统一合同后再继续。
+
 当前结论：T146 当前 WGS 发布已更新到 commit
 `2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68`，node200 cce-pipeline为0.8.1。
 该提交相对`cdee32c`只同步0.8.1生产说明，运行代码未变化；Airflow仍以完整commit
 绑定每个新AnalysisRun。旧失败analysis已按operator授权在备份后清理。新的
 `WGS_20260901_031616_C74E6C`绑定2499749；T149已在不重跑Step1/Step2、不重建
-Master的前提下修复并接管Step3，当前由原DagRun等待真实CCE终态。
+Master的前提下修复并接管Step3，Master已成功。T152修复了随后发现的Step3/Step4
+时序竞争；当前由上述WGS marker合同不一致阻断在普通Step4。
 
 ## 1. 当前发布合同
 
@@ -93,10 +102,11 @@ Master Job/Pod evidence仍由node200写入共享spool，observer不持有kubecon
   `cce-master-79c59ff6401e15d76aa5`。
 - T149修复Step3状态原子性、单调状态、冻结Master身份校验和过渡态HTTP 200；observer
   绑定冻结profile中的`cce-run-650a0767d41b3157`，不再误用Airflow run label。
-- `start_step3_monitor`为success/try 2，`wait_step3_analysis`为up_for_reschedule/try 2；
-  authenticated API显示当前Rule `MEI_MEICall`、41条Rule状态及唯一Master Running。
-- 原DagRun将在真实CCE成功后自动进入Step4-Step6；若CCE真实失败则如实失败。本次不再
-  人工高频轮询，最终结果尚未验收。
+- `start_step3_monitor`为success/try 2，`wait_step3_analysis`为success/try 3
+  （包含reschedule计数）；唯一Master在
+  `2026-09-01T08:26:26Z` Complete，UID保持不变。
+- 原DagRun已进入普通Step4。T152首次修复了13秒Master完成竞争，第二次运行在
+  `ANALYSIS_COMPLETE`格式核验失败；Step5-Step6尚未执行，最终结果未验收。
 
 ### cdee32c attempt 7（历史阻断）
 
