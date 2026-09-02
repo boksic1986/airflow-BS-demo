@@ -10,7 +10,7 @@ frontend: Submit表单展示V4.2.0/7879718、T7及variant caller；此前Batch�
 validation: BS10610 Docker backend 280 passed/1 skipped；scripts 38 passed；Airflow DagBag import_errors=0、bio_wgs=18 tasks/6 reschedule sensors/paused-on-creation；PostgreSQL 15完成0001→0013、受控downgrade/upgrade；frontend 9 files/32 tests及Vite build通过；Compose解析、secret scan和git diff --check通过。
 runtime: 未部署、未切current、未启动OBS/CCE/WGS/Step7；在线T152状态未改变。
 network: 只读复核nipt_analysis_test_net=192.168.199.0/24、gateway=192.168.199.1；仅frontend发布172.17.106.10:12959。
-repository: GitHub PR #4已合并，merge commit 17c0f97ec5128427d14555f3cab6fc6f6152367a；root main已ff-only同步。原T146分支不再承担开发。
+repository: 主功能PR #4 merge 17c0f97；交接PR #5 merge 2f2c01c；4.2.0真实共享路径修复PR #6 merge d3fb7c55542b941720376858d11ecb36470dd8df。root main均已ff-only同步，原T146分支不再承担开发。
 ```
 
 ## 2026-09-02 T159 WGS提交、传输进度与失败日志合同修正

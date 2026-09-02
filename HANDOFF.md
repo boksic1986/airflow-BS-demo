@@ -37,6 +37,11 @@ published port: only 172.17.106.10:12959
   `https://github.com/boksic1986/airflow-BS-demo/pull/4`。
 - merge commit为`17c0f97ec5128427d14555f3cab6fc6f6152367a`；root main已
   `pull --ff-only`同步。原T146开发分支已经结束，后续部署应从该main新建分支。
+- 最终只读复核发现4.2.0位于新`wgs-4.2.0`共享目录，而旧`wgs-4.1.1`
+  仍是6c982817历史worktree。修复已通过PR #6合并：
+  `https://github.com/boksic1986/airflow-BS-demo/pull/6`，merge
+  `d3fb7c55542b941720376858d11ecb36470dd8df`；修复后backend 280 passed/
+  1 skipped、scripts 38 passed。
 - 下一阶段仍是disabled release/在线暂停切换；需要单独确认后才可修改在线T152、
   安装node200 wrapper或执行真实WGS。
 
