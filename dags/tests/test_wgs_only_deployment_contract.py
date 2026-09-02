@@ -121,6 +121,32 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertEqual(scanner["environment"]["WGS_INTAKE_SCAN_INTERVAL_SECONDS"], "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-600}")
         self.assertEqual(scanner["environment"]["WGS_AUTO_DISPATCH_ENABLED"], "${WGS_AUTO_DISPATCH_ENABLED:-false}")
 
+    def test_all_long_lived_wgs_services_have_bounded_docker_logs(self):
+        payload = yaml.safe_load(
+            (REPO_ROOT / "docker-compose.wgs.yaml").read_text(encoding="utf-8")
+        )
+        expected = {
+            "driver": "json-file",
+            "options": {"max-size": "20m", "max-file": "3"},
+        }
+        for service_name in (
+            "postgres",
+            "redis",
+            "backend",
+            "wgs-run-observer",
+            "platform-metrics-collector",
+            "wgs-intake-scanner",
+            "airflow-api-server",
+            "airflow-scheduler",
+            "airflow-worker",
+            "frontend-nginx",
+        ):
+            self.assertEqual(
+                payload["services"][service_name].get("logging"),
+                expected,
+                service_name,
+            )
+
     def test_bs10610_network_and_host_binding_are_immutable_contracts(self):
         payload = yaml.safe_load((REPO_ROOT / "docker-compose.wgs.yaml").read_text(encoding="utf-8"))
         network = payload["networks"]["wgs-platform"]
