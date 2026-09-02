@@ -1,5 +1,34 @@
 # TASKS.md
 
+## T168 - `.96` WGS production control-plane disabled deployment
+
+Owner: infra/backend/airflow/frontend/QA/docs
+
+Status: done in disabled mode; real runtime remains blocked
+
+Scope:
+- Deploy the merged WGS-only backend/frontend/Airflow architecture to
+  `172.17.61.96` without migrating BS10610 demo state.
+- Keep PostgreSQL on a local Docker volume backed by `/data`, while WGS results
+  and control spools use the approved `14.hanjingjing` `/sg2` roots.
+- Install the `hanjj` SSH identity for node200 with a pinned host key, without
+  placing private material in the release, image, database or logs.
+- Preserve the fixed external Docker network and expose only the frontend.
+
+Acceptance:
+- [x] Fresh biodemo/Airflow databases initialized; one admin and zero run state.
+- [x] Only paused `bio_wgs` is loaded with 18 tasks and no import errors.
+- [x] Login, capabilities, release, scanner and disabled-submit HTTP smoke pass.
+- [x] Scanner bootstrap counts historical directories without persisting detail
+  rows or creating AnalysisRun/Airflow DagRun records.
+- [x] PostgreSQL is a local Docker volume on `/data`; all persistent service logs
+  are capped at `20m * 3` and all services have zero restarts at acceptance.
+- [x] Network is `192.168.199.0/24`, gateway `192.168.199.1`, with only
+  `172.17.61.96:12959` published.
+- [ ] Configure and validate the approved `hanjj` node200 kubeconfig, kubectl and
+  CCE operator contract before enabling either execution gate.
+- [ ] Run a separately approved minimal real WGS batch before unpausing the DAG.
+
 ## T129/T130 WGS-only production platform
 
 | ID | Task | Owner | Deliverables | Acceptance | Status |
@@ -40,6 +69,7 @@
 | T165 | Run Batch/Sample search, Finished timestamps and production UI synchronization | backend/frontend/infra/QA/docs | Batch and Finished in both run lists; server-side batch/sample search; immutable finalize time; deploy merged WGS UI contracts | BS Docker suites/build, migration, fixed-network preflight and authenticated HTTP smoke pass; historical successful run gets authoritative finish time; no WGS/OBS/CCE rerun | done; production disabled release deployed and verified |
 | T166 | WGS workflow and Rule projection correction | backend/observer/frontend/infra/QA/docs | one backend Step1-Step6 contract; current WGS 4.1.1 Rule phase mapping; stable Rule order and exact analysis.log sample enrichment; API-driven UI stages | historical run shows six successful stages, production Rule phases/order/sample context, no ETA text in message, Docker tests and fixed-network smoke pass | done; disabled production release deployed and verified |
 | T167 | `hanjj` runtime identity and directory migration | backend/airflow/infra/security/QA/docs | request v4 dual-root contract; protected `hanjj` SSH identity; node200 OBS/kubectl/kubeconfig/cce config; new control and direct batch roots; `.96/.97` SSH metrics | disabled release proves no old-root writes, no secret leakage, strict host keys, fixed network/port; real batch remains separately approved | design approved; implementation not started |
+| T168 | `.96` production control-plane disabled deployment | infra/backend/airflow/frontend/QA/docs | fresh local databases, WGS-only services, protected node200 SSH identity, fixed network and bounded logs | login/API/DAG/database/storage/network smoke pass; execution remains disabled | done in disabled mode; node200 CCE config and real batch remain blocked |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
 

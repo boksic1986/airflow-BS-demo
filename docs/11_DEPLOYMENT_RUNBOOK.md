@@ -1,5 +1,38 @@
 # 11 部署 Runbook
 
+## T168 `.96` production control plane
+
+The production WGS control plane is deployed on `172.17.61.96` under
+`/data/airflow-WGS`. Its `current` symlink points to an immutable release; the
+server-local `production.env` and SSH identity live outside every release.
+
+PostgreSQL must use the named Docker local volume
+`airflow-wgs_postgres-data`. The volume is backed by `.96` local `/data` storage;
+do not relocate PGDATA to `/sg2`. WGS business results and runtime spools remain
+under the separately approved `/sg2/14.hanjingjing/Cloud_WGS_Clinical` roots.
+
+The deployment must retain all of these disabled-state invariants:
+
+```text
+WGS_EXECUTION_ENABLED=false
+WGS_RUNTIME_ADAPTER_ENABLED=false
+WGS_SUBMISSION_PREVIEW_ENABLED=false
+WGS_AUTO_DISPATCH_ENABLED=false
+bio_wgs paused
+nipt_analysis_test_net = 192.168.199.0/24, gateway 192.168.199.1
+only 172.17.61.96:12959 published
+Docker logging max-size=20m, max-file=3
+```
+
+Before any real run, independently validate the `hanjj` node200 kubeconfig,
+kubectl and CCE operator config. A working SSH/OBS probe alone is insufficient.
+Enabling the two execution gates and unpausing `bio_wgs` require a separate
+approved minimal-batch acceptance. Never use `docker compose down -v`, recreate
+the external network, or delete `/sg2` data during release switching.
+
+Initial disabled-release evidence and database dumps are stored at
+`/data/airflow-WGS/backups/T168-initial-20260902T140812Z` with mode 0600.
+
 ## T166 WGS展示投影发布
 
 T166不迁移数据库、不运行WGS、不操作OBS/SFS业务数据。发布前备份biodemo与Airflow

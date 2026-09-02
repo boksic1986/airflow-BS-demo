@@ -1,5 +1,23 @@
 # 13 安全和运维约束
 
+## T168 production host boundary
+
+- The WGS production UI is the only published service and binds exactly to
+  `172.17.61.96:12959`; backend, Airflow, PostgreSQL, Redis and observers remain
+  internal to `nipt_analysis_test_net` (`192.168.199.0/24`).
+- PostgreSQL uses a `.96` local Docker volume backed by `/data`, not NFS/SFS.
+  Database dumps are mode 0600 and remain under `/data/airflow-WGS/backups`.
+- The node200 RSA private key is mounted read-only only where the Airflow UID
+  50000 requires it. The key, environment secrets and known-host material stay
+  outside releases and must never be printed, archived with source, or stored in
+  biodemo.
+- Every persistent Compose service uses Docker log rotation of `20m` and three
+  files. Scanner normal operation emits one summary per ten-minute cycle rather
+  than one line per discovered directory.
+- The disabled production deployment does not authorize OBS transfer, CCE
+  submission, WGS execution or Step7 cleanup. Node200 CCE credentials and the
+  operator contract must be accepted independently before gates change.
+
 ## T163 scanner例外与认证能力边界
 
 capabilities仍是登录后接口；前端不得通过匿名预取探测或展示生产能力。scanner的

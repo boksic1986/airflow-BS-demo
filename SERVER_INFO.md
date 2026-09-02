@@ -1,5 +1,31 @@
 # SERVER_INFO.md
 
+## T168 server96 production disabled deployment (2026-09-02)
+
+```text
+primary: 172.17.61.96
+linux_user: hanjj
+release_root: /data/airflow-WGS
+current_release: 20260902-wgs-4.1.1-6c98281-t168-server96-disabled-r2
+control_commit: f64c61a9868dbe8188d85d92ed8961929bd4ed81
+frontend: http://172.17.61.96:12959
+postgres_volume: airflow-wgs_postgres-data (local driver, /data XFS host storage)
+wgs_data_root: /sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical
+runtime_root: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime
+network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
+published_ports: 172.17.61.96:12959 only
+gates: execution=false, runtime_adapter=false, submission_preview=false, auto_dispatch=false
+airflow: bio_wgs only, 18 tasks, paused, zero import errors
+database: biodemo revision 20260901_0013; one admin; zero AnalysisRun/RunAttempt/DagRun
+scanner_bootstrap: 1843 directories, zero historical detail rows
+backup: /data/airflow-WGS/backups/T168-initial-20260902T140812Z
+```
+
+The production environment file and node200 private key are server-local under
+`/data/airflow-WGS/env` and `/data/airflow-WGS/secrets`; their contents must not
+be copied into this repository, release artifacts, logs or support transcripts.
+BS10610 remains the test control plane.
+
 ## T167 target `hanjj` runtime identity preflight (2026-09-02)
 
 ```text

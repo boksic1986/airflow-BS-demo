@@ -1,5 +1,56 @@
 # HANDOFF.md
 
+## 2026-09-02 - Codex - T168 `.96` WGS production disabled deployment
+
+### 已完成
+
+- 在`172.17.61.96`创建独立生产控制面：release根为`/data/airflow-WGS`，当前
+  release为`20260902-wgs-4.1.1-6c98281-t168-server96-disabled-r2`。BS10610测试环境
+  未停止、未迁移、未删除。
+- PostgreSQL使用`.96`本地Docker volume`airflow-wgs_postgres-data`，底层为`/data`
+  XFS；没有把PGDATA放到`/sg2`。业务结果和runtime spool使用
+  `/sg2/14.hanjingjing/Cloud_WGS_Clinical`下的两个受控根。
+- 使用用户提供的`id_rsa_hanjingjing`安装只供Airflow UID 50000读取的node200 SSH
+  身份，并固定ED25519 host key；私钥未进入Git、release、镜像、数据库、日志或备份。
+- 创建/复用唯一外部网络`nipt_analysis_test_net`：`192.168.199.0/24`、gateway
+  `192.168.199.1`；只发布`172.17.61.96:12959`。
+- 首次scanner bootstrap扫描1843个目录，未写历史明细；`wgs_intake_batch=0`、
+  `AnalysisRun=0`、`RunAttempt=0`、Airflow`DagRun=0`。
+
+### 验证
+
+```text
+backend: 311 passed, 1 skipped
+scripts: 40 passed
+WGS DAG/deployment focused tests: 20 passed
+Airflow: only bio_wgs; paused=true; 18 tasks; import errors=0
+HTTP: health=200; anonymous capabilities=401; admin login=200;
+      capabilities/release/scanner/runs=200; disabled submit=409
+services: 10 running; restart count=0; Postgres/Redis healthy
+logging: every persistent service max-size=20m, max-file=3
+database: alembic 20260901_0013; one admin; zero run state
+backup: /data/airflow-WGS/backups/T168-initial-20260902T140812Z
+biodemo SHA256: 9f7c6fddae2c945e541b2c5e48ec6feaadf56ec17fc475682da7809cb10a83f7
+airflow SHA256: bf5f20298d1f036304b82742c253738585123ffae4b6f0a75b07169bb482764b
+```
+
+### 门禁与未完成
+
+- `WGS_EXECUTION_ENABLED=false`、`WGS_RUNTIME_ADAPTER_ENABLED=false`、
+  `WGS_SUBMISSION_PREVIEW_ENABLED=false`、`WGS_AUTO_DISPATCH_ENABLED=false`；
+  `bio_wgs`保持paused。本次未启动OBS、CCE、真实WGS或Step7。
+- node200的`hanjj`仍缺少已批准的kubeconfig、kubectl和CCE operator配置；这是启用
+  真实runtime前的硬门禁。OBS配置可读不代表CCE提交条件已经满足。
+- `.96/.97` node exporter端口和Cloud Eye spool尚不可用，资源页会如实显示degraded，
+  但不影响当前禁用态控制面。
+- 管理员初始密码仅保存在`.96`的`/data/airflow-WGS/env/production.env`，不要复制到
+  文档或聊天；需要时在服务器上受控重置。
+
+### 回滚
+
+停止`.96`的`airflow-wgs` Compose并将`current`恢复到先前目标即可；不要使用`down -v`，
+不要删除`airflow-wgs_postgres-data`、`/sg2`数据、固定Docker网络或BS10610测试环境。
+
 ## 2026-09-02 - Codex - T167 `hanjj`运行身份与目录迁移设计
 
 ### 已完成
