@@ -225,7 +225,7 @@ def _project(settings, project_id: str) -> WgsProject:
 def create_and_submit_run(*, session, settings, airflow_client, username: str,
                           project_id: str, platform: str, sequencing_batch: str,
                           analysis_batch: str, fastq_root_id: str,
-                          use_reference: str, algo: str = "DNAscope") -> dict:
+                          use_reference: str) -> dict:
     """Create one catalog-bound run; WGS prepare owns sampleinfo and selection."""
     project = _project(settings, project_id)
     project.platform(platform)
@@ -237,8 +237,6 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
         raise ValueError("sequencing_batch must use YYYYMMDDX format")
     if use_reference not in {"all", "ref", "no"}:
         raise ValueError("use_reference must be all, ref, or no")
-    if algo not in {"DNAscope", "Haplotyper"}:
-        raise ValueError("algo must be DNAscope or Haplotyper")
     node_root = str(root["node200_path"])
     release = load_wgs_release_catalog(Path(settings.wgs_release_catalog_path)).release
     batch_no = f"WGS_{analysis_batch.strip()}_{platform}Hg38{release.version}"
@@ -257,7 +255,6 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
         analysis_batch=analysis_batch.strip(),
         fastq_root=node_root,
         use_reference=use_reference,
-        algo=algo,
     )
     session.commit()
     return submit_wgs_run(

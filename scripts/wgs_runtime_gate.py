@@ -62,7 +62,7 @@ REQUEST_ROOT = Path(
 WGS_REPO_ROOT = Path(
     os.getenv(
         "WGS_REPO_ROOT",
-        "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0",
+        "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
     )
 )
 WGS_PYTHON = os.getenv("WGS_PYTHON", "/bi/software/mamba/envs/WGS/bin/python")
@@ -287,10 +287,6 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
     platform = str(payload.get("platform") or "").strip()
     if platform:
         command.extend(["--platform", platform])
-    algo = str(payload.get("algo") or "DNAscope").strip()
-    if algo not in {"DNAscope", "Haplotyper"}:
-        raise ValueError("algo must be DNAscope or Haplotyper")
-    command.extend(["--algo", algo])
     use_reference = str(payload.get("use_reference") or "").strip()
     if use_reference:
         if use_reference not in {"all", "ref", "no"}:

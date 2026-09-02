@@ -8,8 +8,8 @@
 资源标记为stale/degraded，不影响WGS任务。
 WGS日志只能通过服务端日志索引签发的opaque key读取；即使索引为空，也不得回退到
 legacy stdout/stderr/metadata固定路径。
-WGS版本、platform、算法和最终批次名均由服务端catalog/发布合同约束；浏览器只能
-选择`DNAscope|Haplotyper`，不能提交仓库路径、commit、镜像或任意算法参数。
+WGS版本、platform和最终批次名均由服务端catalog/发布合同约束；浏览器不能提交
+仓库路径、commit、镜像、算法参数或4.2.0测试版本。
 
 ## T151 non-clinical intake boundary
 

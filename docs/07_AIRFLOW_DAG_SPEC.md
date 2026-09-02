@@ -6,9 +6,9 @@
 `reschedule`。`cleanup_step7`是同一DAG的admin维护模式，会跳过普通生产路径，
 绝不自动执行。前端阶段来自`run_stage_state`，不展示原始task ID或task计数进度。
 
-WGS 4.2.0 prepare request显式携带`sequencing_batch`、`analysis_batch`、
-`platform=T7`和`algo=DNAscope|Haplotyper`。runner分别映射到WGS
-`--batch`、`--analysis-batch`、`--platform`和`--algo`；Step1-Step6仍只消费
+生产WGS 4.1.1 prepare request显式携带`sequencing_batch`、`analysis_batch`和
+`platform=T7`。runner分别映射到WGS`--batch`、`--analysis-batch`和
+`--platform`，不传4.2.0测试参数`--algo`；Step1-Step6仍只消费
 prepare生成的冻结bundle，DAG拓扑不变。
 
 ## T152 Step4 bounded wait and retry generation

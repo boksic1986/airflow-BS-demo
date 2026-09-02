@@ -5,7 +5,7 @@ projects:
     project_name: WGS_Clinical
     platforms:
       - platform_id: T7
-        display_name: T7 / hg38 / WGS V4.2.0
+        display_name: T7 / hg38 / WGS V4.1.1
     fastq_roots:
       - root_id: T7_Fastq
         display_name: T7 FASTQ production root
@@ -15,7 +15,3 @@ projects:
         type: enum
         values: [all, ref, "no"]
         default: all
-      algo:
-        type: enum
-        values: [DNAscope, Haplotyper]
-        default: DNAscope

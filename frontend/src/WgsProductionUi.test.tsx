@@ -18,8 +18,8 @@ it("uses the controlled direct WGS submission form", async () => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
     if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
-    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.2.0-7879718", version: "V4.2.0", source_commit: "78797181ee0582bea3167385c243616017f092ce", execution_enabled: false, runtime_adapter_enabled: false, submission_preview_enabled: false});
-    if (url.endsWith("/api/wgs/projects")) return json({items: [{project_id: "WGS_Clinical", display_name: "WGS Clinical", platforms: [{platform_id: "T7", display_name: "T7 / hg38 / V4.2.0"}], fastq_roots: [{root_id: "T7_Fastq", display_name: "T7 FASTQ"}], editable_config: {use_reference: {type: "enum", values: ["all", "ref", "no"], default: "all"}, algo: {type: "enum", values: ["DNAscope", "Haplotyper"], default: "DNAscope"}}}]});
+    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-6c98281", version: "V4.1.1", source_commit: "6c982817614db6a1157b6f287427ddf01ac91827", execution_enabled: false, runtime_adapter_enabled: false, submission_preview_enabled: false});
+    if (url.endsWith("/api/wgs/projects")) return json({items: [{project_id: "WGS_Clinical", display_name: "WGS Clinical", platforms: [{platform_id: "T7", display_name: "T7 / hg38 / V4.1.1"}], fastq_roots: [{root_id: "T7_Fastq", display_name: "T7 FASTQ"}], editable_config: {use_reference: {type: "enum", values: ["all", "ref", "no"], default: "all"}}}]});
     return json({items: [], total: 0});
   }));
 
@@ -29,8 +29,8 @@ it("uses the controlled direct WGS submission form", async () => {
   expect(screen.getByLabelText("Sequencing batch")).toBeInTheDocument();
   expect(screen.getByLabelText("Analysis batch")).toBeInTheDocument();
   expect(screen.getByLabelText("FASTQ root")).toBeInTheDocument();
-  expect(await screen.findByText("WGS V4.2.0 / 7879718")).toBeInTheDocument();
-  expect(screen.getByLabelText("Variant caller")).toHaveValue("DNAscope");
+  expect(await screen.findByText("WGS V4.1.1 / 6c98281")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Variant caller")).not.toBeInTheDocument();
   expect(screen.queryByRole("combobox", {name: /WGS version/i})).not.toBeInTheDocument();
   expect(screen.queryByText(/READY/)).not.toBeInTheDocument();
   expect(screen.getByRole("button", {name: "Submit WGS analysis"})).toBeDisabled();
@@ -44,8 +44,8 @@ it("shows the production submission action when both WGS execution gates are ena
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
     if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
-    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.2.0-7879718", version: "V4.2.0", source_commit: "78797181ee0582bea3167385c243616017f092ce", execution_enabled: true, runtime_adapter_enabled: true, submission_preview_enabled: true});
-    if (url.endsWith("/api/wgs/projects")) return json({items: [{project_id: "WGS_Clinical", display_name: "WGS Clinical", platforms: [{platform_id: "T7", display_name: "T7 / hg38 / V4.2.0"}], fastq_roots: [{root_id: "T7_Fastq", display_name: "T7 FASTQ"}], editable_config: {use_reference: {type: "enum", values: ["all", "ref", "no"], default: "all"}, algo: {type: "enum", values: ["DNAscope", "Haplotyper"], default: "DNAscope"}}}]});
+    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-6c98281", version: "V4.1.1", source_commit: "6c982817614db6a1157b6f287427ddf01ac91827", execution_enabled: true, runtime_adapter_enabled: true, submission_preview_enabled: true});
+    if (url.endsWith("/api/wgs/projects")) return json({items: [{project_id: "WGS_Clinical", display_name: "WGS Clinical", platforms: [{platform_id: "T7", display_name: "T7 / hg38 / V4.1.1"}], fastq_roots: [{root_id: "T7_Fastq", display_name: "T7 FASTQ"}], editable_config: {use_reference: {type: "enum", values: ["all", "ref", "no"], default: "all"}}}]});
     return json({items: [], total: 0});
   }));
 

@@ -6,8 +6,8 @@ Run Tracker增加Batch并使用权威阶段进度。Run Detail移除WGS QC和Mas
 digest，Families改为Samples，展示安全样本/家系表、六阶段依赖图和可筛选Rule表，
 日志仅通过opaque key读取。Submit Run为受控单页表单；WGS在DAG prepare内执行sampleinfo和analysis，前端只展示最终分析样本。Step7仅在后端能力为
 true时向admin展示。Dashboard资源区显示`.96/.97`及SFS/OBS快照。
-当前表单只读展示WGS V4.2.0/7879718，platform固定为T7，并提供
-DNAscope/Haplotyper白名单选择；前端不自行拼接最终分析目录名。
+当前表单只读展示WGS V4.1.1/6c98281，platform固定为T7；不展示或提交
+4.2.0测试版本及其算法参数，前端不自行拼接最终分析目录名。
 
 ## T150 T7扫描周期与名称级发现
 

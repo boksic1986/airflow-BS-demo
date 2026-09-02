@@ -428,7 +428,7 @@ def test_wgs_dry_run_is_success_without_qc_pending_and_catalog_is_explicit(tmp_p
     assert tracker["display_status"] == "success"
     assert tracker["qc_display_status"] == "not_applicable"
     assert "not shown" in tracker["qc_display_note"].lower()
-    assert catalog["name"] == "WGS 4.2.0 CCE"
+    assert catalog["name"] == "WGS 4.1.1 CCE"
     assert [stage["key"] for stage in catalog["stages"]] == [
         "step1_upload", "step2_master", "step3_monitor",
         "step4_publish", "step5_download", "step6_materialize",

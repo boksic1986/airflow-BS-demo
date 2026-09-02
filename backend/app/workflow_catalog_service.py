@@ -23,7 +23,7 @@ WORKFLOW_DEFINITIONS: dict[str, dict[str, str]] = {
         "runtime": "Snakemake 9.23.1 in NIPTPro",
     },
     "wgs": {
-        "name": "WGS 4.2.0 CCE",
+        "name": "WGS 4.1.1 CCE",
         "dag_id": "bio_wgs",
         "runtime_profile_id": "resolved-by-wgs-prepare",
         "runtime": "External CCE Master / Snakemake",

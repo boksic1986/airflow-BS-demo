@@ -83,7 +83,6 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
         "fq_path": "/sg2/33.chenjiucheng/WGS_input/WGS_20260825A_T7Hg38V4.1.1",
         "analysis_batch": "20260902A",
         "platform": "T7",
-        "algo": "Haplotyper",
     }
 
     command = gate.build_prepare_command(payload)
@@ -106,7 +105,7 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
     assert gate.CCE_OPERATOR_CONFIG in command
     assert "--skip-samplelist-ready-check" in command
     assert command[command.index("--platform") + 1] == "T7"
-    assert command[command.index("--algo") + 1] == "Haplotyper"
+    assert "--algo" not in command
     assert not any("SECRET" in item for item in command)
 
 

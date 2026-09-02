@@ -2,12 +2,12 @@
 
 Status: approved implementation contract for T153-T158.
 
-Current candidate baseline (2026-09-02): WGS `dev_CJC_4.2.0_cloud`, version
-`V4.2.0`, commit `78797181ee0582bea3167385c243616017f092ce`, release ID
-`wgs-4.2.0-7879718`. The shared repository paths are
-`/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0` on BS10610 and
-`/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0` on node200. This is a
-source-contract update only and does not enable or deploy a real run.
+Current production-cloud baseline (2026-09-02): WGS `dev_CJC_4.1.1_cloud`,
+version `V4.1.1`, commit `6c982817614db6a1157b6f287427ddf01ac91827`,
+release ID `wgs-4.1.1-6c98281`. The shared repository paths remain
+`/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` on BS10610 and
+`/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` on node200. WGS 4.2.0 is a
+test version and is not selectable or executable through this production catalog.
 
 This document supersedes the WGS user-interface, progress, submission, log,
 resource, and Step7-cleanup portions of documents 25-27. The WGS execution
@@ -137,7 +137,7 @@ Submission is one server-controlled action, not a pre-analysis preview wizard.
 
 ```text
 project_id, platform, sequencing_batch, analysis_batch,
-fastq_root_id, use_reference, algo
+fastq_root_id, use_reference
 ```
 
 The backend resolves the project and FASTQ root from the server catalog, binds
@@ -145,10 +145,10 @@ the current WGS release, creates exactly one AnalysisRun, and submits the single
 `bio_wgs` DAG idempotently. The browser cannot submit an arbitrary path or
 version.
 
-For WGS 4.2.0, `platform=T7`; `sequencing_batch` and `analysis_batch` use the
+For production WGS 4.1.1, `platform=T7`; `sequencing_batch` and `analysis_batch` use the
 WGS batch token such as `20260902A`. WGS itself derives the authoritative
-directory/OBS batch name `WGS_<analysis_batch>_T7Hg38V4.2.0`. `algo` is limited
-to `DNAscope|Haplotyper` and defaults to `DNAscope`.
+directory/OBS batch name `WGS_<analysis_batch>_T7Hg38V4.1.1`. The production
+prepare contract does not expose an `algo` parameter.
 
 The DAG then follows the WGS repository's existing behavior in the protected
 analysis work area:
@@ -165,7 +165,7 @@ The frontend does not preview or edit the intermediate sampleinfo, eligible or
 pending sets. The Samples page remains empty while prepare is running and, once
 prepare has completed, shows only the final samples selected by WGS analysis.
 Projects and FASTQ roots remain server catalog entries. `use_reference` is a
-  WGS contract value; only `use_reference` and `algo` are editable. Resolved profile, resources, images and internal paths are
+  WGS contract value; only `use_reference` is editable. Resolved profile, resources, images and internal paths are
 read-only. No raw YAML endpoint is provided.
 
 ## 6. Step7 SFS cleanup
@@ -214,7 +214,7 @@ longer called by the WGS UI.
 - Step4 CRAM repair is rendered only when `available=true` or an existing
   repair operation is active. Raw capability reasons are mapped to operator
   language and are not shown as a permanent error panel.
-- Workflow Catalog describes WGS 4.2.0, `bio_wgs`, and Step1-Step6, and uses the
+- Workflow Catalog describes WGS 4.1.1, `bio_wgs`, and Step1-Step6, and uses the
   same authoritative progress contract as Run Tracker.
 - Missing exact progress is explicitly shown as “Detailed progress
   unavailable”; it never falls back to DAG task percentage.
@@ -254,9 +254,8 @@ cce-pipeline contracts:
 - submission runs WGS `sampleinfo` followed by `analysis` inside normal DAG
   prepare and publishes only the final selected samples after prepare.
 
-The candidate catalog is explicitly bound to `wgs-4.2.0-7879718`; it does not
-silently follow repository HEAD. Compatibility audit confirmed structured
-`ANALYSIS_COMPLETE` support and the new prepare `--algo` option. Execution and
+The production catalog is explicitly bound to `wgs-4.1.1-6c98281`; it does not
+silently follow repository HEAD or the WGS 4.2.0 test branch. Execution and
 deployment remain separately gated.
 
 The evidence bridge mirrors the bound `analysis.log` and stage worker logs.
