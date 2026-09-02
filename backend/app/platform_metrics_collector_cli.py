@@ -67,9 +67,26 @@ def _collect_node_spool(state: dict[str, str]) -> None:
                         PlatformResourceSnapshot.resource_key == key
                     )
                 )
-                elapsed = (
-                    (observed_at - _aware(prior.source_updated_at)).total_seconds()
+                prior_source_at = (
+                    _aware(prior.source_updated_at)
                     if prior is not None and prior.source_updated_at is not None
+                    else None
+                )
+                if prior_source_at is not None and observed_at <= prior_source_at:
+                    if observed_at == prior_source_at and prior.status != "healthy":
+                        upsert_resource_snapshot(
+                            session=session,
+                            resource_key=key,
+                            resource_type="node",
+                            display_name=display_name,
+                            current=dict(prior.current_json or {}),
+                            source_updated_at=prior_source_at,
+                        )
+                        _log_transition(state, key, "healthy")
+                    continue
+                elapsed = (
+                    (observed_at - prior_source_at).total_seconds()
+                    if prior_source_at is not None
                     else 0
                 )
                 current = _derive_node_rates(

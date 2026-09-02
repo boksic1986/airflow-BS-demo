@@ -152,6 +152,7 @@ def test_node_spool_upserts_fixed_nodes_and_derives_rates(tmp_path, monkeypatch)
     monkeypatch.setattr("app.platform_metrics_collector_cli.get_sessionmaker", lambda: sessions)
 
     _collect_node_spool({})
+    _collect_node_spool({})
 
     with sessions() as session:
         rows = {
