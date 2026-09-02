@@ -1,5 +1,22 @@
 # 11 部署 Runbook
 
+## T165 生产前端禁用态发布
+
+BS10610当前release为
+`20260902-wgs-4.1.1-6c98281-t165-production-ui-r1`。切换前必须备份两套数据库、
+暂停`bio_wgs`，并将`WGS_EXECUTION_ENABLED`、`WGS_RUNTIME_ADAPTER_ENABLED`和
+`WGS_AUTO_DISPATCH_ENABLED`设为false。应用加法迁移`20260901_0013`后，只重建应用、
+Airflow、scanner/observer、metrics collector和frontend；不得重建PostgreSQL、Redis、
+volume或外部网络。
+
+重建后的生产不变量：
+
+- scanner继续启用，`WGS_INTAKE_SCAN_INTERVAL_SECONDS=600`；
+- `nipt_analysis_test_net`保持`192.168.199.0/24`，gateway为`192.168.199.1`；
+- 只有frontend/nginx发布`172.17.106.10:12959`；
+- node exporter或Cloud Eye不可用时只显示degraded，不阻断WGS，也不回退到BS10610指标；
+- 禁用态submit必须返回HTTP 409且不得创建DagRun。
+
 ## T163 最小在途热修复
 
 T163从在线T152 release建立新不可变release，不提前部署migration 0013。发布前备份

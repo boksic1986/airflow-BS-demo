@@ -3,6 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
+import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -200,6 +201,26 @@ class FakeWgsLeafAirflowClient(FakeAirflowClient):
         }
 
 
+class FakeSuccessfulWgsAirflowClient(FakeAirflowClient):
+    def __init__(self, state: str, *, end_date: str | None = "2026-07-03T00:05:00+00:00") -> None:
+        super().__init__(state)
+        self.end_date = end_date
+
+    def get_dag_run(self, dag_id: str, dag_run_id: str) -> dict:
+        payload = super().get_dag_run(dag_id, dag_run_id)
+        payload["end_date"] = self.end_date
+        return payload
+
+    def list_task_instances(self, dag_id: str, dag_run_id: str) -> dict:
+        return {
+            "task_instances": [
+                {"task_id": "prepare_wgs_batch", "state": "success"},
+                {"task_id": "finalize_run", "state": "success"},
+                {"task_id": "release_leases", "state": "success"},
+            ]
+        }
+
+
 def install_app_fixtures(monkeypatch, session_factory, shared_root, airflow_client=None) -> None:
     monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
     monkeypatch.setattr(
@@ -262,6 +283,80 @@ def test_sync_wgs_rejects_success_leaf_when_an_upstream_task_failed(
 
     assert response.status_code == 200
     assert response.json()["status"] == "failed"
+
+
+def test_sync_wgs_success_backfills_pipeline_finished_at_from_airflow_end(
+    tmp_path, monkeypatch
+) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_submitted_run(
+        session_factory,
+        tmp_path,
+        analysis_id="WGS_20260901_031616_C74E6C",
+    )
+    with session_factory() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.pipeline_name = "wgs"
+        run.status = "success"
+        run.ended_at = None
+        run.pipeline_finished_at = None
+        session.commit()
+    fake_airflow = FakeSuccessfulWgsAirflowClient("success")
+    install_app_fixtures(
+        monkeypatch, session_factory, tmp_path / "shared", fake_airflow
+    )
+
+    response = TestClient(main.app).post(
+        f"/api/runs/{analysis_id}/actions/sync-airflow"
+    )
+
+    assert response.status_code == 200
+    expected = datetime(2026, 7, 3, 0, 5)
+    with session_factory() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+    assert run.ended_at == expected
+    assert run.pipeline_finished_at == expected
+
+
+@pytest.mark.parametrize("end_date", [None, "not-an-airflow-datetime"])
+def test_sync_wgs_success_does_not_invent_missing_airflow_end_time(
+    tmp_path, monkeypatch, end_date
+) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_submitted_run(
+        session_factory,
+        tmp_path,
+        analysis_id="WGS_MISSING_END_DATE",
+    )
+    with session_factory() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.pipeline_name = "wgs"
+        run.ended_at = None
+        run.pipeline_finished_at = None
+        session.commit()
+    fake_airflow = FakeSuccessfulWgsAirflowClient("success", end_date=end_date)
+    install_app_fixtures(
+        monkeypatch, session_factory, tmp_path / "shared", fake_airflow
+    )
+
+    response = TestClient(main.app).post(
+        f"/api/runs/{analysis_id}/actions/sync-airflow"
+    )
+
+    assert response.status_code == 200
+    with session_factory() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+    assert run.status == "success"
+    assert run.ended_at is None
+    assert run.pipeline_finished_at is None
 
 
 def test_sync_airflow_running_clears_stale_terminal_fields(tmp_path, monkeypatch) -> None:

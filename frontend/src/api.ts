@@ -1,6 +1,7 @@
 export type RunSummary = {
   analysis_id: string;
   project_name?: string | null;
+  batch_no?: string | null;
   pipeline: string;
   status: string;
   created_at?: string | null;

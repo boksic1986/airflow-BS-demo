@@ -1,5 +1,15 @@
 # 06 前端设计
 
+## T165 Run列表同步
+
+- Command Center的Run Tracker与Batch Runs都显示`Batch`和`Finished`。
+- `Finished`优先显示不可变的`pipeline_finished_at`，旧记录回退到`ended_at`；
+  活动任务显示`In progress`，只有确实没有终态时间的历史任务才显示`Not captured`。
+- Run Tracker、Batch Runs和顶部全局搜索统一提示并支持project、batch、sample及
+  run ID。搜索由后端在分页前执行，不能只过滤当前页。
+- WGS Run Tracker继续使用业务阶段名称和权威阶段进度，不恢复原始Airflow task ID、
+  DAG任务数百分比或QC pending。
+
 ## T163 登录后能力加载和T7产品文案
 
 受保护的`/api/platform/capabilities`只在认证Session建立后请求。登录页不会触发该
@@ -143,7 +153,7 @@ by itself convert an otherwise verified WGS run to failed.
   Exact Asia/Shanghai time is available in the tooltip. A local 60-second
   clock refresh updates age text without an API request.
 - `Search operations` is shared by Run Tracker and Intake Scanner and matches
-  project, run ID, and intake batch ID. Both tables keep independent paging and
+  project, run ID, analysis batch, sample/family ID, and intake batch ID. Both tables keep independent paging and
   reset to page one when pipeline/search changes.
 - Dashboard Intake columns align with Run Tracker semantics: Project/Batch,
   Pipeline, Status, Current stage, Progress, Samples, Runtime/ETA, Started,
@@ -1045,7 +1055,7 @@ keeping deployed scope limited to PGT-A and NIPT Docker.
 - Run Tracker remains 10 rows per page. It uses human stage labels and keeps raw
   task/rule ids as secondary debug text or tooltips.
 - Batch Runs uses `GET /api/runs` with server keyword/filter/sort/pagination and
-  stores filter state in the URL. It has no unsupported retry/cancel/archive
+  shows Batch and Finished from server-owned fields. It stores filter state in the URL. It has no unsupported retry/cancel/archive
   placeholders. `All deployed` sends `pipeline=deployed`, which excludes
   historical WES qsub rows from the current operator surface.
 - Sample Matrix uses `GET /api/samples` with 25-row pagination and never renders
@@ -1053,7 +1063,7 @@ keeping deployed scope limited to PGT-A and NIPT Docker.
 - Failure Triage uses one `GET /api/failures` request and a queue/diagnosis
   workspace. Workflow failures and sample QC alerts have separate filters and
   semantics.
-- Global search supports project name or run ID and navigates to Batch Runs. It
+- Global search supports project name, batch, sample/family ID, or run ID and navigates to Batch Runs. It
   does not claim log search capability.
 - Resource-page keyword controls debounce URL/API updates by 300 ms and replace
   the current history entry, so typing does not create one browser-history item

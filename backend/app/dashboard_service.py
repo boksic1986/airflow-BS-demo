@@ -104,12 +104,30 @@ def get_dashboard_runs(
         else:
             base_query = base_query.where(AnalysisRun.status == normalized_status)
 
-    if keyword:
-        pattern = f"%{keyword.strip().lower()}%"
+    normalized_keyword = keyword.strip().lower() if keyword else ""
+    if normalized_keyword:
+        pattern = f"%{normalized_keyword}%"
+        sample_match = (
+            select(Sample.id)
+            .where(
+                Sample.analysis_id == AnalysisRun.analysis_id,
+                or_(
+                    func.lower(Sample.sample_id).like(pattern),
+                    func.lower(Sample.family_id).like(pattern),
+                ),
+            )
+            .exists()
+        )
         base_query = base_query.where(
             or_(
                 func.lower(AnalysisRun.analysis_id).like(pattern),
-                func.lower(cast(AnalysisRun.params_json, String)).like(pattern),
+                func.lower(
+                    cast(AnalysisRun.params_json["project_name"].as_string(), String)
+                ).like(pattern),
+                func.lower(
+                    cast(AnalysisRun.params_json["batch_no"].as_string(), String)
+                ).like(pattern),
+                sample_match,
             )
         )
     total = session.scalar(select(func.count()).select_from(base_query.order_by(None).subquery())) or 0

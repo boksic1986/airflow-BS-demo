@@ -1,5 +1,56 @@
 # HANDOFF.md
 
+## 2026-09-02 - Codex - T165 生产前端同步与Run检索/结束时间修复
+
+### 完成
+
+- 对照`docs/28`、合并后的main和T163生产release完成差异审计。线上旧前端确实缺少
+  Run Tracker Batch和新版Batch Runs；不是设计未完成，而是完整候选尚未发布。
+- `/api/runs`与`/api/dashboard/runs`现显式检索Batch、Sample ID和family ID；run列表
+  顶层返回`batch_no`。Run Tracker与Batch Runs均展示Batch和Finished，全局/页面搜索
+  提示同步包含batch和sample。
+- 新run在finalize写不可变结束时间；历史成功WGS可由`sync-airflow`使用DagRun
+  `end_date`补齐。生产run`WGS_20260901_031616_C74E6C`已回填
+  `2026-09-02T04:29:44.273615Z`。
+- 发布完整生产UI：业务Step1-Step6状态/进度、WGS QC隐藏、Samples/家系安全字段、
+  六阶段图、Rule排序与换行、opaque日志、Failure Triage、WGS 4.1.1 Catalog、受控
+  Submit表单和admin Step7入口均已同步。登录后capabilities正常加载。
+- biodemo升级到`20260901_0013`，创建disabled release
+  `20260902-wgs-4.1.1-6c98281-t165-production-ui-r1`。执行/runtime/自动提交均为false，
+  `bio_wgs`已paused；T7扫描仍启用且周期600秒。
+
+### 验证与证据
+
+```text
+BS10610 backend: 289 passed, 1 skipped
+BS10610 scripts: 40 passed
+BS10610 DAG: 136 passed, 7 skipped
+BS10610 frontend: 9 files / 34 tests passed; Vite build passed
+frontend image: sha256:267e5c3ee07de62bcea0c2d1b024a9c88f1f8cba0b25204a4cc27c59dd1e09ff
+HTTP: health/login/capabilities 200; Batch/Sample/Family search matched the run;
+      Finished returned the authoritative Airflow end; disabled submit returned 409
+scanner: scanned=1841, error=false, intake rows=10, 2226 rows=0
+backup: backups/T165-production-ui-sync-20260902T135306+0800
+biodemo SHA256: d88d55d995c7276d77012adc72297ae8687c84163c4f81c52ee5b1daf8d2811f
+airflow SHA256: c7d49bb4b0314fdf563b2f20d6bc8adb881c7576e16f418554bcd1b5e6edf9b3
+network: 192.168.199.0/24, gateway 192.168.199.1; only 172.17.106.10:12959 published
+```
+
+### 尚未完成
+
+- node200尚未安装/启用Airflow自有obsutil progress wrapper，因此Step1/Step5只能显示
+  阶段，不能显示真实速度/ETA；已有终态status不能反推历史速度。
+- `.96/.97`的node exporter端口当前拒绝连接，Cloud Eye SFS/OBS spool缺失；资源页已
+  上线但如实显示degraded，不回退展示BS10610或伪造云指标。
+- admin Step7合同、RBAC和UI存在，但尚未在生产执行；必须另行批准。
+- 不实现数百Rule实例的完整动态DAG；当前批准方案是六阶段依赖图加Rule实例表。
+
+### 回滚
+
+先保持`bio_wgs` paused和两个执行门禁false，原子指回T163 release并仅重建应用服务。
+数据库0013为加法迁移；不要降级，除非明确接受删除stage/draft/resource数据并设置受控
+downgrade开关。不要删除PostgreSQL/Redis volume、OBS/SFS、FASTQ、结果或外部网络。
+
 ## 2026-09-02 - Codex - T163 登录、T7发现与在途状态修复
 
 ### 完成

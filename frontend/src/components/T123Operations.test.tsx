@@ -10,6 +10,7 @@ import {IntakeScannerPanel} from "../features/dashboard/IntakeScannerPanel";
 import {IntakeDiscoveryTable} from "./IntakeDiscoveryTable";
 import {LogViewer, preferredLogSource} from "./LogViewer";
 import {OperationProjectCell} from "./OperationCells";
+import {RunTable} from "./RunTable";
 import {RunTracker} from "./RunTracker";
 
 const manualRun: DashboardRunTrackerRow = {
@@ -23,10 +24,12 @@ const manualRun: DashboardRunTrackerRow = {
   qc_display_note: "Workflow stopped before QC.",
   run_source: "manual",
   source_batch_id: "batch-20",
+  batch_no: "WGS_20260902A_T7Hg38V4.1.1",
   sample_count: 20,
   percent: 40,
   progress_source: "snakemake_events",
   not_in_airflow: false,
+  pipeline_finished_at: "2026-09-02T04:29:44Z",
 };
 
 it("labels manual runs and exposes QC unavailable without sample metric rows", () => {
@@ -35,6 +38,31 @@ it("labels manual runs and exposes QC unavailable without sample metric rows", (
   expect(screen.getByText("Manual")).toBeInTheDocument();
   expect(screen.getAllByText("batch-20").length).toBeGreaterThan(0);
   expect(screen.queryByText("QC unavailable")).not.toBeInTheDocument();
+  expect(screen.getByRole("columnheader", {name: "Batch"})).toBeInTheDocument();
+  expect(screen.getByText("WGS_20260902A_T7Hg38V4.1.1")).toBeInTheDocument();
+  expect(screen.getByPlaceholderText("project, batch, sample, family, or run ID")).toBeInTheDocument();
+  expect(screen.queryByText("Not captured")).not.toBeInTheDocument();
+});
+
+it("shows Batch and Finished in the Batch Runs table", () => {
+  const run = {
+    analysis_id: "WGS_BATCH_RUN",
+    project_name: "WGS Clinical",
+    batch_no: "WGS_20260902B_T7Hg38V4.1.1",
+    pipeline: "wgs",
+    status: "success",
+    sample_count: 3,
+    submitted_at: "2026-09-02T01:00:00Z",
+    started_at: "2026-09-02T01:01:00Z",
+    pipeline_finished_at: "2026-09-02T04:00:00Z",
+  };
+
+  render(<MemoryRouter><RunTable runs={[run]} /></MemoryRouter>);
+
+  expect(screen.getByRole("columnheader", {name: "batch"})).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", {name: "finished"})).toBeInTheDocument();
+  expect(screen.getByText("WGS_20260902B_T7Hg38V4.1.1")).toBeInTheDocument();
+  expect(screen.queryByText("Not captured")).not.toBeInTheDocument();
 });
 
 it("hides a dot-only source batch placeholder", () => {

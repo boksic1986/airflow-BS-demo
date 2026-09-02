@@ -65,7 +65,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
 
         self.assertEqual(
             scanner["command"][-1],
-            "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-1800}",
+            "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-600}",
         )
 
         for service in (observer, scanner):
@@ -106,7 +106,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         for forbidden in ("/data/wgs-evidence", "/config/wgs-bindings", "/data/wgs-runtime"):
             self.assertNotIn(forbidden, scanner_rendered)
         self.assertEqual(scanner["environment"]["WGS_INTAKE_SCAN_ENABLED"], "${WGS_INTAKE_SCAN_ENABLED:-true}")
-        self.assertEqual(scanner["environment"]["WGS_INTAKE_SCAN_INTERVAL_SECONDS"], "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-1800}")
+        self.assertEqual(scanner["environment"]["WGS_INTAKE_SCAN_INTERVAL_SECONDS"], "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-600}")
         self.assertEqual(scanner["environment"]["WGS_AUTO_DISPATCH_ENABLED"], "${WGS_AUTO_DISPATCH_ENABLED:-false}")
 
     def test_bs10610_network_and_host_binding_are_immutable_contracts(self):

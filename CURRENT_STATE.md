@@ -1,5 +1,20 @@
 # CURRENT_STATE.md
 
+## 2026-09-02 T165 生产前端同步、Batch/Sample检索与Finished修复
+
+```text
+release: current -> 20260902-wgs-4.1.1-6c98281-t165-production-ui-r1；前端镜像airflow-demo/frontend:t165-production-ui-sync，image ID sha256:267e5c3ee07d...。
+frontend: Run Tracker和Batch Runs均显示Batch/Finished；Current stage使用Step1-Step6业务语义和权威阶段进度；WGS QC、Master image digest和旧BS10610资源卡不再展示。Samples安全表、六阶段依赖图、稳定Rule排序/换行、opaque日志、Failure Triage、WGS 4.1.1 Catalog和受控Submit表单已同步上线。
+search: /api/runs和/api/dashboard/runs显式检索batch_no、analysis_id、project和Sample.sample_id/family_id；搜索不再依赖params JSON偶然命中。生产batch和sample查询均返回同一个run。
+finished: finalize对新run写不可变pipeline_finished_at/ended_at；sync-airflow可用Airflow DagRun end_date补齐历史成功WGS。WGS_20260901_031616_C74E6C已回填2026-09-02T04:29:44.273615Z（北京时间12:29:44）。
+database: biodemo非破坏升级到20260901_0013；迁移前biodemo和Airflow metadata备份在backups/T165-production-ui-sync-20260902T135306+0800。
+validation: BS10610 Docker backend 289 passed/1 skipped，scripts 40 passed，DAG 136 passed/7 skipped，frontend 9 files/34 tests及Vite build通过；登录、capabilities、Batch/Sample/Family检索、Finished、静态资源和submit=409 smoke通过。
+scanner: 继续600秒扫描，scanned=1841、error=false、intake rows=10、2226 rows=0；AnalysisRun仍只有1条且无活动run，自动dispatch=false。
+gate: 已按约定关闭WGS_EXECUTION_ENABLED和WGS_RUNTIME_ADAPTER_ENABLED，并暂停bio_wgs；本次未启动OBS、CCE、WGS或Step7。
+external_gaps: Step1/Step5透明progress代码已存在，但node200尚未安装/启用wrapper，故当前没有真实速度或ETA；172.17.61.96/.97的9100拒绝连接，Cloud Eye SFS/OBS spool不存在，资源页如实显示degraded；admin Step7合同/UI已实现但尚未进行生产执行验收。
+network: nipt_analysis_test_net仍为192.168.199.0/24、gateway 192.168.199.1；唯一宿主机发布仍为172.17.106.10:12959。
+```
+
 ## 2026-09-02 T163 登录、T7发现与在途状态修复
 
 ```text

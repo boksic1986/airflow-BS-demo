@@ -129,7 +129,7 @@ export function RunsPage() {
             <input
               aria-label="Keyword"
               value={keywordDraft}
-              placeholder="project or run ID"
+              placeholder="project, batch, sample, family, or run ID"
               onChange={(event) => setKeywordDraft(event.target.value)}
             />
           </label>

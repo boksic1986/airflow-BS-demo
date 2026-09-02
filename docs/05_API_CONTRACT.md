@@ -1,5 +1,15 @@
 # 05 API Contract
 
+## T165 Batch/样本检索与完成时间
+
+- `GET /api/dashboard/runs`和`GET /api/runs`的`keyword`均在数据库分页前匹配
+  project参数、analysis ID、`batch_no`、`sample.sample_id`和`sample.family_id`。
+  Sample匹配使用关联`EXISTS`查询；列表响应不会为了搜索而暴露整批样本编号。
+- 两个Run列表响应均返回顶层`batch_no`。客户端不再从analysis ID或路径推断批次。
+- WGS内部`finalize_run`在Step6成功后一次性写入相同的`pipeline_finished_at`和
+  `ended_at`；重试finalize不会覆盖第一次完成时间。历史缺失值只能从对应Airflow
+  DagRun的权威结束时间受控回填，不能填当前时间。
+
 ## T154-T157 WGS生产接口
 
 - `/api/runs/{id}/progress`返回权威业务阶段和可空的精确进度，禁止以Airflow
@@ -1443,6 +1453,9 @@ may call `/progress` internally to read Airflow task instances. Created rows and
 terminal success rows are resolved from biodemo DB/rule events to avoid
 unnecessary Airflow REST calls.
 
+`keyword` matches project, analysis ID, batch, sample ID, or family ID before
+pagination. Search does not add sample identifiers to tracker rows.
+
 Response shape:
 
 ```json
@@ -1608,7 +1621,8 @@ GET /api/runs?pipeline=pgta&status=failed&keyword=project-a&sort=created_desc&li
 
 Optional filters are `pipeline`, `status`, `keyword`, and `sort`. Supported sort
 values are `created_desc`, `duration_desc`, and `status`. Each list item retains
-the existing fields and adds `project_name`. Existing calls without the new
+the existing fields and adds `project_name` and `batch_no`. `keyword` matches
+project, analysis ID, batch, sample ID, or family ID. Existing calls without the new
 parameters remain valid. The operator UI sends `pipeline=deployed` for its
 `All deployed` choice. Aggregate callers that omit `pipeline` or send
 `pipeline=all` use the configured `DEPLOYED_PIPELINES` list; named-pipeline

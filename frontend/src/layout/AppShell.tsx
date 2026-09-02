@@ -61,12 +61,12 @@ export function AppShell() {
           <div className="environment-pill">{capabilities.environment} environment</div>
           <form className="global-search" role="search" onSubmit={submitSearch}>
             <Search size={16} />
-            <label className="sr-only" htmlFor="global-run-search">Search project or run ID</label>
+            <label className="sr-only" htmlFor="global-run-search">Search project, batch, sample, family, or run ID</label>
             <input
               id="global-run-search"
               type="search"
               value={search}
-              placeholder="Search project or run ID"
+              placeholder="Search project, batch, sample, family, or run ID"
               onChange={(event) => setSearch(event.target.value)}
             />
           </form>
