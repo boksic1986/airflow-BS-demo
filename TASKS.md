@@ -38,8 +38,46 @@
 | T161 | Production WGS 4.1.1 rebind and repository integration | backend/airflow/frontend/QA/docs | bind dev_CJC_4.1.1_cloud@6c98281; map T7/sequencing/analysis batch without test-only algo; full BS Docker validation; PR/merge/main-worktree sync | exact production release contract and UI pass; 4.2.0 remains test-only; network unchanged; no runtime deployment | done (PR #8, merge 6046a28) |
 | T163 | Authenticated capabilities, T7 intake cleanup and recovered-run projection | backend/airflow/frontend/infra/QA/docs | load capabilities only after login; product-language scanner card; persistent exact-chip ignore; explicit Step4/Step5 retry generations; narrow Step5 business-state recovery | BS Docker suites/build pass; 2226 remains absent after rescan; original run resumes Step5 from checkpoint; fixed network/port retained | done; original run completed Step6/finalize successfully |
 | T165 | Run Batch/Sample search, Finished timestamps and production UI synchronization | backend/frontend/infra/QA/docs | Batch and Finished in both run lists; server-side batch/sample search; immutable finalize time; deploy merged WGS UI contracts | BS Docker suites/build, migration, fixed-network preflight and authenticated HTTP smoke pass; historical successful run gets authoritative finish time; no WGS/OBS/CCE rerun | done; production disabled release deployed and verified |
+| T166 | WGS workflow and Rule projection correction | backend/observer/frontend/infra/QA/docs | one backend Step1-Step6 contract; current WGS 4.1.1 Rule phase mapping; stable Rule order and exact analysis.log sample enrichment; API-driven UI stages | historical run shows six successful stages, production Rule phases/order/sample context, no ETA text in message, Docker tests and fixed-network smoke pass | done; disabled production release deployed and verified |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
+
+## T166 - WGS workflow and Rule projection correction
+
+Owner: backend/observer/frontend/infra/QA/docs
+
+Status: done
+
+Scope:
+- Replace the Batch Runs biological phase rail with the six project
+  orchestration stages from one backend contract.
+- Project current WGS 4.1.1 rule prefixes into Pre-calling, Variant analysis,
+  QC and Cloud delivery; assign stable raw-event order.
+- Enrich missing historical sample/family context only from exact registered
+  sample identifiers in the bound `analysis.log`; never infer by row count.
+- Reject logger-provided sample/family identifiers that are not registered for
+  the run, and incrementally index appended `analysis.log` bytes before joining
+  cached contexts against the current sample registry.
+- Remove the frontend WGS rule-name map and six-stage template, fix stage-card
+  CSS tokens, and keep ETA history out of the message column.
+
+Out of scope:
+- WGS rerun, OBS upload/download, a new CCE Master, Worker Pod monitoring,
+  schema changes, external metrics, Step7, or execution-gate changes.
+
+Acceptance:
+- [x] Expected failures reproduced in BS10610 Docker before implementation.
+- [x] Focused backend and frontend tests pass after implementation.
+- [x] Full backend suite, TypeScript and production build pass in BS10610 Docker.
+- [x] Post-review security, lifecycle-status and duplicate-mapping regressions pass.
+- [x] Protected database backup, disabled release, projection replay and
+  authenticated API/container HTTP verification complete.
+- [x] External Docker network remains `192.168.199.0/24` and only
+  `172.17.106.10:12959` is published.
+
+Note: authenticated API and container HTTP smoke completed. The Codex in-app
+browser refused the private HTTP URL under its URL safety policy, so no browser
+screenshot was captured and no workaround was attempted.
 
 ## T152 - Step4 Master completion race and same-attempt recovery
 

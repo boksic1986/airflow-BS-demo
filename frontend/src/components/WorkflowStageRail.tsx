@@ -16,11 +16,6 @@ const templates: Record<string, Array<{key: string; label: string}>> = {
     {key: "fetal_fraction", label: "Fetal fraction"},
     {key: "final_qc", label: "Final QC"},
   ],
-  wgs: [
-    {key: "pre_calling", label: "Pre-calling"},
-    {key: "variant_analysis", label: "Variant analysis"},
-    {key: "qc", label: "QC"},
-  ],
 };
 
 export function WorkflowStageRail({analysisId, pipeline, stages}: {
@@ -45,7 +40,9 @@ export function WorkflowStageRail({analysisId, pipeline, stages}: {
       <div className="workflow-stage-rail">
         {items.map((item) => {
           const status = normalizeStatus(item.status);
-          const detail = item.dry_run
+          const detail = pipeline === "wgs"
+            ? `${item.label}: ${status}`
+            : item.dry_run
             ? `${item.total_jobs} jobs planned; dry-run only`
             : `${item.completed_jobs}/${item.total_jobs} jobs complete`;
           return (

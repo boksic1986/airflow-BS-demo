@@ -43,6 +43,14 @@ describe("RunWorkflowTab", () => {
         {task_id: "submit_master", state: "success"},
         {task_id: "run_nipt_docker", state: "success"},
       ],
+      orchestration_stages: [
+        {stage_code: "step1_upload", step_number: 1, label: "Uploading FASTQ", status: "success"},
+        {stage_code: "step2_master", step_number: 2, label: "Starting WGS workflow", status: "running"},
+        {stage_code: "step3_monitor", step_number: 3, label: "WGS workflow running", status: "pending"},
+        {stage_code: "step4_publish", step_number: 4, label: "Publishing WGS results", status: "pending"},
+        {stage_code: "step5_download", step_number: 5, label: "Downloading WGS results", status: "pending"},
+        {stage_code: "step6_materialize", step_number: 6, label: "Materializing local results", status: "pending"},
+      ],
     } as RunProgressResponse;
 
     render(<RunWorkflowTab progress={progress} rules={[]} />);
@@ -54,6 +62,54 @@ describe("RunWorkflowTab", () => {
     expect(within(graph).getByText("Downloading WGS results")).toBeInTheDocument();
     expect(screen.queryByText("wait_step3_analysis")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Selected Airflow execution path")).not.toBeInTheDocument();
+  });
+
+  it("uses backend orchestration states and keeps ETA history out of the Rule message", () => {
+    const progress = {
+      analysis_id: "WGS_SUCCESS",
+      pipeline: "wgs",
+      status: "success",
+      current_step: "finalize_run",
+      current_source: "biodemo",
+      note: "",
+      not_in_airflow: false,
+      progress_source: "run-stage-state",
+      airflow_tasks: [],
+      rule_events: [],
+      orchestration_stages: [
+        {stage_code: "step1_upload", step_number: 1, label: "Uploading FASTQ", status: "success"},
+        {stage_code: "step2_master", step_number: 2, label: "Starting WGS workflow", status: "success"},
+        {stage_code: "step3_monitor", step_number: 3, label: "WGS workflow running", status: "success"},
+        {stage_code: "step4_publish", step_number: 4, label: "Publishing WGS results", status: "success"},
+        {stage_code: "step5_download", step_number: 5, label: "Downloading WGS results", status: "success"},
+        {stage_code: "step6_materialize", step_number: 6, label: "Materializing local results", status: "success"},
+      ],
+    } as RunProgressResponse;
+    const rules: RuleEvent[] = [
+      {
+        rule: "pre_process_mapping",
+        phase: "Pre-calling",
+        phase_order: 10,
+        sample_id: "WGS001-WGS",
+        family_id: "F001",
+        sequence: 12,
+        status: "success",
+        eta_model: "insufficient_history",
+        eta_history_count: 0,
+      },
+    ];
+
+    render(<RunWorkflowTab progress={progress} rules={rules} />);
+
+    const graph = screen.getByLabelText("WGS stage dependency graph");
+    expect(graph.querySelectorAll(".wgs-stage-node.success")).toHaveLength(6);
+    expect(screen.getByRole("columnheader", {name: "Execution order"})).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", {name: "Layer / sequence"})).not.toBeInTheDocument();
+    const ruleTable = screen.getByRole("table", {name: "WGS rule instances"});
+    expect(within(ruleTable).getByText("WGS001-WGS")).toBeInTheDocument();
+    expect(within(ruleTable).getByText("F001")).toBeInTheDocument();
+    expect(within(ruleTable).getByText("12")).toBeInTheDocument();
+    expect(within(ruleTable).queryByText("No reliable ETA (0/3)")).not.toBeInTheDocument();
   });
 
   it("shows only the NIPT Docker Airflow path and NIPT rule phases", () => {

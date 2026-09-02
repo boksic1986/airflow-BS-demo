@@ -18,6 +18,7 @@ from app.models import (
     RuleState,
     RunAttempt,
     RunStageState,
+    Sample,
     TransferJob,
     WgsMaintenanceAction,
 )
@@ -886,6 +887,17 @@ def test_master_rule_status_accepts_attempt_label(tmp_path: Path) -> None:
 
 def test_biosan_jsonl_contract_and_degraded_marker(tmp_path: Path) -> None:
     sessions, analysis_id, evidence_root, binding_root, catalog_path, rule_dir = prepare_run(tmp_path)
+    with sessions() as session:
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="S1",
+                family_id="F1",
+                status="running",
+                qc_status="unknown",
+            )
+        )
+        session.commit()
     path = rule_dir / "master.jsonl"
     base = {
         "schema_version": "rule-event.v1",
@@ -918,7 +930,7 @@ def test_biosan_jsonl_contract_and_degraded_marker(tmp_path: Path) -> None:
         assert state.sequence == 1
         assert state.sample_id == "S1"
         assert state.family_id == "F1"
-        assert state.phase == "pre-calling"
+        assert state.phase == "Pre-calling"
         assert state.snakemake_jobid == "7"
         assert state.wildcards_json == {"sample": "S1"}
         assert state.message == "done"
@@ -1069,6 +1081,392 @@ def test_job_info_mapping_and_worker_evidence_win_projection(tmp_path: Path) -> 
         state = session.scalar(select(RuleState))
         assert state.rule_name == "mapping"
         assert state.status == "success"
+
+
+def test_projection_derives_sample_from_wildcards_and_stable_event_order(tmp_path: Path) -> None:
+    sessions, analysis_id, evidence_root, binding_root, catalog_path, rule_dir = prepare_run(tmp_path)
+    with sessions() as session:
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="WGS001-WGS",
+                family_id="F001",
+                status="running",
+                qc_status="unknown",
+            )
+        )
+        session.commit()
+    events = [
+        rule_event(
+            "job_info",
+            1.0,
+            role="master",
+            stream_id="master",
+            rule_instance_id="0123456789abcdef",
+            rule_name="pre_process_mapping",
+            wildcards={"sample": "WGS001-WGS"},
+            job_id="22",
+        ),
+        rule_event(
+            "job_started",
+            2.0,
+            role="master",
+            stream_id="master",
+            rule_instance_id="0123456789abcdef",
+            job_id="22",
+        ),
+        rule_event(
+            "job_finished",
+            3.0,
+            role="master",
+            stream_id="master",
+            rule_instance_id="0123456789abcdef",
+            job_id="22",
+        ),
+    ]
+    (rule_dir / "master.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in events), encoding="utf-8"
+    )
+
+    poll(sessions, evidence_root, binding_root, catalog_path)
+
+    with sessions() as session:
+        state = session.scalar(select(RuleState))
+        assert state.sequence == 1
+        assert state.snakemake_jobid == "22"
+        assert state.sample_id == "WGS001-WGS"
+        assert state.family_id == "F001"
+
+
+def test_analysis_log_enrichment_requires_exact_registered_sample_match(tmp_path: Path) -> None:
+    from app import wgs_observer
+
+    enrich = getattr(wgs_observer, "enrich_rule_states_from_analysis_log", None)
+    assert callable(enrich), "analysis.log Rule context enrichment is not implemented"
+
+    sessions = make_sessionmaker()
+    analysis_id = "WGS_LOG_CONTEXT"
+    log_path = tmp_path / "analysis.log"
+    log_path.write_text(
+        "rule pre_process_cleanFastq:\n"
+        "    jobid: 23\n"
+        "    wildcards: sample=WGS001-WGS\n"
+        "\n"
+        "rule pre_process_cleanFastq:\n"
+        "    jobid: 24\n"
+        "    wildcards: sample=UNREGISTERED\n",
+        encoding="utf-8",
+    )
+    with sessions() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                execution_mode="cce",
+                status="success",
+                workdir="/data/wgs-results/runs/WGS_LOG_CONTEXT",
+                params_json={"pipeline_release_id": RELEASE_ID},
+            )
+        )
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="WGS001-WGS",
+                family_id="F001",
+                status="success",
+                qc_status="unknown",
+            )
+        )
+        session.add_all(
+            [
+                RuleState(
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    rule_instance_id="rule-23",
+                    rule_name="pre_process_cleanFastq",
+                    snakemake_jobid="23",
+                    status="success",
+                ),
+                RuleState(
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    rule_instance_id="rule-24",
+                    rule_name="pre_process_cleanFastq",
+                    snakemake_jobid="24",
+                    status="success",
+                ),
+            ]
+        )
+        session.commit()
+
+        updated = enrich(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            analysis_log=log_path,
+        )
+        session.commit()
+        rows = session.scalars(
+            select(RuleState).where(RuleState.analysis_id == analysis_id).order_by(RuleState.snakemake_jobid)
+        ).all()
+
+    assert updated == 1
+    assert rows[0].sample_id == "WGS001-WGS"
+    assert rows[0].family_id == "F001"
+    assert rows[1].sample_id is None
+
+
+def test_rule_event_sample_and_family_must_match_registered_sample(tmp_path: Path) -> None:
+    sessions, analysis_id, evidence_root, binding_root, catalog_path, rule_dir = prepare_run(tmp_path)
+    with sessions() as session:
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="REGISTERED-WGS",
+                family_id="F-CANONICAL",
+                status="running",
+                qc_status="unknown",
+            )
+        )
+        session.commit()
+    events = [
+        rule_event(
+            "job_info",
+            1.0,
+            role="master",
+            stream_id="master",
+            rule_instance_id="registered-rule",
+            rule_name="pre_process_mapping",
+            sample_id="REGISTERED-WGS",
+            family_id="F-FORGED",
+            job_id="31",
+        ),
+        rule_event(
+            "job_info",
+            2.0,
+            role="master",
+            stream_id="master",
+            rule_instance_id="unregistered-rule",
+            rule_name="pre_process_mapping",
+            sample_id="UNREGISTERED-WGS",
+            family_id="F-FORGED",
+            job_id="32",
+        ),
+    ]
+    (rule_dir / "master.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in events), encoding="utf-8"
+    )
+
+    poll(sessions, evidence_root, binding_root, catalog_path)
+
+    with sessions() as session:
+        rows = {
+            row.rule_instance_id: row
+            for row in session.scalars(select(RuleState)).all()
+        }
+    assert rows["registered-rule"].sample_id == "REGISTERED-WGS"
+    assert rows["registered-rule"].family_id == "F-CANONICAL"
+    assert rows["unregistered-rule"].sample_id is None
+    assert rows["unregistered-rule"].family_id is None
+
+
+def test_analysis_log_enrichment_indexes_appends_and_rejoins_current_samples(
+    tmp_path: Path,
+) -> None:
+    from app import wgs_observer
+
+    sessions = make_sessionmaker()
+    analysis_id = "WGS_LOG_CACHE"
+    log_path = tmp_path / "analysis.log"
+    log_path.write_text(
+        "rule pre_process_cleanFastq:\n"
+        "    jobid: 23\n"
+        "    wildcards: sample=WGS001-WGS\n"
+        "rule pre_process_cleanFastq:\n"
+        "    jobid: 24\n"
+        "    wildcards: sample=WGS002-WGS\n",
+        encoding="utf-8",
+    )
+    with sessions() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                execution_mode="cce",
+                status="running",
+                workdir="/data/wgs-results/runs/WGS_LOG_CACHE",
+                params_json={"pipeline_release_id": RELEASE_ID},
+            )
+        )
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="WGS001-WGS",
+                family_id="F001",
+                status="running",
+                qc_status="unknown",
+            )
+        )
+        session.add_all(
+            [
+                RuleState(
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    rule_instance_id="rule-23",
+                    rule_name="pre_process_cleanFastq",
+                    snakemake_jobid="23",
+                    status="success",
+                ),
+                RuleState(
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    rule_instance_id="rule-24",
+                    rule_name="pre_process_cleanFastq",
+                    snakemake_jobid="24",
+                    status="running",
+                ),
+            ]
+        )
+        session.commit()
+
+    wgs_observer._ANALYSIS_LOG_INDEX.clear()
+    with sessions() as session:
+        assert wgs_observer.enrich_rule_states_from_analysis_log(
+            session, analysis_id=analysis_id, attempt=1, analysis_log=log_path
+        ) == 1
+        session.commit()
+        first_offset = wgs_observer._ANALYSIS_LOG_INDEX[str(log_path)].byte_offset
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="WGS002-WGS",
+                family_id="F002",
+                status="running",
+                qc_status="unknown",
+            )
+        )
+        session.commit()
+        assert wgs_observer.enrich_rule_states_from_analysis_log(
+            session, analysis_id=analysis_id, attempt=1, analysis_log=log_path
+        ) == 1
+        assert wgs_observer._ANALYSIS_LOG_INDEX[str(log_path)].byte_offset == first_offset
+
+        session.add(
+            RuleState(
+                analysis_id=analysis_id,
+                attempt=1,
+                rule_instance_id="rule-25",
+                rule_name="pre_process_cleanFastq",
+                snakemake_jobid="25",
+                status="running",
+            )
+        )
+        session.commit()
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(
+                "rule pre_process_cleanFastq:\n"
+                "    jobid: 25\n"
+                "    wildcards: sample=WGS002-WGS\n"
+            )
+        assert wgs_observer.enrich_rule_states_from_analysis_log(
+            session, analysis_id=analysis_id, attempt=1, analysis_log=log_path
+        ) == 1
+        assert wgs_observer._ANALYSIS_LOG_INDEX[str(log_path)].byte_offset > first_offset
+
+
+def test_analysis_log_incremental_index_resets_after_file_replacement(
+    tmp_path: Path,
+) -> None:
+    from app import wgs_observer
+
+    sessions = make_sessionmaker()
+    analysis_id = "WGS_LOG_REPLACED"
+    log_path = tmp_path / "analysis.log"
+    log_path.write_text(
+        "rule pre_process_cleanFastq:\n"
+        "    jobid: 23\n"
+        "    wildcards: sample=WGS001-WGS\n",
+        encoding="utf-8",
+    )
+    with sessions() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                execution_mode="cce",
+                status="running",
+                workdir="/data/wgs-results/runs/WGS_LOG_REPLACED",
+                params_json={"pipeline_release_id": RELEASE_ID},
+            )
+        )
+        session.add_all(
+            [
+                Sample(
+                    analysis_id=analysis_id,
+                    sample_id="WGS001-WGS",
+                    family_id="F001",
+                    status="running",
+                    qc_status="unknown",
+                ),
+                Sample(
+                    analysis_id=analysis_id,
+                    sample_id="WGS002-WGS",
+                    family_id="F002",
+                    status="running",
+                    qc_status="unknown",
+                ),
+                RuleState(
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    rule_instance_id="rule-23",
+                    rule_name="pre_process_cleanFastq",
+                    snakemake_jobid="23",
+                    status="success",
+                ),
+                RuleState(
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    rule_instance_id="rule-99",
+                    rule_name="pre_process_cleanFastq",
+                    snakemake_jobid="99",
+                    status="success",
+                ),
+            ]
+        )
+        session.commit()
+
+    wgs_observer._ANALYSIS_LOG_INDEX.clear()
+    with sessions() as session:
+        assert wgs_observer.enrich_rule_states_from_analysis_log(
+            session, analysis_id=analysis_id, attempt=1, analysis_log=log_path
+        ) == 1
+        session.commit()
+        old_identity = wgs_observer._ANALYSIS_LOG_INDEX[str(log_path)].file_identity
+
+        replacement = tmp_path / "replacement.log"
+        replacement.write_text(
+            "rule pre_process_cleanFastq:\n"
+            "    jobid: 99\n"
+            "    wildcards: sample=WGS002-WGS\n"
+            "replacement content is intentionally longer than the original\n",
+            encoding="utf-8",
+        )
+        replacement.replace(log_path)
+        assert wgs_observer.enrich_rule_states_from_analysis_log(
+            session, analysis_id=analysis_id, attempt=1, analysis_log=log_path
+        ) == 1
+        session.commit()
+        state = session.scalar(
+            select(RuleState).where(RuleState.rule_instance_id == "rule-99")
+        )
+        new_identity = wgs_observer._ANALYSIS_LOG_INDEX[str(log_path)].file_identity
+
+    assert old_identity != new_identity
+    assert state.sample_id == "WGS002-WGS"
+    assert state.family_id == "F002"
 
 
 def test_pod_job_and_metrics_events_normalize_with_numeric_resource_versions(tmp_path: Path) -> None:

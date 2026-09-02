@@ -1,6 +1,13 @@
 # WGS 4.1.1 Runtime Integration Development Status
 
-更新时间：2026-09-01
+更新时间：2026-09-02
+
+T166更新（2026-09-02）：控制面投影修复已发布。Batch Runs和Run Detail均使用后端
+唯一Step1-Step6合同；WGS Rule由后端统一映射为Pre-calling、Variant analysis、QC和
+Cloud delivery。历史成功批次已重建208条Rule投影，208条有稳定sequence、147条按
+`analysis.log`和已登记sample精确补齐；聚合Rule不猜测sample。Message不再混入ETA，
+`cloud_finalize_delivery`在已验证run success时公开投影为success。本次未重跑WGS、未
+重新传输、未创建Master，execution/runtime/auto-dispatch均false且DAG paused。
 
 T152更新：Airflow侧Step3/Step4 Master完成时序竞争已经修复并以同一attempt在生产
 复现验证。普通Step4已越过Master前置检查，但随后发现WGS 2499749冻结bundle内部的
@@ -10,28 +17,25 @@ run_id、schema_version和`status=PASS`的JSON；`cce_delivery.py`
 普通Step4失败，Step5-Step6未运行。本任务没有修改WGS仓库、冻结bundle或OBS对象，
 也没有使用CRAM repair；需先由WGS/runtime侧批准并统一合同后再继续。
 
-当前结论：T146 当前 WGS 发布已更新到 commit
-`2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68`，node200 cce-pipeline为0.8.1。
-该提交相对`cdee32c`只同步0.8.1生产说明，运行代码未变化；Airflow仍以完整commit
-绑定每个新AnalysisRun。旧失败analysis已按operator授权在备份后清理。新的
-`WGS_20260901_031616_C74E6C`绑定2499749；T149已在不重跑Step1/Step2、不重建
-Master的前提下修复并接管Step3，Master已成功。T152修复了随后发现的Step3/Step4
-时序竞争；当前由上述WGS marker合同不一致阻断在普通Step4。
+当前结论：生产WGS发布已固定为4.1.1 commit
+`6c982817614db6a1157b6f287427ddf01ac91827`，node200 cce-pipeline为0.8.1审计值。
+`WGS_20260901_031616_C74E6C`已经使用原DagRun/attempt/Master完成Step1-Step6并
+success；T166只修复历史展示投影，没有改变该批次的运行证据或重新执行任何步骤。
 
 ## 1. 当前发布合同
 
 | 项目 | 当前目标值 |
 |---|---|
-| release ID | `wgs-4.1.1-2499749` |
+| release ID | `wgs-4.1.1-6c98281` |
 | WGS version | `V4.1.1` |
-| WGS commit | `2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68` |
+| WGS commit | `6c982817614db6a1157b6f287427ddf01ac91827` |
 | BS10610 repo | `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | node200 repo | `/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1` |
 | runtime request | `wgs-runtime.request.v3` |
 | batch binding | `wgs-runtime.batch-binding.v2` |
 | Rule event schema | `1` |
 | node200 runtime | cce-pipeline `0.8.1`（审计字段，不是Airflow gate） |
-| unique DAG | `bio_wgs`, 18 tasks, manual；当前为批准的真实批次临时unpaused |
+| unique DAG | `bio_wgs`, 18 tasks, manual；当前paused |
 
 两个共享仓库路径已读核对为相同 HEAD。prepare 前 runner 检查 HEAD 和
 `git status --porcelain`；仅允许 `docs/` 下未跟踪文档，任何已跟踪漂移或其他未跟踪

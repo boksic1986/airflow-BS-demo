@@ -1,5 +1,24 @@
 # 05 API Contract
 
+## T166 WGS workflow and Rule projection
+
+- WGS run-list `workflow_summary` is the project orchestration contract, not a
+  Rule-phase summary. It always contains Step1 through Step6 in order. A
+  historical `AnalysisRun.status=success` projects all six stages as success
+  even when that run predates `run_stage_state`; byte, file and ETA values are
+  still null unless runtime evidence exists.
+- WGS `/progress` adds `orchestration_stages`, using the same six objects as the
+  run list and Workflow Catalog. Backend modules consume one stage definition;
+  the browser does not maintain its own copy.
+- WGS `/rules` returns authoritative phases `Pre-calling`, `Variant analysis`,
+  `QC` and `Cloud delivery`, plus stable `sequence`. Missing sample/family may
+  be enriched only by exact match between the registered run samples and the
+  frozen run's mirrored `analysis.log` job context.
+- A successful run may reconcile a missing terminal event only for
+  `cloud_finalize_delivery`, because verified downstream completion proves that
+  final Rule completed. The response records that reconciliation in `message`;
+  it does not rewrite unrelated incomplete Rules as success.
+
 ## T165 Batch/样本检索与完成时间
 
 - `GET /api/dashboard/runs`和`GET /api/runs`的`keyword`均在数据库分页前匹配

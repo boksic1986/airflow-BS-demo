@@ -5,7 +5,8 @@ from typing import Any
 from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import AnalysisRun, RunStageState
+from app.models import AnalysisRun
+from app.wgs_stage_contract import project_wgs_orchestration
 from app.workflow_summary_service import WORKFLOW_TEMPLATES, workflow_summaries_by_run
 
 
@@ -65,7 +66,7 @@ def get_workflow_catalog(*, session: Session, pipelines: tuple[str, ...] | list[
     for pipeline in selected:
         definition = WORKFLOW_DEFINITIONS[pipeline]
         latest = latest_by_pipeline.get(pipeline)
-        stages = _wgs_stages(session, latest) if pipeline == "wgs" else (summaries.get(latest.analysis_id, []) if latest else _empty_stages(pipeline))
+        stages = summaries.get(latest.analysis_id, []) if latest else _empty_stages(pipeline)
         stats = stats_by_pipeline.get(pipeline, {"count": 0, "successes": 0})
         items.append(
             {
@@ -91,46 +92,14 @@ def _deployed_condition(pipeline: str):
 
 
 def _empty_stages(pipeline: str) -> list[dict[str, object]]:
+    if pipeline == "wgs":
+        return project_wgs_orchestration(
+            run_status="created", current_stage="prepare", stage_rows=[]
+        )
     return [
         {"key": key, "label": label, "status": "pending", "completed_jobs": 0, "total_jobs": 0}
         for key, label in WORKFLOW_TEMPLATES[pipeline]
     ]
-
-
-def _wgs_stages(session: Session, run: AnalysisRun | None) -> list[dict[str, object]]:
-    definitions = [
-        ("step1_upload", "Uploading FASTQ"),
-        ("step2_master", "Starting WGS workflow"),
-        ("step3_monitor", "WGS workflow running"),
-        ("step4_publish", "Publishing WGS results"),
-        ("step5_download", "Downloading WGS results"),
-        ("step6_materialize", "Materializing local results"),
-    ]
-    states = {}
-    if run is not None:
-        states = {
-            row.stage_code: row
-            for row in session.scalars(
-                select(RunStageState).where(
-                    RunStageState.analysis_id == run.analysis_id,
-                    RunStageState.attempt == run.attempt,
-                )
-            ).all()
-        }
-    return [
-        {
-            "key": key,
-            "label": label,
-            "status": states[key].stage_status if key in states else "pending",
-            "completed_jobs": (states[key].completed_units or 0) if key in states else 0,
-            "total_jobs": (states[key].total_units or 0) if key in states else 0,
-            "progress_available": states[key].progress_available if key in states else False,
-            "progress_percent": states[key].progress_percent if key in states else None,
-        }
-        for key, label in definitions
-    ]
-
-
 def _latest_run_payload(run: AnalysisRun | None, stages: list[dict[str, Any]]) -> dict[str, Any] | None:
     if run is None:
         return None

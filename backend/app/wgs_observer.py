@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import re
+from typing import Iterator
 from sqlalchemy import select
 
 from app.models import (
@@ -26,6 +28,7 @@ from app.wgs_evidence_binding import (
     load_evidence_bindings,
 )
 from app.wgs_release_catalog import load_wgs_release_catalog
+from app.wgs_stage_contract import wgs_stage_definition
 from app.workflow_phases import phase_for_rule
 
 
@@ -45,6 +48,20 @@ TERMINAL_RULE_EVENTS = {
 KUBERNETES_DNS_LABEL_RE = re.compile(
     r"^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$"
 )
+
+
+@dataclass
+class _AnalysisLogIndex:
+    file_identity: tuple[int, int] | None = None
+    byte_offset: int = 0
+    rule_name: str = ""
+    job_id: str = ""
+    sample_id: str = ""
+    contexts: set[tuple[str, str, str]] = field(default_factory=set)
+
+
+_ANALYSIS_LOG_INDEX: dict[str, _AnalysisLogIndex] = {}
+_ANALYSIS_LOG_INDEX_LIMIT = 256
 
 
 def ingest_evidence_once(
@@ -114,6 +131,10 @@ def ingest_evidence_once(
                 _record_file_error(
                     session_factory, evidence_root.resolve(), binding, path, str(error)
                 )
+        _enrich_from_registered_analysis_log(
+            session_factory=session_factory,
+            binding=binding,
+        )
         degraded_marker = binding.evidence_directory / "LOGGER_DEGRADED.json"
         if not degraded_marker.is_file():
             degraded_marker = (
@@ -250,6 +271,11 @@ def ingest_observer_attempt_once(
             result["errors"] = int(result["errors"]) + 1
             _record_file_error(session_factory, root, binding, path, str(error))
 
+    _enrich_from_registered_analysis_log(
+        session_factory=session_factory,
+        binding=binding,
+    )
+
     degraded = directory / "LOGGER_DEGRADED.json"
     if not degraded.is_file():
         degraded = directory / "rule-status" / "LOGGER_DEGRADED.json"
@@ -291,6 +317,20 @@ def ingest_observer_attempt_once(
         else:
             result["lifecycle_status"] = "active"
     return result
+
+
+def _enrich_from_registered_analysis_log(*, session_factory, binding: EvidenceBinding) -> None:
+    analysis_log = binding.evidence_directory / "mirror" / "analysis.log"
+    if not analysis_log.is_file() or analysis_log.is_symlink():
+        return
+    with session_factory() as session:
+        enrich_rule_states_from_analysis_log(
+            session,
+            analysis_id=binding.analysis_id,
+            attempt=binding.attempt,
+            analysis_log=analysis_log,
+        )
+        session.commit()
 
 
 def _ingest_runtime_binding(session_factory, runtime_root: Path, path: Path) -> bool:
@@ -868,20 +908,6 @@ def _ingest_transfer_progress(session_factory, spool_root: Path, path: Path) -> 
         return True
 
 
-_STAGE_METADATA = {
-    "prepare": (None, "Preparing WGS batch"),
-    "step1_upload": (1, "Uploading FASTQ"),
-    "step2_master": (2, "Starting WGS workflow"),
-    "step3_monitor": (3, "WGS workflow running"),
-    "step4_publish": (4, "Publishing WGS results"),
-    "step4_repair_cram": (4, "Repairing CRAM linkage"),
-    "step5_download": (5, "Downloading WGS results"),
-    "step6_materialize": (6, "Materializing local results"),
-    "step7_cleanup": (7, "Cleaning WGS SFS workspace"),
-    "final": (None, "WGS workflow completed"),
-}
-
-
 def upsert_stage_state(
     session,
     *,
@@ -902,7 +928,7 @@ def upsert_stage_state(
     evidence_key: str | None = None,
     progress_source: str = "wgs-runtime.stage-status.v1",
 ) -> RunStageState:
-    step_number, label = _STAGE_METADATA[stage_code]
+    definition = wgs_stage_definition(stage_code)
     row = session.scalar(
         select(RunStageState).where(
             RunStageState.analysis_id == analysis_id,
@@ -915,8 +941,8 @@ def upsert_stage_state(
             analysis_id=analysis_id,
             attempt=attempt,
             stage_code=stage_code,
-            step_number=step_number,
-            stage_label=label,
+            step_number=definition.step_number,
+            stage_label=definition.label,
             stage_status=stage_status,
             progress_source=progress_source,
             updated_at=updated_at,
@@ -1406,28 +1432,42 @@ def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
         select(RuleEventRaw).where(
             RuleEventRaw.analysis_id == analysis_id,
             RuleEventRaw.attempt == attempt,
-        )
+        ).order_by(RuleEventRaw.id)
     ).all()
-    events = [row.payload_json for row in rows]
+    events = [(row.id, row.payload_json) for row in rows]
     job_map: dict[tuple[str, str], str] = {}
-    for event in events:
+    for _, event in events:
         if event.get("event") == "job_info" and event.get("rule_instance_id"):
             job_map[(str(event.get("stream_id")), str(event.get("job_id")))] = str(
                 event["rule_instance_id"]
             )
 
-    grouped: dict[str, list[dict]] = {}
-    for event in events:
+    grouped: dict[str, list[tuple[int, dict]]] = {}
+    for event_row_id, event in events:
         instance = str(event.get("rule_instance_id") or "")
         if not instance and event.get("job_id") is not None:
             instance = job_map.get(
                 (str(event.get("stream_id")), str(event.get("job_id"))), ""
             )
         if instance:
-            grouped.setdefault(instance, []).append(event)
+            grouped.setdefault(instance, []).append((event_row_id, event))
 
-    for instance, instance_events in grouped.items():
-        ordered = sorted(instance_events, key=_event_order)
+    stable_sequence = {
+        instance: index
+        for index, (instance, _) in enumerate(
+            sorted(grouped.items(), key=lambda item: min(record[0] for record in item[1])),
+            start=1,
+        )
+    }
+    registered_samples = {
+        row.sample_id: row
+        for row in session.scalars(
+            select(Sample).where(Sample.analysis_id == analysis_id)
+        ).all()
+    }
+
+    for instance, instance_records in grouped.items():
+        ordered = sorted((record[1] for record in instance_records), key=_event_order)
         descriptive = next(
             (
                 event
@@ -1456,22 +1496,8 @@ def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
         state.rule_name = str(descriptive.get("rule_name") or state.rule_name)
         state.sequence = _first_int(
             event.get("sequence") for event in ordered if event.get("sequence") is not None
-        )
-        state.phase = (
-            _first_text(event.get("phase") for event in ordered)
-            or state.phase
-            or phase_for_rule(state.rule_name, pipeline_name="wgs")
-        )
-        state.sample_id = str(descriptive.get("sample_id") or "") or state.sample_id
-        state.family_id = _first_text(event.get("family_id") for event in ordered)
-        if state.sample_id and not state.family_id:
-            registered = session.scalar(
-                select(Sample).where(
-                    Sample.analysis_id == analysis_id,
-                    Sample.sample_id == state.sample_id,
-                )
-            )
-            state.family_id = registered.family_id if registered else None
+        ) or stable_sequence[instance]
+        state.phase = phase_for_rule(state.rule_name, pipeline_name="wgs")
         wildcards = next(
             (
                 event.get("wildcards")
@@ -1480,6 +1506,16 @@ def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
             ),
             {},
         )
+        explicit_sample = str(descriptive.get("sample_id") or "").strip()
+        wildcard_sample = _sample_from_wildcards(wildcards)
+        candidate_sample = explicit_sample or wildcard_sample
+        registered = registered_samples.get(candidate_sample)
+        if not candidate_sample and state.sample_id:
+            # Keep a prior analysis.log enrichment only while it still resolves
+            # to a sample registered for this analysis.
+            registered = registered_samples.get(state.sample_id)
+        state.sample_id = registered.sample_id if registered else None
+        state.family_id = registered.family_id if registered else None
         state.wildcards_json = dict(wildcards)
         state.layer = descriptive.get("layer", state.layer)
         state.snakemake_jobid = _last_text(
@@ -1507,6 +1543,151 @@ def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
                 state.status = TERMINAL_RULE_EVENTS[event_type]
                 state.ended_at = when
         state.updated_at = datetime.now(timezone.utc)
+
+
+def _sample_from_wildcards(wildcards: dict) -> str:
+    for key in ("sample_id", "sample", "sample_name"):
+        value = str(wildcards.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def enrich_rule_states_from_analysis_log(
+    session,
+    *,
+    analysis_id: str,
+    attempt: int,
+    analysis_log: Path,
+) -> int:
+    """Fill missing Rule sample context from an already registered log mirror.
+
+    The caller owns path containment. This parser only accepts an exact sample
+    identifier already registered for the run and never infers by row order.
+    """
+
+    if not analysis_log.is_file() or analysis_log.is_symlink():
+        return 0
+    samples = {
+        row.sample_id: row
+        for row in session.scalars(
+            select(Sample).where(Sample.analysis_id == analysis_id)
+        ).all()
+    }
+    if not samples:
+        return 0
+    states = session.scalars(
+        select(RuleState).where(
+            RuleState.analysis_id == analysis_id,
+            RuleState.attempt == attempt,
+        )
+    ).all()
+    if not any(not state.sample_id for state in states):
+        return 0
+    contexts = _analysis_log_rule_contexts(analysis_log)
+    by_identity = {
+        (state.rule_name, str(state.snakemake_jobid or "")): state for state in states
+    }
+    updated = 0
+    for rule_name, job_id, candidate_sample in contexts:
+        sample = samples.get(candidate_sample)
+        state = by_identity.get((rule_name, job_id))
+        if sample is None or state is None or state.sample_id:
+            continue
+        state.sample_id = sample.sample_id
+        state.family_id = sample.family_id
+        state.updated_at = datetime.now(timezone.utc)
+        updated += 1
+    return updated
+
+
+def reconcile_rule_projection(
+    session,
+    *,
+    analysis_id: str,
+    attempt: int,
+    evidence_directory: Path,
+) -> dict[str, int]:
+    """Rebuild a stored projection without rerunning WGS or altering evidence."""
+
+    _rebuild_rule_projection(session, analysis_id, attempt)
+    enriched = enrich_rule_states_from_analysis_log(
+        session,
+        analysis_id=analysis_id,
+        attempt=attempt,
+        analysis_log=evidence_directory / "mirror" / "analysis.log",
+    )
+    projected = len(
+        session.scalars(
+            select(RuleState).where(
+                RuleState.analysis_id == analysis_id,
+                RuleState.attempt == attempt,
+            )
+        ).all()
+    )
+    return {"rules_projected": projected, "rules_enriched": enriched}
+
+
+def _analysis_log_rule_contexts(path: Path) -> Iterator[tuple[str, str, str]]:
+    """Index only newly appended complete lines from an append-only log mirror."""
+
+    cache_key = str(path)
+    index = _ANALYSIS_LOG_INDEX.get(cache_key)
+    stat = path.stat()
+    file_identity = (stat.st_dev, stat.st_ino)
+    if (
+        index is None
+        or index.file_identity != file_identity
+        or stat.st_size < index.byte_offset
+    ):
+        index = _AnalysisLogIndex(file_identity=file_identity)
+        if (
+            cache_key not in _ANALYSIS_LOG_INDEX
+            and len(_ANALYSIS_LOG_INDEX) >= _ANALYSIS_LOG_INDEX_LIMIT
+        ):
+            _ANALYSIS_LOG_INDEX.pop(next(iter(_ANALYSIS_LOG_INDEX)))
+        _ANALYSIS_LOG_INDEX[cache_key] = index
+
+    with path.open("rb") as handle:
+        handle.seek(index.byte_offset)
+        while True:
+            start = handle.tell()
+            raw = handle.readline()
+            if not raw:
+                break
+            if not raw.endswith(b"\n"):
+                handle.seek(start)
+                break
+            index.byte_offset = handle.tell()
+            line = raw.decode("utf-8", errors="replace")
+            match = re.match(r"^\s*(?:local)?rule\s+([^:]+):\s*$", line)
+            if match:
+                index.rule_name = match.group(1).strip()
+                index.job_id = ""
+                index.sample_id = ""
+                continue
+            if not index.rule_name:
+                continue
+            match = re.match(r"^\s*jobid:\s*(\S+)\s*$", line)
+            if match:
+                index.job_id = match.group(1)
+                continue
+            match = re.match(r"^\s*wildcards:\s*(.*)$", line)
+            if match:
+                values = {
+                    key.strip(): value.strip()
+                    for key, value in (
+                        item.split("=", 1)
+                        for item in match.group(1).split(",")
+                        if "=" in item
+                    )
+                }
+                index.sample_id = _sample_from_wildcards(values)
+                if index.rule_name and index.job_id and index.sample_id:
+                    index.contexts.add(
+                        (index.rule_name, index.job_id, index.sample_id)
+                    )
+    yield from sorted(index.contexts)
 
 
 def _first_int(values) -> int | None:

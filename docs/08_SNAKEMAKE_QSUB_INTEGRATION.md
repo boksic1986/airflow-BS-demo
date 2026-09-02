@@ -1,5 +1,20 @@
 # 08 Snakemake + qsub 接入设计
 
+## T166 WGS 4.1.1 Rule projection
+
+Airflow backend是WGS Rule phase的唯一映射方。当前规则按版本化名称前缀投影：
+
+- `pre_process_*` -> Pre-calling
+- `SNV_/SV_/MT_/RE_/ROH_/CNV_/MEI_/SMA_/CS_*` -> Variant analysis
+- `QC_*` -> QC
+- `cloud_*` -> Cloud delivery
+
+logger没有`sequence`时，observer按首次落库的raw event ID生成稳定执行顺序。事件携带
+wildcards时只对已登记样本做精确关联；历史事件缺少wildcards时，可从冻结运行已镜像的
+`analysis.log`按`rule + jobid + sample wildcard`精确补齐。不得按样本数、事件顺序或Rule
+名称猜测样本。WGS成功且仅缺`cloud_finalize_delivery`终态事件时，API可依据已验证运行
+终态做展示层收敛；其他缺失终态仍保持原状态。
+
 ## T154 WGS CCE日志投影
 
 WGS Rule JSONL继续由Master scheduler生成。observer投影sequence、phase、layer、

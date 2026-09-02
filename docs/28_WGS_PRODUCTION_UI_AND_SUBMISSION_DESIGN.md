@@ -86,6 +86,12 @@ The fixed labels are:
 fields remain for one release, but the WGS frontend must not derive progress
 from Airflow task counts.
 
+The response also returns `orchestration_stages`, the ordered Step1-Step6
+projection used by Run Tracker, Run Detail and Workflow Catalog. The stage
+definition, task aliases and historical terminal projection live in one backend
+module. A successful historical run marks all six stages successful without
+inventing transfer units or ETA; the frontend has no duplicate WGS stage map.
+
 - Step1 and Step5 consume validated `wgs-runtime.transfer-progress.v1` records
   produced by an Airflow-owned transparent `obsutil` wrapper on node200. The
   wrapper delegates the original command and preserves stdout, stderr and exit
@@ -116,10 +122,17 @@ from Airflow task counts.
 optional so older schema-1 evidence remains ingestible. The observer may enrich
 sample and family identity only by an unambiguous match to registered samples.
 
-Rules are sorted by `phase_order`, `layer`, `sequence`, and `sample_id`. Run
+Rules are sorted by `phase_order`, stable event `sequence`, and `sample_id`. Run
 Detail renders a small phase dependency graph followed by a filterable Rule
 instance table. It does not attempt to draw every dynamic Snakemake job as a
 full DAG.
+
+For WGS 4.1.1, backend phase assignment follows the production module prefixes:
+`pre_process_*`, the variant-family prefixes, `QC_*`, and `cloud_*`. Browser
+code never reclassifies WGS rule names. When older schema-1 events lack
+wildcards and sequence, observer replay derives sequence from first raw-event
+arrival and may recover sample/family only from an exact registered sample in
+the bound analysis log. Ambiguous or absent context remains empty.
 
 The evidence bridge mirrors the bound Master `analysis.log` incrementally.
 There is no per-Rule SFS path registry. For a failed Rule, the backend derives a
@@ -242,6 +255,11 @@ longer called by the WGS UI.
   language and are not shown as a permanent error panel.
 - Workflow Catalog describes WGS 4.1.1, `bio_wgs`, and Step1-Step6, and uses the
   same authoritative progress contract as Run Tracker.
+- Batch Runs uses the same Step1-Step6 workflow projection. Biological Rule
+  phases stay inside Run Detail and include Cloud delivery.
+- Rule cards use the backend phase/order/sample fields. `Message / failure
+  excerpt` never displays ETA-history diagnostics; missing ETA is shown only as
+  unavailable timing.
 - Missing exact progress is explicitly shown as “Detailed progress
   unavailable”; it never falls back to DAG task percentage.
 

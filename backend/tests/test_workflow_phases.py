@@ -11,7 +11,7 @@ from app.workflow_phases import WGS_RULE_PHASES, phase_for_rule
 
 
 WGS_RULE_PATTERN = re.compile(r"^\s*rule\s+([A-Za-z_][A-Za-z0-9_]*)\s*:")
-WGS_PHASES = {"Pre-calling", "Variant analysis", "QC"}
+WGS_PHASES = {"Pre-calling", "Variant analysis", "QC", "Cloud delivery"}
 
 
 def _declared_wgs_rules() -> set[str] | None:
@@ -44,6 +44,23 @@ def test_wgs_mapping_overrides_the_pgta_mapping_phase_and_unknown_wgs_rules_stay
     assert phase_for_rule("mapping", pipeline_name="pgta") == "Mapping"
     assert phase_for_rule("mapping") == "Mapping"
     assert phase_for_rule("unregistered_future_wgs_rule", pipeline_name="wgs") == "Variant analysis"
+
+
+@pytest.mark.parametrize(
+    ("rule", "phase"),
+    [
+        ("pre_process_cleanFastq", "Pre-calling"),
+        ("pre_process_Haplotyper", "Pre-calling"),
+        ("SNV_GVCFtyper", "Variant analysis"),
+        ("CNV_call_sample", "Variant analysis"),
+        ("MT_mityCall", "Variant analysis"),
+        ("QC_mergeQC", "QC"),
+        ("cloud_package_results", "Cloud delivery"),
+        ("cloud_finalize_delivery", "Cloud delivery"),
+    ],
+)
+def test_wgs_411_module_rule_names_map_to_their_production_phase(rule: str, phase: str) -> None:
+    assert phase_for_rule(rule, pipeline_name="wgs") == phase
 
 
 def test_workflow_catalog_uses_the_last_canceled_stage_for_an_intentionally_stopped_wgs_run() -> None:
