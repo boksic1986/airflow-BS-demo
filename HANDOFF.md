@@ -1,5 +1,51 @@
 # HANDOFF.md
 
+## 2026-09-03 - Codex - T169/T170 node metrics and compact health panel
+
+### 已完成
+
+- 修复node spool幂等消费：相同/更旧时间戳不再用原始累计计数覆盖已计算的CPU和速率；
+  相同时间戳仅在需要时恢复健康状态，并保留当前值和去重历史。
+- `Analysis Node Health`改为`.96/.97`标签切换，默认`.96`且每次只显示一个节点；
+  前端移除节点磁盘吞吐、IOPS和网络收发，只保留CPU/load、内存、更新时间和健康度。
+- 后端API仍保留原始磁盘/网络字段；未修改数据库结构、公开API或采集探针合同。
+- 发布`20260903-wgs-4.1.1-6c98281-t170-node-tabs-r1`；只重建frontend与metrics
+  collector，未重建PostgreSQL、Redis、volume或网络。
+
+### 验证
+
+```text
+frontend server Docker: 10 test files, 37 tests passed
+frontend production build: tsc -b and vite build passed
+backend server Docker: 313 passed, 1 skipped
+live repeated spool ingestion: node-96 healthy, node-97 healthy, CPU/load/memory retained
+HTTP: 172.17.61.96:12959/ -> 200
+static asset: node tabs present; node disk/network labels absent
+network: 192.168.199.0/24, gateway 192.168.199.1
+published: only 172.17.61.96:12959
+gates: execution/runtime/preview/auto-dispatch=false; bio_wgs paused
+backup: /data/airflow-WGS/backups/T170-node-tabs-20260902T160508Z
+```
+
+测试过程中记录三个环境/脚本问题：BS10610无法解析外部Docker镜像源；旧Node v22.4.0
+不满足当前lock依赖且缺Rolldown binding；首次完整backend测试把config挂载到`/config`
+而测试按仓库结构读取`/app/config`。最终使用官方`SHASUMS256.txt`校验的Node v24.15.0
+在服务器Docker完成前端测试/构建，并以双只读config挂载重跑backend全量通过。线上验收
+脚本两次分别因probe函数参数和PostgreSQL JSON引号写错提前退出，修正脚本后完整验收通过；
+这些失败没有启动WGS、OBS、CCE或修改业务run。
+
+### 未完成
+
+- Cloud Eye SFS/OBS spool仍未配置，Cloud Resources继续独立显示degraded。
+- 当前分支尚未创建PR或合并main；真实WGS执行仍需单独批准。
+
+### 回滚
+
+将`current`恢复到
+`/data/airflow-WGS/releases/20260902-wgs-4.1.1-6c98281-t169-node-metrics-r1`，将
+`FRONTEND_IMAGE`恢复到前一镜像并仅重建frontend/collector。不得删除数据库、volume、
+固定网络或WGS数据。
+
 ## 2026-09-02 - Codex - T168 `.96` WGS production disabled deployment
 
 ### 已完成
@@ -18,6 +64,14 @@
   `deny all`返回403。r3只新增`10.10.30.0/24`并保留默认拒绝；修复提交为`242f300`。
 - 首次scanner bootstrap扫描1843个目录，未写历史明细；`wgs_intake_batch=0`、
   `AnalysisRun=0`、`RunAttempt=0`、Airflow`DagRun=0`。
+- node200已存在并验证`hanjj`的正式CCE合同路径：cce-pipeline 0.8.1读取
+  `/home/hanjj/.config/wgs/cce.yaml`，其固定kubectl为
+  `/bi/BioCodeHub/WGS/kubectl` v1.32.9、kubeconfig为
+  `/home/hanjj/bioinfo-cce-kubeconfig.yaml`。context `external`可访问
+  `snakemake-ns`并具备所需Job及Pod/log权限；两个私有配置已收紧为0600。
+- 从`.96`在线`airflow-scheduler`容器以UID 50000、受保护RSA和严格`known_hosts`
+  登录`wgs-node200`后，继续执行只读CCE查询并返回`namespace/snakemake-ns`，证明
+  `Airflow -> node200 -> CCE`链路可用；该验证未提交Job或改变执行门禁。
 
 ### 验证
 
@@ -37,13 +91,18 @@ biodemo SHA256: 9f7c6fddae2c945e541b2c5e48ec6feaadf56ec17fc475682da7809cb10a83f7
 airflow SHA256: bf5f20298d1f036304b82742c253738585123ffae4b6f0a75b07169bb482764b
 ```
 
+本轮node200检查中，一次组合验证在`.96`宿主机调用`python`解析Airflow JSON时以
+`python: command not found`退出；原因是解析器误放在宿主机而非Airflow容器。未改动
+宿主机软件，改用容器内Airflow CLI重跑后确认`bio_wgs`为paused、四个执行/预览/自动
+提交开关均为false、固定网络未变，且端到端只读CCE查询成功。
+
 ### 门禁与未完成
 
 - `WGS_EXECUTION_ENABLED=false`、`WGS_RUNTIME_ADAPTER_ENABLED=false`、
   `WGS_SUBMISSION_PREVIEW_ENABLED=false`、`WGS_AUTO_DISPATCH_ENABLED=false`；
   `bio_wgs`保持paused。本次未启动OBS、CCE、真实WGS或Step7。
-- node200的`hanjj`仍缺少已批准的kubeconfig、kubectl和CCE operator配置；这是启用
-  真实runtime前的硬门禁。OBS配置可读不代表CCE提交条件已经满足。
+- node200的kubectl/kubeconfig/CCE operator合同已通过验证，但这不等于真实runtime已
+  获批；node200 runner联调和一个单独批准的最小真实批次仍是启用前门禁。
 - `.96/.97` node exporter端口和Cloud Eye spool尚不可用，资源页会如实显示degraded，
   但不影响当前禁用态控制面。
 - 管理员初始密码仅保存在`.96`的`/data/airflow-WGS/env/production.env`，不要复制到

@@ -1,5 +1,14 @@
 # 06 前端设计
 
+## T170 Analysis Node Health 紧凑展示
+
+- `Analysis Node Health`只渲染一个节点快照，顶部使用`.96`和`.97`两个可访问标签，
+  默认选择`.96`；节点数据仍来自同一个`GET /api/platform/resources`响应。
+- 节点卡只展示CPU、load 1/5/15、内存、采集时间和健康状态。磁盘吞吐、IOPS及
+  网络收发不再进入前端展示，但后端采集/API字段继续保留，避免破坏审计和兼容性。
+- 标签根据后端稳定`resource_key`生成，不在多个页面维护重复的IP到标签映射；节点
+  缺失时显示既有空状态，采集错误仍显示后端错误信息。
+
 ## T166 WGS Workflow/Rule展示修正
 
 - Batch Runs的`workflow`固定展示后端返回的Step1-Step6业务编排，不再显示

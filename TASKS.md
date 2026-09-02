@@ -1,5 +1,18 @@
 # TASKS.md
 
+## T169/T170 - SSH node metrics and compact node selector
+
+Owner: backend/frontend/infra/QA/docs
+
+Status: done in disabled production mode
+
+Acceptance:
+- [x] `.96` and `.97` use distinct pinned host keys with the same approved client identity.
+- [x] Fixed SSH probes populate healthy CPU/load/memory node snapshots without exposing SSH or database credentials across service boundaries.
+- [x] Re-reading the same spool timestamp preserves derived metrics and does not add duplicate history points.
+- [x] Analysis Node Health displays one node at a time with `.96`/`.97` tabs and hides disk, IOPS and network values.
+- [x] Frontend and backend server-Docker tests, production build, HTTP/static-asset smoke, fixed network and disabled gates pass.
+
 ## T168 - `.96` WGS production control-plane disabled deployment
 
 Owner: infra/backend/airflow/frontend/QA/docs
@@ -25,8 +38,8 @@ Acceptance:
   are capped at `20m * 3` and all services have zero restarts at acceptance.
 - [x] Network is `192.168.199.0/24`, gateway `192.168.199.1`, with only
   `172.17.61.96:12959` published.
-- [ ] Configure and validate the approved `hanjj` node200 kubeconfig, kubectl and
-  CCE operator contract before enabling either execution gate.
+- [x] Validate the approved `hanjj` node200 kubeconfig, kubectl and CCE operator
+  contract, and restrict the kubeconfig and `cce.yaml` to mode `0600`.
 - [ ] Run a separately approved minimal real WGS batch before unpausing the DAG.
 
 ## T129/T130 WGS-only production platform

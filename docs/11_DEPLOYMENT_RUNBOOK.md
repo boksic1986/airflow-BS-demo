@@ -1,5 +1,22 @@
 # 11 部署 Runbook
 
+## T169/T170 node metrics and frontend rollout
+
+Node metrics use a fixed-identity SSH probe service and a separate DB collector.
+The probe owns the read-only SSH key/config but no database URL; the collector
+owns the biodemo connection but no SSH material. Repeated node spool timestamps
+must be ignored or used only to clear a degraded health flag while preserving
+the previously derived CPU/rate fields.
+
+The production node panel release is
+`20260903-wgs-4.1.1-6c98281-t170-node-tabs-r1` with frontend image
+`airflow-demo/frontend:t170-node-tabs-f1c5732`. Release switching recreates only
+`frontend-nginx` and `platform-metrics-collector`; do not recreate PostgreSQL,
+Redis, volumes or the external network. The frontend must show `.96/.97` tabs,
+render one node at a time, and omit node disk/IOPS/network labels. SFS/OBS Cloud
+Eye degradation remains independent and must not make healthy node snapshots
+disappear.
+
 ## T168 `.96` production control plane
 
 The production WGS control plane is deployed on `172.17.61.96` under
@@ -25,8 +42,13 @@ frontend client allowlist includes 10.10.30.0/24; deny all remains the default
 Docker logging max-size=20m, max-file=3
 ```
 
-Before any real run, independently validate the `hanjj` node200 kubeconfig,
-kubectl and CCE operator config. A working SSH/OBS probe alone is insufficient.
+The accepted node200 CCE contract uses `/bi/BioCodeHub/WGS/kubectl` and
+`/home/hanjj/bioinfo-cce-kubeconfig.yaml`, as referenced by
+`/home/hanjj/.config/wgs/cce.yaml`. Do not create a second default
+`~/.kube/config` or copy kubectl into another path unless the WGS contract is
+changed. Both private configuration files must remain mode `0600`. Validate the
+`external` context, `snakemake-ns` access and required Job/Pod RBAC as `hanjj`
+before every real-run enablement. A working SSH/OBS probe alone is insufficient.
 Enabling the two execution gates and unpausing `bio_wgs` require a separate
 approved minimal-batch acceptance. Never use `docker compose down -v`, recreate
 the external network, or delete `/sg2` data during release switching.

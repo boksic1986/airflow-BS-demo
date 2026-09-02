@@ -1,12 +1,28 @@
 # SERVER_INFO.md
 
-## T168 server96 production disabled deployment (2026-09-02)
+## T170 production node health panel (2026-09-03)
+
+```text
+primary: 172.17.61.96
+release: 20260903-wgs-4.1.1-6c98281-t170-node-tabs-r1
+control_commit: f1c5732
+frontend_image: airflow-demo/frontend:t170-node-tabs-f1c5732
+frontend_image_id: sha256:4d1892113632557714e7e830d7c31ca6ae13f4bdf788f03a9e41d5c9e44a693c
+node_metrics: node-96 healthy; node-97 healthy; fixed SSH aliases and distinct pinned server host keys
+node_panel: .96/.97 tabs; CPU/load, memory, updated time and health only
+cloud_metrics: SFS/OBS Cloud Eye spool not configured; degraded independently of node health
+network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
+published_ports: 172.17.61.96:12959 only
+backup: /data/airflow-WGS/backups/T170-node-tabs-20260902T160508Z
+```
+
+## T168 initial server96 production disabled deployment (2026-09-02)
 
 ```text
 primary: 172.17.61.96
 linux_user: hanjj
 release_root: /data/airflow-WGS
-current_release: 20260902-wgs-4.1.1-6c98281-t168-server96-disabled-r3
+initial_release: 20260902-wgs-4.1.1-6c98281-t168-server96-disabled-r3
 control_commit: 242f300
 frontend: http://172.17.61.96:12959
 postgres_volume: airflow-wgs_postgres-data (local driver, /data XFS host storage)
@@ -36,8 +52,11 @@ target_key_fingerprint: SHA256:CQsyQXQUr+WqooGabSzek0BtlxQIA6DtJYkrzQ/3EHE
 ssh_read_probe: 172.17.61.96/server96, 172.17.61.97/server97, 172.17.61.200/t640 passed
 node_metrics: /proc readable on all three hosts
 node200_obs_config: /home/hanjj/.obsutilconfig exists and is readable; contents not inspected
-node200_cce_pipeline: /bi/software/mamba/envs/WGS/bin/cce-pipeline executable
-node200_missing: /home/hanjj/.kube/config, /home/hanjj/.local/bin/kubectl, /home/hanjj/.config/wgs/cce.yaml
+node200_cce_pipeline: /bi/software/mamba/envs/WGS/bin/cce-pipeline, version 0.8.1, executable
+node200_kubectl: /bi/BioCodeHub/WGS/kubectl, v1.32.9, mode 0755
+node200_kubeconfig: /home/hanjj/bioinfo-cce-kubeconfig.yaml, mode 0600
+node200_cce_config: /home/hanjj/.config/wgs/cce.yaml, mode 0600
+node200_cce_validation: context external; namespace snakemake-ns readable; get/list/watch/create/delete jobs and get/list pods plus pods/log allowed
 target_analysis_parent: /sg2/14.hanjingjing/Cloud_WGS_Clinical, owner hanjj:bioinfo, mode 0755, writable as hanjj
 target_batch_root: /sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical, not created
 target_control_root: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime, not created

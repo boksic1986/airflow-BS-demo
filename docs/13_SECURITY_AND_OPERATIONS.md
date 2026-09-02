@@ -1,5 +1,17 @@
 # 13 安全和运维约束
 
+## T169/T170 node metrics boundary
+
+- `.96` and `.97` share the approved client private key but have separate pinned
+  ED25519 host keys. Never copy one server host key to the other alias.
+- `platform-node-probe` accepts only the fixed `metrics-node-96` and
+  `metrics-node-97` aliases, owns no database credential and publishes no port.
+  `platform-metrics-collector` reads the shared node spool and biodemo but does
+  not mount the SSH key, config or known-hosts file.
+- Disk, IOPS and network counters remain internal API/audit data after the UI
+  hides them. They must not be replaced with fabricated values or logged every
+  collection cycle.
+
 ## T168 production host boundary
 
 - The WGS production UI is the only published service and binds exactly to
@@ -21,8 +33,10 @@
   files. Scanner normal operation emits one summary per ten-minute cycle rather
   than one line per discovered directory.
 - The disabled production deployment does not authorize OBS transfer, CCE
-  submission, WGS execution or Step7 cleanup. Node200 CCE credentials and the
-  operator contract must be accepted independently before gates change.
+  submission, WGS execution or Step7 cleanup. Node200 uses the contract paths
+  `/bi/BioCodeHub/WGS/kubectl`, `/home/hanjj/bioinfo-cce-kubeconfig.yaml` and
+  `/home/hanjj/.config/wgs/cce.yaml`; private configs remain owner-only mode
+  `0600`. Successful read-only/RBAC validation does not change execution gates.
 
 ## T163 scanner例外与认证能力边界
 

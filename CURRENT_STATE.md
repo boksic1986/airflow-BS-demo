@@ -1,5 +1,19 @@
 # CURRENT_STATE.md
 
+## 2026-09-03 T169/T170 node metrics and compact health panel
+
+```text
+release: current -> /data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t170-node-tabs-r1; control commit f1c5732.
+frontend: image airflow-demo/frontend:t170-node-tabs-f1c5732, image ID sha256:4d1892113632...; Analysis Node Health switches between .96/.97 and shows only CPU/load, memory, updated time and health.
+collector: repeated or older node spool timestamps no longer overwrite derived CPU/rate fields; two consecutive reads of the same live spool preserved both node snapshots.
+live_nodes: node-96 and node-97 are healthy; authenticated storage remains biodemo and Cloud Eye SFS/OBS is still degraded because its spool is not configured.
+validation: server Docker frontend 10 files/37 tests and production build passed; backend 313 passed/1 skipped; root HTTP=200 and deployed JS contains node tabs but no node disk/network labels.
+deployment: only frontend-nginx and platform-metrics-collector were recreated; PostgreSQL, Redis, volumes and Docker network were not rebuilt.
+gate: all four WGS execution/preview/auto-dispatch gates remain false and bio_wgs remains paused.
+network: nipt_analysis_test_net remains 192.168.199.0/24, gateway 192.168.199.1; only 172.17.61.96:12959 is published.
+backup: /data/airflow-WGS/backups/T170-node-tabs-20260902T160508Z; biodemo SHA256 413e329e7a20...
+```
+
 ## 2026-09-02 T168 `.96` WGS production control-plane disabled deployment
 
 ```text
@@ -14,7 +28,8 @@ gate: WGS_EXECUTION_ENABLED=false, WGS_RUNTIME_ADAPTER_ENABLED=false, WGS_SUBMIS
 network: external nipt_analysis_test_net remains 192.168.199.0/24, gateway 192.168.199.1; only frontend is published at 172.17.61.96:12959.
 frontend_acl: initial r2 allowed server subnets but rejected the operator workstation source 10.10.30.30 with nginx 403; r3 adds only 10.10.30.0/24 while retaining deny all. Root-page smoke is now mandatory in addition to /api/health.
 admin_access: production.env remains owned by hanjj and non-writable by chenjc; an explicit user ACL grants chenjc read-only access for controlled credential retrieval.
-external_gaps: hanjj on node200 still lacks the approved kubeconfig/kubectl/cce operator configuration; node exporters on .96/.97 and Cloud Eye metric spool are unavailable, so resource cards remain degraded without affecting WGS scheduling.
+node200_cce: hanjj uses cce-pipeline 0.8.1 with /bi/BioCodeHub/WGS/kubectl v1.32.9, /home/hanjj/bioinfo-cce-kubeconfig.yaml and /home/hanjj/.config/wgs/cce.yaml; both private configuration files are mode 0600. Context external can read snakemake-ns and has the required Job and Pod/log permissions.
+external_gaps: Cloud Eye metric spool remains unavailable. WGS execution remains disabled until the node200 runner and one separately approved minimal batch are accepted; valid kubectl access alone does not enable either gate.
 backup: /data/airflow-WGS/backups/T168-initial-20260902T140812Z; biodemo SHA256 9f7c6fddae2... and Airflow SHA256 bf5f20298d1f....
 ```
 
@@ -23,7 +38,7 @@ backup: /data/airflow-WGS/backups/T168-initial-20260902T140812Z; biodemo SHA256 
 ```text
 decision: 新生产运行身份固定为hanjj，使用用户提供的新RSA；不再把hanjingjing当作Linux账号名。生产切换后Airflow不按任务回退chenjc。
 paths: 新WGS批次固定写/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical/<batch>；Airflow控制面固定写同空间airflow-wgs/runtime，两个白名单根分离。
-probe: 新key已只读验证可登录.96/.97/.200且三台/proc可读；node200的/home/hanjj/.obsutilconfig可读、WGS cce-pipeline可执行；kubeconfig/kubectl/cce.yaml尚待配置。
+probe: 新key已只读验证可登录.96/.97/.200且三台/proc可读；node200的/home/hanjj/.obsutilconfig可读、cce-pipeline 0.8.1可执行，kubectl/kubeconfig/cce.yaml合同已验证并将私有配置权限收紧为0600。
 history: 旧/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime只读保留，历史run不改绑、不删除；新request不得再写旧根。
 metrics: 前端Analysis Node只展示.96/.97；.200是WGS operator。节点SSH probe与DB collector拆分，OBS/SFS仍需CES只读权限和node200 Cloud Eye spool。
 status: docs/29设计已确认；request v4、runner双根、node200配置、BS10610新key安装、禁用态release和真实batch均未实施。
