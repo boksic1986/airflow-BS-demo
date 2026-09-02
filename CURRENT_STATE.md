@@ -10,7 +10,7 @@ frontend: Submit表单展示V4.1.1/6c98281和T7，不显示测试版本或varian
 validation: 生产4.1.1纠正后BS10610 Docker backend 280 passed/1 skipped；scripts 38 passed；Airflow DagBag import_errors=0、bio_wgs=18 tasks/6 reschedule sensors/paused-on-creation；frontend 9 files/32 tests及Vite build通过。此前PostgreSQL 15迁移往返、Compose解析和固定网络检查继续通过。
 runtime: 未部署、未切current、未启动OBS/CCE/WGS/Step7；在线T152状态未改变。
 network: 只读复核nipt_analysis_test_net=192.168.199.0/24、gateway=192.168.199.1；仅frontend发布172.17.106.10:12959。
-repository: 主功能PR #4已合并；PR #6曾误把生产路径改到4.2.0测试仓库，当前纠正分支将完整回退该生产绑定。两者均未部署到在线环境。
+repository: 主功能PR #4 merge 17c0f97；错误4.2.0路径PR #6未部署并已由生产纠正PR #8完整覆盖。PR #8 merge commit为6046a280db1271ae41575113cacd431e990a74c2，root main已ff-only同步。
 ```
 
 ## 2026-09-02 T159 WGS提交、传输进度与失败日志合同修正
