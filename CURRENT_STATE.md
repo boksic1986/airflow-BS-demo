@@ -1,5 +1,43 @@
 # CURRENT_STATE.md
 
+## 2026-09-02 T161 WGS 4.2.0候选接入与仓库整理
+
+```text
+wgs: 只读审计确认共享仓库分支dev_CJC_4.2.0_cloud、commit 78797181ee0582bea3167385c243616017f092ce、配置版本V4.2.0；structured ANALYSIS_COMPLETE生产/消费合同已统一。仓库仅有既存docs未跟踪报告，Airflow未修改WGS。
+catalog: 候选release更新为wgs-4.2.0-7879718；BS10610/node200共享路径仍为wgs-4.1.1，路径名不作为版本判断。
+prepare: platform修正为T7；sequencing_batch与analysis_batch分别传给--batch/--analysis-batch；新增受控algo=DNAscope|Haplotyper，默认DNAscope。服务端派生最终batch_no=WGS_<analysis_batch>_T7Hg38V4.2.0。
+frontend: Submit表单展示V4.2.0/7879718、T7及variant caller；此前Batch、业务阶段、精确进度、安全Samples、Rule图、opaque日志与失败诊断修复均包含在同一候选。
+validation: BS10610 Docker backend 280 passed/1 skipped；scripts 38 passed；Airflow DagBag import_errors=0、bio_wgs=18 tasks/6 reschedule sensors/paused-on-creation；PostgreSQL 15完成0001→0013、受控downgrade/upgrade；frontend 9 files/32 tests及Vite build通过；Compose解析、secret scan和git diff --check通过。
+runtime: 未部署、未切current、未启动OBS/CCE/WGS/Step7；在线T152状态未改变。
+network: 只读复核nipt_analysis_test_net=192.168.199.0/24、gateway=192.168.199.1；仅frontend发布172.17.106.10:12959。
+```
+
+## 2026-09-02 T159 WGS提交、传输进度与失败日志合同修正
+
+```text
+submission: 撤回三步draft preview作为生产入口；新增catalog受控POST /api/wgs/runs。DAG prepare按WGS原生语义执行sampleinfo→analysis，只有batch_root/sampleinfo.tsv中的最终selection.kept会进入公开Samples，FASTQ扫描结果和pending不再预先冒充分析样本。
+transfer: 新增Airflow自有透明obsutil wrapper和node200 runner聚合，合同为wgs-runtime.transfer-progress.v1。wrapper保留原命令stdout/stderr/exit code，只写请求级脱敏bytes/files/speed/ETA；解析失败只降级监控，不改变传输结果。cce-pipeline旧v1仅作为读兼容，不再是部署门禁。
+logs: 取消失败Rule的SFS路径registry要求；只从已经绑定并镜像的analysis.log最后2MiB按snakemake job ID/rule name生成不超过64KiB摘要，完整日志继续通过后端自动生成的opaque key读取，用户不配置key且logger路径不被信任。T160将日志API改为64KiB分块倒读，单次最多8MiB/1000行并返回file_size/truncated，不再把完整analysis.log载入内存。
+release: catalog仍保持wgs-4.1.1-2499749。共享WGS HEAD 6c982817...只作为待审计候选；等待WGS更新完成后再一次性更新commit/release ID，不静默跟随HEAD。
+validation: BS10610 backend 279 passed/1 skipped（含T160大日志RED→GREEN）；runner/adapter/timing 51 passed；前端在BS10610无网络Docker容器内使用Node 22.22.2/npm 10.9.7完成Vitest 32 passed及Vite production build；git diff --check和Python compile通过。测试证据在/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/t159-20260902。本机Node结果不作为验收证据。
+network: BS10610只读preflight确认外部`nipt_analysis_test_net`仍为`192.168.199.0/24`、gateway `192.168.199.1`，现有容器地址均唯一且在网段内；候选Compose不声明IPAM或静态容器IP，只复用该外部网络。唯一宿主机端口映射仍为前端`172.17.106.10:12959`；测试容器使用`--network none`，未创建或修改Docker网络。
+deployment: 本轮未部署、未切current、未修改在线T152开关或DAG pause，未启动OBS/CCE/WGS/Step7。node200仍需在disabled release阶段安装wrapper并把受控operator config的obsutil_bin指向wrapper。
+```
+
+## 2026-09-02 T153-T158 WGS生产前端开发检查点
+
+```text
+code: migration 20260901_0013、权威stage/Rule状态、安全日志索引、Batch/业务阶段UI、Samples、Rule阶段图、三步draft API/UI、资源快照和admin Step7合同已在T146 worktree实现。独立审查后的提交/DagRun幂等、Step7 action绑定、draft过期/源漂移、严格transfer v1、terminal单调和WGS QC残留均已修正。
+logs: node200 evidence bridge现在增量同步Rule JSONL和绑定run的analysis.log，并在Master终态用只读reader补齐。
+validation: BS10610 backend 298 passed/1 skipped；scripts 37 passed；bio_wgs DAG 8 passed且DagBag为18 tasks/paused-on-creation/import_errors=0；临时PostgreSQL 15完成0013 upgrade/受控downgrade/upgrade。此前记录的本机Node结果不作为验收证据；T159已在BS10610无网络Docker容器内重新完成32 tests及TypeScript/Vite build。BS10610离线镜像`airflow-demo/frontend:t153-production-ui-disabled`（sha256:c7e49e0a69d40570dfafd3e20b3a66308f7a6f726ed7623127d004bb3f9ba202）的nginx及无端口HTTP smoke通过。独立只读审查最终为Critical/Important/Minor均0。
+progress: 没有cce-pipeline.transfer-progress.v1时Step1/Step5明确返回progress_available=false，不伪造速度或ETA；Step3使用结构化completed/total/percent。
+blocker_draft: 当前WGS sampleinfo子命令只生成临床metadata，不生成FASTQ配对和pending预览；生产draft worker不得自行复制业务选择逻辑。WGS_SUBMISSION_PREVIEW_ENABLED默认false，API/UI fail closed，等待WGS只读preview合同或批准的adapter。
+blocker_rule_stderr: analysis.log和stage worker日志已使用opaque索引；失败Rule stderr仍缺少经审查的log-key到SFS相对路径registry，未开放任意logger路径读取。
+blocker_release: catalog仍绑定wgs-4.1.1-2499749；共享WGS仓库当前HEAD为6c982817614db6a1157b6f287427ddf01ac91827。不得静默改绑或启用。
+deployment: 本轮尚未迁移生产DB、重建服务或切换current；未启动OBS/CCE/WGS，未执行Step7。当前在线仍为T152 release，旧生产env的execution/runtime=true且现有bio_wgs为unpaused；本轮disabled candidate已用四个门禁显式false解析验证，不擅自覆盖在线状态。
+network: Compose解析只发布frontend 172.17.106.10:12959；外部nipt_analysis_test_net实测192.168.199.0/24、gateway 192.168.199.1；scanner默认600秒。
+```
+
 ## 2026-09-01 T152 - Step4 Master时序修复已部署，当前批次被WGS marker合同阻断
 
 ```text

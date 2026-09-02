@@ -1,5 +1,14 @@
 # 10 QC、日志和报告设计
 
+## T154/T155 WGS日志边界
+
+WGS QC记录为兼容保留，但生产WGS前端不展示QC卡片、Tab或状态。可读日志为镜像的
+Master `analysis.log`、stage worker日志及登记过的失败Rule证据。公开API只解析
+注册根目录下的opaque key，拒绝任意客户端路径。
+opaque key由后端根据已验证的attempt/run binding自动生成，用户和部署人员不配置。
+日志正文采用末尾分块读取：默认200行、API上限1000行、单次最多读取8 MiB；响应
+返回文件总大小和截断标记，避免大型`analysis.log`造成后端内存峰值。
+
 ## T127 WGS and NIPT resource telemetry
 
 Host WGS and Docker NIPT runners write five-second resource samples to the run

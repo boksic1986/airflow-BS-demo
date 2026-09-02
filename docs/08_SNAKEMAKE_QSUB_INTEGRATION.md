@@ -1,5 +1,12 @@
 # 08 Snakemake + qsub 接入设计
 
+## T154 WGS CCE日志投影
+
+WGS Rule JSONL继续由Master scheduler生成。observer投影sequence、phase、layer、
+job ID、安全样本/家系、wildcards、message和opaque日志键，不修改业务Rules。
+node200增量同步Rule JSONL及绑定run的`analysis.log`，Master退出后通过只读reader
+补齐最终字节；不持续枚举Worker Pod。
+
 ## T145 event-driven evidence consumption
 
 Rule JSONL 和 Master Job/Pod evidence 的 schema/path 不变。本地

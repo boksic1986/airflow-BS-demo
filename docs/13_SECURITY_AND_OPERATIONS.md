@@ -1,5 +1,16 @@
 # 13 安全和运维约束
 
+## T153-T157 WGS UI信任边界
+
+浏览器不能提交仓库版本、服务器路径、原始YAML、shell参数、OBS/SFS地址、Kubernetes
+身份、联动分组或Step7真实确认串。临床身份字段在公开草稿/样本投影前删除。云凭据
+只留在node200受限入口。node exporter和Cloud Eye采集仅内网可用，采集失败只把
+资源标记为stale/degraded，不影响WGS任务。
+WGS日志只能通过服务端日志索引签发的opaque key读取；即使索引为空，也不得回退到
+legacy stdout/stderr/metadata固定路径。
+WGS版本、platform、算法和最终批次名均由服务端catalog/发布合同约束；浏览器只能
+选择`DNAscope|Haplotyper`，不能提交仓库路径、commit、镜像或任意算法参数。
+
 ## T151 non-clinical intake boundary
 
 T7 scanner只根据直属目录项名称排除大写`YF`前缀，不解析或输出YF样本编号，不读取

@@ -1,5 +1,136 @@
 # HANDOFF.md
 
+## 2026-09-02 - Codex - T161 WGS 4.2.0候选接入（进行中）
+
+### 目标与当前结果
+
+- 共享WGS只读审计：`dev_CJC_4.2.0_cloud`，commit
+  `78797181ee0582bea3167385c243616017f092ce`，版本`V4.2.0`。
+- 候选catalog已更新为`wgs-4.2.0-7879718`，共享路径保持不变。
+- Airflow runner现在分别传递`--batch`和`--analysis-batch`，platform为`T7`；
+  新增`--algo DNAscope|Haplotyper`。后端自动派生
+  `WGS_<analysis_batch>_T7Hg38V4.2.0`，前端同步展示当前release和算法选择。
+- WGS仓库未修改；没有部署、OBS、CCE、真实分析或Step7操作。
+
+### 已运行验证
+
+```text
+BS10610 Docker focused backend: 43 passed
+BS10610 Docker runner: 29 passed
+BS10610 Docker full backend: 280 passed, 1 skipped
+BS10610 Docker full scripts: 38 passed
+Airflow DagBag: import_errors=0, bio_wgs 18 tasks, 6 reschedule sensors, paused=true
+PostgreSQL 15 migration: 0001->0013, downgrade 0013->0012, upgrade 0012->0013 passed
+BS10610 Docker frontend: 9 files / 32 tests passed
+BS10610 Docker Vite build: passed
+Compose config: passed
+git diff --check and candidate secret scan: passed
+network: 192.168.199.0/24, gateway 192.168.199.1
+published port: only 172.17.106.10:12959
+```
+
+### 待完成
+
+- 整理提交，创建PR，合并到main，并同步root main及下一开发worktree。
+- 本条是检查点；完成后需补充PR、merge SHA和最终验证结果。
+
+### 回滚
+
+尚未修改在线服务或数据。代码回滚只涉及候选分支；不得删除`.artifacts/`或在线T152状态。
+
+## 2026-09-02 - Codex - T159四项合同修正
+
+### 已完成
+
+- `docs/28_WGS_PRODUCTION_UI_AND_SUBMISSION_DESIGN.md`已按用户确认语义修订，并新增实现计划`docs/superpowers/plans/2026-09-02-wgs-transfer-submit-logs.md`。
+- 新增透明`wgs_obsutil_progress.py`。node200 runner对Step1/Step5按5秒聚合请求级JSON，backend直接从stage status同步真实bytes/files/speed/ETA；不再等待cce-pipeline提供进度。
+- 新增`POST /api/wgs/runs`和单页Submit表单。浏览器只提交catalog ID及platform/sequencing batch/analysis batch/use_reference；WGS prepare执行sampleinfo→analysis，prepare成功后只导入最终`sampleinfo.tsv`安全字段。
+- 失败Rule不再需要log-key到SFS路径registry。backend只读已注册的Master analysis.log最后2MiB，以job ID/rule name截取最多64KiB；Rule表显示摘要，完整日志继续走现有opaque key。
+- T160确认opaque key无需人工配置，并把完整日志接口改为从末尾64KiB分块倒读；单次最多8MiB/1000行，返回`file_size/truncated`，大型analysis.log不再整文件载入内存。
+- WGS release catalog没有改动，仍为`wgs-4.1.1-2499749`；等待WGS正式更新后再统一审计和改绑。
+
+### 验证
+
+```text
+BS10610 backend: 279 passed, 1 skipped
+T160 RED evidence: 2 expected failures (whole-file read and missing bounded reader)
+T160 focused GREEN: 2 passed
+BS10610 runner/adapter/timing/wrapper: 51 passed
+BS10610 Docker frontend Vitest: 9 files / 32 tests passed
+BS10610 Docker frontend Vite production build: passed
+frontend runtime: Node 22.22.2 / npm 10.9.7, container network=none
+BS10610 Docker network preflight: nipt_analysis_test_net=192.168.199.0/24, gateway=192.168.199.1, attachments unique/in-range
+published host mapping: only frontend 172.17.106.10:12959
+Python compile: passed
+git diff --check: passed
+remote evidence: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/t159-20260902
+```
+
+### 未完成/下一步
+
+- 尚未把wrapper安装到node200，也未修改其受控operator config；因此当前在线Step1/Step5不会突然出现速度。这应在新的disabled release预检中完成，并用mock obsutil及一个单独批准的真实传输验证。
+- 尚未部署、迁移或切换`current`；在线T152仍保持execution/runtime=true和DAG unpaused。本轮没有暂停或覆盖它。
+- WGS下一个正式HEAD确定后，更新catalog commit/release ID并重新验证prepare CLI、最终sampleinfo路径及`use_reference`枚举，然后再做disabled release。
+- 当前worktree包含此前T153-T157大批未提交变更；不要只挑T159文件部署，必须按完整候选release进行迁移/Compose/DAG/network验收。
+
+### 回滚
+
+本轮未触碰生产服务、数据库、OBS、SFS或CCE。代码回滚仅涉及候选worktree；保留`.artifacts/`和在线T152状态。
+
+## 2026-09-02 - Codex - T153-T158生产前端开发检查点
+
+### 已完成
+
+- 新增文档28和迁移`20260901_0013`；实现权威阶段/精确进度、扩展Rule状态、
+  安全Samples、opaque日志、WGS Failure Triage、当前Workflow Catalog。
+- 前端增加Run Tracker Batch、人性化Step1-Step6、精确进度/不可用态、Samples、
+  Rule阶段图与实例表；移除WGS QC和Master image digest。
+- 实现受控项目catalog、三步submission draft API/UI、60点资源快照、`.96/.97`
+  速率投影、SFS/OBS UI和admin Step7双确认合同。提交和Step7均使用确定性DagRun；
+  crash重试不重复创建，Step7内部入口必须携带匹配的admin维护操作ID。
+- transfer只接受严格`cce-pipeline.transfer-progress.v1`，terminal stage禁止成功/失败
+  互相覆盖；不再用阶段位置生成总体百分比或分析ETA。
+- evidence bridge增量同步Rule JSONL及`analysis.log`，终态reader保持SFS只读。
+
+### 验证
+
+```text
+BS10610 backend: 298 passed, 1 skipped
+BS10610 scripts: 37 passed
+BS10610 bio_wgs DAG: 8 passed
+temporary PostgreSQL 15: 0013 upgrade/downgrade/upgrade passed
+frontend TypeScript/Vite production build: passed（由T159在BS10610无网络Docker容器重新验证；本机Node结果不作为验收）
+frontend Vitest: 9 files / 32 tests passed（BS10610 Docker）
+BS10610 offline frontend image: airflow-demo/frontend:t153-production-ui-disabled
+frontend image digest: sha256:c7e49e0a69d40570dfafd3e20b3a66308f7a6f726ed7623127d004bb3f9ba202
+nginx config/static HTTP smoke: passed（无宿主机端口）
+Compose config: passed
+published ports: only 172.17.106.10:12959
+network: 192.168.199.0/24, gateway 192.168.199.1
+scanner interval: 600 seconds
+independent read-only review: Critical 0 / Important 0 / Minor 0
+```
+
+### 未完成和阻塞
+
+- cce-pipeline 0.8.1未提供transfer-progress v1，上传/下载只能显示真实阶段，不能显示
+  速度/ETA。
+- WGS `sampleinfo`不提供FASTQ配对/pending的只读preview；draft DB/API/UI及最终提交
+  幂等测试已完成，`WGS_SUBMISSION_PREVIEW_ENABLED=false`使API/UI fail closed。
+- Rule JSONL只有opaque log key，没有受控SFS相对路径registry；目前可读analysis.log和
+  stage worker日志，尚未镜像失败Rule stderr尾部，禁止以任意路径读取替代。
+  但真实async worker不能安全启用。
+- Airflow catalog为`2499749`，共享WGS HEAD已是`6c98281`；未获得版本改绑决定。
+- 当前在线T152 env仍是execution/runtime=true且bio_wgs未pause；本轮candidate以四门禁
+  false完成Compose验证，但未覆盖在线状态、未迁移生产DB、未部署release、未执行真实
+  Step7或Cloud Eye/node exporter采集。
+
+### 下一步和回滚
+
+先冻结WGS preview与transfer-progress合同并确认新release commit，再完成T156/T157远端
+验收、生产备份和disabled release。当前改动未部署，回滚只需丢弃本worktree改动；不得
+修改现有生产DB、current release、OBS/SFS或运行记录。
+
 ## 2026-09-01 - Codex - T152 Step4 race repair and WGS marker blocker
 
 ### Completed

@@ -1,5 +1,16 @@
 # 07 Airflow DAG 设计
 
+## T154/T157 UI与维护接入
+
+唯一WGS DAG仍为`bio_wgs`，生产路径保持Prepare→Step1-Step6，sensor继续5秒
+`reschedule`。`cleanup_step7`是同一DAG的admin维护模式，会跳过普通生产路径，
+绝不自动执行。前端阶段来自`run_stage_state`，不展示原始task ID或task计数进度。
+
+WGS 4.2.0 prepare request显式携带`sequencing_batch`、`analysis_batch`、
+`platform=T7`和`algo=DNAscope|Haplotyper`。runner分别映射到WGS
+`--batch`、`--analysis-batch`、`--platform`和`--algo`；Step1-Step6仍只消费
+prepare生成的冻结bundle，DAG拓扑不变。
+
 ## T152 Step4 bounded wait and retry generation
 
 The 18-task topology is unchanged. `step4_publish` treats

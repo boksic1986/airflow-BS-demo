@@ -1,5 +1,13 @@
 # 04 数据库设计
 
+## T154-T157 WGS生产投影
+
+迁移`20260901_0013`新增`run_stage_state`（每analysis/attempt/stage一行）、
+`wgs_submission_draft`（私有且可过期的提交草稿）和
+`platform_resource_snapshot`（每资源一行、最多60点JSON环）。`rule_state`
+增加sequence、phase、job、样本/家系、wildcards和日志索引字段。既有QC数据保留，
+但WGS前端不再消费。
+
 ## T151 YF exclusion fingerprint（无迁移）
 
 T151不增加数据库字段。现有fingerprint值升级为v3并排除`YF*`非临检样本名称；

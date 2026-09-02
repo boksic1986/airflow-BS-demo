@@ -1,5 +1,19 @@
 # 11 部署 Runbook
 
+## T158禁用态发布门禁
+
+迁移`20260901_0013`前备份biodemo和Airflow metadata。两个WGS执行开关保持false，
+`bio_wgs`保持paused，自动提交保持false；scanner周期为600秒。新增metrics collector
+不发布端口。保留外部网络`192.168.199.0/24`，只能发布`172.17.106.10:12959`。
+共享WGS HEAD与catalog不一致时不得自行改绑或启用。
+当前候选必须核对共享仓库分支`dev_CJC_4.2.0_cloud`和完整commit
+`78797181ee0582bea3167385c243616017f092ce`，catalog必须同时为
+`wgs-4.2.0-7879718`/`V4.2.0`。共享路径名称仍为`wgs-4.1.1`，路径名不作为版本判断。
+`WGS_SUBMISSION_PREVIEW_ENABLED`仅作为历史draft API兼容门禁；新的catalog受控Submit不依赖preview worker。部署前必须验证WGS prepare的sampleinfo→analysis语义和最终sampleinfo同步。
+迁移`20260901_0013`的downgrade会删除draft、stage projection和资源快照，默认
+拒绝执行；只有经批准回滚并确认数据可丢弃时才可临时设置
+`ALLOW_WGS_PRODUCTION_UI_DOWNGRADE=true`。
+
 ## T152 Step4 Master时序恢复
 
 1. 只读核对Step3成功sidecar、冻结binding、Master名称/UID/namespace和Kubernetes
@@ -37,8 +51,9 @@ JSON `ANALYSIS_COMPLETE`，但同一冻结bundle的`cce_delivery.py`只接受字
 
 ## T150 T7 scanner滚动修复
 
-1. 在BS10610隔离环境运行scanner focused和完整backend测试；使用固定Node构建并
-   测试frontend。软链接测试必须包含目标不存在的R1/R2，证明scanner不访问目标。
+1. 在BS10610隔离环境运行scanner focused和完整backend测试；frontend必须在
+   BS10610 Docker环境运行测试和生产构建，本机Node结果不得作为验收证据。软链接
+   测试必须包含目标不存在的R1/R2，证明scanner不访问目标。
 2. 部署前`pg_dump -Fc`备份biodemo并记录AnalysisRun、RunAttempt、Airflow
    DagRun和intake行数。不得清空或修改这些表。
 3. 从当前release建立新的不可变release；scanner继续只读挂载
@@ -162,12 +177,13 @@ T146真实运行发现的兼容性门禁：cce-pipeline 0.8.1 Step2会在Master 
    `bio_wgs` paused；不得安装或升级 cce-pipeline。
 2. 运行远端 backend/observer/DAG/runner/frontend、Alembic往返、Compose和网络
    验收。不得调用 sampleinfo、Step1-Step6、OBS或 CCE。
-3. observer只读挂载宿主`/bi/fastq/T7_Fastq`到同路径，并设置：
+3. T143历史发布中observer只读挂载宿主`/bi/fastq/T7_Fastq`到同路径，并设置：
    `WGS_INTAKE_SCAN_ENABLED=true`、`WGS_INTAKE_SCAN_INTERVAL_SECONDS=1800`、
    `WGS_AUTO_DISPATCH_ENABLED=false`。
 4. 迁移到`20260829_0011`并只重建相关服务；不删除 volume，不重建外部
    `192.168.199.0/24`网络。
-5. 首次扫描仅建立 bootstrap。核对 AnalysisRun和 Airflow DagRun均为零；随后按
+   当前T150及以后release必须改用`WGS_INTAKE_SCAN_INTERVAL_SECONDS=600`。
+5. 首次扫描仅建立 bootstrap。核对 AnalysisRun和 Airflow DagRun均为零；T143按
    真实1800秒间隔连续观察至少两个周期，确认状态计数幂等且仍无运行副作用。
 6. 只在上述验收通过后切换`current`。真实自动 prepare、分析目录创建、Step4
    repair执行和 CCE分析均需单独审批。
