@@ -67,7 +67,7 @@ from app.wgs_platform_service import action_wgs_run, acquire_obs_transfer_slot, 
 from app.wgs_release_catalog import load_wgs_release_catalog
 from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferJob, UserAccount
 from app.wgs_timing_service import enrich_progress, serialize_rule_states
-from app.workflow_phases import phase_for_rule, phase_order
+from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_definitions
 from app.wgs_runtime_adapter import build_stage_request, container_workdir_to_host, write_stage_request
 from app.wgs_observer import sync_runtime_stage_artifacts, upsert_stage_state
 from app.wgs_observer_lifecycle import activate_observer, request_observer_drain
@@ -1326,13 +1326,12 @@ def run_rules(
             and (not rule or row.rule_name == rule)
             and (not sample_id or row.sample_id == sample_id)
             and (not family_id or row.family_id == family_id)
-            and (not phase or (row.phase or phase_for_rule(row.rule_name, pipeline_name="wgs")) == phase)
+            and (not phase or phase_for_rule(row.rule_name, pipeline_name="wgs") == phase)
         ]
         filtered.sort(
             key=lambda row: (
                 row.attempt,
-                phase_order(row.phase or phase_for_rule(row.rule_name, pipeline_name="wgs"), pipeline_name="wgs"),
-                row.layer if row.layer is not None else 2_147_483_647,
+                phase_order(phase_for_rule(row.rule_name, pipeline_name="wgs"), pipeline_name="wgs"),
                 row.sequence if row.sequence is not None else 9_223_372_036_854_775_807,
                 row.sample_id or "",
                 row.rule_name,
@@ -1342,11 +1341,7 @@ def run_rules(
         page = filtered[offset:offset + limit]
         return {
             "items": serialize_rule_states(session=session, run=run, rows=page, settings=get_settings()),
-            "phases": [
-                {"key": "pre_calling", "label": "Pre-calling", "order": 10},
-                {"key": "variant_analysis", "label": "Variant analysis", "order": 20},
-                {"key": "qc", "label": "QC", "order": 30},
-            ],
+            "phases": wgs_phase_definitions(),
             "total": len(filtered),
             "limit": limit,
             "offset": offset,

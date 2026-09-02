@@ -3276,7 +3276,7 @@ textarea {
 .wgs-stage-node {
   position: relative;
   min-height: 92px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 0.75rem;
   display: flex;
@@ -3291,12 +3291,21 @@ textarea {
   position: absolute;
   right: -1.05rem;
   top: 34px;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 
-.wgs-stage-node.success { border-color: var(--success); }
-.wgs-stage-node.running, .wgs-stage-node.accepted { border-color: var(--accent); }
-.wgs-stage-node.failed { border-color: var(--danger); }
+.wgs-stage-node.success {
+  border-color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 7%, var(--color-surface));
+}
+.wgs-stage-node.running, .wgs-stage-node.accepted {
+  border-color: var(--color-running);
+  background: color-mix(in srgb, var(--color-running) 7%, var(--color-surface));
+}
+.wgs-stage-node.failed {
+  border-color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 7%, var(--color-surface));
+}
 
 .rule-filters {
   display: flex;

@@ -33,15 +33,6 @@ TASK_WEIGHTS: dict[str, dict[str, int]] = {
         "run_nipt_docker": 90,
         "collect_nipt_artifacts": 100,
     },
-    "bio_wgs": {
-        "validate_request": 5,
-        "prepare_wgs_run": 10,
-        "wgs_pipeline.pre_calling": 45,
-        "choose_wgs_path": 45,
-        "wgs_pipeline.variant_analysis": 85,
-        "wgs_pipeline.collect_qc": 95,
-        "collect_wgs_artifacts": 100,
-    },
 }
 
 RUN_TASK_IDS = {
@@ -56,11 +47,6 @@ RUN_TASK_IDS = {
         "pgta_predict.run_pgta_cnv_predict",
     },
     "bio_nipt_docker": {"run_nipt_docker"},
-    "bio_wgs": {
-        "wgs_pipeline.pre_calling",
-        "wgs_pipeline.variant_analysis",
-        "wgs_pipeline.collect_qc",
-    },
 }
 
 ACTIVE_STATUSES = {"running", "queued", "scheduled", "submitted", "up_for_retry", "up_for_reschedule", "deferred"}
@@ -223,12 +209,13 @@ def _normalize_airflow_tasks(dag_id: str | None, tasks: list[dict[str, Any]]) ->
     weights = TASK_WEIGHTS.get(str(dag_id or ""), {})
     order = {task_id: index for index, task_id in enumerate(weights)}
 
-    def sort_key(task: dict[str, Any]) -> tuple[int, int, str, str]:
+    def sort_key(indexed_task: tuple[int, dict[str, Any]]) -> tuple[int, int, int]:
+        source_index, task = indexed_task
         task_id = str(task.get("task_id") or "")
-        return (weights.get(task_id, 1000), order.get(task_id, 1000), str(task.get("start_date") or ""), task_id)
+        return (weights.get(task_id, 1000), order.get(task_id, 1000), source_index)
 
     normalized = []
-    for task in sorted(tasks, key=sort_key):
+    for _source_index, task in sorted(enumerate(tasks), key=sort_key):
         normalized.append(
             {
                 "task_id": str(task.get("task_id") or ""),

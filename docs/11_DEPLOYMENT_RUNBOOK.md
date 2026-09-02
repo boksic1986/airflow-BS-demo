@@ -1,5 +1,31 @@
 # 11 部署 Runbook
 
+## T166 WGS展示投影发布
+
+T166不迁移数据库、不运行WGS、不操作OBS/SFS业务数据。发布前备份biodemo与Airflow
+metadata，并保存当前`current`目标和容器镜像ID。使用新backend源码和经BS10610 Docker
+验证的frontend dist创建不可变release，只重建backend、frontend和读取同一源码的
+run-observer；PostgreSQL、Redis、volume和外部网络均不重建。
+
+对历史成功批次的修复仅运行`python -m app.wgs_rule_reconcile_cli --analysis-id <id>
+--attempt <n>`。CLI从数据库登记的evidence相对路径解析日志，不接受用户路径；运行前
+必须已有数据库备份和同SHA256的只读`analysis.log`镜像。该操作只重建Rule投影，不能
+提交DagRun、Master、传输或WGS。完成后验证Step1-Step6均success、Rule phase含Cloud
+delivery、sequence非空、样本仅精确匹配，并确认执行开关仍false、DAG仍paused。
+
+本次生产实例：
+
+```text
+release: 20260902-wgs-4.1.1-6c98281-t166-workflow-rule-r1
+frontend image: airflow-demo/frontend:t166-workflow-rule-r2
+backup: backups/T166-workflow-rule-20260902T1655+0800
+replay: WGS_20260901_031616_C74E6C / attempt 1
+result: rules_projected=208, rules_enriched=147
+```
+
+固定网络验收不变：`nipt_analysis_test_net=192.168.199.0/24`、gateway
+`192.168.199.1`，唯一发布端口为`172.17.106.10:12959`。
+
 ## T165 生产前端禁用态发布
 
 BS10610当前release为

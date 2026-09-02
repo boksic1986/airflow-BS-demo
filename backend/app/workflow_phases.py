@@ -192,11 +192,26 @@ WGS_RULE_PHASES = {
     **{rule: "Variant analysis" for rule in WGS_VARIANT_ANALYSIS_RULES},
     **{rule: "QC" for rule in WGS_QC_RULES},
 }
+WGS_RULE_PREFIX_PHASES = (
+    ("pre_process_", "Pre-calling"),
+    ("QC_", "QC"),
+    ("cloud_", "Cloud delivery"),
+    ("SNV_", "Variant analysis"),
+    ("SV_", "Variant analysis"),
+    ("MT_", "Variant analysis"),
+    ("RE_", "Variant analysis"),
+    ("ROH_", "Variant analysis"),
+    ("CNV_", "Variant analysis"),
+    ("MEI_", "Variant analysis"),
+    ("SMA_", "Variant analysis"),
+    ("CS_", "Variant analysis"),
+)
 WGS_UNKNOWN_RULE_PHASE = "Variant analysis"
 WGS_PHASE_ORDER = {
     "Pre-calling": 10,
     "Variant analysis": 20,
     "QC": 30,
+    "Cloud delivery": 40,
 }
 
 FAILED_STATUSES = {"failed", "fail", "error"}
@@ -214,6 +229,9 @@ def phase_for_rule(
     if str(pipeline_name or "").strip().lower() == "wgs":
         if name == "all":
             return "Pre-calling" if str(pipeline_stage or "").strip().lower() == "precalling" else "QC"
+        for prefix, phase in WGS_RULE_PREFIX_PHASES:
+            if name.startswith(prefix):
+                return phase
         # Unknown WGS rules remain on the WGS stage rail rather than becoming generic Pipeline events.
         return WGS_RULE_PHASES.get(name, WGS_UNKNOWN_RULE_PHASE)
     return NIPT_RULE_PHASES.get(name) or GENERIC_RULE_PHASES.get(name) or "Pipeline"
@@ -224,6 +242,17 @@ def phase_order(phase: str | None, *, pipeline_name: str | None = None) -> int:
     if str(pipeline_name or "").strip().lower() == "wgs":
         return WGS_PHASE_ORDER.get(str(phase or ""), 999)
     return 999
+
+
+def wgs_phase_definitions() -> list[dict[str, object]]:
+    return [
+        {
+            "key": phase.lower().replace("-", "_").replace(" ", "_"),
+            "label": phase,
+            "order": order,
+        }
+        for phase, order in sorted(WGS_PHASE_ORDER.items(), key=lambda item: item[1])
+    ]
 
 
 def rule_counts(events: list[dict[str, Any]]) -> dict[str, int]:

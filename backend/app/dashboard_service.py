@@ -11,6 +11,7 @@ from app.models import AnalysisRun, IntakeDiscovery, QcMetric, Sample, Snakemake
 from app.progress_service import get_run_progress
 from app.qc_highlights import qc_highlights_by_run
 from app.wgs_timing_service import enrich_progress
+from app.wgs_stage_contract import terminal_wgs_progress
 
 
 DASHBOARD_PIPELINES = ("pgta", "nipt_docker", "wgs")
@@ -203,20 +204,7 @@ def _tracker_row(
         if _status(run.status) == "success":
             progress = {
                 **(progress or {}),
-                "stage_code": "final",
-                "step_number": None,
-                "stage_label": "WGS workflow completed",
-                "stage_status": "success",
-                "progress_available": True,
-                "progress_percent": 100,
-                "completed_units": 1,
-                "total_units": 1,
-                "unit": "workflow",
-                "current_item": None,
-                "speed_bps": None,
-                "eta_seconds": 0,
-                "progress_source": "workflow-terminal-state",
-                "stage_updated_at": _iso(run.pipeline_finished_at or run.ended_at),
+                **terminal_wgs_progress(updated_at=_iso(run.pipeline_finished_at or run.ended_at)),
             }
         else:
             progress = enrich_progress(session=session, run=run, payload=progress or {})
@@ -734,12 +722,6 @@ AIRFLOW_TASK_LABELS = {
     "prepare_nipt_docker_run": "Prepare NIPT Docker run",
     "run_nipt_docker": "Run NIPT Docker workflow",
     "collect_nipt_artifacts": "Collect NIPT artifacts",
-    "prepare_wgs_run": "Prepare WGS host run",
-    "choose_wgs_path": "Choose WGS validation path",
-    "wgs_pipeline.pre_calling": "Pre-calling",
-    "wgs_pipeline.variant_analysis": "Variant analysis",
-    "wgs_pipeline.collect_qc": "WGS quality control",
-    "collect_wgs_artifacts": "Collect WGS artifacts",
 }
 
 PIPELINE_RULE_LABELS = {

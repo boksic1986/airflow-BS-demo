@@ -5,7 +5,8 @@ from collections import defaultdict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AnalysisRun, RuleState, SnakemakeRuleEvent
+from app.models import AnalysisRun, RunStageState, SnakemakeRuleEvent
+from app.wgs_stage_contract import project_wgs_orchestration
 from app.workflow_phases import phase_for_rule
 
 
@@ -23,11 +24,6 @@ WORKFLOW_TEMPLATES = {
         ("t21_classifier", "T21 classifier"),
         ("fetal_fraction", "Fetal fraction"),
         ("final_qc", "Final QC"),
-    ],
-    "wgs": [
-        ("pre_calling", "Pre-calling"),
-        ("variant_analysis", "Variant analysis"),
-        ("qc", "QC"),
     ],
 }
 
@@ -60,16 +56,31 @@ def workflow_summaries_by_run(*, session: Session, runs: list[AnalysisRun]) -> d
         )].append(
             str(item.status or "unknown").lower()
         )
-    wgs_ids = [run.analysis_id for run in runs if run.pipeline_name == "wgs"]
-    wgs_states = list(
-        session.scalars(select(RuleState).where(RuleState.analysis_id.in_(wgs_ids))).all()
-    ) if wgs_ids else []
-    for item in wgs_states:
-        phase = item.phase or phase_for_rule(item.rule_name, pipeline_name="wgs")
-        grouped[item.analysis_id][phase].append(str(item.status or "unknown").lower())
+    wgs_keys = {
+        (run.analysis_id, run.attempt)
+        for run in runs
+        if run.pipeline_name == "wgs"
+    }
+    wgs_stage_rows = list(
+        session.scalars(
+            select(RunStageState).where(
+                RunStageState.analysis_id.in_([key[0] for key in wgs_keys])
+            )
+        ).all()
+    ) if wgs_keys else []
+    stages_by_run: dict[tuple[str, int], list[RunStageState]] = defaultdict(list)
+    for row in wgs_stage_rows:
+        stages_by_run[(row.analysis_id, row.attempt)].append(row)
 
     result: dict[str, list[dict[str, object]]] = {}
     for run in runs:
+        if run.pipeline_name == "wgs":
+            result[run.analysis_id] = project_wgs_orchestration(
+                run_status=run.status,
+                current_stage=run.current_stage,
+                stage_rows=stages_by_run[(run.analysis_id, run.attempt)],
+            )
+            continue
         stages = []
         for key, label in WORKFLOW_TEMPLATES.get(run.pipeline_name, []):
             statuses = grouped[run.analysis_id].get(label, [])

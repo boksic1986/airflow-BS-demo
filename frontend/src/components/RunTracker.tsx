@@ -145,7 +145,7 @@ function RunTrackerRow({
   relativeNow: Date;
 }) {
   const status = normalizeStatus(row.status);
-  const currentStep = status === "success" ? "WGS workflow completed" : row.current_stage_label || (row.not_in_airflow ? "Preparing WGS batch" : "WGS stage unavailable");
+  const currentStep = row.current_stage_label || (row.not_in_airflow ? "Preparing WGS batch" : "WGS stage unavailable");
   const note = row.note || progressNote(row);
   const terminalAt = row.pipeline_finished_at || row.ended_at;
   const terminalAge = ["success", "failed", "terminated"].includes(status)

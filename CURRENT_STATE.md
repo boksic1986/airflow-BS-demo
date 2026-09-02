@@ -1,5 +1,20 @@
 # CURRENT_STATE.md
 
+## 2026-09-02 T166 WGS workflow 与 Rule 投影修复
+
+```text
+release: current -> 20260902-wgs-4.1.1-6c98281-t166-workflow-rule-r2；frontend image airflow-demo/frontend:t166-workflow-rule-r3，image ID sha256:1326a0668703...；backend依赖镜像仍为sha256:49635d01a7e4...，应用代码由r2 release只读挂载。
+workflow: Batch Runs与Run Detail统一消费后端唯一Step1-Step6合同，不再把Pre-calling/Variant analysis/QC当作项目workflow；历史成功批次六阶段均正确投影为success，未伪造传输速度或ETA。
+rules: WGS 4.1.1规则由后端唯一映射到Pre-calling、Variant analysis、QC和Cloud delivery；208/208条Rule已有稳定execution sequence，147条sample-specific Rule从已绑定analysis.log按rule/jobid/已登记sample精确补齐，其余聚合Rule保持空值而不猜测。
+terminal: cloud_finalize_delivery缺少旧logger终态事件时，仅在已验证run为success的公开投影中修正为success；原始事件证据不被伪造或覆盖。Message列不再展示No reliable ETA (0/3)，ETA仍是独立字段。
+cleanup: 删除前端未使用的旧mock workflow catalog与PipelineCard/PipelineSelector，并移除前后端重复的旧WGS task百分比/标签映射；六个业务阶段文案只定义在backend/app/wgs_stage_contract.py，WGS Rule phase只定义在backend/app/workflow_phases.py。
+replay: 历史WGS_20260901_031616_C74E6C attempt 1只重建Rule投影，rules_projected=208、rules_enriched=147；未重跑WGS、未重新传输、未创建Master、未执行Step7。
+validation: commit 066489d；BS10610 Docker backend 312 passed；frontend 9 files/35 tests、TypeScript与Vite build通过。代码审查后的阶段fallback、已登记sample边界、analysis.log增量索引/文件替换重置和前端死映射回归均通过，最终复审无剩余发现。登录API smoke确认Batch、ended_at、六阶段、Rule phase/sample/sequence/message与terminal投影。内置浏览器因内网HTTP URL策略无法执行视觉截图验收，未绕过策略。
+backup: backups/T166-workflow-rule-20260902T1655+0800；biodemo SHA256 23980d97a5a4...，Airflow SHA256 b4706e9838b2...。
+gate: WGS_EXECUTION_ENABLED=false、WGS_RUNTIME_ADAPTER_ENABLED=false、WGS_AUTO_DISPATCH_ENABLED=false；bio_wgs paused。
+network: nipt_analysis_test_net仍为192.168.199.0/24、gateway 192.168.199.1；唯一宿主机发布仍为172.17.106.10:12959。
+```
+
 ## 2026-09-02 T165 生产前端同步、Batch/Sample检索与Finished修复
 
 ```text

@@ -1,5 +1,17 @@
 # 06 前端设计
 
+## T166 WGS Workflow/Rule展示修正
+
+- Batch Runs的`workflow`固定展示后端返回的Step1-Step6业务编排，不再显示
+  Pre-calling/Variant analysis/QC三段Rule摘要。
+- Run Detail的六个阶段卡片直接消费`/progress.orchestration_stages`，边框和状态色使用
+  全局`--color-*`设计变量；前端不再根据当前stage位置推断已完成状态。
+- Pipeline phases只按后端`rule.phase/phase_order`汇总；浏览器已删除WGS Rule名称映射。
+  Rule表将`Layer / sequence`改为`Execution order`，Message只显示真实message或失败摘要，
+  “历史不足、无法估算ETA”不再写入Message列。
+- 样本/家系只显示后端精确关联。历史logger未带wildcards且analysis.log无法精确匹配时
+  保持为空，前端不按Rule数量或顺序猜测。
+
 ## T165 Run列表同步
 
 - Command Center的Run Tracker与Batch Runs都显示`Batch`和`Finished`。

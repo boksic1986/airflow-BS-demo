@@ -23,18 +23,6 @@ const NIPT_DOCKER_TASKS = new Set([
   "collect_nipt_artifacts",
 ]);
 
-const WGS_TASKS = new Set([
-  "validate_request", "prepare_wgs_batch",
-  "input_transfer.acquire_obs_transfer_slot", "input_transfer.start_step1_upload",
-  "input_transfer.wait_step1_upload", "input_transfer.release_obs_transfer_slot",
-  "submit_step2_master", "start_step3_monitor", "wait_step3_analysis",
-  "start_step4_publish", "wait_step4_publish",
-  "result_transfer.acquire_obs_transfer_slot", "result_transfer.start_step5_download",
-  "result_transfer.wait_step5_download", "result_transfer.release_obs_transfer_slot",
-  "materialize_step6_results", "finalize_run",
-  "release_leases",
-]);
-
 export function RunWorkflowTab({progress, rules}: {progress: RunProgressResponse | null; rules: RuleEvent[]}) {
   const airflowTasks = (progress?.airflow_tasks || []).filter((task) => isSelectedTask(task, progress?.pipeline));
   const phases = useMemo(() => summarizeRulePhases(rules, progress?.pipeline), [progress?.pipeline, rules]);
@@ -71,7 +59,7 @@ export function RunWorkflowTab({progress, rules}: {progress: RunProgressResponse
           </table>
         </div>
       </section>
-      {progress?.pipeline === "wgs" ? <section><div className="section-heading"><div><h2>Rule instances</h2><p>Ordered by phase, layer, logger sequence and sample. Failed Rules show a bounded excerpt from the registered WGS analysis log; the full log remains in Logs.</p></div></div><div className="rule-filters"><label>Phase<select aria-label="Rule phase filter" value={phaseFilter} onChange={(event) => setPhaseFilter(event.target.value)}><option value="">All</option>{[...new Set(rules.map((rule) => rule.phase).filter(isText))].map((phase) => <option key={phase} value={phase}>{phase}</option>)}</select></label><label>Status<select aria-label="Rule status filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">All</option>{[...new Set(rules.map((rule) => rule.status))].map((status) => <option key={status} value={status}>{status}</option>)}</select></label><label>Sample / family<select aria-label="Rule sample filter" value={sampleFilter} onChange={(event) => setSampleFilter(event.target.value)}><option value="">All</option>{[...new Set(rules.flatMap((rule) => [rule.sample_id, rule.family_id]).filter(isText))].map((sample) => <option key={sample} value={sample}>{sample}</option>)}</select></label></div><div className="table-wrap"><table className="data-table rule-instance-table" aria-label="WGS rule instances"><thead><tr><th>Phase</th><th>Rule</th><th>Sample</th><th>Family</th><th>Layer / sequence</th><th>Job</th><th>Status</th><th>Elapsed</th><th>Remaining</th><th>Message / failure excerpt</th></tr></thead><tbody>{filteredRules.map((rule, index) => <tr key={`${rule.rule}-${rule.sample_id || "all"}-${rule.sequence ?? index}`}><td>{rule.phase || "-"}</td><td className="rule-name-cell">{rule.rule}</td><td>{rule.sample_id || "-"}</td><td>{rule.family_id || "-"}</td><td>{rule.layer ?? "-"} / {rule.sequence ?? "-"}</td><td>{rule.snakemake_jobid || "-"}</td><td><StatusBadge status={rule.status} /></td><td>{duration(rule.elapsed_seconds)}</td><td>{duration(rule.estimated_remaining_seconds)}</td><td className="rule-message-cell">{rule.stderr_excerpt ? <details><summary>{rule.message || "Show failure excerpt"}</summary><pre>{rule.stderr_excerpt}</pre><small>Full WGS analysis log is available in Logs.</small></details> : (rule.message || (rule.eta_model === "insufficient_history" ? `No reliable ETA (${rule.eta_history_count || 0}/3)` : "-"))}</td></tr>)}{filteredRules.length === 0 ? <tr><td colSpan={10} className="empty-cell">No matching Rule instances.</td></tr> : null}</tbody></table></div></section> : null}
+      {progress?.pipeline === "wgs" ? <section><div className="section-heading"><div><h2>Rule instances</h2><p>Ordered by production phase, logger execution order and sample. Failed Rules show a bounded excerpt from the registered WGS analysis log; the full log remains in Logs.</p></div></div><div className="rule-filters"><label>Phase<select aria-label="Rule phase filter" value={phaseFilter} onChange={(event) => setPhaseFilter(event.target.value)}><option value="">All</option>{[...new Set(rules.map((rule) => rule.phase).filter(isText))].map((phase) => <option key={phase} value={phase}>{phase}</option>)}</select></label><label>Status<select aria-label="Rule status filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">All</option>{[...new Set(rules.map((rule) => rule.status))].map((status) => <option key={status} value={status}>{status}</option>)}</select></label><label>Sample / family<select aria-label="Rule sample filter" value={sampleFilter} onChange={(event) => setSampleFilter(event.target.value)}><option value="">All</option>{[...new Set(rules.flatMap((rule) => [rule.sample_id, rule.family_id]).filter(isText))].map((sample) => <option key={sample} value={sample}>{sample}</option>)}</select></label></div><div className="table-wrap"><table className="data-table rule-instance-table" aria-label="WGS rule instances"><thead><tr><th>Phase</th><th>Rule</th><th>Sample</th><th>Family</th><th>Execution order</th><th>Job</th><th>Status</th><th>Elapsed</th><th>Remaining</th><th>Message / failure excerpt</th></tr></thead><tbody>{filteredRules.map((rule, index) => <tr key={`${rule.rule}-${rule.sample_id || "all"}-${rule.sequence ?? index}`}><td>{rule.phase || "-"}</td><td className="rule-name-cell">{rule.rule}</td><td>{rule.sample_id || "-"}</td><td>{rule.family_id || "-"}</td><td>{rule.sequence ?? "-"}</td><td>{rule.snakemake_jobid || "-"}</td><td><StatusBadge status={rule.status} /></td><td>{duration(rule.elapsed_seconds)}</td><td>{duration(rule.estimated_remaining_seconds)}</td><td className="rule-message-cell">{rule.stderr_excerpt ? <details><summary>{rule.message || "Show failure excerpt"}</summary><pre>{rule.stderr_excerpt}</pre><small>Full WGS analysis log is available in Logs.</small></details> : (rule.message || "-")}</td></tr>)}{filteredRules.length === 0 ? <tr><td colSpan={10} className="empty-cell">No matching Rule instances.</td></tr> : null}</tbody></table></div></section> : null}
     </div>
   );
 }
@@ -91,7 +79,9 @@ function isSelectedTask(task: AirflowTaskProgress, pipeline?: string): boolean {
   if (normalizeStatus(task.state) === "skipped") return false;
   if (pipeline === "pgta") return PGTA_PREDICT_TASKS.has(task.task_id);
   if (pipeline === "nipt_docker") return NIPT_DOCKER_TASKS.has(task.task_id);
-  if (pipeline === "wgs") return WGS_TASKS.has(task.task_id);
+  // WGS renders the backend-projected Step1-Step6 contract instead of an
+  // Airflow task allow-list. Keep raw task filtering out of the UI contract.
+  if (pipeline === "wgs") return false;
   return true;
 }
 
@@ -118,16 +108,8 @@ function LayeredWorkflowTimeline({airflowTasks, phases, pipeline, progress}: {
 }
 
 function WgsStageGraph({progress}: {progress: RunProgressResponse | null}) {
-  const stages = [
-    ["step1_upload", "Step1", "Uploading FASTQ"],
-    ["step2_master", "Step2", "Starting WGS workflow"],
-    ["step3_monitor", "Step3", "WGS workflow running"],
-    ["step4_publish", "Step4", "Publishing WGS results"],
-    ["step5_download", "Step5", "Downloading WGS results"],
-    ["step6_materialize", "Step6", "Materializing local results"],
-  ] as const;
-  const current = stages.findIndex(([code]) => code === progress?.stage_code);
-  return <div className="wgs-stage-graph" aria-label="WGS stage dependency graph">{stages.map(([code, step, label], index) => <div key={code} className={`wgs-stage-node ${index < current ? "success" : index === current ? progress?.stage_status || "running" : "pending"}`}><span>{step}</span><strong>{label}</strong>{index === current && progress?.progress_available ? <small>{progress.completed_units ?? 0}/{progress.total_units ?? "-"} {progress.unit || ""}</small> : null}</div>)}</div>;
+  const stages = progress?.orchestration_stages || [];
+  return <div className="wgs-stage-graph" aria-label="WGS stage dependency graph">{stages.map((stage) => <div key={stage.stage_code} className={`wgs-stage-node ${normalizeStatus(stage.status)}`}><span>Step{stage.step_number}</span><strong>{stage.label}</strong>{stage.progress_available ? <small>{stage.completed_units ?? 0}/{stage.total_units ?? "-"} {stage.unit || ""}</small> : null}</div>)}{stages.length === 0 ? <p className="empty-state">No orchestration stage evidence captured.</p> : null}</div>;
 }
 
 function TimelineLane({title, items, empty}: {title: string; items: Array<{id: string; label: string; status: string; meta: string}>; empty: string}) {

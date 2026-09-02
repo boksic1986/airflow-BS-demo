@@ -1,5 +1,63 @@
 # HANDOFF.md
 
+## 2026-09-02 - Codex - T166 WGS workflow 与 Rule 投影修复
+
+### 完成
+
+- 新增后端唯一`wgs_stage_contract.py`，Batch Runs和Run Detail均由API返回
+  Step1上传、Step2启动、Step3分析、Step4发布、Step5下载、Step6物化；前端不再
+  维护第二套六阶段文案或用生物学Rule phase代替项目workflow。
+- WGS 4.1.1 Rule统一由`workflow_phases.py`映射为Pre-calling、Variant analysis、
+  QC和Cloud delivery。按raw event首次出现顺序生成稳定sequence；只从已登记
+  `analysis.log`中按rule/jobid和已登记sample做精确关联，不可唯一匹配的聚合Rule留空。
+- 历史run`WGS_20260901_031616_C74E6C` attempt 1完成安全投影回放：208条Rule，
+  208条sequence，147条sample关联。`cloud_finalize_delivery`在已验证run success时
+  公开投影为success；原始logger事件不修改。
+- Message与ETA彻底分列；移除Layer展示与排序。修复WGS stage card不可见的CSS变量。
+- 删除未使用的前端mock workflow catalog、PipelineCard和PipelineSelector；移除旧WGS
+  task百分比与前后端重复标签。六阶段名称只在后端合同中定义，Rule phase也只在后端
+  定义。
+- 代码审查后补齐：无阶段证据时按run终态投影pending/failed/canceled；logger提供的
+  sample/family必须命中本次分析已登记样本；analysis.log使用有界的字节offset增量索引，
+  缓存上下文每轮与当前sample registry重新关联；前端删除残余WGS Airflow task allow-list。
+
+### 发布与验证
+
+```text
+commit: 066489d598671bf1f454a44d0dc535542fb88d46
+release: 20260902-wgs-4.1.1-6c98281-t166-workflow-rule-r2
+frontend: airflow-demo/frontend:t166-workflow-rule-r3
+frontend image: sha256:1326a0668703c685f35e5e4dbed82e24242e31d88da7231af13565eda7a08c12
+backend image: sha256:49635d01a7e4b55b7ba1ab13888bb18aed0a8b61babab24da6e9c95b92d468a6
+BS10610 backend: 312 passed
+BS10610 frontend: 9 files / 35 tests passed; TypeScript and Vite build passed
+API smoke: Batch/Finished正确；Step1-Step6全部success；四个Rule phase；
+           sequence=208，sample-linked=147，ETA text in Message=0，
+           cloud_finalize_delivery=success
+backup: backups/T166-workflow-rule-20260902T1655+0800
+biodemo SHA256: 23980d97a5a4fd3f3bfcc9f8b22eadb80c647dc2aaaa7fbcd8e25a8811e8795b
+airflow SHA256: b4706e9838b2672a545cbd3596ba99cc33c12d69c4ffaa335a3b9f122d44e3f6
+network: 192.168.199.0/24, gateway 192.168.199.1; only 172.17.106.10:12959 published
+gates: execution=false, runtime=false, auto-dispatch=false; bio_wgs paused
+review: no remaining Critical, Important or Minor findings
+```
+
+内置浏览器因URL安全策略拒绝访问私网HTTP地址，未进行截图验收且未绕过；生产API、
+容器HTTP与静态asset已验证。临时rule-reader Job已自动清理，CCE中无残留reader Job。
+
+### 未完成
+
+- Step1/Step5真实速度与ETA仍依赖node200启用Airflow透明obsutil wrapper；本次没有伪造。
+- 172.17.61.96/.97与SFS/OBS资源采集的外部监控条件仍未补齐。
+- admin Step7尚未获得生产执行批准。
+- 聚合/批次Rule没有唯一sample语义时继续留空，这是预期行为，不按行数猜测。
+
+### 回滚
+
+恢复T166备份env并将`current`指回T165 release，只重建backend/frontend/run-observer。
+本次无schema迁移；不要删除数据库、volume、OBS/SFS、FASTQ、结果或外部网络。
+
+
 ## 2026-09-02 - Codex - T165 生产前端同步与Run检索/结束时间修复
 
 ### 完成

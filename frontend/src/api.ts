@@ -467,6 +467,17 @@ export type RunProgressResponse = {
   speed_bps?: number | null;
   eta_seconds?: number | null;
   stage_updated_at?: string | null;
+  orchestration_stages?: Array<{
+    stage_code: string;
+    step_number: number;
+    label: string;
+    status: string;
+    progress_available?: boolean;
+    progress_percent?: number | null;
+    completed_units?: number | null;
+    total_units?: number | null;
+    unit?: string | null;
+  }>;
 };
 
 export type QcMetric = {
