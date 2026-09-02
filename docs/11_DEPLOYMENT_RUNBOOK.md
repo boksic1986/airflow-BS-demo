@@ -8,7 +8,8 @@
 共享WGS HEAD与catalog不一致时不得自行改绑或启用。
 当前候选必须核对共享仓库分支`dev_CJC_4.2.0_cloud`和完整commit
 `78797181ee0582bea3167385c243616017f092ce`，catalog必须同时为
-`wgs-4.2.0-7879718`/`V4.2.0`。共享路径名称仍为`wgs-4.1.1`，路径名不作为版本判断。
+`wgs-4.2.0-7879718`/`V4.2.0`，并确认runner固定路径为node200的
+`/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0`；不得回退到旧`wgs-4.1.1` worktree。
 `WGS_SUBMISSION_PREVIEW_ENABLED`仅作为历史draft API兼容门禁；新的catalog受控Submit不依赖preview worker。部署前必须验证WGS prepare的sampleinfo→analysis语义和最终sampleinfo同步。
 迁移`20260901_0013`的downgrade会删除draft、stage projection和资源快照，默认
 拒绝执行；只有经批准回滚并确认数据可丢弃时才可临时设置

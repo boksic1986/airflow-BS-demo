@@ -4,7 +4,9 @@ Status: approved implementation contract for T153-T158.
 
 Current candidate baseline (2026-09-02): WGS `dev_CJC_4.2.0_cloud`, version
 `V4.2.0`, commit `78797181ee0582bea3167385c243616017f092ce`, release ID
-`wgs-4.2.0-7879718`. The shared repository paths remain unchanged. This is a
+`wgs-4.2.0-7879718`. The shared repository paths are
+`/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0` on BS10610 and
+`/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0` on node200. This is a
 source-contract update only and does not enable or deploy a real run.
 
 This document supersedes the WGS user-interface, progress, submission, log,
