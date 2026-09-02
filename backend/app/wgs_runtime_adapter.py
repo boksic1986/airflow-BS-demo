@@ -57,7 +57,6 @@ def build_stage_request(
     analysis_batch: str | None = None,
     fastq_root: str | None = None,
     use_reference: str | None = None,
-    algo: str | None = None,
     maintenance_action_id: str | None = None,
 ) -> dict[str, object]:
     if ANALYSIS_ID_RE.fullmatch(analysis_id) is None:
@@ -119,10 +118,6 @@ def build_stage_request(
         if str(use_reference) not in {"all", "ref", "no"}:
             raise ValueError("use_reference must be all, ref, or no")
         payload["use_reference"] = str(use_reference)
-    if algo is not None:
-        if str(algo) not in {"DNAscope", "Haplotyper"}:
-            raise ValueError("algo must be DNAscope or Haplotyper")
-        payload["algo"] = str(algo)
     if stage == "step7_cleanup":
         if not maintenance_action_id or SAFE_COMPONENT_RE.fullmatch(maintenance_action_id) is None:
             raise ValueError("Step7 cleanup requires a valid maintenance_action_id")

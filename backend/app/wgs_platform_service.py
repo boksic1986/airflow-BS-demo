@@ -27,7 +27,7 @@ EXECUTION_MODES = {"cce"}
 WGS_CCE_DAG_ID = "bio_wgs"
 
 
-def create_wgs_platform_run(*, session: Session, settings, project_name: str, execution_mode: str, batch_no: str, fq_path: str, submitted_by: str, commit: bool = True, validate_input: bool = True, platform: str | None = None, sequencing_batch: str | None = None, analysis_batch: str | None = None, fastq_root: str | None = None, use_reference: str = "all", algo: str = "DNAscope") -> dict:
+def create_wgs_platform_run(*, session: Session, settings, project_name: str, execution_mode: str, batch_no: str, fq_path: str, submitted_by: str, commit: bool = True, validate_input: bool = True, platform: str | None = None, sequencing_batch: str | None = None, analysis_batch: str | None = None, fastq_root: str | None = None, use_reference: str = "all") -> dict:
     if execution_mode not in EXECUTION_MODES:
         raise ValueError("execution_mode must be cce for the cloud orchestration release.")
     batch_no = batch_no.strip()
@@ -81,7 +81,6 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
             "analysis_batch": analysis_batch,
             "fastq_root": fastq_root or canonical_source,
             "use_reference": use_reference,
-            "algo": algo,
         },
         submitted_by=submitted_by,
     )

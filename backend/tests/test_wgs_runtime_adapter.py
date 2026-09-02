@@ -30,7 +30,6 @@ def _request(tmp_path: Path, *, stage: str = "step2_master") -> dict[str, object
         fq_path="/sg2/33.chenjiucheng/WGS_input/BATCH-01",
         sequencing_batch="20260902A",
         analysis_batch="20260902A",
-        algo="DNAscope",
         maintenance_action_id="step7-sfs-abcdef123456" if stage == "step7_cleanup" else None,
     )
 
@@ -45,7 +44,6 @@ def test_stage_request_v3_binds_release_without_pipeline_path_or_cce_version(
     assert request["wgs_version"] == "V4.1.1"
     assert request["wgs_source_commit"] == WGS_COMMIT
     assert request["analysis_batch"] == "20260902A"
-    assert request["algo"] == "DNAscope"
     assert request["node200_workdir"].endswith(
         "/runtime/runs/WGS_20260826_010203_A1B2C3/attempt-1"
     )

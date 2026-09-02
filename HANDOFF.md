@@ -1,18 +1,21 @@
 # HANDOFF.md
 
-## 2026-09-02 - Codex - T161 WGS 4.2.0候选接入（进行中）
+## 2026-09-02 - Codex - T161 生产WGS 4.1.1接入纠正（进行中）
 
 ### 目标与当前结果
 
-- 共享WGS只读审计：`dev_CJC_4.2.0_cloud`，commit
-  `78797181ee0582bea3167385c243616017f092ce`，版本`V4.2.0`。
-- catalog为`wgs-4.2.0-7879718`，共享路径固定为BS10610
-  `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0`和node200
-  `/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0`。旧`wgs-4.1.1`是历史worktree。
-- Airflow runner现在分别传递`--batch`和`--analysis-batch`，platform为`T7`；
-  新增`--algo DNAscope|Haplotyper`。后端自动派生
-  `WGS_<analysis_batch>_T7Hg38V4.2.0`，前端同步展示当前release和算法选择。
+- 用户最终确认生产云端流程继续使用`wgs-4.1.1`，`wgs-4.2.0`仅为测试版本。
+- 生产共享仓库只读审计：`dev_CJC_4.1.1_cloud`，commit
+  `6c982817614db6a1157b6f287427ddf01ac91827`，版本`V4.1.1`；该commit已支持
+  schema-1 JSON `ANALYSIS_COMPLETE`。
+- catalog为`wgs-4.1.1-6c98281`，共享路径固定为BS10610
+  `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1`和node200
+  `/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1`。
+- runner分别传递`--batch`和`--analysis-batch`，platform为`T7`，不传4.2.0
+  测试参数`--algo`；后端派生`WGS_<analysis_batch>_T7Hg38V4.1.1`。
 - WGS仓库未修改；没有部署、OBS、CCE、真实分析或Step7操作。
+- PR #6曾按错误理解改到4.2.0测试仓库，但尚未部署；当前纠正PR会回退
+  release、runner、API、前端、测试和文档。PR #7已关闭且未合并。
 
 ### 已运行验证
 
@@ -30,6 +33,9 @@ git diff --check and candidate secret scan: passed
 network: 192.168.199.0/24, gateway 192.168.199.1
 published port: only 172.17.106.10:12959
 ```
+
+以上backend 280/1、scripts 38、frontend 32/build和DagBag检查已在生产4.1.1
+纠正后重新执行；共享仓库HEAD/branch/version及无`--algo`合同也已只读核对。
 
 ### 待完成
 

@@ -13,7 +13,7 @@
   开启时创建/复用一个AnalysisRun并确定性提交`bio_wgs`。
 - `GET /api/wgs/release`保留`submission_preview_enabled`作为一版兼容字段；生产Submit不再依赖该字段。
 
-- `POST /api/wgs/runs`只接受`project_id/platform/sequencing_batch/analysis_batch/fastq_root_id/use_reference/algo`；当前`platform=T7`，`algo=DNAscope|Haplotyper`。项目、FASTQ root和WGS 4.2.0 release由服务端catalog解析，客户端不能提交路径或版本。服务端按`WGS_<analysis_batch>_T7Hg38V4.2.0`绑定业务批次；DAG prepare之后`/samples`只返回WGS最终sampleinfo中的分析样本。历史draft endpoint仍受`WGS_SUBMISSION_PREVIEW_ENABLED=false`保护，但前端不再调用。
+- `POST /api/wgs/runs`只接受`project_id/platform/sequencing_batch/analysis_batch/fastq_root_id/use_reference`；当前`platform=T7`。项目、FASTQ root和生产WGS 4.1.1 release由服务端catalog解析，客户端不能提交路径、版本或4.2.0测试流程。服务端按`WGS_<analysis_batch>_T7Hg38V4.1.1`绑定业务批次；DAG prepare之后`/samples`只返回WGS最终sampleinfo中的分析样本。历史draft endpoint仍受`WGS_SUBMISSION_PREVIEW_ENABLED=false`保护，但前端不再调用。
 - `/api/platform/resources`返回节点/SFS/OBS当前快照。
 - `/actions/cleanup-step7`仅admin可用，只接受Batch确认，由服务端生成删除确认串；
   内部runtime请求必须绑定同attempt的active maintenance action ID，公开响应不返回

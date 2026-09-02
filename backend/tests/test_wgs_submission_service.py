@@ -20,7 +20,7 @@ class RecordingAirflow:
         return self.calls[-1]
 
 
-def test_direct_submission_binds_wgs_4_2_batch_and_algorithm(tmp_path: Path) -> None:
+def test_direct_submission_binds_production_wgs_4_1_1_batch(tmp_path: Path) -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -44,16 +44,15 @@ def test_direct_submission_binds_wgs_4_2_batch_and_algorithm(tmp_path: Path) -> 
             analysis_batch="20260902A",
             fastq_root_id="T7_Fastq",
             use_reference="all",
-            algo="Haplotyper",
         )
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == result["analysis_id"]))
         assert run is not None
         params = dict(run.params_json)
 
-    assert params["batch_no"] == "WGS_20260902A_T7Hg38V4.2.0"
+    assert params["batch_no"] == "WGS_20260902A_T7Hg38V4.1.1"
     assert params["analysis_batch"] == "20260902A"
-    assert params["algo"] == "Haplotyper"
-    assert params["pipeline_release_id"] == "wgs-4.2.0-7879718"
+    assert "algo" not in params
+    assert params["pipeline_release_id"] == "wgs-4.1.1-6c98281"
     assert airflow.calls[0]["dag_id"] == "bio_wgs"
 
 

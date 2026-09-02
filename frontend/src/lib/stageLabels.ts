@@ -1,7 +1,7 @@
 const stageLabels: Record<string, string> = {
   "Workflow complete": "Completed",
   validate_request: "Validate run request",
-  prepare_wgs_batch: "Prepare WGS 4.2.0 batch",
+  prepare_wgs_batch: "Prepare WGS 4.1.1 batch",
   "input_transfer.acquire_obs_transfer_slot": "Acquire input transfer slot",
   "input_transfer.start_step1_upload": "Start Step1 input upload",
   "input_transfer.wait_step1_upload": "Wait for Step1 input upload",

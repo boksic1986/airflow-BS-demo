@@ -1,16 +1,16 @@
 # CURRENT_STATE.md
 
-## 2026-09-02 T161 WGS 4.2.0候选接入与仓库整理
+## 2026-09-02 T161 生产WGS 4.1.1接入与仓库整理
 
 ```text
-wgs: 只读审计确认共享仓库分支dev_CJC_4.2.0_cloud、commit 78797181ee0582bea3167385c243616017f092ce、配置版本V4.2.0；structured ANALYSIS_COMPLETE生产/消费合同已统一。仓库仅有既存docs未跟踪报告，Airflow未修改WGS。
-catalog: release为wgs-4.2.0-7879718；BS10610/node200共享路径分别修正为/mnt/.../wgs-4.2.0和/bi/.../wgs-4.2.0。旧wgs-4.1.1仍是6c982817的历史worktree，不得用于新任务。
-prepare: platform修正为T7；sequencing_batch与analysis_batch分别传给--batch/--analysis-batch；新增受控algo=DNAscope|Haplotyper，默认DNAscope。服务端派生最终batch_no=WGS_<analysis_batch>_T7Hg38V4.2.0。
-frontend: Submit表单展示V4.2.0/7879718、T7及variant caller；此前Batch、业务阶段、精确进度、安全Samples、Rule图、opaque日志与失败诊断修复均包含在同一候选。
-validation: BS10610 Docker backend 280 passed/1 skipped；scripts 38 passed；Airflow DagBag import_errors=0、bio_wgs=18 tasks/6 reschedule sensors/paused-on-creation；PostgreSQL 15完成0001→0013、受控downgrade/upgrade；frontend 9 files/32 tests及Vite build通过；Compose解析、secret scan和git diff --check通过。
+wgs: 用户最终确认生产云端流程继续使用共享仓库wgs-4.1.1；只读审计为dev_CJC_4.1.1_cloud@6c982817614db6a1157b6f287427ddf01ac91827，该提交已统一structured ANALYSIS_COMPLETE合同。wgs-4.2.0只用于测试。
+catalog: 生产release为wgs-4.1.1-6c98281；BS10610/node200共享路径分别为/mnt/.../wgs-4.1.1和/bi/.../wgs-4.1.1。生产API不能选择4.2.0。
+prepare: platform=T7；sequencing_batch与analysis_batch分别传给--batch/--analysis-batch；4.1.1无--algo参数。服务端派生最终batch_no=WGS_<analysis_batch>_T7Hg38V4.1.1。
+frontend: Submit表单展示V4.1.1/6c98281和T7，不显示测试版本或variant caller；此前Batch、业务阶段、精确进度、安全Samples、Rule图、opaque日志与失败诊断修复均保留。
+validation: 生产4.1.1纠正后BS10610 Docker backend 280 passed/1 skipped；scripts 38 passed；Airflow DagBag import_errors=0、bio_wgs=18 tasks/6 reschedule sensors/paused-on-creation；frontend 9 files/32 tests及Vite build通过。此前PostgreSQL 15迁移往返、Compose解析和固定网络检查继续通过。
 runtime: 未部署、未切current、未启动OBS/CCE/WGS/Step7；在线T152状态未改变。
 network: 只读复核nipt_analysis_test_net=192.168.199.0/24、gateway=192.168.199.1；仅frontend发布172.17.106.10:12959。
-repository: GitHub PR #4已合并，merge commit 17c0f97ec5128427d14555f3cab6fc6f6152367a；root main已ff-only同步。原T146分支不再承担开发。
+repository: 主功能PR #4已合并；PR #6曾误把生产路径改到4.2.0测试仓库，当前纠正分支将完整回退该生产绑定。两者均未部署到在线环境。
 ```
 
 ## 2026-09-02 T159 WGS提交、传输进度与失败日志合同修正

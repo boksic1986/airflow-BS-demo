@@ -857,7 +857,6 @@ export type WgsProjectCatalog = {
     fastq_roots: Array<{root_id: string; display_name: string}>;
     editable_config: {
       use_reference?: {type: string; values?: string[]; default: string};
-      algo?: {type: string; values?: string[]; default: string};
     };
   }>;
 };
@@ -1253,7 +1252,6 @@ export function createCatalogWgsRun(payload: {
   analysis_batch: string;
   fastq_root_id: string;
   use_reference: "all" | "ref" | "no";
-  algo: "DNAscope" | "Haplotyper";
 }): Promise<RunDetail> {
   return requestJson<RunDetail>("/wgs/runs", {
     method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload),

@@ -305,7 +305,6 @@ class WgsCatalogRunRequest(BaseModel):
     analysis_batch: str = Field(min_length=1, max_length=128)
     fastq_root_id: str = Field(min_length=1, max_length=128)
     use_reference: str = Field(default="all", pattern="^(all|ref|no)$")
-    algo: str = Field(default="DNAscope", pattern="^(DNAscope|Haplotyper)$")
 
 
 class WgsSubmissionDraftResultRequest(BaseModel):
@@ -1465,7 +1464,6 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 fastq_root=str(params.get("fastq_root") or "") or None,
                 use_reference=str(params.get("use_reference") or "") or None,
                 analysis_batch=str(params.get("analysis_batch") or "") or None,
-                algo=str(params.get("algo") or "") or None,
                 maintenance_action_id=request.maintenance_action_id,
             )
             path = write_stage_request(

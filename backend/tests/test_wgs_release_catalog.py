@@ -5,17 +5,17 @@ import pytest
 from app.wgs_release_catalog import load_wgs_release_catalog
 
 
-RELEASE_ID = "wgs-4.2.0-7879718"
-WGS_COMMIT = "78797181ee0582bea3167385c243616017f092ce"
+RELEASE_ID = "wgs-4.1.1-6c98281"
+WGS_COMMIT = "6c982817614db6a1157b6f287427ddf01ac91827"
 
 
 def write_catalog(tmp_path: Path, **overrides: str) -> Path:
     values = {
         "release_id": RELEASE_ID,
-        "version": "V4.2.0",
+        "version": "V4.1.1",
         "source_commit": WGS_COMMIT,
-        "bs10610_repo_path": "/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0",
-        "node200_repo_path": "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0",
+        "bs10610_repo_path": "/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
+        "node200_repo_path": "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
         "rule_event_schema_version": "1",
         **overrides,
     }
@@ -33,10 +33,10 @@ def test_catalog_loads_one_shared_wgs_release_without_cce_gate(tmp_path: Path) -
     release = load_wgs_release_catalog(write_catalog(tmp_path)).release
 
     assert release.release_id == RELEASE_ID
-    assert release.version == "V4.2.0"
+    assert release.version == "V4.1.1"
     assert release.source_commit == WGS_COMMIT
-    assert release.bs10610_repo_path.endswith("/project/wgs-4.2.0")
-    assert release.node200_repo_path.endswith("/project/wgs-4.2.0")
+    assert release.bs10610_repo_path.endswith("/project/wgs-4.1.1")
+    assert release.node200_repo_path.endswith("/project/wgs-4.1.1")
     assert release.rule_event_schema_version == "1"
     assert not hasattr(release, "cce_pipeline_version")
     assert not hasattr(release, "snapshot_manifest_sha256")
@@ -70,7 +70,7 @@ def test_catalog_rejects_invalid_release_contract(
 def test_catalog_rejects_release_id_that_does_not_match_commit(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="release_id commit prefix"):
         load_wgs_release_catalog(
-            write_catalog(tmp_path, release_id="wgs-4.2.0-deadbee")
+            write_catalog(tmp_path, release_id="wgs-4.1.1-deadbee")
         )
 
 
@@ -82,8 +82,8 @@ def test_checked_in_catalog_pins_current_wgs_repository_only() -> None:
     assert catalog.release.release_id == RELEASE_ID
     assert catalog.release.source_commit == WGS_COMMIT
     assert catalog.release.bs10610_repo_path == (
-        "/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0"
+        "/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1"
     )
     assert catalog.release.node200_repo_path == (
-        "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0"
+        "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1"
     )
