@@ -5,7 +5,12 @@ from sqlalchemy.orm import sessionmaker
 
 from app.models import Base, PlatformResourceSnapshot
 from app.platform_resources_service import get_platform_resources, upsert_resource_snapshot
-from app.platform_metrics_collector_cli import _collect_cloud_spool, _derive_node_rates, _parse_node_metrics
+from app.platform_metrics_collector_cli import (
+    _collect_cloud_spool,
+    _collect_node_spool,
+    _derive_node_rates,
+)
+from app.platform_node_probe_cli import NODE_TARGETS, _ssh_command, _write_spool
 
 
 def test_resource_snapshot_is_bounded_and_becomes_stale() -> None:
@@ -31,26 +36,26 @@ def test_resource_snapshot_is_bounded_and_becomes_stale() -> None:
 
 
 def test_node_metrics_report_cpu_io_and_network_rates() -> None:
-    previous = _parse_node_metrics("""
-node_cpu_seconds_total{cpu="0",mode="idle"} 80
-node_cpu_seconds_total{cpu="0",mode="user"} 20
-node_disk_read_bytes_total{device="sda"} 1000
-node_disk_written_bytes_total{device="sda"} 2000
-node_disk_reads_completed_total{device="sda"} 10
-node_disk_writes_completed_total{device="sda"} 20
-node_network_receive_bytes_total{device="eth0"} 3000
-node_network_transmit_bytes_total{device="eth0"} 4000
-""")
-    current = _parse_node_metrics("""
-node_cpu_seconds_total{cpu="0",mode="idle"} 85
-node_cpu_seconds_total{cpu="0",mode="user"} 25
-node_disk_read_bytes_total{device="sda"} 7000
-node_disk_written_bytes_total{device="sda"} 5000
-node_disk_reads_completed_total{device="sda"} 70
-node_disk_writes_completed_total{device="sda"} 50
-node_network_receive_bytes_total{device="eth0"} 9000
-node_network_transmit_bytes_total{device="eth0"} 10000
-""")
+    previous = {
+        "cpu_seconds_total": 100,
+        "cpu_seconds_idle": 80,
+        "node_disk_read_bytes_total": 1000,
+        "node_disk_written_bytes_total": 2000,
+        "node_disk_reads_completed_total": 10,
+        "node_disk_writes_completed_total": 20,
+        "node_network_receive_bytes_total": 3000,
+        "node_network_transmit_bytes_total": 4000,
+    }
+    current = {
+        "cpu_seconds_total": 110,
+        "cpu_seconds_idle": 85,
+        "node_disk_read_bytes_total": 7000,
+        "node_disk_written_bytes_total": 5000,
+        "node_disk_reads_completed_total": 70,
+        "node_disk_writes_completed_total": 50,
+        "node_network_receive_bytes_total": 9000,
+        "node_network_transmit_bytes_total": 10000,
+    }
 
     payload = _derive_node_rates(current=current, previous=previous, elapsed_seconds=60)
 
@@ -61,6 +66,103 @@ node_network_transmit_bytes_total{device="eth0"} 10000
     assert payload["disk_write_iops"] == 0.5
     assert payload["network_receive_bps"] == 100.0
     assert payload["network_transmit_bps"] == 100.0
+
+
+def test_node_probe_uses_only_fixed_ssh_aliases_and_atomic_spool(tmp_path) -> None:
+    assert NODE_TARGETS == (
+        ("node-96", "172.17.61.96", "metrics-node-96"),
+        ("node-97", "172.17.61.97", "metrics-node-97"),
+    )
+    command = _ssh_command(
+        ssh_bin="/usr/bin/ssh",
+        ssh_config=tmp_path / "config",
+        alias="metrics-node-96",
+    )
+    assert command[:5] == [
+        "/usr/bin/ssh", "-F", str(tmp_path / "config"), "-o", "BatchMode=yes",
+    ]
+    assert command[5] == "metrics-node-96"
+    assert "172.17.61.96" not in " ".join(command)
+
+    spool = tmp_path / "nodes.json"
+    _write_spool(spool, {"schema_version": "platform-node-metrics.v1", "items": []})
+    assert spool.read_text(encoding="utf-8").endswith("\n")
+    assert not list(tmp_path.glob("*.partial"))
+
+
+def test_node_spool_upserts_fixed_nodes_and_derives_rates(tmp_path, monkeypatch) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    before = datetime(2026, 9, 2, 12, 0, tzinfo=timezone.utc)
+    current_at = before + timedelta(seconds=60)
+    with sessions() as session:
+        upsert_resource_snapshot(
+            session=session,
+            resource_key="node-96",
+            resource_type="node",
+            display_name="172.17.61.96",
+            current={
+                "cpu_seconds_total": 100,
+                "cpu_seconds_idle": 80,
+                "node_disk_read_bytes_total": 1000,
+            },
+            source_updated_at=before,
+        )
+    spool = tmp_path / "nodes.json"
+    base_current = {
+        "cpu_seconds_total": 20,
+        "cpu_seconds_idle": 10,
+        "node_memory_MemTotal_bytes": 2000,
+        "node_memory_MemAvailable_bytes": 1000,
+        "node_load1": 1,
+        "node_load5": 2,
+        "node_load15": 3,
+        "node_disk_read_bytes_total": 0,
+        "node_disk_written_bytes_total": 0,
+        "node_disk_reads_completed_total": 0,
+        "node_disk_writes_completed_total": 0,
+        "node_network_receive_bytes_total": 0,
+        "node_network_transmit_bytes_total": 0,
+        "node_filesystem_size_bytes": 10000,
+        "node_filesystem_avail_bytes": 5000,
+    }
+    _write_spool(spool, {
+        "schema_version": "platform-node-metrics.v1",
+        "items": [
+            {
+                "resource_key": "node-96",
+                "source_updated_at": current_at.isoformat(),
+                "current": {**base_current,
+                    "cpu_seconds_total": 110,
+                    "cpu_seconds_idle": 85,
+                    "node_disk_read_bytes_total": 7000,
+                    "node_memory_MemTotal_bytes": 1000,
+                    "node_memory_MemAvailable_bytes": 400,
+                },
+            },
+            {
+                "resource_key": "node-97",
+                "source_updated_at": current_at.isoformat(),
+                "current": base_current,
+            },
+        ],
+    })
+    monkeypatch.setenv("PLATFORM_NODE_METRICS_SPOOL", str(spool))
+    monkeypatch.setattr("app.platform_metrics_collector_cli.get_sessionmaker", lambda: sessions)
+
+    _collect_node_spool({})
+
+    with sessions() as session:
+        rows = {
+            row.resource_key: row
+            for row in session.scalars(select(PlatformResourceSnapshot)).all()
+        }
+        assert set(rows) == {"node-96", "node-97"}
+        assert rows["node-96"].status == "healthy"
+        assert rows["node-96"].current_json["cpu_used_percent"] == 50.0
+        assert rows["node-96"].current_json["disk_read_bps"] == 100.0
+        assert rows["node-97"].display_name == "172.17.61.97"
 
 
 def test_invalid_cloud_spool_marks_existing_cloud_resources_degraded(tmp_path, monkeypatch) -> None:

@@ -7,11 +7,11 @@ from pathlib import Path
 import time
 from datetime import datetime, timezone
 
-import httpx
 from sqlalchemy import select
 
 from app.db import get_sessionmaker
 from app.models import PlatformResourceSnapshot
+from app.platform_node_probe_cli import NODE_DISPLAY_NAMES, NODE_METRIC_FIELDS
 from app.platform_resources_service import record_resource_error, upsert_resource_snapshot
 
 
@@ -29,18 +29,44 @@ def main() -> int:
 
 def collect_once(previous: dict[str, str] | None = None) -> None:
     state = previous if previous is not None else {}
-    targets = _targets(os.getenv(
-        "PLATFORM_NODE_EXPORTER_TARGETS",
-        "node-96=http://172.17.61.96:9100/metrics,node-97=http://172.17.61.97:9100/metrics",
+    _collect_node_spool(state)
+    _collect_cloud_spool(state)
+
+
+def _collect_node_spool(state: dict[str, str]) -> None:
+    path = Path(os.getenv(
+        "PLATFORM_NODE_METRICS_SPOOL",
+        "/data/wgs-runtime/platform-metrics/nodes.json",
     ))
-    for key, url in targets:
-        try:
-            response = httpx.get(url, timeout=10.0)
-            response.raise_for_status()
-            observed_at = datetime.now(timezone.utc)
-            current = _parse_node_metrics(response.text)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if payload.get("schema_version") != "platform-node-metrics.v1":
+            raise ValueError("unsupported node metrics spool schema")
+        raw_items = payload.get("items")
+        if not isinstance(raw_items, list):
+            raise ValueError("node metrics spool items must be a list")
+        items = {str(item.get("resource_key")): item for item in raw_items if isinstance(item, dict)}
+        for key, display_name in NODE_DISPLAY_NAMES.items():
+            item = items.get(key)
+            if item is None:
+                _record_node_error(key, display_name, "node metrics spool entry is missing")
+                _log_transition(state, key, "degraded", "node metrics spool entry is missing")
+                continue
+            if item.get("error"):
+                message = str(item["error"])[-1000:]
+                _record_node_error(key, display_name, message)
+                _log_transition(state, key, "degraded", message)
+                continue
+            observed_at = datetime.fromisoformat(
+                str(item["source_updated_at"]).replace("Z", "+00:00")
+            )
+            current = _validated_node_metrics(item.get("current"))
             with get_sessionmaker()() as session:
-                prior = session.scalar(select(PlatformResourceSnapshot).where(PlatformResourceSnapshot.resource_key == key))
+                prior = session.scalar(
+                    select(PlatformResourceSnapshot).where(
+                        PlatformResourceSnapshot.resource_key == key
+                    )
+                )
                 elapsed = (
                     (observed_at - _aware(prior.source_updated_at)).total_seconds()
                     if prior is not None and prior.source_updated_at is not None
@@ -55,16 +81,46 @@ def collect_once(previous: dict[str, str] | None = None) -> None:
                     session=session,
                     resource_key=key,
                     resource_type="node",
-                    display_name=key.replace("node-", "172.17.61."),
+                    display_name=display_name,
                     current=current,
                     source_updated_at=observed_at,
                 )
             _log_transition(state, key, "healthy")
-        except Exception as error:  # collector must not affect WGS execution
-            with get_sessionmaker()() as session:
-                record_resource_error(session=session, resource_key=key, resource_type="node", display_name=key, message=str(error))
-            _log_transition(state, key, "degraded", str(error))
-    _collect_cloud_spool(state)
+    except FileNotFoundError:
+        _record_all_node_errors("node metrics spool is missing")
+        _log_transition(state, "node-spool", "degraded", "node metrics spool is missing")
+    except Exception as error:
+        message = f"node metrics spool is invalid: {error}"
+        _record_all_node_errors(message)
+        _log_transition(state, "node-spool", "degraded", message)
+
+
+def _validated_node_metrics(payload: object) -> dict[str, float]:
+    if not isinstance(payload, dict):
+        raise ValueError("node metrics current payload must be an object")
+    result = {}
+    for key in NODE_METRIC_FIELDS:
+        value = payload.get(key)
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise ValueError(f"node metric is missing or invalid: {key}")
+        result[key] = float(value)
+    return result
+
+
+def _record_node_error(resource_key: str, display_name: str, message: str) -> None:
+    with get_sessionmaker()() as session:
+        record_resource_error(
+            session=session,
+            resource_key=resource_key,
+            resource_type="node",
+            display_name=display_name,
+            message=message,
+        )
+
+
+def _record_all_node_errors(message: str) -> None:
+    for resource_key, display_name in NODE_DISPLAY_NAMES.items():
+        _record_node_error(resource_key, display_name, message)
 
 
 def _collect_cloud_spool(state: dict[str, str]) -> None:
@@ -124,33 +180,6 @@ def _record_cloud_spool_error(message: str) -> None:
             )
 
 
-def _parse_node_metrics(text: str) -> dict:
-    totals: dict[str, float] = {}
-    for raw in text.splitlines():
-        if not raw or raw.startswith("#") or " " not in raw:
-            continue
-        name, value = raw.rsplit(" ", 1)
-        try:
-            number = float(value)
-        except ValueError:
-            continue
-        metric = name.split("{", 1)[0]
-        if metric in {
-            "node_memory_MemTotal_bytes", "node_memory_MemAvailable_bytes",
-            "node_load1", "node_load5", "node_load15",
-            "node_disk_read_bytes_total", "node_disk_written_bytes_total",
-            "node_disk_reads_completed_total", "node_disk_writes_completed_total",
-            "node_network_receive_bytes_total", "node_network_transmit_bytes_total",
-            "node_filesystem_size_bytes", "node_filesystem_avail_bytes",
-        }:
-            totals[metric] = totals.get(metric, 0.0) + number
-        elif metric == "node_cpu_seconds_total":
-            totals["cpu_seconds_total"] = totals.get("cpu_seconds_total", 0.0) + number
-            if 'mode="idle"' in name or 'mode="iowait"' in name:
-                totals["cpu_seconds_idle"] = totals.get("cpu_seconds_idle", 0.0) + number
-    return totals
-
-
 def _derive_node_rates(*, current: dict, previous: dict, elapsed_seconds: float) -> dict:
     result = dict(current)
     if elapsed_seconds <= 0:
@@ -184,15 +213,6 @@ def _derive_node_rates(*, current: dict, previous: dict, elapsed_seconds: float)
 
 def _aware(value: datetime) -> datetime:
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-
-
-def _targets(raw: str) -> list[tuple[str, str]]:
-    result = []
-    for item in raw.split(","):
-        key, separator, url = item.partition("=")
-        if separator and key.strip() and url.startswith("http://"):
-            result.append((key.strip(), url.strip()))
-    return result
 
 
 def _log_transition(state: dict[str, str], key: str, status: str, message: str | None = None) -> None:

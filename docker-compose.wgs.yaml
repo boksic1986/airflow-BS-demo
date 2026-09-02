@@ -210,6 +210,24 @@ services:
     logging: *bounded-logging
     networks: [wgs-platform]
 
+  platform-node-probe:
+    image: ${AIRFLOW_IMAGE:-airflow-demo/airflow:0.1.0}
+    user: "${AIRFLOW_UID:-1000}:${WGS_RUNTIME_SHARED_GID:-520}"
+    restart: unless-stopped
+    command: ["python", "-m", "app.platform_node_probe_cli"]
+    environment:
+      TZ: ${AIRFLOW_DEMO_TZ:-Asia/Shanghai}
+      PYTHONPATH: /app
+      PLATFORM_METRICS_INTERVAL_SECONDS: "60"
+      PLATFORM_NODE_PROBE_SSH_CONFIG: /opt/platform-metrics/ssh/metrics_config
+      PLATFORM_NODE_METRICS_SPOOL: /data/wgs-runtime/platform-metrics/nodes.json
+    volumes:
+      - ./backend:/app:ro
+      - ${WGS_SSH_KEY_HOST_ROOT:?set WGS_SSH_KEY_HOST_ROOT}:/opt/platform-metrics/ssh:ro
+      - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime
+    logging: *bounded-logging
+    networks: [wgs-platform]
+
   platform-metrics-collector:
     image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
     restart: unless-stopped
@@ -222,7 +240,7 @@ services:
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
       DEPLOYED_PIPELINES: wgs
       PLATFORM_METRICS_INTERVAL_SECONDS: "60"
-      PLATFORM_NODE_EXPORTER_TARGETS: ${PLATFORM_NODE_EXPORTER_TARGETS:-node-96=http://172.17.61.96:9100/metrics,node-97=http://172.17.61.97:9100/metrics}
+      PLATFORM_NODE_METRICS_SPOOL: /data/wgs-runtime/platform-metrics/nodes.json
       PLATFORM_CLOUD_METRICS_SPOOL: /data/wgs-runtime/platform-metrics/cloud.json
     volumes:
       - ./backend:/app:ro

@@ -134,6 +134,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
             "redis",
             "backend",
             "wgs-run-observer",
+            "platform-node-probe",
             "platform-metrics-collector",
             "wgs-intake-scanner",
             "airflow-api-server",
@@ -146,6 +147,26 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
                 expected,
                 service_name,
             )
+
+    def test_platform_node_probe_owns_ssh_and_collector_owns_database(self):
+        payload = yaml.safe_load(
+            (REPO_ROOT / "docker-compose.wgs.yaml").read_text(encoding="utf-8")
+        )
+        probe = payload["services"]["platform-node-probe"]
+        collector = payload["services"]["platform-metrics-collector"]
+
+        self.assertNotIn("DATABASE_URL", probe.get("environment", {}))
+        self.assertEqual(
+            probe["user"],
+            "${AIRFLOW_UID:-1000}:${WGS_RUNTIME_SHARED_GID:-520}",
+        )
+        self.assertNotIn("ports", probe)
+        self.assertFalse(probe.get("privileged", False))
+        self.assertIn("/opt/platform-metrics/ssh:ro", str(probe["volumes"]))
+        self.assertIn("/data/wgs-runtime", str(probe["volumes"]))
+        self.assertIn("PLATFORM_NODE_METRICS_SPOOL", collector["environment"])
+        self.assertNotIn("PLATFORM_NODE_EXPORTER_TARGETS", collector["environment"])
+        self.assertNotIn("/opt/platform-metrics/ssh", str(collector.get("volumes", [])))
 
     def test_bs10610_network_and_host_binding_are_immutable_contracts(self):
         payload = yaml.safe_load((REPO_ROOT / "docker-compose.wgs.yaml").read_text(encoding="utf-8"))
