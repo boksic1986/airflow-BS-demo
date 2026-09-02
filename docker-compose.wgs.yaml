@@ -135,6 +135,7 @@ services:
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
       CONTAINER_SHARED_ROOT: /data/airflow-demo
       DEPLOYED_PIPELINES: wgs
+      PLATFORM_ENVIRONMENT: "${PLATFORM_ENVIRONMENT:-Demo}"
       AUTH_REQUIRED: "true"
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
@@ -154,7 +155,7 @@ services:
       WGS_TRANSFER_SPOOL_ROOT: /data/wgs-runtime/transfer-progress
       WGS_RUNTIME_REQUEST_ROOT: /data/wgs-runtime/runner-requests
       WGS_RUNTIME_SHARED_GID: ${WGS_RUNTIME_SHARED_GID:-520}
-      WGS_RUNTIME_BS_ROOT: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime
+      WGS_RUNTIME_BS_ROOT: ${WGS_RUNTIME_BS_ROOT:-/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime}
       WGS_RUNTIME_NODE200_ROOT: ${WGS_RUNTIME_NODE200_ROOT:-/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime}
       WGS_INTAKE_CONTAINER_ROOT: /data/wgs-intake
       WGS_INTAKE_HOST_ROOT: ${WGS_INTAKE_HOST_ROOT:?set WGS_INTAKE_HOST_ROOT}
