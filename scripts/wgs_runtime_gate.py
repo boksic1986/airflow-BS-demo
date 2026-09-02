@@ -11,6 +11,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 import time
 from typing import Any
 
@@ -20,6 +21,7 @@ import yaml
 ANALYSIS_RE = re.compile(r"^WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}$")
 SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 SEQUENCING_BATCH_RE = re.compile(r"(?:^|_)([0-9]{8}[A-Z])(?:_|$)")
+CCE_RUN_LABEL_RE = re.compile(r"^cce-run-[0-9a-f]{16}$")
 STAGES = {
     "prepare",
     "step1_upload",
@@ -29,6 +31,7 @@ STAGES = {
     "step4_repair_cram",
     "step5_download",
     "step6_materialize",
+    "step7_cleanup",
 }
 ASYNC_STAGES = {
     "step1_upload",
@@ -36,6 +39,7 @@ ASYNC_STAGES = {
     "step4_publish",
     "step4_repair_cram",
     "step5_download",
+    "step7_cleanup",
 }
 STEP_SCRIPTS = {
     "step1_upload": "Step1_upload_fastq.sh",
@@ -45,6 +49,7 @@ STEP_SCRIPTS = {
     "step4_repair_cram": "Step4_publish_results.sh",
     "step5_download": "Step5_download_verify.sh",
     "step6_materialize": "Step6_materialize_results.sh",
+    "step7_cleanup": "Step7_cleanup_sfs.sh",
 }
 STAGE_STATUS_SCHEMA = "wgs-runtime.stage-status.v1"
 BINDING_SCHEMA = "wgs-runtime.batch-binding.v2"
@@ -67,6 +72,10 @@ CCE_OPERATOR_CONFIG = os.getenv(
 )
 MONITOR_INTERVAL_SECONDS = int(os.getenv("WGS_MONITOR_INTERVAL_SECONDS", "5"))
 MONITOR_TIMEOUT_SECONDS = int(os.getenv("WGS_MONITOR_TIMEOUT_SECONDS", "432000"))
+STEP4_MASTER_COMPLETION_GRACE_SECONDS = int(
+    os.getenv("WGS_STEP4_MASTER_COMPLETION_GRACE_SECONDS", "600")
+)
+STEP4_MASTER_NOT_SUCCESSFUL = "Step4 requires a successful Master Job"
 CCE_EVIDENCE_ROOT = Path(
     os.getenv(
         "WGS_CCE_EVIDENCE_ROOT",
@@ -123,17 +132,33 @@ def _sidecar_path(payload: dict[str, Any], suffix: str) -> Path:
 
 def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".partial")
-    temporary.write_text(
-        json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n",
-        encoding="utf-8",
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".partial",
     )
-    os.replace(temporary, path)
+    temporary = Path(temporary_name)
+    try:
+        os.fchmod(descriptor, 0o644)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n"
+            )
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        directory_descriptor = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _write_status(
     payload: dict[str, Any], status: str, message: str = "", **details: Any
-) -> None:
+) -> bool:
     value = {
         "schema_version": STAGE_STATUS_SCHEMA,
         "analysis_id": payload["analysis_id"],
@@ -144,7 +169,20 @@ def _write_status(
         "updated_at": datetime.now(timezone.utc).isoformat(),
         **details,
     }
-    _atomic_json(_sidecar_path(payload, ".status.json"), value)
+    status_path = _sidecar_path(payload, ".status.json")
+    lock_path = _sidecar_path(payload, ".status.lock")
+    rank = {"accepted": 0, "running": 1, "success": 2, "failed": 2}
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as lock_handle:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        current = _read_json(status_path)
+        current_status = str(current.get("status") or "")
+        if current_status in {"success", "failed"}:
+            return False
+        if rank.get(current_status, -1) > rank.get(status, -1):
+            return False
+        _atomic_json(status_path, value)
+    return True
 
 
 def _truthy(name: str) -> bool:
@@ -206,15 +244,24 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
     for value in (project_name, batch_no):
         if SAFE_COMPONENT_RE.fullmatch(value) is None:
             raise ValueError("project_name and batch_no must be safe path components")
-    sequencing_batch_match = SEQUENCING_BATCH_RE.search(batch_no)
-    if sequencing_batch_match is None:
-        raise ValueError(
-            "analysis batch does not contain a valid sequencing batch"
-        )
-    sequencing_batch = sequencing_batch_match.group(1)
+    explicit_prepare_contract = bool(payload.get("sequencing_batch") or payload.get("fastq_root"))
+    sequencing_batch = str(payload.get("sequencing_batch") or "").strip()
+    if not sequencing_batch:
+        sequencing_batch_match = SEQUENCING_BATCH_RE.search(batch_no)
+        if sequencing_batch_match is None:
+            raise ValueError("analysis batch does not contain a valid sequencing batch")
+        sequencing_batch = sequencing_batch_match.group(1)
+    if not re.fullmatch(r"[0-9]{8}[A-Z]", sequencing_batch):
+        raise ValueError("sequencing_batch is invalid")
+    analysis_batch = str(payload.get("analysis_batch") or sequencing_batch).strip()
+    if SAFE_COMPONENT_RE.fullmatch(analysis_batch) is None:
+        raise ValueError("analysis_batch is invalid")
     fastq_directory = Path(fq_path)
-    if sequencing_batch not in fastq_directory.name:
+    if not explicit_prepare_contract and sequencing_batch not in fastq_directory.name:
         raise ValueError("FASTQ directory does not identify the sequencing batch")
+    fastq_root = Path(str(payload.get("fastq_root") or fastq_directory.parent))
+    if not fastq_root.is_absolute():
+        raise ValueError("FASTQ root must be absolute")
     command = [
         WGS_PYTHON,
         str(WGS_REPO_ROOT / "prepare" / "prepare_wgs_batch.py"),
@@ -224,13 +271,13 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
         "--batch",
         sequencing_batch,
         "--analysis-batch",
-        sequencing_batch,
+        analysis_batch,
         "--run-mode",
         "cce",
         "--run-id",
         f"{payload['analysis_id']}-a{int(payload['attempt'])}",
         "--fastq-root",
-        str(fastq_directory.parent),
+        str(fastq_root),
         "--prepare-config",
         WGS_PREPARE_CONFIG,
         "--cce-config",
@@ -240,6 +287,15 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
     platform = str(payload.get("platform") or "").strip()
     if platform:
         command.extend(["--platform", platform])
+    algo = str(payload.get("algo") or "DNAscope").strip()
+    if algo not in {"DNAscope", "Haplotyper"}:
+        raise ValueError("algo must be DNAscope or Haplotyper")
+    command.extend(["--algo", algo])
+    use_reference = str(payload.get("use_reference") or "").strip()
+    if use_reference:
+        if use_reference not in {"all", "ref", "no"}:
+            raise ValueError("use_reference must be all, ref, or no")
+        command.extend(["--use-reference", use_reference])
     return command
 
 
@@ -278,6 +334,9 @@ def _run_prepare(payload: dict[str, Any]) -> None:
         raise RuntimeError("BATCH_RUNTIME.yaml identifies a different run")
     if not isinstance(profile, dict):
         raise RuntimeError("RESOLVED_PROFILE.yaml is invalid")
+    run_label = str(profile.get("run_label") or "")
+    if CCE_RUN_LABEL_RE.fullmatch(run_label) is None:
+        raise RuntimeError("RESOLVED_PROFILE.yaml run_label is invalid")
     platform = profile.get("platform") if isinstance(profile.get("platform"), dict) else {}
     pipeline = profile.get("pipeline") if isinstance(profile.get("pipeline"), dict) else {}
     resolved_runtime = {
@@ -297,6 +356,10 @@ def _run_prepare(payload: dict[str, Any]) -> None:
         ),
     }
     analysis = runtime.get("analysis") if isinstance(runtime.get("analysis"), dict) else {}
+    runtime_paths = runtime.get("paths") if isinstance(runtime.get("paths"), dict) else {}
+    run_dir = Path(str(runtime_paths.get("run_dir") or ""))
+    if not run_dir.is_absolute():
+        raise RuntimeError("BATCH_RUNTIME.yaml run directory is invalid")
     delivery = analysis.get("delivery") if isinstance(analysis.get("delivery"), dict) else {}
     raw_repair_groups = delivery.get("repair_groups")
     repair_groups = {
@@ -324,16 +387,18 @@ def _run_prepare(payload: dict[str, Any]) -> None:
             "project": identity.get("project"),
             "batch": identity.get("batch"),
             "run_id": identity.get("run_id"),
+            "run_label": run_label,
             "repair_groups": repair_groups,
             "master_job": (runtime.get("kubernetes") or {}).get("master_job"),
             "namespace": (runtime.get("kubernetes") or {}).get("namespace"),
             "rule_source_dir": str(
-                Path(str((runtime.get("paths") or {}).get("run_dir")))
+                run_dir
                 / "evidence"
                 / str(identity.get("run_id"))
                 / "rule-status"
                 / "raw"
             ),
+            "analysis_log_source": str(run_dir / "analysis.log"),
             "created_at": datetime.now(timezone.utc).isoformat(),
         },
     )
@@ -354,6 +419,17 @@ def _load_binding(payload: dict[str, Any]) -> dict[str, Any]:
     if workdir not in bundle.parents or not bundle.is_dir() or bundle.is_symlink():
         raise ValueError("frozen CCE bundle is outside the attempt workdir")
     return value
+
+
+def _binding_run_label(binding: dict[str, Any]) -> str:
+    run_label = str(binding.get("run_label") or "")
+    if not run_label:
+        profile_path = Path(str(binding["cce_bundle"])) / "RESOLVED_PROFILE.yaml"
+        profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+        run_label = str(profile.get("run_label") or "") if isinstance(profile, dict) else ""
+    if CCE_RUN_LABEL_RE.fullmatch(run_label) is None:
+        raise ValueError("frozen CCE run label is invalid")
+    return run_label
 
 
 def _step_command(payload: dict[str, Any], stage: str, *arguments: str) -> list[str]:
@@ -385,6 +461,19 @@ def build_step4_repair_command(payload: dict[str, Any]) -> list[str]:
         "--confirm",
         confirmation,
     )
+
+
+def build_step7_cleanup_command(payload: dict[str, Any]) -> list[str]:
+    binding = _load_binding(payload)
+    components = [
+        str(binding.get("project") or ""),
+        str(binding.get("batch") or ""),
+        str(binding.get("run_id") or ""),
+    ]
+    if any(SAFE_COMPONENT_RE.fullmatch(value) is None for value in components):
+        raise RuntimeError("frozen WGS cleanup identity is invalid")
+    confirmation = f"DELETE-SFS:{components[0]}/{components[1]}/{components[2]}"
+    return _step_command(payload, "step7_cleanup", "--confirm", confirmation)
 
 
 def validate_step3_status(value: dict[str, Any]) -> dict[str, Any]:
@@ -446,6 +535,8 @@ def build_evidence_bridge_command(
         str(Path(str(binding["cce_bundle"])) / "master-job.yaml"),
         "--rule-source-dir",
         str(binding["rule_source_dir"]),
+        "--analysis-log-source",
+        str(binding["analysis_log_source"]),
     ]
     if terminal:
         command.append("--terminal")
@@ -486,10 +577,15 @@ def _monitor_step3(payload: dict[str, Any]) -> None:
             monitoring_error = _sync_rule_evidence(payload, binding, terminal=True)
         _write_status(
             payload,
-            "running" if value["master_state"] not in {"SUCCEEDED", "FAILED"} else value["master_state"].lower(),
+            {
+                "SUCCEEDED": "success",
+                "FAILED": "failed",
+            }.get(value["master_state"], "running"),
             value["message"],
             master=value,
             master_job=binding.get("master_job"),
+            namespace=binding.get("namespace"),
+            run_label=_binding_run_label(binding),
             monitoring_health="degraded" if monitoring_error else "healthy",
             monitoring_error=monitoring_error,
         )
@@ -504,6 +600,7 @@ def _monitor_step3(payload: dict[str, Any]) -> None:
 
 def _wait_step4(payload: dict[str, Any]) -> None:
     started = time.monotonic()
+    master_wait_started: float | None = None
     retry_text = "SFS backend export is not ready in OBS; retry Step4"
     while True:
         completed = subprocess.run(
@@ -515,12 +612,116 @@ def _wait_step4(payload: dict[str, Any]) -> None:
         if completed.returncode == 0:
             return
         message = (completed.stderr or completed.stdout)[-2000:]
-        if retry_text not in message:
+        retry_master = (
+            STEP4_MASTER_NOT_SUCCESSFUL in message
+            and _step3_success_matches_binding(payload)
+        )
+        if retry_master:
+            if master_wait_started is None:
+                master_wait_started = time.monotonic()
+            if (
+                time.monotonic() - master_wait_started
+                > STEP4_MASTER_COMPLETION_GRACE_SECONDS
+            ):
+                raise TimeoutError(
+                    "Step4 timed out waiting for the bound Master Job to become Complete"
+                )
+        elif retry_text not in message:
             raise RuntimeError(message)
         _write_status(payload, "running", message)
         if time.monotonic() - started > MONITOR_TIMEOUT_SECONDS:
             raise TimeoutError("Step4 publish monitoring timed out")
         time.sleep(MONITOR_INTERVAL_SECONDS)
+
+
+def _transfer_progress_root(payload: dict[str, Any]) -> Path:
+    return _request_path(
+        str(payload["analysis_id"]), int(payload["attempt"]), str(payload["stage"])
+    ).parent / "transfer-progress" / str(payload["stage"])
+
+
+def _aggregate_transfer_progress(payload: dict[str, Any]) -> dict[str, Any] | None:
+    rows = []
+    for path in _transfer_progress_root(payload).glob("*.json"):
+        value = _read_json(path)
+        if (
+            value.get("schema_version") == "wgs-runtime.transfer-progress.v1"
+            and value.get("analysis_id") == payload["analysis_id"]
+            and int(value.get("attempt", 0)) == int(payload["attempt"])
+            and value.get("stage") == payload["stage"]
+        ):
+            rows.append(value)
+    if not rows:
+        return None
+    total = sum(max(0, int(row.get("bytes_total") or 0)) for row in rows)
+    done = sum(max(0, int(row.get("bytes_done") or 0)) for row in rows)
+    speed = sum(max(0, int(row.get("speed_bytes_per_second") or 0)) for row in rows)
+    files_total = sum(max(0, int(row.get("files_total") or 0)) for row in rows)
+    files_done = sum(max(0, int(row.get("files_done") or 0)) for row in rows)
+    states = {str(row.get("state") or "") for row in rows}
+    return {
+        "schema_version": "wgs-runtime.transfer-progress.v1",
+        "transfer_id": f"{payload['analysis_id']}-a{int(payload['attempt'])}-{'input' if payload['stage'] == 'step1_upload' else 'result'}",
+        "analysis_id": payload["analysis_id"],
+        "attempt": payload["attempt"],
+        "stage": payload["stage"],
+        "direction": "upload" if payload["stage"] == "step1_upload" else "download",
+        "state": "failed" if "failed" in states else ("success" if states == {"success"} else "running"),
+        "bytes_total": total,
+        "bytes_done": min(done, total) if total else done,
+        "files_total": files_total,
+        "files_done": min(files_done, files_total) if files_total else files_done,
+        "current_file": None,
+        "speed_bytes_per_second": speed,
+        "eta_seconds": max(0, int((total - done) / speed)) if total and speed else None,
+        "heartbeat_at": max(str(row.get("heartbeat_at") or "") for row in rows),
+        "monitoring_health": "degraded" if any(row.get("monitoring_health") == "degraded" for row in rows) else "healthy",
+        "source": "obsutil-stream",
+    }
+
+
+def _run_transfer_stage(payload: dict[str, Any]) -> None:
+    root = _transfer_progress_root(payload)
+    root.mkdir(parents=True, exist_ok=True)
+    environment = {
+        **_clean_env(),
+        "WGS_TRANSFER_PROGRESS_ROOT": str(root),
+        "WGS_TRANSFER_ANALYSIS_ID": str(payload["analysis_id"]),
+        "WGS_TRANSFER_ATTEMPT": str(payload["attempt"]),
+        "WGS_TRANSFER_STAGE": str(payload["stage"]),
+        "WGS_TRANSFER_DIRECTION": "upload" if payload["stage"] == "step1_upload" else "download",
+    }
+    process = subprocess.Popen(_step_command(payload, str(payload["stage"])), env=environment)
+    while process.poll() is None:
+        progress = _aggregate_transfer_progress(payload)
+        if progress is not None:
+            _write_status(payload, "running", transfer=progress, monitoring_health=progress["monitoring_health"])
+        time.sleep(MONITOR_INTERVAL_SECONDS)
+    progress = _aggregate_transfer_progress(payload)
+    if progress is not None:
+        _write_status(payload, "running", transfer=progress, monitoring_health=progress["monitoring_health"])
+    if process.returncode:
+        raise subprocess.CalledProcessError(process.returncode, process.args)
+
+
+def _step3_success_matches_binding(payload: dict[str, Any]) -> bool:
+    step3_path = _request_path(
+        str(payload["analysis_id"]), int(payload["attempt"]), "step3_monitor"
+    ).with_suffix(".status.json")
+    step3 = _read_json(step3_path)
+    try:
+        binding = _load_binding(payload)
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return (
+        step3.get("schema_version") == STAGE_STATUS_SCHEMA
+        and step3.get("analysis_id") == payload["analysis_id"]
+        and int(step3.get("attempt", 0)) == int(payload["attempt"])
+        and step3.get("stage") == "step3_monitor"
+        and step3.get("status") == "success"
+        and bool(step3.get("master_job"))
+        and step3.get("master_job") == binding.get("master_job")
+    )
 
 
 def run_stage(payload: dict[str, Any]) -> None:
@@ -537,6 +738,10 @@ def run_stage(payload: dict[str, Any]) -> None:
         _wait_step4(payload)
     elif stage == "step4_repair_cram":
         subprocess.run(build_step4_repair_command(payload), check=True)
+    elif stage == "step7_cleanup":
+        subprocess.run(build_step7_cleanup_command(payload), check=True)
+    elif stage in {"step1_upload", "step5_download"}:
+        _run_transfer_stage(payload)
     else:
         subprocess.run(_step_command(payload, stage), check=True)
 
@@ -585,6 +790,36 @@ def build_async_worker_command(
     ]
 
 
+def _archive_failed_step4_generation(payload: dict[str, Any]) -> int:
+    request_path = _request_path(
+        str(payload["analysis_id"]), int(payload["attempt"]), str(payload["stage"])
+    )
+    history_root = request_path.parent / "history" / "step4_publish"
+    history_root.mkdir(parents=True, exist_ok=True)
+    retry_no = 1
+    while (history_root / f"retry-{retry_no}").exists() or (
+        history_root / f".retry-{retry_no}.partial"
+    ).exists():
+        retry_no += 1
+    partial = history_root / f".retry-{retry_no}.partial"
+    partial.mkdir(mode=0o750)
+    for source, destination_name in (
+        (request_path.with_suffix(".status.json"), "status.json"),
+        (request_path.with_suffix(".worker.json"), "worker.json"),
+        (request_path.with_suffix(".worker.log"), "worker.log"),
+    ):
+        if source.exists():
+            os.replace(source, partial / destination_name)
+    final = history_root / f"retry-{retry_no}"
+    os.replace(partial, final)
+    directory_descriptor = os.open(history_root, os.O_RDONLY)
+    try:
+        os.fsync(directory_descriptor)
+    finally:
+        os.close(directory_descriptor)
+    return retry_no
+
+
 def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
     if not _truthy("WGS_EXECUTION_ENABLED") or not _truthy(
         "WGS_RUNTIME_ADAPTER_ENABLED"
@@ -609,6 +844,13 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             return {"status": "complete", "pid": previous.get("pid")}
         if previous and _process_matches(previous):
             return {"status": "running", "pid": previous["pid"]}
+        retry_no = 0
+        if status.get("status") == "failed":
+            if payload["stage"] != "step4_publish":
+                raise RuntimeError(
+                    "failed runtime stages cannot be restarted by the restricted runner"
+                )
+            retry_no = _archive_failed_step4_generation(payload)
         command = build_async_worker_command(
             analysis_id=str(payload["analysis_id"]),
             attempt=int(payload["attempt"]),
@@ -616,6 +858,7 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             lock_path=worker_lock,
         )
         with log_path.open("ab", buffering=0) as log_handle:
+            _write_status(payload, "accepted", retry_no=retry_no)
             process = subprocess.Popen(
                 command,
                 stdin=subprocess.DEVNULL,
@@ -631,15 +874,16 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             "boot_id": _boot_id(),
             "process_start_time": _process_start_time(process.pid),
             "request_sha256": request_sha,
+            "retry_no": retry_no,
             "started_at": datetime.now(timezone.utc).isoformat(),
         }
         _atomic_json(state_path, state)
-        _write_status(payload, "accepted")
-        return {"status": "accepted", "pid": process.pid}
+        return {"status": "accepted", "pid": process.pid, "retry_no": retry_no}
 
 
 def _run_worker(payload: dict[str, Any]) -> int:
-    _write_status(payload, "running")
+    if payload["stage"] != "step3_monitor":
+        _write_status(payload, "running")
     try:
         run_stage(payload)
     except Exception as error:

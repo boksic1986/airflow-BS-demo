@@ -1,5 +1,51 @@
 # 07 Airflow DAG 设计
 
+## T154/T157 UI与维护接入
+
+唯一WGS DAG仍为`bio_wgs`，生产路径保持Prepare→Step1-Step6，sensor继续5秒
+`reschedule`。`cleanup_step7`是同一DAG的admin维护模式，会跳过普通生产路径，
+绝不自动执行。前端阶段来自`run_stage_state`，不展示原始task ID或task计数进度。
+
+WGS 4.2.0 prepare request显式携带`sequencing_batch`、`analysis_batch`、
+`platform=T7`和`algo=DNAscope|Haplotyper`。runner分别映射到WGS
+`--batch`、`--analysis-batch`、`--platform`和`--algo`；Step1-Step6仍只消费
+prepare生成的冻结bundle，DAG拓扑不变。
+
+## T152 Step4 bounded wait and retry generation
+
+The 18-task topology is unchanged. `step4_publish` treats
+`Step4 requires a successful Master Job` as transient only when the same
+attempt's Step3 sidecar is terminal success and its Master name equals the
+immutable batch binding. It retries every five seconds for at most 600 seconds.
+Real Master failure, missing/mismatched identity and timeout still fail closed.
+
+Only `step4_publish` may restart a terminal failed runner generation. The
+request SHA must be unchanged and the old worker must be dead. Its status,
+worker metadata and log are moved to
+`history/step4_publish/retry-N/` before the new generation publishes
+`accepted -> running -> terminal`. Other stages retain their previous
+fail-closed restart behavior.
+
+The production recovery clears only Step4 and downstream tasks in the same
+DagRun. It never clears Step1-Step3 or submits a replacement Master. A new
+error after the Master gate is a separate WGS/result-contract failure and must
+not be converted to CRAM repair or hidden by the 600-second wait.
+
+## T149 Step3 monitor restart semantics
+
+The 18-task `bio_wgs` topology is unchanged. A Step3 control-plane failure is
+recovered by clearing only `start_step3_monitor` and its downstream tasks for
+the same DagRun. `submit_step2_master` and every Step1 task remain successful
+and are never re-executed. The node200 launcher reuses the immutable request,
+frozen batch binding, existing Master Job, and the same analysis attempt.
+
+The Step3 launcher publishes `accepted` before spawning the worker. Its first
+`running` record includes the frozen Master Job, namespace, parsed
+`cce-pipeline.step3-status.v2` payload, frozen CCE run label, and monitoring health. Status writes
+are serialized and monotonic (`accepted -> running -> success|failed`) and use
+unique same-directory temporary files followed by `fsync` and `os.replace`.
+The five-second `wait_step3_analysis` sensor remains in `reschedule` mode.
+
 ## T146 WGS prepare batch identity
 
 唯一`bio_wgs`任务数和拓扑不变。`prepare_wgs_batch`从完整`batch_no`中提取

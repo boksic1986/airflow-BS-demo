@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
@@ -6,8 +7,8 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import main
-from app.models import AnalysisRun, Base, QcMetric, Sample, SnakemakeRuleEvent
+from app import diagnostics_service, main
+from app.models import AnalysisRun, Base, QcMetric, RuleState, Sample, SnakemakeRuleEvent
 
 
 def make_test_sessionmaker():
@@ -317,10 +318,12 @@ def test_get_run_log_tails_known_pgta_streams(tmp_path, monkeypatch) -> None:
     response = client.get(f"/api/runs/{analysis_id}/logs?stream=stdout&tail=1")
 
     assert response.status_code == 200
+    log_path = tmp_path / "shared" / "runs" / analysis_id / "logs" / "snakemake.stdout.log"
     assert response.json() == {
-        "path": str(tmp_path / "shared" / "runs" / analysis_id / "logs" / "snakemake.stdout.log"),
+        "path": str(log_path),
         "stream": "stdout",
         "truncated": True,
+        "file_size": log_path.stat().st_size,
         "lines": ["stdout line 2"],
     }
 
@@ -359,6 +362,112 @@ def test_pgta_log_index_exposes_safe_stage_and_rule_logs(tmp_path, monkeypatch) 
     tailed = client.get(f"/api/runs/{analysis_id}/logs?key={rule_item['key']}&tail=1")
     assert tailed.status_code == 200
     assert tailed.json()["lines"] == ["predict complete"]
+
+
+def test_wgs_log_index_uses_opaque_keys_for_analysis_and_stage_worker_logs(
+    tmp_path, monkeypatch
+) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_submitted_run(
+        session_factory, tmp_path, analysis_id="WGS_20260901_010203_LOGS01"
+    )
+    runtime_root = tmp_path / "runtime"
+    attempt_root = runtime_root / "runs" / analysis_id / "attempt-1"
+    batch_root = attempt_root / "WGS_Clinical" / "WGS_20260901A_T7Hg38V4.1.1"
+    run_id = f"{analysis_id}-a1"
+    mirror = batch_root / "cce" / "evidence" / run_id / "mirror"
+    mirror.mkdir(parents=True)
+    (mirror / "analysis.log").write_text(
+        "snakemake started\nrule failed with a readable error\n", encoding="utf-8"
+    )
+    request_root = runtime_root / "runner-requests" / analysis_id / "attempt-1"
+    request_root.mkdir(parents=True)
+    (request_root / "step3_monitor.worker.log").write_text(
+        "step3 worker line\n", encoding="utf-8"
+    )
+    node_root = "/node/runtime"
+    # Keep the fixture explicit; the service must translate this registered
+    # node200 path rather than accepting a path from an HTTP request.
+    node_batch = f"{node_root}/{batch_root.relative_to(runtime_root).as_posix()}"
+    (attempt_root / "batch-binding.json").write_text(
+        __import__("json").dumps(
+            {
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "batch_root": node_batch,
+                "run_id": run_id,
+            }
+        ),
+        encoding="utf-8",
+    )
+    with session_factory() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        run.pipeline_name = "wgs"
+        run.attempt = 1
+        session.add(
+            RuleState(
+                analysis_id=analysis_id,
+                attempt=1,
+                rule_instance_id="failed-rule",
+                rule_name="QualCal",
+                status="failed",
+                message="rule failed with a readable error",
+            )
+        )
+        session.commit()
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared")
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: SimpleNamespace(
+            container_shared_root=str(tmp_path / "shared"),
+            airflow_base_url="http://airflow-api-server:8080",
+            wgs_runtime_request_root=str(runtime_root / "runner-requests"),
+            wgs_runtime_node200_root=node_root,
+        ),
+    )
+    client = TestClient(main.app)
+
+    response = client.get(f"/api/runs/{analysis_id}/logs/index")
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert {item["source"] for item in items} == {"master_analysis", "stage_worker"}
+    assert all("path" not in item and "relative_path" not in item for item in items)
+    analysis_item = next(item for item in items if item["source"] == "master_analysis")
+    original_read_text = Path.read_text
+
+    def guarded_read_text(path: Path, *args, **kwargs):
+        if path.name == "analysis.log":
+            raise AssertionError("WGS log endpoint must not load the complete analysis.log")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", guarded_read_text)
+    tailed = client.get(f"/api/runs/{analysis_id}/logs?key={analysis_item['key']}&tail=1")
+    assert tailed.status_code == 200
+    assert tailed.json()["lines"] == ["rule failed with a readable error"]
+    assert tailed.json()["file_size"] == (mirror / "analysis.log").stat().st_size
+    assert "path" not in tailed.json()
+    no_key = client.get(f"/api/runs/{analysis_id}/logs?stream=stderr")
+    assert no_key.status_code == 404
+    assert no_key.json()["detail"]["code"] == "LOG_NOT_FOUND"
+    assert client.get(f"/api/runs/{analysis_id}/logs?key=../../etc/passwd").status_code == 404
+
+
+def test_log_tail_reader_stops_at_byte_limit_and_keeps_latest_lines(tmp_path) -> None:
+    path = tmp_path / "large-analysis.log"
+    path.write_bytes(b"old-prefix-" + (b"x" * 4096) + b"\nlatest-one\nlatest-two\n")
+
+    lines, truncated, file_size = diagnostics_service._tail_log_file(
+        path,
+        tail=2,
+        max_bytes=64,
+        chunk_bytes=16,
+    )
+
+    assert lines == ["latest-one", "latest-two"]
+    assert truncated is True
+    assert file_size == path.stat().st_size
 
 
 def test_nipt_log_index_resolves_relative_rule_paths_inside_run_workdir(tmp_path, monkeypatch) -> None:

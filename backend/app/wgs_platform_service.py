@@ -1,10 +1,13 @@
 ﻿from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import csv
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import secrets
+
+from app.airflow_idempotency import ensure_dag_run
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -24,19 +27,25 @@ EXECUTION_MODES = {"cce"}
 WGS_CCE_DAG_ID = "bio_wgs"
 
 
-def create_wgs_platform_run(*, session: Session, settings, project_name: str, execution_mode: str, batch_no: str, fq_path: str, submitted_by: str) -> dict:
+def create_wgs_platform_run(*, session: Session, settings, project_name: str, execution_mode: str, batch_no: str, fq_path: str, submitted_by: str, commit: bool = True, validate_input: bool = True, platform: str | None = None, sequencing_batch: str | None = None, analysis_batch: str | None = None, fastq_root: str | None = None, use_reference: str = "all", algo: str = "DNAscope") -> dict:
     if execution_mode not in EXECUTION_MODES:
         raise ValueError("execution_mode must be cce for the cloud orchestration release.")
     batch_no = batch_no.strip()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", batch_no):
         raise ValueError("batch_no contains unsupported characters.")
-    source = ensure_allowed_path(fq_path, list(getattr(settings, "wgs_config_roots", []) or []))
-    if not source.is_dir():
-        raise ValueError("fq_path must be a controlled FASTQ link directory.")
+    if validate_input:
+        source = ensure_allowed_path(fq_path, list(getattr(settings, "wgs_config_roots", []) or []))
+        if not source.is_dir():
+            raise ValueError("fq_path must be a controlled FASTQ link directory.")
+        canonical_source = str(source)
+    else:
+        source = PurePosixPath(fq_path)
+        if not source.is_absolute() or ".." in source.parts:
+            raise ValueError("catalog FASTQ root must be an absolute normalized path")
+        canonical_source = str(source)
     release = load_wgs_release_catalog(
         Path(settings.wgs_release_catalog_path)
     ).release
-    canonical_source = str(source)
     existing_snapshot = session.scalar(select(WgsInputSnapshot).where(WgsInputSnapshot.batch_no == batch_no, WgsInputSnapshot.fq_path == canonical_source))
     if existing_snapshot is not None:
         existing = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == existing_snapshot.analysis_id))
@@ -67,6 +76,12 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
             "wgs_version": release.version,
             "wgs_source_commit": release.source_commit,
             "rule_event_schema_version": release.rule_event_schema_version,
+            "platform": platform,
+            "sequencing_batch": sequencing_batch,
+            "analysis_batch": analysis_batch,
+            "fastq_root": fastq_root or canonical_source,
+            "use_reference": use_reference,
+            "algo": algo,
         },
         submitted_by=submitted_by,
     )
@@ -75,8 +90,16 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
     session.add(snapshot_row)
     session.add(RunAttempt(analysis_id=analysis_id, attempt=1, execution_mode=execution_mode, status="created"))
     session.flush()
-    _revalidate_input(session=session, settings=settings, run=run, snapshot_row=snapshot_row, allow_rebuild=True)
-    session.commit()
+    if validate_input:
+        _revalidate_input(session=session, settings=settings, run=run, snapshot_row=snapshot_row, allow_rebuild=True)
+    else:
+        snapshot_row.status = "deferred_to_wgs_prepare"
+        run.status = "created"
+        run.current_stage = "validate_request"
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     return run_payload(session, run)
 
 
@@ -102,11 +125,18 @@ def submit_wgs_run(*, session: Session, airflow_client, analysis_id: str) -> dic
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
     if run is None:
         return None
+    if run.status == "submitted" and run.dag_run_id:
+        return run_payload(session, run)
     if run.status not in {"created", "failed", "cancelled"}:
         raise ValueError(f"Run status {run.status} cannot be submitted.")
     conf = {"analysis_id": run.analysis_id, "pipeline": "wgs", "execution_mode": run.execution_mode, "attempt": run.attempt, "workdir": run.workdir, "params": run.params_json}
     dag_run_id = f"manual__{run.analysis_id}__a{run.attempt}"
-    airflow_client.trigger_dag_run(run.dag_id, dag_run_id=dag_run_id, conf=conf)
+    ensure_dag_run(
+        airflow_client=airflow_client,
+        dag_id=run.dag_id,
+        dag_run_id=dag_run_id,
+        conf=conf,
+    )
     run.dag_run_id = dag_run_id
     run.status = "submitted"
     run.submitted_at = datetime.now(timezone.utc)
@@ -189,6 +219,54 @@ def run_payload(session: Session, run: AnalysisRun) -> dict:
     return {"analysis_id": run.analysis_id, "pipeline": "wgs", "dag_id": run.dag_id, "dag_run_id": run.dag_run_id, "execution_mode": run.execution_mode, "attempt": run.attempt, "status": run.status, "sample_count": count, "workdir": run.workdir, "params": run.params_json, "submitted_by": run.submitted_by}
 
 
+def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> int:
+    """Import only the final WGS analysis selection from the frozen batch."""
+    request_root = Path(settings.wgs_runtime_request_root).resolve()
+    binding = request_root.parent / "runs" / run.analysis_id / f"attempt-{run.attempt}" / "batch-binding.json"
+    value = json.loads(binding.read_text(encoding="utf-8"))
+    if value.get("analysis_id") != run.analysis_id or int(value.get("attempt", 0)) != run.attempt:
+        raise ValueError("WGS prepared sample binding identity mismatch")
+    node_root = PurePosixPath(settings.wgs_runtime_node200_root)
+    relative = PurePosixPath(str(value["batch_root"])).relative_to(node_root)
+    batch_root = (request_root.parent / Path(*relative.parts)).resolve()
+    if request_root.parent not in batch_root.parents:
+        raise ValueError("WGS prepared sample path escapes runtime root")
+    sampleinfo = batch_root / "sampleinfo.tsv"
+    if not sampleinfo.is_file() or sampleinfo.is_symlink():
+        raise ValueError("WGS prepare did not publish final sampleinfo.tsv")
+    rows = list(csv.DictReader(sampleinfo.open(encoding="utf-8-sig", newline=""), delimiter="\t"))
+    if not rows:
+        raise ValueError("WGS prepare selected no analysis samples")
+    existing = {item.sample_id: item for item in session.scalars(select(Sample).where(Sample.analysis_id == run.analysis_id)).all()}
+    selected: set[str] = set()
+    for source in rows:
+        sample_id = str(source.get("样本编号") or "").strip()
+        if not sample_id:
+            raise ValueError("WGS final sampleinfo contains an empty sample ID")
+        selected.add(sample_id)
+        metadata = {
+            "data_id": str(source.get("数据编号") or "").strip() or None,
+            "family_relation": str(source.get("家系关系") or "").strip() or None,
+            "sample_type": str(source.get("样本类型") or "").strip() or None,
+            "sex": str(source.get("性别") or "").strip() or None,
+            "sequencing_batch": str(source.get("上机批次") or "").strip() or None,
+            "provider": "wgs_final_selection",
+        }
+        row = existing.get(sample_id)
+        if row is None:
+            row = Sample(analysis_id=run.analysis_id, sample_id=sample_id, family_id=str(source.get("家系编号") or "").strip() or None, status="running", qc_status="unknown", metadata_json=metadata)
+            session.add(row)
+        else:
+            row.family_id = str(source.get("家系编号") or "").strip() or None
+            row.status = "running"
+            row.metadata_json = metadata
+    for sample_id, row in existing.items():
+        if sample_id not in selected:
+            session.delete(row)
+    session.flush()
+    return len(selected)
+
+
 def _revalidate_input(*, session: Session, settings, run: AnalysisRun, snapshot_row: WgsInputSnapshot, allow_rebuild: bool) -> None:
     for issue in session.scalars(select(RunValidationIssue).where(RunValidationIssue.analysis_id == run.analysis_id, RunValidationIssue.status == "open")).all():
         issue.status = "resolved"
@@ -215,13 +293,5 @@ def _revalidate_input(*, session: Session, settings, run: AnalysisRun, snapshot_
     snapshot_row.status = "verified"
     snapshot_row.verified_at = datetime.now(timezone.utc)
     run.params_json = {**run.params_json, "input_manifest_sha256": snapshot_row.manifest_sha256, "input_file_count": snapshot_row.file_count, "input_total_bytes": snapshot_row.total_bytes}
-    sample_rows = {row.sample_id: row for row in session.scalars(select(Sample).where(Sample.analysis_id == run.analysis_id)).all()}
-    pairs: dict[str, dict[str, str]] = {}
-    for item in snapshot["files"]:
-        pairs.setdefault(str(item["sample_id"]), {})[str(item["read"])] = str(item["resolved_path"])
-    for sample_id, reads in pairs.items():
-        row = sample_rows.get(sample_id)
-        if row is None:
-            session.add(Sample(analysis_id=run.analysis_id, sample_id=sample_id, family_id=None, fq1=reads["R1"], fq2=reads["R2"], status="pending", qc_status="unknown", metadata_json={"provider": "wgs_prepare_pending"}))
     run.status = "created"
     run.current_stage = "validate_request"

@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import main
-from app.models import AnalysisRun, Base, QcMetric, Sample, SnakemakeRuleEvent
+from app.models import AnalysisRun, Base, QcMetric, RuleState, RunStageState, Sample, SnakemakeRuleEvent
 
 
 def make_test_sessionmaker():
@@ -174,17 +174,65 @@ def seed_bs_wgs_failure(session_factory, tmp_path) -> None:
             )
         )
         session.add(
-            SnakemakeRuleEvent(
+            RuleState(
                 analysis_id=analysis_id,
-                rule="QualCal",
+                attempt=1,
+                rule_instance_id="QualCal:WGS-01:7",
+                rule_name="QualCal",
+                phase="Variant analysis",
                 sample_id="WGS-01",
                 snakemake_jobid="7",
                 status="failed",
-                return_code=23,
                 message="Sentieon QualCal failed",
             )
         )
+        session.add(
+            RunStageState(
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="step3",
+                step_number=3,
+                stage_label="WGS workflow running",
+                stage_status="failed",
+                progress_available=True,
+                progress_percent=42,
+                progress_source="cce-pipeline.step3-status.v2",
+                message="QualCal failed in the bound Master workflow",
+            )
+        )
         session.commit()
+
+
+def test_wgs_failures_use_authoritative_rule_and_stage_state(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    seed_bs_wgs_failure(session_factory, tmp_path)
+    client = install_session(monkeypatch, session_factory)
+
+    payload = client.get("/api/failures?pipeline=wgs&kind=workflow&period=7d&limit=20&offset=0").json()
+
+    assert payload["total"] == 1
+    item = payload["items"][0]
+    assert item["failed_step"] == "QualCal"
+    assert item["sample_id"] == "WGS-01"
+    assert item["failure_layer"] == "pipeline_rule"
+    assert "Sentieon QualCal failed" in item["stderr_excerpt"]
+    assert item["return_code"] is None
+
+
+def test_wgs_failure_queue_never_projects_legacy_qc_alerts(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    seed_bs_wgs_failure(session_factory, tmp_path)
+    with session_factory() as session:
+        sample = session.scalar(select(Sample).where(Sample.analysis_id == "WGS_OMEGA_FAILED"))
+        sample.qc_status = "fail"
+        session.commit()
+    client = install_session(monkeypatch, session_factory)
+
+    payload = client.get(
+        "/api/failures?pipeline=wgs&kind=qc&period=7d&limit=20&offset=0"
+    ).json()
+
+    assert payload == {"items": [], "total": 0, "limit": 20, "offset": 0}
 
 
 def test_runs_support_project_keyword_sort_and_pagination(tmp_path, monkeypatch) -> None:

@@ -2,8 +2,7 @@ import {useEffect, useState} from "react";
 
 import type {DashboardRunTrackerRow} from "../api";
 
-import {compactPipelineName, displayTimeZoneLabel, formatDate, formatRelativeAge} from "../lib/format";
-import {humanStageLabel, stageDebugLabel} from "../lib/stageLabels";
+import {compactPipelineName, displayTimeZoneLabel, formatBytes, formatDate, formatRelativeAge, formatSecondsDuration} from "../lib/format";
 import {isActiveStatus, normalizeStatus} from "../lib/status";
 import {RunProgressBar} from "./RunProgressBar";
 import {StatusBadge} from "./StatusBadge";
@@ -93,10 +92,11 @@ export function RunTracker({
             <thead>
               <tr>
                 <th scope="col">Project</th>
+                <th scope="col">Batch</th>
                 <th scope="col">Pipeline</th>
                 <th scope="col">Status</th>
                 <th scope="col">Current stage</th>
-                <th scope="col">Progress</th>
+                <th scope="col">Stage progress</th>
                 <th scope="col">Runtime / ETA</th>
                 <th scope="col">Started</th>
                 <th scope="col">Finished</th>
@@ -145,9 +145,7 @@ function RunTrackerRow({
   relativeNow: Date;
 }) {
   const status = normalizeStatus(row.status);
-  const rawStep = status === "success" ? null : row.current_pipeline_rule || row.current_airflow_task;
-  const currentStep = status === "success" ? "Completed" : row.current_stage_label || (rawStep ? humanStageLabel(rawStep) : row.not_in_airflow ? "Created only" : "No rule events captured");
-  const debugStep = stageDebugLabel(rawStep);
+  const currentStep = status === "success" ? "WGS workflow completed" : row.current_stage_label || (row.not_in_airflow ? "Preparing WGS batch" : "WGS stage unavailable");
   const note = row.note || progressNote(row);
   const terminalAt = row.pipeline_finished_at || row.ended_at;
   const terminalAge = ["success", "failed", "terminated"].includes(status)
@@ -158,12 +156,11 @@ function RunTrackerRow({
       <td>
         <OperationProjectCell analysisId={row.analysis_id} fallbackId={row.analysis_id} projectName={row.project_name} sampleCount={row.sample_count ?? 0} source={row.run_source || "manual"} sourceBatchId={row.source_batch_id} submittedBy={row.submitted_by} />
       </td>
+      <td><strong>{row.batch_no || row.source_batch_id || "-"}</strong></td>
       <td>{compactPipelineName(row.pipeline)}</td>
       <td>
         <div className="tracker-badges stacked">
-          <StatusBadge status={row.display_status || compositeStatus(row.status, row.qc_status)} />
-          {row.qc_display_status === "pending" ? <span className="qc-state-note" title={row.qc_display_note || undefined}>QC pending</span> : null}
-          {row.qc_display_status === "unavailable" ? <span className="qc-state-note unavailable" title={row.qc_display_note || undefined}>QC unavailable</span> : null}
+          <StatusBadge status={row.display_status || normalizeStatus(row.status)} />
           {row.not_in_airflow ? <span className="handoff-pill">Not in Airflow</span> : null}
           {status === "created" ? (
             <button className="mini-action" type="button" onClick={() => onSubmit(row.analysis_id)}>Submit</button>
@@ -178,25 +175,12 @@ function RunTrackerRow({
           <strong>{currentStep}</strong>
           {terminalAge ? (
             <span className="terminal-age" title={`${formatDate(terminalAt)} ${displayTimeZoneLabel()}`}>{terminalAge}</span>
-          ) : <span>{row.current_stage_source || sourceFromRow(row)}</span>}
-          {debugStep ? <small title="Raw Airflow task or pipeline event id">{debugStep}</small> : null}
-          {row.current_airflow_task === "run_pgta_target" ? (
-            <small>Legacy PGT-A single Airflow task; Snakemake carries the detailed rule progress.</small>
-          ) : null}
+          ) : <span>{row.stage_status || row.status}</span>}
         </div>
       </td>
       <td className="tracker-progress-cell">
-        <RunProgressBar
-          analysisId={row.analysis_id}
-          compact
-          progress={{
-            percent: row.percent,
-            label: `${Math.round(row.percent)}%`,
-            currentStep,
-            note,
-            notInAirflow: row.not_in_airflow,
-          }}
-        />
+        <RunProgressBar analysisId={row.analysis_id} compact progress={{percent: row.stage_progress?.percent ?? row.percent ?? 0, available: row.stage_progress?.available ?? row.progress_available ?? false, label: row.stage_progress?.percent == null ? "Detailed progress unavailable" : `${Math.round(row.stage_progress.percent)}%`, currentStep, note, notInAirflow: row.not_in_airflow}} />
+        {row.stage_progress?.available ? <small>{row.stage_progress.completed_units ?? "-"}/{row.stage_progress.total_units ?? "-"} {row.stage_progress.unit || ""}{row.stage_progress.speed_bps ? ` · ${formatBytes(row.stage_progress.speed_bps)}/s` : ""}{row.stage_progress.eta_seconds != null ? ` · ETA ${formatSecondsDuration(row.stage_progress.eta_seconds)}` : ""}</small> : null}
       </td>
       <td>
         <OperationRuntimeCell elapsedSeconds={row.elapsed_seconds} estimatedRemainingSeconds={row.estimated_remaining_seconds} status={row.status} submitted={Boolean(row.submitted_at)} />
@@ -207,28 +191,10 @@ function RunTrackerRow({
   );
 }
 
-function compositeStatus(runStatus: string, qcStatus: string): string {
-  const workflow = normalizeStatus(runStatus);
-  const qc = normalizeStatus(qcStatus);
-  if (workflow !== "success") return workflow;
-  if (["fail", "failed", "error"].includes(qc)) return "qc_failed";
-  if (["warn", "warning"].includes(qc)) return "qc_warning";
-  if (qc === "unknown") return "qc_pending";
-  return "success";
-}
-
 function progressNote(row: DashboardRunTrackerRow): string {
   if (row.not_in_airflow) return "Created in backend only";
-  if (row.current_pipeline_rule) return `Pipeline event: ${row.current_pipeline_rule}`;
-  if (row.current_airflow_task) return `Airflow task: ${row.current_airflow_task}`;
-  return row.progress_source === "estimate" ? "Demo progress estimate" : `Progress source: ${row.progress_source}`;
-}
-
-function sourceFromRow(row: DashboardRunTrackerRow): string {
-  if (row.not_in_airflow) return "Backend state";
-  if (row.current_pipeline_rule) return row.current_pipeline_rule === "nipt_mount_smoke" ? "Runner event" : "Snakemake rule event";
-  if (row.current_airflow_task) return "Airflow project task";
-  return "Backend state";
+  if (row.stage_progress?.current_item) return row.stage_progress.current_item;
+  return row.stage_progress?.available ? `Progress source: ${row.stage_progress.source || row.progress_source}` : "The runtime has not supplied exact progress for this stage.";
 }
 
 function finishedLabel(row: DashboardRunTrackerRow): string {

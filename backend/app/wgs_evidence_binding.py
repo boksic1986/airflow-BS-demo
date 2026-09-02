@@ -8,8 +8,9 @@ import re
 from app.wgs_release_catalog import WgsReleaseCatalog
 
 
+CCE_RUN_LABEL_PATTERN = re.compile(r"^cce-run-[0-9a-f]{16}$")
 RUN_LABEL_PATTERN = re.compile(
-    r"^(?:wgs392-[0-9a-f]{16}|WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}-a[1-9][0-9]*)$"
+    r"^(?:cce-run-[0-9a-f]{16}|wgs392-[0-9a-f]{16}|WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}-a[1-9][0-9]*)$"
 )
 
 

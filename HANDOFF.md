@@ -1,5 +1,346 @@
 # HANDOFF.md
 
+## 2026-09-02 - Codex - T161 WGS 4.2.0候选接入（进行中）
+
+### 目标与当前结果
+
+- 共享WGS只读审计：`dev_CJC_4.2.0_cloud`，commit
+  `78797181ee0582bea3167385c243616017f092ce`，版本`V4.2.0`。
+- 候选catalog已更新为`wgs-4.2.0-7879718`，共享路径保持不变。
+- Airflow runner现在分别传递`--batch`和`--analysis-batch`，platform为`T7`；
+  新增`--algo DNAscope|Haplotyper`。后端自动派生
+  `WGS_<analysis_batch>_T7Hg38V4.2.0`，前端同步展示当前release和算法选择。
+- WGS仓库未修改；没有部署、OBS、CCE、真实分析或Step7操作。
+
+### 已运行验证
+
+```text
+BS10610 Docker focused backend: 43 passed
+BS10610 Docker runner: 29 passed
+BS10610 Docker full backend: 280 passed, 1 skipped
+BS10610 Docker full scripts: 38 passed
+Airflow DagBag: import_errors=0, bio_wgs 18 tasks, 6 reschedule sensors, paused=true
+PostgreSQL 15 migration: 0001->0013, downgrade 0013->0012, upgrade 0012->0013 passed
+BS10610 Docker frontend: 9 files / 32 tests passed
+BS10610 Docker Vite build: passed
+Compose config: passed
+git diff --check and candidate secret scan: passed
+network: 192.168.199.0/24, gateway 192.168.199.1
+published port: only 172.17.106.10:12959
+```
+
+### 待完成
+
+- 整理提交，创建PR，合并到main，并同步root main及下一开发worktree。
+- 本条是检查点；完成后需补充PR、merge SHA和最终验证结果。
+
+### 回滚
+
+尚未修改在线服务或数据。代码回滚只涉及候选分支；不得删除`.artifacts/`或在线T152状态。
+
+## 2026-09-02 - Codex - T159四项合同修正
+
+### 已完成
+
+- `docs/28_WGS_PRODUCTION_UI_AND_SUBMISSION_DESIGN.md`已按用户确认语义修订，并新增实现计划`docs/superpowers/plans/2026-09-02-wgs-transfer-submit-logs.md`。
+- 新增透明`wgs_obsutil_progress.py`。node200 runner对Step1/Step5按5秒聚合请求级JSON，backend直接从stage status同步真实bytes/files/speed/ETA；不再等待cce-pipeline提供进度。
+- 新增`POST /api/wgs/runs`和单页Submit表单。浏览器只提交catalog ID及platform/sequencing batch/analysis batch/use_reference；WGS prepare执行sampleinfo→analysis，prepare成功后只导入最终`sampleinfo.tsv`安全字段。
+- 失败Rule不再需要log-key到SFS路径registry。backend只读已注册的Master analysis.log最后2MiB，以job ID/rule name截取最多64KiB；Rule表显示摘要，完整日志继续走现有opaque key。
+- T160确认opaque key无需人工配置，并把完整日志接口改为从末尾64KiB分块倒读；单次最多8MiB/1000行，返回`file_size/truncated`，大型analysis.log不再整文件载入内存。
+- WGS release catalog没有改动，仍为`wgs-4.1.1-2499749`；等待WGS正式更新后再统一审计和改绑。
+
+### 验证
+
+```text
+BS10610 backend: 279 passed, 1 skipped
+T160 RED evidence: 2 expected failures (whole-file read and missing bounded reader)
+T160 focused GREEN: 2 passed
+BS10610 runner/adapter/timing/wrapper: 51 passed
+BS10610 Docker frontend Vitest: 9 files / 32 tests passed
+BS10610 Docker frontend Vite production build: passed
+frontend runtime: Node 22.22.2 / npm 10.9.7, container network=none
+BS10610 Docker network preflight: nipt_analysis_test_net=192.168.199.0/24, gateway=192.168.199.1, attachments unique/in-range
+published host mapping: only frontend 172.17.106.10:12959
+Python compile: passed
+git diff --check: passed
+remote evidence: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/t159-20260902
+```
+
+### 未完成/下一步
+
+- 尚未把wrapper安装到node200，也未修改其受控operator config；因此当前在线Step1/Step5不会突然出现速度。这应在新的disabled release预检中完成，并用mock obsutil及一个单独批准的真实传输验证。
+- 尚未部署、迁移或切换`current`；在线T152仍保持execution/runtime=true和DAG unpaused。本轮没有暂停或覆盖它。
+- WGS下一个正式HEAD确定后，更新catalog commit/release ID并重新验证prepare CLI、最终sampleinfo路径及`use_reference`枚举，然后再做disabled release。
+- 当前worktree包含此前T153-T157大批未提交变更；不要只挑T159文件部署，必须按完整候选release进行迁移/Compose/DAG/network验收。
+
+### 回滚
+
+本轮未触碰生产服务、数据库、OBS、SFS或CCE。代码回滚仅涉及候选worktree；保留`.artifacts/`和在线T152状态。
+
+## 2026-09-02 - Codex - T153-T158生产前端开发检查点
+
+### 已完成
+
+- 新增文档28和迁移`20260901_0013`；实现权威阶段/精确进度、扩展Rule状态、
+  安全Samples、opaque日志、WGS Failure Triage、当前Workflow Catalog。
+- 前端增加Run Tracker Batch、人性化Step1-Step6、精确进度/不可用态、Samples、
+  Rule阶段图与实例表；移除WGS QC和Master image digest。
+- 实现受控项目catalog、三步submission draft API/UI、60点资源快照、`.96/.97`
+  速率投影、SFS/OBS UI和admin Step7双确认合同。提交和Step7均使用确定性DagRun；
+  crash重试不重复创建，Step7内部入口必须携带匹配的admin维护操作ID。
+- transfer只接受严格`cce-pipeline.transfer-progress.v1`，terminal stage禁止成功/失败
+  互相覆盖；不再用阶段位置生成总体百分比或分析ETA。
+- evidence bridge增量同步Rule JSONL及`analysis.log`，终态reader保持SFS只读。
+
+### 验证
+
+```text
+BS10610 backend: 298 passed, 1 skipped
+BS10610 scripts: 37 passed
+BS10610 bio_wgs DAG: 8 passed
+temporary PostgreSQL 15: 0013 upgrade/downgrade/upgrade passed
+frontend TypeScript/Vite production build: passed（由T159在BS10610无网络Docker容器重新验证；本机Node结果不作为验收）
+frontend Vitest: 9 files / 32 tests passed（BS10610 Docker）
+BS10610 offline frontend image: airflow-demo/frontend:t153-production-ui-disabled
+frontend image digest: sha256:c7e49e0a69d40570dfafd3e20b3a66308f7a6f726ed7623127d004bb3f9ba202
+nginx config/static HTTP smoke: passed（无宿主机端口）
+Compose config: passed
+published ports: only 172.17.106.10:12959
+network: 192.168.199.0/24, gateway 192.168.199.1
+scanner interval: 600 seconds
+independent read-only review: Critical 0 / Important 0 / Minor 0
+```
+
+### 未完成和阻塞
+
+- cce-pipeline 0.8.1未提供transfer-progress v1，上传/下载只能显示真实阶段，不能显示
+  速度/ETA。
+- WGS `sampleinfo`不提供FASTQ配对/pending的只读preview；draft DB/API/UI及最终提交
+  幂等测试已完成，`WGS_SUBMISSION_PREVIEW_ENABLED=false`使API/UI fail closed。
+- Rule JSONL只有opaque log key，没有受控SFS相对路径registry；目前可读analysis.log和
+  stage worker日志，尚未镜像失败Rule stderr尾部，禁止以任意路径读取替代。
+  但真实async worker不能安全启用。
+- Airflow catalog为`2499749`，共享WGS HEAD已是`6c98281`；未获得版本改绑决定。
+- 当前在线T152 env仍是execution/runtime=true且bio_wgs未pause；本轮candidate以四门禁
+  false完成Compose验证，但未覆盖在线状态、未迁移生产DB、未部署release、未执行真实
+  Step7或Cloud Eye/node exporter采集。
+
+### 下一步和回滚
+
+先冻结WGS preview与transfer-progress合同并确认新release commit，再完成T156/T157远端
+验收、生产备份和disabled release。当前改动未部署，回滚只需丢弃本worktree改动；不得
+修改现有生产DB、current release、OBS/SFS或运行记录。
+
+## 2026-09-01 - Codex - T152 Step4 race repair and WGS marker blocker
+
+### Completed
+
+- Implemented and deployed Airflow commit
+  `29c8378b2b4e5cf860e7978d9e23233f710035af` plus failure-projection commit
+  `1bd7530f2a55bab530475fffb48eeabb025fea21` in release
+  `20260901-wgs-4.1.1-2499749-t152-step4-recovery-r8`.
+- Step4 now waits up to 600 seconds for the exact bound Master after a trusted
+  Step3 success. Failed Step4 generations can restart only with the same
+  request SHA after the old worker exits; prior status/worker/log are retained
+  under `history/step4_publish/retry-N`.
+- Backend same-attempt recovery resets only the known Master timing false
+  failure to `publishing` and audits `run.step4_publish_recovered`. Repair
+  capability uses the canonical Step3 Master event identity rather than a
+  `wgs-master-*` prefix.
+- A real terminal Step4 failure now updates biodemo/Run Detail to `failed`
+  with its evidence message; the production API no longer remains stale at
+  `publishing` after the DagRun fails.
+
+### Production recovery and new blocker
+
+- Backed up both databases, the complete attempt sidecars/logs, binding and
+  Airflow Task state at
+  `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T152-step4-recovery-20260901T173906+0800`.
+  `biodemo.dump` SHA256 is
+  `08af9e4f6a50945affb355380858a4ab11653356dbfa43fa44fdccf6174e6c3e`;
+  `airflow.dump` SHA256 is
+  `3ac29e63f3dcb4dba401a2490e8485acd6c246550a2b9955e6330790f4da4256`.
+- Cleared only Step4 and downstream in the original DagRun. Step1-Step3 stayed
+  success; Master `cce-master-79c59ff6401e15d76aa5` retained UID
+  `8ef69ad6-96cd-4dd2-a94a-b214287af1d2` and its original Complete timestamp.
+  No upload or Master submission was repeated, and CRAM repair was not used.
+- The retry crossed the repaired Master gate, then failed at a second,
+  independent WGS contract error: `ANALYSIS_COMPLETE is invalid`. The OBS
+  object is a valid 149-byte schema-1 JSON identity marker with `status=PASS`,
+  while frozen `cce_delivery.py` accepts only the legacy literal
+  `status=PASS\n`. This is a producer/consumer mismatch inside WGS 2499749,
+  not duplicate `cloud_finalize_delivery` execution.
+- Stopped without modifying the WGS repository, frozen bundle, OBS/SFS data or
+  marker. The original DagRun is failed at ordinary Step4; Step5-Step6 have not
+  run. Do not clear it again until the WGS contract and recovery method are
+  explicitly approved.
+
+### Validation and rollback
+
+```text
+runner: 28 passed
+backend: 250 passed
+DAG import errors: 0
+Compose config: passed
+network: 192.168.199.0/24, gateway 192.168.199.1
+published port: only 172.17.106.10:12959
+```
+
+Rollback the Airflow fix by restoring the backed-up runner and previous r6
+release, then recreating only backend/API/scheduler/worker. Do not restore the
+databases merely to roll back code, delete retry evidence, rerun Step1-Step3,
+or replace the CCE Master.
+
+## 2026-09-01 - Codex - T151 YF non-clinical scanner exclusion
+
+### Goal and implementation
+
+T7 scanner现在在配对统计前排除sample ID以大写`YF`开头的非临检样本。YF不计入
+eligible、add-on或pair issue；YF-only为`no_new_wgs`，YF缺对不触发
+`needs_review`。名称fingerprint升为v3，并计算一次旧v2策略摘要，保证已有ready
+记录只因YF过滤升级时不会误报输入漂移。数据库/API结构和前端均未修改。
+实现提交为`9ab2dd2c95528875b11cf8b82a7e4350eedb08b8`。
+
+### Validation and deployment
+
+```text
+TDD RED: 3 YF behavior failures, then 1 v2 migration failure
+focused scanner: 18 passed
+full backend: 247 passed, 1 skipped
+release: 20260901-wgs-4.1.1-2499749-t151-yf-filter-r6
+services recreated: wgs-intake-scanner only
+2222: 192 YF entries / 96 pairs; ready(96) -> no_new_wgs(0)
+2223/2224/2227: remain ready with 12/8/10 pairs
+before/after: AnalysisRun 1, RunAttempt 1, Airflow DagRun 1
+active run: WGS_20260901_031616_C74E6C, attempt 1, same DagRun, step3_monitor
+scanner: 600 seconds, auto dispatch false, 1837 directories, no error
+network: 192.168.199.0/24 gateway 192.168.199.1; only frontend publishes 12959
+```
+
+部署前biodemo备份为
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T151-yf-filter-20260901T162127+0800/biodemo.dump`，
+SHA256为`ed7dfe046d19a53b6cee0f52da2e0925e5e58e844eeca19d2b37848cb52d0ae3`。
+
+### Remaining work and rollback
+
+自动prepare/dispatch仍关闭；T151未创建分析、上传OBS或启动CCE。当前T149批次继续
+由原DagRun监控。回滚只需切回T150 r5并重建scanner；不要恢复数据库、删除intake
+记录、重建网络或干预当前CCE批次。
+
+## 2026-09-01 - Codex - T150 T7 FASTQ scanner repair
+
+### Goal and completed work
+
+修复T7 scanner将软链接FASTQ误判为`no_new_wgs`，按目录项名称识别WGS和
+R1/R2，不访问链接目标。名称级fingerprint升级为v2；保留旧v1普通文件ready
+记录的兼容升级，并允许历史`no_new_wgs`按当前名称重新分类。Dashboard根据API
+的`schedule_seconds`显示“每10分钟”，不再硬编码30分钟。
+
+创建并切换到release
+`20260901-wgs-4.1.1-2499749-t150-t7-scanner-r5`。只重建
+`wgs-intake-scanner`和`frontend-nginx`；PostgreSQL、Redis、Airflow、backend、
+run observer、volume、网络和当前CCE Master均未重建。离线frontend镜像为
+`airflow-demo/frontend:t150-t7-scanner-10m` / `sha256:cef9e111...e386cdb`，
+镜像内只有本次index、CSS和JS，SHA256与本地tested dist一致。
+
+### Validation and production evidence
+
+```text
+BS10610 backend: 243 passed, 1 skipped
+frontend Vitest: 9 files / 31 tests passed
+frontend TypeScript + Vite production build: passed
+HTTP: 172.17.106.10:12959 -> 200
+scanner: interval 600, auto dispatch false, scanned 1837, errors 0
+2227: ready, 10 eligible pairs
+2222/2223/2224: ready, 96/12/8 eligible pairs
+2221/2225: no_new_wgs
+2226: retained pre-existing needs_review state
+before/after: AnalysisRun 1, RunAttempt 1, Airflow DagRun 1
+active run: WGS_20260901_031616_C74E6C, attempt 1, same DagRun, step3_monitor
+network: 192.168.199.0/24 gateway 192.168.199.1; only 172.17.106.10:12959 published
+```
+
+备份保存在
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T150-t7-scanner-20260901T151336+0800`，
+`biodemo.dump` SHA256为
+`b606f3f284ffc7d72e992cae79534c5d3580f20dcb6890d2902dbdb2f2026380`。
+
+### Deployment incident and correction
+
+测试staging `T150-t7-scanner-red`实际是指向T149 r4的软链接，不是独立副本；早期
+测试覆盖因此改写了r4的scanner源码和测试。受控清理的realpath检查阻止了递归
+删除。随后从T150直接父提交`ea71adf`归档并恢复r4的两个文件，Git blob分别严格
+匹配`4239f157...`和`7eaa5bf9...`；r5文件匹配T150提交`b5afe9c`的
+`1ea06387...`和`cfd811dc...`。最后只删除该staging软链接和临时脚本，r4回滚
+release、当前r5和生产数据均完整保留。
+
+### Remaining work and rollback
+
+T150没有启用自动prepare/dispatch，也没有创建分析目录、OBS传输或CCE任务。
+当前T149批次仍由原DagRun定时监控到真实终态。回滚T150只需切回T149 r4、恢复
+frontend tag并重建scanner/frontend；不要恢复数据库、删除intake记录、重建网络或
+干预当前CCE批次。名称重新分类是对已有7条scanner记录的正常幂等更新。
+
+## 2026-09-01 - Codex - T149 Step3 repair and in-flight takeover
+
+### Outcome
+
+- Repaired the node200 stage protocol with unique same-directory temporary
+  files, file and directory fsync, atomic replace and monotonic
+  `accepted -> running -> terminal` transitions. Step3 no longer publishes a
+  generic running state without the frozen Master identity.
+- Replaced the hard-coded Master prefix check with exact validation against
+  `batch-binding.json`; incomplete accepted/running transitions return not-ready
+  instead of HTTP 500. Same-attempt registration recovers the monitoring-induced
+  business failure and writes one `run.step3_monitor_recovered` audit event.
+- Bound Rule evidence to the authoritative frozen CCE run label
+  `cce-run-650a0767d41b3157`; public workload projection remains Master-only.
+  Progress now falls back to the bound Master Step3 `current_rule` when logger
+  projection lags, without fabricating a RuleState row.
+- Deployed release
+  `20260901-wgs-4.1.1-2499749-t149-step3-recovery-r4` with deployed runtime
+  code commit `b7730bc1a09481f67663b2c3d7f37e50b5770b93`.
+
+### In-flight run state
+
+- Preserved `WGS_20260901_031616_C74E6C`, attempt 1, DagRun
+  `manual__WGS_20260901_031616_C74E6C__a1` and Master
+  `cce-master-79c59ff6401e15d76aa5`.
+- Step1 upload and Step2 Master remain `success`, try 1. Step3 launcher is
+  `success`, try 2; the sensor is `up_for_reschedule`, try 2. There was no new
+  OBS upload or CCE Master submission.
+- Business state is running with no terminal timestamp/error; observer is
+  active and healthy. Authenticated UI-equivalent API shows current Rule
+  `MEI_MEICall`, 41 Rule rows (19 success, 2 running, 20 planned), and the same
+  Master in Running phase.
+- The original DagRun must continue from the real CCE terminal state into
+  Step4-Step6. Do not manually poll continuously; terminal delivery remains the
+  only unfinished T149 acceptance item.
+
+### Verification and safety
+
+- Pre-takeover backup:
+  `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T149-step3-recovery-20260901T132953+0800`;
+  all recorded SHA256 checks passed.
+- Final canonical isolated backend suite: 238 passed and 1 skipped; final
+  focused WGS suite: 48 passed. Runner 30 and DAG 7 passed at the preceding
+  T149 checkpoint. Shared-SFS concurrency smoke completed 200 writes with no
+  partial file.
+- One diagnostic invocation inherited production WGS-only deployment scope and
+  therefore exercised legacy PGTA/NIPT tests under the wrong environment. The
+  canonical rerun explicitly removed required runtime settings, as those unit
+  tests expect, and passed in full.
+- Network remains `192.168.199.0/24`, gateway `192.168.199.1`; only
+  `172.17.106.10:12959` is published. PostgreSQL, Redis, volumes, OBS/SFS data
+  and the CCE Master were not rebuilt or deleted. Scheduler is unpaused.
+
+### Rollback
+
+- Point `current` back to the previous immutable r3 release and recreate only
+  backend if the progress projection must be reverted. The runner/database
+  repair is separately recoverable from the T149 backup; do not roll back by
+  resubmitting Step1 or Step2.
+
 ## 2026-09-01 - Codex - T148 prune completed worktrees and branches
 
 ### Outcome

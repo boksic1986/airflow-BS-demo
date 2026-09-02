@@ -2,6 +2,9 @@ import type {RunProgress} from "../lib/runProgress";
 
 export function RunProgressBar({analysisId, progress, compact = false}: {analysisId: string; progress: RunProgress; compact?: boolean}) {
   const tone = progressTone(progress);
+  if (progress.available === false) {
+    return <div className="run-progress unavailable" aria-label={`${analysisId} detailed progress unavailable`}><div className="run-progress-meta"><strong>Detailed progress unavailable</strong></div>{!compact ? <p>{progress.note}</p> : null}</div>;
+  }
   return (
     <div className="run-progress">
       <div className="run-progress-meta">

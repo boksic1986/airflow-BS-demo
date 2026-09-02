@@ -34,11 +34,12 @@ export function PipelineRail({pipeline, onChange, pipelines = dashboardPipelines
   );
 }
 
-export function CommandSummary({overview, pipeline, loading, error}: {
+export function CommandSummary({overview, pipeline, loading, error, showQc = true}: {
   overview: DashboardOverview | null;
   pipeline: DashboardPipeline;
   loading: boolean;
   error: string | null;
+  showQc?: boolean;
 }) {
   const totals = overview?.totals || {runs: 0, running: 0, failed: 0, success: 0, created: 0};
   const samples = overview?.sample_summary || {total: 0, running: 0, workflow_failed: 0, qc_failed: 0, completed: 0};
@@ -46,7 +47,7 @@ export function CommandSummary({overview, pipeline, loading, error}: {
   const items = [
     {label: "Runs", value: totals.runs, hint: `${totals.running} running`, to: `/runs?${pipelineQuery}sort=created_desc`},
     {label: "Samples", value: samples.total, hint: `${samples.running} in workflow`, to: `/samples?${pipelineQuery}page=1`},
-    {label: "QC alerts", value: samples.qc_failed, hint: "sample-level fails", to: `/failures?${pipelineQuery}kind=qc&page=1`},
+    ...(showQc ? [{label: "QC alerts", value: samples.qc_failed, hint: "sample-level fails", to: `/failures?${pipelineQuery}kind=qc&page=1`}] : []),
     {label: "Workflow fails", value: totals.failed, hint: `${samples.workflow_failed} samples affected`, to: `/failures?${pipelineQuery}kind=workflow&page=1`},
   ];
   return (
@@ -68,11 +69,12 @@ export function CommandSummary({overview, pipeline, loading, error}: {
   );
 }
 
-export function OperationsOverview({overview, period, loading, onPeriodChange}: {
+export function OperationsOverview({overview, period, loading, onPeriodChange, showQc = true}: {
   overview: DashboardOverview | null;
   period: "24h" | "7d" | "30d";
   loading: boolean;
   onPeriodChange: (period: "24h" | "7d" | "30d") => void;
+  showQc?: boolean;
 }) {
   return (
     <section className="panel" aria-busy={loading} title="Aggregated backend metrics for the selected pipeline and period">
@@ -83,7 +85,7 @@ export function OperationsOverview({overview, period, loading, onPeriodChange}: 
       <div className="dashboard-insight-grid">
         <StatusDistribution overview={overview} />
         <RunTrend overview={overview} period={period} />
-        <SampleThroughput overview={overview} period={period} onPeriodChange={onPeriodChange} />
+        <SampleThroughput overview={overview} period={period} onPeriodChange={onPeriodChange} showQc={showQc} />
       </div>
     </section>
   );
@@ -154,10 +156,11 @@ function RunTrend({overview, period}: {overview: DashboardOverview | null; perio
   );
 }
 
-function SampleThroughput({overview, period, onPeriodChange}: {
+function SampleThroughput({overview, period, onPeriodChange, showQc}: {
   overview: DashboardOverview | null;
   period: "24h" | "7d" | "30d";
   onPeriodChange: (period: "24h" | "7d" | "30d") => void;
+  showQc: boolean;
 }) {
   const summary = overview?.sample_summary || {total: 0, running: 0, workflow_failed: 0, qc_failed: 0, completed: 0};
   const trend = overview?.sample_trend || [];
@@ -178,14 +181,14 @@ function SampleThroughput({overview, period, onPeriodChange}: {
         <span>Sample total <strong>{summary.total}</strong></span>
         <span>Running samples <strong>{summary.running}</strong></span>
         <span>Workflow failed samples <strong>{summary.workflow_failed}</strong></span>
-        <span>QC failed samples <strong>{summary.qc_failed}</strong></span>
+        {showQc ? <span>QC failed samples <strong>{summary.qc_failed}</strong></span> : null}
         <span>Completed samples <strong>{summary.completed}</strong></span>
       </div>
       <div className="sample-stacked-bar" aria-label="Sample throughput distribution">
         <span className="success" style={{width: `${percent(summary.completed, summary.total)}%`}} title={`Completed: ${summary.completed}`} />
         <span className="info" style={{width: `${percent(summary.running, summary.total)}%`}} title={`Running: ${summary.running}`} />
         <span className="danger" style={{width: `${percent(summary.workflow_failed, summary.total)}%`}} title={`Workflow failed: ${summary.workflow_failed}`} />
-        <span className="warning" style={{width: `${percent(summary.qc_failed, summary.total)}%`}} title={`QC failed: ${summary.qc_failed}`} />
+        {showQc ? <span className="warning" style={{width: `${percent(summary.qc_failed, summary.total)}%`}} title={`QC failed: ${summary.qc_failed}`} /> : null}
       </div>
       <div className="mini-bars sample-bars">
         {trend.map((item) => (

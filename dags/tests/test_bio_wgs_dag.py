@@ -115,6 +115,34 @@ class BioWgsDagTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cram"):
             bio_wgs.validate_request(**context)
 
+    def test_step7_cleanup_reuses_only_the_step4_maintenance_slot(self) -> None:
+        conf = {
+            "maintenance_mode": "cleanup_step7",
+            "maintenance_action_id": "step7-sfs-abcdef123456",
+            "analysis_id": "WGS_20260901_010203_A1B2C3",
+            "pipeline": "wgs",
+            "execution_mode": "cce",
+            "attempt": 1,
+            "workdir": "/data/wgs-results/WGS_20260901_010203_A1B2C3",
+            "params": {
+                "project_name": "WGS_Clinical",
+                "batch_no": "WGS_20260901A_T7Hg38V4.1.1",
+                "fq_path": "/data/wgs-intake/BATCH",
+                "pipeline_release_id": "wgs-4.1.1-2499749",
+                "wgs_version": "V4.1.1",
+                "wgs_source_commit": "2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68",
+            },
+        }
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        self.assertEqual(bio_wgs.validate_request(**context), conf)
+        self.assertFalse(bio_wgs.stage_should_run("step3_monitor", conf))
+        self.assertTrue(bio_wgs.stage_should_run("step4_publish", conf))
+        self.assertFalse(bio_wgs.stage_should_run("step5_download", conf))
+        self.assertEqual(
+            bio_wgs.effective_runner_stage("step4_publish", conf),
+            "step7_cleanup",
+        )
+
     def test_step3_runner_activates_observer_only_after_node200_accepts(self) -> None:
         calls = []
         conf = {"analysis_id": "WGS_20260830_010203_A1B2C3", "attempt": 1}

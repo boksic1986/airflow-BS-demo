@@ -16,12 +16,13 @@ export function IntakeScannerPanel({scanner, items, total, limit, offset, loadin
 }) {
   const pageStart = total === 0 ? 0 : offset + 1;
   const pageEnd = Math.min(offset + limit, total);
+  const intervalMinutes = Math.max(1, Math.round((scanner?.schedule_seconds ?? 600) / 60));
   return (
     <section className="panel intake-scanner-panel" aria-busy={loading}>
       <div className="section-heading split">
         <div>
           <h2>T7自动扫描</h2>
-          <p title="扫描记录不会创建分析任务。">每30分钟检查 BarcodeStat.txt；自动分析关闭</p>
+          <p title="扫描记录不会创建分析任务。">每{intervalMinutes}分钟检查 BarcodeStat.txt；自动分析关闭</p>
           {scanner ? <p className="muted">
             本轮扫描 {scanner.last_scanned_directory_count ?? 0} 个目录
             {scanner.last_scan_at ? `；最近扫描 ${new Date(scanner.last_scan_at).toLocaleString()}` : "；尚未建立扫描基线"}

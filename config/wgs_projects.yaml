@@ -1,0 +1,21 @@
+schema_version: "1"
+projects:
+  - project_id: WGS_Clinical
+    display_name: WGS Clinical
+    project_name: WGS_Clinical
+    platforms:
+      - platform_id: T7
+        display_name: T7 / hg38 / WGS V4.2.0
+    fastq_roots:
+      - root_id: T7_Fastq
+        display_name: T7 FASTQ production root
+        node200_path: /bi/fastq/T7_Fastq
+    editable_config:
+      use_reference:
+        type: enum
+        values: [all, ref, "no"]
+        default: all
+      algo:
+        type: enum
+        values: [DNAscope, Haplotyper]
+        default: DNAscope

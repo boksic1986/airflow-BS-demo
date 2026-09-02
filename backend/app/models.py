@@ -474,12 +474,110 @@ class RuleState(Base):
     attempt: Mapped[int] = mapped_column(Integer, nullable=False)
     rule_instance_id: Mapped[str] = mapped_column(String(128), nullable=False)
     rule_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    sequence: Mapped[int | None] = mapped_column(BigInteger)
+    phase: Mapped[str | None] = mapped_column(String(128))
+    snakemake_jobid: Mapped[str | None] = mapped_column(String(128))
     sample_id: Mapped[str | None] = mapped_column(String(128))
+    family_id: Mapped[str | None] = mapped_column(String(128))
+    wildcards_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     layer: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(64), nullable=False)
+    message: Mapped[str | None] = mapped_column(Text)
+    log_paths_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class RunStageState(Base):
+    __tablename__ = "run_stage_state"
+    __table_args__ = (
+        UniqueConstraint(
+            "analysis_id", "attempt", "stage_code", name="uq_run_stage_state_identity"
+        ),
+        Index("ix_run_stage_state_analysis", "analysis_id", "attempt"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    analysis_id: Mapped[str] = mapped_column(
+        ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False
+    )
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    stage_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    step_number: Mapped[int | None] = mapped_column(Integer)
+    stage_label: Mapped[str] = mapped_column(String(128), nullable=False)
+    stage_status: Mapped[str] = mapped_column(String(64), nullable=False)
+    progress_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    progress_percent: Mapped[int | None] = mapped_column(Integer)
+    completed_units: Mapped[int | None] = mapped_column(BigInteger)
+    total_units: Mapped[int | None] = mapped_column(BigInteger)
+    unit: Mapped[str | None] = mapped_column(String(32))
+    current_item: Mapped[str | None] = mapped_column(Text)
+    speed_bps: Mapped[int | None] = mapped_column(BigInteger)
+    eta_seconds: Mapped[int | None] = mapped_column(BigInteger)
+    progress_source: Mapped[str] = mapped_column(String(128), nullable=False)
+    message: Mapped[str | None] = mapped_column(Text)
+    evidence_key: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
+class WgsSubmissionDraft(Base):
+    __tablename__ = "wgs_submission_draft"
+    __table_args__ = (
+        Index("ix_wgs_submission_draft_owner_status", "owner_username", "status"),
+        Index("ix_wgs_submission_draft_expiry", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    draft_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    owner_username: Mapped[str] = mapped_column(String(128), nullable=False)
+    project_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    platform: Mapped[str] = mapped_column(String(64), nullable=False)
+    sequencing_batch: Mapped[str] = mapped_column(String(64), nullable=False)
+    analysis_batch: Mapped[str] = mapped_column(String(128), nullable=False)
+    fastq_root_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    fastq_path: Mapped[str] = mapped_column(Text, nullable=False)
+    use_reference: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    status: Mapped[str] = mapped_column(String(64), nullable=False, default="created")
+    source_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    preview_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    resolved_config_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    private_workdir: Mapped[str] = mapped_column(Text, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), unique=True)
+    analysis_id: Mapped[str | None] = mapped_column(
+        ForeignKey("analysis_run.analysis_id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class PlatformResourceSnapshot(Base):
+    __tablename__ = "platform_resource_snapshot"
+    __table_args__ = (Index("ix_platform_resource_snapshot_type", "resource_type"),)
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    resource_key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    resource_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="stale")
+    current_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    history_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    collected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
 
 
 class KubernetesWorkload(Base):

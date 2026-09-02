@@ -3223,3 +3223,82 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+.wizard-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+
+.wizard-steps li {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem;
+  color: var(--muted);
+}
+
+.wizard-steps li.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.wgs-stage-graph {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(145px, 1fr));
+  gap: 1.25rem;
+  overflow-x: auto;
+  padding: 0.75rem 0.25rem 1.25rem;
+}
+
+.wgs-stage-node {
+  position: relative;
+  min-height: 92px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.wgs-stage-node:not(:last-child)::after {
+  content: "→";
+  position: absolute;
+  right: -1.05rem;
+  top: 34px;
+  color: var(--muted);
+}
+
+.wgs-stage-node.success { border-color: var(--success); }
+.wgs-stage-node.running, .wgs-stage-node.accepted { border-color: var(--accent); }
+.wgs-stage-node.failed { border-color: var(--danger); }
+
+.rule-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.rule-filters label { display: grid; gap: 0.25rem; }
+.rule-name-cell, .rule-message-cell { min-width: 170px; white-space: normal; overflow-wrap: anywhere; }
+
+.resource-card-list { display: grid; gap: 0.75rem; }
+.resource-snapshot { border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem; }
+.resource-snapshot > div { display: flex; justify-content: space-between; gap: 1rem; }
+.resource-snapshot dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.resource-snapshot dl div { min-width: 0; }
+.resource-snapshot dt { color: var(--muted); }
+.resource-snapshot dd { margin: 0.15rem 0 0; overflow-wrap: anywhere; }
+
+.destructive-panel { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); }
+
+@media (max-width: 900px) {
+  .wizard-steps { grid-template-columns: 1fr; }
+  .resource-snapshot dl { grid-template-columns: 1fr; }
+}

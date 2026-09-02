@@ -1,15 +1,24 @@
 # 02 工程规范
 
+## T153-T158生产控制面组件
+
+`wgs-run-observer`只处理激活的Step3；`wgs-intake-scanner`保持600秒稀疏扫描；
+新增`platform-metrics-collector`独立采集`.96/.97`和node200生成的SFS/OBS快照。
+三个服务均不得发布宿主机端口，常规轮询不得打印逐项日志，并使用20MB×3轮转。
+业务阶段、草稿和资源快照分别写入独立表，不写Airflow metadata DB。
+
 ## T145 scanner/observer 服务拆分
 
-`wgs-intake-scanner`只执行 1800 秒 T7 发现；`wgs-run-observer`只消费经
+`wgs-intake-scanner`在T145历史发布中执行1800秒T7发现（T150起生产值已改为
+600秒）；`wgs-run-observer`只消费经
 PostgreSQL LISTEN/NOTIFY 激活的 Step3 attempt。无分析时 run observer 无轮询、无证据
 读取、无空心跳。完整边界见[doc 27](27_WGS_SCANNER_OBSERVER_LIFECYCLE.md)。
 
 ## T143/T144 T7 scan-only 与 Step4 repair
 
 当前唯一发布身份更新为`wgs-4.1.1-1656b5d` / commit
-`1656b5d7a6e2f24242c38149f6d1c92ac266cd37`。observer以独立1800秒时钟只读扫描
+`1656b5d7a6e2f24242c38149f6d1c92ac266cd37`。该历史设计使用独立1800秒时钟
+只读扫描（当前值为600秒）
 `/bi/fastq/T7_Fastq`；扫描和证据同步互不阻塞，自动 dispatch关闭。Step4 repair
 复用唯一`bio_wgs`维护模式，并且只能由服务端从冻结 binding生成固定 cram命令。
 完整合同见[文档 26](26_WGS_T7_INTAKE_STEP4_REPAIR.md)。

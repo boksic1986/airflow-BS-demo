@@ -1,5 +1,20 @@
 # SERVER_INFO.md
 
+## T151 BS10610 T7 YF exclusion (2026-09-01)
+
+```text
+release: 20260901-wgs-4.1.1-2499749-t151-yf-filter-r6
+scanner_interval_seconds: 600
+auto_dispatch: false
+scanner_mounts: release backend read-only; /bi/fastq/T7_Fastq read-only
+production_yf_evidence: 2222 has 192 YF FASTQ entries and is no_new_wgs with 0 eligible pairs
+business_counts_before_after: AnalysisRun 1; RunAttempt 1; Airflow DagRun 1
+active_analysis_preserved: WGS_20260901_031616_C74E6C attempt 1, step3_monitor
+external_network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
+published_port: frontend only, 172.17.106.10:12959
+backup: backups/T151-yf-filter-20260901T162127+0800, biodemo SHA256 ed7dfe046d19a53b6cee0f52da2e0925e5e58e844eeca19d2b37848cb52d0ae3
+```
+
 ## T146 BS10610 WGS 2499749 active acceptance (2026-09-01)
 
 ```text

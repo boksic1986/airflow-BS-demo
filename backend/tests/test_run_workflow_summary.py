@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from app.models import AnalysisRun, Base, Sample, SnakemakeRuleEvent
+from app.models import AnalysisRun, Base, RuleState, Sample, SnakemakeRuleEvent
 from app.run_service import list_runs
 
 
@@ -45,12 +45,12 @@ def test_run_list_builds_workflow_stage_summaries_with_one_rule_query() -> None:
                 SnakemakeRuleEvent(analysis_id="PGTA_SUMMARY", rule="wisecondorx_qc_for_predict", sample_id="P1", snakemake_jobid="2", status="running"),
                 SnakemakeRuleEvent(analysis_id="NIPT_SUMMARY", rule="map", sample_id="N1", snakemake_jobid="1", status="success"),
                 SnakemakeRuleEvent(analysis_id="NIPT_SUMMARY", rule="aneuscreen_predict", sample_id="N1", snakemake_jobid="2", status="failed"),
-                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="Preall", sample_id=None, snakemake_jobid="1", status="success"),
-                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="mapping", sample_id="W1", snakemake_jobid="2", status="success"),
-                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="QualCal", sample_id="W1", snakemake_jobid="3", status="running"),
-                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="SNV_Annotation", sample_id="W1", snakemake_jobid="4", status="running"),
-                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="mergeMTQC", sample_id="W1", snakemake_jobid="5", status="success"),
-                SnakemakeRuleEvent(analysis_id="WGS_SUMMARY", rule="all", sample_id=None, snakemake_jobid="6", status="success"),
+                RuleState(analysis_id="WGS_SUMMARY", attempt=1, rule_instance_id="w1", rule_name="Preall", phase="Pre-calling", sequence=1, status="success"),
+                RuleState(analysis_id="WGS_SUMMARY", attempt=1, rule_instance_id="w2", rule_name="mapping", phase="Pre-calling", sequence=2, sample_id="W1", status="success"),
+                RuleState(analysis_id="WGS_SUMMARY", attempt=1, rule_instance_id="w3", rule_name="QualCal", phase="Pre-calling", sequence=3, sample_id="W1", status="running"),
+                RuleState(analysis_id="WGS_SUMMARY", attempt=1, rule_instance_id="w4", rule_name="SNV_Annotation", phase="Variant analysis", sequence=4, sample_id="W1", status="running"),
+                RuleState(analysis_id="WGS_SUMMARY", attempt=1, rule_instance_id="w5", rule_name="mergeMTQC", phase="QC", sequence=5, sample_id="W1", status="success"),
+                RuleState(analysis_id="WGS_SUMMARY", attempt=1, rule_instance_id="w6", rule_name="all", phase="QC", sequence=6, status="success"),
             ]
         )
         session.commit()
@@ -88,3 +88,5 @@ def test_run_list_builds_workflow_stage_summaries_with_one_rule_query() -> None:
     assert wgs_qc["total_jobs"] == 2
     rule_selects = [statement for statement in statements if "FROM snakemake_rule_event" in statement]
     assert len(rule_selects) == 1
+    wgs_rule_selects = [statement for statement in statements if "FROM rule_state" in statement]
+    assert len(wgs_rule_selects) == 1

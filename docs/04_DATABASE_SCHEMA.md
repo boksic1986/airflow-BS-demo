@@ -1,5 +1,27 @@
 # 04 数据库设计
 
+## T154-T157 WGS生产投影
+
+迁移`20260901_0013`新增`run_stage_state`（每analysis/attempt/stage一行）、
+`wgs_submission_draft`（私有且可过期的提交草稿）和
+`platform_resource_snapshot`（每资源一行、最多60点JSON环）。`rule_state`
+增加sequence、phase、job、样本/家系、wildcards和日志索引字段。既有QC数据保留，
+但WGS前端不再消费。
+
+## T151 YF exclusion fingerprint（无迁移）
+
+T151不增加数据库字段。现有fingerprint值升级为v3并排除`YF*`非临检样本名称；
+运行时可识别等价的旧v2摘要并原位升级，避免把策略变化误报为输入漂移。YF不计入
+eligible、add-on或pair issue，数据库不单独保存YF数量。
+
+## T150 name-level intake fingerprint（无迁移）
+
+T150不增加字段、不运行Alembic或手工改表。`wgs_intake_batch`现有
+`eligible_fingerprint/observed_fingerprint`保存名称级v2摘要；旧v1摘要通过
+运行时兼容比较升级。只有`ready`冻结输入名称，历史`no_new_wgs`允许按后续出现的
+WGS名称转为`ready/needs_review`。FASTQ目标、大小、mtime和MD5不进入scanner
+fingerprint；完整性由后续prepare/上传合同负责。
+
 ## T145 migration 0012
 
 `wgs_intake_scanner_state`只保存`first_scan_at`、`last_scan_at`、

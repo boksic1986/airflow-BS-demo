@@ -193,6 +193,11 @@ WGS_RULE_PHASES = {
     **{rule: "QC" for rule in WGS_QC_RULES},
 }
 WGS_UNKNOWN_RULE_PHASE = "Variant analysis"
+WGS_PHASE_ORDER = {
+    "Pre-calling": 10,
+    "Variant analysis": 20,
+    "QC": 30,
+}
 
 FAILED_STATUSES = {"failed", "fail", "error"}
 RUNNING_STATUSES = {"planned", "submitted", "running", "started"}
@@ -212,6 +217,13 @@ def phase_for_rule(
         # Unknown WGS rules remain on the WGS stage rail rather than becoming generic Pipeline events.
         return WGS_RULE_PHASES.get(name, WGS_UNKNOWN_RULE_PHASE)
     return NIPT_RULE_PHASES.get(name) or GENERIC_RULE_PHASES.get(name) or "Pipeline"
+
+
+def phase_order(phase: str | None, *, pipeline_name: str | None = None) -> int:
+    """Return a stable UI sort order without deriving execution dependencies."""
+    if str(pipeline_name or "").strip().lower() == "wgs":
+        return WGS_PHASE_ORDER.get(str(phase or ""), 999)
+    return 999
 
 
 def rule_counts(events: list[dict[str, Any]]) -> dict[str, int]:

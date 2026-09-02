@@ -31,6 +31,30 @@ def test_initial_biodemo_tables_are_declared() -> None:
     assert expected_tables.issubset(Base.metadata.tables.keys())
 
 
+def test_t154_authoritative_stage_and_resource_tables_are_declared() -> None:
+    expected = {
+        "run_stage_state",
+        "wgs_submission_draft",
+        "platform_resource_snapshot",
+    }
+
+    assert expected.issubset(Base.metadata.tables.keys())
+
+
+def test_t154_rule_state_carries_order_identity_and_log_projection() -> None:
+    table = Base.metadata.tables["rule_state"]
+
+    assert {
+        "sequence",
+        "phase",
+        "snakemake_jobid",
+        "family_id",
+        "wildcards_json",
+        "message",
+        "log_paths_json",
+    }.issubset(table.columns.keys())
+
+
 def test_analysis_run_uses_unique_business_analysis_id() -> None:
     table = AnalysisRun.__table__
 

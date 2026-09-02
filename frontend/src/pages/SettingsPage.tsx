@@ -489,7 +489,7 @@ function ScannerStateCard({
         {!loading && !error ? (
           <dl className="definition-grid compact">
             <div><dt>Root</dt><dd className="path-text">{scanner.root || "/bi/fastq/T7_Fastq"}</dd></div>
-            <div><dt>Schedule</dt><dd>{scanner.schedule_seconds ?? 1800} seconds</dd></div>
+            <div><dt>Schedule</dt><dd>{scanner.schedule_seconds ?? 600} seconds</dd></div>
             <div><dt>First baseline</dt><dd>{formatDate(scanner.first_scan_at)}</dd></div>
             <div><dt>Last scan</dt><dd>{formatDate(scanner.last_scan_at)}</dd></div>
             <div><dt>Directories scanned</dt><dd>{scanner.last_scanned_directory_count ?? 0}</dd></div>

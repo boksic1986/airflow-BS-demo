@@ -140,6 +140,7 @@ services:
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
       WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"
       WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"
+      WGS_SUBMISSION_PREVIEW_ENABLED: "${WGS_SUBMISSION_PREVIEW_ENABLED:-false}"
       INTAKE_CONFIG_PATH: /config/intake.wgs.yaml
       PIPELINE_PROFILE_CONFIG_PATH: /config/pipeline_profiles.wgs.yaml
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
@@ -159,9 +160,12 @@ services:
       WGS_INTAKE_HOST_ROOT: ${WGS_INTAKE_HOST_ROOT:?set WGS_INTAKE_HOST_ROOT}
       WGS_INTAKE_NODE200_ROOT: ${WGS_INTAKE_NODE200_ROOT:?set WGS_INTAKE_NODE200_ROOT}
       WGS_RELEASE_CATALOG_PATH: /config/wgs_releases.yaml
+      WGS_PROJECT_CATALOG_PATH: /config/wgs_projects.yaml
+      WGS_SUBMISSION_DRAFT_ROOT: /data/wgs-runtime/submission-drafts
+      WGS_SUBMISSION_DRAFT_TTL_HOURS: "24"
       WGS_T7_FASTQ_ROOT: /bi/fastq/T7_Fastq
       WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-true}"
-      WGS_INTAKE_SCAN_INTERVAL_SECONDS: "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-1800}"
+      WGS_INTAKE_SCAN_INTERVAL_SECONDS: "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-600}"
       WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"
     volumes:
       - ./backend:/app:ro
@@ -199,13 +203,37 @@ services:
         max-file: "3"
     networks: [wgs-platform]
 
+  platform-metrics-collector:
+    image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
+    restart: unless-stopped
+    depends_on:
+      platform-admin-init:
+        condition: service_completed_successfully
+    command: ["python", "-m", "app.platform_metrics_collector_cli"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
+      DEPLOYED_PIPELINES: wgs
+      PLATFORM_METRICS_INTERVAL_SECONDS: "60"
+      PLATFORM_NODE_EXPORTER_TARGETS: ${PLATFORM_NODE_EXPORTER_TARGETS:-node-96=http://172.17.61.96:9100/metrics,node-97=http://172.17.61.97:9100/metrics}
+      PLATFORM_CLOUD_METRICS_SPOOL: /data/wgs-runtime/platform-metrics/cloud.json
+    volumes:
+      - ./backend:/app:ro
+      - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "3"
+    networks: [wgs-platform]
+
   wgs-intake-scanner:
     image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
     restart: unless-stopped
     depends_on:
       platform-admin-init:
         condition: service_completed_successfully
-    command: ["python", "-m", "app.wgs_intake_scanner_cli", "--intake-root", "/bi/fastq/T7_Fastq", "--intake-interval", "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-1800}"]
+    command: ["python", "-m", "app.wgs_intake_scanner_cli", "--intake-root", "/bi/fastq/T7_Fastq", "--intake-interval", "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-600}"]
     environment:
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
@@ -213,7 +241,7 @@ services:
       DEPLOYED_PIPELINES: wgs
       WGS_T7_FASTQ_ROOT: /bi/fastq/T7_Fastq
       WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-true}"
-      WGS_INTAKE_SCAN_INTERVAL_SECONDS: "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-1800}"
+      WGS_INTAKE_SCAN_INTERVAL_SECONDS: "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-600}"
       WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"
     volumes:
       - ./backend:/app:ro

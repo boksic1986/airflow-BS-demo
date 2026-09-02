@@ -1,5 +1,107 @@
 # 11 部署 Runbook
 
+## T158禁用态发布门禁
+
+迁移`20260901_0013`前备份biodemo和Airflow metadata。两个WGS执行开关保持false，
+`bio_wgs`保持paused，自动提交保持false；scanner周期为600秒。新增metrics collector
+不发布端口。保留外部网络`192.168.199.0/24`，只能发布`172.17.106.10:12959`。
+共享WGS HEAD与catalog不一致时不得自行改绑或启用。
+当前候选必须核对共享仓库分支`dev_CJC_4.2.0_cloud`和完整commit
+`78797181ee0582bea3167385c243616017f092ce`，catalog必须同时为
+`wgs-4.2.0-7879718`/`V4.2.0`。共享路径名称仍为`wgs-4.1.1`，路径名不作为版本判断。
+`WGS_SUBMISSION_PREVIEW_ENABLED`仅作为历史draft API兼容门禁；新的catalog受控Submit不依赖preview worker。部署前必须验证WGS prepare的sampleinfo→analysis语义和最终sampleinfo同步。
+迁移`20260901_0013`的downgrade会删除draft、stage projection和资源快照，默认
+拒绝执行；只有经批准回滚并确认数据可丢弃时才可临时设置
+`ALLOW_WGS_PRODUCTION_UI_DOWNGRADE=true`。
+
+## T152 Step4 Master时序恢复
+
+1. 只读核对Step3成功sidecar、冻结binding、Master名称/UID/namespace和Kubernetes
+   Complete终态。任一身份不一致或Master真实失败时停止。
+2. 备份biodemo、Airflow metadata、完整attempt runner sidecar/log、binding和Task状态，
+   校验SHA256；不要备份私钥、OBS凭据或kubeconfig。
+3. 运行runner/backend/DAG import/Compose/network测试后，原子部署runner和不可变
+   control-plane release。不要重建PostgreSQL、Redis、volume或网络。
+4. 只清除原DagRun的Step4、Step5、Step6、finalize和release_leases。明确核对
+   Step1-Step3仍success且try number不变。
+5. 同request SHA的failed Step4只有在旧worker退出后才可形成retry generation。
+   正常Step4最多等待Master Complete 600秒；不得用该等待掩盖其他错误。
+6. 如果重试越过Master检查后出现新的交付合同错误，立即停止继续清Task。不得在未
+   审批时热补丁冻结bundle、覆盖OBS marker或改用CRAM repair。
+
+本次真实恢复在第6步停止：WGS 2499749的`cloud_runtime.py`生成带身份的schema-1
+JSON `ANALYSIS_COMPLETE`，但同一冻结bundle的`cce_delivery.py`只接受字面量
+`status=PASS\n`。完成Step5-Step6前必须先由WGS/runtime侧统一该合同并确定受控的
+在途恢复方式。
+
+## T151 YF非临检过滤滚动发布
+
+1. 先验证mixed/YF-only/YF缺对三个RED用例，再验证旧v2 ready指纹兼容升级；运行
+   focused和完整backend测试。
+2. 备份biodemo并记录AnalysisRun、RunAttempt、DagRun及7条intake状态。确认
+   `WGS_AUTO_DISPATCH_ENABLED=false`和600秒周期。
+3. 从当前release建立经`realpath`验证的真实目录，禁止使用staging软链接；复制
+   scanner代码/测试/文档并先运行`docker compose config --quiet`。
+4. 原子切换`current`后只重建`wgs-intake-scanner`，不重建frontend、backend、
+   Airflow、observer、PostgreSQL、Redis、volume或Docker网络。
+5. 扫描后确认YF被排除、原ready记录没有虚假漂移、业务run计数和当前CCE attempt
+   不变；网络仍为`192.168.199.0/24`且仅frontend发布`172.17.106.10:12959`。
+
+回滚只切回前一release并重建scanner。T151无数据库迁移，不删除或恢复intake行。
+
+## T150 T7 scanner滚动修复
+
+1. 在BS10610隔离环境运行scanner focused和完整backend测试；frontend必须在
+   BS10610 Docker环境运行测试和生产构建，本机Node结果不得作为验收证据。软链接
+   测试必须包含目标不存在的R1/R2，证明scanner不访问目标。
+2. 部署前`pg_dump -Fc`备份biodemo并记录AnalysisRun、RunAttempt、Airflow
+   DagRun和intake行数。不得清空或修改这些表。
+3. 从当前release建立新的不可变release；scanner继续只读挂载
+   `/bi/fastq/T7_Fastq`，不要增加`/sg2/T7new`。设置600秒周期并确认
+   `WGS_AUTO_DISPATCH_ENABLED=false`。
+4. Docker Hub不可用时，以已验收frontend nginx镜像为base，删除继承静态文件后
+   离线复制本地tested `dist`；逐项核对index/CSS/JS SHA256，禁止旧hash资产残留。
+5. 只重建`wgs-intake-scanner`和`frontend-nginx`。不重建backend、Airflow、
+   run observer、PostgreSQL、Redis、volume或网络，不清理或重提活动CCE批次。
+6. 触发一次scanner后核对2227为10对ready，历史no-new-WGS按实际名称重新分类，
+   且AnalysisRun/RunAttempt/DagRun计数完全不变。通过内部token只读API确认
+   `schedule_seconds=600`及前端HTTP 200。
+7. 验证scanner只有T7只读挂载；`nipt_analysis_test_net`仍为
+   `192.168.199.0/24`/gateway`.1`，仅frontend发布`172.17.106.10:12959`。
+
+回滚只切回前一release、恢复旧frontend tag并重建scanner/frontend。不要恢复
+数据库或删除重新分类的intake行；T150没有schema迁移。
+
+## T149 在途 Step3 接管
+
+This procedure is only for a Step3 monitoring/control-plane failure when the
+frozen CCE Master still exists. It must not be used to hide or automatically
+rerun a real analysis failure.
+
+1. Record the exact `analysis_id`, attempt, DagRun ID, frozen Master Job, and
+   namespace. Run the frozen `Step3_status.sh --output json` read-only. Stop if
+   it reports `FAILED`; continue only for `RUNNING` or `SUCCEEDED`.
+2. Back up biodemo, Airflow metadata, the exact attempt's runner status files,
+   and the deployed node200 gate. Store checksums and mode `0600`; do not copy
+   private keys, OBS credentials, kubeconfig, or clinical config into Git.
+3. Validate backend, runner, DAG import, Compose, and network contracts before
+   switching the immutable release. Deploy the node200 gate atomically and
+   recreate only the application services that need the new bind mount. Never
+   recreate PostgreSQL, Redis, volumes, or `nipt_analysis_test_net`.
+4. Clear only `start_step3_monitor` and downstream task instances in the same
+   DagRun. Confirm `submit_step2_master` and Step1 remain `success` with their
+   original try numbers. Do not create a new DagRun or attempt.
+5. Confirm the restarted monitor binds to the identical Master Job and
+   namespace, the business run returns from the monitor-generated `failed` to
+   `running`, and the observer becomes `active`. Verify no new OBS upload,
+   Step2 submission, or CCE Master Job appears.
+6. Let the original DagRun continue through Step4-Step6. Final state remains
+   governed by the CCE terminal evidence and result verification.
+
+Rollback is limited to restoring the previous release/gate and recreating the
+same application services. Do not clear Step1/Step2, delete evidence, or submit
+a replacement Master during rollback.
+
 ## T146 2499749 / cce-pipeline 0.8.1 手工批次
 
 1. 只读核对BS10610/node200共享WGS HEAD为`2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68`，
@@ -75,12 +177,13 @@ T146真实运行发现的兼容性门禁：cce-pipeline 0.8.1 Step2会在Master 
    `bio_wgs` paused；不得安装或升级 cce-pipeline。
 2. 运行远端 backend/observer/DAG/runner/frontend、Alembic往返、Compose和网络
    验收。不得调用 sampleinfo、Step1-Step6、OBS或 CCE。
-3. observer只读挂载宿主`/bi/fastq/T7_Fastq`到同路径，并设置：
+3. T143历史发布中observer只读挂载宿主`/bi/fastq/T7_Fastq`到同路径，并设置：
    `WGS_INTAKE_SCAN_ENABLED=true`、`WGS_INTAKE_SCAN_INTERVAL_SECONDS=1800`、
    `WGS_AUTO_DISPATCH_ENABLED=false`。
 4. 迁移到`20260829_0011`并只重建相关服务；不删除 volume，不重建外部
    `192.168.199.0/24`网络。
-5. 首次扫描仅建立 bootstrap。核对 AnalysisRun和 Airflow DagRun均为零；随后按
+   当前T150及以后release必须改用`WGS_INTAKE_SCAN_INTERVAL_SECONDS=600`。
+5. 首次扫描仅建立 bootstrap。核对 AnalysisRun和 Airflow DagRun均为零；T143按
    真实1800秒间隔连续观察至少两个周期，确认状态计数幂等且仍无运行副作用。
 6. 只在上述验收通过后切换`current`。真实自动 prepare、分析目录创建、Step4
    repair执行和 CCE分析均需单独审批。

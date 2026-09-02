@@ -5,12 +5,13 @@ from datetime import datetime, timezone
 import json
 import hashlib
 from pathlib import Path
+import re
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AnalysisRun, Sample, SnakemakeRuleEvent
+from app.models import AnalysisRun, RuleState, Sample, SnakemakeRuleEvent
 from app.qc_service import import_run_qc_metrics
 from app.rule_event_service import (
     cancel_incomplete_rule_events,
@@ -37,6 +38,10 @@ class UnsupportedLogStreamError(DiagnosticsError):
 
 class MissingDagRunError(DiagnosticsError):
     pass
+
+
+LOG_TAIL_MAX_BYTES = 8 * 1024 * 1024
+LOG_TAIL_CHUNK_BYTES = 64 * 1024
 
 
 @dataclass(frozen=True)
@@ -356,25 +361,73 @@ def get_run_log(
     run = _get_run(session, analysis_id)
     if run is None:
         return None
+    if run.pipeline_name == "wgs" and not key:
+        raise LogNotFoundError("WGS logs require a registered opaque log key")
     log_path = _log_path_for_key(session=session, run=run, key=key, settings=settings) if key else _log_path(run, stream, settings)
     if not log_path.is_file():
         raise LogNotFoundError(f"Log file not found: {log_path}")
-    lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    lines, truncated, file_size = _tail_log_file(log_path, tail=tail)
     payload = {
-        "path": str(log_path),
         "stream": stream,
-        "truncated": len(lines) > tail,
-        "lines": lines[-tail:],
+        "truncated": truncated,
+        "file_size": file_size,
+        "lines": lines,
     }
+    if run.pipeline_name != "wgs":
+        payload["path"] = str(log_path)
     if key:
         payload["key"] = key
     return payload
+
+
+def _tail_log_file(
+    path: Path,
+    *,
+    tail: int,
+    max_bytes: int = LOG_TAIL_MAX_BYTES,
+    chunk_bytes: int = LOG_TAIL_CHUNK_BYTES,
+) -> tuple[list[str], bool, int]:
+    """Read only a bounded suffix while preserving the latest complete lines."""
+    if tail < 1:
+        raise ValueError("tail must be positive")
+    if max_bytes < 1 or chunk_bytes < 1:
+        raise ValueError("log byte limits must be positive")
+
+    chunks: list[bytes] = []
+    bytes_read = 0
+    newline_count = 0
+    with path.open("rb") as handle:
+        handle.seek(0, 2)
+        file_size = handle.tell()
+        position = file_size
+        while position > 0 and bytes_read < max_bytes and newline_count <= tail:
+            read_size = min(chunk_bytes, position, max_bytes - bytes_read)
+            position -= read_size
+            handle.seek(position)
+            chunk = handle.read(read_size)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            bytes_read += len(chunk)
+            newline_count += chunk.count(b"\n")
+
+    text = b"".join(reversed(chunks)).decode("utf-8", errors="replace")
+    available_lines = text.splitlines()
+    truncated = position > 0 or len(available_lines) > tail
+    return available_lines[-tail:], truncated, file_size
 
 
 def list_run_logs(*, session: Session, analysis_id: str, settings) -> dict[str, list[dict[str, Any]]] | None:
     run = _get_run(session, analysis_id)
     if run is None:
         return None
+    if run.pipeline_name == "wgs":
+        return {
+            "items": [
+                {key: value for key, value in item.items() if key != "_path"}
+                for item in _wgs_run_log_items(run=run, settings=settings)
+            ]
+        }
     workdir = _safe_workdir(run, settings)
     items: list[dict[str, Any]] = []
     for stream, relative_path in LOG_STREAMS.items():
@@ -435,11 +488,146 @@ def _log_index_item(*, path: Path, workdir: Path, label: str, stream: str, **ext
 
 
 def _log_path_for_key(*, session: Session, run: AnalysisRun, key: str | None, settings) -> Path:
+    if run.pipeline_name == "wgs":
+        item = next(
+            (candidate for candidate in _wgs_run_log_items(run=run, settings=settings) if candidate["key"] == key),
+            None,
+        )
+        if item is None:
+            raise LogNotFoundError(f"Unknown or unavailable log key: {key}")
+        return Path(str(item["_path"]))
     index = list_run_logs(session=session, analysis_id=run.analysis_id, settings=settings) or {"items": []}
     item = next((candidate for candidate in index["items"] if candidate["key"] == key), None)
     if item is None:
         raise LogNotFoundError(f"Unknown or unavailable log key: {key}")
     return _safe_child_path(_safe_workdir(run, settings), Path(item["relative_path"]), settings)
+
+
+def _wgs_run_log_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
+    """Index only deterministic files under the registered WGS runtime root."""
+    request_root = Path(settings.wgs_runtime_request_root).resolve()
+    runtime_root = request_root.parent
+    attempt = int(run.attempt or 1)
+    attempt_name = f"attempt-{attempt}"
+    items: list[dict[str, Any]] = []
+
+    worker_root = _contained_path(
+        request_root, Path(run.analysis_id) / attempt_name
+    )
+    if worker_root.is_dir():
+        for path in sorted(worker_root.glob("*.worker.log")):
+            if path.is_symlink() or not path.is_file():
+                continue
+            stage = path.name.removesuffix(".worker.log")
+            items.append(
+                _wgs_log_item(
+                    path=path,
+                    token=f"worker:{attempt}:{stage}",
+                    label=f"{stage.replace('_', ' ').title()} worker log",
+                    stream="stderr" if "failed" in stage else "stdout",
+                    source="stage_worker",
+                    stage=stage,
+                )
+            )
+
+    binding_path = _contained_path(
+        runtime_root,
+        Path("runs") / run.analysis_id / attempt_name / "batch-binding.json",
+    )
+    try:
+        binding = json.loads(binding_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        binding = {}
+    try:
+        binding_identity_matches = (
+            str(binding.get("analysis_id") or "") == run.analysis_id
+            and int(binding.get("attempt") or 0) == attempt
+        )
+    except (TypeError, ValueError):
+        binding_identity_matches = False
+    if binding_identity_matches:
+        try:
+            node_root = Path(settings.wgs_runtime_node200_root)
+            node_batch = Path(str(binding["batch_root"]))
+            relative_batch = node_batch.relative_to(node_root)
+            local_batch = _contained_path(runtime_root, relative_batch)
+            run_id = str(binding["run_id"])
+            if not run_id or "/" in run_id or "\\" in run_id:
+                raise ValueError("invalid run id")
+            analysis_log = _contained_path(
+                local_batch,
+                Path("cce") / "evidence" / run_id / "mirror" / "analysis.log",
+            )
+            if analysis_log.is_file() and not analysis_log.is_symlink():
+                items.insert(
+                    0,
+                    _wgs_log_item(
+                        path=analysis_log,
+                        token=f"analysis:{attempt}:{run_id}",
+                        label="WGS Snakemake analysis log",
+                        stream="stdout",
+                        source="master_analysis",
+                        stage="step3_monitor",
+                    ),
+                )
+        except (KeyError, TypeError, ValueError, InvalidRunPathError):
+            pass
+    return items
+
+
+def wgs_rule_failure_excerpts(*, run: AnalysisRun, rules: list[RuleState], settings) -> dict[str, dict[str, str | None]]:
+    """Return bounded excerpts from the one registered Master analysis log."""
+    item = next((row for row in _wgs_run_log_items(run=run, settings=settings) if row.get("source") == "master_analysis"), None)
+    if item is None:
+        return {}
+    path = Path(str(item["_path"]))
+    try:
+        with path.open("rb") as handle:
+            size = path.stat().st_size
+            handle.seek(max(0, size - 2 * 1024 * 1024))
+            text = handle.read(2 * 1024 * 1024).decode("utf-8", errors="replace")
+    except OSError:
+        return {}
+    lines = text.splitlines()
+    output: dict[str, dict[str, str | None]] = {}
+    for rule in rules:
+        if rule.status != "failed":
+            continue
+        anchors = []
+        if rule.snakemake_jobid:
+            anchors.extend([f"jobid: {rule.snakemake_jobid}", f"job {rule.snakemake_jobid}"])
+        anchors.extend([f"Error in rule {rule.rule_name}", f"rule {rule.rule_name}:"])
+        position = next((index for index in range(len(lines) - 1, -1, -1) if any(anchor in lines[index] for anchor in anchors)), None)
+        if position is None:
+            excerpt = str(rule.message or "").strip()
+        else:
+            excerpt = "\n".join(lines[max(0, position - 8):min(len(lines), position + 72)])
+        excerpt = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", excerpt)[-65536:]
+        output[rule.rule_instance_id] = {"stderr_excerpt": excerpt or None, "analysis_log_key": str(item["key"])}
+    return output
+
+
+def _contained_path(root: Path, relative: Path) -> Path:
+    if relative.is_absolute():
+        raise InvalidRunPathError("absolute runtime child path is not allowed")
+    resolved_root = root.resolve()
+    candidate = (resolved_root / relative).resolve()
+    try:
+        candidate.relative_to(resolved_root)
+    except ValueError as error:
+        raise InvalidRunPathError("runtime log path escapes the registered root") from error
+    return candidate
+
+
+def _wgs_log_item(*, path: Path, token: str, label: str, stream: str, source: str, stage: str) -> dict[str, Any]:
+    return {
+        "key": hashlib.sha256(token.encode("utf-8")).hexdigest()[:20],
+        "label": label,
+        "stream": stream,
+        "source": source,
+        "stage": stage,
+        "_path": str(path),
+    }
 
 
 def list_run_artifacts(*, session: Session, analysis_id: str, settings) -> dict[str, list[dict[str, Any]]] | None:

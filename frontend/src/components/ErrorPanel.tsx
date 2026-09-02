@@ -2,7 +2,7 @@ import {AlertTriangle, Copy} from "lucide-react";
 
 import type {ParsedErrorSummary} from "../lib/errors";
 
-export function ErrorPanel({diagnosis}: {diagnosis: ParsedErrorSummary | null}) {
+export function ErrorPanel({diagnosis, showErrorLogPath = true}: {diagnosis: ParsedErrorSummary | null; showErrorLogPath?: boolean}) {
   if (!diagnosis) return null;
 
   async function copyExcerpt() {
@@ -24,10 +24,10 @@ export function ErrorPanel({diagnosis}: {diagnosis: ParsedErrorSummary | null}) 
           <dt>Exit code</dt>
           <dd>{diagnosis.exitCode}</dd>
         </div>
-        <div>
+        {showErrorLogPath && diagnosis.errorLogPath && diagnosis.errorLogPath !== "not set" ? <div>
           <dt>Error log path</dt>
           <dd className="path-text">{diagnosis.errorLogPath}</dd>
-        </div>
+        </div> : null}
         <div>
           <dt>Possible reason</dt>
           <dd>{diagnosis.possibleReason}</dd>

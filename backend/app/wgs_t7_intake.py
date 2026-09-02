@@ -19,17 +19,16 @@ CHIP_DIRECTORY_PATTERN = re.compile(
 )
 WGS_FASTQ_PATTERN = re.compile(r"^(?P<sample>.+)-WGS\.R(?P<read>[12])\.fq\.gz$")
 ADDON_SAMPLE_PATTERN = re.compile(r"-S\d+$")
+NON_CLINICAL_SAMPLE_PREFIX = "YF"
 SCANNER_STATE_ID = 1
 SCANNER_ADVISORY_LOCK_ID = 743_701_143_829
-FINGERPRINT_FROZEN_STATES = {"ready", "no_new_wgs"}
+FINGERPRINT_FROZEN_STATES = {"ready"}
 PERSISTED_STATES = {"ready", "needs_review", "no_new_wgs"}
 
 
 @dataclass(frozen=True)
 class FastqObservation:
     name: str
-    size: int
-    mtime_ns: int
 
 
 @dataclass(frozen=True)
@@ -44,6 +43,8 @@ class ChipObservation:
     excluded_addon_pair_count: int
     pair_issue_count: int
     fingerprint: str | None
+    legacy_fingerprint: str | None
+    pre_yf_filter_fingerprint: str | None
 
 
 def scan_wgs_t7_intake(
@@ -51,7 +52,7 @@ def scan_wgs_t7_intake(
     session_factory: Callable[[], Session],
     root: str | Path,
     now: datetime | None = None,
-    scan_interval_seconds: int = 1800,
+    scan_interval_seconds: int = 600,
     scan_enabled: bool = True,
     auto_dispatch_enabled: bool = False,
 ) -> dict[str, int]:
@@ -151,28 +152,36 @@ def inspect_chip_directory(directory: Path, *, sequencing_batch: str) -> ChipObs
     barcode_present = barcode_path.is_file() and not barcode_path.is_symlink()
     barcode_stat = barcode_path.stat() if barcode_present else None
     samples: dict[str, dict[int, FastqObservation]] = {}
+    legacy_regular_files: list[dict[str, int | str]] = []
 
     for child in sorted(directory.iterdir(), key=lambda item: item.name):
-        if not child.is_file() or child.is_symlink():
+        is_symlink = child.is_symlink()
+        if not is_symlink and not child.is_file():
             continue
         match = WGS_FASTQ_PATTERN.fullmatch(child.name)
         if match is None:
             continue
-        stat = child.stat()
         sample = match.group("sample")
-        samples.setdefault(sample, {})[int(match.group("read"))] = FastqObservation(
-            name=child.name,
-            size=stat.st_size,
-            mtime_ns=stat.st_mtime_ns,
-        )
+        samples.setdefault(sample, {})[int(match.group("read"))] = FastqObservation(name=child.name)
+        if not is_symlink:
+            stat = child.stat()
+            legacy_regular_files.append(
+                {"name": child.name, "size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
+            )
 
     eligible_files: list[FastqObservation] = []
+    pre_yf_filter_files: list[FastqObservation] = []
     eligible_pair_count = 0
     excluded_addon_pair_count = 0
     pair_issue_count = 0
     for sample, reads in samples.items():
         complete = set(reads) == {1, 2}
-        if ADDON_SAMPLE_PATTERN.search(sample):
+        is_addon = ADDON_SAMPLE_PATTERN.search(sample) is not None
+        if complete and not is_addon:
+            pre_yf_filter_files.extend((reads[1], reads[2]))
+        if sample.startswith(NON_CLINICAL_SAMPLE_PREFIX):
+            continue
+        if is_addon:
             if complete:
                 excluded_addon_pair_count += 1
             continue
@@ -183,8 +192,24 @@ def inspect_chip_directory(directory: Path, *, sequencing_batch: str) -> ChipObs
             pair_issue_count += 1
 
     fingerprint = None
+    legacy_fingerprint = None
+    pre_yf_filter_fingerprint = None
     if barcode_present:
         payload = {
+            "schema_version": "wgs-t7-entry-fingerprint.v3",
+            "chip_id": directory.name,
+            "sequencing_batch": sequencing_batch,
+            "barcode_stat": {
+                "size": barcode_stat.st_size,
+                "mtime_ns": barcode_stat.st_mtime_ns,
+            },
+            "eligible_file_names": sorted(item.name for item in eligible_files),
+        }
+        fingerprint = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        eligible_names = {item.name for item in eligible_files}
+        legacy_payload = {
             "schema_version": "wgs-t7-eligible-fingerprint.v1",
             "chip_id": directory.name,
             "sequencing_batch": sequencing_batch,
@@ -192,13 +217,30 @@ def inspect_chip_directory(directory: Path, *, sequencing_batch: str) -> ChipObs
                 "size": barcode_stat.st_size,
                 "mtime_ns": barcode_stat.st_mtime_ns,
             },
-            "eligible_files": [
-                {"name": item.name, "size": item.size, "mtime_ns": item.mtime_ns}
-                for item in sorted(eligible_files, key=lambda value: value.name)
-            ],
+            "eligible_files": sorted(
+                (item for item in legacy_regular_files if item["name"] in eligible_names),
+                key=lambda item: str(item["name"]),
+            ),
         }
-        fingerprint = hashlib.sha256(
-            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        legacy_fingerprint = hashlib.sha256(
+            json.dumps(legacy_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        pre_yf_filter_payload = {
+            "schema_version": "wgs-t7-entry-fingerprint.v2",
+            "chip_id": directory.name,
+            "sequencing_batch": sequencing_batch,
+            "barcode_stat": {
+                "size": barcode_stat.st_size,
+                "mtime_ns": barcode_stat.st_mtime_ns,
+            },
+            "eligible_file_names": sorted(item.name for item in pre_yf_filter_files),
+        }
+        pre_yf_filter_fingerprint = hashlib.sha256(
+            json.dumps(
+                pre_yf_filter_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
         ).hexdigest()
 
     return ChipObservation(
@@ -212,6 +254,8 @@ def inspect_chip_directory(directory: Path, *, sequencing_batch: str) -> ChipObs
         excluded_addon_pair_count=excluded_addon_pair_count,
         pair_issue_count=pair_issue_count,
         fingerprint=fingerprint,
+        legacy_fingerprint=legacy_fingerprint,
+        pre_yf_filter_fingerprint=pre_yf_filter_fingerprint,
     )
 
 
@@ -259,7 +303,7 @@ def get_wgs_t7_scanner_state(
     session: Session,
     root: str = "/bi/fastq/T7_Fastq",
     enabled: bool = False,
-    schedule_seconds: int = 1800,
+    schedule_seconds: int = 600,
     auto_dispatch_enabled: bool = False,
 ) -> dict[str, object]:
     row = session.get(WgsIntakeScannerState, SCANNER_STATE_ID)
@@ -337,7 +381,12 @@ def _apply_observation(
             )
         )
         and previous_fingerprint is not None
-        and observation.fingerprint != previous_fingerprint
+        and previous_fingerprint
+        not in {
+            observation.fingerprint,
+            observation.legacy_fingerprint,
+            observation.pre_yf_filter_fingerprint,
+        }
     ):
         row.state = "needs_review"
         row.last_error = "eligible WGS input changed after ready"

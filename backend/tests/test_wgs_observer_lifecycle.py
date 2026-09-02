@@ -98,6 +98,23 @@ def test_activation_and_drain_are_idempotent_and_notify_after_state_change() -> 
     assert list_observer_work(sessions) == [(analysis_id, 1)]
 
 
+def test_reactivation_preserves_runtime_bound_cce_event_label() -> None:
+    sessions = make_sessionmaker()
+    analysis_id = "WGS_20260830_010203_A1B2C3"
+    add_run(sessions, analysis_id)
+    with sessions.begin() as session:
+        first = activate_observer(
+            session, analysis_id=analysis_id, attempt=1, notify=lambda *_: None
+        )
+        first.run_label = "cce-run-0123456789abcdef"
+
+    with sessions.begin() as session:
+        restored = activate_observer(
+            session, analysis_id=analysis_id, attempt=1, notify=lambda *_: None
+        )
+        assert restored.run_label == "cce-run-0123456789abcdef"
+
+
 def test_drain_before_step3_is_an_idempotent_noop_without_creating_state() -> None:
     sessions = make_sessionmaker()
     analysis_id = "WGS_20260830_010203_A1B2C3"

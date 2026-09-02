@@ -1,0 +1,6 @@
+ARG BASE_IMAGE=airflow-demo/frontend:0.1.0
+FROM ${BASE_IMAGE}
+
+USER root
+RUN rm -rf /usr/share/nginx/html/*
+COPY dist/ /usr/share/nginx/html/

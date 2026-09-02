@@ -1,5 +1,96 @@
 # 05 API Contract
 
+## T154-T157 WGS生产接口
+
+- `/api/runs/{id}/progress`返回权威业务阶段和可空的精确进度，禁止以Airflow
+  task数量或Step1-Step6位置推算WGS百分比/分析ETA；只返回runtime提供的stage精确值。
+- `/rules`支持phase/status/rule/sample/family过滤并稳定排序；WGS `/samples`
+  只返回文档28的安全字段；日志索引仅返回opaque key，WGS `/logs`缺少已登记key时
+  返回404，不能回退到旧固定stream路径。`/logs`从文件末尾按64 KiB分块倒读，
+  单次最多读取8 MiB、返回1000行，并返回`file_size`和`truncated`；不得为tail请求
+  把完整`analysis.log`载入内存。
+- `/api/wgs/projects`返回受控catalog；`POST /api/wgs/runs`在两个执行门禁
+  开启时创建/复用一个AnalysisRun并确定性提交`bio_wgs`。
+- `GET /api/wgs/release`保留`submission_preview_enabled`作为一版兼容字段；生产Submit不再依赖该字段。
+
+- `POST /api/wgs/runs`只接受`project_id/platform/sequencing_batch/analysis_batch/fastq_root_id/use_reference/algo`；当前`platform=T7`，`algo=DNAscope|Haplotyper`。项目、FASTQ root和WGS 4.2.0 release由服务端catalog解析，客户端不能提交路径或版本。服务端按`WGS_<analysis_batch>_T7Hg38V4.2.0`绑定业务批次；DAG prepare之后`/samples`只返回WGS最终sampleinfo中的分析样本。历史draft endpoint仍受`WGS_SUBMISSION_PREVIEW_ENABLED=false`保护，但前端不再调用。
+- `/api/platform/resources`返回节点/SFS/OBS当前快照。
+- `/actions/cleanup-step7`仅admin可用，只接受Batch确认，由服务端生成删除确认串；
+  内部runtime请求必须绑定同attempt的active maintenance action ID，公开响应不返回
+  evidence路径。
+
+## T152 Step4 internal recovery
+
+Public API and database schema are unchanged. Re-registering the same
+`step4_publish` attempt restores a control-plane-generated failed run to
+`publishing` only when its protected sidecar has matching schema, analysis,
+attempt and stage identity and contains the known Master-completion race error.
+It clears that false terminal timestamp/error and writes
+`run.step4_publish_recovered` as `airflow-internal`.
+
+The same internal stage-status read projects a later terminal
+`step4_publish=failed` to `AnalysisRun.status=failed`, preserves
+`current_stage=step4_publish`, stores the evidence message, and sets terminal
+timestamps. This prevents Run Detail from remaining at `publishing` after the
+Airflow DagRun has truthfully failed.
+
+Step4 repair capability no longer requires a `wgs-master-*` name. It accepts a
+Succeeded workload only when Step3 ingestion produced the canonical
+`event_id=step3:<job_name>` identity after frozen-binding validation. The
+current T152 batch uses ordinary Step4; this change does not authorize CRAM
+repair for generic publish errors.
+
+## T151 YF non-clinical exclusion
+
+公开API结构不变。sample ID以大写`YF`开头时不参与eligible、add-on或pair issue
+计数；YF-only目录通过`GET /api/intake/status?pipeline=wgs`显示为
+`no_new_wgs`，混合目录只反映其他临检WGS样本。API不返回YF样本ID或新增YF计数。
+
+## T150 T7 name-level scanner projection
+
+公开endpoint和响应结构不变。`GET /api/intake/scanner-state`从运行配置返回
+`schedule_seconds=600`和`auto_dispatch_enabled=false`；
+`GET /api/intake/status?pipeline=wgs`中的eligible/add-on/pair issue计数来自目录项
+名称配对，普通/硬/软链接不作区分。API仍只返回芯片、批次、状态和聚合计数，不
+返回sample ID、软链接目标或fingerprint。历史`no_new_wgs`可在后续扫描中转换为
+`ready/needs_review`，但扫描本身不创建AnalysisRun或DagRun。
+
+## T149 Step3 internal status and recovery contract
+
+The public API and database schema are unchanged. The internal
+`GET /api/internal/wgs/runs/{analysis_id}/stage-status` endpoint accepts an
+`accepted` or an early `running` Step3 status without Master details as a valid
+transition: it returns HTTP 200 with `ready=false` and does not create a
+Kubernetes workload. A terminal Step3 success must include Master evidence.
+
+Once Master details are present, the backend reads the immutable
+`runs/<analysis_id>/attempt-N/batch-binding.json` and requires exact equality
+for `analysis_id`, `attempt`, `master_job`, and `namespace`. `master_job` is
+validated as a Kubernetes DNS label; no `wgs-master-*` or `cce-master-*`
+prefix is trusted independently of the frozen binding. Only that bound Master
+is projected through `/pods`; Worker Pods remain outside the API.
+
+Schema-1 Rule events use the CCE runtime label (`cce-run-<16 hex>`), not the
+Airflow `analysis_id-aN` run ID. The node200 monitor reads that label from the
+frozen `RESOLVED_PROFILE.yaml` and includes it in each complete Step3 status.
+Only after the exact Master and namespace checks pass may the backend bind the
+observer to that CCE label. A later attempt to change an already bound CCE
+label is rejected, preventing Rule JSONL from another Master from being mixed
+into the attempt.
+
+`GET /api/runs/{analysis_id}/pods` selects the workload created by the bound
+Step3 status (`event_id=step3:<master_job>`), regardless of whether the current
+name starts with `cce-master-` or the historical `wgs-master-`. The legacy
+prefix is retained only for already persisted pre-Step3-protocol Master rows;
+arbitrary Worker workload rows remain hidden.
+
+Re-registering Step3 for the same active attempt after a control-plane monitor
+failure restores the business run to `running`, clears the monitor-generated
+terminal timestamps and error summary, and writes the internal audit action
+`run.step3_monitor_recovered`. It does not create a new attempt or authorize a
+new Step2 submission. The resumed sensor still reports the real CCE terminal
+state and does not convert an actual Master failure to success.
+
 ## T146 current WGS release
 
 `POST /api/runs`仍只接受`project_name + batch_no + fq_path`，服务端自动绑定
@@ -27,7 +118,8 @@ attempt或调用Airflow前检查两个门禁。execution关闭返回HTTP 409和
   分页/状态过滤；不返回样本编号、源路径或 fingerprint。
 - WGS-only部署中，`pipeline=deployed|all`和省略pipeline与显式`pipeline=wgs`
   使用同一T7投影，保证Dashboard默认筛选不会回落到历史intake表。
-- `GET /api/intake/scanner-state`返回 bootstrap、最近/下次扫描、1800秒间隔和
+- `GET /api/intake/scanner-state`在T143历史发布返回1800秒间隔；T150起当前生产值
+  为600秒，并继续返回bootstrap、最近/下次扫描和
   `auto_dispatch_enabled=false`。
 - `GET /api/runs/{analysis_id}`增加`step4_repair`能力和最近维护操作。
 - `POST /api/runs/{analysis_id}/actions/repair-step4`只允许 operator/admin，固定
