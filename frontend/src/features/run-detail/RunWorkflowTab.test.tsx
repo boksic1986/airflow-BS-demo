@@ -31,7 +31,7 @@ describe("RunWorkflowTab", () => {
     expect(screen.queryByRole("table", {name: /Pipeline rule jobs/i})).not.toBeInTheDocument();
   });
 
-  it("shows only the WGS CCE orchestration path", () => {
+  it("shows the WGS business-stage graph without raw Airflow task IDs", () => {
     const progress = {
       pipeline: "wgs",
       airflow_tasks: [
@@ -48,13 +48,12 @@ describe("RunWorkflowTab", () => {
     render(<RunWorkflowTab progress={progress} rules={[]} />);
 
     expect(screen.getByRole("heading", {name: "WGS CCE orchestration path"})).toBeInTheDocument();
-    const selectedPath = screen.getByLabelText("Selected Airflow execution path");
-    expect(within(selectedPath).getByText("Validate run request")).toBeInTheDocument();
-    expect(within(selectedPath).getByText("Start Step1 input upload")).toBeInTheDocument();
-    expect(within(selectedPath).getByText("Submit Step2 Master")).toBeInTheDocument();
-    expect(within(selectedPath).getByText("Start Step3 monitoring")).toBeInTheDocument();
-    expect(within(selectedPath).queryByText("Submit Master")).not.toBeInTheDocument();
-    expect(within(selectedPath).queryByText("Run NIPT Docker workflow")).not.toBeInTheDocument();
+    const graph = screen.getByLabelText("WGS stage dependency graph");
+    expect(within(graph).getByText("Uploading FASTQ")).toBeInTheDocument();
+    expect(within(graph).getByText("WGS workflow running")).toBeInTheDocument();
+    expect(within(graph).getByText("Downloading WGS results")).toBeInTheDocument();
+    expect(screen.queryByText("wait_step3_analysis")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Selected Airflow execution path")).not.toBeInTheDocument();
   });
 
   it("shows only the NIPT Docker Airflow path and NIPT rule phases", () => {

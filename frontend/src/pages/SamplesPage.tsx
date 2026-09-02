@@ -17,7 +17,6 @@ export function SamplesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const pipeline = deployedPipelineFilter(searchParams.get("pipeline"), capabilities.deployed_pipelines);
   const status = searchParams.get("status") || "all";
-  const qcStatus = searchParams.get("qc_status") || "all";
   const keyword = searchParams.get("keyword") || "";
   const [keywordDraft, setKeywordDraft] = useState(keyword);
   const page = positivePage(searchParams.get("page"));
@@ -47,7 +46,6 @@ export function SamplesPage() {
     listSamplesResource({
       pipeline: pipeline === "all" ? "deployed" : pipeline,
       status: status === "all" ? undefined : status,
-      qcStatus: qcStatus === "all" ? undefined : qcStatus,
       keyword: keyword.trim() || undefined,
       limit: pageSize,
       offset: (page - 1) * pageSize,
@@ -64,7 +62,7 @@ export function SamplesPage() {
     return () => {
       disposed = true;
     };
-  }, [keyword, page, pipeline, qcStatus, status]);
+  }, [keyword, page, pipeline, status]);
 
   function updateFilter(name: string, value: string) {
     const next = new URLSearchParams(searchParams);
@@ -113,16 +111,6 @@ export function SamplesPage() {
               <option value="failed">failed</option>
             </select>
           </label>
-          <label>
-            <span>QC</span>
-            <select aria-label="Sample QC status" value={qcStatus} onChange={(event) => updateFilter("qc_status", event.target.value)}>
-              <option value="all">All</option>
-              <option value="pass">pass</option>
-              <option value="warn">warn</option>
-              <option value="fail">fail</option>
-              <option value="unknown">unknown</option>
-            </select>
-          </label>
           <label className="grow">
             <span>Keyword</span>
             <input aria-label="Sample keyword" value={keywordDraft} placeholder="sample, project or run ID" onChange={(event) => setKeywordDraft(event.target.value)} />
@@ -134,26 +122,25 @@ export function SamplesPage() {
           <div className="table-wrap">
             <table className="data-table sample-resource-table">
               <thead>
-                <tr><th>sample</th><th>project / run</th><th>pipeline</th><th>status</th><th>QC</th><th>source files</th><th>report</th></tr>
+                <tr><th>sample / family</th><th>relation / type</th><th>project / run</th><th>pipeline</th><th>status</th><th>sequencing batch</th><th>FASTQ files</th></tr>
               </thead>
               <tbody>
                 {payload.items.map((row) => (
                   <tr key={`${row.analysis_id}-${row.sample_id}`}>
-                    <td><strong>{row.sample_id}</strong>{row.family_id ? <small className="block muted">{row.family_id}</small> : null}</td>
+                    <td><strong>{row.sample_id}</strong>{row.family_id ? <small className="block muted">Family {row.family_id}</small> : null}</td>
+                    <td>{row.family_relation || "-"}<small className="block muted">{[row.sample_type, row.sex].filter(Boolean).join(" / ") || "-"}</small></td>
                     <td>
                       <Link className="resource-link" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>{row.project_name}</Link>
                       <Link className="resource-link secondary mono" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>{row.analysis_id}</Link>
                     </td>
                     <td>{compactPipelineName(row.pipeline)}</td>
                     <td><StatusBadge status={row.status} /></td>
-                    <td><StatusBadge status={row.qc_status} size="sm" /></td>
+                    <td>{row.sequencing_batch || "-"}</td>
                     <td>
                       <div className="source-files">
-                        <strong>{row.source_folder || "Path not captured for this run"}</strong>
                         <span>{[row.r1_name, row.r2_name].filter(Boolean).join(" / ") || "File names not captured"}</span>
                       </div>
                     </td>
-                    <td>{row.report_status.replaceAll("_", " ")}</td>
                   </tr>
                 ))}
                 {payload.items.length === 0 ? <tr><td className="empty-cell" colSpan={7}>No samples match the current filters.</td></tr> : null}

@@ -7,7 +7,7 @@ import type {
   DashboardRunsResponse,
   IntakeDiscovery,
   IntakeScannerStateResponse,
-  SystemResourcesResponse,
+  PlatformResourcesResponse,
 } from "../api";
 import type {RunTrackerFilter} from "../components/RunTracker";
 
@@ -16,7 +16,7 @@ import {
   getDashboardRuns,
   getIntakeScannerState,
   getIntakeStatus,
-  getSystemResources,
+  getPlatformResources,
   submitRun,
   syncAirflow,
 } from "../api";
@@ -50,7 +50,7 @@ export function DashboardPage() {
 
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [trackerPayload, setTrackerPayload] = useState<DashboardRunsResponse | null>(null);
-  const [resources, setResources] = useState<SystemResourcesResponse | null>(null);
+  const [resources, setResources] = useState<PlatformResourcesResponse | null>(null);
   const [intakeItems, setIntakeItems] = useState<IntakeDiscovery[]>([]);
   const [intakeScanner, setIntakeScanner] = useState<IntakeScannerStateResponse | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
@@ -123,7 +123,7 @@ export function DashboardPage() {
     setResourcesLoading(true);
     setResourcesError(null);
     try {
-      setResources(await getSystemResources());
+      setResources(await getPlatformResources());
     } catch (loadError) {
       setResourcesError(errorMessage(loadError));
     } finally {
@@ -209,6 +209,11 @@ export function DashboardPage() {
   }
 
   const selectedPipeline = dashboardPipelines.find((item) => item.value === pipeline) || dashboardPipelines[0];
+  const showQc = pipeline !== "wgs" && !(
+    pipeline === "all"
+    && capabilities.deployed_pipelines.length === 1
+    && capabilities.deployed_pipelines[0] === "wgs"
+  );
   const pipelineOptions: DashboardPipeline[] = capabilities.deployed_pipelines.length === 1
     ? [...capabilities.deployed_pipelines]
     : ["all", ...capabilities.deployed_pipelines];
@@ -230,8 +235,8 @@ export function DashboardPage() {
       <section className="dashboard-command-grid">
         <PipelineRail pipeline={pipeline} pipelines={pipelineOptions} onChange={handlePipelineChange} />
         <div className="dashboard-main-column">
-          <CommandSummary overview={overview} pipeline={pipeline} loading={overviewLoading} error={overviewError} />
-          <OperationsOverview overview={overview} period={period} loading={overviewLoading} onPeriodChange={setPeriod} />
+          <CommandSummary overview={overview} pipeline={pipeline} loading={overviewLoading} error={overviewError} showQc={showQc} />
+          <OperationsOverview overview={overview} period={period} loading={overviewLoading} onPeriodChange={setPeriod} showQc={showQc} />
           <div className="dashboard-tracker-region" aria-busy={trackerLoading}>
             {trackerError ? <div className="inline-error" role="alert">Run tracker unavailable: {trackerError}</div> : null}
             {trackerLoading && !trackerPayload ? <p className="muted panel-loading">Loading run tracker...</p> : null}

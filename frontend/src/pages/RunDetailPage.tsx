@@ -2,11 +2,10 @@ import {Play, RefreshCw, RotateCcw, Square} from "lucide-react";
 import {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 
-import type {Artifact, DeployedPipeline, LogStream, RuleEvent, RunConfig, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, RunQc, RunResourceSummary, Sample, WgsFamily, WgsPod, WgsTransfer, WgsValidationIssue} from "../api";
+import type {Artifact, DeployedPipeline, LogStream, RuleEvent, RunConfig, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, Sample, WgsPod, WgsTransfer, WgsValidationIssue} from "../api";
 
 import {
   getRunArtifacts,
-  getRunFamilies,
   getRunPods,
   getRunTransfers,
   getRunConfig,
@@ -14,13 +13,11 @@ import {
   getRunLog,
   getRunLogIndex,
   getRunProgress,
-  getRunQc,
-  getRunResources,
   getRunRules,
   getRunValidationIssues,
   getRunSamples,
   submitRun,
-  syncAirflow, cancelRun, rerunFailedRun, resumeRun, revalidateRun, repairStep4,
+  syncAirflow, cancelRun, cleanupStep7, rerunFailedRun, resumeRun, revalidateRun, repairStep4,
 } from "../api";
 import {useSession} from "../features/auth/SessionContext";
 import {ErrorPanel} from "../components/ErrorPanel";
@@ -29,16 +26,15 @@ import {MetricCard} from "../components/MetricCard";
 import {StatusBadge} from "../components/StatusBadge";
 import {CurrentProgressPanel} from "../features/run-detail/CurrentProgressPanel";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
-import {RunQcTab} from "../features/run-detail/RunQcTab";
 import {RunFilesTab, RunOverviewTab} from "../features/run-detail/RunResourceTabs";
 import {RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
 import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
 import {errorMessage, parseErrorSummary} from "../lib/errors";
 import {compactPipelineName, formatBytes, formatDate, formatDuration, formatSecondsDuration} from "../lib/format";
-import {computeRunProgress, progressFromResponse} from "../lib/runProgress";
+import {progressFromResponse} from "../lib/runProgress";
 import {isActiveStatus, isFailedStatus} from "../lib/status";
 
-const tabs = ["Overview", "Families", "Rules", "Master", "Transfers", "QC", "Logs", "Files"] as const;
+const tabs = ["Overview", "Samples", "Rules", "Master", "Transfers", "Logs", "Files"] as const;
 type DetailTab = (typeof tabs)[number];
 
 type Bundle = {
@@ -46,17 +42,14 @@ type Bundle = {
   samples: Sample[];
   rules: RuleEvent[];
   artifacts: Artifact[];
-  qc: RunQc | null;
   progress: RunProgressResponse | null;
   config: RunConfig | null;
-  resources: RunResourceSummary | null;
-  families: WgsFamily[];
   pods: WgsPod[];
   transfers: WgsTransfer[];
   validationIssues: WgsValidationIssue[];
 };
 
-const emptyBundle: Bundle = {detail: null, samples: [], rules: [], artifacts: [], qc: null, progress: null, config: null, resources: null, families: [], pods: [], transfers: [], validationIssues: []};
+const emptyBundle: Bundle = {detail: null, samples: [], rules: [], artifacts: [], progress: null, config: null, pods: [], transfers: [], validationIssues: []};
 
 export function RunDetailPage() {
   const {analysisId = ""} = useParams();
@@ -76,7 +69,8 @@ export function RunDetailPage() {
   const [progressError, setProgressError] = useState<string | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [resourceError, setResourceError] = useState<string | null>(null);
+  const [step7Confirm, setStep7Confirm] = useState(false);
+  const [step7Batch, setStep7Batch] = useState("");
   const [acting, setActing] = useState(false);
   const [lastAutoSyncedAt, setLastAutoSyncedAt] = useState<string | null>(null);
 
@@ -84,7 +78,6 @@ export function RunDetailPage() {
     if (!analysisId) return;
     setLoading(true);
     setError(null);
-    setResourceError(null);
     setLogIndexError(null);
     setProgressError(null);
     setConfigError(null);
@@ -93,7 +86,7 @@ export function RunDetailPage() {
       if (!capabilities.isDeployed(detail.pipeline as DeployedPipeline)) {
         throw new Error("This run belongs to a pipeline that is not deployed in this environment.");
       }
-      const [samples, rules, progress, artifacts, qc, config, indexedLogs, resources, families, pods, transfers, validationIssues] = await Promise.all([
+      const [samples, rules, progress, artifacts, config, indexedLogs, pods, transfers, validationIssues] = await Promise.all([
         getRunSamples(analysisId),
         getRunRules(analysisId),
         getRunProgress(analysisId).catch((progressLoadError) => {
@@ -101,7 +94,6 @@ export function RunDetailPage() {
           return null;
         }),
         getRunArtifacts(analysisId),
-        getRunQc(analysisId),
         getRunConfig(analysisId).catch((configLoadError) => {
           setConfigError(errorMessage(configLoadError));
           return null;
@@ -110,16 +102,11 @@ export function RunDetailPage() {
           setLogIndexError(errorMessage(indexLoadError));
           return {items: []};
         }),
-        getRunResources(analysisId).catch((resourceLoadError) => {
-          setResourceError(errorMessage(resourceLoadError));
-          return null;
-        }),
-        getRunFamilies(analysisId).catch(() => ({items: []})),
         getRunPods(analysisId).catch(() => ({items: []})),
         getRunTransfers(analysisId).catch(() => ({items: []})),
         getRunValidationIssues(analysisId).catch(() => ({items: []})),
       ]);
-      setBundle({detail, samples: samples.items, rules: rules.items, progress, artifacts: artifacts.items, qc, config, resources, families: families.items, pods: pods.items, transfers: transfers.items, validationIssues: validationIssues.items});
+      setBundle({detail, samples: samples.items, rules: rules.items, progress, artifacts: artifacts.items, config, pods: pods.items, transfers: transfers.items, validationIssues: validationIssues.items});
       setLogSources(indexedLogs.items);
       if (indexedLogs.items.length) {
         const preferred = preferredLogSource(indexedLogs.items, detail.status, progress?.current_step) || indexedLogs.items[0];
@@ -152,7 +139,11 @@ export function RunDetailPage() {
   }, [analysisId, capabilities.loading, capabilityKey]);
   useEffect(() => {
     const pipeline = bundle.detail?.pipeline;
-    if (pipeline && capabilities.isDeployed(pipeline as DeployedPipeline)) void loadLog(logStream, logKey);
+    if (
+      pipeline
+      && capabilities.isDeployed(pipeline as DeployedPipeline)
+      && (pipeline !== "wgs" || Boolean(logKey))
+    ) void loadLog(logStream, logKey);
   }, [analysisId, bundle.detail?.pipeline, capabilityKey, logKey, logStream]);
 
   function handleLogKeyChange(nextKey: string) {
@@ -184,12 +175,11 @@ export function RunDetailPage() {
   }, [analysisId, detail?.dag_run_id, detail?.status]);
 
   const failedRule = bundle.rules.find((rule) => isFailedStatus(rule.status));
-  const diagnosis = parseErrorSummary(detail?.error_summary, failedRule?.rule);
-  const progress = detail && bundle.progress
-    ? progressFromResponse(bundle.progress)
-    : detail
-      ? computeRunProgress({analysis_id: detail.analysis_id, pipeline: detail.pipeline, status: detail.status, created_at: detail.created_at, started_at: detail.started_at, ended_at: detail.ended_at, sample_count: bundle.samples.length}, detail, bundle.rules)
-      : null;
+  const diagnosis = parseErrorSummary(
+    detail?.error_summary,
+    failedRule?.rule || (detail?.pipeline === "wgs" ? bundle.progress?.stage_label : null),
+  );
+  const progress = detail && bundle.progress ? progressFromResponse(bundle.progress) : null;
   const canSubmit = detail?.status === "created" && capabilities.isDeployed(detail.pipeline as DeployedPipeline);
   async function runAction(action: "sync" | "submit" | "resume" | "rerun_failed" | "cancel" | "revalidate" | "repair_step4") {
     if (!analysisId) return;
@@ -213,9 +203,18 @@ export function RunDetailPage() {
     }
   }
 
-  if (loading && !detail) return <p className="muted">Loading run detail...</p>;
+  async function runStep7Cleanup() {
+    if (!analysisId || !detail?.step7_cleanup?.available) return;
+    setActing(true); setActionError(null);
+    try {
+      await cleanupStep7(analysisId, step7Batch);
+      setStep7Confirm(false); setStep7Batch("");
+      await loadDetail();
+    } catch (actionFailure) { setActionError(errorMessage(actionFailure)); }
+    finally { setActing(false); }
+  }
 
-  const sampleQcSummary = bundle.qc?.sample_summary || bundle.qc?.summary;
+  if (loading && !detail) return <p className="muted">Loading run detail...</p>;
 
   return (
     <div className="page-stack run-detail-page">
@@ -234,12 +233,13 @@ export function RunDetailPage() {
           </div>
         </section>
         {actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
-        {detail.step4_repair ? <Step4RepairPanel capability={detail.step4_repair} canOperate={session.hasRole("operator")} acting={acting} onRepair={() => void runAction("repair_step4")} /> : null}
+        {detail.step4_repair?.available || detail.step4_repair?.latest_action ? <Step4RepairPanel capability={detail.step4_repair} canOperate={session.hasRole("operator")} acting={acting} onRepair={() => void runAction("repair_step4")} /> : null}
+        {session.hasRole("admin") && (detail.step7_cleanup?.available || detail.step7_cleanup?.latest_action) ? <section className="panel destructive-panel"><div className="section-heading"><h2>SFS cleanup</h2><p>Step7 deletes only the frozen run SFS analysis and linkage directories. OBS data is not deleted.</p></div>{detail.step7_cleanup.latest_action ? <StatusBadge status={detail.step7_cleanup.latest_action.status} /> : null}{detail.step7_cleanup.available ? <><label className="field checkbox-field"><input type="checkbox" aria-label="Acknowledge SFS cleanup" checked={step7Confirm} onChange={(event) => setStep7Confirm(event.target.checked)} /><span>I verified Step5 and Step6 results and understand SFS cleanup is destructive.</span></label><label className="field"><span>Type Batch to confirm</span><input aria-label="Step7 Batch confirmation" value={step7Batch} onChange={(event) => setStep7Batch(event.target.value)} /></label><button className="button danger" type="button" disabled={acting || !step7Confirm || step7Batch !== detail.step7_cleanup.required_batch} onClick={() => void runStep7Cleanup()}>Run Step7 SFS cleanup</button></> : null}</section> : null}
         {detail.status === "needs_review" ? <section className="panel validation-review"><div className="section-heading"><h2>Input needs review</h2><p>Correct the source links or metadata upstream, then revalidate. This page cannot edit sampleinfo.</p></div><WgsTable headers={["Severity", "Code", "Scope", "Message", "Status"]} rows={bundle.validationIssues.map((issue) => [issue.severity, issue.code, issue.sample_id || issue.family_id || issue.file_path || issue.scope_type || "batch", issue.message, issue.status])} empty="No structured issue was returned." /></section> : null}
         <section className="metric-grid" aria-label="Run summary metrics">
           <MetricCard title="Samples" value={bundle.samples.length} />
           <MetricCard title="Duration" value={formatDuration(detail.submitted_at || detail.started_at, detail.pipeline_finished_at || detail.ended_at)} status={detail.status} />
-          <MetricCard title="QC fail" value={sampleQcSummary?.fail ?? 0} status={(sampleQcSummary?.fail ?? 0) > 0 ? "failed" : "success"} />
+          <MetricCard title="Batch" value={String(detail.params?.batch_no || "-")} />
           <MetricCard title="Rule events" value={bundle.rules.length} status={failedRule ? "failed" : undefined} />
         </section>
         {detail.pipeline === "wgs" ? <section className="panel">
@@ -250,7 +250,6 @@ export function RunDetailPage() {
             <div><dt>WGS commit</dt><dd className="path-text">{detail.wgs_source_commit || "unknown"}</dd></div>
             <div><dt>cce-pipeline</dt><dd>{detail.resolved_runtime?.cce_pipeline_version || "not resolved"}</dd></div>
             <div><dt>CCE profile</dt><dd>{detail.resolved_runtime?.profile_id ? `${detail.resolved_runtime.profile_id}/${detail.resolved_runtime.profile_revision || "-"}` : "not resolved"}</dd></div>
-            <div><dt>Master image</dt><dd className="path-text">{detail.resolved_runtime?.master_image_digest || "not resolved"}</dd></div>
             <div><dt>Rule schema</dt><dd>{detail.rule_event_schema_version || "unknown"}</dd></div>
             <div><dt>CCE monitor</dt><dd>{detail.observer ? <StatusBadge status={detail.observer.lifecycle_status} /> : "CCE监控尚未启动"}</dd></div>
             <div><dt>Monitoring health</dt><dd>{detail.observer ? <StatusBadge status={detail.observer.monitoring_health} /> : "not applicable"}</dd></div>
@@ -258,39 +257,16 @@ export function RunDetailPage() {
           </div>
           {detail.observer?.last_error ? <div className="inline-error" role="alert">Rule monitoring degraded: {detail.observer.last_error}</div> : null}
         </section> : null}
-        <ErrorPanel diagnosis={diagnosis} />
+        {isFailedStatus(detail.status) ? <ErrorPanel diagnosis={diagnosis} showErrorLogPath={detail.pipeline !== "wgs"} /> : null}
         {progressError ? <div className="inline-error" role="alert">Current progress unavailable: {progressError}</div> : null}
-        <div className="split-grid">
-          <CurrentProgressPanel detail={detail} progress={progress} source={bundle.progress?.progress_source} />
-          <section className="panel"><div className="section-heading"><h2>QC summary</h2><p>Sample-level decisions; informational metrics do not lower sample status.</p></div><div className="metric-grid compact">{(["pass", "warn", "fail", "unknown"] as const).map((status) => <MetricCard key={status} title={status} value={sampleQcSummary?.[status] ?? 0} status={status} />)}</div></section>
-        </div>
-        {detail.pipeline === "wgs" ? <section className="panel">
-          <div className="section-heading"><h2>Resource usage</h2><p>{bundle.resources ? (bundle.resources.complete ? "Complete runner telemetry" : "Partial runner telemetry") : "Telemetry is written after the runner starts."}</p></div>
-          {resourceError && !bundle.resources ? <p className="empty-state">Resource telemetry is not available yet.</p> : null}
-          {bundle.resources ? <>
-            <div className="metric-grid compact">
-              <MetricCard title="Peak PSS" value={formatBytes(bundle.resources.peak_pss_bytes)} />
-              <MetricCard
-                title={bundle.resources.source === "docker_container_host_procfs" && bundle.resources.peak_pss_bytes == null ? "RSS process sum" : "Peak RSS"}
-                value={formatBytes(bundle.resources.peak_rss_bytes)}
-                description={bundle.resources.source === "docker_container_host_procfs" && bundle.resources.peak_pss_bytes == null ? "Upper bound; shared pages may be counted once per process." : undefined}
-              />
-              <MetricCard title="CPU time" value={formatSecondsDuration(bundle.resources.cpu_seconds)} />
-              <MetricCard title="Wall time" value={formatSecondsDuration(bundle.resources.wall_seconds)} />
-              <MetricCard title="Read I/O" value={formatBytes(bundle.resources.read_bytes)} />
-              <MetricCard title="Write I/O" value={formatBytes(bundle.resources.write_bytes)} />
-            </div>
-            {bundle.resources.stages?.length ? <div className="table-wrap"><table className="dense-table"><thead><tr><th>Stage</th><th>Wall</th><th>CPU</th><th>Peak PSS</th><th>Read / Write</th></tr></thead><tbody>{bundle.resources.stages.map((stage, index) => <tr key={`${stage.samples_path || "stage"}-${index}`}><td>{stage.samples_path?.split("/").pop()?.replace(".jsonl", "") || `Stage ${index + 1}`}</td><td>{formatSecondsDuration(stage.wall_seconds)}</td><td>{formatSecondsDuration(stage.cpu_seconds)}</td><td>{formatBytes(stage.peak_pss_bytes)}</td><td>{formatBytes(stage.read_bytes)} / {formatBytes(stage.write_bytes)}</td></tr>)}</tbody></table></div> : null}
-          </> : null}
-        </section> : null}
+        <CurrentProgressPanel detail={detail} progress={progress} source={bundle.progress?.progress_source} stage={bundle.progress} />
         <section className="panel">
           <div className="tabs" role="tablist" aria-label="Run detail tabs">{tabs.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} role="tab" type="button" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}</div>
           {activeTab === "Overview" ? <RunOverviewTab detail={detail} samples={bundle.samples} /> : null}
-          {activeTab === "Families" ? <WgsFamiliesTab families={bundle.families} /> : null}
+          {activeTab === "Samples" ? <WgsSamplesTab samples={bundle.samples} /> : null}
           {activeTab === "Rules" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} /> : null}
           {activeTab === "Master" ? <WgsMasterTab pods={bundle.pods} /> : null}
           {activeTab === "Transfers" ? <WgsTransfersTab transfers={bundle.transfers} /> : null}
-          {activeTab === "QC" ? <RunQcTab qc={bundle.qc} runStatus={detail.status} /> : null}
           {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} /></> : null}
           {activeTab === "Files" ? <RunFilesTab artifacts={bundle.artifacts} /> : null}
         </section>
@@ -299,8 +275,8 @@ export function RunDetailPage() {
   );
 }
 
-function WgsFamiliesTab({families}: {families: WgsFamily[]}) {
-  return <WgsTable headers={["Family", "Samples", "Status", "Message"]} rows={families.map((family) => [family.family_id, family.sample_count ?? "-", family.status ?? "-", family.message ?? "-"])} empty="No families returned." />;
+function WgsSamplesTab({samples}: {samples: Sample[]}) {
+  return <WgsTable headers={["Sample/data", "Family", "Relation", "Type", "Sex", "Sequencing batch", "R1", "R2", "Status", "Pending source/reason"]} rows={samples.map((sample) => [sample.data_id || sample.sample_id, sample.family_id || "-", sample.family_relation || "-", sample.sample_type || "-", sample.sex || "-", sample.sequencing_batch || "-", sample.r1_filename || "-", sample.r2_filename || "-", sample.status || "-", sample.pending_source || sample.pending_reason || "-"])} empty="No safe sampleinfo projection returned." />;
 }
 
 function WgsMasterTab({pods}: {pods: WgsPod[]}) {

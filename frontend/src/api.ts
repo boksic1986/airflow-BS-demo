@@ -44,8 +44,12 @@ export type OperatorSample = {
   pipeline: string;
   sample_id: string;
   family_id?: string | null;
+  family_relation?: string | null;
+  sample_type?: string | null;
+  sex?: string | null;
+  sequencing_batch?: string | null;
   status: string;
-  qc_status: string;
+  qc_status?: string | null;
   source_folder?: string | null;
   r1_name?: string | null;
   r2_name?: string | null;
@@ -130,6 +134,7 @@ export type RunDetail = {
     updated_at?: string | null;
   } | null;
   step4_repair?: Step4RepairCapability | null;
+  step7_cleanup?: Step7CleanupCapability | null;
 };
 
 export type WgsMaintenanceAction = {
@@ -137,16 +142,22 @@ export type WgsMaintenanceAction = {
   analysis_id: string;
   attempt: number;
   action_type: string;
-  linkage_group: "cram";
+  linkage_group: "cram" | "sfs";
   status: string;
   requested_by: string;
   source_dag_run_id?: string | null;
   maintenance_dag_run_id?: string | null;
-  evidence_path?: string | null;
   error_message?: string | null;
   created_at?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
+};
+
+export type Step7CleanupCapability = {
+  available: boolean;
+  reason?: string | null;
+  required_batch: string;
+  latest_action?: WgsMaintenanceAction | null;
 };
 
 export type Step4RepairCapability = {
@@ -173,6 +184,7 @@ export type WgsRelease = {
   source_commit: string;
   execution_enabled: boolean;
   runtime_adapter_enabled: boolean;
+  submission_preview_enabled: boolean;
 };
 
 export type WgsFamily = {
@@ -220,14 +232,21 @@ export type WgsTransfer = {
 
 export type Sample = {
   sample_id: string;
+  data_id?: string | null;
   family_id?: string | null;
+  family_relation?: string | null;
   sample_type?: string | null;
   sex?: string | null;
+  sequencing_batch?: string | null;
+  r1_filename?: string | null;
+  r2_filename?: string | null;
   fq1?: string | null;
   fq2?: string | null;
   status?: string | null;
   qc_status?: string | null;
   metadata?: Record<string, unknown> | null;
+  pending_source?: string | null;
+  pending_reason?: string | null;
 };
 
 export type ScanCandidate = {
@@ -369,8 +388,11 @@ export type ReanalysisResponse = {
 };
 
 export type RuleEvent = {
+  sequence?: number | null;
   rule: string;
   phase?: string;
+  phase_order?: number;
+  family_id?: string | null;
   sample_id?: string | null;
   status: string;
   snakemake_jobid?: string | null;
@@ -388,6 +410,8 @@ export type RuleEvent = {
   estimated_remaining_seconds?: number | null;
   eta_history_count?: number;
   eta_model?: string | null;
+  stderr_excerpt?: string | null;
+  analysis_log_key?: string | null;
 };
 
 export type WgsValidationIssue = {
@@ -412,7 +436,7 @@ export type RunProgressResponse = {
   status: string;
   dag_id?: string | null;
   dag_run_id?: string | null;
-  percent: number;
+  percent?: number | null;
   current_step: string;
   current_source: string;
   note: string;
@@ -426,10 +450,22 @@ export type RunProgressResponse = {
   rule_counts?: {total: number; running: number; success: number; failed: number; terminal: number};
   updated_at?: string | null;
   current_airflow_stage?: string | null;
-  overall_progress_percent?: number | null;
   analysis_eta_seconds?: number | null;
   analysis_eta_model?: string | null;
   analysis_eta_history_count?: number;
+  stage_code?: string;
+  step_number?: number | null;
+  stage_label?: string;
+  stage_status?: string;
+  progress_available?: boolean;
+  progress_percent?: number | null;
+  completed_units?: number | null;
+  total_units?: number | null;
+  unit?: string | null;
+  current_item?: string | null;
+  speed_bps?: number | null;
+  eta_seconds?: number | null;
+  stage_updated_at?: string | null;
 };
 
 export type QcMetric = {
@@ -462,9 +498,10 @@ export type RunQc = {
 export type LogStream = "metadata" | "stdout" | "stderr";
 
 export type RunLog = {
-  path: string;
+  path?: string;
   stream: LogStream;
   truncated: boolean;
+  file_size?: number;
   lines: string[];
 };
 
@@ -472,7 +509,9 @@ export type RunLogIndexItem = {
   key: string;
   label: string;
   stream: string;
-  relative_path: string;
+  relative_path?: string;
+  source?: string;
+  stage?: string;
   rule?: string | null;
   sample_id?: string | null;
   status?: string | null;
@@ -702,6 +741,7 @@ export type DashboardOverview = {
 export type DashboardRunTrackerRow = {
   analysis_id: string;
   project_name: string;
+  batch_no?: string | null;
   pipeline: string;
   status: string;
   display_status?: string;
@@ -719,7 +759,23 @@ export type DashboardRunTrackerRow = {
   pipeline_finished_at?: string | null;
   dag_id?: string | null;
   dag_run_id?: string | null;
-  percent: number;
+  percent?: number | null;
+  stage_code?: string | null;
+  step_number?: number | null;
+  stage_status?: string | null;
+  progress_available?: boolean;
+  stage_progress?: {
+    available: boolean;
+    percent?: number | null;
+    completed_units?: number | null;
+    total_units?: number | null;
+    unit?: string | null;
+    current_item?: string | null;
+    speed_bps?: number | null;
+    eta_seconds?: number | null;
+    source?: string | null;
+    updated_at?: string | null;
+  };
   current_airflow_task?: string | null;
   current_pipeline_rule?: string | null;
   current_stage_label?: string | null;
@@ -773,6 +829,53 @@ export type SystemResourcesResponse = {
     disks: Array<{path: string; total_bytes: number; used_bytes: number; free_bytes: number; used_percent: number}>;
   };
   containers: Array<{name: string; cpu_percent: string; memory_usage: string; block_io: string}>;
+};
+
+export type PlatformResourceSnapshot = {
+  resource_key: string;
+  resource_type: "node" | "sfs" | "obs";
+  display_name: string;
+  status: string;
+  current: Record<string, number | string | null>;
+  history: Array<Record<string, number | string | null>>;
+  source_updated_at?: string | null;
+  collected_at?: string | null;
+  error_message?: string | null;
+};
+
+export type PlatformResourcesResponse = {
+  status: string;
+  items: PlatformResourceSnapshot[];
+  updated_at: string;
+};
+
+export type WgsProjectCatalog = {
+  items: Array<{
+    project_id: string;
+    display_name: string;
+    platforms: Array<{platform_id: string; display_name: string}>;
+    fastq_roots: Array<{root_id: string; display_name: string}>;
+    editable_config: {
+      use_reference?: {type: string; values?: string[]; default: string};
+      algo?: {type: string; values?: string[]; default: string};
+    };
+  }>;
+};
+
+export type WgsSubmissionDraft = {
+  draft_id: string;
+  project_id: string;
+  platform: string;
+  sequencing_batch: string;
+  analysis_batch: string;
+  fastq_root_id: string;
+  use_reference: boolean;
+  status: string;
+  preview: {samples?: Sample[]; families?: WgsFamily[]};
+  resolved_config: Record<string, unknown>;
+  error_message?: string | null;
+  analysis_id?: string | null;
+  expires_at: string;
 };
 
 export type RunResourceSummary = {
@@ -984,6 +1087,10 @@ export function getSystemResources(): Promise<SystemResourcesResponse> {
   return requestJson<SystemResourcesResponse>("/system/resources");
 }
 
+export function getPlatformResources(): Promise<PlatformResourcesResponse> {
+  return requestJson<PlatformResourcesResponse>("/platform/resources");
+}
+
 export function getRunResources(analysisId: string): Promise<RunResourceSummary> {
   return requestJson<RunResourceSummary>(`/runs/${encodeURIComponent(analysisId)}/resources`);
 }
@@ -1135,6 +1242,47 @@ export function createRun(payload: CreateRunRequest): Promise<RunDetail> {
   });
 }
 
+export function getWgsProjects(): Promise<WgsProjectCatalog> {
+  return requestJson<WgsProjectCatalog>("/wgs/projects");
+}
+
+export function createCatalogWgsRun(payload: {
+  project_id: string;
+  platform: string;
+  sequencing_batch: string;
+  analysis_batch: string;
+  fastq_root_id: string;
+  use_reference: "all" | "ref" | "no";
+  algo: "DNAscope" | "Haplotyper";
+}): Promise<RunDetail> {
+  return requestJson<RunDetail>("/wgs/runs", {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload),
+  });
+}
+
+export function createWgsSubmissionDraft(payload: {
+  project_id: string;
+  platform: string;
+  sequencing_batch: string;
+  analysis_batch: string;
+  fastq_root_id: string;
+  use_reference: boolean;
+}): Promise<WgsSubmissionDraft> {
+  return requestJson<WgsSubmissionDraft>("/wgs/submission-drafts", {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload),
+  });
+}
+
+export function getWgsSubmissionDraft(draftId: string): Promise<WgsSubmissionDraft> {
+  return requestJson<WgsSubmissionDraft>(`/wgs/submission-drafts/${encodeURIComponent(draftId)}`);
+}
+
+export function submitWgsSubmissionDraft(draftId: string, idempotencyKey: string): Promise<RunDetail> {
+  return requestJson<RunDetail>(`/wgs/submission-drafts/${encodeURIComponent(draftId)}/submit`, {
+    method: "POST", headers: {"Idempotency-Key": idempotencyKey},
+  });
+}
+
 export function getRunDetail(analysisId: string): Promise<RunDetail> {
   return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}`);
 }
@@ -1227,4 +1375,12 @@ export function cancelRun(analysisId: string): Promise<RunDetail> {
 
 export function repairStep4(analysisId: string): Promise<WgsMaintenanceAction> {
   return requestJson<WgsMaintenanceAction>(`/runs/${encodeURIComponent(analysisId)}/actions/repair-step4`, {method: "POST"});
+}
+
+export function cleanupStep7(analysisId: string, batchConfirmation: string): Promise<WgsMaintenanceAction> {
+  return requestJson<WgsMaintenanceAction>(`/runs/${encodeURIComponent(analysisId)}/actions/cleanup-step7`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({batch_confirmation: batchConfirmation}),
+  });
 }

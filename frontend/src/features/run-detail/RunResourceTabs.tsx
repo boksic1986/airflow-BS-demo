@@ -2,13 +2,15 @@ import type {Artifact, RunConfig, RunDetail, Sample} from "../../api";
 
 import {StatusBadge} from "../../components/StatusBadge";
 import {compactPipelineName, formatBytes, formatDate, safeJson} from "../../lib/format";
-import {sampleSourceDisplay} from "../../lib/sampleFiles";
 
 export function RunOverviewTab({detail, samples}: {detail: RunDetail; samples: Sample[]}) {
   return (
     <div className="overview-stack">
       <div className="definition-grid">
         <div><dt>Pipeline</dt><dd>{compactPipelineName(detail.pipeline)}</dd></div>
+        <div><dt>Batch</dt><dd>{String(detail.params?.batch_no || "not set")}</dd></div>
+        <div><dt>WGS release</dt><dd>{detail.pipeline_release_id || "not pinned"}</dd></div>
+        <div><dt>Attempt</dt><dd>{String(detail.params?.attempt || "1")}</dd></div>
         <div><dt>Status</dt><dd><StatusBadge status={detail.status} /></dd></div>
         <div><dt>DAG run</dt><dd className="path-text">{detail.dag_run_id || "not set"}</dd></div>
         <div><dt>Samples</dt><dd>{samples.length}</dd></div>
@@ -17,7 +19,6 @@ export function RunOverviewTab({detail, samples}: {detail: RunDetail; samples: S
         <div><dt>Submitted</dt><dd>{formatDate(detail.submitted_at)}</dd></div>
         <div><dt>Airflow started</dt><dd>{formatDate(detail.started_at)}</dd></div>
         <div><dt>Finished</dt><dd>{formatDate(detail.pipeline_finished_at || detail.ended_at)}</dd></div>
-        <div><dt>Workdir</dt><dd className="path-text">{detail.workdir || "not set"}</dd></div>
       </div>
       <section>
         <div className="section-heading"><h2>Selected samples manifest</h2><p>Samples and captured source file names</p></div>
@@ -31,13 +32,13 @@ export function RunSamplesTab({samples}: {samples: Sample[]}) {
   return (
     <div className="table-wrap">
       <table className="data-table">
-        <thead><tr><th>sample_id</th><th>family_id</th><th>status</th><th>qc_status</th><th>source files</th></tr></thead>
+        <thead><tr><th>sample_id</th><th>family_id</th><th>relation</th><th>status</th><th>R1 / R2</th></tr></thead>
         <tbody>
           {samples.map((sample) => (
             <tr key={sample.sample_id}>
               <td>{sample.sample_id}</td><td>{sample.family_id || "not set"}</td>
-              <td><StatusBadge status={sample.status} /></td><td><StatusBadge status={sample.qc_status || "unknown"} size="sm" /></td>
-              <td><SourceFilesCell sample={sample} /></td>
+              <td>{sample.family_relation || "not set"}</td><td><StatusBadge status={sample.status} /></td>
+              <td>{sample.r1_filename || "-"} / {sample.r2_filename || "-"}</td>
             </tr>
           ))}
           {samples.length === 0 ? <tr><td className="empty-cell" colSpan={5}>No samples returned.</td></tr> : null}
@@ -97,22 +98,14 @@ function SamplesManifestTable({samples}: {samples: Sample[]}) {
   return (
     <div className="table-wrap">
       <table className="data-table compact manifest-table">
-        <thead><tr><th>sample_id</th><th>source folder</th><th>R1</th><th>R2</th><th>status</th><th>QC</th></tr></thead>
+        <thead><tr><th>sample/data</th><th>family</th><th>relation</th><th>R1</th><th>R2</th><th>status</th></tr></thead>
         <tbody>
-          {samples.map((sample) => {
-            const display = sampleSourceDisplay(sample);
-            return <tr key={sample.sample_id}><td>{sample.sample_id}</td><td>{display.primary}</td><td>{basename(sample.fq1)}</td><td>{basename(sample.fq2)}</td><td><StatusBadge status={sample.status} size="sm" /></td><td><StatusBadge status={sample.qc_status || "unknown"} size="sm" /></td></tr>;
-          })}
+          {samples.map((sample) => <tr key={sample.sample_id}><td>{sample.data_id || sample.sample_id}</td><td>{sample.family_id || "-"}</td><td>{sample.family_relation || "-"}</td><td>{sample.r1_filename || "-"}</td><td>{sample.r2_filename || "-"}</td><td><StatusBadge status={sample.status} size="sm" /></td></tr>)}
           {samples.length === 0 ? <tr><td className="empty-cell" colSpan={6}>No selected samples returned.</td></tr> : null}
         </tbody>
       </table>
     </div>
   );
-}
-
-function SourceFilesCell({sample}: {sample: Sample}) {
-  const display = sampleSourceDisplay(sample);
-  return <div className={display.missing ? "source-files missing" : "source-files"}><span>{display.primary}</span>{display.secondary ? <small>{display.secondary}</small> : null}</div>;
 }
 
 function ArtifactRow({artifact}: {artifact: Artifact}) {
@@ -132,9 +125,4 @@ function isConfigArtifact(artifact: Artifact): boolean {
 function isComposeArtifact(artifact: Artifact): boolean {
   const text = `${artifact.key} ${artifact.type} ${artifact.label} ${artifact.path}`.toLowerCase();
   return text.includes("docker_compose") || text.includes("docker compose") || /compose\.ya?ml/.test(text);
-}
-
-function basename(value?: string | null): string {
-  if (!value) return "Path not captured for this run";
-  return value.split(/[\\/]/).filter(Boolean).pop() || value;
 }

@@ -15,9 +15,16 @@ export function FailuresPage() {
   const capabilities = usePlatformCapabilities();
   const [searchParams, setSearchParams] = useSearchParams();
   const pipeline = deployedPipelineFilter(searchParams.get("pipeline"), capabilities.deployed_pipelines);
-  const kind = (searchParams.get("kind") || "all") as "all" | "workflow" | "qc";
+  const requestedKind = (searchParams.get("kind") || "all") as "all" | "workflow" | "qc";
   const period = (searchParams.get("period") || "7d") as "24h" | "7d" | "30d";
-  const layer = searchParams.get("layer") || "all";
+  const requestedLayer = searchParams.get("layer") || "all";
+  const wgsOnly = pipeline === "wgs" || (
+    pipeline === "all"
+    && capabilities.deployed_pipelines.length === 1
+    && capabilities.deployed_pipelines[0] === "wgs"
+  );
+  const kind = wgsOnly && requestedKind === "qc" ? "workflow" : requestedKind;
+  const layer = wgsOnly && requestedLayer === "qc" ? "all" : requestedLayer;
   const keyword = searchParams.get("keyword") || "";
   const [keywordDraft, setKeywordDraft] = useState(keyword);
   const page = positivePage(searchParams.get("page"));
@@ -93,14 +100,14 @@ export function FailuresPage() {
         <div>
           <p className="eyebrow">Operations workspace</p>
           <h1>Failure Triage</h1>
-          <p>Workflow failures and QC alerts remain distinct while sharing one investigation queue.</p>
+          <p>{wgsOnly ? "WGS workflow and Rule failures with controlled evidence." : "Workflow failures and QC alerts remain distinct while sharing one investigation queue."}</p>
         </div>
       </section>
       <section className="panel failure-filter-panel">
         <div className="segmented-control" aria-label="Issue kind">
           <button className={kind === "all" ? "active" : ""} type="button" onClick={() => updateFilter("kind", "all")}>All issues</button>
           <button className={kind === "workflow" ? "active" : ""} type="button" onClick={() => updateFilter("kind", "workflow")}>Workflow failures</button>
-          <button className={kind === "qc" ? "active" : ""} type="button" onClick={() => updateFilter("kind", "qc")}>QC alerts</button>
+          {!wgsOnly ? <button className={kind === "qc" ? "active" : ""} type="button" onClick={() => updateFilter("kind", "qc")}>QC alerts</button> : null}
         </div>
         <div className="filter-bar resource-filter-bar">
           <label>
@@ -127,7 +134,7 @@ export function FailuresPage() {
               <option value="airflow">Airflow task</option>
               <option value="runner">Runner</option>
               <option value="pipeline_rule">Pipeline rule</option>
-              <option value="qc">Sample QC</option>
+              {!wgsOnly ? <option value="qc">Sample QC</option> : null}
             </select>
           </label>
           <label className="grow">

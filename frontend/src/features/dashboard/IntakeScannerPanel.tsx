@@ -16,7 +16,7 @@ export function IntakeScannerPanel({scanner, items, total, limit, offset, loadin
 }) {
   const pageStart = total === 0 ? 0 : offset + 1;
   const pageEnd = Math.min(offset + limit, total);
-  const intervalMinutes = Math.max(1, Math.round((scanner?.schedule_seconds ?? 1800) / 60));
+  const intervalMinutes = Math.max(1, Math.round((scanner?.schedule_seconds ?? 600) / 60));
   return (
     <section className="panel intake-scanner-panel" aria-busy={loading}>
       <div className="section-heading split">

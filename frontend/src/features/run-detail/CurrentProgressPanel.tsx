@@ -2,14 +2,14 @@ import type {RunDetail} from "../../api";
 import type {RunProgress} from "../../lib/runProgress";
 
 import {RunProgressBar} from "../../components/RunProgressBar";
-import {formatDuration} from "../../lib/format";
-import {humanStageLabel, stageDebugLabel} from "../../lib/stageLabels";
+import {formatBytes, formatDuration, formatSecondsDuration} from "../../lib/format";
 import {isActiveStatus} from "../../lib/status";
 
-export function CurrentProgressPanel({detail, progress, source}: {
+export function CurrentProgressPanel({detail, progress, source, stage}: {
   detail: RunDetail;
   progress: RunProgress | null;
   source?: string | null;
+  stage?: {completed_units?: number | null; total_units?: number | null; unit?: string | null; speed_bps?: number | null; eta_seconds?: number | null; current_item?: string | null} | null;
 }) {
   return (
     <section className="panel current-progress-panel">
@@ -19,9 +19,11 @@ export function CurrentProgressPanel({detail, progress, source}: {
       </div>
       {progress ? (
         <div className="current-progress-hero">
-          <strong>{humanStageLabel(progress.currentStep)}</strong>
-          {stageDebugLabel(progress.currentStep) ? <small title="Raw pipeline step ID">{progress.currentStep}</small> : null}
-          <span>{Math.round(progress.percent)}% complete</span>
+          <strong>{progress.currentStep}</strong>
+          <span>{progress.available === false ? "Detailed progress unavailable" : `${Math.round(progress.percent)}% complete`}</span>
+          {progress.available !== false && stage?.total_units != null ? <span>{stage.completed_units ?? 0}/{stage.total_units} {stage.unit || "units"}</span> : null}
+          {stage?.current_item ? <small className="path-text">Current: {stage.current_item}</small> : null}
+          {stage?.speed_bps ? <small>{formatBytes(stage.speed_bps)}/s{stage.eta_seconds != null ? ` / ETA ${formatSecondsDuration(stage.eta_seconds)}` : ""}</small> : null}
           <small>
             Elapsed {formatDuration(detail.submitted_at || detail.started_at, detail.pipeline_finished_at || detail.ended_at)}
             {isActiveStatus(detail.status) ? " / ETA based on recent successful runs" : ""}
