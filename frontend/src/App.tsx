@@ -15,7 +15,7 @@ import {AccountsPage} from "./pages/AccountsPage";
 
 export default function App() {
   return (
-    <SessionProvider><PlatformCapabilitiesProvider><BrowserRouter><AppRoutes /></BrowserRouter></PlatformCapabilitiesProvider></SessionProvider>
+    <SessionProvider><BrowserRouter><AppRoutes /></BrowserRouter></SessionProvider>
   );
 }
 
@@ -23,7 +23,7 @@ function AppRoutes() {
   const session = useSession();
   if (session.loading) return <p className="muted">Restoring session...</p>;
   if (!session.user) return <LoginPage />;
-  return <Routes>
+  return <PlatformCapabilitiesProvider><Routes>
     <Route path="/" element={<AppShell />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
@@ -35,5 +35,5 @@ function AppRoutes() {
           <Route path="failures" element={<FailuresPage />} />
           {session.hasRole("admin") ? <Route path="accounts" element={<AccountsPage />} /> : null}
     </Route>
-  </Routes>;
+  </Routes></PlatformCapabilitiesProvider>;
 }

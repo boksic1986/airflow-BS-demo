@@ -198,6 +198,54 @@ class BioWgsDagTests(unittest.TestCase):
             {"attempt": 1},
         )
 
+    def test_stage_start_waits_past_stale_failed_status_from_previous_generation(self) -> None:
+        calls = []
+        conf = {"analysis_id": "WGS_20260830_010203_A1B2C3", "attempt": 1}
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        original_backend = bio_wgs._backend_json
+        original_run = bio_wgs.subprocess.run
+        original_enabled = bio_wgs._require_runtime_enabled
+        original_sleep = bio_wgs.time.sleep
+        try:
+            bio_wgs._require_runtime_enabled = lambda: None
+            responses = iter(
+                [
+                    {
+                        "status": "registered",
+                        "registered_at": "2026-09-02T01:00:00+00:00",
+                    },
+                    {
+                        "status": "failed",
+                        "failed": True,
+                        "updated_at": "2026-09-01T08:26:13+00:00",
+                    },
+                    {
+                        "status": "accepted",
+                        "failed": False,
+                        "updated_at": "2026-09-02T01:00:01+00:00",
+                    },
+                ]
+            )
+
+            def backend(path, **kwargs):
+                calls.append(path)
+                return next(responses)
+
+            bio_wgs._backend_json = backend
+            bio_wgs.subprocess.run = lambda *args, **kwargs: type(
+                "Completed", (), {"returncode": 0, "stdout": "", "stderr": ""}
+            )()
+            bio_wgs.time.sleep = lambda _seconds: None
+            result = bio_wgs.run_stage_on_200("step4_publish", **context)
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs.subprocess.run = original_run
+            bio_wgs._require_runtime_enabled = original_enabled
+            bio_wgs.time.sleep = original_sleep
+
+        assert result["runner_status"] == "accepted"
+        assert len([path for path in calls if "stage-status" in path]) == 2
+
     def test_release_leases_always_requests_final_observer_drain(self) -> None:
         calls = []
         context = {

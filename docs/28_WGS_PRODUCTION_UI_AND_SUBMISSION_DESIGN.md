@@ -26,8 +26,11 @@ a real batch, automatic intake dispatch, or modification of the WGS repository.
 - The browser never accepts arbitrary server paths, YAML, shell arguments,
   linkage groups, Kubernetes identities, OBS URIs, SFS paths, or cleanup
   confirmation strings.
-- The current WGS `ANALYSIS_COMPLETE` producer/consumer mismatch remains a WGS
-  runtime blocker. Control-plane presentation must not hide it or infer success.
+- WGS 4.1.1 commit `6c982817...` has unified the structured
+  `ANALYSIS_COMPLETE` producer/consumer contract. The older in-flight
+  `2499749` bundle received only the reviewed parser compatibility hunks; its
+  Step4 then completed normally. Control-plane presentation still cannot infer
+  success before the bound stage status reports it.
 
 ## 2. Authoritative stage and progress contract
 

@@ -5,6 +5,7 @@ import json
 import os
 import re
 import subprocess
+import time
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -156,6 +157,12 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         raise RuntimeError(
             f"restricted node200 WGS stage failed ({completed.returncode}): {error}"
         )
+    _wait_for_registered_stage_generation(
+        registered=registered,
+        analysis_id=str(conf["analysis_id"]),
+        attempt=int(conf["attempt"]),
+        stage=runner_stage,
+    )
     if runner_stage == "step3_monitor":
         _backend_json(
             f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/activate",
@@ -163,6 +170,38 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
             payload={"attempt": conf["attempt"]},
         )
     return {**registered, "runner_status": "accepted"}
+
+
+def _wait_for_registered_stage_generation(
+    *,
+    registered: dict[str, Any],
+    analysis_id: str,
+    attempt: int,
+    stage: str,
+    timeout_seconds: float = 30.0,
+) -> None:
+    """Do not expose a failed status from a previous async worker generation."""
+    registered_at_text = str(registered.get("registered_at") or "")
+    if not registered_at_text:
+        return
+    registered_at = datetime.fromisoformat(registered_at_text.replace("Z", "+00:00"))
+    deadline = time.monotonic() + timeout_seconds
+    query = urlencode({"attempt": attempt, "stage": stage})
+    while True:
+        payload = _backend_json(
+            f"/api/internal/wgs/runs/{analysis_id}/stage-status?{query}"
+        )
+        updated_at_text = str(payload.get("updated_at") or "")
+        if not payload.get("failed") or not updated_at_text:
+            return
+        updated_at = datetime.fromisoformat(updated_at_text.replace("Z", "+00:00"))
+        if updated_at >= registered_at:
+            return
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"new {stage} worker status was not visible within {timeout_seconds:g} seconds"
+            )
+        time.sleep(1)
 
 
 def stage_ready(stage: str, **context: Any) -> bool:

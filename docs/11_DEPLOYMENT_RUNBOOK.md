@@ -1,5 +1,18 @@
 # 11 部署 Runbook
 
+## T163 最小在途热修复
+
+T163从在线T152 release建立新不可变release，不提前部署migration 0013。发布前备份
+biodemo、Airflow metadata、runner状态和受保护env；测试使用BS10610 Docker及
+`--network none`。仅当Step4状态文件的analysis/attempt/stage完全匹配且status为
+success，才可把同attempt已进入Step5的旧failed业务投影恢复为downloading。
+
+scanner精确忽略项通过受保护env的`WGS_INTAKE_IGNORED_CHIP_IDS`配置。删除发现行前
+必须确认`analysis_id IS NULL`和关联分析数为0；删除后立即运行一次`--once`并确认
+该行未重建、AnalysisRun/DagRun计数未增加。Compose继续复用外部
+`nipt_analysis_test_net`，不运行migration、不删除volume。真实batch未终态时不得
+关闭会阻止其后续Task调度的运行门禁；终态验收后再切回disabled状态。
+
 ## T158禁用态发布门禁
 
 迁移`20260901_0013`前备份biodemo和Airflow metadata。两个WGS执行开关保持false，
