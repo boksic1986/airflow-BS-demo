@@ -18,7 +18,8 @@
 - 当前run`WGS_20260901_031616_C74E6C`保持同一DagRun/attempt/Master，普通Step4
   已success。首次Step5在结果archive下载79.86%时因`no space left on device`失败；
   旧worker退出且`df`恢复可用后，runner归档完整证据并以retry-1复用obsutil checkpoint。
-  当前retry-1为running，Step5 sensor为`up_for_reschedule`；未重跑Step1-Step4。
+  retry-1随后完成，Step5 start/wait均为success，当前正在Step6 materialize；未重跑
+  Step1-Step4，最终成功尚未确认。
 
 ### 发布与验证
 
@@ -41,8 +42,8 @@ full branch: backend 283 passed/1 skipped; scripts 40 passed; bio_wgs 10 passed;
 
 ### 未完成与下一步
 
-- 当前真实batch仍在Step5，不能表述为分析成功。保持定时/sensor监控即可；终态后
-  核对Step5 MD5、Step6物化和finalize，再暂停DAG并关闭两个执行门禁。
+- 当前真实batch已通过Step5并进入Step6，仍不能表述为分析成功。保持正常调度即可；
+  终态后核对Step6物化和finalize，再暂停DAG并关闭两个执行门禁。
 - T159-T161完整新候选仍需单独disabled migration/release；T163线上release是从已运行
   的2499749控制面做的最小兼容修复，没有提前部署migration 0013。
 
