@@ -35,7 +35,7 @@
 | T158 | Disabled production regression and release | infra/QA/docs | BS10610 migration/tests/smoke/backup and non-destructive release | fixed network/port and data boundaries pass; real batch remains separately gated | blocked on release drift and T156/T157 external contracts |
 | T159 | WGS native submission, Airflow-owned transfer progress and safe Rule errors | backend/airflow/frontend/infra/QA/docs | direct catalog submission; final-sample sync; transparent obsutil wrapper; bounded analysis.log Rule excerpt | BS backend/runner tests and frontend build pass; no arbitrary paths or fabricated progress; no online change | implemented in candidate; node200 install and disabled release pending |
 | T160 | Bounded WGS log tail reader | backend/frontend/QA/docs | server-generated opaque key; reverse chunked log tail; file size/truncation metadata | large analysis.log is never loaded completely; BS10610 backend and Docker frontend suites pass | done in candidate; deployment pending |
-| T161 | WGS 4.2.0 candidate rebind and repository integration | backend/airflow/frontend/QA/docs | bind dev_CJC_4.2.0_cloud@7879718; map T7/analysis batch/algo; full BS Docker validation; PR/merge/main-worktree sync | exact release contract and UI pass; network unchanged; no runtime deployment; merged main and clean next worktree | review |
+| T161 | WGS 4.2.0 candidate rebind and repository integration | backend/airflow/frontend/QA/docs | bind dev_CJC_4.2.0_cloud@7879718; map T7/analysis batch/algo; full BS Docker validation; PR/merge/main-worktree sync | exact release contract and UI pass; network unchanged; no runtime deployment; merged main and clean next worktree | done (PR #4, merge 17c0f97) |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
 
