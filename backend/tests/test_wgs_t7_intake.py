@@ -145,6 +145,28 @@ def test_waiting_directory_is_not_persisted_until_barcode_stat_appears(
         assert row.state == "no_new_wgs"
 
 
+def test_ignored_chip_is_not_persisted_after_bootstrap(tmp_path: Path) -> None:
+    root = tmp_path / "T7_Fastq"
+    root.mkdir()
+    ignored = chip(root, "2226th_20260830B_E250197447")
+    sessions = make_sessionmaker()
+    baseline = datetime(2026, 8, 29, 8, 0, tzinfo=timezone.utc)
+
+    scan(sessions, root, now=baseline)
+    complete_after(ignored, baseline + timedelta(minutes=1))
+    result = scan_wgs_t7_intake(
+        session_factory=sessions,
+        root=root,
+        now=baseline + timedelta(minutes=10),
+        ignored_chip_ids={"2226th_20260830B_E250197447"},
+    )
+
+    assert result["scanned"] == 1
+    assert result["created"] == 0
+    with sessions() as session:
+        assert session.scalars(select(WgsIntakeBatch)).all() == []
+
+
 def test_post_bootstrap_ready_batch_classifies_normal_and_addon_pairs(tmp_path: Path) -> None:
     root = tmp_path / "T7_Fastq"
     root.mkdir()

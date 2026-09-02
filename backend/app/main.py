@@ -175,6 +175,26 @@ def _is_known_step4_master_completion_race(
     )
 
 
+def _is_successful_runtime_stage(
+    *, request_root: str, analysis_id: str, attempt: int, stage: str
+) -> bool:
+    marker = Path(request_root) / analysis_id / f"attempt-{attempt}" / f"{stage}.status.json"
+    if not marker.is_file() or marker.is_symlink():
+        return False
+    try:
+        value = json.loads(marker.read_text(encoding="utf-8"))
+        marker_attempt = int(value.get("attempt", 0))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return False
+    return (
+        value.get("schema_version") == "wgs-runtime.stage-status.v1"
+        and value.get("analysis_id") == analysis_id
+        and marker_attempt == attempt
+        and value.get("stage") == stage
+        and value.get("status") in {"success", "complete", "succeeded"}
+    )
+
+
 def require_internal_service_token(
     x_airflow_demo_token: str | None = Header(default=None, alias="X-Airflow-Demo-Token"),
 ) -> None:
@@ -1527,9 +1547,37 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     analysis_id=analysis_id,
                     payload={"attempt": request.attempt},
                 )
+            if (
+                stage_name == "step5_download"
+                and run.status == "failed"
+                and run.current_stage == "step4_publish"
+            ):
+                if _is_successful_runtime_stage(
+                    request_root=settings.wgs_runtime_request_root,
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                    stage="step4_publish",
+                ):
+                    run.status = "downloading"
+                    run.ended_at = None
+                    run.pipeline_finished_at = None
+                    run.error_summary = None
+                    audit(
+                        session=session,
+                        username="airflow-internal",
+                        action="run.step5_download_recovered",
+                        analysis_id=analysis_id,
+                        payload={"attempt": request.attempt},
+                    )
             run.current_stage = stage_name
             session.commit()
-            return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "registered", "request_path": str(path)}
+            return {
+                "analysis_id": analysis_id,
+                "attempt": request.attempt,
+                "stage": stage_name,
+                "status": "registered",
+                "request_path": str(path),
+            }
     except (OSError, ValueError, RuntimeError) as exc:
         message = str(exc)
         if message.startswith("release_unavailable:"):
@@ -1622,7 +1670,18 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
             if run is not None:
                 sync_prepared_samples(session=session, settings=settings, run=run)
                 session.commit()
-    return {"analysis_id": analysis_id, "attempt": attempt, "stage": stage, "ready": status_value in {"success", "complete", "succeeded"}, "failed": status_value == "failed", "status": status_value, "message": payload.get("message", ""), "master": payload.get("master")}
+    return {
+        "analysis_id": analysis_id,
+        "attempt": attempt,
+        "stage": stage,
+        "ready": status_value in {"success", "complete", "succeeded"},
+        "failed": status_value == "failed",
+        "status": status_value,
+        "updated_at": payload.get("updated_at"),
+        "retry_no": payload.get("retry_no"),
+        "message": payload.get("message", ""),
+        "master": payload.get("master"),
+    }
 
 
 @app.post("/api/runs/{analysis_id}/actions/resume")

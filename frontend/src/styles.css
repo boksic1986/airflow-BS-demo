@@ -1196,6 +1196,26 @@ textarea {
   padding: 18px;
 }
 
+.intake-scanner-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.intake-scanner-metadata span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-soft);
+  color: var(--color-text-muted);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .tracker-controls {
   min-width: min(620px, 100%);
   display: grid;

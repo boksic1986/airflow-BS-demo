@@ -1128,6 +1128,155 @@ def test_step4_stage_registration_recovers_known_master_completion_race(
         assert recovery.username == "airflow-internal"
 
 
+def test_step5_stage_registration_recovers_failed_projection_after_step4_success(
+    tmp_path, monkeypatch
+):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "WGS_Clinical",
+            "execution_mode": "cce",
+            "batch_no": "WGS_20260825A_T7Hg38V4.1.1",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    failed_at = datetime(2026, 9, 1, 8, 26, tzinfo=timezone.utc)
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.status = "failed"
+        run.current_stage = "step4_publish"
+        run.ended_at = failed_at
+        run.pipeline_finished_at = failed_at
+        run.error_summary = "stale Step4 control-plane failure"
+        session.commit()
+    status_dir = tmp_path / "runtime" / "runner-requests" / analysis_id / "attempt-1"
+    status_dir.mkdir(parents=True)
+    (status_dir / "step4_publish.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step4_publish",
+                "status": "success",
+                "updated_at": (failed_at + timedelta(minutes=1)).isoformat(),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    response = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/step5_download",
+        headers={"X-Airflow-Demo-Token": "internal-test-token"},
+        json={
+            "attempt": 1,
+            "adapter": "wgs-runtime-200",
+            "command": f"wgs-runtime {analysis_id} 1 step5_download",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        assert run.status == "downloading"
+        assert run.current_stage == "step5_download"
+        assert run.ended_at is None
+        assert run.pipeline_finished_at is None
+        assert run.error_summary is None
+        recovery = session.scalar(
+            select(AuditLog).where(
+                AuditLog.analysis_id == analysis_id,
+                AuditLog.action == "run.step5_download_recovered",
+            )
+        )
+        assert recovery is not None
+        assert recovery.username == "airflow-internal"
+
+
+def test_step5_stage_registration_does_not_hide_a_real_step5_failure(
+    tmp_path, monkeypatch
+):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "WGS_Clinical",
+            "execution_mode": "cce",
+            "batch_no": "WGS_20260825A_T7Hg38V4.1.1",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    failed_at = datetime(2026, 9, 1, 9, 45, tzinfo=timezone.utc)
+    status_dir = tmp_path / "runtime" / "runner-requests" / analysis_id / "attempt-1"
+    status_dir.mkdir(parents=True)
+    (status_dir / "step4_publish.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step4_publish",
+                "status": "success",
+            }
+        ),
+        encoding="utf-8",
+    )
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.status = "failed"
+        run.current_stage = "step5_download"
+        run.ended_at = failed_at
+        run.pipeline_finished_at = failed_at
+        run.error_summary = "result download failed"
+        session.commit()
+
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    response = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/step5_download",
+        headers={"X-Airflow-Demo-Token": "internal-test-token"},
+        json={
+            "attempt": 1,
+            "adapter": "wgs-runtime-200",
+            "command": f"wgs-runtime {analysis_id} 1 step5_download",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        assert run.status == "failed"
+        assert run.current_stage == "step5_download"
+        assert run.ended_at.replace(tzinfo=timezone.utc) == failed_at
+        assert run.pipeline_finished_at.replace(tzinfo=timezone.utc) == failed_at
+        assert run.error_summary == "result download failed"
+        assert session.scalar(
+            select(AuditLog).where(
+                AuditLog.analysis_id == analysis_id,
+                AuditLog.action == "run.step5_download_recovered",
+            )
+        ) is None
+
+
 def test_step4_terminal_failure_is_projected_to_business_run(tmp_path, monkeypatch):
     client, sessions, _ = make_client(tmp_path, monkeypatch)
     headers = login(client, "operator", "operator-pass")

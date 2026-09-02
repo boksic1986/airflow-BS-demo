@@ -1,5 +1,13 @@
 # 06 前端设计
 
+## T163 登录后能力加载和T7产品文案
+
+受保护的`/api/platform/capabilities`只在认证Session建立后请求。登录页不会触发该
+请求；登录成功后重新创建provider并加载生产能力，因此正常登录不再显示
+`AUTH_REQUIRED`兼容视图。T7卡片不暴露`BarcodeStat.txt`等实现合同，固定显示
+“自动发现新的测序批次；分析任务需人工确认”，并以状态标签展示扫描周期、本轮
+批次目录数和最近更新时间。明细仍只显示芯片级安全字段。
+
 ## T155-T157 WGS生产页面
 
 Run Tracker增加Batch并使用权威阶段进度。Run Detail移除WGS QC和Master image
@@ -12,7 +20,7 @@ true时向admin展示。Dashboard资源区显示`.96/.97`及SFS/OBS快照。
 ## T150 T7扫描周期与名称级发现
 
 Dashboard不再硬编码“每30分钟”。它将`scanner.schedule_seconds`换算为分钟；
-BS10610的600秒配置显示“每10分钟检查 BarcodeStat.txt；自动分析关闭”。发现列表
+BS10610的600秒配置显示为产品化的“扫描周期 10分钟”。发现列表
 继续只显示芯片级状态和eligible/add-on/缺对计数，不显示样本编号、链接类型或目标。
 
 ## T145 稀疏扫描和监控状态

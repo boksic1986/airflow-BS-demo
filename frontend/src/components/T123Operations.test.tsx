@@ -80,12 +80,13 @@ it("shows T7 scan-only discovery counts without sample identifiers", () => {
   render(<MemoryRouter><IntakeScannerPanel scanner={scanner} items={[item]} total={1} limit={10} offset={0} loading={false} error={null} view="pending" onViewChange={vi.fn()} onPageChange={vi.fn()} /></MemoryRouter>);
 
   expect(screen.getByRole("heading", {name: "T7自动扫描"})).toBeInTheDocument();
-  expect(screen.getByText(/每10分钟检查 BarcodeStat\.txt/)).toBeInTheDocument();
-  expect(screen.getByText(/自动分析关闭/)).toBeInTheDocument();
+  expect(screen.getByText("自动发现新的测序批次；分析任务需人工确认")).toBeInTheDocument();
+  expect(screen.getByText("扫描周期 10分钟")).toBeInTheDocument();
+  expect(screen.getByText("本轮检查 1830 个批次目录")).toBeInTheDocument();
+  expect(screen.queryByText(/BarcodeStat\.txt/)).not.toBeInTheDocument();
   expect(screen.getByText("20260821B")).toBeInTheDocument();
   expect(screen.getByText("17")).toBeInTheDocument();
   expect(screen.getByText("5")).toBeInTheDocument();
-  expect(screen.getByText(/本轮扫描 1830 个目录/)).toBeInTheDocument();
   expect(screen.queryByText(/sample/i)).not.toBeInTheDocument();
 });
 

@@ -198,6 +198,102 @@ class BioWgsDagTests(unittest.TestCase):
             {"attempt": 1},
         )
 
+    def test_stage_start_waits_past_stale_failed_status_from_previous_generation(self) -> None:
+        calls = []
+        conf = {"analysis_id": "WGS_20260830_010203_A1B2C3", "attempt": 1}
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        original_backend = bio_wgs._backend_json
+        original_run = bio_wgs.subprocess.run
+        original_enabled = bio_wgs._require_runtime_enabled
+        original_sleep = bio_wgs.time.sleep
+        try:
+            bio_wgs._require_runtime_enabled = lambda: None
+            responses = iter(
+                [
+                    {
+                        "status": "registered",
+                    },
+                    {
+                        "status": "failed",
+                        "failed": True,
+                        "retry_no": 0,
+                    },
+                    {
+                        "status": "accepted",
+                        "failed": False,
+                        "retry_no": 1,
+                    },
+                ]
+            )
+
+            def backend(path, **kwargs):
+                calls.append(path)
+                return next(responses)
+
+            bio_wgs._backend_json = backend
+            bio_wgs.subprocess.run = lambda *args, **kwargs: type(
+                "Completed",
+                (),
+                {
+                    "returncode": 0,
+                    "stdout": '{"status": "accepted", "retry_no": 1}\n',
+                    "stderr": "",
+                },
+            )()
+            bio_wgs.time.sleep = lambda _seconds: None
+            result = bio_wgs.run_stage_on_200("step4_publish", **context)
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs.subprocess.run = original_run
+            bio_wgs._require_runtime_enabled = original_enabled
+            bio_wgs.time.sleep = original_sleep
+
+        assert result["runner_status"] == "accepted"
+        assert len([path for path in calls if "stage-status" in path]) == 2
+
+    def test_step5_start_waits_past_stale_failed_status_from_previous_generation(self) -> None:
+        calls = []
+        conf = {"analysis_id": "WGS_20260830_010203_A1B2C3", "attempt": 1}
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        original_backend = bio_wgs._backend_json
+        original_run = bio_wgs.subprocess.run
+        original_enabled = bio_wgs._require_runtime_enabled
+        original_sleep = bio_wgs.time.sleep
+        try:
+            bio_wgs._require_runtime_enabled = lambda: None
+            responses = iter(
+                [
+                    {"status": "registered"},
+                    {"status": "failed", "failed": True, "retry_no": 0},
+                    {"status": "running", "failed": False, "retry_no": 1},
+                ]
+            )
+
+            def backend(path, **kwargs):
+                calls.append(path)
+                return next(responses)
+
+            bio_wgs._backend_json = backend
+            bio_wgs.subprocess.run = lambda *args, **kwargs: type(
+                "Completed",
+                (),
+                {
+                    "returncode": 0,
+                    "stdout": '{"status": "accepted", "retry_no": 1}\n',
+                    "stderr": "",
+                },
+            )()
+            bio_wgs.time.sleep = lambda _seconds: None
+            result = bio_wgs.run_stage_on_200("step5_download", **context)
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs.subprocess.run = original_run
+            bio_wgs._require_runtime_enabled = original_enabled
+            bio_wgs.time.sleep = original_sleep
+
+        assert result["runner_status"] == "accepted"
+        assert len([path for path in calls if "stage-status" in path]) == 2
+
     def test_release_leases_always_requests_final_observer_drain(self) -> None:
         calls = []
         context = {

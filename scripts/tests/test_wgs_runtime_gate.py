@@ -658,6 +658,56 @@ def test_failed_step4_relaunch_archives_terminal_generation_before_restart(
     )
 
 
+def test_failed_step5_relaunch_preserves_checkpoint_and_archives_worker_generation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    request_path = tmp_path / "step5_download.json"
+    request_path.write_text("{}\n", encoding="utf-8")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step5_download",
+    }
+    request_sha = gate.hashlib.sha256(request_path.read_bytes()).hexdigest()
+    request_path.with_suffix(".status.json").write_text(
+        json.dumps({"status": "failed", "message": "no space left on device"}),
+        encoding="utf-8",
+    )
+    request_path.with_suffix(".worker.json").write_text(
+        json.dumps({"pid": 1234, "request_sha256": request_sha}),
+        encoding="utf-8",
+    )
+    request_path.with_suffix(".worker.log").write_text(
+        "obsutil checkpoint retained\n", encoding="utf-8"
+    )
+    checkpoint = tmp_path / "download-checkpoint"
+    checkpoint.write_text("resume-me\n", encoding="utf-8")
+
+    monkeypatch.setattr(gate, "_request_path", lambda *_args: request_path)
+    monkeypatch.setattr(gate, "_truthy", lambda _name: True)
+    monkeypatch.setattr(gate, "_process_matches", lambda _state: False)
+    monkeypatch.setattr(gate, "_boot_id", lambda: "boot-id")
+    monkeypatch.setattr(gate, "_process_start_time", lambda _pid: "456")
+
+    class FakeProcess:
+        pid = 5678
+
+    monkeypatch.setattr(gate.subprocess, "Popen", lambda *_args, **_kwargs: FakeProcess())
+
+    result = gate.start_async_stage(payload)
+
+    assert result == {"status": "accepted", "pid": 5678, "retry_no": 1}
+    history = tmp_path / "history" / "step5_download" / "retry-1"
+    assert json.loads((history / "status.json").read_text(encoding="utf-8"))[
+        "message"
+    ] == "no space left on device"
+    assert (history / "worker.log").read_text(encoding="utf-8") == (
+        "obsutil checkpoint retained\n"
+    )
+    assert checkpoint.read_text(encoding="utf-8") == "resume-me\n"
+
+
 def test_step3_evidence_bridge_command_uses_frozen_binding_and_shared_spool(
     tmp_path: Path,
 ) -> None:
@@ -758,6 +808,39 @@ def test_stage_status_never_moves_backward_from_running_to_accepted(
     )
     assert status["status"] == "running"
     assert status["master_job"] == "cce-master-abc"
+
+
+def test_async_worker_preserves_retry_generation_in_terminal_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    monkeypatch.setattr(gate, "REQUEST_ROOT", tmp_path)
+    payload = {
+        "analysis_id": "WGS_20260830_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step4_publish",
+    }
+    request_dir = tmp_path / payload["analysis_id"] / "attempt-1"
+    request_dir.mkdir(parents=True)
+    gate._atomic_json(
+        request_dir / "step4_publish.status.json",
+        {
+            "schema_version": gate.STAGE_STATUS_SCHEMA,
+            **payload,
+            "status": "accepted",
+            "message": "",
+            "updated_at": "2026-09-02T01:00:00+00:00",
+            "retry_no": 3,
+        },
+    )
+    monkeypatch.setattr(gate, "run_stage", lambda _payload: None)
+
+    assert gate._run_worker(payload) == 0
+    status = json.loads(
+        (request_dir / "step4_publish.status.json").read_text(encoding="utf-8")
+    )
+    assert status["status"] == "success"
+    assert status["retry_no"] == 3
 
 
 def test_async_stage_publishes_accepted_before_spawning_worker(

@@ -55,11 +55,13 @@ def scan_wgs_t7_intake(
     scan_interval_seconds: int = 600,
     scan_enabled: bool = True,
     auto_dispatch_enabled: bool = False,
+    ignored_chip_ids: set[str] | frozenset[str] | None = None,
 ) -> dict[str, int]:
     """Register T7 discovery state without creating WGS runs or runtime artifacts."""
 
     scan_now = now or datetime.now(timezone.utc)
     root_path = Path(root)
+    ignored_chips = frozenset(ignored_chip_ids or ())
     counts = {
         "scanned": 0,
         "created": 0,
@@ -98,6 +100,8 @@ def scan_wgs_t7_intake(
                     continue
 
                 counts["scanned"] += 1
+                if directory.name in ignored_chips:
+                    continue
                 if is_bootstrap:
                     continue
                 source_path = str(directory.resolve())

@@ -1,5 +1,56 @@
 # HANDOFF.md
 
+## 2026-09-02 - Codex - T163 登录、T7发现与在途状态修复
+
+### 完成
+
+- 修复登录前capabilities请求：只有认证Session存在时才挂载capabilities provider；
+  登录后建立新provider并加载生产能力，不再保留`AUTH_REQUIRED`兼容视图。
+- T7卡片隐藏`BarcodeStat.txt`实现细节，改为产品语义和三个紧凑状态标签；周期继续
+  来自API的600秒配置。
+- scanner增加`WGS_INTAKE_IGNORED_CHIP_IDS`精确忽略。2226记录删除前确认
+  `analysis_id IS NULL`且关联数为0；删除和run状态修正在事务内完成并补充审计。
+  立即`--once`重扫后2226仍为0，本轮扫描1841，AnalysisRun/DagRun仍各1。
+- 修复相同attempt恢复后的业务投影：只有run仍处于Step4假失败、Step4权威状态文件
+  身份匹配且success，Step5注册才可清为downloading；真实Step5失败不会被普通注册
+  掩盖。Step4/Step5 start按runner返回的`retry_no`等待新generation可见，不再比较
+  BS10610/node200时间，防止sensor读取上一代failed。
+- 当前run`WGS_20260901_031616_C74E6C`保持同一DagRun/attempt/Master，普通Step4
+  已success。首次Step5在结果archive下载79.86%时因`no space left on device`失败；
+  旧worker退出且`df`恢复可用后，runner归档完整证据并以retry-1复用obsutil checkpoint。
+  当前retry-1为running，Step5 sensor为`up_for_reschedule`；未重跑Step1-Step4。
+
+### 发布与验证
+
+```text
+release: 20260902-wgs-4.1.1-2499749-t163-ui-intake-recovery-r4
+frontend image: sha256:23f916eb9c60f3dbbf5749e4b34fbc7b29db9d9c5a8eb519f7cc11c09412da57
+backend: 252 passed, 1 skipped
+bio_wgs: 9 passed; runner: 30 passed; py_compile passed; Airflow import_errors=[]
+frontend: 9 files / 32 tests passed; Vite build passed
+HTTP: /api/health 200; anonymous /api/platform/capabilities 401 AUTH_REQUIRED
+scanner: scanned=1841; 2226 rows=0; no new AnalysisRun or DagRun
+network: 192.168.199.0/24, gateway 192.168.199.1
+published host ports: only 172.17.106.10:12959
+backup: backups/T163-ui-intake-step4-20260902T105843+0800
+review backup: backups/T163-review-fix-20260902T115421+0800
+Step5 retry backup: backups/T163-step5-retry-20260902T120703+0800
+full branch: backend 283 passed/1 skipped; scripts 40 passed; bio_wgs 10 passed;
+             frontend 9 files/33 tests and Vite build passed; Compose config passed
+```
+
+### 未完成与下一步
+
+- 当前真实batch仍在Step5，不能表述为分析成功。保持定时/sensor监控即可；终态后
+  核对Step5 MD5、Step6物化和finalize，再暂停DAG并关闭两个执行门禁。
+- T159-T161完整新候选仍需单独disabled migration/release；T163线上release是从已运行
+  的2499749控制面做的最小兼容修复，没有提前部署migration 0013。
+
+### 回滚
+
+恢复T163备份env并原子指回T152 r8，再只重建应用服务；数据库回滚仅需删除T163审计
+并把该run恢复到变更前投影。不要删除volume、OBS/SFS、FASTQ、当前run或外部网络。
+
 ## 2026-09-02 - Codex - T161 生产WGS 4.1.1接入纠正（进行中）
 
 ### 目标与当前结果

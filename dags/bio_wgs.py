@@ -5,6 +5,7 @@ import json
 import os
 import re
 import subprocess
+import time
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -156,6 +157,19 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         raise RuntimeError(
             f"restricted node200 WGS stage failed ({completed.returncode}): {error}"
         )
+    runner_reply = _runner_reply(completed.stdout)
+    if runner_stage in {"step4_publish", "step5_download"} and runner_reply.get(
+        "status"
+    ) == "accepted":
+        retry_no = runner_reply.get("retry_no")
+        if not isinstance(retry_no, int) or retry_no < 0:
+            raise RuntimeError("Step4 runner did not return a valid retry generation")
+        _wait_for_registered_stage_generation(
+            analysis_id=str(conf["analysis_id"]),
+            attempt=int(conf["attempt"]),
+            stage=runner_stage,
+            expected_retry_no=retry_no,
+        )
     if runner_stage == "step3_monitor":
         _backend_json(
             f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/activate",
@@ -163,6 +177,42 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
             payload={"attempt": conf["attempt"]},
         )
     return {**registered, "runner_status": "accepted"}
+
+
+def _wait_for_registered_stage_generation(
+    *,
+    analysis_id: str,
+    attempt: int,
+    stage: str,
+    expected_retry_no: int,
+    timeout_seconds: float = 30.0,
+) -> None:
+    """Do not expose a failed status from a previous async worker generation."""
+    deadline = time.monotonic() + timeout_seconds
+    query = urlencode({"attempt": attempt, "stage": stage})
+    while True:
+        payload = _backend_json(
+            f"/api/internal/wgs/runs/{analysis_id}/stage-status?{query}"
+        )
+        if payload.get("retry_no") == expected_retry_no:
+            return
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"{stage} retry generation {expected_retry_no} was not visible "
+                f"within {timeout_seconds:g} seconds"
+            )
+        time.sleep(1)
+
+
+def _runner_reply(stdout: str) -> dict[str, Any]:
+    for line in reversed(str(stdout or "").splitlines()):
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return {}
 
 
 def stage_ready(stage: str, **context: Any) -> bool:

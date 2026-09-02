@@ -58,6 +58,7 @@ def main() -> int:
         return 0
     interval = max(60, args.intake_interval)
     auto_dispatch = _bool_env("WGS_AUTO_DISPATCH_ENABLED", False)
+    ignored_chip_ids = _csv_env("WGS_INTAKE_IGNORED_CHIP_IDS")
     session_factory = get_sessionmaker()
     while True:
         cycle_started = time.monotonic()
@@ -68,6 +69,7 @@ def main() -> int:
                 scan_interval_seconds=interval,
                 scan_enabled=True,
                 auto_dispatch_enabled=auto_dispatch,
+                ignored_chip_ids=ignored_chip_ids,
             )
             print(json.dumps({"intake": result}, sort_keys=True), flush=True)
         except Exception as exc:
@@ -82,6 +84,10 @@ def _bool_env(name: str, default: bool) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _csv_env(name: str) -> set[str]:
+    return {item.strip() for item in os.getenv(name, "").split(",") if item.strip()}
 
 
 if __name__ == "__main__":
