@@ -20,6 +20,7 @@ airflow: bio_wgs only, 18 tasks, paused, zero import errors
 database: biodemo revision 20260901_0013; one admin; zero AnalysisRun/RunAttempt/DagRun
 scanner_bootstrap: 1843 directories, zero historical detail rows
 backup: /data/airflow-WGS/backups/T168-initial-20260902T140812Z
+production_env_acl: owner hanjj rw; named user chenjc read-only; no group/other access
 ```
 
 The production environment file and node200 private key are server-local under

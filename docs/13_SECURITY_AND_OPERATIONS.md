@@ -14,6 +14,9 @@
   50000 requires it. The key, environment secrets and known-host material stay
   outside releases and must never be printed, archived with source, or stored in
   biodemo.
+- `production.env` remains owned by `hanjj`. The named `chenjc` user may receive
+  an audited read-only ACL for controlled administration, but must never receive
+  write access; group and other access remain disabled.
 - Every persistent Compose service uses Docker log rotation of `20m` and three
   files. Scanner normal operation emits one summary per ten-minute cycle rather
   than one line per discovered directory.

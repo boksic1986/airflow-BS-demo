@@ -47,7 +47,8 @@ airflow SHA256: bf5f20298d1f036304b82742c253738585123ffae4b6f0a75b07169bb482764b
 - `.96/.97` node exporter端口和Cloud Eye spool尚不可用，资源页会如实显示degraded，
   但不影响当前禁用态控制面。
 - 管理员初始密码仅保存在`.96`的`/data/airflow-WGS/env/production.env`，不要复制到
-  文档或聊天；需要时在服务器上受控重置。
+  文档或聊天；`chenjc`已获得该明确文件的只读ACL，实测可读且不可写。该文件还包含
+  数据库和内部服务密钥，只能用于受控管理，需要时应优先重置而非复制。
 
 ### 回滚
 

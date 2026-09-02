@@ -13,6 +13,7 @@ smoke: anonymous protected API=401; admin login=200; Production capabilities/rel
 gate: WGS_EXECUTION_ENABLED=false, WGS_RUNTIME_ADAPTER_ENABLED=false, WGS_SUBMISSION_PREVIEW_ENABLED=false and WGS_AUTO_DISPATCH_ENABLED=false. No OBS transfer, CCE Master, WGS analysis or Step7 was started.
 network: external nipt_analysis_test_net remains 192.168.199.0/24, gateway 192.168.199.1; only frontend is published at 172.17.61.96:12959.
 frontend_acl: initial r2 allowed server subnets but rejected the operator workstation source 10.10.30.30 with nginx 403; r3 adds only 10.10.30.0/24 while retaining deny all. Root-page smoke is now mandatory in addition to /api/health.
+admin_access: production.env remains owned by hanjj and non-writable by chenjc; an explicit user ACL grants chenjc read-only access for controlled credential retrieval.
 external_gaps: hanjj on node200 still lacks the approved kubeconfig/kubectl/cce operator configuration; node exporters on .96/.97 and Cloud Eye metric spool are unavailable, so resource cards remain degraded without affecting WGS scheduling.
 backup: /data/airflow-WGS/backups/T168-initial-20260902T140812Z; biodemo SHA256 9f7c6fddae2... and Airflow SHA256 bf5f20298d1f....
 ```
