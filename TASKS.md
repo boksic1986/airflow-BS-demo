@@ -39,8 +39,33 @@
 | T163 | Authenticated capabilities, T7 intake cleanup and recovered-run projection | backend/airflow/frontend/infra/QA/docs | load capabilities only after login; product-language scanner card; persistent exact-chip ignore; explicit Step4/Step5 retry generations; narrow Step5 business-state recovery | BS Docker suites/build pass; 2226 remains absent after rescan; original run resumes Step5 from checkpoint; fixed network/port retained | done; original run completed Step6/finalize successfully |
 | T165 | Run Batch/Sample search, Finished timestamps and production UI synchronization | backend/frontend/infra/QA/docs | Batch and Finished in both run lists; server-side batch/sample search; immutable finalize time; deploy merged WGS UI contracts | BS Docker suites/build, migration, fixed-network preflight and authenticated HTTP smoke pass; historical successful run gets authoritative finish time; no WGS/OBS/CCE rerun | done; production disabled release deployed and verified |
 | T166 | WGS workflow and Rule projection correction | backend/observer/frontend/infra/QA/docs | one backend Step1-Step6 contract; current WGS 4.1.1 Rule phase mapping; stable Rule order and exact analysis.log sample enrichment; API-driven UI stages | historical run shows six successful stages, production Rule phases/order/sample context, no ETA text in message, Docker tests and fixed-network smoke pass | done; disabled production release deployed and verified |
+| T167 | `hanjj` runtime identity and directory migration | backend/airflow/infra/security/QA/docs | request v4 dual-root contract; protected `hanjj` SSH identity; node200 OBS/kubectl/kubeconfig/cce config; new control and direct batch roots; `.96/.97` SSH metrics | disabled release proves no old-root writes, no secret leakage, strict host keys, fixed network/port; real batch remains separately approved | design approved; implementation not started |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
+
+## T167 - `hanjj` runtime identity and directory migration
+
+Owner: backend/airflow/infra/security/QA/docs
+
+Status: design approved; implementation not started
+
+Scope:
+- Replace the active node200 SSH identity with `hanjj` while retaining the old
+  `chenjc` material only as an unmounted rollback input until acceptance.
+- Separate the new Airflow control root from the direct
+  `WGS_Clinical/<batch>` analysis root under `14.hanjingjing`.
+- Install `hanjj`-owned OBS/CCE configuration without exposing credential
+  contents to Compose, Git, logs or biodemo.
+- Monitor `.96/.97` through a key-only node probe; keep `.200` out of the
+  Analysis Node UI and keep the DB collector key-free.
+
+Acceptance:
+- [x] Target identity, directories and trust boundaries approved in docs/29.
+- [ ] request v4 and dual-root path tests fail before implementation and pass after.
+- [ ] BS10610/node200 cross-host write probe and permissions pass.
+- [ ] OBS and CCE read-only preflight pass as `hanjj` without printing secrets.
+- [ ] Disabled release passes backend/DAG/frontend/Compose/network verification.
+- [ ] A separately approved minimal real batch completes without writing the old root.
 
 ## T166 - WGS workflow and Rule projection correction
 

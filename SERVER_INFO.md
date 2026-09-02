@@ -1,5 +1,22 @@
 # SERVER_INFO.md
 
+## T167 target `hanjj` runtime identity preflight (2026-09-02)
+
+```text
+target_login: hanjj
+target_key_fingerprint: SHA256:CQsyQXQUr+WqooGabSzek0BtlxQIA6DtJYkrzQ/3EHE
+ssh_read_probe: 172.17.61.96/server96, 172.17.61.97/server97, 172.17.61.200/t640 passed
+node_metrics: /proc readable on all three hosts
+node200_obs_config: /home/hanjj/.obsutilconfig exists and is readable; contents not inspected
+node200_cce_pipeline: /bi/software/mamba/envs/WGS/bin/cce-pipeline executable
+node200_missing: /home/hanjj/.kube/config, /home/hanjj/.local/bin/kubectl, /home/hanjj/.config/wgs/cce.yaml
+target_analysis_parent: /sg2/14.hanjingjing/Cloud_WGS_Clinical, owner hanjj:bioinfo, mode 0755, writable as hanjj
+target_batch_root: /sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical, not created
+target_control_root: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime, not created
+current_runtime: /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime, readable but not writable as hanjj
+deployment_status: design only; current chenjc identity and old runtime unchanged
+```
+
 ## T165 BS10610 production UI disabled release (2026-09-02)
 
 ```text

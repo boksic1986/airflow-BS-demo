@@ -1,5 +1,37 @@
 # HANDOFF.md
 
+## 2026-09-02 - Codex - T167 `hanjj`运行身份与目录迁移设计
+
+### 已完成
+
+- 只读验证用户提供的新RSA：远端实际账号为`hanjj`，可登录`.96/.97/.200`，三台
+  `/proc`均可读；Windows源文件ACL已收紧，私钥内容未输出。
+- 核对node200：`/home/hanjj/.obsutilconfig`存在且可读，正式WGS环境中的
+  `cce-pipeline`可执行；`hanjj`尚无kubeconfig、kubectl和CCE operator config。
+- 用户确认新批次直接写
+  `/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical/<batch>`，控制文件写
+  `/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime`。
+- 新增`docs/29_WGS_HANJJ_RUNTIME_IDENTITY_MIGRATION_DESIGN.md`，固定request v4双根、
+  单一活动身份、历史只读兼容、`.96/.97`资源监控、Cloud Eye边界、禁用态切换和回滚。
+
+### 未实施
+
+- 未把新私钥复制到BS10610，未创建新目录，未复制或修改OBS/kubeconfig/kubectl/cce
+  配置，未修改node200 runner或线上Compose。
+- 未运行身份迁移代码、Docker、前端或真实WGS测试；本轮是设计固化。此前针对旧身份
+  和单`.96`目标的未提交原型已保存到本地stash，未进入本设计提交，不能作为实现依据。
+- 当前线上继续使用`chenjc`和旧runtime；三个执行门禁仍false且`bio_wgs` paused。
+
+### 下一步
+
+用户复核文档29后，编写逐文件实施计划。实施必须先RED测试request v4和双根边界，
+再配置node200/BS10610，最后创建disabled release；真实batch需要再次单独批准。
+
+### 回滚
+
+本轮只有文档变更，无运行时回滚。删除或回退文档提交即可；不得删除旧runtime、
+数据库、OBS/SFS、结果、volume或固定Docker网络。
+
 ## 2026-09-02 - Codex - T166 WGS workflow 与 Rule 投影修复
 
 ### 完成

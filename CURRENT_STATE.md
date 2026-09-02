@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-02 T167 `hanjj`运行身份与目录迁移设计
+
+```text
+decision: 新生产运行身份固定为hanjj，使用用户提供的新RSA；不再把hanjingjing当作Linux账号名。生产切换后Airflow不按任务回退chenjc。
+paths: 新WGS批次固定写/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical/<batch>；Airflow控制面固定写同空间airflow-wgs/runtime，两个白名单根分离。
+probe: 新key已只读验证可登录.96/.97/.200且三台/proc可读；node200的/home/hanjj/.obsutilconfig可读、WGS cce-pipeline可执行；kubeconfig/kubectl/cce.yaml尚待配置。
+history: 旧/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime只读保留，历史run不改绑、不删除；新request不得再写旧根。
+metrics: 前端Analysis Node只展示.96/.97；.200是WGS operator。节点SSH probe与DB collector拆分，OBS/SFS仍需CES只读权限和node200 Cloud Eye spool。
+status: docs/29设计已确认；request v4、runner双根、node200配置、BS10610新key安装、禁用态release和真实batch均未实施。
+safety: 当前online仍为chenjc+旧runtime；execution/runtime/auto-dispatch=false，bio_wgs paused，网络和唯一12959发布未改变。
+```
+
 ## 2026-09-02 T166 WGS workflow 与 Rule 投影修复
 
 ```text
