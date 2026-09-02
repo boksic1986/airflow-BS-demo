@@ -67,7 +67,7 @@ export function RunTracker({
             <input
               aria-label="Search operations"
               onChange={(event) => onKeywordChange(event.target.value)}
-              placeholder="project, run, or intake batch"
+              placeholder="project, batch, sample, family, or run ID"
               type="search"
               value={keyword}
             />

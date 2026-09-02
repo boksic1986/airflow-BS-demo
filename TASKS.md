@@ -20,13 +20,13 @@
 | T143 | T7 scan-only intake | backend/observer/frontend/infra/QA/docs | 30-minute read-only T7 scanner, bootstrap, chip-level DB/API/UI, auto-dispatch hard-off | unit/integration/migration/network pass; two production cycles remain idempotent with zero AnalysisRun and DagRun | done |
 | T144 | WGS Step4 CRAM repair contract | backend/airflow/observer/frontend/QA/docs | fixed-cram service action, same-attempt maintenance mode, 0.7.1 frozen-bundle command, RBAC and audit | disabled-mode tests pass; gates-off returns 409 before Airflow/SSH; real repair deferred | done in disabled mode |
 | T145 | WGS scanner sparse persistence and CCE observer lifecycle | backend/airflow/observer/frontend/infra/QA/docs | split scanner/run observer, LISTEN/NOTIFY lifecycle, exact transfer sync, migration 0012, protected 1830-row cleanup and disabled release | baseline stores zero details; idle observer does no polling/logging; tests/API/network/gates pass | done in disabled mode |
-| T146 | WGS 2499749 / cce-pipeline 0.8.1 manual production run | airflow/backend/frontend/infra/QA/docs | bind current WGS release, pass sequencing batch to prepare, deploy enabled manual flow, rebuild one approved batch from controlled intake | disabled tests and network pass; exact old batch state cleared; one manual run is visible through API/UI and reaches a verified terminal state | in progress; Step5 verified, Step6 materializing |
+| T146 | WGS 2499749 / cce-pipeline 0.8.1 manual production run | airflow/backend/frontend/infra/QA/docs | bind current WGS release, pass sequencing batch to prepare, deploy enabled manual flow, rebuild one approved batch from controlled intake | disabled tests and network pass; exact old batch state cleared; one manual run is visible through API/UI and reaches a verified terminal state | done; original run reached success through Step6/finalize |
 | T147 | Airflow worktree reconciliation and PR workflow | coordinator/docs | audit every local worktree against origin/main, fast-forward safe ancestors, preserve dirty or obsolete branches, merge reconciliation through GitHub PR | no user changes overwritten; current WGS mainline unchanged except state docs; PR checks and merge verified | done |
 | T148 | Prune completed worktrees and branches | coordinator/docs | retain root main and active T146 worktree, delete historical worktrees/local branches/remote branches, merge cleanup record through PR | exactly two worktrees, two local branches and only origin/main remain; T146 artifacts/runtime untouched | done |
 | T149 | WGS Step3 monitor protocol repair and in-flight takeover | airflow/backend/infra/QA/docs | atomic monotonic node200 stage status, binding-authoritative Master validation, transitional status handling, same-attempt business-state recovery, exact Step3/downstream restart | existing attempt and Master retained; Step1/Step2 unchanged; UI resumes Master/Rule state; original DagRun continues to verified terminal state | done for Step3; terminal delivery now tracked by T152 |
 | T150 | T7 FASTQ name-level scanner repair | backend/frontend/infra/QA/docs | accept regular/hard/symlink entries without resolving targets, v2 name fingerprint, historical reclassification, dynamic interval UI, rolling scanner/frontend release | 2227 is ready with 10 pairs; no AnalysisRun/RunAttempt/DagRun added; 600-second schedule, read-only mount and fixed network verified | done |
 | T151 | Exclude non-clinical YF samples from T7 intake | backend/infra/QA/docs | ignore `YF*` sample IDs before pairing, v3 fingerprint with v2 compatibility, scanner-only rolling release | YF-only is no-new-WGS, YF missing mate is not review, existing ready rows upgrade without drift, no run side effects | done |
-| T152 | Step4 Master completion race and same-attempt recovery | airflow/backend/infra/QA/docs | bounded binding-authoritative Master wait, failed Step4 retry generations, business-state recovery, original DagRun continuation | Step1-Step3 unchanged; same Master/attempt resumes normal Step4 then completes Step5-Step6 | in progress; normal Step4 and Step5 success, original DagRun is in Step6 |
+| T152 | Step4 Master completion race and same-attempt recovery | airflow/backend/infra/QA/docs | bounded binding-authoritative Master wait, failed Step4 retry generations, business-state recovery, original DagRun continuation | Step1-Step3 unchanged; same Master/attempt resumes normal Step4 then completes Step5-Step6 | done; same attempt/Master completed Step4-Step6 and DagRun success |
 | T153 | WGS production UI and contract freeze | coordinator/backend/frontend/airflow/docs | document 28; stage/progress/draft/log/resource/Step7 contracts | contracts are internally consistent and preserve runtime/privacy/network boundaries | done |
 | T154 | WGS stage, Rule and log projection | backend/observer/airflow/QA | migration 0013; authoritative stage state; transfer/Step3 progress; safe Rule and log evidence | focused and full backend/runner/DAG tests pass without fabricated progress | done; T159 replaced the path registry with bounded analysis.log excerpts |
 | T155 | WGS dashboard and Run Detail production UI | frontend/backend/QA | Batch/stage progress; Samples; Rule phase graph/table; logs/failure/catalog cleanup; remove WGS QC UI | focused UI tests and production build pass | done; BS10610 offline image/package and HTTP smoke passed |
@@ -36,7 +36,8 @@
 | T159 | WGS native submission, Airflow-owned transfer progress and safe Rule errors | backend/airflow/frontend/infra/QA/docs | direct catalog submission; final-sample sync; transparent obsutil wrapper; bounded analysis.log Rule excerpt | BS backend/runner tests and frontend build pass; no arbitrary paths or fabricated progress; no online change | implemented in candidate; node200 install and disabled release pending |
 | T160 | Bounded WGS log tail reader | backend/frontend/QA/docs | server-generated opaque key; reverse chunked log tail; file size/truncation metadata | large analysis.log is never loaded completely; BS10610 backend and Docker frontend suites pass | done in candidate; deployment pending |
 | T161 | Production WGS 4.1.1 rebind and repository integration | backend/airflow/frontend/QA/docs | bind dev_CJC_4.1.1_cloud@6c98281; map T7/sequencing/analysis batch without test-only algo; full BS Docker validation; PR/merge/main-worktree sync | exact production release contract and UI pass; 4.2.0 remains test-only; network unchanged; no runtime deployment | done (PR #8, merge 6046a28) |
-| T163 | Authenticated capabilities, T7 intake cleanup and recovered-run projection | backend/airflow/frontend/infra/QA/docs | load capabilities only after login; product-language scanner card; persistent exact-chip ignore; explicit Step4/Step5 retry generations; narrow Step5 business-state recovery | BS Docker suites/build pass; 2226 remains absent after rescan; original run resumes Step5 from checkpoint; fixed network/port retained | done; Step5 retry-1 succeeded, current batch continues in Step6 |
+| T163 | Authenticated capabilities, T7 intake cleanup and recovered-run projection | backend/airflow/frontend/infra/QA/docs | load capabilities only after login; product-language scanner card; persistent exact-chip ignore; explicit Step4/Step5 retry generations; narrow Step5 business-state recovery | BS Docker suites/build pass; 2226 remains absent after rescan; original run resumes Step5 from checkpoint; fixed network/port retained | done; original run completed Step6/finalize successfully |
+| T165 | Run Batch/Sample search, Finished timestamps and production UI synchronization | backend/frontend/infra/QA/docs | Batch and Finished in both run lists; server-side batch/sample search; immutable finalize time; deploy merged WGS UI contracts | BS Docker suites/build, migration, fixed-network preflight and authenticated HTTP smoke pass; historical successful run gets authoritative finish time; no WGS/OBS/CCE rerun | done; production disabled release deployed and verified |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
 
@@ -44,8 +45,8 @@
 
 Owner: airflow/backend/infra/QA/docs
 
-Status: blocked; Airflow repair is deployed and proved against the original
-DagRun, but WGS 2499749 rejects its own structured `ANALYSIS_COMPLETE` marker.
+Status: done; the original DagRun and attempt completed Step4-Step6 after the
+WGS marker fix, without repeating Step1-Step3 or creating another Master.
 
 Acceptance:
 
@@ -67,12 +68,11 @@ Acceptance:
   did not change; no FASTQ upload or Master submission was repeated.
 - [x] The retry crossed the original Master precondition and did not invoke
   CRAM repair.
-- [ ] Reconcile WGS producer/consumer marker contract: `cloud_runtime.py`
-  writes schema-1 JSON while `cce_delivery.py` accepts only `status=PASS\n`.
-  T152 is not authorized to modify the WGS repository, frozen bundle or OBS.
-- [ ] After a separately approved WGS/runtime correction, retry normal Step4,
-  require Step5 MD5 verification, then complete Step6/finalize on the same
-  attempt if the chosen recovery method preserves that attempt.
+- [x] WGS producer/consumer marker contract was corrected outside T152; normal
+  Step4 then passed with the same frozen run identity and no CRAM repair.
+- [x] Step5 resumed from its obsutil checkpoint after the temporary disk-space
+  failure, MD5 verification passed, and the original attempt completed Step6
+  and finalize successfully.
 
 ## T151 - Exclude non-clinical YF samples from T7 intake
 
@@ -194,7 +194,8 @@ Acceptance:
 
 Owner: airflow/backend/frontend/infra/QA/docs
 
-Status: blocked at Step4 by the WGS structured-marker/legacy-reader mismatch
+Status: done; the approved batch completed Step4-Step6 and finalize on the
+original analysis, attempt, DagRun and Master
 
 Acceptance:
 
@@ -220,8 +221,8 @@ Acceptance:
 - [x] 通过前端等价API创建全新analysis`WGS_20260901_031616_C74E6C`并提交；release
   绑定为`wgs-4.1.1-2499749`，validate/prepare成功，Step1上传在运行。
 - [x] Step3 observer监控到同一Master真实成功终态，Rules和Master状态已入库。
-- [ ] 最终结果仍需通过Step4-Step6；当前由T152记录的WGS marker producer/consumer
-  不一致阻断，未达到最终success。
+- [x] WGS marker修复后，原attempt完成普通Step4、Step5校验、Step6物化和finalize；
+  最终AnalysisRun与Airflow DagRun均为success，未重复Step1-Step3。
 
 ## T145 - WGS scanner sparse persistence and observer lifecycle
 

@@ -946,6 +946,60 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     ]
 
 
+def test_finalize_run_records_immutable_business_completion_time(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "clinical-wgs",
+            "execution_mode": "cce",
+            "batch_no": "BATCH-FINISH",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+    marker = (
+        tmp_path
+        / "runtime"
+        / "runner-requests"
+        / analysis_id
+        / "attempt-1"
+        / "step6_materialize.status.json"
+    )
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(json.dumps({"status": "success"}), encoding="utf-8")
+    body = {"attempt": 1, "adapter": "wgs-runtime-200", "command": "control"}
+
+    first = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_run",
+        headers=internal,
+        json=body,
+    )
+    assert first.status_code == 200, first.text
+    with sessions() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        assert run.ended_at is not None
+        assert run.pipeline_finished_at == run.ended_at
+        first_finished_at = run.pipeline_finished_at
+
+    second = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_run",
+        headers=internal,
+        json=body,
+    )
+    assert second.status_code == 200, second.text
+    with sessions() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        assert run.pipeline_finished_at == first_finished_at
+        assert run.ended_at == first_finished_at
+
+
 def test_prepare_reports_release_unavailable_without_silent_rebinding(
     tmp_path, monkeypatch
 ):

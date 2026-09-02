@@ -469,6 +469,60 @@ def test_dashboard_runs_filters_pipeline_status_and_keyword(tmp_path, monkeypatc
     assert payload["items"][0]["percent"] >= 15
 
 
+def test_dashboard_runs_searches_explicit_batch_and_sample_fields(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime.now(timezone.utc)
+    analysis_id = "WGS_TRACKER_SEARCH"
+    batch_no = "WGS_20260902B_T7Hg38V4.1.1"
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                dag_run_id=f"manual__{analysis_id}",
+                mode="new",
+                status="success",
+                workdir=str(tmp_path / analysis_id),
+                params_json={"project_name": "WGS Clinical", "batch_no": batch_no},
+                created_at=now,
+                submitted_at=now,
+                started_at=now,
+                ended_at=now,
+                pipeline_finished_at=now,
+            )
+        )
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="WGS26090002",
+                family_id="FAM-TRACKER-02",
+                status="success",
+                qc_status="unknown",
+            )
+        )
+        session.commit()
+    airflow = FakeAirflowClient()
+    install_dashboard_fixtures(monkeypatch, session_factory, airflow)
+    monkeypatch.setattr(
+        main,
+        "_deployment_guard_settings",
+        lambda: SimpleNamespace(deployed_pipelines=("wgs",)),
+    )
+    client = TestClient(main.app)
+
+    for keyword in ("20260902B", "WGS26090002", "FAM-TRACKER-02"):
+        response = client.get(
+            f"/api/dashboard/runs?pipeline=wgs&keyword={keyword}&limit=10&offset=0"
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["total"] == 1
+        assert payload["items"][0]["analysis_id"] == analysis_id
+        assert payload["items"][0]["batch_no"] == batch_no
+    assert airflow.task_calls == []
+
+
 def test_terminal_dashboard_page_bulk_loads_without_sql_n_plus_one(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     seed_dashboard_data(session_factory, tmp_path)

@@ -690,12 +690,30 @@ def list_runs(
         query = query.where(AnalysisRun.pipeline_name == pipeline)
     if status:
         query = query.where(AnalysisRun.status == status)
-    if keyword:
-        pattern = f"%{keyword.strip().lower()}%"
+    normalized_keyword = keyword.strip().lower() if keyword else ""
+    if normalized_keyword:
+        pattern = f"%{normalized_keyword}%"
+        sample_match = (
+            select(Sample.id)
+            .where(
+                Sample.analysis_id == AnalysisRun.analysis_id,
+                or_(
+                    func.lower(Sample.sample_id).like(pattern),
+                    func.lower(Sample.family_id).like(pattern),
+                ),
+            )
+            .exists()
+        )
         query = query.where(
             or_(
                 func.lower(AnalysisRun.analysis_id).like(pattern),
-                func.lower(cast(AnalysisRun.params_json, String)).like(pattern),
+                func.lower(
+                    cast(AnalysisRun.params_json["project_name"].as_string(), String)
+                ).like(pattern),
+                func.lower(
+                    cast(AnalysisRun.params_json["batch_no"].as_string(), String)
+                ).like(pattern),
+                sample_match,
             )
         )
 
@@ -1562,9 +1580,11 @@ def _run_list_payload(
     qc_highlights: list[dict],
     workflow_summary: list[dict[str, object]],
 ) -> dict:
+    params = run.params_json or {}
     return {
         "analysis_id": run.analysis_id,
         "project_name": _run_project_name(run),
+        "batch_no": str(params.get("batch_no") or "") or None,
         "pipeline": run.pipeline_name,
         "status": run.status,
         "created_at": run.created_at.isoformat() if run.created_at else None,

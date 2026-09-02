@@ -1429,15 +1429,25 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 status_payload = json.loads(marker.read_text(encoding="utf-8")) if marker.is_file() else {}
                 if status_payload.get("status") != "success":
                     raise ValueError("Step6 materialization is not complete")
+                finished_at = (
+                    run.pipeline_finished_at
+                    or run.ended_at
+                    or datetime.now(timezone.utc)
+                )
+                if finished_at.tzinfo is None:
+                    finished_at = finished_at.replace(tzinfo=timezone.utc)
                 run.status = "success"
                 run.current_stage = "finalize_run"
+                run.pipeline_finished_at = finished_at
+                run.ended_at = finished_at
+                run.progress_updated_at = finished_at
                 upsert_stage_state(
                     session,
                     analysis_id=analysis_id,
                     attempt=request.attempt,
                     stage_code="final",
                     stage_status="success",
-                    updated_at=datetime.now(timezone.utc),
+                    updated_at=finished_at,
                     progress_available=True,
                     progress_percent=100,
                     completed_units=1,

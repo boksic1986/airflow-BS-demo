@@ -249,6 +249,57 @@ def test_runs_support_project_keyword_sort_and_pagination(tmp_path, monkeypatch)
     assert payload["items"][0]["project_name"] == "Alpha embryo batch"
 
 
+def test_runs_return_batch_and_search_by_batch_or_sample(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime.now(timezone.utc)
+    analysis_id = "WGS_BATCH_SEARCH"
+    batch_no = "WGS_20260902A_T7Hg38V4.1.1"
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                dag_run_id=f"manual__{analysis_id}",
+                mode="new",
+                status="success",
+                workdir=str(tmp_path / analysis_id),
+                params_json={"project_name": "WGS Clinical", "batch_no": batch_no},
+                created_at=now,
+                submitted_at=now,
+                started_at=now,
+                ended_at=now,
+                pipeline_finished_at=now,
+            )
+        )
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="WGS26090001",
+                family_id="FAM-RUN-01",
+                status="success",
+                qc_status="unknown",
+            )
+        )
+        session.commit()
+    monkeypatch.setattr(
+        main,
+        "_deployment_guard_settings",
+        lambda: SimpleNamespace(deployed_pipelines=("wgs",)),
+    )
+    client = install_session(monkeypatch, session_factory)
+
+    for keyword in ("20260902A", "WGS26090001", "FAM-RUN-01"):
+        response = client.get(
+            f"/api/runs?pipeline=wgs&keyword={keyword}&limit=20&offset=0"
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["total"] == 1
+        assert payload["items"][0]["analysis_id"] == analysis_id
+        assert payload["items"][0]["batch_no"] == batch_no
+
+
 def test_runs_deployed_scope_excludes_historical_wes_and_uses_sql_pagination(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     seed_operator_resources(session_factory, tmp_path)

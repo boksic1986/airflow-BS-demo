@@ -309,8 +309,13 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
             airflow_payload = {**airflow_payload, "state": "failed"}
     run.status = authoritative_status
     run.started_at = _parse_airflow_datetime(airflow_payload.get("start_date")) or run.started_at
+    dag_end_at = _parse_airflow_datetime(airflow_payload.get("end_date"))
     if run.status in {"success", "failed"}:
-        run.ended_at = _parse_airflow_datetime(airflow_payload.get("end_date")) or datetime.now(timezone.utc)
+        run.ended_at = (
+            dag_end_at
+            if run.pipeline_name == "wgs"
+            else dag_end_at or datetime.now(timezone.utc)
+        )
     else:
         run.ended_at = None
         run.error_summary = None
@@ -318,6 +323,12 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
         run.error_summary = build_error_summary(run=run, airflow_payload=airflow_payload, settings=settings)
     elif run.status == "success":
         run.error_summary = None
+        if (
+            run.pipeline_name == "wgs"
+            and run.pipeline_finished_at is None
+            and dag_end_at is not None
+        ):
+            run.pipeline_finished_at = dag_end_at
         run.progress_percent = 100
         run.current_stage = "Workflow complete"
         run.progress_updated_at = run.ended_at or datetime.now(timezone.utc)

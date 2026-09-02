@@ -2,6 +2,29 @@
 
 Status: approved implementation contract for T153-T158.
 
+T165 deployment audit (2026-09-02): the merged main implementation contains
+the business stage labels, authoritative stage projection, WGS-only Samples,
+Rule phase graph/table, opaque-key logs, Failure Triage evidence, controlled
+submission, Step4 repair visibility, Step7 authorization, and the `.96/.97` plus
+SFS/OBS resource UI. The then-current production release still carried the old
+frontend/backend projection, so T165 is the synchronization release. T165 also
+adds first-class Batch/Finished fields to Batch Runs, batch/sample server-side
+search, and immutable finalize timestamps.
+
+External runtime availability remains separate from UI completion:
+
+- `172.17.61.96:9100` and `172.17.61.97:9100` currently refuse connections;
+  node metrics remain unavailable until node exporter is installed and allowed
+  on the internal network.
+- The node200 Cloud Eye spool for SFS/OBS does not yet exist; the resource UI
+  must show stale/unavailable rather than BS10610 data or invented cloud values.
+- The Airflow obsutil progress wrapper exists in main, but the completed
+  production batch produced only terminal Step1/Step5 status files. Byte speed
+  and ETA remain unavailable until node200 is configured to launch obsutil
+  through that wrapper for a future transfer.
+- Admin Step7 code and RBAC exist, but no production cleanup is authorized or
+  exercised by this UI synchronization release.
+
 Current production-cloud baseline (2026-09-02): WGS `dev_CJC_4.1.1_cloud`,
 version `V4.1.1`, commit `6c982817614db6a1157b6f287427ddf01ac91827`,
 release ID `wgs-4.1.1-6c98281`. The shared repository paths remain
@@ -234,11 +257,11 @@ longer called by the WGS UI.
   runs, OBS/SFS data, Docker volumes, or the network.
 - Migration `20260901_0013` downgrade is destructive and is fail-closed unless
   an approved rollback explicitly sets `ALLOW_WGS_PRODUCTION_UI_DOWNGRADE=true`.
-- T153-T155的禁用态代码已实现并完成现有可运行测试；T156的draft
+- T153-T155的代码已实现并在T165禁用态release中部署；T156的draft
   preview设计已撤回，改为由DAG执行WGS原生sampleinfo/analysis语义；T157只完成资源快照、
   UI和Step7控制合同，实际node exporter/Cloud Eye采集及Step7运行尚未验收。
-- T158不得发布当前worktree，直到上述外部合同、WGS release漂移和BS10610 Docker
-  frontend production build均完成验收；本机Node测试不计入验收。真实WGS批次仍需要单独批准。
+- T165已完成BS10610 Docker测试、production frontend build、migration 0013和禁用态发布。
+  真实WGS批次仍需要单独批准；外部metrics和Step7不能因为页面已上线而宣称完成。
 
 ## 10. Implementation checkpoint (2026-09-01)
 
@@ -258,10 +281,34 @@ cce-pipeline contracts:
   prepare and publishes only the final selected samples after prepare.
 
 The production catalog is explicitly bound to `wgs-4.1.1-6c98281`; it does not
-silently follow repository HEAD or the WGS 4.2.0 test branch. Execution and
-deployment remain separately gated.
+silently follow repository HEAD or the WGS 4.2.0 test branch. T165 deployed
+this catalog in disabled mode: both execution gates are false and `bio_wgs` is
+paused.
 
 The evidence bridge mirrors the bound `analysis.log` and stage worker logs.
 Failed-Rule diagnostics use a bounded excerpt of that registered analysis log;
 arbitrary logger paths are never made readable and no additional SFS path
 registry is required.
+
+## 11. T165 production synchronization audit
+
+The production UI now includes Batch and Finished in both run lists, business
+stage labels, authoritative stage progress, safe Samples/family fields, the
+six-stage dependency view, deterministic Rule ordering, opaque-key logs,
+Failure Triage, and the WGS 4.1.1 workflow catalog. Batch, sample ID, and family
+ID are explicit server-side search fields. The historical successful run was
+backfilled from the authoritative Airflow DagRun end time.
+
+The following remain external-runtime work, not hidden frontend defects:
+
+- upload/download speed and ETA require the Airflow-owned obsutil wrapper to be
+  installed and enabled on node200; existing terminal-only status files cannot
+  reconstruct historical speed;
+- `172.17.61.96:9100` and `172.17.61.97:9100` currently refuse connections;
+- the Cloud Eye SFS/OBS spool is not present, so cloud resources are reported as
+  degraded rather than replaced by BS10610 metrics;
+- admin Step7 has API/UI/RBAC and confirmation contracts, but no production
+  cleanup execution has been accepted yet;
+- a full dynamic graph containing hundreds of Rule instances remains outside
+  the approved design; the product uses a six-stage graph plus the sortable,
+  filterable Rule-instance table.

@@ -1,5 +1,25 @@
 # SERVER_INFO.md
 
+## T165 BS10610 production UI disabled release (2026-09-02)
+
+```text
+primary: BS10610
+compose_project: airflow-wgs
+release: 20260902-wgs-4.1.1-6c98281-t165-production-ui-r1
+wgs_release: wgs-4.1.1-6c98281
+frontend_image: airflow-demo/frontend:t165-production-ui-sync
+frontend_image_id: sha256:267e5c3ee07de62bcea0c2d1b024a9c88f1f8cba0b25204a4cc27c59dd1e09ff
+biodemo_revision: 20260901_0013
+execution_gates: false
+bio_wgs: paused
+auto_dispatch: false
+scanner: enabled, 600 seconds, last directory count 1841
+external_network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
+published: only 172.17.106.10:12959 frontend/API gateway
+platform_metrics: collector deployed; node-96/node-97 and SFS/OBS sources degraded/unavailable
+backup: backups/T165-production-ui-sync-20260902T135306+0800
+```
+
 ## T151 BS10610 T7 YF exclusion (2026-09-01)
 
 ```text
