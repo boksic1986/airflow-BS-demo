@@ -37,6 +37,21 @@ if root.is_dir():
         files.append({"name":path.name,"source_offset":offset,"next_offset":offset+len(complete),"data_base64":base64.b64encode(complete).decode("ascii")})
 print(json.dumps({"files":files},sort_keys=True,separators=(",",":")))
 '''
+REMOTE_FILE_READER = r'''import base64,json,sys
+from pathlib import Path
+path=Path(sys.argv[1])
+offset=int(sys.argv[2])
+result={"source_offset":offset,"next_offset":offset,"data_base64":""}
+if path.is_file() and not path.is_symlink():
+    size=path.stat().st_size
+    if offset < 0 or size < offset:
+        offset=0
+    with path.open("rb") as handle:
+        handle.seek(offset)
+        data=handle.read()
+    result={"source_offset":offset,"next_offset":offset+len(data),"data_base64":base64.b64encode(data).decode("ascii")}
+print(json.dumps(result,sort_keys=True,separators=(",",":")))
+'''
 
 
 def _atomic_append(path: Path, payload: dict) -> None:
@@ -109,6 +124,41 @@ def _apply_rule_chunks(
         cursor[name] = next_offset
     _atomic_json(cursor_path, cursor)
     return total
+
+
+def _read_file_cursor(path: Path) -> int:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        offset = int(value.get("offset", 0))
+    except (FileNotFoundError, json.JSONDecodeError, OSError, TypeError, ValueError):
+        return 0
+    return max(0, offset)
+
+
+def _apply_file_chunk(output: Path, cursor_path: Path, chunk: dict) -> int:
+    source_offset = int(chunk.get("source_offset", -1))
+    current_offset = _read_file_cursor(cursor_path)
+    target = output / "mirror" / "analysis.log"
+    if source_offset == 0 and current_offset != 0:
+        current_offset = 0
+        target.unlink(missing_ok=True)
+    if source_offset != current_offset:
+        raise ValueError("remote analysis log offset does not match local cursor")
+    try:
+        data = base64.b64decode(str(chunk.get("data_base64") or ""), validate=True)
+    except (ValueError, TypeError) as error:
+        raise ValueError("remote analysis log chunk is not valid base64") from error
+    next_offset = source_offset + len(data)
+    if int(chunk.get("next_offset", next_offset)) != next_offset:
+        raise ValueError("remote analysis log next offset is inconsistent")
+    if data:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("ab") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+    _atomic_json(cursor_path, {"offset": next_offset})
+    return len(data)
 
 
 def pod_event(pod: dict, *, observed_at: str) -> dict:
@@ -252,6 +302,29 @@ def _fetch_rule_chunks(
     return chunks
 
 
+def _fetch_file_chunk(
+    config: dict,
+    namespace: str,
+    pod: str,
+    source_path: str,
+    offset: int,
+) -> dict:
+    return _run_json(
+        _kubectl(
+            config,
+            namespace,
+            "exec",
+            f"pod/{pod}",
+            "--",
+            MASTER_PYTHON,
+            "-c",
+            REMOTE_FILE_READER,
+            source_path,
+            str(offset),
+        )
+    )
+
+
 def build_reader_job(master: dict, *, namespace: str, reader_name: str) -> dict:
     pod = ((master.get("spec") or {}).get("template") or {}).get("spec") or {}
     containers = pod.get("containers") or []
@@ -338,7 +411,9 @@ def _final_reader_chunks(
     master_job: str,
     source_dir: str,
     cursor: dict[str, int],
-) -> list[dict]:
+    analysis_log_source: str | None,
+    analysis_log_offset: int,
+) -> tuple[list[dict], dict | None]:
     master = yaml.safe_load(master_manifest.read_text(encoding="utf-8"))
     reader_name = _reader_name(master_job)
     manifest = build_reader_job(master, namespace=namespace, reader_name=reader_name)
@@ -368,9 +443,13 @@ def _final_reader_chunks(
         reader = _master_pod(config, namespace, reader_name)
         if reader is None or not reader[0]:
             raise RuntimeError("Rule reader Pod was not created")
-        return _fetch_rule_chunks(
-            config, namespace, reader[0], source_dir, cursor
+        rule_chunks = _fetch_rule_chunks(config, namespace, reader[0], source_dir, cursor)
+        log_chunk = (
+            _fetch_file_chunk(config, namespace, reader[0], analysis_log_source, analysis_log_offset)
+            if analysis_log_source
+            else None
         )
+        return rule_chunks, log_chunk
     finally:
         subprocess.run(
             _kubectl(
@@ -395,28 +474,41 @@ def sync_rule_events_once(
     master_job: str,
     master_manifest: Path,
     source_dir: str,
+    analysis_log_source: str | None,
     output: Path,
     terminal: bool,
 ) -> int:
     config = yaml.safe_load(operator_config.read_text(encoding="utf-8"))
     cursor_path = output / ".rule-cursor.json"
     cursor = _read_cursor(cursor_path)
+    analysis_cursor_path = output / ".analysis-log-cursor.json"
+    analysis_offset = _read_file_cursor(analysis_cursor_path)
     master = _master_pod(config, namespace, master_job)
     chunks: list[dict] = []
+    log_chunk: dict | None = None
     if master is not None and master[0] and master[1] == "Running":
         chunks = _fetch_rule_chunks(
             config, namespace, master[0], source_dir, cursor
         )
+        if analysis_log_source:
+            log_chunk = _fetch_file_chunk(
+                config, namespace, master[0], analysis_log_source, analysis_offset
+            )
     elif terminal:
-        chunks = _final_reader_chunks(
+        chunks, log_chunk = _final_reader_chunks(
             config,
             namespace,
             master_manifest,
             master_job,
             source_dir,
             cursor,
+            analysis_log_source,
+            analysis_offset,
         )
-    return _apply_rule_chunks(output, cursor_path, chunks)
+    applied = _apply_rule_chunks(output, cursor_path, chunks)
+    if log_chunk is not None:
+        applied += _apply_file_chunk(output, analysis_cursor_path, log_chunk)
+    return applied
 
 
 def main() -> int:
@@ -427,6 +519,7 @@ def main() -> int:
     parser.add_argument("--master-job", required=True)
     parser.add_argument("--master-manifest", type=Path, required=True)
     parser.add_argument("--rule-source-dir", required=True)
+    parser.add_argument("--analysis-log-source")
     parser.add_argument("--terminal", action="store_true")
     args = parser.parse_args()
     sync_rule_events_once(
@@ -435,6 +528,7 @@ def main() -> int:
         master_job=args.master_job,
         master_manifest=args.master_manifest,
         source_dir=args.rule_source_dir,
+        analysis_log_source=args.analysis_log_source,
         output=args.output,
         terminal=args.terminal,
     )

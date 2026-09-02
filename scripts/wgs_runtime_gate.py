@@ -31,6 +31,7 @@ STAGES = {
     "step4_repair_cram",
     "step5_download",
     "step6_materialize",
+    "step7_cleanup",
 }
 ASYNC_STAGES = {
     "step1_upload",
@@ -38,6 +39,7 @@ ASYNC_STAGES = {
     "step4_publish",
     "step4_repair_cram",
     "step5_download",
+    "step7_cleanup",
 }
 STEP_SCRIPTS = {
     "step1_upload": "Step1_upload_fastq.sh",
@@ -47,6 +49,7 @@ STEP_SCRIPTS = {
     "step4_repair_cram": "Step4_publish_results.sh",
     "step5_download": "Step5_download_verify.sh",
     "step6_materialize": "Step6_materialize_results.sh",
+    "step7_cleanup": "Step7_cleanup_sfs.sh",
 }
 STAGE_STATUS_SCHEMA = "wgs-runtime.stage-status.v1"
 BINDING_SCHEMA = "wgs-runtime.batch-binding.v2"
@@ -241,15 +244,24 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
     for value in (project_name, batch_no):
         if SAFE_COMPONENT_RE.fullmatch(value) is None:
             raise ValueError("project_name and batch_no must be safe path components")
-    sequencing_batch_match = SEQUENCING_BATCH_RE.search(batch_no)
-    if sequencing_batch_match is None:
-        raise ValueError(
-            "analysis batch does not contain a valid sequencing batch"
-        )
-    sequencing_batch = sequencing_batch_match.group(1)
+    explicit_prepare_contract = bool(payload.get("sequencing_batch") or payload.get("fastq_root"))
+    sequencing_batch = str(payload.get("sequencing_batch") or "").strip()
+    if not sequencing_batch:
+        sequencing_batch_match = SEQUENCING_BATCH_RE.search(batch_no)
+        if sequencing_batch_match is None:
+            raise ValueError("analysis batch does not contain a valid sequencing batch")
+        sequencing_batch = sequencing_batch_match.group(1)
+    if not re.fullmatch(r"[0-9]{8}[A-Z]", sequencing_batch):
+        raise ValueError("sequencing_batch is invalid")
+    analysis_batch = str(payload.get("analysis_batch") or sequencing_batch).strip()
+    if SAFE_COMPONENT_RE.fullmatch(analysis_batch) is None:
+        raise ValueError("analysis_batch is invalid")
     fastq_directory = Path(fq_path)
-    if sequencing_batch not in fastq_directory.name:
+    if not explicit_prepare_contract and sequencing_batch not in fastq_directory.name:
         raise ValueError("FASTQ directory does not identify the sequencing batch")
+    fastq_root = Path(str(payload.get("fastq_root") or fastq_directory.parent))
+    if not fastq_root.is_absolute():
+        raise ValueError("FASTQ root must be absolute")
     command = [
         WGS_PYTHON,
         str(WGS_REPO_ROOT / "prepare" / "prepare_wgs_batch.py"),
@@ -259,13 +271,13 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
         "--batch",
         sequencing_batch,
         "--analysis-batch",
-        sequencing_batch,
+        analysis_batch,
         "--run-mode",
         "cce",
         "--run-id",
         f"{payload['analysis_id']}-a{int(payload['attempt'])}",
         "--fastq-root",
-        str(fastq_directory.parent),
+        str(fastq_root),
         "--prepare-config",
         WGS_PREPARE_CONFIG,
         "--cce-config",
@@ -275,6 +287,15 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
     platform = str(payload.get("platform") or "").strip()
     if platform:
         command.extend(["--platform", platform])
+    algo = str(payload.get("algo") or "DNAscope").strip()
+    if algo not in {"DNAscope", "Haplotyper"}:
+        raise ValueError("algo must be DNAscope or Haplotyper")
+    command.extend(["--algo", algo])
+    use_reference = str(payload.get("use_reference") or "").strip()
+    if use_reference:
+        if use_reference not in {"all", "ref", "no"}:
+            raise ValueError("use_reference must be all, ref, or no")
+        command.extend(["--use-reference", use_reference])
     return command
 
 
@@ -335,6 +356,10 @@ def _run_prepare(payload: dict[str, Any]) -> None:
         ),
     }
     analysis = runtime.get("analysis") if isinstance(runtime.get("analysis"), dict) else {}
+    runtime_paths = runtime.get("paths") if isinstance(runtime.get("paths"), dict) else {}
+    run_dir = Path(str(runtime_paths.get("run_dir") or ""))
+    if not run_dir.is_absolute():
+        raise RuntimeError("BATCH_RUNTIME.yaml run directory is invalid")
     delivery = analysis.get("delivery") if isinstance(analysis.get("delivery"), dict) else {}
     raw_repair_groups = delivery.get("repair_groups")
     repair_groups = {
@@ -367,12 +392,13 @@ def _run_prepare(payload: dict[str, Any]) -> None:
             "master_job": (runtime.get("kubernetes") or {}).get("master_job"),
             "namespace": (runtime.get("kubernetes") or {}).get("namespace"),
             "rule_source_dir": str(
-                Path(str((runtime.get("paths") or {}).get("run_dir")))
+                run_dir
                 / "evidence"
                 / str(identity.get("run_id"))
                 / "rule-status"
                 / "raw"
             ),
+            "analysis_log_source": str(run_dir / "analysis.log"),
             "created_at": datetime.now(timezone.utc).isoformat(),
         },
     )
@@ -437,6 +463,19 @@ def build_step4_repair_command(payload: dict[str, Any]) -> list[str]:
     )
 
 
+def build_step7_cleanup_command(payload: dict[str, Any]) -> list[str]:
+    binding = _load_binding(payload)
+    components = [
+        str(binding.get("project") or ""),
+        str(binding.get("batch") or ""),
+        str(binding.get("run_id") or ""),
+    ]
+    if any(SAFE_COMPONENT_RE.fullmatch(value) is None for value in components):
+        raise RuntimeError("frozen WGS cleanup identity is invalid")
+    confirmation = f"DELETE-SFS:{components[0]}/{components[1]}/{components[2]}"
+    return _step_command(payload, "step7_cleanup", "--confirm", confirmation)
+
+
 def validate_step3_status(value: dict[str, Any]) -> dict[str, Any]:
     state = value.get("master_state")
     if state not in {"PENDING", "RUNNING", "SUCCEEDED", "FAILED"}:
@@ -496,6 +535,8 @@ def build_evidence_bridge_command(
         str(Path(str(binding["cce_bundle"])) / "master-job.yaml"),
         "--rule-source-dir",
         str(binding["rule_source_dir"]),
+        "--analysis-log-source",
+        str(binding["analysis_log_source"]),
     ]
     if terminal:
         command.append("--terminal")
@@ -593,6 +634,76 @@ def _wait_step4(payload: dict[str, Any]) -> None:
         time.sleep(MONITOR_INTERVAL_SECONDS)
 
 
+def _transfer_progress_root(payload: dict[str, Any]) -> Path:
+    return _request_path(
+        str(payload["analysis_id"]), int(payload["attempt"]), str(payload["stage"])
+    ).parent / "transfer-progress" / str(payload["stage"])
+
+
+def _aggregate_transfer_progress(payload: dict[str, Any]) -> dict[str, Any] | None:
+    rows = []
+    for path in _transfer_progress_root(payload).glob("*.json"):
+        value = _read_json(path)
+        if (
+            value.get("schema_version") == "wgs-runtime.transfer-progress.v1"
+            and value.get("analysis_id") == payload["analysis_id"]
+            and int(value.get("attempt", 0)) == int(payload["attempt"])
+            and value.get("stage") == payload["stage"]
+        ):
+            rows.append(value)
+    if not rows:
+        return None
+    total = sum(max(0, int(row.get("bytes_total") or 0)) for row in rows)
+    done = sum(max(0, int(row.get("bytes_done") or 0)) for row in rows)
+    speed = sum(max(0, int(row.get("speed_bytes_per_second") or 0)) for row in rows)
+    files_total = sum(max(0, int(row.get("files_total") or 0)) for row in rows)
+    files_done = sum(max(0, int(row.get("files_done") or 0)) for row in rows)
+    states = {str(row.get("state") or "") for row in rows}
+    return {
+        "schema_version": "wgs-runtime.transfer-progress.v1",
+        "transfer_id": f"{payload['analysis_id']}-a{int(payload['attempt'])}-{'input' if payload['stage'] == 'step1_upload' else 'result'}",
+        "analysis_id": payload["analysis_id"],
+        "attempt": payload["attempt"],
+        "stage": payload["stage"],
+        "direction": "upload" if payload["stage"] == "step1_upload" else "download",
+        "state": "failed" if "failed" in states else ("success" if states == {"success"} else "running"),
+        "bytes_total": total,
+        "bytes_done": min(done, total) if total else done,
+        "files_total": files_total,
+        "files_done": min(files_done, files_total) if files_total else files_done,
+        "current_file": None,
+        "speed_bytes_per_second": speed,
+        "eta_seconds": max(0, int((total - done) / speed)) if total and speed else None,
+        "heartbeat_at": max(str(row.get("heartbeat_at") or "") for row in rows),
+        "monitoring_health": "degraded" if any(row.get("monitoring_health") == "degraded" for row in rows) else "healthy",
+        "source": "obsutil-stream",
+    }
+
+
+def _run_transfer_stage(payload: dict[str, Any]) -> None:
+    root = _transfer_progress_root(payload)
+    root.mkdir(parents=True, exist_ok=True)
+    environment = {
+        **_clean_env(),
+        "WGS_TRANSFER_PROGRESS_ROOT": str(root),
+        "WGS_TRANSFER_ANALYSIS_ID": str(payload["analysis_id"]),
+        "WGS_TRANSFER_ATTEMPT": str(payload["attempt"]),
+        "WGS_TRANSFER_STAGE": str(payload["stage"]),
+        "WGS_TRANSFER_DIRECTION": "upload" if payload["stage"] == "step1_upload" else "download",
+    }
+    process = subprocess.Popen(_step_command(payload, str(payload["stage"])), env=environment)
+    while process.poll() is None:
+        progress = _aggregate_transfer_progress(payload)
+        if progress is not None:
+            _write_status(payload, "running", transfer=progress, monitoring_health=progress["monitoring_health"])
+        time.sleep(MONITOR_INTERVAL_SECONDS)
+    progress = _aggregate_transfer_progress(payload)
+    if progress is not None:
+        _write_status(payload, "running", transfer=progress, monitoring_health=progress["monitoring_health"])
+    if process.returncode:
+        raise subprocess.CalledProcessError(process.returncode, process.args)
+
+
 def _step3_success_matches_binding(payload: dict[str, Any]) -> bool:
     step3_path = _request_path(
         str(payload["analysis_id"]), int(payload["attempt"]), "step3_monitor"
@@ -627,6 +738,10 @@ def run_stage(payload: dict[str, Any]) -> None:
         _wait_step4(payload)
     elif stage == "step4_repair_cram":
         subprocess.run(build_step4_repair_command(payload), check=True)
+    elif stage == "step7_cleanup":
+        subprocess.run(build_step7_cleanup_command(payload), check=True)
+    elif stage in {"step1_upload", "step5_download"}:
+        _run_transfer_stage(payload)
     else:
         subprocess.run(_step_command(payload, stage), check=True)
 

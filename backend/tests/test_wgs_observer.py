@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ from app.models import (
     RuleEventRaw,
     RuleState,
     RunAttempt,
+    RunStageState,
     TransferJob,
     WgsMaintenanceAction,
 )
@@ -23,6 +25,7 @@ from app.wgs_observer import (
     ingest_evidence_once,
     ingest_observer_attempt_once,
     sync_runtime_stage_artifacts,
+    upsert_stage_state,
 )
 
 
@@ -326,7 +329,7 @@ def test_step4_repair_status_updates_the_idempotent_maintenance_action(tmp_path:
         assert action.error_message is None
 
 
-def test_transfer_progress_spool_is_idempotent(tmp_path: Path) -> None:
+def test_legacy_transfer_progress_is_rejected_instead_of_marked_exact(tmp_path: Path) -> None:
     sessions, analysis_id, evidence_root, binding_root, catalog_path, _ = prepare_run(tmp_path)
     spool = tmp_path / "transfer-spool"
     progress = spool / analysis_id / "attempt-1" / "input-1" / "progress.json"
@@ -344,12 +347,13 @@ def test_transfer_progress_spool_is_idempotent(tmp_path: Path) -> None:
     first = ingest_evidence_once(session_factory=sessions, evidence_root=evidence_root, binding_root=binding_root, catalog_path=catalog_path, transfer_spool_root=spool)
     second = ingest_evidence_once(session_factory=sessions, evidence_root=evidence_root, binding_root=binding_root, catalog_path=catalog_path, transfer_spool_root=spool)
 
-    assert first["events_ingested"] == 1
+    assert first["events_ingested"] == 0
+    assert first["errors"] == 1
     assert second["events_ingested"] == 0
+    assert second["errors"] == 1
     with sessions() as session:
         row = session.scalar(select(TransferJob).where(TransferJob.transfer_id == "input-1"))
-        assert row.bytes_transferred == 500
-        assert row.current_file == "S1_R2.fastq.gz"
+        assert row is None
 
 
 def test_cce_pipeline_transfer_schema_is_normalized_without_api_breakage(tmp_path: Path) -> None:
@@ -389,6 +393,134 @@ def test_cce_pipeline_transfer_schema_is_normalized_without_api_breakage(tmp_pat
         assert row.speed_bps == 125
         assert row.checkpoint_ref == "/registered/checkpoints/input-2"
         assert row.estimated_finish_at.isoformat().startswith("2026-08-12T02:00:10")
+        stage = session.scalar(
+            select(RunStageState).where(
+                RunStageState.analysis_id == analysis_id,
+                RunStageState.stage_code == "step1_upload",
+            )
+        )
+        assert stage.stage_label == "Uploading FASTQ"
+        assert stage.progress_available is True
+        assert stage.progress_percent == 38
+        assert stage.completed_units == 750
+        assert stage.total_units == 2000
+        assert stage.unit == "bytes"
+        assert stage.speed_bps == 125
+        assert stage.eta_seconds == 10
+
+
+def test_later_phase_status_does_not_erase_structured_transfer_progress(tmp_path: Path) -> None:
+    sessions, analysis_id, evidence_root, binding_root, catalog_path, _ = prepare_run(tmp_path)
+    runtime = tmp_path / "runtime"
+    request_root = runtime / "runner-requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    spool = tmp_path / "transfer-spool"
+    transfer_id = f"{analysis_id}-a1-input"
+    progress = spool / analysis_id / "attempt-1" / transfer_id / "progress.json"
+    progress.parent.mkdir(parents=True)
+    progress.write_text(json.dumps({
+        "schema_version": "cce-pipeline.transfer-progress.v1",
+        "transfer_id": transfer_id,
+        "run_id": f"{analysis_id}-a1",
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "direction": "upload",
+        "state": "running",
+        "bytes_total": 2000,
+        "bytes_done": 750,
+        "files_total": 4,
+        "files_done": 1,
+        "current_file": "S2_R1.fastq.gz",
+        "speed_bytes_per_second": 125,
+        "eta_seconds": 10,
+        "heartbeat_at": "2026-08-12T02:00:00Z",
+    }), encoding="utf-8")
+    ingest_evidence_once(
+        session_factory=sessions,
+        evidence_root=evidence_root,
+        binding_root=binding_root,
+        catalog_path=catalog_path,
+        transfer_spool_root=spool,
+    )
+    (request_dir / "step1_upload.status.json").write_text(json.dumps({
+        "schema_version": "wgs-runtime.stage-status.v1",
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "stage": "step1_upload",
+        "status": "success",
+        "updated_at": "2026-08-12T02:00:05Z",
+        "message": "upload complete",
+    }), encoding="utf-8")
+
+    sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=request_root,
+        transfer_spool_root=spool,
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="step1_upload",
+    )
+
+    with sessions() as session:
+        transfer = session.scalar(select(TransferJob).where(TransferJob.transfer_id == transfer_id))
+        stage = session.scalar(select(RunStageState).where(
+            RunStageState.analysis_id == analysis_id,
+            RunStageState.stage_code == "step1_upload",
+        ))
+        assert transfer.status == "success"
+        assert transfer.progress_detail_available is True
+        assert transfer.bytes_transferred == 750
+        assert stage.stage_status == "success"
+        assert stage.progress_available is True
+        assert stage.progress_percent == 38
+        assert stage.completed_units == 750
+        assert stage.speed_bps == 125
+
+
+def test_terminal_stage_state_cannot_reverse_success_or_failure(tmp_path: Path) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    first = datetime(2026, 8, 12, 2, 0, tzinfo=timezone.utc)
+    with sessions() as session:
+        success = upsert_stage_state(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            stage_code="step1_upload",
+            stage_status="success",
+            updated_at=first,
+        )
+        session.commit()
+        upsert_stage_state(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            stage_code="step1_upload",
+            stage_status="failed",
+            updated_at=first + timedelta(seconds=5),
+        )
+        failed = upsert_stage_state(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            stage_code="step5_download",
+            stage_status="failed",
+            updated_at=first,
+        )
+        session.commit()
+        upsert_stage_state(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            stage_code="step5_download",
+            stage_status="success",
+            updated_at=first + timedelta(seconds=5),
+        )
+        session.commit()
+        session.refresh(success)
+        session.refresh(failed)
+        assert success.stage_status == "success"
+        assert failed.stage_status == "failed"
 
 
 def test_stage_sensor_sync_reads_only_the_registered_transfer_path(tmp_path: Path) -> None:
@@ -471,6 +603,9 @@ def test_wgs_4_1_1_stage_status_is_phase_only_and_master_only(tmp_path: Path) ->
                     "master_state": "RUNNING",
                     "normal": True,
                     "percent": 12.5,
+                    "completed": 26,
+                    "total": 209,
+                    "current_rule": "pre_process_mapping",
                     "message": "analysis running",
                 },
             }
@@ -505,6 +640,18 @@ def test_wgs_4_1_1_stage_status_is_phase_only_and_master_only(tmp_path: Path) ->
         observer = session.scalar(select(ObserverRunState))
         assert observer.status == "degraded"
         assert observer.last_error == "Rule evidence bridge failed"
+        stage = session.scalar(
+            select(RunStageState).where(
+                RunStageState.analysis_id == analysis_id,
+                RunStageState.stage_code == "step3_monitor",
+            )
+        )
+        assert stage.stage_label == "WGS workflow running"
+        assert stage.progress_available is True
+        assert stage.progress_percent == 12
+        assert stage.completed_units == 26
+        assert stage.total_units == 209
+        assert stage.current_item == "pre_process_mapping"
 
 
 def test_step3_transitional_status_without_master_is_not_an_ingest_error(
@@ -543,6 +690,10 @@ def test_step3_transitional_status_without_master_is_not_an_ingest_error(
     assert result == {"files": 2, "events_ingested": 1}
     with sessions() as session:
         assert session.scalar(select(KubernetesWorkload)) is None
+        stage = session.scalar(select(RunStageState))
+        assert stage.stage_code == "step3_monitor"
+        assert stage.stage_status == "accepted"
+        assert stage.progress_available is False
 
 
 def test_step3_accepts_cce_master_only_when_it_matches_frozen_binding(
@@ -745,12 +896,14 @@ def test_biosan_jsonl_contract_and_degraded_marker(tmp_path: Path) -> None:
         "rule_instance_id": "biosan-rule-1",
         "rule_name": "mapping",
         "sample_id": "S1",
+        "family_id": "F1",
+        "phase": "pre-calling",
         "wildcards": {"sample": "S1"},
     }
     events = [
         {**base, "event_id": "evt-1", "sequence": 1, "timestamp": "2026-08-24T01:00:00Z", "event": "job_info", "status": "planned"},
         {**base, "event_id": "evt-2", "sequence": 2, "timestamp": "2026-08-24T01:00:01Z", "event": "job_started", "status": "running", "snakemake_jobid": 7},
-        {**base, "event_id": "evt-3", "sequence": 3, "timestamp": "2026-08-24T01:00:02Z", "event": "job_finished", "status": "success", "snakemake_jobid": 7},
+        {**base, "event_id": "evt-3", "sequence": 3, "timestamp": "2026-08-24T01:00:02Z", "event": "job_finished", "status": "success", "snakemake_jobid": 7, "message": "done", "log_keys": ["stderr:biosan-rule-1"]},
     ]
     path.write_text("".join(json.dumps(item) + "\n" for item in events), encoding="utf-8")
     marker = rule_dir.parents[1] / "LOGGER_DEGRADED.json"
@@ -762,7 +915,14 @@ def test_biosan_jsonl_contract_and_degraded_marker(tmp_path: Path) -> None:
     with sessions() as session:
         state = session.scalar(select(RuleState))
         assert state.rule_name == "mapping"
+        assert state.sequence == 1
         assert state.sample_id == "S1"
+        assert state.family_id == "F1"
+        assert state.phase == "pre-calling"
+        assert state.snakemake_jobid == "7"
+        assert state.wildcards_json == {"sample": "S1"}
+        assert state.message == "done"
+        assert state.log_paths_json == ["stderr:biosan-rule-1"]
         assert state.status == "success"
         observer = session.scalar(select(ObserverRunState))
         assert observer.status == "degraded"

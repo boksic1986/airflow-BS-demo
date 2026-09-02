@@ -26,12 +26,14 @@ RUNNER_STAGES = {
     "step4_publish",
     "step5_download",
     "step6_materialize",
+    "step7_cleanup",
 }
 ASYNC_RUNNER_STAGES = {
     "step1_upload",
     "step3_monitor",
     "step4_publish",
     "step5_download",
+    "step7_cleanup",
 }
 
 
@@ -59,16 +61,19 @@ def validate_request(**context: Any) -> dict[str, Any]:
             raise ValueError(f"{field} is required")
     maintenance_mode = conf.get("maintenance_mode")
     if maintenance_mode is not None:
-        if maintenance_mode != "repair_step4":
+        if maintenance_mode not in {"repair_step4", "cleanup_step7"}:
             raise ValueError("unsupported WGS maintenance mode")
-        if conf.get("repair_group") != "cram":
-            raise ValueError("Step4 maintenance is fixed to the cram linkage group")
-        if not isinstance(conf.get("continue_after_repair"), bool):
-            raise ValueError("continue_after_repair must be boolean")
+        if maintenance_mode == "repair_step4":
+            if conf.get("repair_group") != "cram":
+                raise ValueError("Step4 maintenance is fixed to the cram linkage group")
+            if not isinstance(conf.get("continue_after_repair"), bool):
+                raise ValueError("continue_after_repair must be boolean")
     return conf
 
 
 def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
+    if conf.get("maintenance_mode") == "cleanup_step7":
+        return stage == "step4_publish"
     if conf.get("maintenance_mode") != "repair_step4":
         return True
     if stage == "step4_publish":
@@ -94,6 +99,8 @@ def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
 
 
 def effective_runner_stage(stage: str, conf: dict[str, Any]) -> str:
+    if conf.get("maintenance_mode") == "cleanup_step7" and stage == "step4_publish":
+        return "step7_cleanup"
     if conf.get("maintenance_mode") == "repair_step4" and stage == "step4_publish":
         return "step4_repair_cram"
     return stage
@@ -112,6 +119,7 @@ def register_stage(stage: str, **context: Any) -> dict[str, Any]:
             "attempt": conf["attempt"],
             "adapter": "wgs-runtime-200",
             "command": f"wgs-runtime {conf['analysis_id']} {conf['attempt']} {runner_stage}",
+            "maintenance_action_id": conf.get("maintenance_action_id"),
         },
     )
 

@@ -111,6 +111,32 @@ def test_rule_chunks_append_complete_lines_per_stream_and_resume(tmp_path: Path)
     assert target.read_bytes() == first_line + second_line
 
 
+def test_analysis_log_chunk_is_incremental_and_resets_after_source_truncation(tmp_path: Path) -> None:
+    module = load_module()
+    output = tmp_path / "evidence"
+    cursor = output / ".analysis-log-cursor.json"
+
+    assert module._apply_file_chunk(
+        output,
+        cursor,
+        {"source_offset": 0, "next_offset": 6, "data_base64": base64.b64encode(b"first\n").decode()},
+    ) == 6
+    assert module._apply_file_chunk(
+        output,
+        cursor,
+        {"source_offset": 6, "next_offset": 13, "data_base64": base64.b64encode(b"second\n").decode()},
+    ) == 7
+    target = output / "mirror" / "analysis.log"
+    assert target.read_text(encoding="utf-8") == "first\nsecond\n"
+
+    assert module._apply_file_chunk(
+        output,
+        cursor,
+        {"source_offset": 0, "next_offset": 4, "data_base64": base64.b64encode(b"new\n").decode()},
+    ) == 4
+    assert target.read_text(encoding="utf-8") == "new\n"
+
+
 def test_reader_job_mounts_only_workspace_pvc_read_only() -> None:
     module = load_module()
     master = {

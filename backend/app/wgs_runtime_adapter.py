@@ -19,6 +19,7 @@ STAGES = {
     "step4_repair_cram",
     "step5_download",
     "step6_materialize",
+    "step7_cleanup",
 }
 
 
@@ -51,6 +52,13 @@ def build_stage_request(
     project_name: str,
     batch_no: str,
     fq_path: str,
+    platform: str | None = None,
+    sequencing_batch: str | None = None,
+    analysis_batch: str | None = None,
+    fastq_root: str | None = None,
+    use_reference: str | None = None,
+    algo: str | None = None,
+    maintenance_action_id: str | None = None,
 ) -> dict[str, object]:
     if ANALYSIS_ID_RE.fullmatch(analysis_id) is None:
         raise ValueError("invalid WGS analysis_id")
@@ -75,7 +83,7 @@ def build_stage_request(
     if not bs_root.is_absolute() or not node_root.is_absolute():
         raise ValueError("runtime roots must be absolute")
     relative = PurePosixPath("runs") / analysis_id / f"attempt-{attempt}"
-    return {
+    payload: dict[str, object] = {
         "schema_version": "wgs-runtime.request.v3",
         "analysis_id": analysis_id,
         "attempt": attempt,
@@ -90,6 +98,38 @@ def build_stage_request(
         "batch_no": str(batch_no).strip(),
         "fq_path": str(fastq),
     }
+    if sequencing_batch is not None:
+        if SAFE_COMPONENT_RE.fullmatch(str(sequencing_batch)) is None:
+            raise ValueError("invalid sequencing batch")
+        payload["sequencing_batch"] = str(sequencing_batch)
+    if analysis_batch is not None:
+        if SAFE_COMPONENT_RE.fullmatch(str(analysis_batch)) is None:
+            raise ValueError("invalid analysis batch")
+        payload["analysis_batch"] = str(analysis_batch)
+    if platform is not None:
+        if SAFE_COMPONENT_RE.fullmatch(str(platform)) is None:
+            raise ValueError("invalid platform")
+        payload["platform"] = str(platform)
+    if fastq_root is not None:
+        root = PurePosixPath(fastq_root)
+        if not root.is_absolute() or ".." in root.parts:
+            raise ValueError("fastq_root must be an absolute normalized node200 path")
+        payload["fastq_root"] = str(root)
+    if use_reference is not None:
+        if str(use_reference) not in {"all", "ref", "no"}:
+            raise ValueError("use_reference must be all, ref, or no")
+        payload["use_reference"] = str(use_reference)
+    if algo is not None:
+        if str(algo) not in {"DNAscope", "Haplotyper"}:
+            raise ValueError("algo must be DNAscope or Haplotyper")
+        payload["algo"] = str(algo)
+    if stage == "step7_cleanup":
+        if not maintenance_action_id or SAFE_COMPONENT_RE.fullmatch(maintenance_action_id) is None:
+            raise ValueError("Step7 cleanup requires a valid maintenance_action_id")
+        payload["maintenance_action_id"] = maintenance_action_id
+    elif maintenance_action_id is not None:
+        raise ValueError("maintenance_action_id is only valid for Step7 cleanup")
+    return payload
 
 
 def write_stage_request(

@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import main
-from app.models import AnalysisRun, Base, IntakeDiscovery, QcMetric, Sample, SnakemakeRuleEvent
+from app.models import AnalysisRun, Base, IntakeDiscovery, QcMetric, RunStageState, Sample, SnakemakeRuleEvent
 
 
 def make_test_sessionmaker():
@@ -314,15 +314,80 @@ def test_dashboard_runs_includes_terminal_wgs_without_airflow_task_requests(tmp_
     assert wgs_response.json()["total"] == 1
     assert wgs_response.json()["items"][0]["analysis_id"] == "WGS_FAILED"
     assert wgs_response.json()["items"][0]["current_airflow_task"] is None
-    assert wgs_response.json()["items"][0]["current_stage_label"] == "Workflow failed"
+    assert wgs_response.json()["items"][0]["current_stage_label"] == "WGS workflow failed"
     assert all_response.status_code == 200
     assert {item["analysis_id"] for item in all_response.json()["items"]} == {"WGS_FAILED"}
     assert success_response.status_code == 200
     success_items = {item["analysis_id"]: item for item in success_response.json()["items"]}
     assert set(success_items) == {"NIPT_SUCCESS", "WGS_SUCCESS"}
-    assert success_items["WGS_SUCCESS"]["current_stage_label"] == "Completed"
+    assert success_items["WGS_SUCCESS"]["current_stage_label"] == "WGS workflow completed"
     assert success_items["WGS_SUCCESS"]["current_airflow_task"] is None
     assert airflow.task_calls == []
+
+
+def test_wgs_tracker_exposes_batch_and_authoritative_stage_progress(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime.now(timezone.utc)
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id="WGS_TRACKER_STAGE",
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                dag_run_id="manual__WGS_TRACKER_STAGE",
+                mode="new",
+                execution_mode="cce",
+                attempt=1,
+                status="running",
+                workdir=str(tmp_path / "WGS_TRACKER_STAGE"),
+                current_stage="step3_monitor",
+                params_json={
+                    "project_name": "WGS_Clinical",
+                    "batch_no": "WGS_20260901A_T7Hg38V4.1.1",
+                    "pipeline_release_id": "wgs-4.1.1-test",
+                },
+                created_at=now,
+                submitted_at=now,
+                started_at=now,
+            )
+        )
+        session.add(
+            RunStageState(
+                analysis_id="WGS_TRACKER_STAGE",
+                attempt=1,
+                stage_code="step3_monitor",
+                step_number=3,
+                stage_label="WGS workflow running",
+                stage_status="running",
+                progress_available=True,
+                progress_percent=99,
+                completed_units=206,
+                total_units=209,
+                unit="rules",
+                progress_source="cce-pipeline.step3-status.v2",
+            )
+        )
+        session.commit()
+    fake = FakeAirflowClient()
+    monkeypatch.setattr(main, "get_sessionmaker", lambda: session_factory)
+    monkeypatch.setattr(main, "get_airflow_client", lambda: fake)
+    monkeypatch.setattr(
+        main,
+        "_deployment_guard_settings",
+        lambda: SimpleNamespace(deployed_pipelines=("wgs",)),
+    )
+
+    item = TestClient(main.app).get(
+        "/api/dashboard/runs?pipeline=wgs&limit=10&offset=0"
+    ).json()["items"][0]
+
+    assert item["batch_no"] == "WGS_20260901A_T7Hg38V4.1.1"
+    assert item["current_stage_label"] == "WGS workflow running"
+    assert item["stage_code"] == "step3_monitor"
+    assert item["stage_progress"]["available"] is True
+    assert item["stage_progress"]["percent"] == 99
+    assert item["stage_progress"]["completed_units"] == 206
+    assert item["stage_progress"]["total_units"] == 209
 
 
 def test_wgs_dry_run_is_success_without_qc_pending_and_catalog_is_explicit(tmp_path, monkeypatch) -> None:
@@ -362,9 +427,12 @@ def test_wgs_dry_run_is_success_without_qc_pending_and_catalog_is_explicit(tmp_p
 
     assert tracker["display_status"] == "success"
     assert tracker["qc_display_status"] == "not_applicable"
-    assert "dry-run" in tracker["qc_display_note"].lower()
-    assert catalog["name"] == "WGS Host Dry-run"
-    assert catalog["stages"][0]["dry_run"] is True
+    assert "not shown" in tracker["qc_display_note"].lower()
+    assert catalog["name"] == "WGS 4.2.0 CCE"
+    assert [stage["key"] for stage in catalog["stages"]] == [
+        "step1_upload", "step2_master", "step3_monitor",
+        "step4_publish", "step5_download", "step6_materialize",
+    ]
 
 
 def test_dashboard_runs_orders_terminal_runs_by_latest_completion(tmp_path, monkeypatch) -> None:

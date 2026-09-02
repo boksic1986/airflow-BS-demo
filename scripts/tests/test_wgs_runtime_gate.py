@@ -36,10 +36,12 @@ def test_forced_command_accepts_only_registered_wgs_stages() -> None:
     assert gate.parse_command(
         "wgs-runtime WGS_20260826_010203_A1B2C3 1 step4_repair_cram"
     ) == ("WGS_20260826_010203_A1B2C3", 1, "step4_repair_cram")
+    assert gate.parse_command(
+        "wgs-runtime WGS_20260826_010203_A1B2C3 1 step7_cleanup"
+    ) == ("WGS_20260826_010203_A1B2C3", 1, "step7_cleanup")
     for command in (
         "bash -c id",
         "wgs-runtime WGS_20260826_010203_A1B2C3 1 step0_reset",
-        "wgs-runtime WGS_20260826_010203_A1B2C3 1 step7_cleanup",
     ):
         with pytest.raises((ValueError, TypeError)):
             gate.parse_command(command)
@@ -79,6 +81,9 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
         "project_name": "clinical-wgs",
         "batch_no": "WGS_20260825A_T7Hg38V4.1.1",
         "fq_path": "/sg2/33.chenjiucheng/WGS_input/WGS_20260825A_T7Hg38V4.1.1",
+        "analysis_batch": "20260902A",
+        "platform": "T7",
+        "algo": "Haplotyper",
     }
 
     command = gate.build_prepare_command(payload)
@@ -88,7 +93,7 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
     assert command[command.index("--batch") + 1] == "20260825A"
     assert (
         command[command.index("--analysis-batch") + 1]
-        == "20260825A"
+        == "20260902A"
     )
     assert "--run-mode" in command and "cce" in command
     assert "--run-id" in command and "WGS_20260826_010203_A1B2C3-a1" in command
@@ -100,6 +105,8 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
     assert "/home/chenjc/.config/wgs/prepare.yaml" not in command
     assert gate.CCE_OPERATOR_CONFIG in command
     assert "--skip-samplelist-ready-check" in command
+    assert command[command.index("--platform") + 1] == "T7"
+    assert command[command.index("--algo") + 1] == "Haplotyper"
     assert not any("SECRET" in item for item in command)
 
 
@@ -351,6 +358,37 @@ def test_step4_repair_rejects_bundle_without_cram_contract(monkeypatch: pytest.M
 
     with pytest.raises(RuntimeError, match="cram"):
         gate.build_step4_repair_command({"analysis_id": "WGS_20260829_010203_A1B2C3", "attempt": 1})
+
+
+def test_step7_cleanup_confirmation_is_derived_only_from_frozen_binding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    cce = tmp_path / "cce"
+    cce.mkdir()
+    script = cce / "Step7_cleanup_sfs.sh"
+    script.write_text("#!/bin/bash\n", encoding="utf-8")
+    monkeypatch.setattr(
+        gate,
+        "_load_binding",
+        lambda _payload: {
+            "cce_bundle": str(cce),
+            "project": "WGS_Clinical",
+            "batch": "WGS_20260901A_T7Hg38V4.1.1",
+            "run_id": "WGS_20260901_010203_A1B2C3-a1",
+        },
+    )
+
+    command = gate.build_step7_cleanup_command(
+        {"analysis_id": "WGS_20260901_010203_A1B2C3", "attempt": 1}
+    )
+
+    assert command == [
+        "bash",
+        str(script),
+        "--confirm",
+        "DELETE-SFS:WGS_Clinical/WGS_20260901A_T7Hg38V4.1.1/WGS_20260901_010203_A1B2C3-a1",
+    ]
 
 
 def test_step4_wait_retries_short_master_completion_race_for_bound_successful_step3(
@@ -635,6 +673,7 @@ def test_step3_evidence_bridge_command_uses_frozen_binding_and_shared_spool(
         "master_job": "wgs-master-abc",
         "run_id": "WGS_20260826_010203_A1B2C3-a1",
         "rule_source_dir": "/workspace/wgs/runs/project/batch/evidence/WGS_20260826_010203_A1B2C3-a1/rule-status/raw",
+        "analysis_log_source": "/workspace/wgs/runs/project/batch/analysis.log",
     }
 
     command = gate.build_evidence_bridge_command(payload, binding, terminal=True)
@@ -644,6 +683,9 @@ def test_step3_evidence_bridge_command_uses_frozen_binding_and_shared_spool(
     assert command[command.index("--master-job") + 1] == "wgs-master-abc"
     assert command[command.index("--rule-source-dir") + 1].endswith(
         "/rule-status/raw"
+    )
+    assert command[command.index("--analysis-log-source") + 1].endswith(
+        "/analysis.log"
     )
     assert command[command.index("--output") + 1].endswith(
         "/WGS_20260826_010203_A1B2C3/attempt-1"

@@ -50,7 +50,7 @@ def main() -> int:
     parser.add_argument(
         "--intake-interval",
         type=int,
-        default=int(os.getenv("WGS_INTAKE_SCAN_INTERVAL_SECONDS", "1800")),
+        default=int(os.getenv("WGS_INTAKE_SCAN_INTERVAL_SECONDS", "600")),
     )
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()

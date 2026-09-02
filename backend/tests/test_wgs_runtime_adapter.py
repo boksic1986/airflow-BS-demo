@@ -28,6 +28,10 @@ def _request(tmp_path: Path, *, stage: str = "step2_master") -> dict[str, object
         project_name="clinical-wgs",
         batch_no="BATCH-01",
         fq_path="/sg2/33.chenjiucheng/WGS_input/BATCH-01",
+        sequencing_batch="20260902A",
+        analysis_batch="20260902A",
+        algo="DNAscope",
+        maintenance_action_id="step7-sfs-abcdef123456" if stage == "step7_cleanup" else None,
     )
 
 
@@ -40,6 +44,8 @@ def test_stage_request_v3_binds_release_without_pipeline_path_or_cce_version(
     assert request["pipeline_release_id"] == RELEASE_ID
     assert request["wgs_version"] == "V4.1.1"
     assert request["wgs_source_commit"] == WGS_COMMIT
+    assert request["analysis_batch"] == "20260902A"
+    assert request["algo"] == "DNAscope"
     assert request["node200_workdir"].endswith(
         "/runtime/runs/WGS_20260826_010203_A1B2C3/attempt-1"
     )
@@ -61,6 +67,7 @@ def test_stage_request_v3_binds_release_without_pipeline_path_or_cce_version(
         "step4_repair_cram",
         "step5_download",
         "step6_materialize",
+        "step7_cleanup",
     ],
 )
 def test_request_accepts_only_wgs_step1_to_step6_stages(
@@ -70,9 +77,29 @@ def test_request_accepts_only_wgs_step1_to_step6_stages(
 
 
 def test_request_rejects_old_or_manual_stages(tmp_path: Path) -> None:
-    for stage in ("validate_cce_bundle", "step0_reset", "step4_repair_vcf", "step7_cleanup", "step8_cleanup"):
+    for stage in ("validate_cce_bundle", "step0_reset", "step4_repair_vcf", "step8_cleanup"):
         with pytest.raises(ValueError, match="stage"):
             _request(tmp_path, stage=stage)
+
+
+def test_step7_request_requires_admin_maintenance_action_identity(tmp_path: Path) -> None:
+    request = _request(tmp_path, stage="step7_cleanup")
+    assert request["maintenance_action_id"] == "step7-sfs-abcdef123456"
+    with pytest.raises(ValueError, match="maintenance_action_id"):
+        build_stage_request(
+            analysis_id="WGS_20260826_010203_A1B2C3",
+            attempt=1,
+            stage="step7_cleanup",
+            pipeline_release_id=RELEASE_ID,
+            wgs_version="V4.1.1",
+            wgs_source_commit=WGS_COMMIT,
+            workdir=tmp_path / "runs" / "WGS_20260826_010203_A1B2C3",
+            bs_runtime_root="/mnt/runtime",
+            node200_runtime_root="/sg2/runtime",
+            project_name="clinical-wgs",
+            batch_no="BATCH-01",
+            fq_path="/sg2/input/BATCH-01",
+        )
 
 
 def test_request_is_atomically_registered_below_request_root(tmp_path: Path) -> None:

@@ -52,7 +52,7 @@ def scan_wgs_t7_intake(
     session_factory: Callable[[], Session],
     root: str | Path,
     now: datetime | None = None,
-    scan_interval_seconds: int = 1800,
+    scan_interval_seconds: int = 600,
     scan_enabled: bool = True,
     auto_dispatch_enabled: bool = False,
 ) -> dict[str, int]:
@@ -303,7 +303,7 @@ def get_wgs_t7_scanner_state(
     session: Session,
     root: str = "/bi/fastq/T7_Fastq",
     enabled: bool = False,
-    schedule_seconds: int = 1800,
+    schedule_seconds: int = 600,
     auto_dispatch_enabled: bool = False,
 ) -> dict[str, object]:
     row = session.get(WgsIntakeScannerState, SCANNER_STATE_ID)

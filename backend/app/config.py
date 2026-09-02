@@ -40,6 +40,9 @@ class Settings:
     wgs_binding_root: str
     wgs_transfer_spool_root: str
     wgs_release_catalog_path: str
+    wgs_project_catalog_path: str
+    wgs_submission_draft_root: str
+    wgs_submission_draft_ttl_hours: int
     wgs_runtime_request_root: str
     wgs_runtime_shared_gid: int
     wgs_runtime_bs_root: str
@@ -112,6 +115,15 @@ def get_settings() -> Settings:
         wgs_release_catalog_path=os.getenv(
             "WGS_RELEASE_CATALOG_PATH", "/config/wgs_releases.yaml"
         ),
+        wgs_project_catalog_path=os.getenv(
+            "WGS_PROJECT_CATALOG_PATH", "/config/wgs_projects.yaml"
+        ),
+        wgs_submission_draft_root=os.getenv(
+            "WGS_SUBMISSION_DRAFT_ROOT", "/data/wgs-runtime/submission-drafts"
+        ),
+        wgs_submission_draft_ttl_hours=_parse_int(
+            os.getenv("WGS_SUBMISSION_DRAFT_TTL_HOURS", "24"), default=24
+        ),
         wgs_runtime_request_root=os.getenv(
             "WGS_RUNTIME_REQUEST_ROOT", "/data/wgs-runner-requests"
         ),
@@ -145,7 +157,7 @@ def get_settings() -> Settings:
             os.getenv("WGS_INTAKE_SCAN_ENABLED", "true")
         ),
         wgs_intake_scan_interval_seconds=_parse_int(
-            os.getenv("WGS_INTAKE_SCAN_INTERVAL_SECONDS", "1800"), default=1800
+            os.getenv("WGS_INTAKE_SCAN_INTERVAL_SECONDS", "600"), default=600
         ),
         wgs_auto_dispatch_enabled=_parse_bool(
             os.getenv("WGS_AUTO_DISPATCH_ENABLED", "false")

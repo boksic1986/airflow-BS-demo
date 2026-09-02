@@ -277,7 +277,7 @@ def test_run_progress_uses_pgta_staged_airflow_tasks(tmp_path, monkeypatch) -> N
     ]
 
 
-def test_run_progress_uses_wgs_sshoperator_stages(tmp_path, monkeypatch) -> None:
+def test_wgs_progress_does_not_use_airflow_task_count_as_percentage(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_wgs_run(session_factory, tmp_path)
     fake_airflow = FakeAirflowClient(
@@ -294,9 +294,9 @@ def test_run_progress_uses_wgs_sshoperator_stages(tmp_path, monkeypatch) -> None
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["percent"] == 45
+    assert payload["percent"] is None
     assert payload["current_step"] == "wgs_pipeline.variant_analysis"
-    assert payload["progress_source"] == "airflow_task_instances"
+    assert payload["progress_source"] == "stage-status-unavailable"
     assert [task["task_id"] for task in payload["airflow_tasks"]] == [
         "validate_request",
         "prepare_wgs_run",

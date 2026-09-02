@@ -5,7 +5,7 @@ from collections import defaultdict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AnalysisRun, SnakemakeRuleEvent
+from app.models import AnalysisRun, RuleState, SnakemakeRuleEvent
 from app.workflow_phases import phase_for_rule
 
 
@@ -38,7 +38,7 @@ CANCELED = {"canceled", "cancelled", "terminated"}
 
 
 def workflow_summaries_by_run(*, session: Session, runs: list[AnalysisRun]) -> dict[str, list[dict[str, object]]]:
-    analysis_ids = [run.analysis_id for run in runs]
+    analysis_ids = [run.analysis_id for run in runs if run.pipeline_name != "wgs"]
     events = list(
         session.scalars(
             select(SnakemakeRuleEvent).where(SnakemakeRuleEvent.analysis_id.in_(analysis_ids))
@@ -60,6 +60,13 @@ def workflow_summaries_by_run(*, session: Session, runs: list[AnalysisRun]) -> d
         )].append(
             str(item.status or "unknown").lower()
         )
+    wgs_ids = [run.analysis_id for run in runs if run.pipeline_name == "wgs"]
+    wgs_states = list(
+        session.scalars(select(RuleState).where(RuleState.analysis_id.in_(wgs_ids))).all()
+    ) if wgs_ids else []
+    for item in wgs_states:
+        phase = item.phase or phase_for_rule(item.rule_name, pipeline_name="wgs")
+        grouped[item.analysis_id][phase].append(str(item.status or "unknown").lower())
 
     result: dict[str, list[dict[str, object]]] = {}
     for run in runs:

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, aliased
 from app.models import AnalysisRun, IntakeDiscovery, QcMetric, Sample, SnakemakeRuleEvent
 from app.progress_service import get_run_progress
 from app.qc_highlights import qc_highlights_by_run
+from app.wgs_timing_service import enrich_progress
 
 
 DASHBOARD_PIPELINES = ("pgta", "nipt_docker", "wgs")
@@ -180,6 +181,27 @@ def _tracker_row(
         run=run,
         persisted_rule_events=persisted_rule_events,
     )
+    if run.pipeline_name == "wgs":
+        if _status(run.status) == "success":
+            progress = {
+                **(progress or {}),
+                "stage_code": "final",
+                "step_number": None,
+                "stage_label": "WGS workflow completed",
+                "stage_status": "success",
+                "progress_available": True,
+                "progress_percent": 100,
+                "completed_units": 1,
+                "total_units": 1,
+                "unit": "workflow",
+                "current_item": None,
+                "speed_bps": None,
+                "eta_seconds": 0,
+                "progress_source": "workflow-terminal-state",
+                "stage_updated_at": _iso(run.pipeline_finished_at or run.ended_at),
+            }
+        else:
+            progress = enrich_progress(session=session, run=run, payload=progress or {})
     rules = progress.get("rule_events", []) if progress else []
     airflow_tasks = progress.get("airflow_tasks", []) if progress else []
     terminal_success = _status(run.status) == "success"
@@ -195,21 +217,17 @@ def _tracker_row(
     estimated_finish_at = _estimated_finish_at(estimated_remaining_seconds)
     params = run.params_json or {}
     qc_status = _qc_status_from_values(sample_qc_statuses)
-    is_wgs_dry_run = (
-        terminal_success
-        and run.pipeline_name == "wgs"
-        and bool(params.get("wgs_dry_run", True))
-    )
-    if is_wgs_dry_run:
-        display_status = "success"
+    if run.pipeline_name == "wgs":
+        display_status = _status(run.status)
         qc_display_status = "not_applicable"
-        qc_display_note = "QC is not applicable to a WGS dry-run; no analysis rules were executed."
+        qc_display_note = "WGS production status is workflow-only; QC is not shown in this interface."
     else:
         display_status = _display_status(run_status=run.status, qc_status=qc_status)
         qc_display_status, qc_display_note = _qc_display_state(run_status=run.status, qc_status=qc_status)
     return {
         "analysis_id": run.analysis_id,
         "project_name": _project_name(run),
+        "batch_no": str(params.get("batch_no") or "") or None,
         "pipeline": run.pipeline_name,
         "status": run.status,
         "display_status": display_status,
@@ -232,14 +250,22 @@ def _tracker_row(
         "pipeline_finished_at": _iso(run.pipeline_finished_at),
         "dag_id": run.dag_id,
         "dag_run_id": run.dag_run_id,
-        "percent": progress.get("percent", 0) if progress else 0,
+        "percent": progress.get("progress_percent") if run.pipeline_name == "wgs" else (progress.get("percent", 0) if progress else 0),
         "current_airflow_task": current_airflow_task,
         "current_pipeline_rule": current_pipeline_rule,
-        "current_stage_label": _current_stage_label(
-            current_airflow_task=current_airflow_task,
-            current_pipeline_rule=current_pipeline_rule,
-            status=run.status,
-            not_in_airflow=progress.get("not_in_airflow", False) if progress else False,
+        "current_stage_label": (
+            (
+                "WGS workflow failed"
+                if str(run.status or "").lower() in FAILED_STATUSES and not run.current_stage
+                else progress.get("stage_label")
+            )
+            if run.pipeline_name == "wgs"
+            else _current_stage_label(
+                current_airflow_task=current_airflow_task,
+                current_pipeline_rule=current_pipeline_rule,
+                status=run.status,
+                not_in_airflow=progress.get("not_in_airflow", False) if progress else False,
+            )
         ),
         "current_stage_source": _current_stage_source(
             current_airflow_task=current_airflow_task,
@@ -253,6 +279,25 @@ def _tracker_row(
         "estimated_remaining_seconds": estimated_remaining_seconds,
         "estimated_finish_at": _iso(estimated_finish_at),
         "progress_source": progress.get("progress_source", "estimate") if progress else "estimate",
+        "stage_code": progress.get("stage_code") if run.pipeline_name == "wgs" else None,
+        "step_number": progress.get("step_number") if run.pipeline_name == "wgs" else None,
+        "stage_status": progress.get("stage_status") if run.pipeline_name == "wgs" else None,
+        "stage_progress": (
+            {
+                "available": bool(progress.get("progress_available")),
+                "percent": progress.get("progress_percent"),
+                "completed_units": progress.get("completed_units"),
+                "total_units": progress.get("total_units"),
+                "unit": progress.get("unit"),
+                "current_item": progress.get("current_item"),
+                "speed_bps": progress.get("speed_bps"),
+                "eta_seconds": progress.get("eta_seconds"),
+                "source": progress.get("progress_source"),
+                "updated_at": progress.get("stage_updated_at"),
+            }
+            if run.pipeline_name == "wgs"
+            else None
+        ),
         "not_in_airflow": progress.get("not_in_airflow", False) if progress else False,
         "note": progress.get("note", "") if progress else "",
         "qc_highlights": qc_highlights,

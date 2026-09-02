@@ -738,7 +738,36 @@ def get_run_detail(*, session: Session, analysis_id: str) -> dict | None:
 
 
 def list_run_samples(*, session: Session, analysis_id: str) -> list[dict]:
+    run = session.scalar(
+        select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+    )
     samples = session.scalars(select(Sample).where(Sample.analysis_id == analysis_id).order_by(Sample.sample_id)).all()
+    if run is not None and run.pipeline_name == "wgs":
+        items = []
+        for sample in samples:
+            metadata = sample.metadata_json or {}
+            items.append(
+                {
+                    "sample_id": sample.sample_id,
+                    "data_id": str(metadata.get("data_id") or sample.sample_id),
+                    "family_id": sample.family_id,
+                    "family_relation": str(metadata.get("family_relation") or "") or None,
+                    "sample_type": sample.sample_type,
+                    "sex": sample.sex,
+                    "sequencing_batch": str(
+                        metadata.get("sequencing_batch")
+                        or (run.params_json or {}).get("sequencing_batch")
+                        or ""
+                    )
+                    or None,
+                    "r1_filename": Path(sample.fq1).name if sample.fq1 else None,
+                    "r2_filename": Path(sample.fq2).name if sample.fq2 else None,
+                    "status": sample.status,
+                    "pending_source": str(metadata.get("pending_source") or "") or None,
+                    "pending_reason": str(metadata.get("pending_reason") or "") or None,
+                }
+            )
+        return items
     return [
         {
             "sample_id": sample.sample_id,

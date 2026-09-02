@@ -132,7 +132,6 @@ def serialize_maintenance_action(action: WgsMaintenanceAction) -> dict[str, obje
         "requested_by": action.requested_by,
         "source_dag_run_id": action.source_dag_run_id,
         "maintenance_dag_run_id": action.maintenance_dag_run_id,
-        "evidence_path": action.evidence_path,
         "error_message": action.error_message,
         "created_at": _iso_datetime(action.created_at),
         "started_at": _iso_datetime(action.started_at),

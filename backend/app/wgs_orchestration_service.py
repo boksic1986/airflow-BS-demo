@@ -103,6 +103,27 @@ def verify_fastq_snapshot(manifest_path: Path) -> dict:
     return payload
 
 
+def fastq_source_fingerprint(snapshot: dict) -> str:
+    """Return a stable identity for source files, excluding observation time."""
+    canonical = {
+        "schema_version": str(snapshot.get("schema_version") or ""),
+        "fq_path": str(snapshot.get("fq_path") or ""),
+        "files": [
+            {
+                key: item.get(key)
+                for key in (
+                    "logical_name", "resolved_path", "sample_id", "read",
+                    "device", "inode", "size", "mtime_ns",
+                )
+            }
+            for item in snapshot.get("files", [])
+        ],
+    }
+    return hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
 def parse_obsutil_progress(line: str) -> dict[str, int | float] | None:
     match = PROGRESS_RE.search(line.replace("\r", "").replace("\n", ""))
     if match is None:
