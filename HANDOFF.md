@@ -16,6 +16,10 @@
 - WGS仓库未修改；没有部署、OBS、CCE、真实分析或Step7操作。
 - PR #6曾按错误理解改到4.2.0测试仓库，但尚未部署；当前纠正PR会回退
   release、runner、API、前端、测试和文档。PR #7已关闭且未合并。
+- 生产纠正已通过GitHub PR #8合并：
+  `https://github.com/boksic1986/airflow-BS-demo/pull/8`，merge commit
+  `6046a280db1271ae41575113cacd431e990a74c2`。root main已ff-only同步；线上
+  T152、数据库、OBS、SFS、CCE、Docker服务和网络均未修改。
 
 ### 已运行验证
 
