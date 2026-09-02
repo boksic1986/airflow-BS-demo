@@ -31,7 +31,8 @@ backup: /data/airflow-WGS/backups/T170-node-tabs-20260902T160508Z
 不满足当前lock依赖且缺Rolldown binding；首次完整backend测试把config挂载到`/config`
 而测试按仓库结构读取`/app/config`。最终使用官方`SHASUMS256.txt`校验的Node v24.15.0
 在服务器Docker完成前端测试/构建，并以双只读config挂载重跑backend全量通过。线上验收
-脚本两次分别因probe函数参数和PostgreSQL JSON引号写错提前退出，修正脚本后完整验收通过；
+脚本先后因probe函数参数、PostgreSQL JSON引号及JSON/JSONB存在性运算符写错提前退出，
+改用真实函数签名与`->> ... IS NOT NULL`查询后完整验收通过；
 这些失败没有启动WGS、OBS、CCE或修改业务run。
 
 ### 未完成
