@@ -24,9 +24,10 @@
 ### 发布与验证
 
 ```text
-release: 20260902-wgs-4.1.1-6c98281-t166-workflow-rule-r1
-frontend: airflow-demo/frontend:t166-workflow-rule-r2
-frontend image: sha256:065b1a165bccecce0142d3b4bbcbabbd1ada1652f7f0139d18e4222639e2d6d0
+commit: 066489d598671bf1f454a44d0dc535542fb88d46
+release: 20260902-wgs-4.1.1-6c98281-t166-workflow-rule-r2
+frontend: airflow-demo/frontend:t166-workflow-rule-r3
+frontend image: sha256:1326a0668703c685f35e5e4dbed82e24242e31d88da7231af13565eda7a08c12
 backend image: sha256:49635d01a7e4b55b7ba1ab13888bb18aed0a8b61babab24da6e9c95b92d468a6
 BS10610 backend: 312 passed
 BS10610 frontend: 9 files / 35 tests passed; TypeScript and Vite build passed
@@ -38,6 +39,7 @@ biodemo SHA256: 23980d97a5a4fd3f3bfcc9f8b22eadb80c647dc2aaaa7fbcd8e25a8811e8795b
 airflow SHA256: b4706e9838b2672a545cbd3596ba99cc33c12d69c4ffaa335a3b9f122d44e3f6
 network: 192.168.199.0/24, gateway 192.168.199.1; only 172.17.106.10:12959 published
 gates: execution=false, runtime=false, auto-dispatch=false; bio_wgs paused
+review: no remaining Critical, Important or Minor findings
 ```
 
 内置浏览器因URL安全策略拒绝访问私网HTTP地址，未进行截图验收且未绕过；生产API、
