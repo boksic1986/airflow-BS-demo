@@ -3,6 +3,7 @@ import {describe, expect, it} from "vitest";
 import dockerfile from "../Dockerfile?raw";
 import bsNginx from "../nginx.bs-nipt.conf?raw";
 import defaultNginx from "../nginx.conf?raw";
+import wgsNginx from "../nginx.wgs.conf?raw";
 
 describe("frontend nginx image contract", () => {
   it("builds the BS API gateway config by default", () => {
@@ -39,5 +40,10 @@ describe("frontend nginx image contract", () => {
   it("keeps the operator workstation allowlist on both BS gateway ports", () => {
     expect(bsNginx.match(/allow 172\.20\.8\.0\/24;/g)).toHaveLength(2);
     expect(bsNginx.match(/deny all;/g)).toHaveLength(2);
+  });
+
+  it("allows the production operator workstation subnet through the WGS gateway", () => {
+    expect(wgsNginx).toContain("allow 10.10.30.0/24;");
+    expect(wgsNginx).toContain("deny all;");
   });
 });
