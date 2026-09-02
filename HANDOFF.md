@@ -5,7 +5,7 @@
 ### 已完成
 
 - 在`172.17.61.96`创建独立生产控制面：release根为`/data/airflow-WGS`，当前
-  release为`20260902-wgs-4.1.1-6c98281-t168-server96-disabled-r2`。BS10610测试环境
+  release为`20260902-wgs-4.1.1-6c98281-t168-server96-disabled-r3`。BS10610测试环境
   未停止、未迁移、未删除。
 - PostgreSQL使用`.96`本地Docker volume`airflow-wgs_postgres-data`，底层为`/data`
   XFS；没有把PGDATA放到`/sg2`。业务结果和runtime spool使用
@@ -14,6 +14,8 @@
   身份，并固定ED25519 host key；私钥未进入Git、release、镜像、数据库、日志或备份。
 - 创建/复用唯一外部网络`nipt_analysis_test_net`：`192.168.199.0/24`、gateway
   `192.168.199.1`；只发布`172.17.61.96:12959`。
+- 修复首次上线遗漏的客户端ACL：Nginx日志证明浏览器源地址为`10.10.30.30`，r2因
+  `deny all`返回403。r3只新增`10.10.30.0/24`并保留默认拒绝；修复提交为`242f300`。
 - 首次scanner bootstrap扫描1843个目录，未写历史明细；`wgs_intake_batch=0`、
   `AnalysisRun=0`、`RunAttempt=0`、Airflow`DagRun=0`。
 
@@ -26,6 +28,7 @@ WGS DAG/deployment focused tests: 20 passed
 Airflow: only bio_wgs; paused=true; 18 tasks; import errors=0
 HTTP: health=200; anonymous capabilities=401; admin login=200;
       capabilities/release/scanner/runs=200; disabled submit=409
+frontend root: server-side 200; nginx config syntax and exact 10.10.30.0/24 ACL pass
 services: 10 running; restart count=0; Postgres/Redis healthy
 logging: every persistent service max-size=20m, max-file=3
 database: alembic 20260901_0013; one admin; zero run state

@@ -4,7 +4,7 @@
 
 ```text
 host: production control plane is deployed on 172.17.61.96 as Linux user hanjj; BS10610 remains the unchanged test control plane.
-release: current -> /data/airflow-WGS/releases/20260902-wgs-4.1.1-6c98281-t168-server96-disabled-r2; control commit f64c61a9868dbe8188d85d92ed8961929bd4ed81.
+release: current -> /data/airflow-WGS/releases/20260902-wgs-4.1.1-6c98281-t168-server96-disabled-r3; control commit 242f300.
 database: fresh biodemo and Airflow databases use local Docker volume airflow-wgs_postgres-data on /data XFS, not /sg2; schema revision 20260901_0013, one admin, zero AnalysisRun/RunAttempt/Airflow DagRun.
 runtime: result/control roots are under /sg2/14.hanjingjing/Cloud_WGS_Clinical; scanner bootstrap counted 1843 chip directories and persisted zero historical intake rows.
 services: Postgres, Redis, backend, frontend, scanner, run observer, metrics collector and three Airflow services are running with zero restarts; every persistent service uses max-size=20m/max-file=3 logging.
@@ -12,6 +12,7 @@ airflow: only bio_wgs is loaded, paused, with 18 tasks and zero import errors.
 smoke: anonymous protected API=401; admin login=200; Production capabilities/release/scanner/runs=200; disabled WGS submit=409; no business run or DagRun was created.
 gate: WGS_EXECUTION_ENABLED=false, WGS_RUNTIME_ADAPTER_ENABLED=false, WGS_SUBMISSION_PREVIEW_ENABLED=false and WGS_AUTO_DISPATCH_ENABLED=false. No OBS transfer, CCE Master, WGS analysis or Step7 was started.
 network: external nipt_analysis_test_net remains 192.168.199.0/24, gateway 192.168.199.1; only frontend is published at 172.17.61.96:12959.
+frontend_acl: initial r2 allowed server subnets but rejected the operator workstation source 10.10.30.30 with nginx 403; r3 adds only 10.10.30.0/24 while retaining deny all. Root-page smoke is now mandatory in addition to /api/health.
 external_gaps: hanjj on node200 still lacks the approved kubeconfig/kubectl/cce operator configuration; node exporters on .96/.97 and Cloud Eye metric spool are unavailable, so resource cards remain degraded without affecting WGS scheduling.
 backup: /data/airflow-WGS/backups/T168-initial-20260902T140812Z; biodemo SHA256 9f7c6fddae2... and Airflow SHA256 bf5f20298d1f....
 ```

@@ -21,6 +21,7 @@ WGS_AUTO_DISPATCH_ENABLED=false
 bio_wgs paused
 nipt_analysis_test_net = 192.168.199.0/24, gateway 192.168.199.1
 only 172.17.61.96:12959 published
+frontend client allowlist includes 10.10.30.0/24; deny all remains the default
 Docker logging max-size=20m, max-file=3
 ```
 
@@ -32,6 +33,8 @@ the external network, or delete `/sg2` data during release switching.
 
 Initial disabled-release evidence and database dumps are stored at
 `/data/airflow-WGS/backups/T168-initial-20260902T140812Z` with mode 0600.
+Acceptance must request both `/` and `/api/health` from an operator workstation;
+an API-only localhost smoke does not validate the Nginx client allowlist.
 
 ## T166 WGS展示投影发布
 

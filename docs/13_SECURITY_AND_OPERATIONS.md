@@ -5,6 +5,9 @@
 - The WGS production UI is the only published service and binds exactly to
   `172.17.61.96:12959`; backend, Airflow, PostgreSQL, Redis and observers remain
   internal to `nipt_analysis_test_net` (`192.168.199.0/24`).
+- The frontend explicitly allows the operator workstation subnet
+  `10.10.30.0/24` in addition to the approved server subnets and loopback, then
+  applies `deny all`. Do not replace this with an unrestricted listener.
 - PostgreSQL uses a `.96` local Docker volume backed by `/data`, not NFS/SFS.
   Database dumps are mode 0600 and remain under `/data/airflow-WGS/backups`.
 - The node200 RSA private key is mounted read-only only where the Airflow UID

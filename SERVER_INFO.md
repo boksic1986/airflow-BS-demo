@@ -6,14 +6,15 @@
 primary: 172.17.61.96
 linux_user: hanjj
 release_root: /data/airflow-WGS
-current_release: 20260902-wgs-4.1.1-6c98281-t168-server96-disabled-r2
-control_commit: f64c61a9868dbe8188d85d92ed8961929bd4ed81
+current_release: 20260902-wgs-4.1.1-6c98281-t168-server96-disabled-r3
+control_commit: 242f300
 frontend: http://172.17.61.96:12959
 postgres_volume: airflow-wgs_postgres-data (local driver, /data XFS host storage)
 wgs_data_root: /sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical
 runtime_root: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime
 network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
 published_ports: 172.17.61.96:12959 only
+frontend_allowed_client_subnets: 172.17.61.0/24, 172.17.106.0/24, 172.20.8.0/24, 10.10.30.0/24, loopback; deny all otherwise
 gates: execution=false, runtime_adapter=false, submission_preview=false, auto_dispatch=false
 airflow: bio_wgs only, 18 tasks, paused, zero import errors
 database: biodemo revision 20260901_0013; one admin; zero AnalysisRun/RunAttempt/DagRun
