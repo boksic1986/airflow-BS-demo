@@ -6,7 +6,9 @@
 
 - 共享WGS只读审计：`dev_CJC_4.2.0_cloud`，commit
   `78797181ee0582bea3167385c243616017f092ce`，版本`V4.2.0`。
-- 候选catalog已更新为`wgs-4.2.0-7879718`，共享路径保持不变。
+- catalog为`wgs-4.2.0-7879718`，共享路径固定为BS10610
+  `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0`和node200
+  `/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0`。旧`wgs-4.1.1`是历史worktree。
 - Airflow runner现在分别传递`--batch`和`--analysis-batch`，platform为`T7`；
   新增`--algo DNAscope|Haplotyper`。后端自动派生
   `WGS_<analysis_batch>_T7Hg38V4.2.0`，前端同步展示当前release和算法选择。

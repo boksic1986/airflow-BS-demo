@@ -4,7 +4,7 @@
 
 ```text
 wgs: 只读审计确认共享仓库分支dev_CJC_4.2.0_cloud、commit 78797181ee0582bea3167385c243616017f092ce、配置版本V4.2.0；structured ANALYSIS_COMPLETE生产/消费合同已统一。仓库仅有既存docs未跟踪报告，Airflow未修改WGS。
-catalog: 候选release更新为wgs-4.2.0-7879718；BS10610/node200共享路径仍为wgs-4.1.1，路径名不作为版本判断。
+catalog: release为wgs-4.2.0-7879718；BS10610/node200共享路径分别修正为/mnt/.../wgs-4.2.0和/bi/.../wgs-4.2.0。旧wgs-4.1.1仍是6c982817的历史worktree，不得用于新任务。
 prepare: platform修正为T7；sequencing_batch与analysis_batch分别传给--batch/--analysis-batch；新增受控algo=DNAscope|Haplotyper，默认DNAscope。服务端派生最终batch_no=WGS_<analysis_batch>_T7Hg38V4.2.0。
 frontend: Submit表单展示V4.2.0/7879718、T7及variant caller；此前Batch、业务阶段、精确进度、安全Samples、Rule图、opaque日志与失败诊断修复均包含在同一候选。
 validation: BS10610 Docker backend 280 passed/1 skipped；scripts 38 passed；Airflow DagBag import_errors=0、bio_wgs=18 tasks/6 reschedule sensors/paused-on-creation；PostgreSQL 15完成0001→0013、受控downgrade/upgrade；frontend 9 files/32 tests及Vite build通过；Compose解析、secret scan和git diff --check通过。

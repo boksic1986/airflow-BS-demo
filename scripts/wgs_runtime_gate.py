@@ -62,7 +62,7 @@ REQUEST_ROOT = Path(
 WGS_REPO_ROOT = Path(
     os.getenv(
         "WGS_REPO_ROOT",
-        "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
+        "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0",
     )
 )
 WGS_PYTHON = os.getenv("WGS_PYTHON", "/bi/software/mamba/envs/WGS/bin/python")
