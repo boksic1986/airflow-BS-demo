@@ -31,8 +31,12 @@ published port: only 172.17.106.10:12959
 
 ### 待完成
 
-- 整理提交，创建PR，合并到main，并同步root main及下一开发worktree。
-- 本条是检查点；完成后需补充PR、merge SHA和最终验证结果。
+- 代码、前端和文档已通过GitHub PR #4合并：
+  `https://github.com/boksic1986/airflow-BS-demo/pull/4`。
+- merge commit为`17c0f97ec5128427d14555f3cab6fc6f6152367a`；root main已
+  `pull --ff-only`同步。原T146开发分支已经结束，后续部署应从该main新建分支。
+- 下一阶段仍是disabled release/在线暂停切换；需要单独确认后才可修改在线T152、
+  安装node200 wrapper或执行真实WGS。
 
 ### 回滚
 
