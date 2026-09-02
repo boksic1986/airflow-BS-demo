@@ -786,11 +786,11 @@ def build_async_worker_command(
     ]
 
 
-def _archive_failed_step4_generation(payload: dict[str, Any]) -> int:
+def _archive_failed_stage_generation(payload: dict[str, Any]) -> int:
     request_path = _request_path(
         str(payload["analysis_id"]), int(payload["attempt"]), str(payload["stage"])
     )
-    history_root = request_path.parent / "history" / "step4_publish"
+    history_root = request_path.parent / "history" / str(payload["stage"])
     history_root.mkdir(parents=True, exist_ok=True)
     retry_no = 1
     while (history_root / f"retry-{retry_no}").exists() or (
@@ -842,11 +842,11 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             return {"status": "running", "pid": previous["pid"]}
         retry_no = 0
         if status.get("status") == "failed":
-            if payload["stage"] != "step4_publish":
+            if payload["stage"] not in {"step4_publish", "step5_download"}:
                 raise RuntimeError(
                     "failed runtime stages cannot be restarted by the restricted runner"
                 )
-            retry_no = _archive_failed_step4_generation(payload)
+            retry_no = _archive_failed_stage_generation(payload)
         command = build_async_worker_command(
             analysis_id=str(payload["analysis_id"]),
             attempt=int(payload["attempt"]),
@@ -878,14 +878,16 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_worker(payload: dict[str, Any]) -> int:
+    current_status = _read_json(_sidecar_path(payload, ".status.json"))
+    retry_no = int(current_status.get("retry_no", 0))
     if payload["stage"] != "step3_monitor":
-        _write_status(payload, "running")
+        _write_status(payload, "running", retry_no=retry_no)
     try:
         run_stage(payload)
     except Exception as error:
-        _write_status(payload, "failed", str(error))
+        _write_status(payload, "failed", str(error), retry_no=retry_no)
         raise
-    _write_status(payload, "success")
+    _write_status(payload, "success", retry_no=retry_no)
     return 0
 
 

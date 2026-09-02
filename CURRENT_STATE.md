@@ -6,10 +6,11 @@
 auth: PlatformCapabilitiesProvider只在SessionProvider确认已登录后挂载；登录页不再提前请求受保护capabilities并缓存AUTH_REQUIRED。生产API在未登录时仍正确返回401，登录后由新provider重新加载。
 scanner_ui: Dashboard改为产品语义“自动发现新的测序批次；分析任务需人工确认”，以三个状态标签显示10分钟周期、本轮1841个批次目录和最近更新时间；不再暴露BarcodeStat实现细节。
 scanner_data: 2226th_20260830B_E250197447确认无关联AnalysisRun后，在受保护备份后单事务删除；生产env加入精确ignore，立即重扫后该行仍为0。扫描仍计数1841，AnalysisRun=1、Airflow DagRun=1，自动提交仍关闭。
-runtime: WGS_20260901_031616_C74E6C同attempt的Step4权威状态已success；业务投影由残留failed恢复为downloading/step5_download并写审计。原DagRun仍running，Step5 sensor为up_for_reschedule；Step1-Step4没有重跑，未创建新Master或上传。
-race_guard: 后端只在同identity的Step4成功状态文件存在时允许Step5恢复failed投影；Airflow start任务会等待新async generation状态可见，避免sensor读取上一代failed。
-release: current -> 20260902-wgs-4.1.1-2499749-t163-ui-intake-recovery-r1；frontend image airflow-demo/frontend:t163-ui-intake-recovery@sha256:23f916eb9c60...。只滚动重建应用/Airflow服务，不迁移DB、不删除volume或网络。
-validation: BS10610 backend 251 passed/1 skipped；bio_wgs 8 tests、py_compile和import_errors=0；frontend 9 files/32 tests及Vite build通过。health=200，匿名capabilities=401符合安全合同。
+runtime: WGS_20260901_031616_C74E6C同attempt的Step4权威状态已success。首次Step5在结果archive下载79.86%时报`no space left on device`；旧worker退出后以相同request SHA归档为retry-1并保留obsutil checkpoint，未重跑Step1-Step4。retry-1当前running，Airflow wait sensor为up_for_reschedule，业务投影为downloading/step5_download。
+race_guard: 后端只在run仍处于Step4假失败且同identity的Step4成功状态文件存在时允许Step5注册恢复，真实Step5失败不会被普通注册掩盖。Step4/Step5 start均按runner返回的明确`retry_no`等待新generation可见，不比较跨主机时间，也不让sensor读取上一代failed。
+release: current -> 20260902-wgs-4.1.1-2499749-t163-ui-intake-recovery-r4；frontend image airflow-demo/frontend:t163-ui-intake-recovery@sha256:23f916eb9c60...。只滚动重建应用/Airflow服务，不迁移DB、不删除volume或网络。
+validation: BS10610 backend 252 passed/1 skipped；bio_wgs 9 tests、runner 30 tests、py_compile和import_errors=0；frontend 9 files/32 tests及Vite build通过。health=200，匿名capabilities=401符合安全合同。
+branch_validation: 待合并完整候选在BS10610 Docker中为backend 283 passed/1 skipped、scripts 40 passed、bio_wgs 10 passed、frontend 9 files/33 tests及Vite build通过，Compose config和`git diff --check`通过。
 network: nipt_analysis_test_net仍为192.168.199.0/24、gateway 192.168.199.1；唯一宿主机发布仍是172.17.106.10:12959。
 gate: 当前获批真实batch尚未完成，因此execution/runtime和DAG现状未在本次中途关闭；自动dispatch=false。批次终态后再执行禁用态门禁切换。
 ```

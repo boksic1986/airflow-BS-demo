@@ -1491,14 +1491,13 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 payload,
                 shared_gid=getattr(settings, "wgs_runtime_shared_gid", None),
             )
-            registered_at = datetime.now(timezone.utc)
             upsert_stage_state(
                 session,
                 analysis_id=analysis_id,
                 attempt=request.attempt,
                 stage_code=stage_name,
                 stage_status="accepted",
-                updated_at=registered_at,
+                updated_at=datetime.now(timezone.utc),
                 progress_source="wgs-runtime.request.v3",
             )
             if stage_name == "prepare":
@@ -1548,7 +1547,11 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     analysis_id=analysis_id,
                     payload={"attempt": request.attempt},
                 )
-            if stage_name == "step5_download" and run.status == "failed":
+            if (
+                stage_name == "step5_download"
+                and run.status == "failed"
+                and run.current_stage == "step4_publish"
+            ):
                 if _is_successful_runtime_stage(
                     request_root=settings.wgs_runtime_request_root,
                     analysis_id=analysis_id,
@@ -1573,7 +1576,6 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 "attempt": request.attempt,
                 "stage": stage_name,
                 "status": "registered",
-                "registered_at": registered_at.isoformat(),
                 "request_path": str(path),
             }
     except (OSError, ValueError, RuntimeError) as exc:
@@ -1676,6 +1678,7 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
         "failed": status_value == "failed",
         "status": status_value,
         "updated_at": payload.get("updated_at"),
+        "retry_no": payload.get("retry_no"),
         "message": payload.get("message", ""),
         "master": payload.get("master"),
     }

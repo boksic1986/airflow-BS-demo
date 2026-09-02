@@ -11,25 +11,32 @@
 - scanner增加`WGS_INTAKE_IGNORED_CHIP_IDS`精确忽略。2226记录删除前确认
   `analysis_id IS NULL`且关联数为0；删除和run状态修正在事务内完成并补充审计。
   立即`--once`重扫后2226仍为0，本轮扫描1841，AnalysisRun/DagRun仍各1。
-- 修复相同attempt恢复后的业务投影：只有Step4权威状态文件身份匹配且success，
-  Step5注册才可将旧failed清为downloading；同时Airflow start等待新worker generation
-  可见，防止上一代failed被sensor瞬时读取。
+- 修复相同attempt恢复后的业务投影：只有run仍处于Step4假失败、Step4权威状态文件
+  身份匹配且success，Step5注册才可清为downloading；真实Step5失败不会被普通注册
+  掩盖。Step4/Step5 start按runner返回的`retry_no`等待新generation可见，不再比较
+  BS10610/node200时间，防止sensor读取上一代failed。
 - 当前run`WGS_20260901_031616_C74E6C`保持同一DagRun/attempt/Master，普通Step4
-  已success，Step5下载sensor为`up_for_reschedule`。未重跑Step1-Step4。
+  已success。首次Step5在结果archive下载79.86%时因`no space left on device`失败；
+  旧worker退出且`df`恢复可用后，runner归档完整证据并以retry-1复用obsutil checkpoint。
+  当前retry-1为running，Step5 sensor为`up_for_reschedule`；未重跑Step1-Step4。
 
 ### 发布与验证
 
 ```text
-release: 20260902-wgs-4.1.1-2499749-t163-ui-intake-recovery-r1
+release: 20260902-wgs-4.1.1-2499749-t163-ui-intake-recovery-r4
 frontend image: sha256:23f916eb9c60f3dbbf5749e4b34fbc7b29db9d9c5a8eb519f7cc11c09412da57
-backend: 251 passed, 1 skipped
-bio_wgs: 8 passed; py_compile passed; Airflow import_errors=[]
+backend: 252 passed, 1 skipped
+bio_wgs: 9 passed; runner: 30 passed; py_compile passed; Airflow import_errors=[]
 frontend: 9 files / 32 tests passed; Vite build passed
 HTTP: /api/health 200; anonymous /api/platform/capabilities 401 AUTH_REQUIRED
 scanner: scanned=1841; 2226 rows=0; no new AnalysisRun or DagRun
 network: 192.168.199.0/24, gateway 192.168.199.1
 published host ports: only 172.17.106.10:12959
 backup: backups/T163-ui-intake-step4-20260902T105843+0800
+review backup: backups/T163-review-fix-20260902T115421+0800
+Step5 retry backup: backups/T163-step5-retry-20260902T120703+0800
+full branch: backend 283 passed/1 skipped; scripts 40 passed; bio_wgs 10 passed;
+             frontend 9 files/33 tests and Vite build passed; Compose config passed
 ```
 
 ### 未完成与下一步

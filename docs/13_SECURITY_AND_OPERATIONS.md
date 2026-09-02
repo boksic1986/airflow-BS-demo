@@ -6,7 +6,9 @@ capabilities仍是登录后接口；前端不得通过匿名预取探测或展�
 ignore列表只能由受保护部署env配置精确芯片ID，不能由浏览器/API提交，且被忽略目录
 仍计入扫描总数。删除历史发现记录必须先验证无AnalysisRun关联、备份数据库并记录
 审计；不得修改T7源目录。运行状态恢复只信任服务器生成、身份完整且同attempt的
-stage status，不接受浏览器或普通用户提供的状态。
+stage status，不接受浏览器或普通用户提供的状态。Step4/Step5 retry generation只能由
+受限runner在旧进程退出且request SHA不变时签发；Airflow按明确`retry_no`接管，不使用
+跨主机时间戳或浏览器参数判断新旧generation。
 
 ## T153-T157 WGS UI信任边界
 
