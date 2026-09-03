@@ -144,8 +144,12 @@ def _collect_cloud_spool(state: dict[str, str]) -> None:
     path = Path(os.getenv("PLATFORM_CLOUD_METRICS_SPOOL", "/data/wgs-runtime/platform-metrics/cloud.json"))
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
+        if payload.get("schema_version") != "platform-cloud-metrics.v1":
+            raise ValueError("unsupported cloud metrics spool schema")
         for item in payload.get("items") or []:
             resource_type = str(item["resource_type"])
+            if resource_type != "sfs":
+                continue
             key = str(item["resource_key"])
             updated = datetime.fromisoformat(str(item["source_updated_at"]).replace("Z", "+00:00"))
             with get_sessionmaker()() as session:
@@ -174,7 +178,7 @@ def _record_cloud_spool_error(message: str) -> None:
     with get_sessionmaker()() as session:
         rows = session.scalars(
             select(PlatformResourceSnapshot).where(
-                PlatformResourceSnapshot.resource_type.in_(("sfs", "obs"))
+                PlatformResourceSnapshot.resource_type == "sfs"
             )
         ).all()
         if rows:
@@ -185,7 +189,6 @@ def _record_cloud_spool_error(message: str) -> None:
         else:
             targets = [
                 ("sfs-cloud-metrics", "sfs", "SFS Cloud Eye"),
-                ("obs-cloud-metrics", "obs", "OBS Cloud Eye"),
             ]
         for resource_key, resource_type, display_name in targets:
             record_resource_error(

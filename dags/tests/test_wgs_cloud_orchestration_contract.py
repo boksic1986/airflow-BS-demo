@@ -5,7 +5,12 @@ DAG_PATH = Path(__file__).parents[1] / "bio_wgs.py"
 
 EXPECTED_TASKS = {
     "validate_request",
-    "prepare_wgs_batch",
+    "prepare_wgs_sampleinfo",
+    "wait_prepare_wgs_sampleinfo",
+    "wait_wgs_config_approval",
+    "prepare_wgs_analysis",
+    "wait_prepare_wgs_analysis",
+    "wait_wgs_execution_approval",
     "input_transfer.acquire_obs_transfer_slot",
     "input_transfer.start_step1_upload",
     "input_transfer.wait_step1_upload",
@@ -71,6 +76,10 @@ def test_runtime_dag_has_exact_topology_and_reschedule_sensors() -> None:
 
     assert {task.task_id for task in dag.tasks} == EXPECTED_TASKS
     sensors = {
+        "wait_prepare_wgs_sampleinfo",
+        "wait_wgs_config_approval",
+        "wait_prepare_wgs_analysis",
+        "wait_wgs_execution_approval",
         "input_transfer.wait_step1_upload",
         "wait_step3_analysis",
         "wait_step4_publish",

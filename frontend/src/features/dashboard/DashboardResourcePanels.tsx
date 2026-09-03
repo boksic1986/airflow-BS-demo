@@ -18,14 +18,14 @@ export function DashboardResourcePanels({resources, overview, rows, loading, err
 }) {
   const nodes = (resources?.items.filter((item) => item.resource_type === "node") || [])
     .sort((left, right) => left.resource_key.localeCompare(right.resource_key));
-  const cloud = resources?.items.filter((item) => item.resource_type !== "node") || [];
+  const cloud = resources?.items.filter((item) => item.resource_type === "sfs") || [];
   const [selectedNodeKey, setSelectedNodeKey] = useState("node-96");
   const selectedNode = nodes.find((node) => node.resource_key === selectedNodeKey)
     || nodes.find((node) => node.resource_key === "node-96")
     || nodes[0];
   return <section className="dashboard-ops-grid" aria-busy={loading}>
-    <section className="panel"><div className="section-heading"><h2>Analysis Node Health</h2><p>172.17.61.96 and 172.17.61.97</p></div>{nodes.length > 0 ? <div className="resource-tabs" role="tablist" aria-label="Analysis node">{nodes.map((node) => <button key={node.resource_key} type="button" role="tab" aria-selected={selectedNode?.resource_key === node.resource_key} className={selectedNode?.resource_key === node.resource_key ? "active" : ""} onClick={() => setSelectedNodeKey(node.resource_key)}>{nodeTabLabel(node)}</button>)}</div> : null}{error ? <div className="inline-error" role="alert">Resources unavailable: {error}</div> : null}<div className="resource-card-list">{selectedNode ? <NodeResource item={selectedNode} /> : <p className="empty-state">Node metrics are not available yet.</p>}</div></section>
-    <section className="panel"><div className="section-heading"><h2>Cloud Resources</h2><p>SFS I/O/capacity and OBS usage snapshots</p></div><div className="resource-card-list">{cloud.map((item) => <CloudResource key={item.resource_key} item={item} />)}{cloud.length === 0 ? <p className="empty-state">Cloud metrics are not available yet. WGS execution is unaffected.</p> : null}</div></section>
+    <section className="panel"><div className="section-heading"><h2>Analysis Node Health</h2></div>{nodes.length > 0 ? <div className="resource-tabs" role="tablist" aria-label="Analysis node">{nodes.map((node) => <button key={node.resource_key} type="button" role="tab" aria-selected={selectedNode?.resource_key === node.resource_key} className={selectedNode?.resource_key === node.resource_key ? "active" : ""} onClick={() => setSelectedNodeKey(node.resource_key)}>{nodeTabLabel(node)}</button>)}</div> : null}{error ? <div className="inline-error" role="alert">Resources unavailable: {error}</div> : null}<div className="resource-card-list">{selectedNode ? <NodeResource item={selectedNode} /> : <p className="empty-state">Node metrics are not available yet.</p>}</div></section>
+    <section className="panel"><div className="section-heading"><h2>Cloud Resources</h2><p>SFS capacity and I/O snapshot</p></div><div className="resource-card-list">{cloud.map((item) => <CloudResource key={item.resource_key} item={item} />)}{cloud.length === 0 ? <p className="empty-state">SFS metrics are not available yet. WGS execution is unaffected.</p> : null}</div></section>
     <WorkflowActivity overview={overview} rows={rows} />
   </section>;
 }
@@ -40,12 +40,12 @@ function NodeResource({item}: {item: PlatformResourceSnapshot}) {
 
 function nodeTabLabel(item: PlatformResourceSnapshot): string {
   const suffix = item.resource_key.match(/(\d+)$/)?.[1];
-  return suffix ? `.${suffix}` : item.display_name;
+  return suffix ? `172.17.61.${suffix}` : item.display_name;
 }
 
 function CloudResource({item}: {item: PlatformResourceSnapshot}) {
   const value = item.current;
-  return <article className="resource-snapshot"><div><strong>{item.display_name}</strong><StatusBadge status={item.status} size="sm" /></div><dl>{item.resource_type === "obs" ? <><div><dt>Used capacity</dt><dd>{formatBytes(Number(value.used_bytes || 0))}</dd></div><div><dt>Objects</dt><dd>{metric(value.object_count)}</dd></div></> : <><div><dt>Capacity used</dt><dd>{metric(value.capacity_used_percent, "%")}</dd></div><div><dt>Read / write bandwidth</dt><dd>{formatBytes(Number(value.read_bps || 0))}/s / {formatBytes(Number(value.write_bps || 0))}/s</dd></div><div><dt>IOPS</dt><dd>{metric(value.iops)}</dd></div></>}<div><dt>Updated</dt><dd>{formatDate(item.source_updated_at)}</dd></div></dl></article>;
+  return <article className="resource-snapshot"><div><strong>{item.display_name}</strong><StatusBadge status={item.status} size="sm" /></div><dl><div><dt>Capacity used</dt><dd>{metric(value.capacity_used_percent, "%")}</dd></div><div><dt>Read / write bandwidth</dt><dd>{formatBytes(Number(value.read_bps || 0))}/s / {formatBytes(Number(value.write_bps || 0))}/s</dd></div><div><dt>IOPS</dt><dd>{metric(value.iops)}</dd></div><div><dt>Client connections</dt><dd>{metric(value.client_connections)}</dd></div><div><dt>Updated</dt><dd>{formatDate(item.source_updated_at)}</dd></div></dl></article>;
 }
 
 function WorkflowActivity({overview, rows}: {overview: DashboardOverview | null; rows: DashboardRunTrackerRow[]}) {

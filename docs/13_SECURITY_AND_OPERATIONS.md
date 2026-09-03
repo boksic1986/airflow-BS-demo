@@ -1,5 +1,32 @@
 # 13 安全和运维约束
 
+## T173 SFS metrics credential boundary
+
+- Cloud Eye credentials remain only in `/home/hanjj/sfs_api.credentials` on
+  node200 with mode 0600. Airflow, FastAPI, React, Docker images and shared
+  spools contain no AK/SK.
+- `hwybioinfo1` uses dedicated regional `CES ReadOnlyAccess`; global admin is
+  neither required nor granted for this integration.
+- The shared spool contains only numeric SFS metrics and timestamps. OBS data,
+  object names, patient data and private configuration are excluded.
+
+## T171 manual execution boundary
+
+- Manual WGS execution is enabled on `.96`, but auto-dispatch remains disabled.
+  A scanner discovery can never create an AnalysisRun or Airflow DagRun; only
+  an authenticated operator/admin POST to the catalog-controlled endpoint can.
+- Airflow calls only `/home/hanjj/.config/airflow-wgs/forced-command.sh` through
+  the pinned `wgs-node200` SSH alias. The runner accepts only a registered
+  `analysis_id + attempt + stage`; repository, analysis root, OBS URI and shell
+  command are not browser inputs.
+- New analysis output is restricted to
+  `/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical/<batch_no>`. Runtime
+  requests, progress and evidence remain in the non-overlapping
+  `/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime` root.
+- `cce.yaml`, kubeconfig and OBS configuration remain owner-only on node200.
+  The transparent obsutil wrapper receives only process environment identity
+  and writes redacted progress; it never copies OBS credentials into Airflow.
+
 ## T169/T170 node metrics boundary
 
 - `.96` and `.97` share the approved client private key but have separate pinned

@@ -21,6 +21,8 @@ from airflow.utils.trigger_rule import TriggerRule
 ANALYSIS_ID_RE = re.compile(r"^WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}$")
 RUNNER_STAGES = {
     "prepare",
+    "prepare_sampleinfo",
+    "prepare_analysis",
     "step1_upload",
     "step2_master",
     "step3_monitor",
@@ -76,11 +78,15 @@ def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
     if conf.get("maintenance_mode") == "cleanup_step7":
         return stage == "step4_publish"
     if conf.get("maintenance_mode") != "repair_step4":
+        if stage == "prepare_analysis" and dict(conf.get("params") or {}).get("submission_mode") != "three_stage":
+            return False
         return True
     if stage == "step4_publish":
         return True
     if stage in {
         "prepare",
+        "prepare_sampleinfo",
+        "prepare_analysis",
         "acquire_input_transfer_slot",
         "step1_upload",
         "release_input_transfer_slot",
@@ -104,6 +110,8 @@ def effective_runner_stage(stage: str, conf: dict[str, Any]) -> str:
         return "step7_cleanup"
     if conf.get("maintenance_mode") == "repair_step4" and stage == "step4_publish":
         return "step4_repair_cram"
+    if stage == "prepare_sampleinfo" and dict(conf.get("params") or {}).get("submission_mode") != "three_stage":
+        return "prepare"
     return stage
 
 
@@ -139,7 +147,10 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         "-F",
         os.getenv("WGS_SSH_CONFIG_PATH", "/opt/airflow/ssh/config"),
         os.getenv("WGS_RUNNER_200_ALIAS", "wgs-node200"),
-        "/home/chenjc/.config/airflow-wgs/forced-command.sh",
+        os.getenv(
+            "WGS_RUNNER_200_COMMAND",
+            "/home/hanjj/.config/airflow-wgs/forced-command.sh",
+        ),
         "wgs-runtime",
         str(conf["analysis_id"]),
         str(conf["attempt"]),
@@ -153,7 +164,11 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         text=True,
     )
     if completed.returncode != 0:
-        error = (completed.stderr or completed.stdout or "")[-2000:]
+        error = " | ".join(
+            part.strip()
+            for part in (completed.stdout, completed.stderr)
+            if part and part.strip()
+        )[-2000:]
         raise RuntimeError(
             f"restricted node200 WGS stage failed ({completed.returncode}): {error}"
         )
@@ -236,6 +251,19 @@ def stage_ready(stage: str, **context: Any) -> bool:
     if payload.get("failed"):
         raise RuntimeError(str(payload.get("message") or f"WGS stage failed: {stage}"))
     return bool(payload.get("ready"))
+
+
+def submission_gate_ready(gate: str, **context: Any) -> bool:
+    if gate not in {"config", "execution"}:
+        raise ValueError("unsupported WGS submission gate")
+    conf = dict(context["dag_run"].conf or {})
+    if dict(conf.get("params") or {}).get("submission_mode") != "three_stage":
+        return True
+    query = urlencode({"attempt": conf["attempt"]})
+    payload = _backend_json(
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/submission-state?{query}"
+    )
+    return bool(payload.get(f"{gate}_approved"))
 
 
 def release_leases(**context: Any) -> dict[str, Any]:
@@ -388,8 +416,33 @@ with DAG(
     validate = PythonOperator(
         task_id="validate_request", python_callable=validate_request
     )
-    prepare = runner_stage(
-        "prepare_wgs_batch", stage="prepare", timeout_hours=2
+    prepare_sampleinfo = runner_stage(
+        "prepare_wgs_sampleinfo", stage="prepare_sampleinfo", timeout_hours=2
+    )
+    wait_prepare_sampleinfo = stage_sensor(
+        "wait_prepare_wgs_sampleinfo", stage="prepare_sampleinfo", timeout_hours=2
+    )
+    wait_config_approval = PythonSensor(
+        task_id="wait_wgs_config_approval",
+        python_callable=submission_gate_ready,
+        op_kwargs={"gate": "config"},
+        mode="reschedule",
+        poke_interval=5,
+        timeout=7 * 24 * 3600,
+    )
+    prepare_analysis = runner_stage(
+        "prepare_wgs_analysis", stage="prepare_analysis", timeout_hours=2
+    )
+    wait_prepare_analysis = stage_sensor(
+        "wait_prepare_wgs_analysis", stage="prepare_analysis", timeout_hours=2
+    )
+    wait_execution_approval = PythonSensor(
+        task_id="wait_wgs_execution_approval",
+        python_callable=submission_gate_ready,
+        op_kwargs={"gate": "execution"},
+        mode="reschedule",
+        poke_interval=5,
+        timeout=7 * 24 * 3600,
     )
 
     with TaskGroup(group_id="input_transfer") as input_transfer:
@@ -459,6 +512,8 @@ with DAG(
         trigger_rule=TriggerRule.ALL_DONE,
     )
 
-    validate >> prepare >> input_transfer >> submit
+    validate >> prepare_sampleinfo >> wait_prepare_sampleinfo >> wait_config_approval
+    wait_config_approval >> prepare_analysis >> wait_prepare_analysis >> wait_execution_approval
+    wait_execution_approval >> input_transfer >> submit
     submit >> start_monitor >> wait_analysis >> start_publish >> wait_publish
     wait_publish >> result_transfer >> materialize >> finalize >> release

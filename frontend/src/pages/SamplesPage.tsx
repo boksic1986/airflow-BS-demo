@@ -113,7 +113,7 @@ export function SamplesPage() {
           </label>
           <label className="grow">
             <span>Keyword</span>
-            <input aria-label="Sample keyword" value={keywordDraft} placeholder="sample, project or run ID" onChange={(event) => setKeywordDraft(event.target.value)} />
+            <input aria-label="Sample keyword" value={keywordDraft} placeholder="sample, family, batch, project or run ID" onChange={(event) => setKeywordDraft(event.target.value)} />
           </label>
         </div>
         {loading ? <p className="muted">Loading samples...</p> : null}
@@ -122,7 +122,7 @@ export function SamplesPage() {
           <div className="table-wrap">
             <table className="data-table sample-resource-table">
               <thead>
-                <tr><th>sample / family</th><th>relation / type</th><th>project / run</th><th>pipeline</th><th>status</th><th>sequencing batch</th><th>FASTQ files</th></tr>
+                <tr><th>sample / family</th><th>relation / type</th><th>project / run</th><th>pipeline</th><th>status</th><th>batch</th><th>FASTQ files</th></tr>
               </thead>
               <tbody>
                 {payload.items.map((row) => (
@@ -135,7 +135,7 @@ export function SamplesPage() {
                     </td>
                     <td>{compactPipelineName(row.pipeline)}</td>
                     <td><StatusBadge status={row.status} /></td>
-                    <td>{row.sequencing_batch || "-"}</td>
+                    <td>{row.batch_no || "-"}</td>
                     <td>
                       <div className="source-files">
                         <span>{[row.r1_name, row.r2_name].filter(Boolean).join(" / ") || "File names not captured"}</span>

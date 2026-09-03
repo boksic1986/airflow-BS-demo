@@ -12,7 +12,7 @@ afterEach(() => {
   window.history.pushState({}, "", "/");
 });
 
-it("uses the controlled direct WGS submission form", async () => {
+it("uses a pipeline-selectable staged WGS submission form", async () => {
   window.history.pushState({}, "", "/submit");
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
@@ -26,33 +26,53 @@ it("uses the controlled direct WGS submission form", async () => {
   render(<App />);
 
   expect(await screen.findByRole("heading", {name: "Submit run"})).toBeInTheDocument();
-  expect(screen.getByLabelText("Sequencing batch")).toBeInTheDocument();
-  expect(screen.getByLabelText("Analysis batch")).toBeInTheDocument();
+  expect(screen.getByLabelText("Pipeline")).toHaveValue("wgs");
+  expect(screen.getByRole("option", {name: "WES (not available)"})).toBeDisabled();
   expect(screen.getByLabelText("FASTQ root")).toBeInTheDocument();
+  expect(screen.getByLabelText("Batch")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Sequencing batch")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Analysis batch")).not.toBeInTheDocument();
   expect(await screen.findByText("WGS V4.1.1 / 6c98281")).toBeInTheDocument();
   expect(screen.queryByLabelText("Variant caller")).not.toBeInTheDocument();
   expect(screen.queryByRole("combobox", {name: /WGS version/i})).not.toBeInTheDocument();
   expect(screen.queryByText(/READY/)).not.toBeInTheDocument();
-  expect(screen.getByRole("button", {name: "Submit WGS analysis"})).toBeDisabled();
+  expect(screen.queryByLabelText("Use reference")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Prepare sample information"})).toBeDisabled();
   expect(screen.getByText(/WGS first generates sampleinfo/)).toBeInTheDocument();
   expect(screen.queryByText(/preview is not enabled/)).not.toBeInTheDocument();
 });
 
-it("shows the production submission action when both WGS execution gates are enabled", async () => {
+it("starts stage one without accepting runtime configuration", async () => {
   window.history.pushState({}, "", "/submit");
-  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+  const requests: Array<{url: string; init?: RequestInit}> = [];
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    requests.push({url, init});
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
     if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
-    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-6c98281", version: "V4.1.1", source_commit: "6c982817614db6a1157b6f287427ddf01ac91827", execution_enabled: true, runtime_adapter_enabled: true, submission_preview_enabled: true});
+    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-6c98281", version: "V4.1.1", source_commit: "6c982817614db6a1157b6f287427ddf01ac91827", execution_enabled: true, runtime_adapter_enabled: true, submission_preview_enabled: false});
     if (url.endsWith("/api/wgs/projects")) return json({items: [{project_id: "WGS_Clinical", display_name: "WGS Clinical", platforms: [{platform_id: "T7", display_name: "T7 / hg38 / V4.1.1"}], fastq_roots: [{root_id: "T7_Fastq", display_name: "T7 FASTQ"}], editable_config: {use_reference: {type: "enum", values: ["all", "ref", "no"], default: "all"}}}]});
+    if (url.endsWith("/api/wgs/runs")) return json({analysis_id: "WGS_TEST", pipeline: "wgs", status: "submitted", params: {submission_phase: "config_review"}});
+    if (url.endsWith("/api/runs/WGS_TEST")) return json({analysis_id: "WGS_TEST", pipeline: "wgs", status: "submitted", params: {submission_phase: "config_review"}});
+    if (url.endsWith("/api/runs/WGS_TEST/samples")) return json({items: [{sample_id: "S1", family_id: "F1", status: "pending", metadata: {}}]});
     return json({items: [], total: 0});
   }));
 
   render(<App />);
 
-  expect(await screen.findByRole("button", {name: "Submit WGS analysis"})).toBeInTheDocument();
+  expect(await screen.findByRole("button", {name: "Prepare sample information"})).toBeInTheDocument();
   expect(await screen.findByText("Enabled")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Batch"), {target: {value: "20260901B"}});
+  fireEvent.click(screen.getByRole("button", {name: "Prepare sample information"}));
+  expect(await screen.findByRole("heading", {name: "Review samples and configuration"})).toBeInTheDocument();
+  expect(await screen.findByText("S1")).toBeInTheDocument();
+  expect(screen.getByLabelText("Use reference")).toBeInTheDocument();
+  expect(screen.getByLabelText("Resource set")).toHaveValue("default");
+  const submitted = requests.find((item) => item.url.endsWith("/api/wgs/runs") && item.init?.method === "POST");
+  expect(JSON.parse(String(submitted?.init?.body))).toMatchObject({batch: "20260901B"});
+  expect(String(submitted?.init?.body)).not.toContain("use_reference");
+  expect(String(submitted?.init?.body)).not.toContain("sequencing_batch");
+  expect(String(submitted?.init?.body)).not.toContain("analysis_batch");
 });
 
 it("loads WGS resource tabs for an active run", async () => {
@@ -99,6 +119,39 @@ it("loads WGS resource tabs for an active run", async () => {
   expect(urls.some((url) => url.includes("/api/runs/WGS_001/pods"))).toBe(true);
 });
 
+it("shows and searches the public WGS batch in the sample inventory", async () => {
+  window.history.pushState({}, "", "/samples");
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
+    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.includes("/api/samples")) return json({
+      items: [{
+        analysis_id: "WGS_001",
+        project_name: "WGS_Clinical",
+        pipeline: "wgs",
+        sample_id: "S1",
+        family_id: "F1",
+        batch_no: "20260901B",
+        sequencing_batch: "20260901B",
+        status: "success",
+        report_status: "not_available",
+      }],
+      total: 1,
+      limit: 25,
+      offset: 0,
+    });
+    return json({items: [], total: 0});
+  }));
+
+  render(<App />);
+
+  expect(await screen.findByText("20260901B")).toBeInTheDocument();
+  expect(screen.getByPlaceholderText("sample, family, batch, project or run ID")).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", {name: "batch"})).toBeInTheDocument();
+  expect(screen.queryByRole("columnheader", {name: "sequencing batch"})).not.toBeInTheDocument();
+});
+
 it("keeps account administration hidden for viewers", async () => {
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
@@ -130,6 +183,30 @@ it("removes QC summary actions from the WGS-only dashboard", async () => {
   expect(screen.queryByText("QC alerts")).not.toBeInTheDocument();
   expect(screen.queryByText("QC failed samples")).not.toBeInTheDocument();
   expect(screen.getByText("Workflow fails")).toBeInTheDocument();
+});
+
+it("keeps scanner metadata when the discovery list has a transiently unavailable API", async () => {
+  let intakeAttempts = 0;
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/auth/me")) return json({username: "viewer", role: "viewer"});
+    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS production", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.includes("/api/dashboard/overview")) return json({totals: {runs: 0, running: 0, failed: 0, success: 0, created: 0}, sample_summary: {total: 0, running: 0, workflow_failed: 0, completed: 0}, status_distribution: {}, trend: [], sample_trend: []});
+    if (url.includes("/api/dashboard/runs")) return json({items: [], total: 0, limit: 10, offset: 0});
+    if (url.includes("/api/intake/scanner-state")) return json({last_scanned_directory_count: 1843, schedule_seconds: 600, auto_dispatch_enabled: false});
+    if (url.includes("/api/intake/status")) {
+      intakeAttempts += 1;
+      return Promise.reject(new TypeError("Failed to fetch"));
+    }
+    if (url.includes("/api/platform/resources")) return json({status: "stale", items: [], updated_at: null});
+    return json({items: [], total: 0});
+  }));
+
+  render(<App />);
+
+  expect(await screen.findByText("本轮检查 1843 个批次目录")).toBeInTheDocument();
+  expect(await screen.findByText(/Intake unavailable: Failed to fetch/)).toBeInTheDocument();
+  expect(intakeAttempts).toBe(2);
 });
 
 function json(value: unknown): Promise<Response> {

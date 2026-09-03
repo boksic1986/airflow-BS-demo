@@ -18,6 +18,10 @@ from app.rule_event_service import (
     finalize_dry_run_rule_events,
     import_snakemake_events_jsonl,
 )
+from app.wgs_run_projection import (
+    load_wgs_runtime_binding,
+    resolve_bound_wgs_batch_root,
+)
 
 
 class DiagnosticsError(Exception):
@@ -517,7 +521,6 @@ def _log_path_for_key(*, session: Session, run: AnalysisRun, key: str | None, se
 def _wgs_run_log_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
     """Index only deterministic files under the registered WGS runtime root."""
     request_root = Path(settings.wgs_runtime_request_root).resolve()
-    runtime_root = request_root.parent
     attempt = int(run.attempt or 1)
     attempt_name = f"attempt-{attempt}"
     items: list[dict[str, Any]] = []
@@ -541,48 +544,38 @@ def _wgs_run_log_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
                 )
             )
 
-    binding_path = _contained_path(
-        runtime_root,
-        Path("runs") / run.analysis_id / attempt_name / "batch-binding.json",
-    )
     try:
-        binding = json.loads(binding_path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        binding = {}
-    try:
-        binding_identity_matches = (
-            str(binding.get("analysis_id") or "") == run.analysis_id
-            and int(binding.get("attempt") or 0) == attempt
+        binding = load_wgs_runtime_binding(
+            request_root=request_root,
+            analysis_id=run.analysis_id,
+            attempt=attempt,
         )
-    except (TypeError, ValueError):
-        binding_identity_matches = False
-    if binding_identity_matches:
-        try:
-            node_root = Path(settings.wgs_runtime_node200_root)
-            node_batch = Path(str(binding["batch_root"]))
-            relative_batch = node_batch.relative_to(node_root)
-            local_batch = _contained_path(runtime_root, relative_batch)
-            run_id = str(binding["run_id"])
-            if not run_id or "/" in run_id or "\\" in run_id:
-                raise ValueError("invalid run id")
-            analysis_log = _contained_path(
-                local_batch,
-                Path("cce") / "evidence" / run_id / "mirror" / "analysis.log",
+        local_batch = resolve_bound_wgs_batch_root(
+            binding=binding,
+            node_analysis_root=settings.wgs_results_host_root,
+            local_analysis_root=settings.host_results_root,
+        )
+        run_id = str(binding["run_id"])
+        if not run_id or "/" in run_id or "\\" in run_id:
+            raise ValueError("invalid run id")
+        analysis_log = _contained_path(
+            local_batch,
+            Path("cce") / "evidence" / run_id / "mirror" / "analysis.log",
+        )
+        if analysis_log.is_file() and not analysis_log.is_symlink():
+            items.insert(
+                0,
+                _wgs_log_item(
+                    path=analysis_log,
+                    token=f"analysis:{attempt}:{run_id}",
+                    label="WGS Snakemake analysis log",
+                    stream="stdout",
+                    source="master_analysis",
+                    stage="step3_monitor",
+                ),
             )
-            if analysis_log.is_file() and not analysis_log.is_symlink():
-                items.insert(
-                    0,
-                    _wgs_log_item(
-                        path=analysis_log,
-                        token=f"analysis:{attempt}:{run_id}",
-                        label="WGS Snakemake analysis log",
-                        stream="stdout",
-                        source="master_analysis",
-                        stage="step3_monitor",
-                    ),
-                )
-        except (KeyError, TypeError, ValueError, InvalidRunPathError):
-            pass
+    except (KeyError, TypeError, ValueError, InvalidRunPathError):
+        pass
     return items
 
 

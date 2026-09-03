@@ -1,5 +1,124 @@
 # 11 部署 Runbook
 
+## T174 node200 runner synchronization gate
+
+Before enabling or retaining manual submission, compare SHA256 for the checked
+source runner, release copy and
+`/home/hanjj/.config/airflow-wgs/wgs_runtime_gate.py`. Back up the node200 file,
+upload to a same-directory temporary name, verify hash and `py_compile`, then
+atomically rename it. A DAG exposing `prepare_sampleinfo` must never run against
+a gate without that dispatch branch. Do not retry the failed diagnostic run as
+part of runner installation.
+
+Accepted T174 application release:
+
+```text
+release: /data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t174-forward-evidence-r1
+frontend: airflow-demo/frontend:t174-forward-evidence
+backup: /data/airflow-WGS/backups/T174-forward-evidence-20260903T070750+0000
+bio_wgs: 23 tasks, unpaused
+gates: execution=true, runtime_adapter=true, auto_dispatch=false
+```
+
+The failed diagnostic attempt must remain failed. Submit a new batch to verify
+the corrected sampleinfo dispatch. The installed WGS Rule logger is not active
+in the current source/profile launch command; treat missing Rule JSONL as
+monitoring degradation until the WGS launch contract is corrected.
+
+## T173 SFS Cloud Eye collector and staged-release gate
+
+Accepted production release:
+
+```text
+release: /data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t173-staged-sfs-r1
+frontend: airflow-demo/frontend:t173-candidate
+backup: /data/airflow-WGS/backups/T173-staged-sfs-20260903T052418Z
+bio_wgs: 23 tasks, unpaused, no import errors
+gates: execution=true, runtime_adapter=true, auto_dispatch=false
+```
+
+Because Nginx publishes only the fixed host address, the host-side release
+probe must use `http://172.17.61.96:12959`, not `127.0.0.1:12959`. A refusal on
+loopback does not imply container failure; inspect the exact published binding
+before rollback. Never widen the listener to make a loopback probe pass.
+
+The node200 user `hanjj` owns these local-only files; none enters a release or
+container image:
+
+```text
+/home/hanjj/sfs_api.credentials                       mode 0600
+/home/hanjj/.config/airflow-wgs/collect_sfs_cloud_eye.py
+/home/hanjj/.config/airflow-wgs/start_sfs_cloud_eye_collector.sh
+```
+
+The existing IAM user belongs to dedicated group `airflow-wgs-sfs-metrics`,
+which grants regional `CES ReadOnlyAccess` in `cn-east-3`. Start or idempotently
+check the collector with:
+
+```bash
+/home/hanjj/.config/airflow-wgs/start_sfs_cloud_eye_collector.sh
+```
+
+It uses `flock`, writes only errors to a bounded operational file, and atomically
+updates the shared SFS-only spool every 60 seconds. After a node200 reboot the
+same command must be run again because PAM denies user crontab and no user
+systemd manager is available.
+
+Do not switch the T173 DAG/backend/frontend release while a pre-T173 `bio_wgs`
+DagRun is active. Build and test in an isolated `.96` directory, then recheck
+`airflow dags list-runs -d bio_wgs`; deploy all three contracts together only
+after the legacy run is terminal. Preserve PostgreSQL, Redis, volumes,
+`nipt_analysis_test_net` (`192.168.199.0/24`, gateway `192.168.199.1`) and the
+single published listener `172.17.61.96:12959`.
+
+## T172 `.96` frontend-only recovery
+
+The accepted frontend recovery release is
+`20260903-wgs-4.1.1-6c98281-t172-fetch-recovery-r1`, using image
+`airflow-demo/frontend:t172-fetch-recovery`. Build the frontend on `.96` from a
+checksummed Node distribution and a fresh `npm ci`; do not copy `node_modules`,
+npm cache or frontend build output from BS10610. The runtime Nginx layer may be
+reused locally, but all HTML/assets and `nginx.wgs.conf` must be replaced.
+
+Recreate only `frontend-nginx`. Verify authenticated capabilities, dashboard,
+intake, platform resources, release and project endpoints, plus the shell and
+fingerprinted-asset Cache-Control headers. Do not recreate PostgreSQL, Redis,
+Airflow, scanner, observer, volumes or `nipt_analysis_test_net`.
+
+## T171 `.96` manual-ready activation
+
+Production release
+`20260903-wgs-4.1.1-6c98281-t171-manual-ready-r1` is the first `.96` release
+with manual WGS submission enabled. Before switching, both PostgreSQL databases,
+the environment file and current release pointer were backed up under
+`/data/airflow-WGS/backups/T171-manual-ready-20260902T173927Z`.
+
+The fixed current settings are:
+
+```text
+WGS_EXECUTION_ENABLED=true
+WGS_RUNTIME_ADAPTER_ENABLED=true
+WGS_SUBMISSION_PREVIEW_ENABLED=false
+WGS_AUTO_DISPATCH_ENABLED=false
+WGS_RESULTS_HOST_ROOT=/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical
+WGS_RUNNER_200_COMMAND=/home/hanjj/.config/airflow-wgs/forced-command.sh
+bio_wgs unpaused
+scanner service enabled at 600 seconds
+```
+
+node200 owns the runner, evidence bridge, transparent obsutil progress wrapper
+and private runtime environment under `/home/hanjj/.config/airflow-wgs`.
+`cce.yaml` fixes the WGS repository to `wgs-4.1.1`, fixes evidence below the
+new control root and uses the transparent wrapper as `obsutil_bin`; the wrapper
+delegates unchanged arguments and exit status to `/bi/BioCodeHub/WGS/obsutil`.
+Do not put the private OBS/kube configuration in the release.
+
+Activation itself must not POST `/api/wgs/runs`. Verify zero AnalysisRun,
+RunAttempt and DagRun rows after release, then let the operator submit the first
+batch from the frontend. Rollback restores the backed-up environment and prior
+release, then pauses `bio_wgs`; never delete volumes, the external network,
+OBS/SFS data or WGS result directories.
+
 ## T169/T170 node metrics and frontend rollout
 
 Node metrics use a fixed-identity SSH probe service and a separate DB collector.
@@ -28,7 +147,8 @@ PostgreSQL must use the named Docker local volume
 do not relocate PGDATA to `/sg2`. WGS business results and runtime spools remain
 under the separately approved `/sg2/14.hanjingjing/Cloud_WGS_Clinical` roots.
 
-The deployment must retain all of these disabled-state invariants:
+The initial T168 deployment retained these disabled-state invariants; they are
+historical after the separately approved T171 manual activation:
 
 ```text
 WGS_EXECUTION_ENABLED=false

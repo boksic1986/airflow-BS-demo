@@ -19,6 +19,7 @@ from app.intake_config import load_intake_config
 from app.models import AnalysisRun, IntakeDiscovery, RunAction, Sample
 from app.qc_highlights import qc_highlights_by_run
 from app.pipeline_config_service import ValidatedPipelineConfig, persist_requested_config
+from app.wgs_run_projection import public_wgs_batch, public_wgs_params
 from app.workflow_summary_service import workflow_summaries_by_run
 
 
@@ -712,6 +713,12 @@ def list_runs(
                 ).like(pattern),
                 func.lower(
                     cast(AnalysisRun.params_json["batch_no"].as_string(), String)
+                ).like(pattern),
+                func.lower(
+                    cast(AnalysisRun.params_json["analysis_batch"].as_string(), String)
+                ).like(pattern),
+                func.lower(
+                    cast(AnalysisRun.params_json["sequencing_batch"].as_string(), String)
                 ).like(pattern),
                 sample_match,
             )
@@ -1555,6 +1562,11 @@ def _attach_pipeline_config(
 
 
 def _run_payload(run: AnalysisRun, *, sample_count: int) -> dict:
+    params = (
+        public_wgs_params(run.params_json)
+        if run.pipeline_name == "wgs"
+        else run.params_json
+    )
     return {
         "analysis_id": run.analysis_id,
         "pipeline": run.pipeline_name,
@@ -1565,7 +1577,7 @@ def _run_payload(run: AnalysisRun, *, sample_count: int) -> dict:
         "attempt": getattr(run, "attempt", 1),
         "workdir": run.workdir,
         "sample_count": sample_count,
-        "params": run.params_json,
+        "params": params,
         "submitted_by": run.submitted_by,
         "submitted_at": run.submitted_at.isoformat() if run.submitted_at else None,
         "pipeline_finished_at": run.pipeline_finished_at.isoformat() if run.pipeline_finished_at else None,
@@ -1584,7 +1596,11 @@ def _run_list_payload(
     return {
         "analysis_id": run.analysis_id,
         "project_name": _run_project_name(run),
-        "batch_no": str(params.get("batch_no") or "") or None,
+        "batch_no": (
+            public_wgs_batch(params)
+            if run.pipeline_name == "wgs"
+            else str(params.get("batch_no") or "") or None
+        ),
         "pipeline": run.pipeline_name,
         "status": run.status,
         "created_at": run.created_at.isoformat() if run.created_at else None,
@@ -1629,7 +1645,11 @@ def _run_detail_payload(session: Session, run: AnalysisRun) -> dict:
         {
             "mode": run.mode,
             "sample_sheet_path": run.sample_sheet_path,
-            "params": run.params_json,
+            "params": (
+                public_wgs_params(run.params_json)
+                if run.pipeline_name == "wgs"
+                else run.params_json
+            ),
             "airflow_url": run.airflow_url,
             "error_summary": run.error_summary,
             "email_to": run.email_to,

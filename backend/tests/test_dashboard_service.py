@@ -344,6 +344,8 @@ def test_wgs_tracker_exposes_batch_and_authoritative_stage_progress(tmp_path, mo
                 params_json={
                     "project_name": "WGS_Clinical",
                     "batch_no": "WGS_20260901A_T7Hg38V4.1.1",
+                    "analysis_batch": "20260901A",
+                    "sequencing_batch": "20260901A",
                     "pipeline_release_id": "wgs-4.1.1-test",
                 },
                 created_at=now,
@@ -381,7 +383,7 @@ def test_wgs_tracker_exposes_batch_and_authoritative_stage_progress(tmp_path, mo
         "/api/dashboard/runs?pipeline=wgs&limit=10&offset=0"
     ).json()["items"][0]
 
-    assert item["batch_no"] == "WGS_20260901A_T7Hg38V4.1.1"
+    assert item["batch_no"] == "20260901A"
     assert item["current_stage_label"] == "WGS workflow running"
     assert item["stage_code"] == "step3_monitor"
     assert item["stage_progress"]["available"] is True

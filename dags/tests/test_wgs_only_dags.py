@@ -15,7 +15,7 @@ def _context(conf):
 class WgsOnlyDagTests(unittest.TestCase):
     def test_release_leaf_reports_upstream_failures(self):
         task_instances = [
-            type("TaskInstance", (), {"task_id": "prepare_wgs_batch", "state": "failed"})(),
+            type("TaskInstance", (), {"task_id": "prepare_wgs_analysis", "state": "failed"})(),
             type("TaskInstance", (), {"task_id": "release_leases", "state": "running"})(),
         ]
         dag_run = type(
@@ -27,7 +27,7 @@ class WgsOnlyDagTests(unittest.TestCase):
 
         self.assertEqual(
             bio_wgs._upstream_failure_task_ids({"ti": task_instance}),
-            ["prepare_wgs_batch"],
+            ["prepare_wgs_analysis"],
         )
 
     def test_single_cce_contract_rejects_wrong_mode_and_fails_closed(self):
@@ -56,7 +56,7 @@ class WgsOnlyDagTests(unittest.TestCase):
         previous_adapter = os.environ.pop("WGS_RUNTIME_ADAPTER_ENABLED", None)
         try:
             with self.assertRaisesRegex(RuntimeError, "disabled"):
-                bio_wgs.register_stage("prepare_wgs_batch", **_context(conf))
+                bio_wgs.register_stage("prepare_analysis", **_context(conf))
         finally:
             if previous_execution is not None:
                 os.environ["WGS_EXECUTION_ENABLED"] = previous_execution
@@ -75,5 +75,7 @@ class WgsOnlyDagTests(unittest.TestCase):
         self.assertIn('"-tt"', source)
         self.assertIn('"-F"', source)
         self.assertIn("WGS_SSH_CONFIG_PATH", source)
-        self.assertIn("/home/chenjc/.config/airflow-wgs/forced-command.sh", source)
+        self.assertIn("WGS_RUNNER_200_COMMAND", source)
+        self.assertIn("/home/hanjj/.config/airflow-wgs/forced-command.sh", source)
+        self.assertNotIn("/home/chenjc/.config/airflow-wgs/forced-command.sh", source)
         self.assertNotIn("SSHHook", source)

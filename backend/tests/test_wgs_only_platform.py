@@ -203,6 +203,41 @@ def test_wgs_submission_draft_is_server_catalogued_and_does_not_create_run(
     assert forged.status_code == 422
 
 
+def test_staged_wgs_run_rejects_stage_two_fields_and_uses_canonical_id(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    client, sessions, airflow = make_client(tmp_path, monkeypatch)
+    viewer_headers = login(client, "viewer", "viewer-pass")
+    request = {
+        "project_id": "WGS_Clinical",
+        "platform": "T7Hg38V4.1.1",
+        "batch": "20260901A",
+        "fastq_root_id": "T7_Fastq",
+    }
+    assert client.post("/api/wgs/runs", headers=viewer_headers, json=request).status_code == 403
+    operator_headers = login(client, "operator", "operator-pass")
+    assert client.post(
+        "/api/wgs/runs",
+        headers=operator_headers,
+        json={**request, "use_reference": "ref"},
+    ).status_code == 422
+
+    created = client.post("/api/wgs/runs", headers=operator_headers, json=request)
+    assert created.status_code == 201, created.text
+    analysis_id = created.json()["analysis_id"]
+    assert airflow.calls[0][1] == f"{analysis_id}-a1"
+    assert airflow.calls[0][2]["params"]["submission_phase"] == "preparing_sampleinfo"
+    assert client.post(
+        f"/api/runs/{analysis_id}/actions/approve-wgs-config",
+        headers=operator_headers,
+        json={"use_reference": "ref", "resource_set": "default"},
+    ).status_code == 409
+    with sessions() as session:
+        assert session.scalar(select(func.count()).select_from(AnalysisRun)) == 1
+
+
 def test_wgs_submission_draft_final_submit_is_idempotent(tmp_path, monkeypatch):
     monkeypatch.setenv("WGS_SUBMISSION_PREVIEW_ENABLED", "true")
     client, sessions, airflow = make_client(tmp_path, monkeypatch)
@@ -864,7 +899,9 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     assert prepared.status_code == 200, prepared.text
     request_path = Path(prepared.json()["request_path"])
     request = json.loads(request_path.read_text(encoding="utf-8"))
-    assert request["schema_version"] == "wgs-runtime.request.v3"
+    assert request["schema_version"] == "wgs-runtime.request.v4"
+    assert request["analysis_project_root"] == str(tmp_path / "results")
+    assert request["expected_batch_root"].endswith("/results/BATCH-001")
     assert request["project_name"] == "clinical-wgs"
     assert request["pipeline_release_id"] == "wgs-4.1.1-1656b5d"
     assert request["wgs_source_commit"] == "1656b5d7a6e2f24242c38149f6d1c92ac266cd37"

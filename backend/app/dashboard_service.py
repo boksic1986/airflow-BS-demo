@@ -12,6 +12,7 @@ from app.progress_service import get_run_progress
 from app.qc_highlights import qc_highlights_by_run
 from app.wgs_timing_service import enrich_progress
 from app.wgs_stage_contract import terminal_wgs_progress
+from app.wgs_run_projection import public_wgs_batch
 
 
 DASHBOARD_PIPELINES = ("pgta", "nipt_docker", "wgs")
@@ -128,6 +129,12 @@ def get_dashboard_runs(
                 func.lower(
                     cast(AnalysisRun.params_json["batch_no"].as_string(), String)
                 ).like(pattern),
+                func.lower(
+                    cast(AnalysisRun.params_json["analysis_batch"].as_string(), String)
+                ).like(pattern),
+                func.lower(
+                    cast(AnalysisRun.params_json["sequencing_batch"].as_string(), String)
+                ).like(pattern),
                 sample_match,
             )
         )
@@ -233,7 +240,11 @@ def _tracker_row(
     return {
         "analysis_id": run.analysis_id,
         "project_name": _project_name(run),
-        "batch_no": str(params.get("batch_no") or "") or None,
+        "batch_no": (
+            public_wgs_batch(params)
+            if run.pipeline_name == "wgs"
+            else str(params.get("batch_no") or "") or None
+        ),
         "pipeline": run.pipeline_name,
         "status": run.status,
         "display_status": display_status,

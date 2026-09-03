@@ -21,6 +21,10 @@ from app.wgs_orchestration_service import (
     SnapshotChangedError, build_fastq_snapshot, verify_fastq_snapshot,
 )
 from app.wgs_release_catalog import load_wgs_release_catalog
+from app.wgs_run_projection import (
+    load_wgs_runtime_binding,
+    resolve_bound_wgs_batch_root,
+)
 
 
 EXECUTION_MODES = {"cce"}
@@ -129,7 +133,7 @@ def submit_wgs_run(*, session: Session, airflow_client, analysis_id: str) -> dic
     if run.status not in {"created", "failed", "cancelled"}:
         raise ValueError(f"Run status {run.status} cannot be submitted.")
     conf = {"analysis_id": run.analysis_id, "pipeline": "wgs", "execution_mode": run.execution_mode, "attempt": run.attempt, "workdir": run.workdir, "params": run.params_json}
-    dag_run_id = f"manual__{run.analysis_id}__a{run.attempt}"
+    dag_run_id = f"{run.analysis_id}-a{run.attempt}"
     ensure_dag_run(
         airflow_client=airflow_client,
         dag_id=run.dag_id,
@@ -220,16 +224,16 @@ def run_payload(session: Session, run: AnalysisRun) -> dict:
 
 def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> int:
     """Import only the final WGS analysis selection from the frozen batch."""
-    request_root = Path(settings.wgs_runtime_request_root).resolve()
-    binding = request_root.parent / "runs" / run.analysis_id / f"attempt-{run.attempt}" / "batch-binding.json"
-    value = json.loads(binding.read_text(encoding="utf-8"))
-    if value.get("analysis_id") != run.analysis_id or int(value.get("attempt", 0)) != run.attempt:
-        raise ValueError("WGS prepared sample binding identity mismatch")
-    node_root = PurePosixPath(settings.wgs_runtime_node200_root)
-    relative = PurePosixPath(str(value["batch_root"])).relative_to(node_root)
-    batch_root = (request_root.parent / Path(*relative.parts)).resolve()
-    if request_root.parent not in batch_root.parents:
-        raise ValueError("WGS prepared sample path escapes runtime root")
+    value = load_wgs_runtime_binding(
+        request_root=settings.wgs_runtime_request_root,
+        analysis_id=run.analysis_id,
+        attempt=run.attempt,
+    )
+    batch_root = resolve_bound_wgs_batch_root(
+        binding=value,
+        node_analysis_root=settings.wgs_results_host_root,
+        local_analysis_root=settings.host_results_root,
+    )
     sampleinfo = batch_root / "sampleinfo.tsv"
     if not sampleinfo.is_file() or sampleinfo.is_symlink():
         raise ValueError("WGS prepare did not publish final sampleinfo.tsv")
@@ -258,6 +262,62 @@ def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> in
         else:
             row.family_id = str(source.get("家系编号") or "").strip() or None
             row.status = "running"
+            row.metadata_json = metadata
+    for sample_id, row in existing.items():
+        if sample_id not in selected:
+            session.delete(row)
+    session.flush()
+    return len(selected)
+
+
+def sync_sampleinfo_preview(*, session: Session, settings, run: AnalysisRun) -> int:
+    """Import the safe sample/family projection produced before analysis prepare."""
+    params = dict(run.params_json or {})
+    sampleinfo = (
+        Path(settings.host_results_root).resolve()
+        / "sampleinfo"
+        / f"{params['batch_no']}.sampleinfo.txt"
+    )
+    if not sampleinfo.is_file() or sampleinfo.is_symlink():
+        raise ValueError("WGS sampleinfo preparation did not publish the expected sample table")
+    rows = list(csv.DictReader(sampleinfo.open(encoding="utf-8-sig", newline=""), delimiter="\t"))
+    if not rows:
+        raise ValueError("WGS sampleinfo preparation selected no samples")
+    existing = {
+        item.sample_id: item
+        for item in session.scalars(
+            select(Sample).where(Sample.analysis_id == run.analysis_id)
+        ).all()
+    }
+    selected: set[str] = set()
+    for source in rows:
+        sample_id = str(source.get("样本编号") or "").strip()
+        if not sample_id:
+            raise ValueError("WGS sampleinfo contains an empty sample ID")
+        selected.add(sample_id)
+        metadata = {
+            "data_id": str(source.get("数据编号") or "").strip() or None,
+            "family_relation": str(source.get("家系关系") or "").strip() or None,
+            "sample_type": str(source.get("样本类型") or "").strip() or None,
+            "sex": str(source.get("性别") or "").strip() or None,
+            "sequencing_batch": str(source.get("上机批次") or "").strip() or None,
+            "provider": "wgs_sampleinfo_preview",
+        }
+        row = existing.get(sample_id)
+        if row is None:
+            session.add(
+                Sample(
+                    analysis_id=run.analysis_id,
+                    sample_id=sample_id,
+                    family_id=str(source.get("家系编号") or "").strip() or None,
+                    status="pending",
+                    qc_status="unknown",
+                    metadata_json=metadata,
+                )
+            )
+        else:
+            row.family_id = str(source.get("家系编号") or "").strip() or None
+            row.status = "pending"
             row.metadata_json = metadata
     for sample_id, row in existing.items():
         if sample_id not in selected:

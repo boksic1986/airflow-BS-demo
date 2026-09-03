@@ -825,6 +825,38 @@ def test_step3_rejects_master_that_differs_from_frozen_binding(
         )
 
 
+def test_terminal_observer_is_degraded_when_rule_jsonl_is_missing(
+    tmp_path: Path,
+) -> None:
+    sessions, analysis_id, evidence_root, _, _, rule_dir = prepare_run(tmp_path)
+    rule_dir.rmdir()
+    with sessions.begin() as session:
+        session.add(
+            ObserverRunState(
+                analysis_id=analysis_id,
+                attempt=1,
+                pipeline_release_id=RELEASE_ID,
+                run_label=RUN_LABEL,
+                relative_evidence_path=f"{analysis_id}/attempt-1",
+                lifecycle_status="draining",
+                monitoring_health="healthy",
+            )
+        )
+
+    result = ingest_observer_attempt_once(
+        session_factory=sessions,
+        evidence_root=evidence_root,
+        analysis_id=analysis_id,
+        attempt=1,
+    )
+
+    assert result["lifecycle_status"] == "stopped"
+    with sessions() as session:
+        observer = session.scalar(select(ObserverRunState))
+        assert observer.monitoring_health == "degraded"
+        assert observer.last_error == "Rule event JSONL was not produced"
+
+
 def test_incremental_append_partial_line_and_restart_resume(tmp_path: Path) -> None:
     sessions, analysis_id, evidence_root, binding_root, catalog_path, rule_dir = prepare_run(tmp_path)
     path = rule_dir / "worker-a.jsonl"

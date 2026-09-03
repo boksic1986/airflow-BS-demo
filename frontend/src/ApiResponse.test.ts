@@ -9,6 +9,24 @@ afterEach(() => {
 });
 
 describe("API response parsing", () => {
+  it("retries one transient network failure for an idempotent GET", async () => {
+    window.__AIRFLOW_DEMO_CONFIG__ = {apiBaseUrl: "/api"};
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        environment: "WGS production",
+        deployed_pipelines: ["wgs"],
+        airflow_url: null,
+      }), {status: 200, headers: {"Content-Type": "application/json"}}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getPlatformCapabilities()).resolves.toMatchObject({
+      environment: "WGS production",
+      deployed_pipelines: ["wgs"],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("reports an HTML success response as a proxy contract error", async () => {
     window.__AIRFLOW_DEMO_CONFIG__ = {apiBaseUrl: "/api"};
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(

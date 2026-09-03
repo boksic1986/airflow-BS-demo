@@ -9,7 +9,7 @@ import secrets
 
 from sqlalchemy import select
 
-from app.models import AnalysisRun, WgsSubmissionDraft
+from app.models import AnalysisRun, RunAction, Sample, WgsSubmissionDraft
 from app.wgs_orchestration_service import build_fastq_snapshot, fastq_source_fingerprint
 from app.wgs_platform_service import create_wgs_platform_run, run_payload, submit_wgs_run
 from app.wgs_project_catalog import WgsProject, load_wgs_projects
@@ -223,23 +223,21 @@ def _project(settings, project_id: str) -> WgsProject:
 
 
 def create_and_submit_run(*, session, settings, airflow_client, username: str,
-                          project_id: str, platform: str, sequencing_batch: str,
-                          analysis_batch: str, fastq_root_id: str,
-                          use_reference: str) -> dict:
+                          project_id: str, platform: str, batch: str,
+                          fastq_root_id: str,
+                          use_reference: str | None = None) -> dict:
     """Create one catalog-bound run; WGS prepare owns sampleinfo and selection."""
     project = _project(settings, project_id)
     project.platform(platform)
     root = project.fastq_root(fastq_root_id)
-    for label, value in (("sequencing_batch", sequencing_batch), ("analysis_batch", analysis_batch)):
-        if SAFE_BATCH.fullmatch(value.strip()) is None:
-            raise ValueError(f"{label} contains unsupported characters")
-    if not re.fullmatch(r"[0-9]{8}[A-Z]", sequencing_batch.strip()):
-        raise ValueError("sequencing_batch must use YYYYMMDDX format")
-    if use_reference not in {"all", "ref", "no"}:
+    batch = batch.strip()
+    if SAFE_BATCH.fullmatch(batch) is None or not re.fullmatch(r"[0-9]{8}[A-Z]", batch):
+        raise ValueError("batch must use YYYYMMDDX format")
+    if use_reference is not None and use_reference not in {"all", "ref", "no"}:
         raise ValueError("use_reference must be all, ref, or no")
     node_root = str(root["node200_path"])
     release = load_wgs_release_catalog(Path(settings.wgs_release_catalog_path)).release
-    batch_no = f"WGS_{analysis_batch.strip()}_{platform}Hg38{release.version}"
+    batch_no = f"WGS_{batch}_{platform}Hg38{release.version}"
     created = create_wgs_platform_run(
         session=session,
         settings=settings,
@@ -251,14 +249,128 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
         commit=False,
         validate_input=False,
         platform=platform,
-        sequencing_batch=sequencing_batch.strip(),
-        analysis_batch=analysis_batch.strip(),
+        sequencing_batch=batch,
+        analysis_batch=batch,
         fastq_root=node_root,
-        use_reference=use_reference,
+        use_reference=use_reference or "all",
     )
+    run = session.scalar(
+        select(AnalysisRun).where(AnalysisRun.analysis_id == created["analysis_id"])
+    )
+    if run is None:
+        raise RuntimeError("created WGS run is missing")
+    params = dict(run.params_json or {})
+    params.update(
+        {
+            "submission_mode": "three_stage",
+            "submission_phase": "preparing_sampleinfo",
+            "config_approved_at": None,
+            "execution_approved_at": None,
+            "resource_set": "default",
+        }
+    )
+    run.params_json = params
     session.commit()
     return submit_wgs_run(
         session=session,
         airflow_client=airflow_client,
         analysis_id=str(created["analysis_id"]),
     )
+
+
+def submission_state(*, session, analysis_id: str, attempt: int) -> dict:
+    run = session.scalar(
+        select(AnalysisRun).where(
+            AnalysisRun.analysis_id == analysis_id,
+            AnalysisRun.pipeline_name == "wgs",
+        )
+    )
+    if run is None or run.attempt != attempt:
+        raise ValueError("unknown active WGS attempt")
+    params = dict(run.params_json or {})
+    staged = params.get("submission_mode") == "three_stage"
+    return {
+        "analysis_id": analysis_id,
+        "attempt": attempt,
+        "submission_mode": "three_stage" if staged else "legacy",
+        "submission_phase": params.get("submission_phase") if staged else "approved",
+        "config_approved": (not staged) or bool(params.get("config_approved_at")),
+        "execution_approved": (not staged) or bool(params.get("execution_approved_at")),
+    }
+
+
+def approve_wgs_config(*, session, analysis_id: str, requested_by: str,
+                       use_reference: str, resource_set: str) -> dict:
+    if use_reference not in {"all", "ref", "no"}:
+        raise ValueError("use_reference must be all, ref, or no")
+    if resource_set != "default":
+        raise ValueError("resource_set is not in the current WGS catalog")
+    run = session.scalar(
+        select(AnalysisRun).where(
+            AnalysisRun.analysis_id == analysis_id,
+            AnalysisRun.pipeline_name == "wgs",
+        ).with_for_update()
+    )
+    if run is None:
+        raise ValueError("WGS run was not found")
+    params = dict(run.params_json or {})
+    if params.get("submission_mode") != "three_stage":
+        raise ValueError("WGS run does not use staged submission")
+    if params.get("config_approved_at"):
+        if params.get("use_reference") != use_reference or params.get("resource_set") != resource_set:
+            raise ValueError("WGS configuration was already approved with different values")
+        return submission_state(session=session, analysis_id=analysis_id, attempt=run.attempt)
+    if params.get("submission_phase") not in {"config_review", "preparing_analysis"}:
+        raise ValueError("WGS sample information is not ready for configuration review")
+    approved_at = datetime.now(timezone.utc).isoformat()
+    params.update({
+        "use_reference": use_reference,
+        "resource_set": resource_set,
+        "config_approved_at": approved_at,
+        "submission_phase": "preparing_analysis",
+    })
+    run.params_json = params
+    session.add(RunAction(
+        analysis_id=analysis_id,
+        action="approve_wgs_config",
+        requested_by=requested_by,
+        result_status="accepted",
+        payload_json={"use_reference": use_reference, "resource_set": resource_set},
+    ))
+    session.commit()
+    return submission_state(session=session, analysis_id=analysis_id, attempt=run.attempt)
+
+
+def approve_wgs_execution(*, session, analysis_id: str, requested_by: str) -> dict:
+    run = session.scalar(
+        select(AnalysisRun).where(
+            AnalysisRun.analysis_id == analysis_id,
+            AnalysisRun.pipeline_name == "wgs",
+        ).with_for_update()
+    )
+    if run is None:
+        raise ValueError("WGS run was not found")
+    params = dict(run.params_json or {})
+    if params.get("submission_mode") != "three_stage":
+        raise ValueError("WGS run does not use staged submission")
+    if params.get("submission_phase") not in {"execution_review", "approved"}:
+        raise ValueError("WGS analysis preparation is not ready for execution review")
+    if session.scalar(
+        select(Sample.id).where(Sample.analysis_id == analysis_id).limit(1)
+    ) is None:
+        raise ValueError("WGS analysis has no prepared samples")
+    if not params.get("execution_approved_at"):
+        params.update({
+            "execution_approved_at": datetime.now(timezone.utc).isoformat(),
+            "submission_phase": "approved",
+        })
+        run.params_json = params
+        session.add(RunAction(
+            analysis_id=analysis_id,
+            action="approve_wgs_execution",
+            requested_by=requested_by,
+            result_status="accepted",
+            payload_json={"attempt": run.attempt},
+        ))
+        session.commit()
+    return submission_state(session=session, analysis_id=analysis_id, attempt=run.attempt)

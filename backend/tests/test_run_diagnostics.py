@@ -468,7 +468,9 @@ def test_wgs_log_index_uses_opaque_keys_for_analysis_and_stage_worker_logs(
     )
     runtime_root = tmp_path / "runtime"
     attempt_root = runtime_root / "runs" / analysis_id / "attempt-1"
-    batch_root = attempt_root / "WGS_Clinical" / "WGS_20260901A_T7Hg38V4.1.1"
+    attempt_root.mkdir(parents=True)
+    local_analysis_root = tmp_path / "results"
+    batch_root = local_analysis_root / "WGS_20260901A_T7Hg38V4.1.1"
     run_id = f"{analysis_id}-a1"
     mirror = batch_root / "cce" / "evidence" / run_id / "mirror"
     mirror.mkdir(parents=True)
@@ -481,9 +483,10 @@ def test_wgs_log_index_uses_opaque_keys_for_analysis_and_stage_worker_logs(
         "step3 worker line\n", encoding="utf-8"
     )
     node_root = "/node/runtime"
+    node_analysis_root = "/node/results/WGS_Clinical"
     # Keep the fixture explicit; the service must translate this registered
     # node200 path rather than accepting a path from an HTTP request.
-    node_batch = f"{node_root}/{batch_root.relative_to(runtime_root).as_posix()}"
+    node_batch = f"{node_analysis_root}/{batch_root.name}"
     (attempt_root / "batch-binding.json").write_text(
         __import__("json").dumps(
             {
@@ -519,6 +522,8 @@ def test_wgs_log_index_uses_opaque_keys_for_analysis_and_stage_worker_logs(
             airflow_base_url="http://airflow-api-server:8080",
             wgs_runtime_request_root=str(runtime_root / "runner-requests"),
             wgs_runtime_node200_root=node_root,
+            wgs_results_host_root=node_analysis_root,
+            host_results_root=str(local_analysis_root),
         ),
     )
     client = TestClient(main.app)

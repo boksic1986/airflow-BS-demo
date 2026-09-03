@@ -74,7 +74,17 @@ def record_resource_error(*, session, resource_key: str, resource_type: str,
 
 def get_platform_resources(*, session, now: datetime | None = None) -> dict[str, Any]:
     observed = now or datetime.now(timezone.utc)
-    rows = session.scalars(select(PlatformResourceSnapshot).order_by(PlatformResourceSnapshot.resource_type, PlatformResourceSnapshot.resource_key)).all()
+    rows = session.scalars(
+        select(PlatformResourceSnapshot)
+        .where(PlatformResourceSnapshot.resource_type.in_(("node", "sfs")))
+        .order_by(PlatformResourceSnapshot.resource_type, PlatformResourceSnapshot.resource_key)
+    ).all()
+    has_named_sfs = any(
+        row.resource_type == "sfs" and row.resource_key != "sfs-cloud-metrics"
+        for row in rows
+    )
+    if has_named_sfs:
+        rows = [row for row in rows if row.resource_key != "sfs-cloud-metrics"]
     items = []
     for row in rows:
         source_at = _aware(row.source_updated_at)

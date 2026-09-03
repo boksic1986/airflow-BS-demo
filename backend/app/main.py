@@ -63,7 +63,7 @@ from app.auth_service import (
     require_role,
     revoke_session,
 )
-from app.wgs_platform_service import action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run, sync_prepared_samples
+from app.wgs_platform_service import action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run, sync_prepared_samples, sync_sampleinfo_preview
 from app.wgs_release_catalog import load_wgs_release_catalog
 from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferJob, UserAccount
 from app.wgs_timing_service import enrich_progress, serialize_rule_states
@@ -75,7 +75,16 @@ from app.wgs_t7_intake import get_wgs_t7_scanner_state, list_wgs_t7_intake
 from app.wgs_step4_service import get_step4_repair_capability, request_step4_repair
 from app.wgs_step7_service import authorize_step7_runtime, get_step7_capability, request_step7_cleanup
 from app.wgs_project_catalog import load_wgs_projects, public_project_catalog
-from app.wgs_submission_service import complete_draft, create_and_submit_run, create_draft, get_draft, submit_draft
+from app.wgs_submission_service import (
+    approve_wgs_config,
+    approve_wgs_execution,
+    complete_draft,
+    create_and_submit_run,
+    create_draft,
+    get_draft,
+    submission_state,
+    submit_draft,
+)
 from app.platform_resources_service import get_platform_resources
 from sqlalchemy import or_, select
 
@@ -321,10 +330,14 @@ class WgsCatalogRunRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     project_id: str = Field(min_length=1, max_length=128)
     platform: str = Field(min_length=1, max_length=64)
-    sequencing_batch: str = Field(pattern="^[0-9]{8}[A-Z]$")
-    analysis_batch: str = Field(min_length=1, max_length=128)
+    batch: str = Field(pattern="^[0-9]{8}[A-Z]$")
     fastq_root_id: str = Field(min_length=1, max_length=128)
-    use_reference: str = Field(default="all", pattern="^(all|ref|no)$")
+
+
+class WgsConfigApprovalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    use_reference: str = Field(pattern="^(all|ref|no)$")
+    resource_set: str = Field(default="default", pattern="^default$")
 
 
 class WgsSubmissionDraftResultRequest(BaseModel):
@@ -773,11 +786,45 @@ def create_catalog_wgs_run(
                 username=user.username,
                 action="wgs.run.submit",
                 analysis_id=str(payload["analysis_id"]),
-                payload={"project_id": request.project_id, "analysis_batch": request.analysis_batch},
+                payload={"project_id": request.project_id, "batch": request.batch},
             )
             return payload
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail={"code": "WGS_RUN_INVALID", "message": str(exc)}) from exc
+
+
+@app.post("/api/runs/{analysis_id}/actions/approve-wgs-config")
+def approve_wgs_run_config(
+    analysis_id: str,
+    request: WgsConfigApprovalRequest,
+    user: AuthenticatedUser = Depends(operator_user),
+) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            return approve_wgs_config(
+                session=session,
+                analysis_id=analysis_id,
+                requested_by=user.username,
+                **request.model_dump(),
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={"code": "WGS_CONFIG_NOT_READY", "message": str(exc)}) from exc
+
+
+@app.post("/api/runs/{analysis_id}/actions/start-wgs-execution")
+def start_wgs_run_execution(
+    analysis_id: str,
+    user: AuthenticatedUser = Depends(operator_user),
+) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            return approve_wgs_execution(
+                session=session,
+                analysis_id=analysis_id,
+                requested_by=user.username,
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={"code": "WGS_EXECUTION_NOT_READY", "message": str(exc)}) from exc
 
 
 @app.post("/api/wgs/submission-drafts", status_code=status.HTTP_202_ACCEPTED)
@@ -1391,7 +1438,7 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
             release = load_wgs_release_catalog(
                 Path(get_settings().wgs_release_catalog_path)
             ).release
-            if stage_name == "prepare":
+            if stage_name in {"prepare", "prepare_sampleinfo", "prepare_analysis"}:
                 if release.release_id != release_id:
                     raise ValueError("release_unavailable: run WGS release is not current")
                 if str(params.get("wgs_source_commit") or "") != release.source_commit:
@@ -1474,13 +1521,8 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 pipeline_release_id=release_id,
                 wgs_version=str(params["wgs_version"]),
                 wgs_source_commit=str(params["wgs_source_commit"]),
-                workdir=container_workdir_to_host(
-                    run.workdir,
-                    container_root=settings.host_results_root,
-                    host_root=settings.wgs_results_host_root,
-                ),
-                bs_runtime_root=settings.wgs_runtime_bs_root,
-                node200_runtime_root=settings.wgs_runtime_node200_root,
+                control_runtime_root=settings.wgs_runtime_node200_root,
+                analysis_project_root=settings.wgs_results_host_root,
                 project_name=str(params["project_name"]),
                 batch_no=str(params["batch_no"]),
                 fq_path=fq_node200,
@@ -1503,9 +1545,9 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 stage_code=stage_name,
                 stage_status="accepted",
                 updated_at=datetime.now(timezone.utc),
-                progress_source="wgs-runtime.request.v3",
+                progress_source="wgs-runtime.request.v4",
             )
-            if stage_name == "prepare":
+            if stage_name in {"prepare", "prepare_analysis"}:
                 binding_root = Path(settings.wgs_binding_root)
                 binding_root.mkdir(parents=True, exist_ok=True)
                 binding_path = binding_root / f"{analysis_id}-attempt-{request.attempt}.json"
@@ -1669,11 +1711,19 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
     ):
         raise HTTPException(status_code=500, detail={"code": "WGS_STAGE_STATUS_INVALID", "message": "stage status identity mismatch"})
     status_value = str(payload.get("status") or "pending")
-    if stage == "prepare" and status_value in {"success", "complete", "succeeded"}:
+    if stage in {"prepare", "prepare_sampleinfo", "prepare_analysis"} and status_value in {"success", "complete", "succeeded"}:
         with get_sessionmaker()() as session:
             run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.attempt == attempt))
             if run is not None:
-                sync_prepared_samples(session=session, settings=settings, run=run)
+                params = dict(run.params_json or {})
+                if stage == "prepare_sampleinfo":
+                    sync_sampleinfo_preview(session=session, settings=settings, run=run)
+                    params["submission_phase"] = "config_review"
+                else:
+                    sync_prepared_samples(session=session, settings=settings, run=run)
+                    if stage == "prepare_analysis":
+                        params["submission_phase"] = "execution_review"
+                run.params_json = params
                 session.commit()
     return {
         "analysis_id": analysis_id,
@@ -1687,6 +1737,25 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
         "message": payload.get("message", ""),
         "master": payload.get("master"),
     }
+
+
+@app.get(
+    "/api/internal/wgs/runs/{analysis_id}/submission-state",
+    dependencies=[Depends(require_internal_service_token)],
+)
+def internal_wgs_submission_state(
+    analysis_id: str,
+    attempt: int = Query(ge=1),
+) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            return submission_state(
+                session=session,
+                analysis_id=analysis_id,
+                attempt=attempt,
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail={"code": "WGS_RUN_NOT_FOUND", "message": str(exc)}) from exc
 
 
 @app.post("/api/runs/{analysis_id}/actions/resume")

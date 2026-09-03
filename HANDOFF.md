@@ -1,5 +1,208 @@
 # HANDOFF.md
 
+## 2026-09-03 - Codex - T174 forward-only WGS evidence repair
+
+### 已完成
+
+- 按用户决定不回填历史run。后端统一负责公开Batch投影，Run Tracker、Run Detail和
+  Samples只消费同一结果；Samples搜索显式支持sample、family、batch、project和run ID。
+- final sampleinfo与Snakemake完整日志共用冻结binding路径解析器，修正此前把分析目录
+  错误映射到runtime root的问题；前端不复制路径或批次解析规则。
+- Step3终态没有Rule JSONL时标记`monitoring_health=degraded`，不再显示healthy，也不从
+  历史analysis.log伪造Rule事件。
+- `WGS_20260903_062828_0858DC-a1`的Airflow任务日志证明：SSH认证成功后node200立即退出，
+  旧gate未分发`prepare_sampleinfo`。该attempt未生成sampleinfo、未进入OBS/CCE。
+- node200旧gate已保留时间戳备份；通过runner测试后原子安装SHA256 `b8d9765...`。
+  安全构造检查确认现在调用WGS `prepare_wgs_batch.py sampleinfo`，输出根固定为
+  `/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical`。
+- Airflow失败摘要同时保留远端stdout和SSH stderr，后续不会再只显示`Connection closed`。
+- 已切换`.96`当前release到
+  `/data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t174-forward-evidence-r1`，
+  前端镜像为`airflow-demo/frontend:t174-forward-evidence`。只重建应用服务，PostgreSQL、
+  Redis容器身份和运行时间均保持不变。
+- 认证后生产smoke确认capabilities、release、project、run搜索和详情接口均为200；
+  `20260825A`搜索及详情均返回公开Batch `20260825A`。唯一`bio_wgs`仍为23任务且未暂停。
+
+### 验证
+
+```text
+.96 Docker backend: 320 passed, 1 skipped
+.96 Docker runner/evidence/progress: 42 passed
+.96 isolated DAG unit tests: 11 passed
+.96 Docker frontend: 10 files / 41 tests passed
+.96 Docker TypeScript/Vite production build: passed
+node200 gate: py_compile passed; installed SHA256 b8d9765...
+production release: 20260903-wgs-4.1.1-6c98281-t174-forward-evidence-r1
+production authenticated API smoke: passed
+backup: /data/airflow-WGS/backups/T174-forward-evidence-20260903T070750+0000
+database containers: preserved
+side effects: no historical projection/backfill; no retry, OBS transfer or CCE submit
+```
+
+### 仍需完成
+
+- 由operator重新提交新批次；检查sample/family入库、Rule JSONL和Snakemake log。若Master
+  仍未生成Rule JSONL，应按真实监控降级处理并修正WGS logger启动合同，不能前端造数据。
+- 当前正式WGS仓库及CCE profile没有实际启用`--logger rule-status`；镜像中安装插件并不等于
+  运行时已生成JSONL。这个外部合同修正前，新的sampleinfo和`analysis.log`可以验证，Rules
+  页面应显示degraded而不能伪造Rule实例。
+- 用户随后明确授权先提交当前T168-T174累计改动；本条交接作为该checkpoint的一部分提交。
+
+### 非破坏性失败记录
+
+- 首次完整backend测试因staging未复制`config/wgs_projects.yaml`和`wgs_releases.yaml`
+  出现5个FileNotFound；补齐测试夹具后通过。
+- 一次测试断言补字段时产生IndentationError，修正后完整backend通过。
+- frontend build曾因一次多文件scp把`SamplesPage.tsx`误放到staging `src/`根目录而失败；
+  删除该staging-only副本后构建通过，仓库未出现重复页面实现。
+- 更新node200 gate时第一次在Airflow容器内chmod root-owned临时文件失败；改由root仅修正
+  该临时文件owner后完成传输，生产容器与volume未重建。
+
+### 回滚
+
+node200可恢复`/home/hanjj/.config/airflow-wgs/wgs_runtime_gate.py.before-t174-*`并复核SHA；
+应用release回滚只切换`current`并重建应用服务。不得删除失败attempt、生产结果、OBS/SFS、
+PostgreSQL/Redis volume或`nipt_analysis_test_net`。
+
+## 2026-09-03 - Codex - T173 staged WGS/SFS production release
+
+### 已完成
+
+- 新提交入口拆成三阶段：WGS sampleinfo完成后查看安全样本/家系投影；确认Reference和
+  固定resource set后生成analysis目录；再次确认后才放行Step1-Step6。两个等待点均为
+  Airflow reschedule sensor，并有operator/admin RBAC、幂等和RunAction审计。
+- 新主流程统一使用`<analysis_id>-a<attempt>`作为Airflow DagRun ID、WGS run ID和
+  runtime/evidence身份；旧在途流程和维护DagRun不改名。
+- 资源API/前端只展示SFS。Cloud Eye已为`hwybioinfo1`增加独立区域只读组，node200
+  周期采集器签名查询返回200并写入共享SFS-only快照；AK/SK仍只在node200的0600文件。
+- 核对正式WGS路径对`hanjj`可读、分析根可写、映射Git状态为0条漂移；未改用会产生
+  大量tracked drift的`wgs-4.1.1-test`。
+- 旧DagRun `manual__WGS_20260902_181846_20A4D2__a1`先达到success，18个旧任务、
+  biodemo终态和运行证据均保留；随后原子切换到
+  `/data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t173-staged-sfs-r1`。
+- 只重建backend、frontend、scanner/observer、metrics和三个Airflow应用服务；PostgreSQL
+  与Redis容器启动时间未变化，volume和外部网络未重建。生产DAG现为23任务、未暂停，
+  execution/runtime=true、auto-dispatch=false，尚未创建新的三阶段运行。
+
+### 验证
+
+```text
+.96 Docker backend: 318 passed, 1 skipped
+.96 Docker runner/SFS collector: 38 passed
+.96 Docker frontend: 10 files / 40 tests passed
+.96 Docker production frontend build: passed
+isolated Airflow import: bio_wgs, 23 tasks, no import errors
+SFS Cloud Eye: HTTP 200; sfs-turbo-clinical healthy; capacity used 13.86%
+production legacy DagRun: success at 2026-09-03T03:08:46Z; all 18 tasks success
+production HTTP: root=200; health=200; login/protected API set=200
+production assets: three stage labels present; OBS Cloud Eye label absent
+production state: AnalysisRun=1/active=0; bio_wgs DagRun=1/active=0
+network: 192.168.199.0/24, gateway 192.168.199.1; only 172.17.61.96:12959 published
+backup: /data/airflow-WGS/backups/T173-staged-sfs-20260903T052418Z; both dump checksums passed
+```
+
+### 未完成及下一步
+
+- 按用户要求未提交Git。第一个新的三阶段生产批次尚未由operator提交，因此canonical
+  run ID只完成代码/测试验证，尚无新的真实运行证据；不得为验收自行创建批次。
+- node200没有user systemd且PAM禁止`hanjj` crontab；机器重启后需再次运行
+  `/home/hanjj/.config/airflow-wgs/start_sfs_cloud_eye_collector.sh`。
+
+### 部署过程中的非破坏性失败
+
+第一次发布脚本把健康探针请求发到`127.0.0.1:12959`，但Nginx按安全合同只绑定
+`172.17.61.96:12959`，因此curl返回connection refused。服务实际已正常启动；中止该
+等待循环后改用绑定地址复核，root与health均为200，无需回滚且未影响数据库或旧批次。
+
+### 回滚
+
+应用回滚时恢复备份中的`production.env`并把`current`切回T172 release，再只重建应用
+服务；数据库仅在确认需要数据回滚时使用两套dump。SFS采集器停止或快照缺失只会让
+资源卡degraded，不影响WGS。不得删除旧批次、OBS/SFS对象、PostgreSQL/Redis volume
+或固定Docker网络。
+
+## 2026-09-03 - Codex - T172 `.96` frontend request recovery
+
+### 已完成
+
+- 线上Nginx证据表明截图对应的capabilities/resources请求未到服务端，而同一轮其他
+  API均为200。根因进一步收敛为Dashboard在capabilities完成前后重复发起
+  `deployed`和`wgs`两轮首屏请求，叠加浏览器原生网络/响应体读取失败。
+- 前端现在等待单一WGS能力稳定后只加载一次；公共API层仅对GET原生网络错误等待
+  250 ms后重试一次，不重试POST、HTTP错误或AbortError。intake列表与scanner状态
+  独立收敛，单项失败不再丢掉另一项成功数据。
+- WGS Nginx对`index.html`和SPA fallback返回`no-store`，仅内容哈希命名的assets采用
+  immutable缓存。依赖在`.96`用官方Node v24.15.0校验包和全新`npm ci`安装，不再
+  使用BS10610的`node_modules`或npm缓存。
+- 已部署release `20260903-wgs-4.1.1-6c98281-t172-fetch-recovery-r1`和frontend image
+  `airflow-demo/frontend:t172-fetch-recovery`。只重建frontend-nginx。
+
+### 验证
+
+```text
+.96 server Docker frontend: 10 test files / 40 tests passed
+TypeScript + Vite production build: passed
+authenticated APIs: capabilities/dashboard/runs/intake/scanner/resources/release/projects = 200
+HTTP: root=200; /api/health=200
+cache: shell=no-store; fingerprinted asset=immutable
+database: AnalysisRun=0; Airflow DagRun=0
+WGS result root: /sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical/<batch>
+network: 192.168.199.0/24, gateway 192.168.199.1; only 172.17.61.96:12959 published
+```
+
+### 未完成及下一步
+
+- 用户工作站需要普通刷新一次，确认旧页面状态被新shell替换；若仍复现，按该次时间
+  对照Nginx access log，不再从BS10610复制任何前端依赖或构建产物。
+- 不提交Git；不提交WGS批次。首个`20260901B`仍由用户在页面手工操作。
+
+## 2026-09-03 - Codex - T171 `.96` manual WGS submission activation
+
+### 已完成
+
+- 把公开WGS提交参数从重复的`Sequencing batch + Analysis batch`收敛为一个`Batch`；
+  后端将该值同时传给WGS两个原生参数，并继续由服务端生成完整批次目录名。
+- 内部合同升级到`wgs-runtime.request.v4`，分离Airflow控制根与业务分析根。生产
+  `--outpath`固定为`/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical`，WGS只在
+  后面追加`<batch_no>`，不会少一层或重复一层`WGS_Clinical`。
+- 在node200安装`hanjj`受限runner、evidence bridge和透明obsutil进度包装器；
+  `cce.yaml`固定WGS 4.1.1仓库、新evidence根和包装器，私有配置保持0600。
+- 发布`20260903-wgs-4.1.1-6c98281-t171-manual-ready-r1`，打开两个手工执行门禁并
+  unpause唯一`bio_wgs`。scanner继续独立每600秒运行，auto-dispatch和旧draft preview
+  均保持false。
+- 修复页面中的部署能力`Failed to fetch`后，服务器认证smoke确认capabilities、
+  dashboard、runs、intake、release和project接口均为200；工作站root和health也为200。
+
+### 验证
+
+```text
+.96 backend + scripts: 356 passed
+Airflow DagBag: bio_wgs, 18 tasks, 6 reschedule sensors, import_errors=[]
+BS10610 server Docker frontend: 10 test files / 37 tests passed
+frontend production build: tsc -b + vite build passed
+HTTP: root=200, health=200, login=200, protected API set=200
+database after activation: AnalysisRun=0, RunAttempt=0, Airflow DagRun=0
+network: 192.168.199.0/24, gateway 192.168.199.1
+published: only 172.17.61.96:12959
+backup: /data/airflow-WGS/backups/T171-manual-ready-20260902T173927Z
+```
+
+### 未完成及下一步
+
+- 按用户要求没有代为提交`20260901B`，也没有启动OBS、CCE、WGS或Step7。用户可在
+  Submit Run填写单一Batch=`20260901B`后自行提交并检查首个错误证据。
+- 透明传输进度代码和node200配置已接通，但尚无真实Step1/Step5数据证明obsutil当前
+  输出格式可被解析；首批运行若只有阶段而无速度，应保留原始退出码并修正解析器，
+  不得伪造百分比。
+- SFS/OBS Cloud Eye快照仍未配置，Cloud Resources继续显示degraded，但不阻断WGS。
+- 本轮按用户要求不commit、不建PR；工作树改动留给用户检查和提交。
+
+### 回滚
+
+使用上述备份恢复`production.env`和前一`current`目标，暂停`bio_wgs`，并把node200
+`runtime.env`两个执行开关恢复为false；只滚动重建应用服务。不得删除数据库volume、
+固定Docker网络、OBS/SFS对象或WGS结果目录。
+
 ## 2026-09-03 - Codex - T169/T170 node metrics and compact health panel
 
 ### 已完成

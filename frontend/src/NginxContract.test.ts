@@ -46,4 +46,10 @@ describe("frontend nginx image contract", () => {
     expect(wgsNginx).toContain("allow 10.10.30.0/24;");
     expect(wgsNginx).toContain("deny all;");
   });
+
+  it("refreshes the WGS application shell while caching only fingerprinted assets", () => {
+    expect(wgsNginx).toMatch(/location = \/index\.html[\s\S]*Cache-Control "no-store, no-cache, must-revalidate"/);
+    expect(wgsNginx).toMatch(/location \^~ \/assets\/[\s\S]*Cache-Control "public, max-age=31536000, immutable"/);
+    expect(wgsNginx).toMatch(/location \/ \{[\s\S]*Cache-Control "no-store, no-cache, must-revalidate"[\s\S]*try_files \$uri \$uri\/ \/index\.html/);
+  });
 });

@@ -12,6 +12,8 @@ COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 STAGES = {
     "prepare",
+    "prepare_sampleinfo",
+    "prepare_analysis",
     "step1_upload",
     "step2_master",
     "step3_monitor",
@@ -46,9 +48,8 @@ def build_stage_request(
     pipeline_release_id: str,
     wgs_version: str,
     wgs_source_commit: str,
-    workdir: Path | str,
-    bs_runtime_root: str,
-    node200_runtime_root: str,
+    control_runtime_root: str,
+    analysis_project_root: str,
     project_name: str,
     batch_no: str,
     fq_path: str,
@@ -77,22 +78,22 @@ def build_stage_request(
     fastq = PurePosixPath(fq_path)
     if not fastq.is_absolute() or ".." in fastq.parts:
         raise ValueError("fq_path must be an absolute normalized node200 path")
-    bs_root = PurePosixPath(bs_runtime_root)
-    node_root = PurePosixPath(node200_runtime_root)
-    if not bs_root.is_absolute() or not node_root.is_absolute():
-        raise ValueError("runtime roots must be absolute")
+    control_root = PurePosixPath(control_runtime_root)
+    analysis_root = PurePosixPath(analysis_project_root)
+    if not control_root.is_absolute() or not analysis_root.is_absolute():
+        raise ValueError("control and analysis roots must be absolute")
     relative = PurePosixPath("runs") / analysis_id / f"attempt-{attempt}"
     payload: dict[str, object] = {
-        "schema_version": "wgs-runtime.request.v3",
+        "schema_version": "wgs-runtime.request.v4",
         "analysis_id": analysis_id,
         "attempt": attempt,
         "stage": stage,
         "pipeline_release_id": pipeline_release_id,
         "wgs_version": str(wgs_version),
         "wgs_source_commit": wgs_source_commit,
-        "workdir": str(Path(workdir)),
-        "bs10610_workdir": str(bs_root / relative),
-        "node200_workdir": str(node_root / relative),
+        "control_workdir": str(control_root / relative),
+        "analysis_project_root": str(analysis_root),
+        "expected_batch_root": str(analysis_root / str(batch_no).strip()),
         "project_name": str(project_name).strip(),
         "batch_no": str(batch_no).strip(),
         "fq_path": str(fastq),

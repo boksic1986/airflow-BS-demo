@@ -192,8 +192,8 @@ def test_invalid_cloud_spool_marks_existing_cloud_resources_degraded(tmp_path, m
 
     with sessions() as session:
         rows = session.scalars(select(PlatformResourceSnapshot)).all()
-        assert {row.status for row in rows} == {"degraded"}
-        assert all("spool is invalid" in str(row.error_message) for row in rows)
+        states = {row.resource_type: row.status for row in rows}
+        assert states == {"sfs": "degraded", "obs": "healthy"}
 
 
 def test_missing_cloud_spool_creates_degraded_placeholders(tmp_path, monkeypatch) -> None:
@@ -210,5 +210,66 @@ def test_missing_cloud_spool_creates_degraded_placeholders(tmp_path, monkeypatch
     with sessions() as session:
         payload = get_platform_resources(session=session)
         assert payload["status"] == "degraded"
-        assert {item["resource_type"] for item in payload["items"]} == {"sfs", "obs"}
+        assert {item["resource_type"] for item in payload["items"]} == {"sfs"}
         assert all("spool is missing" in item["error_message"] for item in payload["items"])
+
+
+def test_cloud_spool_and_public_payload_accept_sfs_only(tmp_path, monkeypatch) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    now = datetime.now(timezone.utc)
+    spool = tmp_path / "cloud.json"
+    spool.write_text(
+        __import__("json").dumps({
+            "schema_version": "platform-cloud-metrics.v1",
+            "items": [
+                {"resource_key": "sfs-clinical", "resource_type": "sfs", "display_name": "sfs-turbo-clinical", "source_updated_at": now.isoformat(), "current": {"capacity_used_percent": 13.86}},
+                {"resource_key": "obs-old", "resource_type": "obs", "display_name": "legacy OBS", "source_updated_at": now.isoformat(), "current": {"used_bytes": 99}},
+            ],
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PLATFORM_CLOUD_METRICS_SPOOL", str(spool))
+    monkeypatch.setattr("app.platform_metrics_collector_cli.get_sessionmaker", lambda: sessions)
+
+    _collect_cloud_spool({})
+
+    with sessions() as session:
+        payload = get_platform_resources(session=session, now=now)
+        assert [item["resource_type"] for item in payload["items"]] == ["sfs"]
+        assert payload["items"][0]["current"]["capacity_used_percent"] == 13.86
+
+
+def test_successful_sfs_snapshot_hides_legacy_missing_spool_placeholder() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    now = datetime.now(timezone.utc)
+    with sessions() as session:
+        upsert_resource_snapshot(
+            session=session,
+            resource_key="sfs-turbo-clinical",
+            resource_type="sfs",
+            display_name="sfs-turbo-clinical",
+            current={"capacity_used_percent": 13.86},
+            source_updated_at=now,
+        )
+        stale_placeholder = PlatformResourceSnapshot(
+            resource_key="sfs-cloud-metrics",
+            resource_type="sfs",
+            display_name="SFS Cloud Eye",
+            status="degraded",
+            current_json={},
+            history_json=[],
+            error_message="cloud metrics spool is missing",
+        )
+        session.add(stale_placeholder)
+        session.commit()
+
+        payload = get_platform_resources(session=session, now=now)
+
+    assert [item["resource_key"] for item in payload["items"]] == [
+        "sfs-turbo-clinical"
+    ]
+    assert payload["status"] == "healthy"

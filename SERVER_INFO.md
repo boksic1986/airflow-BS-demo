@@ -1,5 +1,23 @@
 # SERVER_INFO.md
 
+## T173 production staged submission and SFS metrics (2026-09-03)
+
+```text
+primary: 172.17.61.96
+release: 20260903-wgs-4.1.1-6c98281-t173-staged-sfs-r1
+frontend_image: airflow-demo/frontend:t173-candidate
+frontend_image_id: sha256:954640652cd82e3c4e999c64f56a88d25e35eae3f1969386f39907909989c679
+airflow: bio_wgs only, 23 tasks, unpaused, zero import errors
+submission: sampleinfo review -> config approval -> analysis prepare -> execution approval -> Step1-Step6
+identity_for_new_runs: <analysis_id>-a<attempt>
+sfs_metrics: sfs-turbo-clinical, SYS.EFS/efs_instance_id, healthy through node200 SFS-only spool
+gates: execution=true, runtime_adapter=true, auto_dispatch=false
+database: existing local airflow-wgs_postgres-data volume preserved; AnalysisRun 1/active 0 after release
+network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
+published_ports: 172.17.61.96:12959 only
+backup: /data/airflow-WGS/backups/T173-staged-sfs-20260903T052418Z
+```
+
 ## T170 production node health panel (2026-09-03)
 
 ```text

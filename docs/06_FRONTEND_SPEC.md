@@ -1,5 +1,46 @@
 # 06 前端设计
 
+## T174 新批次优先的Batch/Sample修正
+
+- React不再解析`WGS_<batch>_T7Hg38V4.1.1`；Run Tracker、Run Detail和Samples
+  都直接展示后端提供的公共`batch_no`。
+- Samples关键字说明和服务端查询均包含family与batch；列表使用`Batch`列，不再重复展示
+  含义相同的`Sequencing batch`。
+- 不对历史成功run补Sample或Rule数据。操作者重新提交后，页面只展示正常prepare与
+  Rule JSONL产生的新记录；证据缺失时显示真实空态或monitoring degraded。
+
+## T173 三阶段提交与SFS-only资源卡
+
+- Submit Run第一阶段显示Pipeline、Project、Platform、Batch和受控FASTQ
+  root。Pipeline保留扩展入口；当前WGS可用，WES明确标记不可用。
+- 第二阶段展示sampleinfo安全投影和家系关系，并提供Reference selection；
+  Resource set当前只有只读的WGS release default。确认后才生成分析目录和
+  冻结CCE bundle。
+- 第三阶段展示最终eligible/pending选择，用户再次确认后才进入Step1-Step6。
+  两次确认均由后端RBAC和审计保护，浏览器不能传目录、YAML、镜像或shell文本。
+- Cloud Resources只展示SFS容量使用率、读写带宽、IOPS、客户端连接数和更新时间；
+  不再渲染OBS卡片。历史占位SFS条目在真实命名资源存在时隐藏。
+
+## T172 首屏请求与缓存合同
+
+- Dashboard必须等待`PlatformCapabilitiesProvider`完成后再发起首轮业务请求；单一WGS
+  部署只允许一轮`pipeline=wgs`加载，不得先用fallback发`deployed`再重复加载。
+- API公共请求层仅对幂等GET的原生网络失败或响应体读取失败重试一次，间隔250 ms。
+  HTTP 4xx/5xx、POST/PUT/PATCH/DELETE及显式AbortError不得自动重试。
+- intake列表和scanner-state独立收敛；其中一个失败时保留另一个成功结果并显示局部错误。
+- `index.html`及SPA fallback必须`no-store`；`/assets/<content-hash>`可长期immutable缓存。
+  这样发布后无需依赖浏览器或旧服务器构建缓存，同时保留安全的静态资源缓存。
+
+## T171 单批次手工提交
+
+- Submit Run只显示一个`Batch`输入，例如`20260901B`；不再向操作者暴露
+  `Sequencing batch`和`Analysis batch`两个含义重复的字段。
+- 后端仍按WGS原生prepare顺序执行sampleinfo再analysis，最终分析样本只在prepare
+  成功后进入Samples页面。前端不预先创建或编辑sampleinfo。
+- 当前生产执行和runtime adapter已开启，因此operator/admin可见可用提交按钮；
+  `WGS_SUBMISSION_PREVIEW_ENABLED=false`不影响该直接提交入口。自动扫描只发现批次，
+  `WGS_AUTO_DISPATCH_ENABLED=false`保证它不会自动提交分析。
+
 ## T170 Analysis Node Health 紧凑展示
 
 - `Analysis Node Health`只渲染一个节点快照，顶部使用`.96`和`.97`两个可访问标签，

@@ -2,6 +2,18 @@
 
 更新时间：2026-09-02
 
+## 2026-09-03 implementation status
+
+T171 implemented the request-v4 and runtime identity design on the `.96`
+production control plane. The active node200 identity is `hanjj`; the restricted
+runner, WGS 4.1.1 repository mapping, kubeconfig/kubectl, CCE config, evidence
+root and transparent obsutil progress wrapper passed read-only preflight.
+`bio_wgs` is unpaused and the two manual execution gates are enabled, while
+scanner auto-dispatch and the historical draft-preview gate remain disabled.
+No batch was submitted during activation; AnalysisRun, RunAttempt and DagRun
+counts remained zero. Sections describing the earlier design-only or disabled
+state are retained as history.
+
 ## 1. 目标和现状
 
 本设计将 BS10610 Airflow 到 node200 的生产运行身份从`chenjc`整体替换为
@@ -40,8 +52,8 @@
 ### 2.2 固定目录
 
 ```text
-分析项目根:
-/sg2/14.hanjingjing/Cloud_WGS_Clinical
+分析项目根（也是WGS的`--outpath`）:
+/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical
 
 批次结果:
 /sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical/<batch>
@@ -79,9 +91,8 @@ expected_batch_root
 
 - `control_workdir`只能由控制根、analysis ID和attempt服务端派生。
 - `analysis_project_root`固定为
-  `/sg2/14.hanjingjing/Cloud_WGS_Clinical`。
-- `expected_batch_root`固定为
-  `<analysis_project_root>/WGS_Clinical/<batch>`。
+  `/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical`。
+- `expected_batch_root`固定为`<analysis_project_root>/<batch>`。
 - prepare继续调用固定WGS仓库，但`--outpath`直接使用分析项目根。
 - prepare成功后，冻结binding记录三个路径、WGS release、run ID、CCE identity、
   OBS prefix和evidence位置。Step1-Step7以后只消费binding，不重新解析仓库或请求路径。

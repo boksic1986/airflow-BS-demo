@@ -22,6 +22,8 @@ WGS_ORCHESTRATION_STAGES = (
 
 WGS_AUXILIARY_STAGES = (
     WgsStageDefinition("prepare", None, "Preparing WGS batch"),
+    WgsStageDefinition("prepare_sampleinfo", None, "Preparing sample information"),
+    WgsStageDefinition("prepare_analysis", None, "Preparing WGS analysis"),
     WgsStageDefinition("step4_repair_cram", 4, "Repairing CRAM linkage"),
     WgsStageDefinition("step7_cleanup", 7, "Cleaning WGS SFS workspace"),
     WgsStageDefinition("final", None, "WGS workflow completed"),
@@ -34,6 +36,10 @@ WGS_STAGE_BY_CODE = {
 WGS_STAGE_ALIASES = {
     "validate_request": "prepare",
     "prepare_wgs_batch": "prepare",
+    "prepare_wgs_sampleinfo": "prepare_sampleinfo",
+    "wait_prepare_wgs_sampleinfo": "prepare_sampleinfo",
+    "prepare_wgs_analysis": "prepare_analysis",
+    "wait_prepare_wgs_analysis": "prepare_analysis",
     "acquire_input_transfer_slot": "step1_upload",
     "release_input_transfer_slot": "step1_upload",
     "wait_step1_upload": "step1_upload",

@@ -264,7 +264,12 @@ def test_runs_return_batch_and_search_by_batch_or_sample(tmp_path, monkeypatch) 
                 mode="new",
                 status="success",
                 workdir=str(tmp_path / analysis_id),
-                params_json={"project_name": "WGS Clinical", "batch_no": batch_no},
+                params_json={
+                    "project_name": "WGS Clinical",
+                    "batch_no": batch_no,
+                    "analysis_batch": "20260902A",
+                    "sequencing_batch": "20260902A",
+                },
                 created_at=now,
                 submitted_at=now,
                 started_at=now,
@@ -297,7 +302,58 @@ def test_runs_return_batch_and_search_by_batch_or_sample(tmp_path, monkeypatch) 
         payload = response.json()
         assert payload["total"] == 1
         assert payload["items"][0]["analysis_id"] == analysis_id
-        assert payload["items"][0]["batch_no"] == batch_no
+        assert payload["items"][0]["batch_no"] == "20260902A"
+
+
+def test_wgs_samples_return_and_search_by_public_batch(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime.now(timezone.utc)
+    analysis_id = "WGS_SAMPLE_BATCH_SEARCH"
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                dag_run_id=f"{analysis_id}-a1",
+                mode="new",
+                status="running",
+                workdir=str(tmp_path / analysis_id),
+                params_json={
+                    "project_name": "WGS Clinical",
+                    "batch_no": "runtime-directory-without-public-token",
+                    "analysis_batch": "20260902B",
+                    "sequencing_batch": "20260902B",
+                },
+                created_at=now,
+            )
+        )
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="WGS26090002",
+                family_id="FAM-RUN-02",
+                status="running",
+                qc_status="unknown",
+            )
+        )
+        session.commit()
+    monkeypatch.setattr(
+        main,
+        "_deployment_guard_settings",
+        lambda: SimpleNamespace(deployed_pipelines=("wgs",)),
+    )
+    client = install_session(monkeypatch, session_factory)
+
+    response = client.get(
+        "/api/samples?pipeline=wgs&keyword=20260902B&limit=25&offset=0"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["sample_id"] == "WGS26090002"
+    assert payload["items"][0]["batch_no"] == "20260902B"
 
 
 def test_runs_deployed_scope_excludes_historical_wes_and_uses_sql_pagination(tmp_path, monkeypatch) -> None:
@@ -389,6 +445,7 @@ def test_samples_resource_is_paginated_and_hides_absolute_paths(tmp_path, monkey
     assert item == {
         "analysis_id": "NIPT_GAMMA_QC",
         "project_name": "Gamma NIPT chip",
+        "batch_no": None,
         "pipeline": "nipt_docker",
         "sample_id": "NC-01",
         "family_id": None,

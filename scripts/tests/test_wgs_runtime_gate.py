@@ -27,6 +27,16 @@ def load_gate():
     return module
 
 
+def test_hanjj_forced_command_uses_private_runtime_environment() -> None:
+    source = (ROOT / "wgs_runtime_forced_command.sh").read_text(encoding="utf-8")
+
+    assert 'config_dir="/home/hanjj/.config/airflow-wgs"' in source
+    assert 'runtime_env="${config_dir}/runtime.env"' in source
+    assert 'runtime_gate="${config_dir}/wgs_runtime_gate.py"' in source
+    assert 'exec "${WGS_PYTHON}" "${runtime_gate}" "$@"' in source
+    assert "/home/chenjc" not in source
+
+
 def test_forced_command_accepts_only_registered_wgs_stages() -> None:
     gate = load_gate()
 
@@ -39,6 +49,12 @@ def test_forced_command_accepts_only_registered_wgs_stages() -> None:
     assert gate.parse_command(
         "wgs-runtime WGS_20260826_010203_A1B2C3 1 step7_cleanup"
     ) == ("WGS_20260826_010203_A1B2C3", 1, "step7_cleanup")
+    assert gate.parse_command(
+        "wgs-runtime WGS_20260826_010203_A1B2C3 1 prepare_sampleinfo"
+    ) == ("WGS_20260826_010203_A1B2C3", 1, "prepare_sampleinfo")
+    assert gate.parse_command(
+        "wgs-runtime WGS_20260826_010203_A1B2C3 1 prepare_analysis"
+    ) == ("WGS_20260826_010203_A1B2C3", 1, "prepare_analysis")
     for command in (
         "bash -c id",
         "wgs-runtime WGS_20260826_010203_A1B2C3 1 step0_reset",
@@ -77,7 +93,9 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
         "pipeline_release_id": "wgs-4.1.1-1656b5d",
         "wgs_version": "V4.1.1",
         "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
-        "node200_workdir": str(tmp_path / "attempt-1"),
+        "control_workdir": str(tmp_path / "control" / "attempt-1"),
+        "analysis_project_root": str(tmp_path / "analysis"),
+        "expected_batch_root": str(tmp_path / "analysis" / "WGS_20260825A_T7Hg38V4.1.1"),
         "project_name": "clinical-wgs",
         "batch_no": "WGS_20260825A_T7Hg38V4.1.1",
         "fq_path": "/sg2/33.chenjiucheng/WGS_input/WGS_20260825A_T7Hg38V4.1.1",
@@ -89,6 +107,7 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
 
     assert command[1] == str(gate.WGS_REPO_ROOT / "prepare" / "prepare_wgs_batch.py")
     assert command[2] == "all"
+    assert command[command.index("--outpath") + 1] == str(tmp_path / "analysis")
     assert command[command.index("--batch") + 1] == "20260825A"
     assert (
         command[command.index("--analysis-batch") + 1]
@@ -109,6 +128,40 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
     assert not any("SECRET" in item for item in command)
 
 
+def test_split_prepare_commands_preserve_native_wgs_contract(tmp_path: Path) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "pipeline_release_id": "wgs-4.1.1-6c98281",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "6c982817614db6a1157b6f287427ddf01ac91827",
+        "control_workdir": str(tmp_path / "control" / "attempt-1"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(tmp_path / "WGS_Clinical" / "WGS_20260902A_T7Hg38V4.1.1"),
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260902A_T7Hg38V4.1.1",
+        "fq_path": "/bi/fastq/T7_Fastq",
+        "fastq_root": "/bi/fastq/T7_Fastq",
+        "sequencing_batch": "20260902A",
+        "analysis_batch": "20260902A",
+        "platform": "T7",
+        "use_reference": "ref",
+    }
+
+    sampleinfo = gate.build_prepare_command({**payload, "stage": "prepare_sampleinfo"})
+    analysis = gate.build_prepare_command({**payload, "stage": "prepare_analysis"})
+
+    assert sampleinfo[2] == "sampleinfo"
+    assert "--batch" in sampleinfo and "20260902A" in sampleinfo
+    assert "--sampleinfo" not in sampleinfo
+    assert analysis[2] == "analysis"
+    assert analysis[analysis.index("--sampleinfo") + 1] == str(
+        tmp_path / "WGS_Clinical" / "sampleinfo" / "WGS_20260902A_T7Hg38V4.1.1.sampleinfo.txt"
+    )
+    assert analysis[analysis.index("--use-reference") + 1] == "ref"
+
+
 def test_prepare_command_rejects_batch_without_sequencing_batch() -> None:
     gate = load_gate()
     payload = {
@@ -118,7 +171,8 @@ def test_prepare_command_rejects_batch_without_sequencing_batch() -> None:
         "pipeline_release_id": "wgs-4.1.1-2499749",
         "wgs_version": "V4.1.1",
         "wgs_source_commit": "2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68",
-        "node200_workdir": "/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runs/WGS_20260826_010203_A1B2C3/attempt-1",
+        "control_workdir": "/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/runs/WGS_20260826_010203_A1B2C3/attempt-1",
+        "analysis_project_root": "/sg2/14.hanjingjing/Cloud_WGS_Clinical",
         "project_name": "WGS_Clinical",
         "batch_no": "WGS_BATCH_WITHOUT_DATE",
         "fq_path": "/bi/biodevrwbi/33.chenjiucheng/project/airflow-WGS/runtime/intake/BATCH-01",
@@ -139,7 +193,8 @@ def test_prepare_command_rejects_fastq_directory_for_another_batch(
         "pipeline_release_id": "wgs-4.1.1-2499749",
         "wgs_version": "V4.1.1",
         "wgs_source_commit": "2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68",
-        "node200_workdir": str(tmp_path / "attempt-1"),
+        "control_workdir": str(tmp_path / "control" / "attempt-1"),
+        "analysis_project_root": str(tmp_path / "analysis"),
         "project_name": "WGS_Clinical",
         "batch_no": "WGS_20260825A_T7Hg38V4.1.1",
         "fq_path": "/bi/airflow-wgs/runtime/intake/WGS_20260826A_T7Hg38V4.1.1",
@@ -155,6 +210,7 @@ def test_release_repository_validation_rejects_commit_or_runtime_drift(
     gate = load_gate()
     repo = tmp_path / "wgs-4.1.1"
     (repo / "prepare").mkdir(parents=True)
+    (repo / ".git").mkdir()
     (repo / "prepare" / "prepare_wgs_batch.py").write_text("# tracked\n")
     calls: list[list[str]] = []
 
@@ -183,6 +239,7 @@ def test_release_repository_validation_allows_documentation_only_drift(
     gate = load_gate()
     repo = tmp_path / "wgs-4.1.1"
     (repo / "prepare").mkdir(parents=True)
+    (repo / ".git").mkdir()
     (repo / "prepare" / "prepare_wgs_batch.py").write_text("# tracked\n")
     expected_commit = "2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68"
 
@@ -208,6 +265,36 @@ def test_release_repository_validation_allows_documentation_only_drift(
     ) == repo.resolve()
 
 
+def test_release_repository_validation_maps_registered_mnt_worktree_pointer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    repo = tmp_path / "bi" / "biodevrwbi" / "project" / "wgs-4.1.1"
+    prepare = repo / "prepare" / "prepare_wgs_batch.py"
+    prepare.parent.mkdir(parents=True)
+    prepare.write_text("# tracked\n")
+    repo.joinpath(".git").write_text(
+        f"gitdir: {tmp_path / 'mnt' / 'biodevrwbi' / 'project' / 'wgs' / '.git' / 'worktrees' / 'wgs-4.1.1'}\n"
+    )
+    mapped = tmp_path / "bi" / "biodevrwbi" / "project" / "wgs" / ".git" / "worktrees" / "wgs-4.1.1"
+    mapped.mkdir(parents=True)
+    expected = "6c982817614db6a1157b6f287427ddf01ac91827"
+    calls: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        return type("Result", (), {"stdout": expected + "\n" if command[-2:] == ["rev-parse", "HEAD"] else ""})()
+
+    monkeypatch.setattr(gate, "WGS_REPO_ROOT", repo)
+    monkeypatch.setattr(gate, "WGS_GIT_MNT_PREFIX", str(tmp_path / "mnt" / "biodevrwbi"))
+    monkeypatch.setattr(gate, "WGS_GIT_NODE_PREFIX", str(tmp_path / "bi" / "biodevrwbi"))
+    monkeypatch.setattr(gate.subprocess, "run", fake_run)
+
+    assert gate.validate_release_repository({"wgs_source_commit": expected}) == repo.resolve()
+    assert f"--git-dir={mapped}" in calls[0]
+    assert f"--work-tree={repo.resolve()}" in calls[0]
+
+
 @pytest.mark.parametrize(
     "porcelain_status",
     (
@@ -221,6 +308,7 @@ def test_release_repository_validation_still_rejects_runtime_or_similar_paths(
     gate = load_gate()
     repo = tmp_path / "wgs-4.1.1"
     (repo / "prepare").mkdir(parents=True)
+    (repo / ".git").mkdir()
     (repo / "prepare" / "prepare_wgs_batch.py").write_text("# tracked\n")
     expected_commit = "2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68"
 
@@ -741,6 +829,35 @@ def test_step3_evidence_bridge_command_uses_frozen_binding_and_shared_spool(
     )
     assert "--terminal" in command
     assert "/obs-data" not in " ".join(command)
+
+
+def test_terminal_evidence_sync_reports_missing_rule_jsonl(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+    }
+    binding = {
+        "cce_bundle": str(tmp_path / "cce"),
+        "namespace": "snakemake-ns",
+        "master_job": "cce-master-0123456789abcdef0123",
+        "rule_source_dir": "/workspace/wgs/runs/project/batch/evidence/run/rule-status/raw",
+        "analysis_log_source": "/workspace/wgs/runs/project/batch/analysis.log",
+    }
+    monkeypatch.setattr(gate, "CCE_EVIDENCE_ROOT", tmp_path / "evidence")
+    monkeypatch.setattr(
+        gate.subprocess,
+        "run",
+        lambda *_args, **_kwargs: type(
+            "Result", (), {"returncode": 0, "stdout": "", "stderr": ""}
+        )(),
+    )
+
+    error = gate._sync_rule_evidence(payload, binding, terminal=True)
+
+    assert error == "Rule event JSONL was not produced"
 
 
 def test_async_worker_is_nohup_setsid_flock_and_stage_status_is_versioned(

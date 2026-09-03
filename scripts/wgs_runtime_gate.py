@@ -24,6 +24,8 @@ SEQUENCING_BATCH_RE = re.compile(r"(?:^|_)([0-9]{8}[A-Z])(?:_|$)")
 CCE_RUN_LABEL_RE = re.compile(r"^cce-run-[0-9a-f]{16}$")
 STAGES = {
     "prepare",
+    "prepare_sampleinfo",
+    "prepare_analysis",
     "step1_upload",
     "step2_master",
     "step3_monitor",
@@ -68,8 +70,10 @@ WGS_REPO_ROOT = Path(
 WGS_PYTHON = os.getenv("WGS_PYTHON", "/bi/software/mamba/envs/WGS/bin/python")
 WGS_PREPARE_CONFIG = str(WGS_REPO_ROOT / "prepare" / "config.yaml")
 CCE_OPERATOR_CONFIG = os.getenv(
-    "CCE_OPERATOR_CONFIG", "/home/chenjc/.config/wgs/cce.yaml"
+    "CCE_OPERATOR_CONFIG", "/home/hanjj/.config/wgs/cce.yaml"
 )
+WGS_GIT_MNT_PREFIX = os.getenv("WGS_GIT_MNT_PREFIX", "/mnt/biodevrwbi")
+WGS_GIT_NODE_PREFIX = os.getenv("WGS_GIT_NODE_PREFIX", "/bi/biodevrwbi")
 MONITOR_INTERVAL_SECONDS = int(os.getenv("WGS_MONITOR_INTERVAL_SECONDS", "5"))
 MONITOR_TIMEOUT_SECONDS = int(os.getenv("WGS_MONITOR_TIMEOUT_SECONDS", "432000"))
 STEP4_MASTER_COMPLETION_GRACE_SECONDS = int(
@@ -115,7 +119,7 @@ def load_request(analysis_id: str, attempt: int, stage: str) -> dict[str, Any]:
         raise ValueError("registered runtime request is missing")
     payload = json.loads(path.read_text(encoding="utf-8"))
     if (
-        payload.get("schema_version") != "wgs-runtime.request.v3"
+        payload.get("schema_version") != "wgs-runtime.request.v4"
         or payload.get("analysis_id") != analysis_id
         or int(payload.get("attempt", 0)) != attempt
         or payload.get("stage") != stage
@@ -194,8 +198,9 @@ def validate_release_repository(payload: dict[str, Any]) -> Path:
     prepare = repo / "prepare" / "prepare_wgs_batch.py"
     if not repo.is_dir() or repo.is_symlink() or not prepare.is_file() or prepare.is_symlink():
         raise RuntimeError("release_unavailable: fixed WGS repository is unavailable")
+    git = _git_repository_command(repo)
     revision = subprocess.run(
-        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        [*git, "rev-parse", "HEAD"],
         check=True,
         capture_output=True,
         text=True,
@@ -205,7 +210,7 @@ def validate_release_repository(payload: dict[str, Any]) -> Path:
             "release_unavailable: fixed WGS repository commit does not match the run"
         )
     status = subprocess.run(
-        ["git", "-C", str(repo), "status", "--porcelain"],
+        [*git, "status", "--porcelain"],
         check=True,
         capture_output=True,
         text=True,
@@ -222,11 +227,33 @@ def validate_release_repository(payload: dict[str, Any]) -> Path:
     return repo
 
 
+def _git_repository_command(repo: Path) -> list[str]:
+    marker = repo / ".git"
+    if marker.is_dir():
+        return ["git", "-C", str(repo)]
+    if not marker.is_file() or marker.is_symlink():
+        raise RuntimeError("release_unavailable: fixed WGS Git metadata is unavailable")
+    line = marker.read_text(encoding="utf-8").strip()
+    if not line.startswith("gitdir: "):
+        raise RuntimeError("release_unavailable: fixed WGS Git metadata is invalid")
+    gitdir = Path(line.removeprefix("gitdir: "))
+    if not gitdir.is_dir():
+        source_prefix = Path(WGS_GIT_MNT_PREFIX)
+        target_prefix = Path(WGS_GIT_NODE_PREFIX)
+        try:
+            gitdir = target_prefix / gitdir.relative_to(source_prefix)
+        except ValueError as error:
+            raise RuntimeError(
+                "release_unavailable: WGS worktree metadata is outside the approved mapping"
+            ) from error
+    if not gitdir.is_dir():
+        raise RuntimeError("release_unavailable: mapped WGS worktree metadata is unavailable")
+    return ["git", f"--git-dir={gitdir}", f"--work-tree={repo}"]
+
+
 def _workdir(payload: dict[str, Any]) -> Path:
-    value = Path(str(payload["node200_workdir"])).resolve()
-    runtime_root = Path(
-        "/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runs"
-    ).resolve()
+    value = Path(str(payload["control_workdir"])).resolve()
+    runtime_root = (REQUEST_ROOT.resolve().parent / "runs").resolve()
     if runtime_root not in value.parents:
         raise ValueError("node200 workdir is outside the approved runtime root")
     return value
@@ -237,7 +264,7 @@ def _binding_path(payload: dict[str, Any]) -> Path:
 
 
 def build_prepare_command(payload: dict[str, Any]) -> list[str]:
-    workdir = Path(str(payload["node200_workdir"]))
+    analysis_project_root = Path(str(payload["analysis_project_root"]))
     project_name = str(payload["project_name"])
     batch_no = str(payload["batch_no"])
     fq_path = str(payload["fq_path"])
@@ -262,36 +289,50 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
     fastq_root = Path(str(payload.get("fastq_root") or fastq_directory.parent))
     if not fastq_root.is_absolute():
         raise ValueError("FASTQ root must be absolute")
+    stage = str(payload.get("stage") or "prepare")
+    subcommand = {
+        "prepare": "all",
+        "prepare_sampleinfo": "sampleinfo",
+        "prepare_analysis": "analysis",
+    }.get(stage)
+    if subcommand is None:
+        raise ValueError("unsupported WGS prepare stage")
     command = [
         WGS_PYTHON,
         str(WGS_REPO_ROOT / "prepare" / "prepare_wgs_batch.py"),
-        "all",
+        subcommand,
         "--outpath",
-        str(workdir / project_name),
-        "--batch",
-        sequencing_batch,
-        "--analysis-batch",
-        analysis_batch,
-        "--run-mode",
-        "cce",
-        "--run-id",
-        f"{payload['analysis_id']}-a{int(payload['attempt'])}",
-        "--fastq-root",
-        str(fastq_root),
+        str(analysis_project_root),
         "--prepare-config",
         WGS_PREPARE_CONFIG,
-        "--cce-config",
-        CCE_OPERATOR_CONFIG,
-        "--skip-samplelist-ready-check",
     ]
     platform = str(payload.get("platform") or "").strip()
     if platform:
         command.extend(["--platform", platform])
-    use_reference = str(payload.get("use_reference") or "").strip()
-    if use_reference:
-        if use_reference not in {"all", "ref", "no"}:
-            raise ValueError("use_reference must be all, ref, or no")
-        command.extend(["--use-reference", use_reference])
+    if subcommand in {"all", "sampleinfo"}:
+        command.extend(["--batch", sequencing_batch, "--analysis-batch", analysis_batch])
+    if subcommand in {"all", "analysis"}:
+        if subcommand == "analysis":
+            command.extend([
+                "--sampleinfo",
+                str(analysis_project_root / "sampleinfo" / f"{batch_no}.sampleinfo.txt"),
+            ])
+        command.extend([
+            "--run-mode",
+            "cce",
+            "--run-id",
+            f"{payload['analysis_id']}-a{int(payload['attempt'])}",
+            "--fastq-root",
+            str(fastq_root),
+            "--cce-config",
+            CCE_OPERATOR_CONFIG,
+            "--skip-samplelist-ready-check",
+        ])
+        use_reference = str(payload.get("use_reference") or "").strip()
+        if use_reference:
+            if use_reference not in {"all", "ref", "no"}:
+                raise ValueError("use_reference must be all, ref, or no")
+            command.extend(["--use-reference", use_reference])
     return command
 
 
@@ -307,17 +348,56 @@ def _run_prepare(payload: dict[str, Any]) -> None:
     validate_release_repository(payload)
     workdir = _workdir(payload)
     workdir.mkdir(parents=True, exist_ok=True)
-    project_root = workdir / str(payload["project_name"])
-    project_root.mkdir(parents=True, exist_ok=True)
+    project_root = Path(str(payload["analysis_project_root"])).resolve()
+    expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
+    expected = project_root / str(payload["batch_no"])
+    if (
+        expected_batch_root != expected
+        or not project_root.is_dir()
+        or not os.access(project_root, os.W_OK)
+    ):
+        raise RuntimeError("WGS analysis project root is unavailable or outside the approved batch path")
     subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
-    candidates = sorted(
-        path.parent.parent
-        for path in project_root.glob("*/cce/BATCH_RUNTIME.yaml")
-        if path.is_file()
-    )
-    if len(candidates) != 1:
-        raise RuntimeError("WGS prepare did not create exactly one frozen CCE batch")
-    batch_root = candidates[0].resolve()
+    _write_prepare_binding(payload)
+
+
+def _run_prepare_sampleinfo(payload: dict[str, Any]) -> None:
+    validate_release_repository(payload)
+    workdir = _workdir(payload)
+    workdir.mkdir(parents=True, exist_ok=True)
+    project_root = Path(str(payload["analysis_project_root"])).resolve()
+    sampleinfo = project_root / "sampleinfo" / f"{payload['batch_no']}.sampleinfo.txt"
+    if sampleinfo.is_file() and not sampleinfo.is_symlink():
+        return
+    if not project_root.is_dir() or not os.access(project_root, os.W_OK):
+        raise RuntimeError("WGS analysis project root is unavailable")
+    subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
+    if not sampleinfo.is_file() or sampleinfo.is_symlink():
+        raise RuntimeError("WGS sampleinfo prepare did not publish the expected table")
+
+
+def _run_prepare_analysis(payload: dict[str, Any]) -> None:
+    binding_path = _binding_path(payload)
+    if binding_path.is_file():
+        _load_binding(payload)
+        return
+    validate_release_repository(payload)
+    project_root = Path(str(payload["analysis_project_root"])).resolve()
+    expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
+    if expected_batch_root != project_root / str(payload["batch_no"]):
+        raise RuntimeError("WGS analysis batch path is outside the approved project root")
+    subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
+    _write_prepare_binding(payload)
+
+
+def _write_prepare_binding(payload: dict[str, Any]) -> None:
+    binding_path = _binding_path(payload)
+    workdir = _workdir(payload)
+    project_root = Path(str(payload["analysis_project_root"])).resolve()
+    expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
+    batch_root = expected_batch_root
+    if not (batch_root / "cce" / "BATCH_RUNTIME.yaml").is_file():
+        raise RuntimeError("WGS prepare did not create the expected frozen CCE batch")
     runtime = yaml.safe_load(
         (batch_root / "cce" / "BATCH_RUNTIME.yaml").read_text(encoding="utf-8")
     )
@@ -379,6 +459,9 @@ def _run_prepare(payload: dict[str, Any]) -> None:
             "wgs_source_commit": payload["wgs_source_commit"],
             "resolved_runtime": resolved_runtime,
             "batch_root": str(batch_root),
+            "control_workdir": str(workdir),
+            "analysis_project_root": str(project_root),
+            "expected_batch_root": str(expected_batch_root),
             "cce_bundle": str(batch_root / "cce"),
             "project": identity.get("project"),
             "batch": identity.get("batch"),
@@ -411,9 +494,9 @@ def _load_binding(payload: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("batch binding identity mismatch")
     bundle = Path(str(value["cce_bundle"])).resolve()
-    workdir = _workdir(payload)
-    if workdir not in bundle.parents or not bundle.is_dir() or bundle.is_symlink():
-        raise ValueError("frozen CCE bundle is outside the attempt workdir")
+    expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
+    if expected_batch_root not in bundle.parents or not bundle.is_dir() or bundle.is_symlink():
+        raise ValueError("frozen CCE bundle is outside the expected analysis batch")
     return value
 
 
@@ -550,6 +633,19 @@ def _sync_rule_evidence(
         env=_clean_env(),
     )
     if completed.returncode == 0:
+        if terminal:
+            output = (
+                CCE_EVIDENCE_ROOT
+                / str(payload["analysis_id"])
+                / f"attempt-{int(payload['attempt'])}"
+            )
+            rule_paths = list(
+                (output / "rule-status" / "raw").glob("*.jsonl")
+            )
+            if not any(
+                path.is_file() and path.stat().st_size > 0 for path in rule_paths
+            ):
+                return "Rule event JSONL was not produced"
         return None
     return (completed.stderr or completed.stdout or "Rule evidence bridge failed")[-2000:]
 
@@ -728,6 +824,10 @@ def run_stage(payload: dict[str, Any]) -> None:
     stage = str(payload["stage"])
     if stage == "prepare":
         _run_prepare(payload)
+    elif stage == "prepare_sampleinfo":
+        _run_prepare_sampleinfo(payload)
+    elif stage == "prepare_analysis":
+        _run_prepare_analysis(payload)
     elif stage == "step3_monitor":
         _monitor_step3(payload)
     elif stage == "step4_publish":

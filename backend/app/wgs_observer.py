@@ -288,6 +288,10 @@ def ingest_observer_attempt_once(
             )
         except (OSError, UnicodeError, json.JSONDecodeError):
             monitoring_error = "Rule logger degraded (marker is unreadable)"
+    if initial_lifecycle == "draining" and not any(
+        path.is_file() and path.stat().st_size > 0 for path in rule_paths
+    ):
+        monitoring_error = monitoring_error or "Rule event JSONL was not produced"
     _set_observer_status(
         session_factory,
         binding,

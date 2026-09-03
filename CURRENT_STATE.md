@@ -1,5 +1,68 @@
 # CURRENT_STATE.md
 
+## 2026-09-03 T174 forward-only evidence repair
+
+```text
+scope: fix only future runs; no historical sample/Rule projection, backfill or mutation.
+failed_attempt: WGS_20260903_062828_0858DC-a1 failed before sampleinfo. SSH authentication and host-key verification succeeded, but node200 had stale gate SHA256 359c14f... which did not dispatch prepare_sampleinfo; no analysis directory, OBS transfer or CCE workload was started.
+node200_fix: backed up the old gate and atomically installed tested SHA256 b8d9765...; safe command construction now resolves the WGS sampleinfo subcommand and fixed analysis root.
+backend: public WGS batch is projected once from analysis_batch/sequencing_batch; run/sample search includes batch; sample and analysis-log consumers use one safe frozen-binding path resolver; terminal missing Rule JSONL is degraded.
+frontend: Samples search includes family and batch; the former sequencing-batch column is replaced by public Batch with no client-side parsing.
+airflow: runner errors preserve remote stdout plus SSH stderr, avoiding the previous misleading Connection closed-only diagnosis.
+validation: .96 Docker backend 320 passed/1 skipped; runner/evidence/progress 42 passed; DAG unit tests 11 passed; frontend 10 files/41 tests and production build passed after removing an accidental staging-only duplicate source file.
+deployment: current -> /data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t174-forward-evidence-r1; frontend image airflow-demo/frontend:t174-forward-evidence. Only application services were recreated; PostgreSQL and Redis container identities and uptime were preserved.
+backup: /data/airflow-WGS/backups/T174-forward-evidence-20260903T070750+0000; airflow dump SHA256 e0fb7cb0189b5d3cbaf62484627c93ed8757944846e7c2389e625fac88056d77; biodemo dump SHA256 1bd3e95d63ecaa1d4e07a8c0edc0d4c385dcabe24487fb19c7904eb083c252.
+smoke: authenticated production capabilities, release, project, run search and run detail APIs returned 200; searching 20260825A returns public batch 20260825A. bio_wgs remains the only DAG, has 23 tasks and is unpaused; execution/runtime remain true and auto-dispatch remains false.
+pending: a new operator-submitted batch. Do not resume the failed attempt. Current WGS source/profile does not enable the installed Rule logger, so a future run can validate sampleinfo and analysis.log but Rule JSONL remains an external WGS launch-contract requirement.
+network invariant: nipt_analysis_test_net 192.168.199.0/24, gateway 192.168.199.1; only 172.17.61.96:12959 may be published.
+```
+
+## 2026-09-03 T173 staged submission and SFS Cloud Eye production release
+
+```text
+source: uncommitted worktree jiucheng/deploy/T168-server96-production; user will review/commit.
+release: current -> /data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t173-staged-sfs-r1; frontend image airflow-demo/frontend:t173-candidate, image ID sha256:954640652cd8....
+submission: future WGS runs use one bio_wgs DagRun with sampleinfo review, config approval, analysis prepare and execution approval before Step1-Step6.
+identity: future main DagRun ID and WGS run ID are both <analysis_id>-a<attempt>; historical/maintenance IDs remain unchanged.
+resources: node200 SFS-only Cloud Eye collector is running with regional CES ReadOnlyAccess; production API returns sfs-turbo-clinical healthy and hides OBS/legacy placeholder resources.
+frontend/API: Cloud Resources exposes SFS only; OBS and the obsolete missing-spool placeholder are hidden when the named SFS snapshot exists.
+WGS path: production /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1 is readable and clean for hanjj through mapped Git metadata; wgs-4.1.1-test is not used because it fails tracked-drift validation.
+validation: .96 Docker backend full suite=318 passed/1 skipped; runner/SFS collector=38 passed; frontend=10 files/40 tests passed; production frontend build passed; deployed DagBag=23 tasks/no import errors; login and protected APIs=200; deployed assets contain all three stages and no OBS Cloud Eye label.
+deployment: legacy DagRun manual__WGS_20260902_181846_20A4D2__a1 reached success at 2026-09-03T03:08:46Z before the switch. Its 18 tasks, business success state and evidence were preserved; no new AnalysisRun or DagRun was created.
+runtime: execution/runtime remain true for manual submission, auto-dispatch remains false and bio_wgs is unpaused. The first three-stage production submission remains operator-controlled and has not been started.
+backup: /data/airflow-WGS/backups/T173-staged-sfs-20260903T052418Z; both pg_dump SHA256 checks passed after deployment.
+network: nipt_analysis_test_net remains 192.168.199.0/24, gateway 192.168.199.1; only 172.17.61.96:12959 is published.
+```
+
+## 2026-09-03 T172 `.96` frontend request recovery
+
+```text
+release: current -> /data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t172-fetch-recovery-r1; frontend image airflow-demo/frontend:t172-fetch-recovery, image ID sha256:157f5ae08ff0....
+cause: Dashboard mounted before deployment capabilities settled, issued duplicate deployed+wgs request waves, and retained native browser Failed to fetch errors even though Nginx recorded successful sibling requests.
+fix: wait for the single deployed pipeline before first dashboard load; retry one idempotent GET after a 250 ms native network/body-read failure; keep scanner metadata when discovery-list loading fails; never retry writes or HTTP errors.
+cache: index.html and SPA fallback are no-store; fingerprinted /assets files alone use immutable caching. The frontend was installed, tested and built on .96 with an independently downloaded Node v24.15.0 artifact and a fresh npm ci, not BS10610 node_modules/cache.
+validation: .96 server-Docker frontend=10 files/40 tests; TypeScript/Vite build passed; authenticated capabilities/dashboard/intake/resources/release/projects all returned 200; root and health returned 200.
+data: AnalysisRun=0 and Airflow DagRun=0. No batch, OBS transfer, CCE workload or Step7 was started.
+runtime: WGS output root remains exactly /sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical/<batch>; execution/runtime=true, auto-dispatch=false, scanner=600 seconds and bio_wgs remains unpaused for user-operated submission.
+network: nipt_analysis_test_net remains 192.168.199.0/24, gateway 192.168.199.1; only 172.17.61.96:12959 is published.
+```
+
+## 2026-09-03 T171 `.96` manual WGS submission ready
+
+```text
+release: current -> /data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t171-manual-ready-r1; source worktree remains uncommitted by explicit user request.
+submission: Submit Run now has one Batch field; batch=20260901B will bind both WGS --batch and --analysis-batch, while the server derives WGS_20260901B_T7Hg38V4.1.1.
+paths: analysis output is fixed at /sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical/<batch>; Airflow request/status/evidence remains under the separate airflow-wgs/runtime root.
+node200: /home/hanjj/.config/airflow-wgs/forced-command.sh, request-v4 runner, evidence bridge and transparent obsutil progress wrapper are installed; cce.yaml uses wgs-4.1.1 and the new evidence root. WGS commit 6c982817... and CCE read permission passed preflight.
+gate: WGS_EXECUTION_ENABLED=true and WGS_RUNTIME_ADAPTER_ENABLED=true on both .96 and node200; bio_wgs is unpaused. WGS_SUBMISSION_PREVIEW_ENABLED=false and WGS_AUTO_DISPATCH_ENABLED=false.
+scanner: wgs-intake-scanner remains the only automatic discovery mechanism at 600 seconds; it is not an Airflow DAG and cannot create AnalysisRun/DagRun while auto-dispatch is false.
+validation: .96 backend+scripts 356 passed; DagBag=18 tasks/6 reschedule sensors/import errors 0; BS10610 server-Docker frontend=10 files/37 tests and production build passed; authenticated dashboard/release/intake/project APIs=200.
+safety: activation created no AnalysisRun, RunAttempt or Airflow DagRun and did not start OBS, CCE, WGS or Step7. The user will submit and inspect the first batch.
+network: nipt_analysis_test_net remains 192.168.199.0/24, gateway 192.168.199.1; only 172.17.61.96:12959 is published.
+backup: /data/airflow-WGS/backups/T171-manual-ready-20260902T173927Z.
+remaining: first real batch and real transfer-progress evidence are not yet accepted; SFS/OBS Cloud Eye metrics remain degraded.
+```
+
 ## 2026-09-03 T169/T170 node metrics and compact health panel
 
 ```text

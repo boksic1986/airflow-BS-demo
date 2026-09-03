@@ -28,6 +28,7 @@ x-airflow-common: &airflow-common
     WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"
     WGS_SSH_CONFIG_PATH: /opt/airflow/ssh/config
     WGS_RUNNER_200_ALIAS: ${WGS_RUNNER_200_ALIAS:-wgs-node200}
+    WGS_RUNNER_200_COMMAND: ${WGS_RUNNER_200_COMMAND:-/home/hanjj/.config/airflow-wgs/forced-command.sh}
     PIPELINE_PROFILE_CONFIG_PATH: /opt/airflow/config/pipeline_profiles.wgs.yaml
   volumes:
     - ./dags/bio_wgs.py:/opt/airflow/dags/bio_wgs.py:ro

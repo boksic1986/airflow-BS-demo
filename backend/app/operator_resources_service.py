@@ -10,6 +10,7 @@ from sqlalchemy import String, and_, cast, desc, func, literal, or_, select, uni
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun, QcMetric, RuleState, RunStageState, Sample, SnakemakeRuleEvent
+from app.wgs_run_projection import public_wgs_batch
 
 
 FAILED_STATUSES = {"failed", "fail", "error", "terminated"}
@@ -54,7 +55,18 @@ def list_samples_resource(
                 func.lower(Sample.sample_id).like(pattern),
                 func.lower(func.coalesce(Sample.family_id, "")).like(pattern),
                 func.lower(AnalysisRun.analysis_id).like(pattern),
-                func.lower(cast(AnalysisRun.params_json, String)).like(pattern),
+                func.lower(
+                    cast(AnalysisRun.params_json["project_name"].as_string(), String)
+                ).like(pattern),
+                func.lower(
+                    cast(AnalysisRun.params_json["batch_no"].as_string(), String)
+                ).like(pattern),
+                func.lower(
+                    cast(AnalysisRun.params_json["analysis_batch"].as_string(), String)
+                ).like(pattern),
+                func.lower(
+                    cast(AnalysisRun.params_json["sequencing_batch"].as_string(), String)
+                ).like(pattern),
             )
         )
     total = session.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
@@ -294,6 +306,11 @@ def _sample_item(*, sample: Sample, run: AnalysisRun) -> dict[str, Any]:
         "analysis_id": run.analysis_id,
         "project_name": _project_name(run),
         "pipeline": run.pipeline_name,
+        "batch_no": (
+            public_wgs_batch(run.params_json)
+            if run.pipeline_name == "wgs"
+            else str((run.params_json or {}).get("batch_no") or "") or None
+        ),
         "sample_id": sample.sample_id,
         "family_id": sample.family_id,
         "status": sample.status,

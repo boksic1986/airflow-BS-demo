@@ -42,6 +42,7 @@ export type RunListOptions = {
 export type OperatorSample = {
   analysis_id: string;
   project_name: string;
+  batch_no?: string | null;
   pipeline: string;
   sample_id: string;
   family_id?: string | null;
@@ -946,14 +947,40 @@ export function getApiBaseUrl(): string {
 
 let csrfToken = "";
 
+const GET_NETWORK_RETRY_DELAY_MS = 250;
+
+async function fetchResponseBody(url: string, init: RequestInit): Promise<{response: Response; body: string}> {
+  const response = await fetch(url, init);
+  const body = await response.text();
+  return {response, body};
+}
+
+function isRetryableNetworkError(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === "AbortError") return false;
+  return error instanceof TypeError;
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const method = String(init?.method || "GET").toUpperCase();
   const headers = new Headers(init?.headers);
   if (!{"GET": true, "HEAD": true, "OPTIONS": true}[method] && csrfToken && path !== "/auth/login") {
     headers.set("X-CSRF-Token", csrfToken);
   }
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {...init, headers, credentials: "same-origin"});
-  const body = await response.text();
+  const url = `${getApiBaseUrl()}${path}`;
+  const requestInit = {...init, headers, credentials: "same-origin" as RequestCredentials};
+  let result: {response: Response; body: string};
+  try {
+    result = await fetchResponseBody(url, requestInit);
+  } catch (error) {
+    if (method !== "GET" || !isRetryableNetworkError(error)) throw error;
+    await wait(GET_NETWORK_RETRY_DELAY_MS);
+    result = await fetchResponseBody(url, requestInit);
+  }
+  const {response, body} = result;
   const contentType = String(response.headers.get("content-type") || "").toLowerCase();
   const looksHtml = contentType.includes("text/html") || /^\s*<!doctype html|^\s*<html/i.test(body);
   const looksJson = contentType.includes("json") || /^\s*[\[{]/.test(body);
@@ -1260,14 +1287,25 @@ export function getWgsProjects(): Promise<WgsProjectCatalog> {
 export function createCatalogWgsRun(payload: {
   project_id: string;
   platform: string;
-  sequencing_batch: string;
-  analysis_batch: string;
+  batch: string;
   fastq_root_id: string;
-  use_reference: "all" | "ref" | "no";
 }): Promise<RunDetail> {
   return requestJson<RunDetail>("/wgs/runs", {
     method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload),
   });
+}
+
+export function approveWgsConfig(analysisId: string, payload: {
+  use_reference: "all" | "ref" | "no";
+  resource_set: "default";
+}): Promise<{submission_phase: string; config_approved: boolean; execution_approved: boolean}> {
+  return requestJson(`/runs/${encodeURIComponent(analysisId)}/actions/approve-wgs-config`, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload),
+  });
+}
+
+export function startWgsExecution(analysisId: string): Promise<{submission_phase: string; config_approved: boolean; execution_approved: boolean}> {
+  return requestJson(`/runs/${encodeURIComponent(analysisId)}/actions/start-wgs-execution`, {method: "POST"});
 }
 
 export function createWgsSubmissionDraft(payload: {

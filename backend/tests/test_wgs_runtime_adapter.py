@@ -22,9 +22,8 @@ def _request(tmp_path: Path, *, stage: str = "step2_master") -> dict[str, object
         pipeline_release_id=RELEASE_ID,
         wgs_version="V4.1.1",
         wgs_source_commit=WGS_COMMIT,
-        workdir=tmp_path / "runs" / "WGS_20260826_010203_A1B2C3",
-        bs_runtime_root="/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime",
-        node200_runtime_root="/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime",
+        control_runtime_root="/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime",
+        analysis_project_root="/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical",
         project_name="clinical-wgs",
         batch_no="BATCH-01",
         fq_path="/sg2/33.chenjiucheng/WGS_input/BATCH-01",
@@ -34,19 +33,25 @@ def _request(tmp_path: Path, *, stage: str = "step2_master") -> dict[str, object
     )
 
 
-def test_stage_request_v3_binds_release_without_pipeline_path_or_cce_version(
+def test_stage_request_v4_separates_control_and_analysis_roots(
     tmp_path: Path,
 ) -> None:
     request = _request(tmp_path)
 
-    assert request["schema_version"] == "wgs-runtime.request.v3"
+    assert request["schema_version"] == "wgs-runtime.request.v4"
     assert request["pipeline_release_id"] == RELEASE_ID
     assert request["wgs_version"] == "V4.1.1"
     assert request["wgs_source_commit"] == WGS_COMMIT
     assert request["analysis_batch"] == "20260902A"
-    assert request["node200_workdir"].endswith(
+    assert request["control_workdir"].endswith(
         "/runtime/runs/WGS_20260826_010203_A1B2C3/attempt-1"
     )
+    assert request["analysis_project_root"] == "/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical"
+    assert request["expected_batch_root"] == (
+        "/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical/BATCH-01"
+    )
+    assert "node200_workdir" not in request
+    assert "bs10610_workdir" not in request
     assert "pipeline_snapshot_id" not in request
     assert "pipeline_snapshot_path" not in request
     assert "node200_pipeline_snapshot_path" not in request
@@ -91,9 +96,8 @@ def test_step7_request_requires_admin_maintenance_action_identity(tmp_path: Path
             pipeline_release_id=RELEASE_ID,
             wgs_version="V4.1.1",
             wgs_source_commit=WGS_COMMIT,
-            workdir=tmp_path / "runs" / "WGS_20260826_010203_A1B2C3",
-            bs_runtime_root="/mnt/runtime",
-            node200_runtime_root="/sg2/runtime",
+            control_runtime_root="/sg2/runtime",
+            analysis_project_root="/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical",
             project_name="clinical-wgs",
             batch_no="BATCH-01",
             fq_path="/sg2/input/BATCH-01",

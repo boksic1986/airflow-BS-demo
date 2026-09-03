@@ -18,7 +18,12 @@ class BioWgsDagTests(unittest.TestCase):
             set(dag.task_ids),
             {
                 "validate_request",
-                "prepare_wgs_batch",
+                "prepare_wgs_sampleinfo",
+                "wait_prepare_wgs_sampleinfo",
+                "wait_wgs_config_approval",
+                "prepare_wgs_analysis",
+                "wait_prepare_wgs_analysis",
+                "wait_wgs_execution_approval",
                 "input_transfer.acquire_obs_transfer_slot",
                 "input_transfer.start_step1_upload",
                 "input_transfer.wait_step1_upload",
@@ -39,6 +44,10 @@ class BioWgsDagTests(unittest.TestCase):
         )
         self.assertEqual(dag.get_task("submit_step2_master").pool, "wgs_cce_runs")
         for task_id in (
+            "wait_prepare_wgs_sampleinfo",
+            "wait_wgs_config_approval",
+            "wait_prepare_wgs_analysis",
+            "wait_wgs_execution_approval",
             "input_transfer.acquire_obs_transfer_slot",
             "input_transfer.wait_step1_upload",
             "wait_step3_analysis",
@@ -170,6 +179,31 @@ class BioWgsDagTests(unittest.TestCase):
             "POST",
             {"attempt": 1},
         )
+
+    def test_runner_failure_preserves_remote_stdout_and_ssh_stderr(self) -> None:
+        conf = {"analysis_id": "WGS_20260903_062828_0858DC", "attempt": 1}
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        original_register = bio_wgs.register_stage
+        original_run = bio_wgs.subprocess.run
+        try:
+            bio_wgs.register_stage = lambda *_args, **_kwargs: {"status": "registered"}
+            bio_wgs.subprocess.run = lambda *args, **kwargs: type(
+                "Completed",
+                (),
+                {
+                    "returncode": 1,
+                    "stdout": "ValueError: unsupported WGS prepare stage\n",
+                    "stderr": "Connection to 172.17.61.200 closed.\n",
+                },
+            )()
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "unsupported WGS prepare stage.*Connection to 172.17.61.200 closed",
+            ):
+                bio_wgs.run_stage_on_200("prepare_sampleinfo", **context)
+        finally:
+            bio_wgs.register_stage = original_register
+            bio_wgs.subprocess.run = original_run
 
     def test_step3_terminal_status_requests_observer_drain(self) -> None:
         calls = []

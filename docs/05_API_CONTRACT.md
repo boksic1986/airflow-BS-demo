@@ -1,5 +1,56 @@
 # 05 API Contract
 
+## T174 public batch and forward-only evidence contract
+
+- WGS public `batch_no` is selected server-side in this order:
+  `analysis_batch`, `sequencing_batch`, internal `batch_no`. Internal directory
+  names remain unchanged in persisted runtime requests and frozen bindings.
+- Run and sample keyword queries explicitly search analysis/sequencing batch.
+  WGS sample rows include the same public `batch_no` shown by run endpoints.
+- No endpoint backfills historical Sample or Rule rows. A new attempt obtains
+  samples only from its normal sampleinfo/analysis prepare callbacks.
+- Log keys remain server-generated opaque identifiers. The batch path is mapped
+  from the frozen node200 analysis root to the single read-only container mount;
+  neither a browser path nor an internal directory name is trusted.
+
+## T173 three-stage WGS submission
+
+- Stage 1 `POST /api/wgs/runs` accepts only
+  `project_id + platform + batch + fastq_root_id`. It creates one AnalysisRun
+  and one `bio_wgs` DagRun, then stops at the sampleinfo review gate. Runtime
+  configuration is not accepted at this stage.
+- `POST /api/runs/{analysis_id}/actions/approve-wgs-config` is restricted to
+  operator/admin and accepts only `use_reference=all|ref|no` plus the current
+  catalog value `resource_set=default`. The server records the actor and
+  releases analysis-directory preparation.
+- `POST /api/runs/{analysis_id}/actions/start-wgs-execution` is restricted to
+  operator/admin. It accepts no path, runtime or shell input and refuses a run
+  without imported final samples.
+- Internal `GET /api/internal/wgs/runs/{analysis_id}/submission-state` is token
+  protected and is consumed only by the two Airflow reschedule sensors.
+- New production attempts use `<analysis_id>-a<attempt>` unchanged as the
+  Airflow DagRun ID, WGS run ID and runtime/evidence identity. Historical and
+  maintenance IDs are not rewritten.
+- `/api/platform/resources` returns node and SFS snapshots only. Legacy OBS and
+  placeholder rows may remain stored, but are not exposed when the named SFS
+  Turbo snapshot is available.
+
+## T171 production manual submission activation
+
+- `POST /api/wgs/runs` now accepts exactly
+  `project_id + platform + batch + fastq_root_id`; `use_reference` is approved
+  separately in stage 2. `batch`
+  uses the single `YYYYMMDDX` WGS batch identity; the backend binds both the
+  WGS `--batch` and `--analysis-batch` inputs to that value. The browser does
+  not send either legacy field.
+- The internal node200 contract is `wgs-runtime.request.v4`. It separates the
+  Airflow control workdir from the fixed analysis project root and derives
+  `expected_batch_root` server-side as
+  `/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical/<batch_no>`.
+- The current production release reports both execution gates enabled. This
+  enables operator-initiated submission only; scanner auto-dispatch remains
+  disabled and scanner discoveries cannot create AnalysisRun or DagRun rows.
+
 ## T166 WGS workflow and Rule projection
 
 - WGS run-list `workflow_summary` is the project orchestration contract, not a
@@ -42,7 +93,7 @@
   开启时创建/复用一个AnalysisRun并确定性提交`bio_wgs`。
 - `GET /api/wgs/release`保留`submission_preview_enabled`作为一版兼容字段；生产Submit不再依赖该字段。
 
-- `POST /api/wgs/runs`只接受`project_id/platform/sequencing_batch/analysis_batch/fastq_root_id/use_reference`；当前`platform=T7`。项目、FASTQ root和生产WGS 4.1.1 release由服务端catalog解析，客户端不能提交路径、版本或4.2.0测试流程。服务端按`WGS_<analysis_batch>_T7Hg38V4.1.1`绑定业务批次；DAG prepare之后`/samples`只返回WGS最终sampleinfo中的分析样本。历史draft endpoint仍受`WGS_SUBMISSION_PREVIEW_ENABLED=false`保护，但前端不再调用。
+- `POST /api/wgs/runs`只接受`project_id/platform/batch/fastq_root_id/use_reference`；当前`platform=T7`。项目、FASTQ root和生产WGS 4.1.1 release由服务端catalog解析，客户端不能提交路径、版本或4.2.0测试流程。服务端按`WGS_<batch>_T7Hg38V4.1.1`绑定业务批次，并将同一`batch`传给WGS上机批次和分析批次参数；DAG prepare之后`/samples`只返回WGS最终sampleinfo中的分析样本。历史draft endpoint仍受`WGS_SUBMISSION_PREVIEW_ENABLED=false`保护，但前端不再调用。
 - `/api/platform/resources`返回节点/SFS/OBS当前快照。
 - `/actions/cleanup-step7`仅admin可用，只接受Batch确认，由服务端生成删除确认串；
   内部runtime请求必须绑定同attempt的active maintenance action ID，公开响应不返回

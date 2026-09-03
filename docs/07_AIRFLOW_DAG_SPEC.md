@@ -1,13 +1,58 @@
 # 07 Airflow DAG 设计
 
+## T174 node200 gate parity and diagnostic output
+
+Every deployed 23-task DAG requires the same node200 gate revision that knows
+`prepare_sampleinfo` and `prepare_analysis`. Deployment must compare the source,
+release and node200 gate SHA256 before allowing a new manual run. Airflow records
+both remote stdout and SSH stderr on a non-zero exit; the PTY close message must
+not hide the remote Python exception. Updating the gate does not authorize
+retrying or clearing a failed operator run.
+
+## T173 three-stage production topology
+
+`bio_wgs` remains the only analysis DAG. New requests use 23 tasks and eight
+five-second `reschedule` sensors:
+
+```text
+validate
+-> prepare sampleinfo -> wait sampleinfo -> wait config approval
+-> prepare analysis -> wait analysis prepare -> wait execution approval
+-> Step1 upload -> Step2 Master -> Step3 analysis
+-> Step4 publish -> Step5 download -> Step6 materialize -> finalize
+```
+
+The two approval waits do not hold Celery workers. Requests without
+`submission_mode=three_stage` follow the legacy compatibility path so the
+in-flight pre-T173 DagRun is not stalled or assigned new identifiers. New main
+DagRuns use `<analysis_id>-a<attempt>`, which is also passed unchanged to WGS
+`--run-id`; maintenance DagRuns keep separate audited identifiers.
+
+## T171 `.96` production manual-ready state
+
+- Airflow continues to load exactly one DAG, `bio_wgs`, with 18 tasks and six
+  five-second reschedule sensors. It is now unpaused for operator-initiated
+  production submission.
+- T7 intake remains the independent `wgs-intake-scanner` Compose service at a
+  600-second interval. It is intentionally not a second Airflow DAG, so idle
+  scans do not create DagRuns or Airflow task logs. Auto-dispatch remains off.
+- The DAG reaches node200 through the fixed SSH alias and configurable
+  `WGS_RUNNER_200_COMMAND`, whose production value is
+  `/home/hanjj/.config/airflow-wgs/forced-command.sh`. The obsolete
+  `/home/chenjc/...` runner path is not used.
+- Prepare uses request v4 and writes business output only below
+  `/sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical/<batch_no>`; request,
+  status and evidence files remain under the separate `airflow-wgs/runtime`
+  control root.
+
 ## T154/T157 UI与维护接入
 
 唯一WGS DAG仍为`bio_wgs`，生产路径保持Prepare→Step1-Step6，sensor继续5秒
 `reschedule`。`cleanup_step7`是同一DAG的admin维护模式，会跳过普通生产路径，
 绝不自动执行。前端阶段来自`run_stage_state`，不展示原始task ID或task计数进度。
 
-生产WGS 4.1.1 prepare request显式携带`sequencing_batch`、`analysis_batch`和
-`platform=T7`。runner分别映射到WGS`--batch`、`--analysis-batch`和
+生产WGS 4.1.1公开请求只携带一个`batch`；后端在内部prepare request中将它绑定为
+相同的`sequencing_batch`和`analysis_batch`并携带`platform=T7`。runner分别映射到WGS`--batch`、`--analysis-batch`和
 `--platform`，不传4.2.0测试参数`--algo`；Step1-Step6仍只消费
 prepare生成的冻结bundle，DAG拓扑不变。
 

@@ -8,7 +8,17 @@ from sqlalchemy.orm import sessionmaker
 
 from app.models import AnalysisRun, Base, WgsSubmissionDraft
 from app.wgs_orchestration_service import build_fastq_snapshot, fastq_source_fingerprint
-from app.wgs_submission_service import complete_draft, create_and_submit_run, create_draft, get_draft, submit_draft
+from app.wgs_submission_service import (
+    approve_wgs_config,
+    approve_wgs_execution,
+    complete_draft,
+    create_and_submit_run,
+    create_draft,
+    get_draft,
+    submission_state,
+    submit_draft,
+)
+from app.wgs_stage_contract import canonical_wgs_stage, wgs_stage_definition
 
 
 class RecordingAirflow:
@@ -18,6 +28,13 @@ class RecordingAirflow:
     def trigger_dag_run(self, dag_id, *, dag_run_id=None, conf=None):
         self.calls.append({"dag_id": dag_id, "dag_run_id": dag_run_id, "conf": conf})
         return self.calls[-1]
+
+
+def test_staged_prepare_steps_use_explicit_public_labels() -> None:
+    assert wgs_stage_definition("prepare_sampleinfo").label == "Preparing sample information"
+    assert wgs_stage_definition("prepare_analysis").label == "Preparing WGS analysis"
+    assert canonical_wgs_stage("wait_prepare_wgs_sampleinfo", "running") == "prepare_sampleinfo"
+    assert canonical_wgs_stage("wait_prepare_wgs_analysis", "running") == "prepare_analysis"
 
 
 def test_direct_submission_binds_production_wgs_4_1_1_batch(tmp_path: Path) -> None:
@@ -40,20 +57,87 @@ def test_direct_submission_binds_production_wgs_4_1_1_batch(tmp_path: Path) -> N
             username="operator",
             project_id="WGS_Clinical",
             platform="T7",
-            sequencing_batch="20260902A",
-            analysis_batch="20260902A",
+            batch="20260902A",
             fastq_root_id="T7_Fastq",
-            use_reference="all",
         )
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == result["analysis_id"]))
         assert run is not None
         params = dict(run.params_json)
 
     assert params["batch_no"] == "WGS_20260902A_T7Hg38V4.1.1"
+    assert params["sequencing_batch"] == "20260902A"
     assert params["analysis_batch"] == "20260902A"
+    assert params["submission_mode"] == "three_stage"
+    assert params["submission_phase"] == "preparing_sampleinfo"
+    assert params["config_approved_at"] is None
+    assert params["execution_approved_at"] is None
     assert "algo" not in params
     assert params["pipeline_release_id"] == "wgs-4.1.1-6c98281"
     assert airflow.calls[0]["dag_id"] == "bio_wgs"
+    assert airflow.calls[0]["dag_run_id"] == f"{result['analysis_id']}-a1"
+
+
+def test_three_stage_approvals_are_server_controlled_and_idempotent(tmp_path: Path) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    settings = SimpleNamespace(
+        wgs_project_catalog_path=str(Path(__file__).parents[2] / "config" / "wgs_projects.yaml"),
+        wgs_release_catalog_path=str(Path(__file__).parents[2] / "config" / "wgs_releases.yaml"),
+        host_results_root=str(tmp_path / "results"),
+        container_shared_root=str(tmp_path / "shared"),
+    )
+    airflow = RecordingAirflow()
+    with sessions() as session:
+        created = create_and_submit_run(
+            session=session,
+            settings=settings,
+            airflow_client=airflow,
+            username="operator",
+            project_id="WGS_Clinical",
+            platform="T7",
+            batch="20260902A",
+            fastq_root_id="T7_Fastq",
+        )
+        analysis_id = str(created["analysis_id"])
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        assert run is not None
+        run.params_json = {**run.params_json, "submission_phase": "config_review"}
+        session.commit()
+
+        first = approve_wgs_config(
+            session=session,
+            analysis_id=analysis_id,
+            requested_by="operator",
+            use_reference="ref",
+            resource_set="default",
+        )
+        second = approve_wgs_config(
+            session=session,
+            analysis_id=analysis_id,
+            requested_by="operator",
+            use_reference="ref",
+            resource_set="default",
+        )
+        assert first == second
+        assert submission_state(session=session, analysis_id=analysis_id, attempt=1)["config_approved"] is True
+
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        run.params_json = {**run.params_json, "submission_phase": "execution_review"}
+        session.commit()
+        assert approve_wgs_config(
+            session=session,
+            analysis_id=analysis_id,
+            requested_by="operator",
+            use_reference="ref",
+            resource_set="default",
+        )["config_approved"] is True
+        with pytest.raises(ValueError, match="no prepared samples"):
+            approve_wgs_execution(
+                session=session,
+                analysis_id=analysis_id,
+                requested_by="operator",
+            )
 
 
 def test_draft_preview_is_private_and_does_not_create_analysis_run(tmp_path: Path) -> None:

@@ -1,5 +1,97 @@
 # TASKS.md
 
+## T174 - Forward-only WGS submission evidence fixes
+
+Owner: backend/airflow/frontend/infra/QA/docs
+
+Status: deployed on `.96`; awaiting a new operator-submitted batch
+
+Acceptance:
+- [x] Public WGS Batch is projected once by the backend from `analysis_batch`,
+  then `sequencing_batch`, and never re-parsed in React.
+- [x] Run and sample searches explicitly include the public analysis/sequencing
+  batch fields; Samples displays the public Batch column.
+- [x] Final sampleinfo import and full Snakemake log indexing share one bounded
+  node200-to-container batch-root resolver.
+- [x] Missing terminal Rule JSONL marks monitoring degraded instead of healthy;
+  no historical Rule/sample projection or database backfill is performed.
+- [x] Airflow failures retain both remote stdout and SSH stderr, so a remote
+  Python exception is not hidden by the TTY close message.
+- [x] The first three-stage attempt exposed stale node200 gate deployment;
+  node200 gate was backed up and atomically updated after 42 runner tests.
+- [x] Deploy the backend/DAG/frontend candidate on `.96`, preserving databases,
+  volumes, fixed network and the failed diagnostic attempt.
+- [ ] Operator submits a new batch and verifies sample/family, Rule JSONL and
+  Snakemake log evidence without relying on historical projection.
+
+## T173 - Three-stage WGS submission and SFS-only Cloud Eye
+
+Owner: backend/airflow/frontend/infra/QA/docs
+
+Status: deployed on `.96`; awaiting the first operator-controlled three-stage production submission
+
+Acceptance:
+- [x] Submit Run exposes a pipeline selector and separates sampleinfo, config
+  review, analysis prepare and final execution approval.
+- [x] Reference selection/resource set are stage-2 server-whitelisted values;
+  browser requests cannot contain paths, YAML or runtime commands.
+- [x] Future Airflow DagRun and WGS run IDs use `<analysis_id>-a<attempt>`.
+- [x] `bio_wgs` imports with 23 tasks and eight reschedule sensors; legacy
+  requests bypass new approvals.
+- [x] SFS Turbo Cloud Eye signed query returns 200 using regional
+  `CES ReadOnlyAccess`; node200 writes an atomic SFS-only spool every minute.
+- [x] Cloud Resources renders SFS only and hides the obsolete placeholder.
+- [x] `.96` Docker backend, runner, frontend tests/build and isolated DagBag
+  checks pass for the candidate.
+- [x] Recheck that the legacy production DagRun is terminal, then deploy
+  backend/DAG/frontend together without rebuilding databases, volumes or network.
+- [x] Authenticated production smoke confirms the deployed three-stage assets,
+  approval APIs, 23-task DAG and SFS-only resource response before a new batch.
+- [ ] Operator submits the first three-stage batch and confirms the canonical
+  `<analysis_id>-a<attempt>` identity across Airflow, WGS and runtime evidence.
+
+## T172 - `.96` frontend request recovery and independent build
+
+Owner: frontend/infra/QA/docs
+
+Status: deployed; awaiting operator visual refresh
+
+Acceptance:
+- [x] Dashboard waits for resolved deployment capabilities and does not issue the
+  duplicate initial `deployed` and `wgs` request waves.
+- [x] Idempotent GET requests retry exactly once after a native network or body
+  read failure; writes, HTTP errors and explicit aborts are never retried.
+- [x] Scanner metadata and discovery-list results settle independently.
+- [x] The SPA shell is not cached; only fingerprinted assets are immutable.
+- [x] Frontend dependencies were freshly installed, tested and built on `.96`
+  with an independently downloaded and checksummed Node 24.15.0 runtime.
+- [x] The release changed only `frontend-nginx`; databases, Airflow, scanner,
+  observer, volumes and the fixed Docker network were preserved.
+- [ ] Operator refresh confirms the red `Failed to fetch` notices are absent in
+  the existing workstation session.
+
+## T171 - `.96` manual WGS submission activation
+
+Owner: backend/airflow/infra/frontend/QA/docs
+
+Status: manual-ready deployed; first real batch remains user-operated
+
+Acceptance:
+- [x] Public submission uses one `batch` field and maps it to identical WGS
+  sequencing/analysis batch values.
+- [x] request v4 separates control and analysis roots; WGS output is restricted
+  to `Cloud_WGS_Clinical/WGS_Clinical/<batch>`.
+- [x] `hanjj` node200 restricted runner, evidence bridge, OBS progress wrapper,
+  CCE config, kubeconfig/kubectl and fixed WGS commit pass preflight.
+- [x] `bio_wgs` is the only Airflow DAG and is unpaused; scanner remains a
+  separate 600-second service and auto-dispatch remains false.
+- [x] Remote backend/scripts, DAG import, frontend Docker tests/build, Compose,
+  authenticated HTTP and fixed network checks pass.
+- [x] Activation creates no AnalysisRun, RunAttempt, DagRun, OBS transfer or CCE
+  workload.
+- [ ] The operator submits `20260901B` and accepts the first real Step1-Step6
+  run and transfer-progress evidence.
+
 ## T169/T170 - SSH node metrics and compact node selector
 
 Owner: backend/frontend/infra/QA/docs
@@ -81,7 +173,7 @@ Acceptance:
 | T163 | Authenticated capabilities, T7 intake cleanup and recovered-run projection | backend/airflow/frontend/infra/QA/docs | load capabilities only after login; product-language scanner card; persistent exact-chip ignore; explicit Step4/Step5 retry generations; narrow Step5 business-state recovery | BS Docker suites/build pass; 2226 remains absent after rescan; original run resumes Step5 from checkpoint; fixed network/port retained | done; original run completed Step6/finalize successfully |
 | T165 | Run Batch/Sample search, Finished timestamps and production UI synchronization | backend/frontend/infra/QA/docs | Batch and Finished in both run lists; server-side batch/sample search; immutable finalize time; deploy merged WGS UI contracts | BS Docker suites/build, migration, fixed-network preflight and authenticated HTTP smoke pass; historical successful run gets authoritative finish time; no WGS/OBS/CCE rerun | done; production disabled release deployed and verified |
 | T166 | WGS workflow and Rule projection correction | backend/observer/frontend/infra/QA/docs | one backend Step1-Step6 contract; current WGS 4.1.1 Rule phase mapping; stable Rule order and exact analysis.log sample enrichment; API-driven UI stages | historical run shows six successful stages, production Rule phases/order/sample context, no ETA text in message, Docker tests and fixed-network smoke pass | done; disabled production release deployed and verified |
-| T167 | `hanjj` runtime identity and directory migration | backend/airflow/infra/security/QA/docs | request v4 dual-root contract; protected `hanjj` SSH identity; node200 OBS/kubectl/kubeconfig/cce config; new control and direct batch roots; `.96/.97` SSH metrics | disabled release proves no old-root writes, no secret leakage, strict host keys, fixed network/port; real batch remains separately approved | design approved; implementation not started |
+| T167 | `hanjj` runtime identity and directory migration | backend/airflow/infra/security/QA/docs | request v4 dual-root contract; protected `hanjj` SSH identity; node200 OBS/kubectl/kubeconfig/cce config; new control and direct batch roots; `.96/.97` SSH metrics | disabled release proves no old-root writes, no secret leakage, strict host keys, fixed network/port; real batch remains separately approved | implemented by T171; real batch pending |
 | T168 | `.96` production control-plane disabled deployment | infra/backend/airflow/frontend/QA/docs | fresh local databases, WGS-only services, protected node200 SSH identity, fixed network and bounded logs | login/API/DAG/database/storage/network smoke pass; execution remains disabled | done in disabled mode; node200 CCE config and real batch remain blocked |
 
 任务状态：`todo` / `in_progress` / `blocked` / `review` / `done`。
@@ -90,7 +182,7 @@ Acceptance:
 
 Owner: backend/airflow/infra/security/QA/docs
 
-Status: design approved; implementation not started
+Status: implemented by T171; first real batch pending
 
 Scope:
 - Replace the active node200 SSH identity with `hanjj` while retaining the old
@@ -104,10 +196,11 @@ Scope:
 
 Acceptance:
 - [x] Target identity, directories and trust boundaries approved in docs/29.
-- [ ] request v4 and dual-root path tests fail before implementation and pass after.
-- [ ] BS10610/node200 cross-host write probe and permissions pass.
-- [ ] OBS and CCE read-only preflight pass as `hanjj` without printing secrets.
-- [ ] Disabled release passes backend/DAG/frontend/Compose/network verification.
+- [x] request v4 and dual-root path tests fail before implementation and pass after.
+- [x] `.96`/node200 shared-root permissions and fixed runner path pass.
+- [x] CCE read-only preflight passes as `hanjj` without printing secrets; OBS
+  execution itself remains intentionally uncalled before the user batch.
+- [x] Manual-ready release passes backend/DAG/frontend/Compose/network verification.
 - [ ] A separately approved minimal real batch completes without writing the old root.
 
 ## T166 - WGS workflow and Rule projection correction

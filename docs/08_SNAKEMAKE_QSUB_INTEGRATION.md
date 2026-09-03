@@ -1,5 +1,20 @@
 # 08 Snakemake + qsub 接入设计
 
+## T174 forward-only Rule monitoring health
+
+A terminal Step3 without a non-empty Rule JSONL is monitoring degradation even
+when the Master workflow itself succeeds. The observer stores the warning and
+does not synthesize historical Rule events from `analysis.log`. `analysis.log`
+remains a separately indexed human-readable log and may enrich only Rule rows
+that were actually emitted by the logger.
+
+The currently deployed WGS 4.1.1 source/profile contains the logger plugin in
+the Master image but does not activate it in the formal Snakemake command. The
+image installation alone cannot produce Rule JSONL. Before accepting Rule-level
+monitoring for a new production run, the frozen WGS launch contract must enable
+the logger and declare its evidence path; Airflow must not infer Rule success
+from `analysis.log` when that contract is absent.
+
 ## T166 WGS 4.1.1 Rule projection
 
 Airflow backend是WGS Rule phase的唯一映射方。当前规则按版本化名称前缀投影：
