@@ -43,10 +43,12 @@ all false. `bio_wgs` is paused, the intake scanner is stopped, and both
 business/Airflow active-run counts are zero. No analysis was launched.
 
 The dedicated node probe runs as UID 6708 and uses a mode-0600 test identity
-outside Git. `.96` and `.97` resource rows are healthy. SFS Cloud Eye remains
-degraded because no approved CES credential or cloud spool was available; no
-credential was copied into source, images or logs and no metric was replaced
-with a fake zero.
+outside Git. `.96` and `.97` resource rows are healthy. The approved production
+CES read-only configuration now also drives an isolated BS10610 collector at
+`/home/hanjj/.config/airflow-wgs-bs10610`. The AK/SK remains only in the
+existing mode-0600 node200 credential file. A mode-0644, numeric-only
+`cloud.json` crosses the shared runtime boundary; the API reports
+`sfs-turbo-clinical` healthy with fresh capacity, read/write bandwidth and IOPS.
 
 ### Verification
 
@@ -62,6 +64,7 @@ with a fake zero.
 | frontend and backend health | HTTP 200 / `ok` |
 | workspace API | HTTP 200; warm median `90.4 ms` |
 | Rules paging | HTTP 200; `1/208`, limit 1 |
+| SFS Cloud Eye | healthy; fresh numeric metrics imported from node200 |
 | network | `192.168.199.0/24`, gateway `192.168.199.1` |
 
 Candidate wheel SHA256:
@@ -95,8 +98,6 @@ biodemo.dump  369f0cef6810f9ee32fff435dbbb2f16cad81e2b320dbccbe36b10d000d98d6a
 
 ### Remaining Gates
 
-- Provision an approved read-only CES credential on the designated collector
-  host and verify a fresh SFS Cloud Eye spool in GiB/s semantics.
 - Build the offline OBS SDK runtime on node200, without placing credentials in
   an image or release.
 - Verify the actual CCE Master service account, then apply the namespace-only

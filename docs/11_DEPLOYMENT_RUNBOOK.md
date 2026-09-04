@@ -58,6 +58,10 @@ and `iops` before declaring the resource panel configured. A missing credential
 or inaccessible spool remains a visible deployment blocker; never substitute
 zero values.
 
+The atomic `cloud.json` spool is published mode `0644` because it contains only
+redacted numeric metrics and timestamps. CES credentials remain mode `0600` on
+the collector host and must never be copied into the shared runtime directory.
+
 Roll back by disabling contract v2 and SDK transfer, pausing `bio_wgs`, and
 repointing the application release. Additive evidence tables may remain. Do not
 delete databases, transfer checkpoints, evidence, results, or Kubernetes

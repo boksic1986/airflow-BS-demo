@@ -129,6 +129,7 @@ def write_spool(path: Path, payload: dict[str, Any]) -> None:
             handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
+        os.chmod(temporary, 0o644)
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)

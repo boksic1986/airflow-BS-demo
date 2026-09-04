@@ -57,6 +57,7 @@ def test_write_spool_is_atomic(tmp_path: Path) -> None:
     target = tmp_path / "cloud.json"
     collector.write_spool(target, {"schema_version": "platform-cloud-metrics.v1", "items": []})
     assert json.loads(target.read_text(encoding="utf-8"))["items"] == []
+    assert target.stat().st_mode & 0o777 == 0o644
     assert list(tmp_path.glob("*.partial")) == []
 
 

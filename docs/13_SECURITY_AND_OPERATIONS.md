@@ -22,6 +22,11 @@
   neither required nor granted for this integration.
 - The shared spool contains only numeric SFS metrics and timestamps. OBS data,
   object names, patient data and private configuration are excluded.
+- BS10610 uses a separate collector root at
+  `/home/hanjj/.config/airflow-wgs-bs10610` but reuses the existing node200
+  credential path. Only the mode-0644 numeric spool is visible to the BS
+  metrics consumer; the credential is not copied to BS, a release or a
+  container.
 
 ## T171 manual execution boundary
 

@@ -4,7 +4,7 @@
 
 Owner: backend/Airflow/frontend/runtime/CCE/operations/docs
 
-Status: completed in disabled mode; runtime activation and Cloud Eye credential provisioning remain gated
+Status: completed in disabled mode; runtime activation remains gated
 
 Acceptance:
 - [x] Define the versioned Step1-6 contract and append-only stage execution generations.
@@ -14,6 +14,7 @@ Acceptance:
 - [x] Keep `wgs_cce_runs` on the short Master submission task only.
 - [x] Add the workspace-first Run Detail API, SQL-paged rules/transfers and lazy frontend tabs.
 - [x] Add node and SFS metric collectors with stale/degraded states and GiB/s display semantics.
+- [x] Reuse the approved production CES read-only identity on node200 and publish a fresh, numeric-only Cloud Eye spool to BS10610 without copying credentials into BS, Git or containers.
 - [x] Pass candidate backend, DAG, frontend and cce-pipeline tests on BS10610.
 - [x] Publish a disabled candidate release without enabling WGS execution or automatic dispatch.
 
@@ -23,8 +24,8 @@ Restrictions:
 - Do not expose OBS credentials, full OBS URIs or host absolute paths through public APIs.
 - Do not activate the staged CCE image or Lease RBAC until the service account and
   a controlled synthetic transfer have passed the remaining rollout gates.
-- Do not treat the missing SFS Cloud Eye credential/spool as a zero-I/O sample;
-  the deployed panel must remain explicitly degraded until approved credentials exist.
+- Do not use Cloud Eye observations to change the fixed 25-slot quota automatically;
+  they remain validation and alerting evidence only.
 
 ## T192 - Production Docker test-artifact cleanup
 
