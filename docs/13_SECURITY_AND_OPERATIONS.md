@@ -12,6 +12,11 @@
   `platform-metrics-collector` alone writes biodemo and never mounts SSH keys.
 - Cloud Eye credentials remain outside Git and Docker images. Its shared spool
   contains numeric metrics and timestamps only.
+- The OBS SDK test credential is sourced from the existing CCE test Secret and
+  materialized only as a mode-0600 node200 runtime file. The production
+  obsutil configuration is not converted or modified. Canary progress and
+  evidence must not contain bucket names, object prefixes, full OBS URIs,
+  credentials or source paths, and canary objects must be deleted by exact key.
 
 ## T173 SFS metrics credential boundary
 

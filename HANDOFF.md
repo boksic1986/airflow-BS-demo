@@ -61,6 +61,28 @@ The environment already had unrelated `pip check` findings for missing
 `setuptools-scm`, missing `importlib-metadata`, and unsupported `veracitools`;
 this task did not alter those packages.
 
+A real standalone OBS SDK canary subsequently transferred 1 MiB and 65 MiB
+synthetic files. Upload, download and generation-2 reuse all reached success;
+the frozen total remained `69,206,016` bytes and nine partial callback events
+were captured. Object size/ETag and downloaded MD5 checks passed. Both exact
+test objects returned DELETE 204 and then HEAD 404, and both local payload
+directories were removed. Progress evidence contains no bucket, OBS URI,
+credential or `/sg2` path. The retained evidence is:
+
+```text
+/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence/T200-obs-sdk-canary/real-canary-20260904T155225Z-84e2670a
+```
+
+The canary exposed two SDK 3.26.6 compatibility defects in the adapter. The
+SDK notifier can clear its callback before queued progress updates drain, and
+`GetObjectMetadataResponse` does not expose custom metadata. The CCE source now
+installs a queue-draining notifier and, when metadata is absent, validates a
+strict 32-hex single-part ETag after validating object size. Two new regression
+tests pass locally and against the deployed node200 adapter. The SDK credential
+comes from the existing CCE test Secret, remains mode 0600 on node200, and is
+not copied to BS10610, Git, evidence or logs. Production obsutil configuration
+was not modified.
+
 ### Verification
 
 | Check | Result |
@@ -76,6 +98,8 @@ this task did not alter those packages.
 | workspace API | HTTP 200; warm median `90.4 ms` |
 | Rules paging | HTTP 200; `1/208`, limit 1 |
 | SFS Cloud Eye | healthy; fresh numeric metrics imported from node200 |
+| real OBS SDK canary | 2 files / 69,206,016 bytes; upload, download, reuse and cleanup passed |
+| OBS SDK adapter regressions | `6 passed` locally; `2 passed` on node200 |
 | network | `192.168.199.0/24`, gateway `192.168.199.1` |
 
 Candidate wheel SHA256:
@@ -109,12 +133,11 @@ biodemo.dump  369f0cef6810f9ee32fff435dbbb2f16cad81e2b320dbccbe36b10d000d98d6a
 
 ### Remaining Gates
 
-- Run the OBS SDK adapter against synthetic, non-clinical small files before
-  selecting it as the Step1/Step5 default.
 - Verify the actual CCE Master service account, then apply the namespace-only
   Lease RBAC and test Lease CRUD.
-- Run a controlled synthetic transfer before enabling contract v2, then a
-  controlled WGS batch before selecting the staged CCE image.
+- Integrate the now-passing standalone SDK canary with one contract-v2
+  Step1/Step5 execution before selecting the SDK adapter as the runtime default.
+- Run a controlled WGS batch before selecting the staged CCE image.
 - Keep dynamic slot scaling disabled; Cloud Eye is validation and alerting
   evidence only.
 

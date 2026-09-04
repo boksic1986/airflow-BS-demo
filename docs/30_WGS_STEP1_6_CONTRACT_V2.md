@@ -96,6 +96,24 @@ writable from node005 and read-only from BS10610; both BS10610 and node200 must
 pass `ObsClient` imports before a synthetic transfer is attempted. Credentials
 remain outside the Conda environment and release.
 
+### Real SDK canary
+
+The standalone T200 canary uses two synthetic files, 1 MiB and 65 MiB, so the
+larger file crosses the 64 MiB callback threshold. It must verify upload,
+download, downloaded MD5, frozen aggregate bytes, generation reuse, progress
+redaction and exact remote deletion. The accepted canary completed all checks
+with a frozen total of 69,206,016 bytes and nine partial callback events.
+
+`esdk-obs-python==3.26.6` requires two compatibility guards. Its built-in
+progress notifier may clear the callback before queued updates drain, so the
+adapter installs a queue-draining notifier. Its metadata response omits custom
+metadata, so reuse first checks object size and then permits only a strict
+32-hex single-part ETag fallback. Multipart ETags are not accepted as MD5.
+
+The test credential is read from the existing CCE test Secret into a mode-0600
+node200-only runtime file. Bucket names, object prefixes, credentials, full OBS
+URIs and server paths are excluded from progress evidence and public APIs.
+
 ## Read Model And Frontend
 
 `GET /api/runs/{analysis_id}/workspace` is the Run Detail first-paint resource.
@@ -133,7 +151,8 @@ numeric SFS capacity/read/write/total-I/O/IOPS values and timestamps.
 4. Apply the Lease RBAC only after checking the frozen Master service account.
 5. Install the tested CCE wheel and SDK runtime without credentials in images.
 6. Start node/resource collectors and verify fresh data before enabling alerts.
-7. Enable contract v2 and SDK transfer for a synthetic transfer acceptance.
+7. Complete the standalone SDK synthetic transfer acceptance, then enable
+   contract v2 only for one controlled Step1/Step5 integration canary.
 8. Enable heavy-slot enforcement for a controlled WGS batch and verify no more
    than 25 heavy Worker Pods exist.
 
