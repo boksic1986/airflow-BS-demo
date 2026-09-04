@@ -1757,6 +1757,12 @@ def test_pod_job_and_metrics_events_normalize_with_numeric_resource_versions(tmp
             "resource_version": "9",
             "phase": "Running",
             "node_name": "cce-node-1",
+            "workload_role": "work",
+            "run_label": RUN_LABEL,
+            "workload_labels": {
+                "wgs.biosan.cn/heavy-io": "true",
+                "wgs.biosan.cn/heavy-slot": "07",
+            },
         },
         {
             "event_key": "worker-a:10",
@@ -1777,12 +1783,6 @@ def test_pod_job_and_metrics_events_normalize_with_numeric_resource_versions(tmp
             "pod_hash": "abc123",
             "resource_version": "2",
             "phase": "Pending",
-            "workload_role": "work",
-            "run_label": "cce-run-0123456789abcdef",
-            "workload_labels": {
-                "wgs.biosan.cn/heavy-io": "true",
-                "wgs.biosan.cn/heavy-slot": "07",
-            },
         },
     ]
     metrics = {

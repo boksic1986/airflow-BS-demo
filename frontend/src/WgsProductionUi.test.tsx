@@ -151,7 +151,7 @@ it("loads WGS resource tabs for an active run", async () => {
   expect(screen.getByText("137")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("tab", {name: "Transfers"}));
   expect(await screen.findByText("FASTQ upload")).toBeInTheDocument();
-  expect(screen.getByText(/阶段状态可用/)).toBeInTheDocument();
+  expect(screen.getByText(/Stage status is available/)).toBeInTheDocument();
   expect(screen.queryByLabelText("FASTQ upload progress")).not.toBeInTheDocument();
   expect(screen.queryByText(/0 B\/s/)).not.toBeInTheDocument();
   expect(urls.filter((url) => url.includes("/api/runs/WGS_001/samples"))).toHaveLength(1);

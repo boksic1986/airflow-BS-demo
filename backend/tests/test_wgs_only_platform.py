@@ -150,6 +150,17 @@ def login(client, username, password):
     return {"X-CSRF-Token": csrf}
 
 
+def force_legacy_contract(sessions, analysis_id: str) -> None:
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.params_json = {
+            **dict(run.params_json or {}),
+            "orchestration_contract_version": 1,
+        }
+
+
 def test_all_non_health_endpoints_require_login(tmp_path, monkeypatch):
     client, _, _ = make_client(tmp_path, monkeypatch)
 
@@ -639,6 +650,7 @@ def test_step4_repair_is_fixed_to_cram_idempotent_and_blocked_by_runtime_gates(t
         },
     ).json()
     analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
     with sessions() as session:
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
         run.status = "failed"
@@ -885,6 +897,7 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
         },
     ).json()
     analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
     monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
     internal = {"X-Airflow-Demo-Token": "internal-test-token"}
@@ -1677,6 +1690,7 @@ def test_step4_terminal_failure_is_projected_to_business_run(tmp_path, monkeypat
         },
     ).json()
     analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
     status_dir = tmp_path / "runtime" / "runner-requests" / analysis_id / "attempt-1"
     status_dir.mkdir(parents=True)
     (status_dir / "step4_publish.status.json").write_text(
@@ -1731,6 +1745,7 @@ def test_step3_stage_status_api_treats_accepted_as_transitional(
         },
     ).json()
     analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
     runtime = tmp_path / "runtime"
     binding = runtime / "runs" / analysis_id / "attempt-1" / "batch-binding.json"
     binding.parent.mkdir(parents=True)

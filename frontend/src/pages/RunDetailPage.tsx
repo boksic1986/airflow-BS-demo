@@ -279,7 +279,7 @@ export function RunDetailPage() {
           <div className="tabs" role="tablist" aria-label="Run detail tabs">{tabs.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} role="tab" type="button" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}</div>
           {tabError ? <div className="inline-error" role="alert">This tab could not be loaded: {tabError}</div> : null}
           {activeTab === "Overview" ? <RunOverviewTab detail={detail} samples={bundle.manifest} sampleCount={summary.sample_count} /> : null}
-          {activeTab === "Samples" ? <WgsSamplesTab samples={bundle.samples} /> : null}
+          {activeTab === "Samples" ? <WgsSamplesTab samples={bundle.samples} manifest={bundle.manifest} /> : null}
           {activeTab === "Rules" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} onOpenLog={(key) => { setLogKey(key); setLogStream("stdout"); setActiveTab("Logs"); }} /> : null}
           {activeTab === "Master" ? <WgsMasterTab pods={bundle.pods} /> : null}
           {activeTab === "Transfers" ? <WgsTransfersTab detail={detail} transfers={bundle.transfers} /> : null}
@@ -291,8 +291,12 @@ export function RunDetailPage() {
   );
 }
 
-function WgsSamplesTab({samples}: {samples: Sample[]}) {
-  return <WgsTable headers={["Sample", "Data", "Family / relation", "Current stage", "Current Rule", "Rules", "Progress", "Status", "Elapsed", "QC", "Safe QC metrics"]} rows={samples.map((sample) => [sample.sample_id, sample.data_id || "-", [sample.family_id, sample.family_relation].filter(Boolean).join(" / ") || "-", sample.current_stage || "-", sample.current_rule || "-", `${sample.completed_rules ?? 0}/${sample.total_rules ?? 0}`, sample.progress_percent == null ? "-" : `${sample.progress_percent}%`, sample.status || "-", sample.elapsed_seconds == null ? "-" : formatSecondsDuration(sample.elapsed_seconds), sample.qc_status || "unknown", compactQc(sample.qc_metrics)])} empty="No analysis sample state returned." />;
+function WgsSamplesTab({samples, manifest}: {samples: Sample[]; manifest: WgsSampleManifestRow[]}) {
+  const manifestBySample = new Map(manifest.map((item) => [item.sample_id, item]));
+  return <WgsTable headers={["Sample", "Data", "Family / relation", "Received", "Estimated report", "Current stage", "Current Rule", "Rules", "Progress", "Status", "Elapsed", "QC", "Safe QC metrics"]} rows={samples.map((sample) => {
+    const frozen = manifestBySample.get(sample.sample_id);
+    return [sample.sample_id, sample.data_id || frozen?.data_id || "-", [sample.family_id || frozen?.family_id, sample.family_relation || frozen?.family_relation].filter(Boolean).join(" / ") || "-", frozen?.received_date || "-", frozen?.estimated_report_date || "-", sample.current_stage || "-", sample.current_rule || "-", `${sample.completed_rules ?? 0}/${sample.total_rules ?? 0}`, sample.progress_percent == null ? "-" : `${sample.progress_percent}%`, sample.status || "-", sample.elapsed_seconds == null ? "-" : formatSecondsDuration(sample.elapsed_seconds), sample.qc_status || "unknown", compactQc(sample.qc_metrics)];
+  })} empty="No analysis sample state returned." />;
 }
 
 function WgsMasterTab({pods}: {pods: WgsPod[]}) {

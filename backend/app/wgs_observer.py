@@ -1185,7 +1185,18 @@ def _upsert_transfer_file_states(*, session, transfer: TransferJob, files: list[
             raise ValueError("transfer file progress exceeds its frozen total")
         row = session.scalar(select(TransferFileState).where(TransferFileState.transfer_id == transfer.transfer_id, TransferFileState.file_key == file_key))
         if row is None:
-            row = TransferFileState(transfer_id=str(transfer.transfer_id), analysis_id=transfer.analysis_id, attempt=transfer.attempt, file_key=file_key, display_name=display_name, bytes_total=total, status="accepted")
+            row = TransferFileState(
+                transfer_id=str(transfer.transfer_id),
+                analysis_id=transfer.analysis_id,
+                attempt=transfer.attempt,
+                file_key=file_key,
+                display_name=display_name,
+                bytes_total=total,
+                bytes_transferred=0,
+                speed_bps=0,
+                status="accepted",
+                updated_at=heartbeat,
+            )
             session.add(row)
         elif row.bytes_total != total or row.display_name != display_name:
             raise ValueError("transfer file identity differs from frozen manifest")

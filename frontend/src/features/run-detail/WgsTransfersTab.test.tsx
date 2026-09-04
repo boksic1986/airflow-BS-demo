@@ -26,7 +26,7 @@ describe("WgsTransfersTab", () => {
       limit: 50,
       offset: 0,
     });
-    const detail = {analysis_id: "WGS_TRANSFER", pipeline: "wgs", params: {batch_no: "B1"}} as RunDetail;
+    const detail = {analysis_id: "WGS_TRANSFER", pipeline: "wgs", status: "running", params: {batch_no: "B1"}} as RunDetail;
     const transfers: WgsTransfer[] = [{
       transfer_id: "WGS_TRANSFER-a1-input",
       direction: "upload",
