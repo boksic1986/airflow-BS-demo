@@ -24,6 +24,13 @@ This release must first be deployed with `WGS_EXECUTION_ENABLED=false`,
 6. Validate `/api/runs/<id>/workspace`, Rules pagination, transfer-file
    pagination, and terminal progress without Airflow calls.
 
+When the BS Docker registry mirror is unavailable, build the React bundle with
+the pinned Node runtime, verify `npm test` and `npm run build`, then create the
+runtime image with `frontend/Dockerfile.runtime-overlay`. Set
+`BASE_FRONTEND_IMAGE` to the currently approved local frontend image. This
+offline path replaces only `/usr/share/nginx/html`; it does not fetch a base
+image or change the release-mounted nginx gateway configuration.
+
 For node metrics, create a separate host directory referenced by
 `PLATFORM_METRICS_SSH_HOST_ROOT`. It must contain `metrics_config`, a mode-0600
 restricted key, and pinned `known_hosts`; do not reuse the node200 execution
