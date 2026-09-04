@@ -15,6 +15,7 @@ Acceptance:
 - [x] Add the workspace-first Run Detail API, SQL-paged rules/transfers and lazy frontend tabs.
 - [x] Add node and SFS metric collectors with stale/degraded states and GiB/s display semantics.
 - [x] Reuse the approved production CES read-only identity on node200 and publish a fresh, numeric-only Cloud Eye spool to BS10610 without copying credentials into BS, Git or containers.
+- [x] Provision the locked OBS SDK in the shared `nipttest` environment and verify `ObsClient` plus Cloud Eye credentials support from BS10610 and node200.
 - [x] Pass candidate backend, DAG, frontend and cce-pipeline tests on BS10610.
 - [x] Publish a disabled candidate release without enabling WGS execution or automatic dispatch.
 

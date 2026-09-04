@@ -50,6 +50,17 @@ existing mode-0600 node200 credential file. A mode-0644, numeric-only
 `cloud.json` crosses the shared runtime boundary; the API reports
 `sfs-turbo-clinical` healthy with fresh capacity, read/write bandwidth and IOPS.
 
+The existing shared `nipttest` Python 3.9 environment was reused for transfer
+validation instead of creating a duplicate runtime. It now contains
+`esdk-obs-python==3.26.6` and `huaweicloudsdkcore==3.1.210`; `ObsClient` and
+`BasicCredentials` imports pass from BS10610 and node200. Installation was
+performed through writable node005 `/sg2`; BS10610 exposes the same environment
+read-only. Evidence is under
+`/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/T200-obs-sdk-nipttest-20260904`.
+The environment already had unrelated `pip check` findings for missing
+`setuptools-scm`, missing `importlib-metadata`, and unsupported `veracitools`;
+this task did not alter those packages.
+
 ### Verification
 
 | Check | Result |
@@ -98,8 +109,8 @@ biodemo.dump  369f0cef6810f9ee32fff435dbbb2f16cad81e2b320dbccbe36b10d000d98d6a
 
 ### Remaining Gates
 
-- Build the offline OBS SDK runtime on node200, without placing credentials in
-  an image or release.
+- Run the OBS SDK adapter against synthetic, non-clinical small files before
+  selecting it as the Step1/Step5 default.
 - Verify the actual CCE Master service account, then apply the namespace-only
   Lease RBAC and test Lease CRUD.
 - Run a controlled synthetic transfer before enabling contract v2, then a

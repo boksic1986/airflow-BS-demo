@@ -89,6 +89,13 @@ Cloud Eye SFS bandwidth is measured in bytes per second and rendered with IEC
 units such as GiB/s. It validates classification and raises alerts only; it
 does not automatically change the 25-slot limit in this release.
 
+The first transfer-adapter validation reuses the shared Python 3.9 environment
+at `/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest`, with
+`esdk-obs-python==3.26.6` and `huaweicloudsdkcore==3.1.210`. The environment is
+writable from node005 and read-only from BS10610; both BS10610 and node200 must
+pass `ObsClient` imports before a synthetic transfer is attempted. Credentials
+remain outside the Conda environment and release.
+
 ## Read Model And Frontend
 
 `GET /api/runs/{analysis_id}/workspace` is the Run Detail first-paint resource.
@@ -133,4 +140,3 @@ numeric SFS capacity/read/write/total-I/O/IOPS values and timestamps.
 Do not enable execution merely because unit tests pass. Do not restart an
 active Worker or Master, directly edit Airflow metadata, place credentials in
 Git, or write validation evidence under `/tmp`.
-
