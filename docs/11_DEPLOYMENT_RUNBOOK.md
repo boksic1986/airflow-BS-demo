@@ -34,8 +34,10 @@ image or change the release-mounted nginx gateway configuration.
 For node metrics, create a separate host directory referenced by
 `PLATFORM_METRICS_SSH_HOST_ROOT`. It must contain `metrics_config`, a mode-0600
 restricted key, and pinned `known_hosts`; do not reuse the node200 execution
-key mount. Start `platform-node-probe`, then `platform-metrics-collector` and
-require fresh `.96/.97` rows.
+key mount. Set `PLATFORM_METRICS_UID` to the host owner UID of both this
+directory and `WGS_RUNTIME_HOST_ROOT` (BS10610: `6708`). The probe deliberately
+does not run as the Airflow UID. Start `platform-node-probe`, then
+`platform-metrics-collector` and require fresh `.96/.97` rows.
 
 Cloud Eye collection runs on the approved credential host using
 `config/platform_metrics.node200.env.example` and

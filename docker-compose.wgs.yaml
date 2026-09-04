@@ -222,7 +222,9 @@ services:
 
   platform-node-probe:
     image: ${AIRFLOW_IMAGE:-airflow-demo/airflow:0.1.0}
-    user: "${AIRFLOW_UID:-1000}:${WGS_RUNTIME_SHARED_GID:-520}"
+    # The probe owns a dedicated mode-0600 SSH identity and writes a host
+    # spool. It therefore runs as the host owner of those files, not Airflow.
+    user: "${PLATFORM_METRICS_UID:-6708}:0"
     restart: unless-stopped
     command: ["python", "-m", "app.platform_node_probe_cli"]
     environment:
