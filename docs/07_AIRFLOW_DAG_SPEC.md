@@ -1,5 +1,17 @@
 # 07 Airflow DAG 设计
 
+## T194-T200 `bio_wgs` contract v2
+
+The task graph remains Step1 through Step6. `wgs_obs_transfer` serializes
+Step1/Step5 transfers. `wgs_cce_runs` is assigned only to
+`submit_step2_master`; it does not represent Step3 Worker-Pod concurrency.
+`start_step3_monitor` and the reschedule sensor use the default Airflow pool.
+
+Every runtime task registers a stage execution before invoking node200. An
+Airflow retry requests a new generation; downstream stages require the exact
+successful predecessor receipt. The DAG ID and task IDs remain stable for
+historical display.
+
 ## T188 Step6 terminal barrier
 
 `materialize_step6_results` only registers the asynchronous node200 request.

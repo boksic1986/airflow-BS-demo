@@ -1,5 +1,27 @@
 # TASKS.md
 
+## T194-T200 - WGS Step1-6 contract v2 and Heavy Slot quota
+
+Owner: backend/Airflow/frontend/runtime/CCE/operations/docs
+
+Status: implementation complete; BS10610 disabled-state acceptance pending
+
+Acceptance:
+- [x] Define the versioned Step1-6 contract and append-only stage execution generations.
+- [x] Require exact predecessor receipts for Step4, Step5 and Step6; reject stale generations and late evidence.
+- [x] Add OBS SDK transfer manifests, aggregate/file progress and an obsutil rollback adapter.
+- [x] Add a 25 Worker Pod global Heavy Slot quota for the two evidence-backed high-I/O rule groups.
+- [x] Keep `wgs_cce_runs` on the short Master submission task only.
+- [x] Add the workspace-first Run Detail API, SQL-paged rules/transfers and lazy frontend tabs.
+- [x] Add node and SFS metric collectors with stale/degraded states and GiB/s display semantics.
+- [ ] Pass candidate backend, DAG, frontend and cce-pipeline tests on BS10610.
+- [ ] Publish a disabled candidate release without enabling WGS execution or automatic dispatch.
+
+Restrictions:
+- Do not submit or resume a WGS run during this task.
+- Do not enable BS10610 automatic dispatch or dynamic Heavy Slot scaling.
+- Do not expose OBS credentials, full OBS URIs or host absolute paths through public APIs.
+
 ## T192 - Production Docker test-artifact cleanup
 
 Owner: infra/operations/docs

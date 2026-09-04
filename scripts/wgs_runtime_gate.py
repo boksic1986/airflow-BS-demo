@@ -62,6 +62,12 @@ REQUEST_ROOT = Path(
         "/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runner-requests",
     )
 )
+TRANSFER_SPOOL_ROOT = Path(
+    os.getenv(
+        "WGS_TRANSFER_SPOOL_ROOT",
+        str(REQUEST_ROOT.parent / "transfer-progress"),
+    )
+)
 WGS_REPO_ROOT = Path(
     os.getenv(
         "WGS_REPO_ROOT",
@@ -177,6 +183,12 @@ def _write_status(
         "updated_at": datetime.now(timezone.utc).isoformat(),
         **details,
     }
+    if int(payload.get("orchestration_contract_version") or 1) == 2:
+        for key in ("execution_id", "generation", "request_hash"):
+            if payload.get(key) in {None, ""}:
+                raise ValueError(f"contract v2 runtime request is missing {key}")
+            value[key] = payload[key]
+        value["orchestration_contract_version"] = 2
     status_path = _sidecar_path(payload, ".status.json")
     lock_path = _sidecar_path(payload, ".status.lock")
     rank = {"accepted": 0, "running": 1, "success": 2, "failed": 2}
@@ -743,9 +755,16 @@ def _wait_step4(payload: dict[str, Any]) -> None:
 
 
 def _transfer_progress_root(payload: dict[str, Any]) -> Path:
-    return _request_path(
-        str(payload["analysis_id"]), int(payload["attempt"]), str(payload["stage"])
-    ).parent / "transfer-progress" / str(payload["stage"])
+    root = TRANSFER_SPOOL_ROOT.resolve()
+    path = (
+        root
+        / str(payload["analysis_id"])
+        / f"attempt-{int(payload['attempt'])}"
+        / str(payload["stage"])
+    ).resolve()
+    if root not in path.parents:
+        raise ValueError("transfer progress path escapes spool root")
+    return path
 
 
 def _transfer_plan_path(payload: dict[str, Any]) -> Path:
@@ -849,6 +868,45 @@ def _step5_completed_plan_totals(
 def _aggregate_transfer_progress(
     payload: dict[str, Any], plan: dict[str, Any] | None = None
 ) -> dict[str, Any] | None:
+    sdk_path = _transfer_progress_root(payload) / "progress.json"
+    if sdk_path.is_file():
+        sdk = _read_json(sdk_path)
+        if (
+            sdk.get("schema_version") == "wgs-runtime.transfer-progress.v2"
+            and sdk.get("analysis_id") == payload["analysis_id"]
+            and int(sdk.get("attempt", 0)) == int(payload["attempt"])
+            and sdk.get("stage") == payload["stage"]
+        ):
+            total = int(plan["bytes_total"]) if plan else int(sdk.get("bytes_total") or 0)
+            files_total = int(plan["files_total"]) if plan else int(sdk.get("files_total") or 0)
+            if plan and (
+                int(sdk.get("bytes_total") or 0) != total
+                or int(sdk.get("files_total") or 0) != files_total
+            ):
+                raise RuntimeError("OBS SDK callback totals differ from the frozen transfer plan")
+            done = min(max(0, int(sdk.get("bytes_done") or 0)), total)
+            files_done = min(max(0, int(sdk.get("files_done") or 0)), files_total)
+            speed = max(0, int(sdk.get("speed_bytes_per_second") or 0))
+            return {
+                **sdk,
+                "bytes_total": total,
+                "bytes_done": done,
+                "files_total": files_total,
+                "files_done": files_done,
+                "eta_seconds": (
+                    max(0, int((total - done) / speed))
+                    if total and speed and done < total
+                    else 0 if total and done >= total else None
+                ),
+                "monitoring_health": "healthy",
+                "source": "obs-sdk-callback",
+                "plan_path": (
+                    "transfer-progress/%s/transfer-plan.json" % payload["stage"]
+                    if plan
+                    else None
+                ),
+                "manifest_sha256": plan.get("manifest_sha256") if plan else None,
+            }
     rows = []
     for path in _transfer_progress_root(payload).glob("*.json"):
         value = _read_json(path)
@@ -930,6 +988,10 @@ def _run_transfer_stage(payload: dict[str, Any]) -> None:
         "WGS_TRANSFER_ATTEMPT": str(payload["attempt"]),
         "WGS_TRANSFER_STAGE": stage,
         "WGS_TRANSFER_DIRECTION": "upload" if stage == "step1_upload" else "download",
+        "WGS_ORCHESTRATION_CONTRACT_VERSION": str(payload.get("orchestration_contract_version") or 1),
+        "WGS_STAGE_EXECUTION_ID": str(payload.get("execution_id") or ""),
+        "WGS_STAGE_GENERATION": str(payload.get("generation") or ""),
+        "WGS_STAGE_REQUEST_HASH": str(payload.get("request_hash") or ""),
     }
     process = subprocess.Popen(_step_command(payload, stage), env=environment)
     while process.poll() is None:
@@ -1087,6 +1149,77 @@ def _archive_failed_stage_generation(payload: dict[str, Any]) -> int:
     return retry_no
 
 
+def _archive_contract_generation(
+    payload: dict[str, Any], generation: int
+) -> None:
+    request_path = _request_path(
+        str(payload["analysis_id"]), int(payload["attempt"]), str(payload["stage"])
+    )
+    history_root = request_path.parent / "history" / str(payload["stage"])
+    history_root.mkdir(parents=True, exist_ok=True)
+    final = history_root / f"generation-{generation}"
+    partial = history_root / f".generation-{generation}.partial"
+    if final.exists() or partial.exists():
+        raise RuntimeError("previous contract generation was already archived")
+    partial.mkdir(mode=0o750)
+    for source, destination_name in (
+        (request_path.with_suffix(".status.json"), "status.json"),
+        (request_path.with_suffix(".worker.json"), "worker.json"),
+        (request_path.with_suffix(".worker.log"), "worker.log"),
+    ):
+        if source.exists():
+            os.replace(source, partial / destination_name)
+    os.replace(partial, final)
+    directory_descriptor = os.open(history_root, os.O_RDONLY)
+    try:
+        os.fsync(directory_descriptor)
+    finally:
+        os.close(directory_descriptor)
+
+
+def _prepare_contract_generation(
+    payload: dict[str, Any], *, request_sha: str
+) -> int | None:
+    if int(payload.get("orchestration_contract_version") or 1) != 2:
+        return None
+    current_generation = int(payload["generation"])
+    current_execution = str(payload["execution_id"])
+    current_request_hash = str(payload["request_hash"])
+    status = _read_json(_sidecar_path(payload, ".status.json"))
+    worker = _read_json(_sidecar_path(payload, ".worker.json"))
+    generations: set[int] = set()
+    for label, value in (("status", status), ("worker", worker)):
+        if not value:
+            continue
+        if int(value.get("orchestration_contract_version") or 1) != 2:
+            raise RuntimeError(f"{label} sidecar lacks contract v2 identity")
+        try:
+            generation = int(value["generation"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise RuntimeError(f"{label} sidecar has invalid generation") from error
+        if generation > current_generation:
+            raise RuntimeError(f"{label} sidecar belongs to a future generation")
+        if generation == current_generation:
+            if (
+                value.get("execution_id") != current_execution
+                or value.get("request_hash") != current_request_hash
+            ):
+                raise RuntimeError(f"{label} sidecar execution identity mismatch")
+            if label == "worker" and value.get("request_sha256") != request_sha:
+                raise RuntimeError("registered request changed after worker launch")
+        generations.add(generation)
+    old_generations = {value for value in generations if value < current_generation}
+    if not old_generations:
+        return None
+    if len(old_generations) != 1 or current_generation in generations:
+        raise RuntimeError("runtime sidecars contain mixed contract generations")
+    if worker and _process_matches(worker):
+        raise RuntimeError("previous generation worker is still active")
+    previous_generation = old_generations.pop()
+    _archive_contract_generation(payload, previous_generation)
+    return previous_generation
+
+
 def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
     if not _truthy("WGS_EXECUTION_ENABLED") or not _truthy(
         "WGS_RUNTIME_ADAPTER_ENABLED"
@@ -1104,15 +1237,35 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
     with launch_lock.open("a+", encoding="utf-8") as lock_handle:
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
         previous = _read_json(state_path)
+        archived_generation = _prepare_contract_generation(
+            payload, request_sha=request_sha
+        )
+        previous = _read_json(state_path)
         if previous and previous.get("request_sha256") != request_sha:
             raise RuntimeError("registered request changed after worker launch")
         status = _read_json(_sidecar_path(payload, ".status.json"))
         if status.get("status") in {"success", "complete", "succeeded"}:
-            return {"status": "complete", "pid": previous.get("pid")}
+            return {
+                "status": "complete",
+                "pid": previous.get("pid") if previous else None,
+            }
+        if (
+            int(payload.get("orchestration_contract_version") or 1) == 2
+            and status.get("status") in {"failed", "canceled"}
+        ):
+            raise RuntimeError(
+                "terminal contract generation requires a new registered generation"
+            )
         if previous and _process_matches(previous):
             return {"status": "running", "pid": previous["pid"]}
-        retry_no = 0
-        if status.get("status") == "failed":
+        retry_no = (
+            int(payload["generation"]) - 1
+            if archived_generation is not None
+            else 0
+        )
+        if status.get("status") == "failed" and int(
+            payload.get("orchestration_contract_version") or 1
+        ) != 2:
             if payload["stage"] not in {"step4_publish", "step5_download"}:
                 raise RuntimeError(
                     "failed runtime stages cannot be restarted by the restricted runner"
@@ -1144,12 +1297,33 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             "retry_no": retry_no,
             "started_at": datetime.now(timezone.utc).isoformat(),
         }
+        if int(payload.get("orchestration_contract_version") or 1) == 2:
+            state.update(
+                {
+                    "orchestration_contract_version": 2,
+                    "execution_id": payload["execution_id"],
+                    "generation": payload["generation"],
+                    "request_hash": payload["request_hash"],
+                }
+            )
         _atomic_json(state_path, state)
-        return {"status": "accepted", "pid": process.pid, "retry_no": retry_no}
+        result = {"status": "accepted", "pid": process.pid, "retry_no": retry_no}
+        if int(payload.get("orchestration_contract_version") or 1) == 2:
+            result["generation"] = int(payload["generation"])
+            result["execution_id"] = str(payload["execution_id"])
+        return result
 
 
 def _run_worker(payload: dict[str, Any]) -> int:
     current_status = _read_json(_sidecar_path(payload, ".status.json"))
+    if (
+        int(payload.get("orchestration_contract_version") or 1) == 2
+        and current_status.get("execution_id") == payload.get("execution_id")
+        and current_status.get("status") in {"success", "failed", "canceled"}
+    ):
+        raise RuntimeError(
+            "terminal contract generation requires a new registered generation"
+        )
     retry_no = int(current_status.get("retry_no", 0))
     if payload["stage"] != "step3_monitor":
         _write_status(payload, "running", retry_no=retry_no)
@@ -1160,6 +1334,24 @@ def _run_worker(payload: dict[str, Any]) -> int:
         raise
     _write_status(payload, "success", retry_no=retry_no)
     return 0
+
+
+def _run_synchronous_stage(payload: dict[str, Any]) -> int:
+    request_path = _request_path(
+        str(payload["analysis_id"]), int(payload["attempt"]), str(payload["stage"])
+    )
+    request_sha = hashlib.sha256(request_path.read_bytes()).hexdigest()
+    lock_path = _sidecar_path(payload, ".worker.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as lock_handle:
+        try:
+            fcntl.flock(
+                lock_handle.fileno(), fcntl.LOCK_EX | getattr(fcntl, "LOCK_NB", 4)
+            )
+        except BlockingIOError as error:
+            raise RuntimeError("stage worker is already active") from error
+        _prepare_contract_generation(payload, request_sha=request_sha)
+        return _run_worker(payload)
 
 
 def main() -> int:
@@ -1176,7 +1368,7 @@ def main() -> int:
     if stage in ASYNC_STAGES:
         print(json.dumps(start_async_stage(payload), sort_keys=True))
         return 0
-    return _run_worker(payload)
+    return _run_synchronous_stage(payload)
 
 
 if __name__ == "__main__":

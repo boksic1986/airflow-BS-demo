@@ -797,6 +797,159 @@ def test_failed_step5_relaunch_preserves_checkpoint_and_archives_worker_generati
     assert checkpoint.read_text(encoding="utf-8") == "resume-me\n"
 
 
+def test_contract_v2_new_generation_archives_old_sidecars_before_launch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    request_path = tmp_path / "step1_upload.json"
+    request_path.write_text('{"generation": 2}\n', encoding="utf-8")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step1_upload",
+        "orchestration_contract_version": 2,
+        "execution_id": "wse_new",
+        "generation": 2,
+        "request_hash": "b" * 64,
+    }
+    request_path.with_suffix(".status.json").write_text(
+        json.dumps(
+            {
+                "status": "failed",
+                "orchestration_contract_version": 2,
+                "execution_id": "wse_old",
+                "generation": 1,
+                "request_hash": "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    request_path.with_suffix(".worker.json").write_text(
+        json.dumps(
+            {
+                "pid": 1234,
+                "request_sha256": "old-request-sha",
+                "orchestration_contract_version": 2,
+                "execution_id": "wse_old",
+                "generation": 1,
+                "request_hash": "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    request_path.with_suffix(".worker.log").write_text(
+        "generation one\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(gate, "_request_path", lambda *_args: request_path)
+    monkeypatch.setattr(gate, "_truthy", lambda _name: True)
+    monkeypatch.setattr(gate, "_process_matches", lambda _state: False)
+    monkeypatch.setattr(gate, "_boot_id", lambda: "boot-id")
+    monkeypatch.setattr(gate, "_process_start_time", lambda _pid: "456")
+
+    class FakeProcess:
+        pid = 5678
+
+    monkeypatch.setattr(
+        gate.subprocess, "Popen", lambda *_args, **_kwargs: FakeProcess()
+    )
+
+    result = gate.start_async_stage(payload)
+
+    assert result["status"] == "accepted"
+    assert result["generation"] == 2
+    history = tmp_path / "history" / "step1_upload" / "generation-1"
+    assert json.loads((history / "status.json").read_text(encoding="utf-8"))[
+        "execution_id"
+    ] == "wse_old"
+    worker = json.loads(
+        request_path.with_suffix(".worker.json").read_text(encoding="utf-8")
+    )
+    assert worker["execution_id"] == "wse_new"
+    assert worker["generation"] == 2
+
+
+def test_contract_v2_new_generation_refuses_to_replace_live_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    request_path = tmp_path / "step1_upload.json"
+    request_path.write_text('{"generation": 2}\n', encoding="utf-8")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step1_upload",
+        "orchestration_contract_version": 2,
+        "execution_id": "wse_new",
+        "generation": 2,
+        "request_hash": "b" * 64,
+    }
+    request_path.with_suffix(".worker.json").write_text(
+        json.dumps(
+            {
+                "pid": 1234,
+                "request_sha256": "old-request-sha",
+                "orchestration_contract_version": 2,
+                "execution_id": "wse_old",
+                "generation": 1,
+                "request_hash": "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "_request_path", lambda *_args: request_path)
+    monkeypatch.setattr(gate, "_truthy", lambda _name: True)
+    monkeypatch.setattr(gate, "_process_matches", lambda _state: True)
+
+    with pytest.raises(RuntimeError, match="previous generation worker is still active"):
+        gate.start_async_stage(payload)
+
+
+def test_contract_v2_synchronous_retry_archives_old_terminal_sidecar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    request_path = tmp_path / "step6_materialize.json"
+    request_path.write_text('{"generation": 2}\n', encoding="utf-8")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step6_materialize",
+        "orchestration_contract_version": 2,
+        "execution_id": "wse_new",
+        "generation": 2,
+        "request_hash": "b" * 64,
+    }
+    request_path.with_suffix(".status.json").write_text(
+        json.dumps(
+            {
+                "status": "failed",
+                "orchestration_contract_version": 2,
+                "execution_id": "wse_old",
+                "generation": 1,
+                "request_hash": "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "_request_path", lambda *_args: request_path)
+    monkeypatch.setattr(gate, "run_stage", lambda _payload: None)
+
+    assert gate._run_synchronous_stage(payload) == 0
+
+    status = json.loads(
+        request_path.with_suffix(".status.json").read_text(encoding="utf-8")
+    )
+    assert status["status"] == "success"
+    assert status["execution_id"] == "wse_new"
+    assert (
+        tmp_path
+        / "history"
+        / "step6_materialize"
+        / "generation-1"
+        / "status.json"
+    ).is_file()
+
+
 def test_transfer_progress_stays_running_when_an_auxiliary_obsutil_call_failed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -830,6 +983,47 @@ def test_transfer_progress_stays_running_when_an_auxiliary_obsutil_call_failed(
 
     assert progress is not None
     assert progress["state"] == "running"
+
+
+def test_sdk_transfer_progress_preserves_frozen_per_file_totals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260904_120000_A1B2C3",
+        "attempt": 1,
+        "stage": "step1_upload",
+    }
+    sdk = {
+        "schema_version": "wgs-runtime.transfer-progress.v2",
+        "transfer_id": f"{payload['analysis_id']}-a1-input",
+        "analysis_id": payload["analysis_id"],
+        "attempt": 1,
+        "stage": "step1_upload",
+        "direction": "upload",
+        "state": "running",
+        "bytes_total": 300,
+        "bytes_done": 125,
+        "files_total": 2,
+        "files_done": 1,
+        "speed_bytes_per_second": 50,
+        "heartbeat_at": "2026-09-04T12:00:05+00:00",
+        "files": [
+            {"file_key": "a", "display_name": "S1_R1.fq.gz", "bytes_total": 100, "bytes_done": 100, "status": "success"},
+            {"file_key": "b", "display_name": "S1_R2.fq.gz", "bytes_total": 200, "bytes_done": 25, "status": "running"},
+        ],
+    }
+    (tmp_path / "progress.json").write_text(json.dumps(sdk), encoding="utf-8")
+    monkeypatch.setattr(gate, "_transfer_progress_root", lambda _payload: tmp_path)
+
+    progress = gate._aggregate_transfer_progress(payload)
+
+    assert progress is not None
+    assert progress["schema_version"] == "wgs-runtime.transfer-progress.v2"
+    assert progress["bytes_total"] == 300
+    assert progress["bytes_done"] == 125
+    assert progress["files_done"] == 1
+    assert len(progress["files"]) == 2
 
 
 def test_step5_frozen_plan_does_not_claim_unobserved_files_are_complete(

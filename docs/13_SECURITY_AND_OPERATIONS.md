@@ -1,5 +1,18 @@
 # 13 安全和运维约束
 
+## T194-T200 contract-v2 trust boundaries
+
+- node200 receives only registered execution identities and writes atomic
+  JSONL/markers; it never connects to biodemo.
+- browser APIs redact credentials, full OBS URIs, checkpoint paths, and raw
+  server paths.
+- the CCE Master service account receives namespaced Lease permissions only;
+  verify its exact name before applying `config/wgs-heavy-slot-rbac.yaml`.
+- `platform-node-probe` alone mounts the dedicated metrics SSH directory;
+  `platform-metrics-collector` alone writes biodemo and never mounts SSH keys.
+- Cloud Eye credentials remain outside Git and Docker images. Its shared spool
+  contains numeric metrics and timestamps only.
+
 ## T173 SFS metrics credential boundary
 
 - Cloud Eye credentials remain only in `/home/hanjj/sfs_api.credentials` on

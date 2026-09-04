@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -23,6 +23,7 @@ from app.models import (
     RunAttempt,
     RunStageState,
     Sample,
+    TransferJob,
     UserAccount,
     WgsIntakeBatch,
     WgsIntakeScannerState,
@@ -2160,6 +2161,115 @@ def test_wgs_detail_rules_and_pods_are_database_only_authenticated_reads(tmp_pat
         "updated_at": pods.json()["items"][0]["updated_at"],
     }
     assert client.get("/api/runs/UNKNOWN/pods", headers=headers).status_code == 404
+
+
+def test_wgs_workspace_returns_first_paint_summary_in_one_resource(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "viewer", "viewer-pass")
+    analysis_id = "WGS_WORKSPACE_1"
+    with sessions() as session:
+        run = AnalysisRun(
+            analysis_id=analysis_id,
+            pipeline_name="wgs",
+            dag_id="bio_wgs",
+            dag_run_id="manual__WGS_WORKSPACE_1",
+            execution_mode="cce",
+            workdir=str(tmp_path / analysis_id),
+            status="running",
+            current_stage="step3_monitor",
+            progress_percent=45,
+            params_json={"pipeline_release_id": "wgs-4.1.1-1656b5d", "project_name": "WGS Clinical"},
+        )
+        session.add(run)
+        session.add(Sample(analysis_id=analysis_id, sample_id="S1", family_id="F1", status="running"))
+        session.add(RuleState(analysis_id=analysis_id, attempt=1, rule_instance_id="mapping:S1", rule_name="mapping", phase="Pre-calling", sequence=1, sample_id="S1", status="running"))
+        session.add(RunStageState(analysis_id=analysis_id, attempt=1, stage_code="step3_monitor", step_number=3, stage_label="WGS workflow running", stage_status="running", progress_available=True, progress_percent=45, progress_source="kubernetes-api"))
+        session.add(TransferJob(analysis_id=analysis_id, attempt=1, transfer_id="upload-1", direction="upload", status="success"))
+        session.commit()
+
+    response = client.get(f"/api/runs/{analysis_id}/workspace", headers=headers)
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["run"]["analysis_id"] == analysis_id
+    assert payload["summary"]["sample_count"] == 1
+    assert payload["progress"]["stage_code"] == "step3_monitor"
+    assert payload["progress"]["current_rule"] == "mapping"
+    assert payload["active_transfer"] is None
+    assert payload["slot_usage"]["limit"] == 25
+
+
+def test_wgs_transfer_api_redacts_obs_and_server_paths(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "viewer", "viewer-pass")
+    analysis_id = "WGS_SAFE_TRANSFER"
+    with sessions() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                execution_mode="cce",
+                workdir=str(tmp_path / analysis_id),
+                status="running",
+                params_json={"pipeline_release_id": "wgs-4.1.1-1656b5d"},
+            )
+        )
+        session.add(
+            TransferJob(
+                analysis_id=analysis_id,
+                attempt=1,
+                transfer_id="safe-upload",
+                direction="upload",
+                status="running",
+                source="/sensitive/fastq/S1.R1.fq.gz",
+                destination="obs://private-bucket/WGS_SAFE_TRANSFER/S1.R1.fq.gz",
+                checkpoint_ref="/sensitive/checkpoints/upload.json",
+            )
+        )
+        session.commit()
+
+    response = client.get(f"/api/runs/{analysis_id}/transfers", headers=headers)
+
+    assert response.status_code == 200, response.text
+    item = response.json()["items"][0]
+    assert item["source"] == "Input FASTQ manifest"
+    assert item["destination"] == "Private OBS staging"
+    assert item["checkpoint_ref"] == "recorded"
+    assert "/sensitive" not in response.text
+    assert "obs://" not in response.text
+
+
+def test_wgs_rules_use_sql_pagination_and_batched_eta_queries(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "viewer", "viewer-pass")
+    release = "wgs-4.1.1-1656b5d"
+    with sessions() as session:
+        run = AnalysisRun(analysis_id="WGS_RULE_PAGE", pipeline_name="wgs", dag_id="bio_wgs", execution_mode="cce", workdir=str(tmp_path), status="running", params_json={"pipeline_release_id": release})
+        session.add(run)
+        for history_index in range(3):
+            history_id = f"WGS_HISTORY_{history_index}"
+            session.add(AnalysisRun(analysis_id=history_id, pipeline_name="wgs", dag_id="bio_wgs", execution_mode="cce", workdir=str(tmp_path), status="success", params_json={"pipeline_release_id": release}))
+            session.add(RuleState(analysis_id=history_id, attempt=1, rule_instance_id=f"history-{history_index}", rule_name="mapping", layer=1, status="success", started_at=datetime(2026, 9, 1, tzinfo=timezone.utc), ended_at=datetime(2026, 9, 1, 0, 2, tzinfo=timezone.utc)))
+        for index in range(120):
+            session.add(RuleState(analysis_id=run.analysis_id, attempt=1, rule_instance_id=f"rule-{index:03d}", rule_name="mapping", phase="Pre-calling", sequence=index, layer=1, sample_id=f"S{index:03d}", status="success"))
+        session.commit()
+
+    engine = sessions.kw["bind"]
+    statements: list[str] = []
+    def before_cursor_execute(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement)
+    event.listen(engine, "before_cursor_execute", before_cursor_execute)
+    try:
+        response = client.get("/api/runs/WGS_RULE_PAGE/rules", headers=headers)
+    finally:
+        event.remove(engine, "before_cursor_execute", before_cursor_execute)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["total"] == 120
+    assert response.json()["limit"] == 50
+    assert len(response.json()["items"]) == 50
+    assert len(statements) <= 8
 
 
 def test_wgs_sample_projection_excludes_clinical_fields_and_server_paths(tmp_path, monkeypatch):

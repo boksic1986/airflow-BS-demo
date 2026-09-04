@@ -182,6 +182,28 @@ def test_run_progress_created_run_is_not_in_airflow(tmp_path, monkeypatch) -> No
     assert fake_airflow.task_calls == []
 
 
+def test_terminal_run_progress_uses_database_snapshot_without_airflow(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_wgs_run(
+        session_factory,
+        tmp_path,
+        status="success",
+        dag_run_id="manual__WGS_20260714_120000_PROGRESS",
+    )
+    fake_airflow = FakeAirflowClient(
+        state="success",
+        tasks=[{"task_id": "finalize_run", "state": "success"}],
+    )
+    install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared", fake_airflow)
+
+    response = TestClient(main.app).get(f"/api/runs/{analysis_id}/progress")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    assert response.json()["progress_source"] != "airflow_task_instances"
+    assert fake_airflow.task_calls == []
+
+
 def test_run_progress_uses_airflow_task_instances(tmp_path, monkeypatch) -> None:
     session_factory = make_test_sessionmaker()
     analysis_id = insert_pgta_run(

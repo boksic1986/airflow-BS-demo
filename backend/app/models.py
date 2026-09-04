@@ -393,6 +393,30 @@ class TransferJob(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
 
+class TransferFileState(Base):
+    __tablename__ = "transfer_file_state"
+    __table_args__ = (
+        UniqueConstraint("transfer_id", "file_key", name="uq_transfer_file_state_identity"),
+        Index("ix_transfer_file_state_transfer_status", "transfer_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    transfer_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    analysis_id: Mapped[str] = mapped_column(ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    file_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    status: Mapped[str] = mapped_column(String(64), nullable=False, default="accepted")
+    bytes_total: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    bytes_transferred: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    speed_bps: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    checksum_status: Mapped[str | None] = mapped_column(String(64))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
 class WgsInputSnapshot(Base):
     __tablename__ = "wgs_input_snapshot"
     __table_args__ = (
@@ -523,6 +547,41 @@ class RunStageState(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
+
+
+class WgsStageExecution(Base):
+    __tablename__ = "wgs_stage_execution"
+    __table_args__ = (
+        UniqueConstraint(
+            "analysis_id", "attempt", "stage_code", "generation",
+            name="uq_wgs_stage_execution_generation",
+        ),
+        Index("ix_wgs_stage_execution_current", "analysis_id", "attempt", "stage_code", "generation"),
+        Index("ix_wgs_stage_execution_status", "stage_code", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    execution_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    analysis_id: Mapped[str] = mapped_column(ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    stage_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="accepted")
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    release_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    predecessor_execution_id: Mapped[str | None] = mapped_column(String(128))
+    predecessor_generation: Mapped[int | None] = mapped_column(Integer)
+    predecessor_receipt_hash: Mapped[str | None] = mapped_column(String(64))
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    evidence_type: Mapped[str | None] = mapped_column(String(64))
+    evidence_key: Mapped[str | None] = mapped_column(Text)
+    receipt_hash: Mapped[str | None] = mapped_column(String(64))
+    terminal_payload_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
 
 class WgsSubmissionDraft(Base):

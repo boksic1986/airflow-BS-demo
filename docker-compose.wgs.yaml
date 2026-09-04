@@ -179,6 +179,11 @@ services:
       WGS_INTAKE_SCAN_INTERVAL_SECONDS: "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-600}"
       WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"
       WGS_AUTO_DISPATCH_NOT_BEFORE: "${WGS_AUTO_DISPATCH_NOT_BEFORE:-}"
+      WGS_STAGE_CONTRACT_PATH: /config/wgs_stage_contract.yaml
+      WGS_CONTRACT_V2_ENABLED: "${WGS_CONTRACT_V2_ENABLED:-false}"
+      WGS_TRANSFER_ADAPTER: "${WGS_TRANSFER_ADAPTER:-obs_sdk}"
+      WGS_HEAVY_SLOT_LIMIT: "${WGS_HEAVY_SLOT_LIMIT:-25}"
+      WGS_HEAVY_SLOT_MODE: "${WGS_HEAVY_SLOT_MODE:-enforce}"
     volumes:
       - ./backend:/app:ro
       - ./shared:/data/airflow-demo
@@ -206,9 +211,12 @@ services:
       DEPLOYED_PIPELINES: wgs
       WGS_EVIDENCE_ROOT: /data/wgs-evidence
       WGS_OBSERVER_INTERVAL: "5"
+      WGS_TRANSFER_SPOOL_ROOT: /data/wgs-runtime/transfer-progress
+      WGS_RUNTIME_REQUEST_ROOT: /data/wgs-runtime/runner-requests
     volumes:
       - ./backend:/app:ro
       - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
+      - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime:ro
     logging: *bounded-logging
     networks: [wgs-platform]
 
@@ -225,7 +233,7 @@ services:
       PLATFORM_NODE_METRICS_SPOOL: /data/wgs-runtime/platform-metrics/nodes.json
     volumes:
       - ./backend:/app:ro
-      - ${WGS_SSH_KEY_HOST_ROOT:?set WGS_SSH_KEY_HOST_ROOT}:/opt/platform-metrics/ssh:ro
+      - ${PLATFORM_METRICS_SSH_HOST_ROOT:?set PLATFORM_METRICS_SSH_HOST_ROOT}:/opt/platform-metrics/ssh:ro
       - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime
     logging: *bounded-logging
     networks: [wgs-platform]

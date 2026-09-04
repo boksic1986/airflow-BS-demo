@@ -44,6 +44,8 @@ class BioWgsDagTests(unittest.TestCase):
             },
         )
         self.assertEqual(dag.get_task("submit_step2_master").pool, "wgs_cce_runs")
+        self.assertEqual(dag.get_task("start_step3_monitor").pool, "default_pool")
+        self.assertEqual(dag.get_task("wait_step3_analysis").pool, "default_pool")
         for task_id in (
             "wait_prepare_wgs_sampleinfo",
             "wait_wgs_config_approval",

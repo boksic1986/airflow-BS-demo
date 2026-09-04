@@ -146,15 +146,19 @@ def register_stage(stage: str, **context: Any) -> dict[str, Any]:
         return {"skipped": True, "stage": stage, "maintenance_mode": "repair_step4"}
     _require_runtime_enabled()
     runner_stage = effective_runner_stage(stage, conf)
+    request_payload = {
+        "attempt": conf["attempt"],
+        "adapter": "wgs-runtime-200",
+        "command": f"wgs-runtime {conf['analysis_id']} {conf['attempt']} {runner_stage}",
+        "maintenance_action_id": conf.get("maintenance_action_id"),
+    }
+    task_instance = context.get("ti") or context.get("task_instance")
+    if int(getattr(task_instance, "try_number", 1) or 1) > 1:
+        request_payload["force_new_generation"] = True
     return _backend_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/{runner_stage}",
         method="POST",
-        payload={
-            "attempt": conf["attempt"],
-            "adapter": "wgs-runtime-200",
-            "command": f"wgs-runtime {conf['analysis_id']} {conf['attempt']} {runner_stage}",
-            "maintenance_action_id": conf.get("maintenance_action_id"),
-        },
+        payload=request_payload,
     )
 
 
@@ -526,12 +530,11 @@ with DAG(
         "submit_step2_master", stage="step2_master", pool="wgs_cce_runs"
     )
     start_monitor = runner_stage(
-        "start_step3_monitor", stage="step3_monitor", pool="wgs_cce_runs"
+        "start_step3_monitor", stage="step3_monitor"
     )
     wait_analysis = stage_sensor(
         "wait_step3_analysis",
         stage="step3_monitor",
-        pool="wgs_cce_runs",
         timeout_hours=120,
     )
     start_publish = runner_stage(

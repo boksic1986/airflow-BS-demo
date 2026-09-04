@@ -51,6 +51,7 @@ RUN_TASK_IDS = {
 
 ACTIVE_STATUSES = {"running", "queued", "scheduled", "submitted", "up_for_retry", "up_for_reschedule", "deferred"}
 FAILED_STATUSES = {"failed", "fail", "error", "upstream_failed"}
+TERMINAL_RUN_STATUSES = {"success", "failed", "fail", "error", "canceled", "cancelled", "terminated", "unknown_interrupted"}
 TERMINAL_RULE_STATUSES = {"success", "failed", "fail", "error", "skipped", "canceled", "cancelled", "terminated"}
 
 
@@ -61,6 +62,11 @@ def get_run_progress(*, session: Session, airflow_client, analysis_id: str) -> d
 
     rule_events = list_snakemake_rule_events(session=session, analysis_id=analysis_id) or []
     if not run.dag_id or not run.dag_run_id:
+        return _created_or_unsubmitted_payload(run=run, rule_events=rule_events)
+
+    # Terminal progress is an immutable business snapshot. Reaching back into
+    # Airflow here made historical Run Detail views both slow and fragile.
+    if _status(run.status) in TERMINAL_RUN_STATUSES:
         return _created_or_unsubmitted_payload(run=run, rule_events=rule_events)
 
     task_payload = airflow_client.list_task_instances(run.dag_id, run.dag_run_id)

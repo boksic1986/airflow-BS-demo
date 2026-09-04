@@ -1,0 +1,71 @@
+version: 2
+defaults:
+  poll_interval_seconds: 10
+  timeout_seconds: 172800
+  executor: node200_restricted_runner
+  evidence_type: terminal_marker
+stages:
+  prepare:
+    label: Prepare WGS batch
+    predecessor: null
+    timeout_seconds: 7200
+  prepare_sampleinfo:
+    label: Prepare sample information
+    predecessor: null
+    timeout_seconds: 7200
+  prepare_analysis:
+    label: Prepare analysis configuration
+    predecessor: prepare_sampleinfo
+    timeout_seconds: 7200
+  step1_upload:
+    label: Upload FASTQ
+    predecessor: prepare_analysis
+    predecessors_by_submission_mode:
+      three_stage: prepare_analysis
+      default: prepare
+    timeout_seconds: 172800
+    evidence_type: transfer_receipt
+  step2_master:
+    label: Create CCE Master
+    predecessor: step1_upload
+    timeout_seconds: 7200
+    evidence_type: kubernetes_uid
+  step3_monitor:
+    label: Monitor WGS analysis
+    predecessor: step2_master
+    timeout_seconds: 432000
+    evidence_type: kubernetes_and_terminal_marker
+  step4_publish:
+    label: Publish result manifest
+    predecessor: step3_monitor
+    timeout_seconds: 172800
+    evidence_type: publish_receipt
+  step5_download:
+    label: Download frozen result manifest
+    predecessor: step4_publish
+    timeout_seconds: 172800
+    evidence_type: transfer_receipt
+  step6_materialize:
+    label: Materialize local results
+    predecessor: step5_download
+    timeout_seconds: 86400
+    evidence_type: materialize_marker
+  step4_repair_cram:
+    label: Repair published CRAM linkage
+    predecessor: null
+    timeout_seconds: 172800
+  step7_cleanup:
+    label: Clean WGS SFS workspace
+    predecessor: null
+    timeout_seconds: 86400
+heavy_io:
+  quota_name: wgs-heavy-io
+  limit: 25
+  mode: enforce
+  heartbeat_seconds: 60
+  reclaim_after_seconds: 600
+  groups:
+    - id: mapping_dedup
+      rules: [pre_process_mapping, pre_process_Dedup]
+    - id: haplotyper_qualcal
+      rules: [pre_process_Haplotyper, pre_process_QualCal]

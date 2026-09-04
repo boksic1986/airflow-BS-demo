@@ -20,6 +20,8 @@ from app.models import (
     RunStageState,
     Sample,
     TransferJob,
+    TransferFileState,
+    WgsStageExecution,
     WgsMaintenanceAction,
 )
 from app.wgs_observer import (
@@ -408,6 +410,89 @@ def test_cce_pipeline_transfer_schema_is_normalized_without_api_breakage(tmp_pat
         assert stage.unit == "bytes"
         assert stage.speed_bps == 125
         assert stage.eta_seconds == 10
+
+
+def test_contract_v2_transfer_progress_imports_files_and_rejects_old_generation(tmp_path: Path) -> None:
+    sessions, analysis_id, evidence_root, binding_root, catalog_path, _ = prepare_run(tmp_path)
+    spool = tmp_path / "transfer-spool"
+    progress = spool / analysis_id / "attempt-1" / "step1_upload" / "progress.json"
+    progress.parent.mkdir(parents=True)
+    with sessions() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        run.params_json = {**run.params_json, "orchestration_contract_version": 2}
+        session.add_all([
+            WgsStageExecution(
+                execution_id="wse_old_transfer_generation",
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="step1_upload",
+                generation=1,
+                status="failed",
+                request_hash="a" * 64,
+                release_id=RELEASE_ID,
+            ),
+            WgsStageExecution(
+                execution_id="wse_current_transfer_generation",
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="step1_upload",
+                generation=2,
+                status="running",
+                request_hash="b" * 64,
+                release_id=RELEASE_ID,
+            ),
+        ])
+        session.commit()
+
+    base = {
+        "schema_version": "wgs-runtime.transfer-progress.v2",
+        "orchestration_contract_version": 2,
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "transfer_id": f"{analysis_id}-a1-input",
+        "stage": "step1_upload",
+        "direction": "upload",
+        "state": "running",
+        "bytes_total": 300,
+        "bytes_done": 100,
+        "files_total": 2,
+        "files_done": 1,
+        "speed_bytes_per_second": 50,
+        "heartbeat_at": "2026-09-04T03:00:00Z",
+        "files": [
+            {"file_key": "1" * 64, "display_name": "S1_R1.fastq.gz", "bytes_total": 100, "bytes_done": 100, "status": "success", "speed_bps": 50, "checksum_status": "verified", "error_message": None},
+            {"file_key": "2" * 64, "display_name": "S1_R2.fastq.gz", "bytes_total": 200, "bytes_done": 0, "status": "accepted", "speed_bps": 0, "checksum_status": None, "error_message": None},
+        ],
+    }
+    progress.write_text(json.dumps({**base, "execution_id": "wse_old_transfer_generation", "generation": 1, "request_hash": "a" * 64}), encoding="utf-8")
+    stale = ingest_evidence_once(
+        session_factory=sessions,
+        evidence_root=evidence_root,
+        binding_root=binding_root,
+        catalog_path=catalog_path,
+        transfer_spool_root=spool,
+    )
+    assert stale["events_ingested"] == 0
+    with sessions() as session:
+        assert session.scalar(select(TransferJob)) is None
+
+    progress.write_text(json.dumps({**base, "execution_id": "wse_current_transfer_generation", "generation": 2, "request_hash": "b" * 64}), encoding="utf-8")
+    current = ingest_evidence_once(
+        session_factory=sessions,
+        evidence_root=evidence_root,
+        binding_root=binding_root,
+        catalog_path=catalog_path,
+        transfer_spool_root=spool,
+    )
+    assert current["events_ingested"] == 1
+    with sessions() as session:
+        transfer = session.scalar(select(TransferJob))
+        files = session.scalars(select(TransferFileState).order_by(TransferFileState.file_key)).all()
+        assert transfer.bytes_transferred == 100
+        assert [(row.display_name, row.status) for row in files] == [
+            ("S1_R1.fastq.gz", "success"),
+            ("S1_R2.fastq.gz", "accepted"),
+        ]
 
 
 def test_later_phase_status_does_not_erase_structured_transfer_progress(tmp_path: Path) -> None:
@@ -1692,6 +1777,12 @@ def test_pod_job_and_metrics_events_normalize_with_numeric_resource_versions(tmp
             "pod_hash": "abc123",
             "resource_version": "2",
             "phase": "Pending",
+            "workload_role": "work",
+            "run_label": "cce-run-0123456789abcdef",
+            "workload_labels": {
+                "wgs.biosan.cn/heavy-io": "true",
+                "wgs.biosan.cn/heavy-slot": "07",
+            },
         },
     ]
     metrics = {
@@ -1723,6 +1814,8 @@ def test_pod_job_and_metrics_events_normalize_with_numeric_resource_versions(tmp
         assert pod.node_name == "cce-node-1"
         assert pod.image_id == "sha256:image"
         assert pod.resources_json["containers"][0]["usage"]["memory"] == "1Gi"
+        assert pod.resources_json["heavy_io"] is True
+        assert pod.resources_json["heavy_slot"] == "07"
         assert pod.job_status_json["failed"] == 1
         assert pod.message == "worker failed"
 

@@ -234,6 +234,21 @@ export type WgsTransfer = {
   heartbeat_at?: string | null;
   verification_status?: string | null;
   message?: string | null;
+  error_message?: string | null;
+};
+
+export type WgsTransferFile = {
+  file_key: string;
+  display_name: string;
+  status: string;
+  bytes_total: number;
+  bytes_transferred: number;
+  progress_percent: number;
+  speed_bps: number;
+  checksum_status?: string | null;
+  error_message?: string | null;
+  started_at?: string | null;
+  ended_at?: string | null;
 };
 
 export type Sample = {
@@ -500,6 +515,25 @@ export type RunProgressResponse = {
     total_units?: number | null;
     unit?: string | null;
   }>;
+};
+
+export type RunWorkspaceResponse = {
+  run: RunDetail;
+  summary: {
+    sample_count: number;
+    rule_count: number;
+    failed_rule_count: number;
+  };
+  progress: RunProgressResponse;
+  active_transfer?: WgsTransfer | null;
+  validation_issues?: WgsValidationIssue[];
+  slot_usage: {
+    pool: string;
+    limit: number;
+    used: number;
+    waiting: number;
+    mode: "monitor-only" | "enforce" | string;
+  };
 };
 
 export type QcMetric = {
@@ -1356,6 +1390,10 @@ export function getRunDetail(analysisId: string): Promise<RunDetail> {
   return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}`);
 }
 
+export function getRunWorkspace(analysisId: string): Promise<RunWorkspaceResponse> {
+  return requestJson<RunWorkspaceResponse>(`/runs/${encodeURIComponent(analysisId)}/workspace`);
+}
+
 export function getRunSamples(analysisId: string): Promise<{items: Sample[]; manifest?: WgsSampleManifestRow[]}> {
   return requestJson<{items: Sample[]; manifest?: WgsSampleManifestRow[]}>(`/runs/${encodeURIComponent(analysisId)}/samples`);
 }
@@ -1364,8 +1402,16 @@ export function getRunFamilies(analysisId: string): Promise<{items: WgsFamily[]}
   return requestJson<{items: WgsFamily[]}>(`/runs/${encodeURIComponent(analysisId)}/families`);
 }
 
-export function getRunRules(analysisId: string): Promise<{items: RuleEvent[]}> {
-  return requestJson<{items: RuleEvent[]}>(`/runs/${encodeURIComponent(analysisId)}/rules`);
+export function getRunRules(analysisId: string, options: {limit?: number; offset?: number; status?: string; rule?: string; sampleId?: string; familyId?: string; phase?: string} = {}): Promise<{items: RuleEvent[]; total: number; limit: number; offset: number}> {
+  const params = new URLSearchParams();
+  params.set("limit", String(options.limit ?? 50));
+  params.set("offset", String(options.offset ?? 0));
+  if (options.status) params.set("status", options.status);
+  if (options.rule) params.set("rule", options.rule);
+  if (options.sampleId) params.set("sample_id", options.sampleId);
+  if (options.familyId) params.set("family_id", options.familyId);
+  if (options.phase) params.set("phase", options.phase);
+  return requestJson<{items: RuleEvent[]; total: number; limit: number; offset: number}>(`/runs/${encodeURIComponent(analysisId)}/rules?${params.toString()}`);
 }
 
 export function getRunPods(analysisId: string): Promise<{items: WgsPod[]}> {
@@ -1374,6 +1420,15 @@ export function getRunPods(analysisId: string): Promise<{items: WgsPod[]}> {
 
 export function getRunTransfers(analysisId: string): Promise<{items: WgsTransfer[]}> {
   return requestJson<{items: WgsTransfer[]}>(`/runs/${encodeURIComponent(analysisId)}/transfers`);
+}
+
+export function getTransferFiles(transferId: string, options: {status?: string; limit?: number; offset?: number} = {}): Promise<{items: WgsTransferFile[]; total: number; limit: number; offset: number}> {
+  const params = new URLSearchParams({
+    limit: String(options.limit ?? 50),
+    offset: String(options.offset ?? 0),
+  });
+  if (options.status) params.set("status", options.status);
+  return requestJson<{items: WgsTransferFile[]; total: number; limit: number; offset: number}>(`/transfers/${encodeURIComponent(transferId)}/files?${params.toString()}`);
 }
 
 export function getRunValidationIssues(analysisId: string): Promise<{items: WgsValidationIssue[]}> {

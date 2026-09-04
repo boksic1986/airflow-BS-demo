@@ -146,6 +146,8 @@ def _repair_block_reason(
     execution_enabled: bool,
     runtime_adapter_enabled: bool,
 ) -> str | None:
+    if int((run.params_json or {}).get("orchestration_contract_version") or 1) >= 2:
+        return "contract_v2_uses_stage_generation_retry"
     if not execution_enabled or not runtime_adapter_enabled:
         return "runtime_unavailable"
     if run.attempt < 1:

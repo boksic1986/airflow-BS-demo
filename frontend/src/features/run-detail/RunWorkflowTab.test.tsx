@@ -60,7 +60,7 @@ describe("RunWorkflowTab", () => {
     expect(within(graph).getByText("Uploading FASTQ")).toBeInTheDocument();
     expect(within(graph).getByText("WGS workflow running")).toBeInTheDocument();
     expect(within(graph).getByText("Downloading WGS results")).toBeInTheDocument();
-    expect(within(graph).getByText("1.0 GB / 2.0 GB")).toBeInTheDocument();
+    expect(within(graph).getByText("1.0 GiB / 2.0 GiB")).toBeInTheDocument();
     expect(screen.queryByText("wait_step3_analysis")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Selected Airflow execution path")).not.toBeInTheDocument();
   });

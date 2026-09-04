@@ -10,3 +10,8 @@ def test_sfs_collector_launcher_is_bounded_and_deduplicated() -> None:
     assert "--interval-seconds 60" in source
     assert "sfs-cloud-eye.error.log" in source
     assert "sfs_api.credentials" not in source
+    assert "SFS_CLOUD_EYE_CREDENTIALS:?" in source
+    assert "HWC_PROJECT_ID:?" in source
+    assert "SFS_CLOUD_EYE_RESOURCE_ID:?" in source
+    assert "credentials must use mode 600" in source
+    assert "10485760" in source

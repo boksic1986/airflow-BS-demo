@@ -1,5 +1,48 @@
 # 11 部署 Runbook
 
+## T194-T200 contract-v2 disabled rollout
+
+This release must first be deployed with `WGS_EXECUTION_ENABLED=false`,
+`WGS_RUNTIME_ADAPTER_ENABLED=false`, `WGS_AUTO_DISPATCH_ENABLED=false`, and the
+`bio_wgs` DAG paused. Use an evidence directory under
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence`; never use `/tmp`.
+
+1. Verify there are no active WGS runs, record the existing DAG pause state,
+   and create mode-0600 Airflow/biodemo dumps plus JSON inventories.
+2. Build/test the candidate source. Run migration `20260904_0014` first on an
+   empty test database and then against the backed-up deployment.
+3. Confirm the frozen CCE profile uses service account
+   `cce-pipeline-master-v1`. If it differs, edit only the RoleBinding subject.
+   Apply `config/wgs-heavy-slot-rbac.yaml` and verify Lease CRUD in
+   `snakemake-ns` before enabling enforcement.
+4. Build and install the vendored Kubernetes executor wheel and the offline OBS
+   SDK runtime. Operator config for new runs must use `heavy_io.limit: 25`,
+   `heavy_io.mode: enforce`, and `obs.transfer_adapter: sdk`. Credentials remain
+   outside release/image archives.
+5. Recreate application services only after tests. Do not recreate PostgreSQL,
+   Redis, the external network, active workers, or CCE jobs.
+6. Validate `/api/runs/<id>/workspace`, Rules pagination, transfer-file
+   pagination, and terminal progress without Airflow calls.
+
+For node metrics, create a separate host directory referenced by
+`PLATFORM_METRICS_SSH_HOST_ROOT`. It must contain `metrics_config`, a mode-0600
+restricted key, and pinned `known_hosts`; do not reuse the node200 execution
+key mount. Start `platform-node-probe`, then `platform-metrics-collector` and
+require fresh `.96/.97` rows.
+
+Cloud Eye collection runs on the approved credential host using
+`config/platform_metrics.node200.env.example` and
+`scripts/start_sfs_cloud_eye_collector.sh`. The JSON spool must be visible at
+`PLATFORM_CLOUD_METRICS_SPOOL`. Require `read_bps`, `write_bps`, `total_bps`,
+and `iops` before declaring the resource panel configured. A missing credential
+or inaccessible spool remains a visible deployment blocker; never substitute
+zero values.
+
+Roll back by disabling contract v2 and SDK transfer, pausing `bio_wgs`, and
+repointing the application release. Additive evidence tables may remain. Do not
+delete databases, transfer checkpoints, evidence, results, or Kubernetes
+Leases during rollback.
+
 ## T192 production Docker image cleanup
 
 On `.96`, treat `airflow-wgs` as one production Compose stack, not one Docker

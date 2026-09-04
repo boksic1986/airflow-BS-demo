@@ -1,5 +1,17 @@
 # 12 测试和验收设计
 
+## T194-T200 acceptance gate
+
+Before runtime enablement require: migration upgrade on an empty test DB and a
+backup copy of production biodemo; exact-generation retry tests; stale-event
+rejection; frozen Step1/Step5 manifests; per-file callback progress; Lease
+conflict/heartbeat/reclaim tests; DAG pool assertions; Run Detail lazy-load
+tests; terminal progress without Airflow REST; and resource stale-state tests.
+
+Runtime acceptance remains disabled until the CCE service account has Lease
+RBAC and a controlled batch proves a maximum of 25 simultaneous heavy Worker
+Pods. Cloud Eye values are compared in GiB/s but do not tune the quota.
+
 ## T145 acceptance
 
 覆盖 1830 行无关联清理、关联保护整体回滚、首次基线零明细、历史

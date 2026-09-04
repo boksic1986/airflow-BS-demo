@@ -1,5 +1,18 @@
 # 02 工程规范
 
+## T194-T200 WGS Step1-6 contract v2
+
+The current candidate keeps one `bio_wgs` project DAG while moving mutable
+runtime truth to Kubernetes, Snakemake logger events, and terminal receipts.
+Airflow calls only the restricted node200 gate; node200 does not connect to
+biodemo. The complete architecture, 25-Worker-Pod quota, transfer callbacks,
+read models, and rollout gates are defined in
+[`30_WGS_STEP1_6_CONTRACT_V2.md`](30_WGS_STEP1_6_CONTRACT_V2.md).
+
+`wgs_cce_runs` limits only the short Step2 Master handoff. The long Step3
+sensor uses `default_pool`; high-I/O concurrency is enforced by 25 Kubernetes
+Lease objects, one per running heavy Worker Pod.
+
 ## T153-T158生产控制面组件
 
 `wgs-run-observer`只处理激活的Step3；`wgs-intake-scanner`保持600秒稀疏扫描；

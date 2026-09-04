@@ -20,6 +20,7 @@ from app.models import (
     RunStageState,
     Sample,
     TransferJob,
+    TransferFileState,
     WgsMaintenanceAction,
 )
 from app.wgs_evidence_binding import (
@@ -29,6 +30,11 @@ from app.wgs_evidence_binding import (
 )
 from app.wgs_release_catalog import load_wgs_release_catalog
 from app.wgs_stage_contract import wgs_stage_definition
+from app.wgs_stage_execution_service import (
+    transition_latest_stage_execution,
+    transition_stage_execution,
+    validate_current_stage_execution,
+)
 from app.workflow_phases import phase_for_rule
 
 
@@ -203,6 +209,7 @@ def ingest_observer_attempt_once(
     evidence_root: Path,
     analysis_id: str,
     attempt: int,
+    transfer_spool_root: Path | None = None,
 ) -> dict[str, int | str]:
     """Consume evidence for one explicitly activated WGS attempt only."""
 
@@ -270,6 +277,21 @@ def ingest_observer_attempt_once(
             binding_errors += 1
             result["errors"] = int(result["errors"]) + 1
             _record_file_error(session_factory, root, binding, path, str(error))
+
+    if transfer_spool_root is not None:
+        transfer_root = transfer_spool_root.resolve()
+        attempt_root = (
+            transfer_root / analysis_id / f"attempt-{attempt}"
+        ).resolve()
+        if transfer_root not in attempt_root.parents:
+            raise ValueError("transfer spool attempt path escapes configured root")
+        for path in sorted(attempt_root.glob("*/progress.json")):
+            result["files"] = int(result["files"]) + 1
+            try:
+                if _ingest_transfer_progress(session_factory, transfer_root, path):
+                    result["events_ingested"] = int(result["events_ingested"]) + 1
+            except (OSError, UnicodeError, ValueError, TypeError, json.JSONDecodeError):
+                result["errors"] = int(result["errors"]) + 1
 
     _enrich_from_registered_analysis_log(
         session_factory=session_factory,
@@ -444,18 +466,14 @@ def sync_runtime_stage_artifacts(
     if stage in {"step1_upload", "step5_download"}:
         kind = "input" if stage == "step1_upload" else "result"
         transfer_id = f"{analysis_id}-a{attempt}-{kind}"
-        progress_path = (
-            transfer_spool_root
-            / analysis_id
-            / f"attempt-{attempt}"
-            / transfer_id
-            / "progress.json"
+        candidate_paths = (
+            transfer_spool_root / analysis_id / f"attempt-{attempt}" / stage / "progress.json",
+            transfer_spool_root / analysis_id / f"attempt-{attempt}" / transfer_id / "progress.json",
         )
-        if progress_path.is_file():
+        progress_path = next((path for path in candidate_paths if path.is_file()), None)
+        if progress_path is not None:
             result["files"] += 1
-            if _ingest_transfer_progress(
-                session_factory, transfer_spool_root, progress_path
-            ):
+            if _ingest_transfer_progress(session_factory, transfer_spool_root, progress_path):
                 result["events_ingested"] += 1
     return result
 
@@ -471,6 +489,11 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
     attempt = int(payload.get("attempt") or 0)
     stage = str(payload.get("stage") or "")
     status = str(payload.get("status") or "")
+    terminal_receipt_hash = (
+        hashlib.sha256(resolved.read_bytes()).hexdigest()
+        if status in {"success", "complete", "succeeded", "failed", "canceled", "cancelled"}
+        else None
+    )
     retry_no = payload.get("retry_no", 0)
     if type(retry_no) is not int or retry_no < 0:
         raise ValueError("runtime stage retry_no must be a nonnegative integer")
@@ -493,6 +516,35 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
         )
         if analysis is None or analysis.attempt != attempt:
             raise ValueError("runtime stage status references an unknown active attempt")
+        contract_v2 = int((analysis.params_json or {}).get("orchestration_contract_version") or 1) == 2
+        if contract_v2:
+            execution = _current_execution_from_payload(
+                session=session,
+                analysis_id=analysis_id,
+                attempt=attempt,
+                stage_code=stage,
+                payload=payload,
+            )
+            if execution is None:
+                return False
+            if not transition_stage_execution(
+                session=session,
+                execution_id=execution.execution_id,
+                generation=execution.generation,
+                status={
+                    "complete": "success",
+                    "completed": "success",
+                    "succeeded": "success",
+                    "cancelled": "canceled",
+                }.get(status, status),
+                observed_at=heartbeat,
+                receipt_hash=terminal_receipt_hash,
+                evidence_type="wgs-runtime.stage-status.v1",
+                evidence_key=str(resolved.relative_to(request_root)),
+                terminal_payload={"retry_no": retry_no},
+                message=str(payload.get("message") or "") or None,
+            ):
+                return False
         if stage == "step4_publish":
             if status not in {"accepted", "running", "success", "failed"}:
                 raise ValueError("Step4 publish status is invalid")
@@ -521,6 +573,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 updated_at=heartbeat,
                 message=str(payload.get("message") or "") or None,
                 evidence_key=str(resolved.relative_to(request_root)),
+                receipt_hash=terminal_receipt_hash,
                 allow_terminal_retry=retry_no > 0,
             )
         elif stage == "step4_repair_cram":
@@ -568,6 +621,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 updated_at=heartbeat,
                 message=action.error_message,
                 evidence_key=action.evidence_path,
+                receipt_hash=terminal_receipt_hash,
             )
         elif stage in {"step1_upload", "step5_download"}:
             kind = "input" if stage == "step1_upload" else "result"
@@ -659,6 +713,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 eta_seconds=row.eta_seconds if has_exact_progress else None,
                 message=row.message,
                 evidence_key=str(resolved.relative_to(request_root)),
+                receipt_hash=terminal_receipt_hash,
                 progress_source=progress_source,
                 allow_terminal_retry=retry_no > 0,
             )
@@ -697,6 +752,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 updated_at=heartbeat,
                 message=str(payload.get("message") or "") or None,
                 evidence_key=str(resolved.relative_to(request_root)),
+                receipt_hash=terminal_receipt_hash,
             )
         else:
             monitoring_health = str(payload.get("monitoring_health") or "healthy")
@@ -725,6 +781,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                         updated_at=heartbeat,
                         message=str(payload.get("message") or "") or None,
                         evidence_key=str(resolved.relative_to(request_root)),
+                        receipt_hash=terminal_receipt_hash,
                     )
                     if monitoring_health == "degraded":
                         session.commit()
@@ -835,6 +892,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 current_item=str(master.get("current_rule") or "") or None,
                 message=str(master.get("message") or payload.get("message") or "") or None,
                 evidence_key=str(resolved.relative_to(request_root)),
+                receipt_hash=terminal_receipt_hash,
                 progress_source="cce-pipeline.step3-status.v2",
             )
         session.commit()
@@ -871,6 +929,15 @@ def _ingest_transfer_progress(session_factory, spool_root: Path, path: Path) -> 
         analysis = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == str(payload["analysis_id"])))
         if analysis is None or analysis.attempt != int(payload["attempt"]):
             raise ValueError("transfer progress references an unknown active attempt")
+        if int((analysis.params_json or {}).get("orchestration_contract_version") or 1) == 2:
+            if _current_execution_from_payload(
+                session=session,
+                analysis_id=analysis.analysis_id,
+                attempt=analysis.attempt,
+                stage_code=("step1_upload" if str(payload.get("direction")) == "upload" else "step5_download"),
+                payload=payload,
+            ) is None:
+                return False
         row = session.scalar(select(TransferJob).where(TransferJob.transfer_id == str(payload["transfer_id"])))
         if row is not None and row.heartbeat_at is not None:
             previous = row.heartbeat_at if row.heartbeat_at.tzinfo else row.heartbeat_at.replace(tzinfo=timezone.utc)
@@ -901,6 +968,12 @@ def _ingest_transfer_progress(session_factory, spool_root: Path, path: Path) -> 
         row.message = str(payload.get("message") or "") or None
         row.error_message = str(payload.get("error_message") or "") or None
         row.updated_at = datetime.now(timezone.utc)
+        _upsert_transfer_file_states(
+            session=session,
+            transfer=row,
+            files=payload.get("files") if isinstance(payload.get("files"), list) else [],
+            heartbeat=heartbeat,
+        )
         stage_code = (
             "step1_upload"
             if str(payload.get("direction")) == "upload"
@@ -949,6 +1022,7 @@ def upsert_stage_state(
     evidence_key: str | None = None,
     progress_source: str = "wgs-runtime.stage-status.v1",
     allow_terminal_retry: bool = False,
+    receipt_hash: str | None = None,
 ) -> RunStageState:
     definition = wgs_stage_definition(stage_code)
     row = session.scalar(
@@ -1009,6 +1083,32 @@ def upsert_stage_state(
     if stage_status in {"success", "complete", "succeeded", "failed"}:
         row.ended_at = updated_at
     row.updated_at = updated_at
+    normalized_execution_status = {
+        "complete": "success",
+        "completed": "success",
+        "succeeded": "success",
+        "cancelled": "canceled",
+        "terminated": "canceled",
+    }.get(str(stage_status).lower(), str(stage_status).lower())
+    if normalized_execution_status in {"accepted", "running", "failed", "canceled"} or receipt_hash:
+        transition_latest_stage_execution(
+            session=session,
+            analysis_id=analysis_id,
+            attempt=attempt,
+            stage_code=stage_code,
+            status=normalized_execution_status,
+            observed_at=updated_at,
+            receipt_hash=receipt_hash,
+            evidence_type=progress_source,
+            evidence_key=evidence_key,
+            terminal_payload={
+                "progress_percent": progress_percent,
+                "completed_units": completed_units,
+                "total_units": total_units,
+                "unit": unit,
+            },
+            message=message,
+        )
     return row
 
 
@@ -1035,6 +1135,7 @@ def _normalize_transfer_progress(payload: dict) -> dict:
     schema = payload.get("schema_version")
     if schema not in {
         "wgs-runtime.transfer-progress.v1",
+        "wgs-runtime.transfer-progress.v2",
         "cce-pipeline.transfer-progress.v1",  # legacy read compatibility
     }:
         raise ValueError("unsupported transfer progress schema")
@@ -1068,6 +1169,49 @@ def _normalize_transfer_progress(payload: dict) -> dict:
     return normalized
 
 
+def _upsert_transfer_file_states(*, session, transfer: TransferJob, files: list[dict], heartbeat: datetime) -> None:
+    if not files:
+        return
+    aggregate_total = 0
+    aggregate_done = 0
+    for item in files:
+        file_key = str(item.get("file_key") or "")
+        display_name = Path(str(item.get("display_name") or "")).name
+        if not re.fullmatch(r"[0-9a-f]{64}", file_key) or not display_name:
+            raise ValueError("transfer file event contains an invalid public identity")
+        total = _strict_nonnegative_int(item.get("bytes_total"), "file.bytes_total")
+        done = _strict_nonnegative_int(item.get("bytes_done"), "file.bytes_done")
+        if done > total:
+            raise ValueError("transfer file progress exceeds its frozen total")
+        row = session.scalar(select(TransferFileState).where(TransferFileState.transfer_id == transfer.transfer_id, TransferFileState.file_key == file_key))
+        if row is None:
+            row = TransferFileState(transfer_id=str(transfer.transfer_id), analysis_id=transfer.analysis_id, attempt=transfer.attempt, file_key=file_key, display_name=display_name, bytes_total=total, status="accepted")
+            session.add(row)
+        elif row.bytes_total != total or row.display_name != display_name:
+            raise ValueError("transfer file identity differs from frozen manifest")
+        if done < row.bytes_transferred:
+            continue
+        status = str(item.get("status") or "accepted").lower()
+        if status not in {"accepted", "running", "success", "failed", "canceled"}:
+            raise ValueError("transfer file status is invalid")
+        if row.status in {"success", "failed", "canceled"} and status != row.status:
+            continue
+        row.status = status
+        row.bytes_transferred = done
+        row.speed_bps = _strict_nonnegative_int(item.get("speed_bps", 0), "file.speed_bps")
+        row.checksum_status = str(item.get("checksum_status") or "") or None
+        row.error_message = str(item.get("error_message") or "")[-2000:] or None
+        if status == "running" and row.started_at is None:
+            row.started_at = heartbeat
+        if status in {"success", "failed", "canceled"}:
+            row.ended_at = heartbeat
+        row.updated_at = heartbeat
+        aggregate_total += total
+        aggregate_done += done
+    if aggregate_total != transfer.bytes_total or aggregate_done != transfer.bytes_transferred:
+        raise ValueError("transfer file totals do not match frozen aggregate progress")
+
+
 def _canonical_terminal_status(value: str | None) -> str | None:
     normalized = str(value or "").lower()
     if normalized in {"success", "complete", "succeeded"}:
@@ -1075,6 +1219,24 @@ def _canonical_terminal_status(value: str | None) -> str | None:
     if normalized == "failed":
         return "failed"
     return None
+
+
+def _current_execution_from_payload(*, session, analysis_id: str, attempt: int, stage_code: str, payload: dict):
+    if int(payload.get("orchestration_contract_version") or 0) != 2:
+        raise ValueError("contract v2 evidence is missing orchestration identity")
+    try:
+        generation = int(payload.get("generation"))
+    except (TypeError, ValueError) as error:
+        raise ValueError("contract v2 evidence generation is invalid") from error
+    return validate_current_stage_execution(
+        session=session,
+        analysis_id=analysis_id,
+        attempt=attempt,
+        stage_code=stage_code,
+        execution_id=str(payload.get("execution_id") or ""),
+        generation=generation,
+        request_hash=str(payload.get("request_hash") or ""),
+    )
 
 
 def _strict_nonnegative_int(value, field: str) -> int:
@@ -1308,7 +1470,7 @@ def _ingest_kubernetes_file(
                     break
                 try:
                     payload = json.loads(raw.decode("utf-8"))
-                    _validate_kubernetes_event(payload, path.name)
+                    _validate_kubernetes_event(payload, path.name, binding)
                 except (UnicodeError, ValueError, TypeError, json.JSONDecodeError) as error:
                     bad_line = f"invalid JSONL record at line {line_number + 1}: {error}"
                     handle.seek(start)
@@ -1336,13 +1498,18 @@ def _ingest_kubernetes_file(
         return len(payloads), bad_line is not None
 
 
-def _validate_kubernetes_event(payload: object, filename: str) -> None:
+def _validate_kubernetes_event(
+    payload: object, filename: str, binding: EvidenceBinding
+) -> None:
     if not isinstance(payload, dict):
         raise ValueError("event must be a JSON object")
     if not str(payload.get("event_key") or ""):
         raise ValueError("event_key is required")
-    if payload.get("workload_role", "master") != "master":
-        raise ValueError("only Master workload evidence is accepted")
+    role = str(payload.get("workload_role") or "master")
+    if role not in {"master", "work"}:
+        raise ValueError("workload_role must be master or work")
+    if role == "work" and str(payload.get("run_label") or "") != binding.run_label:
+        raise ValueError("work workload run_label does not match evidence binding")
     _iso_time(payload.get("observed_at_utc"))
     if filename in {"pod-events.jsonl", "pod-metrics.jsonl"} and not str(
         payload.get("pod_hash") or ""
@@ -1401,6 +1568,14 @@ def _apply_pod_event(
     row.image_id = str(container_status.get("imageID") or payload.get("image_id") or row.image_id or "") or None
     if isinstance(container.get("resources"), dict) and container["resources"]:
         row.resources_json = container["resources"]
+    labels = payload.get("workload_labels") if isinstance(payload.get("workload_labels"), dict) else {}
+    if str(payload.get("workload_role") or "master") == "work":
+        row.resources_json = {
+            **dict(row.resources_json or {}),
+            "workload_role": "work",
+            "heavy_io": labels.get("wgs.biosan.cn/heavy-io") == "true",
+            "heavy_slot": labels.get("wgs.biosan.cn/heavy-slot"),
+        }
     row.evidence_path = relative_path
     row.updated_at = datetime.now(timezone.utc)
 
@@ -1414,7 +1589,10 @@ def _apply_pod_metrics(session, binding: EvidenceBinding, payload: dict) -> None
         )
     )
     if row is not None and isinstance(payload.get("metrics"), dict):
-        row.resources_json = payload["metrics"]
+        row.resources_json = {
+            **dict(row.resources_json or {}),
+            **payload["metrics"],
+        }
         row.updated_at = datetime.now(timezone.utc)
 
 

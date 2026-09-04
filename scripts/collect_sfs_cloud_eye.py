@@ -16,6 +16,7 @@ METRICS = (
     "used_capacity",
     "data_read_io_bytes",
     "data_write_io_bytes",
+    "total_io_bytes",
     "iops",
     "client_connections",
 )
@@ -100,6 +101,7 @@ def build_spool(*, source_updated_at: str, values: dict[str, float]) -> dict[str
         "capacity_used_bytes": values.get("used_capacity"),
         "read_bps": values.get("data_read_io_bytes"),
         "write_bps": values.get("data_write_io_bytes"),
+        "total_bps": values.get("total_io_bytes"),
         "iops": values.get("iops"),
         "client_connections": values.get("client_connections"),
     }
@@ -133,6 +135,17 @@ def write_spool(path: Path, payload: dict[str, Any]) -> None:
 
 
 def collect_once(args: argparse.Namespace) -> None:
+    required = {
+        "credentials": args.credentials,
+        "project_id": args.project_id,
+        "resource_id": args.resource_id,
+        "output": args.output,
+    }
+    missing = [name for name, value in required.items() if not str(value or "").strip()]
+    if missing:
+        raise ValueError(
+            "SFS Cloud Eye configuration is incomplete: " + ", ".join(missing)
+        )
     ak, sk = read_credentials(Path(args.credentials))
     observed_at, values = query_metrics(
         ak=ak,
@@ -146,11 +159,11 @@ def collect_once(args: argparse.Namespace) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Write an SFS-only Cloud Eye metrics spool")
-    parser.add_argument("--credentials", default="/home/hanjj/sfs_api.credentials")
-    parser.add_argument("--project-id", default=os.getenv("HWC_PROJECT_ID", "499af743d3b44edca53ac9fa70c3a98a"))
-    parser.add_argument("--endpoint", default="ces.cn-east-3.myhuaweicloud.com")
-    parser.add_argument("--resource-id", default="37cacd44-60ad-41ef-9df2-f93b3dca7095")
-    parser.add_argument("--output", default="/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/platform-metrics/cloud.json")
+    parser.add_argument("--credentials", default=os.getenv("SFS_CLOUD_EYE_CREDENTIALS"))
+    parser.add_argument("--project-id", default=os.getenv("HWC_PROJECT_ID"))
+    parser.add_argument("--endpoint", default=os.getenv("SFS_CLOUD_EYE_ENDPOINT", "ces.cn-east-3.myhuaweicloud.com"))
+    parser.add_argument("--resource-id", default=os.getenv("SFS_CLOUD_EYE_RESOURCE_ID"))
+    parser.add_argument("--output", default=os.getenv("PLATFORM_CLOUD_METRICS_SPOOL"))
     parser.add_argument("--interval-seconds", type=int, default=60)
     parser.add_argument("--once", action="store_true")
     return parser.parse_args()

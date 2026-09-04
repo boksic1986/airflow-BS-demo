@@ -28,6 +28,7 @@ def test_build_spool_projects_only_safe_sfs_metrics() -> None:
             "used_capacity": 123.0,
             "data_read_io_bytes": 1024.0,
             "data_write_io_bytes": 2048.0,
+            "total_io_bytes": 3072.0,
             "iops": 12.0,
             "client_connections": 7.0,
         },
@@ -43,6 +44,7 @@ def test_build_spool_projects_only_safe_sfs_metrics() -> None:
         "capacity_used_bytes": 123.0,
         "read_bps": 1024.0,
         "write_bps": 2048.0,
+        "total_bps": 3072.0,
         "iops": 12.0,
         "client_connections": 7.0,
     }
@@ -80,3 +82,23 @@ def test_periodic_collector_retries_transient_cloud_eye_failure(monkeypatch) -> 
     with pytest.raises(SystemExit):
         collector.main()
     assert attempts == 2
+
+
+def test_cloud_eye_runtime_configuration_fails_closed() -> None:
+    collector = load_collector()
+    args = SimpleNamespace(
+        credentials=None,
+        project_id=None,
+        endpoint="ces.example.invalid",
+        resource_id=None,
+        output=None,
+    )
+    with pytest.raises(ValueError, match="configuration is incomplete"):
+        collector.collect_once(args)
+
+
+def test_collector_source_has_no_operator_or_resource_specific_defaults() -> None:
+    source = (ROOT / "collect_sfs_cloud_eye.py").read_text(encoding="utf-8")
+    assert "/home/hanjj" not in source
+    assert "499af743d3b44edca53ac9fa70c3a98a" not in source
+    assert "37cacd44-60ad-41ef-9df2-f93b3dca7095" not in source

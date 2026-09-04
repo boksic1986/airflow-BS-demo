@@ -28,6 +28,7 @@ def test_pod_snapshot_maps_to_observer_event_without_patient_name() -> None:
     assert event["container_status"]["state"]["terminated"]["reason"] == "OOMKilled"
     assert event["resource_version"] == "42"
     assert event["workload_role"] == "master"
+    assert event["run_label"] == ""
 
 
 def test_job_snapshot_maps_to_observer_event() -> None:
@@ -40,31 +41,73 @@ def test_job_snapshot_maps_to_observer_event() -> None:
         "job": "job-1",
         "resource_version": "17",
         "workload_role": "master",
+        "run_label": "",
+        "workload_labels": {},
         "status": {"failed": 1},
     }
 
 
-def test_snapshot_projection_keeps_only_the_batch_master(tmp_path: Path) -> None:
+def test_snapshot_projection_keeps_master_and_run_bound_workloads(tmp_path: Path) -> None:
     module = load_module()
     discovery = tmp_path / "discovery"
     output = tmp_path / "output"
     (discovery / "pods").mkdir(parents=True)
     (discovery / "jobs").mkdir()
     master_metadata = {"resourceVersion": "1", "labels": {"job-name": "wgs-master-a1"}}
-    worker_metadata = {"resourceVersion": "1", "labels": {"job-name": "mapping-7"}}
+    worker_metadata = {"resourceVersion": "1", "labels": {"job-name": "mapping-7", "wgs.biosan.cn/run-id": "cce-run-0123456789abcdef", "wgs.biosan.cn/heavy-io": "true"}}
     (discovery / "pods" / "master.json").write_text(json.dumps({"metadata": {"name": "master-pod", **master_metadata}, "status": {"phase": "Running"}}), encoding="utf-8")
     (discovery / "pods" / "worker.json").write_text(json.dumps({"metadata": {"name": "worker-pod", **worker_metadata}, "status": {"phase": "Running"}}), encoding="utf-8")
     (discovery / "jobs" / "master.json").write_text(json.dumps({"metadata": {"name": "wgs-master-a1", "resourceVersion": "1"}}), encoding="utf-8")
-    (discovery / "jobs" / "worker.json").write_text(json.dumps({"metadata": {"name": "mapping-7", "resourceVersion": "1"}}), encoding="utf-8")
+    (discovery / "jobs" / "worker.json").write_text(json.dumps({"metadata": {"name": "mapping-7", "resourceVersion": "1", "labels": {"wgs.biosan.cn/run-id": "cce-run-0123456789abcdef", "wgs.biosan.cn/heavy-io": "true"}}}), encoding="utf-8")
 
-    module._project_snapshots(discovery, output, set(), master_job="wgs-master-a1")
+    module._project_snapshots(discovery, output, set(), master_job="wgs-master-a1", run_label="cce-run-0123456789abcdef")
 
-    pods = (output / "pod-events.jsonl").read_text(encoding="utf-8")
-    jobs = (output / "job-events.jsonl").read_text(encoding="utf-8")
+    pods = (output / "raw" / "pod-events.jsonl").read_text(encoding="utf-8")
+    jobs = (output / "raw" / "job-events.jsonl").read_text(encoding="utf-8")
     assert "master-pod" not in pods
     assert "worker-pod" not in pods
     assert "wgs-master-a1" in pods
-    assert "mapping-7" not in pods + jobs
+    assert "mapping-7" in pods + jobs
+    assert '"workload_role":"work"' in pods + jobs
+    assert '"wgs.biosan.cn/heavy-io":"true"' in pods + jobs
+
+
+def test_live_workload_sync_uses_run_label_and_resource_version_cursor(tmp_path: Path, monkeypatch) -> None:
+    module = load_module()
+    manifest = tmp_path / "master.yaml"
+    manifest.write_text(
+        "metadata:\n  labels:\n    wgs.biosan.cn/run-id: cce-run-0123456789abcdef\n",
+        encoding="utf-8",
+    )
+    seen_commands = []
+
+    def fake_run(command, *, input_text=None):
+        seen_commands.append(command)
+        kind = command[command.index("get") + 1]
+        name = "master-pod" if kind == "pods" else "wgs-master-one"
+        metadata = {
+            "name": name,
+            "resourceVersion": "7",
+            "labels": {
+                "job-name": "wgs-master-one",
+                "wgs.biosan.cn/run-id": "cce-run-0123456789abcdef",
+            },
+        }
+        return {"items": [{"metadata": metadata, "status": {"phase": "Running"}}]}
+
+    monkeypatch.setattr(module, "_run_json", fake_run)
+    args = {
+        "config": {"kubernetes": {"kubectl_bin": "kubectl", "kubeconfig": "/safe/config"}},
+        "namespace": "snakemake-ns",
+        "master_job": "wgs-master-one",
+        "master_manifest": manifest,
+        "output": tmp_path / "out",
+    }
+    assert module._sync_workload_snapshots(**args) == 2
+    assert module._sync_workload_snapshots(**args) == 0
+    assert (tmp_path / "out" / "raw" / "pod-events.jsonl").is_file()
+    assert (tmp_path / "out" / "raw" / "job-events.jsonl").is_file()
+    assert all("wgs.biosan.cn/run-id=cce-run-0123456789abcdef" in command for command in seen_commands)
 
 
 def test_rule_chunks_append_complete_lines_per_stream_and_resume(tmp_path: Path) -> None:
@@ -147,6 +190,40 @@ def test_analysis_log_source_is_bound_to_the_same_run_evidence_directory() -> No
     assert source == (
         "/workspace/wgs/runs/WGS_Clinical/WGS_batch/evidence/run-a1/analysis.log"
     )
+
+
+def test_heavy_slot_snapshot_is_bound_to_same_run_and_validated(tmp_path: Path) -> None:
+    module = load_module()
+    source = module.heavy_slot_source_for_rule_directory(
+        "/workspace/wgs/runs/WGS_Clinical/WGS_batch/evidence/run-a1/rule-status/raw"
+    )
+    value = {
+        "schema_version": "wgs-heavy-slot-status.v1",
+        "run_label": "cce-run-0123456789abcdef",
+        "job_name": "snakejob-123",
+        "rule_names": ["pre_process_mapping"],
+        "state": "waiting",
+        "limit": 25,
+        "slot": None,
+        "updated_at": "2026-09-04T12:00:00+00:00",
+    }
+
+    applied = module._apply_heavy_slot_snapshot(
+        tmp_path,
+        {
+            "source_offset": 0,
+            "next_offset": 1,
+            "data_base64": base64.b64encode(
+                (json.dumps(value) + "\n").encode("utf-8")
+            ).decode("ascii"),
+        },
+    )
+
+    assert source.endswith("/evidence/run-a1/heavy-slot-status.json")
+    assert applied > 0
+    assert json.loads(
+        (tmp_path / "heavy-slot-status.json").read_text(encoding="utf-8")
+    )["state"] == "waiting"
 
 
 def test_reader_job_mounts_only_workspace_pvc_read_only() -> None:

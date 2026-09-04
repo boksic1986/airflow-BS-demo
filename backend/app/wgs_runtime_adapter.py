@@ -59,6 +59,12 @@ def build_stage_request(
     fastq_root: str | None = None,
     use_reference: str | None = None,
     maintenance_action_id: str | None = None,
+    execution_id: str | None = None,
+    generation: int | None = None,
+    request_hash: str | None = None,
+    predecessor_execution_id: str | None = None,
+    predecessor_generation: int | None = None,
+    predecessor_receipt_hash: str | None = None,
 ) -> dict[str, object]:
     if ANALYSIS_ID_RE.fullmatch(analysis_id) is None:
         raise ValueError("invalid WGS analysis_id")
@@ -125,6 +131,20 @@ def build_stage_request(
         payload["maintenance_action_id"] = maintenance_action_id
     elif maintenance_action_id is not None:
         raise ValueError("maintenance_action_id is only valid for Step7 cleanup")
+    if execution_id is not None:
+        if generation is None or generation < 1 or not request_hash:
+            raise ValueError("contract v2 execution metadata is incomplete")
+        payload.update(
+            {
+                "orchestration_contract_version": 2,
+                "execution_id": execution_id,
+                "generation": generation,
+                "request_hash": request_hash,
+                "predecessor_execution_id": predecessor_execution_id,
+                "predecessor_generation": predecessor_generation,
+                "predecessor_receipt_hash": predecessor_receipt_hash,
+            }
+        )
     return payload
 
 

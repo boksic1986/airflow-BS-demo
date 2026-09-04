@@ -1,5 +1,16 @@
 # 08 Snakemake + qsub 接入设计
 
+## T197 WGS Kubernetes high-I/O quota
+
+The WGS Kubernetes executor classifies only the initial evidence-backed heavy
+groups: mapping+dedup and haplotyper+quality-calibration. Before a heavy Job is
+created it acquires one of 25 `wgs-heavy-io-NN` Lease objects. Lease heartbeat
+is 60 seconds; stale reclaim requires ten minutes and absence of the matching
+Job and Pods. A waiting job is not submitted repeatedly.
+
+This limit counts Worker Pods, not CPU cores or DAG runs. Cloud Eye GiB/s data
+is validation/alerting evidence only in this release.
+
 ## T189 Step5 manifest handoff
 
 Step1 still freezes its transfer plan before invoking obsutil because the

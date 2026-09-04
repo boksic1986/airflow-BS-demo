@@ -66,8 +66,9 @@ from app.auth_service import (
 )
 from app.wgs_platform_service import WgsPreparedArtifactPending, action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run, sync_prepared_samples, sync_sampleinfo_preview
 from app.wgs_release_catalog import load_wgs_release_catalog
-from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferJob, UserAccount
+from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferFileState, TransferJob, UserAccount
 from app.wgs_timing_service import enrich_progress, serialize_rule_states
+from app.wgs_workspace_service import build_wgs_workspace
 from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_definitions
 from app.wgs_runtime_adapter import build_stage_request, container_workdir_to_host, write_stage_request
 from app.wgs_observer import sync_runtime_stage_artifacts, upsert_stage_state
@@ -77,6 +78,8 @@ from app.wgs_sample_projection import get_wgs_sample_projection
 from app.wgs_auto_dispatch import dispatch_ready_wgs_intake
 from app.wgs_step4_service import get_step4_repair_capability, request_step4_repair
 from app.wgs_step7_service import authorize_step7_runtime, get_step7_capability, request_step7_cleanup
+from app.wgs_stage_catalog import load_wgs_stage_contract
+from app.wgs_stage_execution_service import register_stage_execution
 from app.wgs_project_catalog import load_wgs_projects, public_project_catalog
 from app.wgs_submission_service import (
     approve_wgs_config,
@@ -89,7 +92,7 @@ from app.wgs_submission_service import (
     submit_draft,
 )
 from app.platform_resources_service import get_platform_resources
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 
 logger = logging.getLogger(__name__)
@@ -313,6 +316,7 @@ class WgsRuntimeStageRequest(BaseModel):
     adapter: str
     command: str | None = None
     maintenance_action_id: str | None = Field(default=None, max_length=128)
+    force_new_generation: bool = False
 
 
 class WgsObserverLifecycleRequest(BaseModel):
@@ -1369,6 +1373,34 @@ def run_samples(analysis_id: str) -> dict[str, object]:
         }
 
 
+@app.get("/api/runs/{analysis_id}/workspace")
+def run_workspace(analysis_id: str) -> dict[str, object]:
+    # Reuse the public run-detail projection while keeping the browser's first
+    # paint to one HTTP resource. All progress in this endpoint is DB-backed.
+    detail = run_detail(analysis_id)
+    with get_sessionmaker()() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(
+                AnalysisRun.analysis_id == analysis_id,
+                AnalysisRun.pipeline_name == "wgs",
+            )
+        )
+        if run is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+            )
+        settings = get_settings()
+        return build_wgs_workspace(
+            session=session,
+            run=run,
+            run_payload=detail,
+            heavy_slot_limit=int(getattr(settings, "wgs_heavy_slot_limit", 25)),
+            heavy_slot_mode=str(getattr(settings, "wgs_heavy_slot_mode", "monitor-only")),
+            evidence_root=str(getattr(settings, "wgs_evidence_root", "") or ""),
+        )
+
+
 @app.get("/api/runs/{analysis_id}/families")
 def run_families(analysis_id: str) -> dict[str, object]:
     with get_sessionmaker()() as session:
@@ -1403,7 +1435,41 @@ def run_pods(analysis_id: str) -> dict[str, object]:
 def run_transfers(analysis_id: str) -> dict[str, object]:
     with get_sessionmaker()() as session:
         items = session.scalars(select(TransferJob).where(TransferJob.analysis_id == analysis_id).order_by(TransferJob.id)).all()
-    return {"items": [{"id": item.id, "transfer_id": item.transfer_id, "attempt": item.attempt, "transfer_type": item.transfer_type, "direction": item.direction, "source": item.source, "destination": item.destination, "status": item.status, "progress_basis": "frozen_plan" if item.manifest_path else "legacy_estimate", "progress_detail_available": item.progress_detail_available, "bytes_total": item.bytes_total if item.progress_detail_available else None, "bytes_transferred": item.bytes_transferred if item.progress_detail_available else None, "files_total": item.files_total if item.progress_detail_available else None, "files_completed": item.files_completed if item.progress_detail_available else None, "current_file": item.current_file if item.progress_detail_available else None, "progress_percent": item.progress_percent if item.progress_detail_available else None, "speed_bps": item.speed_bps if item.progress_detail_available else None, "eta_seconds": item.eta_seconds if item.progress_detail_available else None, "estimated_finish_at": item.estimated_finish_at.isoformat() if item.progress_detail_available and item.estimated_finish_at else None, "checkpoint_ref": item.checkpoint_ref, "heartbeat_at": item.heartbeat_at.isoformat() if item.heartbeat_at else None, "verification_status": item.verification_status, "message": item.message, "error_message": item.error_message, "started_at": item.started_at.isoformat() if item.started_at else None, "ended_at": item.ended_at.isoformat() if item.ended_at else None} for item in items]}
+    return {"items": [{"id": item.id, "transfer_id": item.transfer_id, "attempt": item.attempt, "transfer_type": item.transfer_type, "direction": item.direction, "source": "Input FASTQ manifest" if item.direction == "upload" else "Published result manifest", "destination": "Private OBS staging" if item.direction == "upload" else "Run-local result staging", "status": item.status, "progress_basis": "frozen_plan" if item.manifest_path else "legacy_estimate", "progress_detail_available": item.progress_detail_available, "bytes_total": item.bytes_total if item.progress_detail_available else None, "bytes_transferred": item.bytes_transferred if item.progress_detail_available else None, "files_total": item.files_total if item.progress_detail_available else None, "files_completed": item.files_completed if item.progress_detail_available else None, "current_file": item.current_file if item.progress_detail_available else None, "progress_percent": item.progress_percent if item.progress_detail_available else None, "speed_bps": item.speed_bps if item.progress_detail_available else None, "eta_seconds": item.eta_seconds if item.progress_detail_available else None, "estimated_finish_at": item.estimated_finish_at.isoformat() if item.progress_detail_available and item.estimated_finish_at else None, "checkpoint_ref": "recorded" if item.checkpoint_ref else None, "heartbeat_at": item.heartbeat_at.isoformat() if item.heartbeat_at else None, "verification_status": item.verification_status, "message": item.message, "error_message": item.error_message, "started_at": item.started_at.isoformat() if item.started_at else None, "ended_at": item.ended_at.isoformat() if item.ended_at else None} for item in items]}
+
+
+@app.get("/api/transfers/{transfer_id}/files")
+def transfer_files(transfer_id: str, status_filter: str | None = Query(default=None, alias="status"), limit: int = Query(default=50, ge=1, le=500), offset: int = Query(default=0, ge=0)) -> dict[str, object]:
+    with get_sessionmaker()() as session:
+        transfer = session.scalar(select(TransferJob).where(TransferJob.transfer_id == transfer_id))
+        if transfer is None:
+            raise HTTPException(status_code=404, detail={"code": "TRANSFER_NOT_FOUND", "message": "Transfer not found"})
+        query = select(TransferFileState).where(TransferFileState.transfer_id == transfer_id)
+        if status_filter:
+            query = query.where(TransferFileState.status == status_filter)
+        total = session.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
+        rows = session.scalars(query.order_by(TransferFileState.id).limit(limit).offset(offset)).all()
+        return {
+            "items": [
+                {
+                    "file_key": row.file_key,
+                    "display_name": row.display_name,
+                    "status": row.status,
+                    "bytes_total": row.bytes_total,
+                    "bytes_transferred": row.bytes_transferred,
+                    "progress_percent": round(row.bytes_transferred * 100 / row.bytes_total, 2) if row.bytes_total else 0,
+                    "speed_bps": row.speed_bps,
+                    "checksum_status": row.checksum_status,
+                    "error_message": row.error_message,
+                    "started_at": row.started_at.isoformat() if row.started_at else None,
+                    "ended_at": row.ended_at.isoformat() if row.ended_at else None,
+                }
+                for row in rows
+            ],
+            "total": int(total),
+            "limit": limit,
+            "offset": offset,
+        }
 
 
 @app.get("/api/runs/{analysis_id}/rules")
@@ -1414,37 +1480,39 @@ def run_rules(
     sample_id: str | None = None,
     family_id: str | None = None,
     phase: str | None = None,
-    limit: int = Query(default=1000, ge=1, le=2000),
+    limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
     with get_sessionmaker()() as session:
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
         if run is None:
             raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"})
-        states = session.scalars(select(RuleState).where(RuleState.analysis_id == analysis_id)).all()
-        filtered = [
-            row for row in states
-            if (not status_filter or row.status == status_filter)
-            and (not rule or row.rule_name == rule)
-            and (not sample_id or row.sample_id == sample_id)
-            and (not family_id or row.family_id == family_id)
-            and (not phase or phase_for_rule(row.rule_name, pipeline_name="wgs") == phase)
-        ]
-        filtered.sort(
-            key=lambda row: (
-                row.attempt,
-                phase_order(phase_for_rule(row.rule_name, pipeline_name="wgs"), pipeline_name="wgs"),
-                row.sequence if row.sequence is not None else 9_223_372_036_854_775_807,
-                row.sample_id or "",
-                row.rule_name,
-                row.rule_instance_id,
-            )
-        )
-        page = filtered[offset:offset + limit]
+        query = select(RuleState).where(RuleState.analysis_id == analysis_id)
+        if status_filter:
+            query = query.where(RuleState.status == status_filter)
+        if rule:
+            query = query.where(RuleState.rule_name == rule)
+        if sample_id:
+            query = query.where(RuleState.sample_id == sample_id)
+        if family_id:
+            query = query.where(RuleState.family_id == family_id)
+        if phase:
+            query = query.where(RuleState.phase == phase)
+        total = session.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
+        page = list(session.scalars(
+            query.order_by(
+                RuleState.attempt,
+                RuleState.sequence.is_(None),
+                RuleState.sequence,
+                RuleState.sample_id,
+                RuleState.rule_name,
+                RuleState.rule_instance_id,
+            ).limit(limit).offset(offset)
+        ).all())
         return {
             "items": serialize_rule_states(session=session, run=run, rows=page, settings=get_settings()),
             "phases": wgs_phase_definitions(),
-            "total": len(filtered),
+            "total": int(total),
             "limit": limit,
             "offset": offset,
         }
@@ -1599,6 +1667,32 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 analysis_batch=str(params.get("analysis_batch") or "") or None,
                 maintenance_action_id=request.maintenance_action_id,
             )
+            contract_v2 = bool(getattr(settings, "wgs_contract_v2_enabled", False)) and int(
+                params.get("orchestration_contract_version") or 1
+            ) == 2
+            if contract_v2:
+                contract = load_wgs_stage_contract(
+                    Path(settings.wgs_stage_contract_path)
+                )
+                execution = register_stage_execution(
+                    session=session,
+                    run=run,
+                    contract=contract,
+                    stage_code=stage_name,
+                    request_payload=payload,
+                    force_new_generation=request.force_new_generation,
+                )
+                payload.update(
+                    {
+                        "orchestration_contract_version": 2,
+                        "execution_id": execution.execution_id,
+                        "generation": execution.generation,
+                        "request_hash": execution.request_hash,
+                        "predecessor_execution_id": execution.predecessor_execution_id,
+                        "predecessor_generation": execution.predecessor_generation,
+                        "predecessor_receipt_hash": execution.predecessor_receipt_hash,
+                    }
+                )
             path = write_stage_request(
                 settings.wgs_runtime_request_root,
                 payload,
@@ -1628,7 +1722,7 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 partial = binding_path.with_suffix(".json.partial")
                 partial.write_text(json.dumps(binding_payload, sort_keys=True) + "\n", encoding="utf-8")
                 os.replace(partial, binding_path)
-            if stage_name == "step3_monitor" and run.status == "failed":
+            if not contract_v2 and stage_name == "step3_monitor" and run.status == "failed":
                 run.status = "running"
                 run.ended_at = None
                 run.pipeline_finished_at = None
@@ -1641,7 +1735,8 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     payload={"attempt": request.attempt},
                 )
             if (
-                stage_name == "step4_publish"
+                not contract_v2
+                and stage_name == "step4_publish"
                 and run.status == "failed"
                 and _is_known_step4_master_completion_race(
                     request_root=settings.wgs_runtime_request_root,
@@ -1661,7 +1756,8 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     payload={"attempt": request.attempt},
                 )
             if (
-                stage_name == "step5_download"
+                not contract_v2
+                and stage_name == "step5_download"
                 and run.status == "failed"
                 and run.current_stage == "step4_publish"
             ):
@@ -1690,6 +1786,8 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 "stage": stage_name,
                 "status": "registered",
                 "request_path": str(path),
+                "execution_id": execution.execution_id if contract_v2 else None,
+                "generation": execution.generation if contract_v2 else None,
             }
     except (OSError, ValueError, RuntimeError) as exc:
         message = str(exc)

@@ -142,6 +142,13 @@ def analysis_log_source_for_rule_directory(source_dir: str) -> str:
     return str(path.parent.parent / "analysis.log")
 
 
+def heavy_slot_source_for_rule_directory(source_dir: str) -> str:
+    path = Path(source_dir)
+    if not path.is_absolute() or path.name != "raw" or path.parent.name != "rule-status":
+        raise ValueError("Rule source directory does not identify a run evidence directory")
+    return str(path.parent.parent / "heavy-slot-status.json")
+
+
 def _apply_file_chunk(output: Path, cursor_path: Path, chunk: dict) -> int:
     source_offset = int(chunk.get("source_offset", -1))
     current_offset = _read_file_cursor(cursor_path)
@@ -168,7 +175,31 @@ def _apply_file_chunk(output: Path, cursor_path: Path, chunk: dict) -> int:
     return len(data)
 
 
-def pod_event(pod: dict, *, observed_at: str) -> dict:
+def _apply_heavy_slot_snapshot(output: Path, chunk: dict | None) -> int:
+    if chunk is None:
+        return 0
+    try:
+        data = base64.b64decode(str(chunk.get("data_base64") or ""), validate=True)
+    except (ValueError, TypeError) as error:
+        raise ValueError("remote heavy slot snapshot is not valid base64") from error
+    if not data:
+        return 0
+    try:
+        value = json.loads(data.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError("remote heavy slot snapshot is invalid JSON") from error
+    if (
+        not isinstance(value, dict)
+        or value.get("schema_version") != "wgs-heavy-slot-status.v1"
+        or value.get("state") not in {"waiting", "acquired", "idle"}
+        or not isinstance(value.get("limit"), int)
+    ):
+        raise ValueError("remote heavy slot snapshot has an invalid contract")
+    _atomic_json(output / "heavy-slot-status.json", value)
+    return len(data)
+
+
+def pod_event(pod: dict, *, observed_at: str, workload_role: str = "master") -> dict:
     metadata = pod.get("metadata") or {}
     spec = pod.get("spec") or {}
     status = pod.get("status") or {}
@@ -181,7 +212,8 @@ def pod_event(pod: dict, *, observed_at: str) -> dict:
     container_status = statuses[0] if statuses else {}
     return {
         "event_key": f"pod:{pod_hash}:{version}",
-        "workload_role": "master",
+        "workload_role": workload_role,
+        "run_label": str((metadata.get("labels") or {}).get("wgs.biosan.cn/run-id") or ""),
         "observed_at_utc": observed_at,
         "pod_hash": pod_hash,
         "resource_version": version,
@@ -190,25 +222,49 @@ def pod_event(pod: dict, *, observed_at: str) -> dict:
         "node_name": str(spec.get("nodeName") or ""),
         "container": container,
         "container_status": container_status,
+        "workload_labels": _public_workload_labels(metadata.get("labels") or {}),
     }
 
 
-def job_event(job: dict, *, observed_at: str) -> dict:
+def job_event(job: dict, *, observed_at: str, workload_role: str = "master") -> dict:
     metadata = job.get("metadata") or {}
     name = str(metadata.get("name") or "")
     version = str(metadata.get("resourceVersion") or "0")
     return {
         "event_key": f"job:{name}:{version}",
-        "workload_role": "master",
+        "workload_role": workload_role,
+        "run_label": str((metadata.get("labels") or {}).get("wgs.biosan.cn/run-id") or ""),
         "observed_at_utc": observed_at,
         "job": name,
         "resource_version": version,
         "status": job.get("status") or {},
+        "workload_labels": _public_workload_labels(metadata.get("labels") or {}),
+    }
+
+
+def _public_workload_labels(labels: dict) -> dict[str, str]:
+    allowed = {
+        "wgs.biosan.cn/run-id",
+        "wgs.biosan.cn/heavy-io",
+        "wgs.biosan.cn/heavy-slot",
+        "wgs.biosan.cn/heavy-holder",
+        "snakemake-workload-kind",
+        "snakemake-group-id",
+    }
+    return {
+        str(key): str(value)
+        for key, value in labels.items()
+        if key in allowed and value is not None
     }
 
 
 def _project_snapshots(
-    discovery: Path, output: Path, seen: set[str], *, master_job: str
+    discovery: Path,
+    output: Path,
+    seen: set[str],
+    *,
+    master_job: str,
+    run_label: str | None = None,
 ) -> None:
     observed = datetime.now(timezone.utc).isoformat()
     for kind, mapper, target in (
@@ -223,13 +279,96 @@ def _project_snapshots(
                 if kind == "jobs"
                 else str((metadata.get("labels") or {}).get("job-name") or "")
             )
-            if source_job != master_job:
+            labels = metadata.get("labels") or {}
+            is_master = source_job == master_job
+            is_bound_workload = bool(
+                run_label
+                and labels.get("wgs.biosan.cn/run-id") == run_label
+                and source_job != master_job
+            )
+            if not is_master and not is_bound_workload:
                 continue
-            payload = mapper(source, observed_at=observed)
+            payload = mapper(
+                source,
+                observed_at=observed,
+                workload_role="master" if is_master else "work",
+            )
             key = str(payload["event_key"])
             if key not in seen:
-                _atomic_append(output / target, payload)
+                _atomic_append(output / "raw" / target, payload)
                 seen.add(key)
+
+
+def _sync_workload_snapshots(
+    *,
+    config: dict,
+    namespace: str,
+    master_job: str,
+    master_manifest: Path,
+    output: Path,
+) -> int:
+    """Project Master and run-bound work Jobs without exposing pod names."""
+    manifest = yaml.safe_load(master_manifest.read_text(encoding="utf-8"))
+    labels = (manifest.get("metadata") or {}).get("labels") or {}
+    run_label = str(labels.get("wgs.biosan.cn/run-id") or "")
+    if not re.fullmatch(r"cce-run-[0-9a-f]{16}", run_label):
+        raise ValueError("Master manifest is missing its opaque CCE run label")
+    cursor_path = output / ".workload-snapshot-cursor.json"
+    cursor = _read_snapshot_cursor(cursor_path)
+    observed = datetime.now(timezone.utc).isoformat()
+    emitted = 0
+    for kind, mapper, target in (
+        ("pods", pod_event, "pod-events.jsonl"),
+        ("jobs", job_event, "job-events.jsonl"),
+    ):
+        collection = _run_json(
+            _kubectl(
+                config,
+                namespace,
+                "get",
+                kind,
+                "-l",
+                f"wgs.biosan.cn/run-id={run_label}",
+                "-o",
+                "json",
+            )
+        )
+        for item in collection.get("items") or []:
+            metadata = item.get("metadata") or {}
+            name = str(metadata.get("name") or "")
+            version = str(metadata.get("resourceVersion") or "0")
+            if not name or cursor.get(f"{kind}:{name}") == version:
+                continue
+            source_job = (
+                name
+                if kind == "jobs"
+                else str((metadata.get("labels") or {}).get("job-name") or "")
+            )
+            payload = mapper(
+                item,
+                observed_at=observed,
+                workload_role="master" if source_job == master_job else "work",
+            )
+            _atomic_append(output / "raw" / target, payload)
+            cursor[f"{kind}:{name}"] = version
+            emitted += 1
+    _atomic_json(cursor_path, cursor)
+    return emitted
+
+
+def _read_snapshot_cursor(path: Path) -> dict[str, str]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+    if not isinstance(value, dict):
+        return {}
+    return {
+        str(key): str(version)
+        for key, version in value.items()
+        if re.fullmatch(r"(?:pods|jobs):[a-z0-9][a-z0-9.-]{0,252}", str(key))
+        and str(version).isdigit()
+    }
 
 
 def _kubectl(config: dict, namespace: str, *arguments: str) -> list[str]:
@@ -420,7 +559,8 @@ def _final_reader_chunks(
     cursor: dict[str, int],
     analysis_log_source: str | None,
     analysis_log_offset: int,
-) -> tuple[list[dict], dict | None]:
+    heavy_slot_source: str,
+) -> tuple[list[dict], dict | None, dict | None]:
     master = yaml.safe_load(master_manifest.read_text(encoding="utf-8"))
     reader_name = _reader_name(master_job)
     manifest = build_reader_job(master, namespace=namespace, reader_name=reader_name)
@@ -456,7 +596,10 @@ def _final_reader_chunks(
             if analysis_log_source
             else None
         )
-        return rule_chunks, log_chunk
+        heavy_slot_chunk = _fetch_file_chunk(
+            config, namespace, reader[0], heavy_slot_source, 0
+        )
+        return rule_chunks, log_chunk, heavy_slot_chunk
     finally:
         subprocess.run(
             _kubectl(
@@ -486,8 +629,16 @@ def sync_rule_events_once(
     terminal: bool,
 ) -> int:
     config = yaml.safe_load(operator_config.read_text(encoding="utf-8"))
+    applied = _sync_workload_snapshots(
+        config=config,
+        namespace=namespace,
+        master_job=master_job,
+        master_manifest=master_manifest,
+        output=output,
+    )
     if analysis_log_source is not None:
         analysis_log_source = analysis_log_source_for_rule_directory(source_dir)
+    heavy_slot_source = heavy_slot_source_for_rule_directory(source_dir)
     cursor_path = output / ".rule-cursor.json"
     cursor = _read_cursor(cursor_path)
     analysis_cursor_path = output / ".analysis-log-cursor.json"
@@ -495,6 +646,7 @@ def sync_rule_events_once(
     master = _master_pod(config, namespace, master_job)
     chunks: list[dict] = []
     log_chunk: dict | None = None
+    heavy_slot_chunk: dict | None = None
     if master is not None and master[0] and master[1] == "Running":
         chunks = _fetch_rule_chunks(
             config, namespace, master[0], source_dir, cursor
@@ -503,8 +655,11 @@ def sync_rule_events_once(
             log_chunk = _fetch_file_chunk(
                 config, namespace, master[0], analysis_log_source, analysis_offset
             )
+        heavy_slot_chunk = _fetch_file_chunk(
+            config, namespace, master[0], heavy_slot_source, 0
+        )
     elif terminal:
-        chunks, log_chunk = _final_reader_chunks(
+        chunks, log_chunk, heavy_slot_chunk = _final_reader_chunks(
             config,
             namespace,
             master_manifest,
@@ -513,10 +668,12 @@ def sync_rule_events_once(
             cursor,
             analysis_log_source,
             analysis_offset,
+            heavy_slot_source,
         )
-    applied = _apply_rule_chunks(output, cursor_path, chunks)
+    applied += _apply_rule_chunks(output, cursor_path, chunks)
     if log_chunk is not None:
         applied += _apply_file_chunk(output, analysis_cursor_path, log_chunk)
+    applied += _apply_heavy_slot_snapshot(output, heavy_slot_chunk)
     return applied
 
 

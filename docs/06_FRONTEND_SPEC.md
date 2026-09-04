@@ -1,5 +1,19 @@
 # 06 前端设计
 
+## T198/T199 WGS operator workspace
+
+Run Detail first requests only `/workspace`. Samples, Rules, Logs, Files,
+Master Pods, Transfers, and transfer-file pages load on first tab activation
+and remain cached for that route. Active workspace polling is ten seconds,
+single-flight, and suspended while hidden. The browser does not automatically
+POST Airflow Sync.
+
+Current Progress separates project stage, current Snakemake rule/sample,
+active transfer, and heavy-slot use. Transfer files are paged 50 at a time.
+Dashboard node and SFS panels refresh independently every 60 seconds and keep
+last-good values visibly marked stale. SFS bandwidth uses IEC units including
+GiB/s.
+
 ## T188 unified WGS run projection and resource controls
 
 - Overview consumes the backend `manifest` projection and displays only sample

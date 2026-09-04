@@ -89,6 +89,7 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
             "analysis_batch": analysis_batch,
             "fastq_root": fastq_root or canonical_source,
             "use_reference": use_reference,
+            "orchestration_contract_version": 2,
         },
         submitted_by=submitted_by,
     )

@@ -3506,6 +3506,29 @@ textarea {
   height: 9px;
 }
 
+.transfer-files-toggle {
+  margin-top: 0.75rem;
+}
+
+.transfer-files {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+  min-width: 0;
+}
+
+.transfer-files td strong,
+.transfer-files td small {
+  display: block;
+}
+
+.transfer-files .cell-error {
+  color: var(--danger);
+  margin-top: 0.25rem;
+  max-width: 34rem;
+  overflow-wrap: anywhere;
+}
+
 .destructive-panel { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); }
 
 @media (max-width: 900px) {

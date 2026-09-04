@@ -56,6 +56,11 @@ class Settings:
     wgs_intake_scan_interval_seconds: int
     wgs_auto_dispatch_enabled: bool
     wgs_auto_dispatch_not_before: str | None
+    wgs_stage_contract_path: str
+    wgs_contract_v2_enabled: bool
+    wgs_transfer_adapter: str
+    wgs_heavy_slot_limit: int
+    wgs_heavy_slot_mode: str
 
 
 def get_cors_origins() -> list[str]:
@@ -166,6 +171,15 @@ def get_settings() -> Settings:
         wgs_auto_dispatch_not_before=(
             os.getenv("WGS_AUTO_DISPATCH_NOT_BEFORE", "").strip() or None
         ),
+        wgs_stage_contract_path=os.getenv(
+            "WGS_STAGE_CONTRACT_PATH", "/config/wgs_stage_contract.yaml"
+        ),
+        wgs_contract_v2_enabled=_parse_bool(
+            os.getenv("WGS_CONTRACT_V2_ENABLED", "false")
+        ),
+        wgs_transfer_adapter=os.getenv("WGS_TRANSFER_ADAPTER", "obs_sdk").strip() or "obs_sdk",
+        wgs_heavy_slot_limit=_parse_int(os.getenv("WGS_HEAVY_SLOT_LIMIT", "25"), default=25),
+        wgs_heavy_slot_mode=os.getenv("WGS_HEAVY_SLOT_MODE", "monitor-only").strip() or "monitor-only",
     )
 
 

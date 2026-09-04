@@ -107,7 +107,13 @@ it("loads WGS resource tabs for an active run", async () => {
     urls.push(url);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
     if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
-    if (url.includes("/api/runs/WGS_001?") || url.endsWith("/api/runs/WGS_001")) return json({analysis_id: "WGS_001", pipeline: "wgs", status: "running", pipeline_release_id: "wgs-4.1.1-1656b5d", wgs_version: "V4.1.1", wgs_source_commit: "1656b5d7a6e2f24242c38149f6d1c92ac266cd37", resolved_runtime: {cce_pipeline_version: "0.7.1", profile_id: "wgs-4.1.1-r1", master_image_digest: "sha256:abc"}, rule_event_schema_version: "rule-event.v1", observer: {lifecycle_status: "active", monitoring_health: "healthy", activated_at: "2026-08-26T01:00:00Z", last_success_at: "2026-08-26T01:01:05Z", last_error: null, updated_at: "2026-08-26T01:01:05Z"}});
+    if (url.endsWith("/api/runs/WGS_001/workspace")) return json({
+      run: {analysis_id: "WGS_001", pipeline: "wgs", status: "running", pipeline_release_id: "wgs-4.1.1-1656b5d", wgs_version: "V4.1.1", wgs_source_commit: "1656b5d7a6e2f24242c38149f6d1c92ac266cd37", resolved_runtime: {cce_pipeline_version: "0.7.1", profile_id: "wgs-4.1.1-r1", master_image_digest: "sha256:abc"}, rule_event_schema_version: "rule-event.v1", observer: {lifecycle_status: "active", monitoring_health: "healthy", activated_at: "2026-08-26T01:00:00Z", last_success_at: "2026-08-26T01:01:05Z", last_error: null, updated_at: "2026-08-26T01:01:05Z"}},
+      summary: {sample_count: 1, rule_count: 10, failed_rule_count: 0},
+      progress: {analysis_id: "WGS_001", pipeline: "wgs", status: "running", percent: 20, current_step: "mapping", current_rule: "mapping", current_source: "runner", note: "", not_in_airflow: false, progress_source: "kubernetes-api", airflow_tasks: [], rule_events: []},
+      active_transfer: null,
+      slot_usage: {pool: "wgs-heavy-io", limit: 25, used: 0, waiting: 0, mode: "monitor-only"},
+    });
     if (url.includes("/api/runs/WGS_001/samples")) return json({
       manifest: [{sample_id: "S1", data_id: "S1-WGS", sample_type: "blood", family_id: "F1", family_relation: "proband", received_date: "2026-08-20", estimated_report_date: "2026-09-10"}],
       items: [{sample_id: "S1", data_id: "S1-WGS", family_id: "F1", family_relation: "proband", current_stage: "Mapping", current_rule: "mapping", completed_rules: 2, total_rules: 10, progress_percent: 20, status: "running", elapsed_seconds: 90, qc_status: "unknown", qc_metrics: {}}],
@@ -131,10 +137,14 @@ it("loads WGS resource tabs for an active run", async () => {
   expect(screen.getByText("V4.1.1")).toBeInTheDocument();
   expect(screen.getByText("0.7.1")).toBeInTheDocument();
   expect(screen.queryByText(/sha256:abc/)).not.toBeInTheDocument();
-  expect(screen.getByText("S1-WGS")).toBeInTheDocument();
-  expect(screen.getByText("2026-08-20")).toBeInTheDocument();
+  expect(urls.filter((url) => url.endsWith("/api/runs/WGS_001/workspace"))).toHaveLength(1);
+  expect(urls.some((url) => url.includes("/api/runs/WGS_001/samples"))).toBe(false);
+  expect(urls.some((url) => url.includes("/api/runs/WGS_001/pods"))).toBe(false);
   expect(screen.getByText(/healthy/i)).toBeInTheDocument();
   expect(screen.getByText(/active/i)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", {name: "Samples"}));
+  expect(await screen.findByText("S1-WGS")).toBeInTheDocument();
+  expect(screen.getByText("2026-08-20")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("tab", {name: "Master"}));
   expect(await screen.findByText("wgs-master-a1")).toBeInTheDocument();
   expect(screen.getByText("OOMKilled")).toBeInTheDocument();
@@ -144,7 +154,7 @@ it("loads WGS resource tabs for an active run", async () => {
   expect(screen.getByText(/阶段状态可用/)).toBeInTheDocument();
   expect(screen.queryByLabelText("FASTQ upload progress")).not.toBeInTheDocument();
   expect(screen.queryByText(/0 B\/s/)).not.toBeInTheDocument();
-  expect(urls.some((url) => url.includes("/api/runs/WGS_001/samples"))).toBe(true);
+  expect(urls.filter((url) => url.includes("/api/runs/WGS_001/samples"))).toHaveLength(1);
   expect(urls.some((url) => url.includes("/api/runs/WGS_001/pods"))).toBe(true);
 });
 

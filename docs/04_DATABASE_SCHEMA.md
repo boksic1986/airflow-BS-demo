@@ -1,5 +1,21 @@
 # 04 数据库设计
 
+## T195/T200 WGS contract-v2 evidence
+
+Migration `20260904_0014` adds two append-only/read-model tables without
+changing historical runs:
+
+- `wgs_stage_execution`: immutable execution identity, attempt, stage,
+  generation, request hash, release, predecessor receipt, heartbeat, terminal
+  evidence, receipt hash, and timestamps. Its unique key is
+  `analysis_id + attempt + stage_code + generation`.
+- `transfer_file_state`: privacy-safe file key/display name, frozen size,
+  completed bytes, speed, checksum state, bounded error, and timestamps for one
+  transfer.
+
+`run_stage_state` remains the current projection. It is not retry history and
+cannot authorize a downstream contract-v2 stage.
+
 ## T188 bounded resource history and WGS projections（无迁移）
 
 本轮不新增表或字段。`platform_resource_snapshot.history_json`仍按资源单行

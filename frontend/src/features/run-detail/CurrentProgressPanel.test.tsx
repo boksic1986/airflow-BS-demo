@@ -20,7 +20,24 @@ describe("CurrentProgressPanel", () => {
       stage={{completed_units: 1024 ** 3, total_units: 2 * 1024 ** 3, unit: "bytes"}}
     />);
 
-    expect(screen.getByText("1.0 GB / 2.0 GB")).toBeInTheDocument();
+    expect(screen.getByText("1.0 GiB / 2.0 GiB")).toBeInTheDocument();
     expect(screen.queryByText(/1073741824\/2147483648 bytes/)).not.toBeInTheDocument();
+  });
+
+  it("shows heavy IO work pod quota separately from CPU capacity", () => {
+    const detail = {
+      analysis_id: "WGS_HEAVY",
+      pipeline: "wgs",
+      status: "running",
+    } as RunDetail;
+
+    render(<CurrentProgressPanel
+      detail={detail}
+      progress={{percent: 40, available: true, label: "40%", currentStep: "Mapping", note: "Mapping", notInAirflow: false}}
+      slotUsage={{pool: "wgs-heavy-io", used: 7, limit: 25, waiting: 2, mode: "monitor-only"}}
+    />);
+
+    expect(screen.getByText("7 / 25 heavy work pods")).toBeInTheDocument();
+    expect(screen.getByText("2 waiting / monitor only")).toBeInTheDocument();
   });
 });

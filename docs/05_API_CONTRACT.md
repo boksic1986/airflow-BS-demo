@@ -1,5 +1,22 @@
 # 05 API Contract
 
+## T194-T200 WGS workspace and transfer files
+
+- `GET /api/runs/{analysis_id}/workspace` returns the database-backed Run
+  Detail first paint: run, summary, stage/rule progress, active transfer,
+  validation issues, and `wgs-heavy-io` usage.
+- `GET /api/runs/{analysis_id}/rules` supports SQL filters for status, rule,
+  sample, family, and phase plus `limit/offset`; default limit is 50.
+- `GET /api/transfers/{transfer_id}/files` returns paged privacy-safe file
+  progress. It never returns full OBS URIs, credentials, or server paths.
+- `GET /api/runs/{analysis_id}/progress` reads terminal runs from biodemo only.
+  Airflow task-instance REST is reserved for active runs or explicit operator
+  Sync.
+
+Contract-v2 internal stage registration returns `execution_id`, `generation`,
+`request_hash`, and the exact predecessor receipt identity. These fields are
+server generated and are not accepted from public browser requests.
+
 ## T190 T7 source-name correction
 
 The public intake response schema is unchanged. Chip numbers are source labels,

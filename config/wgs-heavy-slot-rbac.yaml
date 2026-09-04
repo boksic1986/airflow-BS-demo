@@ -1,0 +1,52 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: wgs-heavy-io-lease-client
+  namespace: snakemake-ns
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    resourceNames:
+      - wgs-heavy-io-00
+      - wgs-heavy-io-01
+      - wgs-heavy-io-02
+      - wgs-heavy-io-03
+      - wgs-heavy-io-04
+      - wgs-heavy-io-05
+      - wgs-heavy-io-06
+      - wgs-heavy-io-07
+      - wgs-heavy-io-08
+      - wgs-heavy-io-09
+      - wgs-heavy-io-10
+      - wgs-heavy-io-11
+      - wgs-heavy-io-12
+      - wgs-heavy-io-13
+      - wgs-heavy-io-14
+      - wgs-heavy-io-15
+      - wgs-heavy-io-16
+      - wgs-heavy-io-17
+      - wgs-heavy-io-18
+      - wgs-heavy-io-19
+      - wgs-heavy-io-20
+      - wgs-heavy-io-21
+      - wgs-heavy-io-22
+      - wgs-heavy-io-23
+      - wgs-heavy-io-24
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["list", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: wgs-heavy-io-lease-client
+  namespace: snakemake-ns
+subjects:
+  - kind: ServiceAccount
+    name: cce-pipeline-master-v1
+    namespace: snakemake-ns
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: wgs-heavy-io-lease-client
