@@ -1,5 +1,22 @@
 # SERVER_INFO.md
 
+## T192 production Docker cleanup (2026-09-04)
+
+```text
+primary: 172.17.61.96
+compose_project: airflow-wgs
+running_services: 11
+retained_airflow_image: airflow-demo/airflow:bs-control-c706548
+retained_backend_image: airflow-demo/backend:t184-prepare-nfs-race
+retained_frontend_image: airflow-demo/frontend:t188-step6-projection-auto
+dangling_images: 0
+removed_container: airflow-wgs-biodemo-migrate-1 (exited one-shot only)
+volumes_removed: 0
+unrelated_workloads_changed: 0
+network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
+verification: frontend HTTP 200
+```
+
 ## T191 frontend login recovery (2026-09-04)
 
 ```text

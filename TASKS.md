@@ -1,5 +1,24 @@
 # TASKS.md
 
+## T192 - Production Docker test-artifact cleanup
+
+Owner: infra/operations/docs
+
+Status: completed on `.96`
+
+Acceptance:
+- [x] Inventory every container, Compose project, image tag, network attachment
+  and volume before deletion.
+- [x] Preserve the complete running `airflow-wgs` production stack and keep one
+  current image for each WGS application component: Airflow, backend and
+  frontend.
+- [x] Remove obsolete WGS backend/frontend image tags, the stopped obsolete
+  migration container and exact unused test/build images without using prune.
+- [x] Preserve PostgreSQL/Redis containers and volumes, all unrelated workloads,
+  and the external `nipt_analysis_test_net` network.
+- [x] Verify no dangling image remains, all 11 WGS production services remain
+  running, network IPAM is unchanged and the published UI returns HTTP 200.
+
 ## T191 - Frontend login reverse-proxy DNS recovery
 
 Owner: infra/operations/docs

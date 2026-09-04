@@ -1,5 +1,22 @@
 # 11 部署 Runbook
 
+## T192 production Docker image cleanup
+
+On `.96`, treat `airflow-wgs` as one production Compose stack, not one Docker
+container. Retain every running service but keep only the current application
+image tag for each of Airflow, backend and frontend. Before removing anything,
+inventory container image references and Compose labels. Remove only explicit
+stopped one-shot containers and explicit obsolete image tags/IDs; never use
+`docker system prune`, `docker image prune`, volume prune or Compose `down -v`.
+Do not touch containers or images outside the `airflow-wgs` ownership boundary.
+
+After cleanup, re-run the production Compose config, confirm all expected
+services remain running, check for zero dangling images, verify
+`nipt_analysis_test_net` remains `192.168.199.0/24` with gateway
+`192.168.199.1`, and smoke the published frontend. Removing prior release image
+tags reduces immediate rollback readiness: preserved release source must be
+rebuilt before switching back to an old release.
+
 ## T191 backend recreate and nginx DNS recovery
 
 The production nginx image resolves the `backend` service name when nginx

@@ -1,5 +1,27 @@
 # HANDOFF.md
 
+## 2026-09-04 - Codex - T192 production Docker cleanup
+
+### Outcome
+
+The `.96` Docker inventory proved there is one WGS Compose project,
+`airflow-wgs`; its production topology requires 11 running service containers.
+Cleanup therefore retained the whole production stack and exactly one current
+Airflow, backend and frontend application image version. Obsolete WGS image
+tags, exact unused test/build images and the exited obsolete
+`airflow-wgs-biodemo-migrate-1` one-shot container were removed individually.
+No prune command was used.
+
+PostgreSQL, Redis, every Docker volume, all current service containers, release
+files, analysis data, unrelated workloads and the external Docker network were
+preserved. Final inspection found no dangling images. Compose still reports 11
+running WGS services; `nipt_analysis_test_net` remains `192.168.199.0/24` with
+gateway `192.168.199.1`, and the production frontend returns HTTP 200.
+
+Rollback images were intentionally removed at the operator's request. A prior
+release now requires rebuilding its image from the preserved release source
+before rollback; current containers are unaffected while running.
+
 ## 2026-09-04 - Codex - T191 frontend login recovery
 
 ### Outcome

@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-04 T192 production Docker test-artifact cleanup
+
+```text
+scope: removed only obsolete airflow-demo backend/frontend tags, exact unused frontend test/build images and the exited airflow-wgs biodemo-migrate one-shot container. No docker prune command was used.
+retained_images: airflow-demo/airflow:bs-control-c706548; airflow-demo/backend:t184-prepare-nfs-race; airflow-demo/frontend:t188-step6-projection-auto. These are the sole current WGS application image versions.
+preserved: all 11 running airflow-wgs services, PostgreSQL and Redis containers/volumes, current release files, unrelated containers/images, and all analysis data.
+verification: no dangling image remains; Compose reports all 11 production services running; http://172.17.61.96:12959/ returns 200.
+invariant: nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1 and 11 attached WGS services.
+```
+
 ## 2026-09-04 T191 frontend login reverse-proxy DNS recovery
 
 ```text
