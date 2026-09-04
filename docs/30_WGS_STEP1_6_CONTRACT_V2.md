@@ -114,6 +114,31 @@ The test credential is read from the existing CCE test Secret into a mode-0600
 node200-only runtime file. Bucket names, object prefixes, credentials, full OBS
 URIs and server paths are excluded from progress evidence and public APIs.
 
+### Real FASTQ upload canary
+
+T201 tested one approved validation sample as a real R1/R2 pair. The frozen
+manifest contained `14,486,007,978` bytes (`13.4911 GiB`). Parallel upload
+finished in `152.862` seconds at an aggregate `90.38 MiB/s`; R1 averaged
+`49.49 MiB/s` and R2 averaged `47.26 MiB/s`.
+
+The callback recorder produced 116 privacy-safe snapshots. It captured 68
+distinct partial values for R1, 79 for R2 and 111 for the aggregate, while the
+total denominator remained constant. This is sufficient for independent file
+rows and a stable overall progress bar. A sample-level grouping can be derived
+from its frozen R1/R2 manifest; the public response must continue to use safe
+labels rather than source paths.
+
+Real 6-7 GiB inputs require the resumable SDK API. Files larger than 5 GiB use
+64 MiB multipart parts, four SDK workers per file, checkpointing and attached
+CRC64. Burst callback increments are coalesced before JSONL writes so the SDK
+cannot leave a large per-chunk callback backlog at shutdown. The accepted run
+verified source immutability and remote size/CRC64, then deleted both exact
+objects and confirmed HEAD 404.
+
+This remains a standalone Step1 data-path canary. It does not enable contract
+v2 or prove the browser/database projection until a separately approved
+Airflow-integrated Step1 canary is completed.
+
 ## Read Model And Frontend
 
 `GET /api/runs/{analysis_id}/workspace` is the Run Detail first-paint resource.

@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-05 T201 real FASTQ OBS SDK upload canary
+
+```text
+scope: uploaded one approved validation sample's two real compressed FASTQ files through the standalone Step1 OBS SDK adapter without starting Airflow, CCE or a WGS analysis.
+result: 14,486,007,978 bytes (13.4911 GiB) completed in 152.862 seconds at 94,765,457 B/s (90.38 MiB/s) aggregate. R1 completed in 135.842 seconds at 49.49 MiB/s; R2 completed in 150.076 seconds at 47.26 MiB/s.
+progress: the frozen denominator never changed. The recorder emitted 116 safe snapshots, including 68 distinct partial R1 values, 79 partial R2 values and 111 aggregate partial values. Per-file and aggregate status, bytes, percentage and speed are observable independently.
+integrity: source size and mtime remained unchanged; remote size and CRC64 matched both sources. Both exact canary objects returned DELETE 204 and subsequent HEAD 404. Progress evidence contains only safe aliases and no bucket, OBS URI, credential or source path.
+adapter_fix: real 6-7 GiB files exposed two synthetic-canary gaps. Files larger than 5 GiB now use resumable 64 MiB multipart upload with four SDK workers, checkpointing and CRC64. The SDK notifier now coalesces burst byte updates so shutdown cannot be blocked by a per-chunk queue backlog. Focused tests pass 8/8.
+evidence: node200 /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence/T201-real-fastq-upload/real-fastq-20260904T164733Z-60498b83.
+safety: WGS execution/runtime/contract-v2/auto-dispatch gates remain false, bio_wgs remains paused and no Airflow run was created. This proves the transfer data path; frontend/API projection still requires one separately approved contract-v2 Step1 integration canary.
+```
+
 ## 2026-09-04 T194-T200 WGS contract v2 disabled deployment
 
 ```text

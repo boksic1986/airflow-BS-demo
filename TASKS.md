@@ -17,6 +17,7 @@ Acceptance:
 - [x] Reuse the approved production CES read-only identity on node200 and publish a fresh, numeric-only Cloud Eye spool to BS10610 without copying credentials into BS, Git or containers.
 - [x] Provision the locked OBS SDK in the shared `nipttest` environment and verify `ObsClient` plus Cloud Eye credentials support from BS10610 and node200.
 - [x] Run a real 1 MiB + 65 MiB OBS SDK callback canary with upload, download, checksum, generation reuse, redaction and exact remote cleanup.
+- [x] Run a 13.49 GiB real paired-FASTQ upload canary; verify resumable multipart upload, per-file and aggregate progress, CRC64/source immutability and exact remote cleanup.
 - [x] Pass candidate backend, DAG, frontend and cce-pipeline tests on BS10610.
 - [x] Publish a disabled candidate release without enabling WGS execution or automatic dispatch.
 

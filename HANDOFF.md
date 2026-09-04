@@ -83,6 +83,36 @@ comes from the existing CCE test Secret, remains mode 0600 on node200, and is
 not copied to BS10610, Git, evidence or logs. Production obsutil configuration
 was not modified.
 
+A subsequent T201 canary uploaded one real paired-FASTQ validation sample
+without starting Airflow, CCE or WGS analysis. The two files totaled
+`14,486,007,978` bytes (`13.4911 GiB`) and completed in `152.862` seconds at
+`90.38 MiB/s` aggregate. R1 averaged `49.49 MiB/s`; R2 averaged
+`47.26 MiB/s`. The frozen denominator did not change. There were 116 safe
+progress snapshots, with 68 distinct partial R1 values, 79 partial R2 values
+and 111 aggregate partial values.
+
+The real file sizes exposed two additional adapter gaps. More-than-5-GiB
+inputs now use resumable 64 MiB multipart upload with four SDK workers,
+checkpointing and CRC64. The progress notifier now coalesces burst increments
+instead of queueing every SDK chunk, preventing a 30-second shutdown timeout.
+Focused adapter tests pass 8/8. Source size and mtime were unchanged, remote
+size/CRC64 matched, and both exact objects returned DELETE 204 then HEAD 404.
+The retained private evidence is:
+
+```text
+/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence/T201-real-fastq-upload/real-fastq-20260904T164733Z-60498b83
+```
+
+This proves per-file and aggregate callback data, not the complete frontend
+projection. Contract v2 and the runtime adapter remain disabled; the next gate
+is one separately approved Airflow-integrated Step1 canary.
+
+The focused local adapter suite passed 8 tests. A complete local cce-pipeline
+collection was also attempted but stopped during collection because the
+Windows environment does not provide `kubernetes.config`; the previously
+accepted Linux full-suite baseline remains 214 passed. The deployed adapter
+itself was exercised by the successful real 13.49 GiB transfer.
+
 ### Verification
 
 | Check | Result |
@@ -100,6 +130,10 @@ was not modified.
 | SFS Cloud Eye | healthy; fresh numeric metrics imported from node200 |
 | real OBS SDK canary | 2 files / 69,206,016 bytes; upload, download, reuse and cleanup passed |
 | OBS SDK adapter regressions | `6 passed` locally; `2 passed` on node200 |
+| real paired-FASTQ upload | 13.4911 GiB in 152.862 s; 90.38 MiB/s aggregate |
+| real FASTQ progress | 116 snapshots; per-file and aggregate partial progress verified |
+| real FASTQ integrity/cleanup | source unchanged; remote CRC64 passed; DELETE 204 then HEAD 404 |
+| OBS SDK adapter focused tests | `8 passed` after multipart and callback coalescing fixes |
 | network | `192.168.199.0/24`, gateway `192.168.199.1` |
 
 Candidate wheel SHA256:
