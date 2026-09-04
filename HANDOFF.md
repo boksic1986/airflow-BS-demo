@@ -1,5 +1,118 @@
 # HANDOFF.md
 
+## 2026-09-04 - Codex - T194-T200 WGS contract v2 and Heavy Slot quota
+
+### Outcome
+
+Implemented option 2 without rewriting the WGS workflow. Airflow remains the
+Step1-6 project orchestrator, node200 remains the restricted executor, and
+Kubernetes resources, Snakemake events and exact terminal receipts are the
+runtime authorities. New contract-v2 runs use append-only stage execution
+generations; stale evidence cannot authorize or overwrite a newer generation.
+
+Step1/Step5 now support a Huawei OBS SDK adapter with frozen manifests,
+per-file progress and atomic spool events. The browser receives safe file
+labels only. The obsutil path remains the explicit rollback adapter. The
+vendored Kubernetes executor classifies mapping+Dedup and
+Haplotyper+QualCal as high-I/O and acquires one of 25 namespace Lease objects
+before creating each heavy Worker Job.
+
+Run Detail now loads `/workspace` first and lazily caches Samples, Rules,
+Master, Transfers, Logs and Files. Active workspaces poll by GET every ten
+seconds with visibility and in-flight guards; terminal runs do not query
+Airflow. Rules and transfer files are SQL-paged. The warm workspace median on
+the retained 208-rule run was 90.4 ms over five calls.
+
+### Deployment
+
+The disabled BS10610 release is:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260904-airflow-demo-c28ad7d-t194-contract-v2-disabled-r2
+```
+
+The frontend runtime image is
+`airflow-demo/frontend:t194-contract-v2-disabled`. The staged, unused CCE
+candidate is
+`airflow-demo/wgs-cce-master:contract-v2-32851ba-candidate`, image
+`sha256:48e17145...cabfa`; it contains executor `0.6.4+biosan4` and
+`cce-pipeline 0.8.1`.
+
+Execution, runtime adapter, contract-v2 activation and automatic dispatch are
+all false. `bio_wgs` is paused, the intake scanner is stopped, and both
+business/Airflow active-run counts are zero. No analysis was launched.
+
+The dedicated node probe runs as UID 6708 and uses a mode-0600 test identity
+outside Git. `.96` and `.97` resource rows are healthy. SFS Cloud Eye remains
+degraded because no approved CES credential or cloud spool was available; no
+credential was copied into source, images or logs and no metric was replaced
+with a fake zero.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| backend full pytest | `352 passed, 1 skipped` |
+| runtime script pytest | `61 passed` |
+| `bio_wgs` DAG unittest | `14 passed` |
+| frontend Vitest | `49 passed` |
+| frontend typecheck/build | passed |
+| cce-pipeline full pytest | `214 passed` |
+| Compose config | passed |
+| frontend and backend health | HTTP 200 / `ok` |
+| workspace API | HTTP 200; warm median `90.4 ms` |
+| Rules paging | HTTP 200; `1/208`, limit 1 |
+| network | `192.168.199.0/24`, gateway `192.168.199.1` |
+
+Candidate wheel SHA256:
+
+```text
+executor 98ab02fc45247c8cde1b8cde81e5cbb211aff3f82fc3649a503bb5dbca269341
+cce      968a3b1a7e2094f82dbfba91b4718ec34bf49274aa348eb939a4f2db0bc3b3d4
+```
+
+### Incident And Storage
+
+The first release extraction was blocked by the user's NFS write quota. Only
+unmounted airflow-WGS development/build cache was targeted; roughly 1.3 GiB
+was freed from `dev`. Current release files, env, databases, evidence, results
+and Docker volumes were preserved. Root-owned residual cache was left in
+place.
+
+During the retried migration, `docker compose run biodemo-migrate` recreated
+the PostgreSQL container because the candidate Compose service hash differed.
+This was unintended. The named `airflow-wgs_postgres-data` volume was never
+removed, the run inventory remained intact, migration `20260904_0014`
+completed, and PostgreSQL is healthy. Subsequent recreation used `--no-deps`.
+
+Validated backups are under:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T194-T200-contract-v2-20260904T132157Z
+airflow.dump  5b916f2ca95c68a5bc9775aeee794ff57becbef43c5de13f3f219e157cfa7612
+biodemo.dump  369f0cef6810f9ee32fff435dbbb2f16cad81e2b320dbccbe36b10d000d98d6a
+```
+
+### Remaining Gates
+
+- Provision an approved read-only CES credential on the designated collector
+  host and verify a fresh SFS Cloud Eye spool in GiB/s semantics.
+- Build the offline OBS SDK runtime on node200, without placing credentials in
+  an image or release.
+- Verify the actual CCE Master service account, then apply the namespace-only
+  Lease RBAC and test Lease CRUD.
+- Run a controlled synthetic transfer before enabling contract v2, then a
+  controlled WGS batch before selecting the staged CCE image.
+- Keep dynamic slot scaling disabled; Cloud Eye is validation and alerting
+  evidence only.
+
+### Rollback
+
+Keep all execution gates false, repoint `current` to the T192 release and
+recreate only affected application services with `--no-deps`. Migration 0014
+is additive and may remain. Do not delete or downgrade PostgreSQL/Redis
+volumes, transfer spools, evidence, results or Kubernetes Leases.
+
 ## 2026-09-04 - Codex - T192 production Docker cleanup
 
 ### Outcome

@@ -2,6 +2,17 @@
 
 ## T194-T200 contract-v2 disabled rollout
 
+Accepted disabled release on BS10610:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260904-airflow-demo-c28ad7d-t194-contract-v2-disabled-r2
+```
+
+The CCE candidate image is staged locally as
+`airflow-demo/wgs-cce-master:contract-v2-32851ba-candidate`; it is not selected
+by production configuration. SFS Cloud Eye remains a gate until an approved
+read-only CES credential produces the first fresh spool.
+
 This release must first be deployed with `WGS_EXECUTION_ENABLED=false`,
 `WGS_RUNTIME_ADAPTER_ENABLED=false`, `WGS_AUTO_DISPATCH_ENABLED=false`, and the
 `bio_wgs` DAG paused. Use an evidence directory under

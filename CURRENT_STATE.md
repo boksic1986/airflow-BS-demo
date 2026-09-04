@@ -1,5 +1,21 @@
 # CURRENT_STATE.md
 
+## 2026-09-04 T194-T200 WGS contract v2 disabled deployment
+
+```text
+implementation: Step1-6 now uses versioned stage executions and exact predecessor receipts. OBS SDK transfers freeze manifests and expose aggregate plus per-file progress. Run Detail uses one database-backed workspace request, lazy cached tabs and no browser-side automatic sync. The vendored Kubernetes executor enforces 25 global high-I/O Worker Pod leases for mapping+Dedup and Haplotyper+QualCal.
+code: airflow-demo commits 4dc577b, ee237f9, 9ebc475 and c28ad7d on jiucheng/wgs/T194-step1-6-v2; cce-pipeline commits 25884cc, 26befea and 32851ba on jiucheng/wgs/T197-heavy-slot-quota.
+validation: backend 352 passed/1 skipped; runtime scripts 61 passed; bio_wgs DAG 14 passed; frontend 49 passed plus tsc/vite build; cce-pipeline 214 passed. Candidate executor/cce wheel SHA256 values are 98ab02fc...9341 and 968a3b1a...3d4.
+deployment: current -> /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260904-airflow-demo-c28ad7d-t194-contract-v2-disabled-r2. Frontend image airflow-demo/frontend:t194-contract-v2-disabled is live; CCE image airflow-demo/wgs-cce-master:contract-v2-32851ba-candidate is built but not activated.
+safety_state: WGS_EXECUTION_ENABLED=false, WGS_RUNTIME_ADAPTER_ENABLED=false, WGS_AUTO_DISPATCH_ENABLED=false, WGS_CONTRACT_V2_ENABLED=false, bio_wgs paused, intake scanner stopped, and there are zero active business or Airflow runs. No WGS analysis was submitted or resumed.
+performance: the deployed workspace endpoint returned a 90.4 ms median over five warm calls; paged Rules returned 1/208 with limit=1.
+resources: platform-node-probe runs as host UID 6708 with a dedicated mode-0600 test identity. node-96 and node-97 are healthy. SFS Cloud Eye remains degraded because no approved CES credential/spool was found; no zero-valued metrics were fabricated.
+backup: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T194-T200-contract-v2-20260904T132157Z. Both pg_dump archives passed pg_restore inventory validation.
+deployment_incident: the first migration command allowed Compose to recreate only the PostgreSQL container because its candidate service hash changed. The named airflow-wgs_postgres-data volume was retained, both databases remained intact, migration 0014 completed, and PostgreSQL is healthy. Later service updates used --no-deps. This deviation must remain visible in the handoff.
+storage_cleanup: an NFS user write quota initially blocked release extraction. Only unmounted airflow-WGS development/build cache under dev was reduced (about 1.3 GiB freed); current release, env, databases, evidence, runtime results and Docker volumes were preserved. Root-owned residual cache was left untouched.
+network: nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1; only frontend 172.17.106.10:12959 is published.
+```
+
 ## 2026-09-04 T192 production Docker test-artifact cleanup
 
 ```text

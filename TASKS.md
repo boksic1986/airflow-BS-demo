@@ -4,7 +4,7 @@
 
 Owner: backend/Airflow/frontend/runtime/CCE/operations/docs
 
-Status: implementation complete; BS10610 disabled-state acceptance pending
+Status: completed in disabled mode; runtime activation and Cloud Eye credential provisioning remain gated
 
 Acceptance:
 - [x] Define the versioned Step1-6 contract and append-only stage execution generations.
@@ -14,13 +14,17 @@ Acceptance:
 - [x] Keep `wgs_cce_runs` on the short Master submission task only.
 - [x] Add the workspace-first Run Detail API, SQL-paged rules/transfers and lazy frontend tabs.
 - [x] Add node and SFS metric collectors with stale/degraded states and GiB/s display semantics.
-- [ ] Pass candidate backend, DAG, frontend and cce-pipeline tests on BS10610.
-- [ ] Publish a disabled candidate release without enabling WGS execution or automatic dispatch.
+- [x] Pass candidate backend, DAG, frontend and cce-pipeline tests on BS10610.
+- [x] Publish a disabled candidate release without enabling WGS execution or automatic dispatch.
 
 Restrictions:
 - Do not submit or resume a WGS run during this task.
 - Do not enable BS10610 automatic dispatch or dynamic Heavy Slot scaling.
 - Do not expose OBS credentials, full OBS URIs or host absolute paths through public APIs.
+- Do not activate the staged CCE image or Lease RBAC until the service account and
+  a controlled synthetic transfer have passed the remaining rollout gates.
+- Do not treat the missing SFS Cloud Eye credential/spool as a zero-I/O sample;
+  the deployed panel must remain explicitly degraded until approved credentials exist.
 
 ## T192 - Production Docker test-artifact cleanup
 
