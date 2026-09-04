@@ -38,6 +38,7 @@ class BioWgsDagTests(unittest.TestCase):
                 "result_transfer.wait_step5_download",
                 "result_transfer.release_obs_transfer_slot",
                 "materialize_step6_results",
+                "wait_step6_materialize",
                 "finalize_run",
                 "release_leases",
             },
@@ -54,8 +55,14 @@ class BioWgsDagTests(unittest.TestCase):
             "wait_step4_publish",
             "result_transfer.acquire_obs_transfer_slot",
             "result_transfer.wait_step5_download",
+            "wait_step6_materialize",
         ):
             self.assertEqual(dag.get_task(task_id).mode, "reschedule")
+
+        self.assertEqual(
+            {task.task_id for task in dag.get_task("finalize_run").upstream_list},
+            {"wait_step6_materialize"},
+        )
 
     def test_validate_requires_server_bound_release_identity(self) -> None:
         conf = {
@@ -180,6 +187,54 @@ class BioWgsDagTests(unittest.TestCase):
             {"attempt": 1},
         )
 
+    def test_runner_retries_boundedly_when_registered_request_is_not_yet_visible(
+        self,
+    ) -> None:
+        calls = []
+        sleeps = []
+        conf = {"analysis_id": "WGS_20260903_111456_397777", "attempt": 1}
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        missing_request = type(
+            "Completed",
+            (),
+            {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": (
+                    "FileNotFoundError: [Errno 2] No such file or directory: "
+                    "'/sg2/runtime/runner-requests/WGS_20260903_111456_397777/"
+                    "attempt-1/step3_monitor.json'"
+                ),
+            },
+        )()
+        accepted = type(
+            "Completed",
+            (),
+            {"returncode": 0, "stdout": '{"status":"running"}', "stderr": ""},
+        )()
+        replies = iter((missing_request, accepted))
+        original_backend = bio_wgs._backend_json
+        original_run = bio_wgs.subprocess.run
+        original_sleep = bio_wgs.time.sleep
+        original_enabled = bio_wgs._require_runtime_enabled
+        try:
+            bio_wgs._require_runtime_enabled = lambda: None
+            bio_wgs._backend_json = lambda path, **kwargs: calls.append(path) or {
+                "status": "registered"
+            }
+            bio_wgs.subprocess.run = lambda *args, **kwargs: next(replies)
+            bio_wgs.time.sleep = lambda seconds: sleeps.append(seconds)
+            result = bio_wgs.run_stage_on_200("step3_monitor", **context)
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs.subprocess.run = original_run
+            bio_wgs.time.sleep = original_sleep
+            bio_wgs._require_runtime_enabled = original_enabled
+
+        self.assertEqual(result["runner_status"], "accepted")
+        self.assertEqual(sleeps, [1.0])
+        self.assertTrue(calls[-1].endswith("/observer/activate"))
+
     def test_runner_failure_preserves_remote_stdout_and_ssh_stderr(self) -> None:
         conf = {"analysis_id": "WGS_20260903_062828_0858DC", "attempt": 1}
         context = {"dag_run": type("DagRun", (), {"conf": conf})()}
@@ -231,6 +286,45 @@ class BioWgsDagTests(unittest.TestCase):
             "POST",
             {"attempt": 1},
         )
+
+    def test_stage_sensor_reschedules_when_backend_transport_is_temporarily_unavailable(
+        self,
+    ) -> None:
+        conf = {"analysis_id": "WGS_20260903_111456_397777", "attempt": 1}
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        original_urlopen = bio_wgs.urlopen
+        original_enabled = bio_wgs._require_runtime_enabled
+        try:
+            bio_wgs._require_runtime_enabled = lambda: None
+
+            def timeout(*_args, **_kwargs):
+                raise TimeoutError("backend restart")
+
+            bio_wgs.urlopen = timeout
+            assert bio_wgs.stage_ready("step3_monitor", **context) is False
+        finally:
+            bio_wgs.urlopen = original_urlopen
+            bio_wgs._require_runtime_enabled = original_enabled
+
+    def test_submission_gate_reschedules_when_backend_transport_is_temporarily_unavailable(
+        self,
+    ) -> None:
+        conf = {
+            "analysis_id": "WGS_20260903_111829_1D58E1",
+            "attempt": 6,
+            "params": {"submission_mode": "three_stage"},
+        }
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        original_backend = bio_wgs._backend_json
+        try:
+            bio_wgs._backend_json = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                bio_wgs.BackendTransportUnavailable("backend DNS unavailable")
+            )
+            for gate in ("config", "execution"):
+                with self.subTest(gate=gate):
+                    self.assertFalse(bio_wgs.submission_gate_ready(gate, **context))
+        finally:
+            bio_wgs._backend_json = original_backend
 
     def test_stage_start_waits_past_stale_failed_status_from_previous_generation(self) -> None:
         calls = []

@@ -1,5 +1,124 @@
 # 05 API Contract
 
+## T190 T7 source-name correction
+
+The public intake response schema is unchanged. Chip numbers are source labels,
+not a chronological cursor: the source may contain incorrectly numbered
+directories. Scanner freshness therefore remains based on the regular
+completion marker relative to persisted `first_scan_at`; neither backend nor
+frontend rewrites an on-disk chip id. Automatic dispatch continues to dedupe by
+public batch identity, using one shared backend matcher for explicit
+`analysis_batch`, `sequencing_batch`, and legacy `batch_no` forms.
+
+## T189 exact batch QC and recovered-terminal projection
+
+- WGS sample and artifact projection selects the exact
+  `07_QC/<bound-batch-directory>.QCstat.tsv`. Per-sample QCstat companions are
+  neither merged nor treated as competing batch summaries. A single-file
+  fallback exists only for older controlled fixtures with no exact name.
+- In the batch summary, an explicit Yes/pass value projects to `pass`, an
+  explicit No/fail value projects to `fail`, non-empty exception text projects
+  to `warn`, and an empty value remains `unknown`. Only the allow-listed safe
+  numeric metrics are returned; raw QC rows are not returned.
+- An authoritative successful Airflow DagRun can reconcile a stale failed
+  projection from the same WGS attempt after a positive runtime retry. It
+  replaces stale terminal timing, clears the stale error and synchronizes
+  sample workflow status; ordinary terminal replays remain monotonic.
+
+## T188 WGS projection and automatic-intake contract
+
+- `GET /api/runs/{analysis_id}/samples` returns backend-projected `items` and
+  `manifest` for WGS. `manifest` contains only sample/data IDs, sample type,
+  family/relation, received date and estimated report date. `items` contains
+  the per-sample stage, current Rule, Rule completion, elapsed time and safe QC
+  projection. The endpoint never returns patient names, hospitals or raw
+  sampleinfo rows.
+- `GET /api/runs/{analysis_id}/artifacts` lists only registered
+  `sampleinfo.tsv`, `config.yaml`, `BATCH_RUNTIME.yaml`,
+  `RESOLVED_PROFILE.yaml` and the batch QCstat. Log index entries expose a safe
+  batch-relative display path and an opaque key; clients cannot supply a path.
+- Transfer entries include `progress_basis=frozen_plan|legacy_estimate`. The
+  former is backed by an immutable pre-transfer plan; the latter is explicit
+  compatibility data and must not be presented as an exact denominator.
+- `POST /api/internal/wgs/intake/dispatch-ready` requires the internal service
+  token and both WGS execution gates. It requires an activation watermark,
+  links/skips any intake already represented by a business run, and creates a
+  pre-approved automatic run only for a new ready discovery at or after that
+  watermark. The endpoint accepts no batch, path, shell or Airflow ID from the
+  caller.
+
+## T186 internal submission-state availability
+
+`GET /api/internal/wgs/runs/{analysis_id}/submission-state` remains the sole
+source for the two Airflow approval sensors. A temporary inability to reach the
+endpoint is not interpreted as either approval or rejection: the DAG sensor
+reschedules. A successful response must still explicitly set the requested
+`config_approved` or `execution_approved` field before the DAG advances.
+
+## T185 current-attempt observer projection
+
+`GET /api/runs/{analysis_id}` returns `observer` only when an
+`ObserverRunState` exists for the current `AnalysisRun.attempt`. An observer
+warning from an older attempt is historical evidence and is never projected as
+the current run's monitoring state. No public response field changed.
+
+## T184 prepare artifact visibility transition
+
+After a valid successful `prepare_sampleinfo` or `prepare_analysis` status is
+visible, its expected sample table can remain temporarily absent on the backend
+side of the shared NFS mount. In that single condition the internal stage-status
+endpoint returns HTTP 200 with `ready=false` and `artifact_pending=true`; it does
+not advance `submission_phase` or mutate the final sample selection. A later
+poll imports the table and returns `ready=true` once the artifact is visible.
+
+An empty table, empty sample ID, symlink, invalid frozen binding or identity
+mismatch is not an artifact-pending transition and remains a hard failure.
+
+## T183 WGS Rule log binding
+
+When the bound Master `analysis.log` is present, every item returned by
+`GET /api/runs/{analysis_id}/rules` includes its server-generated
+`analysis_log_key`. Failed Rules may additionally include a bounded diagnostic
+excerpt. The key always resolves through the existing WGS log registry; no
+absolute path, relative SFS path or client-provided key mapping is accepted.
+
+## T179 platform node metric extension
+
+`GET /api/platform/resources` keeps the existing response shape. Each `node`
+resource's `current` object additionally includes `logical_cpu_count`, collected
+with the same timestamp as load 1/5/15. It is used to normalize the load bar;
+clients must treat a missing or non-positive value as unavailable. No database
+migration or additional endpoint is introduced.
+
+## T177 prepare-stage internal status contract
+
+- Internal stage-status accepts `prepare`, `prepare_sampleinfo` and
+  `prepare_analysis` in addition to the Step1/Step3-Step7 runtime artifact
+  stages. Prepare stages do not fabricate transfer, Rule or Pod artifacts.
+- A successful `prepare_sampleinfo` status imports the safe sample/family
+  preview and advances `submission_phase` to `config_review`.
+- A successful `prepare_analysis` status reads the frozen binding, imports the
+  final analysis sample selection and advances to `execution_review`.
+- Identity/schema mismatches and invalid expected sample tables remain hard
+  failures. Temporary shared-NFS absence follows the T184 transition above.
+  These internal endpoints retain token authentication and expose no
+  client-provided path or shell input.
+
+## T176 failed WGS resubmission semantics
+
+- `POST /api/wgs/runs` remains idempotent for an existing non-terminal batch:
+  it returns the active AnalysisRun and does not create a second DagRun.
+- A batch whose existing run is `success` is rejected explicitly rather than
+  silently creating or replaying work.
+- A batch whose existing run is `failed`, `cancelled` or
+  `unknown_interrupted` keeps the same AnalysisRun identity but creates a new
+  RunAttempt. The Airflow/WGS run ID is the new deterministic
+  `<analysis_id>-a<attempt>` value; a failed DagRun is never reused.
+- Creating the new attempt clears stale terminal timestamps, error summary and
+  progress. The release and server-controlled project/batch binding remain
+  unchanged. This endpoint still performs no client-selected path, image,
+  profile or shell execution.
+
 ## T174 public batch and forward-only evidence contract
 
 - WGS public `batch_no` is selected server-side in this order:

@@ -213,9 +213,13 @@ export type WgsPod = {
 
 export type WgsTransfer = {
   transfer_id?: string | null;
+  attempt?: number | null;
+  direction?: "upload" | "download" | string | null;
+  transfer_type?: string | null;
   source?: string | null;
   destination?: string | null;
   status?: string | null;
+  progress_basis?: "frozen_plan" | "legacy_estimate" | string;
   progress_detail_available?: boolean;
   bytes_total?: number | null;
   bytes_transferred?: number | null;
@@ -249,6 +253,23 @@ export type Sample = {
   metadata?: Record<string, unknown> | null;
   pending_source?: string | null;
   pending_reason?: string | null;
+  current_stage?: string | null;
+  current_rule?: string | null;
+  completed_rules?: number;
+  total_rules?: number;
+  progress_percent?: number | null;
+  elapsed_seconds?: number | null;
+  qc_metrics?: Record<string, string | number | null>;
+};
+
+export type WgsSampleManifestRow = {
+  sample_id: string;
+  data_id?: string | null;
+  sample_type?: string | null;
+  family_id?: string | null;
+  family_relation?: string | null;
+  received_date?: string | null;
+  estimated_report_date?: string | null;
 };
 
 export type ScanCandidate = {
@@ -1335,8 +1356,8 @@ export function getRunDetail(analysisId: string): Promise<RunDetail> {
   return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}`);
 }
 
-export function getRunSamples(analysisId: string): Promise<{items: Sample[]}> {
-  return requestJson<{items: Sample[]}>(`/runs/${encodeURIComponent(analysisId)}/samples`);
+export function getRunSamples(analysisId: string): Promise<{items: Sample[]; manifest?: WgsSampleManifestRow[]}> {
+  return requestJson<{items: Sample[]; manifest?: WgsSampleManifestRow[]}>(`/runs/${encodeURIComponent(analysisId)}/samples`);
 }
 
 export function getRunFamilies(analysisId: string): Promise<{items: WgsFamily[]}> {

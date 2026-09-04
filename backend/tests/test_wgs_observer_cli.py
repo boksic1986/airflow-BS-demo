@@ -31,6 +31,33 @@ def test_intake_worker_runs_immediately_and_uses_an_independent_wait() -> None:
     ]
 
 
+def test_intake_worker_dispatches_only_after_a_successful_scan_when_enabled() -> None:
+    calls: list[tuple[str, object]] = []
+
+    class StopAfterFirstWait:
+        def is_set(self) -> bool:
+            return False
+
+        def wait(self, seconds: float) -> bool:
+            return True
+
+    run_intake_worker(
+        session_factory=object(),
+        intake_root=Path("/bi/fastq/T7_Fastq"),
+        intake_interval_seconds=600,
+        auto_dispatch_enabled=True,
+        stop_event=StopAfterFirstWait(),
+        scan_fn=lambda **kwargs: calls.append(("scan", kwargs["root"])) or {"ready": 1},
+        dispatch_fn=lambda: calls.append(("dispatch", True)) or {"submitted": 1},
+        monotonic_fn=iter((100.0, 100.0)).__next__,
+    )
+
+    assert calls == [
+        ("scan", Path("/bi/fastq/T7_Fastq")),
+        ("dispatch", True),
+    ]
+
+
 def test_active_observer_ingests_only_registered_keys_then_waits_five_seconds() -> None:
     calls: list[tuple[str, object]] = []
 

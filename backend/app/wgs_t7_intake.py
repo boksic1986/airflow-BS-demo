@@ -333,7 +333,7 @@ def _public_batch_payload(row: WgsIntakeBatch) -> dict[str, object]:
         "batch_id": row.chip_id,
         "sequencing_batch": row.sequencing_batch,
         "ready_state": row.state,
-        "submit_state": "disabled",
+        "submit_state": "submitted" if row.analysis_id else "disabled",
         "analysis_id": row.analysis_id,
         "eligible_pair_count": row.eligible_pair_count,
         "excluded_addon_pair_count": row.excluded_addon_pair_count,

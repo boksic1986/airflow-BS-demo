@@ -386,6 +386,23 @@ def _ingest_runtime_binding(session_factory, runtime_root: Path, path: Path) -> 
     return True
 
 
+PREPARE_STATUS_STAGES = frozenset(
+    {"prepare", "prepare_sampleinfo", "prepare_analysis"}
+)
+RUNTIME_ARTIFACT_STAGES = frozenset(
+    {
+        "step1_upload",
+        "step3_monitor",
+        "step4_publish",
+        "step4_repair_cram",
+        "step5_download",
+        "step6_materialize",
+        "step7_cleanup",
+    }
+)
+SUPPORTED_RUNTIME_SYNC_STAGES = PREPARE_STATUS_STAGES | RUNTIME_ARTIFACT_STAGES
+
+
 def sync_runtime_stage_artifacts(
     *,
     session_factory,
@@ -397,15 +414,7 @@ def sync_runtime_stage_artifacts(
 ) -> dict[str, int]:
     """Sync only the status/progress files registered for one sensor poke."""
 
-    if stage not in {
-        "step1_upload",
-        "step3_monitor",
-        "step4_publish",
-        "step4_repair_cram",
-        "step5_download",
-        "step6_materialize",
-        "step7_cleanup",
-    }:
+    if stage not in SUPPORTED_RUNTIME_SYNC_STAGES:
         raise ValueError("unsupported runtime stage sync")
     result = {"files": 0, "events_ingested": 0}
     request_root = request_root.resolve()
@@ -428,15 +437,7 @@ def sync_runtime_stage_artifacts(
         / f"attempt-{attempt}"
         / f"{stage}.status.json"
     )
-    if status_path.is_file() and stage in {
-        "step1_upload",
-        "step3_monitor",
-        "step4_publish",
-        "step4_repair_cram",
-        "step5_download",
-        "step6_materialize",
-        "step7_cleanup",
-    }:
+    if status_path.is_file() and stage in RUNTIME_ARTIFACT_STAGES:
         result["files"] += 1
         if _ingest_runtime_stage_status(session_factory, request_root, status_path):
             result["events_ingested"] += 1
@@ -470,6 +471,9 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
     attempt = int(payload.get("attempt") or 0)
     stage = str(payload.get("stage") or "")
     status = str(payload.get("status") or "")
+    retry_no = payload.get("retry_no", 0)
+    if type(retry_no) is not int or retry_no < 0:
+        raise ValueError("runtime stage retry_no must be a nonnegative integer")
     heartbeat = datetime.fromisoformat(
         str(payload.get("updated_at") or "").replace("Z", "+00:00")
     )
@@ -517,6 +521,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 updated_at=heartbeat,
                 message=str(payload.get("message") or "") or None,
                 evidence_key=str(resolved.relative_to(request_root)),
+                allow_terminal_retry=retry_no > 0,
             )
         elif stage == "step4_repair_cram":
             action = session.scalar(
@@ -578,11 +583,28 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
             row = session.scalar(
                 select(TransferJob).where(TransferJob.transfer_id == transfer_id)
             )
+            current_stage_row = session.scalar(
+                select(RunStageState).where(
+                    RunStageState.analysis_id == analysis_id,
+                    RunStageState.attempt == attempt,
+                    RunStageState.stage_code == stage,
+                )
+            )
             if row is not None and row.heartbeat_at is not None:
                 previous = row.heartbeat_at
                 if previous.tzinfo is None:
                     previous = previous.replace(tzinfo=timezone.utc)
-                if heartbeat <= previous:
+                retry_projection_pending = (
+                    heartbeat == previous
+                    and retry_no > 0
+                    and current_stage_row is not None
+                    and _canonical_terminal_status(current_stage_row.stage_status)
+                    == "failed"
+                    and _canonical_terminal_status(status) != "failed"
+                )
+                if heartbeat < previous or (
+                    heartbeat == previous and not retry_projection_pending
+                ):
                     return False
             if row is None:
                 row = TransferJob(
@@ -606,17 +628,11 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 row.speed_bps = int(normalized_detail["speed_bps"])
                 row.eta_seconds = int(normalized_detail["eta_seconds"]) if normalized_detail.get("eta_seconds") is not None else None
                 row.current_file = str(normalized_detail.get("current_file") or "") or None
+                row.manifest_path = str(normalized_detail.get("plan_path") or "") or None
             row.heartbeat_at = heartbeat
             row.message = str(payload.get("message") or "") or None
             row.error_message = row.message if status == "failed" else None
             row.updated_at = datetime.now(timezone.utc)
-            current_stage_row = session.scalar(
-                select(RunStageState).where(
-                    RunStageState.analysis_id == analysis_id,
-                    RunStageState.attempt == attempt,
-                    RunStageState.stage_code == stage,
-                )
-            )
             progress_source = (
                 str(detail.get("schema_version"))
                 if isinstance(detail, dict)
@@ -644,6 +660,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 message=row.message,
                 evidence_key=str(resolved.relative_to(request_root)),
                 progress_source=progress_source,
+                allow_terminal_retry=retry_no > 0,
             )
         elif stage == "step7_cleanup":
             action = session.scalar(
@@ -931,6 +948,7 @@ def upsert_stage_state(
     message: str | None = None,
     evidence_key: str | None = None,
     progress_source: str = "wgs-runtime.stage-status.v1",
+    allow_terminal_retry: bool = False,
 ) -> RunStageState:
     definition = wgs_stage_definition(stage_code)
     row = session.scalar(
@@ -961,10 +979,17 @@ def upsert_stage_state(
         terminal = {"success", "complete", "succeeded", "failed"}
         previous_terminal = _canonical_terminal_status(row.stage_status)
         incoming_terminal = _canonical_terminal_status(stage_status)
-        if row.stage_status in terminal:
+        retrying_failed_stage = (
+            allow_terminal_retry
+            and previous_terminal == "failed"
+            and updated_at > previous
+        )
+        if row.stage_status in terminal and not retrying_failed_stage:
             # Terminal evidence is monotonic. A later file may refresh the same
             # terminal result, but it must never reverse success into failure
             # (or failure into success) or move the stage back to running.
+            # A restricted runtime retry is the only exception: its archived
+            # generation and positive retry_no prove this is newer execution.
             if incoming_terminal is None or incoming_terminal != previous_terminal:
                 return row
     row.stage_status = stage_status
@@ -1216,6 +1241,8 @@ def _validate_rule_event(payload: object, binding: EvidenceBinding) -> None:
             datetime.fromisoformat(str(payload.get("timestamp")).replace("Z", "+00:00"))
         except (TypeError, ValueError) as error:
             raise ValueError("event sequence and timestamp are invalid") from error
+        if attempt != binding.attempt:
+            raise ValueError("event attempt does not match binding")
     else:
         if str(payload.get("run_label")) != binding.run_label:
             raise ValueError("event run_label does not match binding")
@@ -1223,8 +1250,6 @@ def _validate_rule_event(payload: object, binding: EvidenceBinding) -> None:
             float(payload.get("timestamp"))
         except (TypeError, ValueError) as error:
             raise ValueError("event timestamp must be numeric") from error
-    if attempt != binding.attempt:
-        raise ValueError("event attempt does not match binding")
     if schema_version == "1":
         if payload.get("role") not in {"master", "worker"}:
             raise ValueError("event role must be master or worker")
@@ -1463,12 +1488,7 @@ def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
             start=1,
         )
     }
-    registered_samples = {
-        row.sample_id: row
-        for row in session.scalars(
-            select(Sample).where(Sample.analysis_id == analysis_id)
-        ).all()
-    }
+    registered_samples = _registered_sample_aliases(session, analysis_id)
 
     for instance, instance_records in grouped.items():
         ordered = sorted((record[1] for record in instance_records), key=_event_order)
@@ -1557,6 +1577,31 @@ def _sample_from_wildcards(wildcards: dict) -> str:
     return ""
 
 
+def _registered_sample_aliases(session, analysis_id: str) -> dict[str, Sample]:
+    """Return exact, unambiguous sample and data identifiers for one run."""
+
+    aliases: dict[str, Sample] = {}
+    ambiguous: set[str] = set()
+    rows = session.scalars(
+        select(Sample).where(Sample.analysis_id == analysis_id)
+    ).all()
+    for row in rows:
+        metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
+        candidates = {
+            str(row.sample_id or "").strip(),
+            str(metadata.get("data_id") or "").strip(),
+        }
+        for candidate in candidates - {""}:
+            current = aliases.get(candidate)
+            if current is not None and current is not row:
+                ambiguous.add(candidate)
+                continue
+            aliases[candidate] = row
+    for candidate in ambiguous:
+        aliases.pop(candidate, None)
+    return aliases
+
+
 def enrich_rule_states_from_analysis_log(
     session,
     *,
@@ -1572,12 +1617,7 @@ def enrich_rule_states_from_analysis_log(
 
     if not analysis_log.is_file() or analysis_log.is_symlink():
         return 0
-    samples = {
-        row.sample_id: row
-        for row in session.scalars(
-            select(Sample).where(Sample.analysis_id == analysis_id)
-        ).all()
-    }
+    samples = _registered_sample_aliases(session, analysis_id)
     if not samples:
         return 0
     states = session.scalars(

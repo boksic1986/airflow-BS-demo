@@ -22,6 +22,7 @@ from app.diagnostics_service import (
     get_run_log,
     list_run_logs,
     list_run_artifacts,
+    sync_sample_statuses,
     sync_airflow_status,
 )
 from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candidates, scan_nipt_batch_candidates
@@ -63,7 +64,7 @@ from app.auth_service import (
     require_role,
     revoke_session,
 )
-from app.wgs_platform_service import action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run, sync_prepared_samples, sync_sampleinfo_preview
+from app.wgs_platform_service import WgsPreparedArtifactPending, action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run, sync_prepared_samples, sync_sampleinfo_preview
 from app.wgs_release_catalog import load_wgs_release_catalog
 from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferJob, UserAccount
 from app.wgs_timing_service import enrich_progress, serialize_rule_states
@@ -72,6 +73,8 @@ from app.wgs_runtime_adapter import build_stage_request, container_workdir_to_ho
 from app.wgs_observer import sync_runtime_stage_artifacts, upsert_stage_state
 from app.wgs_observer_lifecycle import activate_observer, request_observer_drain
 from app.wgs_t7_intake import get_wgs_t7_scanner_state, list_wgs_t7_intake
+from app.wgs_sample_projection import get_wgs_sample_projection
+from app.wgs_auto_dispatch import dispatch_ready_wgs_intake
 from app.wgs_step4_service import get_step4_repair_capability, request_step4_repair
 from app.wgs_step7_service import authorize_step7_runtime, get_step7_capability, request_step7_cleanup
 from app.wgs_project_catalog import load_wgs_projects, public_project_catalog
@@ -510,6 +513,17 @@ def scan_input(request: InputScanRequest) -> dict[str, object]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "INVALID_INPUT_PATH", "message": str(exc)},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "VALIDATION_ERROR", "message": str(exc)},
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.exception("intake Airflow submit failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "AIRFLOW_TRIGGER_FAILED", "message": str(exc)},
         ) from exc
 
     return _scan_result_payload(result)
@@ -1084,13 +1098,35 @@ def intake_scan_and_submit(request: IntakeScanRequest) -> dict[str, object]:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "INVALID_INPUT_PATH", "message": str(exc)},
         ) from exc
+
+
+@app.post(
+    "/api/internal/wgs/intake/dispatch-ready",
+    dependencies=[Depends(require_internal_service_token)],
+)
+def dispatch_ready_wgs_batches() -> dict[str, object]:
+    if not _wgs_platform_execution_enabled() or not _wgs_runtime_adapter_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "WGS_EXECUTION_DISABLED",
+                "message": "WGS execution/runtime gates must be enabled for automatic dispatch.",
+            },
+        )
+    try:
+        with get_sessionmaker()() as session:
+            return dispatch_ready_wgs_intake(
+                session=session,
+                settings=get_settings(),
+                airflow_client=get_airflow_client(),
+            )
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "VALIDATION_ERROR", "message": str(exc)},
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "WGS_AUTO_DISPATCH_BLOCKED", "message": str(exc)},
         ) from exc
     except httpx.HTTPError as exc:
-        logger.exception("intake Airflow submit failed")
+        logger.exception("automatic WGS Airflow dispatch failed")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={"code": "AIRFLOW_TRIGGER_FAILED", "message": str(exc)},
@@ -1255,8 +1291,17 @@ def sync_run_airflow(analysis_id: str) -> dict[str, object]:
 def run_detail(analysis_id: str) -> dict[str, object]:
     with get_sessionmaker()() as session:
         payload = get_run_detail(session=session, analysis_id=analysis_id)
-        observer = session.scalar(select(ObserverRunState).where(ObserverRunState.analysis_id == analysis_id).order_by(ObserverRunState.attempt.desc()))
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        observer = (
+            session.scalar(
+                select(ObserverRunState).where(
+                    ObserverRunState.analysis_id == analysis_id,
+                    ObserverRunState.attempt == run.attempt,
+                )
+            )
+            if run is not None
+            else None
+        )
         step4_repair = (
             get_step4_repair_capability(
                 session=session,
@@ -1306,12 +1351,22 @@ def run_detail(analysis_id: str) -> dict[str, object]:
 @app.get("/api/runs/{analysis_id}/samples")
 def run_samples(analysis_id: str) -> dict[str, object]:
     with get_sessionmaker()() as session:
-        if get_run_detail(session=session, analysis_id=analysis_id) is None:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        if run is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
             )
-        return {"items": list_run_samples(session=session, analysis_id=analysis_id)}
+        if run.pipeline_name == "wgs":
+            return get_wgs_sample_projection(
+                session=session,
+                settings=get_settings(),
+                run=run,
+            )
+        return {
+            "items": list_run_samples(session=session, analysis_id=analysis_id),
+            "manifest": [],
+        }
 
 
 @app.get("/api/runs/{analysis_id}/families")
@@ -1348,7 +1403,7 @@ def run_pods(analysis_id: str) -> dict[str, object]:
 def run_transfers(analysis_id: str) -> dict[str, object]:
     with get_sessionmaker()() as session:
         items = session.scalars(select(TransferJob).where(TransferJob.analysis_id == analysis_id).order_by(TransferJob.id)).all()
-    return {"items": [{"id": item.id, "transfer_id": item.transfer_id, "attempt": item.attempt, "transfer_type": item.transfer_type, "direction": item.direction, "source": item.source, "destination": item.destination, "status": item.status, "progress_detail_available": item.progress_detail_available, "bytes_total": item.bytes_total if item.progress_detail_available else None, "bytes_transferred": item.bytes_transferred if item.progress_detail_available else None, "files_total": item.files_total if item.progress_detail_available else None, "files_completed": item.files_completed if item.progress_detail_available else None, "current_file": item.current_file if item.progress_detail_available else None, "progress_percent": item.progress_percent if item.progress_detail_available else None, "speed_bps": item.speed_bps if item.progress_detail_available else None, "eta_seconds": item.eta_seconds if item.progress_detail_available else None, "estimated_finish_at": item.estimated_finish_at.isoformat() if item.progress_detail_available and item.estimated_finish_at else None, "checkpoint_ref": item.checkpoint_ref, "heartbeat_at": item.heartbeat_at.isoformat() if item.heartbeat_at else None, "verification_status": item.verification_status, "message": item.message, "error_message": item.error_message, "started_at": item.started_at.isoformat() if item.started_at else None, "ended_at": item.ended_at.isoformat() if item.ended_at else None} for item in items]}
+    return {"items": [{"id": item.id, "transfer_id": item.transfer_id, "attempt": item.attempt, "transfer_type": item.transfer_type, "direction": item.direction, "source": item.source, "destination": item.destination, "status": item.status, "progress_basis": "frozen_plan" if item.manifest_path else "legacy_estimate", "progress_detail_available": item.progress_detail_available, "bytes_total": item.bytes_total if item.progress_detail_available else None, "bytes_transferred": item.bytes_transferred if item.progress_detail_available else None, "files_total": item.files_total if item.progress_detail_available else None, "files_completed": item.files_completed if item.progress_detail_available else None, "current_file": item.current_file if item.progress_detail_available else None, "progress_percent": item.progress_percent if item.progress_detail_available else None, "speed_bps": item.speed_bps if item.progress_detail_available else None, "eta_seconds": item.eta_seconds if item.progress_detail_available else None, "estimated_finish_at": item.estimated_finish_at.isoformat() if item.progress_detail_available and item.estimated_finish_at else None, "checkpoint_ref": item.checkpoint_ref, "heartbeat_at": item.heartbeat_at.isoformat() if item.heartbeat_at else None, "verification_status": item.verification_status, "message": item.message, "error_message": item.error_message, "started_at": item.started_at.isoformat() if item.started_at else None, "ended_at": item.ended_at.isoformat() if item.ended_at else None} for item in items]}
 
 
 @app.get("/api/runs/{analysis_id}/rules")
@@ -1467,22 +1522,33 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 )
                 return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "released", "released": released}
             if stage_name == "finalize_run":
-                marker = Path(get_settings().wgs_runtime_request_root) / analysis_id / f"attempt-{request.attempt}" / "step6_materialize.status.json"
-                status_payload = json.loads(marker.read_text(encoding="utf-8")) if marker.is_file() else {}
-                if status_payload.get("status") != "success":
+                if not _is_successful_runtime_stage(
+                    request_root=get_settings().wgs_runtime_request_root,
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                    stage="step6_materialize",
+                ):
                     raise ValueError("Step6 materialization is not complete")
+                already_successful = str(run.status or "").lower() == "success"
                 finished_at = (
-                    run.pipeline_finished_at
-                    or run.ended_at
-                    or datetime.now(timezone.utc)
-                )
+                    (run.pipeline_finished_at or run.ended_at)
+                    if already_successful
+                    else None
+                ) or datetime.now(timezone.utc)
                 if finished_at.tzinfo is None:
                     finished_at = finished_at.replace(tzinfo=timezone.utc)
                 run.status = "success"
                 run.current_stage = "finalize_run"
                 run.pipeline_finished_at = finished_at
                 run.ended_at = finished_at
+                run.progress_percent = 100
                 run.progress_updated_at = finished_at
+                run.error_summary = None
+                sync_sample_statuses(
+                    session=session,
+                    analysis_id=analysis_id,
+                    run_status="success",
+                )
                 upsert_stage_state(
                     session,
                     analysis_id=analysis_id,
@@ -1711,25 +1777,31 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
     ):
         raise HTTPException(status_code=500, detail={"code": "WGS_STAGE_STATUS_INVALID", "message": "stage status identity mismatch"})
     status_value = str(payload.get("status") or "pending")
+    artifact_pending = False
     if stage in {"prepare", "prepare_sampleinfo", "prepare_analysis"} and status_value in {"success", "complete", "succeeded"}:
         with get_sessionmaker()() as session:
             run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.attempt == attempt))
             if run is not None:
                 params = dict(run.params_json or {})
-                if stage == "prepare_sampleinfo":
-                    sync_sampleinfo_preview(session=session, settings=settings, run=run)
-                    params["submission_phase"] = "config_review"
+                try:
+                    if stage == "prepare_sampleinfo":
+                        sync_sampleinfo_preview(session=session, settings=settings, run=run)
+                        params["submission_phase"] = "config_review"
+                    else:
+                        sync_prepared_samples(session=session, settings=settings, run=run)
+                        if stage == "prepare_analysis":
+                            params["submission_phase"] = "execution_review"
+                except WgsPreparedArtifactPending:
+                    artifact_pending = True
                 else:
-                    sync_prepared_samples(session=session, settings=settings, run=run)
-                    if stage == "prepare_analysis":
-                        params["submission_phase"] = "execution_review"
-                run.params_json = params
-                session.commit()
+                    run.params_json = params
+                    session.commit()
     return {
         "analysis_id": analysis_id,
         "attempt": attempt,
         "stage": stage,
-        "ready": status_value in {"success", "complete", "succeeded"},
+        "ready": status_value in {"success", "complete", "succeeded"} and not artifact_pending,
+        "artifact_pending": artifact_pending,
         "failed": status_value == "failed",
         "status": status_value,
         "updated_at": payload.get("updated_at"),

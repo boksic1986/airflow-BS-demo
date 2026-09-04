@@ -69,6 +69,17 @@ export function formatBytes(value?: number | null): string {
   return `${(value / 1024 ** 4).toFixed(1)} TB`;
 }
 
+export function formatProgressUnits(
+  completed?: number | null,
+  total?: number | null,
+  unit?: string | null,
+): string {
+  if (unit?.toLowerCase() === "bytes") {
+    return `${formatBytes(completed)} / ${formatBytes(total)}`;
+  }
+  return `${completed ?? "-"}/${total ?? "-"}${unit ? ` ${unit}` : ""}`;
+}
+
 export function compactPipelineName(pipeline?: string | null): string {
   if (!pipeline) return "unknown";
   if (pipeline === "wes_qsub") return "WES qsub";

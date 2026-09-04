@@ -1,5 +1,67 @@
 # 08 Snakemake + qsub 接入设计
 
+## T189 Step5 manifest handoff
+
+Step1 still freezes its transfer plan before invoking obsutil because the
+prepared local FASTQ set is already authoritative. Step5 is different: the
+frozen WGS `Step5_download_verify.sh` first downloads `READY` and
+`payload-manifest.tsv` from OBS and only then downloads payload files. The
+restricted runtime must therefore start Step5 before requiring the local
+manifest. Once the manifest becomes visible, the runtime atomically freezes
+`transfer-progress/step5_download/transfer-plan.json` and all subsequent
+progress uses that immutable denominator.
+
+Temporary absence of the manifest while Step5 is running is an expected
+handoff state, not a terminal failure. A readable but incomplete manifest is
+reported as degraded and retried. If Step5 exits successfully, the runtime
+allows a bounded 60-second NFS visibility grace period; success without a
+valid manifest after that grace period is a contract failure. Existing plan
+identity mismatches always fail closed.
+
+Observed obsutil child processes are not the transfer plan: `READY`, the
+manifest and later payload calls appear incrementally. The aggregator must not
+turn `all currently observed children succeeded` into 100%. Step5 byte progress
+uses persistent child counters plus completed planned-file sizes, file progress
+is counted from the frozen planned targets, and displayed speed includes only
+currently running children. Stage success still requires the WGS
+`DOWNLOAD_VERIFIED` contract and a successful Step5 process exit.
+
+An async retry generation is part of the stage-status identity, not only its
+initial `accepted` event. Every later `running` progress write preserves the
+same non-negative `retry_no`; otherwise Airflow can launch a valid worker and
+then falsely fail its 30-second generation-visibility check while that worker
+continues outside the failed task instance.
+
+A later terminal status write also preserves the last exact transfer payload;
+terminal success must not erase the frozen file/byte denominator. When a
+positive retry generation supersedes an older failed stage for the same
+analysis and attempt, the backend may reconcile that one stage to the newer
+state. This is the only exception to normal terminal-state monotonicity.
+
+## T188 immutable transfer plans
+
+Before Step1 invokes obsutil, the node200 runtime writes
+`transfer-progress/<stage>/transfer-plan.json` with the exact analysis,
+attempt, stage, sorted file list, file count, byte total and canonical manifest
+SHA256. Step1 plans from the prepared raw FASTQ set. Step5 freezes the same
+contract immediately after its script retrieves the stable cloud-delivery
+manifest. Progress reads this immutable denominator. Workers started before
+this contract remain `legacy-estimate` and are not backfilled with invented
+totals.
+
+## T185 schema-1 retry identity
+
+The installed `rule-status` schema `1` logger starts a new Master-local attempt
+sequence for every fresh CCE Master and therefore can emit `attempt-1` while the
+outer Airflow run is attempt 4 or 7. For schema `1`, observer identity is the
+exact frozen `run_label`; `attempt` must still be a valid positive integer or
+`attempt-N`, but it is not compared to the outer Airflow attempt. Accepted
+events are always stored under the binding's analysis and attempt.
+
+The newer `rule-event.v1` contract carries the Airflow analysis identity,
+release and attempt directly and continues to require exact equality for all
+three. Neither contract permits cross-run or cross-release projection.
+
 ## T174 forward-only Rule monitoring health
 
 A terminal Step3 without a non-empty Rule JSONL is monitoring degradation even

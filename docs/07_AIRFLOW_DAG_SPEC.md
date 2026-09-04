@@ -1,5 +1,53 @@
 # 07 Airflow DAG 设计
 
+## T188 Step6 terminal barrier
+
+`materialize_step6_results` only registers the asynchronous node200 request.
+It is followed by the reschedule sensor `wait_step6_materialize`. Only an exact
+successful Step6 marker permits `finalize_run`; lease release remains after
+finalization. Existing upstream Step1-Step5 tasks and the CCE Master identity
+are unchanged.
+
+```text
+materialize_step6_results
+  -> wait_step6_materialize
+  -> finalize_run
+  -> release_leases
+```
+
+## T186 approval sensor transport semantics
+
+The config and execution approval waits use the same backend transport policy
+as every runtime stage sensor. A temporary DNS, connection or timeout failure
+returns not-ready and the five-second `reschedule` sensor tries again without
+holding a worker. An HTTP error or invalid application response remains a hard
+failure. Transport recovery never implies approval: the server-side approval
+timestamp must still be present before Step1 may start.
+
+## T184 prepare artifact visibility semantics
+
+The five-second `wait_prepare_wgs_sampleinfo` and
+`wait_prepare_wgs_analysis` reschedule sensors must not treat a valid remote
+success marker as sufficient by itself. The backend first imports the expected
+sample table; while that table is temporarily not visible on the `.96` NFS
+mount, stage-status returns `ready=false` and the existing sensor reschedules.
+Only `ready=true` may advance to the next approval gate. Invalid or empty tables
+continue to fail without retry masking.
+
+## T183 Step3 transient recovery semantics
+
+- A transport-only backend outage (`URLError`/timeout) is not a workflow
+  verdict. The five-second Step3 sensor returns not-ready and reschedules;
+  HTTP errors and invalid backend payloads remain hard failures.
+- After the backend atomically registers a stage request, node200 can briefly
+  observe stale shared-NFS directory metadata. Only an error that explicitly
+  identifies the registered `runner-requests/.../<stage>.json` as missing is
+  retried, at one-second intervals for at most five invocations. No other SSH,
+  runner, identity or runtime error is retried by this rule.
+- Re-monitoring an existing attempt never reruns Step1 or Step2. The bound
+  Master identity remains authoritative and observer activation occurs only
+  after node200 accepts the existing Step3 worker.
+
 ## T174 node200 gate parity and diagnostic output
 
 Every deployed 23-task DAG requires the same node200 gate revision that knows

@@ -55,6 +55,7 @@ class Settings:
     wgs_intake_scan_enabled: bool
     wgs_intake_scan_interval_seconds: int
     wgs_auto_dispatch_enabled: bool
+    wgs_auto_dispatch_not_before: str | None
 
 
 def get_cors_origins() -> list[str]:
@@ -161,6 +162,9 @@ def get_settings() -> Settings:
         ),
         wgs_auto_dispatch_enabled=_parse_bool(
             os.getenv("WGS_AUTO_DISPATCH_ENABLED", "false")
+        ),
+        wgs_auto_dispatch_not_before=(
+            os.getenv("WGS_AUTO_DISPATCH_NOT_BEFORE", "").strip() or None
         ),
     )
 

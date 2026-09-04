@@ -17,6 +17,7 @@ from app.wgs_submission_service import (
     get_draft,
     submission_state,
     submit_draft,
+    create_automatic_wgs_run,
 )
 from app.wgs_stage_contract import canonical_wgs_stage, wgs_stage_definition
 
@@ -75,6 +76,119 @@ def test_direct_submission_binds_production_wgs_4_1_1_batch(tmp_path: Path) -> N
     assert params["pipeline_release_id"] == "wgs-4.1.1-6c98281"
     assert airflow.calls[0]["dag_id"] == "bio_wgs"
     assert airflow.calls[0]["dag_run_id"] == f"{result['analysis_id']}-a1"
+
+
+def test_automatic_submission_is_preapproved_and_never_restarts_a_failed_run(
+    tmp_path: Path,
+) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    settings = SimpleNamespace(
+        wgs_project_catalog_path=str(Path(__file__).parents[2] / "config" / "wgs_projects.yaml"),
+        wgs_release_catalog_path=str(Path(__file__).parents[2] / "config" / "wgs_releases.yaml"),
+        host_results_root=str(tmp_path / "results"),
+        container_shared_root=str(tmp_path / "shared"),
+    )
+    airflow = RecordingAirflow()
+
+    with sessions() as session:
+        first = create_automatic_wgs_run(
+            session=session,
+            settings=settings,
+            airflow_client=airflow,
+            username="wgs-intake-scanner",
+            project_id="WGS_Clinical",
+            platform="T7",
+            batch="20260904A",
+            fastq_root_id="T7_Fastq",
+        )
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == first["analysis_id"])
+        )
+        assert run is not None
+        assert run.params_json["submission_mode"] == "auto_dispatch"
+        assert run.params_json["submission_phase"] == "approved"
+        assert run.params_json["config_approved_at"]
+        assert run.params_json["execution_approved_at"]
+        run.status = "failed"
+        session.commit()
+
+        second = create_automatic_wgs_run(
+            session=session,
+            settings=settings,
+            airflow_client=airflow,
+            username="wgs-intake-scanner",
+            project_id="WGS_Clinical",
+            platform="T7",
+            batch="20260904A",
+            fastq_root_id="T7_Fastq",
+        )
+
+    assert second["analysis_id"] == first["analysis_id"]
+    assert second["attempt"] == 1
+    assert len(airflow.calls) == 1
+
+
+def test_resubmitting_a_failed_catalog_batch_creates_a_new_attempt(tmp_path: Path) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    settings = SimpleNamespace(
+        wgs_project_catalog_path=str(Path(__file__).parents[2] / "config" / "wgs_projects.yaml"),
+        wgs_release_catalog_path=str(Path(__file__).parents[2] / "config" / "wgs_releases.yaml"),
+        host_results_root=str(tmp_path / "results"),
+        container_shared_root=str(tmp_path / "shared"),
+    )
+    airflow = RecordingAirflow()
+
+    with sessions() as session:
+        first = create_and_submit_run(
+            session=session,
+            settings=settings,
+            airflow_client=airflow,
+            username="operator",
+            project_id="WGS_Clinical",
+            platform="T7",
+            batch="20260902A",
+            fastq_root_id="T7_Fastq",
+        )
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == first["analysis_id"])
+        )
+        assert run is not None
+        run.status = "failed"
+        run.ended_at = datetime.now(timezone.utc)
+        run.pipeline_finished_at = datetime.now(timezone.utc)
+        run.error_summary = "stale attempt failed"
+        session.commit()
+
+        second = create_and_submit_run(
+            session=session,
+            settings=settings,
+            airflow_client=airflow,
+            username="operator",
+            project_id="WGS_Clinical",
+            platform="T7",
+            batch="20260902A",
+            fastq_root_id="T7_Fastq",
+        )
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == first["analysis_id"])
+        )
+        assert run is not None
+
+    assert second["analysis_id"] == first["analysis_id"]
+    assert second["attempt"] == 2
+    assert second["dag_run_id"] == f"{first['analysis_id']}-a2"
+    assert [call["dag_run_id"] for call in airflow.calls] == [
+        f"{first['analysis_id']}-a1",
+        f"{first['analysis_id']}-a2",
+    ]
+    assert run.params_json["submission_phase"] == "preparing_sampleinfo"
+    assert run.error_summary is None
+    assert run.ended_at is None
+    assert run.pipeline_finished_at is None
 
 
 def test_three_stage_approvals_are_server_controlled_and_idempotent(tmp_path: Path) -> None:

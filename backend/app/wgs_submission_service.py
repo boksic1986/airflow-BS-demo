@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -9,9 +10,14 @@ import secrets
 
 from sqlalchemy import select
 
-from app.models import AnalysisRun, RunAction, Sample, WgsSubmissionDraft
+from app.models import AnalysisRun, RunAction, Sample, WgsInputSnapshot, WgsSubmissionDraft
 from app.wgs_orchestration_service import build_fastq_snapshot, fastq_source_fingerprint
-from app.wgs_platform_service import create_wgs_platform_run, run_payload, submit_wgs_run
+from app.wgs_platform_service import (
+    action_wgs_run,
+    create_wgs_platform_run,
+    run_payload,
+    submit_wgs_run,
+)
 from app.wgs_project_catalog import WgsProject, load_wgs_projects
 from app.wgs_release_catalog import load_wgs_release_catalog
 
@@ -22,6 +28,16 @@ SAFE_SAMPLE_FIELDS = {
     "sex", "sequencing_batch", "r1_filename", "r2_filename", "status",
     "pending_source", "pending_reason", "fastq_pair_status",
 }
+
+
+@dataclass(frozen=True)
+class CatalogRunSpec:
+    project: WgsProject
+    platform: str
+    batch: str
+    node_root: str
+    batch_no: str
+    use_reference: str
 
 
 def create_draft(*, session, settings, owner_username: str, project_id: str, platform: str,
@@ -227,38 +243,31 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
                           fastq_root_id: str,
                           use_reference: str | None = None) -> dict:
     """Create one catalog-bound run; WGS prepare owns sampleinfo and selection."""
-    project = _project(settings, project_id)
-    project.platform(platform)
-    root = project.fastq_root(fastq_root_id)
-    batch = batch.strip()
-    if SAFE_BATCH.fullmatch(batch) is None or not re.fullmatch(r"[0-9]{8}[A-Z]", batch):
-        raise ValueError("batch must use YYYYMMDDX format")
-    if use_reference is not None and use_reference not in {"all", "ref", "no"}:
-        raise ValueError("use_reference must be all, ref, or no")
-    node_root = str(root["node200_path"])
-    release = load_wgs_release_catalog(Path(settings.wgs_release_catalog_path)).release
-    batch_no = f"WGS_{batch}_{platform}Hg38{release.version}"
-    created = create_wgs_platform_run(
+    spec = _catalog_run_spec(
+        settings=settings,
+        project_id=project_id,
+        platform=platform,
+        batch=batch,
+        fastq_root_id=fastq_root_id,
+        use_reference=use_reference,
+    )
+    run, _ = _create_catalog_run_record(
         session=session,
         settings=settings,
-        project_name=project.project_name,
-        execution_mode="cce",
-        batch_no=batch_no,
-        fq_path=node_root,
-        submitted_by=username,
-        commit=False,
-        validate_input=False,
-        platform=platform,
-        sequencing_batch=batch,
-        analysis_batch=batch,
-        fastq_root=node_root,
-        use_reference=use_reference or "all",
+        username=username,
+        spec=spec,
     )
-    run = session.scalar(
-        select(AnalysisRun).where(AnalysisRun.analysis_id == created["analysis_id"])
-    )
-    if run is None:
-        raise RuntimeError("created WGS run is missing")
+    if run.status == "success":
+        raise ValueError(
+            f"batch {spec.batch} already completed as {run.analysis_id}"
+        )
+    if run.status not in {"created", "failed", "cancelled", "unknown_interrupted"}:
+        return run_payload(session, run)
+    restart_failed_attempt = run.status in {
+        "failed",
+        "cancelled",
+        "unknown_interrupted",
+    }
     params = dict(run.params_json or {})
     params.update(
         {
@@ -271,11 +280,121 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
     )
     run.params_json = params
     session.commit()
+    if restart_failed_attempt:
+        return action_wgs_run(
+            session=session,
+            airflow_client=airflow_client,
+            analysis_id=run.analysis_id,
+            action="rerun_failed",
+            requested_by=username,
+        )
     return submit_wgs_run(
         session=session,
         airflow_client=airflow_client,
-        analysis_id=str(created["analysis_id"]),
+        analysis_id=run.analysis_id,
     )
+
+
+def create_automatic_wgs_run(*, session, settings, airflow_client, username: str,
+                             project_id: str, platform: str, batch: str,
+                             fastq_root_id: str,
+                             use_reference: str | None = None) -> dict:
+    """Create one pre-approved intake run without reviving a terminal attempt."""
+    spec = _catalog_run_spec(
+        settings=settings,
+        project_id=project_id,
+        platform=platform,
+        batch=batch,
+        fastq_root_id=fastq_root_id,
+        use_reference=use_reference,
+    )
+    run, existed = _create_catalog_run_record(
+        session=session,
+        settings=settings,
+        username=username,
+        spec=spec,
+    )
+    params = dict(run.params_json or {})
+    if existed and params.get("submission_mode") != "auto_dispatch":
+        return run_payload(session, run)
+    if not existed:
+        approved_at = datetime.now(timezone.utc).isoformat()
+        params.update(
+            {
+                "submission_mode": "auto_dispatch",
+                "submission_phase": "approved",
+                "config_approved_at": approved_at,
+                "execution_approved_at": approved_at,
+                "resource_set": "default",
+            }
+        )
+        run.params_json = params
+        session.commit()
+    if run.status == "created":
+        return submit_wgs_run(
+            session=session,
+            airflow_client=airflow_client,
+            analysis_id=run.analysis_id,
+        )
+    return run_payload(session, run)
+
+
+def _catalog_run_spec(*, settings, project_id: str, platform: str, batch: str,
+                      fastq_root_id: str,
+                      use_reference: str | None) -> CatalogRunSpec:
+    project = _project(settings, project_id)
+    project.platform(platform)
+    root = project.fastq_root(fastq_root_id)
+    normalized_batch = batch.strip()
+    if (
+        SAFE_BATCH.fullmatch(normalized_batch) is None
+        or not re.fullmatch(r"[0-9]{8}[A-Z]", normalized_batch)
+    ):
+        raise ValueError("batch must use YYYYMMDDX format")
+    normalized_reference = "all" if use_reference is None else use_reference
+    if normalized_reference not in {"all", "ref", "no"}:
+        raise ValueError("use_reference must be all, ref, or no")
+    release = load_wgs_release_catalog(Path(settings.wgs_release_catalog_path)).release
+    return CatalogRunSpec(
+        project=project,
+        platform=platform,
+        batch=normalized_batch,
+        node_root=str(root["node200_path"]),
+        batch_no=f"WGS_{normalized_batch}_{platform}Hg38{release.version}",
+        use_reference=normalized_reference,
+    )
+
+
+def _create_catalog_run_record(*, session, settings, username: str,
+                               spec: CatalogRunSpec) -> tuple[AnalysisRun, bool]:
+    existed = session.scalar(
+        select(WgsInputSnapshot).where(
+            WgsInputSnapshot.batch_no == spec.batch_no,
+            WgsInputSnapshot.fq_path == spec.node_root,
+        )
+    ) is not None
+    created = create_wgs_platform_run(
+        session=session,
+        settings=settings,
+        project_name=spec.project.project_name,
+        execution_mode="cce",
+        batch_no=spec.batch_no,
+        fq_path=spec.node_root,
+        submitted_by=username,
+        commit=False,
+        validate_input=False,
+        platform=spec.platform,
+        sequencing_batch=spec.batch,
+        analysis_batch=spec.batch,
+        fastq_root=spec.node_root,
+        use_reference=spec.use_reference,
+    )
+    run = session.scalar(
+        select(AnalysisRun).where(AnalysisRun.analysis_id == created["analysis_id"])
+    )
+    if run is None:
+        raise RuntimeError("created WGS run is missing")
+    return run, existed
 
 
 def submission_state(*, session, analysis_id: str, attempt: int) -> dict:

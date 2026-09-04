@@ -2,7 +2,7 @@ import type {RunDetail} from "../../api";
 import type {RunProgress} from "../../lib/runProgress";
 
 import {RunProgressBar} from "../../components/RunProgressBar";
-import {formatBytes, formatDuration, formatSecondsDuration} from "../../lib/format";
+import {formatBytes, formatDuration, formatProgressUnits, formatSecondsDuration} from "../../lib/format";
 import {isActiveStatus} from "../../lib/status";
 
 export function CurrentProgressPanel({detail, progress, source, stage}: {
@@ -21,7 +21,7 @@ export function CurrentProgressPanel({detail, progress, source, stage}: {
         <div className="current-progress-hero">
           <strong>{progress.currentStep}</strong>
           <span>{progress.available === false ? "Detailed progress unavailable" : `${Math.round(progress.percent)}% complete`}</span>
-          {progress.available !== false && stage?.total_units != null ? <span>{stage.completed_units ?? 0}/{stage.total_units} {stage.unit || "units"}</span> : null}
+          {progress.available !== false && stage?.total_units != null ? <span>{formatProgressUnits(stage.completed_units ?? 0, stage.total_units, stage.unit || "units")}</span> : null}
           {stage?.current_item ? <small className="path-text">Current: {stage.current_item}</small> : null}
           {stage?.speed_bps ? <small>{formatBytes(stage.speed_bps)}/s{stage.eta_seconds != null ? ` / ETA ${formatSecondsDuration(stage.eta_seconds)}` : ""}</small> : null}
           <small>

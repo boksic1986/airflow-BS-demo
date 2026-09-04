@@ -19,6 +19,7 @@ NODE_TARGETS = (
 )
 NODE_DISPLAY_NAMES = {key: address for key, address, _alias in NODE_TARGETS}
 NODE_METRIC_FIELDS = frozenset({
+    "logical_cpu_count",
     "cpu_seconds_total",
     "cpu_seconds_idle",
     "node_memory_MemTotal_bytes",
@@ -42,6 +43,7 @@ import json
 import os
 
 metrics = {}
+metrics["logical_cpu_count"] = float(os.cpu_count() or 1)
 hz = float(os.sysconf("SC_CLK_TCK"))
 with open("/proc/stat", encoding="ascii") as handle:
     parts = handle.readline().split()[1:]

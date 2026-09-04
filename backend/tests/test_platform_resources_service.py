@@ -10,7 +10,7 @@ from app.platform_metrics_collector_cli import (
     _collect_node_spool,
     _derive_node_rates,
 )
-from app.platform_node_probe_cli import NODE_TARGETS, _ssh_command, _write_spool
+from app.platform_node_probe_cli import NODE_METRIC_FIELDS, NODE_TARGETS, _REMOTE_PROBE, _ssh_command, _write_spool
 
 
 def test_resource_snapshot_is_bounded_and_becomes_stale() -> None:
@@ -33,6 +33,26 @@ def test_resource_snapshot_is_bounded_and_becomes_stale() -> None:
         payload = get_platform_resources(session=session, now=start + timedelta(minutes=70))
         assert payload["items"][0]["status"] == "stale"
         assert payload["items"][0]["current"] == {"load1": 64}
+
+
+def test_sfs_history_retains_seven_days_without_changing_snapshot_contract() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    start = datetime(2026, 9, 1, tzinfo=timezone.utc)
+    with sessions() as session:
+        for index in range(7 * 24 * 60 + 5):
+            upsert_resource_snapshot(
+                session=session,
+                resource_key="sfs-clinical",
+                resource_type="sfs",
+                display_name="sfs-turbo-clinical",
+                current={"read_bps": index, "write_bps": index // 2},
+                source_updated_at=start + timedelta(minutes=index),
+            )
+        row = session.scalar(select(PlatformResourceSnapshot))
+        assert len(row.history_json) == 7 * 24 * 60
+        assert row.history_json[0]["read_bps"] == 5
 
 
 def test_node_metrics_report_cpu_io_and_network_rates() -> None:
@@ -88,6 +108,8 @@ def test_node_probe_uses_only_fixed_ssh_aliases_and_atomic_spool(tmp_path) -> No
     _write_spool(spool, {"schema_version": "platform-node-metrics.v1", "items": []})
     assert spool.read_text(encoding="utf-8").endswith("\n")
     assert not list(tmp_path.glob("*.partial"))
+    assert "logical_cpu_count" in NODE_METRIC_FIELDS
+    assert 'metrics["logical_cpu_count"]' in _REMOTE_PROBE
 
 
 def test_node_spool_upserts_fixed_nodes_and_derives_rates(tmp_path, monkeypatch) -> None:
@@ -111,6 +133,7 @@ def test_node_spool_upserts_fixed_nodes_and_derives_rates(tmp_path, monkeypatch)
         )
     spool = tmp_path / "nodes.json"
     base_current = {
+        "logical_cpu_count": 128,
         "cpu_seconds_total": 20,
         "cpu_seconds_idle": 10,
         "node_memory_MemTotal_bytes": 2000,

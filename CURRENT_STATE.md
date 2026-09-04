@@ -1,5 +1,193 @@
 # CURRENT_STATE.md
 
+## 2026-09-04 T191 frontend login reverse-proxy DNS recovery
+
+```text
+incident: after the T190 backend container recreate, the browser could load the React shell but `/api/auth/me` and `/api/auth/login` returned nginx 502. This was not an account/password failure.
+root_cause: frontend-nginx had resolved backend to the previous container address 192.168.199.8 at startup. Docker DNS correctly resolved the recreated backend as 192.168.199.4, but the running nginx workers retained the stale upstream and logged connection refused.
+recovery: production Compose config passed, then only airflow-wgs-frontend-nginx-1 was restarted. No image, credential, database, backend, Airflow, scanner, volume or network change was made.
+verification: a server-local login using the protected production admin environment returned HTTP 200, and the resulting authenticated `/api/auth/me` returned admin/admin with HTTP 200. Nginx access logs record both 200 responses; credentials and session token were not printed.
+invariant: current remains /data/airflow-WGS/releases/20260904-wgs-4.1.1-6c98281-t190-intake-name-correction-r2; only 172.17.61.96:12959 is published.
+```
+
+## 2026-09-04 T190 T7 source-name correction and false backfill rollback
+
+```text
+source_truth: the operator confirmed that 2224th_20260902A_E250197512 and 2225th_20260902B_E250197501 are the latest directories; their chip numbers were entered incorrectly and should have been 2234/2235. 2233th_20260901B_E250197502 is an older completed directory. Numeric chip order is therefore not a valid freshness signal.
+correction: the temporary numeric-head reconciliation was removed. Scanner freshness remains based on the regular BarcodeStat marker relative to the persisted bootstrap watermark. The source directories are not renamed and the UI continues to show their real on-disk names. The shared backend WGS batch matcher remains only as a no-behavior-change deduplication of automatic-dispatch identity logic.
+live_result: the exact false 2233 intake index row created during diagnosis was deleted; its successful AnalysisRun WGS_20260902_181846_20A4D2, source directory and results were preserved. A restarted scanner examined 1845 directories, updated only 2224/2225, created zero rows and submitted zero analyses. Intake again contains exactly 2224 and 2225.
+validation: the corrected focused intake/dispatch suite passed 22 tests and the complete `.96` backend suite passed 341 tests with 1 skipped. No active WGS run existed at deployment.
+deployment: current -> /data/airflow-WGS/releases/20260904-wgs-4.1.1-6c98281-t190-intake-name-correction-r2. Only backend and scanner were recreated. PostgreSQL, Redis, Airflow, frontend, volumes and CCE were not recreated. nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1; only 172.17.61.96:12959 is published. Git remains uncommitted by operator request.
+```
+
+## 2026-09-04 T189 Step5 recovery and exact batch QC projection
+
+```text
+incident: 20260902B completed its 481-rule Master and Step4 publish, but Step5 failed before launch because the local payload manifest was required even though Step5 itself retrieves that manifest from OBS. A later retry also lost retry_no in progress writes, so Airflow could reject a valid retained worker. After Airflow recovered, same-attempt terminal monotonicity left the business run and samples falsely failed.
+runtime_fix: Step5 now starts before waiting for the manifest, freezes an immutable plan once it appears, uses exact planned targets/sizes for completion, preserves retry_no and final transfer detail, and fails closed after the bounded post-exit visibility grace. No duplicate worker, DagRun or Master is created.
+projection_fix: an explicit positive retry generation may reconcile an older failed RunStageState, while ordinary terminal replay remains monotonic. Airflow success replaces stale failed completion time, finalize_run clears the stale error and synchronizes all samples. The controlled QC selector now chooses only 07_QC/<batch-directory>.QCstat.tsv even when per-sample QCstat files coexist; Yes becomes pass, non-empty exception text becomes warn, and empty stays unknown.
+recovery: the original WGS_20260903_200310_37E27D-a1 was retained. Only Step5 and its downstream tail were recovered; Step1-Step4 and Master cce-master-44815ec87b04c2020d77 were not rerun. DOWNLOAD_VERIFIED and MATERIALIZED are PASS. Airflow has one exact DagRun with all 24 tasks success and terminal time 2026-09-04 13:23:06 CST.
+live_state: business run success/attempt 1/progress 100/Workflow complete; 8/8 samples success; 481/481 Rule states success; Step5 exact plan 26/26 files and 447124566023/447124566023 bytes. Public sample projection reads the one batch QCstat and returns 2 pass, 6 warn and safe metrics for all 8 samples; Files exposes exactly one wgs_qcstat artifact.
+validation: .96 backend 341 passed, 1 skipped; runtime scripts 57 passed. Health is OK. Local/release/node200 gate SHA256 all equal e3e6f223e9e8f20ceb796a5de57aa667f6c64f8d862f6f693f7012f6f931302f. No node200 gate worker remains.
+deployment: current -> /data/airflow-WGS/releases/20260904-wgs-4.1.1-6c98281-t189-step5-manifest-r4. Only backend was recreated for the final QC projection. PostgreSQL, Redis, Airflow services, CCE Master, volumes and network were preserved. nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1; only 172.17.61.96:12959 is published. Git remains uncommitted by operator request.
+```
+
+## 2026-09-04 T188 Step6 barrier, unified projection and automatic intake
+
+```text
+implementation: bio_wgs now starts asynchronous step6_materialize, waits on wait_step6_materialize, and only then invokes finalize_run. The backend independently validates the exact successful Step6 marker identity, so a start-task success can no longer finalize the business run early.
+projection: WGS sample manifest, per-sample Rule/QC matrix, controlled artifact list, log labels and failure excerpts are projected once by the backend. The browser no longer parses sampleinfo, maps Rule states or receives absolute SFS paths. Names and hospitals are excluded.
+transfers: new Step1/Step5 workers create an immutable transfer-plan.json before obsutil, freezing file count, byte total and manifest SHA256. Old observations without a plan are labelled legacy_estimate.
+resources: the dashboard shows a single selected analysis node with CPU, memory and normalized load bars. Duplicate node identity and client connections are hidden; the SFS resource name is a tag and its I/O history uses 24h/1d/7d views over bounded server history.
+automatic_intake: the scanner calls an internal authenticated dispatcher only after a successful scan. biodemo AnalysisRun/input snapshot plus the deterministic Airflow DagRun identity is the duplicate gate. Any batch with an existing manual or automatic run in any status is linked and skipped; terminal failures are never restarted automatically. A required activation watermark prevents historical ready rows from being submitted.
+validation: final read-only release tests on .96 passed backend 338 tests, runtime 47 tests and DAG/deployment 21 tests; the earlier frontend run passed 47 tests and the final production build passed. A redundant offline npm image-layer rerun could not reuse the dependency layer and failed in npm ci before tests; the already-built final dist remained the verified index-DZXT7pAH.js. Compose config, subnet 192.168.199.0/24, gateway 192.168.199.1 and the single published 172.17.61.96:12959 port were verified.
+deployment: current points to /data/airflow-WGS/releases/20260904-wgs-4.1.1-6c98281-t188-step6-projection-auto-r1. node200 gate SHA256 is 2265e99f037e5b6fd32388753f67570ebedc2e9adad1d7c2e3ad81fef81f7794. Auto dispatch was activated at 2026-09-03T21:36:11Z; two consecutive scans examined the two ready rows, linked both to their existing manual runs, submitted zero, and kept AnalysisRun/DagRun counts at 4/10.
+step6_recovery: exact success markers were revalidated for 20260825A attempt 7 and 20260902A attempt 1. Both original DagRuns added wait_step6_materialize=success and then finalized success; materialize_step6_results stayed try 1.
+deployment_incident: the first service recreate inherited a release-file permission that prevented Airflow from reading bio_wgs.py. The active 20260902B sensor was control-plane failed and release_leases drained its observer, while CCE Master cce-master-44815ec87b04c2020d77 remained Running and unchanged. Only code-directory read permissions were corrected; the same DagRun tail was cleared, the DAG reparsed active/unpaused, wait_step3_analysis returned to up_for_reschedule, and its observer was explicitly reactivated healthy. Step1/Step2/Step3 start tasks remain try 1 and no new Master or DagRun was created.
+```
+
+## 2026-09-04 T187 20260902B exact reset and corrected resubmission
+
+```text
+incident: WGS_20260903_111829_1D58E1 attempt 7 failed in prepare_wgs_analysis because the exact batch directory already existed. This was a real backend failure, not a frontend projection; Step1 and a new Master never started.
+cleanup: the operator explicitly waived backups for this test batch. Frozen Step0 was attempted but failed before mutation because the orphan bundle had no worker manifest and the reset Job tooling failed. After reconfirming no process, flock, Master, Pod, Job or ConfigMap lock, the exact local batch directory, exact SFS run/linkage path, three generated sampleinfo files, runner requests/bindings/evidence, seven Airflow DagRuns and old biodemo run/dependencies were deleted. OBS FASTQ was not deleted.
+selection_root_cause: a clean sampleinfo fetch returned 11 family rows, but final preparation returned only two singleton samples. The current B FASTQ directory has six pairs; expanded family members WGS26080571, WGS26080572 and WGS26080575 are sequenced in 20260902A. Their missing sequencing-batch identity caused WGS to place both otherwise complete families in pending.
+selection_recovery: the three exact pending rows were atomically assigned their Samplelist-proven sequencing batch 20260902A. A read-only run of the frozen WGS selector proved 8 kept samples, 3 pending samples and 16 readable FASTQ paths. No final sampleinfo row or FASTQ link was fabricated.
+fresh_run: WGS_20260903_200310_37E27D-a1 regenerated source and final sampleinfo, reached execution_review with exactly 8 samples, then received config and execution approval. It waited without stealing the single OBS slot, acquired it after the prior lease expired, reused the existing FASTQ objects, and completed Step1 plus Step2 automatically. It is now running Step3 against active Master Job cce-master-44815ec87b04c2020d77 in snakemake-ns; the runner status identity is the same analysis, attempt 1 and stage.
+invariants: the old analysis has no remaining node200 runtime matches; nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1; only 172.17.61.96:12959 is published. Service volumes were not rebuilt, production WGS remains pinned to V4.1.1 commit 6c982817614db6a1157b6f287427ddf01ac91827, and Git remains uncommitted.
+```
+
+## 2026-09-04 T186 approval-sensor backend DNS recovery
+
+```text
+incident: 20260902B attempt 6 successfully completed sampleinfo and prepare_analysis, then wait_wgs_execution_approval failed before Step1 when the Airflow worker had one transient Docker DNS failure resolving backend. All later tasks were upstream_failed; no OBS upload, CCE Master or Rule observer was started.
+root_cause: stage_ready already converted BackendTransportUnavailable into a five-second sensor reschedule, but submission_gate_ready called the same backend transport without that protection. The approval poll therefore treated infrastructure transport loss as a workflow verdict.
+fix: stage and approval sensors now share one _sensor_backend_json helper. URLError and timeout return not-ready and reschedule; HTTP/application errors remain terminal.
+tdd: both config and execution gates raised BackendTransportUnavailable against the previous DAG. After the fix, the two focused transport tests and all 14 bio_wgs DAG unit tests pass in the .96 Airflow image.
+deployment: current -> /data/airflow-WGS/releases/20260904-wgs-4.1.1-6c98281-t186-approval-sensor-dns-r1. Only airflow-api-server, airflow-scheduler and airflow-worker were recreated. The production Compose file is always selected explicitly with -f docker-compose.wgs.yaml.
+deployment_recovery: one initial command omitted the production Compose filename and briefly attached only those three newly recreated Airflow containers to an empty 172.30.10.0/24 network. Verification caught the DNS failure before any WGS work advanced. The services were immediately recreated on nipt_analysis_test_net and the empty accidental network was removed.
+live_verification: bio_wgs has no import errors; all three Airflow services resolve backend/PostgreSQL/Redis. 20260825A remains attempt 7 at Step3 with observer active/healthy and 72 Rule rows. 20260902B remains attempt 6 at execution_review with no approval, Step1, Master, observer or Rule rows.
+network_invariant: nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1; only 172.17.61.96:12959 is published and /api/health returns ok.
+recovery_boundary: 20260902B remains in execution_review with no execution approval. Deploying the DAG fix must not approve it, start Step1, create a Master or activate Rule monitoring.
+git: working tree remains uncommitted at the operator's request.
+```
+
+## 2026-09-04 T185 retried Rule evidence identity repair
+
+```text
+incident: 20260825A attempt 7 and 20260902B attempt 4 both had readable Rule JSONL and analysis.log files, but observer stopped at line 1 with "event attempt does not match binding". The Rule logger emitted schema-1 attempt="attempt-1" for each fresh Master, while the outer Airflow attempts were 7 and 4.
+root_cause: schema-1 identifies the frozen execution with exact run_label; its attempt field is Master-local. The observer incorrectly compared that local label to the outer Airflow attempt. Run detail also selected the newest observer row regardless of the current AnalysisRun attempt, so 20260902B attempt 6 displayed attempt 4's warning.
+fix: schema-1 keeps strict run_label/role/stream validation and is stored under the frozen binding attempt; rule-event.v1 retains exact analysis/release/attempt validation. Run detail now selects observer state by analysis_id plus the current attempt.
+live_recovery: existing cursors resumed without editing evidence. 20260825A attempt 7 consumed 66 events and projected 20 Rule instances on the first recovery poll; 20260902B attempt 4 consumed 20 events and projected 6 Rule instances. Both observer rows became healthy with empty last_error; the terminal attempt-4 observer was then drained to stopped while current attempt 6 remains without an observer until Step3. No Master or analysis task was restarted.
+tdd: both regressions failed against the previous implementation, then the focused WGS observer/API suite passed 70 tests. A clean network-isolated .96 Docker run with backend and config mounted read-only passed 329 tests with 1 skipped.
+deployment: current -> /data/airflow-WGS/releases/20260904-wgs-4.1.1-6c98281-t185-rule-attempt-binding-r1. Only backend and wgs-run-observer were recreated; frontend-nginx was restarted once to refresh the recreated backend container address. PostgreSQL, Redis, Airflow, scanner, volumes and CCE workloads were unchanged.
+network invariant: nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1; only 172.17.61.96:12959 is published and /api/health returns ok.
+git: working tree remains uncommitted.
+```
+
+## 2026-09-04 T184 20260902B clean prepare recovery
+
+```text
+incident: attempt 5 completed remote prepare_analysis, but its success status reached .96 before the final sampleinfo.tsv became visible through the shared NFS mount. The backend raised HTTP 500 and Airflow failed the wait sensor.
+cleanup: after confirming attempt 5 and its DagRun were failed, the OBS lease was empty and no CCE Master existed, the generated batch directory was moved to /sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical/.rerun-archive/20260903T171610Z/attempt-5/. The refreshed source sampleinfo was retained with 11 rows and SHA256 c685cbb075a0bd4ecd1040bf0009f8e0defd0103de2e1dc5ad86b9c1edade0f7.
+fix: a successful prepare marker with an as-yet invisible sample table now returns HTTP 200, ready=false and artifact_pending=true. The five-second Airflow sensor reschedules. Empty tables, invalid sample IDs, unsafe links and identity/schema errors remain hard failures.
+tdd: the focused test failed against the prior code with ValueError WGS prepare did not publish final sampleinfo.tsv, then passed after implementation. The complete .96 backend suite passed 328 tests.
+deployment: current -> /data/airflow-WGS/releases/20260904-wgs-4.1.1-6c98281-t184-prepare-nfs-race-r1. Only backend was recreated. Because the configured registry mirror DNS was unavailable, the already-tested T183 dependency image was retagged; /app is the read-only T184 release bind mount containing the new source.
+backup: /data/airflow-WGS/backups/T184-prepare-nfs-race-20260903T172446Z; biodemo SHA256 010962e0da461ddfe16156c6a44a996f6ec267ce2c33adb4d539a7184058ce89; airflow SHA256 d8de023653b24e9c250de3dd3a7fa6d20491330fdef7e7ef0a3251317e02152f.
+attempt6: WGS_20260903_111829_1D58E1-a6 reached execution_review. Source sampleinfo has 11 rows; regenerated final sampleinfo.tsv has two rows: WGS26080569 and WGS26080573. The remaining nine follow the current WGS pending logic.
+execution_gate: config is approved, execution_approved_at is empty, Step1 and Step2 task instances have not started, the OBS lease is empty and no CCE Master exists. The operator owns the final execution action.
+network invariant: nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1; only 172.17.61.96:12959 is published.
+git: working tree remains uncommitted at the operator's request.
+```
+
+## 2026-09-03 T183 20260902A Rule monitoring and log access recovery
+
+```text
+incident: WGS_20260903_111456_397777-a1 lost Step3 control-plane monitoring after one backend restart timeout; two recovery attempts then failed because node200 briefly could not see the already registered request on shared NFS. The bound CCE Master itself remained Running.
+root_causes: Step3 sensors treated transient backend transport failure as terminal; runner launch had no bounded retry for the exact runner-request visibility race; Rule sample context used WGS data_id while the business sample table stored the base sample_id; the documented per-Rule analysis-log link was not rendered.
+fix: backend transport outages reschedule the sensor; exact missing runner-request errors retry up to five times; observer accepts only a unique registered sample_id/data_id alias; every projected Rule receives the registered opaque analysis-log key and the Rule table opens that source in Logs.
+recovery: the original DagRun and attempt were retained. Only start_step3_monitor and downstream tasks were cleared; submit_step2_master remains success/try 1 and the Master Job cce-master-570b96f972d40847e331 was not recreated.
+live_state: start_step3_monitor=success/try 4, wait_step3_analysis=up_for_reschedule, observer=active/healthy. Three current Rule states are linked to sample WGS26080568 and family JX26G00230117; all three expose the same registered analysis-log key.
+validation: DAG focused suite 13 passed; backend full suite 327 passed; frontend full suite 47 passed and Vite build passed. The latest production check returned 19 Rule rows, all 19 sample/family/log linked; opaque log read returned the latest 200 lines without a path. Production health, Compose config and fixed network checks passed.
+deployment: current -> /data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t183-rule-log-link-r1; backend image airflow-demo/backend:t183-rule-log; frontend image airflow-demo/frontend:t183-rule-log.
+backup: /data/airflow-WGS/backups/20260903T2120-t182 contains mode-0600 Airflow/biodemo dumps, task state and clear dry-run/actual evidence.
+network invariant: nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1; only 172.17.61.96:12959 is published by this platform.
+git: working tree remains uncommitted at the operator's request.
+```
+
+## 2026-09-03 T179 transfer units, load visualization and SFS chart repair
+
+```text
+frontend: Current Progress, Run Tracker and the Step1/Step5 workflow cards now share one binary byte formatter and display KiB/MiB/GiB/TiB-sized values instead of raw byte integers.
+node_health: CPU, memory and load are separate utilization bars. Load uses max(load1, load5, load15) / logical CPU count, retains the three raw load values on the right and changes green/warning/danger at <70%, 70-<100% and >=100%.
+cloud_resources: Client connections is a spaced inline row with the value right-aligned. The SFS read/write chart has a visible max/mid/zero Y axis with automatic KiB/s, MiB/s or GiB/s units.
+collector_contract: node metrics now include logical_cpu_count; no database migration or new endpoint was required.
+runtime_fix: transfer aggregation now remains running while any child obsutil operation is running, even if an earlier auxiliary child record failed. The node200 gate was atomically updated; already-running workers were not restarted.
+validation: .96 Docker frontend 46 tests and build passed; Python 374 tests passed with 1 skipped. Focused red tests reproduced all missing UI fields and the transfer aggregation defect before implementation.
+deployment: current -> /data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t179-progress-resource-r1; frontend image airflow-demo/frontend:t179-progress-resource. Only platform-node-probe, platform-metrics-collector and frontend-nginx were recreated.
+live_state: 20260902B had already acquired the single OBS slot and was actively uploading during deployment; its worker PID was preserved. Its outer Step1 status is running, while its old worker can still expose the historical nested failed child until that worker exits.
+network invariant: nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1; only 172.17.61.96:12959 is published.
+git: working tree remains uncommitted at the operator's request.
+```
+
+## 2026-09-03 T178 20260825A analysis-directory reset
+
+```text
+trigger: attempt 4 failed in prepare_wgs_analysis because the exact batch analysis directory already existed; sampleinfo preparation had succeeded.
+target: /sg2/14.hanjingjing/Cloud_WGS_Clinical/WGS_Clinical/WGS_20260825A_T7Hg38V4.1.1, resolved exactly and confirmed not to be a mountpoint.
+precondition: no batch lock, Master Job or matching Master Pod existed; the directory was 27 MiB and contained the failed frozen bundle plus FASTQ symlinks.
+action: archived the exact directory to a mode-0700 local backup, verified its SHA256, then removed only that batch directory. The shared sampleinfo file, Airflow/biodemo attempts, OBS and SFS were preserved.
+backup: /data/airflow-WGS/backups/T178-20260825A-analysis-reset-20260903T111511Z; archive SHA256 68f78e3c137ba0a66821fffccc03c98aa1d8f5752f7d6e1cf5521cf6efc3f1a9.
+concurrent_run: operator submitted the separate 20260902A run WGS_20260903_111456_397777-a1 during the reset. Its prepare stages completed and Step1 subsequently started; it does not use the deleted 20260825A directory. Codex did not submit or approve that run.
+```
+
+## 2026-09-03 T177 prepare-stage status routing repair
+
+```text
+incident: WGS_20260903_062828_0858DC-a2 reached node200 prepare_sampleinfo success at 2026-09-03T08:29:28Z, and the expected sampleinfo table exists with three data rows. The Airflow wait sensor then received HTTP 500 before sample import.
+root_cause: the internal stage-status endpoint unconditionally called sync_runtime_stage_artifacts, whose allow-list covered Step1/Step3-Step7 but omitted prepare, prepare_sampleinfo and prepare_analysis. It raised ValueError unsupported runtime stage sync before the endpoint could import the sample table.
+fix: prepare status stages and runtime artifact stages now use two named immutable sets with one supported-stage union. Prepare stages are accepted without pretending they have transfer/observer artifacts; prepare_analysis can still ingest its frozen binding.
+tdd: endpoint regression plus all three prepare-stage sync cases failed with the production exception before the change and passed after it.
+validation: .96 Docker focused tests 4 passed; full backend suite 326 passed using the complete repository-root mount.
+deployment: current -> /data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t177-prepare-stage-sync-r1; backend image airflow-demo/backend:t177-prepare-stage-sync. Only backend was recreated; frontend, PostgreSQL, Redis, Airflow and monitoring services were preserved.
+backup: /data/airflow-WGS/backups/T177-prepare-stage-sync-20260903T084951+0000; airflow dump SHA256 a94f15108d6364213deee630f87fdee21a29168735a42d287a93e3c8ebf43dcd; biodemo dump SHA256 14f66ffac044f271d3b61eee034e872ace730359678769bbea2c0747abe4cd3d.
+smoke: login, capabilities, release and run-list APIs returned 200. WGS AnalysisRun/run-attempt counts remain 2/3, the failed attempt 2 remains unchanged, and no attempt 3 was created.
+recovery_boundary: attempt 2 remains a preserved failed diagnostic attempt. No task state was cleared and no attempt 3, OBS transfer or CCE workload was started by Codex.
+network invariant: nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1; only 172.17.61.96:12959 is published.
+```
+
+## 2026-09-03 T176 failed WGS resubmission and Submit refresh repair
+
+```text
+root_cause: resubmitting batch 20260825A reused its terminal failed AnalysisRun and deterministic attempt-1 DagRun. The service reset submission_phase to preparing_sampleinfo, but Airflow idempotently returned the already failed DagRun. Submit polling ignored the terminal run status, so the page remained on Preparing sample information.
+backend_fix: an active duplicate remains idempotent; a successful duplicate is rejected; a failed/cancelled/unknown_interrupted duplicate creates a new attempt and DagRun ID <analysis_id>-a<attempt>, clears terminal/progress fields, and preserves the AnalysisRun identity.
+frontend_fix: the five-second poll now treats failed/cancelled/unknown_interrupted as terminal, leaves the preparation screen, shows the backend error summary, and links to Run Detail.
+tdd: focused backend and frontend tests first failed on attempt reuse and the stuck preparation panel, then passed after implementation.
+validation: .96 Docker backend full suite 321 passed/1 skipped; frontend full suite 10 files/44 tests passed; TypeScript/Vite build passed; Compose config and fixed-network guard passed.
+deployment: current -> /data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t176-submit-retry-refresh-r1; backend image airflow-demo/backend:t176-submit-refresh; frontend image airflow-demo/frontend:t176-submit-refresh. Only backend and frontend-nginx were recreated.
+backup: /data/airflow-WGS/backups/T176-submit-retry-refresh-20260903T082055+0000; airflow dump SHA256 2664549667b3bc6ae27c71790a7449fec684c99b67217e66e4e776e745e5be3d; biodemo dump SHA256 7e7b5bcbe580d000955648448a287aee38b73f27735f7547d90c2a3f136beaac.
+smoke: login, capabilities, release and run-list APIs returned 200; the deployed asset contains the terminal sampleinfo failure view. WGS run/attempt counts remain 2/2, bio_wgs remains unpaused with 23 tasks, and no batch was submitted.
+side_effects: no production WGS submission, new attempt, OBS transfer, CCE job, database migration or network change was performed during validation.
+logger_contract: the current frozen Master image launches formal cloud_wgs_all with --logger rule-status from /opt/cce-pipeline/scripts/run_cce_master_job.sh. WGS profile must not duplicate this parameter; a new batch will verify the resulting Rule JSONL.
+network invariant: nipt_analysis_test_net 192.168.199.0/24, gateway 192.168.199.1; only 172.17.61.96:12959 may be published.
+```
+
+## 2026-09-03 T175 dashboard resource visualization
+
+```text
+scope: frontend-only presentation change; existing /api/platform/resources payload and bounded 60-point history remain authoritative.
+layout: three equal cards show Analysis Node Health, SFS capacity, and SFS I/O. Duplicate Workflow Activity is removed because Run Tracker is the workflow activity source.
+node: CPU and memory use accessible utilization bars; load 1/5/15 remains numeric; selected-node source time is right-aligned in the heading.
+sfs: capacity uses Cloud Eye used bytes and percentage to show used/derived-total plus a utilization bar; missing inputs fall back without inventing capacity. Read/write history uses the existing last 60 samples and current IOPS.
+tdd: focused resource-panel test failed on missing bars and the obsolete Workflow Activity card, then passed after implementation.
+validation: .96 Node Docker frontend full suite 10 files/43 tests passed; TypeScript/Vite production build passed. Missing utilization data is explicitly tested not to report a false zero value.
+deployment: current -> /data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t175-resource-graphs-r1; frontend image airflow-demo/frontend:t175-resource-graphs, image ID sha256:05f39afb6aa9.... Only frontend-nginx was recreated.
+preserved: PostgreSQL and Redis container IDs are unchanged; Airflow, scanner, observer, metrics collector, volumes and database records were not rebuilt or modified.
+smoke: fixed-address HTTP probe passed; deployed assets contain SFS I/O and no Workflow Activity label.
+pending: operator visual refresh; no Git commit is requested for T175 yet.
+network invariant: nipt_analysis_test_net 192.168.199.0/24, gateway 192.168.199.1; only 172.17.61.96:12959 may be published.
+```
+
 ## 2026-09-03 T174 forward-only evidence repair
 
 ```text
@@ -13,7 +201,7 @@ validation: .96 Docker backend 320 passed/1 skipped; runner/evidence/progress 42
 deployment: current -> /data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t174-forward-evidence-r1; frontend image airflow-demo/frontend:t174-forward-evidence. Only application services were recreated; PostgreSQL and Redis container identities and uptime were preserved.
 backup: /data/airflow-WGS/backups/T174-forward-evidence-20260903T070750+0000; airflow dump SHA256 e0fb7cb0189b5d3cbaf62484627c93ed8757944846e7c2389e625fac88056d77; biodemo dump SHA256 1bd3e95d63ecaa1d4e07a8c0edc0d4c385dcabe24487fb19c7904eb083c252.
 smoke: authenticated production capabilities, release, project, run search and run detail APIs returned 200; searching 20260825A returns public batch 20260825A. bio_wgs remains the only DAG, has 23 tasks and is unpaused; execution/runtime remain true and auto-dispatch remains false.
-pending: a new operator-submitted batch. Do not resume the failed attempt. Current WGS source/profile does not enable the installed Rule logger, so a future run can validate sampleinfo and analysis.log but Rule JSONL remains an external WGS launch-contract requirement.
+pending: a new operator-submitted attempt. Do not resume attempt 1. The frozen Master runner, rather than the WGS profile, adds --logger rule-status to formal cloud_wgs_all; the new attempt must verify sampleinfo, analysis.log and Rule JSONL without historical projection.
 network invariant: nipt_analysis_test_net 192.168.199.0/24, gateway 192.168.199.1; only 172.17.61.96:12959 may be published.
 ```
 

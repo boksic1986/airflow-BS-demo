@@ -1,5 +1,73 @@
 # SERVER_INFO.md
 
+## T191 frontend login recovery (2026-09-04)
+
+```text
+primary: 172.17.61.96
+symptom: React shell 200; /api/auth/me and /api/auth/login 502
+stale_nginx_upstream: 192.168.199.8:8000
+current_backend_dns: 192.168.199.4
+recovery: restarted airflow-wgs-frontend-nginx-1 only
+verification: protected admin login 200; authenticated /api/auth/me 200
+release: 20260904-wgs-4.1.1-6c98281-t190-intake-name-correction-r2
+published_ports: 172.17.61.96:12959 only
+credentials: not printed or copied
+```
+
+## T189 20260902B Step5 recovery release (2026-09-04)
+
+```text
+primary: 172.17.61.96
+release: 20260904-wgs-4.1.1-6c98281-t189-step5-manifest-r4
+recovered_analysis: WGS_20260903_200310_37E27D
+recovered_dag_run: WGS_20260903_200310_37E27D-a1, success, 24/24 tasks success
+public_batch: 20260902B
+samples: 8/8 workflow success; batch QC projection 2 pass, 6 warn
+rules: 481/481 success
+step5: 26/26 files, 447124566023/447124566023 bytes, DOWNLOAD_VERIFIED PASS
+step6: MATERIALIZED PASS
+master_job: cce-master-44815ec87b04c2020d77, retained; no replacement Master
+runner_sha256: e3e6f223e9e8f20ceb796a5de57aa667f6c64f8d862f6f693f7012f6f931302f
+node200_runner: /home/hanjj/.config/airflow-wgs/wgs_runtime_gate.py, mode 0700, no active worker
+network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
+published_ports: 172.17.61.96:12959 only
+git: uncommitted by operator request
+```
+
+## T183 Rule monitoring recovery release (2026-09-03)
+
+```text
+primary: 172.17.61.96
+release: 20260903-wgs-4.1.1-6c98281-t183-rule-log-link-r1
+backend_image: airflow-demo/backend:t183-rule-log
+backend_image_id: sha256:4ec3061840d976a2a238c8967b521cc14fc83ee706ad694925cd57040b866507
+frontend_image: airflow-demo/frontend:t183-rule-log
+frontend_image_id: sha256:9b736f47399d6305a02ef24846db502260c4b86266206168d5df949780cef25b
+active_run: WGS_20260903_111456_397777-a1, public batch 20260902A
+master_job: cce-master-570b96f972d40847e331, retained and Running
+observer: active/healthy; Rule sample/family and opaque analysis-log links available
+backup: /data/airflow-WGS/backups/20260903T2120-t182
+network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
+published_ports: 172.17.61.96:12959 only
+git: uncommitted by operator request
+```
+
+## T179 progress and resource visualization release (2026-09-03)
+
+```text
+primary: 172.17.61.96
+release: 20260903-wgs-4.1.1-6c98281-t179-progress-resource-r1
+frontend_image: airflow-demo/frontend:t179-progress-resource
+frontend_image_id: sha256:bed745c5510bdfd1ee457836f105e541ab99c7b276bf5a6e3c67c7dcb90333ae
+node_metrics: node-96 and node-97 healthy; logical_cpu_count=128 for load normalization
+runner_sha256: b22edb1e91106a305480a611fe93014c729ae3b192a299f1d8236cff316827ef
+recreated_services: platform-node-probe, platform-metrics-collector, frontend-nginx
+preserved_services: backend, Airflow, scanner, run-observer, PostgreSQL, Redis
+network: nipt_analysis_test_net, 192.168.199.0/24, gateway 192.168.199.1
+published_ports: 172.17.61.96:12959 only
+git: uncommitted by operator request
+```
+
 ## T173 production staged submission and SFS metrics (2026-09-03)
 
 ```text

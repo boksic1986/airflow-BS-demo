@@ -1,9 +1,9 @@
-import type {Artifact, RunConfig, RunDetail, Sample} from "../../api";
+import type {Artifact, RunConfig, RunDetail, WgsSampleManifestRow} from "../../api";
 
 import {StatusBadge} from "../../components/StatusBadge";
 import {compactPipelineName, formatBytes, formatDate, safeJson} from "../../lib/format";
 
-export function RunOverviewTab({detail, samples}: {detail: RunDetail; samples: Sample[]}) {
+export function RunOverviewTab({detail, samples}: {detail: RunDetail; samples: WgsSampleManifestRow[]}) {
   return (
     <div className="overview-stack">
       <div className="definition-grid">
@@ -21,29 +21,9 @@ export function RunOverviewTab({detail, samples}: {detail: RunDetail; samples: S
         <div><dt>Finished</dt><dd>{formatDate(detail.pipeline_finished_at || detail.ended_at)}</dd></div>
       </div>
       <section>
-        <div className="section-heading"><h2>Selected samples manifest</h2><p>Samples and captured source file names</p></div>
+        <div className="section-heading"><h2>Selected samples manifest</h2><p>Privacy-safe fields from the frozen sampleinfo.tsv</p></div>
         <SamplesManifestTable samples={samples} />
       </section>
-    </div>
-  );
-}
-
-export function RunSamplesTab({samples}: {samples: Sample[]}) {
-  return (
-    <div className="table-wrap">
-      <table className="data-table">
-        <thead><tr><th>sample_id</th><th>family_id</th><th>relation</th><th>status</th><th>R1 / R2</th></tr></thead>
-        <tbody>
-          {samples.map((sample) => (
-            <tr key={sample.sample_id}>
-              <td>{sample.sample_id}</td><td>{sample.family_id || "not set"}</td>
-              <td>{sample.family_relation || "not set"}</td><td><StatusBadge status={sample.status} /></td>
-              <td>{sample.r1_filename || "-"} / {sample.r2_filename || "-"}</td>
-            </tr>
-          ))}
-          {samples.length === 0 ? <tr><td className="empty-cell" colSpan={5}>No samples returned.</td></tr> : null}
-        </tbody>
-      </table>
     </div>
   );
 }
@@ -94,14 +74,14 @@ export function RunConfigTab({detail, artifacts, config}: {detail: RunDetail; ar
   );
 }
 
-function SamplesManifestTable({samples}: {samples: Sample[]}) {
+function SamplesManifestTable({samples}: {samples: WgsSampleManifestRow[]}) {
   return (
     <div className="table-wrap">
       <table className="data-table compact manifest-table">
-        <thead><tr><th>sample/data</th><th>family</th><th>relation</th><th>R1</th><th>R2</th><th>status</th></tr></thead>
+        <thead><tr><th>Sample</th><th>Data</th><th>Type</th><th>Family</th><th>Relation</th><th>Received</th><th>Estimated report</th></tr></thead>
         <tbody>
-          {samples.map((sample) => <tr key={sample.sample_id}><td>{sample.data_id || sample.sample_id}</td><td>{sample.family_id || "-"}</td><td>{sample.family_relation || "-"}</td><td>{sample.r1_filename || "-"}</td><td>{sample.r2_filename || "-"}</td><td><StatusBadge status={sample.status} size="sm" /></td></tr>)}
-          {samples.length === 0 ? <tr><td className="empty-cell" colSpan={6}>No selected samples returned.</td></tr> : null}
+          {samples.map((sample) => <tr key={sample.sample_id}><td>{sample.sample_id}</td><td>{sample.data_id || "-"}</td><td>{sample.sample_type || "-"}</td><td>{sample.family_id || "-"}</td><td>{sample.family_relation || "-"}</td><td>{sample.received_date || "-"}</td><td>{sample.estimated_report_date || "-"}</td></tr>)}
+          {samples.length === 0 ? <tr><td className="empty-cell" colSpan={7}>Frozen sampleinfo is not available yet.</td></tr> : null}
         </tbody>
       </table>
     </div>

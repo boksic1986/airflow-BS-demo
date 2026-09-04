@@ -6,7 +6,7 @@ from statistics import median
 from sqlalchemy import select
 
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState
-from app.diagnostics_service import wgs_rule_failure_excerpts
+from app.diagnostics_service import wgs_rule_log_contexts
 from app.workflow_phases import phase_for_rule, phase_order
 from app.wgs_stage_contract import (
     canonical_wgs_stage,
@@ -19,7 +19,7 @@ from app.wgs_stage_contract import (
 def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], settings=None) -> list[dict]:
     now = datetime.now(timezone.utc)
     history_runs = _history_runs(session, run)
-    failure_logs = wgs_rule_failure_excerpts(run=run, rules=rows, settings=settings) if settings is not None else {}
+    rule_logs = wgs_rule_log_contexts(run=run, rules=rows, settings=settings) if settings is not None else {}
     items = []
     for row in rows:
         phase = phase_for_rule(row.rule_name, pipeline_name="wgs")
@@ -56,8 +56,8 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
                 "status": projected_status,
                 "message": projected_message,
                 "log_keys": list(row.log_paths_json or []),
-                "stderr_excerpt": (failure_logs.get(row.rule_instance_id) or {}).get("stderr_excerpt"),
-                "analysis_log_key": (failure_logs.get(row.rule_instance_id) or {}).get("analysis_log_key"),
+                "stderr_excerpt": (rule_logs.get(row.rule_instance_id) or {}).get("stderr_excerpt"),
+                "analysis_log_key": (rule_logs.get(row.rule_instance_id) or {}).get("analysis_log_key"),
                 "start_time": _iso(row.started_at),
                 "end_time": _iso(projected_ended_at),
                 "elapsed_seconds": elapsed,

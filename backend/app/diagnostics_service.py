@@ -11,7 +11,13 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AnalysisRun, RuleState, Sample, SnakemakeRuleEvent
+from app.models import (
+    AnalysisRun,
+    RuleState,
+    RunStageState,
+    Sample,
+    SnakemakeRuleEvent,
+)
 from app.qc_service import import_run_qc_metrics
 from app.rule_event_service import (
     cancel_incomplete_rule_events,
@@ -22,6 +28,7 @@ from app.wgs_run_projection import (
     load_wgs_runtime_binding,
     resolve_bound_wgs_batch_root,
 )
+from app.wgs_artifact_selection import select_batch_qcstat
 
 
 class DiagnosticsError(Exception):
@@ -299,6 +306,20 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
     if not run.dag_id or not run.dag_run_id:
         raise MissingDagRunError("Run has no dag_id or dag_run_id to sync.")
 
+    previous_status = str(run.status or "").lower()
+    has_stale_failed_stage = (
+        run.pipeline_name == "wgs"
+        and session.scalar(
+            select(RunStageState.id)
+            .where(
+                RunStageState.analysis_id == analysis_id,
+                RunStageState.attempt == int(run.attempt or 1),
+                RunStageState.stage_status == "failed",
+            )
+            .limit(1)
+        )
+        is not None
+    )
     airflow_payload = airflow_client.get_dag_run(run.dag_id, run.dag_run_id)
     airflow_state = str(airflow_payload.get("state") or "").lower()
     authoritative_status = _map_airflow_state(airflow_state)
@@ -329,8 +350,12 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
         run.error_summary = None
         if (
             run.pipeline_name == "wgs"
-            and run.pipeline_finished_at is None
             and dag_end_at is not None
+            and (
+                run.pipeline_finished_at is None
+                or previous_status in {"failed", "cancelled", "unknown_interrupted"}
+                or has_stale_failed_stage
+            )
         ):
             run.pipeline_finished_at = dag_end_at
         run.progress_percent = 100
@@ -360,7 +385,7 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
         # A resumed run can retain an earlier failed JSONL event. Import the
         # complete audit trail, then let the terminal Airflow DAG state win.
         run.status = authoritative_status
-    _sync_sample_statuses(session=session, analysis_id=analysis_id, run_status=run.status)
+    sync_sample_statuses(session=session, analysis_id=analysis_id, run_status=run.status)
     if run.status == "success":
         from app.intake_service import archive_linked_intake_for_run
 
@@ -378,6 +403,12 @@ def get_run_log(
         return None
     if run.pipeline_name == "wgs" and not key:
         raise LogNotFoundError("WGS logs require a registered opaque log key")
+    log_item = None
+    if run.pipeline_name == "wgs" and key:
+        log_item = next(
+            (item for item in _wgs_run_log_items(run=run, settings=settings) if item["key"] == key),
+            None,
+        )
     log_path = _log_path_for_key(session=session, run=run, key=key, settings=settings) if key else _log_path(run, stream, settings)
     if not log_path.is_file():
         raise LogNotFoundError(f"Log file not found: {log_path}")
@@ -388,7 +419,9 @@ def get_run_log(
         "file_size": file_size,
         "lines": lines,
     }
-    if run.pipeline_name != "wgs":
+    if run.pipeline_name == "wgs" and log_item:
+        payload["path"] = log_item.get("relative_path")
+    else:
         payload["path"] = str(log_path)
     if key:
         payload["key"] = key
@@ -520,7 +553,13 @@ def _log_path_for_key(*, session: Session, run: AnalysisRun, key: str | None, se
 
 def _wgs_run_log_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
     """Index only deterministic files under the registered WGS runtime root."""
-    request_root = Path(settings.wgs_runtime_request_root).resolve()
+    request_root = Path(
+        getattr(
+            settings,
+            "wgs_runtime_request_root",
+            Path(settings.container_shared_root) / "wgs-runner-requests",
+        )
+    ).resolve()
     attempt = int(run.attempt or 1)
     attempt_name = f"attempt-{attempt}"
     items: list[dict[str, Any]] = []
@@ -541,6 +580,9 @@ def _wgs_run_log_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
                     stream="stderr" if "failed" in stage else "stdout",
                     source="stage_worker",
                     stage=stage,
+                    relative_path=(
+                        Path("runner-requests") / run.analysis_id / attempt_name / path.name
+                    ).as_posix(),
                 )
             )
 
@@ -572,6 +614,9 @@ def _wgs_run_log_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
                     stream="stdout",
                     source="master_analysis",
                     stage="step3_monitor",
+                    relative_path=(
+                        Path("cce") / "evidence" / run_id / "mirror" / "analysis.log"
+                    ).as_posix(),
                 ),
             )
     except (KeyError, TypeError, ValueError, InvalidRunPathError):
@@ -579,11 +624,22 @@ def _wgs_run_log_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
     return items
 
 
-def wgs_rule_failure_excerpts(*, run: AnalysisRun, rules: list[RuleState], settings) -> dict[str, dict[str, str | None]]:
-    """Return bounded excerpts from the one registered Master analysis log."""
+def wgs_rule_log_contexts(*, run: AnalysisRun, rules: list[RuleState], settings) -> dict[str, dict[str, str | None]]:
+    """Bind Rules to the registered Master log and excerpt only failures."""
     item = next((row for row in _wgs_run_log_items(run=run, settings=settings) if row.get("source") == "master_analysis"), None)
     if item is None:
         return {}
+    analysis_log_key = str(item["key"])
+    output: dict[str, dict[str, str | None]] = {
+        rule.rule_instance_id: {
+            "stderr_excerpt": None,
+            "analysis_log_key": analysis_log_key,
+        }
+        for rule in rules
+    }
+    failed_rules = [rule for rule in rules if rule.status == "failed"]
+    if not failed_rules:
+        return output
     path = Path(str(item["_path"]))
     try:
         with path.open("rb") as handle:
@@ -591,12 +647,9 @@ def wgs_rule_failure_excerpts(*, run: AnalysisRun, rules: list[RuleState], setti
             handle.seek(max(0, size - 2 * 1024 * 1024))
             text = handle.read(2 * 1024 * 1024).decode("utf-8", errors="replace")
     except OSError:
-        return {}
+        return output
     lines = text.splitlines()
-    output: dict[str, dict[str, str | None]] = {}
-    for rule in rules:
-        if rule.status != "failed":
-            continue
+    for rule in failed_rules:
         anchors = []
         if rule.snakemake_jobid:
             anchors.extend([f"jobid: {rule.snakemake_jobid}", f"job {rule.snakemake_jobid}"])
@@ -607,7 +660,7 @@ def wgs_rule_failure_excerpts(*, run: AnalysisRun, rules: list[RuleState], setti
         else:
             excerpt = "\n".join(lines[max(0, position - 8):min(len(lines), position + 72)])
         excerpt = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", excerpt)[-65536:]
-        output[rule.rule_instance_id] = {"stderr_excerpt": excerpt or None, "analysis_log_key": str(item["key"])}
+        output[rule.rule_instance_id]["stderr_excerpt"] = excerpt or None
     return output
 
 
@@ -623,13 +676,15 @@ def _contained_path(root: Path, relative: Path) -> Path:
     return candidate
 
 
-def _wgs_log_item(*, path: Path, token: str, label: str, stream: str, source: str, stage: str) -> dict[str, Any]:
+def _wgs_log_item(*, path: Path, token: str, label: str, stream: str, source: str,
+                  stage: str, relative_path: str) -> dict[str, Any]:
     return {
         "key": hashlib.sha256(token.encode("utf-8")).hexdigest()[:20],
         "label": label,
         "stream": stream,
         "source": source,
         "stage": stage,
+        "relative_path": relative_path,
         "_path": str(path),
     }
 
@@ -638,6 +693,8 @@ def list_run_artifacts(*, session: Session, analysis_id: str, settings) -> dict[
     run = _get_run(session, analysis_id)
     if run is None:
         return None
+    if run.pipeline_name == "wgs":
+        return {"items": _wgs_artifact_items(run=run, settings=settings)}
     workdir = _safe_workdir(run, settings)
     items = []
     for definition in ARTIFACTS:
@@ -659,6 +716,52 @@ def list_run_artifacts(*, session: Session, analysis_id: str, settings) -> dict[
     return {"items": items}
 
 
+def _wgs_artifact_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
+    try:
+        binding = load_wgs_runtime_binding(
+            request_root=settings.wgs_runtime_request_root,
+            analysis_id=run.analysis_id,
+            attempt=int(run.attempt or 1),
+        )
+        batch_root = resolve_bound_wgs_batch_root(
+            binding=binding,
+            node_analysis_root=settings.wgs_results_host_root,
+            local_analysis_root=settings.host_results_root,
+        )
+    except (KeyError, OSError, TypeError, ValueError, InvalidRunPathError):
+        return []
+    definitions = [
+        ("wgs_sampleinfo", "sample_manifest", "Selected sampleinfo", Path("sampleinfo.tsv")),
+        ("wgs_config", "runtime_config", "WGS config", Path("config.yaml")),
+        ("wgs_batch_runtime", "runtime_config", "Batch runtime", Path("cce/BATCH_RUNTIME.yaml")),
+        ("wgs_resolved_profile", "runtime_config", "Resolved CCE profile", Path("cce/RESOLVED_PROFILE.yaml")),
+    ]
+    qc_path = select_batch_qcstat(batch_root)
+    if qc_path is not None:
+        definitions.append(
+            ("wgs_qcstat", "qc_summary", "WGS QC statistics", qc_path.relative_to(batch_root))
+        )
+    items: list[dict[str, Any]] = []
+    for key, artifact_type, label, relative in definitions:
+        try:
+            path = _contained_path(batch_root, relative)
+        except InvalidRunPathError:
+            continue
+        if not path.is_file() or path.is_symlink():
+            continue
+        items.append(
+            {
+                "key": key,
+                "type": artifact_type,
+                "label": label,
+                "path": relative.as_posix(),
+                "size_bytes": path.stat().st_size,
+                "url": "",
+            }
+        )
+    return items
+
+
 def _artifact_applies_to_pipeline(definition: ArtifactDefinition, pipeline_name: str) -> bool:
     if definition.key.startswith("pgta_") or definition.type.startswith("pgta_"):
         return pipeline_name == "pgta"
@@ -671,13 +774,28 @@ def _artifact_applies_to_pipeline(definition: ArtifactDefinition, pipeline_name:
 
 def build_error_summary(*, run: AnalysisRun, airflow_payload: dict[str, Any], settings) -> str:
     stderr_path = None
+    log_key = None
+    relative_path = None
     last_lines: list[str] = []
-    try:
-        stderr_path = _log_path(run, "stderr", settings)
-        if stderr_path.is_file():
-            last_lines = stderr_path.read_text(encoding="utf-8", errors="replace").splitlines()[-100:]
-    except DiagnosticsError:
-        stderr_path = None
+    if run.pipeline_name == "wgs":
+        registered = _wgs_run_log_items(run=run, settings=settings)
+        item = next((value for value in registered if value.get("source") == "master_analysis"), None)
+        item = item or (registered[-1] if registered else None)
+        if item:
+            stderr_path = Path(str(item["_path"]))
+            log_key = item["key"]
+            relative_path = item.get("relative_path")
+            try:
+                last_lines, _, _ = _tail_log_file(stderr_path, tail=100)
+            except OSError:
+                last_lines = []
+    else:
+        try:
+            stderr_path = _log_path(run, "stderr", settings)
+            if stderr_path.is_file():
+                last_lines = stderr_path.read_text(encoding="utf-8", errors="replace").splitlines()[-100:]
+        except DiagnosticsError:
+            stderr_path = None
 
     if not last_lines:
         last_lines = ["no stderr available"]
@@ -687,7 +805,8 @@ def build_error_summary(*, run: AnalysisRun, airflow_payload: dict[str, Any], se
         "dag_id": run.dag_id,
         "dag_run_id": run.dag_run_id,
         "status": str(airflow_payload.get("state") or run.status),
-        "stderr_path": str(stderr_path) if stderr_path else None,
+        "stderr_path": relative_path if run.pipeline_name == "wgs" else str(stderr_path) if stderr_path else None,
+        "log_key": log_key,
         "last_100_lines": last_lines,
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
@@ -740,7 +859,7 @@ def _map_airflow_state(state: str) -> str:
     return state or "unknown"
 
 
-def _sync_sample_statuses(*, session: Session, analysis_id: str, run_status: str) -> None:
+def sync_sample_statuses(*, session: Session, analysis_id: str, run_status: str) -> None:
     sample_status = _sample_status_for_run_status(run_status)
     if sample_status is None:
         return

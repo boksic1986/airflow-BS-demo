@@ -10,6 +10,12 @@ import sys
 SCRIPT = Path(__file__).parents[1] / "wgs_obsutil_progress.py"
 
 
+def test_node200_wrapper_uses_supported_wgs_python() -> None:
+    assert SCRIPT.read_text(encoding="utf-8").splitlines()[0] == (
+        "#!/bi/software/mamba/envs/WGS/bin/python3.11"
+    )
+
+
 def test_wrapper_preserves_output_and_writes_redacted_progress(tmp_path: Path) -> None:
     fake = tmp_path / "fake_obsutil.py"
     fake.write_text(
@@ -47,4 +53,3 @@ def test_wrapper_preserves_output_and_writes_redacted_progress(tmp_path: Path) -
     assert "patient.fastq.gz" not in serialized
     assert "obs://" not in serialized
     assert "/secret" not in serialized
-

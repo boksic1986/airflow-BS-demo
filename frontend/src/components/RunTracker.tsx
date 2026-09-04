@@ -2,7 +2,7 @@ import {useEffect, useState} from "react";
 
 import type {DashboardRunTrackerRow} from "../api";
 
-import {compactPipelineName, displayTimeZoneLabel, formatBytes, formatDate, formatRelativeAge, formatSecondsDuration} from "../lib/format";
+import {compactPipelineName, displayTimeZoneLabel, formatBytes, formatDate, formatProgressUnits, formatRelativeAge, formatSecondsDuration} from "../lib/format";
 import {isActiveStatus, normalizeStatus} from "../lib/status";
 import {RunProgressBar} from "./RunProgressBar";
 import {StatusBadge} from "./StatusBadge";
@@ -180,7 +180,7 @@ function RunTrackerRow({
       </td>
       <td className="tracker-progress-cell">
         <RunProgressBar analysisId={row.analysis_id} compact progress={{percent: row.stage_progress?.percent ?? row.percent ?? 0, available: row.stage_progress?.available ?? row.progress_available ?? false, label: row.stage_progress?.percent == null ? "Detailed progress unavailable" : `${Math.round(row.stage_progress.percent)}%`, currentStep, note, notInAirflow: row.not_in_airflow}} />
-        {row.stage_progress?.available ? <small>{row.stage_progress.completed_units ?? "-"}/{row.stage_progress.total_units ?? "-"} {row.stage_progress.unit || ""}{row.stage_progress.speed_bps ? ` · ${formatBytes(row.stage_progress.speed_bps)}/s` : ""}{row.stage_progress.eta_seconds != null ? ` · ETA ${formatSecondsDuration(row.stage_progress.eta_seconds)}` : ""}</small> : null}
+        {row.stage_progress?.available ? <small>{formatProgressUnits(row.stage_progress.completed_units, row.stage_progress.total_units, row.stage_progress.unit)}{row.stage_progress.speed_bps ? ` · ${formatBytes(row.stage_progress.speed_bps)}/s` : ""}{row.stage_progress.eta_seconds != null ? ` · ETA ${formatSecondsDuration(row.stage_progress.eta_seconds)}` : ""}</small> : null}
       </td>
       <td>
         <OperationRuntimeCell elapsedSeconds={row.elapsed_seconds} estimatedRemainingSeconds={row.estimated_remaining_seconds} status={row.status} submitted={Boolean(row.submitted_at)} />

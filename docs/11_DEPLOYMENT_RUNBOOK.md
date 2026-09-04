@@ -1,5 +1,201 @@
 # 11 部署 Runbook
 
+## T191 backend recreate and nginx DNS recovery
+
+The production nginx image resolves the `backend` service name when nginx
+workers start. After any backend container recreate, compare Docker DNS with
+the upstream address in nginx errors. If API routes return 502 while backend is
+healthy and the addresses differ, run the explicit production Compose
+preflight and restart only `airflow-wgs-frontend-nginx-1`. Verify both login and
+an authenticated `/api/auth/me` request through `172.17.61.96:12959`; do not
+change passwords or recreate databases to treat this routing failure.
+
+## T190 T7 source-name correction
+
+Do not infer recency from the numeric prefix in a T7 directory name. Source
+operators may misnumber a chip directory, and the application must display the
+real source id rather than synthesize a corrected name. Determine scanner
+freshness from the regular completion marker and persisted `first_scan_at`.
+Keep old completed directories bootstrap-protected.
+
+If a false intake row was created from a numeric-order assumption, verify its
+exact `chip_id`, `sequencing_batch`, linked AnalysisRun, and source path. Delete
+only that intake index row; do not delete the AnalysisRun, Airflow DagRun,
+source FASTQ directory, results, or artifacts. Before recreating services,
+verify there is no active WGS run. Use the explicit production file and env
+file:
+
+```bash
+docker compose --env-file /data/airflow-WGS/env/production.env \
+  -p airflow-wgs -f docker-compose.wgs.yaml \
+  up -d --no-deps --force-recreate backend wgs-intake-scanner
+```
+
+After the immediate scan, require `created=0`, `submitted=0`, the expected
+marker-new rows only, and an unchanged AnalysisRun count. Preserve PostgreSQL,
+Redis, Airflow, frontend, volumes, `nipt_analysis_test_net` and the sole
+`172.17.61.96:12959` published endpoint.
+
+## T189 Step5 manifest deadlock recovery
+
+This procedure applies only when Step3 and Step4 are proven successful and the
+same attempt failed before Step5 could start with `Step5 payload manifest is
+unavailable`.
+
+1. Verify the exact AnalysisRun, Airflow DagRun, attempt and frozen Master Job.
+   Confirm `wait_step3_analysis`, `start_step4_publish` and
+   `wait_step4_publish` are successful and no task is running.
+2. Run the runtime-gate regression tests on `.96`. Install the tested gate on
+   node200 through a same-directory temporary file, verify SHA256 and
+   `py_compile`, retain a mode-restricted previous-gate copy, and atomically
+   rename the candidate. Do not modify the frozen WGS bundle or CCE Master.
+3. Clear only `result_transfer.start_step5_download` and its downstream tasks
+   in the original DagRun. Step1-Step4 must remain successful with their
+   original try numbers; do not create a new AnalysisRun, attempt, DagRun or
+   Master Job.
+4. Verify Step5 first retrieves the OBS manifest, then writes the immutable
+   transfer plan. Require Step5, Step6, `wait_step6_materialize` and
+   `finalize_run` to reach success before declaring recovery complete.
+5. Preserve PostgreSQL, Redis, volumes, the external network and the single
+   `172.17.61.96:12959` published port throughout recovery.
+
+If `start_step5_download` reports that a retry generation was not visible but
+the exact node200 worker is still active, do not start a second worker and do
+not delete its checkpoint or downloaded payloads. Inspect the stage status:
+progress writes must retain the generation returned by the restricted runner.
+Install the tested generation-preservation fix only after the existing worker
+exits, then clear the same Step5-and-downstream tail. A terminal successful
+worker is idempotently adopted; Step1-Step4 and the CCE Master remain untouched.
+
+After Airflow reaches success, explicitly sync the business run and re-ingest
+the exact Step5/Step6 status files. Verify one DagRun, all expected task states,
+all samples and Rules successful, and exact TransferJob totals. For QC, select
+only `07_QC/<batch-directory>.QCstat.tsv`; neighboring per-sample QCstat files
+must not suppress or replace the batch summary.
+
+## T188 guarded T7 automatic dispatch
+
+1. Deploy and verify the Step6 sensor, backend projection and internal dispatch
+   endpoint while `WGS_AUTO_DISPATCH_ENABLED=false`.
+   Before switching `current`, explicitly verify the container users can read
+   the new release's `dags`, `backend` and `config` trees. Grant read/traverse
+   only on those application trees; do not broadly relax untracked env,
+   credential or backup files.
+2. Record the production timestamp immediately before activation and set it as
+   ISO-8601 `WGS_AUTO_DISPATCH_NOT_BEFORE`. This watermark is mandatory and
+   must never be backdated to absorb old ready rows.
+3. Set `WGS_AUTO_DISPATCH_ENABLED=true` in backend and scanner, then recreate
+   only those affected application services. Do not recreate PostgreSQL,
+   Redis, volumes or the external network.
+4. Trigger one scanner cycle. Verify that ready batches with any existing
+   AnalysisRun are linked/skipped, including manual successes, active runs and
+   terminal failures. Counts of AnalysisRun and Airflow DagRun must remain
+   unchanged for those batches.
+5. A genuinely new ready row after the watermark creates one pre-approved
+   automatic AnalysisRun. Its server-generated deterministic DagRun ID is
+   reconciled through Airflow REST. The scanner never queries or edits the
+   Airflow metadata database directly.
+6. Roll back by setting `WGS_AUTO_DISPATCH_ENABLED=false` and recreating backend
+   and scanner only. Existing runs are not cancelled by this switch.
+
+Before any service recreate, inspect active WGS tasks. A rescheduled sensor is
+safe to recreate; never restart a synchronous runtime start task or modify an
+in-flight CCE Master. Keep `nipt_analysis_test_net` at `192.168.199.0/24` with
+gateway `192.168.199.1` and publish only `172.17.61.96:12959`.
+
+## T186 `.96` approval-sensor DNS recovery
+
+- Every production Compose command must explicitly include
+  `-f docker-compose.wgs.yaml --env-file /data/airflow-WGS/env/production.env`.
+  The default `docker-compose.yaml` is not the WGS production topology and must
+  never be used for `.96` service recreation.
+- Verify every running WGS DagRun before recreating Airflow. Continue only when
+  active work is represented by rescheduled sensors and no synchronous runner
+  or control task is executing.
+- Create a new immutable release containing the tested `bio_wgs.py`; run Python
+  compile, DAG import and Compose config checks before switching `current`.
+- Recreate only `airflow-api-server`, `airflow-scheduler` and `airflow-worker`.
+  Do not recreate backend, PostgreSQL, Redis, observer, scanner, node200 runner
+  or CCE workloads.
+- For a failed approval wait, deployment alone does not resume or approve the
+  run. The operator must explicitly choose recovery and later confirm execution.
+- Preserve `nipt_analysis_test_net` at `192.168.199.0/24`; only
+  `172.17.61.96:12959` may remain published.
+- After recreation, verify Airflow service network membership and DNS for
+  `backend`, `postgres` and `redis` before considering the deployment usable.
+  Any unintended Compose-created network must have zero attached containers
+  before removing that exact network.
+
+## T185 `.96` retried Rule monitoring repair
+
+- Release:
+  `/data/airflow-WGS/releases/20260904-wgs-4.1.1-6c98281-t185-rule-attempt-binding-r1`.
+- Recreate only `backend` and `wgs-run-observer`. Existing Rule JSONL files are
+  immutable inputs; a cursor with a line-1 validation error will resume from
+  offset zero after the observer restarts.
+- Restart `frontend-nginx` after recreating backend because the current static
+  upstream configuration resolves the backend container address at Nginx
+  startup. This is a proxy refresh, not a frontend rebuild.
+- Verify observer `last_error` is empty, cursor offset equals current file size,
+  RuleState rows exist, and the public health endpoint returns `status=ok`.
+- Preserve PostgreSQL, Redis, Airflow, scanner, CCE Jobs and the evidence files.
+  Preserve `nipt_analysis_test_net` at `192.168.199.0/24` and publish only
+  `172.17.61.96:12959`.
+
+## T184 `.96` prepare/NFS race recovery
+
+- Release:
+  `/data/airflow-WGS/releases/20260904-wgs-4.1.1-6c98281-t184-prepare-nfs-race-r1`.
+- Backup:
+  `/data/airflow-WGS/backups/T184-prepare-nfs-race-20260903T172446Z` contains
+  mode-restricted Airflow and biodemo custom-format dumps plus the previous
+  environment and release pointer.
+- Recreate backend only. The backend port remains internal; health is checked
+  inside the container and through `172.17.61.96:12959/api/health`.
+- If node200 reports prepare success before `.96` sees the table, verify that
+  stage-status returns `ready=false`, `artifact_pending=true`; do not clear the
+  DagRun or create another attempt while the sensor is rescheduling.
+- Before archiving a failed generated batch directory, require a terminal
+  attempt, empty OBS lease and absent CCE Master. Preserve the source
+  `sampleinfo/*.sampleinfo.txt` unless the operator explicitly requests a new
+  source pull.
+- Preserve `nipt_analysis_test_net` at `192.168.199.0/24`; only
+  `172.17.61.96:12959` may be published.
+
+## T183 `.96` Rule monitoring recovery
+
+- Release:
+  `/data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t183-rule-log-link-r1`.
+- Backup:
+  `/data/airflow-WGS/backups/20260903T2120-t182` contains Airflow/biodemo dumps
+  and the exact task-state/clear evidence.
+- Recovery clears only `start_step3_monitor` and downstream tasks in the same
+  DagRun. Confirm the dry-run task list before applying it; Step1 and Step2 must
+  remain successful at their original try numbers and no Master may be created.
+- Recreate Airflow services only for the DAG retry change, then backend and
+  frontend-nginx for Rule/log presentation. Recreating frontend-nginx after
+  backend avoids retaining a stale Nginx upstream address.
+- Preserve `nipt_analysis_test_net` (`192.168.199.0/24`, gateway
+  `192.168.199.1`) and the single published endpoint
+  `172.17.61.96:12959`.
+
+## T179 `.96` progress and resource-panel release
+
+- Release: `/data/airflow-WGS/releases/20260903-wgs-4.1.1-6c98281-t179-progress-resource-r1`
+- Frontend image: `airflow-demo/frontend:t179-progress-resource`
+- Recreate only `platform-node-probe`, then `platform-metrics-collector` after a
+  new `nodes.json` containing `logical_cpu_count` is observed, and finally
+  `frontend-nginx`. Do not recreate backend, Airflow, scanner, observer,
+  PostgreSQL or Redis.
+- The node200 gate is installed atomically after compilation and existing
+  worker processes are left running. The backup suffix is
+  `.before-t179-20260903`.
+- Candidate release directories mounted into UID 50000/GID 520 containers must
+  be group-readable and group-searchable. Verify module import under that exact
+  UID/GID before restarting the probe.
+- Preserve external network `nipt_analysis_test_net` at `192.168.199.0/24` and
+  publish only `172.17.61.96:12959` from `frontend-nginx`.
+
 ## T174 node200 runner synchronization gate
 
 Before enabling or retaining manual submission, compare SHA256 for the checked

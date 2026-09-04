@@ -5,6 +5,8 @@ from pathlib import Path
 import time
 from typing import Callable
 
+import httpx
+
 from app.db import get_sessionmaker
 from app.wgs_t7_intake import scan_wgs_t7_intake
 
@@ -17,6 +19,7 @@ def run_intake_worker(
     auto_dispatch_enabled: bool,
     stop_event,
     scan_fn: Callable | None = None,
+    dispatch_fn: Callable[[], dict] | None = None,
     monotonic_fn: Callable[[], float] = time.monotonic,
 ) -> None:
     scan = scan_fn or scan_wgs_t7_intake
@@ -32,6 +35,8 @@ def run_intake_worker(
                 auto_dispatch_enabled=auto_dispatch_enabled,
             )
             payload = {"intake": result}
+            if auto_dispatch_enabled and dispatch_fn is not None:
+                payload["dispatch"] = dispatch_fn()
         except Exception as exc:
             payload = {"intake_error": str(exc)}
         print(json.dumps(payload, sort_keys=True), flush=True)
@@ -71,7 +76,10 @@ def main() -> int:
                 auto_dispatch_enabled=auto_dispatch,
                 ignored_chip_ids=ignored_chip_ids,
             )
-            print(json.dumps({"intake": result}, sort_keys=True), flush=True)
+            payload = {"intake": result}
+            if auto_dispatch:
+                payload["dispatch"] = _request_auto_dispatch()
+            print(json.dumps(payload, sort_keys=True), flush=True)
         except Exception as exc:
             print(json.dumps({"intake_error": str(exc)}), flush=True)
         if args.once:
@@ -88,6 +96,21 @@ def _bool_env(name: str, default: bool) -> bool:
 
 def _csv_env(name: str) -> set[str]:
     return {item.strip() for item in os.getenv(name, "").split(",") if item.strip()}
+
+
+def _request_auto_dispatch() -> dict:
+    backend_url = os.getenv("WGS_BACKEND_INTERNAL_URL", "http://backend:8000").rstrip("/")
+    token = os.getenv("INTERNAL_SERVICE_TOKEN", "").strip()
+    response = httpx.post(
+        f"{backend_url}/api/internal/wgs/intake/dispatch-ready",
+        headers={"X-Airflow-Demo-Token": token},
+        timeout=60.0,
+    )
+    response.raise_for_status()
+    value = response.json()
+    if not isinstance(value, dict):
+        raise RuntimeError("automatic dispatch returned an invalid response")
+    return value
 
 
 if __name__ == "__main__":

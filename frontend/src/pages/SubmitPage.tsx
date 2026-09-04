@@ -19,8 +19,9 @@ export function SubmitPage() {
   const project = useMemo(() => catalog?.items.find((item) => item.project_id === projectId) || catalog?.items[0], [catalog, projectId]);
   const executionEnabled = Boolean(release?.execution_enabled && release.runtime_adapter_enabled);
   const phase = String(created?.params?.submission_phase || "select");
+  const preparationFailed = Boolean(created && ["failed", "cancelled", "unknown_interrupted"].includes(created.status));
   useEffect(() => {
-    if (!created?.analysis_id || phase === "approved") return;
+    if (!created?.analysis_id || phase === "approved" || preparationFailed) return;
     let stopped = false;
     const refresh = async () => {
       try {
@@ -36,7 +37,7 @@ export function SubmitPage() {
     void refresh();
     const timer = window.setInterval(() => void refresh(), 5000);
     return () => { stopped = true; window.clearInterval(timer); };
-  }, [created?.analysis_id, phase]);
+  }, [created?.analysis_id, phase, preparationFailed]);
   async function prepare(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSubmitting(true); setError(null);
     try { setCreated(await createCatalogWgsRun({project_id: projectId, platform, batch, fastq_root_id: fastqRootId})); }
@@ -75,7 +76,8 @@ export function SubmitPage() {
       <button className="button primary" type="submit" disabled={!executionEnabled || !projectId || !platform || !batch || !fastqRootId || submitting}>{submitting ? "Preparing..." : "Prepare sample information"}</button>
       {!executionEnabled ? <p className="inline-error" role="note">Execution is disabled. No AnalysisRun, OBS transfer or CCE task can start.</p> : null}
     </form></section> : null}
-    {created && phase === "preparing_sampleinfo" ? <section className="panel"><h2>Preparing sample information</h2><p>The WGS sampleinfo task is running. This page refreshes automatically.</p></section> : null}
+    {created && preparationFailed ? <section className="panel" role="alert"><h2>Sample information preparation failed</h2><p>{created.error_summary || "The preparation task failed before sample information became available."}</p><Link className="button primary" to={`/runs/${created.analysis_id}`}>View failure details</Link></section> : null}
+    {created && !preparationFailed && phase === "preparing_sampleinfo" ? <section className="panel"><h2>Preparing sample information</h2><p>The WGS sampleinfo task is running. This page refreshes automatically.</p></section> : null}
     {created && phase === "config_review" ? <section className="panel"><h2>Review samples and configuration</h2><SamplePreview samples={samples} /><div className="form-grid"><label className="field"><span>Reference selection</span><select aria-label="Use reference" value={useReference} onChange={(event) => setUseReference(event.target.value as "all" | "ref" | "no")}><option value="all">All</option><option value="ref">Reference only</option><option value="no">No reference</option></select></label><label className="field"><span>Resource set</span><select aria-label="Resource set" value="default" disabled><option value="default">WGS release default</option></select></label><button className="button primary" type="button" disabled={submitting} onClick={() => void confirmConfiguration()}>Confirm configuration</button></div></section> : null}
     {created && phase === "preparing_analysis" ? <section className="panel"><h2>Preparing analysis directory</h2><p>WGS is resolving eligible and pending samples and freezing the CCE bundle.</p></section> : null}
     {created && phase === "execution_review" ? <section className="panel"><h2>Confirm WGS execution</h2><SamplePreview samples={samples} /><p>Review the final selected samples before starting Step1 upload through Step6 materialization.</p><button className="button primary" type="button" disabled={submitting || samples.length === 0} onClick={() => void startExecution()}>Start WGS workflow</button></section> : null}

@@ -1,5 +1,342 @@
 # TASKS.md
 
+## T191 - Frontend login reverse-proxy DNS recovery
+
+Owner: infra/operations/docs
+
+Status: completed on `.96`
+
+Acceptance:
+- [x] Reproduce the login failure through the published nginx endpoint.
+- [x] Confirm backend health independently and identify the exact stale nginx
+  upstream address after the backend container recreate.
+- [x] Run production Compose preflight and restart only frontend-nginx so it
+  resolves the current backend container address.
+- [x] Verify a real server-local admin login and authenticated `/api/auth/me`
+  request both return HTTP 200 without exposing credentials.
+- [x] Preserve the backend, databases, Airflow, scanner, volumes, external
+  network and published-port boundary.
+
+## T190 - T7 source-name correction and false backfill rollback
+
+Owner: backend/operations/QA/docs
+
+Status: completed and deployed on `.96`
+
+Acceptance:
+- [x] Prove that `.96` and the scanner container both see
+  `2233th_20260901B_E250197502` under `/bi/fastq/T7_Fastq`.
+- [x] Record the operator-confirmed source truth: 2224/20260902A and
+  2225/20260902B are latest despite being misnumbered; 2233/20260901B is
+  historical.
+- [x] Remove numeric-chip ordering from scanner freshness decisions and retain
+  the existing marker/bootstrap contract.
+- [x] Delete only the false 2233 intake index row; preserve its successful WGS
+  AnalysisRun, source directory and analysis results.
+- [x] Reuse one backend WGS batch matcher for scanner reconciliation and
+  automatic-dispatch duplicate detection.
+- [x] Verify a new scanner cycle leaves only 2224/2225 and submits no run.
+- [x] Pass the complete `.96` backend suite and preserve the production Docker
+  network and single published endpoint.
+
+Restrictions:
+- Do not rename source FASTQ directories or synthesize 2234/2235 in the UI.
+- Do not submit, resume, delete or recreate WGS analysis for `20260901B`.
+- Do not recreate PostgreSQL, Redis, Airflow, frontend, volumes or the external
+  Docker network.
+- Do not commit Git.
+
+## T189 - Step5 manifest handoff and 20260902B recovery
+
+Owner: runtime/operations/docs
+
+Status: completed and deployed on `.96`
+
+Acceptance:
+- [x] Reproduce the circular Step5 manifest prerequisite with a failing test.
+- [x] Start the frozen Step5 script before requiring its OBS-delivered local
+  manifest; atomically freeze an exact transfer plan once visible.
+- [x] Fail closed if a successful Step5 process never yields a valid manifest
+  after the bounded NFS grace period.
+- [x] Prevent incrementally observed successful obsutil children from
+  temporarily projecting the whole frozen plan as 100%; derive completed file
+  count from planned targets and speed from active children only.
+- [x] Install the tested gate atomically on node200.
+- [x] Resume only Step5 and downstream tasks in the original `20260902B`
+  DagRun and verify terminal success without rerunning Step1-Step4.
+- [x] Reconcile the recovered same-attempt terminal state in biodemo without
+  allowing ordinary terminal-state regressions.
+- [x] Select only the exact batch-level QCstat when per-sample QCstat files are
+  present; project non-empty QC exception text as warning rather than unknown.
+- [x] Record `.96` Docker and live recovery evidence in state and handoff docs.
+
+## T188 - Step6 terminal barrier, WGS run projection and guarded T7 dispatch
+
+Owner: Airflow/backend/frontend/runtime/operations/docs
+
+Status: completed and deployed on `.96`
+
+Acceptance:
+- [x] Insert `wait_step6_materialize` between the asynchronous Step6 start and
+  `finalize_run`; finalization also validates the exact analysis, attempt,
+  stage, schema and successful terminal marker.
+- [x] Project the frozen `sampleinfo.tsv`, per-sample analysis state, safe QC,
+  controlled artifacts and registered logs in the backend. Do not expose
+  patient names, hospitals, raw sampleinfo content or server absolute paths.
+- [x] Freeze Step1 and Step5 transfer denominators before transfer and mark old
+  observations without a plan as `legacy_estimate`.
+- [x] Make the dashboard resource panels compact: one selected node, no
+  duplicate node name, no client-connections row, SFS name as a tag, and SFS
+  I/O history selectable as 24h/1d/7d.
+- [x] Add an internal ready-batch dispatcher which uses biodemo AnalysisRun and
+  the deterministic Airflow DagRun ID as the idempotency authority. Existing
+  manual, running, successful, failed or cancelled batches are linked and
+  skipped, never restarted by the scanner.
+- [x] Require an explicit `WGS_AUTO_DISPATCH_NOT_BEFORE` activation watermark;
+  ready intake discovered before it is baseline-only and cannot be
+  retrospectively submitted.
+- [x] Pass candidate Docker validation on `.96`: backend full, runtime focused,
+  DAG/deployment, frontend tests/build and Compose/network checks.
+- [x] Publish the immutable release, update the node200 runtime gate, recreate
+  only affected application services, enable automatic dispatch with a fresh
+  watermark and verify no historical run or DagRun is created.
+- [x] Reconcile existing false Step6 failures by clearing only the new wait,
+  finalize and lease-release tail after proving their Step6 markers are exact
+  successes.
+
+Restrictions:
+- Do not restart or mutate an in-flight CCE Master.
+- Do not recreate PostgreSQL, Redis, Docker volumes or the external network.
+- Keep WGS pinned to V4.1.1 commit `6c982817...` and do not commit Git.
+
+## T187 - Reset and freshly resubmit failed 20260902B batch
+
+Owner: operations/backend/Airflow/QA/docs
+
+Status: completed; exact reset finished and the fresh 8-sample run is active in Step3
+
+Authorization and scope:
+- The operator explicitly authorized an exact-batch reset of `20260902B` after
+  confirming whether the UI or runtime was wrong.
+- The only business run in scope is `WGS_20260903_111829_1D58E1`, including
+  its failed Airflow DagRuns and exact frozen batch directory
+  `WGS_20260902B_T7Hg38V4.1.1`.
+- The operator explicitly waived backups because this is a test reset. Do not
+  touch another batch, the external Docker network, PostgreSQL/Redis volumes,
+  OBS FASTQ, or the production WGS source.
+
+Acceptance:
+- [x] Prove the failure is real and occurs in `prepare_wgs_analysis`, not only
+  in the frontend projection.
+- [x] Confirm all seven DagRuns are terminal, no runner lock/process is active,
+  the OBS lease is empty, and the exact Master/Pod/batch ConfigMap lock is gone.
+- [x] Record the operator's explicit no-backup override before mutation.
+- [x] Attempt the frozen Step0 orphan reset; after it failed before mutation on
+  unavailable worker metadata/reset tooling, remove only the exact SFS
+  run/linkage state manually while preserving OBS FASTQ.
+- [x] Delete only the failed business run and its seven failed Airflow DagRuns,
+  then remove the old runner identity so a new run ID can be created.
+- [x] Diagnose the regenerated 2-sample selection: expanded family members
+  `71/72/75` belong to sequencing batch `20260902A`; without recovered batch
+  identity, WGS correctly holds their two complete families in pending.
+- [x] Use the WGS pending recovery contract for the three exact rows and prove
+  with the frozen selector that it yields 8 selected samples, 3 pending samples
+  and 16 readable FASTQ files.
+- [x] Freshly submit `20260902B`, regenerate sampleinfo, verify the 8-sample
+  final selection and start Step1-Step6. The retained run is
+  `WGS_20260903_200310_37E27D-a1`; it acquired the OBS slot after the previous
+  lease expired, reused the existing FASTQ objects without duplicate upload,
+  completed Step1 and Step2, and is now monitoring active Master Job
+  `cce-master-44815ec87b04c2020d77` in Step3.
+
+## T186 - Reschedule WGS approval gates on transient backend transport failures
+
+Owner: Airflow/infra/QA/docs
+
+Status: deployed on `.96`; operator recovery remains intentionally pending
+
+Acceptance:
+- [x] Prove `20260902B` attempt 6 failed in `wait_wgs_execution_approval`
+  before Step1 because Docker DNS temporarily could not resolve `backend`.
+- [x] Reproduce both config and execution approval-gate failures with a RED DAG
+  regression test.
+- [x] Use the same transport-only reschedule helper for stage and approval
+  sensors; preserve hard failure for HTTP/application contract errors.
+- [x] Pass the focused and complete `bio_wgs` DAG unit suite in the `.96`
+  Airflow image.
+- [x] Deploy only the Airflow DAG services while no synchronous WGS task is
+  active; preserve the running `20260825A` Master and fixed network.
+- [x] Leave `20260902B` at execution review until the operator explicitly
+  confirms execution; do not start Step1 automatically.
+
+## T185 - Repair retried WGS Rule evidence identity and stale observer display
+
+Owner: backend/infra/QA/docs
+
+Status: deployed on `.96`
+
+Acceptance:
+- [x] Reproduce the production schema-1 logger event `attempt-1` rejection for
+  an Airflow attempt greater than one.
+- [x] Keep exact `run_label`, release and binding checks while treating the
+  schema-1 attempt label as Master-local and projecting events into the frozen
+  Airflow binding attempt.
+- [x] Return observer state only for the run's current attempt; never expose an
+  older attempt's monitoring warning on a new prepare/review attempt.
+- [x] Consume the existing `20260825A` attempt-7 and `20260902B` attempt-4
+  JSONL files without rerunning or changing either CCE Master.
+- [x] Pass the complete backend suite in an isolated `.96` Docker container.
+- [x] Deploy only backend and observer, then restart Nginx to refresh its
+  backend address; preserve databases, Airflow, scanner and fixed networking.
+
+## T184 - Recover 20260902B prepare after shared-NFS visibility race
+
+Owner: backend/Airflow/infra/QA/docs
+
+Status: deployed on `.96`; attempt 6 is waiting for operator execution approval
+
+Acceptance:
+- [x] Preserve the refreshed 11-row source sampleinfo while recoverably archiving
+  attempt 5's generated batch directory and final `sampleinfo.tsv`.
+- [x] Reproduce the exact prepare-success/NFS-artifact race as a failing backend
+  test in the `.96` Docker environment.
+- [x] Return HTTP 200 with `ready=false` and `artifact_pending=true` only while a
+  successful prepare artifact is not yet visible; retain hard failures for
+  malformed, empty or identity-mismatched artifacts.
+- [x] Pass the focused regression and complete `.96` backend suite.
+- [x] Back up both databases and deploy backend-only without changing Airflow,
+  PostgreSQL, Redis, volumes or the fixed Docker network.
+- [x] Create attempt 6, regenerate the batch directory and final sample table,
+  and verify two currently eligible samples were imported from 11 source rows.
+- [x] Leave Step1, Step2 and CCE unstarted pending the operator's final approval.
+
+## T183 - Recover 20260902A Rule monitoring and registered log access
+
+Owner: backend/Airflow/frontend/infra/QA/docs
+
+Status: deployed on `.96`; original CCE Master remains active
+
+Acceptance:
+- [x] Prove the Master/logger/evidence bridge are running and identify the
+  failure as a control-plane recovery race rather than a WGS analysis failure.
+- [x] Reschedule Step3 sensors on transient backend transport failures without
+  weakening HTTP/application error handling.
+- [x] Retry only the exact registered-request NFS visibility error, at most five
+  times, before preserving the original hard failure.
+- [x] Associate logger `data_id` values with a unique registered business sample
+  and family; ambiguous aliases remain unassigned.
+- [x] Return the registered opaque Master analysis-log key for every WGS Rule
+  and expose an `Open log` action without returning server paths.
+- [x] Recover only Step3 and downstream tasks in the same attempt; preserve
+  Step1/Step2 and the existing Master Job.
+- [x] Pass `.96` Docker DAG, backend and frontend suites/build and production
+  API/network smoke checks.
+- [ ] Operator refreshes the active run and confirms the Rule/Logs presentation.
+
+## T179 - Transfer units, node load and SFS chart repair
+
+Owner: frontend/runtime/infra/QA/docs
+
+Status: deployed on `.96`; current in-flight upload preserved
+
+Acceptance:
+- [x] Use one shared formatter for byte-valued progress in Current Progress,
+  Run Tracker and WGS Step1/Step5 workflow cards.
+- [x] Display CPU, memory and normalized load utilization bars; keep the
+  1/5/15 load values visible and colour the load bar by saturation.
+- [x] Add `logical_cpu_count` to the bounded node metrics snapshot without a
+  migration or a new API.
+- [x] Right-align Client connections on an inline row with additional spacing.
+- [x] Add a labelled, auto-scaled Y axis to the SFS read/write history chart.
+- [x] Keep aggregate transfer state `running` while any child transfer is
+  running, even when an earlier child record failed.
+- [x] Observe failing tests before implementation, then pass full `.96` Docker
+  frontend/Python suites and the frontend production build.
+- [x] Deploy only the frontend and resource collectors, atomically update the
+  node200 runner, and preserve active OBS workers and fixed Docker networking.
+- [ ] Operator visually refreshes the dashboard after deployment.
+
+## T178 - Reset failed 20260825A analysis directory
+
+Owner: operations/QA/docs
+
+Status: completed; operator run is active
+
+Acceptance:
+- [x] Confirm attempt 4 failed at analysis preparation because the exact batch
+  directory already existed; sampleinfo preparation itself succeeded.
+- [x] Resolve the exact target, confirm it is not a mountpoint, and verify no
+  batch lock, Master Job or matching Master Pod exists.
+- [x] Create a restricted backup and verify its SHA256 before removing only the
+  exact batch analysis directory.
+- [x] Preserve sampleinfo, Airflow/biodemo evidence, OBS, SFS and fixed Docker
+  network state.
+- [x] Record that the operator concurrently submitted a new run; do not submit,
+  approve, cancel or otherwise mutate that run.
+
+## T177 - Prepare-stage status routing repair
+
+Owner: backend/QA/infra/docs
+
+Status: deployed on `.96`; awaiting operator attempt 3
+
+Acceptance:
+- [x] Preserve attempt 2 and prove node200 `prepare_sampleinfo` returned success
+  with the expected three-row sample table.
+- [x] Reproduce the exact HTTP 500 caused by `unsupported runtime stage sync`.
+- [x] Accept `prepare`, `prepare_sampleinfo` and `prepare_analysis` as valid
+  status-sync stages without treating them as transfer or observer artifacts.
+- [x] A successful sampleinfo status imports the safe sample/family preview and
+  advances staged submission to `config_review`.
+- [x] Focused tests fail before the implementation and pass afterward; complete
+  `.96` backend suite passes with the repository config mounted.
+- [x] Deploy backend-only on `.96`, preserving failed attempt 2, databases,
+  Airflow task state, frontend, volumes and fixed Docker network.
+- [ ] Operator starts attempt 3 after deployment; Codex does not submit it.
+
+## T176 - Failed WGS resubmission and Submit refresh repair
+
+Owner: backend/frontend/infra/QA/docs
+
+Status: deployed on `.96`; awaiting operator resubmission
+
+Acceptance:
+- [x] Reproduced the defect: a terminal failed batch reused attempt 1 and its
+  failed deterministic DagRun while resetting the page to sampleinfo preparation.
+- [x] Active duplicate submission remains idempotent and successful duplicate
+  submission is rejected.
+- [x] Failed, cancelled and unknown-interrupted duplicates create a new attempt
+  and `<analysis_id>-a<attempt>` DagRun while preserving AnalysisRun identity.
+- [x] New attempts clear stale terminal timestamps, error and progress fields.
+- [x] Submit polling exits the preparation view on terminal failure and links to
+  the existing Run Detail failure evidence.
+- [x] Focused tests failed before implementation and passed afterward; complete
+  `.96` backend/frontend suites, frontend build, Compose and network guard pass.
+- [x] Deploy only backend/frontend source and static assets on `.96`, preserving
+  databases, Airflow metadata, existing attempts, volumes and fixed network.
+- [ ] Operator may resubmit `20260825A`; Codex must not submit it on the user's behalf.
+
+## T175 - Dashboard resource utilization and SFS I/O visualization
+
+Owner: frontend/infra/QA/docs
+
+Status: deployed on `.96`; awaiting operator visual refresh
+
+Acceptance:
+- [x] Analysis Node Health displays CPU and memory utilization bars while
+  retaining load 1/5/15 and the existing node selector.
+- [x] Cloud Resources displays reliable SFS used/total capacity when both
+  Cloud Eye used bytes and percent are available, with a percentage-only
+  fallback when total capacity cannot be derived.
+- [x] Node and SFS source timestamps are right-aligned in their panel headings.
+- [x] The duplicate Workflow Activity card is replaced by a read/write
+  bandwidth chart using the existing bounded 60-point SFS history and current
+  IOPS; no API, database or collector change is introduced.
+- [x] Focused test was observed failing before implementation and passing after
+  implementation; full `.96` Node Docker frontend suite and build pass.
+- [x] Deploy only the `.96` frontend release while preserving databases,
+  Airflow services, volumes, scanner, observer and fixed Docker network.
+
 ## T174 - Forward-only WGS submission evidence fixes
 
 Owner: backend/airflow/frontend/infra/QA/docs

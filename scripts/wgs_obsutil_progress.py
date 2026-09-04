@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/bi/software/mamba/envs/WGS/bin/python3.11
 """Transparent obsutil wrapper with redacted, request-scoped progress evidence."""
 from __future__ import annotations
 

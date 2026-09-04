@@ -2,7 +2,7 @@ import {Play, RefreshCw, RotateCcw, Square} from "lucide-react";
 import {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 
-import type {Artifact, DeployedPipeline, LogStream, RuleEvent, RunConfig, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, Sample, WgsPod, WgsTransfer, WgsValidationIssue} from "../api";
+import type {Artifact, DeployedPipeline, LogStream, RuleEvent, RunConfig, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, Sample, WgsPod, WgsSampleManifestRow, WgsTransfer, WgsValidationIssue} from "../api";
 
 import {
   getRunArtifacts,
@@ -40,6 +40,7 @@ type DetailTab = (typeof tabs)[number];
 type Bundle = {
   detail: RunDetail | null;
   samples: Sample[];
+  manifest: WgsSampleManifestRow[];
   rules: RuleEvent[];
   artifacts: Artifact[];
   progress: RunProgressResponse | null;
@@ -49,7 +50,7 @@ type Bundle = {
   validationIssues: WgsValidationIssue[];
 };
 
-const emptyBundle: Bundle = {detail: null, samples: [], rules: [], artifacts: [], progress: null, config: null, pods: [], transfers: [], validationIssues: []};
+const emptyBundle: Bundle = {detail: null, samples: [], manifest: [], rules: [], artifacts: [], progress: null, config: null, pods: [], transfers: [], validationIssues: []};
 
 export function RunDetailPage() {
   const {analysisId = ""} = useParams();
@@ -106,7 +107,7 @@ export function RunDetailPage() {
         getRunTransfers(analysisId).catch(() => ({items: []})),
         getRunValidationIssues(analysisId).catch(() => ({items: []})),
       ]);
-      setBundle({detail, samples: samples.items, rules: rules.items, progress, artifacts: artifacts.items, config, pods: pods.items, transfers: transfers.items, validationIssues: validationIssues.items});
+      setBundle({detail, samples: samples.items, manifest: samples.manifest || [], rules: rules.items, progress, artifacts: artifacts.items, config, pods: pods.items, transfers: transfers.items, validationIssues: validationIssues.items});
       setLogSources(indexedLogs.items);
       if (indexedLogs.items.length) {
         const preferred = preferredLogSource(indexedLogs.items, detail.status, progress?.current_step) || indexedLogs.items[0];
@@ -262,11 +263,11 @@ export function RunDetailPage() {
         <CurrentProgressPanel detail={detail} progress={progress} source={bundle.progress?.progress_source} stage={bundle.progress} />
         <section className="panel">
           <div className="tabs" role="tablist" aria-label="Run detail tabs">{tabs.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} role="tab" type="button" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}</div>
-          {activeTab === "Overview" ? <RunOverviewTab detail={detail} samples={bundle.samples} /> : null}
+          {activeTab === "Overview" ? <RunOverviewTab detail={detail} samples={bundle.manifest} /> : null}
           {activeTab === "Samples" ? <WgsSamplesTab samples={bundle.samples} /> : null}
-          {activeTab === "Rules" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} /> : null}
+          {activeTab === "Rules" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} onOpenLog={(key) => { setLogKey(key); setLogStream("stdout"); setActiveTab("Logs"); }} /> : null}
           {activeTab === "Master" ? <WgsMasterTab pods={bundle.pods} /> : null}
-          {activeTab === "Transfers" ? <WgsTransfersTab transfers={bundle.transfers} /> : null}
+          {activeTab === "Transfers" ? <WgsTransfersTab detail={detail} transfers={bundle.transfers} /> : null}
           {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} /></> : null}
           {activeTab === "Files" ? <RunFilesTab artifacts={bundle.artifacts} /> : null}
         </section>
@@ -276,20 +277,21 @@ export function RunDetailPage() {
 }
 
 function WgsSamplesTab({samples}: {samples: Sample[]}) {
-  return <WgsTable headers={["Sample/data", "Family", "Relation", "Type", "Sex", "Sequencing batch", "R1", "R2", "Status", "Pending source/reason"]} rows={samples.map((sample) => [sample.data_id || sample.sample_id, sample.family_id || "-", sample.family_relation || "-", sample.sample_type || "-", sample.sex || "-", sample.sequencing_batch || "-", sample.r1_filename || "-", sample.r2_filename || "-", sample.status || "-", sample.pending_source || sample.pending_reason || "-"])} empty="No safe sampleinfo projection returned." />;
+  return <WgsTable headers={["Sample", "Data", "Family / relation", "Current stage", "Current Rule", "Rules", "Progress", "Status", "Elapsed", "QC", "Safe QC metrics"]} rows={samples.map((sample) => [sample.sample_id, sample.data_id || "-", [sample.family_id, sample.family_relation].filter(Boolean).join(" / ") || "-", sample.current_stage || "-", sample.current_rule || "-", `${sample.completed_rules ?? 0}/${sample.total_rules ?? 0}`, sample.progress_percent == null ? "-" : `${sample.progress_percent}%`, sample.status || "-", sample.elapsed_seconds == null ? "-" : formatSecondsDuration(sample.elapsed_seconds), sample.qc_status || "unknown", compactQc(sample.qc_metrics)])} empty="No analysis sample state returned." />;
 }
 
 function WgsMasterTab({pods}: {pods: WgsPod[]}) {
   return <WgsTable headers={["Master Job", "Pod hash", "Phase", "Reason", "Exit", "Node", "Resources", "Message"]} rows={pods.map((pod) => [pod.job_name ?? "-", pod.pod_hash, pod.phase ?? "-", pod.reason ?? "-", pod.exit_code ?? "-", pod.node_name ?? "-", compactResources(pod.resources), pod.message ?? "-"])} empty="Master Pod evidence is not available yet." />;
 }
 
-function WgsTransfersTab({transfers}: {transfers: WgsTransfer[]}) {
+function WgsTransfersTab({detail, transfers}: {detail: RunDetail; transfers: WgsTransfer[]}) {
   return <div className="transfer-list">{transfers.map((transfer) => {
     const hasDetail = transfer.progress_detail_available === true;
+    const title = transfer.direction === "download" ? "Results download" : "FASTQ upload";
     return <section className="transfer-card" key={transfer.transfer_id || `${transfer.source}-${transfer.destination}`}>
-      <div className="section-heading"><div><h3>{transfer.transfer_id || "Transfer"}</h3><p>{transfer.source || "-"} → {transfer.destination || "-"}</p></div><StatusBadge status={transfer.status || "unknown"} /></div>
+      <div className="section-heading"><div><h3>{title}</h3><p>Batch {String(detail.params?.sequencing_batch || detail.params?.analysis_batch || "-")} · Attempt {transfer.attempt ?? 1}{transfer.progress_basis === "legacy_estimate" ? " · Legacy estimate" : ""}</p></div><StatusBadge status={transfer.status || "unknown"} size="lg" /></div>
       {hasDetail ? <>
-        <progress max={100} value={transfer.progress_percent ?? 0} aria-label={`${transfer.transfer_id || "Transfer"} progress`} />
+        <progress className="transfer-progress" max={100} value={transfer.progress_percent ?? 0} aria-label={`${title} progress`} />
         <div className="definition-grid"><div><dt>Progress</dt><dd>{transfer.progress_percent ?? 0}% / {formatBytes(transfer.bytes_transferred)} of {formatBytes(transfer.bytes_total)}</dd></div><div><dt>Speed</dt><dd>{formatBytes(transfer.speed_bps)}/s</dd></div><div><dt>ETA</dt><dd>{transfer.eta_seconds == null ? "-" : formatSecondsDuration(transfer.eta_seconds)}</dd></div><div><dt>Files</dt><dd>{transfer.files_completed ?? "-"} / {transfer.files_total ?? "-"}</dd></div><div><dt>Current file</dt><dd className="path-text">{transfer.current_file || "-"}</dd></div><div><dt>Heartbeat</dt><dd>{formatDate(transfer.heartbeat_at)}</dd></div></div>
       </> : <div className="transfer-phase-status">
         <p>阶段状态可用；当前 cce-pipeline 合同未提供可靠的字节、速度或 ETA 明细。</p>
@@ -306,4 +308,10 @@ function WgsTable({headers, rows, empty}: {headers: string[]; rows: Array<Array<
 function compactResources(resources?: Record<string, unknown> | null): string {
   if (!resources || Object.keys(resources).length === 0) return "-";
   return JSON.stringify(resources);
+}
+
+function compactQc(metrics?: Record<string, string | number | null>): string {
+  if (!metrics || Object.keys(metrics).length === 0) return "-";
+  const labels: Record<string, string> = {clean_q30_percent: "Q30", mapped_reads_percent: "Mapped", average_depth: "Depth", coverage_20x_percent: "20X", contamination: "Contam"};
+  return Object.entries(metrics).map(([key, value]) => `${labels[key] || key}: ${value}`).join(" · ");
 }

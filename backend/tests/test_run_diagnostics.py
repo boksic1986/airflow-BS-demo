@@ -9,7 +9,15 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import diagnostics_service, main
-from app.models import AnalysisRun, Base, QcMetric, RuleState, Sample, SnakemakeRuleEvent
+from app.models import (
+    AnalysisRun,
+    Base,
+    QcMetric,
+    RuleState,
+    RunStageState,
+    Sample,
+    SnakemakeRuleEvent,
+)
 
 
 def make_test_sessionmaker():
@@ -322,6 +330,58 @@ def test_sync_wgs_success_backfills_pipeline_finished_at_from_airflow_end(
     assert run.pipeline_finished_at == expected
 
 
+def test_sync_wgs_success_replaces_stale_failed_completion_time(
+    tmp_path, monkeypatch
+) -> None:
+    session_factory = make_test_sessionmaker()
+    analysis_id = insert_submitted_run(
+        session_factory,
+        tmp_path,
+        analysis_id="WGS_20260903_200310_37E27D",
+    )
+    stale_failure = datetime(2026, 7, 2, 23, 40, tzinfo=timezone.utc)
+    with session_factory() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.pipeline_name = "wgs"
+        run.status = "success"
+        run.current_stage = "finalize_run"
+        run.ended_at = stale_failure
+        run.pipeline_finished_at = stale_failure
+        session.add(
+            RunStageState(
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="step5_download",
+                step_number=5,
+                stage_label="Downloading WGS results",
+                stage_status="failed",
+                progress_source="wgs-runtime.stage-status.v1",
+                updated_at=stale_failure,
+            )
+        )
+        session.commit()
+    fake_airflow = FakeSuccessfulWgsAirflowClient("success")
+    install_app_fixtures(
+        monkeypatch, session_factory, tmp_path / "shared", fake_airflow
+    )
+
+    response = TestClient(main.app).post(
+        f"/api/runs/{analysis_id}/actions/sync-airflow"
+    )
+
+    assert response.status_code == 200
+    expected = datetime(2026, 7, 3, 0, 5)
+    with session_factory() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+    assert run.status == "success"
+    assert run.ended_at == expected
+    assert run.pipeline_finished_at == expected
+
+
 @pytest.mark.parametrize("end_date", [None, "not-an-airflow-datetime"])
 def test_sync_wgs_success_does_not_invent_missing_airflow_end_time(
     tmp_path, monkeypatch, end_date
@@ -512,6 +572,15 @@ def test_wgs_log_index_uses_opaque_keys_for_analysis_and_stage_worker_logs(
                 message="rule failed with a readable error",
             )
         )
+        session.add(
+            RuleState(
+                analysis_id=analysis_id,
+                attempt=1,
+                rule_instance_id="running-rule",
+                rule_name="mapping",
+                status="running",
+            )
+        )
         session.commit()
     install_app_fixtures(monkeypatch, session_factory, tmp_path / "shared")
     monkeypatch.setattr(
@@ -533,8 +602,15 @@ def test_wgs_log_index_uses_opaque_keys_for_analysis_and_stage_worker_logs(
     assert response.status_code == 200
     items = response.json()["items"]
     assert {item["source"] for item in items} == {"master_analysis", "stage_worker"}
-    assert all("path" not in item and "relative_path" not in item for item in items)
+    assert all("path" not in item and item.get("relative_path") for item in items)
     analysis_item = next(item for item in items if item["source"] == "master_analysis")
+    rule_items = client.get(f"/api/runs/{analysis_id}/rules").json()["items"]
+    assert {item["analysis_log_key"] for item in rule_items} == {
+        analysis_item["key"]
+    }
+    assert next(item for item in rule_items if item["rule"] == "mapping")[
+        "stderr_excerpt"
+    ] is None
     original_read_text = Path.read_text
 
     def guarded_read_text(path: Path, *args, **kwargs):
@@ -547,7 +623,7 @@ def test_wgs_log_index_uses_opaque_keys_for_analysis_and_stage_worker_logs(
     assert tailed.status_code == 200
     assert tailed.json()["lines"] == ["rule failed with a readable error"]
     assert tailed.json()["file_size"] == (mirror / "analysis.log").stat().st_size
-    assert "path" not in tailed.json()
+    assert tailed.json()["path"] == f"cce/evidence/{run_id}/mirror/analysis.log"
     no_key = client.get(f"/api/runs/{analysis_id}/logs?stream=stderr")
     assert no_key.status_code == 404
     assert no_key.json()["detail"]["code"] == "LOG_NOT_FOUND"

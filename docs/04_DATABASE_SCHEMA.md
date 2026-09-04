@@ -1,5 +1,12 @@
 # 04 数据库设计
 
+## T188 bounded resource history and WGS projections（无迁移）
+
+本轮不新增表或字段。`platform_resource_snapshot.history_json`仍按资源单行
+upsert，但节点和OBS最多保留60点，SFS最多保留10080点，以支持约7天的一分钟
+采集历史。WGS样本清单、分析矩阵、受控文件和日志均在API读取时投影；原始
+`sampleinfo.tsv`和临床隐私字段不复制到数据库。
+
 ## T154-T157 WGS生产投影
 
 迁移`20260901_0013`新增`run_stage_state`（每analysis/attempt/stage一行）、

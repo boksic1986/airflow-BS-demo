@@ -31,6 +31,10 @@ EXECUTION_MODES = {"cce"}
 WGS_CCE_DAG_ID = "bio_wgs"
 
 
+class WgsPreparedArtifactPending(ValueError):
+    """A successful remote prepare marker is visible before its NFS artifact."""
+
+
 def create_wgs_platform_run(*, session: Session, settings, project_name: str, execution_mode: str, batch_no: str, fq_path: str, submitted_by: str, commit: bool = True, validate_input: bool = True, platform: str | None = None, sequencing_batch: str | None = None, analysis_batch: str | None = None, fastq_root: str | None = None, use_reference: str = "all") -> dict:
     if execution_mode not in EXECUTION_MODES:
         raise ValueError("execution_mode must be cce for the cloud orchestration release.")
@@ -167,6 +171,12 @@ def action_wgs_run(*, session: Session, airflow_client, analysis_id: str, action
     run.attempt += 1
     run.mode = action
     run.status = "created"
+    run.started_at = None
+    run.ended_at = None
+    run.pipeline_finished_at = None
+    run.progress_percent = 0
+    run.progress_updated_at = None
+    run.error_summary = None
     session.add(RunAttempt(analysis_id=analysis_id, attempt=run.attempt, execution_mode=run.execution_mode, status="created"))
     session.add(RunAction(analysis_id=analysis_id, action=action, requested_by=requested_by, result_status="accepted", payload_json={"attempt": run.attempt}))
     session.commit()
@@ -236,7 +246,9 @@ def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> in
     )
     sampleinfo = batch_root / "sampleinfo.tsv"
     if not sampleinfo.is_file() or sampleinfo.is_symlink():
-        raise ValueError("WGS prepare did not publish final sampleinfo.tsv")
+        raise WgsPreparedArtifactPending(
+            "WGS prepare final sampleinfo.tsv is not visible yet"
+        )
     rows = list(csv.DictReader(sampleinfo.open(encoding="utf-8-sig", newline=""), delimiter="\t"))
     if not rows:
         raise ValueError("WGS prepare selected no analysis samples")
@@ -257,10 +269,12 @@ def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> in
         }
         row = existing.get(sample_id)
         if row is None:
-            row = Sample(analysis_id=run.analysis_id, sample_id=sample_id, family_id=str(source.get("家系编号") or "").strip() or None, status="running", qc_status="unknown", metadata_json=metadata)
+            row = Sample(analysis_id=run.analysis_id, sample_id=sample_id, family_id=str(source.get("家系编号") or "").strip() or None, sample_type=metadata["sample_type"], sex=metadata["sex"], status="running", qc_status="unknown", metadata_json=metadata)
             session.add(row)
         else:
             row.family_id = str(source.get("家系编号") or "").strip() or None
+            row.sample_type = metadata["sample_type"]
+            row.sex = metadata["sex"]
             row.status = "running"
             row.metadata_json = metadata
     for sample_id, row in existing.items():
@@ -279,7 +293,9 @@ def sync_sampleinfo_preview(*, session: Session, settings, run: AnalysisRun) -> 
         / f"{params['batch_no']}.sampleinfo.txt"
     )
     if not sampleinfo.is_file() or sampleinfo.is_symlink():
-        raise ValueError("WGS sampleinfo preparation did not publish the expected sample table")
+        raise WgsPreparedArtifactPending(
+            "WGS sampleinfo table is not visible yet"
+        )
     rows = list(csv.DictReader(sampleinfo.open(encoding="utf-8-sig", newline=""), delimiter="\t"))
     if not rows:
         raise ValueError("WGS sampleinfo preparation selected no samples")
@@ -310,6 +326,8 @@ def sync_sampleinfo_preview(*, session: Session, settings, run: AnalysisRun) -> 
                     analysis_id=run.analysis_id,
                     sample_id=sample_id,
                     family_id=str(source.get("家系编号") or "").strip() or None,
+                    sample_type=metadata["sample_type"],
+                    sex=metadata["sex"],
                     status="pending",
                     qc_status="unknown",
                     metadata_json=metadata,
@@ -317,6 +335,8 @@ def sync_sampleinfo_preview(*, session: Session, settings, run: AnalysisRun) -> 
             )
         else:
             row.family_id = str(source.get("家系编号") or "").strip() or None
+            row.sample_type = metadata["sample_type"]
+            row.sex = metadata["sex"]
             row.status = "pending"
             row.metadata_json = metadata
     for sample_id, row in existing.items():

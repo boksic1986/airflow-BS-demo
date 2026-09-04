@@ -135,6 +135,13 @@ def _read_file_cursor(path: Path) -> int:
     return max(0, offset)
 
 
+def analysis_log_source_for_rule_directory(source_dir: str) -> str:
+    path = Path(source_dir)
+    if not path.is_absolute() or path.name != "raw" or path.parent.name != "rule-status":
+        raise ValueError("Rule source directory does not identify a run evidence directory")
+    return str(path.parent.parent / "analysis.log")
+
+
 def _apply_file_chunk(output: Path, cursor_path: Path, chunk: dict) -> int:
     source_offset = int(chunk.get("source_offset", -1))
     current_offset = _read_file_cursor(cursor_path)
@@ -479,6 +486,8 @@ def sync_rule_events_once(
     terminal: bool,
 ) -> int:
     config = yaml.safe_load(operator_config.read_text(encoding="utf-8"))
+    if analysis_log_source is not None:
+        analysis_log_source = analysis_log_source_for_rule_directory(source_dir)
     cursor_path = output / ".rule-cursor.json"
     cursor = _read_cursor(cursor_path)
     analysis_cursor_path = output / ".analysis-log-cursor.json"

@@ -1,5 +1,71 @@
 # 06 前端设计
 
+## T188 unified WGS run projection and resource controls
+
+- Overview consumes the backend `manifest` projection and displays only sample
+  ID, data ID, type, family, relation, received date and estimated report date.
+  Samples consumes the backend analysis matrix; the browser does not reparse
+  sampleinfo or rebuild Rule/QC state.
+- Transfers use `FASTQ upload` and `Results download`, show batch/attempt in a
+  subtitle and distinguish frozen exact progress from legacy estimates.
+- Logs show a controlled relative display path while retaining the opaque key
+  as the only read credential. Files display only the backend allow-list.
+- Analysis Node Health shows one selected node. The IP is present once in the
+  selector, CPU/memory/load are utilization bars, and load keeps the raw
+  1/5/15 values. Cloud Resources has no subtitle or client-connections row;
+  the SFS name is a tag and unused space is reserved for future heavy slots.
+- SFS I/O exposes 24h, 1d and 7d selectors over server-provided bounded
+  history, with read/write series, a labelled Y axis and current IOPS.
+
+## T183 Rule-to-log navigation
+
+Each WGS Rule row with a registered `analysis_log_key` exposes `Open log`.
+Selecting it switches Run Detail to Logs and selects the bound Master analysis
+log. The browser does not construct a path or opaque key and does not duplicate
+Rule/sample matching logic; both come from the backend projection.
+
+## T179 progress units and resource presentation
+
+- Byte-valued progress is formatted by one shared helper in Current Progress,
+  Run Tracker and the WGS Step1/Step5 workflow cards. UI components do not
+  concatenate raw byte integers independently.
+- Analysis Node Health displays CPU, memory and normalized system load as
+  accessible utilization bars. The load denominator is the reported logical
+  CPU count, while load 1/5/15 remain visible as raw scheduler-pressure values.
+- Load saturation uses green below 70%, warning from 70% to below 100%, and
+  danger at or above 100%; missing CPU-count or load data remains unavailable
+  rather than becoming a false zero.
+- SFS bandwidth history includes a max/mid/zero Y axis and automatically
+  chooses KiB/s, MiB/s or GiB/s labels from the visible data range. Client
+  connections is intentionally not displayed.
+
+## T176 Submit failure refresh and retry
+
+- The sampleinfo preparation panel polls the created run every five seconds.
+  `failed`, `cancelled` and `unknown_interrupted` are terminal for this screen:
+  polling stops, the backend error summary is shown and the operator receives a
+  direct Run Detail link. The page must not continue to claim that preparation
+  is running after the DagRun has failed.
+- Submitting the same batch after a terminal failure is a new attempt handled by
+  the backend. The browser does not construct or reuse DagRun IDs. Active
+  duplicates remain idempotent and completed batches are reported as already
+  completed.
+
+## T175 dashboard resource visualization
+
+The three equal-width operational cards are Analysis Node Health, Cloud
+Resources and SFS I/O. Workflow Activity is removed because Run Tracker is the
+authoritative activity list. Node CPU, memory, normalized load and SFS capacity
+use accessible horizontal utilization bars. The raw load 1/5/15 values remain
+visible. Node and SFS source timestamps are aligned to the right side of their
+headings using the same muted typography as section subtitles.
+
+SFS used and total capacity are shown only when Cloud Eye supplies both used
+bytes and used percent; otherwise the card falls back to the reliable value and
+does not invent capacity. The SFS I/O chart consumes bounded server history,
+draws separate read and write bandwidth series and displays current IOPS. It
+introduces no browser-side metric mapping or persistent history.
+
 ## T174 新批次优先的Batch/Sample修正
 
 - React不再解析`WGS_<batch>_T7Hg38V4.1.1`；Run Tracker、Run Detail和Samples

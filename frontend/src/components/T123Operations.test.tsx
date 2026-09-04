@@ -65,6 +65,26 @@ it("shows Batch and Finished in the Batch Runs table", () => {
   expect(screen.queryByText("Not captured")).not.toBeInTheDocument();
 });
 
+it("formats byte-based Run Tracker stage progress in readable units", () => {
+  render(<MemoryRouter><RunTracker rows={[{
+    ...manualRun,
+    analysis_id: "WGS_TRANSFER",
+    pipeline: "wgs",
+    status: "running",
+    batch_no: "20260902B",
+    stage_progress: {
+      available: true,
+      percent: 25,
+      completed_units: 1024 ** 3,
+      total_units: 2 * 1024 ** 3,
+      unit: "bytes",
+    },
+  }]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={vi.fn()} onKeywordChange={vi.fn()} onPageChange={vi.fn()} onSubmit={vi.fn()} onSync={vi.fn()} /></MemoryRouter>);
+
+  expect(screen.getByText("1.0 GB / 2.0 GB")).toBeInTheDocument();
+  expect(screen.queryByText(/1073741824\/2147483648 bytes/)).not.toBeInTheDocument();
+});
+
 it("hides a dot-only source batch placeholder", () => {
   render(<MemoryRouter><OperationProjectCell analysisId="NIPT_DOT" fallbackId="NIPT_DOT" projectName="NIPT batch" sampleCount={27} source="manual" sourceBatchId="." submittedBy="jiucheng" /></MemoryRouter>);
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import json
+import logging
 import os
 import re
 import subprocess
@@ -38,6 +39,30 @@ ASYNC_RUNNER_STAGES = {
     "step5_download",
     "step7_cleanup",
 }
+LOG = logging.getLogger(__name__)
+
+
+class BackendTransportUnavailable(RuntimeError):
+    pass
+
+
+RUNNER_REQUEST_VISIBILITY_ATTEMPTS = 5
+RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS = 1.0
+
+
+def _runner_request_not_yet_visible(completed: subprocess.CompletedProcess[str]) -> bool:
+    if completed.returncode == 0:
+        return False
+    error = "\n".join(
+        part for part in (completed.stdout, completed.stderr) if part
+    )
+    return (
+        "runner-requests/" in error
+        and (
+            "registered runtime request is missing" in error
+            or "FileNotFoundError: [Errno 2] No such file or directory" in error
+        )
+    )
 
 
 def validate_request(**context: Any) -> dict[str, Any]:
@@ -156,13 +181,25 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         str(conf["attempt"]),
         runner_stage,
     ]
-    completed = subprocess.run(
-        command,
-        check=False,
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-    )
+    for invocation in range(1, RUNNER_REQUEST_VISIBILITY_ATTEMPTS + 1):
+        completed = subprocess.run(
+            command,
+            check=False,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+        )
+        if not _runner_request_not_yet_visible(completed):
+            break
+        if invocation == RUNNER_REQUEST_VISIBILITY_ATTEMPTS:
+            break
+        LOG.warning(
+            "registered WGS runtime request is not visible on node200 yet; "
+            "retrying restricted runner invocation (%s/%s)",
+            invocation,
+            RUNNER_REQUEST_VISIBILITY_ATTEMPTS,
+        )
+        time.sleep(RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS)
     if completed.returncode != 0:
         error = " | ".join(
             part.strip()
@@ -237,9 +274,11 @@ def stage_ready(stage: str, **context: Any) -> bool:
     _require_runtime_enabled()
     runner_stage = effective_runner_stage(stage, conf)
     query = urlencode({"attempt": conf["attempt"], "stage": runner_stage})
-    payload = _backend_json(
+    payload = _sensor_backend_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/stage-status?{query}"
     )
+    if payload is None:
+        return False
     if runner_stage == "step3_monitor" and (
         payload.get("failed") or payload.get("ready")
     ):
@@ -260,10 +299,23 @@ def submission_gate_ready(gate: str, **context: Any) -> bool:
     if dict(conf.get("params") or {}).get("submission_mode") != "three_stage":
         return True
     query = urlencode({"attempt": conf["attempt"]})
-    payload = _backend_json(
+    payload = _sensor_backend_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/submission-state?{query}"
     )
+    if payload is None:
+        return False
     return bool(payload.get(f"{gate}_approved"))
+
+
+def _sensor_backend_json(path: str) -> dict[str, Any] | None:
+    try:
+        return _backend_json(path)
+    except BackendTransportUnavailable as exc:
+        LOG.warning(
+            "WGS sensor backend is temporarily unavailable; rescheduling: %s",
+            exc,
+        )
+        return None
 
 
 def release_leases(**context: Any) -> dict[str, Any]:
@@ -322,8 +374,14 @@ def _backend_json(
     try:
         with urlopen(request, timeout=15) as response:
             return json.loads(response.read().decode("utf-8"))
-    except (HTTPError, URLError, json.JSONDecodeError) as exc:
+    except HTTPError as exc:
         raise RuntimeError(f"backend WGS stage API is unavailable: {exc}") from exc
+    except (URLError, TimeoutError) as exc:
+        raise BackendTransportUnavailable(
+            f"backend WGS stage API is temporarily unavailable: {exc}"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"backend WGS stage API returned invalid JSON: {exc}") from exc
 
 
 def _truthy(name: str) -> bool:
@@ -505,6 +563,9 @@ with DAG(
     materialize = runner_stage(
         "materialize_step6_results", stage="step6_materialize", timeout_hours=24
     )
+    wait_materialize = stage_sensor(
+        "wait_step6_materialize", stage="step6_materialize", timeout_hours=24
+    )
     finalize = control_stage("finalize_run", stage="finalize_run")
     release = PythonOperator(
         task_id="release_leases",
@@ -516,4 +577,4 @@ with DAG(
     wait_config_approval >> prepare_analysis >> wait_prepare_analysis >> wait_execution_approval
     wait_execution_approval >> input_transfer >> submit
     submit >> start_monitor >> wait_analysis >> start_publish >> wait_publish
-    wait_publish >> result_transfer >> materialize >> finalize >> release
+    wait_publish >> result_transfer >> materialize >> wait_materialize >> finalize >> release

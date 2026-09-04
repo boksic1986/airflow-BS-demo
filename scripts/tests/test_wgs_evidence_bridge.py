@@ -137,6 +137,18 @@ def test_analysis_log_chunk_is_incremental_and_resets_after_source_truncation(tm
     assert target.read_text(encoding="utf-8") == "new\n"
 
 
+def test_analysis_log_source_is_bound_to_the_same_run_evidence_directory() -> None:
+    module = load_module()
+
+    source = module.analysis_log_source_for_rule_directory(
+        "/workspace/wgs/runs/WGS_Clinical/WGS_batch/evidence/run-a1/rule-status/raw"
+    )
+
+    assert source == (
+        "/workspace/wgs/runs/WGS_Clinical/WGS_batch/evidence/run-a1/analysis.log"
+    )
+
+
 def test_reader_job_mounts_only_workspace_pvc_read_only() -> None:
     module = load_module()
     master = {

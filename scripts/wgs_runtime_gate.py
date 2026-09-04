@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import csv
 import fcntl
 import hashlib
 import json
@@ -78,6 +79,9 @@ MONITOR_INTERVAL_SECONDS = int(os.getenv("WGS_MONITOR_INTERVAL_SECONDS", "5"))
 MONITOR_TIMEOUT_SECONDS = int(os.getenv("WGS_MONITOR_TIMEOUT_SECONDS", "432000"))
 STEP4_MASTER_COMPLETION_GRACE_SECONDS = int(
     os.getenv("WGS_STEP4_MASTER_COMPLETION_GRACE_SECONDS", "600")
+)
+STEP5_TRANSFER_PLAN_GRACE_SECONDS = int(
+    os.getenv("WGS_STEP5_TRANSFER_PLAN_GRACE_SECONDS", "60")
 )
 STEP4_MASTER_NOT_SUCCESSFUL = "Step4 requires a successful Master Job"
 CCE_EVIDENCE_ROOT = Path(
@@ -180,6 +184,16 @@ def _write_status(
     with lock_path.open("a+", encoding="utf-8") as lock_handle:
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
         current = _read_json(status_path)
+        current_retry_no = current.get("retry_no")
+        if (
+            "retry_no" not in details
+            and type(current_retry_no) is int
+            and current_retry_no >= 0
+        ):
+            value["retry_no"] = current_retry_no
+        current_transfer = current.get("transfer")
+        if "transfer" not in details and isinstance(current_transfer, dict):
+            value["transfer"] = current_transfer
         current_status = str(current.get("status") or "")
         if current_status in {"success", "failed"}:
             return False
@@ -477,7 +491,9 @@ def _write_prepare_binding(payload: dict[str, Any]) -> None:
                 / "rule-status"
                 / "raw"
             ),
-            "analysis_log_source": str(run_dir / "analysis.log"),
+            "analysis_log_source": str(
+                run_dir / "evidence" / str(identity.get("run_id")) / "analysis.log"
+            ),
             "created_at": datetime.now(timezone.utc).isoformat(),
         },
     )
@@ -732,7 +748,107 @@ def _transfer_progress_root(payload: dict[str, Any]) -> Path:
     ).parent / "transfer-progress" / str(payload["stage"])
 
 
-def _aggregate_transfer_progress(payload: dict[str, Any]) -> dict[str, Any] | None:
+def _transfer_plan_path(payload: dict[str, Any]) -> Path:
+    return _transfer_progress_root(payload) / "transfer-plan.json"
+
+
+def _create_transfer_plan(payload: dict[str, Any]) -> dict[str, Any]:
+    """Freeze a transfer denominator from a stable local file contract."""
+    path = _transfer_plan_path(payload)
+    if path.is_file() and not path.is_symlink():
+        value = _read_json(path)
+        if (
+            value.get("schema_version") == "wgs-runtime.transfer-plan.v1"
+            and value.get("analysis_id") == payload["analysis_id"]
+            and int(value.get("attempt", 0)) == int(payload["attempt"])
+            and value.get("stage") == payload["stage"]
+        ):
+            return value
+        raise RuntimeError("existing transfer plan identity mismatch")
+    binding = _load_binding(payload)
+    batch_root = Path(str(binding["batch_root"]))
+    entries: list[dict[str, Any]] = []
+    if payload["stage"] == "step1_upload":
+        raw_root = batch_root / "raw"
+        if not raw_root.is_dir() or raw_root.is_symlink():
+            raise RuntimeError("Step1 raw FASTQ directory is unavailable")
+        for item in sorted(raw_root.glob("*.fq.gz"), key=lambda value: value.name):
+            if not (item.is_file() or item.is_symlink()):
+                continue
+            entries.append({"relative_path": f"raw/{item.name}", "size_bytes": item.stat().st_size})
+    elif payload["stage"] == "step5_download":
+        manifest = batch_root / "cce" / "cloud_delivery" / "payload-manifest.tsv"
+        if not manifest.is_file() or manifest.is_symlink():
+            raise RuntimeError("Step5 payload manifest is unavailable")
+        with manifest.open(encoding="utf-8-sig", newline="") as handle:
+            for row in csv.DictReader(handle, delimiter="\t"):
+                relative = str(row.get("relative_path") or "").strip()
+                size = int(row.get("size_bytes") or 0)
+                if not relative or size < 0:
+                    raise RuntimeError("Step5 payload manifest contains an invalid entry")
+                entries.append({"relative_path": relative, "size_bytes": size})
+    else:
+        raise RuntimeError("transfer plan requested for a non-transfer stage")
+    if not entries:
+        raise RuntimeError("transfer plan contains no files")
+    canonical = json.dumps(entries, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    value = {
+        "schema_version": "wgs-runtime.transfer-plan.v1",
+        "analysis_id": payload["analysis_id"],
+        "attempt": int(payload["attempt"]),
+        "stage": payload["stage"],
+        "files_total": len(entries),
+        "bytes_total": sum(int(entry["size_bytes"]) for entry in entries),
+        "manifest_sha256": hashlib.sha256(canonical).hexdigest(),
+        "entries": entries,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _atomic_json(path, value)
+    return value
+
+
+def _try_create_step5_transfer_plan(
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Read the manifest fetched by Step5 without treating NFS delay as failure."""
+    try:
+        return _create_transfer_plan(payload), None
+    except (OSError, RuntimeError, ValueError) as error:
+        if str(error) == "existing transfer plan identity mismatch":
+            raise
+        return None, str(error)
+
+
+def _step5_completed_plan_totals(
+    payload: dict[str, Any], plan: dict[str, Any]
+) -> tuple[int, int]:
+    binding = _load_binding(payload)
+    delivery_root = (
+        Path(str(binding["batch_root"])) / "cce" / "cloud_delivery"
+    ).resolve()
+    files_done = 0
+    bytes_done = 0
+    for entry in plan.get("entries") or []:
+        relative = Path(str(entry.get("relative_path") or ""))
+        if relative.is_absolute() or ".." in relative.parts:
+            continue
+        target = delivery_root / relative
+        try:
+            resolved = target.resolve()
+            if delivery_root not in resolved.parents or target.is_symlink():
+                continue
+            expected_size = int(entry.get("size_bytes") or 0)
+            if target.is_file() and target.stat().st_size == expected_size:
+                files_done += 1
+                bytes_done += expected_size
+        except (OSError, TypeError, ValueError):
+            continue
+    return files_done, bytes_done
+
+
+def _aggregate_transfer_progress(
+    payload: dict[str, Any], plan: dict[str, Any] | None = None
+) -> dict[str, Any] | None:
     rows = []
     for path in _transfer_progress_root(payload).glob("*.json"):
         value = _read_json(path)
@@ -745,12 +861,31 @@ def _aggregate_transfer_progress(payload: dict[str, Any]) -> dict[str, Any] | No
             rows.append(value)
     if not rows:
         return None
-    total = sum(max(0, int(row.get("bytes_total") or 0)) for row in rows)
+    streamed_total = sum(max(0, int(row.get("bytes_total") or 0)) for row in rows)
     done = sum(max(0, int(row.get("bytes_done") or 0)) for row in rows)
-    speed = sum(max(0, int(row.get("speed_bytes_per_second") or 0)) for row in rows)
-    files_total = sum(max(0, int(row.get("files_total") or 0)) for row in rows)
+    speed = sum(
+        max(0, int(row.get("speed_bytes_per_second") or 0))
+        for row in rows
+        if row.get("state") == "running"
+    )
+    streamed_files_total = sum(max(0, int(row.get("files_total") or 0)) for row in rows)
     files_done = sum(max(0, int(row.get("files_done") or 0)) for row in rows)
     states = {str(row.get("state") or "") for row in rows}
+    total = int(plan["bytes_total"]) if plan else streamed_total
+    files_total = int(plan["files_total"]) if plan else streamed_files_total
+    if plan and payload["stage"] == "step5_download":
+        completed_files, completed_bytes = _step5_completed_plan_totals(payload, plan)
+        done = max(done, completed_bytes)
+        files_done = completed_files
+    complete = bool(total and done >= total and files_done >= files_total)
+    if "running" in states:
+        transfer_state = "running"
+    elif "failed" in states:
+        transfer_state = "failed"
+    elif complete:
+        transfer_state = "success"
+    else:
+        transfer_state = "running"
     return {
         "schema_version": "wgs-runtime.transfer-progress.v1",
         "transfer_id": f"{payload['analysis_id']}-a{int(payload['attempt'])}-{'input' if payload['stage'] == 'step1_upload' else 'result'}",
@@ -758,7 +893,7 @@ def _aggregate_transfer_progress(payload: dict[str, Any]) -> dict[str, Any] | No
         "attempt": payload["attempt"],
         "stage": payload["stage"],
         "direction": "upload" if payload["stage"] == "step1_upload" else "download",
-        "state": "failed" if "failed" in states else ("success" if states == {"success"} else "running"),
+        "state": transfer_state,
         "bytes_total": total,
         "bytes_done": min(done, total) if total else done,
         "files_total": files_total,
@@ -768,32 +903,68 @@ def _aggregate_transfer_progress(payload: dict[str, Any]) -> dict[str, Any] | No
         "eta_seconds": max(0, int((total - done) / speed)) if total and speed else None,
         "heartbeat_at": max(str(row.get("heartbeat_at") or "") for row in rows),
         "monitoring_health": "degraded" if any(row.get("monitoring_health") == "degraded" for row in rows) else "healthy",
-        "source": "obsutil-stream",
+        "source": "frozen-transfer-plan" if plan else "legacy-estimate",
+        "plan_path": "transfer-progress/%s/transfer-plan.json" % payload["stage"] if plan else None,
+        "manifest_sha256": plan.get("manifest_sha256") if plan else None,
     }
 
 
 def _run_transfer_stage(payload: dict[str, Any]) -> None:
     root = _transfer_progress_root(payload)
     root.mkdir(parents=True, exist_ok=True)
+    stage = str(payload["stage"])
+    plan: dict[str, Any] | None
+    plan_error: str | None = None
+    if stage == "step1_upload" or _transfer_plan_path(payload).exists():
+        plan = _create_transfer_plan(payload)
+    else:
+        # Step5_download_verify.sh fetches READY and payload-manifest.tsv from OBS
+        # before downloading payload files. Starting the script is therefore the
+        # producer side of the manifest contract; requiring the local manifest
+        # here would form a circular prerequisite.
+        plan = None
     environment = {
         **_clean_env(),
         "WGS_TRANSFER_PROGRESS_ROOT": str(root),
         "WGS_TRANSFER_ANALYSIS_ID": str(payload["analysis_id"]),
         "WGS_TRANSFER_ATTEMPT": str(payload["attempt"]),
-        "WGS_TRANSFER_STAGE": str(payload["stage"]),
-        "WGS_TRANSFER_DIRECTION": "upload" if payload["stage"] == "step1_upload" else "download",
+        "WGS_TRANSFER_STAGE": stage,
+        "WGS_TRANSFER_DIRECTION": "upload" if stage == "step1_upload" else "download",
     }
-    process = subprocess.Popen(_step_command(payload, str(payload["stage"])), env=environment)
+    process = subprocess.Popen(_step_command(payload, stage), env=environment)
     while process.poll() is None:
-        progress = _aggregate_transfer_progress(payload)
-        if progress is not None:
-            _write_status(payload, "running", transfer=progress, monitoring_health=progress["monitoring_health"])
+        if plan is None:
+            plan, plan_error = _try_create_step5_transfer_plan(payload)
+            if plan is None:
+                _write_status(
+                    payload,
+                    "running",
+                    "Waiting for Step5 payload manifest from OBS",
+                    monitoring_health="degraded" if plan_error and "unavailable" not in plan_error else "healthy",
+                )
+        if plan is not None:
+            progress = _aggregate_transfer_progress(payload, plan)
+            if progress is not None:
+                _write_status(payload, "running", transfer=progress, monitoring_health=progress["monitoring_health"])
         time.sleep(MONITOR_INTERVAL_SECONDS)
-    progress = _aggregate_transfer_progress(payload)
-    if progress is not None:
-        _write_status(payload, "running", transfer=progress, monitoring_health=progress["monitoring_health"])
     if process.returncode:
         raise subprocess.CalledProcessError(process.returncode, process.args)
+    if plan is None:
+        deadline = time.monotonic() + STEP5_TRANSFER_PLAN_GRACE_SECONDS
+        while plan is None:
+            plan, plan_error = _try_create_step5_transfer_plan(payload)
+            if plan is not None or time.monotonic() >= deadline:
+                break
+            time.sleep(MONITOR_INTERVAL_SECONDS)
+    if plan is None:
+        detail = f": {plan_error}" if plan_error else ""
+        raise RuntimeError(
+            "Step5 completed without a payload manifest; transfer totals cannot be verified"
+            f"{detail}"
+        )
+    progress = _aggregate_transfer_progress(payload, plan)
+    if progress is not None:
+        _write_status(payload, "running", transfer=progress, monitoring_health=progress["monitoring_health"])
 
 
 def _step3_success_matches_binding(payload: dict[str, Any]) -> bool:

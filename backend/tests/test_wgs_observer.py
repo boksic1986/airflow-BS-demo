@@ -524,6 +524,73 @@ def test_terminal_stage_state_cannot_reverse_success_or_failure(tmp_path: Path) 
         assert failed.stage_status == "failed"
 
 
+def test_retry_generation_can_replace_prior_failed_transfer_stage(tmp_path: Path) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    request_root = tmp_path / "runtime" / "runner-requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    spool = tmp_path / "transfer-spool"
+    failed_at = datetime(2026, 8, 12, 2, 0, tzinfo=timezone.utc)
+    with sessions() as session:
+        upsert_stage_state(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            stage_code="step5_download",
+            stage_status="failed",
+            updated_at=failed_at,
+        )
+        session.add(
+            TransferJob(
+                analysis_id=analysis_id,
+                attempt=1,
+                transfer_id=f"{analysis_id}-a1-result",
+                transfer_type="result_download",
+                direction="download",
+                status="success",
+                heartbeat_at=failed_at + timedelta(seconds=5),
+                updated_at=failed_at + timedelta(seconds=5),
+            )
+        )
+        session.commit()
+    (request_dir / "step5_download.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "retry_no": 1,
+                "stage": "step5_download",
+                "status": "success",
+                "updated_at": (failed_at + timedelta(seconds=5)).isoformat(),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=request_root,
+        transfer_spool_root=spool,
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="step5_download",
+    )
+
+    with sessions() as session:
+        stage = session.scalar(
+            select(RunStageState).where(
+                RunStageState.analysis_id == analysis_id,
+                RunStageState.attempt == 1,
+                RunStageState.stage_code == "step5_download",
+            )
+        )
+        assert stage.stage_status == "success"
+        assert stage.ended_at.replace(tzinfo=timezone.utc) == failed_at + timedelta(
+            seconds=5
+        )
+
+
 def test_stage_sensor_sync_reads_only_the_registered_transfer_path(tmp_path: Path) -> None:
     sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
     request_root = tmp_path / "runtime" / "runner-requests"
@@ -917,6 +984,33 @@ def test_master_rule_status_accepts_attempt_label(tmp_path: Path) -> None:
         assert session.scalar(select(RuleState)).status == "running"
 
 
+def test_master_rule_status_uses_binding_attempt_for_logger_local_attempt(
+    tmp_path: Path,
+) -> None:
+    sessions, _, evidence_root, binding_root, catalog_path, rule_dir = prepare_run(
+        tmp_path, attempt=7
+    )
+    event = rule_event(
+        "job_started",
+        2.0,
+        rule_instance_id="0123456789abcdef",
+        job_id="7",
+    )
+    event["attempt"] = "attempt-1"
+    (rule_dir / "master.jsonl").write_text(
+        json.dumps(event, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    result = poll(sessions, evidence_root, binding_root, catalog_path)
+
+    assert result == {"bindings": 1, "files": 1, "events_ingested": 1, "errors": 0}
+    with sessions() as session:
+        state = session.scalar(select(RuleState))
+        assert state is not None
+        assert state.attempt == 7
+        assert state.status == "running"
+
+
 def test_biosan_jsonl_contract_and_degraded_marker(tmp_path: Path) -> None:
     sessions, analysis_id, evidence_root, binding_root, catalog_path, rule_dir = prepare_run(tmp_path)
     with sessions() as session:
@@ -1247,6 +1341,70 @@ def test_analysis_log_enrichment_requires_exact_registered_sample_match(tmp_path
     assert rows[0].sample_id == "WGS001-WGS"
     assert rows[0].family_id == "F001"
     assert rows[1].sample_id is None
+
+
+def test_analysis_log_enrichment_accepts_unique_registered_data_id_alias(
+    tmp_path: Path,
+) -> None:
+    from app import wgs_observer
+
+    sessions = make_sessionmaker()
+    analysis_id = "WGS_LOG_DATA_ID_ALIAS"
+    log_path = tmp_path / "analysis.log"
+    log_path.write_text(
+        "rule pre_process_mapping:\n"
+        "    jobid: 6\n"
+        "    wildcards: sample=WGS26080568-WGS\n",
+        encoding="utf-8",
+    )
+    with sessions() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                execution_mode="cce",
+                status="running",
+                workdir="/data/wgs-results/runs/WGS_LOG_DATA_ID_ALIAS",
+                params_json={"pipeline_release_id": RELEASE_ID},
+            )
+        )
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="WGS26080568",
+                family_id="JX26G00230117",
+                metadata_json={"data_id": "WGS26080568-WGS"},
+                status="running",
+                qc_status="unknown",
+            )
+        )
+        session.add(
+            RuleState(
+                analysis_id=analysis_id,
+                attempt=1,
+                rule_instance_id="mapping-6",
+                rule_name="pre_process_mapping",
+                snakemake_jobid="6",
+                status="planned",
+            )
+        )
+        session.commit()
+
+        updated = wgs_observer.enrich_rule_states_from_analysis_log(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            analysis_log=log_path,
+        )
+        session.commit()
+        state = session.scalar(
+            select(RuleState).where(RuleState.analysis_id == analysis_id)
+        )
+
+    assert updated == 1
+    assert state.sample_id == "WGS26080568"
+    assert state.family_id == "JX26G00230117"
 
 
 def test_rule_event_sample_and_family_must_match_registered_sample(tmp_path: Path) -> None:
@@ -1593,3 +1751,24 @@ def test_image_pull_backoff_detail_is_preserved(tmp_path: Path) -> None:
         assert pod.phase == "Pending"
         assert pod.reason == "ImagePullBackOff"
         assert pod.message == "pull access denied"
+
+
+@pytest.mark.parametrize(
+    "stage", ["prepare", "prepare_sampleinfo", "prepare_analysis"]
+)
+def test_prepare_stages_are_valid_status_sync_targets(
+    tmp_path: Path, stage: str
+) -> None:
+    sessions = make_sessionmaker()
+    runtime = tmp_path / "runtime"
+
+    result = sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=runtime / "runner-requests",
+        transfer_spool_root=runtime / "transfer-progress",
+        analysis_id="WGS_20260903_062828_0858DC",
+        attempt=2,
+        stage=stage,
+    )
+
+    assert result == {"files": 0, "events_ingested": 0}

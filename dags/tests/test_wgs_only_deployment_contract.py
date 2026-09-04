@@ -120,6 +120,11 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertEqual(scanner["environment"]["WGS_INTAKE_SCAN_ENABLED"], "${WGS_INTAKE_SCAN_ENABLED:-true}")
         self.assertEqual(scanner["environment"]["WGS_INTAKE_SCAN_INTERVAL_SECONDS"], "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-600}")
         self.assertEqual(scanner["environment"]["WGS_AUTO_DISPATCH_ENABLED"], "${WGS_AUTO_DISPATCH_ENABLED:-false}")
+        self.assertEqual(scanner["environment"]["WGS_BACKEND_INTERNAL_URL"], "http://backend:8000")
+        self.assertEqual(
+            payload["services"]["backend"]["environment"]["WGS_AUTO_DISPATCH_NOT_BEFORE"],
+            "${WGS_AUTO_DISPATCH_NOT_BEFORE:-}",
+        )
 
     def test_all_long_lived_wgs_services_have_bounded_docker_logs(self):
         payload = yaml.safe_load(

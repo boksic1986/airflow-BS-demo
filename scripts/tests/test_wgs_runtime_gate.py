@@ -7,6 +7,7 @@ import types
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+import yaml
 
 
 ROOT = Path(__file__).parents[1]
@@ -796,6 +797,241 @@ def test_failed_step5_relaunch_preserves_checkpoint_and_archives_worker_generati
     assert checkpoint.read_text(encoding="utf-8") == "resume-me\n"
 
 
+def test_transfer_progress_stays_running_when_an_auxiliary_obsutil_call_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260903_111829_1D58E1",
+        "attempt": 1,
+        "stage": "step1_upload",
+    }
+    common = {
+        "schema_version": "wgs-runtime.transfer-progress.v1",
+        "analysis_id": payload["analysis_id"],
+        "attempt": 1,
+        "stage": "step1_upload",
+        "bytes_total": 100,
+        "bytes_done": 10,
+        "files_total": 1,
+        "files_done": 0,
+        "speed_bytes_per_second": 5,
+        "heartbeat_at": "2026-09-03T11:45:25+00:00",
+    }
+    (tmp_path / "auxiliary.json").write_text(
+        json.dumps({**common, "state": "failed"}), encoding="utf-8"
+    )
+    (tmp_path / "upload.json").write_text(
+        json.dumps({**common, "state": "running"}), encoding="utf-8"
+    )
+    monkeypatch.setattr(gate, "_transfer_progress_root", lambda _payload: tmp_path)
+
+    progress = gate._aggregate_transfer_progress(payload)
+
+    assert progress is not None
+    assert progress["state"] == "running"
+
+
+def test_step5_frozen_plan_does_not_claim_unobserved_files_are_complete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260903_200310_37E27D",
+        "attempt": 1,
+        "stage": "step5_download",
+    }
+    progress_root = tmp_path / "progress"
+    progress_root.mkdir()
+    batch_root = tmp_path / "batch"
+    completed = batch_root / "cce" / "cloud_delivery" / "cram" / "S1.cram"
+    completed.parent.mkdir(parents=True)
+    completed.write_bytes(b"1" * 100)
+    common = {
+        "schema_version": "wgs-runtime.transfer-progress.v1",
+        "analysis_id": payload["analysis_id"],
+        "attempt": 1,
+        "stage": "step5_download",
+        "direction": "download",
+        "eta_seconds": 0,
+        "files_total": 1,
+        "files_done": 1,
+        "heartbeat_at": "2026-09-04T02:40:00+00:00",
+        "monitoring_health": "healthy",
+        "source": "obsutil-stream",
+        "state": "success",
+    }
+    (progress_root / "payload.json").write_text(
+        json.dumps(
+            {
+                **common,
+                "transfer_id": "payload",
+                "bytes_total": 100,
+                "bytes_done": 100,
+                "speed_bytes_per_second": 50,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (progress_root / "ready.json").write_text(
+        json.dumps(
+            {
+                **common,
+                "transfer_id": "ready",
+                "bytes_total": 0,
+                "bytes_done": 0,
+                "speed_bytes_per_second": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+    plan = {
+        "files_total": 2,
+        "bytes_total": 200,
+        "manifest_sha256": "a" * 64,
+        "entries": [
+            {"relative_path": "cram/S1.cram", "size_bytes": 100},
+            {"relative_path": "cram/S2.cram", "size_bytes": 100},
+        ],
+    }
+    monkeypatch.setattr(gate, "_transfer_progress_root", lambda _payload: progress_root)
+    monkeypatch.setattr(gate, "_load_binding", lambda _payload: {"batch_root": str(batch_root)})
+
+    progress = gate._aggregate_transfer_progress(payload, plan)
+
+    assert progress is not None
+    assert progress["bytes_done"] == 100
+    assert progress["bytes_total"] == 200
+    assert progress["files_done"] == 1
+    assert progress["files_total"] == 2
+    assert progress["speed_bytes_per_second"] == 0
+    assert progress["state"] == "running"
+
+
+def test_transfer_plan_freezes_step1_total_before_obsutil_starts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    raw = tmp_path / "batch" / "raw"
+    raw.mkdir(parents=True)
+    (raw / "S1-WGS.R1.fq.gz").write_bytes(b"1" * 10)
+    (raw / "S1-WGS.R2.fq.gz").write_bytes(b"2" * 20)
+    progress_root = tmp_path / "progress"
+    payload = {
+        "analysis_id": "WGS_20260903_111829_1D58E1",
+        "attempt": 1,
+        "stage": "step1_upload",
+    }
+    monkeypatch.setattr(gate, "_transfer_progress_root", lambda _payload: progress_root)
+    monkeypatch.setattr(gate, "_load_binding", lambda _payload: {"batch_root": str(tmp_path / "batch")})
+
+    plan = gate._create_transfer_plan(payload)
+
+    assert plan["files_total"] == 2
+    assert plan["bytes_total"] == 30
+    assert len(plan["manifest_sha256"]) == 64
+    (raw / "late-WGS.R1.fq.gz").write_bytes(b"late")
+    assert gate._create_transfer_plan(payload) == plan
+
+
+def test_step5_starts_download_before_freezing_the_downloaded_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    batch_root = tmp_path / "batch"
+    manifest = batch_root / "cce" / "cloud_delivery" / "payload-manifest.tsv"
+    progress_root = tmp_path / "progress"
+    payload = {
+        "analysis_id": "WGS_20260903_200310_37E27D",
+        "attempt": 1,
+        "stage": "step5_download",
+    }
+    events: list[str] = []
+
+    monkeypatch.setattr(gate, "_transfer_progress_root", lambda _payload: progress_root)
+    monkeypatch.setattr(gate, "_load_binding", lambda _payload: {"batch_root": str(batch_root)})
+    monkeypatch.setattr(gate, "_step_command", lambda *_args: ["step5-download"])
+    monkeypatch.setattr(gate, "_write_status", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(gate.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(gate, "STEP5_TRANSFER_PLAN_GRACE_SECONDS", 0)
+
+    class FakeProcess:
+        returncode = 0
+
+        def __init__(self) -> None:
+            self.poll_count = 0
+
+        def poll(self):
+            self.poll_count += 1
+            if self.poll_count == 1:
+                manifest.parent.mkdir(parents=True)
+                manifest.write_text(
+                    "relative_path\tsize_bytes\n"
+                    "07_QC/WGS_20260902B_T7Hg38V4.1.1.QCstat.tsv\t2048\n",
+                    encoding="utf-8",
+                )
+                events.append("manifest")
+                return None
+            return 0
+
+    def fake_popen(*_args, **_kwargs):
+        assert not manifest.exists()
+        assert not (progress_root / "transfer-plan.json").exists()
+        events.append("spawn")
+        return FakeProcess()
+
+    monkeypatch.setattr(gate.subprocess, "Popen", fake_popen)
+
+    gate._run_transfer_stage(payload)
+
+    plan = json.loads(
+        (progress_root / "transfer-plan.json").read_text(encoding="utf-8")
+    )
+    assert events == ["spawn", "manifest"]
+    assert plan["stage"] == "step5_download"
+    assert plan["files_total"] == 1
+    assert plan["bytes_total"] == 2048
+
+
+def test_step5_success_without_a_downloaded_manifest_is_a_contract_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    batch_root = tmp_path / "batch"
+    progress_root = tmp_path / "progress"
+    payload = {
+        "analysis_id": "WGS_20260903_200310_37E27D",
+        "attempt": 1,
+        "stage": "step5_download",
+    }
+    events: list[str] = []
+
+    monkeypatch.setattr(gate, "_transfer_progress_root", lambda _payload: progress_root)
+    monkeypatch.setattr(gate, "_load_binding", lambda _payload: {"batch_root": str(batch_root)})
+    monkeypatch.setattr(gate, "_step_command", lambda *_args: ["step5-download"])
+    monkeypatch.setattr(gate, "_write_status", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(gate.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(gate, "STEP5_TRANSFER_PLAN_GRACE_SECONDS", 0)
+
+    class FakeProcess:
+        returncode = 0
+
+        @staticmethod
+        def poll():
+            return 0
+
+    def fake_popen(*_args, **_kwargs):
+        events.append("spawn")
+        return FakeProcess()
+
+    monkeypatch.setattr(gate.subprocess, "Popen", fake_popen)
+
+    with pytest.raises(RuntimeError, match="completed without a payload manifest"):
+        gate._run_transfer_stage(payload)
+
+    assert events == ["spawn"]
+
+
 def test_step3_evidence_bridge_command_uses_frozen_binding_and_shared_spool(
     tmp_path: Path,
 ) -> None:
@@ -829,6 +1065,67 @@ def test_step3_evidence_bridge_command_uses_frozen_binding_and_shared_spool(
     )
     assert "--terminal" in command
     assert "/obs-data" not in " ".join(command)
+
+
+def test_prepare_binding_points_analysis_log_at_the_run_evidence_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "WGS_20260826_010203_A1B2C3"
+    run_id = f"{analysis_id}-a1"
+    project_root = tmp_path / "WGS_Clinical"
+    batch_root = project_root / "WGS_batch"
+    cce = batch_root / "cce"
+    cce.mkdir(parents=True)
+    run_dir = "/workspace/wgs/runs/WGS_Clinical/WGS_batch"
+    (cce / "BATCH_RUNTIME.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "identity": {
+                    "project": "WGS_Clinical",
+                    "batch": "WGS_batch",
+                    "run_id": run_id,
+                },
+                "paths": {"run_dir": run_dir},
+                "kubernetes": {
+                    "master_job": "cce-master-0123456789abcdef0123",
+                    "namespace": "snakemake-ns",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (cce / "RESOLVED_PROFILE.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "run_label": "cce-run-0123456789abcdef",
+                "platform": {"version": "0.8.1"},
+                "pipeline": {"master_image": "registry/master@sha256:abc"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    binding_path = tmp_path / "control" / "batch-binding.json"
+    binding_path.parent.mkdir()
+    monkeypatch.setattr(gate, "_binding_path", lambda _payload: binding_path)
+    monkeypatch.setattr(gate, "_workdir", lambda _payload: binding_path.parent)
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "pipeline_release_id": "wgs-4.1.1-test",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "a" * 40,
+        "analysis_project_root": str(project_root),
+        "expected_batch_root": str(batch_root),
+        "batch_no": "WGS_batch",
+    }
+
+    gate._write_prepare_binding(payload)
+
+    binding = json.loads(binding_path.read_text(encoding="utf-8"))
+    assert binding["analysis_log_source"] == (
+        f"{run_dir}/evidence/{run_id}/analysis.log"
+    )
 
 
 def test_terminal_evidence_sync_reports_missing_rule_jsonl(
@@ -958,6 +1255,31 @@ def test_async_worker_preserves_retry_generation_in_terminal_status(
     )
     assert status["status"] == "success"
     assert status["retry_no"] == 3
+
+
+def test_stage_progress_updates_preserve_retry_generation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    request_path = tmp_path / "step5_download.json"
+    request_path.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(gate, "_request_path", lambda *_args: request_path)
+    payload = {
+        "analysis_id": "WGS_20260830_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step5_download",
+    }
+
+    gate._write_status(payload, "accepted", retry_no=3)
+    gate._write_status(payload, "running", transfer={"bytes_done": 10})
+    gate._write_status(payload, "success")
+
+    status = json.loads(
+        request_path.with_suffix(".status.json").read_text(encoding="utf-8")
+    )
+    assert status["status"] == "success"
+    assert status["retry_no"] == 3
+    assert status["transfer"] == {"bytes_done": 10}
 
 
 def test_async_stage_publishes_accepted_before_spawning_worker(

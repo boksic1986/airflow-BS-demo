@@ -18,6 +18,21 @@ def public_wgs_batch(params: Mapping[str, Any] | None) -> str | None:
     return None
 
 
+def wgs_params_match_batch(
+    params: Mapping[str, Any] | None, batch: str
+) -> bool:
+    """Match one public batch code against every supported WGS run identity."""
+
+    values = params or {}
+    if any(
+        str(values.get(key) or "").strip() == batch
+        for key in ("sequencing_batch", "analysis_batch")
+    ):
+        return True
+    batch_no = str(values.get("batch_no") or "").strip()
+    return batch_no == batch or batch_no.startswith(f"WGS_{batch}_")
+
+
 def public_wgs_params(params: Mapping[str, Any] | None) -> dict[str, Any]:
     projected = dict(params or {})
     projected["batch_no"] = public_wgs_batch(projected)

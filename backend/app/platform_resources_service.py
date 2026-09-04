@@ -13,6 +13,14 @@ RESOURCE_STALE_AFTER = {
     "sfs": timedelta(minutes=3),
     "obs": timedelta(minutes=90),
 }
+RESOURCE_HISTORY_LIMIT = {
+    "node": 60,
+    # One point per minute for seven days.  The JSON contract and database
+    # schema stay unchanged; only the bounded SFS ring is long enough for the
+    # dashboard's time-window selector.
+    "sfs": 7 * 24 * 60,
+    "obs": 60,
+}
 
 
 def upsert_resource_snapshot(*, session, resource_key: str, resource_type: str,
@@ -41,7 +49,7 @@ def upsert_resource_snapshot(*, session, resource_key: str, resource_type: str,
     row.display_name = display_name
     row.status = status
     row.current_json = dict(current)
-    row.history_json = history[-60:]
+    row.history_json = history[-RESOURCE_HISTORY_LIMIT[resource_type]:]
     row.source_updated_at = source_updated_at
     row.collected_at = now
     row.error_message = error_message

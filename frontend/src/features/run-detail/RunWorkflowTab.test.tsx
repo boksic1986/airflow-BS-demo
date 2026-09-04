@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 
-import {render, screen, within} from "@testing-library/react";
-import {describe, expect, it} from "vitest";
+import {fireEvent, render, screen, within} from "@testing-library/react";
+import {describe, expect, it, vi} from "vitest";
 
 import type {RuleEvent, RunProgressResponse} from "../../api";
 import {RunWorkflowTab} from "./RunWorkflowTab";
@@ -44,7 +44,7 @@ describe("RunWorkflowTab", () => {
         {task_id: "run_nipt_docker", state: "success"},
       ],
       orchestration_stages: [
-        {stage_code: "step1_upload", step_number: 1, label: "Uploading FASTQ", status: "success"},
+        {stage_code: "step1_upload", step_number: 1, label: "Uploading FASTQ", status: "success", progress_available: true, completed_units: 1024 ** 3, total_units: 2 * 1024 ** 3, unit: "bytes"},
         {stage_code: "step2_master", step_number: 2, label: "Starting WGS workflow", status: "running"},
         {stage_code: "step3_monitor", step_number: 3, label: "WGS workflow running", status: "pending"},
         {stage_code: "step4_publish", step_number: 4, label: "Publishing WGS results", status: "pending"},
@@ -60,6 +60,7 @@ describe("RunWorkflowTab", () => {
     expect(within(graph).getByText("Uploading FASTQ")).toBeInTheDocument();
     expect(within(graph).getByText("WGS workflow running")).toBeInTheDocument();
     expect(within(graph).getByText("Downloading WGS results")).toBeInTheDocument();
+    expect(within(graph).getByText("1.0 GB / 2.0 GB")).toBeInTheDocument();
     expect(screen.queryByText("wait_step3_analysis")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Selected Airflow execution path")).not.toBeInTheDocument();
   });
@@ -110,6 +111,29 @@ describe("RunWorkflowTab", () => {
     expect(within(ruleTable).getByText("F001")).toBeInTheDocument();
     expect(within(ruleTable).getByText("12")).toBeInTheDocument();
     expect(within(ruleTable).queryByText("No reliable ETA (0/3)")).not.toBeInTheDocument();
+  });
+
+  it("opens the registered analysis log from a monitored WGS Rule", () => {
+    const openLog = vi.fn();
+    render(
+      <RunWorkflowTab
+        progress={{pipeline: "wgs"} as RunProgressResponse}
+        onOpenLog={openLog}
+        rules={[
+          {
+            rule: "pre_process_mapping",
+            sample_id: "WGS26080568",
+            family_id: "JX26G00230117",
+            status: "running",
+            analysis_log_key: "opaque-analysis-log",
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {name: "Open log for pre_process_mapping"}));
+
+    expect(openLog).toHaveBeenCalledWith("opaque-analysis-log");
   });
 
   it("shows only the NIPT Docker Airflow path and NIPT rule phases", () => {
