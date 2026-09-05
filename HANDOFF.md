@@ -35,6 +35,15 @@ target could not resolve the configured Docker Hub mirror, so the accepted
 frontend run used the existing pinned Node 22.22.2 runtime and a dependency tree
 whose package-lock SHA256 exactly matched the candidate.
 
+CCE development tests now use the shared
+`/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest` interpreter. The
+environment previously contained an older project build labelled `0.8.3`; it
+was replaced with the approved `0.8.2` wheel whose SHA256 is recorded above.
+The installed-package suite passed `216` tests and the CLI reports
+`cce-pipeline 0.8.2`. Do not infer release ordering from these two numeric
+labels. The proposed BS10610 `/mnt/33.chenjiucheng/.../nipttest` view was not
+mounted at verification time, so BS-side evidence uses the `/sg2` path.
+
 The disabled airflow-demo release is staged at:
 
 ```text
@@ -68,6 +77,10 @@ The remaining runtime blocker is ownership, not code: the production
 writable by `hanjj`. It still contains cce-pipeline 0.8.1 source `71952c5...`.
 The environment owner must install the verified 0.8.2 wheel before activation.
 An exact 0.8.1 rollback wheel was built first; neither wheel contains a secret.
+`nipttest` is the development-test interpreter, not yet the approved production
+operator interpreter. A production bundle freezes the Python path used during
+prepare, so activation must not silently bind Step1-Step6 to a mutable shared
+test environment.
 
 One unrelated historical process was observed on node200: PID `264653` runs
 `Step4_publish_results.sh` under

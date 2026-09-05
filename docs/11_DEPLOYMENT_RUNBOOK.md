@@ -93,6 +93,25 @@ canary fails, reinstall the prebuilt rollback wheel:
 The rollback wheel SHA256 is
 `4cd9fdabe31bb6f783a6cf5f5641606085a30ba75b7167795f569445ea22c729`.
 
+CCE development verification uses:
+
+```bash
+PYTHONNOUSERSITE=1 \
+  /sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/python \
+  -m pytest -q /sg2/33.chenjiucheng/WGS_test/cce-pipeline-dev/cce-airflow-contract-v2-082/tests
+```
+
+The approved current project build is `0.8.2`; the previously installed
+`0.8.3` label refers to an older divergent build and must not be selected by
+numeric comparison. Verify the exact wheel SHA256 and embedded source commit.
+The BS10610 `/mnt/33.chenjiucheng/.../nipttest` mapping must exist before using
+that host for the same test; it was absent during the 2026-09-05 check.
+
+Do not use `nipttest` as the production bundle's frozen operator Python merely
+because its tests pass. `cce-pipeline prepare` writes that interpreter path into
+every generated Step1-Step6 wrapper. Production activation therefore requires
+an explicitly approved, pinned operator interpreter.
+
 ## T192 production Docker image cleanup
 
 On `.96`, treat `airflow-wgs` as one production Compose stack, not one Docker
