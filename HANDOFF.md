@@ -1,5 +1,57 @@
 # HANDOFF.md
 
+## 2026-09-06 - Codex - T205 direct Step1 SDK canary complete
+
+The BS10610 test run `WGS_20260905_154825_E39C58-a1` completed the
+Step1-only branch with one sample, two FASTQ files and 113,993,536,856 frozen
+bytes. Upload callbacks began about 32 seconds after Airflow task start instead
+of waiting for an extra whole-file checksum pass. The callback interval was
+866.58 seconds at 125.45 MiB/s effective throughput; both files finished at
+100 percent with CRC64 verified, and the business run is success with a
+terminal Step1 receipt.
+
+The candidate cce-pipeline runtime is 0.8.2 commit `7a3884d67...`; wheel
+SHA256 is `2421fcc2d5b46084d1b3527e5b25c42c5a2b970915a8613f47eee4e3123b795c`.
+It removes the default SDK adapter's full-file MD5 pre-read and deliberately
+omits multipart `checkSum`. It does not remove terminal integrity checks:
+source identity, attached CRC64, remote object CRC64 and Content-Length must
+all agree. The cce-pipeline branch is
+`jiucheng/cce/T205-step1-sdk-direct-upload` and has been pushed.
+
+The canary exposed two backend projection races. Terminal stage evidence now
+imports embedded transfer-file snapshots, and a terminal progress snapshot may
+backfill incomplete file rows when execution, generation, terminal state,
+frozen bytes and file count match. Controlled replay left both R1/R2 rows at
+100 percent, success and verified without regressing the aggregate heartbeat.
+
+The exact OBS prefix held two FASTQ objects and one marker. All three were
+deleted; subsequent object and multipart inventories returned zero. Airflow
+skipped Step2/Step3 and no Master Job exists. Shared `nipttest`, node200 runtime
+configuration, project catalog and temporary sampleinfo changes were restored.
+`bio_wgs` is paused, all six runtime/dispatch gates are false, scanner is
+stopped, and production `.96` was untouched.
+
+Final remote validation passed backend `360`, runtime scripts `69`, DAG suites
+`15 + 4`, topology contract `2`, Compose rendering and Airflow import checks.
+Two discarded backend attempts are diagnostic rather than product failures:
+one inherited live authentication and returned 401s; another mounted source at
+`/app`, causing repo-relative config lookups under `/config`. The accepted
+isolated run mounted the repository at `/workspace` with explicit test env.
+After the final backend recreate, nginx still held the previous backend
+container address and `/api/health` briefly returned 502 while `/` remained
+200. `nginx -s reload` re-resolved the service name; both endpoints now return
+200. Future backend-only deploys must reload or recreate the frontend gateway.
+
+Current disabled release:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260906-airflow-demo-23ed13f-t205-sdk-direct-upload
+```
+
+Rollback remains: keep the DAG paused, keep all gates false, repoint `current`
+to the prior release, and retain database/evidence. Do not restore the deleted
+canary OBS prefix or remove analysis evidence.
+
 ## 2026-09-05 - Codex - T203 Airflow Step1 OBS SDK canary complete
 
 The BS10610 test run `WGS_20260905_094849_373238-a3` completed the admin-only

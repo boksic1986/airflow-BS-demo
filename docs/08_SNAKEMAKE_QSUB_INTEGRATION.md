@@ -1,5 +1,14 @@
 # 08 Snakemake + qsub 接入设计
 
+## T205 Step1 SDK checksum boundary
+
+The default contract-v2 Step1 transfer uses the OBS SDK. It freezes source
+identity and byte totals, starts multipart upload without the SDK `checkSum`
+option, and reports aggregate plus per-file callback progress. Integrity is
+enforced by attached per-part CRC64, terminal object CRC64/Content-Length, and
+unchanged source identity. The obsutil implementation remains a deliberate
+rollback adapter with its existing `-vmd5/-vlength` behavior.
+
 ## T197 WGS Kubernetes high-I/O quota
 
 The WGS Kubernetes executor classifies only the initial evidence-backed heavy

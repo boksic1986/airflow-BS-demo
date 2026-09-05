@@ -1,5 +1,35 @@
 # 11 部署 Runbook
 
+## T205 Step1 SDK direct-upload canary
+
+Use the T203 Step1-only safety procedure, but require the cce-pipeline runtime
+to be a provenance-bearing build that omits multipart `checkSum`. After
+`start_step1_upload`, aggregate and per-file callback bytes should appear after
+normal process/part initialization, not after a complete read of every FASTQ.
+
+Do not diagnose a transfer as successful from callback bytes alone. Completion
+still requires two terminal file rows, stable frozen totals, verified CRC64 and
+Content-Length, unchanged source identity, a successful Step1 receipt, skipped
+Step2, and exact-prefix OBS cleanup. Any missing CRC64 is a failed canary.
+
+Accepted BS10610 evidence is `WGS_20260905_154825_E39C58-a1`: two files,
+113,993,536,856 bytes, first non-zero callback about 32 seconds after task
+start, 866.58 seconds of callback transfer, and 125.45 MiB/s effective
+throughput. Both files were success/verified. The exact cleanup scope was two
+FASTQ objects plus one marker; object and multipart inventories were empty
+after deletion.
+
+After a rolling backend update, replaying a terminal snapshot is permitted only
+as a controlled projection repair. Confirm the execution ID, generation,
+terminal status, frozen byte total and file count before replay. Never use a
+terminal event from another attempt to repair current file rows.
+
+When the backend container is recreated, reload or recreate `frontend-nginx`
+after the backend is healthy. The nginx upstream name is resolved when its
+configuration is loaded; retaining the previous container address can leave
+the static frontend healthy while `/api/*` returns 502. Verify both `/` and
+`/api/health`, not the static page alone.
+
 ## T203 Airflow-integrated Step1 canary
 
 This is a test-control-plane procedure. Do not use it on the production `.96`
@@ -34,10 +64,10 @@ deployment.
    canary, automatic dispatch and intake scan gates to false; restore the
    original node200 runtime gates; and verify no active run remains.
 
-The first SDK callback may be delayed while cce-pipeline computes the frozen
-input checksums. Confirm the worker is reading the selected FASTQ files before
-classifying this interval as stalled; transfer bytes begin only after that
-preflight completes.
+The default SDK path must not perform a whole-file checksum read before upload.
+A long interval with source reads but no network activity or callback bytes is
+a regression. Normal startup includes only manifest/source-identity validation,
+multipart initialization and at most one part's CRC64 preparation.
 
 Rollback is to pause the DAG, disable the canary/execution/runtime/contract-v2
 gates and repoint `current` to the previous release. Never delete databases,

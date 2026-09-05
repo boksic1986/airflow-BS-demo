@@ -1,5 +1,31 @@
 # WGS Step1-6 Orchestration Contract v2
 
+## T205 direct-upload startup
+
+The default Step1 SDK path starts network transfer after freezing the manifest
+and filesystem identity. It does not calculate a full-file MD5 and deliberately
+omits the OBS SDK multipart `checkSum` option, because SDK 3.26.6 implements
+that option as a complete SHA256 read before initiating upload.
+
+This startup change does not weaken the terminal receipt. Multipart uploads
+retain attached per-part CRC64; completion requires response/object CRC64,
+Content-Length, and frozen source device/inode/size/mtime to agree. Missing or
+mismatched CRC64 fails closed. The obsutil rollback adapter retains its existing
+`-vmd5/-vlength` semantics and is not the default for new contract-v2 runs.
+
+The Airflow-integrated canary `WGS_20260905_154825_E39C58-a1` froze two files
+and 113,993,536,856 bytes. Its first non-zero callback arrived about 32 seconds
+after task start, and the transfer interval completed in 866.58 seconds at
+125.45 MiB/s effective throughput. Both files ended success/verified and Step2
+was skipped. Exact-prefix cleanup removed the two objects and marker; no object
+or multipart upload remains.
+
+Terminal stage evidence is allowed to complete its embedded file rows. If a
+terminal progress snapshot arrives with an older heartbeat, it may only
+backfill nonterminal rows after exact execution, generation, terminal status,
+file-count and byte-total checks. This repairs event-order races without
+letting stale evidence regress the aggregate execution.
+
 ## T203 Airflow integration canary
 
 Contract v2 now has a fail-closed `step1_only` validation scope. It is an
@@ -61,8 +87,9 @@ predecessor receipt.
 
 ## Transfer Contract
 
-New runs use the Huawei OBS SDK adapter. Step1 freezes all input files before
-upload. Step4 freezes the publish manifest and Step5 downloads only that exact
+New runs use the Huawei OBS SDK adapter. Step1 freezes file identity and size,
+then starts upload without an additional full-file checksum pass. Step4 freezes
+the publish manifest and Step5 downloads only that exact
 manifest. Each transfer writes an atomic aggregate snapshot and append-only
 JSONL events. Callbacks emit at least once per second or every 64 MiB, while
 file start, success, and failure emit immediately.

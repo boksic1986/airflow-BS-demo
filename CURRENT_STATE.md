@@ -1,5 +1,47 @@
 # CURRENT_STATE.md
 
+## 2026-09-06 T205 Step1 OBS SDK direct-upload startup
+
+scope: BS10610 test control plane only. The accepted one-sample/two-FASTQ
+Step1-only run is `WGS_20260905_154825_E39C58`, Airflow DagRun
+`WGS_20260905_154825_E39C58-a1`; Step2 and all downstream stages were
+intentionally unreachable.
+
+runtime: cce-pipeline `0.8.2` commit
+`7a3884d67a1334bc46c0e1501273804ef3e32c95` removes the SDK adapter's
+whole-file MD5 pre-read and omits multipart `checkSum`, which otherwise causes
+a whole-file SHA256 pass before upload. The wheel SHA256 is
+`2421fcc2d5b46084d1b3527e5b25c42c5a2b970915a8613f47eee4e3123b795c`.
+Terminal validation still requires attached CRC64, object CRC64,
+Content-Length and unchanged source identity.
+
+canary: the frozen denominator was 2 files and 113,993,536,856 bytes. The
+first SDK event arrived about 23 seconds after the Airflow task started and the
+first non-zero callback about 32 seconds after task start. Callback transfer
+took 866.58 seconds at 125.45 MiB/s effective throughput; median callback speed
+was 122.18 MiB/s and maximum was 128.23 MiB/s. Both file rows reached 100
+percent, success and CRC64 verified. The run is success with
+`validation_result=step1_upload_complete` and a terminal Step1 receipt hash.
+
+projection_fix: terminal stage evidence now imports its embedded per-file
+snapshot. A narrowly fenced reconciliation also permits an older terminal
+progress snapshot to backfill nonterminal file rows only when execution,
+generation, terminal status, byte total and file count all match. Aggregate
+heartbeat and status never regress.
+
+safety: `submit_step2_master` and `start_step3_monitor` were skipped and no
+Kubernetes Master Job was created. The exact canary OBS prefix contained three
+objects, all three were deleted, and both object and multipart inventories are
+empty. Shared `nipttest` was restored to cce-pipeline commit `e4c0f134...`;
+node200 runtime config and project catalog were restored. `bio_wgs` is paused,
+all execution/runtime/contract/canary/dispatch/intake gates are false, the
+scanner is stopped, and production `.96` was not modified.
+
+validation: backend passed `360` tests; runtime scripts passed `69`; Airflow
+DAG suites passed `15 + 4`, and the topology contract passed `2`. Compose and
+Airflow import checks passed. The deployed disabled release is
+`20260906-airflow-demo-23ed13f-t205-sdk-direct-upload`.
+
 ## 2026-09-05 T203 Airflow-integrated Step1 OBS SDK canary
 
 scope: BS10610 test control plane only; `20260902A` was reduced to one sample

@@ -1,5 +1,31 @@
 # TASKS.md
 
+## T205 - Step1 OBS SDK direct-upload startup
+
+Owner: CCE/runtime/Airflow/QA/docs
+
+Status: completed on the BS10610 test control plane; production remains disabled
+
+Acceptance:
+- [x] Remove the default SDK adapter's explicit whole-file MD5 pre-read.
+- [x] Omit the multipart SDK `checkSum` option that performs a whole-file
+  SHA256 pass before the first network request.
+- [x] Retain frozen source identity, per-part CRC64, object CRC64 and
+  Content-Length verification.
+- [x] Add regression coverage proving upload starts without `checkSum` and a
+  CRC64 mismatch fails closed.
+- [x] Build a provenance-bearing cce-pipeline 0.8.2 wheel from commit
+  `7a3884d67a1334bc46c0e1501273804ef3e32c95` and pass its Linux suite.
+- [x] Complete one Airflow-integrated, one-sample/two-FASTQ Step1-only canary;
+  verify stable aggregate/file progress, exact cleanup and no Step2 Master.
+- [x] Restore every test gate, DAG pause state, runtime config and shared test
+  environment; run final backend, DAG and Compose regressions.
+
+Restrictions:
+- BS10610 test control plane only; do not modify `.96` production.
+- Keep scanner and auto-dispatch disabled and make Step2 unreachable.
+- Delete only the exact canary OBS prefix after terminal evidence is captured.
+
 ## T203 - Airflow-integrated Step1 OBS SDK canary
 
 Owner: backend/Airflow/runtime/QA/docs
