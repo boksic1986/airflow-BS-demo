@@ -15,6 +15,8 @@ EXPECTED_TASKS = {
     "input_transfer.start_step1_upload",
     "input_transfer.wait_step1_upload",
     "input_transfer.release_obs_transfer_slot",
+    "choose_after_step1",
+    "finalize_step1_canary",
     "submit_step2_master",
     "start_step3_monitor",
     "wait_step3_analysis",
