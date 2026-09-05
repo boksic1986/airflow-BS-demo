@@ -165,6 +165,71 @@ def test_split_prepare_commands_preserve_native_wgs_contract(tmp_path: Path) -> 
     assert analysis[analysis.index("--use-reference") + 1] == "ref"
 
 
+def test_prepare_analysis_can_use_an_explicit_cce_pipeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    executable = tmp_path / "cce-runtime" / "bin" / "cce-pipeline"
+    executable.parent.mkdir(parents=True)
+    executable.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setattr(gate, "CCE_PIPELINE_BIN", str(executable))
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "prepare_analysis",
+        "pipeline_release_id": "wgs-4.1.1-6c98281",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "6c982817614db6a1157b6f287427ddf01ac91827",
+        "control_workdir": str(tmp_path / "control" / "attempt-1"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(
+            tmp_path / "WGS_Clinical" / "WGS_20260902A_T7Hg38V4.1.1"
+        ),
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260902A_T7Hg38V4.1.1",
+        "fq_path": "/bi/fastq/T7_Fastq",
+        "fastq_root": "/bi/fastq/T7_Fastq",
+        "sequencing_batch": "20260902A",
+        "analysis_batch": "20260902A",
+        "platform": "T7",
+    }
+
+    command = gate.build_prepare_command(payload)
+
+    assert command[command.index("--cce-pipeline") + 1] == str(executable)
+
+
+def test_prepare_sampleinfo_does_not_receive_cce_pipeline_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    monkeypatch.setattr(gate, "CCE_PIPELINE_BIN", "/approved/bin/cce-pipeline")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "prepare_sampleinfo",
+        "pipeline_release_id": "wgs-4.1.1-6c98281",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "6c982817614db6a1157b6f287427ddf01ac91827",
+        "control_workdir": str(tmp_path / "control" / "attempt-1"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(
+            tmp_path / "WGS_Clinical" / "WGS_20260902A_T7Hg38V4.1.1"
+        ),
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260902A_T7Hg38V4.1.1",
+        "fq_path": "/bi/fastq/T7_Fastq",
+        "fastq_root": "/bi/fastq/T7_Fastq",
+        "sequencing_batch": "20260902A",
+        "analysis_batch": "20260902A",
+        "platform": "T7",
+    }
+
+    command = gate.build_prepare_command(payload)
+
+    assert "--cce-pipeline" not in command
+
+
 def test_prepare_command_rejects_batch_without_sequencing_batch() -> None:
     gate = load_gate()
     payload = {

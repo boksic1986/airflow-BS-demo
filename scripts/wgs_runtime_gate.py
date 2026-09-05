@@ -79,6 +79,7 @@ WGS_PREPARE_CONFIG = str(WGS_REPO_ROOT / "prepare" / "config.yaml")
 CCE_OPERATOR_CONFIG = os.getenv(
     "CCE_OPERATOR_CONFIG", "/home/hanjj/.config/wgs/cce.yaml"
 )
+CCE_PIPELINE_BIN = os.getenv("CCE_PIPELINE_BIN", "").strip()
 WGS_GIT_MNT_PREFIX = os.getenv("WGS_GIT_MNT_PREFIX", "/mnt/biodevrwbi")
 WGS_GIT_NODE_PREFIX = os.getenv("WGS_GIT_NODE_PREFIX", "/bi/biodevrwbi")
 MONITOR_INTERVAL_SECONDS = int(os.getenv("WGS_MONITOR_INTERVAL_SECONDS", "5"))
@@ -354,6 +355,11 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
             CCE_OPERATOR_CONFIG,
             "--skip-samplelist-ready-check",
         ])
+        if CCE_PIPELINE_BIN:
+            cce_pipeline = Path(CCE_PIPELINE_BIN).expanduser()
+            if not cce_pipeline.is_absolute():
+                raise ValueError("CCE_PIPELINE_BIN must be an absolute path")
+            command.extend(["--cce-pipeline", str(cce_pipeline)])
         use_reference = str(payload.get("use_reference") or "").strip()
         if use_reference:
             if use_reference not in {"all", "ref", "no"}:
