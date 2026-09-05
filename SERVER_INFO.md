@@ -4,6 +4,7 @@
 
 ```text
 production_login: ctapa
+production_runtime_uid_gid: 6801:520
 node200_runtime_config: /home/ctapa/.config/airflow-wgs
 node200_cce_config: /home/ctapa/.config/wgs/cce.yaml
 node200_kubeconfig: /home/ctapa/bioinfo-cce-kubeconfig.yaml
@@ -13,7 +14,7 @@ real_obsutil: /bi/software/obsutil_5.8.3/obsutil (5.8.3)
 credentials: server-local only; not printed, copied into Git, images or logs
 node_metrics: ctapa SSH verified on 172.17.61.96 and 172.17.61.97 with distinct pinned host keys
 sfs_metrics: ctapa-owned collector and HWcloud runtime spool
-production_release: /data/airflow-WGS/releases/20260905-wgs-4.1.1-6c98281-t204-ctapa-runtime-r1
+production_release: /data/airflow-WGS/releases/20260905-wgs-4.1.1-6c98281-t204-ctapa-owner-r2
 ```
 
 ## T192 production Docker cleanup (2026-09-04)

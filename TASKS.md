@@ -17,6 +17,9 @@ Acceptance:
   `/home/ctapa` and stop the old production `hanjj` collector.
 - [x] Move production analysis/runtime roots to
   `/sg2/50.ctapa/project/HWcloud`, retaining fixed network and port boundaries.
+- [x] Run the WGS backend as the required `ctapa` UID `6801` with shared gid
+  `520`, and correct the three pre-contract `root:bioinfo` result directories
+  to `ctapa:bioinfo` without moving or deleting analysis data.
 - [x] Keep `/bi/software/obsutil_5.8.3/obsutil` as the real OBS client and
   preserve executable wrapper modes.
 - [x] Regenerate `20260904B` sampleinfo and analysis configuration in the new

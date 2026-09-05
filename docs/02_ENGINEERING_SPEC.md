@@ -219,6 +219,7 @@ Current T050/T051/T054/T056/T057 frontend v1:
 - Airflow services use the project image `airflow-demo/airflow:0.1.0`, based on `apache/airflow:2.9.3-python3.11`.
 - The project Airflow image keeps Snakemake in `/opt/airflow/snakemake-venv` and puts it on `PATH`; use `/usr/local/bin/python` when a test specifically needs the Airflow system Python.
 - On Linux hosts, `AIRFLOW_UID` must match the deploy user's `id -u` so Airflow workers can write bind-mounted `./shared`.
+- In the WGS-only profile, `WGS_RUNTIME_UID` must match the owner of the approved WGS result/runtime roots. The backend runs as this uid with `WGS_RUNTIME_SHARED_GID`; it must never fall back to root for result-directory creation.
 - T101 NIPT Docker requires `airflow-worker` to mount `/var/run/docker.sock` and join `DOCKER_SOCKET_GID`; scheduler and API server should not mount the socket.
 - PGT-A 另有 Airflow-only 验证 DAG `bio_pgta_airflow`，用于从 Airflow UI/CLI 直接读取 manifest 并验证 Snakemake 9 logger plugin，不替代后端触发的 `bio_pgta` 闭环。
 - DAG task 数量保持项目级，不按 Snakemake rule 拆分。
@@ -282,6 +283,7 @@ shared/reports/<analysis_id>/snakemake_report.html
 | AIRFLOW_IMAGE | yes | airflow-demo/airflow:0.1.0 | project Airflow image with isolated Snakemake 9 runtime |
 | SNAKEMAKE_RUNNER_IMAGE | WES/NIPT qsub | airflow-demo/snakemake-runner:0.1.0 | Snakemake 9.23.1 plus `cluster-generic` executor image |
 | AIRFLOW_UID | yes | 1005 on fengxian | set to `id -u` of the deploy user that owns `./shared` |
+| WGS_RUNTIME_UID | WGS-only | 1000 in example; 6801 for ctapa production | required backend uid that owns WGS result/runtime paths |
 | FRONTEND_DISPLAY_TIME_ZONE | frontend only | Asia/Shanghai | Vite build-time display timezone for run timestamps |
 | BACKEND_CORS_ORIGINS | frontend only | * | demo CORS allowlist for browser access from `FRONTEND_PORT` |
 | AIRFLOW_BASE_URL | yes | http://airflow-api-server:8080 | 容器内地址 |

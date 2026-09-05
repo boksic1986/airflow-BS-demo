@@ -53,6 +53,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertNotIn("KUBECONFIG", env)
         self.assertNotIn("OBS_", env)
         self.assertIn("WGS_EXECUTION_ENABLED=false", env)
+        self.assertIn("WGS_RUNTIME_UID=1000", env)
         self.assertIn("PLATFORM_ENVIRONMENT=Demo", env)
         self.assertIn(
             "WGS_RUNTIME_BS_ROOT=/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime",
@@ -68,6 +69,16 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertIn("auto_dispatch_enabled: false", intake)
         self.assertIn("wgs-cce-v1", profiles)
         self.assertIn("wgs-onprem-v1", profiles)
+
+    def test_backend_writes_wgs_roots_as_the_runtime_owner(self):
+        payload = yaml.safe_load(
+            (REPO_ROOT / "docker-compose.wgs.yaml").read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(
+            payload["services"]["backend"]["user"],
+            "${WGS_RUNTIME_UID:?set WGS_RUNTIME_UID}:${WGS_RUNTIME_SHARED_GID:-520}",
+        )
 
     def test_scanner_and_run_observer_are_isolated_unprivileged_services(self):
         compose_path = REPO_ROOT / "docker-compose.wgs.yaml"

@@ -12,7 +12,15 @@ WGS_RUNTIME_HOST_ROOT=/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime
 WGS_RUNTIME_BS_ROOT=/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime
 WGS_RUNTIME_NODE200_ROOT=/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime
 WGS_RUNNER_200_COMMAND=/home/ctapa/.config/airflow-wgs/forced-command.sh
+WGS_RUNTIME_UID=6801
 ```
+
+`backend` must render with user `6801:520` in this production deployment. This
+prevents API-created `runs/<analysis_id>/config` directories from becoming
+`root:bioinfo`. Before recreation, run a one-shot UID 6801 read/write preflight
+against the result root, runtime root and retained bindings root. Correct any
+pre-existing root-owned directories only after resolving the exact targets;
+do not recursively change unrelated batches or analysis files.
 
 node200 keeps the active runtime/CCE configuration under `/home/ctapa`. The
 real OBS binary is `/bi/software/obsutil_5.8.3/obsutil`; the configured wrapper

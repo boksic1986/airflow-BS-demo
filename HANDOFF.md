@@ -13,6 +13,14 @@ analysis and control roots are respectively
 `/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime`. The old production SFS
 collector was stopped; the separate test collector was not touched.
 
+The WGS-only backend previously omitted a Compose `user` and therefore created
+`runs/<analysis_id>/config` as `root:bioinfo`. `WGS_RUNTIME_UID` is now a
+required Compose input; production sets it to the cross-host `ctapa` UID 6801
+and retains shared gid 520. A UID 6801 preflight proved access to the backend
+code, ctapa result/runtime roots and retained binding root before recreation.
+The three existing root-owned directories were changed in place to
+`ctapa:bioinfo`; no result file was moved or removed.
+
 The first `20260904B` attempt failed because node200 briefly could not see the
 newly registered NFS request. The DAG regression now uses the exact generic
 `ValueError: registered runtime request is missing` message, and the bounded
@@ -28,14 +36,18 @@ the wrapper mode was restored, and the real client was verified as
 preserved under history before the exact Step1 tail was recovered.
 
 `WGS_20260905_083318_5E5D8C-a3` is the clean recovery attempt. It regenerated
-`20260904B` sampleinfo and the analysis directory, imported three samples,
-passed sampleinfo/config prepare and started Step1. Its immutable upload plan
-contains six files and 422050455733 bytes. Do not call the run successful until
-Step1-Step6 and `finalize_run` are terminal success.
+`20260904B` sampleinfo and the analysis directory and imported three samples.
+Its immutable upload plan contains six files and 422050455733 bytes. Step1
+through Step4 are terminal success and Step5 download is running. Do not call
+the run successful until Step5, Step6 and `finalize_run` are terminal success.
 
 ### Verification
 
 - `.96` Airflow-image DAG tests: 14 passed.
+- `.96` WGS Compose contract tests: 8 passed; rendered backend user is
+  `6801:520`.
+- Backend ownership smoke: the temporary result directory was `6801:520`, was
+  removed after inspection, and the result tree has zero root-owned entries.
 - Airflow DAG import errors: none.
 - Public `/api/health`: `status=ok`.
 - `ctapa` SSH: node200, `.96` and `.97` all succeeded.
@@ -48,12 +60,17 @@ Step1-Step6 and `finalize_run` are terminal success.
 ### Deployment and rollback
 
 Active release:
-`/data/airflow-WGS/releases/20260905-wgs-4.1.1-6c98281-t204-ctapa-runtime-r1`.
+`/data/airflow-WGS/releases/20260905-wgs-4.1.1-6c98281-t204-ctapa-owner-r2`.
 The prior environment file remains mode-restricted as
 `/data/airflow-WGS/env/production.env.pre-t204`. Rollback requires stopping the
 new run first, restoring that environment and the prior release pointer, then
 recreating only the same affected services. Never delete volumes or use Docker
 prune/down-v.
+
+The owner-only environment rollback is
+`/data/airflow-WGS/env/production.env.pre-t204-owner`. Restoring it also
+requires restoring the prior release because the new Compose contract requires
+`WGS_RUNTIME_UID`.
 
 ## 2026-09-04 - Codex - T192 production Docker cleanup
 
