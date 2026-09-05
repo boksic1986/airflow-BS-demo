@@ -72,6 +72,27 @@ repointing the application release. Additive evidence tables may remain. Do not
 delete databases, transfer checkpoints, evidence, results, or Kubernetes
 Leases during rollback.
 
+The production WGS Python environment is owner-managed. After all gates are
+false and active Airflow/business WGS counts are zero, its owner may install the
+candidate with:
+
+```bash
+/bi/software/mamba/envs/WGS/bin/python -m pip install --no-deps --force-reinstall \
+  /sg2/33.chenjiucheng/WGS_test/cce-pipeline-dev/artifacts/T194-T200-cce-082-e4c0f13/cce_pipeline-0.8.2-py3-none-any.whl
+```
+
+Require version `0.8.2`, embedded source commit `e4c0f134...`, and package build
+ID `a1e5ea89...9aa6` before selecting the candidate Master image. If the prepare
+canary fails, reinstall the prebuilt rollback wheel:
+
+```bash
+/bi/software/mamba/envs/WGS/bin/python -m pip install --no-deps --force-reinstall \
+  /sg2/33.chenjiucheng/WGS_test/cce-pipeline-dev/artifacts/rollback-cce-081-71952c5/cce_pipeline-0.8.1-py3-none-any.whl
+```
+
+The rollback wheel SHA256 is
+`4cd9fdabe31bb6f783a6cf5f5641606085a30ba75b7167795f569445ea22c729`.
+
 ## T192 production Docker image cleanup
 
 On `.96`, treat `airflow-wgs` as one production Compose stack, not one Docker

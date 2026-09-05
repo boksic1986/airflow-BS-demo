@@ -7,8 +7,10 @@ scope: refreshed the existing disabled Step1-6 contract-v2 implementation on the
 cce_code: isolated integration commit e4c0f134bd397fb6113456b18cc148346808388e. The operator config now carries an independent heavy_io limit/mode, frozen Master Jobs receive WGS_HEAVY_SLOT_LIMIT/MODE/STATUS_PATH, and RESOLVED_PROFILE records transfer and heavy quota provenance.
 transfer_semantics: upload_parallelism and download_parallelism count concurrent files; obsutil -p=5 counts parts per file; heavy_io.limit=25 counts active high-I/O Kubernetes work pods. These controls do not consume one another.
 candidate_image: airflow-demo/wgs-cce-master:contract-v2-cce-0.8.2-e4c0f13-candidate, image sha256:58c2c9acf935f1d06c4b1b60d8bc56ca758d7d9643707b2d9077bc9445c6dae8. Runtime contains cce-pipeline 0.8.2, Snakemake 9.24.0+biosan1 and executor 0.6.4+biosan4.
-validation: cce-pipeline full Linux suite 216 passed. Wheel SHA256 b2c79df27868d9194097cfa1e28ce73d688e1a107b1ec2643dab82544551d968; package source commit and all four approved heavy rules were verified inside the image.
-safety: candidate remains unselected. WGS execution and contract-v2 gates remain false; no WGS run or automatic dispatch was started.
+validation: cce-pipeline full Linux suite 216 passed; backend 352 passed/1 skipped; runtime scripts 67 passed; WGS DAG/topology 16 passed; frontend 49 passed plus typecheck/Vite build; Compose config passed. Wheel SHA256 b2c79df27868d9194097cfa1e28ce73d688e1a107b1ec2643dab82544551d968; package source commit and all four approved heavy rules were verified inside the image.
+deployment: disabled release staged at /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260905-airflow-demo-379df64-t194-cce082-disabled. current intentionally remains the prior disabled c28ad7d release. The node200-visible runtime gate was atomically updated to SHA256 cc44aba5...d6f0 with an exact pre-update backup.
+activation_blocker: /bi/software/mamba/envs/WGS is owned by chenxj and is not writable by hanjj, so its installed cce-pipeline remains 0.8.1 commit 71952c5.... The verified 0.8.2 and rollback 0.8.1 wheels are both visible from node200; the environment owner must perform the final installation before selecting the new Master image.
+safety: candidate remains unselected. WGS execution, runtime adapter, contract-v2 and auto-dispatch gates remain false; bio_wgs is paused, scanner is stopped, and both business/Airflow active-run counts are zero. No WGS run or automatic dispatch was started.
 ```
 
 ## 2026-09-05 T201 real FASTQ OBS SDK upload canary

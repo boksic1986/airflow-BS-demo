@@ -26,12 +26,53 @@ Image audit reports cce-pipeline 0.8.2, embedded source `e4c0f134...`,
 Snakemake `9.24.0+biosan1`, Kubernetes executor `0.6.4+biosan4`, and all four
 approved heavy rules. The image is not selected by a production profile.
 
+The candidate validation completed with backend `352 passed, 1 skipped`,
+runtime scripts `67 passed`, WGS DAG/topology `16 passed`, frontend `49 passed`
+plus `tsc -b`/Vite build, and a successful Compose config render. The first
+backend run omitted the read-only `/config` mount and therefore produced 13
+missing-file failures; the corrected full run passed. The Docker frontend test
+target could not resolve the configured Docker Hub mirror, so the accepted
+frontend run used the existing pinned Node 22.22.2 runtime and a dependency tree
+whose package-lock SHA256 exactly matched the candidate.
+
+The disabled airflow-demo release is staged at:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260905-airflow-demo-379df64-t194-cce082-disabled
+```
+
+`current` intentionally remains on the earlier disabled c28ad7d release. The
+shared runtime gate was atomically updated and node200 sees SHA256
+`cc44aba5b5fa878b49401d1b5b2cbdea64bc6525b7c47032babac111f5c2d6f0`;
+the previous gate is retained in both the runtime bin and task evidence.
+
+During staging, the shared deployment path returned `No space left on device`
+even though the backing filesystem reported free capacity. Before any cleanup,
+an exact inventory was saved at
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/T194-T200-airflow-b47dd14/staging-cleanup-inventory.txt`.
+Under the existing airflow-only cleanup authorization, only generated files
+below `airflow-WGS/staging` were removed, reducing that directory from about
+95 MB to 115 KB and restoring writes. Two tiny root-owned `.pytest_cache`
+trees remain because the deployment account cannot remove them; no release,
+result, database, binding, or other project path was changed.
+
 ### Safety And Next Gate
 
 WGS execution, runtime adapter, contract-v2 and automatic dispatch remain
 disabled. No WGS run was created or resumed. Before activation, apply and test
 the Lease RBAC for the frozen Master service account, run one Airflow-integrated
 Step1 canary, then run heavy quota in monitor-only mode before enforcement.
+
+The remaining runtime blocker is ownership, not code: the production
+`/bi/software/mamba/envs/WGS` environment belongs to `chenxj` and is not
+writable by `hanjj`. It still contains cce-pipeline 0.8.1 source `71952c5...`.
+The environment owner must install the verified 0.8.2 wheel before activation.
+An exact 0.8.1 rollback wheel was built first; neither wheel contains a secret.
+
+One unrelated historical process was observed on node200: PID `264653` runs
+`Step4_publish_results.sh` under
+`/sg2/14.hanjingjing/work_test/WGS_pipline_test`. It is not an airflow-demo
+business run and was intentionally left untouched.
 
 
 ## 2026-09-04 - Codex - T194-T200 WGS contract v2 and Heavy Slot quota
