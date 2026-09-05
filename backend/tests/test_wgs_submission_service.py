@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 
 from app.models import AnalysisRun, Base, WgsSubmissionDraft
+from app import wgs_platform_service
 from app.wgs_orchestration_service import build_fastq_snapshot, fastq_source_fingerprint
 from app.wgs_project_catalog import load_wgs_projects, public_project_catalog
 from app.wgs_submission_service import (
@@ -20,6 +21,7 @@ from app.wgs_submission_service import (
     submit_draft,
     create_automatic_wgs_run,
 )
+from app.wgs_platform_service import WgsPreparedArtifactPending, sync_prepared_samples
 from app.wgs_stage_contract import canonical_wgs_stage, wgs_stage_definition
 
 
@@ -30,6 +32,22 @@ class RecordingAirflow:
     def trigger_dag_run(self, dag_id, *, dag_run_id=None, conf=None):
         self.calls.append({"dag_id": dag_id, "dag_run_id": dag_run_id, "conf": conf})
         return self.calls[-1]
+
+
+def test_prepared_binding_visibility_race_is_retryable(tmp_path: Path, monkeypatch) -> None:
+    def missing_binding(**_kwargs):
+        raise wgs_platform_service.WgsBindingPathError(
+            "WGS frozen batch binding is unavailable"
+        )
+
+    monkeypatch.setattr(wgs_platform_service, "load_wgs_runtime_binding", missing_binding)
+
+    with pytest.raises(WgsPreparedArtifactPending, match="binding is not visible"):
+        sync_prepared_samples(
+            session=None,
+            settings=SimpleNamespace(wgs_runtime_request_root=tmp_path / "requests"),
+            run=SimpleNamespace(analysis_id="WGS_20260906_123456_A1B2C3", attempt=1),
+        )
 
 
 def test_staged_prepare_steps_use_explicit_public_labels() -> None:

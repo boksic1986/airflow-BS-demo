@@ -22,6 +22,7 @@ from app.wgs_orchestration_service import (
 )
 from app.wgs_release_catalog import load_wgs_release_catalog
 from app.wgs_run_projection import (
+    WgsBindingPathError,
     load_wgs_runtime_binding,
     resolve_bound_wgs_batch_root,
 )
@@ -235,11 +236,16 @@ def run_payload(session: Session, run: AnalysisRun) -> dict:
 
 def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> int:
     """Import only the final WGS analysis selection from the frozen batch."""
-    value = load_wgs_runtime_binding(
-        request_root=settings.wgs_runtime_request_root,
-        analysis_id=run.analysis_id,
-        attempt=run.attempt,
-    )
+    try:
+        value = load_wgs_runtime_binding(
+            request_root=settings.wgs_runtime_request_root,
+            analysis_id=run.analysis_id,
+            attempt=run.attempt,
+        )
+    except WgsBindingPathError as error:
+        raise WgsPreparedArtifactPending(
+            "WGS prepared batch binding is not visible yet"
+        ) from error
     batch_root = resolve_bound_wgs_batch_root(
         binding=value,
         node_analysis_root=getattr(
