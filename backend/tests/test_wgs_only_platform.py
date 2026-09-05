@@ -1934,6 +1934,7 @@ def test_prepare_sampleinfo_stage_status_imports_preview_samples(
         },
     ).json()
     analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
     with sessions.begin() as session:
         run = session.scalar(
             select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
@@ -2021,6 +2022,7 @@ def test_prepare_analysis_status_waits_for_final_sampleinfo_nfs_visibility(
         },
     ).json()
     analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
     with sessions.begin() as session:
         run = session.scalar(
             select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
