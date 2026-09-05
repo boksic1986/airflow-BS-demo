@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -489,6 +489,31 @@ def test_contract_v2_transfer_progress_imports_files_and_rejects_old_generation(
         transfer = session.scalar(select(TransferJob))
         files = session.scalars(select(TransferFileState).order_by(TransferFileState.file_key)).all()
         assert transfer.bytes_transferred == 100
+        assert [(row.display_name, row.status) for row in files] == [
+            ("S1_R1.fastq.gz", "success"),
+            ("S1_R2.fastq.gz", "accepted"),
+        ]
+
+    # A rolling deployment can leave an aggregate row written by an older
+    # observer without the file rows from the same immutable progress snapshot.
+    with sessions() as session:
+        session.execute(delete(TransferFileState))
+        session.commit()
+
+    replay = sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=tmp_path / "runtime" / "runner-requests",
+        transfer_spool_root=spool,
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="step1_upload",
+    )
+
+    assert replay["events_ingested"] == 1
+    with sessions() as session:
+        files = session.scalars(
+            select(TransferFileState).order_by(TransferFileState.file_key)
+        ).all()
         assert [(row.display_name, row.status) for row in files] == [
             ("S1_R1.fastq.gz", "success"),
             ("S1_R2.fastq.gz", "accepted"),

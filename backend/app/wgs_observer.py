@@ -945,8 +945,24 @@ def _ingest_transfer_progress(session_factory, spool_root: Path, path: Path) -> 
         row = session.scalar(select(TransferJob).where(TransferJob.transfer_id == str(payload["transfer_id"])))
         if row is not None and row.heartbeat_at is not None:
             previous = row.heartbeat_at if row.heartbeat_at.tzinfo else row.heartbeat_at.replace(tzinfo=timezone.utc)
-            if heartbeat <= previous:
+            if heartbeat < previous:
                 return False
+            if heartbeat == previous:
+                files = payload.get("files") if isinstance(payload.get("files"), list) else []
+                if not _transfer_file_rows_need_sync(
+                    session=session,
+                    transfer_id=str(payload["transfer_id"]),
+                    files=files,
+                ):
+                    return False
+                _upsert_transfer_file_states(
+                    session=session,
+                    transfer=row,
+                    files=files,
+                    heartbeat=heartbeat,
+                )
+                session.commit()
+                return True
         if row is None:
             row = TransferJob(analysis_id=analysis.analysis_id, attempt=analysis.attempt, transfer_id=str(payload["transfer_id"]), direction=str(payload["direction"]), status=str(payload["status"]))
             session.add(row)
@@ -1004,6 +1020,39 @@ def _ingest_transfer_progress(session_factory, spool_root: Path, path: Path) -> 
         )
         session.commit()
         return True
+
+
+def _transfer_file_rows_need_sync(*, session, transfer_id: str, files: list[dict]) -> bool:
+    if not files:
+        return False
+    rows = session.scalars(
+        select(TransferFileState).where(TransferFileState.transfer_id == transfer_id)
+    ).all()
+    existing = {row.file_key: row for row in rows}
+    if len(existing) != len(files):
+        return True
+    for item in files:
+        row = existing.get(str(item.get("file_key") or ""))
+        if row is None:
+            return True
+        expected_error = str(item.get("error_message") or "")[-2000:] or None
+        expected_checksum = str(item.get("checksum_status") or "") or None
+        if (
+            row.display_name != Path(str(item.get("display_name") or "")).name
+            or row.status != str(item.get("status") or "accepted").lower()
+            or row.bytes_total != _strict_nonnegative_int(
+                item.get("bytes_total"), "file.bytes_total"
+            )
+            or row.bytes_transferred != _strict_nonnegative_int(
+                item.get("bytes_done"), "file.bytes_done"
+            )
+            or row.speed_bps
+            != _strict_nonnegative_int(item.get("speed_bps", 0), "file.speed_bps")
+            or row.checksum_status != expected_checksum
+            or row.error_message != expected_error
+        ):
+            return True
+    return False
 
 
 def upsert_stage_state(
