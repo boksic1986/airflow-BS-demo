@@ -459,7 +459,7 @@ def sync_runtime_stage_artifacts(
         / f"attempt-{attempt}"
         / f"{stage}.status.json"
     )
-    if status_path.is_file() and stage in RUNTIME_ARTIFACT_STAGES:
+    if status_path.is_file():
         result["files"] += 1
         if _ingest_runtime_stage_status(session_factory, request_root, status_path):
             result["events_ingested"] += 1
@@ -500,15 +500,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
     heartbeat = datetime.fromisoformat(
         str(payload.get("updated_at") or "").replace("Z", "+00:00")
     )
-    if stage not in {
-        "step1_upload",
-        "step3_monitor",
-        "step4_publish",
-        "step4_repair_cram",
-        "step5_download",
-        "step6_materialize",
-        "step7_cleanup",
-    }:
+    if stage not in SUPPORTED_RUNTIME_SYNC_STAGES:
         raise ValueError("unsupported runtime stage status")
     with session_factory() as session:
         analysis = session.scalar(
@@ -545,7 +537,19 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 message=str(payload.get("message") or "") or None,
             ):
                 return False
-        if stage == "step4_publish":
+        if stage in PREPARE_STATUS_STAGES:
+            upsert_stage_state(
+                session,
+                analysis_id=analysis_id,
+                attempt=attempt,
+                stage_code=stage,
+                stage_status=status,
+                updated_at=heartbeat,
+                message=str(payload.get("message") or "") or None,
+                evidence_key=str(resolved.relative_to(request_root)),
+                receipt_hash=terminal_receipt_hash,
+            )
+        elif stage == "step4_publish":
             if status not in {"accepted", "running", "success", "failed"}:
                 raise ValueError("Step4 publish status is invalid")
             analysis.current_stage = stage

@@ -1865,3 +1865,85 @@ def test_prepare_stages_are_valid_status_sync_targets(
     )
 
     assert result == {"files": 0, "events_ingested": 0}
+
+
+def test_prepare_stage_status_records_contract_v2_success_receipt(
+    tmp_path: Path,
+) -> None:
+    sessions = make_sessionmaker()
+    runtime = tmp_path / "runtime"
+    analysis_id = "WGS_20260905_082139_FE2A4D"
+    request_hash = "a" * 64
+    execution_id = "wse_prepare_sampleinfo"
+    with sessions.begin() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                execution_mode="cce",
+                attempt=5,
+                workdir=str(tmp_path),
+                status="submitted",
+                params_json={"orchestration_contract_version": 2},
+            )
+        )
+        session.add(
+            WgsStageExecution(
+                execution_id=execution_id,
+                analysis_id=analysis_id,
+                attempt=5,
+                stage_code="prepare_sampleinfo",
+                generation=1,
+                status="accepted",
+                request_hash=request_hash,
+                release_id=RELEASE_ID,
+            )
+        )
+
+    status_path = (
+        runtime
+        / "runner-requests"
+        / analysis_id
+        / "attempt-5"
+        / "prepare_sampleinfo.status.json"
+    )
+    status_path.parent.mkdir(parents=True)
+    status_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 5,
+                "stage": "prepare_sampleinfo",
+                "status": "success",
+                "updated_at": "2026-09-05T08:40:48Z",
+                "orchestration_contract_version": 2,
+                "execution_id": execution_id,
+                "generation": 1,
+                "request_hash": request_hash,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=runtime / "runner-requests",
+        transfer_spool_root=runtime / "transfer-progress",
+        analysis_id=analysis_id,
+        attempt=5,
+        stage="prepare_sampleinfo",
+    )
+
+    assert result == {"files": 1, "events_ingested": 1}
+    with sessions() as session:
+        execution = session.scalar(
+            select(WgsStageExecution).where(
+                WgsStageExecution.execution_id == execution_id
+            )
+        )
+        assert execution is not None
+        assert execution.status == "success"
+        assert execution.receipt_hash is not None
+        assert len(execution.receipt_hash) == 64
