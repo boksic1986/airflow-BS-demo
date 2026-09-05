@@ -687,6 +687,16 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 row.eta_seconds = int(normalized_detail["eta_seconds"]) if normalized_detail.get("eta_seconds") is not None else None
                 row.current_file = str(normalized_detail.get("current_file") or "") or None
                 row.manifest_path = str(normalized_detail.get("plan_path") or "") or None
+                _upsert_transfer_file_states(
+                    session=session,
+                    transfer=row,
+                    files=(
+                        normalized_detail["files"]
+                        if isinstance(normalized_detail.get("files"), list)
+                        else []
+                    ),
+                    heartbeat=heartbeat,
+                )
             row.heartbeat_at = heartbeat
             row.message = str(payload.get("message") or "") or None
             row.error_message = row.message if status == "failed" else None

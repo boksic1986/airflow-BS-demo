@@ -589,6 +589,142 @@ def test_later_phase_status_does_not_erase_structured_transfer_progress(tmp_path
         assert stage.speed_bps == 125
 
 
+def test_terminal_stage_status_completes_file_rows_from_embedded_transfer(
+    tmp_path: Path,
+) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    request_root = tmp_path / "runtime" / "runner-requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    spool = tmp_path / "transfer-spool"
+    transfer_id = f"{analysis_id}-a1-input"
+    running_at = datetime(2026, 9, 5, 16, 5, 50, tzinfo=timezone.utc)
+    terminal_at = running_at + timedelta(seconds=5)
+    with sessions() as session:
+        transfer = TransferJob(
+            analysis_id=analysis_id,
+            attempt=1,
+            transfer_id=transfer_id,
+            transfer_type="input_upload",
+            direction="upload",
+            status="running",
+            progress_detail_available=True,
+            bytes_total=300,
+            bytes_transferred=290,
+            files_total=2,
+            files_completed=1,
+            heartbeat_at=running_at,
+            updated_at=running_at,
+        )
+        session.add(transfer)
+        session.flush()
+        session.add_all(
+            [
+                TransferFileState(
+                    transfer_id=transfer_id,
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    file_key="1" * 64,
+                    display_name="S1_R1.fastq.gz",
+                    status="success",
+                    bytes_total=100,
+                    bytes_transferred=100,
+                    speed_bps=50,
+                    checksum_status="verified",
+                    ended_at=running_at,
+                    updated_at=running_at,
+                ),
+                TransferFileState(
+                    transfer_id=transfer_id,
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    file_key="2" * 64,
+                    display_name="S1_R2.fastq.gz",
+                    status="running",
+                    bytes_total=200,
+                    bytes_transferred=190,
+                    speed_bps=50,
+                    started_at=running_at,
+                    updated_at=running_at,
+                ),
+            ]
+        )
+        session.commit()
+
+    (request_dir / "step1_upload.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step1_upload",
+                "status": "success",
+                "updated_at": terminal_at.isoformat(),
+                "transfer": {
+                    "schema_version": "cce-pipeline.transfer-progress.v1",
+                    "transfer_id": transfer_id,
+                    "run_id": f"{analysis_id}-a1",
+                    "analysis_id": analysis_id,
+                    "attempt": 1,
+                    "direction": "upload",
+                    "state": "success",
+                    "bytes_total": 300,
+                    "bytes_done": 300,
+                    "files_total": 2,
+                    "files_done": 2,
+                    "speed_bytes_per_second": 100,
+                    "heartbeat_at": (terminal_at - timedelta(seconds=1)).isoformat(),
+                    "files": [
+                        {
+                            "file_key": "1" * 64,
+                            "display_name": "S1_R1.fastq.gz",
+                            "bytes_total": 100,
+                            "bytes_done": 100,
+                            "status": "success",
+                            "speed_bps": 50,
+                            "checksum_status": "verified",
+                        },
+                        {
+                            "file_key": "2" * 64,
+                            "display_name": "S1_R2.fastq.gz",
+                            "bytes_total": 200,
+                            "bytes_done": 200,
+                            "status": "success",
+                            "speed_bps": 50,
+                            "checksum_status": "verified",
+                        },
+                    ],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=request_root,
+        transfer_spool_root=spool,
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="step1_upload",
+    )
+
+    with sessions() as session:
+        transfer = session.scalar(
+            select(TransferJob).where(TransferJob.transfer_id == transfer_id)
+        )
+        files = session.scalars(
+            select(TransferFileState).order_by(TransferFileState.file_key)
+        ).all()
+        assert transfer.status == "success"
+        assert transfer.files_completed == 2
+        assert [(row.status, row.checksum_status) for row in files] == [
+            ("success", "verified"),
+            ("success", "verified"),
+        ]
+        assert all(row.ended_at is not None for row in files)
+
+
 def test_terminal_stage_state_cannot_reverse_success_or_failure(tmp_path: Path) -> None:
     sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
     first = datetime(2026, 8, 12, 2, 0, tzinfo=timezone.utc)
