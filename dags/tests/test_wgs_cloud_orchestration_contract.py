@@ -25,6 +25,7 @@ EXPECTED_TASKS = {
     "result_transfer.wait_step5_download",
     "result_transfer.release_obs_transfer_slot",
     "materialize_step6_results",
+    "wait_step6_materialize",
     "finalize_run",
     "release_leases",
 }
