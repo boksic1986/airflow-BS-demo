@@ -94,6 +94,10 @@ projects:
       - root_id: T7_Fastq
         display_name: T7 FASTQ root
         node200_path: /bi/fastq/T7_Fastq
+      - root_id: T7_Step3_Dryrun_Canary
+        display_name: T7 Step3 dry-run validation root
+        node200_path: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical/.canary-fastq
+        validation_scope: step3_dryrun
     editable_config:
       use_reference: {type: boolean, default: false}
 """,
@@ -376,7 +380,7 @@ def test_step3_dryrun_submission_and_finalizer_require_exact_master_evidence(
             "project_id": "WGS_Clinical",
             "platform": "T7Hg38V4.1.1",
             "batch": "20260902A",
-            "fastq_root_id": "T7_Fastq",
+            "fastq_root_id": "T7_Step3_Dryrun_Canary",
             "validation_scope": "step3_dryrun",
         },
     )

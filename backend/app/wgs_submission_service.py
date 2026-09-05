@@ -356,6 +356,11 @@ def _catalog_run_spec(*, settings, project_id: str, platform: str, batch: str,
     project = _project(settings, project_id)
     project.platform(platform)
     root = project.fastq_root(fastq_root_id)
+    root_validation_scope = str(root.get("validation_scope") or "").strip() or None
+    if root_validation_scope is not None and validation_scope != root_validation_scope:
+        raise ValueError("validation FASTQ root is not available for this run scope")
+    if validation_scope == "step3_dryrun" and root_validation_scope != "step3_dryrun":
+        raise ValueError("Step3 dry-run requires its isolated validation FASTQ root")
     normalized_batch = batch.strip()
     if (
         SAFE_BATCH.fullmatch(normalized_batch) is None

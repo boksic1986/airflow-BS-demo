@@ -503,6 +503,23 @@ def test_step3_validation_freezes_no_compute_mode_with_provenance(
     assert (cce / "VALIDATION_OVERRIDE.json").is_file()
 
 
+def test_step3_validation_reports_missing_prepared_runtime(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    monkeypatch.setenv("WGS_STEP3_DRYRUN_CANARY_ENABLED", "true")
+
+    with pytest.raises(RuntimeError, match="did not create BATCH_RUNTIME.yaml"):
+        gate._freeze_validation_execution_mode(
+            {
+                "analysis_id": "WGS_20260906_123456_A1B2C3",
+                "attempt": 1,
+                "validation_scope": "step3_dryrun",
+            },
+            tmp_path / "batch",
+        )
+
+
 def test_step3_output_uses_last_json_record_after_kubectl_messages() -> None:
     gate = load_gate()
     parsed = gate.parse_step3_status_output(

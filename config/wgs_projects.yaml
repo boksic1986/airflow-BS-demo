@@ -10,6 +10,10 @@ projects:
       - root_id: T7_Fastq
         display_name: T7 FASTQ production root
         node200_path: /bi/fastq/T7_Fastq
+      - root_id: T7_Step3_Dryrun_Canary
+        display_name: T7 Step3 dry-run validation root
+        node200_path: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical/.canary-fastq
+        validation_scope: step3_dryrun
     editable_config:
       use_reference:
         type: enum

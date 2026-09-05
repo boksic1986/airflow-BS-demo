@@ -201,6 +201,10 @@ def _freeze_validation_execution_mode(
     if not _truthy("WGS_STEP3_DRYRUN_CANARY_ENABLED"):
         raise RuntimeError("Step3 dry-run canary is disabled on node200")
     runtime_path = batch_root / "cce" / "BATCH_RUNTIME.yaml"
+    if not runtime_path.is_file():
+        raise RuntimeError(
+            "WGS prepare did not create BATCH_RUNTIME.yaml; review sample selection and FASTQ readiness"
+        )
     before = runtime_path.read_bytes()
     runtime = yaml.safe_load(before)
     workflow = runtime.get("workflow") if isinstance(runtime, dict) else None

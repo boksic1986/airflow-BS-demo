@@ -75,6 +75,7 @@ def public_project_catalog(projects: tuple[WgsProject, ...]) -> dict:
                 "fastq_roots": [
                     {"root_id": root["root_id"], "display_name": root.get("display_name") or root["root_id"]}
                     for root in item.fastq_roots
+                    if not root.get("validation_scope")
                 ],
                 "editable_config": item.editable_config,
             }
