@@ -35,6 +35,7 @@ class CatalogRunSpec:
     project: WgsProject
     platform: str
     batch: str
+    analysis_batch: str
     node_root: str
     batch_no: str
     use_reference: str
@@ -244,6 +245,8 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
                           use_reference: str | None = None,
                           validation_scope: str | None = None) -> dict:
     """Create one catalog-bound run; WGS prepare owns sampleinfo and selection."""
+    if validation_scope not in {None, "step1_only"}:
+        raise ValueError("unsupported WGS validation scope")
     spec = _catalog_run_spec(
         settings=settings,
         project_id=project_id,
@@ -251,6 +254,7 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
         batch=batch,
         fastq_root_id=fastq_root_id,
         use_reference=use_reference,
+        validation_scope=validation_scope,
     )
     run, existed = _create_catalog_run_record(
         session=session,
@@ -258,8 +262,6 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
         username=username,
         spec=spec,
     )
-    if validation_scope not in {None, "step1_only"}:
-        raise ValueError("unsupported WGS validation scope")
     existing_scope = (run.params_json or {}).get("validation_scope")
     if existed and existing_scope != validation_scope:
         raise ValueError("existing WGS run uses a different validation scope")
@@ -349,7 +351,8 @@ def create_automatic_wgs_run(*, session, settings, airflow_client, username: str
 
 def _catalog_run_spec(*, settings, project_id: str, platform: str, batch: str,
                       fastq_root_id: str,
-                      use_reference: str | None) -> CatalogRunSpec:
+                      use_reference: str | None,
+                      validation_scope: str | None = None) -> CatalogRunSpec:
     project = _project(settings, project_id)
     project.platform(platform)
     root = project.fastq_root(fastq_root_id)
@@ -363,12 +366,18 @@ def _catalog_run_spec(*, settings, project_id: str, platform: str, batch: str,
     if normalized_reference not in {"all", "ref", "no"}:
         raise ValueError("use_reference must be all, ref, or no")
     release = load_wgs_release_catalog(Path(settings.wgs_release_catalog_path)).release
+    analysis_batch = (
+        f"{normalized_batch}_STEP1_CANARY"
+        if validation_scope == "step1_only"
+        else normalized_batch
+    )
     return CatalogRunSpec(
         project=project,
         platform=platform,
         batch=normalized_batch,
+        analysis_batch=analysis_batch,
         node_root=str(root["node200_path"]),
-        batch_no=f"WGS_{normalized_batch}_{platform}Hg38{release.version}",
+        batch_no=f"WGS_{analysis_batch}_{platform}Hg38{release.version}",
         use_reference=normalized_reference,
     )
 
@@ -393,7 +402,7 @@ def _create_catalog_run_record(*, session, settings, username: str,
         validate_input=False,
         platform=spec.platform,
         sequencing_batch=spec.batch,
-        analysis_batch=spec.batch,
+        analysis_batch=spec.analysis_batch,
         fastq_root=spec.node_root,
         use_reference=spec.use_reference,
     )

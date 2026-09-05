@@ -107,11 +107,17 @@ def test_step1_canary_scope_is_frozen_into_airflow_conf(tmp_path: Path) -> None:
         )
         assert run is not None
         assert run.params_json["validation_scope"] == "step1_only"
+        assert run.params_json["sequencing_batch"] == "20260902A"
+        assert run.params_json["analysis_batch"] == "20260902A_STEP1_CANARY"
+        assert (
+            run.params_json["batch_no"]
+            == "WGS_20260902A_STEP1_CANARY_T7Hg38V4.1.1"
+        )
 
     assert airflow.calls[0]["conf"]["params"]["validation_scope"] == "step1_only"
 
 
-def test_existing_regular_run_cannot_be_reclassified_as_step1_canary(tmp_path: Path) -> None:
+def test_step1_canary_uses_an_isolated_analysis_batch(tmp_path: Path) -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -134,18 +140,23 @@ def test_existing_regular_run_cannot_be_reclassified_as_step1_canary(tmp_path: P
             batch="20260902A",
             fastq_root_id="T7_Fastq",
         )
-        with pytest.raises(ValueError, match="different validation scope"):
-            create_and_submit_run(
-                session=session,
-                settings=settings,
-                airflow_client=airflow,
-                username="admin",
-                project_id="WGS_Clinical",
-                platform="T7",
-                batch="20260902A",
-                fastq_root_id="T7_Fastq",
-                validation_scope="step1_only",
-            )
+        canary = create_and_submit_run(
+            session=session,
+            settings=settings,
+            airflow_client=airflow,
+            username="admin",
+            project_id="WGS_Clinical",
+            platform="T7",
+            batch="20260902A",
+            fastq_root_id="T7_Fastq",
+            validation_scope="step1_only",
+        )
+        runs = list(session.scalars(select(AnalysisRun).order_by(AnalysisRun.id)))
+
+    assert len(runs) == 2
+    assert canary["analysis_id"] != runs[0].analysis_id
+    assert runs[0].params_json["analysis_batch"] == "20260902A"
+    assert runs[1].params_json["analysis_batch"] == "20260902A_STEP1_CANARY"
 
 
 def test_automatic_submission_is_preapproved_and_never_restarts_a_failed_run(
