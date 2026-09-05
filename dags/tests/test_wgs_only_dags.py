@@ -44,6 +44,7 @@ class WgsOnlyDagTests(unittest.TestCase):
                 "pipeline_release_id": "wgs-4.1.1-1656b5d",
                 "wgs_version": "V4.1.1",
                 "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
+                "submission_mode": "three_stage",
             },
         }
         self.assertEqual(bio_wgs.validate_request(**_context(conf))["analysis_id"], conf["analysis_id"])
