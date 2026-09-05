@@ -1,5 +1,20 @@
 # 05 API Contract
 
+## T203 admin-only Step1 validation scope
+
+`POST /api/wgs/runs` accepts the optional exact value
+`validation_scope=step1_only` only for an authenticated admin and only while
+all three server gates are true: `WGS_EXECUTION_ENABLED`,
+`WGS_RUNTIME_ADAPTER_ENABLED`, and `WGS_STEP1_CANARY_ENABLED`. Contract v2 must
+also be enabled. The field is intentionally absent from the normal Submit UI.
+
+The value is frozen into `params.validation_scope` and the Airflow DagRun conf.
+After an exact successful `step1_upload` execution receipt, the DAG calls the
+internal `finalize_step1_canary` control stage. It records
+`validation_result=step1_upload_complete`, marks prepared samples `skipped`,
+and never creates a Step2 Master. Missing or stale Step1 evidence returns a
+400 error and cannot produce validation success.
+
 ## T194-T200 WGS workspace and transfer files
 
 - `GET /api/runs/{analysis_id}/workspace` returns the database-backed Run

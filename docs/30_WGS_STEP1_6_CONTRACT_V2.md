@@ -1,5 +1,14 @@
 # WGS Step1-6 Orchestration Contract v2
 
+## T203 Airflow integration canary
+
+Contract v2 now has a fail-closed `step1_only` validation scope. It is an
+admin-only API field, disabled by default, and not rendered in Submit Run.
+The ordinary DAG path is unchanged. After the frozen Step1 transfer receipt,
+the validation branch records `Step1 validation passed`, marks later public
+stages skipped, releases leases, and cannot call Step2. Both the API and DAG
+reject this scope unless the dedicated canary gate and contract v2 are enabled.
+
 ## Decision
 
 The platform keeps one `bio_wgs` DAG and the existing `cce-pipeline` execution

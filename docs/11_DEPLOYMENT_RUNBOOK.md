@@ -1,5 +1,34 @@
 # 11 部署 Runbook
 
+## T203 Airflow-integrated Step1 canary
+
+This is a test-control-plane procedure. Do not use it on the production `.96`
+deployment.
+
+1. Confirm `bio_wgs` is paused and both business/Airflow active-run counts are
+   zero. Back up the biodemo and Airflow databases and record the current
+   release, gates, DAG pause state, node200 gate checksum, and OBS object
+   inventory.
+2. Deploy the candidate with all gates false. Require backend, DAG and Compose
+   tests to pass before changing any gate.
+3. Set the node200 runner Python to the shared `nipttest` interpreter. Enable
+   execution, runtime adapter, contract v2 and the dedicated
+   `WGS_STEP1_CANARY_ENABLED` gate; leave intake scan and auto-dispatch off.
+4. Unpause only `bio_wgs`. As an admin, create one catalog run with the exact
+   hidden field `validation_scope=step1_only`, then complete the existing
+   config and execution approvals.
+5. Require a frozen two-file manifest, per-file plus aggregate SDK progress,
+   an exact successful Step1 receipt, terminal `Step1 validation passed`, and
+   no Step2 Master/CCE Job. A missing receipt is a failed canary.
+6. Record API/UI evidence, source immutability and transfer checks. Delete only
+   the exact canary OBS objects after evidence is complete and verify absence.
+7. Pause `bio_wgs`, return all four execution/canary gates to false, restore
+   the original node200 runtime gates, and verify no active run remains.
+
+Rollback is to pause the DAG, disable the canary/execution/runtime/contract-v2
+gates and repoint `current` to the previous release. Never delete databases,
+Docker volumes, the external network, source FASTQ, or unrelated OBS objects.
+
 ## T194-T200 contract-v2 disabled rollout
 
 Accepted disabled release on BS10610:

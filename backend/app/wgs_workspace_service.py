@@ -63,7 +63,12 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
         .order_by(RunValidationIssue.id)
     ).all())
     raw_stage = str(run.current_stage or "created")
-    stage_code = canonical_wgs_stage(raw_stage, run.status)
+    validation_scope = str((run.params_json or {}).get("validation_scope") or "") or None
+    stage_code = (
+        "step1_canary_complete"
+        if validation_scope == "step1_only" and str(run.status or "").lower() == "success"
+        else canonical_wgs_stage(raw_stage, run.status)
+    )
     stage_definition = wgs_stage_definition(stage_code)
     stage_row = next((item for item in stage_rows if item.stage_code == stage_code), None)
     progress_percent = (
@@ -100,10 +105,11 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
         "speed_bps": stage_row.speed_bps if stage_row is not None else None,
         "eta_seconds": stage_row.eta_seconds if stage_row is not None else None,
         "stage_updated_at": stage_row.updated_at.isoformat() if stage_row is not None else None,
-        "orchestration_stages": project_wgs_orchestration(
+        "orchestration_stages": _workspace_stages(
             run_status=run.status,
             current_stage=raw_stage,
             stage_rows=stage_rows,
+            validation_scope=validation_scope,
         ),
     }
     return {
@@ -140,6 +146,21 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
             "mode": heavy_slot_mode,
         },
     }
+
+
+def _workspace_stages(*, run_status: str | None, current_stage: str | None, stage_rows: list[object], validation_scope: str | None) -> list[dict[str, object]]:
+    items = project_wgs_orchestration(
+        run_status=run_status,
+        current_stage=current_stage,
+        stage_rows=stage_rows,
+    )
+    if validation_scope == "step1_only" and str(run_status or "").lower() == "success":
+        for item in items:
+            item["status"] = item["stage_status"] = (
+                "success" if item["stage_code"] == "step1_upload" else "skipped"
+            )
+            item["completed_jobs"] = 1 if item["stage_code"] == "step1_upload" else 0
+    return items
 
 
 def _active_heavy_pod_count(session) -> int:

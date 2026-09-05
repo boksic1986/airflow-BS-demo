@@ -66,7 +66,7 @@ from app.auth_service import (
 )
 from app.wgs_platform_service import WgsPreparedArtifactPending, action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run, sync_prepared_samples, sync_sampleinfo_preview
 from app.wgs_release_catalog import load_wgs_release_catalog
-from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferFileState, TransferJob, UserAccount
+from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferFileState, TransferJob, UserAccount, WgsStageExecution
 from app.wgs_timing_service import enrich_progress, serialize_rule_states
 from app.wgs_workspace_service import build_wgs_workspace
 from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_definitions
@@ -339,6 +339,7 @@ class WgsCatalogRunRequest(BaseModel):
     platform: str = Field(min_length=1, max_length=64)
     batch: str = Field(pattern="^[0-9]{8}[A-Z]$")
     fastq_root_id: str = Field(min_length=1, max_length=128)
+    validation_scope: str | None = Field(default=None, pattern="^step1_only$")
 
 
 class WgsConfigApprovalRequest(BaseModel):
@@ -790,6 +791,30 @@ def create_catalog_wgs_run(
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "WGS_EXECUTION_DISABLED", "message": "WGS execution remains disabled."},
         )
+    if request.validation_scope is not None:
+        try:
+            require_role(user, "admin")
+        except PermissionError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"code": "FORBIDDEN", "message": str(exc)},
+            ) from exc
+        if not _wgs_step1_canary_enabled():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "WGS_STEP1_CANARY_DISABLED",
+                    "message": "The Step1-only validation gate is disabled.",
+                },
+            )
+        if not _wgs_contract_v2_enabled():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "WGS_CONTRACT_V2_DISABLED",
+                    "message": "The Step1-only validation requires contract v2.",
+                },
+            )
     try:
         with get_sessionmaker()() as session:
             payload = create_and_submit_run(
@@ -1633,6 +1658,67 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 )
                 session.commit()
                 return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "success"}
+            if stage_name == "finalize_step1_canary":
+                if not _wgs_step1_canary_enabled():
+                    raise ValueError("Step1 canary is disabled")
+                if params.get("validation_scope") != "step1_only":
+                    raise ValueError("run is not a Step1-only canary")
+                step1 = session.scalar(
+                    select(WgsStageExecution)
+                    .where(
+                        WgsStageExecution.analysis_id == analysis_id,
+                        WgsStageExecution.attempt == request.attempt,
+                        WgsStageExecution.stage_code == "step1_upload",
+                    )
+                    .order_by(WgsStageExecution.generation.desc())
+                    .limit(1)
+                )
+                if step1 is None or step1.status != "success" or not step1.receipt_hash:
+                    raise ValueError("Step1 upload has no exact successful receipt")
+                finished_at = run.pipeline_finished_at or datetime.now(timezone.utc)
+                if finished_at.tzinfo is None:
+                    finished_at = finished_at.replace(tzinfo=timezone.utc)
+                params.update(
+                    {
+                        "validation_result": "step1_upload_complete",
+                        "validation_completed_at": finished_at.isoformat(),
+                        "step1_receipt_hash": step1.receipt_hash,
+                    }
+                )
+                run.params_json = params
+                run.status = "success"
+                run.current_stage = "finalize_step1_canary"
+                run.pipeline_finished_at = finished_at
+                run.ended_at = finished_at
+                run.progress_percent = 100
+                run.progress_updated_at = finished_at
+                run.error_summary = None
+                for sample in session.scalars(
+                    select(Sample).where(Sample.analysis_id == analysis_id)
+                ).all():
+                    sample.status = "skipped"
+                upsert_stage_state(
+                    session,
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                    stage_code="step1_canary_complete",
+                    stage_status="success",
+                    updated_at=finished_at,
+                    progress_available=True,
+                    progress_percent=100,
+                    completed_units=1,
+                    total_units=1,
+                    unit="validation",
+                    progress_source="step1-transfer-receipt",
+                )
+                session.commit()
+                return {
+                    "analysis_id": analysis_id,
+                    "attempt": request.attempt,
+                    "stage": stage_name,
+                    "status": "success",
+                    "validation_result": "step1_upload_complete",
+                }
             expected_command = f"wgs-runtime {analysis_id} {request.attempt} {stage_name}"
             if request.command != expected_command:
                 raise ValueError("runtime command does not match the registered stage")
@@ -2383,6 +2469,24 @@ def _wgs_platform_execution_enabled() -> bool:
 
 def _wgs_runtime_adapter_enabled() -> bool:
     return os.getenv("WGS_RUNTIME_ADAPTER_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _wgs_step1_canary_enabled() -> bool:
+    return os.getenv("WGS_STEP1_CANARY_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _wgs_contract_v2_enabled() -> bool:
+    return os.getenv("WGS_CONTRACT_V2_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def _wgs_submission_preview_enabled() -> bool:

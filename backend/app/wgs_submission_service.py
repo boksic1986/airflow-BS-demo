@@ -241,7 +241,8 @@ def _project(settings, project_id: str) -> WgsProject:
 def create_and_submit_run(*, session, settings, airflow_client, username: str,
                           project_id: str, platform: str, batch: str,
                           fastq_root_id: str,
-                          use_reference: str | None = None) -> dict:
+                          use_reference: str | None = None,
+                          validation_scope: str | None = None) -> dict:
     """Create one catalog-bound run; WGS prepare owns sampleinfo and selection."""
     spec = _catalog_run_spec(
         settings=settings,
@@ -251,12 +252,17 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
         fastq_root_id=fastq_root_id,
         use_reference=use_reference,
     )
-    run, _ = _create_catalog_run_record(
+    run, existed = _create_catalog_run_record(
         session=session,
         settings=settings,
         username=username,
         spec=spec,
     )
+    if validation_scope not in {None, "step1_only"}:
+        raise ValueError("unsupported WGS validation scope")
+    existing_scope = (run.params_json or {}).get("validation_scope")
+    if existed and existing_scope != validation_scope:
+        raise ValueError("existing WGS run uses a different validation scope")
     if run.status == "success":
         raise ValueError(
             f"batch {spec.batch} already completed as {run.analysis_id}"
@@ -269,6 +275,8 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
         "unknown_interrupted",
     }
     params = dict(run.params_json or {})
+    if validation_scope is not None:
+        params["validation_scope"] = validation_scope
     params.update(
         {
             "submission_mode": "three_stage",

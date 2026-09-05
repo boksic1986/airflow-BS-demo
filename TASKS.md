@@ -1,5 +1,30 @@
 # TASKS.md
 
+## T203 - Airflow-integrated Step1 OBS SDK canary
+
+Owner: backend/Airflow/runtime/QA/docs
+
+Status: in progress; implementation and regression tests complete, controlled
+BS10610 runtime canary pending
+
+Acceptance:
+- [x] Add an admin-only, exact `validation_scope=step1_only` request guarded by
+  a dedicated default-off environment gate and contract v2.
+- [x] Branch only after an exact successful Step1 receipt and make Step2 Master
+  unreachable for the canary path.
+- [x] Project terminal state as `Step1 validation passed`; later WGS stages are
+  skipped rather than falsely successful.
+- [x] Pass backend, DAG and Compose regression tests on BS10610.
+- [ ] Run one `20260902A` single-sample/two-FASTQ canary and verify SDK
+  per-file/aggregate progress, database/API/UI projection and source integrity.
+- [ ] Prove no Step2 Master or CCE analysis was created, clean only the exact
+  canary OBS objects, and restore all gates plus DAG pause state.
+
+Restrictions:
+- Test control plane only; do not deploy or enable on `.96` production.
+- Keep intake scan and automatic dispatch disabled.
+- Never expose/copy OBS credentials or delete a non-canary object.
+
 ## T194-T200 - WGS Step1-6 contract v2 and Heavy Slot quota
 
 Owner: backend/Airflow/frontend/runtime/CCE/operations/docs

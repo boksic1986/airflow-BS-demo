@@ -1,5 +1,24 @@
 # 07 Airflow DAG 设计
 
+## T203 Step1-only validation branch
+
+The production path remains unchanged. A new branch is evaluated only after
+the input-transfer group has released its OBS lease:
+
+```text
+Step1 upload -> choose_after_step1
+                  |-> submit_step2_master -> Step3-Step6 -> finalize_run
+                  `-> finalize_step1_canary -> release_leases
+```
+
+Only DagRuns whose server-frozen params contain
+`validation_scope=step1_only` may take the validation branch. DAG validation
+requires both `WGS_STEP1_CANARY_ENABLED=true` and
+`WGS_CONTRACT_V2_ENABLED=true`. The finalizer independently verifies the
+latest Step1 generation is terminal success with a receipt hash. This mode is
+for controlled transfer integration tests and cannot be selected in the
+normal browser submission flow.
+
 ## T194-T200 `bio_wgs` contract v2
 
 The task graph remains Step1 through Step6. `wgs_obs_transfer` serializes

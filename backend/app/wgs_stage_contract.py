@@ -26,6 +26,7 @@ WGS_AUXILIARY_STAGES = (
     WgsStageDefinition("prepare_analysis", None, "Preparing WGS analysis"),
     WgsStageDefinition("step4_repair_cram", 4, "Repairing CRAM linkage"),
     WgsStageDefinition("step7_cleanup", 7, "Cleaning WGS SFS workspace"),
+    WgsStageDefinition("step1_canary_complete", None, "Step1 validation passed"),
     WgsStageDefinition("final", None, "WGS workflow completed"),
 )
 
@@ -53,6 +54,7 @@ WGS_STAGE_ALIASES = {
     "wait_step5_download": "step5_download",
     "materialize_step6_results": "step6_materialize",
     "finalize_run": "final",
+    "finalize_step1_canary": "step1_canary_complete",
 }
 
 
@@ -71,10 +73,14 @@ def canonical_wgs_stage(stage: str | None, run_status: str | None) -> str:
     return canonical if canonical in WGS_STAGE_BY_CODE else "prepare"
 
 
-def terminal_wgs_progress(*, updated_at: str | None) -> dict[str, object]:
+def terminal_wgs_progress(
+    *, updated_at: str | None, validation_scope: str | None = None
+) -> dict[str, object]:
     """Return the terminal tracker payload from the shared WGS stage contract."""
 
-    stage = wgs_stage_definition("final")
+    stage = wgs_stage_definition(
+        "step1_canary_complete" if validation_scope == "step1_only" else "final"
+    )
     return {
         "stage_code": stage.code,
         "step_number": stage.step_number,
@@ -84,7 +90,7 @@ def terminal_wgs_progress(*, updated_at: str | None) -> dict[str, object]:
         "progress_percent": 100,
         "completed_units": 1,
         "total_units": 1,
-        "unit": "workflow",
+        "unit": "validation" if validation_scope == "step1_only" else "workflow",
         "current_item": None,
         "speed_bps": None,
         "eta_seconds": 0,

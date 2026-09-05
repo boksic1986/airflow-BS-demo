@@ -28,6 +28,7 @@ from app.models import (
     WgsIntakeBatch,
     WgsIntakeScannerState,
     WgsMaintenanceAction,
+    WgsStageExecution,
 )
 from app.wgs_orchestration_service import build_fastq_snapshot, fastq_source_fingerprint
 from app.wgs_sample_projection import _qc_status
@@ -250,6 +251,112 @@ def test_staged_wgs_run_rejects_stage_two_fields_and_uses_canonical_id(
     ).status_code == 409
     with sessions() as session:
         assert session.scalar(select(func.count()).select_from(AnalysisRun)) == 1
+
+
+def test_step1_canary_submission_requires_admin_and_explicit_gate(tmp_path, monkeypatch):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    request = {
+        "project_id": "WGS_Clinical",
+        "platform": "T7Hg38V4.1.1",
+        "batch": "20260902A",
+        "fastq_root_id": "T7_Fastq",
+        "validation_scope": "step1_only",
+    }
+
+    client, _, _ = make_client(tmp_path, monkeypatch)
+    operator_headers = login(client, "operator", "operator-pass")
+    denied_role = client.post("/api/wgs/runs", headers=operator_headers, json=request)
+    assert denied_role.status_code == 403
+
+    client.post("/api/auth/logout", headers=operator_headers)
+    admin_headers = login(client, "admin", "admin-pass")
+    gate_closed = client.post("/api/wgs/runs", headers=admin_headers, json=request)
+    assert gate_closed.status_code == 409
+    assert gate_closed.json()["detail"]["code"] == "WGS_STEP1_CANARY_DISABLED"
+
+    monkeypatch.setenv("WGS_STEP1_CANARY_ENABLED", "true")
+    contract_closed = client.post("/api/wgs/runs", headers=admin_headers, json=request)
+    assert contract_closed.status_code == 409
+    assert contract_closed.json()["detail"]["code"] == "WGS_CONTRACT_V2_DISABLED"
+
+    monkeypatch.setenv("WGS_CONTRACT_V2_ENABLED", "true")
+    created = client.post("/api/wgs/runs", headers=admin_headers, json=request)
+    assert created.status_code == 201, created.text
+    assert created.json()["params"]["validation_scope"] == "step1_only"
+
+
+def test_finalize_step1_canary_requires_exact_successful_receipt(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "clinical-wgs",
+            "execution_mode": "cce",
+            "batch_no": "BATCH-CANARY",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    monkeypatch.setenv("WGS_STEP1_CANARY_ENABLED", "true")
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+    body = {"attempt": 1, "adapter": "wgs-runtime-200", "command": "control"}
+
+    with sessions.begin() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        run.params_json = {**dict(run.params_json or {}), "validation_scope": "step1_only"}
+
+    missing = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_step1_canary",
+        headers=internal,
+        json=body,
+    )
+    assert missing.status_code == 400
+
+    with sessions.begin() as session:
+        session.add(
+            WgsStageExecution(
+                execution_id="wse_step1_canary",
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="step1_upload",
+                generation=1,
+                status="success",
+                request_hash="1" * 64,
+                release_id="wgs-test",
+                receipt_hash="2" * 64,
+                evidence_type="transfer_receipt",
+                terminal_payload_json={"file_count": 2},
+            )
+        )
+
+    finalized = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_step1_canary",
+        headers=internal,
+        json=body,
+    )
+    assert finalized.status_code == 200, finalized.text
+    with sessions() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        assert run.status == "success"
+        assert run.current_stage == "finalize_step1_canary"
+        assert run.params_json["validation_result"] == "step1_upload_complete"
+    workspace = client.get(f"/api/runs/{analysis_id}/workspace", headers=headers)
+    assert workspace.status_code == 200, workspace.text
+    assert workspace.json()["progress"]["stage_label"] == "Step1 validation passed"
+    assert [item["status"] for item in workspace.json()["progress"]["orchestration_stages"]] == [
+        "success",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+    ]
 
 
 def test_wgs_submission_draft_final_submit_is_idempotent(tmp_path, monkeypatch):

@@ -211,7 +211,10 @@ def _tracker_row(
         if _status(run.status) == "success":
             progress = {
                 **(progress or {}),
-                **terminal_wgs_progress(updated_at=_iso(run.pipeline_finished_at or run.ended_at)),
+                **terminal_wgs_progress(
+                    updated_at=_iso(run.pipeline_finished_at or run.ended_at),
+                    validation_scope=str((run.params_json or {}).get("validation_scope") or "") or None,
+                ),
             }
         else:
             progress = enrich_progress(session=session, run=run, payload=progress or {})

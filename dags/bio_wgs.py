@@ -13,7 +13,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.operators.python import BranchPythonOperator, PythonOperator
 from airflow.sensors.python import PythonSensor
 from airflow.utils.task_group import TaskGroup
 from airflow.utils.trigger_rule import TriggerRule
@@ -96,7 +96,22 @@ def validate_request(**context: Any) -> dict[str, Any]:
                 raise ValueError("Step4 maintenance is fixed to the cram linkage group")
             if not isinstance(conf.get("continue_after_repair"), bool):
                 raise ValueError("continue_after_repair must be boolean")
+    validation_scope = params.get("validation_scope")
+    if validation_scope is not None:
+        if validation_scope != "step1_only":
+            raise ValueError("unsupported WGS validation scope")
+        if not _truthy("WGS_STEP1_CANARY_ENABLED"):
+            raise ValueError("Step1 canary is disabled")
+        if not _truthy("WGS_CONTRACT_V2_ENABLED"):
+            raise ValueError("Step1 canary requires contract v2")
     return conf
+
+
+def choose_after_step1(**context: Any) -> str:
+    params = dict((context["dag_run"].conf or {}).get("params") or {})
+    if params.get("validation_scope") == "step1_only":
+        return "finalize_step1_canary"
+    return "submit_step2_master"
 
 
 def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
@@ -529,6 +544,12 @@ with DAG(
     submit = runner_stage(
         "submit_step2_master", stage="step2_master", pool="wgs_cce_runs"
     )
+    choose_step1_exit = BranchPythonOperator(
+        task_id="choose_after_step1", python_callable=choose_after_step1
+    )
+    finalize_step1_canary = control_stage(
+        "finalize_step1_canary", stage="finalize_step1_canary"
+    )
     start_monitor = runner_stage(
         "start_step3_monitor", stage="step3_monitor"
     )
@@ -578,6 +599,8 @@ with DAG(
 
     validate >> prepare_sampleinfo >> wait_prepare_sampleinfo >> wait_config_approval
     wait_config_approval >> prepare_analysis >> wait_prepare_analysis >> wait_execution_approval
-    wait_execution_approval >> input_transfer >> submit
+    wait_execution_approval >> input_transfer >> choose_step1_exit
+    choose_step1_exit >> [submit, finalize_step1_canary]
     submit >> start_monitor >> wait_analysis >> start_publish >> wait_publish
     wait_publish >> result_transfer >> materialize >> wait_materialize >> finalize >> release
+    finalize_step1_canary >> release

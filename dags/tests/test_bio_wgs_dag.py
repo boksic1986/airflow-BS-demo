@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 import sys
 
@@ -28,6 +29,8 @@ class BioWgsDagTests(unittest.TestCase):
                 "input_transfer.start_step1_upload",
                 "input_transfer.wait_step1_upload",
                 "input_transfer.release_obs_transfer_slot",
+                "choose_after_step1",
+                "finalize_step1_canary",
                 "submit_step2_master",
                 "start_step3_monitor",
                 "wait_step3_analysis",
@@ -64,6 +67,62 @@ class BioWgsDagTests(unittest.TestCase):
         self.assertEqual(
             {task.task_id for task in dag.get_task("finalize_run").upstream_list},
             {"wait_step6_materialize"},
+        )
+        self.assertEqual(
+            dag.get_task("choose_after_step1").downstream_task_ids,
+            {"finalize_step1_canary", "submit_step2_master"},
+        )
+        self.assertEqual(
+            dag.get_task("release_leases").upstream_task_ids,
+            {"finalize_run", "finalize_step1_canary"},
+        )
+
+    def test_step1_canary_is_fail_closed_and_branches_before_master(self) -> None:
+        conf = {
+            "analysis_id": "WGS_20260827_123456_A1B2C3",
+            "pipeline": "wgs",
+            "execution_mode": "cce",
+            "attempt": 1,
+            "workdir": "/data/wgs-results/runs/WGS_20260827_123456_A1B2C3",
+            "params": {
+                "project_name": "clinical-wgs",
+                "batch_no": "BATCH-1",
+                "fq_path": "/data/wgs-intake/BATCH-1",
+                "pipeline_release_id": "wgs-4.1.1-1656b5d",
+                "wgs_version": "V4.1.1",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
+                "validation_scope": "step1_only",
+            },
+        }
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+
+        with patch.dict("os.environ", {"WGS_STEP1_CANARY_ENABLED": "false"}):
+            with self.assertRaisesRegex(ValueError, "Step1 canary is disabled"):
+                bio_wgs.validate_request(**context)
+        with patch.dict(
+            "os.environ",
+            {
+                "WGS_STEP1_CANARY_ENABLED": "true",
+                "WGS_CONTRACT_V2_ENABLED": "false",
+            },
+        ):
+            with self.assertRaisesRegex(ValueError, "contract v2"):
+                bio_wgs.validate_request(**context)
+        with patch.dict(
+            "os.environ",
+            {
+                "WGS_STEP1_CANARY_ENABLED": "true",
+                "WGS_CONTRACT_V2_ENABLED": "true",
+            },
+        ):
+            self.assertEqual(bio_wgs.validate_request(**context), conf)
+            self.assertEqual(
+                bio_wgs.choose_after_step1(**context), "finalize_step1_canary"
+            )
+
+        conf["params"].pop("validation_scope")
+        self.assertEqual(
+            bio_wgs.choose_after_step1(**context), "submit_step2_master"
         )
 
     def test_validate_requires_server_bound_release_identity(self) -> None:

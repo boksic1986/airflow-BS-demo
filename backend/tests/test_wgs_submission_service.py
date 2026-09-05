@@ -78,6 +78,76 @@ def test_direct_submission_binds_production_wgs_4_1_1_batch(tmp_path: Path) -> N
     assert airflow.calls[0]["dag_run_id"] == f"{result['analysis_id']}-a1"
 
 
+def test_step1_canary_scope_is_frozen_into_airflow_conf(tmp_path: Path) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    settings = SimpleNamespace(
+        wgs_project_catalog_path=str(Path(__file__).parents[2] / "config" / "wgs_projects.yaml"),
+        wgs_release_catalog_path=str(Path(__file__).parents[2] / "config" / "wgs_releases.yaml"),
+        host_results_root=str(tmp_path / "results"),
+        container_shared_root=str(tmp_path / "shared"),
+    )
+    airflow = RecordingAirflow()
+
+    with sessions() as session:
+        result = create_and_submit_run(
+            session=session,
+            settings=settings,
+            airflow_client=airflow,
+            username="admin",
+            project_id="WGS_Clinical",
+            platform="T7",
+            batch="20260902A",
+            fastq_root_id="T7_Fastq",
+            validation_scope="step1_only",
+        )
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == result["analysis_id"])
+        )
+        assert run is not None
+        assert run.params_json["validation_scope"] == "step1_only"
+
+    assert airflow.calls[0]["conf"]["params"]["validation_scope"] == "step1_only"
+
+
+def test_existing_regular_run_cannot_be_reclassified_as_step1_canary(tmp_path: Path) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    settings = SimpleNamespace(
+        wgs_project_catalog_path=str(Path(__file__).parents[2] / "config" / "wgs_projects.yaml"),
+        wgs_release_catalog_path=str(Path(__file__).parents[2] / "config" / "wgs_releases.yaml"),
+        host_results_root=str(tmp_path / "results"),
+        container_shared_root=str(tmp_path / "shared"),
+    )
+    airflow = RecordingAirflow()
+
+    with sessions() as session:
+        create_and_submit_run(
+            session=session,
+            settings=settings,
+            airflow_client=airflow,
+            username="operator",
+            project_id="WGS_Clinical",
+            platform="T7",
+            batch="20260902A",
+            fastq_root_id="T7_Fastq",
+        )
+        with pytest.raises(ValueError, match="different validation scope"):
+            create_and_submit_run(
+                session=session,
+                settings=settings,
+                airflow_client=airflow,
+                username="admin",
+                project_id="WGS_Clinical",
+                platform="T7",
+                batch="20260902A",
+                fastq_root_id="T7_Fastq",
+                validation_scope="step1_only",
+            )
+
+
 def test_automatic_submission_is_preapproved_and_never_restarts_a_failed_run(
     tmp_path: Path,
 ) -> None:

@@ -25,6 +25,11 @@ stages:
       default: prepare
     timeout_seconds: 172800
     evidence_type: transfer_receipt
+  finalize_step1_canary:
+    label: Finalize Step1 validation
+    predecessor: step1_upload
+    timeout_seconds: 120
+    evidence_type: transfer_receipt
   step2_master:
     label: Create CCE Master
     predecessor: step1_upload
