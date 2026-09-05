@@ -1293,8 +1293,22 @@ def test_prepare_binding_points_analysis_log_at_the_run_evidence_directory(
         yaml.safe_dump(
             {
                 "run_label": "cce-run-0123456789abcdef",
-                "platform": {"version": "0.8.1"},
+                "platform": {
+                    "version": "0.8.2",
+                    "wheel_version": "0.8.2",
+                    "source_commit": "e4c0f134bd397fb6113456b18cc148346808388e",
+                },
                 "pipeline": {"master_image": "registry/master@sha256:abc"},
+                "transfer": {
+                    "upload_file_parallelism": 4,
+                    "download_file_parallelism": 8,
+                    "obsutil_parts_per_file": 5,
+                },
+                "heavy_io": {
+                    "limit": 25,
+                    "mode": "monitor-only",
+                    "unit": "work_pod",
+                },
             }
         ),
         encoding="utf-8",
@@ -1320,6 +1334,40 @@ def test_prepare_binding_points_analysis_log_at_the_run_evidence_directory(
     assert binding["analysis_log_source"] == (
         f"{run_dir}/evidence/{run_id}/analysis.log"
     )
+    assert binding["resolved_runtime"]["cce_pipeline_version"] == "0.8.2"
+    assert binding["resolved_runtime"]["cce_pipeline_source_commit"] == (
+        "e4c0f134bd397fb6113456b18cc148346808388e"
+    )
+    assert binding["resolved_runtime"]["transfer"] == {
+        "upload_file_parallelism": 4,
+        "download_file_parallelism": 8,
+        "obsutil_parts_per_file": 5,
+    }
+    assert binding["resolved_runtime"]["heavy_io"] == {
+        "limit": 25,
+        "mode": "monitor-only",
+        "unit": "work_pod",
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("transfer", {"upload_file_parallelism": 4}, "transfer audit"),
+        (
+            "heavy_io",
+            {"limit": 25, "mode": "enforce", "unit": "cpu"},
+            "heavy_io.unit",
+        ),
+    ],
+)
+def test_resolved_runtime_controls_fail_closed(
+    field: str, value: dict, message: str
+) -> None:
+    gate = load_gate()
+
+    with pytest.raises(RuntimeError, match=message):
+        gate._resolved_runtime_controls({field: value})
 
 
 def test_terminal_evidence_sync_reports_missing_rule_jsonl(

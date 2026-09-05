@@ -8,10 +8,13 @@ Accepted disabled release on BS10610:
 /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260904-airflow-demo-c28ad7d-t194-contract-v2-disabled-r2
 ```
 
-The CCE candidate image is staged locally as
-`airflow-demo/wgs-cce-master:contract-v2-32851ba-candidate`; it is not selected
-by production configuration. SFS Cloud Eye remains a gate until an approved
-read-only CES credential produces the first fresh spool.
+The current CCE 0.8.2 candidate image is staged locally as
+`airflow-demo/wgs-cce-master:contract-v2-cce-0.8.2-e4c0f13-candidate`, image ID
+`sha256:58c2c9acf935f1d06c4b1b60d8bc56ca758d7d9643707b2d9077bc9445c6dae8`.
+It is not selected by production configuration. Its production wheel is built
+from cce-pipeline commit `e4c0f134...`, which is based on the operator-provided
+0.8.2 commit `eacef211...`; wheel SHA256 is
+`b2c79df27868d9194097cfa1e28ce73d688e1a107b1ec2643dab82544551d968`.
 
 This release must first be deployed with `WGS_EXECUTION_ENABLED=false`,
 `WGS_RUNTIME_ADAPTER_ENABLED=false`, `WGS_AUTO_DISPATCH_ENABLED=false`, and the
@@ -27,9 +30,11 @@ This release must first be deployed with `WGS_EXECUTION_ENABLED=false`,
    Apply `config/wgs-heavy-slot-rbac.yaml` and verify Lease CRUD in
    `snakemake-ns` before enabling enforcement.
 4. Build and install the vendored Kubernetes executor wheel and the offline OBS
-   SDK runtime. Operator config for new runs must use `heavy_io.limit: 25`,
-   `heavy_io.mode: enforce`, and `obs.transfer_adapter: sdk`. Credentials remain
-   outside release/image archives.
+   SDK runtime. cce-pipeline 0.8.2 operator config must keep
+   `obs.upload_parallelism` and `obs.download_parallelism` as file concurrency,
+   while `heavy_io.limit: 25` counts heavy work pods. Start with
+   `heavy_io.mode: monitor-only`; switch to `enforce` only after Lease RBAC and
+   a controlled canary pass. Credentials remain outside release/image archives.
 5. Recreate application services only after tests. Do not recreate PostgreSQL,
    Redis, the external network, active workers, or CCE jobs.
 6. Validate `/api/runs/<id>/workspace`, Rules pagination, transfer-file

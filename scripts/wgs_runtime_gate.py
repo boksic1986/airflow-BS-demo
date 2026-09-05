@@ -366,6 +366,48 @@ def _clean_env() -> dict[str, str]:
     return {**os.environ, "PYTHONNOUSERSITE": "1"}
 
 
+def _resolved_runtime_controls(profile: dict[str, Any]) -> dict[str, Any]:
+    controls: dict[str, Any] = {}
+    transfer = profile.get("transfer")
+    if transfer is not None:
+        if not isinstance(transfer, dict):
+            raise RuntimeError("RESOLVED_PROFILE.yaml transfer audit is invalid")
+        expected = {
+            "upload_file_parallelism",
+            "download_file_parallelism",
+            "obsutil_parts_per_file",
+        }
+        if set(transfer) != expected:
+            raise RuntimeError("RESOLVED_PROFILE.yaml transfer audit is incomplete")
+        normalized_transfer: dict[str, int] = {}
+        for name in sorted(expected):
+            value = transfer[name]
+            if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 32:
+                raise RuntimeError(
+                    f"RESOLVED_PROFILE.yaml transfer.{name} is invalid"
+                )
+            normalized_transfer[name] = value
+        controls["transfer"] = normalized_transfer
+
+    heavy_io = profile.get("heavy_io")
+    if heavy_io is not None:
+        if not isinstance(heavy_io, dict) or set(heavy_io) != {"limit", "mode", "unit"}:
+            raise RuntimeError("RESOLVED_PROFILE.yaml heavy_io audit is invalid")
+        limit = heavy_io["limit"]
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+            raise RuntimeError("RESOLVED_PROFILE.yaml heavy_io.limit is invalid")
+        if heavy_io["mode"] not in {"monitor-only", "enforce"}:
+            raise RuntimeError("RESOLVED_PROFILE.yaml heavy_io.mode is invalid")
+        if heavy_io["unit"] != "work_pod":
+            raise RuntimeError("RESOLVED_PROFILE.yaml heavy_io.unit is invalid")
+        controls["heavy_io"] = {
+            "limit": limit,
+            "mode": heavy_io["mode"],
+            "unit": "work_pod",
+        }
+    return controls
+
+
 def _run_prepare(payload: dict[str, Any]) -> None:
     binding_path = _binding_path(payload)
     if binding_path.is_file():
@@ -457,6 +499,7 @@ def _write_prepare_binding(payload: dict[str, Any]) -> None:
             pipeline.get("resource_manifest_sha256") or ""
         ),
     }
+    resolved_runtime.update(_resolved_runtime_controls(profile))
     analysis = runtime.get("analysis") if isinstance(runtime.get("analysis"), dict) else {}
     runtime_paths = runtime.get("paths") if isinstance(runtime.get("paths"), dict) else {}
     run_dir = Path(str(runtime_paths.get("run_dir") or ""))

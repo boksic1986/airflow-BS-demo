@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-05 T194-T200 cce-pipeline 0.8.2 integration refresh
+
+```text
+scope: refreshed the existing disabled Step1-6 contract-v2 implementation on the operator-provided cce-pipeline 0.8.2 commit eacef2114cef6581397e9923d9674ab17b92b4df.
+cce_code: isolated integration commit e4c0f134bd397fb6113456b18cc148346808388e. The operator config now carries an independent heavy_io limit/mode, frozen Master Jobs receive WGS_HEAVY_SLOT_LIMIT/MODE/STATUS_PATH, and RESOLVED_PROFILE records transfer and heavy quota provenance.
+transfer_semantics: upload_parallelism and download_parallelism count concurrent files; obsutil -p=5 counts parts per file; heavy_io.limit=25 counts active high-I/O Kubernetes work pods. These controls do not consume one another.
+candidate_image: airflow-demo/wgs-cce-master:contract-v2-cce-0.8.2-e4c0f13-candidate, image sha256:58c2c9acf935f1d06c4b1b60d8bc56ca758d7d9643707b2d9077bc9445c6dae8. Runtime contains cce-pipeline 0.8.2, Snakemake 9.24.0+biosan1 and executor 0.6.4+biosan4.
+validation: cce-pipeline full Linux suite 216 passed. Wheel SHA256 b2c79df27868d9194097cfa1e28ce73d688e1a107b1ec2643dab82544551d968; package source commit and all four approved heavy rules were verified inside the image.
+safety: candidate remains unselected. WGS execution and contract-v2 gates remain false; no WGS run or automatic dispatch was started.
+```
+
 ## 2026-09-05 T201 real FASTQ OBS SDK upload canary
 
 ```text

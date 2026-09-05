@@ -1,5 +1,39 @@
 # HANDOFF.md
 
+## 2026-09-05 - Codex - cce-pipeline 0.8.2 contract-v2 refresh
+
+### Outcome
+
+Rebased the disabled Step1-6 option-2 integration on the supplied
+cce-pipeline 0.8.2 commit `eacef2114cef6581397e9923d9674ab17b92b4df`.
+The isolated CCE branch adds only the heavy work-pod quota contract and audit
+projection; the upstream 0.8.2 upload/download concurrency implementation is
+unchanged. Upload and download parallelism count files, obsutil `-p=5` counts
+parts within a file, and `heavy_io.limit=25` counts active high-I/O Worker Pods.
+
+The final CCE integration commit is
+`e4c0f134bd397fb6113456b18cc148346808388e`. Its complete Linux test suite
+passed `216/216`. The production wheel SHA256 is
+`b2c79df27868d9194097cfa1e28ce73d688e1a107b1ec2643dab82544551d968`.
+The BS10610 disabled candidate image is:
+
+```text
+airflow-demo/wgs-cce-master:contract-v2-cce-0.8.2-e4c0f13-candidate
+sha256:58c2c9acf935f1d06c4b1b60d8bc56ca758d7d9643707b2d9077bc9445c6dae8
+```
+
+Image audit reports cce-pipeline 0.8.2, embedded source `e4c0f134...`,
+Snakemake `9.24.0+biosan1`, Kubernetes executor `0.6.4+biosan4`, and all four
+approved heavy rules. The image is not selected by a production profile.
+
+### Safety And Next Gate
+
+WGS execution, runtime adapter, contract-v2 and automatic dispatch remain
+disabled. No WGS run was created or resumed. Before activation, apply and test
+the Lease RBAC for the frozen Master service account, run one Airflow-integrated
+Step1 canary, then run heavy quota in monitor-only mode before enforcement.
+
+
 ## 2026-09-04 - Codex - T194-T200 WGS contract v2 and Heavy Slot quota
 
 ### Outcome

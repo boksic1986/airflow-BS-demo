@@ -18,6 +18,8 @@ Acceptance:
 - [x] Provision the locked OBS SDK in the shared `nipttest` environment and verify `ObsClient` plus Cloud Eye credentials support from BS10610 and node200.
 - [x] Run a real 1 MiB + 65 MiB OBS SDK callback canary with upload, download, checksum, generation reuse, redaction and exact remote cleanup.
 - [x] Run a 13.49 GiB real paired-FASTQ upload canary; verify resumable multipart upload, per-file and aggregate progress, CRC64/source immutability and exact remote cleanup.
+- [x] Rebase the CCE integration on cce-pipeline 0.8.2 commit `eacef211...`, preserve its independent upload/download file parallelism, and pass the 25-work-pod quota into each frozen Master Job.
+- [x] Build and audit the disabled 0.8.2 CCE candidate image with Snakemake 9.24.0+biosan1 and Kubernetes executor 0.6.4+biosan4.
 - [x] Pass candidate backend, DAG, frontend and cce-pipeline tests on BS10610.
 - [x] Publish a disabled candidate release without enabling WGS execution or automatic dispatch.
 

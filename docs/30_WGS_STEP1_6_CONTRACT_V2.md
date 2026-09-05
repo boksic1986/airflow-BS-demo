@@ -66,6 +66,14 @@ obsutil adapter remains a controlled rollback path.
 One database-backed `wgs_obs_transfer` lease serializes Step1 and Step5 across
 runs. This is independent from the high-I/O Worker Pod quota.
 
+The CCE 0.8.2 integration freezes three separate transfer controls. Operator
+config `obs.upload_parallelism` is the number of Step1 files uploaded at once,
+`obs.download_parallelism` is the number of Step5 files downloaded at once,
+and obsutil uses five parts for each file. None of these values consumes or
+changes the 25-work-pod heavy-I/O quota. The resolved values are retained in
+`RESOLVED_PROFILE.yaml` and copied into the run binding as audit-only
+provenance; Airflow does not duplicate them as a version gate.
+
 ## Heavy I/O Quota
 
 `wgs-heavy-io` means 25 concurrently running high-I/O **Worker Pods**, not CPU
@@ -180,6 +188,13 @@ numeric SFS capacity/read/write/total-I/O/IOPS values and timestamps.
    contract v2 only for one controlled Step1/Step5 integration canary.
 8. Enable heavy-slot enforcement for a controlled WGS batch and verify no more
    than 25 heavy Worker Pods exist.
+
+The current disabled candidate is based on cce-pipeline 0.8.2 source commit
+`eacef2114cef6581397e9923d9674ab17b92b4df` plus the contract-v2 integration
+commit `e4c0f134bd397fb6113456b18cc148346808388e`. Its Master image is
+`airflow-demo/wgs-cce-master:contract-v2-cce-0.8.2-e4c0f13-candidate` with
+image ID `sha256:58c2c9acf935f1d06c4b1b60d8bc56ca758d7d9643707b2d9077bc9445c6dae8`.
+It remains unselected until an approved Airflow-integrated canary passes.
 
 Do not enable execution merely because unit tests pass. Do not restart an
 active Worker or Master, directly edit Airflow metadata, place credentials in
