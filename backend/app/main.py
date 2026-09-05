@@ -1861,6 +1861,15 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 contract = load_wgs_stage_contract(
                     Path(settings.wgs_stage_contract_path)
                 )
+                if stage_name == "step3_monitor":
+                    sync_runtime_stage_artifacts(
+                        session_factory=get_sessionmaker(),
+                        request_root=Path(settings.wgs_runtime_request_root),
+                        transfer_spool_root=Path(settings.wgs_transfer_spool_root),
+                        analysis_id=analysis_id,
+                        attempt=request.attempt,
+                        stage="step2_master",
+                    )
                 execution = register_stage_execution(
                     session=session,
                     run=run,
