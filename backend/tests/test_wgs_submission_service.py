@@ -108,10 +108,10 @@ def test_step1_canary_scope_is_frozen_into_airflow_conf(tmp_path: Path) -> None:
         assert run is not None
         assert run.params_json["validation_scope"] == "step1_only"
         assert run.params_json["sequencing_batch"] == "20260902A"
-        assert run.params_json["analysis_batch"] == "20260902A_STEP1_CANARY"
+        assert run.params_json["analysis_batch"] == "20260902A_STEP1_SDK_CANARY"
         assert (
             run.params_json["batch_no"]
-            == "WGS_20260902A_STEP1_CANARY_T7Hg38V4.1.1"
+            == "WGS_20260902A_STEP1_SDK_CANARY_T7Hg38V4.1.1"
         )
 
     assert airflow.calls[0]["conf"]["params"]["validation_scope"] == "step1_only"
@@ -156,7 +156,7 @@ def test_step1_canary_uses_an_isolated_analysis_batch(tmp_path: Path) -> None:
     assert len(runs) == 2
     assert canary["analysis_id"] != runs[0].analysis_id
     assert runs[0].params_json["analysis_batch"] == "20260902A"
-    assert runs[1].params_json["analysis_batch"] == "20260902A_STEP1_CANARY"
+    assert runs[1].params_json["analysis_batch"] == "20260902A_STEP1_SDK_CANARY"
 
 
 def test_automatic_submission_is_preapproved_and_never_restarts_a_failed_run(

@@ -367,7 +367,7 @@ def _catalog_run_spec(*, settings, project_id: str, platform: str, batch: str,
         raise ValueError("use_reference must be all, ref, or no")
     release = load_wgs_release_catalog(Path(settings.wgs_release_catalog_path)).release
     analysis_batch = (
-        f"{normalized_batch}_STEP1_CANARY"
+        f"{normalized_batch}_STEP1_SDK_CANARY"
         if validation_scope == "step1_only"
         else normalized_batch
     )
