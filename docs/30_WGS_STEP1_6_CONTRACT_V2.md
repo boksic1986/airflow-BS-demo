@@ -1,5 +1,18 @@
 # WGS Step1-6 Orchestration Contract v2
 
+## T206 Step2/Step3 dry-run validation
+
+Contract v2 adds a default-off `step3_dryrun` validation scope for one bounded
+control-plane canary. It uses the real Step1 receipt, Step2 Master identity,
+Kubernetes status, Snakemake logger, and Step3 terminal evidence, but freezes
+the generated batch contract to dry-run before submission. A verified run exits
+after Step3 and cannot authorize Step4, Step5, or Step6.
+
+The independent Heavy Slot acceptance uses the executor's real Kubernetes
+Lease implementation with 26 no-compute contenders. The quota unit remains one
+active high-I/O Worker Pod: 25 holders may acquire a slot and the 26th waits.
+This probe validates coordination only and does not create an analysis Job.
+
 ## T205 direct-upload startup
 
 The default Step1 SDK path starts network transfer after freezing the manifest

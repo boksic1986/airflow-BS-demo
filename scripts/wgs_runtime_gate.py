@@ -171,6 +171,62 @@ def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _atomic_yaml(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".partial",
+    )
+    temporary = Path(temporary_name)
+    try:
+        os.fchmod(descriptor, 0o644)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            yaml.safe_dump(payload, handle, sort_keys=False)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _freeze_validation_execution_mode(
+    payload: dict[str, Any], batch_root: Path
+) -> dict[str, Any] | None:
+    scope = payload.get("validation_scope")
+    if scope is None or scope == "step1_only":
+        return None
+    if scope != "step3_dryrun":
+        raise RuntimeError("unsupported WGS validation scope")
+    if not _truthy("WGS_STEP3_DRYRUN_CANARY_ENABLED"):
+        raise RuntimeError("Step3 dry-run canary is disabled on node200")
+    runtime_path = batch_root / "cce" / "BATCH_RUNTIME.yaml"
+    before = runtime_path.read_bytes()
+    runtime = yaml.safe_load(before)
+    workflow = runtime.get("workflow") if isinstance(runtime, dict) else None
+    if not isinstance(workflow, dict):
+        raise RuntimeError("BATCH_RUNTIME.yaml workflow is invalid")
+    current_mode = workflow.get("execution_mode", "analysis")
+    if current_mode not in {"analysis", "dry_run"}:
+        raise RuntimeError("BATCH_RUNTIME.yaml execution mode is invalid")
+    workflow["execution_mode"] = "dry_run"
+    _atomic_yaml(runtime_path, runtime)
+    after = runtime_path.read_bytes()
+    provenance = {
+        "schema_version": "wgs-runtime.validation-override.v1",
+        "analysis_id": payload["analysis_id"],
+        "attempt": payload["attempt"],
+        "validation_scope": scope,
+        "execution_mode_before": current_mode,
+        "execution_mode_after": "dry_run",
+        "runtime_sha256_before": hashlib.sha256(before).hexdigest(),
+        "runtime_sha256_after": hashlib.sha256(after).hexdigest(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _atomic_json(batch_root / "cce" / "VALIDATION_OVERRIDE.json", provenance)
+    return provenance
+
+
 def _write_status(
     payload: dict[str, Any], status: str, message: str = "", **details: Any
 ) -> bool:
@@ -432,6 +488,7 @@ def _run_prepare(payload: dict[str, Any]) -> None:
     ):
         raise RuntimeError("WGS analysis project root is unavailable or outside the approved batch path")
     subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
+    _freeze_validation_execution_mode(payload, expected_batch_root)
     _write_prepare_binding(payload)
 
 
@@ -461,6 +518,7 @@ def _run_prepare_analysis(payload: dict[str, Any]) -> None:
     if expected_batch_root != project_root / str(payload["batch_no"]):
         raise RuntimeError("WGS analysis batch path is outside the approved project root")
     subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
+    _freeze_validation_execution_mode(payload, expected_batch_root)
     _write_prepare_binding(payload)
 
 
@@ -504,6 +562,10 @@ def _write_prepare_binding(payload: dict[str, Any]) -> None:
         "resource_manifest_sha256": str(
             pipeline.get("resource_manifest_sha256") or ""
         ),
+        "execution_mode": str((runtime.get("workflow") or {}).get("execution_mode") or "analysis"),
+        "batch_runtime_sha256": hashlib.sha256(
+            (batch_root / "cce" / "BATCH_RUNTIME.yaml").read_bytes()
+        ).hexdigest(),
     }
     resolved_runtime.update(_resolved_runtime_controls(profile))
     analysis = runtime.get("analysis") if isinstance(runtime.get("analysis"), dict) else {}
@@ -649,6 +711,17 @@ def validate_step3_status(value: dict[str, Any]) -> dict[str, Any]:
         "percent": float(value.get("percent") or 0.0),
         "message": str(value.get("message") or ""),
     }
+    execution_mode = value.get("execution_mode")
+    if execution_mode is not None:
+        if execution_mode not in {"analysis", "dry_run"}:
+            raise ValueError("Step3 execution_mode is invalid")
+        result["execution_mode"] = execution_mode
+    for key in ("master_uid", "master_resource_version"):
+        item = value.get(key)
+        if item is not None:
+            if not isinstance(item, str) or not item.strip():
+                raise ValueError(f"Step3 {key} is invalid")
+            result[key] = item
     if result["completed"] < 0 or result["total"] < 0:
         raise ValueError("Step3 progress cannot be negative")
     return result

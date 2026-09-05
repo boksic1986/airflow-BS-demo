@@ -339,7 +339,9 @@ class WgsCatalogRunRequest(BaseModel):
     platform: str = Field(min_length=1, max_length=64)
     batch: str = Field(pattern="^[0-9]{8}[A-Z]$")
     fastq_root_id: str = Field(min_length=1, max_length=128)
-    validation_scope: str | None = Field(default=None, pattern="^step1_only$")
+    validation_scope: str | None = Field(
+        default=None, pattern="^(step1_only|step3_dryrun)$"
+    )
 
 
 class WgsConfigApprovalRequest(BaseModel):
@@ -799,12 +801,27 @@ def create_catalog_wgs_run(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"code": "FORBIDDEN", "message": str(exc)},
             ) from exc
-        if not _wgs_step1_canary_enabled():
+        gate_enabled = (
+            _wgs_step1_canary_enabled()
+            if request.validation_scope == "step1_only"
+            else _wgs_step3_dryrun_canary_enabled()
+        )
+        if not gate_enabled:
+            gate_code = (
+                "WGS_STEP1_CANARY_DISABLED"
+                if request.validation_scope == "step1_only"
+                else "WGS_STEP3_DRYRUN_CANARY_DISABLED"
+            )
+            gate_message = (
+                "The Step1-only validation gate is disabled."
+                if request.validation_scope == "step1_only"
+                else "The Step3 dry-run validation gate is disabled."
+            )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail={
-                    "code": "WGS_STEP1_CANARY_DISABLED",
-                    "message": "The Step1-only validation gate is disabled.",
+                    "code": gate_code,
+                    "message": gate_message,
                 },
             )
         if not _wgs_contract_v2_enabled():
@@ -812,7 +829,7 @@ def create_catalog_wgs_run(
                 status_code=status.HTTP_409_CONFLICT,
                 detail={
                     "code": "WGS_CONTRACT_V2_DISABLED",
-                    "message": "The Step1-only validation requires contract v2.",
+                    "message": "The validation canary requires contract v2.",
                 },
             )
     try:
@@ -1719,6 +1736,85 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     "status": "success",
                     "validation_result": "step1_upload_complete",
                 }
+            if stage_name == "finalize_step3_dryrun":
+                if not _wgs_step3_dryrun_canary_enabled():
+                    raise ValueError("Step3 dry-run canary is disabled")
+                if params.get("validation_scope") != "step3_dryrun":
+                    raise ValueError("run is not a Step3 dry-run canary")
+                step3 = session.scalar(
+                    select(WgsStageExecution)
+                    .where(
+                        WgsStageExecution.analysis_id == analysis_id,
+                        WgsStageExecution.attempt == request.attempt,
+                        WgsStageExecution.stage_code == "step3_monitor",
+                    )
+                    .order_by(WgsStageExecution.generation.desc())
+                    .limit(1)
+                )
+                evidence = dict(step3.terminal_payload_json or {}) if step3 else {}
+                master = evidence.get("master") if isinstance(evidence.get("master"), dict) else {}
+                if (
+                    step3 is None
+                    or step3.status != "success"
+                    or not step3.receipt_hash
+                    or evidence.get("master_job") in {None, ""}
+                    or evidence.get("namespace") in {None, ""}
+                    or master.get("execution_mode") != "dry_run"
+                    or master.get("master_state") != "SUCCEEDED"
+                    or master.get("master_uid") in {None, ""}
+                    or master.get("master_resource_version") in {None, ""}
+                ):
+                    raise ValueError(
+                        "Step3 dry-run has no exact successful Master identity evidence"
+                    )
+                finished_at = run.pipeline_finished_at or datetime.now(timezone.utc)
+                if finished_at.tzinfo is None:
+                    finished_at = finished_at.replace(tzinfo=timezone.utc)
+                params.update(
+                    {
+                        "validation_result": "step3_dryrun_complete",
+                        "validation_completed_at": finished_at.isoformat(),
+                        "step3_receipt_hash": step3.receipt_hash,
+                        "step3_master_uid": master["master_uid"],
+                        "step3_master_resource_version": master[
+                            "master_resource_version"
+                        ],
+                    }
+                )
+                run.params_json = params
+                run.status = "success"
+                run.current_stage = "finalize_step3_dryrun"
+                run.pipeline_finished_at = finished_at
+                run.ended_at = finished_at
+                run.progress_percent = 100
+                run.progress_updated_at = finished_at
+                run.error_summary = None
+                for sample in session.scalars(
+                    select(Sample).where(Sample.analysis_id == analysis_id)
+                ).all():
+                    sample.status = "skipped"
+                upsert_stage_state(
+                    session,
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                    stage_code="step3_dryrun_complete",
+                    stage_status="success",
+                    updated_at=finished_at,
+                    progress_available=True,
+                    progress_percent=100,
+                    completed_units=1,
+                    total_units=1,
+                    unit="validation",
+                    progress_source="step3-master-terminal-evidence",
+                )
+                session.commit()
+                return {
+                    "analysis_id": analysis_id,
+                    "attempt": request.attempt,
+                    "stage": stage_name,
+                    "status": "success",
+                    "validation_result": "step3_dryrun_complete",
+                }
             expected_command = f"wgs-runtime {analysis_id} {request.attempt} {stage_name}"
             if request.command != expected_command:
                 raise ValueError("runtime command does not match the registered stage")
@@ -1755,6 +1851,7 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 fastq_root=str(params.get("fastq_root") or "") or None,
                 use_reference=str(params.get("use_reference") or "") or None,
                 analysis_batch=str(params.get("analysis_batch") or "") or None,
+                validation_scope=str(params.get("validation_scope") or "") or None,
                 maintenance_action_id=request.maintenance_action_id,
             )
             contract_v2 = bool(getattr(settings, "wgs_contract_v2_enabled", False)) and int(
@@ -2477,6 +2574,15 @@ def _wgs_runtime_adapter_enabled() -> bool:
 
 def _wgs_step1_canary_enabled() -> bool:
     return os.getenv("WGS_STEP1_CANARY_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _wgs_step3_dryrun_canary_enabled() -> bool:
+    return os.getenv("WGS_STEP3_DRYRUN_CANARY_ENABLED", "false").strip().lower() in {
         "1",
         "true",
         "yes",

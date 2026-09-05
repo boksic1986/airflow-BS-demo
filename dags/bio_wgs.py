@@ -98,12 +98,18 @@ def validate_request(**context: Any) -> dict[str, Any]:
                 raise ValueError("continue_after_repair must be boolean")
     validation_scope = params.get("validation_scope")
     if validation_scope is not None:
-        if validation_scope != "step1_only":
+        if validation_scope not in {"step1_only", "step3_dryrun"}:
             raise ValueError("unsupported WGS validation scope")
-        if not _truthy("WGS_STEP1_CANARY_ENABLED"):
+        if validation_scope == "step1_only" and not _truthy(
+            "WGS_STEP1_CANARY_ENABLED"
+        ):
             raise ValueError("Step1 canary is disabled")
+        if validation_scope == "step3_dryrun" and not _truthy(
+            "WGS_STEP3_DRYRUN_CANARY_ENABLED"
+        ):
+            raise ValueError("Step3 dry-run canary is disabled")
         if not _truthy("WGS_CONTRACT_V2_ENABLED"):
-            raise ValueError("Step1 canary requires contract v2")
+            raise ValueError("WGS validation canary requires contract v2")
     return conf
 
 
@@ -112,6 +118,13 @@ def choose_after_step1(**context: Any) -> str:
     if params.get("validation_scope") == "step1_only":
         return "finalize_step1_canary"
     return "submit_step2_master"
+
+
+def choose_after_step3(**context: Any) -> str:
+    params = dict((context["dag_run"].conf or {}).get("params") or {})
+    if params.get("validation_scope") == "step3_dryrun":
+        return "finalize_step3_dryrun"
+    return "start_step4_publish"
 
 
 def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
@@ -558,6 +571,12 @@ with DAG(
         stage="step3_monitor",
         timeout_hours=120,
     )
+    choose_step3_exit = BranchPythonOperator(
+        task_id="choose_after_step3", python_callable=choose_after_step3
+    )
+    finalize_step3_dryrun = control_stage(
+        "finalize_step3_dryrun", stage="finalize_step3_dryrun"
+    )
     start_publish = runner_stage(
         "start_step4_publish", stage="step4_publish", timeout_hours=48
     )
@@ -601,6 +620,8 @@ with DAG(
     wait_config_approval >> prepare_analysis >> wait_prepare_analysis >> wait_execution_approval
     wait_execution_approval >> input_transfer >> choose_step1_exit
     choose_step1_exit >> [submit, finalize_step1_canary]
-    submit >> start_monitor >> wait_analysis >> start_publish >> wait_publish
+    submit >> start_monitor >> wait_analysis >> choose_step3_exit
+    choose_step3_exit >> [start_publish, finalize_step3_dryrun]
     wait_publish >> result_transfer >> materialize >> wait_materialize >> finalize >> release
     finalize_step1_canary >> release
+    finalize_step3_dryrun >> release

@@ -1,5 +1,22 @@
 # 05 API Contract
 
+## T206 admin-only Step2/Step3 dry-run scope
+
+`POST /api/wgs/runs` accepts the hidden exact value
+`validation_scope=step3_dryrun` only for an authenticated admin and only while
+`WGS_EXECUTION_ENABLED`, `WGS_RUNTIME_ADAPTER_ENABLED`,
+`WGS_CONTRACT_V2_ENABLED`, and `WGS_STEP3_DRYRUN_CANARY_ENABLED` are all true.
+The normal Submit UI does not expose this value.
+
+The scope follows the ordinary staged approval contract through Step1 upload,
+Step2 Master submission, and Step3 monitoring. The node200 prepare gate freezes
+`workflow.execution_mode=dry_run` into the run-local `BATCH_RUNTIME.yaml`; a
+browser request cannot set or change that mode. After Step3, the internal
+`finalize_step3_dryrun` stage accepts only the latest successful Step3
+generation with a receipt hash and exact Master Job, namespace, UID,
+resourceVersion, terminal success, and `execution_mode=dry_run`. It records
+`validation_result=step3_dryrun_complete` and makes Step4-Step6 unreachable.
+
 ## T203 admin-only Step1 validation scope
 
 `POST /api/wgs/runs` accepts the optional exact value

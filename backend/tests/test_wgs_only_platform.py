@@ -360,6 +360,84 @@ def test_finalize_step1_canary_requires_exact_successful_receipt(tmp_path, monke
     ]
 
 
+def test_step3_dryrun_submission_and_finalizer_require_exact_master_evidence(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    monkeypatch.setenv("WGS_STEP3_DRYRUN_CANARY_ENABLED", "true")
+    monkeypatch.setenv("WGS_CONTRACT_V2_ENABLED", "true")
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "admin", "admin-pass")
+    created = client.post(
+        "/api/wgs/runs",
+        headers=headers,
+        json={
+            "project_id": "WGS_Clinical",
+            "platform": "T7Hg38V4.1.1",
+            "batch": "20260902A",
+            "fastq_root_id": "T7_Fastq",
+            "validation_scope": "step3_dryrun",
+        },
+    )
+    assert created.status_code == 201, created.text
+    analysis_id = created.json()["analysis_id"]
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+    body = {"attempt": 1, "adapter": "wgs-runtime-200", "command": "control"}
+
+    missing = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_step3_dryrun",
+        headers=internal,
+        json=body,
+    )
+    assert missing.status_code == 400
+
+    with sessions.begin() as session:
+        session.add(
+            WgsStageExecution(
+                execution_id="wse_step3_dryrun",
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="step3_monitor",
+                generation=1,
+                status="success",
+                request_hash="3" * 64,
+                release_id="wgs-test",
+                receipt_hash="4" * 64,
+                evidence_type="wgs-runtime.stage-status.v1",
+                terminal_payload_json={
+                    "master_job": "cce-master-dryrun",
+                    "namespace": "snakemake-ns",
+                    "master": {
+                        "master_state": "SUCCEEDED",
+                        "execution_mode": "dry_run",
+                        "master_uid": "master-uid-1",
+                        "master_resource_version": "481",
+                    },
+                },
+            )
+        )
+
+    finalized = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_step3_dryrun",
+        headers=internal,
+        json=body,
+    )
+    assert finalized.status_code == 200, finalized.text
+    assert finalized.json()["validation_result"] == "step3_dryrun_complete"
+    workspace = client.get(f"/api/runs/{analysis_id}/workspace", headers=headers)
+    assert workspace.status_code == 200, workspace.text
+    assert workspace.json()["progress"]["stage_label"] == "Step3 dry-run passed"
+    assert [item["status"] for item in workspace.json()["progress"]["orchestration_stages"]] == [
+        "success",
+        "success",
+        "success",
+        "skipped",
+        "skipped",
+        "skipped",
+    ]
+
+
 def test_wgs_submission_draft_final_submit_is_idempotent(tmp_path, monkeypatch):
     monkeypatch.setenv("WGS_SUBMISSION_PREVIEW_ENABLED", "true")
     client, sessions, airflow = make_client(tmp_path, monkeypatch)

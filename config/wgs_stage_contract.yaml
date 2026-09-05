@@ -40,6 +40,11 @@ stages:
     predecessor: step2_master
     timeout_seconds: 432000
     evidence_type: kubernetes_and_terminal_marker
+  finalize_step3_dryrun:
+    label: Finalize Step3 dry-run validation
+    predecessor: step3_monitor
+    timeout_seconds: 120
+    evidence_type: kubernetes_and_terminal_marker
   step4_publish:
     label: Publish result manifest
     predecessor: step3_monitor

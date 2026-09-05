@@ -1,5 +1,15 @@
 # 08 Snakemake + qsub 接入设计
 
+## T206 WGS Snakemake dry-run evidence
+
+The WGS validation scope freezes `workflow.execution_mode=dry_run` after the
+normal run-local config is generated. cce-pipeline 0.8.2 then starts one Master
+and invokes Snakemake with `--dry-run --nolock --cores 1 --jobs 1` plus the
+existing logger. It must not run the normal analysis command or create worker
+analysis Jobs. The terminal marker and Step3 status include execution mode,
+Master UID, and resourceVersion so the backend can distinguish a verified
+dry-run from a real analysis or an Airflow-only success.
+
 ## T205 Step1 SDK checksum boundary
 
 The default contract-v2 Step1 transfer uses the OBS SDK. It freezes source

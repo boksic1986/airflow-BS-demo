@@ -1162,6 +1162,85 @@ def test_step3_transitional_status_without_master_is_not_an_ingest_error(
         assert stage.progress_available is False
 
 
+def test_step3_terminal_execution_freezes_dry_run_master_identity(
+    tmp_path: Path,
+) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    runtime = tmp_path / "runtime"
+    request_root = runtime / "runner-requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    master_job = "cce-master-0123456789abcdef0123"
+    write_runtime_binding(runtime, analysis_id, master_job=master_job)
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.params_json = {**run.params_json, "orchestration_contract_version": 2}
+        session.add(
+            WgsStageExecution(
+                execution_id="wse_step3_dryrun_terminal",
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="step3_monitor",
+                generation=1,
+                status="running",
+                request_hash="d" * 64,
+                release_id=RELEASE_ID,
+            )
+        )
+    (request_dir / "step3_monitor.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step3_monitor",
+                "status": "success",
+                "updated_at": "2026-09-06T01:00:00Z",
+                "orchestration_contract_version": 2,
+                "execution_id": "wse_step3_dryrun_terminal",
+                "generation": 1,
+                "request_hash": "d" * 64,
+                "master_job": master_job,
+                "namespace": "snakemake-ns",
+                "run_label": "cce-run-0123456789abcdef",
+                "master": {
+                    "master_state": "SUCCEEDED",
+                    "execution_mode": "dry_run",
+                    "master_uid": "master-uid-1",
+                    "master_resource_version": "481",
+                    "normal": True,
+                    "percent": 100,
+                    "completed": 0,
+                    "total": 12,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=request_root,
+        transfer_spool_root=runtime / "transfer-progress",
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="step3_monitor",
+    )
+
+    with sessions() as session:
+        execution = session.scalar(
+            select(WgsStageExecution).where(
+                WgsStageExecution.execution_id == "wse_step3_dryrun_terminal"
+            )
+        )
+        assert execution.status == "success"
+        assert execution.terminal_payload_json["master_job"] == master_job
+        assert execution.terminal_payload_json["master"]["execution_mode"] == "dry_run"
+        assert execution.terminal_payload_json["master"]["master_uid"] == "master-uid-1"
+
+
 def test_step3_accepts_cce_master_only_when_it_matches_frozen_binding(
     tmp_path: Path,
 ) -> None:

@@ -27,6 +27,7 @@ WGS_AUXILIARY_STAGES = (
     WgsStageDefinition("step4_repair_cram", 4, "Repairing CRAM linkage"),
     WgsStageDefinition("step7_cleanup", 7, "Cleaning WGS SFS workspace"),
     WgsStageDefinition("step1_canary_complete", None, "Step1 validation passed"),
+    WgsStageDefinition("step3_dryrun_complete", None, "Step3 dry-run passed"),
     WgsStageDefinition("final", None, "WGS workflow completed"),
 )
 
@@ -55,6 +56,7 @@ WGS_STAGE_ALIASES = {
     "materialize_step6_results": "step6_materialize",
     "finalize_run": "final",
     "finalize_step1_canary": "step1_canary_complete",
+    "finalize_step3_dryrun": "step3_dryrun_complete",
 }
 
 
@@ -78,9 +80,11 @@ def terminal_wgs_progress(
 ) -> dict[str, object]:
     """Return the terminal tracker payload from the shared WGS stage contract."""
 
-    stage = wgs_stage_definition(
-        "step1_canary_complete" if validation_scope == "step1_only" else "final"
-    )
+    terminal_stages = {
+        "step1_only": "step1_canary_complete",
+        "step3_dryrun": "step3_dryrun_complete",
+    }
+    stage = wgs_stage_definition(terminal_stages.get(validation_scope, "final"))
     return {
         "stage_code": stage.code,
         "step_number": stage.step_number,
@@ -90,7 +94,7 @@ def terminal_wgs_progress(
         "progress_percent": 100,
         "completed_units": 1,
         "total_units": 1,
-        "unit": "validation" if validation_scope == "step1_only" else "workflow",
+        "unit": "validation" if validation_scope else "workflow",
         "current_item": None,
         "speed_bps": None,
         "eta_seconds": 0,

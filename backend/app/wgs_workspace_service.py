@@ -64,9 +64,14 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
     ).all())
     raw_stage = str(run.current_stage or "created")
     validation_scope = str((run.params_json or {}).get("validation_scope") or "") or None
+    terminal_validation_stages = {
+        "step1_only": "step1_canary_complete",
+        "step3_dryrun": "step3_dryrun_complete",
+    }
     stage_code = (
-        "step1_canary_complete"
-        if validation_scope == "step1_only" and str(run.status or "").lower() == "success"
+        terminal_validation_stages[validation_scope]
+        if validation_scope in terminal_validation_stages
+        and str(run.status or "").lower() == "success"
         else canonical_wgs_stage(raw_stage, run.status)
     )
     stage_definition = wgs_stage_definition(stage_code)
@@ -160,6 +165,13 @@ def _workspace_stages(*, run_status: str | None, current_stage: str | None, stag
                 "success" if item["stage_code"] == "step1_upload" else "skipped"
             )
             item["completed_jobs"] = 1 if item["stage_code"] == "step1_upload" else 0
+    if validation_scope == "step3_dryrun" and str(run_status or "").lower() == "success":
+        completed = {"step1_upload", "step2_master", "step3_monitor"}
+        for item in items:
+            item["status"] = item["stage_status"] = (
+                "success" if item["stage_code"] in completed else "skipped"
+            )
+            item["completed_jobs"] = 1 if item["stage_code"] in completed else 0
     return items
 
 

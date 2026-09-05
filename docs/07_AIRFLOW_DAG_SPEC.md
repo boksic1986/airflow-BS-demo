@@ -1,5 +1,19 @@
 # 07 Airflow DAG 设计
 
+## T206 Step2/Step3 dry-run validation branch
+
+The hidden admin-only `step3_dryrun` scope follows the normal `bio_wgs` path
+through Step1, `submit_step2_master`, `start_step3_monitor`, and
+`wait_step3_analysis`. `choose_after_step3` then routes exclusively to
+`finalize_step3_dryrun`; `start_step4_publish` and every Step4-Step6 descendant
+are skipped. The branch is rejected unless contract v2 and the dedicated
+default-off Step3 dry-run gate are enabled.
+
+The finalizer does not trust Airflow task success by itself. It requires the
+latest append-only Step3 execution receipt plus the frozen Kubernetes Master
+identity and a terminal marker whose execution mode is `dry_run`. Historical
+run topology and the ordinary analysis branch remain unchanged.
+
 ## T203 Step1-only validation branch
 
 The production path remains unchanged. A new branch is evaluated only after

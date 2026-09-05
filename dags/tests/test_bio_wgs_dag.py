@@ -34,6 +34,8 @@ class BioWgsDagTests(unittest.TestCase):
                 "submit_step2_master",
                 "start_step3_monitor",
                 "wait_step3_analysis",
+                "choose_after_step3",
+                "finalize_step3_dryrun",
                 "start_step4_publish",
                 "wait_step4_publish",
                 "result_transfer.acquire_obs_transfer_slot",
@@ -74,7 +76,11 @@ class BioWgsDagTests(unittest.TestCase):
         )
         self.assertEqual(
             dag.get_task("release_leases").upstream_task_ids,
-            {"finalize_run", "finalize_step1_canary"},
+            {"finalize_run", "finalize_step1_canary", "finalize_step3_dryrun"},
+        )
+        self.assertEqual(
+            dag.get_task("choose_after_step3").downstream_task_ids,
+            {"finalize_step3_dryrun", "start_step4_publish"},
         )
 
     def test_step1_canary_is_fail_closed_and_branches_before_master(self) -> None:
@@ -124,6 +130,50 @@ class BioWgsDagTests(unittest.TestCase):
         self.assertEqual(
             bio_wgs.choose_after_step1(**context), "submit_step2_master"
         )
+
+    def test_step3_dryrun_is_gated_and_branches_after_master(self) -> None:
+        conf = {
+            "analysis_id": "WGS_20260906_123456_A1B2C3",
+            "pipeline": "wgs",
+            "execution_mode": "cce",
+            "attempt": 1,
+            "workdir": "/data/wgs-results/runs/WGS_20260906_123456_A1B2C3",
+            "params": {
+                "project_name": "clinical-wgs",
+                "batch_no": "BATCH-DRYRUN",
+                "fq_path": "/data/wgs-intake/BATCH-DRYRUN",
+                "pipeline_release_id": "wgs-4.1.1-1656b5d",
+                "wgs_version": "V4.1.1",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
+                "validation_scope": "step3_dryrun",
+            },
+        }
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+
+        with patch.dict(
+            "os.environ",
+            {
+                "WGS_STEP3_DRYRUN_CANARY_ENABLED": "false",
+                "WGS_CONTRACT_V2_ENABLED": "true",
+            },
+        ):
+            with self.assertRaisesRegex(ValueError, "Step3 dry-run canary is disabled"):
+                bio_wgs.validate_request(**context)
+        with patch.dict(
+            "os.environ",
+            {
+                "WGS_STEP3_DRYRUN_CANARY_ENABLED": "true",
+                "WGS_CONTRACT_V2_ENABLED": "true",
+            },
+        ):
+            self.assertEqual(bio_wgs.validate_request(**context), conf)
+            self.assertEqual(bio_wgs.choose_after_step1(**context), "submit_step2_master")
+            self.assertEqual(
+                bio_wgs.choose_after_step3(**context), "finalize_step3_dryrun"
+            )
+
+        conf["params"].pop("validation_scope")
+        self.assertEqual(bio_wgs.choose_after_step3(**context), "start_step4_publish")
 
     def test_validate_requires_server_bound_release_identity(self) -> None:
         conf = {

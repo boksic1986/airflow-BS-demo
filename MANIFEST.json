@@ -1,6 +1,6 @@
 {
     "created_at":  "2026-07-15T13:06:34+08:00",
-    "file_count":  328,
+    "file_count":  332,
     "files":  [
                   ".agents/skills/airflow-dag-dev/SKILL.md",
                   ".agents/skills/airflow-demo-planning/SKILL.md",
@@ -183,6 +183,8 @@
                   "docs/frontend-spec.md",
                   "docs/superpowers/specs/2026-07-13-nipt-yaml-intake-design.md",
                   "docs/superpowers/specs/2026-07-14-bs-wgs-s9-platform-design.md",
+                  "docs/superpowers/plans/2026-09-06-wgs-step2-step3-dryrun-heavy-slot.md",
+                  "docs/superpowers/specs/2026-09-06-wgs-step2-step3-dryrun-heavy-slot-design.md",
                   "frontend/.dockerignore",
                   "frontend/Dockerfile",
                   "frontend/Dockerfile.runtime-overlay",
@@ -319,6 +321,8 @@
                   "scripts/package_bs_platform_images.sh",
                   "scripts/package_nipt_1_1_11.sh",
                   "scripts/tests/test_build_pgta_s9_validation_subset.py",
+                  "scripts/tests/test_wgs_heavy_slot_probe.py",
+                  "scripts/wgs_heavy_slot_probe.py",
                   "scripts/wgs_ssh_gate.sh",
                   "SERVER_INFO.md",
                   "shared/.gitkeep",

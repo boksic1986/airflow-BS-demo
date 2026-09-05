@@ -1,5 +1,29 @@
 # TASKS.md
 
+## T206 - WGS Step2/Step3 dry-run and Heavy Slot validation
+
+Owner: backend/Airflow/runtime/CCE/QA/docs
+
+Status: in progress on the BS10610 test control plane; production remains disabled
+
+Acceptance:
+- [ ] Add an admin-only `validation_scope=step3_dryrun` guarded by contract v2
+  and a dedicated default-off gate.
+- [ ] Run one synthetic trio through Step1, Step2 Master and Step3 Snakemake
+  dry-run, then finalize without making Step4-6 reachable.
+- [ ] Persist exact Master identity, logger evidence and a terminal marker that
+  proves `execution_mode=dry_run`.
+- [ ] Validate the 25-Worker-Pod Heavy Slot quota with 26 no-compute Lease
+  contenders: 25 acquired and one waiting.
+- [ ] Restore every gate, DAG pause state, runtime config and shared test
+  environment; pass backend, DAG, runtime and cce-pipeline regressions.
+
+Restrictions:
+- BS10610 test control plane only; do not modify `.96` production.
+- Keep scanner and auto-dispatch disabled.
+- Do not create WGS analysis Worker Pods or enter Step4-6.
+- Delete only exact canary OBS/Kubernetes/test resources after evidence capture.
+
 ## T205 - Step1 OBS SDK direct-upload startup
 
 Owner: CCE/runtime/Airflow/QA/docs

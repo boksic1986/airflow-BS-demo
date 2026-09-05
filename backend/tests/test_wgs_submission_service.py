@@ -159,6 +159,36 @@ def test_step1_canary_uses_an_isolated_analysis_batch(tmp_path: Path) -> None:
     assert runs[1].params_json["analysis_batch"] == "20260902A_STEP1_SDK_CANARY"
 
 
+def test_step3_dryrun_uses_an_isolated_analysis_batch(tmp_path: Path) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    settings = SimpleNamespace(
+        wgs_project_catalog_path=str(Path(__file__).parents[2] / "config" / "wgs_projects.yaml"),
+        wgs_release_catalog_path=str(Path(__file__).parents[2] / "config" / "wgs_releases.yaml"),
+        host_results_root=str(tmp_path / "results"),
+        container_shared_root=str(tmp_path / "shared"),
+    )
+    airflow = RecordingAirflow()
+
+    with sessions() as session:
+        result = create_and_submit_run(
+            session=session,
+            settings=settings,
+            airflow_client=airflow,
+            username="admin",
+            project_id="WGS_Clinical",
+            platform="T7",
+            batch="20260902A",
+            fastq_root_id="T7_Fastq",
+            validation_scope="step3_dryrun",
+        )
+
+    assert result["params"]["validation_scope"] == "step3_dryrun"
+    assert result["params"]["analysis_batch"] == "20260902A_STEP3_DRYRUN_CANARY"
+    assert airflow.calls[0]["conf"]["params"]["validation_scope"] == "step3_dryrun"
+
+
 def test_automatic_submission_is_preapproved_and_never_restarts_a_failed_run(
     tmp_path: Path,
 ) -> None:

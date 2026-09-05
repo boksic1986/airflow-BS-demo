@@ -65,6 +65,7 @@ def build_stage_request(
     predecessor_execution_id: str | None = None,
     predecessor_generation: int | None = None,
     predecessor_receipt_hash: str | None = None,
+    validation_scope: str | None = None,
 ) -> dict[str, object]:
     if ANALYSIS_ID_RE.fullmatch(analysis_id) is None:
         raise ValueError("invalid WGS analysis_id")
@@ -125,6 +126,10 @@ def build_stage_request(
         if str(use_reference) not in {"all", "ref", "no"}:
             raise ValueError("use_reference must be all, ref, or no")
         payload["use_reference"] = str(use_reference)
+    if validation_scope is not None:
+        if validation_scope not in {"step1_only", "step3_dryrun"}:
+            raise ValueError("unsupported WGS validation scope")
+        payload["validation_scope"] = validation_scope
     if stage == "step7_cleanup":
         if not maintenance_action_id or SAFE_COMPONENT_RE.fullmatch(maintenance_action_id) is None:
             raise ValueError("Step7 cleanup requires a valid maintenance_action_id")

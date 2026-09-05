@@ -497,6 +497,26 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
     retry_no = payload.get("retry_no", 0)
     if type(retry_no) is not int or retry_no < 0:
         raise ValueError("runtime stage retry_no must be a nonnegative integer")
+    terminal_payload = {"retry_no": retry_no}
+    if stage == "step3_monitor":
+        master = payload.get("master")
+        if isinstance(master, dict):
+            terminal_payload["master"] = {
+                key: master.get(key)
+                for key in (
+                    "master_state",
+                    "execution_mode",
+                    "master_uid",
+                    "master_resource_version",
+                    "normal",
+                    "completed",
+                    "total",
+                    "percent",
+                )
+            }
+        for key in ("master_job", "namespace", "run_label"):
+            if payload.get(key) not in {None, ""}:
+                terminal_payload[key] = payload[key]
     heartbeat = datetime.fromisoformat(
         str(payload.get("updated_at") or "").replace("Z", "+00:00")
     )
@@ -533,7 +553,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 receipt_hash=terminal_receipt_hash,
                 evidence_type="wgs-runtime.stage-status.v1",
                 evidence_key=str(resolved.relative_to(request_root)),
-                terminal_payload={"retry_no": retry_no},
+                terminal_payload=terminal_payload,
                 message=str(payload.get("message") or "") or None,
             ):
                 return False

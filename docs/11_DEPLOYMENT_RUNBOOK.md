@@ -1,5 +1,34 @@
 # 11 部署 Runbook
 
+## T206 Step2/Step3 dry-run canary
+
+Use only the BS10610 test control plane. Confirm no active WGS run, keep intake
+and auto-dispatch disabled, pause `bio_wgs`, and capture current release, gate,
+runtime, DAG, OBS, and Kubernetes inventories before deployment.
+
+1. Deploy the candidate with every execution gate false. Install the isolated
+   provenance-bearing cce-pipeline 0.8.2 runtime and atomically update the
+   node200 gate, retaining exact rollback copies.
+2. Prepare one isolated three-sample family table. Replace only the six links
+   inside its `STEP3_DRYRUN_CANARY` analysis directory with deterministic small
+   paired FASTQ files; never edit the production FASTQ links or source files.
+3. Enable execution, runtime adapter, contract v2, and only
+   `WGS_STEP3_DRYRUN_CANARY_ENABLED`. Unpause only `bio_wgs`, create one hidden
+   `validation_scope=step3_dryrun` request, and complete the two normal approval
+   gates.
+4. Require six verified Step1 file receipts, one exact Step2 Master identity,
+   `execution_mode=dry_run`, a successful Snakemake graph build, no Worker
+   analysis Job, and terminal `step3_dryrun_complete`. Step4-Step6 must be
+   skipped.
+5. Run the repo-owned 26-contender quota probe against the real namespace. It
+   must report 25 unique acquired Leases, one waiting contender, and zero
+   remaining holders after exact release. The probe never creates Jobs or
+   Pods.
+6. Capture evidence, delete only the exact canary OBS prefix and test Master,
+   pause the DAG, restore all gate/runtime values, and rerun regressions. Never
+   touch production `.96`, database volumes, source FASTQ, or unrelated CCE
+   resources.
+
 ## T205 Step1 SDK direct-upload canary
 
 Use the T203 Step1-only safety procedure, but require the cce-pipeline runtime

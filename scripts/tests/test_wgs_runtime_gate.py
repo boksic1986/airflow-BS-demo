@@ -449,6 +449,60 @@ def test_step3_status_contract_is_strict_and_master_only() -> None:
         gate.validate_step3_status({"normal": True})
 
 
+def test_step3_status_preserves_dry_run_master_identity() -> None:
+    gate = load_gate()
+
+    value = gate.validate_step3_status(
+        {
+            "master_state": "SUCCEEDED",
+            "normal": True,
+            "completed": 0,
+            "total": 12,
+            "percent": 100.0,
+            "message": "dry-run complete",
+            "execution_mode": "dry_run",
+            "master_uid": "master-uid-1",
+            "master_resource_version": "481",
+        }
+    )
+
+    assert value["execution_mode"] == "dry_run"
+    assert value["master_uid"] == "master-uid-1"
+    assert value["master_resource_version"] == "481"
+
+
+def test_step3_validation_freezes_no_compute_mode_with_provenance(
+    tmp_path: Path, monkeypatch
+) -> None:
+    if sys.platform == "win32":
+        pytest.skip("directory fsync is validated on the Linux runtime host")
+    gate = load_gate()
+    cce = tmp_path / "batch" / "cce"
+    cce.mkdir(parents=True)
+    runtime = cce / "BATCH_RUNTIME.yaml"
+    runtime.write_text(
+        yaml.safe_dump({"schema_version": 2, "workflow": {"engine": "snakemake"}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("WGS_STEP3_DRYRUN_CANARY_ENABLED", "true")
+
+    result = gate._freeze_validation_execution_mode(
+        {
+            "analysis_id": "WGS_20260906_123456_A1B2C3",
+            "attempt": 1,
+            "validation_scope": "step3_dryrun",
+        },
+        tmp_path / "batch",
+    )
+
+    assert yaml.safe_load(runtime.read_text(encoding="utf-8"))["workflow"][
+        "execution_mode"
+    ] == "dry_run"
+    assert result["execution_mode_before"] == "analysis"
+    assert result["runtime_sha256_before"] != result["runtime_sha256_after"]
+    assert (cce / "VALIDATION_OVERRIDE.json").is_file()
+
+
 def test_step3_output_uses_last_json_record_after_kubectl_messages() -> None:
     gate = load_gate()
     parsed = gate.parse_step3_status_output(

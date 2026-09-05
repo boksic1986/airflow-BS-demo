@@ -20,6 +20,8 @@ EXPECTED_TASKS = {
     "submit_step2_master",
     "start_step3_monitor",
     "wait_step3_analysis",
+    "choose_after_step3",
+    "finalize_step3_dryrun",
     "start_step4_publish",
     "wait_step4_publish",
     "result_transfer.acquire_obs_transfer_slot",
