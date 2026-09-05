@@ -19,6 +19,17 @@ rows after a rolling deployment; older heartbeat and generation protection are
 unchanged. The two exact canary OBS objects were verified absent without
 touching unrelated objects. `bio_wgs` is paused, all six BS gates are false,
 node200 is restored to its disabled runtime, and no active WGS run remains.
+The `wgs-intake-scanner` service is explicitly stopped; leaving its disabled
+one-shot process under `restart: unless-stopped` would otherwise create an
+unnecessary restart loop.
+
+Final BS10610 verification used an isolated container environment rather than
+the live backend environment. It passed backend pytest `357 passed, 1 skipped`,
+runtime script pytest `69 passed`, and Airflow DAG suites `15 + 4`. Compose
+rendering, Airflow import, backend health and frontend HTTP all passed. A fresh
+test-image build was unavailable because the configured Docker Hub mirror did
+not resolve, so the tests used the existing dependency-bearing backend and
+Airflow images with the final release source mounted read-only.
 
 The first SDK progress callback arrived only after cce-pipeline finished
 checksumming the 128.6 GB frozen input. A follow-up should expose this interval

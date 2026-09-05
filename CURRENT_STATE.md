@@ -28,6 +28,12 @@ runtime, contract, canary, dispatch and intake gates are false, and node200 was
 restored to its disabled runtime configuration. No production `.96` service or
 shared production WGS environment was modified.
 
+validation: isolated backend pytest passed `357 passed, 1 skipped`; runtime
+script pytest passed `69 passed`; Airflow DAG tests passed `15 + 4`; Compose
+rendering and Airflow import checks passed; frontend and backend returned HTTP
+200. The disabled scanner container is explicitly stopped rather than left in
+a restart loop. The final K8s lookup again found no generated Master Job.
+
 diagnostics: attempt 1 exposed an untraceable source checkout; attempt 2 exposed
 the WGS production-package root guard. Neither reached Step1. The accepted
 attempt used a provenance-bearing wheel and explicit validated CLI. Transfer
