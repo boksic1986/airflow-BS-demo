@@ -1,5 +1,19 @@
 # 07 Airflow DAG 设计
 
+## T205 shared-NFS stage generation visibility
+
+Step4 and Step5 start tasks wait for the exact retry generation returned by
+the restricted node200 runner before completing. The bounded visibility window
+is 120 seconds because a successful sidecar status marker can require more than
+30 seconds to become visible on the `.96` NFS client. A marker from an older
+retry generation is never accepted. This wait does not create a new DagRun,
+attempt, transfer or CCE job.
+
+Final `release_leases` is idempotent when the single OBS transfer slot is
+already owned by another active WGS run. It leaves that foreign lease intact
+and returns `released=false`; stage-specific release tasks retain strict owner
+and transfer identity checks.
+
 ## T204 generic shared-NFS request visibility retry
 
 After the backend atomically registers a runtime request, node200 can surface

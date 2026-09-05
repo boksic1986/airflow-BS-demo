@@ -985,6 +985,59 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     ]
 
 
+def test_final_lease_cleanup_does_not_release_another_active_run(
+    tmp_path, monkeypatch
+):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+
+    first = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "clinical-wgs",
+            "execution_mode": "cce",
+            "batch_no": "BATCH-LEASE-1",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    second = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "clinical-wgs",
+            "execution_mode": "cce",
+            "batch_no": "BATCH-LEASE-2",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    request = {"attempt": 1, "adapter": "wgs-runtime-200", "command": "control"}
+
+    acquired = client.post(
+        f"/api/internal/wgs/runs/{first['analysis_id']}/stages/acquire_result_transfer_slot",
+        headers=internal,
+        json=request,
+    )
+    cleanup = client.post(
+        f"/api/internal/wgs/runs/{second['analysis_id']}/stages/release_leases",
+        headers=internal,
+        json=request,
+    )
+
+    assert acquired.status_code == 200
+    assert cleanup.status_code == 200, cleanup.text
+    assert cleanup.json()["released"] is False
+    with sessions() as session:
+        lease = session.scalar(select(ObsTransferLease))
+        assert lease.analysis_id == first["analysis_id"]
+        assert lease.attempt == 1
+
+
 def test_finalize_run_records_immutable_business_completion_time(tmp_path, monkeypatch):
     client, sessions, _ = make_client(tmp_path, monkeypatch)
     headers = login(client, "operator", "operator-pass")

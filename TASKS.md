@@ -1,10 +1,40 @@
 # TASKS.md
 
+## T205 - Shared runtime ownership and two-batch tail recovery
+
+Owner: backend/Airflow/runtime/QA/docs
+
+Status: completed and deployed on `.96`; both recovered DagRuns are success
+
+Acceptance:
+- [x] Prove the two control-plane failures from exact Airflow logs and preserve
+  successful WGS Master computation.
+- [x] Add a failing regression and make existing correctly-grouped shared
+  request directories writable without owner-only metadata changes.
+- [x] Correct root-owned runner-request artifacts to `ctapa:bioinfo` without
+  changing collector-owned metric spools or analysis results.
+- [x] Make final lease cleanup leave a foreign active transfer lease intact;
+  keep stage-specific release ownership strict.
+- [x] Extend exact Step4/Step5 retry-generation visibility to a bounded 120
+  seconds, without creating duplicate attempts, workers, transfers or jobs.
+- [x] Recover `20260904B` by rerunning only the failed final lease task after
+  Step6, its sensor and finalize reached success.
+- [x] Observe terminal Step5-Step6/finalize success for `20260903A`, then load
+  the DAG update into the Airflow control services.
+- [x] Pass the complete `.96` backend and DAG suites and preserve the production
+  network, database, volumes and single published endpoint.
+
+Restrictions:
+- Do not rerun either successful CCE Master or Step1-Step4.
+- Do not release another run's active OBS transfer lease.
+- Do not modify PostgreSQL/Redis volumes, source FASTQ, OBS data or unrelated
+  batch directories.
+
 ## T204 - ctapa production runtime migration and 20260904B recovery
 
 Owner: airflow/runtime/infra/QA/docs
 
-Status: deployed on `.96`; `20260904B` attempt 3 in progress
+Status: completed on `.96`; `20260904B` attempt 3 terminal success under T205
 
 Acceptance:
 - [x] Reproduce the `20260904B` prepare failure and prove the shared-NFS
@@ -24,8 +54,7 @@ Acceptance:
   preserve executable wrapper modes.
 - [x] Regenerate `20260904B` sampleinfo and analysis configuration in the new
   root, import three samples, and start Step1 with an immutable transfer plan.
-- [ ] Observe terminal Step1-Step6 success for `20260904B`; do not infer final
-  workflow success from the currently running upload.
+- [x] Observe terminal Step1-Step6 and finalize success for `20260904B`.
 
 Restrictions:
 - Do not sync the pending T194/cce-pipeline application update into this

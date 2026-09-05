@@ -205,7 +205,12 @@ def acquire_obs_transfer_slot(*, session: Session, analysis_id: str, attempt: in
 
 
 def release_obs_transfer_slot(
-    *, session: Session, analysis_id: str, attempt: int, transfer_id: str | None = None
+    *,
+    session: Session,
+    analysis_id: str,
+    attempt: int,
+    transfer_id: str | None = None,
+    ignore_foreign_owner: bool = False,
 ) -> bool:
     slot = session.scalar(
         select(ObsTransferLease)
@@ -215,6 +220,8 @@ def release_obs_transfer_slot(
     if slot is None or slot.analysis_id is None:
         return False
     if slot.analysis_id != analysis_id or slot.attempt != attempt:
+        if ignore_foreign_owner:
+            return False
         raise ValueError("OBS transfer lease belongs to another WGS attempt")
     if transfer_id is not None and slot.transfer_id != transfer_id:
         raise ValueError("OBS transfer lease identifies another transfer")

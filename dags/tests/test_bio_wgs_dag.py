@@ -375,6 +375,37 @@ class BioWgsDagTests(unittest.TestCase):
         assert result["runner_status"] == "accepted"
         assert len([path for path in calls if "stage-status" in path]) == 2
 
+    def test_stage_generation_wait_tolerates_slow_shared_nfs_visibility(self) -> None:
+        status_calls = 0
+        clock = iter(range(0, 80))
+        original_backend = bio_wgs._backend_json
+        original_monotonic = bio_wgs.time.monotonic
+        original_sleep = bio_wgs.time.sleep
+        try:
+            def backend(_path, **_kwargs):
+                nonlocal status_calls
+                status_calls += 1
+                if status_calls <= 35:
+                    return {"status": "success", "retry_no": 0}
+                return {"status": "success", "retry_no": 1}
+
+            bio_wgs._backend_json = backend
+            bio_wgs.time.monotonic = lambda: next(clock)
+            bio_wgs.time.sleep = lambda _seconds: None
+
+            bio_wgs._wait_for_registered_stage_generation(
+                analysis_id="WGS_20260830_010203_A1B2C3",
+                attempt=1,
+                stage="step4_publish",
+                expected_retry_no=1,
+            )
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs.time.monotonic = original_monotonic
+            bio_wgs.time.sleep = original_sleep
+
+        assert status_calls == 36
+
     def test_step5_start_waits_past_stale_failed_status_from_previous_generation(self) -> None:
         calls = []
         conf = {"analysis_id": "WGS_20260830_010203_A1B2C3", "attempt": 1}

@@ -48,6 +48,7 @@ class BackendTransportUnavailable(RuntimeError):
 
 RUNNER_REQUEST_VISIBILITY_ATTEMPTS = 5
 RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS = 1.0
+STAGE_GENERATION_VISIBILITY_TIMEOUT_SECONDS = 120.0
 
 
 def _runner_request_not_yet_visible(completed: subprocess.CompletedProcess[str]) -> bool:
@@ -237,7 +238,7 @@ def _wait_for_registered_stage_generation(
     attempt: int,
     stage: str,
     expected_retry_no: int,
-    timeout_seconds: float = 30.0,
+    timeout_seconds: float = STAGE_GENERATION_VISIBILITY_TIMEOUT_SECONDS,
 ) -> None:
     """Do not expose a failed status from a previous async worker generation."""
     deadline = time.monotonic() + timeout_seconds

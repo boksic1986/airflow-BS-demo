@@ -1,5 +1,75 @@
 # HANDOFF.md
 
+## 2026-09-06 - Codex - T205 shared-runtime ownership and batch recovery
+
+### Outcome
+
+The failures in `20260904B` and `20260903A` were control-plane handoff defects,
+not failed WGS computation. Existing runner-request attempt directories had
+been created by root before the production backend moved to UID 6801. The
+backend unconditionally repeated `chown/chmod`, so ctapa could not register a
+later stage even when the shared group and mode were already correct. The
+adapter now changes directory metadata only when it differs. Exact root-owned
+runner-request content was changed in place to `ctapa:bioinfo`; analysis output
+was already ctapa-owned and the separate collector-owned node metric spool was
+left untouched.
+
+`20260903A` also exposed real shared-NFS metadata latency: node200 completed a
+Step4 retry, but `.96` did not observe its new retry generation within the old
+30-second control-task window. Step4/Step5 now wait up to 120 seconds for the
+exact returned generation. Old generations never satisfy the gate, and the
+wait cannot create another DagRun, attempt, transfer worker or CCE job.
+
+The single OBS transfer slot revealed a separate final-cleanup race.
+`release_leases` for a completed run used to fail if another run had already
+acquired the slot. Final cleanup is now an idempotent no-op in that case and
+does not release the foreign lease. The stage-specific input/result release
+operations remain strict.
+
+`WGS_20260905_083318_5E5D8C-a3` (`20260904B`) retained its completed Step1-Step5
+work, reran only Step6 and its final tail, and is now terminal Airflow success.
+`WGS_20260905_141052_4C1BC0-a1` (`20260903A`) retained the same successful
+Master and Step4 output and resumed only the Step5 tail with its frozen transfer
+plan. It downloaded 11/11 files and 139480385339/139480385339 bytes, then
+completed Step6, `wait_step6_materialize`, finalize and lease release. Both
+exact DagRuns are terminal success. Do not clear or recreate Step1-Step4 for
+either run.
+
+### Verification
+
+- New ownership regression: failed before the adapter fix, passed afterward.
+- Foreign-lease cleanup regression: HTTP 400 before the fix, passed afterward
+  while retaining the first run's lease.
+- Slow retry-generation regression: failed at 30 seconds before the fix and
+  passed with the bounded 120-second window.
+- Complete `.96` backend suite: `343 passed, 1 skipped`.
+- Complete `.96` DAG suite: `15 passed`.
+- Public health: `GET /api/health` returned `status=ok`.
+- `20260904B`: Step6 sensor, finalize and release task all success; DagRun
+  success.
+- `20260903A`: frozen Step5 plan 11/11 and exact byte total complete; Step6
+  sensor, finalize and release task all success; DagRun success.
+
+### Deployment and rollback
+
+Active release:
+`/data/airflow-WGS/releases/20260906-wgs-4.1.1-6c98281-t205-stage-owner-visibility-r1`.
+The backend is recreated with the existing production image because `/app` is
+the release bind mount; an image rebuild attempt was blocked by external mirror
+DNS and was not required for this Python-only patch. It remains UID/GID
+`6801:520` on `nipt_analysis_test_net` (`192.168.199.0/24`). After Airflow
+reported no running WGS DagRuns, only api-server, scheduler and worker were
+recreated to load the DAG change. The short-lived
+stray default-Compose network created during diagnosis had no attachments and
+was removed immediately. PostgreSQL, Redis, volumes and CCE workloads were not
+recreated.
+
+Rollback is the previous release pointer
+`/data/airflow-WGS/releases/20260906-wgs-4.1.1-6c98281-t205-stage-owner-compat-r1`
+plus recreation of only backend and, after the DAG update is loaded, the three
+Airflow control services. Do not use Docker prune, volume deletion or a broad
+filesystem rollback.
+
 ## 2026-09-05 - Codex - T204 ctapa runtime migration
 
 ### Outcome

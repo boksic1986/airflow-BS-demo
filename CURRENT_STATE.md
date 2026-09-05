@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-06 T205 WGS shared-runtime ownership and tail recovery
+
+```text
+incident: 20260904B failed at Step6 registration after the backend identity changed from root to ctapa, and 20260903A was falsely failed when a successful Step4 retry marker took more than 30 seconds to become visible through shared NFS. Neither failure was a biological WGS/Master failure.
+ownership_fix: existing runner-request directories that already have gid 520 and mode 2770 no longer receive unnecessary owner-only chown/chmod calls. All root-owned runner-request artifacts were corrected in place to UID 6801/GID 520; result files remain ctapa-owned. The collector-owned node metric spool is intentionally unchanged.
+lease_fix: final release_leases is idempotent when the single OBS transfer slot belongs to another active run. It returns released=false and preserves the foreign lease, while input/result stage-specific release calls still enforce exact owner and transfer identity.
+nfs_fix: Step4/Step5 start tasks now allow a bounded 120-second window for the exact retry generation to become visible. Older retry generations remain invalid and no duplicate worker, transfer, CCE job, attempt or DagRun is created.
+recovery: 20260904B AnalysisRun WGS_20260905_083318_5E5D8C attempt 3 completed Step6, wait_step6_materialize and finalize, then its isolated release_leases retry completed. 20260903A AnalysisRun WGS_20260905_141052_4C1BC0 attempt 1 retained its successful Master and publish result, completed its original frozen-plan Step5 download, then completed Step6, its terminal sensor, finalize and lease release. Both exact Airflow DagRuns are success; neither reran Step1-Step4 or its CCE Master.
+deployment: current -> /data/airflow-WGS/releases/20260906-wgs-4.1.1-6c98281-t205-stage-owner-visibility-r1. The backend is live as 6801:520 on nipt_analysis_test_net. After Airflow reported no active WGS runs, only api-server, scheduler and worker were recreated to load the DAG visibility-window update.
+validation: focused regressions were observed red before the fixes and green after them. The complete .96 backend suite passed 343 tests with 1 skipped; the complete DAG suite passed 15 tests. Public health is OK and both recovered batches are terminal success.
+```
+
 ## 2026-09-05 T204 ctapa production runtime migration
 
 ```text
@@ -10,7 +22,7 @@ ownership: the WGS backend now runs as required WGS_RUNTIME_UID 6801 with shared
 dag_fix: node200 may report the generic registered runtime request is missing error while shared NFS metadata converges. bio_wgs now applies the existing bounded five-attempt retry to that exact error as well as the path-bearing FileNotFoundError; other SSH/runtime failures remain fail closed.
 deployment: current -> /data/airflow-WGS/releases/20260905-wgs-4.1.1-6c98281-t204-ctapa-owner-r2. Only services affected by the SSH identity, runtime/result mounts or DAG were recreated; frontend-nginx was restarted after backend DNS changed. PostgreSQL, Redis, volumes and CCE workloads were preserved.
 validation: focused DAG suite 14/14 and WGS Compose contract suite 8/8 passed in the .96 images; Compose renders backend user 6801:520; an ephemeral backend-created result directory was owned 6801:520 and removed; the result tree has zero root-owned entries. DAG import errors are empty; public health is OK; ctapa SSH succeeds on node200/.96/.97; node and SFS metric spools are healthy; nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1 and only 172.17.61.96:12959 is published.
-20260904B: AnalysisRun WGS_20260905_083318_5E5D8C attempt 3 regenerated sampleinfo and the new analysis directory and imported 3 samples. Step1 upload through Step4 publish are terminal success; Step5 download is running. Final Step5-Step6 acceptance remains in progress.
+20260904B: AnalysisRun WGS_20260905_083318_5E5D8C attempt 3 regenerated sampleinfo and the new analysis directory and imported 3 samples. Its Step5-Step6 tail and finalization were subsequently recovered under T205; the DagRun is terminal success.
 ```
 
 ## 2026-09-04 T192 production Docker test-artifact cleanup

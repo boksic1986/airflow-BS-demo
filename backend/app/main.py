@@ -1519,6 +1519,7 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     analysis_id=analysis_id,
                     attempt=request.attempt,
                     transfer_id=transfer_id,
+                    ignore_foreign_owner=stage_name == "release_leases",
                 )
                 return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "released", "released": released}
             if stage_name == "finalize_run":
