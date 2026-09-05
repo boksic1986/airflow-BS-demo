@@ -71,7 +71,11 @@ from app.wgs_timing_service import enrich_progress, serialize_rule_states
 from app.wgs_workspace_service import build_wgs_workspace
 from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_definitions
 from app.wgs_runtime_adapter import build_stage_request, container_workdir_to_host, write_stage_request
-from app.wgs_observer import sync_runtime_stage_artifacts, upsert_stage_state
+from app.wgs_observer import (
+    RUNTIME_ARTIFACT_STAGES,
+    sync_runtime_stage_artifacts,
+    upsert_stage_state,
+)
 from app.wgs_observer_lifecycle import activate_observer, request_observer_drain
 from app.wgs_t7_intake import get_wgs_t7_scanner_state, list_wgs_t7_intake
 from app.wgs_sample_projection import get_wgs_sample_projection
@@ -1861,6 +1865,18 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 contract = load_wgs_stage_contract(
                     Path(settings.wgs_stage_contract_path)
                 )
+                if (
+                    request.force_new_generation
+                    and stage_name in RUNTIME_ARTIFACT_STAGES
+                ):
+                    sync_runtime_stage_artifacts(
+                        session_factory=get_sessionmaker(),
+                        request_root=Path(settings.wgs_runtime_request_root),
+                        transfer_spool_root=Path(settings.wgs_transfer_spool_root),
+                        analysis_id=analysis_id,
+                        attempt=request.attempt,
+                        stage=stage_name,
+                    )
                 if stage_name == "step3_monitor":
                     sync_runtime_stage_artifacts(
                         session_factory=get_sessionmaker(),
