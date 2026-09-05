@@ -16,4 +16,13 @@ set -a
 source "${runtime_env}"
 set +a
 
+# Airflow invokes this wrapper by its absolute path. In that mode ssh exports
+# the full remote command as SSH_ORIGINAL_COMMAND, while the validated command
+# is already present in argv. Keep SSH_ORIGINAL_COMMAND only for an
+# authorized_keys forced-command invocation, where the wrapper receives no
+# positional arguments.
+if (( $# > 0 )); then
+    unset SSH_ORIGINAL_COMMAND
+fi
+
 exec "${WGS_PYTHON}" "${runtime_gate}" "$@"

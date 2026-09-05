@@ -34,6 +34,8 @@ def test_hanjj_forced_command_uses_private_runtime_environment() -> None:
     assert 'config_dir="/home/hanjj/.config/airflow-wgs"' in source
     assert 'runtime_env="${config_dir}/runtime.env"' in source
     assert 'runtime_gate="${config_dir}/wgs_runtime_gate.py"' in source
+    assert 'if (( $# > 0 )); then' in source
+    assert 'unset SSH_ORIGINAL_COMMAND' in source
     assert 'exec "${WGS_PYTHON}" "${runtime_gate}" "$@"' in source
     assert "/home/chenjc" not in source
 
