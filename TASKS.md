@@ -4,8 +4,7 @@
 
 Owner: backend/Airflow/runtime/QA/docs
 
-Status: in progress; implementation and regression tests complete, controlled
-BS10610 runtime canary pending
+Status: completed on the BS10610 test control plane; production remains disabled
 
 Acceptance:
 - [x] Add an admin-only, exact `validation_scope=step1_only` request guarded by
@@ -15,9 +14,9 @@ Acceptance:
 - [x] Project terminal state as `Step1 validation passed`; later WGS stages are
   skipped rather than falsely successful.
 - [x] Pass backend, DAG and Compose regression tests on BS10610.
-- [ ] Run one `20260902A` single-sample/two-FASTQ canary and verify SDK
+- [x] Run one `20260902A` single-sample/two-FASTQ canary and verify SDK
   per-file/aggregate progress, database/API/UI projection and source integrity.
-- [ ] Prove no Step2 Master or CCE analysis was created, clean only the exact
+- [x] Prove no Step2 Master or CCE analysis was created, clean only the exact
   canary OBS objects, and restore all gates plus DAG pause state.
 
 Restrictions:

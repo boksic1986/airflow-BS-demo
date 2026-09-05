@@ -1,5 +1,30 @@
 # HANDOFF.md
 
+## 2026-09-05 - Codex - T203 Airflow Step1 OBS SDK canary complete
+
+The BS10610 test run `WGS_20260905_094849_373238-a3` completed the admin-only
+Step1 validation branch with one sample, two FASTQ files and
+128,567,092,797 frozen bytes. Both file states reached success/verified and the
+business run records `step1_upload_complete`. Airflow skipped Step2-Step6 and
+the generated Master Job was absent from Kubernetes.
+
+The accepted cce-pipeline runtime is 0.8.2 commit `98ce7bed...`, built as wheel
+SHA256 `760ecca7...`, selected through the test-only `CCE_PIPELINE_BIN` override.
+The shared production WGS environment was not modified. Two earlier attempts
+are retained as diagnostics: source checkout provenance rejection, then the
+production-package root guard. Neither uploaded data or created a Master.
+
+Code also permits an equal-heartbeat transfer snapshot to backfill missing file
+rows after a rolling deployment; older heartbeat and generation protection are
+unchanged. The two exact canary OBS objects were verified absent without
+touching unrelated objects. `bio_wgs` is paused, all six BS gates are false,
+node200 is restored to its disabled runtime, and no active WGS run remains.
+
+The first SDK progress callback arrived only after cce-pipeline finished
+checksumming the 128.6 GB frozen input. A follow-up should expose this interval
+as `Checksumming inputs` so an operator does not mistake valid preflight work
+for a stalled upload.
+
 ## 2026-09-05 - Codex - cce-pipeline 0.8.2 contract-v2 refresh
 
 ### Outcome

@@ -17,6 +17,11 @@ deployment.
    Set `WGS_ANALYSIS_PROJECT_NODE200_ROOT` to the writable node200 test view
    `/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical` while
    keeping `WGS_RESULTS_HOST_ROOT` as the BS10610 Docker bind-mount path.
+   If the canary uses an isolated provenance-bearing cce-pipeline wheel, set
+   `CCE_PIPELINE_BIN` to its absolute executable. The executable, sibling
+   Python entry and imported package must share one isolated runtime prefix so
+   WGS package validation can verify version and commit. Leave this variable
+   empty in production to retain the approved WGS environment default.
 4. Unpause only `bio_wgs`. As an admin, create one catalog run with the exact
    hidden field `validation_scope=step1_only`, then complete the existing
    config and execution approvals.
@@ -25,8 +30,14 @@ deployment.
    no Step2 Master/CCE Job. A missing receipt is a failed canary.
 6. Record API/UI evidence, source immutability and transfer checks. Delete only
    the exact canary OBS objects after evidence is complete and verify absence.
-7. Pause `bio_wgs`, return all four execution/canary gates to false, restore
-   the original node200 runtime gates, and verify no active run remains.
+7. Pause `bio_wgs`; return execution, runtime adapter, contract-v2, Step1
+   canary, automatic dispatch and intake scan gates to false; restore the
+   original node200 runtime gates; and verify no active run remains.
+
+The first SDK callback may be delayed while cce-pipeline computes the frozen
+input checksums. Confirm the worker is reading the selected FASTQ files before
+classifying this interval as stalled; transfer bytes begin only after that
+preflight completes.
 
 Rollback is to pause the DAG, disable the canary/execution/runtime/contract-v2
 gates and repoint `current` to the previous release. Never delete databases,

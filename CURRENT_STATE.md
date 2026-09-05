@@ -1,5 +1,39 @@
 # CURRENT_STATE.md
 
+## 2026-09-05 T203 Airflow-integrated Step1 OBS SDK canary
+
+scope: BS10610 test control plane only; `20260902A` was reduced to one sample
+and two FASTQ files under
+`/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical`. Step2 and
+all downstream analysis stages were intentionally unreachable.
+
+runtime: cce-pipeline `0.8.2` was rebuilt from test branch commit
+`98ce7bedad573beca9417d1572c6ce40f1fa401c`; wheel SHA256 is
+`760ecca73ba0601fc8dccdc3edb8249c9ff28c8f2309b31fa73a8329d29d7cec`.
+The isolated wheel is selected with `CCE_PIPELINE_BIN`; the production default
+under `/bi/software/mamba/envs/WGS` was not overwritten.
+
+canary: `WGS_20260905_094849_373238` attempt 3 and Airflow DagRun
+`WGS_20260905_094849_373238-a3` completed successfully. The frozen denominator
+was 2 files and 128,567,092,797 bytes. Both file rows reached 100 percent with
+checksum status `verified`; the Step1 execution has a terminal receipt hash and
+the run records `validation_result=step1_upload_complete`.
+
+safety: Airflow task `submit_step2_master` and all Step3-Step6 tasks were
+skipped. The generated Master name did not exist in Kubernetes. Source file
+size, mtime and inode were unchanged after the read-only transfer. The two
+exact canary OBS objects were verified absent through the private OBS endpoint;
+no unrelated objects were touched. `bio_wgs` is paused, all BS execution,
+runtime, contract, canary, dispatch and intake gates are false, and node200 was
+restored to its disabled runtime configuration. No production `.96` service or
+shared production WGS environment was modified.
+
+diagnostics: attempt 1 exposed an untraceable source checkout; attempt 2 exposed
+the WGS production-package root guard. Neither reached Step1. The accepted
+attempt used a provenance-bearing wheel and explicit validated CLI. Transfer
+preflight currently spends several minutes checksumming both files before SDK
+callback progress starts; a future UI should label this state separately.
+
 ## 2026-09-05 T194-T200 cce-pipeline 0.8.2 integration refresh
 
 ```text

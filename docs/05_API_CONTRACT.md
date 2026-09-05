@@ -24,6 +24,10 @@ and never creates a Step2 Master. Missing or stale Step1 evidence returns a
   sample, family, and phase plus `limit/offset`; default limit is 50.
 - `GET /api/transfers/{transfer_id}/files` returns paged privacy-safe file
   progress. It never returns full OBS URIs, credentials, or server paths.
+- A transfer snapshot with the same heartbeat may idempotently backfill missing
+  or stale file rows left by a rolling deployment. Older heartbeats still
+  cannot overwrite aggregate or file progress, and generation fencing remains
+  mandatory.
 - `GET /api/runs/{analysis_id}/progress` reads terminal runs from biodemo only.
   Airflow task-instance REST is reserved for active runs or explicit operator
   Sync.

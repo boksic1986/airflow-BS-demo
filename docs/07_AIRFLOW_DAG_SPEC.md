@@ -19,6 +19,11 @@ latest Step1 generation is terminal success with a receipt hash. This mode is
 for controlled transfer integration tests and cannot be selected in the
 normal browser submission flow.
 
+The accepted BS10610 canary used one sample/two FASTQ files. Its Step1 branch
+finished with an exact receipt, `finalize_step1_canary` succeeded, and
+`submit_step2_master` plus Step3-Step6 were skipped. Skipped tasks are the
+intentional validation branch, not missing workflow monitoring.
+
 ## T194-T200 `bio_wgs` contract v2
 
 The task graph remains Step1 through Step6. `wgs_obs_transfer` serializes
