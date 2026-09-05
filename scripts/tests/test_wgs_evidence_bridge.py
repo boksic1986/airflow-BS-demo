@@ -110,6 +110,41 @@ def test_live_workload_sync_uses_run_label_and_resource_version_cursor(tmp_path:
     assert all("wgs.biosan.cn/run-id=cce-run-0123456789abcdef" in command for command in seen_commands)
 
 
+def test_live_workload_sync_accepts_cce_pipeline_master_label(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = load_module()
+    manifest = tmp_path / "master.yaml"
+    manifest.write_text(
+        "metadata:\n  labels:\n    cce.biosan.cn/run-id: cce-run-0123456789abcdef\n",
+        encoding="utf-8",
+    )
+    seen_commands = []
+
+    def fake_run(command, *, input_text=None):
+        seen_commands.append(command)
+        return {"items": []}
+
+    monkeypatch.setattr(module, "_run_json", fake_run)
+
+    assert module._sync_workload_snapshots(
+        config={
+            "kubernetes": {
+                "kubectl_bin": "kubectl",
+                "kubeconfig": "/safe/config",
+            }
+        },
+        namespace="snakemake-ns",
+        master_job="wgs-master-one",
+        master_manifest=manifest,
+        output=tmp_path / "out",
+    ) == 0
+    assert all(
+        "wgs.biosan.cn/run-id=cce-run-0123456789abcdef" in command
+        for command in seen_commands
+    )
+
+
 def test_rule_chunks_append_complete_lines_per_stream_and_resume(tmp_path: Path) -> None:
     module = load_module()
     output = tmp_path / "evidence"

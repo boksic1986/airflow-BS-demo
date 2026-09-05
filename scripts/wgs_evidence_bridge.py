@@ -310,7 +310,11 @@ def _sync_workload_snapshots(
     """Project Master and run-bound work Jobs without exposing pod names."""
     manifest = yaml.safe_load(master_manifest.read_text(encoding="utf-8"))
     labels = (manifest.get("metadata") or {}).get("labels") or {}
-    run_label = str(labels.get("wgs.biosan.cn/run-id") or "")
+    run_label = str(
+        labels.get("cce.biosan.cn/run-id")
+        or labels.get("wgs.biosan.cn/run-id")
+        or ""
+    )
     if not re.fullmatch(r"cce-run-[0-9a-f]{16}", run_label):
         raise ValueError("Master manifest is missing its opaque CCE run label")
     cursor_path = output / ".workload-snapshot-cursor.json"
