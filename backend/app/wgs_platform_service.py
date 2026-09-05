@@ -242,8 +242,16 @@ def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> in
     )
     batch_root = resolve_bound_wgs_batch_root(
         binding=value,
-        node_analysis_root=settings.wgs_results_host_root,
-        local_analysis_root=settings.host_results_root,
+        node_analysis_root=getattr(
+            settings,
+            "wgs_analysis_project_node200_root",
+            settings.wgs_results_host_root,
+        ),
+        local_analysis_root=getattr(
+            settings,
+            "wgs_analysis_project_container_root",
+            settings.host_results_root,
+        ),
     )
     sampleinfo = batch_root / "sampleinfo.tsv"
     if not sampleinfo.is_file() or sampleinfo.is_symlink():
@@ -289,7 +297,13 @@ def sync_sampleinfo_preview(*, session: Session, settings, run: AnalysisRun) -> 
     """Import the safe sample/family projection produced before analysis prepare."""
     params = dict(run.params_json or {})
     sampleinfo = (
-        Path(settings.host_results_root).resolve()
+        Path(
+            getattr(
+                settings,
+                "wgs_analysis_project_container_root",
+                settings.host_results_root,
+            )
+        ).resolve()
         / "sampleinfo"
         / f"{params['batch_no']}.sampleinfo.txt"
     )

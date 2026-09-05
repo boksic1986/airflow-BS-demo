@@ -122,6 +122,7 @@ projects:
         wgs_runtime_bs_root=str(tmp_path / "runtime"),
         wgs_runtime_node200_root=str(tmp_path / "node200-runtime"),
         wgs_results_host_root=str(tmp_path / "results"),
+        wgs_analysis_project_container_root=str(tmp_path / "analysis-project"),
         wgs_binding_root=str(tmp_path / "bindings"),
         wgs_intake_container_root=str(tmp_path),
         wgs_intake_host_root=str(tmp_path),
@@ -1945,7 +1946,7 @@ def test_prepare_sampleinfo_stage_status_imports_preview_samples(
 
     sampleinfo = (
         tmp_path
-        / "results"
+        / "analysis-project"
         / "sampleinfo"
         / "WGS_20260825A_T7Hg38V4.1.1.sampleinfo.txt"
     )
@@ -2097,7 +2098,9 @@ def test_prepare_analysis_status_waits_for_final_sampleinfo_nfs_visibility(
         )
         assert run.params_json["submission_phase"] == "preparing_analysis"
 
-    final_sampleinfo = tmp_path / "results" / batch_name / "sampleinfo.tsv"
+    final_sampleinfo = (
+        tmp_path / "analysis-project" / batch_name / "sampleinfo.tsv"
+    )
     final_sampleinfo.parent.mkdir(parents=True)
     final_sampleinfo.write_text(
         "样本编号\t数据编号\t家系编号\t家系关系\t样本类型\t性别\t上机批次\n"
