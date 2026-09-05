@@ -10,7 +10,11 @@ from sqlalchemy.pool import StaticPool
 from app.models import AnalysisRun, Base, WgsStageExecution
 from app.wgs_observer import upsert_stage_state
 from app.wgs_stage_catalog import StageContractError, load_wgs_stage_contract
-from app.wgs_stage_execution_service import register_stage_execution, transition_stage_execution
+from app.wgs_stage_execution_service import (
+    WgsStagePredecessorPending,
+    register_stage_execution,
+    transition_stage_execution,
+)
 from app.wgs_workspace_service import _heavy_slot_waiting_count
 
 
@@ -86,7 +90,7 @@ def test_stage_execution_is_idempotent_and_requires_exact_successful_predecessor
         prepare = register_stage_execution(session=session, run=run, contract=contract, stage_code="prepare_sampleinfo", request_payload={"batch": "A"}, now=now)
         duplicate = register_stage_execution(session=session, run=run, contract=contract, stage_code="prepare_sampleinfo", request_payload={"batch": "A"}, now=now)
         assert duplicate.execution_id == prepare.execution_id
-        with pytest.raises(ValueError, match="predecessor"):
+        with pytest.raises(WgsStagePredecessorPending, match="predecessor"):
             register_stage_execution(session=session, run=run, contract=contract, stage_code="prepare_analysis", request_payload={"batch": "A"}, now=now)
         transition_stage_execution(session=session, execution_id=prepare.execution_id, generation=1, status="running", observed_at=now + timedelta(seconds=1))
         transition_stage_execution(session=session, execution_id=prepare.execution_id, generation=1, status="success", observed_at=now + timedelta(seconds=2), receipt_hash="a" * 64, evidence_type="terminal_marker", evidence_key="prepare.status.json")
@@ -94,6 +98,35 @@ def test_stage_execution_is_idempotent_and_requires_exact_successful_predecessor
         assert analysis.predecessor_execution_id == prepare.execution_id
         assert analysis.predecessor_generation == 1
         assert analysis.predecessor_receipt_hash == "a" * 64
+
+
+def test_force_retry_reuses_an_active_identical_stage_generation() -> None:
+    factory = sessions()
+    add_run(factory)
+    contract = load_wgs_stage_contract(contract_path())
+    now = datetime(2026, 9, 4, 4, 0, tzinfo=timezone.utc)
+    with factory.begin() as session:
+        run = session.scalar(select(AnalysisRun))
+        first = register_stage_execution(
+            session=session,
+            run=run,
+            contract=contract,
+            stage_code="prepare_sampleinfo",
+            request_payload={"batch": "A"},
+            now=now,
+        )
+        retried = register_stage_execution(
+            session=session,
+            run=run,
+            contract=contract,
+            stage_code="prepare_sampleinfo",
+            request_payload={"batch": "A"},
+            now=now + timedelta(seconds=1),
+            force_new_generation=True,
+        )
+
+        assert retried.execution_id == first.execution_id
+        assert retried.generation == 1
 
 
 def test_old_generation_event_cannot_override_new_projection() -> None:

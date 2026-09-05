@@ -372,6 +372,45 @@ class BioWgsDagTests(unittest.TestCase):
         self.assertEqual(sleeps, [1.0])
         self.assertTrue(calls[-1].endswith("/observer/activate"))
 
+    def test_stage_registration_retries_only_while_predecessor_receipt_is_pending(
+        self,
+    ) -> None:
+        calls = []
+        sleeps = []
+        conf = {"analysis_id": "WGS_20260905_210104_739143", "attempt": 4}
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        replies = iter(
+            (
+                bio_wgs.BackendStagePredecessorPending("step2 pending"),
+                bio_wgs.BackendStagePredecessorPending("step2 pending"),
+                {"status": "registered", "generation": 2},
+            )
+        )
+        original_backend = bio_wgs._backend_json
+        original_sleep = bio_wgs.time.sleep
+        original_enabled = bio_wgs._require_runtime_enabled
+
+        def backend(path, **kwargs):
+            calls.append((path, kwargs))
+            reply = next(replies)
+            if isinstance(reply, Exception):
+                raise reply
+            return reply
+
+        try:
+            bio_wgs._require_runtime_enabled = lambda: None
+            bio_wgs._backend_json = backend
+            bio_wgs.time.sleep = lambda seconds: sleeps.append(seconds)
+            result = bio_wgs.register_stage("step3_monitor", **context)
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs.time.sleep = original_sleep
+            bio_wgs._require_runtime_enabled = original_enabled
+
+        self.assertEqual(result["generation"], 2)
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(sleeps, [5.0, 5.0])
+
     def test_runner_failure_preserves_remote_stdout_and_ssh_stderr(self) -> None:
         conf = {"analysis_id": "WGS_20260903_062828_0858DC", "attempt": 1}
         context = {"dag_run": type("DagRun", (), {"conf": conf})()}
