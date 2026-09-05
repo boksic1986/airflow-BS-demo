@@ -93,3 +93,14 @@ def test_runtime_dag_has_exact_topology_and_reschedule_sensors() -> None:
     assert all(dag.get_task(task_id).mode == "reschedule" for task_id in sensors)
     assert dag.max_active_runs == 4
     assert dag.is_paused_upon_creation is True
+    assert dag.get_task("wait_step4_publish").upstream_task_ids == {
+        "start_step4_publish"
+    }
+    assert (
+        dag.get_task("input_transfer.release_obs_transfer_slot").trigger_rule
+        == "all_done"
+    )
+    assert (
+        dag.get_task("result_transfer.release_obs_transfer_slot").trigger_rule
+        == "all_done"
+    )

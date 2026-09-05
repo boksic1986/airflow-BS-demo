@@ -432,13 +432,18 @@ def _require_runtime_enabled() -> None:
 
 
 def control_stage(
-    task_id: str, *, stage: str, pool: str | None = None
+    task_id: str,
+    *,
+    stage: str,
+    pool: str | None = None,
+    trigger_rule: TriggerRule = TriggerRule.ALL_SUCCESS,
 ) -> PythonOperator:
     return PythonOperator(
         task_id=task_id,
         python_callable=register_stage,
         op_kwargs={"stage": stage},
         pool=pool,
+        trigger_rule=trigger_rule,
         execution_timeout=timedelta(minutes=2),
     )
 
@@ -550,7 +555,9 @@ with DAG(
             "wait_step1_upload", stage="step1_upload", timeout_hours=48
         )
         input_release = control_stage(
-            "release_obs_transfer_slot", stage="release_input_transfer_slot"
+            "release_obs_transfer_slot",
+            stage="release_input_transfer_slot",
+            trigger_rule=TriggerRule.ALL_DONE,
         )
         input_lease >> input_upload >> input_wait >> input_release
 
@@ -599,7 +606,9 @@ with DAG(
             "wait_step5_download", stage="step5_download", timeout_hours=48
         )
         result_release = control_stage(
-            "release_obs_transfer_slot", stage="release_result_transfer_slot"
+            "release_obs_transfer_slot",
+            stage="release_result_transfer_slot",
+            trigger_rule=TriggerRule.ALL_DONE,
         )
         result_lease >> result_download >> result_wait >> result_release
 
@@ -619,9 +628,12 @@ with DAG(
     validate >> prepare_sampleinfo >> wait_prepare_sampleinfo >> wait_config_approval
     wait_config_approval >> prepare_analysis >> wait_prepare_analysis >> wait_execution_approval
     wait_execution_approval >> input_transfer >> choose_step1_exit
+    input_wait >> choose_step1_exit
     choose_step1_exit >> [submit, finalize_step1_canary]
     submit >> start_monitor >> wait_analysis >> choose_step3_exit
     choose_step3_exit >> [start_publish, finalize_step3_dryrun]
+    start_publish >> wait_publish
     wait_publish >> result_transfer >> materialize >> wait_materialize >> finalize >> release
+    result_wait >> materialize
     finalize_step1_canary >> release
     finalize_step3_dryrun >> release

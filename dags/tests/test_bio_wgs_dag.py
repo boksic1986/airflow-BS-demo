@@ -82,6 +82,32 @@ class BioWgsDagTests(unittest.TestCase):
             dag.get_task("choose_after_step3").downstream_task_ids,
             {"finalize_step3_dryrun", "start_step4_publish"},
         )
+        self.assertEqual(
+            dag.get_task("wait_step4_publish").upstream_task_ids,
+            {"start_step4_publish"},
+        )
+        self.assertEqual(
+            dag.get_task("input_transfer.release_obs_transfer_slot").trigger_rule,
+            "all_done",
+        )
+        self.assertEqual(
+            dag.get_task("result_transfer.release_obs_transfer_slot").trigger_rule,
+            "all_done",
+        )
+        self.assertEqual(
+            dag.get_task("choose_after_step1").upstream_task_ids,
+            {
+                "input_transfer.wait_step1_upload",
+                "input_transfer.release_obs_transfer_slot",
+            },
+        )
+        self.assertEqual(
+            dag.get_task("materialize_step6_results").upstream_task_ids,
+            {
+                "result_transfer.wait_step5_download",
+                "result_transfer.release_obs_transfer_slot",
+            },
+        )
 
     def test_step1_canary_is_fail_closed_and_branches_before_master(self) -> None:
         conf = {
