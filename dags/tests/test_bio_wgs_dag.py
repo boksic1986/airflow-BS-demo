@@ -200,11 +200,7 @@ class BioWgsDagTests(unittest.TestCase):
             {
                 "returncode": 1,
                 "stdout": "",
-                "stderr": (
-                    "FileNotFoundError: [Errno 2] No such file or directory: "
-                    "'/sg2/runtime/runner-requests/WGS_20260903_111456_397777/"
-                    "attempt-1/step3_monitor.json'"
-                ),
+                "stderr": "ValueError: registered runtime request is missing",
             },
         )()
         accepted = type(

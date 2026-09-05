@@ -1,5 +1,16 @@
 # 07 Airflow DAG 设计
 
+## T204 generic shared-NFS request visibility retry
+
+After the backend atomically registers a runtime request, node200 can surface
+either a path-bearing `FileNotFoundError` or the gate's generic
+`registered runtime request is missing` message while NFS metadata converges.
+Both exact forms use the existing one-second, five-invocation bounded retry in
+`run_stage_on_200`. The generic match is intentionally exact: identity,
+permission, command, CCE, OBS and biological workflow errors still fail
+immediately. The retry never creates another AnalysisRun, DagRun, attempt or
+runtime worker.
+
 ## T188 Step6 terminal barrier
 
 `materialize_step6_results` only registers the asynchronous node200 request.

@@ -1,5 +1,40 @@
 # 11 部署 Runbook
 
+## T204 ctapa production runtime cutover
+
+The active production identity is `ctapa`. Keep its private SSH material only
+under the server-local `WGS_SSH_KEY_HOST_ROOT`; never place it in a release,
+image, log or database. The active roots are:
+
+```text
+WGS_RESULTS_HOST_ROOT=/sg2/50.ctapa/project/HWcloud/WGS_Clinical
+WGS_RUNTIME_HOST_ROOT=/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime
+WGS_RUNTIME_BS_ROOT=/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime
+WGS_RUNTIME_NODE200_ROOT=/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime
+WGS_RUNNER_200_COMMAND=/home/ctapa/.config/airflow-wgs/forced-command.sh
+```
+
+node200 keeps the active runtime/CCE configuration under `/home/ctapa`. The
+real OBS binary is `/bi/software/obsutil_5.8.3/obsutil`; the configured wrapper
+`wgs_obsutil_progress.py` must remain mode 0700. The shared `nipttest` Python
+must load the production PyMongo 4.10.1 compatibility overlay from the
+ctapa-owned HWcloud runtime path; verify its version and a read-only Mongo ping
+without modifying the shared environment.
+
+Before switching, require zero nonterminal WGS DagRuns, validate the candidate
+key fingerprint and SSH to node200/.96/.97, run the focused DAG tests, Compose
+config and fixed-network check, then verify both runtime roots from `.96`.
+Recreate only backend, the three Airflow services, scanner, node probe and
+metrics collector; restart frontend-nginx after backend recreation to refresh
+Docker DNS. Do not recreate PostgreSQL, Redis, volumes or unrelated services.
+
+After cutover, require an empty DAG import-error list, public health OK, both
+metric spools, scanner `submitted=0` for already registered ready batches, and
+the external network `192.168.199.0/24` with only
+`172.17.61.96:12959` published. Stop only the exact old production `hanjj` SFS
+collector; do not stop the separate test collector or delete historical
+configuration/results.
+
 ## T192 production Docker image cleanup
 
 On `.96`, treat `airflow-wgs` as one production Compose stack, not one Docker

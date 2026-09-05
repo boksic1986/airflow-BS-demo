@@ -1,5 +1,60 @@
 # HANDOFF.md
 
+## 2026-09-05 - Codex - T204 ctapa runtime migration
+
+### Outcome
+
+Production execution on `.96` now authenticates to node200 with the dedicated
+`ctapa` key supplied out of band. The same identity was verified against
+node200, `.96` and `.97`, so the node-health probe no longer needs the old
+`hanjj` key either. Active node200 configuration is under `/home/ctapa`; WGS
+analysis and control roots are respectively
+`/sg2/50.ctapa/project/HWcloud/WGS_Clinical` and
+`/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime`. The old production SFS
+collector was stopped; the separate test collector was not touched.
+
+The first `20260904B` attempt failed because node200 briefly could not see the
+newly registered NFS request. The DAG regression now uses the exact generic
+`ValueError: registered runtime request is missing` message, and the bounded
+five-attempt runner retry recognizes it without broadening retry behavior for
+other SSH/runtime errors.
+
+Two migration-only defects were then exposed and corrected without changing
+shared software: the `nipttest` Python lost its existing PyMongo 4.10.1
+compatibility overlay at the new root, and the OBS progress wrapper lost mode
+0700. The overlay was copied to the ctapa-owned path, MongoDB ping succeeded,
+the wrapper mode was restored, and the real client was verified as
+`/bi/software/obsutil_5.8.3/obsutil` 5.8.3. Failed runtime sidecars were
+preserved under history before the exact Step1 tail was recovered.
+
+`WGS_20260905_083318_5E5D8C-a3` is the clean recovery attempt. It regenerated
+`20260904B` sampleinfo and the analysis directory, imported three samples,
+passed sampleinfo/config prepare and started Step1. Its immutable upload plan
+contains six files and 422050455733 bytes. Do not call the run successful until
+Step1-Step6 and `finalize_run` are terminal success.
+
+### Verification
+
+- `.96` Airflow-image DAG tests: 14 passed.
+- Airflow DAG import errors: none.
+- Public `/api/health`: `status=ok`.
+- `ctapa` SSH: node200, `.96` and `.97` all succeeded.
+- node and SFS metric spools: both visible after service cutover.
+- scanner after restart: four ready rows linked to existing AnalysisRuns,
+  `submitted=0`; no duplicate automatic run was created.
+- Docker network: `192.168.199.0/24`, gateway `192.168.199.1`; only
+  `172.17.61.96:12959` is published.
+
+### Deployment and rollback
+
+Active release:
+`/data/airflow-WGS/releases/20260905-wgs-4.1.1-6c98281-t204-ctapa-runtime-r1`.
+The prior environment file remains mode-restricted as
+`/data/airflow-WGS/env/production.env.pre-t204`. Rollback requires stopping the
+new run first, restoring that environment and the prior release pointer, then
+recreating only the same affected services. Never delete volumes or use Docker
+prune/down-v.
+
 ## 2026-09-04 - Codex - T192 production Docker cleanup
 
 ### Outcome

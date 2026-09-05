@@ -1,5 +1,36 @@
 # TASKS.md
 
+## T204 - ctapa production runtime migration and 20260904B recovery
+
+Owner: airflow/runtime/infra/QA/docs
+
+Status: deployed on `.96`; `20260904B` attempt 3 in progress
+
+Acceptance:
+- [x] Reproduce the `20260904B` prepare failure and prove the shared-NFS
+  request visibility race from the exact Airflow log and runtime request.
+- [x] Add a failing DAG regression for the generic registered-request-missing
+  message, then pass the focused DAG suite in the `.96` Airflow image.
+- [x] Install and validate the user-provided `ctapa` SSH identity outside the
+  release without printing or committing private material.
+- [x] Move active node200 runtime, CCE, OBS and SFS collector configuration to
+  `/home/ctapa` and stop the old production `hanjj` collector.
+- [x] Move production analysis/runtime roots to
+  `/sg2/50.ctapa/project/HWcloud`, retaining fixed network and port boundaries.
+- [x] Keep `/bi/software/obsutil_5.8.3/obsutil` as the real OBS client and
+  preserve executable wrapper modes.
+- [x] Regenerate `20260904B` sampleinfo and analysis configuration in the new
+  root, import three samples, and start Step1 with an immutable transfer plan.
+- [ ] Observe terminal Step1-Step6 success for `20260904B`; do not infer final
+  workflow success from the currently running upload.
+
+Restrictions:
+- Do not sync the pending T194/cce-pipeline application update into this
+  migration release.
+- Do not modify or remove PostgreSQL, Redis, volumes, unrelated Docker
+  workloads, source FASTQ, OBS data or another batch directory.
+- Do not restore the retired `hanjj` key or collector to the active stack.
+
 ## T192 - Production Docker test-artifact cleanup
 
 Owner: infra/operations/docs

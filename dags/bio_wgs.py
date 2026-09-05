@@ -57,10 +57,10 @@ def _runner_request_not_yet_visible(completed: subprocess.CompletedProcess[str])
         part for part in (completed.stdout, completed.stderr) if part
     )
     return (
-        "runner-requests/" in error
-        and (
-            "registered runtime request is missing" in error
-            or "FileNotFoundError: [Errno 2] No such file or directory" in error
+        "registered runtime request is missing" in error
+        or (
+            "runner-requests/" in error
+            and "FileNotFoundError: [Errno 2] No such file or directory" in error
         )
     )
 
