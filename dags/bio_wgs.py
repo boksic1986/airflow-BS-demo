@@ -46,8 +46,14 @@ class BackendTransportUnavailable(RuntimeError):
     pass
 
 
+class BackendStagePredecessorPending(RuntimeError):
+    pass
+
+
 RUNNER_REQUEST_VISIBILITY_ATTEMPTS = 5
 RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS = 1.0
+STAGE_PREDECESSOR_VISIBILITY_ATTEMPTS = 5
+STAGE_PREDECESSOR_VISIBILITY_DELAY_SECONDS = 5.0
 
 
 def _runner_request_not_yet_visible(completed: subprocess.CompletedProcess[str]) -> bool:
@@ -183,11 +189,23 @@ def register_stage(stage: str, **context: Any) -> dict[str, Any]:
     task_instance = context.get("ti") or context.get("task_instance")
     if int(getattr(task_instance, "try_number", 1) or 1) > 1:
         request_payload["force_new_generation"] = True
-    return _backend_json(
-        f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/{runner_stage}",
-        method="POST",
-        payload=request_payload,
-    )
+    path = f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/{runner_stage}"
+    for registration_attempt in range(
+        1, STAGE_PREDECESSOR_VISIBILITY_ATTEMPTS + 1
+    ):
+        try:
+            return _backend_json(path, method="POST", payload=request_payload)
+        except BackendStagePredecessorPending:
+            if registration_attempt == STAGE_PREDECESSOR_VISIBILITY_ATTEMPTS:
+                raise
+            LOG.warning(
+                "exact predecessor receipt is not visible to backend yet; "
+                "retrying stage registration (%s/%s)",
+                registration_attempt,
+                STAGE_PREDECESSOR_VISIBILITY_ATTEMPTS,
+            )
+            time.sleep(STAGE_PREDECESSOR_VISIBILITY_DELAY_SECONDS)
+    raise RuntimeError("unreachable WGS stage registration state")
 
 
 def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
@@ -407,6 +425,19 @@ def _backend_json(
         with urlopen(request, timeout=15) as response:
             return json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
+        response_payload: dict[str, Any] = {}
+        try:
+            decoded = json.loads(exc.read().decode("utf-8"))
+            if isinstance(decoded, dict):
+                response_payload = decoded
+        except (AttributeError, UnicodeDecodeError, json.JSONDecodeError):
+            response_payload = {}
+        detail = response_payload.get("detail")
+        if isinstance(detail, dict):
+            code = str(detail.get("code") or "")
+            message = str(detail.get("message") or exc)
+            if exc.code == 409 and code == "WGS_STAGE_PREDECESSOR_PENDING":
+                raise BackendStagePredecessorPending(message) from exc
         raise RuntimeError(f"backend WGS stage API is unavailable: {exc}") from exc
     except (URLError, TimeoutError) as exc:
         raise BackendTransportUnavailable(

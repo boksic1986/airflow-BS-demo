@@ -1,7 +1,9 @@
 import unittest
 from unittest.mock import patch
+from io import BytesIO
 from pathlib import Path
 import sys
+from urllib.error import HTTPError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -410,6 +412,25 @@ class BioWgsDagTests(unittest.TestCase):
         self.assertEqual(result["generation"], 2)
         self.assertEqual(len(calls), 3)
         self.assertEqual(sleeps, [5.0, 5.0])
+
+    def test_backend_json_preserves_predecessor_pending_error_code(self) -> None:
+        response = HTTPError(
+            "http://backend:8000/api/internal/wgs/test",
+            409,
+            "Conflict",
+            {},
+            BytesIO(
+                b'{"detail":{"code":"WGS_STAGE_PREDECESSOR_PENDING",'
+                b'"message":"step2 receipt is not visible"}}'
+            ),
+        )
+
+        with patch.object(bio_wgs, "urlopen", side_effect=response):
+            with self.assertRaisesRegex(
+                bio_wgs.BackendStagePredecessorPending,
+                "step2 receipt is not visible",
+            ):
+                bio_wgs._backend_json("/api/internal/wgs/test")
 
     def test_runner_failure_preserves_remote_stdout_and_ssh_stderr(self) -> None:
         conf = {"analysis_id": "WGS_20260903_062828_0858DC", "attempt": 1}

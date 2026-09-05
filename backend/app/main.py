@@ -83,7 +83,10 @@ from app.wgs_auto_dispatch import dispatch_ready_wgs_intake
 from app.wgs_step4_service import get_step4_repair_capability, request_step4_repair
 from app.wgs_step7_service import authorize_step7_runtime, get_step7_capability, request_step7_cleanup
 from app.wgs_stage_catalog import load_wgs_stage_contract
-from app.wgs_stage_execution_service import register_stage_execution
+from app.wgs_stage_execution_service import (
+    WgsStagePredecessorPending,
+    register_stage_execution,
+)
 from app.wgs_project_catalog import load_wgs_projects, public_project_catalog
 from app.wgs_submission_service import (
     approve_wgs_config,
@@ -2001,6 +2004,14 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 "execution_id": execution.execution_id if contract_v2 else None,
                 "generation": execution.generation if contract_v2 else None,
             }
+    except WgsStagePredecessorPending as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "WGS_STAGE_PREDECESSOR_PENDING",
+                "message": str(exc),
+            },
+        ) from exc
     except (OSError, ValueError, RuntimeError) as exc:
         message = str(exc)
         if message.startswith("release_unavailable:"):

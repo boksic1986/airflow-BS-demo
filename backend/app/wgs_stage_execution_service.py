@@ -22,6 +22,10 @@ TRANSITIONS = {
 }
 
 
+class WgsStagePredecessorPending(ValueError):
+    """The exact predecessor receipt may still be crossing the shared mount."""
+
+
 def register_stage_execution(*, session, run: AnalysisRun, contract: WgsStageContract, stage_code: str, request_payload: dict, now: datetime | None = None, force_new_generation: bool = False) -> WgsStageExecution:
     if int((run.params_json or {}).get("orchestration_contract_version") or 1) != 2:
         raise ValueError("WGS stage execution registration requires contract version 2")
@@ -36,7 +40,9 @@ def register_stage_execution(*, session, run: AnalysisRun, contract: WgsStageCon
         .order_by(WgsStageExecution.generation.desc())
         .limit(1)
     )
-    if latest is not None and not force_new_generation and latest.request_hash == request_hash:
+    if latest is not None and latest.request_hash == request_hash and (
+        not force_new_generation or latest.status in ACTIVE
+    ):
         return latest
     if latest is not None and latest.status in ACTIVE:
         raise ValueError(f"stage {stage_code} already has an active generation")
@@ -168,7 +174,9 @@ def _successful_predecessor(session, run: AnalysisRun, predecessor_code: str | N
         .limit(1)
     )
     if row is None or row.status != "success" or not row.receipt_hash:
-        raise ValueError(f"stage predecessor {predecessor_code} has no exact successful receipt")
+        raise WgsStagePredecessorPending(
+            f"stage predecessor {predecessor_code} has no exact successful receipt"
+        )
     return row
 
 
