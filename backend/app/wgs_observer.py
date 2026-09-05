@@ -956,7 +956,31 @@ def _ingest_transfer_progress(session_factory, spool_root: Path, path: Path) -> 
         if row is not None and row.heartbeat_at is not None:
             previous = row.heartbeat_at if row.heartbeat_at.tzinfo else row.heartbeat_at.replace(tzinfo=timezone.utc)
             if heartbeat < previous:
-                return False
+                files = payload.get("files") if isinstance(payload.get("files"), list) else []
+                terminal_status = _canonical_terminal_status(str(payload["status"]))
+                can_backfill_terminal_files = (
+                    terminal_status is not None
+                    and _canonical_terminal_status(row.status) == terminal_status
+                    and row.bytes_total == int(payload["bytes_total"])
+                    and row.bytes_transferred == int(payload["bytes_transferred"])
+                    and row.files_total == int(payload["files_total"])
+                    and row.files_completed == int(payload["files_completed"])
+                    and _transfer_file_rows_need_sync(
+                        session=session,
+                        transfer_id=str(payload["transfer_id"]),
+                        files=files,
+                    )
+                )
+                if not can_backfill_terminal_files:
+                    return False
+                _upsert_transfer_file_states(
+                    session=session,
+                    transfer=row,
+                    files=files,
+                    heartbeat=heartbeat,
+                )
+                session.commit()
+                return True
             if heartbeat == previous:
                 files = payload.get("files") if isinstance(payload.get("files"), list) else []
                 if not _transfer_file_rows_need_sync(
