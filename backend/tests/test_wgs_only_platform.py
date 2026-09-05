@@ -991,6 +991,10 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     tmp_path, monkeypatch
 ):
     client, sessions, _ = make_client(tmp_path, monkeypatch)
+    settings = main.get_settings()
+    settings.wgs_analysis_project_node200_root = str(
+        tmp_path / "node200-analysis-project"
+    )
     headers = login(client, "operator", "operator-pass")
     created = client.post(
         "/api/runs",
@@ -1023,8 +1027,12 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     request_path = Path(prepared.json()["request_path"])
     request = json.loads(request_path.read_text(encoding="utf-8"))
     assert request["schema_version"] == "wgs-runtime.request.v4"
-    assert request["analysis_project_root"] == str(tmp_path / "results")
-    assert request["expected_batch_root"].endswith("/results/BATCH-001")
+    assert request["analysis_project_root"] == str(
+        tmp_path / "node200-analysis-project"
+    )
+    assert request["expected_batch_root"].endswith(
+        "/node200-analysis-project/BATCH-001"
+    )
     assert request["project_name"] == "clinical-wgs"
     assert request["pipeline_release_id"] == "wgs-4.1.1-1656b5d"
     assert request["wgs_source_commit"] == "1656b5d7a6e2f24242c38149f6d1c92ac266cd37"

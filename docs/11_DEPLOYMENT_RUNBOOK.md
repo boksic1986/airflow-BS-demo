@@ -14,6 +14,9 @@ deployment.
 3. Set the node200 runner Python to the shared `nipttest` interpreter. Enable
    execution, runtime adapter, contract v2 and the dedicated
    `WGS_STEP1_CANARY_ENABLED` gate; leave intake scan and auto-dispatch off.
+   Set `WGS_ANALYSIS_PROJECT_NODE200_ROOT` to the writable node200 test view
+   `/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical` while
+   keeping `WGS_RESULTS_HOST_ROOT` as the BS10610 Docker bind-mount path.
 4. Unpause only `bio_wgs`. As an admin, create one catalog run with the exact
    hidden field `validation_scope=step1_only`, then complete the existing
    config and execution approvals.

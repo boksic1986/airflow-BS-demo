@@ -1742,7 +1742,11 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 wgs_version=str(params["wgs_version"]),
                 wgs_source_commit=str(params["wgs_source_commit"]),
                 control_runtime_root=settings.wgs_runtime_node200_root,
-                analysis_project_root=settings.wgs_results_host_root,
+                analysis_project_root=getattr(
+                    settings,
+                    "wgs_analysis_project_node200_root",
+                    settings.wgs_results_host_root,
+                ),
                 project_name=str(params["project_name"]),
                 batch_no=str(params["batch_no"]),
                 fq_path=fq_node200,

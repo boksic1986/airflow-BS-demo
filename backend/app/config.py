@@ -48,6 +48,7 @@ class Settings:
     wgs_runtime_bs_root: str
     wgs_runtime_node200_root: str
     wgs_results_host_root: str
+    wgs_analysis_project_node200_root: str
     wgs_intake_container_root: str
     wgs_intake_host_root: str
     wgs_intake_node200_root: str
@@ -147,6 +148,13 @@ def get_settings() -> Settings:
         wgs_results_host_root=os.getenv(
             "WGS_RESULTS_HOST_ROOT",
             "/mnt/biodevrwbi/33.chenjiucheng/airflow-result/wgs",
+        ),
+        wgs_analysis_project_node200_root=os.getenv(
+            "WGS_ANALYSIS_PROJECT_NODE200_ROOT",
+            os.getenv(
+                "WGS_RESULTS_HOST_ROOT",
+                "/mnt/biodevrwbi/33.chenjiucheng/airflow-result/wgs",
+            ),
         ),
         wgs_intake_container_root=os.getenv(
             "WGS_INTAKE_CONTAINER_ROOT", "/data/wgs-intake"
