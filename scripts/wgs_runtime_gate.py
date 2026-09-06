@@ -75,7 +75,12 @@ WGS_REPO_ROOT = Path(
     )
 )
 WGS_PYTHON = os.getenv("WGS_PYTHON", "/bi/software/mamba/envs/WGS/bin/python")
-WGS_PREPARE_CONFIG = str(WGS_REPO_ROOT / "prepare" / "config.yaml")
+WGS_PREPARE_CONFIG = os.getenv(
+    "WGS_PREPARE_CONFIG", str(WGS_REPO_ROOT / "prepare" / "config.yaml")
+)
+WGS_PREPARE_CONFIG_ROOT = Path(
+    os.getenv("WGS_PREPARE_CONFIG_ROOT", str(WGS_REPO_ROOT / "prepare"))
+)
 CCE_OPERATOR_CONFIG = os.getenv(
     "CCE_OPERATOR_CONFIG", "/home/hanjj/.config/wgs/cce.yaml"
 )
@@ -314,6 +319,25 @@ def validate_release_repository(payload: dict[str, Any]) -> Path:
     return repo
 
 
+def validate_prepare_config() -> Path:
+    config = Path(WGS_PREPARE_CONFIG)
+    if not config.is_absolute() or not config.is_file() or config.is_symlink():
+        raise RuntimeError("release_unavailable: WGS prepare config is unavailable")
+    resolved = config.resolve()
+    approved_roots = {
+        (WGS_REPO_ROOT / "prepare").resolve(),
+        WGS_PREPARE_CONFIG_ROOT.resolve(),
+    }
+    if not any(
+        root == resolved.parent or root in resolved.parents
+        for root in approved_roots
+    ):
+        raise RuntimeError(
+            "release_unavailable: WGS prepare config is outside approved roots"
+        )
+    return resolved
+
+
 def _git_repository_command(repo: Path) -> list[str]:
     marker = repo / ".git"
     if marker.is_dir():
@@ -480,6 +504,7 @@ def _run_prepare(payload: dict[str, Any]) -> None:
         _load_binding(payload)
         return
     validate_release_repository(payload)
+    validate_prepare_config()
     workdir = _workdir(payload)
     workdir.mkdir(parents=True, exist_ok=True)
     project_root = Path(str(payload["analysis_project_root"])).resolve()
@@ -498,6 +523,7 @@ def _run_prepare(payload: dict[str, Any]) -> None:
 
 def _run_prepare_sampleinfo(payload: dict[str, Any]) -> None:
     validate_release_repository(payload)
+    validate_prepare_config()
     workdir = _workdir(payload)
     workdir.mkdir(parents=True, exist_ok=True)
     project_root = Path(str(payload["analysis_project_root"])).resolve()
@@ -517,6 +543,7 @@ def _run_prepare_analysis(payload: dict[str, Any]) -> None:
         _load_binding(payload)
         return
     validate_release_repository(payload)
+    validate_prepare_config()
     project_root = Path(str(payload["analysis_project_root"])).resolve()
     expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
     if expected_batch_root != project_root / str(payload["batch_no"]):

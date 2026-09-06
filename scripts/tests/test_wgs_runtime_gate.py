@@ -131,6 +131,46 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
     assert not any("SECRET" in item for item in command)
 
 
+def test_prepare_config_override_is_limited_to_approved_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    approved = tmp_path / "profiles"
+    approved.mkdir()
+    config = approved / "prepare-r3.yaml"
+    config.write_text("cce: {}\n", encoding="utf-8")
+    monkeypatch.setattr(gate, "WGS_PREPARE_CONFIG", str(config))
+    monkeypatch.setattr(gate, "WGS_PREPARE_CONFIG_ROOT", approved)
+
+    assert gate.validate_prepare_config() == config.resolve()
+
+    outside = tmp_path / "outside.yaml"
+    outside.write_text("cce: {}\n", encoding="utf-8")
+    monkeypatch.setattr(gate, "WGS_PREPARE_CONFIG", str(outside))
+    with pytest.raises(RuntimeError, match="outside approved roots"):
+        gate.validate_prepare_config()
+
+
+def test_prepare_config_override_rejects_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    approved = tmp_path / "profiles"
+    approved.mkdir()
+    target = approved / "target.yaml"
+    target.write_text("cce: {}\n", encoding="utf-8")
+    link = approved / "prepare.yaml"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("symlinks are unavailable in this test environment")
+    monkeypatch.setattr(gate, "WGS_PREPARE_CONFIG", str(link))
+    monkeypatch.setattr(gate, "WGS_PREPARE_CONFIG_ROOT", approved)
+
+    with pytest.raises(RuntimeError, match="prepare config is unavailable"):
+        gate.validate_prepare_config()
+
+
 def test_split_prepare_commands_preserve_native_wgs_contract(tmp_path: Path) -> None:
     gate = load_gate()
     payload = {
