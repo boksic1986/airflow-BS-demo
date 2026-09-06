@@ -1,5 +1,43 @@
 # HANDOFF.md
 
+## 2026-09-06 - Codex - Post-T206 configuration audit and Step4-Step6 queue
+
+The operator requested that the current hardcoding/configuration review be
+recorded before further Step4-Step6 work. This entry is documentation-only; no
+source code, container, database, DAG, node200 runtime file or execution gate
+was changed.
+
+The live BS10610 control plane is disabled: `bio_wgs` is paused, the scanner
+container is absent, and backend execution/runtime/contract/canary/intake/
+dispatch gates are false. However, node200's restored baseline still contains
+`WGS_EXECUTION_ENABLED=true`, `WGS_RUNTIME_ADAPTER_ENABLED=true` and
+`WGS_STEP3_DRYRUN_CANARY_ENABLED=true`. The current pause and control-plane
+gates prevent an immediate launch, but this is not a complete fail-closed
+state. Do not start a Step4-Step6 acceptance until node200 is explicitly closed
+and forced-command rejection is verified.
+
+T207 now owns runtime configuration convergence: fail-closed scanner defaults,
+one authoritative intake policy, one authoritative Heavy Slot contract,
+explicit root/binding mappings, create-only administrator bootstrap and
+same-revision release provenance. T208 is the subsequent controlled acceptance
+for one approved small family through real Step3, Step4 publish, Step5 SDK
+download, Step6 materialization and finalization. T208 remains blocked by T207
+and does not authorize scanner or auto-dispatch.
+
+The audit also found that BS10610 reports `PLATFORM_ENVIRONMENT=Demo`, scanner
+defaults are `true/600s` while YAML says `1800s`, Heavy Slot defaults alternate
+between `enforce` and `monitor-only`, and FASTQ/runtime paths depend on implicit
+node aliases and sibling directories. These are configuration-drift issues,
+not evidence that a run is currently active.
+
+Validation was read-only: repository status was clean, release/current and
+container state were inspected, backend/container environment values were
+compared, node200 runtime gates were read through the restricted worker SSH
+configuration, `bio_wgs` was confirmed paused, and the scanner was confirmed
+absent. No runtime-changing command or test suite was executed because this
+handoff records an audit rather than an implementation; only read-only runtime
+inspection was performed.
+
 ## 2026-09-06 - Codex - T206 Step2/Step3 dry-run complete
 
 The accepted BS10610 test run is `WGS_20260905_210104_739143-a8`, using one
@@ -34,11 +72,14 @@ cannot produce validation success.
 
 All exact canary resources were cleaned after evidence capture: seven OBS
 objects, the Master/reset/probe resources, batch lock, SFS run/linkage roots,
-and isolated host batch. node200 gate/runtime checksums were restored, and the
-shared `nipttest` cce-pipeline returned to pre-T206 commit `b003606...`.
-`bio_wgs` is paused; execution, runtime adapter, contract v2, Step1 canary,
-Step3 dry-run canary, intake, and auto-dispatch are false. The disabled scanner
-container was removed to avoid a restart loop. Production `.96` was untouched.
+and isolated host batch. node200 gate/runtime checksums were restored to the
+pre-T206 baseline, and the shared `nipttest` cce-pipeline returned to pre-T206
+commit `b003606...`. `bio_wgs` is paused; the corresponding BS10610
+control-plane execution, runtime adapter, contract v2, Step1 canary, Step3
+dry-run canary, intake, and auto-dispatch gates are false. A later audit found
+that the restored node200 baseline has execution, runtime-adapter and Step3
+dry-run gates true; this is tracked by T207. The disabled scanner container was
+removed to avoid a restart loop. Production `.96` was untouched.
 
 Final regression evidence is backend `368 passed, 1 skipped`, runtime scripts
 `80 passed`, WGS DAG `18 + 4`, static topology `2`, valid Compose rendering and

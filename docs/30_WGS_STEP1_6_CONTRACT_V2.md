@@ -1,5 +1,39 @@
 # WGS Step1-6 Orchestration Contract v2
 
+## Post-T206 configuration audit and Step4-Step6 admission
+
+The T206 acceptance proves Step2 identity, Step3 dry-run evidence and the
+25-holder Lease mechanism. It does not authorize Step4-Step6 or prove that the
+disabled runtime configuration has one authoritative source.
+
+A read-only audit of the deployed BS10610 test control plane found that the
+control plane is disabled and `bio_wgs` is paused, while node200's restored
+pre-T206 runtime baseline still enables execution, the runtime adapter and the
+Step3 dry-run canary. This split state is operationally closed only because the
+upstream controls are currently false. Step4-Step6 acceptance requires both
+sides to be explicitly disabled before and after the maintenance window.
+
+T207 must converge these configuration contracts before a real run:
+
+- Scanner behavior defaults to disabled and is loaded from one versioned
+  intake policy; a missing environment file cannot start the scanner.
+- Heavy Slot limit, mode, heartbeat, reclaim interval and rule groups come from
+  `config/wgs_stage_contract.yaml`; startup rejects conflicting overrides.
+- Approved data roots explicitly map the BS/container/node200 views. Runtime
+  binding location is configured directly rather than inferred from a sibling
+  directory.
+- Platform and Airflow administrator initialization is create-only; credential
+  rotation is an explicit operation and startup does not swallow arbitrary
+  failures.
+- Backend, Airflow and frontend deployment artifacts are tied to one release
+  revision and digest manifest.
+
+After T207 passes, T208 may run one approved small-family canary through the
+normal contract-v2 path. Step4 must consume the exact successful Step3
+execution; Step5 must consume the exact Step4 generation manifest; Step6 must
+atomically materialize that same manifest hash. Scanner and auto-dispatch stay
+disabled, and the canary may not run on `.96` production.
+
 ## T206 Step2/Step3 dry-run validation
 
 Contract v2 adds a default-off `step3_dryrun` validation scope for one bounded

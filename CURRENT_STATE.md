@@ -1,5 +1,41 @@
 # CURRENT_STATE.md
 
+## 2026-09-06 post-T206 runtime configuration audit
+
+audit_scope: read-only review of the T206 branch and the live BS10610 test
+control plane. No source, database, container, DAG, node200 file or runtime gate
+was changed during the audit.
+
+live_state: BS10610 runs release
+`20260906-airflow-demo-c85b626-t206-final`. `bio_wgs` is paused, the intake
+scanner container is absent, and the backend/control-plane execution, runtime
+adapter, contract-v2, canary, intake and auto-dispatch gates are false. The
+backend nevertheless reports `PLATFORM_ENVIRONMENT=Demo` rather than a
+BS10610 test label.
+
+critical_deviation: node200's live
+`/home/hanjj/.config/airflow-wgs/runtime.env` still sets
+`WGS_EXECUTION_ENABLED=true`, `WGS_RUNTIME_ADAPTER_ENABLED=true` and
+`WGS_STEP3_DRYRUN_CANARY_ENABLED=true`. This is the restored pre-T206 baseline,
+not a fully disabled execution-side state. The paused DAG and closed BS10610
+control-plane gates prevent an immediate launch, but defense in depth is not
+complete. T207 must close and verify the node200 gates before T208 may run.
+
+configuration_findings: scanner defaults disagree between application/Compose
+(`enabled=true`, 600 seconds) and `config/intake.wgs.yaml` (1800 seconds);
+Heavy Slot defaults disagree between the stage contract/Compose (`enforce`) and
+backend/node200 example (`monitor-only`); FASTQ roots use unmodeled `/sg2` and
+`/bi` aliases; runtime binding paths infer a sibling `runs` directory; platform
+admin bootstrap resets existing credentials; Airflow admin creation suppresses
+all errors; runtime account/SSH paths and the shared Docker network name remain
+site-specific constants. Current image tags also come from different release
+labels, which weakens rebuild and rollback provenance.
+
+next: T207 is the mandatory fail-closed configuration-convergence task. T208
+then performs one controlled small-family Step1-Step6 acceptance on BS10610.
+Neither task changes `.96` production, enables automatic intake or authorizes
+an immediate real run.
+
 ## 2026-09-06 T206 Step2/Step3 dry-run and Heavy Slot acceptance
 
 scope: BS10610 test control plane only. The accepted three-sample synthetic
@@ -29,9 +65,11 @@ exact OBS object deletes. The exact Master, reset/probe Pods, batch lock, SFS
 run/linkage roots, and isolated host batch were removed after evidence capture.
 The node200 runtime gate/config and shared `nipttest` cce-pipeline were restored
 to their pre-T206 SHA256/package baseline (`0.8.2`, commit `b003606...`).
-`bio_wgs` is paused, all seven execution/contract/canary/intake/dispatch gates
-are false, and the disabled scanner container is absent. Production `.96` was
-not modified.
+`bio_wgs` is paused, all BS10610 control-plane
+execution/contract/canary/intake/dispatch gates are false, and the disabled
+scanner container is absent. A later read-only audit found that the restored
+node200 baseline itself has three execution-side gates set to true; see the
+post-T206 audit above. Production `.96` was not modified.
 
 validation: backend passed `368`, with one skip; runtime scripts passed `80`;
 WGS DAG suites passed `18 + 4`, static topology passed `2`, Compose rendering

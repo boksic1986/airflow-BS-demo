@@ -1,5 +1,79 @@
 # TASKS.md
 
+## T208 - WGS Step4-Step6 controlled end-to-end acceptance
+
+Owner: Airflow/runtime/backend/frontend/QA/docs
+
+Status: planned; blocked by T207 runtime configuration convergence
+
+Dependencies: T205,T206,T207
+
+Scope:
+- Run one approved small-family WGS canary through the normal contract-v2 path:
+  Step1 SDK upload, Step2 Master, real Step3 analysis, Step4 publish, Step5 SDK
+  download, Step6 atomic materialization and finalization.
+- Require exact execution/generation/predecessor receipts at every downstream
+  transition; preserve the frozen release, batch binding and transfer manifests.
+- Verify per-file transfer progress, Snakemake rule evidence, Heavy Slot lease
+  accounting, Cloud Eye observation, final artifacts and Run Detail projection.
+
+Acceptance:
+- [ ] T207 is complete and both BS10610 and node200 execution gates are proven
+  disabled before the maintenance window begins.
+- [ ] One approved small-family canary reaches success through Step6 without
+  manual state mutation or bypassing a receipt/marker check.
+- [ ] Step4 publishes only the frozen result manifest, Step5 downloads and
+  verifies that exact generation, and Step6 atomically materializes the same
+  manifest hash.
+- [ ] Every scheduled rule has terminal evidence; transfer files and aggregate
+  progress agree; no stale generation changes the current state.
+- [ ] Gates and DAG pause state are restored after acceptance, and only exact
+  canary resources are eligible for cleanup.
+
+Restrictions:
+- BS10610 test control plane only; do not modify `.96` production.
+- Do not start T208 while T207 has an unresolved P1 finding or an active run.
+- Do not enable scanner or automatic dispatch for the canary.
+
+## T207 - WGS runtime configuration convergence and fail-closed readiness
+
+Owner: platform/infra/backend/Airflow/runtime/QA/docs
+
+Status: todo; required before Step4-Step6 execution
+
+Dependencies: T206
+
+Scope:
+- Make the node200 execution, runtime-adapter and dry-run canary gates explicitly
+  false outside an approved validation window, and verify the forced-command
+  rejects execution while closed.
+- Make scanner defaults fail closed and use `config/intake.wgs.yaml` as the
+  authoritative interval/policy source; keep the scanner in an explicit
+  deployment profile.
+- Make `config/wgs_stage_contract.yaml` the authoritative Heavy Slot limit,
+  mode and rule-group source; reject environment/config disagreement.
+- Replace implicit FASTQ/path aliases and sibling-directory inference with an
+  explicit root catalog and runtime binding root.
+- Change platform/Airflow administrator bootstrap to create-only behavior and
+  provide explicit rotation rather than resetting credentials at startup.
+- Produce one release manifest whose backend, Airflow and frontend artifacts
+  are traceable to the same source revision.
+
+Acceptance:
+- [ ] BS10610 control-plane gates and node200 execution-side gates are all false
+  in the disabled state; `bio_wgs` remains paused and scanner absent.
+- [ ] Missing environment values cannot enable scanning or execution.
+- [ ] Scanner interval, Heavy Slot mode/limit and approved roots each have one
+  authoritative source with configuration-drift tests.
+- [ ] Existing T205/T206 receipts remain readable and backend, DAG, runtime,
+  Compose and security tests pass.
+
+Restrictions:
+- Documentation and implementation may be prepared while disabled, but no
+  Step4-Step6 run is authorized by T207.
+- Do not delete databases, evidence, results, FASTQ, Docker volumes or the
+  external network.
+
 ## T206 - WGS Step2/Step3 dry-run and Heavy Slot validation
 
 Owner: backend/Airflow/runtime/CCE/QA/docs
