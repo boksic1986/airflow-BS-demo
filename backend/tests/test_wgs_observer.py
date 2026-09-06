@@ -1881,10 +1881,22 @@ def test_snakemake_metadata_events_do_not_block_rule_projection(tmp_path: Path) 
         job_id="3",
         status="running",
     )
+    aggregate_started = rule_event(
+        "job_started",
+        3.0,
+        role="master",
+        stream_id="node97",
+        event_id="aggregate-1",
+        rule_instance_id="workflow-instance",
+        status="running",
+        message="Execute 3 jobs...",
+    )
     path.write_text(
         json.dumps(metadata, sort_keys=True)
         + "\n"
         + json.dumps(started, sort_keys=True)
+        + "\n"
+        + json.dumps(aggregate_started, sort_keys=True)
         + "\n",
         encoding="utf-8",
     )
@@ -1899,10 +1911,10 @@ def test_snakemake_metadata_events_do_not_block_rule_projection(tmp_path: Path) 
         )
         assert state is not None
         assert state.rule_name == "pre_process_cleanFastq"
-        assert state.status == "planned"
+        assert state.status == "running"
         cursor = session.scalar(select(EvidenceCursor))
         assert cursor.byte_offset == path.stat().st_size
-        assert cursor.line_number == 2
+        assert cursor.line_number == 3
         assert cursor.last_error is None
 
 

@@ -1670,7 +1670,11 @@ def _validate_rule_event(payload: object, binding: EvidenceBinding) -> bool:
             raise ValueError("event role must be master or worker")
         if not str(payload.get("stream_id") or ""):
             raise ValueError("event stream_id is required")
-    return event_type in RULE_EVENT_TYPES
+    has_rule_identity = any(
+        payload.get(key) not in {None, ""}
+        for key in ("rule_name", "rule", "job_id", "snakemake_jobid")
+    )
+    return event_type in RULE_EVENT_TYPES and has_rule_identity
 
 
 def _normalize_event_attempt(value: object) -> int:
@@ -1990,7 +1994,9 @@ def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
         for event in ordered:
             event_type = str(event.get("event"))
             when = _event_time(event)
-            if event_type == "job_started":
+            if event_type == "job_started" or (
+                event_type == "job_info" and event.get("status") == "running"
+            ):
                 state.status = "running"
                 state.started_at = state.started_at or when
             elif event_type in TERMINAL_RULE_EVENTS:
