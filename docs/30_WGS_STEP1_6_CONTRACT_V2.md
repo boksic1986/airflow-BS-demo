@@ -38,6 +38,14 @@ is copied into each contract-v2 stage request, and must match the frozen CCE
 profile. Administrator bootstraps no longer overwrite existing accounts or
 swallow Airflow initialization errors.
 
+The BS10610 disabled rollout is release
+`20260906-airflow-demo-841eb55-t207-disabled`. Its control-plane gates are
+closed, DAG paused and scanner absent. Registry DNS prevented a clean rebuild,
+so the release inventory truthfully records reused verified runtime image IDs
+plus exact read-only source revision `841eb55`; it does not claim a rebuilt
+image. T208 remains blocked until the owner installs the matching gate on
+node200 and proves its private execution gates false.
+
 After T207 passes, T208 may run one approved small-family canary through the
 normal contract-v2 path. Step4 must consume the exact successful Step3
 execution; Step5 must consume the exact Step4 generation manifest; Step6 must

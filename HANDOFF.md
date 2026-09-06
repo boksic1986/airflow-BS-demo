@@ -2,6 +2,27 @@
 
 ## 2026-09-06 - Codex - T207 configuration convergence implemented
 
+Deployment update: BS10610 `current` is now
+`20260906-airflow-demo-841eb55-t207-disabled`. All long-lived control-plane
+services are up on the common `bs-control-841eb55` tag, frontend and backend
+health return 200, `bio_wgs` is paused, scanner is absent, and all control-plane
+execution/intake/dispatch gates are false. PostgreSQL/Redis and their volumes
+were left running. One stale business `submitted` state was synchronized to the
+already-terminal failed Airflow run before deployment.
+
+The registry mirror DNS was unavailable during image build. Because T207 does
+not change frontend assets or Airflow dependencies and backend/DAG source is
+mounted read-only from the release, the existing verified runtime images were
+retagged and recorded with their image IDs, source revision and archive hash.
+Do not describe these as rebuilt images; `RELEASE_IMAGES.tsv` explicitly records
+runtime-base reuse.
+
+Deployment preflight also found and fixed a missing `/config` mount on
+`platform-admin-init`, then on the observer/metrics/scanner backend services.
+The first init failed before a database write; after the fix, repeated platform
+and Airflow bootstrap completed and reported that existing credentials were
+not changed.
+
 T207 source changes are complete and tested in the isolated BS10610 development
 copy. Scheduled intake is now double-gated, default-off and isolated behind the
 Compose `intake` profile. Its root and 1800-second interval come from
@@ -25,11 +46,11 @@ all-DAG run in the backend image was invalid because that image intentionally
 lacks Airflow; it was rerun correctly with scripts in the backend image and WGS
 DAG tests in the Airflow image.
 
-No live service or gate changed. T208 remains blocked until a same-revision
-disabled release is deployed and the owner of
+T208 remains blocked until the owner of
 `/home/hanjj/.config/airflow-wgs/runtime.env` changes execution, runtime adapter
-and Step3 dry-run gates to false. `chenjc` has no permission to modify that
-private file, and the forced-command key must not be weakened to work around
+and Step3 dry-run gates to false and installs the matching runtime gate.
+`chenjc` has no permission to read or modify that private file and has no
+passwordless sudo; the forced-command key must not be weakened to work around
 it.
 
 ## 2026-09-06 - Codex - Post-T206 configuration audit and Step4-Step6 queue

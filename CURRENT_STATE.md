@@ -1,6 +1,29 @@
 # CURRENT_STATE.md
 
-## 2026-09-06 T207 implementation ready for disabled rollout
+## 2026-09-06 T207 disabled control-plane rollout
+
+rollout_update: BS10610 now points `current` to disabled release
+`20260906-airflow-demo-841eb55-t207-disabled`. Backend, Airflow and frontend
+services use the common `bs-control-841eb55` tag, frontend and `/api/health`
+return 200, `bio_wgs` remains paused, the scanner container is absent and all
+BS10610 execution/intake/dispatch gates are false. PostgreSQL and Redis were
+not recreated. A stale business `submitted` row was synchronized from its
+terminal failed Airflow DagRun before rollout, leaving no active business or
+Airflow run.
+
+image_provenance: registry DNS was unavailable, so no dependency image was
+rebuilt. The already verified Airflow/backend/frontend runtime image IDs were
+retagged consistently; backend and DAG source are mounted read-only from the
+exact `841eb55` release, and T207 has no frontend asset or Airflow dependency
+change. `SOURCE_REVISION`, source-archive SHA256 and image ID inventory are
+stored in the release. This is an explicit runtime-base reuse record, not a
+claim that the images were rebuilt.
+
+remaining_gate: node200 installation is not complete. `chenjc` cannot read or
+write `/home/hanjj/.config/airflow-wgs/runtime.env` and has no passwordless
+sudo. The private gate must be installed and all three execution-side gates
+set false by `hanjj` or root before T208. No attempt was made to weaken or
+bypass the forced command.
 
 implementation: scanner startup now requires the default-off environment gate
 and the YAML `scheduled_scan_enabled` gate, runs only through the Compose
@@ -22,10 +45,9 @@ errors. Explicit platform password rotation is available through
 
 validation: BS10610 isolated tests pass: backend `374 passed, 1 skipped`,
 runtime scripts `81 passed`, WGS DAG/deployment `30 passed`, and Compose config
-renders successfully. No service, database, DAG pause state or runtime gate was
-changed. T207 still requires a same-revision disabled release and an owner-level
-node200 update setting all three private execution gates false before T208 can
-start.
+renders successfully. The same-revision disabled control-plane release is now
+deployed. T207 still requires the owner-level node200 update described above
+before T208 can start.
 
 ## 2026-09-06 post-T206 runtime configuration audit
 

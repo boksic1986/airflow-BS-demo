@@ -39,8 +39,8 @@ Restrictions:
 
 Owner: platform/infra/backend/Airflow/runtime/QA/docs
 
-Status: implementation complete and regression-tested; disabled rollout and
-node200 owner gate closure still required before Step4-Step6 execution
+Status: implementation complete and deployed disabled on BS10610; node200
+owner gate closure/install still required before Step4-Step6 execution
 
 Dependencies: T206
 
@@ -61,8 +61,9 @@ Scope:
   are traceable to the same source revision.
 
 Acceptance:
-- [ ] BS10610 control-plane gates and node200 execution-side gates are all false
-  in the disabled state; `bio_wgs` remains paused and scanner absent.
+- [ ] BS10610 control-plane gates are all false, `bio_wgs` is paused and the
+  scanner is absent. The node200 owner must still install the matching gate and
+  prove its three private execution gates false.
 - [x] Missing environment values cannot enable scanning or execution.
 - [x] Scanner interval, Heavy Slot mode/limit and approved roots each have one
   authoritative source with configuration-drift tests.
