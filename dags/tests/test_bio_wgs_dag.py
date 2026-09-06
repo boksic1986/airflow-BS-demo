@@ -354,6 +354,45 @@ class BioWgsDagTests(unittest.TestCase):
         conf["params"].pop("validation_scope")
         self.assertEqual(bio_wgs.choose_after_step3(**context), "start_step4_publish")
 
+    def test_node97_full_canary_is_gated_and_uses_normal_terminal_path(self) -> None:
+        conf = {
+            "analysis_id": "WGS_20260907_123456_A1B2C3",
+            "pipeline": "wgs",
+            "execution_mode": "cce",
+            "attempt": 1,
+            "workdir": "/data/wgs-results/runs/WGS_20260907_123456_A1B2C3",
+            "params": {
+                "project_name": "clinical-wgs",
+                "batch_no": "WGS_20260825A_NODE97_FULL_CANARY_T7Hg38V4.1.1",
+                "fq_path": "/data/wgs-intake/.node97-full-fastq",
+                "pipeline_release_id": "wgs-4.1.1-1656b5d",
+                "wgs_version": "V4.1.1",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
+                "validation_scope": "node97_full",
+            },
+        }
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+
+        with patch.dict(
+            "os.environ",
+            {
+                "WGS_NODE97_FULL_CANARY_ENABLED": "false",
+                "WGS_CONTRACT_V2_ENABLED": "true",
+            },
+        ):
+            with self.assertRaisesRegex(ValueError, "node97 full canary is disabled"):
+                bio_wgs.validate_request(**context)
+        with patch.dict(
+            "os.environ",
+            {
+                "WGS_NODE97_FULL_CANARY_ENABLED": "true",
+                "WGS_CONTRACT_V2_ENABLED": "true",
+            },
+        ):
+            self.assertEqual(bio_wgs.validate_request(**context), conf)
+            self.assertEqual(bio_wgs.choose_after_step1(**context), "submit_step2_master")
+            self.assertEqual(bio_wgs.choose_after_step3(**context), "start_step4_publish")
+
     def test_validate_requires_server_bound_release_identity(self) -> None:
         conf = {
             "analysis_id": "WGS_20260827_123456_A1B2C3",

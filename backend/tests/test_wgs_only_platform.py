@@ -101,6 +101,11 @@ projects:
         node200_path: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical/.canary-fastq
         control_plane_path: /data/wgs-intake/.canary-fastq
         validation_scope: step3_dryrun
+      - root_id: T7_Node97_Full_Canary
+        display_name: T7 node97 full-run validation root
+        node200_path: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical/.node97-full-fastq
+        control_plane_path: /data/wgs-intake/.node97-full-fastq
+        validation_scope: node97_full
     editable_config:
       use_reference: {type: boolean, default: false}
 """,
@@ -629,6 +634,31 @@ def test_step3_dryrun_submission_and_finalizer_require_exact_master_evidence(
         "skipped",
         "skipped",
     ]
+
+
+def test_node97_full_canary_submission_is_admin_only_and_default_off(tmp_path, monkeypatch):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    monkeypatch.setenv("WGS_CONTRACT_V2_ENABLED", "true")
+    monkeypatch.setenv("WGS_NODE97_FULL_CANARY_ENABLED", "false")
+    client, _, _ = make_client(tmp_path, monkeypatch)
+    admin = login(client, "admin", "admin-pass")
+    request = {
+        "project_id": "WGS_Clinical",
+        "platform": "T7Hg38V4.1.1",
+        "batch": "20260825A",
+        "fastq_root_id": "T7_Node97_Full_Canary",
+        "validation_scope": "node97_full",
+    }
+
+    disabled = client.post("/api/wgs/runs", headers=admin, json=request)
+    assert disabled.status_code == 409
+    assert disabled.json()["detail"]["code"] == "WGS_NODE97_FULL_CANARY_DISABLED"
+
+    monkeypatch.setenv("WGS_NODE97_FULL_CANARY_ENABLED", "true")
+    created = client.post("/api/wgs/runs", headers=admin, json=request)
+    assert created.status_code == 201, created.text
+    assert created.json()["params"]["validation_scope"] == "node97_full"
 
 
 def test_wgs_submission_draft_final_submit_is_idempotent(tmp_path, monkeypatch):

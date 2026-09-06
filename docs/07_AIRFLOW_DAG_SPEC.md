@@ -18,6 +18,12 @@ recovery. The observer releases a direction when it imports its terminal
 evidence; the DAG release is an idempotent confirmation.
 ## T211 node97 local execution branch
 
+For full-run acceptance without reusing a successful production snapshot,
+`node97_full` follows the normal prepare and execution-commit path, then must be
+routed to `local_execution`. Unlike `step3_dryrun`, it leaves the frozen runtime
+in analysis mode. FastAPI, Airflow, and the node200 prepare gate all require the
+default-off `WGS_NODE97_FULL_CANARY_ENABLED` switch.
+
 T211 replaces only the T209 `node-97` placeholder. The CCE Step1-Step6 branch
 is unchanged, and node96/SGE still fail closed. A committed node97 run follows:
 

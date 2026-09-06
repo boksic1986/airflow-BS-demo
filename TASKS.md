@@ -76,6 +76,8 @@ Restrictions:
   six source FASTQs.
 - A successful dry-run proves scheduler/config compatibility, not completion
   of the full node97 analysis acceptance.
+- [x] Add a default-off, admin-only `node97_full` scope and hidden 0825A
+  acceptance root so a fresh run does not mutate or reuse historical success.
 
 ## T210 - WGS Step3-Step4 lightweight contract canary
 

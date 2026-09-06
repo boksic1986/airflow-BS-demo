@@ -128,7 +128,7 @@ def build_stage_request(
             raise ValueError("use_reference must be all, ref, or no")
         payload["use_reference"] = str(use_reference)
     if validation_scope is not None:
-        if validation_scope not in {"step1_only", "step3_dryrun"}:
+        if validation_scope not in {"step1_only", "step3_dryrun", "node97_full"}:
             raise ValueError("unsupported WGS validation scope")
         payload["validation_scope"] = validation_scope
     if stage == "step7_cleanup":

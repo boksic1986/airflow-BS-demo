@@ -683,6 +683,36 @@ def test_step3_validation_reports_missing_prepared_runtime(
         )
 
 
+def test_node97_full_validation_keeps_analysis_mode_and_is_gated(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    cce = tmp_path / "batch" / "cce"
+    cce.mkdir(parents=True)
+    runtime = cce / "BATCH_RUNTIME.yaml"
+    runtime.write_text(
+        yaml.safe_dump(
+            {"schema_version": 2, "workflow": {"execution_mode": "analysis"}}
+        ),
+        encoding="utf-8",
+    )
+    payload = {
+        "analysis_id": "WGS_20260907_123456_A1B2C3",
+        "attempt": 1,
+        "validation_scope": "node97_full",
+    }
+
+    monkeypatch.setenv("WGS_NODE97_FULL_CANARY_ENABLED", "false")
+    with pytest.raises(RuntimeError, match="node97 full canary is disabled"):
+        gate._freeze_validation_execution_mode(payload, tmp_path / "batch")
+
+    monkeypatch.setenv("WGS_NODE97_FULL_CANARY_ENABLED", "true")
+    assert gate._freeze_validation_execution_mode(payload, tmp_path / "batch") is None
+    assert yaml.safe_load(runtime.read_text(encoding="utf-8"))["workflow"][
+        "execution_mode"
+    ] == "analysis"
+
+
 def test_step3_output_uses_last_json_record_after_kubectl_messages() -> None:
     gate = load_gate()
     parsed = gate.parse_step3_status_output(

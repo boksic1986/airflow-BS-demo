@@ -202,6 +202,10 @@ def _freeze_validation_execution_mode(
     scope = payload.get("validation_scope")
     if scope is None or scope == "step1_only":
         return None
+    if scope == "node97_full":
+        if not _truthy("WGS_NODE97_FULL_CANARY_ENABLED"):
+            raise RuntimeError("node97 full canary is disabled on node200")
+        return None
     if scope != "step3_dryrun":
         raise RuntimeError("unsupported WGS validation scope")
     if not _truthy("WGS_STEP3_DRYRUN_CANARY_ENABLED"):

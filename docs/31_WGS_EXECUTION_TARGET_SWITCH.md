@@ -94,6 +94,11 @@ deployment or changes an in-flight CCE Master.
 
 ## T211 node97 execution contract
 
+The optional `node97_full` acceptance scope is an isolated, hidden catalog
+input. It exists only to create a fresh three-sample full-analysis snapshot
+without changing or deleting an earlier successful run. It is not a production
+submission mode and remains disabled outside a supervised acceptance window.
+
 T211 keeps the T209 dispatch claim and commit barrier. After a `node-97`
 target is committed, the DAG follows only:
 

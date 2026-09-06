@@ -246,7 +246,7 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
                           use_reference: str | None = None,
                           validation_scope: str | None = None) -> dict:
     """Create one catalog-bound run; WGS prepare owns sampleinfo and selection."""
-    if validation_scope not in {None, "step1_only", "step3_dryrun"}:
+    if validation_scope not in {None, "step1_only", "step3_dryrun", "node97_full"}:
         raise ValueError("unsupported WGS validation scope")
     spec = _catalog_run_spec(
         settings=settings,
@@ -375,6 +375,7 @@ def _catalog_run_spec(*, settings, project_id: str, platform: str, batch: str,
     validation_suffixes = {
         "step1_only": "STEP1_SDK_CANARY",
         "step3_dryrun": "STEP3_DRYRUN_CANARY",
+        "node97_full": "NODE97_FULL_CANARY",
     }
     suffix = validation_suffixes.get(validation_scope)
     analysis_batch = f"{normalized_batch}_{suffix}" if suffix else normalized_batch

@@ -104,7 +104,7 @@ def validate_request(**context: Any) -> dict[str, Any]:
                 raise ValueError("continue_after_repair must be boolean")
     validation_scope = params.get("validation_scope")
     if validation_scope is not None:
-        if validation_scope not in {"step1_only", "step3_dryrun"}:
+        if validation_scope not in {"step1_only", "step3_dryrun", "node97_full"}:
             raise ValueError("unsupported WGS validation scope")
         if validation_scope == "step1_only" and not _truthy(
             "WGS_STEP1_CANARY_ENABLED"
@@ -114,6 +114,10 @@ def validate_request(**context: Any) -> dict[str, Any]:
             "WGS_STEP3_DRYRUN_CANARY_ENABLED"
         ):
             raise ValueError("Step3 dry-run canary is disabled")
+        if validation_scope == "node97_full" and not _truthy(
+            "WGS_NODE97_FULL_CANARY_ENABLED"
+        ):
+            raise ValueError("node97 full canary is disabled")
         if not _truthy("WGS_CONTRACT_V2_ENABLED"):
             raise ValueError("WGS validation canary requires contract v2")
     return conf

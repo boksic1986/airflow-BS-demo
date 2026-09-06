@@ -365,7 +365,7 @@ class WgsCatalogRunRequest(BaseModel):
     batch: str = Field(pattern="^[0-9]{8}[A-Z]$")
     fastq_root_id: str = Field(min_length=1, max_length=128)
     validation_scope: str | None = Field(
-        default=None, pattern="^(step1_only|step3_dryrun)$"
+        default=None, pattern="^(step1_only|step3_dryrun|node97_full)$"
     )
 
 
@@ -826,22 +826,22 @@ def create_catalog_wgs_run(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"code": "FORBIDDEN", "message": str(exc)},
             ) from exc
-        gate_enabled = (
-            _wgs_step1_canary_enabled()
-            if request.validation_scope == "step1_only"
-            else _wgs_step3_dryrun_canary_enabled()
-        )
+        gate_enabled = {
+            "step1_only": _wgs_step1_canary_enabled,
+            "step3_dryrun": _wgs_step3_dryrun_canary_enabled,
+            "node97_full": _wgs_node97_full_canary_enabled,
+        }[request.validation_scope]()
         if not gate_enabled:
-            gate_code = (
-                "WGS_STEP1_CANARY_DISABLED"
-                if request.validation_scope == "step1_only"
-                else "WGS_STEP3_DRYRUN_CANARY_DISABLED"
-            )
-            gate_message = (
-                "The Step1-only validation gate is disabled."
-                if request.validation_scope == "step1_only"
-                else "The Step3 dry-run validation gate is disabled."
-            )
+            gate_code = {
+                "step1_only": "WGS_STEP1_CANARY_DISABLED",
+                "step3_dryrun": "WGS_STEP3_DRYRUN_CANARY_DISABLED",
+                "node97_full": "WGS_NODE97_FULL_CANARY_DISABLED",
+            }[request.validation_scope]
+            gate_message = {
+                "step1_only": "The Step1-only validation gate is disabled.",
+                "step3_dryrun": "The Step3 dry-run validation gate is disabled.",
+                "node97_full": "The node97 full-run validation gate is disabled.",
+            }[request.validation_scope]
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail={
@@ -2822,6 +2822,15 @@ def _wgs_step1_canary_enabled() -> bool:
 
 def _wgs_step3_dryrun_canary_enabled() -> bool:
     return os.getenv("WGS_STEP3_DRYRUN_CANARY_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _wgs_node97_full_canary_enabled() -> bool:
+    return os.getenv("WGS_NODE97_FULL_CANARY_ENABLED", "false").strip().lower() in {
         "1",
         "true",
         "yes",

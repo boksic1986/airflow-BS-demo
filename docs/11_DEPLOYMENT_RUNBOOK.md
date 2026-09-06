@@ -27,6 +27,14 @@ Rollback may restore prior application code while retaining migrations and
 directional rows. Never delete or overwrite a row carrying ownership.
 ## T211 BS10610/node97 local-runner rollout
 
+The supervised full-run fixture uses the hidden root
+`T7_Node97_Full_Canary` and `validation_scope=node97_full`. Populate only the
+approved three-sample 0825A FASTQ links below `.node97-full-fastq`, then enable
+`WGS_NODE97_FULL_CANARY_ENABLED` on FastAPI, Airflow, and node200 for the test
+window. Keep scanner and auto-dispatch disabled. After the run reaches a
+terminal state, pause `bio_wgs`, disable the node97 full-canary and execution
+gates, and retain the run record for audit.
+
 T211 is test-environment only. Before deployment, require zero active WGS
 business runs, zero queued/running `bio_wgs` DagRuns, a paused DAG, absent
 scanner container and false intake/auto-dispatch gates.

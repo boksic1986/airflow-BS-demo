@@ -15,6 +15,12 @@ performs the normal idempotent release; a later DAG release call only confirms
 that outcome. No API accepts a browser-provided slot name or lease timeout.
 ## T211 node97 local runtime internal contract
 
+The hidden admin-only `validation_scope=node97_full` is reserved for supervised
+node97 acceptance. It requires `WGS_NODE97_FULL_CANARY_ENABLED=true`, the
+catalog-bound `T7_Node97_Full_Canary` root, contract v2, and the normal config
+and execution approval barriers. It creates an isolated analysis batch and is
+not returned by the public project catalog. The gate is false by default.
+
 `POST /api/internal/wgs/runs/{analysis_id}/stages/local_analysis` accepts only
 the internal adapter `wgs-runtime-node97` and command:
 
