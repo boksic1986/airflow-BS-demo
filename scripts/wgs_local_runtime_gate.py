@@ -220,6 +220,25 @@ def _atomic_yaml(path: Path, payload: dict[str, Any]) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def normalize_local_fastq_links(raw_directory: Path) -> list[str]:
+    """Flatten intake indirection so Apptainer only needs the final source bind."""
+    fastq_sources: list[str] = []
+    for path in sorted(raw_directory.iterdir()):
+        if not path.is_symlink():
+            continue
+        target = path.resolve(strict=True)
+        if not target.is_file():
+            raise ValueError(f"FASTQ link target is not a file: {path.name}")
+        temporary = path.with_name(f".{path.name}.node97-link")
+        temporary.unlink(missing_ok=True)
+        temporary.symlink_to(target)
+        os.replace(temporary, path)
+        fastq_sources.append(str(target))
+    if not fastq_sources:
+        raise ValueError("frozen WGS batch has no FASTQ links")
+    return fastq_sources
+
+
 def prepare_local_snapshot(payload: dict[str, Any]) -> Path:
     batch = validate_batch_root(payload)
     pipeline = batch / "pipeline"
@@ -246,15 +265,7 @@ def prepare_local_snapshot(payload: dict[str, Any]) -> Path:
     prepare_config = yaml.safe_load(prepare_config_path.read_text(encoding="utf-8"))
     if not isinstance(prepare_config, dict):
         raise ValueError("approved WGS prepare config is invalid")
-    fastq_sources = []
-    for path in sorted((batch / "raw").iterdir()):
-        if path.is_symlink():
-            target = path.resolve(strict=True)
-            if not target.is_file():
-                raise ValueError(f"FASTQ link target is not a file: {path.name}")
-            fastq_sources.append(str(target))
-    if not fastq_sources:
-        raise ValueError("frozen WGS batch has no FASTQ links")
+    fastq_sources = normalize_local_fastq_links(batch / "raw")
     runtime_module.write_step1(
         batch / "Step1_run.sh",
         batch,

@@ -137,3 +137,25 @@ def test_convert_config_switches_only_executor(tmp_path: Path):
     converted = gate.local_source_config(path)
     assert converted["execution"] == {"executor": "local", "other": "keep"}
     assert converted["value"] == 3
+
+
+def test_normalize_local_fastq_links_flattens_an_intermediate_symlink(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source" / "sample.R1.fq.gz"
+    source.parent.mkdir()
+    source.write_bytes(b"fastq")
+    intake = tmp_path / "intake"
+    intake.mkdir()
+    intermediate = intake / source.name
+    intermediate.symlink_to(source)
+    raw = tmp_path / "batch" / "raw"
+    raw.mkdir(parents=True)
+    link = raw / source.name
+    link.symlink_to(intermediate)
+
+    sources = gate.normalize_local_fastq_links(raw)
+
+    assert sources == [str(source.resolve())]
+    assert link.is_symlink()
+    assert link.readlink() == source.resolve()
