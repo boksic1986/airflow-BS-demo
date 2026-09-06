@@ -1,5 +1,37 @@
 # WGS Step1-6 Orchestration Contract v2
 
+## T208 full contract acceptance
+
+The option-2 contract is now accepted end to end on the BS10610 test control
+plane. Analysis `WGS_20260906_075824_E4D23E`, attempt 4, completed Step1-Step6
+and finalization with exact generation and predecessor receipts. Step1 verified
+6 files / 403,858,510,658 bytes; Step5 verified 11 files /
+173,827,124,513 bytes; Step6 materialized the identical manifest MD5
+`8f15230d744c54f846dfc9173c234796`.
+
+The real Master logger emitted 707 JSONL events and the observer projected all
+209 scheduled jobs as terminal success. The accepted workload used three
+Heavy Slot holders and released all of them. The earlier independent quota
+test remains the capacity proof: 25 holders acquired, contender 26 waited, and
+all holders were released.
+
+Acceptance required fixes to exact retry-generation synchronization, sensor
+handling of temporary backend 5xx, transfer-file accumulation and idempotent
+same-generation Rule projection repair. These fixes preserve all fencing:
+older generations, wrong executions, wrong releases and mismatched markers
+still fail closed.
+
+After closeout, `bio_wgs` is paused and all BS10610/node200 execution,
+auto-dispatch, scheduled-scan and canary gates are false. This completes the
+test acceptance only; production activation remains a separate reviewed
+rollout.
+
+No additional full workflow is required to reproduce routine release
+acceptance. T209 will add a hidden 60-120 second Step3/Step4 contract Rule that
+emits normal logger evidence and publishes a tiny frozen artifact. Full WGS is
+reserved for first-time contract acceptance or a material change to analysis,
+transfer-manifest or materialization semantics.
+
 ## Post-T206 configuration audit and Step4-Step6 admission
 
 The T206 acceptance proves Step2 identity, Step3 dry-run evidence and the
@@ -38,19 +70,19 @@ is copied into each contract-v2 stage request, and must match the frozen CCE
 profile. Administrator bootstraps no longer overwrite existing accounts or
 swallow Airflow initialization errors.
 
-The BS10610 disabled rollout is release
+The BS10610 disabled rollout was release
 `20260906-airflow-demo-841eb55-t207-disabled`. Its control-plane gates are
 closed, DAG paused and scanner absent. Registry DNS prevented a clean rebuild,
 so the release inventory truthfully records reused verified runtime image IDs
 plus exact read-only source revision `841eb55`; it does not claim a rebuilt
-image. T208 remains blocked until the owner installs the matching gate on
-node200 and proves its private execution gates false.
+image. The owner-side gate was subsequently installed and verified before
+T208.
 
-After T207 passes, T208 may run one approved small-family canary through the
-normal contract-v2 path. Step4 must consume the exact successful Step3
-execution; Step5 must consume the exact Step4 generation manifest; Step6 must
-atomically materialize that same manifest hash. Scanner and auto-dispatch stay
-disabled, and the canary may not run on `.96` production.
+After T207 passed, T208 ran one approved small-family canary through the normal
+contract-v2 path. Step4 consumed the exact successful Step3 execution; Step5
+consumed the exact Step4 generation manifest; Step6 atomically materialized
+that same manifest hash. Scanner and auto-dispatch stayed disabled, and the
+canary did not run on `.96` production.
 
 ## T206 Step2/Step3 dry-run validation
 

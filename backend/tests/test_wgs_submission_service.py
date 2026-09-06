@@ -406,6 +406,18 @@ def test_three_stage_approvals_are_server_controlled_and_idempotent(tmp_path: Pa
         assert submission_state(session=session, analysis_id=analysis_id, attempt=1)["config_approved"] is True
 
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        run.params_json = {**run.params_json, "submission_phase": "config_review"}
+        session.commit()
+        replayed = approve_wgs_config(
+            session=session,
+            analysis_id=analysis_id,
+            requested_by="operator",
+            use_reference="ref",
+            resource_set="default",
+        )
+        assert replayed["submission_phase"] == "preparing_analysis"
+
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
         run.params_json = {**run.params_json, "submission_phase": "execution_review"}
         session.commit()
         assert approve_wgs_config(

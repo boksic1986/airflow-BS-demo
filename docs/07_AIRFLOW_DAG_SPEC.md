@@ -1,5 +1,20 @@
 # 07 Airflow DAG 设计
 
+## T208 full Step1-Step6 acceptance semantics
+
+The normal contract-v2 branch has been accepted on BS10610 through Step6.
+Every asynchronous start task waits for the exact generation returned by the
+backend registration call. This applies to prepare, Step1, Step3, Step4, Step5
+and Step6; a positive retry generation is never replaced by a default zero.
+
+Stage sensors treat backend HTTP 5xx like a temporary transport outage and
+reschedule. HTTP 4xx, malformed application payloads, mismatched predecessor
+receipts and mismatched terminal markers still fail closed. The accepted
+DagRun is `WGS_20260906_075824_E4D23E-a4`; its downstream receipt chain is
+Step3 generation 3 -> Step4 generation 1 -> Step5 generation 1 -> Step6
+generation 1. After acceptance the DAG is paused and all execution gates are
+closed.
+
 ## T206 Step2/Step3 dry-run validation branch
 
 The hidden admin-only `step3_dryrun` scope follows the normal `bio_wgs` path

@@ -72,7 +72,7 @@ from app.wgs_workspace_service import build_wgs_workspace
 from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_definitions
 from app.wgs_runtime_adapter import build_stage_request, container_workdir_to_host, write_stage_request
 from app.wgs_observer import (
-    RUNTIME_ARTIFACT_STAGES,
+    SUPPORTED_RUNTIME_SYNC_STAGES,
     sync_runtime_stage_artifacts,
     upsert_stage_state,
 )
@@ -1882,7 +1882,7 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 }
                 if (
                     request.force_new_generation
-                    and stage_name in RUNTIME_ARTIFACT_STAGES
+                    and stage_name in SUPPORTED_RUNTIME_SYNC_STAGES
                 ):
                     sync_runtime_stage_artifacts(
                         session_factory=get_sessionmaker(),

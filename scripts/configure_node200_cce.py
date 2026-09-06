@@ -10,8 +10,9 @@ import yaml
 
 CONFIG_PATH = Path("/home/hanjj/.config/wgs/cce.yaml")
 REPOSITORY_ROOT = "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1"
-EVIDENCE_ROOT = (
-    "/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence"
+EVIDENCE_ROOT = os.getenv(
+    "WGS_CCE_EVIDENCE_ROOT",
+    "/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence",
 )
 OBSUTIL_WRAPPER = "/home/hanjj/.config/airflow-wgs/wgs_obsutil_progress.py"
 

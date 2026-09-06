@@ -1,11 +1,34 @@
 # TASKS.md
 
+## T209 - WGS Step3-Step4 lightweight contract canary
+
+Owner: runtime/Airflow/backend/QA
+
+Status: planned; not required to repeat the already accepted T208 full run
+
+Dependencies: T208
+
+Scope:
+- Add a hidden admin-only `contract_canary` mode with one deterministic test
+  Rule that runs for 60-120 seconds and emits normal Snakemake logger events.
+- Step3 must validate Master identity, Rule start/terminal events and terminal
+  marker. Step4 publishes only a tiny deterministic artifact and verifies the
+  exact predecessor receipt and manifest.
+- Stop after Step4; do not run real WGS computation, result download or
+  materialization. Keep the mode absent from the normal Submit UI.
+
+Acceptance:
+- [ ] One lightweight canary proves Step3 logger and Step4 fencing without
+  launching a full WGS workflow.
+- [ ] A stale generation, wrong Master or changed artifact manifest fails
+  closed.
+- [ ] Runtime remains below five minutes and all gates are restored afterward.
+
 ## T208 - WGS Step4-Step6 controlled end-to-end acceptance
 
 Owner: Airflow/runtime/backend/frontend/QA/docs
 
-Status: planned; T207 prerequisite complete, awaiting a separately controlled
-Step4-Step6 maintenance window
+Status: completed on the BS10610 test control plane
 
 Dependencies: T205,T206,T207
 
@@ -21,20 +44,31 @@ Scope:
 Acceptance:
 - [x] T207 is complete and both BS10610 and node200 execution gates are proven
   disabled before the maintenance window begins.
-- [ ] One approved small-family canary reaches success through Step6 without
+- [x] One approved small-family canary reaches success through Step6 without
   manual state mutation or bypassing a receipt/marker check.
-- [ ] Step4 publishes only the frozen result manifest, Step5 downloads and
+- [x] Step4 publishes only the frozen result manifest, Step5 downloads and
   verifies that exact generation, and Step6 atomically materializes the same
   manifest hash.
-- [ ] Every scheduled rule has terminal evidence; transfer files and aggregate
+- [x] Every scheduled rule has terminal evidence; transfer files and aggregate
   progress agree; no stale generation changes the current state.
-- [ ] Gates and DAG pause state are restored after acceptance, and only exact
+- [x] Gates and DAG pause state are restored after acceptance, and only exact
   canary resources are eligible for cleanup.
+
+Evidence:
+- `WGS_20260906_075824_E4D23E`, attempt 4, DagRun
+  `WGS_20260906_075824_E4D23E-a4` completed successfully through Step6.
+- Step1 verified 6 files / 403,858,510,658 bytes. Step5 verified 11 files /
+  173,827,124,513 bytes. Step6 materialized the same manifest MD5
+  `8f15230d744c54f846dfc9173c234796`.
+- The corrected shared Rule spool yielded 707 raw events and 209 terminal
+  success Rule states. Runtime gates are false and `bio_wgs` is paused.
 
 Restrictions:
 - BS10610 test control plane only; do not modify `.96` production.
 - Do not start T208 while T207 has an unresolved P1 finding or an active run.
 - Do not enable scanner or automatic dispatch for the canary.
+- Do not submit another full WGS run for T208 closeout. The accepted full run,
+  isolated regression tests and read-only runtime checks are sufficient.
 
 ## T207 - WGS runtime configuration convergence and fail-closed readiness
 

@@ -461,6 +461,10 @@ def approve_wgs_config(*, session, analysis_id: str, requested_by: str,
     if params.get("config_approved_at"):
         if params.get("use_reference") != use_reference or params.get("resource_set") != resource_set:
             raise ValueError("WGS configuration was already approved with different values")
+        if params.get("submission_phase") == "config_review":
+            params["submission_phase"] = "preparing_analysis"
+            run.params_json = params
+            session.commit()
         return submission_state(session=session, analysis_id=analysis_id, attempt=run.attempt)
     if params.get("submission_phase") not in {"config_review", "preparing_analysis"}:
         raise ValueError("WGS sample information is not ready for configuration review")

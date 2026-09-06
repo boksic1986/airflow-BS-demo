@@ -432,6 +432,20 @@ class BioWgsDagTests(unittest.TestCase):
             ):
                 bio_wgs._backend_json("/api/internal/wgs/test")
 
+    def test_stage_sensor_reschedules_on_transient_backend_500(self) -> None:
+        response = HTTPError(
+            "http://backend:8000/api/internal/wgs/test",
+            500,
+            "Internal Server Error",
+            {},
+            BytesIO(b""),
+        )
+
+        with patch.object(bio_wgs, "urlopen", side_effect=response):
+            self.assertIsNone(
+                bio_wgs._sensor_backend_json("/api/internal/wgs/test")
+            )
+
     def test_runner_failure_preserves_remote_stdout_and_ssh_stderr(self) -> None:
         conf = {"analysis_id": "WGS_20260903_062828_0858DC", "attempt": 1}
         context = {"dag_run": type("DagRun", (), {"conf": conf})()}
@@ -618,6 +632,51 @@ class BioWgsDagTests(unittest.TestCase):
 
         assert result["runner_status"] == "accepted"
         assert len([path for path in calls if "stage-status" in path]) == 2
+
+    def test_step3_start_waits_past_stale_failed_status_from_previous_generation(self) -> None:
+        calls = []
+        conf = {"analysis_id": "WGS_20260830_010203_A1B2C3", "attempt": 1}
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        original_backend = bio_wgs._backend_json
+        original_run = bio_wgs.subprocess.run
+        original_enabled = bio_wgs._require_runtime_enabled
+        original_sleep = bio_wgs.time.sleep
+        try:
+            bio_wgs._require_runtime_enabled = lambda: None
+            responses = iter(
+                [
+                    {"status": "registered"},
+                    {"status": "failed", "failed": True, "retry_no": 0},
+                    {"status": "running", "failed": False, "retry_no": 2},
+                    {"status": "observer-active"},
+                ]
+            )
+
+            def backend(path, **kwargs):
+                calls.append(path)
+                return next(responses)
+
+            bio_wgs._backend_json = backend
+            bio_wgs.subprocess.run = lambda *args, **kwargs: type(
+                "Completed",
+                (),
+                {
+                    "returncode": 0,
+                    "stdout": '{"status": "accepted", "retry_no": 2}\n',
+                    "stderr": "",
+                },
+            )()
+            bio_wgs.time.sleep = lambda _seconds: None
+            result = bio_wgs.run_stage_on_200("step3_monitor", **context)
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs.subprocess.run = original_run
+            bio_wgs._require_runtime_enabled = original_enabled
+            bio_wgs.time.sleep = original_sleep
+
+        assert result["runner_status"] == "accepted"
+        assert len([path for path in calls if "stage-status" in path]) == 2
+        assert calls[-1].endswith("/observer/activate")
 
     def test_release_leases_always_requests_final_observer_drain(self) -> None:
         calls = []

@@ -260,12 +260,12 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
             f"restricted node200 WGS stage failed ({completed.returncode}): {error}"
         )
     runner_reply = _runner_reply(completed.stdout)
-    if runner_stage in {"step4_publish", "step5_download"} and runner_reply.get(
-        "status"
-    ) == "accepted":
+    if runner_stage in ASYNC_RUNNER_STAGES and runner_reply.get("status") == "accepted":
         retry_no = runner_reply.get("retry_no")
         if not isinstance(retry_no, int) or retry_no < 0:
-            raise RuntimeError("Step4 runner did not return a valid retry generation")
+            raise RuntimeError(
+                f"{runner_stage} runner did not return a valid retry generation"
+            )
         _wait_for_registered_stage_generation(
             analysis_id=str(conf["analysis_id"]),
             attempt=int(conf["attempt"]),
@@ -438,6 +438,10 @@ def _backend_json(
             message = str(detail.get("message") or exc)
             if exc.code == 409 and code == "WGS_STAGE_PREDECESSOR_PENDING":
                 raise BackendStagePredecessorPending(message) from exc
+        if 500 <= exc.code < 600:
+            raise BackendTransportUnavailable(
+                f"backend WGS stage API is temporarily unavailable: {exc}"
+            ) from exc
         raise RuntimeError(f"backend WGS stage API is unavailable: {exc}") from exc
     except (URLError, TimeoutError) as exc:
         raise BackendTransportUnavailable(

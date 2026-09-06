@@ -1831,6 +1831,119 @@ def test_forced_step2_retry_imports_terminal_receipt_before_new_generation(
         ]
 
 
+def test_forced_prepare_retry_imports_terminal_receipt_before_new_generation(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    settings = main.get_settings()
+    settings.wgs_contract_v2_enabled = True
+    settings.wgs_stage_contract_path = str(
+        Path(__file__).parents[2] / "config" / "wgs_stage_contract.yaml"
+    )
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "WGS_Clinical",
+            "execution_mode": "cce",
+            "batch_no": "WGS_20260902A_T7Hg38V4.1.1",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.params_json = {
+            **dict(run.params_json or {}),
+            "orchestration_contract_version": 2,
+        }
+        session.add(
+            WgsStageExecution(
+                execution_id="wse_sampleinfo_complete_for_prepare",
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="prepare_sampleinfo",
+                generation=1,
+                status="success",
+                request_hash="1" * 64,
+                release_id=str(run.params_json["pipeline_release_id"]),
+                receipt_hash="2" * 64,
+                evidence_type="transfer_receipt",
+                terminal_payload_json={},
+            )
+        )
+
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+    body = {
+        "attempt": 1,
+        "adapter": "wgs-runtime-200",
+        "command": f"wgs-runtime {analysis_id} 1 prepare_analysis",
+    }
+    first = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/prepare_analysis",
+        headers=internal,
+        json=body,
+    )
+    assert first.status_code == 200, first.text
+
+    with sessions() as session:
+        generation_one = session.scalar(
+            select(WgsStageExecution).where(
+                WgsStageExecution.analysis_id == analysis_id,
+                WgsStageExecution.stage_code == "prepare_analysis",
+                WgsStageExecution.generation == 1,
+            )
+        )
+        status_payload = {
+            "schema_version": "wgs-runtime.stage-status.v1",
+            "analysis_id": analysis_id,
+            "attempt": 1,
+            "stage": "prepare_analysis",
+            "status": "failed",
+            "orchestration_contract_version": 2,
+            "execution_id": generation_one.execution_id,
+            "generation": generation_one.generation,
+            "request_hash": generation_one.request_hash,
+            "retry_no": 0,
+            "message": "frozen bundle was removed",
+            "updated_at": "2026-09-06T00:00:00+00:00",
+        }
+    status_dir = Path(settings.wgs_runtime_request_root) / analysis_id / "attempt-1"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    (status_dir / "prepare_analysis.status.json").write_text(
+        json.dumps(status_payload),
+        encoding="utf-8",
+    )
+
+    retried = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/prepare_analysis",
+        headers=internal,
+        json={**body, "force_new_generation": True},
+    )
+
+    assert retried.status_code == 200, retried.text
+    assert retried.json()["generation"] == 2
+    with sessions() as session:
+        executions = session.scalars(
+            select(WgsStageExecution)
+            .where(
+                WgsStageExecution.analysis_id == analysis_id,
+                WgsStageExecution.stage_code == "prepare_analysis",
+            )
+            .order_by(WgsStageExecution.generation)
+        ).all()
+        assert [execution.status for execution in executions] == [
+            "failed",
+            "accepted",
+        ]
+
+
 def test_step4_stage_registration_recovers_known_master_completion_race(
     tmp_path, monkeypatch
 ):

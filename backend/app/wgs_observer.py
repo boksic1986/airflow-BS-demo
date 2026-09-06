@@ -830,6 +830,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                         message=str(payload.get("message") or "") or None,
                         evidence_key=str(resolved.relative_to(request_root)),
                         receipt_hash=terminal_receipt_hash,
+                        allow_terminal_retry=retry_no > 0,
                     )
                     if monitoring_health == "degraded":
                         session.commit()
@@ -897,14 +898,37 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                     KubernetesWorkload.pod_hash == pod_hash,
                 )
             )
+            refresh_workload = True
             if row is not None and row.observed_at is not None:
                 previous = row.observed_at
                 if previous.tzinfo is None:
                     previous = previous.replace(tzinfo=timezone.utc)
                 if heartbeat <= previous:
-                    if monitoring_health == "degraded":
-                        session.commit()
-                    return False
+                    refresh_workload = False
+                    projection = session.scalar(
+                        select(RunStageState).where(
+                            RunStageState.analysis_id == analysis_id,
+                            RunStageState.attempt == attempt,
+                            RunStageState.stage_code == stage,
+                        )
+                    )
+                    projection_updated = (
+                        projection.updated_at
+                        if projection is not None and projection.updated_at is not None
+                        else None
+                    )
+                    if projection_updated is not None and projection_updated.tzinfo is None:
+                        projection_updated = projection_updated.replace(tzinfo=timezone.utc)
+                    if (
+                        projection is not None
+                        and _canonical_terminal_status(projection.stage_status)
+                        == _canonical_terminal_status(status)
+                        and projection_updated is not None
+                        and projection_updated >= heartbeat
+                    ):
+                        if monitoring_health == "degraded":
+                            session.commit()
+                        return False
             if row is None:
                 row = KubernetesWorkload(
                     analysis_id=analysis_id,
@@ -915,12 +939,13 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                     phase=phase,
                 )
                 session.add(row)
-            row.phase = phase
-            row.reason = "MasterFailed" if master_state == "FAILED" else None
-            row.message = str(master.get("message") or payload.get("message") or "") or None
-            row.job_status_json = master
-            row.observed_at = heartbeat
-            row.updated_at = datetime.now(timezone.utc)
+            if refresh_workload:
+                row.phase = phase
+                row.reason = "MasterFailed" if master_state == "FAILED" else None
+                row.message = str(master.get("message") or payload.get("message") or "") or None
+                row.job_status_json = master
+                row.observed_at = heartbeat
+                row.updated_at = datetime.now(timezone.utc)
             completed = _nonnegative_int(master.get("completed"))
             total = _nonnegative_int(master.get("total"))
             percent = _bounded_percent(master.get("percent"))
@@ -942,6 +967,7 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 evidence_key=str(resolved.relative_to(request_root)),
                 receipt_hash=terminal_receipt_hash,
                 progress_source="cce-pipeline.step3-status.v2",
+                allow_terminal_retry=retry_no > 0,
             )
         session.commit()
         return True
@@ -966,9 +992,13 @@ def _ingest_transfer_progress(session_factory, spool_root: Path, path: Path) -> 
     resolved = path.resolve()
     if spool_root not in resolved.parents:
         raise ValueError("transfer progress file escapes spool root")
-    payload = _normalize_transfer_progress(
-        json.loads(path.read_text(encoding="utf-8"))
-    )
+    try:
+        raw_payload = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        # The SDK writer atomically replaces progress.json. A reader can see the
+        # directory entry disappear briefly between discovery and open.
+        return False
+    payload = _normalize_transfer_progress(json.loads(raw_payload))
     required = ("analysis_id", "attempt", "transfer_id", "transfer_type", "direction", "status", "heartbeat_at")
     if any(payload.get(name) in {None, ""} for name in required):
         raise ValueError("transfer progress is missing required fields")
@@ -1293,8 +1323,6 @@ def _normalize_transfer_progress(payload: dict) -> dict:
 def _upsert_transfer_file_states(*, session, transfer: TransferJob, files: list[dict], heartbeat: datetime) -> None:
     if not files:
         return
-    aggregate_total = 0
-    aggregate_done = 0
     for item in files:
         file_key = str(item.get("file_key") or "")
         display_name = Path(str(item.get("display_name") or "")).name
@@ -1338,9 +1366,24 @@ def _upsert_transfer_file_states(*, session, transfer: TransferJob, files: list[
         if status in {"success", "failed", "canceled"}:
             row.ended_at = heartbeat
         row.updated_at = heartbeat
-        aggregate_total += total
-        aggregate_done += done
-    if aggregate_total != transfer.bytes_total or aggregate_done != transfer.bytes_transferred:
+    session.flush()
+    rows = session.scalars(
+        select(TransferFileState).where(
+            TransferFileState.transfer_id == transfer.transfer_id
+        )
+    ).all()
+    aggregate_total = sum(row.bytes_total for row in rows)
+    aggregate_done = sum(row.bytes_transferred for row in rows)
+    if (
+        len(rows) > transfer.files_total
+        or aggregate_total > transfer.bytes_total
+        or aggregate_done > transfer.bytes_transferred
+    ):
+        raise ValueError("transfer file totals do not match frozen aggregate progress")
+    if len(rows) == transfer.files_total and (
+        aggregate_total != transfer.bytes_total
+        or aggregate_done != transfer.bytes_transferred
+    ):
         raise ValueError("transfer file totals do not match frozen aggregate progress")
 
 

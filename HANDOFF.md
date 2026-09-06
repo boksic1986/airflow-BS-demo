@@ -1,5 +1,64 @@
 # HANDOFF.md
 
+## 2026-09-07 - Codex - T208 Step1-Step6 acceptance complete
+
+The BS10610 test-control-plane canary `WGS_20260906_075824_E4D23E`, attempt 4,
+completed the full contract-v2 path. DagRun
+`WGS_20260906_075824_E4D23E-a4` is success, the business run is success at 100
+percent, and all three samples are success. Do not present this as a `.96`
+production rollout.
+
+Step1 verified 6 files / 403,858,510,658 bytes. Step5 verified 11 files /
+173,827,124,513 bytes. `DOWNLOAD_VERIFIED` and `MATERIALIZED` are PASS and the
+materialized payload manifest MD5 is
+`8f15230d744c54f846dfc9173c234796`. The accepted execution chain is Step3
+generation 3, Step4 generation 1, Step5 generation 1 and Step6 generation 1.
+
+The apparent missing Rule progress was an observer mount defect, not a missing
+logger. The Master had produced 707 valid events under
+`/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence`.
+BS10610 now mounts that same shared path. A controlled observer drain imported
+707 raw events and projected 209/209 terminal-success Rule states with no
+malformed records. Step3 status replay repaired the stale read model without
+rerunning WGS.
+
+Source fixes cover retry-generation synchronization for all runtime stages,
+exact-generation Airflow waits, rescheduling on transient backend 5xx,
+transfer-row accumulation, atomic spool replacement races, positive Step3
+retry projection and idempotent terminal Rule replay. The node200 gate is
+installed with SHA256
+`a9ed638c56d47f316fc09ca7eb521b14562c5453411157ebbc95e51a1eae13b9`.
+
+Closeout state is fail closed: `bio_wgs` is paused; BS10610 execution,
+runtime-adapter, auto-dispatch, canary and scheduled-scan gates are false;
+node200 execution/runtime/canary gates are false; no Heavy Slot holder remains.
+The forced-command path rejects a registered Step3 request with `WGS execution
+gate is disabled` and leaves its status file unchanged. PostgreSQL and Redis
+volumes were not recreated. Per operator direction, no additional test-database
+backup was made during final closeout.
+
+Fresh isolated BS10610 verification passes: backend `104 passed`, DAG
+`20 passed`, runtime gate `59 passed`, and Compose config. Live read-only checks
+show 707 raw Rule events, 209/209 successful Rule states, zero nonterminal Rule
+states, zero active business runs, 25 Heavy Slot Leases with zero holders, and
+paused `bio_wgs`. `http://172.17.106.10:12959/` returns 200 and `/api/health`
+returns `ok`. This deployment binds the port to `172.17.106.10`, so localhost
+port checks are not valid evidence.
+
+Two initial test invocations were intentionally discarded: running pytest in
+the long-lived backend inherited deployed service tokens/gates, and the first
+one-shot image omitted the required read-only `/config` mount. The accepted
+104-test result used an isolated container with the release config mounted.
+
+No further full WGS run is required for T208. The next planned task, T209,
+adds a hidden 60-120 second Step3/Step4 contract Rule so routine releases can
+validate logger and publish fencing without WGS computation.
+
+Targeted backend, DAG, runtime-gate and Compose verification must remain the
+release gate. The repository-wide backend suite still contains pre-existing
+legacy/non-WGS failures and must not be described as fully green until that
+separate debt is resolved.
+
 ## 2026-09-06 - Codex - T207 configuration convergence implemented
 
 Deployment update: BS10610 `current` is now

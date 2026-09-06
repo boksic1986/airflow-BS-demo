@@ -28,6 +28,35 @@ def load_gate():
     return module
 
 
+def load_node200_configurator():
+    spec = importlib.util.spec_from_file_location(
+        "configure_node200_cce_test", ROOT / "configure_node200_cce.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_node200_rule_evidence_uses_bs_mounted_shared_spool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("WGS_CCE_EVIDENCE_ROOT", raising=False)
+    expected = (
+        "/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence"
+    )
+
+    gate = load_gate()
+    configurator = load_node200_configurator()
+    example = (ROOT.parent / "config" / "wgs_runtime.node200.env.example").read_text(
+        encoding="utf-8"
+    )
+
+    assert str(gate.CCE_EVIDENCE_ROOT) == expected
+    assert configurator.EVIDENCE_ROOT == expected
+    assert f"WGS_CCE_EVIDENCE_ROOT={expected}" in example
+
+
 def test_hanjj_forced_command_uses_private_runtime_environment() -> None:
     source = (ROOT / "wgs_runtime_forced_command.sh").read_text(encoding="utf-8")
 
@@ -466,6 +495,100 @@ def test_prepare_retry_reuses_frozen_binding_without_repository_access(
     gate._run_prepare(payload)
 
     assert reused == [payload]
+
+
+def test_prepare_analysis_new_generation_rebuilds_a_missing_frozen_bundle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    workdir = tmp_path / "control"
+    workdir.mkdir()
+    batch_root = tmp_path / "project" / "batch"
+    batch_root.parent.mkdir()
+    binding = workdir / "batch-binding.json"
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "generation": 2,
+        "pipeline_release_id": "wgs-4.1.1-1656b5d",
+        "analysis_project_root": str(batch_root.parent),
+        "expected_batch_root": str(batch_root),
+        "batch_no": "batch",
+    }
+    binding.write_text(
+        json.dumps(
+            {
+                "schema_version": gate.BINDING_SCHEMA,
+                "analysis_id": payload["analysis_id"],
+                "attempt": payload["attempt"],
+                "pipeline_release_id": payload["pipeline_release_id"],
+                "cce_bundle": str(batch_root / "cce"),
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls: list[str] = []
+    monkeypatch.setattr(gate, "_binding_path", lambda _payload: binding)
+    monkeypatch.setattr(gate, "_workdir", lambda _payload: workdir)
+    monkeypatch.setattr(gate, "validate_release_repository", lambda _payload: calls.append("release"))
+    monkeypatch.setattr(gate, "validate_prepare_config", lambda: calls.append("config"))
+    monkeypatch.setattr(gate, "build_prepare_command", lambda _payload: ["prepare"])
+    monkeypatch.setattr(gate.subprocess, "run", lambda *_args, **_kwargs: calls.append("prepare"))
+    monkeypatch.setattr(gate, "_freeze_validation_execution_mode", lambda *_args: calls.append("freeze"))
+    monkeypatch.setattr(gate, "_write_prepare_binding", lambda _payload: calls.append("binding"))
+
+    gate._run_prepare_analysis(payload)
+
+    assert calls == ["release", "config", "prepare", "freeze", "binding"]
+    assert not binding.exists()
+    assert (
+        workdir
+        / "history"
+        / "prepare_analysis"
+        / "before-generation-2"
+        / "batch-binding.json"
+    ).is_file()
+
+
+def test_prepare_analysis_new_generation_rejects_an_outside_frozen_bundle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    workdir = tmp_path / "control"
+    workdir.mkdir()
+    batch_root = tmp_path / "project" / "batch"
+    batch_root.parent.mkdir()
+    outside_bundle = tmp_path / "outside" / "cce"
+    outside_bundle.mkdir(parents=True)
+    binding = workdir / "batch-binding.json"
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "generation": 2,
+        "pipeline_release_id": "wgs-4.1.1-1656b5d",
+        "analysis_project_root": str(batch_root.parent),
+        "expected_batch_root": str(batch_root),
+        "batch_no": "batch",
+    }
+    binding.write_text(
+        json.dumps(
+            {
+                "schema_version": gate.BINDING_SCHEMA,
+                "analysis_id": payload["analysis_id"],
+                "attempt": payload["attempt"],
+                "pipeline_release_id": payload["pipeline_release_id"],
+                "cce_bundle": str(outside_bundle),
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "_binding_path", lambda _payload: binding)
+    monkeypatch.setattr(gate, "_workdir", lambda _payload: workdir)
+
+    with pytest.raises(ValueError, match="outside the expected analysis batch"):
+        gate._run_prepare_analysis(payload)
+
+    assert binding.is_file()
 
 
 def test_step3_status_contract_is_strict_and_master_only() -> None:

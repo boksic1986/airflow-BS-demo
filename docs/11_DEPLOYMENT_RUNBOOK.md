@@ -1,5 +1,35 @@
 # 11 部署 Runbook
 
+## T208 full Step1-Step6 closeout
+
+Accepted test-control-plane run: `WGS_20260906_075824_E4D23E`, attempt 4,
+DagRun `WGS_20260906_075824_E4D23E-a4`.
+
+1. Require Step1 6/6 files and 403,858,510,658 verified bytes.
+2. Require Step3 Master success and 209/209 terminal Rule states from the
+   shared Rule spool; do not infer Rule success from the Airflow task alone.
+3. Require the exact Step3 gen3 -> Step4 gen1 -> Step5 gen1 -> Step6 gen1
+   predecessor chain.
+4. Require Step5 11/11 files and 173,827,124,513 verified bytes.
+5. Compare `DOWNLOAD_VERIFIED`, `MATERIALIZED` and the actual payload manifest;
+   the accepted manifest MD5 is `8f15230d744c54f846dfc9173c234796`.
+6. Close every BS10610 and node200 execution/intake/canary gate, pause
+   `bio_wgs`, verify zero active run and zero Heavy Slot holder, then test the
+   exact forced-command path rejects execution.
+
+The Rule spool is
+`/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence` on
+node200 and the BS-mounted shared filesystem. Do not point the observer at a
+same-named local test directory. The test database does not require another
+closeout backup when the operator explicitly waives it; never apply that waiver
+to `.96` production.
+
+Do not repeat a complete WGS workflow merely to close T208. Use the accepted
+full-run receipts plus isolated backend/DAG/runtime tests and read-only live
+state checks. Future routine release validation should use the T209 hidden
+`contract_canary`: one 60-120 second logger-enabled test Rule for Step3 and one
+tiny immutable artifact for Step4, terminating before Step5/Step6.
+
 ## T207 disabled configuration-convergence rollout
 
 Before any Step4-Step6 validation, deploy the candidate with `bio_wgs` paused,
@@ -175,7 +205,8 @@ from cce-pipeline commit `e4c0f134...`, which is based on the operator-provided
 This release must first be deployed with `WGS_EXECUTION_ENABLED=false`,
 `WGS_RUNTIME_ADAPTER_ENABLED=false`, `WGS_AUTO_DISPATCH_ENABLED=false`, and the
 `bio_wgs` DAG paused. Use an evidence directory under
-`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence`; never use `/tmp`.
+`/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence`;
+never use `/tmp` or the unrelated `WGS_test/cce-evidence` directory.
 
 1. Verify there are no active WGS runs, record the existing DAG pause state,
    and create mode-0600 Airflow/biodemo dumps plus JSON inventories.

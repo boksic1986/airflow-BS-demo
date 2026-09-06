@@ -100,7 +100,7 @@ STEP4_MASTER_NOT_SUCCESSFUL = "Step4 requires a successful Master Job"
 CCE_EVIDENCE_ROOT = Path(
     os.getenv(
         "WGS_CCE_EVIDENCE_ROOT",
-        "/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence",
+        "/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence",
     )
 )
 EVIDENCE_BRIDGE = Path(__file__).with_name("wgs_evidence_bridge.py")
@@ -559,8 +559,9 @@ def _run_prepare_sampleinfo(payload: dict[str, Any]) -> None:
 def _run_prepare_analysis(payload: dict[str, Any]) -> None:
     binding_path = _binding_path(payload)
     if binding_path.is_file():
-        _load_binding(payload)
-        return
+        if not _archive_missing_prepare_binding(payload, binding_path):
+            _load_binding(payload)
+            return
     validate_release_repository(payload)
     validate_prepare_config()
     project_root = Path(str(payload["analysis_project_root"])).resolve()
@@ -570,6 +571,38 @@ def _run_prepare_analysis(payload: dict[str, Any]) -> None:
     subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
     _freeze_validation_execution_mode(payload, expected_batch_root)
     _write_prepare_binding(payload)
+
+
+def _archive_missing_prepare_binding(payload: dict[str, Any], binding_path: Path) -> bool:
+    """Archive an attempt binding only when a newer prepare generation lost its bundle."""
+    generation = int(payload.get("generation") or 1)
+    if generation <= 1:
+        return False
+    value = json.loads(binding_path.read_text(encoding="utf-8"))
+    if (
+        value.get("schema_version") != BINDING_SCHEMA
+        or value.get("analysis_id") != payload["analysis_id"]
+        or int(value.get("attempt", 0)) != int(payload["attempt"])
+        or value.get("pipeline_release_id") != payload["pipeline_release_id"]
+    ):
+        _load_binding(payload)
+        return False
+    bundle = Path(str(value.get("cce_bundle") or "")).resolve()
+    expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
+    if expected_batch_root not in bundle.parents or bundle.is_symlink():
+        _load_binding(payload)
+        return False
+    if bundle.is_dir():
+        return False
+    history = (
+        _workdir(payload)
+        / "history"
+        / "prepare_analysis"
+        / f"before-generation-{generation}"
+    )
+    history.mkdir(parents=True, exist_ok=True)
+    os.replace(binding_path, history / "batch-binding.json")
+    return True
 
 
 def _write_prepare_binding(payload: dict[str, Any]) -> None:

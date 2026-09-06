@@ -1,5 +1,19 @@
 # 05 API Contract
 
+## T208 exact-generation replay and projection repair
+
+Contract-v2 stage registration and status reads use the returned
+`execution_id + generation`; Airflow never infers a retry generation from a
+timestamp or a previous stage projection. A temporary backend HTTP 5xx while a
+reschedule sensor reads stage status is transport unavailability, not workflow
+failure. Application 4xx responses and invalid payloads remain hard failures.
+
+For the same Step3 execution and generation, a terminal Rule evidence replay
+may repair a stale `RunStageState` projection even when its heartbeat is equal
+to the already ingested event. The replay is idempotent when the projection is
+already identical. It cannot replace a newer execution/generation, regress a
+terminal state, or synthesize missing Rule events.
+
 ## T206 admin-only Step2/Step3 dry-run scope
 
 `POST /api/wgs/runs` accepts the hidden exact value

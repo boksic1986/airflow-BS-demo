@@ -1,5 +1,24 @@
 # 08 Snakemake + qsub 接入设计
 
+## T208 WGS full-run Rule evidence
+
+The authoritative BS10610/node200 Rule spool is:
+
+```text
+/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence
+```
+
+It must be mounted into the observer as `WGS_EVIDENCE_ROOT`. The similarly
+named `WGS_test/cce-evidence` directory is not the Master logger spool and must
+not be used as a fallback.
+
+Accepted run `WGS_20260906_075824_E4D23E`, attempt 4, produced 707 complete
+JSONL records: 175 `job_started`, 266 `job_info`, 209 `job_finished` and 57
+`rule_planned`. Observer projection produced 209 Rule states, all terminal
+success, with zero malformed records. A terminal parent projection is not a
+substitute for this evidence; observer replay is allowed only to import the
+same bound run/release and exact event identities.
+
 ## T206 WGS Snakemake dry-run evidence
 
 The WGS validation scope freezes `workflow.execution_mode=dry_run` after the

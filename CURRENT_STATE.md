@@ -1,5 +1,43 @@
 # CURRENT_STATE.md
 
+## 2026-09-07 T208 Step1-Step6 controlled acceptance complete
+
+acceptance: BS10610 test analysis `WGS_20260906_075824_E4D23E`, attempt 4,
+completed the normal contract-v2 path through Step1 upload, Step2 Master,
+Step3 analysis, Step4 publish, Step5 SDK download, Step6 atomic materialization
+and finalization. Airflow DagRun `WGS_20260906_075824_E4D23E-a4` and the
+business run are both success. This was a test-control-plane acceptance, not a
+production `.96` rollout.
+
+receipts: Step1 verified 6 FASTQ files totaling 403,858,510,658 bytes. Step5
+verified 11 result files totaling 173,827,124,513 bytes. Step6 consumed the
+same payload manifest, whose MD5 is
+`8f15230d744c54f846dfc9173c234796`; `DOWNLOAD_VERIFIED` and `MATERIALIZED`
+both report PASS. The exact predecessor chain is Step3 generation 3 to Step4
+generation 1 to Step5 generation 1 to Step6 generation 1.
+
+rule_evidence: the Master wrote 707 valid JSONL logger events to the shared
+node200/BS spool. After correcting the observer mount, biodemo contains 707 raw
+events and 209 Rule states; all 209 scheduled jobs are terminal success. Step3
+now projects 209/209 and 100 percent without rerunning analysis.
+
+fixes: retry registration now synchronizes prepare and every contract-v2
+runtime stage, Airflow waits for the exact returned generation, transient
+backend 5xx responses reschedule sensors, transfer projection preserves
+accumulated file rows, and same-generation terminal Rule replay repairs a stale
+Step3 read model without accepting older execution evidence.
+
+closed_state: `bio_wgs` is paused. BS10610 auto-dispatch/intake/execution gates
+and node200 execution/runtime/canary gates are false. There are no active
+business runs or Heavy Slot holders. No additional database backup was taken
+during final closeout because this is the designated test database.
+
+verification: isolated BS10610 image tests pass: backend 104, `bio_wgs` DAG 20,
+runtime gate 59, plus Compose config. The frontend and proxied backend health
+return 200/ok at the actual bound address `172.17.106.10:12959`. No additional
+full WGS run was started for closeout. T209 will provide a reusable 60-120
+second Step3/Step4 contract canary for future releases.
+
 ## 2026-09-06 T207 disabled control-plane rollout
 
 rollout_update: BS10610 now points `current` to disabled release

@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 from datetime import datetime, timedelta, timezone
@@ -25,6 +26,8 @@ from app.models import (
     WgsMaintenanceAction,
 )
 from app.wgs_observer import (
+    _ingest_transfer_progress,
+    _upsert_transfer_file_states,
     ingest_evidence_once,
     ingest_observer_attempt_once,
     sync_runtime_stage_artifacts,
@@ -34,6 +37,93 @@ from app.wgs_observer import (
 
 RELEASE_ID = "wgs-4.1.1-1656b5d"
 RUN_LABEL = "WGS_20260812_000001_AAAAAA-a1"
+
+
+def test_transfer_progress_atomic_replace_gap_is_retryable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    progress_root = tmp_path / "transfer-spool"
+    progress = progress_root / "run" / "progress.json"
+    progress.parent.mkdir(parents=True)
+    progress.write_text("{}", encoding="utf-8")
+    original_read_text = Path.read_text
+
+    def transient_read(self: Path, *args, **kwargs):
+        if self == progress:
+            raise FileNotFoundError(str(self))
+        return original_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", transient_read)
+
+    assert _ingest_transfer_progress(lambda: None, progress_root, progress) is False
+
+
+def test_transfer_file_callbacks_can_arrive_in_incremental_subsets() -> None:
+    sessions = make_sessionmaker()
+    heartbeat = datetime(2026, 9, 6, 11, 0, tzinfo=timezone.utc)
+    with sessions() as session:
+        transfer = TransferJob(
+            analysis_id="WGS_20260906_075824_E4D23E",
+            attempt=4,
+            transfer_id="WGS_20260906_075824_E4D23E-a4-result",
+            transfer_type="result_download",
+            direction="download",
+            status="success",
+            bytes_total=300,
+            bytes_transferred=300,
+            files_total=2,
+            files_completed=2,
+            progress_percent=100,
+            heartbeat_at=heartbeat,
+            updated_at=heartbeat,
+        )
+        session.add(transfer)
+        session.flush()
+
+        _upsert_transfer_file_states(
+            session=session,
+            transfer=transfer,
+            heartbeat=heartbeat,
+            files=[
+                {
+                    "file_key": "1" * 64,
+                    "display_name": "result-1.tar.gz",
+                    "bytes_total": 100,
+                    "bytes_done": 100,
+                    "status": "success",
+                    "speed_bps": 50,
+                    "checksum_status": "verified",
+                }
+            ],
+        )
+        assert session.scalar(
+            select(TransferFileState).where(
+                TransferFileState.transfer_id == transfer.transfer_id
+            )
+        ) is not None
+
+        _upsert_transfer_file_states(
+            session=session,
+            transfer=transfer,
+            heartbeat=heartbeat,
+            files=[
+                {
+                    "file_key": "2" * 64,
+                    "display_name": "result-2.tar.gz",
+                    "bytes_total": 200,
+                    "bytes_done": 200,
+                    "status": "success",
+                    "speed_bps": 50,
+                    "checksum_status": "verified",
+                }
+            ],
+        )
+        rows = session.scalars(
+            select(TransferFileState).where(
+                TransferFileState.transfer_id == transfer.transfer_id
+            )
+        ).all()
+        assert len(rows) == 2
 
 
 def make_sessionmaker():
@@ -1239,6 +1329,114 @@ def test_step3_terminal_execution_freezes_dry_run_master_identity(
         assert execution.terminal_payload_json["master_job"] == master_job
         assert execution.terminal_payload_json["master"]["execution_mode"] == "dry_run"
         assert execution.terminal_payload_json["master"]["master_uid"] == "master-uid-1"
+
+
+def test_step3_retry_generation_replaces_prior_failed_projection(
+    tmp_path: Path,
+) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    runtime = tmp_path / "runtime"
+    request_root = runtime / "runner-requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    master_job = "cce-master-0123456789abcdef0123"
+    write_runtime_binding(runtime, analysis_id, master_job=master_job)
+    failed_at = datetime(2026, 9, 6, 1, 0, tzinfo=timezone.utc)
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.params_json = {**run.params_json, "orchestration_contract_version": 2}
+        upsert_stage_state(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            stage_code="step3_monitor",
+            stage_status="failed",
+            updated_at=failed_at,
+            message="stale failed generation",
+        )
+        session.add(
+            WgsStageExecution(
+                execution_id="wse_step3_retry_success",
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="step3_monitor",
+                generation=2,
+                status="success",
+                request_hash="e" * 64,
+                release_id=RELEASE_ID,
+                heartbeat_at=failed_at + timedelta(hours=1),
+                receipt_hash="f" * 64,
+            )
+        )
+        session.add(
+            KubernetesWorkload(
+                analysis_id=analysis_id,
+                attempt=1,
+                event_id=f"step3:{master_job}",
+                pod_hash=hashlib.sha256(master_job.encode("utf-8")).hexdigest()[:32],
+                job_name=master_job,
+                phase="Succeeded",
+                observed_at=failed_at + timedelta(hours=1),
+            )
+        )
+    (request_dir / "step3_monitor.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step3_monitor",
+                "status": "success",
+                "updated_at": "2026-09-06T02:00:00Z",
+                "retry_no": 1,
+                "orchestration_contract_version": 2,
+                "execution_id": "wse_step3_retry_success",
+                "generation": 2,
+                "request_hash": "e" * 64,
+                "master_job": master_job,
+                "namespace": "snakemake-ns",
+                "run_label": "cce-run-0123456789abcdef",
+                "master": {
+                    "master_state": "SUCCEEDED",
+                    "execution_mode": "full",
+                    "master_uid": "master-uid-2",
+                    "master_resource_version": "482",
+                    "normal": True,
+                    "percent": 100,
+                    "completed": 209,
+                    "total": 209,
+                    "message": "analysis complete",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=request_root,
+        transfer_spool_root=runtime / "transfer-progress",
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="step3_monitor",
+    )
+
+    assert result == {"files": 2, "events_ingested": 2}
+    with sessions() as session:
+        stage = session.scalar(
+            select(RunStageState).where(
+                RunStageState.analysis_id == analysis_id,
+                RunStageState.attempt == 1,
+                RunStageState.stage_code == "step3_monitor",
+            )
+        )
+        assert stage.stage_status == "success"
+        assert stage.progress_percent == 100
+        assert stage.completed_units == 209
+        assert stage.total_units == 209
+        assert stage.message == "analysis complete"
 
 
 def test_step3_accepts_cce_master_only_when_it_matches_frozen_binding(
