@@ -45,7 +45,7 @@ class FakeQuota:
 class FailingQuota(FakeQuota):
     def acquire(self, *, run_label: str, job_name: str):
         if job_name.endswith("25"):
-            raise RuntimeError("Kubernetes API unavailable")
+            raise OSError("Kubernetes API unavailable")
         return super().acquire(run_label=run_label, job_name=job_name)
 
 

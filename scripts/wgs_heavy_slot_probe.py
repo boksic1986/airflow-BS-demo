@@ -31,9 +31,9 @@ def contend(*, quota: Any, contenders: int, run_label: str) -> dict[str, Any]:
             for future in as_completed(futures):
                 try:
                     claim = future.result()
-                except RuntimeError as error:
+                except Exception as error:
                     expected = f"all {quota.limit} WGS high-I/O work-pod slots are occupied"
-                    if str(error) == expected:
+                    if isinstance(error, RuntimeError) and str(error) == expected:
                         waiting += 1
                     else:
                         errors.append(error)
