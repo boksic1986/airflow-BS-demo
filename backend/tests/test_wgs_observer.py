@@ -1311,6 +1311,28 @@ def test_node97_local_status_projects_running_and_failure(tmp_path: Path) -> Non
         assert stage.stage_status == "running"
         assert stage.progress_source == "node97-local-runtime"
 
+    with sessions.begin() as session:
+        session.add_all(
+            [
+                RuleState(
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    rule_instance_id="mapping:sample-a",
+                    rule_name="pre_process_mapping",
+                    sample_id="sample-a",
+                    status="running",
+                ),
+                RuleState(
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    rule_instance_id="clean:sample-a",
+                    rule_name="pre_process_cleanFastq",
+                    sample_id="sample-a",
+                    status="success",
+                ),
+            ]
+        )
+
     marker.write_text(
         json.dumps(
             {
@@ -1338,6 +1360,16 @@ def test_node97_local_status_projects_running_and_failure(tmp_path: Path) -> Non
         assert run.status == "failed"
         assert run.error_summary == "local rule failed"
         assert run.pipeline_finished_at is not None
+        rules = {
+            row.rule_instance_id: row
+            for row in session.scalars(
+                select(RuleState).where(RuleState.analysis_id == analysis_id)
+            ).all()
+        }
+        assert rules["mapping:sample-a"].status == "canceled"
+        assert rules["mapping:sample-a"].ended_at is not None
+        assert rules["mapping:sample-a"].message == "Canceled because local WGS workflow failed."
+        assert rules["clean:sample-a"].status == "success"
 
 
 def test_wgs_4_1_1_stage_status_is_phase_only_and_master_only(tmp_path: Path) -> None:

@@ -826,6 +826,13 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 analysis.error_summary = str(payload.get("message") or "") or None
                 analysis.ended_at = heartbeat
                 analysis.pipeline_finished_at = heartbeat
+                _cancel_incomplete_rule_states(
+                    session,
+                    analysis_id=analysis_id,
+                    attempt=attempt,
+                    timestamp=heartbeat,
+                    reason="Canceled because local WGS workflow failed.",
+                )
             elif status == "running":
                 analysis.status = "running"
                 analysis.error_summary = None
@@ -1012,6 +1019,29 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
             )
         session.commit()
         return True
+
+
+def _cancel_incomplete_rule_states(
+    session,
+    *,
+    analysis_id: str,
+    attempt: int,
+    timestamp: datetime,
+    reason: str,
+) -> int:
+    rows = session.scalars(
+        select(RuleState).where(
+            RuleState.analysis_id == analysis_id,
+            RuleState.attempt == attempt,
+            RuleState.status.in_(("planned", "accepted", "queued", "running")),
+        )
+    ).all()
+    for row in rows:
+        row.status = "canceled"
+        row.ended_at = row.ended_at or timestamp
+        row.updated_at = timestamp
+        row.message = reason
+    return len(rows)
 
 
 def _mark_runtime_monitoring_degraded(
