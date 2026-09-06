@@ -4,18 +4,18 @@
 
 Owner: backend/Airflow/runtime/CCE/QA/docs
 
-Status: in progress on the BS10610 test control plane; production remains disabled
+Status: completed on the BS10610 test control plane; production remains disabled
 
 Acceptance:
-- [ ] Add an admin-only `validation_scope=step3_dryrun` guarded by contract v2
+- [x] Add an admin-only `validation_scope=step3_dryrun` guarded by contract v2
   and a dedicated default-off gate.
-- [ ] Run one synthetic trio through Step1, Step2 Master and Step3 Snakemake
+- [x] Run one synthetic trio through Step1, Step2 Master and Step3 Snakemake
   dry-run, then finalize without making Step4-6 reachable.
-- [ ] Persist exact Master identity, logger evidence and a terminal marker that
+- [x] Persist exact Master identity, logger evidence and a terminal marker that
   proves `execution_mode=dry_run`.
-- [ ] Validate the 25-Worker-Pod Heavy Slot quota with 26 no-compute Lease
+- [x] Validate the 25-Worker-Pod Heavy Slot quota with 26 no-compute Lease
   contenders: 25 acquired and one waiting.
-- [ ] Restore every gate, DAG pause state, runtime config and shared test
+- [x] Restore every gate, DAG pause state, runtime config and shared test
   environment; pass backend, DAG, runtime and cce-pipeline regressions.
 
 Restrictions:

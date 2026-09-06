@@ -29,6 +29,21 @@ runtime, DAG, OBS, and Kubernetes inventories before deployment.
    touch production `.96`, database volumes, source FASTQ, or unrelated CCE
    resources.
 
+Accepted evidence: `WGS_20260905_210104_739143-a8`, Master
+`cce-master-19d6c95a68916a98d2c3`, and image digest `sha256:870d5dd...ff1562`.
+The dry-run planned 210 jobs and created zero Worker Jobs. The Heavy Slot probe
+reported `25 acquired / 1 waiting / 0 remaining holders`. Before a future
+canary, deploy the minimal `config/wgs-heavy-slot-rbac.yaml`; a missing Role is
+a hard 403 and must not be bypassed with broader namespace permissions.
+
+The release-side prepare configuration and node200-visible configuration are
+separate settings: `WGS_PREPARE_CONFIG_ROOT` identifies the approved release
+root, while `WGS_PREPARE_CONFIG` identifies the exact runtime config file.
+Never infer one by appending to the other. After validation, restore both
+node200 files from their SHA256-verified backups, restore the shared test
+package, set every gate false, pause the DAG, and remove the disabled scanner
+container so `restart: unless-stopped` cannot generate an exit/restart loop.
+
 ## T205 Step1 SDK direct-upload canary
 
 Use the T203 Step1-only safety procedure, but require the cce-pipeline runtime

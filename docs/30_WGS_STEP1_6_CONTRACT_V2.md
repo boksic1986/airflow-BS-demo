@@ -13,6 +13,19 @@ Lease implementation with 26 no-compute contenders. The quota unit remains one
 active high-I/O Worker Pod: 25 holders may acquire a slot and the 26th waits.
 This probe validates coordination only and does not create an analysis Job.
 
+Acceptance completed on BS10610 with DagRun
+`WGS_20260905_210104_739143-a8`. The exact Master planned 210 Snakemake jobs in
+dry-run mode, emitted logger planning evidence, and created no Worker Job or
+Pod. Step4-Step6 were unreachable. The independent 26-contender probe acquired
+all 25 fixed slots, left one contender waiting, then released every holder.
+Minimal Lease RBAC for `cce-pipeline-master-v1` is therefore part of the
+contract-v2 deployment dependency.
+
+The canary's tiny Step1 setup used the obsutil rollback adapter and is not the
+SDK callback acceptance. T205 remains authoritative for frozen byte totals and
+per-file SDK progress. T206 proves the Step2 identity, Step3 runtime truth,
+dry-run branch fencing, and Heavy Slot coordination.
+
 ## T205 direct-upload startup
 
 The default Step1 SDK path starts network transfer after freezing the manifest

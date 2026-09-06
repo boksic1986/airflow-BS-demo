@@ -1,5 +1,47 @@
 # HANDOFF.md
 
+## 2026-09-06 - Codex - T206 Step2/Step3 dry-run complete
+
+The accepted BS10610 test run is `WGS_20260905_210104_739143-a8`, using one
+synthetic trio (three samples/six tiny FASTQ files). It completed the normal
+Step1 receipt and Step2 Master handoff, then ran Snakemake Step3 with
+`execution_mode=dry_run`. Airflow routed to `finalize_step3_dryrun`; every
+Step4-Step6 task was skipped by design.
+
+The exact Master was `cce-master-19d6c95a68916a98d2c3`, UID
+`d84e0547-db0e-4845-939e-77507ef637c5`, run label
+`cce-run-dd7c11d2f248c39d`, on image digest
+`sha256:870d5dd1de032eed33cefb7eb79b91829807d54cee969825e884227279ff1562`.
+Persistent SFS evidence records Snakemake `9.24.0+biosan1`, 210 planned jobs,
+zero execution rows, 267 job-info events and 57 planned-rule events. Only the
+Master existed under the exact run label; no WGS Worker analysis Job or Pod
+was created.
+
+The Heavy Slot probe initially exposed missing Lease RBAC. The deployed Role
+and RoleBinding grant the Master ServiceAccount only the fixed quota Lease
+operations. The final no-compute probe produced 25 unique holders from 26
+contenders, one waiting contender, and zero remaining holders; the probe Pod
+was deleted. This verifies 25 concurrent high-I/O work pods, not 25 CPU cores
+or 25 Airflow runs.
+
+All exact canary resources were cleaned after evidence capture: seven OBS
+objects, the Master/reset/probe resources, batch lock, SFS run/linkage roots,
+and isolated host batch. node200 gate/runtime checksums were restored, and the
+shared `nipttest` cce-pipeline returned to pre-T206 commit `b003606...`.
+`bio_wgs` is paused; execution, runtime adapter, contract v2, Step1 canary,
+Step3 dry-run canary, intake, and auto-dispatch are false. The disabled scanner
+container was removed to avoid a restart loop. Production `.96` was untouched.
+
+Final regression evidence is backend `368 passed, 1 skipped`, runtime scripts
+`75 passed`, WGS DAG `18 + 4`, static topology `2`, valid Compose rendering and
+an empty Airflow import-error list. Frontend HTTP, backend health, Airflow DB
+and scheduler health pass. Airflow code is `9d58ebb`; CCE code is `9ad8df5`.
+
+The accepted a8 setup used obsutil for its six tiny Step1 files, so its transfer
+rows do not prove SDK byte callbacks. Use the separately accepted T205 run for
+SDK/per-file transfer evidence. Rollback remains: keep all gates false and the
+DAG paused, use the prior disabled release, and retain databases/evidence.
+
 ## 2026-09-06 - Codex - T205 direct Step1 SDK canary complete
 
 The BS10610 test run `WGS_20260905_154825_E39C58-a1` completed the

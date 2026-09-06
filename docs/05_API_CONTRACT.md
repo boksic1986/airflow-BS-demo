@@ -17,6 +17,13 @@ generation with a receipt hash and exact Master Job, namespace, UID,
 resourceVersion, terminal success, and `execution_mode=dry_run`. It records
 `validation_result=step3_dryrun_complete` and makes Step4-Step6 unreachable.
 
+Accepted BS10610 evidence is analysis `WGS_20260905_210104_739143`, attempt 8.
+The API projected the exact successful Step3 receipt, Master UID and dry-run
+terminal marker before finalization. The run ended success at 100 percent; no
+Step4 execution was registered. The candidate also retries bounded NFS/backend
+visibility delays without accepting a missing or mismatched predecessor
+receipt.
+
 ## T203 admin-only Step1 validation scope
 
 `POST /api/wgs/runs` accepts the optional exact value

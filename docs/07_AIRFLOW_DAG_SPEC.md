@@ -14,6 +14,11 @@ latest append-only Step3 execution receipt plus the frozen Kubernetes Master
 identity and a terminal marker whose execution mode is `dry_run`. Historical
 run topology and the ordinary analysis branch remain unchanged.
 
+The accepted DagRun `WGS_20260905_210104_739143-a8` completed validate,
+prepare, sampleinfo, Step1, Step2, Step3, branch selection, and the dry-run
+finalizer. Every Step4, Step5, and Step6 task was `skipped`. The DAG is paused
+after acceptance and all execution/canary gates are false.
+
 ## T203 Step1-only validation branch
 
 The production path remains unchanged. A new branch is evaluated only after

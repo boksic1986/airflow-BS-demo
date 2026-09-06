@@ -10,6 +10,13 @@ analysis Jobs. The terminal marker and Step3 status include execution mode,
 Master UID, and resourceVersion so the backend can distinguish a verified
 dry-run from a real analysis or an Airflow-only success.
 
+Accepted runtime evidence used immutable Master image digest
+`sha256:870d5dd1de032eed33cefb7eb79b91829807d54cee969825e884227279ff1562`.
+Snakemake `9.24.0+biosan1` produced a 210-job plan, 267 job-info logger records
+and 57 rule-planned records. `jobs.ndjson` remained empty, and the exact run
+label contained no Worker Job or Pod. This is graph/config/logger validation,
+not a WGS compute result.
+
 ## T205 Step1 SDK checksum boundary
 
 The default contract-v2 Step1 transfer uses the OBS SDK. It freezes source

@@ -1,5 +1,47 @@
 # CURRENT_STATE.md
 
+## 2026-09-06 T206 Step2/Step3 dry-run and Heavy Slot acceptance
+
+scope: BS10610 test control plane only. The accepted three-sample synthetic
+trio is `WGS_20260905_210104_739143`, Airflow DagRun
+`WGS_20260905_210104_739143-a8`. It completed Step1, created one exact Step2
+Master, ran the Step3 Snakemake dry-run, and finalized without making Step4-6
+reachable.
+
+step3_evidence: Master `cce-master-19d6c95a68916a98d2c3` used immutable image
+digest `sha256:870d5dd1de032eed33cefb7eb79b91829807d54cee969825e884227279ff1562`.
+Its terminal marker records `execution_mode=dry_run`, Snakemake
+`9.24.0+biosan1`, 210 planned jobs, zero executed jobs, and successful terminal
+evidence. The exact run label contained only the Master Job; no WGS analysis
+Worker Job or Pod was created. Logger evidence contains 267 job-info and 57
+rule-planned records, with zero `jobs.ndjson` execution rows.
+
+heavy_slot: the repo-owned no-compute probe ran under the real
+`cce-pipeline-master-v1` ServiceAccount. Minimal Lease RBAC was added for the
+25 fixed `wgs-heavy-io-NN` names. Of 26 contenders, exactly 25 acquired unique
+slots and one waited; all holders were released and no probe Pod remains.
+
+cleanup: the six synthetic FASTQ objects and marker were removed by seven
+exact OBS object deletes. The exact Master, reset/probe Pods, batch lock, SFS
+run/linkage roots, and isolated host batch were removed after evidence capture.
+The node200 runtime gate/config and shared `nipttest` cce-pipeline were restored
+to their pre-T206 SHA256/package baseline (`0.8.2`, commit `b003606...`).
+`bio_wgs` is paused, all seven execution/contract/canary/intake/dispatch gates
+are false, and the disabled scanner container is absent. Production `.96` was
+not modified.
+
+validation: backend passed `368`, with one skip; runtime scripts passed `75`;
+WGS DAG suites passed `18 + 4`, static topology passed `2`, Compose rendering
+passed, and Airflow import errors are empty. Frontend, backend and Airflow
+health checks passed. The candidate code is airflow-demo `9d58ebb` and
+cce-pipeline `9ad8df5`; the disabled deployed release is
+`20260906-airflow-demo-b8b7bae-t206-step3-dryrun`.
+
+known_deviation: the a8 Step1 setup intentionally used the obsutil rollback
+adapter, so that run's database projection has zero transfer bytes and no
+per-file callback rows. T205 remains the accepted OBS SDK/per-file-progress
+evidence; this does not weaken the T206 Step2/Step3 acceptance.
+
 ## 2026-09-06 T205 Step1 OBS SDK direct-upload startup
 
 scope: BS10610 test control plane only. The accepted one-sample/two-FASTQ
