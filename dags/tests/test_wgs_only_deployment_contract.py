@@ -138,6 +138,12 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertNotIn("account.password_hash = hash_password", bootstrap)
         self.assertNotIn("|| true", compose)
         self.assertIn("./config:/config:ro", payload["services"]["platform-admin-init"]["volumes"])
+        for service in (
+            "wgs-run-observer",
+            "platform-metrics-collector",
+            "wgs-intake-scanner",
+        ):
+            self.assertIn("./config:/config:ro", payload["services"][service]["volumes"])
 
     def test_all_long_lived_wgs_services_have_bounded_docker_logs(self):
         payload = yaml.safe_load(

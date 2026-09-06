@@ -221,6 +221,7 @@ services:
       WGS_RUNTIME_REQUEST_ROOT: /data/wgs-runtime/runner-requests
     volumes:
       - ./backend:/app:ro
+      - ./config:/config:ro
       - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
       - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime:ro
     logging: *bounded-logging
@@ -262,6 +263,7 @@ services:
       PLATFORM_CLOUD_METRICS_SPOOL: /data/wgs-runtime/platform-metrics/cloud.json
     volumes:
       - ./backend:/app:ro
+      - ./config:/config:ro
       - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime:ro
     logging: *bounded-logging
     networks: [wgs-platform]
@@ -288,8 +290,7 @@ services:
     volumes:
       - ./backend:/app:ro
       - ${WGS_T7_FASTQ_HOST_ROOT:-/bi/fastq/T7_Fastq}:/bi/fastq/T7_Fastq:ro
-      - ./config/intake.wgs.yaml:/config/intake.wgs.yaml:ro
-      - ./config/wgs_projects.yaml:/config/wgs_projects.yaml:ro
+      - ./config:/config:ro
     logging: *bounded-logging
     networks: [wgs-platform]
 
