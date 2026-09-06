@@ -43,8 +43,9 @@ container was removed to avoid a restart loop. Production `.96` was untouched.
 Final regression evidence is backend `368 passed, 1 skipped`, runtime scripts
 `80 passed`, WGS DAG `18 + 4`, static topology `2`, valid Compose rendering and
 an empty Airflow import-error list. Frontend HTTP, backend health, Airflow DB
-and scheduler health pass. Airflow code is `db1f855`; CCE code is `9ad8df5`.
-The disabled BS10610 release is `20260906-airflow-demo-db1f855-t206-final`.
+and scheduler health pass. Airflow runtime hardening is `db1f855`, probe cleanup
+is `3af2f5d`, and CCE code is `9ad8df5`. The disabled BS10610 release is built
+from the final T206 branch after these fixes.
 
 The accepted a8 setup used obsutil for its six tiny Step1 files, so its transfer
 rows do not prove SDK byte callbacks. Use the separately accepted T205 run for

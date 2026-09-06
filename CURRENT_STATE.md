@@ -39,8 +39,9 @@ passed, and Airflow import errors are empty. Frontend, backend and Airflow
 health checks passed. Step3 dry-run finalization additionally verifies the
 exact successful Step2 predecessor receipt, frozen pipeline release, and
 run-local batch binding before accepting terminal evidence. The candidate code
-is airflow-demo `db1f855` and cce-pipeline `9ad8df5`; the disabled deployed
-release is `20260906-airflow-demo-db1f855-t206-final`.
+is airflow-demo `db1f855` plus probe cleanup fix `3af2f5d`, and cce-pipeline
+`9ad8df5`. The disabled deployed release is updated from this final branch
+after regression verification.
 
 known_deviation: the a8 Step1 setup intentionally used the obsutil rollback
 adapter, so that run's database projection has zero transfer bytes and no
