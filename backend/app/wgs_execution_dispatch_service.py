@@ -372,6 +372,7 @@ def mark_execution_needs_recovery(
     row.dispatch_state = "needs_recovery"
     row.blocking_reason = str(reason or "Committed execution requires recovery")[:1000]
     row.updated_at = _now()
+    _release_local_slot(session=session, dispatch=row)
 
 
 def _target_by_name(*, session, settings, target: str, analysis_id: str) -> dict[str, Any]:

@@ -12,12 +12,14 @@ from app.models import (
     PlatformResourceSnapshot,
     RunAttempt,
     WgsExecutionDispatch,
+    WgsExecutionTargetSlot,
 )
 from app.wgs_execution_dispatch_service import (
     ExecutionDispatchConflict,
     change_execution_choice,
     commit_execution_choice,
     ensure_execution_dispatch,
+    mark_execution_needs_recovery,
     mark_execution_running,
     mark_execution_terminal,
     project_execution_dispatch,
@@ -333,6 +335,53 @@ def test_dispatch_state_survives_new_session_and_releases_local_slot_at_terminal
         )
         assert projected["dispatch_state"] == "terminal"
         assert projected["desired_target"] == "node-97"
+
+
+def test_failed_local_execution_releases_target_slot_when_recovery_is_required():
+    sessions = _sessions()
+    with sessions() as session:
+        run = _run(session)
+        _node_snapshot(session)
+        dispatch = ensure_execution_dispatch(session=session, run=run)
+        session.commit()
+        change_execution_choice(
+            session=session,
+            settings=_settings(),
+            analysis_id=run.analysis_id,
+            desired_mode="local",
+            desired_target="node-97",
+            expected_revision=dispatch.dispatch_revision,
+            requested_by="operator",
+            reason="accepted local validation",
+        )
+        commit_execution_choice(
+            session=session,
+            settings=_settings(),
+            analysis_id=run.analysis_id,
+            attempt=1,
+        )
+        mark_execution_running(
+            session=session, analysis_id=run.analysis_id, attempt=1
+        )
+        session.commit()
+
+        mark_execution_needs_recovery(
+            session=session,
+            analysis_id=run.analysis_id,
+            attempt=1,
+            reason="node97 workflow exited 143",
+        )
+        session.commit()
+
+        slot = session.get(WgsExecutionTargetSlot, "node-97")
+        assert slot is not None
+        assert slot.analysis_id is None
+        assert slot.attempt is None
+        projected = project_execution_dispatch(
+            session=session, settings=_settings(), run=run
+        )
+        assert projected["dispatch_state"] == "needs_recovery"
+        assert projected["blocking_reason"] == "node97 workflow exited 143"
 
 
 def test_project_batch_claim_is_idempotent_but_rejects_another_run():
