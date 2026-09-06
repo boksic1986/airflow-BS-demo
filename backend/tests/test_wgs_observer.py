@@ -1854,6 +1854,58 @@ def test_incremental_append_partial_line_and_restart_resume(tmp_path: Path) -> N
         assert observer.status == "healthy"
 
 
+def test_snakemake_metadata_events_do_not_block_rule_projection(tmp_path: Path) -> None:
+    sessions, analysis_id, evidence_root, binding_root, catalog_path, rule_dir = prepare_run(
+        tmp_path
+    )
+    path = rule_dir / "node97.jsonl"
+    metadata = rule_event(
+        "workflow_started",
+        1.0,
+        role="master",
+        stream_id="node97",
+        event_id="metadata-1",
+        rule_instance_id="workflow-instance",
+        status="started",
+        message="Workflow has started!",
+    )
+    started = rule_event(
+        "job_info",
+        2.0,
+        role="master",
+        stream_id="node97",
+        event_id="rule-1",
+        rule_instance_id="clean-fastq:sample-a",
+        rule_name="pre_process_cleanFastq",
+        sample_id="sample-a",
+        job_id="3",
+        status="running",
+    )
+    path.write_text(
+        json.dumps(metadata, sort_keys=True)
+        + "\n"
+        + json.dumps(started, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = poll(sessions, evidence_root, binding_root, catalog_path)
+
+    assert result == {"bindings": 1, "files": 1, "events_ingested": 1, "errors": 0}
+    with sessions() as session:
+        assert len(session.scalars(select(RuleEventRaw)).all()) == 1
+        state = session.scalar(
+            select(RuleState).where(RuleState.analysis_id == analysis_id)
+        )
+        assert state is not None
+        assert state.rule_name == "pre_process_cleanFastq"
+        assert state.status == "planned"
+        cursor = session.scalar(select(EvidenceCursor))
+        assert cursor.byte_offset == path.stat().st_size
+        assert cursor.line_number == 2
+        assert cursor.last_error is None
+
+
 def test_master_rule_status_accepts_attempt_label(tmp_path: Path) -> None:
     sessions, _, evidence_root, binding_root, catalog_path, rule_dir = prepare_run(
         tmp_path

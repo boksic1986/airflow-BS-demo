@@ -47,6 +47,18 @@ RULE_EVENT_TYPES = {
     "job_error",
     "group_error",
 }
+SNAKEMAKE_METADATA_EVENT_TYPES = {
+    "log",
+    "run_info",
+    "workflow_started",
+    "shellcmd",
+    "group_info",
+    "resources_info",
+    "debug_dag",
+    "progress",
+    "rulegraph",
+    "error",
+}
 TERMINAL_RULE_EVENTS = {
     "job_finished": "success",
     "job_error": "failed",
@@ -1572,12 +1584,13 @@ def _ingest_rule_file(
                     break
                 try:
                     payload = json.loads(raw.decode("utf-8"))
-                    _validate_rule_event(payload, binding)
+                    is_rule_event = _validate_rule_event(payload, binding)
                 except (UnicodeError, ValueError, TypeError, json.JSONDecodeError) as error:
                     bad_line = f"invalid JSONL record at line {line_number + 1}: {error}"
                     handle.seek(start)
                     break
-                payloads.append(payload)
+                if is_rule_event:
+                    payloads.append(payload)
                 offset = handle.tell()
                 line_number += 1
 
@@ -1619,13 +1632,14 @@ def _ingest_rule_file(
         return inserted, bad_line is not None
 
 
-def _validate_rule_event(payload: object, binding: EvidenceBinding) -> None:
+def _validate_rule_event(payload: object, binding: EvidenceBinding) -> bool:
     if not isinstance(payload, dict):
         raise ValueError("event must be a JSON object")
     schema_version = str(payload.get("schema_version"))
     if schema_version not in {"1", "rule-event.v1"}:
         raise ValueError("unsupported event schema_version")
-    if payload.get("event") not in RULE_EVENT_TYPES:
+    event_type = str(payload.get("event") or "")
+    if event_type not in RULE_EVENT_TYPES | SNAKEMAKE_METADATA_EVENT_TYPES:
         raise ValueError("unsupported Rule event")
     attempt = _normalize_event_attempt(payload.get("attempt"))
     if schema_version == "rule-event.v1":
@@ -1656,6 +1670,7 @@ def _validate_rule_event(payload: object, binding: EvidenceBinding) -> None:
             raise ValueError("event role must be master or worker")
         if not str(payload.get("stream_id") or ""):
             raise ValueError("event stream_id is required")
+    return event_type in RULE_EVENT_TYPES
 
 
 def _normalize_event_attempt(value: object) -> int:
