@@ -133,9 +133,11 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
     def test_admin_initialization_is_create_only_and_does_not_hide_errors(self):
         compose = (REPO_ROOT / "docker-compose.wgs.yaml").read_text(encoding="utf-8")
         bootstrap = (REPO_ROOT / "backend" / "app" / "auth_admin_cli.py").read_text(encoding="utf-8")
+        payload = yaml.safe_load(compose)
 
         self.assertNotIn("account.password_hash = hash_password", bootstrap)
         self.assertNotIn("|| true", compose)
+        self.assertIn("./config:/config:ro", payload["services"]["platform-admin-init"]["volumes"])
 
     def test_all_long_lived_wgs_services_have_bounded_docker_logs(self):
         payload = yaml.safe_load(

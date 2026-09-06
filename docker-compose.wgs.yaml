@@ -131,6 +131,7 @@ services:
     command: ["python", "-m", "app.auth_admin_cli", "--username", "${PLATFORM_ADMIN_USERNAME:-admin}", "--password", "${PLATFORM_ADMIN_PASSWORD:?set PLATFORM_ADMIN_PASSWORD}"]
     volumes:
       - ./backend:/app:ro
+      - ./config:/config:ro
     networks: [wgs-platform]
 
   backend:
