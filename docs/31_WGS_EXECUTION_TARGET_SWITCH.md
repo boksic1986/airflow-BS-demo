@@ -98,6 +98,8 @@ The optional `node97_full` acceptance scope is an isolated, hidden catalog
 input. It exists only to create a fresh three-sample full-analysis snapshot
 without changing or deleting an earlier successful run. It is not a production
 submission mode and remains disabled outside a supervised acceptance window.
+The node97 request mapping is rooted at
+`/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime`.
 
 T211 keeps the T209 dispatch claim and commit barrier. After a `node-97`
 target is committed, the DAG follows only:

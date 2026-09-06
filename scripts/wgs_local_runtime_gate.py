@@ -24,7 +24,7 @@ STAGE = "local_analysis"
 REQUEST_ROOT = Path(
     os.getenv(
         "WGS_LOCAL_REQUEST_ROOT",
-        "/sg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runner-requests",
+        "/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runner-requests",
     )
 )
 ANALYSIS_ROOT = Path(

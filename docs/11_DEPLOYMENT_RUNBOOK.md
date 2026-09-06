@@ -35,6 +35,11 @@ window. Keep scanner and auto-dispatch disabled. After the run reaches a
 terminal state, pause `bio_wgs`, disable the node97 full-canary and execution
 gates, and retain the run record for audit.
 
+On node97, the BS shared runtime root must use the node-visible mapping
+`/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime`; the shorter
+`/sg2/33.chenjiucheng/...` path is a different directory and must not be used
+for local runtime requests.
+
 T211 is test-environment only. Before deployment, require zero active WGS
 business runs, zero queued/running `bio_wgs` DagRuns, a paused DAG, absent
 scanner container and false intake/auto-dispatch gates.
