@@ -458,6 +458,12 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
             if use_reference not in {"all", "ref", "no"}:
                 raise ValueError("use_reference must be all, ref, or no")
             command.extend(["--use-reference", use_reference])
+        if (
+            subcommand == "analysis"
+            and payload.get("validation_scope") == "node97_full"
+            and int(payload["attempt"]) > 1
+        ):
+            command.extend(["--cce-from-zero", "clean"])
     return command
 
 

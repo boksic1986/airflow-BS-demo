@@ -268,6 +268,69 @@ def test_prepare_analysis_can_use_an_explicit_cce_pipeline(
     assert command[command.index("--cce-pipeline") + 1] == str(executable)
 
 
+def test_node97_full_retry_explicitly_cleans_only_the_canary_batch(
+    tmp_path: Path,
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260906_194457_45F2C2",
+        "attempt": 3,
+        "stage": "prepare_analysis",
+        "validation_scope": "node97_full",
+        "pipeline_release_id": "wgs-4.1.1-6c98281",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "6c982817614db6a1157b6f287427ddf01ac91827",
+        "control_workdir": str(tmp_path / "control" / "attempt-3"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(
+            tmp_path
+            / "WGS_Clinical"
+            / "WGS_20260825A_NODE97_FULL_CANARY_T7Hg38V4.1.1"
+        ),
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260825A_NODE97_FULL_CANARY_T7Hg38V4.1.1",
+        "fq_path": str(tmp_path / ".node97-full-fastq"),
+        "fastq_root": str(tmp_path / ".node97-full-fastq"),
+        "sequencing_batch": "20260825A",
+        "analysis_batch": "20260825A_NODE97_FULL_CANARY",
+        "platform": "T7",
+        "use_reference": "all",
+    }
+
+    command = gate.build_prepare_command(payload)
+
+    assert command[command.index("--cce-from-zero") + 1] == "clean"
+
+
+def test_regular_prepare_retry_never_enables_zero_start_cleanup(tmp_path: Path) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260906_194457_45F2C2",
+        "attempt": 3,
+        "stage": "prepare_analysis",
+        "pipeline_release_id": "wgs-4.1.1-6c98281",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "6c982817614db6a1157b6f287427ddf01ac91827",
+        "control_workdir": str(tmp_path / "control" / "attempt-3"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(
+            tmp_path / "WGS_Clinical" / "WGS_20260902A_T7Hg38V4.1.1"
+        ),
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260902A_T7Hg38V4.1.1",
+        "fq_path": "/bi/fastq/T7_Fastq",
+        "fastq_root": "/bi/fastq/T7_Fastq",
+        "sequencing_batch": "20260902A",
+        "analysis_batch": "20260902A",
+        "platform": "T7",
+        "use_reference": "ref",
+    }
+
+    command = gate.build_prepare_command(payload)
+
+    assert "--cce-from-zero" not in command
+
+
 def test_prepare_sampleinfo_does_not_receive_cce_pipeline_override(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
