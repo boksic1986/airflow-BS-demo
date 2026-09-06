@@ -27,6 +27,8 @@ class BioWgsDagTests(unittest.TestCase):
                 "prepare_wgs_analysis",
                 "wait_prepare_wgs_analysis",
                 "wait_wgs_execution_approval",
+                "wait_execution_commit",
+                "choose_execution_target",
                 "input_transfer.acquire_obs_transfer_slot",
                 "input_transfer.start_step1_upload",
                 "input_transfer.wait_step1_upload",
@@ -48,6 +50,8 @@ class BioWgsDagTests(unittest.TestCase):
                 "wait_step6_materialize",
                 "finalize_run",
                 "release_leases",
+                "local_execution.start_local_wgs",
+                "sge_execution.submit_sge_wgs",
             },
         )
         self.assertEqual(dag.get_task("submit_step2_master").pool, "wgs_cce_runs")
@@ -58,6 +62,7 @@ class BioWgsDagTests(unittest.TestCase):
             "wait_wgs_config_approval",
             "wait_prepare_wgs_analysis",
             "wait_wgs_execution_approval",
+            "wait_execution_commit",
             "input_transfer.acquire_obs_transfer_slot",
             "input_transfer.wait_step1_upload",
             "wait_step3_analysis",
@@ -69,6 +74,27 @@ class BioWgsDagTests(unittest.TestCase):
             self.assertEqual(dag.get_task(task_id).mode, "reschedule")
 
         self.assertEqual(
+            dag.get_task("choose_execution_target").downstream_task_ids,
+            {
+                "input_transfer.acquire_obs_transfer_slot",
+                "local_execution.start_local_wgs",
+                "sge_execution.submit_sge_wgs",
+            },
+        )
+        self.assertEqual(
+            dag.get_task("input_transfer.acquire_obs_transfer_slot").upstream_task_ids,
+            {"choose_execution_target"},
+        )
+        self.assertNotIn(
+            "input_transfer.start_step1_upload",
+            dag.get_task("local_execution.start_local_wgs").downstream_task_ids,
+        )
+        self.assertNotIn(
+            "input_transfer.start_step1_upload",
+            dag.get_task("sge_execution.submit_sge_wgs").downstream_task_ids,
+        )
+
+        self.assertEqual(
             {task.task_id for task in dag.get_task("finalize_run").upstream_list},
             {"wait_step6_materialize"},
         )
@@ -78,7 +104,13 @@ class BioWgsDagTests(unittest.TestCase):
         )
         self.assertEqual(
             dag.get_task("release_leases").upstream_task_ids,
-            {"finalize_run", "finalize_step1_canary", "finalize_step3_dryrun"},
+            {
+                "finalize_run",
+                "finalize_step1_canary",
+                "finalize_step3_dryrun",
+                "local_execution.start_local_wgs",
+                "sge_execution.submit_sge_wgs",
+            },
         )
         self.assertEqual(
             dag.get_task("choose_after_step3").downstream_task_ids,
@@ -158,6 +190,54 @@ class BioWgsDagTests(unittest.TestCase):
         self.assertEqual(
             bio_wgs.choose_after_step1(**context), "submit_step2_master"
         )
+
+    def test_execution_commit_sensor_reads_latest_database_choice(self) -> None:
+        conf = {
+            "analysis_id": "WGS_20260906_123456_A1B2C3",
+            "attempt": 2,
+            "params": {"submission_mode": "three_stage"},
+        }
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        calls = []
+        with patch.object(
+            bio_wgs,
+            "_sensor_backend_json",
+            side_effect=lambda path, **kwargs: calls.append((path, kwargs))
+            or {"committed": True, "desired_target": "node-97"},
+        ):
+            self.assertTrue(bio_wgs.execution_commit_ready(**context))
+        self.assertEqual(
+            calls,
+            [
+                (
+                    "/api/internal/wgs/runs/WGS_20260906_123456_A1B2C3/execution-commit",
+                    {"method": "POST", "payload": {"attempt": 2}},
+                )
+            ],
+        )
+
+    def test_execution_branch_uses_committed_target_and_is_mutually_exclusive(self) -> None:
+        conf = {
+            "analysis_id": "WGS_20260906_123456_A1B2C3",
+            "attempt": 1,
+            "params": {"submission_mode": "three_stage"},
+        }
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        targets = {
+            "cce": "input_transfer.acquire_obs_transfer_slot",
+            "node-97": "local_execution.start_local_wgs",
+            "node-96": "local_execution.start_local_wgs",
+            "sge-default": "sge_execution.submit_sge_wgs",
+        }
+        for target, expected_task in targets.items():
+            with self.subTest(target=target), patch.object(
+                bio_wgs,
+                "_backend_json",
+                return_value={"committed": True, "desired_target": target},
+            ):
+                self.assertEqual(
+                    bio_wgs.choose_execution_target(**context), expected_task
+                )
 
     def test_step3_dryrun_is_gated_and_branches_after_master(self) -> None:
         conf = {

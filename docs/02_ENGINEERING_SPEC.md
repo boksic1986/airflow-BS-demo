@@ -1,5 +1,21 @@
 # 02 工程规范
 
+## T209 WGS execution-target configuration
+
+The backend receives three default-off capability flags from
+`docker-compose.wgs.yaml`: `WGS_LOCAL_NODE97_ENABLED`,
+`WGS_LOCAL_NODE96_ENABLED` and `WGS_SGE_ENABLED`. Phase 1 requires all three to
+remain false. Admission parameters are server-owned and default to 96 logical
+CPUs, three consecutive one-minute observations, CPU below 25 percent and
+`Load1 / logical_cpu_count` below 0.25. They are passed as
+`WGS_LOCAL_MIN_LOGICAL_CPUS`, `WGS_LOCAL_ADMISSION_SAMPLES`,
+`WGS_LOCAL_ADMISSION_CPU_PERCENT` and `WGS_LOCAL_ADMISSION_LOAD_RATIO`.
+
+These settings only affect target projection and commit admission. They do not
+alter node telemetry collection, Docker networking, Airflow pools, CCE Worker
+quota or Heavy Slot policy. Enabling an alternative capability before its DAG
+runner acceptance remains fail-closed.
+
 ## T207 WGS runtime configuration convergence
 
 The WGS scanner now has two independent fail-closed gates: the deployment

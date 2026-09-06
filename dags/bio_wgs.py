@@ -357,15 +357,62 @@ def submission_gate_ready(gate: str, **context: Any) -> bool:
     return bool(payload.get(f"{gate}_approved"))
 
 
-def _sensor_backend_json(path: str) -> dict[str, Any] | None:
+def _sensor_backend_json(
+    path: str, *, method: str = "GET", payload: dict | None = None
+) -> dict[str, Any] | None:
     try:
-        return _backend_json(path)
+        return _backend_json(path, method=method, payload=payload)
     except BackendTransportUnavailable as exc:
         LOG.warning(
             "WGS sensor backend is temporarily unavailable; rescheduling: %s",
             exc,
         )
         return None
+
+
+def execution_commit_ready(**context: Any) -> bool:
+    """Atomically commit the latest database-backed target when its slot is ready."""
+    conf = dict(context["dag_run"].conf or {})
+    if dict(conf.get("params") or {}).get("maintenance_action"):
+        return True
+    payload = _sensor_backend_json(
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/execution-commit",
+        method="POST",
+        payload={"attempt": conf["attempt"]},
+    )
+    return bool(payload and payload.get("committed"))
+
+
+def choose_execution_target(**context: Any) -> str:
+    """Route exactly once using the target frozen by ``execution_commit_ready``."""
+    conf = dict(context["dag_run"].conf or {})
+    if dict(conf.get("params") or {}).get("maintenance_action"):
+        return "input_transfer.acquire_obs_transfer_slot"
+    payload = _backend_json(
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/execution-commit",
+        method="POST",
+        payload={"attempt": conf["attempt"]},
+    )
+    if not payload.get("committed"):
+        raise RuntimeError("WGS execution target was not committed")
+    target = str(payload.get("desired_target") or "")
+    branch = {
+        "cce": "input_transfer.acquire_obs_transfer_slot",
+        "node-97": "local_execution.start_local_wgs",
+        "node-96": "local_execution.start_local_wgs",
+        "sge-default": "sge_execution.submit_sge_wgs",
+    }.get(target)
+    if branch is None:
+        raise RuntimeError(f"unsupported committed WGS execution target: {target}")
+    return branch
+
+
+def unavailable_execution_runner(target: str, **context: Any) -> None:
+    """Fail closed until the separately accepted Local/SGE runner is installed."""
+    conf = dict(context["dag_run"].conf or {})
+    raise RuntimeError(
+        f"{target} was committed for {conf.get('analysis_id')}, but its runner capability is disabled"
+    )
 
 
 def release_leases(**context: Any) -> dict[str, Any]:
@@ -574,6 +621,16 @@ with DAG(
         poke_interval=5,
         timeout=7 * 24 * 3600,
     )
+    wait_execution_commit = PythonSensor(
+        task_id="wait_execution_commit",
+        python_callable=execution_commit_ready,
+        mode="reschedule",
+        poke_interval=5,
+        timeout=7 * 24 * 3600,
+    )
+    choose_execution = BranchPythonOperator(
+        task_id="choose_execution_target", python_callable=choose_execution_target
+    )
 
     with TaskGroup(group_id="input_transfer") as input_transfer:
         input_lease = transfer_slot_sensor(
@@ -595,6 +652,20 @@ with DAG(
             trigger_rule=TriggerRule.ALL_DONE,
         )
         input_lease >> input_upload >> input_wait >> input_release
+
+    with TaskGroup(group_id="local_execution") as local_execution:
+        start_local = PythonOperator(
+            task_id="start_local_wgs",
+            python_callable=unavailable_execution_runner,
+            op_kwargs={"target": "local"},
+        )
+
+    with TaskGroup(group_id="sge_execution") as sge_execution:
+        submit_sge = PythonOperator(
+            task_id="submit_sge_wgs",
+            python_callable=unavailable_execution_runner,
+            op_kwargs={"target": "sge"},
+        )
 
     submit = runner_stage(
         "submit_step2_master", stage="step2_master", pool="wgs_cce_runs"
@@ -662,7 +733,9 @@ with DAG(
 
     validate >> prepare_sampleinfo >> wait_prepare_sampleinfo >> wait_config_approval
     wait_config_approval >> prepare_analysis >> wait_prepare_analysis >> wait_execution_approval
-    wait_execution_approval >> input_transfer >> choose_step1_exit
+    wait_execution_approval >> wait_execution_commit >> choose_execution
+    choose_execution >> [input_lease, start_local, submit_sge]
+    input_transfer >> choose_step1_exit
     input_wait >> choose_step1_exit
     choose_step1_exit >> [submit, finalize_step1_canary]
     submit >> start_monitor >> wait_analysis >> choose_step3_exit
@@ -672,3 +745,5 @@ with DAG(
     result_wait >> materialize
     finalize_step1_canary >> release
     finalize_step3_dryrun >> release
+    start_local >> release
+    submit_sge >> release

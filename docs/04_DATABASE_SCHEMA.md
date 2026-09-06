@@ -1,5 +1,22 @@
 # 04 数据库设计
 
+## T209 WGS execution dispatch claim
+
+Migration `20260906_0015` adds two control-plane tables without backfilling or
+changing historical run evidence:
+
+- `wgs_execution_dispatch` is unique by `project_id + batch` and by
+  `analysis_id`. It records the desired mode/target, dispatch state, optimistic
+  revision, committed attempt/time and a bounded blocking reason.
+- `wgs_execution_target_slot` contains the two fixed local targets
+  `node-97` and `node-96`. A row may be owned by only one analysis/attempt and
+  is released only through terminal/recovery handling.
+
+The authoritative states are `preparing`, `waiting_resource`, `committed`,
+`running`, `terminal` and `needs_recovery`. Historical duplicate attempts are
+not backfilled into the unique claim and remain readable. See
+[document 31](31_WGS_EXECUTION_TARGET_SWITCH.md).
+
 ## T195/T200 WGS contract-v2 evidence
 
 Migration `20260904_0014` adds two append-only/read-model tables without

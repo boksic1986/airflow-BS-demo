@@ -2,7 +2,7 @@ import {Play, RefreshCw, RotateCcw, Square} from "lucide-react";
 import {useCallback, useEffect, useRef, useState} from "react";
 import {useParams} from "react-router-dom";
 
-import type {Artifact, DeployedPipeline, LogStream, RuleEvent, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, Sample, WgsPod, WgsSampleManifestRow, WgsTransfer, WgsValidationIssue} from "../api";
+import type {Artifact, DeployedPipeline, LogStream, RuleEvent, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, Sample, WgsExecutionChoiceRequest, WgsPod, WgsSampleManifestRow, WgsTransfer, WgsValidationIssue} from "../api";
 
 import {
   getRunArtifacts,
@@ -14,7 +14,7 @@ import {
   getRunRules,
   getRunSamples,
   submitRun,
-  syncAirflow, cancelRun, cleanupStep7, rerunFailedRun, resumeRun, revalidateRun, repairStep4,
+  syncAirflow, cancelRun, cleanupStep7, rerunFailedRun, resumeRun, revalidateRun, repairStep4, updateWgsExecutionChoice,
 } from "../api";
 import {useSession} from "../features/auth/SessionContext";
 import {ErrorPanel} from "../components/ErrorPanel";
@@ -27,6 +27,7 @@ import {RunFilesTab, RunOverviewTab} from "../features/run-detail/RunResourceTab
 import {RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
 import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
 import {WgsTransfersTab} from "../features/run-detail/WgsTransfersTab";
+import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
 import {errorMessage, parseErrorSummary} from "../lib/errors";
 import {compactPipelineName, formatDate, formatDuration, formatSecondsDuration} from "../lib/format";
 import {progressFromResponse} from "../lib/runProgress";
@@ -229,6 +230,12 @@ export function RunDetailPage() {
     finally { setActing(false); }
   }
 
+  async function switchExecutionTarget(payload: WgsExecutionChoiceRequest) {
+    if (!analysisId) return;
+    await updateWgsExecutionChoice(analysisId, payload);
+    await loadDetail();
+  }
+
   if (loading && !detail) return <p className="muted">Loading run detail...</p>;
 
   return (
@@ -243,11 +250,12 @@ export function RunDetailPage() {
             {canSubmit ? <button className="button primary" type="button" disabled={acting} onClick={() => void runAction("submit")}><Play size={15} />Submit to Airflow</button> : null}
             {detail.status === "needs_review" && session.hasRole("operator") ? <button className="button primary" type="button" disabled={acting} onClick={() => void runAction("revalidate")}><RefreshCw size={15} />Revalidate source</button> : null}
             {detail.status === "failed" ? <><button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("resume")}><RotateCcw size={15} />Resume</button><button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("rerun_failed")}><RotateCcw size={15} />Rerun failed</button></> : null}
-            {isActiveStatus(detail.status) ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("cancel")}><Square size={15} />Cancel</button> : null}
+            {isActiveStatus(detail.status) && !(detail.execution_dispatch?.desired_mode === "cce" && ["committed", "running"].includes(detail.execution_dispatch.dispatch_state)) ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("cancel")}><Square size={15} />Cancel</button> : null}
             <button className="button ghost" type="button" disabled={acting || !detail.dag_run_id} onClick={() => void runAction("sync")}><RefreshCw size={15} />Sync Airflow</button>
           </div>
         </section>
         {actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
+        {detail.pipeline === "wgs" && detail.execution_dispatch ? <ExecutionTargetSelector attempt={detail.attempt || 1} batch={String(detail.params?.batch || detail.params?.sequencing_batch || detail.params?.batch_no || "-")} sampleCount={summary.sample_count} dispatch={detail.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={loadDetail} /> : null}
         {detail.step4_repair?.available || detail.step4_repair?.latest_action ? <Step4RepairPanel capability={detail.step4_repair} canOperate={session.hasRole("operator")} acting={acting} onRepair={() => void runAction("repair_step4")} /> : null}
         {session.hasRole("admin") && (detail.step7_cleanup?.available || detail.step7_cleanup?.latest_action) ? <section className="panel destructive-panel"><div className="section-heading"><h2>SFS cleanup</h2><p>Step7 deletes only the frozen run SFS analysis and linkage directories. OBS data is not deleted.</p></div>{detail.step7_cleanup.latest_action ? <StatusBadge status={detail.step7_cleanup.latest_action.status} /> : null}{detail.step7_cleanup.available ? <><label className="field checkbox-field"><input type="checkbox" aria-label="Acknowledge SFS cleanup" checked={step7Confirm} onChange={(event) => setStep7Confirm(event.target.checked)} /><span>I verified Step5 and Step6 results and understand SFS cleanup is destructive.</span></label><label className="field"><span>Type Batch to confirm</span><input aria-label="Step7 Batch confirmation" value={step7Batch} onChange={(event) => setStep7Batch(event.target.value)} /></label><button className="button danger" type="button" disabled={acting || !step7Confirm || step7Batch !== detail.step7_cleanup.required_batch} onClick={() => void runStep7Cleanup()}>Run Step7 SFS cleanup</button></> : null}</section> : null}
         {detail.status === "needs_review" ? <section className="panel validation-review"><div className="section-heading"><h2>Input needs review</h2><p>Correct the source links or metadata upstream, then revalidate. This page cannot edit sampleinfo.</p></div><WgsTable headers={["Severity", "Code", "Scope", "Message", "Status"]} rows={bundle.validationIssues.map((issue) => [issue.severity, issue.code, issue.sample_id || issue.family_id || issue.file_path || issue.scope_type || "batch", issue.message, issue.status])} empty="No structured issue was returned." /></section> : null}

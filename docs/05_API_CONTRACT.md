@@ -13,6 +13,29 @@ may repair a stale `RunStageState` projection even when its heartbeat is equal
 to the already ingested event. The replay is idempotent when the projection is
 already identical. It cannot replace a newer execution/generation, regress a
 terminal state, or synthesize missing Rule events.
+## T209 WGS execution target contract
+
+- `GET /api/runs/{analysis_id}` adds `execution_dispatch` for claim-backed WGS
+  runs: desired mode/target, state, revision, switch permission, commit
+  identity, blocking reason and four server-projected target states. Historical
+  rows without a usable batch claim return `null` rather than fabricating one.
+- `POST /api/wgs/runs/{analysis_id}/execution-choice` is operator-only. It
+  accepts `desired_mode`, `desired_target`, `expected_revision` and a required
+  audit reason. It changes neither DagRun ID nor attempt. Invalid admission,
+  stale revision and committed execution return HTTP 409 with respectively
+  `TARGET_UNAVAILABLE`, `STALE_EXECUTION_CHOICE` and
+  `EXECUTION_ALREADY_COMMITTED`.
+- `POST /api/internal/wgs/runs/{analysis_id}/execution-commit` is protected by
+  the internal token. It locks the run, current attempt and batch claim,
+  rechecks admission, atomically acquires the CCE upload or local-node slot,
+  and returns `committed=false` while the selected resource is unavailable.
+- CCE commit freezes the target before Step1. Ordinary CCE cancel is rejected
+  after commit; failure becomes `needs_recovery`. Successful finalization
+  becomes `terminal`.
+
+Automatic dispatch always creates a CCE claim and retains the existing
+activation-watermark plus any-existing-batch dedupe. Local and SGE are never
+selected automatically. See [document 31](31_WGS_EXECUTION_TARGET_SWITCH.md).
 
 ## T206 admin-only Step2/Step3 dry-run scope
 

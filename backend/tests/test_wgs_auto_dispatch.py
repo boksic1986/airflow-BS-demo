@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
-from app.models import AnalysisRun, Base, WgsIntakeBatch
+from app.models import AnalysisRun, Base, WgsExecutionDispatch, WgsIntakeBatch
 from app.wgs_auto_dispatch import dispatch_ready_wgs_intake
 
 
@@ -124,12 +124,17 @@ def test_auto_dispatch_creates_one_preapproved_run_and_repeat_is_idempotent(
         )
         row = session.scalar(select(WgsIntakeBatch))
         run = session.scalar(select(AnalysisRun))
+        dispatch = session.scalar(select(WgsExecutionDispatch))
 
     assert first["submitted"] == 1
     assert second["already_registered"] == 1
     assert row.analysis_id == run.analysis_id
     assert run.params_json["submission_mode"] == "auto_dispatch"
     assert run.params_json["sequencing_batch"] == "20260904B"
+    assert dispatch.analysis_id == run.analysis_id
+    assert dispatch.desired_mode == "cce"
+    assert dispatch.desired_target == "cce"
+    assert dispatch.dispatch_state == "preparing"
     assert len(airflow.calls) == 1
 
 

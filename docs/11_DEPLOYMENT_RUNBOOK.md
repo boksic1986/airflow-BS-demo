@@ -29,6 +29,31 @@ full-run receipts plus isolated backend/DAG/runtime tests and read-only live
 state checks. Future routine release validation should use the T209 hidden
 `contract_canary`: one 60-120 second logger-enabled test Rule for Step3 and one
 tiny immutable artifact for Step4, terminating before Step5/Step6.
+## T209 Phase-1 execution dispatch rollout
+
+This is a future deployment procedure; implementing T209 does not authorize a
+production rollout or an interruption of an active CCE run.
+
+1. Stop new submissions at an approved maintenance boundary, but do not stop
+   an in-flight CCE Master, transfer or materialization task.
+2. Apply Alembic `20260906_0015` before publishing the backend. The migration
+   creates empty claims and does not backfill historical duplicate batches.
+3. Deploy backend, Airflow DAG and frontend from one revision with
+   `WGS_LOCAL_NODE97_ENABLED=false`, `WGS_LOCAL_NODE96_ENABLED=false` and
+   `WGS_SGE_ENABLED=false`.
+4. Keep the existing activation watermark. Confirm old ready/manual/running/
+   success/failed batches do not create an automatic claim or DagRun.
+5. Verify a new waiting run keeps one analysis/DagRun/attempt while changing
+   revision, that CCE commit acquires the existing OBS slot once, and that
+   committed choice/cancel calls return 409.
+6. Do not enable `.97` until its `--cores 96` runner and exclusive-slot
+   recovery have passed Phase-2 acceptance. `.96` and SGE require separate
+   Phase-3 acceptance.
+
+Rollback before any new claim is committed may restore the prior application
+revision while retaining the two additive tables. After a claim is committed,
+leave its audit row intact and use the documented recovery path; never
+downgrade destructively or recreate an attempt to evade the lock.
 
 ## T207 disabled configuration-convergence rollout
 

@@ -16,6 +16,7 @@ from app.input_scanner import ensure_allowed_path
 from app.models import (
     AnalysisRun, ObsTransferLease, RunAction, RunAttempt,
     RunValidationIssue, Sample, WgsInputSnapshot,
+    WgsExecutionDispatch,
 )
 from app.wgs_orchestration_service import (
     SnapshotChangedError, build_fastq_snapshot, verify_fastq_snapshot,
@@ -25,6 +26,11 @@ from app.wgs_run_projection import (
     WgsBindingPathError,
     load_wgs_runtime_binding,
     resolve_bound_wgs_batch_root,
+)
+from app.wgs_execution_dispatch_service import (
+    ExecutionDispatchConflict,
+    ensure_execution_dispatch,
+    reset_execution_dispatch_for_attempt,
 )
 
 
@@ -99,6 +105,7 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
     session.add(snapshot_row)
     session.add(RunAttempt(analysis_id=analysis_id, attempt=1, execution_mode=execution_mode, status="created"))
     session.flush()
+    ensure_execution_dispatch(session=session, run=run)
     if validate_input:
         _revalidate_input(session=session, settings=settings, run=run, snapshot_row=snapshot_row, allow_rebuild=True)
     else:
@@ -161,6 +168,20 @@ def action_wgs_run(*, session: Session, airflow_client, analysis_id: str, action
     if run is None:
         return None
     if action == "cancel":
+        dispatch = session.scalar(
+            select(WgsExecutionDispatch).where(
+                WgsExecutionDispatch.analysis_id == analysis_id
+            )
+        )
+        if (
+            dispatch is not None
+            and dispatch.desired_mode == "cce"
+            and dispatch.dispatch_state in {"committed", "running"}
+        ):
+            raise ExecutionDispatchConflict(
+                "EXECUTION_ALREADY_COMMITTED",
+                "CCE Step1 has started; ordinary cancel is disabled and recovery requires an audited admin action",
+            )
         run.status = "cancel_requested"
         run.current_stage = "cancel_requested"
         session.add(RunAction(analysis_id=analysis_id, action=action, requested_by=requested_by, result_status="accepted", payload_json={}))
@@ -180,6 +201,7 @@ def action_wgs_run(*, session: Session, airflow_client, analysis_id: str, action
     run.progress_updated_at = None
     run.error_summary = None
     session.add(RunAttempt(analysis_id=analysis_id, attempt=run.attempt, execution_mode=run.execution_mode, status="created"))
+    reset_execution_dispatch_for_attempt(session=session, run=run)
     session.add(RunAction(analysis_id=analysis_id, action=action, requested_by=requested_by, result_status="accepted", payload_json={"attempt": run.attempt}))
     session.commit()
     return submit_wgs_run(session=session, airflow_client=airflow_client, analysis_id=analysis_id)

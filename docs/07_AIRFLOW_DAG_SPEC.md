@@ -14,6 +14,21 @@ DagRun is `WGS_20260906_075824_E4D23E-a4`; its downstream receipt chain is
 Step3 generation 3 -> Step4 generation 1 -> Step5 generation 1 -> Step6
 generation 1. After acceptance the DAG is paused and all execution gates are
 closed.
+## T209 execution commit barrier
+
+After the existing execution-approval sensor, `bio_wgs` now runs the
+reschedule sensor `wait_execution_commit` and then
+`choose_execution_target`. Each sensor poke asks the internal backend to
+atomically commit the latest database choice only when its resource can be
+acquired. The branch operator reads that frozen result and routes exactly one
+of CCE, Local or SGE.
+
+The CCE branch is the existing Step1-Step6 graph and the existing OBS sensor
+renews the lease obtained at commit. Local and SGE branches do not traverse any
+OBS/CCE task. In Phase 1 their backend capability flags are false and their DAG
+operators fail closed; no production runner is implied. Maintenance runs keep
+their existing CCE route. A scheduler restart recovers the wait and committed
+choice from biodemo and does not create a new DagRun or attempt.
 
 ## T206 Step2/Step3 dry-run validation branch
 

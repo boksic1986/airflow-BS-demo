@@ -1,5 +1,19 @@
 # 06 前端设计
 
+## T209 execution target selector
+
+Submit Run stage 3 and WGS Run Detail share one segmented selector:
+`CCE | Local .97 | Local .96 | SGE`. The selected target and its live state are
+visible; unavailable targets are disabled with the server reason. The
+confirmation shows the old/new target, batch, sample count, attempt, node
+CPU/load/memory/CPU count, warning and a required audit reason.
+
+The browser sends the displayed revision and refreshes the complete server
+projection after success or any 409 conflict. After commit the selector is
+read-only and displays the lock point. Run Detail hides ordinary Cancel for a
+committed/running CCE target. The UI performs no node admission calculation and
+does not create, cancel or increment a DagRun/attempt.
+
 ## T198/T199 WGS operator workspace
 
 Run Detail first requests only `/workspace`. Samples, Rules, Logs, Files,

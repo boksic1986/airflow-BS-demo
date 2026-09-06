@@ -37,6 +37,40 @@ runtime gate 59, plus Compose config. The frontend and proxied backend health
 return 200/ok at the actual bound address `172.17.106.10:12959`. No additional
 full WGS run was started for closeout. T209 will provide a reusable 60-120
 second Step3/Step4 contract canary for future releases.
+## 2026-09-06 T209 execution-target switching candidate
+
+scope: implemented in isolated worktree
+`D:\pipeline\airflow-demo-worktrees\T209-execution-target-switch`; not deployed.
+The active production CCE analysis, containers, database, Airflow services and
+node200 runtime were not restarted or modified.
+
+implementation: WGS now has an additive project+batch execution claim with a
+revisioned desired target and an immutable commit point. Submit Run stage 3 and
+Run Detail share `CCE | Local .97 | Local .96 | SGE`; the backend owns target
+admission and returns structured 409 conflicts. `bio_wgs` reschedules at
+`wait_execution_commit`, atomically obtains the selected resource and branches
+from the database-frozen choice without changing analysis ID, DagRun ID or
+attempt. CCE is the only enabled target in Phase 1; Local/SGE remain default-off
+and fail closed in the DAG.
+
+safety: automatic intake still chooses CCE only, retains the activation
+watermark and skips any batch already represented by a business run. A CCE
+target is locked when its upload slot is acquired immediately before Step1;
+ordinary cancellation is then rejected. Terminal success closes the claim and
+failure records `needs_recovery`. Historical duplicate attempts are not
+backfilled and remain readable.
+
+validation: on `.96`, all work used the isolated
+`cce-evidence/T209-execution-target-switch/green1` copy and `--network none`
+ephemeral containers. Backend passed `386 passed, 1 skipped`; WGS DAG passed
+20 tests; frontend passed 51 tests and the production build; Alembic generated
+the complete PostgreSQL upgrade SQL through `20260906_0015`. No production
+deploy, migration, restart or runtime submission occurred.
+
+next: review and merge the candidate separately. A later controlled Phase-1
+rollout must wait for a safe production maintenance boundary. `.97` requires a
+separate fixed `--cores 96` runner acceptance; `.96` and SGE remain later
+manual-only capabilities.
 
 ## 2026-09-06 T207 disabled control-plane rollout
 

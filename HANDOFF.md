@@ -58,6 +58,53 @@ Targeted backend, DAG, runtime-gate and Compose verification must remain the
 release gate. The repository-wide backend suite still contains pre-existing
 legacy/non-WGS failures and must not be described as fully green until that
 separate debt is resolved.
+## 2026-09-06 - Codex - T209 execution-target switching candidate
+
+Implemented the approved immediate target-switching design in the isolated
+worktree `D:\pipeline\airflow-demo-worktrees\T209-execution-target-switch`.
+Nothing was deployed. In particular, the running production CCE analysis,
+Airflow services, Docker containers, biodemo database, node200 files and cloud
+workloads were not stopped, restarted or modified.
+
+Migration `20260906_0015` adds `wgs_execution_dispatch`, unique by project and
+public batch, plus one exclusive slot row for each local node. New runs default
+to CCE. Operators can revise the desired target before commit using a required
+reason and optimistic revision. Scheduler commit and browser switching lock the
+same run, current attempt and claim. Commit freezes the target; CCE obtains the
+existing upload lease immediately before Step1. Successful completion becomes
+terminal and failure becomes `needs_recovery`. Historical duplicate runs are
+not backfilled and stay readable.
+
+Run Detail now projects target states and admission metrics. Submit Run stage 3
+and Run Detail share the same confirmation selector; committed CCE is read-only
+and ordinary Cancel is hidden and rejected. The UI does not calculate
+admission. Node admission is server-side and enforces a fresh healthy snapshot,
+at least 96 logical CPUs, three consecutive one-minute CPU and normalized
+Load1 points below 25 percent, and one batch per node. Memory >=75 percent is a
+warning only.
+
+`bio_wgs` now waits in a reschedule sensor for atomic commit and then routes the
+database-frozen target. The existing CCE Step1-Step6 graph is unchanged after
+that boundary. Phase-1 Local and SGE flags are false by default and their DAG
+branches fail closed; no Local/SGE runner is claimed ready.
+
+Validation ran only in
+`/sg2/50.ctapa/project/HWcloud/cce-evidence/T209-execution-target-switch/green1`
+using ephemeral `--network none` containers. Results: backend `386 passed, 1
+skipped`; `bio_wgs` DAG `20` passed; frontend `51` passed and `npm run build`
+succeeded; `alembic upgrade head --sql` generated the complete chain through
+0015. The first offline migration command lacked the required `/config` mount,
+then lacked a dummy Airflow password; the corrected isolated command supplied
+both and passed. These were configuration-only failures before SQL generation,
+not database writes.
+
+Before a future rollout, follow document 31 and the T209 section of the
+deployment runbook. Apply the additive migration before backend publication,
+keep all Local/SGE gates false, and wait for a maintenance boundary with no
+in-flight production analysis. `.97` fixed `--cores 96` execution requires a
+separate acceptance; `.96` and SGE remain later manual-only phases. Rollback
+may restore the prior application revision while retaining the additive audit
+tables; never downgrade them destructively after a commit.
 
 ## 2026-09-06 - Codex - T207 configuration convergence implemented
 

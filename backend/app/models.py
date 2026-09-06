@@ -279,6 +279,54 @@ class RunAttempt(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class WgsExecutionDispatch(Base):
+    __tablename__ = "wgs_execution_dispatch"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id", "batch", name="uq_wgs_execution_dispatch_project_batch"
+        ),
+        UniqueConstraint("analysis_id", name="uq_wgs_execution_dispatch_analysis"),
+        Index("ix_wgs_execution_dispatch_state", "dispatch_state"),
+        Index("ix_wgs_execution_dispatch_target", "desired_target", "dispatch_state"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    project_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    batch: Mapped[str] = mapped_column(String(64), nullable=False)
+    analysis_id: Mapped[str] = mapped_column(
+        ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False
+    )
+    desired_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="cce")
+    desired_target: Mapped[str] = mapped_column(String(64), nullable=False, default="cce")
+    dispatch_state: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="preparing"
+    )
+    dispatch_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    committed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    committed_attempt: Mapped[int | None] = mapped_column(Integer)
+    blocking_reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
+class WgsExecutionTargetSlot(Base):
+    __tablename__ = "wgs_execution_target_slot"
+
+    target: Mapped[str] = mapped_column(String(64), primary_key=True)
+    analysis_id: Mapped[str | None] = mapped_column(
+        ForeignKey("analysis_run.analysis_id", ondelete="SET NULL")
+    )
+    attempt: Mapped[int | None] = mapped_column(Integer)
+    acquired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
 class WgsIntakeBatch(Base):
     __tablename__ = "wgs_intake_batch"
 

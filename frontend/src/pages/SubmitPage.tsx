@@ -1,6 +1,7 @@
 import {useEffect, useMemo, useState, type FormEvent} from "react";
 import {Link} from "react-router-dom";
-import {approveWgsConfig, createCatalogWgsRun, getRunDetail, getRunSamples, getWgsProjects, getWgsRelease, startWgsExecution, type RunDetail, type Sample, type WgsProjectCatalog, type WgsRelease} from "../api";
+import {approveWgsConfig, createCatalogWgsRun, getRunDetail, getRunSamples, getWgsProjects, getWgsRelease, startWgsExecution, updateWgsExecutionChoice, type RunDetail, type Sample, type WgsExecutionChoiceRequest, type WgsProjectCatalog, type WgsRelease} from "../api";
+import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
 import {errorMessage} from "../lib/errors";
 
 export function SubmitPage() {
@@ -21,7 +22,7 @@ export function SubmitPage() {
   const phase = String(created?.params?.submission_phase || "select");
   const preparationFailed = Boolean(created && ["failed", "cancelled", "unknown_interrupted"].includes(created.status));
   useEffect(() => {
-    if (!created?.analysis_id || phase === "approved" || preparationFailed) return;
+    if (!created?.analysis_id || preparationFailed || ["success", "failed", "cancelled"].includes(created.status)) return;
     let stopped = false;
     const refresh = async () => {
       try {
@@ -62,6 +63,11 @@ export function SubmitPage() {
     } catch (submitError) { setError(errorMessage(submitError)); }
     finally { setSubmitting(false); }
   }
+  async function switchExecutionTarget(payload: WgsExecutionChoiceRequest) {
+    if (!created) return;
+    await updateWgsExecutionChoice(created.analysis_id, payload);
+    setCreated(await getRunDetail(created.analysis_id));
+  }
   return <div className="page-stack submit-wizard">
     <section className="page-header"><div><p className="eyebrow">WGS production</p><h1>Submit run</h1><p>Submit one catalog-controlled WGS batch. The DAG runs native WGS sampleinfo and analysis preparation, then Step1-Step6.</p></div></section>
     <section className="panel"><div className="definition-grid"><div><dt>Current WGS release</dt><dd>{release ? `WGS ${release.version} / ${release.source_commit.slice(0, 7)}` : "Loading release..."}</dd></div><div><dt>Release ID</dt><dd>{release?.release_id || "-"}</dd></div><div><dt>Execution</dt><dd>{executionEnabled ? "Enabled" : "Disabled"}</dd></div></div></section>
@@ -80,8 +86,8 @@ export function SubmitPage() {
     {created && !preparationFailed && phase === "preparing_sampleinfo" ? <section className="panel"><h2>Preparing sample information</h2><p>The WGS sampleinfo task is running. This page refreshes automatically.</p></section> : null}
     {created && phase === "config_review" ? <section className="panel"><h2>Review samples and configuration</h2><SamplePreview samples={samples} /><div className="form-grid"><label className="field"><span>Reference selection</span><select aria-label="Use reference" value={useReference} onChange={(event) => setUseReference(event.target.value as "all" | "ref" | "no")}><option value="all">All</option><option value="ref">Reference only</option><option value="no">No reference</option></select></label><label className="field"><span>Resource set</span><select aria-label="Resource set" value="default" disabled><option value="default">WGS release default</option></select></label><button className="button primary" type="button" disabled={submitting} onClick={() => void confirmConfiguration()}>Confirm configuration</button></div></section> : null}
     {created && phase === "preparing_analysis" ? <section className="panel"><h2>Preparing analysis directory</h2><p>WGS is resolving eligible and pending samples and freezing the CCE bundle.</p></section> : null}
-    {created && phase === "execution_review" ? <section className="panel"><h2>Confirm WGS execution</h2><SamplePreview samples={samples} /><p>Review the final selected samples before starting Step1 upload through Step6 materialization.</p><button className="button primary" type="button" disabled={submitting || samples.length === 0} onClick={() => void startExecution()}>Start WGS workflow</button></section> : null}
-    {created && phase === "approved" ? <p className="success-note">WGS execution started: <Link to={`/runs/${created.analysis_id}`}>{created.analysis_id}</Link>.</p> : null}
+    {created && phase === "execution_review" ? <section className="panel"><h2>Confirm WGS execution</h2><SamplePreview samples={samples} />{created.execution_dispatch ? <ExecutionTargetSelector attempt={created.attempt || 1} batch={batch || String(created.params?.batch || created.params?.sequencing_batch || "-")} sampleCount={samples.length} dispatch={created.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={async () => setCreated(await getRunDetail(created.analysis_id))} /> : null}<p>Review the final selected samples before starting the selected execution backend.</p><button className="button primary" type="button" disabled={submitting || samples.length === 0} onClick={() => void startExecution()}>Start WGS workflow</button></section> : null}
+    {created && phase === "approved" ? <>{created.execution_dispatch ? <ExecutionTargetSelector attempt={created.attempt || 1} batch={batch || String(created.params?.batch || created.params?.sequencing_batch || "-")} sampleCount={samples.length} dispatch={created.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={async () => setCreated(await getRunDetail(created.analysis_id))} /> : null}<p className="success-note">WGS execution approved: <Link to={`/runs/${created.analysis_id}`}>{created.analysis_id}</Link>.</p></> : null}
     {error ? <div className="inline-error" role="alert">{error}</div> : null}
   </div>;
 }

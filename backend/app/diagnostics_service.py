@@ -29,6 +29,10 @@ from app.wgs_run_projection import (
     resolve_bound_wgs_batch_root,
 )
 from app.wgs_artifact_selection import select_batch_qcstat
+from app.wgs_execution_dispatch_service import (
+    mark_execution_needs_recovery,
+    mark_execution_terminal,
+)
 
 
 class DiagnosticsError(Exception):
@@ -385,6 +389,20 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
         # A resumed run can retain an earlier failed JSONL event. Import the
         # complete audit trail, then let the terminal Airflow DAG state win.
         run.status = authoritative_status
+        if run.pipeline_name == "wgs":
+            if authoritative_status == "success":
+                mark_execution_terminal(
+                    session=session,
+                    analysis_id=analysis_id,
+                    attempt=int(run.attempt or 1),
+                )
+            else:
+                mark_execution_needs_recovery(
+                    session=session,
+                    analysis_id=analysis_id,
+                    attempt=int(run.attempt or 1),
+                    reason=run.error_summary or "Committed WGS execution failed",
+                )
     sync_sample_statuses(session=session, analysis_id=analysis_id, run_status=run.status)
     if run.status == "success":
         from app.intake_service import archive_linked_intake_for_run

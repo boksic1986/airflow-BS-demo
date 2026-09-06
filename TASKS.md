@@ -1,6 +1,6 @@
 # TASKS.md
 
-## T209 - WGS Step3-Step4 lightweight contract canary
+## T210 - WGS Step3-Step4 lightweight contract canary
 
 Owner: runtime/Airflow/backend/QA
 
@@ -23,6 +23,48 @@ Acceptance:
 - [ ] A stale generation, wrong Master or changed artifact manifest fails
   closed.
 - [ ] Runtime remains below five minutes and all gates are restored afterward.
+## T209 - WGS execution-target switching and CCE commit barrier
+
+Owner: backend/Airflow/frontend/QA/docs
+
+Status: implemented and validated in an isolated candidate; not deployed
+
+Dependencies: T188,T194-T200,T207
+
+Scope:
+- Add one project+batch execution claim with revisioned CCE/Local/SGE choice,
+  atomic commit and local target slots.
+- Keep automatic intake CCE-only and preserve activation-watermark plus
+  any-existing-batch dedupe.
+- Add the shared Submit Run/Run Detail selector and exact node admission
+  projection without browser-side scheduling logic.
+- Insert a database-backed reschedule commit barrier and mutually exclusive
+  execution branch into the existing `bio_wgs` DagRun/attempt.
+- Ship only Phase 1: CCE works through the existing Step1-Step6 path; Local and
+  SGE capability flags remain false and DAG placeholders fail closed.
+
+Acceptance:
+- [x] Same run/attempt switches targets with an optimistic revision and audit
+  reason; stale, unavailable and committed choices return exact 409 codes.
+- [x] Switch and scheduler commit lock the same run/attempt/claim; CCE commit
+  atomically takes the existing OBS upload slot and Step1 marks the claim
+  running.
+- [x] Local admission requires healthy <=3-minute telemetry, >=96 logical
+  CPUs, three consecutive low CPU/normalized-Load1 points and an unowned node.
+- [x] Committed CCE is read-only in both API and UI; ordinary Cancel is hidden
+  and rejected.
+- [x] Scheduler restart state is database-backed; branches are mutually
+  exclusive and Local/SGE do not traverse OBS/CCE tasks.
+- [x] `.96` isolated validation passed: backend 386/1 skipped, DAG 20,
+  frontend 51 plus build, and offline Alembic SQL through migration 0015.
+
+Restrictions:
+- Do not deploy or migrate production while the current CCE analysis is
+  running. No production service, database, runtime file or cloud workload was
+  changed by T209 development.
+- Keep `WGS_LOCAL_NODE97_ENABLED`, `WGS_LOCAL_NODE96_ENABLED` and
+  `WGS_SGE_ENABLED` false until their separate runner acceptance phases.
+- Do not turn historical ready rows into automatic submissions.
 
 ## T208 - WGS Step4-Step6 controlled end-to-end acceptance
 

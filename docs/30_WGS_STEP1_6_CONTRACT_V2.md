@@ -31,6 +31,15 @@ acceptance. T209 will add a hidden 60-120 second Step3/Step4 contract Rule that
 emits normal logger evidence and publishes a tiny frozen artifact. Full WGS is
 reserved for first-time contract acceptance or a material change to analysis,
 transfer-manifest or materialization semantics.
+## T209 pre-Step1 execution commit
+
+T209 adds a database-backed commit barrier after preparation and approval but
+before Step1. It does not alter the Step1-Step6 evidence chain described below.
+CCE remains the only Phase-1 runner; the commit atomically owns the existing
+OBS upload lease and then routes into the unchanged CCE graph. Local and SGE
+do not become available until separate runner acceptances. The full target
+state, admission and rollout contract is in
+[document 31](31_WGS_EXECUTION_TARGET_SWITCH.md).
 
 ## Post-T206 configuration audit and Step4-Step6 admission
 

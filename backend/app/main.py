@@ -99,6 +99,14 @@ from app.wgs_submission_service import (
     submission_state,
     submit_draft,
 )
+from app.wgs_execution_dispatch_service import (
+    ExecutionDispatchConflict,
+    change_execution_choice,
+    commit_execution_choice,
+    mark_execution_running,
+    mark_execution_terminal,
+    project_execution_dispatch,
+)
 from app.platform_resources_service import get_platform_resources
 from sqlalchemy import func, or_, select
 
@@ -329,6 +337,14 @@ class WgsRuntimeStageRequest(BaseModel):
 
 class WgsObserverLifecycleRequest(BaseModel):
     attempt: int = Field(ge=1)
+
+
+class WgsExecutionChoiceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    desired_mode: str = Field(pattern="^(cce|local|sge)$")
+    desired_target: str = Field(pattern="^(cce|node-97|node-96|sge-default)$")
+    expected_revision: int = Field(ge=1)
+    reason: str = Field(min_length=1, max_length=500)
 
 
 class WgsSubmissionDraftRequest(BaseModel):
@@ -895,6 +911,33 @@ def start_wgs_run_execution(
         raise HTTPException(status_code=409, detail={"code": "WGS_EXECUTION_NOT_READY", "message": str(exc)}) from exc
 
 
+@app.post("/api/wgs/runs/{analysis_id}/execution-choice")
+def update_wgs_execution_choice(
+    analysis_id: str,
+    request: WgsExecutionChoiceRequest,
+    user: AuthenticatedUser = Depends(operator_user),
+) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            return change_execution_choice(
+                session=session,
+                settings=get_settings(),
+                analysis_id=analysis_id,
+                requested_by=user.username,
+                **request.model_dump(),
+            )
+    except ExecutionDispatchConflict as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": exc.code, "message": exc.message},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "WGS_EXECUTION_CHOICE_INVALID", "message": str(exc)},
+        ) from exc
+
+
 @app.post("/api/wgs/submission-drafts", status_code=status.HTTP_202_ACCEPTED)
 def create_wgs_submission_draft(
     request: WgsSubmissionDraftRequest,
@@ -1376,6 +1419,15 @@ def run_detail(analysis_id: str) -> dict[str, object]:
             if run is not None and run.pipeline_name == "wgs"
             else None
         )
+        execution_dispatch = (
+            project_execution_dispatch(
+                session=session,
+                settings=get_settings(),
+                run=run,
+            )
+            if run is not None and run.pipeline_name == "wgs"
+            else None
+        )
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -1399,6 +1451,7 @@ def run_detail(analysis_id: str) -> dict[str, object]:
     } if observer else None)
     payload["step4_repair"] = step4_repair
     payload["step7_cleanup"] = step7_cleanup
+    payload["execution_dispatch"] = execution_dispatch
     return payload
 
 
@@ -1681,6 +1734,9 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     unit="workflow",
                     progress_source="airflow-finalize",
                 )
+                mark_execution_terminal(
+                    session=session, analysis_id=analysis_id, attempt=request.attempt
+                )
                 session.commit()
                 return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "success"}
             if stage_name == "finalize_step1_canary":
@@ -1735,6 +1791,9 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     total_units=1,
                     unit="validation",
                     progress_source="step1-transfer-receipt",
+                )
+                mark_execution_terminal(
+                    session=session, analysis_id=analysis_id, attempt=request.attempt
                 )
                 session.commit()
                 return {
@@ -1820,6 +1879,9 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     total_units=1,
                     unit="validation",
                     progress_source="step3-master-terminal-evidence",
+                )
+                mark_execution_terminal(
+                    session=session, analysis_id=analysis_id, attempt=request.attempt
                 )
                 session.commit()
                 return {
@@ -2006,6 +2068,10 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                         payload={"attempt": request.attempt},
                     )
             run.current_stage = stage_name
+            if stage_name == "step1_upload":
+                mark_execution_running(
+                    session=session, analysis_id=analysis_id, attempt=request.attempt
+                )
             session.commit()
             return {
                 "analysis_id": analysis_id,
@@ -2163,6 +2229,34 @@ def internal_wgs_submission_state(
         raise HTTPException(status_code=404, detail={"code": "WGS_RUN_NOT_FOUND", "message": str(exc)}) from exc
 
 
+@app.post(
+    "/api/internal/wgs/runs/{analysis_id}/execution-commit",
+    dependencies=[Depends(require_internal_service_token)],
+)
+def internal_wgs_execution_commit(
+    analysis_id: str,
+    request: WgsObserverLifecycleRequest,
+) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            return commit_execution_choice(
+                session=session,
+                settings=get_settings(),
+                analysis_id=analysis_id,
+                attempt=request.attempt,
+            )
+    except ExecutionDispatchConflict as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": exc.code, "message": exc.message},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "WGS_RUN_NOT_FOUND", "message": str(exc)},
+        ) from exc
+
+
 @app.post("/api/runs/{analysis_id}/actions/resume")
 def resume_run(analysis_id: str, user: AuthenticatedUser = Depends(operator_user)) -> dict[str, object]:
     return _wgs_action(analysis_id, "resume", user)
@@ -2287,6 +2381,11 @@ def _wgs_action(analysis_id: str, action: str, user: AuthenticatedUser) -> dict[
             payload = action_wgs_run(session=session, airflow_client=get_airflow_client(), analysis_id=analysis_id, action=action, requested_by=user.username)
             if payload is not None:
                 audit(session=session, username=user.username, action=f"run.{action}", analysis_id=analysis_id)
+    except ExecutionDispatchConflict as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": exc.code, "message": exc.message},
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail={"code": "VALIDATION_ERROR", "message": str(exc)}) from exc
     if payload is None:

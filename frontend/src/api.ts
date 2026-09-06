@@ -96,6 +96,7 @@ export type RunDetail = {
   analysis_id: string;
   pipeline: string;
   status: string;
+  attempt?: number | null;
   mode?: string | null;
   dag_id?: string | null;
   dag_run_id?: string | null;
@@ -137,6 +138,48 @@ export type RunDetail = {
   } | null;
   step4_repair?: Step4RepairCapability | null;
   step7_cleanup?: Step7CleanupCapability | null;
+  execution_dispatch?: WgsExecutionDispatch | null;
+};
+
+export type WgsExecutionMode = "cce" | "local" | "sge";
+export type WgsExecutionTarget = "cce" | "node-97" | "node-96" | "sge-default";
+
+export type WgsExecutionTargetState = {
+  mode: WgsExecutionMode;
+  target: WgsExecutionTarget;
+  label: string;
+  status: "available" | "waiting_upload_slot" | "busy" | "high_load" | "stale" | "manual" | "unsupported";
+  available: boolean;
+  reason?: string | null;
+  warning?: string | null;
+  metrics?: {
+    cpu_percent?: number | null;
+    load1?: number | null;
+    load5?: number | null;
+    load15?: number | null;
+    memory_percent?: number | null;
+    logical_cpu_count?: number | null;
+    updated_at?: string | null;
+  } | null;
+};
+
+export type WgsExecutionDispatch = {
+  desired_mode: WgsExecutionMode;
+  desired_target: WgsExecutionTarget;
+  dispatch_state: "preparing" | "waiting_resource" | "committed" | "running" | "terminal" | "needs_recovery";
+  dispatch_revision: number;
+  allow_switch: boolean;
+  committed_at?: string | null;
+  committed_attempt?: number | null;
+  blocking_reason?: string | null;
+  targets: WgsExecutionTargetState[];
+};
+
+export type WgsExecutionChoiceRequest = {
+  desired_mode: WgsExecutionMode;
+  desired_target: WgsExecutionTarget;
+  expected_revision: number;
+  reason: string;
 };
 
 export type WgsMaintenanceAction = {
@@ -1361,6 +1404,17 @@ export function approveWgsConfig(analysisId: string, payload: {
 
 export function startWgsExecution(analysisId: string): Promise<{submission_phase: string; config_approved: boolean; execution_approved: boolean}> {
   return requestJson(`/runs/${encodeURIComponent(analysisId)}/actions/start-wgs-execution`, {method: "POST"});
+}
+
+export function updateWgsExecutionChoice(
+  analysisId: string,
+  payload: WgsExecutionChoiceRequest,
+): Promise<WgsExecutionDispatch> {
+  return requestJson<WgsExecutionDispatch>(`/wgs/runs/${encodeURIComponent(analysisId)}/execution-choice`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  });
 }
 
 export function createWgsSubmissionDraft(payload: {

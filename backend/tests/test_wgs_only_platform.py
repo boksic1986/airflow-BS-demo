@@ -28,6 +28,7 @@ from app.models import (
     WgsIntakeBatch,
     WgsIntakeScannerState,
     WgsMaintenanceAction,
+    WgsExecutionDispatch,
     WgsStageExecution,
 )
 from app.wgs_orchestration_service import build_fastq_snapshot, fastq_source_fingerprint
@@ -259,6 +260,126 @@ def test_staged_wgs_run_rejects_stage_two_fields_and_uses_canonical_id(
     ).status_code == 409
     with sessions() as session:
         assert session.scalar(select(func.count()).select_from(AnalysisRun)) == 1
+
+
+def test_wgs_execution_choice_api_is_revisioned_gated_and_locked_at_commit(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/wgs/runs",
+        headers=headers,
+        json={
+            "project_id": "WGS_Clinical",
+            "platform": "T7Hg38V4.1.1",
+            "batch": "20260906A",
+            "fastq_root_id": "T7_Fastq",
+        },
+    )
+    assert created.status_code == 201, created.text
+    analysis_id = created.json()["analysis_id"]
+
+    detail = client.get(f"/api/runs/{analysis_id}", headers=headers)
+    assert detail.status_code == 200, detail.text
+    dispatch = detail.json()["execution_dispatch"]
+    assert dispatch["desired_target"] == "cce"
+    assert dispatch["dispatch_state"] == "preparing"
+    assert dispatch["dispatch_revision"] == 1
+    assert [item["status"] for item in dispatch["targets"]] == [
+        "available",
+        "unsupported",
+        "unsupported",
+        "unsupported",
+    ]
+
+    stale = client.post(
+        f"/api/wgs/runs/{analysis_id}/execution-choice",
+        headers=headers,
+        json={
+            "desired_mode": "cce",
+            "desired_target": "cce",
+            "expected_revision": 999,
+            "reason": "test stale browser state",
+        },
+    )
+    assert stale.status_code == 409
+    assert stale.json()["detail"]["code"] == "STALE_EXECUTION_CHOICE"
+
+    unavailable = client.post(
+        f"/api/wgs/runs/{analysis_id}/execution-choice",
+        headers=headers,
+        json={
+            "desired_mode": "local",
+            "desired_target": "node-97",
+            "expected_revision": 1,
+            "reason": "test phase one gate",
+        },
+    )
+    assert unavailable.status_code == 409
+    assert unavailable.json()["detail"]["code"] == "TARGET_UNAVAILABLE"
+
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+    too_early = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/execution-commit",
+        headers=internal,
+        json={"attempt": 1},
+    )
+    assert too_early.status_code == 409
+    assert too_early.json()["detail"]["code"] == "EXECUTION_NOT_APPROVED"
+
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.params_json = {
+            **dict(run.params_json or {}),
+            "submission_phase": "approved",
+            "execution_approved_at": "2026-09-06T12:00:00+00:00",
+        }
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="SAMPLE-1",
+                status="pending",
+            )
+        )
+
+    committed = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/execution-commit",
+        headers=internal,
+        json={"attempt": 1},
+    )
+    assert committed.status_code == 200, committed.text
+    assert committed.json()["committed"] is True
+    assert committed.json()["desired_target"] == "cce"
+
+    locked = client.post(
+        f"/api/wgs/runs/{analysis_id}/execution-choice",
+        headers=headers,
+        json={
+            "desired_mode": "cce",
+            "desired_target": "cce",
+            "expected_revision": committed.json()["dispatch_revision"],
+            "reason": "test locked state",
+        },
+    )
+    assert locked.status_code == 409
+    assert locked.json()["detail"]["code"] == "EXECUTION_ALREADY_COMMITTED"
+    cancelled = client.post(
+        f"/api/runs/{analysis_id}/actions/cancel", headers=headers
+    )
+    assert cancelled.status_code == 409
+    assert cancelled.json()["detail"]["code"] == "EXECUTION_ALREADY_COMMITTED"
+    with sessions() as session:
+        row = session.scalar(
+            select(WgsExecutionDispatch).where(
+                WgsExecutionDispatch.analysis_id == analysis_id
+            )
+        )
+        assert row.committed_attempt == 1
 
 
 def test_step1_canary_submission_requires_admin_and_explicit_gate(tmp_path, monkeypatch):

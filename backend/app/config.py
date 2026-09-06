@@ -68,6 +68,13 @@ class Settings:
     wgs_transfer_adapter: str
     wgs_heavy_slot_limit: int
     wgs_heavy_slot_mode: str
+    wgs_local_node97_enabled: bool
+    wgs_local_node96_enabled: bool
+    wgs_sge_enabled: bool
+    wgs_local_min_logical_cpus: int
+    wgs_local_admission_samples: int
+    wgs_local_admission_cpu_percent: float
+    wgs_local_admission_load_ratio: float
 
 
 def get_cors_origins() -> list[str]:
@@ -223,6 +230,25 @@ def get_settings() -> Settings:
         wgs_transfer_adapter=os.getenv("WGS_TRANSFER_ADAPTER", "obs_sdk").strip() or "obs_sdk",
         wgs_heavy_slot_limit=heavy_limit,
         wgs_heavy_slot_mode=heavy_mode,
+        wgs_local_node97_enabled=_parse_bool(
+            os.getenv("WGS_LOCAL_NODE97_ENABLED", "false")
+        ),
+        wgs_local_node96_enabled=_parse_bool(
+            os.getenv("WGS_LOCAL_NODE96_ENABLED", "false")
+        ),
+        wgs_sge_enabled=_parse_bool(os.getenv("WGS_SGE_ENABLED", "false")),
+        wgs_local_min_logical_cpus=_parse_int(
+            os.getenv("WGS_LOCAL_MIN_LOGICAL_CPUS", "96"), default=96
+        ),
+        wgs_local_admission_samples=_parse_int(
+            os.getenv("WGS_LOCAL_ADMISSION_SAMPLES", "3"), default=3
+        ),
+        wgs_local_admission_cpu_percent=float(
+            os.getenv("WGS_LOCAL_ADMISSION_CPU_PERCENT", "25")
+        ),
+        wgs_local_admission_load_ratio=float(
+            os.getenv("WGS_LOCAL_ADMISSION_LOAD_RATIO", "0.25")
+        ),
     )
 
 

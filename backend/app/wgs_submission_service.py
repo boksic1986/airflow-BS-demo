@@ -20,6 +20,7 @@ from app.wgs_platform_service import (
 )
 from app.wgs_project_catalog import WgsProject, load_wgs_projects
 from app.wgs_release_catalog import load_wgs_release_catalog
+from app.wgs_execution_dispatch_service import mark_execution_waiting
 
 
 SAFE_BATCH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
@@ -417,6 +418,11 @@ def _create_catalog_run_record(*, session, settings, username: str,
     )
     if run is None:
         raise RuntimeError("created WGS run is missing")
+    params = dict(run.params_json or {})
+    if params.get("project_id") != spec.project.project_id:
+        params["project_id"] = spec.project.project_id
+        run.params_json = params
+        session.flush()
     return run, existed
 
 
@@ -518,5 +524,6 @@ def approve_wgs_execution(*, session, analysis_id: str, requested_by: str) -> di
             result_status="accepted",
             payload_json={"attempt": run.attempt},
         ))
+        mark_execution_waiting(session=session, run=run)
         session.commit()
     return submission_state(session=session, analysis_id=analysis_id, attempt=run.attempt)
