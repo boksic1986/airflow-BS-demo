@@ -1484,7 +1484,7 @@ def test_prepare_binding_points_analysis_log_at_the_run_evidence_directory(
                 },
                 "heavy_io": {
                     "limit": 25,
-                    "mode": "monitor-only",
+                    "mode": "enforce",
                     "unit": "work_pod",
                 },
             }
@@ -1504,6 +1504,11 @@ def test_prepare_binding_points_analysis_log_at_the_run_evidence_directory(
         "analysis_project_root": str(project_root),
         "expected_batch_root": str(batch_root),
         "batch_no": "WGS_batch",
+        "heavy_io_contract": {
+            "limit": 25,
+            "mode": "enforce",
+            "unit": "work_pod",
+        },
     }
 
     gate._write_prepare_binding(payload)
@@ -1523,9 +1528,31 @@ def test_prepare_binding_points_analysis_log_at_the_run_evidence_directory(
     }
     assert binding["resolved_runtime"]["heavy_io"] == {
         "limit": 25,
-        "mode": "monitor-only",
+        "mode": "enforce",
         "unit": "work_pod",
     }
+
+
+def test_runtime_gate_rejects_heavy_io_contract_drift() -> None:
+    gate = load_gate()
+
+    with pytest.raises(RuntimeError, match="does not match the WGS stage contract"):
+        gate._validate_heavy_io_contract(
+            {
+                "heavy_io_contract": {
+                    "limit": 25,
+                    "mode": "enforce",
+                    "unit": "work_pod",
+                }
+            },
+            {
+                "heavy_io": {
+                    "limit": 25,
+                    "mode": "monitor-only",
+                    "unit": "work_pod",
+                }
+            },
+        )
 
 
 @pytest.mark.parametrize(

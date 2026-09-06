@@ -1,5 +1,28 @@
 # 02 工程规范
 
+## T207 WGS runtime configuration convergence
+
+The WGS scanner now has two independent fail-closed gates: the deployment
+environment must set `WGS_INTAKE_SCAN_ENABLED=true`, and
+`config/intake.wgs.yaml` must set `scheduled_scan_enabled: true`. The scanner
+is in the explicit Compose `intake` profile and reads its interval plus
+`project_id/root_id` from YAML. The root ID resolves through
+`config/wgs_projects.yaml`, whose entries carry separate control-plane and
+node200 paths.
+
+`config/wgs_stage_contract.yaml` is the source of truth for Heavy Slot limit
+and mode. FastAPI rejects conflicting legacy environment overrides, and each
+new contract-v2 runtime request carries the expected `{limit, mode, unit}`.
+The restricted node200 runner compares that value with the frozen
+`RESOLVED_PROFILE.yaml` before creating a binding or executing a later stage.
+Runtime requests and run bindings use independent explicit roots; code must
+not infer the binding directory from the request directory.
+
+Platform and Airflow administrator bootstraps are create-only. Existing
+accounts keep their password, role and enabled state. Platform password
+rotation requires the explicit CLI `--rotate-password` option; routine
+container startup never rotates credentials.
+
 ## T194-T200 WGS Step1-6 contract v2
 
 The current candidate keeps one `bio_wgs` project DAG while moving mutable

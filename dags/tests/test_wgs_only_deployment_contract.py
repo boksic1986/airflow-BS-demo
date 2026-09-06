@@ -26,7 +26,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         for dag in ("bio_wgs_cce.py", "bio_wgs_onprem.py", "bio_wgs_intake_scan.py"):
             self.assertNotIn(f"./dags/{dag}:/opt/airflow/dags/{dag}:ro", compose)
             self.assertFalse((REPO_ROOT / "dags" / dag).exists())
-        for required in ("wgs_cce_runs 4", "wgs_obs_transfer 1", "DEPLOYED_PIPELINES: wgs", 'WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"', 'WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"', 'WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-true}"', 'WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"', "WGS_SSH_CONFIG_PATH"):
+        for required in ("wgs_cce_runs 4", "wgs_obs_transfer 1", "DEPLOYED_PIPELINES: wgs", 'WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"', 'WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"', 'WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-false}"', 'WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"', "WGS_SSH_CONFIG_PATH"):
             self.assertIn(required, compose)
         self.assertIn(
             'PLATFORM_ENVIRONMENT: "${PLATFORM_ENVIRONMENT:-Demo}"', compose
@@ -53,7 +53,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertNotIn("KUBECONFIG", env)
         self.assertNotIn("OBS_", env)
         self.assertIn("WGS_EXECUTION_ENABLED=false", env)
-        self.assertIn("PLATFORM_ENVIRONMENT=Demo", env)
+        self.assertIn("PLATFORM_ENVIRONMENT=BS10610-Test", env)
         self.assertIn(
             "WGS_RUNTIME_BS_ROOT=/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime",
             env,
@@ -61,9 +61,12 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertIn("AIRFLOW_WEBSERVER_SECRET_KEY=<CHANGE_ME_LOCAL_ONLY>", env)
         self.assertIn("WGS_RUNNER_200_HOST=172.17.61.200", env)
         self.assertIn("WGS_RUNNER_200_ALIAS=wgs-node200", env)
+        self.assertIn("WGS_INTAKE_SCAN_ENABLED=false", env)
+        self.assertNotIn("WGS_INTAKE_SCAN_INTERVAL_SECONDS=", env)
         self.assertIn("wgs:", intake)
         self.assertIn("mode: t7_scan_only", intake)
-        self.assertIn("root: /bi/fastq/T7_Fastq", intake)
+        self.assertIn("root_id: T7_Fastq", intake)
+        self.assertIn("scheduled_scan_enabled: false", intake)
         self.assertIn("interval_seconds: 1800", intake)
         self.assertIn("auto_dispatch_enabled: false", intake)
         self.assertIn("wgs-cce-v1", profiles)
@@ -75,9 +78,10 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         observer = payload["services"]["wgs-run-observer"]
         scanner = payload["services"]["wgs-intake-scanner"]
 
+        self.assertEqual(scanner["profiles"], ["intake"])
         self.assertEqual(
-            scanner["command"][-1],
-            "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-600}",
+            scanner["command"],
+            ["python", "-m", "app.wgs_intake_scanner_cli"],
         )
 
         for service in (observer, scanner):
@@ -97,14 +101,12 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertIn("/data/wgs-evidence:ro", observer_rendered)
         for forbidden in (
             "WGS_BINDING_ROOT",
-            "WGS_TRANSFER_SPOOL_ROOT",
-            "WGS_RUNTIME_ROOT",
             "WGS_T7_FASTQ_ROOT",
             "/config/wgs-bindings",
-            "/data/wgs-runtime",
             "/bi/fastq/T7_Fastq",
         ):
             self.assertNotIn(forbidden, observer_rendered)
+        self.assertIn("/data/wgs-runtime:ro", observer_rendered)
         self.assertEqual(
             observer["command"],
             ["python", "-m", "app.wgs_observer_cli", "--evidence-root", "/data/wgs-evidence", "--interval", "5"],
@@ -117,14 +119,23 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         )
         for forbidden in ("/data/wgs-evidence", "/config/wgs-bindings", "/data/wgs-runtime"):
             self.assertNotIn(forbidden, scanner_rendered)
-        self.assertEqual(scanner["environment"]["WGS_INTAKE_SCAN_ENABLED"], "${WGS_INTAKE_SCAN_ENABLED:-true}")
-        self.assertEqual(scanner["environment"]["WGS_INTAKE_SCAN_INTERVAL_SECONDS"], "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-600}")
+        self.assertEqual(scanner["environment"]["WGS_INTAKE_SCAN_ENABLED"], "${WGS_INTAKE_SCAN_ENABLED:-false}")
+        self.assertNotIn("WGS_INTAKE_SCAN_INTERVAL_SECONDS", scanner["environment"])
+        self.assertEqual(scanner["environment"]["INTAKE_CONFIG_PATH"], "/config/intake.wgs.yaml")
+        self.assertEqual(scanner["environment"]["WGS_PROJECT_CATALOG_PATH"], "/config/wgs_projects.yaml")
         self.assertEqual(scanner["environment"]["WGS_AUTO_DISPATCH_ENABLED"], "${WGS_AUTO_DISPATCH_ENABLED:-false}")
         self.assertEqual(scanner["environment"]["WGS_BACKEND_INTERNAL_URL"], "http://backend:8000")
         self.assertEqual(
             payload["services"]["backend"]["environment"]["WGS_AUTO_DISPATCH_NOT_BEFORE"],
             "${WGS_AUTO_DISPATCH_NOT_BEFORE:-}",
         )
+
+    def test_admin_initialization_is_create_only_and_does_not_hide_errors(self):
+        compose = (REPO_ROOT / "docker-compose.wgs.yaml").read_text(encoding="utf-8")
+        bootstrap = (REPO_ROOT / "backend" / "app" / "auth_admin_cli.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("account.password_hash = hash_password", bootstrap)
+        self.assertNotIn("|| true", compose)
 
     def test_all_long_lived_wgs_services_have_bounded_docker_logs(self):
         payload = yaml.safe_load(
@@ -163,7 +174,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertNotIn("DATABASE_URL", probe.get("environment", {}))
         self.assertEqual(
             probe["user"],
-            "${AIRFLOW_UID:-1000}:${WGS_RUNTIME_SHARED_GID:-520}",
+            "${PLATFORM_METRICS_UID:-6708}:0",
         )
         self.assertNotIn("ports", probe)
         self.assertFalse(probe.get("privileged", False))

@@ -45,7 +45,10 @@ def test_prepared_binding_visibility_race_is_retryable(tmp_path: Path, monkeypat
     with pytest.raises(WgsPreparedArtifactPending, match="binding is not visible"):
         sync_prepared_samples(
             session=None,
-            settings=SimpleNamespace(wgs_runtime_request_root=tmp_path / "requests"),
+            settings=SimpleNamespace(
+                wgs_runtime_request_root=tmp_path / "requests",
+                wgs_runtime_run_root=tmp_path / "runs",
+            ),
             run=SimpleNamespace(analysis_id="WGS_20260906_123456_A1B2C3", attempt=1),
         )
 

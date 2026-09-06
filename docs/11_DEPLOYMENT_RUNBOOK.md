@@ -1,5 +1,37 @@
 # 11 部署 Runbook
 
+## T207 disabled configuration-convergence rollout
+
+Before any Step4-Step6 validation, deploy the candidate with `bio_wgs` paused,
+without the `intake` Compose profile, and with every control-plane and node200
+execution gate false.
+
+1. Keep `WGS_INTAKE_SCAN_ENABLED=false`. Enabling the environment gate alone
+   is insufficient: `config/intake.wgs.yaml` must also explicitly set
+   `scheduled_scan_enabled: true`. The YAML interval is authoritative.
+2. Do not set `WGS_HEAVY_SLOT_LIMIT` or `WGS_HEAVY_SLOT_MODE` in Compose or
+   node runtime files. The stage contract supplies `25/enforce`; a frozen CCE
+   profile with any other Heavy Slot contract must fail during prepare.
+3. Set `WGS_RUNTIME_RUN_ROOT` explicitly on both sides:
+   `/data/wgs-runtime/runs` in backend and the corresponding node200 SFS path
+   in the private runtime environment. Never derive it from
+   `WGS_RUNTIME_REQUEST_ROOT`.
+4. Verify each catalog FASTQ root has explicit `control_plane_path` and
+   `node200_path` values. The scanner accepts only the catalog-selected root.
+5. Run `airflow-init` and `platform-admin-init` twice. The second run must
+   leave existing password, role and enabled state unchanged. Any Airflow user
+   listing or creation error must stop initialization.
+6. Build backend, Airflow and frontend images from one source revision and
+   record image IDs with that revision in the release inventory. Mixed-source
+   service tags are not an accepted rollback point.
+7. Confirm the scanner service is absent, the DAG is paused, all business and
+   Airflow active-run counts are zero, and the restricted node200 command
+   rejects a registered execution while its gate is closed.
+
+Do not start T208 until every item passes. If the node200 private runtime file
+cannot be changed by the deployment operator, leave the control plane disabled
+and obtain an audited update from its owner; do not weaken the forced command.
+
 ## T206 Step2/Step3 dry-run canary
 
 Use only the BS10610 test control plane. Confirm no active WGS run, keep intake

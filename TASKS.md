@@ -39,7 +39,8 @@ Restrictions:
 
 Owner: platform/infra/backend/Airflow/runtime/QA/docs
 
-Status: todo; required before Step4-Step6 execution
+Status: implementation complete and regression-tested; disabled rollout and
+node200 owner gate closure still required before Step4-Step6 execution
 
 Dependencies: T206
 
@@ -62,10 +63,10 @@ Scope:
 Acceptance:
 - [ ] BS10610 control-plane gates and node200 execution-side gates are all false
   in the disabled state; `bio_wgs` remains paused and scanner absent.
-- [ ] Missing environment values cannot enable scanning or execution.
-- [ ] Scanner interval, Heavy Slot mode/limit and approved roots each have one
+- [x] Missing environment values cannot enable scanning or execution.
+- [x] Scanner interval, Heavy Slot mode/limit and approved roots each have one
   authoritative source with configuration-drift tests.
-- [ ] Existing T205/T206 receipts remain readable and backend, DAG, runtime,
+- [x] Existing T205/T206 receipts remain readable and backend, DAG, runtime,
   Compose and security tests pass.
 
 Restrictions:

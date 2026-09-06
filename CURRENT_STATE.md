@@ -1,5 +1,32 @@
 # CURRENT_STATE.md
 
+## 2026-09-06 T207 implementation ready for disabled rollout
+
+implementation: scanner startup now requires the default-off environment gate
+and the YAML `scheduled_scan_enabled` gate, runs only through the Compose
+`intake` profile, and resolves its interval/root ID from versioned config.
+FASTQ catalog entries now model control-plane and node200 paths explicitly.
+Runtime run bindings use `WGS_RUNTIME_RUN_ROOT` rather than a sibling-directory
+inference.
+
+heavy_slot: `config/wgs_stage_contract.yaml` is authoritative for `25/enforce`.
+FastAPI rejects conflicting environment overrides; new contract-v2 stage
+requests carry the expected Heavy Slot contract, and the node200 gate rejects
+a frozen CCE profile that does not match it. Historical requests without this
+field remain readable.
+
+bootstrap: platform and Airflow administrator initialization is create-only;
+routine startup no longer resets accounts or suppresses arbitrary Airflow user
+errors. Explicit platform password rotation is available through
+`--rotate-password`.
+
+validation: BS10610 isolated tests pass: backend `374 passed, 1 skipped`,
+runtime scripts `81 passed`, WGS DAG/deployment `30 passed`, and Compose config
+renders successfully. No service, database, DAG pause state or runtime gate was
+changed. T207 still requires a same-revision disabled release and an owner-level
+node200 update setting all three private execution gates false before T208 can
+start.
+
 ## 2026-09-06 post-T206 runtime configuration audit
 
 audit_scope: read-only review of the T206 branch and the live BS10610 test

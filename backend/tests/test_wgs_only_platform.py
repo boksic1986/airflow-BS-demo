@@ -94,9 +94,11 @@ projects:
       - root_id: T7_Fastq
         display_name: T7 FASTQ root
         node200_path: /bi/fastq/T7_Fastq
+        control_plane_path: /bi/fastq/T7_Fastq
       - root_id: T7_Step3_Dryrun_Canary
         display_name: T7 Step3 dry-run validation root
         node200_path: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical/.canary-fastq
+        control_plane_path: /data/wgs-intake/.canary-fastq
         validation_scope: step3_dryrun
     editable_config:
       use_reference: {type: boolean, default: false}
@@ -122,6 +124,7 @@ projects:
         wgs_submission_draft_root=str(tmp_path / "runtime" / "submission-drafts"),
         wgs_submission_draft_ttl_hours=24,
         wgs_runtime_request_root=str(tmp_path / "runtime" / "runner-requests"),
+        wgs_runtime_run_root=str(tmp_path / "runtime" / "runs"),
         wgs_transfer_spool_root=str(tmp_path / "runtime" / "transfer-progress"),
         wgs_runtime_bs_root=str(tmp_path / "runtime"),
         wgs_runtime_node200_root=str(tmp_path / "node200-runtime"),
@@ -398,8 +401,7 @@ def test_step3_dryrun_submission_and_finalizer_require_exact_master_evidence(
 
     settings = main.get_settings()
     binding_path = (
-        Path(settings.wgs_runtime_request_root).parent
-        / "runs"
+        Path(settings.wgs_runtime_run_root)
         / analysis_id
         / "attempt-1"
         / "batch-binding.json"

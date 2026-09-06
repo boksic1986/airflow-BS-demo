@@ -166,7 +166,7 @@ def validate_step3_dryrun_fencing(
     session,
     run: AnalysisRun,
     step3: WgsStageExecution,
-    runtime_request_root: str,
+    runtime_run_root: str,
 ) -> None:
     step2 = session.scalar(
         select(WgsStageExecution)
@@ -194,10 +194,9 @@ def validate_step3_dryrun_fencing(
     } != {expected_release}:
         raise ValueError("Step3 dry-run release does not match the frozen run")
 
-    runtime_root = Path(runtime_request_root).resolve().parent
+    runtime_root = Path(runtime_run_root).resolve()
     binding_path = (
         runtime_root
-        / "runs"
         / run.analysis_id
         / f"attempt-{run.attempt}"
         / "batch-binding.json"

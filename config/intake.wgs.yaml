@@ -6,7 +6,9 @@ pipelines:
     enabled: true
     intake:
       mode: t7_scan_only
-      root: /bi/fastq/T7_Fastq
+      project_id: WGS_Clinical
+      root_id: T7_Fastq
+      scheduled_scan_enabled: false
       interval_seconds: 1800
       completion_marker: BarcodeStat.txt
       chip_directory_pattern: '^\d+th_(\d{8}[A-Z])_[A-Za-z0-9.-]+$'

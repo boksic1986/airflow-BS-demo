@@ -1,5 +1,37 @@
 # HANDOFF.md
 
+## 2026-09-06 - Codex - T207 configuration convergence implemented
+
+T207 source changes are complete and tested in the isolated BS10610 development
+copy. Scheduled intake is now double-gated, default-off and isolated behind the
+Compose `intake` profile. Its root and 1800-second interval come from
+`config/intake.wgs.yaml` plus explicit control-plane/node200 mappings in
+`config/wgs_projects.yaml`.
+
+Heavy Slot `25/enforce` now comes from `config/wgs_stage_contract.yaml`.
+Conflicting backend environment values fail startup, every new contract-v2
+stage request includes the expected contract, and the restricted runtime gate
+rejects a mismatched frozen CCE profile. Runtime binding lookup now uses the
+explicit `WGS_RUNTIME_RUN_ROOT` on both sides.
+
+Both administrator bootstrap paths are create-only. The platform CLI only
+rotates an existing password with `--rotate-password`, and Airflow init no
+longer hides arbitrary user-creation errors. The example environment now
+renders through Compose and identifies `BS10610-Test`.
+
+Validation on BS10610: backend `374 passed, 1 skipped`; scripts `81 passed`;
+WGS DAG/deployment unittest `30 passed`; Compose config passed. The attempted
+all-DAG run in the backend image was invalid because that image intentionally
+lacks Airflow; it was rerun correctly with scripts in the backend image and WGS
+DAG tests in the Airflow image.
+
+No live service or gate changed. T208 remains blocked until a same-revision
+disabled release is deployed and the owner of
+`/home/hanjj/.config/airflow-wgs/runtime.env` changes execution, runtime adapter
+and Step3 dry-run gates to false. `chenjc` has no permission to modify that
+private file, and the forced-command key must not be weakened to work around
+it.
+
 ## 2026-09-06 - Codex - Post-T206 configuration audit and Step4-Step6 queue
 
 The operator requested that the current hardcoding/configuration review be

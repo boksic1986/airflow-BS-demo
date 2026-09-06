@@ -62,6 +62,7 @@ REQUEST_ROOT = Path(
         "/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runner-requests",
     )
 )
+RUNTIME_RUN_ROOT = os.getenv("WGS_RUNTIME_RUN_ROOT", "").strip()
 TRANSFER_SPOOL_ROOT = Path(
     os.getenv(
         "WGS_TRANSFER_SPOOL_ROOT",
@@ -364,7 +365,11 @@ def _git_repository_command(repo: Path) -> list[str]:
 
 def _workdir(payload: dict[str, Any]) -> Path:
     value = Path(str(payload["control_workdir"])).resolve()
-    runtime_root = (REQUEST_ROOT.resolve().parent / "runs").resolve()
+    if not RUNTIME_RUN_ROOT:
+        raise RuntimeError("WGS_RUNTIME_RUN_ROOT is required")
+    runtime_root = Path(RUNTIME_RUN_ROOT).resolve()
+    if not runtime_root.is_absolute():
+        raise RuntimeError("WGS_RUNTIME_RUN_ROOT must be absolute")
     if runtime_root not in value.parents:
         raise ValueError("node200 workdir is outside the approved runtime root")
     return value
@@ -498,6 +503,20 @@ def _resolved_runtime_controls(profile: dict[str, Any]) -> dict[str, Any]:
     return controls
 
 
+def _validate_heavy_io_contract(
+    payload: dict[str, Any], resolved_runtime: dict[str, Any]
+) -> None:
+    expected = payload.get("heavy_io_contract")
+    if expected is None:
+        return
+    if not isinstance(expected, dict) or set(expected) != {"limit", "mode", "unit"}:
+        raise RuntimeError("WGS stage contract heavy_io payload is invalid")
+    if resolved_runtime.get("heavy_io") != expected:
+        raise RuntimeError(
+            "RESOLVED_PROFILE.yaml heavy_io does not match the WGS stage contract"
+        )
+
+
 def _run_prepare(payload: dict[str, Any]) -> None:
     binding_path = _binding_path(payload)
     if binding_path.is_file():
@@ -599,6 +618,7 @@ def _write_prepare_binding(payload: dict[str, Any]) -> None:
         ).hexdigest(),
     }
     resolved_runtime.update(_resolved_runtime_controls(profile))
+    _validate_heavy_io_contract(payload, resolved_runtime)
     analysis = runtime.get("analysis") if isinstance(runtime.get("analysis"), dict) else {}
     runtime_paths = runtime.get("paths") if isinstance(runtime.get("paths"), dict) else {}
     run_dir = Path(str(runtime_paths.get("run_dir") or ""))
@@ -663,6 +683,7 @@ def _load_binding(payload: dict[str, Any]) -> dict[str, Any]:
         or value.get("pipeline_release_id") != payload["pipeline_release_id"]
     ):
         raise ValueError("batch binding identity mismatch")
+    _validate_heavy_io_contract(payload, dict(value.get("resolved_runtime") or {}))
     bundle = Path(str(value["cce_bundle"])).resolve()
     expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
     if expected_batch_root not in bundle.parents or not bundle.is_dir() or bundle.is_symlink():

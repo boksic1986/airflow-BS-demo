@@ -1779,7 +1779,7 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     session=session,
                     run=run,
                     step3=step3,
-                    runtime_request_root=get_settings().wgs_runtime_request_root,
+                    runtime_run_root=get_settings().wgs_runtime_run_root,
                 )
                 finished_at = run.pipeline_finished_at or datetime.now(timezone.utc)
                 if finished_at.tzinfo is None:
@@ -1875,6 +1875,11 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 contract = load_wgs_stage_contract(
                     Path(settings.wgs_stage_contract_path)
                 )
+                payload["heavy_io_contract"] = {
+                    "limit": contract.heavy_io.limit,
+                    "mode": contract.heavy_io.mode,
+                    "unit": "work_pod",
+                }
                 if (
                     request.force_new_generation
                     and stage_name in RUNTIME_ARTIFACT_STAGES

@@ -237,6 +237,8 @@ def install_app_fixtures(monkeypatch, session_factory, shared_root, airflow_clie
         lambda: SimpleNamespace(
             container_shared_root=str(shared_root),
             airflow_base_url="http://airflow-api-server:8080",
+            wgs_runtime_request_root=str(Path(shared_root) / "wgs-runtime" / "runner-requests"),
+            wgs_runtime_run_root=str(Path(shared_root) / "wgs-runtime" / "runs"),
         ),
     )
     if airflow_client is not None:
@@ -590,6 +592,7 @@ def test_wgs_log_index_uses_opaque_keys_for_analysis_and_stage_worker_logs(
             container_shared_root=str(tmp_path / "shared"),
             airflow_base_url="http://airflow-api-server:8080",
             wgs_runtime_request_root=str(runtime_root / "runner-requests"),
+            wgs_runtime_run_root=str(runtime_root / "runs"),
             wgs_runtime_node200_root=node_root,
             wgs_results_host_root=node_analysis_root,
             host_results_root=str(local_analysis_root),

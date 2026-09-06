@@ -588,7 +588,7 @@ def _wgs_run_log_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
 
     try:
         binding = load_wgs_runtime_binding(
-            request_root=request_root,
+            run_root=settings.wgs_runtime_run_root,
             analysis_id=run.analysis_id,
             attempt=attempt,
         )
@@ -719,7 +719,7 @@ def list_run_artifacts(*, session: Session, analysis_id: str, settings) -> dict[
 def _wgs_artifact_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
     try:
         binding = load_wgs_runtime_binding(
-            request_root=settings.wgs_runtime_request_root,
+            run_root=settings.wgs_runtime_run_root,
             analysis_id=run.analysis_id,
             attempt=int(run.attempt or 1),
         )

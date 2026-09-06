@@ -28,6 +28,16 @@ class WgsProject:
         return value
 
 
+@dataclass(frozen=True)
+class WgsIntakePolicy:
+    project_id: str
+    root_id: str
+    control_plane_path: str
+    interval_seconds: int
+    scheduled_scan_enabled: bool
+    auto_dispatch_enabled: bool
+
+
 def load_wgs_projects(path: str | Path) -> tuple[WgsProject, ...]:
     payload = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, dict) or str(payload.get("schema_version")) != "1":
@@ -49,9 +59,12 @@ def load_wgs_projects(path: str | Path) -> tuple[WgsProject, ...]:
         if not platforms or not roots:
             raise ValueError("WGS project requires platforms and FASTQ roots")
         for root in roots:
-            path_value = PurePosixPath(str(root.get("node200_path") or ""))
-            if not path_value.is_absolute() or ".." in path_value.parts:
-                raise ValueError("WGS FASTQ root must be an absolute normalized path")
+            for field in ("node200_path", "control_plane_path"):
+                path_value = PurePosixPath(str(root.get(field) or ""))
+                if not path_value.is_absolute() or ".." in path_value.parts:
+                    raise ValueError(
+                        f"WGS FASTQ root {field} must be an absolute normalized path"
+                    )
         projects.append(
             WgsProject(
                 project_id=project_id,
@@ -63,6 +76,50 @@ def load_wgs_projects(path: str | Path) -> tuple[WgsProject, ...]:
             )
         )
     return tuple(projects)
+
+
+def load_wgs_intake_policy(
+    *, intake_path: str | Path, project_catalog_path: str | Path
+) -> WgsIntakePolicy:
+    try:
+        payload = yaml.safe_load(Path(intake_path).read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as error:
+        raise ValueError(f"WGS intake configuration is unreadable: {error}") from error
+    pipeline = (
+        (payload.get("pipelines") or {}).get("wgs")
+        if isinstance(payload, dict)
+        else None
+    )
+    intake = pipeline.get("intake") if isinstance(pipeline, dict) else None
+    if not isinstance(intake, dict):
+        raise ValueError("WGS intake configuration requires pipelines.wgs.intake")
+    project_id = str(intake.get("project_id") or "").strip()
+    root_id = str(intake.get("root_id") or "").strip()
+    projects = load_wgs_projects(project_catalog_path)
+    project = next((item for item in projects if item.project_id == project_id), None)
+    if project is None:
+        raise ValueError("WGS intake project_id is not registered")
+    root = project.fastq_root(root_id)
+    try:
+        interval_seconds = int(intake.get("interval_seconds"))
+    except (TypeError, ValueError) as error:
+        raise ValueError("WGS intake interval_seconds must be an integer") from error
+    if interval_seconds < 60:
+        raise ValueError("WGS intake interval_seconds must be at least 60")
+    scheduled = intake.get("scheduled_scan_enabled")
+    if not isinstance(scheduled, bool):
+        raise ValueError("WGS intake scheduled_scan_enabled must be boolean")
+    auto_dispatch = intake.get("auto_dispatch_enabled")
+    if not isinstance(auto_dispatch, bool):
+        raise ValueError("WGS intake auto_dispatch_enabled must be boolean")
+    return WgsIntakePolicy(
+        project_id=project_id,
+        root_id=root_id,
+        control_plane_path=str(root["control_plane_path"]),
+        interval_seconds=interval_seconds,
+        scheduled_scan_enabled=bool(pipeline.get("enabled")) and scheduled,
+        auto_dispatch_enabled=auto_dispatch,
+    )
 
 
 def public_project_catalog(projects: tuple[WgsProject, ...]) -> dict:

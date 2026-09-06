@@ -1,5 +1,19 @@
 # 13 安全和运维约束
 
+## T207 fail-closed configuration ownership
+
+- Scheduled intake requires both a false-by-default deployment gate and an
+  explicit YAML policy; the scanner exists only in the Compose `intake`
+  profile.
+- Heavy Slot capacity and mode come from the versioned stage contract. Runtime
+  environment variables cannot silently replace that contract, and the
+  frozen CCE profile must match it exactly.
+- FASTQ roots have explicit control-plane/node200 mappings. Runtime request and
+  binding roots are configured independently, preventing sibling-directory
+  inference from expanding filesystem authority.
+- Administrator startup is create-only. Password rotation is an explicit
+  maintenance command and cannot change role or enabled state implicitly.
+
 ## T194-T200 contract-v2 trust boundaries
 
 - node200 receives only registered execution identities and writes atomic

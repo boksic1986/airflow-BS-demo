@@ -28,6 +28,16 @@ T207 must converge these configuration contracts before a real run:
 - Backend, Airflow and frontend deployment artifacts are tied to one release
   revision and digest manifest.
 
+The repository implementation now enforces these contracts. Scanner startup
+requires both the default-off environment gate and
+`scheduled_scan_enabled` from `config/intake.wgs.yaml`; the service is isolated
+behind the Compose `intake` profile. FASTQ roots resolve through explicit
+control-plane/node200 catalog paths, and runtime bindings use an independent
+`WGS_RUNTIME_RUN_ROOT`. Heavy Slot `25/enforce` comes from this stage contract,
+is copied into each contract-v2 stage request, and must match the frozen CCE
+profile. Administrator bootstraps no longer overwrite existing accounts or
+swallow Airflow initialization errors.
+
 After T207 passes, T208 may run one approved small-family canary through the
 normal contract-v2 path. Step4 must consume the exact successful Step3
 execution; Step5 must consume the exact Step4 generation manifest; Step6 must

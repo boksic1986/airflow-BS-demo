@@ -238,7 +238,7 @@ def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> in
     """Import only the final WGS analysis selection from the frozen batch."""
     try:
         value = load_wgs_runtime_binding(
-            request_root=settings.wgs_runtime_request_root,
+            run_root=settings.wgs_runtime_run_root,
             analysis_id=run.analysis_id,
             attempt=run.attempt,
         )
