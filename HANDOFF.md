@@ -67,6 +67,49 @@ legacy Step1/Step5 transfer terminal and `wgs-obs-transfer-01` empty, then apply
 0016, create both Airflow pools, publish one reviewed revision and keep all
 Local/SGE flags false. Rollback may restore old application code while retaining
 the additive lease rows; never delete an owned row.
+## 2026-09-07 - Codex - T211 node97 local runner candidate
+
+T209 commit `9afd92a feat(wgs): add execution target commit barrier` was reviewed
+and applied to the isolated branch `jiucheng/wgs/T211-node97-local-runner` as
+`b127a8f`. T209 correctly implemented target choice and the immutable commit
+barrier, but its Local/SGE DAG paths were deliberate fail-closed placeholders;
+it could not execute WGS on node97 by itself.
+
+T211 adds the node97 implementation. Airflow registers `local_analysis`, calls
+the restricted `wgs-node97` SSH alias, reschedules while the run-local status
+marker is nonterminal, then finalizes the same analysis attempt. The host gate
+accepts only the exact local command, validates the contract-v2 execution ID,
+generation, request hash and approved roots, converts only the frozen snapshot
+executor to local, and runs the WGS 4.1.1 Snakemake 9 scheduler with 96 cores.
+It writes rule events to the existing shared evidence layout. It never accepts
+an arbitrary command, repository, output root or `--forceall`.
+
+Validation completed before rollout: targeted BS10610 backend/runner tests
+`31 passed`; full backend suite with `/config` mounted `392 passed`; WGS DAG
+suite `23 passed`; node97 gate suite in the shared `nipttest` environment
+`7 passed`. A frozen 0825A snapshot was converted to local execution and
+Snakemake 9.23.1 successfully built its DAG in dry-run mode. The repo logger was
+discovered and wrote startup events with the exact attempt run label; no WGS
+rule was executed. Compose config passed. The remote frontend build could not
+pull `node:22-bookworm` because the BS Docker Hub mirror DNS failed; no
+frontend source changed in T211.
+
+The user-authorized 0825A cleanup was applied only to exact test resources:
+the `airflow_test/WGS_Clinical/WGS_20260825A_T7Hg38V4.1.1` batch, its sampleinfo,
+the T208 prepare diagnostics, runtime request/run and evidence for
+`WGS_20260906_075824_E4D23E`, plus exact OBS raw/result prefixes for
+`WGS_20260825A_T7Hg38V4.1.1`. OBS now reports zero bytes for both prefixes.
+The same-named production-like directory outside `airflow_test` and the six
+source FASTQs under `/sg2/T7/result6/OutputFq/T7` were verified retained.
+
+The remaining rollout must use an immutable BS10610 release and a relative
+`current -> releases/<revision>` symlink because the shared `/mnt` absolute
+symlink is broken when node97 sees the same filesystem as `/bi`. Install a
+pinned `wgs-node97` host key and owner-only test key without replacing the
+existing node200 alias. Keep scanner and auto-dispatch false. Enable node97 and
+the runtime gates only for the supervised 0825A run, then pause the DAG and
+restore all gates to false. Do not call the acceptance complete until the
+business run, DagRun and all scheduled logger rules are terminal.
 
 ## 2026-09-07 - Codex - T208 Step1-Step6 acceptance complete
 

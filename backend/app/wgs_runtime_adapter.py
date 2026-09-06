@@ -22,6 +22,7 @@ STAGES = {
     "step5_download",
     "step6_materialize",
     "step7_cleanup",
+    "local_analysis",
 }
 
 

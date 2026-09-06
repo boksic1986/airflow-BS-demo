@@ -5,6 +5,11 @@
 Owner: backend/Airflow/frontend/runtime/QA/docs
 
 Status: implemented and validated in an isolated candidate; not deployed
+## T211 - WGS node97 local Snakemake runner acceptance
+
+Owner: backend/Airflow/runtime/QA/docs
+
+Status: implementation and isolated validation complete; controlled BS10610 rollout pending
 
 Dependencies: T208,T209
 
@@ -43,6 +48,34 @@ Restrictions:
 - Keep all Local/SGE capability flags false and do not merge T211 runner code.
 - Roll out only after legacy transfers are terminal and their shared lease is
   empty.
+- Turn the T209 `node-97` execution branch into a real restricted host runner.
+- Reuse the frozen WGS 4.1.1 snapshot and change only its execution adapter from
+  CCE to local Snakemake 9 with 96 cores.
+- Preserve the same analysis ID, attempt, execution generation and logger
+  evidence contract used by the CCE path.
+- Run one fresh 0825A three-sample acceptance on node97 with scanner and
+  auto-dispatch disabled.
+
+Acceptance:
+- [x] Local runner accepts only
+  `wgs-local-runtime <analysis_id> <attempt> local_analysis` and rejects unsafe
+  request or analysis paths.
+- [x] Backend and DAG tests cover dispatch binding, local status projection,
+  local sensor/finalizer topology and 96-core Snakemake logger invocation.
+- [x] A frozen 0825A snapshot produces a Snakemake 9 DAG in dry-run mode on
+  node97 without executing WGS rules.
+- [ ] Deploy one immutable release to the BS10610 test control plane, apply
+  migration 0015 and install the pinned node97 SSH alias/runner gate.
+- [ ] Submit one fresh 0825A run to `node-97`, verify terminal workflow and
+  rule evidence, then restore the DAG and runtime gates to disabled.
+
+Restrictions:
+- Test environment only; do not deploy to `.96` production or enable intake.
+- Delete only the exact 0825A test SFS/OBS resources enumerated in the T211
+  handoff. Preserve production-like 0825A data outside `airflow_test` and the
+  six source FASTQs.
+- A successful dry-run proves scheduler/config compatibility, not completion
+  of the full node97 analysis acceptance.
 
 ## T210 - WGS Step3-Step4 lightweight contract canary
 

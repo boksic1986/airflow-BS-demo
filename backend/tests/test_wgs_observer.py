@@ -1261,6 +1261,85 @@ def test_stage_sensor_sync_reads_only_the_registered_transfer_path(tmp_path: Pat
         assert [row.transfer_id for row in rows] == [expected_id]
 
 
+def test_node97_local_status_projects_running_and_failure(tmp_path: Path) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    request_root = tmp_path / "runtime" / "runner-requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    marker = request_dir / "local_analysis.status.json"
+    common = {
+        "schema_version": "wgs-runtime.stage-status.v1",
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "stage": "local_analysis",
+        "retry_no": 0,
+    }
+    marker.write_text(
+        json.dumps(
+            {
+                **common,
+                "status": "running",
+                "message": "node97 WGS workflow is running",
+                "updated_at": "2026-09-07T02:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    first = sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=request_root,
+        transfer_spool_root=tmp_path / "spool",
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="local_analysis",
+    )
+    assert first == {"files": 1, "events_ingested": 1}
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        stage = session.scalar(
+            select(RunStageState).where(
+                RunStageState.analysis_id == analysis_id,
+                RunStageState.attempt == 1,
+                RunStageState.stage_code == "local_analysis",
+            )
+        )
+        assert run.status == "running"
+        assert run.current_stage == "local_analysis"
+        assert stage.stage_status == "running"
+        assert stage.progress_source == "node97-local-runtime"
+
+    marker.write_text(
+        json.dumps(
+            {
+                **common,
+                "status": "failed",
+                "message": "local rule failed",
+                "updated_at": "2026-09-07T02:01:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    second = sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=request_root,
+        transfer_spool_root=tmp_path / "spool",
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="local_analysis",
+    )
+    assert second == {"files": 1, "events_ingested": 1}
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        assert run.status == "failed"
+        assert run.error_summary == "local rule failed"
+        assert run.pipeline_finished_at is not None
+
+
 def test_wgs_4_1_1_stage_status_is_phase_only_and_master_only(tmp_path: Path) -> None:
     sessions, analysis_id, evidence_root, binding_root, catalog_path, _ = prepare_run(tmp_path)
     runtime = tmp_path / "runtime"

@@ -1,5 +1,23 @@
 # 13 安全和运维约束
 
+## T211 node97 local execution boundary
+
+- The node97 runner accepts only
+  `wgs-local-runtime <analysis_id> <attempt> local_analysis`. Repository,
+  output root, Snakemake arguments and shell commands are not browser inputs.
+- The request must match the committed node97 dispatch and the current
+  contract-v2 execution ID, generation and request hash. Stale markers cannot
+  advance the stage projection.
+- Test deployment may install the approved `hanjj` identity as a separate
+  owner-only key and pinned `wgs-node97` alias. It must not replace or alter the
+  node200 alias. A production rollout requires a forced-command authorized-key
+  entry; the supervised test key is not production acceptance.
+- Node97 may read only the frozen WGS snapshot, WGS 4.1.1 release and logger
+  plugin. It writes only the exact test batch and attempt evidence roots. It
+  does not receive OBS credentials, kubeconfig or a general database token.
+- The local gate is default-off. Scanner and auto-dispatch remain false, and
+  `node-96` plus SGE remain unavailable during T211.
+
 ## T207 fail-closed configuration ownership
 
 - Scheduled intake requires both a false-by-default deployment gate and an

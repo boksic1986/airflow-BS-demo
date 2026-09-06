@@ -55,8 +55,9 @@ wait_wgs_execution_approval
 
 `wait_execution_commit` is a reschedule sensor and reads the current database
 choice on every poke. `choose_execution_target` reads the already committed
-choice; it does not trust DagRun conf as the current target. Local and SGE
-branches are fail-closed placeholders in Phase 1.
+choice; it does not trust DagRun conf as the current target. In T209, Local and
+SGE branches are fail-closed placeholders. T211 implements the first accepted
+candidate for `node-97`; `node-96` and SGE remain fail-closed.
 
 ## Frontend and API
 
@@ -87,6 +88,48 @@ WGS_SGE_ENABLED=false
 
 Phase 2 may enable `.97` only after the fixed `--cores 96` runner and recovery
 path pass a separate acceptance. Phase 3 independently accepts `.96` and SGE.
-The DAG placeholders deliberately fail if a capability is enabled without its
-accepted runner. No T209 source validation requires a production deployment or
-changes an in-flight CCE Master.
+The remaining placeholders deliberately fail if a capability is enabled
+without its accepted runner. No T209 source validation requires a production
+deployment or changes an in-flight CCE Master.
+
+## T211 node97 execution contract
+
+T211 keeps the T209 dispatch claim and commit barrier. After a `node-97`
+target is committed, the DAG follows only:
+
+```text
+local_execution.start_local_wgs
+  -> local_execution.wait_local_wgs
+  -> local_execution.finalize_local_wgs
+  -> release_leases
+```
+
+The start task registers `local_analysis` through FastAPI before invoking the
+restricted SSH alias. The gate accepts only:
+
+```text
+wgs-local-runtime <analysis_id> <attempt> local_analysis
+```
+
+It validates the request-v4 and contract-v2 identity, exact generation and
+request hash, committed node97 dispatch and approved filesystem roots. It then
+reuses the frozen WGS 4.1.1 analysis snapshot, preserves a copy of the
+CCE-prepared config and changes only `execution.executor` to `local`. The
+host-side scheduler uses Snakemake 9 with fixed `--cores 96`, never
+`--forceall`, while rule tools continue to come from the frozen WGS release.
+
+The runner writes `local_analysis.status.json` and Snakemake logger JSONL below
+the existing attempt evidence directory. The observer projects these into the
+same run/stage/rule read models used by CCE. Terminal success is accepted only
+from the exact registered execution marker; failure remains diagnosable and
+does not fall through to the CCE branch.
+
+The shared deployment link must be relative:
+
+```text
+airflow-WGS/current -> releases/<revision>
+```
+
+An absolute `/mnt/...` target does not resolve on node97, which sees the same
+filesystem through `/bi/...`. Scanner and auto-dispatch remain disabled for
+the T211 supervised acceptance. `node-96` and SGE remain unavailable.

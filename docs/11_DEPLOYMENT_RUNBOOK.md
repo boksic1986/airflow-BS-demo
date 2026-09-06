@@ -25,6 +25,50 @@ terminal and `wgs-obs-transfer-01` is empty. Then:
 
 Rollback may restore prior application code while retaining migrations and
 directional rows. Never delete or overwrite a row carrying ownership.
+## T211 BS10610/node97 local-runner rollout
+
+T211 is test-environment only. Before deployment, require zero active WGS
+business runs, zero queued/running `bio_wgs` DagRuns, a paused DAG, absent
+scanner container and false intake/auto-dispatch gates.
+
+Create an immutable release below the shared project root and use a relative
+link so both BS10610 (`/mnt`) and node97 (`/bi`) resolve it:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/
+  releases/<revision>/
+  current -> releases/<revision>
+```
+
+Install `wgs-node97` beside, not in place of, the existing node200 SSH alias.
+Pin node97's host key. The test private key and forced-command gate must be
+owner-only and must never enter the release, image, database or logs. The gate
+must invoke `scripts/wgs_local_runtime_gate.py` with:
+
+```text
+WGS_LOCAL_EXECUTION_ENABLED=true
+WGS_LOCAL_CORES=96
+WGS_LOCAL_REQUEST_ROOT=/sg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runner-requests
+WGS_LOCAL_ANALYSIS_ROOT=/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical
+WGS_LOCAL_EVIDENCE_ROOT=/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence
+WGS_LOCAL_REPO_ROOT=/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
+WGS_LOCAL_LOGGER_ROOT=/bi/biodevrwbi/33.chenjiucheng/project/airflow-WGS/current/dags
+```
+
+Apply the additive migration through `20260906_0015`, validate Compose, then
+recreate only backend, observer, Airflow API, scheduler and worker. Do not
+recreate PostgreSQL/Redis or delete volumes. Enable
+`WGS_EXECUTION_ENABLED`, `WGS_RUNTIME_ADAPTER_ENABLED`,
+`WGS_CONTRACT_V2_ENABLED` and `WGS_LOCAL_NODE97_ENABLED` only during the
+supervised run. Keep `WGS_INTAKE_SCAN_ENABLED`,
+`WGS_AUTO_DISPATCH_ENABLED`, node96 and SGE false.
+
+For acceptance, recreate the exact three-sample 0825A test snapshot, approve
+its configuration, choose `node-97`, commit the execution target and verify the
+business run, Airflow DagRun, local terminal marker and every scheduled rule
+event. On completion or failure, pause `bio_wgs`, disable the four execution
+gates and confirm the node97 forced command rejects a new request. Never call a
+successful dry-run a completed full analysis.
 
 ## T208 full Step1-Step6 closeout
 

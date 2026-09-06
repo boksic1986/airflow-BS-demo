@@ -37,6 +37,38 @@ deployment_state: source-only candidate. No production migration, container
 replacement, service restart, runtime submission or cloud workload mutation
 occurred. A later rollout must wait for all legacy shared-direction transfers
 to become terminal and the legacy lease to be empty.
+## 2026-09-07 T211 node97 local-runner candidate
+
+scope: T209 commit `9afd92a` was applied to an isolated T211 worktree and
+extended with a real `node-97` runner. The original T209 branch remains
+unchanged. This is a BS10610 test-control-plane candidate; `.96` production is
+untouched.
+
+implementation: the committed execution target now routes `node-97` to a
+restricted SSH command. The node97 gate validates contract-v2 identity and
+approved paths, reuses the frozen WGS 4.1.1 snapshot, changes only the snapshot
+executor from CCE to local, runs Snakemake 9 with 96 cores and writes the same
+rule JSONL contract consumed by the observer. Airflow registers and waits for
+`local_analysis`, then finalizes the existing analysis attempt without entering
+Step1-Step6 or CCE.
+
+validation: BS10610 isolated tests passed: backend and runner target set 31,
+full backend 392, `bio_wgs` DAG 23. The node97 gate suite passed 7 tests in the
+shared `nipttest` environment. A real frozen 0825A snapshot generated a
+Snakemake 9 dry-run DAG and logger startup events without executing WGS rules.
+The remote frontend image rebuild is blocked by the BS Docker Hub mirror DNS;
+T211 does not change frontend source.
+
+cleanup: exact 0825A test resources were removed from `airflow_test`, the T208
+runtime/evidence directories and the two exact OBS raw/result prefixes. Both
+OBS prefixes now list zero bytes. The production-like 0825A directory outside
+`airflow_test` and six source FASTQs remain present.
+
+next: create an immutable release with a relative `current` symlink, install
+the pinned node97 SSH alias and restricted gate, apply the additive T209
+migration, then submit one fresh 0825A run with intake/auto-dispatch disabled.
+The full acceptance is not complete until that run and its logger evidence are
+terminal and the gates are restored.
 
 ## 2026-09-07 T208 Step1-Step6 controlled acceptance complete
 

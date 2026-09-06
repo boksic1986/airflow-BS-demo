@@ -17,6 +17,12 @@ stages:
     label: Prepare analysis configuration
     predecessor: prepare_sampleinfo
     timeout_seconds: 7200
+  local_analysis:
+    label: Run WGS on local node
+    predecessor: prepare_analysis
+    timeout_seconds: 432000
+    executor: node97_restricted_runner
+    evidence_type: local_process_and_rule_logger
   step1_upload:
     label: Upload FASTQ
     predecessor: prepare_analysis

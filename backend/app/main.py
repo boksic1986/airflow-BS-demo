@@ -66,7 +66,7 @@ from app.auth_service import (
 )
 from app.wgs_platform_service import WgsPreparedArtifactPending, action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run, sync_prepared_samples, sync_sampleinfo_preview
 from app.wgs_release_catalog import load_wgs_release_catalog
-from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferFileState, TransferJob, UserAccount, WgsStageExecution
+from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferFileState, TransferJob, UserAccount, WgsExecutionDispatch, WgsStageExecution
 from app.wgs_timing_service import enrich_progress, serialize_rule_states
 from app.wgs_workspace_service import build_wgs_workspace
 from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_definitions
@@ -1645,7 +1645,9 @@ def revalidate_run(analysis_id: str, user: AuthenticatedUser = Depends(operator_
 
 @app.post("/api/internal/wgs/runs/{analysis_id}/stages/{stage_name}", dependencies=[Depends(require_internal_service_token)])
 def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRuntimeStageRequest) -> dict[str, object]:
-    if request.adapter != "wgs-runtime-200" or not _wgs_runtime_adapter_enabled():
+    local_stage = stage_name in {"local_analysis", "finalize_local_run"}
+    expected_adapter = "wgs-runtime-node97" if local_stage else "wgs-runtime-200"
+    if request.adapter != expected_adapter or not _wgs_runtime_adapter_enabled():
         raise HTTPException(status_code=409, detail={"code": "WGS_RUNTIME_DISABLED", "message": "WGS runtime adapter is disabled."})
     if stage_name == "step7_cleanup" and not _wgs_platform_execution_enabled():
         raise HTTPException(status_code=409, detail={"code": "WGS_RUNTIME_DISABLED", "message": "WGS execution is disabled; Step7 was not registered."})
@@ -1654,6 +1656,18 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
             run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
             if run is None or run.attempt != request.attempt:
                 raise ValueError("unknown active WGS attempt")
+            dispatch = session.scalar(
+                select(WgsExecutionDispatch).where(
+                    WgsExecutionDispatch.analysis_id == analysis_id
+                )
+            )
+            if local_stage and (
+                dispatch is None
+                or dispatch.dispatch_state not in {"committed", "running"}
+                or dispatch.committed_attempt != request.attempt
+                or dispatch.desired_target != "node-97"
+            ):
+                raise ValueError("node97 local stage does not match the committed execution target")
             if stage_name == "step7_cleanup":
                 authorize_step7_runtime(
                     session=session,
@@ -1767,6 +1781,53 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 )
                 session.commit()
                 return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "success"}
+            if stage_name == "finalize_local_run":
+                if not _is_successful_runtime_stage(
+                    request_root=get_settings().wgs_runtime_request_root,
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                    stage="local_analysis",
+                ):
+                    raise ValueError("node97 local analysis has no successful terminal receipt")
+                finished_at = run.pipeline_finished_at or datetime.now(timezone.utc)
+                if finished_at.tzinfo is None:
+                    finished_at = finished_at.replace(tzinfo=timezone.utc)
+                run.status = "success"
+                run.current_stage = "finalize_local_run"
+                run.pipeline_finished_at = finished_at
+                run.ended_at = finished_at
+                run.progress_percent = 100
+                run.progress_updated_at = finished_at
+                run.error_summary = None
+                sync_sample_statuses(
+                    session=session,
+                    analysis_id=analysis_id,
+                    run_status="success",
+                )
+                upsert_stage_state(
+                    session,
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                    stage_code="final",
+                    stage_status="success",
+                    updated_at=finished_at,
+                    progress_available=True,
+                    progress_percent=100,
+                    completed_units=1,
+                    total_units=1,
+                    unit="workflow",
+                    progress_source="node97-local-finalize",
+                )
+                mark_execution_terminal(
+                    session=session, analysis_id=analysis_id, attempt=request.attempt
+                )
+                session.commit()
+                return {
+                    "analysis_id": analysis_id,
+                    "attempt": request.attempt,
+                    "stage": stage_name,
+                    "status": "success",
+                }
             if stage_name == "finalize_step1_canary":
                 if not _wgs_step1_canary_enabled():
                     raise ValueError("Step1 canary is disabled")
@@ -1919,7 +1980,10 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     "status": "success",
                     "validation_result": "step3_dryrun_complete",
                 }
-            expected_command = f"wgs-runtime {analysis_id} {request.attempt} {stage_name}"
+            command_prefix = (
+                "wgs-local-runtime" if stage_name == "local_analysis" else "wgs-runtime"
+            )
+            expected_command = f"{command_prefix} {analysis_id} {request.attempt} {stage_name}"
             if request.command != expected_command:
                 raise ValueError("runtime command does not match the registered stage")
             settings = get_settings()
@@ -2096,7 +2160,7 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                         payload={"attempt": request.attempt},
                     )
             run.current_stage = stage_name
-            if stage_name == "step1_upload":
+            if stage_name in {"step1_upload", "local_analysis"}:
                 mark_execution_running(
                     session=session, analysis_id=analysis_id, attempt=request.attempt
                 )

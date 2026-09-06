@@ -191,6 +191,7 @@ def ingest_evidence_once(
                 "step3_monitor.status.json",
                 "step4_repair_cram.status.json",
                 "step5_download.status.json",
+                "local_analysis.status.json",
             }:
                 continue
             result["files"] += 1
@@ -422,6 +423,7 @@ RUNTIME_ARTIFACT_STAGES = frozenset(
         "step5_download",
         "step6_materialize",
         "step7_cleanup",
+        "local_analysis",
     }
 )
 SUPPORTED_RUNTIME_SYNC_STAGES = PREPARE_STATUS_STAGES | RUNTIME_ARTIFACT_STAGES
@@ -802,6 +804,32 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 message=str(payload.get("message") or "") or None,
                 evidence_key=str(resolved.relative_to(request_root)),
                 receipt_hash=terminal_receipt_hash,
+            )
+        elif stage == "local_analysis":
+            if status not in {"accepted", "running", "success", "failed"}:
+                raise ValueError("local WGS status is invalid")
+            analysis.current_stage = stage
+            if status == "failed":
+                analysis.status = "failed"
+                analysis.error_summary = str(payload.get("message") or "") or None
+                analysis.ended_at = heartbeat
+                analysis.pipeline_finished_at = heartbeat
+            elif status == "running":
+                analysis.status = "running"
+                analysis.error_summary = None
+                analysis.ended_at = None
+                analysis.pipeline_finished_at = None
+            upsert_stage_state(
+                session,
+                analysis_id=analysis_id,
+                attempt=attempt,
+                stage_code=stage,
+                stage_status=status,
+                updated_at=heartbeat,
+                message=str(payload.get("message") or "") or None,
+                evidence_key=str(resolved.relative_to(request_root)),
+                receipt_hash=terminal_receipt_hash,
+                progress_source="node97-local-runtime",
             )
         else:
             monitoring_health = str(payload.get("monitoring_health") or "healthy")

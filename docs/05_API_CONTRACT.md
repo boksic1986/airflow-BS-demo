@@ -13,6 +13,24 @@ successful cleanup. The backend also marks a committed dispatch
 `needs_recovery`. Observer ingestion of exact terminal transfer evidence
 performs the normal idempotent release; a later DAG release call only confirms
 that outcome. No API accepts a browser-provided slot name or lease timeout.
+## T211 node97 local runtime internal contract
+
+`POST /api/internal/wgs/runs/{analysis_id}/stages/local_analysis` accepts only
+the internal adapter `wgs-runtime-node97` and command:
+
+```text
+wgs-local-runtime <analysis_id> <attempt> local_analysis
+```
+
+The run attempt must have a committed `node-97` execution dispatch. Contract-v2
+registration returns the immutable execution ID, generation and request hash;
+the node97 status marker must echo all three. A repeated start registration
+reuses an already-active generation and cannot create a second local process.
+
+`POST /api/internal/wgs/runs/{analysis_id}/stages/finalize_local_run` uses the
+same adapter and requires the exact successful `local_analysis` terminal
+receipt. It has no client-supplied shell command. These endpoints are internal
+service-token routes and do not expose node97 filesystem paths to the browser.
 
 ## T208 exact-generation replay and projection repair
 

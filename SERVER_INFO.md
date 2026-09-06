@@ -1,5 +1,27 @@
 # SERVER_INFO.md
 
+## T211 node97 local-runner preflight (2026-09-07)
+
+```text
+node97_host: 172.17.61.97
+node97_login: hanjj via the separately approved test identity
+node97_logical_cpus: 128
+node97_scheduler: Snakemake 9.23.1
+node97_wgs_python: /bi/software/mamba/envs/WGS/bin/python (Python 3.11.9)
+node97_test_pytest: /sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/python
+node97_wgs_repo: /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
+node97_local_cores: 96
+node97_analysis_root: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical
+node97_request_root: /sg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runner-requests
+node97_evidence_root: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence
+shared_release_link_policy: relative current -> releases/<revision>; absolute /mnt target is broken on node97 /bi mapping
+```
+
+T211 preflight found no active WGS business or Airflow run before exact 0825A
+test cleanup. The two exact 0825A OBS raw/result prefixes were removed through
+the private-line BS login and now list zero bytes. Credentials and full private
+OBS configuration were not copied or recorded.
+
 ## T207 node200 owner-gate closure (2026-09-06)
 
 ```text

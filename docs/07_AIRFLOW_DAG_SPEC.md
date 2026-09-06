@@ -16,6 +16,26 @@ unconditionally clear ownership: without exact terminal transfer evidence the
 backend returns `retained`, the task fails, and the committed run requires
 recovery. The observer releases a direction when it imports its terminal
 evidence; the DAG release is an idempotent confirmation.
+## T211 node97 local execution branch
+
+T211 replaces only the T209 `node-97` placeholder. The CCE Step1-Step6 branch
+is unchanged, and node96/SGE still fail closed. A committed node97 run follows:
+
+```text
+choose_execution_target
+  -> local_execution.start_local_wgs
+  -> local_execution.wait_local_wgs
+  -> local_execution.finalize_local_wgs
+  -> release_leases
+```
+
+The start task first registers `local_analysis` with adapter
+`wgs-runtime-node97`, then calls the pinned restricted SSH alias. The sensor
+polls the backend projection every ten seconds in `reschedule` mode for up to
+120 hours. The finalizer requires an exact successful local terminal receipt
+before marking the existing run/attempt successful and releasing the local
+target slot. Local execution does not traverse OBS transfer, CCE Master,
+Step3 monitor or Step4-Step6 tasks.
 
 ## T208 full Step1-Step6 acceptance semantics
 

@@ -417,6 +417,111 @@ def unavailable_execution_runner(target: str, **context: Any) -> None:
     )
 
 
+def register_local_stage(**context: Any) -> dict[str, Any]:
+    _require_runtime_enabled()
+    if not _truthy("WGS_LOCAL_NODE97_ENABLED"):
+        raise RuntimeError("node97 local WGS execution is disabled")
+    conf = dict(context["dag_run"].conf or {})
+    payload = {
+        "attempt": conf["attempt"],
+        "adapter": "wgs-runtime-node97",
+        "command": (
+            f"wgs-local-runtime {conf['analysis_id']} "
+            f"{conf['attempt']} local_analysis"
+        ),
+    }
+    task_instance = context.get("ti") or context.get("task_instance")
+    if int(getattr(task_instance, "try_number", 1) or 1) > 1:
+        payload["force_new_generation"] = True
+    path = f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/local_analysis"
+    for registration_attempt in range(
+        1, STAGE_PREDECESSOR_VISIBILITY_ATTEMPTS + 1
+    ):
+        try:
+            return _backend_json(path, method="POST", payload=payload)
+        except BackendStagePredecessorPending:
+            if registration_attempt == STAGE_PREDECESSOR_VISIBILITY_ATTEMPTS:
+                raise
+            time.sleep(STAGE_PREDECESSOR_VISIBILITY_DELAY_SECONDS)
+    raise RuntimeError("unreachable local WGS stage registration state")
+
+
+def run_stage_on_node97(**context: Any) -> dict[str, Any]:
+    registered = register_local_stage(**context)
+    conf = dict(context["dag_run"].conf or {})
+    command = [
+        "ssh",
+        "-T",
+        "-F",
+        os.getenv("WGS_SSH_CONFIG_PATH", "/opt/airflow/ssh/config"),
+        os.getenv("WGS_RUNNER_NODE97_ALIAS", "wgs-node97"),
+        os.getenv(
+            "WGS_RUNNER_NODE97_COMMAND",
+            "/home/hanjj/.config/airflow-wgs/forced-command-node97.sh",
+        ),
+        "wgs-local-runtime",
+        str(conf["analysis_id"]),
+        str(conf["attempt"]),
+        "local_analysis",
+    ]
+    completed = subprocess.run(
+        command,
+        check=False,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        error = " | ".join(
+            part.strip()
+            for part in (completed.stdout, completed.stderr)
+            if part and part.strip()
+        )[-2000:]
+        raise RuntimeError(
+            f"restricted node97 WGS stage failed ({completed.returncode}): {error}"
+        )
+    reply = _runner_reply(completed.stdout)
+    if reply.get("status") not in {"accepted", "running", "success"}:
+        raise RuntimeError("node97 WGS runner did not acknowledge the local workflow")
+    _backend_json(
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/activate",
+        method="POST",
+        payload={"attempt": conf["attempt"]},
+    )
+    return {**registered, "runner_status": str(reply["status"])}
+
+
+def local_stage_ready(**context: Any) -> bool:
+    conf = dict(context["dag_run"].conf or {})
+    query = urlencode({"attempt": conf["attempt"], "stage": "local_analysis"})
+    payload = _sensor_backend_json(
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/stage-status?{query}"
+    )
+    if payload is None:
+        return False
+    if payload.get("failed") or payload.get("ready"):
+        _backend_json(
+            f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/deactivate",
+            method="POST",
+            payload={"attempt": conf["attempt"]},
+        )
+    if payload.get("failed"):
+        raise RuntimeError(str(payload.get("message") or "node97 WGS workflow failed"))
+    return bool(payload.get("ready"))
+
+
+def finalize_local_run(**context: Any) -> dict[str, Any]:
+    conf = dict(context["dag_run"].conf or {})
+    return _backend_json(
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/finalize_local_run",
+        method="POST",
+        payload={
+            "attempt": conf["attempt"],
+            "adapter": "wgs-runtime-node97",
+        },
+    )
+
+
 def release_leases(**context: Any) -> dict[str, Any]:
     conf = dict(context["dag_run"].conf or {})
     if not _runtime_enabled():
@@ -668,9 +773,22 @@ with DAG(
     with TaskGroup(group_id="local_execution") as local_execution:
         start_local = PythonOperator(
             task_id="start_local_wgs",
-            python_callable=unavailable_execution_runner,
-            op_kwargs={"target": "local"},
+            python_callable=run_stage_on_node97,
+            execution_timeout=timedelta(minutes=2),
         )
+        wait_local = PythonSensor(
+            task_id="wait_local_wgs",
+            python_callable=local_stage_ready,
+            mode="reschedule",
+            poke_interval=10,
+            timeout=120 * 3600,
+        )
+        local_finalize = PythonOperator(
+            task_id="finalize_local_wgs",
+            python_callable=finalize_local_run,
+            execution_timeout=timedelta(minutes=2),
+        )
+        start_local >> wait_local >> local_finalize
 
     with TaskGroup(group_id="sge_execution") as sge_execution:
         submit_sge = PythonOperator(
@@ -758,5 +876,5 @@ with DAG(
     result_wait >> materialize
     finalize_step1_canary >> release
     finalize_step3_dryrun >> release
-    start_local >> release
+    local_finalize >> release
     submit_sge >> release

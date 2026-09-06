@@ -29,9 +29,12 @@ x-airflow-common: &airflow-common
     WGS_STEP1_CANARY_ENABLED: "${WGS_STEP1_CANARY_ENABLED:-false}"
     WGS_STEP3_DRYRUN_CANARY_ENABLED: "${WGS_STEP3_DRYRUN_CANARY_ENABLED:-false}"
     WGS_CONTRACT_V2_ENABLED: "${WGS_CONTRACT_V2_ENABLED:-false}"
+    WGS_LOCAL_NODE97_ENABLED: "${WGS_LOCAL_NODE97_ENABLED:-false}"
     WGS_SSH_CONFIG_PATH: /opt/airflow/ssh/config
     WGS_RUNNER_200_ALIAS: ${WGS_RUNNER_200_ALIAS:-wgs-node200}
     WGS_RUNNER_200_COMMAND: ${WGS_RUNNER_200_COMMAND:-/home/hanjj/.config/airflow-wgs/forced-command.sh}
+    WGS_RUNNER_NODE97_ALIAS: ${WGS_RUNNER_NODE97_ALIAS:-wgs-node97}
+    WGS_RUNNER_NODE97_COMMAND: ${WGS_RUNNER_NODE97_COMMAND:-/home/hanjj/.config/airflow-wgs/forced-command-node97.sh}
     PIPELINE_PROFILE_CONFIG_PATH: /opt/airflow/config/pipeline_profiles.wgs.yaml
   volumes:
     - ./dags/bio_wgs.py:/opt/airflow/dags/bio_wgs.py:ro

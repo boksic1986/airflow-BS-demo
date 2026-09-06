@@ -51,6 +51,8 @@ class BioWgsDagTests(unittest.TestCase):
                 "finalize_run",
                 "release_leases",
                 "local_execution.start_local_wgs",
+                "local_execution.wait_local_wgs",
+                "local_execution.finalize_local_wgs",
                 "sge_execution.submit_sge_wgs",
             },
         )
@@ -105,6 +107,14 @@ class BioWgsDagTests(unittest.TestCase):
             "input_transfer.start_step1_upload",
             dag.get_task("local_execution.start_local_wgs").downstream_task_ids,
         )
+        self.assertEqual(
+            dag.get_task("local_execution.start_local_wgs").downstream_task_ids,
+            {"local_execution.wait_local_wgs"},
+        )
+        self.assertEqual(
+            dag.get_task("local_execution.wait_local_wgs").downstream_task_ids,
+            {"local_execution.finalize_local_wgs"},
+        )
         self.assertNotIn(
             "input_transfer.start_step1_upload",
             dag.get_task("sge_execution.submit_sge_wgs").downstream_task_ids,
@@ -124,7 +134,7 @@ class BioWgsDagTests(unittest.TestCase):
                 "finalize_run",
                 "finalize_step1_canary",
                 "finalize_step3_dryrun",
-                "local_execution.start_local_wgs",
+                "local_execution.finalize_local_wgs",
                 "sge_execution.submit_sge_wgs",
             },
         )
@@ -254,6 +264,51 @@ class BioWgsDagTests(unittest.TestCase):
                 self.assertEqual(
                     bio_wgs.choose_execution_target(**context), expected_task
                 )
+
+    def test_node97_runner_registers_local_stage_and_uses_restricted_ssh(self) -> None:
+        conf = {
+            "analysis_id": "WGS_20260907_123456_A1B2C3",
+            "attempt": 1,
+            "params": {"submission_mode": "three_stage"},
+        }
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        completed = type(
+            "Completed", (), {"returncode": 0, "stdout": '{"status":"accepted"}\n', "stderr": ""}
+        )()
+        with patch.object(
+            bio_wgs,
+            "_backend_json",
+            side_effect=[{"status": "registered"}, {"lifecycle_status": "active"}],
+        ) as backend, patch.object(
+            bio_wgs.subprocess, "run", return_value=completed
+        ) as run, patch.dict(
+            "os.environ",
+            {
+                "WGS_EXECUTION_ENABLED": "true",
+                "WGS_RUNTIME_ADAPTER_ENABLED": "true",
+                "WGS_LOCAL_NODE97_ENABLED": "true",
+                "WGS_RUNNER_NODE97_ALIAS": "wgs-node97",
+                "WGS_RUNNER_NODE97_COMMAND": "/opt/wgs-local/forced-command.sh",
+            },
+            clear=False,
+        ):
+            result = bio_wgs.run_stage_on_node97(**context)
+
+        self.assertEqual(result["runner_status"], "accepted")
+        self.assertEqual(
+            backend.call_args_list[0].args[0],
+            "/api/internal/wgs/runs/WGS_20260907_123456_A1B2C3/stages/local_analysis",
+        )
+        self.assertEqual(
+            backend.call_args_list[0].kwargs["payload"]["adapter"],
+            "wgs-runtime-node97",
+        )
+        command = run.call_args.args[0]
+        self.assertIn("wgs-node97", command)
+        self.assertEqual(
+            command[-4:],
+            ["wgs-local-runtime", conf["analysis_id"], "1", "local_analysis"],
+        )
 
     def test_step3_dryrun_is_gated_and_branches_after_master(self) -> None:
         conf = {
