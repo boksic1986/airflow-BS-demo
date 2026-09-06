@@ -18,13 +18,17 @@ Acceptance completed on BS10610 with DagRun
 dry-run mode, emitted logger planning evidence, and created no Worker Job or
 Pod. Step4-Step6 were unreachable. The independent 26-contender probe acquired
 all 25 fixed slots, left one contender waiting, then released every holder.
-Minimal Lease RBAC for `cce-pipeline-master-v1` is therefore part of the
+The 25 Leases are pre-created and `cce-pipeline-master-v1` can only get/update
+those exact names; list/create/patch are denied. This least-privilege RBAC is a
 contract-v2 deployment dependency.
 
 The canary's tiny Step1 setup used the obsutil rollback adapter and is not the
 SDK callback acceptance. T205 remains authoritative for frozen byte totals and
 per-file SDK progress. T206 proves the Step2 identity, Step3 runtime truth,
 dry-run branch fencing, and Heavy Slot coordination.
+The finalizer also fences Step3 to the latest successful Step2 receipt, frozen
+release and run-local batch binding; terminal evidence from a stale generation
+or mismatched Master cannot authorize validation success.
 
 ## T205 direct-upload startup
 

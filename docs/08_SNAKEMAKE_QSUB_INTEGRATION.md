@@ -37,6 +37,12 @@ Job and Pods. A waiting job is not submitted repeatedly.
 This limit counts Worker Pods, not CPU cores or DAG runs. Cloud Eye GiB/s data
 is validation/alerting evidence only in this release.
 
+The namespace contains 25 pre-created Lease objects. The Master ServiceAccount
+has only `get/update` on those exact resource names; it cannot list, create, or
+patch Leases. Capacity exhaustion is the only expected waiting condition.
+Other Kubernetes API errors fail closed, and probe/runtime cleanup continues
+attempting to release every claim even if one release fails.
+
 ## T189 Step5 manifest handoff
 
 Step1 still freezes its transfer plan before invoking obsutil because the

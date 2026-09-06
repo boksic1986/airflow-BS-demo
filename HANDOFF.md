@@ -17,12 +17,20 @@ zero execution rows, 267 job-info events and 57 planned-rule events. Only the
 Master existed under the exact run label; no WGS Worker analysis Job or Pod
 was created.
 
-The Heavy Slot probe initially exposed missing Lease RBAC. The deployed Role
-and RoleBinding grant the Master ServiceAccount only the fixed quota Lease
-operations. The final no-compute probe produced 25 unique holders from 26
-contenders, one waiting contender, and zero remaining holders; the probe Pod
-was deleted. This verifies 25 concurrent high-I/O work pods, not 25 CPU cores
-or 25 Airflow runs.
+The Heavy Slot probe initially exposed missing Lease RBAC. The 25 quota Leases
+are now pre-created, and the deployed Role permits the Master ServiceAccount
+only `get/update` on those exact names; list/create/patch are denied. The final
+no-compute probe produced 25 unique holders from 26 contenders, one waiting
+contender, and zero remaining holders; the probe Pod was deleted. Unexpected
+API or release errors fail the probe and all acquired claims are still released.
+This verifies 25 concurrent high-I/O work pods, not 25 CPU cores or 25 Airflow
+runs.
+
+Independent review also tightened `finalize_step3_dryrun`: it now requires the
+latest successful Step2 execution and exact predecessor receipt, the frozen
+pipeline release, and the run-local `batch-binding.json` Master identity before
+accepting Step3 terminal evidence. A stale generation or mismatched binding
+cannot produce validation success.
 
 All exact canary resources were cleaned after evidence capture: seven OBS
 objects, the Master/reset/probe resources, batch lock, SFS run/linkage roots,
@@ -33,9 +41,10 @@ Step3 dry-run canary, intake, and auto-dispatch are false. The disabled scanner
 container was removed to avoid a restart loop. Production `.96` was untouched.
 
 Final regression evidence is backend `368 passed, 1 skipped`, runtime scripts
-`75 passed`, WGS DAG `18 + 4`, static topology `2`, valid Compose rendering and
+`80 passed`, WGS DAG `18 + 4`, static topology `2`, valid Compose rendering and
 an empty Airflow import-error list. Frontend HTTP, backend health, Airflow DB
-and scheduler health pass. Airflow code is `9d58ebb`; CCE code is `9ad8df5`.
+and scheduler health pass. Airflow code is `db1f855`; CCE code is `9ad8df5`.
+The disabled BS10610 release is `20260906-airflow-demo-db1f855-t206-final`.
 
 The accepted a8 setup used obsutil for its six tiny Step1 files, so its transfer
 rows do not prove SDK byte callbacks. Use the separately accepted T205 run for

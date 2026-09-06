@@ -12,7 +12,10 @@ default-off Step3 dry-run gate are enabled.
 The finalizer does not trust Airflow task success by itself. It requires the
 latest append-only Step3 execution receipt plus the frozen Kubernetes Master
 identity and a terminal marker whose execution mode is `dry_run`. Historical
-run topology and the ordinary analysis branch remain unchanged.
+run topology and the ordinary analysis branch remain unchanged. It also
+requires the exact latest successful Step2 predecessor receipt, matching frozen
+release IDs, and a Master identity equal to the run-local batch binding; stale
+generations and late terminal markers fail closed.
 
 The accepted DagRun `WGS_20260905_210104_739143-a8` completed validate,
 prepare, sampleinfo, Step1, Step2, Step3, branch selection, and the dry-run

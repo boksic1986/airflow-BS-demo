@@ -16,6 +16,10 @@ browser request cannot set or change that mode. After Step3, the internal
 generation with a receipt hash and exact Master Job, namespace, UID,
 resourceVersion, terminal success, and `execution_mode=dry_run`. It records
 `validation_result=step3_dryrun_complete` and makes Step4-Step6 unreachable.
+Finalization is additionally fenced to the latest successful Step2 execution:
+Step3 must carry its exact execution ID, generation and receipt hash, both
+stages must match the run's frozen pipeline release, and terminal Master
+identity must match the run-local `batch-binding.json`.
 
 Accepted BS10610 evidence is analysis `WGS_20260905_210104_739143`, attempt 8.
 The API projected the exact successful Step3 receipt, Master UID and dry-run

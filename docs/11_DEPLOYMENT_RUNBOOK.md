@@ -33,8 +33,15 @@ Accepted evidence: `WGS_20260905_210104_739143-a8`, Master
 `cce-master-19d6c95a68916a98d2c3`, and image digest `sha256:870d5dd...ff1562`.
 The dry-run planned 210 jobs and created zero Worker Jobs. The Heavy Slot probe
 reported `25 acquired / 1 waiting / 0 remaining holders`. Before a future
-canary, deploy the minimal `config/wgs-heavy-slot-rbac.yaml`; a missing Role is
-a hard 403 and must not be bypassed with broader namespace permissions.
+canary, deploy `config/wgs-heavy-slot-rbac.yaml`, which pre-creates all 25 Lease
+objects and grants only `get/update` on those exact names. Verify that
+list/create/patch are denied. A missing Role or Lease is a hard failure and must
+not be bypassed with broader namespace permissions.
+
+Before accepting `finalize_step3_dryrun`, verify that Step3 references the exact
+latest successful Step2 receipt, both execution rows use the run's frozen
+release, and the terminal Master identity matches the immutable run-local batch
+binding. A successful Airflow task without those checks is insufficient.
 
 The release-side prepare configuration and node200-visible configuration are
 separate settings: `WGS_PREPARE_CONFIG_ROOT` identifies the approved release

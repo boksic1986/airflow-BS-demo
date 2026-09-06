@@ -15,6 +15,8 @@ Acceptance:
   proves `execution_mode=dry_run`.
 - [x] Validate the 25-Worker-Pod Heavy Slot quota with 26 no-compute Lease
   contenders: 25 acquired and one waiting.
+- [x] Fence dry-run finalization to the exact Step2 receipt, release and frozen
+  batch binding; restrict quota RBAC to get/update on 25 pre-created Leases.
 - [x] Restore every gate, DAG pause state, runtime config and shared test
   environment; pass backend, DAG, runtime and cce-pipeline regressions.
 

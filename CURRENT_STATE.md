@@ -17,9 +17,12 @@ Worker Job or Pod was created. Logger evidence contains 267 job-info and 57
 rule-planned records, with zero `jobs.ndjson` execution rows.
 
 heavy_slot: the repo-owned no-compute probe ran under the real
-`cce-pipeline-master-v1` ServiceAccount. Minimal Lease RBAC was added for the
-25 fixed `wgs-heavy-io-NN` names. Of 26 contenders, exactly 25 acquired unique
-slots and one waited; all holders were released and no probe Pod remains.
+`cce-pipeline-master-v1` ServiceAccount. The 25 fixed `wgs-heavy-io-NN` Lease
+objects are pre-created; the Role is restricted to `get/update` on those exact
+names and cannot list, create, or patch Lease resources. Of 26 contenders,
+exactly 25 acquired unique slots and one waited; all holders were released and
+no probe Pod remains. Unexpected Kubernetes errors now fail the probe instead
+of being counted as ordinary capacity waits.
 
 cleanup: the six synthetic FASTQ objects and marker were removed by seven
 exact OBS object deletes. The exact Master, reset/probe Pods, batch lock, SFS
@@ -30,12 +33,14 @@ to their pre-T206 SHA256/package baseline (`0.8.2`, commit `b003606...`).
 are false, and the disabled scanner container is absent. Production `.96` was
 not modified.
 
-validation: backend passed `368`, with one skip; runtime scripts passed `75`;
+validation: backend passed `368`, with one skip; runtime scripts passed `80`;
 WGS DAG suites passed `18 + 4`, static topology passed `2`, Compose rendering
 passed, and Airflow import errors are empty. Frontend, backend and Airflow
-health checks passed. The candidate code is airflow-demo `9d58ebb` and
-cce-pipeline `9ad8df5`; the disabled deployed release is
-`20260906-airflow-demo-b8b7bae-t206-step3-dryrun`.
+health checks passed. Step3 dry-run finalization additionally verifies the
+exact successful Step2 predecessor receipt, frozen pipeline release, and
+run-local batch binding before accepting terminal evidence. The candidate code
+is airflow-demo `db1f855` and cce-pipeline `9ad8df5`; the disabled deployed
+release is `20260906-airflow-demo-db1f855-t206-final`.
 
 known_deviation: the a8 Step1 setup intentionally used the obsutil rollback
 adapter, so that run's database projection has zero transfer bytes and no
