@@ -19,11 +19,15 @@ change. `SOURCE_REVISION`, source-archive SHA256 and image ID inventory are
 stored in the release. This is an explicit runtime-base reuse record, not a
 claim that the images were rebuilt.
 
-remaining_gate: node200 installation is not complete. `chenjc` cannot read or
-write `/home/hanjj/.config/airflow-wgs/runtime.env` and has no passwordless
-sudo. The private gate must be installed and all three execution-side gates
-set false by `hanjj` or root before T208. No attempt was made to weaken or
-bypass the forced command.
+node200_gate: completed through the dedicated `hanjj` SSH identity. The live
+gate SHA256 is `feac9fea5fa200775cf238a8bdada827d183c3bf6bd9a0eabfd0f62be37d5244`,
+matching the T207 source. `WGS_EXECUTION_ENABLED`,
+`WGS_RUNTIME_ADAPTER_ENABLED` and `WGS_STEP3_DRYRUN_CANARY_ENABLED` are false,
+and `WGS_RUNTIME_RUN_ROOT` is the explicit BS10610 test runtime mapping. A
+registered asynchronous stage was rejected with `WGS execution gate is
+disabled`. An initially added `chenjc` ACL was immediately restored from the
+pre-change snapshot after the operator clarified that owner-key execution is
+required; `chenjc` remains unable to read or write the private runtime file.
 
 implementation: scanner startup now requires the default-off environment gate
 and the YAML `scheduled_scan_enabled` gate, runs only through the Compose
@@ -46,8 +50,9 @@ errors. Explicit platform password rotation is available through
 validation: BS10610 isolated tests pass: backend `374 passed, 1 skipped`,
 runtime scripts `81 passed`, WGS DAG/deployment `30 passed`, and Compose config
 renders successfully. The same-revision disabled control-plane release is now
-deployed. T207 still requires the owner-level node200 update described above
-before T208 can start.
+deployed. Final live checks report zero active business runs, zero running or
+queued Airflow runs, paused `bio_wgs`, and no scanner container. T207 is
+complete; T208 still requires its own controlled execution window.
 
 ## 2026-09-06 post-T206 runtime configuration audit
 

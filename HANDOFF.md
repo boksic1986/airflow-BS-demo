@@ -46,12 +46,29 @@ all-DAG run in the backend image was invalid because that image intentionally
 lacks Airflow; it was rerun correctly with scripts in the backend image and WGS
 DAG tests in the Airflow image.
 
-T208 remains blocked until the owner of
-`/home/hanjj/.config/airflow-wgs/runtime.env` changes execution, runtime adapter
-and Step3 dry-run gates to false and installs the matching runtime gate.
-`chenjc` has no permission to read or modify that private file and has no
-passwordless sudo; the forced-command key must not be weakened to work around
-it.
+The node200 owner-side prerequisite is now complete. Using the dedicated local
+`id_rsa_hanjingjing` identity, `hanjj` backed up the private ACL/config/gate,
+installed the matching T207 gate with SHA256
+`feac9fea5fa200775cf238a8bdada827d183c3bf6bd9a0eabfd0f62be37d5244`, set
+execution, runtime-adapter and Step3 dry-run gates false, and configured the
+explicit BS10610 test runtime run root. A registered async-stage probe exited
+non-zero with `WGS execution gate is disabled`.
+
+The first read-only rejection probe used the already-terminal synchronous
+`step2_master` request and exited before execution with `terminal contract
+generation requires a new registered generation`; it did not run a stage or
+change the terminal generation. The probe was corrected to the registered
+asynchronous `step3_monitor` request so the execution-gate check occurs before
+any generation handling, and that final probe passed.
+
+No `chenjc` access remains on `/home/hanjj/.config/airflow-wgs/runtime.env`.
+An initially applied narrow ACL was restored from
+`/home/hanjj/.config/airflow-wgs/backups/T207-owner-gate-20260906T050749Z/acl.before`
+after the operator clarified that future tests must log in with the `hanjj`
+key. A direct `chenjc` check confirmed both read and write are denied. Final
+BS10610 checks show zero active business runs, zero running/queued Airflow
+runs, paused `bio_wgs`, and no scanner container. T207 is complete; T208 is
+ready for a separately controlled Step4-Step6 window and has not been started.
 
 ## 2026-09-06 - Codex - Post-T206 configuration audit and Step4-Step6 queue
 

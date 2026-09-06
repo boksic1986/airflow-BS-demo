@@ -4,7 +4,8 @@
 
 Owner: Airflow/runtime/backend/frontend/QA/docs
 
-Status: planned; blocked by T207 runtime configuration convergence
+Status: planned; T207 prerequisite complete, awaiting a separately controlled
+Step4-Step6 maintenance window
 
 Dependencies: T205,T206,T207
 
@@ -18,7 +19,7 @@ Scope:
   accounting, Cloud Eye observation, final artifacts and Run Detail projection.
 
 Acceptance:
-- [ ] T207 is complete and both BS10610 and node200 execution gates are proven
+- [x] T207 is complete and both BS10610 and node200 execution gates are proven
   disabled before the maintenance window begins.
 - [ ] One approved small-family canary reaches success through Step6 without
   manual state mutation or bypassing a receipt/marker check.
@@ -39,8 +40,7 @@ Restrictions:
 
 Owner: platform/infra/backend/Airflow/runtime/QA/docs
 
-Status: implementation complete and deployed disabled on BS10610; node200
-owner gate closure/install still required before Step4-Step6 execution
+Status: completed in disabled mode on BS10610 and node200
 
 Dependencies: T206
 
@@ -61,9 +61,9 @@ Scope:
   are traceable to the same source revision.
 
 Acceptance:
-- [ ] BS10610 control-plane gates are all false, `bio_wgs` is paused and the
-  scanner is absent. The node200 owner must still install the matching gate and
-  prove its three private execution gates false.
+- [x] BS10610 control-plane gates are all false, `bio_wgs` is paused and the
+  scanner is absent. The matching node200 gate is installed and its three
+  private execution gates are proven false through the `hanjj` owner identity.
 - [x] Missing environment values cannot enable scanning or execution.
 - [x] Scanner interval, Heavy Slot mode/limit and approved roots each have one
   authoritative source with configuration-drift tests.

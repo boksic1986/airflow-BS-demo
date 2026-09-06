@@ -1,5 +1,23 @@
 # SERVER_INFO.md
 
+## T207 node200 owner-gate closure (2026-09-06)
+
+```text
+target: 172.17.61.200 (t640)
+runtime_owner: hanjj
+runtime_gate_sha256: feac9fea5fa200775cf238a8bdada827d183c3bf6bd9a0eabfd0f62be37d5244
+execution_gate: false
+runtime_adapter_gate: false
+step3_dryrun_canary_gate: false
+closed_gate_probe: PASS (registered async stage rejected)
+chenjc_runtime_env_access: read denied, write denied
+acl_backup: /home/hanjj/.config/airflow-wgs/backups/T207-owner-gate-20260906T050749Z/acl.before
+bs10610_active_business_runs: 0
+bs10610_airflow_running_queued: 0/0
+bio_wgs_paused: true
+scanner_container: absent
+```
+
 ## T192 production Docker cleanup (2026-09-04)
 
 ```text
