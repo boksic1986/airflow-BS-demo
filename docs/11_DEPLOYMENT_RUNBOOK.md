@@ -1,5 +1,31 @@
 # 11 部署 Runbook
 
+## T213 Step1-Step6, dispatch and directional-lease candidate
+
+T213 is source-only until separately approved. Do not deploy, restart a
+service, migrate production or alter an in-flight CCE Master while validating
+the candidate.
+
+The eventual rollout must wait until every legacy Step1/Step5 transfer is
+terminal and `wgs-obs-transfer-01` is empty. Then:
+
+1. Apply additive migration `20260907_0016` after `0014 -> 0015`; verify one
+   Alembic head and retain all three lease rows.
+2. Initialize Airflow pools `wgs_obs_upload=1` and `wgs_obs_download=1`; retain
+   `wgs_obs_transfer=1` for rollback compatibility only.
+3. Publish backend, DAG and frontend from one reviewed revision with Local
+   `.97/.96` and SGE capability flags false.
+4. Verify an upload and download can overlap, two same-direction transfers
+   cannot, and a three-hour owner remains unchanged.
+5. Simulate a sensor timeout and observer restart. The first must retain the
+   lease; replay of exact terminal evidence must release only the matching
+   direction without starting another transfer.
+6. Confirm `wait_step6_materialize` succeeds before finalization and the 25
+   Worker-Pod Heavy Slot contract is unchanged.
+
+Rollback may restore prior application code while retaining migrations and
+directional rows. Never delete or overwrite a row carrying ownership.
+
 ## T208 full Step1-Step6 closeout
 
 Accepted test-control-plane run: `WGS_20260906_075824_E4D23E`, attempt 4,

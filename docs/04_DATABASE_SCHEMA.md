@@ -1,5 +1,20 @@
 # 04 数据库设计
 
+## T213 directional OBS transfer ownership
+
+Migration `20260907_0016` follows `20260906_0015` and idempotently adds
+`wgs-obs-upload-01` and `wgs-obs-download-01` to `obs_transfer_lease`. The
+legacy `wgs-obs-transfer-01` row is retained for rollback readers, but new
+runs never acquire it. Directional rows have no time-based expiry: heartbeat
+age is diagnostic only and cannot transfer ownership.
+
+An owner is the exact `analysis_id + attempt + transfer_id`. A release clears
+only its matching direction and only after the observer has persisted a
+matching terminal `transfer_job` (`success`, or authoritative remote-terminal
+`failed/canceled`). Missing, running, stale or mismatched evidence retains the
+row. Downgrade intentionally leaves the additive rows in place so it cannot
+delete live ownership.
+
 ## T209 WGS execution dispatch claim
 
 Migration `20260906_0015` adds two control-plane tables without backfilling or
@@ -344,6 +359,7 @@ Migration `20260812_0007` adds observer-owned durable state to `biodemo`:
 - `kubernetes_workload` additionally stores Kubernetes `resource_version`, observation time, node, message, and raw Job status summary.
 
 Evidence paths are always relative to the configured read-only evidence root. Neither table stores kubeconfig, OBS credentials, or unrestricted host paths.
-# T131: WGS input snapshots, validation issues, singleton OBS lease, and full
-# transfer progress were added by Alembic `20260812_0008`. Rule timing remains
-# derived from `rule_state.started_at/ended_at/layer`.
+T131 originally added WGS input snapshots, validation issues, one legacy OBS
+lease row and aggregate transfer progress in Alembic `20260812_0008`. T213
+supersedes that singleton for new work with the two directional rows above.
+Rule timing remains derived from `rule_state.started_at/ended_at/layer`.

@@ -1,5 +1,22 @@
 # WGS Step1-6 Orchestration Contract v2
 
+## T213 T208/T209 and directional-lease integration
+
+The merged contract keeps T208's accepted Step1-Step6 semantics as the stage
+authority and inserts only T209's pre-Step1 database commit barrier. New work
+uses independent, non-expiring upload and download leases. Observer-imported
+terminal transfer evidence releases the exact matching direction; Airflow
+cannot release on timeout, transient backend/NFS failure or unknown remote
+state. Step5 retains the frozen manifest denominator and configured concurrent
+file downloads. Step6 remains one batch-level atomic materialization followed
+by `wait_step6_materialize`; it is not converted into sample-parallel work.
+
+The 25-Worker-Pod Heavy Slot contract remains independent of both directions.
+Local and SGE branches remain disabled placeholders and cannot enter the CCE
+or OBS task graph. T213 validates the unified T208 SDK/Step3 behavior from
+clean cce-pipeline source `b5696065bc24ab2049e46dc3c1b9594771bfce28`;
+old T197 branch behavior is not merged separately.
+
 ## T208 full contract acceptance
 
 The option-2 contract is now accepted end to end on the BS10610 test control
@@ -222,8 +239,11 @@ speed, checksum state, and bounded errors. Public APIs never return credentials,
 full OBS URIs, checkpoint directories, or unrestricted server paths. The
 obsutil adapter remains a controlled rollback path.
 
-One database-backed `wgs_obs_transfer` lease serializes Step1 and Step5 across
-runs. This is independent from the high-I/O Worker Pod quota.
+Two database-backed leases serialize transfers by direction:
+`wgs-obs-upload-01` for Step1 and `wgs-obs-download-01` for Step5. They have no
+fixed TTL, and only exact terminal evidence permits release. Upload and
+download may overlap; two transfers in the same direction may not. This is
+independent from the high-I/O Worker Pod quota.
 
 The CCE 0.8.2 integration freezes three separate transfer controls. Operator
 config `obs.upload_parallelism` is the number of Step1 files uploaded at once,

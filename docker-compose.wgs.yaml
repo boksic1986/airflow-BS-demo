@@ -310,7 +310,9 @@ services:
         set -euo pipefail
         airflow db migrate
         airflow pools set wgs_cce_runs 4 "Maximum concurrent project-level CCE WGS masters"
-        airflow pools set wgs_obs_transfer 1 "Serialized private OBS transfer gate"
+        airflow pools set wgs_obs_transfer 1 "Legacy serialized private OBS transfer gate"
+        airflow pools set wgs_obs_upload 1 "Serialized private OBS upload gate"
+        airflow pools set wgs_obs_download 1 "Serialized private OBS download gate"
         users_json="$$(airflow users list --output json)"
         if AIRFLOW_USERS_JSON="$${users_json}" python - "$${AIRFLOW_ADMIN_USERNAME}" <<'PY'
         import json

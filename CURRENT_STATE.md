@@ -1,5 +1,43 @@
 # CURRENT_STATE.md
 
+## 2026-09-07 T213 Step1-Step6 dispatch and directional-lease integration
+
+scope: implemented on clean branch
+`jiucheng/wgs/T213-step1-6-dispatch-lease-integration` from `b127a8f`. T208
+remains authoritative for Step1-Step6 and T209 remains authoritative for the
+database execution-choice commit barrier. The dirty T210/T211 worktrees and
+the unaccepted `.97` runner were not merged.
+
+implementation: new runs use independent `wgs-obs-upload-01` and
+`wgs-obs-download-01` database ownership plus Airflow pools
+`wgs_obs_upload=1` and `wgs_obs_download=1`. Ownership has no TTL and cannot be
+stolen from a long-running transfer. Exact terminal transfer evidence releases
+only its matching direction; transient backend/NFS failure, sensor timeout or
+unknown transfer state retains ownership and marks a committed dispatch
+`needs_recovery`. Observer replay can release a stranded lease from an exact
+already-imported terminal snapshot without restarting the transfer.
+
+contracts: Step5 keeps the cce-pipeline frozen manifest denominator and
+multi-file download parallelism. Step6 remains one batch-level atomic
+materialization, followed by `wait_step6_materialize` and only then
+`finalize_run`. The 25-Worker-Pod Heavy Slot contract is unchanged and
+independent of both OBS directions. Local `.97/.96` and SGE remain visible but
+disabled/fail-closed; automatic dispatch remains CCE-only.
+
+validation: only isolated `.96` evidence and ephemeral containers were used.
+Backend passed 407 tests; WGS DAG contracts passed 32; runtime gate and Heavy
+Slot passed 64; frontend passed 51 and production assets built successfully.
+Alembic reports single head `20260907_0016`, full offline PostgreSQL SQL and
+Compose rendering pass. The pinned clean cce-pipeline
+`b5696065bc24ab2049e46dc3c1b9594771bfce28` passed the selected Step1/Step5,
+generic workflow and Step6/materialization contracts after supplying zstd in
+the ephemeral test container.
+
+deployment_state: source-only candidate. No production migration, container
+replacement, service restart, runtime submission or cloud workload mutation
+occurred. A later rollout must wait for all legacy shared-direction transfers
+to become terminal and the legacy lease to be empty.
+
 ## 2026-09-07 T208 Step1-Step6 controlled acceptance complete
 
 acceptance: BS10610 test analysis `WGS_20260906_075824_E4D23E`, attempt 4,

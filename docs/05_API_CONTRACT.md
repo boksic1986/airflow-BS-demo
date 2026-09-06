@@ -1,5 +1,19 @@
 # 05 API Contract
 
+## T213 directional transfer release contract
+
+The public execution-choice and Run Detail contracts are unchanged. Internal
+stage registration maps input transfer stages to `wgs-obs-upload-01` and
+result transfer stages to `wgs-obs-download-01`.
+
+Release-stage responses now include `released`, `retained`, `reason` and the
+owned `slots` considered. `retained=true` with
+`reason=transfer_not_terminal` is a hard fail-closed result for Airflow, not a
+successful cleanup. The backend also marks a committed dispatch
+`needs_recovery`. Observer ingestion of exact terminal transfer evidence
+performs the normal idempotent release; a later DAG release call only confirms
+that outcome. No API accepts a browser-provided slot name or lease timeout.
+
 ## T208 exact-generation replay and projection repair
 
 Contract-v2 stage registration and status reads use the returned

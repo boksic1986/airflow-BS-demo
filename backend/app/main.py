@@ -104,6 +104,7 @@ from app.wgs_execution_dispatch_service import (
     change_execution_choice,
     commit_execution_choice,
     mark_execution_running,
+    mark_execution_needs_recovery,
     mark_execution_terminal,
     project_execution_dispatch,
 )
@@ -1672,7 +1673,13 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
             if stage_name in {"acquire_input_transfer_slot", "acquire_result_transfer_slot"}:
                 transfer_kind = "input" if stage_name == "acquire_input_transfer_slot" else "result"
                 transfer_id = f"{analysis_id}-a{request.attempt}-{transfer_kind}"
-                slot = acquire_obs_transfer_slot(session=session, analysis_id=analysis_id, attempt=request.attempt, transfer_id=transfer_id)
+                slot = acquire_obs_transfer_slot(
+                    session=session,
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                    transfer_id=transfer_id,
+                    transfer_kind=transfer_kind,
+                )
                 if slot is None:
                     return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "waiting", "acquired": False}
                 run.current_stage = stage_name
@@ -1685,13 +1692,34 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 elif stage_name == "release_result_transfer_slot":
                     transfer_kind = "result"
                 transfer_id = f"{analysis_id}-a{request.attempt}-{transfer_kind}" if transfer_kind else None
-                released = release_obs_transfer_slot(
+                release_result = release_obs_transfer_slot(
                     session=session,
                     analysis_id=analysis_id,
                     attempt=request.attempt,
                     transfer_id=transfer_id,
+                    transfer_kind=transfer_kind,
                 )
-                return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "released", "released": released}
+                if release_result["retained"]:
+                    mark_execution_needs_recovery(
+                        session=session,
+                        analysis_id=analysis_id,
+                        attempt=request.attempt,
+                        reason=(
+                            f"{stage_name} retained OBS lease: "
+                            f"{release_result['reason']}"
+                        ),
+                    )
+                    run.current_stage = stage_name
+                    session.commit()
+                return {
+                    "analysis_id": analysis_id,
+                    "attempt": request.attempt,
+                    "stage": stage_name,
+                    "status": (
+                        "retained" if release_result["retained"] else "released"
+                    ),
+                    **release_result,
+                }
             if stage_name == "finalize_run":
                 if not _is_successful_runtime_stage(
                     request_root=get_settings().wgs_runtime_request_root,

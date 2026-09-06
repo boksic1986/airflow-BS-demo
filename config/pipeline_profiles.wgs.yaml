@@ -10,7 +10,8 @@ pipelines:
           execution_mode: cce
           gate_connection: wgs_cce_gate
           master_pool: wgs_cce_runs
-          transfer_pool: wgs_obs_transfer
+          upload_pool: wgs_obs_upload
+          download_pool: wgs_obs_download
       wgs-onprem-v1:
         label: WGS on-prem project runner
         submit_visible: true

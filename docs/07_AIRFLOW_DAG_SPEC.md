@@ -1,5 +1,22 @@
 # 07 Airflow DAG 设计
 
+## T213 directional transfer gates
+
+T208 remains authoritative from Step1 through Step6, including exact
+generation/receipt fencing, Step5 multi-file download, Step6 atomic
+materialization and `wait_step6_materialize` before `finalize_run`. T209's
+database commit barrier remains immediately before the CCE branch; Local and
+SGE still fail closed.
+
+Input transfer tasks use Airflow pool `wgs_obs_upload=1`; result transfer tasks
+use `wgs_obs_download=1`. The database rows use the corresponding directional
+identities and have no TTL. Therefore one upload and one download may overlap,
+while two uploads or two downloads cannot. `ALL_DONE` release tasks do not
+unconditionally clear ownership: without exact terminal transfer evidence the
+backend returns `retained`, the task fails, and the committed run requires
+recovery. The observer releases a direction when it imports its terminal
+evidence; the DAG release is an idempotent confirmation.
+
 ## T208 full Step1-Step6 acceptance semantics
 
 The normal contract-v2 branch has been accepted on BS10610 through Step6.
@@ -78,8 +95,9 @@ intentional validation branch, not missing workflow monitoring.
 
 ## T194-T200 `bio_wgs` contract v2
 
-The task graph remains Step1 through Step6. `wgs_obs_transfer` serializes
-Step1/Step5 transfers. `wgs_cce_runs` is assigned only to
+The task graph remains Step1 through Step6. `wgs_obs_upload` serializes Step1
+uploads and `wgs_obs_download` independently serializes Step5 downloads.
+`wgs_cce_runs` is assigned only to
 `submit_step2_master`; it does not represent Step3 Worker-Pod concurrency.
 `start_step3_monitor` and the reschedule sensor use the default Airflow pool.
 
@@ -300,7 +318,8 @@ validate_request
 
 There is no FASTQ MD5 task, upload verification task, database Master slot, or
 Worker Pod reconciliation task. `wgs_cce_runs` limits project concurrency to
-four and `wgs_obs_transfer` serializes private-line transfer. Long waits use
+four; `wgs_obs_upload` and `wgs_obs_download` independently serialize each
+private-line direction. Long waits use
 reschedule sensors. The restricted SSH connection is `wgs_runner_200`; node
 200 is the single operator boundary for private OBS and kubectl. Containers do
 not receive OBS or kubeconfig credentials.

@@ -1,5 +1,49 @@
 # TASKS.md
 
+## T213 - WGS Step1-Step6 dispatch and directional transfer lease integration
+
+Owner: backend/Airflow/frontend/runtime/QA/docs
+
+Status: implemented and validated in an isolated candidate; not deployed
+
+Dependencies: T208,T209
+
+Scope:
+- Keep T208 as the Step1-Step6 authority and T209 as the execution target
+  commit-barrier authority on one DagRun and attempt.
+- Replace the new-run shared OBS lease with independent no-TTL upload and
+  download leases and matching one-slot Airflow pools.
+- Release a direction only from exact terminal transfer evidence; retain
+  ownership and fail closed on unknown state or observer/backend interruption.
+- Preserve Step5 concurrent frozen-manifest download, Step6 atomic batch
+  materialization, the Step6 completion sensor, and the 25-pod Heavy Slot
+  quota.
+- Keep Local/SGE selectors and API state but leave every capability disabled;
+  exclude the unaccepted `.97` runner.
+
+Acceptance:
+- [x] One upload and one download can overlap; same-direction owners cannot.
+- [x] Expired-looking or multi-hour ownership is not stolen and every new
+  acquisition stores no expiry.
+- [x] Wrong attempt/transfer identity cannot release or replace an owner.
+- [x] Running/unknown evidence retains ownership; exact success, confirmed
+  failed or canceled evidence releases only its matching direction.
+- [x] Observer terminal replay recovers a stranded lease without starting a
+  second transfer.
+- [x] `wait_step6_materialize` remains between Step6 and finalization; T208
+  receipt/generation fencing and the Heavy Slot contract do not regress.
+- [x] `.96` isolated validation passes: backend 407, WGS DAG 32,
+  runtime/heavy-slot 64, frontend 51 plus build, migration/offline SQL and
+  Compose config.
+
+Restrictions:
+- Do not deploy, migrate or restart production as part of T213.
+- Retain `wgs-obs-transfer-01` and `wgs_obs_transfer` for rollback readers,
+  but never assign them to new tasks.
+- Keep all Local/SGE capability flags false and do not merge T211 runner code.
+- Roll out only after legacy transfers are terminal and their shared lease is
+  empty.
+
 ## T210 - WGS Step3-Step4 lightweight contract canary
 
 Owner: runtime/Airflow/backend/QA

@@ -26,7 +26,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         for dag in ("bio_wgs_cce.py", "bio_wgs_onprem.py", "bio_wgs_intake_scan.py"):
             self.assertNotIn(f"./dags/{dag}:/opt/airflow/dags/{dag}:ro", compose)
             self.assertFalse((REPO_ROOT / "dags" / dag).exists())
-        for required in ("wgs_cce_runs 4", "wgs_obs_transfer 1", "DEPLOYED_PIPELINES: wgs", 'WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"', 'WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"', 'WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-false}"', 'WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"', "WGS_SSH_CONFIG_PATH"):
+        for required in ("wgs_cce_runs 4", "wgs_obs_upload 1", "wgs_obs_download 1", "DEPLOYED_PIPELINES: wgs", 'WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"', 'WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"', 'WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-false}"', 'WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"', "WGS_SSH_CONFIG_PATH"):
             self.assertIn(required, compose)
         self.assertIn(
             'PLATFORM_ENVIRONMENT: "${PLATFORM_ENVIRONMENT:-Demo}"', compose
@@ -71,6 +71,9 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertIn("auto_dispatch_enabled: false", intake)
         self.assertIn("wgs-cce-v1", profiles)
         self.assertIn("wgs-onprem-v1", profiles)
+        self.assertIn("upload_pool: wgs_obs_upload", profiles)
+        self.assertIn("download_pool: wgs_obs_download", profiles)
+        self.assertNotIn("transfer_pool: wgs_obs_transfer", profiles)
 
     def test_scanner_and_run_observer_are_isolated_unprivileged_services(self):
         compose_path = REPO_ROOT / "docker-compose.wgs.yaml"

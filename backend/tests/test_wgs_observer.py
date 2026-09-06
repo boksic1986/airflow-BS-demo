@@ -15,6 +15,7 @@ from app.models import (
     EvidenceCursor,
     KubernetesWorkload,
     ObserverRunState,
+    ObsTransferLease,
     RuleEventRaw,
     RuleState,
     RunAttempt,
@@ -56,6 +57,128 @@ def test_transfer_progress_atomic_replace_gap_is_retryable(
     monkeypatch.setattr(Path, "read_text", transient_read)
 
     assert _ingest_transfer_progress(lambda: None, progress_root, progress) is False
+
+
+@pytest.mark.parametrize(
+    ("status", "released"),
+    [("running", False), ("success", True), ("failed", True), ("canceled", True)],
+)
+def test_transfer_progress_releases_lease_only_after_terminal_evidence(
+    tmp_path: Path, status: str, released: bool
+) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    transfer_id = f"{analysis_id}-a1-input"
+    spool = tmp_path / "transfer-spool"
+    progress = spool / analysis_id / "attempt-1" / transfer_id / "progress.json"
+    progress.parent.mkdir(parents=True)
+    progress.write_text(
+        json.dumps(
+            {
+                "schema_version": "cce-pipeline.transfer-progress.v1",
+                "transfer_id": transfer_id,
+                "run_id": f"{analysis_id}-a1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "direction": "upload",
+                "state": status,
+                "bytes_total": 100,
+                "bytes_done": 100 if released else 50,
+                "files_total": 1,
+                "files_done": 1 if released else 0,
+                "heartbeat_at": "2026-09-07T01:02:03Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    with sessions() as session:
+        session.add(
+            ObsTransferLease(
+                slot_name="wgs-obs-upload-01",
+                analysis_id=analysis_id,
+                attempt=1,
+                transfer_id=transfer_id,
+                leased_at=datetime(2026, 9, 7, 0, 0, tzinfo=timezone.utc),
+            )
+        )
+        session.commit()
+
+    assert _ingest_transfer_progress(sessions, spool, progress) is True
+
+    with sessions() as session:
+        lease = session.scalar(
+            select(ObsTransferLease).where(
+                ObsTransferLease.slot_name == "wgs-obs-upload-01"
+            )
+        )
+        assert (lease.analysis_id is None) is released
+
+
+def test_terminal_progress_replay_releases_stranded_lease_without_file_changes(
+    tmp_path: Path,
+) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    transfer_id = f"{analysis_id}-a1-result"
+    heartbeat = datetime(2026, 9, 7, 2, 3, 4, tzinfo=timezone.utc)
+    spool = tmp_path / "transfer-spool"
+    progress = spool / analysis_id / "attempt-1" / transfer_id / "progress.json"
+    progress.parent.mkdir(parents=True)
+    progress.write_text(
+        json.dumps(
+            {
+                "schema_version": "cce-pipeline.transfer-progress.v1",
+                "transfer_id": transfer_id,
+                "run_id": f"{analysis_id}-a1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "direction": "download",
+                "state": "success",
+                "bytes_total": 100,
+                "bytes_done": 100,
+                "files_total": 1,
+                "files_done": 1,
+                "heartbeat_at": heartbeat.isoformat(),
+            }
+        ),
+        encoding="utf-8",
+    )
+    with sessions() as session:
+        session.add_all(
+            [
+                TransferJob(
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    transfer_id=transfer_id,
+                    transfer_type="result_download",
+                    direction="download",
+                    status="success",
+                    bytes_total=100,
+                    bytes_transferred=100,
+                    files_total=1,
+                    files_completed=1,
+                    progress_percent=100,
+                    heartbeat_at=heartbeat,
+                    updated_at=heartbeat,
+                ),
+                ObsTransferLease(
+                    slot_name="wgs-obs-download-01",
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    transfer_id=transfer_id,
+                    leased_at=heartbeat - timedelta(hours=4),
+                ),
+            ]
+        )
+        session.commit()
+
+    assert _ingest_transfer_progress(sessions, spool, progress) is True
+
+    with sessions() as session:
+        lease = session.scalar(
+            select(ObsTransferLease).where(
+                ObsTransferLease.slot_name == "wgs-obs-download-01"
+            )
+        )
+        assert lease.analysis_id is None
 
 
 def test_transfer_file_callbacks_can_arrive_in_incremental_subsets() -> None:
@@ -864,6 +987,15 @@ def test_older_terminal_progress_backfills_nonterminal_file_rows(
                 updated_at=aggregate_at,
             )
         )
+        session.add(
+            ObsTransferLease(
+                slot_name="wgs-obs-upload-01",
+                analysis_id=analysis_id,
+                attempt=1,
+                transfer_id=transfer_id,
+                leased_at=progress_at,
+            )
+        )
         session.flush()
         session.add_all(
             [
@@ -965,6 +1097,12 @@ def test_older_terminal_progress_backfills_nonterminal_file_rows(
             ("success", "verified"),
             ("success", "verified"),
         ]
+        lease = session.scalar(
+            select(ObsTransferLease).where(
+                ObsTransferLease.slot_name == "wgs-obs-upload-01"
+            )
+        )
+        assert lease.analysis_id is None
 
 
 def test_terminal_stage_state_cannot_reverse_success_or_failure(tmp_path: Path) -> None:

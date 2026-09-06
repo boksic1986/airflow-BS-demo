@@ -149,6 +149,8 @@ projects:
         session.add(UserAccount(username="operator", password_hash=hash_password("operator-pass"), role="operator"))
         session.add(UserAccount(username="admin", password_hash=hash_password("admin-pass"), role="admin"))
         session.add(ObsTransferLease(slot_name="wgs-obs-transfer-01"))
+        session.add(ObsTransferLease(slot_name="wgs-obs-upload-01"))
+        session.add(ObsTransferLease(slot_name="wgs-obs-download-01"))
         session.commit()
     return TestClient(main.app), sessions, airflow
 
@@ -1314,14 +1316,61 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
         json={**body, "command": "control"},
     )
     assert acquire.status_code == 200
+    with sessions() as session:
+        dispatch = session.scalar(
+            select(WgsExecutionDispatch).where(
+                WgsExecutionDispatch.analysis_id == analysis_id
+            )
+        )
+        dispatch.committed_attempt = 1
+        dispatch.committed_at = datetime.now(timezone.utc)
+        dispatch.dispatch_state = "running"
+        session.commit()
+    retained = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/release_input_transfer_slot",
+        headers=internal,
+        json={**body, "command": "control"},
+    )
+    assert retained.status_code == 200
+    assert retained.json()["status"] == "retained"
+    assert retained.json()["reason"] == "transfer_not_terminal"
+    with sessions() as session:
+        lease = session.scalar(
+            select(ObsTransferLease).where(
+                ObsTransferLease.slot_name == "wgs-obs-upload-01"
+            )
+        )
+        dispatch = session.scalar(
+            select(WgsExecutionDispatch).where(
+                WgsExecutionDispatch.analysis_id == analysis_id
+            )
+        )
+        assert lease.analysis_id == analysis_id
+        assert dispatch.dispatch_state == "needs_recovery"
+    with sessions() as session:
+        session.add(
+            TransferJob(
+                analysis_id=analysis_id,
+                attempt=1,
+                transfer_id=f"{analysis_id}-a1-input",
+                direction="upload",
+                status="success",
+            )
+        )
+        session.commit()
     released = client.post(
         f"/api/internal/wgs/runs/{analysis_id}/stages/release_input_transfer_slot",
         headers=internal,
         json={**body, "command": "control"},
     )
     assert released.status_code == 200
+    assert released.json()["status"] == "released"
     with sessions() as session:
-        lease = session.scalar(select(ObsTransferLease))
+        lease = session.scalar(
+            select(ObsTransferLease).where(
+                ObsTransferLease.slot_name == "wgs-obs-upload-01"
+            )
+        )
         assert lease.analysis_id is None
 
     binding_path = (

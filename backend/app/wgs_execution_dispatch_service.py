@@ -18,6 +18,7 @@ from app.models import (
     WgsExecutionTargetSlot,
 )
 from app.wgs_run_projection import public_wgs_batch
+from app.wgs_transfer_lease import OBS_UPLOAD_SLOT
 
 
 TARGET_MODES = {
@@ -388,15 +389,12 @@ def _target_by_name(*, session, settings, target: str, analysis_id: str) -> dict
 def _cce_target(*, session, analysis_id: str) -> dict[str, Any]:
     slot = session.scalar(
         select(ObsTransferLease).where(
-            ObsTransferLease.slot_name == "wgs-obs-transfer-01"
+            ObsTransferLease.slot_name == OBS_UPLOAD_SLOT
         )
     )
-    now = _now()
-    expiry = _aware(slot.lease_expires_at) if slot is not None else None
     waiting = bool(
         slot is not None
         and slot.analysis_id not in {None, analysis_id}
-        and (expiry is None or expiry > now)
     )
     return {
         "mode": "cce",
@@ -568,21 +566,20 @@ def _memory_percent(payload: dict[str, Any]) -> float | None:
 def _acquire_cce_upload_slot(*, session, analysis_id: str, attempt: int) -> bool:
     slot = session.scalar(
         select(ObsTransferLease)
-        .where(ObsTransferLease.slot_name == "wgs-obs-transfer-01")
+        .where(ObsTransferLease.slot_name == OBS_UPLOAD_SLOT)
         .with_for_update()
     )
     if slot is None:
         return False
     now = _now()
-    expiry = _aware(slot.lease_expires_at)
-    if slot.analysis_id is not None and (expiry is None or expiry > now):
+    if slot.analysis_id is not None:
         if slot.analysis_id != analysis_id or slot.attempt != attempt:
             return False
     slot.analysis_id = analysis_id
     slot.attempt = attempt
     slot.transfer_id = f"{analysis_id}-a{attempt}-input"
     slot.leased_at = now
-    slot.lease_expires_at = now + timedelta(minutes=30)
+    slot.lease_expires_at = None
     return True
 
 

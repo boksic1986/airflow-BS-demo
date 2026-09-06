@@ -55,6 +55,22 @@ class BioWgsDagTests(unittest.TestCase):
             },
         )
         self.assertEqual(dag.get_task("submit_step2_master").pool, "wgs_cce_runs")
+        self.assertEqual(
+            dag.get_task("input_transfer.acquire_obs_transfer_slot").pool,
+            "wgs_obs_upload",
+        )
+        self.assertEqual(
+            dag.get_task("input_transfer.start_step1_upload").pool,
+            "wgs_obs_upload",
+        )
+        self.assertEqual(
+            dag.get_task("result_transfer.acquire_obs_transfer_slot").pool,
+            "wgs_obs_download",
+        )
+        self.assertEqual(
+            dag.get_task("result_transfer.start_step5_download").pool,
+            "wgs_obs_download",
+        )
         self.assertEqual(dag.get_task("start_step3_monitor").pool, "default_pool")
         self.assertEqual(dag.get_task("wait_step3_analysis").pool, "default_pool")
         for task_id in (
@@ -787,6 +803,60 @@ class BioWgsDagTests(unittest.TestCase):
         assert result == {"released": True, "observer_lifecycle_status": "draining"}
         assert calls[0][0].endswith("/observer/deactivate")
         assert calls[-1][0].endswith("/stages/release_leases")
+
+    def test_release_leases_fails_closed_when_backend_retains_a_lease(self) -> None:
+        context = {
+            "dag_run": type(
+                "DagRun",
+                (),
+                {"conf": {"analysis_id": "WGS_20260907_010203_A1B2C3", "attempt": 1}},
+            )()
+        }
+        original_backend = bio_wgs._backend_json
+        original_runtime = bio_wgs._runtime_enabled
+        try:
+            bio_wgs._runtime_enabled = lambda: True
+
+            def backend(path, **kwargs):
+                if path.endswith("observer/deactivate"):
+                    return {"lifecycle_status": "draining"}
+                return {
+                    "released": False,
+                    "retained": True,
+                    "reason": "transfer_not_terminal",
+                }
+
+            bio_wgs._backend_json = backend
+            with self.assertRaisesRegex(RuntimeError, "transfer_not_terminal"):
+                bio_wgs.release_leases(**context)
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs._runtime_enabled = original_runtime
+
+    def test_directional_release_task_fails_closed_when_evidence_is_not_terminal(
+        self,
+    ) -> None:
+        context = {
+            "dag_run": type(
+                "DagRun",
+                (),
+                {"conf": {"analysis_id": "WGS_20260907_010203_A1B2C3", "attempt": 1}},
+            )()
+        }
+        original_backend = bio_wgs._backend_json
+        original_enabled = bio_wgs._require_runtime_enabled
+        try:
+            bio_wgs._require_runtime_enabled = lambda: None
+            bio_wgs._backend_json = lambda *args, **kwargs: {
+                "released": False,
+                "retained": True,
+                "reason": "transfer_not_terminal",
+            }
+            with self.assertRaisesRegex(RuntimeError, "transfer_not_terminal"):
+                bio_wgs.register_stage("release_input_transfer_slot", **context)
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs._require_runtime_enabled = original_enabled
 
 
 if __name__ == "__main__":

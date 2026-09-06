@@ -1,5 +1,73 @@
 # HANDOFF.md
 
+## 2026-09-07 - Codex - T213 Step1-Step6/dispatch/lease integration candidate
+
+Implemented T213 in the clean worktree
+`D:\pipeline\airflow-demo-worktrees\T213-step1-6-dispatch-lease-integration`
+on branch `jiucheng/wgs/T213-step1-6-dispatch-lease-integration`, based on
+T209 commit `b127a8f` whose parent is accepted T208 `27c9a20`. No code was
+taken from the dirty T211 `.97` runner, and the dirty T210 worktree was not
+merged wholesale.
+
+New work uses `wgs-obs-upload-01`/`wgs_obs_upload=1` and
+`wgs-obs-download-01`/`wgs_obs_download=1`. The additive 0016 migration keeps
+the legacy row. New ownership has no expiry, exact idempotency includes
+analysis ID, attempt and transfer ID, and the two directions can overlap while
+same-direction work remains serialized. Release requires a matching terminal
+`TransferJob`; unknown or running work is retained. The internal API marks a
+committed dispatch `needs_recovery` when a release confirmation is retained.
+Airflow treats that response as failure rather than successful ALL_DONE
+cleanup. The observer releases on terminal evidence and can replay an exact
+already-imported terminal snapshot after restart.
+
+T208 remains unchanged after the commit barrier: Step5 uses the frozen result
+manifest and concurrent file downloads; Step6 is atomic batch materialization;
+`wait_step6_materialize` precedes `finalize_run`. The Heavy Slot contract stays
+25/enforce and independent of OBS ownership. T209 public API and frontend
+selector remain unchanged. Local `.97`, Local `.96` and SGE stay disabled and
+fail closed.
+
+Accepted `.96` isolated validation, with no long-lived container changes:
+- backend: `407 passed in 122.29s`;
+- WGS DAG/deployment contracts: `32 tests`, all OK;
+- runtime gate and Heavy Slot probe: `64 passed`;
+- frontend: `51 passed`; production image build completed as ephemeral image
+  `airflow-demo/frontend:t213-dispatch-lease-build-final`;
+- Alembic: sole head `20260907_0016`; full offline PostgreSQL upgrade SQL
+  generated through 0016;
+- Compose: merged base/WGS config rendered successfully using dummy required
+  values and candidate-only paths;
+- cce-pipeline: clean pinned source
+  `b5696065bc24ab2049e46dc3c1b9594771bfce28`, archive SHA256
+  `f71ec44d6fc1e13795f6805ee5e150ea88b171b8027ec944374110f8dff1bc72`.
+  The unaffected selected contracts passed 48 tests; the zstd-enabled rerun of
+  generic workflow and Step6 materialization passed all 24 tests.
+
+Discarded/corrected test invocations:
+- A backend run mounted only `backend/`: 69 tests failed because repository
+  config resolved outside the mount. A full-repository mount without overriding
+  the image `PYTHONPATH` then produced six collection errors from baked `/app`.
+  Adding `PYTHONPATH` but omitting `/config` produced 44 configuration failures.
+  Mounting the complete candidate plus read-only `/config` yielded 407/407.
+- The first cce-pipeline selection passed 48, skipped 16 materialization cases
+  and failed two generic bundle cases because the backend test image lacked
+  zstd beside its Python. Installing zstd only inside an ephemeral container
+  and rerunning the affected suites yielded 24/24.
+- Initial offline Alembic and Compose commands lacked the required candidate
+  `/config` mount or dummy required variables. Corrected read-only/offline
+  invocations passed; no database was contacted or modified.
+- Frontend offline builds could not resolve an uncached base/dependency layer.
+  The accepted run reused the local pinned nginx base, executed all 51 tests,
+  and built the production assets. No candidate image replaced a service.
+
+Deployment remains intentionally untouched: no production database migration,
+service restart, container replacement, Airflow change, node200 request, OBS
+transfer or CCE workload was performed. Future rollout must first prove every
+legacy Step1/Step5 transfer terminal and `wgs-obs-transfer-01` empty, then apply
+0016, create both Airflow pools, publish one reviewed revision and keep all
+Local/SGE flags false. Rollback may restore old application code while retaining
+the additive lease rows; never delete an owned row.
+
 ## 2026-09-07 - Codex - T208 Step1-Step6 acceptance complete
 
 The BS10610 test-control-plane canary `WGS_20260906_075824_E4D23E`, attempt 4,

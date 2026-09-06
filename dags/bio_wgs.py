@@ -194,7 +194,9 @@ def register_stage(stage: str, **context: Any) -> dict[str, Any]:
         1, STAGE_PREDECESSOR_VISIBILITY_ATTEMPTS + 1
     ):
         try:
-            return _backend_json(path, method="POST", payload=request_payload)
+            response = _backend_json(path, method="POST", payload=request_payload)
+            _raise_if_transfer_lease_retained(stage=stage, response=response)
+            return response
         except BackendStagePredecessorPending:
             if registration_attempt == STAGE_PREDECESSOR_VISIBILITY_ATTEMPTS:
                 raise
@@ -429,6 +431,7 @@ def release_leases(**context: Any) -> dict[str, Any]:
         method="POST",
         payload={"attempt": conf["attempt"], "adapter": "wgs-runtime-200"},
     )
+    _raise_if_transfer_lease_retained(stage="release_leases", response=released)
     failed_tasks = _upstream_failure_task_ids(context)
     if failed_tasks:
         raise RuntimeError(
@@ -436,6 +439,14 @@ def release_leases(**context: Any) -> dict[str, Any]:
             + ", ".join(failed_tasks)
         )
     return {**released, "observer_lifecycle_status": observer.get("lifecycle_status")}
+
+
+def _raise_if_transfer_lease_retained(
+    *, stage: str, response: dict[str, Any]
+) -> None:
+    if response.get("retained"):
+        reason = str(response.get("reason") or "transfer terminal evidence unavailable")
+        raise RuntimeError(f"{stage} retained OBS transfer lease: {reason}")
 
 
 def _upstream_failure_task_ids(context: dict[str, Any]) -> list[str]:
@@ -530,7 +541,7 @@ def control_stage(
     )
 
 
-def transfer_slot_sensor(task_id: str, *, stage: str) -> PythonSensor:
+def transfer_slot_sensor(task_id: str, *, stage: str, pool: str) -> PythonSensor:
     return PythonSensor(
         task_id=task_id,
         python_callable=acquire_transfer_slot,
@@ -538,7 +549,7 @@ def transfer_slot_sensor(task_id: str, *, stage: str) -> PythonSensor:
         mode="reschedule",
         poke_interval=5,
         timeout=48 * 3600,
-        pool="wgs_obs_transfer",
+        pool=pool,
     )
 
 
@@ -636,11 +647,12 @@ with DAG(
         input_lease = transfer_slot_sensor(
             "acquire_obs_transfer_slot",
             stage="acquire_input_transfer_slot",
+            pool="wgs_obs_upload",
         )
         input_upload = runner_stage(
             "start_step1_upload",
             stage="step1_upload",
-            pool="wgs_obs_transfer",
+            pool="wgs_obs_upload",
             timeout_hours=48,
         )
         input_wait = stage_sensor(
@@ -701,11 +713,12 @@ with DAG(
         result_lease = transfer_slot_sensor(
             "acquire_obs_transfer_slot",
             stage="acquire_result_transfer_slot",
+            pool="wgs_obs_download",
         )
         result_download = runner_stage(
             "start_step5_download",
             stage="step5_download",
-            pool="wgs_obs_transfer",
+            pool="wgs_obs_download",
             timeout_hours=48,
         )
         result_wait = stage_sensor(

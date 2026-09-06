@@ -60,7 +60,9 @@ def test_single_cce_dag_declares_4_1_1_runtime_contract() -> None:
     assert "SSHHook" not in text
     assert "wgs-runtime" in text
     assert 'mode="reschedule"' in text
-    assert 'pool="wgs_obs_transfer"' in text
+    assert 'pool="wgs_obs_upload"' in text
+    assert 'pool="wgs_obs_download"' in text
+    assert 'pool="wgs_obs_transfer"' not in text
     assert 'pool="wgs_cce_runs"' in text
     assert '"step1_upload"' in text
     assert '"step2_master"' in text

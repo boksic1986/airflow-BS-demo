@@ -26,7 +26,10 @@ preparing -> waiting_resource -> committed -> running -> terminal
 and scheduler commit both lock the `AnalysisRun`, current `RunAttempt` and the
 same dispatch row. Only one transaction can win. Once `committed_at` is set,
 the target is immutable for that attempt. A CCE commit also atomically acquires
-the singleton OBS upload lease immediately before Step1 becomes reachable.
+the dedicated OBS upload lease immediately before Step1 becomes reachable.
+Step5 later uses a separate download lease, so a different completed batch may
+download while this batch uploads. Neither direction expires by wall-clock
+time; only matching terminal transfer evidence releases it.
 
 Local target slots are represented by `wgs_execution_target_slot`, one row for
 each of `node-97` and `node-96`. They are batch-exclusive and are released at a

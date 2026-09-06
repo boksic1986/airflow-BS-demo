@@ -29,6 +29,7 @@ from app.wgs_evidence_binding import (
     load_evidence_bindings,
 )
 from app.wgs_release_catalog import load_wgs_release_catalog
+from app.wgs_platform_service import release_obs_transfer_slot
 from app.wgs_stage_contract import wgs_stage_definition
 from app.wgs_stage_execution_service import (
     transition_latest_stage_execution,
@@ -1019,46 +1020,58 @@ def _ingest_transfer_progress(session_factory, spool_root: Path, path: Path) -> 
         row = session.scalar(select(TransferJob).where(TransferJob.transfer_id == str(payload["transfer_id"])))
         if row is not None and row.heartbeat_at is not None:
             previous = row.heartbeat_at if row.heartbeat_at.tzinfo else row.heartbeat_at.replace(tzinfo=timezone.utc)
+            files = payload.get("files") if isinstance(payload.get("files"), list) else []
+            terminal_status = _canonical_terminal_status(str(payload["status"]))
+            same_terminal_snapshot = (
+                terminal_status is not None
+                and _canonical_terminal_status(row.status) == terminal_status
+                and row.bytes_total == int(payload["bytes_total"])
+                and row.bytes_transferred == int(payload["bytes_transferred"])
+                and row.files_total == int(payload["files_total"])
+                and row.files_completed == int(payload["files_completed"])
+            )
             if heartbeat < previous:
-                files = payload.get("files") if isinstance(payload.get("files"), list) else []
-                terminal_status = _canonical_terminal_status(str(payload["status"]))
-                can_backfill_terminal_files = (
-                    terminal_status is not None
-                    and _canonical_terminal_status(row.status) == terminal_status
-                    and row.bytes_total == int(payload["bytes_total"])
-                    and row.bytes_transferred == int(payload["bytes_transferred"])
-                    and row.files_total == int(payload["files_total"])
-                    and row.files_completed == int(payload["files_completed"])
-                    and _transfer_file_rows_need_sync(
-                        session=session,
-                        transfer_id=str(payload["transfer_id"]),
-                        files=files,
-                    )
-                )
-                if not can_backfill_terminal_files:
+                if not same_terminal_snapshot:
                     return False
-                _upsert_transfer_file_states(
-                    session=session,
-                    transfer=row,
-                    files=files,
-                    heartbeat=heartbeat,
-                )
-                session.commit()
-                return True
-            if heartbeat == previous:
-                files = payload.get("files") if isinstance(payload.get("files"), list) else []
-                if not _transfer_file_rows_need_sync(
+                files_need_sync = _transfer_file_rows_need_sync(
                     session=session,
                     transfer_id=str(payload["transfer_id"]),
                     files=files,
-                ):
-                    return False
-                _upsert_transfer_file_states(
-                    session=session,
-                    transfer=row,
-                    files=files,
-                    heartbeat=heartbeat,
                 )
+                if files_need_sync:
+                    _upsert_transfer_file_states(
+                        session=session,
+                        transfer=row,
+                        files=files,
+                        heartbeat=heartbeat,
+                    )
+                released = _release_terminal_transfer_lease(
+                    session=session, transfer=row
+                )
+                if not files_need_sync and not released:
+                    return False
+                session.commit()
+                return True
+            if heartbeat == previous:
+                files_need_sync = _transfer_file_rows_need_sync(
+                    session=session,
+                    transfer_id=str(payload["transfer_id"]),
+                    files=files,
+                )
+                if files_need_sync:
+                    _upsert_transfer_file_states(
+                        session=session,
+                        transfer=row,
+                        files=files,
+                        heartbeat=heartbeat,
+                    )
+                released = (
+                    _release_terminal_transfer_lease(session=session, transfer=row)
+                    if same_terminal_snapshot
+                    else False
+                )
+                if not files_need_sync and not released:
+                    return False
                 session.commit()
                 return True
         if row is None:
@@ -1116,8 +1129,29 @@ def _ingest_transfer_progress(session_factory, spool_root: Path, path: Path) -> 
             evidence_key=str(resolved.relative_to(spool_root)),
             progress_source=str(payload.get("schema_version")),
         )
+        session.flush()
+        _release_terminal_transfer_lease(session=session, transfer=row)
         session.commit()
         return True
+
+
+def _release_terminal_transfer_lease(*, session, transfer: TransferJob) -> bool:
+    if _canonical_terminal_status(transfer.status) is None:
+        return False
+    transfer_kind = {
+        "upload": "input",
+        "download": "result",
+    }.get(transfer.direction)
+    if transfer_kind is None or not transfer.transfer_id:
+        return False
+    result = release_obs_transfer_slot(
+        session=session,
+        analysis_id=transfer.analysis_id,
+        attempt=transfer.attempt,
+        transfer_id=transfer.transfer_id,
+        transfer_kind=transfer_kind,
+    )
+    return bool(result["released"])
 
 
 def _transfer_file_rows_need_sync(*, session, transfer_id: str, files: list[dict]) -> bool:
@@ -1393,6 +1427,8 @@ def _canonical_terminal_status(value: str | None) -> str | None:
         return "success"
     if normalized == "failed":
         return "failed"
+    if normalized in {"canceled", "cancelled"}:
+        return "canceled"
     return None
 
 

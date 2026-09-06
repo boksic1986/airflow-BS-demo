@@ -37,6 +37,10 @@ download, result MD5, atomic promotion, finalization and all-done lease release.
 All six waits use `reschedule`. Pools are `wgs_input_hash=2`,
 `wgs_obs_transfer=1`, and `wgs_cce_runs=4`.
 
+This paragraph records the original Phase-1 topology. T213 supersedes the
+shared transfer pool for new runs with `wgs_obs_upload=1` and
+`wgs_obs_download=1`; the legacy pool remains rollback-only.
+
 ## Transfer and observer
 
 The future restricted node005 wrapper writes one atomically replaced

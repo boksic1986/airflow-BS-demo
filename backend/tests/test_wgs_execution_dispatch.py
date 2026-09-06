@@ -220,7 +220,7 @@ def test_committing_cce_acquires_upload_slot_and_freezes_choice():
         run = _run(session)
         dispatch = ensure_execution_dispatch(session=session, run=run)
         dispatch.dispatch_state = "waiting_resource"
-        session.add(ObsTransferLease(slot_name="wgs-obs-transfer-01"))
+        session.add(ObsTransferLease(slot_name="wgs-obs-upload-01"))
         session.commit()
 
         committed = commit_execution_choice(
@@ -234,11 +234,12 @@ def test_committing_cce_acquires_upload_slot_and_freezes_choice():
         assert committed["dispatch_state"] == "committed"
         lease = session.scalar(
             select(ObsTransferLease).where(
-                ObsTransferLease.slot_name == "wgs-obs-transfer-01"
+                ObsTransferLease.slot_name == "wgs-obs-upload-01"
             )
         )
         assert lease.analysis_id == run.analysis_id
         assert lease.attempt == 1
+        assert lease.lease_expires_at is None
 
         with pytest.raises(ExecutionDispatchConflict) as caught:
             change_execution_choice(
@@ -262,12 +263,12 @@ def test_cce_waits_without_committing_when_upload_slot_is_owned():
         dispatch.dispatch_state = "waiting_resource"
         session.add(
             ObsTransferLease(
-                slot_name="wgs-obs-transfer-01",
+                slot_name="wgs-obs-upload-01",
                 analysis_id="WGS_20260906_999999_FFFFFF",
                 attempt=1,
                 transfer_id="other-upload",
-                leased_at=datetime.now(timezone.utc),
-                lease_expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+                leased_at=datetime.now(timezone.utc) - timedelta(hours=3),
+                lease_expires_at=datetime.now(timezone.utc) - timedelta(hours=2),
             )
         )
         session.commit()
