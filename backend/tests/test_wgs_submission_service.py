@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 
-from app.models import AnalysisRun, Base, WgsSubmissionDraft
+from app.models import AnalysisRun, Base, Sample, WgsSubmissionDraft
 from app import wgs_platform_service
 from app.wgs_orchestration_service import build_fastq_snapshot, fastq_source_fingerprint
 from app.wgs_project_catalog import load_wgs_projects, public_project_catalog
@@ -463,6 +463,31 @@ def test_three_stage_approvals_are_server_controlled_and_idempotent(tmp_path: Pa
                 analysis_id=analysis_id,
                 requested_by="operator",
             )
+
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="RETRY-SAMPLE",
+                status="pending",
+            )
+        )
+        stale_approval = "2026-09-06T12:00:00+00:00"
+        run.params_json = {
+            **run.params_json,
+            "submission_phase": "execution_review",
+            "execution_approved_at": stale_approval,
+        }
+        session.commit()
+
+        approved = approve_wgs_execution(
+            session=session,
+            analysis_id=analysis_id,
+            requested_by="operator",
+        )
+
+        assert approved["submission_phase"] == "approved"
+        session.refresh(run)
+        assert run.params_json["execution_approved_at"] != stale_approval
 
 
 def test_draft_preview_is_private_and_does_not_create_analysis_run(tmp_path: Path) -> None:

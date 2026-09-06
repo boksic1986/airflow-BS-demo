@@ -512,7 +512,7 @@ def approve_wgs_execution(*, session, analysis_id: str, requested_by: str) -> di
         select(Sample.id).where(Sample.analysis_id == analysis_id).limit(1)
     ) is None:
         raise ValueError("WGS analysis has no prepared samples")
-    if not params.get("execution_approved_at"):
+    if params.get("submission_phase") != "approved":
         params.update({
             "execution_approved_at": datetime.now(timezone.utc).isoformat(),
             "submission_phase": "approved",
