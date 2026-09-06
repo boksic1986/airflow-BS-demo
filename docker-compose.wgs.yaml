@@ -120,6 +120,7 @@ services:
     command: ["alembic", "upgrade", "head"]
     volumes:
       - ./backend:/app:ro
+      - ./config:/config:ro
     networks: [wgs-platform]
 
   platform-admin-init:

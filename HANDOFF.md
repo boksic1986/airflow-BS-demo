@@ -94,6 +94,13 @@ rule was executed. Compose config passed. The remote frontend build could not
 pull `node:22-bookworm` because the BS Docker Hub mirror DNS failed; no
 frontend source changed in T211.
 
+During the first live migration preflight, Alembic failed before a database
+write because the one-shot `biodemo-migrate` service did not mount
+`./config:/config:ro`; settings therefore correctly rejected the missing stage
+contract. The long-lived services already had the mount, so this was isolated
+to migration startup. A deployment-contract regression now requires the mount
+and Compose has been fixed. Do not deploy the superseded `76cce8a` release.
+
 The user-authorized 0825A cleanup was applied only to exact test resources:
 the `airflow_test/WGS_Clinical/WGS_20260825A_T7Hg38V4.1.1` batch, its sampleinfo,
 the T208 prepare diagnostics, runtime request/run and evidence for

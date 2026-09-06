@@ -142,6 +142,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertNotIn("|| true", compose)
         self.assertIn("./config:/config:ro", payload["services"]["platform-admin-init"]["volumes"])
         for service in (
+            "biodemo-migrate",
             "wgs-run-observer",
             "platform-metrics-collector",
             "wgs-intake-scanner",

@@ -59,6 +59,12 @@ Snakemake 9 dry-run DAG and logger startup events without executing WGS rules.
 The remote frontend image rebuild is blocked by the BS Docker Hub mirror DNS;
 T211 does not change frontend source.
 
+deployment_fix: the first additive-migration preflight failed before any schema
+write because `biodemo-migrate` lacked the same read-only `/config` mount used
+by the long-lived backend services. The Compose contract test now covers this
+one-shot service and the missing mount is restored. Release `76cce8a` is a
+superseded source candidate and must not be used for the migration.
+
 cleanup: exact 0825A test resources were removed from `airflow_test`, the T208
 runtime/evidence directories and the two exact OBS raw/result prefixes. Both
 OBS prefixes now list zero bytes. The production-like 0825A directory outside
