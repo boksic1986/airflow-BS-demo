@@ -1,3 +1,253 @@
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-00
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-01
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-02
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-03
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-04
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-05
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-06
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-07
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-08
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-09
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-10
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-11
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-12
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-13
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-14
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-15
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-16
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-17
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-18
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-19
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-20
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-21
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-22
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-23
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: wgs-heavy-io-24
+  namespace: snakemake-ns
+  labels:
+    cce.biosan.cn/quota: wgs-heavy-io
+spec:
+  leaseDurationSeconds: 600
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -32,10 +282,7 @@ rules:
       - wgs-heavy-io-22
       - wgs-heavy-io-23
       - wgs-heavy-io-24
-    verbs: ["get", "update", "patch"]
-  - apiGroups: ["coordination.k8s.io"]
-    resources: ["leases"]
-    verbs: ["list", "create"]
+    verbs: ["get", "update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

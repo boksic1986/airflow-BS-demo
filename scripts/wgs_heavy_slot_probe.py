@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import as_completed, ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -16,33 +16,49 @@ def contend(*, quota: Any, contenders: int, run_label: str) -> dict[str, Any]:
 
     def acquire(index: int):
         barrier.wait()
-        try:
-            return quota.acquire(
-                run_label=run_label,
-                job_name=f"t206-heavy-probe-{index:02d}",
-            )
-        except RuntimeError:
-            return None
+        return quota.acquire(
+            run_label=run_label,
+            job_name=f"t206-heavy-probe-{index:02d}",
+        )
 
     claims = []
+    waiting = 0
     released = 0
+    errors = []
     try:
         with ThreadPoolExecutor(max_workers=contenders) as executor:
-            claims = [
-                claim
-                for claim in executor.map(acquire, range(contenders))
-                if claim is not None
-            ]
+            futures = [executor.submit(acquire, index) for index in range(contenders)]
+            for future in as_completed(futures):
+                try:
+                    claim = future.result()
+                except RuntimeError as error:
+                    expected = f"all {quota.limit} WGS high-I/O work-pod slots are occupied"
+                    if str(error) == expected:
+                        waiting += 1
+                    else:
+                        errors.append(error)
+                    continue
+                if claim is None:
+                    errors.append(RuntimeError("enforced heavy-slot quota returned no claim"))
+                else:
+                    claims.append(claim)
     finally:
         for claim in claims:
-            if quota.release(claim):
-                released += 1
+            try:
+                if quota.release(claim):
+                    released += 1
+            except Exception as error:
+                errors.append(error)
+    if errors:
+        raise RuntimeError(
+            "heavy-slot probe failed: " + "; ".join(str(error) for error in errors)
+        )
     slots = {claim.lease_name for claim in claims}
     return {
         "schema_version": "wgs-heavy-slot-probe.v1",
         "contenders": contenders,
         "acquired": len(claims),
-        "waiting": contenders - len(claims),
+        "waiting": waiting,
         "unique_slots": len(slots),
         "released": released,
         "slots": sorted(slots),

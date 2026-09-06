@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+from pathlib import Path
 import secrets
 
 from sqlalchemy import func, select
@@ -158,6 +159,68 @@ def validate_current_stage_execution(*, session, analysis_id: str, attempt: int,
         )
     )
     return row if row.generation == latest_generation else None
+
+
+def validate_step3_dryrun_fencing(
+    *,
+    session,
+    run: AnalysisRun,
+    step3: WgsStageExecution,
+    runtime_request_root: str,
+) -> None:
+    step2 = session.scalar(
+        select(WgsStageExecution)
+        .where(
+            WgsStageExecution.analysis_id == run.analysis_id,
+            WgsStageExecution.attempt == run.attempt,
+            WgsStageExecution.stage_code == "step2_master",
+        )
+        .order_by(WgsStageExecution.generation.desc())
+        .limit(1)
+    )
+    if step2 is None or step2.status != "success" or not step2.receipt_hash:
+        raise ValueError("Step3 dry-run predecessor has no exact successful receipt")
+    if (
+        step3.predecessor_execution_id != step2.execution_id
+        or step3.predecessor_generation != step2.generation
+        or step3.predecessor_receipt_hash != step2.receipt_hash
+    ):
+        raise ValueError("Step3 dry-run predecessor receipt is stale or mismatched")
+
+    expected_release = str((run.params_json or {}).get("pipeline_release_id") or "")
+    if not expected_release or {
+        step2.release_id,
+        step3.release_id,
+    } != {expected_release}:
+        raise ValueError("Step3 dry-run release does not match the frozen run")
+
+    runtime_root = Path(runtime_request_root).resolve().parent
+    binding_path = (
+        runtime_root
+        / "runs"
+        / run.analysis_id
+        / f"attempt-{run.attempt}"
+        / "batch-binding.json"
+    )
+    if binding_path.is_symlink() or not binding_path.is_file():
+        raise ValueError("Step3 dry-run frozen binding is unavailable")
+    try:
+        binding = json.loads(binding_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError("Step3 dry-run frozen binding is invalid") from error
+    evidence = dict(step3.terminal_payload_json or {})
+    if (
+        not isinstance(binding, dict)
+        or binding.get("schema_version") != "wgs-runtime.batch-binding.v2"
+        or binding.get("analysis_id") != run.analysis_id
+        or int(binding.get("attempt") or 0) != run.attempt
+        or binding.get("pipeline_release_id") != expected_release
+        or binding.get("run_id") != f"{run.analysis_id}-a{run.attempt}"
+        or evidence.get("master_job") != binding.get("master_job")
+        or evidence.get("namespace") != binding.get("namespace")
+        or evidence.get("run_label") != binding.get("run_label")
+    ):
+        raise ValueError("Step3 dry-run evidence does not match the frozen binding")
 
 
 def _successful_predecessor(session, run: AnalysisRun, predecessor_code: str | None) -> WgsStageExecution | None:

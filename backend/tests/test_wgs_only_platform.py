@@ -396,7 +396,42 @@ def test_step3_dryrun_submission_and_finalizer_require_exact_master_evidence(
     )
     assert missing.status_code == 400
 
+    settings = main.get_settings()
+    binding_path = (
+        Path(settings.wgs_runtime_request_root).parent
+        / "runs"
+        / analysis_id
+        / "attempt-1"
+        / "batch-binding.json"
+    )
+    binding_path.parent.mkdir(parents=True)
+    binding = {
+        "schema_version": "wgs-runtime.batch-binding.v2",
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "pipeline_release_id": "wgs-4.1.1-1656b5d",
+        "run_id": f"{analysis_id}-a1",
+        "run_label": "cce-run-dryrun",
+        "master_job": "cce-master-dryrun",
+        "namespace": "snakemake-ns",
+    }
+    binding_path.write_text(json.dumps(binding), encoding="utf-8")
+
     with sessions.begin() as session:
+        session.add(
+            WgsStageExecution(
+                execution_id="wse_step2_dryrun",
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="step2_master",
+                generation=1,
+                status="success",
+                request_hash="1" * 64,
+                release_id="wgs-4.1.1-1656b5d",
+                receipt_hash="2" * 64,
+                evidence_type="wgs-runtime.stage-status.v1",
+            )
+        )
         session.add(
             WgsStageExecution(
                 execution_id="wse_step3_dryrun",
@@ -406,12 +441,13 @@ def test_step3_dryrun_submission_and_finalizer_require_exact_master_evidence(
                 generation=1,
                 status="success",
                 request_hash="3" * 64,
-                release_id="wgs-test",
+                release_id="wgs-4.1.1-1656b5d",
                 receipt_hash="4" * 64,
                 evidence_type="wgs-runtime.stage-status.v1",
                 terminal_payload_json={
                     "master_job": "cce-master-dryrun",
                     "namespace": "snakemake-ns",
+                    "run_label": "cce-run-dryrun",
                     "master": {
                         "master_state": "SUCCEEDED",
                         "execution_mode": "dry_run",
@@ -422,6 +458,34 @@ def test_step3_dryrun_submission_and_finalizer_require_exact_master_evidence(
             )
         )
 
+    unfenced = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_step3_dryrun",
+        headers=internal,
+        json=body,
+    )
+    assert unfenced.status_code == 400
+
+    with sessions.begin() as session:
+        step3 = session.scalar(
+            select(WgsStageExecution).where(
+                WgsStageExecution.execution_id == "wse_step3_dryrun"
+            )
+        )
+        step3.predecessor_execution_id = "wse_step2_dryrun"
+        step3.predecessor_generation = 1
+        step3.predecessor_receipt_hash = "2" * 64
+
+    binding["master_job"] = "cce-master-other"
+    binding_path.write_text(json.dumps(binding), encoding="utf-8")
+    wrong_binding = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_step3_dryrun",
+        headers=internal,
+        json=body,
+    )
+    assert wrong_binding.status_code == 400
+
+    binding["master_job"] = "cce-master-dryrun"
+    binding_path.write_text(json.dumps(binding), encoding="utf-8")
     finalized = client.post(
         f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_step3_dryrun",
         headers=internal,

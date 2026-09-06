@@ -86,6 +86,7 @@ from app.wgs_stage_catalog import load_wgs_stage_contract
 from app.wgs_stage_execution_service import (
     WgsStagePredecessorPending,
     register_stage_execution,
+    validate_step3_dryrun_fencing,
 )
 from app.wgs_project_catalog import load_wgs_projects, public_project_catalog
 from app.wgs_submission_service import (
@@ -1774,6 +1775,12 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     raise ValueError(
                         "Step3 dry-run has no exact successful Master identity evidence"
                     )
+                validate_step3_dryrun_fencing(
+                    session=session,
+                    run=run,
+                    step3=step3,
+                    runtime_request_root=get_settings().wgs_runtime_request_root,
+                )
                 finished_at = run.pipeline_finished_at or datetime.now(timezone.utc)
                 if finished_at.tzinfo is None:
                     finished_at = finished_at.replace(tzinfo=timezone.utc)
