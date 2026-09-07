@@ -1,5 +1,19 @@
 # HANDOFF.md
 
+## 2026-09-08 T226 production SDK transfer and mainline synchronization
+
+`20260906B` (`WGS_20260907_152648_54EFF2-a1`) was paused at Step1 without releasing its upload lease or deleting uploaded data. The old transfer used aggregate v1 evidence and could not populate the frontend file table. The accepted `cce-pipeline` source is `b5696065bc24ab2049e46dc3c1b9594771bfce28`; it now runs on node200 with the shared `nipttest` interpreter and a node-local pure-Python overlay. The installed runtime gate matches `main@afc4230`.
+
+The production `obsutil` config stores encrypted AK/SK values and cannot seed the SDK directly. The SDK credential file was regenerated on node200 from the existing Step4 AK/SK plus the production OBS endpoint, validated with a read-only metadata request, and kept at mode 0600. No credential value was printed or persisted in Git.
+
+Step1 resumed with the same analysis ID and attempt and now publishes `wgs-runtime.transfer-progress.v2`: 18 frozen files, 961028492967 total bytes, eight concurrent transfers and 18 observer-imported file rows. Upload and download use separate one-slot pools/leases with `lease_expires_at=NULL`; upload owns the current lease and download is free. Both SDK parallelism values are eight. The DAG retains `Step5 -> Step6 -> wait_step6_materialize -> finalize_run`.
+
+Production now points to `/data/airflow-WGS/releases/20260908-t226-sdk-main-sync-r1`, sourced from `main@afc4230`. The separate T222 prepare-handoff-v2 branch was excluded and `WGS_CONTRACT_V2_ENABLED=false` is explicit in backend and Airflow. Existing local images were reused with `--no-build`; Docker Hub was not contacted. The already deployed T220 frontend image is sourced from `f203571`, and there is no frontend source delta from that commit through `afc4230`.
+
+The stale hanjj intake/bindings mounts were removed rather than migrated. Both mounts now use `/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime`, with ctapa:bioinfo ownership and mode 2770. The existing external network remains `192.168.199.0/24`, gateway `.1`, and only `172.17.61.96:12959` is published. Post-rollout health is 200; authenticated Transfers and transfer-files requests are 200 and return all 18 file rows. Automatic intake is enabled and the first scan examined nine already registered runs and submitted zero duplicates.
+
+Rollback: repoint `current` to `20260907-t225-contract-gate-r1`, restore `production.env.pre-T226`, and recreate the same source-mounted services without `-v`. Do not delete or release the current upload lease, transfer progress, OBS objects, SFS evidence, database, Redis/PostgreSQL volumes or active node200 worker.
+
 ## 2026-09-07 T225 automatic-run contract mismatch recovery
 
 `20260906B` (`WGS_20260907_152648_54EFF2-a1`) was not slow in sample preparation. Its prepare status was already successful, but the observer returned HTTP 500 because run creation persisted contract v2 while production backend and Airflow had `WGS_CONTRACT_V2_ENABLED=false`; the v1 evidence therefore had no v2 execution identity.

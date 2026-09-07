@@ -1,5 +1,25 @@
 # TASKS.md
 
+## T226 - Synchronize production Step1-Step6 SDK runtime and mainline
+
+Owner: WGS/runtime/operations/frontend
+
+Status: completed in production
+
+Acceptance:
+- [x] Pause only the active 20260906B Step1 worker while retaining its lease and uploaded objects.
+- [x] Run accepted cce-pipeline `b569606` with the compliant `nipttest` Python environment.
+- [x] Reuse the existing Step4 AK/SK through a mode-0600 SDK credential file without exposing secrets.
+- [x] Resume the same run and attempt with an immutable 18-file transfer plan, eight-way SDK upload and v2 per-file progress.
+- [x] Confirm separate non-expiring upload/download leases, eight-way download configuration and Step6 materialization barrier before finalize.
+- [x] Synchronize `main@afc4230` while excluding the separate T222 prepare-handoff-v2 branch and keeping contract v1.
+- [x] Remove obsolete hanjj intake/bindings mounts and use writable ctapa production paths.
+- [x] Preserve the existing production network, published endpoint and in-flight remote worker.
+- [x] Verify authenticated Transfers and transfer-files APIs return the aggregate plus all 18 file rows through the production frontend.
+
+Rollback:
+- Repoint `current` to `/data/airflow-WGS/releases/20260907-t225-contract-gate-r1`, restore `/data/airflow-WGS/env/production.env.pre-T226`, and recreate the same services without deleting volumes. Keep the active transfer lease and OBS/SFS evidence intact.
+
 ## T225 - Reconcile automatic WGS run contract with the production gate
 
 Owner: WGS/backend/operations

@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T226 production SDK transfer and mainline synchronization
+
+```text
+scope: pause the active 20260906B Step1 worker, replace the legacy aggregate-only obsutil transfer with the accepted cce-pipeline b569606 SDK runtime, verify Step1-Step6, synchronize main@afc4230 to production, and preserve orchestration contract v1.
+runtime: node200 executes cce-pipeline b569606 through the shared nipttest Python and a node-local package overlay. The frozen 20260906B bundle contains the exact b569606 Step1-Step6 assets. OBS SDK credentials are derived on-node from the existing Step4 AK/SK and stored mode 0600; no credential value is copied into the repository or logs.
+transfer: 20260906B resumed in the same analysis ID and attempt. Step1 emits wgs-runtime.transfer-progress.v2 for the frozen 18-file, 961028492967-byte plan, runs eight concurrent files, and the observer/API exposes all 18 per-file rows. Upload and download use separate one-slot pools and leases with no expiry; download parallelism is also eight.
+dag: production bio_wgs keeps execution commit, Step1-Step6, wait_step6_materialize and finalize_run ordering. WGS_CONTRACT_V2_ENABLED remains explicitly false; the separate T222 prepare-handoff-v2 branch was not deployed.
+deployment: current -> /data/airflow-WGS/releases/20260908-t226-sdk-main-sync-r1. Backend, observer, scanner, Airflow API/scheduler/worker and frontend were recreated from existing local images with no Docker Hub access. The T220 frontend image was already built from f203571 and has no source delta through main@afc4230.
+identity: obsolete hanjj intake/bindings mounts were removed. Production now mounts /sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/intake and bindings, owned by ctapa:bioinfo with mode 2770.
+safety: the existing external 192.168.199.0/24 network and only 172.17.61.96:12959 publication were retained. The active remote Step1 worker PID survived service recreation. Scanner effective scan/dispatch gates are true and its first pass submitted zero duplicate runs.
+```
+
 ## 2026-09-07 T225 WGS orchestration contract gate reconciliation
 
 ```text
