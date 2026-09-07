@@ -4,7 +4,7 @@
 
 Owner: backend/runtime/QA/docs
 
-Status: implementation and tests complete; BS10610 recovery rollout in progress
+Status: done in BS10610 test environment; recovered DagRun is running Step3
 
 Dependencies: T218
 
@@ -15,6 +15,8 @@ Scope:
   analysis directory already contains data.
 - Allow a cleared contract-v2 stage to create a new generation and restore the
   business run projection from failed to running with an audit record.
+- Preserve a prior three-stage execution approval when an audited prepare
+  retry succeeds, and clear stale terminal timestamps when Airflow is active.
 - Resume attempt 3 of `WGS_20260907_044653_9C8591` after the user removed its
   stale OBS result prefix, without deleting the existing SFS project.
 
@@ -24,14 +26,17 @@ Acceptance:
   `clean` or use on another stage.
 - [x] Backend full suite: 423 passed, 1 skipped.
 - [x] Runtime gate suite: 65 passed.
-- [ ] Deploy backend/gate and resume the exact failed DagRun from prepare.
-- [ ] Verify the old SFS directory is present under its exact `.archive` path
+- [x] Deploy backend/gate and resume the exact failed DagRun from prepare.
+- [x] Verify the old SFS directory is present under its exact `.archive` path
   and the resumed run advances past prepare.
+- [x] WGS-only backend and diagnostics suite: 266 passed.
+- [x] Deployed Airflow DAG/contract suite: 33 passed.
 
 Restrictions:
 - Never use `clean` for a normal rerun.
 - Never archive a directory outside the catalog-controlled exact batch root.
-- Do not repeat Step1 or create a fourth attempt for this recovery.
+- Do not create a fourth attempt or independently replay a previous attempt's
+  Step1 transfer for this recovery.
 
 ## T218 - Unify WGS stage terminal evidence and unavailable progress
 

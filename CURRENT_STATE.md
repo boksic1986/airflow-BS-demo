@@ -18,10 +18,28 @@ isolated node97 validation path. A cleared failed contract-v2 stage also
 restores the business projection to running when its new generation is
 registered and writes `run.stage_retry_recovered` to the audit log.
 
-Candidate validation on BS10610 passed: backend 423 tests with 1 skipped and
-the complete node200 runtime-gate suite 65 tests. Deployment and exact attempt
-3 recovery are in progress. The existing SFS batch must be archived, not
-deleted, and Step1 must not be repeated.
+Candidate validation on BS10610 passed: the initial backend suite passed 423
+tests with 1 skipped, the complete node200 runtime-gate suite passed 65 tests,
+the final WGS-only backend/diagnostics suite passed 266 tests, and the focused
+Airflow DAG/contract suite passed 33 tests in the deployed Airflow image. During the
+live recovery, an existing `execution_approved_at` was incorrectly projected
+back to `execution_review`; this made `wait_execution_commit` fail with 409.
+The retry projection now preserves the prior approval, while active Airflow
+sync clears stale `pipeline_finished_at` together with the other terminal
+fields.
+
+Release `20260907-airflow-demo-5458cce-t219-active-sync` is active on
+BS10610. Backend image `airflow-demo/backend:t219-5458cce` is
+`sha256:a108796edef7...`; the node200 restricted gate SHA256 is
+`8186a997b4ecdcaee35c5387ddbad676f9975670f4fd873d2bec2456735b5a21`.
+The original SFS directory was atomically archived to
+`.archive/WGS_20260904A_T7Hg38V4.1.1/WGS_20260907_044653_9C8591-a3`, and the
+replacement was prepared successfully. Attempt 3 then completed Step1 using
+the frozen 6-file, 312416298276-byte manifest, completed Step2, and entered
+Step3. At the latest acceptance snapshot Step3 had completed 3/209 rule units,
+the current item was `pre_process_mapping`, the observer was healthy, and the
+most recent heavy-slot snapshot was 1/25. The full WGS analysis is still
+running and is not claimed complete.
 
 ## 2026-09-07 T218 WGS stage terminal evidence consistency
 

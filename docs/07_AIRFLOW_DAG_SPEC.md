@@ -8,6 +8,10 @@ adds an archive-only policy to the owner-side runtime request; the restricted
 gate invokes the existing atomic `--cce-from-zero archive` behavior. Clearing
 the failed task creates a new stage generation and downstream tasks continue
 from prepare without rerunning Step1. New submissions remain overwrite-safe.
+An audited retry reuses an existing execution approval only when the persisted
+run already has `execution_approved_at`. Airflow still executes the approval
+sensor, but the sensor and execution-commit endpoint now observe the same
+`approved` state after prepare recovery.
 
 ## T218 failed runtime evidence barrier
 

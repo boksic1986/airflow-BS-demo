@@ -15,13 +15,33 @@ registers a new generation, with an audit event containing attempt, stage and
 generation. New runs retain the fail-closed behavior and regular recovery can
 never request `clean`.
 
-Validation on BS10610: backend full suite 423 passed and 1 skipped; runtime
-gate suite 65 passed; focused red tests failed for the three missing behaviors
-before implementation and all focused tests pass afterward. The remaining
-rollout is to deploy backend and the owner-side gate, clear only
-`prepare_wgs_analysis` and its downstream tasks in DagRun
-`WGS_20260907_044653_9C8591-a3`, and verify the original SFS directory moved to
-`.archive/WGS_20260904A_T7Hg38V4.1.1/WGS_20260907_044653_9C8591-a3`.
+Validation on BS10610: the initial backend suite passed 423 tests with 1
+skipped; the runtime-gate suite passed 65 tests; the final WGS-only backend
+and diagnostics suite passed 266 tests; and the focused DAG/contract suite
+passed 33 tests in the deployed Airflow image. Focused red tests reproduced both the
+lost execution approval and stale active-run completion timestamp before the
+fixes. The broad repository suite currently includes disabled PGT-A/NIPT/WES
+compatibility tests and reported 414 passed, 1 skipped and 33 scope-incompatible
+failures; it is not the acceptance set for this WGS-only release.
+
+The rollout is complete through live recovery. BS10610 runs release
+`20260907-airflow-demo-5458cce-t219-active-sync` and backend image
+`airflow-demo/backend:t219-5458cce` (`sha256:a108796edef7...`). The node200
+gate SHA256 is
+`8186a997b4ecdcaee35c5387ddbad676f9975670f4fd873d2bec2456735b5a21`.
+Airflow clear dry-runs fenced both operations to
+`WGS_20260907_044653_9C8591-a3`; the first created prepare generation 2, and
+the second restarted only the approval sensor and downstream tasks.
+
+The old SFS batch now exists at
+`.archive/WGS_20260904A_T7Hg38V4.1.1/WGS_20260907_044653_9C8591-a3`; a new
+batch directory was prepared. Attempt 3 completed Step1 with 6 files and
+312416298276 bytes, completed Step2, and is running Step3 with a healthy
+observer. The latest acceptance snapshot showed 3/209 rule units complete and
+current item `pre_process_mapping`; the most recent heavy-slot snapshot was
+1/25. Airflow, business status and workspace all report running; `ended_at`,
+`pipeline_finished_at` and `error_summary` are clear. Do not describe this run
+as fully complete until Step3-Step6 reach terminal success.
 
 Rollback: restore the T218 backend image and prior node200 gate. The archived
 directory can be atomically restored only while the replacement batch path is

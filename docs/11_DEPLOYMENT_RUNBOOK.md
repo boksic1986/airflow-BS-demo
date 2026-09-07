@@ -11,6 +11,13 @@ the exact old batch directory to `.archive/<batch>/<analysis-id>-a<attempt>`
 before preparing the replacement. Verify the archive exists and Step1 starts
 before considering the recovery successful. Never substitute `clean`.
 
+If the recovered prepare succeeds but `wait_execution_commit` returns
+`EXECUTION_NOT_APPROVED`, do not create another attempt. Deploy the approval
+projection fix, clear only `wait_prepare_wgs_analysis` and its downstream
+tasks with the exact DagRun ID through the Airflow REST dry-run/apply endpoint,
+then verify `submission_phase=approved`. Synchronize the active DagRun once so
+stale `ended_at`, `pipeline_finished_at` and `error_summary` are cleared.
+
 ## T216 staged Submit Run preflight and failure projection
 
 Before enabling manual WGS submission, verify the two independent gate layers:

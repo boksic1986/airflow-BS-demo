@@ -8,7 +8,15 @@ persisted run mode is `resume` or `rerun_failed`. The field is server-derived;
 it is not accepted from the public Submit Run payload. Any other value or
 stage is rejected. A forced contract-v2 stage generation that restarts a
 failed run records `run.stage_retry_recovered` with its attempt, stage and
-generation.
+generation. When an audited `resume`/`rerun_failed` prepare succeeds and the
+same run already has `execution_approved_at`, the internal stage-status sync
+preserves `submission_phase=approved`; it does not require a duplicate manual
+approval and does not apply to a new or previously unapproved run.
+
+`POST /api/runs/{analysis_id}/actions/sync-airflow` clears `ended_at`,
+`pipeline_finished_at` and `error_summary` whenever the authoritative Airflow
+DagRun is active. This prevents an intermediate failed task-clear cycle from
+leaving a false Finished timestamp on a running run.
 
 ## T218 repeated DagRun failure and stage projection
 
