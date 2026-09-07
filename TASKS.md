@@ -4,7 +4,7 @@
 
 Owner: WGS/backend/runtime/frontend/operations
 
-Status: implementation and focused validation complete; mainline/deployment pending
+Status: completed in production
 
 Acceptance:
 - [x] Project Current Progress and the active Transfer from one database snapshot and format all percentages to one decimal place.
@@ -13,7 +13,16 @@ Acceptance:
 - [x] Add generation-fenced Step7 retry history and frozen-target recovery with fail-closed partial-remnant handling.
 - [x] Add node200 `WGS_RUNTIME_RUN_ROOT` deployment requirement without changing WGS 4.1.1 or contract v1.
 - [x] Complete the one focused backend/runtime/frontend validation and production build without Docker Hub.
-- [ ] Merge and push `main`, deploy only required components, verify 20260906B continuity, and recover the approved failed Step7 actions.
+- [x] Merge and push `main`, deploy only required components, verify 20260906B continuity, and recover approved Step7 actions where the exact safety preconditions hold.
+
+Outcome:
+- 20260905A Step7 generation 4 is successful.
+- 20260902A and 20260825A remain fail-closed because their exact CCE batch-lock ConfigMaps still exist; no false `verified_absent` result was written.
+- 20260906B retained its completed Step1 and resumed the same DagRun/attempt from Step2 into active Step3 Rule execution.
+- 20260904B was not submitted.
+
+Rollback:
+- Repoint `current` to `/data/airflow-WGS/releases/20260908-t226-sdk-main-sync-r1`, restore `/data/airflow-WGS/env/production.env.pre-T227-20260908`, and recreate backend/observer/frontend without deleting volumes or touching Airflow/CCE tasks. Do not downgrade migration 0018 while generation history exists.
 
 Restrictions:
 - Do not enable T222 contract v2 or WGS 4.2.0.

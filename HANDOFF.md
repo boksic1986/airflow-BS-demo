@@ -1,25 +1,53 @@
 # HANDOFF.md
 
-## 2026-09-08 T227 transfer progress and Step7 recovery implementation
+## 2026-09-08 T227 transfer progress, console and Step7 production recovery
 
-T227 is isolated at `main@0e2cab3` on
-`jiucheng/wgs/T227-progress-step7-console-fix`. It centralizes aggregate
-transfer serialization, drives Current Progress and the active Transfer from
-one five-second workspace snapshot, and completes the requested transfer-file,
-Overview, Samples, Rules, Pipeline evidence, and Batch Runs Workflow display
-changes. Migration 0018 adds immutable Step7 generations and frozen recovery
-identity; retries require the exact failed action ID and ambiguous remnants
-remain failed.
+T227 is implemented by `7edd7d0`, with production recovery hardening in
+`1e047d8`, `6f5a454` and `02e819b`. The shared transfer serializer drives
+Current Progress and Transfers from one five-second database snapshot and
+formats aggregate, file, Sample, Rule and Batch percentages to one decimal.
+Transfers now show start/finish/last-update fields, compact per-file progress,
+distinct accepted/running badges and checksum badges. Overview, Samples,
+Rules, Pipeline evidence and Batch Runs Workflow fallback were also completed.
 
-Focused BS10610 backend/runtime validation passed 20 selected regressions and
-py_compile. The .96 cached Node test image passed 5 files/21 tests, the added
-Step7 retry UI regression passed, and `tsc -b && vite build` passed. Offline
-PostgreSQL SQL generation traversed migrations 0001 through the single 0018
-head. No T227 production component has been changed yet. Production must
-remain on WGS 4.1.1 / contract v1, and the active
-20260906B worker must be observed before and after any rollout. The only new
-node200 environment requirement is
+Migration 0018 was applied from 0017 on `.96`. It preserves immutable Step7
+generations, requires the exact failed action ID for retry and freezes recovery
+targets. Runtime recovery reports `verified_absent` only after checking the
+exact SFS identity, CCE workload and batch lock. Legacy no-action-id evidence
+can update generation 1 only, so an old terminal file cannot overwrite a new
+retry generation. A mode-0600 compatibility copy removes only transfer SDK
+fields that the frozen 0.8.1 Step7 parser cannot accept.
+
+Production `20260905A` Step7 succeeded as generation 4
+(`step7-sfs-b237b4ada58c`). Generations 1-3 remain as auditable failed history:
+missing runtime root, legacy-evidence generation collision before the fence,
+and frozen parser incompatibility. `20260902A` and `20260825A` were not marked
+successful: their local batch roots and CCE Jobs are absent, but the exact CCE
+batch-lock ConfigMaps still remain, so the fail-closed recovery correctly
+requires explicit remnant handling. `20260904B` was not submitted.
+
+`20260906B` had already completed Step1 (18/18 files) before Step2 failed on
+the missing `WGS_RUNTIME_RUN_ROOT`. node200 now has
 `WGS_RUNTIME_RUN_ROOT=/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/runs`.
+An Airflow REST dry-run for `WGS_20260907_152648_54EFF2-a1` selected only
+`submit_step2_master` and its 14 downstream tasks; both Step1 tasks were
+explicitly excluded. The exact set was cleared without creating a new DagRun
+or attempt. Step2 try 2 and `start_step3_monitor` succeeded, and the database
+then reported nine running Rule states in Step3.
+
+Focused BS10610 validation passed 20 backend/runtime tests plus follow-up
+Step7 suites of 5, 6 and 6 tests. The `.96` cached Node image passed 5 files/21
+tests and the Step7 retry regression; `tsc -b && vite build`, py_compile and
+offline migration-through-0018 checks passed. Docker Hub was not contacted.
+Only backend/observer/frontend were recreated for T227; Airflow
+API/scheduler/worker were not restarted. WGS 4.1.1, contract v1 and the sole
+`172.17.61.96:12959` publication boundary remain unchanged.
+
+Rollback: repoint `current` to
+`/data/airflow-WGS/releases/20260908-t226-sdk-main-sync-r1`, restore
+`/data/airflow-WGS/env/production.env.pre-T227-20260908`, and recreate only
+backend/observer/frontend without deleting volumes or interrupting Airflow/CCE.
+Do not downgrade 0018 while Step7 generation history exists.
 
 ## 2026-09-08 T226 production SDK transfer and mainline synchronization
 
