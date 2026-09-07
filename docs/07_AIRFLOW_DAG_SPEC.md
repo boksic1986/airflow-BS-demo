@@ -1,5 +1,19 @@
 # 07 Airflow DAG 设计
 
+## T214 node97 branch on the T213 DAG
+
+The CCE branch keeps T213's independent input and result transfer pools and
+all Step1-Step6 receipt fences. A committed node97 run branches after the same
+database commit barrier into `local_execution` and never enters either OBS
+transfer group. The final `release_leases` task remains an idempotent global
+cleanup: it drains the observer, releases a matching terminal transfer only
+when one exists, and reports upstream failure. Local target ownership is
+released by local terminal or recovery projection, not by an OBS lease.
+
+This iteration accepts only a synthetic node97 smoke. The hidden
+`node97_full` fixture remains default-off and is not used. Node96 and SGE keep
+their fail-closed behavior.
+
 ## T213 directional transfer gates
 
 T208 remains authoritative from Step1 through Step6, including exact

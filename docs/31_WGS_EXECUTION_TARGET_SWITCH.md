@@ -1,5 +1,14 @@
 # WGS execution target switching
 
+## T214 integrated deployment state
+
+T214 is the first candidate that combines production-base T213 transfer
+ownership with the node97 runner. CCE keeps separate upload/download leases;
+node97 bypasses Step1-Step6 and uses only its exclusive target slot. Node96 and
+SGE are still selectors without an enabled runner. Automatic dispatch remains
+CCE-only. The initial rollout scope is a synthetic node97 smoke, not a full
+family run.
+
 ## Purpose
 
 T209 separates WGS preparation from the irreversible execution commit. A run

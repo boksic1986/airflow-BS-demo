@@ -1,5 +1,40 @@
 # HANDOFF.md
 
+## 2026-09-07 - Codex - T214 production-base/node97 integration in progress
+
+T214 uses clean worktree
+`D:\pipeline\airflow-demo-worktrees\T214-t213-node97-integration` and branch
+`jiucheng/wgs/T214-t213-node97-integration`. Its base is exact T213 commit
+`1c011a8`; the dirty T213 and main worktrees were not modified. Accepted T211
+node97 runner commits were replayed onto that base with T213's independent,
+no-TTL input/output OBS leases preserved.
+
+The merged contract keeps CCE unchanged and enables only the code path for a
+committed `node-97` target. Node97 uses the restricted SSH gate, Snakemake 9,
+96 scheduler cores and the existing logger evidence contract. It owns only the
+`node-97` target slot. Node96 and SGE remain fail closed; scanner and automatic
+dispatch are not part of this rollout.
+
+Current validation is source-only. The candidate archive was copied to the
+isolated BS10610 directory
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/validation/T214-05513a5`.
+Using existing dependency images with the candidate mounted read-only:
+
+- full backend: `413 passed`;
+- directional lease/dispatch/observer/platform subset: `152 passed`;
+- node97/node200 runtime gate suites: `70 passed`;
+- WGS DAG/deployment contracts: `34 tests`, all passed;
+- explicit local-target regression: `12 passed`, confirming node97 does not
+  claim either directional OBS lease.
+
+The first DAG invocation used the image's default entrypoint and selected the
+Snakemake-only Python, which lacks Airflow. Re-running with
+`--entrypoint /home/airflow/.local/bin/python` passed; this was a test-command
+error, not a product defect. No database migration, service restart, Airflow
+run, real FASTQ read, OBS mutation or execution gate change has occurred yet.
+Remaining work is an immutable test release, migration/config preflight and a
+synthetic node97 smoke only.
+
 ## 2026-09-07 - Codex - T213 Step1-Step6/dispatch/lease integration candidate
 
 Implemented T213 in the clean worktree

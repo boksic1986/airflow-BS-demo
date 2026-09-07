@@ -1,83 +1,46 @@
 # TASKS.md
 
+## T214 - Integrate node97 onto the T213 production baseline
+
+Owner: backend/Airflow/runtime/QA/docs
+
+Status: implementation and isolated tests complete; BS10610 smoke rollout pending
+
+Dependencies: T211,T213
+
+Scope:
+- Start from exact T213 commit `1c011a8` and preserve independent input/result
+  OBS leases for the CCE Step1-Step6 path.
+- Port the accepted restricted node97 runner, Snakemake 9 logger projection and
+  local target-slot recovery behavior.
+- Keep node96, SGE, intake and automatic dispatch disabled.
+- Validate node97 with synthetic smoke input only; do not use a real family.
+
+Acceptance:
+- [x] Full backend suite passes 413 tests on the merged source.
+- [x] Runtime gate suites pass 70 tests and WGS DAG contracts pass 34 tests.
+- [x] Node97 commit leaves both directional OBS leases untouched.
+- [ ] Publish one immutable BS10610 test release and apply migration 0016.
+- [ ] Run a synthetic node97 SSH/Snakemake/logger smoke and verify terminal
+  projection plus local-slot release.
+- [ ] Restore the DAG pause state and every execution gate after smoke.
+
+Restrictions:
+- Do not submit 0825A or any real WGS sample in T214.
+- Do not enable node96, SGE, scanner or automatic dispatch.
+- Do not replace production `.96` services or delete database/OBS/SFS data.
+
 ## T213 - WGS Step1-Step6 dispatch and directional transfer lease integration
 
 Owner: backend/Airflow/frontend/runtime/QA/docs
 
-Status: implemented and validated in an isolated candidate; not deployed
+Status: implemented and validated at `1c011a8`; superseded for combined rollout by T214
+
 ## T211 - WGS node97 local Snakemake runner acceptance
 
 Owner: backend/Airflow/runtime/QA/docs
 
-Status: implementation and isolated validation complete; controlled BS10610 rollout pending
-
-Dependencies: T208,T209
-
-Scope:
-- Keep T208 as the Step1-Step6 authority and T209 as the execution target
-  commit-barrier authority on one DagRun and attempt.
-- Replace the new-run shared OBS lease with independent no-TTL upload and
-  download leases and matching one-slot Airflow pools.
-- Release a direction only from exact terminal transfer evidence; retain
-  ownership and fail closed on unknown state or observer/backend interruption.
-- Preserve Step5 concurrent frozen-manifest download, Step6 atomic batch
-  materialization, the Step6 completion sensor, and the 25-pod Heavy Slot
-  quota.
-- Keep Local/SGE selectors and API state but leave every capability disabled;
-  exclude the unaccepted `.97` runner.
-
-Acceptance:
-- [x] One upload and one download can overlap; same-direction owners cannot.
-- [x] Expired-looking or multi-hour ownership is not stolen and every new
-  acquisition stores no expiry.
-- [x] Wrong attempt/transfer identity cannot release or replace an owner.
-- [x] Running/unknown evidence retains ownership; exact success, confirmed
-  failed or canceled evidence releases only its matching direction.
-- [x] Observer terminal replay recovers a stranded lease without starting a
-  second transfer.
-- [x] `wait_step6_materialize` remains between Step6 and finalization; T208
-  receipt/generation fencing and the Heavy Slot contract do not regress.
-- [x] `.96` isolated validation passes: backend 407, WGS DAG 32,
-  runtime/heavy-slot 64, frontend 51 plus build, migration/offline SQL and
-  Compose config.
-
-Restrictions:
-- Do not deploy, migrate or restart production as part of T213.
-- Retain `wgs-obs-transfer-01` and `wgs_obs_transfer` for rollback readers,
-  but never assign them to new tasks.
-- Keep all Local/SGE capability flags false and do not merge T211 runner code.
-- Roll out only after legacy transfers are terminal and their shared lease is
-  empty.
-- Turn the T209 `node-97` execution branch into a real restricted host runner.
-- Reuse the frozen WGS 4.1.1 snapshot and change only its execution adapter from
-  CCE to local Snakemake 9 with 96 cores.
-- Preserve the same analysis ID, attempt, execution generation and logger
-  evidence contract used by the CCE path.
-- Run one fresh 0825A three-sample acceptance on node97 with scanner and
-  auto-dispatch disabled.
-
-Acceptance:
-- [x] Local runner accepts only
-  `wgs-local-runtime <analysis_id> <attempt> local_analysis` and rejects unsafe
-  request or analysis paths.
-- [x] Backend and DAG tests cover dispatch binding, local status projection,
-  local sensor/finalizer topology and 96-core Snakemake logger invocation.
-- [x] A frozen 0825A snapshot produces a Snakemake 9 DAG in dry-run mode on
-  node97 without executing WGS rules.
-- [ ] Deploy one immutable release to the BS10610 test control plane, apply
-  migration 0015 and install the pinned node97 SSH alias/runner gate.
-- [ ] Submit one fresh 0825A run to `node-97`, verify terminal workflow and
-  rule evidence, then restore the DAG and runtime gates to disabled.
-
-Restrictions:
-- Test environment only; do not deploy to `.96` production or enable intake.
-- Delete only the exact 0825A test SFS/OBS resources enumerated in the T211
-  handoff. Preserve production-like 0825A data outside `airflow_test` and the
-  six source FASTQs.
-- A successful dry-run proves scheduler/config compatibility, not completion
-  of the full node97 analysis acceptance.
-- [x] Add a default-off, admin-only `node97_full` scope and hidden 0825A
-  acceptance root so a fresh run does not mutate or reuse historical success.
+Status: node97 implementation accepted; superseded for combined rollout by T214
 
 ## T210 - WGS Step3-Step4 lightweight contract canary
 

@@ -1,5 +1,14 @@
 # 05 API Contract
 
+## T214 execution-target integration
+
+T214 does not add a public endpoint. It combines T213's directional transfer
+contract with T211's internal node97 contract. A CCE commit may own the input
+lease and later the result lease; a node97 commit owns only the local target
+slot. The browser cannot provide a lease name, runtime command or node path.
+Node96 and SGE requests continue to return their existing unavailable or
+fail-closed state.
+
 ## T213 directional transfer release contract
 
 The public execution-choice and Run Detail contracts are unchanged. Internal

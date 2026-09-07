@@ -1,5 +1,34 @@
 # 11 部署 Runbook
 
+## T214 BS10610/node97 smoke rollout
+
+T214 must be released from exact T213 base `1c011a8` plus the reviewed node97
+integration. Before switching the BS10610 test control plane, require a paused
+`bio_wgs`, no active business/DAG run, an empty legacy transfer lease and no
+running input/result transfer. Apply migration `20260907_0016`, initialize the
+two directional pools, and keep the legacy pool only for rollback readers.
+
+Only these gates may be opened during the supervised smoke:
+
+```text
+WGS_EXECUTION_ENABLED=true
+WGS_RUNTIME_ADAPTER_ENABLED=true
+WGS_CONTRACT_V2_ENABLED=true
+WGS_LOCAL_NODE97_ENABLED=true
+```
+
+Keep `WGS_LOCAL_NODE96_ENABLED`, `WGS_SGE_ENABLED`, intake and automatic
+dispatch false. The smoke must use synthetic/minimal inputs and may prove SSH,
+request identity, Snakemake 9 startup, logger ingestion, terminal projection
+and local-slot release only. It must not submit 0825A or any other real family
+and must not be reported as biological WGS acceptance. Restore all execution
+gates and the original DAG pause state after the smoke.
+
+The shared node97 request mapping is
+`/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime`; do not use the
+different `/sg2/33.chenjiucheng/...` directory. A release symlink must remain
+relative so BS10610's `/mnt` and node97's `/bi` views resolve the same files.
+
 ## T213 Step1-Step6, dispatch and directional-lease candidate
 
 T213 is source-only until separately approved. Do not deploy, restart a

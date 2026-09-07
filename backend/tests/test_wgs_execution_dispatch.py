@@ -297,6 +297,12 @@ def test_dispatch_state_survives_new_session_and_releases_local_slot_at_terminal
     with sessions() as session:
         run = _run(session)
         _node_snapshot(session)
+        session.add_all(
+            [
+                ObsTransferLease(slot_name="wgs-obs-upload-01"),
+                ObsTransferLease(slot_name="wgs-obs-download-01"),
+            ]
+        )
         dispatch = ensure_execution_dispatch(session=session, run=run)
         session.commit()
         change_execution_choice(
@@ -316,6 +322,15 @@ def test_dispatch_state_survives_new_session_and_releases_local_slot_at_terminal
             attempt=1,
         )
         assert committed["committed"] is True
+        directional_leases = session.scalars(
+            select(ObsTransferLease).where(
+                ObsTransferLease.slot_name.in_(
+                    ("wgs-obs-upload-01", "wgs-obs-download-01")
+                )
+            )
+        ).all()
+        assert len(directional_leases) == 2
+        assert all(lease.analysis_id is None for lease in directional_leases)
 
     with sessions() as session:
         run = session.scalar(select(AnalysisRun))
