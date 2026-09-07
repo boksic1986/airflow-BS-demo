@@ -12,6 +12,7 @@ production_smoke_guard: Run Detail now serializes `ObserverRunState` while its S
 validation: isolated .96 candidate passed backend 434/1 skip after the production-smoke regression, WGS DAG contracts 43, runtime/host helpers 102, frontend 15 files/63 tests plus production build, Compose rendering, and an empty-to-0017 disposable PostgreSQL migration. Only the existing nipt_analysis_test_net (192.168.199.0/24, gateway .1) was used where networking was required.
 deployment: production current points to `/data/airflow-WGS/releases/20260907-wgs-4.1.1-6c98281-t219-stage-terminal-r2`. Backend/observer use `airflow-demo/backend:t219-stage-terminal-r2`, frontend uses the already validated `airflow-demo/frontend:t219-stage-terminal-r1`, and Airflow remains `airflow-demo/airflow:bs-control-c706548`. PostgreSQL upgraded additively from 0013 to the single 0017 head; Redis/PostgreSQL containers and all CCE workloads were preserved.
 production_validation: authenticated login plus latest terminal Run Workspace returned final/success with all four lifecycle projections. DAG import errors, running DagRuns and queued DagRuns are empty. The external network remains exactly 192.168.199.0/24 with gateway 192.168.199.1, and the only WGS-published endpoint is 172.17.61.96:12959.
+mainline: the production-validated T219 branch was fast-forwarded into `main` and synchronized to `origin/main`; the dirty T193 workspace and unrelated development branches were not touched.
 ```
 
 ## 2026-09-07 T218 lifecycle and node97 mainline integration

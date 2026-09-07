@@ -21,7 +21,7 @@ Acceptance:
   `.96` candidate using only the fixed `192.168.199.0/24` network contract.
 - [x] Confirm production task/DagRun safety, deploy only required services,
   and verify API/frontend/DAG health without restarting CCE workloads.
-- [ ] Commit, merge and push the production-validated source and state docs.
+- [x] Commit, merge and push the production-validated source and state docs.
 
 Restrictions:
 - Do not rerun a batch, delete OBS/SFS content, recreate PostgreSQL/Redis, or

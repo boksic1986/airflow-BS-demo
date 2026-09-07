@@ -43,6 +43,9 @@ download pools each have one slot. The production network is still exactly
 `192.168.199.0/24` with gateway `192.168.199.1`, and only
 `172.17.61.96:12959` is published by the WGS stack.
 
+The production-validated branch was fast-forwarded into `main` and pushed to
+`origin/main`. Unrelated dirty/development worktrees were left unchanged.
+
 Validation failures retained for audit: the first backend attempt inherited
 the production env and was interrupted after it invoked real-dependency test
 paths; rerunning with `--network none` passed. The first two disposable
