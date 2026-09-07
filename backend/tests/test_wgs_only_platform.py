@@ -2835,6 +2835,108 @@ def test_prepare_analysis_status_waits_for_final_sampleinfo_nfs_visibility(
         assert [item.sample_id for item in samples] == ["SAMPLE-1"]
 
 
+def test_prepare_analysis_retry_preserves_existing_execution_approval(
+    tmp_path, monkeypatch
+):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "WGS_Clinical",
+            "execution_mode": "cce",
+            "batch_no": "WGS_20260904A_T7Hg38V4.1.1",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.mode = "rerun_failed"
+        run.params_json = {
+            **dict(run.params_json or {}),
+            "submission_mode": "three_stage",
+            "submission_phase": "failed",
+            "execution_approved_at": "2026-09-07T05:39:33.937046+00:00",
+        }
+
+    batch_name = "WGS_20260904A_T7Hg38V4.1.1"
+    binding = (
+        tmp_path
+        / "runtime"
+        / "runs"
+        / analysis_id
+        / "attempt-1"
+        / "batch-binding.json"
+    )
+    binding.parent.mkdir(parents=True)
+    binding.write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.batch-binding.v2",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "pipeline_release_id": "wgs-4.1.1-1656b5d",
+                "wgs_version": "V4.1.1",
+                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
+                "batch_root": str(tmp_path / "results" / batch_name),
+                "resolved_runtime": {"cce_pipeline_version": "0.8.2"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    final_sampleinfo = tmp_path / "analysis-project" / batch_name / "sampleinfo.tsv"
+    final_sampleinfo.parent.mkdir(parents=True)
+    final_sampleinfo.write_text(
+        "样本编号\t数据编号\t家系编号\t家系关系\t样本类型\t性别\t上机批次\n"
+        "SAMPLE-1\tDATA-1\tFAMILY-1\t先证者\t外周血\t男\t20260904A\n",
+        encoding="utf-8",
+    )
+    status_path = (
+        tmp_path
+        / "runtime"
+        / "runner-requests"
+        / analysis_id
+        / "attempt-1"
+        / "prepare_analysis.status.json"
+    )
+    status_path.parent.mkdir(parents=True)
+    status_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "prepare_analysis",
+                "status": "success",
+                "message": "",
+                "updated_at": "2026-09-07T09:49:22Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+
+    response = client.get(
+        f"/api/internal/wgs/runs/{analysis_id}/stage-status",
+        params={"attempt": 1, "stage": "prepare_analysis"},
+        headers={"X-Airflow-Demo-Token": "internal-test-token"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["ready"] is True
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        assert run.params_json["submission_phase"] == "approved"
+
+
 def test_internal_step3_observer_activation_and_drain_are_exposed_in_run_detail(
     tmp_path, monkeypatch
 ):

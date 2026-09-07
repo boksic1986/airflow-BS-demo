@@ -2311,7 +2311,12 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
                     else:
                         sync_prepared_samples(session=session, settings=settings, run=run)
                         if stage == "prepare_analysis":
-                            params["submission_phase"] = "execution_review"
+                            params["submission_phase"] = (
+                                "approved"
+                                if run.mode in {"resume", "rerun_failed"}
+                                and params.get("execution_approved_at")
+                                else "execution_review"
+                            )
                 except WgsPreparedArtifactPending:
                     artifact_pending = True
                 else:
