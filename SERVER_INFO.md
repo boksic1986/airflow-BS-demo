@@ -1,5 +1,18 @@
 # SERVER_INFO.md
 
+## T220 frontend production sync (2026-09-07)
+
+```text
+primary: 172.17.61.96
+frontend_image: airflow-demo/frontend:t220-console-qc-f203571
+frontend_image_id: sha256:e46de6cd37ebafd7b243fc24796926d31b7b8ee2628caa3493d0ea358479e270
+build: cached node:22-bookworm with network none; existing local T219 frontend used as final base
+recreated_service: frontend-nginx only
+preserved: backend, Airflow, PostgreSQL, Redis, scanner, observer, collectors and running analyses
+smoke: root 200; /api/health 200; T220 asset marker present
+published_ports: 172.17.61.96:12959 only
+```
+
 ## T204 current production runtime identity (2026-09-05)
 
 ```text

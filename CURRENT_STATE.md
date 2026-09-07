@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-07 T220 frontend production sync
+
+```text
+scope: publish the mainline T220/T222 frontend bundle to .96 only; backend, Airflow, database, observers, collectors and running analyses were not changed.
+offline_build: .96 used the cached node:22-bookworm image with network disabled and wrapped the resulting dist in the existing local production frontend image. No Docker Hub pull was attempted.
+deployment: frontend-nginx now uses airflow-demo/frontend:t220-console-qc-f203571. All other production containers and images were preserved.
+smoke: http://172.17.61.96:12959/ and /api/health returned 200; the served fingerprinted asset contains the T220 Heavy slots marker.
+compatibility: backend remains airflow-demo/backend:t219-stage-terminal-r2, so frontend fields introduced by T220 that require new backend projections remain unavailable until a separately approved backend rollout.
+```
+
 ## 2026-09-07 T222 NGS registry platform cleanup
 
 ```text

@@ -1,5 +1,11 @@
 # HANDOFF.md
 
+## 2026-09-07 T220 frontend-only production sync
+
+Published the already validated mainline frontend to `.96` as `airflow-demo/frontend:t220-console-qc-f203571`. The production build used cached `node:22-bookworm` with `--network none`; the final image reused the local T219 production frontend base, so Docker Hub was not contacted. Only `airflow-wgs-frontend-nginx-1` was recreated. Root and `/api/health` returned HTTP 200 and the served asset includes the T220 marker. Backend remains T219; backend-dependent T220 projections require a separate rollout.
+
+The first offline Dockerfile build failed in `npm ci` with `Exit handler never called`; the existing validated node_modules cache then completed `tsc -b && vite build`. The first smoke used `127.0.0.1`, but production publishes only on `172.17.61.96`, so it correctly returned connection refused; the fixed-address smoke passed.
+
 ## 2026-09-07 T222 NGS registry platform cleanup
 
 Goal: establish a general NGS platform boundary, retain WGS as the only currently deployed adapter, remove retired demo implementations/tests, and validate without production deployment.
