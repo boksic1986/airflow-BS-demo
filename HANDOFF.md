@@ -53,6 +53,12 @@ closeout state was synchronized to `origin/main`. This is Git source delivery
 only. Production remains on its existing release; migration 0017 has not been
 applied there and no service or WGS execution gate was restarted or changed.
 
+Cleanup note: deleting the completed feature branch from the unrelated dirty
+primary checkout was safely refused because that checkout was not on `main`.
+The branch was then verified as an ancestor of `main` and deleted normally
+from a clean `main` worktree; force deletion was not used. Only the two T218
+integration worktrees were removed. Other development worktrees were retained.
+
 Rollback before release: discard the integration branch/worktree. After the
 planned Git-only mainline merge, revert its single integration commit. There
 is no runtime rollback because T218 does not deploy.
