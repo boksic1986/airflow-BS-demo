@@ -23,9 +23,18 @@ backend endpoint. The backend idempotently marks the staged run failed, changes
 runs. The existing Submit UI already renders this state as a preparation error
 with a Run Detail link.
 
-validation: BS10610 candidate tests pass 64 backend WGS submission/platform
-tests and 28 DAG tests. Full backend and deployment acceptance are still in
-progress; do not treat the candidate as deployed until this entry is updated.
+validation: BS10610 candidate tests pass the full backend suite with 415 passed
+and 1 skipped, 64 focused WGS submission/platform tests, and 28 DAG tests.
+Release
+`20260907-airflow-demo-639cc4c-t216-submit-terminal-sync` is active; frontend
+and backend health are HTTP 200, Airflow has no import errors, and the loaded
+callback is `report_dag_failure`.
+
+current run: `20260904A` was retried as the same analysis ID at attempt 2 and
+DagRun `WGS_20260907_044653_9C8591-a2`. It prepared 3 samples successfully and
+is waiting at `submission_phase=config_review`. No Step1 transfer, Master,
+CCE, Local .97 or Step3-Step6 task has started. The operator must review and
+confirm configuration, then explicitly choose the Step 3 execution target.
 
 ## 2026-09-07 T215 supervised manual Submit Run enabled
 

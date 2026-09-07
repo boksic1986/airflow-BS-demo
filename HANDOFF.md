@@ -1,5 +1,63 @@
 # HANDOFF.md
 
+## 2026-09-07 - Codex - T216 staged Submit Run repaired
+
+Batch `20260904A` initially created `WGS_20260907_044653_9C8591`, but its first
+DagRun failed in `prepare_wgs_sampleinfo`. The exact node200 error was
+`WGS execution gate is disabled`: T215 had enabled the BS10610 control-plane
+gates, but staged sample/config preparation also uses the node200 owner gate
+before any Step 3 target is selected.
+
+Node200 now has `WGS_EXECUTION_ENABLED=true` and
+`WGS_RUNTIME_ADAPTER_ENABLED=true`; its prior mode-600 configuration is backed
+up at
+`/home/hanjj/.config/airflow-wgs/backups/T216-manual-submit-20260907T125840+0800/runtime.env.before`.
+The Step3 dry-run canary remains disabled. Scanner, auto-dispatch, node96 and
+SGE remain disabled.
+
+Code commit `639cc4c` adds an internal token-protected DagRun terminal endpoint
+and a `bio_wgs` failure callback. The callback reports only actual failed task
+instances, removes `release_leases` when a more specific root failure exists,
+and never treats `upstream_failed` as the cause. The backend fences by attempt,
+updates staged submission state to failed, writes one idempotent
+`airflow_dag_failed` action and preserves successful runs. No frontend source
+change was needed: Submit Run already renders a failed business state and Run
+Detail link, but previously never received that state.
+
+BS10610 now runs immutable release
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260907-airflow-demo-639cc4c-t216-submit-terminal-sync`.
+Only backend, Airflow API server/scheduler/worker and frontend nginx were
+recreated; PostgreSQL, Redis, FASTQ, OBS and result data were untouched. The
+previous release pointer is recorded under
+`backups/T216-submit-terminal-sync-20260907/current.before`.
+
+Validation:
+
+- full backend candidate suite: 415 passed, 1 skipped;
+- WGS submission/platform focus: 64 passed;
+- WGS DAG suite: 28 passed;
+- Compose config: passed using the deployed single `docker-compose.wgs.yaml`;
+- frontend and `/api/health`: HTTP 200;
+- Airflow import errors: none; loaded callback: `report_dag_failure`.
+
+The first failed attempt was projected with the readable
+`prepare_wgs_sampleinfo` cause, then retried through the existing exact
+`rerun_failed` path. Attempt 2 is DagRun
+`WGS_20260907_044653_9C8591-a2`; sample-information preparation succeeded with
+3 samples and it is waiting at `config_review`. Airflow confirms Step1,
+Master, CCE/Local and Step3-Step6 tasks have not started.
+
+The browser that retained the old failure state may need to enter
+`20260904A` and click Prepare sample information once more. The create endpoint
+is idempotent and returns the existing attempt 2 in config review; it does not
+create attempt 3. After configuration review, explicitly select `Local .97`
+in Step 3 if node97 is desired. CCE remains the default target.
+
+Do not roll back or recreate services while this DagRun is waiting for review.
+After it is terminal, rollback by restoring the recorded release pointer and
+node200 env backup, recreating the same stateless services, and leaving
+PostgreSQL/Redis volumes and analysis data intact.
+
 ## 2026-09-07 - Codex - T215 manual test submission enabled
 
 The disabled Submit Run screen was caused by deployment gates, not a frontend

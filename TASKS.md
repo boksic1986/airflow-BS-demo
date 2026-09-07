@@ -4,7 +4,7 @@
 
 Owner: backend/Airflow/runtime/QA/docs
 
-Status: implemented; BS10610 rollout in progress
+Status: done in BS10610 test environment
 
 Dependencies: T215
 
@@ -25,9 +25,9 @@ Acceptance:
   idempotence and success preservation.
 - [x] DAG tests prove only actual failed tasks are reported and cleanup/upstream
   failures are not presented as the root cause.
-- [ ] Deploy the immutable candidate and verify backend, Airflow import and
+- [x] Deploy the immutable candidate and verify backend, Airflow import and
   frontend/API health on BS10610.
-- [ ] Re-submit `20260904A` and confirm it reaches sample/config review without
+- [x] Re-submit `20260904A` and confirm it reaches sample/config review without
   starting Step1-Step6 before the operator chooses the Step 3 target.
 
 Restrictions:
