@@ -14,9 +14,31 @@ per-file bars while retaining exact byte totals and speed. A direct regression
 against the production database projected the live run as `Uploading FASTQ`
 with exact stage progress; no transfer or Airflow worker was restarted.
 
-Deployment validation and final release details are recorded below when T217
-is promoted. Roll back by restoring the T216 backend/frontend images only;
-there is no migration or data rewrite.
+T217 is deployed as
+`releases/20260907-airflow-demo-28c283f-t217-transfer-progress`. Frontend image
+`airflow-demo/frontend:t217-28c283f` was built on fengxian, downloaded to the
+local workstation, uploaded to BS10610 and verified with archive SHA256
+`524a635dd8145d95713f5b3d6c72472a5d4bf54a3e66b2d255678dd511da6db4`.
+
+Validation:
+
+- frontend Docker target: 13 files and 51 tests passed; production TypeScript
+  and Vite build passed; nginx syntax passed;
+- backend WGS dashboard focus: 5 passed, including stale-stage regression;
+- live candidate projection at Step1: `Uploading FASTQ`, exact 62%,
+  192173375488/312416298276 bytes, source
+  `wgs-runtime.transfer-progress.v2`;
+- Step1 then completed at 100% and all six transfer files became success;
+- deployed frontend and backend requests return HTTP 200;
+- Airflow worker/scheduler/observer and PostgreSQL/Redis were not restarted.
+
+The current run has advanced to `step2_master`. This stage does not expose a
+numeric runtime denominator, so an explicit detailed-progress-unavailable state
+there is expected; the completed Step1 file rows show full success bars.
+
+Rollback by restoring the recorded T216 current target and frontend image from
+`backups/T217-progress-20260907T1450-*`, then recreating only backend and
+frontend-nginx. There is no migration or data rewrite.
 
 ## 2026-09-07 - Codex - T216 staged Submit Run repaired
 

@@ -14,6 +14,14 @@ schema and transfer observer contract are unchanged. Candidate verification
 has reproduced the original failure and confirmed the corrected projection
 against the live run without restarting the transfer worker.
 
+Release `20260907-airflow-demo-28c283f-t217-transfer-progress` is active on
+BS10610. Frontend image `airflow-demo/frontend:t217-28c283f` has image ID
+`sha256:f7d8dfd144e1...`; its local-relay archive SHA256 is
+`524a635dd8145d95713f5b3d6c72472a5d4bf54a3e66b2d255678dd511da6db4`.
+Only backend and frontend-nginx were recreated. The Airflow worker, scheduler,
+observer, PostgreSQL and Redis were not restarted. Step1 reached 100% before
+the backend recreation and the run advanced to accepted Step2 Master startup.
+
 ## 2026-09-07 T216 staged submission terminal-state repair
 
 incident: batch `20260904A` created business run
