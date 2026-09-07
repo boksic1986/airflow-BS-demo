@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-## 2026-09-07 - Codex - T214 production-base/node97 integration in progress
+## 2026-09-07 - Codex - T214 test rollout and synthetic node97 smoke
 
 T214 uses clean worktree
 `D:\pipeline\airflow-demo-worktrees\T214-t213-node97-integration` and branch
@@ -15,10 +15,15 @@ committed `node-97` target. Node97 uses the restricted SSH gate, Snakemake 9,
 `node-97` target slot. Node96 and SGE remain fail closed; scanner and automatic
 dispatch are not part of this rollout.
 
-Current validation is source-only. The candidate archive was copied to the
-isolated BS10610 directory
-`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/validation/T214-05513a5`.
-Using existing dependency images with the candidate mounted read-only:
+The candidate was released on BS10610 as
+`releases/20260907-airflow-demo-efde023-t214-node97-smoke`; `current` points to
+that immutable directory. Biodemo migration `20260907_0016` was applied and
+the independent upload/download Airflow pools were initialized. The release
+uses the local dependency-identical backend image tag
+`airflow-demo/backend:t214-efde023-runtime` because BS10610's blocked Docker
+mirror prevents an offline Dockerfile build from resolving its base image.
+
+Validation with candidate source mounted read-only:
 
 - full backend: `413 passed`;
 - directional lease/dispatch/observer/platform subset: `152 passed`;
@@ -30,10 +35,18 @@ Using existing dependency images with the candidate mounted read-only:
 The first DAG invocation used the image's default entrypoint and selected the
 Snakemake-only Python, which lacks Airflow. Re-running with
 `--entrypoint /home/airflow/.local/bin/python` passed; this was a test-command
-error, not a product defect. No database migration, service restart, Airflow
-run, real FASTQ read, OBS mutation or execution gate change has occurred yet.
-Remaining work is an immutable test release, migration/config preflight and a
-synthetic node97 smoke only.
+error, not a product defect. `docker compose run airflow-init` was initially
+run without `--no-deps`, which recreated Redis even though no active run
+existed. Redis recovered healthy and Celery reconnected; future one-shot init
+commands must use `run --rm --no-deps`. Recreating backend changed its Docker
+IP while nginx held the old upstream; recreating only `frontend-nginx` restored
+root and `/api/health` HTTP 200.
+
+All execution/local/intake/auto-dispatch gates are false, `bio_wgs` is paused,
+there are no active business or Airflow runs, and all target/transfer leases
+are unowned. The remaining acceptance is a gate-only synthetic node97 smoke.
+It uses fixed sample `SMOKE001`, one core and two short rules; it does not read
+FASTQ or create an Airflow/business run. Focused tests for this scope pass 10.
 
 ## 2026-09-07 - Codex - T213 Step1-Step6/dispatch/lease integration candidate
 

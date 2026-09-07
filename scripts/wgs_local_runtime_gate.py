@@ -52,6 +52,13 @@ LOGGER_ROOT = Path(
     )
 )
 LOCAL_CORES = int(os.getenv("WGS_LOCAL_CORES", "96"))
+LOCAL_SNAKEMAKE_BIN = Path(
+    os.getenv(
+        "WGS_LOCAL_SNAKEMAKE_BIN",
+        "/bi/biodevrwbi/33.chenjiucheng/project/airflow-WGS/envs/"
+        "wgs-snakemake9/bin/snakemake",
+    )
+)
 
 
 def parse_command(value: str) -> tuple[str, int, str]:
@@ -322,13 +329,70 @@ def build_local_command(payload: dict[str, Any], batch: Path) -> list[str]:
     ]
 
 
-def run_local_analysis(payload: dict[str, Any]) -> None:
-    batch = prepare_local_snapshot(payload)
-    command = build_local_command(payload, batch)
-    log_dir = _evidence_directory(payload) / "mirror"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / "analysis.log"
-    environment = {
+def build_smoke_command(payload: dict[str, Any]) -> tuple[Path, list[str]]:
+    if payload.get("validation_scope") != "node97_smoke":
+        raise ValueError("node97 smoke requires the exact validation scope")
+    workdir = _evidence_directory(payload) / "synthetic-smoke"
+    workdir.mkdir(parents=True, exist_ok=True)
+    snakefile = workdir / "Snakefile"
+    snakefile.write_text(
+        'SAMPLE = "SMOKE001"\n\n'
+        "rule all:\n"
+        "    input:\n"
+        '        f"results/{SAMPLE}.done"\n\n'
+        "rule smoke_prepare:\n"
+        "    output:\n"
+        '        "work/input.ready"\n'
+        "    shell:\n"
+        '        "sleep 1; mkdir -p work; printf \'ready\\n\' > {output}"\n\n'
+        "rule smoke_sample:\n"
+        "    input:\n"
+        '        "work/input.ready"\n'
+        "    output:\n"
+        '        "results/{sample}.done"\n'
+        "    wildcard_constraints:\n"
+        '        sample="SMOKE001"\n'
+        "    shell:\n"
+        '        "sleep 2; mkdir -p results; printf \'{wildcards.sample}\\n\' > {output}"\n',
+        encoding="utf-8",
+    )
+    events = _evidence_directory(payload) / "rule-status" / "raw" / "node97.jsonl"
+    events.parent.mkdir(parents=True, exist_ok=True)
+    run_label = f"{payload['analysis_id']}-a{payload['attempt']}"
+    return workdir, [
+        str(LOCAL_SNAKEMAKE_BIN),
+        "--snakefile",
+        str(snakefile),
+        "--directory",
+        str(workdir),
+        "--cores",
+        "1",
+        "--rerun-incomplete",
+        "--printshellcmds",
+        "--show-failed-logs",
+        "--logger",
+        "airflow-demo",
+        "--logger-airflow-demo-analysis-id",
+        str(payload["analysis_id"]),
+        "--logger-airflow-demo-attempt",
+        str(payload["attempt"]),
+        "--logger-airflow-demo-pipeline-release-id",
+        str(payload["pipeline_release_id"]),
+        "--logger-airflow-demo-run-label",
+        run_label,
+        "--logger-airflow-demo-role",
+        "master",
+        "--logger-airflow-demo-stream-id",
+        "node97-smoke",
+        "--logger-airflow-demo-workdir",
+        str(workdir),
+        "--logger-airflow-demo-events-path",
+        str(events),
+    ]
+
+
+def _runtime_environment(payload: dict[str, Any]) -> dict[str, str]:
+    return {
         **os.environ,
         "PYTHONNOUSERSITE": "1",
         "PYTHONPATH": os.pathsep.join(
@@ -336,11 +400,40 @@ def run_local_analysis(payload: dict[str, Any]) -> None:
         ).rstrip(os.pathsep),
         "WGS_ATTEMPT_ID": f"{payload['analysis_id']}-a{payload['attempt']}",
     }
+
+
+def run_node97_smoke(payload: dict[str, Any]) -> None:
+    workdir, command = build_smoke_command(payload)
+    if not LOCAL_SNAKEMAKE_BIN.is_file():
+        raise ValueError("approved node97 Snakemake 9 executable is unavailable")
+    log_path = workdir / "smoke.log"
+    with log_path.open("a", encoding="utf-8") as log:
+        completed = subprocess.run(
+            command,
+            cwd=workdir,
+            env=_runtime_environment(payload),
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+    if completed.returncode != 0:
+        raise subprocess.CalledProcessError(completed.returncode, command)
+
+
+def run_local_analysis(payload: dict[str, Any]) -> None:
+    if payload.get("validation_scope") == "node97_smoke":
+        run_node97_smoke(payload)
+        return
+    batch = prepare_local_snapshot(payload)
+    command = build_local_command(payload, batch)
+    log_dir = _evidence_directory(payload) / "mirror"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "analysis.log"
     with log_path.open("a", encoding="utf-8") as log:
         completed = subprocess.run(
             command,
             cwd=batch,
-            env=environment,
+            env=_runtime_environment(payload),
             stdout=log,
             stderr=subprocess.STDOUT,
             check=False,

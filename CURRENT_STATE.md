@@ -1,6 +1,6 @@
 # CURRENT_STATE.md
 
-## 2026-09-07 T214 T213 plus node97 integration candidate
+## 2026-09-07 T214 T213 plus node97 integration test rollout
 
 scope: branch `jiucheng/wgs/T214-t213-node97-integration` starts at production
 candidate `1c011a8` and ports only the accepted node97 local-runner changes.
@@ -14,11 +14,18 @@ acquire the upload lease at commit and the download lease before Step5. Local
 success or recovery releases the local slot; transfer uncertainty still
 retains the matching directional lease and marks the dispatch for recovery.
 
-validation: source was exported to an isolated BS10610 validation directory;
-no service or `current` symlink has been changed yet. The full backend suite
-passes 413 tests, runner/gate suites pass 70 tests, and WGS DAG/deployment
-contracts pass 34 tests. This round is limited to a synthetic node97 smoke;
-no 0825A or other real family data will be submitted.
+deployment: BS10610 `current` points to immutable test release
+`20260907-airflow-demo-efde023-t214-node97-smoke`. Biodemo is at additive
+migration `20260907_0016`; directional Airflow pools exist and all transfer
+leases and local target slots are unowned. `bio_wgs` remains paused and every
+execution, local target, intake and auto-dispatch gate remains false.
+
+validation: the full backend suite passes 413 tests, runner/gate suites pass
+70 tests, and WGS DAG/deployment contracts pass 34 tests. A gate-only
+`validation_scope=node97_smoke` now generates fixed sample `SMOKE001`, runs two
+short Snakemake 9 rules with the production logger contract and never inspects
+a WGS batch or FASTQ. Its focused gate suite passes 10 tests. The live SSH
+smoke is still pending; no 0825A or other real family data will be submitted.
 
 ## 2026-09-07 T213 Step1-Step6 dispatch and directional-lease integration
 

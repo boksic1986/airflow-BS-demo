@@ -4,7 +4,7 @@
 
 Owner: backend/Airflow/runtime/QA/docs
 
-Status: implementation and isolated tests complete; BS10610 smoke rollout pending
+Status: test control plane deployed; synthetic node97 smoke pending
 
 Dependencies: T211,T213
 
@@ -20,7 +20,9 @@ Acceptance:
 - [x] Full backend suite passes 413 tests on the merged source.
 - [x] Runtime gate suites pass 70 tests and WGS DAG contracts pass 34 tests.
 - [x] Node97 commit leaves both directional OBS leases untouched.
-- [ ] Publish one immutable BS10610 test release and apply migration 0016.
+- [x] Publish immutable BS10610 test release `efde023` and apply migration 0016.
+- [x] Add a gate-only `node97_smoke` validation scope that runs fixed synthetic
+  sample `SMOKE001` without inspecting a real batch or FASTQ.
 - [ ] Run a synthetic node97 SSH/Snakemake/logger smoke and verify terminal
   projection plus local-slot release.
 - [ ] Restore the DAG pause state and every execution gate after smoke.

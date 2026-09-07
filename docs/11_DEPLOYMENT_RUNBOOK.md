@@ -24,6 +24,22 @@ and local-slot release only. It must not submit 0825A or any other real family
 and must not be reported as biological WGS acceptance. Restore all execution
 gates and the original DAG pause state after the smoke.
 
+T214's preferred acceptance is the internal forced-gate scope
+`validation_scope=node97_smoke`. It is not exposed by FastAPI, the project
+catalog or the Airflow DAG. The gate generates fixed synthetic sample
+`SMOKE001`, executes `smoke_prepare -> smoke_sample` with one Snakemake 9 core,
+writes the normal airflow-demo logger JSONL contract and exits in seconds. It
+must not inspect a batch root, read a FASTQ or use a real sample identifier. A
+positive smoke therefore proves only restricted SSH, Snakemake/logger startup
+and terminal marker behavior.
+
+Run one-shot Airflow initialization without starting or recreating dependencies:
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.wgs.yaml \
+  run --rm --no-deps airflow-init
+```
+
 The shared node97 request mapping is
 `/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime`; do not use the
 different `/sg2/33.chenjiucheng/...` directory. A release symlink must remain

@@ -1,5 +1,18 @@
 # 13 安全和运维约束
 
+## T214 synthetic node97 validation boundary
+
+- `validation_scope=node97_smoke` is accepted only by the node97 host gate. It
+  is not a public API option, project-catalog target or Airflow DAG branch.
+- The smoke uses fixed identifier `SMOKE001`, one Snakemake core and generated
+  files below the attempt evidence directory. It must not resolve a WGS batch,
+  read FASTQ, access OBS or write a biodemo run.
+- The browser cannot supply a Snakefile, executable path, shell command,
+  repository path or logger path. The approved Snakemake 9 executable and
+  logger release are server configuration.
+- Smoke evidence may be retained for engineering audit but must be labelled
+  synthetic and cannot be reported as biological WGS validation.
+
 ## T211 node97 local execution boundary
 
 - The node97 runner accepts only

@@ -130,6 +130,39 @@ def test_run_local_analysis_surfaces_process_failure(tmp_path: Path, monkeypatch
     assert caught.value.returncode == 17
 
 
+def test_node97_smoke_builds_a_synthetic_sample_workflow(tmp_path: Path, monkeypatch):
+    payload = _payload(tmp_path)
+    payload["validation_scope"] = "node97_smoke"
+    monkeypatch.setattr(gate, "EVIDENCE_ROOT", tmp_path / "evidence")
+    monkeypatch.setattr(gate, "LOCAL_SNAKEMAKE_BIN", tmp_path / "snakemake")
+
+    workdir, command = gate.build_smoke_command(payload)
+
+    snakefile = workdir / "Snakefile"
+    assert snakefile.is_file()
+    assert "SMOKE001" in snakefile.read_text(encoding="utf-8")
+    assert command[0] == str(tmp_path / "snakemake")
+    assert command[command.index("--cores") + 1] == "1"
+    assert command[command.index("--logger") + 1] == "airflow-demo"
+    assert "--forceall" not in command
+
+
+def test_node97_smoke_never_prepares_a_real_batch(tmp_path: Path, monkeypatch):
+    payload = _payload(tmp_path)
+    payload["validation_scope"] = "node97_smoke"
+    called = []
+    monkeypatch.setattr(
+        gate,
+        "prepare_local_snapshot",
+        lambda *_: pytest.fail("synthetic smoke must not inspect a WGS batch"),
+    )
+    monkeypatch.setattr(gate, "run_node97_smoke", lambda value: called.append(value))
+
+    gate.run_local_analysis(payload)
+
+    assert called == [payload]
+
+
 def test_convert_config_switches_only_executor(tmp_path: Path):
     source = {"execution": {"executor": "cce", "other": "keep"}, "value": 3}
     path = tmp_path / "config.yaml"
