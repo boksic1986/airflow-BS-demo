@@ -4,7 +4,7 @@
 
 Owner: release/QA/docs
 
-Status: validated; pending commit, main merge and push
+Status: completed; committed, fast-forwarded and pushed to `main`
 
 Acceptance:
 - [x] Create a clean integration worktree from current `main`.
@@ -12,7 +12,7 @@ Acceptance:
 - [x] Exclude local uncommitted development/test worktrees from the integration.
 - [x] Verify the remote production-source archive hash before importing it into the clean integration worktree.
 - [x] Pass backend 345/1, WGS DAG 15/15, frontend 57/57 plus build, and Compose config in isolated `.96` containers.
-- [ ] Commit the production snapshot, merge it into `main`, push, and remove only obsolete worktrees whose changes are safely represented elsewhere.
+- [x] Commit the production snapshot, merge it into `main`, push, and remove only obsolete worktrees whose changes are safely represented elsewhere.
 
 ## T217 - Step7 maintenance route and visible progress
 

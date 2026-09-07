@@ -21,6 +21,20 @@ Their uncommitted development content remains outside `main` unless it is also
 present in the published production snapshot. Do not force-remove a dirty
 worktree until its unique changes have been preserved or explicitly discarded.
 
+Production snapshot commit `0ac4859` was fast-forwarded into `main` and pushed
+to `origin/main`. Clean obsolete worktrees T168, T192, T204 and T206/T208 were
+removed. The published T217 patch was first preserved as commit `5a68e10`, then
+its clean worktree was removed. Git removed the T211 worktree registration but
+Windows could not remove its empty directory because another process still has
+it open; no force or process interruption was attempted.
+
+Dirty T193, T205/T210 and T213 plus active T214/T216 remain available and were
+not merged. T146, T194, T203 and T209 contain untracked local evidence archives;
+they were retained because deleting them would be irreversible. The first
+post-fetch `git pull --ff-only` attempt timed out connecting to GitHub SSH, but
+the immediately preceding fetch had proved local and remote main equal. The
+subsequent `git push origin main` succeeded normally without force.
+
 Rollback: revert the single T218 production snapshot commit from `main`. This
 Git-only integration does not require a production runtime rollback.
 

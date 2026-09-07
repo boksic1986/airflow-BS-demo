@@ -7,6 +7,8 @@ scope: import only the source currently published by /data/airflow-WGS/current i
 provenance: remote production source archive SHA256 2cff6eeda3194196388560a09c4e86833d83fa6e474e77f4096645347bcc8a64; the clean integration branch was assembled from `main` plus this source and the T218 state record.
 validation: isolated .96 backend suite 345 passed / 1 skipped; bio_wgs DAG suite 15/15; frontend suite 15 files / 57 tests; TypeScript/Vite production build passed; production-env Docker Compose config passed.
 runtime_impact: none. The sync used read-only release source plus isolated test/build containers and did not recreate production services, modify databases, or touch analysis data.
+mainline: production snapshot commit 0ac4859 was fast-forwarded to `main` and pushed to `origin/main`. Clean obsolete worktrees T168, T192, T204, T206/T208 and T217 were removed; T217's published patch remains preserved as commit 5a68e10. The T211 registration was removed but its now-empty directory is held open by another process and was left untouched.
+preserved_development: dirty T193, T205/T210 and T213 worktrees plus the active T214/T216 worktree were not merged or deleted. Older worktrees containing untracked local evidence were also retained rather than force-discarded.
 ```
 
 ## 2026-09-07 T217 Step7 maintenance routing and progress
