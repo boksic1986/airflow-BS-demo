@@ -219,6 +219,41 @@ def _active_heavy_pod_count(session) -> int:
     return sum(1 for row in rows if bool((row.resources_json or {}).get("heavy_io")))
 
 
+def project_global_heavy_slot(
+    *,
+    session,
+    limit: int | None,
+    mode: str | None,
+    evidence_root: str | None,
+) -> dict[str, object]:
+    root = Path(evidence_root) if evidence_root else None
+    reliable = bool(
+        limit is not None
+        and int(limit) > 0
+        and str(mode or "").strip()
+        and root is not None
+        and root.is_dir()
+        and not root.is_symlink()
+    )
+    if not reliable:
+        return {
+            "pool": "wgs-heavy-io",
+            "used": None,
+            "limit": None,
+            "waiting": None,
+            "mode": None,
+            "available": False,
+        }
+    return {
+        "pool": "wgs-heavy-io",
+        "used": _active_heavy_pod_count(session),
+        "limit": int(limit),
+        "waiting": _heavy_slot_waiting_count(str(root)),
+        "mode": str(mode),
+        "available": True,
+    }
+
+
 def _heavy_slot_waiting_count(evidence_root: str | None) -> int:
     if not evidence_root:
         return 0

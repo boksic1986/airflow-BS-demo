@@ -825,8 +825,14 @@ def wgs_projects() -> dict[str, object]:
 
 @app.get("/api/platform/resources")
 def platform_resources() -> dict[str, object]:
+    settings = get_settings()
     with get_sessionmaker()() as session:
-        return get_platform_resources(session=session)
+        return get_platform_resources(
+            session=session,
+            heavy_slot_limit=int(settings.wgs_heavy_slot_limit),
+            heavy_slot_mode=str(settings.wgs_heavy_slot_mode),
+            evidence_root=str(settings.wgs_evidence_root or ""),
+        )
 
 
 @app.post("/api/wgs/runs", status_code=status.HTTP_201_CREATED)

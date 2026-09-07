@@ -44,6 +44,33 @@ it("labels manual runs and exposes QC unavailable without sample metric rows", (
   expect(screen.queryByText("Not captured")).not.toBeInTheDocument();
 });
 
+it("uses the backend operator display name and compact intake lifecycle fields", () => {
+  const intakeRun = {
+    ...manualRun,
+    analysis_id: "WGS_AUTO",
+    pipeline: "wgs",
+    run_source: "intake" as const,
+    submitted_by: "wgs-intake-scanner",
+    operator_display_name: "wgs-scanner",
+    lifecycle: {
+      workflow: {status: "success" as const},
+      cloud_release: {status: "success" as const},
+      raw_fastq_backup: {status: "running" as const},
+      downstream_release: {status: "not_started" as const},
+    },
+  } as DashboardRunTrackerRow & {operator_display_name: string};
+
+  const {container} = render(<MemoryRouter><RunTracker rows={[intakeRun]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={vi.fn()} onKeywordChange={vi.fn()} onPageChange={vi.fn()} onSubmit={vi.fn()} onSync={vi.fn()} /></MemoryRouter>);
+
+  expect(screen.getByText("wgs-scanner / 20 samples")).toBeInTheDocument();
+  expect(screen.queryByText(/Operator wgs/)).not.toBeInTheDocument();
+  expect(screen.getByText("Intake")).toBeInTheDocument();
+  expect(screen.getByText("Delivery")).toBeInTheDocument();
+  expect(screen.queryByText("Backup")).not.toBeInTheDocument();
+  expect(container.querySelector(".run-tracker-col-project")).toBeInTheDocument();
+  expect(container.querySelectorAll(".tracker-time-cell")).toHaveLength(2);
+});
+
 it("shows Batch and Finished in the Batch Runs table", () => {
   const run = {
     analysis_id: "WGS_BATCH_RUN",

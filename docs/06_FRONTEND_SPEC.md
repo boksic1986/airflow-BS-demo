@@ -1364,3 +1364,30 @@ even before an Airflow `dag_run_id` exists; Airflow sync is attempted only when
 that ID is present. Empty evidence and observer errors remain visible states.
 # T131: New WGS runs use project, batch number and controlled FASTQ link path.
 # Run Detail adds needs-review, transfer progress and Rule timing/ETA views.
+## T220 WGS console display contract
+
+- Run Tracker Project cells show project, run ID, `display name / N samples`,
+  and Manual/Intake source. They do not render the `Operator` prefix. The
+  compact lifecycle column shows Cloud and Delivery; Backup remains available
+  only in the complete Run Detail lifecycle panel. `Downstream release` is
+  displayed as `Result delivery`, without changing the API field name.
+- Project width is approximately 190 px. Runtime and Started/Finished columns
+  use fixed compact widths; timestamps render date and time on separate lines
+  without breaking inside the ISO date.
+- Analysis Node Health and Cloud Resources have the same title/Updated and
+  32 px tag/status control row. Cloud Resources shows SFS capacity followed by
+  the global Heavy Slot meter. Unavailable capacity or quota data is labeled
+  unavailable rather than rendered as zero.
+- SFS I/O selects `1H`, `24H`, or `7D`. Points are placed by their actual
+  collection timestamps. Invalid timestamps are ignored. The X axis uses five
+  15-minute `HH:mm` ticks, five 6-hour `HH:00` ticks, or eight daily `MM-DD`
+  ticks respectively, formatted in the configured display time zone.
+- WGS Run Detail places Current progress and Pipeline evidence in a 2:1 grid
+  on wide screens and stacks them on narrow screens. Global Heavy Slot quota is
+  not repeated in Current progress.
+- WGS tabs are ordered `Overview | Samples | Rules | Master | Transfers | QC |
+  Logs | Files`. Samples shows QC status as an accessible status badge and has
+  no Safe QC metrics column. QC displays Sample, status, Q30, mapped reads,
+  average depth, >=20X and contamination from the backend sample projection.
+  Pending, unavailable, and missing values are explicit and no clinical
+  identity or raw path is displayed.

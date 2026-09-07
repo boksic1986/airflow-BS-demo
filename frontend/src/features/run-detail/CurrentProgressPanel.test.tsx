@@ -24,7 +24,7 @@ describe("CurrentProgressPanel", () => {
     expect(screen.queryByText(/1073741824\/2147483648 bytes/)).not.toBeInTheDocument();
   });
 
-  it("shows heavy IO work pod quota separately from CPU capacity", () => {
+  it("does not mix the global heavy IO quota into run progress", () => {
     const detail = {
       analysis_id: "WGS_HEAVY",
       pipeline: "wgs",
@@ -37,7 +37,7 @@ describe("CurrentProgressPanel", () => {
       slotUsage={{pool: "wgs-heavy-io", used: 7, limit: 25, waiting: 2, mode: "monitor-only"}}
     />);
 
-    expect(screen.getByText("7 / 25 heavy work pods")).toBeInTheDocument();
-    expect(screen.getByText("2 waiting / monitor only")).toBeInTheDocument();
+    expect(screen.queryByText("7 / 25 heavy work pods")).not.toBeInTheDocument();
+    expect(screen.queryByText("2 waiting / monitor only")).not.toBeInTheDocument();
   });
 });

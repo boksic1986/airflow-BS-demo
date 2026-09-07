@@ -2,7 +2,7 @@ import {useState} from "react";
 
 import type {DashboardOverview, DashboardPipeline, DashboardRunTrackerRow, PlatformResourceSnapshot, PlatformResourcesResponse} from "../../api";
 import {StatusBadge} from "../../components/StatusBadge";
-import {formatBytes, formatDate} from "../../lib/format";
+import {displayTimeZoneLabel, formatBytes, formatDate} from "../../lib/format";
 
 export function DashboardResourcePanels({resources, loading, error}: {
   resources: PlatformResourcesResponse | null;
@@ -23,8 +23,8 @@ export function DashboardResourcePanels({resources, loading, error}: {
     || nodes[0];
   const selectedSfs = cloud[0];
   return <section className="dashboard-ops-grid" aria-busy={loading}>
-    <section className="panel"><ResourceHeading title="Analysis Node Health" updatedAt={selectedNode?.source_updated_at} />{nodes.length > 0 ? <div className="resource-tabs" role="tablist" aria-label="Analysis node">{nodes.map((node) => <button key={node.resource_key} type="button" role="tab" aria-selected={selectedNode?.resource_key === node.resource_key} className={selectedNode?.resource_key === node.resource_key ? "active" : ""} onClick={() => setSelectedNodeKey(node.resource_key)}>{nodeTabLabel(node)}</button>)}</div> : null}{error ? <div className="inline-error" role="alert">Resources unavailable: {error}</div> : null}<div className="resource-card-list">{selectedNode ? <NodeResource item={selectedNode} /> : <p className="empty-state">Node metrics are not available yet.</p>}</div></section>
-    <section className="panel"><ResourceHeading title="Cloud Resources" updatedAt={selectedSfs?.source_updated_at} /><div className="resource-card-list">{cloud.map((item) => <CloudResource key={item.resource_key} item={item} />)}{cloud.length === 0 ? <p className="empty-state">SFS metrics are not available yet. WGS execution is unaffected.</p> : null}</div></section>
+    <section className="panel resource-overview-panel"><ResourceHeading title="Analysis Node Health" updatedAt={selectedNode?.source_updated_at} /><div className="resource-control-row">{nodes.length > 0 ? <div className="resource-tabs" role="tablist" aria-label="Analysis node">{nodes.map((node) => <button key={node.resource_key} type="button" role="tab" aria-selected={selectedNode?.resource_key === node.resource_key} className={selectedNode?.resource_key === node.resource_key ? "active" : ""} onClick={() => setSelectedNodeKey(node.resource_key)}>{nodeTabLabel(node)}</button>)}</div> : <span />}{selectedNode ? <StatusBadge status={selectedNode.status} size="sm" /> : null}</div>{error ? <div className="inline-error" role="alert">Resources unavailable: {error}</div> : null}<div className="resource-card-list">{selectedNode ? <NodeResource item={selectedNode} /> : <p className="empty-state">Node metrics are not available yet.</p>}</div></section>
+    <section className="panel resource-overview-panel"><ResourceHeading title="Cloud Resources" updatedAt={selectedSfs?.source_updated_at} /><div className="resource-control-row">{selectedSfs ? <strong className="resource-tag">{selectedSfs.display_name}</strong> : <span />}{selectedSfs ? <StatusBadge status={selectedSfs.status} size="sm" /> : null}</div><div className="resource-card-list">{selectedSfs ? <CloudResource item={selectedSfs} heavySlot={resources?.heavy_slot} /> : <p className="empty-state">SFS metrics are not available yet. WGS execution is unaffected.</p>}</div></section>
     <SfsIoPanel item={selectedSfs} />
   </section>;
 }
@@ -45,7 +45,7 @@ function NodeResource({item}: {item: PlatformResourceSnapshot}) {
     ? (Math.max(...loads as number[]) / cpuCount) * 100
     : null;
   const loadDetail = loads.map((load) => load == null ? "not reported" : metric(load)).join(" / ");
-  return <article className="resource-snapshot"><div className="resource-status-row"><span /><StatusBadge status={item.status} size="sm" /></div><div className="resource-meter-stack"><UtilizationBar label="CPU utilization" percent={cpu} detail={cpu == null ? "not reported" : `${cpu.toFixed(1)}%`} /><UtilizationBar label="Memory utilization" percent={memory} detail={memory == null ? "not reported" : `${memory.toFixed(1)}%`} /><UtilizationBar label="Load 1 / 5 / 15" percent={loadPercent} detail={loadDetail} tone={loadTone(loadPercent)} /></div>{item.error_message ? <p className="inline-error">{item.error_message}</p> : null}</article>;
+  return <article className="resource-snapshot"><div className="resource-meter-stack"><UtilizationBar label="CPU utilization" percent={cpu} detail={cpu == null ? "not reported" : `${cpu.toFixed(1)}%`} /><UtilizationBar label="Memory utilization" percent={memory} detail={memory == null ? "not reported" : `${memory.toFixed(1)}%`} /><UtilizationBar label="Load 1 / 5 / 15" percent={loadPercent} detail={loadDetail} tone={loadTone(loadPercent)} /></div>{item.error_message ? <p className="inline-error">{item.error_message}</p> : null}</article>;
 }
 
 function nodeTabLabel(item: PlatformResourceSnapshot): string {
@@ -53,7 +53,7 @@ function nodeTabLabel(item: PlatformResourceSnapshot): string {
   return suffix ? `172.17.61.${suffix}` : item.display_name;
 }
 
-function CloudResource({item}: {item: PlatformResourceSnapshot}) {
+function CloudResource({item, heavySlot}: {item: PlatformResourceSnapshot; heavySlot?: PlatformResourcesResponse["heavy_slot"]}) {
   const value = item.current;
   const percent = numeric(value.capacity_used_percent);
   const used = numeric(value.capacity_used_bytes);
@@ -61,7 +61,14 @@ function CloudResource({item}: {item: PlatformResourceSnapshot}) {
   const detail = used != null && total != null
     ? `${formatBytes(used)} / ${formatBytes(total)}`
     : percent == null ? "not reported" : `${percent.toFixed(1)}% used`;
-  return <article className="resource-snapshot"><div><strong className="resource-tag">{item.display_name}</strong><StatusBadge status={item.status} size="sm" /></div><div className="resource-meter-stack"><UtilizationBar label="SFS capacity utilization" percent={percent} detail={detail} /></div><div className="heavy-slot-reserved" aria-hidden="true" /></article>;
+  const slotPercent = heavySlot?.available && heavySlot.limit && heavySlot.used != null
+    ? (heavySlot.used / heavySlot.limit) * 100
+    : null;
+  const slotDetail = slotPercent == null ? "unavailable" : `${heavySlot?.used} / ${heavySlot?.limit}`;
+  const slotNote = heavySlot?.available
+    ? `${heavySlot.waiting ?? 0} waiting · ${heavySlot.mode || "unavailable"}`
+    : "waiting and mode unavailable";
+  return <article className="resource-snapshot"><div className="resource-meter-stack"><UtilizationBar label="SFS capacity utilization" percent={percent} detail={detail} /><UtilizationBar label="Heavy slots utilization" percent={slotPercent} detail={slotDetail} tone={loadTone(slotPercent)} /><small className="resource-slot-note">{slotNote}</small></div>{item.error_message ? <p className="inline-error">{item.error_message}</p> : null}</article>;
 }
 
 function UtilizationBar({label, percent, detail, tone = "healthy"}: {label: string; percent: number | null; detail: string; tone?: "healthy" | "warning" | "danger"}) {
@@ -78,28 +85,49 @@ function loadTone(percent: number | null): "healthy" | "warning" | "danger" {
 function SfsIoPanel({item}: {item?: PlatformResourceSnapshot}) {
   const [period, setPeriod] = useState<"1h" | "24h" | "7d">("24h");
   const allPoints = (item?.history || []).map((point) => ({
-    at: String(point.at || ""),
-    read: numeric(point.read_bps) || 0,
-    write: numeric(point.write_bps) || 0,
-  }));
-  const latestAt = Math.max(0, ...allPoints.map((point) => Date.parse(point.at)).filter(Number.isFinite));
-  const hours = period === "7d" ? 7 * 24 : period === "1h" ? 1 : 24;
-  const points = allPoints.filter((point) => {
-    const observedAt = Date.parse(point.at);
-    return !latestAt || !Number.isFinite(observedAt) || observedAt >= latestAt - hours * 60 * 60 * 1000;
-  });
+    at: Date.parse(String(point.at || "")),
+    read: numeric(point.read_bps) ?? 0,
+    write: numeric(point.write_bps) ?? 0,
+  })).filter((point) => Number.isFinite(point.at));
+  const latestAt = Math.max(0, ...allPoints.map((point) => point.at));
+  const window = chartWindow(period, latestAt);
+  const points = allPoints.filter((point) => point.at >= window.startAt && point.at <= window.endAt);
   const current = item?.current || {};
-  return <section className="panel"><div className="section-heading split"><h2>SFS I/O</h2><div className="period-selector compact-period-selector" role="tablist" aria-label="SFS I/O period">{(["1h", "24h", "7d"] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={period === value} className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{value}</button>)}</div></div>{points.length > 1 ? <BandwidthChart points={points} /> : <p className="empty-state">SFS I/O history is not available yet.</p>}<div className="sfs-io-current"><span><i className="sfs-read-dot" />Read <strong>{formatRate(current.read_bps)}</strong></span><span><i className="sfs-write-dot" />Write <strong>{formatRate(current.write_bps)}</strong></span><span>Total <strong>{formatRate(current.total_bps)}</strong></span><span>Current IOPS <strong>{metric(current.iops)}</strong></span></div><p className="resource-unit-note">Bandwidth uses binary units (GiB/s).</p></section>;
+  return <section className="panel"><div className="section-heading split"><h2>SFS I/O</h2><div className="period-selector compact-period-selector" role="tablist" aria-label="SFS I/O period">{(["1h", "24h", "7d"] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={period === value} className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{value.toUpperCase()}</button>)}</div></div>{points.length > 1 ? <BandwidthChart points={points} startAt={window.startAt} endAt={window.endAt} ticks={window.ticks} period={period} /> : <p className="empty-state">SFS I/O history is not available yet.</p>}<div className="sfs-io-current"><span><i className="sfs-read-dot" />Read <strong>{formatRate(current.read_bps)}</strong></span><span><i className="sfs-write-dot" />Write <strong>{formatRate(current.write_bps)}</strong></span><span>Total <strong>{formatRate(current.total_bps)}</strong></span><span>Current IOPS <strong>{metric(current.iops)}</strong></span></div><p className="resource-unit-note">Bandwidth uses binary units (GiB/s).</p></section>;
 }
 
-function BandwidthChart({points}: {points: Array<{at: string; read: number; write: number}>}) {
+function BandwidthChart({points, startAt, endAt, ticks, period}: {points: Array<{at: number; read: number; write: number}>; startAt: number; endAt: number; ticks: number[]; period: "1h" | "24h" | "7d"}) {
   const maximum = Math.max(1, ...points.flatMap((point) => [point.read, point.write]));
-  const coordinates = (key: "read" | "write") => points.map((point, index) => {
-    const x = points.length === 1 ? 0 : (index / (points.length - 1)) * 300;
+  const coordinates = (key: "read" | "write") => points.map((point) => {
+    const x = ((point.at - startAt) / Math.max(1, endAt - startAt)) * 300;
     const y = 92 - (point[key] / maximum) * 82;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
-  return <div className="sfs-chart-layout"><div className="sfs-chart-y-axis" aria-label="SFS bandwidth Y axis"><span>{formatRate(maximum)}</span><span>{formatRate(maximum / 2)}</span><span>{formatRate(0)}</span></div><svg className="sfs-io-chart" viewBox="0 0 300 100" role="img" aria-label="SFS read and write bandwidth history" preserveAspectRatio="none"><line x1="0" y1="92" x2="300" y2="92" className="sfs-chart-axis" /><line x1="0" y1="51" x2="300" y2="51" className="sfs-chart-grid" /><line x1="0" y1="10" x2="300" y2="10" className="sfs-chart-grid" /><polyline points={coordinates("read")} className="sfs-chart-read" /><polyline points={coordinates("write")} className="sfs-chart-write" /></svg></div>;
+  return <div className="sfs-chart-layout"><div className="sfs-chart-y-axis" aria-label="SFS bandwidth Y axis"><span>{formatRate(maximum)}</span><span>{formatRate(maximum / 2)}</span><span>{formatRate(0)}</span></div><div className="sfs-chart-plot"><svg className="sfs-io-chart" viewBox="0 0 300 100" role="img" aria-label="SFS read and write bandwidth history" preserveAspectRatio="none"><line x1="0" y1="92" x2="300" y2="92" className="sfs-chart-axis" /><line x1="0" y1="51" x2="300" y2="51" className="sfs-chart-grid" /><line x1="0" y1="10" x2="300" y2="10" className="sfs-chart-grid" /><polyline points={coordinates("read")} className="sfs-chart-read" /><polyline points={coordinates("write")} className="sfs-chart-write" /></svg><div className="sfs-chart-x-axis" aria-label="SFS bandwidth X axis">{ticks.map((tick) => <span key={tick}>{formatTick(tick, period)}</span>)}</div></div></div>;
+}
+
+function chartWindow(period: "1h" | "24h" | "7d", latestAt: number) {
+  const interval = period === "1h" ? 15 * 60_000 : period === "24h" ? 6 * 60 * 60_000 : 24 * 60 * 60_000;
+  const count = period === "7d" ? 8 : 5;
+  const anchor = latestAt || Date.now();
+  const endAt = Math.ceil(anchor / interval) * interval;
+  const startAt = endAt - interval * (count - 1);
+  return {startAt, endAt, ticks: Array.from({length: count}, (_, index) => startAt + index * interval)};
+}
+
+function formatTick(value: number, period: "1h" | "24h" | "7d"): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: displayTimeZoneLabel(),
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "00";
+  if (period === "7d") return `${part("month")}-${part("day")}`;
+  if (period === "24h") return `${part("hour")}:00`;
+  return `${part("hour")}:${part("minute")}`;
 }
 
 function formatRate(value: unknown): string {

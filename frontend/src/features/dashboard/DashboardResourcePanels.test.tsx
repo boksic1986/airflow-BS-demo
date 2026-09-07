@@ -6,9 +6,10 @@ import {MemoryRouter} from "react-router-dom";
 import type {PlatformResourcesResponse} from "../../api";
 import {DashboardResourcePanels} from "./DashboardResourcePanels";
 
-const resources: PlatformResourcesResponse = {
+const resources: PlatformResourcesResponse & {heavy_slot: {pool: string; used: number; limit: number; waiting: number; mode: string; available: boolean}} = {
   status: "healthy",
   updated_at: "2026-09-02T15:00:00Z",
+  heavy_slot: {pool: "wgs-heavy-io", used: 7, limit: 25, waiting: 2, mode: "enforce", available: true},
   items: [
     {
       resource_key: "node-96",
@@ -114,6 +115,13 @@ it("shows compact node and SFS utilization bars with updated times in the headin
   const cloudPanel = screen.getByRole("heading", {name: "Cloud Resources"}).closest("section");
   expect(within(nodePanel!).getByText(/Updated/)).toBeInTheDocument();
   expect(within(cloudPanel!).getByText(/Updated/)).toBeInTheDocument();
+  expect(nodePanel).toHaveClass("resource-overview-panel");
+  expect(cloudPanel).toHaveClass("resource-overview-panel");
+  expect(nodePanel?.querySelector(".resource-control-row")).toBeInTheDocument();
+  expect(cloudPanel?.querySelector(".resource-control-row")).toBeInTheDocument();
+  expect(within(cloudPanel!).getByText("7 / 25")).toBeInTheDocument();
+  expect(within(cloudPanel!).getByText("2 waiting · enforce")).toBeInTheDocument();
+  expect(within(cloudPanel!).getByRole("progressbar", {name: "Heavy slots utilization"})).toHaveAttribute("aria-valuenow", "28");
 
   fireEvent.click(within(tabs).getByRole("tab", {name: "172.17.61.97"}));
 
@@ -146,11 +154,14 @@ it("replaces workflow activity with the SFS read and write history", () => {
   expect(screen.queryByRole("heading", {name: "Workflow Activity"})).not.toBeInTheDocument();
   expect(screen.getByRole("heading", {name: "SFS I/O"})).toBeInTheDocument();
   expect(screen.getByText("Bandwidth uses binary units (GiB/s).")).toBeInTheDocument();
-  expect(screen.getByRole("tab", {name: "24h"})).toHaveAttribute("aria-selected", "true");
-  expect(screen.getByRole("tab", {name: "1h"})).toBeInTheDocument();
-  expect(screen.getByRole("tab", {name: "7d"})).toBeInTheDocument();
+  expect(screen.getByRole("tab", {name: "24H"})).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("tab", {name: "1H"})).toBeInTheDocument();
+  expect(screen.getByRole("tab", {name: "7D"})).toBeInTheDocument();
   expect(screen.queryByText("Read and write bandwidth, latest 60 samples")).not.toBeInTheDocument();
   expect(screen.getByRole("img", {name: "SFS read and write bandwidth history"})).toBeInTheDocument();
+  const readPoints = screen.getByRole("img", {name: "SFS read and write bandwidth history"}).querySelector(".sfs-chart-read")?.getAttribute("points") || "";
+  expect(readPoints).not.toMatch(/^0\.0,/);
+  expect(readPoints).not.toMatch(/300\.0,/);
   const yAxis = screen.getByLabelText("SFS bandwidth Y axis");
   expect(within(yAxis).getByText("8.0 KiB/s")).toBeInTheDocument();
   expect(within(yAxis).getByText("4.0 KiB/s")).toBeInTheDocument();
@@ -160,6 +171,16 @@ it("replaces workflow activity with the SFS read and write history", () => {
   expect(screen.getByText("Total")).toBeInTheDocument();
   expect(screen.getByText("Current IOPS")).toBeInTheDocument();
   expect(screen.getByText("12")).toBeInTheDocument();
+  const defaultAxis = screen.getByLabelText("SFS bandwidth X axis");
+  expect(within(defaultAxis).getAllByText(/\d{2}:00/)).toHaveLength(5);
+
+  fireEvent.click(screen.getByRole("tab", {name: "1H"}));
+  const hourAxis = screen.getByLabelText("SFS bandwidth X axis");
+  expect(within(hourAxis).getAllByText(/\d{2}:\d{2}/)).toHaveLength(5);
+
+  fireEvent.click(screen.getByRole("tab", {name: "7D"}));
+  const weekAxis = screen.getByLabelText("SFS bandwidth X axis");
+  expect(within(weekAxis).getAllByText(/\d{2}-\d{2}/)).toHaveLength(8);
 });
 
 it("does not report zero utilization when a metric is unavailable", () => {

@@ -11,6 +11,7 @@ export function OperationProjectCell({
   sampleCount,
   source,
   sourceBatchId,
+  showOperatorPrefix = true,
 }: {
   analysisId?: string | null;
   projectName?: string | null;
@@ -19,6 +20,7 @@ export function OperationProjectCell({
   sampleCount: number;
   source: "manual" | "intake";
   sourceBatchId?: string | null;
+  showOperatorPrefix?: boolean;
 }) {
   const title = projectName || fallbackId;
   const displaySourceBatchId = sourceBatchId?.trim() && sourceBatchId.trim() !== "." ? sourceBatchId.trim() : null;
@@ -30,7 +32,7 @@ export function OperationProjectCell({
       {analysisId ? (
         <Link className="mono tracker-run-link" to={`/runs/${encodeURIComponent(analysisId)}`}>{analysisId}</Link>
       ) : null}
-      <span className="muted">Operator {submittedBy || "not captured"} / {sampleCount} samples</span>
+      <span className="muted">{showOperatorPrefix ? "Operator " : ""}{submittedBy || "not captured"} / {sampleCount} samples</span>
       <span className="tracker-source-line">
         <span className={`run-source-tag source-${source}`}>{source === "intake" ? "Intake" : "Manual"}</span>
         {displaySourceBatchId ? <span title="Source batch">{displaySourceBatchId}</span> : null}

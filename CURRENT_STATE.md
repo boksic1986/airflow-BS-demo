@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-07 T220 WGS console layout and QC separation
+
+```text
+scope: source-only dashboard and Run Detail refinement from main@5a26b46. No Airflow DAG, database schema, collector interval, execution behavior, production service or published port changes.
+run_tracker: auto_dispatch is projected as Intake; wgs-intake-scanner is displayed as wgs-scanner while the stored submitted_by audit identity remains unchanged. The compact lifecycle column shows Cloud and Delivery only, with tighter runtime/timestamp columns and a wider Project column.
+resources: /api/platform/resources now includes a read-only heavy_slot projection from existing KubernetesWorkload rows and recent waiting evidence. Missing quota/evidence returns unavailable with null values. Analysis Node Health and Cloud Resources share one control-row layout, and SFS I/O uses real sample timestamps with 1H/24H/7D time ticks.
+run_detail: Current progress and Pipeline evidence use a responsive 2:1 grid. Global Heavy Slot text is removed from run progress. Samples retains only a QC status badge; an independent QC tab renders the allowlisted batch QCstat projection for Q30, mapped reads, average depth, >=20X and contamination.
+privacy: no QCstat parsing was added to the browser and no name, hospital, raw path or unapproved QC field was added to the API or UI.
+validation: isolated .96 frontend validation passed 15 files / 64 tests plus the TypeScript/Vite production build. The three new backend regressions passed; the complete backend invocation reached 408 passed / 29 failed / 1 skipped, while an identical main@5a26b46 control reached 405 passed / the same 29 failed / 1 skipped. The unchanged failures are legacy PGTA/NIPT tests incompatible with the repository's WGS-only DEPLOYED_PIPELINES guard, so T220 adds three passes and no failure. Test containers used only network none or the existing nipt_analysis_test_net (192.168.199.0/24, gateway .1); no additional Docker network was created.
+deployment: not performed by T220. Production analysis and services remain untouched.
+```
+
 ## 2026-09-07 T219 WGS stage terminal progress production sync
 
 ```text

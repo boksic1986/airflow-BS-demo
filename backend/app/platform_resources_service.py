@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import select
 
 from app.models import PlatformResourceSnapshot
+from app.wgs_workspace_service import project_global_heavy_slot
 
 
 RESOURCE_STALE_AFTER = {
@@ -80,7 +81,14 @@ def record_resource_error(*, session, resource_key: str, resource_type: str,
     return row
 
 
-def get_platform_resources(*, session, now: datetime | None = None) -> dict[str, Any]:
+def get_platform_resources(
+    *,
+    session,
+    now: datetime | None = None,
+    heavy_slot_limit: int | None = None,
+    heavy_slot_mode: str | None = None,
+    evidence_root: str | None = None,
+) -> dict[str, Any]:
     observed = now or datetime.now(timezone.utc)
     rows = session.scalars(
         select(PlatformResourceSnapshot)
@@ -116,7 +124,17 @@ def get_platform_resources(*, session, now: datetime | None = None) -> dict[str,
         overall = "degraded"
     elif not items or any(item["status"] == "stale" for item in items):
         overall = "stale"
-    return {"status": overall, "items": items, "updated_at": observed.isoformat()}
+    return {
+        "status": overall,
+        "items": items,
+        "updated_at": observed.isoformat(),
+        "heavy_slot": project_global_heavy_slot(
+            session=session,
+            limit=heavy_slot_limit,
+            mode=heavy_slot_mode,
+            evidence_root=evidence_root,
+        ),
+    }
 
 
 def _aware(value: datetime | None) -> datetime | None:

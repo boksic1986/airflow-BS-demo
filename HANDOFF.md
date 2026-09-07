@@ -1,5 +1,27 @@
 # HANDOFF.md
 
+## 2026-09-07 T220 WGS console layout and QC separation
+
+Goal: implement the approved T220 backend projection and frontend layout/QC changes on a clean branch from `main@5a26b46`, validate on `.96`, then fast-forward `main` without production deployment.
+
+Completed:
+- Added Intake and scanner display-name projection while preserving raw `submitted_by`.
+- Added nullable global Heavy Slot projection to `/api/platform/resources` using existing Kubernetes workload and waiting evidence.
+- Updated Run Tracker density/lifecycle labels, aligned resource panels, and added real-time SFS X axes.
+- Added responsive Current progress/Pipeline evidence layout and a WGS QC tab backed only by the existing sample projection.
+- Added backend/frontend regression coverage and completed isolated `.96` validation.
+
+Validation evidence:
+- `.96` targeted backend: 3 passed using `--network none`.
+- `.96` complete backend candidate: 408 passed / 29 failed / 1 skipped. The identical `main@5a26b46` control is 405 passed / the same 29 failed / 1 skipped; all unchanged failures are legacy PGTA/NIPT expectations rejected by the current WGS-only deployment guard. T220 introduces no backend failure and adds three passing regressions.
+- `.96` frontend: 15 files / 64 tests; TypeScript/Vite production build passed. Dependency installation used only the existing `nipt_analysis_test_net`; tests and build used `--network none`.
+- Network inspection remained `192.168.199.0/24`, gateway `192.168.199.1`; no T220 container remains running.
+
+Remaining:
+- Commit, fast-forward `main`, and push. Production deployment remains explicitly out of scope.
+
+Risk/rollback: source-only change. Revert the T220 commit if needed; no runtime/database rollback is required because this task does not deploy or migrate.
+
 ## 2026-09-07 - Codex - T219 production stage terminal/progress sync
 
 Goal: apply only `191fc4c` on current main, validate the combined T218

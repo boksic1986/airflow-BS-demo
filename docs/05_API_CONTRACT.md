@@ -2135,3 +2135,45 @@ Unknown or non-WGS analysis IDs return HTTP 404 for Rule/Pod reads.
 # T131: WGS create uses `batch_no + fq_path`; validation-issues and operator
 # revalidate endpoints were added. Transfers, Rules and progress expose full
 # progress and ETA fields from `23_WGS_CLOUD_ORCHESTRATION_PHASE1.md`.
+## T220 WGS console projection additions
+
+### Dashboard run identity projection
+
+`GET /api/dashboard/runs` adds the read-only `operator_display_name` field. The
+stored `submitted_by` audit value is still returned unchanged. For the scanner
+service account, only the display field is normalized from
+`wgs-intake-scanner` to `wgs-scanner`. A WGS run whose immutable params contain
+`submission_mode=auto_dispatch` is projected with `run_source=intake`, even
+when it has no legacy `intake_request_id`.
+
+### Global Heavy Slot projection
+
+`GET /api/platform/resources` includes:
+
+```json
+{
+  "heavy_slot": {
+    "pool": "wgs-heavy-io",
+    "used": 0,
+    "limit": 25,
+    "waiting": 0,
+    "mode": "enforce",
+    "available": true
+  }
+}
+```
+
+`used` is derived from active heavy-I/O Kubernetes workload rows and `waiting`
+from recent validated Heavy Slot evidence. If the quota contract or evidence
+root is unavailable, `available=false` and `used`, `limit`, `waiting`, and
+`mode` are `null`; the API must not fabricate zero utilization. Existing
+resource items/history and Run Workspace `slot_usage` remain compatible.
+
+### WGS QC browser contract
+
+The WGS QC view continues to consume `GET /api/runs/{analysis_id}/samples`.
+It does not accept a QC path and does not parse QCstat in the browser. Only the
+existing sample projection fields `qc_status` and allowlisted `qc_metrics`
+keys are used: `clean_q30_percent`, `mapped_reads_percent`, `average_depth`,
+`coverage_20x_percent`, and `contamination`. Patient names, hospitals, raw
+filesystem paths, and non-allowlisted QCstat columns are excluded.

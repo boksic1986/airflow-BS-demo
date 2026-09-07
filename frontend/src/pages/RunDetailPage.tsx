@@ -1,5 +1,5 @@
 import {Play, RefreshCw, RotateCcw, Square} from "lucide-react";
-import {useCallback, useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useRef, useState, type ReactNode} from "react";
 import {useParams} from "react-router-dom";
 
 import type {Artifact, DeployedPipeline, LogStream, RuleEvent, RunDetail, RunLog, RunLogIndexItem, RunProgressResponse, Sample, WgsExecutionChoiceRequest, WgsPod, WgsSampleManifestRow, WgsTransfer, WgsValidationIssue} from "../api";
@@ -39,7 +39,7 @@ import {compactPipelineName, formatDate, formatDuration, formatSecondsDuration} 
 import {progressFromResponse} from "../lib/runProgress";
 import {isActiveStatus, isFailedStatus} from "../lib/status";
 
-const tabs = ["Overview", "Samples", "Rules", "Master", "Transfers", "Logs", "Files"] as const;
+const tabs = ["Overview", "Samples", "Rules", "Master", "Transfers", "QC", "Logs", "Files"] as const;
 type DetailTab = (typeof tabs)[number];
 
 type Bundle = {
@@ -171,7 +171,7 @@ export function RunDetailPage() {
     const loadTab = async () => {
       setTabError(null);
       try {
-        if (activeTab === "Samples") {
+        if (activeTab === "Samples" || activeTab === "QC") {
           const result = await getRunSamples(analysisId);
           if (!canceled) setBundle((current) => ({...current, samples: result.items, manifest: result.manifest || []}));
         } else if (activeTab === "Rules") {
@@ -197,7 +197,14 @@ export function RunDetailPage() {
           const result = await getRunArtifacts(analysisId);
           if (!canceled) setBundle((current) => ({...current, artifacts: result.items}));
         }
-        if (!canceled) setLoadedTabs((current) => new Set(current).add(activeTab));
+        if (!canceled) setLoadedTabs((current) => {
+          const next = new Set(current).add(activeTab);
+          if (activeTab === "Samples" || activeTab === "QC") {
+            next.add("Samples");
+            next.add("QC");
+          }
+          return next;
+        });
       } catch (loadError) {
         if (!canceled) setTabError(errorMessage(loadError));
       }
@@ -296,24 +303,26 @@ export function RunDetailPage() {
           <MetricCard title="Rule events" value={summary.rule_count} status={summary.failed_rule_count ? "failed" : undefined} />
         </section>
         {detail.pipeline === "wgs" && detail.lifecycle ? <DataLifecyclePanel lifecycle={detail.lifecycle} /> : null}
-        {detail.pipeline === "wgs" ? <section className="panel">
-          <div className="section-heading"><h2>Pipeline evidence</h2><p>Fixed WGS release, resolved CCE runtime and local observer freshness.</p></div>
-          <div className="definition-grid">
-            <div><dt>Release</dt><dd className="path-text">{detail.pipeline_release_id || "not pinned"}</dd></div>
-            <div><dt>WGS version</dt><dd>{detail.wgs_version || "unknown"}</dd></div>
-            <div><dt>WGS commit</dt><dd className="path-text">{detail.wgs_source_commit || "unknown"}</dd></div>
-            <div><dt>cce-pipeline</dt><dd>{detail.resolved_runtime?.cce_pipeline_version || "not resolved"}</dd></div>
-            <div><dt>CCE profile</dt><dd>{detail.resolved_runtime?.profile_id ? `${detail.resolved_runtime.profile_id}/${detail.resolved_runtime.profile_revision || "-"}` : "not resolved"}</dd></div>
-            <div><dt>Rule schema</dt><dd>{detail.rule_event_schema_version || "unknown"}</dd></div>
-            <div><dt>CCE monitor</dt><dd>{detail.observer ? <StatusBadge status={detail.observer.lifecycle_status} /> : "CCE监控尚未启动"}</dd></div>
-            <div><dt>Monitoring health</dt><dd>{detail.observer ? <StatusBadge status={detail.observer.monitoring_health} /> : "not applicable"}</dd></div>
-            <div><dt>Last evidence</dt><dd>{formatDate(detail.observer?.last_success_at || detail.observer?.updated_at)}</dd></div>
-          </div>
-          {detail.observer?.last_error ? <div className="inline-error" role="alert">Rule monitoring degraded: {detail.observer.last_error}</div> : null}
-        </section> : null}
         {isFailedStatus(detail.status) ? <ErrorPanel diagnosis={diagnosis} showErrorLogPath={detail.pipeline !== "wgs"} /> : null}
         {progressError ? <div className="inline-error" role="alert">Current progress unavailable: {progressError}</div> : null}
-        <CurrentProgressPanel detail={detail} progress={progress} source={bundle.progress?.progress_source} stage={bundle.progress} slotUsage={bundle.slotUsage} />
+        {detail.pipeline === "wgs" ? <div className="run-detail-snapshot-grid">
+          <CurrentProgressPanel detail={detail} progress={progress} source={bundle.progress?.progress_source} stage={bundle.progress} />
+          <section className="panel pipeline-evidence-panel">
+            <div className="section-heading"><h2>Pipeline evidence</h2><p>Fixed WGS release, resolved CCE runtime and local observer freshness.</p></div>
+            <div className="definition-grid pipeline-evidence-grid">
+              <div><dt>Release</dt><dd className="path-text">{detail.pipeline_release_id || "not pinned"}</dd></div>
+              <div><dt>WGS version</dt><dd>{detail.wgs_version || "unknown"}</dd></div>
+              <div><dt>WGS commit</dt><dd className="path-text">{detail.wgs_source_commit || "unknown"}</dd></div>
+              <div><dt>cce-pipeline</dt><dd>{detail.resolved_runtime?.cce_pipeline_version || "not resolved"}</dd></div>
+              <div><dt>CCE profile</dt><dd>{detail.resolved_runtime?.profile_id ? `${detail.resolved_runtime.profile_id}/${detail.resolved_runtime.profile_revision || "-"}` : "not resolved"}</dd></div>
+              <div><dt>Rule schema</dt><dd>{detail.rule_event_schema_version || "unknown"}</dd></div>
+              <div><dt>CCE monitor</dt><dd>{detail.observer ? <StatusBadge status={detail.observer.lifecycle_status} /> : "CCE监控尚未启动"}</dd></div>
+              <div><dt>Monitoring health</dt><dd>{detail.observer ? <StatusBadge status={detail.observer.monitoring_health} /> : "not applicable"}</dd></div>
+              <div><dt>Last evidence</dt><dd>{formatDate(detail.observer?.last_success_at || detail.observer?.updated_at)}</dd></div>
+            </div>
+            {detail.observer?.last_error ? <div className="inline-error" role="alert">Rule monitoring degraded: {detail.observer.last_error}</div> : null}
+          </section>
+        </div> : <CurrentProgressPanel detail={detail} progress={progress} source={bundle.progress?.progress_source} stage={bundle.progress} />}
         <section className="panel">
           <div className="tabs" role="tablist" aria-label="Run detail tabs">{tabs.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} role="tab" type="button" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}</div>
           {tabError ? <div className="inline-error" role="alert">This tab could not be loaded: {tabError}</div> : null}
@@ -322,6 +331,7 @@ export function RunDetailPage() {
           {activeTab === "Rules" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} onOpenLog={(key) => { setLogKey(key); setLogStream("stdout"); setActiveTab("Logs"); }} /> : null}
           {activeTab === "Master" ? <WgsMasterTab pods={bundle.pods} /> : null}
           {activeTab === "Transfers" ? <WgsTransfersTab detail={detail} transfers={bundle.transfers} /> : null}
+          {activeTab === "QC" ? <WgsQcTab samples={bundle.samples} /> : null}
           {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} /></> : null}
           {activeTab === "Files" ? <RunFilesTab artifacts={bundle.artifacts} /> : null}
         </section>
@@ -332,17 +342,29 @@ export function RunDetailPage() {
 
 function WgsSamplesTab({samples, manifest}: {samples: Sample[]; manifest: WgsSampleManifestRow[]}) {
   const manifestBySample = new Map(manifest.map((item) => [item.sample_id, item]));
-  return <WgsTable headers={["Sample", "Data", "Family / relation", "Received", "Estimated report", "Current stage", "Current Rule", "Rules", "Progress", "Status", "Elapsed", "QC", "Safe QC metrics"]} rows={samples.map((sample) => {
+  return <WgsTable headers={["Sample", "Data", "Family / relation", "Received", "Estimated report", "Current stage", "Current Rule", "Rules", "Progress", "Status", "Elapsed", "QC"]} rows={samples.map((sample) => {
     const frozen = manifestBySample.get(sample.sample_id);
-    return [sample.sample_id, sample.data_id || frozen?.data_id || "-", [sample.family_id || frozen?.family_id, sample.family_relation || frozen?.family_relation].filter(Boolean).join(" / ") || "-", frozen?.received_date || "-", frozen?.estimated_report_date || "-", sample.current_stage || "-", sample.current_rule || "-", `${sample.completed_rules ?? 0}/${sample.total_rules ?? 0}`, sample.progress_percent == null ? "-" : `${sample.progress_percent}%`, sample.status || "-", sample.elapsed_seconds == null ? "-" : formatSecondsDuration(sample.elapsed_seconds), sample.qc_status || "unknown", compactQc(sample.qc_metrics)];
+    return [sample.sample_id, sample.data_id || frozen?.data_id || "-", [sample.family_id || frozen?.family_id, sample.family_relation || frozen?.family_relation].filter(Boolean).join(" / ") || "-", frozen?.received_date || "-", frozen?.estimated_report_date || "-", sample.current_stage || "-", sample.current_rule || "-", `${sample.completed_rules ?? 0}/${sample.total_rules ?? 0}`, sample.progress_percent == null ? "-" : `${sample.progress_percent}%`, sample.status || "-", sample.elapsed_seconds == null ? "-" : formatSecondsDuration(sample.elapsed_seconds), <StatusBadge status={qcDisplayStatus(sample)} size="sm" />];
   })} empty="No analysis sample state returned." />;
+}
+
+function WgsQcTab({samples}: {samples: Sample[]}) {
+  return <WgsTable headers={["Sample", "QC status", "Q30", "Mapped", "Average depth", "≥20X", "Contamination"]} rows={samples.map((sample) => [
+    sample.sample_id,
+    <StatusBadge status={qcDisplayStatus(sample)} size="sm" />,
+    qcMetric(sample, "clean_q30_percent"),
+    qcMetric(sample, "mapped_reads_percent"),
+    qcMetric(sample, "average_depth"),
+    qcMetric(sample, "coverage_20x_percent"),
+    qcMetric(sample, "contamination"),
+  ])} empty="QC is pending or unavailable because the batch QCstat has not been projected yet." />;
 }
 
 function WgsMasterTab({pods}: {pods: WgsPod[]}) {
   return <WgsTable headers={["Master Job", "Pod hash", "Phase", "Reason", "Exit", "Node", "Resources", "Message"]} rows={pods.map((pod) => [pod.job_name ?? "-", pod.pod_hash, pod.phase ?? "-", pod.reason ?? "-", pod.exit_code ?? "-", pod.node_name ?? "-", compactResources(pod.resources), pod.message ?? "-"])} empty="Master Pod evidence is not available yet." />;
 }
 
-function WgsTable({headers, rows, empty}: {headers: string[]; rows: Array<Array<string | number>>; empty: string}) {
+function WgsTable({headers, rows, empty}: {headers: string[]; rows: Array<Array<ReactNode>>; empty: string}) {
   return <div className="table-wrap"><table className="data-table"><thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{row.map((value, cell) => <td key={cell}>{value}</td>)}</tr>)}{rows.length === 0 ? <tr><td className="empty-cell" colSpan={headers.length}>{empty}</td></tr> : null}</tbody></table></div>;
 }
 
@@ -351,8 +373,12 @@ function compactResources(resources?: Record<string, unknown> | null): string {
   return JSON.stringify(resources);
 }
 
-function compactQc(metrics?: Record<string, string | number | null>): string {
-  if (!metrics || Object.keys(metrics).length === 0) return "-";
-  const labels: Record<string, string> = {clean_q30_percent: "Q30", mapped_reads_percent: "Mapped", average_depth: "Depth", coverage_20x_percent: "20X", contamination: "Contam"};
-  return Object.entries(metrics).map(([key, value]) => `${labels[key] || key}: ${value}`).join(" · ");
+function qcDisplayStatus(sample: Sample): string {
+  if (sample.qc_status && sample.qc_status !== "unknown") return sample.qc_status;
+  return isActiveStatus(sample.status || "") ? "pending" : "unavailable";
+}
+
+function qcMetric(sample: Sample, key: string): string | number {
+  const value = sample.qc_metrics?.[key];
+  return value == null || value === "" ? "-" : value;
 }

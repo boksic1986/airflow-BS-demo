@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
-from app.models import Base, PlatformResourceSnapshot
+from app.models import Base, KubernetesWorkload, PlatformResourceSnapshot
 from app.platform_resources_service import get_platform_resources, upsert_resource_snapshot
 from app.platform_metrics_collector_cli import (
     _collect_cloud_spool,
@@ -296,3 +296,64 @@ def test_successful_sfs_snapshot_hides_legacy_missing_spool_placeholder() -> Non
         "sfs-turbo-clinical"
     ]
     assert payload["status"] == "healthy"
+
+
+def test_platform_resources_projects_global_heavy_slot_usage(tmp_path) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as session:
+        session.add_all([
+            KubernetesWorkload(
+                analysis_id="WGS_A",
+                attempt=1,
+                event_id="pod:WGS_A:pod-a",
+                pod_hash="pod-a",
+                job_name="heavy-a",
+                phase="Running",
+                resources_json={"heavy_io": True},
+            ),
+            KubernetesWorkload(
+                analysis_id="WGS_B",
+                attempt=1,
+                event_id="pod:WGS_B:pod-b",
+                pod_hash="pod-b",
+                job_name="heavy-b",
+                phase="Succeeded",
+                resources_json={"heavy_io": True},
+            ),
+        ])
+        session.commit()
+
+        payload = get_platform_resources(
+            session=session,
+            heavy_slot_limit=25,
+            heavy_slot_mode="enforce",
+            evidence_root=str(tmp_path),
+        )
+
+    assert payload["heavy_slot"] == {
+        "pool": "wgs-heavy-io",
+        "used": 1,
+        "limit": 25,
+        "waiting": 0,
+        "mode": "enforce",
+        "available": True,
+    }
+
+
+def test_platform_resources_marks_heavy_slot_unavailable_without_reliable_configuration() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as session:
+        payload = get_platform_resources(session=session)
+
+    assert payload["heavy_slot"] == {
+        "pool": "wgs-heavy-io",
+        "used": None,
+        "limit": None,
+        "waiting": None,
+        "mode": None,
+        "available": False,
+    }

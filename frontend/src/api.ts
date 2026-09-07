@@ -881,6 +881,7 @@ export type DashboardRunTrackerRow = {
   created_at?: string | null;
   submitted_at?: string | null;
   submitted_by?: string | null;
+  operator_display_name?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
   pipeline_finished_at?: string | null;
@@ -975,6 +976,14 @@ export type PlatformResourcesResponse = {
   status: string;
   items: PlatformResourceSnapshot[];
   updated_at: string;
+  heavy_slot?: {
+    pool: string;
+    used: number | null;
+    limit: number | null;
+    waiting: number | null;
+    mode: string | null;
+    available: boolean;
+  };
 };
 
 export type WgsProjectCatalog = {

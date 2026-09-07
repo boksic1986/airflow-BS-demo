@@ -3,7 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -294,6 +294,49 @@ def test_dashboard_runs_returns_paginated_tracker_rows_with_current_steps(tmp_pa
     assert len(second_page["items"]) == 2
     assert second_page["items"][0]["analysis_id"] != first["analysis_id"]
     assert airflow.task_calls == [("bio_pgta", "manual__PGTA_RUNNING")]
+
+
+def test_dashboard_runs_projects_auto_dispatch_as_intake_with_safe_scanner_display_name(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime.now(timezone.utc)
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id="WGS_AUTO_DISPATCH",
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                dag_run_id="WGS_AUTO_DISPATCH-a1",
+                mode="new",
+                status="running",
+                sample_sheet_path=str(tmp_path / "sampleinfo.tsv"),
+                workdir=str(tmp_path / "WGS_AUTO_DISPATCH"),
+                params_json={
+                    "project_name": "WGS_Clinical",
+                    "submission_mode": "auto_dispatch",
+                    "batch_no": "20260907A",
+                },
+                submitted_by="wgs-intake-scanner",
+                created_at=now,
+                submitted_at=now,
+                started_at=now,
+            )
+        )
+        session.add(Sample(analysis_id="WGS_AUTO_DISPATCH", sample_id="S1", status="running", qc_status="unknown"))
+        session.commit()
+    install_dashboard_fixtures(monkeypatch, session_factory, FakeAirflowClient())
+    client = TestClient(main.app)
+
+    response = client.get("/api/dashboard/runs?pipeline=wgs&limit=10&offset=0")
+
+    assert response.status_code == 200
+    row = response.json()["items"][0]
+    assert row["run_source"] == "intake"
+    assert row["operator_display_name"] == "wgs-scanner"
+    assert row["submitted_by"] == "wgs-intake-scanner"
+    with session_factory() as session:
+        stored = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == "WGS_AUTO_DISPATCH"))
+        assert stored is not None
+        assert stored.submitted_by == "wgs-intake-scanner"
 
 
 def test_dashboard_runs_includes_terminal_wgs_without_airflow_task_requests(tmp_path, monkeypatch) -> None:

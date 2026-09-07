@@ -90,6 +90,18 @@ export function RunTracker({
       {rows.length ? (
         <div className="run-tracker-table-wrap">
           <table className="run-tracker-table">
+            <colgroup>
+              <col className="run-tracker-col-project" />
+              <col className="run-tracker-col-batch" />
+              <col className="run-tracker-col-pipeline" />
+              <col className="run-tracker-col-status" />
+              <col className="run-tracker-col-lifecycle" />
+              <col className="run-tracker-col-stage" />
+              <col className="run-tracker-col-progress" />
+              <col className="run-tracker-col-runtime" />
+              <col className="run-tracker-col-time" />
+              <col className="run-tracker-col-time" />
+            </colgroup>
             <thead>
               <tr>
                 <th scope="col">Project</th>
@@ -156,7 +168,7 @@ function RunTrackerRow({
   return (
     <tr className={isActiveStatus(status) ? "run-tracker-row active" : "run-tracker-row"}>
       <td>
-        <OperationProjectCell analysisId={row.analysis_id} fallbackId={row.analysis_id} projectName={row.project_name} sampleCount={row.sample_count ?? 0} source={row.run_source || "manual"} sourceBatchId={row.source_batch_id} submittedBy={row.submitted_by} />
+        <OperationProjectCell analysisId={row.analysis_id} fallbackId={row.analysis_id} projectName={row.project_name} sampleCount={row.sample_count ?? 0} source={row.run_source || "manual"} sourceBatchId={row.source_batch_id} submittedBy={row.operator_display_name || row.submitted_by} showOperatorPrefix={false} />
       </td>
       <td><strong>{row.batch_no || row.source_batch_id || "-"}</strong></td>
       <td>{compactPipelineName(row.pipeline)}</td>
@@ -175,8 +187,7 @@ function RunTrackerRow({
       <td>
         {row.lifecycle ? <div className="tracker-lifecycle">
           <span><small>Cloud</small><LifecycleStatusBadge item={row.lifecycle.cloud_release} successLabel="SFS released" runningLabel="SFS release running" /></span>
-          <span><small>Backup</small><LifecycleStatusBadge item={row.lifecycle.raw_fastq_backup} successLabel="FASTQ backed up" runningLabel="FASTQ backup running" /></span>
-          <span><small>Downstream</small><LifecycleStatusBadge item={row.lifecycle.downstream_release} successLabel="Released" runningLabel="Release running" /></span>
+          <span><small>Delivery</small><LifecycleStatusBadge item={row.lifecycle.downstream_release} successLabel="Delivered" runningLabel="Delivery running" /></span>
         </div> : "-"}
       </td>
       <td>
@@ -194,8 +205,8 @@ function RunTrackerRow({
       <td>
         <OperationRuntimeCell elapsedSeconds={row.elapsed_seconds} estimatedRemainingSeconds={row.estimated_remaining_seconds} status={row.status} submitted={Boolean(row.submitted_at)} />
       </td>
-      <td title={`Airflow handoff time, displayed in ${displayTimeZoneLabel()}`}>{row.submitted_at ? formatDate(row.submitted_at) : "Not submitted"}</td>
-      <td title={`Pipeline completion time, displayed in ${displayTimeZoneLabel()}`}>{finishedLabel(row)}</td>
+      <td className="tracker-time-cell" title={`Airflow handoff time, displayed in ${displayTimeZoneLabel()}`}><CompactDate value={row.submitted_at} fallback="Not submitted" /></td>
+      <td className="tracker-time-cell" title={`Pipeline completion time, displayed in ${displayTimeZoneLabel()}`}><CompactDate value={row.pipeline_finished_at || row.ended_at} fallback={isActiveStatus(normalizeStatus(row.status)) ? "In progress" : "Not captured"} /></td>
     </tr>
   );
 }
@@ -206,9 +217,10 @@ function progressNote(row: DashboardRunTrackerRow): string {
   return row.stage_progress?.available ? `Progress source: ${row.stage_progress.source || row.progress_source}` : "The runtime has not supplied exact progress for this stage.";
 }
 
-function finishedLabel(row: DashboardRunTrackerRow): string {
-  const finishedAt = row.pipeline_finished_at || row.ended_at;
-  if (finishedAt) return formatDate(finishedAt);
-  if (isActiveStatus(normalizeStatus(row.status))) return "In progress";
-  return "Not captured";
+function CompactDate({value, fallback}: {value?: string | null; fallback: string}) {
+  if (!value) return <span>{fallback}</span>;
+  const formatted = formatDate(value);
+  const separator = formatted.indexOf(" ");
+  if (separator < 0) return <span>{formatted}</span>;
+  return <time dateTime={value}><span>{formatted.slice(0, separator)}</span><span>{formatted.slice(separator + 1)}</span></time>;
 }

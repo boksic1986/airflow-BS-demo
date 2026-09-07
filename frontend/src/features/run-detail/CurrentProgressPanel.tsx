@@ -5,7 +5,7 @@ import {RunProgressBar} from "../../components/RunProgressBar";
 import {formatBytes, formatDuration, formatProgressUnits, formatSecondsDuration} from "../../lib/format";
 import {isActiveStatus} from "../../lib/status";
 
-export function CurrentProgressPanel({detail, progress, source, stage, slotUsage}: {
+export function CurrentProgressPanel({detail, progress, source, stage}: {
   detail: RunDetail;
   progress: RunProgress | null;
   source?: string | null;
@@ -29,10 +29,6 @@ export function CurrentProgressPanel({detail, progress, source, stage, slotUsage
             Elapsed {formatDuration(detail.submitted_at || detail.started_at, detail.pipeline_finished_at || detail.ended_at)}
             {isActiveStatus(detail.status) ? " / ETA based on recent successful runs" : ""}
           </small>
-          {slotUsage ? <div className="slot-usage" aria-label="High IO work pod quota">
-            <strong>{slotUsage.used} / {slotUsage.limit} heavy work pods</strong>
-            <small>{slotUsage.waiting} waiting / {slotUsage.mode.replaceAll("-", " ")}</small>
-          </div> : null}
           <RunProgressBar analysisId={detail.analysis_id} progress={progress} />
         </div>
       ) : <p className="empty-state">Progress has not been captured for this run.</p>}

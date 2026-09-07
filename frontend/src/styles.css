@@ -1767,9 +1767,20 @@ textarea {
 
 .run-tracker-table {
   width: 100%;
-  min-width: 1040px;
+  min-width: 1320px;
   border-collapse: collapse;
+  table-layout: fixed;
 }
+
+.run-tracker-col-project { width: 190px; }
+.run-tracker-col-batch { width: 116px; }
+.run-tracker-col-pipeline { width: 72px; }
+.run-tracker-col-status { width: 104px; }
+.run-tracker-col-lifecycle { width: 132px; }
+.run-tracker-col-stage { width: 190px; }
+.run-tracker-col-progress { width: 200px; }
+.run-tracker-col-runtime { width: 118px; }
+.run-tracker-col-time { width: 116px; }
 
 .intake-discovery-table {
   width: 100%;
@@ -2004,12 +2015,32 @@ textarea {
 .runtime-cell {
   display: grid;
   gap: 3px;
-  min-width: 126px;
+  min-width: 0;
+}
+
+.runtime-cell strong {
+  font-size: 13px;
+  line-height: 1.3;
 }
 
 .runtime-cell.active strong {
   color: #0f5267;
-  font-size: 15px;
+}
+
+.tracker-time-cell,
+.tracker-time-cell time {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.tracker-time-cell time {
+  display: grid;
+  gap: 1px;
+}
+
+.tracker-time-cell time span,
+.tracker-time-cell > span {
+  white-space: nowrap;
 }
 
 .tracker-progress-cell {
@@ -3584,6 +3615,7 @@ textarea {
 .rule-name-cell, .rule-message-cell { min-width: 170px; white-space: normal; overflow-wrap: anywhere; }
 
 .resource-card-list { display: grid; gap: 0.75rem; }
+.resource-overview-panel { min-height: 294px; }
 .resource-snapshot { border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem; }
 .resource-snapshot > div { display: flex; justify-content: space-between; gap: 1rem; }
 .resource-snapshot dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
@@ -3608,6 +3640,26 @@ textarea {
   text-align: right;
   white-space: nowrap;
   line-height: 1.35;
+}
+
+.resource-control-row {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.resource-control-row .resource-tabs {
+  min-height: 32px;
+  align-items: center;
+}
+
+.resource-control-row > .status-badge,
+.resource-control-row > .resource-tag {
+  min-height: 26px;
+  box-sizing: border-box;
 }
 
 .resource-meter-stack {
@@ -3678,7 +3730,11 @@ textarea {
   line-height: 1.2;
 }
 
-.heavy-slot-reserved { min-height: 28px; }
+.resource-slot-note {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  text-align: right;
+}
 
 .compact-period-selector { margin: 0; }
 
@@ -3698,6 +3754,10 @@ textarea {
   grid-template-columns: max-content minmax(0, 1fr);
   gap: 8px;
   align-items: stretch;
+}
+
+.sfs-chart-plot {
+  min-width: 0;
 }
 
 .sfs-chart-y-axis {
@@ -3735,6 +3795,35 @@ textarea {
 
 .sfs-chart-read { stroke: #176b87; }
 .sfs-chart-write { stroke: #41ad20; }
+
+.sfs-chart-x-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  min-height: 16px;
+  color: var(--color-text-muted);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.sfs-chart-x-axis span {
+  white-space: nowrap;
+}
+
+.run-detail-snapshot-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.run-detail-snapshot-grid > * {
+  min-width: 0;
+}
+
+.pipeline-evidence-grid {
+  grid-template-columns: 1fr;
+}
 
 .sfs-io-current {
   display: flex;
@@ -3790,4 +3879,5 @@ textarea {
 @media (max-width: 900px) {
   .wizard-steps { grid-template-columns: 1fr; }
   .resource-snapshot dl { grid-template-columns: 1fr; }
+  .run-detail-snapshot-grid { grid-template-columns: 1fr; }
 }

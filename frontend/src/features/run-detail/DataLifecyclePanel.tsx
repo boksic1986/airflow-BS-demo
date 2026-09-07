@@ -13,7 +13,7 @@ const items: Array<{
   {key: "workflow", title: "Workflow", successLabel: "Workflow success", runningLabel: "Workflow running"},
   {key: "cloud_release", title: "Cloud release", successLabel: "SFS released", runningLabel: "SFS release running"},
   {key: "raw_fastq_backup", title: "Raw FASTQ backup", successLabel: "FASTQ backed up", runningLabel: "FASTQ backup running"},
-  {key: "downstream_release", title: "Downstream release", successLabel: "Released", runningLabel: "Release running"},
+  {key: "downstream_release", title: "Result delivery", successLabel: "Delivered", runningLabel: "Delivery running"},
 ];
 
 

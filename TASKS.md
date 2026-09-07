@@ -1,5 +1,27 @@
 # TASKS.md
 
+## T220 - WGS console display optimization and QC tab
+
+Owner: backend/frontend/QA/docs
+
+Status: implementation and isolated validation complete; mainline sync pending
+
+Dependencies: main@5a26b46
+
+Acceptance:
+- [x] Project auto-dispatch runs as Intake and expose a safe scanner display name without changing the stored audit identity.
+- [x] Compact Run Tracker columns, hide Backup there, and relabel downstream release as Result delivery/Delivery without changing the API key.
+- [x] Project reliable global Heavy Slot usage through `/api/platform/resources`; return unavailable/null rather than fabricated zeroes when inputs are incomplete.
+- [x] Align resource control rows and plot SFS history by real timestamp with 1H/24H/7D tick labels.
+- [x] Use a responsive 2:1 Current progress/Pipeline evidence layout and remove global Heavy Slot text from per-run progress.
+- [x] Keep sample QC status in Samples and move allowlisted safe QC metrics to the WGS QC tab.
+- [x] Run the complete backend suite with mainline parity, pass the T220 regressions, frontend Vitest suite and production build in the isolated `.96` candidate environment. The WGS-only backend invocation preserves the same 29 legacy PGTA/NIPT failures as `main@5a26b46` and adds three passing tests.
+- [ ] Fast-forward the validated feature branch into `main` and push without deploying production.
+
+Safety:
+- No DAG, migration, database data, production service, running analysis, collector cadence, port or Docker network change.
+- Test networking is restricted to `none` or existing `nipt_analysis_test_net` (`192.168.199.0/24`, gateway `192.168.199.1`).
+
 ## T219 - Synchronize WGS stage terminal progress to production
 
 Owner: backend/Airflow/frontend/release/QA/docs

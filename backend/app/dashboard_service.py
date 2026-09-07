@@ -258,7 +258,12 @@ def _tracker_row(
         "qc_status": qc_status,
         "qc_display_status": qc_display_status,
         "qc_display_note": qc_display_note,
-        "run_source": "intake" if params.get("intake_request_id") else "manual",
+        "run_source": (
+            "intake"
+            if params.get("intake_request_id")
+            or str(params.get("submission_mode") or "").lower() == "auto_dispatch"
+            else "manual"
+        ),
         "source_batch_id": str(
             params.get("intake_request_id")
             or params.get("source_batch_id")
@@ -269,6 +274,7 @@ def _tracker_row(
         "created_at": _iso(run.created_at),
         "submitted_at": _iso(run.submitted_at),
         "submitted_by": run.submitted_by,
+        "operator_display_name": _operator_display_name(run.submitted_by),
         "started_at": _iso(run.started_at),
         "ended_at": _iso(run.ended_at),
         "pipeline_finished_at": _iso(run.pipeline_finished_at),
@@ -327,6 +333,12 @@ def _tracker_row(
         "qc_highlights": qc_highlights,
         "lifecycle": lifecycle,
     }
+
+
+def _operator_display_name(value: str | None) -> str | None:
+    if not value:
+        return value
+    return "wgs-scanner" if value == "wgs-intake-scanner" else value
 
 
 def _progress_for_tracker_row(
