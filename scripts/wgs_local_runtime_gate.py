@@ -52,11 +52,11 @@ LOGGER_ROOT = Path(
     )
 )
 LOCAL_CORES = int(os.getenv("WGS_LOCAL_CORES", "96"))
-LOCAL_SNAKEMAKE_BIN = Path(
+LOCAL_SNAKEMAKE_PYTHON = Path(
     os.getenv(
-        "WGS_LOCAL_SNAKEMAKE_BIN",
+        "WGS_LOCAL_SNAKEMAKE_PYTHON",
         "/bi/biodevrwbi/33.chenjiucheng/project/airflow-WGS/envs/"
-        "wgs-snakemake9/bin/snakemake",
+        "wgs-snakemake9/bin/python3.12",
     )
 )
 
@@ -360,7 +360,9 @@ def build_smoke_command(payload: dict[str, Any]) -> tuple[Path, list[str]]:
     events.parent.mkdir(parents=True, exist_ok=True)
     run_label = f"{payload['analysis_id']}-a{payload['attempt']}"
     return workdir, [
-        str(LOCAL_SNAKEMAKE_BIN),
+        str(LOCAL_SNAKEMAKE_PYTHON),
+        "-m",
+        "snakemake",
         "--snakefile",
         str(snakefile),
         "--directory",
@@ -404,8 +406,8 @@ def _runtime_environment(payload: dict[str, Any]) -> dict[str, str]:
 
 def run_node97_smoke(payload: dict[str, Any]) -> None:
     workdir, command = build_smoke_command(payload)
-    if not LOCAL_SNAKEMAKE_BIN.is_file():
-        raise ValueError("approved node97 Snakemake 9 executable is unavailable")
+    if not LOCAL_SNAKEMAKE_PYTHON.is_file():
+        raise ValueError("approved node97 Snakemake 9 Python is unavailable")
     log_path = workdir / "smoke.log"
     with log_path.open("a", encoding="utf-8") as log:
         completed = subprocess.run(

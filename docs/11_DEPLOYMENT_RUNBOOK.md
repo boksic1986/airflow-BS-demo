@@ -33,6 +33,11 @@ must not inspect a batch root, read a FASTQ or use a real sample identifier. A
 positive smoke therefore proves only restricted SSH, Snakemake/logger startup
 and terminal marker behavior.
 
+The shared environment's generated `snakemake` wrapper contains a BS `/mnt`
+shebang that is not valid on node97. The smoke must use the node-visible Python
+entrypoint `/bi/.../wgs-snakemake9/bin/python3.12 -m snakemake`; do not edit or
+rebuild the shared environment merely to change the wrapper shebang.
+
 Run one-shot Airflow initialization without starting or recreating dependencies:
 
 ```bash

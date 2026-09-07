@@ -134,14 +134,14 @@ def test_node97_smoke_builds_a_synthetic_sample_workflow(tmp_path: Path, monkeyp
     payload = _payload(tmp_path)
     payload["validation_scope"] = "node97_smoke"
     monkeypatch.setattr(gate, "EVIDENCE_ROOT", tmp_path / "evidence")
-    monkeypatch.setattr(gate, "LOCAL_SNAKEMAKE_BIN", tmp_path / "snakemake")
+    monkeypatch.setattr(gate, "LOCAL_SNAKEMAKE_PYTHON", tmp_path / "python3.12")
 
     workdir, command = gate.build_smoke_command(payload)
 
     snakefile = workdir / "Snakefile"
     assert snakefile.is_file()
     assert "SMOKE001" in snakefile.read_text(encoding="utf-8")
-    assert command[0] == str(tmp_path / "snakemake")
+    assert command[:3] == [str(tmp_path / "python3.12"), "-m", "snakemake"]
     assert command[command.index("--cores") + 1] == "1"
     assert command[command.index("--logger") + 1] == "airflow-demo"
     assert "--forceall" not in command
