@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-07 T224 WGS automatic intake activation
+
+```text
+scope: enable scheduled T7 scanning and CCE-only automatic dispatch in a production release snapshot without changing Airflow, database, transfer leases or running analyses.
+release: current -> /data/airflow-WGS/releases/20260907-wgs-4.1.1-6c98281-auto-dispatch-r1. Environment execution/runtime/scan/auto-dispatch gates were already true; the release policy scheduled_scan_enabled and auto_dispatch_enabled were changed to true.
+dispatch: the first idempotent pass examined 9 ready rows, linked/skipped 8 existing analyses and submitted only 20260906B (9 FASTQ pairs) as WGS_20260907_152648_54EFF2 attempt 1. Airflow accepted WGS_20260907_152648_54EFF2-a1 and reported running.
+services: backend and wgs-intake-scanner were recreated from their existing T219 image; frontend-nginx was restarted only to refresh backend DNS and remains on the T220 image. Airflow scheduler/worker/API, PostgreSQL, Redis, observer, collectors and CCE tasks were preserved.
+```
+
 ## 2026-09-07 T220 frontend production sync
 
 ```text

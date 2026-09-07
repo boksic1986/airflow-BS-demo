@@ -1,5 +1,20 @@
 # TASKS.md
 
+## T224 - Activate production WGS automatic intake
+
+Owner: WGS/operations
+
+Status: completed in production
+
+Acceptance:
+- [x] Confirm 20260906B is the only unlinked ready intake batch.
+- [x] Enable scheduled scan and CCE-only automatic dispatch in an immutable release snapshot.
+- [x] Skip/link eight existing batches and submit only 20260906B.
+- [x] Verify scanner effective gates and Airflow DagRun acceptance.
+
+Restrictions:
+- Do not change running CCE analyses, databases, Airflow services or transfer lease contracts.
+
 ## T222 - NGS registry platform boundary and retired asset cleanup
 
 Owner: platform/backend/frontend/Airflow/infra/QA/docs

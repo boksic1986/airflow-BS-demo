@@ -1,5 +1,11 @@
 # HANDOFF.md
 
+## 2026-09-07 T224 production automatic intake activation
+
+Production `.96` now points to `/data/airflow-WGS/releases/20260907-wgs-4.1.1-6c98281-auto-dispatch-r1`. The release enables `scheduled_scan_enabled` and `auto_dispatch_enabled`; existing environment gates and activation watermark were retained. Before activation, `20260906B` was the only unlinked ready batch. The idempotent dispatch linked/skipped eight existing analyses and submitted `20260906B` as `WGS_20260907_152648_54EFF2-a1`; Airflow reported it running. Scanner state reports enabled/auto-dispatch true with no error.
+
+Only backend and scanner were recreated from the existing T219 backend image; frontend was restarted for backend DNS and stays on the T220 image. Airflow, PostgreSQL, Redis, observers, collectors and existing analyses were not restarted. Automatic dispatch remains CCE-only and uses the existing activation watermark and batch deduplication.
+
 ## 2026-09-07 T220 frontend-only production sync
 
 Published the already validated mainline frontend to `.96` as `airflow-demo/frontend:t220-console-qc-f203571`. The production build used cached `node:22-bookworm` with `--network none`; the final image reused the local T219 production frontend base, so Docker Hub was not contacted. Only `airflow-wgs-frontend-nginx-1` was recreated. Root and `/api/health` returned HTTP 200 and the served asset includes the T220 marker. Backend remains T219; backend-dependent T220 projections require a separate rollout.

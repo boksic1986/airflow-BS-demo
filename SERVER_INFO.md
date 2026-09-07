@@ -1,5 +1,19 @@
 # SERVER_INFO.md
 
+## T224 automatic WGS intake activation (2026-09-07)
+
+```text
+primary: 172.17.61.96
+release: /data/airflow-WGS/releases/20260907-wgs-4.1.1-6c98281-auto-dispatch-r1
+scheduled_scan_enabled: true
+auto_dispatch_enabled: true
+first_auto_batch: 20260906B
+analysis_id: WGS_20260907_152648_54EFF2
+dag_run_id: WGS_20260907_152648_54EFF2-a1
+eligible_fastq_pairs: 9
+execution_target: CCE only
+```
+
 ## T220 frontend production sync (2026-09-07)
 
 ```text
