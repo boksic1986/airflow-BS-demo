@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-## 2026-09-07 - Codex - T214 test rollout and synthetic node97 smoke
+## 2026-09-07 - Codex - T214 node97 synthetic smoke complete
 
 T214 uses clean worktree
 `D:\pipeline\airflow-demo-worktrees\T214-t213-node97-integration` and branch
@@ -15,9 +15,11 @@ committed `node-97` target. Node97 uses the restricted SSH gate, Snakemake 9,
 `node-97` target slot. Node96 and SGE remain fail closed; scanner and automatic
 dispatch are not part of this rollout.
 
-The candidate was released on BS10610 as
-`releases/20260907-airflow-demo-efde023-t214-node97-smoke`; `current` points to
-that immutable directory. Biodemo migration `20260907_0016` was applied and
+The final candidate was released on BS10610 as
+`releases/20260907-airflow-demo-31129e7-t214-node97-synthetic-smoke`; `current`
+points to that immutable directory. Its archive SHA256 is
+`b5bee75eefab3eb648903c3930257eb6e50d3731c07ea863621277540152b3ed`.
+Biodemo migration `20260907_0016` was applied and
 the independent upload/download Airflow pools were initialized. The release
 uses the local dependency-identical backend image tag
 `airflow-demo/backend:t214-efde023-runtime` because BS10610's blocked Docker
@@ -42,11 +44,26 @@ commands must use `run --rm --no-deps`. Recreating backend changed its Docker
 IP while nginx held the old upstream; recreating only `frontend-nginx` restored
 root and `/api/health` HTTP 200.
 
-All execution/local/intake/auto-dispatch gates are false, `bio_wgs` is paused,
-there are no active business or Airflow runs, and all target/transfer leases
-are unowned. The remaining acceptance is a gate-only synthetic node97 smoke.
-It uses fixed sample `SMOKE001`, one core and two short rules; it does not read
-FASTQ or create an Airflow/business run. Focused tests for this scope pass 10.
+The first live smoke attempt correctly failed closed because node97 still had
+the old T211 gate copy. After backing it up, the final `31129e7` gate was
+installed atomically and its SHA256 matched the release. A second environment
+issue was fixed in `31129e7`: the generated `snakemake` wrapper has a BS `/mnt`
+shebang, so node97 now invokes its visible Python with `-m snakemake` instead.
+Node97 reports Snakemake `9.23.1` through that entrypoint.
+
+Synthetic request `WGS_20260907_114500_A1B2C3` ran with one core and fixed
+sample `SMOKE001`. Its terminal marker is success, the result contains only
+`SMOKE001`, and logger JSONL contains 27 events with terminal success for
+`smoke_prepare`, `smoke_sample` and `all`; failed event count is zero. This
+gate-only smoke did not create a business or Airflow run and did not read a
+FASTQ or access OBS.
+
+After acceptance, node97 `WGS_LOCAL_EXECUTION_ENABLED` was restored to false.
+All control-plane execution/local/intake/auto-dispatch gates are false,
+`bio_wgs` is paused, there are no active business or Airflow runs, and all
+target/transfer slots are unowned. Compose config passes with the production
+WGS file/env, migration is `20260907_0016 (head)`, and frontend plus
+`/api/health` return HTTP 200 on `172.17.106.10:12959`.
 
 ## 2026-09-07 - Codex - T213 Step1-Step6/dispatch/lease integration candidate
 

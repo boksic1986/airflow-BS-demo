@@ -12,7 +12,7 @@ node97_test_pytest: /sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/p
 node97_wgs_repo: /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
 node97_local_cores: 96
 node97_analysis_root: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical
-node97_request_root: /sg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runner-requests
+node97_request_root: /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runner-requests
 node97_evidence_root: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence
 shared_release_link_policy: relative current -> releases/<revision>; absolute /mnt target is broken on node97 /bi mapping
 ```

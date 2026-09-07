@@ -15,7 +15,10 @@ success or recovery releases the local slot; transfer uncertainty still
 retains the matching directional lease and marks the dispatch for recovery.
 
 deployment: BS10610 `current` points to immutable test release
-`20260907-airflow-demo-efde023-t214-node97-smoke`. Biodemo is at additive
+`20260907-airflow-demo-31129e7-t214-node97-synthetic-smoke` from commit
+`31129e7`; archive SHA256 is
+`b5bee75eefab3eb648903c3930257eb6e50d3731c07ea863621277540152b3ed`.
+Biodemo is at additive
 migration `20260907_0016`; directional Airflow pools exist and all transfer
 leases and local target slots are unowned. `bio_wgs` remains paused and every
 execution, local target, intake and auto-dispatch gate remains false.
@@ -25,7 +28,12 @@ validation: the full backend suite passes 413 tests, runner/gate suites pass
 `validation_scope=node97_smoke` now generates fixed sample `SMOKE001`, runs two
 short Snakemake 9 rules with the production logger contract and never inspects
 a WGS batch or FASTQ. Its focused gate suite passes 10 tests. The live SSH
-smoke is still pending; no 0825A or other real family data will be submitted.
+smoke `WGS_20260907_114500_A1B2C3` completed in seconds on node97. The fixed
+sample output is `SMOKE001`; logger JSONL contains 27 events and terminal
+success for `smoke_prepare`, `smoke_sample` and `all`, with zero failed events.
+The node97 gate was synchronized to the release and its local execution gate
+was restored to false. No Airflow/business run, FASTQ read, OBS operation or
+real family submission occurred.
 
 ## 2026-09-07 T213 Step1-Step6 dispatch and directional-lease integration
 

@@ -111,7 +111,7 @@ must invoke `scripts/wgs_local_runtime_gate.py` with:
 ```text
 WGS_LOCAL_EXECUTION_ENABLED=true
 WGS_LOCAL_CORES=96
-WGS_LOCAL_REQUEST_ROOT=/sg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runner-requests
+WGS_LOCAL_REQUEST_ROOT=/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runner-requests
 WGS_LOCAL_ANALYSIS_ROOT=/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical
 WGS_LOCAL_EVIDENCE_ROOT=/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence
 WGS_LOCAL_REPO_ROOT=/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1

@@ -4,7 +4,7 @@
 
 Owner: backend/Airflow/runtime/QA/docs
 
-Status: test control plane deployed; synthetic node97 smoke pending
+Status: done in BS10610/node97 synthetic-smoke scope
 
 Dependencies: T211,T213
 
@@ -23,9 +23,10 @@ Acceptance:
 - [x] Publish immutable BS10610 test release `efde023` and apply migration 0016.
 - [x] Add a gate-only `node97_smoke` validation scope that runs fixed synthetic
   sample `SMOKE001` without inspecting a real batch or FASTQ.
-- [ ] Run a synthetic node97 SSH/Snakemake/logger smoke and verify terminal
-  projection plus local-slot release.
-- [ ] Restore the DAG pause state and every execution gate after smoke.
+- [x] Run synthetic node97 SSH/Snakemake/logger smoke
+  `WGS_20260907_114500_A1B2C3`; all three scheduled jobs are terminal success.
+- [x] Verify target/transfer slots remain unowned and restore the DAG pause
+  state and every execution gate after smoke.
 
 Restrictions:
 - Do not submit 0825A or any real WGS sample in T214.
