@@ -39,9 +39,13 @@ Focused BS10610 validation passed 20 backend/runtime tests plus follow-up
 Step7 suites of 5, 6 and 6 tests. The `.96` cached Node image passed 5 files/21
 tests and the Step7 retry regression; `tsc -b && vite build`, py_compile and
 offline migration-through-0018 checks passed. Docker Hub was not contacted.
-Only backend/observer/frontend were recreated for T227; Airflow
-API/scheduler/worker were not restarted. WGS 4.1.1, contract v1 and the sole
-`172.17.61.96:12959` publication boundary remain unchanged.
+Production `current` points to
+`/data/airflow-WGS/releases/20260908-t227-progress-step7-r3`. Only
+backend/observer/frontend were recreated for T227; the final frontend recreate
+refreshed its cached backend DNS after a container IP change, and health then
+returned 200. Airflow API/scheduler/worker were not restarted. WGS 4.1.1,
+contract v1 and the sole `172.17.61.96:12959` publication boundary remain
+unchanged.
 
 Rollback: repoint `current` to
 `/data/airflow-WGS/releases/20260908-t226-sdk-main-sync-r1`, restore
