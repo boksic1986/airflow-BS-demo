@@ -17,8 +17,9 @@ Validation evidence:
 - `.96` frontend: 15 files / 64 tests; TypeScript/Vite production build passed. Dependency installation used only the existing `nipt_analysis_test_net`; tests and build used `--network none`.
 - Network inspection remained `192.168.199.0/24`, gateway `192.168.199.1`; no T220 container remains running.
 
-Remaining:
-- Commit, fast-forward `main`, and push. Production deployment remains explicitly out of scope.
+Mainline: implementation commit `32156b6` was fast-forwarded into `main` and synchronized to `origin/main`. The dirty T193 workspace and unrelated development worktrees were not modified.
+
+Remaining: production deployment is explicitly out of scope and requires a separate approval.
 
 Risk/rollback: source-only change. Revert the T220 commit if needed; no runtime/database rollback is required because this task does not deploy or migrate.
 

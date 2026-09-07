@@ -10,6 +10,7 @@ run_detail: Current progress and Pipeline evidence use a responsive 2:1 grid. Gl
 privacy: no QCstat parsing was added to the browser and no name, hospital, raw path or unapproved QC field was added to the API or UI.
 validation: isolated .96 frontend validation passed 15 files / 64 tests plus the TypeScript/Vite production build. The three new backend regressions passed; the complete backend invocation reached 408 passed / 29 failed / 1 skipped, while an identical main@5a26b46 control reached 405 passed / the same 29 failed / 1 skipped. The unchanged failures are legacy PGTA/NIPT tests incompatible with the repository's WGS-only DEPLOYED_PIPELINES guard, so T220 adds three passes and no failure. Test containers used only network none or the existing nipt_analysis_test_net (192.168.199.0/24, gateway .1); no additional Docker network was created.
 deployment: not performed by T220. Production analysis and services remain untouched.
+mainline: implementation commit 32156b6 was fast-forwarded into main and synchronized to origin/main after isolated validation; the dirty T193 workspace and unrelated development worktrees were not modified.
 ```
 
 ## 2026-09-07 T219 WGS stage terminal progress production sync

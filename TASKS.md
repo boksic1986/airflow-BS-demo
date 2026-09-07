@@ -4,7 +4,7 @@
 
 Owner: backend/frontend/QA/docs
 
-Status: implementation and isolated validation complete; mainline sync pending
+Status: completed and synchronized to main; production deployment remains a separate approval
 
 Dependencies: main@5a26b46
 
@@ -16,7 +16,7 @@ Acceptance:
 - [x] Use a responsive 2:1 Current progress/Pipeline evidence layout and remove global Heavy Slot text from per-run progress.
 - [x] Keep sample QC status in Samples and move allowlisted safe QC metrics to the WGS QC tab.
 - [x] Run the complete backend suite with mainline parity, pass the T220 regressions, frontend Vitest suite and production build in the isolated `.96` candidate environment. The WGS-only backend invocation preserves the same 29 legacy PGTA/NIPT failures as `main@5a26b46` and adds three passing tests.
-- [ ] Fast-forward the validated feature branch into `main` and push without deploying production.
+- [x] Fast-forward the validated feature branch into `main` and push without deploying production.
 
 Safety:
 - No DAG, migration, database data, production service, running analysis, collector cadence, port or Docker network change.
