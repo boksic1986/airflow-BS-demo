@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 
-from app.models import AnalysisRun, Base, Sample, WgsSubmissionDraft
+from app.models import AnalysisRun, Base, RunAction, Sample, WgsSubmissionDraft
 from app import wgs_platform_service
 from app.wgs_orchestration_service import build_fastq_snapshot, fastq_source_fingerprint
 from app.wgs_project_catalog import load_wgs_projects, public_project_catalog
@@ -17,6 +17,7 @@ from app.wgs_submission_service import (
     create_and_submit_run,
     create_draft,
     get_draft,
+    mark_submission_dag_failed,
     submission_state,
     submit_draft,
     create_automatic_wgs_run,
@@ -32,6 +33,111 @@ class RecordingAirflow:
     def trigger_dag_run(self, dag_id, *, dag_run_id=None, conf=None):
         self.calls.append({"dag_id": dag_id, "dag_run_id": dag_run_id, "conf": conf})
         return self.calls[-1]
+
+
+def test_dag_failure_marks_staged_submission_failed_once(tmp_path: Path) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    analysis_id = "WGS_20260907_044653_9C8591"
+
+    with sessions() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                dag_run_id=f"{analysis_id}-a1",
+                attempt=1,
+                status="submitted",
+                workdir=str(tmp_path / analysis_id),
+                params_json={
+                    "submission_mode": "three_stage",
+                    "submission_phase": "preparing_sampleinfo",
+                },
+            )
+        )
+        session.commit()
+
+        first = mark_submission_dag_failed(
+            session=session,
+            analysis_id=analysis_id,
+            attempt=1,
+            failed_task_ids=["release_leases", "prepare_wgs_sampleinfo"],
+        )
+        second = mark_submission_dag_failed(
+            session=session,
+            analysis_id=analysis_id,
+            attempt=1,
+            failed_task_ids=["prepare_wgs_sampleinfo"],
+        )
+
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        actions = session.scalars(
+            select(RunAction).where(
+                RunAction.analysis_id == analysis_id,
+                RunAction.action == "airflow_dag_failed",
+            )
+        ).all()
+
+    assert first["status"] == "failed"
+    assert first["submission_phase"] == "failed"
+    assert first["failed_task_ids"] == ["prepare_wgs_sampleinfo"]
+    assert second == first
+    assert run is not None
+    assert run.status == "failed"
+    assert run.ended_at is not None
+    assert run.params_json["submission_phase"] == "failed"
+    assert "prepare_wgs_sampleinfo" in str(run.error_summary)
+    assert len(actions) == 1
+
+
+def test_dag_failure_rejects_wrong_attempt_and_preserves_success(tmp_path: Path) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    analysis_id = "WGS_20260907_050000_ABCDEF"
+
+    with sessions() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                dag_run_id=f"{analysis_id}-a2",
+                attempt=2,
+                status="success",
+                workdir=str(tmp_path / analysis_id),
+                params_json={
+                    "submission_mode": "three_stage",
+                    "submission_phase": "approved",
+                },
+            )
+        )
+        session.commit()
+
+        with pytest.raises(ValueError, match="unknown active WGS attempt"):
+            mark_submission_dag_failed(
+                session=session,
+                analysis_id=analysis_id,
+                attempt=1,
+                failed_task_ids=["prepare_wgs_sampleinfo"],
+            )
+
+        preserved = mark_submission_dag_failed(
+            session=session,
+            analysis_id=analysis_id,
+            attempt=2,
+            failed_task_ids=["release_leases"],
+        )
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+
+    assert preserved["status"] == "success"
+    assert run is not None and run.status == "success"
 
 
 def test_prepared_binding_visibility_race_is_retryable(tmp_path: Path, monkeypatch) -> None:

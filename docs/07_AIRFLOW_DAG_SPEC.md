@@ -1,5 +1,24 @@
 # 07 Airflow DAG 设计
 
+## T216 staged submission failure callback
+
+`bio_wgs` defines a DAG-level `on_failure_callback`. On terminal failure it
+collects task instances whose state is exactly `failed`, excluding
+`upstream_failed`; if another root failure exists it also excludes the
+`release_leases` cleanup failure. The callback POSTs the exact analysis ID,
+attempt and failed task IDs to the backend internal terminal endpoint.
+
+The callback is best effort: a backend transport failure is logged without
+masking the original Airflow failure. The run remains recoverable through the
+existing explicit retry path. It does not alter the three-stage approval
+barriers, branch selection, directional transfer leases or execution target.
+
+The node200 restricted gate is used by `prepare_wgs_sampleinfo` and
+`prepare_wgs_analysis` even when Local .97 will later be selected for Step 3.
+Therefore supervised manual submission requires execution/runtime gates on
+both the BS10610 control plane and node200 owner runtime. Local .97 alone is
+not sufficient.
+
 ## T214 node97 branch on the T213 DAG
 
 The CCE branch keeps T213's independent input and result transfer pools and

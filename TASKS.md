@@ -1,5 +1,39 @@
 # TASKS.md
 
+## T216 - Repair staged WGS submission failure projection
+
+Owner: backend/Airflow/runtime/QA/docs
+
+Status: implemented; BS10610 rollout in progress
+
+Dependencies: T215
+
+Scope:
+- Repair the `20260904A` preparation failure caused by node200 owner-side WGS
+  execution gates remaining disabled after the control-plane gates were opened.
+- Add an internal, authenticated DagRun terminal callback so a failed staged
+  submission leaves the frontend preparation screen immediately.
+- Keep sample/config/execution review barriers, Local .97 selection and all
+  scanner/automatic-dispatch restrictions unchanged.
+
+Acceptance:
+- [x] The failed `20260904A` Airflow task is identified as
+  `prepare_wgs_sampleinfo` with node200 reporting `WGS execution gate is disabled`.
+- [x] Node200 execution/runtime gates are enabled from a mode-600 owner config
+  backup; the Step3 dry-run canary gate remains disabled.
+- [x] Backend service/API tests cover authentication, attempt fencing,
+  idempotence and success preservation.
+- [x] DAG tests prove only actual failed tasks are reported and cleanup/upstream
+  failures are not presented as the root cause.
+- [ ] Deploy the immutable candidate and verify backend, Airflow import and
+  frontend/API health on BS10610.
+- [ ] Re-submit `20260904A` and confirm it reaches sample/config review without
+  starting Step1-Step6 before the operator chooses the Step 3 target.
+
+Restrictions:
+- Do not enable scanner, automatic dispatch, node96 or SGE.
+- Do not start WGS execution automatically after sample/config preparation.
+
 ## T215 - Enable supervised manual WGS submission on BS10610/node97
 
 Owner: runtime/QA/docs

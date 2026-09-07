@@ -574,6 +574,47 @@ def _upstream_failure_task_ids(context: dict[str, Any]) -> list[str]:
     return sorted(failed)
 
 
+def report_dag_failure(context: dict[str, Any]) -> None:
+    """Best-effort projection of a failed DagRun into the business run."""
+    dag_run = context.get("dag_run")
+    if dag_run is None:
+        LOG.error("Cannot report WGS DAG failure without dag_run context")
+        return
+    conf = dict(dag_run.conf or {})
+    analysis_id = str(conf.get("analysis_id") or "")
+    attempt = int(conf.get("attempt") or 0)
+    if not ANALYSIS_ID_RE.fullmatch(analysis_id) or attempt < 1:
+        LOG.error("Cannot report WGS DAG failure with invalid run identity")
+        return
+
+    failed_task_ids = []
+    for task_instance in dag_run.get_task_instances():
+        raw_state = getattr(task_instance, "state", None)
+        state = str(getattr(raw_state, "value", raw_state) or "").lower()
+        if state == "failed":
+            failed_task_ids.append(str(getattr(task_instance, "task_id", "")))
+    failed_task_ids = sorted({task_id for task_id in failed_task_ids if task_id})
+    if len(failed_task_ids) > 1 and "release_leases" in failed_task_ids:
+        failed_task_ids.remove("release_leases")
+
+    try:
+        _backend_json(
+            f"/api/internal/wgs/runs/{analysis_id}/dag-terminal",
+            method="POST",
+            payload={
+                "attempt": attempt,
+                "status": "failed",
+                "failed_task_ids": failed_task_ids,
+            },
+        )
+    except Exception:
+        LOG.exception(
+            "Failed to project terminal WGS DagRun state for %s attempt %s",
+            analysis_id,
+            attempt,
+        )
+
+
 def acquire_transfer_slot(stage: str, **context: Any) -> bool:
     return bool(register_stage(stage, **context).get("acquired"))
 
@@ -708,6 +749,7 @@ with DAG(
     catchup=False,
     max_active_runs=4,
     is_paused_upon_creation=True,
+    on_failure_callback=report_dag_failure,
     tags=["airflow-demo", "wgs", "cce", "node200"],
 ) as dag:
     validate = PythonOperator(

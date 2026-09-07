@@ -448,6 +448,107 @@ def submission_state(*, session, analysis_id: str, attempt: int) -> dict:
     }
 
 
+def mark_submission_dag_failed(
+    *,
+    session,
+    analysis_id: str,
+    attempt: int,
+    failed_task_ids: list[str],
+) -> dict:
+    """Project a terminal Airflow failure into the staged submission state."""
+    run = session.scalar(
+        select(AnalysisRun).where(
+            AnalysisRun.analysis_id == analysis_id,
+            AnalysisRun.pipeline_name == "wgs",
+        ).with_for_update()
+    )
+    if run is None or run.attempt != attempt:
+        raise ValueError("unknown active WGS attempt")
+
+    root_failures = sorted(
+        {
+            str(task_id).strip()
+            for task_id in failed_task_ids
+            if str(task_id).strip()
+        }
+    )
+    if len(root_failures) > 1 and "release_leases" in root_failures:
+        root_failures.remove("release_leases")
+
+    existing_action = session.scalar(
+        select(RunAction).where(
+            RunAction.analysis_id == analysis_id,
+            RunAction.action == "airflow_dag_failed",
+        ).order_by(RunAction.id.desc())
+    )
+    if existing_action is not None:
+        existing_payload = dict(existing_action.payload_json or {})
+        if int(existing_payload.get("attempt") or 0) == attempt:
+            return {
+                "analysis_id": analysis_id,
+                "attempt": attempt,
+                "status": run.status,
+                "submission_phase": (run.params_json or {}).get("submission_phase"),
+                "failed_task_ids": list(existing_payload.get("failed_task_ids") or []),
+                "error_summary": run.error_summary,
+            }
+
+    if run.status == "success":
+        return {
+            "analysis_id": analysis_id,
+            "attempt": attempt,
+            "status": run.status,
+            "submission_phase": (run.params_json or {}).get("submission_phase"),
+            "failed_task_ids": root_failures,
+            "error_summary": run.error_summary,
+        }
+
+    primary_task = root_failures[0] if root_failures else "unknown Airflow task"
+    messages = {
+        "prepare_wgs_sampleinfo": (
+            "Sample information preparation failed in Airflow task "
+            "prepare_wgs_sampleinfo. Open Run Detail logs for the exact error."
+        ),
+        "prepare_wgs_analysis": (
+            "WGS analysis preparation failed in Airflow task prepare_wgs_analysis. "
+            "Open Run Detail logs for the exact error."
+        ),
+    }
+    error_summary = messages.get(
+        primary_task,
+        f"WGS Airflow run failed in task {primary_task}. Open Run Detail logs for the exact error.",
+    )
+    params = dict(run.params_json or {})
+    if params.get("submission_mode") == "three_stage":
+        params["submission_phase"] = "failed"
+    run.params_json = params
+    run.status = "failed"
+    run.ended_at = run.ended_at or datetime.now(timezone.utc)
+    run.error_summary = error_summary
+    session.add(
+        RunAction(
+            analysis_id=analysis_id,
+            action="airflow_dag_failed",
+            requested_by="airflow",
+            result_status="failed",
+            payload_json={
+                "attempt": attempt,
+                "failed_task_ids": root_failures,
+            },
+            message=error_summary,
+        )
+    )
+    session.commit()
+    return {
+        "analysis_id": analysis_id,
+        "attempt": attempt,
+        "status": run.status,
+        "submission_phase": params.get("submission_phase"),
+        "failed_task_ids": root_failures,
+        "error_summary": error_summary,
+    }
+
+
 def approve_wgs_config(*, session, analysis_id: str, requested_by: str,
                        use_reference: str, resource_set: str) -> dict:
     if use_reference not in {"all", "ref", "no"}:

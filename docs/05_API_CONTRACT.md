@@ -1,5 +1,29 @@
 # 05 API Contract
 
+## T216 WGS DagRun terminal projection
+
+`POST /api/internal/wgs/runs/{analysis_id}/dag-terminal` is an internal
+service-token endpoint used by the `bio_wgs` DAG failure callback. It accepts:
+
+```json
+{
+  "attempt": 1,
+  "status": "failed",
+  "failed_task_ids": ["prepare_wgs_sampleinfo"]
+}
+```
+
+The endpoint is attempt-fenced and idempotent. It never changes a successful
+run, removes `release_leases` when a more specific failed task is present,
+marks the business run failed, changes a three-stage submission to
+`submission_phase=failed`, and records one `airflow_dag_failed` action for the
+attempt. Unknown attempts return HTTP 409. Browsers cannot call this endpoint
+without the internal token.
+
+This terminal projection is what lets Submit Run stop polling a failed
+sample-information preparation and show the existing failure panel. It does
+not approve configuration, select an execution target or start Step1-Step6.
+
 ## T214 execution-target integration
 
 T214 does not add a public endpoint. It combines T213's directional transfer

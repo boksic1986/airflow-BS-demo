@@ -96,6 +96,7 @@ from app.wgs_submission_service import (
     create_and_submit_run,
     create_draft,
     get_draft,
+    mark_submission_dag_failed,
     submission_state,
     submit_draft,
 )
@@ -338,6 +339,13 @@ class WgsRuntimeStageRequest(BaseModel):
 
 class WgsObserverLifecycleRequest(BaseModel):
     attempt: int = Field(ge=1)
+
+
+class WgsDagTerminalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    attempt: int = Field(ge=1)
+    status: str = Field(pattern="^failed$")
+    failed_task_ids: list[str] = Field(default_factory=list, max_length=64)
 
 
 class WgsExecutionChoiceRequest(BaseModel):
@@ -2319,6 +2327,29 @@ def internal_wgs_submission_state(
             )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail={"code": "WGS_RUN_NOT_FOUND", "message": str(exc)}) from exc
+
+
+@app.post(
+    "/api/internal/wgs/runs/{analysis_id}/dag-terminal",
+    dependencies=[Depends(require_internal_service_token)],
+)
+def internal_wgs_dag_terminal(
+    analysis_id: str,
+    request: WgsDagTerminalRequest,
+) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            return mark_submission_dag_failed(
+                session=session,
+                analysis_id=analysis_id,
+                attempt=request.attempt,
+                failed_task_ids=request.failed_task_ids,
+            )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "WGS_DAG_TERMINAL_REJECTED", "message": str(exc)},
+        ) from exc
 
 
 @app.post(

@@ -21,6 +21,7 @@ from app.models import (
     ObserverRunState,
     RuleState,
     RunAttempt,
+    RunAction,
     RunStageState,
     Sample,
     TransferJob,
@@ -267,6 +268,62 @@ def test_staged_wgs_run_rejects_stage_two_fields_and_uses_canonical_id(
     ).status_code == 409
     with sessions() as session:
         assert session.scalar(select(func.count()).select_from(AnalysisRun)) == 1
+
+
+def test_internal_dag_terminal_failure_releases_staged_submit_page(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    operator_headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/wgs/runs",
+        headers=operator_headers,
+        json={
+            "project_id": "WGS_Clinical",
+            "platform": "T7Hg38V4.1.1",
+            "batch": "20260904A",
+            "fastq_root_id": "T7_Fastq",
+        },
+    )
+    assert created.status_code == 201, created.text
+    analysis_id = created.json()["analysis_id"]
+
+    denied = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/dag-terminal",
+        json={
+            "attempt": 1,
+            "status": "failed",
+            "failed_task_ids": ["prepare_wgs_sampleinfo"],
+        },
+    )
+    assert denied.status_code in {401, 403}
+
+    terminal = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/dag-terminal",
+        headers={"X-Airflow-Demo-Token": "internal-test-token"},
+        json={
+            "attempt": 1,
+            "status": "failed",
+            "failed_task_ids": ["prepare_wgs_sampleinfo"],
+        },
+    )
+    assert terminal.status_code == 200, terminal.text
+    assert terminal.json()["submission_phase"] == "failed"
+
+    detail = client.get(f"/api/runs/{analysis_id}", headers=operator_headers)
+    assert detail.status_code == 200
+    assert detail.json()["status"] == "failed"
+    assert "prepare_wgs_sampleinfo" in detail.json()["error_summary"]
+    with sessions() as session:
+        actions = session.scalars(
+            select(RunAction).where(
+                RunAction.analysis_id == analysis_id,
+                RunAction.action == "airflow_dag_failed",
+            )
+        ).all()
+    assert len(actions) == 1
 
 
 def test_wgs_execution_choice_api_is_revisioned_gated_and_locked_at_commit(

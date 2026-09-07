@@ -1,5 +1,32 @@
 # CURRENT_STATE.md
 
+## 2026-09-07 T216 staged submission terminal-state repair
+
+incident: batch `20260904A` created business run
+`WGS_20260907_044653_9C8591`, but `prepare_wgs_sampleinfo` failed because the
+node200 owner runtime still had `WGS_EXECUTION_ENABLED=false` and
+`WGS_RUNTIME_ADAPTER_ENABLED=false`. Airflow failed in 22 seconds while the
+business row stayed `submitted`, so Submit Run continued polling and never
+showed the next action or failure.
+
+runtime repair: node200 now has both owner-side gates enabled. Its previous
+mode-600 config is retained at
+`/home/hanjj/.config/airflow-wgs/backups/T216-manual-submit-20260907T125840+0800/runtime.env.before`.
+The failed business row was synchronized to `failed`; no Step1-Step6 work was
+started. Scanner, automatic dispatch, node96, SGE and the Step3 dry-run canary
+remain disabled.
+
+implementation: `bio_wgs` now has a best-effort DAG failure callback that POSTs
+the exact attempt and root failed task IDs to an internal token-protected
+backend endpoint. The backend idempotently marks the staged run failed, changes
+`submission_phase` to `failed`, writes an audit action and preserves successful
+runs. The existing Submit UI already renders this state as a preparation error
+with a Run Detail link.
+
+validation: BS10610 candidate tests pass 64 backend WGS submission/platform
+tests and 28 DAG tests. Full backend and deployment acceptance are still in
+progress; do not treat the candidate as deployed until this entry is updated.
+
 ## 2026-09-07 T215 supervised manual Submit Run enabled
 
 scope: BS10610 is a test control plane. The existing T214 release and code are

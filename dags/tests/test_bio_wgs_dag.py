@@ -11,6 +11,51 @@ import bio_wgs
 
 
 class BioWgsDagTests(unittest.TestCase):
+    def test_dag_failure_callback_reports_only_root_failed_tasks(self) -> None:
+        task_instances = [
+            type("TI", (), {"task_id": "prepare_wgs_sampleinfo", "state": "failed"})(),
+            type("TI", (), {"task_id": "wait_prepare_wgs_sampleinfo", "state": "upstream_failed"})(),
+            type("TI", (), {"task_id": "release_leases", "state": "failed"})(),
+        ]
+        dag_run = type(
+            "DagRun",
+            (),
+            {
+                "conf": {
+                    "analysis_id": "WGS_20260907_044653_9C8591",
+                    "attempt": 1,
+                },
+                "get_task_instances": lambda self: task_instances,
+            },
+        )()
+        calls = []
+        original_backend = bio_wgs._backend_json
+        try:
+            bio_wgs._backend_json = lambda path, **kwargs: calls.append(
+                (path, kwargs.get("method"), kwargs.get("payload"))
+            ) or {"status": "failed"}
+            bio_wgs.report_dag_failure({"dag_run": dag_run})
+        finally:
+            bio_wgs._backend_json = original_backend
+
+        self.assertEqual(
+            calls,
+            [
+                (
+                    "/api/internal/wgs/runs/WGS_20260907_044653_9C8591/dag-terminal",
+                    "POST",
+                    {
+                        "attempt": 1,
+                        "status": "failed",
+                        "failed_task_ids": ["prepare_wgs_sampleinfo"],
+                    },
+                )
+            ],
+        )
+
+    def test_dag_has_business_failure_projection_callback(self) -> None:
+        self.assertIs(bio_wgs.dag.on_failure_callback, bio_wgs.report_dag_failure)
+
     def test_dag_exposes_single_release_agnostic_cce_orchestration(self) -> None:
         dag = bio_wgs.dag
 

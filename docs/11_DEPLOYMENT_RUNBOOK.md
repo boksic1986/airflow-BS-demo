@@ -1,5 +1,25 @@
 # 11 部署 Runbook
 
+## T216 staged Submit Run preflight and failure projection
+
+Before enabling manual WGS submission, verify the two independent gate layers:
+
+1. BS10610 backend, scheduler and worker must have
+   `WGS_EXECUTION_ENABLED=true` and `WGS_RUNTIME_ADAPTER_ENABLED=true`.
+2. Node200 `/home/hanjj/.config/airflow-wgs/runtime.env` must contain the same
+   two true values. The restricted gate reads this file for every invocation,
+   so no node200 service restart is required.
+
+Keep scanner, automatic dispatch, node96, SGE and canary gates unchanged. A
+Local .97 selection still uses node200 for sample-information and analysis
+preparation before the Step 3 execution branch.
+
+After deployment, verify `bio_wgs` has no import errors and has the terminal
+failure callback. A controlled invalid preparation may be used only with a
+synthetic request; it must change the business run from submitted to failed
+and create one `airflow_dag_failed` RunAction. Do not start Step1-Step6 merely
+to test this callback.
+
 ## T215 BS10610 supervised manual submission mode
 
 Use this mode only on the BS10610 test control plane after T214 node97 smoke
