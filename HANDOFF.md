@@ -27,10 +27,11 @@ DAG rerun note:
 - Cause/handling: neither immutable image combines Airflow and pytest. No DAG Python changed after the accepted 53 passed / 7 skipped run; the only later DAG-tree edit removed two obsolete filenames from `.airflowignore`. Do not install packages from the network merely to repeat the same suite. A future dedicated Airflow test image may rerun it.
 - Compose rendering: passed with `NGS_PLATFORM_NETWORK=ngs_analysis_platform`; no service was started and no network was created.
 - Migration: disposable PostgreSQL 15 upgraded from empty through the single `20260907_0017` head, then the temporary container was removed.
+- Mainline: implementation commit `0db67bb` and this final state record were fast-forwarded into `main`, pushed to both `origin/main` and `origin/jiucheng/platform/T222-ngs-registry-cleanup`, and the clean T222 task worktree was removed after remote verification.
 
 Not changed: production releases, containers, database, ports, execution gates, CCE jobs, OBS/SFS data and active analyses.
 
-Remaining: integrate and push the validated source; production rollout requires separate approval.
+Remaining: production rollout requires separate approval.
 
 Rollback: source-only. Revert the T222 integration commit. No runtime or database rollback is required because this task did not deploy.
 

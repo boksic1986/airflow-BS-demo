@@ -4,7 +4,7 @@
 
 Owner: platform/backend/frontend/Airflow/infra/QA/docs
 
-Status: validated; ready for mainline integration, production deployment out of scope
+Status: completed and synchronized to main; production deployment out of scope
 
 Dependencies: main@40eabc1
 
@@ -20,7 +20,7 @@ Acceptance:
 - [x] Rename the active project/candidate identity and default runtime root to `ngs-huaweicloud`.
 - [x] Replace the fixed legacy network contract with configurable existing `NGS_PLATFORM_NETWORK`; do not create a network.
 - [x] Use cached `python:3.11.9-slim-bookworm` with `--pull=false` and complete backend, DAG, runtime, frontend, Compose and migration validation.
-- [ ] Fast-forward the validated branch into `main`, push both refs, and remove only this task worktree.
+- [x] Fast-forward the validated branch into `main`, push both refs, and remove only this task worktree.
 
 Restrictions:
 - Do not deploy or restart production services.
