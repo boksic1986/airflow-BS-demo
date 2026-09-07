@@ -1,5 +1,32 @@
 # 11 部署 Runbook
 
+## T219 `.96` stage terminal/progress release
+
+Accepted production release:
+
+```text
+/data/airflow-WGS/releases/20260907-wgs-4.1.1-6c98281-t219-stage-terminal-r2
+```
+
+The rollout applies the T218 lifecycle/node97 schema and the isolated
+`191fc4c` stage-terminal correction. Production PostgreSQL advances additively
+from `20260901_0013` through the single `20260907_0017` head. Initialize
+`wgs_obs_upload=1` and `wgs_obs_download=1` before loading the new DAG; retain
+the legacy pool only for rollback readers.
+
+Before recreation, require no running or queued `bio_wgs` DagRun. Recreate
+backend, observer, the three Airflow services and frontend only; do not restart
+PostgreSQL, Redis or any CCE workload. After backend recreation, restart the
+frontend nginx container to refresh its backend DNS. Verify authenticated Run
+Workspace, not only `/api/health`: terminal runs must return observer data,
+`final/success`, and all four lifecycle projections without a detached ORM
+error.
+
+The fixed Docker network is immutable: `nipt_analysis_test_net` must remain
+`192.168.199.0/24` with gateway `192.168.199.1`, and only
+`172.17.61.96:12959` may be published. The accepted pre-migration backup is
+`/data/airflow-WGS/backups/T219-stage-terminal-20260907T085541Z`.
+
 ## T218 lifecycle/node97 integration candidate
 
 T218 is a source integration only. Validate migration `0014 -> 0015 -> 0016 ->

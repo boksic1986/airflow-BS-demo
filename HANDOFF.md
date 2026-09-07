@@ -20,9 +20,28 @@ backend `434 passed, 1 skipped`, WGS DAG contracts `43 passed`, runtime/host
 helpers `102 passed`, and frontend `15` files / `63` tests plus a successful
 production build. A disposable PostgreSQL 15 database upgraded from empty to
 the single `20260907_0017` head using only the existing
-`nipt_analysis_test_net` (`192.168.199.0/24`, gateway `.1`). No production
-service, database, network, analysis task, OBS object or SFS result has been
-changed at this point.
+`nipt_analysis_test_net` (`192.168.199.0/24`, gateway `.1`). Candidate
+validation itself changed no production service, database, network, analysis
+task, OBS object or SFS result.
+
+Production rollout completed through immutable release
+`/data/airflow-WGS/releases/20260907-wgs-4.1.1-6c98281-t219-stage-terminal-r2`.
+The database was backed up under
+`/data/airflow-WGS/backups/T219-stage-terminal-20260907T085541Z` and upgraded
+additively from 0013 to the single 0017 head. Backend and observer use
+`airflow-demo/backend:t219-stage-terminal-r2`; frontend remains on the tested
+`airflow-demo/frontend:t219-stage-terminal-r1`; Airflow keeps
+`airflow-demo/airflow:bs-control-c706548`. Backend, observer, Airflow and
+frontend were recreated only after running/queued `bio_wgs` checks returned
+empty. PostgreSQL, Redis, scanner, metric collectors, data roots and CCE jobs
+were not restarted or modified.
+
+Final smoke: public health is OK; authenticated login succeeds; the latest
+terminal Run Workspace returns `final/success` and all four lifecycle fields;
+DAG import errors and running/queued DagRuns are empty; directional upload and
+download pools each have one slot. The production network is still exactly
+`192.168.199.0/24` with gateway `192.168.199.1`, and only
+`172.17.61.96:12959` is published by the WGS stack.
 
 Validation failures retained for audit: the first backend attempt inherited
 the production env and was interrupted after it invoked real-dependency test
