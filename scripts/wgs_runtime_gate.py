@@ -59,7 +59,14 @@ BINDING_SCHEMA = "wgs-runtime.batch-binding.v2"
 REQUEST_ROOT = Path(
     os.getenv(
         "WGS_RUNTIME_REQUEST_ROOT",
-        "/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runner-requests",
+        "/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/runner-requests",
+    )
+)
+RUNTIME_RUN_ROOT = os.getenv("WGS_RUNTIME_RUN_ROOT", "").strip()
+TRANSFER_SPOOL_ROOT = Path(
+    os.getenv(
+        "WGS_TRANSFER_SPOOL_ROOT",
+        str(REQUEST_ROOT.parent / "transfer-progress"),
     )
 )
 WGS_REPO_ROOT = Path(
@@ -69,10 +76,16 @@ WGS_REPO_ROOT = Path(
     )
 )
 WGS_PYTHON = os.getenv("WGS_PYTHON", "/bi/software/mamba/envs/WGS/bin/python")
-WGS_PREPARE_CONFIG = str(WGS_REPO_ROOT / "prepare" / "config.yaml")
-CCE_OPERATOR_CONFIG = os.getenv(
-    "CCE_OPERATOR_CONFIG", "/home/hanjj/.config/wgs/cce.yaml"
+WGS_PREPARE_CONFIG = os.getenv(
+    "WGS_PREPARE_CONFIG", str(WGS_REPO_ROOT / "prepare" / "config.yaml")
 )
+WGS_PREPARE_CONFIG_ROOT = Path(
+    os.getenv("WGS_PREPARE_CONFIG_ROOT", str(WGS_REPO_ROOT / "prepare"))
+)
+CCE_OPERATOR_CONFIG = os.getenv(
+    "CCE_OPERATOR_CONFIG", "/home/ctapa/.config/wgs/cce.yaml"
+)
+CCE_PIPELINE_BIN = os.getenv("CCE_PIPELINE_BIN", "").strip()
 WGS_GIT_MNT_PREFIX = os.getenv("WGS_GIT_MNT_PREFIX", "/mnt/biodevrwbi")
 WGS_GIT_NODE_PREFIX = os.getenv("WGS_GIT_NODE_PREFIX", "/bi/biodevrwbi")
 MONITOR_INTERVAL_SECONDS = int(os.getenv("WGS_MONITOR_INTERVAL_SECONDS", "5"))
@@ -87,7 +100,7 @@ STEP4_MASTER_NOT_SUCCESSFUL = "Step4 requires a successful Master Job"
 CCE_EVIDENCE_ROOT = Path(
     os.getenv(
         "WGS_CCE_EVIDENCE_ROOT",
-        "/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence",
+        "/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/cce-evidence",
     )
 )
 EVIDENCE_BRIDGE = Path(__file__).with_name("wgs_evidence_bridge.py")
@@ -164,6 +177,70 @@ def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _atomic_yaml(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".partial",
+    )
+    temporary = Path(temporary_name)
+    try:
+        os.fchmod(descriptor, 0o644)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            yaml.safe_dump(payload, handle, sort_keys=False)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _freeze_validation_execution_mode(
+    payload: dict[str, Any], batch_root: Path
+) -> dict[str, Any] | None:
+    scope = payload.get("validation_scope")
+    if scope is None or scope == "step1_only":
+        return None
+    if scope == "node97_full":
+        if not _truthy("WGS_NODE97_FULL_CANARY_ENABLED"):
+            raise RuntimeError("node97 full canary is disabled on node200")
+        return None
+    if scope != "step3_dryrun":
+        raise RuntimeError("unsupported WGS validation scope")
+    if not _truthy("WGS_STEP3_DRYRUN_CANARY_ENABLED"):
+        raise RuntimeError("Step3 dry-run canary is disabled on node200")
+    runtime_path = batch_root / "cce" / "BATCH_RUNTIME.yaml"
+    if not runtime_path.is_file():
+        raise RuntimeError(
+            "WGS prepare did not create BATCH_RUNTIME.yaml; review sample selection and FASTQ readiness"
+        )
+    before = runtime_path.read_bytes()
+    runtime = yaml.safe_load(before)
+    workflow = runtime.get("workflow") if isinstance(runtime, dict) else None
+    if not isinstance(workflow, dict):
+        raise RuntimeError("BATCH_RUNTIME.yaml workflow is invalid")
+    current_mode = workflow.get("execution_mode", "analysis")
+    if current_mode not in {"analysis", "dry_run"}:
+        raise RuntimeError("BATCH_RUNTIME.yaml execution mode is invalid")
+    workflow["execution_mode"] = "dry_run"
+    _atomic_yaml(runtime_path, runtime)
+    after = runtime_path.read_bytes()
+    provenance = {
+        "schema_version": "wgs-runtime.validation-override.v1",
+        "analysis_id": payload["analysis_id"],
+        "attempt": payload["attempt"],
+        "validation_scope": scope,
+        "execution_mode_before": current_mode,
+        "execution_mode_after": "dry_run",
+        "runtime_sha256_before": hashlib.sha256(before).hexdigest(),
+        "runtime_sha256_after": hashlib.sha256(after).hexdigest(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _atomic_json(batch_root / "cce" / "VALIDATION_OVERRIDE.json", provenance)
+    return provenance
+
+
 def _write_status(
     payload: dict[str, Any], status: str, message: str = "", **details: Any
 ) -> bool:
@@ -177,6 +254,12 @@ def _write_status(
         "updated_at": datetime.now(timezone.utc).isoformat(),
         **details,
     }
+    if int(payload.get("orchestration_contract_version") or 1) == 2:
+        for key in ("execution_id", "generation", "request_hash"):
+            if payload.get(key) in {None, ""}:
+                raise ValueError(f"contract v2 runtime request is missing {key}")
+            value[key] = payload[key]
+        value["orchestration_contract_version"] = 2
     status_path = _sidecar_path(payload, ".status.json")
     lock_path = _sidecar_path(payload, ".status.lock")
     rank = {"accepted": 0, "running": 1, "success": 2, "failed": 2}
@@ -241,6 +324,25 @@ def validate_release_repository(payload: dict[str, Any]) -> Path:
     return repo
 
 
+def validate_prepare_config() -> Path:
+    config = Path(WGS_PREPARE_CONFIG)
+    if not config.is_absolute() or not config.is_file() or config.is_symlink():
+        raise RuntimeError("release_unavailable: WGS prepare config is unavailable")
+    resolved = config.resolve()
+    approved_roots = {
+        (WGS_REPO_ROOT / "prepare").resolve(),
+        WGS_PREPARE_CONFIG_ROOT.resolve(),
+    }
+    if not any(
+        root == resolved.parent or root in resolved.parents
+        for root in approved_roots
+    ):
+        raise RuntimeError(
+            "release_unavailable: WGS prepare config is outside approved roots"
+        )
+    return resolved
+
+
 def _git_repository_command(repo: Path) -> list[str]:
     marker = repo / ".git"
     if marker.is_dir():
@@ -267,7 +369,11 @@ def _git_repository_command(repo: Path) -> list[str]:
 
 def _workdir(payload: dict[str, Any]) -> Path:
     value = Path(str(payload["control_workdir"])).resolve()
-    runtime_root = (REQUEST_ROOT.resolve().parent / "runs").resolve()
+    if not RUNTIME_RUN_ROOT:
+        raise RuntimeError("WGS_RUNTIME_RUN_ROOT is required")
+    runtime_root = Path(RUNTIME_RUN_ROOT).resolve()
+    if not runtime_root.is_absolute():
+        raise RuntimeError("WGS_RUNTIME_RUN_ROOT must be absolute")
     if runtime_root not in value.parents:
         raise ValueError("node200 workdir is outside the approved runtime root")
     return value
@@ -342,16 +448,83 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
             CCE_OPERATOR_CONFIG,
             "--skip-samplelist-ready-check",
         ])
+        if CCE_PIPELINE_BIN:
+            cce_pipeline = Path(CCE_PIPELINE_BIN).expanduser()
+            if not cce_pipeline.is_absolute():
+                raise ValueError("CCE_PIPELINE_BIN must be an absolute path")
+            command.extend(["--cce-pipeline", str(cce_pipeline)])
         use_reference = str(payload.get("use_reference") or "").strip()
         if use_reference:
             if use_reference not in {"all", "ref", "no"}:
                 raise ValueError("use_reference must be all, ref, or no")
             command.extend(["--use-reference", use_reference])
+        if (
+            subcommand == "analysis"
+            and payload.get("validation_scope") == "node97_full"
+            and int(payload["attempt"]) > 1
+        ):
+            command.extend(["--cce-from-zero", "clean"])
     return command
 
 
 def _clean_env() -> dict[str, str]:
     return {**os.environ, "PYTHONNOUSERSITE": "1"}
+
+
+def _resolved_runtime_controls(profile: dict[str, Any]) -> dict[str, Any]:
+    controls: dict[str, Any] = {}
+    transfer = profile.get("transfer")
+    if transfer is not None:
+        if not isinstance(transfer, dict):
+            raise RuntimeError("RESOLVED_PROFILE.yaml transfer audit is invalid")
+        expected = {
+            "upload_file_parallelism",
+            "download_file_parallelism",
+            "obsutil_parts_per_file",
+        }
+        if set(transfer) != expected:
+            raise RuntimeError("RESOLVED_PROFILE.yaml transfer audit is incomplete")
+        normalized_transfer: dict[str, int] = {}
+        for name in sorted(expected):
+            value = transfer[name]
+            if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 32:
+                raise RuntimeError(
+                    f"RESOLVED_PROFILE.yaml transfer.{name} is invalid"
+                )
+            normalized_transfer[name] = value
+        controls["transfer"] = normalized_transfer
+
+    heavy_io = profile.get("heavy_io")
+    if heavy_io is not None:
+        if not isinstance(heavy_io, dict) or set(heavy_io) != {"limit", "mode", "unit"}:
+            raise RuntimeError("RESOLVED_PROFILE.yaml heavy_io audit is invalid")
+        limit = heavy_io["limit"]
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+            raise RuntimeError("RESOLVED_PROFILE.yaml heavy_io.limit is invalid")
+        if heavy_io["mode"] not in {"monitor-only", "enforce"}:
+            raise RuntimeError("RESOLVED_PROFILE.yaml heavy_io.mode is invalid")
+        if heavy_io["unit"] != "work_pod":
+            raise RuntimeError("RESOLVED_PROFILE.yaml heavy_io.unit is invalid")
+        controls["heavy_io"] = {
+            "limit": limit,
+            "mode": heavy_io["mode"],
+            "unit": "work_pod",
+        }
+    return controls
+
+
+def _validate_heavy_io_contract(
+    payload: dict[str, Any], resolved_runtime: dict[str, Any]
+) -> None:
+    expected = payload.get("heavy_io_contract")
+    if expected is None:
+        return
+    if not isinstance(expected, dict) or set(expected) != {"limit", "mode", "unit"}:
+        raise RuntimeError("WGS stage contract heavy_io payload is invalid")
+    if resolved_runtime.get("heavy_io") != expected:
+        raise RuntimeError(
+            "RESOLVED_PROFILE.yaml heavy_io does not match the WGS stage contract"
+        )
 
 
 def _run_prepare(payload: dict[str, Any]) -> None:
@@ -360,6 +533,7 @@ def _run_prepare(payload: dict[str, Any]) -> None:
         _load_binding(payload)
         return
     validate_release_repository(payload)
+    validate_prepare_config()
     workdir = _workdir(payload)
     workdir.mkdir(parents=True, exist_ok=True)
     project_root = Path(str(payload["analysis_project_root"])).resolve()
@@ -372,11 +546,13 @@ def _run_prepare(payload: dict[str, Any]) -> None:
     ):
         raise RuntimeError("WGS analysis project root is unavailable or outside the approved batch path")
     subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
+    _freeze_validation_execution_mode(payload, expected_batch_root)
     _write_prepare_binding(payload)
 
 
 def _run_prepare_sampleinfo(payload: dict[str, Any]) -> None:
     validate_release_repository(payload)
+    validate_prepare_config()
     workdir = _workdir(payload)
     workdir.mkdir(parents=True, exist_ok=True)
     project_root = Path(str(payload["analysis_project_root"])).resolve()
@@ -393,15 +569,50 @@ def _run_prepare_sampleinfo(payload: dict[str, Any]) -> None:
 def _run_prepare_analysis(payload: dict[str, Any]) -> None:
     binding_path = _binding_path(payload)
     if binding_path.is_file():
-        _load_binding(payload)
-        return
+        if not _archive_missing_prepare_binding(payload, binding_path):
+            _load_binding(payload)
+            return
     validate_release_repository(payload)
+    validate_prepare_config()
     project_root = Path(str(payload["analysis_project_root"])).resolve()
     expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
     if expected_batch_root != project_root / str(payload["batch_no"]):
         raise RuntimeError("WGS analysis batch path is outside the approved project root")
     subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
+    _freeze_validation_execution_mode(payload, expected_batch_root)
     _write_prepare_binding(payload)
+
+
+def _archive_missing_prepare_binding(payload: dict[str, Any], binding_path: Path) -> bool:
+    """Archive an attempt binding only when a newer prepare generation lost its bundle."""
+    generation = int(payload.get("generation") or 1)
+    if generation <= 1:
+        return False
+    value = json.loads(binding_path.read_text(encoding="utf-8"))
+    if (
+        value.get("schema_version") != BINDING_SCHEMA
+        or value.get("analysis_id") != payload["analysis_id"]
+        or int(value.get("attempt", 0)) != int(payload["attempt"])
+        or value.get("pipeline_release_id") != payload["pipeline_release_id"]
+    ):
+        _load_binding(payload)
+        return False
+    bundle = Path(str(value.get("cce_bundle") or "")).resolve()
+    expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
+    if expected_batch_root not in bundle.parents or bundle.is_symlink():
+        _load_binding(payload)
+        return False
+    if bundle.is_dir():
+        return False
+    history = (
+        _workdir(payload)
+        / "history"
+        / "prepare_analysis"
+        / f"before-generation-{generation}"
+    )
+    history.mkdir(parents=True, exist_ok=True)
+    os.replace(binding_path, history / "batch-binding.json")
+    return True
 
 
 def _write_prepare_binding(payload: dict[str, Any]) -> None:
@@ -444,7 +655,13 @@ def _write_prepare_binding(payload: dict[str, Any]) -> None:
         "resource_manifest_sha256": str(
             pipeline.get("resource_manifest_sha256") or ""
         ),
+        "execution_mode": str((runtime.get("workflow") or {}).get("execution_mode") or "analysis"),
+        "batch_runtime_sha256": hashlib.sha256(
+            (batch_root / "cce" / "BATCH_RUNTIME.yaml").read_bytes()
+        ).hexdigest(),
     }
+    resolved_runtime.update(_resolved_runtime_controls(profile))
+    _validate_heavy_io_contract(payload, resolved_runtime)
     analysis = runtime.get("analysis") if isinstance(runtime.get("analysis"), dict) else {}
     runtime_paths = runtime.get("paths") if isinstance(runtime.get("paths"), dict) else {}
     run_dir = Path(str(runtime_paths.get("run_dir") or ""))
@@ -509,6 +726,7 @@ def _load_binding(payload: dict[str, Any]) -> dict[str, Any]:
         or value.get("pipeline_release_id") != payload["pipeline_release_id"]
     ):
         raise ValueError("batch binding identity mismatch")
+    _validate_heavy_io_contract(payload, dict(value.get("resolved_runtime") or {}))
     bundle = Path(str(value["cce_bundle"])).resolve()
     expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
     if expected_batch_root not in bundle.parents or not bundle.is_dir() or bundle.is_symlink():
@@ -588,6 +806,17 @@ def validate_step3_status(value: dict[str, Any]) -> dict[str, Any]:
         "percent": float(value.get("percent") or 0.0),
         "message": str(value.get("message") or ""),
     }
+    execution_mode = value.get("execution_mode")
+    if execution_mode is not None:
+        if execution_mode not in {"analysis", "dry_run"}:
+            raise ValueError("Step3 execution_mode is invalid")
+        result["execution_mode"] = execution_mode
+    for key in ("master_uid", "master_resource_version"):
+        item = value.get(key)
+        if item is not None:
+            if not isinstance(item, str) or not item.strip():
+                raise ValueError(f"Step3 {key} is invalid")
+            result[key] = item
     if result["completed"] < 0 or result["total"] < 0:
         raise ValueError("Step3 progress cannot be negative")
     return result
@@ -743,9 +972,16 @@ def _wait_step4(payload: dict[str, Any]) -> None:
 
 
 def _transfer_progress_root(payload: dict[str, Any]) -> Path:
-    return _request_path(
-        str(payload["analysis_id"]), int(payload["attempt"]), str(payload["stage"])
-    ).parent / "transfer-progress" / str(payload["stage"])
+    root = TRANSFER_SPOOL_ROOT.resolve()
+    path = (
+        root
+        / str(payload["analysis_id"])
+        / f"attempt-{int(payload['attempt'])}"
+        / str(payload["stage"])
+    ).resolve()
+    if root not in path.parents:
+        raise ValueError("transfer progress path escapes spool root")
+    return path
 
 
 def _transfer_plan_path(payload: dict[str, Any]) -> Path:
@@ -849,6 +1085,45 @@ def _step5_completed_plan_totals(
 def _aggregate_transfer_progress(
     payload: dict[str, Any], plan: dict[str, Any] | None = None
 ) -> dict[str, Any] | None:
+    sdk_path = _transfer_progress_root(payload) / "progress.json"
+    if sdk_path.is_file():
+        sdk = _read_json(sdk_path)
+        if (
+            sdk.get("schema_version") == "wgs-runtime.transfer-progress.v2"
+            and sdk.get("analysis_id") == payload["analysis_id"]
+            and int(sdk.get("attempt", 0)) == int(payload["attempt"])
+            and sdk.get("stage") == payload["stage"]
+        ):
+            total = int(plan["bytes_total"]) if plan else int(sdk.get("bytes_total") or 0)
+            files_total = int(plan["files_total"]) if plan else int(sdk.get("files_total") or 0)
+            if plan and (
+                int(sdk.get("bytes_total") or 0) != total
+                or int(sdk.get("files_total") or 0) != files_total
+            ):
+                raise RuntimeError("OBS SDK callback totals differ from the frozen transfer plan")
+            done = min(max(0, int(sdk.get("bytes_done") or 0)), total)
+            files_done = min(max(0, int(sdk.get("files_done") or 0)), files_total)
+            speed = max(0, int(sdk.get("speed_bytes_per_second") or 0))
+            return {
+                **sdk,
+                "bytes_total": total,
+                "bytes_done": done,
+                "files_total": files_total,
+                "files_done": files_done,
+                "eta_seconds": (
+                    max(0, int((total - done) / speed))
+                    if total and speed and done < total
+                    else 0 if total and done >= total else None
+                ),
+                "monitoring_health": "healthy",
+                "source": "obs-sdk-callback",
+                "plan_path": (
+                    "transfer-progress/%s/transfer-plan.json" % payload["stage"]
+                    if plan
+                    else None
+                ),
+                "manifest_sha256": plan.get("manifest_sha256") if plan else None,
+            }
     rows = []
     for path in _transfer_progress_root(payload).glob("*.json"):
         value = _read_json(path)
@@ -930,6 +1205,10 @@ def _run_transfer_stage(payload: dict[str, Any]) -> None:
         "WGS_TRANSFER_ATTEMPT": str(payload["attempt"]),
         "WGS_TRANSFER_STAGE": stage,
         "WGS_TRANSFER_DIRECTION": "upload" if stage == "step1_upload" else "download",
+        "WGS_ORCHESTRATION_CONTRACT_VERSION": str(payload.get("orchestration_contract_version") or 1),
+        "WGS_STAGE_EXECUTION_ID": str(payload.get("execution_id") or ""),
+        "WGS_STAGE_GENERATION": str(payload.get("generation") or ""),
+        "WGS_STAGE_REQUEST_HASH": str(payload.get("request_hash") or ""),
     }
     process = subprocess.Popen(_step_command(payload, stage), env=environment)
     while process.poll() is None:
@@ -1087,6 +1366,77 @@ def _archive_failed_stage_generation(payload: dict[str, Any]) -> int:
     return retry_no
 
 
+def _archive_contract_generation(
+    payload: dict[str, Any], generation: int
+) -> None:
+    request_path = _request_path(
+        str(payload["analysis_id"]), int(payload["attempt"]), str(payload["stage"])
+    )
+    history_root = request_path.parent / "history" / str(payload["stage"])
+    history_root.mkdir(parents=True, exist_ok=True)
+    final = history_root / f"generation-{generation}"
+    partial = history_root / f".generation-{generation}.partial"
+    if final.exists() or partial.exists():
+        raise RuntimeError("previous contract generation was already archived")
+    partial.mkdir(mode=0o750)
+    for source, destination_name in (
+        (request_path.with_suffix(".status.json"), "status.json"),
+        (request_path.with_suffix(".worker.json"), "worker.json"),
+        (request_path.with_suffix(".worker.log"), "worker.log"),
+    ):
+        if source.exists():
+            os.replace(source, partial / destination_name)
+    os.replace(partial, final)
+    directory_descriptor = os.open(history_root, os.O_RDONLY)
+    try:
+        os.fsync(directory_descriptor)
+    finally:
+        os.close(directory_descriptor)
+
+
+def _prepare_contract_generation(
+    payload: dict[str, Any], *, request_sha: str
+) -> int | None:
+    if int(payload.get("orchestration_contract_version") or 1) != 2:
+        return None
+    current_generation = int(payload["generation"])
+    current_execution = str(payload["execution_id"])
+    current_request_hash = str(payload["request_hash"])
+    status = _read_json(_sidecar_path(payload, ".status.json"))
+    worker = _read_json(_sidecar_path(payload, ".worker.json"))
+    generations: set[int] = set()
+    for label, value in (("status", status), ("worker", worker)):
+        if not value:
+            continue
+        if int(value.get("orchestration_contract_version") or 1) != 2:
+            raise RuntimeError(f"{label} sidecar lacks contract v2 identity")
+        try:
+            generation = int(value["generation"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise RuntimeError(f"{label} sidecar has invalid generation") from error
+        if generation > current_generation:
+            raise RuntimeError(f"{label} sidecar belongs to a future generation")
+        if generation == current_generation:
+            if (
+                value.get("execution_id") != current_execution
+                or value.get("request_hash") != current_request_hash
+            ):
+                raise RuntimeError(f"{label} sidecar execution identity mismatch")
+            if label == "worker" and value.get("request_sha256") != request_sha:
+                raise RuntimeError("registered request changed after worker launch")
+        generations.add(generation)
+    old_generations = {value for value in generations if value < current_generation}
+    if not old_generations:
+        return None
+    if len(old_generations) != 1 or current_generation in generations:
+        raise RuntimeError("runtime sidecars contain mixed contract generations")
+    if worker and _process_matches(worker):
+        raise RuntimeError("previous generation worker is still active")
+    previous_generation = old_generations.pop()
+    _archive_contract_generation(payload, previous_generation)
+    return previous_generation
+
+
 def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
     if not _truthy("WGS_EXECUTION_ENABLED") or not _truthy(
         "WGS_RUNTIME_ADAPTER_ENABLED"
@@ -1104,15 +1454,35 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
     with launch_lock.open("a+", encoding="utf-8") as lock_handle:
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
         previous = _read_json(state_path)
+        archived_generation = _prepare_contract_generation(
+            payload, request_sha=request_sha
+        )
+        previous = _read_json(state_path)
         if previous and previous.get("request_sha256") != request_sha:
             raise RuntimeError("registered request changed after worker launch")
         status = _read_json(_sidecar_path(payload, ".status.json"))
         if status.get("status") in {"success", "complete", "succeeded"}:
-            return {"status": "complete", "pid": previous.get("pid")}
+            return {
+                "status": "complete",
+                "pid": previous.get("pid") if previous else None,
+            }
+        if (
+            int(payload.get("orchestration_contract_version") or 1) == 2
+            and status.get("status") in {"failed", "canceled"}
+        ):
+            raise RuntimeError(
+                "terminal contract generation requires a new registered generation"
+            )
         if previous and _process_matches(previous):
             return {"status": "running", "pid": previous["pid"]}
-        retry_no = 0
-        if status.get("status") == "failed":
+        retry_no = (
+            int(payload["generation"]) - 1
+            if archived_generation is not None
+            else 0
+        )
+        if status.get("status") == "failed" and int(
+            payload.get("orchestration_contract_version") or 1
+        ) != 2:
             if payload["stage"] not in {"step4_publish", "step5_download"}:
                 raise RuntimeError(
                     "failed runtime stages cannot be restarted by the restricted runner"
@@ -1144,12 +1514,33 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             "retry_no": retry_no,
             "started_at": datetime.now(timezone.utc).isoformat(),
         }
+        if int(payload.get("orchestration_contract_version") or 1) == 2:
+            state.update(
+                {
+                    "orchestration_contract_version": 2,
+                    "execution_id": payload["execution_id"],
+                    "generation": payload["generation"],
+                    "request_hash": payload["request_hash"],
+                }
+            )
         _atomic_json(state_path, state)
-        return {"status": "accepted", "pid": process.pid, "retry_no": retry_no}
+        result = {"status": "accepted", "pid": process.pid, "retry_no": retry_no}
+        if int(payload.get("orchestration_contract_version") or 1) == 2:
+            result["generation"] = int(payload["generation"])
+            result["execution_id"] = str(payload["execution_id"])
+        return result
 
 
 def _run_worker(payload: dict[str, Any]) -> int:
     current_status = _read_json(_sidecar_path(payload, ".status.json"))
+    if (
+        int(payload.get("orchestration_contract_version") or 1) == 2
+        and current_status.get("execution_id") == payload.get("execution_id")
+        and current_status.get("status") in {"success", "failed", "canceled"}
+    ):
+        raise RuntimeError(
+            "terminal contract generation requires a new registered generation"
+        )
     retry_no = int(current_status.get("retry_no", 0))
     if payload["stage"] != "step3_monitor":
         _write_status(payload, "running", retry_no=retry_no)
@@ -1160,6 +1551,24 @@ def _run_worker(payload: dict[str, Any]) -> int:
         raise
     _write_status(payload, "success", retry_no=retry_no)
     return 0
+
+
+def _run_synchronous_stage(payload: dict[str, Any]) -> int:
+    request_path = _request_path(
+        str(payload["analysis_id"]), int(payload["attempt"]), str(payload["stage"])
+    )
+    request_sha = hashlib.sha256(request_path.read_bytes()).hexdigest()
+    lock_path = _sidecar_path(payload, ".worker.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as lock_handle:
+        try:
+            fcntl.flock(
+                lock_handle.fileno(), fcntl.LOCK_EX | getattr(fcntl, "LOCK_NB", 4)
+            )
+        except BlockingIOError as error:
+            raise RuntimeError("stage worker is already active") from error
+        _prepare_contract_generation(payload, request_sha=request_sha)
+        return _run_worker(payload)
 
 
 def main() -> int:
@@ -1176,7 +1585,7 @@ def main() -> int:
     if stage in ASYNC_STAGES:
         print(json.dumps(start_async_stage(payload), sort_keys=True))
         return 0
-    return _run_worker(payload)
+    return _run_synchronous_stage(payload)
 
 
 if __name__ == "__main__":

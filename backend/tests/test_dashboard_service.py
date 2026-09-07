@@ -542,7 +542,9 @@ def test_terminal_dashboard_page_bulk_loads_without_sql_n_plus_one(tmp_path, mon
     assert response.json()["total"] == 2
     assert {item["analysis_id"] for item in response.json()["items"]} == {"NIPT_SUCCESS", "WGS_SUCCESS"}
     assert airflow.task_calls == []
-    assert len(statements) <= 6
+    # Three fixed lifecycle projection queries are added for snapshots,
+    # registered states and Step7 state. The count does not grow per WGS run.
+    assert len(statements) <= 9
     assert any("wgs" in str(params) for _statement, params in statements)
 
 

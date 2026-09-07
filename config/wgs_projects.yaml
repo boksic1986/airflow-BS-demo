@@ -10,6 +10,17 @@ projects:
       - root_id: T7_Fastq
         display_name: T7 FASTQ production root
         node200_path: /bi/fastq/T7_Fastq
+        control_plane_path: /bi/fastq/T7_Fastq
+      - root_id: T7_Step3_Dryrun_Canary
+        display_name: T7 Step3 dry-run validation root
+        node200_path: /sg2/50.ctapa/project/HWcloud/WGS_Clinical/.canary-fastq
+        control_plane_path: /data/wgs-intake/.canary-fastq
+        validation_scope: step3_dryrun
+      - root_id: T7_Node97_Full_Canary
+        display_name: T7 node97 full-run validation root
+        node200_path: /sg2/50.ctapa/project/HWcloud/WGS_Clinical/.node97-full-fastq
+        control_plane_path: /data/wgs-intake/.node97-full-fastq
+        validation_scope: node97_full
     editable_config:
       use_reference:
         type: enum

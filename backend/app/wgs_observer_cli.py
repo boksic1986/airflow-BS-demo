@@ -91,6 +91,7 @@ def main() -> int:
     )
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
+    settings = get_settings()
     session_factory = get_sessionmaker()
 
     if args.once:
@@ -100,6 +101,7 @@ def main() -> int:
                 evidence_root=args.evidence_root,
                 analysis_id=analysis_id,
                 attempt=attempt,
+                transfer_spool_root=Path(settings.wgs_transfer_spool_root),
             )
             if int(result.get("events_ingested") or 0) or int(
                 result.get("errors") or 0
@@ -119,7 +121,7 @@ def main() -> int:
     while True:
         source = None
         try:
-            source = PostgresNotificationSource(get_settings().database_url)
+            source = PostgresNotificationSource(settings.database_url)
             # LISTEN first, then restore persisted work.  This closes the race
             # where activation could commit between the initial query and
             # subscription and leave an idle observer blocked indefinitely.
@@ -134,6 +136,7 @@ def main() -> int:
                         evidence_root=args.evidence_root,
                         analysis_id=analysis_id,
                         attempt=attempt,
+                        transfer_spool_root=Path(settings.wgs_transfer_spool_root),
                     ),
                     interval_seconds=max(1.0, args.interval),
                     log_fn=_log,

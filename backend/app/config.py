@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 from functools import lru_cache
 import os
+from pathlib import Path
+
+from app.wgs_project_catalog import load_wgs_intake_policy
+from app.wgs_stage_catalog import load_wgs_stage_contract
 
 
 def _required_env(name: str) -> str:
@@ -44,10 +48,13 @@ class Settings:
     wgs_submission_draft_root: str
     wgs_submission_draft_ttl_hours: int
     wgs_runtime_request_root: str
+    wgs_runtime_run_root: str
     wgs_runtime_shared_gid: int
     wgs_runtime_bs_root: str
     wgs_runtime_node200_root: str
     wgs_results_host_root: str
+    wgs_analysis_project_container_root: str
+    wgs_analysis_project_node200_root: str
     wgs_intake_container_root: str
     wgs_intake_host_root: str
     wgs_intake_node200_root: str
@@ -56,6 +63,18 @@ class Settings:
     wgs_intake_scan_interval_seconds: int
     wgs_auto_dispatch_enabled: bool
     wgs_auto_dispatch_not_before: str | None
+    wgs_stage_contract_path: str
+    wgs_contract_v2_enabled: bool
+    wgs_transfer_adapter: str
+    wgs_heavy_slot_limit: int
+    wgs_heavy_slot_mode: str
+    wgs_local_node97_enabled: bool
+    wgs_local_node96_enabled: bool
+    wgs_sge_enabled: bool
+    wgs_local_min_logical_cpus: int
+    wgs_local_admission_samples: int
+    wgs_local_admission_cpu_percent: float
+    wgs_local_admission_load_ratio: float
 
 
 def get_cors_origins() -> list[str]:
@@ -82,6 +101,38 @@ def get_settings() -> Settings:
         raise RuntimeError(f"Unsupported DEPLOYED_PIPELINES values: {', '.join(unsupported)}")
     if not deployed_pipelines:
         raise RuntimeError("DEPLOYED_PIPELINES must contain at least one pipeline")
+    stage_contract_path = os.getenv(
+        "WGS_STAGE_CONTRACT_PATH", "/config/wgs_stage_contract.yaml"
+    )
+    stage_contract = load_wgs_stage_contract(Path(stage_contract_path))
+    heavy_limit = stage_contract.heavy_io.limit
+    heavy_mode = stage_contract.heavy_io.mode
+    _reject_contract_drift("WGS_HEAVY_SLOT_LIMIT", str(heavy_limit))
+    _reject_contract_drift("WGS_HEAVY_SLOT_MODE", heavy_mode)
+
+    intake_config_path = os.getenv("INTAKE_CONFIG_PATH", "/app/config/intake.yaml")
+    project_catalog_path = os.getenv(
+        "WGS_PROJECT_CATALOG_PATH", "/config/wgs_projects.yaml"
+    )
+    scan_gate = _parse_bool(os.getenv("WGS_INTAKE_SCAN_ENABLED", "false"))
+    auto_dispatch_gate = _parse_bool(
+        os.getenv("WGS_AUTO_DISPATCH_ENABLED", "false")
+    )
+    scan_enabled = False
+    auto_dispatch_enabled = False
+    scan_interval_seconds = 1800
+    if Path(intake_config_path).is_file() and Path(project_catalog_path).is_file():
+        intake_policy = load_wgs_intake_policy(
+            intake_path=intake_config_path,
+            project_catalog_path=project_catalog_path,
+        )
+        scan_enabled = scan_gate and intake_policy.scheduled_scan_enabled
+        auto_dispatch_enabled = (
+            scan_enabled
+            and auto_dispatch_gate
+            and intake_policy.auto_dispatch_enabled
+        )
+        scan_interval_seconds = intake_policy.interval_seconds
     return Settings(
         database_url=_required_env("DATABASE_URL"),
         airflow_base_url=os.getenv("AIRFLOW_BASE_URL", "http://airflow-api-server:8080"),
@@ -96,7 +147,7 @@ def get_settings() -> Settings:
         wgs_config_roots=wgs_config_roots,
         wgs_fastq_roots=wgs_fastq_roots,
         wgs_validation_roots=wgs_validation_roots,
-        intake_config_path=os.getenv("INTAKE_CONFIG_PATH", "/app/config/intake.yaml"),
+        intake_config_path=intake_config_path,
         pipeline_profile_config_path=os.getenv(
             "PIPELINE_PROFILE_CONFIG_PATH",
             "/app/config/pipeline_profiles.yaml",
@@ -116,9 +167,7 @@ def get_settings() -> Settings:
         wgs_release_catalog_path=os.getenv(
             "WGS_RELEASE_CATALOG_PATH", "/config/wgs_releases.yaml"
         ),
-        wgs_project_catalog_path=os.getenv(
-            "WGS_PROJECT_CATALOG_PATH", "/config/wgs_projects.yaml"
-        ),
+        wgs_project_catalog_path=project_catalog_path,
         wgs_submission_draft_root=os.getenv(
             "WGS_SUBMISSION_DRAFT_ROOT", "/data/wgs-runtime/submission-drafts"
         ),
@@ -128,20 +177,34 @@ def get_settings() -> Settings:
         wgs_runtime_request_root=os.getenv(
             "WGS_RUNTIME_REQUEST_ROOT", "/data/wgs-runner-requests"
         ),
+        wgs_runtime_run_root=os.getenv(
+            "WGS_RUNTIME_RUN_ROOT", "/data/wgs-runtime/runs"
+        ),
         wgs_runtime_shared_gid=_parse_int(
             os.getenv("WGS_RUNTIME_SHARED_GID", "520"), default=520
         ),
         wgs_runtime_bs_root=os.getenv(
             "WGS_RUNTIME_BS_ROOT",
-            "/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime",
+            "/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime",
         ),
         wgs_runtime_node200_root=os.getenv(
             "WGS_RUNTIME_NODE200_ROOT",
-            "/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime",
+            "/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime",
         ),
         wgs_results_host_root=os.getenv(
             "WGS_RESULTS_HOST_ROOT",
             "/mnt/biodevrwbi/33.chenjiucheng/airflow-result/wgs",
+        ),
+        wgs_analysis_project_container_root=os.getenv(
+            "WGS_ANALYSIS_PROJECT_CONTAINER_ROOT",
+            os.getenv("HOST_RESULTS_ROOT", "/data/airflow-demo"),
+        ),
+        wgs_analysis_project_node200_root=os.getenv(
+            "WGS_ANALYSIS_PROJECT_NODE200_ROOT",
+            os.getenv(
+                "WGS_RESULTS_HOST_ROOT",
+                "/mnt/biodevrwbi/33.chenjiucheng/airflow-result/wgs",
+            ),
         ),
         wgs_intake_container_root=os.getenv(
             "WGS_INTAKE_CONTAINER_ROOT", "/data/wgs-intake"
@@ -154,17 +217,37 @@ def get_settings() -> Settings:
             "WGS_INTAKE_NODE200_ROOT", "/sg2/33.chenjiucheng/WGS_input"
         ),
         wgs_t7_fastq_root=os.getenv("WGS_T7_FASTQ_ROOT", "/bi/fastq/T7_Fastq"),
-        wgs_intake_scan_enabled=_parse_bool(
-            os.getenv("WGS_INTAKE_SCAN_ENABLED", "true")
-        ),
-        wgs_intake_scan_interval_seconds=_parse_int(
-            os.getenv("WGS_INTAKE_SCAN_INTERVAL_SECONDS", "600"), default=600
-        ),
-        wgs_auto_dispatch_enabled=_parse_bool(
-            os.getenv("WGS_AUTO_DISPATCH_ENABLED", "false")
-        ),
+        wgs_intake_scan_enabled=scan_enabled,
+        wgs_intake_scan_interval_seconds=scan_interval_seconds,
+        wgs_auto_dispatch_enabled=auto_dispatch_enabled,
         wgs_auto_dispatch_not_before=(
             os.getenv("WGS_AUTO_DISPATCH_NOT_BEFORE", "").strip() or None
+        ),
+        wgs_stage_contract_path=stage_contract_path,
+        wgs_contract_v2_enabled=_parse_bool(
+            os.getenv("WGS_CONTRACT_V2_ENABLED", "false")
+        ),
+        wgs_transfer_adapter=os.getenv("WGS_TRANSFER_ADAPTER", "obs_sdk").strip() or "obs_sdk",
+        wgs_heavy_slot_limit=heavy_limit,
+        wgs_heavy_slot_mode=heavy_mode,
+        wgs_local_node97_enabled=_parse_bool(
+            os.getenv("WGS_LOCAL_NODE97_ENABLED", "false")
+        ),
+        wgs_local_node96_enabled=_parse_bool(
+            os.getenv("WGS_LOCAL_NODE96_ENABLED", "false")
+        ),
+        wgs_sge_enabled=_parse_bool(os.getenv("WGS_SGE_ENABLED", "false")),
+        wgs_local_min_logical_cpus=_parse_int(
+            os.getenv("WGS_LOCAL_MIN_LOGICAL_CPUS", "96"), default=96
+        ),
+        wgs_local_admission_samples=_parse_int(
+            os.getenv("WGS_LOCAL_ADMISSION_SAMPLES", "3"), default=3
+        ),
+        wgs_local_admission_cpu_percent=float(
+            os.getenv("WGS_LOCAL_ADMISSION_CPU_PERCENT", "25")
+        ),
+        wgs_local_admission_load_ratio=float(
+            os.getenv("WGS_LOCAL_ADMISSION_LOAD_RATIO", "0.25")
         ),
     )
 
@@ -182,3 +265,12 @@ def _parse_int(value: str | None, *, default: int) -> int:
         return int(str(value or "").strip())
     except ValueError:
         return default
+
+
+def _reject_contract_drift(name: str, expected: str) -> None:
+    configured = os.getenv(name)
+    if configured is not None and configured.strip() != expected:
+        raise RuntimeError(
+            f"{name} does not match WGS stage contract: "
+            f"configured={configured.strip()!r}, expected={expected!r}"
+        )

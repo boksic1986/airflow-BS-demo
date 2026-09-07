@@ -279,6 +279,54 @@ class RunAttempt(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class WgsExecutionDispatch(Base):
+    __tablename__ = "wgs_execution_dispatch"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id", "batch", name="uq_wgs_execution_dispatch_project_batch"
+        ),
+        UniqueConstraint("analysis_id", name="uq_wgs_execution_dispatch_analysis"),
+        Index("ix_wgs_execution_dispatch_state", "dispatch_state"),
+        Index("ix_wgs_execution_dispatch_target", "desired_target", "dispatch_state"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    project_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    batch: Mapped[str] = mapped_column(String(64), nullable=False)
+    analysis_id: Mapped[str] = mapped_column(
+        ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False
+    )
+    desired_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="cce")
+    desired_target: Mapped[str] = mapped_column(String(64), nullable=False, default="cce")
+    dispatch_state: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="preparing"
+    )
+    dispatch_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    committed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    committed_attempt: Mapped[int | None] = mapped_column(Integer)
+    blocking_reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
+class WgsExecutionTargetSlot(Base):
+    __tablename__ = "wgs_execution_target_slot"
+
+    target: Mapped[str] = mapped_column(String(64), primary_key=True)
+    analysis_id: Mapped[str | None] = mapped_column(
+        ForeignKey("analysis_run.analysis_id", ondelete="SET NULL")
+    )
+    attempt: Mapped[int | None] = mapped_column(Integer)
+    acquired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
 class WgsIntakeBatch(Base):
     __tablename__ = "wgs_intake_batch"
 
@@ -356,6 +404,35 @@ class WgsMaintenanceAction(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
 
+class WgsLifecycleStatus(Base):
+    __tablename__ = "wgs_lifecycle_status"
+    __table_args__ = (
+        UniqueConstraint(
+            "kind", "scope_type", "scope_key", name="uq_wgs_lifecycle_kind_scope"
+        ),
+        Index("ix_wgs_lifecycle_analysis", "analysis_id", "attempt"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(64), nullable=False)
+    scope_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    scope_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    analysis_id: Mapped[str] = mapped_column(
+        ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False
+    )
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="not_started")
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    message: Mapped[str | None] = mapped_column(Text)
+    updated_by: Mapped[str | None] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
 class TransferJob(Base):
     __tablename__ = "transfer_job"
     __table_args__ = (Index("ix_transfer_job_analysis", "analysis_id"),)
@@ -387,6 +464,30 @@ class TransferJob(Base):
     message: Mapped[str | None] = mapped_column(Text)
     manifest_path: Mapped[str | None] = mapped_column(Text)
     receipt_path: Mapped[str | None] = mapped_column(Text)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class TransferFileState(Base):
+    __tablename__ = "transfer_file_state"
+    __table_args__ = (
+        UniqueConstraint("transfer_id", "file_key", name="uq_transfer_file_state_identity"),
+        Index("ix_transfer_file_state_transfer_status", "transfer_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    transfer_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    analysis_id: Mapped[str] = mapped_column(ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    file_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    status: Mapped[str] = mapped_column(String(64), nullable=False, default="accepted")
+    bytes_total: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    bytes_transferred: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    speed_bps: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    checksum_status: Mapped[str | None] = mapped_column(String(64))
     error_message: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -523,6 +624,41 @@ class RunStageState(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
+
+
+class WgsStageExecution(Base):
+    __tablename__ = "wgs_stage_execution"
+    __table_args__ = (
+        UniqueConstraint(
+            "analysis_id", "attempt", "stage_code", "generation",
+            name="uq_wgs_stage_execution_generation",
+        ),
+        Index("ix_wgs_stage_execution_current", "analysis_id", "attempt", "stage_code", "generation"),
+        Index("ix_wgs_stage_execution_status", "stage_code", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    execution_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    analysis_id: Mapped[str] = mapped_column(ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    stage_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="accepted")
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    release_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    predecessor_execution_id: Mapped[str | None] = mapped_column(String(128))
+    predecessor_generation: Mapped[int | None] = mapped_column(Integer)
+    predecessor_receipt_hash: Mapped[str | None] = mapped_column(String(64))
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    evidence_type: Mapped[str | None] = mapped_column(String(64))
+    evidence_key: Mapped[str | None] = mapped_column(Text)
+    receipt_hash: Mapped[str | None] = mapped_column(String(64))
+    terminal_payload_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
 
 class WgsSubmissionDraft(Base):

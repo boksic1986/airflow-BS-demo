@@ -64,7 +64,7 @@ def get_wgs_sample_projection(*, session, settings, run: AnalysisRun) -> dict[st
 def _batch_root(*, settings, run: AnalysisRun) -> Path | None:
     try:
         binding = load_wgs_runtime_binding(
-            request_root=settings.wgs_runtime_request_root,
+            run_root=settings.wgs_runtime_run_root,
             analysis_id=run.analysis_id,
             attempt=int(run.attempt or 1),
         )

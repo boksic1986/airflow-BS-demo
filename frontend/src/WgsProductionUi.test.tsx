@@ -158,6 +158,44 @@ it("loads WGS resource tabs for an active run", async () => {
   expect(urls.some((url) => url.includes("/api/runs/WGS_001/pods"))).toBe(true);
 });
 
+it("renders independent WGS data lifecycle states without replacing workflow success", async () => {
+  window.history.pushState({}, "", "/runs/WGS_LIFECYCLE");
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/auth/me")) return json({username: "viewer", role: "viewer"});
+    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/runs/WGS_LIFECYCLE/workspace")) return json({
+      run: {
+        analysis_id: "WGS_LIFECYCLE",
+        pipeline: "wgs",
+        status: "success",
+        params: {batch_no: "20260907A"},
+        lifecycle: {
+          workflow: {status: "success", updated_at: "2026-09-07T01:00:00Z"},
+          cloud_release: {status: "failed", updated_at: "2026-09-07T02:00:00Z", updated_by: "admin", message: "SFS cleanup failed"},
+          raw_fastq_backup: {status: "running", revision: 2, updated_at: "2026-09-07T03:00:00Z", updated_by: "admin", message: "Archive in progress"},
+          downstream_release: {status: "not_started", revision: 1, updated_at: null, updated_by: null, message: null},
+        },
+      },
+      summary: {sample_count: 3, rule_count: 209, failed_rule_count: 0},
+      progress: {analysis_id: "WGS_LIFECYCLE", pipeline: "wgs", status: "success", percent: 100, current_step: "finalize_run", current_source: "biodemo", note: "", not_in_airflow: false, progress_source: "run-stage-state", airflow_tasks: [], rule_events: []},
+      validation_issues: [],
+      slot_usage: null,
+    });
+    return json({items: [], total: 0});
+  }));
+
+  render(<App />);
+
+  expect(await screen.findByRole("heading", {name: "Data lifecycle"})).toBeInTheDocument();
+  expect(screen.getByText("Workflow success")).toBeInTheDocument();
+  expect(screen.getByText("FASTQ backup running")).toBeInTheDocument();
+  expect(screen.getByText("Not started")).toBeInTheDocument();
+  expect(screen.getByText("SFS cleanup failed")).toBeInTheDocument();
+  expect(screen.getByText("Post-run action failed; workflow results remain successful.")).toBeInTheDocument();
+  expect(screen.getAllByText("success").length).toBeGreaterThan(0);
+});
+
 it("falls back to legacy run resources when the workspace endpoint is unavailable", async () => {
   window.history.pushState({}, "", "/runs/WGS_LEGACY");
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {

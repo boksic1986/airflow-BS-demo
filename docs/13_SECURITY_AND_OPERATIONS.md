@@ -1,5 +1,68 @@
 # 13 安全和运维约束
 
+## T214 synthetic node97 validation boundary
+
+- `validation_scope=node97_smoke` is accepted only by the node97 host gate. It
+  is not a public API option, project-catalog target or Airflow DAG branch.
+- The smoke uses fixed identifier `SMOKE001`, one Snakemake core and generated
+  files below the attempt evidence directory. It must not resolve a WGS batch,
+  read FASTQ, access OBS or write a biodemo run.
+- The browser cannot supply a Snakefile, executable path, shell command,
+  repository path or logger path. The approved Snakemake 9 executable and
+  logger release are server configuration.
+- Smoke evidence may be retained for engineering audit but must be labelled
+  synthetic and cannot be reported as biological WGS validation.
+
+## T211 node97 local execution boundary
+
+- The node97 runner accepts only
+  `wgs-local-runtime <analysis_id> <attempt> local_analysis`. Repository,
+  output root, Snakemake arguments and shell commands are not browser inputs.
+- The request must match the committed node97 dispatch and the current
+  contract-v2 execution ID, generation and request hash. Stale markers cannot
+  advance the stage projection.
+- Test deployment may install the approved `hanjj` identity as a separate
+  owner-only key and pinned `wgs-node97` alias. It must not replace or alter the
+  node200 alias. A production rollout requires a forced-command authorized-key
+  entry; the supervised test key is not production acceptance.
+- Node97 may read only the frozen WGS snapshot, WGS 4.1.1 release and logger
+  plugin. It writes only the exact test batch and attempt evidence roots. It
+  does not receive OBS credentials, kubeconfig or a general database token.
+- The local gate is default-off. Scanner and auto-dispatch remain false, and
+  `node-96` plus SGE remain unavailable during T211.
+
+## T207 fail-closed configuration ownership
+
+- Scheduled intake requires both a false-by-default deployment gate and an
+  explicit YAML policy; the scanner exists only in the Compose `intake`
+  profile.
+- Heavy Slot capacity and mode come from the versioned stage contract. Runtime
+  environment variables cannot silently replace that contract, and the
+  frozen CCE profile must match it exactly.
+- FASTQ roots have explicit control-plane/node200 mappings. Runtime request and
+  binding roots are configured independently, preventing sibling-directory
+  inference from expanding filesystem authority.
+- Administrator startup is create-only. Password rotation is an explicit
+  maintenance command and cannot change role or enabled state implicitly.
+
+## T194-T200 contract-v2 trust boundaries
+
+- node200 receives only registered execution identities and writes atomic
+  JSONL/markers; it never connects to biodemo.
+- browser APIs redact credentials, full OBS URIs, checkpoint paths, and raw
+  server paths.
+- the CCE Master service account receives namespaced Lease permissions only;
+  verify its exact name before applying `config/wgs-heavy-slot-rbac.yaml`.
+- `platform-node-probe` alone mounts the dedicated metrics SSH directory;
+  `platform-metrics-collector` alone writes biodemo and never mounts SSH keys.
+- Cloud Eye credentials remain outside Git and Docker images. Its shared spool
+  contains numeric metrics and timestamps only.
+- The OBS SDK test credential is sourced from the existing CCE test Secret and
+  materialized only as a mode-0600 node200 runtime file. The production
+  obsutil configuration is not converted or modified. Canary progress and
+  evidence must not contain bucket names, object prefixes, full OBS URIs,
+  credentials or source paths, and canary objects must be deleted by exact key.
+
 ## T173 SFS metrics credential boundary
 
 - Cloud Eye credentials remain only in `/home/hanjj/sfs_api.credentials` on
@@ -9,6 +72,11 @@
   neither required nor granted for this integration.
 - The shared spool contains only numeric SFS metrics and timestamps. OBS data,
   object names, patient data and private configuration are excluded.
+- BS10610 uses a separate collector root at
+  `/home/hanjj/.config/airflow-wgs-bs10610` but reuses the existing node200
+  credential path. Only the mode-0644 numeric spool is visible to the BS
+  metrics consumer; the credential is not copied to BS, a release or a
+  container.
 
 ## T171 manual execution boundary
 

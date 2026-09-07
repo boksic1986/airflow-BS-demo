@@ -1,5 +1,20 @@
 # 11 部署 Runbook
 
+## T218 lifecycle/node97 integration candidate
+
+T218 is a source integration only. Validate migration `0014 -> 0015 -> 0016 ->
+0017`, backend/DAG/frontend suites, production frontend build and Compose
+rendering in an isolated `.96` candidate directory. Do not point `current` at
+the candidate, run `alembic upgrade` against production, recreate a service or
+restart an active CCE workflow as part of this task.
+
+Any later rollout requires separate approval and a normal zero-risk-window
+check. Preserve the ctapa identity and active roots documented below. Do not
+restore the retired hanjj production key/configuration. The lifecycle APIs are
+status registration only: operators or external systems must not infer that a
+backup, copy or downstream publication occurred merely because the interface
+exists.
+
 ## T204 ctapa production runtime cutover
 
 The active production identity is `ctapa`. Keep its private SSH material only
@@ -42,6 +57,516 @@ the external network `192.168.199.0/24` with only
 `172.17.61.96:12959` published. Stop only the exact old production `hanjj` SFS
 collector; do not stop the separate test collector or delete historical
 configuration/results.
+## T216 staged Submit Run preflight and failure projection
+
+Before enabling manual WGS submission, verify the two independent gate layers:
+
+1. BS10610 backend, scheduler and worker must have
+   `WGS_EXECUTION_ENABLED=true` and `WGS_RUNTIME_ADAPTER_ENABLED=true`.
+2. Node200 `/home/ctapa/.config/airflow-wgs/runtime.env` must contain the same
+   two true values. The restricted gate reads this file for every invocation,
+   so no node200 service restart is required.
+
+Keep scanner, automatic dispatch, node96, SGE and canary gates unchanged. A
+Local .97 selection still uses node200 for sample-information and analysis
+preparation before the Step 3 execution branch.
+
+After deployment, verify `bio_wgs` has no import errors and has the terminal
+failure callback. A controlled invalid preparation may be used only with a
+synthetic request; it must change the business run from submitted to failed
+and create one `airflow_dag_failed` RunAction. Do not start Step1-Step6 merely
+to test this callback.
+
+## T215 BS10610 supervised manual submission mode
+
+Use this mode only on the BS10610 test control plane after T214 node97 smoke
+acceptance. It enables authenticated manual preparation/submission while
+keeping unattended execution paths closed.
+
+Required effective values in backend, scheduler and worker:
+
+```text
+WGS_EXECUTION_ENABLED=true
+WGS_RUNTIME_ADAPTER_ENABLED=true
+WGS_CONTRACT_V2_ENABLED=true
+WGS_LOCAL_NODE97_ENABLED=true
+WGS_LOCAL_NODE96_ENABLED=false
+WGS_SGE_ENABLED=false
+WGS_INTAKE_SCAN_ENABLED=false
+WGS_AUTO_DISPATCH_ENABLED=false
+```
+
+Set `WGS_LOCAL_EXECUTION_ENABLED=true` in node97's protected host environment,
+recreate only backend, Airflow API server, scheduler, worker and frontend, then
+unpause `bio_wgs`. Never recreate PostgreSQL/Redis or remove volumes for this
+gate change. Before opening Submit Run, require all target/OBS leases to be
+unowned, no active business run and no running/queued `bio_wgs` DagRun.
+
+The Submit UI continues to default to CCE. The operator must select
+`Local .97` in Step 3 to commit node97; availability is revalidated against
+fresh node metrics. Enabling Local .97 does not enable scanner or automatic
+dispatch and does not submit a batch by itself.
+
+Rollback: restore the timestamped BS environment and node97 host environment,
+recreate the same five stateless services and pause `bio_wgs`. Verify every
+execution/local/intake/auto-dispatch gate is false and all leases are empty.
+
+## T214 BS10610/node97 smoke rollout
+
+T214 must be released from exact T213 base `1c011a8` plus the reviewed node97
+integration. Before switching the BS10610 test control plane, require a paused
+`bio_wgs`, no active business/DAG run, an empty legacy transfer lease and no
+running input/result transfer. Apply migration `20260907_0016`, initialize the
+two directional pools, and keep the legacy pool only for rollback readers.
+
+Only these gates may be opened during the supervised smoke:
+
+```text
+WGS_EXECUTION_ENABLED=true
+WGS_RUNTIME_ADAPTER_ENABLED=true
+WGS_CONTRACT_V2_ENABLED=true
+WGS_LOCAL_NODE97_ENABLED=true
+```
+
+Keep `WGS_LOCAL_NODE96_ENABLED`, `WGS_SGE_ENABLED`, intake and automatic
+dispatch false. The smoke must use synthetic/minimal inputs and may prove SSH,
+request identity, Snakemake 9 startup, logger ingestion, terminal projection
+and local-slot release only. It must not submit 0825A or any other real family
+and must not be reported as biological WGS acceptance. Restore all execution
+gates and the original DAG pause state after the smoke.
+
+T214's preferred acceptance is the internal forced-gate scope
+`validation_scope=node97_smoke`. It is not exposed by FastAPI, the project
+catalog or the Airflow DAG. The gate generates fixed synthetic sample
+`SMOKE001`, executes `smoke_prepare -> smoke_sample` with one Snakemake 9 core,
+writes the normal airflow-demo logger JSONL contract and exits in seconds. It
+must not inspect a batch root, read a FASTQ or use a real sample identifier. A
+positive smoke therefore proves only restricted SSH, Snakemake/logger startup
+and terminal marker behavior.
+
+The shared environment's generated `snakemake` wrapper contains a BS `/mnt`
+shebang that is not valid on node97. The smoke must use the node-visible Python
+entrypoint `/bi/.../wgs-snakemake9/bin/python3.12 -m snakemake`; do not edit or
+rebuild the shared environment merely to change the wrapper shebang.
+
+Run one-shot Airflow initialization without starting or recreating dependencies:
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.wgs.yaml \
+  run --rm --no-deps airflow-init
+```
+
+The shared node97 request mapping is
+`/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime`; do not use the
+different `/sg2/33.chenjiucheng/...` directory. A release symlink must remain
+relative so BS10610's `/mnt` and node97's `/bi` views resolve the same files.
+
+## T213 Step1-Step6, dispatch and directional-lease candidate
+
+T213 is source-only until separately approved. Do not deploy, restart a
+service, migrate production or alter an in-flight CCE Master while validating
+the candidate.
+
+The eventual rollout must wait until every legacy Step1/Step5 transfer is
+terminal and `wgs-obs-transfer-01` is empty. Then:
+
+1. Apply additive migration `20260907_0016` after `0014 -> 0015`; verify one
+   Alembic head and retain all three lease rows.
+2. Initialize Airflow pools `wgs_obs_upload=1` and `wgs_obs_download=1`; retain
+   `wgs_obs_transfer=1` for rollback compatibility only.
+3. Publish backend, DAG and frontend from one reviewed revision with Local
+   `.97/.96` and SGE capability flags false.
+4. Verify an upload and download can overlap, two same-direction transfers
+   cannot, and a three-hour owner remains unchanged.
+5. Simulate a sensor timeout and observer restart. The first must retain the
+   lease; replay of exact terminal evidence must release only the matching
+   direction without starting another transfer.
+6. Confirm `wait_step6_materialize` succeeds before finalization and the 25
+   Worker-Pod Heavy Slot contract is unchanged.
+
+Rollback may restore prior application code while retaining migrations and
+directional rows. Never delete or overwrite a row carrying ownership.
+## T211 BS10610/node97 local-runner rollout
+
+The supervised full-run fixture uses the hidden root
+`T7_Node97_Full_Canary` and `validation_scope=node97_full`. Populate only the
+approved three-sample 0825A FASTQ links below `.node97-full-fastq`, then enable
+`WGS_NODE97_FULL_CANARY_ENABLED` on FastAPI, Airflow, and node200 for the test
+window. Keep scanner and auto-dispatch disabled. After the run reaches a
+terminal state, pause `bio_wgs`, disable the node97 full-canary and execution
+gates, and retain the run record for audit.
+
+On node97, the BS shared runtime root must use the node-visible mapping
+`/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime`; the shorter
+`/sg2/33.chenjiucheng/...` path is a different directory and must not be used
+for local runtime requests.
+
+T211 is test-environment only. Before deployment, require zero active WGS
+business runs, zero queued/running `bio_wgs` DagRuns, a paused DAG, absent
+scanner container and false intake/auto-dispatch gates.
+
+Create an immutable release below the shared project root and use a relative
+link so both BS10610 (`/mnt`) and node97 (`/bi`) resolve it:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/
+  releases/<revision>/
+  current -> releases/<revision>
+```
+
+Install `wgs-node97` beside, not in place of, the existing node200 SSH alias.
+Pin node97's host key. The test private key and forced-command gate must be
+owner-only and must never enter the release, image, database or logs. The gate
+must invoke `scripts/wgs_local_runtime_gate.py` with:
+
+```text
+WGS_LOCAL_EXECUTION_ENABLED=true
+WGS_LOCAL_CORES=96
+WGS_LOCAL_REQUEST_ROOT=/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime/runner-requests
+WGS_LOCAL_ANALYSIS_ROOT=/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical
+WGS_LOCAL_EVIDENCE_ROOT=/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence
+WGS_LOCAL_REPO_ROOT=/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
+WGS_LOCAL_LOGGER_ROOT=/bi/biodevrwbi/33.chenjiucheng/project/airflow-WGS/current/dags
+```
+
+Apply the additive migration through `20260906_0015`, validate Compose, then
+recreate only backend, observer, Airflow API, scheduler and worker. Do not
+recreate PostgreSQL/Redis or delete volumes. Enable
+`WGS_EXECUTION_ENABLED`, `WGS_RUNTIME_ADAPTER_ENABLED`,
+`WGS_CONTRACT_V2_ENABLED` and `WGS_LOCAL_NODE97_ENABLED` only during the
+supervised run. Keep `WGS_INTAKE_SCAN_ENABLED`,
+`WGS_AUTO_DISPATCH_ENABLED`, node96 and SGE false.
+
+For acceptance, recreate the exact three-sample 0825A test snapshot, approve
+its configuration, choose `node-97`, commit the execution target and verify the
+business run, Airflow DagRun, local terminal marker and every scheduled rule
+event. On completion or failure, pause `bio_wgs`, disable the four execution
+gates and confirm the node97 forced command rejects a new request. Never call a
+successful dry-run a completed full analysis.
+
+## T208 full Step1-Step6 closeout
+
+Accepted test-control-plane run: `WGS_20260906_075824_E4D23E`, attempt 4,
+DagRun `WGS_20260906_075824_E4D23E-a4`.
+
+1. Require Step1 6/6 files and 403,858,510,658 verified bytes.
+2. Require Step3 Master success and 209/209 terminal Rule states from the
+   shared Rule spool; do not infer Rule success from the Airflow task alone.
+3. Require the exact Step3 gen3 -> Step4 gen1 -> Step5 gen1 -> Step6 gen1
+   predecessor chain.
+4. Require Step5 11/11 files and 173,827,124,513 verified bytes.
+5. Compare `DOWNLOAD_VERIFIED`, `MATERIALIZED` and the actual payload manifest;
+   the accepted manifest MD5 is `8f15230d744c54f846dfc9173c234796`.
+6. Close every BS10610 and node200 execution/intake/canary gate, pause
+   `bio_wgs`, verify zero active run and zero Heavy Slot holder, then test the
+   exact forced-command path rejects execution.
+
+The Rule spool is
+`/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence` on
+node200 and the BS-mounted shared filesystem. Do not point the observer at a
+same-named local test directory. The test database does not require another
+closeout backup when the operator explicitly waives it; never apply that waiver
+to `.96` production.
+
+Do not repeat a complete WGS workflow merely to close T208. Use the accepted
+full-run receipts plus isolated backend/DAG/runtime tests and read-only live
+state checks. Future routine release validation should use the T209 hidden
+`contract_canary`: one 60-120 second logger-enabled test Rule for Step3 and one
+tiny immutable artifact for Step4, terminating before Step5/Step6.
+## T209 Phase-1 execution dispatch rollout
+
+This is a future deployment procedure; implementing T209 does not authorize a
+production rollout or an interruption of an active CCE run.
+
+1. Stop new submissions at an approved maintenance boundary, but do not stop
+   an in-flight CCE Master, transfer or materialization task.
+2. Apply Alembic `20260906_0015` before publishing the backend. The migration
+   creates empty claims and does not backfill historical duplicate batches.
+3. Deploy backend, Airflow DAG and frontend from one revision with
+   `WGS_LOCAL_NODE97_ENABLED=false`, `WGS_LOCAL_NODE96_ENABLED=false` and
+   `WGS_SGE_ENABLED=false`.
+4. Keep the existing activation watermark. Confirm old ready/manual/running/
+   success/failed batches do not create an automatic claim or DagRun.
+5. Verify a new waiting run keeps one analysis/DagRun/attempt while changing
+   revision, that CCE commit acquires the existing OBS slot once, and that
+   committed choice/cancel calls return 409.
+6. Do not enable `.97` until its `--cores 96` runner and exclusive-slot
+   recovery have passed Phase-2 acceptance. `.96` and SGE require separate
+   Phase-3 acceptance.
+
+Rollback before any new claim is committed may restore the prior application
+revision while retaining the two additive tables. After a claim is committed,
+leave its audit row intact and use the documented recovery path; never
+downgrade destructively or recreate an attempt to evade the lock.
+
+## T207 disabled configuration-convergence rollout
+
+Before any Step4-Step6 validation, deploy the candidate with `bio_wgs` paused,
+without the `intake` Compose profile, and with every control-plane and node200
+execution gate false.
+
+1. Keep `WGS_INTAKE_SCAN_ENABLED=false`. Enabling the environment gate alone
+   is insufficient: `config/intake.wgs.yaml` must also explicitly set
+   `scheduled_scan_enabled: true`. The YAML interval is authoritative.
+2. Do not set `WGS_HEAVY_SLOT_LIMIT` or `WGS_HEAVY_SLOT_MODE` in Compose or
+   node runtime files. The stage contract supplies `25/enforce`; a frozen CCE
+   profile with any other Heavy Slot contract must fail during prepare.
+3. Set `WGS_RUNTIME_RUN_ROOT` explicitly on both sides:
+   `/data/wgs-runtime/runs` in backend and the corresponding node200 SFS path
+   in the private runtime environment. Never derive it from
+   `WGS_RUNTIME_REQUEST_ROOT`.
+4. Verify each catalog FASTQ root has explicit `control_plane_path` and
+   `node200_path` values. The scanner accepts only the catalog-selected root.
+5. Run `airflow-init` and `platform-admin-init` twice. The second run must
+   leave existing password, role and enabled state unchanged. Any Airflow user
+   listing or creation error must stop initialization.
+6. Build backend, Airflow and frontend images from one source revision and
+   record image IDs with that revision in the release inventory. Mixed-source
+   service tags are not an accepted rollback point.
+7. Confirm the scanner service is absent, the DAG is paused, all business and
+   Airflow active-run counts are zero, and the restricted node200 command
+   rejects a registered execution while its gate is closed.
+
+Do not start T208 until every item passes. If the node200 private runtime file
+cannot be changed by the deployment operator, leave the control plane disabled
+and obtain an audited update from its owner; do not weaken the forced command.
+
+## T206 Step2/Step3 dry-run canary
+
+Use only the BS10610 test control plane. Confirm no active WGS run, keep intake
+and auto-dispatch disabled, pause `bio_wgs`, and capture current release, gate,
+runtime, DAG, OBS, and Kubernetes inventories before deployment.
+
+1. Deploy the candidate with every execution gate false. Install the isolated
+   provenance-bearing cce-pipeline 0.8.2 runtime and atomically update the
+   node200 gate, retaining exact rollback copies.
+2. Prepare one isolated three-sample family table. Replace only the six links
+   inside its `STEP3_DRYRUN_CANARY` analysis directory with deterministic small
+   paired FASTQ files; never edit the production FASTQ links or source files.
+3. Enable execution, runtime adapter, contract v2, and only
+   `WGS_STEP3_DRYRUN_CANARY_ENABLED`. Unpause only `bio_wgs`, create one hidden
+   `validation_scope=step3_dryrun` request, and complete the two normal approval
+   gates.
+4. Require six verified Step1 file receipts, one exact Step2 Master identity,
+   `execution_mode=dry_run`, a successful Snakemake graph build, no Worker
+   analysis Job, and terminal `step3_dryrun_complete`. Step4-Step6 must be
+   skipped.
+5. Run the repo-owned 26-contender quota probe against the real namespace. It
+   must report 25 unique acquired Leases, one waiting contender, and zero
+   remaining holders after exact release. The probe never creates Jobs or
+   Pods.
+6. Capture evidence, delete only the exact canary OBS prefix and test Master,
+   pause the DAG, restore all gate/runtime values, and rerun regressions. Never
+   touch production `.96`, database volumes, source FASTQ, or unrelated CCE
+   resources.
+
+Accepted evidence: `WGS_20260905_210104_739143-a8`, Master
+`cce-master-19d6c95a68916a98d2c3`, and image digest `sha256:870d5dd...ff1562`.
+The dry-run planned 210 jobs and created zero Worker Jobs. The Heavy Slot probe
+reported `25 acquired / 1 waiting / 0 remaining holders`. Before a future
+canary, deploy `config/wgs-heavy-slot-rbac.yaml`, which pre-creates all 25 Lease
+objects and grants only `get/update` on those exact names. Verify that
+list/create/patch are denied. A missing Role or Lease is a hard failure and must
+not be bypassed with broader namespace permissions.
+
+Before accepting `finalize_step3_dryrun`, verify that Step3 references the exact
+latest successful Step2 receipt, both execution rows use the run's frozen
+release, and the terminal Master identity matches the immutable run-local batch
+binding. A successful Airflow task without those checks is insufficient.
+
+The release-side prepare configuration and node200-visible configuration are
+separate settings: `WGS_PREPARE_CONFIG_ROOT` identifies the approved release
+root, while `WGS_PREPARE_CONFIG` identifies the exact runtime config file.
+Never infer one by appending to the other. After validation, restore both
+node200 files from their SHA256-verified backups, restore the shared test
+package, set every gate false, pause the DAG, and remove the disabled scanner
+container so `restart: unless-stopped` cannot generate an exit/restart loop.
+
+## T205 Step1 SDK direct-upload canary
+
+Use the T203 Step1-only safety procedure, but require the cce-pipeline runtime
+to be a provenance-bearing build that omits multipart `checkSum`. After
+`start_step1_upload`, aggregate and per-file callback bytes should appear after
+normal process/part initialization, not after a complete read of every FASTQ.
+
+Do not diagnose a transfer as successful from callback bytes alone. Completion
+still requires two terminal file rows, stable frozen totals, verified CRC64 and
+Content-Length, unchanged source identity, a successful Step1 receipt, skipped
+Step2, and exact-prefix OBS cleanup. Any missing CRC64 is a failed canary.
+
+Accepted BS10610 evidence is `WGS_20260905_154825_E39C58-a1`: two files,
+113,993,536,856 bytes, first non-zero callback about 32 seconds after task
+start, 866.58 seconds of callback transfer, and 125.45 MiB/s effective
+throughput. Both files were success/verified. The exact cleanup scope was two
+FASTQ objects plus one marker; object and multipart inventories were empty
+after deletion.
+
+After a rolling backend update, replaying a terminal snapshot is permitted only
+as a controlled projection repair. Confirm the execution ID, generation,
+terminal status, frozen byte total and file count before replay. Never use a
+terminal event from another attempt to repair current file rows.
+
+When the backend container is recreated, reload or recreate `frontend-nginx`
+after the backend is healthy. The nginx upstream name is resolved when its
+configuration is loaded; retaining the previous container address can leave
+the static frontend healthy while `/api/*` returns 502. Verify both `/` and
+`/api/health`, not the static page alone.
+
+## T203 Airflow-integrated Step1 canary
+
+This is a test-control-plane procedure. Do not use it on the production `.96`
+deployment.
+
+1. Confirm `bio_wgs` is paused and both business/Airflow active-run counts are
+   zero. Back up the biodemo and Airflow databases and record the current
+   release, gates, DAG pause state, node200 gate checksum, and OBS object
+   inventory.
+2. Deploy the candidate with all gates false. Require backend, DAG and Compose
+   tests to pass before changing any gate.
+3. Set the node200 runner Python to the shared `nipttest` interpreter. Enable
+   execution, runtime adapter, contract v2 and the dedicated
+   `WGS_STEP1_CANARY_ENABLED` gate; leave intake scan and auto-dispatch off.
+   Set `WGS_ANALYSIS_PROJECT_NODE200_ROOT` to the writable node200 test view
+   `/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical` while
+   keeping `WGS_RESULTS_HOST_ROOT` as the BS10610 Docker bind-mount path.
+   If the canary uses an isolated provenance-bearing cce-pipeline wheel, set
+   `CCE_PIPELINE_BIN` to its absolute executable. The executable, sibling
+   Python entry and imported package must share one isolated runtime prefix so
+   WGS package validation can verify version and commit. Leave this variable
+   empty in production to retain the approved WGS environment default.
+4. Unpause only `bio_wgs`. As an admin, create one catalog run with the exact
+   hidden field `validation_scope=step1_only`, then complete the existing
+   config and execution approvals.
+5. Require a frozen two-file manifest, per-file plus aggregate SDK progress,
+   an exact successful Step1 receipt, terminal `Step1 validation passed`, and
+   no Step2 Master/CCE Job. A missing receipt is a failed canary.
+6. Record API/UI evidence, source immutability and transfer checks. Delete only
+   the exact canary OBS objects after evidence is complete and verify absence.
+7. Pause `bio_wgs`; return execution, runtime adapter, contract-v2, Step1
+   canary, automatic dispatch and intake scan gates to false; restore the
+   original node200 runtime gates; and verify no active run remains.
+
+The default SDK path must not perform a whole-file checksum read before upload.
+A long interval with source reads but no network activity or callback bytes is
+a regression. Normal startup includes only manifest/source-identity validation,
+multipart initialization and at most one part's CRC64 preparation.
+
+Rollback is to pause the DAG, disable the canary/execution/runtime/contract-v2
+gates and repoint `current` to the previous release. Never delete databases,
+Docker volumes, the external network, source FASTQ, or unrelated OBS objects.
+
+## T194-T200 contract-v2 disabled rollout
+
+Accepted disabled release on BS10610:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260904-airflow-demo-c28ad7d-t194-contract-v2-disabled-r2
+```
+
+The current CCE 0.8.2 candidate image is staged locally as
+`airflow-demo/wgs-cce-master:contract-v2-cce-0.8.2-e4c0f13-candidate`, image ID
+`sha256:58c2c9acf935f1d06c4b1b60d8bc56ca758d7d9643707b2d9077bc9445c6dae8`.
+It is not selected by production configuration. Its production wheel is built
+from cce-pipeline commit `e4c0f134...`, which is based on the operator-provided
+0.8.2 commit `eacef211...`; wheel SHA256 is
+`b2c79df27868d9194097cfa1e28ce73d688e1a107b1ec2643dab82544551d968`.
+
+This release must first be deployed with `WGS_EXECUTION_ENABLED=false`,
+`WGS_RUNTIME_ADAPTER_ENABLED=false`, `WGS_AUTO_DISPATCH_ENABLED=false`, and the
+`bio_wgs` DAG paused. Use an evidence directory under
+`/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence`;
+never use `/tmp` or the unrelated `WGS_test/cce-evidence` directory.
+
+1. Verify there are no active WGS runs, record the existing DAG pause state,
+   and create mode-0600 Airflow/biodemo dumps plus JSON inventories.
+2. Build/test the candidate source. Run migration `20260904_0014` first on an
+   empty test database and then against the backed-up deployment.
+3. Confirm the frozen CCE profile uses service account
+   `cce-pipeline-master-v1`. If it differs, edit only the RoleBinding subject.
+   Apply `config/wgs-heavy-slot-rbac.yaml` and verify Lease CRUD in
+   `snakemake-ns` before enabling enforcement.
+4. Build and install the vendored Kubernetes executor wheel and the offline OBS
+   SDK runtime. cce-pipeline 0.8.2 operator config must keep
+   `obs.upload_parallelism` and `obs.download_parallelism` as file concurrency,
+   while `heavy_io.limit: 25` counts heavy work pods. Start with
+   `heavy_io.mode: monitor-only`; switch to `enforce` only after Lease RBAC and
+   a controlled canary pass. Credentials remain outside release/image archives.
+5. Recreate application services only after tests. Do not recreate PostgreSQL,
+   Redis, the external network, active workers, or CCE jobs.
+6. Validate `/api/runs/<id>/workspace`, Rules pagination, transfer-file
+   pagination, and terminal progress without Airflow calls.
+
+When the BS Docker registry mirror is unavailable, build the React bundle with
+the pinned Node runtime, verify `npm test` and `npm run build`, then create the
+runtime image with `frontend/Dockerfile.runtime-overlay`. Set
+`BASE_FRONTEND_IMAGE` to the currently approved local frontend image. This
+offline path replaces only `/usr/share/nginx/html`; it does not fetch a base
+image or change the release-mounted nginx gateway configuration.
+
+For node metrics, create a separate host directory referenced by
+`PLATFORM_METRICS_SSH_HOST_ROOT`. It must contain `metrics_config`, a mode-0600
+restricted key, and pinned `known_hosts`; do not reuse the node200 execution
+key mount. Set `PLATFORM_METRICS_UID` to the host owner UID of both this
+directory and `WGS_RUNTIME_HOST_ROOT` (BS10610: `6708`). The probe deliberately
+does not run as the Airflow UID. Start `platform-node-probe`, then
+`platform-metrics-collector` and require fresh `.96/.97` rows.
+
+Cloud Eye collection runs on the approved credential host using
+`config/platform_metrics.node200.env.example` and
+`scripts/start_sfs_cloud_eye_collector.sh`. The JSON spool must be visible at
+`PLATFORM_CLOUD_METRICS_SPOOL`. Require `read_bps`, `write_bps`, `total_bps`,
+and `iops` before declaring the resource panel configured. A missing credential
+or inaccessible spool remains a visible deployment blocker; never substitute
+zero values.
+
+The atomic `cloud.json` spool is published mode `0644` because it contains only
+redacted numeric metrics and timestamps. CES credentials remain mode `0600` on
+the collector host and must never be copied into the shared runtime directory.
+
+Roll back by disabling contract v2 and SDK transfer, pausing `bio_wgs`, and
+repointing the application release. Additive evidence tables may remain. Do not
+delete databases, transfer checkpoints, evidence, results, or Kubernetes
+Leases during rollback.
+
+The production WGS Python environment is owner-managed. After all gates are
+false and active Airflow/business WGS counts are zero, its owner may install the
+candidate with:
+
+```bash
+/bi/software/mamba/envs/WGS/bin/python -m pip install --no-deps --force-reinstall \
+  /sg2/33.chenjiucheng/WGS_test/cce-pipeline-dev/artifacts/T194-T200-cce-082-e4c0f13/cce_pipeline-0.8.2-py3-none-any.whl
+```
+
+Require version `0.8.2`, embedded source commit `e4c0f134...`, and package build
+ID `a1e5ea89...9aa6` before selecting the candidate Master image. If the prepare
+canary fails, reinstall the prebuilt rollback wheel:
+
+```bash
+/bi/software/mamba/envs/WGS/bin/python -m pip install --no-deps --force-reinstall \
+  /sg2/33.chenjiucheng/WGS_test/cce-pipeline-dev/artifacts/rollback-cce-081-71952c5/cce_pipeline-0.8.1-py3-none-any.whl
+```
+
+The rollback wheel SHA256 is
+`4cd9fdabe31bb6f783a6cf5f5641606085a30ba75b7167795f569445ea22c729`.
+
+CCE development verification uses:
+
+```bash
+PYTHONNOUSERSITE=1 \
+  /sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/python \
+  -m pytest -q /sg2/33.chenjiucheng/WGS_test/cce-pipeline-dev/cce-airflow-contract-v2-082/tests
+```
+
+The approved current project build is `0.8.2`; the previously installed
+`0.8.3` label refers to an older divergent build and must not be selected by
+numeric comparison. Verify the exact wheel SHA256 and embedded source commit.
+The BS10610 `/mnt/33.chenjiucheng/.../nipttest` mapping must exist before using
+that host for the same test; it was absent during the 2026-09-05 check.
+
+Do not use `nipttest` as the production bundle's frozen operator Python merely
+because its tests pass. `cce-pipeline prepare` writes that interpreter path into
+every generated Step1-Step6 wrapper. Production activation therefore requires
+an explicitly approved, pinned operator interpreter.
 
 ## T192 production Docker image cleanup
 

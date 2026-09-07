@@ -1,0 +1,21 @@
+Host metrics-node-96
+  HostName 172.17.61.96
+  User REPLACE_WITH_RESTRICTED_METRICS_USER
+  IdentityFile /opt/platform-metrics/ssh/metrics_probe_ed25519
+  IdentitiesOnly yes
+  StrictHostKeyChecking yes
+  UserKnownHostsFile /opt/platform-metrics/ssh/known_hosts
+  ConnectTimeout 10
+  BatchMode yes
+  RequestTTY no
+
+Host metrics-node-97
+  HostName 172.17.61.97
+  User REPLACE_WITH_RESTRICTED_METRICS_USER
+  IdentityFile /opt/platform-metrics/ssh/metrics_probe_ed25519
+  IdentitiesOnly yes
+  StrictHostKeyChecking yes
+  UserKnownHostsFile /opt/platform-metrics/ssh/known_hosts
+  ConnectTimeout 10
+  BatchMode yes
+  RequestTTY no

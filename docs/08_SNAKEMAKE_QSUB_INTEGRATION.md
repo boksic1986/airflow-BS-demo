@@ -1,5 +1,67 @@
 # 08 Snakemake + qsub 接入设计
 
+## T208 WGS full-run Rule evidence
+
+The authoritative BS10610/node200 Rule spool is:
+
+```text
+/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence
+```
+
+It must be mounted into the observer as `WGS_EVIDENCE_ROOT`. The similarly
+named `WGS_test/cce-evidence` directory is not the Master logger spool and must
+not be used as a fallback.
+
+Accepted run `WGS_20260906_075824_E4D23E`, attempt 4, produced 707 complete
+JSONL records: 175 `job_started`, 266 `job_info`, 209 `job_finished` and 57
+`rule_planned`. Observer projection produced 209 Rule states, all terminal
+success, with zero malformed records. A terminal parent projection is not a
+substitute for this evidence; observer replay is allowed only to import the
+same bound run/release and exact event identities.
+
+## T206 WGS Snakemake dry-run evidence
+
+The WGS validation scope freezes `workflow.execution_mode=dry_run` after the
+normal run-local config is generated. cce-pipeline 0.8.2 then starts one Master
+and invokes Snakemake with `--dry-run --nolock --cores 1 --jobs 1` plus the
+existing logger. It must not run the normal analysis command or create worker
+analysis Jobs. The terminal marker and Step3 status include execution mode,
+Master UID, and resourceVersion so the backend can distinguish a verified
+dry-run from a real analysis or an Airflow-only success.
+
+Accepted runtime evidence used immutable Master image digest
+`sha256:870d5dd1de032eed33cefb7eb79b91829807d54cee969825e884227279ff1562`.
+Snakemake `9.24.0+biosan1` produced a 210-job plan, 267 job-info logger records
+and 57 rule-planned records. `jobs.ndjson` remained empty, and the exact run
+label contained no Worker Job or Pod. This is graph/config/logger validation,
+not a WGS compute result.
+
+## T205 Step1 SDK checksum boundary
+
+The default contract-v2 Step1 transfer uses the OBS SDK. It freezes source
+identity and byte totals, starts multipart upload without the SDK `checkSum`
+option, and reports aggregate plus per-file callback progress. Integrity is
+enforced by attached per-part CRC64, terminal object CRC64/Content-Length, and
+unchanged source identity. The obsutil implementation remains a deliberate
+rollback adapter with its existing `-vmd5/-vlength` behavior.
+
+## T197 WGS Kubernetes high-I/O quota
+
+The WGS Kubernetes executor classifies only the initial evidence-backed heavy
+groups: mapping+dedup and haplotyper+quality-calibration. Before a heavy Job is
+created it acquires one of 25 `wgs-heavy-io-NN` Lease objects. Lease heartbeat
+is 60 seconds; stale reclaim requires ten minutes and absence of the matching
+Job and Pods. A waiting job is not submitted repeatedly.
+
+This limit counts Worker Pods, not CPU cores or DAG runs. Cloud Eye GiB/s data
+is validation/alerting evidence only in this release.
+
+The namespace contains 25 pre-created Lease objects. The Master ServiceAccount
+has only `get/update` on those exact resource names; it cannot list, create, or
+patch Leases. Capacity exhaustion is the only expected waiting condition.
+Other Kubernetes API errors fail closed, and probe/runtime cleanup continues
+attempting to release every claim even if one release fails.
+
 ## T189 Step5 manifest handoff
 
 Step1 still freezes its transfer plan before invoking obsutil because the

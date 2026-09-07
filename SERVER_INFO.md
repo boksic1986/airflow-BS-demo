@@ -17,6 +17,21 @@ sfs_metrics: ctapa-owned collector and HWcloud runtime spool
 production_release: /data/airflow-WGS/releases/20260906-wgs-4.1.1-6c98281-t205-stage-owner-visibility-r1
 ```
 
+## T218 node97 local-runner integration target (2026-09-07)
+
+```text
+node97_host: 172.17.61.97
+node97_login: ctapa
+node97_logical_cpus: 128
+node97_local_cores: 96
+node97_runtime_home: /home/ctapa/.config/airflow-wgs
+node97_analysis_root: /sg2/50.ctapa/project/HWcloud/WGS_Clinical
+node97_capability_default: false
+node96_capability_default: false
+sge_capability_default: false
+credentials: server-local only; never printed or committed
+```
+
 ## T192 production Docker cleanup (2026-09-04)
 
 ```text

@@ -1,5 +1,77 @@
 # 04 数据库设计
 
+## T218 independent WGS lifecycle status
+
+Migration `20260907_0017` follows `20260907_0016` and adds
+`wgs_lifecycle_status`. It records only operator-managed post-workflow state;
+it does not store a copy command, source/destination path, patient data, or raw
+`sampleinfo.tsv` content.
+
+| Field | Contract |
+|---|---|
+| `kind` | `raw_fastq_backup` or `downstream_release` |
+| `scope_type` | `input_snapshot` or `analysis_attempt` |
+| `scope_key` | Frozen manifest SHA256 for FASTQ backup; analysis/attempt key for downstream release |
+| `analysis_id`, `attempt` | Auditable originating run and attempt |
+| `status` | `not_started`, `pending`, `running`, `success`, or `failed` |
+| `revision` | Optimistic concurrency token, incremented on every update |
+| `message`, `updated_by`, timestamps | Bounded operator note and audit metadata |
+
+`kind + scope_type + scope_key` is unique. Consequently, reanalysis of the
+same immutable input snapshot sees one Raw FASTQ backup state instead of
+creating a duplicate record. Downstream release remains attempt-specific.
+Workflow state and Step7 use their existing tables and are never overwritten
+by either registered status. The migration downgrade is intentionally
+non-destructive because these rows are audited operational state.
+
+## T213 directional OBS transfer ownership
+
+Migration `20260907_0016` follows `20260906_0015` and idempotently adds
+`wgs-obs-upload-01` and `wgs-obs-download-01` to `obs_transfer_lease`. The
+legacy `wgs-obs-transfer-01` row is retained for rollback readers, but new
+runs never acquire it. Directional rows have no time-based expiry: heartbeat
+age is diagnostic only and cannot transfer ownership.
+
+An owner is the exact `analysis_id + attempt + transfer_id`. A release clears
+only its matching direction and only after the observer has persisted a
+matching terminal `transfer_job` (`success`, or authoritative remote-terminal
+`failed/canceled`). Missing, running, stale or mismatched evidence retains the
+row. Downgrade intentionally leaves the additive rows in place so it cannot
+delete live ownership.
+
+## T209 WGS execution dispatch claim
+
+Migration `20260906_0015` adds two control-plane tables without backfilling or
+changing historical run evidence:
+
+- `wgs_execution_dispatch` is unique by `project_id + batch` and by
+  `analysis_id`. It records the desired mode/target, dispatch state, optimistic
+  revision, committed attempt/time and a bounded blocking reason.
+- `wgs_execution_target_slot` contains the two fixed local targets
+  `node-97` and `node-96`. A row may be owned by only one analysis/attempt and
+  is released only through terminal/recovery handling.
+
+The authoritative states are `preparing`, `waiting_resource`, `committed`,
+`running`, `terminal` and `needs_recovery`. Historical duplicate attempts are
+not backfilled into the unique claim and remain readable. See
+[document 31](31_WGS_EXECUTION_TARGET_SWITCH.md).
+
+## T195/T200 WGS contract-v2 evidence
+
+Migration `20260904_0014` adds two append-only/read-model tables without
+changing historical runs:
+
+- `wgs_stage_execution`: immutable execution identity, attempt, stage,
+  generation, request hash, release, predecessor receipt, heartbeat, terminal
+  evidence, receipt hash, and timestamps. Its unique key is
+  `analysis_id + attempt + stage_code + generation`.
+- `transfer_file_state`: privacy-safe file key/display name, frozen size,
+  completed bytes, speed, checksum state, bounded error, and timestamps for one
+  transfer.
+
+`run_stage_state` remains the current projection. It is not retry history and
+cannot authorize a downstream contract-v2 stage.
+
 ## T188 bounded resource history and WGS projections（无迁移）
 
 本轮不新增表或字段。`platform_resource_snapshot.history_json`仍按资源单行
@@ -311,6 +383,7 @@ Migration `20260812_0007` adds observer-owned durable state to `biodemo`:
 - `kubernetes_workload` additionally stores Kubernetes `resource_version`, observation time, node, message, and raw Job status summary.
 
 Evidence paths are always relative to the configured read-only evidence root. Neither table stores kubeconfig, OBS credentials, or unrestricted host paths.
-# T131: WGS input snapshots, validation issues, singleton OBS lease, and full
-# transfer progress were added by Alembic `20260812_0008`. Rule timing remains
-# derived from `rule_state.started_at/ended_at/layer`.
+T131 originally added WGS input snapshots, validation issues, one legacy OBS
+lease row and aggregate transfer progress in Alembic `20260812_0008`. T213
+supersedes that singleton for new work with the two directional rows above.
+Rule timing remains derived from `rule_state.started_at/ended_at/layer`.

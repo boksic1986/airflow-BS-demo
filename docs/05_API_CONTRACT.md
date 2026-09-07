@@ -1,5 +1,209 @@
 # 05 API Contract
 
+## T218 WGS data lifecycle projection
+
+WGS Run Detail and Run Tracker expose a backend-owned `lifecycle` projection:
+
+```json
+{
+  "workflow": {"status": "success", "updated_at": "..."},
+  "cloud_release": {"status": "success", "updated_at": "..."},
+  "raw_fastq_backup": {"status": "not_started", "revision": 1, "updated_at": null, "updated_by": null, "message": null},
+  "downstream_release": {"status": "not_started", "revision": 1, "updated_at": null, "updated_by": null, "message": null}
+}
+```
+
+Workflow is projected from the existing run/stage state. Cloud release is
+projected from the existing Step7 maintenance action and is `not_applicable`
+for Local execution. The other two values are status registrations only.
+
+Two admin-only endpoints update those registrations:
+
+```text
+PATCH /api/wgs/runs/{analysis_id}/lifecycle/raw-fastq-backup
+PATCH /api/wgs/runs/{analysis_id}/lifecycle/downstream-release
+```
+
+The strict request is
+`attempt + status + expected_revision + optional message`. A stale revision or
+attempt returns HTTP 409. Extra fields are rejected, including paths, file
+operations, copy commands and patient information. The endpoint records the
+authenticated admin and an audit row; it does not run backup or release work.
+Raw FASTQ backup is scoped to the frozen input manifest fingerprint, while
+downstream release is scoped to the exact analysis attempt.
+
+## T216 WGS DagRun terminal projection
+
+`POST /api/internal/wgs/runs/{analysis_id}/dag-terminal` is an internal
+service-token endpoint used by the `bio_wgs` DAG failure callback. It accepts:
+
+```json
+{
+  "attempt": 1,
+  "status": "failed",
+  "failed_task_ids": ["prepare_wgs_sampleinfo"]
+}
+```
+
+The endpoint is attempt-fenced and idempotent. It never changes a successful
+run, removes `release_leases` when a more specific failed task is present,
+marks the business run failed, changes a three-stage submission to
+`submission_phase=failed`, and records one `airflow_dag_failed` action for the
+attempt. Unknown attempts return HTTP 409. Browsers cannot call this endpoint
+without the internal token.
+
+This terminal projection is what lets Submit Run stop polling a failed
+sample-information preparation and show the existing failure panel. It does
+not approve configuration, select an execution target or start Step1-Step6.
+
+## T214 execution-target integration
+
+T214 does not add a public endpoint. It combines T213's directional transfer
+contract with T211's internal node97 contract. A CCE commit may own the input
+lease and later the result lease; a node97 commit owns only the local target
+slot. The browser cannot provide a lease name, runtime command or node path.
+Node96 and SGE requests continue to return their existing unavailable or
+fail-closed state.
+
+## T213 directional transfer release contract
+
+The public execution-choice and Run Detail contracts are unchanged. Internal
+stage registration maps input transfer stages to `wgs-obs-upload-01` and
+result transfer stages to `wgs-obs-download-01`.
+
+Release-stage responses now include `released`, `retained`, `reason` and the
+owned `slots` considered. `retained=true` with
+`reason=transfer_not_terminal` is a hard fail-closed result for Airflow, not a
+successful cleanup. The backend also marks a committed dispatch
+`needs_recovery`. Observer ingestion of exact terminal transfer evidence
+performs the normal idempotent release; a later DAG release call only confirms
+that outcome. No API accepts a browser-provided slot name or lease timeout.
+## T211 node97 local runtime internal contract
+
+The hidden admin-only `validation_scope=node97_full` is reserved for supervised
+node97 acceptance. It requires `WGS_NODE97_FULL_CANARY_ENABLED=true`, the
+catalog-bound `T7_Node97_Full_Canary` root, contract v2, and the normal config
+and execution approval barriers. It creates an isolated analysis batch and is
+not returned by the public project catalog. The gate is false by default.
+
+`POST /api/internal/wgs/runs/{analysis_id}/stages/local_analysis` accepts only
+the internal adapter `wgs-runtime-node97` and command:
+
+```text
+wgs-local-runtime <analysis_id> <attempt> local_analysis
+```
+
+The run attempt must have a committed `node-97` execution dispatch. Contract-v2
+registration returns the immutable execution ID, generation and request hash;
+the node97 status marker must echo all three. A repeated start registration
+reuses an already-active generation and cannot create a second local process.
+
+`POST /api/internal/wgs/runs/{analysis_id}/stages/finalize_local_run` uses the
+same adapter and requires the exact successful `local_analysis` terminal
+receipt. It has no client-supplied shell command. These endpoints are internal
+service-token routes and do not expose node97 filesystem paths to the browser.
+
+## T208 exact-generation replay and projection repair
+
+Contract-v2 stage registration and status reads use the returned
+`execution_id + generation`; Airflow never infers a retry generation from a
+timestamp or a previous stage projection. A temporary backend HTTP 5xx while a
+reschedule sensor reads stage status is transport unavailability, not workflow
+failure. Application 4xx responses and invalid payloads remain hard failures.
+
+For the same Step3 execution and generation, a terminal Rule evidence replay
+may repair a stale `RunStageState` projection even when its heartbeat is equal
+to the already ingested event. The replay is idempotent when the projection is
+already identical. It cannot replace a newer execution/generation, regress a
+terminal state, or synthesize missing Rule events.
+## T209 WGS execution target contract
+
+- `GET /api/runs/{analysis_id}` adds `execution_dispatch` for claim-backed WGS
+  runs: desired mode/target, state, revision, switch permission, commit
+  identity, blocking reason and four server-projected target states. Historical
+  rows without a usable batch claim return `null` rather than fabricating one.
+- `POST /api/wgs/runs/{analysis_id}/execution-choice` is operator-only. It
+  accepts `desired_mode`, `desired_target`, `expected_revision` and a required
+  audit reason. It changes neither DagRun ID nor attempt. Invalid admission,
+  stale revision and committed execution return HTTP 409 with respectively
+  `TARGET_UNAVAILABLE`, `STALE_EXECUTION_CHOICE` and
+  `EXECUTION_ALREADY_COMMITTED`.
+- `POST /api/internal/wgs/runs/{analysis_id}/execution-commit` is protected by
+  the internal token. It locks the run, current attempt and batch claim,
+  rechecks admission, atomically acquires the CCE upload or local-node slot,
+  and returns `committed=false` while the selected resource is unavailable.
+- CCE commit freezes the target before Step1. Ordinary CCE cancel is rejected
+  after commit; failure becomes `needs_recovery`. Successful finalization
+  becomes `terminal`.
+
+Automatic dispatch always creates a CCE claim and retains the existing
+activation-watermark plus any-existing-batch dedupe. Local and SGE are never
+selected automatically. See [document 31](31_WGS_EXECUTION_TARGET_SWITCH.md).
+
+## T206 admin-only Step2/Step3 dry-run scope
+
+`POST /api/wgs/runs` accepts the hidden exact value
+`validation_scope=step3_dryrun` only for an authenticated admin and only while
+`WGS_EXECUTION_ENABLED`, `WGS_RUNTIME_ADAPTER_ENABLED`,
+`WGS_CONTRACT_V2_ENABLED`, and `WGS_STEP3_DRYRUN_CANARY_ENABLED` are all true.
+The normal Submit UI does not expose this value.
+
+The scope follows the ordinary staged approval contract through Step1 upload,
+Step2 Master submission, and Step3 monitoring. The node200 prepare gate freezes
+`workflow.execution_mode=dry_run` into the run-local `BATCH_RUNTIME.yaml`; a
+browser request cannot set or change that mode. After Step3, the internal
+`finalize_step3_dryrun` stage accepts only the latest successful Step3
+generation with a receipt hash and exact Master Job, namespace, UID,
+resourceVersion, terminal success, and `execution_mode=dry_run`. It records
+`validation_result=step3_dryrun_complete` and makes Step4-Step6 unreachable.
+Finalization is additionally fenced to the latest successful Step2 execution:
+Step3 must carry its exact execution ID, generation and receipt hash, both
+stages must match the run's frozen pipeline release, and terminal Master
+identity must match the run-local `batch-binding.json`.
+
+Accepted BS10610 evidence is analysis `WGS_20260905_210104_739143`, attempt 8.
+The API projected the exact successful Step3 receipt, Master UID and dry-run
+terminal marker before finalization. The run ended success at 100 percent; no
+Step4 execution was registered. The candidate also retries bounded NFS/backend
+visibility delays without accepting a missing or mismatched predecessor
+receipt.
+
+## T203 admin-only Step1 validation scope
+
+`POST /api/wgs/runs` accepts the optional exact value
+`validation_scope=step1_only` only for an authenticated admin and only while
+all three server gates are true: `WGS_EXECUTION_ENABLED`,
+`WGS_RUNTIME_ADAPTER_ENABLED`, and `WGS_STEP1_CANARY_ENABLED`. Contract v2 must
+also be enabled. The field is intentionally absent from the normal Submit UI.
+
+The value is frozen into `params.validation_scope` and the Airflow DagRun conf.
+After an exact successful `step1_upload` execution receipt, the DAG calls the
+internal `finalize_step1_canary` control stage. It records
+`validation_result=step1_upload_complete`, marks prepared samples `skipped`,
+and never creates a Step2 Master. Missing or stale Step1 evidence returns a
+400 error and cannot produce validation success.
+
+## T194-T200 WGS workspace and transfer files
+
+- `GET /api/runs/{analysis_id}/workspace` returns the database-backed Run
+  Detail first paint: run, summary, stage/rule progress, active transfer,
+  validation issues, and `wgs-heavy-io` usage.
+- `GET /api/runs/{analysis_id}/rules` supports SQL filters for status, rule,
+  sample, family, and phase plus `limit/offset`; default limit is 50.
+- `GET /api/transfers/{transfer_id}/files` returns paged privacy-safe file
+  progress. It never returns full OBS URIs, credentials, or server paths.
+- A transfer snapshot with the same heartbeat may idempotently backfill missing
+  or stale file rows left by a rolling deployment. Older heartbeats still
+  cannot overwrite aggregate or file progress, and generation fencing remains
+  mandatory.
+- `GET /api/runs/{analysis_id}/progress` reads terminal runs from biodemo only.
+  Airflow task-instance REST is reserved for active runs or explicit operator
+  Sync.
+
+Contract-v2 internal stage registration returns `execution_id`, `generation`,
+`request_hash`, and the exact predecessor receipt identity. These fields are
+server generated and are not accepted from public browser requests.
+
 ## T190 T7 source-name correction
 
 The public intake response schema is unchanged. Chip numbers are source labels,

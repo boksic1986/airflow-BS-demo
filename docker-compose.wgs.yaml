@@ -26,9 +26,16 @@ x-airflow-common: &airflow-common
     DEPLOYED_PIPELINES: wgs
     WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"
     WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"
+    WGS_STEP1_CANARY_ENABLED: "${WGS_STEP1_CANARY_ENABLED:-false}"
+    WGS_STEP3_DRYRUN_CANARY_ENABLED: "${WGS_STEP3_DRYRUN_CANARY_ENABLED:-false}"
+    WGS_NODE97_FULL_CANARY_ENABLED: "${WGS_NODE97_FULL_CANARY_ENABLED:-false}"
+    WGS_CONTRACT_V2_ENABLED: "${WGS_CONTRACT_V2_ENABLED:-false}"
+    WGS_LOCAL_NODE97_ENABLED: "${WGS_LOCAL_NODE97_ENABLED:-false}"
     WGS_SSH_CONFIG_PATH: /opt/airflow/ssh/config
     WGS_RUNNER_200_ALIAS: ${WGS_RUNNER_200_ALIAS:-wgs-node200}
-    WGS_RUNNER_200_COMMAND: ${WGS_RUNNER_200_COMMAND:-/home/hanjj/.config/airflow-wgs/forced-command.sh}
+    WGS_RUNNER_200_COMMAND: ${WGS_RUNNER_200_COMMAND:-/home/ctapa/.config/airflow-wgs/forced-command.sh}
+    WGS_RUNNER_NODE97_ALIAS: ${WGS_RUNNER_NODE97_ALIAS:-wgs-node97}
+    WGS_RUNNER_NODE97_COMMAND: ${WGS_RUNNER_NODE97_COMMAND:-/home/ctapa/.config/airflow-wgs/forced-command-node97.sh}
     PIPELINE_PROFILE_CONFIG_PATH: /opt/airflow/config/pipeline_profiles.wgs.yaml
   volumes:
     - ./dags/bio_wgs.py:/opt/airflow/dags/bio_wgs.py:ro
@@ -114,6 +121,7 @@ services:
     command: ["alembic", "upgrade", "head"]
     volumes:
       - ./backend:/app:ro
+      - ./config:/config:ro
     networks: [wgs-platform]
 
   platform-admin-init:
@@ -128,6 +136,7 @@ services:
     command: ["python", "-m", "app.auth_admin_cli", "--username", "${PLATFORM_ADMIN_USERNAME:-admin}", "--password", "${PLATFORM_ADMIN_PASSWORD:?set PLATFORM_ADMIN_PASSWORD}"]
     volumes:
       - ./backend:/app:ro
+      - ./config:/config:ro
     networks: [wgs-platform]
 
   backend:
@@ -152,12 +161,17 @@ services:
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
       WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"
       WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"
+      WGS_STEP1_CANARY_ENABLED: "${WGS_STEP1_CANARY_ENABLED:-false}"
+      WGS_STEP3_DRYRUN_CANARY_ENABLED: "${WGS_STEP3_DRYRUN_CANARY_ENABLED:-false}"
+      WGS_NODE97_FULL_CANARY_ENABLED: "${WGS_NODE97_FULL_CANARY_ENABLED:-false}"
       WGS_SUBMISSION_PREVIEW_ENABLED: "${WGS_SUBMISSION_PREVIEW_ENABLED:-false}"
       INTAKE_CONFIG_PATH: /config/intake.wgs.yaml
       PIPELINE_PROFILE_CONFIG_PATH: /config/pipeline_profiles.wgs.yaml
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
       HOST_RESULTS_ROOT: /data/wgs-results
       WGS_RESULTS_HOST_ROOT: ${WGS_RESULTS_HOST_ROOT:?set WGS_RESULTS_HOST_ROOT}
+      WGS_ANALYSIS_PROJECT_CONTAINER_ROOT: /data/wgs-analysis-project
+      WGS_ANALYSIS_PROJECT_NODE200_ROOT: ${WGS_ANALYSIS_PROJECT_NODE200_ROOT:-${WGS_RESULTS_HOST_ROOT}}
       WGS_CONFIG_ROOTS: /data/wgs-intake
       WGS_FASTQ_ROOTS: ${WGS_FASTQ_HOST_ROOT:?set WGS_FASTQ_HOST_ROOT}
       WGS_VALIDATION_ROOTS: /data/wgs-intake
@@ -165,9 +179,10 @@ services:
       WGS_BINDING_ROOT: /data/wgs-bindings
       WGS_TRANSFER_SPOOL_ROOT: /data/wgs-runtime/transfer-progress
       WGS_RUNTIME_REQUEST_ROOT: /data/wgs-runtime/runner-requests
+      WGS_RUNTIME_RUN_ROOT: /data/wgs-runtime/runs
       WGS_RUNTIME_SHARED_GID: ${WGS_RUNTIME_SHARED_GID:-520}
-      WGS_RUNTIME_BS_ROOT: ${WGS_RUNTIME_BS_ROOT:-/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime}
-      WGS_RUNTIME_NODE200_ROOT: ${WGS_RUNTIME_NODE200_ROOT:-/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime}
+      WGS_RUNTIME_BS_ROOT: ${WGS_RUNTIME_BS_ROOT:-/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime}
+      WGS_RUNTIME_NODE200_ROOT: ${WGS_RUNTIME_NODE200_ROOT:-/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime}
       WGS_INTAKE_CONTAINER_ROOT: /data/wgs-intake
       WGS_INTAKE_HOST_ROOT: ${WGS_INTAKE_HOST_ROOT:?set WGS_INTAKE_HOST_ROOT}
       WGS_INTAKE_NODE200_ROOT: ${WGS_INTAKE_NODE200_ROOT:?set WGS_INTAKE_NODE200_ROOT}
@@ -175,17 +190,26 @@ services:
       WGS_PROJECT_CATALOG_PATH: /config/wgs_projects.yaml
       WGS_SUBMISSION_DRAFT_ROOT: /data/wgs-runtime/submission-drafts
       WGS_SUBMISSION_DRAFT_TTL_HOURS: "24"
-      WGS_T7_FASTQ_ROOT: /bi/fastq/T7_Fastq
-      WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-true}"
-      WGS_INTAKE_SCAN_INTERVAL_SECONDS: "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-600}"
+      WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-false}"
       WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"
       WGS_AUTO_DISPATCH_NOT_BEFORE: "${WGS_AUTO_DISPATCH_NOT_BEFORE:-}"
+      WGS_LOCAL_NODE97_ENABLED: "${WGS_LOCAL_NODE97_ENABLED:-false}"
+      WGS_LOCAL_NODE96_ENABLED: "${WGS_LOCAL_NODE96_ENABLED:-false}"
+      WGS_SGE_ENABLED: "${WGS_SGE_ENABLED:-false}"
+      WGS_LOCAL_MIN_LOGICAL_CPUS: "${WGS_LOCAL_MIN_LOGICAL_CPUS:-96}"
+      WGS_LOCAL_ADMISSION_SAMPLES: "${WGS_LOCAL_ADMISSION_SAMPLES:-3}"
+      WGS_LOCAL_ADMISSION_CPU_PERCENT: "${WGS_LOCAL_ADMISSION_CPU_PERCENT:-25}"
+      WGS_LOCAL_ADMISSION_LOAD_RATIO: "${WGS_LOCAL_ADMISSION_LOAD_RATIO:-0.25}"
+      WGS_STAGE_CONTRACT_PATH: /config/wgs_stage_contract.yaml
+      WGS_CONTRACT_V2_ENABLED: "${WGS_CONTRACT_V2_ENABLED:-false}"
+      WGS_TRANSFER_ADAPTER: "${WGS_TRANSFER_ADAPTER:-obs_sdk}"
     volumes:
       - ./backend:/app:ro
       - ./shared:/data/airflow-demo
       - ${WGS_INTAKE_HOST_ROOT:?set WGS_INTAKE_HOST_ROOT}:/data/wgs-intake:ro
       - ${WGS_FASTQ_HOST_ROOT:?set WGS_FASTQ_HOST_ROOT}:${WGS_FASTQ_HOST_ROOT:?set WGS_FASTQ_HOST_ROOT}:ro
       - ${WGS_RESULTS_HOST_ROOT:?set WGS_RESULTS_HOST_ROOT}:/data/wgs-results:rw
+      - ${WGS_ANALYSIS_PROJECT_HOST_ROOT:?set WGS_ANALYSIS_PROJECT_HOST_ROOT}:/data/wgs-analysis-project:ro
       - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
       - ${WGS_BINDING_HOST_ROOT:?set WGS_BINDING_HOST_ROOT}:/data/wgs-bindings:rw
       - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime:rw
@@ -207,15 +231,21 @@ services:
       DEPLOYED_PIPELINES: wgs
       WGS_EVIDENCE_ROOT: /data/wgs-evidence
       WGS_OBSERVER_INTERVAL: "5"
+      WGS_TRANSFER_SPOOL_ROOT: /data/wgs-runtime/transfer-progress
+      WGS_RUNTIME_REQUEST_ROOT: /data/wgs-runtime/runner-requests
     volumes:
       - ./backend:/app:ro
+      - ./config:/config:ro
       - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
+      - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime:ro
     logging: *bounded-logging
     networks: [wgs-platform]
 
   platform-node-probe:
     image: ${AIRFLOW_IMAGE:-airflow-demo/airflow:0.1.0}
-    user: "${AIRFLOW_UID:-1000}:${WGS_RUNTIME_SHARED_GID:-520}"
+    # The probe owns a dedicated mode-0600 SSH identity and writes a host
+    # spool. It therefore runs as the host owner of those files, not Airflow.
+    user: "${PLATFORM_METRICS_UID:-6708}:0"
     restart: unless-stopped
     command: ["python", "-m", "app.platform_node_probe_cli"]
     environment:
@@ -226,7 +256,7 @@ services:
       PLATFORM_NODE_METRICS_SPOOL: /data/wgs-runtime/platform-metrics/nodes.json
     volumes:
       - ./backend:/app:ro
-      - ${WGS_SSH_KEY_HOST_ROOT:?set WGS_SSH_KEY_HOST_ROOT}:/opt/platform-metrics/ssh:ro
+      - ${PLATFORM_METRICS_SSH_HOST_ROOT:?set PLATFORM_METRICS_SSH_HOST_ROOT}:/opt/platform-metrics/ssh:ro
       - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime
     logging: *bounded-logging
     networks: [wgs-platform]
@@ -247,31 +277,34 @@ services:
       PLATFORM_CLOUD_METRICS_SPOOL: /data/wgs-runtime/platform-metrics/cloud.json
     volumes:
       - ./backend:/app:ro
+      - ./config:/config:ro
       - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime:ro
     logging: *bounded-logging
     networks: [wgs-platform]
 
   wgs-intake-scanner:
+    profiles: ["intake"]
     image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
     restart: unless-stopped
     depends_on:
       platform-admin-init:
         condition: service_completed_successfully
-    command: ["python", "-m", "app.wgs_intake_scanner_cli", "--intake-root", "/bi/fastq/T7_Fastq", "--intake-interval", "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-600}"]
+    command: ["python", "-m", "app.wgs_intake_scanner_cli"]
     environment:
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
       DEPLOYED_PIPELINES: wgs
-      WGS_T7_FASTQ_ROOT: /bi/fastq/T7_Fastq
-      WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-true}"
-      WGS_INTAKE_SCAN_INTERVAL_SECONDS: "${WGS_INTAKE_SCAN_INTERVAL_SECONDS:-600}"
+      INTAKE_CONFIG_PATH: /config/intake.wgs.yaml
+      WGS_PROJECT_CATALOG_PATH: /config/wgs_projects.yaml
+      WGS_INTAKE_SCAN_ENABLED: "${WGS_INTAKE_SCAN_ENABLED:-false}"
       WGS_AUTO_DISPATCH_ENABLED: "${WGS_AUTO_DISPATCH_ENABLED:-false}"
       WGS_BACKEND_INTERNAL_URL: http://backend:8000
       WGS_INTAKE_IGNORED_CHIP_IDS: "${WGS_INTAKE_IGNORED_CHIP_IDS:-}"
     volumes:
       - ./backend:/app:ro
       - ${WGS_T7_FASTQ_HOST_ROOT:-/bi/fastq/T7_Fastq}:/bi/fastq/T7_Fastq:ro
+      - ./config:/config:ro
     logging: *bounded-logging
     networks: [wgs-platform]
 
@@ -284,8 +317,24 @@ services:
         set -euo pipefail
         airflow db migrate
         airflow pools set wgs_cce_runs 4 "Maximum concurrent project-level CCE WGS masters"
-        airflow pools set wgs_obs_transfer 1 "Serialized private OBS transfer gate"
-        airflow users create --username "$${AIRFLOW_ADMIN_USERNAME}" --firstname Airflow --lastname Admin --role Admin --email "$${AIRFLOW_ADMIN_EMAIL}" --password "$${AIRFLOW_ADMIN_PASSWORD}" || true
+        airflow pools set wgs_obs_transfer 1 "Legacy serialized private OBS transfer gate"
+        airflow pools set wgs_obs_upload 1 "Serialized private OBS upload gate"
+        airflow pools set wgs_obs_download 1 "Serialized private OBS download gate"
+        users_json="$$(airflow users list --output json)"
+        if AIRFLOW_USERS_JSON="$${users_json}" python - "$${AIRFLOW_ADMIN_USERNAME}" <<'PY'
+        import json
+        import os
+        import sys
+
+        username = sys.argv[1]
+        users = json.loads(os.environ["AIRFLOW_USERS_JSON"])
+        raise SystemExit(0 if any(item.get("username") == username for item in users) else 1)
+        PY
+        then
+          echo "Airflow administrator already exists; credentials were not changed."
+        else
+          airflow users create --username "$${AIRFLOW_ADMIN_USERNAME}" --firstname Airflow --lastname Admin --role Admin --email "$${AIRFLOW_ADMIN_EMAIL}" --password "$${AIRFLOW_ADMIN_PASSWORD}"
+        fi
     environment:
       <<: *airflow-env
       AIRFLOW_ADMIN_USERNAME: ${AIRFLOW_ADMIN_USERNAME:-admin}

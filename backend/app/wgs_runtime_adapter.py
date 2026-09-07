@@ -23,6 +23,7 @@ STAGES = {
     "step5_download",
     "step6_materialize",
     "step7_cleanup",
+    "local_analysis",
 }
 
 
@@ -60,6 +61,13 @@ def build_stage_request(
     fastq_root: str | None = None,
     use_reference: str | None = None,
     maintenance_action_id: str | None = None,
+    execution_id: str | None = None,
+    generation: int | None = None,
+    request_hash: str | None = None,
+    predecessor_execution_id: str | None = None,
+    predecessor_generation: int | None = None,
+    predecessor_receipt_hash: str | None = None,
+    validation_scope: str | None = None,
 ) -> dict[str, object]:
     if ANALYSIS_ID_RE.fullmatch(analysis_id) is None:
         raise ValueError("invalid WGS analysis_id")
@@ -120,12 +128,30 @@ def build_stage_request(
         if str(use_reference) not in {"all", "ref", "no"}:
             raise ValueError("use_reference must be all, ref, or no")
         payload["use_reference"] = str(use_reference)
+    if validation_scope is not None:
+        if validation_scope not in {"step1_only", "step3_dryrun", "node97_full"}:
+            raise ValueError("unsupported WGS validation scope")
+        payload["validation_scope"] = validation_scope
     if stage == "step7_cleanup":
         if not maintenance_action_id or SAFE_COMPONENT_RE.fullmatch(maintenance_action_id) is None:
             raise ValueError("Step7 cleanup requires a valid maintenance_action_id")
         payload["maintenance_action_id"] = maintenance_action_id
     elif maintenance_action_id is not None:
         raise ValueError("maintenance_action_id is only valid for Step7 cleanup")
+    if execution_id is not None:
+        if generation is None or generation < 1 or not request_hash:
+            raise ValueError("contract v2 execution metadata is incomplete")
+        payload.update(
+            {
+                "orchestration_contract_version": 2,
+                "execution_id": execution_id,
+                "generation": generation,
+                "request_hash": request_hash,
+                "predecessor_execution_id": predecessor_execution_id,
+                "predecessor_generation": predecessor_generation,
+                "predecessor_receipt_hash": predecessor_receipt_hash,
+            }
+        )
     return payload
 
 

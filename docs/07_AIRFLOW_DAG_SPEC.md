@@ -1,5 +1,21 @@
 # 07 Airflow DAG 设计
 
+## T218 workflow evidence and independent post-run state
+
+T218 does not add a backup, copy or downstream-release Airflow task. Step1-Step6
+continue to exchange atomic remote markers, receipts and logs. The observer
+validates those replayable files and projects the current generation into the
+business database; Airflow and the frontend read that database projection.
+Controlled evidence files remain under the evidence root after Step7.
+
+The four lifecycle states are independent: Workflow remains terminal success
+after Step1-Step6, Step7 updates only Cloud release, and the two new admin APIs
+register Raw FASTQ backup and Downstream release. A failed post-run status must
+not reopen, fail or rerun the WGS DAG. The merged DAG retains the T216 terminal
+failure projection, the database execution-commit barrier, the accepted
+node97 branch and the directional OBS leases. Node96, SGE, intake auto-dispatch
+and automatic post-run work remain disabled.
+
 ## T217 Step7 maintenance route
 
 `cleanup_step7` uses a dedicated branch immediately after
@@ -43,6 +59,171 @@ Both exact forms use the existing one-second, five-invocation bounded retry in
 permission, command, CCE, OBS and biological workflow errors still fail
 immediately. The retry never creates another AnalysisRun, DagRun, attempt or
 runtime worker.
+
+## T216 staged submission failure callback
+
+`bio_wgs` defines a DAG-level `on_failure_callback`. On terminal failure it
+collects task instances whose state is exactly `failed`, excluding
+`upstream_failed`; if another root failure exists it also excludes the
+`release_leases` cleanup failure. The callback POSTs the exact analysis ID,
+attempt and failed task IDs to the backend internal terminal endpoint.
+
+The callback is best effort: a backend transport failure is logged without
+masking the original Airflow failure. The run remains recoverable through the
+existing explicit retry path. It does not alter the three-stage approval
+barriers, branch selection, directional transfer leases or execution target.
+
+The node200 restricted gate is used by `prepare_wgs_sampleinfo` and
+`prepare_wgs_analysis` even when Local .97 will later be selected for Step 3.
+Therefore supervised manual submission requires execution/runtime gates on
+both the BS10610 control plane and node200 owner runtime. Local .97 alone is
+not sufficient.
+
+## T214 node97 branch on the T213 DAG
+
+The CCE branch keeps T213's independent input and result transfer pools and
+all Step1-Step6 receipt fences. A committed node97 run branches after the same
+database commit barrier into `local_execution` and never enters either OBS
+transfer group. The final `release_leases` task remains an idempotent global
+cleanup: it drains the observer, releases a matching terminal transfer only
+when one exists, and reports upstream failure. Local target ownership is
+released by local terminal or recovery projection, not by an OBS lease.
+
+This iteration accepts only a synthetic node97 smoke. The hidden
+`node97_full` fixture remains default-off and is not used. Node96 and SGE keep
+their fail-closed behavior.
+
+## T213 directional transfer gates
+
+T208 remains authoritative from Step1 through Step6, including exact
+generation/receipt fencing, Step5 multi-file download, Step6 atomic
+materialization and `wait_step6_materialize` before `finalize_run`. T209's
+database commit barrier remains immediately before the CCE branch; Local and
+SGE still fail closed.
+
+Input transfer tasks use Airflow pool `wgs_obs_upload=1`; result transfer tasks
+use `wgs_obs_download=1`. The database rows use the corresponding directional
+identities and have no TTL. Therefore one upload and one download may overlap,
+while two uploads or two downloads cannot. `ALL_DONE` release tasks do not
+unconditionally clear ownership: without exact terminal transfer evidence the
+backend returns `retained`, the task fails, and the committed run requires
+recovery. The observer releases a direction when it imports its terminal
+evidence; the DAG release is an idempotent confirmation.
+## T211 node97 local execution branch
+
+For full-run acceptance without reusing a successful production snapshot,
+`node97_full` follows the normal prepare and execution-commit path, then must be
+routed to `local_execution`. Unlike `step3_dryrun`, it leaves the frozen runtime
+in analysis mode. FastAPI, Airflow, and the node200 prepare gate all require the
+default-off `WGS_NODE97_FULL_CANARY_ENABLED` switch.
+
+T211 replaces only the T209 `node-97` placeholder. The CCE Step1-Step6 branch
+is unchanged, and node96/SGE still fail closed. A committed node97 run follows:
+
+```text
+choose_execution_target
+  -> local_execution.start_local_wgs
+  -> local_execution.wait_local_wgs
+  -> local_execution.finalize_local_wgs
+  -> release_leases
+```
+
+The start task first registers `local_analysis` with adapter
+`wgs-runtime-node97`, then calls the pinned restricted SSH alias. The sensor
+polls the backend projection every ten seconds in `reschedule` mode for up to
+120 hours. The finalizer requires an exact successful local terminal receipt
+before marking the existing run/attempt successful and releasing the local
+target slot. Local execution does not traverse OBS transfer, CCE Master,
+Step3 monitor or Step4-Step6 tasks.
+
+## T208 full Step1-Step6 acceptance semantics
+
+The normal contract-v2 branch has been accepted on BS10610 through Step6.
+Every asynchronous start task waits for the exact generation returned by the
+backend registration call. This applies to prepare, Step1, Step3, Step4, Step5
+and Step6; a positive retry generation is never replaced by a default zero.
+
+Stage sensors treat backend HTTP 5xx like a temporary transport outage and
+reschedule. HTTP 4xx, malformed application payloads, mismatched predecessor
+receipts and mismatched terminal markers still fail closed. The accepted
+DagRun is `WGS_20260906_075824_E4D23E-a4`; its downstream receipt chain is
+Step3 generation 3 -> Step4 generation 1 -> Step5 generation 1 -> Step6
+generation 1. After acceptance the DAG is paused and all execution gates are
+closed.
+## T209 execution commit barrier
+
+After the existing execution-approval sensor, `bio_wgs` now runs the
+reschedule sensor `wait_execution_commit` and then
+`choose_execution_target`. Each sensor poke asks the internal backend to
+atomically commit the latest database choice only when its resource can be
+acquired. The branch operator reads that frozen result and routes exactly one
+of CCE, Local or SGE.
+
+The CCE branch is the existing Step1-Step6 graph and the existing OBS sensor
+renews the lease obtained at commit. Local and SGE branches do not traverse any
+OBS/CCE task. In Phase 1 their backend capability flags are false and their DAG
+operators fail closed; no production runner is implied. Maintenance runs keep
+their existing CCE route. A scheduler restart recovers the wait and committed
+choice from biodemo and does not create a new DagRun or attempt.
+
+## T206 Step2/Step3 dry-run validation branch
+
+The hidden admin-only `step3_dryrun` scope follows the normal `bio_wgs` path
+through Step1, `submit_step2_master`, `start_step3_monitor`, and
+`wait_step3_analysis`. `choose_after_step3` then routes exclusively to
+`finalize_step3_dryrun`; `start_step4_publish` and every Step4-Step6 descendant
+are skipped. The branch is rejected unless contract v2 and the dedicated
+default-off Step3 dry-run gate are enabled.
+
+The finalizer does not trust Airflow task success by itself. It requires the
+latest append-only Step3 execution receipt plus the frozen Kubernetes Master
+identity and a terminal marker whose execution mode is `dry_run`. Historical
+run topology and the ordinary analysis branch remain unchanged. It also
+requires the exact latest successful Step2 predecessor receipt, matching frozen
+release IDs, and a Master identity equal to the run-local batch binding; stale
+generations and late terminal markers fail closed.
+
+The accepted DagRun `WGS_20260905_210104_739143-a8` completed validate,
+prepare, sampleinfo, Step1, Step2, Step3, branch selection, and the dry-run
+finalizer. Every Step4, Step5, and Step6 task was `skipped`. The DAG is paused
+after acceptance and all execution/canary gates are false.
+
+## T203 Step1-only validation branch
+
+The production path remains unchanged. A new branch is evaluated only after
+the input-transfer group has released its OBS lease:
+
+```text
+Step1 upload -> choose_after_step1
+                  |-> submit_step2_master -> Step3-Step6 -> finalize_run
+                  `-> finalize_step1_canary -> release_leases
+```
+
+Only DagRuns whose server-frozen params contain
+`validation_scope=step1_only` may take the validation branch. DAG validation
+requires both `WGS_STEP1_CANARY_ENABLED=true` and
+`WGS_CONTRACT_V2_ENABLED=true`. The finalizer independently verifies the
+latest Step1 generation is terminal success with a receipt hash. This mode is
+for controlled transfer integration tests and cannot be selected in the
+normal browser submission flow.
+
+The accepted BS10610 canary used one sample/two FASTQ files. Its Step1 branch
+finished with an exact receipt, `finalize_step1_canary` succeeded, and
+`submit_step2_master` plus Step3-Step6 were skipped. Skipped tasks are the
+intentional validation branch, not missing workflow monitoring.
+
+## T194-T200 `bio_wgs` contract v2
+
+The task graph remains Step1 through Step6. `wgs_obs_upload` serializes Step1
+uploads and `wgs_obs_download` independently serializes Step5 downloads.
+`wgs_cce_runs` is assigned only to
+`submit_step2_master`; it does not represent Step3 Worker-Pod concurrency.
+`start_step3_monitor` and the reschedule sensor use the default Airflow pool.
+
+Every runtime task registers a stage execution before invoking node200. An
+Airflow retry requests a new generation; downstream stages require the exact
+successful predecessor receipt. The DAG ID and task IDs remain stable for
+historical display.
 
 ## T188 Step6 terminal barrier
 
@@ -256,7 +437,8 @@ validate_request
 
 There is no FASTQ MD5 task, upload verification task, database Master slot, or
 Worker Pod reconciliation task. `wgs_cce_runs` limits project concurrency to
-four and `wgs_obs_transfer` serializes private-line transfer. Long waits use
+four; `wgs_obs_upload` and `wgs_obs_download` independently serialize each
+private-line direction. Long waits use
 reschedule sensors. The restricted SSH connection is `wgs_runner_200`; node
 200 is the single operator boundary for private OBS and kubectl. Containers do
 not receive OBS or kubeconfig credentials.

@@ -1,5 +1,22 @@
 # 06 前端设计
 
+## T218 Data lifecycle presentation
+
+Run Detail has a read-only `Data lifecycle` panel with four independent cards:
+Workflow, Cloud release, Raw FASTQ backup and Downstream release. Run Tracker
+keeps Workflow as its primary Status and adds compact post-run lifecycle tags.
+The browser consumes the backend projection and does not derive state from
+files, Rule rows or Step7 text.
+
+Every state uses an icon, label, foreground colour and light background:
+`not_applicable` (grey minus), `not_started` (grey clock), `pending` (blue
+clock), `running` (blue spinner), `success` (green check), `failed` (red X) and
+`degraded` (amber warning). Detail cards show only name, status, updated time,
+operator and a short note. Raw backup and downstream release have no frontend
+action button in this iteration. A post-run failure displays a warning but
+does not change Workflow success, successful sample counts or workflow
+duration.
+
 ## T217 Step7 maintenance progress
 
 Run Detail renders Step7 maintenance separately from the terminal analysis

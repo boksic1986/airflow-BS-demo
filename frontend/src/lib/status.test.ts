@@ -11,4 +11,13 @@ describe("WGS transfer lifecycle statuses", () => {
     expect(getStatusMeta(status)).toMatchObject({label, active: true, terminal: false});
     expect(statusPriority(status)).toBe(1);
   });
+
+  it.each([
+    ["not_applicable", "Not applicable", "muted", false],
+    ["not_started", "Not started", "neutral", false],
+    ["pending", "Pending", "info", true],
+    ["degraded", "Evidence degraded", "warning", false],
+  ])("maps lifecycle state %s to its shared badge contract", (status, label, tone, active) => {
+    expect(getStatusMeta(status)).toMatchObject({label, tone, active});
+  });
 });

@@ -28,14 +28,46 @@ def load_gate():
     return module
 
 
-def test_hanjj_forced_command_uses_private_runtime_environment() -> None:
+def load_node200_configurator():
+    spec = importlib.util.spec_from_file_location(
+        "configure_node200_cce_test", ROOT / "configure_node200_cce.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_node200_rule_evidence_uses_bs_mounted_shared_spool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("WGS_CCE_EVIDENCE_ROOT", raising=False)
+    expected = (
+        "/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/cce-evidence"
+    )
+
+    gate = load_gate()
+    configurator = load_node200_configurator()
+    example = (ROOT.parent / "config" / "wgs_runtime.node200.env.example").read_text(
+        encoding="utf-8"
+    )
+
+    assert str(gate.CCE_EVIDENCE_ROOT) == expected
+    assert configurator.EVIDENCE_ROOT == expected
+    assert f"WGS_CCE_EVIDENCE_ROOT={expected}" in example
+
+
+def test_ctapa_forced_command_uses_private_runtime_environment() -> None:
     source = (ROOT / "wgs_runtime_forced_command.sh").read_text(encoding="utf-8")
 
-    assert 'config_dir="/home/hanjj/.config/airflow-wgs"' in source
+    assert 'config_dir="/home/ctapa/.config/airflow-wgs"' in source
     assert 'runtime_env="${config_dir}/runtime.env"' in source
     assert 'runtime_gate="${config_dir}/wgs_runtime_gate.py"' in source
+    assert 'if (( $# > 0 )); then' in source
+    assert 'unset SSH_ORIGINAL_COMMAND' in source
     assert 'exec "${WGS_PYTHON}" "${runtime_gate}" "$@"' in source
     assert "/home/chenjc" not in source
+    assert "/home/hanjj" not in source
 
 
 def test_forced_command_accepts_only_registered_wgs_stages() -> None:
@@ -129,6 +161,46 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
     assert not any("SECRET" in item for item in command)
 
 
+def test_prepare_config_override_is_limited_to_approved_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    approved = tmp_path / "profiles"
+    approved.mkdir()
+    config = approved / "prepare-r3.yaml"
+    config.write_text("cce: {}\n", encoding="utf-8")
+    monkeypatch.setattr(gate, "WGS_PREPARE_CONFIG", str(config))
+    monkeypatch.setattr(gate, "WGS_PREPARE_CONFIG_ROOT", approved)
+
+    assert gate.validate_prepare_config() == config.resolve()
+
+    outside = tmp_path / "outside.yaml"
+    outside.write_text("cce: {}\n", encoding="utf-8")
+    monkeypatch.setattr(gate, "WGS_PREPARE_CONFIG", str(outside))
+    with pytest.raises(RuntimeError, match="outside approved roots"):
+        gate.validate_prepare_config()
+
+
+def test_prepare_config_override_rejects_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    approved = tmp_path / "profiles"
+    approved.mkdir()
+    target = approved / "target.yaml"
+    target.write_text("cce: {}\n", encoding="utf-8")
+    link = approved / "prepare.yaml"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("symlinks are unavailable in this test environment")
+    monkeypatch.setattr(gate, "WGS_PREPARE_CONFIG", str(link))
+    monkeypatch.setattr(gate, "WGS_PREPARE_CONFIG_ROOT", approved)
+
+    with pytest.raises(RuntimeError, match="prepare config is unavailable"):
+        gate.validate_prepare_config()
+
+
 def test_split_prepare_commands_preserve_native_wgs_contract(tmp_path: Path) -> None:
     gate = load_gate()
     payload = {
@@ -161,6 +233,134 @@ def test_split_prepare_commands_preserve_native_wgs_contract(tmp_path: Path) -> 
         tmp_path / "WGS_Clinical" / "sampleinfo" / "WGS_20260902A_T7Hg38V4.1.1.sampleinfo.txt"
     )
     assert analysis[analysis.index("--use-reference") + 1] == "ref"
+
+
+def test_prepare_analysis_can_use_an_explicit_cce_pipeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    executable = tmp_path / "cce-runtime" / "bin" / "cce-pipeline"
+    executable.parent.mkdir(parents=True)
+    executable.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setattr(gate, "CCE_PIPELINE_BIN", str(executable))
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "prepare_analysis",
+        "pipeline_release_id": "wgs-4.1.1-6c98281",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "6c982817614db6a1157b6f287427ddf01ac91827",
+        "control_workdir": str(tmp_path / "control" / "attempt-1"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(
+            tmp_path / "WGS_Clinical" / "WGS_20260902A_T7Hg38V4.1.1"
+        ),
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260902A_T7Hg38V4.1.1",
+        "fq_path": "/bi/fastq/T7_Fastq",
+        "fastq_root": "/bi/fastq/T7_Fastq",
+        "sequencing_batch": "20260902A",
+        "analysis_batch": "20260902A",
+        "platform": "T7",
+    }
+
+    command = gate.build_prepare_command(payload)
+
+    assert command[command.index("--cce-pipeline") + 1] == str(executable)
+
+
+def test_node97_full_retry_explicitly_cleans_only_the_canary_batch(
+    tmp_path: Path,
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260906_194457_45F2C2",
+        "attempt": 3,
+        "stage": "prepare_analysis",
+        "validation_scope": "node97_full",
+        "pipeline_release_id": "wgs-4.1.1-6c98281",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "6c982817614db6a1157b6f287427ddf01ac91827",
+        "control_workdir": str(tmp_path / "control" / "attempt-3"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(
+            tmp_path
+            / "WGS_Clinical"
+            / "WGS_20260825A_NODE97_FULL_CANARY_T7Hg38V4.1.1"
+        ),
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260825A_NODE97_FULL_CANARY_T7Hg38V4.1.1",
+        "fq_path": str(tmp_path / ".node97-full-fastq"),
+        "fastq_root": str(tmp_path / ".node97-full-fastq"),
+        "sequencing_batch": "20260825A",
+        "analysis_batch": "20260825A_NODE97_FULL_CANARY",
+        "platform": "T7",
+        "use_reference": "all",
+    }
+
+    command = gate.build_prepare_command(payload)
+
+    assert command[command.index("--cce-from-zero") + 1] == "clean"
+
+
+def test_regular_prepare_retry_never_enables_zero_start_cleanup(tmp_path: Path) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260906_194457_45F2C2",
+        "attempt": 3,
+        "stage": "prepare_analysis",
+        "pipeline_release_id": "wgs-4.1.1-6c98281",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "6c982817614db6a1157b6f287427ddf01ac91827",
+        "control_workdir": str(tmp_path / "control" / "attempt-3"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(
+            tmp_path / "WGS_Clinical" / "WGS_20260902A_T7Hg38V4.1.1"
+        ),
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260902A_T7Hg38V4.1.1",
+        "fq_path": "/bi/fastq/T7_Fastq",
+        "fastq_root": "/bi/fastq/T7_Fastq",
+        "sequencing_batch": "20260902A",
+        "analysis_batch": "20260902A",
+        "platform": "T7",
+        "use_reference": "ref",
+    }
+
+    command = gate.build_prepare_command(payload)
+
+    assert "--cce-from-zero" not in command
+
+
+def test_prepare_sampleinfo_does_not_receive_cce_pipeline_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    monkeypatch.setattr(gate, "CCE_PIPELINE_BIN", "/approved/bin/cce-pipeline")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "prepare_sampleinfo",
+        "pipeline_release_id": "wgs-4.1.1-6c98281",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "6c982817614db6a1157b6f287427ddf01ac91827",
+        "control_workdir": str(tmp_path / "control" / "attempt-1"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(
+            tmp_path / "WGS_Clinical" / "WGS_20260902A_T7Hg38V4.1.1"
+        ),
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260902A_T7Hg38V4.1.1",
+        "fq_path": "/bi/fastq/T7_Fastq",
+        "fastq_root": "/bi/fastq/T7_Fastq",
+        "sequencing_batch": "20260902A",
+        "analysis_batch": "20260902A",
+        "platform": "T7",
+    }
+
+    command = gate.build_prepare_command(payload)
+
+    assert "--cce-pipeline" not in command
 
 
 def test_prepare_command_rejects_batch_without_sequencing_batch() -> None:
@@ -361,6 +561,100 @@ def test_prepare_retry_reuses_frozen_binding_without_repository_access(
     assert reused == [payload]
 
 
+def test_prepare_analysis_new_generation_rebuilds_a_missing_frozen_bundle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    workdir = tmp_path / "control"
+    workdir.mkdir()
+    batch_root = tmp_path / "project" / "batch"
+    batch_root.parent.mkdir()
+    binding = workdir / "batch-binding.json"
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "generation": 2,
+        "pipeline_release_id": "wgs-4.1.1-1656b5d",
+        "analysis_project_root": str(batch_root.parent),
+        "expected_batch_root": str(batch_root),
+        "batch_no": "batch",
+    }
+    binding.write_text(
+        json.dumps(
+            {
+                "schema_version": gate.BINDING_SCHEMA,
+                "analysis_id": payload["analysis_id"],
+                "attempt": payload["attempt"],
+                "pipeline_release_id": payload["pipeline_release_id"],
+                "cce_bundle": str(batch_root / "cce"),
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls: list[str] = []
+    monkeypatch.setattr(gate, "_binding_path", lambda _payload: binding)
+    monkeypatch.setattr(gate, "_workdir", lambda _payload: workdir)
+    monkeypatch.setattr(gate, "validate_release_repository", lambda _payload: calls.append("release"))
+    monkeypatch.setattr(gate, "validate_prepare_config", lambda: calls.append("config"))
+    monkeypatch.setattr(gate, "build_prepare_command", lambda _payload: ["prepare"])
+    monkeypatch.setattr(gate.subprocess, "run", lambda *_args, **_kwargs: calls.append("prepare"))
+    monkeypatch.setattr(gate, "_freeze_validation_execution_mode", lambda *_args: calls.append("freeze"))
+    monkeypatch.setattr(gate, "_write_prepare_binding", lambda _payload: calls.append("binding"))
+
+    gate._run_prepare_analysis(payload)
+
+    assert calls == ["release", "config", "prepare", "freeze", "binding"]
+    assert not binding.exists()
+    assert (
+        workdir
+        / "history"
+        / "prepare_analysis"
+        / "before-generation-2"
+        / "batch-binding.json"
+    ).is_file()
+
+
+def test_prepare_analysis_new_generation_rejects_an_outside_frozen_bundle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    workdir = tmp_path / "control"
+    workdir.mkdir()
+    batch_root = tmp_path / "project" / "batch"
+    batch_root.parent.mkdir()
+    outside_bundle = tmp_path / "outside" / "cce"
+    outside_bundle.mkdir(parents=True)
+    binding = workdir / "batch-binding.json"
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "generation": 2,
+        "pipeline_release_id": "wgs-4.1.1-1656b5d",
+        "analysis_project_root": str(batch_root.parent),
+        "expected_batch_root": str(batch_root),
+        "batch_no": "batch",
+    }
+    binding.write_text(
+        json.dumps(
+            {
+                "schema_version": gate.BINDING_SCHEMA,
+                "analysis_id": payload["analysis_id"],
+                "attempt": payload["attempt"],
+                "pipeline_release_id": payload["pipeline_release_id"],
+                "cce_bundle": str(outside_bundle),
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "_binding_path", lambda _payload: binding)
+    monkeypatch.setattr(gate, "_workdir", lambda _payload: workdir)
+
+    with pytest.raises(ValueError, match="outside the expected analysis batch"):
+        gate._run_prepare_analysis(payload)
+
+    assert binding.is_file()
+
+
 def test_step3_status_contract_is_strict_and_master_only() -> None:
     gate = load_gate()
     value = gate.validate_step3_status(
@@ -380,6 +674,107 @@ def test_step3_status_contract_is_strict_and_master_only() -> None:
     assert "pods" not in value
     with pytest.raises(ValueError, match="master_state"):
         gate.validate_step3_status({"normal": True})
+
+
+def test_step3_status_preserves_dry_run_master_identity() -> None:
+    gate = load_gate()
+
+    value = gate.validate_step3_status(
+        {
+            "master_state": "SUCCEEDED",
+            "normal": True,
+            "completed": 0,
+            "total": 12,
+            "percent": 100.0,
+            "message": "dry-run complete",
+            "execution_mode": "dry_run",
+            "master_uid": "master-uid-1",
+            "master_resource_version": "481",
+        }
+    )
+
+    assert value["execution_mode"] == "dry_run"
+    assert value["master_uid"] == "master-uid-1"
+    assert value["master_resource_version"] == "481"
+
+
+def test_step3_validation_freezes_no_compute_mode_with_provenance(
+    tmp_path: Path, monkeypatch
+) -> None:
+    if sys.platform == "win32":
+        pytest.skip("directory fsync is validated on the Linux runtime host")
+    gate = load_gate()
+    cce = tmp_path / "batch" / "cce"
+    cce.mkdir(parents=True)
+    runtime = cce / "BATCH_RUNTIME.yaml"
+    runtime.write_text(
+        yaml.safe_dump({"schema_version": 2, "workflow": {"engine": "snakemake"}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("WGS_STEP3_DRYRUN_CANARY_ENABLED", "true")
+
+    result = gate._freeze_validation_execution_mode(
+        {
+            "analysis_id": "WGS_20260906_123456_A1B2C3",
+            "attempt": 1,
+            "validation_scope": "step3_dryrun",
+        },
+        tmp_path / "batch",
+    )
+
+    assert yaml.safe_load(runtime.read_text(encoding="utf-8"))["workflow"][
+        "execution_mode"
+    ] == "dry_run"
+    assert result["execution_mode_before"] == "analysis"
+    assert result["runtime_sha256_before"] != result["runtime_sha256_after"]
+    assert (cce / "VALIDATION_OVERRIDE.json").is_file()
+
+
+def test_step3_validation_reports_missing_prepared_runtime(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    monkeypatch.setenv("WGS_STEP3_DRYRUN_CANARY_ENABLED", "true")
+
+    with pytest.raises(RuntimeError, match="did not create BATCH_RUNTIME.yaml"):
+        gate._freeze_validation_execution_mode(
+            {
+                "analysis_id": "WGS_20260906_123456_A1B2C3",
+                "attempt": 1,
+                "validation_scope": "step3_dryrun",
+            },
+            tmp_path / "batch",
+        )
+
+
+def test_node97_full_validation_keeps_analysis_mode_and_is_gated(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    cce = tmp_path / "batch" / "cce"
+    cce.mkdir(parents=True)
+    runtime = cce / "BATCH_RUNTIME.yaml"
+    runtime.write_text(
+        yaml.safe_dump(
+            {"schema_version": 2, "workflow": {"execution_mode": "analysis"}}
+        ),
+        encoding="utf-8",
+    )
+    payload = {
+        "analysis_id": "WGS_20260907_123456_A1B2C3",
+        "attempt": 1,
+        "validation_scope": "node97_full",
+    }
+
+    monkeypatch.setenv("WGS_NODE97_FULL_CANARY_ENABLED", "false")
+    with pytest.raises(RuntimeError, match="node97 full canary is disabled"):
+        gate._freeze_validation_execution_mode(payload, tmp_path / "batch")
+
+    monkeypatch.setenv("WGS_NODE97_FULL_CANARY_ENABLED", "true")
+    assert gate._freeze_validation_execution_mode(payload, tmp_path / "batch") is None
+    assert yaml.safe_load(runtime.read_text(encoding="utf-8"))["workflow"][
+        "execution_mode"
+    ] == "analysis"
 
 
 def test_step3_output_uses_last_json_record_after_kubectl_messages() -> None:
@@ -797,6 +1192,159 @@ def test_failed_step5_relaunch_preserves_checkpoint_and_archives_worker_generati
     assert checkpoint.read_text(encoding="utf-8") == "resume-me\n"
 
 
+def test_contract_v2_new_generation_archives_old_sidecars_before_launch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    request_path = tmp_path / "step1_upload.json"
+    request_path.write_text('{"generation": 2}\n', encoding="utf-8")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step1_upload",
+        "orchestration_contract_version": 2,
+        "execution_id": "wse_new",
+        "generation": 2,
+        "request_hash": "b" * 64,
+    }
+    request_path.with_suffix(".status.json").write_text(
+        json.dumps(
+            {
+                "status": "failed",
+                "orchestration_contract_version": 2,
+                "execution_id": "wse_old",
+                "generation": 1,
+                "request_hash": "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    request_path.with_suffix(".worker.json").write_text(
+        json.dumps(
+            {
+                "pid": 1234,
+                "request_sha256": "old-request-sha",
+                "orchestration_contract_version": 2,
+                "execution_id": "wse_old",
+                "generation": 1,
+                "request_hash": "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    request_path.with_suffix(".worker.log").write_text(
+        "generation one\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(gate, "_request_path", lambda *_args: request_path)
+    monkeypatch.setattr(gate, "_truthy", lambda _name: True)
+    monkeypatch.setattr(gate, "_process_matches", lambda _state: False)
+    monkeypatch.setattr(gate, "_boot_id", lambda: "boot-id")
+    monkeypatch.setattr(gate, "_process_start_time", lambda _pid: "456")
+
+    class FakeProcess:
+        pid = 5678
+
+    monkeypatch.setattr(
+        gate.subprocess, "Popen", lambda *_args, **_kwargs: FakeProcess()
+    )
+
+    result = gate.start_async_stage(payload)
+
+    assert result["status"] == "accepted"
+    assert result["generation"] == 2
+    history = tmp_path / "history" / "step1_upload" / "generation-1"
+    assert json.loads((history / "status.json").read_text(encoding="utf-8"))[
+        "execution_id"
+    ] == "wse_old"
+    worker = json.loads(
+        request_path.with_suffix(".worker.json").read_text(encoding="utf-8")
+    )
+    assert worker["execution_id"] == "wse_new"
+    assert worker["generation"] == 2
+
+
+def test_contract_v2_new_generation_refuses_to_replace_live_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    request_path = tmp_path / "step1_upload.json"
+    request_path.write_text('{"generation": 2}\n', encoding="utf-8")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step1_upload",
+        "orchestration_contract_version": 2,
+        "execution_id": "wse_new",
+        "generation": 2,
+        "request_hash": "b" * 64,
+    }
+    request_path.with_suffix(".worker.json").write_text(
+        json.dumps(
+            {
+                "pid": 1234,
+                "request_sha256": "old-request-sha",
+                "orchestration_contract_version": 2,
+                "execution_id": "wse_old",
+                "generation": 1,
+                "request_hash": "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "_request_path", lambda *_args: request_path)
+    monkeypatch.setattr(gate, "_truthy", lambda _name: True)
+    monkeypatch.setattr(gate, "_process_matches", lambda _state: True)
+
+    with pytest.raises(RuntimeError, match="previous generation worker is still active"):
+        gate.start_async_stage(payload)
+
+
+def test_contract_v2_synchronous_retry_archives_old_terminal_sidecar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    request_path = tmp_path / "step6_materialize.json"
+    request_path.write_text('{"generation": 2}\n', encoding="utf-8")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step6_materialize",
+        "orchestration_contract_version": 2,
+        "execution_id": "wse_new",
+        "generation": 2,
+        "request_hash": "b" * 64,
+    }
+    request_path.with_suffix(".status.json").write_text(
+        json.dumps(
+            {
+                "status": "failed",
+                "orchestration_contract_version": 2,
+                "execution_id": "wse_old",
+                "generation": 1,
+                "request_hash": "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "_request_path", lambda *_args: request_path)
+    monkeypatch.setattr(gate, "run_stage", lambda _payload: None)
+
+    assert gate._run_synchronous_stage(payload) == 0
+
+    status = json.loads(
+        request_path.with_suffix(".status.json").read_text(encoding="utf-8")
+    )
+    assert status["status"] == "success"
+    assert status["execution_id"] == "wse_new"
+    assert (
+        tmp_path
+        / "history"
+        / "step6_materialize"
+        / "generation-1"
+        / "status.json"
+    ).is_file()
+
+
 def test_transfer_progress_stays_running_when_an_auxiliary_obsutil_call_failed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -830,6 +1378,47 @@ def test_transfer_progress_stays_running_when_an_auxiliary_obsutil_call_failed(
 
     assert progress is not None
     assert progress["state"] == "running"
+
+
+def test_sdk_transfer_progress_preserves_frozen_per_file_totals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260904_120000_A1B2C3",
+        "attempt": 1,
+        "stage": "step1_upload",
+    }
+    sdk = {
+        "schema_version": "wgs-runtime.transfer-progress.v2",
+        "transfer_id": f"{payload['analysis_id']}-a1-input",
+        "analysis_id": payload["analysis_id"],
+        "attempt": 1,
+        "stage": "step1_upload",
+        "direction": "upload",
+        "state": "running",
+        "bytes_total": 300,
+        "bytes_done": 125,
+        "files_total": 2,
+        "files_done": 1,
+        "speed_bytes_per_second": 50,
+        "heartbeat_at": "2026-09-04T12:00:05+00:00",
+        "files": [
+            {"file_key": "a", "display_name": "S1_R1.fq.gz", "bytes_total": 100, "bytes_done": 100, "status": "success"},
+            {"file_key": "b", "display_name": "S1_R2.fq.gz", "bytes_total": 200, "bytes_done": 25, "status": "running"},
+        ],
+    }
+    (tmp_path / "progress.json").write_text(json.dumps(sdk), encoding="utf-8")
+    monkeypatch.setattr(gate, "_transfer_progress_root", lambda _payload: tmp_path)
+
+    progress = gate._aggregate_transfer_progress(payload)
+
+    assert progress is not None
+    assert progress["schema_version"] == "wgs-runtime.transfer-progress.v2"
+    assert progress["bytes_total"] == 300
+    assert progress["bytes_done"] == 125
+    assert progress["files_done"] == 1
+    assert len(progress["files"]) == 2
 
 
 def test_step5_frozen_plan_does_not_claim_unobserved_files_are_complete(
@@ -1099,8 +1688,22 @@ def test_prepare_binding_points_analysis_log_at_the_run_evidence_directory(
         yaml.safe_dump(
             {
                 "run_label": "cce-run-0123456789abcdef",
-                "platform": {"version": "0.8.1"},
+                "platform": {
+                    "version": "0.8.2",
+                    "wheel_version": "0.8.2",
+                    "source_commit": "e4c0f134bd397fb6113456b18cc148346808388e",
+                },
                 "pipeline": {"master_image": "registry/master@sha256:abc"},
+                "transfer": {
+                    "upload_file_parallelism": 4,
+                    "download_file_parallelism": 8,
+                    "obsutil_parts_per_file": 5,
+                },
+                "heavy_io": {
+                    "limit": 25,
+                    "mode": "enforce",
+                    "unit": "work_pod",
+                },
             }
         ),
         encoding="utf-8",
@@ -1118,6 +1721,11 @@ def test_prepare_binding_points_analysis_log_at_the_run_evidence_directory(
         "analysis_project_root": str(project_root),
         "expected_batch_root": str(batch_root),
         "batch_no": "WGS_batch",
+        "heavy_io_contract": {
+            "limit": 25,
+            "mode": "enforce",
+            "unit": "work_pod",
+        },
     }
 
     gate._write_prepare_binding(payload)
@@ -1126,6 +1734,62 @@ def test_prepare_binding_points_analysis_log_at_the_run_evidence_directory(
     assert binding["analysis_log_source"] == (
         f"{run_dir}/evidence/{run_id}/analysis.log"
     )
+    assert binding["resolved_runtime"]["cce_pipeline_version"] == "0.8.2"
+    assert binding["resolved_runtime"]["cce_pipeline_source_commit"] == (
+        "e4c0f134bd397fb6113456b18cc148346808388e"
+    )
+    assert binding["resolved_runtime"]["transfer"] == {
+        "upload_file_parallelism": 4,
+        "download_file_parallelism": 8,
+        "obsutil_parts_per_file": 5,
+    }
+    assert binding["resolved_runtime"]["heavy_io"] == {
+        "limit": 25,
+        "mode": "enforce",
+        "unit": "work_pod",
+    }
+
+
+def test_runtime_gate_rejects_heavy_io_contract_drift() -> None:
+    gate = load_gate()
+
+    with pytest.raises(RuntimeError, match="does not match the WGS stage contract"):
+        gate._validate_heavy_io_contract(
+            {
+                "heavy_io_contract": {
+                    "limit": 25,
+                    "mode": "enforce",
+                    "unit": "work_pod",
+                }
+            },
+            {
+                "heavy_io": {
+                    "limit": 25,
+                    "mode": "monitor-only",
+                    "unit": "work_pod",
+                }
+            },
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("transfer", {"upload_file_parallelism": 4}, "transfer audit"),
+        (
+            "heavy_io",
+            {"limit": 25, "mode": "enforce", "unit": "cpu"},
+            "heavy_io.unit",
+        ),
+    ],
+)
+def test_resolved_runtime_controls_fail_closed(
+    field: str, value: dict, message: str
+) -> None:
+    gate = load_gate()
+
+    with pytest.raises(RuntimeError, match=message):
+        gate._resolved_runtime_controls({field: value})
 
 
 def test_terminal_evidence_sync_reports_missing_rule_jsonl(

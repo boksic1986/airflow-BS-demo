@@ -8,6 +8,7 @@ from typing import Callable
 import httpx
 
 from app.db import get_sessionmaker
+from app.wgs_project_catalog import load_wgs_intake_policy
 from app.wgs_t7_intake import scan_wgs_t7_intake
 
 
@@ -47,22 +48,22 @@ def run_intake_worker(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--intake-root",
-        type=Path,
-        default=Path(os.getenv("WGS_T7_FASTQ_ROOT", "/bi/fastq/T7_Fastq")),
-    )
-    parser.add_argument(
-        "--intake-interval",
-        type=int,
-        default=int(os.getenv("WGS_INTAKE_SCAN_INTERVAL_SECONDS", "600")),
-    )
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
-    if not _bool_env("WGS_INTAKE_SCAN_ENABLED", False):
+    policy = load_wgs_intake_policy(
+        intake_path=_required_env("INTAKE_CONFIG_PATH"),
+        project_catalog_path=_required_env("WGS_PROJECT_CATALOG_PATH"),
+    )
+    if not (
+        _bool_env("WGS_INTAKE_SCAN_ENABLED", False)
+        and policy.scheduled_scan_enabled
+    ):
         return 0
-    interval = max(60, args.intake_interval)
-    auto_dispatch = _bool_env("WGS_AUTO_DISPATCH_ENABLED", False)
+    interval = policy.interval_seconds
+    auto_dispatch = (
+        policy.auto_dispatch_enabled
+        and _bool_env("WGS_AUTO_DISPATCH_ENABLED", False)
+    )
     ignored_chip_ids = _csv_env("WGS_INTAKE_IGNORED_CHIP_IDS")
     session_factory = get_sessionmaker()
     while True:
@@ -70,7 +71,7 @@ def main() -> int:
         try:
             result = scan_wgs_t7_intake(
                 session_factory=session_factory,
-                root=args.intake_root,
+                root=Path(policy.control_plane_path),
                 scan_interval_seconds=interval,
                 scan_enabled=True,
                 auto_dispatch_enabled=auto_dispatch,
@@ -92,6 +93,13 @@ def _bool_env(name: str, default: bool) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _required_env(name: str) -> str:
+    value = os.getenv(name, "").strip()
+    if not value:
+        raise RuntimeError(f"{name} is required")
+    return value
 
 
 def _csv_env(name: str) -> set[str]:

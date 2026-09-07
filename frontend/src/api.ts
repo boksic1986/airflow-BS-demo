@@ -139,6 +139,22 @@ export type RunDetail = {
   step4_repair?: Step4RepairCapability | null;
   step7_cleanup?: Step7CleanupCapability | null;
   execution_dispatch?: WgsExecutionDispatch | null;
+  lifecycle?: WgsLifecycle | null;
+};
+
+export type WgsLifecycleStatus = {
+  status: "not_applicable" | "not_started" | "pending" | "running" | "success" | "failed" | "degraded";
+  revision?: number;
+  updated_at?: string | null;
+  updated_by?: string | null;
+  message?: string | null;
+};
+
+export type WgsLifecycle = {
+  workflow: WgsLifecycleStatus;
+  cloud_release: WgsLifecycleStatus;
+  raw_fastq_backup: WgsLifecycleStatus;
+  downstream_release: WgsLifecycleStatus;
 };
 
 export type WgsExecutionMode = "cce" | "local" | "sge";
@@ -898,6 +914,7 @@ export type DashboardRunTrackerRow = {
   estimated_remaining_seconds?: number | null;
   estimated_finish_at?: string | null;
   progress_source: string;
+  lifecycle?: WgsLifecycle | null;
   not_in_airflow: boolean;
   note?: string | null;
   qc_highlights?: QcHighlight[];

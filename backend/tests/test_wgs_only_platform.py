@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -21,12 +21,18 @@ from app.models import (
     ObserverRunState,
     RuleState,
     RunAttempt,
+    RunAction,
     RunStageState,
     Sample,
+    TransferJob,
     UserAccount,
     WgsIntakeBatch,
     WgsIntakeScannerState,
     WgsMaintenanceAction,
+    WgsExecutionDispatch,
+    WgsInputSnapshot,
+    WgsLifecycleStatus,
+    WgsStageExecution,
 )
 from app.wgs_orchestration_service import build_fastq_snapshot, fastq_source_fingerprint
 from app.wgs_sample_projection import _qc_status
@@ -92,6 +98,17 @@ projects:
       - root_id: T7_Fastq
         display_name: T7 FASTQ root
         node200_path: /bi/fastq/T7_Fastq
+        control_plane_path: /bi/fastq/T7_Fastq
+      - root_id: T7_Step3_Dryrun_Canary
+        display_name: T7 Step3 dry-run validation root
+        node200_path: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical/.canary-fastq
+        control_plane_path: /data/wgs-intake/.canary-fastq
+        validation_scope: step3_dryrun
+      - root_id: T7_Node97_Full_Canary
+        display_name: T7 node97 full-run validation root
+        node200_path: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical/.node97-full-fastq
+        control_plane_path: /data/wgs-intake/.node97-full-fastq
+        validation_scope: node97_full
     editable_config:
       use_reference: {type: boolean, default: false}
 """,
@@ -116,10 +133,12 @@ projects:
         wgs_submission_draft_root=str(tmp_path / "runtime" / "submission-drafts"),
         wgs_submission_draft_ttl_hours=24,
         wgs_runtime_request_root=str(tmp_path / "runtime" / "runner-requests"),
+        wgs_runtime_run_root=str(tmp_path / "runtime" / "runs"),
         wgs_transfer_spool_root=str(tmp_path / "runtime" / "transfer-progress"),
         wgs_runtime_bs_root=str(tmp_path / "runtime"),
         wgs_runtime_node200_root=str(tmp_path / "node200-runtime"),
         wgs_results_host_root=str(tmp_path / "results"),
+        wgs_analysis_project_container_root=str(tmp_path / "analysis-project"),
         wgs_binding_root=str(tmp_path / "bindings"),
         wgs_intake_container_root=str(tmp_path),
         wgs_intake_host_root=str(tmp_path),
@@ -155,11 +174,122 @@ def login(client, username, password):
     return {"X-CSRF-Token": csrf}
 
 
+def seed_successful_wgs_lifecycle_run(sessions, analysis_id: str) -> None:
+    with sessions.begin() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                execution_mode="cce",
+                attempt=1,
+                status="success",
+                workdir=f"/runs/{analysis_id}",
+                params_json={"analysis_batch": "20260907A"},
+            )
+        )
+        session.add(
+            WgsInputSnapshot(
+                analysis_id=analysis_id,
+                attempt=1,
+                batch_no="20260907A",
+                fq_path="/controlled/fastq",
+                manifest_path=f"/runs/{analysis_id}/input-manifest.json",
+                manifest_sha256="b" * 64,
+                status="verified",
+            )
+        )
+
+
+def force_legacy_contract(sessions, analysis_id: str) -> None:
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.params_json = {
+            **dict(run.params_json or {}),
+            "orchestration_contract_version": 1,
+        }
+
+
 def test_all_non_health_endpoints_require_login(tmp_path, monkeypatch):
     client, _, _ = make_client(tmp_path, monkeypatch)
 
     assert client.get("/api/health").status_code == 200
     assert client.get("/api/runs").status_code == 401
+
+
+def test_lifecycle_status_endpoints_are_admin_only_and_revision_guarded(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    analysis_id = "WGS_20260907_010203_A1B2C3"
+    seed_successful_wgs_lifecycle_run(sessions, analysis_id)
+
+    operator_headers = login(client, "operator", "operator-pass")
+    denied = client.patch(
+        f"/api/wgs/runs/{analysis_id}/lifecycle/raw-fastq-backup",
+        headers=operator_headers,
+        json={"attempt": 1, "status": "running", "expected_revision": 1},
+    )
+    assert denied.status_code == 403
+    client.post("/api/auth/logout", headers=operator_headers)
+
+    admin_headers = login(client, "admin", "admin-pass")
+    updated = client.patch(
+        f"/api/wgs/runs/{analysis_id}/lifecycle/raw-fastq-backup",
+        headers=admin_headers,
+        json={
+            "attempt": 1,
+            "status": "success",
+            "expected_revision": 1,
+            "message": "Archive verified",
+        },
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["status"] == "success"
+    assert updated.json()["revision"] == 2
+
+    stale = client.patch(
+        f"/api/wgs/runs/{analysis_id}/lifecycle/raw-fastq-backup",
+        headers=admin_headers,
+        json={"attempt": 1, "status": "failed", "expected_revision": 1},
+    )
+    assert stale.status_code == 409
+    assert stale.json()["detail"]["code"] == "STALE_LIFECYCLE_STATUS"
+    detail = client.get(f"/api/runs/{analysis_id}", headers=admin_headers)
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["lifecycle"]["workflow"]["status"] == "success"
+    assert detail.json()["lifecycle"]["raw_fastq_backup"]["status"] == "success"
+    with sessions() as session:
+        assert session.scalar(select(func.count()).select_from(WgsLifecycleStatus)) == 1
+
+
+def test_lifecycle_status_payload_rejects_paths_and_downstream_is_independent(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    analysis_id = "WGS_20260907_020304_D4E5F6"
+    seed_successful_wgs_lifecycle_run(sessions, analysis_id)
+    headers = login(client, "admin", "admin-pass")
+
+    forged = client.patch(
+        f"/api/wgs/runs/{analysis_id}/lifecycle/downstream-release",
+        headers=headers,
+        json={
+            "attempt": 1,
+            "status": "pending",
+            "expected_revision": 1,
+            "path": "/sg2/private/data",
+        },
+    )
+    assert forged.status_code == 422
+    accepted = client.patch(
+        f"/api/wgs/runs/{analysis_id}/lifecycle/downstream-release",
+        headers=headers,
+        json={"attempt": 1, "status": "pending", "expected_revision": 1},
+    )
+    assert accepted.status_code == 200, accepted.text
+    detail = client.get(f"/api/runs/{analysis_id}", headers=headers).json()
+    assert detail["lifecycle"]["workflow"]["status"] == "success"
+    assert detail["lifecycle"]["downstream_release"]["status"] == "pending"
+    assert detail["lifecycle"]["raw_fastq_backup"]["status"] == "not_started"
 
 
 def test_wgs_submission_draft_is_server_catalogued_and_does_not_create_run(
@@ -244,6 +374,454 @@ def test_staged_wgs_run_rejects_stage_two_fields_and_uses_canonical_id(
     ).status_code == 409
     with sessions() as session:
         assert session.scalar(select(func.count()).select_from(AnalysisRun)) == 1
+
+
+def test_internal_dag_terminal_failure_releases_staged_submit_page(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    operator_headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/wgs/runs",
+        headers=operator_headers,
+        json={
+            "project_id": "WGS_Clinical",
+            "platform": "T7Hg38V4.1.1",
+            "batch": "20260904A",
+            "fastq_root_id": "T7_Fastq",
+        },
+    )
+    assert created.status_code == 201, created.text
+    analysis_id = created.json()["analysis_id"]
+
+    denied = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/dag-terminal",
+        json={
+            "attempt": 1,
+            "status": "failed",
+            "failed_task_ids": ["prepare_wgs_sampleinfo"],
+        },
+    )
+    assert denied.status_code in {401, 403}
+
+    terminal = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/dag-terminal",
+        headers={"X-Airflow-Demo-Token": "internal-test-token"},
+        json={
+            "attempt": 1,
+            "status": "failed",
+            "failed_task_ids": ["prepare_wgs_sampleinfo"],
+        },
+    )
+    assert terminal.status_code == 200, terminal.text
+    assert terminal.json()["submission_phase"] == "failed"
+
+    detail = client.get(f"/api/runs/{analysis_id}", headers=operator_headers)
+    assert detail.status_code == 200
+    assert detail.json()["status"] == "failed"
+    assert "prepare_wgs_sampleinfo" in detail.json()["error_summary"]
+    with sessions() as session:
+        actions = session.scalars(
+            select(RunAction).where(
+                RunAction.analysis_id == analysis_id,
+                RunAction.action == "airflow_dag_failed",
+            )
+        ).all()
+    assert len(actions) == 1
+
+
+def test_wgs_execution_choice_api_is_revisioned_gated_and_locked_at_commit(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/wgs/runs",
+        headers=headers,
+        json={
+            "project_id": "WGS_Clinical",
+            "platform": "T7Hg38V4.1.1",
+            "batch": "20260906A",
+            "fastq_root_id": "T7_Fastq",
+        },
+    )
+    assert created.status_code == 201, created.text
+    analysis_id = created.json()["analysis_id"]
+
+    detail = client.get(f"/api/runs/{analysis_id}", headers=headers)
+    assert detail.status_code == 200, detail.text
+    dispatch = detail.json()["execution_dispatch"]
+    assert dispatch["desired_target"] == "cce"
+    assert dispatch["dispatch_state"] == "preparing"
+    assert dispatch["dispatch_revision"] == 1
+    assert [item["status"] for item in dispatch["targets"]] == [
+        "available",
+        "unsupported",
+        "unsupported",
+        "unsupported",
+    ]
+
+    stale = client.post(
+        f"/api/wgs/runs/{analysis_id}/execution-choice",
+        headers=headers,
+        json={
+            "desired_mode": "cce",
+            "desired_target": "cce",
+            "expected_revision": 999,
+            "reason": "test stale browser state",
+        },
+    )
+    assert stale.status_code == 409
+    assert stale.json()["detail"]["code"] == "STALE_EXECUTION_CHOICE"
+
+    unavailable = client.post(
+        f"/api/wgs/runs/{analysis_id}/execution-choice",
+        headers=headers,
+        json={
+            "desired_mode": "local",
+            "desired_target": "node-97",
+            "expected_revision": 1,
+            "reason": "test phase one gate",
+        },
+    )
+    assert unavailable.status_code == 409
+    assert unavailable.json()["detail"]["code"] == "TARGET_UNAVAILABLE"
+
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+    too_early = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/execution-commit",
+        headers=internal,
+        json={"attempt": 1},
+    )
+    assert too_early.status_code == 409
+    assert too_early.json()["detail"]["code"] == "EXECUTION_NOT_APPROVED"
+
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.params_json = {
+            **dict(run.params_json or {}),
+            "submission_phase": "approved",
+            "execution_approved_at": "2026-09-06T12:00:00+00:00",
+        }
+        session.add(
+            Sample(
+                analysis_id=analysis_id,
+                sample_id="SAMPLE-1",
+                status="pending",
+            )
+        )
+
+    committed = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/execution-commit",
+        headers=internal,
+        json={"attempt": 1},
+    )
+    assert committed.status_code == 200, committed.text
+    assert committed.json()["committed"] is True
+    assert committed.json()["desired_target"] == "cce"
+
+    locked = client.post(
+        f"/api/wgs/runs/{analysis_id}/execution-choice",
+        headers=headers,
+        json={
+            "desired_mode": "cce",
+            "desired_target": "cce",
+            "expected_revision": committed.json()["dispatch_revision"],
+            "reason": "test locked state",
+        },
+    )
+    assert locked.status_code == 409
+    assert locked.json()["detail"]["code"] == "EXECUTION_ALREADY_COMMITTED"
+    cancelled = client.post(
+        f"/api/runs/{analysis_id}/actions/cancel", headers=headers
+    )
+    assert cancelled.status_code == 409
+    assert cancelled.json()["detail"]["code"] == "EXECUTION_ALREADY_COMMITTED"
+    with sessions() as session:
+        row = session.scalar(
+            select(WgsExecutionDispatch).where(
+                WgsExecutionDispatch.analysis_id == analysis_id
+            )
+        )
+        assert row.committed_attempt == 1
+
+
+def test_step1_canary_submission_requires_admin_and_explicit_gate(tmp_path, monkeypatch):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    request = {
+        "project_id": "WGS_Clinical",
+        "platform": "T7Hg38V4.1.1",
+        "batch": "20260902A",
+        "fastq_root_id": "T7_Fastq",
+        "validation_scope": "step1_only",
+    }
+
+    client, _, _ = make_client(tmp_path, monkeypatch)
+    operator_headers = login(client, "operator", "operator-pass")
+    denied_role = client.post("/api/wgs/runs", headers=operator_headers, json=request)
+    assert denied_role.status_code == 403
+
+    client.post("/api/auth/logout", headers=operator_headers)
+    admin_headers = login(client, "admin", "admin-pass")
+    gate_closed = client.post("/api/wgs/runs", headers=admin_headers, json=request)
+    assert gate_closed.status_code == 409
+    assert gate_closed.json()["detail"]["code"] == "WGS_STEP1_CANARY_DISABLED"
+
+    monkeypatch.setenv("WGS_STEP1_CANARY_ENABLED", "true")
+    contract_closed = client.post("/api/wgs/runs", headers=admin_headers, json=request)
+    assert contract_closed.status_code == 409
+    assert contract_closed.json()["detail"]["code"] == "WGS_CONTRACT_V2_DISABLED"
+
+    monkeypatch.setenv("WGS_CONTRACT_V2_ENABLED", "true")
+    created = client.post("/api/wgs/runs", headers=admin_headers, json=request)
+    assert created.status_code == 201, created.text
+    assert created.json()["params"]["validation_scope"] == "step1_only"
+
+
+def test_finalize_step1_canary_requires_exact_successful_receipt(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "clinical-wgs",
+            "execution_mode": "cce",
+            "batch_no": "BATCH-CANARY",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    monkeypatch.setenv("WGS_STEP1_CANARY_ENABLED", "true")
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+    body = {"attempt": 1, "adapter": "wgs-runtime-200", "command": "control"}
+
+    with sessions.begin() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        run.params_json = {**dict(run.params_json or {}), "validation_scope": "step1_only"}
+
+    missing = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_step1_canary",
+        headers=internal,
+        json=body,
+    )
+    assert missing.status_code == 400
+
+    with sessions.begin() as session:
+        session.add(
+            WgsStageExecution(
+                execution_id="wse_step1_canary",
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="step1_upload",
+                generation=1,
+                status="success",
+                request_hash="1" * 64,
+                release_id="wgs-test",
+                receipt_hash="2" * 64,
+                evidence_type="transfer_receipt",
+                terminal_payload_json={"file_count": 2},
+            )
+        )
+
+    finalized = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_step1_canary",
+        headers=internal,
+        json=body,
+    )
+    assert finalized.status_code == 200, finalized.text
+    with sessions() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
+        assert run.status == "success"
+        assert run.current_stage == "finalize_step1_canary"
+        assert run.params_json["validation_result"] == "step1_upload_complete"
+    workspace = client.get(f"/api/runs/{analysis_id}/workspace", headers=headers)
+    assert workspace.status_code == 200, workspace.text
+    assert workspace.json()["progress"]["stage_label"] == "Step1 validation passed"
+    assert [item["status"] for item in workspace.json()["progress"]["orchestration_stages"]] == [
+        "success",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+    ]
+
+
+def test_step3_dryrun_submission_and_finalizer_require_exact_master_evidence(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    monkeypatch.setenv("WGS_STEP3_DRYRUN_CANARY_ENABLED", "true")
+    monkeypatch.setenv("WGS_CONTRACT_V2_ENABLED", "true")
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "admin", "admin-pass")
+    created = client.post(
+        "/api/wgs/runs",
+        headers=headers,
+        json={
+            "project_id": "WGS_Clinical",
+            "platform": "T7Hg38V4.1.1",
+            "batch": "20260902A",
+            "fastq_root_id": "T7_Step3_Dryrun_Canary",
+            "validation_scope": "step3_dryrun",
+        },
+    )
+    assert created.status_code == 201, created.text
+    analysis_id = created.json()["analysis_id"]
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+    body = {"attempt": 1, "adapter": "wgs-runtime-200", "command": "control"}
+
+    missing = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_step3_dryrun",
+        headers=internal,
+        json=body,
+    )
+    assert missing.status_code == 400
+
+    settings = main.get_settings()
+    binding_path = (
+        Path(settings.wgs_runtime_run_root)
+        / analysis_id
+        / "attempt-1"
+        / "batch-binding.json"
+    )
+    binding_path.parent.mkdir(parents=True)
+    binding = {
+        "schema_version": "wgs-runtime.batch-binding.v2",
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "pipeline_release_id": "wgs-4.1.1-1656b5d",
+        "run_id": f"{analysis_id}-a1",
+        "run_label": "cce-run-dryrun",
+        "master_job": "cce-master-dryrun",
+        "namespace": "snakemake-ns",
+    }
+    binding_path.write_text(json.dumps(binding), encoding="utf-8")
+
+    with sessions.begin() as session:
+        session.add(
+            WgsStageExecution(
+                execution_id="wse_step2_dryrun",
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="step2_master",
+                generation=1,
+                status="success",
+                request_hash="1" * 64,
+                release_id="wgs-4.1.1-1656b5d",
+                receipt_hash="2" * 64,
+                evidence_type="wgs-runtime.stage-status.v1",
+            )
+        )
+        session.add(
+            WgsStageExecution(
+                execution_id="wse_step3_dryrun",
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="step3_monitor",
+                generation=1,
+                status="success",
+                request_hash="3" * 64,
+                release_id="wgs-4.1.1-1656b5d",
+                receipt_hash="4" * 64,
+                evidence_type="wgs-runtime.stage-status.v1",
+                terminal_payload_json={
+                    "master_job": "cce-master-dryrun",
+                    "namespace": "snakemake-ns",
+                    "run_label": "cce-run-dryrun",
+                    "master": {
+                        "master_state": "SUCCEEDED",
+                        "execution_mode": "dry_run",
+                        "master_uid": "master-uid-1",
+                        "master_resource_version": "481",
+                    },
+                },
+            )
+        )
+
+    unfenced = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_step3_dryrun",
+        headers=internal,
+        json=body,
+    )
+    assert unfenced.status_code == 400
+
+    with sessions.begin() as session:
+        step3 = session.scalar(
+            select(WgsStageExecution).where(
+                WgsStageExecution.execution_id == "wse_step3_dryrun"
+            )
+        )
+        step3.predecessor_execution_id = "wse_step2_dryrun"
+        step3.predecessor_generation = 1
+        step3.predecessor_receipt_hash = "2" * 64
+
+    binding["master_job"] = "cce-master-other"
+    binding_path.write_text(json.dumps(binding), encoding="utf-8")
+    wrong_binding = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_step3_dryrun",
+        headers=internal,
+        json=body,
+    )
+    assert wrong_binding.status_code == 400
+
+    binding["master_job"] = "cce-master-dryrun"
+    binding_path.write_text(json.dumps(binding), encoding="utf-8")
+    finalized = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/finalize_step3_dryrun",
+        headers=internal,
+        json=body,
+    )
+    assert finalized.status_code == 200, finalized.text
+    assert finalized.json()["validation_result"] == "step3_dryrun_complete"
+    workspace = client.get(f"/api/runs/{analysis_id}/workspace", headers=headers)
+    assert workspace.status_code == 200, workspace.text
+    assert workspace.json()["progress"]["stage_label"] == "Step3 dry-run passed"
+    assert [item["status"] for item in workspace.json()["progress"]["orchestration_stages"]] == [
+        "success",
+        "success",
+        "success",
+        "skipped",
+        "skipped",
+        "skipped",
+    ]
+
+
+def test_node97_full_canary_submission_is_admin_only_and_default_off(tmp_path, monkeypatch):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    monkeypatch.setenv("WGS_CONTRACT_V2_ENABLED", "true")
+    monkeypatch.setenv("WGS_NODE97_FULL_CANARY_ENABLED", "false")
+    client, _, _ = make_client(tmp_path, monkeypatch)
+    admin = login(client, "admin", "admin-pass")
+    request = {
+        "project_id": "WGS_Clinical",
+        "platform": "T7Hg38V4.1.1",
+        "batch": "20260825A",
+        "fastq_root_id": "T7_Node97_Full_Canary",
+        "validation_scope": "node97_full",
+    }
+
+    disabled = client.post("/api/wgs/runs", headers=admin, json=request)
+    assert disabled.status_code == 409
+    assert disabled.json()["detail"]["code"] == "WGS_NODE97_FULL_CANARY_DISABLED"
+
+    monkeypatch.setenv("WGS_NODE97_FULL_CANARY_ENABLED", "true")
+    created = client.post("/api/wgs/runs", headers=admin, json=request)
+    assert created.status_code == 201, created.text
+    assert created.json()["params"]["validation_scope"] == "node97_full"
 
 
 def test_wgs_submission_draft_final_submit_is_idempotent(tmp_path, monkeypatch):
@@ -644,6 +1222,7 @@ def test_step4_repair_is_fixed_to_cram_idempotent_and_blocked_by_runtime_gates(t
         },
     ).json()
     analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
     with sessions() as session:
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
         run.status = "failed"
@@ -877,6 +1456,10 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     tmp_path, monkeypatch
 ):
     client, sessions, _ = make_client(tmp_path, monkeypatch)
+    settings = main.get_settings()
+    settings.wgs_analysis_project_node200_root = str(
+        tmp_path / "node200-analysis-project"
+    )
     headers = login(client, "operator", "operator-pass")
     created = client.post(
         "/api/runs",
@@ -890,6 +1473,7 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
         },
     ).json()
     analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
     monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
     monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
     internal = {"X-Airflow-Demo-Token": "internal-test-token"}
@@ -908,8 +1492,12 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     request_path = Path(prepared.json()["request_path"])
     request = json.loads(request_path.read_text(encoding="utf-8"))
     assert request["schema_version"] == "wgs-runtime.request.v4"
-    assert request["analysis_project_root"] == str(tmp_path / "results")
-    assert request["expected_batch_root"].endswith("/results/BATCH-001")
+    assert request["analysis_project_root"] == str(
+        tmp_path / "node200-analysis-project"
+    )
+    assert request["expected_batch_root"].endswith(
+        "/node200-analysis-project/BATCH-001"
+    )
     assert request["project_name"] == "clinical-wgs"
     assert request["pipeline_release_id"] == "wgs-4.1.1-1656b5d"
     assert request["wgs_source_commit"] == "1656b5d7a6e2f24242c38149f6d1c92ac266cd37"
@@ -921,12 +1509,55 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
         json={**body, "command": "control"},
     )
     assert acquire.status_code == 200
+    with sessions() as session:
+        dispatch = session.scalar(
+            select(WgsExecutionDispatch).where(
+                WgsExecutionDispatch.analysis_id == analysis_id
+            )
+        )
+        dispatch.committed_attempt = 1
+        dispatch.committed_at = datetime.now(timezone.utc)
+        dispatch.dispatch_state = "running"
+        session.commit()
+    retained = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/release_input_transfer_slot",
+        headers=internal,
+        json={**body, "command": "control"},
+    )
+    assert retained.status_code == 200
+    assert retained.json()["status"] == "retained"
+    assert retained.json()["reason"] == "transfer_not_terminal"
+    with sessions() as session:
+        lease = session.scalar(
+            select(ObsTransferLease).where(
+                ObsTransferLease.slot_name == "wgs-obs-upload-01"
+            )
+        )
+        dispatch = session.scalar(
+            select(WgsExecutionDispatch).where(
+                WgsExecutionDispatch.analysis_id == analysis_id
+            )
+        )
+        assert lease.analysis_id == analysis_id
+        assert dispatch.dispatch_state == "needs_recovery"
+    with sessions() as session:
+        session.add(
+            TransferJob(
+                analysis_id=analysis_id,
+                attempt=1,
+                transfer_id=f"{analysis_id}-a1-input",
+                direction="upload",
+                status="success",
+            )
+        )
+        session.commit()
     released = client.post(
         f"/api/internal/wgs/runs/{analysis_id}/stages/release_input_transfer_slot",
         headers=internal,
         json={**body, "command": "control"},
     )
     assert released.status_code == 200
+    assert released.json()["status"] == "released"
     with sessions() as session:
         lease = session.scalar(
             select(ObsTransferLease).where(
@@ -1504,6 +2135,236 @@ def test_step3_stage_registration_recovers_same_failed_attempt_and_audits(
         assert recovery.username == "airflow-internal"
 
 
+def test_forced_step2_retry_imports_terminal_receipt_before_new_generation(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    settings = main.get_settings()
+    settings.wgs_contract_v2_enabled = True
+    settings.wgs_stage_contract_path = str(
+        Path(__file__).parents[2] / "config" / "wgs_stage_contract.yaml"
+    )
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "WGS_Clinical",
+            "execution_mode": "cce",
+            "batch_no": "WGS_20260902A_T7Hg38V4.1.1",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.params_json = {
+            **dict(run.params_json or {}),
+            "orchestration_contract_version": 2,
+        }
+        session.add(
+            WgsStageExecution(
+                execution_id="wse_step1_complete",
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="step1_upload",
+                generation=1,
+                status="success",
+                request_hash="1" * 64,
+                release_id=str(run.params_json["pipeline_release_id"]),
+                receipt_hash="2" * 64,
+                evidence_type="transfer_receipt",
+                terminal_payload_json={},
+            )
+        )
+
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+    body = {
+        "attempt": 1,
+        "adapter": "wgs-runtime-200",
+        "command": f"wgs-runtime {analysis_id} 1 step2_master",
+    }
+    first = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/step2_master",
+        headers=internal,
+        json=body,
+    )
+    assert first.status_code == 200, first.text
+
+    with sessions() as session:
+        generation_one = session.scalar(
+            select(WgsStageExecution).where(
+                WgsStageExecution.analysis_id == analysis_id,
+                WgsStageExecution.stage_code == "step2_master",
+                WgsStageExecution.generation == 1,
+            )
+        )
+        status_payload = {
+            "schema_version": "wgs-runtime.stage-status.v1",
+            "analysis_id": analysis_id,
+            "attempt": 1,
+            "stage": "step2_master",
+            "status": "failed",
+            "orchestration_contract_version": 2,
+            "execution_id": generation_one.execution_id,
+            "generation": generation_one.generation,
+            "request_hash": generation_one.request_hash,
+            "retry_no": 0,
+            "message": "Master submission failed",
+            "updated_at": "2026-09-06T00:00:00+00:00",
+        }
+    status_dir = (
+        Path(settings.wgs_runtime_request_root)
+        / analysis_id
+        / "attempt-1"
+    )
+    status_dir.mkdir(parents=True, exist_ok=True)
+    (status_dir / "step2_master.status.json").write_text(
+        json.dumps(status_payload),
+        encoding="utf-8",
+    )
+
+    retried = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/step2_master",
+        headers=internal,
+        json={**body, "force_new_generation": True},
+    )
+
+    assert retried.status_code == 200, retried.text
+    assert retried.json()["generation"] == 2
+    with sessions() as session:
+        executions = session.scalars(
+            select(WgsStageExecution)
+            .where(
+                WgsStageExecution.analysis_id == analysis_id,
+                WgsStageExecution.stage_code == "step2_master",
+            )
+            .order_by(WgsStageExecution.generation)
+        ).all()
+        assert [execution.status for execution in executions] == [
+            "failed",
+            "accepted",
+        ]
+
+
+def test_forced_prepare_retry_imports_terminal_receipt_before_new_generation(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    settings = main.get_settings()
+    settings.wgs_contract_v2_enabled = True
+    settings.wgs_stage_contract_path = str(
+        Path(__file__).parents[2] / "config" / "wgs_stage_contract.yaml"
+    )
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "WGS_Clinical",
+            "execution_mode": "cce",
+            "batch_no": "WGS_20260902A_T7Hg38V4.1.1",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.params_json = {
+            **dict(run.params_json or {}),
+            "orchestration_contract_version": 2,
+        }
+        session.add(
+            WgsStageExecution(
+                execution_id="wse_sampleinfo_complete_for_prepare",
+                analysis_id=analysis_id,
+                attempt=1,
+                stage_code="prepare_sampleinfo",
+                generation=1,
+                status="success",
+                request_hash="1" * 64,
+                release_id=str(run.params_json["pipeline_release_id"]),
+                receipt_hash="2" * 64,
+                evidence_type="transfer_receipt",
+                terminal_payload_json={},
+            )
+        )
+
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+    body = {
+        "attempt": 1,
+        "adapter": "wgs-runtime-200",
+        "command": f"wgs-runtime {analysis_id} 1 prepare_analysis",
+    }
+    first = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/prepare_analysis",
+        headers=internal,
+        json=body,
+    )
+    assert first.status_code == 200, first.text
+
+    with sessions() as session:
+        generation_one = session.scalar(
+            select(WgsStageExecution).where(
+                WgsStageExecution.analysis_id == analysis_id,
+                WgsStageExecution.stage_code == "prepare_analysis",
+                WgsStageExecution.generation == 1,
+            )
+        )
+        status_payload = {
+            "schema_version": "wgs-runtime.stage-status.v1",
+            "analysis_id": analysis_id,
+            "attempt": 1,
+            "stage": "prepare_analysis",
+            "status": "failed",
+            "orchestration_contract_version": 2,
+            "execution_id": generation_one.execution_id,
+            "generation": generation_one.generation,
+            "request_hash": generation_one.request_hash,
+            "retry_no": 0,
+            "message": "frozen bundle was removed",
+            "updated_at": "2026-09-06T00:00:00+00:00",
+        }
+    status_dir = Path(settings.wgs_runtime_request_root) / analysis_id / "attempt-1"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    (status_dir / "prepare_analysis.status.json").write_text(
+        json.dumps(status_payload),
+        encoding="utf-8",
+    )
+
+    retried = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/prepare_analysis",
+        headers=internal,
+        json={**body, "force_new_generation": True},
+    )
+
+    assert retried.status_code == 200, retried.text
+    assert retried.json()["generation"] == 2
+    with sessions() as session:
+        executions = session.scalars(
+            select(WgsStageExecution)
+            .where(
+                WgsStageExecution.analysis_id == analysis_id,
+                WgsStageExecution.stage_code == "prepare_analysis",
+            )
+            .order_by(WgsStageExecution.generation)
+        ).all()
+        assert [execution.status for execution in executions] == [
+            "failed",
+            "accepted",
+        ]
+
+
 def test_step4_stage_registration_recovers_known_master_completion_race(
     tmp_path, monkeypatch
 ):
@@ -1744,6 +2605,7 @@ def test_step4_terminal_failure_is_projected_to_business_run(tmp_path, monkeypat
         },
     ).json()
     analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
     status_dir = tmp_path / "runtime" / "runner-requests" / analysis_id / "attempt-1"
     status_dir.mkdir(parents=True)
     (status_dir / "step4_publish.status.json").write_text(
@@ -1798,6 +2660,7 @@ def test_step3_stage_status_api_treats_accepted_as_transitional(
         },
     ).json()
     analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
     runtime = tmp_path / "runtime"
     binding = runtime / "runs" / analysis_id / "attempt-1" / "batch-binding.json"
     binding.parent.mkdir(parents=True)
@@ -1870,6 +2733,7 @@ def test_prepare_sampleinfo_stage_status_imports_preview_samples(
         },
     ).json()
     analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
     with sessions.begin() as session:
         run = session.scalar(
             select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
@@ -1882,7 +2746,7 @@ def test_prepare_sampleinfo_stage_status_imports_preview_samples(
 
     sampleinfo = (
         tmp_path
-        / "results"
+        / "analysis-project"
         / "sampleinfo"
         / "WGS_20260825A_T7Hg38V4.1.1.sampleinfo.txt"
     )
@@ -1957,6 +2821,7 @@ def test_prepare_analysis_status_waits_for_final_sampleinfo_nfs_visibility(
         },
     ).json()
     analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
     with sessions.begin() as session:
         run = session.scalar(
             select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
@@ -2034,7 +2899,9 @@ def test_prepare_analysis_status_waits_for_final_sampleinfo_nfs_visibility(
         )
         assert run.params_json["submission_phase"] == "preparing_analysis"
 
-    final_sampleinfo = tmp_path / "results" / batch_name / "sampleinfo.tsv"
+    final_sampleinfo = (
+        tmp_path / "analysis-project" / batch_name / "sampleinfo.tsv"
+    )
     final_sampleinfo.parent.mkdir(parents=True)
     final_sampleinfo.write_text(
         "样本编号\t数据编号\t家系编号\t家系关系\t样本类型\t性别\t上机批次\n"
@@ -2228,6 +3095,119 @@ def test_wgs_detail_rules_and_pods_are_database_only_authenticated_reads(tmp_pat
         "updated_at": pods.json()["items"][0]["updated_at"],
     }
     assert client.get("/api/runs/UNKNOWN/pods", headers=headers).status_code == 404
+
+
+def test_wgs_workspace_returns_first_paint_summary_in_one_resource(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "viewer", "viewer-pass")
+    analysis_id = "WGS_WORKSPACE_1"
+    with sessions() as session:
+        run = AnalysisRun(
+            analysis_id=analysis_id,
+            pipeline_name="wgs",
+            dag_id="bio_wgs",
+            dag_run_id="manual__WGS_WORKSPACE_1",
+            execution_mode="cce",
+            workdir=str(tmp_path / analysis_id),
+            status="running",
+            current_stage="step3_monitor",
+            progress_percent=45,
+            params_json={"pipeline_release_id": "wgs-4.1.1-1656b5d", "project_name": "WGS Clinical"},
+        )
+        session.add(run)
+        session.add(Sample(analysis_id=analysis_id, sample_id="S1", family_id="F1", status="running"))
+        session.add(RuleState(analysis_id=analysis_id, attempt=1, rule_instance_id="mapping:S1", rule_name="mapping", phase="Pre-calling", sequence=1, sample_id="S1", status="running"))
+        session.add(RunStageState(analysis_id=analysis_id, attempt=1, stage_code="step3_monitor", step_number=3, stage_label="WGS workflow running", stage_status="running", progress_available=True, progress_percent=45, progress_source="kubernetes-api"))
+        session.add(TransferJob(analysis_id=analysis_id, attempt=1, transfer_id="upload-1", direction="upload", status="success"))
+        session.commit()
+
+    response = client.get(f"/api/runs/{analysis_id}/workspace", headers=headers)
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["run"]["analysis_id"] == analysis_id
+    assert payload["run"]["lifecycle"]["workflow"]["status"] == "running"
+    assert payload["run"]["lifecycle"]["cloud_release"]["status"] == "not_started"
+    assert payload["run"]["lifecycle"]["raw_fastq_backup"]["status"] == "not_started"
+    assert payload["run"]["lifecycle"]["downstream_release"]["status"] == "not_started"
+    assert payload["summary"]["sample_count"] == 1
+    assert payload["progress"]["stage_code"] == "step3_monitor"
+    assert payload["progress"]["current_rule"] == "mapping"
+    assert payload["active_transfer"] is None
+    assert payload["slot_usage"]["limit"] == 25
+
+
+def test_wgs_transfer_api_redacts_obs_and_server_paths(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "viewer", "viewer-pass")
+    analysis_id = "WGS_SAFE_TRANSFER"
+    with sessions() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                execution_mode="cce",
+                workdir=str(tmp_path / analysis_id),
+                status="running",
+                params_json={"pipeline_release_id": "wgs-4.1.1-1656b5d"},
+            )
+        )
+        session.add(
+            TransferJob(
+                analysis_id=analysis_id,
+                attempt=1,
+                transfer_id="safe-upload",
+                direction="upload",
+                status="running",
+                source="/sensitive/fastq/S1.R1.fq.gz",
+                destination="obs://private-bucket/WGS_SAFE_TRANSFER/S1.R1.fq.gz",
+                checkpoint_ref="/sensitive/checkpoints/upload.json",
+            )
+        )
+        session.commit()
+
+    response = client.get(f"/api/runs/{analysis_id}/transfers", headers=headers)
+
+    assert response.status_code == 200, response.text
+    item = response.json()["items"][0]
+    assert item["source"] == "Input FASTQ manifest"
+    assert item["destination"] == "Private OBS staging"
+    assert item["checkpoint_ref"] == "recorded"
+    assert "/sensitive" not in response.text
+    assert "obs://" not in response.text
+
+
+def test_wgs_rules_use_sql_pagination_and_batched_eta_queries(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "viewer", "viewer-pass")
+    release = "wgs-4.1.1-1656b5d"
+    with sessions() as session:
+        run = AnalysisRun(analysis_id="WGS_RULE_PAGE", pipeline_name="wgs", dag_id="bio_wgs", execution_mode="cce", workdir=str(tmp_path), status="running", params_json={"pipeline_release_id": release})
+        session.add(run)
+        for history_index in range(3):
+            history_id = f"WGS_HISTORY_{history_index}"
+            session.add(AnalysisRun(analysis_id=history_id, pipeline_name="wgs", dag_id="bio_wgs", execution_mode="cce", workdir=str(tmp_path), status="success", params_json={"pipeline_release_id": release}))
+            session.add(RuleState(analysis_id=history_id, attempt=1, rule_instance_id=f"history-{history_index}", rule_name="mapping", layer=1, status="success", started_at=datetime(2026, 9, 1, tzinfo=timezone.utc), ended_at=datetime(2026, 9, 1, 0, 2, tzinfo=timezone.utc)))
+        for index in range(120):
+            session.add(RuleState(analysis_id=run.analysis_id, attempt=1, rule_instance_id=f"rule-{index:03d}", rule_name="mapping", phase="Pre-calling", sequence=index, layer=1, sample_id=f"S{index:03d}", status="success"))
+        session.commit()
+
+    engine = sessions.kw["bind"]
+    statements: list[str] = []
+    def before_cursor_execute(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement)
+    event.listen(engine, "before_cursor_execute", before_cursor_execute)
+    try:
+        response = client.get("/api/runs/WGS_RULE_PAGE/rules", headers=headers)
+    finally:
+        event.remove(engine, "before_cursor_execute", before_cursor_execute)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["total"] == 120
+    assert response.json()["limit"] == 50
+    assert len(response.json()["items"]) == 50
+    assert len(statements) <= 8
 
 
 def test_wgs_sample_projection_excludes_clinical_fields_and_server_paths(tmp_path, monkeypatch):

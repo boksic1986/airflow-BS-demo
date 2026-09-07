@@ -7,6 +7,7 @@ import {isActiveStatus, normalizeStatus} from "../lib/status";
 import {RunProgressBar} from "./RunProgressBar";
 import {StatusBadge} from "./StatusBadge";
 import {OperationProjectCell, OperationRuntimeCell} from "./OperationCells";
+import {LifecycleStatusBadge} from "../features/run-detail/DataLifecyclePanel";
 
 export type RunTrackerFilter = "all" | "active" | "created" | "failed" | "success";
 
@@ -95,6 +96,7 @@ export function RunTracker({
                 <th scope="col">Batch</th>
                 <th scope="col">Pipeline</th>
                 <th scope="col">Status</th>
+                <th scope="col">Data lifecycle</th>
                 <th scope="col">Current stage</th>
                 <th scope="col">Stage progress</th>
                 <th scope="col">Runtime / ETA</th>
@@ -169,6 +171,13 @@ function RunTrackerRow({
             <button className="mini-action" type="button" onClick={() => onSync(row.analysis_id)}>Sync</button>
           ) : null}
         </div>
+      </td>
+      <td>
+        {row.lifecycle ? <div className="tracker-lifecycle">
+          <span><small>Cloud</small><LifecycleStatusBadge item={row.lifecycle.cloud_release} successLabel="SFS released" runningLabel="SFS release running" /></span>
+          <span><small>Backup</small><LifecycleStatusBadge item={row.lifecycle.raw_fastq_backup} successLabel="FASTQ backed up" runningLabel="FASTQ backup running" /></span>
+          <span><small>Downstream</small><LifecycleStatusBadge item={row.lifecycle.downstream_release} successLabel="Released" runningLabel="Release running" /></span>
+        </div> : "-"}
       </td>
       <td>
         <div className="current-stage-cell">

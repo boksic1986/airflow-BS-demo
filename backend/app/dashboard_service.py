@@ -11,6 +11,7 @@ from app.models import AnalysisRun, IntakeDiscovery, QcMetric, Sample, Snakemake
 from app.progress_service import get_run_progress
 from app.qc_highlights import qc_highlights_by_run
 from app.wgs_timing_service import enrich_progress
+from app.wgs_lifecycle_service import project_wgs_lifecycles
 from app.wgs_stage_contract import terminal_wgs_progress
 from app.wgs_run_projection import public_wgs_batch
 
@@ -171,6 +172,7 @@ def get_dashboard_runs(
     rule_events = _rule_events_by_run(session=session, runs=page)
     duration_estimates = _duration_estimates_by_run(session=session, runs=page, sample_qc=sample_qc)
     qc_highlights = qc_highlights_by_run(session=session, runs=page)
+    lifecycles = project_wgs_lifecycles(session=session, runs=page)
     return {
         "items": [
             _tracker_row(
@@ -181,6 +183,7 @@ def get_dashboard_runs(
                 persisted_rule_events=rule_events.get(run.analysis_id, []),
                 duration_estimate=duration_estimates.get(run.analysis_id),
                 qc_highlights=qc_highlights.get(run.analysis_id, []),
+                lifecycle=lifecycles.get(run.analysis_id),
             )
             for run in page
         ],
@@ -200,6 +203,7 @@ def _tracker_row(
     persisted_rule_events: list[dict[str, Any]],
     duration_estimate: dict[str, Any] | None,
     qc_highlights: list[dict[str, Any]],
+    lifecycle: dict[str, dict] | None,
 ) -> dict[str, Any]:
     progress = _progress_for_tracker_row(
         session=session,
@@ -211,7 +215,10 @@ def _tracker_row(
         if _status(run.status) == "success":
             progress = {
                 **(progress or {}),
-                **terminal_wgs_progress(updated_at=_iso(run.pipeline_finished_at or run.ended_at)),
+                **terminal_wgs_progress(
+                    updated_at=_iso(run.pipeline_finished_at or run.ended_at),
+                    validation_scope=str((run.params_json or {}).get("validation_scope") or "") or None,
+                ),
             }
         else:
             progress = enrich_progress(session=session, run=run, payload=progress or {})
@@ -318,6 +325,7 @@ def _tracker_row(
         "not_in_airflow": progress.get("not_in_airflow", False) if progress else False,
         "note": progress.get("note", "") if progress else "",
         "qc_highlights": qc_highlights,
+        "lifecycle": lifecycle,
     }
 
 

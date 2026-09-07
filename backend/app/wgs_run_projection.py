@@ -40,11 +40,11 @@ def public_wgs_params(params: Mapping[str, Any] | None) -> dict[str, Any]:
 
 
 def load_wgs_runtime_binding(
-    *, request_root: str | Path, analysis_id: str, attempt: int
+    *, run_root: str | Path, analysis_id: str, attempt: int
 ) -> dict[str, Any]:
-    root = Path(request_root).resolve().parent
+    root = Path(run_root).resolve()
     path = (
-        root / "runs" / analysis_id / f"attempt-{attempt}" / "batch-binding.json"
+        root / analysis_id / f"attempt-{attempt}" / "batch-binding.json"
     ).resolve()
     if root not in path.parents or path.is_symlink() or not path.is_file():
         raise WgsBindingPathError("WGS frozen batch binding is unavailable")

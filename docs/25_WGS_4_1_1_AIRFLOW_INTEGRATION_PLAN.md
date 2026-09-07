@@ -117,6 +117,10 @@ validate_request
 CCE 批次并发，`wgs_obs_transfer`和 PostgreSQL lease 共同保证仅一个输入上传或
 结果下载。六个长等待使用五秒 `reschedule` sensor。
 
+以上是原始集成基线。T213 后的新任务使用互相独立的
+`wgs_obs_upload=1`、`wgs_obs_download=1` 和对应的无 TTL PostgreSQL lease；
+旧 `wgs_obs_transfer` 仅用于回滚兼容。
+
 | Airflow 阶段 | 冻结 bundle 入口 | 完成条件 |
 |---|---|---|
 | prepare | `prepare_wgs_batch.py all --batch <YYYYMMDDA> --analysis-batch <batch_no> --run-mode cce` | `BATCH_RUNTIME.yaml`、`RESOLVED_PROFILE.yaml`和 Step1-Step6 有效 |

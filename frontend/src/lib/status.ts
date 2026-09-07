@@ -23,7 +23,10 @@ export type StatusMeta = {
 };
 
 const metaByStatus: Record<string, StatusMeta> = {
+  not_applicable: {label: "Not applicable", tone: "muted", Icon: Ban, active: false, terminal: true},
+  not_started: {label: "Not started", tone: "neutral", Icon: Clock3, active: false, terminal: false},
   created: {label: "created", tone: "neutral", Icon: Circle, active: false, terminal: false},
+  pending: {label: "Pending", tone: "info", Icon: Clock3, active: true, terminal: false},
   queued: {label: "queued", tone: "info", Icon: Clock3, active: true, terminal: false},
   submitted: {label: "submitted", tone: "info", Icon: Clock3, active: true, terminal: false},
   scheduled: {label: "scheduled", tone: "info", Icon: Clock3, active: true, terminal: false},
@@ -33,6 +36,7 @@ const metaByStatus: Record<string, StatusMeta> = {
   success: {label: "success", tone: "success", Icon: CheckCircle2, active: false, terminal: true},
   pass: {label: "pass", tone: "success", Icon: CheckCircle2, active: false, terminal: true},
   warning: {label: "warning", tone: "warning", Icon: AlertTriangle, active: false, terminal: false},
+  degraded: {label: "Evidence degraded", tone: "warning", Icon: AlertTriangle, active: false, terminal: false},
   warn: {label: "warn", tone: "warning", Icon: AlertTriangle, active: false, terminal: false},
   qc_warning: {label: "qc warning", tone: "warning", Icon: AlertTriangle, active: false, terminal: false},
   qc_failed: {label: "QC failed", tone: "danger", Icon: XCircle, active: false, terminal: true},

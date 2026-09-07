@@ -72,6 +72,7 @@ def test_stage_request_v4_separates_control_and_analysis_roots(
         "step5_download",
         "step6_materialize",
         "step7_cleanup",
+        "local_analysis",
     ],
 )
 def test_request_accepts_only_wgs_step1_to_step6_stages(

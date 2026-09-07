@@ -1,5 +1,57 @@
 # HANDOFF.md
 
+## 2026-09-07 - Codex - T218 lifecycle/node97 integration
+
+Goal: integrate T216 (including T215/node97) onto the published
+`main@ab20035` baseline, then add independent WGS post-workflow status
+registration and display. The clean worktree is
+`D:\pipeline\airflow-demo-worktrees\T218-lifecycle-node97-integration` on
+`jiucheng/wgs/T218-lifecycle-node97-integration`. The merge is intentionally
+not sourced from any dirty development worktree.
+
+Implemented: migration `20260907_0017` adds `wgs_lifecycle_status`; Run Detail
+and Run Tracker receive one backend lifecycle projection; two admin-only PATCH
+routes update Raw FASTQ backup and Downstream release with attempt/revision
+fencing and an audit row. The API rejects extra path/command fields. The
+frontend is read-only and gives each lifecycle value an icon, label, text
+colour and background. Workflow, Step7, backup and downstream release never
+overwrite one another. No file operation or scheduler was added.
+
+T216's staged failure callback, node97 branch and T213 directional lease model
+are retained together with main's ctapa production identity, Step7 branch,
+public batch confirmation and current UI. Node96, SGE and automatic dispatch
+remain closed. No production service, migration, database, analysis directory,
+evidence or in-flight CCE workload has been touched.
+
+Validation is complete in the isolated `.96` candidate: backend `428 passed,
+1 skipped`; WGS DAG contracts `42 passed`; host runner/runtime gate/evidence
+bridge/heavy-slot suites `99 passed`; frontend `15` files / `62` tests and the
+production build passed. The lifecycle page projection was changed from
+per-run queries to exactly three page-bulk queries, and Run Detail's preferred
+`/workspace` resource has an explicit lifecycle regression. Alembic reports one
+`20260907_0017` head and upgraded a disposable PostgreSQL 15 database through
+0001-0017. Compose rendering passed. Candidate release-layer backend and
+frontend images were built without replacing any production image, then the
+three exact `t218-*` tags were removed after acceptance. No prune was used.
+
+Network correction: an initial disposable migration attempt created a
+`192.168.201.0/28` Docker network, which violated the fixed subnet contract.
+The exact container and network were stopped and removed immediately. The
+successful migration acceptance used only the existing
+`nipt_analysis_test_net` (`192.168.199.0/24`, gateway `192.168.199.1`). No
+additional Docker network remains, and no production container was attached,
+recreated or restarted.
+
+Failed command: the first attempt to remove the intermediate BS transfer file
+called PowerShell `Remove-Item` inside the remote Bash shell and exited with
+`command not found`. The absolute staging file was verified with `realpath`,
+then removed with an exact non-recursive path; no repository or runtime file
+was affected.
+
+Rollback before release: discard the integration branch/worktree. After the
+planned Git-only mainline merge, revert its single integration commit. There
+is no runtime rollback because T218 does not deploy.
+
 ## 2026-09-07 - Codex - T218 production source mainline sync
 
 Goal: move the exact source currently published on `.96` into `main` without
@@ -246,6 +298,910 @@ The owner-only environment rollback is
 `/data/airflow-WGS/env/production.env.pre-t204-owner`. Restoring it also
 requires restoring the prior release because the new Compose contract requires
 `WGS_RUNTIME_UID`.
+## 2026-09-07 - Codex - T216 staged Submit Run repaired
+
+Batch `20260904A` initially created `WGS_20260907_044653_9C8591`, but its first
+DagRun failed in `prepare_wgs_sampleinfo`. The exact node200 error was
+`WGS execution gate is disabled`: T215 had enabled the BS10610 control-plane
+gates, but staged sample/config preparation also uses the node200 owner gate
+before any Step 3 target is selected.
+
+Node200 now has `WGS_EXECUTION_ENABLED=true` and
+`WGS_RUNTIME_ADAPTER_ENABLED=true`; its prior mode-600 configuration is backed
+up at
+`/home/hanjj/.config/airflow-wgs/backups/T216-manual-submit-20260907T125840+0800/runtime.env.before`.
+The Step3 dry-run canary remains disabled. Scanner, auto-dispatch, node96 and
+SGE remain disabled.
+
+Code commit `639cc4c` adds an internal token-protected DagRun terminal endpoint
+and a `bio_wgs` failure callback. The callback reports only actual failed task
+instances, removes `release_leases` when a more specific root failure exists,
+and never treats `upstream_failed` as the cause. The backend fences by attempt,
+updates staged submission state to failed, writes one idempotent
+`airflow_dag_failed` action and preserves successful runs. No frontend source
+change was needed: Submit Run already renders a failed business state and Run
+Detail link, but previously never received that state.
+
+BS10610 now runs immutable release
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260907-airflow-demo-639cc4c-t216-submit-terminal-sync`.
+Only backend, Airflow API server/scheduler/worker and frontend nginx were
+recreated; PostgreSQL, Redis, FASTQ, OBS and result data were untouched. The
+previous release pointer is recorded under
+`backups/T216-submit-terminal-sync-20260907/current.before`.
+
+Validation:
+
+- full backend candidate suite: 415 passed, 1 skipped;
+- WGS submission/platform focus: 64 passed;
+- WGS DAG suite: 28 passed;
+- Compose config: passed using the deployed single `docker-compose.wgs.yaml`;
+- frontend and `/api/health`: HTTP 200;
+- Airflow import errors: none; loaded callback: `report_dag_failure`.
+
+The first failed attempt was projected with the readable
+`prepare_wgs_sampleinfo` cause, then retried through the existing exact
+`rerun_failed` path. Attempt 2 is DagRun
+`WGS_20260907_044653_9C8591-a2`; sample-information preparation succeeded with
+3 samples and it is waiting at `config_review`. Airflow confirms Step1,
+Master, CCE/Local and Step3-Step6 tasks have not started.
+
+The browser that retained the old failure state may need to enter
+`20260904A` and click Prepare sample information once more. The create endpoint
+is idempotent and returns the existing attempt 2 in config review; it does not
+create attempt 3. After configuration review, explicitly select `Local .97`
+in Step 3 if node97 is desired. CCE remains the default target.
+
+Do not roll back or recreate services while this DagRun is waiting for review.
+After it is terminal, rollback by restoring the recorded release pointer and
+node200 env backup, recreating the same stateless services, and leaving
+PostgreSQL/Redis volumes and analysis data intact.
+
+## 2026-09-07 - Codex - T215 manual test submission enabled
+
+The disabled Submit Run screen was caused by deployment gates, not a frontend
+defect. T214 deliberately restored `WGS_EXECUTION_ENABLED=false` and
+`WGS_RUNTIME_ADAPTER_ENABLED=false` after its synthetic smoke, and the frontend
+correctly disables Prepare sample information when either release flag is
+false.
+
+On the BS10610 test control plane, T215 enabled only manual WGS execution,
+runtime adapter dispatch and Local .97. It recreated the stateless backend,
+Airflow API server, scheduler, worker and frontend services and unpaused
+`bio_wgs`. PostgreSQL and Redis were not recreated. No run was submitted.
+
+Acceptance evidence:
+
+- frontend root is HTTP 200; unauthenticated `/api/wgs/release` is HTTP 401;
+- effective backend/scheduler/worker gates show execution, runtime adapter and
+  Local .97 enabled;
+- node97 admission is `available` with fresh metrics and the host gate is
+  enabled;
+- `bio_wgs` is unpaused with no running or queued DagRun;
+- `node-96`, `node-97` target slots and all three OBS transfer leases are
+  unowned;
+- scanner, auto-dispatch, Local .96, SGE and node97 full canary remain false.
+
+After refreshing the signed-in browser, Prepare sample information is enabled.
+The existing frontend defaults execution target selection to CCE. To run on
+node97, continue to Step 3 and explicitly select `Local .97` before Start WGS
+workflow. Target admission is checked again at commit, so a later stale or
+high-load node remains fail closed.
+
+Rollback uses
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/env/backups/T215-before-node97-manual-submit-20260907T123810+0800.env`
+and `/home/hanjj/.config/airflow-wgs/node97-local.env.before-t215-manual-submit`.
+Restore the files, recreate the same five stateless services, and pause
+`bio_wgs`; do not touch PostgreSQL, Redis, volumes, FASTQ, OBS or results.
+
+## 2026-09-07 - Codex - T214 node97 synthetic smoke complete
+
+T214 uses clean worktree
+`D:\pipeline\airflow-demo-worktrees\T214-t213-node97-integration` and branch
+`jiucheng/wgs/T214-t213-node97-integration`. Its base is exact T213 commit
+`1c011a8`; the dirty T213 and main worktrees were not modified. Accepted T211
+node97 runner commits were replayed onto that base with T213's independent,
+no-TTL input/output OBS leases preserved.
+
+The merged contract keeps CCE unchanged and enables only the code path for a
+committed `node-97` target. Node97 uses the restricted SSH gate, Snakemake 9,
+96 scheduler cores and the existing logger evidence contract. It owns only the
+`node-97` target slot. Node96 and SGE remain fail closed; scanner and automatic
+dispatch are not part of this rollout.
+
+The final candidate was released on BS10610 as
+`releases/20260907-airflow-demo-31129e7-t214-node97-synthetic-smoke`; `current`
+points to that immutable directory. Its archive SHA256 is
+`b5bee75eefab3eb648903c3930257eb6e50d3731c07ea863621277540152b3ed`.
+Biodemo migration `20260907_0016` was applied and
+the independent upload/download Airflow pools were initialized. The release
+uses the local dependency-identical backend image tag
+`airflow-demo/backend:t214-efde023-runtime` because BS10610's blocked Docker
+mirror prevents an offline Dockerfile build from resolving its base image.
+
+Validation with candidate source mounted read-only:
+
+- full backend: `413 passed`;
+- directional lease/dispatch/observer/platform subset: `152 passed`;
+- node97/node200 runtime gate suites: `70 passed`;
+- WGS DAG/deployment contracts: `34 tests`, all passed;
+- explicit local-target regression: `12 passed`, confirming node97 does not
+  claim either directional OBS lease.
+
+The first DAG invocation used the image's default entrypoint and selected the
+Snakemake-only Python, which lacks Airflow. Re-running with
+`--entrypoint /home/airflow/.local/bin/python` passed; this was a test-command
+error, not a product defect. `docker compose run airflow-init` was initially
+run without `--no-deps`, which recreated Redis even though no active run
+existed. Redis recovered healthy and Celery reconnected; future one-shot init
+commands must use `run --rm --no-deps`. Recreating backend changed its Docker
+IP while nginx held the old upstream; recreating only `frontend-nginx` restored
+root and `/api/health` HTTP 200.
+
+The first live smoke attempt correctly failed closed because node97 still had
+the old T211 gate copy. After backing it up, the final `31129e7` gate was
+installed atomically and its SHA256 matched the release. A second environment
+issue was fixed in `31129e7`: the generated `snakemake` wrapper has a BS `/mnt`
+shebang, so node97 now invokes its visible Python with `-m snakemake` instead.
+Node97 reports Snakemake `9.23.1` through that entrypoint.
+
+Synthetic request `WGS_20260907_114500_A1B2C3` ran with one core and fixed
+sample `SMOKE001`. Its terminal marker is success, the result contains only
+`SMOKE001`, and logger JSONL contains 27 events with terminal success for
+`smoke_prepare`, `smoke_sample` and `all`; failed event count is zero. This
+gate-only smoke did not create a business or Airflow run and did not read a
+FASTQ or access OBS.
+
+After acceptance, node97 `WGS_LOCAL_EXECUTION_ENABLED` was restored to false.
+All control-plane execution/local/intake/auto-dispatch gates are false,
+`bio_wgs` is paused, there are no active business or Airflow runs, and all
+target/transfer slots are unowned. Compose config passes with the production
+WGS file/env, migration is `20260907_0016 (head)`, and frontend plus
+`/api/health` return HTTP 200 on `172.17.106.10:12959`.
+
+## 2026-09-07 - Codex - T213 Step1-Step6/dispatch/lease integration candidate
+
+Implemented T213 in the clean worktree
+`D:\pipeline\airflow-demo-worktrees\T213-step1-6-dispatch-lease-integration`
+on branch `jiucheng/wgs/T213-step1-6-dispatch-lease-integration`, based on
+T209 commit `b127a8f` whose parent is accepted T208 `27c9a20`. No code was
+taken from the dirty T211 `.97` runner, and the dirty T210 worktree was not
+merged wholesale.
+
+New work uses `wgs-obs-upload-01`/`wgs_obs_upload=1` and
+`wgs-obs-download-01`/`wgs_obs_download=1`. The additive 0016 migration keeps
+the legacy row. New ownership has no expiry, exact idempotency includes
+analysis ID, attempt and transfer ID, and the two directions can overlap while
+same-direction work remains serialized. Release requires a matching terminal
+`TransferJob`; unknown or running work is retained. The internal API marks a
+committed dispatch `needs_recovery` when a release confirmation is retained.
+Airflow treats that response as failure rather than successful ALL_DONE
+cleanup. The observer releases on terminal evidence and can replay an exact
+already-imported terminal snapshot after restart.
+
+T208 remains unchanged after the commit barrier: Step5 uses the frozen result
+manifest and concurrent file downloads; Step6 is atomic batch materialization;
+`wait_step6_materialize` precedes `finalize_run`. The Heavy Slot contract stays
+25/enforce and independent of OBS ownership. T209 public API and frontend
+selector remain unchanged. Local `.97`, Local `.96` and SGE stay disabled and
+fail closed.
+
+Accepted `.96` isolated validation, with no long-lived container changes:
+- backend: `407 passed in 122.29s`;
+- WGS DAG/deployment contracts: `32 tests`, all OK;
+- runtime gate and Heavy Slot probe: `64 passed`;
+- frontend: `51 passed`; production image build completed as ephemeral image
+  `airflow-demo/frontend:t213-dispatch-lease-build-final`;
+- Alembic: sole head `20260907_0016`; full offline PostgreSQL upgrade SQL
+  generated through 0016;
+- Compose: merged base/WGS config rendered successfully using dummy required
+  values and candidate-only paths;
+- cce-pipeline: clean pinned source
+  `b5696065bc24ab2049e46dc3c1b9594771bfce28`, archive SHA256
+  `f71ec44d6fc1e13795f6805ee5e150ea88b171b8027ec944374110f8dff1bc72`.
+  The unaffected selected contracts passed 48 tests; the zstd-enabled rerun of
+  generic workflow and Step6 materialization passed all 24 tests.
+
+Discarded/corrected test invocations:
+- A backend run mounted only `backend/`: 69 tests failed because repository
+  config resolved outside the mount. A full-repository mount without overriding
+  the image `PYTHONPATH` then produced six collection errors from baked `/app`.
+  Adding `PYTHONPATH` but omitting `/config` produced 44 configuration failures.
+  Mounting the complete candidate plus read-only `/config` yielded 407/407.
+- The first cce-pipeline selection passed 48, skipped 16 materialization cases
+  and failed two generic bundle cases because the backend test image lacked
+  zstd beside its Python. Installing zstd only inside an ephemeral container
+  and rerunning the affected suites yielded 24/24.
+- Initial offline Alembic and Compose commands lacked the required candidate
+  `/config` mount or dummy required variables. Corrected read-only/offline
+  invocations passed; no database was contacted or modified.
+- Frontend offline builds could not resolve an uncached base/dependency layer.
+  The accepted run reused the local pinned nginx base, executed all 51 tests,
+  and built the production assets. No candidate image replaced a service.
+
+Deployment remains intentionally untouched: no production database migration,
+service restart, container replacement, Airflow change, node200 request, OBS
+transfer or CCE workload was performed. Future rollout must first prove every
+legacy Step1/Step5 transfer terminal and `wgs-obs-transfer-01` empty, then apply
+0016, create both Airflow pools, publish one reviewed revision and keep all
+Local/SGE flags false. Rollback may restore old application code while retaining
+the additive lease rows; never delete an owned row.
+## 2026-09-07 - Codex - T211 node97 local runner candidate
+
+T209 commit `9afd92a feat(wgs): add execution target commit barrier` was reviewed
+and applied to the isolated branch `jiucheng/wgs/T211-node97-local-runner` as
+`b127a8f`. T209 correctly implemented target choice and the immutable commit
+barrier, but its Local/SGE DAG paths were deliberate fail-closed placeholders;
+it could not execute WGS on node97 by itself.
+
+T211 adds the node97 implementation. Airflow registers `local_analysis`, calls
+the restricted `wgs-node97` SSH alias, reschedules while the run-local status
+marker is nonterminal, then finalizes the same analysis attempt. The host gate
+accepts only the exact local command, validates the contract-v2 execution ID,
+generation, request hash and approved roots, converts only the frozen snapshot
+executor to local, and runs the WGS 4.1.1 Snakemake 9 scheduler with 96 cores.
+It writes rule events to the existing shared evidence layout. It never accepts
+an arbitrary command, repository, output root or `--forceall`.
+
+Validation completed before rollout: targeted BS10610 backend/runner tests
+`31 passed`; full backend suite with `/config` mounted `392 passed`; WGS DAG
+suite `23 passed`; node97 gate suite in the shared `nipttest` environment
+`7 passed`. A frozen 0825A snapshot was converted to local execution and
+Snakemake 9.23.1 successfully built its DAG in dry-run mode. The repo logger was
+discovered and wrote startup events with the exact attempt run label; no WGS
+rule was executed. Compose config passed. The remote frontend build could not
+pull `node:22-bookworm` because the BS Docker Hub mirror DNS failed; no
+frontend source changed in T211.
+
+During the first live migration preflight, Alembic failed before a database
+write because the one-shot `biodemo-migrate` service did not mount
+`./config:/config:ro`; settings therefore correctly rejected the missing stage
+contract. The long-lived services already had the mount, so this was isolated
+to migration startup. A deployment-contract regression now requires the mount
+and Compose has been fixed. Do not deploy the superseded `76cce8a` release.
+
+The user-authorized 0825A cleanup was applied only to exact test resources:
+the `airflow_test/WGS_Clinical/WGS_20260825A_T7Hg38V4.1.1` batch, its sampleinfo,
+the T208 prepare diagnostics, runtime request/run and evidence for
+`WGS_20260906_075824_E4D23E`, plus exact OBS raw/result prefixes for
+`WGS_20260825A_T7Hg38V4.1.1`. OBS now reports zero bytes for both prefixes.
+The same-named production-like directory outside `airflow_test` and the six
+source FASTQs under `/sg2/T7/result6/OutputFq/T7` were verified retained.
+
+The remaining rollout must use an immutable BS10610 release and a relative
+`current -> releases/<revision>` symlink because the shared `/mnt` absolute
+symlink is broken when node97 sees the same filesystem as `/bi`. Install a
+pinned `wgs-node97` host key and owner-only test key without replacing the
+existing node200 alias. Keep scanner and auto-dispatch false. Enable node97 and
+the runtime gates only for the supervised 0825A run, then pause the DAG and
+restore all gates to false. Do not call the acceptance complete until the
+business run, DagRun and all scheduled logger rules are terminal.
+
+## 2026-09-07 - Codex - T208 Step1-Step6 acceptance complete
+
+The BS10610 test-control-plane canary `WGS_20260906_075824_E4D23E`, attempt 4,
+completed the full contract-v2 path. DagRun
+`WGS_20260906_075824_E4D23E-a4` is success, the business run is success at 100
+percent, and all three samples are success. Do not present this as a `.96`
+production rollout.
+
+Step1 verified 6 files / 403,858,510,658 bytes. Step5 verified 11 files /
+173,827,124,513 bytes. `DOWNLOAD_VERIFIED` and `MATERIALIZED` are PASS and the
+materialized payload manifest MD5 is
+`8f15230d744c54f846dfc9173c234796`. The accepted execution chain is Step3
+generation 3, Step4 generation 1, Step5 generation 1 and Step6 generation 1.
+
+The apparent missing Rule progress was an observer mount defect, not a missing
+logger. The Master had produced 707 valid events under
+`/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence`.
+BS10610 now mounts that same shared path. A controlled observer drain imported
+707 raw events and projected 209/209 terminal-success Rule states with no
+malformed records. Step3 status replay repaired the stale read model without
+rerunning WGS.
+
+Source fixes cover retry-generation synchronization for all runtime stages,
+exact-generation Airflow waits, rescheduling on transient backend 5xx,
+transfer-row accumulation, atomic spool replacement races, positive Step3
+retry projection and idempotent terminal Rule replay. The node200 gate is
+installed with SHA256
+`a9ed638c56d47f316fc09ca7eb521b14562c5453411157ebbc95e51a1eae13b9`.
+
+Closeout state is fail closed: `bio_wgs` is paused; BS10610 execution,
+runtime-adapter, auto-dispatch, canary and scheduled-scan gates are false;
+node200 execution/runtime/canary gates are false; no Heavy Slot holder remains.
+The forced-command path rejects a registered Step3 request with `WGS execution
+gate is disabled` and leaves its status file unchanged. PostgreSQL and Redis
+volumes were not recreated. Per operator direction, no additional test-database
+backup was made during final closeout.
+
+Fresh isolated BS10610 verification passes: backend `104 passed`, DAG
+`20 passed`, runtime gate `59 passed`, and Compose config. Live read-only checks
+show 707 raw Rule events, 209/209 successful Rule states, zero nonterminal Rule
+states, zero active business runs, 25 Heavy Slot Leases with zero holders, and
+paused `bio_wgs`. `http://172.17.106.10:12959/` returns 200 and `/api/health`
+returns `ok`. This deployment binds the port to `172.17.106.10`, so localhost
+port checks are not valid evidence.
+
+Two initial test invocations were intentionally discarded: running pytest in
+the long-lived backend inherited deployed service tokens/gates, and the first
+one-shot image omitted the required read-only `/config` mount. The accepted
+104-test result used an isolated container with the release config mounted.
+
+No further full WGS run is required for T208. The next planned task, T209,
+adds a hidden 60-120 second Step3/Step4 contract Rule so routine releases can
+validate logger and publish fencing without WGS computation.
+
+Targeted backend, DAG, runtime-gate and Compose verification must remain the
+release gate. The repository-wide backend suite still contains pre-existing
+legacy/non-WGS failures and must not be described as fully green until that
+separate debt is resolved.
+## 2026-09-06 - Codex - T209 execution-target switching candidate
+
+Implemented the approved immediate target-switching design in the isolated
+worktree `D:\pipeline\airflow-demo-worktrees\T209-execution-target-switch`.
+Nothing was deployed. In particular, the running production CCE analysis,
+Airflow services, Docker containers, biodemo database, node200 files and cloud
+workloads were not stopped, restarted or modified.
+
+Migration `20260906_0015` adds `wgs_execution_dispatch`, unique by project and
+public batch, plus one exclusive slot row for each local node. New runs default
+to CCE. Operators can revise the desired target before commit using a required
+reason and optimistic revision. Scheduler commit and browser switching lock the
+same run, current attempt and claim. Commit freezes the target; CCE obtains the
+existing upload lease immediately before Step1. Successful completion becomes
+terminal and failure becomes `needs_recovery`. Historical duplicate runs are
+not backfilled and stay readable.
+
+Run Detail now projects target states and admission metrics. Submit Run stage 3
+and Run Detail share the same confirmation selector; committed CCE is read-only
+and ordinary Cancel is hidden and rejected. The UI does not calculate
+admission. Node admission is server-side and enforces a fresh healthy snapshot,
+at least 96 logical CPUs, three consecutive one-minute CPU and normalized
+Load1 points below 25 percent, and one batch per node. Memory >=75 percent is a
+warning only.
+
+`bio_wgs` now waits in a reschedule sensor for atomic commit and then routes the
+database-frozen target. The existing CCE Step1-Step6 graph is unchanged after
+that boundary. Phase-1 Local and SGE flags are false by default and their DAG
+branches fail closed; no Local/SGE runner is claimed ready.
+
+Validation ran only in
+`/sg2/50.ctapa/project/HWcloud/cce-evidence/T209-execution-target-switch/green1`
+using ephemeral `--network none` containers. Results: backend `386 passed, 1
+skipped`; `bio_wgs` DAG `20` passed; frontend `51` passed and `npm run build`
+succeeded; `alembic upgrade head --sql` generated the complete chain through
+0015. The first offline migration command lacked the required `/config` mount,
+then lacked a dummy Airflow password; the corrected isolated command supplied
+both and passed. These were configuration-only failures before SQL generation,
+not database writes.
+
+Before a future rollout, follow document 31 and the T209 section of the
+deployment runbook. Apply the additive migration before backend publication,
+keep all Local/SGE gates false, and wait for a maintenance boundary with no
+in-flight production analysis. `.97` fixed `--cores 96` execution requires a
+separate acceptance; `.96` and SGE remain later manual-only phases. Rollback
+may restore the prior application revision while retaining the additive audit
+tables; never downgrade them destructively after a commit.
+
+## 2026-09-06 - Codex - T207 configuration convergence implemented
+
+Deployment update: BS10610 `current` is now
+`20260906-airflow-demo-841eb55-t207-disabled`. All long-lived control-plane
+services are up on the common `bs-control-841eb55` tag, frontend and backend
+health return 200, `bio_wgs` is paused, scanner is absent, and all control-plane
+execution/intake/dispatch gates are false. PostgreSQL/Redis and their volumes
+were left running. One stale business `submitted` state was synchronized to the
+already-terminal failed Airflow run before deployment.
+
+The registry mirror DNS was unavailable during image build. Because T207 does
+not change frontend assets or Airflow dependencies and backend/DAG source is
+mounted read-only from the release, the existing verified runtime images were
+retagged and recorded with their image IDs, source revision and archive hash.
+Do not describe these as rebuilt images; `RELEASE_IMAGES.tsv` explicitly records
+runtime-base reuse.
+
+Deployment preflight also found and fixed a missing `/config` mount on
+`platform-admin-init`, then on the observer/metrics/scanner backend services.
+The first init failed before a database write; after the fix, repeated platform
+and Airflow bootstrap completed and reported that existing credentials were
+not changed.
+
+T207 source changes are complete and tested in the isolated BS10610 development
+copy. Scheduled intake is now double-gated, default-off and isolated behind the
+Compose `intake` profile. Its root and 1800-second interval come from
+`config/intake.wgs.yaml` plus explicit control-plane/node200 mappings in
+`config/wgs_projects.yaml`.
+
+Heavy Slot `25/enforce` now comes from `config/wgs_stage_contract.yaml`.
+Conflicting backend environment values fail startup, every new contract-v2
+stage request includes the expected contract, and the restricted runtime gate
+rejects a mismatched frozen CCE profile. Runtime binding lookup now uses the
+explicit `WGS_RUNTIME_RUN_ROOT` on both sides.
+
+Both administrator bootstrap paths are create-only. The platform CLI only
+rotates an existing password with `--rotate-password`, and Airflow init no
+longer hides arbitrary user-creation errors. The example environment now
+renders through Compose and identifies `BS10610-Test`.
+
+Validation on BS10610: backend `374 passed, 1 skipped`; scripts `81 passed`;
+WGS DAG/deployment unittest `30 passed`; Compose config passed. The attempted
+all-DAG run in the backend image was invalid because that image intentionally
+lacks Airflow; it was rerun correctly with scripts in the backend image and WGS
+DAG tests in the Airflow image.
+
+The node200 owner-side prerequisite is now complete. Using the dedicated local
+`id_rsa_hanjingjing` identity, `hanjj` backed up the private ACL/config/gate,
+installed the matching T207 gate with SHA256
+`feac9fea5fa200775cf238a8bdada827d183c3bf6bd9a0eabfd0f62be37d5244`, set
+execution, runtime-adapter and Step3 dry-run gates false, and configured the
+explicit BS10610 test runtime run root. A registered async-stage probe exited
+non-zero with `WGS execution gate is disabled`.
+
+The first read-only rejection probe used the already-terminal synchronous
+`step2_master` request and exited before execution with `terminal contract
+generation requires a new registered generation`; it did not run a stage or
+change the terminal generation. The probe was corrected to the registered
+asynchronous `step3_monitor` request so the execution-gate check occurs before
+any generation handling, and that final probe passed.
+
+No `chenjc` access remains on `/home/hanjj/.config/airflow-wgs/runtime.env`.
+An initially applied narrow ACL was restored from
+`/home/hanjj/.config/airflow-wgs/backups/T207-owner-gate-20260906T050749Z/acl.before`
+after the operator clarified that future tests must log in with the `hanjj`
+key. A direct `chenjc` check confirmed both read and write are denied. Final
+BS10610 checks show zero active business runs, zero running/queued Airflow
+runs, paused `bio_wgs`, and no scanner container. T207 is complete; T208 is
+ready for a separately controlled Step4-Step6 window and has not been started.
+
+## 2026-09-06 - Codex - Post-T206 configuration audit and Step4-Step6 queue
+
+The operator requested that the current hardcoding/configuration review be
+recorded before further Step4-Step6 work. This entry is documentation-only; no
+source code, container, database, DAG, node200 runtime file or execution gate
+was changed.
+
+The live BS10610 control plane is disabled: `bio_wgs` is paused, the scanner
+container is absent, and backend execution/runtime/contract/canary/intake/
+dispatch gates are false. However, node200's restored baseline still contains
+`WGS_EXECUTION_ENABLED=true`, `WGS_RUNTIME_ADAPTER_ENABLED=true` and
+`WGS_STEP3_DRYRUN_CANARY_ENABLED=true`. The current pause and control-plane
+gates prevent an immediate launch, but this is not a complete fail-closed
+state. Do not start a Step4-Step6 acceptance until node200 is explicitly closed
+and forced-command rejection is verified.
+
+T207 now owns runtime configuration convergence: fail-closed scanner defaults,
+one authoritative intake policy, one authoritative Heavy Slot contract,
+explicit root/binding mappings, create-only administrator bootstrap and
+same-revision release provenance. T208 is the subsequent controlled acceptance
+for one approved small family through real Step3, Step4 publish, Step5 SDK
+download, Step6 materialization and finalization. T208 remains blocked by T207
+and does not authorize scanner or auto-dispatch.
+
+The audit also found that BS10610 reports `PLATFORM_ENVIRONMENT=Demo`, scanner
+defaults are `true/600s` while YAML says `1800s`, Heavy Slot defaults alternate
+between `enforce` and `monitor-only`, and FASTQ/runtime paths depend on implicit
+node aliases and sibling directories. These are configuration-drift issues,
+not evidence that a run is currently active.
+
+Validation was read-only: repository status was clean, release/current and
+container state were inspected, backend/container environment values were
+compared, node200 runtime gates were read through the restricted worker SSH
+configuration, `bio_wgs` was confirmed paused, and the scanner was confirmed
+absent. No runtime-changing command or test suite was executed because this
+handoff records an audit rather than an implementation; only read-only runtime
+inspection was performed.
+
+## 2026-09-06 - Codex - T206 Step2/Step3 dry-run complete
+
+The accepted BS10610 test run is `WGS_20260905_210104_739143-a8`, using one
+synthetic trio (three samples/six tiny FASTQ files). It completed the normal
+Step1 receipt and Step2 Master handoff, then ran Snakemake Step3 with
+`execution_mode=dry_run`. Airflow routed to `finalize_step3_dryrun`; every
+Step4-Step6 task was skipped by design.
+
+The exact Master was `cce-master-19d6c95a68916a98d2c3`, UID
+`d84e0547-db0e-4845-939e-77507ef637c5`, run label
+`cce-run-dd7c11d2f248c39d`, on image digest
+`sha256:870d5dd1de032eed33cefb7eb79b91829807d54cee969825e884227279ff1562`.
+Persistent SFS evidence records Snakemake `9.24.0+biosan1`, 210 planned jobs,
+zero execution rows, 267 job-info events and 57 planned-rule events. Only the
+Master existed under the exact run label; no WGS Worker analysis Job or Pod
+was created.
+
+The Heavy Slot probe initially exposed missing Lease RBAC. The 25 quota Leases
+are now pre-created, and the deployed Role permits the Master ServiceAccount
+only `get/update` on those exact names; list/create/patch are denied. The final
+no-compute probe produced 25 unique holders from 26 contenders, one waiting
+contender, and zero remaining holders; the probe Pod was deleted. Unexpected
+API or release errors fail the probe and all acquired claims are still released.
+This verifies 25 concurrent high-I/O work pods, not 25 CPU cores or 25 Airflow
+runs.
+
+Independent review also tightened `finalize_step3_dryrun`: it now requires the
+latest successful Step2 execution and exact predecessor receipt, the frozen
+pipeline release, and the run-local `batch-binding.json` Master identity before
+accepting Step3 terminal evidence. A stale generation or mismatched binding
+cannot produce validation success.
+
+All exact canary resources were cleaned after evidence capture: seven OBS
+objects, the Master/reset/probe resources, batch lock, SFS run/linkage roots,
+and isolated host batch. node200 gate/runtime checksums were restored to the
+pre-T206 baseline, and the shared `nipttest` cce-pipeline returned to pre-T206
+commit `b003606...`. `bio_wgs` is paused; the corresponding BS10610
+control-plane execution, runtime adapter, contract v2, Step1 canary, Step3
+dry-run canary, intake, and auto-dispatch gates are false. A later audit found
+that the restored node200 baseline has execution, runtime-adapter and Step3
+dry-run gates true; this is tracked by T207. The disabled scanner container was
+removed to avoid a restart loop. Production `.96` was untouched.
+
+Final regression evidence is backend `368 passed, 1 skipped`, runtime scripts
+`80 passed`, WGS DAG `18 + 4`, static topology `2`, valid Compose rendering and
+an empty Airflow import-error list. Frontend HTTP, backend health, Airflow DB
+and scheduler health pass. Airflow runtime hardening is `db1f855`, probe cleanup
+is `3af2f5d`, and CCE code is `9ad8df5`. The disabled BS10610 release is built
+from the final T206 branch after these fixes.
+
+The accepted a8 setup used obsutil for its six tiny Step1 files, so its transfer
+rows do not prove SDK byte callbacks. Use the separately accepted T205 run for
+SDK/per-file transfer evidence. Rollback remains: keep all gates false and the
+DAG paused, use the prior disabled release, and retain databases/evidence.
+
+## 2026-09-06 - Codex - T205 direct Step1 SDK canary complete
+
+The BS10610 test run `WGS_20260905_154825_E39C58-a1` completed the
+Step1-only branch with one sample, two FASTQ files and 113,993,536,856 frozen
+bytes. Upload callbacks began about 32 seconds after Airflow task start instead
+of waiting for an extra whole-file checksum pass. The callback interval was
+866.58 seconds at 125.45 MiB/s effective throughput; both files finished at
+100 percent with CRC64 verified, and the business run is success with a
+terminal Step1 receipt.
+
+The candidate cce-pipeline runtime is 0.8.2 commit `7a3884d67...`; wheel
+SHA256 is `2421fcc2d5b46084d1b3527e5b25c42c5a2b970915a8613f47eee4e3123b795c`.
+It removes the default SDK adapter's full-file MD5 pre-read and deliberately
+omits multipart `checkSum`. It does not remove terminal integrity checks:
+source identity, attached CRC64, remote object CRC64 and Content-Length must
+all agree. The cce-pipeline branch is
+`jiucheng/cce/T205-step1-sdk-direct-upload` and has been pushed.
+
+The canary exposed two backend projection races. Terminal stage evidence now
+imports embedded transfer-file snapshots, and a terminal progress snapshot may
+backfill incomplete file rows when execution, generation, terminal state,
+frozen bytes and file count match. Controlled replay left both R1/R2 rows at
+100 percent, success and verified without regressing the aggregate heartbeat.
+
+The exact OBS prefix held two FASTQ objects and one marker. All three were
+deleted; subsequent object and multipart inventories returned zero. Airflow
+skipped Step2/Step3 and no Master Job exists. Shared `nipttest`, node200 runtime
+configuration, project catalog and temporary sampleinfo changes were restored.
+`bio_wgs` is paused, all six runtime/dispatch gates are false, scanner is
+stopped, and production `.96` was untouched.
+
+Final remote validation passed backend `360`, runtime scripts `69`, DAG suites
+`15 + 4`, topology contract `2`, Compose rendering and Airflow import checks.
+Two discarded backend attempts are diagnostic rather than product failures:
+one inherited live authentication and returned 401s; another mounted source at
+`/app`, causing repo-relative config lookups under `/config`. The accepted
+isolated run mounted the repository at `/workspace` with explicit test env.
+After the final backend recreate, nginx still held the previous backend
+container address and `/api/health` briefly returned 502 while `/` remained
+200. `nginx -s reload` re-resolved the service name; both endpoints now return
+200. Future backend-only deploys must reload or recreate the frontend gateway.
+
+Current disabled release:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260906-airflow-demo-23ed13f-t205-sdk-direct-upload
+```
+
+Rollback remains: keep the DAG paused, keep all gates false, repoint `current`
+to the prior release, and retain database/evidence. Do not restore the deleted
+canary OBS prefix or remove analysis evidence.
+
+## 2026-09-05 - Codex - T203 Airflow Step1 OBS SDK canary complete
+
+The BS10610 test run `WGS_20260905_094849_373238-a3` completed the admin-only
+Step1 validation branch with one sample, two FASTQ files and
+128,567,092,797 frozen bytes. Both file states reached success/verified and the
+business run records `step1_upload_complete`. Airflow skipped Step2-Step6 and
+the generated Master Job was absent from Kubernetes.
+
+The accepted cce-pipeline runtime is 0.8.2 commit `98ce7bed...`, built as wheel
+SHA256 `760ecca7...`, selected through the test-only `CCE_PIPELINE_BIN` override.
+The shared production WGS environment was not modified. Two earlier attempts
+are retained as diagnostics: source checkout provenance rejection, then the
+production-package root guard. Neither uploaded data or created a Master.
+
+Code also permits an equal-heartbeat transfer snapshot to backfill missing file
+rows after a rolling deployment; older heartbeat and generation protection are
+unchanged. The two exact canary OBS objects were verified absent without
+touching unrelated objects. `bio_wgs` is paused, all six BS gates are false,
+node200 is restored to its disabled runtime, and no active WGS run remains.
+The `wgs-intake-scanner` service is explicitly stopped; leaving its disabled
+one-shot process under `restart: unless-stopped` would otherwise create an
+unnecessary restart loop.
+
+Final BS10610 verification used an isolated container environment rather than
+the live backend environment. It passed backend pytest `357 passed, 1 skipped`,
+runtime script pytest `69 passed`, and Airflow DAG suites `15 + 4`. Compose
+rendering, Airflow import, backend health and frontend HTTP all passed. A fresh
+test-image build was unavailable because the configured Docker Hub mirror did
+not resolve, so the tests used the existing dependency-bearing backend and
+Airflow images with the final release source mounted read-only.
+
+The first SDK progress callback arrived only after cce-pipeline finished
+checksumming the 128.6 GB frozen input. A follow-up should expose this interval
+as `Checksumming inputs` so an operator does not mistake valid preflight work
+for a stalled upload.
+
+## 2026-09-05 - Codex - cce-pipeline 0.8.2 contract-v2 refresh
+
+### Outcome
+
+Rebased the disabled Step1-6 option-2 integration on the supplied
+cce-pipeline 0.8.2 commit `eacef2114cef6581397e9923d9674ab17b92b4df`.
+The isolated CCE branch adds only the heavy work-pod quota contract and audit
+projection; the upstream 0.8.2 upload/download concurrency implementation is
+unchanged. Upload and download parallelism count files, obsutil `-p=5` counts
+parts within a file, and `heavy_io.limit=25` counts active high-I/O Worker Pods.
+
+The final CCE integration commit is
+`e4c0f134bd397fb6113456b18cc148346808388e`. Its complete Linux test suite
+passed `216/216`. The production wheel SHA256 is
+`b2c79df27868d9194097cfa1e28ce73d688e1a107b1ec2643dab82544551d968`.
+The BS10610 disabled candidate image is:
+
+```text
+airflow-demo/wgs-cce-master:contract-v2-cce-0.8.2-e4c0f13-candidate
+sha256:58c2c9acf935f1d06c4b1b60d8bc56ca758d7d9643707b2d9077bc9445c6dae8
+```
+
+Image audit reports cce-pipeline 0.8.2, embedded source `e4c0f134...`,
+Snakemake `9.24.0+biosan1`, Kubernetes executor `0.6.4+biosan4`, and all four
+approved heavy rules. The image is not selected by a production profile.
+
+The candidate validation completed with backend `352 passed, 1 skipped`,
+runtime scripts `67 passed`, WGS DAG/topology `16 passed`, frontend `49 passed`
+plus `tsc -b`/Vite build, and a successful Compose config render. The first
+backend run omitted the read-only `/config` mount and therefore produced 13
+missing-file failures; the corrected full run passed. The Docker frontend test
+target could not resolve the configured Docker Hub mirror, so the accepted
+frontend run used the existing pinned Node 22.22.2 runtime and a dependency tree
+whose package-lock SHA256 exactly matched the candidate.
+
+CCE development tests now use the shared
+`/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest` interpreter. The
+environment previously contained an older project build labelled `0.8.3`; it
+was replaced with the approved `0.8.2` wheel whose SHA256 is recorded above.
+The installed-package suite passed `216` tests and the CLI reports
+`cce-pipeline 0.8.2`. Do not infer release ordering from these two numeric
+labels. The proposed BS10610 `/mnt/33.chenjiucheng/.../nipttest` view was not
+mounted at verification time, so BS-side evidence uses the `/sg2` path.
+
+The disabled airflow-demo release is staged at:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260905-airflow-demo-379df64-t194-cce082-disabled
+```
+
+`current` intentionally remains on the earlier disabled c28ad7d release. The
+shared runtime gate was atomically updated and node200 sees SHA256
+`cc44aba5b5fa878b49401d1b5b2cbdea64bc6525b7c47032babac111f5c2d6f0`;
+the previous gate is retained in both the runtime bin and task evidence.
+
+During staging, the shared deployment path returned `No space left on device`
+even though the backing filesystem reported free capacity. Before any cleanup,
+an exact inventory was saved at
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/T194-T200-airflow-b47dd14/staging-cleanup-inventory.txt`.
+Under the existing airflow-only cleanup authorization, only generated files
+below `airflow-WGS/staging` were removed, reducing that directory from about
+95 MB to 115 KB and restoring writes. Two tiny root-owned `.pytest_cache`
+trees remain because the deployment account cannot remove them; no release,
+result, database, binding, or other project path was changed.
+
+### Safety And Next Gate
+
+WGS execution, runtime adapter, contract-v2 and automatic dispatch remain
+disabled. No WGS run was created or resumed. Before activation, apply and test
+the Lease RBAC for the frozen Master service account, run one Airflow-integrated
+Step1 canary, then run heavy quota in monitor-only mode before enforcement.
+
+The remaining runtime blocker is ownership, not code: the production
+`/bi/software/mamba/envs/WGS` environment belongs to `chenxj` and is not
+writable by `hanjj`. It still contains cce-pipeline 0.8.1 source `71952c5...`.
+The environment owner must install the verified 0.8.2 wheel before activation.
+An exact 0.8.1 rollback wheel was built first; neither wheel contains a secret.
+`nipttest` is the development-test interpreter, not yet the approved production
+operator interpreter. A production bundle freezes the Python path used during
+prepare, so activation must not silently bind Step1-Step6 to a mutable shared
+test environment.
+
+One unrelated historical process was observed on node200: PID `264653` runs
+`Step4_publish_results.sh` under
+`/sg2/14.hanjingjing/work_test/WGS_pipline_test`. It is not an airflow-demo
+business run and was intentionally left untouched.
+
+
+## 2026-09-04 - Codex - T194-T200 WGS contract v2 and Heavy Slot quota
+
+### Outcome
+
+Implemented option 2 without rewriting the WGS workflow. Airflow remains the
+Step1-6 project orchestrator, node200 remains the restricted executor, and
+Kubernetes resources, Snakemake events and exact terminal receipts are the
+runtime authorities. New contract-v2 runs use append-only stage execution
+generations; stale evidence cannot authorize or overwrite a newer generation.
+
+Step1/Step5 now support a Huawei OBS SDK adapter with frozen manifests,
+per-file progress and atomic spool events. The browser receives safe file
+labels only. The obsutil path remains the explicit rollback adapter. The
+vendored Kubernetes executor classifies mapping+Dedup and
+Haplotyper+QualCal as high-I/O and acquires one of 25 namespace Lease objects
+before creating each heavy Worker Job.
+
+Run Detail now loads `/workspace` first and lazily caches Samples, Rules,
+Master, Transfers, Logs and Files. Active workspaces poll by GET every ten
+seconds with visibility and in-flight guards; terminal runs do not query
+Airflow. Rules and transfer files are SQL-paged. The warm workspace median on
+the retained 208-rule run was 90.4 ms over five calls.
+
+### Deployment
+
+The disabled BS10610 release is:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260904-airflow-demo-c28ad7d-t194-contract-v2-disabled-r2
+```
+
+The frontend runtime image is
+`airflow-demo/frontend:t194-contract-v2-disabled`. The staged, unused CCE
+candidate is
+`airflow-demo/wgs-cce-master:contract-v2-32851ba-candidate`, image
+`sha256:48e17145...cabfa`; it contains executor `0.6.4+biosan4` and
+`cce-pipeline 0.8.1`.
+
+Execution, runtime adapter, contract-v2 activation and automatic dispatch are
+all false. `bio_wgs` is paused, the intake scanner is stopped, and both
+business/Airflow active-run counts are zero. No analysis was launched.
+
+The dedicated node probe runs as UID 6708 and uses a mode-0600 test identity
+outside Git. `.96` and `.97` resource rows are healthy. The approved production
+CES read-only configuration now also drives an isolated BS10610 collector at
+`/home/hanjj/.config/airflow-wgs-bs10610`. The AK/SK remains only in the
+existing mode-0600 node200 credential file. A mode-0644, numeric-only
+`cloud.json` crosses the shared runtime boundary; the API reports
+`sfs-turbo-clinical` healthy with fresh capacity, read/write bandwidth and IOPS.
+
+The existing shared `nipttest` Python 3.9 environment was reused for transfer
+validation instead of creating a duplicate runtime. It now contains
+`esdk-obs-python==3.26.6` and `huaweicloudsdkcore==3.1.210`; `ObsClient` and
+`BasicCredentials` imports pass from BS10610 and node200. Installation was
+performed through writable node005 `/sg2`; BS10610 exposes the same environment
+read-only. Evidence is under
+`/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/T200-obs-sdk-nipttest-20260904`.
+The environment already had unrelated `pip check` findings for missing
+`setuptools-scm`, missing `importlib-metadata`, and unsupported `veracitools`;
+this task did not alter those packages.
+
+A real standalone OBS SDK canary subsequently transferred 1 MiB and 65 MiB
+synthetic files. Upload, download and generation-2 reuse all reached success;
+the frozen total remained `69,206,016` bytes and nine partial callback events
+were captured. Object size/ETag and downloaded MD5 checks passed. Both exact
+test objects returned DELETE 204 and then HEAD 404, and both local payload
+directories were removed. Progress evidence contains no bucket, OBS URI,
+credential or `/sg2` path. The retained evidence is:
+
+```text
+/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence/T200-obs-sdk-canary/real-canary-20260904T155225Z-84e2670a
+```
+
+The canary exposed two SDK 3.26.6 compatibility defects in the adapter. The
+SDK notifier can clear its callback before queued progress updates drain, and
+`GetObjectMetadataResponse` does not expose custom metadata. The CCE source now
+installs a queue-draining notifier and, when metadata is absent, validates a
+strict 32-hex single-part ETag after validating object size. Two new regression
+tests pass locally and against the deployed node200 adapter. The SDK credential
+comes from the existing CCE test Secret, remains mode 0600 on node200, and is
+not copied to BS10610, Git, evidence or logs. Production obsutil configuration
+was not modified.
+
+A subsequent T201 canary uploaded one real paired-FASTQ validation sample
+without starting Airflow, CCE or WGS analysis. The two files totaled
+`14,486,007,978` bytes (`13.4911 GiB`) and completed in `152.862` seconds at
+`90.38 MiB/s` aggregate. R1 averaged `49.49 MiB/s`; R2 averaged
+`47.26 MiB/s`. The frozen denominator did not change. There were 116 safe
+progress snapshots, with 68 distinct partial R1 values, 79 partial R2 values
+and 111 aggregate partial values.
+
+The real file sizes exposed two additional adapter gaps. More-than-5-GiB
+inputs now use resumable 64 MiB multipart upload with four SDK workers,
+checkpointing and CRC64. The progress notifier now coalesces burst increments
+instead of queueing every SDK chunk, preventing a 30-second shutdown timeout.
+Focused adapter tests pass 8/8. Source size and mtime were unchanged, remote
+size/CRC64 matched, and both exact objects returned DELETE 204 then HEAD 404.
+The retained private evidence is:
+
+```text
+/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow-wgs/runtime/cce-evidence/T201-real-fastq-upload/real-fastq-20260904T164733Z-60498b83
+```
+
+This proves per-file and aggregate callback data, not the complete frontend
+projection. Contract v2 and the runtime adapter remain disabled; the next gate
+is one separately approved Airflow-integrated Step1 canary.
+
+The focused local adapter suite passed 8 tests. A complete local cce-pipeline
+collection was also attempted but stopped during collection because the
+Windows environment does not provide `kubernetes.config`; the previously
+accepted Linux full-suite baseline remains 214 passed. The deployed adapter
+itself was exercised by the successful real 13.49 GiB transfer.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| backend full pytest | `352 passed, 1 skipped` |
+| runtime script pytest | `61 passed` |
+| `bio_wgs` DAG unittest | `14 passed` |
+| frontend Vitest | `49 passed` |
+| frontend typecheck/build | passed |
+| cce-pipeline full pytest | `214 passed` |
+| Compose config | passed |
+| frontend and backend health | HTTP 200 / `ok` |
+| workspace API | HTTP 200; warm median `90.4 ms` |
+| Rules paging | HTTP 200; `1/208`, limit 1 |
+| SFS Cloud Eye | healthy; fresh numeric metrics imported from node200 |
+| real OBS SDK canary | 2 files / 69,206,016 bytes; upload, download, reuse and cleanup passed |
+| OBS SDK adapter regressions | `6 passed` locally; `2 passed` on node200 |
+| real paired-FASTQ upload | 13.4911 GiB in 152.862 s; 90.38 MiB/s aggregate |
+| real FASTQ progress | 116 snapshots; per-file and aggregate partial progress verified |
+| real FASTQ integrity/cleanup | source unchanged; remote CRC64 passed; DELETE 204 then HEAD 404 |
+| OBS SDK adapter focused tests | `8 passed` after multipart and callback coalescing fixes |
+| network | `192.168.199.0/24`, gateway `192.168.199.1` |
+
+Candidate wheel SHA256:
+
+```text
+executor 98ab02fc45247c8cde1b8cde81e5cbb211aff3f82fc3649a503bb5dbca269341
+cce      968a3b1a7e2094f82dbfba91b4718ec34bf49274aa348eb939a4f2db0bc3b3d4
+```
+
+### Incident And Storage
+
+The first release extraction was blocked by the user's NFS write quota. Only
+unmounted airflow-WGS development/build cache was targeted; roughly 1.3 GiB
+was freed from `dev`. Current release files, env, databases, evidence, results
+and Docker volumes were preserved. Root-owned residual cache was left in
+place.
+
+During the retried migration, `docker compose run biodemo-migrate` recreated
+the PostgreSQL container because the candidate Compose service hash differed.
+This was unintended. The named `airflow-wgs_postgres-data` volume was never
+removed, the run inventory remained intact, migration `20260904_0014`
+completed, and PostgreSQL is healthy. Subsequent recreation used `--no-deps`.
+
+Validated backups are under:
+
+```text
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T194-T200-contract-v2-20260904T132157Z
+airflow.dump  5b916f2ca95c68a5bc9775aeee794ff57becbef43c5de13f3f219e157cfa7612
+biodemo.dump  369f0cef6810f9ee32fff435dbbb2f16cad81e2b320dbccbe36b10d000d98d6a
+```
+
+### Remaining Gates
+
+- Verify the actual CCE Master service account, then apply the namespace-only
+  Lease RBAC and test Lease CRUD.
+- Integrate the now-passing standalone SDK canary with one contract-v2
+  Step1/Step5 execution before selecting the SDK adapter as the runtime default.
+- Run a controlled WGS batch before selecting the staged CCE image.
+- Keep dynamic slot scaling disabled; Cloud Eye is validation and alerting
+  evidence only.
+
+### Rollback
+
+Keep all execution gates false, repoint `current` to the T192 release and
+recreate only affected application services with `--no-deps`. Migration 0014
+is additive and may remain. Do not delete or downgrade PostgreSQL/Redis
+volumes, transfer spools, evidence, results or Kubernetes Leases.
 
 ## 2026-09-04 - Codex - T192 production Docker cleanup
 

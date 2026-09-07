@@ -15,15 +15,22 @@ from sqlalchemy.orm import Session
 from app.input_scanner import ensure_allowed_path
 from app.models import (
     AnalysisRun, ObsTransferLease, RunAction, RunAttempt,
-    RunValidationIssue, Sample, WgsInputSnapshot,
+    RunValidationIssue, Sample, TransferJob, WgsInputSnapshot,
+    WgsExecutionDispatch,
 )
 from app.wgs_orchestration_service import (
     SnapshotChangedError, build_fastq_snapshot, verify_fastq_snapshot,
 )
 from app.wgs_release_catalog import load_wgs_release_catalog
 from app.wgs_run_projection import (
+    WgsBindingPathError,
     load_wgs_runtime_binding,
     resolve_bound_wgs_batch_root,
+)
+from app.wgs_execution_dispatch_service import (
+    ExecutionDispatchConflict,
+    ensure_execution_dispatch,
+    reset_execution_dispatch_for_attempt,
 )
 from app.wgs_transfer_lease import (
     LEGACY_OBS_TRANSFER_SLOT,
@@ -93,6 +100,7 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
             "analysis_batch": analysis_batch,
             "fastq_root": fastq_root or canonical_source,
             "use_reference": use_reference,
+            "orchestration_contract_version": 2,
         },
         submitted_by=submitted_by,
     )
@@ -101,6 +109,7 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
     session.add(snapshot_row)
     session.add(RunAttempt(analysis_id=analysis_id, attempt=1, execution_mode=execution_mode, status="created"))
     session.flush()
+    ensure_execution_dispatch(session=session, run=run)
     if validate_input:
         _revalidate_input(session=session, settings=settings, run=run, snapshot_row=snapshot_row, allow_rebuild=True)
     else:
@@ -163,6 +172,20 @@ def action_wgs_run(*, session: Session, airflow_client, analysis_id: str, action
     if run is None:
         return None
     if action == "cancel":
+        dispatch = session.scalar(
+            select(WgsExecutionDispatch).where(
+                WgsExecutionDispatch.analysis_id == analysis_id
+            )
+        )
+        if (
+            dispatch is not None
+            and dispatch.desired_mode == "cce"
+            and dispatch.dispatch_state in {"committed", "running"}
+        ):
+            raise ExecutionDispatchConflict(
+                "EXECUTION_ALREADY_COMMITTED",
+                "CCE Step1 has started; ordinary cancel is disabled and recovery requires an audited admin action",
+            )
         run.status = "cancel_requested"
         run.current_stage = "cancel_requested"
         session.add(RunAction(analysis_id=analysis_id, action=action, requested_by=requested_by, result_status="accepted", payload_json={}))
@@ -182,6 +205,7 @@ def action_wgs_run(*, session: Session, airflow_client, analysis_id: str, action
     run.progress_updated_at = None
     run.error_summary = None
     session.add(RunAttempt(analysis_id=analysis_id, attempt=run.attempt, execution_mode=run.execution_mode, status="created"))
+    reset_execution_dispatch_for_attempt(session=session, run=run)
     session.add(RunAction(analysis_id=analysis_id, action=action, requested_by=requested_by, result_status="accepted", payload_json={"attempt": run.attempt}))
     session.commit()
     return submit_wgs_run(session=session, airflow_client=airflow_client, analysis_id=analysis_id)
@@ -207,9 +231,12 @@ def acquire_obs_transfer_slot(
     if slot is None:
         return None
     if slot.analysis_id is not None:
-        if slot.analysis_id != analysis_id or slot.attempt != attempt:
+        if (
+            slot.analysis_id != analysis_id
+            or slot.attempt != attempt
+            or slot.transfer_id != transfer_id
+        ):
             return None
-        slot.transfer_id = transfer_id
         slot.lease_expires_at = None
         session.commit()
         return slot.slot_name
@@ -226,7 +253,7 @@ def release_obs_transfer_slot(
     attempt: int,
     transfer_id: str | None = None,
     transfer_kind: str | None = None,
-) -> bool:
+) -> dict:
     if transfer_kind is None:
         slot_names = [LEGACY_OBS_TRANSFER_SLOT, *OBS_TRANSFER_SLOT_BY_KIND.values()]
     else:
@@ -240,11 +267,32 @@ def release_obs_transfer_slot(
         .with_for_update()
     ).all()
     released = False
+    retained = False
+    owned_slots: list[str] = []
     for slot in slots:
         if slot.analysis_id != analysis_id or slot.attempt != attempt:
             continue
+        owned_slots.append(slot.slot_name)
         if transfer_id is not None and slot.transfer_id != transfer_id:
             raise ValueError("OBS transfer lease identifies another transfer")
+        transfer = session.scalar(
+            select(TransferJob).where(
+                TransferJob.analysis_id == analysis_id,
+                TransferJob.attempt == attempt,
+                TransferJob.transfer_id == slot.transfer_id,
+            )
+        )
+        expected_direction = _transfer_direction_for_slot(slot.slot_name)
+        if (
+            transfer is None
+            or (
+                expected_direction is not None
+                and transfer.direction != expected_direction
+            )
+            or not _is_terminal_transfer_status(transfer.status)
+        ):
+            retained = True
+            continue
         slot.analysis_id = None
         slot.attempt = None
         slot.transfer_id = None
@@ -253,7 +301,33 @@ def release_obs_transfer_slot(
         released = True
     if released:
         session.commit()
-    return released
+    return {
+        "released": released,
+        "retained": retained,
+        "reason": "transfer_not_terminal" if retained else None,
+        "slots": [name for name in slot_names if name in owned_slots],
+    }
+
+
+def _transfer_direction_for_slot(slot_name: str) -> str | None:
+    if slot_name == OBS_TRANSFER_SLOT_BY_KIND["input"]:
+        return "upload"
+    if slot_name == OBS_TRANSFER_SLOT_BY_KIND["result"]:
+        return "download"
+    if slot_name == LEGACY_OBS_TRANSFER_SLOT:
+        return None
+    raise ValueError("unsupported OBS transfer slot")
+
+
+def _is_terminal_transfer_status(value: str | None) -> bool:
+    return str(value or "").lower() in {
+        "success",
+        "complete",
+        "succeeded",
+        "failed",
+        "canceled",
+        "cancelled",
+    }
 
 
 def run_payload(session: Session, run: AnalysisRun) -> dict:
@@ -263,15 +337,28 @@ def run_payload(session: Session, run: AnalysisRun) -> dict:
 
 def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> int:
     """Import only the final WGS analysis selection from the frozen batch."""
-    value = load_wgs_runtime_binding(
-        request_root=settings.wgs_runtime_request_root,
-        analysis_id=run.analysis_id,
-        attempt=run.attempt,
-    )
+    try:
+        value = load_wgs_runtime_binding(
+            run_root=settings.wgs_runtime_run_root,
+            analysis_id=run.analysis_id,
+            attempt=run.attempt,
+        )
+    except WgsBindingPathError as error:
+        raise WgsPreparedArtifactPending(
+            "WGS prepared batch binding is not visible yet"
+        ) from error
     batch_root = resolve_bound_wgs_batch_root(
         binding=value,
-        node_analysis_root=settings.wgs_results_host_root,
-        local_analysis_root=settings.host_results_root,
+        node_analysis_root=getattr(
+            settings,
+            "wgs_analysis_project_node200_root",
+            settings.wgs_results_host_root,
+        ),
+        local_analysis_root=getattr(
+            settings,
+            "wgs_analysis_project_container_root",
+            settings.host_results_root,
+        ),
     )
     sampleinfo = batch_root / "sampleinfo.tsv"
     if not sampleinfo.is_file() or sampleinfo.is_symlink():
@@ -317,7 +404,13 @@ def sync_sampleinfo_preview(*, session: Session, settings, run: AnalysisRun) -> 
     """Import the safe sample/family projection produced before analysis prepare."""
     params = dict(run.params_json or {})
     sampleinfo = (
-        Path(settings.host_results_root).resolve()
+        Path(
+            getattr(
+                settings,
+                "wgs_analysis_project_container_root",
+                settings.host_results_root,
+            )
+        ).resolve()
         / "sampleinfo"
         / f"{params['batch_no']}.sampleinfo.txt"
     )

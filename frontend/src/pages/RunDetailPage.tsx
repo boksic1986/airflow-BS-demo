@@ -31,6 +31,7 @@ import {RunFilesTab, RunOverviewTab} from "../features/run-detail/RunResourceTab
 import {RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
 import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
 import {Step7CleanupPanel} from "../features/run-detail/Step7CleanupPanel";
+import {DataLifecyclePanel} from "../features/run-detail/DataLifecyclePanel";
 import {WgsTransfersTab} from "../features/run-detail/WgsTransfersTab";
 import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
 import {errorMessage, parseErrorSummary} from "../lib/errors";
@@ -294,6 +295,7 @@ export function RunDetailPage() {
           <MetricCard title="Batch" value={String(detail.params?.batch_no || "-")} />
           <MetricCard title="Rule events" value={summary.rule_count} status={summary.failed_rule_count ? "failed" : undefined} />
         </section>
+        {detail.pipeline === "wgs" && detail.lifecycle ? <DataLifecyclePanel lifecycle={detail.lifecycle} /> : null}
         {detail.pipeline === "wgs" ? <section className="panel">
           <div className="section-heading"><h2>Pipeline evidence</h2><p>Fixed WGS release, resolved CCE runtime and local observer freshness.</p></div>
           <div className="definition-grid">

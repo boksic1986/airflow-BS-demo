@@ -20,6 +20,7 @@ from app.wgs_platform_service import (
 )
 from app.wgs_project_catalog import WgsProject, load_wgs_projects
 from app.wgs_release_catalog import load_wgs_release_catalog
+from app.wgs_execution_dispatch_service import mark_execution_waiting
 
 
 SAFE_BATCH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
@@ -35,6 +36,7 @@ class CatalogRunSpec:
     project: WgsProject
     platform: str
     batch: str
+    analysis_batch: str
     node_root: str
     batch_no: str
     use_reference: str
@@ -241,8 +243,11 @@ def _project(settings, project_id: str) -> WgsProject:
 def create_and_submit_run(*, session, settings, airflow_client, username: str,
                           project_id: str, platform: str, batch: str,
                           fastq_root_id: str,
-                          use_reference: str | None = None) -> dict:
+                          use_reference: str | None = None,
+                          validation_scope: str | None = None) -> dict:
     """Create one catalog-bound run; WGS prepare owns sampleinfo and selection."""
+    if validation_scope not in {None, "step1_only", "step3_dryrun", "node97_full"}:
+        raise ValueError("unsupported WGS validation scope")
     spec = _catalog_run_spec(
         settings=settings,
         project_id=project_id,
@@ -250,13 +255,17 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
         batch=batch,
         fastq_root_id=fastq_root_id,
         use_reference=use_reference,
+        validation_scope=validation_scope,
     )
-    run, _ = _create_catalog_run_record(
+    run, existed = _create_catalog_run_record(
         session=session,
         settings=settings,
         username=username,
         spec=spec,
     )
+    existing_scope = (run.params_json or {}).get("validation_scope")
+    if existed and existing_scope != validation_scope:
+        raise ValueError("existing WGS run uses a different validation scope")
     if run.status == "success":
         raise ValueError(
             f"batch {spec.batch} already completed as {run.analysis_id}"
@@ -269,6 +278,8 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
         "unknown_interrupted",
     }
     params = dict(run.params_json or {})
+    if validation_scope is not None:
+        params["validation_scope"] = validation_scope
     params.update(
         {
             "submission_mode": "three_stage",
@@ -341,10 +352,16 @@ def create_automatic_wgs_run(*, session, settings, airflow_client, username: str
 
 def _catalog_run_spec(*, settings, project_id: str, platform: str, batch: str,
                       fastq_root_id: str,
-                      use_reference: str | None) -> CatalogRunSpec:
+                      use_reference: str | None,
+                      validation_scope: str | None = None) -> CatalogRunSpec:
     project = _project(settings, project_id)
     project.platform(platform)
     root = project.fastq_root(fastq_root_id)
+    root_validation_scope = str(root.get("validation_scope") or "").strip() or None
+    if root_validation_scope is not None and validation_scope != root_validation_scope:
+        raise ValueError("validation FASTQ root is not available for this run scope")
+    if validation_scope == "step3_dryrun" and root_validation_scope != "step3_dryrun":
+        raise ValueError("Step3 dry-run requires its isolated validation FASTQ root")
     normalized_batch = batch.strip()
     if (
         SAFE_BATCH.fullmatch(normalized_batch) is None
@@ -355,12 +372,20 @@ def _catalog_run_spec(*, settings, project_id: str, platform: str, batch: str,
     if normalized_reference not in {"all", "ref", "no"}:
         raise ValueError("use_reference must be all, ref, or no")
     release = load_wgs_release_catalog(Path(settings.wgs_release_catalog_path)).release
+    validation_suffixes = {
+        "step1_only": "STEP1_SDK_CANARY",
+        "step3_dryrun": "STEP3_DRYRUN_CANARY",
+        "node97_full": "NODE97_FULL_CANARY",
+    }
+    suffix = validation_suffixes.get(validation_scope)
+    analysis_batch = f"{normalized_batch}_{suffix}" if suffix else normalized_batch
     return CatalogRunSpec(
         project=project,
         platform=platform,
         batch=normalized_batch,
+        analysis_batch=analysis_batch,
         node_root=str(root["node200_path"]),
-        batch_no=f"WGS_{normalized_batch}_{platform}Hg38{release.version}",
+        batch_no=f"WGS_{analysis_batch}_{platform}Hg38{release.version}",
         use_reference=normalized_reference,
     )
 
@@ -385,7 +410,7 @@ def _create_catalog_run_record(*, session, settings, username: str,
         validate_input=False,
         platform=spec.platform,
         sequencing_batch=spec.batch,
-        analysis_batch=spec.batch,
+        analysis_batch=spec.analysis_batch,
         fastq_root=spec.node_root,
         use_reference=spec.use_reference,
     )
@@ -394,6 +419,11 @@ def _create_catalog_run_record(*, session, settings, username: str,
     )
     if run is None:
         raise RuntimeError("created WGS run is missing")
+    params = dict(run.params_json or {})
+    if params.get("project_id") != spec.project.project_id:
+        params["project_id"] = spec.project.project_id
+        run.params_json = params
+        session.flush()
     return run, existed
 
 
@@ -418,6 +448,107 @@ def submission_state(*, session, analysis_id: str, attempt: int) -> dict:
     }
 
 
+def mark_submission_dag_failed(
+    *,
+    session,
+    analysis_id: str,
+    attempt: int,
+    failed_task_ids: list[str],
+) -> dict:
+    """Project a terminal Airflow failure into the staged submission state."""
+    run = session.scalar(
+        select(AnalysisRun).where(
+            AnalysisRun.analysis_id == analysis_id,
+            AnalysisRun.pipeline_name == "wgs",
+        ).with_for_update()
+    )
+    if run is None or run.attempt != attempt:
+        raise ValueError("unknown active WGS attempt")
+
+    root_failures = sorted(
+        {
+            str(task_id).strip()
+            for task_id in failed_task_ids
+            if str(task_id).strip()
+        }
+    )
+    if len(root_failures) > 1 and "release_leases" in root_failures:
+        root_failures.remove("release_leases")
+
+    existing_action = session.scalar(
+        select(RunAction).where(
+            RunAction.analysis_id == analysis_id,
+            RunAction.action == "airflow_dag_failed",
+        ).order_by(RunAction.id.desc())
+    )
+    if existing_action is not None:
+        existing_payload = dict(existing_action.payload_json or {})
+        if int(existing_payload.get("attempt") or 0) == attempt:
+            return {
+                "analysis_id": analysis_id,
+                "attempt": attempt,
+                "status": run.status,
+                "submission_phase": (run.params_json or {}).get("submission_phase"),
+                "failed_task_ids": list(existing_payload.get("failed_task_ids") or []),
+                "error_summary": run.error_summary,
+            }
+
+    if run.status == "success":
+        return {
+            "analysis_id": analysis_id,
+            "attempt": attempt,
+            "status": run.status,
+            "submission_phase": (run.params_json or {}).get("submission_phase"),
+            "failed_task_ids": root_failures,
+            "error_summary": run.error_summary,
+        }
+
+    primary_task = root_failures[0] if root_failures else "unknown Airflow task"
+    messages = {
+        "prepare_wgs_sampleinfo": (
+            "Sample information preparation failed in Airflow task "
+            "prepare_wgs_sampleinfo. Open Run Detail logs for the exact error."
+        ),
+        "prepare_wgs_analysis": (
+            "WGS analysis preparation failed in Airflow task prepare_wgs_analysis. "
+            "Open Run Detail logs for the exact error."
+        ),
+    }
+    error_summary = messages.get(
+        primary_task,
+        f"WGS Airflow run failed in task {primary_task}. Open Run Detail logs for the exact error.",
+    )
+    params = dict(run.params_json or {})
+    if params.get("submission_mode") == "three_stage":
+        params["submission_phase"] = "failed"
+    run.params_json = params
+    run.status = "failed"
+    run.ended_at = run.ended_at or datetime.now(timezone.utc)
+    run.error_summary = error_summary
+    session.add(
+        RunAction(
+            analysis_id=analysis_id,
+            action="airflow_dag_failed",
+            requested_by="airflow",
+            result_status="failed",
+            payload_json={
+                "attempt": attempt,
+                "failed_task_ids": root_failures,
+            },
+            message=error_summary,
+        )
+    )
+    session.commit()
+    return {
+        "analysis_id": analysis_id,
+        "attempt": attempt,
+        "status": run.status,
+        "submission_phase": params.get("submission_phase"),
+        "failed_task_ids": root_failures,
+        "error_summary": error_summary,
+    }
+
+
 def approve_wgs_config(*, session, analysis_id: str, requested_by: str,
                        use_reference: str, resource_set: str) -> dict:
     if use_reference not in {"all", "ref", "no"}:
@@ -438,6 +569,10 @@ def approve_wgs_config(*, session, analysis_id: str, requested_by: str,
     if params.get("config_approved_at"):
         if params.get("use_reference") != use_reference or params.get("resource_set") != resource_set:
             raise ValueError("WGS configuration was already approved with different values")
+        if params.get("submission_phase") == "config_review":
+            params["submission_phase"] = "preparing_analysis"
+            run.params_json = params
+            session.commit()
         return submission_state(session=session, analysis_id=analysis_id, attempt=run.attempt)
     if params.get("submission_phase") not in {"config_review", "preparing_analysis"}:
         raise ValueError("WGS sample information is not ready for configuration review")
@@ -478,7 +613,7 @@ def approve_wgs_execution(*, session, analysis_id: str, requested_by: str) -> di
         select(Sample.id).where(Sample.analysis_id == analysis_id).limit(1)
     ) is None:
         raise ValueError("WGS analysis has no prepared samples")
-    if not params.get("execution_approved_at"):
+    if params.get("submission_phase") != "approved":
         params.update({
             "execution_approved_at": datetime.now(timezone.utc).isoformat(),
             "submission_phase": "approved",
@@ -491,5 +626,6 @@ def approve_wgs_execution(*, session, analysis_id: str, requested_by: str) -> di
             result_status="accepted",
             payload_json={"attempt": run.attempt},
         ))
+        mark_execution_waiting(session=session, run=run)
         session.commit()
     return submission_state(session=session, analysis_id=analysis_id, attempt=run.attempt)

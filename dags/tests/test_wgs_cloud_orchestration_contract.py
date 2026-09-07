@@ -15,9 +15,13 @@ EXPECTED_TASKS = {
     "input_transfer.start_step1_upload",
     "input_transfer.wait_step1_upload",
     "input_transfer.release_obs_transfer_slot",
+    "choose_after_step1",
+    "finalize_step1_canary",
     "submit_step2_master",
     "start_step3_monitor",
     "wait_step3_analysis",
+    "choose_after_step3",
+    "finalize_step3_dryrun",
     "start_step4_publish",
     "wait_step4_publish",
     "result_transfer.acquire_obs_transfer_slot",
@@ -25,6 +29,7 @@ EXPECTED_TASKS = {
     "result_transfer.wait_step5_download",
     "result_transfer.release_obs_transfer_slot",
     "materialize_step6_results",
+    "wait_step6_materialize",
     "finalize_run",
     "release_leases",
 }
@@ -55,7 +60,9 @@ def test_single_cce_dag_declares_4_1_1_runtime_contract() -> None:
     assert "SSHHook" not in text
     assert "wgs-runtime" in text
     assert 'mode="reschedule"' in text
-    assert 'pool="wgs_obs_transfer"' in text
+    assert 'pool="wgs_obs_upload"' in text
+    assert 'pool="wgs_obs_download"' in text
+    assert 'pool="wgs_obs_transfer"' not in text
     assert 'pool="wgs_cce_runs"' in text
     assert '"step1_upload"' in text
     assert '"step2_master"' in text
@@ -88,3 +95,14 @@ def test_runtime_dag_has_exact_topology_and_reschedule_sensors() -> None:
     assert all(dag.get_task(task_id).mode == "reschedule" for task_id in sensors)
     assert dag.max_active_runs == 4
     assert dag.is_paused_upon_creation is True
+    assert dag.get_task("wait_step4_publish").upstream_task_ids == {
+        "start_step4_publish"
+    }
+    assert (
+        dag.get_task("input_transfer.release_obs_transfer_slot").trigger_rule
+        == "all_done"
+    )
+    assert (
+        dag.get_task("result_transfer.release_obs_transfer_slot").trigger_rule
+        == "all_done"
+    )

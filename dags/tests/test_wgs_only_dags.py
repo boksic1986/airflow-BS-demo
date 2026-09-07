@@ -44,6 +44,7 @@ class WgsOnlyDagTests(unittest.TestCase):
                 "pipeline_release_id": "wgs-4.1.1-1656b5d",
                 "wgs_version": "V4.1.1",
                 "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
+                "submission_mode": "three_stage",
             },
         }
         self.assertEqual(bio_wgs.validate_request(**_context(conf))["analysis_id"], conf["analysis_id"])
@@ -76,6 +77,7 @@ class WgsOnlyDagTests(unittest.TestCase):
         self.assertIn('"-F"', source)
         self.assertIn("WGS_SSH_CONFIG_PATH", source)
         self.assertIn("WGS_RUNNER_200_COMMAND", source)
-        self.assertIn("/home/hanjj/.config/airflow-wgs/forced-command.sh", source)
+        self.assertIn("/home/ctapa/.config/airflow-wgs/forced-command.sh", source)
+        self.assertNotIn("/home/hanjj/.config/airflow-wgs/forced-command.sh", source)
         self.assertNotIn("/home/chenjc/.config/airflow-wgs/forced-command.sh", source)
         self.assertNotIn("SSHHook", source)

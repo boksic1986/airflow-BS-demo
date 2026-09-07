@@ -19,11 +19,12 @@ from app.wgs_stage_contract import (
 def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], settings=None) -> list[dict]:
     now = datetime.now(timezone.utc)
     history_runs = _history_runs(session, run)
+    duration_history = _rule_duration_history(session, history_runs, rows)
     rule_logs = wgs_rule_log_contexts(run=run, rules=rows, settings=settings) if settings is not None else {}
     items = []
     for row in rows:
         phase = phase_for_rule(row.rule_name, pipeline_name="wgs")
-        durations = _rule_durations(session, history_runs, row.rule_name, row.layer)
+        durations = duration_history.get((row.rule_name, row.layer), [])
         history_median = median(durations) if len(durations) >= 3 else None
         projected_status = row.status
         projected_ended_at = row.ended_at
@@ -164,12 +165,25 @@ def _history_runs(session, run: AnalysisRun) -> list[AnalysisRun]:
     ).all()
 
 
-def _rule_durations(session, runs, rule_name, layer) -> list[float]:
+def _rule_duration_history(session, runs, requested_rows) -> dict[tuple[str, int | None], list[float]]:
     ids = [run.analysis_id for run in runs]
-    if not ids:
-        return []
-    rows = session.scalars(select(RuleState).where(RuleState.analysis_id.in_(ids), RuleState.rule_name == rule_name, RuleState.status == "success")).all()
-    return [_seconds(row.started_at, row.ended_at) for row in rows if row.started_at and row.ended_at and (layer is None or row.layer == layer)]
+    names = {row.rule_name for row in requested_rows}
+    if not ids or not names:
+        return {}
+    rows = session.scalars(
+        select(RuleState).where(
+            RuleState.analysis_id.in_(ids),
+            RuleState.rule_name.in_(names),
+            RuleState.status == "success",
+        )
+    ).all()
+    history: dict[tuple[str, int | None], list[float]] = {}
+    for row in rows:
+        if row.started_at and row.ended_at:
+            history.setdefault((row.rule_name, row.layer), []).append(
+                _seconds(row.started_at, row.ended_at)
+            )
+    return history
 
 
 def _seconds(start, end) -> float:
