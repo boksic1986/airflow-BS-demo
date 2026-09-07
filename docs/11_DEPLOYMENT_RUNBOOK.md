@@ -1,5 +1,39 @@
 # 11 部署 Runbook
 
+## T215 BS10610 supervised manual submission mode
+
+Use this mode only on the BS10610 test control plane after T214 node97 smoke
+acceptance. It enables authenticated manual preparation/submission while
+keeping unattended execution paths closed.
+
+Required effective values in backend, scheduler and worker:
+
+```text
+WGS_EXECUTION_ENABLED=true
+WGS_RUNTIME_ADAPTER_ENABLED=true
+WGS_CONTRACT_V2_ENABLED=true
+WGS_LOCAL_NODE97_ENABLED=true
+WGS_LOCAL_NODE96_ENABLED=false
+WGS_SGE_ENABLED=false
+WGS_INTAKE_SCAN_ENABLED=false
+WGS_AUTO_DISPATCH_ENABLED=false
+```
+
+Set `WGS_LOCAL_EXECUTION_ENABLED=true` in node97's protected host environment,
+recreate only backend, Airflow API server, scheduler, worker and frontend, then
+unpause `bio_wgs`. Never recreate PostgreSQL/Redis or remove volumes for this
+gate change. Before opening Submit Run, require all target/OBS leases to be
+unowned, no active business run and no running/queued `bio_wgs` DagRun.
+
+The Submit UI continues to default to CCE. The operator must select
+`Local .97` in Step 3 to commit node97; availability is revalidated against
+fresh node metrics. Enabling Local .97 does not enable scanner or automatic
+dispatch and does not submit a batch by itself.
+
+Rollback: restore the timestamped BS environment and node97 host environment,
+recreate the same five stateless services and pause `bio_wgs`. Verify every
+execution/local/intake/auto-dispatch gate is false and all leases are empty.
+
 ## T214 BS10610/node97 smoke rollout
 
 T214 must be released from exact T213 base `1c011a8` plus the reviewed node97

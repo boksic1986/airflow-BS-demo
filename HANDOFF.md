@@ -1,5 +1,42 @@
 # HANDOFF.md
 
+## 2026-09-07 - Codex - T215 manual test submission enabled
+
+The disabled Submit Run screen was caused by deployment gates, not a frontend
+defect. T214 deliberately restored `WGS_EXECUTION_ENABLED=false` and
+`WGS_RUNTIME_ADAPTER_ENABLED=false` after its synthetic smoke, and the frontend
+correctly disables Prepare sample information when either release flag is
+false.
+
+On the BS10610 test control plane, T215 enabled only manual WGS execution,
+runtime adapter dispatch and Local .97. It recreated the stateless backend,
+Airflow API server, scheduler, worker and frontend services and unpaused
+`bio_wgs`. PostgreSQL and Redis were not recreated. No run was submitted.
+
+Acceptance evidence:
+
+- frontend root is HTTP 200; unauthenticated `/api/wgs/release` is HTTP 401;
+- effective backend/scheduler/worker gates show execution, runtime adapter and
+  Local .97 enabled;
+- node97 admission is `available` with fresh metrics and the host gate is
+  enabled;
+- `bio_wgs` is unpaused with no running or queued DagRun;
+- `node-96`, `node-97` target slots and all three OBS transfer leases are
+  unowned;
+- scanner, auto-dispatch, Local .96, SGE and node97 full canary remain false.
+
+After refreshing the signed-in browser, Prepare sample information is enabled.
+The existing frontend defaults execution target selection to CCE. To run on
+node97, continue to Step 3 and explicitly select `Local .97` before Start WGS
+workflow. Target admission is checked again at commit, so a later stale or
+high-load node remains fail closed.
+
+Rollback uses
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/env/backups/T215-before-node97-manual-submit-20260907T123810+0800.env`
+and `/home/hanjj/.config/airflow-wgs/node97-local.env.before-t215-manual-submit`.
+Restore the files, recreate the same five stateless services, and pause
+`bio_wgs`; do not touch PostgreSQL, Redis, volumes, FASTQ, OBS or results.
+
 ## 2026-09-07 - Codex - T214 node97 synthetic smoke complete
 
 T214 uses clean worktree

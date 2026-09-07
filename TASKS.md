@@ -1,5 +1,34 @@
 # TASKS.md
 
+## T215 - Enable supervised manual WGS submission on BS10610/node97
+
+Owner: runtime/QA/docs
+
+Status: done in BS10610 test environment
+
+Dependencies: T214
+
+Scope:
+- Enable the existing Submit Run create/submit path on the BS10610 test control
+  plane without changing frontend or backend source.
+- Make `Local .97` available as an explicit Step 3 execution target while
+  retaining CCE as the existing default.
+- Keep node96, SGE, intake scanning and automatic dispatch disabled.
+
+Acceptance:
+- [x] Frontend returns HTTP 200 and unauthenticated business API access remains
+  HTTP 401.
+- [x] Backend, scheduler and worker have execution/runtime/node97 gates enabled.
+- [x] Node97 admission is available with fresh CPU, load and memory metrics.
+- [x] `bio_wgs` is unpaused and has no running or queued DagRun at handoff.
+- [x] Local target slots and directional OBS transfer leases remain unowned.
+- [x] No business run, FASTQ operation, OBS transfer or real sample analysis was
+  started by T215.
+
+Restrictions:
+- The operator must explicitly select `Local .97` in Step 3 to use node97.
+- Do not enable scanner, auto-dispatch, node96 or SGE as part of T215.
+
 ## T214 - Integrate node97 onto the T213 production baseline
 
 Owner: backend/Airflow/runtime/QA/docs

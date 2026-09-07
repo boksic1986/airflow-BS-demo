@@ -1,5 +1,38 @@
 # CURRENT_STATE.md
 
+## 2026-09-07 T215 supervised manual Submit Run enabled
+
+scope: BS10610 is a test control plane. The existing T214 release and code are
+unchanged; T215 changes only untracked runtime environment values and the
+`bio_wgs` pause state so an authenticated operator can prepare and submit a
+batch from the frontend.
+
+runtime: `WGS_EXECUTION_ENABLED`, `WGS_RUNTIME_ADAPTER_ENABLED` and
+`WGS_LOCAL_NODE97_ENABLED` are true in backend, scheduler and worker. The
+node97 host gate also has `WGS_LOCAL_EXECUTION_ENABLED=true`. `bio_wgs` is
+unpaused. CCE remains the existing default execution target; selecting node97
+requires choosing `Local .97` in Submit Run Step 3 before starting the
+workflow.
+
+safety: `WGS_INTAKE_SCAN_ENABLED`, `WGS_AUTO_DISPATCH_ENABLED`,
+`WGS_LOCAL_NODE96_ENABLED`, `WGS_SGE_ENABLED` and the node97 full-canary gate
+remain false. At acceptance there are no running/queued `bio_wgs` DagRuns,
+both local target slots are empty and all directional OBS transfer leases are
+empty. T215 did not create or submit a business run.
+
+validation: frontend root returns HTTP 200 through nginx 1.30.3 and an
+unauthenticated `GET /api/wgs/release` correctly returns 401. Node97 admission
+is `available` from fresh metrics (128 logical CPUs, low CPU/load and about
+2.5% memory use). The installed node97 forced gate and the T214 release gate
+have the same SHA256.
+
+rollback: the BS environment backup is
+`env/backups/T215-before-node97-manual-submit-20260907T123810+0800.env`; the
+node97 host backup is
+`/home/hanjj/.config/airflow-wgs/node97-local.env.before-t215-manual-submit`.
+Restore both, recreate only backend/API/scheduler/worker/frontend and pause
+`bio_wgs`. Do not recreate PostgreSQL or Redis and do not remove volumes.
+
 ## 2026-09-07 T214 T213 plus node97 integration test rollout
 
 scope: branch `jiucheng/wgs/T214-t213-node97-integration` starts at production
