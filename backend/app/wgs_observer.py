@@ -747,6 +747,10 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                     heartbeat=heartbeat,
                 )
             row.heartbeat_at = heartbeat
+            if status in {"accepted", "submitted", "queued", "running", "started"} and row.started_at is None:
+                row.started_at = heartbeat
+            if _canonical_terminal_status(status) is not None:
+                row.ended_at = heartbeat
             row.message = str(payload.get("message") or "") or None
             row.error_message = row.message if status == "failed" else None
             row.updated_at = datetime.now(timezone.utc)
@@ -781,13 +785,21 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 allow_terminal_retry=retry_no > 0,
             )
         elif stage == "step7_cleanup":
-            action = session.scalar(
-                select(WgsMaintenanceAction).where(
+            action_query = select(WgsMaintenanceAction).where(
                     WgsMaintenanceAction.analysis_id == analysis_id,
                     WgsMaintenanceAction.attempt == attempt,
                     WgsMaintenanceAction.action_type == "cleanup_step7_sfs",
                 )
-            )
+            action_id = str(payload.get("maintenance_action_id") or "")
+            if action_id:
+                action_query = action_query.where(
+                    WgsMaintenanceAction.action_id == action_id
+                )
+            else:
+                action_query = action_query.order_by(
+                    WgsMaintenanceAction.generation.desc()
+                )
+            action = session.scalar(action_query)
             if action is None:
                 raise ValueError("Step7 cleanup status has no registered maintenance action")
             normalized = {"accepted": "queued", "running": "running", "success": "success", "failed": "failed"}.get(status)
@@ -804,6 +816,10 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 action.started_at = heartbeat
             if normalized in {"success", "failed"}:
                 action.ended_at = heartbeat
+            if normalized == "success" and payload.get("completion_mode"):
+                snapshot = dict(action.target_snapshot_json or {})
+                snapshot["completion_mode"] = str(payload["completion_mode"])
+                action.target_snapshot_json = snapshot
             action.updated_at = heartbeat
             upsert_stage_state(
                 session,
@@ -1177,6 +1193,10 @@ def _ingest_transfer_progress(session_factory, spool_root: Path, path: Path) -> 
         row.estimated_finish_at = datetime.fromisoformat(str(payload["estimated_finish_at"]).replace("Z", "+00:00")) if payload.get("estimated_finish_at") else None
         row.checkpoint_ref = str(payload.get("checkpoint_ref") or "") or None
         row.heartbeat_at = heartbeat
+        if row.status in {"accepted", "submitted", "queued", "running", "started"} and row.started_at is None:
+            row.started_at = heartbeat
+        if _canonical_terminal_status(row.status) is not None:
+            row.ended_at = heartbeat
         row.verification_status = str(payload.get("verification_status") or "") or None
         row.message = str(payload.get("message") or "") or None
         row.error_message = str(payload.get("error_message") or "") or None
@@ -1439,6 +1459,7 @@ def _normalize_transfer_progress(payload: dict) -> dict:
 def _upsert_transfer_file_states(*, session, transfer: TransferJob, files: list[dict], heartbeat: datetime) -> None:
     if not files:
         return
+    fresh_running_speed = 0
     for item in files:
         file_key = str(item.get("file_key") or "")
         display_name = Path(str(item.get("display_name") or "")).name
@@ -1475,6 +1496,8 @@ def _upsert_transfer_file_states(*, session, transfer: TransferJob, files: list[
         row.status = status
         row.bytes_transferred = done
         row.speed_bps = _strict_nonnegative_int(item.get("speed_bps", 0), "file.speed_bps")
+        if status == "running":
+            fresh_running_speed += row.speed_bps
         row.checksum_status = str(item.get("checksum_status") or "") or None
         row.error_message = str(item.get("error_message") or "")[-2000:] or None
         if status == "running" and row.started_at is None:
@@ -1488,6 +1511,8 @@ def _upsert_transfer_file_states(*, session, transfer: TransferJob, files: list[
             TransferFileState.transfer_id == transfer.transfer_id
         )
     ).all()
+    if fresh_running_speed > 0:
+        transfer.speed_bps = fresh_running_speed
     aggregate_total = sum(row.bytes_total for row in rows)
     aggregate_done = sum(row.bytes_transferred for row in rows)
     if (

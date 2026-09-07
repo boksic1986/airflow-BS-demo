@@ -116,3 +116,5 @@ def test_generic_run_routes_delegate_workflow_projection_to_registered_adapter(
             workflow_projectors={"synthetic": adapter.project_workflows},
         )
     assert payload["items"][0]["workflow_summary"] == [{"id": "synthetic"}]
+    assert payload["items"][0]["workflow_status"] == "running"
+    assert payload["items"][0]["workflow_label"] == "Workflow running"

@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 
-import {render, screen} from "@testing-library/react";
+import {fireEvent, render, screen} from "@testing-library/react";
 import {expect, it, vi} from "vitest";
 
 import {Step7CleanupPanel} from "./Step7CleanupPanel";
@@ -32,4 +32,38 @@ it("shows queued Step7 maintenance progress without inventing a percentage", () 
   expect(screen.getByText("Waiting for Step7 worker")).toBeInTheDocument();
   expect(screen.getByText("Detailed file progress unavailable")).toBeInTheDocument();
   expect(screen.queryByText(/%/)).not.toBeInTheDocument();
+});
+
+it("submits a failed Step7 action as an explicit retry generation", () => {
+  const cleanup = vi.fn();
+  render(
+    <Step7CleanupPanel
+      capability={{
+        available: true,
+        reason: null,
+        retry_available: true,
+        required_batch: "20260905A",
+        latest_action: {
+          action_id: "step7-old",
+          analysis_id: "WGS_RETRY",
+          attempt: 1,
+          action_type: "cleanup_step7_sfs",
+          linkage_group: "sfs",
+          status: "failed",
+          generation: 1,
+          requested_by: "admin",
+          created_at: "2026-09-08T01:00:00Z",
+          error_message: "runtime root was not configured",
+        },
+      }}
+      onCleanup={cleanup}
+    />,
+  );
+
+  fireEvent.click(screen.getByLabelText("Acknowledge SFS cleanup"));
+  fireEvent.change(screen.getByLabelText("Step7 Batch confirmation"), {target: {value: "20260905A"}});
+  fireEvent.click(screen.getByRole("button", {name: "Retry Step7 SFS cleanup"}));
+
+  expect(screen.getByText("Generation").nextSibling).toHaveTextContent("1");
+  expect(cleanup).toHaveBeenCalledWith("20260905A", true);
 });

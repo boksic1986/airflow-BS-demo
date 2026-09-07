@@ -14,6 +14,8 @@ export type RunSummary = {
   qc_status?: string | null;
   qc_highlights?: QcHighlight[];
   workflow_summary?: WorkflowStageSummary[];
+  workflow_status?: string | null;
+  workflow_label?: string | null;
 };
 
 export type WorkflowStageSummary = {
@@ -98,6 +100,7 @@ export type RunDetail = {
   status: string;
   attempt?: number | null;
   mode?: string | null;
+  execution_mode?: string | null;
   dag_id?: string | null;
   dag_run_id?: string | null;
   airflow_url?: string | null;
@@ -203,6 +206,9 @@ export type WgsMaintenanceAction = {
   analysis_id: string;
   attempt: number;
   action_type: string;
+  generation?: number;
+  retry_of_action_id?: string | null;
+  completion_mode?: string | null;
   linkage_group: "cram" | "sfs";
   status: string;
   requested_by: string;
@@ -216,9 +222,11 @@ export type WgsMaintenanceAction = {
 
 export type Step7CleanupCapability = {
   available: boolean;
+  retry_available?: boolean;
   reason?: string | null;
   required_batch: string;
   latest_action?: WgsMaintenanceAction | null;
+  history?: WgsMaintenanceAction[];
 };
 
 export type Step4RepairCapability = {
@@ -294,6 +302,9 @@ export type WgsTransfer = {
   verification_status?: string | null;
   message?: string | null;
   error_message?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  ended_at?: string | null;
 };
 
 export type WgsTransferFile = {
@@ -344,6 +355,20 @@ export type WgsSampleManifestRow = {
   family_relation?: string | null;
   received_date?: string | null;
   estimated_report_date?: string | null;
+};
+
+export type WgsManifestSummary = {
+  batch?: string | null;
+  sample_count?: number;
+  family_count?: number;
+  order_count?: number;
+  sample_types?: string[];
+  received_date_range?: {start: string; end: string} | null;
+  estimated_report_date_range?: {start: string; end: string} | null;
+  test_projects?: string[];
+  test_methods?: string[];
+  result_delivery_status?: string;
+  project_path?: string | null;
 };
 
 export type ScanCandidate = {
@@ -454,6 +479,8 @@ export type RuleEvent = {
   stderr_path?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  started_at?: string | null;
+  ended_at?: string | null;
   message?: string | null;
   return_code?: number | null;
   wildcards?: Record<string, unknown> | null;
@@ -533,6 +560,7 @@ export type RunProgressResponse = {
 };
 
 export type RunWorkspaceResponse = {
+  snapshot_at?: string;
   run: RunDetail;
   summary: {
     sample_count: number;
@@ -1433,15 +1461,15 @@ export function getRunWorkspace(analysisId: string): Promise<RunWorkspaceRespons
   return requestJson<RunWorkspaceResponse>(`/runs/${encodeURIComponent(analysisId)}/workspace`);
 }
 
-export function getRunSamples(analysisId: string): Promise<{items: Sample[]; manifest?: WgsSampleManifestRow[]}> {
-  return requestJson<{items: Sample[]; manifest?: WgsSampleManifestRow[]}>(`/runs/${encodeURIComponent(analysisId)}/samples`);
+export function getRunSamples(analysisId: string): Promise<{items: Sample[]; manifest?: WgsSampleManifestRow[]; manifest_summary?: WgsManifestSummary}> {
+  return requestJson<{items: Sample[]; manifest?: WgsSampleManifestRow[]; manifest_summary?: WgsManifestSummary}>(`/runs/${encodeURIComponent(analysisId)}/samples`);
 }
 
 export function getRunFamilies(analysisId: string): Promise<{items: WgsFamily[]}> {
   return requestJson<{items: WgsFamily[]}>(`/runs/${encodeURIComponent(analysisId)}/families`);
 }
 
-export function getRunRules(analysisId: string, options: {limit?: number; offset?: number; status?: string; rule?: string; sampleId?: string; familyId?: string; phase?: string} = {}): Promise<{items: RuleEvent[]; total: number; limit: number; offset: number}> {
+export function getRunRules(analysisId: string, options: {limit?: number; offset?: number; status?: string; rule?: string; sampleId?: string; familyId?: string; phase?: string; sort?: "execution_order" | "active_first"} = {}): Promise<{items: RuleEvent[]; total: number; limit: number; offset: number}> {
   const params = new URLSearchParams();
   params.set("limit", String(options.limit ?? 50));
   params.set("offset", String(options.offset ?? 0));
@@ -1450,6 +1478,7 @@ export function getRunRules(analysisId: string, options: {limit?: number; offset
   if (options.sampleId) params.set("sample_id", options.sampleId);
   if (options.familyId) params.set("family_id", options.familyId);
   if (options.phase) params.set("phase", options.phase);
+  if (options.sort) params.set("sort", options.sort);
   return requestJson<{items: RuleEvent[]; total: number; limit: number; offset: number}>(`/runs/${encodeURIComponent(analysisId)}/rules?${params.toString()}`);
 }
 
@@ -1540,10 +1569,10 @@ export function repairStep4(analysisId: string): Promise<WgsMaintenanceAction> {
   return requestJson<WgsMaintenanceAction>(`/runs/${encodeURIComponent(analysisId)}/actions/repair-step4`, {method: "POST"});
 }
 
-export function cleanupStep7(analysisId: string, batchConfirmation: string): Promise<WgsMaintenanceAction> {
+export function cleanupStep7(analysisId: string, batchConfirmation: string, retry?: {retryFailed: boolean; expectedActionId: string}): Promise<WgsMaintenanceAction> {
   return requestJson<WgsMaintenanceAction>(`/runs/${encodeURIComponent(analysisId)}/actions/cleanup-step7`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({batch_confirmation: batchConfirmation}),
+    body: JSON.stringify({batch_confirmation: batchConfirmation, retry_failed: retry?.retryFailed || false, expected_action_id: retry?.expectedActionId || null}),
   });
 }

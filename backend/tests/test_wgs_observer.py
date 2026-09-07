@@ -249,6 +249,50 @@ def test_transfer_file_callbacks_can_arrive_in_incremental_subsets() -> None:
         assert len(rows) == 2
 
 
+def test_transfer_file_projection_sums_only_fresh_running_file_speeds() -> None:
+    sessions = make_sessionmaker()
+    heartbeat = datetime(2026, 9, 8, 0, 30, tzinfo=timezone.utc)
+    with sessions() as session:
+        transfer = TransferJob(
+            analysis_id="WGS_20260907_152648_54EFF2",
+            attempt=1,
+            transfer_id="WGS_20260907_152648_54EFF2-a1-input",
+            transfer_type="input_upload",
+            direction="upload",
+            status="running",
+            bytes_total=800,
+            bytes_transferred=400,
+            files_total=8,
+            files_completed=0,
+            progress_percent=50,
+            speed_bps=1,
+            heartbeat_at=heartbeat,
+            updated_at=heartbeat,
+        )
+        session.add(transfer)
+        session.flush()
+
+        _upsert_transfer_file_states(
+            session=session,
+            transfer=transfer,
+            heartbeat=heartbeat,
+            files=[
+                {
+                    "file_key": f"{index:064x}",
+                    "display_name": f"sample-{index}.fq.gz",
+                    "bytes_total": 100,
+                    "bytes_done": 50,
+                    "status": "running",
+                    "speed_bps": 40,
+                    "checksum_status": "pending",
+                }
+                for index in range(1, 9)
+            ],
+        )
+
+        assert transfer.speed_bps == 320
+
+
 def make_sessionmaker():
     engine = create_engine(
         "sqlite+pysqlite://",

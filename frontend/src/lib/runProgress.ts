@@ -1,6 +1,7 @@
 import type {RuleEvent, RunDetail, RunProgressResponse, RunSummary} from "../api";
 
 import {isActiveStatus, isFailedStatus, normalizeStatus} from "./status";
+import {formatPercent} from "./format";
 
 export type RunProgress = {
   percent: number;
@@ -101,9 +102,9 @@ export function progressFromResponse(progress: RunProgressResponse): RunProgress
   const available = progress.progress_available !== false && progress.progress_percent != null;
   const value = available ? Number(progress.progress_percent) : 0;
   return {
-    percent: Math.max(0, Math.min(100, Math.round(value))),
+    percent: Math.max(0, Math.min(100, value)),
     available,
-    label: available ? `${Math.max(0, Math.min(100, Math.round(value)))}%` : "Detailed progress unavailable",
+    label: available ? formatPercent(value) : "Detailed progress unavailable",
     currentStep: progress.stage_label || progress.current_step || "Unknown",
     note: progress.current_item || progress.note || (available ? `Progress source: ${progress.progress_source}` : "The runtime has not supplied an exact progress measurement."),
     notInAirflow: progress.not_in_airflow,

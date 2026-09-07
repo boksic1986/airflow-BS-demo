@@ -15,6 +15,16 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 - QC and workflow stages are rendered from backend projections; the browser does not parse workflow files.
 - Disabled capabilities show an explicit unavailable state rather than a mock action.
 
+### T227 WGS detail refinements
+
+- One visibility-aware five-second workspace poll drives both Current Progress and the active Transfer card. Percent text and progress values use the same one-decimal projection.
+- Transfer summaries show progress, aggregate speed, file count, start, finish, and last update. File rows use a short progress bar, start/finish timestamps, checksum badges, and distinct accepted/running styles.
+- Overview shows a privacy-safe batch manifest summary. Samples omits the duplicate Data column and remains the sample analysis-state matrix.
+- Pipeline evidence is limited to pinned release/runtime identity, execution target, and a controlled relative project path. Current Progress and evidence keep a responsive 2:1 layout without forced equal height.
+- Rules request `active_first`; not-started, running, and terminal timestamps are displayed without inventing missing evidence.
+- Batch Runs falls back to `workflow_status`/`workflow_label` when detailed stage rail data is absent.
+- Failed Step7 actions keep generation history visible and offer a revision-fenced retry only when the backend reports it safe.
+
 ## Branding
 
 The product label is `NGS Huawei Cloud` with the subtitle `Online analysis platform`. WGS names remain only where they identify the currently deployed workflow or extension.

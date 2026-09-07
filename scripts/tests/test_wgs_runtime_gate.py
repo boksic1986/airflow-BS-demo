@@ -874,6 +874,53 @@ def test_step7_cleanup_confirmation_is_derived_only_from_frozen_binding(
     ]
 
 
+def test_step7_cleanup_marks_verified_absent_when_exact_frozen_target_is_gone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    target = tmp_path / "WGS_Clinical" / "20260902A"
+    payload = {
+        "analysis_id": "WGS_20260903_111456_397777",
+        "attempt": 1,
+        "step7_target_snapshot": {
+            "analysis_id": "WGS_20260903_111456_397777",
+            "attempt": 1,
+            "project": "WGS_Clinical",
+            "batch": "20260902A",
+            "run_id": "WGS_20260903_111456_397777-a1",
+            "expected_batch_root": str(target),
+        },
+    }
+    monkeypatch.setattr(gate, "_load_binding", lambda _payload: (_ for _ in ()).throw(FileNotFoundError("binding missing")))
+
+    assert gate.build_step7_cleanup_command(payload) == ["/usr/bin/true"]
+    assert payload["step7_completion_mode"] == "verified_absent"
+
+
+def test_step7_cleanup_rejects_partial_target_when_binding_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    target = tmp_path / "WGS_Clinical" / "20260825A"
+    target.mkdir(parents=True)
+    payload = {
+        "analysis_id": "WGS_20260903_062828_0858DC",
+        "attempt": 7,
+        "step7_target_snapshot": {
+            "analysis_id": "WGS_20260903_062828_0858DC",
+            "attempt": 7,
+            "project": "WGS_Clinical",
+            "batch": "20260825A",
+            "run_id": "WGS_20260903_062828_0858DC-a7",
+            "expected_batch_root": str(target),
+        },
+    }
+    monkeypatch.setattr(gate, "_load_binding", lambda _payload: (_ for _ in ()).throw(FileNotFoundError("binding missing")))
+
+    with pytest.raises(RuntimeError, match="needs recovery"):
+        gate.build_step7_cleanup_command(payload)
+
+
 def test_step4_wait_retries_short_master_completion_race_for_bound_successful_step3(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

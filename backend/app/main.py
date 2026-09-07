@@ -9,6 +9,7 @@ from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Query, Requ
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from sqlalchemy import case
 
 from app.airflow_client import AirflowClient
 from app.config import get_cors_origins, get_internal_service_token, get_settings
@@ -355,6 +356,8 @@ class WgsSubmissionDraftResultRequest(BaseModel):
 class WgsStep7CleanupRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     batch_confirmation: str = Field(min_length=1, max_length=128)
+    retry_failed: bool = False
+    expected_action_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class ReanalysisRequest(BaseModel):
@@ -1479,9 +1482,11 @@ def run_pods(analysis_id: str) -> dict[str, object]:
 
 @app.get("/api/runs/{analysis_id}/transfers")
 def run_transfers(analysis_id: str) -> dict[str, object]:
+    from app.wgs_transfer_projection import serialize_transfer_job
+
     with get_sessionmaker()() as session:
         items = session.scalars(select(TransferJob).where(TransferJob.analysis_id == analysis_id).order_by(TransferJob.id)).all()
-    return {"items": [{"id": item.id, "transfer_id": item.transfer_id, "attempt": item.attempt, "transfer_type": item.transfer_type, "direction": item.direction, "source": "Input FASTQ manifest" if item.direction == "upload" else "Published result manifest", "destination": "Private OBS staging" if item.direction == "upload" else "Run-local result staging", "status": item.status, "progress_basis": "frozen_plan" if item.manifest_path else "legacy_estimate", "progress_detail_available": item.progress_detail_available, "bytes_total": item.bytes_total if item.progress_detail_available else None, "bytes_transferred": item.bytes_transferred if item.progress_detail_available else None, "files_total": item.files_total if item.progress_detail_available else None, "files_completed": item.files_completed if item.progress_detail_available else None, "current_file": item.current_file if item.progress_detail_available else None, "progress_percent": item.progress_percent if item.progress_detail_available else None, "speed_bps": item.speed_bps if item.progress_detail_available else None, "eta_seconds": item.eta_seconds if item.progress_detail_available else None, "estimated_finish_at": item.estimated_finish_at.isoformat() if item.progress_detail_available and item.estimated_finish_at else None, "checkpoint_ref": "recorded" if item.checkpoint_ref else None, "heartbeat_at": item.heartbeat_at.isoformat() if item.heartbeat_at else None, "verification_status": item.verification_status, "message": item.message, "error_message": item.error_message, "started_at": item.started_at.isoformat() if item.started_at else None, "ended_at": item.ended_at.isoformat() if item.ended_at else None} for item in items]}
+    return {"items": [serialize_transfer_job(item) for item in items]}
 
 
 @app.get("/api/transfers/{transfer_id}/files")
@@ -1503,7 +1508,7 @@ def transfer_files(transfer_id: str, status_filter: str | None = Query(default=N
                     "status": row.status,
                     "bytes_total": row.bytes_total,
                     "bytes_transferred": row.bytes_transferred,
-                    "progress_percent": round(row.bytes_transferred * 100 / row.bytes_total, 2) if row.bytes_total else 0,
+                    "progress_percent": round(row.bytes_transferred * 100 / row.bytes_total, 1) if row.bytes_total else 0.0,
                     "speed_bps": row.speed_bps,
                     "checksum_status": row.checksum_status,
                     "error_message": row.error_message,
@@ -1526,6 +1531,7 @@ def run_rules(
     sample_id: str | None = None,
     family_id: str | None = None,
     phase: str | None = None,
+    sort: str = Query(default="execution_order", pattern="^(execution_order|active_first)$"),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
@@ -1545,8 +1551,18 @@ def run_rules(
         if phase:
             query = query.where(RuleState.phase == phase)
         total = session.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
+        ordering = []
+        if sort == "active_first":
+            ordering.append(
+                case(
+                    (RuleState.status.in_(("running", "started")), 0),
+                    (RuleState.status.in_(("accepted", "submitted", "queued", "pending")), 1),
+                    else_=2,
+                )
+            )
         page = list(session.scalars(
             query.order_by(
+                *ordering,
                 RuleState.attempt,
                 RuleState.sequence.is_(None),
                 RuleState.sequence,
@@ -1610,8 +1626,9 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 or dispatch.desired_target != "node-97"
             ):
                 raise ValueError("node97 local stage does not match the committed execution target")
+            step7_action = None
             if stage_name == "step7_cleanup":
-                authorize_step7_runtime(
+                step7_action = authorize_step7_runtime(
                     session=session,
                     run=run,
                     action_id=str(request.maintenance_action_id or ""),
@@ -1964,6 +1981,20 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 validation_scope=str(params.get("validation_scope") or "") or None,
                 maintenance_action_id=request.maintenance_action_id,
             )
+            if step7_action is not None:
+                snapshot = dict(step7_action.target_snapshot_json or {})
+                snapshot.update(
+                    {
+                        "control_workdir": payload["control_workdir"],
+                        "analysis_project_root": payload["analysis_project_root"],
+                        "expected_batch_root": payload["expected_batch_root"],
+                        "cce_bundle": f"{payload['expected_batch_root']}/cce",
+                    }
+                )
+                step7_action.target_snapshot_json = snapshot
+                session.flush()
+                payload["step7_target_snapshot"] = snapshot
+                payload["step7_generation"] = step7_action.generation
             contract_v2 = bool(getattr(settings, "wgs_contract_v2_enabled", False)) and int(
                 params.get("orchestration_contract_version") or 1
             ) == 2
@@ -2347,6 +2378,8 @@ def repair_step4(
                 airflow_client=get_airflow_client(),
                 analysis_id=analysis_id,
                 requested_by=user.username,
+                retry_failed=request.retry_failed,
+                expected_action_id=request.expected_action_id,
             )
             if payload is not None:
                 audit(
@@ -2391,6 +2424,8 @@ def cleanup_step7(
                 analysis_id=analysis_id,
                 batch_confirmation=request.batch_confirmation,
                 requested_by=user.username,
+                retry_failed=request.retry_failed,
+                expected_action_id=request.expected_action_id,
             )
             if payload is not None:
                 audit(

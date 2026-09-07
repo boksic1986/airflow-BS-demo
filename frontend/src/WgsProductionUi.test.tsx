@@ -139,16 +139,17 @@ it("loads WGS resource tabs for an active run", async () => {
   expect(screen.getByText("0.7.1")).toBeInTheDocument();
   expect(screen.queryByText(/sha256:abc/)).not.toBeInTheDocument();
   expect(urls.filter((url) => url.endsWith("/api/runs/WGS_001/workspace"))).toHaveLength(1);
-  expect(urls.some((url) => url.includes("/api/runs/WGS_001/samples"))).toBe(false);
+  expect(urls.some((url) => url.includes("/api/runs/WGS_001/samples"))).toBe(true);
   expect(urls.some((url) => url.includes("/api/runs/WGS_001/pods"))).toBe(false);
-  expect(screen.getByText(/healthy/i)).toBeInTheDocument();
-  expect(screen.getByText(/active/i)).toBeInTheDocument();
+  expect(screen.queryByText(/Monitoring health/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/CCE monitor/i)).not.toBeInTheDocument();
   const snapshotGrid = container.querySelector(".run-detail-snapshot-grid");
   expect(snapshotGrid).toBeInTheDocument();
   expect(snapshotGrid?.children[0]).toContainElement(screen.getByRole("heading", {name: "Current progress"}));
   expect(snapshotGrid?.children[1]).toContainElement(screen.getByRole("heading", {name: "Pipeline evidence"}));
   fireEvent.click(screen.getByRole("tab", {name: "Samples"}));
-  expect(await screen.findByText("S1-WGS")).toBeInTheDocument();
+  expect(await screen.findByText("S1")).toBeInTheDocument();
+  expect(screen.queryByRole("columnheader", {name: "Data"})).not.toBeInTheDocument();
   expect(screen.getByText("2026-08-20")).toBeInTheDocument();
   expect(screen.queryByRole("columnheader", {name: "Safe QC metrics"})).not.toBeInTheDocument();
   expect(screen.getByRole("columnheader", {name: "QC"})).toBeInTheDocument();
@@ -204,10 +205,10 @@ it("renders independent WGS data lifecycle states without replacing workflow suc
   expect(await screen.findByRole("heading", {name: "Data lifecycle"})).toBeInTheDocument();
   expect(screen.getByText("Workflow success")).toBeInTheDocument();
   expect(screen.getByText("FASTQ backup running")).toBeInTheDocument();
-  expect(screen.getByText("Not started")).toBeInTheDocument();
+  expect(screen.getAllByText("Not started").length).toBeGreaterThan(0);
   expect(screen.getByText("SFS cleanup failed")).toBeInTheDocument();
   expect(screen.getByText("Post-run action failed; workflow results remain successful.")).toBeInTheDocument();
-  expect(screen.getByText("Result delivery")).toBeInTheDocument();
+  expect(screen.getAllByText("Result delivery").length).toBeGreaterThan(0);
   expect(screen.getAllByText("success").length).toBeGreaterThan(0);
 });
 

@@ -254,6 +254,10 @@ def _write_status(
         "updated_at": datetime.now(timezone.utc).isoformat(),
         **details,
     }
+    if payload.get("maintenance_action_id"):
+        value["maintenance_action_id"] = payload["maintenance_action_id"]
+    if payload.get("step7_generation"):
+        value["step7_generation"] = payload["step7_generation"]
     if int(payload.get("orchestration_contract_version") or 1) == 2:
         for key in ("execution_id", "generation", "request_hash"):
             if payload.get(key) in {None, ""}:
@@ -777,7 +781,35 @@ def build_step4_repair_command(payload: dict[str, Any]) -> list[str]:
 
 
 def build_step7_cleanup_command(payload: dict[str, Any]) -> list[str]:
-    binding = _load_binding(payload)
+    try:
+        binding = _load_binding(payload)
+    except (FileNotFoundError, OSError, ValueError, RuntimeError) as error:
+        snapshot = payload.get("step7_target_snapshot")
+        if not isinstance(snapshot, dict):
+            raise RuntimeError(
+                "frozen WGS cleanup identity is unavailable; needs recovery"
+            ) from error
+        expected_identity = {
+            "analysis_id": str(payload.get("analysis_id") or ""),
+            "attempt": int(payload.get("attempt") or 0),
+            "run_id": f"{payload.get('analysis_id')}-a{int(payload.get('attempt') or 0)}",
+        }
+        if any(snapshot.get(key) != value for key, value in expected_identity.items()):
+            raise RuntimeError(
+                "frozen WGS cleanup identity does not match the request; needs recovery"
+            ) from error
+        target_text = str(snapshot.get("expected_batch_root") or "")
+        target = Path(target_text)
+        if not target.is_absolute() or ".." in target.parts:
+            raise RuntimeError(
+                "frozen WGS cleanup target is incomplete; needs recovery"
+            ) from error
+        if target.exists():
+            raise RuntimeError(
+                "frozen WGS cleanup target is partially present; needs recovery"
+            ) from error
+        payload["step7_completion_mode"] = "verified_absent"
+        return ["/usr/bin/true"]
     components = [
         str(binding.get("project") or ""),
         str(binding.get("batch") or ""),
@@ -1483,7 +1515,7 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
         if status.get("status") == "failed" and int(
             payload.get("orchestration_contract_version") or 1
         ) != 2:
-            if payload["stage"] not in {"step4_publish", "step5_download"}:
+            if payload["stage"] not in {"step4_publish", "step5_download", "step7_cleanup"}:
                 raise RuntimeError(
                     "failed runtime stages cannot be restarted by the restricted runner"
                 )
@@ -1549,7 +1581,10 @@ def _run_worker(payload: dict[str, Any]) -> int:
     except Exception as error:
         _write_status(payload, "failed", str(error), retry_no=retry_no)
         raise
-    _write_status(payload, "success", retry_no=retry_no)
+    success_details = {"retry_no": retry_no}
+    if payload.get("step7_completion_mode"):
+        success_details["completion_mode"] = payload["step7_completion_mode"]
+    _write_status(payload, "success", **success_details)
     return 0
 
 

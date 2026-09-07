@@ -1,5 +1,26 @@
 # HANDOFF.md
 
+## 2026-09-08 T227 transfer progress and Step7 recovery implementation
+
+T227 is isolated at `main@0e2cab3` on
+`jiucheng/wgs/T227-progress-step7-console-fix`. It centralizes aggregate
+transfer serialization, drives Current Progress and the active Transfer from
+one five-second workspace snapshot, and completes the requested transfer-file,
+Overview, Samples, Rules, Pipeline evidence, and Batch Runs Workflow display
+changes. Migration 0018 adds immutable Step7 generations and frozen recovery
+identity; retries require the exact failed action ID and ambiguous remnants
+remain failed.
+
+Focused BS10610 backend/runtime validation passed 20 selected regressions and
+py_compile. The .96 cached Node test image passed 5 files/21 tests, the added
+Step7 retry UI regression passed, and `tsc -b && vite build` passed. Offline
+PostgreSQL SQL generation traversed migrations 0001 through the single 0018
+head. No T227 production component has been changed yet. Production must
+remain on WGS 4.1.1 / contract v1, and the active
+20260906B worker must be observed before and after any rollout. The only new
+node200 environment requirement is
+`WGS_RUNTIME_RUN_ROOT=/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/runs`.
+
 ## 2026-09-08 T226 production SDK transfer and mainline synchronization
 
 `20260906B` (`WGS_20260907_152648_54EFF2-a1`) was paused at Step1 without releasing its upload lease or deleting uploaded data. The old transfer used aggregate v1 evidence and could not populate the frontend file table. The accepted `cce-pipeline` source is `b5696065bc24ab2049e46dc3c1b9594771bfce28`; it now runs on node200 with the shared `nipttest` interpreter and a node-local pure-Python overlay. The installed runtime gate matches `main@afc4230`.

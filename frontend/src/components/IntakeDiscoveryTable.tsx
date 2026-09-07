@@ -1,6 +1,6 @@
 import type {IntakeDiscovery} from "../api";
 
-import {compactPipelineName, displayTimeZoneLabel, formatBytes, formatDate} from "../lib/format";
+import {compactPipelineName, displayTimeZoneLabel, formatBytes, formatDate, formatPercent} from "../lib/format";
 import {intakeDisplay} from "../lib/intake";
 import {RunProgressBar} from "./RunProgressBar";
 import {StatusBadge} from "./StatusBadge";
@@ -75,7 +75,7 @@ export function IntakeDiscoveryTable({
                         compact
                         progress={{
                           percent: item.progress_percent || 0,
-                          label: `${Math.round(item.progress_percent || 0)}%`,
+                          label: formatPercent(item.progress_percent || 0),
                           currentStep: hasIntakeError ? "Intake validation failed" : item.current_stage || discoveryStage(item),
                           note: item.analysis_id ? "Linked pipeline state" : `${item.file_count} files / ${formatBytes(item.total_bytes)}`,
                           notInAirflow: !item.analysis_id,

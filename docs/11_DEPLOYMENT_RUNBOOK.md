@@ -25,3 +25,19 @@ Compose joins an existing external network named by `NGS_PLATFORM_NETWORK`. This
 7. Record exact commands and results in `HANDOFF.md`.
 
 Production deployment and restart require separate approval. Candidate validation must not connect to the running CCE task path.
+
+## T227 production runtime requirement
+
+The node200 restricted runtime must define:
+
+```text
+WGS_RUNTIME_RUN_ROOT=/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/runs
+```
+
+Deploy the T227 runtime gate and environment without stopping an active
+Step1-Step6 worker. Apply migration `20260908_0018` before exposing the Step7
+retry UI, then restart only backend/observer/frontend components required by
+the release. Do not restart Airflow scheduler/worker or release an active OBS
+lease. Restore failed Step7 generations only after exact target, CCE workload,
+and lease identity checks; an absent target may be recorded as
+`verified_absent`, while partial or ambiguous remnants remain failed.

@@ -42,7 +42,7 @@ export function RunTable({
                 <Link className="resource-link secondary" to={`/runs/${encodeURIComponent(run.analysis_id)}`}>
                   {run.analysis_id}
                 </Link>
-                <small className="muted">Operator {run.submitted_by || "not captured"}</small>
+                <small className="muted">{run.submitted_by || "not captured"}</small>
               </td>
               <td><strong>{run.batch_no || "-"}</strong></td>
               <td>{compactPipelineName(run.pipeline)}</td>
@@ -51,7 +51,11 @@ export function RunTable({
                 <StatusBadge status={run.status} />
               </td>
               <td>
-                <WorkflowStageRail analysisId={run.analysis_id} pipeline={run.pipeline} stages={run.workflow_summary} />
+                {run.workflow_summary?.length ? (
+                  <WorkflowStageRail analysisId={run.analysis_id} pipeline={run.pipeline} stages={run.workflow_summary} />
+                ) : (
+                  <span className="workflow-fallback"><StatusBadge status={run.workflow_status || run.status} />{run.workflow_label || "Workflow status unavailable"}</span>
+                )}
               </td>
               <td><span className="block">Submitted {formatDate(run.submitted_at)}</span><small>Started {formatDate(run.started_at)}</small></td>
               <td>{finishedLabel(run)}</td>

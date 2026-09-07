@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T227 transfer progress and Step7 recovery implementation
+
+```text
+scope: unify active transfer projection and refresh cadence, finish the previously requested Run Detail/Transfers/Rules/Overview/Samples/Batch Runs refinements, and make failed Step7 cleanup recoverable through immutable generations.
+progress: workspace.active_transfer and /transfers share one byte-derived one-decimal serializer. The frontend uses one five-second visibility-aware workspace poll for Current Progress and the active Transfer, with per-file time/progress/checksum presentation and active-first Rules.
+step7: migration 0018 preserves every action generation, retries require the exact failed action ID, and runtime recovery can report verified_absent only from a matching frozen identity. Partial or ambiguous remnants fail closed.
+compatibility: WGS 4.1.1 and orchestration contract v1 remain unchanged. T222 prepare contract v2 stays disabled, and no running CCE or Step1-Step6 task is modified by source implementation.
+validation: BS10610 focused backend/runtime suite passed 20 tests, the .96 cached Node test image passed 5 files/21 tests plus the Step7 retry regression, TypeScript/Vite production build passed, py_compile passed, and the offline PostgreSQL migration chain reached the single 0018 head. No Docker Hub package/image download was used. Production has not yet been changed by T227.
+```
+
 ## 2026-09-08 T226 production SDK transfer and mainline synchronization
 
 ```text

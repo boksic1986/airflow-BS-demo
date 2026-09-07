@@ -61,6 +61,8 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
                 "analysis_log_key": (rule_logs.get(row.rule_instance_id) or {}).get("analysis_log_key"),
                 "start_time": _iso(row.started_at),
                 "end_time": _iso(projected_ended_at),
+                "started_at": _iso(row.started_at),
+                "ended_at": _iso(projected_ended_at),
                 "elapsed_seconds": elapsed,
                 "historical_median_seconds": history_median,
                 "estimated_remaining_seconds": remaining,

@@ -8,7 +8,7 @@ import {formatDate} from "../../lib/format";
 export function Step7CleanupPanel({capability, acting = false, onCleanup}: {
   capability: Step7CleanupCapability;
   acting?: boolean;
-  onCleanup: (batchConfirmation: string) => void;
+  onCleanup: (batchConfirmation: string, retryFailed?: boolean) => void;
 }) {
   const [acknowledged, setAcknowledged] = useState(false);
   const [batchConfirmation, setBatchConfirmation] = useState("");
@@ -17,6 +17,8 @@ export function Step7CleanupPanel({capability, acting = false, onCleanup}: {
   const normalizedConfirmation = batchConfirmation.trim();
   const matches = requiredBatch.length > 0 && normalizedConfirmation === requiredBatch;
   const latest = capability.latest_action;
+  const retryFailed = Boolean(latest?.status === "failed" && capability.retry_available);
+  const canRequest = capability.available || retryFailed;
 
   async function copyRequiredBatch() {
     try {
@@ -47,6 +49,7 @@ export function Step7CleanupPanel({capability, acting = false, onCleanup}: {
           <p className="maintenance-progress-stage">{step7StageLabel(latest.status)}</p>
           <dl className="detail-list compact">
             <div><dt>Requested</dt><dd>{formatDate(latest.created_at)}</dd></div>
+            <div><dt>Generation</dt><dd>{latest.generation ?? 1}</dd></div>
             <div><dt>Started</dt><dd>{formatDate(latest.started_at)}</dd></div>
             <div><dt>Finished</dt><dd>{formatDate(latest.ended_at)}</dd></div>
           </dl>
@@ -54,7 +57,7 @@ export function Step7CleanupPanel({capability, acting = false, onCleanup}: {
           {latest.error_message ? <div className="inline-error" role="alert">{latest.error_message}</div> : null}
         </div>
       ) : null}
-      {capability.available ? (
+      {canRequest ? (
         <>
           <label className="field checkbox-field">
             <input
@@ -99,9 +102,9 @@ export function Step7CleanupPanel({capability, acting = false, onCleanup}: {
             className="button danger"
             type="button"
             disabled={acting || !acknowledged || !matches}
-            onClick={() => onCleanup(normalizedConfirmation)}
+            onClick={() => onCleanup(normalizedConfirmation, retryFailed)}
           >
-            Run Step7 SFS cleanup
+            {retryFailed ? "Retry Step7 SFS cleanup" : "Run Step7 SFS cleanup"}
           </button>
         </>
       ) : null}

@@ -69,6 +69,11 @@ export function formatBytes(value?: number | null): string {
   return `${(value / 1024 ** 4).toFixed(1)} TiB`;
 }
 
+export function formatPercent(value?: number | null): string {
+  if (value == null || !Number.isFinite(Number(value))) return "-";
+  return `${Math.max(0, Math.min(100, Number(value))).toFixed(1)}%`;
+}
+
 export function formatProgressUnits(
   completed?: number | null,
   total?: number | null,

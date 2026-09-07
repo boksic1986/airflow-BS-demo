@@ -6,7 +6,7 @@ import secrets
 from sqlalchemy import select
 
 from app.airflow_idempotency import ensure_dag_run
-from app.models import AnalysisRun, KubernetesWorkload, RunStageState, WgsMaintenanceAction
+from app.models import AnalysisRun, KubernetesWorkload, ObsTransferLease, RunAttempt, RunStageState, WgsMaintenanceAction
 from app.wgs_run_projection import public_wgs_batch
 from app.wgs_step4_service import serialize_maintenance_action
 
@@ -17,7 +17,7 @@ ACTIVE_STATES = {"requested", "queued", "running"}
 
 def get_step7_capability(*, session, run: AnalysisRun, execution_enabled: bool,
                          runtime_adapter_enabled: bool) -> dict:
-    latest = session.scalar(
+    history = list(session.scalars(
         select(WgsMaintenanceAction)
         .where(
             WgsMaintenanceAction.analysis_id == run.analysis_id,
@@ -25,7 +25,8 @@ def get_step7_capability(*, session, run: AnalysisRun, execution_enabled: bool,
             WgsMaintenanceAction.action_type == ACTION_TYPE,
         )
         .order_by(WgsMaintenanceAction.id.desc())
-    )
+    ).all())
+    latest = history[0] if history else None
     reason = _block_reason(session, run, execution_enabled, runtime_adapter_enabled)
     if latest:
         if latest.status in ACTIVE_STATES:
@@ -37,13 +38,20 @@ def get_step7_capability(*, session, run: AnalysisRun, execution_enabled: bool,
     return {
         "available": reason is None,
         "reason": reason,
+        "retry_available": bool(
+            latest and latest.status == "failed" and _block_reason(
+                session, run, execution_enabled, runtime_adapter_enabled
+            ) is None
+        ),
         "required_batch": _confirmation_batch(run),
         "latest_action": serialize_maintenance_action(latest) if latest else None,
+        "history": [serialize_maintenance_action(item) for item in history],
     }
 
 
 def request_step7_cleanup(*, session, airflow_client, analysis_id: str, batch_confirmation: str,
-                          requested_by: str) -> dict | None:
+                          requested_by: str, retry_failed: bool = False,
+                          expected_action_id: str | None = None) -> dict | None:
     run = session.scalar(
         select(AnalysisRun).where(
             AnalysisRun.analysis_id == analysis_id,
@@ -60,7 +68,7 @@ def request_step7_cleanup(*, session, airflow_client, analysis_id: str, batch_co
             WgsMaintenanceAction.analysis_id == analysis_id,
             WgsMaintenanceAction.attempt == run.attempt,
             WgsMaintenanceAction.action_type == ACTION_TYPE,
-        )
+        ).order_by(WgsMaintenanceAction.generation.desc())
     )
     if existing is not None:
         if existing.status == "requested":
@@ -68,10 +76,18 @@ def request_step7_cleanup(*, session, airflow_client, analysis_id: str, batch_co
             existing.status = "queued"
             existing.updated_at = datetime.now(timezone.utc)
             session.commit()
-        return serialize_maintenance_action(existing)
+        if not retry_failed:
+            return serialize_maintenance_action(existing)
+        if existing.status != "failed":
+            raise ValueError("step7_retry_requires_failed_action")
+        if not expected_action_id or existing.action_id != expected_action_id:
+            raise ValueError("stale_step7_action")
+    elif retry_failed:
+        raise ValueError("step7_retry_requires_failed_action")
     reason = _block_reason(session, run, True, True)
     if reason:
         raise ValueError(reason)
+    generation = int(existing.generation if existing else 0) + 1
     action_id = f"step7-sfs-{secrets.token_hex(6)}"
     dag_run_id = f"maintenance__{analysis_id}__a{run.attempt}__step7__{action_id[-12:]}"
     action = WgsMaintenanceAction(
@@ -79,6 +95,9 @@ def request_step7_cleanup(*, session, airflow_client, analysis_id: str, batch_co
         analysis_id=analysis_id,
         attempt=run.attempt,
         action_type=ACTION_TYPE,
+        generation=generation,
+        retry_of_action_id=existing.action_id if existing else None,
+        target_snapshot_json=_target_snapshot(session=session, run=run),
         linkage_group="sfs",
         status="requested",
         requested_by=requested_by,
@@ -128,6 +147,8 @@ def _trigger_step7_action(airflow_client, run: AnalysisRun, action: WgsMaintenan
             "params": dict(run.params_json or {}),
             "maintenance_mode": "cleanup_step7",
             "maintenance_action_id": action.action_id,
+            "step7_generation": action.generation,
+            "step7_target_snapshot": dict(action.target_snapshot_json or {}),
             "source_dag_run_id": run.dag_run_id,
         },
     )
@@ -161,6 +182,14 @@ def _block_reason(session, run: AnalysisRun, execution_enabled: bool, runtime_en
     )
     if active is not None:
         return "cce_workload_active"
+    active_lease = session.scalar(
+        select(ObsTransferLease.slot_name).where(
+            ObsTransferLease.analysis_id == run.analysis_id,
+            ObsTransferLease.attempt == run.attempt,
+        ).limit(1)
+    )
+    if active_lease is not None:
+        return "transfer_lease_active"
     return None
 
 
@@ -168,3 +197,24 @@ def _confirmation_batch(run: AnalysisRun) -> str:
     """Return the privacy-safe public batch identity used for typed confirmation."""
 
     return str(public_wgs_batch(run.params_json) or "").strip()
+
+
+def _target_snapshot(*, session, run: AnalysisRun) -> dict[str, object]:
+    params = dict(run.params_json or {})
+    attempt = session.scalar(
+        select(RunAttempt).where(
+            RunAttempt.analysis_id == run.analysis_id,
+            RunAttempt.attempt == run.attempt,
+        )
+    )
+    resolved = params.get("resolved_runtime")
+    resolved = resolved if isinstance(resolved, dict) else {}
+    return {
+        "analysis_id": run.analysis_id,
+        "attempt": run.attempt,
+        "project": str(params.get("project_name") or ""),
+        "batch": _confirmation_batch(run),
+        "run_id": f"{run.analysis_id}-a{run.attempt}",
+        "run_label": str((attempt.run_label if attempt else None) or resolved.get("run_label") or ""),
+        "namespace": str(resolved.get("namespace") or ""),
+    }

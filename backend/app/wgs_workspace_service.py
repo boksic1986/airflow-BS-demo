@@ -8,6 +8,7 @@ from sqlalchemy import case, func, select
 
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState, RunValidationIssue, Sample, TransferJob
 from app.wgs_stage_contract import canonical_wgs_stage, project_wgs_orchestration, wgs_stage_definition
+from app.wgs_transfer_projection import serialize_transfer_job
 
 
 ACTIVE_TRANSFER_STATUSES = {
@@ -116,6 +117,10 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
         if stage_row is not None and stage_row.progress_available
         else int(run.progress_percent or 0)
     )
+    transfer_payload = serialize_transfer_job(active_transfer)
+    transfer_stage = stage_code in {"step1_upload", "step5_download"}
+    if transfer_stage and transfer_payload is not None:
+        progress_percent = transfer_payload["progress_percent"]
     progress = {
         "analysis_id": run.analysis_id,
         "pipeline": run.pipeline_name,
@@ -136,15 +141,35 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
         "step_number": stage_row.step_number if stage_row is not None else stage_definition.step_number,
         "stage_label": stage_row.stage_label if stage_row is not None else stage_definition.label,
         "stage_status": stage_row.stage_status if stage_row is not None else run.status,
-        "progress_available": bool(stage_row and stage_row.progress_available),
+        "progress_available": bool(
+            transfer_payload is not None
+            if transfer_stage
+            else stage_row and stage_row.progress_available
+        ),
         "progress_percent": progress_percent,
-        "completed_units": stage_row.completed_units if stage_row is not None else None,
-        "total_units": stage_row.total_units if stage_row is not None else None,
+        "completed_units": (
+            transfer_payload["bytes_transferred"]
+            if transfer_stage and transfer_payload is not None
+            else stage_row.completed_units if stage_row is not None else None
+        ),
+        "total_units": (
+            transfer_payload["bytes_total"]
+            if transfer_stage and transfer_payload is not None
+            else stage_row.total_units if stage_row is not None else None
+        ),
         "unit": stage_row.unit if stage_row is not None else None,
         "current_item": stage_row.current_item if stage_row is not None else None,
-        "speed_bps": stage_row.speed_bps if stage_row is not None else None,
+        "speed_bps": (
+            transfer_payload["speed_bps"]
+            if transfer_stage and transfer_payload is not None
+            else stage_row.speed_bps if stage_row is not None else None
+        ),
         "eta_seconds": stage_row.eta_seconds if stage_row is not None else None,
-        "stage_updated_at": stage_row.updated_at.isoformat() if stage_row is not None else None,
+        "stage_updated_at": (
+            transfer_payload["heartbeat_at"]
+            if transfer_stage and transfer_payload is not None
+            else stage_row.updated_at.isoformat() if stage_row is not None else None
+        ),
         "orchestration_stages": _workspace_stages(
             run_status=run.status,
             current_stage=raw_stage,
@@ -153,6 +178,7 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
         ),
     }
     return {
+        "snapshot_at": datetime.now(timezone.utc).isoformat(),
         "run": run_payload,
         "summary": {
             "sample_count": int(sample_count),
@@ -160,7 +186,7 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
             "failed_rule_count": int(failed_rule_count or 0),
         },
         "progress": progress,
-        "active_transfer": _serialize_transfer(active_transfer),
+        "active_transfer": transfer_payload,
         "validation_issues": [
             {
                 "id": row.id,
@@ -281,22 +307,3 @@ def _heavy_slot_waiting_count(evidence_root: str | None) -> int:
         except (OSError, TypeError, ValueError, json.JSONDecodeError):
             continue
     return waiting
-
-
-def _serialize_transfer(row: TransferJob | None) -> dict | None:
-    if row is None:
-        return None
-    return {
-        "transfer_id": row.transfer_id,
-        "direction": row.direction,
-        "status": row.status,
-        "progress_percent": row.progress_percent if row.progress_detail_available else None,
-        "bytes_total": row.bytes_total if row.progress_detail_available else None,
-        "bytes_transferred": row.bytes_transferred if row.progress_detail_available else None,
-        "files_total": row.files_total if row.progress_detail_available else None,
-        "files_completed": row.files_completed if row.progress_detail_available else None,
-        "current_file": row.current_file if row.progress_detail_available else None,
-        "speed_bps": row.speed_bps if row.progress_detail_available else None,
-        "eta_seconds": row.eta_seconds if row.progress_detail_available else None,
-        "heartbeat_at": row.heartbeat_at.isoformat() if row.heartbeat_at else None,
-    }

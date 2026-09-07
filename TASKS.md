@@ -1,5 +1,25 @@
 # TASKS.md
 
+## T227 - Transfer progress consistency and Step7 recovery
+
+Owner: WGS/backend/runtime/frontend/operations
+
+Status: implementation and focused validation complete; mainline/deployment pending
+
+Acceptance:
+- [x] Project Current Progress and the active Transfer from one database snapshot and format all percentages to one decimal place.
+- [x] Aggregate only current frozen-plan file transfer speeds and expose transfer/file start and finish timestamps.
+- [x] Add the privacy-safe manifest summary, active-first Rule page, compact Pipeline evidence, Samples cleanup, and Batch Runs Workflow fallback.
+- [x] Add generation-fenced Step7 retry history and frozen-target recovery with fail-closed partial-remnant handling.
+- [x] Add node200 `WGS_RUNTIME_RUN_ROOT` deployment requirement without changing WGS 4.1.1 or contract v1.
+- [x] Complete the one focused backend/runtime/frontend validation and production build without Docker Hub.
+- [ ] Merge and push `main`, deploy only required components, verify 20260906B continuity, and recover the approved failed Step7 actions.
+
+Restrictions:
+- Do not enable T222 contract v2 or WGS 4.2.0.
+- Do not stop/restart Airflow scheduler/worker, CCE workloads, or active Step1-Step6 workers.
+- Do not execute the unrequested 20260904B Step7 action.
+
 ## T226 - Synchronize production Step1-Step6 SDK runtime and mainline
 
 Owner: WGS/runtime/operations/frontend

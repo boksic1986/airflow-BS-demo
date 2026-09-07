@@ -1077,6 +1077,33 @@ def test_step7_cleanup_is_admin_only_and_disabled_by_default(tmp_path, monkeypat
     assert airflow.calls == []
 
 
+def test_step7_cleanup_forwards_retry_generation_fence(tmp_path, monkeypatch):
+    client, _, _ = make_client(tmp_path, monkeypatch)
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    captured = {}
+
+    def fake_request(**kwargs):
+        captured.update(kwargs)
+        return {"action_id": "step7-new", "generation": 2}
+
+    monkeypatch.setattr("app.main.request_step7_cleanup", fake_request)
+    headers = login(client, "admin", "admin-pass")
+    response = client.post(
+        "/api/runs/WGS_STEP7/actions/cleanup-step7",
+        headers=headers,
+        json={
+            "batch_confirmation": "20260905A",
+            "retry_failed": True,
+            "expected_action_id": "step7-old",
+        },
+    )
+
+    assert response.status_code == 202, response.text
+    assert captured["retry_failed"] is True
+    assert captured["expected_action_id"] == "step7-old"
+
+
 def test_internal_step7_cannot_bypass_admin_maintenance_action(tmp_path, monkeypatch):
     client, sessions, _ = make_client(tmp_path, monkeypatch)
     monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
@@ -1995,6 +2022,7 @@ def test_wgs_samples_endpoint_returns_safe_manifest_and_backend_state_matrix(
             [
                 "姓名", "送检医院", "样本编号", "数据编号", "样本类型",
                 "家系编号", "家系关系", "收样日期", "预计报告日期",
+                "订单编号", "检测项目", "检测方法",
             ]
         )
         + "\n"
@@ -2002,6 +2030,7 @@ def test_wgs_samples_endpoint_returns_safe_manifest_and_backend_state_matrix(
             [
                 "PRIVATE NAME", "PRIVATE HOSPITAL", "SAMPLE-1", "DATA-1-WGS",
                 "全血", "FAMILY-1", "先证者", "2026-09-01", "2026-09-20",
+                "PRIVATE-ORDER-001", "全基因组测序", "WGS",
             ]
         )
         + "\n",
@@ -2094,6 +2123,20 @@ def test_wgs_samples_endpoint_returns_safe_manifest_and_backend_state_matrix(
     ]
     assert "PRIVATE NAME" not in response.text
     assert "PRIVATE HOSPITAL" not in response.text
+    assert "PRIVATE-ORDER-001" not in response.text
+    assert payload["manifest_summary"] == {
+        "batch": "20260904A",
+        "sample_count": 1,
+        "family_count": 1,
+        "order_count": 1,
+        "sample_types": ["全血"],
+        "received_date_range": {"start": "2026-09-01", "end": "2026-09-01"},
+        "estimated_report_date_range": {"start": "2026-09-20", "end": "2026-09-20"},
+        "test_projects": ["全基因组测序"],
+        "test_methods": ["WGS"],
+        "result_delivery_status": "not_started",
+        "project_path": "clinical-wgs/WGS_20260904A_T7Hg38V4.1.1",
+    }
     assert payload["items"][0] | {
         "current_rule": "QualCal",
         "completed_rules": 1,
@@ -3280,6 +3323,7 @@ def test_wgs_rules_use_sql_pagination_and_batched_eta_queries(tmp_path, monkeypa
             session.add(RuleState(analysis_id=history_id, attempt=1, rule_instance_id=f"history-{history_index}", rule_name="mapping", layer=1, status="success", started_at=datetime(2026, 9, 1, tzinfo=timezone.utc), ended_at=datetime(2026, 9, 1, 0, 2, tzinfo=timezone.utc)))
         for index in range(120):
             session.add(RuleState(analysis_id=run.analysis_id, attempt=1, rule_instance_id=f"rule-{index:03d}", rule_name="mapping", phase="Pre-calling", sequence=index, layer=1, sample_id=f"S{index:03d}", status="success"))
+        session.add(RuleState(analysis_id=run.analysis_id, attempt=1, rule_instance_id="rule-running", rule_name="active_rule", phase="Variant analysis", sequence=999, layer=1, sample_id="S999", status="running", started_at=datetime(2026, 9, 8, tzinfo=timezone.utc)))
         session.commit()
 
     engine = sessions.kw["bind"]
@@ -3288,14 +3332,17 @@ def test_wgs_rules_use_sql_pagination_and_batched_eta_queries(tmp_path, monkeypa
         statements.append(statement)
     event.listen(engine, "before_cursor_execute", before_cursor_execute)
     try:
-        response = client.get("/api/runs/WGS_RULE_PAGE/rules", headers=headers)
+        response = client.get("/api/runs/WGS_RULE_PAGE/rules?sort=active_first", headers=headers)
     finally:
         event.remove(engine, "before_cursor_execute", before_cursor_execute)
 
     assert response.status_code == 200, response.text
-    assert response.json()["total"] == 120
+    assert response.json()["total"] == 121
     assert response.json()["limit"] == 50
     assert len(response.json()["items"]) == 50
+    assert response.json()["items"][0]["rule_instance_id"] == "rule-running"
+    assert response.json()["items"][0]["started_at"] is not None
+    assert response.json()["items"][0]["ended_at"] is None
     assert len(statements) <= 8
 
 

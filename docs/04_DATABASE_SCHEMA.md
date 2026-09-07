@@ -1,5 +1,15 @@
 # 04 数据库设计
 
+## T227 Step7 generation history
+
+Migration `20260908_0018` extends `wgs_maintenance_action` with `generation`,
+`retry_of_action_id`, and `target_snapshot_json`. The unique execution identity
+is `analysis_id + attempt + action_type + generation`; migration backfills all
+existing actions as generation 1 and preserves failed history. A retry creates a
+new action and DagRun, so an older Airflow callback cannot overwrite the latest
+generation. The frozen snapshot stores only controlled execution identity and
+cleanup targets; it contains no patient data or credentials.
+
 ## T218 independent WGS lifecycle status
 
 Migration `20260907_0017` follows `20260907_0016` and adds

@@ -1,9 +1,9 @@
-import type {Artifact, RunConfig, RunDetail, WgsSampleManifestRow} from "../../api";
+import type {Artifact, RunConfig, RunDetail, WgsManifestSummary, WgsSampleManifestRow} from "../../api";
 
 import {StatusBadge} from "../../components/StatusBadge";
 import {compactPipelineName, formatBytes, formatDate, safeJson} from "../../lib/format";
 
-export function RunOverviewTab({detail, samples, sampleCount}: {detail: RunDetail; samples: WgsSampleManifestRow[]; sampleCount?: number}) {
+export function RunOverviewTab({detail, samples, sampleCount, manifestSummary}: {detail: RunDetail; samples: WgsSampleManifestRow[]; sampleCount?: number; manifestSummary?: WgsManifestSummary | null}) {
   return (
     <div className="overview-stack">
       <div className="definition-grid">
@@ -20,10 +20,20 @@ export function RunOverviewTab({detail, samples, sampleCount}: {detail: RunDetai
         <div><dt>Airflow started</dt><dd>{formatDate(detail.started_at)}</dd></div>
         <div><dt>Finished</dt><dd>{formatDate(detail.pipeline_finished_at || detail.ended_at)}</dd></div>
       </div>
-      {samples.length ? <section>
-        <div className="section-heading"><h2>Selected samples manifest</h2><p>Privacy-safe fields from the frozen sampleinfo.tsv</p></div>
-        <SamplesManifestTable samples={samples} />
-      </section> : null}
+      <section>
+        <div className="section-heading"><h2>Batch manifest summary</h2><p>Privacy-safe aggregates from the frozen sampleinfo.tsv.</p></div>
+        <div className="definition-grid manifest-summary-grid">
+          <div><dt>Samples / families</dt><dd>{manifestSummary ? `${manifestSummary.sample_count ?? sampleCount ?? samples.length} / ${manifestSummary.family_count ?? "-"}` : "Pending"}</dd></div>
+          <div><dt>Orders</dt><dd>{manifestSummary?.order_count ?? "-"}</dd></div>
+          <div><dt>Sample types</dt><dd>{manifestSummary?.sample_types?.join(", ") || "-"}</dd></div>
+          <div><dt>Received</dt><dd>{dateRange(manifestSummary?.received_date_range)}</dd></div>
+          <div><dt>Estimated report</dt><dd>{dateRange(manifestSummary?.estimated_report_date_range)}</dd></div>
+          <div><dt>Test project</dt><dd>{manifestSummary?.test_projects?.join(", ") || "-"}</dd></div>
+          <div><dt>Method</dt><dd>{manifestSummary?.test_methods?.join(", ") || "-"}</dd></div>
+          <div><dt>Result delivery</dt><dd><StatusBadge status={manifestSummary?.result_delivery_status || "not_started"} /></dd></div>
+          <div><dt>Project path</dt><dd className="path-text">{manifestSummary?.project_path || "not recorded"}</dd></div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -74,18 +84,9 @@ export function RunConfigTab({detail, artifacts, config}: {detail: RunDetail; ar
   );
 }
 
-function SamplesManifestTable({samples}: {samples: WgsSampleManifestRow[]}) {
-  return (
-    <div className="table-wrap">
-      <table className="data-table compact manifest-table">
-        <thead><tr><th>Sample</th><th>Data</th><th>Type</th><th>Family</th><th>Relation</th><th>Received</th><th>Estimated report</th></tr></thead>
-        <tbody>
-          {samples.map((sample) => <tr key={sample.sample_id}><td>{sample.sample_id}</td><td>{sample.data_id || "-"}</td><td>{sample.sample_type || "-"}</td><td>{sample.family_id || "-"}</td><td>{sample.family_relation || "-"}</td><td>{sample.received_date || "-"}</td><td>{sample.estimated_report_date || "-"}</td></tr>)}
-          {samples.length === 0 ? <tr><td className="empty-cell" colSpan={7}>Frozen sampleinfo is not available yet.</td></tr> : null}
-        </tbody>
-      </table>
-    </div>
-  );
+function dateRange(value?: {start: string; end: string} | null): string {
+  if (!value) return "-";
+  return value.start === value.end ? value.start : `${value.start} – ${value.end}`;
 }
 
 function ArtifactRow({artifact}: {artifact: Artifact}) {

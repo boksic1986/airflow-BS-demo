@@ -3785,7 +3785,7 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
   gap: 14px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .run-detail-snapshot-grid > * {
@@ -3794,6 +3794,7 @@ textarea {
 
 .pipeline-evidence-grid {
   grid-template-columns: 1fr;
+  row-gap: 0.8rem;
 }
 
 .sfs-io-current {
@@ -3843,6 +3844,24 @@ textarea {
   margin-top: 0.25rem;
   max-width: 34rem;
   overflow-wrap: anywhere;
+}
+
+.file-progress-cell {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 12rem;
+}
+
+.file-progress-cell progress {
+  width: 9rem;
+  height: 0.45rem;
+}
+
+.workflow-fallback {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
 }
 
 .destructive-panel { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); }

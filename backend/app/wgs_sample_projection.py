@@ -3,11 +3,12 @@ from __future__ import annotations
 import csv
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 from typing import Any
 
 from sqlalchemy import select
 
-from app.models import AnalysisRun, RuleState, Sample
+from app.models import AnalysisRun, RuleState, Sample, WgsLifecycleStatus
 from app.wgs_artifact_selection import select_batch_qcstat
 from app.wgs_run_projection import load_wgs_runtime_binding, resolve_bound_wgs_batch_root
 from app.workflow_phases import wgs_phase_for_rule
@@ -32,7 +33,9 @@ def get_wgs_sample_projection(*, session, settings, run: AnalysisRun) -> dict[st
     controlled QCstat artifact so React never has to reinterpret runtime state.
     """
     batch_root = _batch_root(settings=settings, run=run)
-    manifest = _read_manifest(batch_root / "sampleinfo.tsv") if batch_root else []
+    manifest, manifest_summary = (
+        _read_manifest(batch_root / "sampleinfo.tsv") if batch_root else ([], {})
+    )
     qc = _read_qc(batch_root) if batch_root else {}
     samples = session.scalars(
         select(Sample).where(Sample.analysis_id == run.analysis_id).order_by(Sample.sample_id)
@@ -58,7 +61,35 @@ def get_wgs_sample_projection(*, session, settings, run: AnalysisRun) -> dict[st
         )
         for sample in samples
     ]
-    return {"manifest": manifest, "items": items}
+    delivery = session.scalar(
+        select(WgsLifecycleStatus).where(
+            WgsLifecycleStatus.analysis_id == run.analysis_id,
+            WgsLifecycleStatus.attempt == int(run.attempt or 1),
+            WgsLifecycleStatus.kind == "downstream_release",
+        )
+    )
+    params = dict(run.params_json or {})
+    controlled_relative_path = _controlled_relative_path(params)
+    manifest_summary.update(
+        {
+            "batch": _display_batch(
+                params.get("analysis_batch")
+                or params.get("sequencing_batch")
+                or params.get("batch_no")
+            ),
+            "result_delivery_status": delivery.status if delivery else "not_started",
+            "project_path": controlled_relative_path,
+        }
+    )
+    return {"manifest": manifest, "manifest_summary": manifest_summary, "items": items}
+
+
+def _display_batch(value: Any) -> str | None:
+    text = _text(value)
+    if not text:
+        return None
+    match = re.search(r"(?<![0-9])20[0-9]{6}[A-Z](?![A-Z0-9])", text)
+    return match.group(0) if match else text
 
 
 def _batch_root(*, settings, run: AnalysisRun) -> Path | None:
@@ -77,27 +108,64 @@ def _batch_root(*, settings, run: AnalysisRun) -> Path | None:
         return None
 
 
-def _read_manifest(path: Path) -> list[dict[str, Any]]:
+def _read_manifest(path: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if not path.is_file() or path.is_symlink():
-        return []
+        return [], {}
     rows: list[dict[str, Any]] = []
+    families: set[str] = set()
+    orders: set[str] = set()
+    sample_types: set[str] = set()
+    received_dates: list[str] = []
+    report_dates: list[str] = []
+    projects: set[str] = set()
+    methods: set[str] = set()
     with path.open(encoding="utf-8-sig", newline="") as handle:
         for source in csv.DictReader(handle, delimiter="\t"):
             sample_id = _text(source.get("样本编号"))
             if not sample_id:
                 continue
+            family_id = _text(source.get("家系编号"))
+            sample_type = _text(source.get("样本类型"))
+            received_date = _text(source.get("收样日期"))
+            report_date = _text(source.get("预计报告日期"))
             rows.append(
                 {
                     "sample_id": sample_id,
                     "data_id": _text(source.get("数据编号")),
-                    "sample_type": _text(source.get("样本类型")),
-                    "family_id": _text(source.get("家系编号")),
+                    "sample_type": sample_type,
+                    "family_id": family_id,
                     "family_relation": _text(source.get("家系关系")),
-                    "received_date": _text(source.get("收样日期")),
-                    "estimated_report_date": _text(source.get("预计报告日期")),
+                    "received_date": received_date,
+                    "estimated_report_date": report_date,
                 }
             )
-    return rows
+            if family_id:
+                families.add(family_id)
+            order_id = _text(source.get("订单编号"))
+            if order_id:
+                orders.add(order_id)
+            if sample_type:
+                sample_types.add(sample_type)
+            if received_date:
+                received_dates.append(received_date)
+            if report_date:
+                report_dates.append(report_date)
+            project = _text(source.get("检测项目"))
+            method = _text(source.get("检测方法"))
+            if project:
+                projects.add(project)
+            if method:
+                methods.add(method)
+    return rows, {
+        "sample_count": len(rows),
+        "family_count": len(families),
+        "order_count": len(orders),
+        "sample_types": sorted(sample_types),
+        "received_date_range": _date_range(received_dates),
+        "estimated_report_date_range": _date_range(report_dates),
+        "test_projects": sorted(projects),
+        "test_methods": sorted(methods),
+    }
 
 
 def _read_qc(batch_root: Path) -> dict[str, dict[str, Any]]:
@@ -151,7 +219,7 @@ def _matrix_row(*, sample: Sample, run: AnalysisRun, rules: list[RuleState], exp
     current = failed or running or (ordered[-1] if ordered else None)
     completed = sum(row.status.lower() in TERMINAL_SUCCESS for row in ordered)
     total = max(expected_total, len(ordered))
-    progress = round(completed * 100 / total) if total else None
+    progress = round(completed * 100 / total, 1) if total else None
     started = [row.started_at for row in ordered if row.started_at]
     ended = [row.ended_at for row in ordered if row.ended_at]
     elapsed = None
@@ -205,3 +273,22 @@ def _text(value: Any) -> str | None:
 
 def _aware(value: datetime) -> datetime:
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def _date_range(values: list[str]) -> dict[str, str] | None:
+    if not values:
+        return None
+    return {"start": min(values), "end": max(values)}
+
+
+def _controlled_relative_path(params: dict[str, Any]) -> str | None:
+    value = _text(params.get("project_relative_path") or params.get("relative_project_path"))
+    if value:
+        path = Path(value)
+        if path.is_absolute() or ".." in path.parts:
+            return None
+        return path.as_posix()
+    components = [_text(params.get("project_name")), _text(params.get("batch_no"))]
+    if all(component and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", component) for component in components):
+        return "/".join(component for component in components if component)
+    return None

@@ -158,6 +158,7 @@ def _run_list_payload(
     workflow_summary: list[dict[str, object]],
 ) -> dict:
     params = run.params_json or {}
+    workflow_status, workflow_label = _workflow_fallback(run.status)
     return {
         "analysis_id": run.analysis_id,
         "project_name": str(params.get("project_name") or run.analysis_id),
@@ -174,6 +175,8 @@ def _run_list_payload(
         "qc_status": _aggregate_sample_qc_status(sample_qc_statuses),
         "qc_highlights": qc_highlights,
         "workflow_summary": workflow_summary,
+        "workflow_status": workflow_status,
+        "workflow_label": workflow_label,
     }
 
 
@@ -232,3 +235,14 @@ def _public_batch(params: dict) -> str | None:
         or params.get("batch_no")
         or ""
     ) or None
+
+
+def _workflow_fallback(status: str | None) -> tuple[str, str]:
+    normalized = str(status or "created").lower()
+    if normalized in {"success", "succeeded", "complete", "completed"}:
+        return "success", "Workflow completed"
+    if normalized in {"failed", "error", "terminated"}:
+        return "failed", "Workflow failed"
+    if normalized in {"running", "submitted", "queued", "pending", "accepted"}:
+        return "running", "Workflow running"
+    return normalized, "Workflow not started"

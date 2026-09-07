@@ -379,7 +379,8 @@ class WgsMaintenanceAction(Base):
             "analysis_id",
             "attempt",
             "action_type",
-            name="uq_wgs_maintenance_action_attempt_type",
+            "generation",
+            name="uq_wgs_maintenance_action_attempt_type_generation",
         ),
         Index("ix_wgs_maintenance_action_analysis", "analysis_id"),
     )
@@ -391,6 +392,9 @@ class WgsMaintenanceAction(Base):
     )
     attempt: Mapped[int] = mapped_column(Integer, nullable=False)
     action_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    generation: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    retry_of_action_id: Mapped[str | None] = mapped_column(String(128))
+    target_snapshot_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     linkage_group: Mapped[str] = mapped_column(String(32), nullable=False, default="cram")
     status: Mapped[str] = mapped_column(String(64), nullable=False, default="requested")
     requested_by: Mapped[str] = mapped_column(String(128), nullable=False)

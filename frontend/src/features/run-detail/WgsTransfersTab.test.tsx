@@ -21,6 +21,8 @@ describe("WgsTransfersTab", () => {
         progress_percent: 50,
         speed_bps: 64 * 1024 ** 2,
         checksum_status: "pending",
+        started_at: "2026-09-08T01:00:00Z",
+        ended_at: null,
       }],
       total: 1,
       limit: 50,
@@ -37,6 +39,8 @@ describe("WgsTransfersTab", () => {
       bytes_transferred: 1024 ** 3,
       files_total: 1,
       files_completed: 0,
+      started_at: "2026-09-08T01:00:00Z",
+      ended_at: null,
     }];
 
     render(<WgsTransfersTab detail={detail} transfers={transfers} />);
@@ -45,7 +49,10 @@ describe("WgsTransfersTab", () => {
 
     await waitFor(() => expect(files).toHaveBeenCalledWith("WGS_TRANSFER-a1-input", {limit: 50, offset: 0}));
     expect(screen.getByText("S1_R1.fastq.gz")).toBeInTheDocument();
-    expect(screen.getByText(/50.0%/)).toBeInTheDocument();
+    expect(screen.getAllByText(/50.0%/)).toHaveLength(2);
+    expect(screen.getByRole("progressbar", {name: "S1_R1.fastq.gz progress"})).toHaveAttribute("value", "50");
+    expect(screen.getAllByText(/2026-09-08/).length).toBeGreaterThan(0);
+    expect(screen.getByTitle("Pending")).toBeInTheDocument();
     expect(screen.getByText("64.0 MiB/s")).toBeInTheDocument();
   });
 });
