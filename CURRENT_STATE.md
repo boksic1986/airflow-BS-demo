@@ -8,8 +8,9 @@ root_cause: a restricted runtime can publish its exact failed generation after t
 fix: bounded failed-stage evidence synchronization, same-attempt/different-task terminal reassertion, Step7 RunStageState projection, freshest active/failed workspace selection, and status-driven indeterminate/terminal progress styling.
 progress_contract: Step1/Step5 bytes and Step3 Rules remain the only exact numeric progress. Step2/Step4/Step6/Step7 never infer a percentage from elapsed time.
 integration_guard: named active run states `publishing` and `downloading` also select the freshest matching Step4/Step5 `RunStageState`; they no longer fall back to a stale `run.current_stage`.
-validation: isolated .96 candidate passed backend 433/1 skip, WGS DAG contracts 43, runtime/host helpers 102, frontend 15 files/63 tests plus production build, Compose rendering, and an empty-to-0017 disposable PostgreSQL migration. Only the existing nipt_analysis_test_net (192.168.199.0/24, gateway .1) was used where networking was required.
-deployment: pending a safe .96 rolling release. No production service or production database has been changed by this branch yet.
+production_smoke_guard: Run Detail now serializes `ObserverRunState` while its SQLAlchemy session is open. This prevents lifecycle projection commits from expiring the ORM row and producing a detached-instance HTTP 500 on terminal runs.
+validation: isolated .96 candidate passed backend 434/1 skip after the production-smoke regression, WGS DAG contracts 43, runtime/host helpers 102, frontend 15 files/63 tests plus production build, Compose rendering, and an empty-to-0017 disposable PostgreSQL migration. Only the existing nipt_analysis_test_net (192.168.199.0/24, gateway .1) was used where networking was required.
+deployment: production is temporarily on the initial T219 release while the Run Detail smoke correction is promoted as an immutable r2 release. No WGS DagRun was active during the switch; production PostgreSQL is at additive migration head 0017.
 ```
 
 ## 2026-09-07 T218 lifecycle and node97 mainline integration

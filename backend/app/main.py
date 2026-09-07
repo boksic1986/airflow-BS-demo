@@ -1475,6 +1475,7 @@ def sync_run_airflow(analysis_id: str) -> dict[str, object]:
 
 @app.get("/api/runs/{analysis_id}")
 def run_detail(analysis_id: str) -> dict[str, object]:
+    observer_payload = None
     with get_sessionmaker()() as session:
         payload = get_run_detail(session=session, analysis_id=analysis_id)
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
@@ -1522,6 +1523,28 @@ def run_detail(analysis_id: str) -> dict[str, object]:
             if run is not None and run.pipeline_name == "wgs"
             else None
         )
+        if observer is not None:
+            observer_payload = {
+                "lifecycle_status": observer.lifecycle_status,
+                "monitoring_health": observer.monitoring_health,
+                "activated_at": (
+                    observer.activated_at.isoformat()
+                    if observer.activated_at
+                    else None
+                ),
+                "deactivated_at": (
+                    observer.deactivated_at.isoformat()
+                    if observer.deactivated_at
+                    else None
+                ),
+                "last_success_at": (
+                    observer.last_success_at.isoformat()
+                    if observer.last_success_at
+                    else None
+                ),
+                "last_error": observer.last_error,
+                "updated_at": observer.updated_at.isoformat(),
+            }
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -1534,15 +1557,7 @@ def run_detail(analysis_id: str) -> dict[str, object]:
     payload["wgs_source_commit"] = params.get("wgs_source_commit")
     payload["resolved_runtime"] = params.get("resolved_runtime")
     payload["rule_event_schema_version"] = params.get("rule_event_schema_version")
-    payload["observer"] = ({
-        "lifecycle_status": observer.lifecycle_status,
-        "monitoring_health": observer.monitoring_health,
-        "activated_at": observer.activated_at.isoformat() if observer.activated_at else None,
-        "deactivated_at": observer.deactivated_at.isoformat() if observer.deactivated_at else None,
-        "last_success_at": observer.last_success_at.isoformat() if observer.last_success_at else None,
-        "last_error": observer.last_error,
-        "updated_at": observer.updated_at.isoformat(),
-    } if observer else None)
+    payload["observer"] = observer_payload
     payload["step4_repair"] = step4_repair
     payload["step7_cleanup"] = step7_cleanup
     payload["execution_dispatch"] = execution_dispatch

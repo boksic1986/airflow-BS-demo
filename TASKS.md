@@ -15,6 +15,8 @@ Acceptance:
   Rule evidence; never fabricate Step2/Step4/Step6/Step7 percentages.
 - [x] Keep named `publishing` and `downloading` runs on the freshest Step4/Step5
   stage projection rather than stale `AnalysisRun.current_stage` metadata.
+- [x] Serialize observer state inside the Run Detail database session so a
+  lifecycle projection commit cannot leave a detached ORM object and HTTP 500.
 - [x] Pass complete backend, WGS DAG and frontend tests/build in an isolated
   `.96` candidate using only the fixed `192.168.199.0/24` network contract.
 - [ ] Confirm production task/DagRun safety, deploy only required services,

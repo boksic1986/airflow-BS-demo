@@ -8,11 +8,15 @@ The source fix addresses delayed failed-generation ingestion, repeated
 same-attempt failures, Step7 stage projection and unavailable-progress display.
 Integration review also covers named active `publishing` and `downloading`
 states so their freshest Step4/Step5 projection wins over stale run metadata.
+The first production deep smoke exposed a detached SQLAlchemy observer row in
+terminal Run Detail projection. A deterministic regression now expires the row
+inside the session; `run_detail` serializes it before session close, preventing
+the production HTTP 500 without changing observer or lifecycle state.
 
 Current state: semantic merge completed in the isolated
 `jiucheng/wgs/T219-stage-terminal-production-sync` worktree. Validation and
-production rollout are pending. Isolated `.96` validation currently reports
-backend `433 passed, 1 skipped`, WGS DAG contracts `43 passed`, runtime/host
+production rollout is being finalized. Isolated `.96` validation reports
+backend `434 passed, 1 skipped`, WGS DAG contracts `43 passed`, runtime/host
 helpers `102 passed`, and frontend `15` files / `63` tests plus a successful
 production build. A disposable PostgreSQL 15 database upgraded from empty to
 the single `20260907_0017` head using only the existing

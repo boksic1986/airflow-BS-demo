@@ -292,6 +292,41 @@ def test_lifecycle_status_payload_rejects_paths_and_downstream_is_independent(tm
     assert detail["lifecycle"]["raw_fastq_backup"]["status"] == "not_started"
 
 
+def test_terminal_run_detail_serializes_observer_before_session_closes(
+    tmp_path, monkeypatch
+):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    analysis_id = "WGS_20260907_030405_A7B8C9"
+    seed_successful_wgs_lifecycle_run(sessions, analysis_id)
+    with sessions.begin() as session:
+        session.add(
+            ObserverRunState(
+                analysis_id=analysis_id,
+                attempt=1,
+                pipeline_release_id="wgs-4.1.1-1656b5d",
+                run_label="cce-run-0123456789abcdef",
+                relative_evidence_path=f"{analysis_id}/attempt-1",
+                status="healthy",
+                lifecycle_status="stopped",
+            )
+        )
+    headers = login(client, "admin", "admin-pass")
+    project_lifecycle = main.project_wgs_lifecycle
+
+    def project_and_expire(*, session, run):
+        projection = project_lifecycle(session=session, run=run)
+        session.commit()
+        return projection
+
+    monkeypatch.setattr(main, "project_wgs_lifecycle", project_and_expire)
+
+    detail = client.get(f"/api/runs/{analysis_id}", headers=headers)
+
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["observer"]["lifecycle_status"] == "stopped"
+    assert detail.json()["lifecycle"]["workflow"]["status"] == "success"
+
+
 def test_wgs_submission_draft_is_server_catalogued_and_does_not_create_run(
     tmp_path, monkeypatch
 ):
