@@ -874,6 +874,66 @@ def test_step7_cleanup_confirmation_is_derived_only_from_frozen_binding(
     ]
 
 
+def test_step7_cleanup_sanitizes_new_transfer_fields_for_old_frozen_parser(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    cce = tmp_path / "cce"
+    cce.mkdir()
+    script = cce / "Step7_cleanup_sfs.sh"
+    script.write_text("#!/bin/bash\n", encoding="utf-8")
+    config = tmp_path / "cce.yaml"
+    config.write_text(
+        yaml.safe_dump(
+            {
+                "kubernetes": {"namespace": "snakemake-ns"},
+                "obs": {
+                    "endpoint": "private.example",
+                    "download_parallelism": 8,
+                    "sdk_credentials_file": "/protected/sdk.env",
+                    "sdk_python": "/opt/nipttest/python",
+                    "transfer_adapter": "sdk",
+                },
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    (cce / "CCE_OPERATOR_CONFIG_PATH").write_text(str(config), encoding="utf-8")
+    runtime_root = tmp_path / "runtime" / "runs"
+    control_workdir = runtime_root / "analysis" / "attempt-1"
+    binding = {
+        "cce_bundle": str(cce),
+        "project": "WGS_Clinical",
+        "batch": "WGS_20260905A_T7Hg38V4.1.1",
+        "run_id": "WGS_20260906_092052_75A45B-a1",
+    }
+    monkeypatch.setattr(gate, "_load_binding", lambda _payload: binding)
+    monkeypatch.setattr(gate, "CCE_OPERATOR_CONFIG", str(config))
+    monkeypatch.setattr(gate, "RUNTIME_RUN_ROOT", str(runtime_root))
+
+    command = gate.build_step7_cleanup_command(
+        {
+            "analysis_id": "WGS_20260906_092052_75A45B",
+            "attempt": 1,
+            "control_workdir": str(control_workdir),
+        }
+    )
+
+    compat = control_workdir / "step7-operator-config.compat.yaml"
+    assert command == [
+        "bash",
+        str(script),
+        "--config",
+        str(compat),
+        "--confirm",
+        "DELETE-SFS:WGS_Clinical/WGS_20260905A_T7Hg38V4.1.1/WGS_20260906_092052_75A45B-a1",
+    ]
+    loaded = yaml.safe_load(compat.read_text(encoding="utf-8"))
+    assert loaded["obs"] == {"endpoint": "private.example"}
+    assert compat.stat().st_mode & 0o777 == 0o600
+
+
 def test_step7_cleanup_marks_verified_absent_when_exact_frozen_target_is_gone(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

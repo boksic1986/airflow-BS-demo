@@ -93,6 +93,12 @@ MONITOR_TIMEOUT_SECONDS = int(os.getenv("WGS_MONITOR_TIMEOUT_SECONDS", "432000")
 STEP4_MASTER_COMPLETION_GRACE_SECONDS = int(
     os.getenv("WGS_STEP4_MASTER_COMPLETION_GRACE_SECONDS", "600")
 )
+STEP7_COMPAT_OBS_FIELDS = {
+    "download_parallelism",
+    "sdk_credentials_file",
+    "sdk_python",
+    "transfer_adapter",
+}
 STEP5_TRANSFER_PLAN_GRACE_SECONDS = int(
     os.getenv("WGS_STEP5_TRANSFER_PLAN_GRACE_SECONDS", "60")
 )
@@ -818,7 +824,42 @@ def build_step7_cleanup_command(payload: dict[str, Any]) -> list[str]:
     if any(SAFE_COMPONENT_RE.fullmatch(value) is None for value in components):
         raise RuntimeError("frozen WGS cleanup identity is invalid")
     confirmation = f"DELETE-SFS:{components[0]}/{components[1]}/{components[2]}"
-    return _step_command(payload, "step7_cleanup", "--confirm", confirmation)
+    compat_config = _step7_compat_operator_config(payload, binding)
+    config_arguments = ["--config", str(compat_config)] if compat_config else []
+    return _step_command(
+        payload,
+        "step7_cleanup",
+        *config_arguments,
+        "--confirm",
+        confirmation,
+    )
+
+
+def _step7_compat_operator_config(
+    payload: dict[str, Any], binding: dict[str, Any]
+) -> Path | None:
+    """Strip newer transfer-only keys for an older frozen Step7 parser."""
+
+    bundle = Path(str(binding.get("cce_bundle") or ""))
+    pointer = bundle / "CCE_OPERATOR_CONFIG_PATH"
+    if not pointer.is_file() or pointer.is_symlink():
+        return None
+    source = Path(pointer.read_text(encoding="utf-8").strip()).expanduser().resolve()
+    configured = Path(CCE_OPERATOR_CONFIG).expanduser().resolve()
+    if source != configured or not source.is_file() or source.is_symlink():
+        raise RuntimeError("frozen Step7 operator config path is not approved")
+    config = yaml.safe_load(source.read_text(encoding="utf-8"))
+    if not isinstance(config, dict):
+        raise RuntimeError("Step7 operator config is invalid")
+    obs = config.get("obs")
+    if not isinstance(obs, dict) or not STEP7_COMPAT_OBS_FIELDS.intersection(obs):
+        return None
+    for key in STEP7_COMPAT_OBS_FIELDS:
+        obs.pop(key, None)
+    compat_path = _workdir(payload) / "step7-operator-config.compat.yaml"
+    _atomic_yaml(compat_path, config)
+    compat_path.chmod(0o600)
+    return compat_path
 
 
 def validate_step3_status(value: dict[str, Any]) -> dict[str, Any]:
