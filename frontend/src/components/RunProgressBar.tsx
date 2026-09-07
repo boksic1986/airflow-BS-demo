@@ -1,9 +1,34 @@
 import type {RunProgress} from "../lib/runProgress";
+import {isActiveStatus, isFailedStatus, normalizeStatus} from "../lib/status";
 
 export function RunProgressBar({analysisId, progress, compact = false}: {analysisId: string; progress: RunProgress; compact?: boolean}) {
   const tone = progressTone(progress);
   if (progress.available === false) {
-    return <div className="run-progress unavailable" aria-label={`${analysisId} detailed progress unavailable`}><div className="run-progress-meta"><strong>Detailed progress unavailable</strong></div>{!compact ? <p>{progress.note}</p> : null}</div>;
+    const status = normalizeStatus(progress.status);
+    const active = isActiveStatus(status);
+    const terminalSuccess = status === "success";
+    const failed = isFailedStatus(status);
+    const label = active
+      ? "Waiting for runtime evidence"
+      : terminalSuccess
+        ? "Stage complete"
+        : failed
+          ? "Stage failed"
+          : "Waiting to start";
+    return (
+      <div className="run-progress unavailable">
+        <div className="run-progress-meta"><strong>{label}</strong></div>
+        <div
+          aria-label={`${analysisId} progress pending exact measurement`}
+          aria-valuetext={label}
+          className={`progress-track progress-${failed ? "failed" : terminalSuccess ? "success" : "queued"} ${active ? "progress-indeterminate" : ""}`}
+          role="progressbar"
+        >
+          <span style={{width: terminalSuccess || failed ? "100%" : active ? "34%" : "0%"}} />
+        </div>
+        {!compact ? <p>{progress.note}</p> : null}
+      </div>
+    );
   }
   return (
     <div className="run-progress">

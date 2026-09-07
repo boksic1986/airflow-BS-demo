@@ -197,7 +197,7 @@ analysis_run 1 -> N run_action
 | submitted_at | timestamptz nullable | immutable backend-to-Airflow handoff time; created-only runs remain null |
 | started_at | timestamptz nullable | latest Airflow DAG run start; task clear/retry may change it |
 | ended_at | timestamptz nullable | latest Airflow DAG run end; task clear/retry may change it |
-| pipeline_finished_at | timestamptz nullable | first successful terminal pipeline event; immutable once set |
+| pipeline_finished_at | timestamptz nullable | pipeline terminal timestamp; successful runs keep the first successful terminal event, while a WGS control-plane failure records the current failed terminal event until an explicit same-attempt recovery clears/replaces it |
 | error_summary | text nullable | last error |
 
 T114 migration `20260711_0004` adds `pipeline_finished_at`. PGT-A predict uses
@@ -205,6 +205,14 @@ the project-level `cnv_predict=success` event; NIPT full analysis uses the first
 parent `all=success` event. Retry or Airflow task clear must not overwrite this
 timestamp. Dashboard runtime is `submitted_at -> pipeline_finished_at` for
 terminal runs and `submitted_at -> now` for active runs.
+
+For staged WGS submissions, the DagRun terminal callback also writes
+`pipeline_finished_at` when the workflow fails so duration and lifecycle
+projections close consistently. An explicit same-attempt recovery clears this
+failed terminal timestamp before work resumes; final success then writes the
+authoritative successful terminal time. Replaying the same failed task set is
+idempotent, while a later different failed task set records a new terminal
+event and audit action.
 
 ### sample
 

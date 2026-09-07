@@ -188,7 +188,7 @@ function RunTrackerRow({
         </div>
       </td>
       <td className="tracker-progress-cell">
-        <RunProgressBar analysisId={row.analysis_id} compact progress={{percent: row.stage_progress?.percent ?? row.percent ?? 0, available: row.stage_progress?.available ?? row.progress_available ?? false, label: row.stage_progress?.percent == null ? "Detailed progress unavailable" : `${Math.round(row.stage_progress.percent)}%`, currentStep, note, notInAirflow: row.not_in_airflow}} />
+        <RunProgressBar analysisId={row.analysis_id} compact progress={{percent: row.stage_progress?.percent ?? row.percent ?? 0, available: row.stage_progress?.available ?? row.progress_available ?? false, label: row.stage_progress?.percent == null ? "Progress pending" : `${Math.round(row.stage_progress.percent)}%`, currentStep, note, notInAirflow: row.not_in_airflow, status: row.stage_status || row.status}} />
         {row.stage_progress?.available ? <small>{formatProgressUnits(row.stage_progress.completed_units, row.stage_progress.total_units, row.stage_progress.unit)}{row.stage_progress.speed_bps ? ` · ${formatBytes(row.stage_progress.speed_bps)}/s` : ""}{row.stage_progress.eta_seconds != null ? ` · ETA ${formatSecondsDuration(row.stage_progress.eta_seconds)}` : ""}</small> : null}
       </td>
       <td>

@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.models import AnalysisRun, Base, WgsStageExecution
+from app.models import AnalysisRun, Base, RunStageState, WgsStageExecution
 from app.wgs_observer import upsert_stage_state
 from app.wgs_stage_catalog import StageContractError, load_wgs_stage_contract
 from app.wgs_stage_execution_service import (
@@ -15,7 +15,7 @@ from app.wgs_stage_execution_service import (
     register_stage_execution,
     transition_stage_execution,
 )
-from app.wgs_workspace_service import _heavy_slot_waiting_count
+from app.wgs_workspace_service import _heavy_slot_waiting_count, build_wgs_workspace
 
 
 def sessions():
@@ -64,6 +64,96 @@ def test_heavy_slot_waiting_count_uses_only_fresh_waiting_snapshots(tmp_path) ->
     )
 
     assert _heavy_slot_waiting_count(str(tmp_path)) == 1
+
+
+def test_workspace_prefers_fresh_active_stage_projection_over_stale_run_stage() -> None:
+    factory = sessions()
+    now = datetime(2026, 9, 7, 6, 49, tzinfo=timezone.utc)
+    with factory.begin() as session:
+        run = AnalysisRun(
+            analysis_id="WGS_20260907_044653_9C8591",
+            pipeline_name="wgs",
+            dag_id="bio_wgs",
+            workdir="/runs/test",
+            status="running",
+            current_stage="release_leases",
+            attempt=2,
+            params_json={"orchestration_contract_version": 2},
+        )
+        session.add(run)
+        session.add(
+            RunStageState(
+                analysis_id=run.analysis_id,
+                attempt=2,
+                stage_code="step2_master",
+                step_number=2,
+                stage_label="Starting WGS workflow",
+                stage_status="accepted",
+                progress_source="wgs-runtime.request.v4",
+                updated_at=now,
+            )
+        )
+
+    with factory() as session:
+        run = session.scalar(select(AnalysisRun))
+        workspace = build_wgs_workspace(
+            session=session,
+            run=run,
+            run_payload={"analysis_id": run.analysis_id},
+        )
+
+    assert workspace["progress"]["stage_code"] == "step2_master"
+    assert workspace["progress"]["stage_status"] == "accepted"
+
+
+@pytest.mark.parametrize(
+    ("run_status", "stage_code"),
+    (("publishing", "step4_publish"), ("downloading", "step5_download")),
+)
+def test_workspace_prefers_fresh_named_active_stage_projection(
+    run_status: str, stage_code: str
+) -> None:
+    factory = sessions()
+    now = datetime(2026, 9, 7, 7, 10, tzinfo=timezone.utc)
+    with factory.begin() as session:
+        run = AnalysisRun(
+            analysis_id=f"WGS_20260907_{run_status.upper()}",
+            pipeline_name="wgs",
+            dag_id="bio_wgs",
+            workdir="/runs/test",
+            status=run_status,
+            current_stage="release_leases",
+            attempt=1,
+            params_json={"orchestration_contract_version": 2},
+        )
+        session.add(run)
+        session.add(
+            RunStageState(
+                analysis_id=run.analysis_id,
+                attempt=1,
+                stage_code=stage_code,
+                step_number=4 if stage_code == "step4_publish" else 5,
+                stage_label=(
+                    "Publishing WGS results"
+                    if stage_code == "step4_publish"
+                    else "Downloading WGS results"
+                ),
+                stage_status="running",
+                progress_source="wgs-runtime.stage-status.v1",
+                updated_at=now,
+            )
+        )
+
+    with factory() as session:
+        run = session.scalar(select(AnalysisRun))
+        workspace = build_wgs_workspace(
+            session=session,
+            run=run,
+            run_payload={"analysis_id": run.analysis_id},
+        )
+
+    assert workspace["progress"]["stage_code"] == stage_code
+    assert workspace["progress"]["stage_status"] == "running"
 
 
 def test_stage_contract_loads_heavy_slot_and_fails_closed(tmp_path) -> None:

@@ -1,5 +1,30 @@
 # TASKS.md
 
+## T219 - Synchronize WGS stage terminal progress to production
+
+Owner: backend/Airflow/frontend/release/QA/docs
+
+Status: implementation merged for validation; production rollout pending
+
+Dependencies: main@892e06c, source fix 191fc4c
+
+Acceptance:
+- [x] Apply only the `191fc4c` semantic delta on current main and preserve T218
+  lifecycle/node97, ctapa paths, directional leases and Step7 routing.
+- [x] Preserve exact numeric progress only for Step1/Step5 transfer and Step3
+  Rule evidence; never fabricate Step2/Step4/Step6/Step7 percentages.
+- [x] Keep named `publishing` and `downloading` runs on the freshest Step4/Step5
+  stage projection rather than stale `AnalysisRun.current_stage` metadata.
+- [x] Pass complete backend, WGS DAG and frontend tests/build in an isolated
+  `.96` candidate using only the fixed `192.168.199.0/24` network contract.
+- [ ] Confirm production task/DagRun safety, deploy only required services,
+  and verify API/frontend/DAG health without restarting CCE workloads.
+- [ ] Commit, merge and push the production-validated source and state docs.
+
+Restrictions:
+- Do not rerun a batch, delete OBS/SFS content, recreate PostgreSQL/Redis, or
+  modify the external Docker network.
+
 ## T218 - Integrate WGS lifecycle status and node97 onto main
 
 Owner: backend/Airflow/frontend/release/QA/docs

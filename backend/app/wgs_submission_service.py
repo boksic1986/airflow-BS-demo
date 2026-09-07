@@ -476,22 +476,13 @@ def mark_submission_dag_failed(
         root_failures.remove("release_leases")
 
     existing_action = session.scalar(
-        select(RunAction).where(
+        select(RunAction)
+        .where(
             RunAction.analysis_id == analysis_id,
             RunAction.action == "airflow_dag_failed",
-        ).order_by(RunAction.id.desc())
+        )
+        .order_by(RunAction.id.desc())
     )
-    if existing_action is not None:
-        existing_payload = dict(existing_action.payload_json or {})
-        if int(existing_payload.get("attempt") or 0) == attempt:
-            return {
-                "analysis_id": analysis_id,
-                "attempt": attempt,
-                "status": run.status,
-                "submission_phase": (run.params_json or {}).get("submission_phase"),
-                "failed_task_ids": list(existing_payload.get("failed_task_ids") or []),
-                "error_summary": run.error_summary,
-            }
 
     if run.status == "success":
         return {
@@ -523,8 +514,29 @@ def mark_submission_dag_failed(
         params["submission_phase"] = "failed"
     run.params_json = params
     run.status = "failed"
-    run.ended_at = run.ended_at or datetime.now(timezone.utc)
     run.error_summary = error_summary
+    existing_payload = dict(existing_action.payload_json or {}) if existing_action else {}
+    same_failure = (
+        existing_action is not None
+        and int(existing_payload.get("attempt") or 0) == attempt
+        and sorted(existing_payload.get("failed_task_ids") or []) == root_failures
+    )
+    if same_failure:
+        terminal_at = run.ended_at or existing_action.created_at
+        run.ended_at = terminal_at
+        run.pipeline_finished_at = run.pipeline_finished_at or terminal_at
+        session.commit()
+        return {
+            "analysis_id": analysis_id,
+            "attempt": attempt,
+            "status": run.status,
+            "submission_phase": params.get("submission_phase"),
+            "failed_task_ids": root_failures,
+            "error_summary": run.error_summary,
+        }
+    failed_at = datetime.now(timezone.utc)
+    run.ended_at = failed_at
+    run.pipeline_finished_at = failed_at
     session.add(
         RunAction(
             analysis_id=analysis_id,

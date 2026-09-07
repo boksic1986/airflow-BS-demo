@@ -1,5 +1,35 @@
 # HANDOFF.md
 
+## 2026-09-07 - Codex - T219 production stage terminal/progress sync
+
+Goal: apply only `191fc4c` on current main, validate the combined T218
+lifecycle/node97 and terminal-stage behavior, then roll it out safely to `.96`.
+The source fix addresses delayed failed-generation ingestion, repeated
+same-attempt failures, Step7 stage projection and unavailable-progress display.
+Integration review also covers named active `publishing` and `downloading`
+states so their freshest Step4/Step5 projection wins over stale run metadata.
+
+Current state: semantic merge completed in the isolated
+`jiucheng/wgs/T219-stage-terminal-production-sync` worktree. Validation and
+production rollout are pending. Isolated `.96` validation currently reports
+backend `433 passed, 1 skipped`, WGS DAG contracts `43 passed`, runtime/host
+helpers `102 passed`, and frontend `15` files / `63` tests plus a successful
+production build. A disposable PostgreSQL 15 database upgraded from empty to
+the single `20260907_0017` head using only the existing
+`nipt_analysis_test_net` (`192.168.199.0/24`, gateway `.1`). No production
+service, database, network, analysis task, OBS object or SFS result has been
+changed at this point.
+
+Validation failures retained for audit: the first backend attempt inherited
+the production env and was interrupted after it invoked real-dependency test
+paths; rerunning with `--network none` passed. The first two disposable
+migration attempts failed before DDL because `/config` and then the required
+dummy `AIRFLOW_API_PASSWORD` were missing; both exact disposable containers
+were removed. The successful attempt mounted candidate config and used only
+test credentials. A normal backend Dockerfile build also failed while looking
+up the unavailable configured registry mirror; the approved offline
+`Dockerfile.release` overlay built the candidate from the current local image.
+
 ## 2026-09-07 - Codex - T218 lifecycle/node97 integration
 
 Goal: integrate T216 (including T215/node97) onto the published

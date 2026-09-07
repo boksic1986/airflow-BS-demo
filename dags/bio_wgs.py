@@ -55,6 +55,7 @@ RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS = 1.0
 STAGE_GENERATION_VISIBILITY_TIMEOUT_SECONDS = 120.0
 STAGE_PREDECESSOR_VISIBILITY_ATTEMPTS = 5
 STAGE_PREDECESSOR_VISIBILITY_DELAY_SECONDS = 5.0
+FAILED_STAGE_SYNC_TIMEOUT_SECONDS = 30.0
 
 
 def _runner_request_not_yet_visible(completed: subprocess.CompletedProcess[str]) -> bool:
@@ -265,6 +266,16 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         )
         time.sleep(RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS)
     if completed.returncode != 0:
+        _wait_for_terminal_stage_projection(
+            analysis_id=str(conf["analysis_id"]),
+            attempt=int(conf["attempt"]),
+            stage=runner_stage,
+            expected_retry_no=(
+                int(registered["generation"]) - 1
+                if isinstance(registered.get("generation"), int)
+                else None
+            ),
+        )
         error = " | ".join(
             part.strip()
             for part in (completed.stdout, completed.stderr)
@@ -293,6 +304,50 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
             payload={"attempt": conf["attempt"]},
         )
     return {**registered, "runner_status": "accepted"}
+
+
+def _wait_for_terminal_stage_projection(
+    *,
+    analysis_id: str,
+    attempt: int,
+    stage: str,
+    expected_retry_no: int | None,
+    timeout_seconds: float = FAILED_STAGE_SYNC_TIMEOUT_SECONDS,
+) -> None:
+    """Give delayed shared-filesystem terminal evidence time to reach the backend."""
+
+    deadline = time.monotonic() + timeout_seconds
+    query = urlencode({"attempt": attempt, "stage": stage})
+    while True:
+        try:
+            payload = _backend_json(
+                f"/api/internal/wgs/runs/{analysis_id}/stage-status?{query}"
+            )
+        except BackendTransportUnavailable as exc:
+            LOG.warning("Could not synchronize failed %s evidence: %s", stage, exc)
+            return
+        status = str(payload.get("status") or "pending").lower()
+        retry_no = payload.get("retry_no")
+        generation_matches = (
+            expected_retry_no is None or retry_no == expected_retry_no
+        )
+        if generation_matches and status in {
+            "success",
+            "complete",
+            "succeeded",
+            "failed",
+            "canceled",
+            "cancelled",
+        }:
+            return
+        if time.monotonic() >= deadline:
+            LOG.warning(
+                "Runtime terminal evidence for %s was not visible within %ss",
+                stage,
+                timeout_seconds,
+            )
+            return
+        time.sleep(1)
 
 
 def _wait_for_registered_stage_generation(

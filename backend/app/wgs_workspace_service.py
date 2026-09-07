@@ -10,7 +10,16 @@ from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState
 from app.wgs_stage_contract import canonical_wgs_stage, project_wgs_orchestration, wgs_stage_definition
 
 
-ACTIVE_TRANSFER_STATUSES = {"accepted", "submitted", "queued", "running", "started", "retrying"}
+ACTIVE_TRANSFER_STATUSES = {
+    "accepted",
+    "submitted",
+    "queued",
+    "running",
+    "started",
+    "retrying",
+    "publishing",
+    "downloading",
+}
 FAILED_RULE_STATUSES = {"failed", "error", "terminated"}
 
 
@@ -62,7 +71,33 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
         )
         .order_by(RunValidationIssue.id)
     ).all())
-    raw_stage = str(run.current_stage or "created")
+    run_status = str(run.status or "").lower()
+    preferred_stage_row = None
+    if run_status in ACTIVE_TRANSFER_STATUSES:
+        preferred_stage_row = max(
+            (
+                row
+                for row in stage_rows
+                if str(row.stage_status or "").lower() in ACTIVE_TRANSFER_STATUSES
+            ),
+            key=lambda row: row.updated_at,
+            default=None,
+        )
+    elif run_status in FAILED_RULE_STATUSES:
+        preferred_stage_row = max(
+            (
+                row
+                for row in stage_rows
+                if str(row.stage_status or "").lower() in FAILED_RULE_STATUSES
+            ),
+            key=lambda row: row.updated_at,
+            default=None,
+        )
+    raw_stage = str(
+        preferred_stage_row.stage_code
+        if preferred_stage_row is not None
+        else (run.current_stage or "created")
+    )
     validation_scope = str((run.params_json or {}).get("validation_scope") or "") or None
     terminal_validation_stages = {
         "step1_only": "step1_canary_complete",
