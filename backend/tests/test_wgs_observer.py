@@ -2875,6 +2875,74 @@ def test_step7_terminal_status_updates_action_and_stage_projection(
         assert stage.message == "cleanup target is still busy"
 
 
+def test_legacy_step7_evidence_cannot_overwrite_retry_generation(tmp_path: Path) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    runtime = tmp_path / "runtime"
+    request_root = runtime / "runner-requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    with sessions.begin() as session:
+        session.add_all(
+            [
+                WgsMaintenanceAction(
+                    action_id="step7-sfs-generation-one",
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    action_type="cleanup_step7_sfs",
+                    generation=1,
+                    linkage_group="sfs",
+                    status="failed",
+                    requested_by="admin",
+                ),
+                WgsMaintenanceAction(
+                    action_id="step7-sfs-generation-two",
+                    analysis_id=analysis_id,
+                    attempt=1,
+                    action_type="cleanup_step7_sfs",
+                    generation=2,
+                    retry_of_action_id="step7-sfs-generation-one",
+                    linkage_group="sfs",
+                    status="queued",
+                    requested_by="admin",
+                ),
+            ]
+        )
+    (request_dir / "step7_cleanup.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step7_cleanup",
+                "status": "failed",
+                "message": "legacy generation one failure",
+                "updated_at": "2026-09-07T08:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=request_root,
+        transfer_spool_root=runtime / "transfer-progress",
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="step7_cleanup",
+    )
+
+    with sessions() as session:
+        actions = {
+            row.generation: row
+            for row in session.scalars(
+                select(WgsMaintenanceAction).order_by(WgsMaintenanceAction.generation)
+            ).all()
+        }
+        assert actions[1].error_message == "legacy generation one failure"
+        assert actions[2].status == "queued"
+        assert actions[2].error_message is None
+
+
 def test_prepare_stage_status_records_contract_v2_success_receipt(
     tmp_path: Path,
 ) -> None:

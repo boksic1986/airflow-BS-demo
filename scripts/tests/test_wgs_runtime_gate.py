@@ -1239,6 +1239,52 @@ def test_failed_step5_relaunch_preserves_checkpoint_and_archives_worker_generati
     assert checkpoint.read_text(encoding="utf-8") == "resume-me\n"
 
 
+def test_failed_step7_v1_retry_accepts_new_immutable_action_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    request_path = tmp_path / "step7_cleanup.json"
+    request_path.write_text('{"maintenance_action_id":"new-action"}\n', encoding="utf-8")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step7_cleanup",
+        "maintenance_action_id": "new-action",
+        "step7_generation": 2,
+    }
+    request_path.with_suffix(".status.json").write_text(
+        json.dumps({"status": "failed", "message": "old action failure"}),
+        encoding="utf-8",
+    )
+    request_path.with_suffix(".worker.json").write_text(
+        json.dumps({"pid": 1234, "request_sha256": "old-request-sha"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "_request_path", lambda *_args: request_path)
+    monkeypatch.setattr(gate, "_truthy", lambda _name: True)
+    monkeypatch.setattr(gate, "_process_matches", lambda _state: False)
+    monkeypatch.setattr(gate, "_boot_id", lambda: "boot-id")
+    monkeypatch.setattr(gate, "_process_start_time", lambda _pid: "456")
+
+    class FakeProcess:
+        pid = 5678
+
+    monkeypatch.setattr(gate.subprocess, "Popen", lambda *_args, **_kwargs: FakeProcess())
+
+    result = gate.start_async_stage(payload)
+
+    assert result == {"status": "accepted", "pid": 5678, "retry_no": 1}
+    status = json.loads(request_path.with_suffix(".status.json").read_text(encoding="utf-8"))
+    assert status["status"] == "accepted"
+    assert status["maintenance_action_id"] == "new-action"
+    assert status["step7_generation"] == 2
+    assert json.loads(
+        (tmp_path / "history" / "step7_cleanup" / "retry-1" / "status.json").read_text(
+            encoding="utf-8"
+        )
+    )["message"] == "old action failure"
+
+
 def test_contract_v2_new_generation_archives_old_sidecars_before_launch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

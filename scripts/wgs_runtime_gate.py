@@ -1490,9 +1490,20 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             payload, request_sha=request_sha
         )
         previous = _read_json(state_path)
-        if previous and previous.get("request_sha256") != request_sha:
-            raise RuntimeError("registered request changed after worker launch")
         status = _read_json(_sidecar_path(payload, ".status.json"))
+        retry_no = 0
+        contract_v1_failed_retry = (
+            int(payload.get("orchestration_contract_version") or 1) != 2
+            and status.get("status") == "failed"
+            and payload["stage"] in {"step4_publish", "step5_download", "step7_cleanup"}
+        )
+        if previous and previous.get("request_sha256") != request_sha:
+            if contract_v1_failed_retry and not _process_matches(previous):
+                retry_no = _archive_failed_stage_generation(payload)
+                previous = _read_json(state_path)
+                status = _read_json(_sidecar_path(payload, ".status.json"))
+            else:
+                raise RuntimeError("registered request changed after worker launch")
         if status.get("status") in {"success", "complete", "succeeded"}:
             return {
                 "status": "complete",
@@ -1507,11 +1518,8 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
             )
         if previous and _process_matches(previous):
             return {"status": "running", "pid": previous["pid"]}
-        retry_no = (
-            int(payload["generation"]) - 1
-            if archived_generation is not None
-            else 0
-        )
+        if archived_generation is not None:
+            retry_no = int(payload["generation"]) - 1
         if status.get("status") == "failed" and int(
             payload.get("orchestration_contract_version") or 1
         ) != 2:

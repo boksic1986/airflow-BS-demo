@@ -796,8 +796,12 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                     WgsMaintenanceAction.action_id == action_id
                 )
             else:
-                action_query = action_query.order_by(
-                    WgsMaintenanceAction.generation.desc()
+                # Legacy Step7 evidence predates immutable action identity. It
+                # belongs only to generation 1 and must never overwrite a retry.
+                action_query = action_query.where(
+                    WgsMaintenanceAction.generation == int(
+                        payload.get("step7_generation") or 1
+                    )
                 )
             action = session.scalar(action_query)
             if action is None:
