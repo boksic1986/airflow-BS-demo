@@ -15,7 +15,7 @@ describe("RunQcTab", () => {
           sample_summary: {pass: 1, warn: 0, fail: 0, unknown: 0},
           items: [
             {
-              sample_id: "NIPT26040001.A01",
+              sample_id: "S001",
               metric_name: "read_count",
               metric_value: "6000000",
               metric_numeric: 6000000,
@@ -24,7 +24,7 @@ describe("RunQcTab", () => {
               decision_metric: false,
             },
             {
-              sample_id: "NIPT26040001.A01",
+              sample_id: "S001",
               metric_name: "Q30",
               metric_value: "95.2",
               metric_numeric: 95.2,
@@ -38,7 +38,7 @@ describe("RunQcTab", () => {
     );
 
     const matrix = screen.getByRole("table", {name: "QC decision matrix"});
-    const row = within(matrix).getByText("NIPT26040001.A01").closest("tr");
+    const row = within(matrix).getByText("S001").closest("tr");
     expect(row).not.toBeNull();
     expect(row).toHaveTextContent("pass");
     expect(row).not.toHaveTextContent("unknown");
@@ -61,7 +61,7 @@ describe("RunQcTab", () => {
     expect(screen.getByText("read_count")).toBeInTheDocument();
   });
 
-  it("formats NIPT percentages, fetal fraction, PGT-A decimals, and read counts consistently", () => {
+  it("formats adapter-projected percentages, decimals, and read counts consistently", () => {
     render(
       <RunQcTab
         runStatus="success"

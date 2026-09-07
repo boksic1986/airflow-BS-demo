@@ -82,11 +82,11 @@ export function formatProgressUnits(
 
 export function compactPipelineName(pipeline?: string | null): string {
   if (!pipeline) return "unknown";
-  if (pipeline === "wes_qsub") return "WES qsub";
-  if (pipeline === "nipt_qsub") return "NIPT qsub";
-  if (pipeline === "nipt_docker") return "NIPT Docker";
-  if (pipeline === "pgta") return "PGT-A";
-  return pipeline.toUpperCase();
+  return pipeline
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.toUpperCase())
+    .join(" ");
 }
 
 export function safeJson(value: unknown): string {

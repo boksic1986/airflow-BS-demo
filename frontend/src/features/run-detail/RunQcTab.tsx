@@ -8,7 +8,7 @@ import {formatQcMetricValue} from "../../lib/qcFormat";
 import {normalizeStatus} from "../../lib/status";
 
 const pageSize = 20;
-const metricPriority = ["qc_decision", "mapped_fragments", "zero_bin_fraction", "bin_cv", "pearson_r", "median_abs_z", "gc_signal_slope", "nipt_mount_smoke", "read_count", "Q30", "unique_mapping_rate", "pcr_duplication_rate", "chrY_percent", "gender", "fetal_fraction"];
+const metricPriority = ["qc_decision", "Q30", "mapped", "average_depth", "depth_20x", "contamination"];
 
 type QcMatrixRow = {sampleId: string; status: string; metrics: Record<string, QcMetric>};
 

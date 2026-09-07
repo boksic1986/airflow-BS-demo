@@ -43,7 +43,7 @@ def test_node200_rule_evidence_uses_bs_mounted_shared_spool(
 ) -> None:
     monkeypatch.delenv("WGS_CCE_EVIDENCE_ROOT", raising=False)
     expected = (
-        "/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/cce-evidence"
+        "/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime/cce-evidence"
     )
 
     gate = load_gate()

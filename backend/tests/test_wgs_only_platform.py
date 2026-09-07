@@ -309,16 +309,8 @@ def test_terminal_run_detail_serializes_observer_before_session_closes(
                 status="healthy",
                 lifecycle_status="stopped",
             )
-        )
+    )
     headers = login(client, "admin", "admin-pass")
-    project_lifecycle = main.project_wgs_lifecycle
-
-    def project_and_expire(*, session, run):
-        projection = project_lifecycle(session=session, run=run)
-        session.commit()
-        return projection
-
-    monkeypatch.setattr(main, "project_wgs_lifecycle", project_and_expire)
 
     detail = client.get(f"/api/runs/{analysis_id}", headers=headers)
 
@@ -1423,9 +1415,10 @@ def test_current_release_api_is_read_only_and_execution_is_disabled(tmp_path, mo
     rejected = client.post(
         "/api/runs",
         headers=headers,
-        json={"pipeline": "nipt_docker", "project_name": "old", "execution_mode": "local", "batch_no": "OLD", "fq_path": str(tmp_path)},
+        json={"pipeline": "unregistered", "project_name": "old", "execution_mode": "local", "batch_no": "OLD", "fq_path": str(tmp_path)},
     )
-    assert rejected.status_code == 422
+    assert rejected.status_code == 404
+    assert rejected.json()["detail"]["code"] == "PIPELINE_NOT_REGISTERED"
 
     created = client.post(
         "/api/runs", headers=headers,
@@ -1435,7 +1428,19 @@ def test_current_release_api_is_read_only_and_execution_is_disabled(tmp_path, mo
     submitted = client.post(f"/api/runs/{analysis_id}/actions/submit", headers=headers)
     assert submitted.status_code == 409, submitted.text
     for mode in ("sge", "local"):
-        assert client.post("/api/runs", headers=headers, json={"pipeline": "wgs", "project_name": mode, "execution_mode": mode, "batch_no": mode, "fq_path": str(tmp_path)}).status_code == 422
+        response = client.post(
+            "/api/runs",
+            headers=headers,
+            json={
+                "pipeline": "wgs",
+                "project_name": mode,
+                "execution_mode": mode,
+                "batch_no": mode,
+                "fq_path": str(tmp_path),
+            },
+        )
+        assert response.status_code == 400
+        assert response.json()["detail"]["code"] == "VALIDATION_ERROR"
     assert airflow.calls == []
 
 
@@ -1476,6 +1481,55 @@ def test_disabled_execution_gate_blocks_wgs_resume(tmp_path, monkeypatch):
     )
     assert adapter_blocked.status_code == 409
     assert adapter_blocked.json()["detail"]["code"] == "WGS_RUNTIME_DISABLED"
+    with sessions() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(
+                AnalysisRun.analysis_id == created["analysis_id"]
+            )
+        )
+        assert run.attempt == 1
+        assert run.status == "failed"
+    assert airflow.calls == []
+
+
+@pytest.mark.parametrize(
+    ("execution_enabled", "runtime_enabled"),
+    [(False, True), (True, False)],
+)
+def test_generic_reanalysis_adapter_checks_execution_gates_before_attempt_mutation(
+    tmp_path, monkeypatch, execution_enabled, runtime_enabled
+):
+    client, sessions, airflow = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "wgs-cce",
+            "execution_mode": "cce",
+            "batch_no": "BATCH-GENERIC-REANALYSIS-GATE",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(
+                AnalysisRun.analysis_id == created["analysis_id"]
+            )
+        )
+        run.status = "failed"
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", str(execution_enabled).lower())
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", str(runtime_enabled).lower())
+
+    response = client.post(
+        f"/api/runs/{created['analysis_id']}/actions/reanalyze",
+        headers=headers,
+        json={"mode": "resume"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "PIPELINE_CAPABILITY_UNAVAILABLE"
     with sessions() as session:
         run = session.scalar(
             select(AnalysisRun).where(

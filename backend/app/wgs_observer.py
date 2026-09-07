@@ -36,7 +36,7 @@ from app.wgs_stage_execution_service import (
     transition_stage_execution,
     validate_current_stage_execution,
 )
-from app.workflow_phases import phase_for_rule
+from app.workflow_phases import wgs_phase_for_rule
 
 
 RULE_EVENT_TYPES = {
@@ -1999,7 +1999,7 @@ def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
         state.sequence = _first_int(
             event.get("sequence") for event in ordered if event.get("sequence") is not None
         ) or stable_sequence[instance]
-        state.phase = phase_for_rule(state.rule_name, pipeline_name="wgs")
+        state.phase = wgs_phase_for_rule(state.rule_name)
         wildcards = next(
             (
                 event.get("wildcards")

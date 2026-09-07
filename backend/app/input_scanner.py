@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import os
 from pathlib import Path
 import re
-from typing import Iterator
 
 
 class InputPathError(ValueError):
@@ -47,6 +45,7 @@ def scan_fastq_candidates(
     *,
     rawdata_root: str | Path,
     allowed_roots: list[str | Path],
+    pipeline_id: str = "generic",
     max_samples: int = 200,
 ) -> ScanResult:
     if max_samples < 1:
@@ -60,46 +59,11 @@ def scan_fastq_candidates(
     for sample_dir in _iter_dirs(root):
         for sample_stem, r1, r2 in _paired_fastqs(sample_dir):
             if len(items) >= max_samples:
-                return ScanResult(pipeline="pgta", rawdata_root=str(root), truncated=True, items=items)
+                return ScanResult(pipeline=pipeline_id, rawdata_root=str(root), truncated=True, items=items)
             sample_id = _sample_id_from_stem(sample_stem)
             items.append(_candidate(sample_id=sample_id, r1=r1, r2=r2, source_dir=sample_dir))
 
-    return ScanResult(pipeline="pgta", rawdata_root=str(root), truncated=False, items=items)
-
-
-def scan_nipt_batch_candidates(
-    *,
-    rawdata_root: str | Path,
-    allowed_roots: list[str | Path],
-    max_samples: int = 200,
-    excluded_source_dirs: set[str] | None = None,
-) -> ScanResult:
-    if max_samples < 1:
-        raise InputPathError("max_samples must be at least 1.")
-
-    root = ensure_allowed_path(rawdata_root, allowed_roots)
-    if not root.is_dir():
-        raise InputPathError(f"rawdata_root is not a readable directory: {root}")
-
-    items: list[FastqCandidate] = []
-    excluded = {str(Path(path).resolve()) for path in (excluded_source_dirs or set())}
-    for batch_dir in _nipt_batch_dirs(root):
-        if str(batch_dir.resolve()) in excluded:
-            continue
-        for sample_stem, r1, r2 in _paired_nipt_clean_fastqs(batch_dir):
-            if len(items) >= max_samples:
-                return ScanResult(pipeline="nipt_docker", rawdata_root=str(root), truncated=True, items=items)
-            items.append(
-                _candidate(
-                    sample_id=sample_stem,
-                    r1=r1,
-                    r2=r2,
-                    source_dir=batch_dir,
-                    discovery_method="nipt_docker_clean_scan",
-                )
-            )
-
-    return ScanResult(pipeline="nipt_docker", rawdata_root=str(root), truncated=False, items=items)
+    return ScanResult(pipeline=pipeline_id, rawdata_root=str(root), truncated=False, items=items)
 
 
 def _iter_dirs(root: Path):
@@ -128,35 +92,6 @@ def _paired_fastqs(sample_dir: Path) -> list[tuple[str, Path, Path]]:
     return pairs
 
 
-def _nipt_batch_dirs(root: Path) -> Iterator[Path]:
-    for current_root, dir_names, _file_names in os.walk(root, topdown=True):
-        dir_names[:] = sorted((name for name in dir_names if not name.startswith(".")), reverse=True)
-        batch_dir = Path(current_root)
-        if not _paired_nipt_clean_fastqs(batch_dir):
-            continue
-        yield batch_dir
-        dir_names.clear()
-
-
-def _paired_nipt_clean_fastqs(batch_dir: Path) -> list[tuple[str, Path, Path]]:
-    by_sample: dict[str, dict[str, Path]] = {}
-    for path in sorted(batch_dir.iterdir()):
-        if not path.is_file():
-            continue
-        parsed = _parse_nipt_clean_fastq_name(path.name)
-        if parsed is None:
-            continue
-        sample_stem, direction = parsed
-        by_sample.setdefault(sample_stem, {})[direction] = path.resolve()
-
-    pairs = []
-    for sample_stem in sorted(by_sample):
-        item = by_sample[sample_stem]
-        if "R1" in item and "R2" in item:
-            pairs.append((sample_stem, item["R1"], item["R2"]))
-    return pairs
-
-
 def _parse_fastq_name(name: str) -> tuple[str, str] | None:
     base = re.sub(r"(?i)\.(fastq|fq)(\.gz)?$", "", name)
     if base == name:
@@ -170,17 +105,6 @@ def _parse_fastq_name(name: str) -> tuple[str, str] | None:
     sample_stem = base[: match.start()].rstrip("._-")
     if not sample_stem:
         return None
-    return sample_stem, direction
-
-
-def _parse_nipt_clean_fastq_name(name: str) -> tuple[str, str] | None:
-    match = re.match(r"^(.+)\.R([12])\.clean\.fastq\.gz$", name)
-    if not match:
-        return None
-    sample_stem = match.group(1).strip()
-    if not sample_stem:
-        return None
-    direction = "R1" if match.group(2) == "1" else "R2"
     return sample_stem, direction
 
 

@@ -93,7 +93,7 @@ def test_airflow_client_lists_task_instances_for_dag_run() -> None:
             json={
                 "task_instances": [
                     {
-                        "task_id": "run_pgta_target",
+                        "task_id": "run_analysis",
                         "state": "running",
                         "operator": "PythonOperator",
                         "try_number": 1,
@@ -112,7 +112,7 @@ def test_airflow_client_lists_task_instances_for_dag_run() -> None:
 
     payload = client.list_task_instances("bio_demo", "manual__demo run")
 
-    assert payload["task_instances"][0]["task_id"] == "run_pgta_target"
+    assert payload["task_instances"][0]["task_id"] == "run_analysis"
     assert seen_raw_paths == ["/api/v1/dags/bio_demo/dagRuns/manual__demo%20run/taskInstances"]
 
 

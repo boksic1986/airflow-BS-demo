@@ -1,13 +1,9 @@
 import {useEffect, useState} from "react";
-import {Link} from "react-router-dom";
-
 import type {WorkflowCatalogItem} from "../api";
 import {getWorkflowCatalog} from "../api";
 import {StatusBadge} from "../components/StatusBadge";
-import {WorkflowStageRail} from "../components/WorkflowStageRail";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {errorMessage} from "../lib/errors";
-import {formatDate} from "../lib/format";
 
 export function WorkflowsPage() {
   const capabilities = usePlatformCapabilities();
@@ -24,7 +20,7 @@ export function WorkflowsPage() {
     return () => { disposed = true; };
   }, []);
 
-  const visibleItems = items.filter((workflow) => capabilities.isDeployed(workflow.pipeline));
+  const visibleItems = items.filter((workflow) => capabilities.isDeployed(workflow.id));
 
   return (
     <div className="page-stack workflow-catalog-page">
@@ -38,7 +34,7 @@ export function WorkflowsPage() {
       {error ? <div className="inline-error" role="alert">Workflow catalog unavailable: {error}</div> : null}
       {loading ? <p className="muted panel-loading">Loading deployed workflows...</p> : null}
       <section className="workflow-catalog-grid">
-        {visibleItems.map((workflow) => <WorkflowCatalogCard key={workflow.pipeline} workflow={workflow} />)}
+        {visibleItems.map((workflow) => <WorkflowCatalogCard key={workflow.id} workflow={workflow} />)}
       </section>
       {!loading && !error && visibleItems.length === 0 ? <p className="empty-state">No deployed workflow state is available.</p> : null}
     </div>
@@ -46,27 +42,18 @@ export function WorkflowsPage() {
 }
 
 function WorkflowCatalogCard({workflow}: {workflow: WorkflowCatalogItem}) {
-  const latest = workflow.latest_run;
   return (
     <article className="panel workflow-catalog-card">
       <div className="section-heading split">
-        <div><p className="eyebrow">{workflow.dag_id}</p><h2>{workflow.name}</h2><p>{workflow.runtime}</p></div>
-        <StatusBadge status={latest?.status || "queued"} />
+        <div><p className="eyebrow">{workflow.dag_id}</p><h2>{workflow.display_name}</h2><p>{workflow.version ? `Version ${workflow.version}` : "Version managed by adapter"}</p></div>
+        <StatusBadge status={workflow.submit_enabled ? "available" : "disabled"} />
       </div>
-      <WorkflowStageRail analysisId={latest?.analysis_id || workflow.pipeline} pipeline={workflow.pipeline} stages={workflow.stages} />
       <dl className="definition-grid compact">
-        <div><dt>Runtime profile</dt><dd>{workflow.runtime_profile_id}</dd></div>
-        <div><dt>Validated runs</dt><dd>{workflow.run_count}</dd></div>
-        <div><dt>Success rate</dt><dd>{workflow.success_rate == null ? "No history" : `${Math.round(workflow.success_rate * 100)}%`}</dd></div>
-        <div><dt>Current stage</dt><dd>{latest?.current_stage || "No run history"}</dd></div>
+        <div><dt>Pipeline ID</dt><dd>{workflow.id}</dd></div>
+        <div><dt>Execution targets</dt><dd>{workflow.execution_targets.join(", ") || "Not declared"}</dd></div>
+        <div><dt>Capabilities</dt><dd>{workflow.capabilities.join(", ") || "None"}</dd></div>
+        <div><dt>Submission</dt><dd>{workflow.submit_enabled ? "Available" : "Unavailable"}</dd></div>
       </dl>
-      {latest ? (
-        <div className="workflow-latest-run">
-          <span>Latest run</span>
-          <Link className="mono" to={`/runs/${encodeURIComponent(latest.analysis_id)}`}>{latest.analysis_id}</Link>
-          <small>{latest.project_name} / {formatDate(latest.finished_at || latest.submitted_at)}</small>
-        </div>
-      ) : null}
     </article>
   );
 }

@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState
 from app.diagnostics_service import wgs_rule_log_contexts
-from app.workflow_phases import phase_for_rule, phase_order
+from app.workflow_phases import wgs_phase_for_rule, wgs_phase_order
 from app.wgs_stage_contract import (
     canonical_wgs_stage,
     project_wgs_orchestration,
@@ -23,7 +23,7 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
     rule_logs = wgs_rule_log_contexts(run=run, rules=rows, settings=settings) if settings is not None else {}
     items = []
     for row in rows:
-        phase = phase_for_rule(row.rule_name, pipeline_name="wgs")
+        phase = wgs_phase_for_rule(row.rule_name)
         durations = duration_history.get((row.rule_name, row.layer), [])
         history_median = median(durations) if len(durations) >= 3 else None
         projected_status = row.status
@@ -47,7 +47,7 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
                 "rule_instance_id": row.rule_instance_id,
                 "sequence": row.sequence,
                 "phase": phase,
-                "phase_order": phase_order(phase, pipeline_name="wgs"),
+                "phase_order": wgs_phase_order(phase),
                 "layer": row.layer,
                 "rule": row.rule_name,
                 "snakemake_jobid": row.snakemake_jobid,

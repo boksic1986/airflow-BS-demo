@@ -25,35 +25,30 @@ from app.diagnostics_service import (
     sync_sample_statuses,
     sync_airflow_status,
 )
-from app.input_scanner import FastqCandidate, InputPathError, scan_fastq_candidates, scan_nipt_batch_candidates
-from app.intake_config import load_intake_config
+from app.input_scanner import InputPathError
 from app.intake_retention_service import prune_scanner_history
-from app.intake_service import list_intake_status, preview_intake_scan, scan_and_submit_intake
 from app.operator_resources_service import list_failures_resource, list_samples_resource
-from app.pipeline_config_service import (
-    PipelineConfigError,
-    ProfileChangedError,
-    get_pipeline_config_template,
-    get_run_config,
-    validate_pipeline_config,
-)
 from app.progress_service import get_run_progress
-from app.qc_service import list_run_qc
+from app.pipeline_registry import (
+    PipelineCapabilityUnavailable,
+    PipelineNotAvailable,
+    PipelineNotRegistered,
+    PipelineRegistryError,
+)
+from app.pipeline_registry_service import (
+    clear_pipeline_registry_cache,
+    deployed_adapters,
+    get_pipeline_registry,
+    require_pipeline,
+    workflow_projectors,
+)
 from app.rule_event_service import get_snakemake_rule_events_page, record_snakemake_event
 from app.run_service import (
-    create_wgs_run,
-    create_nipt_docker_run,
-    create_pgta_run,
-    create_wes_mock_run,
     get_run_detail,
-    list_run_samples,
     list_runs,
-    reanalyze_run_to_airflow,
-    submit_run_to_airflow,
 )
 from app.run_resources_service import get_run_resource_summary
 from app.system_resources import get_system_resources
-from app.workflow_catalog_service import get_workflow_catalog
 from app.auth_service import (
     AuthenticatedUser,
     audit,
@@ -66,8 +61,8 @@ from app.auth_service import (
 )
 from app.wgs_platform_service import WgsPreparedArtifactPending, action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run, sync_prepared_samples, sync_sampleinfo_preview
 from app.wgs_release_catalog import load_wgs_release_catalog
-from app.models import AnalysisRun, KubernetesWorkload, ObserverRunState, RuleState, RunValidationIssue, Sample, TransferFileState, TransferJob, UserAccount, WgsExecutionDispatch, WgsStageExecution
-from app.wgs_timing_service import enrich_progress, serialize_rule_states
+from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunValidationIssue, Sample, TransferFileState, TransferJob, UserAccount, WgsExecutionDispatch, WgsStageExecution
+from app.wgs_timing_service import serialize_rule_states
 from app.wgs_workspace_service import build_wgs_workspace
 from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_definitions
 from app.wgs_runtime_adapter import build_stage_request, container_workdir_to_host, write_stage_request
@@ -78,10 +73,9 @@ from app.wgs_observer import (
 )
 from app.wgs_observer_lifecycle import activate_observer, request_observer_drain
 from app.wgs_t7_intake import get_wgs_t7_scanner_state, list_wgs_t7_intake
-from app.wgs_sample_projection import get_wgs_sample_projection
 from app.wgs_auto_dispatch import dispatch_ready_wgs_intake
-from app.wgs_step4_service import get_step4_repair_capability, request_step4_repair
-from app.wgs_step7_service import authorize_step7_runtime, get_step7_capability, request_step7_cleanup
+from app.wgs_step4_service import request_step4_repair
+from app.wgs_step7_service import authorize_step7_runtime, request_step7_cleanup
 from app.wgs_stage_catalog import load_wgs_stage_contract
 from app.wgs_stage_execution_service import (
     WgsStagePredecessorPending,
@@ -107,11 +101,9 @@ from app.wgs_execution_dispatch_service import (
     mark_execution_running,
     mark_execution_needs_recovery,
     mark_execution_terminal,
-    project_execution_dispatch,
 )
 from app.wgs_lifecycle_service import (
     LifecycleConflict,
-    project_wgs_lifecycle,
     update_wgs_lifecycle_status,
 )
 from app.platform_resources_service import get_platform_resources
@@ -119,9 +111,8 @@ from sqlalchemy import func, or_, select
 
 
 logger = logging.getLogger(__name__)
-INTAKE_SCANNER_DAG_ID = "bio_intake_scan"
-
 app = FastAPI(title="airflow-demo backend")
+INTAKE_SCANNER_DAG_ID = "bio_intake_scan"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
@@ -252,74 +243,30 @@ class InputScanRequest(BaseModel):
     max_samples: int = Field(default=200, ge=1, le=1000)
 
 
-class SelectedSampleRequest(BaseModel):
-    sample_id: str
-    r1: str
-    r2: str
-    source_dir: str
-    r1_size: int | None = None
-    r2_size: int | None = None
-    r1_mtime: float | None = None
-    r2_mtime: float | None = None
-    discovery_method: str = "server_path_scan"
-
-
 class CreateRunRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     pipeline: str
     project_name: str
-    target: str = "metadata"
-    rawdata_root: str | None = None
-    selected_samples: list[SelectedSampleRequest] = Field(default_factory=list)
-    template_id: str | None = None
-    run_mode: str = "mount_smoke"
-    cores: int | None = Field(default=None, ge=1, le=40)
-    email_to: str | None = None
-    note: str | None = None
-    submitted_by: str | None = Field(default=None, max_length=128)
-    runtime_profile_id: str | None = None
-    config_template_hash: str | None = None
-    snakemake_config_yaml: str | None = Field(default=None, max_length=65536)
-    wgs_config_path: str | None = None
-    wgs_precalling_config_path: str | None = None
-    wgs_downstream_config_path: str | None = None
-    wgs_targets_path: str | None = None
-    wgs_stage: str = "precalling"
-    wgs_dry_run: bool = True
-    execution_mode: str = Field(default="cce", pattern="^cce$")
+    execution_mode: str = Field(default="cce", max_length=32)
     batch_no: str | None = Field(default=None, min_length=1, max_length=128)
     fq_path: str | None = None
+    options: dict[str, object] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_pipeline_inputs(self):
-        if self.pipeline != "wgs":
-            raise ValueError("Only pipeline=wgs is supported.")
-        if self.pipeline == "wgs" and self.batch_no and self.fq_path:
-            return self
-        if self.pipeline == "pgta":
-            if not self.rawdata_root:
-                raise ValueError("rawdata_root is required for pipeline=pgta.")
-            if not self.selected_samples:
-                raise ValueError("selected_samples is required for pipeline=pgta.")
-        if self.pipeline == "nipt_docker" and not self.template_id:
-            if not self.rawdata_root:
-                raise ValueError("rawdata_root is required for pipeline=nipt_docker.")
-            if not self.selected_samples:
-                raise ValueError("selected_samples is required for pipeline=nipt_docker.")
-        if self.pipeline == "wgs":
-            raise ValueError("batch_no and fq_path are required for pipeline=wgs.")
+        self.pipeline = self.pipeline.strip()
+        if not self.pipeline:
+            raise ValueError("pipeline is required.")
         return self
 
 
 class PipelineConfigValidationRequest(BaseModel):
     pipeline: str
-    target: str = "metadata"
-    run_mode: str = "mount_smoke"
-    cores: int | None = Field(default=None, ge=1, le=40)
     runtime_profile_id: str
     config_template_hash: str
     snakemake_config_yaml: str = Field(max_length=65536)
+    options: dict[str, object] = Field(default_factory=dict)
 
 
 class IntakeScanRequest(BaseModel):
@@ -523,11 +470,24 @@ def add_user(request: UserCreateRequest, user: AuthenticatedUser = Depends(admin
 @app.get("/api/platform/capabilities")
 def platform_capabilities() -> dict[str, object]:
     settings = get_settings()
+    registry = get_pipeline_registry(settings)
     return {
         "environment": getattr(settings, "platform_environment", "Demo"),
-        "deployed_pipelines": list(_deployed_pipelines(settings)),
+        **registry.public_payload(),
         "airflow_url": getattr(settings, "public_airflow_url", "") or None,
     }
+
+
+def _pipeline_http_exception(exc: PipelineRegistryError) -> HTTPException:
+    status_code = (
+        status.HTTP_404_NOT_FOUND
+        if isinstance(exc, PipelineNotRegistered)
+        else status.HTTP_409_CONFLICT
+    )
+    return HTTPException(
+        status_code=status_code,
+        detail={"code": exc.code, "message": str(exc)},
+    )
 
 
 def get_airflow_client() -> AirflowClient:
@@ -541,27 +501,20 @@ def get_airflow_client() -> AirflowClient:
 
 @app.post("/api/input/scan")
 def scan_input(request: InputScanRequest) -> dict[str, object]:
-    if request.pipeline not in {"pgta", "nipt_docker"}:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "UNSUPPORTED_PIPELINE", "message": "Only pipeline=pgta or pipeline=nipt_docker supports server path scan."},
-        )
-
     try:
         settings = get_settings()
-        _require_pipeline_deployed(settings, request.pipeline)
-        if request.pipeline == "nipt_docker":
-            result = scan_nipt_batch_candidates(
-                rawdata_root=request.rawdata_root,
-                allowed_roots=_scan_roots_for_pipeline(settings, request.pipeline),
-                max_samples=request.max_samples,
+        definition = require_pipeline(settings, request.pipeline, capability="input_scan")
+        if definition.adapter.scan_inputs is None:
+            raise PipelineCapabilityUnavailable(
+                f"Pipeline {request.pipeline!r} has no input scan adapter."
             )
-        else:
-            result = scan_fastq_candidates(
-                rawdata_root=request.rawdata_root,
-                allowed_roots=_scan_roots_for_pipeline(settings, request.pipeline),
-                max_samples=request.max_samples,
-            )
+        return definition.adapter.scan_inputs(
+            settings=settings,
+            rawdata_root=request.rawdata_root,
+            max_samples=request.max_samples,
+        )
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
     except InputPathError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -579,78 +532,46 @@ def scan_input(request: InputScanRequest) -> dict[str, object]:
             detail={"code": "AIRFLOW_TRIGGER_FAILED", "message": str(exc)},
         ) from exc
 
-    return _scan_result_payload(result)
-
-
 @app.get("/api/input/roots")
-def input_roots(pipeline: str = Query(pattern="^(pgta|nipt_docker)$")) -> dict[str, object]:
-    settings = get_settings()
-    _require_pipeline_deployed(settings, pipeline)
-    return {
-        "pipeline": pipeline,
-        "roots": _scan_roots_for_pipeline(settings, pipeline),
-    }
+def input_roots(pipeline: str) -> dict[str, object]:
+    try:
+        settings = get_settings()
+        definition = require_pipeline(settings, pipeline, capability="input_scan")
+        if definition.adapter.input_roots is None:
+            raise PipelineCapabilityUnavailable(
+                f"Pipeline {pipeline!r} has no input-root adapter."
+            )
+        return {"pipeline": pipeline, "roots": definition.adapter.input_roots(settings=settings)}
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
 
 
 @app.get("/api/intake/config")
 def intake_config() -> dict[str, object]:
-    return _load_intake_config(get_settings()).public_payload()
+    return get_pipeline_registry(get_settings()).public_payload()
 
 
 @app.get("/api/intake/scanner-state")
 def intake_scanner_state() -> dict[str, object]:
-    settings = _deployment_guard_settings()
-    deployed = _deployed_pipelines(settings) if settings is not None else ("pgta", "nipt_docker")
-    if deployed == ("wgs",):
-        with get_sessionmaker()() as session:
-            return get_wgs_t7_scanner_state(
+    settings = get_settings()
+    registry = get_pipeline_registry(settings)
+    states: dict[str, object] = {}
+    with get_sessionmaker()() as session:
+        for pipeline_id in registry.deployed_pipeline_ids:
+            definition = registry.require(pipeline_id, capability="intake")
+            if definition.adapter.scanner_state is None:
+                states[pipeline_id] = {
+                    "available": False,
+                    "message": "Scanner state is not provided by this pipeline adapter.",
+                }
+                continue
+            states[pipeline_id] = definition.adapter.scanner_state(
                 session=session,
-                root=settings.wgs_t7_fastq_root,
-                enabled=settings.wgs_intake_scan_enabled,
-                schedule_seconds=settings.wgs_intake_scan_interval_seconds,
-                auto_dispatch_enabled=settings.wgs_auto_dispatch_enabled,
+                settings=settings,
             )
-    trigger_contracts = _intake_trigger_contracts(deployed)
-    try:
-        airflow_client = get_airflow_client()
-        dag_payload = airflow_client.get_dag(INTAKE_SCANNER_DAG_ID)
-        dag_runs_payload = airflow_client.list_dag_runs(
-            INTAKE_SCANNER_DAG_ID,
-            limit=1,
-            order_by="-start_date",
-        )
-    except Exception:
-        logger.exception("intake scanner Airflow state unavailable")
-        return {
-            "dag_id": INTAKE_SCANNER_DAG_ID,
-            "airflow_reachable": False,
-            "is_paused": None,
-            "latest_dag_run_id": None,
-            "latest_dag_run_state": None,
-            "latest_start_date": None,
-            "latest_end_date": None,
-            "schedule": "*/10 * * * *",
-            "next_run": None,
-            "trigger_contracts": trigger_contracts,
-            "retention": _intake_retention_state(),
-            "message": "Airflow scanner state unavailable",
-        }
-
-    latest_run = _latest_dag_run(dag_runs_payload)
-    return {
-        "dag_id": str(dag_payload.get("dag_id") or INTAKE_SCANNER_DAG_ID),
-        "airflow_reachable": True,
-        "is_paused": dag_payload.get("is_paused"),
-        "latest_dag_run_id": latest_run.get("dag_run_id") if latest_run else None,
-        "latest_dag_run_state": latest_run.get("state") if latest_run else None,
-        "latest_start_date": latest_run.get("start_date") if latest_run else None,
-        "latest_end_date": latest_run.get("end_date") if latest_run else None,
-        "schedule": _dag_schedule(dag_payload),
-        "next_run": dag_payload.get("next_dagrun") or dag_payload.get("next_dagrun_create_after"),
-        "trigger_contracts": trigger_contracts,
-        "retention": _intake_retention_state(),
-        "message": None,
-    }
+    if len(states) == 1:
+        return next(iter(states.values()))
+    return {"pipelines": states}
 
 
 @app.post("/api/intake/retention", dependencies=[Depends(require_internal_service_token)])
@@ -673,61 +594,44 @@ def intake_retention(request: IntakeRetentionRequest) -> dict[str, object]:
 @app.get("/api/pipeline-config/template")
 def pipeline_config_template(
     pipeline: str,
-    target: str = "metadata",
-    run_mode: str = "mount_smoke",
+    target: str | None = None,
+    run_mode: str | None = None,
     profile_id: str | None = None,
 ) -> dict[str, object]:
-    del target, run_mode
     try:
-        _guard_pipeline_deployed(pipeline)
-        return get_pipeline_config_template(
+        definition = require_pipeline(get_settings(), pipeline, capability="profile")
+        if definition.adapter.config_template is None:
+            raise PipelineCapabilityUnavailable(
+                f"Pipeline {pipeline!r} has no profile template adapter."
+            )
+        return definition.adapter.config_template(
             settings=get_settings(),
             pipeline=pipeline,
             profile_id=profile_id,
+            options={"target": target, "run_mode": run_mode},
         )
-    except PipelineConfigError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "CONFIG_VALIDATION_ERROR", "message": str(exc)},
-        ) from exc
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
 
 
 @app.post("/api/pipeline-config/validate")
 def pipeline_config_validate(request: PipelineConfigValidationRequest) -> dict[str, object]:
     try:
-        _guard_pipeline_deployed(request.pipeline)
-        validated = validate_pipeline_config(
+        definition = require_pipeline(get_settings(), request.pipeline, capability="profile")
+        if definition.adapter.validate_config is None:
+            raise PipelineCapabilityUnavailable(
+                f"Pipeline {request.pipeline!r} has no profile validation adapter."
+            )
+        return definition.adapter.validate_config(
             settings=get_settings(),
             pipeline=request.pipeline,
             profile_id=request.runtime_profile_id,
             template_hash=request.config_template_hash,
             config_yaml=request.snakemake_config_yaml,
-            cores=request.cores,
+            options=request.options,
         )
-    except ProfileChangedError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "PROFILE_CHANGED", "message": str(exc)},
-        ) from exc
-    except PipelineConfigError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "CONFIG_VALIDATION_ERROR", "message": str(exc)},
-        ) from exc
-    return {
-        "valid": True,
-        "profile": {
-            "id": validated.profile_id,
-            "label": validated.profile_label,
-            "pipeline_version": validated.pipeline_version,
-            "config_version": validated.config_version,
-        },
-        "config_template_hash": validated.template_hash,
-        "normalized_yaml": validated.normalized_yaml,
-        "changed_paths": validated.changed_paths,
-        "warnings": [],
-        "errors": [],
-    }
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
 
 
 @app.post("/api/runs", status_code=status.HTTP_201_CREATED)
@@ -735,71 +639,28 @@ def create_run(request: CreateRunRequest, user: AuthenticatedUser = Depends(oper
     settings = get_settings()
     session_factory = get_sessionmaker()
     try:
-        _require_pipeline_deployed(settings, request.pipeline)
-        pipeline_config = _validated_create_config(request=request, settings=settings)
+        definition = require_pipeline(settings, request.pipeline, capability="submit")
+        if not definition.submit_enabled or definition.adapter.create_run is None:
+            raise PipelineCapabilityUnavailable(
+                f"Pipeline {request.pipeline!r} has no enabled submit adapter."
+            )
         with session_factory() as session:
-            if request.pipeline == "wgs":
-                payload = create_wgs_platform_run(
-                    session=session,
-                    settings=settings,
-                    project_name=request.project_name,
-                    execution_mode=request.execution_mode,
-                    batch_no=str(request.batch_no or ""),
-                    fq_path=str(request.fq_path or ""),
-                    submitted_by=user.username,
-                )
-                audit(session=session, username=user.username, action="run.create", analysis_id=str(payload["analysis_id"]), payload={"execution_mode": request.execution_mode})
-                return payload
-            if request.pipeline == "pgta":
-                selected_samples = [_selected_sample_to_candidate(item) for item in request.selected_samples]
-                return create_pgta_run(
-                    session=session,
-                    settings=settings,
-                    project_name=request.project_name,
-                    target=request.target,
-                    rawdata_root=request.rawdata_root or "",
-                    selected_samples=selected_samples,
-                    submitted_by=request.submitted_by,
-                    email_to=request.email_to,
-                    note=request.note,
-                    pipeline_config=pipeline_config,
-                )
-            if request.pipeline == "wes_qsub":
-                return create_wes_mock_run(
-                    session=session,
-                    settings=settings,
-                    project_name=request.project_name,
-                    target=request.target,
-                    email_to=request.email_to,
-                    note=request.note,
-                )
-            if request.pipeline == "nipt_docker":
-                selected_samples = [_selected_sample_to_candidate(item) for item in request.selected_samples]
-                return create_nipt_docker_run(
-                    session=session,
-                    settings=settings,
-                    project_name=request.project_name,
-                    template_id=request.template_id,
-                    rawdata_root=request.rawdata_root,
-                    selected_samples=selected_samples,
-                    submitted_by=request.submitted_by,
-                    run_mode=request.run_mode,
-                    cores=request.cores,
-                    email_to=request.email_to,
-                    note=request.note,
-                    pipeline_config=pipeline_config,
-                )
-            raise ValueError("Only deployed PGT-A, NIPT Docker, WES demo, or WGS pipelines are supported.")
-    except ProfileChangedError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "PROFILE_CHANGED", "message": str(exc)},
-        ) from exc
-    except PipelineConfigError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "CONFIG_VALIDATION_ERROR", "message": str(exc)},
-        ) from exc
+            payload = definition.adapter.create_run(
+                session=session,
+                settings=settings,
+                request=request,
+                user=user,
+            )
+            audit(
+                session=session,
+                username=user.username,
+                action="run.create",
+                analysis_id=str(payload["analysis_id"]),
+                payload={"pipeline": request.pipeline, "execution_mode": request.execution_mode},
+            )
+            return payload
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
     except InputPathError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1116,7 +977,7 @@ def submit_wgs_submission_draft(
 
 @app.get("/api/runs")
 def runs_list(
-    pipeline: str | None = Query(default=None, pattern="^(all|deployed|pgta|nipt_docker|wgs)$"),
+    pipeline: str | None = Query(default=None),
     status_filter: str | None = Query(default=None, alias="status"),
     keyword: str | None = None,
     sort: str = Query(default="created_desc", pattern="^(created_desc|duration_desc|status)$"),
@@ -1136,12 +997,13 @@ def runs_list(
             sort=sort,
             limit=limit,
             offset=offset,
+            workflow_projectors=workflow_projectors(get_settings()),
         )
 
 
 @app.get("/api/samples")
 def samples_list(
-    pipeline: str | None = Query(default=None, pattern="^(all|deployed|pgta|nipt_docker|wgs)$"),
+    pipeline: str | None = Query(default=None),
     status_filter: str | None = Query(default=None, alias="status"),
     qc_status: str | None = None,
     keyword: str | None = None,
@@ -1161,12 +1023,13 @@ def samples_list(
             keyword=keyword,
             limit=limit,
             offset=offset,
+            pipeline_adapters=deployed_adapters(get_settings()),
         )
 
 
 @app.get("/api/failures")
 def failures_list(
-    pipeline: str = Query(default="all", pattern="^(all|deployed|pgta|nipt_docker|wgs)$"),
+    pipeline: str = Query(default="all"),
     kind: str = Query(default="all", pattern="^(all|workflow|qc)$"),
     layer: str | None = Query(default=None, pattern="^(airflow|runner|pipeline_rule|qc|unknown)$"),
     period: str = Query(default="7d", pattern="^(24h|7d|30d)$"),
@@ -1188,12 +1051,13 @@ def failures_list(
             limit=limit,
             offset=offset,
             deployed_pipelines=deployed_pipelines,
+            pipeline_adapters=deployed_adapters(get_settings()),
         )
 
 
 @app.get("/api/dashboard/overview")
 def dashboard_overview(
-    pipeline: str = Query(default="all", pattern="^(all|deployed|pgta|nipt_docker|wgs)$"),
+    pipeline: str = Query(default="all"),
     period: str = Query(default="7d", pattern="^(24h|7d|30d)$"),
 ) -> dict[str, object]:
     deployed_pipelines = _active_deployed_pipelines()
@@ -1210,7 +1074,7 @@ def dashboard_overview(
 
 @app.get("/api/dashboard/runs")
 def dashboard_runs(
-    pipeline: str = Query(default="all", pattern="^(all|deployed|pgta|nipt_docker|wgs)$"),
+    pipeline: str = Query(default="all"),
     status_filter: str | None = Query(default=None, alias="status"),
     keyword: str | None = None,
     limit: int = Query(default=10, ge=1, le=50),
@@ -1229,6 +1093,7 @@ def dashboard_runs(
             keyword=keyword,
             limit=limit,
             offset=offset,
+            pipeline_adapters=deployed_adapters(get_settings()),
         )
 
 
@@ -1237,21 +1102,27 @@ def submit_run(analysis_id: str, user: AuthenticatedUser = Depends(operator_user
     try:
         with get_sessionmaker()() as session:
             detail = get_run_detail(session=session, analysis_id=analysis_id)
-            if detail is not None:
-                _guard_pipeline_deployed(str(detail.get("pipeline") or detail.get("pipeline_name") or ""))
-                if str(detail.get("pipeline") or detail.get("pipeline_name") or "") == "wgs":
-                    _guard_wgs_execution(bool((detail.get("params") or {}).get("wgs_dry_run", True)))
-            if detail is not None and str(detail.get("pipeline") or "") == "wgs" and detail.get("execution_mode") in {"cce", "sge", "local"}:
-                if not _wgs_platform_execution_enabled():
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail="WGS execution is disabled until Phase 2 workflow integration is approved.",
-                    )
-                payload = submit_wgs_run(session=session, airflow_client=get_airflow_client(), analysis_id=analysis_id)
+            if detail is None:
+                payload = None
             else:
-                payload = submit_run_to_airflow(session=session, airflow_client=get_airflow_client(), analysis_id=analysis_id)
+                definition = require_pipeline(
+                    get_settings(), str(detail.get("pipeline") or ""), capability="submit"
+                )
+                if not definition.submit_enabled or definition.adapter.submit_run is None:
+                    raise PipelineCapabilityUnavailable(
+                        f"Pipeline {definition.pipeline_id!r} has no enabled submit adapter."
+                    )
+                payload = definition.adapter.submit_run(
+                    session=session,
+                    settings=get_settings(),
+                    airflow_client=get_airflow_client(),
+                    analysis_id=analysis_id,
+                    user=user,
+                )
             if payload is not None:
                 audit(session=session, username=user.username, action="run.submit", analysis_id=analysis_id)
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1275,21 +1146,15 @@ def submit_run(analysis_id: str, user: AuthenticatedUser = Depends(operator_user
 @app.post("/api/intake/scan-and-submit", dependencies=[Depends(require_internal_service_token)])
 def intake_scan_and_submit(request: IntakeScanRequest) -> dict[str, object]:
     try:
-        _guard_pipelines_deployed(request.pipelines)
-        with get_sessionmaker()() as session:
-            return scan_and_submit_intake(
-                session=session,
-                settings=get_settings(),
-                airflow_client=get_airflow_client(),
-                pipelines=request.pipelines,
-                bootstrap=request.bootstrap,
-                max_samples=request.max_samples,
+        settings = get_settings()
+        for pipeline_id in request.pipelines:
+            definition = require_pipeline(settings, pipeline_id, capability="intake")
+            raise PipelineCapabilityUnavailable(
+                f"Pipeline {definition.pipeline_id!r} does not expose generic scan-and-submit; use its registered intake adapter."
             )
-    except InputPathError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "INVALID_INPUT_PATH", "message": str(exc)},
-        ) from exc
+        return {"items": []}
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
 
 
 @app.post(
@@ -1328,30 +1193,20 @@ def dispatch_ready_wgs_batches() -> dict[str, object]:
 @app.post("/api/intake/scan-preview")
 def intake_scan_preview(request: IntakeScanRequest) -> dict[str, object]:
     try:
-        _guard_pipelines_deployed(request.pipelines)
-        with get_sessionmaker()() as session:
-            return preview_intake_scan(
-                session=session,
-                settings=get_settings(),
-                pipelines=request.pipelines,
-                bootstrap=request.bootstrap,
-                max_samples=request.max_samples,
+        settings = get_settings()
+        for pipeline_id in request.pipelines:
+            definition = require_pipeline(settings, pipeline_id, capability="intake")
+            raise PipelineCapabilityUnavailable(
+                f"Pipeline {definition.pipeline_id!r} does not expose generic intake preview; use its registered intake adapter."
             )
-    except InputPathError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "INVALID_INPUT_PATH", "message": str(exc)},
-        ) from exc
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "VALIDATION_ERROR", "message": str(exc)},
-        ) from exc
+        return {"items": []}
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
 
 
 @app.get("/api/intake/status")
 def intake_status(
-    pipeline: str | None = Query(default=None, pattern="^(all|deployed|pgta|nipt_docker|wgs)$"),
+    pipeline: str | None = Query(default=None),
     state_filter: str | None = Query(
         default=None,
         alias="state",
@@ -1365,41 +1220,43 @@ def intake_status(
 ) -> dict[str, object]:
     deployed_pipelines = _active_deployed_pipelines()
     aggregate_scope = pipeline in {None, "all", "deployed"}
-    if pipeline and not aggregate_scope:
-        _guard_pipeline_deployed(pipeline)
     with get_sessionmaker()() as session:
-        if pipeline == "wgs" or (
-            aggregate_scope
-            and len(deployed_pipelines) == 1
-            and deployed_pipelines[0] == "wgs"
-        ):
-            return list_wgs_t7_intake(
-                session=session,
-                state=state_filter,
-                view=view_filter,
-                keyword=keyword,
-                limit=limit,
-                offset=offset,
-            )
-        return list_intake_status(
-            session=session,
-            pipeline=None if aggregate_scope else pipeline,
-            state=state_filter,
-            lifecycle=lifecycle,
-            view=view_filter,
-            keyword=keyword,
-            limit=limit,
-            offset=offset,
-            deployed_pipelines=deployed_pipelines if aggregate_scope else None,
-        )
+        selected = deployed_pipelines if aggregate_scope else (str(pipeline),)
+        payloads = []
+        for pipeline_id in selected:
+            try:
+                definition = require_pipeline(get_settings(), pipeline_id, capability="intake")
+                if definition.adapter.intake_status is None:
+                    continue
+                payloads.append(
+                    definition.adapter.intake_status(
+                        session=session,
+                        settings=get_settings(),
+                        state=state_filter,
+                        lifecycle=lifecycle,
+                        view=view_filter,
+                        keyword=keyword,
+                        limit=limit,
+                        offset=offset,
+                    )
+                )
+            except PipelineRegistryError as exc:
+                raise _pipeline_http_exception(exc) from exc
+        if len(payloads) == 1:
+            return payloads[0]
+        items = [item for payload in payloads for item in payload.get("items", [])]
+        return {"items": items[:limit], "total": sum(int(item.get("total", 0)) for item in payloads)}
 
 
 @app.get("/api/workflows")
 def workflows() -> dict[str, object]:
-    settings = _deployment_guard_settings()
-    deployed = _deployed_pipelines(settings) if settings is not None else ("pgta", "nipt_docker")
-    with get_sessionmaker()() as session:
-        return get_workflow_catalog(session=session, pipelines=deployed)
+    registry = get_pipeline_registry(get_settings())
+    return {
+        "items": [
+            registry.require(pipeline_id).public_payload()
+            for pipeline_id in registry.deployed_pipeline_ids
+        ]
+    }
 
 
 @app.get("/api/system/resources")
@@ -1408,22 +1265,35 @@ def system_resources() -> dict[str, object]:
 
 
 @app.post("/api/runs/{analysis_id}/actions/reanalyze")
-def reanalyze_run(analysis_id: str, request: ReanalysisRequest) -> dict[str, object]:
+def reanalyze_run(
+    analysis_id: str,
+    request: ReanalysisRequest,
+    user: AuthenticatedUser = Depends(operator_user),
+) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
             detail = get_run_detail(session=session, analysis_id=analysis_id)
-            if detail is not None:
-                _guard_pipeline_deployed(str(detail.get("pipeline") or detail.get("pipeline_name") or ""))
-            payload = reanalyze_run_to_airflow(
-                session=session,
-                airflow_client=get_airflow_client(),
-                analysis_id=analysis_id,
-                mode=request.mode,
-                rule=request.rule,
-                sample_id=request.sample_id,
-                stage=request.stage,
-                reason=request.reason,
-            )
+            if detail is None:
+                payload = None
+            else:
+                capability = "resume" if request.mode == "resume" else "rerun"
+                definition = require_pipeline(
+                    get_settings(), str(detail.get("pipeline") or ""), capability=capability
+                )
+                if definition.adapter.reanalyze_run is None:
+                    raise PipelineCapabilityUnavailable(
+                        f"Pipeline {definition.pipeline_id!r} has no reanalysis adapter."
+                    )
+                payload = definition.adapter.reanalyze_run(
+                    session=session,
+                    settings=get_settings(),
+                    airflow_client=get_airflow_client(),
+                    analysis_id=analysis_id,
+                    request=request,
+                    user=user,
+                )
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1448,7 +1318,20 @@ def reanalyze_run(analysis_id: str, request: ReanalysisRequest) -> dict[str, obj
 def sync_run_airflow(analysis_id: str) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
-            payload = sync_airflow_status(
+            run = session.scalar(
+                select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+            )
+            adapter = (
+                require_pipeline(get_settings(), run.pipeline_name).adapter
+                if run is not None
+                else None
+            )
+            handler = (
+                adapter.sync_airflow_status
+                if adapter is not None and adapter.sync_airflow_status is not None
+                else sync_airflow_status
+            )
+            payload = handler(
                 session=session,
                 airflow_client=get_airflow_client(),
                 analysis_id=analysis_id,
@@ -1459,6 +1342,8 @@ def sync_run_airflow(analysis_id: str) -> dict[str, object]:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "MISSING_DAG_RUN", "message": str(exc)},
         ) from exc
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
     except InvalidRunPathError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1481,115 +1366,57 @@ def sync_run_airflow(analysis_id: str) -> dict[str, object]:
 
 @app.get("/api/runs/{analysis_id}")
 def run_detail(analysis_id: str) -> dict[str, object]:
-    observer_payload = None
-    with get_sessionmaker()() as session:
-        payload = get_run_detail(session=session, analysis_id=analysis_id)
-        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
-        observer = (
-            session.scalar(
-                select(ObserverRunState).where(
-                    ObserverRunState.analysis_id == analysis_id,
-                    ObserverRunState.attempt == run.attempt,
-                )
+    try:
+        with get_sessionmaker()() as session:
+            payload = get_run_detail(session=session, analysis_id=analysis_id)
+            run = session.scalar(
+                select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
             )
-            if run is not None
-            else None
-        )
-        step4_repair = (
-            get_step4_repair_capability(
-                session=session,
-                run=run,
-                execution_enabled=_wgs_platform_execution_enabled(),
-                runtime_adapter_enabled=_wgs_runtime_adapter_enabled(),
-            )
-            if run is not None and run.pipeline_name == "wgs"
-            else None
-        )
-        step7_cleanup = (
-            get_step7_capability(
-                session=session,
-                run=run,
-                execution_enabled=_wgs_platform_execution_enabled(),
-                runtime_adapter_enabled=_wgs_runtime_adapter_enabled(),
-            )
-            if run is not None and run.pipeline_name == "wgs"
-            else None
-        )
-        execution_dispatch = (
-            project_execution_dispatch(
-                session=session,
-                settings=get_settings(),
-                run=run,
-            )
-            if run is not None and run.pipeline_name == "wgs"
-            else None
-        )
-        lifecycle = (
-            project_wgs_lifecycle(session=session, run=run)
-            if run is not None and run.pipeline_name == "wgs"
-            else None
-        )
-        if observer is not None:
-            observer_payload = {
-                "lifecycle_status": observer.lifecycle_status,
-                "monitoring_health": observer.monitoring_health,
-                "activated_at": (
-                    observer.activated_at.isoformat()
-                    if observer.activated_at
-                    else None
-                ),
-                "deactivated_at": (
-                    observer.deactivated_at.isoformat()
-                    if observer.deactivated_at
-                    else None
-                ),
-                "last_success_at": (
-                    observer.last_success_at.isoformat()
-                    if observer.last_success_at
-                    else None
-                ),
-                "last_error": observer.last_error,
-                "updated_at": observer.updated_at.isoformat(),
-            }
+            if run is not None:
+                definition = require_pipeline(get_settings(), run.pipeline_name)
+                if definition.adapter.project_run_detail is not None:
+                    payload.update(
+                        definition.adapter.project_run_detail(
+                            session=session,
+                            settings=get_settings(),
+                            run=run,
+                        )
+                        or {}
+                    )
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
-    _guard_pipeline_deployed(str(payload.get("pipeline") or payload.get("pipeline_name") or ""))
-    params = payload.get("params") if isinstance(payload.get("params"), dict) else {}
-    payload["pipeline_release_id"] = params.get("pipeline_release_id")
-    payload["wgs_version"] = params.get("wgs_version")
-    payload["wgs_source_commit"] = params.get("wgs_source_commit")
-    payload["resolved_runtime"] = params.get("resolved_runtime")
-    payload["rule_event_schema_version"] = params.get("rule_event_schema_version")
-    payload["observer"] = observer_payload
-    payload["step4_repair"] = step4_repair
-    payload["step7_cleanup"] = step7_cleanup
-    payload["execution_dispatch"] = execution_dispatch
-    payload["lifecycle"] = lifecycle
     return payload
 
 
 @app.get("/api/runs/{analysis_id}/samples")
 def run_samples(analysis_id: str) -> dict[str, object]:
-    with get_sessionmaker()() as session:
-        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
-        if run is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+    try:
+        with get_sessionmaker()() as session:
+            run = session.scalar(
+                select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
             )
-        if run.pipeline_name == "wgs":
-            return get_wgs_sample_projection(
+            if run is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
+                )
+            definition = require_pipeline(get_settings(), run.pipeline_name)
+            if definition.adapter.project_samples is None:
+                raise PipelineCapabilityUnavailable(
+                    f"Pipeline {definition.pipeline_id!r} has no sample projection adapter."
+                )
+            return definition.adapter.project_samples(
                 session=session,
                 settings=get_settings(),
                 run=run,
             )
-        return {
-            "items": list_run_samples(session=session, analysis_id=analysis_id),
-            "manifest": [],
-        }
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
 
 
 @app.get("/api/runs/{analysis_id}/workspace")
@@ -2627,11 +2454,33 @@ def _wgs_action(analysis_id: str, action: str, user: AuthenticatedUser) -> dict[
 def run_progress(analysis_id: str) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
+            run = session.scalar(
+                select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+            )
+            adapter = (
+                require_pipeline(get_settings(), run.pipeline_name).adapter
+                if run is not None
+                else None
+            )
+            rule_context = (
+                adapter.project_rule_context(run=run)
+                if adapter is not None and adapter.project_rule_context is not None
+                else None
+            )
             payload = get_run_progress(
                 session=session,
                 airflow_client=get_airflow_client(),
                 analysis_id=analysis_id,
+                rule_context=rule_context,
             )
+            if payload is not None and run is not None and adapter is not None and adapter.project_progress is not None:
+                payload = adapter.project_progress(
+                    session=session,
+                    run=run,
+                    payload=payload,
+                )
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
     except httpx.HTTPError as exc:
         logger.exception("airflow task instance progress fetch failed")
         raise HTTPException(
@@ -2644,11 +2493,6 @@ def run_progress(analysis_id: str) -> dict[str, object]:
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
         )
-    if str(payload.get("pipeline") or "") == "wgs":
-        with get_sessionmaker()() as session:
-            run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
-            if run is not None:
-                payload = enrich_progress(session=session, run=run, payload=payload)
     return payload
 
 
@@ -2670,8 +2514,28 @@ def run_resources(analysis_id: str) -> dict[str, object]:
 
 @app.get("/api/runs/{analysis_id}/qc")
 def run_qc(analysis_id: str) -> dict[str, object]:
-    with get_sessionmaker()() as session:
-        payload = list_run_qc(session=session, analysis_id=analysis_id)
+    try:
+        with get_sessionmaker()() as session:
+            run = session.scalar(
+                select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+            )
+            if run is None:
+                payload = None
+            else:
+                definition = require_pipeline(
+                    get_settings(), run.pipeline_name, capability="qc"
+                )
+                if definition.adapter.project_qc is None:
+                    raise PipelineCapabilityUnavailable(
+                        f"Pipeline {definition.pipeline_id!r} has no QC projection adapter."
+                    )
+                payload = definition.adapter.project_qc(
+                    session=session,
+                    settings=get_settings(),
+                    run=run,
+                )
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -2701,7 +2565,16 @@ def run_logs(
 ) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
-            payload = get_run_log(
+            run = session.scalar(
+                select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+            )
+            adapter = (
+                require_pipeline(get_settings(), run.pipeline_name).adapter
+                if run is not None
+                else None
+            )
+            handler = adapter.get_log if adapter is not None and adapter.get_log is not None else get_run_log
+            payload = handler(
                 session=session,
                 analysis_id=analysis_id,
                 stream=stream,
@@ -2714,6 +2587,8 @@ def run_logs(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "UNSUPPORTED_LOG_STREAM", "message": str(exc)},
         ) from exc
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
     except InvalidRunPathError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -2737,12 +2612,23 @@ def run_logs(
 def run_log_index(analysis_id: str) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
-            payload = list_run_logs(session=session, analysis_id=analysis_id, settings=get_settings())
+            run = session.scalar(
+                select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+            )
+            adapter = (
+                require_pipeline(get_settings(), run.pipeline_name).adapter
+                if run is not None
+                else None
+            )
+            handler = adapter.list_logs if adapter is not None and adapter.list_logs is not None else list_run_logs
+            payload = handler(session=session, analysis_id=analysis_id, settings=get_settings())
     except InvalidRunPathError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "INVALID_RUN_PATH", "message": str(exc)},
         ) from exc
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -2755,7 +2641,20 @@ def run_log_index(analysis_id: str) -> dict[str, object]:
 def run_artifacts(analysis_id: str) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
-            payload = list_run_artifacts(
+            run = session.scalar(
+                select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+            )
+            adapter = (
+                require_pipeline(get_settings(), run.pipeline_name).adapter
+                if run is not None
+                else None
+            )
+            handler = (
+                adapter.list_artifacts
+                if adapter is not None and adapter.list_artifacts is not None
+                else list_run_artifacts
+            )
+            payload = handler(
                 session=session,
                 analysis_id=analysis_id,
                 settings=get_settings(),
@@ -2765,6 +2664,8 @@ def run_artifacts(analysis_id: str) -> dict[str, object]:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "INVALID_RUN_PATH", "message": str(exc)},
         ) from exc
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
 
     if payload is None:
         raise HTTPException(
@@ -2778,16 +2679,26 @@ def run_artifacts(analysis_id: str) -> dict[str, object]:
 def run_config_detail(analysis_id: str) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
-            payload = get_run_config(
-                session=session,
-                analysis_id=analysis_id,
-                settings=get_settings(),
+            run = session.scalar(
+                select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
             )
-    except PipelineConfigError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "CONFIG_VALIDATION_ERROR", "message": str(exc)},
-        ) from exc
+            if run is None:
+                payload = None
+            else:
+                definition = require_pipeline(
+                    get_settings(), run.pipeline_name, capability="profile"
+                )
+                if definition.adapter.project_config is None:
+                    raise PipelineCapabilityUnavailable(
+                        f"Pipeline {definition.pipeline_id!r} has no run configuration projection adapter."
+                    )
+                payload = definition.adapter.project_config(
+                    session=session,
+                    settings=get_settings(),
+                    run=run,
+                )
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -2824,91 +2735,24 @@ def airflow_health() -> dict[str, object]:
     return {"status": "ok", "airflow": airflow_payload}
 
 
-def _validated_create_config(*, request: CreateRunRequest, settings):
-    values = (
-        request.runtime_profile_id,
-        request.config_template_hash,
-        request.snakemake_config_yaml,
-    )
-    if all(value is None for value in values):
-        return None
-    if request.pipeline not in {"pgta", "nipt_docker"}:
-        raise PipelineConfigError("Editable Snakemake config is only available for PGT-A and NIPT Docker.")
-    if any(value is None for value in values):
-        raise PipelineConfigError(
-            "runtime_profile_id, config_template_hash, and snakemake_config_yaml must be supplied together."
-        )
-    return validate_pipeline_config(
-        settings=settings,
-        pipeline=request.pipeline,
-        profile_id=str(request.runtime_profile_id),
-        template_hash=str(request.config_template_hash),
-        config_yaml=str(request.snakemake_config_yaml),
-        cores=request.cores,
-    )
-
-
-def _selected_sample_to_candidate(item: SelectedSampleRequest) -> FastqCandidate:
-    from pathlib import Path
-
-    r1_path = Path(item.r1)
-    r2_path = Path(item.r2)
-    r1_stat = r1_path.stat() if item.r1_size is None or item.r1_mtime is None else None
-    r2_stat = r2_path.stat() if item.r2_size is None or item.r2_mtime is None else None
-    return FastqCandidate(
-        sample_id=item.sample_id,
-        r1=item.r1,
-        r2=item.r2,
-        source_dir=item.source_dir,
-        r1_size=item.r1_size if item.r1_size is not None else r1_stat.st_size,
-        r2_size=item.r2_size if item.r2_size is not None else r2_stat.st_size,
-        r1_mtime=item.r1_mtime if item.r1_mtime is not None else r1_stat.st_mtime,
-        r2_mtime=item.r2_mtime if item.r2_mtime is not None else r2_stat.st_mtime,
-        discovery_method=item.discovery_method,
-    )
-
-
-def _scan_roots_for_pipeline(settings, pipeline: str) -> list[str]:
-    roots = _load_intake_config(settings).roots_for_pipeline(pipeline)
-    if roots:
-        return roots
-    if pipeline == "nipt_docker":
-        return list(getattr(settings, "nipt_input_scan_roots", []) or [])
-    return list(getattr(settings, "pgta_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or [])
-
-
 def _deployed_pipelines(settings) -> tuple[str, ...]:
-    configured = tuple(getattr(settings, "deployed_pipelines", ()) or ())
-    return configured or ("wgs",)
+    return get_pipeline_registry(settings).deployed_pipeline_ids
 
 
 def _active_deployed_pipelines() -> tuple[str, ...]:
     settings = _deployment_guard_settings()
     if settings is not None:
         return _deployed_pipelines(settings)
-    # Direct service tests do not load runtime settings; production requests
-    # always take their scope from DEPLOYED_PIPELINES above.
-    return ("pgta", "nipt_docker", "wgs")
+    return ()
 
 
 def _require_pipeline_deployed(settings, pipeline: str) -> None:
     if pipeline in {"all", "deployed"}:
         return
-    if not tuple(getattr(settings, "deployed_pipelines", ()) or ()):
-        return
-    if pipeline not in _deployed_pipelines(settings):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "code": "PIPELINE_NOT_DEPLOYED",
-                "message": f"Pipeline is not deployed in this environment: {pipeline}",
-            },
-        )
-
-
-def _require_pipelines_deployed(settings, pipelines: list[str]) -> None:
-    for pipeline in pipelines:
-        _require_pipeline_deployed(settings, pipeline)
+    try:
+        require_pipeline(settings, pipeline)
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
 
 
 def _deployment_guard_settings():
@@ -2925,12 +2769,6 @@ def _guard_pipeline_deployed(pipeline: str) -> None:
     settings = _deployment_guard_settings()
     if settings is not None:
         _require_pipeline_deployed(settings, pipeline)
-
-
-def _guard_pipelines_deployed(pipelines: list[str]) -> None:
-    settings = _deployment_guard_settings()
-    if settings is not None:
-        _require_pipelines_deployed(settings, pipelines)
 
 
 def _guard_wgs_execution(dry_run: bool) -> None:
@@ -2988,50 +2826,4 @@ def _wgs_contract_v2_enabled() -> bool:
 def _wgs_submission_preview_enabled() -> bool:
     return os.getenv("WGS_SUBMISSION_PREVIEW_ENABLED", "false").strip().lower() in {
         "1", "true", "yes", "on",
-    }
-
-
-def _load_intake_config(settings):
-    return load_intake_config(
-        path=getattr(settings, "intake_config_path", None),
-        fallback_pgta_roots=list(getattr(settings, "pgta_input_scan_roots", None) or getattr(settings, "input_scan_roots", []) or []),
-        fallback_nipt_roots=list(getattr(settings, "nipt_input_scan_roots", []) or []),
-    )
-
-
-def _latest_dag_run(payload: dict[str, object]) -> dict[str, object] | None:
-    dag_runs = payload.get("dag_runs")
-    if not isinstance(dag_runs, list) or not dag_runs:
-        return None
-    latest = dag_runs[0]
-    return latest if isinstance(latest, dict) else None
-
-
-def _dag_schedule(payload: dict[str, object]) -> str:
-    schedule = payload.get("schedule_interval") or payload.get("timetable_description")
-    if isinstance(schedule, dict):
-        value = schedule.get("value")
-        return str(value) if value else "*/10 * * * *"
-    return str(schedule or "*/10 * * * *")
-
-
-def _intake_trigger_contracts(pipelines: tuple[str, ...] | list[str]) -> dict[str, str]:
-    contracts = {
-        "pgta": "*.samples.tsv + *.READY",
-        "nipt_docker": "*.nipt.yaml or configured discovery root",
-        "wgs": "*.wgs.yaml + *.READY",
-    }
-    return {pipeline: contracts[pipeline] for pipeline in pipelines if pipeline in contracts}
-
-
-def _intake_retention_state() -> dict[str, object]:
-    return {"enabled": True, "days": 30, "scope": "bio_intake_scan only"}
-
-
-def _scan_result_payload(result) -> dict[str, object]:
-    return {
-        "pipeline": result.pipeline,
-        "rawdata_root": result.rawdata_root,
-        "truncated": result.truncated,
-        "items": [item.__dict__ for item in result.items],
     }

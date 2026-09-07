@@ -13,7 +13,7 @@ from common.progress_events import SnakemakeProgressParser, emit_progress_event
 class ProgressEventsTests(unittest.TestCase):
     def test_emit_progress_event_writes_jsonl_and_posts_backend(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            workdir = Path(tmpdir) / "runs" / "NGS_TEST"
             posted = []
             posted_tokens = []
 
@@ -31,7 +31,7 @@ class ProgressEventsTests(unittest.TestCase):
                 patch.dict("os.environ", {"INTERNAL_SERVICE_TOKEN": "service-secret"}),
             ):
                 event_path = emit_progress_event(
-                    analysis_id="PGTA_TEST",
+                    analysis_id="NGS_TEST",
                     workdir=workdir,
                     backend_event_url="http://backend:8000/api/events/snakemake",
                     event="job_started",
@@ -46,7 +46,7 @@ class ProgressEventsTests(unittest.TestCase):
             events = [json.loads(line) for line in event_path.read_text(encoding="utf-8").splitlines()]
 
         self.assertEqual(event_path.name, "snakemake_events.jsonl")
-        self.assertEqual(events[0]["analysis_id"], "PGTA_TEST")
+        self.assertEqual(events[0]["analysis_id"], "NGS_TEST")
         self.assertEqual(events[0]["rule"], "metadata")
         self.assertEqual(events[0]["sample_id"], "G1")
         self.assertEqual(posted[0]["status"], "running")
@@ -54,11 +54,11 @@ class ProgressEventsTests(unittest.TestCase):
 
     def test_emit_progress_event_records_backend_post_error_without_raising(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            workdir = Path(tmpdir) / "runs" / "NGS_TEST"
 
             with patch("common.progress_events.urllib.request.urlopen", side_effect=OSError("network down")):
                 event_path = emit_progress_event(
-                    analysis_id="PGTA_TEST",
+                    analysis_id="NGS_TEST",
                     workdir=workdir,
                     backend_event_url="http://backend:8000/api/events/snakemake",
                     event="job_started",
@@ -74,9 +74,9 @@ class ProgressEventsTests(unittest.TestCase):
 
     def test_snakemake_progress_parser_tracks_running_success_and_failed_rules(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            workdir = Path(tmpdir) / "runs" / "PGTA_TEST"
+            workdir = Path(tmpdir) / "runs" / "NGS_TEST"
             parser = SnakemakeProgressParser(
-                analysis_id="PGTA_TEST",
+                analysis_id="NGS_TEST",
                 workdir=workdir,
                 backend_event_url=None,
                 stdout_path=workdir / "logs" / "snakemake.stdout.log",

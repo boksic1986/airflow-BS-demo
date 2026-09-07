@@ -8,10 +8,7 @@ from sqlalchemy.orm import Session
 from app.models import AnalysisRun, QcMetric
 
 
-PIPELINE_METRICS = {
-    "pgta": ("clean_read_pairs", "mapping_rate", "mapped_reads", "estimated_depth_x", "cnv_qc_decision"),
-    "nipt_docker": ("read_count", "Q30", "unique_mapping_rate", "fetal_fraction"),
-}
+PIPELINE_METRICS: dict[str, tuple[str, ...]] = {}
 
 
 def qc_highlights_by_run(*, session: Session, runs: list[AnalysisRun]) -> dict[str, list[dict[str, Any]]]:

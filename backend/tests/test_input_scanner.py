@@ -1,23 +1,13 @@
 from pathlib import Path
-
 import pytest
 
-from app.input_scanner import InputPathError, scan_fastq_candidates, scan_nipt_batch_candidates
+from app.input_scanner import InputPathError, scan_fastq_candidates
 
 
 def write_fastq_pair(sample_dir: Path, stem: str) -> tuple[Path, Path]:
     sample_dir.mkdir(parents=True, exist_ok=True)
     r1 = sample_dir / f"{stem}_R1.fastq.gz"
     r2 = sample_dir / f"{stem}_R2.fastq.gz"
-    r1.write_text("r1\n", encoding="utf-8")
-    r2.write_text("r2\n", encoding="utf-8")
-    return r1, r2
-
-
-def write_nipt_clean_pair(batch_dir: Path, sample_id: str) -> tuple[Path, Path]:
-    batch_dir.mkdir(parents=True, exist_ok=True)
-    r1 = batch_dir / f"{sample_id}.R1.clean.fastq.gz"
-    r2 = batch_dir / f"{sample_id}.R2.clean.fastq.gz"
     r1.write_text("r1\n", encoding="utf-8")
     r2.write_text("r2\n", encoding="utf-8")
     return r1, r2
@@ -69,51 +59,3 @@ def test_scan_fastq_candidates_reports_truncation(tmp_path) -> None:
 
     assert result.truncated is True
     assert len(result.items) == 1
-
-
-def test_scan_nipt_batch_candidates_uses_chip_folder_and_clean_fastqs(tmp_path) -> None:
-    allowed_root = tmp_path / "fastq"
-    batch_dir = allowed_root / "FQ2026" / "260414_TPNB500380AR_1065_AH32CCBGY2"
-    r1, r2 = write_nipt_clean_pair(batch_dir, "NIPT26040207.A06")
-    adapter_dir = batch_dir / "002"
-    write_nipt_clean_pair(adapter_dir, "NIPT26040207.A06.adapter")
-
-    result = scan_nipt_batch_candidates(
-        rawdata_root=allowed_root,
-        allowed_roots=[allowed_root],
-        max_samples=20,
-    )
-
-    assert result.pipeline == "nipt_docker"
-    assert result.truncated is False
-    assert len(result.items) == 1
-    item = result.items[0]
-    assert item.sample_id == "NIPT26040207.A06"
-    assert item.r1 == str(r1.resolve())
-    assert item.r2 == str(r2.resolve())
-    assert item.source_dir == str(batch_dir.resolve())
-    assert item.discovery_method == "nipt_docker_clean_scan"
-
-
-def test_scan_nipt_stops_at_limit_without_materializing_the_entire_tree(tmp_path, monkeypatch) -> None:
-    allowed_root = tmp_path / "fastq" / "FQ2026"
-    older_batch = allowed_root / "260101_NDX550692_RUO_0182_AHVTGLBGYX"
-    latest_batch = allowed_root / "260709_TPNB500380AR_1117_AHGN5GBGY2"
-    write_nipt_clean_pair(older_batch, "OLD.A01")
-    write_nipt_clean_pair(latest_batch, "LATEST.A01")
-    write_nipt_clean_pair(latest_batch, "LATEST.A02")
-
-    def reject_full_tree_materialization(*_args, **_kwargs):
-        raise AssertionError("NIPT scan must not materialize the entire directory tree")
-
-    monkeypatch.setattr(Path, "rglob", reject_full_tree_materialization)
-
-    result = scan_nipt_batch_candidates(
-        rawdata_root=allowed_root,
-        allowed_roots=[allowed_root],
-        max_samples=1,
-    )
-
-    assert result.truncated is True
-    assert [item.sample_id for item in result.items] == ["LATEST.A01"]
-    assert result.items[0].source_dir == str(latest_batch.resolve())

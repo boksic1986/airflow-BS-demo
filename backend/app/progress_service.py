@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Mapping
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,43 +11,8 @@ from app.rule_event_service import list_snakemake_rule_events
 from app.workflow_phases import current_rule_event, phase_for_rule, rule_counts
 
 
-TASK_WEIGHTS: dict[str, dict[str, int]] = {
-    "bio_pgta": {
-        "validate_request": 5,
-        "prepare_pgta_config": 10,
-        "choose_pgta_path": 10,
-        "pgta_pipeline.run_pgta_mapping": 55,
-        "pgta_pipeline.run_pgta_metadata": 70,
-        "pgta_pipeline.run_pgta_baseline_qc": 90,
-        "pgta_predict.run_pgta_mapping": 45,
-        "pgta_predict.run_pgta_metadata": 50,
-        "pgta_predict.run_pgta_cnv_qc": 80,
-        "pgta_predict.run_pgta_cnv_predict": 95,
-        # Historical runs before T107 used one project-level Snakemake task.
-        "run_pgta_target": 90,
-        "collect_pgta_artifact": 100,
-    },
-    "bio_nipt_docker": {
-        "validate_request": 5,
-        "prepare_nipt_docker_run": 15,
-        "run_nipt_docker": 90,
-        "collect_nipt_artifacts": 100,
-    },
-}
-
-RUN_TASK_IDS = {
-    "bio_pgta": {
-        "run_pgta_target",
-        "pgta_pipeline.run_pgta_mapping",
-        "pgta_pipeline.run_pgta_metadata",
-        "pgta_pipeline.run_pgta_baseline_qc",
-        "pgta_predict.run_pgta_mapping",
-        "pgta_predict.run_pgta_metadata",
-        "pgta_predict.run_pgta_cnv_qc",
-        "pgta_predict.run_pgta_cnv_predict",
-    },
-    "bio_nipt_docker": {"run_nipt_docker"},
-}
+TASK_WEIGHTS: dict[str, dict[str, int]] = {}
+RUN_TASK_IDS: dict[str, set[str]] = {}
 
 ACTIVE_STATUSES = {"running", "queued", "scheduled", "submitted", "up_for_retry", "up_for_reschedule", "deferred"}
 FAILED_STATUSES = {"failed", "fail", "error", "upstream_failed"}
@@ -55,29 +20,49 @@ TERMINAL_RUN_STATUSES = {"success", "failed", "fail", "error", "canceled", "canc
 TERMINAL_RULE_STATUSES = {"success", "failed", "fail", "error", "skipped", "canceled", "cancelled", "terminated"}
 
 
-def get_run_progress(*, session: Session, airflow_client, analysis_id: str) -> dict[str, Any] | None:
+def get_run_progress(
+    *,
+    session: Session,
+    airflow_client,
+    analysis_id: str,
+    rule_context: Mapping[str, Any] | None = None,
+) -> dict[str, Any] | None:
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
     if run is None:
         return None
 
-    rule_events = list_snakemake_rule_events(session=session, analysis_id=analysis_id) or []
+    context = dict(rule_context or {})
+    context.setdefault("pipeline_name", run.pipeline_name)
+    rule_events = list_snakemake_rule_events(
+        session=session,
+        analysis_id=analysis_id,
+        pipeline_name=context.get("pipeline_name"),
+        pipeline_stage=context.get("pipeline_stage"),
+    ) or []
     if not run.dag_id or not run.dag_run_id:
-        return _created_or_unsubmitted_payload(run=run, rule_events=rule_events)
+        return _created_or_unsubmitted_payload(run=run, rule_events=rule_events, rule_context=context)
 
     # Terminal progress is an immutable business snapshot. Reaching back into
     # Airflow here made historical Run Detail views both slow and fragile.
     if _status(run.status) in TERMINAL_RUN_STATUSES:
-        return _created_or_unsubmitted_payload(run=run, rule_events=rule_events)
+        return _created_or_unsubmitted_payload(run=run, rule_events=rule_events, rule_context=context)
 
     task_payload = airflow_client.list_task_instances(run.dag_id, run.dag_run_id)
     airflow_tasks = _normalize_airflow_tasks(run.dag_id, task_payload.get("task_instances") or [])
-    payload = _progress_from_tasks(run=run, airflow_tasks=airflow_tasks, rule_events=rule_events)
+    payload = _progress_from_tasks(
+        run=run,
+        airflow_tasks=airflow_tasks,
+        rule_events=rule_events,
+        rule_context=context,
+    )
     payload["airflow_tasks"] = airflow_tasks
     payload["rule_events"] = rule_events
     return payload
 
 
-def _created_or_unsubmitted_payload(*, run: AnalysisRun, rule_events: list[dict[str, Any]]) -> dict[str, Any]:
+def _created_or_unsubmitted_payload(
+    *, run: AnalysisRun, rule_events: list[dict[str, Any]], rule_context: Mapping[str, Any]
+) -> dict[str, Any]:
     status = _status(run.status)
     if status == "created":
         percent = 0
@@ -115,7 +100,7 @@ def _created_or_unsubmitted_payload(*, run: AnalysisRun, rule_events: list[dict[
         "airflow_tasks": [],
         "rule_events": rule_events,
     }
-    payload.update(_rule_observability(run=run, rule_events=rule_events, prefer_failed=_is_failed(status)))
+    payload.update(_rule_observability(rule_events=rule_events, prefer_failed=_is_failed(status), rule_context=rule_context))
     return payload
 
 
@@ -124,6 +109,7 @@ def _progress_from_tasks(
     run: AnalysisRun,
     airflow_tasks: list[dict[str, Any]],
     rule_events: list[dict[str, Any]],
+    rule_context: Mapping[str, Any],
 ) -> dict[str, Any]:
     status = _status(run.status)
     weights = TASK_WEIGHTS.get(str(run.dag_id or ""), {})
@@ -174,31 +160,26 @@ def _progress_from_tasks(
         "not_in_airflow": False,
         "progress_source": progress_source,
     }
-    payload.update(_rule_observability(run=run, rule_events=rule_events, prefer_failed=_is_failed(status)))
+    payload.update(_rule_observability(rule_events=rule_events, prefer_failed=_is_failed(status), rule_context=rule_context))
     return payload
 
 
-def _rule_observability(*, run: AnalysisRun, rule_events: list[dict[str, Any]], prefer_failed: bool) -> dict[str, Any]:
+def _rule_observability(
+    *, rule_events: list[dict[str, Any]], prefer_failed: bool, rule_context: Mapping[str, Any]
+) -> dict[str, Any]:
     current = current_rule_event(rule_events, prefer_failed=prefer_failed)
     rule = str((current or {}).get("rule") or "") or None
+    phase_projector = rule_context.get("phase_projector")
     return {
-        "current_phase": phase_for_rule(
-            rule,
-            pipeline_name=run.pipeline_name,
-            pipeline_stage=_pipeline_stage(run),
-        ) if rule else None,
+        "current_phase": (
+            phase_projector(rule, pipeline_stage=rule_context.get("pipeline_stage"))
+            if rule and callable(phase_projector)
+            else phase_for_rule(rule) if rule else None
+        ),
         "current_rule": rule,
         "current_sample": (current or {}).get("sample_id"),
         "rule_counts": rule_counts(rule_events),
     }
-
-
-def _pipeline_stage(run: AnalysisRun) -> str | None:
-    if run.pipeline_name != "wgs":
-        return None
-    params = run.params_json or {}
-    return str(params.get("wgs_stage") or params.get("stage") or "full")
-
 
 def _base_payload(run: AnalysisRun) -> dict[str, Any]:
     return {
@@ -257,8 +238,6 @@ def _percent_from_airflow(*, status: str, task: dict[str, Any] | None, weights: 
 
 
 def _previous_weight(task_id: str, weights: dict[str, int]) -> int:
-    if task_id == "run_pgta_target":
-        return weights.get("choose_pgta_path") or weights.get("prepare_pgta_config") or 15
     current = weights.get(task_id)
     if current is None:
         return 15
@@ -272,27 +251,11 @@ def _blend_rule_progress(*, run: AnalysisRun, status: str, rule_events: list[dic
     if not rule_events:
         return 15
     terminal_events = [item for item in rule_events if _status(item.get("status")) in TERMINAL_RULE_STATUSES]
-    expected = _expected_nipt_rule_count(run)
-    if expected is not None:
-        terminal = sum(str(item.get("rule") or "") != "nipt_full_run" for item in terminal_events)
-        percent = 15 + int((min(terminal, expected) / expected) * 75)
-    else:
-        percent = 15 + int((len(terminal_events) / len(rule_events)) * 75)
+    percent = 15 + int((len(terminal_events) / len(rule_events)) * 75)
     percent = max(int(run.progress_percent or 0), percent)
     if _is_failed(status):
         return max(15, min(95, percent))
     return max(15, min(90, percent))
-
-
-def _expected_nipt_rule_count(run: AnalysisRun) -> int | None:
-    params = dict(run.params_json or {})
-    if run.pipeline_name != "nipt_docker" or str(params.get("run_mode") or "") != "full_run":
-        return None
-    try:
-        selected_count = int(params.get("selected_count") or 0)
-    except (TypeError, ValueError):
-        return None
-    return selected_count * 8 + 15 if selected_count > 0 else None
 
 
 def _rule_percent(rule_events: list[dict[str, Any]], *, default: int) -> int:

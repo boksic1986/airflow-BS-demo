@@ -18,7 +18,6 @@ from app.models import (
     Sample,
     SnakemakeRuleEvent,
 )
-from app.qc_service import import_run_qc_metrics
 from app.rule_event_service import (
     cancel_incomplete_rule_events,
     finalize_dry_run_rule_events,
@@ -75,235 +74,10 @@ LOG_STREAMS = {
 }
 
 
-ARTIFACTS = [
-    ArtifactDefinition(
-        key="run_metadata",
-        type="pgta_metadata",
-        label="PGT-A run metadata",
-        relative_path=Path("logs/run_metadata.tsv"),
-        url="/api/runs/{analysis_id}/logs?stream=metadata",
-    ),
-    ArtifactDefinition(
-        key="snakemake_stdout",
-        type="snakemake_log",
-        label="Snakemake stdout",
-        relative_path=Path("logs/snakemake.stdout.log"),
-        url="/api/runs/{analysis_id}/logs?stream=stdout",
-    ),
-    ArtifactDefinition(
-        key="snakemake_stderr",
-        type="snakemake_log",
-        label="Snakemake stderr",
-        relative_path=Path("logs/snakemake.stderr.log"),
-        url="/api/runs/{analysis_id}/logs?stream=stderr",
-    ),
-    ArtifactDefinition(
-        key="snakemake_command",
-        type="snakemake_log",
-        label="Snakemake command",
-        relative_path=Path("logs/snakemake.command.txt"),
-        url="/api/runs/{analysis_id}/artifacts/snakemake_command",
-    ),
-    ArtifactDefinition(
-        key="pgta_mapping_stdout",
-        type="snakemake_log",
-        label="PGT-A mapping stdout",
-        relative_path=Path("logs/snakemake.mapping.stdout.log"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_mapping_stdout",
-    ),
-    ArtifactDefinition(
-        key="pgta_mapping_stderr",
-        type="snakemake_log",
-        label="PGT-A mapping stderr",
-        relative_path=Path("logs/snakemake.mapping.stderr.log"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_mapping_stderr",
-    ),
-    ArtifactDefinition(
-        key="pgta_mapping_command",
-        type="snakemake_log",
-        label="PGT-A mapping command",
-        relative_path=Path("logs/snakemake.mapping.command.txt"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_mapping_command",
-    ),
-    ArtifactDefinition(
-        key="pgta_metadata_stdout",
-        type="snakemake_log",
-        label="PGT-A metadata stdout",
-        relative_path=Path("logs/snakemake.metadata.stdout.log"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_metadata_stdout",
-    ),
-    ArtifactDefinition(
-        key="pgta_metadata_stderr",
-        type="snakemake_log",
-        label="PGT-A metadata stderr",
-        relative_path=Path("logs/snakemake.metadata.stderr.log"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_metadata_stderr",
-    ),
-    ArtifactDefinition(
-        key="pgta_metadata_command",
-        type="snakemake_log",
-        label="PGT-A metadata command",
-        relative_path=Path("logs/snakemake.metadata.command.txt"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_metadata_command",
-    ),
-    ArtifactDefinition(
-        key="pgta_baseline_qc_stdout",
-        type="snakemake_log",
-        label="PGT-A baseline QC stdout",
-        relative_path=Path("logs/snakemake.baseline_qc.stdout.log"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_baseline_qc_stdout",
-    ),
-    ArtifactDefinition(
-        key="pgta_baseline_qc_stderr",
-        type="snakemake_log",
-        label="PGT-A baseline QC stderr",
-        relative_path=Path("logs/snakemake.baseline_qc.stderr.log"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_baseline_qc_stderr",
-    ),
-    ArtifactDefinition(
-        key="pgta_baseline_qc_command",
-        type="snakemake_log",
-        label="PGT-A baseline QC command",
-        relative_path=Path("logs/snakemake.baseline_qc.command.txt"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_baseline_qc_command",
-    ),
-    ArtifactDefinition(
-        key="pgta_resume_cleanup",
-        type="snakemake_log",
-        label="PGT-A resume cleanup log",
-        relative_path=Path("logs/pgta.resume.cleanup.tsv"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_resume_cleanup",
-    ),
-    ArtifactDefinition(
-        key="pgta_python_preflight",
-        type="snakemake_log",
-        label="PGT-A Python preflight log",
-        relative_path=Path("logs/pgta.python_preflight.log"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_python_preflight",
-    ),
-    ArtifactDefinition(
-        key="pgta_config_yaml",
-        type="pgta_config",
-        label="PGT-A Snakemake config",
-        relative_path=Path("config.yaml"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_config_yaml",
-    ),
-    ArtifactDefinition(
-        key="pgta_run_config",
-        type="pgta_config",
-        label="PGT-A runner config",
-        relative_path=Path("config/pgta_run_config.json"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_run_config",
-    ),
-    ArtifactDefinition(
-        key="pgta_metadata_config",
-        type="pgta_config",
-        label="PGT-A metadata runner config",
-        relative_path=Path("config/pgta_metadata_config.json"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_metadata_config",
-    ),
-    ArtifactDefinition(
-        key="pgta_baseline_qc_summary",
-        type="qc_tsv",
-        label="PGT-A baseline QC summary",
-        relative_path=Path("qc/baseline/baseline_qc_summary.tsv"),
-        url="/api/runs/{analysis_id}/qc",
-    ),
-    ArtifactDefinition(
-        key="pgta_baseline_qc_pass_samples",
-        type="qc_tsv",
-        label="PGT-A baseline QC pass samples",
-        relative_path=Path("qc/baseline/baseline_qc_pass_samples.txt"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_baseline_qc_pass_samples",
-    ),
-    ArtifactDefinition(
-        key="pgta_baseline_qc_report",
-        type="pgta_report",
-        label="PGT-A baseline QC report",
-        relative_path=Path("qc/baseline/baseline_qc_report.md"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_baseline_qc_report",
-    ),
-    ArtifactDefinition(
-        key="pgta_predict_qc_summary",
-        type="qc_tsv",
-        label="PGT-A prediction QC summary",
-        relative_path=Path("reports/qc_summary.tsv"),
-        url="/api/runs/{analysis_id}/qc",
-    ),
-    ArtifactDefinition(
-        key="pgta_prediction_status",
-        type="pgta_report",
-        label="PGT-A prediction status",
-        relative_path=Path("reports/prediction_status.tsv"),
-        url="/api/runs/{analysis_id}/artifacts/pgta_prediction_status",
-    ),
-    ArtifactDefinition(
-        key="wes_final_summary",
-        type="wes_mock_summary",
-        label="WES mock final summary",
-        relative_path=Path("reports/final_summary.tsv"),
-        url="/api/runs/{analysis_id}/artifacts/wes_final_summary",
-    ),
-    ArtifactDefinition(
-        key="wes_qc_summary",
-        type="qc_tsv",
-        label="WES mock QC summary",
-        relative_path=Path("reports/qc_summary.tsv"),
-        url="/api/runs/{analysis_id}/qc",
-    ),
-    ArtifactDefinition(
-        key="wes_mock_config",
-        type="wes_config",
-        label="WES mock Snakemake config",
-        relative_path=Path("config/wes_mock_config.yaml"),
-        url="/api/runs/{analysis_id}/artifacts/wes_mock_config",
-    ),
-    ArtifactDefinition(
-        key="wes_events_jsonl",
-        type="snakemake_events",
-        label="WES Snakemake events JSONL",
-        relative_path=Path("logs/events/snakemake_events.jsonl"),
-        url="/api/runs/{analysis_id}/artifacts/wes_events_jsonl",
-    ),
-    ArtifactDefinition(
-        key="nipt_qc_summary",
-        type="qc_tsv",
-        label="NIPT Docker QC summary",
-        relative_path=Path("reports/qc_summary.tsv"),
-        url="/api/runs/{analysis_id}/qc",
-    ),
-    ArtifactDefinition(
-        key="nipt_docker_compose",
-        type="nipt_config",
-        label="NIPT Docker compose file",
-        relative_path=Path("config/nipt_docker_compose.yml"),
-        url="/api/runs/{analysis_id}/artifacts/nipt_docker_compose",
-    ),
-    ArtifactDefinition(
-        key="nipt_run_config",
-        type="nipt_config",
-        label="NIPT run config",
-        relative_path=Path("config/nipt_run_config.yaml"),
-        url="/api/runs/{analysis_id}/artifacts/nipt_run_config",
-    ),
-    ArtifactDefinition(
-        key="nipt_airflow_request",
-        type="nipt_config",
-        label="NIPT Airflow request",
-        relative_path=Path("config/nipt_airflow_request.json"),
-        url="/api/runs/{analysis_id}/artifacts/nipt_airflow_request",
-    ),
-    ArtifactDefinition(
-        key="nipt_docker_command",
-        type="docker_log",
-        label="NIPT Docker command",
-        relative_path=Path("logs/nipt_docker.command.txt"),
-        url="/api/runs/{analysis_id}/artifacts/nipt_docker_command",
-    ),
-]
+ARTIFACTS: list[ArtifactDefinition] = []
 
 
-def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, settings) -> dict[str, Any] | None:
+def sync_wgs_airflow_status(*, session: Session, airflow_client, analysis_id: str, settings) -> dict[str, Any] | None:
     run = _get_run(session, analysis_id)
     if run is None:
         return None
@@ -312,8 +86,7 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
 
     previous_status = str(run.status or "").lower()
     has_stale_failed_stage = (
-        run.pipeline_name == "wgs"
-        and session.scalar(
+        session.scalar(
             select(RunStageState.id)
             .where(
                 RunStageState.analysis_id == analysis_id,
@@ -327,7 +100,7 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
     airflow_payload = airflow_client.get_dag_run(run.dag_id, run.dag_run_id)
     airflow_state = str(airflow_payload.get("state") or "").lower()
     authoritative_status = _map_airflow_state(airflow_state)
-    if run.pipeline_name == "wgs" and authoritative_status == "success":
+    if authoritative_status == "success":
         task_payload = airflow_client.list_task_instances(run.dag_id, run.dag_run_id)
         task_instances = task_payload.get("task_instances", [])
         if any(
@@ -340,21 +113,16 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
     run.started_at = _parse_airflow_datetime(airflow_payload.get("start_date")) or run.started_at
     dag_end_at = _parse_airflow_datetime(airflow_payload.get("end_date"))
     if run.status in {"success", "failed"}:
-        run.ended_at = (
-            dag_end_at
-            if run.pipeline_name == "wgs"
-            else dag_end_at or datetime.now(timezone.utc)
-        )
+        run.ended_at = dag_end_at
     else:
         run.ended_at = None
         run.error_summary = None
     if run.status == "failed":
-        run.error_summary = build_error_summary(run=run, airflow_payload=airflow_payload, settings=settings)
+        run.error_summary = build_wgs_error_summary(run=run, airflow_payload=airflow_payload, settings=settings)
     elif run.status == "success":
         run.error_summary = None
         if (
-            run.pipeline_name == "wgs"
-            and dag_end_at is not None
+            dag_end_at is not None
             and (
                 run.pipeline_finished_at is None
                 or previous_status in {"failed", "cancelled", "unknown_interrupted"}
@@ -365,7 +133,6 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
         run.progress_percent = 100
         run.current_stage = "Workflow complete"
         run.progress_updated_at = run.ended_at or datetime.now(timezone.utc)
-        import_run_qc_metrics(session=session, run=run, settings=settings)
     if run.status in {"success", "failed"}:
         events_path = _safe_child_path(_safe_workdir(run, settings), Path("logs/events/snakemake_events.jsonl"), settings)
         import_snakemake_events_jsonl(session=session, analysis_id=analysis_id, events_path=events_path)
@@ -378,7 +145,6 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
         params = run.params_json or {}
         if (
             authoritative_status == "success"
-            and run.pipeline_name == "wgs"
             and bool(params.get("wgs_dry_run", True))
         ):
             finalize_dry_run_rule_events(
@@ -389,25 +155,67 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
         # A resumed run can retain an earlier failed JSONL event. Import the
         # complete audit trail, then let the terminal Airflow DAG state win.
         run.status = authoritative_status
-        if run.pipeline_name == "wgs":
-            if authoritative_status == "success":
-                mark_execution_terminal(
-                    session=session,
-                    analysis_id=analysis_id,
-                    attempt=int(run.attempt or 1),
-                )
-            else:
-                mark_execution_needs_recovery(
-                    session=session,
-                    analysis_id=analysis_id,
-                    attempt=int(run.attempt or 1),
-                    reason=run.error_summary or "Committed WGS execution failed",
-                )
+        if authoritative_status == "success":
+            mark_execution_terminal(
+                session=session,
+                analysis_id=analysis_id,
+                attempt=int(run.attempt or 1),
+            )
+        else:
+            mark_execution_needs_recovery(
+                session=session,
+                analysis_id=analysis_id,
+                attempt=int(run.attempt or 1),
+                reason=run.error_summary or "Committed WGS execution failed",
+            )
     sync_sample_statuses(session=session, analysis_id=analysis_id, run_status=run.status)
-    if run.status == "success":
-        from app.intake_service import archive_linked_intake_for_run
+    session.commit()
+    session.refresh(run)
+    return _run_payload(run)
 
-        archive_linked_intake_for_run(session=session, run=run, settings=settings)
+
+def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, settings) -> dict[str, Any] | None:
+    run = _get_run(session, analysis_id)
+    if run is None:
+        return None
+    if not run.dag_id or not run.dag_run_id:
+        raise MissingDagRunError("Run has no dag_id or dag_run_id to sync.")
+    airflow_payload = airflow_client.get_dag_run(run.dag_id, run.dag_run_id)
+    authoritative_status = _map_airflow_state(str(airflow_payload.get("state") or "").lower())
+    run.status = authoritative_status
+    run.started_at = _parse_airflow_datetime(airflow_payload.get("start_date")) or run.started_at
+    dag_end_at = _parse_airflow_datetime(airflow_payload.get("end_date"))
+    if run.status in {"success", "failed"}:
+        run.ended_at = dag_end_at or datetime.now(timezone.utc)
+    else:
+        run.ended_at = None
+        run.error_summary = None
+    if run.status == "failed":
+        run.error_summary = build_error_summary(run=run, airflow_payload=airflow_payload, settings=settings)
+    elif run.status == "success":
+        run.error_summary = None
+        run.progress_percent = 100
+        run.current_stage = "Workflow complete"
+        run.progress_updated_at = run.ended_at or datetime.now(timezone.utc)
+    if run.status in {"success", "failed"}:
+        events_path = _safe_child_path(
+            _safe_workdir(run, settings),
+            Path("logs/events/snakemake_events.jsonl"),
+            settings,
+        )
+        import_snakemake_events_jsonl(
+            session=session,
+            analysis_id=analysis_id,
+            events_path=events_path,
+        )
+        cancel_incomplete_rule_events(
+            session=session,
+            analysis_id=analysis_id,
+            parent_status=authoritative_status,
+            timestamp=run.ended_at or datetime.now(timezone.utc),
+        )
+        run.status = authoritative_status
+    sync_sample_statuses(session=session, analysis_id=analysis_id, run_status=run.status)
     session.commit()
     session.refresh(run)
     return _run_payload(run)
@@ -419,14 +227,6 @@ def get_run_log(
     run = _get_run(session, analysis_id)
     if run is None:
         return None
-    if run.pipeline_name == "wgs" and not key:
-        raise LogNotFoundError("WGS logs require a registered opaque log key")
-    log_item = None
-    if run.pipeline_name == "wgs" and key:
-        log_item = next(
-            (item for item in _wgs_run_log_items(run=run, settings=settings) if item["key"] == key),
-            None,
-        )
     log_path = _log_path_for_key(session=session, run=run, key=key, settings=settings) if key else _log_path(run, stream, settings)
     if not log_path.is_file():
         raise LogNotFoundError(f"Log file not found: {log_path}")
@@ -437,13 +237,38 @@ def get_run_log(
         "file_size": file_size,
         "lines": lines,
     }
-    if run.pipeline_name == "wgs" and log_item:
-        payload["path"] = log_item.get("relative_path")
-    else:
-        payload["path"] = str(log_path)
+    payload["path"] = str(log_path)
     if key:
         payload["key"] = key
     return payload
+
+
+def get_wgs_run_log(
+    *, session: Session, analysis_id: str, stream: str, tail: int, settings, key: str | None = None
+) -> dict[str, Any] | None:
+    run = _get_run(session, analysis_id)
+    if run is None:
+        return None
+    if not key:
+        raise LogNotFoundError("WGS logs require a registered opaque log key")
+    log_item = next(
+        (item for item in _wgs_run_log_items(run=run, settings=settings) if item["key"] == key),
+        None,
+    )
+    if log_item is None:
+        raise LogNotFoundError(f"Unknown or unavailable log key: {key}")
+    log_path = Path(str(log_item["_path"]))
+    if not log_path.is_file():
+        raise LogNotFoundError(f"Log file not found for registered key: {key}")
+    lines, truncated, file_size = _tail_log_file(log_path, tail=tail)
+    return {
+        "stream": stream,
+        "truncated": truncated,
+        "file_size": file_size,
+        "lines": lines,
+        "path": log_item.get("relative_path"),
+        "key": key,
+    }
 
 
 def _tail_log_file(
@@ -487,13 +312,6 @@ def list_run_logs(*, session: Session, analysis_id: str, settings) -> dict[str, 
     run = _get_run(session, analysis_id)
     if run is None:
         return None
-    if run.pipeline_name == "wgs":
-        return {
-            "items": [
-                {key: value for key, value in item.items() if key != "_path"}
-                for item in _wgs_run_log_items(run=run, settings=settings)
-            ]
-        }
     workdir = _safe_workdir(run, settings)
     items: list[dict[str, Any]] = []
     for stream, relative_path in LOG_STREAMS.items():
@@ -547,6 +365,18 @@ def list_run_logs(*, session: Session, analysis_id: str, settings) -> dict[str, 
     return {"items": items}
 
 
+def list_wgs_run_logs(*, session: Session, analysis_id: str, settings) -> dict[str, list[dict[str, Any]]] | None:
+    run = _get_run(session, analysis_id)
+    if run is None:
+        return None
+    return {
+        "items": [
+            {key: value for key, value in item.items() if key != "_path"}
+            for item in _wgs_run_log_items(run=run, settings=settings)
+        ]
+    }
+
+
 def _log_index_item(*, path: Path, workdir: Path, label: str, stream: str, **extra) -> dict[str, Any]:
     relative = path.resolve().relative_to(workdir.resolve()).as_posix()
     key = hashlib.sha256(relative.encode("utf-8")).hexdigest()[:20]
@@ -554,14 +384,6 @@ def _log_index_item(*, path: Path, workdir: Path, label: str, stream: str, **ext
 
 
 def _log_path_for_key(*, session: Session, run: AnalysisRun, key: str | None, settings) -> Path:
-    if run.pipeline_name == "wgs":
-        item = next(
-            (candidate for candidate in _wgs_run_log_items(run=run, settings=settings) if candidate["key"] == key),
-            None,
-        )
-        if item is None:
-            raise LogNotFoundError(f"Unknown or unavailable log key: {key}")
-        return Path(str(item["_path"]))
     index = list_run_logs(session=session, analysis_id=run.analysis_id, settings=settings) or {"items": []}
     item = next((candidate for candidate in index["items"] if candidate["key"] == key), None)
     if item is None:
@@ -711,27 +533,14 @@ def list_run_artifacts(*, session: Session, analysis_id: str, settings) -> dict[
     run = _get_run(session, analysis_id)
     if run is None:
         return None
-    if run.pipeline_name == "wgs":
-        return {"items": _wgs_artifact_items(run=run, settings=settings)}
-    workdir = _safe_workdir(run, settings)
-    items = []
-    for definition in ARTIFACTS:
-        if not _artifact_applies_to_pipeline(definition, run.pipeline_name):
-            continue
-        path = _safe_child_path(workdir, definition.relative_path, settings)
-        if not path.is_file():
-            continue
-        items.append(
-            {
-                "key": definition.key,
-                "type": definition.type,
-                "label": definition.label,
-                "path": str(path),
-                "size_bytes": path.stat().st_size,
-                "url": definition.url.format(analysis_id=analysis_id),
-            }
-        )
-    return {"items": items}
+    return {"items": []}
+
+
+def list_wgs_run_artifacts(*, session: Session, analysis_id: str, settings) -> dict[str, list[dict[str, Any]]] | None:
+    run = _get_run(session, analysis_id)
+    if run is None:
+        return None
+    return {"items": _wgs_artifact_items(run=run, settings=settings)}
 
 
 def _wgs_artifact_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
@@ -780,40 +589,17 @@ def _wgs_artifact_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
     return items
 
 
-def _artifact_applies_to_pipeline(definition: ArtifactDefinition, pipeline_name: str) -> bool:
-    if definition.key.startswith("pgta_") or definition.type.startswith("pgta_"):
-        return pipeline_name == "pgta"
-    if definition.key.startswith("wes_") or definition.type.startswith("wes_"):
-        return pipeline_name == "wes_qsub"
-    if definition.key.startswith("nipt_") or definition.type.startswith("nipt_"):
-        return pipeline_name == "nipt_docker"
-    return True
-
-
 def build_error_summary(*, run: AnalysisRun, airflow_payload: dict[str, Any], settings) -> str:
     stderr_path = None
     log_key = None
     relative_path = None
     last_lines: list[str] = []
-    if run.pipeline_name == "wgs":
-        registered = _wgs_run_log_items(run=run, settings=settings)
-        item = next((value for value in registered if value.get("source") == "master_analysis"), None)
-        item = item or (registered[-1] if registered else None)
-        if item:
-            stderr_path = Path(str(item["_path"]))
-            log_key = item["key"]
-            relative_path = item.get("relative_path")
-            try:
-                last_lines, _, _ = _tail_log_file(stderr_path, tail=100)
-            except OSError:
-                last_lines = []
-    else:
-        try:
-            stderr_path = _log_path(run, "stderr", settings)
-            if stderr_path.is_file():
-                last_lines = stderr_path.read_text(encoding="utf-8", errors="replace").splitlines()[-100:]
-        except DiagnosticsError:
-            stderr_path = None
+    try:
+        stderr_path = _log_path(run, "stderr", settings)
+        if stderr_path.is_file():
+            last_lines = stderr_path.read_text(encoding="utf-8", errors="replace").splitlines()[-100:]
+    except DiagnosticsError:
+        stderr_path = None
 
     if not last_lines:
         last_lines = ["no stderr available"]
@@ -823,11 +609,44 @@ def build_error_summary(*, run: AnalysisRun, airflow_payload: dict[str, Any], se
         "dag_id": run.dag_id,
         "dag_run_id": run.dag_run_id,
         "status": str(airflow_payload.get("state") or run.status),
-        "stderr_path": relative_path if run.pipeline_name == "wgs" else str(stderr_path) if stderr_path else None,
+        "stderr_path": str(stderr_path) if stderr_path else None,
         "log_key": log_key,
         "last_100_lines": last_lines,
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def build_wgs_error_summary(*, run: AnalysisRun, airflow_payload: dict[str, Any], settings) -> str:
+    stderr_path = None
+    log_key = None
+    relative_path = None
+    last_lines: list[str] = []
+    registered = _wgs_run_log_items(run=run, settings=settings)
+    item = next((value for value in registered if value.get("source") == "master_analysis"), None)
+    item = item or (registered[-1] if registered else None)
+    if item:
+        stderr_path = Path(str(item["_path"]))
+        log_key = item["key"]
+        relative_path = item.get("relative_path")
+        try:
+            last_lines, _, _ = _tail_log_file(stderr_path, tail=100)
+        except OSError:
+            last_lines = []
+    if not last_lines:
+        last_lines = ["no stderr available"]
+    return json.dumps(
+        {
+            "analysis_id": run.analysis_id,
+            "dag_id": run.dag_id,
+            "dag_run_id": run.dag_run_id,
+            "status": str(airflow_payload.get("state") or run.status),
+            "stderr_path": relative_path,
+            "log_key": log_key,
+            "last_100_lines": last_lines,
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
 
 
 def _get_run(session: Session, analysis_id: str) -> AnalysisRun | None:

@@ -13,6 +13,7 @@ import {
 import {useState, type FormEvent} from "react";
 import {NavLink, Outlet, useNavigate} from "react-router-dom";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
+import {hasRegisteredSubmissionUi} from "../features/platform/submissionUiRegistry";
 import {useSession} from "../features/auth/SessionContext";
 
 const navItems = [
@@ -28,6 +29,9 @@ export function AppShell() {
   const capabilities = usePlatformCapabilities();
   const session = useSession();
   const [search, setSearch] = useState("");
+  const canSubmit = capabilities.pipelines.some((pipeline) => (
+    hasRegisteredSubmissionUi(pipeline, capabilities.isDeployed)
+  ));
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,12 +46,12 @@ export function AppShell() {
         <div className="brand-lockup">
           <FlaskConical size={24} />
           <div>
-            <strong>WGS Control Tower</strong>
-            <span>WGS production</span>
+            <strong>NGS Huawei Cloud</strong>
+            <span>Online analysis platform</span>
           </div>
         </div>
         <nav aria-label="Primary navigation">
-          {[...navItems, ...(session.hasRole("operator") ? [{to: "/submit", label: "Submit Run", Icon: ClipboardList}] : [])].map(({to, label, Icon}) => (
+          {[...navItems, ...(session.hasRole("operator") && canSubmit ? [{to: "/submit", label: "Submit Run", Icon: ClipboardList}] : [])].map(({to, label, Icon}) => (
             <NavLink key={to} to={to} className={({isActive}) => (isActive ? "active" : "")}>
               <Icon size={17} />
               <span>{label}</span>
@@ -82,7 +86,7 @@ export function AppShell() {
         <main className="content-shell">
           {capabilities.error ? (
             <div className="inline-error" role="alert">
-              Deployment capabilities unavailable: {capabilities.error} Showing the WGS compatibility view.
+              Deployment capabilities unavailable: {capabilities.error} Submission remains unavailable until capability discovery recovers.
             </div>
           ) : null}
           <Outlet />

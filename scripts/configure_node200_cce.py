@@ -12,7 +12,7 @@ CONFIG_PATH = Path("/home/ctapa/.config/wgs/cce.yaml")
 REPOSITORY_ROOT = "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1"
 EVIDENCE_ROOT = os.getenv(
     "WGS_CCE_EVIDENCE_ROOT",
-    "/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/cce-evidence",
+    "/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime/cce-evidence",
 )
 OBSUTIL_WRAPPER = "/home/ctapa/.config/airflow-wgs/wgs_obsutil_progress.py"
 

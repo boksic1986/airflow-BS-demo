@@ -114,9 +114,7 @@ export function FailuresPage() {
             <span>Pipeline</span>
             <select aria-label="Failure pipeline" value={pipeline} onChange={(event) => updateFilter("pipeline", event.target.value)}>
               <option value="all">All deployed</option>
-              {capabilities.isDeployed("pgta") ? <option value="pgta">PGT-A</option> : null}
-              {capabilities.isDeployed("nipt_docker") ? <option value="nipt_docker">NIPT Docker</option> : null}
-              {capabilities.isDeployed("wgs") ? <option value="wgs">WGS</option> : null}
+              {capabilities.pipelines.filter((item) => capabilities.isDeployed(item.id)).map((item) => <option key={item.id} value={item.id}>{item.display_name}</option>)}
             </select>
           </label>
           <label>

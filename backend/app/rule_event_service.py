@@ -15,21 +15,7 @@ from app.workflow_phases import phase_for_rule, summarize_rule_events
 
 START_STATUSES = {"planned", "submitted", "running", "started"}
 END_STATUSES = {"success", "failed", "skipped", "error", "canceled", "cancelled", "terminated"}
-RULE_PROGRESS = {
-    "mapping": 15,
-    "fastp_bwa": 35,
-    "collect_mapping_qc": 45,
-    "metadata": 50,
-    "collect_run_metadata": 50,
-    "cnv_qc": 60,
-    "wisecondorx_convert_for_cnv": 65,
-    "wisecondorx_gender_for_predict": 72,
-    "wisecondorx_qc_for_predict": 80,
-    "cnv_predict": 85,
-    "wisecondorx_predict_cnv": 95,
-    "aggregate_pgta_prediction_status": 98,
-    "baseline_qc": 90,
-}
+RULE_PROGRESS: dict[str, int] = {}
 
 
 def record_snakemake_event(*, session: Session, event: Mapping[str, Any]) -> bool:
@@ -79,15 +65,13 @@ def list_snakemake_rule_events(
     offset: int = 0,
     pipeline_name: str | None = None,
     pipeline_stage: str | None = None,
+    phase_projector=None,
 ) -> list[dict[str, Any]] | None:
-    if pipeline_name is None or (pipeline_name == "wgs" and pipeline_stage is None):
+    if pipeline_name is None:
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
         if run is None:
             return None
         pipeline_name = run.pipeline_name
-        if pipeline_name == "wgs":
-            params = run.params_json or {}
-            pipeline_stage = str(params.get("wgs_stage") or params.get("stage") or "full")
 
     rows = session.scalars(
         select(SnakemakeRuleEvent)
@@ -100,7 +84,12 @@ def list_snakemake_rule_events(
         )
     ).all()
     items = [
-        _rule_event_payload(row, pipeline_name=pipeline_name, pipeline_stage=pipeline_stage)
+        _rule_event_payload(
+            row,
+            pipeline_name=pipeline_name,
+            pipeline_stage=pipeline_stage,
+            phase_projector=phase_projector,
+        )
         for row in rows
     ]
     if status:
@@ -123,15 +112,19 @@ def get_snakemake_rule_events_page(
     sample_id: str | None,
     limit: int,
     offset: int,
+    rule_context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
     if run is None:
         return None
+    context = dict(rule_context or {})
+    context.setdefault("pipeline_name", run.pipeline_name)
     all_items = list_snakemake_rule_events(
         session=session,
         analysis_id=analysis_id,
-        pipeline_name=run.pipeline_name,
-        pipeline_stage=_wgs_stage(run),
+        pipeline_name=context.get("pipeline_name"),
+        pipeline_stage=context.get("pipeline_stage"),
+        phase_projector=context.get("phase_projector"),
     )
     if all_items is None:
         return None
@@ -149,8 +142,9 @@ def get_snakemake_rule_events_page(
         "offset": offset,
         "summary": summarize_rule_events(
             all_items,
-            pipeline_name=run.pipeline_name,
-            pipeline_stage=_wgs_stage(run),
+            pipeline_name=context.get("pipeline_name"),
+            pipeline_stage=context.get("pipeline_stage"),
+            phase_projector=context.get("phase_projector"),
         ),
     }
 
@@ -271,6 +265,7 @@ def _rule_event_payload(
     *,
     pipeline_name: str | None = None,
     pipeline_stage: str | None = None,
+    phase_projector=None,
 ) -> dict[str, Any]:
     return {
         "rule": row.rule,
@@ -285,20 +280,12 @@ def _rule_event_payload(
         "message": row.message,
         "return_code": row.return_code,
         "wildcards": row.wildcards_json or {},
-        "phase": phase_for_rule(
-            row.rule,
-            pipeline_name=pipeline_name,
-            pipeline_stage=pipeline_stage,
+        "phase": (
+            phase_projector(row.rule, pipeline_stage=pipeline_stage)
+            if callable(phase_projector)
+            else phase_for_rule(row.rule)
         ),
     }
-
-
-def _wgs_stage(run: AnalysisRun) -> str | None:
-    if run.pipeline_name != "wgs":
-        return None
-    params = run.params_json or {}
-    return str(params.get("wgs_stage") or params.get("stage") or "full")
-
 
 def _update_run_progress(*, run: AnalysisRun, rule_event: SnakemakeRuleEvent, status: str, timestamp: datetime) -> None:
     rule = rule_event.rule
@@ -318,21 +305,6 @@ def _update_run_progress(*, run: AnalysisRun, rule_event: SnakemakeRuleEvent, st
 
 
 def _is_pipeline_completion_event(*, run: AnalysisRun, rule_event: SnakemakeRuleEvent) -> bool:
-    if rule_event.sample_id is not None:
-        return False
-    params = run.params_json or {}
-    if run.pipeline_name == "pgta":
-        target = str(params.get("target") or "metadata")
-        return rule_event.rule == {
-            "predict": "cnv_predict",
-            "baseline_qc": "baseline_qc",
-            "metadata": "metadata",
-            "dryrun_cnv": "dryrun_cnv",
-        }.get(target)
-    if run.pipeline_name == "nipt_docker":
-        run_mode = str(params.get("run_mode") or "mount_smoke")
-        marker = "all" if run_mode == "full_run" else "nipt_mount_smoke"
-        return rule_event.rule == marker
     return False
 
 

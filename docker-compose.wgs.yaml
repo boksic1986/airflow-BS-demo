@@ -1,4 +1,4 @@
-name: ${COMPOSE_PROJECT_NAME:-airflow-wgs}
+name: ${COMPOSE_PROJECT_NAME:-ngs-huaweicloud}
 
 x-bounded-logging: &bounded-logging
   driver: json-file
@@ -167,6 +167,7 @@ services:
       WGS_SUBMISSION_PREVIEW_ENABLED: "${WGS_SUBMISSION_PREVIEW_ENABLED:-false}"
       INTAKE_CONFIG_PATH: /config/intake.wgs.yaml
       PIPELINE_PROFILE_CONFIG_PATH: /config/pipeline_profiles.wgs.yaml
+      PIPELINE_REGISTRY_PATH: /config/pipelines.yaml
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
       HOST_RESULTS_ROOT: /data/wgs-results
       WGS_RESULTS_HOST_ROOT: ${WGS_RESULTS_HOST_ROOT:?set WGS_RESULTS_HOST_ROOT}
@@ -181,8 +182,8 @@ services:
       WGS_RUNTIME_REQUEST_ROOT: /data/wgs-runtime/runner-requests
       WGS_RUNTIME_RUN_ROOT: /data/wgs-runtime/runs
       WGS_RUNTIME_SHARED_GID: ${WGS_RUNTIME_SHARED_GID:-520}
-      WGS_RUNTIME_BS_ROOT: ${WGS_RUNTIME_BS_ROOT:-/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime}
-      WGS_RUNTIME_NODE200_ROOT: ${WGS_RUNTIME_NODE200_ROOT:-/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime}
+      WGS_RUNTIME_BS_ROOT: ${WGS_RUNTIME_BS_ROOT:-/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime}
+      WGS_RUNTIME_NODE200_ROOT: ${WGS_RUNTIME_NODE200_ROOT:-/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime}
       WGS_INTAKE_CONTAINER_ROOT: /data/wgs-intake
       WGS_INTAKE_HOST_ROOT: ${WGS_INTAKE_HOST_ROOT:?set WGS_INTAKE_HOST_ROOT}
       WGS_INTAKE_NODE200_ROOT: ${WGS_INTAKE_NODE200_ROOT:?set WGS_INTAKE_NODE200_ROOT}
@@ -381,4 +382,4 @@ volumes:
 networks:
   wgs-platform:
     external: true
-    name: nipt_analysis_test_net
+    name: ${NGS_PLATFORM_NETWORK:-ngs_analysis_platform}

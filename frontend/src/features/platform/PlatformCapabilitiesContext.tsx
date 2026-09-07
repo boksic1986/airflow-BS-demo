@@ -3,9 +3,29 @@ import {createContext, useContext, useEffect, useMemo, useState, type ReactNode}
 import {getPlatformCapabilities, type DeployedPipeline, type PlatformCapabilities} from "../../api";
 import {errorMessage} from "../../lib/errors";
 
+function normalizeCapabilities(payload: PlatformCapabilities): PlatformCapabilities {
+  const deployed = Array.isArray(payload.deployed_pipelines) && payload.deployed_pipelines.length
+    ? payload.deployed_pipelines
+    : [];
+  const pipelines = Array.isArray(payload.pipelines) && payload.pipelines.length
+    ? payload.pipelines
+    : deployed.map((id) => ({
+      id,
+      display_name: id.split(/[._-]+/).map((part) => part.toUpperCase()).join(" "),
+      dag_id: "",
+      version: null,
+      enabled: true,
+      submit_enabled: true,
+      capabilities: [],
+      execution_targets: [],
+    }));
+  return {...fallbackCapabilities, ...payload, deployed_pipelines: deployed, pipelines};
+}
+
 const fallbackCapabilities: PlatformCapabilities = {
-  environment: "WGS compatibility",
-  deployed_pipelines: ["wgs"],
+  environment: "NGS platform",
+  deployed_pipelines: [],
+  pipelines: [],
   airflow_url: null,
 };
 
@@ -31,8 +51,8 @@ export function PlatformCapabilitiesProvider({children}: {children: ReactNode}) 
     let disposed = false;
     getPlatformCapabilities()
       .then((payload) => {
-        if (!disposed && payload.deployed_pipelines.length) {
-          setCapabilities(payload);
+        if (!disposed) {
+          setCapabilities(normalizeCapabilities(payload));
           setError(null);
         }
       })

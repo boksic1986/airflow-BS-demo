@@ -2,9 +2,11 @@ import {useEffect, useMemo, useState, type FormEvent} from "react";
 import {Link} from "react-router-dom";
 import {approveWgsConfig, createCatalogWgsRun, getRunDetail, getRunSamples, getWgsProjects, getWgsRelease, startWgsExecution, updateWgsExecutionChoice, type RunDetail, type Sample, type WgsExecutionChoiceRequest, type WgsProjectCatalog, type WgsRelease} from "../api";
 import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
+import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {errorMessage} from "../lib/errors";
 
 export function SubmitPage() {
+  const capabilities = usePlatformCapabilities();
   const [release, setRelease] = useState<WgsRelease | null>(null);
   const [catalog, setCatalog] = useState<WgsProjectCatalog | null>(null);
   const [projectId, setProjectId] = useState("WGS_Clinical");
@@ -16,7 +18,20 @@ export function SubmitPage() {
   const [created, setCreated] = useState<RunDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  useEffect(() => { Promise.all([getWgsRelease(), getWgsProjects()]).then(([nextRelease, nextCatalog]) => { setRelease(nextRelease); setCatalog(nextCatalog); }).catch((loadError) => setError(errorMessage(loadError))); }, []);
+  const wgsDefinition = capabilities.pipelines.find((item) => (
+    item.id === "wgs" && capabilities.isDeployed(item.id)
+  ));
+  const wgsSubmissionAvailable = Boolean(
+    wgsDefinition?.enabled
+    && wgsDefinition.submit_enabled
+    && wgsDefinition.capabilities.includes("submit")
+  );
+  useEffect(() => {
+    if (capabilities.loading || !wgsSubmissionAvailable) return;
+    Promise.all([getWgsRelease(), getWgsProjects()])
+      .then(([nextRelease, nextCatalog]) => { setRelease(nextRelease); setCatalog(nextCatalog); })
+      .catch((loadError) => setError(errorMessage(loadError)));
+  }, [capabilities.loading, wgsSubmissionAvailable]);
   const project = useMemo(() => catalog?.items.find((item) => item.project_id === projectId) || catalog?.items[0], [catalog, projectId]);
   const executionEnabled = Boolean(release?.execution_enabled && release.runtime_adapter_enabled);
   const phase = String(created?.params?.submission_phase || "select");
@@ -68,12 +83,18 @@ export function SubmitPage() {
     await updateWgsExecutionChoice(created.analysis_id, payload);
     setCreated(await getRunDetail(created.analysis_id));
   }
+  if (capabilities.loading) {
+    return <div className="page-stack"><section className="panel"><p>Loading submission capabilities...</p></section></div>;
+  }
+  if (!wgsSubmissionAvailable) {
+    return <div className="page-stack"><section className="panel"><h1>Submission unavailable</h1><p>No deployed pipeline has a registered submission interface.</p></section></div>;
+  }
   return <div className="page-stack submit-wizard">
     <section className="page-header"><div><p className="eyebrow">WGS production</p><h1>Submit run</h1><p>Submit one catalog-controlled WGS batch. The DAG runs native WGS sampleinfo and analysis preparation, then Step1-Step6.</p></div></section>
     <section className="panel"><div className="definition-grid"><div><dt>Current WGS release</dt><dd>{release ? `WGS ${release.version} / ${release.source_commit.slice(0, 7)}` : "Loading release..."}</dd></div><div><dt>Release ID</dt><dd>{release?.release_id || "-"}</dd></div><div><dt>Execution</dt><dd>{executionEnabled ? "Enabled" : "Disabled"}</dd></div></div></section>
     <ol className="wizard-steps"><li className={phase === "select" || phase === "preparing_sampleinfo" ? "active" : ""}>1. Select batch</li><li className={phase === "config_review" || phase === "preparing_analysis" ? "active" : ""}>2. Review samples and configuration</li><li className={phase === "execution_review" || phase === "approved" ? "active" : ""}>3. Confirm execution</li></ol>
     {!created ? <section className="panel"><form className="form-grid" onSubmit={prepare}>
-      <label className="field"><span>Pipeline</span><select aria-label="Pipeline" value="wgs" disabled><option value="wgs">WGS</option><option value="wes" disabled>WES (not available)</option></select></label>
+      <label className="field"><span>Pipeline</span><select aria-label="Pipeline" value={wgsDefinition!.id} disabled><option value={wgsDefinition!.id}>{wgsDefinition!.display_name}</option></select></label>
       <label className="field"><span>Project</span><select aria-label="Project" value={projectId} onChange={(event) => setProjectId(event.target.value)}>{catalog?.items.map((item) => <option value={item.project_id} key={item.project_id}>{item.display_name}</option>)}</select></label>
       <label className="field"><span>Platform</span><select aria-label="Platform" value={platform} onChange={(event) => setPlatform(event.target.value)}>{project?.platforms.map((item) => <option value={item.platform_id} key={item.platform_id}>{item.display_name}</option>)}</select></label>
       <label className="field"><span>Batch</span><input aria-label="Batch" placeholder="20260901B" value={batch} onChange={(event) => setBatch(event.target.value)} /></label>

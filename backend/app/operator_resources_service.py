@@ -4,13 +4,12 @@ import json
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, Mapping
 
-from sqlalchemy import String, and_, cast, desc, func, literal, or_, select, union_all
+from sqlalchemy import String, cast, desc, func, literal, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun, QcMetric, RuleState, RunStageState, Sample, SnakemakeRuleEvent
-from app.wgs_run_projection import public_wgs_batch
 
 
 FAILED_STATUSES = {"failed", "fail", "error", "terminated"}
@@ -20,7 +19,6 @@ STAGE_LABELS = {
     "metadata": "Collect metadata",
     "baseline_qc": "Baseline QC",
     "baseline_bam_uniformity_qc": "Baseline BAM uniformity QC",
-    "nipt_mount_smoke": "NIPT mount smoke",
 }
 
 
@@ -33,7 +31,8 @@ def list_samples_resource(
     keyword: str | None,
     limit: int,
     offset: int,
-    deployed_pipelines: tuple[str, ...] = ("pgta", "nipt_docker", "wgs"),
+    deployed_pipelines: tuple[str, ...] = (),
+    pipeline_adapters: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     query = select(Sample, AnalysisRun).join(
         AnalysisRun,
@@ -76,7 +75,14 @@ def list_samples_resource(
         ).all()
     )
     return {
-        "items": [_sample_item(sample=sample, run=run) for sample, run in page],
+        "items": [
+            _sample_item(
+                sample=sample,
+                run=run,
+                adapter=(pipeline_adapters or {}).get(run.pipeline_name),
+            )
+            for sample, run in page
+        ],
         "total": total,
         "limit": limit,
         "offset": offset,
@@ -93,7 +99,8 @@ def list_failures_resource(
     keyword: str | None,
     limit: int,
     offset: int,
-    deployed_pipelines: tuple[str, ...] = ("pgta", "nipt_docker", "wgs"),
+    deployed_pipelines: tuple[str, ...] = (),
+    pipeline_adapters: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     since = _period_start(period)
     pattern = f"%{keyword.strip().lower()}%" if keyword else None
@@ -105,12 +112,14 @@ def list_failures_resource(
         RuleState.analysis_id == AnalysisRun.analysis_id,
         RuleState.status.in_(FAILED_STATUSES),
     ).exists()
-    failed_rule_exists = or_(
-        and_(AnalysisRun.pipeline_name == "wgs", wgs_failed_rule_exists),
-        and_(AnalysisRun.pipeline_name != "wgs", legacy_failed_rule_exists),
-    )
+    failed_rule_exists = or_(wgs_failed_rule_exists, legacy_failed_rule_exists)
     error_text = func.lower(func.coalesce(AnalysisRun.error_summary, ""))
     candidate_queries = []
+    qc_pipeline_ids = tuple(
+        pipeline_id
+        for pipeline_id in deployed_pipelines
+        if getattr((pipeline_adapters or {}).get(pipeline_id), "sample_qc_failures", True)
+    )
 
     if kind in {"all", "workflow"} and layer != "qc":
         workflow_query = select(
@@ -175,7 +184,6 @@ def list_failures_resource(
             .join(AnalysisRun, AnalysisRun.analysis_id == Sample.analysis_id)
             .where(
                 AnalysisRun.created_at >= since,
-                AnalysisRun.pipeline_name != "wgs",
                 Sample.qc_status.in_(["fail", "failed", "error"]),
             )
         )
@@ -184,6 +192,10 @@ def list_failures_resource(
             pipeline=pipeline,
             deployed_pipelines=deployed_pipelines,
         )
+        if pipeline in {"all", "deployed"}:
+            qc_query = qc_query.where(AnalysisRun.pipeline_name.in_(qc_pipeline_ids))
+        elif not getattr((pipeline_adapters or {}).get(pipeline), "sample_qc_failures", True):
+            qc_query = qc_query.where(False)
         if pattern:
             metric_keyword_exists = select(QcMetric.id).where(
                 QcMetric.analysis_id == AnalysisRun.analysis_id,
@@ -228,31 +240,27 @@ def list_failures_resource(
     failed_rules: dict[str, SnakemakeRuleEvent | RuleState] = {}
     failed_stages: dict[str, RunStageState] = {}
     if workflow_ids:
-        wgs_ids = [analysis_id for analysis_id in workflow_ids if workflow_runs.get(analysis_id) and workflow_runs[analysis_id].pipeline_name == "wgs"]
-        legacy_ids = [analysis_id for analysis_id in workflow_ids if analysis_id not in wgs_ids]
-        if wgs_ids:
-            for rule in session.scalars(
-                select(RuleState)
-                .where(RuleState.analysis_id.in_(wgs_ids), RuleState.status.in_(FAILED_STATUSES))
-                .order_by(desc(RuleState.updated_at))
-            ).all():
-                failed_rules.setdefault(rule.analysis_id, rule)
-            for stage in session.scalars(
-                select(RunStageState)
-                .where(RunStageState.analysis_id.in_(wgs_ids), RunStageState.stage_status.in_(FAILED_STATUSES))
-                .order_by(desc(RunStageState.updated_at))
-            ).all():
-                failed_stages.setdefault(stage.analysis_id, stage)
-        if legacy_ids:
-            for rule in session.scalars(
-                select(SnakemakeRuleEvent)
-                .where(
-                    SnakemakeRuleEvent.analysis_id.in_(legacy_ids),
-                    SnakemakeRuleEvent.status.in_(FAILED_STATUSES),
-                )
-                .order_by(desc(SnakemakeRuleEvent.updated_at))
-            ).all():
-                failed_rules.setdefault(rule.analysis_id, rule)
+        for rule in session.scalars(
+            select(RuleState)
+            .where(RuleState.analysis_id.in_(workflow_ids), RuleState.status.in_(FAILED_STATUSES))
+            .order_by(desc(RuleState.updated_at))
+        ).all():
+            failed_rules.setdefault(rule.analysis_id, rule)
+        for stage in session.scalars(
+            select(RunStageState)
+            .where(RunStageState.analysis_id.in_(workflow_ids), RunStageState.stage_status.in_(FAILED_STATUSES))
+            .order_by(desc(RunStageState.updated_at))
+        ).all():
+            failed_stages.setdefault(stage.analysis_id, stage)
+        for rule in session.scalars(
+            select(SnakemakeRuleEvent)
+            .where(
+                SnakemakeRuleEvent.analysis_id.in_(workflow_ids),
+                SnakemakeRuleEvent.status.in_(FAILED_STATUSES),
+            )
+            .order_by(desc(SnakemakeRuleEvent.updated_at))
+        ).all():
+            failed_rules.setdefault(rule.analysis_id, rule)
 
     qc_pairs = {
         (row.analysis_id, row.sample_id)
@@ -297,7 +305,7 @@ def list_failures_resource(
     }
 
 
-def _sample_item(*, sample: Sample, run: AnalysisRun) -> dict[str, Any]:
+def _sample_item(*, sample: Sample, run: AnalysisRun, adapter: Any | None = None) -> dict[str, Any]:
     metadata = sample.metadata_json or {}
     source_dir = str(metadata.get("source_dir") or "")
     if not source_dir:
@@ -306,29 +314,18 @@ def _sample_item(*, sample: Sample, run: AnalysisRun) -> dict[str, Any]:
         "analysis_id": run.analysis_id,
         "project_name": _project_name(run),
         "pipeline": run.pipeline_name,
-        "batch_no": (
-            public_wgs_batch(run.params_json)
-            if run.pipeline_name == "wgs"
-            else str((run.params_json or {}).get("batch_no") or "") or None
-        ),
+        "batch_no": str((run.params_json or {}).get("batch_no") or "") or None,
         "sample_id": sample.sample_id,
         "family_id": sample.family_id,
         "status": sample.status,
-        "qc_status": None if run.pipeline_name == "wgs" else sample.qc_status,
+        "qc_status": sample.qc_status,
         "source_folder": _basename(source_dir),
         "r1_name": _basename(sample.fq1),
         "r2_name": _basename(sample.fq2),
         "report_status": "available" if _status(run.status) == "success" else "not_generated",
     }
-    if run.pipeline_name == "wgs":
-        payload.update(
-            {
-                "family_relation": metadata.get("family_relation") or metadata.get("relation"),
-                "sample_type": sample.sample_type,
-                "sex": sample.sex,
-                "sequencing_batch": metadata.get("sequencing_batch") or (run.params_json or {}).get("sequencing_batch"),
-            }
-        )
+    if adapter is not None and adapter.project_sample_summary is not None:
+        payload.update(adapter.project_sample_summary(run=run, sample=sample, metadata=metadata))
     return payload
 
 
@@ -353,8 +350,6 @@ def _workflow_failure_item(
     fallback = rule.message if rule else stage.message if stage else None
     raw_excerpt = fallback if isinstance(rule, RuleState) and fallback else _stderr_excerpt(error, fallback=fallback)
     excerpt = _sanitize_excerpt(raw_excerpt)
-    target = str((run.params_json or {}).get("target") or "")
-    controlled_pgta = run.pipeline_name == "pgta" and target == "baseline_qc" and bool(run.dag_run_id) and bool(run.workdir)
     failure_layer = "pipeline_rule" if rule else ("runner" if "docker" in raw_excerpt.lower() else "airflow")
     return {
         "analysis_id": run.analysis_id,
@@ -370,9 +365,9 @@ def _workflow_failure_item(
         "return_code": rule.return_code if isinstance(rule, SnakemakeRuleEvent) and rule.return_code is not None else error.get("return_code"),
         "stderr_excerpt": excerpt,
         "possible_reason": _possible_reason(raw_excerpt),
-        "suggested_action_code": "resume_pgta" if controlled_pgta else "inspect_logs",
-        "can_resume": controlled_pgta,
-        "can_rerun_stage": controlled_pgta,
+        "suggested_action_code": "inspect_logs",
+        "can_resume": False,
+        "can_rerun_stage": False,
         "created_at": _iso(run.created_at),
     }
 

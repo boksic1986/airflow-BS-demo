@@ -1,5 +1,39 @@
 # HANDOFF.md
 
+## 2026-09-07 T222 NGS registry platform cleanup
+
+Goal: establish a general NGS platform boundary, retain WGS as the only currently deployed adapter, remove retired demo implementations/tests, and validate without production deployment.
+
+Completed:
+- Added `config/pipelines.yaml`, a generic registry model and adapter dispatch service. Dashboard/progress, Rule phase, Samples/Failures and diagnostics projections now also enter through adapter hooks instead of shared-service pipeline-name checks.
+- Converted generic capability, run, reanalysis, run-detail, sample, workflow-summary, intake, input, config and QC paths to registry dispatch with stable error codes.
+- Made the frontend consume capability definitions for shared navigation, submission actions, filters and workflow visibility; updated product branding to NGS Huawei Cloud.
+- Removed PGTA/NIPT dedicated runtime, DAG, runner, test, image, Compose and mock assets, plus the WES mock implementation. Historical migrations and audit state remain.
+- Renamed candidate/default project identity to `ngs-huaweicloud`; active runtime defaults are below `/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime`.
+- Replaced the fixed legacy Docker network with an existing external network selected through `NGS_PLATFORM_NETWORK`.
+- Preserved WGS execution and runtime gates inside both WGS adapter submit and generic reanalysis paths before Airflow dispatch or attempt mutation.
+- Hardened registry parsing against non-mapping roots, scalar list fields, string booleans, missing required fields and explicitly deployed disabled definitions.
+
+Validation:
+- BS10610: `docker build --pull=false` from the locally tagged cached `python:3.11.9-slim-bookworm`; image `ngs-huaweicloud/backend:t222`.
+- Backend: 315 passed. The final focused adapter/WGS projection selection suite passed 68 tests.
+- Airflow/DAG unittest: 53 passed, 7 skipped; WGS host runner: 12 passed.
+- Runtime/evidence/script pytest: 96 passed.
+- Frontend on `.96`: 14 files / 50 tests; `tsc -b && vite build` passed. Submission navigation uses the explicit registered WGS UI adapter and remains hidden for a synthetic submit-capable pipeline without its own UI.
+
+DAG rerun note:
+- Failed command: `.96 airflow-demo/airflow:bs-control-c706548 python -m pytest -q dags/tests`; exit 1, `/opt/airflow/snakemake-venv/bin/python: No module named pytest`.
+- Fallback command: BS10610 `ngs-huaweicloud/backend:t222 python -m pytest -q dags/tests`; exit 2 during collection because that backend image intentionally has no `airflow` package.
+- Cause/handling: neither immutable image combines Airflow and pytest. No DAG Python changed after the accepted 53 passed / 7 skipped run; the only later DAG-tree edit removed two obsolete filenames from `.airflowignore`. Do not install packages from the network merely to repeat the same suite. A future dedicated Airflow test image may rerun it.
+- Compose rendering: passed with `NGS_PLATFORM_NETWORK=ngs_analysis_platform`; no service was started and no network was created.
+- Migration: disposable PostgreSQL 15 upgraded from empty through the single `20260907_0017` head, then the temporary container was removed.
+
+Not changed: production releases, containers, database, ports, execution gates, CCE jobs, OBS/SFS data and active analyses.
+
+Remaining: integrate and push the validated source; production rollout requires separate approval.
+
+Rollback: source-only. Revert the T222 integration commit. No runtime or database rollback is required because this task did not deploy.
+
 ## 2026-09-07 T220 WGS console layout and QC separation
 
 Goal: implement the approved T220 backend projection and frontend layout/QC changes on a clean branch from `main@5a26b46`, validate on `.96`, then fast-forward `main` without production deployment.

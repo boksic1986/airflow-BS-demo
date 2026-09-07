@@ -23,13 +23,13 @@ import {
 import {RunTracker} from "../components/RunTracker";
 import {
   CommandSummary,
-  dashboardPipelines,
   OperationsOverview,
   PipelineRail,
 } from "../features/dashboard/DashboardOverview";
 import {DashboardResourcePanels} from "../features/dashboard/DashboardResourcePanels";
 import {IntakeScannerPanel} from "../features/dashboard/IntakeScannerPanel";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
+import {hasRegisteredSubmissionUi} from "../features/platform/submissionUiRegistry";
 import {errorMessage} from "../lib/errors";
 import {isActiveStatus} from "../lib/status";
 
@@ -232,16 +232,18 @@ export function DashboardPage() {
     }
   }
 
-  const selectedPipeline = dashboardPipelines.find((item) => item.value === pipeline) || dashboardPipelines[0];
-  const showQc = pipeline !== "wgs" && !(
-    pipeline === "all"
-    && capabilities.deployed_pipelines.length === 1
-    && capabilities.deployed_pipelines[0] === "wgs"
-  );
+  const deployedDefinitions = capabilities.pipelines.filter((item) => capabilities.isDeployed(item.id));
+  const selectedPipeline = deployedDefinitions.find((item) => item.id === pipeline) || deployedDefinitions[0];
+  const showQc = pipeline === "all"
+    ? deployedDefinitions.some((item) => item.capabilities.includes("qc"))
+    : Boolean(selectedPipeline?.capabilities.includes("qc"));
   const pipelineOptions: DashboardPipeline[] = capabilities.deployed_pipelines.length === 1
     ? [...capabilities.deployed_pipelines]
     : ["all", ...capabilities.deployed_pipelines];
   const trackerRows = trackerPayload?.items || [];
+  const canSubmit = deployedDefinitions.some((item) => (
+    hasRegisteredSubmissionUi(item, capabilities.isDeployed)
+  ));
 
   return (
     <div className="page-stack dashboard-page">
@@ -251,13 +253,13 @@ export function DashboardPage() {
           <h1>Command Center</h1>
           <p>Deployed workflow operations, sample throughput, intake readiness, and node health.</p>
         </div>
-        <Link className="button primary" to="/submit">Submit run</Link>
+        {canSubmit ? <Link className="button primary" to="/submit">Submit run</Link> : null}
       </section>
 
       {actionMessage ? <div className="success-note" role="status">{actionMessage}</div> : null}
 
       <section className="dashboard-command-grid">
-        <PipelineRail pipeline={pipeline} pipelines={pipelineOptions} onChange={handlePipelineChange} />
+        <PipelineRail pipeline={pipeline} pipelines={deployedDefinitions} onChange={handlePipelineChange} />
         <div className="dashboard-main-column">
           <CommandSummary overview={overview} pipeline={pipeline} loading={overviewLoading} error={overviewError} showQc={showQc} />
           <OperationsOverview overview={overview} period={period} loading={overviewLoading} onPeriodChange={setPeriod} showQc={showQc} />
@@ -302,7 +304,7 @@ export function DashboardPage() {
         pipelines={pipelineOptions}
         onResourceTabChange={setResourceTab}
       />
-      <span className="sr-only">Selected pipeline: {selectedPipeline.label}</span>
+      <span className="sr-only">Selected pipeline: {selectedPipeline?.display_name || "All pipelines"}</span>
     </div>
   );
 }

@@ -4,13 +4,13 @@
 
 ## 1. 项目目标
 
-构建一个可在服务器本地部署的 Airflow demo，用于展示：
+构建一个可在华为云和服务器本地部署的 NGS 在线分析平台。平台核心通过 Pipeline Registry 与 adapter 接入流程，当前生产仅启用 WGS，同时为 WES、GATK 等真实流程保留通用接口。主要能力包括：
 
-- 前端提交 WES / NIPT 分析任务。
+- 前端按已部署 adapter 提交分析任务。
 - 上传或填写样本清单。
 - Airflow 负责项目级 DAG 调度、状态追踪、邮件通知。
 - Snakemake 负责 rule/file dependency、qsub 并行、断点续跑。
-- qsub 流程能够记录 job id、stdout、stderr。
+- CCE、本地或未来 SGE 流程能够记录运行身份、stdout、stderr 和结构化证据。
 - 前端展示 Airflow DAG 状态、Snakemake rule 状态、QC 指标、正常日志和失败错误日志。
 - 支持失败后 resume 或针对部分 rule/sample 重分析，默认不重新跑全部流程。
 
@@ -57,7 +57,7 @@ agent 不得执行以下操作，除非用户明确授权且已在 `HANDOFF.md` 
 - `rm -rf` 删除项目根目录、shared 数据、生产流程目录、参考基因组目录。
 - `docker system prune -a`、`docker volume prune`、`docker compose down -v`。
 - `git reset --hard`、`git clean -fdx`。
-- 修改生产 WES/NIPT 核心脚本行为。
+- 修改生产 NGS workflow 核心脚本行为。
 - 直接连接或修改生产数据库。
 - 提交超过 demo 限额的 qsub 任务。
 - 将 `.env`、密码、token、SMTP 密码、数据库密码、患者信息提交到 Git。

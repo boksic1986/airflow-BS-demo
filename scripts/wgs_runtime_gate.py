@@ -59,7 +59,7 @@ BINDING_SCHEMA = "wgs-runtime.batch-binding.v2"
 REQUEST_ROOT = Path(
     os.getenv(
         "WGS_RUNTIME_REQUEST_ROOT",
-        "/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/runner-requests",
+        "/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime/runner-requests",
     )
 )
 RUNTIME_RUN_ROOT = os.getenv("WGS_RUNTIME_RUN_ROOT", "").strip()
@@ -100,7 +100,7 @@ STEP4_MASTER_NOT_SUCCESSFUL = "Step4 requires a successful Master Job"
 CCE_EVIDENCE_ROOT = Path(
     os.getenv(
         "WGS_CCE_EVIDENCE_ROOT",
-        "/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/cce-evidence",
+        "/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime/cce-evidence",
     )
 )
 EVIDENCE_BRIDGE = Path(__file__).with_name("wgs_evidence_bridge.py")

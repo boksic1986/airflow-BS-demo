@@ -10,7 +10,7 @@ from sqlalchemy import select
 from app.models import AnalysisRun, RuleState, Sample
 from app.wgs_artifact_selection import select_batch_qcstat
 from app.wgs_run_projection import load_wgs_runtime_binding, resolve_bound_wgs_batch_root
-from app.wgs_timing_service import phase_for_rule
+from app.workflow_phases import wgs_phase_for_rule
 
 
 TERMINAL_SUCCESS = {"success", "succeeded", "complete", "completed"}
@@ -166,7 +166,7 @@ def _matrix_row(*, sample: Sample, run: AnalysisRun, rules: list[RuleState], exp
     data_id = str(metadata.get("data_id") or sample.sample_id)
     qc_value = qc.get(sample.sample_id) or qc.get(data_id) or qc.get(data_id.removesuffix("-WGS")) or {}
     current_stage = (
-        (current.phase or phase_for_rule(current.rule_name, pipeline_name="wgs"))
+        (current.phase or wgs_phase_for_rule(current.rule_name))
         if current
         else _text(run.current_stage)
     )

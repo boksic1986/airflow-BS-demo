@@ -1,5 +1,32 @@
 # TASKS.md
 
+## T222 - NGS registry platform boundary and retired asset cleanup
+
+Owner: platform/backend/frontend/Airflow/infra/QA/docs
+
+Status: validated; ready for mainline integration, production deployment out of scope
+
+Dependencies: main@40eabc1
+
+Acceptance:
+- [x] Add a configuration-driven Pipeline Registry and adapter boundary without pipeline-name branches in generic API dispatch.
+- [x] Keep WGS as the only deployed real adapter while proving disabled synthetic WES/GATK definitions use the same registry contract.
+- [x] Return stable unregistered, unavailable and unsupported-capability errors.
+- [x] Reject malformed registry field types and disabled deployment selections without fail-open coercion.
+- [x] Keep WGS execution gates ahead of both submit and generic reanalysis attempt mutation.
+- [x] Remove retired PGTA/NIPT runtime, DAG, runner, test, mock, image and deployment assets; remove the WES mock implementation.
+- [x] Preserve all database migrations and state/audit history.
+- [x] Drive frontend workflow/filter/submission availability from platform capabilities and retain the current WGS extension UI.
+- [x] Rename the active project/candidate identity and default runtime root to `ngs-huaweicloud`.
+- [x] Replace the fixed legacy network contract with configurable existing `NGS_PLATFORM_NETWORK`; do not create a network.
+- [x] Use cached `python:3.11.9-slim-bookworm` with `--pull=false` and complete backend, DAG, runtime, frontend, Compose and migration validation.
+- [ ] Fast-forward the validated branch into `main`, push both refs, and remove only this task worktree.
+
+Restrictions:
+- Do not deploy or restart production services.
+- Do not modify running WGS/CCE analyses, production databases, evidence or data.
+- Do not pull images from Docker Hub.
+
 ## T220 - WGS console display optimization and QC tab
 
 Owner: backend/frontend/QA/docs

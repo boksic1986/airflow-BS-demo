@@ -32,7 +32,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
             'PLATFORM_ENVIRONMENT: "${PLATFORM_ENVIRONMENT:-Demo}"', compose
         )
         self.assertIn(
-            'WGS_RUNTIME_BS_ROOT: ${WGS_RUNTIME_BS_ROOT:-/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime}',
+            'WGS_RUNTIME_BS_ROOT: ${WGS_RUNTIME_BS_ROOT:-/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime}',
             compose,
         )
         self.assertIn(
@@ -42,7 +42,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertIn('${WGS_RUNNER_200_ALIAS:-wgs-node200}', compose)
         self.assertNotIn("AIRFLOW_CONN_WGS_RUNNER_200", compose)
         self.assertIn('${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime', compose)
-        self.assertIn('/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime', compose)
+        self.assertIn('/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime', compose)
         for excluded in ("/var/run/docker.sock", "bio_nipt", "bio_pgta", "bio_wes", "NIPT_", "PGTA_", "WES_", "./pipelines", "./profiles", "KUBECONFIG", "OBS_"):
             self.assertNotIn(excluded, compose)
 
@@ -57,7 +57,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertIn("PLATFORM_METRICS_UID=6801", env)
         self.assertIn("PLATFORM_ENVIRONMENT=BS10610-Test", env)
         self.assertIn(
-            "WGS_RUNTIME_BS_ROOT=/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime",
+            "WGS_RUNTIME_BS_ROOT=/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime",
             env,
         )
         self.assertIn("AIRFLOW_WEBSERVER_SECRET_KEY=<CHANGE_ME_LOCAL_ONLY>", env)
@@ -208,11 +208,11 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertNotIn("PLATFORM_NODE_EXPORTER_TARGETS", collector["environment"])
         self.assertNotIn("/opt/platform-metrics/ssh", str(collector.get("volumes", [])))
 
-    def test_bs10610_network_and_host_binding_are_immutable_contracts(self):
+    def test_external_network_is_configurable_and_only_frontend_is_published(self):
         payload = yaml.safe_load((REPO_ROOT / "docker-compose.wgs.yaml").read_text(encoding="utf-8"))
         network = payload["networks"]["wgs-platform"]
         self.assertTrue(network["external"])
-        self.assertEqual(network["name"], "nipt_analysis_test_net")
+        self.assertEqual(network["name"], "${NGS_PLATFORM_NETWORK:-ngs_analysis_platform}")
         self.assertEqual(
             payload["services"]["frontend-nginx"]["ports"],
             ["${BS_HOST_IP:-172.17.106.10}:${FRONTEND_PORT:-12959}:80"],
@@ -220,7 +220,3 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         for name, service in payload["services"].items():
             if name != "frontend-nginx":
                 self.assertNotIn("ports", service)
-
-        preflight = (REPO_ROOT / "scripts" / "check_wgs_docker_network.py").read_text(encoding="utf-8")
-        self.assertIn('EXPECTED_SUBNET = "192.168.199.0/24"', preflight)
-        self.assertIn('EXPECTED_GATEWAY = "192.168.199.1"', preflight)

@@ -24,7 +24,7 @@ STAGE = "local_analysis"
 REQUEST_ROOT = Path(
     os.getenv(
         "WGS_LOCAL_REQUEST_ROOT",
-        "/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/runner-requests",
+        "/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime/runner-requests",
     )
 )
 ANALYSIS_ROOT = Path(
@@ -36,7 +36,7 @@ ANALYSIS_ROOT = Path(
 EVIDENCE_ROOT = Path(
     os.getenv(
         "WGS_LOCAL_EVIDENCE_ROOT",
-        "/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime/cce-evidence",
+        "/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime/cce-evidence",
     )
 )
 WGS_REPO_ROOT = Path(

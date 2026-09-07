@@ -1,0 +1,21 @@
+version: 1
+pipelines:
+  wgs:
+    display_name: Whole genome sequencing
+    dag_id: bio_wgs
+    version: 4.1.1
+    adapter: wgs
+    enabled: true
+    submit_enabled: true
+    capabilities:
+      - intake
+      - submit
+      - rules
+      - qc
+      - artifacts
+      - resume
+      - rerun
+    execution_targets:
+      - cce
+      - local
+      - sge

@@ -7,8 +7,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import shutil
-import subprocess
 from typing import Any
 
 import yaml
@@ -27,37 +25,17 @@ def validate_runtime_profile_availability(
     profile: ResolvedRuntimeProfile | None,
     *,
     pipeline: str,
-    docker_executable: str | None = None,
-    command_runner=subprocess.run,
 ) -> None:
+    """Validate only registry-neutral profile invariants.
+
+    Pipeline-specific binary, image and reference checks belong to the adapter
+    that owns the profile. The orchestration helper deliberately does not branch
+    on pipeline identifiers.
+    """
     if profile is None:
         return
-    if pipeline == "pgta":
-        _validate_pgta_runtime_paths(profile)
-        return
-    if pipeline == "nipt_docker":
-        docker = docker_executable or shutil.which("docker")
-        if not docker:
-            raise ValueError("Approved NIPT runtime is unavailable: docker executable was not found.")
-        for key in ("docker_image", "fetal_image"):
-            image = str(profile.runtime.get(key) or "").strip()
-            if not image:
-                raise ValueError(f"Approved NIPT runtime is missing {key}.")
-            try:
-                completed = command_runner(
-                    [docker, "image", "inspect", image],
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                    timeout=20,
-                )
-            except (OSError, subprocess.TimeoutExpired) as exc:
-                raise ValueError(f"Approved NIPT {key} could not be inspected: {exc}") from exc
-            if completed.returncode != 0:
-                detail = str(completed.stderr or "image is not available").strip()
-                raise ValueError(f"Approved NIPT {key} is unavailable: {detail}")
-        return
-    raise ValueError(f"Unsupported runtime profile pipeline: {pipeline}")
+    if not pipeline.strip():
+        raise ValueError("Runtime profile pipeline id is required")
 
 
 def resolve_runtime_profile(
@@ -159,75 +137,6 @@ def _profile_hash(profile_id: str, profile: dict[str, Any]) -> str:
         separators=(",", ":"),
     )
     return _sha256_text(canonical)
-
-
-def _validate_pgta_runtime_paths(profile: ResolvedRuntimeProfile) -> None:
-    contracts = (
-        ("snakemake_bin", "file", True),
-        ("python_bin", "file", True),
-        ("samtools_bin", "file", True),
-        ("fastp_bin", "file", True),
-        ("bwa_bin", "file", True),
-        ("wisecondorx_bin", "file", True),
-        ("rscript_bin", "file", True),
-        ("reference_genome", "file", False),
-        ("reference_xx_npz", "file", False),
-        ("reference_xy_npz", "file", False),
-        ("gender_reference_npz", "file", False),
-        ("common_reference_binsize", "file", False),
-        ("pipeline_root", "directory", False),
-    )
-    for key, kind, executable in contracts:
-        raw_path = str(profile.runtime.get(key) or "").strip()
-        if key.startswith("reference_") or key in {"gender_reference_npz", "common_reference_binsize"}:
-            if not raw_path:
-                continue
-        if not raw_path:
-            raise ValueError(f"Approved PGT-A runtime is missing {key}.")
-        path = Path(raw_path)
-        available = path.is_file() if kind == "file" else path.is_dir()
-        if not available:
-            raise ValueError(f"Approved PGT-A {key} is unavailable: {path}")
-        if executable and not os.access(path, os.X_OK):
-            raise ValueError(f"Approved PGT-A {key} is not executable: {path}")
-    snakefile = Path(str(profile.runtime["pipeline_root"])) / "Snakefile"
-    if not snakefile.is_file():
-        raise ValueError(f"Approved PGT-A pipeline_root has no Snakefile: {snakefile}")
-    _verify_pgta_release_integrity(profile.runtime)
-
-
-def _verify_pgta_release_integrity(runtime: dict[str, Any]) -> None:
-    root = Path(str(runtime.get("pipeline_root") or "")).resolve()
-    manifest = Path(str(runtime.get("release_manifest") or root / "SHA256SUMS")).resolve()
-    expected_manifest_hash = str(runtime.get("release_manifest_sha256") or "").strip().lower()
-    if not expected_manifest_hash:
-        raise ValueError("Approved PGT-A runtime is missing release_manifest_sha256.")
-    if not manifest.is_file() or not manifest.is_relative_to(root):
-        raise ValueError(f"Approved PGT-A release manifest is unavailable or outside pipeline_root: {manifest}")
-    actual_manifest_hash = hashlib.sha256(manifest.read_bytes()).hexdigest()
-    if actual_manifest_hash != expected_manifest_hash:
-        raise ValueError(
-            f"Approved PGT-A release manifest checksum mismatch: expected {expected_manifest_hash}, "
-            f"got {actual_manifest_hash}."
-        )
-    for line_number, raw_line in enumerate(manifest.read_text(encoding="utf-8").splitlines(), start=1):
-        line = raw_line.strip()
-        if not line:
-            continue
-        parts = line.split(maxsplit=1)
-        if len(parts) != 2 or len(parts[0]) != 64:
-            raise ValueError(f"Invalid PGT-A SHA256SUMS entry at line {line_number}.")
-        expected_file_hash = parts[0].lower()
-        relative_name = parts[1].lstrip("* ")
-        candidate = (manifest.parent / relative_name).resolve()
-        if not candidate.is_file() or not candidate.is_relative_to(root):
-            raise ValueError(f"Approved PGT-A release file is missing or outside pipeline_root: {relative_name}")
-        actual_file_hash = hashlib.sha256(candidate.read_bytes()).hexdigest()
-        if actual_file_hash != expected_file_hash:
-            raise ValueError(
-                f"Approved PGT-A release file checksum mismatch for {relative_name}: "
-                f"expected {expected_file_hash}, got {actual_file_hash}."
-            )
 
 
 def _sha256_text(value: str) -> str:

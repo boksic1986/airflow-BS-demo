@@ -4,78 +4,6 @@ from collections import Counter
 from typing import Any
 
 
-NIPT_RULE_PHASES = {
-    "mapper_v2_manager_ready": "Input QC",
-    "fastq_count": "Input QC",
-    "map": "Mapping",
-    "convert": "CNV",
-    "predict": "CNV",
-    "bgzip_bin": "CNV",
-    "bgzip_seg": "CNV",
-    "plot_cnv": "CNV",
-    "gccorrect": "Aneuploidy",
-    "gccorrect_bgzip": "Aneuploidy",
-    "mv_gccorrect_png": "Aneuploidy",
-    "aneuploidy_calling_batch": "Aneuploidy",
-    "aneuploidy_calling_dynamicref": "Aneuploidy",
-    "aneuscreen_direct_ready": "T21 classifier",
-    "aneuscreen_loading": "T21 classifier",
-    "aneuscreen_predict": "T21 classifier",
-    "aneuscreen_loading_correct_matcnv": "T21 classifier",
-    "aneuscreen_predict_correct_matcnv": "T21 classifier",
-    "cal_fetal_ratio": "Fetal fraction",
-    "mapping_qc": "Final QC",
-    "pngquant": "Final QC",
-    "bgzip_blk": "Final QC",
-    "all": "Final QC",
-    "nipt_full_run": "NIPT workflow",
-    "nipt_mount_smoke": "Validation",
-}
-
-GENERIC_RULE_PHASES = {
-    "fastp_bwa": "Mapping",
-    "mapping": "Mapping",
-    "collect_mapping_qc": "Mapping",
-    "metadata": "Metadata",
-    "collect_run_metadata": "Metadata",
-    "cnv_qc": "CNV QC",
-    "baseline_qc": "CNV QC",
-    "wisecondorx_convert_for_cnv": "CNV QC",
-    "wisecondorx_qc_for_predict": "CNV QC",
-    "aggregate_pgta_qc": "CNV QC",
-    "cnv_predict": "CNV prediction",
-    "wisecondorx_gender_for_predict": "CNV prediction",
-    "wisecondorx_predict_cnv": "CNV prediction",
-    "aggregate_pgta_prediction_status": "CNV prediction",
-    "Preall": "Pre-calling",
-    "cleanFastq": "Pre-calling",
-    "Dedup": "Pre-calling",
-    "Sam2Cram": "Pre-calling",
-    "QualCal": "Pre-calling",
-    "QCStatic": "Pre-calling",
-    "mtQC": "Pre-calling",
-    "Haplotyper": "Pre-calling",
-    "bam2blockUniq": "Pre-calling",
-    "Smooverun": "Pre-calling",
-    "mityCall": "Pre-calling",
-    "MEICall": "Pre-calling",
-    "fq2cram": "Pre-calling",
-    "cram2gvcf": "Pre-calling",
-    "SNV_Annotation": "Variant analysis",
-    "INDEL_Annotation": "Variant analysis",
-    "CNV_Annotation": "Variant analysis",
-    "SV_Annotation": "Variant analysis",
-    "GVCFtyper": "Variant analysis",
-    "QCall": "QC",
-    "PeddyC": "QC",
-    "sceVCF": "QC",
-    "gender": "QC",
-    "SingleQC_merge": "QC",
-    "mergeQC": "QC",
-    "plotQC": "QC",
-    "WGS_QC": "QC",
-}
-
 WGS_PRE_CALLING_RULES = frozenset(
     {
         "Preall",
@@ -225,23 +153,26 @@ def phase_for_rule(
     pipeline_name: str | None = None,
     pipeline_stage: str | None = None,
 ) -> str:
+    return "Pipeline"
+
+
+def wgs_phase_for_rule(rule: str | None, *, pipeline_stage: str | None = None) -> str:
     name = str(rule or "").strip()
-    if str(pipeline_name or "").strip().lower() == "wgs":
-        if name == "all":
-            return "Pre-calling" if str(pipeline_stage or "").strip().lower() == "precalling" else "QC"
-        for prefix, phase in WGS_RULE_PREFIX_PHASES:
-            if name.startswith(prefix):
-                return phase
-        # Unknown WGS rules remain on the WGS stage rail rather than becoming generic Pipeline events.
-        return WGS_RULE_PHASES.get(name, WGS_UNKNOWN_RULE_PHASE)
-    return NIPT_RULE_PHASES.get(name) or GENERIC_RULE_PHASES.get(name) or "Pipeline"
+    if name == "all":
+        return "Pre-calling" if str(pipeline_stage or "").strip().lower() == "precalling" else "QC"
+    for prefix, phase in WGS_RULE_PREFIX_PHASES:
+        if name.startswith(prefix):
+            return phase
+    return WGS_RULE_PHASES.get(name, WGS_UNKNOWN_RULE_PHASE)
 
 
 def phase_order(phase: str | None, *, pipeline_name: str | None = None) -> int:
     """Return a stable UI sort order without deriving execution dependencies."""
-    if str(pipeline_name or "").strip().lower() == "wgs":
-        return WGS_PHASE_ORDER.get(str(phase or ""), 999)
     return 999
+
+
+def wgs_phase_order(phase: str | None) -> int:
+    return WGS_PHASE_ORDER.get(str(phase or ""), 999)
 
 
 def wgs_phase_definitions() -> list[dict[str, object]]:
@@ -271,12 +202,15 @@ def summarize_rule_events(
     *,
     pipeline_name: str | None = None,
     pipeline_stage: str | None = None,
+    phase_projector=None,
 ) -> dict[str, Any]:
     by_status = Counter(str(item.get("status") or "unknown").lower() for item in events)
     phase_rows: dict[str, list[dict[str, Any]]] = {}
     for item in events:
         phase_rows.setdefault(
-            phase_for_rule(item.get("rule"), pipeline_name=pipeline_name, pipeline_stage=pipeline_stage),
+            phase_projector(item.get("rule"), pipeline_stage=pipeline_stage)
+            if phase_projector is not None
+            else phase_for_rule(item.get("rule")),
             [],
         ).append(item)
     phases = [

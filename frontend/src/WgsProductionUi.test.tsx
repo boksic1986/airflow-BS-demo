@@ -17,7 +17,7 @@ it("uses a pipeline-selectable staged WGS submission form", async () => {
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
-    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
     if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-6c98281", version: "V4.1.1", source_commit: "6c982817614db6a1157b6f287427ddf01ac91827", execution_enabled: false, runtime_adapter_enabled: false, submission_preview_enabled: false});
     if (url.endsWith("/api/wgs/projects")) return json({items: [{project_id: "WGS_Clinical", display_name: "WGS Clinical", platforms: [{platform_id: "T7", display_name: "T7 / hg38 / V4.1.1"}], fastq_roots: [{root_id: "T7_Fastq", display_name: "T7 FASTQ"}], editable_config: {use_reference: {type: "enum", values: ["all", "ref", "no"], default: "all"}}}]});
     return json({items: [], total: 0});
@@ -27,7 +27,8 @@ it("uses a pipeline-selectable staged WGS submission form", async () => {
 
   expect(await screen.findByRole("heading", {name: "Submit run"})).toBeInTheDocument();
   expect(screen.getByLabelText("Pipeline")).toHaveValue("wgs");
-  expect(screen.getByRole("option", {name: "WES (not available)"})).toBeDisabled();
+  expect(screen.getByRole("option", {name: "Whole genome sequencing"})).toBeInTheDocument();
+  expect(screen.queryByRole("option", {name: /WES/i})).not.toBeInTheDocument();
   expect(screen.getByLabelText("FASTQ root")).toBeInTheDocument();
   expect(screen.getByLabelText("Batch")).toBeInTheDocument();
   expect(screen.queryByLabelText("Sequencing batch")).not.toBeInTheDocument();
@@ -49,7 +50,7 @@ it("starts stage one without accepting runtime configuration", async () => {
     const url = String(input);
     requests.push({url, init});
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
-    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
     if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-6c98281", version: "V4.1.1", source_commit: "6c982817614db6a1157b6f287427ddf01ac91827", execution_enabled: true, runtime_adapter_enabled: true, submission_preview_enabled: false});
     if (url.endsWith("/api/wgs/projects")) return json({items: [{project_id: "WGS_Clinical", display_name: "WGS Clinical", platforms: [{platform_id: "T7", display_name: "T7 / hg38 / V4.1.1"}], fastq_roots: [{root_id: "T7_Fastq", display_name: "T7 FASTQ"}], editable_config: {use_reference: {type: "enum", values: ["all", "ref", "no"], default: "all"}}}]});
     if (url.endsWith("/api/wgs/runs")) return json({analysis_id: "WGS_TEST", pipeline: "wgs", status: "submitted", params: {submission_phase: "config_review"}});
@@ -80,7 +81,7 @@ it("leaves the preparation screen when the polled run has failed", async () => {
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
-    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
     if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-6c98281", version: "V4.1.1", source_commit: "6c982817614db6a1157b6f287427ddf01ac91827", execution_enabled: true, runtime_adapter_enabled: true, submission_preview_enabled: false});
     if (url.endsWith("/api/wgs/projects")) return json({items: [{project_id: "WGS_Clinical", display_name: "WGS Clinical", platforms: [{platform_id: "T7", display_name: "T7 / hg38 / V4.1.1"}], fastq_roots: [{root_id: "T7_Fastq", display_name: "T7 FASTQ"}], editable_config: {use_reference: {type: "enum", values: ["all", "ref", "no"], default: "all"}}}]});
     if (url.endsWith("/api/wgs/runs")) return json({analysis_id: "WGS_FAILED", pipeline: "wgs", status: "submitted", params: {submission_phase: "preparing_sampleinfo"}});
@@ -106,7 +107,7 @@ it("loads WGS resource tabs for an active run", async () => {
     const url = String(input);
     urls.push(url);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
-    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
     if (url.endsWith("/api/runs/WGS_001/workspace")) return json({
       run: {analysis_id: "WGS_001", pipeline: "wgs", status: "running", pipeline_release_id: "wgs-4.1.1-1656b5d", wgs_version: "V4.1.1", wgs_source_commit: "1656b5d7a6e2f24242c38149f6d1c92ac266cd37", resolved_runtime: {cce_pipeline_version: "0.7.1", profile_id: "wgs-4.1.1-r1", master_image_digest: "sha256:abc"}, rule_event_schema_version: "rule-event.v1", observer: {lifecycle_status: "active", monitoring_health: "healthy", activated_at: "2026-08-26T01:00:00Z", last_success_at: "2026-08-26T01:01:05Z", last_error: null, updated_at: "2026-08-26T01:01:05Z"}},
       summary: {sample_count: 1, rule_count: 10, failed_rule_count: 0},
@@ -176,7 +177,7 @@ it("renders independent WGS data lifecycle states without replacing workflow suc
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "viewer", role: "viewer"});
-    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
     if (url.endsWith("/api/runs/WGS_LIFECYCLE/workspace")) return json({
       run: {
         analysis_id: "WGS_LIFECYCLE",
@@ -215,7 +216,7 @@ it("falls back to legacy run resources when the workspace endpoint is unavailabl
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
-    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
     if (url.endsWith("/api/runs/WGS_LEGACY/workspace")) return jsonStatus({detail: "Not Found"}, 404);
     if (url.endsWith("/api/runs/WGS_LEGACY")) return json({analysis_id: "WGS_LEGACY", pipeline: "wgs", status: "success", params: {batch_no: "20260905B"}});
     if (url.endsWith("/api/runs/WGS_LEGACY/progress")) return json({
@@ -247,7 +248,7 @@ it("falls back to legacy run resources when the workspace endpoint is unavailabl
   expect(screen.queryByText("Not Found")).not.toBeInTheDocument();
   expect(screen.getAllByText("20260905B").length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole("tab", {name: "Rules"}));
-  const stages = await screen.findByLabelText("WGS stage dependency graph");
+  const stages = await screen.findByLabelText("Pipeline stage dependency graph");
   const labels = Array.from(stages.querySelectorAll("strong"), (node) => node.textContent);
   expect(labels).toEqual(["Downloading WGS results", "Materializing local results"]);
 });
@@ -259,7 +260,7 @@ it("enables Step7 after an admin confirms the displayed public batch", async () 
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "admin", role: "admin"});
-    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
     if (url.endsWith("/api/runs/WGS_STEP7/workspace")) return json({
       run: {
         analysis_id: "WGS_STEP7",
@@ -297,7 +298,7 @@ it("keeps refreshing a completed run while its Step7 maintenance action is activ
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "admin", role: "admin"});
-    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
     if (url.endsWith("/api/runs/WGS_STEP7_ACTIVE/workspace")) {
       workspaceCalls += 1;
       return json({
@@ -345,7 +346,7 @@ it("shows and searches the public WGS batch in the sample inventory", async () =
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
-    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
     if (url.includes("/api/samples")) return json({
       items: [{
         analysis_id: "WGS_001",
@@ -377,19 +378,19 @@ it("keeps account administration hidden for viewers", async () => {
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "viewer", role: "viewer"});
-    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
     return json({items: [], total: 0});
   }));
   render(<App />);
-  expect(await screen.findByText("WGS Control Tower")).toBeInTheDocument();
+  expect(await screen.findByText("NGS Huawei Cloud")).toBeInTheDocument();
   expect(screen.queryByRole("link", {name: "Accounts"})).not.toBeInTheDocument();
 });
 
-it("removes QC summary actions from the WGS-only dashboard", async () => {
+it("shows QC summary actions when the deployed adapter exposes QC", async () => {
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "viewer", role: "viewer"});
-    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
     if (url.includes("/api/dashboard/overview")) return json({totals: {runs: 0, running: 0, failed: 0, success: 0, created: 0}, sample_summary: {total: 0, running: 0, workflow_failed: 0, qc_failed: 7, completed: 0}, status_distribution: {}, trend: [], sample_trend: []});
     if (url.includes("/api/dashboard/runs")) return json({items: [], total: 0, limit: 10, offset: 0});
     if (url.includes("/api/intake/scanner-state")) return json({last_scanned_directory_count: 0, schedule_seconds: 600, auto_dispatch_enabled: false});
@@ -401,8 +402,8 @@ it("removes QC summary actions from the WGS-only dashboard", async () => {
   render(<App />);
 
   expect(await screen.findByRole("heading", {name: "Command Center"})).toBeInTheDocument();
-  expect(screen.queryByText("QC alerts")).not.toBeInTheDocument();
-  expect(screen.queryByText("QC failed samples")).not.toBeInTheDocument();
+  expect(screen.getByText("QC alerts")).toBeInTheDocument();
+  expect(screen.getByText("QC failed samples")).toBeInTheDocument();
   expect(screen.getByText("Workflow fails")).toBeInTheDocument();
 });
 
@@ -411,7 +412,7 @@ it("keeps scanner metadata when the discovery list has a transiently unavailable
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "viewer", role: "viewer"});
-    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS production", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities("WGS production"));
     if (url.includes("/api/dashboard/overview")) return json({totals: {runs: 0, running: 0, failed: 0, success: 0, created: 0}, sample_summary: {total: 0, running: 0, workflow_failed: 0, completed: 0}, status_distribution: {}, trend: [], sample_trend: []});
     if (url.includes("/api/dashboard/runs")) return json({items: [], total: 0, limit: 10, offset: 0});
     if (url.includes("/api/intake/scanner-state")) return json({last_scanned_directory_count: 1843, schedule_seconds: 600, auto_dispatch_enabled: false});
@@ -433,7 +434,24 @@ it("keeps scanner metadata when the discovery list has a transiently unavailable
 function json(value: unknown): Promise<Response> {
   return Promise.resolve(new Response(JSON.stringify(value), {status: 200, headers: {"Content-Type": "application/json"}}));
 }
-
 function jsonStatus(value: unknown, status: number): Promise<Response> {
   return Promise.resolve(new Response(JSON.stringify(value), {status, headers: {"Content-Type": "application/json"}}));
+}
+
+function wgsCapabilities(environment = "WGS") {
+  return {
+    environment,
+    deployed_pipelines: ["wgs"],
+    pipelines: [{
+      id: "wgs",
+      display_name: "Whole genome sequencing",
+      dag_id: "bio_wgs",
+      version: "4.1.1",
+      enabled: true,
+      submit_enabled: true,
+      capabilities: ["intake", "submit", "rules", "qc", "artifacts", "resume", "rerun"],
+      execution_targets: ["cce", "local", "sge"],
+    }],
+    airflow_url: null,
+  };
 }

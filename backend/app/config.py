@@ -23,16 +23,10 @@ class Settings:
     container_shared_root: str
     host_results_root: str
     wgs_host_owner: str
-    input_scan_roots: list[str]
-    pgta_input_scan_roots: list[str]
-    nipt_input_scan_roots: list[str]
     wgs_config_roots: list[str]
     wgs_fastq_roots: list[str]
     wgs_validation_roots: list[str]
-    intake_config_path: str | None
-    pipeline_profile_config_path: str | None
-    nipt_allow_heavy_run: bool
-    nipt_docker_cores: int
+    pipeline_registry_path: str
     internal_service_token: str
     deployed_pipelines: tuple[str, ...]
     platform_environment: str
@@ -89,16 +83,10 @@ def get_internal_service_token() -> str:
 
 @lru_cache
 def get_settings() -> Settings:
-    legacy_scan_roots = _parse_list(os.getenv("INPUT_SCAN_ROOTS", "/data/project/CNV/PGT-A/rawdata"))
-    pgta_scan_roots = _parse_list(os.getenv("PGTA_INPUT_SCAN_ROOTS") or ",".join(legacy_scan_roots))
-    nipt_scan_roots = _parse_list(os.getenv("NIPT_INPUT_SCAN_ROOTS") or "/opt/pipelines/NIPT/fastq")
     wgs_config_roots = _parse_list(os.getenv("WGS_CONFIG_ROOTS") or "/data/wgs-intake")
     wgs_fastq_roots = _parse_list(os.getenv("WGS_FASTQ_ROOTS") or "/data/wgs-fastq")
     wgs_validation_roots = _parse_list(os.getenv("WGS_VALIDATION_ROOTS") or "/data/wgs-validation")
     deployed_pipelines = tuple(_parse_list(os.getenv("DEPLOYED_PIPELINES", "wgs")))
-    unsupported = sorted(set(deployed_pipelines) - {"wgs"})
-    if unsupported:
-        raise RuntimeError(f"Unsupported DEPLOYED_PIPELINES values: {', '.join(unsupported)}")
     if not deployed_pipelines:
         raise RuntimeError("DEPLOYED_PIPELINES must contain at least one pipeline")
     stage_contract_path = os.getenv(
@@ -110,7 +98,7 @@ def get_settings() -> Settings:
     _reject_contract_drift("WGS_HEAVY_SLOT_LIMIT", str(heavy_limit))
     _reject_contract_drift("WGS_HEAVY_SLOT_MODE", heavy_mode)
 
-    intake_config_path = os.getenv("INTAKE_CONFIG_PATH", "/app/config/intake.yaml")
+    intake_config_path = os.getenv("INTAKE_CONFIG_PATH", "/config/intake.wgs.yaml")
     project_catalog_path = os.getenv(
         "WGS_PROJECT_CATALOG_PATH", "/config/wgs_projects.yaml"
     )
@@ -141,19 +129,13 @@ def get_settings() -> Settings:
         container_shared_root=os.getenv("CONTAINER_SHARED_ROOT", "/data/airflow-demo"),
         host_results_root=os.getenv("HOST_RESULTS_ROOT", os.getenv("CONTAINER_SHARED_ROOT", "/data/airflow-demo")),
         wgs_host_owner=os.getenv("WGS_HOST_OWNER", "").strip(),
-        input_scan_roots=pgta_scan_roots,
-        pgta_input_scan_roots=pgta_scan_roots,
-        nipt_input_scan_roots=nipt_scan_roots,
         wgs_config_roots=wgs_config_roots,
         wgs_fastq_roots=wgs_fastq_roots,
         wgs_validation_roots=wgs_validation_roots,
-        intake_config_path=intake_config_path,
-        pipeline_profile_config_path=os.getenv(
-            "PIPELINE_PROFILE_CONFIG_PATH",
-            "/app/config/pipeline_profiles.yaml",
+        pipeline_registry_path=os.getenv(
+            "PIPELINE_REGISTRY_PATH",
+            "/config/pipelines.yaml",
         ),
-        nipt_allow_heavy_run=_parse_bool(os.getenv("NIPT_ALLOW_HEAVY_RUN", "false")),
-        nipt_docker_cores=_parse_int(os.getenv("NIPT_DOCKER_CORES", "32"), default=32),
         internal_service_token=get_internal_service_token(),
         deployed_pipelines=deployed_pipelines,
         platform_environment=os.getenv("PLATFORM_ENVIRONMENT", "Demo").strip() or "Demo",
@@ -185,11 +167,11 @@ def get_settings() -> Settings:
         ),
         wgs_runtime_bs_root=os.getenv(
             "WGS_RUNTIME_BS_ROOT",
-            "/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime",
+            "/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime",
         ),
         wgs_runtime_node200_root=os.getenv(
             "WGS_RUNTIME_NODE200_ROOT",
-            "/sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime",
+            "/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime",
         ),
         wgs_results_host_root=os.getenv(
             "WGS_RESULTS_HOST_ROOT",

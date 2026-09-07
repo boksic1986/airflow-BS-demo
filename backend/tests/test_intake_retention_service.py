@@ -58,7 +58,7 @@ def test_retention_rejects_analysis_dag() -> None:
     with pytest.raises(ValueError, match="bio_intake_scan"):
         prune_scanner_history(
             airflow_client=FakeAirflowClient([]),
-            dag_id="bio_pgta",
+            dag_id="bio_pipeline",
             cutoff=datetime.now(timezone.utc),
             current_dag_run_id=None,
             dry_run=True,

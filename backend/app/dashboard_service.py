@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from statistics import median
-from typing import Any
+from typing import Any, Mapping
 
 from sqlalchemy import String, case, cast, desc, func, or_, select
 from sqlalchemy.orm import Session, aliased
@@ -10,14 +10,9 @@ from sqlalchemy.orm import Session, aliased
 from app.models import AnalysisRun, IntakeDiscovery, QcMetric, Sample, SnakemakeRuleEvent
 from app.progress_service import get_run_progress
 from app.qc_highlights import qc_highlights_by_run
-from app.wgs_timing_service import enrich_progress
-from app.wgs_lifecycle_service import project_wgs_lifecycles
-from app.wgs_stage_contract import terminal_wgs_progress
-from app.wgs_run_projection import public_wgs_batch
 
 
-DASHBOARD_PIPELINES = ("pgta", "nipt_docker", "wgs")
-SUPPORTED_DASHBOARD_PIPELINES = {"all", "deployed", *DASHBOARD_PIPELINES}
+SUPPORTED_DASHBOARD_PIPELINES = {"all", "deployed"}
 ACTIVE_STATUSES = {"running", "submitted", "queued", "scheduled"}
 FAILED_STATUSES = {"failed", "fail", "error", "terminated"}
 STATUS_ORDER = {
@@ -37,7 +32,7 @@ def get_dashboard_overview(
     session: Session,
     pipeline: str,
     period: str,
-    deployed_pipelines: tuple[str, ...] = DASHBOARD_PIPELINES,
+    deployed_pipelines: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     _validate_pipeline(pipeline)
     since = _period_start(period)
@@ -83,7 +78,8 @@ def get_dashboard_runs(
     keyword: str | None,
     limit: int,
     offset: int,
-    deployed_pipelines: tuple[str, ...] = DASHBOARD_PIPELINES,
+    deployed_pipelines: tuple[str, ...] = (),
+    pipeline_adapters: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     _validate_pipeline(pipeline)
     base_query = select(AnalysisRun)
@@ -172,7 +168,8 @@ def get_dashboard_runs(
     rule_events = _rule_events_by_run(session=session, runs=page)
     duration_estimates = _duration_estimates_by_run(session=session, runs=page, sample_qc=sample_qc)
     qc_highlights = qc_highlights_by_run(session=session, runs=page)
-    lifecycles = project_wgs_lifecycles(session=session, runs=page)
+    adapters = dict(pipeline_adapters or {})
+    lifecycles = _dashboard_lifecycles(session=session, runs=page, adapters=adapters)
     return {
         "items": [
             _tracker_row(
@@ -184,6 +181,7 @@ def get_dashboard_runs(
                 duration_estimate=duration_estimates.get(run.analysis_id),
                 qc_highlights=qc_highlights.get(run.analysis_id, []),
                 lifecycle=lifecycles.get(run.analysis_id),
+                adapter=adapters.get(run.pipeline_name),
             )
             for run in page
         ],
@@ -204,24 +202,21 @@ def _tracker_row(
     duration_estimate: dict[str, Any] | None,
     qc_highlights: list[dict[str, Any]],
     lifecycle: dict[str, dict] | None,
+    adapter: Any | None,
 ) -> dict[str, Any]:
     progress = _progress_for_tracker_row(
         session=session,
         airflow_client=airflow_client,
         run=run,
         persisted_rule_events=persisted_rule_events,
+        adapter=adapter,
     )
-    if run.pipeline_name == "wgs":
-        if _status(run.status) == "success":
-            progress = {
-                **(progress or {}),
-                **terminal_wgs_progress(
-                    updated_at=_iso(run.pipeline_finished_at or run.ended_at),
-                    validation_scope=str((run.params_json or {}).get("validation_scope") or "") or None,
-                ),
-            }
-        else:
-            progress = enrich_progress(session=session, run=run, payload=progress or {})
+    if adapter is not None and adapter.project_progress is not None:
+        progress = adapter.project_progress(
+            session=session,
+            run=run,
+            payload=progress or {},
+        )
     rules = progress.get("rule_events", []) if progress else []
     airflow_tasks = progress.get("airflow_tasks", []) if progress else []
     terminal_success = _status(run.status) == "success"
@@ -237,21 +232,21 @@ def _tracker_row(
     estimated_finish_at = _estimated_finish_at(estimated_remaining_seconds)
     params = run.params_json or {}
     qc_status = _qc_status_from_values(sample_qc_statuses)
-    if run.pipeline_name == "wgs":
-        display_status = _status(run.status)
-        qc_display_status = "not_applicable"
-        qc_display_note = "WGS production status is workflow-only; QC is not shown in this interface."
-    else:
-        display_status = _display_status(run_status=run.status, qc_status=qc_status)
-        qc_display_status, qc_display_note = _qc_display_state(run_status=run.status, qc_status=qc_status)
+    display_status = _display_status(run_status=run.status, qc_status=qc_status)
+    qc_display_status, qc_display_note = _qc_display_state(run_status=run.status, qc_status=qc_status)
+    metadata = {}
+    if adapter is not None and adapter.project_dashboard_metadata is not None:
+        metadata = adapter.project_dashboard_metadata(
+            run=run,
+            qc_status=qc_status,
+        )
+    display_status = metadata.get("display_status", display_status)
+    qc_display_status = metadata.get("qc_display_status", qc_display_status)
+    qc_display_note = metadata.get("qc_display_note", qc_display_note)
     return {
         "analysis_id": run.analysis_id,
         "project_name": _project_name(run),
-        "batch_no": (
-            public_wgs_batch(params)
-            if run.pipeline_name == "wgs"
-            else str(params.get("batch_no") or "") or None
-        ),
+        "batch_no": metadata.get("batch_no", str(params.get("batch_no") or "") or None),
         "pipeline": run.pipeline_name,
         "status": run.status,
         "display_status": display_status,
@@ -280,22 +275,14 @@ def _tracker_row(
         "pipeline_finished_at": _iso(run.pipeline_finished_at),
         "dag_id": run.dag_id,
         "dag_run_id": run.dag_run_id,
-        "percent": progress.get("progress_percent") if run.pipeline_name == "wgs" else (progress.get("percent", 0) if progress else 0),
+        "percent": progress.get("progress_percent", progress.get("percent", 0)) if progress else 0,
         "current_airflow_task": current_airflow_task,
         "current_pipeline_rule": current_pipeline_rule,
-        "current_stage_label": (
-            (
-                "WGS workflow failed"
-                if str(run.status or "").lower() in FAILED_STATUSES and not run.current_stage
-                else progress.get("stage_label")
-            )
-            if run.pipeline_name == "wgs"
-            else _current_stage_label(
+        "current_stage_label": progress.get("stage_label") if progress and progress.get("stage_label") else _current_stage_label(
                 current_airflow_task=current_airflow_task,
                 current_pipeline_rule=current_pipeline_rule,
                 status=run.status,
                 not_in_airflow=progress.get("not_in_airflow", False) if progress else False,
-            )
         ),
         "current_stage_source": _current_stage_source(
             current_airflow_task=current_airflow_task,
@@ -309,9 +296,9 @@ def _tracker_row(
         "estimated_remaining_seconds": estimated_remaining_seconds,
         "estimated_finish_at": _iso(estimated_finish_at),
         "progress_source": progress.get("progress_source", "estimate") if progress else "estimate",
-        "stage_code": progress.get("stage_code") if run.pipeline_name == "wgs" else None,
-        "step_number": progress.get("step_number") if run.pipeline_name == "wgs" else None,
-        "stage_status": progress.get("stage_status") if run.pipeline_name == "wgs" else None,
+        "stage_code": progress.get("stage_code") if progress else None,
+        "step_number": progress.get("step_number") if progress else None,
+        "stage_status": progress.get("stage_status") if progress else None,
         "stage_progress": (
             {
                 "available": bool(progress.get("progress_available")),
@@ -325,7 +312,7 @@ def _tracker_row(
                 "source": progress.get("progress_source"),
                 "updated_at": progress.get("stage_updated_at"),
             }
-            if run.pipeline_name == "wgs"
+            if progress and "progress_available" in progress
             else None
         ),
         "not_in_airflow": progress.get("not_in_airflow", False) if progress else False,
@@ -347,6 +334,7 @@ def _progress_for_tracker_row(
     airflow_client,
     run: AnalysisRun,
     persisted_rule_events: list[dict[str, Any]],
+    adapter: Any | None,
 ) -> dict[str, Any]:
     status = _status(run.status)
     if status == "created":
@@ -384,7 +372,37 @@ def _progress_for_tracker_row(
             "airflow_tasks": [],
             "rule_events": rule_events,
         }
-    return get_run_progress(session=session, airflow_client=airflow_client, analysis_id=run.analysis_id)
+    rule_context = (
+        adapter.project_rule_context(run=run)
+        if adapter is not None and adapter.project_rule_context is not None
+        else None
+    )
+    return get_run_progress(
+        session=session,
+        airflow_client=airflow_client,
+        analysis_id=run.analysis_id,
+        rule_context=rule_context,
+    )
+
+
+def _dashboard_lifecycles(
+    *, session: Session, runs: list[AnalysisRun], adapters: Mapping[str, Any]
+) -> dict[str, dict[str, Any]]:
+    projected: dict[str, dict[str, Any]] = {}
+    runs_by_pipeline: dict[str, list[AnalysisRun]] = {}
+    for run in runs:
+        runs_by_pipeline.setdefault(run.pipeline_name, []).append(run)
+    for pipeline_name, pipeline_runs in runs_by_pipeline.items():
+        adapter = adapters.get(pipeline_name)
+        if adapter is None or adapter.project_dashboard_lifecycles is None:
+            continue
+        projected.update(
+            adapter.project_dashboard_lifecycles(
+                session=session,
+                runs=pipeline_runs,
+            )
+        )
+    return projected
 
 
 def _sample_qc_by_run(*, session: Session, runs: list[AnalysisRun]) -> dict[str, list[str | None]]:
@@ -744,15 +762,6 @@ def _current_pipeline_rule(rules: list[dict[str, Any]]) -> str | None:
 
 AIRFLOW_TASK_LABELS = {
     "validate_request": "Validate request",
-    "prepare_pgta_config": "Prepare PGT-A config",
-    "run_pgta_target": "Running PGT-A workflow",
-    "pgta_pipeline.run_pgta_mapping": "Mapping reads",
-    "pgta_pipeline.run_pgta_metadata": "Collect metadata",
-    "pgta_pipeline.run_pgta_baseline_qc": "Baseline QC",
-    "collect_pgta_artifact": "Collect PGT-A artifacts",
-    "prepare_nipt_docker_run": "Prepare NIPT Docker run",
-    "run_nipt_docker": "Run NIPT Docker workflow",
-    "collect_nipt_artifacts": "Collect NIPT artifacts",
 }
 
 PIPELINE_RULE_LABELS = {
@@ -762,7 +771,6 @@ PIPELINE_RULE_LABELS = {
     "baseline_qc": "Baseline QC",
     "baseline_bam_uniformity_qc": "Baseline BAM uniformity QC",
     "__airflow_demo_invalid_target__": "Demo invalid target",
-    "nipt_mount_smoke": "NIPT mount smoke",
     "fq2cram": "FASTQ to CRAM",
     "cram2gvcf": "CRAM to gVCF",
     "SNV_Annotation": "SNV annotation",
@@ -797,9 +805,7 @@ def _current_stage_source(*, current_airflow_task: str | None, current_pipeline_
     if not_in_airflow:
         return "Backend state"
     if current_pipeline_rule:
-        if current_pipeline_rule == "nipt_mount_smoke":
-            return "Runner event"
-        return "Snakemake rule event"
+        return "Pipeline rule event"
     if current_airflow_task:
         return "Airflow project task"
     return "Pipeline state" if not_in_airflow is False else "Backend state"
@@ -832,11 +838,6 @@ def _estimated_finish_at(estimated_remaining_seconds: int | None) -> datetime | 
 
 
 def _run_kind(run: AnalysisRun) -> tuple[str, str]:
-    params = run.params_json or {}
-    if run.pipeline_name == "pgta":
-        return ("target", str(params.get("target") or "metadata"))
-    if run.pipeline_name == "nipt_docker":
-        return ("run_mode", str(params.get("run_mode") or "mount_smoke"))
     return ("pipeline", str(run.pipeline_name))
 
 
@@ -875,8 +876,8 @@ def _period_start(period: str) -> datetime:
 
 
 def _validate_pipeline(pipeline: str) -> None:
-    if pipeline not in SUPPORTED_DASHBOARD_PIPELINES:
-        raise ValueError("pipeline must be all, deployed, pgta, nipt_docker, or wgs")
+    if not pipeline:
+        raise ValueError("pipeline must not be empty")
 
 
 def _pipeline_names(pipeline: str, deployed_pipelines: tuple[str, ...]) -> tuple[str, ...]:

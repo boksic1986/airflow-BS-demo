@@ -67,7 +67,7 @@ export function SampleSheetUploader({
     <section className="panel">
       <div className="section-heading">
         <h2>Sample sheet preview</h2>
-        <p>CSV/TSV demo parser for planned NIPT/WGS style submissions.</p>
+        <p>CSV/TSV parser for adapter-defined NGS sample submissions.</p>
       </div>
       <label className="field full">
         <span>Sample sheet text</span>

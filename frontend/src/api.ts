@@ -359,7 +359,7 @@ export type ScanCandidate = {
 };
 
 export type ScanInputRequest = {
-  pipeline: "pgta" | "nipt_docker";
+  pipeline: string;
   rawdata_root: string;
   max_samples?: number;
 };
@@ -376,8 +376,6 @@ export type InputRootsResponse = {
   roots: string[];
 };
 
-export type PgtaTarget = "predict" | "metadata" | "dryrun_cnv" | "invalid_target" | "baseline_qc";
-
 export type RuntimeProfileSummary = {
   id: string;
   label: string;
@@ -386,7 +384,7 @@ export type RuntimeProfileSummary = {
 };
 
 export type PipelineConfigTemplate = {
-  pipeline: "pgta" | "nipt_docker";
+  pipeline: string;
   profile: RuntimeProfileSummary;
   profiles: RuntimeProfileSummary[];
   config_template_hash: string;
@@ -417,62 +415,20 @@ export type RunConfig = {
   resolved_yaml?: string | null;
 };
 
-type PipelineConfigSelection = {
-  runtime_profile_id: string;
-  config_template_hash: string;
-  snakemake_config_yaml: string;
-};
-
-export type CreatePgtaRunRequest = PipelineConfigSelection & {
-  pipeline: "pgta";
+export type CreateRunRequest = {
+  pipeline: string;
   project_name: string;
-  target: PgtaTarget;
-  rawdata_root: string;
-  selected_samples: ScanCandidate[];
-  submitted_by?: string | null;
-  email_to?: string | null;
-  note?: string | null;
+  execution_mode?: string;
+  batch_no?: string | null;
+  fq_path?: string | null;
+  options?: Record<string, unknown>;
 };
-
-export type CreateWesRunRequest = {
-  pipeline: "wes_qsub";
-  project_name: string;
-  target: "final_summary";
-  email_to?: string | null;
-  note?: string | null;
-};
-
-export type NiptRunMode = "mount_smoke" | "full_run";
-
-export type CreateNiptDockerRunRequest = PipelineConfigSelection & {
-  pipeline: "nipt_docker";
-  project_name: string;
-  rawdata_root: string;
-  selected_samples: ScanCandidate[];
-  submitted_by?: string | null;
-  run_mode: NiptRunMode;
-  cores?: number | null;
-  email_to?: string | null;
-  note?: string | null;
-};
-
-export type CreateWgsRunRequest = {
-  pipeline: "wgs";
-  project_name: string;
-  batch_no: string;
-  fq_path: string;
-  execution_mode?: "cce";
-  submitted_by?: string | null;
-  note?: string | null;
-};
-
-export type CreateRunRequest = CreatePgtaRunRequest | CreateWesRunRequest | CreateNiptDockerRunRequest | CreateWgsRunRequest;
 
 export type ReanalysisRequest = {
-  mode: "resume" | "rerun_rule" | "rerun_stage";
+  mode: string;
   rule?: string | null;
   sample_id?: string | null;
-  stage?: "mapping" | "metadata" | "baseline_qc" | null;
+  stage?: string | null;
   reason?: string | null;
 };
 
@@ -821,13 +777,24 @@ export type IntakeScannerStateResponse = {
 
 export type IntakeView = "pending" | "history" | "all";
 
-export type DashboardPipeline = "all" | "deployed" | "pgta" | "nipt_docker" | "wgs";
+export type DashboardPipeline = string;
+export type DeployedPipeline = string;
 
-export type DeployedPipeline = "pgta" | "nipt_docker" | "wgs";
+export type PipelineCapability = {
+  id: string;
+  display_name: string;
+  dag_id: string;
+  version?: string | null;
+  enabled: boolean;
+  submit_enabled: boolean;
+  capabilities: string[];
+  execution_targets: string[];
+};
 
 export type PlatformCapabilities = {
   environment: string;
   deployed_pipelines: DeployedPipeline[];
+  pipelines: PipelineCapability[];
   airflow_url: string | null;
 };
 
@@ -922,22 +889,14 @@ export type DashboardRunTrackerRow = {
 };
 
 export type WorkflowCatalogItem = {
-  pipeline: "pgta" | "nipt_docker" | "wgs";
-  name: string;
+  id: string;
+  display_name: string;
   dag_id: string;
-  runtime_profile_id: string;
-  runtime: string;
-  stages: WorkflowStageSummary[];
-  latest_run?: {
-    analysis_id: string;
-    project_name: string;
-    status: string;
-    current_stage?: string | null;
-    submitted_at?: string | null;
-    finished_at?: string | null;
-  } | null;
-  run_count: number;
-  success_rate?: number | null;
+  version?: string | null;
+  enabled: boolean;
+  submit_enabled: boolean;
+  capabilities: string[];
+  execution_targets: string[];
 };
 
 export type WorkflowCatalogResponse = {items: WorkflowCatalogItem[]};
@@ -1313,14 +1272,14 @@ export function scanInput(payload: ScanInputRequest): Promise<ScanInputResponse>
   });
 }
 
-export function getInputRoots(pipeline: "pgta" | "nipt_docker"): Promise<InputRootsResponse> {
+export function getInputRoots(pipeline: string): Promise<InputRootsResponse> {
   return requestJson<InputRootsResponse>(`/input/roots?pipeline=${encodeURIComponent(pipeline)}`);
 }
 
 export function getPipelineConfigTemplate(options: {
-  pipeline: "pgta" | "nipt_docker";
-  target?: PgtaTarget;
-  runMode?: NiptRunMode;
+  pipeline: string;
+  target?: string;
+  runMode?: string;
   profileId?: string;
 }): Promise<PipelineConfigTemplate> {
   const params = new URLSearchParams({
@@ -1333,9 +1292,9 @@ export function getPipelineConfigTemplate(options: {
 }
 
 export function validatePipelineConfig(payload: {
-  pipeline: "pgta" | "nipt_docker";
-  target?: PgtaTarget;
-  run_mode?: NiptRunMode;
+  pipeline: string;
+  target?: string;
+  run_mode?: string;
   cores?: number | null;
   runtime_profile_id: string;
   config_template_hash: string;

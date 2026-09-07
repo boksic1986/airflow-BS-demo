@@ -115,7 +115,7 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
             handler = LogHandler(
                 common_settings=None,
                 settings=LogHandlerSettings(
-                    analysis_id="PGTA_AIRFLOW_TEST",
+                    analysis_id="NGS_AIRFLOW_TEST",
                     workdir=Path(tmpdir),
                     events_path=events_path,
                 ),
@@ -143,7 +143,7 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
             lines = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
 
         self.assertEqual([line["status"] for line in lines], ["running", "success", "failed"])
-        self.assertEqual(lines[0]["analysis_id"], "PGTA_AIRFLOW_TEST")
+        self.assertEqual(lines[0]["analysis_id"], "NGS_AIRFLOW_TEST")
         self.assertEqual(lines[0]["rule"], "metadata")
         self.assertEqual(lines[0]["sample_id"], "G1")
         self.assertEqual(lines[0]["snakemake_jobid"], "1")
@@ -161,7 +161,7 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
             handler = LogHandler(
                 common_settings=None,
                 settings=LogHandlerSettings(
-                    analysis_id="PGTA_AIRFLOW_TEST",
+                    analysis_id="NGS_AIRFLOW_TEST",
                     workdir=Path(tmpdir),
                     events_path=events_path,
                     backend_event_url="http://backend:8000/api/events/snakemake",
@@ -189,7 +189,7 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
         self.assertEqual(request.full_url, "http://backend:8000/api/events/snakemake")
         self.assertEqual(request.get_header("Content-type"), "application/json")
         self.assertEqual(request.get_header("X-airflow-demo-token"), "service-secret")
-        self.assertEqual(payload["analysis_id"], "PGTA_AIRFLOW_TEST")
+        self.assertEqual(payload["analysis_id"], "NGS_AIRFLOW_TEST")
         self.assertEqual(payload["rule"], "metadata")
         self.assertEqual(payload["status"], "running")
 
@@ -201,7 +201,7 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
             handler = LogHandler(
                 common_settings=None,
                 settings=LogHandlerSettings(
-                    analysis_id="PGTA_AIRFLOW_TEST",
+                    analysis_id="NGS_AIRFLOW_TEST",
                     workdir=Path(tmpdir),
                     events_path=events_path,
                     backend_event_url="http://backend:8000/api/events/snakemake",
@@ -238,7 +238,7 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
             handler = LogHandler(
                 common_settings=None,
                 settings=LogHandlerSettings(
-                    analysis_id="PGTA_AIRFLOW_TEST",
+                    analysis_id="NGS_AIRFLOW_TEST",
                     workdir=Path(tmpdir),
                     events_path=events_path,
                     backend_event_url="http://backend:8000/api/events/snakemake",

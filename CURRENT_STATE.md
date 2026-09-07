@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-07 T222 NGS registry platform cleanup
+
+```text
+scope: convert the shared control-plane boundary from legacy demo pipeline branches to a registry/adapter-driven NGS platform. Current deployment configuration enables only the real WGS adapter; synthetic WES/GATK definitions are contract tests, not runnable workflows.
+identity: the project and candidate directory are named ngs-huaweicloud. Active default runtime paths use /sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime. The Docker network is an existing external network supplied by NGS_PLATFORM_NETWORK; the repository no longer prescribes or creates the old NIPT network/subnet.
+cleanup: retired PGTA/NIPT runtime modules, DAGs, runners, tests, mock data, images, Compose files and deployment documents were removed. The WES mock implementation was removed. Historical Alembic migrations and CURRENT_STATE/TASKS/HANDOFF audit history remain unchanged.
+platform: config/pipelines.yaml and backend pipeline_registry/pipeline_registry_service provide strict registration, deployment, capability and execution-target validation. Generic create/submit/reanalysis, run-detail, Samples/Failures, dashboard/progress, Rule phase, logs/artifacts, workflow-summary, QC, intake, scan and configuration paths dispatch through adapter hooks and return PIPELINE_NOT_REGISTERED, PIPELINE_NOT_AVAILABLE or PIPELINE_CAPABILITY_UNAVAILABLE. WGS namespaced APIs remain a workflow extension.
+safety: WGS submit and generic reanalysis both check the deployment execution/runtime gates before Airflow dispatch or attempt mutation. Frontend submission navigation is also backed by an explicit UI-adapter registry, so a future submit-capable WES/GATK adapter cannot be routed into the WGS form. No production service, database, Docker network, published port or running CCE analysis was changed.
+validation: BS10610 built ngs-huaweicloud/backend:t222 from locally cached python:3.11.9-slim-bookworm with --pull=false; final full backend result 315 passed, including synthetic adapter dispatch and WGS regression coverage. Airflow DAG contracts passed 53 / 7 skipped, host runner 12, runtime/evidence helpers 96. The .96 cached Node image passed 14 frontend files / 50 tests and the TypeScript/Vite production build. Compose config passed. A disposable PostgreSQL 15 instance upgraded from empty to the single 0017 head and was removed. Test containers used existing bridge/container networking only where PostgreSQL required it and --network none otherwise; no Docker network was created.
+delivery: feature branch jiucheng/platform/T222-ngs-registry-cleanup is validated and ready for mainline integration. Production deployment remains a separate approval.
+```
+
 ## 2026-09-07 T220 WGS console layout and QC separation
 
 ```text
