@@ -952,9 +952,67 @@ def test_step7_cleanup_marks_verified_absent_when_exact_frozen_target_is_gone(
         },
     }
     monkeypatch.setattr(gate, "_load_binding", lambda _payload: (_ for _ in ()).throw(FileNotFoundError("binding missing")))
+    monkeypatch.setattr(gate, "_verify_step7_remote_absent", lambda *_args: None)
 
     assert gate.build_step7_cleanup_command(payload) == ["/usr/bin/true"]
     assert payload["step7_completion_mode"] == "verified_absent"
+
+
+def test_step7_cleanup_rejects_verified_absent_when_batch_lock_remains(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    target = tmp_path / "WGS_Clinical" / "WGS_20260902A_T7Hg38V4.1.1"
+    kubectl = tmp_path / "kubectl"
+    kubectl.write_text("#!/bin/sh\n", encoding="utf-8")
+    kubectl.chmod(0o700)
+    kubeconfig = tmp_path / "kubeconfig.yaml"
+    kubeconfig.write_text("clusters: []\n", encoding="utf-8")
+    config = tmp_path / "cce.yaml"
+    config.write_text(
+        yaml.safe_dump(
+            {
+                "kubernetes": {
+                    "namespace": "snakemake-ns",
+                    "kubectl_bin": str(kubectl),
+                    "kubeconfig": str(kubeconfig),
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = {
+        "analysis_id": "WGS_20260903_111456_397777",
+        "attempt": 1,
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260902A_T7Hg38V4.1.1",
+        "step7_target_snapshot": {
+            "analysis_id": "WGS_20260903_111456_397777",
+            "attempt": 1,
+            "project": "WGS_Clinical",
+            "batch": "20260902A",
+            "run_id": "WGS_20260903_111456_397777-a1",
+            "expected_batch_root": str(target),
+            "namespace": "snakemake-ns",
+        },
+    }
+    monkeypatch.setattr(gate, "CCE_OPERATOR_CONFIG", str(config))
+    monkeypatch.setattr(
+        gate,
+        "_load_binding",
+        lambda _payload: (_ for _ in ()).throw(FileNotFoundError("binding missing")),
+    )
+
+    def fake_run(command, **_kwargs):
+        output = ""
+        if "configmap" in command:
+            output = "configmap/cce-batch-lock-570b96f972d40847e331\n"
+        return type("Result", (), {"returncode": 0, "stdout": output})()
+
+    monkeypatch.setattr(gate.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="remnants still exist"):
+        gate.build_step7_cleanup_command(payload)
 
 
 def test_step7_cleanup_rejects_partial_target_when_binding_is_missing(

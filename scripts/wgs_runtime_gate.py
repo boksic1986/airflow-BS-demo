@@ -814,6 +814,7 @@ def build_step7_cleanup_command(payload: dict[str, Any]) -> list[str]:
             raise RuntimeError(
                 "frozen WGS cleanup target is partially present; needs recovery"
             ) from error
+        _verify_step7_remote_absent(payload, snapshot)
         payload["step7_completion_mode"] = "verified_absent"
         return ["/usr/bin/true"]
     components = [
@@ -860,6 +861,83 @@ def _step7_compat_operator_config(
     _atomic_yaml(compat_path, config)
     compat_path.chmod(0o600)
     return compat_path
+
+
+def _verify_step7_remote_absent(
+    payload: dict[str, Any], snapshot: dict[str, Any]
+) -> None:
+    config_path = Path(CCE_OPERATOR_CONFIG).expanduser().resolve()
+    if not config_path.is_file() or config_path.is_symlink():
+        raise RuntimeError("CCE cleanup identity cannot be verified; needs recovery")
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    kubernetes = config.get("kubernetes") if isinstance(config, dict) else None
+    if not isinstance(kubernetes, dict):
+        raise RuntimeError("CCE cleanup identity cannot be verified; needs recovery")
+    namespace = str(kubernetes.get("namespace") or "")
+    frozen_namespace = str(snapshot.get("namespace") or "")
+    if frozen_namespace and frozen_namespace != namespace:
+        raise RuntimeError("CCE cleanup namespace mismatch; needs recovery")
+    kubectl = Path(str(kubernetes.get("kubectl_bin") or ""))
+    kubeconfig = Path(str(kubernetes.get("kubeconfig") or "")).expanduser()
+    if (
+        not namespace
+        or not kubectl.is_absolute()
+        or not kubectl.is_file()
+        or not os.access(kubectl, os.X_OK)
+        or not kubeconfig.is_absolute()
+        or not kubeconfig.is_file()
+    ):
+        raise RuntimeError("CCE cleanup identity cannot be verified; needs recovery")
+    project = str(payload.get("project_name") or snapshot.get("project") or "")
+    batch = str(payload.get("batch_no") or snapshot.get("batch") or "")
+    if any(SAFE_COMPONENT_RE.fullmatch(value) is None for value in (project, batch)):
+        raise RuntimeError("CCE cleanup identity is invalid; needs recovery")
+    digest = hashlib.sha256(f"{project}/{batch}".encode("utf-8")).hexdigest()[:20]
+    job_names = [
+        f"cce-master-{digest}",
+        f"cce-cleanup-{digest}",
+        f"cce-reset-{digest}",
+        f"cce-repair-{digest}",
+    ]
+    base = [str(kubectl), "--kubeconfig", str(kubeconfig), "-n", namespace]
+    remnants: list[str] = []
+    for kind, name in [("job", item) for item in job_names] + [
+        ("configmap", f"cce-batch-lock-{digest}")
+    ]:
+        completed = subprocess.run(
+            [*base, "get", kind, name, "--ignore-not-found", "-o", "name"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != 0:
+            raise RuntimeError("CCE cleanup state cannot be verified; needs recovery")
+        if completed.stdout.strip():
+            remnants.append(completed.stdout.strip())
+    for job_name in job_names:
+        completed = subprocess.run(
+            [
+                *base,
+                "get",
+                "pods",
+                "-l",
+                f"job-name={job_name}",
+                "--ignore-not-found",
+                "-o",
+                "name",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != 0:
+            raise RuntimeError("CCE cleanup state cannot be verified; needs recovery")
+        if completed.stdout.strip():
+            remnants.append(completed.stdout.strip())
+    if remnants:
+        raise RuntimeError(
+            f"CCE cleanup remnants still exist ({', '.join(remnants)}); needs recovery"
+        )
 
 
 def validate_step3_status(value: dict[str, Any]) -> dict[str, Any]:
