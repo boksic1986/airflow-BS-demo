@@ -1,5 +1,50 @@
 # CURRENT_STATE.md
 
+## 2026-09-07 T218 production source mainline sync
+
+```text
+scope: import only the source currently published by /data/airflow-WGS/current into a clean branch from main; local T213/T214 and other uncommitted development changes are excluded.
+provenance: remote production source archive SHA256 2cff6eeda3194196388560a09c4e86833d83fa6e474e77f4096645347bcc8a64; the clean integration branch was assembled from `main` plus this source and the T218 state record.
+validation: isolated .96 backend suite 345 passed / 1 skipped; bio_wgs DAG suite 15/15; frontend suite 15 files / 57 tests; TypeScript/Vite production build passed; production-env Docker Compose config passed.
+runtime_impact: none. The sync used read-only release source plus isolated test/build containers and did not recreate production services, modify databases, or touch analysis data.
+```
+
+## 2026-09-07 T217 Step7 maintenance routing and progress
+
+```text
+incident: the first production Step7 maintenance DagRun entered the ordinary prepare and input-transfer path. Its skipped input lease registration returned acquired=false, so acquire_obs_transfer_slot rescheduled until failure while the UI remained queued.
+fix: bio_wgs now branches immediately after validation. cleanup_step7 runs only step7_cleanup -> wait_step7_cleanup; the ordinary prepare, approval, OBS lease, Step1-Step6 and finalize paths are skipped. The frontend displays requested/started/finished timestamps, queued/running/success/failed stage text and the exact failure without inventing a percentage, and keeps polling while Step7 is active even when the analysis is already success.
+validation: the production-baseline DAG regression failed with the missing branch/tasks, then passed 15/15. The final release build ran the complete frontend suite (15 files, 57 tests) and Vite build successfully. The complete backend suite passed 345 tests with 1 skipped when run with the production `/config` mount. DAG import errors are empty and the public root returns 200.
+deployment: current -> /data/airflow-WGS/releases/20260907-wgs-4.1.1-6c98281-t217-step7-route-r1. Airflow api-server/scheduler/worker and frontend were recreated for the route/UI fix; backend was subsequently recreated to load the terminal-action capability fix, and frontend nginx was restarted to refresh backend DNS. Observer, scanner, metrics, PostgreSQL, Redis, volumes and network were preserved. Frontend image is airflow-demo/frontend:t217-step7-route-r1; Airflow image remains bs-control-c706548.
+recovery: the exact failed maintenance DagRun was recreated through the Airflow API under the same deterministic ID. The new branch skipped the production path and started only Step7. The action then failed accurately because both the frozen batch root and runtime batch-binding.json were already absent; no manual SFS deletion or fabricated success was performed.
+terminal_guard: completed or failed Step7 maintenance actions are now unavailable for repeat submission. The affected action projects `available=false`, `reason=cleanup_failed`, preserving its exact terminal error instead of rendering another unusable cleanup form.
+```
+
+## 2026-09-06 T205 WGS shared-runtime ownership and tail recovery
+
+```text
+incident: 20260904B failed at Step6 registration after the backend identity changed from root to ctapa, and 20260903A was falsely failed when a successful Step4 retry marker took more than 30 seconds to become visible through shared NFS. Neither failure was a biological WGS/Master failure.
+ownership_fix: existing runner-request directories that already have gid 520 and mode 2770 no longer receive unnecessary owner-only chown/chmod calls. All root-owned runner-request artifacts were corrected in place to UID 6801/GID 520; result files remain ctapa-owned. The collector-owned node metric spool is intentionally unchanged.
+lease_fix: final release_leases is idempotent when the single OBS transfer slot belongs to another active run. It returns released=false and preserves the foreign lease, while input/result stage-specific release calls still enforce exact owner and transfer identity.
+nfs_fix: Step4/Step5 start tasks now allow a bounded 120-second window for the exact retry generation to become visible. Older retry generations remain invalid and no duplicate worker, transfer, CCE job, attempt or DagRun is created.
+recovery: 20260904B AnalysisRun WGS_20260905_083318_5E5D8C attempt 3 completed Step6, wait_step6_materialize and finalize, then its isolated release_leases retry completed. 20260903A AnalysisRun WGS_20260905_141052_4C1BC0 attempt 1 retained its successful Master and publish result, completed its original frozen-plan Step5 download, then completed Step6, its terminal sensor, finalize and lease release. Both exact Airflow DagRuns are success; neither reran Step1-Step4 or its CCE Master.
+deployment: current -> /data/airflow-WGS/releases/20260906-wgs-4.1.1-6c98281-t205-stage-owner-visibility-r1. The backend is live as 6801:520 on nipt_analysis_test_net. After Airflow reported no active WGS runs, only api-server, scheduler and worker were recreated to load the DAG visibility-window update.
+validation: focused regressions were observed red before the fixes and green after them. The complete .96 backend suite passed 343 tests with 1 skipped; the complete DAG suite passed 15 tests. Public health is OK and both recovered batches are terminal success.
+```
+
+## 2026-09-05 T204 ctapa production runtime migration
+
+```text
+identity: production SSH execution and node probes now use the dedicated ctapa RSA identity. node200 runtime configuration, kubeconfig, CCE config, OBS configuration and SFS collector inputs live below /home/ctapa; the old hanjj SFS collector is stopped and its key is not mounted by the production stack.
+storage: WGS analysis output is rooted at /sg2/50.ctapa/project/HWcloud/WGS_Clinical and the control runtime at /sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime. The PyMongo 4.10.1 compatibility overlay required by the shared nipttest Python was copied to the matching ctapa-owned HWcloud runtime path; the shared environment itself was not modified.
+runtime: the real OBS client is /bi/software/obsutil_5.8.3/obsutil. Its progress wrapper retains mode 0700 and the SFS Cloud Eye collector writes the new cloud.json spool every 60 seconds.
+ownership: the WGS backend now runs as required WGS_RUNTIME_UID 6801 with shared gid 520, so backend-created runs/<analysis_id>/config paths are owned by ctapa:bioinfo instead of root:bioinfo. The three directories created before this contract were corrected in place; no analysis content was moved or deleted.
+dag_fix: node200 may report the generic registered runtime request is missing error while shared NFS metadata converges. bio_wgs now applies the existing bounded five-attempt retry to that exact error as well as the path-bearing FileNotFoundError; other SSH/runtime failures remain fail closed.
+deployment: current -> /data/airflow-WGS/releases/20260905-wgs-4.1.1-6c98281-t204-ctapa-owner-r2. Only services affected by the SSH identity, runtime/result mounts or DAG were recreated; frontend-nginx was restarted after backend DNS changed. PostgreSQL, Redis, volumes and CCE workloads were preserved.
+validation: focused DAG suite 14/14 and WGS Compose contract suite 8/8 passed in the .96 images; Compose renders backend user 6801:520; an ephemeral backend-created result directory was owned 6801:520 and removed; the result tree has zero root-owned entries. DAG import errors are empty; public health is OK; ctapa SSH succeeds on node200/.96/.97; node and SFS metric spools are healthy; nipt_analysis_test_net remains 192.168.199.0/24 with gateway 192.168.199.1 and only 172.17.61.96:12959 is published.
+20260904B: AnalysisRun WGS_20260905_083318_5E5D8C attempt 3 regenerated sampleinfo and the new analysis directory and imported 3 samples. Its Step5-Step6 tail and finalization were subsequently recovered under T205; the DagRun is terminal success.
+```
+
 ## 2026-09-04 T192 production Docker test-artifact cleanup
 
 ```text

@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import stat
 
 import pytest
@@ -129,6 +130,38 @@ def test_request_directory_is_writable_by_node200_shared_group(tmp_path: Path) -
 
     assert path.parent.stat().st_gid == shared_gid
     assert stat.S_IMODE(path.parent.stat().st_mode) == 0o2770
+
+
+def test_existing_shared_directory_does_not_require_owner_metadata_changes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request = _request(tmp_path, stage="step4_publish")
+    shared_gid = os.getgid() or 520
+    target_dir = (
+        tmp_path
+        / "requests"
+        / "WGS_20260826_010203_A1B2C3"
+        / "attempt-1"
+    )
+    target_dir.mkdir(parents=True)
+    if target_dir.stat().st_gid != shared_gid:
+        os.chown(target_dir, -1, shared_gid)
+    target_dir.chmod(0o2770)
+
+    def reject_owner_only_change(*_args: object, **_kwargs: object) -> None:
+        raise PermissionError("directory is owned by the previous runtime user")
+
+    monkeypatch.setattr(os, "chown", reject_owner_only_change)
+    monkeypatch.setattr(os, "chmod", reject_owner_only_change)
+
+    path = write_stage_request(
+        tmp_path / "requests",
+        request,
+        shared_gid=shared_gid,
+    )
+
+    assert path.exists()
+    assert path.parent == target_dir
 
 
 def test_request_rejects_invalid_shared_group(tmp_path: Path) -> None:

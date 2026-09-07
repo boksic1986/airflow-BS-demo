@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import stat
 
 
 ANALYSIS_ID_RE = re.compile(r"^WGS_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}$")
@@ -151,8 +152,11 @@ def write_stage_request(
     if shared_gid is not None:
         if shared_gid < 1:
             raise ValueError("shared runtime group id must be positive")
-        os.chown(target.parent, -1, shared_gid)
-        os.chmod(target.parent, 0o2770)
+        directory_stat = target.parent.stat()
+        if directory_stat.st_gid != shared_gid:
+            os.chown(target.parent, -1, shared_gid)
+        if stat.S_IMODE(directory_stat.st_mode) != 0o2770:
+            os.chmod(target.parent, 0o2770)
     partial = target.with_suffix(".json.partial")
     partial.write_text(json.dumps(request, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(partial, target)

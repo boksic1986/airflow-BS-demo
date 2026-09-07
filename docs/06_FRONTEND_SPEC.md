@@ -1,5 +1,68 @@
 # 06 前端设计
 
+## T217 Step7 maintenance progress
+
+Run Detail renders Step7 maintenance separately from the terminal analysis
+status. An active or terminal action shows its state label, requested/started/
+finished timestamps, and the backend error when present. Because the current
+runtime contract has no cleanup file count or byte denominator, the panel says
+that detailed file progress is unavailable and never invents a percentage.
+
+The normal ten-second workspace refresh remains active while the latest Step7
+action is `requested`, `queued`, or `running`, even when the analysis itself is
+already `success`. Polling stops when Step7 is terminal.
+
+## T216 Step7 typed-confirmation usability
+
+Step7 remains an admin-only destructive action guarded by both acknowledgement
+and exact typed confirmation. The acknowledgement checkbox and its warning
+text render on one compact row. The backend-supplied public Batch confirmation
+token is shown in a selectable read-only field with a Copy action, and is
+repeated in the input label. The browser trims only surrounding whitespace;
+it does not derive, normalize, or substitute another batch identity.
+
+## T214 WGS publish/download active presentation
+
+The shared status registry treats `publishing` and `downloading` as active WGS
+lifecycle states. Run Tracker preserves backend order, applies active styling,
+keeps live synchronization enabled, and displays `In progress` until a real
+terminal timestamp exists. These states are not terminal or unknown.
+
+## T209 execution target selector
+
+Submit Run stage 3 and WGS Run Detail share one segmented selector:
+`CCE | Local .97 | Local .96 | SGE`. The selected target and its live state are
+visible; unavailable targets are disabled with the server reason. The
+confirmation shows the old/new target, batch, sample count, attempt, node
+CPU/load/memory/CPU count, warning and a required audit reason.
+
+The browser sends the displayed revision and refreshes the complete server
+projection after success or any 409 conflict. After commit the selector is
+read-only and displays the lock point. Run Detail hides ordinary Cancel for a
+committed/running CCE target. The UI performs no node admission calculation and
+does not create, cancel or increment a DagRun/attempt.
+
+## T198/T199 WGS operator workspace
+
+Run Detail first requests only `/workspace`. Samples, Rules, Logs, Files,
+Master Pods, Transfers, and transfer-file pages load on first tab activation
+and remain cached for that route. Active workspace polling is ten seconds,
+single-flight, and suspended while hidden. The browser does not automatically
+POST Airflow Sync.
+
+During a frontend-first rolling rollout, HTTP 404 from `/workspace` means the
+older backend does not yet provide that aggregate resource. Run Detail then
+uses the existing detail, progress, sample, Rule-summary and validation APIs.
+This compatibility path applies only to 404; authorization, transport and
+server errors remain visible. It consumes existing backend projections and
+does not rebuild stage or sample state in the browser.
+
+Current Progress separates project stage, current Snakemake rule/sample,
+active transfer, and heavy-slot use. Transfer files are paged 50 at a time.
+Dashboard node and SFS panels refresh independently every 60 seconds and keep
+last-good values visibly marked stale. SFS bandwidth uses IEC units including
+GiB/s.
+
 ## T188 unified WGS run projection and resource controls
 
 - Overview consumes the backend `manifest` projection and displays only sample

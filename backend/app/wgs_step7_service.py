@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.airflow_idempotency import ensure_dag_run
 from app.models import AnalysisRun, KubernetesWorkload, RunStageState, WgsMaintenanceAction
+from app.wgs_run_projection import public_wgs_batch
 from app.wgs_step4_service import serialize_maintenance_action
 
 
@@ -26,12 +27,17 @@ def get_step7_capability(*, session, run: AnalysisRun, execution_enabled: bool,
         .order_by(WgsMaintenanceAction.id.desc())
     )
     reason = _block_reason(session, run, execution_enabled, runtime_adapter_enabled)
-    if latest and latest.status in ACTIVE_STATES:
-        reason = "cleanup_in_progress"
+    if latest:
+        if latest.status in ACTIVE_STATES:
+            reason = "cleanup_in_progress"
+        elif latest.status == "success":
+            reason = "cleanup_completed"
+        elif latest.status == "failed":
+            reason = "cleanup_failed"
     return {
         "available": reason is None,
         "reason": reason,
-        "required_batch": str((run.params_json or {}).get("batch_no") or ""),
+        "required_batch": _confirmation_batch(run),
         "latest_action": serialize_maintenance_action(latest) if latest else None,
     }
 
@@ -46,8 +52,8 @@ def request_step7_cleanup(*, session, airflow_client, analysis_id: str, batch_co
     )
     if run is None:
         return None
-    expected_batch = str((run.params_json or {}).get("batch_no") or "")
-    if batch_confirmation != expected_batch:
+    expected_batch = _confirmation_batch(run)
+    if batch_confirmation.strip() != expected_batch:
         raise ValueError("batch_confirmation_mismatch")
     existing = session.scalar(
         select(WgsMaintenanceAction).where(
@@ -156,3 +162,9 @@ def _block_reason(session, run: AnalysisRun, execution_enabled: bool, runtime_en
     if active is not None:
         return "cce_workload_active"
     return None
+
+
+def _confirmation_batch(run: AnalysisRun) -> str:
+    """Return the privacy-safe public batch identity used for typed confirmation."""
+
+    return str(public_wgs_batch(run.params_json) or "").strip()

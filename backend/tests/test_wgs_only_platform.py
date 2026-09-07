@@ -137,7 +137,13 @@ projects:
         session.add(UserAccount(username="viewer", password_hash=hash_password("viewer-pass"), role="viewer"))
         session.add(UserAccount(username="operator", password_hash=hash_password("operator-pass"), role="operator"))
         session.add(UserAccount(username="admin", password_hash=hash_password("admin-pass"), role="admin"))
-        session.add(ObsTransferLease(slot_name="wgs-obs-transfer-01"))
+        session.add_all(
+            [
+                ObsTransferLease(slot_name="wgs-obs-transfer-01"),
+                ObsTransferLease(slot_name="wgs-obs-upload-01"),
+                ObsTransferLease(slot_name="wgs-obs-download-01"),
+            ]
+        )
         session.commit()
     return TestClient(main.app), sessions, airflow
 
@@ -922,7 +928,11 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     )
     assert released.status_code == 200
     with sessions() as session:
-        lease = session.scalar(select(ObsTransferLease))
+        lease = session.scalar(
+            select(ObsTransferLease).where(
+                ObsTransferLease.slot_name == "wgs-obs-upload-01"
+            )
+        )
         assert lease.analysis_id is None
 
     binding_path = (
@@ -983,6 +993,64 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     assert [item["job_name"] for item in pods_response.json()["items"]] == [
         "cce-master-0123456789abcdef0123"
     ]
+
+
+def test_final_lease_cleanup_does_not_release_another_active_run(
+    tmp_path, monkeypatch
+):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    internal = {"X-Airflow-Demo-Token": "internal-test-token"}
+
+    first = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "clinical-wgs",
+            "execution_mode": "cce",
+            "batch_no": "BATCH-LEASE-1",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    second = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "clinical-wgs",
+            "execution_mode": "cce",
+            "batch_no": "BATCH-LEASE-2",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    request = {"attempt": 1, "adapter": "wgs-runtime-200", "command": "control"}
+
+    acquired = client.post(
+        f"/api/internal/wgs/runs/{first['analysis_id']}/stages/acquire_result_transfer_slot",
+        headers=internal,
+        json=request,
+    )
+    cleanup = client.post(
+        f"/api/internal/wgs/runs/{second['analysis_id']}/stages/release_leases",
+        headers=internal,
+        json=request,
+    )
+
+    assert acquired.status_code == 200
+    assert acquired.json()["acquired"] is True
+    assert cleanup.status_code == 200, cleanup.text
+    assert cleanup.json()["released"] is False
+    with sessions() as session:
+        lease = session.scalar(
+            select(ObsTransferLease).where(
+                ObsTransferLease.slot_name == "wgs-obs-download-01"
+            )
+        )
+        assert lease.analysis_id == first["analysis_id"]
+        assert lease.attempt == 1
 
 
 def test_finalize_run_records_immutable_business_completion_time(tmp_path, monkeypatch):

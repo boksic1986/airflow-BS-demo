@@ -130,15 +130,15 @@ export function DashboardPage() {
     }
   }, [deployedPipeline, intakeOffset, intakeView, trackerKeyword]);
 
-  const loadResources = useCallback(async () => {
-    setResourcesLoading(true);
+  const loadResources = useCallback(async (showSpinner = true) => {
+    if (showSpinner) setResourcesLoading(true);
     setResourcesError(null);
     try {
       setResources(await getPlatformResources());
     } catch (loadError) {
       setResourcesError(errorMessage(loadError));
     } finally {
-      setResourcesLoading(false);
+      if (showSpinner) setResourcesLoading(false);
     }
   }, []);
 
@@ -146,6 +146,18 @@ export function DashboardPage() {
   useEffect(() => { if (dashboardReady) void loadTracker(); }, [dashboardReady, loadTracker]);
   useEffect(() => { if (dashboardReady) void loadIntake(); }, [dashboardReady, loadIntake]);
   useEffect(() => { if (dashboardReady) void loadResources(); }, [dashboardReady, loadResources]);
+  useEffect(() => {
+    if (!dashboardReady) return undefined;
+    const refresh = () => {
+      if (document.visibilityState === "visible") void loadResources(false);
+    };
+    const timer = window.setInterval(refresh, 60_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [dashboardReady, loadResources]);
   useEffect(() => {
     if (capabilities.deployed_pipelines.length === 1) {
       const onlyPipeline = capabilities.deployed_pipelines[0]!;
@@ -162,17 +174,18 @@ export function DashboardPage() {
 
   useEffect(() => {
     if (!activeRunKey) return undefined;
-    const ids = activeRunKey.split("|");
     let disposed = false;
-    async function syncActiveRuns() {
-      await Promise.all(ids.map((analysisId) => syncAirflow(analysisId).catch(() => null)));
+    async function refreshActiveRuns() {
+      if (document.visibilityState === "hidden") return;
       if (!disposed) await Promise.all([loadOverview(false), loadTracker(false), loadIntake(false)]);
     }
-    void syncActiveRuns();
-    const timer = window.setInterval(() => { void syncActiveRuns(); }, 15000);
+    const timer = window.setInterval(() => { void refreshActiveRuns(); }, 10_000);
+    const onVisibility = () => { if (document.visibilityState === "visible") void refreshActiveRuns(); };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       disposed = true;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [activeRunKey, loadIntake, loadOverview, loadTracker]);
 

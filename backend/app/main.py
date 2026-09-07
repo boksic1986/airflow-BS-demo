@@ -1501,7 +1501,13 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
             if stage_name in {"acquire_input_transfer_slot", "acquire_result_transfer_slot"}:
                 transfer_kind = "input" if stage_name == "acquire_input_transfer_slot" else "result"
                 transfer_id = f"{analysis_id}-a{request.attempt}-{transfer_kind}"
-                slot = acquire_obs_transfer_slot(session=session, analysis_id=analysis_id, attempt=request.attempt, transfer_id=transfer_id)
+                slot = acquire_obs_transfer_slot(
+                    session=session,
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                    transfer_id=transfer_id,
+                    transfer_kind=transfer_kind,
+                )
                 if slot is None:
                     return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "waiting", "acquired": False}
                 run.current_stage = stage_name
@@ -1519,6 +1525,7 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                     analysis_id=analysis_id,
                     attempt=request.attempt,
                     transfer_id=transfer_id,
+                    transfer_kind=transfer_kind,
                 )
                 return {"analysis_id": analysis_id, "attempt": request.attempt, "stage": stage_name, "status": "released", "released": released}
             if stage_name == "finalize_run":

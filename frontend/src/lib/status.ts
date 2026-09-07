@@ -28,6 +28,8 @@ const metaByStatus: Record<string, StatusMeta> = {
   submitted: {label: "submitted", tone: "info", Icon: Clock3, active: true, terminal: false},
   scheduled: {label: "scheduled", tone: "info", Icon: Clock3, active: true, terminal: false},
   running: {label: "running", tone: "info", Icon: Loader2, active: true, terminal: false},
+  publishing: {label: "publishing", tone: "info", Icon: Loader2, active: true, terminal: false},
+  downloading: {label: "downloading", tone: "info", Icon: Loader2, active: true, terminal: false},
   success: {label: "success", tone: "success", Icon: CheckCircle2, active: false, terminal: true},
   pass: {label: "pass", tone: "success", Icon: CheckCircle2, active: false, terminal: true},
   warning: {label: "warning", tone: "warning", Icon: AlertTriangle, active: false, terminal: false},
@@ -66,7 +68,7 @@ export function isFailedStatus(status?: string | null): boolean {
 export function statusPriority(status?: string | null): number {
   const normalized = normalizeStatus(status);
   if (["failed", "fail", "error", "qc_failed"].includes(normalized)) return 0;
-  if (["running", "submitted", "queued", "scheduled"].includes(normalized)) return 1;
+  if (["running", "submitted", "queued", "scheduled", "publishing", "downloading"].includes(normalized)) return 1;
   if (["warning", "warn", "qc_warning"].includes(normalized)) return 2;
   if (["success", "pass", "qc_pending"].includes(normalized)) return 3;
   return 4;

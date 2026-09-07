@@ -38,7 +38,11 @@ def test_step7_requires_successful_delivery_and_uses_server_generated_contract()
             attempt=1,
             status="success",
             workdir="/data/wgs-results/run",
-            params_json={"batch_no": "WGS_20260901A_T7Hg38V4.1.1"},
+            params_json={
+                "batch_no": "WGS_20260901A_T7Hg38V4.1.1",
+                "sequencing_batch": "20260901A",
+                "analysis_batch": "20260901A",
+            },
         )
         session.add(run)
         for stage in ("step5_download", "step6_materialize"):
@@ -57,11 +61,12 @@ def test_step7_requires_successful_delivery_and_uses_server_generated_contract()
             session=session, run=run, execution_enabled=True, runtime_adapter_enabled=True
         )
         assert capability["available"] is True
+        assert capability["required_batch"] == "20260901A"
         action = request_step7_cleanup(
             session=session,
             airflow_client=airflow,
             analysis_id=run.analysis_id,
-            batch_confirmation="WGS_20260901A_T7Hg38V4.1.1",
+            batch_confirmation=" 20260901A ",
             requested_by="admin",
         )
         assert action["action_type"] == "cleanup_step7_sfs"
@@ -135,3 +140,64 @@ def test_step7_persists_requested_action_before_airflow_and_reuses_dag_run() -> 
         assert retried["action_id"] == action.action_id
         assert retried["status"] == "queued"
         assert len(airflow.calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("terminal_status", "expected_reason"),
+    (("success", "cleanup_completed"), ("failed", "cleanup_failed")),
+)
+def test_step7_terminal_action_is_not_presented_as_runnable_again(
+    terminal_status: str, expected_reason: str
+) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as session:
+        run = AnalysisRun(
+            analysis_id="WGS_20260901_010203_A7B8C9",
+            pipeline_name="wgs",
+            dag_id="bio_wgs",
+            dag_run_id="manual__wgs",
+            execution_mode="cce",
+            attempt=1,
+            status="success",
+            workdir="/data/wgs-results/run3",
+            params_json={"analysis_batch": "20260901C"},
+        )
+        session.add(run)
+        for stage in ("step5_download", "step6_materialize"):
+            session.add(
+                RunStageState(
+                    analysis_id=run.analysis_id,
+                    attempt=1,
+                    stage_code=stage,
+                    stage_label=stage,
+                    stage_status="success",
+                    progress_source="test",
+                )
+            )
+        session.add(
+            WgsMaintenanceAction(
+                action_id="step7-sfs-terminal",
+                analysis_id=run.analysis_id,
+                attempt=1,
+                action_type="cleanup_step7_sfs",
+                linkage_group="sfs",
+                status=terminal_status,
+                requested_by="admin",
+                source_dag_run_id=run.dag_run_id,
+                maintenance_dag_run_id="maintenance__step7",
+            )
+        )
+        session.commit()
+
+        capability = get_step7_capability(
+            session=session,
+            run=run,
+            execution_enabled=True,
+            runtime_adapter_enabled=True,
+        )
+
+        assert capability["available"] is False
+        assert capability["reason"] == expected_reason
+        assert capability["latest_action"]["status"] == terminal_status

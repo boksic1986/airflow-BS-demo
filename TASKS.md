@@ -1,5 +1,106 @@
 # TASKS.md
 
+## T218 - Sync the published WGS production source to main
+
+Owner: release/QA/docs
+
+Status: validated; pending commit, main merge and push
+
+Acceptance:
+- [x] Create a clean integration worktree from current `main`.
+- [x] Import the exact source under the active production release rather than merging the broader T213 development branch.
+- [x] Exclude local uncommitted development/test worktrees from the integration.
+- [x] Verify the remote production-source archive hash before importing it into the clean integration worktree.
+- [x] Pass backend 345/1, WGS DAG 15/15, frontend 57/57 plus build, and Compose config in isolated `.96` containers.
+- [ ] Commit the production snapshot, merge it into `main`, push, and remove only obsolete worktrees whose changes are safely represented elsewhere.
+
+## T217 - Step7 maintenance route and visible progress
+
+Owner: Airflow/frontend/QA/docs
+
+Status: deployed; route fixed, affected action terminal failed because its frozen binding was already absent
+
+Acceptance:
+- [x] Add a failing DAG regression proving Step7 must branch before all production preparation and OBS lease tasks.
+- [x] Add dedicated `step7_cleanup` and `wait_step7_cleanup` tasks without changing the ordinary WGS path.
+- [x] Show Step7 queued/running/success/failed state, timestamps and exact error without a fake percentage.
+- [x] Continue Run Detail polling for active Step7 maintenance after the main run is already successful.
+- [x] Pass the production-baseline DAG suite 15/15 and final frontend suite 15 files / 57 tests plus build.
+- [x] Deploy only the Airflow control services and frontend; preserve backend/data services and the fixed network/port boundary.
+- [x] Recover the exact maintenance DagRun through the Airflow API and verify ordinary prepare/OBS tasks are skipped.
+- [x] Block repeat submission after terminal Step7 success/failure and expose the terminal reason through the existing Run Detail capability.
+- [x] Pass the complete backend suite: 345 passed, 1 skipped, with the production `/config` mount.
+
+Operational note:
+- The affected `20260825A` action is now failed with an exact missing
+  `batch-binding.json` error. Its frozen batch root is also absent, so it cannot
+  be safely re-executed or reported as cleaned without a separate recovery
+  contract. The UI therefore shows its failed terminal record and no longer
+  offers another Step7 submission form.
+
+## T205 - Shared runtime ownership and two-batch tail recovery
+
+Owner: backend/Airflow/runtime/QA/docs
+
+Status: completed and deployed on `.96`; both recovered DagRuns are success
+
+Acceptance:
+- [x] Prove the two control-plane failures from exact Airflow logs and preserve
+  successful WGS Master computation.
+- [x] Add a failing regression and make existing correctly-grouped shared
+  request directories writable without owner-only metadata changes.
+- [x] Correct root-owned runner-request artifacts to `ctapa:bioinfo` without
+  changing collector-owned metric spools or analysis results.
+- [x] Make final lease cleanup leave a foreign active transfer lease intact;
+  keep stage-specific release ownership strict.
+- [x] Extend exact Step4/Step5 retry-generation visibility to a bounded 120
+  seconds, without creating duplicate attempts, workers, transfers or jobs.
+- [x] Recover `20260904B` by rerunning only the failed final lease task after
+  Step6, its sensor and finalize reached success.
+- [x] Observe terminal Step5-Step6/finalize success for `20260903A`, then load
+  the DAG update into the Airflow control services.
+- [x] Pass the complete `.96` backend and DAG suites and preserve the production
+  network, database, volumes and single published endpoint.
+
+Restrictions:
+- Do not rerun either successful CCE Master or Step1-Step4.
+- Do not release another run's active OBS transfer lease.
+- Do not modify PostgreSQL/Redis volumes, source FASTQ, OBS data or unrelated
+  batch directories.
+
+## T204 - ctapa production runtime migration and 20260904B recovery
+
+Owner: airflow/runtime/infra/QA/docs
+
+Status: completed on `.96`; `20260904B` attempt 3 terminal success under T205
+
+Acceptance:
+- [x] Reproduce the `20260904B` prepare failure and prove the shared-NFS
+  request visibility race from the exact Airflow log and runtime request.
+- [x] Add a failing DAG regression for the generic registered-request-missing
+  message, then pass the focused DAG suite in the `.96` Airflow image.
+- [x] Install and validate the user-provided `ctapa` SSH identity outside the
+  release without printing or committing private material.
+- [x] Move active node200 runtime, CCE, OBS and SFS collector configuration to
+  `/home/ctapa` and stop the old production `hanjj` collector.
+- [x] Move production analysis/runtime roots to
+  `/sg2/50.ctapa/project/HWcloud`, retaining fixed network and port boundaries.
+- [x] Run the WGS backend as the required `ctapa` UID `6801` with shared gid
+  `520`, and correct the three pre-contract `root:bioinfo` result directories
+  to `ctapa:bioinfo` without moving or deleting analysis data.
+- [x] Keep `/bi/software/obsutil_5.8.3/obsutil` as the real OBS client and
+  preserve executable wrapper modes.
+- [x] Regenerate `20260904B` sampleinfo and analysis configuration in the new
+  root, import three samples, and start Step1 with an immutable transfer plan.
+- [x] Observe terminal Step1-Step6 and finalize success for `20260904B`.
+
+Restrictions:
+- Do not sync the pending T194/cce-pipeline application update into this
+  migration release.
+- Do not modify or remove PostgreSQL, Redis, volumes, unrelated Docker
+  workloads, source FASTQ, OBS data or another batch directory.
+- Do not restore the retired `hanjj` key or collector to the active stack.
+
 ## T192 - Production Docker test-artifact cleanup
 
 Owner: infra/operations/docs

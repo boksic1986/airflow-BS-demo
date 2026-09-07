@@ -76,20 +76,20 @@ function loadTone(percent: number | null): "healthy" | "warning" | "danger" {
 }
 
 function SfsIoPanel({item}: {item?: PlatformResourceSnapshot}) {
-  const [period, setPeriod] = useState<"24h" | "1d" | "7d">("24h");
+  const [period, setPeriod] = useState<"1h" | "24h" | "7d">("24h");
   const allPoints = (item?.history || []).map((point) => ({
     at: String(point.at || ""),
     read: numeric(point.read_bps) || 0,
     write: numeric(point.write_bps) || 0,
   }));
   const latestAt = Math.max(0, ...allPoints.map((point) => Date.parse(point.at)).filter(Number.isFinite));
-  const hours = period === "7d" ? 7 * 24 : 24;
+  const hours = period === "7d" ? 7 * 24 : period === "1h" ? 1 : 24;
   const points = allPoints.filter((point) => {
     const observedAt = Date.parse(point.at);
     return !latestAt || !Number.isFinite(observedAt) || observedAt >= latestAt - hours * 60 * 60 * 1000;
   });
   const current = item?.current || {};
-  return <section className="panel"><div className="section-heading split"><h2>SFS I/O</h2><div className="period-selector compact-period-selector" role="tablist" aria-label="SFS I/O period">{(["24h", "1d", "7d"] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={period === value} className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{value}</button>)}</div></div>{points.length > 1 ? <BandwidthChart points={points} /> : <p className="empty-state">SFS I/O history is not available yet.</p>}<div className="sfs-io-current"><span><i className="sfs-read-dot" />Read <strong>{formatRate(current.read_bps)}</strong></span><span><i className="sfs-write-dot" />Write <strong>{formatRate(current.write_bps)}</strong></span><span>Current IOPS <strong>{metric(current.iops)}</strong></span></div></section>;
+  return <section className="panel"><div className="section-heading split"><h2>SFS I/O</h2><div className="period-selector compact-period-selector" role="tablist" aria-label="SFS I/O period">{(["1h", "24h", "7d"] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={period === value} className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{value}</button>)}</div></div>{points.length > 1 ? <BandwidthChart points={points} /> : <p className="empty-state">SFS I/O history is not available yet.</p>}<div className="sfs-io-current"><span><i className="sfs-read-dot" />Read <strong>{formatRate(current.read_bps)}</strong></span><span><i className="sfs-write-dot" />Write <strong>{formatRate(current.write_bps)}</strong></span><span>Total <strong>{formatRate(current.total_bps)}</strong></span><span>Current IOPS <strong>{metric(current.iops)}</strong></span></div><p className="resource-unit-note">Bandwidth uses binary units (GiB/s).</p></section>;
 }
 
 function BandwidthChart({points}: {points: Array<{at: string; read: number; write: number}>}) {

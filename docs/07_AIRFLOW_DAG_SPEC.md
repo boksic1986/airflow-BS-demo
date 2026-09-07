@@ -1,5 +1,49 @@
 # 07 Airflow DAG 设计
 
+## T217 Step7 maintenance route
+
+`cleanup_step7` uses a dedicated branch immediately after
+`validate_request`. It never enters sampleinfo/analysis preparation, approval,
+OBS lease, Step1-Step6, finalization, or generic lease cleanup.
+
+```text
+validate_request
+  -> choose_run_path
+       -> prepare_wgs_sampleinfo -> normal production path
+       -> step7_cleanup -> wait_step7_cleanup
+```
+
+The Step7 task remains admin-triggered and uses the registered maintenance
+action identity. `wait_step7_cleanup` consumes the runtime terminal marker; it
+does not invent file-count or percentage progress. A missing frozen binding or
+bundle is a real maintenance failure and must be shown to the operator rather
+than treated as successful cleanup.
+
+## T205 shared-NFS stage generation visibility
+
+Step4 and Step5 start tasks wait for the exact retry generation returned by
+the restricted node200 runner before completing. The bounded visibility window
+is 120 seconds because a successful sidecar status marker can require more than
+30 seconds to become visible on the `.96` NFS client. A marker from an older
+retry generation is never accepted. This wait does not create a new DagRun,
+attempt, transfer or CCE job.
+
+Final `release_leases` is idempotent when the single OBS transfer slot is
+already owned by another active WGS run. It leaves that foreign lease intact
+and returns `released=false`; stage-specific release tasks retain strict owner
+and transfer identity checks.
+
+## T204 generic shared-NFS request visibility retry
+
+After the backend atomically registers a runtime request, node200 can surface
+either a path-bearing `FileNotFoundError` or the gate's generic
+`registered runtime request is missing` message while NFS metadata converges.
+Both exact forms use the existing one-second, five-invocation bounded retry in
+`run_stage_on_200`. The generic match is intentionally exact: identity,
+permission, command, CCE, OBS and biological workflow errors still fail
+immediately. The retry never creates another AnalysisRun, DagRun, attempt or
+runtime worker.
+
 ## T188 Step6 terminal barrier
 
 `materialize_step6_results` only registers the asynchronous node200 request.

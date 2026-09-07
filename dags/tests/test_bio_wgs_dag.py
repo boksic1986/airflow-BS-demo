@@ -18,6 +18,9 @@ class BioWgsDagTests(unittest.TestCase):
             set(dag.task_ids),
             {
                 "validate_request",
+                "choose_run_path",
+                "step7_cleanup",
+                "wait_step7_cleanup",
                 "prepare_wgs_sampleinfo",
                 "wait_prepare_wgs_sampleinfo",
                 "wait_wgs_config_approval",
@@ -44,6 +47,22 @@ class BioWgsDagTests(unittest.TestCase):
             },
         )
         self.assertEqual(dag.get_task("submit_step2_master").pool, "wgs_cce_runs")
+        self.assertEqual(
+            dag.get_task("choose_run_path").downstream_task_ids,
+            {"prepare_wgs_sampleinfo", "step7_cleanup"},
+        )
+        self.assertEqual(
+            dag.get_task("prepare_wgs_sampleinfo").upstream_task_ids,
+            {"choose_run_path"},
+        )
+        self.assertEqual(
+            dag.get_task("step7_cleanup").upstream_task_ids,
+            {"choose_run_path"},
+        )
+        self.assertEqual(
+            dag.get_task("wait_step7_cleanup").upstream_task_ids,
+            {"step7_cleanup"},
+        )
         for task_id in (
             "wait_prepare_wgs_sampleinfo",
             "wait_wgs_config_approval",
@@ -131,7 +150,7 @@ class BioWgsDagTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cram"):
             bio_wgs.validate_request(**context)
 
-    def test_step7_cleanup_reuses_only_the_step4_maintenance_slot(self) -> None:
+    def test_step7_cleanup_branches_directly_without_entering_the_production_path(self) -> None:
         conf = {
             "maintenance_mode": "cleanup_step7",
             "maintenance_action_id": "step7-sfs-abcdef123456",
@@ -151,13 +170,12 @@ class BioWgsDagTests(unittest.TestCase):
         }
         context = {"dag_run": type("DagRun", (), {"conf": conf})()}
         self.assertEqual(bio_wgs.validate_request(**context), conf)
+        self.assertEqual(bio_wgs.choose_run_path(**context), "step7_cleanup")
         self.assertFalse(bio_wgs.stage_should_run("step3_monitor", conf))
-        self.assertTrue(bio_wgs.stage_should_run("step4_publish", conf))
+        self.assertFalse(bio_wgs.stage_should_run("step4_publish", conf))
         self.assertFalse(bio_wgs.stage_should_run("step5_download", conf))
-        self.assertEqual(
-            bio_wgs.effective_runner_stage("step4_publish", conf),
-            "step7_cleanup",
-        )
+        self.assertTrue(bio_wgs.stage_should_run("step7_cleanup", conf))
+        self.assertEqual(bio_wgs.effective_runner_stage("step7_cleanup", conf), "step7_cleanup")
 
     def test_step3_runner_activates_observer_only_after_node200_accepts(self) -> None:
         calls = []
@@ -200,11 +218,7 @@ class BioWgsDagTests(unittest.TestCase):
             {
                 "returncode": 1,
                 "stdout": "",
-                "stderr": (
-                    "FileNotFoundError: [Errno 2] No such file or directory: "
-                    "'/sg2/runtime/runner-requests/WGS_20260903_111456_397777/"
-                    "attempt-1/step3_monitor.json'"
-                ),
+                "stderr": "ValueError: registered runtime request is missing",
             },
         )()
         accepted = type(
@@ -378,6 +392,37 @@ class BioWgsDagTests(unittest.TestCase):
 
         assert result["runner_status"] == "accepted"
         assert len([path for path in calls if "stage-status" in path]) == 2
+
+    def test_stage_generation_wait_tolerates_slow_shared_nfs_visibility(self) -> None:
+        status_calls = 0
+        clock = iter(range(0, 80))
+        original_backend = bio_wgs._backend_json
+        original_monotonic = bio_wgs.time.monotonic
+        original_sleep = bio_wgs.time.sleep
+        try:
+            def backend(_path, **_kwargs):
+                nonlocal status_calls
+                status_calls += 1
+                if status_calls <= 35:
+                    return {"status": "success", "retry_no": 0}
+                return {"status": "success", "retry_no": 1}
+
+            bio_wgs._backend_json = backend
+            bio_wgs.time.monotonic = lambda: next(clock)
+            bio_wgs.time.sleep = lambda _seconds: None
+
+            bio_wgs._wait_for_registered_stage_generation(
+                analysis_id="WGS_20260830_010203_A1B2C3",
+                attempt=1,
+                stage="step4_publish",
+                expected_retry_no=1,
+            )
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs.time.monotonic = original_monotonic
+            bio_wgs.time.sleep = original_sleep
+
+        assert status_calls == 36
 
     def test_step5_start_waits_past_stale_failed_status_from_previous_generation(self) -> None:
         calls = []

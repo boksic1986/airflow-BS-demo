@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 
-import {cleanup, fireEvent, render, screen} from "@testing-library/react";
+import {act, cleanup, fireEvent, render, screen} from "@testing-library/react";
 import {afterEach, expect, it, vi} from "vitest";
 
 import App from "./App";
@@ -107,7 +107,13 @@ it("loads WGS resource tabs for an active run", async () => {
     urls.push(url);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
     if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
-    if (url.includes("/api/runs/WGS_001?") || url.endsWith("/api/runs/WGS_001")) return json({analysis_id: "WGS_001", pipeline: "wgs", status: "running", pipeline_release_id: "wgs-4.1.1-1656b5d", wgs_version: "V4.1.1", wgs_source_commit: "1656b5d7a6e2f24242c38149f6d1c92ac266cd37", resolved_runtime: {cce_pipeline_version: "0.7.1", profile_id: "wgs-4.1.1-r1", master_image_digest: "sha256:abc"}, rule_event_schema_version: "rule-event.v1", observer: {lifecycle_status: "active", monitoring_health: "healthy", activated_at: "2026-08-26T01:00:00Z", last_success_at: "2026-08-26T01:01:05Z", last_error: null, updated_at: "2026-08-26T01:01:05Z"}});
+    if (url.endsWith("/api/runs/WGS_001/workspace")) return json({
+      run: {analysis_id: "WGS_001", pipeline: "wgs", status: "running", pipeline_release_id: "wgs-4.1.1-1656b5d", wgs_version: "V4.1.1", wgs_source_commit: "1656b5d7a6e2f24242c38149f6d1c92ac266cd37", resolved_runtime: {cce_pipeline_version: "0.7.1", profile_id: "wgs-4.1.1-r1", master_image_digest: "sha256:abc"}, rule_event_schema_version: "rule-event.v1", observer: {lifecycle_status: "active", monitoring_health: "healthy", activated_at: "2026-08-26T01:00:00Z", last_success_at: "2026-08-26T01:01:05Z", last_error: null, updated_at: "2026-08-26T01:01:05Z"}},
+      summary: {sample_count: 1, rule_count: 10, failed_rule_count: 0},
+      progress: {analysis_id: "WGS_001", pipeline: "wgs", status: "running", percent: 20, current_step: "mapping", current_rule: "mapping", current_source: "runner", note: "", not_in_airflow: false, progress_source: "kubernetes-api", airflow_tasks: [], rule_events: []},
+      active_transfer: null,
+      slot_usage: {pool: "wgs-heavy-io", limit: 25, used: 0, waiting: 0, mode: "monitor-only"},
+    });
     if (url.includes("/api/runs/WGS_001/samples")) return json({
       manifest: [{sample_id: "S1", data_id: "S1-WGS", sample_type: "blood", family_id: "F1", family_relation: "proband", received_date: "2026-08-20", estimated_report_date: "2026-09-10"}],
       items: [{sample_id: "S1", data_id: "S1-WGS", family_id: "F1", family_relation: "proband", current_stage: "Mapping", current_rule: "mapping", completed_rules: 2, total_rules: 10, progress_percent: 20, status: "running", elapsed_seconds: 90, qc_status: "unknown", qc_metrics: {}}],
@@ -131,21 +137,155 @@ it("loads WGS resource tabs for an active run", async () => {
   expect(screen.getByText("V4.1.1")).toBeInTheDocument();
   expect(screen.getByText("0.7.1")).toBeInTheDocument();
   expect(screen.queryByText(/sha256:abc/)).not.toBeInTheDocument();
-  expect(screen.getByText("S1-WGS")).toBeInTheDocument();
-  expect(screen.getByText("2026-08-20")).toBeInTheDocument();
+  expect(urls.filter((url) => url.endsWith("/api/runs/WGS_001/workspace"))).toHaveLength(1);
+  expect(urls.some((url) => url.includes("/api/runs/WGS_001/samples"))).toBe(false);
+  expect(urls.some((url) => url.includes("/api/runs/WGS_001/pods"))).toBe(false);
   expect(screen.getByText(/healthy/i)).toBeInTheDocument();
   expect(screen.getByText(/active/i)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", {name: "Samples"}));
+  expect(await screen.findByText("S1-WGS")).toBeInTheDocument();
+  expect(screen.getByText("2026-08-20")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("tab", {name: "Master"}));
   expect(await screen.findByText("wgs-master-a1")).toBeInTheDocument();
   expect(screen.getByText("OOMKilled")).toBeInTheDocument();
   expect(screen.getByText("137")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("tab", {name: "Transfers"}));
   expect(await screen.findByText("FASTQ upload")).toBeInTheDocument();
-  expect(screen.getByText(/阶段状态可用/)).toBeInTheDocument();
+  expect(screen.getByText(/Stage status is available/)).toBeInTheDocument();
   expect(screen.queryByLabelText("FASTQ upload progress")).not.toBeInTheDocument();
   expect(screen.queryByText(/0 B\/s/)).not.toBeInTheDocument();
-  expect(urls.some((url) => url.includes("/api/runs/WGS_001/samples"))).toBe(true);
+  expect(urls.filter((url) => url.includes("/api/runs/WGS_001/samples"))).toHaveLength(1);
   expect(urls.some((url) => url.includes("/api/runs/WGS_001/pods"))).toBe(true);
+});
+
+it("falls back to legacy run resources when the workspace endpoint is unavailable", async () => {
+  window.history.pushState({}, "", "/runs/WGS_LEGACY");
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
+    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/runs/WGS_LEGACY/workspace")) return jsonStatus({detail: "Not Found"}, 404);
+    if (url.endsWith("/api/runs/WGS_LEGACY")) return json({analysis_id: "WGS_LEGACY", pipeline: "wgs", status: "success", params: {batch_no: "20260905B"}});
+    if (url.endsWith("/api/runs/WGS_LEGACY/progress")) return json({
+      analysis_id: "WGS_LEGACY",
+      pipeline: "wgs",
+      status: "success",
+      percent: 100,
+      current_step: "finalize_run",
+      current_source: "biodemo",
+      note: "",
+      not_in_airflow: false,
+      progress_source: "run-stage-state",
+      airflow_tasks: [],
+      rule_events: [],
+      orchestration_stages: [
+        {stage_code: "step5_download", step_number: 5, label: "Downloading WGS results", status: "success"},
+        {stage_code: "step6_materialize", step_number: 6, label: "Materializing local results", status: "success"},
+      ],
+    });
+    if (url.endsWith("/api/runs/WGS_LEGACY/samples")) return json({items: [{sample_id: "S1", data_id: "S1-WGS"}], manifest: []});
+    if (url.includes("/api/runs/WGS_LEGACY/rules")) return json({items: [], total: 0, limit: 1, offset: 0});
+    if (url.endsWith("/api/runs/WGS_LEGACY/validation-issues")) return json({items: []});
+    return json({items: []});
+  }));
+
+  render(<App />);
+
+  expect(await screen.findByRole("heading", {name: "WGS_LEGACY"})).toBeInTheDocument();
+  expect(screen.queryByText("Not Found")).not.toBeInTheDocument();
+  expect(screen.getAllByText("20260905B").length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("tab", {name: "Rules"}));
+  const stages = await screen.findByLabelText("WGS stage dependency graph");
+  const labels = Array.from(stages.querySelectorAll("strong"), (node) => node.textContent);
+  expect(labels).toEqual(["Downloading WGS results", "Materializing local results"]);
+});
+
+it("enables Step7 after an admin confirms the displayed public batch", async () => {
+  window.history.pushState({}, "", "/runs/WGS_STEP7");
+  const copyBatch = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", {configurable: true, value: {writeText: copyBatch}});
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/auth/me")) return json({username: "admin", role: "admin"});
+    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/runs/WGS_STEP7/workspace")) return json({
+      run: {
+        analysis_id: "WGS_STEP7",
+        pipeline: "wgs",
+        status: "success",
+        params: {batch_no: "WGS_20260825A_T7Hg38V4.1.1", analysis_batch: "20260825A"},
+        step7_cleanup: {available: true, reason: null, required_batch: "20260825A", latest_action: null},
+      },
+      summary: {sample_count: 3, rule_count: 209, failed_rule_count: 0},
+      progress: {analysis_id: "WGS_STEP7", pipeline: "wgs", status: "success", percent: 100, current_step: "finalize_run", current_source: "biodemo", note: "", not_in_airflow: false, progress_source: "run-stage-state", airflow_tasks: [], rule_events: []},
+      validation_issues: [],
+      slot_usage: null,
+    });
+    return json({items: [], total: 0});
+  }));
+
+  render(<App />);
+
+  const panel = await screen.findByRole("region", {name: "Step7 SFS cleanup"});
+  expect(panel).toHaveTextContent("Type 20260825A to confirm");
+  const checkbox = screen.getByRole("checkbox", {name: "Acknowledge SFS cleanup"});
+  expect(checkbox.closest("label")).toHaveClass("checkbox-field");
+  fireEvent.click(screen.getByRole("button", {name: "Copy batch 20260825A"}));
+  expect(copyBatch).toHaveBeenCalledWith("20260825A");
+  const button = screen.getByRole("button", {name: "Run Step7 SFS cleanup"});
+  fireEvent.click(checkbox);
+  fireEvent.change(screen.getByLabelText("Step7 Batch confirmation"), {target: {value: " 20260825A "}});
+  expect(button).toBeEnabled();
+});
+
+it("keeps refreshing a completed run while its Step7 maintenance action is active", async () => {
+  vi.useFakeTimers({shouldAdvanceTime: true});
+  window.history.pushState({}, "", "/runs/WGS_STEP7_ACTIVE");
+  let workspaceCalls = 0;
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/auth/me")) return json({username: "admin", role: "admin"});
+    if (url.endsWith("/api/platform/capabilities")) return json({environment: "WGS", deployed_pipelines: ["wgs"], airflow_url: null});
+    if (url.endsWith("/api/runs/WGS_STEP7_ACTIVE/workspace")) {
+      workspaceCalls += 1;
+      return json({
+        run: {
+          analysis_id: "WGS_STEP7_ACTIVE",
+          pipeline: "wgs",
+          status: "success",
+          params: {analysis_batch: "20260825A"},
+          step7_cleanup: {
+            available: false,
+            reason: "cleanup_in_progress",
+            required_batch: "20260825A",
+            latest_action: {
+              action_id: "step7-sfs-abcdef123456",
+              analysis_id: "WGS_STEP7_ACTIVE",
+              attempt: 7,
+              action_type: "cleanup_step7_sfs",
+              linkage_group: "sfs",
+              status: "queued",
+              requested_by: "admin",
+              created_at: "2026-09-07T03:48:21Z",
+            },
+          },
+        },
+        summary: {sample_count: 3, rule_count: 209, failed_rule_count: 0},
+        progress: {analysis_id: "WGS_STEP7_ACTIVE", pipeline: "wgs", status: "success", percent: 100, current_step: "finalize_run", current_source: "biodemo", note: "", not_in_airflow: false, progress_source: "run-stage-state", airflow_tasks: [], rule_events: []},
+        validation_issues: [],
+        slot_usage: null,
+      });
+    }
+    return json({items: [], total: 0});
+  }));
+
+  render(<App />);
+  expect(await screen.findByText("Waiting for Step7 worker")).toBeInTheDocument();
+  expect(workspaceCalls).toBe(1);
+
+  await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+
+  expect(workspaceCalls).toBeGreaterThan(1);
 });
 
 it("shows and searches the public WGS batch in the sample inventory", async () => {
@@ -240,4 +380,8 @@ it("keeps scanner metadata when the discovery list has a transiently unavailable
 
 function json(value: unknown): Promise<Response> {
   return Promise.resolve(new Response(JSON.stringify(value), {status: 200, headers: {"Content-Type": "application/json"}}));
+}
+
+function jsonStatus(value: unknown, status: number): Promise<Response> {
+  return Promise.resolve(new Response(JSON.stringify(value), {status, headers: {"Content-Type": "application/json"}}));
 }

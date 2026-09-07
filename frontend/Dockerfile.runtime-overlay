@@ -1,0 +1,6 @@
+ARG BASE_FRONTEND_IMAGE
+FROM ${BASE_FRONTEND_IMAGE}
+
+# Offline BS releases reuse the approved nginx runtime and replace only the
+# independently tested static bundle. The gateway config stays release-owned.
+COPY dist/ /usr/share/nginx/html/

@@ -1308,7 +1308,7 @@ def _ingest_kubernetes_file(
                     break
                 try:
                     payload = json.loads(raw.decode("utf-8"))
-                    _validate_kubernetes_event(payload, path.name)
+                    _validate_kubernetes_event(payload, path.name, binding)
                 except (UnicodeError, ValueError, TypeError, json.JSONDecodeError) as error:
                     bad_line = f"invalid JSONL record at line {line_number + 1}: {error}"
                     handle.seek(start)
@@ -1336,13 +1336,18 @@ def _ingest_kubernetes_file(
         return len(payloads), bad_line is not None
 
 
-def _validate_kubernetes_event(payload: object, filename: str) -> None:
+def _validate_kubernetes_event(
+    payload: object, filename: str, binding: EvidenceBinding
+) -> None:
     if not isinstance(payload, dict):
         raise ValueError("event must be a JSON object")
     if not str(payload.get("event_key") or ""):
         raise ValueError("event_key is required")
-    if payload.get("workload_role", "master") != "master":
-        raise ValueError("only Master workload evidence is accepted")
+    role = str(payload.get("workload_role") or "master")
+    if role not in {"master", "work"}:
+        raise ValueError("workload_role must be master or work")
+    if role == "work" and str(payload.get("run_label") or "") != binding.run_label:
+        raise ValueError("work workload run_label does not match evidence binding")
     _iso_time(payload.get("observed_at_utc"))
     if filename in {"pod-events.jsonl", "pod-metrics.jsonl"} and not str(
         payload.get("pod_hash") or ""
@@ -1401,6 +1406,14 @@ def _apply_pod_event(
     row.image_id = str(container_status.get("imageID") or payload.get("image_id") or row.image_id or "") or None
     if isinstance(container.get("resources"), dict) and container["resources"]:
         row.resources_json = container["resources"]
+    labels = payload.get("workload_labels") if isinstance(payload.get("workload_labels"), dict) else {}
+    if str(payload.get("workload_role") or "master") == "work":
+        row.resources_json = {
+            **dict(row.resources_json or {}),
+            "workload_role": "work",
+            "heavy_io": labels.get("wgs.biosan.cn/heavy-io") == "true",
+            "heavy_slot": labels.get("wgs.biosan.cn/heavy-slot"),
+        }
     row.evidence_path = relative_path
     row.updated_at = datetime.now(timezone.utc)
 
@@ -1414,7 +1427,10 @@ def _apply_pod_metrics(session, binding: EvidenceBinding, payload: dict) -> None
         )
     )
     if row is not None and isinstance(payload.get("metrics"), dict):
-        row.resources_json = payload["metrics"]
+        row.resources_json = {
+            **dict(row.resources_json or {}),
+            **payload["metrics"],
+        }
         row.updated_at = datetime.now(timezone.utc)
 
 

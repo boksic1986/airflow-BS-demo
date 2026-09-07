@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import csv
 import json
 from pathlib import Path, PurePosixPath
@@ -24,6 +24,10 @@ from app.wgs_release_catalog import load_wgs_release_catalog
 from app.wgs_run_projection import (
     load_wgs_runtime_binding,
     resolve_bound_wgs_batch_root,
+)
+from app.wgs_transfer_lease import (
+    LEGACY_OBS_TRANSFER_SLOT,
+    OBS_TRANSFER_SLOT_BY_KIND,
 )
 
 
@@ -183,48 +187,73 @@ def action_wgs_run(*, session: Session, airflow_client, analysis_id: str, action
     return submit_wgs_run(session=session, airflow_client=airflow_client, analysis_id=analysis_id)
 
 
-def acquire_obs_transfer_slot(*, session: Session, analysis_id: str, attempt: int, transfer_id: str, lease_minutes: int = 30) -> str | None:
+def acquire_obs_transfer_slot(
+    *,
+    session: Session,
+    analysis_id: str,
+    attempt: int,
+    transfer_id: str,
+    transfer_kind: str,
+) -> str | None:
     now = datetime.now(timezone.utc)
-    slot = session.scalar(select(ObsTransferLease).where(ObsTransferLease.slot_name == "wgs-obs-transfer-01").with_for_update(skip_locked=True))
+    slot_name = OBS_TRANSFER_SLOT_BY_KIND.get(transfer_kind)
+    if slot_name is None:
+        raise ValueError("unsupported OBS transfer kind")
+    slot = session.scalar(
+        select(ObsTransferLease)
+        .where(ObsTransferLease.slot_name == slot_name)
+        .with_for_update(skip_locked=True)
+    )
     if slot is None:
         return None
-    expires = slot.lease_expires_at
-    if expires is not None and expires.tzinfo is None:
-        expires = expires.replace(tzinfo=timezone.utc)
-    if slot.analysis_id is not None and (expires is None or expires > now):
+    if slot.analysis_id is not None:
         if slot.analysis_id != analysis_id or slot.attempt != attempt:
             return None
         slot.transfer_id = transfer_id
-        slot.lease_expires_at = now + timedelta(minutes=lease_minutes)
+        slot.lease_expires_at = None
         session.commit()
         return slot.slot_name
     slot.analysis_id, slot.attempt, slot.transfer_id = analysis_id, attempt, transfer_id
-    slot.leased_at, slot.lease_expires_at = now, now + timedelta(minutes=lease_minutes)
+    slot.leased_at, slot.lease_expires_at = now, None
     session.commit()
     return slot.slot_name
 
 
 def release_obs_transfer_slot(
-    *, session: Session, analysis_id: str, attempt: int, transfer_id: str | None = None
+    *,
+    session: Session,
+    analysis_id: str,
+    attempt: int,
+    transfer_id: str | None = None,
+    transfer_kind: str | None = None,
 ) -> bool:
-    slot = session.scalar(
+    if transfer_kind is None:
+        slot_names = [LEGACY_OBS_TRANSFER_SLOT, *OBS_TRANSFER_SLOT_BY_KIND.values()]
+    else:
+        slot_name = OBS_TRANSFER_SLOT_BY_KIND.get(transfer_kind)
+        if slot_name is None:
+            raise ValueError("unsupported OBS transfer kind")
+        slot_names = [slot_name]
+    slots = session.scalars(
         select(ObsTransferLease)
-        .where(ObsTransferLease.slot_name == "wgs-obs-transfer-01")
+        .where(ObsTransferLease.slot_name.in_(slot_names))
         .with_for_update()
-    )
-    if slot is None or slot.analysis_id is None:
-        return False
-    if slot.analysis_id != analysis_id or slot.attempt != attempt:
-        raise ValueError("OBS transfer lease belongs to another WGS attempt")
-    if transfer_id is not None and slot.transfer_id != transfer_id:
-        raise ValueError("OBS transfer lease identifies another transfer")
-    slot.analysis_id = None
-    slot.attempt = None
-    slot.transfer_id = None
-    slot.leased_at = None
-    slot.lease_expires_at = None
-    session.commit()
-    return True
+    ).all()
+    released = False
+    for slot in slots:
+        if slot.analysis_id != analysis_id or slot.attempt != attempt:
+            continue
+        if transfer_id is not None and slot.transfer_id != transfer_id:
+            raise ValueError("OBS transfer lease identifies another transfer")
+        slot.analysis_id = None
+        slot.attempt = None
+        slot.transfer_id = None
+        slot.leased_at = None
+        slot.lease_expires_at = None
+        released = True
+    if released:
+        session.commit()
+    return released
 
 
 def run_payload(session: Session, run: AnalysisRun) -> dict:

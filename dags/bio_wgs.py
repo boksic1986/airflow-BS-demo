@@ -13,7 +13,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.operators.python import BranchPythonOperator, PythonOperator
 from airflow.sensors.python import PythonSensor
 from airflow.utils.task_group import TaskGroup
 from airflow.utils.trigger_rule import TriggerRule
@@ -48,6 +48,7 @@ class BackendTransportUnavailable(RuntimeError):
 
 RUNNER_REQUEST_VISIBILITY_ATTEMPTS = 5
 RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS = 1.0
+STAGE_GENERATION_VISIBILITY_TIMEOUT_SECONDS = 120.0
 
 
 def _runner_request_not_yet_visible(completed: subprocess.CompletedProcess[str]) -> bool:
@@ -57,10 +58,10 @@ def _runner_request_not_yet_visible(completed: subprocess.CompletedProcess[str])
         part for part in (completed.stdout, completed.stderr) if part
     )
     return (
-        "runner-requests/" in error
-        and (
-            "registered runtime request is missing" in error
-            or "FileNotFoundError: [Errno 2] No such file or directory" in error
+        "registered runtime request is missing" in error
+        or (
+            "runner-requests/" in error
+            and "FileNotFoundError: [Errno 2] No such file or directory" in error
         )
     )
 
@@ -99,9 +100,18 @@ def validate_request(**context: Any) -> dict[str, Any]:
     return conf
 
 
+def choose_run_path(**context: Any) -> str:
+    """Route Step7 maintenance before any production preparation or transfer gate."""
+
+    conf = dict(context["dag_run"].conf or {})
+    if conf.get("maintenance_mode") == "cleanup_step7":
+        return "step7_cleanup"
+    return "prepare_wgs_sampleinfo"
+
+
 def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
     if conf.get("maintenance_mode") == "cleanup_step7":
-        return stage == "step4_publish"
+        return stage == "step7_cleanup"
     if conf.get("maintenance_mode") != "repair_step4":
         if stage == "prepare_analysis" and dict(conf.get("params") or {}).get("submission_mode") != "three_stage":
             return False
@@ -131,8 +141,6 @@ def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
 
 
 def effective_runner_stage(stage: str, conf: dict[str, Any]) -> str:
-    if conf.get("maintenance_mode") == "cleanup_step7" and stage == "step4_publish":
-        return "step7_cleanup"
     if conf.get("maintenance_mode") == "repair_step4" and stage == "step4_publish":
         return "step4_repair_cram"
     if stage == "prepare_sampleinfo" and dict(conf.get("params") or {}).get("submission_mode") != "three_stage":
@@ -143,7 +151,7 @@ def effective_runner_stage(stage: str, conf: dict[str, Any]) -> str:
 def register_stage(stage: str, **context: Any) -> dict[str, Any]:
     conf = dict(context["dag_run"].conf or {})
     if not stage_should_run(stage, conf):
-        return {"skipped": True, "stage": stage, "maintenance_mode": "repair_step4"}
+        return {"skipped": True, "stage": stage, "maintenance_mode": conf.get("maintenance_mode")}
     _require_runtime_enabled()
     runner_stage = effective_runner_stage(stage, conf)
     return _backend_json(
@@ -237,7 +245,7 @@ def _wait_for_registered_stage_generation(
     attempt: int,
     stage: str,
     expected_retry_no: int,
-    timeout_seconds: float = 30.0,
+    timeout_seconds: float = STAGE_GENERATION_VISIBILITY_TIMEOUT_SECONDS,
 ) -> None:
     """Do not expose a failed status from a previous async worker generation."""
     deadline = time.monotonic() + timeout_seconds
@@ -474,6 +482,15 @@ with DAG(
     validate = PythonOperator(
         task_id="validate_request", python_callable=validate_request
     )
+    choose_path = BranchPythonOperator(
+        task_id="choose_run_path", python_callable=choose_run_path
+    )
+    cleanup_step7 = runner_stage(
+        "step7_cleanup", stage="step7_cleanup", timeout_hours=24
+    )
+    wait_cleanup_step7 = stage_sensor(
+        "wait_step7_cleanup", stage="step7_cleanup", timeout_hours=24
+    )
     prepare_sampleinfo = runner_stage(
         "prepare_wgs_sampleinfo", stage="prepare_sampleinfo", timeout_hours=2
     )
@@ -573,7 +590,9 @@ with DAG(
         trigger_rule=TriggerRule.ALL_DONE,
     )
 
-    validate >> prepare_sampleinfo >> wait_prepare_sampleinfo >> wait_config_approval
+    validate >> choose_path >> [prepare_sampleinfo, cleanup_step7]
+    cleanup_step7 >> wait_cleanup_step7
+    prepare_sampleinfo >> wait_prepare_sampleinfo >> wait_config_approval
     wait_config_approval >> prepare_analysis >> wait_prepare_analysis >> wait_execution_approval
     wait_execution_approval >> input_transfer >> submit
     submit >> start_monitor >> wait_analysis >> start_publish >> wait_publish

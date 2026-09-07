@@ -3,7 +3,7 @@ import type {Artifact, RunConfig, RunDetail, WgsSampleManifestRow} from "../../a
 import {StatusBadge} from "../../components/StatusBadge";
 import {compactPipelineName, formatBytes, formatDate, safeJson} from "../../lib/format";
 
-export function RunOverviewTab({detail, samples}: {detail: RunDetail; samples: WgsSampleManifestRow[]}) {
+export function RunOverviewTab({detail, samples, sampleCount}: {detail: RunDetail; samples: WgsSampleManifestRow[]; sampleCount?: number}) {
   return (
     <div className="overview-stack">
       <div className="definition-grid">
@@ -13,17 +13,17 @@ export function RunOverviewTab({detail, samples}: {detail: RunDetail; samples: W
         <div><dt>Attempt</dt><dd>{String(detail.params?.attempt || "1")}</dd></div>
         <div><dt>Status</dt><dd><StatusBadge status={detail.status} /></dd></div>
         <div><dt>DAG run</dt><dd className="path-text">{detail.dag_run_id || "not set"}</dd></div>
-        <div><dt>Samples</dt><dd>{samples.length}</dd></div>
+        <div><dt>Samples</dt><dd>{sampleCount ?? samples.length}</dd></div>
         <div><dt>Operator</dt><dd>{detail.submitted_by || "not captured"}</dd></div>
         <div><dt>Created</dt><dd>{formatDate(detail.created_at)}</dd></div>
         <div><dt>Submitted</dt><dd>{formatDate(detail.submitted_at)}</dd></div>
         <div><dt>Airflow started</dt><dd>{formatDate(detail.started_at)}</dd></div>
         <div><dt>Finished</dt><dd>{formatDate(detail.pipeline_finished_at || detail.ended_at)}</dd></div>
       </div>
-      <section>
+      {samples.length ? <section>
         <div className="section-heading"><h2>Selected samples manifest</h2><p>Privacy-safe fields from the frozen sampleinfo.tsv</p></div>
         <SamplesManifestTable samples={samples} />
-      </section>
+      </section> : null}
     </div>
   );
 }

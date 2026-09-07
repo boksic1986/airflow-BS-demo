@@ -132,6 +132,7 @@ services:
 
   backend:
     image: ${BACKEND_IMAGE:-airflow-demo/backend:0.1.0}
+    user: "${WGS_RUNTIME_UID:?set WGS_RUNTIME_UID}:${WGS_RUNTIME_SHARED_GID:-520}"
     build:
       context: ./backend
     restart: unless-stopped

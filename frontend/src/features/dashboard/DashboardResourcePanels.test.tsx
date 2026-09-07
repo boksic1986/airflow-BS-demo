@@ -63,6 +63,7 @@ const resources: PlatformResourcesResponse = {
         capacity_used_bytes: 25 * 1024 ** 3,
         read_bps: 4096,
         write_bps: 8192,
+        total_bps: 12288,
         iops: 12,
         client_connections: 42,
       },
@@ -108,7 +109,7 @@ it("shows compact node and SFS utilization bars with updated times in the headin
   expect(screen.getByRole("progressbar", {name: "Load 1 / 5 / 15"})).toHaveAttribute("aria-valuenow", "85");
   expect(screen.getByRole("progressbar", {name: "Load 1 / 5 / 15"})).toHaveClass("warning");
   expect(screen.getByRole("progressbar", {name: "SFS capacity utilization"})).toHaveAttribute("aria-valuenow", "25");
-  expect(screen.getByText("25.0 GB / 100.0 GB")).toBeInTheDocument();
+  expect(screen.getByText("25.0 GiB / 100.0 GiB")).toBeInTheDocument();
   const nodePanel = screen.getByRole("heading", {name: "Analysis Node Health"}).closest("section");
   const cloudPanel = screen.getByRole("heading", {name: "Cloud Resources"}).closest("section");
   expect(within(nodePanel!).getByText(/Updated/)).toBeInTheDocument();
@@ -144,17 +145,19 @@ it("replaces workflow activity with the SFS read and write history", () => {
 
   expect(screen.queryByRole("heading", {name: "Workflow Activity"})).not.toBeInTheDocument();
   expect(screen.getByRole("heading", {name: "SFS I/O"})).toBeInTheDocument();
+  expect(screen.getByText("Bandwidth uses binary units (GiB/s).")).toBeInTheDocument();
   expect(screen.getByRole("tab", {name: "24h"})).toHaveAttribute("aria-selected", "true");
-  expect(screen.getByRole("tab", {name: "1d"})).toBeInTheDocument();
+  expect(screen.getByRole("tab", {name: "1h"})).toBeInTheDocument();
   expect(screen.getByRole("tab", {name: "7d"})).toBeInTheDocument();
   expect(screen.queryByText("Read and write bandwidth, latest 60 samples")).not.toBeInTheDocument();
   expect(screen.getByRole("img", {name: "SFS read and write bandwidth history"})).toBeInTheDocument();
   const yAxis = screen.getByLabelText("SFS bandwidth Y axis");
-  expect(within(yAxis).getByText("8.0 KB/s")).toBeInTheDocument();
-  expect(within(yAxis).getByText("4.0 KB/s")).toBeInTheDocument();
+  expect(within(yAxis).getByText("8.0 KiB/s")).toBeInTheDocument();
+  expect(within(yAxis).getByText("4.0 KiB/s")).toBeInTheDocument();
   expect(within(yAxis).getByText("0 B/s")).toBeInTheDocument();
   expect(screen.getByText("Read")).toBeInTheDocument();
   expect(screen.getByText("Write")).toBeInTheDocument();
+  expect(screen.getByText("Total")).toBeInTheDocument();
   expect(screen.getByText("Current IOPS")).toBeInTheDocument();
   expect(screen.getByText("12")).toBeInTheDocument();
 });
