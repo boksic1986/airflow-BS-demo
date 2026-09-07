@@ -8,6 +8,7 @@ lifecycle: Workflow, Cloud release/Step7, Raw FASTQ backup and Downstream releas
 frontend: Run Detail renders four read-only lifecycle cards; Run Tracker keeps Workflow primary and shows compact post-run tags. Every state has icon, text, foreground and light background. A post-run failure is a warning and does not alter workflow/sample success or duration.
 runtime_impact: none. Development and validation used an isolated .96 candidate directory and disposable test/build containers. Production current, services, databases, volumes, evidence, results and active CCE work were untouched.
 validation: backend 428 passed / 1 skipped; WGS DAG contracts 42 passed; host runner/runtime/evidence/heavy-slot suites 99 passed; frontend 15 files / 62 tests and the production build passed. Alembic has one 0017 head and upgraded a disposable PostgreSQL 15 database through 0001-0017. Compose config passed. The migration rerun used only the existing nipt_analysis_test_net (192.168.199.0/24); no production database or service was used.
+mainline: integration commit 200e129 was fast-forwarded to main and synchronized to origin/main. This is source integration only; no production release, migration, service restart or execution-gate change was performed.
 ```
 
 ## 2026-09-07 T218 production source mainline sync

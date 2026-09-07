@@ -48,6 +48,11 @@ called PowerShell `Remove-Item` inside the remote Bash shell and exited with
 then removed with an exact non-recursive path; no repository or runtime file
 was affected.
 
+Mainline: integration commit `200e129` was fast-forwarded into `main` and the
+closeout state was synchronized to `origin/main`. This is Git source delivery
+only. Production remains on its existing release; migration 0017 has not been
+applied there and no service or WGS execution gate was restarted or changed.
+
 Rollback before release: discard the integration branch/worktree. After the
 planned Git-only mainline merge, revert its single integration commit. There
 is no runtime rollback because T218 does not deploy.

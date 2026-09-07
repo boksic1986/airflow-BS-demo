@@ -4,7 +4,7 @@
 
 Owner: backend/Airflow/frontend/release/QA/docs
 
-Status: implementation and isolated acceptance complete; mainline merge pending
+Status: completed and synchronized to main; production deployment remains a separate approval
 
 Dependencies: production-source `main@ab20035`, T216 (including T215/node97)
 
@@ -22,7 +22,7 @@ Acceptance:
   background; post-run failure does not change Workflow success.
 - [x] Pass full backend, WGS DAG, frontend test/build, migration-chain and
   Compose checks in isolated `.96` containers.
-- [ ] Commit, fast-forward `main` and push without deploying or restarting
+- [x] Commit, fast-forward `main` and push without deploying or restarting
   production services.
 
 Restrictions:
