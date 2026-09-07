@@ -1,5 +1,41 @@
 # CURRENT_STATE.md
 
+## 2026-09-07 T218 WGS stage terminal evidence consistency
+
+Attempt 2 of `WGS_20260907_044653_9C8591` completed Step1, then Step2 failed
+because the exact OBS result prefix was not empty. Airflow saw the failure at
+06:49:22 UTC, while node200 wrote the Step2 failed status file at 06:49:38 UTC.
+The observer had already been deactivated, leaving the business projection at
+`step2_master=accepted`. A previous Step1 failure action in the same attempt
+also made the DagRun callback appear idempotent and prevented the later Step2
+failure from being reasserted.
+
+T218 adds a bounded terminal-evidence wait to the shared node200 runner entry,
+fixes same-attempt/different-task DagRun failure handling, projects Step7 into
+the shared stage table, and selects the freshest active or failed stage for the
+workspace. The frontend now uses an indeterminate bar for active stages with
+no numeric denominator and a full terminal-color bar for their success/failure.
+Exact progress remains limited to Step1/5 byte transfer and Step3 rule counts.
+
+The same delayed-evidence audit covered Step4 through Step7. Step4 and Step6
+have terminal receipts but no honest numeric denominator; Step5 has exact
+bytes/files; Step7 is a maintenance action and now also has unified terminal
+stage evidence. No stage percentage is inferred from elapsed time.
+
+Release `20260907-airflow-demo-t218-stage-terminal-progress-r2` is active on
+BS10610. Backend image `airflow-demo/backend:t218-stage-terminal-progress` is
+`sha256:8c99c9e4c18a...`; frontend image
+`airflow-demo/frontend:t218-stage-terminal-progress` is
+`sha256:326244b96b7d...`. The frontend archive was relayed through the local
+workstation with SHA256
+`d7ca336252bf04d97bc6a6354be4fa9a0346e72e04b36677b98f638b57ba2c1e`.
+
+The affected run is repaired to `failed / step2_master`; Step1 remains exact
+100% success and later stages remain pending. Airflow has no active `bio_wgs`
+DagRun, import errors are empty, and frontend/backend health return HTTP 200.
+No workflow stage was rerun and no OBS, SFS, database or result data was
+deleted.
+
 ## 2026-09-07 T217 WGS transfer progress projection
 
 The active attempt 2 of `WGS_20260907_044653_9C8591` exposed exact Step1 OBS

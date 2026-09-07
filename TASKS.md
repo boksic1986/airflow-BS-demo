@@ -1,5 +1,34 @@
 # TASKS.md
 
+## T218 - Unify WGS stage terminal evidence and unavailable progress
+
+Owner: backend/Airflow/frontend/QA/docs
+
+Status: done in BS10610 test environment
+
+Dependencies: T217
+
+Scope:
+- Wait briefly for exact runtime terminal evidence when a restricted node200
+  runner exits nonzero, before the Airflow task and observer are released.
+- Reassert a later failure after an Airflow task clear in the same attempt,
+  while keeping exact duplicate callbacks idempotent.
+- Project Step7 maintenance terminal evidence into the shared stage state.
+- Show indeterminate or terminal progress bars for stages without a numeric
+  denominator instead of the ambiguous `Detailed progress unavailable` text.
+
+Acceptance:
+- [x] Backend tests cover same-attempt failure at a different cleared task,
+  freshest failed/active stage selection and Step7 terminal projection.
+- [x] DAG tests cover the bounded failed-stage synchronization wait.
+- [x] Frontend tests cover indeterminate, success and failed stage bars.
+- [x] Deploy backend/frontend/DAG release on BS10610 and repair the affected
+  test run projection without restarting analysis work.
+
+Restrictions:
+- Do not fabricate percentages for Step2, Step4, Step6 or Step7.
+- Do not rerun the failed batch or delete its OBS prefix in this task.
+
 ## T217 - Restore WGS transfer progress bars
 
 Owner: backend/frontend/QA/docs

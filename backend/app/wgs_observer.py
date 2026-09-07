@@ -805,6 +805,18 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
             if normalized in {"success", "failed"}:
                 action.ended_at = heartbeat
             action.updated_at = heartbeat
+            upsert_stage_state(
+                session,
+                analysis_id=analysis_id,
+                attempt=attempt,
+                stage_code=stage,
+                stage_status=status,
+                updated_at=heartbeat,
+                message=action.error_message,
+                evidence_key=action.evidence_path,
+                receipt_hash=terminal_receipt_hash,
+                allow_terminal_retry=retry_no > 0,
+            )
         elif stage == "step6_materialize":
             upsert_stage_state(
                 session,

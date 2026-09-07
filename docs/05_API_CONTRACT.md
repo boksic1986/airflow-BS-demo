@@ -1,5 +1,18 @@
 # 05 API Contract
 
+## T218 repeated DagRun failure and stage projection
+
+`POST /api/internal/wgs/runs/{analysis_id}/dag-terminal` remains idempotent for
+the same attempt and exact failed-task set. If an Airflow task is cleared and a
+different task later fails in the same attempt, the endpoint reasserts the run
+terminal state and writes a new audit action for the new failed-task set.
+
+WGS workspace and dashboard projections prefer the freshest active stage for
+active runs and the freshest failed stage for failed runs. Stages without a
+numeric denominator return `stage_progress.available=false` together with their
+authoritative status; clients may render an indeterminate/terminal state but
+must not invent a percentage.
+
 ## T217 WGS active-stage progress projection
 
 The response shape of `GET /api/dashboard/runs` is unchanged. For an active WGS

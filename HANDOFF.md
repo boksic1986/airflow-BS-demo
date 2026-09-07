@@ -1,5 +1,46 @@
 # HANDOFF.md
 
+## 2026-09-07 - Codex - T218 stage terminal/progress consistency
+
+The Step2 display defect on `WGS_20260907_044653_9C8591` was a real failed
+stage, not a harmless lack of progress. The node200 runner rejected Step2
+because its exact OBS result prefix was non-empty. Airflow failed before the
+node200 failed status JSON became visible, then cleanup deactivated the
+observer. The business projection therefore remained accepted. A prior Step1
+failure action for the same attempt also prevented the later Step2 callback
+from reasserting the failure.
+
+The candidate adds a 30-second terminal-evidence wait after any nonzero
+restricted runner invocation, fixes same-attempt/different-task failure audit
+semantics, projects Step7 into shared stage state, and chooses the freshest
+active/failed stage in workspace responses. Frontend progress now renders
+indeterminate active bars and terminal success/failure bars for stages without
+a numeric denominator. Step1/5 bytes and Step3 Rules remain the only exact
+quantitative stage progress.
+
+Validation completed: frontend 52 tests passed; backend full suite passed with
+419 passed and 1 skipped; `bio_wgs` DAG suite passed 29 tests; production
+TypeScript/Vite build and nginx syntax passed; `git diff --check` passed.
+
+T218 is deployed as
+`releases/20260907-airflow-demo-t218-stage-terminal-progress-r2`. Backend image
+ID is `sha256:8c99c9e4c18a...`; frontend image ID is
+`sha256:326244b96b7d...`. The frontend image followed the required
+fengxian-to-local-to-BS relay and its archive SHA256 is
+`d7ca336252bf04d97bc6a6354be4fa9a0346e72e04b36677b98f638b57ba2c1e`.
+
+The existing Step2 status JSON was imported without rerunning a stage, then the
+same-attempt DagRun failure was reasserted as `submit_step2_master`. The run is
+now `failed / step2_master`; Step1 remains exact 100% success and Step3-Step6
+remain pending. Workspace and Dashboard projections both return Step2 failed
+with `progress_available=false`. Airflow has no active `bio_wgs` DagRun, no
+import errors, and frontend/backend health return HTTP 200.
+
+Rollback is recorded in
+`backups/T218-stage-terminal-progress-20260907T1535`: restore `current.before`
+and `bs10610.wgs.env.before`, then recreate only the six services changed by
+T218. PostgreSQL, Redis, OBS, SFS and result data require no rollback.
+
 ## 2026-09-07 - Codex - T217 transfer progress presentation
 
 Run Detail already received exact OBS SDK callback evidence for attempt 2 of

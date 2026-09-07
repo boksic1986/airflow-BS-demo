@@ -1393,6 +1393,20 @@ textarea {
   background: var(--color-danger);
 }
 
+.progress-track.progress-indeterminate span {
+  animation: progress-indeterminate 1.6s ease-in-out infinite;
+}
+
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-110%); }
+  55% { transform: translateX(100%); }
+  100% { transform: translateX(290%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-track.progress-indeterminate span { animation: none; }
+}
+
 .workflow-tab-stack {
   display: grid;
   gap: 22px;

@@ -10,6 +10,7 @@ export type RunProgress = {
   note: string;
   notInAirflow: boolean;
   failedStep?: string;
+  status?: string;
 };
 
 const terminalRuleStatuses = new Set(["success", "failed", "fail", "error", "skipped", "canceled", "cancelled", "terminated"]);
@@ -107,6 +108,7 @@ export function progressFromResponse(progress: RunProgressResponse): RunProgress
     note: progress.current_item || progress.note || (available ? `Progress source: ${progress.progress_source}` : "The runtime has not supplied an exact progress measurement."),
     notInAirflow: progress.not_in_airflow,
     failedStep: (progress.rule_events || []).find((rule) => isFailedStatus(rule.status))?.rule,
+    status: progress.stage_status || progress.status,
   };
 }
 

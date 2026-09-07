@@ -65,6 +65,9 @@ def test_dag_failure_marks_staged_submission_failed_once(tmp_path: Path) -> None
             attempt=1,
             failed_task_ids=["release_leases", "prepare_wgs_sampleinfo"],
         )
+        first_ended_at = session.scalar(
+            select(AnalysisRun.ended_at).where(AnalysisRun.analysis_id == analysis_id)
+        )
         second = mark_submission_dag_failed(
             session=session,
             analysis_id=analysis_id,
@@ -89,9 +92,82 @@ def test_dag_failure_marks_staged_submission_failed_once(tmp_path: Path) -> None
     assert run is not None
     assert run.status == "failed"
     assert run.ended_at is not None
+    assert run.ended_at == first_ended_at
+    assert run.pipeline_finished_at == first_ended_at
     assert run.params_json["submission_phase"] == "failed"
     assert "prepare_wgs_sampleinfo" in str(run.error_summary)
     assert len(actions) == 1
+
+
+def test_dag_failure_reasserts_terminal_state_after_cleared_task_fails_again(
+    tmp_path: Path,
+) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    analysis_id = "WGS_20260907_044653_9C8591"
+
+    with sessions() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                dag_run_id=f"{analysis_id}-a2",
+                attempt=2,
+                status="running",
+                current_stage="step1_upload",
+                workdir=str(tmp_path / analysis_id),
+                params_json={
+                    "submission_mode": "three_stage",
+                    "submission_phase": "executing",
+                },
+            )
+        )
+        session.commit()
+
+        first = mark_submission_dag_failed(
+            session=session,
+            analysis_id=analysis_id,
+            attempt=2,
+            failed_task_ids=["input_transfer.wait_step1_upload"],
+        )
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        assert run is not None
+        run.status = "running"
+        run.current_stage = "step2_master"
+        run.error_summary = None
+        session.commit()
+
+        second = mark_submission_dag_failed(
+            session=session,
+            analysis_id=analysis_id,
+            attempt=2,
+            failed_task_ids=["submit_step2_master"],
+        )
+        actions = list(
+            session.scalars(
+                select(RunAction)
+                .where(
+                    RunAction.analysis_id == analysis_id,
+                    RunAction.action == "airflow_dag_failed",
+                )
+                .order_by(RunAction.id)
+            ).all()
+        )
+
+    assert first["failed_task_ids"] == ["input_transfer.wait_step1_upload"]
+    assert second["failed_task_ids"] == ["submit_step2_master"]
+    assert second["status"] == "failed"
+    assert run.status == "failed"
+    assert run.params_json["submission_phase"] == "failed"
+    assert "submit_step2_master" in str(run.error_summary)
+    assert [item.payload_json["failed_task_ids"] for item in actions] == [
+        ["input_transfer.wait_step1_upload"],
+        ["submit_step2_master"],
+    ]
 
 
 def test_dag_failure_rejects_wrong_attempt_and_preserves_success(tmp_path: Path) -> None:

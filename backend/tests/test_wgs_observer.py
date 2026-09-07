@@ -2770,6 +2770,67 @@ def test_prepare_stages_are_valid_status_sync_targets(
     assert result == {"files": 0, "events_ingested": 0}
 
 
+def test_step7_terminal_status_updates_action_and_stage_projection(
+    tmp_path: Path,
+) -> None:
+    sessions, analysis_id, _, _, _, _ = prepare_run(tmp_path)
+    runtime = tmp_path / "runtime"
+    request_root = runtime / "runner-requests"
+    request_dir = request_root / analysis_id / "attempt-1"
+    request_dir.mkdir(parents=True)
+    with sessions.begin() as session:
+        session.add(
+            WgsMaintenanceAction(
+                action_id="step7-sfs-abcdef123456",
+                analysis_id=analysis_id,
+                attempt=1,
+                action_type="cleanup_step7_sfs",
+                linkage_group="sfs",
+                status="running",
+                requested_by="admin",
+            )
+        )
+    (request_dir / "step7_cleanup.status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "step7_cleanup",
+                "status": "failed",
+                "retry_no": 0,
+                "message": "cleanup target is still busy",
+                "updated_at": "2026-09-07T08:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = sync_runtime_stage_artifacts(
+        session_factory=sessions,
+        request_root=request_root,
+        transfer_spool_root=runtime / "transfer-progress",
+        analysis_id=analysis_id,
+        attempt=1,
+        stage="step7_cleanup",
+    )
+
+    assert result == {"files": 1, "events_ingested": 1}
+    with sessions() as session:
+        action = session.scalar(select(WgsMaintenanceAction))
+        stage = session.scalar(
+            select(RunStageState).where(
+                RunStageState.analysis_id == analysis_id,
+                RunStageState.stage_code == "step7_cleanup",
+            )
+        )
+        assert action.status == "failed"
+        assert action.error_message == "cleanup target is still busy"
+        assert stage is not None
+        assert stage.stage_status == "failed"
+        assert stage.message == "cleanup target is still busy"
+
+
 def test_prepare_stage_status_records_contract_v2_success_receipt(
     tmp_path: Path,
 ) -> None:

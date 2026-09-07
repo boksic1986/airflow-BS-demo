@@ -1,5 +1,16 @@
 # 06 前端设计
 
+## T218 stage progress without a numeric denominator
+
+- Step1 and Step5 render exact byte/file progress; Step3 renders exact Rule
+  progress when logger evidence supplies a denominator.
+- Active Step2, Step4, Step6 and Step7 stages render an accessible indeterminate
+  bar labelled `Waiting for runtime evidence`. The UI does not infer a percent
+  from elapsed time.
+- A terminal non-numeric stage renders a full green or red bar according to its
+  authoritative terminal status. Pending stages retain the queued empty state.
+- Run Tracker and Run Detail consume the same stage status and progress model.
+
 ## T217 exact transfer progress presentation
 
 - Run Tracker renders the authoritative active `RunStageState` progress for WGS

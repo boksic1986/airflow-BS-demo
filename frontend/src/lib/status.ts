@@ -25,8 +25,11 @@ export type StatusMeta = {
 const metaByStatus: Record<string, StatusMeta> = {
   created: {label: "created", tone: "neutral", Icon: Circle, active: false, terminal: false},
   queued: {label: "queued", tone: "info", Icon: Clock3, active: true, terminal: false},
+  accepted: {label: "accepted", tone: "info", Icon: Clock3, active: true, terminal: false},
   submitted: {label: "submitted", tone: "info", Icon: Clock3, active: true, terminal: false},
   scheduled: {label: "scheduled", tone: "info", Icon: Clock3, active: true, terminal: false},
+  started: {label: "running", tone: "info", Icon: Loader2, active: true, terminal: false},
+  retrying: {label: "retrying", tone: "info", Icon: Loader2, active: true, terminal: false},
   running: {label: "running", tone: "info", Icon: Loader2, active: true, terminal: false},
   success: {label: "success", tone: "success", Icon: CheckCircle2, active: false, terminal: true},
   pass: {label: "pass", tone: "success", Icon: CheckCircle2, active: false, terminal: true},

@@ -1,5 +1,23 @@
 # 07 Airflow DAG 设计
 
+## T218 failed runtime evidence barrier
+
+All restricted node200 stage invocations share a bounded failed-stage evidence
+barrier. When the runner exits nonzero, the Airflow task polls the internal
+stage-status endpoint for up to 30 seconds before raising. This gives the
+observer/backend time to ingest the exact generation's terminal status before
+the DagRun cleanup deactivates observation.
+
+The barrier applies to Step2 and Step6 synchronous failures and to start-time
+failures in Step4, Step5 and Step7. Existing reschedule sensors remain the
+authority for normally started asynchronous workers. A timeout logs a warning
+and preserves the original runner failure; it never converts missing evidence
+to success or manufactures progress.
+
+Step7 terminal evidence is projected into both its maintenance audit record and
+the shared `RunStageState`, so workspace status uses the same terminal contract
+as Step1 through Step6.
+
 ## T216 staged submission failure callback
 
 `bio_wgs` defines a DAG-level `on_failure_callback`. On terminal failure it

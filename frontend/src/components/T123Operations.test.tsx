@@ -86,6 +86,26 @@ it("formats byte-based Run Tracker stage progress in readable units", () => {
   expect(screen.queryByText(/1073741824\/2147483648 bytes/)).not.toBeInTheDocument();
 });
 
+it("shows an indeterminate progress bar for an active stage without exact units", () => {
+  render(<MemoryRouter><RunTracker rows={[{
+    ...manualRun,
+    analysis_id: "WGS_STEP2",
+    pipeline: "wgs",
+    status: "running",
+    current_stage_label: "Starting WGS workflow",
+    stage_status: "accepted",
+    stage_progress: {
+      available: false,
+      percent: null,
+      unit: null,
+    },
+  }]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={vi.fn()} onKeywordChange={vi.fn()} onPageChange={vi.fn()} onSubmit={vi.fn()} onSync={vi.fn()} /></MemoryRouter>);
+
+  expect(screen.getByRole("progressbar", {name: "WGS_STEP2 progress pending exact measurement"})).toHaveClass("progress-indeterminate");
+  expect(screen.getByText("Waiting for runtime evidence")).toBeInTheDocument();
+  expect(screen.queryByText("Detailed progress unavailable")).not.toBeInTheDocument();
+});
+
 it("hides a dot-only source batch placeholder", () => {
   render(<MemoryRouter><OperationProjectCell analysisId="NIPT_DOT" fallbackId="NIPT_DOT" projectName="NIPT batch" sampleCount={27} source="manual" sourceBatchId="." submittedBy="jiucheng" /></MemoryRouter>);
 

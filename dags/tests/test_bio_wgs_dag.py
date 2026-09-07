@@ -825,6 +825,51 @@ class BioWgsDagTests(unittest.TestCase):
         assert result["runner_status"] == "accepted"
         assert len([path for path in calls if "stage-status" in path]) == 2
 
+    def test_failed_synchronous_stage_waits_for_terminal_runtime_projection(self) -> None:
+        calls = []
+        conf = {"analysis_id": "WGS_20260907_044653_9C8591", "attempt": 2}
+        context = {"dag_run": type("DagRun", (), {"conf": conf})()}
+        original_backend = bio_wgs._backend_json
+        original_run = bio_wgs.subprocess.run
+        original_enabled = bio_wgs._require_runtime_enabled
+        original_sleep = bio_wgs.time.sleep
+        try:
+            bio_wgs._require_runtime_enabled = lambda: None
+            responses = iter(
+                [
+                    {"status": "registered", "generation": 1},
+                    {"status": "pending", "failed": False, "retry_no": None},
+                    {"status": "failed", "failed": True, "retry_no": 0},
+                ]
+            )
+
+            def backend(path, **kwargs):
+                calls.append(path)
+                return next(responses)
+
+            bio_wgs._backend_json = backend
+            bio_wgs.subprocess.run = lambda *args, **kwargs: type(
+                "Completed",
+                (),
+                {
+                    "returncode": 1,
+                    "stdout": "",
+                    "stderr": "runtime stage failed",
+                },
+            )()
+            bio_wgs.time.sleep = lambda _seconds: None
+            with self.assertRaisesRegex(
+                RuntimeError, "restricted node200 WGS stage failed"
+            ):
+                bio_wgs.run_stage_on_200("step2_master", **context)
+        finally:
+            bio_wgs._backend_json = original_backend
+            bio_wgs.subprocess.run = original_run
+            bio_wgs._require_runtime_enabled = original_enabled
+            bio_wgs.time.sleep = original_sleep
+
+        assert len([path for path in calls if "stage-status" in path]) == 2
+
     def test_step5_start_waits_past_stale_failed_status_from_previous_generation(self) -> None:
         calls = []
         conf = {"analysis_id": "WGS_20260830_010203_A1B2C3", "attempt": 1}
