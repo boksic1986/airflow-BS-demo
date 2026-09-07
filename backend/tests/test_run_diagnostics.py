@@ -428,6 +428,7 @@ def test_sync_airflow_running_clears_stale_terminal_fields(tmp_path, monkeypatch
         run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
         run.status = "failed"
         run.ended_at = datetime(2026, 7, 3, 0, 5, tzinfo=timezone.utc)
+        run.pipeline_finished_at = datetime(2026, 7, 3, 0, 5, tzinfo=timezone.utc)
         run.error_summary = "previous failed attempt"
         session.commit()
     fake_airflow = FakeAirflowClient("running")
@@ -441,6 +442,11 @@ def test_sync_airflow_running_clears_stale_terminal_fields(tmp_path, monkeypatch
     assert payload["status"] == "running"
     assert payload["ended_at"] is None
     assert payload["error_summary"] is None
+    with session_factory() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        assert run.pipeline_finished_at is None
 
 
 def test_sync_airflow_failed_writes_error_summary_from_stderr(tmp_path, monkeypatch) -> None:

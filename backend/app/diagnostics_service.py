@@ -347,6 +347,7 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
         )
     else:
         run.ended_at = None
+        run.pipeline_finished_at = None
         run.error_summary = None
     if run.status == "failed":
         run.error_summary = build_error_summary(run=run, airflow_payload=airflow_payload, settings=settings)
