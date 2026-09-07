@@ -331,6 +331,68 @@ def test_regular_prepare_retry_never_enables_zero_start_cleanup(tmp_path: Path) 
     assert "--cce-from-zero" not in command
 
 
+def test_rerun_prepare_archives_the_exact_existing_batch(tmp_path: Path) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260907_044653_9C8591",
+        "attempt": 3,
+        "stage": "prepare_analysis",
+        "prepare_existing_policy": "archive",
+        "pipeline_release_id": "wgs-4.1.1-6c98281",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "6c982817614db6a1157b6f287427ddf01ac91827",
+        "control_workdir": str(tmp_path / "control" / "attempt-3"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(
+            tmp_path / "WGS_Clinical" / "WGS_20260904A_T7Hg38V4.1.1"
+        ),
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260904A_T7Hg38V4.1.1",
+        "fq_path": "/bi/fastq/T7_Fastq",
+        "fastq_root": "/bi/fastq/T7_Fastq",
+        "sequencing_batch": "20260904A",
+        "analysis_batch": "20260904A",
+        "platform": "T7",
+        "use_reference": "ref",
+    }
+
+    command = gate.build_prepare_command(payload)
+
+    assert command[command.index("--cce-from-zero") + 1] == "archive"
+
+
+@pytest.mark.parametrize(
+    "stage,policy", [("prepare", "archive"), ("prepare_analysis", "clean")]
+)
+def test_runtime_gate_rejects_unapproved_prepare_existing_policy(
+    tmp_path: Path, stage: str, policy: str
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260907_044653_9C8591",
+        "attempt": 3,
+        "stage": stage,
+        "prepare_existing_policy": policy,
+        "pipeline_release_id": "wgs-4.1.1-6c98281",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "6c982817614db6a1157b6f287427ddf01ac91827",
+        "control_workdir": str(tmp_path / "control" / "attempt-3"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(
+            tmp_path / "WGS_Clinical" / "WGS_20260904A_T7Hg38V4.1.1"
+        ),
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260904A_T7Hg38V4.1.1",
+        "fq_path": "/bi/fastq/T7_Fastq",
+        "fastq_root": "/bi/fastq/T7_Fastq",
+        "sequencing_batch": "20260904A",
+        "analysis_batch": "20260904A",
+    }
+
+    with pytest.raises(ValueError, match="prepare_existing_policy"):
+        gate.build_prepare_command(payload)
+
+
 def test_prepare_sampleinfo_does_not_receive_cce_pipeline_override(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

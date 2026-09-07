@@ -1,5 +1,32 @@
 # HANDOFF.md
 
+## 2026-09-07 - Codex - T219 audited rerun archive recovery
+
+Attempt 3 of `WGS_20260907_044653_9C8591` failed in
+`prepare_wgs_analysis` after the stale OBS result prefix was removed. The new
+failure is independent of OBS: attempt 2 left a non-empty exact analysis
+directory, while ordinary prepare intentionally refuses to overwrite it.
+
+The candidate passes `prepare_existing_policy=archive` only for persisted
+`resume`/`rerun_failed` modes, validates that policy again in the node200 gate,
+and maps it to the WGS prepare tool's existing atomic archive operation. It
+also recovers the failed business projection when a cleared contract-v2 task
+registers a new generation, with an audit event containing attempt, stage and
+generation. New runs retain the fail-closed behavior and regular recovery can
+never request `clean`.
+
+Validation on BS10610: backend full suite 423 passed and 1 skipped; runtime
+gate suite 65 passed; focused red tests failed for the three missing behaviors
+before implementation and all focused tests pass afterward. The remaining
+rollout is to deploy backend and the owner-side gate, clear only
+`prepare_wgs_analysis` and its downstream tasks in DagRun
+`WGS_20260907_044653_9C8591-a3`, and verify the original SFS directory moved to
+`.archive/WGS_20260904A_T7Hg38V4.1.1/WGS_20260907_044653_9C8591-a3`.
+
+Rollback: restore the T218 backend image and prior node200 gate. The archived
+directory can be atomically restored only while the replacement batch path is
+absent. Do not delete the archive, OBS FASTQ, results, databases or volumes.
+
 ## 2026-09-07 - Codex - T218 stage terminal/progress consistency
 
 The Step2 display defect on `WGS_20260907_044653_9C8591` was a real failed

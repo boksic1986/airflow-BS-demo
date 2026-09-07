@@ -2028,6 +2028,12 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 use_reference=str(params.get("use_reference") or "") or None,
                 analysis_batch=str(params.get("analysis_batch") or "") or None,
                 validation_scope=str(params.get("validation_scope") or "") or None,
+                prepare_existing_policy=(
+                    "archive"
+                    if stage_name == "prepare_analysis"
+                    and run.mode in {"resume", "rerun_failed"}
+                    else None
+                ),
                 maintenance_action_id=request.maintenance_action_id,
             )
             contract_v2 = bool(getattr(settings, "wgs_contract_v2_enabled", False)) and int(
@@ -2082,6 +2088,22 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                         "predecessor_receipt_hash": execution.predecessor_receipt_hash,
                     }
                 )
+                if request.force_new_generation and run.status == "failed":
+                    run.status = "running"
+                    run.ended_at = None
+                    run.pipeline_finished_at = None
+                    run.error_summary = None
+                    audit(
+                        session=session,
+                        username="airflow-internal",
+                        action="run.stage_retry_recovered",
+                        analysis_id=analysis_id,
+                        payload={
+                            "attempt": request.attempt,
+                            "stage": stage_name,
+                            "generation": execution.generation,
+                        },
+                    )
             path = write_stage_request(
                 settings.wgs_runtime_request_root,
                 payload,

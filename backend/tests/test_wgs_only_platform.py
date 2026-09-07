@@ -1396,7 +1396,6 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     assert request["pipeline_release_id"] == "wgs-4.1.1-1656b5d"
     assert request["wgs_source_commit"] == "1656b5d7a6e2f24242c38149f6d1c92ac266cd37"
     assert "node200_pipeline_snapshot_path" not in request
-
     acquire = client.post(
         f"/api/internal/wgs/runs/{analysis_id}/stages/acquire_input_transfer_slot",
         headers=internal,
@@ -1518,6 +1517,48 @@ def test_internal_runtime_uses_4_1_1_stages_and_releases_transfer_lease(
     assert [item["job_name"] for item in pods_response.json()["items"]] == [
         "cce-master-0123456789abcdef0123"
     ]
+
+
+def test_rerun_prepare_analysis_request_uses_archive_policy(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "WGS_Clinical",
+            "execution_mode": "cce",
+            "batch_no": "WGS_20260904A_T7Hg38V4.1.1",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    force_legacy_contract(sessions, analysis_id)
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.attempt = 3
+        run.mode = "rerun_failed"
+
+    monkeypatch.setenv("WGS_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    response = client.post(
+        f"/api/internal/wgs/runs/{analysis_id}/stages/prepare_analysis",
+        headers={"X-Airflow-Demo-Token": "internal-test-token"},
+        json={
+            "attempt": 3,
+            "adapter": "wgs-runtime-200",
+            "command": f"wgs-runtime {analysis_id} 3 prepare_analysis",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    request = json.loads(
+        Path(response.json()["request_path"]).read_text(encoding="utf-8")
+    )
+    assert request["prepare_existing_policy"] == "archive"
 
 
 def test_finalize_run_records_immutable_business_completion_time(tmp_path, monkeypatch):
@@ -2177,6 +2218,16 @@ def test_forced_prepare_retry_imports_terminal_receipt_before_new_generation(
         json.dumps(status_payload),
         encoding="utf-8",
     )
+    failed_at = datetime(2026, 9, 6, 0, 1, tzinfo=timezone.utc)
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.status = "failed"
+        run.current_stage = "prepare_analysis"
+        run.ended_at = failed_at
+        run.pipeline_finished_at = failed_at
+        run.error_summary = "frozen bundle was removed"
 
     retried = client.post(
         f"/api/internal/wgs/runs/{analysis_id}/stages/prepare_analysis",
@@ -2199,6 +2250,23 @@ def test_forced_prepare_retry_imports_terminal_receipt_before_new_generation(
             "failed",
             "accepted",
         ]
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        assert run.status == "running"
+        assert run.current_stage == "prepare_analysis"
+        assert run.ended_at is None
+        assert run.pipeline_finished_at is None
+        assert run.error_summary is None
+        recovery = session.scalar(
+            select(AuditLog).where(
+                AuditLog.analysis_id == analysis_id,
+                AuditLog.action == "run.stage_retry_recovered",
+            )
+        )
+        assert recovery is not None
+        assert recovery.payload_json["stage"] == "prepare_analysis"
+        assert recovery.payload_json["generation"] == 2
 
 
 def test_step4_stage_registration_recovers_known_master_completion_race(

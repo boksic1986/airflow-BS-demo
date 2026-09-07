@@ -417,6 +417,13 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
     }.get(stage)
     if subcommand is None:
         raise ValueError("unsupported WGS prepare stage")
+    prepare_existing_policy = payload.get("prepare_existing_policy")
+    if prepare_existing_policy is not None and (
+        stage != "prepare_analysis" or prepare_existing_policy != "archive"
+    ):
+        raise ValueError(
+            "prepare_existing_policy only supports archive for prepare_analysis"
+        )
     command = [
         WGS_PYTHON,
         str(WGS_REPO_ROOT / "prepare" / "prepare_wgs_batch.py"),
@@ -464,6 +471,8 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
             and int(payload["attempt"]) > 1
         ):
             command.extend(["--cce-from-zero", "clean"])
+        elif prepare_existing_policy == "archive":
+            command.extend(["--cce-from-zero", "archive"])
     return command
 
 

@@ -1,5 +1,14 @@
 # 07 Airflow DAG 设计
 
+## T219 failed prepare recovery
+
+An audited WGS `resume` or `rerun_failed` may restart
+`prepare_wgs_analysis` against an existing exact batch directory. The backend
+adds an archive-only policy to the owner-side runtime request; the restricted
+gate invokes the existing atomic `--cce-from-zero archive` behavior. Clearing
+the failed task creates a new stage generation and downstream tasks continue
+from prepare without rerunning Step1. New submissions remain overwrite-safe.
+
 ## T218 failed runtime evidence barrier
 
 All restricted node200 stage invocations share a bounded failed-stage evidence

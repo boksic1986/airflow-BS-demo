@@ -1,5 +1,15 @@
 # 05 API Contract
 
+## T219 WGS prepare rerun archive policy
+
+The internal WGS runtime request may contain
+`prepare_existing_policy: archive` only for `prepare_analysis` when the
+persisted run mode is `resume` or `rerun_failed`. The field is server-derived;
+it is not accepted from the public Submit Run payload. Any other value or
+stage is rejected. A forced contract-v2 stage generation that restarts a
+failed run records `run.stage_retry_recovered` with its attempt, stage and
+generation.
+
 ## T218 repeated DagRun failure and stage projection
 
 `POST /api/internal/wgs/runs/{analysis_id}/dag-terminal` remains idempotent for

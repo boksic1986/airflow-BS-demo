@@ -1,5 +1,16 @@
 # 11 部署 Runbook
 
+## T219 recover a rerun blocked by an existing analysis directory
+
+Use this only after confirming the run is a persisted `resume` or
+`rerun_failed`, the exact Airflow DagRun is terminal, and no WGS runtime work is
+active. Deploy the backend and matching node200 gate, then clear
+`prepare_wgs_analysis` and its downstream tasks in the same DagRun. The new
+stage generation must carry `prepare_existing_policy=archive`; node200 moves
+the exact old batch directory to `.archive/<batch>/<analysis-id>-a<attempt>`
+before preparing the replacement. Verify the archive exists and Step1 starts
+before considering the recovery successful. Never substitute `clean`.
+
 ## T216 staged Submit Run preflight and failure projection
 
 Before enabling manual WGS submission, verify the two independent gate layers:

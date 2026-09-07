@@ -67,6 +67,7 @@ def build_stage_request(
     predecessor_generation: int | None = None,
     predecessor_receipt_hash: str | None = None,
     validation_scope: str | None = None,
+    prepare_existing_policy: str | None = None,
 ) -> dict[str, object]:
     if ANALYSIS_ID_RE.fullmatch(analysis_id) is None:
         raise ValueError("invalid WGS analysis_id")
@@ -131,6 +132,12 @@ def build_stage_request(
         if validation_scope not in {"step1_only", "step3_dryrun", "node97_full"}:
             raise ValueError("unsupported WGS validation scope")
         payload["validation_scope"] = validation_scope
+    if prepare_existing_policy is not None:
+        if stage != "prepare_analysis" or prepare_existing_policy != "archive":
+            raise ValueError(
+                "prepare_existing_policy only supports archive for prepare_analysis"
+            )
+        payload["prepare_existing_policy"] = prepare_existing_policy
     if stage == "step7_cleanup":
         if not maintenance_action_id or SAFE_COMPONENT_RE.fullmatch(maintenance_action_id) is None:
             raise ValueError("Step7 cleanup requires a valid maintenance_action_id")

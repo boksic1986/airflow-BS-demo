@@ -1,5 +1,28 @@
 # CURRENT_STATE.md
 
+## 2026-09-07 T219 WGS rerun archive recovery
+
+After the user removed the stale OBS result prefix, attempt 3 of
+`WGS_20260907_044653_9C8591` reached `prepare_wgs_analysis` but failed before
+Step1. The exact SFS directory from attempt 2 still contained the generated
+WGS bundle, and `prepare_wgs_batch.py` correctly rejected an implicit
+overwrite. This exposed a recovery contract gap: `rerun_failed` created a new
+attempt, but the runtime request did not distinguish an audited rerun from a
+new run.
+
+T219 adds an explicit `prepare_existing_policy=archive` to prepare-analysis
+requests only when the persisted run mode is `resume` or `rerun_failed`.
+node200 maps only that exact value to `--cce-from-zero archive`; ordinary runs
+still receive no overwrite flag, and `clean` remains limited to the existing
+isolated node97 validation path. A cleared failed contract-v2 stage also
+restores the business projection to running when its new generation is
+registered and writes `run.stage_retry_recovered` to the audit log.
+
+Candidate validation on BS10610 passed: backend 423 tests with 1 skipped and
+the complete node200 runtime-gate suite 65 tests. Deployment and exact attempt
+3 recovery are in progress. The existing SFS batch must be archived, not
+deleted, and Step1 must not be repeated.
+
 ## 2026-09-07 T218 WGS stage terminal evidence consistency
 
 Attempt 2 of `WGS_20260907_044653_9C8591` completed Step1, then Step2 failed

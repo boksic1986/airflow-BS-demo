@@ -1,5 +1,38 @@
 # TASKS.md
 
+## T219 - Recover audited WGS reruns from an existing analysis directory
+
+Owner: backend/runtime/QA/docs
+
+Status: implementation and tests complete; BS10610 recovery rollout in progress
+
+Dependencies: T218
+
+Scope:
+- Carry an explicit `prepare_existing_policy=archive` only for WGS
+  `resume`/`rerun_failed` prepare-analysis requests.
+- Keep ordinary new runs and ordinary task retries fail-closed when an exact
+  analysis directory already contains data.
+- Allow a cleared contract-v2 stage to create a new generation and restore the
+  business run projection from failed to running with an audit record.
+- Resume attempt 3 of `WGS_20260907_044653_9C8591` after the user removed its
+  stale OBS result prefix, without deleting the existing SFS project.
+
+Acceptance:
+- [x] Backend request and recovery regression tests pass.
+- [x] node200 gate permits only `prepare_analysis + archive` and rejects
+  `clean` or use on another stage.
+- [x] Backend full suite: 423 passed, 1 skipped.
+- [x] Runtime gate suite: 65 passed.
+- [ ] Deploy backend/gate and resume the exact failed DagRun from prepare.
+- [ ] Verify the old SFS directory is present under its exact `.archive` path
+  and the resumed run advances past prepare.
+
+Restrictions:
+- Never use `clean` for a normal rerun.
+- Never archive a directory outside the catalog-controlled exact batch root.
+- Do not repeat Step1 or create a fourth attempt for this recovery.
+
 ## T218 - Unify WGS stage terminal evidence and unavailable progress
 
 Owner: backend/Airflow/frontend/QA/docs

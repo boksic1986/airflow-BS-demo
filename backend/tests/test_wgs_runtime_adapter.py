@@ -59,6 +59,46 @@ def test_stage_request_v4_separates_control_and_analysis_roots(
     assert "cce_pipeline_wheel_sha256" not in request
 
 
+def test_prepare_analysis_request_accepts_audited_archive_policy(tmp_path: Path) -> None:
+    request = build_stage_request(
+        analysis_id="WGS_20260826_010203_A1B2C3",
+        attempt=3,
+        stage="prepare_analysis",
+        pipeline_release_id=RELEASE_ID,
+        wgs_version="V4.1.1",
+        wgs_source_commit=WGS_COMMIT,
+        control_runtime_root="/sg2/runtime",
+        analysis_project_root="/sg2/analysis",
+        project_name="WGS_Clinical",
+        batch_no="WGS_20260904A_T7Hg38V4.1.1",
+        fq_path="/sg2/fastq/20260904A",
+        prepare_existing_policy="archive",
+    )
+
+    assert request["prepare_existing_policy"] == "archive"
+
+
+@pytest.mark.parametrize("stage,policy", [("prepare", "archive"), ("prepare_analysis", "clean")])
+def test_prepare_existing_policy_is_narrowly_scoped(
+    tmp_path: Path, stage: str, policy: str
+) -> None:
+    with pytest.raises(ValueError, match="prepare_existing_policy"):
+        build_stage_request(
+            analysis_id="WGS_20260826_010203_A1B2C3",
+            attempt=3,
+            stage=stage,
+            pipeline_release_id=RELEASE_ID,
+            wgs_version="V4.1.1",
+            wgs_source_commit=WGS_COMMIT,
+            control_runtime_root="/sg2/runtime",
+            analysis_project_root="/sg2/analysis",
+            project_name="WGS_Clinical",
+            batch_no="WGS_20260904A_T7Hg38V4.1.1",
+            fq_path="/sg2/fastq/20260904A",
+            prepare_existing_policy=policy,
+        )
+
+
 @pytest.mark.parametrize(
     "stage",
     [
