@@ -131,6 +131,7 @@ def test_auto_dispatch_creates_one_preapproved_run_and_repeat_is_idempotent(
     assert row.analysis_id == run.analysis_id
     assert run.params_json["submission_mode"] == "auto_dispatch"
     assert run.params_json["sequencing_batch"] == "20260904B"
+    assert run.params_json["orchestration_contract_version"] == 1
     assert dispatch.analysis_id == run.analysis_id
     assert dispatch.desired_mode == "cce"
     assert dispatch.desired_target == "cce"

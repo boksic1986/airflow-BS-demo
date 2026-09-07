@@ -1,5 +1,18 @@
 # TASKS.md
 
+## T225 - Reconcile automatic WGS run contract with the production gate
+
+Owner: WGS/backend/operations
+
+Status: completed in production
+
+Acceptance:
+- [x] Identify the Preparing WGS batch loop as a v2 run/v1 runtime mismatch.
+- [x] Recover 20260906B without rebuilding its DagRun or attempt.
+- [x] Select the persisted orchestration contract from `wgs_contract_v2_enabled` for new runs.
+- [x] Keep production on v1 and retain v2 for later controlled activation.
+- [x] Confirm Step1 upload starts and automatic intake remains idempotent.
+
 ## T224 - Activate production WGS automatic intake
 
 Owner: WGS/operations

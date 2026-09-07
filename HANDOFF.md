@@ -1,5 +1,13 @@
 # HANDOFF.md
 
+## 2026-09-07 T225 automatic-run contract mismatch recovery
+
+`20260906B` (`WGS_20260907_152648_54EFF2-a1`) was not slow in sample preparation. Its prepare status was already successful, but the observer returned HTTP 500 because run creation persisted contract v2 while production backend and Airflow had `WGS_CONTRACT_V2_ENABLED=false`; the v1 evidence therefore had no v2 execution identity.
+
+The run's contract field alone was changed from 2 to 1 under an exact row/state guard and recorded as `run.orchestration_contract_reconciled`. The same DagRun and attempt then completed prepare, prepare_analysis and execution commit and started Step1 upload. Source now derives the new-run contract from `wgs_contract_v2_enabled`; v2 remains intact for later activation.
+
+Production `.96` points to `/data/airflow-WGS/releases/20260907-t225-contract-gate-r1`. Backend, scanner and observer were recreated against the existing T219 image and new source mount. Airflow scheduler/worker/API and the running CCE workflow were not restarted. The frontend restart only refreshed backend DNS. Focused red/green validation was 1 expected failure before the fix, then auto-dispatch 3/3 and explicit v2 paths 2/2 passing. Rollback is to repoint `current` to `20260907-wgs-4.1.1-6c98281-auto-dispatch-r1` and recreate the same three source-mounted services; the one recovered run should remain on v1.
+
 ## 2026-09-07 T224 production automatic intake activation
 
 Production `.96` now points to `/data/airflow-WGS/releases/20260907-wgs-4.1.1-6c98281-auto-dispatch-r1`. The release enables `scheduled_scan_enabled` and `auto_dispatch_enabled`; existing environment gates and activation watermark were retained. Before activation, `20260906B` was the only unlinked ready batch. The idempotent dispatch linked/skipped eight existing analyses and submitted `20260906B` as `WGS_20260907_152648_54EFF2-a1`; Airflow reported it running. Scanner state reports enabled/auto-dispatch true with no error.

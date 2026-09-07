@@ -100,7 +100,9 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
             "analysis_batch": analysis_batch,
             "fastq_root": fastq_root or canonical_source,
             "use_reference": use_reference,
-            "orchestration_contract_version": 2,
+            "orchestration_contract_version": (
+                2 if bool(getattr(settings, "wgs_contract_v2_enabled", False)) else 1
+            ),
         },
         submitted_by=submitted_by,
     )

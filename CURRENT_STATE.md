@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-07 T225 WGS orchestration contract gate reconciliation
+
+```text
+incident: automatic run WGS_20260907_152648_54EFF2 for batch 20260906B stalled at Preparing WGS batch because run creation hard-coded orchestration contract v2 while production backend/Airflow had WGS_CONTRACT_V2_ENABLED=false. The v1 prepare status was complete, but the observer correctly rejected it as incomplete v2 evidence.
+recovery: only that run was transactionally reconciled from contract 2 to 1 with an audit record. Its existing DagRun and attempt were retained; prepare, prepare_analysis and execution commit completed, and Step1 upload started.
+fix: new WGS runs now select contract 1 or 2 from wgs_contract_v2_enabled. Contract v2 implementation remains available for later activation; production stays on v1.
+deployment: current -> /data/airflow-WGS/releases/20260907-t225-contract-gate-r1. Only backend, intake scanner and observer were recreated from the existing T219 image/source mount; Airflow and CCE work were not restarted. Frontend was restarted only to refresh backend DNS.
+validation: focused auto-dispatch test failed before the fix (expected 1, got 2), then passed 3/3; explicit v2 gate/prepare tests passed 2/2. No broader repeated validation was run by request.
+```
+
 ## 2026-09-07 T224 WGS automatic intake activation
 
 ```text
