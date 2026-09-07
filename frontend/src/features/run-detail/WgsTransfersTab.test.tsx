@@ -47,5 +47,6 @@ describe("WgsTransfersTab", () => {
     expect(screen.getByText("S1_R1.fastq.gz")).toBeInTheDocument();
     expect(screen.getByText(/50.0%/)).toBeInTheDocument();
     expect(screen.getByText("64.0 MiB/s")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", {name: "S1_R1.fastq.gz progress"})).toHaveAttribute("aria-valuenow", "50");
   });
 });

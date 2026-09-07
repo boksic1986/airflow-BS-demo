@@ -82,6 +82,7 @@ it("formats byte-based Run Tracker stage progress in readable units", () => {
   }]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={vi.fn()} onKeywordChange={vi.fn()} onPageChange={vi.fn()} onSubmit={vi.fn()} onSync={vi.fn()} /></MemoryRouter>);
 
   expect(screen.getByText("1.0 GiB / 2.0 GiB")).toBeInTheDocument();
+  expect(screen.getByRole("progressbar", {name: "WGS_TRANSFER progress"})).toHaveAttribute("aria-valuenow", "25");
   expect(screen.queryByText(/1073741824\/2147483648 bytes/)).not.toBeInTheDocument();
 });
 

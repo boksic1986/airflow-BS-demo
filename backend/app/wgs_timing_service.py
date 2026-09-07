@@ -74,14 +74,26 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
 
 
 def enrich_progress(*, session, run: AnalysisRun, payload: dict) -> dict:
-    raw_stage = str(run.current_stage or payload.get("current_step") or "created")
-    stage = canonical_wgs_stage(raw_stage, run.status)
     stage_rows = session.scalars(
         select(RunStageState).where(
             RunStageState.analysis_id == run.analysis_id,
             RunStageState.attempt == run.attempt,
         )
     ).all()
+    raw_stage = str(run.current_stage or payload.get("current_step") or "created")
+    active_stage_rows = [
+        row
+        for row in stage_rows
+        if str(row.stage_status or "").lower()
+        in {"accepted", "submitted", "queued", "running", "started", "retrying"}
+    ]
+    if active_stage_rows:
+        latest_active_stage = max(
+            active_stage_rows,
+            key=lambda row: row.updated_at or row.started_at or run.created_at,
+        )
+        raw_stage = latest_active_stage.stage_code
+    stage = canonical_wgs_stage(raw_stage, run.status)
     stage_row = next((row for row in stage_rows if row.stage_code == stage), None)
     stage_definition = wgs_stage_definition(stage)
     progress_available = bool(stage_row and stage_row.progress_available)

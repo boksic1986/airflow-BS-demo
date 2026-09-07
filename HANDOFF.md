@@ -1,5 +1,23 @@
 # HANDOFF.md
 
+## 2026-09-07 - Codex - T217 transfer progress presentation
+
+Run Detail already received exact OBS SDK callback evidence for attempt 2 of
+`WGS_20260907_044653_9C8591`, including aggregate and per-file bytes. Two
+presentation defects remained: file rows rendered that evidence as text only,
+and Run Tracker chose stale `AnalysisRun.current_stage=release_leases`, so it
+reported `Preparing WGS batch / Detailed progress unavailable`.
+
+The backend candidate now selects the freshest active `RunStageState` for the
+current attempt before enriching WGS progress. The frontend adds accessible
+per-file bars while retaining exact byte totals and speed. A direct regression
+against the production database projected the live run as `Uploading FASTQ`
+with exact stage progress; no transfer or Airflow worker was restarted.
+
+Deployment validation and final release details are recorded below when T217
+is promoted. Roll back by restoring the T216 backend/frontend images only;
+there is no migration or data rewrite.
+
 ## 2026-09-07 - Codex - T216 staged Submit Run repaired
 
 Batch `20260904A` initially created `WGS_20260907_044653_9C8591`, but its first

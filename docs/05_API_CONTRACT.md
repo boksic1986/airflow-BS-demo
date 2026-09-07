@@ -1,5 +1,16 @@
 # 05 API Contract
 
+## T217 WGS active-stage progress projection
+
+The response shape of `GET /api/dashboard/runs` is unchanged. For an active WGS
+run, `stage_code`, `current_stage_label` and `stage_progress` come from the
+freshest active `RunStageState` for the current attempt. This takes precedence
+over a stale `AnalysisRun.current_stage` left by an earlier Airflow task.
+
+Exact transfer progress remains authoritative only when
+`stage_progress.available=true`; consumers must keep the explicit unavailable
+state otherwise. Terminal and historical projection behavior is unchanged.
+
 ## T216 WGS DagRun terminal projection
 
 `POST /api/internal/wgs/runs/{analysis_id}/dag-terminal` is an internal

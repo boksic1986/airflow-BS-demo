@@ -3620,6 +3620,21 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.transfer-file-progress {
+  display: grid;
+  gap: 5px;
+  min-width: 13rem;
+}
+
+.transfer-file-progress .progress-track {
+  height: 7px;
+}
+
+.transfer-file-progress small {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
 .destructive-panel { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); }
 
 @media (max-width: 900px) {

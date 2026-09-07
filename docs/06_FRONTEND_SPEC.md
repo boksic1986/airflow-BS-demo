@@ -1,5 +1,16 @@
 # 06 前端设计
 
+## T217 exact transfer progress presentation
+
+- Run Tracker renders the authoritative active `RunStageState` progress for WGS
+  byte-transfer stages. A stale `AnalysisRun.current_stage` must not replace a
+  newer running transfer with `Detailed progress unavailable`.
+- The Transfers tab renders an accessible progress bar for the aggregate
+  transfer and for every paged file row. Each row keeps the exact transferred
+  bytes, total bytes and instantaneous speed beside the bar.
+- Missing observer evidence remains an explicit unavailable state. The browser
+  does not estimate file or stage progress from elapsed time.
+
 ## T209 execution target selector
 
 Submit Run stage 3 and WGS Run Detail share one segmented selector:

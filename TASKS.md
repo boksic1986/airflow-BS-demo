@@ -1,5 +1,31 @@
 # TASKS.md
 
+## T217 - Restore WGS transfer progress bars
+
+Owner: backend/frontend/QA/docs
+
+Status: in progress in BS10610 test environment
+
+Dependencies: T216
+
+Scope:
+- Prefer the current attempt's active stage evidence over a stale run-level
+  stage when building WGS Run Tracker rows.
+- Render an accessible progress bar for each file in Run Detail Transfers.
+- Preserve exact observer bytes/speed and the explicit unavailable state.
+
+Acceptance:
+- [x] Backend regression reproduces the stale `release_leases` versus running
+  `step1_upload` projection and returns exact transfer progress after the fix.
+- [x] Frontend tests cover aggregate Run Tracker and per-file progress bars.
+- [ ] Build and deploy backend/frontend release layers on BS10610.
+- [ ] Verify the active `20260904A` upload displays the same progress in Run
+  Tracker and Run Detail without restarting the worker.
+
+Restrictions:
+- Do not restart the Airflow worker while Step1 upload is active.
+- Do not fabricate progress when exact stage evidence is unavailable.
+
 ## T216 - Repair staged WGS submission failure projection
 
 Owner: backend/Airflow/runtime/QA/docs

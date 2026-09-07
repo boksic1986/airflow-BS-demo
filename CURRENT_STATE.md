@@ -1,5 +1,19 @@
 # CURRENT_STATE.md
 
+## 2026-09-07 T217 WGS transfer progress projection
+
+The active attempt 2 of `WGS_20260907_044653_9C8591` exposed exact Step1 OBS
+SDK progress in Run Detail, but Run Tracker displayed `Preparing WGS batch` and
+`Detailed progress unavailable`. The transfer was healthy; the dashboard
+projection selected stale `AnalysisRun.current_stage=release_leases` before it
+looked at the active `RunStageState(step1_upload)` evidence.
+
+T217 makes the freshest active stage evidence authoritative for an active WGS
+attempt and adds progress bars to every paged transfer-file row. The response
+schema and transfer observer contract are unchanged. Candidate verification
+has reproduced the original failure and confirmed the corrected projection
+against the live run without restarting the transfer worker.
+
 ## 2026-09-07 T216 staged submission terminal-state repair
 
 incident: batch `20260904A` created business run

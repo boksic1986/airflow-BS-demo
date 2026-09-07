@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import main
+from app.dashboard_service import get_dashboard_runs
 from app.models import AnalysisRun, Base, IntakeDiscovery, QcMetric, RunStageState, Sample, SnakemakeRuleEvent
 
 
@@ -390,6 +391,69 @@ def test_wgs_tracker_exposes_batch_and_authoritative_stage_progress(tmp_path, mo
     assert item["stage_progress"]["percent"] == 99
     assert item["stage_progress"]["completed_units"] == 206
     assert item["stage_progress"]["total_units"] == 209
+
+
+def test_wgs_tracker_prefers_active_stage_evidence_over_stale_run_stage(tmp_path, monkeypatch) -> None:
+    session_factory = make_test_sessionmaker()
+    now = datetime.now(timezone.utc)
+    with session_factory() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id="WGS_TRACKER_TRANSFER",
+                pipeline_name="wgs",
+                dag_id="bio_wgs",
+                dag_run_id="manual__WGS_TRACKER_TRANSFER",
+                mode="rerun_failed",
+                execution_mode="cce",
+                attempt=2,
+                status="running",
+                workdir=str(tmp_path / "WGS_TRACKER_TRANSFER"),
+                current_stage="release_leases",
+                params_json={
+                    "project_name": "WGS_Clinical",
+                    "analysis_batch": "20260904A",
+                    "pipeline_release_id": "wgs-4.1.1-test",
+                },
+                created_at=now,
+                submitted_at=now,
+                started_at=now,
+            )
+        )
+        session.add(
+            RunStageState(
+                analysis_id="WGS_TRACKER_TRANSFER",
+                attempt=2,
+                stage_code="step1_upload",
+                step_number=1,
+                stage_label="Uploading FASTQ",
+                stage_status="running",
+                progress_available=True,
+                progress_percent=20,
+                completed_units=62_120_591_360,
+                total_units=312_416_298_276,
+                unit="bytes",
+                speed_bps=127_040_640,
+                progress_source="obs-sdk-callback",
+                updated_at=now,
+            )
+        )
+        session.commit()
+    with session_factory() as session:
+        item = get_dashboard_runs(
+            session=session,
+            airflow_client=FakeAirflowClient(),
+            pipeline="wgs",
+            status=None,
+            keyword=None,
+            limit=10,
+            offset=0,
+            deployed_pipelines=("wgs",),
+        )["items"][0]
+
+    assert item["current_stage_label"] == "Uploading FASTQ"
+    assert item["stage_code"] == "step1_upload"
+    assert item["stage_progress"]["available"] is True
+    assert item["stage_progress"]["percent"] == 20
 
 
 def test_wgs_dry_run_is_success_without_qc_pending_and_catalog_is_explicit(tmp_path, monkeypatch) -> None:

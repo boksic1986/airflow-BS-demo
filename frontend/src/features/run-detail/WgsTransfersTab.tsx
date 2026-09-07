@@ -66,9 +66,28 @@ function TransferFiles({transferId}: {transferId: string}) {
   if (error) return <div className="inline-error" role="alert">File progress unavailable: {error} <button className="button ghost" type="button" onClick={() => void load()}><RefreshCw size={14} />Retry</button></div>;
   return <div className="transfer-files">
     <div className="table-wrap"><table className="data-table compact"><thead><tr><th>File</th><th>Status</th><th>Progress</th><th>Speed</th><th>Checksum</th></tr></thead><tbody>
-      {items.map((item) => <tr key={item.file_key}><td><strong>{item.display_name}</strong>{item.error_message ? <small className="cell-error">{item.error_message}</small> : null}</td><td><StatusBadge status={item.status} /></td><td>{item.progress_percent.toFixed(1)}% · {formatBytes(item.bytes_transferred)} / {formatBytes(item.bytes_total)}</td><td>{item.speed_bps ? `${formatBytes(item.speed_bps)}/s` : "-"}</td><td>{item.checksum_status || "pending"}</td></tr>)}
+      {items.map((item) => <tr key={item.file_key}><td><strong>{item.display_name}</strong>{item.error_message ? <small className="cell-error">{item.error_message}</small> : null}</td><td><StatusBadge status={item.status} /></td><td><FileProgress item={item} /></td><td>{item.speed_bps ? `${formatBytes(item.speed_bps)}/s` : "-"}</td><td>{item.checksum_status || "pending"}</td></tr>)}
       {items.length === 0 ? <tr><td className="empty-cell" colSpan={5}>No per-file progress has been imported yet.</td></tr> : null}
     </tbody></table></div>
     <div className="pagination-row"><span>{total ? `${offset + 1}-${Math.min(offset + PAGE_SIZE, total)} of ${total}` : "0 files"}</span><div><button className="button ghost" type="button" disabled={offset === 0} onClick={() => setOffset((value) => Math.max(0, value - PAGE_SIZE))}>Previous</button><button className="button ghost" type="button" disabled={offset + PAGE_SIZE >= total} onClick={() => setOffset((value) => value + PAGE_SIZE)}>Next</button></div></div>
+  </div>;
+}
+
+function FileProgress({item}: {item: WgsTransferFile}) {
+  const percent = Math.min(100, Math.max(0, item.progress_percent));
+  const status = String(item.status || "").toLowerCase();
+  const tone = status === "success" ? "success" : status === "failed" || status === "error" ? "failed" : "running";
+  return <div className="transfer-file-progress">
+    <div
+      aria-label={`${item.display_name} progress`}
+      aria-valuemax={100}
+      aria-valuemin={0}
+      aria-valuenow={percent}
+      className={`progress-track progress-${tone}`}
+      role="progressbar"
+    >
+      <span style={{width: `${percent}%`}} />
+    </div>
+    <small>{percent.toFixed(1)}% · {formatBytes(item.bytes_transferred)} / {formatBytes(item.bytes_total)}</small>
   </div>;
 }
