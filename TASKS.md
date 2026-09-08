@@ -1,5 +1,20 @@
 # TASKS.md
 
+## T234 - Simplify Run Tracker presentation
+
+Owner: frontend
+
+Status: implementation validated; production synchronization pending
+
+Acceptance:
+- [x] Left-align the Project heading and all Project cell content.
+- [x] Hide Data lifecycle from Run Tracker while retaining it in Run Detail and the API.
+- [x] Restore the pre-T231 Run Tracker font sizes and retain responsive column widths.
+- [x] Reassign freed width primarily to Project, Current stage and Stage progress.
+- [x] Right-align the Stage progress percentage above its progress bar.
+- [x] Pass focused frontend regressions and one production build without network access.
+- [ ] Commit, synchronize `main`, and deploy only `frontend-nginx`.
+
 ## T233 - Dashboard resource alignment and scanner wording
 
 Owner: frontend

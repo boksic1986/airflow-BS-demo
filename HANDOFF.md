@@ -1,5 +1,15 @@
 # HANDOFF.md
 
+## 2026-09-08 T234 Run Tracker readability
+
+T234 is a frontend-only presentation refinement. Project is now the single left-aligned Run Tracker column, including its source badge. Data lifecycle is omitted from the compact tracker because the current frontend does not expose delivery actions and the repeated not-started rows obscured more actionable state. The API contract and full Run Detail lifecycle panel remain unchanged.
+
+The <=1920 font reductions introduced by T231 were removed, restoring the earlier type scale while retaining T230 responsive widths. Removing the lifecycle column allows Project, Current stage and Stage progress to receive more width without bringing back 1080P overlap. Stage progress percentages are aligned to the right edge above their bars; all other categorical/status columns remain centered.
+
+TDD evidence: all three new Run Tracker assertions failed against the old presentation (lifecycle still present, Project source centered and progress label not end-aligned). After the minimal implementation, the related cached-image suite passed 3 files / 16 tests, including the existing Run Detail lifecycle regression. The single network-disabled TypeScript/Vite production build passed and emitted `index-DL_OBuRj.css` and `index-CKvWmPaz.js`. No Docker Hub access or dependency download was used.
+
+Production deployment and rollback evidence will be appended after the frontend-only cutover.
+
 ## 2026-09-08 T233 Dashboard resource alignment and scanner wording
 
 T233 is a frontend-only Dashboard correction. `DashboardResourcePanels` now sits in `dashboard-main-column` immediately below the T7 scanner, so its collective left and right boundaries match Run Tracker and T7. Existing responsive rules retain three equal desktop columns, two columns at <=1480px with SFS I/O spanning the second row, and one column at <=860px.

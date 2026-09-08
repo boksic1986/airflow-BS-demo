@@ -7,7 +7,6 @@ import {isActiveStatus, normalizeStatus} from "../lib/status";
 import {RunProgressBar} from "./RunProgressBar";
 import {StatusBadge} from "./StatusBadge";
 import {OperationProjectCell, OperationRuntimeCell} from "./OperationCells";
-import {LifecycleStatusBadge} from "../features/run-detail/DataLifecyclePanel";
 
 export type RunTrackerFilter = "all" | "active" | "created" | "failed" | "success";
 
@@ -95,7 +94,6 @@ export function RunTracker({
               <col className="run-tracker-col-batch" />
               <col className="run-tracker-col-pipeline" />
               <col className="run-tracker-col-status" />
-              <col className="run-tracker-col-lifecycle" />
               <col className="run-tracker-col-stage" />
               <col className="run-tracker-col-progress" />
               <col className="run-tracker-col-runtime" />
@@ -104,12 +102,11 @@ export function RunTracker({
             </colgroup>
             <thead>
               <tr>
-                <th className="tracker-centered-heading tracker-compact-heading" scope="col">Project</th>
-                <th className="tracker-centered-heading tracker-compact-heading" scope="col">Batch</th>
-                <th className="tracker-centered-heading tracker-compact-heading" scope="col">Pipeline</th>
-                <th className="tracker-centered-heading tracker-compact-heading" scope="col">Status</th>
-                <th className="tracker-centered-heading tracker-compact-heading" scope="col">Data lifecycle</th>
-                <th className="tracker-centered-heading tracker-compact-heading" scope="col">Current stage</th>
+                <th className="tracker-project-heading" scope="col">Project</th>
+                <th className="tracker-centered-heading" scope="col">Batch</th>
+                <th className="tracker-centered-heading" scope="col">Pipeline</th>
+                <th className="tracker-centered-heading" scope="col">Status</th>
+                <th className="tracker-centered-heading" scope="col">Current stage</th>
                 <th className="tracker-centered-heading" scope="col">Stage progress</th>
                 <th className="tracker-centered-heading" scope="col">Runtime / ETA</th>
                 <th className="tracker-centered-heading tracker-time-heading" scope="col">Started</th>
@@ -167,12 +164,12 @@ function RunTrackerRow({
     : null;
   return (
     <tr className={isActiveStatus(status) ? "run-tracker-row active" : "run-tracker-row"}>
-      <td className="tracker-centered-cell tracker-compact-cell">
-        <OperationProjectCell analysisId={row.analysis_id} fallbackId={row.analysis_id} projectName={row.project_name} sampleCount={row.sample_count ?? 0} source={row.run_source || "manual"} sourceBatchId={row.source_batch_id} submittedBy={row.operator_display_name || row.submitted_by} showOperatorPrefix={false} />
+      <td className="tracker-project-cell">
+        <OperationProjectCell analysisId={row.analysis_id} fallbackId={row.analysis_id} projectName={row.project_name} sampleCount={row.sample_count ?? 0} source={row.run_source || "manual"} sourceBatchId={row.source_batch_id} submittedBy={row.operator_display_name || row.submitted_by} showOperatorPrefix={false} centerSource={false} />
       </td>
-      <td className="tracker-centered-cell tracker-compact-cell"><strong>{row.batch_no || row.source_batch_id || "-"}</strong></td>
-      <td className="tracker-centered-cell tracker-compact-cell">{compactPipelineName(row.pipeline)}</td>
-      <td className="tracker-centered-cell tracker-compact-cell">
+      <td className="tracker-centered-cell"><strong>{row.batch_no || row.source_batch_id || "-"}</strong></td>
+      <td className="tracker-centered-cell">{compactPipelineName(row.pipeline)}</td>
+      <td className="tracker-centered-cell">
         <div className="tracker-badges stacked">
           <StatusBadge status={row.display_status || normalizeStatus(row.status)} />
           {row.not_in_airflow ? <span className="handoff-pill">Not in Airflow</span> : null}
@@ -184,13 +181,7 @@ function RunTrackerRow({
           ) : null}
         </div>
       </td>
-      <td className="tracker-centered-cell tracker-compact-cell">
-        {row.lifecycle ? <div className="tracker-lifecycle">
-          <span><small>Cloud</small><LifecycleStatusBadge item={row.lifecycle.cloud_release} successLabel="SFS released" runningLabel="SFS release running" /></span>
-          <span><small>Delivery</small><LifecycleStatusBadge item={row.lifecycle.downstream_release} successLabel="Delivered" runningLabel="Delivery running" /></span>
-        </div> : "-"}
-      </td>
-      <td className="tracker-centered-cell tracker-compact-cell">
+      <td className="tracker-centered-cell">
         <div className="current-stage-cell">
           <strong>{currentStep}</strong>
           {terminalAge ? (

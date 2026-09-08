@@ -214,29 +214,6 @@ a {
   .data-lifecycle-grid { grid-template-columns: 1fr; }
 }
 
-.tracker-lifecycle {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.tracker-lifecycle > span {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.35rem;
-}
-
-.tracker-lifecycle small {
-  color: var(--color-text-muted);
-  font-size: 0.68rem;
-}
-
-.tracker-lifecycle .status-badge {
-  min-height: 22px;
-  padding: 2px 7px;
-  font-size: 0.68rem;
-}
-
 .data-lifecycle-panel .inline-warning {
   margin-top: 0.75rem;
   padding: 0.65rem 0.75rem;
@@ -1494,6 +1471,11 @@ textarea {
   font-size: 12px;
 }
 
+.run-progress-meta.align-end {
+  justify-content: flex-end;
+  text-align: right;
+}
+
 .run-progress-meta span,
 .run-progress p {
   color: #637083;
@@ -1757,18 +1739,17 @@ textarea {
 
 .run-tracker-table {
   width: 100%;
-  min-width: 1320px;
+  min-width: 1260px;
   border-collapse: collapse;
   table-layout: fixed;
 }
 
-.run-tracker-col-project { width: 190px; }
+.run-tracker-col-project { width: 218px; }
 .run-tracker-col-batch { width: 116px; }
 .run-tracker-col-pipeline { width: 72px; }
 .run-tracker-col-status { width: 104px; }
-.run-tracker-col-lifecycle { width: 132px; }
-.run-tracker-col-stage { width: 190px; }
-.run-tracker-col-progress { width: 200px; }
+.run-tracker-col-stage { width: 210px; }
+.run-tracker-col-progress { width: 220px; }
 .run-tracker-col-runtime { width: 118px; }
 .run-tracker-col-time { width: 116px; }
 
@@ -2029,6 +2010,12 @@ textarea {
   vertical-align: middle;
 }
 
+.run-tracker-table th.tracker-project-heading,
+.run-tracker-table td.tracker-project-cell {
+  text-align: left;
+  vertical-align: middle;
+}
+
 .tracker-time-cell time {
   display: grid;
   gap: 1px;
@@ -2036,16 +2023,15 @@ textarea {
 
 @media (max-width: 1920px) {
   .run-tracker-table {
-    min-width: 1230px;
+    min-width: 1150px;
   }
 
-  .run-tracker-col-project { width: 176px; }
+  .run-tracker-col-project { width: 196px; }
   .run-tracker-col-batch { width: 108px; }
   .run-tracker-col-pipeline { width: 68px; }
   .run-tracker-col-status { width: 96px; }
-  .run-tracker-col-lifecycle { width: 128px; }
-  .run-tracker-col-stage { width: 180px; }
-  .run-tracker-col-progress { width: 192px; }
+  .run-tracker-col-stage { width: 196px; }
+  .run-tracker-col-progress { width: 204px; }
   .run-tracker-col-runtime { width: 112px; }
   .run-tracker-col-time { width: 96px; }
 
@@ -2053,45 +2039,6 @@ textarea {
   .run-tracker-table td {
     padding-right: 9px;
     padding-left: 9px;
-  }
-
-  .run-tracker-table th.tracker-compact-heading {
-    font-size: 10px;
-  }
-
-  .run-tracker-table td.tracker-compact-cell {
-    font-size: 12px;
-  }
-
-  .run-tracker-table .tracker-compact-cell .tracker-primary-link,
-  .run-tracker-table .tracker-compact-cell .current-stage-cell strong {
-    font-size: 13px;
-  }
-
-  .run-tracker-table .tracker-compact-cell .tracker-run-link,
-  .run-tracker-table .tracker-compact-cell .operation-project-cell > .muted,
-  .run-tracker-table .tracker-compact-cell .tracker-source-line,
-  .run-tracker-table .tracker-compact-cell .current-stage-cell span,
-  .run-tracker-table .tracker-compact-cell .current-stage-cell small {
-    font-size: 10px;
-  }
-
-  .run-tracker-table .tracker-compact-cell .status-badge,
-  .run-tracker-table .tracker-compact-cell .run-source-tag,
-  .run-tracker-table .tracker-compact-cell .mini-action,
-  .run-tracker-table .tracker-compact-cell .handoff-pill {
-    font-size: 10px;
-  }
-
-  .run-tracker-table .tracker-compact-cell .operation-project-cell,
-  .run-tracker-table .tracker-compact-cell .current-stage-cell {
-    justify-items: center;
-  }
-
-  .run-tracker-table .tracker-compact-cell .tracker-source-line,
-  .run-tracker-table .tracker-compact-cell .tracker-badges.stacked,
-  .run-tracker-table .tracker-compact-cell .tracker-lifecycle > span {
-    justify-content: center;
   }
 
   .run-tracker-table .tracker-centered-cell .runtime-cell {
@@ -2102,10 +2049,6 @@ textarea {
     min-width: 168px;
   }
 
-  .run-tracker-table .tracker-lifecycle .status-badge {
-    padding-right: 5px;
-    padding-left: 5px;
-  }
 }
 
 .tracker-time-cell time span,

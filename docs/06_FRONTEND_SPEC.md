@@ -57,6 +57,13 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 - SFS I/O displays Read, Write and Current IOPS only. The redundant Total metric and binary-unit explanatory sentence are omitted.
 - The T7 WGS discovery table labels the batch timestamp as `最近检查`. The underlying scanner field, interval and refresh behavior are unchanged.
 
+### T234 Run Tracker readability
+
+- Project is the single left-aligned Run Tracker column; its project name, run ID, operator/sample summary and source badge follow one readable text edge. Categorical and status columns remain centered.
+- The compact Run Tracker omits Data lifecycle entirely. Lifecycle data remains available through the unchanged API and the full Run Detail lifecycle panel.
+- The T231 responsive font reductions are removed. T230 responsive widths remain, with the freed lifecycle width reassigned primarily to Project, Current stage and Stage progress.
+- Stage progress places its percentage label at the right edge above the progress bar; the bar and detail text continue to use the same backend projection.
+
 ## Branding
 
 The product label is `NGS Huawei Cloud` with the subtitle `Online analysis platform`. WGS names remain only where they identify the currently deployed workflow or extension.
