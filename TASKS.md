@@ -1,5 +1,19 @@
 # TASKS.md
 
+## T231 - Compact centered Run Tracker cells
+
+Owner: frontend
+
+Status: implemented and remotely validated; production sync pending
+
+Acceptance:
+- [x] Center all Run Tracker headings and cells horizontally and vertically.
+- [x] Use a smaller responsive type scale for Project, Batch, Pipeline, Status, Data lifecycle and Current stage at viewports up to 1920 CSS pixels.
+- [x] Center nested project metadata, status controls, lifecycle rows and current-stage content at the compact breakpoint.
+- [x] Preserve T230 widths and the wider-display type scale.
+- [x] Run a focused red/green regression and production build without network access.
+- [ ] Commit, synchronize `main`, and deploy only `frontend-nginx`.
+
 ## T230 - Run Tracker responsive columns
 
 Owner: frontend

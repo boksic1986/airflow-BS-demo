@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T231 compact centered Run Tracker cells
+
+```text
+scope: frontend-only Run Tracker alignment and 1080P typography refinement; no API, database, workflow or runtime change.
+implementation: all Run Tracker headings and cells carry explicit centered alignment hooks. At viewports up to 1920 CSS pixels, Project, Batch, Pipeline, Status, Data lifecycle and Current stage use a smaller type scale and center their nested content. Wider displays retain the T230 sizes and widths.
+validation: the focused responsive layout regression failed before implementation because the hooks were absent, then passed 1/1. The TypeScript/Vite production build passed in the cached fengxian frontend image with network disabled; assets are index-YXPnA4xQ.css and index-DXn-GGtr.js.
+deployment: pending frontend-only production sync after commit and mainline update.
+```
+
 ## 2026-09-08 T230 responsive Run Tracker columns
 
 ```text

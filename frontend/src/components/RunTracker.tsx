@@ -104,16 +104,16 @@ export function RunTracker({
             </colgroup>
             <thead>
               <tr>
-                <th scope="col">Project</th>
-                <th scope="col">Batch</th>
-                <th scope="col">Pipeline</th>
-                <th scope="col">Status</th>
-                <th scope="col">Data lifecycle</th>
-                <th scope="col">Current stage</th>
-                <th scope="col">Stage progress</th>
-                <th scope="col">Runtime / ETA</th>
-                <th className="tracker-time-heading" scope="col">Started</th>
-                <th className="tracker-time-heading" scope="col">Finished</th>
+                <th className="tracker-centered-heading tracker-compact-heading" scope="col">Project</th>
+                <th className="tracker-centered-heading tracker-compact-heading" scope="col">Batch</th>
+                <th className="tracker-centered-heading tracker-compact-heading" scope="col">Pipeline</th>
+                <th className="tracker-centered-heading tracker-compact-heading" scope="col">Status</th>
+                <th className="tracker-centered-heading tracker-compact-heading" scope="col">Data lifecycle</th>
+                <th className="tracker-centered-heading tracker-compact-heading" scope="col">Current stage</th>
+                <th className="tracker-centered-heading" scope="col">Stage progress</th>
+                <th className="tracker-centered-heading" scope="col">Runtime / ETA</th>
+                <th className="tracker-centered-heading tracker-time-heading" scope="col">Started</th>
+                <th className="tracker-centered-heading tracker-time-heading" scope="col">Finished</th>
               </tr>
             </thead>
             <tbody>
@@ -167,12 +167,12 @@ function RunTrackerRow({
     : null;
   return (
     <tr className={isActiveStatus(status) ? "run-tracker-row active" : "run-tracker-row"}>
-      <td>
+      <td className="tracker-centered-cell tracker-compact-cell">
         <OperationProjectCell analysisId={row.analysis_id} fallbackId={row.analysis_id} projectName={row.project_name} sampleCount={row.sample_count ?? 0} source={row.run_source || "manual"} sourceBatchId={row.source_batch_id} submittedBy={row.operator_display_name || row.submitted_by} showOperatorPrefix={false} />
       </td>
-      <td><strong>{row.batch_no || row.source_batch_id || "-"}</strong></td>
-      <td>{compactPipelineName(row.pipeline)}</td>
-      <td>
+      <td className="tracker-centered-cell tracker-compact-cell"><strong>{row.batch_no || row.source_batch_id || "-"}</strong></td>
+      <td className="tracker-centered-cell tracker-compact-cell">{compactPipelineName(row.pipeline)}</td>
+      <td className="tracker-centered-cell tracker-compact-cell">
         <div className="tracker-badges stacked">
           <StatusBadge status={row.display_status || normalizeStatus(row.status)} />
           {row.not_in_airflow ? <span className="handoff-pill">Not in Airflow</span> : null}
@@ -184,13 +184,13 @@ function RunTrackerRow({
           ) : null}
         </div>
       </td>
-      <td>
+      <td className="tracker-centered-cell tracker-compact-cell">
         {row.lifecycle ? <div className="tracker-lifecycle">
           <span><small>Cloud</small><LifecycleStatusBadge item={row.lifecycle.cloud_release} successLabel="SFS released" runningLabel="SFS release running" /></span>
           <span><small>Delivery</small><LifecycleStatusBadge item={row.lifecycle.downstream_release} successLabel="Delivered" runningLabel="Delivery running" /></span>
         </div> : "-"}
       </td>
-      <td>
+      <td className="tracker-centered-cell tracker-compact-cell">
         <div className="current-stage-cell">
           <strong>{currentStep}</strong>
           {terminalAge ? (
@@ -198,15 +198,15 @@ function RunTrackerRow({
           ) : <span>{row.stage_status || row.status}</span>}
         </div>
       </td>
-      <td className="tracker-progress-cell">
+      <td className="tracker-centered-cell tracker-progress-cell">
         <RunProgressBar analysisId={row.analysis_id} compact progress={{percent: row.stage_progress?.percent ?? row.percent ?? 0, available: row.stage_progress?.available ?? row.progress_available ?? false, label: row.stage_progress?.percent == null ? "Progress pending" : formatPercent(row.stage_progress.percent), currentStep, note, notInAirflow: row.not_in_airflow, status: row.stage_status || row.status}} />
         {row.stage_progress?.available ? <small>{formatProgressUnits(row.stage_progress.completed_units, row.stage_progress.total_units, row.stage_progress.unit)}{row.stage_progress.speed_bps ? ` · ${formatBytes(row.stage_progress.speed_bps)}/s` : ""}{row.stage_progress.eta_seconds != null ? ` · ETA ${formatSecondsDuration(row.stage_progress.eta_seconds)}` : ""}</small> : null}
       </td>
-      <td>
+      <td className="tracker-centered-cell">
         <OperationRuntimeCell elapsedSeconds={row.elapsed_seconds} estimatedRemainingSeconds={row.estimated_remaining_seconds} status={row.status} submitted={Boolean(row.submitted_at)} />
       </td>
-      <td className="tracker-time-cell" title={`Airflow handoff time, displayed in ${displayTimeZoneLabel()}`}><CompactDate value={row.submitted_at} fallback="Not submitted" /></td>
-      <td className="tracker-time-cell" title={`Pipeline completion time, displayed in ${displayTimeZoneLabel()}`}><CompactDate value={row.pipeline_finished_at || row.ended_at} fallback={isActiveStatus(normalizeStatus(row.status)) ? "In progress" : "Not captured"} /></td>
+      <td className="tracker-centered-cell tracker-time-cell" title={`Airflow handoff time, displayed in ${displayTimeZoneLabel()}`}><CompactDate value={row.submitted_at} fallback="Not submitted" /></td>
+      <td className="tracker-centered-cell tracker-time-cell" title={`Pipeline completion time, displayed in ${displayTimeZoneLabel()}`}><CompactDate value={row.pipeline_finished_at || row.ended_at} fallback={isActiveStatus(normalizeStatus(row.status)) ? "In progress" : "Not captured"} /></td>
     </tr>
   );
 }

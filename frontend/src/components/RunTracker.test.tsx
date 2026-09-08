@@ -20,8 +20,8 @@ const row: DashboardRunTrackerRow = {
   not_in_airflow: false,
 };
 
-it("marks Started and Finished headings and cells for centered responsive layout", () => {
-  render(
+it("marks Run Tracker headings and cells for compact centered responsive layout", () => {
+  const {container} = render(
     <MemoryRouter>
       <RunTracker
         rows={[row]}
@@ -43,4 +43,17 @@ it("marks Started and Finished headings and cells for centered responsive layout
   expect(screen.getByRole("columnheader", {name: "Finished"})).toHaveClass("tracker-time-heading");
   expect(screen.getByTitle(/Airflow handoff time/)).toHaveClass("tracker-time-cell");
   expect(screen.getByTitle(/Pipeline completion time/)).toHaveClass("tracker-time-cell");
+
+  const compactHeadings = ["Project", "Batch", "Pipeline", "Status", "Data lifecycle", "Current stage"];
+  compactHeadings.forEach((name) => {
+    expect(screen.getByRole("columnheader", {name})).toHaveClass("tracker-centered-heading", "tracker-compact-heading");
+  });
+
+  const headings = screen.getAllByRole("columnheader");
+  headings.forEach((heading) => expect(heading).toHaveClass("tracker-centered-heading"));
+
+  const cells = Array.from(container.querySelectorAll("tbody td"));
+  expect(cells).toHaveLength(10);
+  cells.forEach((cell) => expect(cell).toHaveClass("tracker-centered-cell"));
+  cells.slice(0, 6).forEach((cell) => expect(cell).toHaveClass("tracker-compact-cell"));
 });

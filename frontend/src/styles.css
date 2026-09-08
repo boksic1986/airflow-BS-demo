@@ -2023,8 +2023,8 @@ textarea {
   line-height: 1.35;
 }
 
-.run-tracker-table th.tracker-time-heading,
-.run-tracker-table td.tracker-time-cell {
+.run-tracker-table th.tracker-centered-heading,
+.run-tracker-table td.tracker-centered-cell {
   text-align: center;
   vertical-align: middle;
 }
@@ -2053,6 +2053,49 @@ textarea {
   .run-tracker-table td {
     padding-right: 9px;
     padding-left: 9px;
+  }
+
+  .run-tracker-table th.tracker-compact-heading {
+    font-size: 10px;
+  }
+
+  .run-tracker-table td.tracker-compact-cell {
+    font-size: 12px;
+  }
+
+  .run-tracker-table .tracker-compact-cell .tracker-primary-link,
+  .run-tracker-table .tracker-compact-cell .current-stage-cell strong {
+    font-size: 13px;
+  }
+
+  .run-tracker-table .tracker-compact-cell .tracker-run-link,
+  .run-tracker-table .tracker-compact-cell .operation-project-cell > .muted,
+  .run-tracker-table .tracker-compact-cell .tracker-source-line,
+  .run-tracker-table .tracker-compact-cell .current-stage-cell span,
+  .run-tracker-table .tracker-compact-cell .current-stage-cell small {
+    font-size: 10px;
+  }
+
+  .run-tracker-table .tracker-compact-cell .status-badge,
+  .run-tracker-table .tracker-compact-cell .run-source-tag,
+  .run-tracker-table .tracker-compact-cell .mini-action,
+  .run-tracker-table .tracker-compact-cell .handoff-pill {
+    font-size: 10px;
+  }
+
+  .run-tracker-table .tracker-compact-cell .operation-project-cell,
+  .run-tracker-table .tracker-compact-cell .current-stage-cell {
+    justify-items: center;
+  }
+
+  .run-tracker-table .tracker-compact-cell .tracker-source-line,
+  .run-tracker-table .tracker-compact-cell .tracker-badges.stacked,
+  .run-tracker-table .tracker-compact-cell .tracker-lifecycle > span {
+    justify-content: center;
+  }
+
+  .run-tracker-table .tracker-centered-cell .runtime-cell {
+    justify-items: center;
   }
 
   .run-tracker-table .current-stage-cell {

@@ -1,5 +1,11 @@
 # HANDOFF.md
 
+## 2026-09-08 T231 compact centered Run Tracker cells
+
+T231 is a frontend-only follow-up to T230. Run Tracker now marks every heading and cell for consistent horizontal and vertical centering. At viewports up to 1920 CSS pixels, the first six columns use a smaller type scale and center their nested project metadata, badges, lifecycle rows and stage text; wider displays keep the existing T230 type scale and widths.
+
+The focused regression failed before implementation because the new alignment hooks were absent, then passed 1/1. A TypeScript/Vite production build passed in the cached fengxian frontend image with `--network none` and `--pull never`; output assets are `index-YXPnA4xQ.css` and `index-DXn-GGtr.js`. No dependency or image download was used. Production deployment is pending; only `frontend-nginx` may be recreated.
+
 ## 2026-09-08 T230 responsive Run Tracker columns
 
 T230 is a frontend-only responsive layout adjustment. At viewports up to 1920 CSS pixels the Run Tracker uses compact column widths and reduced horizontal cell padding while preserving font sizes. Started and Finished headings and values are centered horizontally and vertically; wider displays keep the prior widths.
