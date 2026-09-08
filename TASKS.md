@@ -1,5 +1,23 @@
 # TASKS.md
 
+## T233 - Capability-aware Intake display
+
+Owner: platform/backend/frontend
+
+Status: implemented and validated; BS10610 deployment pending
+
+Acceptance:
+- [x] Aggregate Intake endpoints ignore deployed adapters without `intake`.
+- [x] Explicit GATK Intake requests remain a structured capability error.
+- [x] Selecting GATK Cloud does not request or render the WGS T7 scanner.
+- [x] WGS and All pipelines continue to show the WGS scanner.
+- [x] Add red/green backend and frontend regressions.
+- [x] Pass backend, frontend and production build validation.
+- [ ] Deploy backend/frontend to BS10610 and verify the live WGS/GATK views.
+
+Safety:
+- No schema, DAG, workflow, scanner or execution-gate change.
+
 ## T232 - Synchronize GATK with production frontend and reset test history
 
 Owner: platform/backend/Airflow/frontend/operations

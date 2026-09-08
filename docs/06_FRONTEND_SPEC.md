@@ -13,6 +13,12 @@ form. It replaces the duplicate page-level segmented control. Selecting a new
 pipeline updates the URL and remounts the corresponding adapter, so WGS batch
 state and GATK project-preview state cannot leak across workflows.
 
+T233 applies the same capability boundary to Command Center intake. The T7
+scanner is shown for All pipelines and WGS because WGS declares `intake`; when
+GATK Cloud is selected the browser neither requests GATK intake nor renders the
+WGS scanner panel. Scanner failures remain isolated from Run Tracker and
+resource panels.
+
 Submit navigation and dashboard calls-to-action are visible only when a deployed, enabled registry entry declares both `submit_enabled` and the `submit` capability and also has a registered frontend submission adapter. The current staged WGS form is an explicitly namespaced adapter UI; a future submit-capable pipeline without its own UI cannot be routed into the WGS form, and the route fails closed instead of issuing WGS API calls.
 
 ## Run views

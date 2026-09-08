@@ -1,5 +1,30 @@
 # HANDOFF.md
 
+## 2026-09-08 T233 capability-aware Intake display
+
+The first T232 live view exposed a registry boundary defect. GATK is deployed
+for manual submission but does not declare `intake`; nevertheless Dashboard
+requested `pipeline=gatk`, and `/api/intake/scanner-state` required intake from
+every deployed adapter. That produced the visible capability error for GATK
+and an uncaught 500 scanner-state error while WGS was selected.
+
+T233 filters aggregate intake status and scanner-state enumeration by declared
+capability. Explicit GATK intake remains a structured 409. Dashboard derives
+the same capability boundary from `/api/platform/capabilities`, so selecting
+GATK neither sends an intake request nor renders the T7 scanner. All pipelines
+and WGS continue to show it.
+
+Red evidence: two backend regressions failed on the previous endpoint behavior,
+and one frontend regression failed because the T7 scanner remained visible.
+Green evidence: the focused tests passed 2/2 and 15/15; the complete candidate
+passed 340 backend tests with one skip, 56 frontend tests, and the
+TypeScript/Vite production build. No database, Airflow or analysis runtime was
+changed during candidate validation.
+
+Deployment remains to recreate only backend and frontend on BS10610, then
+verify WGS scanner HTTP 200, GATK selected view without Intake, database run
+count zero, and all execution gates unchanged.
+
 ## 2026-09-08 T232 GATK mainline sync and BS10610 reset
 
 T228 was rebased from its old `0e2cab3` baseline onto production

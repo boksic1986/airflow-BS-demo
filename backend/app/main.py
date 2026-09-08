@@ -587,7 +587,9 @@ def intake_scanner_state() -> dict[str, object]:
     states: dict[str, object] = {}
     with get_sessionmaker()() as session:
         for pipeline_id in registry.deployed_pipeline_ids:
-            definition = registry.require(pipeline_id, capability="intake")
+            definition = registry.require(pipeline_id)
+            if "intake" not in definition.capabilities:
+                continue
             if definition.adapter.scanner_state is None:
                 states[pipeline_id] = {
                     "available": False,
@@ -1284,11 +1286,20 @@ def intake_status(
     deployed_pipelines = _active_deployed_pipelines()
     aggregate_scope = pipeline in {None, "all", "deployed"}
     with get_sessionmaker()() as session:
-        selected = deployed_pipelines if aggregate_scope else (str(pipeline),)
+        registry = get_pipeline_registry(get_settings())
+        selected = (
+            tuple(
+                pipeline_id
+                for pipeline_id in deployed_pipelines
+                if "intake" in registry.require(pipeline_id).capabilities
+            )
+            if aggregate_scope
+            else (str(pipeline),)
+        )
         payloads = []
         for pipeline_id in selected:
             try:
-                definition = require_pipeline(get_settings(), pipeline_id, capability="intake")
+                definition = registry.require(pipeline_id, capability="intake")
                 if definition.adapter.intake_status is None:
                     continue
                 payloads.append(
@@ -1308,7 +1319,12 @@ def intake_status(
         if len(payloads) == 1:
             return payloads[0]
         items = [item for payload in payloads for item in payload.get("items", [])]
-        return {"items": items[:limit], "total": sum(int(item.get("total", 0)) for item in payloads)}
+        return {
+            "items": items[:limit],
+            "total": sum(int(item.get("total", 0)) for item in payloads),
+            "limit": limit,
+            "offset": offset,
+        }
 
 
 @app.get("/api/workflows")

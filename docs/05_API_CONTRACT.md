@@ -9,6 +9,8 @@
 - `GET /api/runs/{analysis_id}/samples` returns adapter-projected sample state.
 - `GET /api/runs/{analysis_id}/qc` returns safe adapter-projected QC data.
 - `GET /api/input/scan`, `/api/input/roots`, and `/api/intake/*` require the corresponding registry capability.
+- Aggregate `GET /api/intake/status?pipeline=deployed|all` and `GET /api/intake/scanner-state` enumerate only deployed adapters that declare `intake`; a deployed manual-only adapter does not break another pipeline's scanner projection.
+- An explicit `GET /api/intake/status?pipeline=<id>` for an adapter without `intake` still returns `409 PIPELINE_CAPABILITY_UNAVAILABLE`.
 - `GET /api/workflows` returns deployed registry entries rather than a hard-coded catalog.
 - `GET /api/pipeline-config/template` and `POST /api/pipeline-config/validate` dispatch to the selected adapter.
 - `POST /api/runs/{analysis_id}/actions/reanalyze` dispatches only after the adapter capability and its execution/runtime gates pass; a rejected call cannot increment the attempt.

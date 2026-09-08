@@ -62,6 +62,11 @@ export function DashboardPage() {
   const [intakeError, setIntakeError] = useState<string | null>(null);
   const [resourcesError, setResourcesError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const deployedDefinitions = capabilities.pipelines.filter((item) => capabilities.isDeployed(item.id));
+  const selectedPipeline = deployedDefinitions.find((item) => item.id === pipeline) || deployedDefinitions[0];
+  const showIntake = pipeline === "all"
+    ? deployedDefinitions.some((item) => item.capabilities.includes("intake"))
+    : Boolean(selectedPipeline?.capabilities.includes("intake"));
   const deployedPipeline = pipeline === "all" ? "deployed" : pipeline;
   const onlyDeployedPipeline = capabilities.deployed_pipelines.length === 1
     ? capabilities.deployed_pipelines[0]
@@ -100,6 +105,14 @@ export function DashboardPage() {
   }, [deployedPipeline, trackerFilter, trackerKeyword, trackerOffset]);
 
   const loadIntake = useCallback(async (showSpinner = true) => {
+    if (!showIntake) {
+      setIntakeItems([]);
+      setIntakeTotal(0);
+      setIntakeScanner(null);
+      setIntakeError(null);
+      if (showSpinner) setIntakeLoading(false);
+      return;
+    }
     if (showSpinner) setIntakeLoading(true);
     setIntakeError(null);
     try {
@@ -128,7 +141,7 @@ export function DashboardPage() {
     } finally {
       if (showSpinner) setIntakeLoading(false);
     }
-  }, [deployedPipeline, intakeOffset, intakeView, trackerKeyword]);
+  }, [deployedPipeline, intakeOffset, intakeView, showIntake, trackerKeyword]);
 
   const loadResources = useCallback(async (showSpinner = true) => {
     if (showSpinner) setResourcesLoading(true);
@@ -232,8 +245,6 @@ export function DashboardPage() {
     }
   }
 
-  const deployedDefinitions = capabilities.pipelines.filter((item) => capabilities.isDeployed(item.id));
-  const selectedPipeline = deployedDefinitions.find((item) => item.id === pipeline) || deployedDefinitions[0];
   const showQc = pipeline === "all"
     ? deployedDefinitions.some((item) => item.capabilities.includes("qc"))
     : Boolean(selectedPipeline?.capabilities.includes("qc"));
@@ -280,18 +291,18 @@ export function DashboardPage() {
               onSync={(analysisId) => void handleTrackerSync(analysisId)}
             />
           </div>
-          <IntakeScannerPanel
-            scanner={intakeScanner}
-            items={intakeItems}
-            total={intakeTotal}
-            limit={intakeLimit}
-            offset={intakeOffset}
-            loading={intakeLoading}
-            error={intakeError}
-            view={intakeView}
-            onViewChange={(nextView) => { setIntakeView(nextView); setIntakeOffset(0); }}
-            onPageChange={setIntakeOffset}
-          />
+          {showIntake ? <IntakeScannerPanel
+              scanner={intakeScanner}
+              items={intakeItems}
+              total={intakeTotal}
+              limit={intakeLimit}
+              offset={intakeOffset}
+              loading={intakeLoading}
+              error={intakeError}
+              view={intakeView}
+              onViewChange={(nextView) => { setIntakeView(nextView); setIntakeOffset(0); }}
+              onPageChange={setIntakeOffset}
+            /> : null}
         </div>
       </section>
       <DashboardResourcePanels

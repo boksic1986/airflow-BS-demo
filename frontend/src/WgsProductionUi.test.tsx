@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 
-import {act, cleanup, fireEvent, render, screen} from "@testing-library/react";
+import {act, cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, expect, it, vi} from "vitest";
 
 import App from "./App";
@@ -493,6 +493,44 @@ it("shows QC summary actions when the deployed adapter exposes QC", async () => 
   expect(screen.getByText("QC alerts")).toBeInTheDocument();
   expect(screen.getByText("QC failed samples")).toBeInTheDocument();
   expect(screen.getByText("Workflow fails")).toBeInTheDocument();
+});
+
+it("does not request or render intake for a selected pipeline without intake", async () => {
+  const intakeRequests: string[] = [];
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/auth/me")) return json({username: "viewer", role: "viewer"});
+    if (url.endsWith("/api/platform/capabilities")) return json({
+      ...wgsCapabilities(),
+      deployed_pipelines: ["wgs", "gatk"],
+      pipelines: [
+        ...wgsCapabilities().pipelines,
+        {id: "gatk", display_name: "GATK Cloud", dag_id: "bio_gatk", version: "7.6.0", enabled: true, submit_enabled: true, capabilities: ["submit", "rules", "artifacts"], execution_targets: ["cce"]},
+      ],
+    });
+    if (url.includes("/api/dashboard/overview")) return json({totals: {runs: 0, running: 0, failed: 0, success: 0, created: 0}, sample_summary: {total: 0, running: 0, workflow_failed: 0, completed: 0}, status_distribution: {}, trend: [], sample_trend: []});
+    if (url.includes("/api/dashboard/runs")) return json({items: [], total: 0, limit: 10, offset: 0});
+    if (url.includes("/api/intake/scanner-state")) {
+      intakeRequests.push(url);
+      return json({last_scanned_directory_count: 0, schedule_seconds: 600, auto_dispatch_enabled: false});
+    }
+    if (url.includes("/api/intake/status")) {
+      intakeRequests.push(url);
+      return url.includes("pipeline=gatk")
+        ? jsonStatus({detail: {code: "PIPELINE_CAPABILITY_UNAVAILABLE"}}, 409)
+        : json({items: [], total: 0, limit: 10, offset: 0});
+    }
+    if (url.includes("/api/platform/resources")) return json({status: "stale", items: [], updated_at: null});
+    return json({items: [], total: 0});
+  }));
+
+  render(<App />);
+
+  expect(await screen.findByRole("heading", {name: "T7自动扫描"})).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", {name: "GATK Cloud"}));
+  await waitFor(() => expect(screen.getByText("Selected pipeline: GATK Cloud")).toBeInTheDocument());
+  expect(screen.queryByRole("heading", {name: "T7自动扫描"})).not.toBeInTheDocument();
+  expect(intakeRequests.some((url) => url.includes("pipeline=gatk"))).toBe(false);
 });
 
 it("keeps scanner metadata when the discovery list has a transiently unavailable API", async () => {

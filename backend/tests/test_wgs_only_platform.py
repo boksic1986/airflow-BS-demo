@@ -1261,6 +1261,66 @@ def test_wgs_t7_intake_endpoints_are_read_only_and_do_not_expose_sample_ids(tmp_
     }
 
 
+def _enable_gatk_without_intake(settings, tmp_path):
+    registry = tmp_path / "pipelines.yaml"
+    registry.write_text(
+        """version: 1
+pipelines:
+  wgs:
+    display_name: WGS
+    dag_id: bio_wgs
+    version: 4.1.1
+    adapter: wgs
+    enabled: true
+    submit_enabled: true
+    capabilities: [intake, submit, rules, qc, artifacts, resume, rerun]
+    execution_targets: [cce, local, sge]
+  gatk:
+    display_name: GATK Cloud
+    dag_id: bio_gatk
+    version: 7.6.0
+    adapter: gatk
+    enabled: true
+    submit_enabled: true
+    capabilities: [submit, rules, artifacts]
+    execution_targets: [cce]
+""",
+        encoding="utf-8",
+    )
+    settings.deployed_pipelines = ("wgs", "gatk")
+    settings.pipeline_registry_path = str(registry)
+    main.clear_pipeline_registry_cache()
+
+
+def test_intake_scanner_state_skips_deployed_pipeline_without_intake(tmp_path, monkeypatch):
+    client, _, _ = make_client(tmp_path, monkeypatch)
+    _enable_gatk_without_intake(main.get_settings(), tmp_path)
+    login(client, "viewer", "viewer-pass")
+
+    scanner = client.get("/api/intake/scanner-state")
+
+    assert scanner.status_code == 200, scanner.text
+    assert scanner.json()["scanner"] == "wgs-intake-scanner"
+
+
+def test_deployed_intake_status_skips_pipeline_without_intake(tmp_path, monkeypatch):
+    client, _, _ = make_client(tmp_path, monkeypatch)
+    _enable_gatk_without_intake(main.get_settings(), tmp_path)
+    login(client, "viewer", "viewer-pass")
+
+    aggregate = client.get(
+        "/api/intake/status?pipeline=deployed&view=pending&limit=10&offset=0"
+    )
+    explicit_gatk = client.get(
+        "/api/intake/status?pipeline=gatk&view=pending&limit=10&offset=0"
+    )
+
+    assert aggregate.status_code == 200, aggregate.text
+    assert aggregate.json() == {"items": [], "total": 0, "limit": 10, "offset": 0}
+    assert explicit_gatk.status_code == 409
+    assert explicit_gatk.json()["detail"]["code"] == "PIPELINE_CAPABILITY_UNAVAILABLE"
+
+
 def test_step4_repair_is_fixed_to_cram_idempotent_and_blocked_by_runtime_gates(tmp_path, monkeypatch):
     client, sessions, airflow = make_client(tmp_path, monkeypatch)
     operator_headers = login(client, "operator", "operator-pass")
