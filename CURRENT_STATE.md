@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T237 BS10610 private office ingress
+
+```text
+incident: coworkers outside the previously enumerated client subnets received nginx 403 responses at 172.17.106.10:12959; the access log identified client 172.21.4.221 as one affected source.
+root_cause: frontend-nginx used a narrow static client allowlist. Platform authentication was not reached because nginx denied the request first.
+fix: the BS10610 test gateway now permits RFC1918 private client ranges 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16. It retains deny all for non-private sources and does not bypass application authentication or role checks.
+validation: the complete offline frontend suite passed 15 files/56 tests, including a regression that requires all three private ranges and rejects allow all. nginx -t passed with the candidate configuration on the existing internal Docker network.
+deployment: BS10610 current points to releases/20260908-t237-bs-office-ingress-r1. Only frontend-nginx was recreated; its public root and /api/health return HTTP 200.
+safety: production, backend, Airflow, PostgreSQL, Redis, runs, workflows and analysis data were not changed.
+```
+
 ## 2026-09-08 T236 GATK a.raw FASTQ link visibility
 
 ```text

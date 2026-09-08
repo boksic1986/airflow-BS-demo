@@ -67,6 +67,9 @@ they never fall back to arbitrary host paths.
   recreate, or repair a subnet.
 - Only explicitly approved frontend ports may be published. Backend, Airflow,
   PostgreSQL, Redis, observers and collectors remain internal.
+- The BS10610 test gateway accepts RFC1918 client networks (`10/8`,
+  `172.16/12`, and `192.168/16`) and still denies every non-private source.
+  Application authentication and role checks remain mandatory after ingress.
 - Docker socket access is host-equivalent privilege and is limited to reviewed
   services.
 - Candidate verification uses `--network none` wherever possible. A disposable

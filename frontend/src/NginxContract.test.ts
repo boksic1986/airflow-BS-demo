@@ -32,9 +32,12 @@ describe("frontend nginx image contract", () => {
     expect(config.slice(exactApiLocation, spaLocation)).toMatch(/(?:proxy_pass http:\/\/biodemo_backend|return 30[178] \/api\/)/);
   });
 
-  it("allows the production operator workstation subnet through the WGS gateway", () => {
-    expect(wgsNginx).toContain("allow 10.10.30.0/24;");
+  it("allows private office and VPN networks through the WGS gateway", () => {
+    expect(wgsNginx).toContain("allow 10.0.0.0/8;");
+    expect(wgsNginx).toContain("allow 172.16.0.0/12;");
+    expect(wgsNginx).toContain("allow 192.168.0.0/16;");
     expect(wgsNginx).toContain("deny all;");
+    expect(wgsNginx).not.toContain("allow all;");
   });
 
   it("refreshes the WGS application shell while caching only fingerprinted assets", () => {

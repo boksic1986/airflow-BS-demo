@@ -1,5 +1,22 @@
 # TASKS.md
 
+## T237 - BS10610 private office ingress
+
+Owner: infra/frontend/QA
+
+Status: completed on BS10610 test environment
+
+Acceptance:
+- [x] Confirm the reported 403 is the nginx client allowlist, not platform RBAC.
+- [x] Allow RFC1918 office and VPN client networks (`10/8`, `172.16/12`, and `192.168/16`).
+- [x] Retain `deny all` for non-private sources and keep application authentication mandatory.
+- [x] Add a frontend nginx-contract regression and pass the complete offline frontend test suite.
+- [x] Validate the candidate nginx configuration and deploy by recreating only `frontend-nginx`.
+
+Safety:
+- The change applies only to the BS10610 test gateway; production is unchanged.
+- Backend, Airflow, PostgreSQL, Redis, workflow gates, runs and data are unchanged.
+
 ## T236 - GATK a.raw FASTQ link visibility
 
 Owner: backend/infra/QA

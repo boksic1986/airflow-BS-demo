@@ -1,5 +1,20 @@
 # HANDOFF.md
 
+## 2026-09-08 T237 BS10610 private office ingress
+
+The BS10610 403 was produced by the frontend nginx allowlist before platform
+authentication. Recent access/error logs identified `172.21.4.221` as one
+blocked office client. The test gateway now accepts all RFC1918 private client
+ranges (`10/8`, `172.16/12`, and `192.168/16`) while retaining `deny all` for
+non-private sources. Application login and role checks remain unchanged.
+
+The complete offline frontend suite passed 15 files/56 tests and `nginx -t`
+passed against the candidate config. BS10610 points to
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260908-t237-bs-office-ingress-r1`.
+Only `frontend-nginx` was recreated; backend, Airflow, PostgreSQL, Redis and
+analysis workloads were not restarted. Rollback points `current` to
+`20260908-t236-gatk-fastq-roots-r1` and recreates only `frontend-nginx`.
+
 ## 2026-09-08 T236 GATK a.raw FASTQ link visibility
 
 The `20260816A` source was valid. Its project-local `a.raw` entries point to
