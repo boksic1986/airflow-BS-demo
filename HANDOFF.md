@@ -26,9 +26,22 @@ Validation used cached `.96` backend and Node images with `--pull=never` and
 `--network=none`: 19 focused backend tests passed; four frontend files / 20
 tests passed; TypeScript/Vite build passed. The BS10610 `nipttest` interpreter
 was checked first but lacked SQLAlchemy, so no package was installed and the
-cached production backend image was used. Production synchronization remains
-pending. Rollback is source/frontend only; do not touch the database, Airflow,
-CCE workload or transfer evidence.
+cached production backend image was used.
+
+Production now points to
+`/data/airflow-WGS/releases/20260908-t229-live-terminal-ui-r1`. Backend,
+`wgs-run-observer` and `frontend-nginx` alone were recreated; Airflow
+scheduler/worker/API and CCE were not restarted. The frontend image is
+`airflow-demo/frontend:t229-live-terminal-c48a0b9`, layered from the cached
+T227 image with no registry access. Health, root, login and all focused
+authenticated APIs returned 200. `20260906B` ranked first; Step1-Step5 were
+success (including reconciled Step2), Step6 was running, Samples were 9/9
+success and Rules were 557/557 success. Workflow Catalog returned `WGS`.
+
+Rollback: restore `/data/airflow-WGS/env/production.env.pre-T229-20260908`,
+repoint `current` to `/data/airflow-WGS/releases/20260908-t227-progress-step7-r3`,
+and recreate only backend, wgs-run-observer and frontend-nginx. Do not touch
+the database, Airflow, CCE workload or transfer evidence.
 
 ## 2026-09-08 T228 CCE Job snapshot fallback and 20260906B recovery
 

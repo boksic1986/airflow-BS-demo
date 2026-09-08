@@ -8,7 +8,8 @@ baseline: 20260906B remained on the same DagRun/attempt. At the implementation c
 fix: dashboard active status includes publishing/downloading; the six-stage projector treats authoritative downstream execution as predecessor success; transfer files sort running then accepted then failed then success; terminal successful runs project stale Sample/Rule activity as success without rewriting raw audit rows. The previously misplaced WGS workflow projector is restored, so run rails and recent Workflow Catalog records are populated.
 frontend: Step1-Step6 borders are 2px with state colors, file refresh retains the current table, Run Detail refreshes only affected data, Workflow Catalog lists five recent runs per deployed adapter, and the deployed WGS display name is WGS.
 validation: isolated .96 cached images passed 19 focused backend tests and 4 frontend files / 20 tests; TypeScript/Vite production build passed with --network=none and --pull=never. Docker Hub was not contacted.
-deployment: pending production backend/frontend synchronization after the active Step5 continuity check.
+deployment: production current points to /data/airflow-WGS/releases/20260908-t229-live-terminal-ui-r1; backend, wgs-run-observer and frontend-nginx were recreated only. Frontend image airflow-demo/frontend:t229-live-terminal-c48a0b9 was built from the cached T227 image without a registry lookup. Airflow scheduler/worker/API and the active CCE workload were not restarted.
+production_smoke: health/root/login returned 200. 20260906B ranked first in Run Tracker; Step1-Step5 projected success including reconciled Step2, Step6 was running, Samples returned 9 success and all 557 Rules were successful. Workflow Catalog returned display_name=WGS. Step5 had already completed 29/29 files before the service switch.
 ```
 
 ## 2026-09-08 T228 CCE Job snapshot fallback and Step3 monitor recovery

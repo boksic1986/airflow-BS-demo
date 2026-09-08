@@ -4,7 +4,7 @@
 
 Owner: WGS/backend/frontend/operations
 
-Status: implementation validated; production synchronization pending
+Status: completed in production
 
 Acceptance:
 - [x] Rank `publishing` and `downloading` as active Run Tracker states before terminal runs.
@@ -14,7 +14,7 @@ Acceptance:
 - [x] Project successful workflow terminal state into Samples and Rules without changing raw evidence rows.
 - [x] Restore WGS workflow summaries, display `WGS`, and show recent Workflow Catalog runs.
 - [x] Pass focused backend/frontend tests and a production build using cached images with no network.
-- [ ] Synchronize production backend/frontend, verify `20260906B`, health, authenticated APIs and the published UI.
+- [x] Synchronize production backend/frontend, verify `20260906B`, health, authenticated APIs and the published UI.
 
 Restrictions:
 - Keep WGS 4.1.1 and contract v1; do not activate T222 prepare contract v2 or WGS 4.2.0.
