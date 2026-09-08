@@ -8,6 +8,11 @@ The T228 candidate displays WGS and GATK Cloud when both registry entries are
 deployed. GATK has its own submission adapter; it is never routed into the WGS
 form.
 
+T232 uses one `Pipeline` select as the workflow switch inside the submission
+form. It replaces the duplicate page-level segmented control. Selecting a new
+pipeline updates the URL and remounts the corresponding adapter, so WGS batch
+state and GATK project-preview state cannot leak across workflows.
+
 Submit navigation and dashboard calls-to-action are visible only when a deployed, enabled registry entry declares both `submit_enabled` and the `submit` capability and also has a registered frontend submission adapter. The current staged WGS form is an explicitly namespaced adapter UI; a future submit-capable pipeline without its own UI cannot be routed into the WGS form, and the route fails closed instead of issuing WGS API calls.
 
 ## Run views

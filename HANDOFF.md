@@ -1,5 +1,46 @@
 # HANDOFF.md
 
+## 2026-09-08 T232 GATK mainline sync and BS10610 reset
+
+T228 was rebased from its old `0e2cab3` baseline onto production
+`origin/main@5fbe1ae`. The integration retains the latest WGS progress,
+terminal-state, CCE Job snapshot and responsive Run Tracker changes. The GATK
+migration is now `20260908_0019`, following the production WGS Step7 migration
+`20260908_0018`; this removes the revision collision found in the earlier test
+rollout.
+
+Submit Run now has one Pipeline field containing WGS and GATK Cloud. Changing
+it updates `?pipeline=...`, unmounts the previous adapter form and starts the
+selected workflow with clean local state. The duplicate segmented selector was
+removed. A focused frontend test failed against the old UI and passed after the
+change; the full frontend result is 55/55 plus a production build.
+
+BS10610 backend validation passed 338 tests with one skip. GATK DAG/runtime
+helpers passed 18 tests, Airflow imported both `bio_wgs` and `bio_gatk`, and
+Compose config passed using the existing `nipt_analysis_test_net`. The complete
+backend run also exposed a mainline Step4 repair `NameError`; removing the
+accidental Step7-only request fields restored that existing regression.
+
+After an exact zero-active-run check, 41 terminal `bio_wgs` DagRuns were
+deleted with `AirflowClient.delete_dag_run`; `bio_gatk` had none. By explicit
+direction for this test database, biodemo was recreated without a backup and
+migrated from empty through WGS 0018 and GATK 0019. It now has zero AnalysisRun
+records and one bootstrapped administrator. Both successful and failed old WGS
+records were removed; source FASTQ, analysis result directories and unrelated
+project data were not deleted.
+
+BS10610 `current` points to
+`releases/20260908-t232-gatk-main-sync-r1`. Backend, observer, metrics
+collector, Airflow API/scheduler/worker and frontend were recreated. WGS scan
+and auto-dispatch gates are false, and `GATK_EXECUTION_ENABLED=false`. The next
+task is a controlled GATK preview/prepare/logger smoke before enabling manual
+execution.
+
+Rollback: point `current` back to
+`releases/20260907-airflow-demo-5458cce-t219-active-sync`, restore the prior
+backend/frontend image tags in `env/bs10610.wgs.env`, and recreate the affected
+services. The intentionally deleted test history is not restored.
+
 ## 2026-09-08 T231 compact centered Run Tracker cells
 
 T231 is a frontend-only follow-up to T230. Run Tracker now marks every heading and cell for consistent horizontal and vertical centering. At viewports up to 1920 CSS pixels, the first six columns use a smaller type scale and center their nested project metadata, badges, lifecycle rows and stage text; wider displays keep the existing T230 type scale and widths.

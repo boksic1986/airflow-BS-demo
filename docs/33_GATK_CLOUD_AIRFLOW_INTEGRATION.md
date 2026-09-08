@@ -2,8 +2,9 @@
 
 ## Scope and frozen releases
 
-T228 adds a manual-only GATK Cloud adapter to the NGS control plane. The
-implementation is based on Airflow `0e2cab3` and GATK Cloud
+T228 adds a manual-only GATK Cloud adapter to the NGS control plane. T232
+rebases the implementation onto Airflow production mainline `b2029f6` while
+preserving GATK Cloud
 `bd04f6d6020ec3795268af7bee1265963cc652c4`.
 
 The first release is fixed to:

@@ -1,5 +1,25 @@
 # TASKS.md
 
+## T232 - Synchronize GATK with production frontend and reset test history
+
+Owner: platform/backend/Airflow/frontend/operations
+
+Status: completed on BS10610 test environment
+
+Acceptance:
+- [x] Rebase the GATK manual Step1-Step6 adapter onto the latest production mainline without losing T227-T230 behavior.
+- [x] Use one form-level Pipeline select for WGS and GATK Cloud and remove the duplicate top selector.
+- [x] Keep WGS and GATK submission state isolated when switching pipeline.
+- [x] Preserve WGS migration 0018 and place GATK migration at 0019.
+- [x] Delete all old WGS/GATK business runs and Airflow DagRuns from the test environment after proving no run is active.
+- [x] Recreate the test biodemo database, migrate from empty to 0019 and bootstrap one administrator.
+- [x] Validate backend, frontend, DAG/runtime helpers, Airflow imports, Compose and HTTP health remotely.
+
+Safety:
+- Scanner and auto-dispatch remain disabled.
+- GATK execution remains disabled until its separate smoke acceptance.
+- Production, source FASTQ, CCE workloads and analysis result directories are unchanged.
+
 ## T231 - Compact centered Run Tracker cells
 
 Owner: frontend

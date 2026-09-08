@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T232 GATK mainline sync and clean test baseline
+
+```text
+scope: rebase the manual GATK Cloud Step1-Step6 adapter onto origin/main@5fbe1ae, replace the duplicate submit-page pipeline tabs with one WGS/GATK Pipeline field, and rebuild the BS10610 test state from a clean baseline.
+compatibility: T227 Step7 generation history, T228 compact CCE Job snapshots, T229 terminal projections and T230/T231 responsive Run Tracker behavior are retained. WGS migration remains 0018 and GATK follows as 0019. A production-main Step4 repair NameError exposed by the complete regression suite is fixed in this branch.
+validation: BS10610 backend passed 338 tests with 1 skip; GATK/DAG/runtime helpers passed 18 tests. Fengxian frontend passed 55 tests and the TypeScript/Vite production build. Airflow imported bio_wgs and bio_gatk and Compose config passed on the existing nipt_analysis_test_net.
+test_reset: after confirming zero active runs, 41 terminal bio_wgs DagRuns were deleted through the Airflow Stable REST API. The test biodemo database was recreated without backup by explicit user direction, migrated cleanly through WGS 0018 and GATK 0019, and now contains zero runs and one bootstrapped administrator. Old success and failed WGS records were both removed.
+deployment: BS10610 current points to releases/20260908-t232-gatk-main-sync-r1. backend, observer, metrics collector, Airflow API/scheduler/worker and frontend were recreated. WGS scanner and auto-dispatch remain false; GATK execution remains false. Production was not changed.
+```
+
 ## 2026-09-08 T231 compact centered Run Tracker cells
 
 ```text
