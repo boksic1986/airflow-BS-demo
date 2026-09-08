@@ -28,6 +28,7 @@ from app.wgs_step7_service import get_step7_capability
 from app.wgs_t7_intake import get_wgs_t7_scanner_state, list_wgs_t7_intake
 from app.wgs_timing_service import enrich_progress
 from app.wgs_run_projection import public_wgs_batch
+from app.wgs_dashboard_attention import project_wgs_dashboard_attention
 from app.workflow_phases import wgs_phase_for_rule
 from app.diagnostics_service import (
     get_gatk_run_log,
@@ -356,9 +357,18 @@ def _project_wgs_dashboard_metadata(*, run, **_) -> dict[str, Any]:
 
 
 def _project_wgs_sample_summary(*, run, sample, metadata, **_) -> dict[str, Any]:
+    run_status = str(run.status or "").lower()
+    sample_status = (
+        "success" if run_status == "success"
+        else "failed" if run_status in {"failed", "fail", "error", "terminated"}
+        else sample.status
+    )
     return {
         "batch_no": public_wgs_batch(run.params_json),
         "qc_status": None,
+        "status": sample_status,
+        "order_number_masked": metadata.get("order_number_masked"),
+        "test_project": metadata.get("test_project"),
         "family_relation": metadata.get("family_relation") or metadata.get("relation"),
         "sample_type": sample.sample_type,
         "sex": sample.sex,
@@ -405,6 +415,7 @@ ADAPTERS = {
         project_dashboard_metadata=_project_wgs_dashboard_metadata,
         project_dashboard_lifecycles=project_wgs_lifecycles,
         project_dashboard_qc_statuses=_project_wgs_dashboard_qc_statuses,
+        project_dashboard_attention=project_wgs_dashboard_attention,
         project_sample_summary=_project_wgs_sample_summary,
         sync_airflow_status=sync_wgs_airflow_status,
         get_log=get_wgs_run_log,
@@ -496,6 +507,15 @@ def qc_status_projectors(settings) -> dict[str, Any]:
         )
         for pipeline_id in registry.deployed_pipeline_ids
         if registry.require(pipeline_id).adapter.project_dashboard_qc_statuses is not None
+    }
+
+
+def attention_projectors(settings) -> dict[str, Any]:
+    registry = get_pipeline_registry(settings)
+    return {
+        pipeline_id: registry.require(pipeline_id).adapter.project_dashboard_attention
+        for pipeline_id in registry.deployed_pipeline_ids
+        if registry.require(pipeline_id).adapter.project_dashboard_attention is not None
     }
 
 

@@ -337,6 +337,28 @@ def run_payload(session: Session, run: AnalysisRun) -> dict:
     return {"analysis_id": run.analysis_id, "pipeline": "wgs", "dag_id": run.dag_id, "dag_run_id": run.dag_run_id, "execution_mode": run.execution_mode, "attempt": run.attempt, "status": run.status, "sample_count": count, "workdir": run.workdir, "params": run.params_json, "submitted_by": run.submitted_by}
 
 
+def masked_order_number(value: object) -> str | None:
+    """Return a display-only order token that cannot reveal the source identifier."""
+    normalized = str(value or "").strip()
+    if not normalized:
+        return None
+    return f"****{normalized[-4:]}" if len(normalized) >= 4 else "****"
+
+
+def _safe_sampleinfo_metadata(source: dict[str, object], *, provider: str) -> dict[str, object]:
+    return {
+        "data_id": str(source.get("数据编号") or "").strip() or None,
+        "family_relation": str(source.get("家系关系") or "").strip() or None,
+        "sample_type": str(source.get("样本类型") or "").strip() or None,
+        "sex": str(source.get("性别") or "").strip() or None,
+        "sequencing_batch": str(source.get("上机批次") or "").strip() or None,
+        "order_number_masked": masked_order_number(source.get("订单编号")),
+        "test_project": str(source.get("检测项目") or "").strip() or None,
+        "estimated_report_date": str(source.get("预计报告日期") or "").strip() or None,
+        "provider": provider,
+    }
+
+
 def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> int:
     """Import only the final WGS analysis selection from the frozen batch."""
     try:
@@ -377,14 +399,7 @@ def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> in
         if not sample_id:
             raise ValueError("WGS final sampleinfo contains an empty sample ID")
         selected.add(sample_id)
-        metadata = {
-            "data_id": str(source.get("数据编号") or "").strip() or None,
-            "family_relation": str(source.get("家系关系") or "").strip() or None,
-            "sample_type": str(source.get("样本类型") or "").strip() or None,
-            "sex": str(source.get("性别") or "").strip() or None,
-            "sequencing_batch": str(source.get("上机批次") or "").strip() or None,
-            "provider": "wgs_final_selection",
-        }
+        metadata = _safe_sampleinfo_metadata(source, provider="wgs_final_selection")
         row = existing.get(sample_id)
         if row is None:
             row = Sample(analysis_id=run.analysis_id, sample_id=sample_id, family_id=str(source.get("家系编号") or "").strip() or None, sample_type=metadata["sample_type"], sex=metadata["sex"], status="running", qc_status="unknown", metadata_json=metadata)
@@ -435,14 +450,7 @@ def sync_sampleinfo_preview(*, session: Session, settings, run: AnalysisRun) -> 
         if not sample_id:
             raise ValueError("WGS sampleinfo contains an empty sample ID")
         selected.add(sample_id)
-        metadata = {
-            "data_id": str(source.get("数据编号") or "").strip() or None,
-            "family_relation": str(source.get("家系关系") or "").strip() or None,
-            "sample_type": str(source.get("样本类型") or "").strip() or None,
-            "sex": str(source.get("性别") or "").strip() or None,
-            "sequencing_batch": str(source.get("上机批次") or "").strip() or None,
-            "provider": "wgs_sampleinfo_preview",
-        }
+        metadata = _safe_sampleinfo_metadata(source, provider="wgs_sampleinfo_preview")
         row = existing.get(sample_id)
         if row is None:
             session.add(

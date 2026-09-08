@@ -1,5 +1,25 @@
 # TASKS.md
 
+## T240 - Dashboard attention and Sample Information
+
+Owner: platform/backend/frontend/QA
+
+Status: candidate validated; production rollout pending separate approval
+
+Acceptance:
+- [x] Replace duplicate Dashboard summaries/trends with Attention required and a Total-forward Sample throughput card.
+- [x] Limit WGS intake display to unlinked ready, failed and needs-review rows; hide `no_new_wgs` and linked queued/running/success rows.
+- [x] Rename the intake panel and remove Pending/History switches.
+- [x] Center Run Tracker status badges.
+- [x] Rename Samples to Sample Information and use the approved six-column table.
+- [x] Mask order numbers before persistence/API projection and reserve optional authoritative `status_reason` for db_v2.
+- [x] Keep adapter attention projections isolated to the selected pipeline.
+- [x] Pass targeted backend tests and the complete offline frontend test/build.
+
+Safety:
+- Automatic WGS analysis remains paused; the scanner interval/algorithm and dispatch policy are unchanged.
+- No production deployment, database migration, run submission, Step7 action or SFS/OBS mutation is part of candidate validation.
+
 ## T239 - Run lifecycle, batch QC and Step7 projection completion
 
 Owner: platform/backend/frontend/QA

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import logging
 from statistics import median
 from typing import Any, Mapping
 
@@ -34,6 +35,8 @@ STATUS_ORDER = {
     "created": 7,
 }
 
+logger = logging.getLogger(__name__)
+
 
 def get_dashboard_overview(
     *,
@@ -41,6 +44,7 @@ def get_dashboard_overview(
     pipeline: str,
     period: str,
     deployed_pipelines: tuple[str, ...] = (),
+    attention_projectors: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     _validate_pipeline(pipeline)
     since = _period_start(period)
@@ -56,6 +60,17 @@ def get_dashboard_overview(
             "failed": sum(1 for run in pipeline_runs if _status(run.status) in FAILED_STATUSES),
             "success": sum(1 for run in pipeline_runs if _status(run.status) == "success"),
         }
+    attention_items: list[dict[str, Any]] = []
+    for name, projector in dict(attention_projectors or {}).items():
+        if name not in pipeline_names:
+            continue
+        pipeline_runs = [run for run in runs if run.pipeline_name == name]
+        try:
+            attention_items.extend(
+                projector(session=session, runs=pipeline_runs, since=since)
+            )
+        except Exception:
+            logger.exception("dashboard attention projection failed for %s", name)
     return {
         "pipeline": pipeline,
         "period": period,
@@ -74,6 +89,7 @@ def get_dashboard_overview(
         "sample_trend": _sample_trend(session=session, pipeline_names=pipeline_names, since=since),
         "failure_summary": _failure_summary(runs),
         "intake_summary": _intake_summary(session=session, pipeline_names=pipeline_names),
+        "attention_items": attention_items,
     }
 
 

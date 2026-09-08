@@ -2944,8 +2944,8 @@ def test_prepare_sampleinfo_stage_status_imports_preview_samples(
     )
     sampleinfo.parent.mkdir(parents=True)
     sampleinfo.write_text(
-        "样本编号\t数据编号\t家系编号\t家系关系\t样本类型\t性别\t上机批次\n"
-        "SAMPLE-1\tDATA-1\tFAMILY-1\t先证者\t外周血\t男\t20260825A\n",
+        "样本编号\t数据编号\t家系编号\t家系关系\t样本类型\t性别\t上机批次\t订单编号\t检测项目\t预计报告日期\n"
+        "SAMPLE-1\tDATA-1\tFAMILY-1\t先证者\t外周血\t男\t20260825A\tORDER-12345678\t全基因组测序\t2026-09-12\n",
         encoding="utf-8",
     )
     status_path = (
@@ -2994,6 +2994,10 @@ def test_prepare_sampleinfo_stage_status_imports_preview_samples(
         assert [(item.sample_id, item.family_id, item.status) for item in samples] == [
             ("SAMPLE-1", "FAMILY-1", "pending")
         ]
+        assert samples[0].metadata_json["order_number_masked"] == "****5678"
+        assert samples[0].metadata_json["test_project"] == "全基因组测序"
+        assert samples[0].metadata_json["estimated_report_date"] == "2026-09-12"
+        assert "ORDER-12345678" not in repr(samples[0].metadata_json)
 
 
 def test_prepare_analysis_status_waits_for_final_sampleinfo_nfs_visibility(

@@ -53,6 +53,9 @@ export type OperatorSample = {
   sample_type?: string | null;
   sex?: string | null;
   sequencing_batch?: string | null;
+  order_number_masked?: string | null;
+  test_project?: string | null;
+  status_reason?: string | null;
   status: string;
   qc_status?: string | null;
   source_folder?: string | null;
@@ -838,7 +841,7 @@ export type IntakeScannerStateResponse = {
   last_error?: string | null;
 };
 
-export type IntakeView = "pending" | "history" | "all";
+export type IntakeView = "attention" | "pending" | "history" | "all";
 
 export type DashboardPipeline = string;
 export type DeployedPipeline = string;
@@ -884,6 +887,7 @@ export type DashboardOverview = {
     qc_failed: number;
     completed: number;
   }>;
+  attention_items?: DashboardAttentionItem[];
   failure_summary: Array<{
     analysis_id: string;
     pipeline: string;
@@ -893,6 +897,17 @@ export type DashboardOverview = {
     created_at?: string | null;
   }>;
   intake_summary: Record<string, number>;
+};
+
+export type DashboardAttentionItem = {
+  id: string;
+  category: string;
+  severity: "danger" | "warning" | "info";
+  title: string;
+  detail: string;
+  analysis_id?: string | null;
+  batch_id?: string | null;
+  occurred_at?: string | null;
 };
 
 export type DashboardRunTrackerRow = {

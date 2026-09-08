@@ -1,5 +1,54 @@
 # HANDOFF.md
 
+## 2026-09-09 T240 Dashboard attention and Sample Information candidate
+
+T240 is implemented and candidate-validated. Command Center now concentrates
+on Sample throughput plus actionable Attention required items. The duplicate
+summary strip, Status distribution and 7d activity are no longer rendered.
+WGS Intake Queue shows only unlinked ready, failed and needs-review rows; it
+hides `no_new_wgs` and linked queued/running/success rows and has no redundant
+Pending/History switches. Run Tracker Status badges are centered.
+
+The Samples page is titled `Sample Information` and contains the approved
+columns: Sample / family, Batch, Order, Relation / type, Project / run and
+Status. Raw order numbers are masked before persistence (`****` plus at most
+the final four characters) and are never returned. `status_reason` is optional
+for a future authoritative db_v2 source and is not synthesized in this task.
+
+Dashboard attention is registry-owned and invoked only for the selected
+pipeline. WGS emits privacy-safe workflow/QC failures, add-on exclusions, pair
+issues, reanalysis, hashed duplicate-family warnings, SFS cleanup overdue over
+two days and overdue result delivery. No family identifier, source path or raw
+order value is included in those alerts.
+
+Validation candidate:
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/T240-red-20260909-1`.
+
+- cached backend image with `--network none`: 28 passed, 53 deselected;
+- complete frontend suite: 17 files / 60 tests passed;
+- offline `tsc -b && vite build`: passed with the T234 lock-bound builder;
+- candidate frontend image `airflow-demo/frontend:t240-final` is
+  `sha256:d5363d25ff9f26bc2eea150f7bd54cbbc64d91ed941aa07cdc69e51008668281`
+  and contains `index-DcuH9NZU.js` plus `index-GaK031bY.css`;
+- `git diff --check`: passed before documentation finalization.
+
+Two environment failures were diagnosed and not papered over. The shared
+`nipttest` Python lacked SQLAlchemy, so validation used the repository-approved
+cached backend image. A fresh backend image build with `--network none` could
+not resolve the uncached FastAPI wheel; no Docker Hub access or online retry was
+used.
+
+Production was not restarted because the runbook requires separate approval.
+When approved, publish an immutable release, preserve
+`WGS_AUTO_DISPATCH_ENABLED=false`, reuse the approved backend image with the
+new source mount, and recreate only backend and frontend-nginx. Do not restart
+scanner, observer, Airflow, PostgreSQL, Redis or telemetry. Do not submit a run
+or invoke Step7 during rollout.
+
+Rollback is code-only: restore the prior immutable release/current symlink and
+recreate only backend and frontend-nginx. There is no database migration or
+data rollback.
+
 ## 2026-09-09 T239 Run lifecycle, batch QC and Step7 projection production release
 
 T239 is deployed in production. `/workflows` is now a full-page Run lifecycle

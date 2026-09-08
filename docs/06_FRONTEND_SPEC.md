@@ -1,5 +1,25 @@
 # Frontend specification
 
+## T240 attention dashboard and Sample Information
+
+- Command Center removes the duplicate Runs/Samples/QC/Workflow-fails strip,
+  Status distribution and 7d run activity. Operations overview contains an
+  actionable Attention required list and Sample throughput; the throughput
+  card gives `Total` primary visual weight.
+- The WGS intake panel is named `WGS Intake Queue`. It has no Pending/History
+  switch and renders only unlinked ready batches, failed linked analyses and
+  needs-review batches. `no_new_wgs` and linked queued/running/success rows are
+  intentionally hidden because their operational state already belongs in Run
+  Tracker.
+- Run Tracker status badges are centered within the Status column.
+- The Samples route is titled `Sample Information`, has no inventory subtitle,
+  and uses exactly these columns: Sample / family, Batch, Order, Relation /
+  type, Project / run, Status. Order is masked, Pipeline and FASTQ files are
+  removed, and an optional backend `status_reason` may appear below Status
+  when db_v2 supplies authoritative evidence.
+- Background polling preserves the loaded DOM and updates data in place; it
+  does not replace the page with a full-screen loading state.
+
 ## Registry-driven shell
 
 The navigation, pipeline filters, workflow catalog, and deployment availability consume `/api/platform/capabilities`. The shell must tolerate a rolling upgrade response that contains only `deployed_pipelines` and normalize it into minimal registry definitions.

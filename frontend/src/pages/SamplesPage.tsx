@@ -8,7 +8,6 @@ import {StatusBadge} from "../components/StatusBadge";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {deployedPipelineFilter} from "../lib/deployment";
 import {errorMessage} from "../lib/errors";
-import {compactPipelineName} from "../lib/format";
 
 const pageSize = 25;
 
@@ -86,8 +85,7 @@ export function SamplesPage() {
       <section className="page-header">
         <div>
           <p className="eyebrow">Sample resource</p>
-          <h1>Sample Matrix</h1>
-          <p>Paginated sample inventory across deployed workflows.</p>
+          <h1>Sample Information</h1>
         </div>
       </section>
       <section className="panel">
@@ -120,28 +118,26 @@ export function SamplesPage() {
           <div className="table-wrap">
             <table className="data-table sample-resource-table">
               <thead>
-                <tr><th>sample / family</th><th>relation / type</th><th>project / run</th><th>pipeline</th><th>status</th><th>batch</th><th>FASTQ files</th></tr>
+                <tr><th>Sample / family</th><th>Batch</th><th>Order</th><th>Relation / type</th><th>Project / run</th><th>Status</th></tr>
               </thead>
               <tbody>
                 {payload.items.map((row) => (
                   <tr key={`${row.analysis_id}-${row.sample_id}`}>
                     <td><strong>{row.sample_id}</strong>{row.family_id ? <small className="block muted">Family {row.family_id}</small> : null}</td>
+                    <td>{row.batch_no || "-"}</td>
+                    <td>{row.order_number_masked || "-"}</td>
                     <td>{row.family_relation || "-"}<small className="block muted">{[row.sample_type, row.sex].filter(Boolean).join(" / ") || "-"}</small></td>
                     <td>
-                      <Link className="resource-link" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>{row.project_name}</Link>
-                      <Link className="resource-link secondary mono" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>{row.analysis_id}</Link>
+                      <Link className="resource-link" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>{row.test_project || row.project_name}</Link>
+                      <Link className="resource-link secondary mono" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>{row.test_project ? `${row.project_name} · ` : ""}{row.analysis_id}</Link>
                     </td>
-                    <td>{compactPipelineName(row.pipeline)}</td>
-                    <td><StatusBadge status={row.status} /></td>
-                    <td>{row.batch_no || "-"}</td>
                     <td>
-                      <div className="source-files">
-                        <span>{[row.r1_name, row.r2_name].filter(Boolean).join(" / ") || "File names not captured"}</span>
-                      </div>
+                      <StatusBadge status={row.status} />
+                      {row.status_reason ? <small className="block muted">{row.status_reason}</small> : null}
                     </td>
                   </tr>
                 ))}
-                {payload.items.length === 0 ? <tr><td className="empty-cell" colSpan={7}>No samples match the current filters.</td></tr> : null}
+                {payload.items.length === 0 ? <tr><td className="empty-cell" colSpan={6}>No samples match the current filters.</td></tr> : null}
               </tbody>
             </table>
           </div>

@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-09 T240 Dashboard attention and Sample Information candidate
+
+```text
+scope: simplify Command Center into an actionable attention view, remove duplicated summary/trend UI, reduce intake noise, and reshape Samples into the approved six-column Sample Information table.
+backend: dashboard overview now exposes registry-owned privacy-safe attention_items; WGS attention covers workflow/QC failures, add-on exclusions, pair issues, reanalysis, duplicate families, SFS cleanup overdue over two days and report-delivery overdue. The projector is called only for the selected pipeline. view=attention returns only unlinked ready, needs_review and failed linked intake rows.
+sample_privacy: sampleinfo order numbers are masked before Sample.metadata_json persistence and API projection. Raw order numbers are not retained. test_project and estimated_report_date are allowlisted; db_v2 status_reason remains optional and is not fabricated.
+frontend: Command Center removes the summary strip, Status distribution and 7d activity, keeps Sample throughput with prominent Total, adds Attention required, renames intake to WGS Intake Queue and removes its toggles. Run Tracker Status is centered. Samples is now Sample Information with Sample/family, Batch, masked Order, Relation/type, Project/run and Status.
+validation: on BS10610, the final selected backend suite passed 28 tests with 53 deselected using the existing cached backend image and network disabled. The complete frontend suite passed 17 files/60 tests and the offline TypeScript/Vite production build passed through the cached T234 builder; candidate image airflow-demo/frontend:t240-final is sha256:d5363d25ff9f26bc2eea150f7bd54cbbc64d91ed941aa07cdc69e51008668281 and contains index-DcuH9NZU.js/index-GaK031bY.css. A fresh backend build with network disabled could not resolve an uncached FastAPI wheel and was not retried online.
+deployment: candidate only. Production restart requires separate approval; backend/frontend-nginx have not been recreated.
+safety: automatic analysis remains paused. Scanner schedule/algorithm, Airflow, database schema/data, active workflows, CCE, OBS and SFS were not changed.
+```
+
 ## 2026-09-09 T239 Run lifecycle, batch QC and Step7 projection production release
 
 ```text

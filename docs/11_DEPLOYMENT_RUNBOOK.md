@@ -1,5 +1,20 @@
 # Deployment runbook
 
+## T240 rollout boundary
+
+T240 changes backend projections and frontend presentation only. Validate the
+backend through the approved cached image and build the frontend with the T234
+offline builder. A production rollout may reuse the currently approved backend
+image because application source is bind-mounted, then recreate only `backend`
+and `frontend-nginx`. Do not recreate the scanner, observer, Airflow,
+PostgreSQL, Redis or telemetry services.
+
+The production environment must retain `WGS_AUTO_DISPATCH_ENABLED=false` in
+both backend and scanner. The 30-minute discovery scanner remains enabled and
+unchanged. This rollout does not submit a run, retry Step7, release SFS data,
+rewrite sample/rule history or migrate the database. Production restart still
+requires the separate approval described below.
+
 ## Identity and location
 
 - Project: `ngs-huaweicloud`

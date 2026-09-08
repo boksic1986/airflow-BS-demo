@@ -62,6 +62,7 @@ class PipelineAdapter:
     project_dashboard_metadata: Callable[..., dict[str, Any]] | None = None
     project_dashboard_lifecycles: Callable[..., dict[str, dict[str, Any]]] | None = None
     project_dashboard_qc_statuses: Callable[..., dict[str, str]] | None = None
+    project_dashboard_attention: Callable[..., list[dict[str, Any]]] | None = None
     project_sample_summary: Callable[..., dict[str, Any]] | None = None
     sync_airflow_status: Callable[..., dict[str, Any] | None] | None = None
     get_log: Callable[..., dict[str, Any] | None] | None = None

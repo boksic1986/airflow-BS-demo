@@ -452,7 +452,7 @@ it("keeps refreshing a completed run while its Step7 maintenance action is activ
   expect(workspaceCalls).toBeGreaterThan(1);
 });
 
-it("shows and searches the public WGS batch in the sample inventory", async () => {
+it("shows the privacy-safe Sample Information columns in the requested order", async () => {
   window.history.pushState({}, "", "/samples");
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
@@ -466,6 +466,8 @@ it("shows and searches the public WGS batch in the sample inventory", async () =
         sample_id: "S1",
         family_id: "F1",
         batch_no: "20260901B",
+        order_number_masked: "****5678",
+        test_project: "Whole genome sequencing",
         sequencing_batch: "20260901B",
         status: "success",
         report_status: "not_available",
@@ -479,10 +481,20 @@ it("shows and searches the public WGS batch in the sample inventory", async () =
 
   render(<App />);
 
+  expect(await screen.findByRole("heading", {name: "Sample Information"})).toBeInTheDocument();
   expect(await screen.findByText("20260901B")).toBeInTheDocument();
+  expect(screen.getByText("****5678")).toBeInTheDocument();
+  expect(screen.getByText("Whole genome sequencing")).toBeInTheDocument();
   expect(screen.getByPlaceholderText("sample, family, batch, project or run ID")).toBeInTheDocument();
-  expect(screen.getByRole("columnheader", {name: "batch"})).toBeInTheDocument();
-  expect(screen.queryByRole("columnheader", {name: "sequencing batch"})).not.toBeInTheDocument();
+  expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual([
+    "Sample / family",
+    "Batch",
+    "Order",
+    "Relation / type",
+    "Project / run",
+    "Status",
+  ]);
+  expect(screen.queryByText("Paginated sample inventory across deployed workflows.")).not.toBeInTheDocument();
 });
 
 it("keeps account administration hidden for viewers", async () => {
@@ -497,12 +509,12 @@ it("keeps account administration hidden for viewers", async () => {
   expect(screen.queryByRole("link", {name: "Accounts"})).not.toBeInTheDocument();
 });
 
-it("shows QC summary actions when the deployed adapter exposes QC", async () => {
+it("replaces duplicate dashboard metrics with actionable attention and total throughput", async () => {
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "viewer", role: "viewer"});
     if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
-    if (url.includes("/api/dashboard/overview")) return json({totals: {runs: 0, running: 0, failed: 0, success: 0, created: 0}, sample_summary: {total: 0, running: 0, workflow_failed: 0, qc_failed: 7, completed: 0}, status_distribution: {}, trend: [], sample_trend: []});
+    if (url.includes("/api/dashboard/overview")) return json({totals: {runs: 0, running: 0, failed: 0, success: 0, created: 0}, sample_summary: {total: 63, running: 0, workflow_failed: 0, qc_failed: 7, completed: 56}, status_distribution: {}, trend: [], sample_trend: [], attention_items: [{id: "qc-WGS_001", category: "qc_failed", severity: "danger", title: "QC failed", detail: "WGS_001 has 7 failed samples.", analysis_id: "WGS_001", batch_id: "20260901B"}]});
     if (url.includes("/api/dashboard/runs")) return json({items: [], total: 0, limit: 10, offset: 0});
     if (url.includes("/api/intake/scanner-state")) return json({last_scanned_directory_count: 0, schedule_seconds: 600, auto_dispatch_enabled: false});
     if (url.includes("/api/intake/status")) return json({items: [{pipeline: "wgs", chip_id: "2243th_20260906B", batch_id: "20260906B", sequencing_batch: "20260906B", ready_state: "ready", submit_state: "ready", eligible_pair_count: 9, excluded_addon_pair_count: 0, pair_issue_count: 0, last_seen_at: "2026-09-08T12:33:22Z"}], total: 1, limit: 10, offset: 0});
@@ -513,9 +525,14 @@ it("shows QC summary actions when the deployed adapter exposes QC", async () => 
   render(<App />);
 
   expect(await screen.findByRole("heading", {name: "Command Center"})).toBeInTheDocument();
-  expect(screen.getByText("QC alerts")).toBeInTheDocument();
+  expect(screen.getByRole("heading", {name: "Attention required"})).toBeInTheDocument();
+  expect(await screen.findByText("QC failed")).toBeInTheDocument();
+  expect(screen.getByText("Total")).toBeInTheDocument();
+  expect(screen.getByText("63")).toBeInTheDocument();
   expect(screen.getByText("QC failed samples")).toBeInTheDocument();
-  expect(screen.getByText("Workflow fails")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Command center summary")).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", {name: "Status distribution"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", {name: "7d run activity"})).not.toBeInTheDocument();
   const mainColumn = screen.getByRole("heading", {name: "Run Tracker"}).closest(".dashboard-main-column");
   expect(mainColumn).toContainElement(screen.getByRole("heading", {name: "Analysis Node Health"}));
   expect(mainColumn).toContainElement(screen.getByRole("heading", {name: "Cloud Resources"}));
@@ -553,10 +570,10 @@ it("does not request or render intake for a selected pipeline without intake", a
 
   render(<App />);
 
-  expect(await screen.findByRole("heading", {name: "T7自动扫描"})).toBeInTheDocument();
+  expect(await screen.findByRole("heading", {name: "WGS Intake Queue"})).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", {name: "GATK Cloud"}));
   await waitFor(() => expect(screen.getByText("Selected pipeline: GATK Cloud")).toBeInTheDocument());
-  expect(screen.queryByRole("heading", {name: "T7自动扫描"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", {name: "WGS Intake Queue"})).not.toBeInTheDocument();
   expect(intakeRequests.some((url) => url.includes("pipeline=gatk"))).toBe(false);
 });
 

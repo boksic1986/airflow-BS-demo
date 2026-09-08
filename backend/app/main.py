@@ -48,6 +48,7 @@ from app.pipeline_registry import (
     PipelineRegistryError,
 )
 from app.pipeline_registry_service import (
+    attention_projectors,
     clear_pipeline_registry_cache,
     deployed_adapters,
     get_pipeline_registry,
@@ -1151,6 +1152,7 @@ def dashboard_overview(
             pipeline=pipeline,
             period=period,
             deployed_pipelines=deployed_pipelines,
+            attention_projectors=attention_projectors(get_settings()),
         )
 
 
@@ -1295,7 +1297,7 @@ def intake_status(
         pattern="^(bootstrap|observed|ready|submitted|error|disabled|waiting_barcode_stat|no_new_wgs|needs_review|bootstrap_ignored)$",
     ),
     lifecycle: str = Query(default="active", pattern="^(active|archived|all)$"),
-    view_filter: str = Query(default="all", alias="view", pattern="^(pending|history|all)$"),
+    view_filter: str = Query(default="all", alias="view", pattern="^(attention|pending|history|all)$"),
     keyword: str | None = None,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),

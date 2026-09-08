@@ -1,5 +1,26 @@
 # API contract
 
+## T240 dashboard attention and sample information
+
+- `GET /api/dashboard/overview` adds `attention_items`, an adapter-owned,
+  privacy-safe list of actionable conditions. The WGS projector may emit
+  workflow/QC failures, add-on exclusions, FASTQ pair issues, reanalysis,
+  cross-batch duplicate-family warnings, SFS cleanup overdue after two days,
+  and overdue result delivery. A projector runs only when its pipeline is in
+  the selected dashboard scope. Legacy overview fields remain available for
+  rolling-version compatibility but the T240 dashboard no longer renders the
+  duplicate summary cards and trend panels.
+- `GET /api/intake/status?pipeline=wgs&view=attention` returns only unlinked
+  `ready`, `needs_review`, and linked failed analysis rows. `no_new_wgs`,
+  queued/running and successful linked analyses are excluded. The response
+  contains controlled batch identity and status only; source paths are not
+  returned.
+- WGS sample projections may add `order_number_masked`, `test_project`, and an
+  optional future `status_reason`. The order value is always `****` plus at
+  most the last four source characters; the raw order number is neither stored
+  in sample metadata nor returned by the API. An absent db_v2 reason remains
+  absent rather than being fabricated.
+
 ## Generic platform endpoints
 
 - `GET /api/platform/capabilities` returns `deployed_pipelines` and registry definitions with capabilities and execution targets.

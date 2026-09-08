@@ -22,7 +22,6 @@ import {
 } from "../api";
 import {RunTracker} from "../components/RunTracker";
 import {
-  CommandSummary,
   OperationsOverview,
   PipelineRail,
 } from "../features/dashboard/DashboardOverview";
@@ -44,7 +43,6 @@ export function DashboardPage() {
   const [trackerKeyword, setTrackerKeyword] = useState("");
   const [trackerOffset, setTrackerOffset] = useState(0);
   const [intakeOffset, setIntakeOffset] = useState(0);
-  const [intakeView, setIntakeView] = useState<"pending" | "history">("pending");
   const [intakeTotal, setIntakeTotal] = useState(0);
   const [resourceTab, setResourceTab] = useState<DashboardPipeline>("all");
 
@@ -121,7 +119,7 @@ export function DashboardPage() {
           pipeline: deployedPipeline,
           keyword: trackerKeyword.trim() || undefined,
           lifecycle: "all",
-          view: intakeView,
+          view: "attention",
           limit: intakeLimit,
           offset: intakeOffset,
         }),
@@ -141,7 +139,7 @@ export function DashboardPage() {
     } finally {
       if (showSpinner) setIntakeLoading(false);
     }
-  }, [deployedPipeline, intakeOffset, intakeView, showIntake, trackerKeyword]);
+  }, [deployedPipeline, intakeOffset, showIntake, trackerKeyword]);
 
   const loadResources = useCallback(async (showSpinner = true) => {
     if (showSpinner) setResourcesLoading(true);
@@ -272,7 +270,8 @@ export function DashboardPage() {
       <section className="dashboard-command-grid">
         <PipelineRail pipeline={pipeline} pipelines={deployedDefinitions} onChange={handlePipelineChange} />
         <div className="dashboard-main-column">
-          <CommandSummary overview={overview} pipeline={pipeline} loading={overviewLoading} error={overviewError} showQc={showQc} />
+          {overviewError ? <div className="inline-error" role="alert">Overview unavailable: {overviewError}</div> : null}
+          {overviewLoading && !overview ? <p className="muted panel-loading">Loading overview...</p> : null}
           <OperationsOverview overview={overview} period={period} loading={overviewLoading} onPeriodChange={setPeriod} showQc={showQc} />
           <div className="dashboard-tracker-region" aria-busy={trackerLoading}>
             {trackerError ? <div className="inline-error" role="alert">Run tracker unavailable: {trackerError}</div> : null}
@@ -299,8 +298,6 @@ export function DashboardPage() {
               offset={intakeOffset}
               loading={intakeLoading}
               error={intakeError}
-              view={intakeView}
-              onViewChange={(nextView) => { setIntakeView(nextView); setIntakeOffset(0); }}
               onPageChange={setIntakeOffset}
             /> : null}
           <DashboardResourcePanels

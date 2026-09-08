@@ -12,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 
 from app import wgs_t7_intake
 from app.models import AnalysisRun, Base, WgsIntakeBatch, WgsIntakeScannerState
-from app.wgs_t7_intake import scan_wgs_t7_intake
+from app.wgs_t7_intake import list_wgs_t7_intake, scan_wgs_t7_intake
 
 
 def make_sessionmaker():
@@ -608,3 +608,74 @@ def test_ready_batch_losing_barcode_stat_requires_review(tmp_path: Path) -> None
         row = session.scalar(select(WgsIntakeBatch))
         assert row.state == "needs_review"
         assert row.last_error == "eligible WGS input changed after ready"
+
+
+def test_attention_view_keeps_only_unlinked_ready_failed_and_needs_review() -> None:
+    sessions = make_sessionmaker()
+    now = datetime(2026, 9, 9, 8, 0, tzinfo=timezone.utc)
+    run_states = {
+        "FAILED": "failed",
+        "RUNNING": "running",
+        "SUCCESS": "success",
+    }
+    with sessions.begin() as session:
+        for suffix, status in run_states.items():
+            analysis_id = f"WGS_{suffix}"
+            session.add(
+                AnalysisRun(
+                    analysis_id=analysis_id,
+                    pipeline_name="wgs",
+                    dag_id="bio_wgs",
+                    status=status,
+                    workdir=f"/controlled/{suffix.lower()}",
+                    params_json={"batch_no": suffix},
+                    created_at=now,
+                )
+            )
+            session.add(
+                WgsIntakeBatch(
+                    source_path=f"/source/{suffix}",
+                    chip_id=f"1{suffix}",
+                    sequencing_batch=suffix,
+                    analysis_id=analysis_id,
+                    state="submitted" if suffix == "FAILED" else "ready",
+                    last_scanned_at=now,
+                )
+            )
+        for suffix, state in {
+            "READY": "ready",
+            "REVIEW": "needs_review",
+            "NO_NEW": "no_new_wgs",
+        }.items():
+            session.add(
+                WgsIntakeBatch(
+                    source_path=f"/source/{suffix}",
+                    chip_id=f"2{suffix}",
+                    sequencing_batch=suffix,
+                    state=state,
+                    last_scanned_at=now,
+                )
+            )
+
+    with sessions() as session:
+        payload = list_wgs_t7_intake(
+            session=session,
+            state=None,
+            view="attention",
+            keyword=None,
+            limit=20,
+            offset=0,
+        )
+
+    assert [item["sequencing_batch"] for item in payload["items"]] == [
+        "FAILED",
+        "REVIEW",
+        "READY",
+    ]
+    assert [item["display_status"] for item in payload["items"]] == [
+        "failed",
+        "needs_review",
+        "ready",
+    ]
+    assert payload["items"][0]["analysis_status"] == "failed"
+    assert all("source_path" not in item for item in payload["items"])

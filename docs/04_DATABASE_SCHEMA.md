@@ -1,5 +1,14 @@
 # 04 数据库设计
 
+## T240 privacy-safe sample metadata projection
+
+T240 has no schema migration. WGS `Sample.metadata_json` may contain the
+allowlisted keys `order_number_masked`, `test_project`, and
+`estimated_report_date` in addition to the existing controlled sample fields.
+The raw order number is transformed before persistence and is never stored.
+`status_reason` is reserved for a later db_v2-backed projection; T240 does not
+invent or persist a pending reason without an authoritative source.
+
 ## T227 Step7 generation history
 
 Migration `20260908_0018` extends `wgs_maintenance_action` with `generation`,

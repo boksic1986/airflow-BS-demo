@@ -8,10 +8,10 @@ from pathlib import Path
 import re
 from typing import Callable
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import and_, case, func, or_, select, text
 from sqlalchemy.orm import Session
 
-from .models import WgsIntakeBatch, WgsIntakeScannerState
+from .models import AnalysisRun, WgsIntakeBatch, WgsIntakeScannerState
 
 
 CHIP_DIRECTORY_PATTERN = re.compile(
@@ -272,6 +272,63 @@ def list_wgs_t7_intake(
     limit: int,
     offset: int,
 ) -> dict[str, object]:
+    if view == "attention":
+        query = (
+            select(WgsIntakeBatch, AnalysisRun)
+            .outerjoin(
+                AnalysisRun,
+                AnalysisRun.analysis_id == WgsIntakeBatch.analysis_id,
+            )
+            .where(
+                or_(
+                    WgsIntakeBatch.state == "needs_review",
+                    and_(
+                        WgsIntakeBatch.state == "ready",
+                        WgsIntakeBatch.analysis_id.is_(None),
+                    ),
+                    func.lower(AnalysisRun.status).in_(
+                        ("failed", "fail", "error", "terminated")
+                    ),
+                ),
+            )
+        )
+        if state in PERSISTED_STATES:
+            query = query.where(WgsIntakeBatch.state == state)
+        if keyword:
+            search = f"%{keyword.strip()}%"
+            query = query.where(
+                or_(
+                    WgsIntakeBatch.chip_id.ilike(search),
+                    WgsIntakeBatch.sequencing_batch.ilike(search),
+                )
+            )
+        total = session.scalar(
+            select(func.count()).select_from(query.order_by(None).subquery())
+        ) or 0
+        priority = case(
+            (func.lower(AnalysisRun.status).in_(("failed", "fail", "error", "terminated")), 0),
+            (WgsIntakeBatch.state == "needs_review", 1),
+            else_=2,
+        )
+        rows = session.execute(
+            query.order_by(
+                priority,
+                WgsIntakeBatch.last_scanned_at.desc(),
+                WgsIntakeBatch.chip_id.desc(),
+            )
+            .limit(limit)
+            .offset(offset)
+        ).all()
+        return {
+            "items": [
+                _public_batch_payload(row, run, include_analysis_status=True)
+                for row, run in rows
+            ],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+
     query = select(WgsIntakeBatch).where(WgsIntakeBatch.state.in_(PERSISTED_STATES))
     if state in PERSISTED_STATES:
         query = query.where(WgsIntakeBatch.state == state)
@@ -326,8 +383,19 @@ def get_wgs_t7_scanner_state(
     }
 
 
-def _public_batch_payload(row: WgsIntakeBatch) -> dict[str, object]:
-    return {
+def _public_batch_payload(
+    row: WgsIntakeBatch,
+    run: AnalysisRun | None = None,
+    *,
+    include_analysis_status: bool = False,
+) -> dict[str, object]:
+    analysis_status = str(run.status or "").lower() if run is not None else None
+    display_status = (
+        analysis_status
+        if analysis_status in {"failed", "fail", "error", "terminated"}
+        else row.state
+    )
+    payload = {
         "pipeline": "wgs",
         "chip_id": row.chip_id,
         "batch_id": row.chip_id,
@@ -341,6 +409,10 @@ def _public_batch_payload(row: WgsIntakeBatch) -> dict[str, object]:
         "last_error": row.last_error,
         "last_seen_at": _iso_datetime(row.last_scanned_at),
     }
+    if include_analysis_status:
+        payload["analysis_status"] = analysis_status
+        payload["display_status"] = display_status
+    return payload
 
 
 def _iso_datetime(value: datetime | None) -> str | None:

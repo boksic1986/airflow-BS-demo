@@ -66,6 +66,12 @@ def list_samples_resource(
                 func.lower(
                     cast(AnalysisRun.params_json["sequencing_batch"].as_string(), String)
                 ).like(pattern),
+                func.lower(
+                    cast(Sample.metadata_json["order_number_masked"].as_string(), String)
+                ).like(pattern),
+                func.lower(
+                    cast(Sample.metadata_json["test_project"].as_string(), String)
+                ).like(pattern),
             )
         )
     total = session.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
