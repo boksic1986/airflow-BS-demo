@@ -6,6 +6,8 @@ T230 is a frontend-only responsive layout adjustment. At viewports up to 1920 CS
 
 The focused `RunTracker.test.tsx` regression first failed because the time headings had no layout hook, then passed 1/1 after the change. A TypeScript/Vite production build passed in the cached fengxian frontend test image with `--network none`; output assets were `index-CSvPomBH.css` and `index-BHbOW6k8.js`. No dependency or image download was used. The first remote-test wrapper did not start because PowerShell required `${target}` before `:/work`; the corrected command passed. This task has not been deployed. Rollback is the frontend-only T230 commit.
 
+Local `main` was fast-forwarded to T230. `git push origin main` could not connect to GitHub port 22, and the standards-compliant port-443 fallback stopped on host-key verification rather than accepting an unverified key. The BS jump host also aborted SSH handshakes, so no production deployment was attempted. Retry the push and frontend-only release after connectivity is restored; do not recreate backend, Airflow or analysis services.
+
 ## 2026-09-08 T229 live terminal and console consistency
 
 T229 repairs display/projection defects around the live `20260906B` run without

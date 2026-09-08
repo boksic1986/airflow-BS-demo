@@ -11,6 +11,9 @@ Acceptance:
 - [x] Compact Project, Batch, Pipeline, Status, Data lifecycle, Current stage and time columns at 1080P-class viewport widths.
 - [x] Center Started and Finished headings and values horizontally and vertically.
 - [x] Run the focused frontend regression and production build remotely without network access.
+- [x] Fast-forward local `main` to the validated T230 commit.
+- [ ] Push `origin/main` after GitHub SSH connectivity recovers.
+- [ ] Deploy only the production frontend after the BS/.96 SSH path recovers.
 
 ## T229 - Live terminal and console consistency
 
