@@ -1,5 +1,24 @@
 # TASKS.md
 
+## T237 - Workflow lifecycle catalog and operations layout
+
+Owner: platform/backend/frontend/QA
+
+Status: validated candidate; production deployment pending
+
+Acceptance:
+- [x] Add an optional registry-owned lifecycle projection to generic run-list items without hard-coding WGS behavior.
+- [x] Keep Workflow Catalog capability cards and add a read-only, filterable lifecycle table with three recent runs per pipeline.
+- [x] Remove the non-actionable Data lifecycle column from Run Tracker and restore normal typography, left-aligned Project content and right-aligned progress percent.
+- [x] Match analysis-node controls to the SFS tag, align all three resource panels and remove redundant SFS I/O text.
+- [x] Equalize Current Progress and Pipeline evidence on desktop while preserving natural mobile heights.
+- [x] Pass targeted backend/frontend tests and a disconnected production frontend build.
+- [ ] Deploy backend/frontend without recreating Airflow, observer, scanner, metrics, PostgreSQL or Redis.
+
+Safety:
+- Lifecycle display is read-only; it cannot release SFS data or deliver results.
+- The release must retain the T236 GATK FASTQ-root configuration already active on BS10610.
+
 ## T236 - GATK a.raw FASTQ link visibility
 
 Owner: backend/infra/QA

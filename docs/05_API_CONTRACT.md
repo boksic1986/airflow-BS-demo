@@ -3,7 +3,7 @@
 ## Generic platform endpoints
 
 - `GET /api/platform/capabilities` returns `deployed_pipelines` and registry definitions with capabilities and execution targets.
-- `GET /api/runs` lists runs, filtered by registered pipeline ID.
+- `GET /api/runs` lists runs, filtered by registered pipeline ID. Each item may include an optional `lifecycle` object projected by that pipeline's registered `project_dashboard_lifecycles` callback; adapters without this projection return `null` rather than inheriting WGS behavior.
 - `POST /api/runs` creates through the selected adapter when `submit` is available.
 - `GET /api/runs/{analysis_id}` returns the shared run projection plus adapter-owned fields.
 - `GET /api/runs/{analysis_id}/samples` returns adapter-projected sample state.

@@ -42,7 +42,7 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 - One visibility-aware five-second workspace poll drives both Current Progress and the active Transfer card. Percent text and progress values use the same one-decimal projection.
 - Transfer summaries show progress, aggregate speed, file count, start, finish, and last update. File rows use a short progress bar, start/finish timestamps, checksum badges, and distinct accepted/running styles.
 - Overview shows a privacy-safe batch manifest summary. Samples omits the duplicate Data column and remains the sample analysis-state matrix.
-- Pipeline evidence is limited to pinned release/runtime identity, execution target, and a controlled relative project path. Current Progress and evidence keep a responsive 2:1 layout without forced equal height.
+- Pipeline evidence is limited to pinned release/runtime identity, execution target, and a controlled relative project path. Current Progress and evidence keep a responsive 2:1 layout with equal desktop heights and slightly relaxed text spacing; narrow layouts return to natural content height.
 - Rules request `active_first`; not-started, running, and terminal timestamps are displayed without inventing missing evidence.
 - Batch Runs falls back to `workflow_status`/`workflow_label` when detailed stage rail data is absent.
 - Failed Step7 actions keep generation history visible and offer a revision-fenced retry only when the backend reports it safe.
@@ -65,6 +65,14 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 - Run Tracker headings and cells are horizontally and vertically centered for consistent row alignment.
 - At viewports up to 1920 CSS pixels, Project, Batch, Pipeline, Status, Data lifecycle and Current stage use a smaller responsive type scale; their nested links, badges and secondary text align to the cell center.
 - Wider displays retain the existing T230 type scale and column widths.
+
+### T237 workflow lifecycle and operations layout
+
+- Workflow Catalog remains the registry-backed capability view and adds a read-only lifecycle table for Workflow, Cloud release, and Result delivery. Pipeline, cloud status, delivery status, and keyword filters operate over the 200 newest deployed runs with 20 rows per page; a failed lifecycle badge links to Run Detail and does not expose a release action.
+- Capability cards show the three newest runs per deployed pipeline. Lifecycle state is consumed only from the generic optional run projection, so adapters without a lifecycle projector display `unavailable`.
+- Run Tracker omits the non-actionable Data lifecycle column, restores normal typography, keeps Project metadata left aligned, centers the remaining operational cells, and right-aligns the Stage progress percentage above its bar. Submitted and Started use one text style and line height in Batch Runs.
+- Analysis node selectors use the same 32px pill geometry and typography as the SFS resource tag. The three resource panels live inside the Dashboard main column, share height/meter geometry, and SFS I/O shows only Read, Write, and Current IOPS.
+- The WGS scanner column says `最近检查`, reflecting that every row in one 30-minute shallow scan shares one observation time.
 
 ## Branding
 
