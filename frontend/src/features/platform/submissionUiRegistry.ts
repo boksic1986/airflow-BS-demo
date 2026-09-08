@@ -1,6 +1,6 @@
 import type {PipelineCapability} from "../../api";
 
-const submissionUiAdapters = new Set(["wgs"]);
+const submissionUiAdapters = new Set(["wgs", "gatk"]);
 
 export function hasRegisteredSubmissionUi(
   pipeline: PipelineCapability,

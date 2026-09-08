@@ -41,3 +41,22 @@ the release. Do not restart Airflow scheduler/worker or release an active OBS
 lease. Restore failed Step7 generations only after exact target, CCE workload,
 and lease identity checks; an absent target may be recorded as
 `verified_absent`, while partial or ambiguous remnants remain failed.
+
+## GATK Cloud disabled rollout
+
+1. Keep `GATK_EXECUTION_ENABLED=false` while applying migration 0019 and
+   deploying backend, Airflow and frontend.
+2. Install the GATK forced command and runtime gate below
+   `/home/ctapa/.config/airflow-gatk`; create `runtime.env` from
+   `config/gatk_runtime.node200.env.example`, add no secrets to the repository,
+   and set mode 0600.
+3. Verify the GATK repository is exactly the approved release and the pinned
+   Master image provides the `rule-status` logger contract.
+4. Run preview/prepare, CCE dry-run and logger smoke before any real transfer.
+5. Execute one controlled SCMC Step1-Step6 smoke. Confirm source FASTQ hashes,
+   terminal rule evidence and the materialized result root.
+6. Enable manual confirmation only after the smoke passes. Do not enable an
+   intake profile; none exists for GATK v1.
+
+To rollback, set the gate false and recreate only affected control-plane
+services. Preserve database/evidence/result state for diagnosis.

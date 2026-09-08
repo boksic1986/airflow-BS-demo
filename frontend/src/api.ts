@@ -116,6 +116,9 @@ export type RunDetail = {
   started_at?: string | null;
   ended_at?: string | null;
   pipeline_release_id?: string | null;
+  gatk_version?: string | null;
+  runtime_profile_id?: string | null;
+  submission_preview_hash?: string | null;
   wgs_version?: string | null;
   wgs_source_commit?: string | null;
   resolved_runtime?: {
@@ -447,6 +450,28 @@ export type CreateRunRequest = {
   batch_no?: string | null;
   fq_path?: string | null;
   options?: Record<string, unknown>;
+  submission_draft_id?: string | null;
+  submission_preview_hash?: string | null;
+};
+
+export type GatkSubmissionPreview = {
+  draft_id: string;
+  preview_hash: string;
+  pipeline: "gatk";
+  profile_id: string;
+  profile_revision: string;
+  batch: string;
+  sampleinfo_name: string;
+  sample_count: number;
+  fastq_file_count: number;
+  fastq_total_bytes: number;
+  samples: string[];
+  validation: {
+    sample_sets_match: boolean;
+    fastq_pairs_complete: boolean;
+    paths_approved: boolean;
+  };
+  expires_at: string;
 };
 
 export type ReanalysisRequest = {
@@ -1388,6 +1413,14 @@ export function createRun(payload: CreateRunRequest): Promise<RunDetail> {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(payload),
+  });
+}
+
+export function previewGatkSubmission(sourceProjectDir: string): Promise<GatkSubmissionPreview> {
+  return requestJson<GatkSubmissionPreview>("/pipelines/gatk/submission-preview", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({source_project_dir: sourceProjectDir}),
   });
 }
 

@@ -1,11 +1,35 @@
 import {useEffect, useMemo, useState, type FormEvent} from "react";
-import {Link} from "react-router-dom";
-import {approveWgsConfig, createCatalogWgsRun, getRunDetail, getRunSamples, getWgsProjects, getWgsRelease, startWgsExecution, updateWgsExecutionChoice, type RunDetail, type Sample, type WgsExecutionChoiceRequest, type WgsProjectCatalog, type WgsRelease} from "../api";
+import {Link, useSearchParams} from "react-router-dom";
+import {approveWgsConfig, createCatalogWgsRun, createRun, getRunDetail, getRunSamples, getWgsProjects, getWgsRelease, previewGatkSubmission, startWgsExecution, updateWgsExecutionChoice, type GatkSubmissionPreview, type RunDetail, type Sample, type WgsExecutionChoiceRequest, type WgsProjectCatalog, type WgsRelease} from "../api";
 import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
+import {StatusBadge} from "../components/StatusBadge";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
+import {hasRegisteredSubmissionUi} from "../features/platform/submissionUiRegistry";
 import {errorMessage} from "../lib/errors";
 
 export function SubmitPage() {
+  const capabilities = usePlatformCapabilities();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const available = capabilities.pipelines.filter((pipeline) => (
+    hasRegisteredSubmissionUi(pipeline, capabilities.isDeployed)
+  ));
+  const requested = searchParams.get("pipeline");
+  const selected = available.find((pipeline) => pipeline.id === requested) || available[0];
+  if (capabilities.loading) {
+    return <div className="page-stack"><section className="panel"><p>Loading submission capabilities...</p></section></div>;
+  }
+  if (!selected) {
+    return <div className="page-stack"><section className="panel"><h1>Submission unavailable</h1><p>No deployed pipeline has a registered submission interface.</p></section></div>;
+  }
+  return <div className="page-stack">
+    {available.length > 1 ? <div className="segmented-control submit-pipeline-switch" aria-label="Submission pipeline">
+      {available.map((pipeline) => <button key={pipeline.id} type="button" className={selected.id === pipeline.id ? "active" : ""} onClick={() => setSearchParams({pipeline: pipeline.id})}>{pipeline.display_name}</button>)}
+    </div> : null}
+    {selected.id === "gatk" ? <GatkSubmitForm /> : <WgsSubmitForm />}
+  </div>;
+}
+
+function WgsSubmitForm() {
   const capabilities = usePlatformCapabilities();
   const [release, setRelease] = useState<WgsRelease | null>(null);
   const [catalog, setCatalog] = useState<WgsProjectCatalog | null>(null);
@@ -83,9 +107,6 @@ export function SubmitPage() {
     await updateWgsExecutionChoice(created.analysis_id, payload);
     setCreated(await getRunDetail(created.analysis_id));
   }
-  if (capabilities.loading) {
-    return <div className="page-stack"><section className="panel"><p>Loading submission capabilities...</p></section></div>;
-  }
   if (!wgsSubmissionAvailable) {
     return <div className="page-stack"><section className="panel"><h1>Submission unavailable</h1><p>No deployed pipeline has a registered submission interface.</p></section></div>;
   }
@@ -111,6 +132,82 @@ export function SubmitPage() {
     {created && phase === "approved" ? <>{created.execution_dispatch ? <ExecutionTargetSelector attempt={created.attempt || 1} batch={batch || String(created.params?.batch || created.params?.sequencing_batch || "-")} sampleCount={samples.length} dispatch={created.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={async () => setCreated(await getRunDetail(created.analysis_id))} /> : null}<p className="success-note">WGS execution approved: <Link to={`/runs/${created.analysis_id}`}>{created.analysis_id}</Link>.</p></> : null}
     {error ? <div className="inline-error" role="alert">{error}</div> : null}
   </div>;
+}
+
+function GatkSubmitForm() {
+  const [sourceProjectDir, setSourceProjectDir] = useState("");
+  const [preview, setPreview] = useState<GatkSubmissionPreview | null>(null);
+  const [created, setCreated] = useState<RunDetail | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadPreview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    setCreated(null);
+    try {
+      setPreview(await previewGatkSubmission(sourceProjectDir.trim()));
+    } catch (submitError) {
+      setPreview(null);
+      setError(errorMessage(submitError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirm() {
+    if (!preview) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setCreated(await createRun({
+        pipeline: "gatk",
+        project_name: "WES_Clinical",
+        execution_mode: "cce",
+        batch_no: preview.batch,
+        submission_draft_id: preview.draft_id,
+        submission_preview_hash: preview.preview_hash,
+      }));
+    } catch (submitError) {
+      setError(errorMessage(submitError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div className="page-stack submit-wizard">
+    <section className="page-header"><div><p className="eyebrow">GATK V7.6.0 · CCE</p><h1>Submit GATK Cloud</h1><p>Select one controlled WES project, review its locked SCMC sample set, then submit the Step1-Step6 workflow.</p></div></section>
+    <section className="panel">
+      <form className="form-grid gatk-submit-form" onSubmit={loadPreview}>
+        <label className="field full"><span>WES project directory</span><input aria-label="WES project directory" value={sourceProjectDir} placeholder="/sg2/21.lijing/WES_Clinical/WES_YYYYMMDDX_T7_V7.6.0_hg38" onChange={(event) => { setSourceProjectDir(event.target.value); setPreview(null); }} /></label>
+        <p className="field-help field full">SCMC samples are selected from sampleinfo and locked to the source configuration and barcode set.</p>
+        <button className="button primary" type="submit" disabled={busy || !sourceProjectDir.trim()}>{busy ? "Checking..." : "Preview project"}</button>
+      </form>
+    </section>
+    {preview ? <section className="panel">
+      <div className="panel-heading"><div><h2>Submission preview</h2><p>Read-only source validation. No run exists until confirmation.</p></div></div>
+      <dl className="definition-grid gatk-preview-grid">
+        <div><dt>Batch</dt><dd>{preview.batch}</dd></div>
+        <div><dt>Runtime profile</dt><dd>{preview.profile_id}</dd></div>
+        <div><dt>Sampleinfo</dt><dd>{preview.sampleinfo_name}</dd></div>
+        <div><dt>SCMC samples</dt><dd>{preview.sample_count}</dd></div>
+        <div><dt>FASTQ</dt><dd>{preview.fastq_file_count} files · {formatBytes(preview.fastq_total_bytes)}</dd></div>
+        <div><dt>Input checks</dt><dd>{Object.values(preview.validation).every(Boolean) ? "Passed" : "Needs attention"}</dd></div>
+      </dl>
+      <div className="table-wrap"><table className="data-table compact"><thead><tr><th>SCMC sample</th><th>Selection</th></tr></thead><tbody>{preview.samples.map((sample) => <tr key={sample}><td>{sample}</td><td><StatusBadge status="locked" size="sm" /></td></tr>)}</tbody></table></div>
+      <div className="panel-actions"><button className="button primary" type="button" disabled={busy || Boolean(created)} onClick={() => void confirm()}>{busy ? "Submitting..." : "Confirm and submit"}</button></div>
+    </section> : null}
+    {created ? <p className="success-note">GATK Cloud submitted: <Link to={`/runs/${created.analysis_id}`}>{created.analysis_id}</Link>.</p> : null}
+    {error ? <div className="inline-error" role="alert">{error}</div> : null}
+  </div>;
+}
+
+function formatBytes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "0 B";
+  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  return `${(value / (1024 ** index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
 function SamplePreview({samples}: {samples: Sample[]}) {

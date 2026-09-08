@@ -6,8 +6,8 @@ from statistics import median
 from sqlalchemy import select
 
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState
-from app.diagnostics_service import wgs_rule_log_contexts
-from app.workflow_phases import wgs_phase_for_rule, wgs_phase_order
+from app.diagnostics_service import gatk_rule_log_contexts, wgs_rule_log_contexts
+from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_for_rule, wgs_phase_order
 from app.wgs_stage_contract import (
     canonical_wgs_stage,
     project_wgs_orchestration,
@@ -20,10 +20,15 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
     now = datetime.now(timezone.utc)
     history_runs = _history_runs(session, run)
     duration_history = _rule_duration_history(session, history_runs, rows)
-    rule_logs = wgs_rule_log_contexts(run=run, rules=rows, settings=settings) if settings is not None else {}
+    if settings is not None and run.pipeline_name == "wgs":
+        rule_logs = wgs_rule_log_contexts(run=run, rules=rows, settings=settings)
+    elif settings is not None and run.pipeline_name == "gatk":
+        rule_logs = gatk_rule_log_contexts(run=run, rules=rows, settings=settings)
+    else:
+        rule_logs = {}
     items = []
     for row in rows:
-        phase = wgs_phase_for_rule(row.rule_name)
+        phase = phase_for_rule(row.rule_name, pipeline_name=run.pipeline_name)
         durations = duration_history.get((row.rule_name, row.layer), [])
         history_median = median(durations) if len(durations) >= 3 else None
         projected_status = row.status
@@ -47,7 +52,7 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
                 "rule_instance_id": row.rule_instance_id,
                 "sequence": row.sequence,
                 "phase": phase,
-                "phase_order": wgs_phase_order(phase),
+                "phase_order": phase_order(phase, pipeline_name=run.pipeline_name),
                 "layer": row.layer,
                 "rule": row.rule_name,
                 "snakemake_jobid": row.snakemake_jobid,
@@ -136,7 +141,6 @@ def enrich_progress(*, session, run: AnalysisRun, payload: dict) -> dict:
             .where(
                 KubernetesWorkload.analysis_id == run.analysis_id,
                 KubernetesWorkload.attempt == run.attempt,
-                KubernetesWorkload.event_id.like("step3:%"),
             )
             .order_by(KubernetesWorkload.updated_at.desc())
         )
@@ -156,7 +160,7 @@ def _history_runs(session, run: AnalysisRun) -> list[AnalysisRun]:
     return session.scalars(
         select(AnalysisRun)
         .where(
-            AnalysisRun.pipeline_name == "wgs",
+            AnalysisRun.pipeline_name == run.pipeline_name,
             AnalysisRun.execution_mode == run.execution_mode,
             AnalysisRun.status == "success",
             AnalysisRun.params_json["pipeline_release_id"].as_string()

@@ -14,6 +14,7 @@ from app.models import (
     EvidenceCursor,
     KubernetesWorkload,
     ObserverRunState,
+    PipelineStageExecution,
     RuleEventRaw,
     RuleState,
     RunAttempt,
@@ -36,7 +37,7 @@ from app.wgs_stage_execution_service import (
     transition_stage_execution,
     validate_current_stage_execution,
 )
-from app.workflow_phases import wgs_phase_for_rule
+from app.workflow_phases import phase_for_rule
 
 
 RULE_EVENT_TYPES = {
@@ -1550,6 +1551,22 @@ def _current_execution_from_payload(*, session, analysis_id: str, attempt: int, 
         generation = int(payload.get("generation"))
     except (TypeError, ValueError) as error:
         raise ValueError("contract v2 evidence generation is invalid") from error
+    run = session.scalar(
+        select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+    )
+    if run is not None and run.pipeline_name == "gatk":
+        row = session.scalar(
+            select(PipelineStageExecution).where(
+                PipelineStageExecution.pipeline_name == "gatk",
+                PipelineStageExecution.analysis_id == analysis_id,
+                PipelineStageExecution.attempt == attempt,
+                PipelineStageExecution.stage_code == stage_code,
+                PipelineStageExecution.execution_id == str(payload.get("execution_id") or ""),
+                PipelineStageExecution.generation == generation,
+                PipelineStageExecution.request_hash == str(payload.get("request_hash") or ""),
+            )
+        )
+        return row if row is not None and row.status in {"accepted", "running", "success"} else None
     return validate_current_stage_execution(
         session=session,
         analysis_id=analysis_id,
@@ -1964,6 +1981,10 @@ def _iso_time(value: object) -> datetime:
 
 
 def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
+    run = session.scalar(
+        select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+    )
+    pipeline_name = run.pipeline_name if run is not None else None
     rows = session.scalars(
         select(RuleEventRaw).where(
             RuleEventRaw.analysis_id == analysis_id,
@@ -2028,7 +2049,13 @@ def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
         state.sequence = _first_int(
             event.get("sequence") for event in ordered if event.get("sequence") is not None
         ) or stable_sequence[instance]
-        state.phase = wgs_phase_for_rule(state.rule_name)
+        state.phase = phase_for_rule(
+            state.rule_name,
+            pipeline_name=pipeline_name,
+            pipeline_stage=str((run.params_json or {}).get("stage") or "")
+            if run is not None
+            else None,
+        )
         wildcards = next(
             (
                 event.get("wildcards")
@@ -2179,6 +2206,65 @@ def reconcile_rule_projection(
         ).all()
     )
     return {"rules_projected": projected, "rules_enriched": enriched}
+
+
+def ingest_bound_pipeline_evidence_once(
+    *,
+    session_factory,
+    analysis_id: str,
+    attempt: int,
+    pipeline_release_id: str,
+    run_label: str,
+    evidence_root: Path,
+    evidence_directory: Path,
+    transfer_spool_root: Path | None = None,
+) -> dict[str, int]:
+    """Ingest one already-bound pipeline evidence directory.
+
+    WGS catalog activation remains unchanged. This narrow entrypoint lets an
+    independent adapter reuse the validated JSONL/Kubernetes projection after
+    its own immutable runtime binding has been checked.
+    """
+    root = evidence_root.resolve()
+    directory = evidence_directory.resolve()
+    if directory == root or root not in directory.parents:
+        raise ValueError("pipeline evidence directory escapes configured root")
+    relative = directory.relative_to(root)
+    binding = EvidenceBinding(
+        analysis_id=analysis_id,
+        attempt=attempt,
+        pipeline_release_id=pipeline_release_id,
+        run_label=run_label,
+        evidence_path=relative.as_posix(),
+        evidence_directory=directory,
+        source_path=Path("<pipeline-adapter>"),
+    )
+    result = {"files": 0, "events_ingested": 0, "errors": 0}
+    paths = [
+        *((path, _ingest_rule_file) for path in sorted((directory / "rule-status" / "raw").glob("*.jsonl"))),
+        *((directory / "raw" / name, _ingest_kubernetes_file) for name in ("pod-events.jsonl", "pod-metrics.jsonl", "job-events.jsonl") if (directory / "raw" / name).is_file()),
+    ]
+    for path, reader in paths:
+        result["files"] += 1
+        try:
+            count, had_error = reader(session_factory, root, binding, path)
+            result["events_ingested"] += count
+            result["errors"] += int(had_error)
+        except (OSError, UnicodeError, ValueError):
+            result["errors"] += 1
+    if transfer_spool_root is not None:
+        transfer_root = transfer_spool_root.resolve()
+        attempt_root = (transfer_root / analysis_id / f"attempt-{attempt}").resolve()
+        if transfer_root not in attempt_root.parents:
+            raise ValueError("pipeline transfer spool path escapes configured root")
+        for path in sorted(attempt_root.glob("*/progress.json")):
+            result["files"] += 1
+            try:
+                if _ingest_transfer_progress(session_factory, transfer_root, path):
+                    result["events_ingested"] += 1
+            except (OSError, UnicodeError, ValueError, TypeError, json.JSONDecodeError):
+                result["errors"] += 1
+    return result
 
 
 def _analysis_log_rule_contexts(path: Path) -> Iterator[tuple[str, str, str]]:

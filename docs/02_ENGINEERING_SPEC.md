@@ -6,7 +6,8 @@
 - `frontend/`: registry-driven React control plane.
 - `dags/`: Airflow orchestration and workflow runners.
 - `config/pipelines.yaml`: deployed pipeline registry.
-- `docker-compose.wgs.yaml`: current WGS deployment composition.
+- `docker-compose.wgs.yaml`: current WGS control plane composition and the
+  disabled-by-default GATK Cloud adapter.
 - `docs/`: current contracts plus retained historical WGS decisions.
 
 ## Registry rules
@@ -27,6 +28,14 @@ Stable errors are:
 - Public paths are controlled relative paths or opaque artifact keys.
 - Database migrations are append-only and retained even when a legacy runtime is removed.
 - Production images are built from pre-approved cached or internal-registry bases; validation must not depend on Docker Hub.
+
+## GATK adapter boundary
+
+GATK uses an independent `bio_gatk` DAG and `pipeline_stage_execution`
+namespace. It may reuse generic status projections and WGS's directional OBS
+leases, but it must not write WGS stage history or enter the WGS intake
+scanner. The node200 handoff is an immutable file/receipt protocol behind a
+forced-command SSH boundary; node200 does not connect to the biodemo database.
 
 ## Testing
 

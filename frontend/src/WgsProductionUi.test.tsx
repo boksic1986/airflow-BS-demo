@@ -43,6 +43,62 @@ it("uses a pipeline-selectable staged WGS submission form", async () => {
   expect(screen.queryByText(/preview is not enabled/)).not.toBeInTheDocument();
 });
 
+it("previews and confirms a locked GATK Cloud project", async () => {
+  window.history.pushState({}, "", "/submit?pipeline=gatk");
+  const requests: Array<{url: string; init?: RequestInit}> = [];
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    requests.push({url, init});
+    if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
+    if (url.endsWith("/api/platform/capabilities")) return json({
+      ...wgsCapabilities(),
+      deployed_pipelines: ["wgs", "gatk"],
+      pipelines: [
+        ...wgsCapabilities().pipelines,
+        {id: "gatk", display_name: "GATK Cloud", dag_id: "bio_gatk", version: "7.6.0", enabled: true, submit_enabled: true, capabilities: ["submit", "rules", "artifacts"], execution_targets: ["cce"]},
+      ],
+    });
+    if (url.endsWith("/api/pipelines/gatk/submission-preview")) return json({
+      draft_id: "gatk-draft-1",
+      preview_hash: "a".repeat(64),
+      pipeline: "gatk",
+      profile_id: "gatk-scmc-v7.6.0",
+      profile_revision: "bd04f6d",
+      batch: "20260908A",
+      sampleinfo_name: "WES_20260908A_T7.sampleinfo.txt",
+      sample_count: 2,
+      fastq_file_count: 4,
+      fastq_total_bytes: 4294967296,
+      samples: ["SCMC001", "SCMC002"],
+      validation: {sample_sets_match: true, fastq_pairs_complete: true, paths_approved: true},
+      expires_at: "2026-09-08T12:30:00Z",
+    });
+    if (url.endsWith("/api/runs")) return json({analysis_id: "GATK_20260908_120000_A1B2C3", pipeline: "gatk", status: "submitted"});
+    return json({items: [], total: 0});
+  }));
+
+  render(<App />);
+
+  expect(await screen.findByRole("heading", {name: "Submit GATK Cloud"})).toBeInTheDocument();
+  expect(screen.getByText(/SCMC samples are selected from sampleinfo/)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("WES project directory"), {target: {value: "/sg2/21.lijing/WES_Clinical/WES_20260908A_T7_V7.6.0_hg38"}});
+  fireEvent.click(screen.getByRole("button", {name: "Preview project"}));
+  expect(await screen.findByText("WES_20260908A_T7.sampleinfo.txt")).toBeInTheDocument();
+  expect(screen.getByText("SCMC001")).toBeInTheDocument();
+  expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", {name: "Confirm and submit"}));
+  expect(await screen.findByRole("link", {name: "GATK_20260908_120000_A1B2C3"})).toHaveAttribute("href", "/runs/GATK_20260908_120000_A1B2C3");
+  const submitted = requests.find((item) => item.url.endsWith("/api/runs") && item.init?.method === "POST");
+  expect(JSON.parse(String(submitted?.init?.body))).toMatchObject({
+    pipeline: "gatk",
+    execution_mode: "cce",
+    submission_draft_id: "gatk-draft-1",
+    submission_preview_hash: "a".repeat(64),
+  });
+  const previewRequest = requests.find((item) => item.url.endsWith("/api/pipelines/gatk/submission-preview"));
+  expect(new Headers(previewRequest?.init?.headers).get("Content-Type")).toBe("application/json");
+});
+
 it("starts stage one without accepting runtime configuration", async () => {
   window.history.pushState({}, "", "/submit");
   const requests: Array<{url: string; init?: RequestInit}> = [];

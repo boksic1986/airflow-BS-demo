@@ -41,6 +41,25 @@ Existing `/api/wgs/*` routes remain supported for WGS submission, intake, eviden
 - `GET /api/transfers/{transfer_id}/files` orders file rows by operational priority: running, accepted/queued, failed, then successful. Pagination and the privacy-safe response fields are unchanged.
 - For a verified successful WGS run, Samples and Rules project stale non-terminal rows as successful and use the run finish timestamp. The underlying Rule/Sample evidence is not rewritten.
 
+## GATK Cloud manual submission
+
+- `POST /api/pipelines/gatk/submission-preview` accepts only
+  `source_project_dir`. It returns an expiring draft/hash, batch, fixed profile,
+  sampleinfo basename, locked SCMC sample IDs, FASTQ count/bytes and safe check
+  results.
+- `POST /api/runs` confirms GATK with `pipeline=gatk`,
+  `execution_mode=cce`, `submission_draft_id` and
+  `submission_preview_hash`. Changed inputs return
+  `409 GATK_INPUT_CHANGED`; an expired/consumed draft or duplicate batch
+  returns `409 GATK_DRAFT_CONFLICT`.
+- GATK reuses `/workspace`, `/rules`, `/pods`, `/transfers`, `/logs` and
+  `/artifacts`. It deliberately does not expose QC, intake or clone-reanalysis
+  capability in v1.
+
+Internal `/api/internal/gatk/runs/{analysis_id}/stages/{stage}` and
+`/stage-status` routes require the service token and the fixed
+`gatk-runtime-200` adapter identity.
+
 ## Privacy
 
 Responses never include patient names, hospitals, credentials, raw absolute storage paths, or arbitrary filesystem content. Artifacts are accessed by controlled keys.

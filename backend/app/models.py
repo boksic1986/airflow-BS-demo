@@ -665,6 +665,77 @@ class WgsStageExecution(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
 
+class PipelineStageExecution(Base):
+    __tablename__ = "pipeline_stage_execution"
+    __table_args__ = (
+        UniqueConstraint(
+            "pipeline_name", "analysis_id", "attempt", "stage_code", "generation",
+            name="uq_pipeline_stage_execution_generation",
+        ),
+        Index(
+            "ix_pipeline_stage_execution_current",
+            "pipeline_name", "analysis_id", "attempt", "stage_code", "generation",
+        ),
+        Index("ix_pipeline_stage_execution_status", "pipeline_name", "stage_code", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    execution_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    pipeline_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    analysis_id: Mapped[str] = mapped_column(
+        ForeignKey("analysis_run.analysis_id", ondelete="CASCADE"), nullable=False
+    )
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    stage_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="accepted")
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    release_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    predecessor_execution_id: Mapped[str | None] = mapped_column(String(128))
+    predecessor_generation: Mapped[int | None] = mapped_column(Integer)
+    predecessor_receipt_hash: Mapped[str | None] = mapped_column(String(64))
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    evidence_type: Mapped[str | None] = mapped_column(String(64))
+    evidence_key: Mapped[str | None] = mapped_column(Text)
+    receipt_hash: Mapped[str | None] = mapped_column(String(64))
+    terminal_payload_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class PipelineSubmissionDraft(Base):
+    __tablename__ = "pipeline_submission_draft"
+    __table_args__ = (
+        Index(
+            "ix_pipeline_submission_draft_owner_status",
+            "pipeline_name", "owner_username", "status",
+        ),
+        Index("ix_pipeline_submission_draft_expiry", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    draft_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    pipeline_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    owner_username: Mapped[str] = mapped_column(String(128), nullable=False)
+    input_root: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(64), nullable=False, default="previewed")
+    input_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    preview_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    analysis_id: Mapped[str | None] = mapped_column(
+        ForeignKey("analysis_run.analysis_id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class WgsSubmissionDraft(Base):
     __tablename__ = "wgs_submission_draft"
     __table_args__ = (
