@@ -3109,10 +3109,6 @@ textarea {
   box-shadow: 0 1px 2px rgba(20, 32, 51, 0.08);
 }
 
-.submit-pipeline-switch {
-  align-self: flex-start;
-}
-
 .gatk-submit-form {
   grid-template-columns: minmax(0, 1fr) auto;
 }

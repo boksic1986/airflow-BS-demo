@@ -1,6 +1,6 @@
-import {useEffect, useMemo, useState, type FormEvent} from "react";
+import {useEffect, useMemo, useState, type FormEvent, type ReactNode} from "react";
 import {Link, useSearchParams} from "react-router-dom";
-import {approveWgsConfig, createCatalogWgsRun, createRun, getRunDetail, getRunSamples, getWgsProjects, getWgsRelease, previewGatkSubmission, startWgsExecution, updateWgsExecutionChoice, type GatkSubmissionPreview, type RunDetail, type Sample, type WgsExecutionChoiceRequest, type WgsProjectCatalog, type WgsRelease} from "../api";
+import {approveWgsConfig, createCatalogWgsRun, createRun, getRunDetail, getRunSamples, getWgsProjects, getWgsRelease, previewGatkSubmission, startWgsExecution, updateWgsExecutionChoice, type GatkSubmissionPreview, type PipelineCapability, type RunDetail, type Sample, type WgsExecutionChoiceRequest, type WgsProjectCatalog, type WgsRelease} from "../api";
 import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
 import {StatusBadge} from "../components/StatusBadge";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
@@ -21,15 +21,21 @@ export function SubmitPage() {
   if (!selected) {
     return <div className="page-stack"><section className="panel"><h1>Submission unavailable</h1><p>No deployed pipeline has a registered submission interface.</p></section></div>;
   }
-  return <div className="page-stack">
-    {available.length > 1 ? <div className="segmented-control submit-pipeline-switch" aria-label="Submission pipeline">
-      {available.map((pipeline) => <button key={pipeline.id} type="button" className={selected.id === pipeline.id ? "active" : ""} onClick={() => setSearchParams({pipeline: pipeline.id})}>{pipeline.display_name}</button>)}
-    </div> : null}
-    {selected.id === "gatk" ? <GatkSubmitForm /> : <WgsSubmitForm />}
-  </div>;
+  const pipelineSelector = <SubmissionPipelineField
+    pipelines={available}
+    selectedId={selected.id}
+    onChange={(pipelineId) => setSearchParams({pipeline: pipelineId})}
+  />;
+  return selected.id === "gatk"
+    ? <GatkSubmitForm pipelineSelector={pipelineSelector} />
+    : <WgsSubmitForm pipelineSelector={pipelineSelector} />;
 }
 
-function WgsSubmitForm() {
+function SubmissionPipelineField({pipelines, selectedId, onChange}: {pipelines: PipelineCapability[]; selectedId: string; onChange: (pipelineId: string) => void}) {
+  return <label className="field"><span>Pipeline</span><select aria-label="Pipeline" value={selectedId} disabled={pipelines.length < 2} onChange={(event) => onChange(event.target.value)}>{pipelines.map((pipeline) => <option value={pipeline.id} key={pipeline.id}>{pipeline.display_name}</option>)}</select></label>;
+}
+
+function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const capabilities = usePlatformCapabilities();
   const [release, setRelease] = useState<WgsRelease | null>(null);
   const [catalog, setCatalog] = useState<WgsProjectCatalog | null>(null);
@@ -115,7 +121,7 @@ function WgsSubmitForm() {
     <section className="panel"><div className="definition-grid"><div><dt>Current WGS release</dt><dd>{release ? `WGS ${release.version} / ${release.source_commit.slice(0, 7)}` : "Loading release..."}</dd></div><div><dt>Release ID</dt><dd>{release?.release_id || "-"}</dd></div><div><dt>Execution</dt><dd>{executionEnabled ? "Enabled" : "Disabled"}</dd></div></div></section>
     <ol className="wizard-steps"><li className={phase === "select" || phase === "preparing_sampleinfo" ? "active" : ""}>1. Select batch</li><li className={phase === "config_review" || phase === "preparing_analysis" ? "active" : ""}>2. Review samples and configuration</li><li className={phase === "execution_review" || phase === "approved" ? "active" : ""}>3. Confirm execution</li></ol>
     {!created ? <section className="panel"><form className="form-grid" onSubmit={prepare}>
-      <label className="field"><span>Pipeline</span><select aria-label="Pipeline" value={wgsDefinition!.id} disabled><option value={wgsDefinition!.id}>{wgsDefinition!.display_name}</option></select></label>
+      {pipelineSelector}
       <label className="field"><span>Project</span><select aria-label="Project" value={projectId} onChange={(event) => setProjectId(event.target.value)}>{catalog?.items.map((item) => <option value={item.project_id} key={item.project_id}>{item.display_name}</option>)}</select></label>
       <label className="field"><span>Platform</span><select aria-label="Platform" value={platform} onChange={(event) => setPlatform(event.target.value)}>{project?.platforms.map((item) => <option value={item.platform_id} key={item.platform_id}>{item.display_name}</option>)}</select></label>
       <label className="field"><span>Batch</span><input aria-label="Batch" placeholder="20260901B" value={batch} onChange={(event) => setBatch(event.target.value)} /></label>
@@ -134,7 +140,7 @@ function WgsSubmitForm() {
   </div>;
 }
 
-function GatkSubmitForm() {
+function GatkSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const [sourceProjectDir, setSourceProjectDir] = useState("");
   const [preview, setPreview] = useState<GatkSubmissionPreview | null>(null);
   const [created, setCreated] = useState<RunDetail | null>(null);
@@ -180,6 +186,7 @@ function GatkSubmitForm() {
     <section className="page-header"><div><p className="eyebrow">GATK V7.6.0 · CCE</p><h1>Submit GATK Cloud</h1><p>Select one controlled WES project, review its locked SCMC sample set, then submit the Step1-Step6 workflow.</p></div></section>
     <section className="panel">
       <form className="form-grid gatk-submit-form" onSubmit={loadPreview}>
+        {pipelineSelector}
         <label className="field full"><span>WES project directory</span><input aria-label="WES project directory" value={sourceProjectDir} placeholder="/sg2/21.lijing/WES_Clinical/WES_YYYYMMDDX_T7_V7.6.0_hg38" onChange={(event) => { setSourceProjectDir(event.target.value); setPreview(null); }} /></label>
         <p className="field-help field full">SCMC samples are selected from sampleinfo and locked to the source configuration and barcode set.</p>
         <button className="button primary" type="submit" disabled={busy || !sourceProjectDir.trim()}>{busy ? "Checking..." : "Preview project"}</button>
