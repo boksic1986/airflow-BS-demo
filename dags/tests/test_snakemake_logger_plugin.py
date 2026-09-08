@@ -2,8 +2,10 @@ import json
 import logging
 import sys
 import tempfile
+import types
 import unittest
 from dataclasses import fields
+from enum import Enum
 from pathlib import Path
 from unittest.mock import patch
 
@@ -12,10 +14,39 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 try:
     from snakemake_interface_logger_plugins.common import LogEvent
 except ModuleNotFoundError:  # Airflow's Python env does not provide Snakemake 9.
-    LogEvent = None
+    package = types.ModuleType("snakemake_interface_logger_plugins")
+    base = types.ModuleType("snakemake_interface_logger_plugins.base")
+    common = types.ModuleType("snakemake_interface_logger_plugins.common")
+    settings = types.ModuleType("snakemake_interface_logger_plugins.settings")
+
+    class LogHandlerBase:
+        def __init__(self, common_settings=None, settings=None):
+            self.common_settings = common_settings
+            self.settings = settings
+            self.__post_init__()
+
+    class LogHandlerSettingsBase:
+        pass
+
+    class LogEvent(Enum):
+        JOB_STARTED = "job_started"
+        JOB_INFO = "job_info"
+        JOB_FINISHED = "job_finished"
+        JOB_ERROR = "job_error"
+        GROUP_ERROR = "group_error"
+        ERROR = "error"
+        WORKFLOW_STARTED = "workflow_started"
+        PROGRESS = "progress"
+
+    base.LogHandlerBase = LogHandlerBase
+    common.LogEvent = LogEvent
+    settings.LogHandlerSettingsBase = LogHandlerSettingsBase
+    sys.modules[package.__name__] = package
+    sys.modules[base.__name__] = base
+    sys.modules[common.__name__] = common
+    sys.modules[settings.__name__] = settings
 
 
-@unittest.skipIf(LogEvent is None, "Snakemake 9 logger interface is not installed in this Python env")
 class SnakemakeLoggerPluginTests(unittest.TestCase):
     def test_logger_settings_expose_runtime_argparse_types(self) -> None:
         from snakemake_logger_plugin_airflow_demo import LogHandlerSettings
@@ -70,6 +101,51 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
         self.assertEqual(payload["rule_name"], "pre_process_mapping")
         self.assertTrue(payload["rule_instance_id"])
         self.assertIsInstance(payload["timestamp"], float)
+
+    def test_group_job_start_emits_running_event_for_each_member(self) -> None:
+        from snakemake_logger_plugin_airflow_demo import LogHandler, LogHandlerSettings
+
+        class Rule:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+        class Member:
+            def __init__(self, name: str, jobid: int, sample: str) -> None:
+                self.rule = Rule(name)
+                self.jobid = jobid
+                self.wildcards_dict = {"sample": sample}
+
+        class GroupJob:
+            jobs = (
+                Member("pre_process_mapping", 54, "S1"),
+                Member("pre_process_Dedup", 53, "S1"),
+            )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "rule-status" / "raw" / "master.jsonl"
+            handler = LogHandler(
+                common_settings=None,
+                settings=LogHandlerSettings(
+                    analysis_id="WGS_GROUP_START",
+                    attempt=1,
+                    pipeline_release_id="wgs-4.1.1-1656b5d",
+                    run_label="wgs401-0123456789abcdef",
+                    role="master",
+                    stream_id="master",
+                    workdir=Path(tmpdir),
+                    events_path=path,
+                ),
+            )
+            record = logging.LogRecord("snakemake", logging.INFO, "Snakefile", 1, "group started", (), None)
+            record.event = LogEvent.JOB_STARTED
+            record.job = GroupJob()
+
+            handler.emit(record)
+            payloads = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+        self.assertEqual([payload["rule_name"] for payload in payloads], ["pre_process_mapping", "pre_process_Dedup"])
+        self.assertEqual([payload["status"] for payload in payloads], ["running", "running"])
+        self.assertEqual([payload["job_id"] for payload in payloads], ["54", "53"])
 
     def test_dry_run_logger_marks_planned_jobs_as_skipped(self) -> None:
         from snakemake_logger_plugin_airflow_demo import LogHandler, LogHandlerSettings

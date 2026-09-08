@@ -173,14 +173,26 @@ def _block_reason(session, run: AnalysisRun, execution_enabled: bool, runtime_en
         return "download_not_verified"
     if stages.get("step6_materialize") != "success":
         return "results_not_materialized"
-    active = session.scalar(
-        select(KubernetesWorkload.id).where(
+    workloads = list(session.scalars(
+        select(KubernetesWorkload).where(
             KubernetesWorkload.analysis_id == run.analysis_id,
             KubernetesWorkload.attempt == run.attempt,
-            KubernetesWorkload.phase.in_(("Pending", "Running", "Active")),
-        ).limit(1)
-    )
-    if active is not None:
+        )
+    ).all())
+    active_workloads = [
+        row for row in workloads if row.phase in {"Pending", "Running", "Active"}
+    ]
+    terminal_masters = [
+        row
+        for row in workloads
+        if row.phase == "Succeeded"
+        and str((row.resources_json or {}).get("workload_role") or "master") == "master"
+    ]
+    latest_master = max(terminal_masters, key=_workload_timestamp, default=None)
+    if active_workloads and (
+        latest_master is None
+        or any(_workload_timestamp(row) > _workload_timestamp(latest_master) for row in active_workloads)
+    ):
         return "cce_workload_active"
     active_lease = session.scalar(
         select(ObsTransferLease.slot_name).where(
@@ -191,6 +203,13 @@ def _block_reason(session, run: AnalysisRun, execution_enabled: bool, runtime_en
     if active_lease is not None:
         return "transfer_lease_active"
     return None
+
+
+def _workload_timestamp(row: KubernetesWorkload) -> datetime:
+    value = row.observed_at or row.updated_at
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def _confirmation_batch(run: AnalysisRun) -> str:

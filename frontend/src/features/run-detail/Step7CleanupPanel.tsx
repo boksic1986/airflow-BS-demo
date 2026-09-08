@@ -1,12 +1,12 @@
 import {useRef, useState} from "react";
 
 import type {Step7CleanupCapability} from "../../api";
-import {StatusBadge} from "../../components/StatusBadge";
 import {formatDate} from "../../lib/format";
 
 
-export function Step7CleanupPanel({capability, acting = false, onCleanup}: {
+export function Step7CleanupPanel({capability, canManage = true, acting = false, onCleanup}: {
   capability: Step7CleanupCapability;
+  canManage?: boolean;
   acting?: boolean;
   onCleanup: (batchConfirmation: string, retryFailed?: boolean) => void;
 }) {
@@ -35,30 +35,20 @@ export function Step7CleanupPanel({capability, acting = false, onCleanup}: {
   }
 
   return (
-    <section className="panel destructive-panel" aria-label="Step7 SFS cleanup">
-      <div className="section-heading split">
-        <div>
-          <h2>SFS cleanup</h2>
-          <p>Step7 deletes only the frozen run SFS analysis and linkage directories. OBS data is not deleted.</p>
-        </div>
-        {latest ? <StatusBadge status={latest.status} /> : null}
-      </div>
+    <section className="step7-cleanup-compact" aria-label="Step7 SFS cleanup">
       {latest ? (
         <div className="maintenance-progress" aria-label="Step7 maintenance progress">
           <h3>Step7 progress</h3>
           <p className="maintenance-progress-stage">{step7StageLabel(latest.status)}</p>
-          <dl className="detail-list compact">
-            <div><dt>Requested</dt><dd>{formatDate(latest.created_at)}</dd></div>
-            <div><dt>Generation</dt><dd>{latest.generation ?? 1}</dd></div>
-            <div><dt>Started</dt><dd>{formatDate(latest.started_at)}</dd></div>
-            <div><dt>Finished</dt><dd>{formatDate(latest.ended_at)}</dd></div>
-          </dl>
-          <p className="muted">Detailed file progress unavailable</p>
+          <p className="step7-compact-meta">Generation {latest.generation ?? 1} · Updated {formatDate(latest.ended_at || latest.started_at || latest.created_at)}</p>
           {latest.error_message ? <div className="inline-error" role="alert">{latest.error_message}</div> : null}
         </div>
       ) : null}
-      {canRequest ? (
-        <>
+      {!canRequest && capability.reason ? <p className="muted step7-block-reason">{step7ReasonLabel(capability.reason)}</p> : null}
+      {canManage && canRequest ? (
+        <details className="step7-action-details">
+          <summary>{retryFailed ? "Retry SFS release" : "Release SFS data"}</summary>
+          <p className="muted">Deletes only this run's frozen SFS analysis and linkage directories. OBS data is retained.</p>
           <label className="field checkbox-field">
             <input
               type="checkbox"
@@ -106,10 +96,25 @@ export function Step7CleanupPanel({capability, acting = false, onCleanup}: {
           >
             {retryFailed ? "Retry Step7 SFS cleanup" : "Run Step7 SFS cleanup"}
           </button>
-        </>
+        </details>
       ) : null}
     </section>
   );
+}
+
+function step7ReasonLabel(reason: string): string {
+  const labels: Record<string, string> = {
+    cleanup_in_progress: "SFS cleanup is in progress.",
+    cleanup_completed: "SFS cleanup completed.",
+    cleanup_failed: "SFS cleanup failed; an administrator can retry it.",
+    cce_workload_active: "CCE workload evidence is still active.",
+    transfer_lease_active: "A transfer lease is still active.",
+    download_not_verified: "Result download has not been verified.",
+    results_not_materialized: "Local results have not been materialized.",
+    run_not_successful: "Workflow is not successful.",
+    runtime_unavailable: "SFS cleanup runtime is unavailable.",
+  };
+  return labels[reason] || reason.replaceAll("_", " ");
 }
 
 function step7StageLabel(status: string): string {

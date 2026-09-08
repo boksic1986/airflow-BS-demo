@@ -43,6 +43,13 @@ Existing `/api/wgs/*` routes remain supported for WGS submission, intake, eviden
 - `GET /api/transfers/{transfer_id}/files` orders file rows by operational priority: running, accepted/queued, failed, then successful. Pagination and the privacy-safe response fields are unchanged.
 - For a verified successful WGS run, Samples and Rules project stale non-terminal rows as successful and use the run finish timestamp. The underlying Rule/Sample evidence is not rewritten.
 
+### T239 lifecycle, QC and grouped-rule evidence
+
+- `GET /api/runs/{analysis_id}/workspace` adds `summary.batch_qc_status`. It is aggregated from every sample QC state in the same database snapshot: any fail wins, then warning, all pass/success becomes pass, and incomplete or absent evidence remains unknown.
+- WGS workflow lifecycle `updated_by` uses the same privacy-safe operator display name as the run projection. Scanner-created runs therefore display `wgs-scanner` instead of an empty operator.
+- Step7 eligibility treats a successful master workload as authoritative only for active child workload observations at or before that master success. A newer Pending/Running/Active observation still blocks cleanup, as do the existing transfer lease and Step5/Step6 gates.
+- Grouped Snakemake `job_started` events are expanded into one member event per Rule/job identity so future runs can persist starts for rules such as `pre_process_mapping` and `pre_process_Dedup`. Historical starts that were never emitted remain unrecorded and are not fabricated.
+
 ## GATK Cloud manual submission
 
 - `GET /api/pipelines/gatk/release` returns the approved profile ID, profile

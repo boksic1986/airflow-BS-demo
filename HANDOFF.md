@@ -1,5 +1,43 @@
 # HANDOFF.md
 
+## 2026-09-09 T239 Run lifecycle, batch QC and Step7 projection candidate
+
+T239 is validated on BS10610 and awaiting production rollout. `/workflows` is
+now a full-page Run lifecycle table with QC, cloud-release and delivery filters;
+the capability catalog header/cards and duplicate recent-run list are removed.
+Run Detail adds Batch QC and Workflow operator, embeds a compact expandable
+Step7 action inside Cloud release, and vertically balances Current Progress.
+
+The `20260906B` investigation found 557 final successful RuleState rows. Exactly
+147 have no `started_at`; the raw stream has `job_info`, `rule_planned` and
+`job_finished` for those grouped members but no member `job_started`. T239
+expands future group starts into member events. Historical start times remain
+blank because there is no trustworthy source timestamp.
+
+Step7 eligibility now accepts a successful master as authoritative over only
+older child Pending/Running/Active observations. A newer active observation,
+transfer lease, missing Step5/Step6 success or non-successful workflow still
+blocks. This only changes button eligibility; it does not execute cleanup, and
+the runtime gate retains live target/CCE/lock verification.
+
+Validation used the final candidate
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/T239-final-20260909-1`:
+
+- backend lifecycle/workspace/stage tests: 20 passed;
+- Snakemake logger tests: 8 passed;
+- frontend: 17 files / 60 tests passed;
+- frontend `tsc -b && vite build`: passed through the cached offline builder;
+- no network access or image pull was used.
+
+Production rollout must keep `WGS_AUTO_DISPATCH_ENABLED=false`, verify no
+active run/transfer/CCE work, recreate only backend and frontend-nginx, and
+smoke `/api/health`, Run lifecycle and `20260906B` workspace projections. Do
+not invoke Step7 during deployment.
+
+Rollback: repoint `current` to the preceding physical release and recreate only
+backend and frontend-nginx. Preserve scanner pause, Airflow, databases, run
+history and all OBS/SFS content.
+
 ## 2026-09-08 T238 production automatic analysis pause
 
 Automatic WGS analysis is paused in production. The protected environment now

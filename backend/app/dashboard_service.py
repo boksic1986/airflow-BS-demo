@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, aliased
 from app.models import AnalysisRun, IntakeDiscovery, QcMetric, Sample, SnakemakeRuleEvent
 from app.progress_service import get_run_progress
 from app.qc_highlights import qc_highlights_by_run
+from app.operator_identity import operator_display_name
 
 
 SUPPORTED_DASHBOARD_PIPELINES = {"all", "deployed"}
@@ -276,7 +277,7 @@ def _tracker_row(
         "created_at": _iso(run.created_at),
         "submitted_at": _iso(run.submitted_at),
         "submitted_by": run.submitted_by,
-        "operator_display_name": _operator_display_name(run.submitted_by),
+        "operator_display_name": operator_display_name(run.submitted_by),
         "started_at": _iso(run.started_at),
         "ended_at": _iso(run.ended_at),
         "pipeline_finished_at": _iso(run.pipeline_finished_at),
@@ -327,12 +328,6 @@ def _tracker_row(
         "qc_highlights": qc_highlights,
         "lifecycle": lifecycle,
     }
-
-
-def _operator_display_name(value: str | None) -> str | None:
-    if not value:
-        return value
-    return "wgs-scanner" if value == "wgs-intake-scanner" else value
 
 
 def _progress_for_tracker_row(

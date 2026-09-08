@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import copy
 import hashlib
 import json
 import logging
@@ -62,9 +63,10 @@ class LogHandler(LogHandlerBase):
         self.baseFilename = str(self.events_path)
 
     def emit(self, record: logging.LogRecord) -> None:
-        payload = self._record_to_payload(record)
-        self._append_payload(payload)
-        self._post_backend_event(payload)
+        for event_record in _expand_group_member_records(record):
+            payload = self._record_to_payload(event_record)
+            self._append_payload(payload)
+            self._post_backend_event(payload)
 
     def _append_payload(self, payload: dict[str, Any]) -> None:
         with self.events_path.open("a", encoding="utf-8") as handle:
@@ -145,6 +147,8 @@ class LogHandler(LogHandlerBase):
             "return_code": _int_or_none(_first_present(record, "return_code", "exit_code")),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+        if getattr(record, "group_member", False):
+            payload["group_member"] = True
         self._fill_payload_from_job_context(payload)
         if self.dry_run and payload.get("rule") and payload["status"] in {"running", "success"}:
             payload["event"] = "dry_run_planned"
@@ -214,6 +218,34 @@ def _event_name(event: Any) -> str:
         return "log"
     value = getattr(event, "value", None)
     return str(value or event).lower()
+
+
+def _expand_group_member_records(record: logging.LogRecord) -> tuple[logging.LogRecord, ...]:
+    if _event_name(getattr(record, "event", None)) != LogEvent.JOB_STARTED.value:
+        return (record,)
+    group_job = getattr(record, "job", None)
+    members = getattr(group_job, "jobs", None)
+    if members is None:
+        return (record,)
+    try:
+        members = tuple(members)
+    except TypeError:
+        return (record,)
+    if not members:
+        return (record,)
+    expanded: list[logging.LogRecord] = []
+    for member in members:
+        member_record = copy.copy(record)
+        member_record.job = member
+        rule = getattr(member, "rule", None)
+        member_record.rule = str(getattr(rule, "name", None) or rule or "") or None
+        member_record.job_id = _first_present(member, "job_id", "jobid", "snakemake_jobid")
+        member_record.wildcards = _mapping_from_object(
+            _first_present(member, "wildcards_dict", "wildcards")
+        )
+        member_record.group_member = True
+        expanded.append(member_record)
+    return tuple(expanded)
 
 
 def _status_for_event(event: str) -> str:

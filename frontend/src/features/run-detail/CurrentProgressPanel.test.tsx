@@ -14,7 +14,7 @@ describe("CurrentProgressPanel", () => {
       status: "running",
     } as RunDetail;
 
-    render(<CurrentProgressPanel
+    const {container} = render(<CurrentProgressPanel
       detail={detail}
       progress={{percent: 25, available: true, label: "25%", currentStep: "Uploading FASTQ", note: "Uploading", notInAirflow: false}}
       stage={{completed_units: 1024 ** 3, total_units: 2 * 1024 ** 3, unit: "bytes"}}
@@ -22,6 +22,7 @@ describe("CurrentProgressPanel", () => {
 
     expect(screen.getByText("1.0 GiB / 2.0 GiB")).toBeInTheDocument();
     expect(screen.queryByText(/1073741824\/2147483648 bytes/)).not.toBeInTheDocument();
+    expect(container.querySelector(".current-progress-hero")).toHaveClass("current-progress-content-centered");
   });
 
   it("does not mix the global heavy IO quota into run progress", () => {

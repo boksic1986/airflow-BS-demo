@@ -19,7 +19,7 @@ export function CurrentProgressPanel({detail, progress, source, stage}: {
         {source ? <span className="source-pill" title="Progress data source">{source.replaceAll("_", " ")}</span> : null}
       </div>
       {progress ? (
-        <div className="current-progress-hero">
+        <div className="current-progress-hero current-progress-content-centered">
           <strong>{progress.currentStep}</strong>
           <span>{progress.available === false ? "Detailed progress unavailable" : `${formatPercent(progress.percent)} complete`}</span>
           {progress.available !== false && stage?.total_units != null ? <span>{formatProgressUnits(stage.completed_units ?? 0, stage.total_units, stage.unit || "units")}</span> : null}

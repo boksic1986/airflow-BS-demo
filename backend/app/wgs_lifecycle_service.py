@@ -11,6 +11,7 @@ from app.models import (
     WgsLifecycleStatus,
     WgsMaintenanceAction,
 )
+from app.operator_identity import operator_display_name
 
 
 KINDS = {"raw_fastq_backup", "downstream_release"}
@@ -34,7 +35,7 @@ def project_wgs_lifecycle(*, session, run: AnalysisRun) -> dict[str, dict]:
             status=workflow_status,
             revision=None,
             updated_at=workflow_updated_at,
-            updated_by=None,
+            updated_by=operator_display_name(run.submitted_by),
             message=None,
         ),
         "cloud_release": cloud_release,
@@ -348,7 +349,7 @@ def _project_from_records(
             status=_workflow_status(run.status),
             revision=None,
             updated_at=workflow_updated_at,
-            updated_by=None,
+            updated_by=operator_display_name(run.submitted_by),
             message=None,
         ),
         "cloud_release": cloud_release,

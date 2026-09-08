@@ -278,13 +278,13 @@ it("renders independent WGS data lifecycle states without replacing workflow suc
         status: "success",
         params: {batch_no: "20260907A"},
         lifecycle: {
-          workflow: {status: "success", updated_at: "2026-09-07T01:00:00Z"},
+          workflow: {status: "success", updated_at: "2026-09-07T01:00:00Z", updated_by: "wgs-scanner"},
           cloud_release: {status: "failed", updated_at: "2026-09-07T02:00:00Z", updated_by: "admin", message: "SFS cleanup failed"},
           raw_fastq_backup: {status: "running", revision: 2, updated_at: "2026-09-07T03:00:00Z", updated_by: "admin", message: "Archive in progress"},
           downstream_release: {status: "not_started", revision: 1, updated_at: null, updated_by: null, message: null},
         },
       },
-      summary: {sample_count: 3, rule_count: 209, failed_rule_count: 0},
+      summary: {sample_count: 3, rule_count: 209, failed_rule_count: 0, batch_qc_status: "pass"},
       progress: {analysis_id: "WGS_LIFECYCLE", pipeline: "wgs", status: "success", percent: 100, current_step: "finalize_run", current_source: "biodemo", note: "", not_in_airflow: false, progress_source: "run-stage-state", airflow_tasks: [], rule_events: []},
       validation_issues: [],
       slot_usage: null,
@@ -302,6 +302,9 @@ it("renders independent WGS data lifecycle states without replacing workflow suc
   expect(screen.getByText("Post-run action failed; workflow results remain successful.")).toBeInTheDocument();
   expect(screen.getAllByText("Result delivery").length).toBeGreaterThan(0);
   expect(screen.getAllByText("success").length).toBeGreaterThan(0);
+  expect(screen.getByText("Batch QC")).toBeInTheDocument();
+  expect(screen.getAllByText("pass").length).toBeGreaterThan(0);
+  expect(screen.getByText("wgs-scanner")).toBeInTheDocument();
 });
 
 it("falls back to legacy run resources when the workspace endpoint is unavailable", async () => {
@@ -360,6 +363,12 @@ it("enables Step7 after an admin confirms the displayed public batch", async () 
         pipeline: "wgs",
         status: "success",
         params: {batch_no: "WGS_20260825A_T7Hg38V4.1.1", analysis_batch: "20260825A"},
+        lifecycle: {
+          workflow: {status: "success", updated_at: "2026-09-07T01:00:00Z", updated_by: "wgs-scanner"},
+          cloud_release: {status: "not_started", updated_at: null, updated_by: null, message: null},
+          raw_fastq_backup: {status: "not_started", updated_at: null, updated_by: null, message: null},
+          downstream_release: {status: "not_started", updated_at: null, updated_by: null, message: null},
+        },
         step7_cleanup: {available: true, reason: null, required_batch: "20260825A", latest_action: null},
       },
       summary: {sample_count: 3, rule_count: 209, failed_rule_count: 0},
@@ -373,6 +382,9 @@ it("enables Step7 after an admin confirms the displayed public batch", async () 
   render(<App />);
 
   const panel = await screen.findByRole("region", {name: "Step7 SFS cleanup"});
+  expect(panel.closest(".data-lifecycle-item")).toHaveClass("data-lifecycle-item");
+  expect(document.querySelector(".destructive-panel")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByText("Release SFS data"));
   expect(panel).toHaveTextContent("Type 20260825A to confirm");
   const checkbox = screen.getByRole("checkbox", {name: "Acknowledge SFS cleanup"});
   expect(checkbox.closest("label")).toHaveClass("checkbox-field");
@@ -400,6 +412,12 @@ it("keeps refreshing a completed run while its Step7 maintenance action is activ
           pipeline: "wgs",
           status: "success",
           params: {analysis_batch: "20260825A"},
+          lifecycle: {
+            workflow: {status: "success", updated_at: "2026-09-07T01:00:00Z", updated_by: "wgs-scanner"},
+            cloud_release: {status: "pending", updated_at: "2026-09-07T03:48:21Z", updated_by: "admin", message: null},
+            raw_fastq_backup: {status: "not_started", updated_at: null, updated_by: null, message: null},
+            downstream_release: {status: "not_started", updated_at: null, updated_by: null, message: null},
+          },
           step7_cleanup: {
             available: false,
             reason: "cleanup_in_progress",
@@ -416,7 +434,7 @@ it("keeps refreshing a completed run while its Step7 maintenance action is activ
             },
           },
         },
-        summary: {sample_count: 3, rule_count: 209, failed_rule_count: 0},
+        summary: {sample_count: 3, rule_count: 209, failed_rule_count: 0, batch_qc_status: "pass"},
         progress: {analysis_id: "WGS_STEP7_ACTIVE", pipeline: "wgs", status: "success", percent: 100, current_step: "finalize_run", current_source: "biodemo", note: "", not_in_airflow: false, progress_source: "run-stage-state", airflow_tasks: [], rule_events: []},
         validation_issues: [],
         slot_usage: null,

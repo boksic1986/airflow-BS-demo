@@ -1,7 +1,10 @@
-import type {WgsLifecycle, WgsLifecycleStatus} from "../../api";
+import type {ReactNode} from "react";
+
+import type {Step7CleanupCapability, WgsLifecycle, WgsLifecycleStatus} from "../../api";
 
 import {formatDate} from "../../lib/format";
 import {getStatusMeta} from "../../lib/status";
+import {Step7CleanupPanel} from "./Step7CleanupPanel";
 
 
 const items: Array<{
@@ -17,7 +20,13 @@ const items: Array<{
 ];
 
 
-export function DataLifecyclePanel({lifecycle}: {lifecycle: WgsLifecycle}) {
+export function DataLifecyclePanel({lifecycle, step7, canManageStep7 = false, acting = false, onStep7Cleanup}: {
+  lifecycle: WgsLifecycle;
+  step7?: Step7CleanupCapability | null;
+  canManageStep7?: boolean;
+  acting?: boolean;
+  onStep7Cleanup?: (batchConfirmation: string, retryFailed?: boolean) => void;
+}) {
   const postRunFailed = [
     lifecycle.cloud_release,
     lifecycle.raw_fastq_backup,
@@ -37,7 +46,16 @@ export function DataLifecyclePanel({lifecycle}: {lifecycle: WgsLifecycle}) {
             runningLabel={item.runningLabel}
             successLabel={item.successLabel}
             title={item.title}
-          />
+          >
+            {item.key === "cloud_release" && step7 ? (
+              <Step7CleanupPanel
+                capability={step7}
+                canManage={canManageStep7}
+                acting={acting}
+                onCleanup={onStep7Cleanup || (() => undefined)}
+              />
+            ) : null}
+          </LifecycleItem>
         ))}
       </div>
       {postRunFailed && lifecycle.workflow.status === "success" ? (
@@ -78,11 +96,13 @@ function LifecycleItem({
   item,
   successLabel,
   runningLabel,
+  children,
 }: {
   title: string;
   item: WgsLifecycleStatus;
   successLabel: string;
   runningLabel: string;
+  children?: ReactNode;
 }) {
   return (
     <article className="data-lifecycle-item">
@@ -95,6 +115,7 @@ function LifecycleItem({
         <div><dt>Operator</dt><dd>{item.updated_by || "-"}</dd></div>
         <div><dt>Note</dt><dd>{item.message || "-"}</dd></div>
       </dl>
+      {children}
     </article>
   );
 }

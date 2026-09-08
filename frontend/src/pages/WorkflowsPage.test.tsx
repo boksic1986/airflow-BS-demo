@@ -13,7 +13,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("renders deployed workflows with recent runs and a filterable lifecycle table", async () => {
+it("renders a full-page filterable run lifecycle with QC", async () => {
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/platform/capabilities")) {
@@ -31,22 +31,22 @@ it("renders deployed workflows with recent runs and a filterable lifecycle table
       return Promise.resolve(new Response(JSON.stringify({items: [
         {
           analysis_id: "WGS_20260907_152648_54EFF2", project_name: "WGS_Clinical", batch_no: "20260906B", pipeline: "wgs",
-          status: "success", workflow_status: "success", workflow_label: "Workflow completed", created_at: "2026-09-07T15:26:48Z",
+          status: "success", workflow_status: "success", workflow_label: "Workflow completed", qc_status: "pass", created_at: "2026-09-07T15:26:48Z",
           lifecycle: {cloud_release: {status: "failed", updated_at: "2026-09-08T03:00:00Z"}, downstream_release: {status: "not_started"}},
         },
         {
           analysis_id: "WGS_20260906_120052_F17DAF", project_name: "WGS_Clinical", batch_no: "20260905C", pipeline: "wgs",
-          status: "success", workflow_status: "success", workflow_label: "Workflow completed", created_at: "2026-09-06T12:00:52Z",
+          status: "success", workflow_status: "success", workflow_label: "Workflow completed", qc_status: "warn", created_at: "2026-09-06T12:00:52Z",
           lifecycle: {cloud_release: {status: "success", updated_at: "2026-09-07T01:00:00Z"}, downstream_release: {status: "not_started"}},
         },
         {
           analysis_id: "WGS_20260906_104054_118DB3", project_name: "WGS_Clinical", batch_no: "20260905B", pipeline: "wgs",
-          status: "success", workflow_status: "success", workflow_label: "Workflow completed", created_at: "2026-09-06T10:40:54Z",
+          status: "success", workflow_status: "success", workflow_label: "Workflow completed", qc_status: "fail", created_at: "2026-09-06T10:40:54Z",
           lifecycle: {cloud_release: {status: "not_started"}, downstream_release: {status: "not_started"}},
         },
         {
           analysis_id: "WGS_20260905_141052_4C1BC0", project_name: "WGS_Clinical", batch_no: "20260904A", pipeline: "wgs",
-          status: "success", workflow_status: "success", workflow_label: "Workflow completed", created_at: "2026-09-05T14:10:52Z",
+          status: "success", workflow_status: "success", workflow_label: "Workflow completed", qc_status: "pass", created_at: "2026-09-05T14:10:52Z",
           lifecycle: {cloud_release: {status: "success"}, downstream_release: {status: "success"}},
         },
       ], total: 4}), {status: 200, headers: {"Content-Type": "application/json"}}));
@@ -59,24 +59,28 @@ it("renders deployed workflows with recent runs and a filterable lifecycle table
 
   render(<PlatformCapabilitiesProvider><MemoryRouter><WorkflowsPage /></MemoryRouter></PlatformCapabilitiesProvider>);
 
-  await waitFor(() => expect(screen.getByRole("heading", {name: "WGS"})).toBeInTheDocument());
-  expect(screen.getByText("cce, local")).toBeInTheDocument();
-  const card = await screen.findByRole("article");
-  await waitFor(() => expect(within(card).getByText("20260906B")).toBeInTheDocument());
-  expect(within(card).getAllByText("Workflow completed")).toHaveLength(3);
-  expect(within(card).queryByText("20260904A")).not.toBeInTheDocument();
-  expect(screen.getByRole("heading", {name: "Run lifecycle"})).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole("heading", {name: "Run lifecycle"})).toBeInTheDocument());
+  expect(screen.queryByRole("heading", {name: "Workflow Catalog"})).not.toBeInTheDocument();
+  expect(screen.queryByText("Deployed pipeline capabilities and recent workflow, cloud release, and delivery state.")).not.toBeInTheDocument();
+  expect(screen.queryByText("Recent runs")).not.toBeInTheDocument();
   expect(screen.getByRole("columnheader", {name: "Cloud release"})).toBeInTheDocument();
   expect(screen.getByRole("columnheader", {name: "Result delivery"})).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", {name: "QC"})).toBeInTheDocument();
   const lifecycleTable = screen.getByRole("table", {name: "Run lifecycle"});
-  expect(within(lifecycleTable).getAllByRole("row")).toHaveLength(5);
+  await waitFor(() => expect(within(lifecycleTable).getAllByRole("row")).toHaveLength(5));
+
+  await userEvent.selectOptions(screen.getByLabelText("QC status"), "fail");
+  expect(within(lifecycleTable).getAllByRole("row")).toHaveLength(2);
+  expect(within(lifecycleTable).getByText("20260905B")).toBeInTheDocument();
+
+  await userEvent.selectOptions(screen.getByLabelText("QC status"), "all");
 
   await userEvent.selectOptions(screen.getByLabelText("Cloud release status"), "failed");
   expect(within(lifecycleTable).getAllByRole("row")).toHaveLength(2);
   expect(within(lifecycleTable).getByText("20260906B")).toBeInTheDocument();
   expect(within(lifecycleTable).queryByText("20260905C")).not.toBeInTheDocument();
   expect(screen.queryByText("Whole exome sequencing")).not.toBeInTheDocument();
-  expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/api/workflows"), expect.objectContaining({credentials: "same-origin"}));
   expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/api/runs?pipeline=deployed"), expect.objectContaining({credentials: "same-origin"}));
   expect(fetch).toHaveBeenCalledWith(expect.stringContaining("limit=200"), expect.objectContaining({credentials: "same-origin"}));
+  expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining("/api/workflows"), expect.anything());
 });

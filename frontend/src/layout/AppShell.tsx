@@ -20,7 +20,7 @@ const navItems = [
   {to: "/dashboard", label: "Command Center", Icon: LayoutDashboard},
   {to: "/runs", label: "Batch Runs", Icon: Activity},
   {to: "/samples", label: "Samples", Icon: TestTube2},
-  {to: "/workflows", label: "Workflow Catalog", Icon: GitBranch},
+  {to: "/workflows", label: "Run lifecycle", Icon: GitBranch},
   {to: "/failures", label: "Failure Triage", Icon: AlertTriangle},
 ];
 

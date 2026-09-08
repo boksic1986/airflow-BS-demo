@@ -30,7 +30,7 @@ it("shows queued Step7 maintenance progress without inventing a percentage", () 
 
   expect(screen.getByRole("heading", {name: "Step7 progress"})).toBeInTheDocument();
   expect(screen.getByText("Waiting for Step7 worker")).toBeInTheDocument();
-  expect(screen.getByText("Detailed file progress unavailable")).toBeInTheDocument();
+  expect(screen.getByText(/Generation 1/)).toBeInTheDocument();
   expect(screen.queryByText(/%/)).not.toBeInTheDocument();
 });
 
@@ -60,10 +60,11 @@ it("submits a failed Step7 action as an explicit retry generation", () => {
     />,
   );
 
+  fireEvent.click(screen.getByText("Retry SFS release"));
   fireEvent.click(screen.getByLabelText("Acknowledge SFS cleanup"));
   fireEvent.change(screen.getByLabelText("Step7 Batch confirmation"), {target: {value: "20260905A"}});
   fireEvent.click(screen.getByRole("button", {name: "Retry Step7 SFS cleanup"}));
 
-  expect(screen.getByText("Generation").nextSibling).toHaveTextContent("1");
+  expect(screen.getByText(/Generation 1/)).toBeInTheDocument();
   expect(cleanup).toHaveBeenCalledWith("20260905A", true);
 });

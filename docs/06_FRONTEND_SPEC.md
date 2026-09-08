@@ -74,6 +74,14 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 - Analysis node selectors use the same 32px pill geometry and typography as the SFS resource tag. The three resource panels live inside the Dashboard main column, share height/meter geometry, and SFS I/O shows only Read, Write, and Current IOPS.
 - The WGS scanner column says `最近检查`, reflecting that every row in one 30-minute shallow scan shares one observation time.
 
+### T239 Run lifecycle and Run Detail completion
+
+- `/workflows` is a full-page `Run lifecycle` view. The capability catalog header, capability cards and duplicate recent-run list are removed; the sidebar label is also `Run lifecycle`.
+- The lifecycle table keeps Pipeline, Cloud release, Result delivery and keyword filters, adds a QC status filter and QC column, and continues to use the generic deployed run-list projection.
+- Run Detail adds a fifth Batch QC metric derived by the backend from all sample QC states. Workflow lifecycle shows the run operator's privacy-safe display name.
+- Step7 SFS cleanup status and controls live inside the Cloud release lifecycle card. The default view is compact; an administrator expands the action only when a safe first request or revision-fenced retry is available. Exact batch confirmation and destructive-action acknowledgement remain mandatory.
+- Current Progress fills the same desktop card height as Pipeline evidence, vertically centers its main content with relaxed spacing, and returns to natural padding on narrow screens.
+
 ## Branding
 
 The product label is `NGS Huawei Cloud` with the subtitle `Online analysis platform`. WGS names remain only where they identify the currently deployed workflow or extension.

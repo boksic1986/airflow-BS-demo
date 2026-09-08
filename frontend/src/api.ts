@@ -600,6 +600,7 @@ export type RunWorkspaceResponse = {
     sample_count: number;
     rule_count: number;
     failed_rule_count: number;
+    batch_qc_status?: string;
   };
   progress: RunProgressResponse;
   active_transfer?: WgsTransfer | null;

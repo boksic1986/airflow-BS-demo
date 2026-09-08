@@ -30,7 +30,6 @@ import {usePlatformCapabilities} from "../features/platform/PlatformCapabilities
 import {RunFilesTab, RunOverviewTab} from "../features/run-detail/RunResourceTabs";
 import {RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
 import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
-import {Step7CleanupPanel} from "../features/run-detail/Step7CleanupPanel";
 import {DataLifecyclePanel} from "../features/run-detail/DataLifecyclePanel";
 import {WgsTransfersTab} from "../features/run-detail/WgsTransfersTab";
 import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
@@ -65,7 +64,7 @@ export function RunDetailPage() {
   const session = useSession();
   const capabilityKey = capabilities.deployed_pipelines.join(",");
   const [bundle, setBundle] = useState<Bundle>(emptyBundle);
-  const [summary, setSummary] = useState({sample_count: 0, rule_count: 0, failed_rule_count: 0});
+  const [summary, setSummary] = useState({sample_count: 0, rule_count: 0, failed_rule_count: 0, batch_qc_status: "unknown"});
   const [loadedTabs, setLoadedTabs] = useState<Set<DetailTab>>(new Set());
   const [tabError, setTabError] = useState<string | null>(null);
   const [log, setLog] = useState<RunLog | null>(null);
@@ -101,7 +100,7 @@ export function RunDetailPage() {
         progress = workspace.progress;
         validationIssues = workspace.validation_issues || [];
         slotUsage = workspace.slot_usage;
-        setSummary(workspace.summary);
+        setSummary({...workspace.summary, batch_qc_status: workspace.summary.batch_qc_status || "unknown"});
         setBundle((current) => {
           const active = workspace.active_transfer;
           const transfers = !active
@@ -125,7 +124,7 @@ export function RunDetailPage() {
         progress = legacyProgress;
         validationIssues = issues.items;
         slotUsage = null;
-        setSummary({sample_count: samples.items.length, rule_count: rules.total, failed_rule_count: failedRules.total});
+        setSummary({sample_count: samples.items.length, rule_count: rules.total, failed_rule_count: failedRules.total, batch_qc_status: "unknown"});
         setBundle((current) => ({...current, samples: samples.items, manifest: samples.manifest || [], manifestSummary: samples.manifest_summary || null}));
       }
       if (!capabilities.isDeployed(detail.pipeline as DeployedPipeline)) {
@@ -153,7 +152,7 @@ export function RunDetailPage() {
 
   useEffect(() => {
     setBundle(emptyBundle);
-    setSummary({sample_count: 0, rule_count: 0, failed_rule_count: 0});
+    setSummary({sample_count: 0, rule_count: 0, failed_rule_count: 0, batch_qc_status: "unknown"});
     setLoadedTabs(new Set());
     if (!capabilities.loading) void loadDetail();
   }, [analysisId, capabilities.loading, capabilityKey]);
@@ -324,15 +323,15 @@ export function RunDetailPage() {
         {actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
         {detail.pipeline === "wgs" && detail.execution_dispatch ? <ExecutionTargetSelector attempt={detail.attempt || 1} batch={String(detail.params?.batch || detail.params?.sequencing_batch || detail.params?.batch_no || "-")} sampleCount={summary.sample_count} dispatch={detail.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={loadDetail} /> : null}
         {detail.step4_repair?.available || detail.step4_repair?.latest_action ? <Step4RepairPanel capability={detail.step4_repair} canOperate={session.hasRole("operator")} acting={acting} onRepair={() => void runAction("repair_step4")} /> : null}
-        {session.hasRole("admin") && (detail.step7_cleanup?.available || detail.step7_cleanup?.latest_action) ? <Step7CleanupPanel capability={detail.step7_cleanup} acting={acting} onCleanup={(batchConfirmation, retryFailed) => void runStep7Cleanup(batchConfirmation, retryFailed)} /> : null}
         {detail.status === "needs_review" ? <section className="panel validation-review"><div className="section-heading"><h2>Input needs review</h2><p>Correct the source links or metadata upstream, then revalidate. This page cannot edit sampleinfo.</p></div><WgsTable headers={["Severity", "Code", "Scope", "Message", "Status"]} rows={bundle.validationIssues.map((issue) => [issue.severity, issue.code, issue.sample_id || issue.family_id || issue.file_path || issue.scope_type || "batch", issue.message, issue.status])} empty="No structured issue was returned." /></section> : null}
         <section className="metric-grid" aria-label="Run summary metrics">
           <MetricCard title="Samples" value={summary.sample_count} />
           <MetricCard title="Duration" value={formatDuration(detail.submitted_at || detail.started_at, detail.pipeline_finished_at || detail.ended_at)} status={detail.status} />
           <MetricCard title="Batch" value={String(detail.params?.batch_no || detail.params?.batch || "-")} />
           <MetricCard title="Rule events" value={summary.rule_count} status={summary.failed_rule_count ? "failed" : undefined} />
+          {detail.pipeline === "wgs" ? <MetricCard title="Batch QC" value={summary.batch_qc_status} status={summary.batch_qc_status} /> : null}
         </section>
-        {detail.pipeline === "wgs" && detail.lifecycle ? <DataLifecyclePanel lifecycle={detail.lifecycle} /> : null}
+        {detail.pipeline === "wgs" && detail.lifecycle ? <DataLifecyclePanel lifecycle={detail.lifecycle} step7={detail.step7_cleanup} canManageStep7={session.hasRole("admin")} acting={acting} onStep7Cleanup={(batchConfirmation, retryFailed) => void runStep7Cleanup(batchConfirmation, retryFailed)} /> : null}
         {isFailedStatus(detail.status) ? <ErrorPanel diagnosis={diagnosis} showErrorLogPath={detail.pipeline !== "wgs"} /> : null}
         {progressError ? <div className="inline-error" role="alert">Current progress unavailable: {progressError}</div> : null}
         {detail.pipeline === "wgs" ? <div className="run-detail-snapshot-grid">

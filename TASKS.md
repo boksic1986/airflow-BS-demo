@@ -1,5 +1,25 @@
 # TASKS.md
 
+## T239 - Run lifecycle, batch QC and Step7 projection completion
+
+Owner: platform/backend/frontend/QA
+
+Status: candidate validated; production rollout pending
+
+Acceptance:
+- [x] Replace Workflow Catalog capability/recent-run cards with a full-page Run lifecycle table and matching sidebar label.
+- [x] Add QC column/filter to Run lifecycle and Batch QC to Run Detail.
+- [x] Populate Workflow lifecycle Operator from the privacy-safe run operator identity.
+- [x] Move Step7 status/action into a compact Cloud release card while preserving confirmation, retry fencing and backend safety gates.
+- [x] Ignore only stale active child workloads covered by a later successful master; keep newer active evidence blocking.
+- [x] Emit future grouped-rule start evidence per member without fabricating historical timestamps.
+- [x] Pass targeted backend/logger/frontend tests and one offline production build.
+- [ ] Deploy backend/frontend to production and verify live `20260906B` projections without invoking Step7.
+
+Safety:
+- Keep automatic WGS dispatch paused and do not restart Airflow or the scanner.
+- Do not rewrite historical RuleState timestamps or execute SFS cleanup during rollout.
+
 ## T238 - Pause production automatic analysis
 
 Owner: production operations

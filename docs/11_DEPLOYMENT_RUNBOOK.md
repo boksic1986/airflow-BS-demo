@@ -79,6 +79,16 @@ lease. Restore failed Step7 generations only after exact target, CCE workload,
 and lease identity checks; an absent target may be recorded as
 `verified_absent`, while partial or ambiguous remnants remain failed.
 
+## T239 lifecycle/QC frontend and Step7 projection rollout
+
+1. Confirm `WGS_AUTO_DISPATCH_ENABLED=false`, no active AnalysisRun, no active transfer lease and no live CCE workload before switching the release.
+2. Build the frontend with the approved lock-bound builder using `--network none` and `--pull=false`; run the targeted backend lifecycle/workspace/Step7 tests and logger tests from the candidate source.
+3. Recreate only backend and frontend-nginx. Do not recreate the scanner, observer, Airflow scheduler/worker/API, PostgreSQL, Redis or telemetry services.
+4. Verify `/api/health`, `/workflows` static markers, workspace `batch_qc_status`, workflow operator and Step7 eligibility for a completed WGS batch.
+5. Do not invoke Step7 as part of deployment. The button only exposes an administrator action that still performs the runtime target, live CCE and lock checks.
+
+Rollback by repointing `current` to the preceding physical release and recreating only backend and frontend-nginx. Preserve the auto-analysis pause, databases, run evidence, OBS/SFS data and all Airflow state.
+
 ## GATK Cloud disabled rollout
 
 1. Keep `GATK_EXECUTION_ENABLED=false` while applying migration 0019 and
