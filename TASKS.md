@@ -4,15 +4,15 @@
 
 Owner: frontend
 
-Status: implementation validated; production synchronization pending
+Status: completed in production
 
 Acceptance:
 - [x] Keep the Project Intake/Manual source tag centered independently of the <=1920 compact breakpoint.
 - [x] Preserve 4K fonts, Run Tracker column widths and existing responsive behavior.
 - [x] Add a focused red/green component regression.
 - [x] Pass the focused frontend test and production build without network access.
-- [ ] Commit and synchronize `main`.
-- [ ] Deploy only `frontend-nginx` and verify other production services are unchanged.
+- [x] Commit and synchronize `main`.
+- [x] Deploy only `frontend-nginx` and verify other production services are unchanged.
 
 ## T231 - Compact centered Run Tracker cells
 

@@ -5,8 +5,8 @@
 ```text
 scope: frontend-only alignment correction for the Run Tracker Project source row; no API, database, workflow, runtime, typography or column-width change.
 implementation: the Intake/Manual source row now carries an explicit centered flex modifier at every viewport width. The <=1920 compact rules remain unchanged, while 4K no longer falls back to flex-start.
-validation: the focused regression failed before implementation because the semantic centering modifier was absent, then passed 2/2 with the existing Run Tracker regression. The TypeScript/Vite production build passed in the cached fengxian frontend image with network disabled.
-deployment: pending frontend-only production synchronization; only frontend-nginx may be recreated.
+validation: the focused regression failed before implementation because the semantic centering modifier was absent, then passed 2/2 with the existing Run Tracker regression. The TypeScript/Vite production build passed in the cached fengxian frontend image with network disabled. Production root, `/api/health`, served asset names and the wide-screen marker passed.
+deployment: `origin/main` contains T232. Production `current` points to `/data/airflow-WGS/releases/20260908-t232-project-tag-alignment-r1` and serves `airflow-demo/frontend:t232-project-tag-eadf6c2` (`sha256:33d29b41c515...`). Only `frontend-nginx` was recreated; all running non-frontend containers retained their IDs, start times and restart counts.
 ```
 
 ## 2026-09-08 T231 compact centered Run Tracker cells

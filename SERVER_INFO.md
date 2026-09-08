@@ -1,5 +1,22 @@
 # SERVER_INFO.md
 
+## T232 wide-screen Project source alignment production sync (2026-09-08)
+
+```text
+primary: 172.17.61.96
+release: /data/airflow-WGS/releases/20260908-t232-project-tag-alignment-r1
+frontend_image: airflow-demo/frontend:t232-project-tag-eadf6c2
+frontend_image_id: sha256:33d29b41c515054de0a19f6ab19d38452cb30c91bbf393516fdae0c6c5f03cae
+source_commit: eadf6c2cdd6ee2c1a96ba934c0bf02c51614e5f6
+build: cached production Node dependencies and cached T231 nginx base; network none and pull disabled
+recreated_service: frontend-nginx only
+preserved: all running backend, Airflow, PostgreSQL, Redis, scanner, observer, collector and analysis containers
+smoke: root 200; /api/health 200; served index-BbO4Rj4Y.css and index-CVSf4P5A.js contain tracker-source-line-centered
+rollback_env: /data/airflow-WGS/env/production.env.pre-T232-20260908
+rollback_release: /data/airflow-WGS/releases/20260908-t231-centered-run-tracker-r1
+published_ports: 172.17.61.96:12959 only
+```
+
 ## T231 compact centered Run Tracker production sync (2026-09-08)
 
 ```text

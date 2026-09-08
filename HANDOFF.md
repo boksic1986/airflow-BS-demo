@@ -6,7 +6,11 @@ T232 is a frontend-only correction for the 4K Run Tracker screenshot. The Projec
 
 The focused semantic-class regression failed before implementation because the modifier was absent, then the Run Tracker test file passed 2/2 after the change. The TypeScript/Vite production build also passed in the cached fengxian frontend image with `--network none` and `--pull never`. An earlier computed-style test was discarded because jsdom did not apply the imported global stylesheet and therefore returned `normal` even after the CSS fix; it was replaced by the component-level class contract.
 
-Production synchronization is pending. Only `frontend-nginx` is in scope; backend, Airflow, PostgreSQL, Redis, scanner, observer, collectors and analyses must remain untouched.
+`origin/main` contains T232. Production points to `/data/airflow-WGS/releases/20260908-t232-project-tag-alignment-r1` and serves `airflow-demo/frontend:t232-project-tag-eadf6c2` (`sha256:33d29b41c515...`). Root and `/api/health` returned 200; served assets `index-BbO4Rj4Y.css` and `index-CVSf4P5A.js` contain the new marker. Only `frontend-nginx` was recreated, with restart count 0. Every running non-frontend container retained its ID, start time and restart count.
+
+The first protected cutover attempt treated completed one-shot Compose service `biodemo-db-init` as if it required a running container. The comparison failed closed and the trap restored T231, recreating only `frontend-nginx`. The corrected check compares the actual running non-frontend container set; the final T232 cutover then passed. No backend, Airflow, PostgreSQL, Redis, scanner, observer, collector or analysis process was restarted.
+
+Rollback: restore `/data/airflow-WGS/env/production.env.pre-T232-20260908`, repoint `current` to `/data/airflow-WGS/releases/20260908-t231-centered-run-tracker-r1`, and recreate only `frontend-nginx`.
 
 ## 2026-09-08 T231 compact centered Run Tracker cells
 
