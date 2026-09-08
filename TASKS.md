@@ -4,7 +4,7 @@
 
 Owner: backend/frontend/runtime/QA
 
-Status: submission UI and runtime preparation deployed; execution acceptance pending
+Status: submission UI deployed; BS10610 test gate enabled; execution acceptance pending
 
 Acceptance:
 - [x] Show WGS and GATK Cloud as an always-visible segmented switch in Submit Run.
@@ -13,11 +13,13 @@ Acceptance:
 - [x] Make the GATK forced-command wrapper portable across restricted SSH accounts.
 - [x] Pass targeted backend/runtime tests and the complete frontend test/build offline.
 - [x] Deploy the backend/frontend candidate and verify authenticated GATK selection/preview.
-- [ ] Enable GATK execution only after a valid V7.6.0 input and controlled Step1-Step6 smoke pass.
+- [x] Enable the manual GATK gate on BS10610 only after explicit operator approval; keep production unchanged.
+- [ ] Complete a valid V7.6.0 controlled Step1-Step6 smoke before treating execution as accepted.
 
 Safety:
 - No WGS run, source FASTQ, result, database row or Airflow history is deleted.
-- An incomplete GATK source remains blocked at preview; the test gate is not bypassed.
+- An incomplete GATK source remains blocked by input validation even while the test execution gate is open.
+- Production GATK execution remains disabled; enabling BS10610 did not create a run.
 
 ## T234 - Reusable offline frontend builder
 

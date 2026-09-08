@@ -11,7 +11,8 @@ gatk_release: /mnt/biodevrwbi/33.chenjiucheng/project/gatk-cloud-airflow/release
 input_audit: all four mounted V7.6.0 source projects are currently incomplete: two miss at least one FASTQ pair member and two miss sample2hospitalBarCode.txt. They remain rejected by preview.
 validation: backend 340 passed/1 skipped, runtime gate 7/7 and offline frontend 15 files/56 tests passed; TypeScript/Vite and the candidate nginx overlay image built without network access. The GATK repository passed 5/5 tests in the shared nipttest environment.
 deployment: BS10610 current points to releases/20260908-t235-gatk-submit-r2. backend, frontend, Airflow API/scheduler/worker, observer and metrics collector were recreated after an exact zero-active-run check; PostgreSQL and Redis were untouched. Authenticated live preview returns a bounded missing-FASTQ error for the incomplete source.
-safety: no real GATK run has been created, no execution gate has been opened, and WGS runtime/data are unchanged. bio_gatk remains paused.
+test_gate: after explicit operator approval, BS10610 now has GATK_EXECUTION_ENABLED=true and bio_gatk is unpaused. The change is limited to the test environment. A backend recreate briefly left nginx resolving the old backend container address; recreating only frontend-nginx restored /api/health to HTTP 200.
+safety: no real GATK run has been created, production remains unchanged, and WGS runtime/data are unchanged. Existing incomplete V7.6.0 inputs are still rejected by preview validation; Step1-Step6 acceptance remains pending.
 ```
 
 ## 2026-09-08 T234 reusable offline frontend builder

@@ -1,5 +1,25 @@
 # HANDOFF.md
 
+## 2026-09-08 T235 BS10610 test execution enablement
+
+After explicit operator approval, the BS10610 test environment now sets
+`GATK_EXECUTION_ENABLED=true` and `bio_gatk` is unpaused. Production was not
+changed. The pre-change environment file is preserved at
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/env/bs10610.wgs.env.before-t235-gatk-enable`.
+
+Backend and Airflow API/scheduler/worker were recreated after confirming no
+active WGS or GATK run. PostgreSQL and Redis were untouched. Because nginx had
+resolved the previous backend container address at startup, the first public
+health probe returned 502 even though backend self-health was 200. Recreating
+only `frontend-nginx` refreshed service discovery and restored
+`http://172.17.106.10:12959/api/health` to 200.
+
+No GATK run was created. The four currently mounted V7.6.0 source projects
+remain incomplete and must continue failing preview validation. The open test
+gate permits a valid controlled project to proceed; it does not constitute a
+completed Step1-Step6 acceptance. Rollback is to restore the saved environment
+file, recreate backend and Airflow API/scheduler/worker, and pause `bio_gatk`.
+
 ## 2026-09-08 T235 GATK submission visibility and runtime readiness
 
 The live registry already deployed GATK, but Submit Run used a closed native
@@ -16,9 +36,9 @@ credentials.
 
 The current V7.6.0 source inventory cannot be used for acceptance. Two batches
 miss a FASTQ pair member and two lack `sample2hospitalBarCode.txt`; preview
-must continue rejecting them. Do not enable `GATK_EXECUTION_ENABLED` until a
-complete controlled V7.6.0 source passes prepare/CCE/logger smoke and one
-Step1-Step6 acceptance run.
+must continue rejecting them. The test gate was subsequently enabled by
+explicit operator approval, but these invalid inputs remain blocked and the
+Step1-Step6 acceptance run is still required before production use.
 
 BS10610 now points to
 
@@ -45,10 +65,10 @@ biological rule, source input, database row or analysis result was changed.
 Deployment recreated backend, frontend, Airflow API/scheduler/worker,
 observer and metrics collector after confirming no active WGS/GATK run.
 PostgreSQL and Redis were not recreated. Live capabilities report `wgs,gatk`,
-the GATK release endpoint reports execution disabled, and authenticated
+the GATK release endpoint initially reported execution disabled, and authenticated
 preview of an incomplete V7.6.0 source returns `GATK_INPUT_INVALID` with the
-missing FASTQ member. `bio_gatk` remains paused and the execution gate remains
-false pending a complete controlled input and Step1-Step6 acceptance.
+missing FASTQ member. See the test-enablement follow-up above for the current
+BS10610 gate and DAG state.
 
 ## 2026-09-08 T234 reusable offline frontend builder
 
