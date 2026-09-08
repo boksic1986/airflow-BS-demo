@@ -27,24 +27,25 @@ Validation used the final candidate
 `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/T239-final-20260909-1`:
 
 - backend lifecycle/workspace/stage tests: 20 passed; after correcting the
-  production-shaped QC projection, the expanded backend selection passed 77;
+  production-shaped workspace QC projection, the expanded selection passed 77;
+  after aligning generic Run lifecycle QC, registry/API coverage passed 91;
 - Snakemake logger tests: 8 passed;
 - frontend: 17 files / 60 tests passed;
 - frontend `tsc -b && vite build`: passed through the cached offline builder;
 - no network access or image pull was used.
 
 Production now points to
-`/data/airflow-WGS/releases/20260909-t239-run-lifecycle-qc-r2`. Frontend image
+`/data/airflow-WGS/releases/20260909-t239-run-lifecycle-qc-r3`. Frontend image
 `airflow-demo/frontend:t239-run-lifecycle-5744738` is
 `sha256:b0930e8e9b058e6edae3fd5bbc011206e0148fb13d98aae71e983fef53eac7e9`
 and serves `index-CRdF7Vtc.js` plus `index-DvS8-1p_.css`. Public
 `/api/health` returns 200; the bundle contains Run lifecycle and Batch QC and
 no longer contains Workflow Catalog.
 
-The live `20260906B` workspace reports Batch QC `pass` from 9 samples,
-Workflow operator `wgs-scanner`, Step7 available with no block reason, and 557
-successful Rules. Its Step7 action count remains zero. AnalysisRun remains 11
-total/11 success. Backend and frontend-nginx were recreated; scanner, observer,
+The live `20260906B` Run lifecycle row and workspace both report QC `pass`
+from 9 samples, Workflow operator `wgs-scanner`, Step7 available with no block
+reason, and 557 successful Rules. Its Step7 action count remains zero.
+AnalysisRun remains 11 total/11 success. Backend and frontend-nginx were recreated; scanner, observer,
 Airflow API/scheduler/worker, telemetry, PostgreSQL and Redis retained their
 container IDs. Both backend and scanner still report
 `WGS_AUTO_DISPATCH_ENABLED=false`.
@@ -60,12 +61,18 @@ Two operational false starts were diagnosed rather than retried blindly:
 - The first health curl to `127.0.0.1:12959` exited 1 with connection refused
   because production publishes only on `172.17.61.96:12959`. The correct
   boundary returned 200.
+- One expanded pytest command exited 4 because it named the nonexistent
+  `tests/test_run_resources.py`; the corrected repository-owned selection
+  passed 91 tests.
 
 The first r1 live projection exposed Batch QC `unknown`: persisted Sample rows
 are historical `unknown`, while the controlled QCstat projection is 9/9 pass.
 A new red regression reproduced the mismatch, commit `cf87ae9` changed the
 workspace to reuse the QCstat authority, 77 backend tests passed, and immutable
-r2 replaced r1. No production database row was rewritten.
+r2 replaced r1. A second read-only audit found the generic Run lifecycle list
+still used historical Sample rows; red regression coverage then added the
+registry-owned WGS QC projector, 91 tests passed, and immutable r3 replaced r2.
+No production database row was rewritten.
 
 Rollback: restore
 `/data/airflow-WGS/env/production.env.pre-t239-20260909T1648`, repoint `current`
