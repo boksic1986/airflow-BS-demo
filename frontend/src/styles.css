@@ -2023,9 +2023,46 @@ textarea {
   line-height: 1.35;
 }
 
+.run-tracker-table th.tracker-time-heading,
+.run-tracker-table td.tracker-time-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
 .tracker-time-cell time {
   display: grid;
   gap: 1px;
+}
+
+@media (max-width: 1920px) {
+  .run-tracker-table {
+    min-width: 1230px;
+  }
+
+  .run-tracker-col-project { width: 176px; }
+  .run-tracker-col-batch { width: 108px; }
+  .run-tracker-col-pipeline { width: 68px; }
+  .run-tracker-col-status { width: 96px; }
+  .run-tracker-col-lifecycle { width: 128px; }
+  .run-tracker-col-stage { width: 180px; }
+  .run-tracker-col-progress { width: 192px; }
+  .run-tracker-col-runtime { width: 112px; }
+  .run-tracker-col-time { width: 96px; }
+
+  .run-tracker-table th,
+  .run-tracker-table td {
+    padding-right: 9px;
+    padding-left: 9px;
+  }
+
+  .run-tracker-table .current-stage-cell {
+    min-width: 168px;
+  }
+
+  .run-tracker-table .tracker-lifecycle .status-badge {
+    padding-right: 5px;
+    padding-left: 5px;
+  }
 }
 
 .tracker-time-cell time span,

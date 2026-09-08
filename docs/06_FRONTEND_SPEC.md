@@ -33,6 +33,11 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 - Run Detail refreshes workspace plus only the active tab data and never replaces a loaded page with a full-page loading state.
 - Workflow Catalog uses the registry display name and shows the five newest run records per deployed pipeline through the generic run-list API. Current production displays `WGS`.
 
+### T230 responsive Run Tracker columns
+
+- At viewports up to 1920 CSS pixels, Run Tracker uses compact widths for Project, Batch, Pipeline, Status, Data lifecycle, Current stage, progress, runtime, Started and Finished while preserving the existing font sizes.
+- Wider displays retain the original column widths. Started and Finished headings and values are horizontally and vertically centered, with date and time kept on separate non-breaking lines.
+
 ## Branding
 
 The product label is `NGS Huawei Cloud` with the subtitle `Online analysis platform`. WGS names remain only where they identify the currently deployed workflow or extension.

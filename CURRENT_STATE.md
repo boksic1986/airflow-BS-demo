@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T230 responsive Run Tracker columns
+
+```text
+scope: frontend-only responsive layout refinement; no API, database, workflow or runtime behavior changes.
+implementation: viewports up to 1920 CSS pixels use compact Run Tracker columns without changing font sizes. Started and Finished headings and cells are centered horizontally and vertically; wider displays retain the existing widths.
+validation: fengxian cached frontend test image with `--network none` passed the focused RunTracker regression (1/1) and the TypeScript/Vite production build. No dependency or image download was used.
+deployment: not deployed.
+```
+
 ## 2026-09-08 T229 live terminal and console consistency
 
 ```text

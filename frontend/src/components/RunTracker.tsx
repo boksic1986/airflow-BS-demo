@@ -112,8 +112,8 @@ export function RunTracker({
                 <th scope="col">Current stage</th>
                 <th scope="col">Stage progress</th>
                 <th scope="col">Runtime / ETA</th>
-                <th scope="col">Started</th>
-                <th scope="col">Finished</th>
+                <th className="tracker-time-heading" scope="col">Started</th>
+                <th className="tracker-time-heading" scope="col">Finished</th>
               </tr>
             </thead>
             <tbody>

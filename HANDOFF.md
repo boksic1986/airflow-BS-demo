@@ -1,5 +1,11 @@
 # HANDOFF.md
 
+## 2026-09-08 T230 responsive Run Tracker columns
+
+T230 is a frontend-only responsive layout adjustment. At viewports up to 1920 CSS pixels the Run Tracker uses compact column widths and reduced horizontal cell padding while preserving font sizes. Started and Finished headings and values are centered horizontally and vertically; wider displays keep the prior widths.
+
+The focused `RunTracker.test.tsx` regression first failed because the time headings had no layout hook, then passed 1/1 after the change. A TypeScript/Vite production build passed in the cached fengxian frontend test image with `--network none`; output assets were `index-CSvPomBH.css` and `index-BHbOW6k8.js`. No dependency or image download was used. The first remote-test wrapper did not start because PowerShell required `${target}` before `:/work`; the corrected command passed. This task has not been deployed. Rollback is the frontend-only T230 commit.
+
 ## 2026-09-08 T229 live terminal and console consistency
 
 T229 repairs display/projection defects around the live `20260906B` run without

@@ -1,5 +1,17 @@
 # TASKS.md
 
+## T230 - Run Tracker responsive columns
+
+Owner: frontend
+
+Status: implemented and remotely validated; not deployed
+
+Acceptance:
+- [x] Keep 4K/default Run Tracker widths and font sizes unchanged.
+- [x] Compact Project, Batch, Pipeline, Status, Data lifecycle, Current stage and time columns at 1080P-class viewport widths.
+- [x] Center Started and Finished headings and values horizontally and vertically.
+- [x] Run the focused frontend regression and production build remotely without network access.
+
 ## T229 - Live terminal and console consistency
 
 Owner: WGS/backend/frontend/operations
