@@ -36,10 +36,21 @@ and auto-dispatch gates are false, and `GATK_EXECUTION_ENABLED=false`. The next
 task is a controlled GATK preview/prepare/logger smoke before enabling manual
 execution.
 
+The final application images are `airflow-demo/backend:t232-8d471db`
+(`sha256:e0bda4a494ec...`) and `airflow-demo/frontend:t232-8863463`
+(`sha256:acc16bcca78c...`). The frontend archive was transferred through the
+local workstation, its SHA256 is
+`f65406b9c00f9a382d97f71231d2c0d00ce4f823c0f4725e99923f517319bfd1`, and
+the deployed JavaScript asset is `index-C9k8qm7V.js`. Post-cutover validation
+again passed 338 backend tests with one skip, 18 DAG/runtime helper tests,
+55 frontend tests, Compose config, database head `20260908_0019`, HTTP health,
+and empty `bio_wgs`/`bio_gatk` DagRun inventories.
+
 Rollback: point `current` back to
-`releases/20260907-airflow-demo-5458cce-t219-active-sync`, restore the prior
-backend/frontend image tags in `env/bs10610.wgs.env`, and recreate the affected
-services. The intentionally deleted test history is not restored.
+`releases/20260908-t231-gatk-main-sync-r1`, restore backend
+`airflow-demo/backend:t231-518c54f` and frontend
+`airflow-demo/frontend:t231-5114869` in `env/bs10610.wgs.env`, and recreate the
+affected services. The intentionally deleted test history is not restored.
 
 ## 2026-09-08 T231 compact centered Run Tracker cells
 
