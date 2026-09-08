@@ -4,7 +4,11 @@
 
 T231 is a frontend-only follow-up to T230. Run Tracker now marks every heading and cell for consistent horizontal and vertical centering. At viewports up to 1920 CSS pixels, the first six columns use a smaller type scale and center their nested project metadata, badges, lifecycle rows and stage text; wider displays keep the existing T230 type scale and widths.
 
-The focused regression failed before implementation because the new alignment hooks were absent, then passed 1/1. A TypeScript/Vite production build passed in the cached fengxian frontend image with `--network none` and `--pull never`; output assets are `index-YXPnA4xQ.css` and `index-DXn-GGtr.js`. No dependency or image download was used. Production deployment is pending; only `frontend-nginx` may be recreated.
+The focused regression failed before implementation because the new alignment hooks were absent, then passed 1/1. A TypeScript/Vite production build passed in the cached fengxian frontend image with `--network none` and `--pull never`; output assets are `index-YXPnA4xQ.css` and `index-DXn-GGtr.js`. No dependency or image download was used.
+
+`origin/main` contains T231. Production points to `/data/airflow-WGS/releases/20260908-t231-centered-run-tracker-r1` and serves `airflow-demo/frontend:t231-centered-c6f01a5` (`sha256:b8f5059a4deb...`). Compose config passed; root and `/api/health` returned 200; the served asset names and T231 markers match the validated build. Only `frontend-nginx` was recreated. Every other production container retained its ID, start time and restart count.
+
+Rollback: restore `/data/airflow-WGS/env/production.env.pre-T231-20260908`, repoint `current` to `/data/airflow-WGS/releases/20260908-t230-responsive-run-tracker-r1`, and recreate only `frontend-nginx`.
 
 ## 2026-09-08 T230 responsive Run Tracker columns
 

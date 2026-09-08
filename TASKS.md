@@ -4,7 +4,7 @@
 
 Owner: frontend
 
-Status: implemented and remotely validated; production sync pending
+Status: completed in production
 
 Acceptance:
 - [x] Center all Run Tracker headings and cells horizontally and vertically.
@@ -12,7 +12,7 @@ Acceptance:
 - [x] Center nested project metadata, status controls, lifecycle rows and current-stage content at the compact breakpoint.
 - [x] Preserve T230 widths and the wider-display type scale.
 - [x] Run a focused red/green regression and production build without network access.
-- [ ] Commit, synchronize `main`, and deploy only `frontend-nginx`.
+- [x] Commit, synchronize `main`, and deploy only `frontend-nginx`.
 
 ## T230 - Run Tracker responsive columns
 

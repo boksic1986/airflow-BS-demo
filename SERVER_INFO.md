@@ -1,5 +1,22 @@
 # SERVER_INFO.md
 
+## T231 compact centered Run Tracker production sync (2026-09-08)
+
+```text
+primary: 172.17.61.96
+release: /data/airflow-WGS/releases/20260908-t231-centered-run-tracker-r1
+frontend_image: airflow-demo/frontend:t231-centered-c6f01a5
+frontend_image_id: sha256:b8f5059a4deb3e866f651575cd5f27072d663ac0a4d867a2bd7d0fbccc118990
+source_commit: c6f01a503296ea9c0259c321a770821d9a032258
+build: cached production Node dependencies and cached T230 nginx base; network none and pull disabled
+recreated_service: frontend-nginx only
+preserved: backend, Airflow, PostgreSQL, Redis, scanner, observer, collectors and analyses
+smoke: root 200; /api/health 200; served index-YXPnA4xQ.css and index-DXn-GGtr.js contain T231 markers
+rollback_env: /data/airflow-WGS/env/production.env.pre-T231-20260908
+rollback_release: /data/airflow-WGS/releases/20260908-t230-responsive-run-tracker-r1
+published_ports: 172.17.61.96:12959 only
+```
+
 ## T230 responsive Run Tracker production sync (2026-09-08)
 
 ```text
