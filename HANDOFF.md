@@ -1,5 +1,13 @@
 # HANDOFF.md
 
+## 2026-09-08 T232 wide-screen Project source alignment
+
+T232 is a frontend-only correction for the 4K Run Tracker screenshot. The Project source row was a full-width flex container whose centering existed only in the <=1920 media rule, so Intake/Manual fell back to flex-start on wider screens. `OperationProjectCell` now applies an explicit centering modifier whose CSS is independent of viewport width. Fonts, column widths and the T230/T231 responsive rules are unchanged.
+
+The focused semantic-class regression failed before implementation because the modifier was absent, then the Run Tracker test file passed 2/2 after the change. The TypeScript/Vite production build also passed in the cached fengxian frontend image with `--network none` and `--pull never`. An earlier computed-style test was discarded because jsdom did not apply the imported global stylesheet and therefore returned `normal` even after the CSS fix; it was replaced by the component-level class contract.
+
+Production synchronization is pending. Only `frontend-nginx` is in scope; backend, Airflow, PostgreSQL, Redis, scanner, observer, collectors and analyses must remain untouched.
+
 ## 2026-09-08 T231 compact centered Run Tracker cells
 
 T231 is a frontend-only follow-up to T230. Run Tracker now marks every heading and cell for consistent horizontal and vertical centering. At viewports up to 1920 CSS pixels, the first six columns use a smaller type scale and center their nested project metadata, badges, lifecycle rows and stage text; wider displays keep the existing T230 type scale and widths.

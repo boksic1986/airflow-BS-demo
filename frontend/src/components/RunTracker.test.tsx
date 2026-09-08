@@ -57,3 +57,27 @@ it("marks Run Tracker headings and cells for compact centered responsive layout"
   cells.forEach((cell) => expect(cell).toHaveClass("tracker-centered-cell"));
   cells.slice(0, 6).forEach((cell) => expect(cell).toHaveClass("tracker-compact-cell"));
 });
+
+it("centers the project source tag without relying on the compact breakpoint", () => {
+  const {container} = render(
+    <MemoryRouter>
+      <RunTracker
+        rows={[row]}
+        total={1}
+        limit={10}
+        offset={0}
+        filter="all"
+        keyword=""
+        onFilterChange={() => undefined}
+        onKeywordChange={() => undefined}
+        onPageChange={() => undefined}
+        onSubmit={() => undefined}
+        onSync={() => undefined}
+      />
+    </MemoryRouter>,
+  );
+
+  const sourceLine = container.querySelector<HTMLElement>(".tracker-source-line");
+  expect(sourceLine).not.toBeNull();
+  expect(sourceLine).toHaveClass("tracker-source-line-centered");
+});

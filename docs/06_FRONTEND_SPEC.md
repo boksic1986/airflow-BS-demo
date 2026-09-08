@@ -44,6 +44,11 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 - At viewports up to 1920 CSS pixels, Project, Batch, Pipeline, Status, Data lifecycle and Current stage use a smaller responsive type scale; their nested links, badges and secondary text align to the cell center.
 - Wider displays retain the existing T230 type scale and column widths.
 
+### T232 wide-screen project source alignment
+
+- The Project source row uses an explicit viewport-independent centered flex alignment, so the Intake/Manual badge remains centered on 4K displays as well as at the compact breakpoint.
+- T232 does not change the 4K type scale, column widths, or the responsive rules introduced by T230/T231.
+
 ## Branding
 
 The product label is `NGS Huawei Cloud` with the subtitle `Online analysis platform`. WGS names remain only where they identify the currently deployed workflow or extension.

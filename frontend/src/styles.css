@@ -3505,6 +3505,10 @@ textarea {
   font-size: 11px;
 }
 
+.tracker-source-line-centered {
+  justify-content: center;
+}
+
 .run-source-tag {
   display: inline-flex;
   align-items: center;

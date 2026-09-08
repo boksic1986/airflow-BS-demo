@@ -33,7 +33,7 @@ export function OperationProjectCell({
         <Link className="mono tracker-run-link" to={`/runs/${encodeURIComponent(analysisId)}`}>{analysisId}</Link>
       ) : null}
       <span className="muted">{showOperatorPrefix ? "Operator " : ""}{submittedBy || "not captured"} / {sampleCount} samples</span>
-      <span className="tracker-source-line">
+      <span className="tracker-source-line tracker-source-line-centered">
         <span className={`run-source-tag source-${source}`}>{source === "intake" ? "Intake" : "Manual"}</span>
         {displaySourceBatchId ? <span title="Source batch">{displaySourceBatchId}</span> : null}
       </span>

@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T232 wide-screen Project source alignment
+
+```text
+scope: frontend-only alignment correction for the Run Tracker Project source row; no API, database, workflow, runtime, typography or column-width change.
+implementation: the Intake/Manual source row now carries an explicit centered flex modifier at every viewport width. The <=1920 compact rules remain unchanged, while 4K no longer falls back to flex-start.
+validation: the focused regression failed before implementation because the semantic centering modifier was absent, then passed 2/2 with the existing Run Tracker regression. The TypeScript/Vite production build passed in the cached fengxian frontend image with network disabled.
+deployment: pending frontend-only production synchronization; only frontend-nginx may be recreated.
+```
+
 ## 2026-09-08 T231 compact centered Run Tracker cells
 
 ```text
