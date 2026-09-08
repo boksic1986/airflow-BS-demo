@@ -119,3 +119,23 @@ submission path. Enabling GATK requires all of the following:
 Rollback sets the gate to false and recreates the control-plane services. It
 does not delete database rows, OBS objects, CCE evidence, runtime bundles or
 materialized results.
+
+## BS10610 disabled rollout
+
+The control-plane-only T228 release is deployed at
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/6d3bb184c597-t228-gatk-disabled`
+with `GATK_EXECUTION_ENABLED=false`. Migration 0018, `bio_gatk`, the frontend
+submission form and the one-slot GATK pool are present, but confirmation cannot
+create executable work while the gate is false.
+
+`/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime/gatk*` is read-only and
+was not present on BS10610 during rollout. The disabled release uses
+project-local `shared/gatk-runtime` and `shared/gatk-evidence` mounts only to
+start and validate the control plane. Do not enable execution until the
+node200 forced-command runtime and BS10610 resolve the same immutable request,
+status, binding and evidence files.
+
+The first live preview probe used the documented 20260816A source and failed
+closed because one selected SCMC R1 file was absent. This is expected input
+validation, not a platform error. Select a source project with complete current
+R1/R2 links before prepare or CCE smoke validation.

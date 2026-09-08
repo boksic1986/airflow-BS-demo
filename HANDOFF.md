@@ -42,9 +42,27 @@ Validation command corrections:
   supplied the repository contract and Psycopg 3 URL and reached 0018.
 
 Not completed:
-- Migration and service deployment on BS10610.
 - Private node200 forced-command/env installation.
+- Push of GATK commit `3ef561d68a82` to the HTTP GitLab origin. The shared
+  repository and feature worktree contain the commit, but the approved
+  credential file was rejected by GitLab; no credential content was printed.
+- A request/evidence path visible to both BS10610 and node200. The intended
+  `/sg2/50.ctapa/.../runtime/gatk*` roots are read-only and absent on BS10610;
+  the disabled control plane currently uses project-local placeholder mounts.
 - Prepare, CCE dry-run/logger smoke and SCMC Step1-Step6 smoke.
+
+Disabled deployment:
+- Airflow commit `6d3bb184c597` is deployed at
+  `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/6d3bb184c597-t228-gatk-disabled`.
+- Biodemo is at migration `20260908_0018`. Backend, observer, Airflow API,
+  scheduler, worker and frontend were recreated; PostgreSQL, Redis, WGS
+  scanner and data volumes were preserved.
+- Gateway health and root returned 200. Airflow reports healthy metadata and
+  scheduler, zero import errors, `bio_wgs,bio_gatk`, and one
+  `gatk_cce_runs` slot. `GATK_EXECUTION_ENABLED=false` and active runs were
+  zero during the maintenance window.
+- The known `WES_20260816A_T7_V7.6.0_hg38` preview failed closed because
+  `PES26080651-BSV1.R1` is absent. No AnalysisRun or CCE work was created.
 
 Safety and rollback:
 - `GATK_EXECUTION_ENABLED=false` is the default. No OBS object, CCE workload,
@@ -55,7 +73,7 @@ Safety and rollback:
 
 Next:
 1. Confirm no active WGS run before recreating any control-plane service.
-2. Deploy migration/backend/Airflow/frontend with GATK disabled.
+2. Establish one request/evidence path visible to BS10610 and node200.
 3. Install the private node200 gate and run the controlled smoke sequence in
    `docs/33_GATK_CLOUD_AIRFLOW_INTEGRATION.md`.
 

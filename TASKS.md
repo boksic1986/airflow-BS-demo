@@ -4,7 +4,7 @@
 
 Owner: GATK/backend/Airflow/frontend/QA/docs
 
-Status: implemented and remotely validated; disabled rollout and SCMC smoke pending
+Status: implemented, remotely validated and deployed disabled; SCMC smoke pending
 
 Dependencies: Airflow `0e2cab3`, GATK Cloud `bd04f6d`
 
@@ -17,7 +17,7 @@ Acceptance:
 - [x] Materialize Step6 into the exact approved GATK result root.
 - [x] Keep the WGS intake scanner WGS-only and the GATK execution gate false by default.
 - [x] Pass backend/scripts, GATK repo, frontend, Compose and Airflow DagBag validation.
-- [ ] Deploy migration/backend/Airflow/frontend to BS10610 with execution disabled.
+- [x] Deploy migration/backend/Airflow/frontend to BS10610 with execution disabled.
 - [ ] Complete prepare, CCE dry-run/logger and one controlled SCMC Step1-Step6 smoke.
 - [ ] Enable manual confirmation only after smoke acceptance.
 

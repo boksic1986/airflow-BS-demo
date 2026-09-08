@@ -9,9 +9,12 @@ runtime: node200 receives immutable requests through a forced-command gate. GATK
 state: migration 0018 adds pipeline_submission_draft and pipeline_stage_execution. GATK does not write wgs_stage_execution; existing WGS data and behavior are unchanged.
 delivery: control files remain under runtime/gatk. Step6 invokes the frozen CCE delivery helper with the approved /sg2/50.ctapa/project/HWcloud/WES_Clinical/<batch>/<analysis_id> destination.
 frontend: Submit Run offers an independent GATK Cloud preview/confirm flow with locked SCMC samples. Run Detail reuses workspace, Rules, Master, Transfers, Logs and Files, while QC and reanalysis are absent because GATK v1 does not declare those capabilities.
-gates: GATK_EXECUTION_ENABLED defaults false. The WGS scanner remains WGS-only. No production service or data has been changed by the source validation.
+gates: GATK_EXECUTION_ENABLED remains false. The WGS scanner remains WGS-only. No GATK run, OBS transfer or CCE workload was created.
 validation: BS10610 backend/scripts 427 passed; GATK repository nipttest 5 passed; Airflow image DagBag imported bio_gatk with 21 tasks and max_active_runs=1; fengxian frontend 14 files/51 tests and production build passed; Compose config passed; disposable PostgreSQL upgraded from empty to the single 0018 head.
-remaining: deploy the disabled candidate only when no WGS run is active, install the private node200 gate/env, then run prepare, CCE dry-run/logger and one controlled SCMC Step1-Step6 smoke before enabling manual confirmation.
+deployment: BS10610 current points to /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/6d3bb184c597-t228-gatk-disabled. Biodemo is at migration 0018, frontend/backend/Airflow/observer were recreated, bio_wgs and bio_gatk import without error, the gateway is healthy, and gatk_cce_runs has one slot.
+runtime_boundary: /sg2/50.ctapa is read-only on BS10610. The disabled release therefore uses project-local shared/gatk-runtime and shared/gatk-evidence mounts only for control-plane startup. Before execution can be enabled, node200 must publish the matching runtime/evidence paths so both sides see the same immutable requests and receipts.
+live_preview: the known WES_20260816A_T7_V7.6.0_hg38 source was safely rejected because PES26080651-BSV1.R1 was absent. The rejection created no analysis run. A source project with a complete current R1/R2 set is required for the controlled smoke.
+remaining: install the private node200 gate/env, establish the shared request/evidence mapping, select a complete SCMC source project, then run prepare, CCE dry-run/logger and one controlled SCMC Step1-Step6 smoke before enabling manual confirmation.
 ```
 
 ## 2026-09-08 T226 production SDK transfer and mainline synchronization
