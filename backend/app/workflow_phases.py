@@ -141,6 +141,21 @@ WGS_PHASE_ORDER = {
     "QC": 30,
     "Cloud delivery": 40,
 }
+GATK_PHASE_ORDER = {
+    "FASTQ QC": 10,
+    "Mapping": 20,
+    "MarkDuplicates": 30,
+    "GATK": 40,
+    "chrM realignment": 50,
+    "Delivery": 60,
+}
+GATK_RULE_PHASES = {
+    "fastp_clean": "FASTQ QC",
+    "sentieon_mapping": "Mapping",
+    "gatk_mark_duplicates": "MarkDuplicates",
+    "sentieon_mt_realign": "chrM realignment",
+    "cloud_gatk_finalize": "Delivery",
+}
 
 FAILED_STATUSES = {"failed", "fail", "error"}
 RUNNING_STATUSES = {"planned", "submitted", "running", "started"}
@@ -153,7 +168,22 @@ def phase_for_rule(
     pipeline_name: str | None = None,
     pipeline_stage: str | None = None,
 ) -> str:
+    if str(pipeline_name or "").lower() == "wgs":
+        return wgs_phase_for_rule(rule, pipeline_stage=pipeline_stage)
+    if str(pipeline_name or "").lower() == "gatk":
+        return gatk_phase_for_rule(rule)
     return "Pipeline"
+
+
+def gatk_phase_for_rule(rule: str | None) -> str:
+    name = str(rule or "").strip()
+    if name in GATK_RULE_PHASES:
+        return GATK_RULE_PHASES[name]
+    if name.startswith("gatk_"):
+        return "GATK"
+    if name.startswith("cloud_"):
+        return "Delivery"
+    return "GATK"
 
 
 def wgs_phase_for_rule(rule: str | None, *, pipeline_stage: str | None = None) -> str:
@@ -168,7 +198,22 @@ def wgs_phase_for_rule(rule: str | None, *, pipeline_stage: str | None = None) -
 
 def phase_order(phase: str | None, *, pipeline_name: str | None = None) -> int:
     """Return a stable UI sort order without deriving execution dependencies."""
+    if str(pipeline_name or "").lower() == "wgs":
+        return wgs_phase_order(phase)
+    if str(pipeline_name or "").lower() == "gatk":
+        return GATK_PHASE_ORDER.get(str(phase or ""), 999)
     return 999
+
+
+def gatk_phase_definitions() -> list[dict[str, object]]:
+    return [
+        {
+            "key": phase.lower().replace(" ", "_").replace("-", "_"),
+            "label": phase,
+            "order": order,
+        }
+        for phase, order in GATK_PHASE_ORDER.items()
+    ]
 
 
 def wgs_phase_order(phase: str | None) -> int:

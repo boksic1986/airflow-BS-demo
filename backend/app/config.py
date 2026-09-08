@@ -69,6 +69,23 @@ class Settings:
     wgs_local_admission_samples: int
     wgs_local_admission_cpu_percent: float
     wgs_local_admission_load_ratio: float
+    gatk_execution_enabled: bool
+    gatk_source_roots: list[str]
+    gatk_fastq_roots: list[str]
+    gatk_submission_draft_ttl_minutes: int
+    gatk_runtime_profile_id: str
+    gatk_runtime_profile_revision: str
+    gatk_runtime_request_root: str
+    gatk_transfer_spool_root: str
+    gatk_runtime_node200_root: str
+    gatk_evidence_root: str
+    gatk_result_root: str
+    gatk_repository_root: str
+    gatk_operator_config: str
+    gatk_profile_file: str
+    gatk_runtime_file: str
+    gatk_pipeline_root: str
+    gatk_cce_pipeline: str
 
 
 def get_cors_origins() -> list[str]:
@@ -230,6 +247,60 @@ def get_settings() -> Settings:
         ),
         wgs_local_admission_load_ratio=float(
             os.getenv("WGS_LOCAL_ADMISSION_LOAD_RATIO", "0.25")
+        ),
+        gatk_execution_enabled=_parse_bool(
+            os.getenv("GATK_EXECUTION_ENABLED", "false")
+        ),
+        gatk_source_roots=_parse_list(
+            os.getenv("GATK_SOURCE_ROOTS", "/sg2/21.lijing/WES_Clinical")
+        ),
+        gatk_fastq_roots=_parse_list(
+            os.getenv("GATK_FASTQ_ROOTS", "/sg2/T7new/result1/OutputFq")
+        ),
+        gatk_submission_draft_ttl_minutes=_parse_int(
+            os.getenv("GATK_SUBMISSION_DRAFT_TTL_MINUTES", "30"), default=30
+        ),
+        gatk_runtime_profile_id=os.getenv(
+            "GATK_RUNTIME_PROFILE_ID", "gatk-scmc-v7.6.0"
+        ).strip(),
+        gatk_runtime_profile_revision=os.getenv(
+            "GATK_RUNTIME_PROFILE_REVISION", "bd04f6d"
+        ).strip(),
+        gatk_runtime_request_root=os.getenv(
+            "GATK_RUNTIME_REQUEST_ROOT", "/data/gatk-runtime/requests"
+        ),
+        gatk_transfer_spool_root=os.getenv(
+            "GATK_TRANSFER_SPOOL_ROOT", "/data/gatk-runtime/transfer-progress"
+        ),
+        gatk_runtime_node200_root=os.getenv(
+            "GATK_RUNTIME_NODE200_ROOT",
+            "/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime/gatk",
+        ),
+        gatk_evidence_root=os.getenv(
+            "GATK_EVIDENCE_ROOT", "/data/gatk-evidence"
+        ),
+        gatk_result_root=os.getenv(
+            "GATK_RESULT_ROOT", "/sg2/50.ctapa/project/HWcloud/WES_Clinical"
+        ),
+        gatk_repository_root=os.getenv(
+            "GATK_REPOSITORY_ROOT",
+            "/bi/biodevrwbi/33.chenjiucheng/project/gatk-cloud",
+        ),
+        gatk_operator_config=os.getenv(
+            "GATK_OPERATOR_CONFIG", "/home/ctapa/.config/cce-pipeline/operator.yaml"
+        ),
+        gatk_profile_file=os.getenv(
+            "GATK_PROFILE_FILE", "profiles/cce-pipeline/gatk.yaml"
+        ),
+        gatk_runtime_file=os.getenv(
+            "GATK_RUNTIME_FILE", "profiles/cce/runtime.yaml"
+        ),
+        gatk_pipeline_root=os.getenv(
+            "GATK_PIPELINE_ROOT", "/workspace/gatk-cloud/pipelines/7.6.0"
+        ),
+        gatk_cce_pipeline=os.getenv(
+            "GATK_CCE_PIPELINE",
+            "/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/cce-pipeline",
         ),
     )
 

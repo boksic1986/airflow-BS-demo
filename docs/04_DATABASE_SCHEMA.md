@@ -1,5 +1,21 @@
 # 04 数据库设计
 
+## T228 generic GATK submission and stage evidence
+
+Migration `20260908_0018` follows `20260907_0017` and adds two pipeline-scoped
+tables without modifying the WGS execution tables:
+
+- `pipeline_submission_draft` stores the private approved input root, owner,
+  immutable fingerprint, safe preview projection, expiry and optional run
+  binding. Full sampleinfo content and resolved FASTQ paths are not copied into
+  its JSON projection.
+- `pipeline_stage_execution` stores append-only pipeline/analysis/attempt/stage
+  generations, request and predecessor hashes, heartbeat, terminal evidence
+  and receipt. `run_stage_state` remains the latest display projection.
+
+GATK uses both tables. Existing WGS runs continue to use their current WGS
+tables and are not migrated. See [document 33](33_GATK_CLOUD_AIRFLOW_INTEGRATION.md).
+
 ## T218 independent WGS lifecycle status
 
 Migration `20260907_0017` follows `20260907_0016` and adds

@@ -271,6 +271,32 @@ def get_wgs_run_log(
     }
 
 
+def get_gatk_run_log(
+    *, session: Session, analysis_id: str, stream: str, tail: int, settings, key: str | None = None
+) -> dict[str, Any] | None:
+    run = _get_run(session, analysis_id)
+    if run is None:
+        return None
+    if not key:
+        raise LogNotFoundError("GATK logs require a registered opaque log key")
+    item = next(
+        (candidate for candidate in _gatk_run_log_items(run=run, settings=settings) if candidate["key"] == key),
+        None,
+    )
+    if item is None:
+        raise LogNotFoundError(f"Unknown or unavailable log key: {key}")
+    path = Path(str(item["_path"]))
+    lines, truncated, file_size = _tail_log_file(path, tail=tail)
+    return {
+        "stream": str(item["stream"]),
+        "truncated": truncated,
+        "file_size": file_size,
+        "lines": lines,
+        "path": item["relative_path"],
+        "key": key,
+    }
+
+
 def _tail_log_file(
     path: Path,
     *,
@@ -377,6 +403,61 @@ def list_wgs_run_logs(*, session: Session, analysis_id: str, settings) -> dict[s
     }
 
 
+def list_gatk_run_logs(*, session: Session, analysis_id: str, settings) -> dict[str, list[dict[str, Any]]] | None:
+    run = _get_run(session, analysis_id)
+    if run is None:
+        return None
+    return {
+        "items": [
+            {key: value for key, value in item.items() if key != "_path"}
+            for item in _gatk_run_log_items(run=run, settings=settings)
+        ]
+    }
+
+
+def _gatk_run_log_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
+    attempt = int(run.attempt or 1)
+    request_root = Path(settings.gatk_runtime_request_root).resolve()
+    evidence_root = Path(settings.gatk_evidence_root).resolve()
+    request_attempt = _contained_path(
+        request_root, Path(run.analysis_id) / f"attempt-{attempt}"
+    )
+    evidence_attempt = _contained_path(
+        evidence_root, Path(run.analysis_id) / f"attempt-{attempt}"
+    )
+    items: list[dict[str, Any]] = []
+    analysis_log = _contained_path(evidence_attempt, Path("mirror/analysis.log"))
+    if analysis_log.is_file() and not analysis_log.is_symlink():
+        items.append(
+            _wgs_log_item(
+                path=analysis_log,
+                token=f"gatk-analysis:{attempt}",
+                label="GATK Snakemake analysis log",
+                stream="stdout",
+                source="master_analysis",
+                stage="step3_monitor",
+                relative_path="evidence/mirror/analysis.log",
+            )
+        )
+    if request_attempt.is_dir() and not request_attempt.is_symlink():
+        for path in sorted(request_attempt.glob("*.worker.log")):
+            if path.is_symlink() or not path.is_file():
+                continue
+            stage = path.name.removesuffix(".worker.log")
+            items.append(
+                _wgs_log_item(
+                    path=path,
+                    token=f"gatk-worker:{attempt}:{stage}",
+                    label=f"{stage.replace('_', ' ').title()} worker log",
+                    stream="stdout",
+                    source="stage_worker",
+                    stage=stage,
+                    relative_path=f"runtime/{path.name}",
+                )
+            )
+    return items
+
+
 def _log_index_item(*, path: Path, workdir: Path, label: str, stream: str, **extra) -> dict[str, Any]:
     relative = path.resolve().relative_to(workdir.resolve()).as_posix()
     key = hashlib.sha256(relative.encode("utf-8")).hexdigest()[:20]
@@ -466,7 +547,22 @@ def _wgs_run_log_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
 
 def wgs_rule_log_contexts(*, run: AnalysisRun, rules: list[RuleState], settings) -> dict[str, dict[str, str | None]]:
     """Bind Rules to the registered Master log and excerpt only failures."""
-    item = next((row for row in _wgs_run_log_items(run=run, settings=settings) if row.get("source") == "master_analysis"), None)
+    return _rule_log_contexts(
+        rules=rules,
+        items=_wgs_run_log_items(run=run, settings=settings),
+    )
+
+
+def gatk_rule_log_contexts(*, run: AnalysisRun, rules: list[RuleState], settings) -> dict[str, dict[str, str | None]]:
+    """Bind GATK Rule rows to its registered Master analysis log."""
+    return _rule_log_contexts(
+        rules=rules,
+        items=_gatk_run_log_items(run=run, settings=settings),
+    )
+
+
+def _rule_log_contexts(*, rules: list[RuleState], items: list[dict[str, Any]]) -> dict[str, dict[str, str | None]]:
+    item = next((row for row in items if row.get("source") == "master_analysis"), None)
     if item is None:
         return {}
     analysis_log_key = str(item["key"])
@@ -541,6 +637,36 @@ def list_wgs_run_artifacts(*, session: Session, analysis_id: str, settings) -> d
     if run is None:
         return None
     return {"items": _wgs_artifact_items(run=run, settings=settings)}
+
+
+def list_gatk_run_artifacts(*, session: Session, analysis_id: str, settings) -> dict[str, list[dict[str, Any]]] | None:
+    run = _get_run(session, analysis_id)
+    if run is None:
+        return None
+    attempt = int(run.attempt or 1)
+    runtime_root = Path(settings.gatk_runtime_request_root).resolve().parent
+    attempt_root = _contained_path(
+        runtime_root, Path("runs") / run.analysis_id / f"attempt-{attempt}"
+    )
+    definitions = (
+        ("gatk_prepare_receipt", "prepare_receipt", "GATK prepare receipt", "prepare.receipt.json"),
+        ("gatk_batch_binding", "runtime_binding", "GATK runtime binding", "batch-binding.json"),
+    )
+    items = []
+    for key, artifact_type, label, name in definitions:
+        path = _contained_path(attempt_root, Path(name))
+        if path.is_file() and not path.is_symlink():
+            items.append(
+                {
+                    "key": key,
+                    "type": artifact_type,
+                    "label": label,
+                    "path": f"runtime/{name}",
+                    "size_bytes": path.stat().st_size,
+                    "url": "",
+                }
+            )
+    return {"items": items}
 
 
 def _wgs_artifact_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:

@@ -8,8 +8,8 @@ export function RunOverviewTab({detail, samples, sampleCount}: {detail: RunDetai
     <div className="overview-stack">
       <div className="definition-grid">
         <div><dt>Pipeline</dt><dd>{compactPipelineName(detail.pipeline)}</dd></div>
-        <div><dt>Batch</dt><dd>{String(detail.params?.batch_no || "not set")}</dd></div>
-        <div><dt>WGS release</dt><dd>{detail.pipeline_release_id || "not pinned"}</dd></div>
+        <div><dt>Batch</dt><dd>{String(detail.params?.batch_no || detail.params?.batch || "not set")}</dd></div>
+        <div><dt>Pipeline release</dt><dd>{detail.pipeline_release_id || "not pinned"}</dd></div>
         <div><dt>Attempt</dt><dd>{String(detail.params?.attempt || "1")}</dd></div>
         <div><dt>Status</dt><dd><StatusBadge status={detail.status} /></dd></div>
         <div><dt>DAG run</dt><dd className="path-text">{detail.dag_run_id || "not set"}</dd></div>

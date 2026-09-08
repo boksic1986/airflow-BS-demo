@@ -18,7 +18,7 @@ from app.pipeline_registry import (
 )
 from app.wgs_platform_service import create_wgs_platform_run
 from app.wgs_platform_service import action_wgs_run, submit_wgs_run
-from app.models import ObserverRunState, RunStageState
+from app.models import ObserverRunState, RunStageState, Sample
 from app.wgs_execution_dispatch_service import project_execution_dispatch
 from app.wgs_lifecycle_service import project_wgs_lifecycle, project_wgs_lifecycles
 from app.wgs_sample_projection import get_wgs_sample_projection
@@ -30,11 +30,17 @@ from app.wgs_timing_service import enrich_progress
 from app.wgs_run_projection import public_wgs_batch
 from app.workflow_phases import wgs_phase_for_rule
 from app.diagnostics_service import (
+    get_gatk_run_log,
     get_wgs_run_log,
+    list_gatk_run_artifacts,
+    list_gatk_run_logs,
     list_wgs_run_artifacts,
     list_wgs_run_logs,
     sync_wgs_airflow_status,
 )
+from app.gatk_submission_service import confirm_gatk_submission
+from app.gatk_stage_contract import project_gatk_orchestration
+from app.workflow_phases import gatk_phase_for_rule
 
 
 DEFAULT_REGISTRY_PAYLOAD: dict[str, Any] = {
@@ -53,7 +59,7 @@ DEFAULT_REGISTRY_PAYLOAD: dict[str, Any] = {
 }
 
 
-def _create_wgs_run(*, session, settings, request, user) -> dict[str, Any]:
+def _create_wgs_run(*, session, settings, request, user, **_) -> dict[str, Any]:
     if not str(request.batch_no or "").strip() or not str(request.fq_path or "").strip():
         raise ValueError("batch_no and fq_path are required for pipeline=wgs.")
     return create_wgs_platform_run(
@@ -65,6 +71,87 @@ def _create_wgs_run(*, session, settings, request, user) -> dict[str, Any]:
         fq_path=str(request.fq_path or ""),
         submitted_by=user.username,
     )
+
+
+def _create_gatk_run(
+    *, session, settings, request, user, airflow_client=None, **_
+) -> dict[str, Any]:
+    draft_id = str(getattr(request, "submission_draft_id", None) or "").strip()
+    preview_hash = str(
+        getattr(request, "submission_preview_hash", None) or ""
+    ).strip()
+    if not draft_id or not preview_hash:
+        raise ValueError(
+            "submission_draft_id and submission_preview_hash are required for pipeline=gatk."
+        )
+    if request.execution_mode != "cce":
+        raise ValueError("execution_mode must be cce for pipeline=gatk.")
+    if airflow_client is None:
+        raise ValueError("Airflow client is required for GATK confirmation.")
+    return confirm_gatk_submission(
+        session=session,
+        settings=settings,
+        airflow_client=airflow_client,
+        draft_id=draft_id,
+        preview_hash=preview_hash,
+        project_name=request.project_name,
+        submitted_by=user.username,
+    )
+
+
+def _project_gatk_samples(*, session, run, **_) -> dict[str, Any]:
+    rows = list(
+        session.scalars(
+            select(Sample)
+            .where(Sample.analysis_id == run.analysis_id)
+            .order_by(Sample.sample_id)
+        ).all()
+    )
+    return {
+        "items": [
+            {
+                "sample_id": row.sample_id,
+                "family_id": row.family_id,
+                "status": row.status,
+                "qc_status": None,
+                "metadata": {"source": "locked SCMC submission"},
+            }
+            for row in rows
+        ]
+    }
+
+
+def _project_gatk_run_detail(*, run, **_) -> dict[str, Any]:
+    params = dict(run.params_json or {})
+    return {
+        "pipeline_release_id": (
+            f"{params.get('runtime_profile_id')}@{params.get('runtime_profile_revision')}"
+        ),
+        "gatk_version": "V7.6.0",
+        "runtime_profile_id": params.get("runtime_profile_id"),
+        "submission_preview_hash": params.get("submission_preview_hash"),
+    }
+
+
+def _project_gatk_dashboard_metadata(*, run, **_) -> dict[str, Any]:
+    params = dict(run.params_json or {})
+    return {
+        "batch_no": params.get("batch"),
+        "display_status": str(run.status or "").lower(),
+        "qc_display_status": "not_applicable",
+        "qc_display_note": "GATK v1 reports workflow and delivery integrity only.",
+    }
+
+
+def _project_gatk_sample_summary(*, run, sample, metadata, **_) -> dict[str, Any]:
+    return {
+        "batch_no": (run.params_json or {}).get("batch"),
+        "qc_status": None,
+        "family_relation": None,
+        "sample_type": sample.sample_type,
+        "sex": sample.sex,
+        "sequencing_batch": None,
+    }
 
 
 def _enabled_env_flag(name: str) -> bool:
@@ -184,6 +271,47 @@ def _project_wgs_workflows(*, session, runs, **_) -> dict[str, list[dict[str, An
     rows_by_attempt: dict[tuple[str, int], list[RunStageState]] = {
         key: [] for key in attempts
     }
+    for row in stage_rows:
+        rows_by_attempt.setdefault((row.analysis_id, row.attempt), []).append(row)
+    return {
+        run.analysis_id: project_wgs_orchestration(
+            run_status=run.status,
+            current_stage=run.current_stage,
+            stage_rows=rows_by_attempt.get((run.analysis_id, run.attempt), []),
+        )
+        for run in runs
+    }
+
+
+def _project_gatk_workflows(*, session, runs, **_) -> dict[str, list[dict[str, Any]]]:
+    if not runs:
+        return {}
+    stage_rows = list(
+        session.scalars(
+            select(RunStageState).where(
+                RunStageState.analysis_id.in_([run.analysis_id for run in runs])
+            )
+        ).all()
+    )
+    rows_by_attempt: dict[tuple[str, int], list[RunStageState]] = {}
+    for row in stage_rows:
+        rows_by_attempt.setdefault((row.analysis_id, row.attempt), []).append(row)
+    return {
+        run.analysis_id: project_gatk_orchestration(
+            run_status=run.status,
+            current_stage=run.current_stage,
+            stage_rows=rows_by_attempt.get((run.analysis_id, run.attempt), []),
+        )
+        for run in runs
+    }
+
+
+def _project_gatk_rule_context(*, run, **_) -> dict[str, Any]:
+    return {
+        "pipeline_name": run.pipeline_name,
+        "pipeline_stage": "full",
+        "phase_projector": lambda rule, **_: gatk_phase_for_rule(rule),
+    }
 
 
 def _project_wgs_rule_context(*, run, **_) -> dict[str, Any]:
@@ -227,16 +355,6 @@ def _project_wgs_sample_summary(*, run, sample, metadata, **_) -> dict[str, Any]
         "sex": sample.sex,
         "sequencing_batch": metadata.get("sequencing_batch")
         or (run.params_json or {}).get("sequencing_batch"),
-    }
-    for row in stage_rows:
-        rows_by_attempt.setdefault((row.analysis_id, row.attempt), []).append(row)
-    return {
-        run.analysis_id: project_wgs_orchestration(
-            run_status=run.status,
-            current_stage=run.current_stage,
-            stage_rows=rows_by_attempt.get((run.analysis_id, run.attempt), []),
-        )
-        for run in runs
     }
 
 
@@ -284,6 +402,20 @@ ADAPTERS = {
         list_artifacts=list_wgs_run_artifacts,
         intake_status=_wgs_intake_status,
         scanner_state=_wgs_scanner_state,
+    ),
+    "gatk": PipelineAdapter(
+        adapter_id="gatk",
+        sample_qc_failures=False,
+        create_run=_create_gatk_run,
+        project_run_detail=_project_gatk_run_detail,
+        project_samples=_project_gatk_samples,
+        project_workflows=_project_gatk_workflows,
+        project_rule_context=_project_gatk_rule_context,
+        project_dashboard_metadata=_project_gatk_dashboard_metadata,
+        project_sample_summary=_project_gatk_sample_summary,
+        get_log=get_gatk_run_log,
+        list_logs=list_gatk_run_logs,
+        list_artifacts=list_gatk_run_artifacts,
     ),
 }
 

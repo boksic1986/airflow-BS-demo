@@ -26,6 +26,17 @@ from app.diagnostics_service import (
     sync_airflow_status,
 )
 from app.input_scanner import InputPathError
+from app.gatk_submission_service import (
+    GatkDraftConflict,
+    GatkInputChanged,
+    create_gatk_submission_preview,
+)
+from app.gatk_runtime_service import (
+    finalize_gatk_run,
+    register_gatk_stage,
+    sync_gatk_stage_status,
+)
+from app.gatk_workspace_service import build_gatk_workspace
 from app.intake_retention_service import prune_scanner_history
 from app.operator_resources_service import list_failures_resource, list_samples_resource
 from app.progress_service import get_run_progress
@@ -64,7 +75,7 @@ from app.wgs_release_catalog import load_wgs_release_catalog
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunValidationIssue, Sample, TransferFileState, TransferJob, UserAccount, WgsExecutionDispatch, WgsStageExecution
 from app.wgs_timing_service import serialize_rule_states
 from app.wgs_workspace_service import build_wgs_workspace
-from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_definitions
+from app.workflow_phases import gatk_phase_definitions, phase_for_rule, phase_order, wgs_phase_definitions
 from app.wgs_runtime_adapter import build_stage_request, container_workdir_to_host, write_stage_request
 from app.wgs_observer import (
     SUPPORTED_RUNTIME_SYNC_STAGES,
@@ -252,6 +263,10 @@ class CreateRunRequest(BaseModel):
     batch_no: str | None = Field(default=None, min_length=1, max_length=128)
     fq_path: str | None = None
     options: dict[str, object] = Field(default_factory=dict)
+    submission_draft_id: str | None = Field(default=None, max_length=128)
+    submission_preview_hash: str | None = Field(
+        default=None, pattern="^[0-9a-f]{64}$"
+    )
 
     @model_validator(mode="after")
     def validate_pipeline_inputs(self):
@@ -289,6 +304,12 @@ class WgsRuntimeStageRequest(BaseModel):
     force_new_generation: bool = False
 
 
+class GatkRuntimeStageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    attempt: int = Field(ge=1)
+    adapter: str = Field(pattern="^gatk-runtime-200$")
+
+
 class WgsObserverLifecycleRequest(BaseModel):
     attempt: int = Field(ge=1)
 
@@ -324,6 +345,11 @@ class WgsSubmissionDraftRequest(BaseModel):
     analysis_batch: str = Field(min_length=1, max_length=128)
     fastq_root_id: str = Field(min_length=1, max_length=128)
     use_reference: bool = False
+
+
+class GatkSubmissionPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_project_dir: str = Field(min_length=1, max_length=2048)
 
 
 class WgsCatalogRunRequest(BaseModel):
@@ -650,6 +676,7 @@ def create_run(request: CreateRunRequest, user: AuthenticatedUser = Depends(oper
                 settings=settings,
                 request=request,
                 user=user,
+                airflow_client=get_airflow_client(),
             )
             audit(
                 session=session,
@@ -671,10 +698,43 @@ def create_run(request: CreateRunRequest, user: AuthenticatedUser = Depends(oper
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "INVALID_INPUT_PATH", "message": str(exc)},
         ) from exc
+    except GatkInputChanged as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
+    except GatkDraftConflict as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "VALIDATION_ERROR", "message": str(exc)},
+        ) from exc
+
+
+@app.post("/api/pipelines/gatk/submission-preview", status_code=status.HTTP_201_CREATED)
+def gatk_submission_preview(
+    request: GatkSubmissionPreviewRequest,
+    user: AuthenticatedUser = Depends(operator_user),
+) -> dict[str, object]:
+    try:
+        require_pipeline(get_settings(), "gatk", capability="submit")
+        with get_sessionmaker()() as session:
+            return create_gatk_submission_preview(
+                session=session,
+                settings=get_settings(),
+                source_project_dir=request.source_project_dir,
+                owner_username=user.username,
+            )
+    except PipelineRegistryError as exc:
+        raise _pipeline_http_exception(exc) from exc
+    except (OSError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "GATK_INPUT_INVALID", "message": str(exc)},
         ) from exc
 
 
@@ -1426,10 +1486,7 @@ def run_workspace(analysis_id: str) -> dict[str, object]:
     detail = run_detail(analysis_id)
     with get_sessionmaker()() as session:
         run = session.scalar(
-            select(AnalysisRun).where(
-                AnalysisRun.analysis_id == analysis_id,
-                AnalysisRun.pipeline_name == "wgs",
-            )
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
         )
         if run is None:
             raise HTTPException(
@@ -1437,6 +1494,13 @@ def run_workspace(analysis_id: str) -> dict[str, object]:
                 detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"},
             )
         settings = get_settings()
+        require_pipeline(settings, run.pipeline_name, capability="rules")
+        if run.pipeline_name == "gatk":
+            return build_gatk_workspace(
+                session=session,
+                run=run,
+                run_payload=detail,
+            )
         return build_wgs_workspace(
             session=session,
             run=run,
@@ -1463,16 +1527,22 @@ def run_families(analysis_id: str) -> dict[str, object]:
 @app.get("/api/runs/{analysis_id}/pods")
 def run_pods(analysis_id: str) -> dict[str, object]:
     with get_sessionmaker()() as session:
-        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
         if run is None:
             raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"})
-        items = session.scalars(
-            select(KubernetesWorkload)
-            .where(
-                KubernetesWorkload.analysis_id == analysis_id,
-                KubernetesWorkload.event_id.like("step3:%"),
+        definition = require_pipeline(get_settings(), run.pipeline_name)
+        if "cce" not in definition.execution_targets:
+            raise PipelineCapabilityUnavailable(
+                f"Pipeline {run.pipeline_name!r} does not expose Kubernetes workloads."
             )
-            .order_by(KubernetesWorkload.attempt, KubernetesWorkload.job_name)
+        query = select(KubernetesWorkload).where(
+            KubernetesWorkload.analysis_id == analysis_id,
+            KubernetesWorkload.attempt == run.attempt,
+        )
+        if run.pipeline_name == "wgs":
+            query = query.where(KubernetesWorkload.event_id.like("step3:%"))
+        items = session.scalars(
+            query.order_by(KubernetesWorkload.attempt, KubernetesWorkload.job_name)
         ).all()
     return {"items": [{"attempt": item.attempt, "pod_hash": item.pod_hash, "job_name": item.job_name, "phase": item.phase, "reason": item.reason, "exit_code": item.exit_code, "image_id": item.image_id, "node_name": item.node_name, "message": item.message, "resources": item.resources_json, "observed_at": item.observed_at.isoformat() if item.observed_at else None, "updated_at": item.updated_at.isoformat()} for item in items]}
 
@@ -1530,9 +1600,10 @@ def run_rules(
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
     with get_sessionmaker()() as session:
-        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
         if run is None:
             raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"})
+        require_pipeline(get_settings(), run.pipeline_name, capability="rules")
         query = select(RuleState).where(RuleState.analysis_id == analysis_id)
         if status_filter:
             query = query.where(RuleState.status == status_filter)
@@ -1557,7 +1628,11 @@ def run_rules(
         ).all())
         return {
             "items": serialize_rule_states(session=session, run=run, rows=page, settings=get_settings()),
-            "phases": wgs_phase_definitions(),
+            "phases": (
+                gatk_phase_definitions()
+                if run.pipeline_name == "gatk"
+                else wgs_phase_definitions()
+            ),
             "total": int(total),
             "limit": limit,
             "offset": offset,
@@ -2135,6 +2210,103 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 },
             ) from exc
         raise HTTPException(status_code=400, detail={"code": "WGS_RUNTIME_STAGE_FAILED", "message": message}) from exc
+
+
+@app.post(
+    "/api/internal/gatk/runs/{analysis_id}/stages/{stage_name}",
+    dependencies=[Depends(require_internal_service_token)],
+)
+def internal_gatk_runtime_stage(
+    analysis_id: str, stage_name: str, request: GatkRuntimeStageRequest
+) -> dict[str, object]:
+    settings = get_settings()
+    if not settings.gatk_execution_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "GATK_EXECUTION_DISABLED", "message": "GATK execution is disabled."},
+        )
+    try:
+        with get_sessionmaker()() as session:
+            if stage_name in {"acquire_input_transfer_slot", "acquire_result_transfer_slot"}:
+                transfer_kind = "input" if stage_name == "acquire_input_transfer_slot" else "result"
+                transfer_id = f"{analysis_id}-a{request.attempt}-{transfer_kind}"
+                slot = acquire_obs_transfer_slot(
+                    session=session,
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                    transfer_id=transfer_id,
+                    transfer_kind=transfer_kind,
+                )
+                return {
+                    "analysis_id": analysis_id,
+                    "attempt": request.attempt,
+                    "stage": stage_name,
+                    "status": "acquired" if slot else "waiting",
+                    "acquired": bool(slot),
+                    "slot": slot,
+                }
+            if stage_name in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"}:
+                transfer_kind = None
+                if stage_name == "release_input_transfer_slot":
+                    transfer_kind = "input"
+                elif stage_name == "release_result_transfer_slot":
+                    transfer_kind = "result"
+                result = release_obs_transfer_slot(
+                    session=session,
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                    transfer_id=(
+                        f"{analysis_id}-a{request.attempt}-{transfer_kind}"
+                        if transfer_kind
+                        else None
+                    ),
+                    transfer_kind=transfer_kind,
+                )
+                return {"analysis_id": analysis_id, "attempt": request.attempt, **result}
+            if stage_name == "finalize_run":
+                return finalize_gatk_run(
+                    session=session,
+                    settings=settings,
+                    analysis_id=analysis_id,
+                    attempt=request.attempt,
+                )
+            return register_gatk_stage(
+                session=session,
+                settings=settings,
+                analysis_id=analysis_id,
+                attempt=request.attempt,
+                stage=stage_name,
+            )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "GATK_RUNTIME_INVALID", "message": str(exc)},
+        ) from exc
+
+
+@app.get(
+    "/api/internal/gatk/runs/{analysis_id}/stage-status",
+    dependencies=[Depends(require_internal_service_token)],
+)
+def internal_gatk_stage_status(
+    analysis_id: str,
+    attempt: int = Query(ge=1),
+    stage: str = Query(min_length=1),
+) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            return sync_gatk_stage_status(
+                session=session,
+                settings=get_settings(),
+                analysis_id=analysis_id,
+                attempt=attempt,
+                stage=stage,
+            )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "GATK_EVIDENCE_INVALID", "message": str(exc)},
+        ) from exc
 
 
 @app.post(

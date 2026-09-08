@@ -1,5 +1,64 @@
 # HANDOFF.md
 
+## 2026-09-08 - Codex - T228 GATK Cloud manual CCE integration
+
+Goal: add GATK Cloud as an independent manual-only adapter and reuse the
+accepted WGS Step1-Step6 control pattern without changing WGS behavior.
+
+Completed:
+- Added immutable GATK project preview/confirmation, SCMC set checks, approved
+  source/FASTQ/result roots and PostgreSQL batch locking.
+- Added migration 0018, generic GATK stage generations, workspace/rule/pod/
+  transfer/log/artifact projections and the independent `bio_gatk` DAG.
+- Added the node200 forced-command runtime, Kubernetes/logger terminal bridge,
+  exact predecessor fencing and approved Step6 result materialization.
+- Added the dedicated frontend submission flow and capability-sensitive Run
+  Detail behavior.
+- Kept GATK out of automatic intake and defaulted execution to disabled.
+
+Validation:
+- BS10610 backend and script suite: 427 passed, including the focused GATK
+  tests and all existing WGS regressions.
+- GATK repository in shared nipttest: 5 passed.
+- Airflow image: Python compile and DagBag import passed; `bio_gatk` has 21
+  ordered tasks and `max_active_runs=1`. The immutable Airflow image has no
+  pytest package, so DAG acceptance used DagBag plus structural contract tests.
+- fengxian frontend: 14 files / 51 tests; TypeScript/Vite build passed.
+- BS10610 Compose rendering passed with placeholder secrets and no service
+  start.
+- Disposable PostgreSQL 15 upgraded from empty through the single
+  `20260908_0018` head and was removed by the validation trap.
+
+Validation command corrections:
+- The first combined DAG invocation used the backend image and failed during
+  collection because that image intentionally has no Airflow package. DAG
+  validation was moved to the immutable Airflow image.
+- The Airflow image intentionally has no pytest package, so its first pytest
+  invocation failed before collection. Python compile plus DagBag import were
+  used instead.
+- The first disposable migration command omitted the configured WGS stage
+  contract; the second used the obsolete psycopg2 URL. Both failed before any
+  migration and their disposable databases were removed. The final command
+  supplied the repository contract and Psycopg 3 URL and reached 0018.
+
+Not completed:
+- Migration and service deployment on BS10610.
+- Private node200 forced-command/env installation.
+- Prepare, CCE dry-run/logger smoke and SCMC Step1-Step6 smoke.
+
+Safety and rollback:
+- `GATK_EXECUTION_ENABLED=false` is the default. No OBS object, CCE workload,
+  WGS run, clinical result or production database was modified during source
+  validation.
+- Roll back by disabling the gate and reverting the two T228 repository
+  commits. Preserve stage rows, runtime evidence and result directories.
+
+Next:
+1. Confirm no active WGS run before recreating any control-plane service.
+2. Deploy migration/backend/Airflow/frontend with GATK disabled.
+3. Install the private node200 gate and run the controlled smoke sequence in
+   `docs/33_GATK_CLOUD_AIRFLOW_INTEGRATION.md`.
+
 ## 2026-09-08 T226 production SDK transfer and mainline synchronization
 
 `20260906B` (`WGS_20260907_152648_54EFF2-a1`) was paused at Step1 without releasing its upload lease or deleting uploaded data. The old transfer used aggregate v1 evidence and could not populate the frontend file table. The accepted `cce-pipeline` source is `b5696065bc24ab2049e46dc3c1b9594771bfce28`; it now runs on node200 with the shared `nipttest` interpreter and a node-local pure-Python overlay. The installed runtime gate matches `main@afc4230`.

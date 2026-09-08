@@ -1,5 +1,31 @@
 # TASKS.md
 
+## T228 - GATK Cloud manual CCE integration
+
+Owner: GATK/backend/Airflow/frontend/QA/docs
+
+Status: implemented and remotely validated; disabled rollout and SCMC smoke pending
+
+Dependencies: Airflow `0e2cab3`, GATK Cloud `bd04f6d`
+
+Acceptance:
+- [x] Add an independent registered `gatk` adapter and `bio_gatk` DAG.
+- [x] Validate an expiring immutable source-project preview and lock SCMC samples.
+- [x] Reject changed inputs, unsafe roots and duplicate concurrent batch confirmation.
+- [x] Keep GATK state/evidence separate while reusing Step1-Step6 and OBS leases.
+- [x] Project Kubernetes, logger, transfer, log and artifact evidence into Run Detail.
+- [x] Materialize Step6 into the exact approved GATK result root.
+- [x] Keep the WGS intake scanner WGS-only and the GATK execution gate false by default.
+- [x] Pass backend/scripts, GATK repo, frontend, Compose and Airflow DagBag validation.
+- [ ] Deploy migration/backend/Airflow/frontend to BS10610 with execution disabled.
+- [ ] Complete prepare, CCE dry-run/logger and one controlled SCMC Step1-Step6 smoke.
+- [ ] Enable manual confirmation only after smoke acceptance.
+
+Restrictions:
+- No GATK automatic intake, config editor, local/SGE target or clone reanalysis.
+- Do not expose clinical sampleinfo fields, complete FASTQ paths or cloud credentials.
+- Do not modify WGS runtime behavior or restart an active WGS analysis.
+
 ## T226 - Synchronize production Step1-Step6 SDK runtime and mainline
 
 Owner: WGS/runtime/operations/frontend

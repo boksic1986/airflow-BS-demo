@@ -39,8 +39,8 @@ import {compactPipelineName, formatDate, formatDuration, formatSecondsDuration} 
 import {progressFromResponse} from "../lib/runProgress";
 import {isActiveStatus, isFailedStatus} from "../lib/status";
 
-const tabs = ["Overview", "Samples", "Rules", "Master", "Transfers", "QC", "Logs", "Files"] as const;
-type DetailTab = (typeof tabs)[number];
+const allTabs = ["Overview", "Samples", "Rules", "Master", "Transfers", "QC", "Logs", "Files"] as const;
+type DetailTab = (typeof allTabs)[number];
 
 type Bundle = {
   detail: RunDetail | null;
@@ -151,7 +151,7 @@ export function RunDetailPage() {
     if (
       pipeline
       && capabilities.isDeployed(pipeline as DeployedPipeline)
-      && (pipeline !== "wgs" || Boolean(logKey))
+      && (!["wgs", "gatk"].includes(pipeline) || Boolean(logKey))
     ) void loadLog(logStream, logKey);
   }, [analysisId, bundle.detail?.pipeline, capabilityKey, logKey, logStream]);
 
@@ -164,6 +164,9 @@ export function RunDetailPage() {
   }
 
   const detail = bundle.detail;
+  const tabs = detail?.pipeline === "gatk"
+    ? allTabs.filter((tab) => tab !== "QC")
+    : [...allTabs];
 
   useEffect(() => {
     if (!analysisId || !detail || loadedTabs.has(activeTab) || activeTab === "Overview") return;
@@ -235,6 +238,9 @@ export function RunDetailPage() {
   );
   const progress = detail && bundle.progress ? progressFromResponse(bundle.progress) : null;
   const canSubmit = detail?.status === "created" && capabilities.isDeployed(detail.pipeline as DeployedPipeline);
+  const pipelineCapabilities = capabilities.pipelines.find((item) => item.id === detail?.pipeline)?.capabilities || [];
+  const canResume = pipelineCapabilities.includes("resume");
+  const canRerun = pipelineCapabilities.includes("rerun");
   async function runAction(action: "sync" | "submit" | "resume" | "rerun_failed" | "cancel" | "revalidate" | "repair_step4") {
     if (!analysisId) return;
     setActing(true);
@@ -286,8 +292,9 @@ export function RunDetailPage() {
             {detail.dag_run_id && isActiveStatus(detail.status) ? <span className="muted">{lastAutoSyncedAt ? `Live snapshot / ${formatDate(lastAutoSyncedAt)}` : "Live snapshot active"}</span> : null}
             {canSubmit ? <button className="button primary" type="button" disabled={acting} onClick={() => void runAction("submit")}><Play size={15} />Submit to Airflow</button> : null}
             {detail.status === "needs_review" && session.hasRole("operator") ? <button className="button primary" type="button" disabled={acting} onClick={() => void runAction("revalidate")}><RefreshCw size={15} />Revalidate source</button> : null}
-            {detail.status === "failed" ? <><button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("resume")}><RotateCcw size={15} />Resume</button><button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("rerun_failed")}><RotateCcw size={15} />Rerun failed</button></> : null}
-            {isActiveStatus(detail.status) && !(detail.execution_dispatch?.desired_mode === "cce" && ["committed", "running"].includes(detail.execution_dispatch.dispatch_state)) ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("cancel")}><Square size={15} />Cancel</button> : null}
+            {detail.status === "failed" && canResume ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("resume")}><RotateCcw size={15} />Resume</button> : null}
+            {detail.status === "failed" && canRerun ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("rerun_failed")}><RotateCcw size={15} />Rerun failed</button> : null}
+            {detail.pipeline !== "gatk" && isActiveStatus(detail.status) && !(detail.execution_dispatch?.desired_mode === "cce" && ["committed", "running"].includes(detail.execution_dispatch.dispatch_state)) ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("cancel")}><Square size={15} />Cancel</button> : null}
             <button className="button ghost" type="button" disabled={acting || !detail.dag_run_id} onClick={() => void runAction("sync")}><RefreshCw size={15} />Sync Airflow</button>
           </div>
         </section>
@@ -299,7 +306,7 @@ export function RunDetailPage() {
         <section className="metric-grid" aria-label="Run summary metrics">
           <MetricCard title="Samples" value={summary.sample_count} />
           <MetricCard title="Duration" value={formatDuration(detail.submitted_at || detail.started_at, detail.pipeline_finished_at || detail.ended_at)} status={detail.status} />
-          <MetricCard title="Batch" value={String(detail.params?.batch_no || "-")} />
+          <MetricCard title="Batch" value={String(detail.params?.batch_no || detail.params?.batch || "-")} />
           <MetricCard title="Rule events" value={summary.rule_count} status={summary.failed_rule_count ? "failed" : undefined} />
         </section>
         {detail.pipeline === "wgs" && detail.lifecycle ? <DataLifecyclePanel lifecycle={detail.lifecycle} /> : null}
@@ -322,12 +329,23 @@ export function RunDetailPage() {
             </div>
             {detail.observer?.last_error ? <div className="inline-error" role="alert">Rule monitoring degraded: {detail.observer.last_error}</div> : null}
           </section>
+        </div> : detail.pipeline === "gatk" ? <div className="run-detail-snapshot-grid">
+          <CurrentProgressPanel detail={detail} progress={progress} source={bundle.progress?.progress_source} stage={bundle.progress} />
+          <section className="panel pipeline-evidence-panel">
+            <div className="section-heading"><h2>GATK execution contract</h2><p>Frozen manual submission and CCE runtime identity.</p></div>
+            <div className="definition-grid pipeline-evidence-grid">
+              <div><dt>Release</dt><dd className="path-text">{detail.pipeline_release_id || "not pinned"}</dd></div>
+              <div><dt>GATK workflow</dt><dd>{detail.gatk_version || "V7.6.0"}</dd></div>
+              <div><dt>Runtime profile</dt><dd>{detail.runtime_profile_id || "not pinned"}</dd></div>
+              <div><dt>Input snapshot</dt><dd className="path-text">{detail.submission_preview_hash ? detail.submission_preview_hash.slice(0, 12) : "not captured"}</dd></div>
+            </div>
+          </section>
         </div> : <CurrentProgressPanel detail={detail} progress={progress} source={bundle.progress?.progress_source} stage={bundle.progress} />}
         <section className="panel">
           <div className="tabs" role="tablist" aria-label="Run detail tabs">{tabs.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} role="tab" type="button" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}</div>
           {tabError ? <div className="inline-error" role="alert">This tab could not be loaded: {tabError}</div> : null}
           {activeTab === "Overview" ? <RunOverviewTab detail={detail} samples={bundle.manifest} sampleCount={summary.sample_count} /> : null}
-          {activeTab === "Samples" ? <WgsSamplesTab samples={bundle.samples} manifest={bundle.manifest} /> : null}
+          {activeTab === "Samples" ? <WgsSamplesTab samples={bundle.samples} manifest={bundle.manifest} showQc={detail.pipeline !== "gatk"} /> : null}
           {activeTab === "Rules" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} onOpenLog={(key) => { setLogKey(key); setLogStream("stdout"); setActiveTab("Logs"); }} /> : null}
           {activeTab === "Master" ? <WgsMasterTab pods={bundle.pods} /> : null}
           {activeTab === "Transfers" ? <WgsTransfersTab detail={detail} transfers={bundle.transfers} /> : null}
@@ -340,11 +358,15 @@ export function RunDetailPage() {
   );
 }
 
-function WgsSamplesTab({samples, manifest}: {samples: Sample[]; manifest: WgsSampleManifestRow[]}) {
+function WgsSamplesTab({samples, manifest, showQc = true}: {samples: Sample[]; manifest: WgsSampleManifestRow[]; showQc?: boolean}) {
   const manifestBySample = new Map(manifest.map((item) => [item.sample_id, item]));
-  return <WgsTable headers={["Sample", "Data", "Family / relation", "Received", "Estimated report", "Current stage", "Current Rule", "Rules", "Progress", "Status", "Elapsed", "QC"]} rows={samples.map((sample) => {
+  const headers = ["Sample", "Data", "Family / relation", "Received", "Estimated report", "Current stage", "Current Rule", "Rules", "Progress", "Status", "Elapsed"];
+  if (showQc) headers.push("QC");
+  return <WgsTable headers={headers} rows={samples.map((sample) => {
     const frozen = manifestBySample.get(sample.sample_id);
-    return [sample.sample_id, sample.data_id || frozen?.data_id || "-", [sample.family_id || frozen?.family_id, sample.family_relation || frozen?.family_relation].filter(Boolean).join(" / ") || "-", frozen?.received_date || "-", frozen?.estimated_report_date || "-", sample.current_stage || "-", sample.current_rule || "-", `${sample.completed_rules ?? 0}/${sample.total_rules ?? 0}`, sample.progress_percent == null ? "-" : `${sample.progress_percent}%`, sample.status || "-", sample.elapsed_seconds == null ? "-" : formatSecondsDuration(sample.elapsed_seconds), <StatusBadge status={qcDisplayStatus(sample)} size="sm" />];
+    const row: ReactNode[] = [sample.sample_id, sample.data_id || frozen?.data_id || "-", [sample.family_id || frozen?.family_id, sample.family_relation || frozen?.family_relation].filter(Boolean).join(" / ") || "-", frozen?.received_date || "-", frozen?.estimated_report_date || "-", sample.current_stage || "-", sample.current_rule || "-", `${sample.completed_rules ?? 0}/${sample.total_rules ?? 0}`, sample.progress_percent == null ? "-" : `${sample.progress_percent}%`, <StatusBadge status={sample.status || "unknown"} size="sm" />, sample.elapsed_seconds == null ? "-" : formatSecondsDuration(sample.elapsed_seconds)];
+    if (showQc) row.push(<StatusBadge status={qcDisplayStatus(sample)} size="sm" />);
+    return row;
   })} empty="No analysis sample state returned." />;
 }
 

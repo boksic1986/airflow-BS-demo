@@ -213,7 +213,11 @@ def pod_event(pod: dict, *, observed_at: str, workload_role: str = "master") -> 
     return {
         "event_key": f"pod:{pod_hash}:{version}",
         "workload_role": workload_role,
-        "run_label": str((metadata.get("labels") or {}).get("wgs.biosan.cn/run-id") or ""),
+        "run_label": str(
+            (metadata.get("labels") or {}).get("wgs.biosan.cn/run-id")
+            or (metadata.get("labels") or {}).get("cce.biosan.cn/run-id")
+            or ""
+        ),
         "observed_at_utc": observed_at,
         "pod_hash": pod_hash,
         "resource_version": version,
@@ -233,7 +237,11 @@ def job_event(job: dict, *, observed_at: str, workload_role: str = "master") -> 
     return {
         "event_key": f"job:{name}:{version}",
         "workload_role": workload_role,
-        "run_label": str((metadata.get("labels") or {}).get("wgs.biosan.cn/run-id") or ""),
+        "run_label": str(
+            (metadata.get("labels") or {}).get("wgs.biosan.cn/run-id")
+            or (metadata.get("labels") or {}).get("cce.biosan.cn/run-id")
+            or ""
+        ),
         "observed_at_utc": observed_at,
         "job": name,
         "resource_version": version,
@@ -245,6 +253,7 @@ def job_event(job: dict, *, observed_at: str, workload_role: str = "master") -> 
 def _public_workload_labels(labels: dict) -> dict[str, str]:
     allowed = {
         "wgs.biosan.cn/run-id",
+        "cce.biosan.cn/run-id",
         "wgs.biosan.cn/heavy-io",
         "wgs.biosan.cn/heavy-slot",
         "wgs.biosan.cn/heavy-holder",
@@ -306,6 +315,7 @@ def _sync_workload_snapshots(
     master_job: str,
     master_manifest: Path,
     output: Path,
+    run_label_key: str = "wgs.biosan.cn/run-id",
 ) -> int:
     """Project Master and run-bound work Jobs without exposing pod names."""
     manifest = yaml.safe_load(master_manifest.read_text(encoding="utf-8"))
@@ -332,7 +342,7 @@ def _sync_workload_snapshots(
                 "get",
                 kind,
                 "-l",
-                f"wgs.biosan.cn/run-id={run_label}",
+                f"{run_label_key}={run_label}",
                 "-o",
                 "json",
             )
@@ -631,6 +641,7 @@ def sync_rule_events_once(
     analysis_log_source: str | None,
     output: Path,
     terminal: bool,
+    run_label_key: str = "wgs.biosan.cn/run-id",
 ) -> int:
     config = yaml.safe_load(operator_config.read_text(encoding="utf-8"))
     applied = _sync_workload_snapshots(
@@ -639,6 +650,7 @@ def sync_rule_events_once(
         master_job=master_job,
         master_manifest=master_manifest,
         output=output,
+        run_label_key=run_label_key,
     )
     if analysis_log_source is not None:
         analysis_log_source = analysis_log_source_for_rule_directory(source_dir)
@@ -691,6 +703,11 @@ def main() -> int:
     parser.add_argument("--rule-source-dir", required=True)
     parser.add_argument("--analysis-log-source")
     parser.add_argument("--terminal", action="store_true")
+    parser.add_argument(
+        "--run-label-key",
+        choices=("wgs.biosan.cn/run-id", "cce.biosan.cn/run-id"),
+        default="wgs.biosan.cn/run-id",
+    )
     args = parser.parse_args()
     sync_rule_events_once(
         operator_config=args.operator_config,
@@ -701,6 +718,7 @@ def main() -> int:
         analysis_log_source=args.analysis_log_source,
         output=args.output,
         terminal=args.terminal,
+        run_label_key=args.run_label_key,
     )
     return 0
 

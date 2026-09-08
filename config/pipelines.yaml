@@ -19,3 +19,16 @@ pipelines:
       - cce
       - local
       - sge
+  gatk:
+    display_name: GATK Cloud
+    dag_id: bio_gatk
+    version: 7.6.0
+    adapter: gatk
+    enabled: true
+    submit_enabled: true
+    capabilities:
+      - submit
+      - rules
+      - artifacts
+    execution_targets:
+      - cce
