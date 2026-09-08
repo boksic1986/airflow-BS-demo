@@ -1,5 +1,22 @@
 # SERVER_INFO.md
 
+## T230 responsive Run Tracker production sync (2026-09-08)
+
+```text
+primary: 172.17.61.96
+release: /data/airflow-WGS/releases/20260908-t230-responsive-run-tracker-r1
+frontend_image: airflow-demo/frontend:t230-responsive-1050c75
+frontend_image_id: sha256:0f9fe7ec5228ec160699fb04fd27cf330c7ea8b51ddf56419fd3f7a294425231
+source_commit: 1050c7596163d02d8c689b4164e0fb6bb72076e5
+build: cached production Node dependencies and cached T229 nginx base; network none and pull disabled
+recreated_service: frontend-nginx only
+preserved: backend, Airflow, PostgreSQL, Redis, scanner, observer, collectors and analyses
+smoke: root 200; /api/health 200; served CSS and JS contain T230 layout markers
+rollback_env: /data/airflow-WGS/env/production.env.pre-T230-20260908
+rollback_release: /data/airflow-WGS/releases/20260908-t229-live-terminal-ui-r1
+published_ports: 172.17.61.96:12959 only
+```
+
 ## T224 automatic WGS intake activation (2026-09-07)
 
 ```text

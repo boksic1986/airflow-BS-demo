@@ -4,9 +4,11 @@
 
 T230 is a frontend-only responsive layout adjustment. At viewports up to 1920 CSS pixels the Run Tracker uses compact column widths and reduced horizontal cell padding while preserving font sizes. Started and Finished headings and values are centered horizontally and vertically; wider displays keep the prior widths.
 
-The focused `RunTracker.test.tsx` regression first failed because the time headings had no layout hook, then passed 1/1 after the change. A TypeScript/Vite production build passed in the cached fengxian frontend test image with `--network none`; output assets were `index-CSvPomBH.css` and `index-BHbOW6k8.js`. No dependency or image download was used. The first remote-test wrapper did not start because PowerShell required `${target}` before `:/work`; the corrected command passed. This task has not been deployed. Rollback is the frontend-only T230 commit.
+The focused `RunTracker.test.tsx` regression first failed because the time headings had no layout hook, then passed 1/1 after the change. A TypeScript/Vite production build passed in the cached fengxian frontend test image with `--network none`; output assets were `index-CSvPomBH.css` and `index-BHbOW6k8.js`. No dependency or image download was used. The first remote-test wrapper did not start because PowerShell required `${target}` before `:/work`; the corrected command passed.
 
-Local `main` was fast-forwarded to T230. `git push origin main` could not connect to GitHub port 22, and the standards-compliant port-443 fallback stopped on host-key verification rather than accepting an unverified key. The BS jump host also aborted SSH handshakes, so no production deployment was attempted. Retry the push and frontend-only release after connectivity is restored; do not recreate backend, Airflow or analysis services.
+The temporary GitHub/SSH connectivity issue recovered and `origin/main` now contains T230. Production points to `/data/airflow-WGS/releases/20260908-t230-responsive-run-tracker-r1` and serves `airflow-demo/frontend:t230-responsive-1050c75` (`sha256:0f9fe7ec5228...`). The production image was built from cached dependencies and the cached T229 nginx base with network disabled and no registry lookup. Compose config passed; root and `/api/health` returned 200; the served CSS and JS contain the T230 markers. Only `frontend-nginx` was recreated. Backend, Airflow, PostgreSQL, Redis, scanner, observer, collectors and analyses retained their container IDs, start times and restart counts.
+
+Rollback: restore `/data/airflow-WGS/env/production.env.pre-T230-20260908`, repoint `current` to `/data/airflow-WGS/releases/20260908-t229-live-terminal-ui-r1`, and recreate only `frontend-nginx`.
 
 ## 2026-09-08 T229 live terminal and console consistency
 

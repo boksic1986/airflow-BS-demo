@@ -5,8 +5,8 @@
 ```text
 scope: frontend-only responsive layout refinement; no API, database, workflow or runtime behavior changes.
 implementation: viewports up to 1920 CSS pixels use compact Run Tracker columns without changing font sizes. Started and Finished headings and cells are centered horizontally and vertically; wider displays retain the existing widths.
-validation: fengxian cached frontend test image with `--network none` passed the focused RunTracker regression (1/1) and the TypeScript/Vite production build. No dependency or image download was used.
-deployment: local main contains the T230 implementation. Origin push and production frontend deployment are pending because the workstation could not reach GitHub SSH and the BS jump host aborted SSH handshakes; no production service was changed.
+validation: fengxian cached frontend test image with `--network none` passed the focused RunTracker regression (1/1) and the TypeScript/Vite production build. Production Compose config, root, `/api/health` and the served T230 asset markers passed after cutover. No dependency or image download was used.
+deployment: `origin/main` contains T230. Production `current` points to `/data/airflow-WGS/releases/20260908-t230-responsive-run-tracker-r1` and serves `airflow-demo/frontend:t230-responsive-1050c75` (`sha256:0f9fe7ec5228...`). Only `frontend-nginx` was recreated; every backend, Airflow, database, scanner, observer and collector container retained its prior ID, start time and restart count.
 ```
 
 ## 2026-09-08 T229 live terminal and console consistency

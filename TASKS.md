@@ -4,7 +4,7 @@
 
 Owner: frontend
 
-Status: implemented and remotely validated; not deployed
+Status: completed in production
 
 Acceptance:
 - [x] Keep 4K/default Run Tracker widths and font sizes unchanged.
@@ -12,8 +12,8 @@ Acceptance:
 - [x] Center Started and Finished headings and values horizontally and vertically.
 - [x] Run the focused frontend regression and production build remotely without network access.
 - [x] Fast-forward local `main` to the validated T230 commit.
-- [ ] Push `origin/main` after GitHub SSH connectivity recovers.
-- [ ] Deploy only the production frontend after the BS/.96 SSH path recovers.
+- [x] Push the validated implementation to `origin/main`.
+- [x] Deploy only the production frontend and verify all non-frontend services remain unchanged.
 
 ## T229 - Live terminal and console consistency
 
