@@ -2554,8 +2554,6 @@ def repair_step4(
                 airflow_client=get_airflow_client(),
                 analysis_id=analysis_id,
                 requested_by=user.username,
-                retry_failed=request.retry_failed,
-                expected_action_id=request.expected_action_id,
             )
             if payload is not None:
                 audit(

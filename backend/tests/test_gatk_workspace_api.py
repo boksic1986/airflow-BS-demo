@@ -12,9 +12,34 @@ from app.pipeline_registry_service import clear_pipeline_registry_cache
 
 
 def _settings(tmp_path: Path) -> SimpleNamespace:
+    registry = tmp_path / "pipelines.yaml"
+    registry.write_text(
+        """version: 1
+pipelines:
+  wgs:
+    display_name: WGS
+    dag_id: bio_wgs
+    version: 4.1.1
+    adapter: wgs
+    enabled: true
+    submit_enabled: true
+    capabilities: [submit, rules, qc, artifacts]
+    execution_targets: [cce, local, sge]
+  gatk:
+    display_name: GATK Cloud
+    dag_id: bio_gatk
+    version: 7.6.0
+    adapter: gatk
+    enabled: true
+    submit_enabled: true
+    capabilities: [submit, rules, artifacts]
+    execution_targets: [cce]
+""",
+        encoding="utf-8",
+    )
     return SimpleNamespace(
         deployed_pipelines=("wgs", "gatk"),
-        pipeline_registry_path=str(Path(__file__).parents[2] / "config" / "pipelines.yaml"),
+        pipeline_registry_path=str(registry),
         wgs_heavy_slot_limit=25,
         wgs_heavy_slot_mode="monitor-only",
         wgs_evidence_root=str(tmp_path / "evidence"),
