@@ -6,7 +6,7 @@
 scope: frontend-only Run Tracker presentation update; no API, database, lifecycle state, workflow or runtime behavior change.
 implementation: Project is left aligned, Data lifecycle is hidden from Run Tracker only, the pre-T231 font sizes are restored, and the freed width is reassigned to Project/Current stage/Stage progress. Stage progress percentages are right aligned above their bars. Run Detail continues to expose the complete lifecycle panel.
 validation: the new Run Tracker assertions failed 3/3 against the prior presentation and passed 3/3 after implementation. The related frontend suite passed 3 files / 16 tests, including the Run Detail lifecycle regression, and the TypeScript/Vite production build passed in a cached fengxian image with network disabled. Output assets are index-DL_OBuRj.css and index-CKvWmPaz.js.
-deployment: pending frontend-only production synchronization.
+deployment: `origin/main` contains the implementation. Production `current` points to `/data/airflow-WGS/releases/20260908-t234-run-tracker-readability-r1` and serves `airflow-demo/frontend:t234-run-tracker-3ed82ed` (`sha256:f8f936cec2c4...`). Root and `/api/health` returned 200. Only `frontend-nginx` was recreated; all nine running non-frontend Compose services retained their IDs, start times and restart counts.
 ```
 
 ## 2026-09-08 T233 Dashboard resource alignment and scanner wording

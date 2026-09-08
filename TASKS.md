@@ -4,7 +4,7 @@
 
 Owner: frontend
 
-Status: implementation validated; production synchronization pending
+Status: completed in production
 
 Acceptance:
 - [x] Left-align the Project heading and all Project cell content.
@@ -13,7 +13,7 @@ Acceptance:
 - [x] Reassign freed width primarily to Project, Current stage and Stage progress.
 - [x] Right-align the Stage progress percentage above its progress bar.
 - [x] Pass focused frontend regressions and one production build without network access.
-- [ ] Commit, synchronize `main`, and deploy only `frontend-nginx`.
+- [x] Commit, synchronize `main`, and deploy only `frontend-nginx`.
 
 ## T233 - Dashboard resource alignment and scanner wording
 

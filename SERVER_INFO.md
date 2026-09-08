@@ -1,5 +1,22 @@
 # SERVER_INFO.md
 
+## T234 Run Tracker readability production sync (2026-09-08)
+
+```text
+primary: 172.17.61.96
+release: /data/airflow-WGS/releases/20260908-t234-run-tracker-readability-r1
+frontend_image: airflow-demo/frontend:t234-run-tracker-3ed82ed
+frontend_image_id: sha256:f8f936cec2c40d83aee12258ab3dfc78b07f957e349c3de46c491a23d8e67649
+source_commit: 3ed82ed3dac937f99e4aac914dbf0ee228052cbd
+build: cached production Node dependencies and cached T233 nginx base; network none and pull disabled
+recreated_service: frontend-nginx only
+preserved: all nine running non-frontend Compose services retained IDs, start times and restart counts
+smoke: root 200; /api/health 200; served index-DL_OBuRj.css and index-CKvWmPaz.js contain T234 markers and omit Run Tracker lifecycle/compact-font markers
+rollback_env: /data/airflow-WGS/env/production.env.pre-T234-20260908
+rollback_release: /data/airflow-WGS/releases/20260908-t233-dashboard-resource-alignment-r1
+published_ports: 172.17.61.96:12959 only
+```
+
 ## T233 Dashboard resource alignment production sync (2026-09-08)
 
 ```text

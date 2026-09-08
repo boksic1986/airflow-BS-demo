@@ -8,7 +8,11 @@ The <=1920 font reductions introduced by T231 were removed, restoring the earlie
 
 TDD evidence: all three new Run Tracker assertions failed against the old presentation (lifecycle still present, Project source centered and progress label not end-aligned). After the minimal implementation, the related cached-image suite passed 3 files / 16 tests, including the existing Run Detail lifecycle regression. The single network-disabled TypeScript/Vite production build passed and emitted `index-DL_OBuRj.css` and `index-CKvWmPaz.js`. No Docker Hub access or dependency download was used.
 
-Production deployment and rollback evidence will be appended after the frontend-only cutover.
+`origin/main` contains the T234 implementation. Production now points to `/data/airflow-WGS/releases/20260908-t234-run-tracker-readability-r1` and serves `airflow-demo/frontend:t234-run-tracker-3ed82ed` (`sha256:f8f936cec2c40d83aee12258ab3dfc78b07f957e349c3de46c491a23d8e67649`). Root and `/api/health` returned 200. Served assets `index-DL_OBuRj.css` and `index-CKvWmPaz.js` contain the Project/percentage alignment markers and contain neither the Run Tracker lifecycle-column marker nor the T231 compact-font marker.
+
+Only `frontend-nginx` was recreated and its restart count is 0. All nine running non-frontend Compose services retained their IDs, start times and restart counts. No backend, scanner, Airflow, database, observer, collector or analysis runtime was changed.
+
+Rollback: restore `/data/airflow-WGS/env/production.env.pre-T234-20260908`, repoint `current` to `/data/airflow-WGS/releases/20260908-t233-dashboard-resource-alignment-r1`, and recreate only `frontend-nginx`.
 
 ## 2026-09-08 T233 Dashboard resource alignment and scanner wording
 
