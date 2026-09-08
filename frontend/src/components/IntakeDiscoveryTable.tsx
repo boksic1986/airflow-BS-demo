@@ -99,7 +99,7 @@ export function IntakeDiscoveryTable({
 }
 
 function WgsT7DiscoveryTable({items, ariaLabel}: {items: IntakeDiscovery[]; ariaLabel: string}) {
-  return <div className="intake-discovery-table-wrap"><table aria-label={ariaLabel} className="intake-discovery-table"><thead><tr><th>芯片</th><th>上机批次</th><th>状态</th><th>可分析配对</th><th>排除加测</th><th>异常配对</th><th>最近扫描</th></tr></thead><tbody>{items.map((item) => {
+  return <div className="intake-discovery-table-wrap"><table aria-label={ariaLabel} className="intake-discovery-table"><thead><tr><th>芯片</th><th>上机批次</th><th>状态</th><th>可分析配对</th><th>排除加测</th><th>异常配对</th><th>最近检查</th></tr></thead><tbody>{items.map((item) => {
     const display = intakeDisplay(item);
     return <tr key={item.chip_id || item.batch_id}><td>{item.chip_id || item.batch_id}</td><td>{item.sequencing_batch || "-"}</td><td><span className={`intake-state-pill ${display.tone}`}>{display.label}</span>{item.last_error ? <span className="intake-error-reason">{item.last_error}</span> : null}</td><td>{item.eligible_pair_count ?? 0}</td><td>{item.excluded_addon_pair_count ?? 0}</td><td>{item.pair_issue_count ?? 0}</td><td>{formatDate(item.last_seen_at)}</td></tr>;
   })}</tbody></table></div>;

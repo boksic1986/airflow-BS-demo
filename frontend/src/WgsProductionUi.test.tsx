@@ -487,7 +487,7 @@ it("shows QC summary actions when the deployed adapter exposes QC", async () => 
     if (url.includes("/api/dashboard/overview")) return json({totals: {runs: 0, running: 0, failed: 0, success: 0, created: 0}, sample_summary: {total: 0, running: 0, workflow_failed: 0, qc_failed: 7, completed: 0}, status_distribution: {}, trend: [], sample_trend: []});
     if (url.includes("/api/dashboard/runs")) return json({items: [], total: 0, limit: 10, offset: 0});
     if (url.includes("/api/intake/scanner-state")) return json({last_scanned_directory_count: 0, schedule_seconds: 600, auto_dispatch_enabled: false});
-    if (url.includes("/api/intake/status")) return json({items: [], total: 0, limit: 10, offset: 0});
+    if (url.includes("/api/intake/status")) return json({items: [{pipeline: "wgs", chip_id: "2243th_20260906B", batch_id: "20260906B", sequencing_batch: "20260906B", ready_state: "ready", submit_state: "ready", eligible_pair_count: 9, excluded_addon_pair_count: 0, pair_issue_count: 0, last_seen_at: "2026-09-08T12:33:22Z"}], total: 1, limit: 10, offset: 0});
     if (url.includes("/api/platform/resources")) return json({status: "stale", items: [], updated_at: null});
     return json({items: [], total: 0});
   }));
@@ -498,6 +498,10 @@ it("shows QC summary actions when the deployed adapter exposes QC", async () => 
   expect(screen.getByText("QC alerts")).toBeInTheDocument();
   expect(screen.getByText("QC failed samples")).toBeInTheDocument();
   expect(screen.getByText("Workflow fails")).toBeInTheDocument();
+  const mainColumn = screen.getByRole("heading", {name: "Run Tracker"}).closest(".dashboard-main-column");
+  expect(mainColumn).toContainElement(screen.getByRole("heading", {name: "Analysis Node Health"}));
+  expect(mainColumn).toContainElement(screen.getByRole("heading", {name: "Cloud Resources"}));
+  expect(mainColumn).toContainElement(screen.getByRole("heading", {name: "SFS I/O"}));
 });
 
 it("does not request or render intake for a selected pipeline without intake", async () => {

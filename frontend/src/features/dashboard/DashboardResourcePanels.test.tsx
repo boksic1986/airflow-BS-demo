@@ -117,6 +117,9 @@ it("shows compact node and SFS utilization bars with updated times in the headin
   expect(within(cloudPanel!).getByText(/Updated/)).toBeInTheDocument();
   expect(nodePanel).toHaveClass("resource-overview-panel");
   expect(cloudPanel).toHaveClass("resource-overview-panel");
+  expect(nodePanel).toHaveClass("resource-dashboard-panel");
+  expect(cloudPanel).toHaveClass("resource-dashboard-panel");
+  expect(screen.getByRole("heading", {name: "SFS I/O"}).closest("section")).toHaveClass("resource-dashboard-panel");
   expect(nodePanel?.querySelector(".resource-control-row")).toBeInTheDocument();
   expect(cloudPanel?.querySelector(".resource-control-row")).toBeInTheDocument();
   expect(within(tabs).getByRole("tab", {name: "172.17.61.96"})).toHaveClass("resource-control-token");
@@ -158,7 +161,7 @@ it("replaces workflow activity with the SFS read and write history", () => {
 
   expect(screen.queryByRole("heading", {name: "Workflow Activity"})).not.toBeInTheDocument();
   expect(screen.getByRole("heading", {name: "SFS I/O"})).toBeInTheDocument();
-  expect(screen.getByText("Bandwidth uses binary units (GiB/s).")).toBeInTheDocument();
+  expect(screen.queryByText("Bandwidth uses binary units (GiB/s).")).not.toBeInTheDocument();
   expect(screen.getByRole("tab", {name: "24H"})).toHaveAttribute("aria-selected", "true");
   expect(screen.getByRole("tab", {name: "1H"})).toBeInTheDocument();
   expect(screen.getByRole("tab", {name: "7D"})).toBeInTheDocument();
@@ -173,7 +176,7 @@ it("replaces workflow activity with the SFS read and write history", () => {
   expect(within(yAxis).getByText("0 B/s")).toBeInTheDocument();
   expect(screen.getByText("Read")).toBeInTheDocument();
   expect(screen.getByText("Write")).toBeInTheDocument();
-  expect(screen.getByText("Total")).toBeInTheDocument();
+  expect(screen.queryByText("Total")).not.toBeInTheDocument();
   expect(screen.getByText("Current IOPS")).toBeInTheDocument();
   expect(screen.getByText("12")).toBeInTheDocument();
   const defaultAxis = screen.getByLabelText("SFS bandwidth X axis");

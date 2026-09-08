@@ -17,7 +17,7 @@ export function RunProgressBar({analysisId, progress, compact = false}: {analysi
           : "Waiting to start";
     return (
       <div className="run-progress unavailable">
-        <div className="run-progress-meta"><strong>{label}</strong></div>
+        <div className={compact ? "run-progress-meta align-end" : "run-progress-meta"}><strong>{label}</strong></div>
         <div
           aria-label={`${analysisId} progress pending exact measurement`}
           aria-valuetext={label}
@@ -32,7 +32,7 @@ export function RunProgressBar({analysisId, progress, compact = false}: {analysi
   }
   return (
     <div className="run-progress">
-      <div className="run-progress-meta">
+      <div className={compact ? "run-progress-meta align-end" : "run-progress-meta"}>
         <strong>{progress.label}</strong>
         {!compact ? <span>{progress.currentStep}</span> : null}
       </div>
