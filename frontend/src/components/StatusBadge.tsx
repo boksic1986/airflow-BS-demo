@@ -4,7 +4,7 @@ export function StatusBadge({status, size = "md", className = ""}: {status?: str
   const meta = getStatusMeta(status);
   const Icon = meta.Icon;
   return (
-    <span className={`status-badge status-${meta.tone} status-${size}${className ? ` ${className}` : ""}`} title={meta.label}>
+    <span className={`status-badge status-${meta.tone} status-${size} ${className}`.trim()} title={meta.label}>
       <Icon aria-hidden="true" size={size === "lg" ? 16 : 14} />
       <span>{meta.label}</span>
     </span>

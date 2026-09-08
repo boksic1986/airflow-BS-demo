@@ -1,20 +1,55 @@
 # SERVER_INFO.md
 
-## T234 reusable offline frontend builder (2026-09-08)
+## T234 Run Tracker readability production sync (2026-09-08)
 
 ```text
-builder_image: airflow-demo/frontend-builder:node22-lock-35420d5e3ec0
-builder_image_id: sha256:25e83a56052d63d900e253c618d342679bb46b66e4566390fa52eb3233702fdf
-node: 22.23.1
-package_lock_sha256: 35420d5e3ec0f9555738f61e983cb05de30640db82f034d2659f87fd40a324b1
-archive_sha256: b5df43b3e26748d08580464832f7688fa36d67c6b2eb12fe681ce57b7dfde1cc
-bs10610_archive: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/image-archives/frontend-builder
-bs10610_runtime_base: airflow-demo/frontend-runtime:nginx-1.30.3-local-contract
-production_archive: /data/airflow-WGS/image-archives/frontend-builder
-production_runtime_base: airflow-demo/frontend-runtime:nginx-1.30.3-local-contract
-transfer: fengxian -> Windows staging -> each target; no remote-to-remote copy
-validation: BS10610 offline build, 56 frontend tests, TypeScript/Vite build and nginx contract passed
-deployment: none; running frontend containers were not restarted
+primary: 172.17.61.96
+release: /data/airflow-WGS/releases/20260908-t234-run-tracker-readability-r1
+frontend_image: airflow-demo/frontend:t234-run-tracker-3ed82ed
+frontend_image_id: sha256:f8f936cec2c40d83aee12258ab3dfc78b07f957e349c3de46c491a23d8e67649
+source_commit: 3ed82ed3dac937f99e4aac914dbf0ee228052cbd
+build: cached production Node dependencies and cached T233 nginx base; network none and pull disabled
+recreated_service: frontend-nginx only
+preserved: all nine running non-frontend Compose services retained IDs, start times and restart counts
+smoke: root 200; /api/health 200; served index-DL_OBuRj.css and index-CKvWmPaz.js contain T234 markers and omit Run Tracker lifecycle/compact-font markers
+rollback_env: /data/airflow-WGS/env/production.env.pre-T234-20260908
+rollback_release: /data/airflow-WGS/releases/20260908-t233-dashboard-resource-alignment-r1
+published_ports: 172.17.61.96:12959 only
+```
+
+## T233 Dashboard resource alignment production sync (2026-09-08)
+
+```text
+primary: 172.17.61.96
+release: /data/airflow-WGS/releases/20260908-t233-dashboard-resource-alignment-r1
+frontend_image: airflow-demo/frontend:t233-resource-align-37a497a
+frontend_image_id: sha256:8f9434e64023d4f8544f84f96abfc68489d40279a2acb4afa6b2981aae3a8a77
+source_commit: 37a497ab0ee626a20c544fbc47a4d62312b34bfa
+build: cached production Node dependencies and cached T232 nginx base; network none and pull disabled
+recreated_service: frontend-nginx only
+preserved: all nine running non-frontend Compose services retained IDs, start times and restart counts
+smoke: root 200; /api/health 200; served index-BIG81086.css and index-DnGZwlbr.js contain T233 markers and omit the removed SFS note
+scanner: unchanged interval_seconds=1800 and full-directory shallow-check behavior
+rollback_env: /data/airflow-WGS/env/production.env.pre-T233-20260908
+rollback_release: /data/airflow-WGS/releases/20260908-t232-project-tag-alignment-r1
+published_ports: 172.17.61.96:12959 only
+```
+
+## T232 wide-screen Project source alignment production sync (2026-09-08)
+
+```text
+primary: 172.17.61.96
+release: /data/airflow-WGS/releases/20260908-t232-project-tag-alignment-r1
+frontend_image: airflow-demo/frontend:t232-project-tag-eadf6c2
+frontend_image_id: sha256:33d29b41c515054de0a19f6ab19d38452cb30c91bbf393516fdae0c6c5f03cae
+source_commit: eadf6c2cdd6ee2c1a96ba934c0bf02c51614e5f6
+build: cached production Node dependencies and cached T231 nginx base; network none and pull disabled
+recreated_service: frontend-nginx only
+preserved: all running backend, Airflow, PostgreSQL, Redis, scanner, observer, collector and analysis containers
+smoke: root 200; /api/health 200; served index-BbO4Rj4Y.css and index-CVSf4P5A.js contain tracker-source-line-centered
+rollback_env: /data/airflow-WGS/env/production.env.pre-T232-20260908
+rollback_release: /data/airflow-WGS/releases/20260908-t231-centered-run-tracker-r1
+published_ports: 172.17.61.96:12959 only
 ```
 
 ## T231 compact centered Run Tracker production sync (2026-09-08)
