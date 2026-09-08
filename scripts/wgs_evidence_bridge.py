@@ -15,6 +15,7 @@ import yaml
 
 
 SAFE_JSONL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,190}\.jsonl$")
+KUBERNETES_NAME = re.compile(r"^[a-z0-9](?:[-a-z0-9.]{0,251}[a-z0-9])?$")
 MASTER_PYTHON = "/opt/python/3.11.9/bin/python3"
 REMOTE_RULE_READER = r'''import base64,json,sys
 from pathlib import Path
@@ -321,23 +322,33 @@ def _sync_workload_snapshots(
     cursor = _read_snapshot_cursor(cursor_path)
     observed = datetime.now(timezone.utc).isoformat()
     emitted = 0
-    for kind, mapper, target in (
-        ("pods", pod_event, "pod-events.jsonl"),
-        ("jobs", job_event, "job-events.jsonl"),
-    ):
-        collection = _run_json(
-            _kubectl(
-                config,
-                namespace,
-                "get",
-                kind,
-                "-l",
-                f"wgs.biosan.cn/run-id={run_label}",
-                "-o",
-                "json",
-            )
+    pod_collection = _run_json(
+        _kubectl(
+            config,
+            namespace,
+            "get",
+            "pods",
+            "-l",
+            f"wgs.biosan.cn/run-id={run_label}",
+            "-o",
+            "json",
         )
-        for item in collection.get("items") or []:
+    )
+    snapshots = (
+        ("pods", pod_event, "pod-events.jsonl", pod_collection.get("items") or []),
+        (
+            "jobs",
+            job_event,
+            "job-events.jsonl",
+            _job_snapshot_items(
+                config=config,
+                namespace=namespace,
+                run_label=run_label,
+            ),
+        ),
+    )
+    for kind, mapper, target, items in snapshots:
+        for item in items:
             metadata = item.get("metadata") or {}
             name = str(metadata.get("name") or "")
             version = str(metadata.get("resourceVersion") or "0")
@@ -358,6 +369,66 @@ def _sync_workload_snapshots(
             emitted += 1
     _atomic_json(cursor_path, cursor)
     return emitted
+
+
+def _job_snapshot_items(
+    *, config: dict, namespace: str, run_label: str
+) -> list[dict]:
+    """Read a compact server-side Job table and expand only non-terminal rows."""
+    selector = f"wgs.biosan.cn/run-id={run_label}"
+    table = _run_text(
+        _kubectl(
+            config,
+            namespace,
+            "get",
+            "jobs",
+            "-l",
+            selector,
+            "--no-headers",
+        )
+    )
+    items: list[dict] = []
+    for line in table.splitlines():
+        columns = line.split()
+        if len(columns) < 3:
+            raise ValueError("kubectl Job table row is incomplete")
+        name, state, completions = columns[:3]
+        if KUBERNETES_NAME.fullmatch(name) is None:
+            raise ValueError("kubectl Job table contains an invalid name")
+        if state == "Complete":
+            match = re.fullmatch(r"(\d+)/(\d+)", completions)
+            if match is None or int(match.group(1)) < int(match.group(2)):
+                raise ValueError("completed kubectl Job has inconsistent completions")
+            items.append(
+                {
+                    "metadata": {
+                        "name": name,
+                        "resourceVersion": "1",
+                        "labels": {"wgs.biosan.cn/run-id": run_label},
+                    },
+                    "status": {"succeeded": int(match.group(1))},
+                }
+            )
+            continue
+        item = _run_json(
+            _kubectl(
+                config,
+                namespace,
+                "get",
+                "job",
+                name,
+                "-o",
+                "json",
+            )
+        )
+        metadata = item.get("metadata") or {}
+        labels = metadata.get("labels") or {}
+        if str(metadata.get("name") or "") != name or labels.get(
+            "wgs.biosan.cn/run-id"
+        ) != run_label:
+            raise ValueError("kubectl Job detail does not match the run label")
+        items.append(item)
+    return items
 
 
 def _read_snapshot_cursor(path: Path) -> dict[str, str]:
@@ -399,6 +470,16 @@ def _run_json(command: list[str], *, input_text: str | None = None) -> dict:
     if not isinstance(value, dict):
         raise ValueError("kubectl response is not a JSON object")
     return value
+
+
+def _run_text(command: list[str]) -> str:
+    completed = subprocess.run(
+        command,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return completed.stdout
 
 
 def _master_pod(config: dict, namespace: str, master_job: str) -> tuple[str, str] | None:

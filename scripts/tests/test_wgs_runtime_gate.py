@@ -1307,6 +1307,54 @@ def test_failed_step4_relaunch_archives_terminal_generation_before_restart(
     )
 
 
+def test_failed_step3_monitor_relaunch_archives_only_the_monitor_generation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    request_path = tmp_path / "step3_monitor.json"
+    request_path.write_text("{}\n", encoding="utf-8")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step3_monitor",
+    }
+    request_sha = gate.hashlib.sha256(request_path.read_bytes()).hexdigest()
+    request_path.with_suffix(".status.json").write_text(
+        json.dumps({"status": "failed", "message": "kubectl query failed"}),
+        encoding="utf-8",
+    )
+    request_path.with_suffix(".worker.json").write_text(
+        json.dumps({"pid": 1234, "request_sha256": request_sha}),
+        encoding="utf-8",
+    )
+    request_path.with_suffix(".worker.log").write_text(
+        "old monitor evidence\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(gate, "_request_path", lambda *_args: request_path)
+    monkeypatch.setattr(gate, "_truthy", lambda _name: True)
+    monkeypatch.setattr(gate, "_process_matches", lambda _state: False)
+    monkeypatch.setattr(gate, "_boot_id", lambda: "boot-id")
+    monkeypatch.setattr(gate, "_process_start_time", lambda _pid: "456")
+
+    class FakeProcess:
+        pid = 5678
+
+    monkeypatch.setattr(
+        gate.subprocess, "Popen", lambda *_args, **_kwargs: FakeProcess()
+    )
+
+    result = gate.start_async_stage(payload)
+
+    assert result == {"status": "accepted", "pid": 5678, "retry_no": 1}
+    history = tmp_path / "history" / "step3_monitor" / "retry-1"
+    assert json.loads((history / "status.json").read_text(encoding="utf-8"))[
+        "message"
+    ] == "kubectl query failed"
+    assert (history / "worker.log").read_text(encoding="utf-8") == (
+        "old monitor evidence\n"
+    )
+
+
 def test_failed_step5_relaunch_preserves_checkpoint_and_archives_worker_generation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2284,6 +2332,82 @@ def test_step3_terminal_success_is_written_with_frozen_master_identity(
     assert details["run_label"] == "cce-run-0123456789abcdef"
     assert details["master"]["master_state"] == "SUCCEEDED"
     assert details["monitoring_health"] == "healthy"
+
+
+def test_step3_monitor_retries_transient_kubectl_query_without_failing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gate = load_gate()
+    cce_bundle = tmp_path / "cce"
+    cce_bundle.mkdir()
+    (cce_bundle / "Step3_status.sh").write_text("#!/bin/bash\n", encoding="utf-8")
+    (cce_bundle / "RESOLVED_PROFILE.yaml").write_text(
+        "run_label: cce-run-0123456789abcdef\n", encoding="utf-8"
+    )
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "step3_monitor",
+    }
+    binding = {
+        "cce_bundle": str(cce_bundle),
+        "master_job": "cce-master-0123456789abcdef0123",
+        "namespace": "snakemake-ns",
+    }
+    results = iter(
+        [
+            type(
+                "Result",
+                (),
+                {
+                    "returncode": 1,
+                    "stdout": "",
+                    "stderr": "RuntimeError: kubectl query failed",
+                },
+            )(),
+            type(
+                "Result",
+                (),
+                {
+                    "returncode": 0,
+                    "stdout": json.dumps(
+                        {
+                            "master_state": "SUCCEEDED",
+                            "normal": True,
+                            "completed": 209,
+                            "total": 209,
+                            "percent": 100.0,
+                            "message": "complete",
+                        }
+                    ),
+                    "stderr": "",
+                },
+            )(),
+        ]
+    )
+    writes: list[str] = []
+    sleeps: list[int] = []
+    clock = iter([0.0, 1.0])
+    monkeypatch.setattr(gate, "_load_binding", lambda _payload: binding)
+    monkeypatch.setattr(
+        gate,
+        "_sync_rule_evidence",
+        lambda _payload, _binding, *, terminal: None,
+    )
+    monkeypatch.setattr(gate.subprocess, "run", lambda *_args, **_kwargs: next(results))
+    monkeypatch.setattr(gate.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(gate.time, "sleep", lambda seconds: sleeps.append(seconds))
+    monkeypatch.setattr(
+        gate,
+        "_write_status",
+        lambda _payload, status, *_args, **_kwargs: writes.append(status),
+    )
+
+    gate._monitor_step3(payload)
+
+    assert sleeps == [gate.MONITOR_INTERVAL_SECONDS]
+    assert writes == ["success"]
 
 
 def test_node005_transfer_wrapper_remains_retired() -> None:

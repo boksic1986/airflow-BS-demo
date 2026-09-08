@@ -1,5 +1,23 @@
 # TASKS.md
 
+## T228 - Make CCE Job evidence collection resilient and recover Step3 monitoring
+
+Owner: WGS/runtime/operations
+
+Status: completed in production
+
+Acceptance:
+- [x] Reproduce the failure as a large Kubernetes Job JSON response timeout rather than a failed Master or Rule.
+- [x] Use a compact server-side Job table and fetch JSON only for non-terminal Jobs.
+- [x] Retry transient Step3 kubectl query failures without projecting a false workflow failure.
+- [x] Relaunch only the failed Step3 monitor generation while preserving the DagRun, attempt and Master Job.
+- [x] Restore healthy observer projection and allow the existing run to continue into Step4.
+- [x] Validate with the compliant BS10610/nipttest environment and a read-only live probe without Docker Hub.
+
+Safety:
+- Data lifecycle Cloud remains the independent Step7 release state and is not changed by Step3 recovery.
+- Do not restart Airflow or CCE and do not clear Step1 or Step2.
+
 ## T227 - Transfer progress consistency and Step7 recovery
 
 Owner: WGS/backend/runtime/frontend/operations

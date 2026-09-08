@@ -2,6 +2,7 @@ import importlib.util
 import base64
 import json
 from pathlib import Path
+import subprocess
 
 
 def load_module():
@@ -93,9 +94,16 @@ def test_live_workload_sync_uses_run_label_and_resource_version_cursor(tmp_path:
                 "wgs.biosan.cn/run-id": "cce-run-0123456789abcdef",
             },
         }
-        return {"items": [{"metadata": metadata, "status": {"phase": "Running"}}]}
+        if kind == "pods":
+            return {"items": [{"metadata": metadata, "status": {"phase": "Running"}}]}
+        return {"metadata": metadata, "status": {"active": 1}}
+
+    def fake_run_text(command):
+        seen_commands.append(command)
+        return "wgs-master-one Running 0/1 1m 1m\n"
 
     monkeypatch.setattr(module, "_run_json", fake_run)
+    monkeypatch.setattr(module, "_run_text", fake_run_text, raising=False)
     args = {
         "config": {"kubernetes": {"kubectl_bin": "kubectl", "kubeconfig": "/safe/config"}},
         "namespace": "snakemake-ns",
@@ -107,7 +115,15 @@ def test_live_workload_sync_uses_run_label_and_resource_version_cursor(tmp_path:
     assert module._sync_workload_snapshots(**args) == 0
     assert (tmp_path / "out" / "raw" / "pod-events.jsonl").is_file()
     assert (tmp_path / "out" / "raw" / "job-events.jsonl").is_file()
-    assert all("wgs.biosan.cn/run-id=cce-run-0123456789abcdef" in command for command in seen_commands)
+    assert any(
+        "wgs.biosan.cn/run-id=cce-run-0123456789abcdef" in command
+        for command in seen_commands
+    )
+    assert all(
+        "wgs.biosan.cn/run-id=cce-run-0123456789abcdef" in command
+        or ("job" in command and "wgs-master-one" in command)
+        for command in seen_commands
+    )
 
 
 def test_live_workload_sync_accepts_cce_pipeline_master_label(
@@ -125,7 +141,12 @@ def test_live_workload_sync_accepts_cce_pipeline_master_label(
         seen_commands.append(command)
         return {"items": []}
 
+    def fake_run_text(command):
+        seen_commands.append(command)
+        return ""
+
     monkeypatch.setattr(module, "_run_json", fake_run)
+    monkeypatch.setattr(module, "_run_text", fake_run_text, raising=False)
 
     assert module._sync_workload_snapshots(
         config={
@@ -143,6 +164,79 @@ def test_live_workload_sync_accepts_cce_pipeline_master_label(
         "wgs.biosan.cn/run-id=cce-run-0123456789abcdef" in command
         for command in seen_commands
     )
+
+
+def test_live_workload_sync_uses_job_table_when_full_list_would_time_out(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = load_module()
+    manifest = tmp_path / "master.yaml"
+    manifest.write_text(
+        "metadata:\n  labels:\n    wgs.biosan.cn/run-id: cce-run-0123456789abcdef\n",
+        encoding="utf-8",
+    )
+    text_commands = []
+
+    def fake_run(command, *, input_text=None):
+        kind = command[command.index("get") + 1]
+        if kind == "pods":
+            return {"items": []}
+        if kind == "jobs":
+            raise subprocess.CalledProcessError(
+                1,
+                command,
+                stderr="context deadline exceeded while reading response body",
+            )
+        assert kind == "job"
+        assert command[command.index("job") + 1] == "wgs-master-one"
+        return {
+            "metadata": {
+                "name": "wgs-master-one",
+                "resourceVersion": "9",
+                "labels": {
+                    "wgs.biosan.cn/run-id": "cce-run-0123456789abcdef"
+                },
+            },
+            "status": {"active": 1},
+        }
+
+    def fake_run_text(command):
+        text_commands.append(command)
+        return (
+            "mapping-one Complete 1/1 2m 3m\n"
+            "wgs-master-one Running 0/1 3m 3m\n"
+        )
+
+    monkeypatch.setattr(module, "_run_json", fake_run)
+    monkeypatch.setattr(module, "_run_text", fake_run_text, raising=False)
+    args = {
+        "config": {
+            "kubernetes": {
+                "kubectl_bin": "kubectl",
+                "kubeconfig": "/safe/config",
+            }
+        },
+        "namespace": "snakemake-ns",
+        "master_job": "wgs-master-one",
+        "master_manifest": manifest,
+        "output": tmp_path / "out",
+    }
+
+    assert module._sync_workload_snapshots(**args) == 2
+    assert module._sync_workload_snapshots(**args) == 0
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "out" / "raw" / "job-events.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert [event["job"] for event in events] == [
+        "mapping-one",
+        "wgs-master-one",
+    ]
+    assert events[0]["status"] == {"succeeded": 1}
+    assert events[1]["status"] == {"active": 1}
+    assert all("--no-headers" in command for command in text_commands)
 
 
 def test_rule_chunks_append_complete_lines_per_stream_and_resume(tmp_path: Path) -> None:

@@ -1,5 +1,48 @@
 # HANDOFF.md
 
+## 2026-09-08 T228 CCE Job snapshot fallback and 20260906B recovery
+
+`20260906B` did not have a biological Rule failure. The run-bound CCE set had
+more than 300 Jobs, and `kubectl get jobs -o json` intermittently timed out
+while reading the response body. The Master continued running. The node200
+evidence bridge now reads the compact server-side Job table, synthesizes
+completed snapshots, and fetches full JSON only for the small non-terminal
+set. The Step3 runtime monitor retries the matching transient query error
+instead of publishing a false failed terminal state.
+
+The two scripts were replaced atomically on node200 without restarting a
+service. Backups are
+`/home/ctapa/.config/airflow-wgs/backups/wgs_evidence_bridge.py.pre-T228-20260908T0755Z`
+and
+`/home/ctapa/.config/airflow-wgs/backups/wgs_runtime_gate.py.pre-T228-20260908T0800Z`.
+BS10610/nipttest passed all 80 evidence-bridge/runtime-gate tests after the
+isolated fixture set was completed; py_compile passed. A read-only live probe
+imported 320 Job snapshots in seven seconds.
+
+The first combined test command exited 1 with 78 passed / 2 failed because the
+isolated test directory did not yet contain `configure_node200_cce.py` and
+`wgs_runtime_forced_command.sh`. After those were copied, the second command
+exited 1 with 79 passed / 1 failed because the node200 environment example was
+also absent. Copying that final non-secret fixture and rerunning only the
+affected test passed 1/1. These were fixture-assembly failures, not runtime or
+assertion failures; no further action is required.
+
+The exact Airflow recovery dry-run for
+`WGS_20260907_152648_54EFF2-a1` returned 14 tasks beginning at
+`start_step3_monitor`; it excluded every Step1 task and
+`submit_step2_master`. The same set was cleared. The DagRun and attempt were
+retained, and the Master UID remained
+`3b8884e5-6ce0-4afe-8bf3-9e14347ce5e7`. The replacement monitor reached
+healthy status, the observer reported zero errors, all 557 Rule states became
+success, `wait_step3_analysis` succeeded, and Step4 publish started.
+
+The Run Tracker `Cloud` lifecycle label means the independent Step7 SFS
+release, so `Not started` is expected until Workflow Step1-Step6 completes and
+Step7 is requested. It must not be used as the CCE analysis-running status.
+
+Rollback: restore the two pre-T228 script backups atomically on node200. Do not
+roll back the DagRun, delete evidence, or resubmit the Master.
+
 ## 2026-09-08 T227 transfer progress, console and Step7 production recovery
 
 T227 is implemented by `7edd7d0`, with production recovery hardening in

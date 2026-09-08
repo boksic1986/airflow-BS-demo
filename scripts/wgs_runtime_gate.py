@@ -1058,7 +1058,15 @@ def _monitor_step3(payload: dict[str, Any]) -> None:
             text=True,
         )
         if completed.returncode != 0:
-            raise RuntimeError((completed.stderr or completed.stdout)[-2000:])
+            message = (completed.stderr or completed.stdout)[-2000:]
+            if "kubectl query failed" in message:
+                if time.monotonic() - started > MONITOR_TIMEOUT_SECONDS:
+                    raise TimeoutError(
+                        "Step3 status query remained unavailable until monitor timeout"
+                    )
+                time.sleep(MONITOR_INTERVAL_SECONDS)
+                continue
+            raise RuntimeError(message)
         value = parse_step3_status_output(completed.stdout)
         terminal = value["master_state"] in {"SUCCEEDED", "FAILED"}
         if terminal:
@@ -1614,7 +1622,8 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
         contract_v1_failed_retry = (
             int(payload.get("orchestration_contract_version") or 1) != 2
             and status.get("status") == "failed"
-            and payload["stage"] in {"step4_publish", "step5_download", "step7_cleanup"}
+            and payload["stage"]
+            in {"step3_monitor", "step4_publish", "step5_download", "step7_cleanup"}
         )
         if previous and previous.get("request_sha256") != request_sha:
             if contract_v1_failed_retry and not _process_matches(previous):
@@ -1642,7 +1651,12 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
         if status.get("status") == "failed" and int(
             payload.get("orchestration_contract_version") or 1
         ) != 2:
-            if payload["stage"] not in {"step4_publish", "step5_download", "step7_cleanup"}:
+            if payload["stage"] not in {
+                "step3_monitor",
+                "step4_publish",
+                "step5_download",
+                "step7_cleanup",
+            }:
                 raise RuntimeError(
                     "failed runtime stages cannot be restarted by the restricted runner"
                 )

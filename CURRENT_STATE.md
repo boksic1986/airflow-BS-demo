@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T228 CCE Job snapshot fallback and Step3 monitor recovery
+
+```text
+incident: 20260906B reached Step3 normally, but the node200 evidence bridge and Step3 monitor intermittently failed while reading the full JSON body for more than 300 run-bound Kubernetes Jobs. The CCE Master and biological workflow remained healthy; Data lifecycle Cloud correctly stayed not_started because it represents the separate Step7 SFS release.
+fix: the evidence bridge now reads the compact server-side Job table, emits terminal rows directly and expands only non-terminal Jobs through individual JSON queries. The Step3 runtime monitor treats the bounded `kubectl query failed` condition as transient and retries without declaring the workflow failed; a failed monitor sidecar can be relaunched without resubmitting the frozen Master.
+production: node200 received atomic, mode-preserving replacements of wgs_evidence_bridge.py and wgs_runtime_gate.py only. Airflow, backend, observer and CCE services were not restarted. Backups are stored below /home/ctapa/.config/airflow-wgs/backups with the pre-T228 suffix.
+recovery: Airflow REST dry-run selected start_step3_monitor and exactly 13 downstream tasks for WGS_20260907_152648_54EFF2-a1, excluding Step1 and submit_step2_master. Clearing that exact set retained the same DagRun, attempt and Master UID 3b8884e5-6ce0-4afe-8bf3-9e14347ce5e7. Step3 completed 557/557 Rules, monitoring returned healthy with no observer error, and Step4 publish started successfully.
+validation: BS10610/nipttest passed all 80 evidence-bridge/runtime-gate tests after completing the isolated fixture set; py_compile passed. A live isolated bridge probe imported 320 Job snapshots in seven seconds. No Docker image pull, database mutation, scheduler restart or CCE workload restart was used.
+```
+
 ## 2026-09-08 T227 transfer progress and Step7 recovery implementation
 
 ```text
