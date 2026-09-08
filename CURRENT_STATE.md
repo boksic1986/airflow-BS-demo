@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T233 Dashboard resource alignment and scanner wording
+
+```text
+scope: frontend-only Dashboard layout and wording update; no scanner, API, database, pipeline or runtime behavior change.
+implementation: the three resource panels now live in the Dashboard main content column below T7, with three/two/one-column responsive behavior. Node/SFS controls use a shared 32px height, resource meters use the same label and 7px bar geometry, SFS I/O omits Total and the binary-unit note, and the T7 timestamp heading is 最近检查.
+scanner_evidence: production remains on interval_seconds=1800. Each cycle shallow-checks approximately 1854 top-level batch directories and applies one scan timestamp to the cycle, so identical row timestamps are expected; the scanner implementation was not changed.
+validation: focused frontend tests passed 3 files / 16 tests after red assertions demonstrated the former outer-column placement, old heading and missing layout markers. The TypeScript/Vite production build passed in a cached fengxian image with network disabled; no Docker Hub access occurred.
+deployment: pending frontend-only production synchronization.
+```
+
 ## 2026-09-08 T232 wide-screen Project source alignment
 
 ```text

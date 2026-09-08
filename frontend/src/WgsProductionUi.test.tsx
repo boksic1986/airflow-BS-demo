@@ -406,6 +406,10 @@ it("shows QC summary actions when the deployed adapter exposes QC", async () => 
   expect(screen.getByText("QC alerts")).toBeInTheDocument();
   expect(screen.getByText("QC failed samples")).toBeInTheDocument();
   expect(screen.getByText("Workflow fails")).toBeInTheDocument();
+  const resourceGrid = screen.getByRole("heading", {name: "Analysis Node Health"}).closest(".dashboard-ops-grid");
+  const scannerPanel = screen.getByRole("heading", {name: "T7自动扫描"}).closest(".intake-scanner-panel");
+  expect(resourceGrid?.parentElement).toHaveClass("dashboard-main-column");
+  expect(scannerPanel?.parentElement).toBe(resourceGrid?.parentElement);
 });
 
 it("keeps scanner metadata when the discovery list has a transiently unavailable API", async () => {

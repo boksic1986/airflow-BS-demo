@@ -1,5 +1,17 @@
 # HANDOFF.md
 
+## 2026-09-08 T233 Dashboard resource alignment and scanner wording
+
+T233 is a frontend-only Dashboard correction. `DashboardResourcePanels` now sits in `dashboard-main-column` immediately below the T7 scanner, so its collective left and right boundaries match Run Tracker and T7. Existing responsive rules retain three equal desktop columns, two columns at <=1480px with SFS I/O spanning the second row, and one column at <=860px.
+
+Analysis Node Health and Cloud Resources use a shared 32px control-token contract for node tabs, the SFS label and health badges. CPU, Memory, Load, SFS capacity and Heavy slots use the same full-width meter geometry with a 16px label row and 7px bar. SFS I/O no longer renders Total or the binary-unit explanatory sentence. The T7 WGS timestamp column now says `最近检查`; no API field or refresh behavior changed.
+
+Production scanner evidence showed runs at approximately 30-minute intervals with scanned=1854, updated=11, ready=9, no_new_wgs=2 and errors=0. The configured interval remains 1800 seconds. One scan timestamp is intentionally applied to all rows in a cycle, so identical timestamps do not indicate separate full reprocessing of every FASTQ file. The scanner code, submission gates, database and backend were not modified.
+
+TDD evidence: the focused suite first failed 4 assertions because the resource grid was outside the main column, the heading still said `最近扫描`, the shared panel/control markers were absent and the unit note remained. After implementation, 3 files / 16 tests passed. A single TypeScript/Vite production build passed in the cached fengxian frontend image with `--network none` and `--pull never`; outputs were `index-BIG81086.css` and `index-DnGZwlbr.js`. No package or image download was used.
+
+Production deployment and rollback evidence will be appended after the frontend-only cutover.
+
 ## 2026-09-08 T232 wide-screen Project source alignment
 
 T232 is a frontend-only correction for the 4K Run Tracker screenshot. The Project source row was a full-width flex container whose centering existed only in the <=1920 media rule, so Intake/Manual fell back to flex-start on wider screens. `OperationProjectCell` now applies an explicit centering modifier whose CSS is independent of viewport width. Fonts, column widths and the T230/T231 responsive rules are unchanged.

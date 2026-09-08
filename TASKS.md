@@ -1,5 +1,21 @@
 # TASKS.md
 
+## T233 - Dashboard resource alignment and scanner wording
+
+Owner: frontend
+
+Status: implementation validated; production synchronization pending
+
+Acceptance:
+- [x] Place the resource-panel grid inside the same Dashboard main column as Run Tracker and T7.
+- [x] Preserve three/two/one-column responsive behavior at the existing 1480px and 860px breakpoints.
+- [x] Align node/SFS control tokens at 32px and all resource meters on the same 7px full-width geometry.
+- [x] Remove SFS I/O Total and its binary-unit explanatory sentence.
+- [x] Rename the T7 timestamp heading to `最近检查` without changing scanner behavior.
+- [x] Confirm production remains a 30-minute full-directory shallow scan with one cycle timestamp.
+- [x] Pass focused frontend tests and one production build using cached images without network access.
+- [ ] Commit, synchronize `main`, and deploy only `frontend-nginx`.
+
 ## T232 - Center Project source tag on wide screens
 
 Owner: frontend

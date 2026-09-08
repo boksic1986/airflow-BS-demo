@@ -49,6 +49,14 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 - The Project source row uses an explicit viewport-independent centered flex alignment, so the Intake/Manual badge remains centered on 4K displays as well as at the compact breakpoint.
 - T232 does not change the 4K type scale, column widths, or the responsive rules introduced by T230/T231.
 
+### T233 dashboard resource-panel alignment
+
+- The resource-panel grid lives inside the Dashboard main content column below the T7 scanner, so its outer edges align with Run Tracker and the scanner table.
+- The grid uses three equal columns on desktop, two columns at 1480 CSS pixels and below with SFS I/O spanning the second row, and one column at 860 CSS pixels and below.
+- Analysis Node Health and Cloud Resources share 32px control tokens and a common meter layout with 16px label rows and 7px full-width bars.
+- SFS I/O displays Read, Write and Current IOPS only. The redundant Total metric and binary-unit explanatory sentence are omitted.
+- The T7 WGS discovery table labels the batch timestamp as `最近检查`. The underlying scanner field, interval and refresh behavior are unchanged.
+
 ## Branding
 
 The product label is `NGS Huawei Cloud` with the subtitle `Online analysis platform`. WGS names remain only where they identify the currently deployed workflow or extension.

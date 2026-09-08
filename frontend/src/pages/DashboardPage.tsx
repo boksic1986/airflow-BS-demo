@@ -292,18 +292,18 @@ export function DashboardPage() {
             onViewChange={(nextView) => { setIntakeView(nextView); setIntakeOffset(0); }}
             onPageChange={setIntakeOffset}
           />
+          <DashboardResourcePanels
+            resources={resources}
+            resourceTab={resourceTab}
+            overview={overview}
+            rows={trackerRows}
+            loading={resourcesLoading}
+            error={resourcesError}
+            pipelines={pipelineOptions}
+            onResourceTabChange={setResourceTab}
+          />
         </div>
       </section>
-      <DashboardResourcePanels
-        resources={resources}
-        resourceTab={resourceTab}
-        overview={overview}
-        rows={trackerRows}
-        loading={resourcesLoading}
-        error={resourcesError}
-        pipelines={pipelineOptions}
-        onResourceTabChange={setResourceTab}
-      />
       <span className="sr-only">Selected pipeline: {selectedPipeline?.display_name || "All pipelines"}</span>
     </div>
   );
