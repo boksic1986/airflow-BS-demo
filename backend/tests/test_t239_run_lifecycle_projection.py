@@ -44,17 +44,22 @@ def _add_terminal_delivery_stages(session, run: AnalysisRun) -> None:
         )
 
 
-def test_workspace_summary_aggregates_batch_qc_from_all_samples() -> None:
+def test_workspace_summary_uses_authoritative_wgs_qc_projection(monkeypatch) -> None:
     factory = _sessions()
     with factory.begin() as session:
         run = _successful_run()
         session.add(run)
         session.add_all(
             [
-                Sample(analysis_id=run.analysis_id, sample_id="S1", qc_status="pass"),
-                Sample(analysis_id=run.analysis_id, sample_id="S2", qc_status="success"),
+                Sample(analysis_id=run.analysis_id, sample_id="S1", qc_status="unknown"),
+                Sample(analysis_id=run.analysis_id, sample_id="S2", qc_status="unknown"),
             ]
         )
+
+    monkeypatch.setattr(
+        "app.wgs_workspace_service.get_wgs_batch_qc_status",
+        lambda **_: "pass",
+    )
 
     with factory() as session:
         run = session.scalar(select(AnalysisRun))
@@ -62,6 +67,7 @@ def test_workspace_summary_aggregates_batch_qc_from_all_samples() -> None:
             session=session,
             run=run,
             run_payload={"analysis_id": run.analysis_id},
+            settings=object(),
         )
 
     assert workspace["summary"]["batch_qc_status"] == "pass"

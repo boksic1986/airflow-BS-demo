@@ -5,7 +5,8 @@
 T239 is validated on BS10610 and awaiting production rollout. `/workflows` is
 now a full-page Run lifecycle table with QC, cloud-release and delivery filters;
 the capability catalog header/cards and duplicate recent-run list are removed.
-Run Detail adds Batch QC and Workflow operator, embeds a compact expandable
+Run Detail adds Batch QC from the same controlled QCstat projection used by the
+Samples/QC APIs and fills Workflow operator, embeds a compact expandable
 Step7 action inside Cloud release, and vertically balances Current Progress.
 
 The `20260906B` investigation found 557 final successful RuleState rows. Exactly

@@ -1542,6 +1542,7 @@ def run_workspace(analysis_id: str) -> dict[str, object]:
             heavy_slot_limit=int(getattr(settings, "wgs_heavy_slot_limit", 25)),
             heavy_slot_mode=str(getattr(settings, "wgs_heavy_slot_mode", "monitor-only")),
             evidence_root=str(getattr(settings, "wgs_evidence_root", "") or ""),
+            settings=settings,
         )
 
 

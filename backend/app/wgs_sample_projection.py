@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import select
 
 from app.models import AnalysisRun, RuleState, Sample, WgsLifecycleStatus
+from app.qc_highlights import aggregate_qc_status
 from app.wgs_artifact_selection import select_batch_qcstat
 from app.wgs_run_projection import load_wgs_runtime_binding, resolve_bound_wgs_batch_root
 from app.workflow_phases import wgs_phase_for_rule
@@ -82,6 +83,19 @@ def get_wgs_sample_projection(*, session, settings, run: AnalysisRun) -> dict[st
         }
     )
     return {"manifest": manifest, "manifest_summary": manifest_summary, "items": items}
+
+
+def get_wgs_batch_qc_status(*, session, settings, run: AnalysisRun) -> str:
+    """Aggregate the same controlled QCstat projection used by Samples/QC."""
+
+    batch_root = _batch_root(settings=settings, run=run)
+    qc = _read_qc(batch_root) if batch_root else {}
+    samples = session.scalars(
+        select(Sample).where(Sample.analysis_id == run.analysis_id).order_by(Sample.sample_id)
+    ).all()
+    return aggregate_qc_status(
+        [_qc_value_for_sample(sample=sample, qc=qc).get("status") for sample in samples]
+    )
 
 
 def _display_batch(value: Any) -> str | None:
@@ -236,7 +250,7 @@ def _matrix_row(*, sample: Sample, run: AnalysisRun, rules: list[RuleState], exp
         "success" if ordered and completed == len(ordered) else sample.status
     )
     data_id = str(metadata.get("data_id") or sample.sample_id)
-    qc_value = qc.get(sample.sample_id) or qc.get(data_id) or qc.get(data_id.removesuffix("-WGS")) or {}
+    qc_value = _qc_value_for_sample(sample=sample, qc=qc)
     current_stage = "Workflow completed" if workflow_success else (
         (current.phase or wgs_phase_for_rule(current.rule_name))
         if current
@@ -257,6 +271,17 @@ def _matrix_row(*, sample: Sample, run: AnalysisRun, rules: list[RuleState], exp
         "qc_status": qc_value.get("status", sample.qc_status or "unknown"),
         "qc_metrics": dict(qc_value.get("metrics") or {}),
     }
+
+
+def _qc_value_for_sample(*, sample: Sample, qc: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    metadata = dict(sample.metadata_json or {})
+    data_id = str(metadata.get("data_id") or sample.sample_id)
+    return (
+        qc.get(sample.sample_id)
+        or qc.get(data_id)
+        or qc.get(data_id.removesuffix("-WGS"))
+        or {"status": sample.qc_status or "unknown", "metrics": {}}
+    )
 
 
 def _qc_status(value: str | None) -> str:

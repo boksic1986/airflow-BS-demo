@@ -8,6 +8,7 @@ from sqlalchemy import case, func, select
 
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState, RunValidationIssue, Sample, TransferJob
 from app.qc_highlights import aggregate_qc_status
+from app.wgs_sample_projection import get_wgs_batch_qc_status
 from app.wgs_stage_contract import canonical_wgs_stage, project_wgs_orchestration, wgs_stage_definition
 from app.wgs_transfer_projection import serialize_transfer_job
 
@@ -25,11 +26,16 @@ ACTIVE_TRANSFER_STATUSES = {
 FAILED_RULE_STATUSES = {"failed", "error", "terminated"}
 
 
-def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_slot_limit: int = 25, heavy_slot_mode: str = "monitor-only", evidence_root: str | None = None) -> dict:
+def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_slot_limit: int = 25, heavy_slot_mode: str = "monitor-only", evidence_root: str | None = None, settings=None) -> dict:
     sample_qc_statuses = list(session.scalars(
         select(Sample.qc_status).where(Sample.analysis_id == run.analysis_id)
     ).all())
     sample_count = len(sample_qc_statuses)
+    batch_qc_status = (
+        get_wgs_batch_qc_status(session=session, settings=settings, run=run)
+        if settings is not None
+        else aggregate_qc_status(sample_qc_statuses)
+    )
     rule_count, failed_rule_count = session.execute(
         select(
             func.count(RuleState.id),
@@ -186,7 +192,7 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
             "sample_count": int(sample_count),
             "rule_count": int(rule_count or 0),
             "failed_rule_count": int(failed_rule_count or 0),
-            "batch_qc_status": aggregate_qc_status(sample_qc_statuses),
+            "batch_qc_status": batch_qc_status,
         },
         "progress": progress,
         "active_transfer": transfer_payload,

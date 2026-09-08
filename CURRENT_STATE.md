@@ -5,7 +5,7 @@
 ```text
 scope: replace the low-value Workflow Catalog capability cards with a full-page Run lifecycle table, add QC status/filtering, complete Run Detail batch QC/operator display, compact Step7 into Cloud release, and repair future grouped-rule start evidence plus stale-child Step7 eligibility.
 evidence: 20260906B currently has 557/557 terminal-success rules. Its 147 missing starts exactly match grouped Rule members for which raw evidence contains job_info/rule_planned/job_finished but no job_started; historical timestamps are intentionally not invented.
-backend: workspace returns batch_qc_status; WGS workflow lifecycle uses the privacy-safe run operator; a terminal master supersedes only older active child workload evidence, while newer active evidence still blocks Step7.
+backend: workspace returns batch_qc_status from the same controlled QCstat projection as Samples/QC; WGS workflow lifecycle uses the privacy-safe run operator; a terminal master supersedes only older active child workload evidence, while newer active evidence still blocks Step7.
 frontend: /workflows is Run lifecycle only with QC column/filter; Run Detail adds Batch QC, embeds compact Step7 controls under Cloud release, and vertically balances Current Progress with Pipeline evidence.
 candidate_validation: BS10610 cached/offline backend tests 20 passed, logger tests 8 passed, frontend tests 17 files/60 tests passed, and TypeScript/Vite production build passed. Network and image pulls were disabled.
 safety: automatic analysis remains paused. No workflow, Step7 cleanup, database mutation, OBS/SFS action or Airflow restart was performed during candidate validation.
