@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import lru_cache, partial
 import os
 from pathlib import Path
 from typing import Any
@@ -21,7 +21,7 @@ from app.wgs_platform_service import action_wgs_run, submit_wgs_run
 from app.models import ObserverRunState, RunStageState, Sample
 from app.wgs_execution_dispatch_service import project_execution_dispatch
 from app.wgs_lifecycle_service import project_wgs_lifecycle, project_wgs_lifecycles
-from app.wgs_sample_projection import get_wgs_sample_projection
+from app.wgs_sample_projection import get_wgs_batch_qc_status, get_wgs_sample_projection
 from app.wgs_stage_contract import project_wgs_orchestration, terminal_wgs_progress
 from app.wgs_step4_service import get_step4_repair_capability
 from app.wgs_step7_service import get_step7_capability
@@ -205,6 +205,17 @@ def _project_wgs_qc(*, session, settings, run, **_) -> dict[str, Any]:
 
 def _project_wgs_samples(*, session, settings, run, **_) -> dict[str, Any]:
     return get_wgs_sample_projection(session=session, settings=settings, run=run)
+
+
+def _project_wgs_dashboard_qc_statuses(*, session, settings, runs, **_) -> dict[str, str]:
+    return {
+        run.analysis_id: get_wgs_batch_qc_status(
+            session=session,
+            settings=settings,
+            run=run,
+        )
+        for run in runs
+    }
 
 
 def _project_wgs_run_detail(*, session, settings, run, **_) -> dict[str, Any]:
@@ -393,6 +404,7 @@ ADAPTERS = {
         project_progress=_project_wgs_progress,
         project_dashboard_metadata=_project_wgs_dashboard_metadata,
         project_dashboard_lifecycles=project_wgs_lifecycles,
+        project_dashboard_qc_statuses=_project_wgs_dashboard_qc_statuses,
         project_sample_summary=_project_wgs_sample_summary,
         sync_airflow_status=sync_wgs_airflow_status,
         get_log=get_wgs_run_log,
@@ -472,6 +484,18 @@ def lifecycle_projectors(settings) -> dict[str, Any]:
         pipeline_id: registry.require(pipeline_id).adapter.project_dashboard_lifecycles
         for pipeline_id in registry.deployed_pipeline_ids
         if registry.require(pipeline_id).adapter.project_dashboard_lifecycles is not None
+    }
+
+
+def qc_status_projectors(settings) -> dict[str, Any]:
+    registry = get_pipeline_registry(settings)
+    return {
+        pipeline_id: partial(
+            registry.require(pipeline_id).adapter.project_dashboard_qc_statuses,
+            settings=settings,
+        )
+        for pipeline_id in registry.deployed_pipeline_ids
+        if registry.require(pipeline_id).adapter.project_dashboard_qc_statuses is not None
     }
 
 

@@ -52,6 +52,7 @@ from app.pipeline_registry_service import (
     deployed_adapters,
     get_pipeline_registry,
     lifecycle_projectors,
+    qc_status_projectors,
     require_pipeline,
     workflow_projectors,
 )
@@ -1078,6 +1079,7 @@ def runs_list(
             offset=offset,
             workflow_projectors=workflow_projectors(get_settings()),
             lifecycle_projectors=lifecycle_projectors(get_settings()),
+            qc_status_projectors=qc_status_projectors(get_settings()),
         )
 
 

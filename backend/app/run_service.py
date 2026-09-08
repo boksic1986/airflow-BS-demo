@@ -24,6 +24,7 @@ def list_runs(
     deployed_pipelines: tuple[str, ...] = (),
     workflow_projectors: Mapping[str, Callable[..., dict[str, list[dict[str, Any]]]]] | None = None,
     lifecycle_projectors: Mapping[str, Callable[..., dict[str, dict[str, Any]]]] | None = None,
+    qc_status_projectors: Mapping[str, Callable[..., dict[str, str]]] | None = None,
 ) -> dict:
     query = select(AnalysisRun)
     if pipeline == "deployed":
@@ -86,12 +87,18 @@ def list_runs(
         runs=page,
         projectors=lifecycle_projectors,
     )
+    projected_qc_statuses = _projected_qc_statuses_by_run(
+        session=session,
+        runs=page,
+        projectors=qc_status_projectors,
+    )
     return {
         "items": [
             _run_list_payload(
                 run,
                 sample_count=len(sample_qc.get(run.analysis_id, [])),
                 sample_qc_statuses=sample_qc.get(run.analysis_id, []),
+                projected_qc_status=projected_qc_statuses.get(run.analysis_id),
                 qc_highlights=qc_highlights.get(run.analysis_id, []),
                 workflow_summary=workflow_summaries.get(run.analysis_id, []),
                 lifecycle=lifecycles.get(run.analysis_id),
@@ -161,6 +168,7 @@ def _run_list_payload(
     *,
     sample_count: int,
     sample_qc_statuses: list[str | None],
+    projected_qc_status: str | None,
     qc_highlights: list[dict],
     workflow_summary: list[dict[str, object]],
     lifecycle: dict[str, Any] | None,
@@ -180,7 +188,7 @@ def _run_list_payload(
         "pipeline_finished_at": run.pipeline_finished_at.isoformat() if run.pipeline_finished_at else None,
         "submitted_by": run.submitted_by,
         "sample_count": sample_count,
-        "qc_status": _aggregate_sample_qc_status(sample_qc_statuses),
+        "qc_status": projected_qc_status or _aggregate_sample_qc_status(sample_qc_statuses),
         "qc_highlights": qc_highlights,
         "workflow_summary": workflow_summary,
         "workflow_status": workflow_status,
@@ -201,6 +209,25 @@ def _lifecycles_by_run(
     for run in runs:
         runs_by_pipeline.setdefault(run.pipeline_name, []).append(run)
     projected: dict[str, dict[str, Any]] = {}
+    for pipeline_name, pipeline_runs in runs_by_pipeline.items():
+        projector = projectors.get(pipeline_name)
+        if projector is not None:
+            projected.update(projector(session=session, runs=pipeline_runs))
+    return projected
+
+
+def _projected_qc_statuses_by_run(
+    *,
+    session: Session,
+    runs: list[AnalysisRun],
+    projectors: Mapping[str, Callable[..., dict[str, str]]] | None,
+) -> dict[str, str]:
+    if not projectors:
+        return {}
+    runs_by_pipeline: dict[str, list[AnalysisRun]] = {}
+    for run in runs:
+        runs_by_pipeline.setdefault(run.pipeline_name, []).append(run)
+    projected: dict[str, str] = {}
     for pipeline_name, pipeline_runs in runs_by_pipeline.items():
         projector = projectors.get(pipeline_name)
         if projector is not None:

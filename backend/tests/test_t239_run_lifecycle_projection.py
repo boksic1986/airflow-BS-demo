@@ -7,6 +7,7 @@ from app.models import AnalysisRun, Base, KubernetesWorkload, RunStageState, Sam
 from app.wgs_lifecycle_service import project_wgs_lifecycle
 from app.wgs_step7_service import get_step7_capability
 from app.wgs_workspace_service import build_wgs_workspace
+from app.run_service import list_runs
 
 
 def _sessions():
@@ -83,6 +84,24 @@ def test_lifecycle_workflow_operator_matches_run_operator_display_name() -> None
         lifecycle = project_wgs_lifecycle(session=session, run=run)
 
     assert lifecycle["workflow"]["updated_by"] == "wgs-scanner"
+
+
+def test_run_lifecycle_list_uses_pipeline_qc_projection() -> None:
+    factory = _sessions()
+    with factory.begin() as session:
+        run = _successful_run()
+        session.add(run)
+        session.add(Sample(analysis_id=run.analysis_id, sample_id="S1", qc_status="unknown"))
+
+    with factory() as session:
+        payload = list_runs(
+            session=session,
+            pipeline="deployed",
+            deployed_pipelines=("wgs",),
+            qc_status_projectors={"wgs": lambda **_: {"WGS_T239": "pass"}},
+        )
+
+    assert payload["items"][0]["qc_status"] == "pass"
 
 
 def test_step7_ignores_stale_child_workloads_after_terminal_master() -> None:

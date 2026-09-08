@@ -46,6 +46,7 @@ Existing `/api/wgs/*` routes remain supported for WGS submission, intake, eviden
 ### T239 lifecycle, QC and grouped-rule evidence
 
 - `GET /api/runs/{analysis_id}/workspace` adds `summary.batch_qc_status`. WGS uses the same controlled `QCstat` projection as the Samples/QC APIs, with the stored sample state only as a fallback: any fail wins, then warning, all pass/success becomes pass, and incomplete or absent evidence remains unknown.
+- `GET /api/runs` obtains WGS `qc_status` through the same registry-owned batch QC projector, so Run lifecycle filtering and Run Detail cannot disagree merely because historical `sample.qc_status` rows were not rewritten.
 - WGS workflow lifecycle `updated_by` uses the same privacy-safe operator display name as the run projection. Scanner-created runs therefore display `wgs-scanner` instead of an empty operator.
 - Step7 eligibility treats a successful master workload as authoritative only for active child workload observations at or before that master success. A newer Pending/Running/Active observation still blocks cleanup, as do the existing transfer lease and Step5/Step6 gates.
 - Grouped Snakemake `job_started` events are expanded into one member event per Rule/job identity so future runs can persist starts for rules such as `pre_process_mapping` and `pre_process_Dedup`. Historical starts that were never emitted remain unrecorded and are not fabricated.
