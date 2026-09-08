@@ -6,9 +6,12 @@
 incident: the closed native Pipeline select made the deployed GATK adapter appear absent, while the environment intentionally kept GATK execution disabled.
 fix: Submit Run now exposes WGS and GATK Cloud as visible segmented controls. The GATK form reads a safe release endpoint and shows profile, revision and execution state before preview; confirmation remains fenced by the environment gate.
 runtime: the GATK forced-command wrapper now loads its private runtime files from its own installation directory, allowing the approved hanjj test key without a ctapa home-path dependency.
+runtime_paths: backend and node200 now share the writable /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/gatk-runtime path; node200 /bi is read-only and is not used for mutable runtime evidence. The private GATK operator config is derived from the approved WGS config without the WGS-only heavy_io extension.
+gatk_release: /mnt/biodevrwbi/33.chenjiucheng/project/gatk-cloud-airflow/releases/50acd36 fixes the rendered CCE contract so rule-status observability reaches the Master bundle.
 input_audit: all four mounted V7.6.0 source projects are currently incomplete: two miss at least one FASTQ pair member and two miss sample2hospitalBarCode.txt. They remain rejected by preview.
 validation: backend 340 passed/1 skipped, runtime gate 7/7 and offline frontend 15 files/56 tests passed; TypeScript/Vite and the candidate nginx overlay image built without network access. The GATK repository passed 5/5 tests in the shared nipttest environment.
-safety: no real GATK run has been created, no execution gate has been opened, and WGS runtime/data are unchanged.
+deployment: BS10610 current points to releases/20260908-t235-gatk-submit-r2. backend, frontend, Airflow API/scheduler/worker, observer and metrics collector were recreated after an exact zero-active-run check; PostgreSQL and Redis were untouched. Authenticated live preview returns a bounded missing-FASTQ error for the incomplete source.
+safety: no real GATK run has been created, no execution gate has been opened, and WGS runtime/data are unchanged. bio_gatk remains paused.
 ```
 
 ## 2026-09-08 T234 reusable offline frontend builder

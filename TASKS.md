@@ -4,7 +4,7 @@
 
 Owner: backend/frontend/runtime/QA
 
-Status: in progress on BS10610 test environment
+Status: submission UI and runtime preparation deployed; execution acceptance pending
 
 Acceptance:
 - [x] Show WGS and GATK Cloud as an always-visible segmented switch in Submit Run.
@@ -12,7 +12,7 @@ Acceptance:
 - [x] Keep GATK preview available and disable confirmation while its execution gate is closed.
 - [x] Make the GATK forced-command wrapper portable across restricted SSH accounts.
 - [x] Pass targeted backend/runtime tests and the complete frontend test/build offline.
-- [ ] Deploy the backend/frontend candidate and verify authenticated GATK selection/preview.
+- [x] Deploy the backend/frontend candidate and verify authenticated GATK selection/preview.
 - [ ] Enable GATK execution only after a valid V7.6.0 input and controlled Step1-Step6 smoke pass.
 
 Safety:

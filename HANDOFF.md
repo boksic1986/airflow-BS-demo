@@ -20,11 +20,35 @@ must continue rejecting them. Do not enable `GATK_EXECUTION_ENABLED` until a
 complete controlled V7.6.0 source passes prepare/CCE/logger smoke and one
 Step1-Step6 acceptance run.
 
+BS10610 now points to
+
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260908-t235-gatk-submit-r2`.
+
+The GATK source release is
+`/mnt/biodevrwbi/33.chenjiucheng/project/gatk-cloud-airflow/releases/50acd36`.
+It contains the additional fix that carries `observability.logger` into the
+rendered CCE contract. A synthetic one-sample prepare generated a successful
+receipt and a bundle containing `plugin: rule-status` and `required: true`.
+
+The backend and node200 share mutable GATK state through
+`/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/gatk-runtime`; `/bi` is
+read-only on node200 and must not be selected as a mutable runtime root. The
+private GATK operator config is derived from the approved WGS config with only
+the WGS-specific `heavy_io` extension removed. WGS configuration is unchanged.
+
 Validation so far: backend 340 passed with one skip, runtime gate 7/7,
 GATK repository 5/5, frontend 15 files/56 tests, TypeScript/Vite build and
 disconnected runtime image assembly all passed on BS10610. Missing runtime
 requests now return one bounded error instead of a Python traceback. No
-workflow, database, source or result was changed.
+biological rule, source input, database row or analysis result was changed.
+
+Deployment recreated backend, frontend, Airflow API/scheduler/worker,
+observer and metrics collector after confirming no active WGS/GATK run.
+PostgreSQL and Redis were not recreated. Live capabilities report `wgs,gatk`,
+the GATK release endpoint reports execution disabled, and authenticated
+preview of an incomplete V7.6.0 source returns `GATK_INPUT_INVALID` with the
+missing FASTQ member. `bio_gatk` remains paused and the execution gate remains
+false pending a complete controlled input and Step1-Step6 acceptance.
 
 ## 2026-09-08 T234 reusable offline frontend builder
 
