@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useState, type FormEvent, type ReactNode} from "react";
 import {Link, useSearchParams} from "react-router-dom";
-import {approveWgsConfig, createCatalogWgsRun, createRun, getRunDetail, getRunSamples, getWgsProjects, getWgsRelease, previewGatkSubmission, startWgsExecution, updateWgsExecutionChoice, type GatkSubmissionPreview, type PipelineCapability, type RunDetail, type Sample, type WgsExecutionChoiceRequest, type WgsProjectCatalog, type WgsRelease} from "../api";
+import {approveWgsConfig, createCatalogWgsRun, createRun, getGatkRelease, getRunDetail, getRunSamples, getWgsProjects, getWgsRelease, previewGatkSubmission, startWgsExecution, updateWgsExecutionChoice, type GatkRelease, type GatkSubmissionPreview, type PipelineCapability, type RunDetail, type Sample, type WgsExecutionChoiceRequest, type WgsProjectCatalog, type WgsRelease} from "../api";
 import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
 import {StatusBadge} from "../components/StatusBadge";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
@@ -32,7 +32,7 @@ export function SubmitPage() {
 }
 
 function SubmissionPipelineField({pipelines, selectedId, onChange}: {pipelines: PipelineCapability[]; selectedId: string; onChange: (pipelineId: string) => void}) {
-  return <label className="field"><span>Pipeline</span><select aria-label="Pipeline" value={selectedId} disabled={pipelines.length < 2} onChange={(event) => onChange(event.target.value)}>{pipelines.map((pipeline) => <option value={pipeline.id} key={pipeline.id}>{pipeline.display_name}</option>)}</select></label>;
+  return <div className="field submission-pipeline-field"><span>Pipeline</span><div className="segmented-control submission-pipeline-switcher" role="tablist" aria-label="Submission pipeline">{pipelines.map((pipeline) => <button className={pipeline.id === selectedId ? "active" : ""} type="button" role="tab" aria-selected={pipeline.id === selectedId} key={pipeline.id} onClick={() => onChange(pipeline.id)}>{pipeline.display_name}</button>)}</div></div>;
 }
 
 function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
@@ -141,11 +141,19 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
 }
 
 function GatkSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
+  const [release, setRelease] = useState<GatkRelease | null>(null);
   const [sourceProjectDir, setSourceProjectDir] = useState("");
   const [preview, setPreview] = useState<GatkSubmissionPreview | null>(null);
   const [created, setCreated] = useState<RunDetail | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const executionEnabled = Boolean(release?.execution_enabled);
+
+  useEffect(() => {
+    getGatkRelease()
+      .then(setRelease)
+      .catch((loadError) => setError(errorMessage(loadError)));
+  }, []);
 
   async function loadPreview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -185,6 +193,10 @@ function GatkSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   return <div className="page-stack submit-wizard">
     <section className="page-header"><div><p className="eyebrow">GATK V7.6.0 · CCE</p><h1>Submit GATK Cloud</h1><p>Select one controlled WES project, review its locked SCMC sample set, then submit the Step1-Step6 workflow.</p></div></section>
     <section className="panel">
+      <dl className="definition-grid"><div><dt>Runtime profile</dt><dd>{release?.profile_id || "Loading profile..."}</dd></div><div><dt>Revision</dt><dd>{release?.profile_revision || "-"}</dd></div><div><dt>Execution</dt><dd>{release ? (executionEnabled ? "Enabled" : "Disabled") : "Loading..."}</dd></div></dl>
+      {release && !executionEnabled ? <p className="inline-error" role="note">GATK execution is disabled in this environment. Preview remains read-only.</p> : null}
+    </section>
+    <section className="panel">
       <form className="form-grid gatk-submit-form" onSubmit={loadPreview}>
         {pipelineSelector}
         <label className="field full"><span>WES project directory</span><input aria-label="WES project directory" value={sourceProjectDir} placeholder="/sg2/21.lijing/WES_Clinical/WES_YYYYMMDDX_T7_V7.6.0_hg38" onChange={(event) => { setSourceProjectDir(event.target.value); setPreview(null); }} /></label>
@@ -203,7 +215,7 @@ function GatkSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
         <div><dt>Input checks</dt><dd>{Object.values(preview.validation).every(Boolean) ? "Passed" : "Needs attention"}</dd></div>
       </dl>
       <div className="table-wrap"><table className="data-table compact"><thead><tr><th>SCMC sample</th><th>Selection</th></tr></thead><tbody>{preview.samples.map((sample) => <tr key={sample}><td>{sample}</td><td><StatusBadge status="locked" size="sm" /></td></tr>)}</tbody></table></div>
-      <div className="panel-actions"><button className="button primary" type="button" disabled={busy || Boolean(created)} onClick={() => void confirm()}>{busy ? "Submitting..." : "Confirm and submit"}</button></div>
+      <div className="panel-actions"><button className="button primary" type="button" disabled={busy || Boolean(created) || !executionEnabled} onClick={() => void confirm()}>{busy ? "Submitting..." : "Confirm and submit"}</button></div>
     </section> : null}
     {created ? <p className="success-note">GATK Cloud submitted: <Link to={`/runs/${created.analysis_id}`}>{created.analysis_id}</Link>.</p> : null}
     {error ? <div className="inline-error" role="alert">{error}</div> : null}

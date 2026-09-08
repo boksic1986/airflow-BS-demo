@@ -2,7 +2,8 @@
 set -euo pipefail
 umask 007
 
-readonly config_dir="${GATK_HOST_CONFIG_DIR:-/home/ctapa/.config/airflow-gatk}"
+readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+readonly config_dir="${GATK_HOST_CONFIG_DIR:-${script_dir}}"
 readonly runtime_env="${config_dir}/runtime.env"
 readonly runtime_gate="${config_dir}/gatk_runtime_gate.py"
 

@@ -8,10 +8,16 @@ The T228 candidate displays WGS and GATK Cloud when both registry entries are
 deployed. GATK has its own submission adapter; it is never routed into the WGS
 form.
 
-T232 uses one `Pipeline` select as the workflow switch inside the submission
-form. It replaces the duplicate page-level segmented control. Selecting a new
-pipeline updates the URL and remounts the corresponding adapter, so WGS batch
-state and GATK project-preview state cannot leak across workflows.
+T235 uses one always-visible segmented `Pipeline` switch inside the submission
+form. WGS and GATK Cloud remain visible without opening a native select.
+Selecting a new pipeline updates the URL and remounts the corresponding
+adapter, so WGS batch state and GATK project-preview state cannot leak across
+workflows.
+
+The GATK form reads `/api/pipelines/gatk/release` and displays the approved
+profile, revision and execution state before the operator enters a project.
+When execution is disabled, preview remains available but confirmation is
+disabled with an explicit environment-state message.
 
 T233 applies the same capability boundary to Command Center intake. The T7
 scanner is shown for All pipelines and WGS because WGS declares `intake`; when

@@ -26,8 +26,7 @@ it("uses a pipeline-selectable staged WGS submission form", async () => {
   render(<App />);
 
   expect(await screen.findByRole("heading", {name: "Submit run"})).toBeInTheDocument();
-  expect(screen.getByLabelText("Pipeline")).toHaveValue("wgs");
-  expect(screen.getByRole("option", {name: "WGS"})).toBeInTheDocument();
+  expect(screen.getByRole("tab", {name: "WGS"})).toHaveAttribute("aria-selected", "true");
   expect(screen.queryByRole("option", {name: /WES/i})).not.toBeInTheDocument();
   expect(screen.getByLabelText("FASTQ root")).toBeInTheDocument();
   expect(screen.getByLabelText("Batch")).toBeInTheDocument();
@@ -43,7 +42,7 @@ it("uses a pipeline-selectable staged WGS submission form", async () => {
   expect(screen.queryByText(/preview is not enabled/)).not.toBeInTheDocument();
 });
 
-it("switches WGS and GATK Cloud from the Pipeline field", async () => {
+it("keeps WGS and GATK Cloud visible in the submission pipeline switcher", async () => {
   window.history.pushState({}, "", "/submit");
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
@@ -56,6 +55,7 @@ it("switches WGS and GATK Cloud from the Pipeline field", async () => {
         {id: "gatk", display_name: "GATK Cloud", dag_id: "bio_gatk", version: "7.6.0", enabled: true, submit_enabled: true, capabilities: ["submit", "rules", "artifacts"], execution_targets: ["cce"]},
       ],
     });
+    if (url.endsWith("/api/pipelines/gatk/release")) return json({pipeline: "gatk", profile_id: "gatk-scmc-v7.6.0", profile_revision: "bd04f6d", execution_target: "cce", execution_enabled: false});
     if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-6c98281", version: "V4.1.1", source_commit: "6c982817614db6a1157b6f287427ddf01ac91827", execution_enabled: true, runtime_adapter_enabled: true, submission_preview_enabled: false});
     if (url.endsWith("/api/wgs/projects")) return json({items: [{project_id: "WGS_Clinical", display_name: "WGS Clinical", platforms: [{platform_id: "T7", display_name: "T7 / hg38 / V4.1.1"}], fastq_roots: [{root_id: "T7_Fastq", display_name: "T7 FASTQ"}], editable_config: {use_reference: {type: "enum", values: ["all", "ref", "no"], default: "all"}}}]});
     return json({items: [], total: 0});
@@ -63,13 +63,15 @@ it("switches WGS and GATK Cloud from the Pipeline field", async () => {
 
   render(<App />);
 
-  const selector = await screen.findByLabelText("Pipeline");
-  expect(selector).toHaveValue("wgs");
-  expect(screen.getByRole("option", {name: "GATK Cloud"})).toBeInTheDocument();
-  expect(screen.queryByLabelText("Submission pipeline")).not.toBeInTheDocument();
-  fireEvent.change(selector, {target: {value: "gatk"}});
+  const wgsTab = await screen.findByRole("tab", {name: "WGS"});
+  const gatkTab = screen.getByRole("tab", {name: "GATK Cloud"});
+  expect(wgsTab).toHaveAttribute("aria-selected", "true");
+  expect(gatkTab).toHaveAttribute("aria-selected", "false");
+  fireEvent.click(gatkTab);
   expect(await screen.findByRole("heading", {name: "Submit GATK Cloud"})).toBeInTheDocument();
-  expect(screen.getByLabelText("Pipeline")).toHaveValue("gatk");
+  expect(screen.getByRole("tab", {name: "GATK Cloud"})).toHaveAttribute("aria-selected", "true");
+  expect(await screen.findByText("gatk-scmc-v7.6.0")).toBeInTheDocument();
+  expect(screen.getByText(/GATK execution is disabled/)).toBeInTheDocument();
   expect(window.location.search).toBe("?pipeline=gatk");
   expect(screen.queryByLabelText("FASTQ root")).not.toBeInTheDocument();
 });
@@ -89,6 +91,7 @@ it("previews and confirms a locked GATK Cloud project", async () => {
         {id: "gatk", display_name: "GATK Cloud", dag_id: "bio_gatk", version: "7.6.0", enabled: true, submit_enabled: true, capabilities: ["submit", "rules", "artifacts"], execution_targets: ["cce"]},
       ],
     });
+    if (url.endsWith("/api/pipelines/gatk/release")) return json({pipeline: "gatk", profile_id: "gatk-scmc-v7.6.0", profile_revision: "bd04f6d", execution_target: "cce", execution_enabled: true});
     if (url.endsWith("/api/pipelines/gatk/submission-preview")) return json({
       draft_id: "gatk-draft-1",
       preview_hash: "a".repeat(64),

@@ -18,6 +18,14 @@ def load_gate():
     return module
 
 
+def test_forced_command_loads_runtime_from_its_install_directory() -> None:
+    source = (ROOT / "gatk_runtime_forced_command.sh").read_text(encoding="utf-8")
+
+    assert 'script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"' in source
+    assert 'config_dir="${GATK_HOST_CONFIG_DIR:-${script_dir}}"' in source
+    assert "/home/ctapa" not in source
+
+
 def test_prepare_binding_exposes_only_frozen_cce_evidence_contract(tmp_path: Path) -> None:
     gate = load_gate()
     bundle = tmp_path / "run" / "cce"

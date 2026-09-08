@@ -45,6 +45,9 @@ Existing `/api/wgs/*` routes remain supported for WGS submission, intake, eviden
 
 ## GATK Cloud manual submission
 
+- `GET /api/pipelines/gatk/release` returns the approved profile ID, profile
+  revision, fixed `cce` execution target and the current execution-gate state.
+  It contains no node path, command, credential or image reference.
 - `POST /api/pipelines/gatk/submission-preview` accepts only
   `source_project_dir`. It returns an expiring draft/hash, batch, fixed profile,
   sampleinfo basename, locked SCMC sample IDs, FASTQ count/bytes and safe check

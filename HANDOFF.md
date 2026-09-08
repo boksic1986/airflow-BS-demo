@@ -1,5 +1,29 @@
 # HANDOFF.md
 
+## 2026-09-08 T235 GATK submission visibility and runtime readiness
+
+The live registry already deployed GATK, but Submit Run used a closed native
+select and therefore looked WGS-only. T235 replaces it with an always-visible
+WGS/GATK Cloud segmented switch and adds a safe release endpoint so the form
+can show the approved profile, revision and execution gate before preview.
+Disabled execution keeps project preview read-only and blocks confirmation.
+
+The runtime audit found a separate account-path defect: the GATK forced
+command was hard-coded to `/home/ctapa`. It now resolves its private env and
+gate relative to the installed wrapper, so the BS10610 test deployment can use
+the already approved `hanjj` key and `wgs-node200` SSH alias without copying
+credentials.
+
+The current V7.6.0 source inventory cannot be used for acceptance. Two batches
+miss a FASTQ pair member and two lack `sample2hospitalBarCode.txt`; preview
+must continue rejecting them. Do not enable `GATK_EXECUTION_ENABLED` until a
+complete controlled V7.6.0 source passes prepare/CCE/logger smoke and one
+Step1-Step6 acceptance run.
+
+Validation so far: backend release API 1/1, runtime gate 6/6, frontend 15
+files/56 tests, TypeScript/Vite build and disconnected runtime image assembly
+all passed on BS10610. No workflow, database, source or result was changed.
+
 ## 2026-09-08 T234 reusable offline frontend builder
 
 T234 replaces the repeated fengxian frontend-image transfer with one reusable,

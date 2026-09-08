@@ -83,8 +83,10 @@ and lease identity checks; an absent target may be recorded as
 
 1. Keep `GATK_EXECUTION_ENABLED=false` while applying migration 0019 and
    deploying backend, Airflow and frontend.
-2. Install the GATK forced command and runtime gate below
-   `/home/ctapa/.config/airflow-gatk`; create `runtime.env` from
+2. Install the GATK forced command and runtime gate below the restricted SSH
+   account's `.config/airflow-gatk` directory. The wrapper resolves
+   `runtime.env` and `gatk_runtime_gate.py` relative to its installed path.
+   Create `runtime.env` from
    `config/gatk_runtime.node200.env.example`, add no secrets to the repository,
    and set mode 0600.
 3. Verify the GATK repository is exactly the approved release and the pinned

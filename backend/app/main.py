@@ -507,6 +507,19 @@ def platform_capabilities() -> dict[str, object]:
     }
 
 
+@app.get("/api/pipelines/gatk/release")
+def gatk_release() -> dict[str, object]:
+    settings = get_settings()
+    definition = require_pipeline(settings, "gatk", capability="submit")
+    return {
+        "pipeline": definition.pipeline_id,
+        "profile_id": settings.gatk_runtime_profile_id,
+        "profile_revision": settings.gatk_runtime_profile_revision,
+        "execution_target": "cce",
+        "execution_enabled": bool(settings.gatk_execution_enabled),
+    }
+
+
 def _pipeline_http_exception(exc: PipelineRegistryError) -> HTTPException:
     status_code = (
         status.HTTP_404_NOT_FOUND

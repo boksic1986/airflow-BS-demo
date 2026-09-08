@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T235 GATK submission visibility and runtime readiness
+
+```text
+incident: the closed native Pipeline select made the deployed GATK adapter appear absent, while the environment intentionally kept GATK execution disabled.
+fix: Submit Run now exposes WGS and GATK Cloud as visible segmented controls. The GATK form reads a safe release endpoint and shows profile, revision and execution state before preview; confirmation remains fenced by the environment gate.
+runtime: the GATK forced-command wrapper now loads its private runtime files from its own installation directory, allowing the approved hanjj test key without a ctapa home-path dependency.
+input_audit: all four mounted V7.6.0 source projects are currently incomplete: two miss at least one FASTQ pair member and two miss sample2hospitalBarCode.txt. They remain rejected by preview.
+validation: targeted backend 1/1, runtime gate 6/6 and offline frontend 15 files/56 tests passed; TypeScript/Vite and the candidate nginx overlay image built without network access.
+safety: no real GATK run has been created, no execution gate has been opened, and WGS runtime/data are unchanged.
+```
+
 ## 2026-09-08 T234 reusable offline frontend builder
 
 ```text

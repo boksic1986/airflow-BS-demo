@@ -38,6 +38,9 @@ pipelines:
         pipeline_registry_path=str(registry),
         platform_environment="test",
         public_airflow_url="",
+        gatk_execution_enabled=False,
+        gatk_runtime_profile_id="gatk-scmc-v7.6.0",
+        gatk_runtime_profile_revision="bd04f6d",
     )
     monkeypatch.setattr(main, "get_settings", lambda: settings)
     main.clear_pipeline_registry_cache()
@@ -49,3 +52,14 @@ pipelines:
     assert gatk["dag_id"] == "bio_gatk"
     assert gatk["execution_targets"] == ["cce"]
     assert "intake" not in gatk["capabilities"]
+
+    release = TestClient(main.app).get("/api/pipelines/gatk/release")
+
+    assert release.status_code == 200
+    assert release.json() == {
+        "pipeline": "gatk",
+        "profile_id": "gatk-scmc-v7.6.0",
+        "profile_revision": "bd04f6d",
+        "execution_target": "cce",
+        "execution_enabled": False,
+    }

@@ -474,6 +474,14 @@ export type GatkSubmissionPreview = {
   expires_at: string;
 };
 
+export type GatkRelease = {
+  pipeline: "gatk";
+  profile_id: string;
+  profile_revision: string;
+  execution_target: "cce";
+  execution_enabled: boolean;
+};
+
 export type ReanalysisRequest = {
   mode: string;
   rule?: string | null;
@@ -1422,6 +1430,10 @@ export function previewGatkSubmission(sourceProjectDir: string): Promise<GatkSub
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({source_project_dir: sourceProjectDir}),
   });
+}
+
+export function getGatkRelease(): Promise<GatkRelease> {
+  return requestJson<GatkRelease>("/pipelines/gatk/release");
 }
 
 export function getWgsProjects(): Promise<WgsProjectCatalog> {

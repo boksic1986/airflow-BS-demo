@@ -1,5 +1,24 @@
 # TASKS.md
 
+## T235 - GATK submission visibility and runtime readiness
+
+Owner: backend/frontend/runtime/QA
+
+Status: in progress on BS10610 test environment
+
+Acceptance:
+- [x] Show WGS and GATK Cloud as an always-visible segmented switch in Submit Run.
+- [x] Expose the approved GATK profile and execution-gate state without runtime secrets.
+- [x] Keep GATK preview available and disable confirmation while its execution gate is closed.
+- [x] Make the GATK forced-command wrapper portable across restricted SSH accounts.
+- [x] Pass targeted backend/runtime tests and the complete frontend test/build offline.
+- [ ] Deploy the backend/frontend candidate and verify authenticated GATK selection/preview.
+- [ ] Enable GATK execution only after a valid V7.6.0 input and controlled Step1-Step6 smoke pass.
+
+Safety:
+- No WGS run, source FASTQ, result, database row or Airflow history is deleted.
+- An incomplete GATK source remains blocked at preview; the test gate is not bypassed.
+
 ## T234 - Reusable offline frontend builder
 
 Owner: infra/frontend/QA
