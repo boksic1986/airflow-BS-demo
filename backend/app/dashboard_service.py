@@ -13,7 +13,14 @@ from app.qc_highlights import qc_highlights_by_run
 
 
 SUPPORTED_DASHBOARD_PIPELINES = {"all", "deployed"}
-ACTIVE_STATUSES = {"running", "submitted", "queued", "scheduled"}
+ACTIVE_STATUSES = {
+    "running",
+    "submitted",
+    "queued",
+    "scheduled",
+    "publishing",
+    "downloading",
+}
 FAILED_STATUSES = {"failed", "fail", "error", "terminated"}
 STATUS_ORDER = {
     "running": 0,

@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T229 live terminal and console consistency
+
+```text
+scope: keep active publishing/downloading runs ahead of terminal rows, reconcile stale Step2 callbacks from later-stage evidence, expose active transfer files first, retain Run Detail content during five-second refresh, and close successful Sample/Rule projections.
+baseline: 20260906B remained on the same DagRun/attempt. At the implementation checkpoint Step3 and Step4 were successful, Step5 was running at 417416854098/417416854175 bytes with 28/29 files successful and one accepted checksum file; all 557 Rule states were successful. No workflow process was interrupted.
+fix: dashboard active status includes publishing/downloading; the six-stage projector treats authoritative downstream execution as predecessor success; transfer files sort running then accepted then failed then success; terminal successful runs project stale Sample/Rule activity as success without rewriting raw audit rows. The previously misplaced WGS workflow projector is restored, so run rails and recent Workflow Catalog records are populated.
+frontend: Step1-Step6 borders are 2px with state colors, file refresh retains the current table, Run Detail refreshes only affected data, Workflow Catalog lists five recent runs per deployed adapter, and the deployed WGS display name is WGS.
+validation: isolated .96 cached images passed 19 focused backend tests and 4 frontend files / 20 tests; TypeScript/Vite production build passed with --network=none and --pull=never. Docker Hub was not contacted.
+deployment: pending production backend/frontend synchronization after the active Step5 continuity check.
+```
+
 ## 2026-09-08 T228 CCE Job snapshot fallback and Step3 monitor recovery
 
 ```text

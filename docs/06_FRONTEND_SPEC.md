@@ -25,6 +25,14 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 - Batch Runs falls back to `workflow_status`/`workflow_label` when detailed stage rail data is absent.
 - Failed Step7 actions keep generation history visible and offer a revision-fenced retry only when the backend reports it safe.
 
+### T229 live refresh and workflow history
+
+- Run Tracker keeps publishing/downloading batches ahead of completed rows. Workflow rails consume the restored adapter projection.
+- Step1-Step6 cards use a 2px border: current is blue, success green and failed red.
+- Expanded transfer files keep the existing table during five-second refresh; active downloads appear before accepted and completed files.
+- Run Detail refreshes workspace plus only the active tab data and never replaces a loaded page with a full-page loading state.
+- Workflow Catalog uses the registry display name and shows the five newest run records per deployed pipeline through the generic run-list API. Current production displays `WGS`.
+
 ## Branding
 
 The product label is `NGS Huawei Cloud` with the subtitle `Online analysis platform`. WGS names remain only where they identify the currently deployed workflow or extension.

@@ -1,9 +1,30 @@
 from __future__ import annotations
 
+from sqlalchemy import case
+
+from app.models import TransferFileState
 from app.models import TransferJob
 
 
 SUCCESS_STATES = {"success", "succeeded", "complete", "completed"}
+
+
+def transfer_file_order_by():
+    """Keep active file evidence ahead of queued and completed rows."""
+
+    status = case(
+        (TransferFileState.status.in_(("running", "started")), 0),
+        (
+            TransferFileState.status.in_(
+                ("accepted", "planned", "submitted", "queued", "pending")
+            ),
+            1,
+        ),
+        (TransferFileState.status.in_(("failed", "error")), 2),
+        (TransferFileState.status.in_(tuple(SUCCESS_STATES)), 3),
+        else_=4,
+    )
+    return status, TransferFileState.updated_at.desc(), TransferFileState.id
 
 
 def transfer_progress_percent(row: TransferJob) -> float | None:

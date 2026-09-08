@@ -55,4 +55,26 @@ describe("WgsTransfersTab", () => {
     expect(screen.getByTitle("Pending")).toBeInTheDocument();
     expect(screen.getByText("64.0 MiB/s")).toBeInTheDocument();
   });
+
+  it("keeps the existing file table visible while a live snapshot refreshes", async () => {
+    const files = vi.spyOn(api, "getTransferFiles")
+      .mockResolvedValueOnce({
+        items: [{file_key: "active", display_name: "active.cram", status: "running", bytes_total: 100, bytes_transferred: 25, progress_percent: 25, speed_bps: 10}],
+        total: 1,
+        limit: 50,
+        offset: 0,
+      })
+      .mockImplementationOnce(() => new Promise(() => {}));
+    const detail = {analysis_id: "WGS_TRANSFER", pipeline: "wgs", status: "downloading", params: {batch_no: "B1"}} as RunDetail;
+    const transfers: WgsTransfer[] = [{transfer_id: "result", direction: "download", status: "running", progress_detail_available: true, progress_percent: 25}];
+    const {rerender} = render(<WgsTransfersTab detail={detail} transfers={transfers} refreshKey="snapshot-1" />);
+    fireEvent.click(screen.getByRole("button", {name: /File progress/i}));
+    await screen.findByText("active.cram");
+
+    rerender(<WgsTransfersTab detail={detail} transfers={transfers} refreshKey="snapshot-2" />);
+
+    expect(files).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("active.cram")).toBeInTheDocument();
+    expect(screen.queryByText("Loading file progress...")).not.toBeInTheDocument();
+  });
 });

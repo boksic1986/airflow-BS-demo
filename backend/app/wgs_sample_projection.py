@@ -214,26 +214,30 @@ def _matrix_row(*, sample: Sample, run: AnalysisRun, rules: list[RuleState], exp
             row.rule_name,
         ),
     )
-    failed = next((row for row in reversed(ordered) if row.status.lower() in {"failed", "error"}), None)
-    running = next((row for row in reversed(ordered) if row.status.lower() in ACTIVE), None)
+    workflow_success = str(run.status or "").lower() == "success"
+    failed = None if workflow_success else next((row for row in reversed(ordered) if row.status.lower() in {"failed", "error"}), None)
+    running = None if workflow_success else next((row for row in reversed(ordered) if row.status.lower() in ACTIVE), None)
     current = failed or running or (ordered[-1] if ordered else None)
     completed = sum(row.status.lower() in TERMINAL_SUCCESS for row in ordered)
     total = max(expected_total, len(ordered))
+    if workflow_success:
+        completed = total
     progress = round(completed * 100 / total, 1) if total else None
     started = [row.started_at for row in ordered if row.started_at]
     ended = [row.ended_at for row in ordered if row.ended_at]
     elapsed = None
     if started:
-        end = max(ended) if ended and not running else datetime.now(timezone.utc)
+        terminal_end = run.pipeline_finished_at or run.ended_at
+        end = terminal_end if workflow_success and terminal_end else max(ended) if ended and not running else datetime.now(timezone.utc)
         start = min(_aware(value) for value in started)
         elapsed = max(0, int((_aware(end) - start).total_seconds()))
-    status = (
+    status = "success" if workflow_success else (
         "failed" if failed else "running" if running else
         "success" if ordered and completed == len(ordered) else sample.status
     )
     data_id = str(metadata.get("data_id") or sample.sample_id)
     qc_value = qc.get(sample.sample_id) or qc.get(data_id) or qc.get(data_id.removesuffix("-WGS")) or {}
-    current_stage = (
+    current_stage = "Workflow completed" if workflow_success else (
         (current.phase or wgs_phase_for_rule(current.rule_name))
         if current
         else _text(run.current_stage)
@@ -244,7 +248,7 @@ def _matrix_row(*, sample: Sample, run: AnalysisRun, rules: list[RuleState], exp
         "family_id": sample.family_id,
         "family_relation": _text(metadata.get("family_relation")),
         "current_stage": current_stage,
-        "current_rule": current.rule_name if current else None,
+        "current_rule": None if workflow_success else current.rule_name if current else None,
         "completed_rules": completed,
         "total_rules": total,
         "progress_percent": progress,

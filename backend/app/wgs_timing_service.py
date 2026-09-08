@@ -31,8 +31,8 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
         projected_message = row.message
         if (
             str(run.status or "").lower() == "success"
-            and row.rule_name == "cloud_finalize_delivery"
-            and str(row.status or "").lower() in {"planned", "submitted", "running", "started"}
+            and str(row.status or "").lower()
+            in {"planned", "accepted", "pending", "queued", "submitted", "running", "started"}
         ):
             projected_status = "success"
             projected_ended_at = run.pipeline_finished_at or run.ended_at

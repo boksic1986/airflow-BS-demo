@@ -1,5 +1,25 @@
 # TASKS.md
 
+## T229 - Live terminal and console consistency
+
+Owner: WGS/backend/frontend/operations
+
+Status: implementation validated; production synchronization pending
+
+Acceptance:
+- [x] Rank `publishing` and `downloading` as active Run Tracker states before terminal runs.
+- [x] Reconcile stale Step2 state when Step3 or a later stage has authoritative execution evidence.
+- [x] Use thicker state-colored Step1-Step6 borders.
+- [x] Sort transfer files `running -> accepted -> failed -> success` and retain the existing file table during refresh.
+- [x] Project successful workflow terminal state into Samples and Rules without changing raw evidence rows.
+- [x] Restore WGS workflow summaries, display `WGS`, and show recent Workflow Catalog runs.
+- [x] Pass focused backend/frontend tests and a production build using cached images with no network.
+- [ ] Synchronize production backend/frontend, verify `20260906B`, health, authenticated APIs and the published UI.
+
+Restrictions:
+- Keep WGS 4.1.1 and contract v1; do not activate T222 prepare contract v2 or WGS 4.2.0.
+- Do not restart Airflow scheduler/worker, resubmit CCE work, or mutate transfer evidence.
+
 ## T228 - Make CCE Job evidence collection resilient and recover Step3 monitoring
 
 Owner: WGS/runtime/operations

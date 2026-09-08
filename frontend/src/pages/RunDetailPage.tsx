@@ -83,11 +83,11 @@ export function RunDetailPage() {
   const [lastAutoSyncedAt, setLastAutoSyncedAt] = useState<string | null>(null);
   const workspaceRequestInFlight = useRef(false);
 
-  const loadDetail = useCallback(async () => {
+  const loadDetail = useCallback(async (showSpinner = true) => {
     if (!analysisId) return;
     if (workspaceRequestInFlight.current) return;
     workspaceRequestInFlight.current = true;
-    setLoading(true);
+    if (showSpinner) setLoading(true);
     setError(null);
     setProgressError(null);
     try {
@@ -135,7 +135,7 @@ export function RunDetailPage() {
     } catch (loadError) {
       setError(errorMessage(loadError));
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
       workspaceRequestInFlight.current = false;
     }
   }, [analysisId, capabilities]);
@@ -231,10 +231,16 @@ export function RunDetailPage() {
     if (!analysisId || !detail || (!isActiveStatus(detail.status) && !step7Active)) return;
     const refreshActiveRun = async () => {
       if (document.visibilityState === "hidden") return;
-      await loadDetail();
+      await loadDetail(false);
       if (activeTab === "Rules") {
         const result = await getRunRules(analysisId, {limit: 50, sort: "active_first"});
         setBundle((current) => ({...current, rules: result.items}));
+      } else if (activeTab === "Overview" || activeTab === "Samples" || activeTab === "QC") {
+        const result = await getRunSamples(analysisId);
+        setBundle((current) => ({...current, samples: result.items, manifest: result.manifest || [], manifestSummary: result.manifest_summary || null}));
+      } else if (activeTab === "Transfers") {
+        const result = await getRunTransfers(analysisId);
+        setBundle((current) => ({...current, transfers: result.items}));
       }
       setLastAutoSyncedAt(new Date().toISOString());
     };

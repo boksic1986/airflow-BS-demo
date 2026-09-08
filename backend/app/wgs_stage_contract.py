@@ -126,15 +126,29 @@ def project_wgs_orchestration(
     canonical = canonical_wgs_stage(current_stage, run_status)
     codes = [stage.code for stage in WGS_ORCHESTRATION_STAGES]
     current_index = codes.index(canonical) if canonical in codes else None
+    evidence_indexes = [
+        codes.index(code)
+        for code, row in rows.items()
+        if code in codes
+        and _public_stage_status(row.stage_status)
+        not in {"pending", "accepted", "submitted"}
+    ]
+    effective_index = max(
+        [index for index in (current_index, *evidence_indexes) if index is not None],
+        default=None,
+    )
     items: list[dict[str, object]] = []
     for index, stage in enumerate(WGS_ORCHESTRATION_STAGES):
         row = rows.get(stage.code)
         if status == "success":
             stage_status = "success"
+        elif effective_index is not None and index < effective_index:
+            # A later stage cannot start until its predecessors have completed.
+            # Keep the raw stage row for audit, but reconcile stale accepted or
+            # failed callbacks in the public projection.
+            stage_status = "success"
         elif row is not None:
             stage_status = _public_stage_status(row.stage_status)
-        elif current_index is not None and index < current_index:
-            stage_status = "success"
         elif current_index is not None and index == current_index:
             stage_status = wgs_stage_status_without_evidence(status)
         elif canonical == "final":

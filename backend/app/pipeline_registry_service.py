@@ -41,7 +41,7 @@ DEFAULT_REGISTRY_PAYLOAD: dict[str, Any] = {
     "version": 1,
     "pipelines": {
         "wgs": {
-            "display_name": "Whole genome sequencing",
+            "display_name": "WGS",
             "dag_id": "bio_wgs",
             "adapter": "wgs",
             "enabled": True,
@@ -184,6 +184,16 @@ def _project_wgs_workflows(*, session, runs, **_) -> dict[str, list[dict[str, An
     rows_by_attempt: dict[tuple[str, int], list[RunStageState]] = {
         key: [] for key in attempts
     }
+    for row in stage_rows:
+        rows_by_attempt.setdefault((row.analysis_id, row.attempt), []).append(row)
+    return {
+        run.analysis_id: project_wgs_orchestration(
+            run_status=run.status,
+            current_stage=run.current_stage,
+            stage_rows=rows_by_attempt.get((run.analysis_id, run.attempt), []),
+        )
+        for run in runs
+    }
 
 
 def _project_wgs_rule_context(*, run, **_) -> dict[str, Any]:
@@ -227,16 +237,6 @@ def _project_wgs_sample_summary(*, run, sample, metadata, **_) -> dict[str, Any]
         "sex": sample.sex,
         "sequencing_batch": metadata.get("sequencing_batch")
         or (run.params_json or {}).get("sequencing_batch"),
-    }
-    for row in stage_rows:
-        rows_by_attempt.setdefault((row.analysis_id, row.attempt), []).append(row)
-    return {
-        run.analysis_id: project_wgs_orchestration(
-            run_status=run.status,
-            current_stage=run.current_stage,
-            stage_rows=rows_by_attempt.get((run.analysis_id, run.attempt), []),
-        )
-        for run in runs
     }
 
 

@@ -1,5 +1,35 @@
 # HANDOFF.md
 
+## 2026-09-08 T229 live terminal and console consistency
+
+T229 repairs display/projection defects around the live `20260906B` run without
+changing WGS execution. `publishing` and `downloading` are dashboard-active
+states; later-stage runtime evidence reconciles stale predecessor callbacks;
+transfer files are returned active-first; and a successful workflow projects
+stale Sample/Rule activity as terminal success while retaining raw database
+evidence for audit. The accidentally unreachable WGS workflow projector was
+restored, which also repairs detailed Run rails and enables recent records in
+Workflow Catalog. The registry display name is `WGS`.
+
+Run Detail and the expanded transfer table now keep existing content during
+five-second refresh and update only the affected state. Step1-Step6 cards use
+2px state-colored borders. Workflow Catalog loads the five newest runs through
+the generic `/api/runs` adapter path.
+
+The live pre-deployment checkpoint retained the same
+`WGS_20260907_152648_54EFF2-a1`: Step3/Step4 were successful, Step5 had copied
+`417416854098/417416854175` bytes, 28/29 files were successful and the final
+77-byte checksum file was accepted. All 557 Rule states were successful. SDK
+file snapshots were therefore healthy; ordering hid the active row.
+
+Validation used cached `.96` backend and Node images with `--pull=never` and
+`--network=none`: 19 focused backend tests passed; four frontend files / 20
+tests passed; TypeScript/Vite build passed. The BS10610 `nipttest` interpreter
+was checked first but lacked SQLAlchemy, so no package was installed and the
+cached production backend image was used. Production synchronization remains
+pending. Rollback is source/frontend only; do not touch the database, Airflow,
+CCE workload or transfer evidence.
+
 ## 2026-09-08 T228 CCE Job snapshot fallback and 20260906B recovery
 
 `20260906B` did not have a biological Rule failure. The run-bound CCE set had

@@ -1,5 +1,5 @@
 import {ChevronDown, ChevronRight, RefreshCw} from "lucide-react";
-import {useCallback, useEffect, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 
 import {getTransferFiles} from "../../api";
 import type {RunDetail, WgsTransfer, WgsTransferFile} from "../../api";
@@ -45,9 +45,10 @@ function TransferFiles({transferId, refreshKey}: {transferId: string; refreshKey
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadedOnce = useRef(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!loadedOnce.current) setLoading(true);
     setError(null);
     try {
       const result = await getTransferFiles(transferId, {limit: PAGE_SIZE, offset});
@@ -56,15 +57,16 @@ function TransferFiles({transferId, refreshKey}: {transferId: string; refreshKey
     } catch (loadError) {
       setError(errorMessage(loadError));
     } finally {
+      loadedOnce.current = true;
       setLoading(false);
     }
   }, [offset, transferId]);
 
   useEffect(() => { if (document.visibilityState !== "hidden") void load(); }, [load, refreshKey]);
 
-  if (loading) return <p className="muted">Loading file progress...</p>;
-  if (error) return <div className="inline-error" role="alert">File progress unavailable: {error} <button className="button ghost" type="button" onClick={() => void load()}><RefreshCw size={14} />Retry</button></div>;
+  if (loading && items.length === 0) return <p className="muted">Loading file progress...</p>;
   return <div className="transfer-files">
+    {error ? <div className="inline-error" role="alert">File progress unavailable: {error} <button className="button ghost" type="button" onClick={() => void load()}><RefreshCw size={14} />Retry</button></div> : null}
     <div className="table-wrap"><table className="data-table compact"><thead><tr><th>File</th><th>Status</th><th>Progress</th><th>Speed</th><th>Checksum</th><th>Started</th><th>Finished</th></tr></thead><tbody>
       {items.map((item) => <tr key={item.file_key}><td><strong>{item.display_name}</strong>{item.error_message ? <small className="cell-error">{item.error_message}</small> : null}</td><td><StatusBadge status={item.status} /></td><td><div className="file-progress-cell"><progress max={100} value={item.progress_percent} aria-label={`${item.display_name} progress`} /><span>{formatPercent(item.progress_percent)} · {formatBytes(item.bytes_transferred)} / {formatBytes(item.bytes_total)}</span></div></td><td>{item.speed_bps ? `${formatBytes(item.speed_bps)}/s` : "-"}</td><td><StatusBadge status={item.checksum_status || "pending"} /></td><td>{item.started_at ? formatDate(item.started_at) : "-"}</td><td>{item.ended_at ? formatDate(item.ended_at) : "-"}</td></tr>)}
       {items.length === 0 ? <tr><td className="empty-cell" colSpan={7}>No per-file progress has been imported yet.</td></tr> : null}

@@ -1,7 +1,7 @@
 version: 1
 pipelines:
   wgs:
-    display_name: Whole genome sequencing
+    display_name: WGS
     dag_id: bio_wgs
     version: 4.1.1
     adapter: wgs

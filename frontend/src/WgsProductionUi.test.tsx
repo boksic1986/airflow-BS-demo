@@ -27,7 +27,7 @@ it("uses a pipeline-selectable staged WGS submission form", async () => {
 
   expect(await screen.findByRole("heading", {name: "Submit run"})).toBeInTheDocument();
   expect(screen.getByLabelText("Pipeline")).toHaveValue("wgs");
-  expect(screen.getByRole("option", {name: "Whole genome sequencing"})).toBeInTheDocument();
+  expect(screen.getByRole("option", {name: "WGS"})).toBeInTheDocument();
   expect(screen.queryByRole("option", {name: /WES/i})).not.toBeInTheDocument();
   expect(screen.getByLabelText("FASTQ root")).toBeInTheDocument();
   expect(screen.getByLabelText("Batch")).toBeInTheDocument();
@@ -445,7 +445,7 @@ function wgsCapabilities(environment = "WGS") {
     deployed_pipelines: ["wgs"],
     pipelines: [{
       id: "wgs",
-      display_name: "Whole genome sequencing",
+      display_name: "WGS",
       dag_id: "bio_wgs",
       version: "4.1.1",
       enabled: true,

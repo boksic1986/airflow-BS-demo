@@ -1491,6 +1491,8 @@ def run_transfers(analysis_id: str) -> dict[str, object]:
 
 @app.get("/api/transfers/{transfer_id}/files")
 def transfer_files(transfer_id: str, status_filter: str | None = Query(default=None, alias="status"), limit: int = Query(default=50, ge=1, le=500), offset: int = Query(default=0, ge=0)) -> dict[str, object]:
+    from app.wgs_transfer_projection import transfer_file_order_by
+
     with get_sessionmaker()() as session:
         transfer = session.scalar(select(TransferJob).where(TransferJob.transfer_id == transfer_id))
         if transfer is None:
@@ -1499,7 +1501,9 @@ def transfer_files(transfer_id: str, status_filter: str | None = Query(default=N
         if status_filter:
             query = query.where(TransferFileState.status == status_filter)
         total = session.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
-        rows = session.scalars(query.order_by(TransferFileState.id).limit(limit).offset(offset)).all()
+        rows = session.scalars(
+            query.order_by(*transfer_file_order_by()).limit(limit).offset(offset)
+        ).all()
         return {
             "items": [
                 {
