@@ -1,5 +1,23 @@
 # SERVER_INFO.md
 
+## T233 Dashboard resource alignment production sync (2026-09-08)
+
+```text
+primary: 172.17.61.96
+release: /data/airflow-WGS/releases/20260908-t233-dashboard-resource-alignment-r1
+frontend_image: airflow-demo/frontend:t233-resource-align-37a497a
+frontend_image_id: sha256:8f9434e64023d4f8544f84f96abfc68489d40279a2acb4afa6b2981aae3a8a77
+source_commit: 37a497ab0ee626a20c544fbc47a4d62312b34bfa
+build: cached production Node dependencies and cached T232 nginx base; network none and pull disabled
+recreated_service: frontend-nginx only
+preserved: all nine running non-frontend Compose services retained IDs, start times and restart counts
+smoke: root 200; /api/health 200; served index-BIG81086.css and index-DnGZwlbr.js contain T233 markers and omit the removed SFS note
+scanner: unchanged interval_seconds=1800 and full-directory shallow-check behavior
+rollback_env: /data/airflow-WGS/env/production.env.pre-T233-20260908
+rollback_release: /data/airflow-WGS/releases/20260908-t232-project-tag-alignment-r1
+published_ports: 172.17.61.96:12959 only
+```
+
 ## T232 wide-screen Project source alignment production sync (2026-09-08)
 
 ```text

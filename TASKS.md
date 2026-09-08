@@ -4,7 +4,7 @@
 
 Owner: frontend
 
-Status: implementation validated; production synchronization pending
+Status: completed in production
 
 Acceptance:
 - [x] Place the resource-panel grid inside the same Dashboard main column as Run Tracker and T7.
@@ -14,7 +14,7 @@ Acceptance:
 - [x] Rename the T7 timestamp heading to `最近检查` without changing scanner behavior.
 - [x] Confirm production remains a 30-minute full-directory shallow scan with one cycle timestamp.
 - [x] Pass focused frontend tests and one production build using cached images without network access.
-- [ ] Commit, synchronize `main`, and deploy only `frontend-nginx`.
+- [x] Commit, synchronize `main`, and deploy only `frontend-nginx`.
 
 ## T232 - Center Project source tag on wide screens
 

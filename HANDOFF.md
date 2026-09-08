@@ -10,7 +10,11 @@ Production scanner evidence showed runs at approximately 30-minute intervals wit
 
 TDD evidence: the focused suite first failed 4 assertions because the resource grid was outside the main column, the heading still said `最近扫描`, the shared panel/control markers were absent and the unit note remained. After implementation, 3 files / 16 tests passed. A single TypeScript/Vite production build passed in the cached fengxian frontend image with `--network none` and `--pull never`; outputs were `index-BIG81086.css` and `index-DnGZwlbr.js`. No package or image download was used.
 
-Production deployment and rollback evidence will be appended after the frontend-only cutover.
+`origin/main` contains the T233 implementation. Production now points to `/data/airflow-WGS/releases/20260908-t233-dashboard-resource-alignment-r1` and serves `airflow-demo/frontend:t233-resource-align-37a497a` (`sha256:8f9434e64023d4f8544f84f96abfc68489d40279a2acb4afa6b2981aae3a8a77`). Root and `/api/health` returned 200. Served assets `index-BIG81086.css` and `index-DnGZwlbr.js` contain the layout/control/wording markers and omit the removed SFS note. `frontend-nginx` has restart count 0; all nine running non-frontend Compose services retained their container IDs, start times and restart counts.
+
+The first protected cutover failed closed because the temporary static-file layer container's `sh` entrypoint was inherited by the committed candidate image, so nginx did not start. The rollback trap restored T232 and its health endpoints before the candidate was corrected. The image was rebuilt with the original nginx entrypoint and command, validated in isolation, and the second frontend-only cutover passed. No non-frontend service was recreated during either attempt.
+
+Rollback: restore `/data/airflow-WGS/env/production.env.pre-T233-20260908`, repoint `current` to `/data/airflow-WGS/releases/20260908-t232-project-tag-alignment-r1`, and recreate only `frontend-nginx`.
 
 ## 2026-09-08 T232 wide-screen Project source alignment
 
