@@ -75,6 +75,10 @@ they never fall back to arbitrary host paths.
 - Restricted servers must build from preloaded, approved images with
   `--pull=false`. Current backend validation uses the locally cached
   `python:3.11.9-slim-bookworm`; no Docker Hub access is required.
+- Frontend source releases use the preloaded lockfile-bound Node builder and a
+  host-local nginx runtime contract. Target-host builds use `--network none`
+  and never run `docker pull` or `npm ci`. Builder archives move only through
+  the approved local relay with SHA256 verification at every hop.
 - Never run volume/system prune or `docker compose down -v` as part of a
   release.
 

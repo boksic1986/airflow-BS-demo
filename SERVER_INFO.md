@@ -1,5 +1,22 @@
 # SERVER_INFO.md
 
+## T234 reusable offline frontend builder (2026-09-08)
+
+```text
+builder_image: airflow-demo/frontend-builder:node22-lock-35420d5e3ec0
+builder_image_id: sha256:25e83a56052d63d900e253c618d342679bb46b66e4566390fa52eb3233702fdf
+node: 22.23.1
+package_lock_sha256: 35420d5e3ec0f9555738f61e983cb05de30640db82f034d2659f87fd40a324b1
+archive_sha256: b5df43b3e26748d08580464832f7688fa36d67c6b2eb12fe681ce57b7dfde1cc
+bs10610_archive: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/image-archives/frontend-builder
+bs10610_runtime_base: airflow-demo/frontend-runtime:nginx-1.30.3-local-contract
+production_archive: /data/airflow-WGS/image-archives/frontend-builder
+production_runtime_base: airflow-demo/frontend-runtime:nginx-1.30.3-local-contract
+transfer: fengxian -> Windows staging -> each target; no remote-to-remote copy
+validation: BS10610 offline build, 56 frontend tests, TypeScript/Vite build and nginx contract passed
+deployment: none; running frontend containers were not restarted
+```
+
 ## T231 compact centered Run Tracker production sync (2026-09-08)
 
 ```text

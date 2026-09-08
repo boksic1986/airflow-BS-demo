@@ -1,5 +1,29 @@
 # TASKS.md
 
+## T234 - Reusable offline frontend builder
+
+Owner: infra/frontend/QA
+
+Status: completed on BS10610 and installed on production `.96`
+
+Acceptance:
+- [x] Build one Node 22 builder image bound to the exact frontend lockfile.
+- [x] Export the builder with SHA256 and provenance, then transfer it through
+  the local workstation rather than between servers.
+- [x] Load the identical builder image on BS10610 and `.96`.
+- [x] Reuse a locally tagged nginx runtime image instead of moving a complete
+  frontend image for each source-only release.
+- [x] Fail closed when the local lockfile or Node major does not match the
+  builder labels.
+- [x] Run frontend tests, TypeScript/Vite build and runtime assembly on
+  BS10610 with Docker build networking disabled and pulls disabled.
+
+Safety:
+- No service restart, release-pointer switch, database, DAG, scanner,
+  workflow, execution gate or analysis-state change.
+- Rebuild and retransfer the builder only when `package-lock.json`, the Node
+  major, or the approved Node base changes.
+
 ## T233 - Capability-aware Intake display
 
 Owner: platform/backend/frontend

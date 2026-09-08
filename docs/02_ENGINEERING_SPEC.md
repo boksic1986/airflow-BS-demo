@@ -40,3 +40,21 @@ forced-command SSH boundary; node200 does not connect to the biodemo database.
 ## Testing
 
 Runtime tests execute on approved remote hosts. Offline validation uses cached images with `--network none` where possible. A test run must not create Docker networks, publish ports, or contact production execution services.
+
+## Reusable frontend builder
+
+Frontend source-only releases use a two-image offline contract:
+
+- `airflow-demo/frontend-builder:node22-lock-<lock-sha-prefix>` contains Node
+  and the exact `npm ci` dependency tree. Labels record the complete
+  `package-lock.json` SHA256 and Node major.
+- A host-local `airflow-demo/frontend-runtime:*` image contains the approved
+  nginx version and deployment-specific gateway configuration.
+
+`scripts/build_frontend_offline.sh` verifies both local images, runs tests and
+the TypeScript/Vite build with Docker networking disabled, extracts only
+`dist`, removes the prior static assets, and layers the new bundle onto the
+runtime image. It does not run `npm ci`, pull an image, or contact a registry.
+Changing the lockfile, Node major, nginx contract or approved base is an image
+contract change and requires a newly identified base rather than silently
+reusing an incompatible cache.

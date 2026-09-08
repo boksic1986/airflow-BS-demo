@@ -10,6 +10,43 @@
 
 Production hosts must not contact Docker Hub. Use an approved cached base image or the internal image registry. The backend uses `python:3.11.9-slim-bookworm`; on BS10610 this short name is tagged locally from the already cached equivalent image before building with `--pull=false`. Never run `docker pull` as part of acceptance.
 
+### Frontend builder bootstrap
+
+The approved T234 builder is:
+
+```text
+airflow-demo/frontend-builder:node22-lock-35420d5e3ec0
+image ID: sha256:25e83a56052d63d900e253c618d342679bb46b66e4566390fa52eb3233702fdf
+package-lock SHA256: 35420d5e3ec0f9555738f61e983cb05de30640db82f034d2659f87fd40a324b1
+archive SHA256: b5df43b3e26748d08580464832f7688fa36d67c6b2eb12fe681ce57b7dfde1cc
+```
+
+It is already loaded on BS10610 and production `.96`. Do not move a complete
+frontend image from fengxian for an ordinary source-only release. From a
+candidate release on BS10610 run:
+
+```bash
+FRONTEND_SOURCE_COMMIT=<git-sha> \
+  scripts/build_frontend_offline.sh airflow-demo/frontend:<release-tag>
+```
+
+Each host first binds its approved gateway to the same host-local alias:
+
+```bash
+docker tag <approved-current-frontend-image> \
+  airflow-demo/frontend-runtime:nginx-1.30.3-local-contract
+
+FRONTEND_SOURCE_COMMIT=<git-sha> \
+  scripts/build_frontend_offline.sh airflow-demo/frontend:<release-tag>
+```
+
+The script tests and builds with `--network none --pull=false`, and writes
+`.build/frontend-offline/frontend-image-provenance.json`. A lock mismatch is a
+hard stop. Rebuild the base with `scripts/build_frontend_builder_base.sh` on an
+approved connected builder only when `package-lock.json`, Node major or the
+approved Node base changes. Export one tar plus provenance and SHA256, relay it
+through the local workstation, and load it independently on each target.
+
 ## Network policy
 
 Compose joins an existing external network named by `NGS_PLATFORM_NETWORK`. This repository does not create the network, assign its subnet, or open additional ports during validation. Use `--network none` for tests that do not need services.

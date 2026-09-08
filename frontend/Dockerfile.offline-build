@@ -1,0 +1,11 @@
+ARG FRONTEND_BUILDER_IMAGE
+FROM ${FRONTEND_BUILDER_IMAGE} AS source
+
+WORKDIR /app
+COPY . .
+
+FROM source AS test
+RUN npm test -- --run
+
+FROM source AS build
+RUN npm run build

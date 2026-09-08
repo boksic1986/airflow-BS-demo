@@ -1,0 +1,13 @@
+ARG NODE_IMAGE=node:22-bookworm
+FROM ${NODE_IMAGE}
+
+ARG FRONTEND_LOCK_SHA256
+ARG NODE_MAJOR=22
+
+LABEL org.opencontainers.image.title="airflow-demo frontend offline builder"
+LABEL io.airflow-demo.frontend.lock-sha256="${FRONTEND_LOCK_SHA256}"
+LABEL io.airflow-demo.frontend.node-major="${NODE_MAJOR}"
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci

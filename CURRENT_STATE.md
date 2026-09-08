@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T234 reusable offline frontend builder
+
+```text
+goal: stop moving a complete frontend build image from fengxian for every UI source change.
+builder: airflow-demo/frontend-builder:node22-lock-35420d5e3ec0, image sha256:25e83a56052d..., Node 22.23.1, package-lock SHA256 35420d5e3ec0f9555738f61e983cb05de30640db82f034d2659f87fd40a324b1.
+transfer: fengxian exported one 1.3 GiB archive; SHA256 b5df43b3e26748d08580464832f7688fa36d67c6b2eb12fe681ce57b7dfde1cc was verified on fengxian, the Windows relay, BS10610 and production .96. No remote-to-remote copy was used.
+runtime: each host aliases its currently approved nginx gateway as airflow-demo/frontend-runtime:nginx-1.30.3-local-contract. The alias intentionally resolves to the BS10610 T233 image on the test host and the current production gateway image on .96.
+validation: BS10610 used the reusable builder with --network none and --pull=false; 15 frontend files/56 tests passed, TypeScript/Vite built, the runtime overlay image was assembled, and nginx -t passed on the existing internal network. A forced Node-major mismatch failed before any build step.
+safety: the candidate image was not deployed. BS10610 and .96 running frontend containers retained their existing images and were not restarted. No backend, Airflow, database, scanner or workflow state changed.
+policy: ordinary React/TypeScript/CSS releases build locally on BS. A lockfile, Node-major or approved-base change requires a newly identified builder and one controlled local-relay transfer.
+```
+
 ## 2026-09-08 T233 capability-aware Intake display
 
 ```text

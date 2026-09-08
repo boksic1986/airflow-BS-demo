@@ -1,5 +1,54 @@
 # HANDOFF.md
 
+## 2026-09-08 T234 reusable offline frontend builder
+
+T234 replaces the repeated fengxian frontend-image transfer with one reusable,
+lockfile-bound builder. The image is
+`airflow-demo/frontend-builder:node22-lock-35420d5e3ec0`, with image ID
+`sha256:25e83a56052d63d900e253c618d342679bb46b66e4566390fa52eb3233702fdf`,
+Node `22.23.1`, and package-lock SHA256
+`35420d5e3ec0f9555738f61e983cb05de30640db82f034d2659f87fd40a324b1`.
+
+The one-time tar SHA256 is
+`b5df43b3e26748d08580464832f7688fa36d67c6b2eb12fe681ce57b7dfde1cc`.
+It was checked on fengxian, downloaded and checked on the Windows staging
+host, then uploaded separately and checked on BS10610 and `.96`. Durable
+copies and provenance are under
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/image-archives/frontend-builder`
+and `/data/airflow-WGS/image-archives/frontend-builder` respectively.
+
+BS10610 completed the actual disconnected build. The static contract suite
+passed 5/5, frontend Vitest passed 15 files and 56 tests, `tsc -b && vite
+build` passed, and the runtime overlay image
+`airflow-demo/frontend:t234-offline-builder-smoke` was assembled with both
+`--network none` and `--pull=false`. An isolated `nginx -t` cannot resolve the
+intentionally internal backend hostname; the same candidate attached to the
+existing internal network passed `nginx -t`. Nothing was deployed.
+A deliberate `NODE_MAJOR=23` probe stopped with `builder image Node major does
+not match` before any build step, confirming the compatibility gate.
+
+Future source-only frontend releases run `scripts/build_frontend_offline.sh`
+on the target host. Both hosts use the local alias
+`airflow-demo/frontend-runtime:nginx-1.30.3-local-contract`; it points to each
+host's own approved gateway image and does not require equal runtime image IDs.
+The script refuses a mismatched lockfile or Node major, never pulls an image,
+and records release provenance. A lockfile or Node-major change requires a new
+builder image and one new local-relay transfer.
+
+No container was restarted, no release pointer changed, and no database,
+Airflow, scanner, workflow, gate or analysis state was modified. Rollback is
+to stop using the new scripts/tags; the pre-existing frontend images and
+running containers remain intact.
+
+```text
+failure: first target-side sha256sum -c could not open the archive name
+exit: 1
+stderr: checksum filename ended with a carriage return
+cause: the Windows relay rewrote the small checksum file with CRLF
+fix: rewrite only the checksum metadata as UTF-8/LF and upload it again
+result: sha256sum -c passed independently on BS10610 and production .96
+```
+
 ## 2026-09-08 T233 capability-aware Intake display
 
 The first T232 live view exposed a registry boundary defect. GATK is deployed
