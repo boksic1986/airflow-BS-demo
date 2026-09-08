@@ -119,6 +119,11 @@ it("shows compact node and SFS utilization bars with updated times in the headin
   expect(cloudPanel).toHaveClass("resource-overview-panel");
   expect(nodePanel?.querySelector(".resource-control-row")).toBeInTheDocument();
   expect(cloudPanel?.querySelector(".resource-control-row")).toBeInTheDocument();
+  expect(within(tabs).getByRole("tab", {name: "172.17.61.96"})).toHaveClass("resource-control-token");
+  expect(within(tabs).getByRole("tab", {name: "172.17.61.96"})).toHaveClass("resource-tag");
+  expect(within(cloudPanel!).getByText("sfs-turbo-clinical")).toHaveClass("resource-control-token");
+  expect(nodePanel?.querySelector(".resource-control-row > .status-badge")).toHaveClass("resource-control-token");
+  expect(cloudPanel?.querySelector(".resource-control-row > .status-badge")).toHaveClass("resource-control-token");
   expect(within(cloudPanel!).getByText("7 / 25")).toBeInTheDocument();
   expect(within(cloudPanel!).getByText("2 waiting · enforce")).toBeInTheDocument();
   expect(within(cloudPanel!).getByRole("progressbar", {name: "Heavy slots utilization"})).toHaveAttribute("aria-valuenow", "28");

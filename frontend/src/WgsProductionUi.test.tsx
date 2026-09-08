@@ -237,6 +237,8 @@ it("loads WGS resource tabs for an active run", async () => {
   expect(snapshotGrid).toBeInTheDocument();
   expect(snapshotGrid?.children[0]).toContainElement(screen.getByRole("heading", {name: "Current progress"}));
   expect(snapshotGrid?.children[1]).toContainElement(screen.getByRole("heading", {name: "Pipeline evidence"}));
+  expect(snapshotGrid?.children[0]).toHaveClass("snapshot-panel-stretch");
+  expect(snapshotGrid?.children[1]).toHaveClass("snapshot-panel-stretch");
   fireEvent.click(screen.getByRole("tab", {name: "Samples"}));
   expect(await screen.findByText("S1")).toBeInTheDocument();
   expect(screen.queryByRole("columnheader", {name: "Data"})).not.toBeInTheDocument();

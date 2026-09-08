@@ -466,6 +466,15 @@ def workflow_projectors(settings) -> dict[str, Any]:
     }
 
 
+def lifecycle_projectors(settings) -> dict[str, Any]:
+    registry = get_pipeline_registry(settings)
+    return {
+        pipeline_id: registry.require(pipeline_id).adapter.project_dashboard_lifecycles
+        for pipeline_id in registry.deployed_pipeline_ids
+        if registry.require(pipeline_id).adapter.project_dashboard_lifecycles is not None
+    }
+
+
 def deployed_adapters(settings) -> dict[str, PipelineAdapter]:
     registry = get_pipeline_registry(settings)
     return {

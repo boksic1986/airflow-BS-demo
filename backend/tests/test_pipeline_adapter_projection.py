@@ -77,6 +77,11 @@ def test_generic_run_routes_delegate_workflow_projection_to_registered_adapter(
     monkeypatch.setattr(main, "get_airflow_client", lambda: object())
     monkeypatch.setattr(main, "require_pipeline", lambda *args, **kwargs: definition)
     monkeypatch.setattr(main, "deployed_adapters", lambda *_: {"synthetic": adapter})
+    monkeypatch.setattr(
+        main,
+        "lifecycle_projectors",
+        lambda *_: {"synthetic": adapter.project_dashboard_lifecycles},
+    )
     monkeypatch.setattr(main, "_active_deployed_pipelines", lambda: ("synthetic",))
 
     client = TestClient(main.app)
@@ -87,6 +92,7 @@ def test_generic_run_routes_delegate_workflow_projection_to_registered_adapter(
     log = client.get("/api/runs/SYNTHETIC_001/logs")
     log_index = client.get("/api/runs/SYNTHETIC_001/logs/index")
     artifacts = client.get("/api/runs/SYNTHETIC_001/artifacts")
+    runs = client.get("/api/runs?pipeline=deployed")
     dashboard = client.get("/api/dashboard/runs?pipeline=deployed")
 
     assert detail.status_code == 200, detail.text
@@ -103,6 +109,8 @@ def test_generic_run_routes_delegate_workflow_projection_to_registered_adapter(
     assert log_index.json()["adapter_marker"] == "log-index"
     assert artifacts.status_code == 200, artifacts.text
     assert artifacts.json()["adapter_marker"] == "artifacts"
+    assert runs.status_code == 200, runs.text
+    assert runs.json()["items"][0]["lifecycle"]["delivery"]["status"] == "not_started"
     assert dashboard.status_code == 200, dashboard.text
     assert dashboard.json()["items"][0]["batch_no"] == "SYNTHETIC-BATCH"
     assert dashboard.json()["items"][0]["display_status"] == "adapter-running"
@@ -114,7 +122,11 @@ def test_generic_run_routes_delegate_workflow_projection_to_registered_adapter(
             deployed_pipelines=("synthetic",),
             pipeline="deployed",
             workflow_projectors={"synthetic": adapter.project_workflows},
+            lifecycle_projectors={
+                "synthetic": adapter.project_dashboard_lifecycles,
+            },
         )
     assert payload["items"][0]["workflow_summary"] == [{"id": "synthetic"}]
     assert payload["items"][0]["workflow_status"] == "running"
     assert payload["items"][0]["workflow_label"] == "Workflow running"
+    assert payload["items"][0]["lifecycle"]["delivery"]["status"] == "not_started"

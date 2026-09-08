@@ -57,7 +57,7 @@ export function RunTable({
                   <span className="workflow-fallback"><StatusBadge status={run.workflow_status || run.status} />{run.workflow_label || "Workflow status unavailable"}</span>
                 )}
               </td>
-              <td><span className="block">Submitted {formatDate(run.submitted_at)}</span><small>Started {formatDate(run.started_at)}</small></td>
+              <td><div className="run-table-time-pair"><span className="run-table-time-line">Submitted {formatDate(run.submitted_at)}</span><span className="run-table-time-line">Started {formatDate(run.started_at)}</span></div></td>
               <td>{finishedLabel(run)}</td>
               <td>{formatDuration(run.started_at, run.pipeline_finished_at || run.ended_at)}</td>
             </tr>

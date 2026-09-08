@@ -13,7 +13,7 @@ export function CurrentProgressPanel({detail, progress, source, stage}: {
   slotUsage?: {pool: string; used: number; limit: number; waiting: number; mode: string} | null;
 }) {
   return (
-    <section className="panel current-progress-panel">
+    <section className="panel current-progress-panel snapshot-panel-stretch">
       <div className="section-heading split">
         <h2>Current progress</h2>
         {source ? <span className="source-pill" title="Progress data source">{source.replaceAll("_", " ")}</span> : null}

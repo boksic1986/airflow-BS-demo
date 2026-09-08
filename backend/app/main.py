@@ -51,6 +51,7 @@ from app.pipeline_registry_service import (
     clear_pipeline_registry_cache,
     deployed_adapters,
     get_pipeline_registry,
+    lifecycle_projectors,
     require_pipeline,
     workflow_projectors,
 )
@@ -1076,6 +1077,7 @@ def runs_list(
             limit=limit,
             offset=offset,
             workflow_projectors=workflow_projectors(get_settings()),
+            lifecycle_projectors=lifecycle_projectors(get_settings()),
         )
 
 

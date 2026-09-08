@@ -337,7 +337,7 @@ export function RunDetailPage() {
         {progressError ? <div className="inline-error" role="alert">Current progress unavailable: {progressError}</div> : null}
         {detail.pipeline === "wgs" ? <div className="run-detail-snapshot-grid">
           <CurrentProgressPanel detail={detail} progress={progress} source={bundle.progress?.progress_source} stage={bundle.progress} />
-          <section className="panel pipeline-evidence-panel">
+          <section className="panel pipeline-evidence-panel snapshot-panel-stretch">
             <div className="section-heading"><h2>Pipeline evidence</h2></div>
             <div className="definition-grid pipeline-evidence-grid">
               <div><dt>Release</dt><dd className="path-text">{detail.pipeline_release_id || "not pinned"}</dd></div>

@@ -16,6 +16,7 @@ export type RunSummary = {
   workflow_summary?: WorkflowStageSummary[];
   workflow_status?: string | null;
   workflow_label?: string | null;
+  lifecycle?: WgsLifecycle | null;
 };
 
 export type WorkflowStageSummary = {

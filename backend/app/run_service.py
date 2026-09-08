@@ -23,6 +23,7 @@ def list_runs(
     offset: int = 0,
     deployed_pipelines: tuple[str, ...] = (),
     workflow_projectors: Mapping[str, Callable[..., dict[str, list[dict[str, Any]]]]] | None = None,
+    lifecycle_projectors: Mapping[str, Callable[..., dict[str, dict[str, Any]]]] | None = None,
 ) -> dict:
     query = select(AnalysisRun)
     if pipeline == "deployed":
@@ -80,6 +81,11 @@ def list_runs(
         runs=page,
         projectors=workflow_projectors,
     )
+    lifecycles = _lifecycles_by_run(
+        session=session,
+        runs=page,
+        projectors=lifecycle_projectors,
+    )
     return {
         "items": [
             _run_list_payload(
@@ -88,6 +94,7 @@ def list_runs(
                 sample_qc_statuses=sample_qc.get(run.analysis_id, []),
                 qc_highlights=qc_highlights.get(run.analysis_id, []),
                 workflow_summary=workflow_summaries.get(run.analysis_id, []),
+                lifecycle=lifecycles.get(run.analysis_id),
             )
             for run in page
         ],
@@ -156,6 +163,7 @@ def _run_list_payload(
     sample_qc_statuses: list[str | None],
     qc_highlights: list[dict],
     workflow_summary: list[dict[str, object]],
+    lifecycle: dict[str, Any] | None,
 ) -> dict:
     params = run.params_json or {}
     workflow_status, workflow_label = _workflow_fallback(run.status)
@@ -177,7 +185,27 @@ def _run_list_payload(
         "workflow_summary": workflow_summary,
         "workflow_status": workflow_status,
         "workflow_label": workflow_label,
+        "lifecycle": lifecycle,
     }
+
+
+def _lifecycles_by_run(
+    *,
+    session: Session,
+    runs: list[AnalysisRun],
+    projectors: Mapping[str, Callable[..., dict[str, dict[str, Any]]]] | None,
+) -> dict[str, dict[str, Any]]:
+    if not projectors:
+        return {}
+    runs_by_pipeline: dict[str, list[AnalysisRun]] = {}
+    for run in runs:
+        runs_by_pipeline.setdefault(run.pipeline_name, []).append(run)
+    projected: dict[str, dict[str, Any]] = {}
+    for pipeline_name, pipeline_runs in runs_by_pipeline.items():
+        projector = projectors.get(pipeline_name)
+        if projector is not None:
+            projected.update(projector(session=session, runs=pipeline_runs))
+    return projected
 
 
 def _run_list_order(*, session: Session, sort: str):
