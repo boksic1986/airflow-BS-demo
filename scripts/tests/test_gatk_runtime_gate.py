@@ -1,6 +1,9 @@
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import yaml
 
@@ -24,6 +27,27 @@ def test_forced_command_loads_runtime_from_its_install_directory() -> None:
     assert 'script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"' in source
     assert 'config_dir="${GATK_HOST_CONFIG_DIR:-${script_dir}}"' in source
     assert "/home/ctapa" not in source
+
+
+def test_cli_reports_a_missing_request_without_a_traceback(tmp_path: Path) -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "gatk_runtime_gate.py"),
+            "gatk-runtime",
+            "GATK_20260908_120000_A1B2C3",
+            "1",
+            "prepare",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "GATK_RUNTIME_REQUEST_ROOT": str(tmp_path)},
+    )
+
+    assert completed.returncode == 1
+    assert "runtime request does not exist" in completed.stderr
+    assert "Traceback" not in completed.stderr
 
 
 def test_prepare_binding_exposes_only_frozen_cce_evidence_contract(tmp_path: Path) -> None:

@@ -61,7 +61,12 @@ def _request_path(analysis_id: str, attempt: int, stage: str) -> Path:
 
 def _load(analysis_id: str, attempt: int, stage: str) -> tuple[Path, dict[str, Any]]:
     path = _request_path(analysis_id, attempt, stage)
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not path.is_file():
+        raise RuntimeError("GATK runtime request does not exist")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError("GATK runtime request is not valid JSON") from exc
     if payload.get("analysis_id") != analysis_id or payload.get("attempt") != attempt:
         raise ValueError("GATK request identity mismatch")
     if stage != "prepare" and payload.get("stage") != stage:
@@ -433,10 +438,13 @@ def main() -> None:
     if len(sys.argv) != 5 or sys.argv[1] not in {"gatk-runtime", "_worker"}:
         raise SystemExit("usage: gatk_runtime_gate.py gatk-runtime ANALYSIS_ID ATTEMPT STAGE")
     mode, analysis_id, attempt_text, stage = sys.argv[1:]
-    if mode == "_worker":
-        _execute(analysis_id, int(attempt_text), stage)
-    else:
-        print(json.dumps(start(analysis_id, int(attempt_text), stage), sort_keys=True))
+    try:
+        if mode == "_worker":
+            _execute(analysis_id, int(attempt_text), stage)
+        else:
+            print(json.dumps(start(analysis_id, int(attempt_text), stage), sort_keys=True))
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise SystemExit(f"GATK runtime rejected: {exc}") from exc
 
 
 if __name__ == "__main__":

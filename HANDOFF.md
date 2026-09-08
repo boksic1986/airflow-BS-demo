@@ -20,9 +20,11 @@ must continue rejecting them. Do not enable `GATK_EXECUTION_ENABLED` until a
 complete controlled V7.6.0 source passes prepare/CCE/logger smoke and one
 Step1-Step6 acceptance run.
 
-Validation so far: backend release API 1/1, runtime gate 6/6, frontend 15
-files/56 tests, TypeScript/Vite build and disconnected runtime image assembly
-all passed on BS10610. No workflow, database, source or result was changed.
+Validation so far: backend 340 passed with one skip, runtime gate 7/7,
+GATK repository 5/5, frontend 15 files/56 tests, TypeScript/Vite build and
+disconnected runtime image assembly all passed on BS10610. Missing runtime
+requests now return one bounded error instead of a Python traceback. No
+workflow, database, source or result was changed.
 
 ## 2026-09-08 T234 reusable offline frontend builder
 
