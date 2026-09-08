@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T236 GATK a.raw FASTQ link visibility
+
+```text
+incident: live GATK preview reported a missing PES26080651-BSV1.R1 even though both project-local a.raw links existed and resolved on the BS host.
+root_cause: the a.raw links use the absolute /bi/fastq/T7_Fastq spelling. Backend mounted the equivalent /sg2/T7new/result1/OutputFq data but did not expose the /bi path inside its mount namespace, so Path.is_file() treated the link as broken before approved-root validation.
+fix: backend now mounts /bi/fastq/T7_Fastq read-only at the same path and approves both /bi/fastq/T7_Fastq and /sg2/T7new/result1/OutputFq. sampleinfo selection, a.raw names, source files and GATK workflow behavior are unchanged.
+validation: Compose config passed; the new deployment contract passed 1/1; GATK submission service passed 5/5. Live authenticated preview returned 201 for batch 20260816A with 40 SCMC samples, 80 FASTQ files, 520580463332 bytes, matching sample sets, complete pairs and approved paths.
+deployment: BS10610 current points to releases/20260908-t236-gatk-fastq-roots-r1. Only backend was recreated, nginx configuration was reloaded for service discovery, and public /api/health returned 200.
+safety: GATK execution remains test-only. No AnalysisRun or Airflow DagRun was created; production, PostgreSQL, Redis, Airflow, FASTQ and results were unchanged.
+```
+
 ## 2026-09-08 T235 GATK submission visibility and runtime readiness
 
 ```text

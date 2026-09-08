@@ -1,5 +1,22 @@
 # TASKS.md
 
+## T236 - GATK a.raw FASTQ link visibility
+
+Owner: backend/infra/QA
+
+Status: completed on BS10610 test environment
+
+Acceptance:
+- [x] Keep the project-local `sampleinfo.txt` and `a.raw` links as the GATK submission source of truth.
+- [x] Mount `/bi/fastq/T7_Fastq` read-only into backend at the same absolute path used by existing `a.raw` links.
+- [x] Keep `/sg2/T7new/result1/OutputFq` as a second approved read-only FASTQ root.
+- [x] Add a deployment-contract regression for the approved roots and mount.
+- [x] Preview `WES_20260816A_T7_V7.6.0_hg38` through the live API with 40 SCMC samples and 80 FASTQ files.
+
+Safety:
+- No FASTQ is copied, renamed or modified; no GATK run is created.
+- Production is unchanged. Only BS10610 backend was recreated; PostgreSQL, Redis and Airflow services were not recreated.
+
 ## T235 - GATK submission visibility and runtime readiness
 
 Owner: backend/frontend/runtime/QA
