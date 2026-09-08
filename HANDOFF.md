@@ -1,9 +1,9 @@
 # HANDOFF.md
 
-## 2026-09-09 T239 Run lifecycle, batch QC and Step7 projection candidate
+## 2026-09-09 T239 Run lifecycle, batch QC and Step7 projection production release
 
-T239 is validated on BS10610 and awaiting production rollout. `/workflows` is
-now a full-page Run lifecycle table with QC, cloud-release and delivery filters;
+T239 is deployed in production. `/workflows` is now a full-page Run lifecycle
+table with QC, cloud-release and delivery filters;
 the capability catalog header/cards and duplicate recent-run list are removed.
 Run Detail adds Batch QC from the same controlled QCstat projection used by the
 Samples/QC APIs and fills Workflow operator, embeds a compact expandable
@@ -11,9 +11,11 @@ Step7 action inside Cloud release, and vertically balances Current Progress.
 
 The `20260906B` investigation found 557 final successful RuleState rows. Exactly
 147 have no `started_at`; the raw stream has `job_info`, `rule_planned` and
-`job_finished` for those grouped members but no member `job_started`. T239
-expands future group starts into member events. Historical start times remain
-blank because there is no trustworthy source timestamp.
+`job_finished` for those grouped members but no member `job_started`. The repo
+logger now expands future group starts into member events. Historical start
+times remain blank because there is no trustworthy source timestamp. The
+separately released WGS 4.1.1 CCE logger was not replaced by this platform
+release and must adopt the same behavior in its next runtime release.
 
 Step7 eligibility now accepts a successful master as authoritative over only
 older child Pending/Running/Active observations. A newer active observation,
@@ -24,20 +26,52 @@ the runtime gate retains live target/CCE/lock verification.
 Validation used the final candidate
 `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/T239-final-20260909-1`:
 
-- backend lifecycle/workspace/stage tests: 20 passed;
+- backend lifecycle/workspace/stage tests: 20 passed; after correcting the
+  production-shaped QC projection, the expanded backend selection passed 77;
 - Snakemake logger tests: 8 passed;
 - frontend: 17 files / 60 tests passed;
 - frontend `tsc -b && vite build`: passed through the cached offline builder;
 - no network access or image pull was used.
 
-Production rollout must keep `WGS_AUTO_DISPATCH_ENABLED=false`, verify no
-active run/transfer/CCE work, recreate only backend and frontend-nginx, and
-smoke `/api/health`, Run lifecycle and `20260906B` workspace projections. Do
-not invoke Step7 during deployment.
+Production now points to
+`/data/airflow-WGS/releases/20260909-t239-run-lifecycle-qc-r2`. Frontend image
+`airflow-demo/frontend:t239-run-lifecycle-5744738` is
+`sha256:b0930e8e9b058e6edae3fd5bbc011206e0148fb13d98aae71e983fef53eac7e9`
+and serves `index-CRdF7Vtc.js` plus `index-DvS8-1p_.css`. Public
+`/api/health` returns 200; the bundle contains Run lifecycle and Batch QC and
+no longer contains Workflow Catalog.
 
-Rollback: repoint `current` to the preceding physical release and recreate only
-backend and frontend-nginx. Preserve scanner pause, Airflow, databases, run
-history and all OBS/SFS content.
+The live `20260906B` workspace reports Batch QC `pass` from 9 samples,
+Workflow operator `wgs-scanner`, Step7 available with no block reason, and 557
+successful Rules. Its Step7 action count remains zero. AnalysisRun remains 11
+total/11 success. Backend and frontend-nginx were recreated; scanner, observer,
+Airflow API/scheduler/worker, telemetry, PostgreSQL and Redis retained their
+container IDs. Both backend and scanner still report
+`WGS_AUTO_DISPATCH_ENABLED=false`.
+
+CCE preflight saw an unrelated active GATK 7.6.0 run and WGS 4.2.0 resource
+audit pods. They were not touched; the WGS 4.1.1 profile had no Running pod.
+
+Two operational false starts were diagnosed rather than retried blindly:
+
+- `docker build --network none --pull=false --target test` exited 1 because
+  BuildKit still tried to resolve Docker Hub metadata. The approved cached
+  lock-bound builder was used with `--network none`; all tests/build passed.
+- The first health curl to `127.0.0.1:12959` exited 1 with connection refused
+  because production publishes only on `172.17.61.96:12959`. The correct
+  boundary returned 200.
+
+The first r1 live projection exposed Batch QC `unknown`: persisted Sample rows
+are historical `unknown`, while the controlled QCstat projection is 9/9 pass.
+A new red regression reproduced the mismatch, commit `cf87ae9` changed the
+workspace to reuse the QCstat authority, 77 backend tests passed, and immutable
+r2 replaced r1. No production database row was rewritten.
+
+Rollback: restore
+`/data/airflow-WGS/env/production.env.pre-t239-20260909T1648`, repoint `current`
+to `/data/airflow-WGS/releases/20260908-t238-auto-analysis-paused-r1`, validate
+Compose, and recreate only backend and frontend-nginx. Preserve scanner pause,
+Airflow, databases, run history and all OBS/SFS content.
 
 ## 2026-09-08 T238 production automatic analysis pause
 

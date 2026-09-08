@@ -4,7 +4,7 @@
 
 Owner: platform/backend/frontend/QA
 
-Status: candidate validated; production rollout pending
+Status: completed in production
 
 Acceptance:
 - [x] Replace Workflow Catalog capability/recent-run cards with a full-page Run lifecycle table and matching sidebar label.
@@ -14,7 +14,7 @@ Acceptance:
 - [x] Ignore only stale active child workloads covered by a later successful master; keep newer active evidence blocking.
 - [x] Emit future grouped-rule start evidence per member without fabricating historical timestamps.
 - [x] Pass targeted backend/logger/frontend tests and one offline production build.
-- [ ] Deploy backend/frontend to production and verify live `20260906B` projections without invoking Step7.
+- [x] Deploy backend/frontend to production and verify live `20260906B` projections without invoking Step7.
 
 Safety:
 - Keep automatic WGS dispatch paused and do not restart Airflow or the scanner.

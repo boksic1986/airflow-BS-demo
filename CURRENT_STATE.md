@@ -1,14 +1,16 @@
 # CURRENT_STATE.md
 
-## 2026-09-09 T239 Run lifecycle, batch QC and Step7 projection candidate
+## 2026-09-09 T239 Run lifecycle, batch QC and Step7 projection production release
 
 ```text
 scope: replace the low-value Workflow Catalog capability cards with a full-page Run lifecycle table, add QC status/filtering, complete Run Detail batch QC/operator display, compact Step7 into Cloud release, and repair future grouped-rule start evidence plus stale-child Step7 eligibility.
-evidence: 20260906B currently has 557/557 terminal-success rules. Its 147 missing starts exactly match grouped Rule members for which raw evidence contains job_info/rule_planned/job_finished but no job_started; historical timestamps are intentionally not invented.
+evidence: 20260906B has 557/557 terminal-success rules. Its 147 missing starts exactly match grouped Rule members for which raw evidence contains job_info/rule_planned/job_finished but no member job_started; historical timestamps remain blank rather than being invented. The repository logger now expands future group starts, while the separately released WGS 4.1.1 CCE logger must adopt that behavior in its own runtime release.
 backend: workspace returns batch_qc_status from the same controlled QCstat projection as Samples/QC; WGS workflow lifecycle uses the privacy-safe run operator; a terminal master supersedes only older active child workload evidence, while newer active evidence still blocks Step7.
 frontend: /workflows is Run lifecycle only with QC column/filter; Run Detail adds Batch QC, embeds compact Step7 controls under Cloud release, and vertically balances Current Progress with Pipeline evidence.
-candidate_validation: BS10610 cached/offline backend tests 20 passed, logger tests 8 passed, frontend tests 17 files/60 tests passed, and TypeScript/Vite production build passed. Network and image pulls were disabled.
-safety: automatic analysis remains paused. No workflow, Step7 cleanup, database mutation, OBS/SFS action or Airflow restart was performed during candidate validation.
+validation: BS10610 cached/offline backend lifecycle tests first passed 20; the production-shaped QC correction then passed 77 backend tests including the existing WGS sample projection suite. Logger tests passed 8, frontend tests passed 17 files/60 tests, and TypeScript/Vite production build passed. Network and image pulls were disabled.
+production: current points to /data/airflow-WGS/releases/20260909-t239-run-lifecycle-qc-r2. Frontend uses airflow-demo/frontend:t239-run-lifecycle-5744738 (sha256:b0930e8e9b058e6edae3fd5bbc011206e0148fb13d98aae71e983fef53eac7e9), serving index-CRdF7Vtc.js and index-DvS8-1p_.css. Public /api/health is 200.
+live_projection: 20260906B reports Batch QC pass from 9 samples, Workflow operator wgs-scanner, Step7 available with no block reason, and 557 success Rules. Step7 action count remains 0.
+safety: automatic analysis remains paused in backend and scanner. AnalysisRun remains 11 total/11 success. No workflow, Step7 cleanup, database mutation, OBS/SFS action, scanner restart or Airflow restart was performed. Active external GATK 7.6.0 and WGS 4.2.0 audit CCE workloads were observed but untouched; no WGS 4.1.1 pod was Running.
 ```
 
 ## 2026-09-08 T238 production automatic analysis pause
