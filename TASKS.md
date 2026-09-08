@@ -1,5 +1,22 @@
 # TASKS.md
 
+## T238 - Pause production automatic analysis
+
+Owner: production operations
+
+Status: completed in production
+
+Acceptance:
+- [x] Stop the automatic dispatcher before changing its cached startup gate.
+- [x] Set the backend and scanner auto-dispatch gate to false without changing existing runs.
+- [x] Keep the 30-minute T7 discovery scan enabled.
+- [x] Resolve the stale release/config mount exposed by scanner recreation.
+- [x] Verify no AnalysisRun was created and preserve all non-target services.
+
+Safety:
+- Discovery may continue to create or update intake rows, but cannot create or submit an analysis while the environment gate is false.
+- Existing workflows, Airflow, CCE, OBS/SFS data and database history are not modified.
+
 ## T237 - Workflow lifecycle catalog and operations layout
 
 Owner: platform/backend/frontend/QA

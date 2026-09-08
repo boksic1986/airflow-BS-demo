@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T238 production automatic analysis pause
+
+```text
+request: pause automatic WGS analysis without interrupting any existing workflow or disabling batch discovery.
+state: WGS_AUTO_DISPATCH_ENABLED=false in the protected production environment. Backend and wgs-intake-scanner both report auto dispatch false; WGS_INTAKE_SCAN_ENABLED remains true and the 1800-second shallow discovery scan continues.
+drift_found: the scanner recreated from T237 initially exited cleanly because recent frontend-only release directories carried fail-closed intake.wgs.yaml defaults, while the long-running scanner still had the T226 enabled production policy bind-mounted. This historical release/config drift caused a restart loop only after recreation.
+recovery: scanner was stopped before any dispatch race, then current moved to /data/airflow-WGS/releases/20260908-t238-auto-analysis-paused-r1. The release preserves T237 code/UI and restores the previously approved T226 production scan policy; the external environment gate keeps automatic analysis disabled.
+verification: scanner is running with restart count 0, scan=true and auto_dispatch=false. Its first scan examined 1856 directories and created one discovery row without a dispatch payload. AnalysisRun stayed at 11 total / 11 success and historical auto-dispatch runs stayed at 7, proving no analysis was created during the pause.
+services: backend, wgs-intake-scanner and frontend-nginx were recreated. Observer, Airflow API/scheduler/worker, node probe, metrics collector, PostgreSQL and Redis retained their IDs, start times and restart count 0. Public /api/health is 200.
+```
+
 ## 2026-09-08 T237 workflow lifecycle catalog and operations layout
 
 ```text

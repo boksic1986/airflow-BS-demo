@@ -1,5 +1,39 @@
 # HANDOFF.md
 
+## 2026-09-08 T238 production automatic analysis pause
+
+Automatic WGS analysis is paused in production. The protected environment now
+sets `WGS_AUTO_DISPATCH_ENABLED=false`; both backend and scanner processes
+confirm the effective value is false. T7 discovery remains enabled on its
+existing 1800-second interval, so new directories can appear as discovery rows
+but cannot create or submit an AnalysisRun.
+
+Recreating the scanner exposed historical config drift: the running scanner had
+retained the enabled T226 policy through its old bind mount, while recent
+frontend-only release directories contained the repository's fail-closed
+`scheduled_scan_enabled=false` policy. It exited normally with code 0 and
+restart policy repeatedly relaunched it. The scanner was stopped, and a new
+physical release copied T237 then restored the exact approved T226 production
+intake policy:
+
+`/data/airflow-WGS/releases/20260908-t238-auto-analysis-paused-r1`
+
+The external environment gate remains the authoritative pause. Scanner is now
+running with restart count 0, `scan=true` and `auto_dispatch=false`. Its first
+cycle scanned 1856 directories and created one discovery row; the log contains
+no dispatch payload. Business runs remained exactly 11 total/11 success and the
+historical auto-dispatch count remained 7, so no analysis was launched.
+
+Backend, wgs-intake-scanner and frontend-nginx were recreated to load the gate
+and refresh service discovery. Observer, Airflow API/scheduler/worker, node
+probe, metrics collector, PostgreSQL and Redis retained their IDs, start times
+and restart count 0. Public health remains 200.
+
+Rollback/resume requires an explicit operator decision: restore
+`/data/airflow-WGS/env/production.env.pre-auto-pause-20260908T1745`, run
+Compose config, then recreate backend and wgs-intake-scanner followed by
+frontend-nginx. Do not restart Airflow or alter existing run history.
+
 ## 2026-09-08 T237 workflow lifecycle catalog production release
 
 Production now points to

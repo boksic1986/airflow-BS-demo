@@ -1,5 +1,24 @@
 # SERVER_INFO.md
 
+## T238 production automatic analysis pause (2026-09-08)
+
+```text
+primary: 172.17.61.96
+release: /data/airflow-WGS/releases/20260908-t238-auto-analysis-paused-r1
+base_release: /data/airflow-WGS/releases/20260908-t237-workflow-lifecycle-r1
+automatic_analysis: paused
+WGS_AUTO_DISPATCH_ENABLED: false in backend and scanner
+scheduled_scan: enabled, interval_seconds=1800
+scanner: running, restart_count=0
+first_scan_after_pause: scanned=1856, created_discovery=1, dispatch absent
+business_runs_before_after: 11 total, 11 success, 7 historical auto-dispatch
+recreated_services: backend, wgs-intake-scanner, frontend-nginx
+preserved: observer, Airflow API/scheduler/worker, node probe, metrics collector, PostgreSQL and Redis retained IDs/start times/restart count 0
+health: /api/health 200
+backup_env: /data/airflow-WGS/env/production.env.pre-auto-pause-20260908T1745
+published_ports: 172.17.61.96:12959 only
+```
+
 ## T237 workflow lifecycle catalog production sync (2026-09-08)
 
 ```text
