@@ -255,7 +255,10 @@ def get_settings() -> Settings:
             os.getenv("GATK_SOURCE_ROOTS", "/sg2/21.lijing/WES_Clinical")
         ),
         gatk_fastq_roots=_parse_list(
-            os.getenv("GATK_FASTQ_ROOTS", "/sg2/T7new/result1/OutputFq")
+            os.getenv(
+                "GATK_FASTQ_ROOTS",
+                "/sg2/T7new/result1/OutputFq,/bi/fastq/T7_Fastq",
+            )
         ),
         gatk_submission_draft_ttl_minutes=_parse_int(
             os.getenv("GATK_SUBMISSION_DRAFT_TTL_MINUTES", "30"), default=30

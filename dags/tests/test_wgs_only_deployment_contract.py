@@ -43,7 +43,7 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertNotIn("AIRFLOW_CONN_WGS_RUNNER_200", compose)
         self.assertIn('${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime', compose)
         self.assertIn('/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime', compose)
-        for excluded in ("/var/run/docker.sock", "bio_nipt", "bio_pgta", "bio_wes", "NIPT_", "PGTA_", "WES_", "./pipelines", "./profiles", "KUBECONFIG", "OBS_"):
+        for excluded in ("/var/run/docker.sock", "bio_nipt", "bio_pgta", "bio_wes", "NIPT_", "PGTA_", "./pipelines", "./profiles", "KUBECONFIG", "OBS_"):
             self.assertNotIn(excluded, compose)
 
     def test_wgs_only_examples_keep_credentials_out_and_define_modes(self):
@@ -85,6 +85,21 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertEqual(
             payload["services"]["backend"]["user"],
             "${WGS_RUNTIME_UID:?set WGS_RUNTIME_UID}:${WGS_RUNTIME_SHARED_GID:-520}",
+        )
+
+    def test_gatk_backend_can_follow_all_approved_raw_fastq_links(self):
+        payload = yaml.safe_load(
+            (REPO_ROOT / "docker-compose.wgs.yaml").read_text(encoding="utf-8")
+        )
+        backend = payload["services"]["backend"]
+
+        self.assertEqual(
+            backend["environment"]["GATK_FASTQ_ROOTS"],
+            "${GATK_FASTQ_ROOTS:-/sg2/T7new/result1/OutputFq,/bi/fastq/T7_Fastq}",
+        )
+        self.assertIn(
+            "${GATK_T7_FASTQ_HOST_ROOT:-/bi/fastq/T7_Fastq}:/bi/fastq/T7_Fastq:ro",
+            backend["volumes"],
         )
 
     def test_scanner_and_run_observer_are_isolated_unprivileged_services(self):

@@ -1,5 +1,29 @@
 # HANDOFF.md
 
+## 2026-09-08 T236 GATK a.raw FASTQ link visibility
+
+The `20260816A` source was valid. Its project-local `a.raw` entries point to
+absolute `/bi/fastq/T7_Fastq/...` paths; backend exposed only the equivalent
+`/sg2/T7new/result1/OutputFq` mount, so the same files were invisible through
+the link spelling used by the project. T236 adds the narrow `/bi/fastq/T7_Fastq`
+read-only mount and approves both path spellings. It does not rewrite links,
+copy FASTQ or change sample selection.
+
+BS10610 now points to
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260908-t236-gatk-fastq-roots-r1`.
+Compose config, the deployment contract and five GATK submission tests passed.
+An authenticated live preview returned HTTP 201 with 40 SCMC samples, 80 FASTQ
+files and all three validation flags true. No AnalysisRun or DagRun was
+created. Only backend was recreated; nginx was reloaded, while Airflow,
+PostgreSQL and Redis were untouched.
+
+The first candidate-copy command preserved the `current` symlink instead of
+materializing its target. The candidate was converted to a physical release,
+and the prior T235 files were restored from Git commit `2caf368` using archive
+SHA256 `71e5e11a1fbff3de28759f5807e9c9e7a7cd4a525ab0afdcbd9c4ddefc9fa67d`.
+Both release paths are now independent. Rollback points `current` to
+`20260908-t235-gatk-submit-r2`, recreates backend and reloads nginx.
+
 ## 2026-09-08 T235 BS10610 test execution enablement
 
 After explicit operator approval, the BS10610 test environment now sets

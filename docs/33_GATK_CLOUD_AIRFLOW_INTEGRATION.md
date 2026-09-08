@@ -26,8 +26,10 @@ source root and validates:
 - `config.V7.6.0_hg38.yaml`;
 - `sample2hospitalBarCode.txt`;
 - one R1/R2 pair for every locked SCMC sample;
-- every FASTQ symlink target is below an approved FASTQ root, initially
-  `/sg2/T7new/result1/OutputFq`;
+- every FASTQ symlink target is below an approved FASTQ root. The initial
+  roots are `/sg2/T7new/result1/OutputFq` and `/bi/fastq/T7_Fastq`; both are
+  mounted read-only into the backend so absolute links under `a.raw` remain
+  resolvable without copying FASTQ data;
 - the sampleinfo, SCMC config and barcode sets are identical.
 
 `POST /api/pipelines/gatk/submission-preview` stores a 30-minute immutable
