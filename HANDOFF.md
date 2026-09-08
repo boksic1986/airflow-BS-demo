@@ -30,12 +30,18 @@ DagRun. Backend latest-stage projection may reset a terminal status only when
 stage registration identifies the active/new execution generation; append-only
 `pipeline_stage_execution` rows continue to preserve the failed generations.
 
-Validation passed 10 runtime-gate tests, 8 backend GATK submission/evidence
+Validation passed 12 runtime-gate tests, 10 backend GATK submission/evidence
 tests, the focused Airflow leaf regression, Python compilation, DAG import and
-Compose health checks. At handoff Step1 is running with a database-backed
-transfer projection. One checkpoint reported 20691004946/520580463332 bytes,
-6/80 files and 181256843 B/s. Full Step1-Step6 and logger acceptance remain
-pending; do not call this production-ready yet.
+Compose health checks. Step1 completed 520580463332/520580463332 bytes and
+80/80 files, and Step2 created the Master successfully. The initial Step3
+generation failed because the gate omitted `--output json` while the generated
+status script defaults to text. The Master itself remained healthy. The gate
+now requests JSON, the missing evidence bridge is installed beside it, and
+Airflow was reattached as Step3 generation 2 without recreating the Master or
+rerunning completed rules. The latest checkpoint is 68/522 rules (13 percent),
+`gatk_mark_duplicates`, with 68 success and 40 running rule states. Full
+Step1-Step6 terminal acceptance remains pending; do not call this
+production-ready yet.
 
 Rollback stops only the named GATK run through Airflow, restores the saved
 node200 gate/runtime-env backups, points BS `current` back to T237 and recreates

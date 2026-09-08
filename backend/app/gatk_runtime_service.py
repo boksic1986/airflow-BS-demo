@@ -264,6 +264,7 @@ def sync_gatk_stage_status(
                 unit=value.get("unit"),
                 current_item=value.get("current_item"),
                 progress_source="gatk-runtime",
+                allow_terminal_reset=True,
             )
             session.commit()
     failed = row.status in {"failed", "canceled"}
@@ -380,6 +381,8 @@ def _upsert_gatk_stage_state(
         )
         session.add(row)
     elif row.ended_at is not None and row.stage_status in {"success", "failed", "canceled"}:
+        if row.stage_status == stage_status:
+            return row
         if not allow_terminal_reset:
             return row
         row.started_at = None

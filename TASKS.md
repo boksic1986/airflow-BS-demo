@@ -4,7 +4,7 @@
 
 Owner: runtime/backend/Airflow/QA
 
-Status: BS10610 controlled run active in Step1
+Status: BS10610 controlled run active in Step3
 
 Acceptance:
 - [x] Audit WGS/GATK source, runtime, result, DAG, pool, OBS-prefix and database boundaries before submission.
@@ -14,6 +14,7 @@ Acceptance:
 - [x] Preserve upstream failure at the `ALL_DONE` lease-release leaf.
 - [x] Configure the approved node-local obsutil binary and expose frozen-total Step1 progress.
 - [x] Allow a newer GATK stage generation to replace a stale terminal projection while retaining append-only execution history.
+- [x] Request Step3 status as JSON, reattach Airflow to the existing Master and restore rule-event projection.
 - [ ] Complete Step1-Step6 and terminal logger acceptance for the controlled run.
 
 Safety:

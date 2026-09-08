@@ -123,6 +123,21 @@ def test_prepare_runs_as_module_from_frozen_release_root(
     assert cwd == repository.resolve()
 
 
+def test_step3_status_is_requested_as_json(tmp_path: Path) -> None:
+    gate = load_gate()
+    bundle = tmp_path / "runtime" / "cce"
+    bundle.mkdir(parents=True)
+    status_script = bundle / "Step3_status.sh"
+    status_script.write_text("#!/bin/bash\n", encoding="utf-8")
+    payload = {
+        "analysis_id": "GATK_20260908_120000_A1B2C3",
+        "attempt": 1,
+        "runtime_workdir": str(tmp_path / "runtime"),
+    }
+
+    assert gate._step3_status_command(payload)[-2:] == ["--output", "json"]
+
+
 def test_retry_replaces_failed_sidecar_before_worker_starts(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -214,6 +229,38 @@ def test_step1_progress_uses_frozen_manifest_totals(
     assert progress["files_done"] == 0
     assert progress["generation"] == 2
     assert json.loads((progress_root / "progress.json").read_text())["bytes_total"] == 40
+
+
+def test_successful_transfer_finalizes_aggregate_progress(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    monkeypatch.setenv("GATK_TRANSFER_SPOOL_ROOT", str(tmp_path / "spool"))
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "generation": 2,
+        "stage": "step1_upload",
+    }
+    gate._transfer_progress_root(payload).mkdir(parents=True)
+    progress = {
+        "state": "failed",
+        "bytes_total": 40,
+        "bytes_done": 35,
+        "files_total": 2,
+        "files_done": 2,
+        "speed_bytes_per_second": 7,
+        "eta_seconds": 1,
+    }
+
+    completed = gate._complete_transfer_progress(payload, progress)
+
+    assert completed["state"] == "success"
+    assert completed["bytes_done"] == 40
+    assert completed["files_done"] == 2
+    assert completed["speed_bytes_per_second"] == 0
+    assert completed["eta_seconds"] == 0
 
 
 def test_evidence_bridge_uses_cce_label_and_terminal_mode(tmp_path: Path, monkeypatch) -> None:

@@ -330,3 +330,47 @@ def test_successful_stage_projection_remains_terminal_on_duplicate_update() -> N
         session.commit()
 
         assert duplicate.ended_at == original_ended_at
+
+
+def test_current_sidecar_can_correct_conflicting_terminal_projection() -> None:
+    sessions = _sessions()
+    analysis_id = "GATK_20260908_140000_A7B8C9"
+    with sessions() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="gatk",
+                dag_id="bio_gatk",
+                workdir="/runtime/gatk/run",
+                params_json={},
+            )
+        )
+        failed = _upsert_gatk_stage_state(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            stage_code="step1_upload",
+            stage_status="failed",
+            updated_at=datetime.now(timezone.utc),
+        )
+        session.commit()
+        assert failed.stage_status == "failed"
+
+        corrected = _upsert_gatk_stage_state(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            stage_code="step1_upload",
+            stage_status="success",
+            updated_at=datetime.now(timezone.utc),
+            allow_terminal_reset=True,
+            progress_available=True,
+            progress_percent=100,
+            completed_units=100,
+            total_units=100,
+            unit="bytes",
+        )
+        session.commit()
+
+        assert corrected.stage_status == "success"
+        assert corrected.progress_percent == 100

@@ -274,6 +274,10 @@ def _step(payload: dict[str, Any], stage: str) -> list[str]:
     return ["bash", str(script)]
 
 
+def _step3_status_command(payload: dict[str, Any]) -> list[str]:
+    return [*_step(payload, "step3_monitor"), "--output", "json"]
+
+
 def _materialize_result_root(payload: dict[str, Any]) -> Path:
     prepare_path = _request_path(
         str(payload["analysis_id"]), int(payload["attempt"]), "prepare"
@@ -445,6 +449,24 @@ def _aggregate_transfer_progress(payload: dict[str, Any]) -> dict[str, Any]:
     return progress
 
 
+def _complete_transfer_progress(
+    payload: dict[str, Any], progress: dict[str, Any]
+) -> dict[str, Any]:
+    completed = {
+        **progress,
+        "state": "success",
+        "bytes_done": int(progress.get("bytes_total") or 0),
+        "files_done": int(progress.get("files_total") or 0),
+        "speed_bytes_per_second": 0,
+        "eta_seconds": 0,
+        "heartbeat_at": datetime.now(timezone.utc).isoformat(),
+    }
+    progress_root = _transfer_progress_root(payload)
+    progress_root.mkdir(parents=True, exist_ok=True)
+    _atomic_json(progress_root / "progress.json", completed)
+    return completed
+
+
 def _run_transfer_stage(
     request_path: Path, payload: dict[str, Any], environment: dict[str, str]
 ) -> dict[str, Any]:
@@ -482,7 +504,7 @@ def _run_transfer_stage(
             f"GATK {payload['stage']} failed with exit status {process.returncode}; "
             "see the stage worker log"
         )
-    return progress
+    return _complete_transfer_progress(payload, progress)
 
 
 def _execute(analysis_id: str, attempt: int, stage: str) -> None:
@@ -523,7 +545,11 @@ def _execute(analysis_id: str, attempt: int, stage: str) -> None:
             while True:
                 monitoring_error = _sync_evidence(payload, binding, terminal=False)
                 completed = subprocess.run(
-                    _step(payload, stage), check=False, text=True, capture_output=True, env=environment
+                    _step3_status_command(payload),
+                    check=False,
+                    text=True,
+                    capture_output=True,
+                    env=environment,
                 )
                 if completed.returncode:
                     raise RuntimeError((completed.stderr or completed.stdout)[-2000:])
