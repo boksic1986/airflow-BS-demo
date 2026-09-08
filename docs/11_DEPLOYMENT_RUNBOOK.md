@@ -88,16 +88,22 @@ and lease identity checks; an absent target may be recorded as
    `runtime.env` and `gatk_runtime_gate.py` relative to its installed path.
    Create `runtime.env` from
    `config/gatk_runtime.node200.env.example`, add no secrets to the repository,
-   and set mode 0600.
-3. Verify the GATK repository is exactly the approved release and the pinned
+   and set mode 0600. Set `WGS_REAL_OBSUTIL_BIN` to the approved node-local
+   obsutil executable. Do not copy its private OBS configuration into the
+   repository or runtime evidence.
+3. Confirm the backend host runtime root and node200 runtime root are two
+   spellings of the same writable storage. Apply inherited ACLs so the backend
+   writer and restricted node200 account can both create files; an EROFS or ACL
+   failure blocks rollout.
+4. Verify the GATK repository is exactly the approved release and the pinned
    Master image provides the `rule-status` logger contract.
-4. Verify the backend has same-path read-only mounts for every approved FASTQ
+5. Verify the backend has same-path read-only mounts for every approved FASTQ
    root. The initial deployment requires both `/sg2/T7new/result1/OutputFq`
    and `/bi/fastq/T7_Fastq` because existing `a.raw` links use both spellings.
-5. Run preview/prepare, CCE dry-run and logger smoke before any real transfer.
-6. Execute one controlled SCMC Step1-Step6 smoke. Confirm source FASTQ hashes,
+6. Run preview/prepare, CCE dry-run and logger smoke before any real transfer.
+7. Execute one controlled SCMC Step1-Step6 smoke. Confirm source FASTQ hashes,
    terminal rule evidence and the materialized result root.
-7. Enable manual confirmation only after the smoke passes. Do not enable an
+8. Enable manual confirmation only after the smoke passes. Do not enable an
    intake profile; none exists for GATK v1.
 
 To rollback, set the gate false and recreate only affected control-plane

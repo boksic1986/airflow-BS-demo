@@ -249,13 +249,22 @@ def _sync_evidence(
     return None
 
 
-def _prepare(payload: dict[str, Any]) -> list[str]:
+def _prepare(payload: dict[str, Any]) -> tuple[list[str], Path]:
     repository = Path(os.environ["GATK_REPOSITORY_ROOT"]).resolve()
     script = repository / "scripts" / "airflow_handoff.py"
     if not script.is_file() or script.is_symlink():
         raise RuntimeError("approved GATK handoff entrypoint is unavailable")
     python = os.environ.get("GATK_PYTHON", sys.executable)
-    return [python, str(script), "--handoff-request", str(_request_path(payload["analysis_id"], int(payload["attempt"]), "prepare"))]
+    return (
+        [
+            python,
+            "-m",
+            "scripts.airflow_handoff",
+            "--handoff-request",
+            str(_request_path(payload["analysis_id"], int(payload["attempt"]), "prepare")),
+        ],
+        repository,
+    )
 
 
 def _step(payload: dict[str, Any], stage: str) -> list[str]:
@@ -327,6 +336,155 @@ def _parse_step3(stdout: str) -> dict[str, Any]:
     raise RuntimeError("Step3 did not return a valid Master status")
 
 
+def _transfer_progress_root(payload: dict[str, Any]) -> Path:
+    configured_root = os.environ.get("GATK_TRANSFER_SPOOL_ROOT", "").strip()
+    root = (
+        Path(configured_root)
+        if configured_root
+        else _root().parent / "transfer-progress"
+    ).resolve()
+    path = (
+        root
+        / str(payload["analysis_id"])
+        / f"attempt-{int(payload['attempt'])}"
+        / str(payload["stage"])
+    ).resolve()
+    if root not in path.parents:
+        raise ValueError("GATK transfer progress path escapes spool root")
+    return path
+
+
+def _step1_transfer_totals(payload: dict[str, Any]) -> tuple[int, int]:
+    runtime = yaml.safe_load(
+        (_bundle(payload) / "BATCH_RUNTIME.yaml").read_text(encoding="utf-8")
+    )
+    sources = runtime.get("transfer_sources") if isinstance(runtime, dict) else None
+    if not isinstance(sources, list) or not sources:
+        raise RuntimeError("GATK Step1 transfer sources are unavailable")
+    total = 0
+    for entry in sources:
+        source = Path(str((entry or {}).get("source") or ""))
+        if not source.is_file():
+            raise RuntimeError("GATK Step1 frozen FASTQ is unavailable")
+        total += source.stat().st_size
+    return len(sources), total
+
+
+def _aggregate_transfer_progress(payload: dict[str, Any]) -> dict[str, Any]:
+    root = _transfer_progress_root(payload)
+    root.mkdir(parents=True, exist_ok=True)
+    rows: list[dict[str, Any]] = []
+    for path in root.glob("*.json"):
+        if path.name == "progress.json":
+            continue
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if value.get("schema_version") == "wgs-runtime.transfer-progress.v1":
+            rows.append(value)
+    if payload["stage"] == "step1_upload":
+        files_total, bytes_total = _step1_transfer_totals(payload)
+    else:
+        files_total = sum(max(0, int(row.get("files_total") or 0)) for row in rows)
+        bytes_total = sum(max(0, int(row.get("bytes_total") or 0)) for row in rows)
+    bytes_done = min(
+        bytes_total,
+        sum(max(0, int(row.get("bytes_done") or 0)) for row in rows),
+    )
+    files_done = min(
+        files_total,
+        sum(max(0, int(row.get("files_done") or 0)) for row in rows),
+    )
+    states = {str(row.get("state") or "") for row in rows}
+    if "running" in states or not rows:
+        state = "running"
+    elif "failed" in states:
+        state = "failed"
+    elif files_total and files_done >= files_total:
+        state = "success"
+    else:
+        state = "running"
+    speed = sum(
+        max(0, int(row.get("speed_bytes_per_second") or 0))
+        for row in rows
+        if row.get("state") == "running"
+    )
+    progress = {
+        "schema_version": "wgs-runtime.transfer-progress.v2",
+        "orchestration_contract_version": int(
+            payload.get("orchestration_contract_version") or 2
+        ),
+        "analysis_id": payload["analysis_id"],
+        "attempt": int(payload["attempt"]),
+        "execution_id": payload.get("execution_id"),
+        "generation": int(payload.get("generation") or 1),
+        "request_hash": payload.get("request_hash"),
+        "transfer_id": (
+            f"{payload['analysis_id']}-a{int(payload['attempt'])}-"
+            f"{'input' if payload['stage'] == 'step1_upload' else 'result'}"
+        ),
+        "stage": payload["stage"],
+        "direction": "upload" if payload["stage"] == "step1_upload" else "download",
+        "state": state,
+        "bytes_total": bytes_total,
+        "bytes_done": bytes_done,
+        "files_total": files_total,
+        "files_done": files_done,
+        "speed_bytes_per_second": speed,
+        "eta_seconds": (
+            max(0, int((bytes_total - bytes_done) / speed))
+            if bytes_total and speed
+            else None
+        ),
+        "heartbeat_at": datetime.now(timezone.utc).isoformat(),
+        "monitoring_health": "healthy",
+        "files": [],
+    }
+    _atomic_json(root / "progress.json", progress)
+    return progress
+
+
+def _run_transfer_stage(
+    request_path: Path, payload: dict[str, Any], environment: dict[str, str]
+) -> dict[str, Any]:
+    progress_root = _transfer_progress_root(payload)
+    progress_root.mkdir(parents=True, exist_ok=True)
+    transfer_environment = {
+        **environment,
+        "WGS_TRANSFER_PROGRESS_ROOT": str(progress_root),
+        "WGS_TRANSFER_DIRECTION": (
+            "upload" if payload["stage"] == "step1_upload" else "download"
+        ),
+    }
+    process = subprocess.Popen(_step(payload, str(payload["stage"])), env=transfer_environment)
+    progress = _aggregate_transfer_progress(payload)
+    interval = max(1, int(os.environ.get("GATK_TRANSFER_MONITOR_INTERVAL_SECONDS", "5")))
+    while process.poll() is None:
+        progress = _aggregate_transfer_progress(payload)
+        percent = int(
+            progress["bytes_done"] * 100 / progress["bytes_total"]
+        ) if progress["bytes_total"] else 0
+        _write_status(
+            request_path,
+            payload,
+            "running",
+            f"{payload['stage']} running",
+            progress_percent=percent,
+            completed_units=progress["bytes_done"],
+            total_units=progress["bytes_total"],
+            unit="bytes",
+        )
+        time.sleep(interval)
+    progress = _aggregate_transfer_progress(payload)
+    if process.returncode:
+        raise RuntimeError(
+            f"GATK {payload['stage']} failed with exit status {process.returncode}; "
+            "see the stage worker log"
+        )
+    return progress
+
+
 def _execute(analysis_id: str, attempt: int, stage: str) -> None:
     request_path, payload = _load(analysis_id, attempt, stage)
     _write_status(request_path, payload, "running", f"{stage} started")
@@ -348,8 +506,14 @@ def _execute(analysis_id: str, attempt: int, stage: str) -> None:
     }
     try:
         if stage == "prepare":
+            command, workdir = _prepare(payload)
             completed = subprocess.run(
-                _prepare(payload), check=True, text=True, capture_output=True, env=environment
+                command,
+                check=True,
+                text=True,
+                capture_output=True,
+                env=environment,
+                cwd=workdir,
             )
             _write_binding(payload)
             _write_status(request_path, payload, "success", completed.stdout[-2000:] or "GATK contract prepared")
@@ -403,6 +567,18 @@ def _execute(analysis_id: str, attempt: int, stage: str) -> None:
                 "success",
                 "GATK delivery materialized to the approved result root",
             )
+        elif stage in {"step1_upload", "step5_download"}:
+            progress = _run_transfer_stage(request_path, payload, environment)
+            _write_status(
+                request_path,
+                payload,
+                "success",
+                f"{stage} completed",
+                progress_percent=100,
+                completed_units=progress["bytes_total"],
+                total_units=progress["bytes_total"],
+                unit="bytes",
+            )
         else:
             completed = subprocess.run(
                 _step(payload, stage), check=True, text=True, capture_output=True, env=environment
@@ -420,6 +596,7 @@ def start(analysis_id: str, attempt: int, stage: str) -> dict[str, Any]:
         existing = json.loads(status_path.read_text(encoding="utf-8"))
         if existing.get("status") in {"running", "success"}:
             return {"status": existing["status"], "stage": stage}
+    _write_status(request_path, payload, "accepted", f"{stage} accepted")
     log_path = request_path.with_suffix(".worker.log")
     command = [sys.executable, str(Path(__file__).resolve()), "_worker", analysis_id, str(attempt), stage]
     with log_path.open("a", encoding="utf-8") as log:

@@ -6,6 +6,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import bio_wgs
+import bio_gatk
 
 
 def _context(conf):
@@ -13,6 +14,25 @@ def _context(conf):
 
 
 class WgsOnlyDagTests(unittest.TestCase):
+    def test_gatk_release_leaf_preserves_upstream_failure(self):
+        task_instances = [
+            type("TaskInstance", (), {"task_id": "prepare_gatk_contract", "state": "failed"})(),
+            type("TaskInstance", (), {"task_id": "release_leases", "state": "running"})(),
+        ]
+        dag_run = type(
+            "DagRun", (), {"get_task_instances": lambda _self: task_instances}
+        )()
+        task_instance = type(
+            "CurrentTask", (), {"task_id": "release_leases", "get_dagrun": lambda _self: dag_run}
+        )()
+        original = bio_gatk.release_stage
+        bio_gatk.release_stage = lambda _stage, **_context: {"released": True}
+        try:
+            with self.assertRaisesRegex(RuntimeError, "prepare_gatk_contract"):
+                bio_gatk.release_leases(ti=task_instance)
+        finally:
+            bio_gatk.release_stage = original
+
     def test_release_leaf_reports_upstream_failures(self):
         task_instances = [
             type("TaskInstance", (), {"task_id": "prepare_wgs_analysis", "state": "failed"})(),

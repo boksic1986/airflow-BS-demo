@@ -78,6 +78,21 @@ destination:
 The destination must exactly match `GATK_RESULT_ROOT/<batch>/<analysis_id>`;
 otherwise the runtime fails closed.
 
+The backend host path and node200 path may use different mount spellings, but
+they must resolve to the same dedicated writable storage. On BS10610 the
+validated pair is:
+
+```text
+backend host: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-gatk/runtime
+node200:      /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-gatk/runtime
+```
+
+The runtime tree requires inherited group/named-user ACLs because the backend
+creates requests while the restricted node200 account creates receipts and
+worker logs. The handoff is executed as `python -m scripts.airflow_handoff`
+from the frozen release root so package imports do not depend on the caller's
+working directory.
+
 ## State and evidence
 
 GATK writes append-only stage attempts to `pipeline_stage_execution`, not
@@ -106,8 +121,16 @@ their classification.
 `GATK_EXECUTION_ENABLED=false` is the deployment default. The repository
 contains `config/gatk_runtime.node200.env.example` without credentials. The
 installed private file is read by the forced-command wrapper and must be mode
-0600. OBS, CCE and cloud credentials remain in approved node-local files and
+0600. It must set `WGS_REAL_OBSUTIL_BIN` to the approved node-local executable;
+the value is a binary path, not an OBS credential. OBS, CCE and cloud
+credentials remain in approved node-local files and
 must never be copied into Git, API responses or validation logs.
+
+Step1 and Step5 write wrapper events below
+`GATK_TRANSFER_SPOOL_ROOT/<analysis_id>/attempt-<n>/<stage>/`. The gate emits a
+single `progress.json` for backend ingestion. Step1 bytes/files totals come
+from the frozen `BATCH_RUNTIME.yaml` transfer source list, so the denominator
+cannot increase while the upload runs.
 
 The WGS intake scanner remains WGS-only. GATK has no discovery or scheduled
 submission path. Enabling GATK requires all of the following:

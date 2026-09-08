@@ -101,6 +101,121 @@ def test_prepare_binding_exposes_only_frozen_cce_evidence_contract(tmp_path: Pat
     )
 
 
+def test_prepare_runs_as_module_from_frozen_release_root(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    repository = tmp_path / "release"
+    entrypoint = repository / "scripts" / "airflow_handoff.py"
+    entrypoint.parent.mkdir(parents=True)
+    entrypoint.write_text("", encoding="utf-8")
+    monkeypatch.setenv("GATK_REPOSITORY_ROOT", str(repository))
+    monkeypatch.setenv("GATK_PYTHON", "/approved/python")
+    monkeypatch.setenv("GATK_RUNTIME_REQUEST_ROOT", str(tmp_path / "requests"))
+    payload = {
+        "analysis_id": "GATK_20260908_120000_A1B2C3",
+        "attempt": 1,
+    }
+
+    command, cwd = gate._prepare(payload)
+
+    assert command[:3] == ["/approved/python", "-m", "scripts.airflow_handoff"]
+    assert cwd == repository.resolve()
+
+
+def test_retry_replaces_failed_sidecar_before_worker_starts(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    request = tmp_path / analysis_id / "attempt-1" / "prepare.request.json"
+    request.parent.mkdir(parents=True)
+    request.write_text(
+        json.dumps(
+            {
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "generation": 1,
+                "stage": "prepare",
+                "request_hash": "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    status = request.with_suffix(".status.json")
+    status.write_text(json.dumps({"status": "failed", "generation": 1}), encoding="utf-8")
+    monkeypatch.setenv("GATK_RUNTIME_REQUEST_ROOT", str(tmp_path))
+    monkeypatch.setattr(gate.subprocess, "Popen", lambda *_args, **_kwargs: object())
+
+    result = gate.start(analysis_id, 1, "prepare")
+
+    assert result["status"] == "accepted"
+    assert json.loads(status.read_text(encoding="utf-8"))["status"] == "accepted"
+
+
+def test_step1_progress_uses_frozen_manifest_totals(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    runtime = tmp_path / "runtime" / analysis_id / "attempt-1"
+    bundle = runtime / "cce"
+    bundle.mkdir(parents=True)
+    first = tmp_path / "first.fq.gz"
+    second = tmp_path / "second.fq.gz"
+    first.write_bytes(b"a" * 10)
+    second.write_bytes(b"b" * 30)
+    (bundle / "BATCH_RUNTIME.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": 3,
+                "transfer_sources": [
+                    {"source": str(first), "target": "S1.R1.fq.gz"},
+                    {"source": str(second), "target": "S1.R2.fq.gz"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    spool = tmp_path / "spool"
+    monkeypatch.setenv("GATK_TRANSFER_SPOOL_ROOT", str(spool))
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "generation": 2,
+        "stage": "step1_upload",
+        "execution_id": f"{analysis_id}-a1-step1_upload-g2",
+        "request_hash": "b" * 64,
+        "runtime_workdir": str(runtime),
+    }
+    progress_root = gate._transfer_progress_root(payload)
+    progress_root.mkdir(parents=True)
+    (progress_root / "one.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.transfer-progress.v1",
+                "state": "running",
+                "bytes_total": 10,
+                "bytes_done": 4,
+                "files_total": 1,
+                "files_done": 0,
+                "speed_bytes_per_second": 2,
+                "heartbeat_at": "2026-09-08T12:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    progress = gate._aggregate_transfer_progress(payload)
+
+    assert progress["bytes_total"] == 40
+    assert progress["bytes_done"] == 4
+    assert progress["files_total"] == 2
+    assert progress["files_done"] == 0
+    assert progress["generation"] == 2
+    assert json.loads((progress_root / "progress.json").read_text())["bytes_total"] == 40
+
+
 def test_evidence_bridge_uses_cce_label_and_terminal_mode(tmp_path: Path, monkeypatch) -> None:
     gate = load_gate()
     monkeypatch.setattr(gate, "EVIDENCE_BRIDGE", Path("/approved/wgs_evidence_bridge.py"))

@@ -1,5 +1,26 @@
 # TASKS.md
 
+## T238 - GATK controlled submission recovery
+
+Owner: runtime/backend/Airflow/QA
+
+Status: BS10610 controlled run active in Step1
+
+Acceptance:
+- [x] Audit WGS/GATK source, runtime, result, DAG, pool, OBS-prefix and database boundaries before submission.
+- [x] Submit the validated `20260816A` GATK source as one immutable 40-sample run.
+- [x] Move mutable GATK runtime evidence to the writable BS/node200 dual-mapped project path.
+- [x] Run the GATK handoff as a module from its frozen release root.
+- [x] Preserve upstream failure at the `ALL_DONE` lease-release leaf.
+- [x] Configure the approved node-local obsutil binary and expose frozen-total Step1 progress.
+- [x] Allow a newer GATK stage generation to replace a stale terminal projection while retaining append-only execution history.
+- [ ] Complete Step1-Step6 and terminal logger acceptance for the controlled run.
+
+Safety:
+- GATK source files remain read-only and WGS runtime/results were not modified.
+- The controlled run uses the GATK-specific DAG, pool, runtime, result root and OBS batch prefix.
+- Production `.96` is unchanged.
+
 ## T237 - BS10610 private office ingress
 
 Owner: infra/frontend/QA

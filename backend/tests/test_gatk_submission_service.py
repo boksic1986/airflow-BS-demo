@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -6,7 +7,15 @@ import yaml
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
-from app.models import AnalysisRun, Base, PipelineStageExecution, PipelineSubmissionDraft, Sample
+from app.models import (
+    AnalysisRun,
+    Base,
+    PipelineStageExecution,
+    PipelineSubmissionDraft,
+    RunStageState,
+    Sample,
+)
+from app.gatk_runtime_service import _upsert_gatk_stage_state
 from app.gatk_submission_service import (
     GatkInputChanged,
     _batch_lock_key,
@@ -237,3 +246,87 @@ def test_gatk_stage_execution_uses_pipeline_namespace(tmp_path: Path) -> None:
 def test_gatk_batch_advisory_lock_key_is_stable_and_batch_specific() -> None:
     assert _batch_lock_key("20260908A") == _batch_lock_key("20260908A")
     assert _batch_lock_key("20260908A") != _batch_lock_key("20260908B")
+
+
+def test_new_generation_replaces_failed_stage_projection() -> None:
+    sessions = _sessions()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    with sessions() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="gatk",
+                dag_id="bio_gatk",
+                workdir="/runtime/gatk/run",
+                params_json={},
+            )
+        )
+        failed = _upsert_gatk_stage_state(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            stage_code="step1_upload",
+            stage_status="failed",
+            updated_at=datetime.now(timezone.utc),
+        )
+        session.commit()
+        assert failed.ended_at is not None
+
+        running = _upsert_gatk_stage_state(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            stage_code="step1_upload",
+            stage_status="running",
+            updated_at=datetime.now(timezone.utc),
+            allow_terminal_reset=True,
+            progress_available=True,
+            progress_percent=12,
+            completed_units=12,
+            total_units=100,
+            unit="bytes",
+        )
+        session.commit()
+
+        assert running.stage_status == "running"
+        assert running.ended_at is None
+        assert running.progress_percent == 12
+
+
+def test_successful_stage_projection_remains_terminal_on_duplicate_update() -> None:
+    sessions = _sessions()
+    analysis_id = "GATK_20260908_130000_D4E5F6"
+    with sessions() as session:
+        session.add(
+            AnalysisRun(
+                analysis_id=analysis_id,
+                pipeline_name="gatk",
+                dag_id="bio_gatk",
+                workdir="/runtime/gatk/run",
+                params_json={},
+            )
+        )
+        completed_at = datetime.now(timezone.utc)
+        completed = _upsert_gatk_stage_state(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            stage_code="prepare",
+            stage_status="success",
+            updated_at=completed_at,
+        )
+        session.commit()
+        original_ended_at = completed.ended_at
+
+        duplicate = _upsert_gatk_stage_state(
+            session,
+            analysis_id=analysis_id,
+            attempt=1,
+            stage_code="prepare",
+            stage_status="success",
+            updated_at=datetime.now(timezone.utc),
+            allow_terminal_reset=False,
+        )
+        session.commit()
+
+        assert duplicate.ended_at == original_ended_at

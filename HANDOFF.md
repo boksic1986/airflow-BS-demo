@@ -1,5 +1,47 @@
 # HANDOFF.md
 
+## 2026-09-08 T238 GATK controlled submission recovery
+
+The validated project `WES_20260816A_T7_V7.6.0_hg38` was submitted as
+`GATK_20260908_104312_85DA16` / `GATK_20260908_104312_85DA16-a1`. The frozen
+preview contains 40 SCMC samples, 80 FASTQ files and 520580463332 bytes. The
+source project and FASTQ mounts remain read-only.
+
+The pre-submit audit found no active WGS/GATK run, no existing GATK history,
+no target result directory and no matching CCE workload. GATK uses its own
+DAG, Airflow pool, runtime directory, result root, database execution namespace
+and `Project_fastq/WES_Clinical/20260816A` OBS prefix. It does not write below
+the WGS runtime or WGS result tree. The directional OBS lease is the only
+intentional shared resource.
+
+Three runtime defects were repaired during the controlled start. Mutable GATK
+evidence now uses the same storage through the BS host spelling
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-gatk/runtime` and node200
+spelling `/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-gatk/runtime`.
+The gate launches `scripts.airflow_handoff` from the frozen release root and
+replaces a prior failed sidecar with `accepted` before a same-generation
+worker relaunch. The GATK runtime now inherits the approved node-local
+`WGS_REAL_OBSUTIL_BIN`; transfer wrappers write below a request-scoped progress
+root, and the gate publishes a frozen-total Step1 `progress.json`.
+
+The Airflow `release_leases` leaf now releases resources and then fails when an
+upstream task is failed or upstream_failed, preventing another false-success
+DagRun. Backend latest-stage projection may reset a terminal status only when
+stage registration identifies the active/new execution generation; append-only
+`pipeline_stage_execution` rows continue to preserve the failed generations.
+
+Validation passed 10 runtime-gate tests, 8 backend GATK submission/evidence
+tests, the focused Airflow leaf regression, Python compilation, DAG import and
+Compose health checks. At handoff Step1 is running with a database-backed
+transfer projection. One checkpoint reported 20691004946/520580463332 bytes,
+6/80 files and 181256843 B/s. Full Step1-Step6 and logger acceptance remain
+pending; do not call this production-ready yet.
+
+Rollback stops only the named GATK run through Airflow, restores the saved
+node200 gate/runtime-env backups, points BS `current` back to T237 and recreates
+only backend, observer, frontend and Airflow control services if required. Do
+not delete runtime evidence, OBS objects, database history or any WGS data.
+
 ## 2026-09-08 T237 BS10610 private office ingress
 
 The BS10610 403 was produced by the frontend nginx allowlist before platform

@@ -1,5 +1,18 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T238 GATK controlled submission recovery
+
+```text
+analysis: GATK_20260908_104312_85DA16, DagRun GATK_20260908_104312_85DA16-a1, batch 20260816A, 40 SCMC samples, 80 FASTQ files and 520580463332 bytes.
+isolation: bio_gatk/gatk_cce_runs, airflow-gatk runtime, GATK_Clinical result root and Project_fastq/WES_Clinical/20260816A are separate from WGS. Only the intentional directional OBS transfer lease is shared.
+runtime_path: BS backend uses /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-gatk/runtime while node200 uses /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-gatk/runtime; both resolve to the same writable storage. The source WES project remains read-only.
+incidents: the first prepare could not write through the old read-only /sg2 spelling. The recovered prepare then exposed a direct-script Python import defect. Step1 next exposed a missing WGS_REAL_OBSUTIL_BIN value and absent progress-root wiring. The old ALL_DONE release leaf also incorrectly allowed an upstream failure to produce a successful DagRun.
+fix: the runtime gate launches scripts.airflow_handoff from the frozen repository root, clears a failed same-generation sidecar before relaunch, and writes request-scoped aggregate transfer progress with Step1 totals frozen from BATCH_RUNTIME transfer_sources. Backend stage projection can reset only when registration selects the current active/new execution generation. The release leaf now raises after releasing leases when upstream tasks failed.
+validation: node200 runtime gate passed 10/10 tests; GATK backend submission/evidence tests passed 8/8; the DAG leaf regression passed in the Airflow image; Airflow lists bio_gatk and bio_wgs with no import errors. Public /api/health returned 200 after recreating backend, observer and frontend only; the Airflow worker remained unchanged.
+live_checkpoint: prepare is success and Step1 is running. At the recorded checkpoint the transfer projection reported 20691004946/520580463332 bytes, 3 percent, 6/80 files and 181256843 B/s. The run remains an active test and is not yet Step1-Step6 accepted.
+safety: no WGS path, result, task or database row was changed. Production .96 was not touched.
+```
+
 ## 2026-09-08 T237 BS10610 private office ingress
 
 ```text

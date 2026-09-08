@@ -106,6 +106,17 @@ def register_gatk_stage(
         .limit(1)
     )
     if latest is not None and latest.status in {"accepted", "running", "success"}:
+        _upsert_gatk_stage_state(
+            session,
+            analysis_id=analysis_id,
+            attempt=attempt,
+            stage_code=stage,
+            stage_status=latest.status,
+            updated_at=datetime.now(timezone.utc),
+            progress_source="gatk-runtime",
+            allow_terminal_reset=latest.status in {"accepted", "running"},
+        )
+        session.commit()
         return _execution_payload(latest)
     generation = (latest.generation + 1) if latest is not None else 1
     execution_id = f"{analysis_id}-a{attempt}-{stage}-g{generation}"
@@ -174,6 +185,7 @@ def register_gatk_stage(
         total_units=None,
         unit=None,
         progress_source="gatk-runtime",
+        allow_terminal_reset=True,
     )
     session.commit()
     return _execution_payload(execution)
@@ -345,6 +357,7 @@ def _upsert_gatk_stage_state(
     unit: str | None = None,
     current_item: str | None = None,
     progress_source: str = "gatk-runtime",
+    allow_terminal_reset: bool = False,
 ) -> RunStageState:
     definition = gatk_stage_definition(stage_code)
     row = session.scalar(
@@ -367,7 +380,10 @@ def _upsert_gatk_stage_state(
         )
         session.add(row)
     elif row.ended_at is not None and row.stage_status in {"success", "failed", "canceled"}:
-        return row
+        if not allow_terminal_reset:
+            return row
+        row.started_at = None
+        row.ended_at = None
     row.stage_status = stage_status
     row.progress_available = progress_available
     row.progress_percent = int(progress_percent) if progress_available and progress_percent is not None else None
