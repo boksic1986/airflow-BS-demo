@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-08 T237 workflow lifecycle catalog and operations layout
+
+```text
+scope: add a registry-owned lifecycle projection to generic run-list rows, keep Workflow Catalog as the capability view, and place read-only Workflow/Cloud release/Result delivery history there instead of the non-actionable Run Tracker column.
+frontend: Run Tracker restores normal typography and left-aligned Project content, centers operational cells, right-aligns Stage progress percent, and uses one Submitted/Started text style. Analysis-node pills match the SFS tag; Dashboard resource panels and meters align; Current Progress and Pipeline evidence are equal height on desktop with relaxed line spacing and natural mobile heights.
+backend: /api/runs invokes only the selected registered adapter lifecycle callback. Adapters without one return lifecycle=null, so the generic route contains no WGS fallback or hard-coded release semantics.
+validation: the merged backend tree passed 7 focused projection/lifecycle tests. The disconnected production frontend build passed 17 files/60 tests and the TypeScript/Vite build, using the cached lock-bound builder with network disabled and pulls disabled.
+deployment: production current points to /data/airflow-WGS/releases/20260908-t237-workflow-lifecycle-r1. Backend was recreated on the unchanged t219 image to load the new source mount, followed by frontend-nginx on airflow-demo/frontend:t237-workflow-lifecycle-7926955. Airflow, observer, scanner, metrics, PostgreSQL and Redis retained their IDs, start times and restart counts.
+production_smoke: root and /api/health return 200; served assets are index-DMWNFrjZ.css and index-BaD2wYpn.js and contain the T237 layout/catalog markers. Production still deploys only wgs. All 11 current runs receive lifecycle projections, and 20260906B remains success with workflow, cloud release, raw FASTQ backup and result-delivery state.
+safety: lifecycle display is read-only and cannot release SFS data or deliver results. No run, DAG, transfer, scanner schedule, database row, Airflow service, storage object or execution gate changed; the only published application port remains 172.17.61.96:12959.
+```
+
 ## 2026-09-08 T236 GATK a.raw FASTQ link visibility
 
 ```text

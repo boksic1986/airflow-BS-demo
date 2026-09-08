@@ -4,7 +4,7 @@
 
 Owner: platform/backend/frontend/QA
 
-Status: validated candidate; production deployment pending
+Status: completed in production
 
 Acceptance:
 - [x] Add an optional registry-owned lifecycle projection to generic run-list items without hard-coding WGS behavior.
@@ -13,7 +13,7 @@ Acceptance:
 - [x] Match analysis-node controls to the SFS tag, align all three resource panels and remove redundant SFS I/O text.
 - [x] Equalize Current Progress and Pipeline evidence on desktop while preserving natural mobile heights.
 - [x] Pass targeted backend/frontend tests and a disconnected production frontend build.
-- [ ] Deploy backend/frontend without recreating Airflow, observer, scanner, metrics, PostgreSQL or Redis.
+- [x] Deploy backend/frontend without recreating Airflow, observer, scanner, metrics, PostgreSQL or Redis.
 
 Safety:
 - Lifecycle display is read-only; it cannot release SFS data or deliver results.

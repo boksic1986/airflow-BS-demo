@@ -1,5 +1,25 @@
 # SERVER_INFO.md
 
+## T237 workflow lifecycle catalog production sync (2026-09-08)
+
+```text
+primary: 172.17.61.96
+release: /data/airflow-WGS/releases/20260908-t237-workflow-lifecycle-r1
+source_commit: 7926955
+frontend_image: airflow-demo/frontend:t237-workflow-lifecycle-7926955
+frontend_image_id: sha256:8c5db9f072fd6cd5d2158252598013d8948360c69892a6f0f4ca075fabb330c1
+backend_image: airflow-demo/backend:t219-stage-terminal-r2 (unchanged image, T237 source mount)
+build: cached lock-bound Node 22 builder and current production nginx base; network none and pull disabled
+validation: backend 7 passed; frontend 17 files/60 tests; TypeScript/Vite build passed
+recreated_services: backend, frontend-nginx
+preserved: observer, scanner, Airflow API/scheduler/worker, node probe, metrics collector, PostgreSQL and Redis retained IDs/start times/restart count 0
+smoke: root 200; /api/health 200; assets index-DMWNFrjZ.css and index-BaD2wYpn.js contain T237 markers
+registry: DEPLOYED_PIPELINES=wgs; 11/11 current rows projected lifecycle; 20260906B remains success
+rollback_env: /data/airflow-WGS/env/production.env.pre-T237-20260908
+rollback_release: /data/airflow-WGS/releases/20260908-t234-run-tracker-readability-r1
+published_ports: 172.17.61.96:12959 only
+```
+
 ## T234 Run Tracker readability production sync (2026-09-08)
 
 ```text

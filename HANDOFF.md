@@ -1,5 +1,42 @@
 # HANDOFF.md
 
+## 2026-09-08 T237 workflow lifecycle catalog production release
+
+Production now points to
+`/data/airflow-WGS/releases/20260908-t237-workflow-lifecycle-r1` and serves
+`airflow-demo/frontend:t237-workflow-lifecycle-7926955`
+(`sha256:8c5db9f072fd6cd5d2158252598013d8948360c69892a6f0f4ca075fabb330c1`).
+The backend image remains `airflow-demo/backend:t219-stage-terminal-r2`; its
+read-only application mount now comes from the T237 release. Production
+continues to deploy only `wgs`; dormant GATK adapter code from the shared
+mainline is not exposed.
+
+The generic run list now obtains optional lifecycle state through the deployed
+adapter callback. Workflow Catalog keeps capability metadata and three recent
+runs, then adds the filterable read-only lifecycle table. Run Tracker no longer
+shows the non-actionable Data lifecycle column. The approved node/resource,
+scanner wording, progress alignment and equal-height Run Detail card changes
+are included.
+
+The merged backend projection/lifecycle suite passed 7 tests. The production
+offline builder passed all 17 frontend files/60 tests and the TypeScript/Vite
+build without network or pulls. Public root and `/api/health` return 200; the
+served assets are `index-DMWNFrjZ.css` and `index-BaD2wYpn.js`. Direct
+production projection returned lifecycle objects for all 11 WGS runs, and
+`20260906B` remains `success` with all four lifecycle groups.
+
+Only backend and frontend-nginx were recreated. Observer, scanner, Airflow
+API/scheduler/worker, node probe, metrics collector, PostgreSQL and Redis kept
+their exact IDs, start times and restart count zero. The public boundary remains
+only `172.17.61.96:12959`. No workflow, database row, transfer, SFS/OBS content,
+scanner schedule or execution gate was changed.
+
+Rollback: restore
+`/data/airflow-WGS/env/production.env.pre-T237-20260908`, repoint `current` to
+`/data/airflow-WGS/releases/20260908-t234-run-tracker-readability-r1`, recreate
+backend, wait for backend self-health, then recreate frontend-nginx. Do not
+recreate Airflow, observer, scanner, metrics, PostgreSQL or Redis.
+
 ## 2026-09-08 T236 GATK a.raw FASTQ link visibility
 
 The `20260816A` source was valid. Its project-local `a.raw` entries point to
