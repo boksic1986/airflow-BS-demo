@@ -21,9 +21,19 @@ passed 340 backend tests with one skip, 56 frontend tests, and the
 TypeScript/Vite production build. No database, Airflow or analysis runtime was
 changed during candidate validation.
 
-Deployment remains to recreate only backend and frontend on BS10610, then
-verify WGS scanner HTTP 200, GATK selected view without Intake, database run
-count zero, and all execution gates unchanged.
+BS10610 now points to
+`releases/20260908-t233-intake-capability-r1` and serves backend/frontend
+`t233-a879e0b`. Only those two services were recreated; the deploy script
+asserted that Airflow API/scheduler/worker, observer, collector, PostgreSQL and
+Redis retained their container IDs. Authenticated probes returned 200 for WGS
+intake, deployed aggregate intake and scanner state; explicit GATK intake
+returned the intended structured 409. The run list remains empty, recent
+backend/frontend logs contain no new traceback or 500, and scanner,
+auto-dispatch and GATK execution gates remain false.
+
+Rollback: restore the `before-t233` environment backup, point `current` to
+`releases/20260908-t232-gatk-main-sync-r1`, and recreate only backend and
+frontend. No database rollback is required.
 
 ## 2026-09-08 T232 GATK mainline sync and BS10610 reset
 

@@ -4,7 +4,7 @@
 
 Owner: platform/backend/frontend
 
-Status: implemented and validated; BS10610 deployment pending
+Status: completed on BS10610 test environment
 
 Acceptance:
 - [x] Aggregate Intake endpoints ignore deployed adapters without `intake`.
@@ -13,7 +13,7 @@ Acceptance:
 - [x] WGS and All pipelines continue to show the WGS scanner.
 - [x] Add red/green backend and frontend regressions.
 - [x] Pass backend, frontend and production build validation.
-- [ ] Deploy backend/frontend to BS10610 and verify the live WGS/GATK views.
+- [x] Deploy backend/frontend to BS10610 and verify the live WGS/GATK views.
 
 Safety:
 - No schema, DAG, workflow, scanner or execution-gate change.

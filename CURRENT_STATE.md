@@ -6,6 +6,7 @@
 incident: after GATK was deployed as a manual-only adapter, Command Center still requested T7 Intake for GATK. The scanner-state endpoint also required every deployed adapter to provide intake, producing a 500 for WGS because GATK correctly lacks that capability.
 fix: aggregate intake status and scanner state now skip deployed adapters without intake, while explicit pipeline=gatk remains a structured 409. Dashboard only loads and renders Intake when the selected scope includes an intake-capable adapter.
 validation: the new frontend regression failed against the prior UI and both backend regressions failed against the prior API. The candidate then passed 340 backend tests with 1 skip, 56 frontend tests and the TypeScript/Vite build.
+deployment: BS10610 current points to releases/20260908-t233-intake-capability-r1 with backend/frontend t233-a879e0b. WGS, deployed aggregate and scanner-state return 200; explicit GATK intake returns the intended structured 409. Only backend and frontend were recreated.
 safety: no database migration, DAG, workflow, scanner schedule or execution gate changes.
 ```
 
