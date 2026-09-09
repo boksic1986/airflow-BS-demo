@@ -1,5 +1,33 @@
 # HANDOFF.md
 
+## 2026-09-10 T249 GATK full-flow completion
+
+```text
+branch: jiucheng/gatk/T249-step6-bundle-import
+baseline: origin/jiucheng/gatk/T248-finalize-terminal-reconciliation@d80e427
+environment: BS10610 test only
+analysis: GATK_20260909_071908_F45CF7 attempt 1
+```
+
+The retained GATK run is now complete. T249 fixes the Step6 host gate so a
+frozen `cce_delivery.py` can import sibling modules and receives the immutable
+permission contract from `BATCH_RUNTIME.yaml`. The regression covers both
+requirements; all 12 tests in `scripts/tests/test_gatk_runtime_gate.py` pass on
+BS10610.
+
+Only `materialize_step6_results` and its downstream tasks were reopened for the
+final retry. Airflow is success with 21/21 task instances. The business
+projection is success at 100%, with 14/14 samples and 184/184 rules successful.
+Step5 and Step6 markers both report PASS, the approved result root contains 336
+files (about 9.6 GiB), and there are no active CCE workers or host gate
+processes. The Dashboard API returns Completed/100% for the run.
+
+The updated gate is installed at
+`/home/hanjj/.config/airflow-gatk/gatk_runtime_gate.py` on node200 with SHA-256
+`741ae5df618042e969e8ce08693aa2ced6aa997536c2caf3d11188fe5d1b2b0b`.
+BS10610 scanner and auto dispatch remain disabled. BS96 production was not
+changed.
+
 ## 2026-09-10 T248 GATK finalize and terminal reconciliation
 
 ```text

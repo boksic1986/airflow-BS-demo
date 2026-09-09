@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T249 GATK full-flow completion
+
+```text
+incident: after T248 resumed the retained test run through Step3-Step5, Step6 could not load cce_delivery.py's sibling cce_shared_permissions module. The next attempt loaded the helper but omitted its required permissions keyword argument.
+fix: gatk_runtime_gate temporarily prepends the frozen bundle directory while executing the delivery module, always removes it afterward, validates BATCH_RUNTIME.yaml permissions, and passes that immutable permission contract to materialize_results.
+validation: the focused regression failed on each missing contract before its fix, then the complete BS10610 gate suite passed 12 tests. The installed node200 gate was compiled with the shared nipttest Python 3.9 runtime.
+run: GATK_20260909_071908_F45CF7 attempt 1 completed without rerunning Step1-Step5. Airflow reports success with 21 successful tasks. biodemo reports success/100%, 14 successful samples, 184 successful RuleState rows and terminal success for every projected stage. Step6 generation 3 is success.
+artifacts: DOWNLOAD_VERIFIED and MATERIALIZED both report status=PASS. The approved test result root /sg2/33.chenjiucheng/wgs_test/WES_Clinical/20260823A/GATK_20260909_071908_F45CF7 contains 336 files and uses about 9.6 GiB. Step3 reports 184/184, Master/Snakemake success and zero active workers; no GATK gate process remains.
+frontend: the authenticated dashboard API projects the run as Completed, success, 100%, 14 samples with the final pipeline timestamp. Backend health is OK.
+safety: BS10610 test only. Scanner and auto dispatch remain false. Source FASTQ, completed CCE work, BS96 production, WGS and other pipelines were not changed.
+```
+
 ## 2026-09-10 T248 GATK finalize and terminal-state repair
 
 ```text

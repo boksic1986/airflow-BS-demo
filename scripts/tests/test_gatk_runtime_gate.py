@@ -332,17 +332,24 @@ def test_step6_materializes_to_approved_gatk_result_root(
                     "run_id": f"{analysis_id}-a1",
                 },
                 "tools": {"zstd_bin": "/approved/zstd"},
+                "permissions": {"directory_mode": "2770", "file_mode": "0660"},
             }
         ),
         encoding="utf-8",
     )
+    (bundle / "cce_shared_permissions.py").write_text(
+        "DELIVERY_SOURCE = 'frozen-bundle'\n",
+        encoding="utf-8",
+    )
     (bundle / "cce_delivery.py").write_text(
         "import json\n"
+        "from cce_shared_permissions import DELIVERY_SOURCE\n"
         "from pathlib import Path\n"
-        "def materialize_results(download_root, batch_root, batch, **kwargs):\n"
+        "def materialize_results(download_root, batch_root, batch, *, permissions, **kwargs):\n"
         "    Path(batch_root).mkdir(parents=True)\n"
         "    (Path(batch_root) / 'call.json').write_text(json.dumps({\n"
-        "        'download_root': str(download_root), 'batch': batch, **kwargs\n"
+        "        'download_root': str(download_root), 'batch': batch,\n"
+        "        'delivery_source': DELIVERY_SOURCE, 'permissions': permissions, **kwargs\n"
         "    }))\n",
         encoding="utf-8",
     )
@@ -357,6 +364,8 @@ def test_step6_materializes_to_approved_gatk_result_root(
     assert call["batch"] == "20260908A"
     assert call["run_id"] == f"{analysis_id}-a1"
     assert call["project_name"] == "WES_Clinical"
+    assert call["delivery_source"] == "frozen-bundle"
+    assert call["permissions"] == {"directory_mode": "2770", "file_mode": "0660"}
 
 
 def test_step6_rejects_result_root_outside_configured_root(

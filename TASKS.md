@@ -1,5 +1,23 @@
 # TASKS.md
 
+## T249 - GATK Step6 frozen delivery contract repair
+
+Owner: GATK/Airflow/QA
+
+Status: completed in BS10610 test
+
+Acceptance:
+- [x] Reproduce Step6 failure when the frozen delivery helper imports its sibling permission module.
+- [x] Load the frozen bundle through an isolated temporary `sys.path` entry and remove it after import.
+- [x] Validate and pass the frozen `permissions` contract to `materialize_results`.
+- [x] Pass all 12 GATK runtime-gate tests on BS10610.
+- [x] Resume only Step6 and downstream tasks for `GATK_20260909_071908_F45CF7`.
+- [x] Reach Airflow/backend success with 21/21 tasks, 184/184 rules, 14/14 samples, verified download and materialized results.
+
+Safety:
+- Step1-Step5, source FASTQ and completed CCE outputs were not rerun or modified.
+- Test scanner and auto dispatch remain disabled; BS96 production was not changed.
+
 ## T248 - GATK finalize visibility and terminal reconciliation
 
 Owner: GATK/Airflow/backend/QA

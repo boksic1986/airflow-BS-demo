@@ -351,6 +351,9 @@ def _materialize(payload: dict[str, Any]) -> Path:
         raise RuntimeError("GATK BATCH_RUNTIME.yaml is invalid")
     identity = runtime.get("identity") or {}
     tools = runtime.get("tools") or {}
+    permissions = runtime.get("permissions")
+    if not isinstance(permissions, dict):
+        raise RuntimeError("GATK BATCH_RUNTIME.yaml permissions are invalid")
     expected_run_id = f"{payload['analysis_id']}-a{int(payload['attempt'])}"
     if identity.get("run_id") != expected_run_id:
         raise RuntimeError("GATK materialization identifies another analysis attempt")
@@ -364,7 +367,12 @@ def _materialize(payload: dict[str, Any]) -> Path:
     if spec is None or spec.loader is None:
         raise RuntimeError("frozen GATK delivery helper cannot be loaded")
     delivery = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(delivery)
+    bundle_path = str(bundle)
+    sys.path.insert(0, bundle_path)
+    try:
+        spec.loader.exec_module(delivery)
+    finally:
+        sys.path.remove(bundle_path)
 
     result_root = _materialize_result_root(payload)
     delivery.materialize_results(
@@ -374,6 +382,7 @@ def _materialize(payload: dict[str, Any]) -> Path:
         run_id=expected_run_id,
         zstd_bin=str(tools.get("zstd_bin") or ""),
         project_name=str(identity.get("project") or ""),
+        permissions=permissions,
     )
     return result_root
 
