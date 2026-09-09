@@ -1,5 +1,42 @@
 # HANDOFF.md
 
+## 2026-09-10 T248 GATK finalize and terminal reconciliation
+
+```text
+airflow_branch: jiucheng/gatk/T248-finalize-terminal-reconciliation
+airflow_baseline: origin/main@d90cac3 plus deployed GATK test baseline a201f73
+gatk_branch: jiucheng/gatk/T248-finalize-sfs-latency
+gatk_baseline: main@84b1bd4
+environment: BS10610 test only
+```
+
+The retained failed GATK run proved two independent defects. Its Kubernetes
+`cloud_gatk_finalize` job completed, while Snakemake raised
+`MissingOutputException` before shared SFS exposed `payload-manifest.tsv` and
+`ANALYSIS_COMPLETE`. Separately, the failed status sidecar erased 182/184
+progress and the missing DAG callback left one rule and all samples running.
+
+T248 adds `latency-wait: 180` to the GATK CCE profile, preserves the last valid
+stage counters on counter-less terminal evidence, adds the internal GATK DAG
+terminal endpoint/callback, closes active RuleState/Sample projections, and
+lets terminal Run Tracker rows use the same stage evidence as Run Detail.
+
+Validation under
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/validation/T248-green`
+passed 17 focused backend tests, the complete 362-test backend suite, 4 DAG
+contract tests, an Airflow 2.9.3 import/callback probe and the GATK profile
+test. The complete backend suite requires
+`WGS_STAGE_CONTRACT_PATH=/workspace/config/wgs_stage_contract.yaml`; omitting
+it caused two expected configuration failures before the corrected run.
+
+Remaining rollout work is test-only: create a release from the final commit,
+install the GATK profile change in its controlled runtime release, recreate
+only backend and Airflow services that consume changed source, then invoke the
+new terminal reconciliation for `GATK_20260909_071908_F45CF7`. Do not rerun
+the 40-sample analysis. Verify the run remains failed at 98%, 182/184, with
+`cloud_gatk_finalize` failed, unfinished siblings canceled and all samples
+terminal. BS96 production is out of scope.
+
 ## 2026-09-09 T247 environment boundary and cleanup handoff
 
 ```text

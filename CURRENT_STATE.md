@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T248 GATK finalize and terminal-state repair
+
+```text
+incident: GATK_20260909_071908_F45CF7 reached 182/184 rules and the Kubernetes cloud_gatk_finalize Job succeeded, but Snakemake's default five-second output check did not see payload-manifest.tsv and ANALYSIS_COMPLETE through shared SFS quickly enough. The Master therefore exited failed even though both markers became visible. The terminal sidecar then cleared the prior 98% counters, and bio_gatk had no DagRun failure callback to close the last RuleState and Sample rows.
+fix: the GATK CCE profile uses latency-wait=180. Terminal sidecars without counters preserve the last valid stage counters/current item. bio_gatk posts a best-effort terminal callback to the internal backend, which preserves success, records the failed stage, closes unfinished rule/sample projections and keeps the true failing rule failed. Terminal Dashboard rows now use RunStageState instead of the generic task-weight fallback.
+validation: isolated BS10610 source passed 17 focused backend tests, 362 complete backend tests, 4 DAG contract tests, actual Airflow 2.9.3 DAG import/callback inspection, and the GATK CCE profile test. The first complete-suite invocation lacked WGS_STAGE_CONTRACT_PATH and produced two configuration-only failures; rerunning with the repository contract path passed all 362 tests.
+scope: test environment only. No deployment, historical row reconciliation, GATK rerun, CCE/OBS/SFS mutation or BS96 production change has occurred at this documentation point.
+```
+
 ## 2026-09-09 T247 environment boundary and Docker governance
 
 ```text

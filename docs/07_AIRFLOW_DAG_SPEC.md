@@ -34,6 +34,12 @@ cce-pipeline or the independent logger evidence bridge.
 Airflow tasks remain project-level. Snakemake rule/sample events come from the
 GATK `rule-status` logger and are not expanded into Airflow tasks.
 
+The DAG-level failure callback reports the attempt and failed task IDs to the
+internal GATK terminal endpoint. Callback delivery is best effort so a backend
+outage cannot conceal the original Airflow failure. Backend reconciliation is
+idempotent and uses the failed runtime stage as the rule/sample terminal-state
+authority.
+
 ## Failure projection
 
 Terminal Airflow failures must be projected into the business database. An observer or rerun must be able to recover from persisted generation and receipt evidence without launching a duplicate stage.

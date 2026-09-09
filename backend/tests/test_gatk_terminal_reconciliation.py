@@ -208,7 +208,11 @@ def test_dag_failure_closes_rule_and_sample_projection_without_losing_progress()
         "cloud_gatk_all": "canceled",
         "cloud_gatk_finalize": "failed",
     }
-    assert all(row.ended_at == timestamp for row in rules)
+    assert all(
+        row.ended_at is not None
+        and row.ended_at.replace(tzinfo=timezone.utc) == timestamp
+        for row in rules
+    )
     assert {sample.status for sample in samples} == {"failed"}
 
 

@@ -121,6 +121,12 @@ Internal `/api/internal/gatk/runs/{analysis_id}/stages/{stage}` and
 `/stage-status` routes require the service token and the fixed
 `gatk-runtime-200` adapter identity.
 
+`POST /api/internal/gatk/runs/{analysis_id}/dag-terminal` is also service-token
+only. It accepts the exact attempt, `status=failed` and the failed Airflow task
+IDs. The operation is idempotent, never overwrites a successful run, preserves
+the last stage counters, marks the genuine failing rule failed, cancels other
+unfinished rules and closes sample projections as failed.
+
 ## Privacy
 
 Responses never include patient names, hospitals, credentials, raw absolute storage paths, or arbitrary filesystem content. Artifacts are accessed by controlled keys.

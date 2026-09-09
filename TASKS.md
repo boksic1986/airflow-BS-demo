@@ -1,5 +1,24 @@
 # TASKS.md
 
+## T248 - GATK finalize visibility and terminal reconciliation
+
+Owner: GATK/Airflow/backend/QA
+
+Status: implementation complete; BS10610 test rollout pending
+
+Acceptance:
+- [x] Reproduce the shared-SFS `MissingOutputException` after a successful `cloud_gatk_finalize` job.
+- [x] Give the GATK CCE profile a 180-second output visibility window without changing analysis rules.
+- [x] Preserve the last valid rule progress when a terminal runtime sidecar has no counters.
+- [x] Project a failed `bio_gatk` DagRun into terminal run, rule and sample state.
+- [x] Keep the genuine failing rule failed and cancel only unfinished siblings.
+- [x] Use persisted GATK stage progress for terminal Run Tracker rows.
+- [x] Pass focused and complete backend tests, DAG contract/import checks and GATK profile tests on BS10610.
+- [ ] Deploy the candidate to BS10610 and reconcile the retained failed test run without rerunning GATK.
+
+Safety:
+- No WGS behavior, GATK analysis rule, source FASTQ, CCE workload, OBS object or production BS96 service is changed.
+
 ## T247 - Environment boundary, legacy cleanup and Docker governance
 
 Owner: platform/infra/docs/QA

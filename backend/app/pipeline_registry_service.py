@@ -325,19 +325,6 @@ def _project_gatk_rule_context(*, run, **_) -> dict[str, Any]:
 
 
 def _project_gatk_progress(*, session, run, payload, **_) -> dict[str, Any]:
-    if str(run.status or "").lower() not in {
-        "accepted",
-        "submitted",
-        "queued",
-        "scheduled",
-        "running",
-        "started",
-        "retrying",
-        "publishing",
-        "downloading",
-    }:
-        return payload
-
     stage = gatk_stage_definition(run.current_stage)
     stage_rows = list(
         session.scalars(
@@ -350,6 +337,8 @@ def _project_gatk_progress(*, session, run, payload, **_) -> dict[str, Any]:
     stage_row = next(
         (row for row in stage_rows if row.stage_code == stage.code), None
     )
+    if stage_row is None:
+        return payload
     progress_available = bool(stage_row and stage_row.progress_available)
     stage_percent = stage_row.progress_percent if progress_available else None
     return {

@@ -10,7 +10,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.gatk_stage_contract import gatk_stage_definition
-from app.models import AnalysisRun, PipelineStageExecution, RunStageState, Sample
+from app.models import (
+    AnalysisRun,
+    PipelineStageExecution,
+    RuleState,
+    RunStageState,
+    Sample,
+)
 from app.wgs_observer import ingest_bound_pipeline_evidence_once
 
 
@@ -370,6 +376,122 @@ def finalize_gatk_run(
     return {"analysis_id": analysis_id, "attempt": attempt, "status": "success"}
 
 
+def mark_gatk_dag_failed(
+    *,
+    session: Session,
+    analysis_id: str,
+    attempt: int,
+    failed_task_ids: list[str],
+    timestamp: datetime | None = None,
+) -> dict[str, Any]:
+    """Close GATK projections when Airflow reaches a terminal failure."""
+    run = session.scalar(
+        select(AnalysisRun)
+        .where(
+            AnalysisRun.analysis_id == analysis_id,
+            AnalysisRun.pipeline_name == "gatk",
+        )
+        .with_for_update()
+    )
+    if run is None or run.attempt != attempt:
+        raise ValueError("unknown active GATK attempt")
+
+    failures = sorted(
+        {str(task_id).strip() for task_id in failed_task_ids if str(task_id).strip()}
+    )
+    if len(failures) > 1 and "release_leases" in failures:
+        failures.remove("release_leases")
+    if run.status == "success":
+        return {
+            "analysis_id": analysis_id,
+            "attempt": attempt,
+            "status": run.status,
+            "failed_task_ids": failures,
+            "error_summary": run.error_summary,
+        }
+
+    terminal_at = timestamp or datetime.now(timezone.utc)
+    stage_rows = list(
+        session.scalars(
+            select(RunStageState)
+            .where(
+                RunStageState.analysis_id == analysis_id,
+                RunStageState.attempt == attempt,
+            )
+            .order_by(RunStageState.updated_at.desc())
+        ).all()
+    )
+    failed_stage = next(
+        (row for row in stage_rows if row.stage_status == "failed"),
+        next((row for row in stage_rows if row.stage_code == run.current_stage), None),
+    )
+    failed_item = failed_stage.current_item if failed_stage else None
+    failed_label = failed_stage.stage_label if failed_stage else None
+    failed_message = (
+        (failed_stage.message if failed_stage else None)
+        or run.error_summary
+    )
+    primary_task = failures[0] if failures else "unknown Airflow task"
+    if failed_item:
+        error_summary = (
+            f"GATK workflow failed in {failed_item}"
+            f" ({failed_label or run.current_stage}): "
+            f"{failed_message or f'Airflow task {primary_task} failed'}"
+        )
+    else:
+        error_summary = (
+            f"GATK Airflow run failed in task {primary_task}. "
+            "Open Run Detail logs for the exact error."
+        )
+
+    run.status = "failed"
+    if failed_stage is not None:
+        run.current_stage = failed_stage.stage_code
+        if failed_stage.progress_available and failed_stage.progress_percent is not None:
+            run.progress_percent = max(
+                int(run.progress_percent or 0), int(failed_stage.progress_percent)
+            )
+    run.error_summary = error_summary
+    run.progress_updated_at = terminal_at
+    run.ended_at = run.ended_at or terminal_at
+    run.pipeline_finished_at = run.pipeline_finished_at or terminal_at
+
+    active_rule_states = {"planned", "accepted", "queued", "running"}
+    rule_rows = list(
+        session.scalars(
+            select(RuleState).where(
+                RuleState.analysis_id == analysis_id,
+                RuleState.attempt == attempt,
+                RuleState.status.in_(active_rule_states),
+            )
+        ).all()
+    )
+    for rule in rule_rows:
+        is_failed_rule = bool(failed_item and rule.rule_name == failed_item)
+        rule.status = "failed" if is_failed_rule else "canceled"
+        rule.message = (
+            failed_message
+            if is_failed_rule and failed_message
+            else "parent workflow terminated"
+        )
+        rule.ended_at = rule.ended_at or terminal_at
+        rule.updated_at = terminal_at
+
+    for sample in session.scalars(
+        select(Sample).where(Sample.analysis_id == analysis_id)
+    ).all():
+        sample.status = "failed"
+
+    session.commit()
+    return {
+        "analysis_id": analysis_id,
+        "attempt": attempt,
+        "status": run.status,
+        "failed_task_ids": failures,
+        "error_summary": run.error_summary,
+    }
+
+
 def _upsert_gatk_stage_state(
     session: Session,
     *,
@@ -413,13 +535,23 @@ def _upsert_gatk_stage_state(
         row.started_at = updated_at
         row.ended_at = None
     row.stage_status = stage_status
-    row.progress_available = progress_available
-    row.progress_percent = int(progress_percent) if progress_available and progress_percent is not None else None
-    row.completed_units = completed_units if progress_available else None
-    row.total_units = total_units if progress_available else None
-    row.unit = unit if progress_available else None
-    row.current_item = current_item
-    row.progress_source = progress_source
+    preserve_progress = (
+        stage_status in {"success", "failed", "canceled"}
+        and not progress_available
+        and row.progress_available
+    )
+    if not preserve_progress:
+        row.progress_available = progress_available
+        row.progress_percent = (
+            int(progress_percent)
+            if progress_available and progress_percent is not None
+            else None
+        )
+        row.completed_units = completed_units if progress_available else None
+        row.total_units = total_units if progress_available else None
+        row.unit = unit if progress_available else None
+        row.current_item = current_item
+        row.progress_source = progress_source
     if stage_status in {"accepted", "running"} and row.started_at is None:
         row.started_at = updated_at
     if stage_status in {"success", "failed", "canceled"}:

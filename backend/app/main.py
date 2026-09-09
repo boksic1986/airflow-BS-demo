@@ -34,6 +34,7 @@ from app.gatk_submission_service import (
 )
 from app.gatk_runtime_service import (
     finalize_gatk_run,
+    mark_gatk_dag_failed,
     register_gatk_stage,
     sync_gatk_stage_status,
 )
@@ -312,6 +313,13 @@ class GatkRuntimeStageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     attempt: int = Field(ge=1)
     adapter: str = Field(pattern="^gatk-runtime-200$")
+
+
+class GatkDagTerminalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    attempt: int = Field(ge=1)
+    status: str = Field(pattern="^failed$")
+    failed_task_ids: list[str] = Field(default_factory=list, max_length=64)
 
 
 class WgsObserverLifecycleRequest(BaseModel):
@@ -2377,6 +2385,29 @@ def internal_gatk_stage_status(
         raise HTTPException(
             status_code=409,
             detail={"code": "GATK_EVIDENCE_INVALID", "message": str(exc)},
+        ) from exc
+
+
+@app.post(
+    "/api/internal/gatk/runs/{analysis_id}/dag-terminal",
+    dependencies=[Depends(require_internal_service_token)],
+)
+def internal_gatk_dag_terminal(
+    analysis_id: str,
+    request: GatkDagTerminalRequest,
+) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            return mark_gatk_dag_failed(
+                session=session,
+                analysis_id=analysis_id,
+                attempt=request.attempt,
+                failed_task_ids=request.failed_task_ids,
+            )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "GATK_DAG_TERMINAL_REJECTED", "message": str(exc)},
         ) from exc
 
 

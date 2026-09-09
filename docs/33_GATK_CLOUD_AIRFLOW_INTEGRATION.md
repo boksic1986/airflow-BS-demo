@@ -102,6 +102,18 @@ checks all upstream task instances and fails itself if any upstream task is
 failed or upstream-failed. This prevents a successful cleanup leaf from
 incorrectly making a failed GATK DagRun appear successful.
 
+The CCE profile sets `latency-wait: 180` because final marker files are written
+through shared SFS. This changes only Snakemake's output visibility window; it
+does not retry or alter `cloud_gatk_finalize`, relax marker validation, or hide
+a genuinely missing output.
+
+When a runtime sidecar becomes terminal without progress fields, the backend
+retains the latest valid counters and current rule from logger evidence. The
+DagRun failure callback then closes the business projection: the matching
+failed rule remains failed, unfinished siblings become canceled, samples
+become failed, and terminal Run Tracker rows retain the same stage progress as
+Run Detail. A previously successful run is never downgraded by the callback.
+
 ## State and evidence
 
 GATK writes append-only stage attempts to `pipeline_stage_execution`, not
