@@ -29,13 +29,29 @@ test. The complete backend suite requires
 `WGS_STAGE_CONTRACT_PATH=/workspace/config/wgs_stage_contract.yaml`; omitting
 it caused two expected configuration failures before the corrected run.
 
-Remaining rollout work is test-only: create a release from the final commit,
-install the GATK profile change in its controlled runtime release, recreate
-only backend and Airflow services that consume changed source, then invoke the
-new terminal reconciliation for `GATK_20260909_071908_F45CF7`. Do not rerun
-the 40-sample analysis. Verify the run remains failed at 98%, 182/184, with
-`cloud_gatk_finalize` failed, unfinished siblings canceled and all samples
-terminal. BS96 production is out of scope.
+BS10610 now points to
+`releases/20260910-t248-gatk-terminal-b816c91`, sourced from code commit
+`b816c91bec1fcfb1013ed80276fb0ea635776c70`. Backend, Airflow API, scheduler
+and worker were recreated. The unchanged frontend-nginx was restarted once
+because nginx retained the replaced backend container's old Docker address;
+the root and `/api/health` then returned 200. Scanner and auto dispatch remain
+false.
+
+The node200 GATK runtime now selects release `975b782`; its previous private
+environment is saved as
+`/home/hanjj/.config/airflow-gatk/backups/runtime.env.pre-T248-20260910`.
+The retained run `GATK_20260909_071908_F45CF7` was reconciled without a rerun:
+it remains failed at 98% and 182/184, `cloud_gatk_finalize` is the sole failed
+rule, the other 182 rules remain success and all 14 samples are terminal
+failed. Direct workspace and tracker projections agree.
+
+The Airflow branch is pushed to GitHub. GATK commit `975b782` is present in the
+writable BS checkout as `jiucheng/gatk/T248-finalize-sfs-latency` and in the
+deployed immutable release. Two GitLab pushes were rejected by the configured
+HTTP credentials, so that branch is not yet upstream. The temporary askpass
+was removed after each attempt and no credential value was printed. Refresh
+the protected GitLab credential before publishing; do not recreate the commit
+or alter the deployed release. BS96 production remains out of scope.
 
 ## 2026-09-09 T247 environment boundary and cleanup handoff
 

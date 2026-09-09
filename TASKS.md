@@ -4,7 +4,7 @@
 
 Owner: GATK/Airflow/backend/QA
 
-Status: implementation complete; BS10610 test rollout pending
+Status: completed in BS10610 test
 
 Acceptance:
 - [x] Reproduce the shared-SFS `MissingOutputException` after a successful `cloud_gatk_finalize` job.
@@ -14,7 +14,7 @@ Acceptance:
 - [x] Keep the genuine failing rule failed and cancel only unfinished siblings.
 - [x] Use persisted GATK stage progress for terminal Run Tracker rows.
 - [x] Pass focused and complete backend tests, DAG contract/import checks and GATK profile tests on BS10610.
-- [ ] Deploy the candidate to BS10610 and reconcile the retained failed test run without rerunning GATK.
+- [x] Deploy the candidate to BS10610 and reconcile the retained failed test run without rerunning GATK.
 
 Safety:
 - No WGS behavior, GATK analysis rule, source FASTQ, CCE workload, OBS object or production BS96 service is changed.
