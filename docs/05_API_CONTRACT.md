@@ -94,6 +94,10 @@ Existing `/api/wgs/*` routes remain supported for WGS submission, intake, eviden
 - GATK reuses `/workspace`, `/rules`, `/pods`, `/transfers`, `/logs` and
   `/artifacts`. It deliberately does not expose QC, intake or clone-reanalysis
   capability in v1.
+- For an active GATK run, `GET /api/dashboard/runs` obtains `stage_code`,
+  `stage_label`, `stage_status`, exact progress units and percent from the
+  current attempt's `RunStageState`. Cleared downstream Airflow tasks with a
+  null state cannot replace that runtime stage in the tracker response.
 
 Internal `/api/internal/gatk/runs/{analysis_id}/stages/{stage}` and
 `/stage-status` routes require the service token and the fixed

@@ -56,6 +56,9 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 - GATK submission is a two-step manual flow: controlled project path preview,
   then one confirmation. SCMC samples are shown as locked rows. The Run Detail
   hides QC and reanalysis actions that GATK v1 does not provide.
+- Active GATK Run Tracker and Run Detail progress come from the same current
+  `RunStageState`. A cleared future Airflow task is not shown as the current
+  stage merely because it retains historical timestamps.
 
 ### T227 WGS detail refinements
 

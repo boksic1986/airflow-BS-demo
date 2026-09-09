@@ -1,5 +1,23 @@
 # TASKS.md
 
+## T246 - GATK Run Tracker runtime-stage projection
+
+Owner: backend/deployment/QA/docs
+
+Status: implemented and validated; BS10610 activation pending
+
+Acceptance:
+- [x] Reproduce a cleared downstream Step6 task overriding an active Step3 row.
+- [x] Project active GATK Dashboard progress from the current attempt's `RunStageState`.
+- [x] Ignore cleared downstream Airflow task timestamps for the active GATK tracker row.
+- [x] Keep Run Detail and Run Tracker on the same exact rule count and percentage.
+- [x] Pass focused GATK workspace, adapter and Dashboard regressions on BS10610.
+- [ ] Activate the backend-only release and verify the live running row.
+
+Safety:
+- The change is read-only projection logic; it does not clear tasks, mutate stage
+  evidence, restart Airflow or relaunch the active Master.
+
 ## T245 - GATK immutable-release prepare recovery
 
 Owner: GATK/runtime/Airflow/deployment/docs

@@ -1,5 +1,23 @@
 # HANDOFF.md
 
+## 2026-09-09 T246 GATK Run Tracker runtime-stage projection
+
+The running `GATK_20260909_071908_F45CF7` exposed a display-only split: the
+workspace API reported healthy Step3 progress at 70/184 rules, but Dashboard
+selected historical `wait_step6_materialize` timestamps left by the targeted
+Airflow clear and displayed Step6 with a 15% task-weight estimate.
+
+Commit `d82f8ab` registers a GATK `project_progress` projector. Active tracker
+rows now use the current attempt's `RunStageState` label, exact units, percent,
+source and update time, and do not use the cleared Airflow task list to choose
+the current stage. Terminal projection behavior is unchanged.
+
+The regression failed before the implementation with `Wait step6 materialize`
+instead of `Run GATK analysis`, then passed. The focused BS10610 suite covering
+GATK workspace, pipeline adapters and Dashboard attention passed 6 tests. The
+candidate has not yet been activated; no backend/Airflow service, CCE workload,
+database row, OBS object or SFS result was changed during candidate validation.
+
 ## 2026-09-09 T244/T245 GATK Prepare rerun recovery
 
 The `20260823A` rerun exposed three sequential Prepare compatibility defects:

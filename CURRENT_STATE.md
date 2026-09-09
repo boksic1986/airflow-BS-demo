@@ -1,5 +1,20 @@
 # CURRENT_STATE.md
 
+## 2026-09-09 T246 GATK Run Tracker runtime-stage projection
+
+The active GATK run was healthy in Step3 with exact runtime evidence, while Run
+Tracker displayed a stale Step6 label and Airflow-weight estimate. Run Detail
+already consumed `RunStageState`; the GATK registry adapter did not provide a
+Dashboard `project_progress` projector, so the generic fallback selected a
+cleared downstream task whose state was null but whose historical timestamps
+remained populated.
+
+Commit `d82f8ab` projects active GATK tracker rows from the current attempt's
+`RunStageState` and removes the stale Airflow task timeline from that display
+payload. The regression reproduces Step3 at 70/184 rules while a cleared Step6
+task remains in the Airflow response. Focused BS10610 tests pass 6/6. Runtime
+activation and live API verification remain pending.
+
 ## 2026-09-09 T244/T245 GATK Prepare rerun recovery
 
 `bio_gatk` now passes each registered stage generation to node200, so clearing
