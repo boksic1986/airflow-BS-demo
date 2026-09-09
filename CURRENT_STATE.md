@@ -13,8 +13,12 @@ operator config uses the unified 0.8.3 upload parallelism field.
 
 `GATK_20260909_071908_F45CF7` Prepare generation 7 succeeded from
 `WES_20260823A_T7_hg38.sampleinfo.txt` with 14 samples and 28 FASTQ files. The
-business projection is now `running / step1_upload`; the prior Step6 label was
-stale state from the failed downstream cleanup chain, not executed Step6 work.
+prior Step6 label was stale state from the failed downstream cleanup chain, not
+executed Step6 work. Step1 and Step2 then succeeded. Step3 initially rejected
+the cce-pipeline 0.8.3 key/value status as non-JSON while the Master remained
+healthy; runtime gate `caa5371` adds dual-format parsing. Only Step3 and its
+downstream tail were reopened. Step3 generation 2 is running and projects exact
+rule counts from the existing Master without relaunching it.
 
 ## 2026-09-09 T243 GATK SCMC project discovery released to BS10610
 

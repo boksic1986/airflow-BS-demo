@@ -16,11 +16,19 @@ release `6bed61e` and the nipttest cce-pipeline 0.8.3 environment.
 
 Validation: GATK tests passed 13; Airflow gate/DAG tests passed 14; Compose
 config passed; Airflow import errors are empty. Prepare generation 7 succeeded
-for 14 samples/28 FASTQ and Airflow entered `wait_step1_upload`. Step1 remains
-active and must not be cleared or have its transfer lease released while it is
-running. The exact test control output from failed Prepare generations was only
-26 KiB and was removed as explicitly approved; no source FASTQ or database
-volume was removed.
+for 14 samples/28 FASTQ and Airflow entered `wait_step1_upload`. The exact test
+control output from failed Prepare generations was only 26 KiB and was removed
+as explicitly approved; no source FASTQ or database volume was removed.
+
+Follow-up: Step1 and Step2 completed, but the first Step3 sensor treated the
+cce-pipeline 0.8.3 key/value status as invalid because the gate only accepted
+legacy JSON. Commit `caa5371` adds backward-compatible parsing and passed 15
+focused gate/DAG tests. It was installed directly on node200 without restarting
+Airflow or the active Master. Clearing only `start_step3_monitor` downstream
+created Step3 generation 2; live status is healthy and exact rule progress is
+persisted in `RunStageState`. The staged source release is
+`releases/20260909-t244-gatk-step3-083-caa5371`; the Compose `current` pointer
+remains on `25f7041` until the active run is terminal.
 
 ## 2026-09-09 T243 GATK SCMC project discovery completed
 

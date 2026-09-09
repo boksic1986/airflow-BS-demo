@@ -28,6 +28,7 @@ Acceptance:
 - [x] Allow Prepare to reuse its immutable request while creating a new runtime generation.
 - [x] Prevent stale failed status from an older generation from satisfying a retry sensor.
 - [x] Persist the child process stderr/stdout tail as the actionable stage error.
+- [x] Parse both legacy JSON and cce-pipeline 0.8.3 key/value Step3 status.
 - [x] Keep the legacy no-generation forced-command invocation compatible.
 
 ## T243 - GATK cross-owner SCMC project discovery
