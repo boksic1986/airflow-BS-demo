@@ -13,7 +13,7 @@ import re
 import subprocess
 import sys
 import time
-from typing import Any
+from typing import Any, Callable
 
 import yaml
 
@@ -39,6 +39,7 @@ CCE_OPERATOR_CONFIG = os.environ.get(
     "GATK_CCE_OPERATOR_CONFIG",
     "/home/ctapa/.config/cce-pipeline/operator.yaml",
 )
+STEP4_EXPORT_PENDING = "SFS backend export is not ready in OBS; retry Step4"
 
 
 def _root() -> Path:
@@ -59,7 +60,12 @@ def _request_path(analysis_id: str, attempt: int, stage: str) -> Path:
     return path
 
 
-def _load(analysis_id: str, attempt: int, stage: str) -> tuple[Path, dict[str, Any]]:
+def _load(
+    analysis_id: str,
+    attempt: int,
+    stage: str,
+    generation: int | None = None,
+) -> tuple[Path, dict[str, Any]]:
     path = _request_path(analysis_id, attempt, stage)
     if not path.is_file():
         raise RuntimeError("GATK runtime request does not exist")
@@ -69,6 +75,10 @@ def _load(analysis_id: str, attempt: int, stage: str) -> tuple[Path, dict[str, A
         raise ValueError("GATK runtime request is not valid JSON") from exc
     if payload.get("analysis_id") != analysis_id or payload.get("attempt") != attempt:
         raise ValueError("GATK request identity mismatch")
+    request_generation = int(payload.get("generation") or 1)
+    generation = request_generation if generation is None else generation
+    if generation < 1:
+        raise ValueError("GATK runtime generation must be positive")
     if stage != "prepare" and payload.get("stage") != stage:
         raise ValueError("GATK request stage mismatch")
     if stage != "prepare":
@@ -79,6 +89,12 @@ def _load(analysis_id: str, attempt: int, stage: str) -> tuple[Path, dict[str, A
         )
         if payload.get("execution_id") != expected_execution_id:
             raise ValueError("GATK runtime execution identity mismatch")
+        if request_generation != generation:
+            raise ValueError("GATK runtime generation does not match its request")
+    else:
+        payload = dict(payload)
+        payload["generation"] = generation
+        payload["execution_id"] = f"{analysis_id}-a{attempt}-prepare-g{generation}"
     return path, payload
 
 
@@ -265,6 +281,52 @@ def _step(payload: dict[str, Any], stage: str) -> list[str]:
     return ["bash", str(script)]
 
 
+def _run_frozen_stage(
+    command: list[str],
+    *,
+    stage: str,
+    environment: dict[str, str],
+    on_wait: Callable[[str], None] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    wait_seconds = max(0, int(os.environ.get("GATK_PUBLISH_WAIT_SECONDS", "7200")))
+    poll_seconds = max(1, int(os.environ.get("GATK_PUBLISH_POLL_SECONDS", "30")))
+    deadline = time.monotonic() + wait_seconds
+    attempts = 0
+    while True:
+        attempts += 1
+        completed = subprocess.run(
+            command,
+            check=False,
+            text=True,
+            capture_output=True,
+            env=environment,
+        )
+        if completed.returncode == 0:
+            return completed
+        detail = "\n".join(
+            value.strip()
+            for value in (completed.stdout, completed.stderr)
+            if value and value.strip()
+        )[-2000:]
+        retryable = stage == "step4_publish" and STEP4_EXPORT_PENDING in detail
+        if not retryable:
+            raise RuntimeError(
+                detail or f"{stage} command failed with exit code {completed.returncode}"
+            )
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"GATK Step4 timed out after {wait_seconds}s waiting for the SFS "
+                f"backend export to become visible in OBS: {detail}"
+            )
+        message = (
+            "Waiting for the SFS backend export to become visible in OBS "
+            f"(check {attempts})"
+        )
+        if on_wait is not None:
+            on_wait(message)
+        time.sleep(poll_seconds)
+
+
 def _materialize_result_root(payload: dict[str, Any]) -> Path:
     prepare_path = _request_path(
         str(payload["analysis_id"]), int(payload["attempt"]), "prepare"
@@ -324,11 +386,46 @@ def _parse_step3(stdout: str) -> dict[str, Any]:
             continue
         if isinstance(value, dict) and value.get("master_state") in {"PENDING", "RUNNING", "SUCCEEDED", "FAILED"}:
             return value
+    master_match = re.search(
+        r"(?m)^master_state=(PENDING|RUNNING|SUCCEEDED|FAILED)(?:\s|$)", stdout
+    )
+    if master_match:
+        progress_match = re.search(
+            r"(?m)^progress=(\d+)/(\d+).*?\(([0-9]+(?:\.[0-9]+)?)%\)",
+            stdout,
+        )
+
+        def text_value(name: str) -> str | None:
+            match = re.search(rf"(?m)^{re.escape(name)}=(.*)$", stdout)
+            return match.group(1).strip() if match else None
+
+        return {
+            "master_state": master_match.group(1),
+            "completed": int(progress_match.group(1)) if progress_match else 0,
+            "total": int(progress_match.group(2)) if progress_match else 0,
+            "percent": float(progress_match.group(3)) if progress_match else 0.0,
+            "current_rule": text_value("current_rule_or_group"),
+            "bioinformatics_stage": text_value("bioinformatics_stage"),
+            "message": text_value("message"),
+        }
     raise RuntimeError("Step3 did not return a valid Master status")
 
 
-def _execute(analysis_id: str, attempt: int, stage: str) -> None:
-    request_path, payload = _load(analysis_id, attempt, stage)
+def _failure_message(error: Exception) -> str:
+    if isinstance(error, subprocess.CalledProcessError):
+        detail = error.stderr or error.stdout
+        if detail:
+            return str(detail).strip()[-2000:]
+    return str(error)
+
+
+def _execute(
+    analysis_id: str,
+    attempt: int,
+    stage: str,
+    generation: int | None = None,
+) -> None:
+    request_path, payload = _load(analysis_id, attempt, stage, generation)
     _write_status(request_path, payload, "running", f"{stage} started")
     environment = {
         **os.environ,
@@ -404,24 +501,45 @@ def _execute(analysis_id: str, attempt: int, stage: str) -> None:
                 "GATK delivery materialized to the approved result root",
             )
         else:
-            completed = subprocess.run(
-                _step(payload, stage), check=True, text=True, capture_output=True, env=environment
+            completed = _run_frozen_stage(
+                _step(payload, stage),
+                stage=stage,
+                environment=environment,
+                on_wait=lambda message: _write_status(
+                    request_path, payload, "running", message
+                ),
             )
             _write_status(request_path, payload, "success", completed.stdout[-2000:] or f"{stage} completed")
     except Exception as exc:
-        _write_status(request_path, payload, "failed", str(exc))
+        _write_status(request_path, payload, "failed", _failure_message(exc))
         raise
 
 
-def start(analysis_id: str, attempt: int, stage: str) -> dict[str, Any]:
-    request_path, payload = _load(analysis_id, attempt, stage)
+def start(
+    analysis_id: str,
+    attempt: int,
+    stage: str,
+    generation: int | None = None,
+) -> dict[str, Any]:
+    request_path, payload = _load(analysis_id, attempt, stage, generation)
     status_path = _status_path(request_path)
     if status_path.is_file():
         existing = json.loads(status_path.read_text(encoding="utf-8"))
-        if existing.get("status") in {"running", "success"}:
+        if (
+            int(existing.get("generation") or 1) == int(payload["generation"])
+            and existing.get("status") in {"running", "success"}
+        ):
             return {"status": existing["status"], "stage": stage}
     log_path = request_path.with_suffix(".worker.log")
-    command = [sys.executable, str(Path(__file__).resolve()), "_worker", analysis_id, str(attempt), stage]
+    command = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "_worker",
+        analysis_id,
+        str(attempt),
+        stage,
+        str(payload["generation"]),
+    ]
     with log_path.open("a", encoding="utf-8") as log:
         subprocess.Popen(
             command,
@@ -435,14 +553,22 @@ def start(analysis_id: str, attempt: int, stage: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    if len(sys.argv) != 5 or sys.argv[1] not in {"gatk-runtime", "_worker"}:
-        raise SystemExit("usage: gatk_runtime_gate.py gatk-runtime ANALYSIS_ID ATTEMPT STAGE")
-    mode, analysis_id, attempt_text, stage = sys.argv[1:]
+    if len(sys.argv) not in {5, 6} or sys.argv[1] not in {"gatk-runtime", "_worker"}:
+        raise SystemExit(
+            "usage: gatk_runtime_gate.py gatk-runtime ANALYSIS_ID ATTEMPT STAGE [GENERATION]"
+        )
+    mode, analysis_id, attempt_text, stage, *generation_text = sys.argv[1:]
+    generation = int(generation_text[0]) if generation_text else None
     try:
         if mode == "_worker":
-            _execute(analysis_id, int(attempt_text), stage)
+            _execute(analysis_id, int(attempt_text), stage, generation)
         else:
-            print(json.dumps(start(analysis_id, int(attempt_text), stage), sort_keys=True))
+            print(
+                json.dumps(
+                    start(analysis_id, int(attempt_text), stage, generation),
+                    sort_keys=True,
+                )
+            )
     except (OSError, RuntimeError, ValueError) as exc:
         raise SystemExit(f"GATK runtime rejected: {exc}") from exc
 

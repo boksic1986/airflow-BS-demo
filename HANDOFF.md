@@ -129,6 +129,122 @@ Rollback the application by restoring
 `/data/airflow-WGS/releases/20260909-t240-dashboard-attention-r1`, and
 recreating only backend, wgs-run-observer and frontend-nginx. Restore the three
 node200 `.before` files only if the transfer adapter itself must be rolled back.
+## 2026-09-09 T246 GATK Run Tracker runtime-stage projection
+
+The running `GATK_20260909_071908_F45CF7` exposed a display-only split: the
+workspace API reported healthy Step3 progress at 70/184 rules, but Dashboard
+selected historical `wait_step6_materialize` timestamps left by the targeted
+Airflow clear and displayed Step6 with a 15% task-weight estimate.
+
+Commit `d82f8ab` registers a GATK `project_progress` projector. Active tracker
+rows now use the current attempt's `RunStageState` label, exact units, percent,
+source and update time, and do not use the cleared Airflow task list to choose
+the current stage. Terminal projection behavior is unchanged.
+
+The regression failed before the implementation with `Wait step6 materialize`
+instead of `Run GATK analysis`, then passed. The focused BS10610 suite covering
+GATK workspace, pipeline adapters and Dashboard attention passed 6 tests.
+
+BS10610 `current` now points to
+`releases/20260909-t246-gatk-tracker-f38156c`. Only backend was recreated. The
+public health endpoint returned 200, and the authenticated live Dashboard and
+workspace responses both report `step3_monitor`, 70/184 rules and 38% from
+`gatk-runtime`; Dashboard returns no stale current Airflow task. Airflow API,
+scheduler, worker, observer, frontend, PostgreSQL and Redis retained their
+container IDs. The node200 generation-2 sidecar remains running and refreshed
+its healthy Master/Snakemake message after activation.
+
+Rollback is code-only: point `current` back to
+`releases/20260909-t244-gatk-prepare-rerun-25f7041` and recreate only backend.
+No migration or data rollback is required. No CCE workload, database row, OBS
+object or SFS result was changed by this release.
+
+## 2026-09-09 T244/T245 GATK Prepare rerun recovery
+
+The `20260823A` rerun exposed three sequential Prepare compatibility defects:
+the immutable GATK entry could not import from a non-repository cwd, its profile
+paths were still cwd-relative, and the GATK profile/operator config predated the
+cce-pipeline 0.8.3 permission and unified-transfer schema. These are corrected
+without changing the source WES project.
+
+Airflow commits are `c9bb1ac`, `f932f0c` and `25f7041` on
+`jiucheng/gatk/T244-gatk-prepare-rerun`. GATK commits are `5c6336c`, `9f6824f`
+and `6bed61e` on `jiucheng/gatk/T245-handoff-entrypoint`. BS10610 current points
+to `releases/20260909-t244-gatk-prepare-rerun-25f7041`; node200 uses GATK
+release `6bed61e` and the nipttest cce-pipeline 0.8.3 environment.
+
+Validation: GATK tests passed 13; Airflow gate/DAG tests passed 14; Compose
+config passed; Airflow import errors are empty. Prepare generation 7 succeeded
+for 14 samples/28 FASTQ and Airflow entered `wait_step1_upload`. The exact test
+control output from failed Prepare generations was only 26 KiB and was removed
+as explicitly approved; no source FASTQ or database volume was removed.
+
+Follow-up: Step1 and Step2 completed, but the first Step3 sensor treated the
+cce-pipeline 0.8.3 key/value status as invalid because the gate only accepted
+legacy JSON. Commit `caa5371` adds backward-compatible parsing and passed 15
+focused gate/DAG tests. It was installed directly on node200 without restarting
+Airflow or the active Master. Clearing only `start_step3_monitor` downstream
+created Step3 generation 2; live status is healthy and exact rule progress is
+persisted in `RunStageState`. The staged source release is
+`releases/20260909-t244-gatk-step3-083-caa5371`; the Compose `current` pointer
+remains on `25f7041` until the active run is terminal.
+
+## 2026-09-09 T243 GATK SCMC project discovery completed
+
+GATK Preview no longer assumes that every source project belongs to
+`/sg2/21.lijing`. The backend accepts any absolute readable project directory
+visible on its read-only `/sg2` mount and requires only the exact
+`<batch-prefix>.sampleinfo.SCMC.txt`, a data-ID column and at least one unique
+sample. Runtime prepare retains the detailed config, barcode and FASTQ checks.
+Confirmation freezes the selected project itself as the only approved source
+root in the immutable request.
+
+BS10610 passed 357 backend tests and 17 frontend files/60 tests; the offline
+production build and Compose config also passed. The deployed real-directory
+check resolved `WES_20260823A_T7.sampleinfo.SCMC.txt` with 14 samples. It created
+no AnalysisRun, and its temporary validation draft was removed. The shared
+nipttest binary reports `cce-pipeline 0.8.3`.
+
+The test release is
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260909-t243-gatk-project-discovery-a71d681`.
+The frontend image is `airflow-demo/frontend:t243-gatk-project-discovery` and
+the dedicated URL remains `http://172.17.106.10:12959`. Only backend and
+frontend-nginx were recreated; Airflow, observer, collectors, PostgreSQL and
+Redis were preserved.
+
+## 2026-09-09 T242 GATK Step4-Step6 recovery completed
+
+The GATK run `GATK_20260908_104312_85DA16` failed after a successful Master
+and Step3 because Step4 performed a one-shot OBS marker check. The CCE backend
+export exposed `payload-manifest.tsv` and `ANALYSIS_COMPLETE` about 64 seconds
+after Airflow had already failed `wait_step4_publish`. Step5 and Step6 were
+blocked only by the missing Step4/Step5 receipts.
+
+The released gate polls only the exact backend-export-pending condition and
+keeps every other error terminal. The backend now projects real stage failure,
+permits a failed stage to reopen as a new generation, and treats a same-stage
+older-generation sidecar as pending while NFS visibility catches up. The GATK
+release leaf now fails after releasing leases when an upstream task failed, so
+Airflow cannot mark the run green solely because the cleanup task succeeded.
+
+BS10610 passed the complete backend suite (353 passed, 1 skipped), all nine
+GATK gate tests, thirteen GATK/deployment contract tests, four WGS DAG unit
+tests, and Compose config. The gate compiles under node200 nipttest Python
+3.9.23. The release is
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260909-t242-gatk-step4-export-wait-r2`.
+The dedicated test frontend is `http://172.17.106.10:12959`.
+
+The original `GATK_20260908_104312_85DA16-a1` completed without rerunning
+Step1-Step3. Step4 generation 2, Step5 generation 1, Step6 generation 1,
+finalize and lease release are success. The business run is success with no
+error summary. Test materialization contains 28 GiB and 960 files at
+`/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/GATK_Clinical/20260816A/GATK_20260908_104312_85DA16`.
+
+Residual: the frozen GATK Step5 completed with a fenced receipt and verified
+delivery, but it did not emit a download `TransferJob` progress row. A future
+GATK progress task should aggregate the obsutil wrapper events into the
+standard `progress.json`; do not infer historical percentages from elapsed
+time.
 
 ## 2026-09-09 T240 Dashboard attention and Sample Information production release
 

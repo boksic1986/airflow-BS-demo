@@ -4,7 +4,9 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
 
+import pytest
 import yaml
 
 
@@ -148,6 +150,149 @@ def test_start_is_idempotent_for_same_generation(tmp_path: Path, monkeypatch) ->
     )
 
     assert gate.start(analysis_id, 1, "step1_upload")["status"] == "success"
+
+
+def test_prepare_retry_starts_worker_for_new_generation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    monkeypatch.setenv("GATK_RUNTIME_REQUEST_ROOT", str(tmp_path))
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    request = tmp_path / analysis_id / "attempt-1" / "prepare.request.json"
+    request.parent.mkdir(parents=True)
+    request.write_text(
+        json.dumps(
+            {
+                "kind": "gatk-airflow-prepare",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "generation": 1,
+                "request_hash": "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    request.with_suffix(".status.json").write_text(
+        json.dumps({"status": "failed", "generation": 1}), encoding="utf-8"
+    )
+    commands: list[list[str]] = []
+    monkeypatch.setattr(
+        gate.subprocess,
+        "Popen",
+        lambda command, **_kwargs: commands.append(command),
+    )
+
+    result = gate.start(analysis_id, 1, "prepare", generation=2)
+
+    assert result == {"status": "accepted", "stage": "prepare", "generation": 2}
+    assert commands[0][-1] == "2"
+
+
+def test_prepare_failure_persists_subprocess_stderr(tmp_path: Path, monkeypatch) -> None:
+    gate = load_gate()
+    monkeypatch.setenv("GATK_RUNTIME_REQUEST_ROOT", str(tmp_path))
+    request = tmp_path / "prepare.request.json"
+    payload = {
+        "analysis_id": "GATK_20260908_120000_A1B2C3",
+        "attempt": 1,
+        "generation": 2,
+        "request_hash": "a" * 64,
+    }
+    statuses = []
+    monkeypatch.setattr(gate, "_load", lambda *_args: (request, payload))
+    monkeypatch.setattr(gate, "_write_status", lambda *args, **_kwargs: statuses.append(args))
+    monkeypatch.setattr(gate, "_prepare", lambda _payload: ["python", "handoff.py"])
+    monkeypatch.setattr(
+        gate.subprocess,
+        "run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            subprocess.CalledProcessError(
+                1,
+                ["python", "handoff.py"],
+                output="",
+                stderr="ModuleNotFoundError: missing handoff module\n",
+            )
+        ),
+    )
+
+    with pytest.raises(subprocess.CalledProcessError):
+        gate._execute(payload["analysis_id"], 1, "prepare", 2)
+
+    assert statuses[-1][2] == "failed"
+    assert statuses[-1][3] == "ModuleNotFoundError: missing handoff module"
+
+
+def test_step4_waits_for_backend_export_to_become_visible(monkeypatch) -> None:
+    gate = load_gate()
+    attempts = []
+
+    def fake_run(*args, **kwargs):
+        attempts.append((args, kwargs))
+        if len(attempts) == 1:
+            return SimpleNamespace(
+                returncode=1,
+                stdout="",
+                stderr="SFS backend export is not ready in OBS; retry Step4\n",
+            )
+        return SimpleNamespace(returncode=0, stdout="published\n", stderr="")
+
+    sleeps = []
+    monkeypatch.setattr(gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(gate.time, "sleep", sleeps.append)
+    monkeypatch.setenv("GATK_PUBLISH_WAIT_SECONDS", "120")
+    monkeypatch.setenv("GATK_PUBLISH_POLL_SECONDS", "7")
+
+    completed = gate._run_frozen_stage(
+        ["bash", "/approved/Step4_publish_results.sh"],
+        stage="step4_publish",
+        environment={"PATH": "/usr/bin"},
+    )
+
+    assert completed.returncode == 0
+    assert len(attempts) == 2
+    assert sleeps == [7]
+
+
+def test_parse_step3_accepts_cce_pipeline_083_text_status() -> None:
+    gate = load_gate()
+    output = """run_state=UNAVAILABLE attempt_start=2026-09-09T11:08:28Z
+master_state=RUNNING normal=true
+bioinformatics_stage=MarkDuplicates
+progress=24/184 remaining=160 (13.0%)
+current_rule_or_group=sentieon_mapping,gatk_mark_duplicates
+last_completed_rule=sentieon_mapping
+message=Master and Snakemake are running normally
+"""
+
+    state = gate._parse_step3(output)
+
+    assert state == {
+        "master_state": "RUNNING",
+        "completed": 24,
+        "total": 184,
+        "percent": 13.0,
+        "current_rule": "sentieon_mapping,gatk_mark_duplicates",
+        "bioinformatics_stage": "MarkDuplicates",
+        "message": "Master and Snakemake are running normally",
+    }
+
+
+def test_step4_does_not_retry_an_unrelated_failure(monkeypatch) -> None:
+    gate = load_gate()
+    monkeypatch.setattr(
+        gate.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=1, stdout="", stderr="permission denied\n"
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="permission denied"):
+        gate._run_frozen_stage(
+            ["bash", "/approved/Step4_publish_results.sh"],
+            stage="step4_publish",
+            environment={"PATH": "/usr/bin"},
+        )
 
 
 def test_step6_materializes_to_approved_gatk_result_root(

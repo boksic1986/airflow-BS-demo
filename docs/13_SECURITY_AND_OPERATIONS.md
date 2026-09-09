@@ -46,8 +46,10 @@ patient names, hospitals or clinical identifiers
 ```
 
 Production credentials remain owner-only and outside release trees and Docker
-images. The browser never supplies a repository path, executable, shell
-command, profile path, storage path, credential, or Kubernetes identity.
+images. Except for the manual GATK project's read-only source directory, the
+browser never supplies a repository path, executable, shell command, profile
+path, storage path, credential, or Kubernetes identity. The GATK value is data
+input only and is never interpolated into a shell command.
 Public logs and artifacts use controlled keys and privacy-safe relative paths;
 they never fall back to arbitrary host paths.
 
@@ -57,8 +59,14 @@ they never fall back to arbitrary host paths.
   workflow-source roots come only from the active production release contract.
 - Runtime adapters accept only registered `analysis_id + attempt + stage`
   identities and fixed server-side allowlists.
-- FASTQ roots and analysis roots are separate configured authorities. Do not
-  broaden either to `/sg2` or infer a sibling path.
+- FASTQ roots and analysis roots are separate configured authorities. WGS must
+  not broaden either to `/sg2` or infer a sibling path.
+- The manual GATK Preview is the narrow exception: the backend mounts `/sg2`
+  read-only so projects owned by different teams are discoverable. The API
+  opens only the resolved project and its exact non-symlink
+  `<batch-prefix>.sampleinfo.SCMC.txt`, returns privacy-safe sample IDs, and
+  creates no arbitrary file-browsing endpoint. Confirmation freezes the exact
+  project directory as the runtime request's sole approved source root.
 - Workflow evidence is immutable/replayable. The observer validates attempt,
   generation, request hash and receipt identity before database projection.
 - CCE, local-node and future SGE credentials are isolated by adapter and

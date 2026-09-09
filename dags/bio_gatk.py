@@ -95,6 +95,7 @@ def run_stage(stage: str, **context: Any) -> dict[str, Any]:
         str(conf["analysis_id"]),
         str(conf["attempt"]),
         stage,
+        str(registered["generation"]),
     ]
     completed = subprocess.run(
         command,
@@ -133,6 +134,33 @@ def acquire_transfer_slot(kind: str, **context: Any) -> bool:
 
 def release_stage(stage: str, **context: Any) -> dict[str, Any]:
     return register_stage(stage, **context)
+
+
+def _upstream_failure_task_ids(context: dict[str, Any]) -> list[str]:
+    task_instance = context.get("ti") or context.get("task_instance")
+    if task_instance is None:
+        return []
+    dag_run = task_instance.get_dagrun()
+    current_task_id = str(getattr(task_instance, "task_id", "release_leases"))
+    failed: list[str] = []
+    for candidate in dag_run.get_task_instances():
+        task_id = str(getattr(candidate, "task_id", ""))
+        raw_state = getattr(candidate, "state", None)
+        state = str(getattr(raw_state, "value", raw_state) or "").lower()
+        if task_id != current_task_id and state in {"failed", "upstream_failed"}:
+            failed.append(task_id)
+    return sorted(failed)
+
+
+def release_leases(**context: Any) -> dict[str, Any]:
+    released = release_stage("release_leases", **context)
+    failed_tasks = _upstream_failure_task_ids(context)
+    if failed_tasks:
+        raise RuntimeError(
+            "GATK upstream tasks failed after leases were released: "
+            + ", ".join(failed_tasks)
+        )
+    return released
 
 
 def _runner_task(task_id: str, stage: str, *, pool: str | None = None) -> PythonOperator:
@@ -218,8 +246,7 @@ with DAG(
     )
     release = PythonOperator(
         task_id="release_leases",
-        python_callable=release_stage,
-        op_kwargs={"stage": "release_leases"},
+        python_callable=release_leases,
         trigger_rule=TriggerRule.ALL_DONE,
     )
 

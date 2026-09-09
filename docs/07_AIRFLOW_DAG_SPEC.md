@@ -19,6 +19,18 @@ forced-command runtime and `gatk_cce_runs` pool. Step1/Step5 share the existing
 directional OBS pools and leases with WGS; GATK does not consume the WGS heavy
 work-pod quota.
 
+Each runner task passes the stage generation returned by the backend to the
+forced-command runtime. Prepare retries reuse the immutable generation-1 input
+request but write a new generation-specific status; older failed sidecars cannot
+satisfy the sensor. Child-process stderr/stdout tails are retained in the stage
+status for operator diagnosis.
+
+Step3 accepts the legacy JSON status and the cce-pipeline 0.8.3 key/value
+status. Both formats must provide an authoritative Master terminal/running
+state; completed/total rule counts and the current rule group are projected
+when present. Format parsing does not replace the Kubernetes API source used by
+cce-pipeline or the independent logger evidence bridge.
+
 Airflow tasks remain project-level. Snakemake rule/sample events come from the
 GATK `rule-status` logger and are not expanded into Airflow tasks.
 

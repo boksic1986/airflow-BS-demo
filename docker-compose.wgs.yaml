@@ -210,7 +210,6 @@ services:
       WGS_CONTRACT_V2_ENABLED: "${WGS_CONTRACT_V2_ENABLED:-false}"
       WGS_TRANSFER_ADAPTER: "${WGS_TRANSFER_ADAPTER:-obs_sdk}"
       GATK_EXECUTION_ENABLED: "${GATK_EXECUTION_ENABLED:-false}"
-      GATK_SOURCE_ROOTS: /sg2/21.lijing/WES_Clinical
       GATK_FASTQ_ROOTS: "${GATK_FASTQ_ROOTS:-/sg2/T7new/result1/OutputFq,/bi/fastq/T7_Fastq}"
       GATK_SUBMISSION_DRAFT_TTL_MINUTES: "30"
       GATK_RUNTIME_PROFILE_ID: gatk-scmc-v7.6.0
@@ -238,7 +237,7 @@ services:
       - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime:rw
       - ${GATK_RUNTIME_HOST_ROOT:?set GATK_RUNTIME_HOST_ROOT}:/data/gatk-runtime:rw
       - ${GATK_EVIDENCE_HOST_ROOT:?set GATK_EVIDENCE_HOST_ROOT}:/data/gatk-evidence:ro
-      - ${GATK_SOURCE_HOST_ROOT:-/sg2/21.lijing/WES_Clinical}:/sg2/21.lijing/WES_Clinical:ro
+      - /sg2:/sg2:ro
       - ${GATK_FASTQ_HOST_ROOT:-/sg2/T7new/result1/OutputFq}:/sg2/T7new/result1/OutputFq:ro
       - ${GATK_T7_FASTQ_HOST_ROOT:-/bi/fastq/T7_Fastq}:/bi/fastq/T7_Fastq:ro
       - ./config:/config:ro
