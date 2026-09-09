@@ -4,16 +4,16 @@
 
 Owner: Airflow/frontend/QA
 
-Status: in progress
+Status: completed in production
 
 Acceptance:
-- [ ] Select obsutil for new Step1 uploads and Step5 downloads without changing CCE or Step2/3/4/6.
-- [ ] Parse upload and download multipart checkpoint XML into monotonic privacy-safe file evidence.
-- [ ] Reconcile file evidence with the frozen transfer plan and expose the existing v2 file API.
-- [ ] Keep aggregate-only historical progress compatible and exclude auxiliary control objects.
-- [ ] Show the obsutil engine and pre-checkpoint waiting state in the current Transfers UI.
-- [ ] Pass remote focused/backend/frontend tests, offline build and bounded multi-file upload/download canary.
-- [ ] Keep automatic WGS analysis paused during validation and record the production activation or explicit remaining gate.
+- [x] Select obsutil for new Step1 uploads and Step5 downloads without changing CCE or Step2/3/4/6.
+- [x] Parse upload and download multipart checkpoint XML into monotonic privacy-safe file evidence.
+- [x] Reconcile file evidence with the frozen transfer plan and expose the existing v2 file API.
+- [x] Keep aggregate-only historical progress compatible and exclude auxiliary control objects.
+- [x] Show the obsutil engine and pre-checkpoint waiting state in the current Transfers UI.
+- [x] Pass remote focused/backend/frontend tests, offline build and bounded multi-file upload/download canary.
+- [x] Keep automatic WGS analysis paused during validation and record the production activation or explicit remaining gate.
 
 Safety:
 - Do not expose OBS configuration, URIs, credentials or absolute data paths in evidence/API output.

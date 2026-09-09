@@ -1,5 +1,68 @@
 # HANDOFF.md
 
+## 2026-09-09 T241 WGS obsutil checkpoint progress production release
+
+T241 is implemented, synchronized to `main` and deployed. New WGS Step1 and
+Step5 executions select the existing CCE 0.8.2 `obsutil` adapter; no
+`cce-pipeline` package or Step2/Step3/Step4/Step6 behavior changed. The
+Airflow-owned wrapper parses upload/download multipart checkpoint XML while the
+runtime gate reconciles file-keyed rows with the frozen transfer plan and keeps
+publishing `wgs-runtime.transfer-progress.v2`. Historical SDK and
+aggregate-only snapshots remain compatible.
+
+The API exposes only the controlled `obsutil` engine marker. The Transfers UI
+shows the engine and a `Waiting for checkpoint` state before the first XML is
+available, then renders the existing exact per-file progress rows. Evidence
+contains SHA-256 file keys, basenames and numeric progress only; it does not
+contain OBS URIs, credentials or absolute data paths.
+
+All ctapa validation material is under
+`/sg2/50.ctapa/project/HWcloud/WGS_test/cce-evidence/T241-obsutil-checkpoint-20260909`.
+The private-line node005 canary passed with two 64 MiB files: 134217728 exact
+bytes in each direction, checkpoint progress observed, checksums verified,
+privacy passed and synthetic remote objects confirmed removed.
+
+Validation results:
+
+- runtime/wrapper focused tests: 81 passed;
+- backend observer/projection tests: 62 passed with two dependency warnings;
+- complete frontend suite: 17 files / 61 tests passed;
+- offline TypeScript/Vite build and final nginx image build: passed with
+  `--network none` and no pull;
+- `git diff --check`, production Compose config and `/api/health`: passed.
+
+Node200 selects `transfer_adapter: obsutil`; installed script SHA-256 values are
+`0683ec25f18bd02130c4f67404c827db033ba49eb33651a06fbab3eb5109412c`
+for `wgs_runtime_gate.py` and
+`25bc8fe5610fd5f002fd4a2ed6d423c2c4e0140557d7e096b9e1c973ceea5ef1`
+for `wgs_obsutil_progress.py`. Zero transfer workers were active at the final
+check. Originals are preserved at
+`/home/ctapa/.config/airflow-wgs/backups/T241-obsutil-20260909`.
+
+Production `current` points to
+`/data/airflow-WGS/releases/20260909-t241-obsutil-checkpoint-r1`, source
+`85506f6d7f696c7f035f0781f78a3f325865c646`. The final frontend image is
+`airflow-demo/frontend:t241-obsutil-85506f6` at
+`sha256:8035c222c4ca32d60a3d9ff11ea5927ef2d5cb3085fe226a97dbe2921e8e695b`.
+Only backend, wgs-run-observer and frontend-nginx were recreated. Scanner,
+Airflow, PostgreSQL, Redis and telemetry retained their container IDs.
+Activation began and ended with zero active AnalysisRuns and transfer leases;
+automatic dispatch remains false and discovery scanning remains enabled.
+
+Two validation-command issues were resolved without starting a workflow. The
+first node200 install probe contained a stray literal `+`, causing `py_compile`
+to fail with `No such file or directory`; the corrected command then passed.
+The final read-only config probe initially imported unavailable PyYAML, so it
+was replaced by dependency-free SHA-256 and controlled-key checks. Neither
+failure changed CCE, OBS or SFS data.
+
+Rollback the application by restoring
+`/data/airflow-WGS/env/production.env.pre-T241-20260909T190000`, repointing
+`current` to
+`/data/airflow-WGS/releases/20260909-t240-dashboard-attention-r1`, and
+recreating only backend, wgs-run-observer and frontend-nginx. Restore the three
+node200 `.before` files only if the transfer adapter itself must be rolled back.
+
 ## 2026-09-09 T240 Dashboard attention and Sample Information production release
 
 T240 is implemented and candidate-validated. Command Center now concentrates

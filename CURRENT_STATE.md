@@ -1,5 +1,18 @@
 # CURRENT_STATE.md
 
+## 2026-09-09 T241 WGS obsutil checkpoint progress production release
+
+```text
+scope: restore Step1 upload and Step5 download throughput by selecting the existing CCE 0.8.2 obsutil adapter while preserving the current per-file Transfers UI and the immutable transfer-plan contract. Step2, Step3, Step4, Step6 and the cce-pipeline package are unchanged.
+runtime: node200 now selects transfer_adapter=obsutil and wraps obsutil with /home/ctapa/.config/airflow-wgs/wgs_obsutil_progress.py. The wrapper reads multipart checkpoint XML, emits only SHA-256 file keys, basenames, exact numeric progress and controlled status fields, and never exposes OBS URIs, credentials or absolute data paths. The runtime gate reconciles these rows against the frozen plan and publishes the existing wgs-runtime.transfer-progress.v2 contract.
+frontend: Transfers displays Engine=obsutil and shows Waiting for checkpoint for accepted/running files before the first multipart checkpoint exists. Existing running-first file ordering and partial refresh behavior are retained. Historical SDK and aggregate-only progress remain readable.
+validation: remote script tests passed 81; focused backend observer/projection tests passed 62; the complete frontend suite passed 17 files/61 tests and the offline production build passed with network disabled. The ctapa node005 canary uploaded and downloaded two 64 MiB files, observed checkpoint progress, verified all 134217728 bytes and checksums, passed privacy checks and verified remote cleanup.
+evidence: all ctapa synthetic inputs, checkpoints and logs are below /sg2/50.ctapa/project/HWcloud/WGS_test/cce-evidence/T241-obsutil-checkpoint-20260909. No validation artifact was placed in another user's test tree or /tmp.
+deployment: origin/main contains 85506f6d7f696c7f035f0781f78a3f325865c646. Production current points to /data/airflow-WGS/releases/20260909-t241-obsutil-checkpoint-r1. Frontend uses airflow-demo/frontend:t241-obsutil-85506f6 at sha256:8035c222c4ca32d60a3d9ff11ea5927ef2d5cb3085fe226a97dbe2921e8e695b; backend and wgs-run-observer load T241 through the new release source mounts. /api/health and Compose config pass, and the served JavaScript contains the checkpoint-waiting marker.
+safety: activation started and ended with zero active AnalysisRuns and zero transfer leases. Automatic WGS dispatch remains false while the 30-minute discovery scan remains enabled. Scanner, Airflow, PostgreSQL, Redis and telemetry containers retained their IDs; no workflow, database row, SFS directory or OBS production object was created or changed by validation/deployment.
+rollback: node200 originals are preserved at /home/ctapa/.config/airflow-wgs/backups/T241-obsutil-20260909. Application rollback restores /data/airflow-WGS/env/production.env.pre-T241-20260909T190000, repoints current to /data/airflow-WGS/releases/20260909-t240-dashboard-attention-r1 and recreates only backend, wgs-run-observer and frontend-nginx.
+```
+
 ## 2026-09-09 T240 Dashboard attention and Sample Information production release
 
 ```text
