@@ -190,6 +190,7 @@ def test_prepare_retry_starts_worker_for_new_generation(
 
 def test_prepare_failure_persists_subprocess_stderr(tmp_path: Path, monkeypatch) -> None:
     gate = load_gate()
+    monkeypatch.setenv("GATK_RUNTIME_REQUEST_ROOT", str(tmp_path))
     request = tmp_path / "prepare.request.json"
     payload = {
         "analysis_id": "GATK_20260908_120000_A1B2C3",
