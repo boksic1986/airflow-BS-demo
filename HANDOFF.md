@@ -1,5 +1,49 @@
 # HANDOFF.md
 
+## 2026-09-10 T251 dirty worktree triage handoff
+
+```text
+branch: jiucheng/ops/T251-dirty-worktree-triage
+baseline: origin/main@9a109cff41c9f59bc87dad5d3a058f31847085d7
+runtime_environment: none; local Git/worktree inspection only
+```
+
+T251 inspected all ten dirty worktrees retained by T250. Five contained only
+old local packaging/test artifacts and were removed from Git registration:
+T146, T194, T203, T209 and T219. T146 left a disk-only residual directory;
+the other four directories were removed completely.
+
+Merged local branches T146, T194, T203 and T219 were deleted with ordinary
+`git branch -d`. T209 was deliberately retained because `git cherry` reports
+one patch not present in `origin/main`. Remote T194 and T203 branches were
+deleted after confirming they were merged and no longer attached.
+
+Five source-bearing worktrees remain registered and untouched: T193, T210,
+T213, T242 and T222. T193 and T213 share 11 dirty paths, but hash comparison
+found all 11 resulting files differ. They need a functional comparison rather
+than an age-based or path-based deletion decision.
+
+Validation:
+
+- `git worktree list` decreased from 11 entries to 6;
+- removed worktrees were allowlisted to `.artifacts/`, `.codex-artifacts/`, or
+  the three named T219 tar bundles;
+- the T209 unique branch still resolves locally;
+- no source-bearing worktree content was changed;
+- no remote runtime or data command was run.
+
+Four unregistered residual directories remain: T146, T227, T214 and T248.
+Windows denied complete recursive cleanup of their remaining files. Recheck
+absolute paths and close file holders before a later disk-only cleanup.
+
+Next step: compare T193 and T213 behavior and select the canonical Step7 branch.
+Then split unrelated artifacts, rebase the selected work onto current main,
+run scoped remote tests on BS10610, and use a PR. T210, T242 and T222 remain
+separate review units.
+
+Rollback: deleted merged branches can be recreated from `origin/main`; T209 and
+all other unique branches remain. Source-bearing dirty worktrees were untouched.
+
 ## 2026-09-10 T250 Git cleanup handoff
 
 ```text

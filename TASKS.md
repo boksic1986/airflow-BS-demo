@@ -1,10 +1,30 @@
 # TASKS.md
 
+## T251 - Dirty worktree artifact triage
+
+Owner: coordinator/ops/docs
+
+Status: completed safe artifact pass; five source-bearing worktrees retained
+
+Acceptance:
+- [x] Inspect every T250-preserved dirty worktree at file level.
+- [x] Remove five worktrees whose uncommitted state contains only local packaging/test artifacts.
+- [x] Delete four corresponding local branches already contained in `origin/main`.
+- [x] Preserve the T209 branch because it still has one unique commit.
+- [x] Delete the merged T194 and T203 remote branches after ancestry checks.
+- [x] Retain five worktrees with source, test, migration, DAG or contract-document changes.
+- [x] Prove T193 and T213 are not exact duplicates: all 11 overlapping dirty files differ.
+- [ ] Select the canonical Step7 candidate after a functional T193/T213 diff and owner review.
+
+Safety:
+- Removed content was confined to local `.artifacts`, `.codex-artifacts`, or named source bundle files.
+- No force branch deletion, reset, clean, stash, server operation or analysis-data deletion was performed.
+
 ## T250 - Git worktree and branch cleanup
 
 Owner: coordinator/ops/docs
 
-Status: completed safe pass; dirty-worktree review remains
+Status: completed safe pass; continued by T251
 
 Acceptance:
 - [x] Merge the approved T249 governance design to `main` through PR 15.
@@ -14,7 +34,7 @@ Acceptance:
 - [x] Delete merged remote task branches not required by a preserved dirty worktree.
 - [x] Preserve all worktrees with uncommitted changes and all branches with unique patches.
 - [x] Record unregistered Windows residual directories for a later file-lock cleanup pass.
-- [ ] Review the ten preserved dirty worktrees with their owners and choose commit/PR, patch archive, or explicit discard.
+- [ ] Finish owner review for the five source-bearing worktrees retained by T251.
 
 Safety:
 - No force branch deletion, reset, clean, stash, or modification of dirty worktree content was performed.

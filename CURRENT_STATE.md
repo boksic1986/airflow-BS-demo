@@ -1,5 +1,18 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T251 dirty worktree artifact triage
+
+```text
+scope: inspect the ten dirty worktrees preserved by T250 and remove only worktrees whose uncommitted content is disposable local packaging/test artifacts.
+cleanup: T146, T194, T203, T209 and T219 worktree registrations were removed. Merged local branches T146/T194/T203/T219 were deleted; T209 remains because it has one unique commit. Merged remote T194/T203 branches were deleted.
+result: registered worktrees decreased from 11 to 6. Main remains clean; five source-bearing worktrees remain untouched.
+retained: T193 Step7 UI, T210 transfer lease, T213 dispatch/Step7 integration, T242 control-plane runtime gate and T222 prepare handoff all contain source, tests, migration, DAG or contract-document changes.
+conflict: T193 and T213 overlap on 11 dirty files and all 11 resulting file contents differ, so neither is treated as a duplicate.
+residual: T146 joins T227, T214 and T248 as an unregistered disk directory that Windows did not fully remove. These paths are not Git worktrees and need a later file-lock-aware disk cleanup.
+safety: no server, Docker, SFS, OBS, database, workflow, clinical data, reset, clean, stash or force branch deletion was used.
+next: perform a functional T193/T213 comparison and select one canonical Step7 candidate before rebase, remote tests and PR.
+```
+
 ## 2026-09-10 T250 Git worktree and branch cleanup
 
 ```text
