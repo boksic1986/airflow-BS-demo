@@ -188,6 +188,39 @@ def test_prepare_retry_starts_worker_for_new_generation(
     assert commands[0][-1] == "2"
 
 
+def test_prepare_failure_persists_subprocess_stderr(tmp_path: Path, monkeypatch) -> None:
+    gate = load_gate()
+    request = tmp_path / "prepare.request.json"
+    payload = {
+        "analysis_id": "GATK_20260908_120000_A1B2C3",
+        "attempt": 1,
+        "generation": 2,
+        "request_hash": "a" * 64,
+    }
+    statuses = []
+    monkeypatch.setattr(gate, "_load", lambda *_args: (request, payload))
+    monkeypatch.setattr(gate, "_write_status", lambda *args, **_kwargs: statuses.append(args))
+    monkeypatch.setattr(gate, "_prepare", lambda _payload: ["python", "handoff.py"])
+    monkeypatch.setattr(
+        gate.subprocess,
+        "run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            subprocess.CalledProcessError(
+                1,
+                ["python", "handoff.py"],
+                output="",
+                stderr="ModuleNotFoundError: missing handoff module\n",
+            )
+        ),
+    )
+
+    with pytest.raises(subprocess.CalledProcessError):
+        gate._execute(payload["analysis_id"], 1, "prepare", 2)
+
+    assert statuses[-1][2] == "failed"
+    assert statuses[-1][3] == "ModuleNotFoundError: missing handoff module"
+
+
 def test_step4_waits_for_backend_export_to_become_visible(monkeypatch) -> None:
     gate = load_gate()
     attempts = []

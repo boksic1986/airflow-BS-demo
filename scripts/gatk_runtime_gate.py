@@ -389,6 +389,14 @@ def _parse_step3(stdout: str) -> dict[str, Any]:
     raise RuntimeError("Step3 did not return a valid Master status")
 
 
+def _failure_message(error: Exception) -> str:
+    if isinstance(error, subprocess.CalledProcessError):
+        detail = error.stderr or error.stdout
+        if detail:
+            return str(detail).strip()[-2000:]
+    return str(error)
+
+
 def _execute(
     analysis_id: str,
     attempt: int,
@@ -481,7 +489,7 @@ def _execute(
             )
             _write_status(request_path, payload, "success", completed.stdout[-2000:] or f"{stage} completed")
     except Exception as exc:
-        _write_status(request_path, payload, "failed", str(exc))
+        _write_status(request_path, payload, "failed", _failure_message(exc))
         raise
 
 
