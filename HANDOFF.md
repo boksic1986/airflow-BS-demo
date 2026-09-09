@@ -37,15 +37,17 @@ because nginx retained the replaced backend container's old Docker address;
 the root and `/api/health` then returned 200. Scanner and auto dispatch remain
 false.
 
-The node200 GATK runtime now selects release `975b782`; its previous private
-environment is saved as
-`/home/hanjj/.config/airflow-gatk/backups/runtime.env.pre-T248-20260910`.
+The node200 GATK runtime now selects release `4d6490a`. This merge release keeps
+the deployed `6bed61e` Airflow handoff/shared-permission fixes, includes current
+main and adds the 180-second visibility window. Its private environments are
+saved as `runtime.env.pre-T248-20260910` and
+`runtime.env.pre-T248-lineage-fix-20260910` below the node200 backup directory.
 The retained run `GATK_20260909_071908_F45CF7` was reconciled without a rerun:
 it remains failed at 98% and 182/184, `cloud_gatk_finalize` is the sole failed
 rule, the other 182 rules remain success and all 14 samples are terminal
 failed. Direct workspace and tracker projections agree.
 
-The Airflow branch is pushed to GitHub. GATK commit `975b782` is present in the
+The Airflow branch is pushed to GitHub. GATK commit `4d6490a` is present in the
 writable BS checkout as `jiucheng/gatk/T248-finalize-sfs-latency` and in the
 deployed immutable release. Two GitLab pushes were rejected by the configured
 HTTP credentials, so that branch is not yet upstream. The temporary askpass

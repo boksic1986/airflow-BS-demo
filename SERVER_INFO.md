@@ -52,8 +52,8 @@ ssh: ssh BS10610
 hostname: server10610
 control_release: releases/20260910-t248-gatk-terminal-b816c91
 control_code_commit: b816c91bec1fcfb1013ed80276fb0ea635776c70
-gatk_runtime_release: /bi/biodevrwbi/33.chenjiucheng/project/gatk-cloud-airflow/releases/975b782
-gatk_source_commit: 975b782
+gatk_runtime_release: /bi/biodevrwbi/33.chenjiucheng/project/gatk-cloud-airflow/releases/4d6490a
+gatk_source_commit: 4d6490a
 gatk_cce_latency_wait_seconds: 180
 scanner: false
 auto_dispatch: false
