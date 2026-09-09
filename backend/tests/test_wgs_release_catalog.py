@@ -57,7 +57,10 @@ releases:
     profile_id: wgs-4.2.0
     profile_revision: r1
     profile_sha256: c6dea31fb06f8a1c0ac242cea8fa990486d631f877d64a6f8d25b67dadfa8511
+    node200_profile_path: /bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs/wgs-4.2.0-r1.yaml
     cce_pipeline_version: 0.8.3
+    pipeline_build_sha256: 71695b2a3ab1d83bab68454b1785d2b6791b26c6f57f5ecceda465975788b7f6
+    resource_manifest_sha256: 89ea682efe61f6a0202c41b01cdc10de2355dcc496834a61513d357d86a2b049
   - release_id: wgs-4.1.1-6c98281
     version: V4.1.1
     source_commit: 6c982817614db6a1157b6f287427ddf01ac91827
@@ -73,6 +76,10 @@ releases:
     assert catalog.release.release_id == "wgs-4.2.0-b067c72"
     assert catalog.release.profile_id == "wgs-4.2.0"
     assert catalog.release.cce_pipeline_version == "0.8.3"
+    assert catalog.release.node200_profile_path.endswith("/wgs-4.2.0-r1.yaml")
+    assert catalog.release.pipeline_build_sha256 == (
+        "71695b2a3ab1d83bab68454b1785d2b6791b26c6f57f5ecceda465975788b7f6"
+    )
     assert catalog.by_id("wgs-4.1.1-6c98281").version == "V4.1.1"
     with pytest.raises(ValueError, match="not cataloged"):
         catalog.by_id("wgs-4.0.0-deadbee")

@@ -622,7 +622,10 @@ def approve_wgs_execution(*, session, analysis_id: str, requested_by: str) -> di
     if params.get("submission_phase") not in {"execution_review", "approved"}:
         raise ValueError("WGS analysis preparation is not ready for execution review")
     if session.scalar(
-        select(Sample.id).where(Sample.analysis_id == analysis_id).limit(1)
+        select(Sample.id).where(
+            Sample.analysis_id == analysis_id,
+            Sample.status == "running",
+        ).limit(1)
     ) is None:
         raise ValueError("WGS analysis has no prepared samples")
     if params.get("submission_phase") != "approved":

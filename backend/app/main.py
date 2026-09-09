@@ -443,6 +443,8 @@ def current_wgs_release() -> dict[str, object]:
         "profile_revision": release.profile_revision,
         "profile_sha256": release.profile_sha256,
         "cce_pipeline_version": release.cce_pipeline_version,
+        "pipeline_build_sha256": release.pipeline_build_sha256,
+        "resource_manifest_sha256": release.resource_manifest_sha256,
         "execution_enabled": _wgs_platform_execution_enabled(),
         "runtime_adapter_enabled": _wgs_runtime_adapter_enabled(),
         "submission_preview_enabled": _wgs_submission_preview_enabled(),
@@ -2103,6 +2105,13 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 analysis_batch=str(params.get("analysis_batch") or "") or None,
                 validation_scope=str(params.get("validation_scope") or "") or None,
                 maintenance_action_id=request.maintenance_action_id,
+                profile_id=release.profile_id,
+                profile_revision=release.profile_revision,
+                profile_sha256=release.profile_sha256,
+                node200_profile_path=release.node200_profile_path,
+                cce_pipeline_version=release.cce_pipeline_version,
+                pipeline_build_sha256=release.pipeline_build_sha256,
+                resource_manifest_sha256=release.resource_manifest_sha256,
             )
             if step7_action is not None:
                 snapshot = dict(step7_action.target_snapshot_json or {})
@@ -2467,26 +2476,38 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
             run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.attempt == attempt))
             if run is not None:
                 params = dict(run.params_json or {})
+                handoff_receipt = payload.get("prepare_handoff_receipt")
+                handoff_required = (
+                    str(params.get("wgs_version") or "") == "V4.2.0"
+                    and stage in {"prepare_sampleinfo", "prepare_analysis"}
+                )
+                if handoff_required and not isinstance(handoff_receipt, dict):
+                    artifact_pending = True
+                    handoff_receipt = None
                 try:
-                    if stage == "prepare_sampleinfo":
-                        sync_sampleinfo_preview(session=session, settings=settings, run=run)
-                        params["submission_phase"] = "config_review"
-                    else:
-                        sync_prepared_samples(session=session, settings=settings, run=run)
-                        if stage == "prepare_analysis":
-                            params["submission_phase"] = "execution_review"
-                    handoff_receipt = payload.get("prepare_handoff_receipt")
                     if isinstance(handoff_receipt, dict):
                         sync_prepare_handoff_decisions(
                             session=session,
                             run=run,
                             receipt=handoff_receipt,
                         )
+                    if artifact_pending:
+                        pass
+                    elif stage == "prepare_sampleinfo":
+                        sync_sampleinfo_preview(session=session, settings=settings, run=run)
+                        params["submission_phase"] = "config_review"
+                    elif stage == "prepare_analysis" and isinstance(handoff_receipt, dict) and not handoff_receipt.get("selected"):
+                        params["submission_phase"] = "execution_review"
+                    else:
+                        sync_prepared_samples(session=session, settings=settings, run=run)
+                        if stage == "prepare_analysis":
+                            params["submission_phase"] = "execution_review"
                 except WgsPreparedArtifactPending:
                     artifact_pending = True
                 else:
-                    run.params_json = params
-                    session.commit()
+                    if not artifact_pending:
+                        run.params_json = params
+                        session.commit()
     return {
         "analysis_id": analysis_id,
         "attempt": attempt,

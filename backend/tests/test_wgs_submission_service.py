@@ -661,6 +661,22 @@ def test_three_stage_approvals_are_server_controlled_and_idempotent(tmp_path: Pa
         }
         session.commit()
 
+        with pytest.raises(ValueError, match="no prepared samples"):
+            approve_wgs_execution(
+                session=session,
+                analysis_id=analysis_id,
+                requested_by="operator",
+            )
+        prepared_sample = session.scalar(
+            select(Sample).where(
+                Sample.analysis_id == analysis_id,
+                Sample.sample_id == "RETRY-SAMPLE",
+            )
+        )
+        assert prepared_sample is not None
+        prepared_sample.status = "running"
+        session.commit()
+
         approved = approve_wgs_execution(
             session=session,
             analysis_id=analysis_id,

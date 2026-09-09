@@ -27,6 +27,9 @@ class WgsRelease:
     profile_revision: str | None = None
     profile_sha256: str | None = None
     cce_pipeline_version: str | None = None
+    node200_profile_path: str | None = None
+    pipeline_build_sha256: str | None = None
+    resource_manifest_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -85,6 +88,9 @@ def _parse_release(raw: dict[str, object]) -> WgsRelease:
         profile_revision=str(raw.get("profile_revision") or "") or None,
         profile_sha256=str(raw.get("profile_sha256") or "") or None,
         cce_pipeline_version=str(raw.get("cce_pipeline_version") or "") or None,
+        node200_profile_path=str(raw.get("node200_profile_path") or "") or None,
+        pipeline_build_sha256=str(raw.get("pipeline_build_sha256") or "") or None,
+        resource_manifest_sha256=str(raw.get("resource_manifest_sha256") or "") or None,
     )
     _validate_release(release)
     return release
@@ -123,6 +129,30 @@ def _validate_release(release: WgsRelease) -> None:
             raise ValueError(f"WGS {label} is invalid")
     if release.profile_sha256 is not None:
         _validate_hex(release.profile_sha256, length=64, label="profile_sha256")
+    if release.pipeline_build_sha256 is not None:
+        _validate_hex(
+            release.pipeline_build_sha256,
+            length=64,
+            label="pipeline_build_sha256",
+        )
+    if release.resource_manifest_sha256 is not None:
+        _validate_hex(
+            release.resource_manifest_sha256,
+            length=64,
+            label="resource_manifest_sha256",
+        )
+    if release.node200_profile_path is not None:
+        profile_path = PurePosixPath(release.node200_profile_path)
+        profile_root = NODE200_PROJECT_ROOT / "cce-pipeline-profiles" / "wgs"
+        if (
+            not profile_path.is_absolute()
+            or ".." in profile_path.parts
+            or profile_root not in profile_path.parents
+            or profile_path.suffix != ".yaml"
+        ):
+            raise ValueError(
+                "node200 CCE profile must be below the approved profile root"
+            )
 
 
 def _validate_repo_path(value: str, *, root: PurePosixPath, label: str) -> None:

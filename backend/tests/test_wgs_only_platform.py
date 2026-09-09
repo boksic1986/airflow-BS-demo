@@ -1498,6 +1498,8 @@ def test_current_release_api_is_read_only_and_execution_is_disabled(tmp_path, mo
         "profile_revision": None,
         "profile_sha256": None,
         "cce_pipeline_version": None,
+        "pipeline_build_sha256": None,
+        "resource_manifest_sha256": None,
         "execution_enabled": False,
             "runtime_adapter_enabled": False,
             "submission_preview_enabled": False,
