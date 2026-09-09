@@ -229,7 +229,23 @@ def sync_gatk_stage_status(
             value.get("analysis_id") != analysis_id
             or value.get("attempt") != attempt
             or value.get("stage") != stage
-            or value.get("generation") != row.generation
+        ):
+            raise ValueError("GATK stage sidecar identity mismatch")
+        observed_generation = value.get("generation")
+        if (
+            isinstance(observed_generation, int)
+            and observed_generation < row.generation
+        ):
+            return {
+                **_execution_payload(row),
+                "ready": False,
+                "failed": False,
+                "message": (
+                    f"waiting for GATK stage generation {row.generation} evidence"
+                ),
+            }
+        if (
+            observed_generation != row.generation
             or value.get("request_hash") != row.request_hash
             or (
                 stage != "prepare"

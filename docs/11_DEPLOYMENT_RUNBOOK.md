@@ -1,5 +1,12 @@
 # Deployment runbook
 
+## BS10610 test endpoint
+
+BS10610 (`server10610`) is the dedicated test deployment. Its user-facing
+frontend endpoint is `http://172.17.106.10:12959`. The address is bound to the
+host interface `172.17.106.10/24`; do not shorten it to `172.10.106.10` and do
+not use the production `.96` endpoint when validating this environment.
+
 ## T240 rollout boundary
 
 T240 changes backend projections and frontend presentation only. Validate the

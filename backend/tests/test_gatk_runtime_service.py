@@ -177,3 +177,56 @@ def test_new_generation_reopens_failed_stage_projection(tmp_path: Path) -> None:
     assert refreshed_stage is not None
     assert refreshed_stage.stage_status == "accepted"
     assert refreshed_stage.ended_at is None
+
+
+def test_previous_generation_sidecar_is_pending_not_invalid(tmp_path: Path) -> None:
+    sessions = _sessions()
+    settings = _settings(tmp_path)
+    request = (
+        Path(settings.gatk_runtime_request_root)
+        / ANALYSIS_ID
+        / "attempt-1"
+        / "step4_publish.request.json"
+    )
+    request.parent.mkdir(parents=True)
+    current = _execution("step4_publish", 2, "accepted")
+    previous = _execution("step4_publish", 1, "failed")
+    request.write_text("{}", encoding="utf-8")
+    request.with_suffix(".status.json").write_text(
+        json.dumps(
+            {
+                "analysis_id": ANALYSIS_ID,
+                "attempt": 1,
+                "stage": "step4_publish",
+                "generation": 1,
+                "request_hash": previous.request_hash,
+                "execution_id": previous.execution_id,
+                "status": "failed",
+            }
+        ),
+        encoding="utf-8",
+    )
+    with sessions() as session:
+        session.add_all([_run(), previous, current])
+        session.commit()
+
+        result = sync_gatk_stage_status(
+            session=session,
+            settings=settings,
+            analysis_id=ANALYSIS_ID,
+            attempt=1,
+            stage="step4_publish",
+        )
+        refreshed = session.scalar(
+            select(PipelineStageExecution).where(
+                PipelineStageExecution.execution_id == current.execution_id
+            )
+        )
+
+    assert result["generation"] == 2
+    assert result["status"] == "accepted"
+    assert result["ready"] is False
+    assert result["failed"] is False
+    assert "generation 2" in result["message"]
+    assert refreshed is not None
+    assert refreshed.status == "accepted"
