@@ -1,12 +1,17 @@
 # Security and operations boundaries
 
+The fixed test/production identity, path and permission boundary is defined in
+`docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`. Historical entries elsewhere do
+not authorize cross-environment access.
+
 ## Platform scope
 
-`ngs-huaweicloud` is a general NGS control plane. Shared services discover
-pipelines through `config/pipelines.yaml` and call registered adapter
-capabilities. A deployment may enable WGS, WES, GATK, or another reviewed
-adapter without adding pipeline-name branches to shared authentication,
-navigation, run, sample, workflow, or capability endpoints.
+`ngs-huaweicloud` is the current WGS/GATK control-plane product identity.
+Shared services discover pipelines through `config/pipelines.yaml` and call
+registered adapter capabilities. A deployment may enable WGS, test-only GATK,
+or another separately reviewed future adapter without adding pipeline-name
+branches to shared authentication, navigation, run, sample, workflow, or
+capability endpoints.
 
 The current production configuration deploys only WGS. WGS Step1-Step7,
 execution-choice, evidence, directional transfer leases, Heavy Slot and
@@ -48,7 +53,8 @@ they never fall back to arbitrary host paths.
 
 ## Filesystem and execution authority
 
-- The active project root is `/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud`.
+- The production control/release root is `/data/airflow-WGS`; runtime and
+  workflow-source roots come only from the active production release contract.
 - Runtime adapters accept only registered `analysis_id + attempt + stage`
   identities and fixed server-side allowlists.
 - FASTQ roots and analysis roots are separate configured authorities. Do not
@@ -62,9 +68,10 @@ they never fall back to arbitrary host paths.
 
 ## Docker and network
 
-- Production Compose attaches to an existing external network supplied by
-  `NGS_PLATFORM_NETWORK`; the repository does not prescribe, create, delete,
-  recreate, or repair a subnet.
+- Current test and production Compose attach to the existing external
+  `nipt_analysis_test_net`, subnet `192.168.199.0/24`, gateway
+  `192.168.199.1`. The repository does not create, delete, recreate or repair
+  that network.
 - Only explicitly approved frontend ports may be published. Backend, Airflow,
   PostgreSQL, Redis, observers and collectors remain internal.
 - Docker socket access is host-equivalent privilege and is limited to reviewed
@@ -81,6 +88,10 @@ they never fall back to arbitrary host paths.
   the approved local relay with SHA256 verification at every hop.
 - Never run volume/system prune or `docker compose down -v` as part of a
   release.
+- After a release, remove only stopped containers belonging to the approved
+  Airflow Compose project and unreferenced Airflow images outside the recorded
+  keep set. Preserve running images, one rollback, approved build bases,
+  generic shared images, volumes, networks and build cache.
 
 ## Current WGS extension boundaries
 

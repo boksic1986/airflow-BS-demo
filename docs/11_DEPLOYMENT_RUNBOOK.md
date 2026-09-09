@@ -1,5 +1,10 @@
 # Deployment runbook
 
+Environment selection, host aliases, directory ownership and image-retention
+rules are authoritative in `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`.
+Dated release sections below are historical evidence. They must not override a
+fresh `ssh BS10610` or `ssh BS96` preflight.
+
 ## T240 rollout boundary
 
 T240 changes backend projections and frontend presentation only. Validate the

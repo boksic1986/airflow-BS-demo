@@ -1,5 +1,10 @@
 # 04 数据库设计
 
+Legacy PGT-A/NIPT names below document retained Alembic history only. They are
+not the active pipeline catalog. Current deployment capabilities come from the
+registry and `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`; never delete or
+renumber historical revisions to make the documentation look cleaner.
+
 ## T240 privacy-safe sample metadata projection
 
 T240 has no schema migration. WGS `Sample.metadata_json` may contain the

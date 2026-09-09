@@ -6,6 +6,7 @@ description: Develop FastAPI backend for airflow-demo. Use for APIs, database mo
 ## Required reading
 
 - `AGENTS.md`
+- `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`
 - `docs/04_DATABASE_SCHEMA.md`
 - `docs/05_API_CONTRACT.md`
 - `docs/10_QC_LOGGING_REPORTING.md`

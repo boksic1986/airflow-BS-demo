@@ -8,10 +8,10 @@
 repo_url: git@github.com:boksic1986/airflow-BS-demo.git
 default_branch: main
 local_role: primary development checkout
-fengxian_role: server code mirror
+fengxian_role: legacy mirror only; no Airflow test image build or staging
 ```
 
-`fengxian:/home/jiucheng/project/airflow-demo` 作为 GitHub 代码镜像目录使用，不作为日常开发分支直接提交代码。服务器上的代码更新只允许使用 Git 同步命令，不允许通过复制覆盖或手工修改作为主流程。
+`fengxian:/home/jiucheng/project/airflow-demo` 是历史镜像和当前仍运行的旧 demo 所在位置，不再承担 WGS/GATK 测试镜像构建或中转。测试构建在 BS10610 使用预装基础镜像，生产构建在 BS96 使用相同受控基础镜像。服务器代码不得通过复制覆盖或手工修改作为主流程。
 
 ## 2. 本地 Git 初始化约定
 
@@ -46,29 +46,22 @@ tokens
 patient identifiers
 ```
 
-## 3. 服务器代码镜像约定
+## 3. 服务器 release 约定
 
-若服务器目录为空，可初始化镜像：
+测试 release 只进入 `ssh BS10610` 的
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS`；生产 release 只在明确
+批准后进入 `ssh BS96` 的 `/data/airflow-WGS`。服务器目录不得作为主开发
+checkout，也不得通过覆盖式复制修改正在运行的 release。
 
-```bash
-git clone git@github.com:boksic1986/airflow-BS-demo.git /home/jiucheng/project/airflow-demo
-```
+服务器 release 规则：
 
-若服务器目录已存在文件，必须先确认内容和备份策略，不得覆盖式同步。建议流程：
-
-```bash
-cd /home/jiucheng/project/airflow-demo
-git status --short --branch
-git remote -v
-git pull --ff-only
-```
-
-服务器镜像规则：
-
-- 只用 `git pull --ff-only` 更新已跟踪代码。
-- 不在服务器镜像中直接开发或提交。
-- 服务器本地 `.env`、`*.local.md`、`shared/` 必须保持未跟踪。
-- 部署、Docker、Airflow、PGT-A smoke 的运行记录写入 `HANDOFF.md` 或验收报告，不写入密钥。
+- 发布前记录 source commit、不可变 release 目录和 rollback release。
+- 构建只使用目标 BS 节点预装的受控基础镜像，不从 fengxian 搬运
+  source-specific `airflow-demo/*` 镜像。
+- `.env`、keys、runtime、evidence、results 和 `shared/` 保持在 Git 之外。
+- 只切换 `current` 并 recreate 受影响服务；逐服务核对实际 bind mount。
+- 部署、Docker、Airflow、WGS/GATK smoke 的运行记录写入 `HANDOFF.md` 或
+  主机证据目录，不写入密钥或临床 payload。
 
 ## 4. Superpowers 插件使用约定
 
@@ -123,5 +116,5 @@ GitHub 相关工作优先使用 GitHub 插件能力获取结构化信息；本�
 推荐 GitHub description：
 
 ```text
-Airflow + Snakemake bioinformatics workflow demo for WES/NIPT/PGT-A submission, monitoring, logs, QC, and resumable reruns.
+Airflow control plane for WGS production and test-only GATK submission, monitoring, evidence, QC, transfers, and resumable execution.
 ```

@@ -1,5 +1,56 @@
 # HANDOFF.md
 
+## 2026-09-09 T247 environment boundary and cleanup handoff
+
+```text
+branch: jiucheng/docs/T247-environment-release-boundary
+baseline: origin/main@128dba23ca7ede7a83b0f40940eb22bd70782b03
+remote: git@github.com:boksic1986/airflow-BS-demo.git
+working_tree: T247-only changes in an isolated worktree
+```
+
+T247 makes `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md` the current authority
+for all remote work. Use `ssh BS10610` only for test and `ssh BS96` only for
+production; verify hostname, current release, Compose files, service mounts,
+execution gates and permissions before any mutation. Test is WGS/GATK at
+`172.17.106.10:12959`; production is WGS-only at `172.17.61.96:12959`.
+
+The production policy requires scanning and auto dispatch with an approved
+watermark, but the live 2026-09-09 backend and scanner both reported auto
+dispatch false while scanning remained enabled. T247 intentionally did not
+turn analysis on. A later operator must treat that as drift and use a separate
+approved rollout rather than editing the documentation to match either side.
+
+Legacy active-tree cleanup replaced the qsub skill, runtime integration doc and
+agent prompt with WGS/GATK equivalents. It also removed the retired combined
+NIPT/WGS platform design and T139 smoke script. Exact paths and replacements are
+in `LEGACY_REMOVAL_INDEX.md`; recovery uses annotated tag
+`archive/pre-t247-wgs-gatk-boundary-20260909`. Alembic migrations and the
+retired-module hygiene regression were preserved.
+
+Docker cleanup used exact allowlists only. BS10610 removed 24 old
+`airflow-demo/*` tags plus one stopped init container; BS96 removed 28 tags plus
+one stopped init container; fengxian removed 25 unreferenced Airflow test tags.
+Every running container remained running. No volume, network, build cache,
+generic base image, non-Airflow stopped container or business asset was
+removed. Fengxian's running legacy `airflow-demo:0.1.0` stack remains pending a
+separate shutdown decision.
+
+Evidence directories:
+
+```text
+BS10610: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T247-docker-governance-20260909
+BS96:    /data/airflow-WGS/backups/T247-docker-governance-20260909
+fengxian:/home/jiucheng/project/airflow-demo/.artifacts/T247-docker-governance-20260909
+```
+
+Two observed permission/release differences remain visible: the test WGS
+runtime is 0775 instead of the target 2770, and the production control root is
+owned by `hanjj:bioinfo` while workflow runtime/results use `ctapa:bioinfo`.
+Also, BS10610's release `SOURCE_COMMIT` marker appears stale relative to its
+T246 release name; verify the actual service bind mounts before the next test
+deployment.
+
 ## 2026-09-09 T241 WGS obsutil checkpoint progress production release
 
 T241 is implemented, synchronized to `main` and deployed. New WGS Step1 and
