@@ -253,6 +253,30 @@ def test_step4_waits_for_backend_export_to_become_visible(monkeypatch) -> None:
     assert sleeps == [7]
 
 
+def test_parse_step3_accepts_cce_pipeline_083_text_status() -> None:
+    gate = load_gate()
+    output = """run_state=UNAVAILABLE attempt_start=2026-09-09T11:08:28Z
+master_state=RUNNING normal=true
+bioinformatics_stage=MarkDuplicates
+progress=24/184 remaining=160 (13.0%)
+current_rule_or_group=sentieon_mapping,gatk_mark_duplicates
+last_completed_rule=sentieon_mapping
+message=Master and Snakemake are running normally
+"""
+
+    state = gate._parse_step3(output)
+
+    assert state == {
+        "master_state": "RUNNING",
+        "completed": 24,
+        "total": 184,
+        "percent": 13.0,
+        "current_rule": "sentieon_mapping,gatk_mark_duplicates",
+        "bioinformatics_stage": "MarkDuplicates",
+        "message": "Master and Snakemake are running normally",
+    }
+
+
 def test_step4_does_not_retry_an_unrelated_failure(monkeypatch) -> None:
     gate = load_gate()
     monkeypatch.setattr(

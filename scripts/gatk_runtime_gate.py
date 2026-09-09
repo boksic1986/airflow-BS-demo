@@ -386,6 +386,28 @@ def _parse_step3(stdout: str) -> dict[str, Any]:
             continue
         if isinstance(value, dict) and value.get("master_state") in {"PENDING", "RUNNING", "SUCCEEDED", "FAILED"}:
             return value
+    master_match = re.search(
+        r"(?m)^master_state=(PENDING|RUNNING|SUCCEEDED|FAILED)(?:\s|$)", stdout
+    )
+    if master_match:
+        progress_match = re.search(
+            r"(?m)^progress=(\d+)/(\d+).*?\(([0-9]+(?:\.[0-9]+)?)%\)",
+            stdout,
+        )
+
+        def text_value(name: str) -> str | None:
+            match = re.search(rf"(?m)^{re.escape(name)}=(.*)$", stdout)
+            return match.group(1).strip() if match else None
+
+        return {
+            "master_state": master_match.group(1),
+            "completed": int(progress_match.group(1)) if progress_match else 0,
+            "total": int(progress_match.group(2)) if progress_match else 0,
+            "percent": float(progress_match.group(3)) if progress_match else 0.0,
+            "current_rule": text_value("current_rule_or_group"),
+            "bioinformatics_stage": text_value("bioinformatics_stage"),
+            "message": text_value("message"),
+        }
     raise RuntimeError("Step3 did not return a valid Master status")
 
 
