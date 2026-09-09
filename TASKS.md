@@ -1,5 +1,27 @@
 # TASKS.md
 
+## T249 - Multi-repository release and data lifecycle governance
+
+Owner: coordinator/docs/security/QA
+
+Status: design complete; implementation plan pending written-spec review
+
+Acceptance:
+- [x] Define independent airflow-demo, WGS, cce-pipeline and GATK ownership and versions with an airflow-demo-owned integration BOM.
+- [x] Define short-lived task branch/worktree, PR, squash merge, immutable RC and final platform-tag rules.
+- [x] Replace blanket cross-repository TDD with an ownership and contract-based impact matrix.
+- [x] Classify protected source, retained project, batch-generated, disposable test and unknown data.
+- [x] Record that explicit user instruction authorizes one exact batch cleanup without a second confirmation.
+- [x] Keep OBS, database, Airflow history and final project results outside the default Step7 batch-cleanup scope.
+- [x] Design separate release-governance and data-lifecycle-safety skills.
+- [ ] User reviews the written design specification.
+- [ ] Write and approve the implementation plan.
+- [ ] Implement the stable contracts, skills, BOM/PR templates and read-only inventory tooling in separate scoped PRs.
+
+Safety:
+- T249 design work performs no remote operation, release, workflow execution, data inventory or deletion.
+- The current dirty T193 worktree is preserved; T249 uses an isolated worktree from `origin/main@d90cac3`.
+
 ## T247 - Environment boundary, legacy cleanup and Docker governance
 
 Owner: platform/infra/docs/QA

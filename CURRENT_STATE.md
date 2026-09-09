@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T249 multi-repository release and data governance design
+
+```text
+scope: design one governance model for airflow-demo, WGS, cce-pipeline and GATK Git/version/test integration, plus explicit SFS/OBS/source/project/test-data boundaries and operator-authorized batch cleanup while Step7 remains unstable.
+decision: repositories keep independent versions; airflow-demo owns a machine-readable integration BOM and CalVer platform release. Task work uses short-lived jiucheng/<owner>/Txxx branches and isolated worktrees from origin/main; main is the only long-lived integration branch.
+testing: implementation owners prove their own code, cross-repository work uses versioned producer/consumer contracts, and only a BOM-pinned candidate receives one BS10610 integration smoke. Blanket repeated TDD across independent repositories is not part of the target model.
+environments: BS10610 is integration test and BS96 is currently production-shaped test. Environment paths and credentials remain isolated; data sensitivity does not become weaker merely because a host is test-oriented.
+data: original FASTQ, references, workflow source and final project results remain protected. A direct user instruction naming an environment and batch authorizes cleanup of that batch's Step7 SFS analysis/linkage and runtime residue without a second confirmation. OBS, DB, Airflow history and final results remain out of default scope unless explicitly named.
+status: design recorded in docs/superpowers/specs/2026-09-10-multirepo-release-data-governance-design.md. No runtime, remote host, data, branch protection, release tag or execution gate was changed. Implementation awaits user review of the written specification.
+```
+
 ## 2026-09-09 T247 environment boundary and Docker governance
 
 ```text
