@@ -1,5 +1,48 @@
 # HANDOFF.md
 
+## 2026-09-09 T241 OBS SDK throughput profile candidate
+
+The same-node private-line benchmark isolated attached CRC64 as the main SDK
+throughput cost. With one 8 GiB payload, 64 MiB parts and eight SDK workers,
+obsutil `-vlength` measured 523.497/200.540 MiB/s upload/download. SDK measured
+163.875/96.005 MiB/s with CRC64 and 459.479/171.754 MiB/s without it. Callback
+totals remained exact and all downloaded SHA256 values matched.
+
+CCE branch `jiucheng/cce/T241-obs-sdk-throughput-profile` adds strict operator
+settings for multipart size, task count and CRC64 attachment. Existing configs
+default to 64 MiB, four workers and CRC64 enabled. A test profile may explicitly
+use 64 MiB, eight workers and CRC64 disabled; its file evidence is labeled
+`content-length`, while remote length and frozen source identity are still
+checked. The callback cadence remains one second or 64 MiB.
+
+CCE validation on BS10610 used the shared `nipttest` Python with `PYTHONPATH`
+pointing at the candidate source: focused tests passed 33 and the complete suite
+passed 232. The CCE commit is `1a38c4f`. Airflow branch
+`jiucheng/wgs/T241-obs-sdk-throughput-profile` extends Step7 config
+compatibility for the three new SDK fields. The node200 configurator accepts
+bounded environment overrides and writes them with its existing atomic update;
+the runtime-gate/configurator suite passed 76 tests on the isolated BS10610
+candidate.
+
+The test runtime rollout is complete. Airflow showed no WGS run and the only
+GATK run was terminal failed; node200 had no Step1, Step5, runtime-gate or
+`cce-pipeline` process. The verified wheel SHA256 is
+`8253eccd28989892c38b3ad600e855298500923b9e62378a45689e47507ab7ee`.
+It is installed in the versioned node-local overlay
+`/home/ctapa/.local/share/cce-pipeline-1a38c4f-overlay`; the shared `nipttest`
+environment was not modified. WGS selects
+`/home/ctapa/.local/bin/cce-pipeline-1a38c4f`, and the operator profile resolves
+to 64 MiB, eight multipart workers and attached CRC64 disabled. Deployed
+runtime scripts match the T241 Airflow branch exactly. The backup is
+`/home/ctapa/.config/airflow-wgs/backups/T241-20260909T084956`.
+
+Post-install focused validation passed CCE 31 and Airflow 76 tests. No new OBS
+transfer was launched, so the next newly submitted BS10610 test transfer must
+still confirm throughput, exact callback totals and `content-length` evidence.
+Production keeps CRC64 enabled until its integrity policy is separately
+approved. No secret value belongs in the repository, evidence, SFS, container
+environment or logs.
+
 ## 2026-09-09 T240 Dashboard attention and Sample Information production release
 
 T240 is implemented and candidate-validated. Command Center now concentrates

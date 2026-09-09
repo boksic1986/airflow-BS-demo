@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-09 T241 OBS SDK throughput profile candidate
+
+```text
+scope: make SDK multipart and integrity parameters explicit after a same-node private-line benchmark showed attached CRC64 was the principal throughput cost.
+benchmark: one 8 GiB payload, 64 MiB parts and eight SDK workers; obsutil -vlength upload/download 523.497/200.540 MiB/s, SDK CRC64 163.875/96.005 MiB/s, SDK without CRC64 459.479/171.754 MiB/s. Callback totals were exact and downloaded SHA256 values matched.
+implementation: CCE operator schema adds sdk_multipart_part_size_mib, sdk_multipart_task_num and sdk_attach_crc64. Compatibility defaults remain 64/4/true. The tuned BS test profile is 64/8/false and records content-length rather than CRC64 in progress evidence. The node200 configurator applies these values atomically from bounded environment settings. Airflow Step7 compatibility strips the new SDK-only keys before calling older cleanup assets.
+validation: CCE focused red/green tests passed 33; complete CCE 0.8.2 suite passed 232. Airflow runtime-gate/configurator tests passed 76 on the isolated BS10610 candidate, including legacy/new resolved-profile compatibility. CCE commit is 1a38c4f.
+rollout: after confirming no active WGS run, the only GATK run terminal failed and no node200 transfer/runtime process, node200 installed the immutable 1a38c4f wheel in /home/ctapa/.local/share/cce-pipeline-1a38c4f-overlay. The WGS runtime now selects /home/ctapa/.local/bin/cce-pipeline-1a38c4f and the test operator profile resolves to 64/8/false. The shared nipttest environment was not modified. Runtime scripts match the T241 Airflow branch byte-for-byte; focused post-install tests passed CCE 31 and Airflow 76.
+pending: no new OBS transfer was launched during installation. The next newly submitted BS10610 test transfer must verify measured throughput, exact callback totals and content-length-labeled receipt before the profile is considered accepted. Production CRC64 remains enabled pending a separate integrity-policy decision.
+safety: no credential, OBS URI, FASTQ, object, database row, running container or active workflow was changed. Runtime backups and SHA256 inventory are under /home/ctapa/.config/airflow-wgs/backups/T241-20260909T084956.
+```
+
 ## 2026-09-09 T240 Dashboard attention and Sample Information production release
 
 ```text

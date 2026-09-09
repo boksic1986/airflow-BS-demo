@@ -95,7 +95,10 @@ STEP4_MASTER_COMPLETION_GRACE_SECONDS = int(
 )
 STEP7_COMPAT_OBS_FIELDS = {
     "download_parallelism",
+    "sdk_attach_crc64",
     "sdk_credentials_file",
+    "sdk_multipart_part_size_mib",
+    "sdk_multipart_task_num",
     "sdk_python",
     "transfer_adapter",
 }
@@ -487,21 +490,58 @@ def _resolved_runtime_controls(profile: dict[str, Any]) -> dict[str, Any]:
     if transfer is not None:
         if not isinstance(transfer, dict):
             raise RuntimeError("RESOLVED_PROFILE.yaml transfer audit is invalid")
-        expected = {
+        legacy_expected = {
             "upload_file_parallelism",
             "download_file_parallelism",
             "obsutil_parts_per_file",
         }
-        if set(transfer) != expected:
+        sdk_expected = legacy_expected | {
+            "sdk_multipart_part_size_mib",
+            "sdk_multipart_task_num",
+            "sdk_attach_crc64",
+        }
+        transfer_fields = frozenset(transfer)
+        if transfer_fields not in {frozenset(legacy_expected), frozenset(sdk_expected)}:
             raise RuntimeError("RESOLVED_PROFILE.yaml transfer audit is incomplete")
-        normalized_transfer: dict[str, int] = {}
-        for name in sorted(expected):
+        normalized_transfer: dict[str, Any] = {}
+        for name in sorted(legacy_expected):
             value = transfer[name]
             if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 32:
                 raise RuntimeError(
                     f"RESOLVED_PROFILE.yaml transfer.{name} is invalid"
                 )
             normalized_transfer[name] = value
+        if transfer_fields == sdk_expected:
+            part_size = transfer["sdk_multipart_part_size_mib"]
+            if (
+                isinstance(part_size, bool)
+                or not isinstance(part_size, int)
+                or not 8 <= part_size <= 1024
+            ):
+                raise RuntimeError(
+                    "RESOLVED_PROFILE.yaml transfer.sdk_multipart_part_size_mib is invalid"
+                )
+            task_num = transfer["sdk_multipart_task_num"]
+            if (
+                isinstance(task_num, bool)
+                or not isinstance(task_num, int)
+                or not 1 <= task_num <= 32
+            ):
+                raise RuntimeError(
+                    "RESOLVED_PROFILE.yaml transfer.sdk_multipart_task_num is invalid"
+                )
+            attach_crc64 = transfer["sdk_attach_crc64"]
+            if not isinstance(attach_crc64, bool):
+                raise RuntimeError(
+                    "RESOLVED_PROFILE.yaml transfer.sdk_attach_crc64 is invalid"
+                )
+            normalized_transfer.update(
+                {
+                    "sdk_multipart_part_size_mib": part_size,
+                    "sdk_multipart_task_num": task_num,
+                    "sdk_attach_crc64": attach_crc64,
+                }
+            )
         controls["transfer"] = normalized_transfer
 
     heavy_io = profile.get("heavy_io")

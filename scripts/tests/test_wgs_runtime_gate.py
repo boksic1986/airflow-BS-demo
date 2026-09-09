@@ -57,6 +57,60 @@ def test_node200_rule_evidence_uses_bs_mounted_shared_spool(
     assert f"WGS_CCE_EVIDENCE_ROOT={expected}" in example
 
 
+def test_node200_configurator_uses_compatible_sdk_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for name in (
+        "WGS_OBS_SDK_MULTIPART_PART_SIZE_MIB",
+        "WGS_OBS_SDK_MULTIPART_TASK_NUM",
+        "WGS_OBS_SDK_ATTACH_CRC64",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    configurator = load_node200_configurator()
+
+    assert configurator.sdk_transfer_profile() == {
+        "sdk_multipart_part_size_mib": 64,
+        "sdk_multipart_task_num": 4,
+        "sdk_attach_crc64": True,
+    }
+
+
+def test_node200_configurator_accepts_benchmark_tuned_sdk_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("WGS_OBS_SDK_MULTIPART_PART_SIZE_MIB", "64")
+    monkeypatch.setenv("WGS_OBS_SDK_MULTIPART_TASK_NUM", "8")
+    monkeypatch.setenv("WGS_OBS_SDK_ATTACH_CRC64", "false")
+
+    configurator = load_node200_configurator()
+
+    assert configurator.sdk_transfer_profile() == {
+        "sdk_multipart_part_size_mib": 64,
+        "sdk_multipart_task_num": 8,
+        "sdk_attach_crc64": False,
+    }
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("WGS_OBS_SDK_MULTIPART_PART_SIZE_MIB", "7"),
+        ("WGS_OBS_SDK_MULTIPART_TASK_NUM", "33"),
+        ("WGS_OBS_SDK_ATTACH_CRC64", "sometimes"),
+    ],
+)
+def test_node200_configurator_rejects_invalid_sdk_profile(
+    monkeypatch: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    monkeypatch.setenv(name, value)
+
+    configurator = load_node200_configurator()
+
+    with pytest.raises(ValueError, match=name):
+        configurator.sdk_transfer_profile()
+
+
 def test_ctapa_forced_command_uses_private_runtime_environment() -> None:
     source = (ROOT / "wgs_runtime_forced_command.sh").read_text(encoding="utf-8")
 
@@ -892,6 +946,9 @@ def test_step7_cleanup_sanitizes_new_transfer_fields_for_old_frozen_parser(
                     "download_parallelism": 8,
                     "sdk_credentials_file": "/protected/sdk.env",
                     "sdk_python": "/opt/nipttest/python",
+                    "sdk_multipart_part_size_mib": 64,
+                    "sdk_multipart_task_num": 8,
+                    "sdk_attach_crc64": False,
                     "transfer_adapter": "sdk",
                 },
             },
@@ -2031,10 +2088,48 @@ def test_runtime_gate_rejects_heavy_io_contract_drift() -> None:
         )
 
 
+def test_resolved_runtime_controls_accepts_explicit_sdk_profile() -> None:
+    gate = load_gate()
+
+    controls = gate._resolved_runtime_controls(
+        {
+            "transfer": {
+                "upload_file_parallelism": 8,
+                "download_file_parallelism": 8,
+                "obsutil_parts_per_file": 5,
+                "sdk_multipart_part_size_mib": 64,
+                "sdk_multipart_task_num": 8,
+                "sdk_attach_crc64": False,
+            }
+        }
+    )
+
+    assert controls["transfer"] == {
+        "upload_file_parallelism": 8,
+        "download_file_parallelism": 8,
+        "obsutil_parts_per_file": 5,
+        "sdk_multipart_part_size_mib": 64,
+        "sdk_multipart_task_num": 8,
+        "sdk_attach_crc64": False,
+    }
+
+
 @pytest.mark.parametrize(
     ("field", "value", "message"),
     [
         ("transfer", {"upload_file_parallelism": 4}, "transfer audit"),
+        (
+            "transfer",
+            {
+                "upload_file_parallelism": 8,
+                "download_file_parallelism": 8,
+                "obsutil_parts_per_file": 5,
+                "sdk_multipart_part_size_mib": 64,
+                "sdk_multipart_task_num": 8,
+                "sdk_attach_crc64": "false",
+            },
+            "sdk_attach_crc64",
+        ),
         (
             "heavy_io",
             {"limit": 25, "mode": "enforce", "unit": "cpu"},

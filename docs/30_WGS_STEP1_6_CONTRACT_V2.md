@@ -147,11 +147,13 @@ and filesystem identity. It does not calculate a full-file MD5 and deliberately
 omits the OBS SDK multipart `checkSum` option, because SDK 3.26.6 implements
 that option as a complete SHA256 read before initiating upload.
 
-This startup change does not weaken the terminal receipt. Multipart uploads
-retain attached per-part CRC64; completion requires response/object CRC64,
-Content-Length, and frozen source device/inode/size/mtime to agree. Missing or
-mismatched CRC64 fails closed. The obsutil rollback adapter retains its existing
-`-vmd5/-vlength` semantics and is not the default for new contract-v2 runs.
+Multipart size, per-file worker count and CRC64 attachment are now explicit
+operator-profile values. Compatibility defaults remain 64 MiB, four workers
+and attached CRC64. A benchmark-approved environment may disable CRC64; its
+receipt must then say `content-length` and completion still requires remote
+Content-Length plus frozen source device/inode/size/mtime to agree. It must not
+claim CRC64 verification. The obsutil rollback adapter retains its existing
+`-vmd5/-vlength` semantics.
 
 The Airflow-integrated canary `WGS_20260905_154825_E39C58-a1` froze two files
 and 113,993,536,856 bytes. Its first non-zero callback arrived about 32 seconds
@@ -245,13 +247,15 @@ fixed TTL, and only exact terminal evidence permits release. Upload and
 download may overlap; two transfers in the same direction may not. This is
 independent from the high-I/O Worker Pod quota.
 
-The CCE 0.8.2 integration freezes three separate transfer controls. Operator
+The CCE 0.8.2 integration freezes the transfer controls. Operator
 config `obs.upload_parallelism` is the number of Step1 files uploaded at once,
 `obs.download_parallelism` is the number of Step5 files downloaded at once,
-and obsutil uses five parts for each file. None of these values consumes or
-changes the 25-work-pod heavy-I/O quota. The resolved values are retained in
-`RESOLVED_PROFILE.yaml` and copied into the run binding as audit-only
-provenance; Airflow does not duplicate them as a version gate.
+and obsutil uses five parts for each file. SDK uploads additionally freeze
+`obs.sdk_multipart_part_size_mib`, `obs.sdk_multipart_task_num`, and
+`obs.sdk_attach_crc64`. None of these values consumes or changes the 25-work-pod
+heavy-I/O quota. The resolved values are retained in `RESOLVED_PROFILE.yaml`
+and copied into the run binding as audit-only provenance; Airflow does not
+duplicate them as a version gate.
 
 ## Heavy I/O Quota
 
@@ -316,11 +320,19 @@ from its frozen R1/R2 manifest; the public response must continue to use safe
 labels rather than source paths.
 
 Real 6-7 GiB inputs require the resumable SDK API. Files larger than 5 GiB use
-64 MiB multipart parts, four SDK workers per file, checkpointing and attached
-CRC64. Burst callback increments are coalesced before JSONL writes so the SDK
-cannot leave a large per-chunk callback backlog at shutdown. The accepted run
-verified source immutability and remote size/CRC64, then deleted both exact
-objects and confirmed HEAD 404.
+profile-controlled multipart parts and workers with checkpointing. Burst
+callback increments are coalesced before JSONL writes so the SDK cannot leave a
+large per-chunk callback backlog at shutdown. CRC64 mode verifies source
+immutability and remote size/CRC64; content-length mode verifies source
+immutability and exact remote size and records that weaker algorithm plainly.
+
+The T241 private-line benchmark used one 8 GiB source with 64 MiB parts and
+eight SDK workers. With attached CRC64, upload/download measured 163.875 and
+96.005 MiB/s. With CRC64 disabled, they measured 459.479 and 171.754 MiB/s.
+The obsutil `-vlength` comparison measured 523.497 and 200.540 MiB/s. Callback
+totals remained exact at 8,589,934,592 bytes and all downloaded SHA256 values
+matched. This supports a test-only content-length profile; production integrity
+policy remains a separate approval gate.
 
 This remains a standalone Step1 data-path canary. It does not enable contract
 v2 or prove the browser/database projection until a separately approved

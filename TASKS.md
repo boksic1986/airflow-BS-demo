@@ -1,5 +1,26 @@
 # TASKS.md
 
+## T241 - OBS SDK throughput profile and explicit integrity mode
+
+Owner: WGS transfer/runtime
+
+Status: test runtime installed; first tuned-profile transfer pending
+
+Acceptance:
+- [x] Benchmark obsutil and OBS SDK on the same private endpoint and payload.
+- [x] Make multipart size, per-file task count and CRC64 attachment explicit CCE operator settings.
+- [x] Preserve CRC64 as the compatibility default and label CRC-disabled receipts as content-length verified.
+- [x] Keep callback aggregation at one second or 64 MiB with exact frozen totals.
+- [x] Pass CCE 0.8.2 full regression and Airflow runtime-gate compatibility tests.
+- [x] Install the versioned CCE candidate after proving zero active WGS/GATK transfer stages.
+- [x] Enable the tuned 64 MiB / eight-worker / CRC64-disabled profile in the BS10610 test runtime.
+- [ ] Validate throughput and content-length evidence on the next newly submitted test transfer.
+
+Safety:
+- Do not alter an active WGS or GATK attempt in place.
+- Do not copy OBS credentials into Git, evidence, SFS, containers, or logs.
+- Production retains attached CRC64 until a separate integrity-policy approval.
+
 ## T240 - Dashboard attention and Sample Information
 
 Owner: platform/backend/frontend/QA
