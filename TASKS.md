@@ -1,5 +1,24 @@
 # TASKS.md
 
+## T241 - WGS obsutil checkpoint progress restoration
+
+Owner: Airflow/frontend/QA
+
+Status: in progress
+
+Acceptance:
+- [ ] Select obsutil for new Step1 uploads and Step5 downloads without changing CCE or Step2/3/4/6.
+- [ ] Parse upload and download multipart checkpoint XML into monotonic privacy-safe file evidence.
+- [ ] Reconcile file evidence with the frozen transfer plan and expose the existing v2 file API.
+- [ ] Keep aggregate-only historical progress compatible and exclude auxiliary control objects.
+- [ ] Show the obsutil engine and pre-checkpoint waiting state in the current Transfers UI.
+- [ ] Pass remote focused/backend/frontend tests, offline build and bounded multi-file upload/download canary.
+- [ ] Keep automatic WGS analysis paused during validation and record the production activation or explicit remaining gate.
+
+Safety:
+- Do not expose OBS configuration, URIs, credentials or absolute data paths in evidence/API output.
+- Do not modify CCE workflow behavior, database schema/data, scanner policy or non-transfer stages.
+
 ## T240 - Dashboard attention and Sample Information
 
 Owner: platform/backend/frontend/QA

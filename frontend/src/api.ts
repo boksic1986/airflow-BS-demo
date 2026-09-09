@@ -294,6 +294,7 @@ export type WgsTransfer = {
   destination?: string | null;
   status?: string | null;
   progress_basis?: "frozen_plan" | "legacy_estimate" | string;
+  transfer_engine?: "obsutil" | "obs_sdk" | string | null;
   progress_detail_available?: boolean;
   bytes_total?: number | null;
   bytes_transferred?: number | null;

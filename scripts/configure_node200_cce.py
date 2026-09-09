@@ -23,7 +23,9 @@ def main() -> int:
     paths["repository_root"] = REPOSITORY_ROOT
     paths["evidence_root"] = EVIDENCE_ROOT
     paths["cce_evidence_root"] = EVIDENCE_ROOT
-    payload.setdefault("obs", {})["obsutil_bin"] = OBSUTIL_WRAPPER
+    obs = payload.setdefault("obs", {})
+    obs["transfer_adapter"] = "obsutil"
+    obs["obsutil_bin"] = OBSUTIL_WRAPPER
 
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=".cce.yaml.", dir=str(CONFIG_PATH.parent), text=True

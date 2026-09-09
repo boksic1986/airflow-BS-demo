@@ -72,6 +72,24 @@ Existing `/api/wgs/*` routes remain supported for WGS submission, intake, eviden
 - Step7 eligibility treats a successful master workload as authoritative only for active child workload observations at or before that master success. A newer Pending/Running/Active observation still blocks cleanup, as do the existing transfer lease and Step5/Step6 gates.
 - Grouped Snakemake `job_started` events are expanded into one member event per Rule/job identity so future runs can persist starts for rules such as `pre_process_mapping` and `pre_process_Dedup`. Historical starts that were never emitted remain unrecorded and are not fabricated.
 
+### T241 obsutil checkpoint transfer projection
+
+- New WGS Step1 and Step5 transfers use `obsutil`. The restricted runtime
+  reconciles one privacy-safe file-keyed child snapshot per payload file with
+  the immutable transfer plan and continues to publish
+  `wgs-runtime.transfer-progress.v2`.
+- `active_transfer.transfer_engine` is `obsutil` when the backend imported the
+  controlled checkpoint source marker. The response never exposes the
+  checkpoint directory, OBS URI, object prefix, credential or absolute data
+  path.
+- File rows remain ordered `running`, `accepted`, `failed`, `success` and keep
+  their existing exact byte, checksum and timestamp fields. Before obsutil
+  creates multipart XML, a planned file is represented as `accepted` with
+  zero observed bytes; this is not a sampled zero-percent measurement.
+- Historical SDK v2 snapshots and aggregate-only obsutil v1 snapshots remain
+  readable. Once file-keyed obsutil rows exist for a frozen plan, they are
+  authoritative over a stale SDK snapshot from the same attempt.
+
 ## GATK Cloud manual submission
 
 - `GET /api/pipelines/gatk/release` returns the approved profile ID, profile

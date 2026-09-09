@@ -1217,12 +1217,26 @@ def _try_create_step5_transfer_plan(
 def _step5_completed_plan_totals(
     payload: dict[str, Any], plan: dict[str, Any]
 ) -> tuple[int, int]:
+    completed = _step5_completed_plan_keys(payload, plan)
+    bytes_done = sum(
+        int(entry.get("size_bytes") or 0)
+        for entry in plan.get("entries") or []
+        if hashlib.sha256(
+            str(entry.get("relative_path") or "").encode("utf-8")
+        ).hexdigest()
+        in completed
+    )
+    return len(completed), bytes_done
+
+
+def _step5_completed_plan_keys(
+    payload: dict[str, Any], plan: dict[str, Any]
+) -> set[str]:
     binding = _load_binding(payload)
     delivery_root = (
         Path(str(binding["batch_root"])) / "cce" / "cloud_delivery"
     ).resolve()
-    files_done = 0
-    bytes_done = 0
+    completed: set[str] = set()
     for entry in plan.get("entries") or []:
         relative = Path(str(entry.get("relative_path") or ""))
         if relative.is_absolute() or ".." in relative.parts:
@@ -1234,16 +1248,166 @@ def _step5_completed_plan_totals(
                 continue
             expected_size = int(entry.get("size_bytes") or 0)
             if target.is_file() and target.stat().st_size == expected_size:
-                files_done += 1
-                bytes_done += expected_size
+                completed.add(
+                    hashlib.sha256(
+                        str(entry.get("relative_path") or "").encode("utf-8")
+                    ).hexdigest()
+                )
         except (OSError, TypeError, ValueError):
             continue
-    return files_done, bytes_done
+    return completed
+
+
+def _obsutil_file_progress(
+    payload: dict[str, Any], plan: dict[str, Any], rows: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    keyed_rows: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        file_key = str(row.get("file_key") or "")
+        if re.fullmatch(r"[0-9a-f]{64}", file_key) is None:
+            continue
+        previous = keyed_rows.get(file_key)
+        if previous is None or str(row.get("heartbeat_at") or "") >= str(
+            previous.get("heartbeat_at") or ""
+        ):
+            keyed_rows[file_key] = row
+    if not keyed_rows:
+        return None
+    plan_keys = {
+        hashlib.sha256(
+            str(entry.get("relative_path") or "").encode("utf-8")
+        ).hexdigest()
+        for entry in plan.get("entries") or []
+    }
+    completed_step5 = (
+        _step5_completed_plan_keys(payload, plan)
+        if payload["stage"] == "step5_download"
+        else set()
+    )
+    files: list[dict[str, Any]] = []
+    monitoring_degraded = bool(set(keyed_rows) - plan_keys)
+    for entry in plan.get("entries") or []:
+        relative = str(entry.get("relative_path") or "")
+        total = max(0, int(entry.get("size_bytes") or 0))
+        file_key = hashlib.sha256(relative.encode("utf-8")).hexdigest()
+        row = keyed_rows.get(file_key)
+        status = "accepted"
+        done = 0
+        speed = 0
+        checksum_status = "pending"
+        started_at = None
+        ended_at = None
+        error_message = None
+        if file_key in completed_step5:
+            status = "success"
+            done = total
+            checksum_status = "verified"
+        elif row is not None:
+            raw_status = str(row.get("state") or "running").lower()
+            status = {
+                "complete": "success",
+                "completed": "success",
+                "succeeded": "success",
+                "queued": "accepted",
+                "pending": "accepted",
+            }.get(raw_status, raw_status)
+            if status not in {"accepted", "running", "success", "failed", "canceled"}:
+                status = "running"
+                monitoring_degraded = True
+            done = min(max(0, int(row.get("bytes_done") or 0)), total)
+            if status == "success":
+                done = total
+            speed = (
+                max(0, int(row.get("speed_bytes_per_second") or 0))
+                if status == "running"
+                else 0
+            )
+            checksum_status = str(row.get("checksum_status") or "pending")
+            started_at = str(row.get("started_at") or "") or None
+            ended_at = str(row.get("ended_at") or "") or None
+            error_message = str(row.get("error_summary") or "")[-2000:] or None
+            monitoring_degraded = (
+                monitoring_degraded or row.get("monitoring_health") == "degraded"
+            )
+        files.append(
+            {
+                "file_key": file_key,
+                "display_name": Path(relative).name,
+                "bytes_total": total,
+                "bytes_done": done,
+                "speed_bps": speed,
+                "status": status,
+                "checksum_status": checksum_status,
+                "started_at": started_at,
+                "ended_at": ended_at,
+                "error_message": error_message,
+            }
+        )
+    states = {str(item["status"]) for item in files}
+    total = sum(int(item["bytes_total"]) for item in files)
+    done = sum(int(item["bytes_done"]) for item in files)
+    files_done = sum(item["status"] == "success" for item in files)
+    speed = sum(int(item["speed_bps"]) for item in files if item["status"] == "running")
+    if "running" in states:
+        transfer_state = "running"
+    elif "failed" in states:
+        transfer_state = "failed"
+    elif files and files_done == len(files):
+        transfer_state = "success"
+    else:
+        transfer_state = "running"
+    active = next((item for item in files if item["status"] == "running"), None)
+    heartbeats = [
+        str(row.get("heartbeat_at") or "")
+        for key, row in keyed_rows.items()
+        if key in plan_keys
+    ]
+    return {
+        "schema_version": "wgs-runtime.transfer-progress.v2",
+        "transfer_id": f"{payload['analysis_id']}-a{int(payload['attempt'])}-{'input' if payload['stage'] == 'step1_upload' else 'result'}",
+        "analysis_id": payload["analysis_id"],
+        "attempt": int(payload["attempt"]),
+        "stage": payload["stage"],
+        "direction": "upload" if payload["stage"] == "step1_upload" else "download",
+        "state": transfer_state,
+        "bytes_total": total,
+        "bytes_done": done,
+        "files_total": len(files),
+        "files_done": files_done,
+        "current_file": active["display_name"] if active else None,
+        "speed_bytes_per_second": speed,
+        "eta_seconds": (
+            max(0, int((total - done) / speed))
+            if total and speed and done < total
+            else 0 if total and done >= total else None
+        ),
+        "heartbeat_at": max(heartbeats) if heartbeats else datetime.now(timezone.utc).isoformat(),
+        "monitoring_health": "degraded" if monitoring_degraded else "healthy",
+        "source": "obsutil-checkpoint",
+        "checkpoint_ref": "obsutil-multipart",
+        "plan_path": "transfer-progress/%s/transfer-plan.json" % payload["stage"],
+        "manifest_sha256": plan.get("manifest_sha256"),
+        "files": files,
+    }
 
 
 def _aggregate_transfer_progress(
     payload: dict[str, Any], plan: dict[str, Any] | None = None
 ) -> dict[str, Any] | None:
+    rows = []
+    for path in _transfer_progress_root(payload).glob("*.json"):
+        value = _read_json(path)
+        if (
+            value.get("schema_version") == "wgs-runtime.transfer-progress.v1"
+            and value.get("analysis_id") == payload["analysis_id"]
+            and int(value.get("attempt", 0)) == int(payload["attempt"])
+            and value.get("stage") == payload["stage"]
+        ):
+            rows.append(value)
+    if plan:
+        file_progress = _obsutil_file_progress(payload, plan, rows)
+        if file_progress is not None:
+            return file_progress
     sdk_path = _transfer_progress_root(payload) / "progress.json"
     if sdk_path.is_file():
         sdk = _read_json(sdk_path)
@@ -1283,16 +1447,6 @@ def _aggregate_transfer_progress(
                 ),
                 "manifest_sha256": plan.get("manifest_sha256") if plan else None,
             }
-    rows = []
-    for path in _transfer_progress_root(payload).glob("*.json"):
-        value = _read_json(path)
-        if (
-            value.get("schema_version") == "wgs-runtime.transfer-progress.v1"
-            and value.get("analysis_id") == payload["analysis_id"]
-            and int(value.get("attempt", 0)) == int(payload["attempt"])
-            and value.get("stage") == payload["stage"]
-        ):
-            rows.append(value)
     if not rows:
         return None
     streamed_total = sum(max(0, int(row.get("bytes_total") or 0)) for row in rows)
@@ -1364,6 +1518,7 @@ def _run_transfer_stage(payload: dict[str, Any]) -> None:
         "WGS_TRANSFER_ATTEMPT": str(payload["attempt"]),
         "WGS_TRANSFER_STAGE": stage,
         "WGS_TRANSFER_DIRECTION": "upload" if stage == "step1_upload" else "download",
+        "WGS_TRANSFER_PLAN_PATH": str(_transfer_plan_path(payload)),
         "WGS_ORCHESTRATION_CONTRACT_VERSION": str(payload.get("orchestration_contract_version") or 1),
         "WGS_STAGE_EXECUTION_ID": str(payload.get("execution_id") or ""),
         "WGS_STAGE_GENERATION": str(payload.get("generation") or ""),

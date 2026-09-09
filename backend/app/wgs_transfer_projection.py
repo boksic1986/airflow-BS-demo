@@ -53,6 +53,7 @@ def serialize_transfer_job(row: TransferJob | None) -> dict | None:
         "destination": "Private OBS staging" if row.direction == "upload" else "Run-local result staging",
         "status": row.status,
         "progress_basis": "frozen_plan" if row.manifest_path else "legacy_estimate",
+        "transfer_engine": "obsutil" if row.checkpoint_ref == "obsutil-checkpoint" else None,
         "progress_detail_available": detailed,
         "bytes_total": row.bytes_total if detailed else None,
         "bytes_transferred": row.bytes_transferred if detailed else None,

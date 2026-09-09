@@ -111,6 +111,25 @@ and lease identity checks; an absent target may be recorded as
 
 Rollback by repointing `current` to the preceding physical release and recreating only backend and frontend-nginx. Preserve the auto-analysis pause, databases, run evidence, OBS/SFS data and all Airflow state.
 
+## T241 obsutil checkpoint rollout
+
+1. Keep `WGS_AUTO_DISPATCH_ENABLED=false` and confirm zero active
+   AnalysisRuns, transfer leases and WGS CCE workloads before changing the
+   node200 operator configuration. Preserve the existing `bio_wgs` pause state;
+   the current production DAG remains available for explicit manual runs.
+2. Store all synthetic validation material below
+   `/sg2/50.ctapa/project/HWcloud/WGS_test/cce-evidence/T241-obsutil-checkpoint-20260909`.
+   Do not use another user's test tree or write evidence below `/tmp`.
+3. Run the bounded two-file upload/download canary with the private-line
+   `obsutil` identity. Require exact aggregate bytes, observed multipart
+   checkpoints, checksum verification, privacy-safe JSON and verified removal
+   of both synthetic remote objects.
+4. Atomically back up and replace node200
+   `wgs_obsutil_progress.py` and `wgs_runtime_gate.py`, then run
+   `configure_node200_cce.py` so `obs.transfer_adapter=obsutil` and
+   `obs.obsutil_bin` selects the wrapper. No cce-pipeline package or
+   Step2/Step3/Step4/Step6 implementation changes are required.
+
 ## GATK Cloud disabled rollout
 
 1. Keep `GATK_EXECUTION_ENABLED=false` while applying migration 0019 and

@@ -1455,7 +1455,12 @@ def _normalize_transfer_progress(payload: dict) -> dict:
         payload.get("speed_bytes_per_second", 0), "speed_bytes_per_second"
     )
     normalized["estimated_finish_at"] = payload.get("estimated_completion_at")
-    normalized["checkpoint_ref"] = payload.get("checkpoint_path") if schema == "cce-pipeline.transfer-progress.v1" else None
+    if schema == "cce-pipeline.transfer-progress.v1":
+        normalized["checkpoint_ref"] = payload.get("checkpoint_path")
+    elif str(payload.get("source") or "") == "obsutil-checkpoint":
+        normalized["checkpoint_ref"] = "obsutil-checkpoint"
+    else:
+        normalized["checkpoint_ref"] = None
     normalized["error_message"] = payload.get("error_summary")
     normalized["progress_percent"] = min(100, (done * 100 / total) if total else 0)
     return normalized

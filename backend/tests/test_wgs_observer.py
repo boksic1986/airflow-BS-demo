@@ -28,6 +28,7 @@ from app.models import (
 )
 from app.wgs_observer import (
     _ingest_transfer_progress,
+    _normalize_transfer_progress,
     _upsert_transfer_file_states,
     ingest_evidence_once,
     ingest_observer_attempt_once,
@@ -38,6 +39,27 @@ from app.wgs_observer import (
 
 RELEASE_ID = "wgs-4.1.1-1656b5d"
 RUN_LABEL = "WGS_20260812_000001_AAAAAA-a1"
+
+
+def test_obsutil_checkpoint_source_preserves_safe_engine_marker() -> None:
+    normalized = _normalize_transfer_progress(
+        {
+            "schema_version": "wgs-runtime.transfer-progress.v2",
+            "analysis_id": "WGS_20260909_120000_A1B2C3",
+            "attempt": 1,
+            "stage": "step1_upload",
+            "direction": "upload",
+            "state": "running",
+            "bytes_total": 100,
+            "bytes_done": 25,
+            "files_total": 1,
+            "files_done": 0,
+            "speed_bytes_per_second": 5,
+            "source": "obsutil-checkpoint",
+        }
+    )
+
+    assert normalized["checkpoint_ref"] == "obsutil-checkpoint"
 
 
 def test_transfer_progress_atomic_replace_gap_is_retryable(

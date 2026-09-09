@@ -207,11 +207,11 @@ carry `orchestration_contract_version=2`; contract-v1 runs remain readable.
 
 | Stage | Runtime truth | Success evidence |
 |---|---|---|
-| Step1 upload | OBS SDK callback | frozen input manifest plus transfer receipt |
+| Step1 upload | obsutil multipart checkpoint | frozen input manifest plus transfer receipt |
 | Step2 Master | Kubernetes API | UID and resourceVersion recorded |
 | Step3 analysis | Kubernetes API and Snakemake logger | Master terminal marker agrees with K8s terminal state |
 | Step4 publish | fixed result manifest | exact generation publish receipt |
-| Step5 download | OBS SDK callback | every frozen manifest file verified |
+| Step5 download | obsutil multipart checkpoint | every frozen manifest file verified |
 | Step6 materialize | local atomic operation | marker and manifest hash agree |
 
 `wgs_stage_execution` is append-only by
@@ -244,6 +244,22 @@ Two database-backed leases serialize transfers by direction:
 fixed TTL, and only exact terminal evidence permits release. Upload and
 download may overlap; two transfers in the same direction may not. This is
 independent from the high-I/O Worker Pod quota.
+
+### T241 selected transfer adapter
+
+New Step1 and Step5 executions use the existing CCE 0.8.2 `obsutil` adapter.
+Airflow's transparent wrapper reads request-scoped multipart checkpoint XML,
+matches each child process to the immutable transfer plan, and emits only a
+SHA-256 file key, basename, numeric progress and controlled status fields.
+Upload totals come from `FileInfo/Size` and completed upload parts; download
+totals come from `ObjectInfo/Size` and completed inclusive ranges. Malformed
+XML observed during an in-place rewrite degrades only monitoring for that poll
+and never changes the transfer process exit code.
+
+The runtime gate projects file-keyed child rows into the existing v2 aggregate
+and file contract. Historical SDK and aggregate-only snapshots remain readable,
+but new file-keyed obsutil evidence supersedes a stale SDK snapshot from the
+same attempt.
 
 The CCE 0.8.2 integration freezes three separate transfer controls. Operator
 config `obs.upload_parallelism` is the number of Step1 files uploaded at once,

@@ -10,7 +10,7 @@ import {WgsTransfersTab} from "./WgsTransfersTab";
 afterEach(() => vi.restoreAllMocks());
 
 describe("WgsTransfersTab", () => {
-  it("loads privacy-safe per-file SDK progress only after expansion", async () => {
+  it("loads privacy-safe per-file obsutil progress only after expansion", async () => {
     const files = vi.spyOn(api, "getTransferFiles").mockResolvedValue({
       items: [{
         file_key: "a".repeat(64),
@@ -41,6 +41,7 @@ describe("WgsTransfersTab", () => {
       files_completed: 0,
       started_at: "2026-09-08T01:00:00Z",
       ended_at: null,
+      transfer_engine: "obsutil",
     }];
 
     render(<WgsTransfersTab detail={detail} transfers={transfers} />);
@@ -54,6 +55,38 @@ describe("WgsTransfersTab", () => {
     expect(screen.getAllByText(/2026-09-08/).length).toBeGreaterThan(0);
     expect(screen.getByTitle("Pending")).toBeInTheDocument();
     expect(screen.getByText("64.0 MiB/s")).toBeInTheDocument();
+    expect(screen.getByText("obsutil")).toBeInTheDocument();
+  });
+
+  it("labels an accepted file without checkpoint bytes as waiting", async () => {
+    vi.spyOn(api, "getTransferFiles").mockResolvedValue({
+      items: [{
+        file_key: "b".repeat(64),
+        display_name: "S2_R1.fastq.gz",
+        status: "accepted",
+        bytes_total: 1024,
+        bytes_transferred: 0,
+        progress_percent: 0,
+        speed_bps: 0,
+        checksum_status: "pending",
+      }],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    const detail = {analysis_id: "WGS_TRANSFER", pipeline: "wgs", status: "running", params: {batch_no: "B1"}} as RunDetail;
+    const transfers: WgsTransfer[] = [{
+      transfer_id: "WGS_TRANSFER-a1-input",
+      direction: "upload",
+      status: "running",
+      progress_detail_available: true,
+      transfer_engine: "obsutil",
+    }];
+
+    render(<WgsTransfersTab detail={detail} transfers={transfers} />);
+    fireEvent.click(screen.getByRole("button", {name: /File progress/i}));
+
+    expect(await screen.findByText("Waiting for checkpoint")).toBeInTheDocument();
   });
 
   it("keeps the existing file table visible while a live snapshot refreshes", async () => {

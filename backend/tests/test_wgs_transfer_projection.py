@@ -49,3 +49,9 @@ def test_transfer_projection_hides_untrusted_detail() -> None:
     assert payload["progress_percent"] is None
     assert payload["bytes_total"] is None
     assert payload["bytes_transferred"] is None
+
+
+def test_transfer_projection_identifies_obsutil_checkpoint_engine() -> None:
+    payload = serialize_transfer_job(_job(checkpoint_ref="obsutil-checkpoint"))
+
+    assert payload["transfer_engine"] == "obsutil"

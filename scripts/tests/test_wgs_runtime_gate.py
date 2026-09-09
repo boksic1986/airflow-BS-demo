@@ -1639,6 +1639,272 @@ def test_transfer_progress_stays_running_when_an_auxiliary_obsutil_call_failed(
     assert progress["state"] == "running"
 
 
+def test_file_keyed_obsutil_rows_project_the_frozen_plan_as_v2(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260909_120000_A1B2C3",
+        "attempt": 1,
+        "stage": "step1_upload",
+    }
+    progress_root = tmp_path / "progress"
+    progress_root.mkdir()
+    plan = {
+        "files_total": 2,
+        "bytes_total": 300,
+        "manifest_sha256": "a" * 64,
+        "entries": [
+            {"relative_path": "raw/S1_R1.fastq.gz", "size_bytes": 100},
+            {"relative_path": "raw/S1_R2.fastq.gz", "size_bytes": 200},
+        ],
+    }
+    common = {
+        "schema_version": "wgs-runtime.transfer-progress.v1",
+        "analysis_id": payload["analysis_id"],
+        "attempt": 1,
+        "stage": "step1_upload",
+        "direction": "upload",
+        "heartbeat_at": "2026-09-09T12:00:05+00:00",
+        "monitoring_health": "healthy",
+        "source": "obsutil-checkpoint",
+    }
+    first = "raw/S1_R1.fastq.gz"
+    second = "raw/S1_R2.fastq.gz"
+    (progress_root / "first.json").write_text(
+        json.dumps({
+            **common,
+            "file_key": gate.hashlib.sha256(first.encode()).hexdigest(),
+            "display_name": "S1_R1.fastq.gz",
+            "state": "success",
+            "bytes_total": 100,
+            "bytes_done": 100,
+            "files_total": 1,
+            "files_done": 1,
+            "speed_bytes_per_second": 0,
+            "checksum_status": "verified",
+        }),
+        encoding="utf-8",
+    )
+    (progress_root / "second.json").write_text(
+        json.dumps({
+            **common,
+            "file_key": gate.hashlib.sha256(second.encode()).hexdigest(),
+            "display_name": "S1_R2.fastq.gz",
+            "state": "running",
+            "bytes_total": 200,
+            "bytes_done": 50,
+            "files_total": 1,
+            "files_done": 0,
+            "speed_bytes_per_second": 25,
+            "checksum_status": "pending",
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "_transfer_progress_root", lambda _payload: progress_root)
+
+    progress = gate._aggregate_transfer_progress(payload, plan)
+
+    assert progress is not None
+    assert progress["schema_version"] == "wgs-runtime.transfer-progress.v2"
+    assert progress["source"] == "obsutil-checkpoint"
+    assert progress["bytes_done"] == 150
+    assert progress["files_done"] == 1
+    assert progress["current_file"] == "S1_R2.fastq.gz"
+    assert [row["status"] for row in progress["files"]] == ["success", "running"]
+
+
+def test_file_keyed_obsutil_rows_supersede_stale_sdk_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260909_120000_A1B2C3",
+        "attempt": 1,
+        "stage": "step1_upload",
+    }
+    relative = "raw/S1_R1.fastq.gz"
+    plan = {
+        "files_total": 1,
+        "bytes_total": 100,
+        "manifest_sha256": "a" * 64,
+        "entries": [{"relative_path": relative, "size_bytes": 100}],
+    }
+    (tmp_path / "progress.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.transfer-progress.v2",
+                "analysis_id": payload["analysis_id"],
+                "attempt": 1,
+                "stage": "step1_upload",
+                "state": "failed",
+                "bytes_total": 100,
+                "bytes_done": 0,
+                "files_total": 1,
+                "files_done": 0,
+                "speed_bytes_per_second": 0,
+                "heartbeat_at": "2026-09-09T11:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "obsutil.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.transfer-progress.v1",
+                "analysis_id": payload["analysis_id"],
+                "attempt": 1,
+                "stage": "step1_upload",
+                "file_key": gate.hashlib.sha256(relative.encode()).hexdigest(),
+                "state": "running",
+                "bytes_total": 100,
+                "bytes_done": 25,
+                "files_total": 1,
+                "files_done": 0,
+                "speed_bytes_per_second": 5,
+                "heartbeat_at": "2026-09-09T12:00:00+00:00",
+                "monitoring_health": "healthy",
+                "source": "obsutil-checkpoint",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "_transfer_progress_root", lambda _payload: tmp_path)
+
+    progress = gate._aggregate_transfer_progress(payload, plan)
+
+    assert progress is not None
+    assert progress["source"] == "obsutil-checkpoint"
+    assert progress["state"] == "running"
+    assert progress["bytes_done"] == 25
+
+
+def test_unknown_obsutil_file_key_is_ignored_and_degrades_monitoring(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260909_120000_A1B2C3",
+        "attempt": 1,
+        "stage": "step1_upload",
+    }
+    relative = "raw/S1_R1.fastq.gz"
+    plan = {
+        "files_total": 1,
+        "bytes_total": 100,
+        "manifest_sha256": "a" * 64,
+        "entries": [{"relative_path": relative, "size_bytes": 100}],
+    }
+    for name, key in (
+        ("expected.json", gate.hashlib.sha256(relative.encode()).hexdigest()),
+        ("unknown.json", "f" * 64),
+    ):
+        (tmp_path / name).write_text(
+            json.dumps(
+                {
+                    "schema_version": "wgs-runtime.transfer-progress.v1",
+                    "analysis_id": payload["analysis_id"],
+                    "attempt": 1,
+                    "stage": "step1_upload",
+                    "file_key": key,
+                    "state": "running",
+                    "bytes_total": 100,
+                    "bytes_done": 25,
+                    "files_total": 1,
+                    "files_done": 0,
+                    "speed_bytes_per_second": 5,
+                    "heartbeat_at": "2026-09-09T12:00:00+00:00",
+                    "monitoring_health": "healthy",
+                    "source": "obsutil-checkpoint",
+                }
+            ),
+            encoding="utf-8",
+        )
+    monkeypatch.setattr(gate, "_transfer_progress_root", lambda _payload: tmp_path)
+
+    progress = gate._aggregate_transfer_progress(payload, plan)
+
+    assert progress is not None
+    assert progress["bytes_done"] == 25
+    assert progress["files_total"] == 1
+    assert progress["monitoring_health"] == "degraded"
+
+
+def test_obsutil_v2_marks_exact_reused_step5_file_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260909_120000_A1B2C3",
+        "attempt": 1,
+        "stage": "step5_download",
+    }
+    progress_root = tmp_path / "progress"
+    progress_root.mkdir()
+    batch_root = tmp_path / "batch"
+    reused = batch_root / "cce" / "cloud_delivery" / "cram" / "S1.cram"
+    reused.parent.mkdir(parents=True)
+    reused.write_bytes(b"1" * 100)
+    plan = {
+        "files_total": 2,
+        "bytes_total": 300,
+        "manifest_sha256": "b" * 64,
+        "entries": [
+            {"relative_path": "cram/S1.cram", "size_bytes": 100},
+            {"relative_path": "cram/S2.cram", "size_bytes": 200},
+        ],
+    }
+    relative = "cram/S2.cram"
+    (progress_root / "second.json").write_text(
+        json.dumps({
+            "schema_version": "wgs-runtime.transfer-progress.v1",
+            "analysis_id": payload["analysis_id"],
+            "attempt": 1,
+            "stage": "step5_download",
+            "direction": "download",
+            "file_key": gate.hashlib.sha256(relative.encode()).hexdigest(),
+            "display_name": "S2.cram",
+            "state": "running",
+            "bytes_total": 200,
+            "bytes_done": 25,
+            "files_total": 1,
+            "files_done": 0,
+            "speed_bytes_per_second": 5,
+            "heartbeat_at": "2026-09-09T12:00:05+00:00",
+            "monitoring_health": "healthy",
+            "source": "obsutil-checkpoint",
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "_transfer_progress_root", lambda _payload: progress_root)
+    monkeypatch.setattr(gate, "_load_binding", lambda _payload: {"batch_root": str(batch_root)})
+
+    progress = gate._aggregate_transfer_progress(payload, plan)
+
+    assert progress is not None
+    assert progress["schema_version"] == "wgs-runtime.transfer-progress.v2"
+    assert progress["bytes_done"] == 125
+    assert [row["status"] for row in progress["files"]] == ["success", "running"]
+
+
+def test_node200_configuration_selects_obsutil_adapter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    configurator = load_node200_configurator()
+    config = tmp_path / "cce.yaml"
+    config.write_text(
+        yaml.safe_dump({"obs": {"transfer_adapter": "sdk", "obsutil_bin": "/old"}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(configurator, "CONFIG_PATH", config)
+
+    assert configurator.main() == 0
+
+    loaded = yaml.safe_load(config.read_text(encoding="utf-8"))
+    assert loaded["obs"]["transfer_adapter"] == "obsutil"
+    assert loaded["obs"]["obsutil_bin"] == configurator.OBSUTIL_WRAPPER
+
+
 def test_sdk_transfer_progress_preserves_frozen_per_file_totals(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

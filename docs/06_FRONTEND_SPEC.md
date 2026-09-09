@@ -102,6 +102,14 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 - Step7 SFS cleanup status and controls live inside the Cloud release lifecycle card. The default view is compact; an administrator expands the action only when a safe first request or revision-fenced retry is available. Exact batch confirmation and destructive-action acknowledgement remain mandatory.
 - Current Progress fills the same desktop card height as Pipeline evidence, vertically centers its main content with relaxed spacing, and returns to natural padding on narrow screens.
 
+### T241 obsutil transfer progress
+
+- Transfers identifies the active engine as `obsutil` when the backend exposes
+  the controlled checkpoint marker.
+- A planned or running file with no checkpoint bytes displays `Waiting for
+  checkpoint`. Exact bytes, checksum state, active-file-first sorting and the
+  existing no-flash refresh behavior are unchanged.
+
 ## Branding
 
 The product label is `NGS Huawei Cloud` with the subtitle `Online analysis platform`. WGS names remain only where they identify the currently deployed workflow or extension.
