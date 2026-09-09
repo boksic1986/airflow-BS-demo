@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T250 Git worktree and branch cleanup
+
+```text
+scope: merge the approved T249 governance design and perform a conservative local/remote Git cleanup without losing uncommitted work or unique commits.
+main: PR 15 was squash-merged; origin/main is fed0348e5af9ce5b9db7072c45c92c656247eec9.
+cleanup: registered worktrees were reduced from 23 to 11; 28 merged local branches and 17 merged remote task branches were deleted. Seven clean worktrees with unique commits were removed while their branches were retained.
+preserved: ten dirty worktrees remain registered and untouched. Every clean branch with a unique patch relative to origin/main remains available even when its worktree was removed.
+residual: T227-progress-step7-console-fix, T214-t213-node97-integration and T248-gatk-finalize-terminal are no longer registered worktrees but still have disk directories because Windows refused full cache/file-lock deletion.
+safety: no branch -D, reset, clean, stash, dirty-worktree removal, server command, runtime test or data operation was performed.
+next: review each dirty worktree with its owner, then commit/PR, archive a patch, or explicitly discard before further removal.
+```
+
 ## 2026-09-10 T249 multi-repository release and data governance design
 
 ```text
