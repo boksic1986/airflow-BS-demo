@@ -78,6 +78,15 @@ destination:
 The destination must exactly match `GATK_RESULT_ROOT/<batch>/<analysis_id>`;
 otherwise the runtime fails closed.
 
+For `backend_auto_export`, Step4 may reach OBS before the CCE export backend
+has made `payload-manifest.tsv` and `ANALYSIS_COMPLETE` visible. The node200
+gate treats only the exact `SFS backend export is not ready in OBS; retry
+Step4` result as transient. It polls every 30 seconds for at most two hours by
+default (`GATK_PUBLISH_POLL_SECONDS` and `GATK_PUBLISH_WAIT_SECONDS`). All
+other Step4 errors fail immediately with captured stdout/stderr. A failed
+stage retry creates a new fenced generation in the same analysis attempt; it
+does not rerun Step1 upload, Step2 Master creation, or Step3 analysis.
+
 ## State and evidence
 
 GATK writes append-only stage attempts to `pipeline_stage_execution`, not

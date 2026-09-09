@@ -13,7 +13,7 @@ import re
 import subprocess
 import sys
 import time
-from typing import Any
+from typing import Any, Callable
 
 import yaml
 
@@ -39,6 +39,7 @@ CCE_OPERATOR_CONFIG = os.environ.get(
     "GATK_CCE_OPERATOR_CONFIG",
     "/home/ctapa/.config/cce-pipeline/operator.yaml",
 )
+STEP4_EXPORT_PENDING = "SFS backend export is not ready in OBS; retry Step4"
 
 
 def _root() -> Path:
@@ -265,6 +266,52 @@ def _step(payload: dict[str, Any], stage: str) -> list[str]:
     return ["bash", str(script)]
 
 
+def _run_frozen_stage(
+    command: list[str],
+    *,
+    stage: str,
+    environment: dict[str, str],
+    on_wait: Callable[[str], None] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    wait_seconds = max(0, int(os.environ.get("GATK_PUBLISH_WAIT_SECONDS", "7200")))
+    poll_seconds = max(1, int(os.environ.get("GATK_PUBLISH_POLL_SECONDS", "30")))
+    deadline = time.monotonic() + wait_seconds
+    attempts = 0
+    while True:
+        attempts += 1
+        completed = subprocess.run(
+            command,
+            check=False,
+            text=True,
+            capture_output=True,
+            env=environment,
+        )
+        if completed.returncode == 0:
+            return completed
+        detail = "\n".join(
+            value.strip()
+            for value in (completed.stdout, completed.stderr)
+            if value and value.strip()
+        )[-2000:]
+        retryable = stage == "step4_publish" and STEP4_EXPORT_PENDING in detail
+        if not retryable:
+            raise RuntimeError(
+                detail or f"{stage} command failed with exit code {completed.returncode}"
+            )
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"GATK Step4 timed out after {wait_seconds}s waiting for the SFS "
+                f"backend export to become visible in OBS: {detail}"
+            )
+        message = (
+            "Waiting for the SFS backend export to become visible in OBS "
+            f"(check {attempts})"
+        )
+        if on_wait is not None:
+            on_wait(message)
+        time.sleep(poll_seconds)
+
+
 def _materialize_result_root(payload: dict[str, Any]) -> Path:
     prepare_path = _request_path(
         str(payload["analysis_id"]), int(payload["attempt"]), "prepare"
@@ -404,8 +451,13 @@ def _execute(analysis_id: str, attempt: int, stage: str) -> None:
                 "GATK delivery materialized to the approved result root",
             )
         else:
-            completed = subprocess.run(
-                _step(payload, stage), check=True, text=True, capture_output=True, env=environment
+            completed = _run_frozen_stage(
+                _step(payload, stage),
+                stage=stage,
+                environment=environment,
+                on_wait=lambda message: _write_status(
+                    request_path, payload, "running", message
+                ),
             )
             _write_status(request_path, payload, "success", completed.stdout[-2000:] or f"{stage} completed")
     except Exception as exc:

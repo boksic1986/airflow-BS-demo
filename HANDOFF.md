@@ -1,5 +1,24 @@
 # HANDOFF.md
 
+## 2026-09-09 T242 GATK Step4 export visibility recovery candidate
+
+The GATK run `GATK_20260908_104312_85DA16` failed after a successful Master
+and Step3 because Step4 performed a one-shot OBS marker check. The CCE backend
+export exposed `payload-manifest.tsv` and `ANALYSIS_COMPLETE` about 64 seconds
+after Airflow had already failed `wait_step4_publish`. Step5 and Step6 were
+blocked only by the missing Step4/Step5 receipts.
+
+The candidate gate polls only the exact backend-export-pending condition and
+keeps every other error terminal. The backend now projects real stage failure
+to the business run and permits a failed stage to reopen as a new generation
+inside the same attempt. BS10610 passed the complete backend suite (352 passed,
+1 skipped), all nine GATK gate tests, twelve GATK/deployment contract tests,
+four WGS DAG unit tests, and Compose config. The candidate gate compiles under
+the node200 nipttest Python 3.9.23 runtime. The next controlled action is to deploy the backend and
+node200 gate, clear only exact Step4 and downstream tasks in the original
+DagRun, and verify Step4-Step6, finalize, and lease release. Never clear
+Prepare or Step1-Step3 for this recovery.
+
 ## 2026-09-09 T240 Dashboard attention and Sample Information production release
 
 T240 is implemented and candidate-validated. Command Center now concentrates

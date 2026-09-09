@@ -4,7 +4,9 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
 
+import pytest
 import yaml
 
 
@@ -148,6 +150,55 @@ def test_start_is_idempotent_for_same_generation(tmp_path: Path, monkeypatch) ->
     )
 
     assert gate.start(analysis_id, 1, "step1_upload")["status"] == "success"
+
+
+def test_step4_waits_for_backend_export_to_become_visible(monkeypatch) -> None:
+    gate = load_gate()
+    attempts = []
+
+    def fake_run(*args, **kwargs):
+        attempts.append((args, kwargs))
+        if len(attempts) == 1:
+            return SimpleNamespace(
+                returncode=1,
+                stdout="",
+                stderr="SFS backend export is not ready in OBS; retry Step4\n",
+            )
+        return SimpleNamespace(returncode=0, stdout="published\n", stderr="")
+
+    sleeps = []
+    monkeypatch.setattr(gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(gate.time, "sleep", sleeps.append)
+    monkeypatch.setenv("GATK_PUBLISH_WAIT_SECONDS", "120")
+    monkeypatch.setenv("GATK_PUBLISH_POLL_SECONDS", "7")
+
+    completed = gate._run_frozen_stage(
+        ["bash", "/approved/Step4_publish_results.sh"],
+        stage="step4_publish",
+        environment={"PATH": "/usr/bin"},
+    )
+
+    assert completed.returncode == 0
+    assert len(attempts) == 2
+    assert sleeps == [7]
+
+
+def test_step4_does_not_retry_an_unrelated_failure(monkeypatch) -> None:
+    gate = load_gate()
+    monkeypatch.setattr(
+        gate.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=1, stdout="", stderr="permission denied\n"
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="permission denied"):
+        gate._run_frozen_stage(
+            ["bash", "/approved/Step4_publish_results.sh"],
+            stage="step4_publish",
+            environment={"PATH": "/usr/bin"},
+        )
 
 
 def test_step6_materializes_to_approved_gatk_result_root(

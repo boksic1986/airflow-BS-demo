@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-09 T242 GATK Step4 export visibility recovery candidate
+
+```text
+incident: GATK_20260908_104312_85DA16 completed Step1-Step3, but Step4 checked OBS before the asynchronous backend export exposed payload-manifest.tsv and ANALYSIS_COMPLETE. Both markers appeared about 64 seconds after wait_step4_publish had failed. Step5 and Step6 therefore never received a valid predecessor receipt.
+fix: the node200 gate now waits only for the exact backend-export-pending result, with a 30-second poll and two-hour default bound. All unrelated errors remain terminal. Backend stage registration creates a new fenced generation after failed/canceled state, clears stale terminal fields, and projects genuine stage failures to AnalysisRun.
+validation: BS10610 candidate tests passed the complete backend suite (352 passed, 1 skipped), scripts/tests/test_gatk_runtime_gate.py 9/9, GATK/deployment contract tests 12/12, WGS DAG unit tests 4/4, and Compose config. The candidate gate also compiles under node200 nipttest Python 3.9.23. Controlled Step4-Step6 recovery remains pending.
+safety: the recovery will retain the original DagRun, attempt, successful upload, Master, Step3 evidence, SFS data and OBS data; Step1-Step3 must not be cleared.
+```
+
 ## 2026-09-09 T240 Dashboard attention and Sample Information production release
 
 ```text

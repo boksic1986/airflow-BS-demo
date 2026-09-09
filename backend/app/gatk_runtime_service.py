@@ -107,6 +107,10 @@ def register_gatk_stage(
     )
     if latest is not None and latest.status in {"accepted", "running", "success"}:
         return _execution_payload(latest)
+    reopening_terminal_stage = latest is not None and latest.status in {
+        "failed",
+        "canceled",
+    }
     generation = (latest.generation + 1) if latest is not None else 1
     execution_id = f"{analysis_id}-a{attempt}-{stage}-g{generation}"
     node_root = Path(settings.gatk_runtime_node200_root)
@@ -159,6 +163,10 @@ def register_gatk_stage(
     run.status = "running"
     run.current_stage = stage
     run.started_at = run.started_at or datetime.now(timezone.utc)
+    if reopening_terminal_stage:
+        run.ended_at = None
+        run.pipeline_finished_at = None
+        run.error_summary = None
     if stage != "prepare":
         _atomic_json(request_path, request)
     _upsert_gatk_stage_state(
@@ -174,6 +182,7 @@ def register_gatk_stage(
         total_units=None,
         unit=None,
         progress_source="gatk-runtime",
+        reopen_terminal=reopening_terminal_stage,
     )
     session.commit()
     return _execution_payload(execution)
@@ -230,12 +239,13 @@ def sync_gatk_stage_status(
             raise ValueError("GATK stage sidecar identity mismatch")
         state = str(value.get("status") or "running").lower()
         if state in {"running", "success", "failed", "canceled"}:
+            now = datetime.now(timezone.utc)
             row.status = state
             row.message = str(value.get("message") or "") or None
-            row.heartbeat_at = datetime.now(timezone.utc)
-            row.started_at = row.started_at or datetime.now(timezone.utc)
+            row.heartbeat_at = now
+            row.started_at = row.started_at or now
             if state in {"success", "failed", "canceled"}:
-                row.ended_at = datetime.now(timezone.utc)
+                row.ended_at = now
                 row.receipt_hash = str(value.get("receipt_hash") or _canonical_hash(value))
                 row.terminal_payload_json = value
             _upsert_gatk_stage_state(
@@ -244,7 +254,7 @@ def sync_gatk_stage_status(
                 attempt=attempt,
                 stage_code=stage,
                 stage_status=state,
-                updated_at=datetime.now(timezone.utc),
+                updated_at=now,
                 progress_available=isinstance(value.get("progress_percent"), (int, float)),
                 progress_percent=value.get("progress_percent"),
                 completed_units=value.get("completed_units"),
@@ -253,6 +263,20 @@ def sync_gatk_stage_status(
                 current_item=value.get("current_item"),
                 progress_source="gatk-runtime",
             )
+            if state in {"failed", "canceled"}:
+                run = session.scalar(
+                    select(AnalysisRun).where(
+                        AnalysisRun.analysis_id == analysis_id,
+                        AnalysisRun.pipeline_name == "gatk",
+                    )
+                )
+                if run is not None and run.attempt == attempt:
+                    run.status = "failed" if state == "failed" else "terminated"
+                    run.current_stage = stage
+                    run.error_summary = row.message
+                    run.pipeline_finished_at = run.pipeline_finished_at or now
+                    run.ended_at = run.ended_at or now
+                    run.progress_updated_at = now
             session.commit()
     failed = row.status in {"failed", "canceled"}
     return {
@@ -345,6 +369,7 @@ def _upsert_gatk_stage_state(
     unit: str | None = None,
     current_item: str | None = None,
     progress_source: str = "gatk-runtime",
+    reopen_terminal: bool = False,
 ) -> RunStageState:
     definition = gatk_stage_definition(stage_code)
     row = session.scalar(
@@ -367,7 +392,10 @@ def _upsert_gatk_stage_state(
         )
         session.add(row)
     elif row.ended_at is not None and row.stage_status in {"success", "failed", "canceled"}:
-        return row
+        if not reopen_terminal:
+            return row
+        row.started_at = updated_at
+        row.ended_at = None
     row.stage_status = stage_status
     row.progress_available = progress_available
     row.progress_percent = int(progress_percent) if progress_available and progress_percent is not None else None

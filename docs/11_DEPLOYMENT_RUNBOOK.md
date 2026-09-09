@@ -134,3 +134,16 @@ Rollback by repointing `current` to the preceding physical release and recreatin
 
 To rollback, set the gate false and recreate only affected control-plane
 services. Preserve database/evidence/result state for diagnosis.
+# GATK Step4 export wait and tail recovery
+
+When a GATK Master is successful but Step4 reports only
+`SFS backend export is not ready in OBS; retry Step4`, first verify the frozen
+run identity and both OBS terminal markers. Deploy the matching backend and
+node200 gate release, then clear `start_step4_publish` and its downstream tasks
+for the exact DagRun. Do not clear Prepare or Step1-Step3.
+
+The retried Step4 must register a new generation in the same attempt. Confirm
+that the business run reopens from the old terminal projection, then require
+Step4, Step5 download, Step6 materialization, finalize, and lease release to
+finish in that order. Any different Step4 error is non-retryable and requires
+diagnosis rather than another clear.

@@ -1,5 +1,26 @@
 # TASKS.md
 
+## T242 - GATK Step4 export visibility recovery
+
+Owner: GATK/backend/runtime/QA/docs
+
+Status: implementation validated; controlled Step4-Step6 recovery pending
+
+Acceptance:
+- [x] Retry only the exact transient Step4 backend-export visibility result.
+- [x] Bound the wait and expose poll/wait settings in the node200 example.
+- [x] Preserve unrelated Step4 failures and their stderr as terminal errors.
+- [x] Reopen a failed GATK stage as a new fenced generation in the same attempt.
+- [x] Project real failed/canceled stage state to the business run.
+- [x] Pass targeted gate and backend GATK tests on BS10610.
+- [ ] Recover the original GATK DagRun from Step4 through Step6 without rerunning Step1-Step3.
+- [ ] Verify materialized results and terminal Airflow/backend state.
+
+Safety:
+- The existing analysis, Master, OBS objects, SFS outputs, database history and
+  attempt identity are retained.
+- Only the failed Step4 task and its downstream tail may be cleared.
+
 ## T240 - Dashboard attention and Sample Information
 
 Owner: platform/backend/frontend/QA
