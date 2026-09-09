@@ -3133,6 +3133,83 @@ def test_prepare_analysis_status_waits_for_final_sampleinfo_nfs_visibility(
         assert [item.sample_id for item in samples] == ["SAMPLE-1"]
 
 
+def test_prepare_analysis_status_imports_final_selection_before_pending_decisions(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("WGS_RUNTIME_ADAPTER_ENABLED", "true")
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, "operator", "operator-pass")
+    created = client.post(
+        "/api/runs",
+        headers=headers,
+        json={
+            "pipeline": "wgs",
+            "project_name": "WGS_Clinical",
+            "execution_mode": "cce",
+            "batch_no": "WGS_20260909A_T7Hg38V4.2.0",
+            "fq_path": str(tmp_path),
+        },
+    ).json()
+    analysis_id = created["analysis_id"]
+    with sessions.begin() as session:
+        run = session.scalar(
+            select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
+        )
+        run.params_json = {
+            **dict(run.params_json or {}),
+            "wgs_version": "V4.2.0",
+            "submission_phase": "preparing_analysis",
+        }
+
+    calls: list[str] = []
+    monkeypatch.setattr(
+        main,
+        "sync_prepared_samples",
+        lambda **_kwargs: calls.append("selected"),
+    )
+    monkeypatch.setattr(
+        main,
+        "sync_prepare_handoff_decisions",
+        lambda **_kwargs: calls.append("decisions"),
+    )
+    settings = main.get_settings()
+    status_path = (
+        Path(settings.wgs_runtime_request_root)
+        / analysis_id
+        / "attempt-1"
+        / "prepare_analysis.status.json"
+    )
+    status_path.parent.mkdir(parents=True, exist_ok=True)
+    status_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.stage-status.v1",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "stage": "prepare_analysis",
+                "status": "success",
+                "updated_at": "2026-09-10T00:00:00Z",
+                "prepare_handoff_receipt": {
+                    "schema_version": "wgs.prepare-analysis.receipt.v1",
+                    "selected": [{"sample_id": "SELECTED-1"}],
+                    "pending": [{"sample_id": "PENDING-1"}],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    response = client.get(
+        f"/api/internal/wgs/runs/{analysis_id}/stage-status",
+        params={"attempt": 1, "stage": "prepare_analysis"},
+        headers={"X-Airflow-Demo-Token": "internal-test-token"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["ready"] is True
+    assert calls == ["selected", "decisions"]
+
+
 def test_internal_step3_observer_activation_and_drain_are_exposed_in_run_detail(
     tmp_path, monkeypatch
 ):

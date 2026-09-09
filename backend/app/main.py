@@ -2485,18 +2485,27 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
                     artifact_pending = True
                     handoff_receipt = None
                 try:
-                    if isinstance(handoff_receipt, dict):
+                    if artifact_pending:
+                        pass
+                    elif stage == "prepare_sampleinfo":
+                        sync_sampleinfo_preview(session=session, settings=settings, run=run)
+                        if isinstance(handoff_receipt, dict):
+                            sync_prepare_handoff_decisions(
+                                session=session,
+                                run=run,
+                                receipt=handoff_receipt,
+                            )
+                        params["submission_phase"] = "config_review"
+                    elif stage == "prepare_analysis" and isinstance(handoff_receipt, dict):
+                        if handoff_receipt.get("selected"):
+                            sync_prepared_samples(
+                                session=session, settings=settings, run=run
+                            )
                         sync_prepare_handoff_decisions(
                             session=session,
                             run=run,
                             receipt=handoff_receipt,
                         )
-                    if artifact_pending:
-                        pass
-                    elif stage == "prepare_sampleinfo":
-                        sync_sampleinfo_preview(session=session, settings=settings, run=run)
-                        params["submission_phase"] = "config_review"
-                    elif stage == "prepare_analysis" and isinstance(handoff_receipt, dict) and not handoff_receipt.get("selected"):
                         params["submission_phase"] = "execution_review"
                     else:
                         sync_prepared_samples(session=session, settings=settings, run=run)

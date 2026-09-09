@@ -167,7 +167,9 @@ def _sidecar_path(payload: dict[str, Any], suffix: str) -> Path:
     ).with_suffix(suffix)
 
 
-def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
+def _atomic_json(
+    path: Path, payload: dict[str, Any], *, mode: int = 0o644
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         dir=path.parent,
@@ -176,7 +178,7 @@ def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
     )
     temporary = Path(temporary_name)
     try:
-        os.fchmod(descriptor, 0o644)
+        os.fchmod(descriptor, mode)
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(
                 json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n"
@@ -335,6 +337,11 @@ def _release_repository(payload: dict[str, Any]) -> Path:
 
 
 def validate_release_repository(payload: dict[str, Any]) -> Path:
+    version = str(payload.get("wgs_version") or "")
+    if version and version != "V4.2.0":
+        raise RuntimeError(
+            "release_unavailable: historical WGS release requires a frozen binding"
+        )
     repo = _release_repository(payload)
     prepare = repo / "prepare" / "prepare_wgs_batch.py"
     if not repo.is_dir() or repo.is_symlink() or not prepare.is_file() or prepare.is_symlink():
@@ -508,19 +515,8 @@ def validate_release_runtime(payload: dict[str, Any]) -> None:
     expected_version = str(payload.get("cce_pipeline_version") or "")
     if not expected_version:
         return
-    expected = {
-        key: str(payload.get(key) or "")
-        for key in (
-            "profile_id",
-            "profile_revision",
-            "profile_sha256",
-            "node200_profile_path",
-            "pipeline_build_sha256",
-            "resource_manifest_sha256",
-        )
-    }
-    if any(not value for value in expected.values()) or not CCE_PIPELINE_BIN:
-        raise RuntimeError("release_unavailable: release runtime evidence is incomplete")
+    if not CCE_PIPELINE_BIN:
+        raise RuntimeError("release_unavailable: cce-pipeline executable is unavailable")
     executable = Path(CCE_PIPELINE_BIN).expanduser()
     if not executable.is_absolute() or not executable.is_file() or executable.is_symlink():
         raise RuntimeError("release_unavailable: cce-pipeline executable is unavailable")
@@ -533,31 +529,6 @@ def validate_release_runtime(payload: dict[str, Any]) -> None:
     ).stdout.strip()
     if version_output.split()[-1:] != [expected_version]:
         raise RuntimeError("release_unavailable: cce-pipeline version does not match the run")
-    profile = Path(expected["node200_profile_path"]).expanduser().resolve()
-    profile_root = CCE_PROFILE_ROOT.resolve()
-    if (
-        profile_root not in profile.parents
-        or not profile.is_file()
-        or profile.is_symlink()
-        or _sha256_file(profile) != expected["profile_sha256"]
-    ):
-        raise RuntimeError("release_unavailable: CCE profile identity does not match the run")
-    profile_payload = yaml.safe_load(profile.read_text(encoding="utf-8"))
-    pipeline = profile_payload.get("pipeline") if isinstance(profile_payload, dict) else None
-    if (
-        not isinstance(pipeline, dict)
-        or str(profile_payload.get("profile_id") or "") != expected["profile_id"]
-        or str(profile_payload.get("revision") or "") != expected["profile_revision"]
-        or str(pipeline.get("build_sha256") or "") != expected["pipeline_build_sha256"]
-        or str(pipeline.get("resource_manifest_sha256") or "")
-        != expected["resource_manifest_sha256"]
-    ):
-        raise RuntimeError("release_unavailable: CCE profile contents do not match the run")
-    prepare_config = yaml.safe_load(validate_prepare_config(payload).read_text(encoding="utf-8"))
-    cce = prepare_config.get("cce") if isinstance(prepare_config, dict) else None
-    configured_profile = Path(str((cce or {}).get("profile_file") or "")).expanduser()
-    if not configured_profile.is_absolute() or configured_profile.resolve() != profile:
-        raise RuntimeError("release_unavailable: WGS prepare config selects a different CCE profile")
 
 
 def _sha256_file(path: Path) -> str:
@@ -580,7 +551,8 @@ def _prepare_handoff_request(payload: dict[str, Any]) -> Path | None:
     stage = str(payload["stage"])
     generation = int(payload.get("generation") or 1)
     root = _workdir(payload) / "prepare-handoff" / stage / f"generation-{generation}"
-    root.mkdir(parents=True, exist_ok=True)
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    root.chmod(0o700)
     request_path = root / "handoff-request.json"
     if request_path.is_file():
         _validate_existing_handoff_request(payload, request_path)
@@ -617,6 +589,7 @@ def _prepare_handoff_request(payload: dict[str, Any]) -> Path | None:
                     "row_count": pending_rows,
                 },
             },
+            mode=0o600,
         )
         request.update(
             {
@@ -635,7 +608,7 @@ def _prepare_handoff_request(payload: dict[str, Any]) -> Path | None:
                 },
             }
         )
-    _atomic_json(request_path, request)
+    _atomic_json(request_path, request, mode=0o600)
     return request_path
 
 
@@ -698,12 +671,14 @@ def _write_pending_input(
             )
             descriptor = receipt["private_pending_payload"]
             previous_artifact = previous_root / str(descriptor["artifact_key"])
-            with previous_artifact.open("rb") as source_handle, pending_payload.open("xb") as target_handle:
+            pending_payload.touch(mode=0o600, exist_ok=False)
+            with previous_artifact.open("rb") as source_handle, pending_payload.open("wb") as target_handle:
                 shutil.copyfileobj(source_handle, target_handle, length=1024 * 1024)
             return int(descriptor.get("row_count") or 0)
     with source.open(encoding="utf-8-sig", newline="") as source_handle:
         header = next(csv.reader(source_handle, delimiter="\t"))
-    with pending_payload.open("x", encoding="utf-8", newline="") as pending_handle:
+    pending_payload.touch(mode=0o600, exist_ok=False)
+    with pending_payload.open("w", encoding="utf-8", newline="") as pending_handle:
         writer = csv.writer(pending_handle, delimiter="\t", lineterminator="\n")
         writer.writerow(
             header

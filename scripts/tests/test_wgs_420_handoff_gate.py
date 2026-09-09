@@ -176,35 +176,13 @@ def test_receipt_rejects_source_sampleinfo_mutation(
         gate._validated_prepare_receipt(payload(tmp_path, generation=1), request)
 
 
-def test_release_runtime_evidence_is_enforced(
+def test_release_runtime_only_enforces_cce_adapter_version(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     gate = load_gate()
-    profile_root = tmp_path / "profiles"
-    profile_root.mkdir()
-    profile = profile_root / "wgs-4.2.0-r1.yaml"
-    profile.write_text(
-        yaml.safe_dump(
-            {
-                "profile_id": "wgs-4.2.0",
-                "revision": "r1",
-                "pipeline": {
-                    "build_sha256": "b" * 64,
-                    "resource_manifest_sha256": "c" * 64,
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    prepare_config = tmp_path / "prepare-config.yaml"
-    prepare_config.write_text(
-        yaml.safe_dump({"cce": {"profile_file": str(profile)}}), encoding="utf-8"
-    )
     executable = tmp_path / "cce-pipeline"
     executable.write_text("test", encoding="utf-8")
-    monkeypatch.setattr(gate, "CCE_PROFILE_ROOT", profile_root)
     monkeypatch.setattr(gate, "CCE_PIPELINE_BIN", str(executable))
-    monkeypatch.setattr(gate, "validate_prepare_config", lambda _payload: prepare_config)
     monkeypatch.setattr(
         gate.subprocess,
         "run",
@@ -212,15 +190,28 @@ def test_release_runtime_evidence_is_enforced(
     )
     request = {
         "cce_pipeline_version": "0.8.3",
-        "profile_id": "wgs-4.2.0",
-        "profile_revision": "r1",
-        "profile_sha256": gate._sha256_file(profile),
-        "node200_profile_path": str(profile),
-        "pipeline_build_sha256": "b" * 64,
-        "resource_manifest_sha256": "c" * 64,
+        "profile_sha256": "published-metadata-is-not-a-runtime-gate",
     }
 
     gate.validate_release_runtime(request)
-    request["profile_sha256"] = "d" * 64
-    with pytest.raises(RuntimeError, match="profile"):
+    request["cce_pipeline_version"] = "0.8.4"
+    with pytest.raises(RuntimeError, match="version"):
         gate.validate_release_runtime(request)
+
+
+def test_prepare_handoff_artifacts_are_private(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    monkeypatch.setattr(gate, "RUNTIME_RUN_ROOT", str(tmp_path / "runtime"))
+    write_source(tmp_path)
+
+    request = gate._prepare_handoff_request(payload(tmp_path, generation=1))
+
+    assert request is not None
+    root = request.parent
+    manifest = root / "pending-input.manifest.json"
+    pending = root / "pending-input.tsv"
+    assert root.stat().st_mode & 0o777 == 0o700
+    for path in (request, manifest, pending):
+        assert path.stat().st_mode & 0o777 == 0o600

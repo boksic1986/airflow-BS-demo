@@ -496,9 +496,24 @@ def test_release_repository_validation_does_not_require_git(
     assert gate.validate_release_repository(
         {
             "pipeline_release_id": "wgs-4.2.0-b067c72",
+            "wgs_version": "V4.2.0",
             "wgs_source_commit": "already-validated-before-publish",
         }
     ) == repo.resolve()
+
+
+def test_historical_release_cannot_be_reprepared_without_frozen_binding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gate = load_gate()
+
+    with pytest.raises(RuntimeError, match="historical WGS release"):
+        gate.validate_release_repository(
+            {
+                "pipeline_release_id": "wgs-4.1.1-1656b5d",
+                "wgs_version": "V4.1.1",
+            }
+        )
 
 
 def test_prepare_retry_reuses_frozen_binding_without_repository_access(
