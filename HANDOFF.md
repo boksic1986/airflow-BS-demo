@@ -1,5 +1,28 @@
 # HANDOFF.md
 
+## 2026-09-09 T243 GATK SCMC project discovery completed
+
+GATK Preview no longer assumes that every source project belongs to
+`/sg2/21.lijing`. The backend accepts any absolute readable project directory
+visible on its read-only `/sg2` mount and requires only the exact
+`<batch-prefix>.sampleinfo.SCMC.txt`, a data-ID column and at least one unique
+sample. Runtime prepare retains the detailed config, barcode and FASTQ checks.
+Confirmation freezes the selected project itself as the only approved source
+root in the immutable request.
+
+BS10610 passed 357 backend tests and 17 frontend files/60 tests; the offline
+production build and Compose config also passed. The deployed real-directory
+check resolved `WES_20260823A_T7.sampleinfo.SCMC.txt` with 14 samples. It created
+no AnalysisRun, and its temporary validation draft was removed. The shared
+nipttest binary reports `cce-pipeline 0.8.3`.
+
+The test release is
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260909-t243-gatk-project-discovery-a71d681`.
+The frontend image is `airflow-demo/frontend:t243-gatk-project-discovery` and
+the dedicated URL remains `http://172.17.106.10:12959`. Only backend and
+frontend-nginx were recreated; Airflow, observer, collectors, PostgreSQL and
+Redis were preserved.
+
 ## 2026-09-09 T242 GATK Step4-Step6 recovery completed
 
 The GATK run `GATK_20260908_104312_85DA16` failed after a successful Master

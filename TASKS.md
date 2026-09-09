@@ -1,5 +1,24 @@
 # TASKS.md
 
+## T243 - GATK cross-owner SCMC project discovery
+
+Owner: GATK/backend/frontend/deployment/docs
+
+Status: completed in BS10610 test environment
+
+Acceptance:
+- [x] Accept an absolute readable WES project directory without a fixed owner allowlist.
+- [x] Require only the exact `<batch-prefix>.sampleinfo.SCMC.txt` and at least one unique sample for Preview.
+- [x] Defer config, barcode and FASTQ-pair checks to the existing runtime prepare contract.
+- [x] Mount `/sg2` read-only and freeze the selected project as the runtime request's sole approved source root.
+- [x] Confirm the real `20260823A` project previews 14 samples without creating an AnalysisRun.
+- [x] Use the shared nipttest `cce-pipeline 0.8.3` runtime.
+- [x] Pass the complete backend and frontend regression suites and Compose rendering.
+
+Safety:
+- The change does not add a filesystem browsing API or expose clinical columns and complete FASTQ paths.
+- No GATK/WGS run, transfer, CCE workload, OBS object or result was created or changed.
+
 ## T242 - GATK Step4 export visibility recovery
 
 Owner: GATK/backend/runtime/QA/docs

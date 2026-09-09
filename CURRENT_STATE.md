@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-09 T243 GATK SCMC project discovery released to BS10610
+
+```text
+incident: GATK Preview was restricted to /sg2/21.lijing/WES_Clinical and the backend mounted only that owner path. A valid project under /sg2/5.chenmj therefore failed before the SCMC manifest could be read.
+contract: Preview now accepts an absolute readable project directory and requires only the exact <batch-prefix>.sampleinfo.SCMC.txt, its data-ID column and at least one unique sample. Config, barcode and FASTQ-pair validation remains in the existing runtime prepare step. The preview fingerprint covers the project identity, batch, SCMC manifest hash and sample set.
+safety: the backend mounts /sg2 read-only; confirmation freezes the exact selected project as the immutable runtime request's sole approved source root. The API still returns no clinical columns or complete FASTQ paths and provides no directory browser.
+validation: the complete backend suite passed 357 tests. The complete frontend suite passed 17 files/60 tests and the offline production build passed. Compose config rendered successfully. The live project WES_20260823A_T7_V7.6.1_hg38 resolved WES_20260823A_T7.sampleinfo.SCMC.txt and 14 samples; the validation draft was removed and no AnalysisRun was created.
+runtime: shared nipttest reports cce-pipeline 0.8.3. BS10610 current points to /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260909-t243-gatk-project-discovery-a71d681. Frontend uses airflow-demo/frontend:t243-gatk-project-discovery and /api/health is OK at http://172.17.106.10:12959.
+services: only backend and frontend-nginx were recreated. Airflow API/scheduler/worker, observer, collectors, PostgreSQL and Redis were not restarted; active run count was zero at release.
+```
+
 ## 2026-09-09 T242 GATK Step4-Step6 recovery completed
 
 ```text
