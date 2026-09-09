@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-## 2026-09-09 T240 Dashboard attention and Sample Information candidate
+## 2026-09-09 T240 Dashboard attention and Sample Information production release
 
 T240 is implemented and candidate-validated. Command Center now concentrates
 on Sample throughput plus actionable Attention required items. The duplicate
@@ -38,16 +38,35 @@ cached backend image. A fresh backend image build with `--network none` could
 not resolve the uncached FastAPI wheel; no Docker Hub access or online retry was
 used.
 
-Production was not restarted because the runbook requires separate approval.
-When approved, publish an immutable release, preserve
-`WGS_AUTO_DISPATCH_ENABLED=false`, reuse the approved backend image with the
-new source mount, and recreate only backend and frontend-nginx. Do not restart
-scanner, observer, Airflow, PostgreSQL, Redis or telemetry. Do not submit a run
-or invoke Step7 during rollout.
+Production is deployed at
+`/data/airflow-WGS/releases/20260909-t240-dashboard-attention-r1` from source
+`06206f531962ffe8d0d6f5b17cce17883c1fed89`. The frontend image is
+`airflow-demo/frontend:t240-dashboard-attention-06206f5` with image ID
+`sha256:ce1c0f46d621131e21a7e49670c084a64dce1867300378ae609ab747c0e2cf47`;
+it serves `index-DcuH9NZU.js` and `index-GaK031bY.css`. The approved backend
+image remains `airflow-demo/backend:t219-stage-terminal-r2` and receives T240
+through the release source mount.
 
-Rollback is code-only: restore the prior immutable release/current symlink and
-recreate only backend and frontend-nginx. There is no database migration or
-data rollback.
+Only backend and frontend-nginx were recreated. A fresh independent check
+confirmed `/api/health` is OK, Dashboard attention returns 7 items, WGS Intake
+Queue `view=attention` returns 2 rows, and the returned rows contain no
+`source_path`. Active AnalysisRun and transfer-lease counts were both zero.
+Scanner, observer, Airflow, PostgreSQL, Redis and telemetry retained their
+container IDs. Backend and scanner both still expose
+`WGS_AUTO_DISPATCH_ENABLED=false`, so automatic analysis remains paused.
+
+The first activation attempt stopped safely at `docker compose config` because
+mainline T240 includes a later required `GATK_RUNTIME_HOST_ROOT` mount that is
+not configured in WGS production. It did not move `current` or recreate a
+container; the staged frontend env edit was restored. The successful rollout
+copies the already-approved T239 production Compose contract into the T240
+release and records its origin in `PRODUCTION_COMPOSE_BASE`. No dummy GATK
+path was introduced and no GATK runtime was enabled.
+
+Rollback is code-only: restore
+`/data/airflow-WGS/env/production.env.pre-T240-20260909T002347`, point `current`
+back to `/data/airflow-WGS/releases/20260909-t239-run-lifecycle-qc-r3`, and
+recreate only backend and frontend-nginx. There is no database or data rollback.
 
 ## 2026-09-09 T239 Run lifecycle, batch QC and Step7 projection production release
 

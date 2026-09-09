@@ -1,5 +1,27 @@
 # SERVER_INFO.md
 
+## T240 Dashboard attention and Sample Information production sync (2026-09-09)
+
+```text
+primary: 172.17.61.96
+release: /data/airflow-WGS/releases/20260909-t240-dashboard-attention-r1
+source_commit: 06206f531962ffe8d0d6f5b17cce17883c1fed89
+frontend_image: airflow-demo/frontend:t240-dashboard-attention-06206f5
+frontend_image_id: sha256:ce1c0f46d621131e21a7e49670c084a64dce1867300378ae609ab747c0e2cf47
+frontend_assets: index-DcuH9NZU.js, index-GaK031bY.css
+backend_image: airflow-demo/backend:t219-stage-terminal-r2 (unchanged image, T240 source mount)
+compose_base: /data/airflow-WGS/releases/20260909-t239-run-lifecycle-qc-r3/docker-compose.wgs.yaml (recorded in PRODUCTION_COMPOSE_BASE; GATK mount not enabled)
+validation: backend 28 passed/53 deselected; frontend 17 files/60 tests; offline TypeScript/Vite production build passed
+recreated_services: backend, frontend-nginx
+preserved: scanner, observer, Airflow API/scheduler/worker, node probe, metrics collector, PostgreSQL and Redis retained container IDs
+smoke: /api/health OK; overview attention_items=7; intake attention=2; privacy_safe=true
+automatic_analysis: paused; WGS_AUTO_DISPATCH_ENABLED=false in backend and scanner
+active_preflight_and_verify: AnalysisRun=0, transfer leases=0
+rollback_env: /data/airflow-WGS/env/production.env.pre-T240-20260909T002347
+rollback_release: /data/airflow-WGS/releases/20260909-t239-run-lifecycle-qc-r3
+published_ports: 172.17.61.96:12959 only
+```
+
 ## T238 production automatic analysis pause (2026-09-08)
 
 ```text

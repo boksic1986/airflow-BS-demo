@@ -4,7 +4,7 @@
 
 Owner: platform/backend/frontend/QA
 
-Status: candidate validated; production rollout pending separate approval
+Status: completed in production
 
 Acceptance:
 - [x] Replace duplicate Dashboard summaries/trends with Attention required and a Total-forward Sample throughput card.
@@ -15,10 +15,11 @@ Acceptance:
 - [x] Mask order numbers before persistence/API projection and reserve optional authoritative `status_reason` for db_v2.
 - [x] Keep adapter attention projections isolated to the selected pipeline.
 - [x] Pass targeted backend tests and the complete offline frontend test/build.
+- [x] Deploy the backend source and immutable frontend image to production; verify attention APIs, privacy projection, health and non-target container preservation.
 
 Safety:
 - Automatic WGS analysis remains paused; the scanner interval/algorithm and dispatch policy are unchanged.
-- No production deployment, database migration, run submission, Step7 action or SFS/OBS mutation is part of candidate validation.
+- No database migration, run submission, Step7 action or SFS/OBS mutation was performed during rollout.
 
 ## T239 - Run lifecycle, batch QC and Step7 projection completion
 

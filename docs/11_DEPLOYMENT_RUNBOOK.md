@@ -12,8 +12,15 @@ PostgreSQL, Redis or telemetry services.
 The production environment must retain `WGS_AUTO_DISPATCH_ENABLED=false` in
 both backend and scanner. The 30-minute discovery scanner remains enabled and
 unchanged. This rollout does not submit a run, retry Step7, release SFS data,
-rewrite sample/rule history or migrate the database. Production restart still
-requires the separate approval described below.
+rewrite sample/rule history or migrate the database.
+
+The 2026-09-09 production release is
+`/data/airflow-WGS/releases/20260909-t240-dashboard-attention-r1`. Its
+`PRODUCTION_COMPOSE_BASE` marker records the approved T239 WGS Compose contract
+used for the application-only rollout. Do not satisfy the later mainline
+`GATK_RUNTIME_HOST_ROOT` interpolation by inventing a dummy mount: GATK runtime
+is outside this WGS release and remains disabled. Only backend and
+frontend-nginx are recreated for T240.
 
 ## Identity and location
 
