@@ -12,8 +12,15 @@ remained populated.
 Commit `d82f8ab` projects active GATK tracker rows from the current attempt's
 `RunStageState` and removes the stale Airflow task timeline from that display
 payload. The regression reproduces Step3 at 70/184 rules while a cleared Step6
-task remains in the Airflow response. Focused BS10610 tests pass 6/6. Runtime
-activation and live API verification remain pending.
+task remains in the Airflow response. Focused BS10610 tests pass 6/6.
+
+BS10610 now points to
+`releases/20260909-t246-gatk-tracker-f38156c`. Only backend was recreated.
+The live Dashboard and workspace APIs both report Step3, 70/184 rules and 38%;
+the Dashboard no longer returns a current Airflow task from the cleared Step6
+tail. Airflow API, scheduler, worker, observer, frontend, PostgreSQL and Redis
+container IDs did not change. The node200 generation-2 status continues to
+refresh with `Master and Snakemake are running normally`.
 
 ## 2026-09-09 T244/T245 GATK Prepare rerun recovery
 

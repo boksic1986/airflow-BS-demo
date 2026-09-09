@@ -14,9 +14,21 @@ the current stage. Terminal projection behavior is unchanged.
 
 The regression failed before the implementation with `Wait step6 materialize`
 instead of `Run GATK analysis`, then passed. The focused BS10610 suite covering
-GATK workspace, pipeline adapters and Dashboard attention passed 6 tests. The
-candidate has not yet been activated; no backend/Airflow service, CCE workload,
-database row, OBS object or SFS result was changed during candidate validation.
+GATK workspace, pipeline adapters and Dashboard attention passed 6 tests.
+
+BS10610 `current` now points to
+`releases/20260909-t246-gatk-tracker-f38156c`. Only backend was recreated. The
+public health endpoint returned 200, and the authenticated live Dashboard and
+workspace responses both report `step3_monitor`, 70/184 rules and 38% from
+`gatk-runtime`; Dashboard returns no stale current Airflow task. Airflow API,
+scheduler, worker, observer, frontend, PostgreSQL and Redis retained their
+container IDs. The node200 generation-2 sidecar remains running and refreshed
+its healthy Master/Snakemake message after activation.
+
+Rollback is code-only: point `current` back to
+`releases/20260909-t244-gatk-prepare-rerun-25f7041` and recreate only backend.
+No migration or data rollback is required. No CCE workload, database row, OBS
+object or SFS result was changed by this release.
 
 ## 2026-09-09 T244/T245 GATK Prepare rerun recovery
 
