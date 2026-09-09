@@ -16,6 +16,8 @@ Acceptance:
 - [x] Run inventory, allowlist diff, exact cleanup and post-inventory on BS10610, BS96 and fengxian.
 - [x] Preserve every running container, Docker volume/network, generic base image and non-Airflow project asset.
 - [x] Save before/after inventories, exact delete lists and SHA-256 evidence on each host.
+- [x] Validate the exact T247 archive on BS10610: 353 backend tests collected, 62 frontend tests discovered and zero Airflow DAG import errors.
+- [x] Pass manifest/path, retired-reference, secret-pattern, Markdown-link, health and post-cleanup container checks.
 
 Remaining gate:
 - Production currently reports `WGS_INTAKE_SCAN_ENABLED=true` and `WGS_AUTO_DISPATCH_ENABLED=false`. Enabling dispatch is an analysis-policy change and needs a separate explicit rollout with a fresh not-before watermark.

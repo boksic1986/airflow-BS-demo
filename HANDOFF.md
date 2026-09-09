@@ -44,6 +44,22 @@ BS96:    /data/airflow-WGS/backups/T247-docker-governance-20260909
 fengxian:/home/jiucheng/project/airflow-demo/.artifacts/T247-docker-governance-20260909
 ```
 
+The exact `b47a3be` Git archive was copied only to the BS10610 evidence root;
+its SHA-256 is
+`5f6c95ab153f3ea5bf722040016ed7483526383dac079ea2ebf5527cb950ab2b`.
+Using existing cached images with network disabled, backend collection found
+353 tests, frontend discovery found 62 tests, and an isolated Airflow 2.9.3
+SQLite metadata check returned `[]` for DAG import errors. Manifest/path,
+Markdown-link, retired-reference, secret-pattern and `git diff --check`
+validation passed. Both BS gateways and `/api/health` returned HTTP 200 after
+cleanup, and validation left no stopped Airflow container.
+
+The first DAG compile probe used a read-only source mount and failed only when
+`compileall` attempted to create source-tree `__pycache__`; redirecting bytecode
+to the disposable container layer passed. The Airflow image does not contain
+pytest, so DAG acceptance used its native `airflow dags list-import-errors`
+command after an isolated SQLite migration.
+
 Two observed permission/release differences remain visible: the test WGS
 runtime is 0775 instead of the target 2770, and the production control root is
 owned by `hanjj:bioinfo` while workflow runtime/results use `ctapa:bioinfo`.

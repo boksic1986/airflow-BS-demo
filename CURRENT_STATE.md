@@ -11,6 +11,7 @@ legacy: removed one obsolete qsub skill, one qsub integration document, one qsub
 docker: removed 24 old airflow-demo tags and one stopped Airflow init container on BS10610; removed 28 old tags and one stopped init container on BS96; removed 25 unreferenced Airflow test tags on fengxian. Running containers, volumes, networks, generic base images and non-Airflow assets were preserved. The running legacy fengxian stack was not stopped.
 evidence: BS10610 /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T247-docker-governance-20260909; BS96 /data/airflow-WGS/backups/T247-docker-governance-20260909; fengxian /home/jiucheng/project/airflow-demo/.artifacts/T247-docker-governance-20260909.
 image_policy: both BS nodes retain current running image IDs, one rollback where available, the lock-bound Node 22 builder, nginx 1.30.3 runtime alias, Airflow control base, PostgreSQL 15 and Redis 7. New Airflow source images are built locally on BS10610 or BS96 from preloaded bases and no longer staged through fengxian.
+validation: manifest declares exactly the 384 files present; git diff check, retired-path search, secret-pattern scan and Markdown relative-link check pass. On BS10610 the exact b47a3be source archive collected 353 backend tests and discovered 62 frontend tests offline; an isolated Airflow 2.9.3 SQLite metadata check returned zero DAG import errors. Test and production root plus /api/health returned HTTP 200 after cleanup.
 ```
 
 ## 2026-09-09 T241 WGS obsutil checkpoint progress production release
