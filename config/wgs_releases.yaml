@@ -1,8 +1,19 @@
-schema_version: "3"
-release:
-  release_id: wgs-4.1.1-6c98281
-  version: V4.1.1
-  source_commit: 6c982817614db6a1157b6f287427ddf01ac91827
-  bs10610_repo_path: /mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
-  node200_repo_path: /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
-  rule_event_schema_version: "1"
+schema_version: "4"
+current_release_id: wgs-4.2.0-b067c72
+releases:
+  - release_id: wgs-4.2.0-b067c72
+    version: V4.2.0
+    source_commit: b067c72eed795e59b724b13324b0d380ae8b7e94
+    bs10610_repo_path: /mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0
+    node200_repo_path: /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0
+    rule_event_schema_version: "1"
+    profile_id: wgs-4.2.0
+    profile_revision: r1
+    profile_sha256: c6dea31fb06f8a1c0ac242cea8fa990486d631f877d64a6f8d25b67dadfa8511
+    cce_pipeline_version: 0.8.3
+  - release_id: wgs-4.1.1-6c98281
+    version: V4.1.1
+    source_commit: 6c982817614db6a1157b6f287427ddf01ac91827
+    bs10610_repo_path: /mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
+    node200_repo_path: /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1
+    rule_event_schema_version: "1"

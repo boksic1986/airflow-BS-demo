@@ -74,7 +74,7 @@ from app.auth_service import (
     require_role,
     revoke_session,
 )
-from app.wgs_platform_service import WgsPreparedArtifactPending, action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run, sync_prepared_samples, sync_sampleinfo_preview
+from app.wgs_platform_service import WgsPreparedArtifactPending, action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run, sync_prepared_samples, sync_prepare_handoff_decisions, sync_sampleinfo_preview
 from app.wgs_release_catalog import load_wgs_release_catalog
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunValidationIssue, Sample, TransferFileState, TransferJob, UserAccount, WgsExecutionDispatch, WgsStageExecution
 from app.wgs_timing_service import serialize_rule_states
@@ -439,6 +439,10 @@ def current_wgs_release() -> dict[str, object]:
         "release_id": release.release_id,
         "version": release.version,
         "source_commit": release.source_commit,
+        "profile_id": release.profile_id,
+        "profile_revision": release.profile_revision,
+        "profile_sha256": release.profile_sha256,
+        "cce_pipeline_version": release.cce_pipeline_version,
         "execution_enabled": _wgs_platform_execution_enabled(),
         "runtime_adapter_enabled": _wgs_runtime_adapter_enabled(),
         "submission_preview_enabled": _wgs_submission_preview_enabled(),
@@ -1750,14 +1754,18 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 )
             params = dict(run.params_json or {})
             release_id = str(params["pipeline_release_id"])
-            release = load_wgs_release_catalog(
+            catalog = load_wgs_release_catalog(
                 Path(get_settings().wgs_release_catalog_path)
-            ).release
+            )
+            try:
+                release = catalog.by_id(release_id)
+            except ValueError as exc:
+                raise ValueError(
+                    "release_unavailable: run WGS release is not cataloged"
+                ) from exc
             if stage_name in {"prepare", "prepare_sampleinfo", "prepare_analysis"}:
-                if release.release_id != release_id:
-                    raise ValueError("release_unavailable: run WGS release is not current")
                 if str(params.get("wgs_source_commit") or "") != release.source_commit:
-                    raise ValueError("release_unavailable: run WGS commit is not current")
+                    raise ValueError("release_unavailable: run WGS commit does not match its catalog release")
             if stage_name in {"acquire_input_transfer_slot", "acquire_result_transfer_slot"}:
                 transfer_kind = "input" if stage_name == "acquire_input_transfer_slot" else "result"
                 transfer_id = f"{analysis_id}-a{request.attempt}-{transfer_kind}"
@@ -2467,6 +2475,13 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
                         sync_prepared_samples(session=session, settings=settings, run=run)
                         if stage == "prepare_analysis":
                             params["submission_phase"] = "execution_review"
+                    handoff_receipt = payload.get("prepare_handoff_receipt")
+                    if isinstance(handoff_receipt, dict):
+                        sync_prepare_handoff_decisions(
+                            session=session,
+                            run=run,
+                            receipt=handoff_receipt,
+                        )
                 except WgsPreparedArtifactPending:
                     artifact_pending = True
                 else:

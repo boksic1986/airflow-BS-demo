@@ -36,7 +36,7 @@ def load_evidence_bindings(
 ) -> tuple[list[EvidenceBinding], list[BindingDiagnostic]]:
     bindings: list[EvidenceBinding] = []
     diagnostics: list[BindingDiagnostic] = []
-    approved = catalog.release.release_id
+    approved = {item.release_id for item in catalog.releases or (catalog.release,)}
     root = evidence_root.resolve()
     try:
         paths = sorted(binding_root.glob("*.json"))
@@ -58,7 +58,7 @@ def load_evidence_bindings(
             if attempt <= 0:
                 raise ValueError("attempt must be positive")
             release_id = str(payload.get("pipeline_release_id") or "")
-            if release_id != approved:
+            if release_id not in approved:
                 raise ValueError("pipeline release is not approved by catalog")
             run_label = str(
                 payload.get("run_id") if schema_version in {"2", "3"} else payload.get("run_label")

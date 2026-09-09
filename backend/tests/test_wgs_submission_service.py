@@ -242,7 +242,7 @@ def test_staged_prepare_steps_use_explicit_public_labels() -> None:
     assert canonical_wgs_stage("wait_prepare_wgs_analysis", "running") == "prepare_analysis"
 
 
-def test_direct_submission_binds_production_wgs_4_1_1_batch(tmp_path: Path) -> None:
+def test_direct_submission_binds_production_wgs_4_2_0_batch(tmp_path: Path) -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -269,7 +269,7 @@ def test_direct_submission_binds_production_wgs_4_1_1_batch(tmp_path: Path) -> N
         assert run is not None
         params = dict(run.params_json)
 
-    assert params["batch_no"] == "WGS_20260902A_T7Hg38V4.1.1"
+    assert params["batch_no"] == "WGS_20260902A_T7Hg38V4.2.0"
     assert params["sequencing_batch"] == "20260902A"
     assert params["analysis_batch"] == "20260902A"
     assert params["submission_mode"] == "three_stage"
@@ -277,7 +277,7 @@ def test_direct_submission_binds_production_wgs_4_1_1_batch(tmp_path: Path) -> N
     assert params["config_approved_at"] is None
     assert params["execution_approved_at"] is None
     assert "algo" not in params
-    assert params["pipeline_release_id"] == "wgs-4.1.1-6c98281"
+    assert params["pipeline_release_id"] == "wgs-4.2.0-b067c72"
     assert airflow.calls[0]["dag_id"] == "bio_wgs"
     assert airflow.calls[0]["dag_run_id"] == f"{result['analysis_id']}-a1"
 
@@ -315,7 +315,7 @@ def test_step1_canary_scope_is_frozen_into_airflow_conf(tmp_path: Path) -> None:
         assert run.params_json["analysis_batch"] == "20260902A_STEP1_SDK_CANARY"
         assert (
             run.params_json["batch_no"]
-            == "WGS_20260902A_STEP1_SDK_CANARY_T7Hg38V4.1.1"
+            == "WGS_20260902A_STEP1_SDK_CANARY_T7Hg38V4.2.0"
         )
 
     assert airflow.calls[0]["conf"]["params"]["validation_scope"] == "step1_only"

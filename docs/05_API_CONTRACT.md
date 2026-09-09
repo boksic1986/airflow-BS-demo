@@ -1,5 +1,11 @@
 # API contract
 
+## T242 WGS 4.2
+
+The release API adds profile identity and cce-pipeline version. Prepare stages
+resolve the run-bound catalog release and may import a validated privacy-safe
+prepare handoff receipt. Unknown releases and commit mismatches return 409.
+
 ## T240 dashboard attention and sample information
 
 - `GET /api/dashboard/overview` adds `attention_items`, an adapter-owned,

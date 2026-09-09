@@ -1,5 +1,12 @@
 # Deployment runbook
 
+## T242 WGS 4.2 activation
+
+Activate only with zero active WGS runs and transfer leases. Keep automatic
+dispatch disabled, preserve the 4.1.1 release mapping, and select the validated
+nipttest cce-pipeline 0.8.3. Production results remain under the ctapa
+WGS_Clinical root. Do not use Step7 or Step8 as an activation probe.
+
 ## T240 rollout boundary
 
 T240 changes backend projections and frontend presentation only. Validate the

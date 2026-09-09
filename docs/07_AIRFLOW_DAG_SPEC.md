@@ -1,5 +1,11 @@
 # Airflow DAG specification
 
+## T242 WGS 4.2 prepare boundary
+
+The DAG shape is unchanged. New 4.2 prepare stages use generation-scoped
+handoff requests and validate receipt identity, artifact keys, and hashes.
+Historical 4.1.1 runs continue to use their run-bound repository.
+
 ## Generic contract
 
 Each deployed adapter declares one DAG ID. FastAPI submits through the adapter and stores the analysis-to-DagRun binding. Airflow coordinates project-level stages; rule/file dependency remains workflow-owned.

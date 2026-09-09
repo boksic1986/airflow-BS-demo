@@ -235,6 +235,45 @@ def test_split_prepare_commands_preserve_native_wgs_contract(tmp_path: Path) -> 
     assert analysis[analysis.index("--use-reference") + 1] == "ref"
 
 
+def test_wgs_420_prepare_uses_generation_scoped_handoff_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    repo = tmp_path / "wgs-4.2.0"
+    (repo / "prepare").mkdir(parents=True)
+    monkeypatch.setattr(gate, "WGS_REPO_ROOT", repo)
+    runtime_root = tmp_path / "runtime"
+    monkeypatch.setattr(gate, "RUNTIME_RUN_ROOT", str(runtime_root))
+    payload = {
+        "analysis_id": "WGS_20260909_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "prepare_sampleinfo",
+        "pipeline_release_id": "wgs-4.2.0-b067c72",
+        "wgs_version": "V4.2.0",
+        "wgs_source_commit": "b067c72eed795e59b724b13324b0d380ae8b7e94",
+        "control_workdir": str(runtime_root / "runs" / "WGS_20260909_010203_A1B2C3" / "attempt-1"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(tmp_path / "WGS_Clinical" / "20260909A"),
+        "project_name": "WGS_Clinical",
+        "batch_no": "20260909A",
+        "fq_path": "/bi/fastq/T7_Fastq",
+        "sequencing_batch": "20260909A",
+        "analysis_batch": "20260909A",
+        "execution_id": "wse-sampleinfo-g1",
+        "generation": 1,
+        "request_hash": "a" * 64,
+    }
+
+    command = gate.build_prepare_command(payload)
+
+    request_path = Path(command[command.index("--handoff-request") + 1])
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    assert request["schema_version"] == "wgs.prepare-handoff.request.v1"
+    assert request["release_id"] == "wgs-4.2.0-b067c72"
+    assert request["generation"] == 1
+    assert request_path.parent.name == "generation-1"
+
+
 def test_prepare_analysis_can_use_an_explicit_cce_pipeline(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -595,7 +634,11 @@ def test_prepare_analysis_new_generation_rebuilds_a_missing_frozen_bundle(
     monkeypatch.setattr(gate, "_binding_path", lambda _payload: binding)
     monkeypatch.setattr(gate, "_workdir", lambda _payload: workdir)
     monkeypatch.setattr(gate, "validate_release_repository", lambda _payload: calls.append("release"))
-    monkeypatch.setattr(gate, "validate_prepare_config", lambda: calls.append("config"))
+    monkeypatch.setattr(
+        gate,
+        "validate_prepare_config",
+        lambda _payload: calls.append("config"),
+    )
     monkeypatch.setattr(gate, "build_prepare_command", lambda _payload: ["prepare"])
     monkeypatch.setattr(gate.subprocess, "run", lambda *_args, **_kwargs: calls.append("prepare"))
     monkeypatch.setattr(gate, "_freeze_validation_execution_mode", lambda *_args: calls.append("freeze"))

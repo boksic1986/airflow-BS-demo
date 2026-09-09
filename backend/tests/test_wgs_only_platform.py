@@ -1493,8 +1493,12 @@ def test_current_release_api_is_read_only_and_execution_is_disabled(tmp_path, mo
     assert release.json() == {
         "release_id": "wgs-4.1.1-1656b5d",
         "version": "V4.1.1",
-            "source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
-            "execution_enabled": False,
+        "source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
+        "profile_id": None,
+        "profile_revision": None,
+        "profile_sha256": None,
+        "cce_pipeline_version": None,
+        "execution_enabled": False,
             "runtime_adapter_enabled": False,
             "submission_preview_enabled": False,
         }

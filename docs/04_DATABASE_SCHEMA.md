@@ -1,5 +1,9 @@
 # 04 数据库设计
 
+## T242 WGS 4.2
+
+No schema migration. Only privacy-safe prepare decision fields are persisted.
+
 ## T240 privacy-safe sample metadata projection
 
 T240 has no schema migration. WGS `Sample.metadata_json` may contain the

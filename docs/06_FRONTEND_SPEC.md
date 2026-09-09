@@ -1,5 +1,11 @@
 # Frontend specification
 
+## T242 WGS 4.2 release evidence
+
+The WGS submission page shows the immutable version and commit, profile
+revision, and cce-pipeline version. Historical run pages retain their
+run-bound release evidence.
+
 ## T240 attention dashboard and Sample Information
 
 - Command Center removes the duplicate Runs/Samples/QC/Workflow-fails strip,
