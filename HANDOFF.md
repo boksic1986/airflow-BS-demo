@@ -1,5 +1,47 @@
 # HANDOFF.md
 
+## 2026-09-10 T249 governance design handoff
+
+```text
+branch: jiucheng/docs/T249-multirepo-governance
+baseline: origin/main@d90cac3513eb4f86720b01244af2b9f39bf0312d
+remote: git@github.com:boksic1986/airflow-BS-demo.git
+worktree: D:/pipeline/airflow-demo-worktrees/T249-multirepo-governance
+target_environment: none; design-only task
+```
+
+T249 records the approved design for independent repository versions with an
+airflow-demo integration BOM, task worktrees and PR/release rules, and a
+contract-based test impact model that avoids repeating WGS, cce-pipeline, GATK
+and control-plane internal suites in every repository.
+
+The same specification defines data classes and the temporary Step7 fallback.
+A user instruction naming an environment and exact batch is sufficient to
+authorize cleanup of that batch's SFS analysis/linkage and runtime residue.
+The operation still verifies host, unique batch identity, no active matching
+work, approved generated roots, symlink boundaries and batch ownership. OBS,
+database rows, Airflow history, retained evidence and final project results are
+preserved unless the instruction explicitly names them.
+
+Changed files:
+
+- `docs/superpowers/specs/2026-09-10-multirepo-release-data-governance-design.md`
+- `CURRENT_STATE.md`
+- `TASKS.md`
+- `HANDOFF.md`
+- `MANIFEST.json`
+
+No Docker, Python, Airflow, workflow, CCE, SFS, OBS, database or remote command
+was run because this is a design-only task. No data was inventoried or deleted.
+
+Next step: user reviews the written specification. After approval, invoke the
+writing-plans workflow and split implementation into release governance, data
+lifecycle governance, and read-only inventory tasks. Do not add an automatic
+retention deleter in the first implementation.
+
+Rollback: revert the T249 documentation commit. There is no runtime or data
+rollback because T249 changes no external state.
+
 ## 2026-09-09 T247 environment boundary and cleanup handoff
 
 ```text
