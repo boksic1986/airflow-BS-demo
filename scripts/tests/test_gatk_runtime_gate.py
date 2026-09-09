@@ -152,6 +152,42 @@ def test_start_is_idempotent_for_same_generation(tmp_path: Path, monkeypatch) ->
     assert gate.start(analysis_id, 1, "step1_upload")["status"] == "success"
 
 
+def test_prepare_retry_starts_worker_for_new_generation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    monkeypatch.setenv("GATK_RUNTIME_REQUEST_ROOT", str(tmp_path))
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    request = tmp_path / analysis_id / "attempt-1" / "prepare.request.json"
+    request.parent.mkdir(parents=True)
+    request.write_text(
+        json.dumps(
+            {
+                "kind": "gatk-airflow-prepare",
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "generation": 1,
+                "request_hash": "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    request.with_suffix(".status.json").write_text(
+        json.dumps({"status": "failed", "generation": 1}), encoding="utf-8"
+    )
+    commands: list[list[str]] = []
+    monkeypatch.setattr(
+        gate.subprocess,
+        "Popen",
+        lambda command, **_kwargs: commands.append(command),
+    )
+
+    result = gate.start(analysis_id, 1, "prepare", generation=2)
+
+    assert result == {"status": "accepted", "stage": "prepare", "generation": 2}
+    assert commands[0][-1] == "2"
+
+
 def test_step4_waits_for_backend_export_to_become_visible(monkeypatch) -> None:
     gate = load_gate()
     attempts = []

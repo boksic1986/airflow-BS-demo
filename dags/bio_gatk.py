@@ -95,6 +95,7 @@ def run_stage(stage: str, **context: Any) -> dict[str, Any]:
         str(conf["analysis_id"]),
         str(conf["attempt"]),
         stage,
+        str(registered["generation"]),
     ]
     completed = subprocess.run(
         command,
