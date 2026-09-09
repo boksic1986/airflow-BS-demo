@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-09-10T02:46:39+08:00",
-  "file_count": 386,
+  "created_at": "2026-09-10T03:04:18+08:00",
+  "file_count": 387,
   "files": [
     ".agents/skills/airflow-dag-dev/SKILL.md",
     ".agents/skills/airflow-demo-planning/SKILL.md",
@@ -233,6 +233,7 @@
     "docs/superpowers/plans/2026-09-06-wgs-step2-step3-dryrun-heavy-slot.md",
     "docs/superpowers/plans/2026-09-09-dashboard-attention-sample-information.md",
     "docs/superpowers/plans/2026-09-09-wgs-obsutil-checkpoint-progress.md",
+    "docs/superpowers/plans/2026-09-10-dirty-worktree-triage.md",
     "docs/superpowers/plans/2026-09-10-git-worktree-branch-cleanup.md",
     "docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md",
     "docs/superpowers/specs/2026-08-12-wgs-server-copy-observability-design.md",
