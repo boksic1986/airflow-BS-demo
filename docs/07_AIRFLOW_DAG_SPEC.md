@@ -1,5 +1,18 @@
 # Airflow DAG specification
 
+## T248 automatic WGS 4.2 prepare path
+
+`auto_dispatch` uses the same staged 4.2 prepare sequence as `three_stage`:
+`prepare_sampleinfo`, `prepare_analysis`, execution commit and Step1. The UI
+approval sensors remain automatic for this mode. Backend prepare artifact
+projection must preserve `submission_phase=approved`; only interactive
+`three_stage` submissions transition to `config_review` and
+`execution_review`.
+
+Step1's predecessor is `prepare_analysis` for both staged modes. Legacy modes
+retain the single `prepare` predecessor. Directional transfer leases still
+serialize Step1/Step5 independently from the 25-workload CCE Heavy Slot quota.
+
 ## T242 WGS 4.2 prepare boundary
 
 The DAG shape is unchanged. New 4.2 prepare stages use generation-scoped

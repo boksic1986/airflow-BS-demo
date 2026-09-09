@@ -2447,6 +2447,14 @@ def internal_wgs_observer_deactivate(
         ) from exc
 
 
+def _post_prepare_submission_phase(
+    params: dict[str, object], review_phase: str
+) -> str:
+    if params.get("submission_mode") == "auto_dispatch":
+        return "approved"
+    return review_phase
+
+
 @app.get("/api/internal/wgs/runs/{analysis_id}/stage-status", dependencies=[Depends(require_internal_service_token)])
 def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=1), stage: str = Query(min_length=1)) -> dict[str, object]:
     if not _wgs_runtime_adapter_enabled():
@@ -2495,7 +2503,9 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
                                 run=run,
                                 receipt=handoff_receipt,
                             )
-                        params["submission_phase"] = "config_review"
+                        params["submission_phase"] = _post_prepare_submission_phase(
+                            params, "config_review"
+                        )
                     elif stage == "prepare_analysis" and isinstance(handoff_receipt, dict):
                         if handoff_receipt.get("selected"):
                             sync_prepared_samples(
@@ -2506,11 +2516,15 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
                             run=run,
                             receipt=handoff_receipt,
                         )
-                        params["submission_phase"] = "execution_review"
+                        params["submission_phase"] = _post_prepare_submission_phase(
+                            params, "execution_review"
+                        )
                     else:
                         sync_prepared_samples(session=session, settings=settings, run=run)
                         if stage == "prepare_analysis":
-                            params["submission_phase"] = "execution_review"
+                            params["submission_phase"] = _post_prepare_submission_phase(
+                                params, "execution_review"
+                            )
                 except WgsPreparedArtifactPending:
                     artifact_pending = True
                 else:

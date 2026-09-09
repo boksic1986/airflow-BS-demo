@@ -191,6 +191,33 @@ def test_wrapper_publishes_plan_file_identity_from_checkpoint_without_paths(
     assert "/secret" not in serialized
 
 
+def test_wrapper_matches_plan_identity_when_obs_destination_flattens_raw_prefix(
+    tmp_path: Path,
+) -> None:
+    wrapper = load_wrapper()
+    relative = "raw/S1_R1.fastq.gz"
+    plan = tmp_path / "transfer-plan.json"
+    plan.write_text(
+        json.dumps({"entries": [{"relative_path": relative, "size_bytes": 300}]}),
+        encoding="utf-8",
+    )
+
+    public_file = wrapper._public_file(
+        [
+            "cp",
+            "/secret/source.fastq.gz",
+            "obs://secret/prefix/S1_R1.fastq.gz",
+        ],
+        plan,
+    )
+
+    assert public_file == {
+        "file_key": hashlib.sha256(relative.encode()).hexdigest(),
+        "display_name": "S1_R1.fastq.gz",
+        "bytes_total": 300,
+    }
+
+
 def test_wrapper_matches_step5_plan_created_after_process_start(tmp_path: Path) -> None:
     plan = tmp_path / "transfer-plan.json"
     checkpoint = tmp_path / "checkpoint"

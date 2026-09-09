@@ -131,4 +131,7 @@ def test_checked_in_catalog_pins_420_and_retains_411_history() -> None:
     assert catalog.release.node200_repo_path == (
         "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0"
     )
+    assert catalog.release.profile_sha256 == (
+        "2e7087a6ba646dfb67a940cd77d27ad18fc99e32d92c0ee5243614416f71f38b"
+    )
     assert catalog.by_id(RELEASE_ID).source_commit == WGS_COMMIT

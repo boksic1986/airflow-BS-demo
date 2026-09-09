@@ -105,8 +105,17 @@ STEP4_MASTER_COMPLETION_GRACE_SECONDS = int(
 )
 STEP7_COMPAT_OBS_FIELDS = {
     "download_parallelism",
+    "sdk_attach_crc64",
     "sdk_credentials_file",
+    "sdk_download_part_size_bytes",
+    "sdk_download_parallelism",
+    "sdk_multipart_part_size_mib",
+    "sdk_multipart_task_num",
+    "sdk_multipart_threshold_bytes",
     "sdk_python",
+    "sdk_transfer_adapter",
+    "sdk_upload_part_size_bytes",
+    "sdk_upload_parallelism",
     "transfer_adapter",
 }
 STEP5_TRANSFER_PLAN_GRACE_SECONDS = int(
@@ -489,6 +498,10 @@ def _release_operator_config(
     if not isinstance(paths, dict):
         raise RuntimeError("release_unavailable: CCE operator config paths are invalid")
     paths["repository_root"] = str(_release_repository(payload))
+    obs = config.get("obs")
+    if isinstance(obs, dict):
+        for key in STEP7_COMPAT_OBS_FIELDS:
+            obs.pop(key, None)
     target = _workdir(payload) / "release-runtime" / "cce-operator.yaml"
     target.parent.mkdir(parents=True, exist_ok=True)
     encoded = yaml.safe_dump(config, sort_keys=False).encode("utf-8")
@@ -950,6 +963,14 @@ def _run_prepare_analysis(payload: dict[str, Any]) -> None:
     expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
     if expected_batch_root != project_root / str(payload["batch_no"]):
         raise RuntimeError("WGS analysis batch path is outside the approved project root")
+    existing_run_id = _prepared_batch_run_id(expected_batch_root)
+    expected_run_id = f"{payload['analysis_id']}-a{int(payload['attempt'])}"
+    if existing_run_id == expected_run_id:
+        _freeze_validation_execution_mode(payload, expected_batch_root)
+        _write_prepare_binding(payload)
+        return
+    if existing_run_id is not None:
+        _retain_prior_attempt_batch(payload, expected_batch_root, existing_run_id)
     handoff_request = _prepare_handoff_request(payload)
     subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
     if handoff_request is not None:
@@ -958,6 +979,44 @@ def _run_prepare_analysis(payload: dict[str, Any]) -> None:
             return
     _freeze_validation_execution_mode(payload, expected_batch_root)
     _write_prepare_binding(payload)
+
+
+def _prepared_batch_run_id(batch_root: Path) -> str | None:
+    if not batch_root.exists():
+        return None
+    if batch_root.is_symlink() or not batch_root.is_dir():
+        raise RuntimeError("existing WGS analysis batch path is invalid")
+    runtime_path = batch_root / "cce" / "BATCH_RUNTIME.yaml"
+    if not runtime_path.is_file() or runtime_path.is_symlink():
+        raise RuntimeError("existing WGS analysis batch has no frozen runtime identity")
+    runtime = yaml.safe_load(runtime_path.read_text(encoding="utf-8"))
+    identity = runtime.get("identity") if isinstance(runtime, dict) else None
+    run_id = str((identity or {}).get("run_id") or "")
+    if not run_id:
+        raise RuntimeError("existing WGS analysis batch runtime identity is invalid")
+    return run_id
+
+
+def _retain_prior_attempt_batch(
+    payload: dict[str, Any], batch_root: Path, existing_run_id: str
+) -> Path:
+    match = re.fullmatch(
+        rf"{re.escape(str(payload['analysis_id']))}-a([1-9][0-9]*)",
+        existing_run_id,
+    )
+    if match is None or int(match.group(1)) >= int(payload["attempt"]):
+        raise RuntimeError("existing WGS analysis batch belongs to an unexpected run")
+    history = (
+        _workdir(payload)
+        / "history"
+        / "prepare_analysis"
+        / f"prior-run-{existing_run_id}"
+    )
+    history.mkdir(parents=True, exist_ok=False)
+    history.chmod(0o700)
+    retained = history / batch_root.name
+    os.replace(batch_root, retained)
+    return retained
 
 
 def _archive_missing_prepare_binding(payload: dict[str, Any], binding_path: Path) -> bool:

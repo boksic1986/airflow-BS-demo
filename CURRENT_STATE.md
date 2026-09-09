@@ -1,5 +1,20 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T248 WGS 4.2.0 retained-baseline recovery and automatic run
+
+```text
+scope: retain only historical batch 20260906B in the platform databases and cloud test history, repair its Step7 release, then start the four newly discovered WGS 4.2.0 batches. Server source FASTQ and project analysis data are explicitly outside cleanup scope.
+retention: biodemo and Airflow metadata retain 20260906B plus the four newly accepted 20260907C/20260907D/20260908A/20260908B runs. Old SFS and OBS test data were removed, except the 20260906B Project_fastq and Project_result prefixes. The pre-cleanup Airflow dump is /data/airflow-WGS/backups/T248-clean-retain-20260906B-20260910/airflow-before-cleanup.dump; matching biodemo dump and checksums are in the same directory.
+step7: 20260906B action step7-sfs-4fa2543f5aea generation 2 completed successfully and released its SFS workspace. Local project analysis data, source T7 FASTQ and the retained OBS objects were not changed.
+runtime_fixes: auto_dispatch now follows prepare_sampleinfo -> prepare_analysis before Step1 and preserves approved submission phase through both prepare projections. Stale OBS SDK-only keys are removed from generated 0.8.3 operator config. A prior unbound batch from an earlier attempt is moved intact to attempt history before a retry regenerates it. The 4.2.0 published profile SHA is aligned to 2e7087a6ba646dfb67a940cd77d27ad18fc99e32d92c0ee5243614416f71f38b.
+compatibility: nipttest uses cce-pipeline 0.8.3 and PyMongo 4.9.2 because the production MongoDB 4.0 server supports wire version 7. Pipeline source/content was not revalidated or changed.
+transfer: Step1 and Step5 use obsutil. The progress wrapper now resolves a frozen-plan file by its unique basename when cce-pipeline flattens the plan's raw/ prefix in the OBS destination, restoring file-level rows without exposing source or OBS paths. The first canary started eight wrappers before this hotfix; those children remain aggregate-only, while later files and subsequent batches use the fixed wrapper.
+production: current points to /data/airflow-WGS/releases/20260910-t248-auto4-wgs420-r7. Node200 gate SHA is 5aaa986452451e5ceb3482b9e194ae2932aa662e35d419d97f7c3c577e1950f4 and wrapper SHA is 122bcaaeb7666a95b661dc75593b3d579b7b3180b7c05360401b8884ebb987fe. Scanner and automatic dispatch are enabled with interval 1800 seconds and eight obsolete chip directories ignored.
+active_runs: WGS_20260909_193701_95105F-a6, WGS_20260909_193702_44561E-a2, WGS_20260909_193702_10CEB0-a2 and WGS_20260909_193702_FE74F9-a2 are running. The canary has committed execution and holds the only upload lease; the other three are preparing or waiting for that lease. A thread heartbeat monitors them every 30 minutes through Step6.
+validation: final script suites passed 83 tests, final backend suites passed 82 tests and the DAG suite passed 31 tests. Public /api/health is ok. The first scanner cycle examined 1859 directories, submitted zero duplicates and reported the five retained/active batches already registered.
+safety: no server original FASTQ, project analysis directory, database schema, WGS pipeline source, credentials, Docker volume or unrelated workflow was deleted or changed. An initial scanner activation rediscovered eight obsolete batches; it was stopped immediately, those failed metadata-only attempts were removed from both databases, and the source directories are now explicitly ignored.
+```
+
 ## 2026-09-10 T242 WGS 4.2.0 control-plane production release
 
 ```text

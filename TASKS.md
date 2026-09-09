@@ -1,5 +1,28 @@
 # TASKS.md
 
+# T248 - WGS 4.2.0 retained baseline and four-batch production run
+
+Owner: platform/backend/Airflow/runtime/QA
+
+Status: deployed; four production runs under scheduled monitoring
+
+Acceptance:
+- [x] Repair and complete 20260906B Step7 without deleting its retained OBS data.
+- [x] Remove obsolete test metadata and cloud data while preserving server source FASTQ and project analysis data.
+- [x] Keep only 20260906B as historical platform data, then register the four current batches.
+- [x] Make auto-dispatch use the 4.2 staged prepare path and preserve automatic approval through prepare projections.
+- [x] Generate a cce-pipeline 0.8.3-compatible operator config without obsolete OBS SDK fields.
+- [x] Preserve prior-attempt analysis directories intact when retrying an unbound prepare.
+- [x] Restore obsutil file identity when the destination flattens the frozen-plan directory prefix.
+- [x] Enable a 30-minute scanner and automatic dispatch with the eight obsolete chip directories ignored.
+- [x] Start all four approved 4.2.0 analyses and prove only one upload lease is active.
+- [ ] Observe all four analyses through Step2-Step6, verify at most 25 Heavy Slots, terminal Rule JSONL projection and frontend consistency.
+
+Safety:
+- Never delete `/bi/fastq/T7_Fastq` or `/sg2/50.ctapa/project/HWcloud/WGS_Clinical` project analysis data.
+- Do not alter WGS 4.2.0 pipeline source, credentials, network, Docker volumes or database schema.
+- Stop at an unresolved production anomaly rather than bypassing an execution or evidence gate.
+
 # T242 - WGS 4.2.0 control-plane upgrade
 
 Owner: platform/backend/Airflow/frontend/QA

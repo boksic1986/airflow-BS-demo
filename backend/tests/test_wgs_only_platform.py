@@ -3006,6 +3006,26 @@ def test_prepare_sampleinfo_stage_status_imports_preview_samples(
         assert "ORDER-12345678" not in repr(samples[0].metadata_json)
 
 
+@pytest.mark.parametrize(
+    ("submission_mode", "review_phase", "expected"),
+    [
+        ("three_stage", "config_review", "config_review"),
+        ("three_stage", "execution_review", "execution_review"),
+        ("auto_dispatch", "config_review", "approved"),
+        ("auto_dispatch", "execution_review", "approved"),
+    ],
+)
+def test_post_prepare_submission_phase_preserves_auto_dispatch_approval(
+    submission_mode, review_phase, expected
+):
+    assert (
+        main._post_prepare_submission_phase(
+            {"submission_mode": submission_mode}, review_phase
+        )
+        == expected
+    )
+
+
 def test_prepare_analysis_status_waits_for_final_sampleinfo_nfs_visibility(
     tmp_path, monkeypatch
 ):

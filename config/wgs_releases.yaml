@@ -9,7 +9,7 @@ releases:
     rule_event_schema_version: "1"
     profile_id: wgs-4.2.0
     profile_revision: r1
-    profile_sha256: c6dea31fb06f8a1c0ac242cea8fa990486d631f877d64a6f8d25b67dadfa8511
+    profile_sha256: 2e7087a6ba646dfb67a940cd77d27ad18fc99e32d92c0ee5243614416f71f38b
     node200_profile_path: /bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs/wgs-4.2.0-r1.yaml
     cce_pipeline_version: 0.8.3
     pipeline_build_sha256: 71695b2a3ab1d83bab68454b1785d2b6791b26c6f57f5ecceda465975788b7f6

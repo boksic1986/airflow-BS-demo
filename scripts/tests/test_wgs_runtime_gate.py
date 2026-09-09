@@ -183,6 +183,47 @@ def test_prepare_config_override_is_limited_to_approved_root(
         gate.validate_prepare_config()
 
 
+def test_materialized_release_operator_config_strips_obsolete_obs_sdk_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    source = tmp_path / "cce.yaml"
+    source.write_text(
+        yaml.safe_dump(
+            {
+                "paths": {"repository_root": "/old/repository"},
+                "obs": {
+                    "endpoint": "private.example",
+                    "download_parallelism": 4,
+                    "sdk_attach_crc64": True,
+                    "sdk_credentials_file": "/protected/sdk.env",
+                    "sdk_multipart_part_size_mib": 64,
+                    "sdk_multipart_task_num": 4,
+                    "sdk_python": "/opt/nipttest/python",
+                    "transfer_adapter": "sdk",
+                },
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    runtime_root = tmp_path / "runtime" / "runs"
+    control_workdir = runtime_root / "analysis" / "attempt-1"
+    repository = tmp_path / "wgs-4.2.0"
+    repository.mkdir()
+    monkeypatch.setattr(gate, "CCE_OPERATOR_CONFIG", str(source))
+    monkeypatch.setattr(gate, "RUNTIME_RUN_ROOT", str(runtime_root))
+    monkeypatch.setattr(gate, "_release_repository", lambda _payload: repository)
+
+    target = gate._release_operator_config(
+        {"control_workdir": str(control_workdir)}, materialize=True
+    )
+
+    loaded = yaml.safe_load(target.read_text(encoding="utf-8"))
+    assert loaded["paths"]["repository_root"] == str(repository)
+    assert loaded["obs"] == {"endpoint": "private.example"}
+
+
 def test_prepare_config_override_rejects_symlink(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -643,6 +684,58 @@ def test_prepare_analysis_new_generation_rejects_an_outside_frozen_bundle(
     assert binding.is_file()
 
 
+def test_prepare_analysis_retains_unbound_batch_from_an_earlier_attempt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    workdir = tmp_path / "runtime" / "attempt-5"
+    workdir.mkdir(parents=True)
+    project_root = tmp_path / "project"
+    batch_root = project_root / "WGS_20260907C_T7Hg38V4.2.0"
+    cce = batch_root / "cce"
+    cce.mkdir(parents=True)
+    (cce / "BATCH_RUNTIME.yaml").write_text(
+        yaml.safe_dump(
+            {"identity": {"run_id": "WGS_20260909_193701_95105F-a4"}},
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    payload = {
+        "analysis_id": "WGS_20260909_193701_95105F",
+        "attempt": 5,
+        "generation": 1,
+        "pipeline_release_id": "wgs-4.2.0-b067c72",
+        "analysis_project_root": str(project_root),
+        "expected_batch_root": str(batch_root),
+        "batch_no": batch_root.name,
+    }
+    calls: list[str] = []
+    monkeypatch.setattr(gate, "_binding_path", lambda _payload: workdir / "batch-binding.json")
+    monkeypatch.setattr(gate, "_workdir", lambda _payload: workdir)
+    monkeypatch.setattr(gate, "validate_release_repository", lambda _payload: calls.append("release"))
+    monkeypatch.setattr(gate, "validate_prepare_config", lambda _payload: calls.append("config"))
+    monkeypatch.setattr(gate, "validate_release_runtime", lambda _payload: calls.append("runtime"))
+    monkeypatch.setattr(gate, "_release_operator_config", lambda *_args, **_kwargs: workdir / "cce.yaml")
+    monkeypatch.setattr(gate, "build_prepare_command", lambda _payload: ["prepare"])
+    monkeypatch.setattr(gate.subprocess, "run", lambda *_args, **_kwargs: calls.append("prepare"))
+    monkeypatch.setattr(gate, "_freeze_validation_execution_mode", lambda *_args: calls.append("freeze"))
+    monkeypatch.setattr(gate, "_write_prepare_binding", lambda _payload: calls.append("binding"))
+
+    gate._run_prepare_analysis(payload)
+
+    retained = (
+        workdir
+        / "history"
+        / "prepare_analysis"
+        / "prior-run-WGS_20260909_193701_95105F-a4"
+        / batch_root.name
+    )
+    assert retained.is_dir()
+    assert not batch_root.exists()
+    assert calls == ["release", "config", "runtime", "prepare", "freeze", "binding"]
+
+
 def test_step3_status_contract_is_strict_and_master_only() -> None:
     gate = load_gate()
     value = gate.validate_step3_status(
@@ -878,8 +971,17 @@ def test_step7_cleanup_sanitizes_new_transfer_fields_for_old_frozen_parser(
                 "obs": {
                     "endpoint": "private.example",
                     "download_parallelism": 8,
+                    "sdk_attach_crc64": True,
                     "sdk_credentials_file": "/protected/sdk.env",
+                    "sdk_download_part_size_bytes": 64 * 1024 * 1024,
+                    "sdk_download_parallelism": 4,
+                    "sdk_multipart_part_size_mib": 64,
+                    "sdk_multipart_task_num": 4,
+                    "sdk_multipart_threshold_bytes": 128 * 1024 * 1024,
                     "sdk_python": "/opt/nipttest/python",
+                    "sdk_transfer_adapter": "/opt/cce/cce_obs_sdk_transfer.py",
+                    "sdk_upload_part_size_bytes": 64 * 1024 * 1024,
+                    "sdk_upload_parallelism": 4,
                     "transfer_adapter": "sdk",
                 },
             },
