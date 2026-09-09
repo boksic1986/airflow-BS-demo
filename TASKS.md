@@ -4,7 +4,7 @@
 
 Owner: GATK/backend/runtime/QA/docs
 
-Status: implementation validated; controlled Step4-Step6 recovery pending
+Status: completed in BS10610 test environment
 
 Acceptance:
 - [x] Retry only the exact transient Step4 backend-export visibility result.
@@ -13,8 +13,8 @@ Acceptance:
 - [x] Reopen a failed GATK stage as a new fenced generation in the same attempt.
 - [x] Project real failed/canceled stage state to the business run.
 - [x] Pass targeted gate and backend GATK tests on BS10610.
-- [ ] Recover the original GATK DagRun from Step4 through Step6 without rerunning Step1-Step3.
-- [ ] Verify materialized results and terminal Airflow/backend state.
+- [x] Recover the original GATK DagRun from Step4 through Step6 without rerunning Step1-Step3.
+- [x] Verify materialized results and terminal Airflow/backend state.
 
 Safety:
 - The existing analysis, Master, OBS objects, SFS outputs, database history and

@@ -86,6 +86,15 @@ default (`GATK_PUBLISH_POLL_SECONDS` and `GATK_PUBLISH_WAIT_SECONDS`). All
 other Step4 errors fail immediately with captured stdout/stderr. A failed
 stage retry creates a new fenced generation in the same analysis attempt; it
 does not rerun Step1 upload, Step2 Master creation, or Step3 analysis.
+If shared-storage caching briefly exposes a sidecar from the previous
+generation, the backend returns pending until the current generation is
+visible. It never imports that stale terminal state. A same-generation hash or
+execution mismatch, or any future generation, remains a hard identity error.
+
+The final `release_leases` task uses `all_done` so cleanup always runs, then
+checks all upstream task instances and fails itself if any upstream task is
+failed or upstream-failed. This prevents a successful cleanup leaf from
+incorrectly making a failed GATK DagRun appear successful.
 
 ## State and evidence
 

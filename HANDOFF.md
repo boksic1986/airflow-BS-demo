@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-## 2026-09-09 T242 GATK Step4 export visibility recovery candidate
+## 2026-09-09 T242 GATK Step4-Step6 recovery completed
 
 The GATK run `GATK_20260908_104312_85DA16` failed after a successful Master
 and Step3 because Step4 performed a one-shot OBS marker check. The CCE backend
@@ -8,16 +8,31 @@ export exposed `payload-manifest.tsv` and `ANALYSIS_COMPLETE` about 64 seconds
 after Airflow had already failed `wait_step4_publish`. Step5 and Step6 were
 blocked only by the missing Step4/Step5 receipts.
 
-The candidate gate polls only the exact backend-export-pending condition and
-keeps every other error terminal. The backend now projects real stage failure
-to the business run and permits a failed stage to reopen as a new generation
-inside the same attempt. BS10610 passed the complete backend suite (352 passed,
-1 skipped), all nine GATK gate tests, twelve GATK/deployment contract tests,
-four WGS DAG unit tests, and Compose config. The candidate gate compiles under
-the node200 nipttest Python 3.9.23 runtime. The next controlled action is to deploy the backend and
-node200 gate, clear only exact Step4 and downstream tasks in the original
-DagRun, and verify Step4-Step6, finalize, and lease release. Never clear
-Prepare or Step1-Step3 for this recovery.
+The released gate polls only the exact backend-export-pending condition and
+keeps every other error terminal. The backend now projects real stage failure,
+permits a failed stage to reopen as a new generation, and treats a same-stage
+older-generation sidecar as pending while NFS visibility catches up. The GATK
+release leaf now fails after releasing leases when an upstream task failed, so
+Airflow cannot mark the run green solely because the cleanup task succeeded.
+
+BS10610 passed the complete backend suite (353 passed, 1 skipped), all nine
+GATK gate tests, thirteen GATK/deployment contract tests, four WGS DAG unit
+tests, and Compose config. The gate compiles under node200 nipttest Python
+3.9.23. The release is
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260909-t242-gatk-step4-export-wait-r2`.
+The dedicated test frontend is `http://172.17.106.10:12959`.
+
+The original `GATK_20260908_104312_85DA16-a1` completed without rerunning
+Step1-Step3. Step4 generation 2, Step5 generation 1, Step6 generation 1,
+finalize and lease release are success. The business run is success with no
+error summary. Test materialization contains 28 GiB and 960 files at
+`/sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/GATK_Clinical/20260816A/GATK_20260908_104312_85DA16`.
+
+Residual: the frozen GATK Step5 completed with a fenced receipt and verified
+delivery, but it did not emit a download `TransferJob` progress row. A future
+GATK progress task should aggregate the obsutil wrapper events into the
+standard `progress.json`; do not infer historical percentages from elapsed
+time.
 
 ## 2026-09-09 T240 Dashboard attention and Sample Information production release
 

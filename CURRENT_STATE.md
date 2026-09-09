@@ -1,12 +1,15 @@
 # CURRENT_STATE.md
 
-## 2026-09-09 T242 GATK Step4 export visibility recovery candidate
+## 2026-09-09 T242 GATK Step4-Step6 recovery completed
 
 ```text
 incident: GATK_20260908_104312_85DA16 completed Step1-Step3, but Step4 checked OBS before the asynchronous backend export exposed payload-manifest.tsv and ANALYSIS_COMPLETE. Both markers appeared about 64 seconds after wait_step4_publish had failed. Step5 and Step6 therefore never received a valid predecessor receipt.
-fix: the node200 gate now waits only for the exact backend-export-pending result, with a 30-second poll and two-hour default bound. All unrelated errors remain terminal. Backend stage registration creates a new fenced generation after failed/canceled state, clears stale terminal fields, and projects genuine stage failures to AnalysisRun.
-validation: BS10610 candidate tests passed the complete backend suite (352 passed, 1 skipped), scripts/tests/test_gatk_runtime_gate.py 9/9, GATK/deployment contract tests 12/12, WGS DAG unit tests 4/4, and Compose config. The candidate gate also compiles under node200 nipttest Python 3.9.23. Controlled Step4-Step6 recovery remains pending.
-safety: the recovery will retain the original DagRun, attempt, successful upload, Master, Step3 evidence, SFS data and OBS data; Step1-Step3 must not be cleared.
+fix: the node200 gate now waits only for the exact backend-export-pending result, with a 30-second poll and two-hour default bound. All unrelated errors remain terminal. Backend stage registration creates a new fenced generation after failed/canceled state, clears stale terminal fields, and projects genuine stage failures to AnalysisRun. A previous-generation sidecar is treated as pending until the current generation becomes visible; same-generation hash mismatch and future generations remain invalid. The GATK release leaf releases leases and then preserves any upstream failure instead of producing a false-green DagRun.
+validation: BS10610 final tests passed the complete backend suite (353 passed, 1 skipped), scripts/tests/test_gatk_runtime_gate.py 9/9, GATK/deployment contract tests 13/13, WGS DAG unit tests 4/4, and Compose config. The candidate gate also compiles under node200 nipttest Python 3.9.23.
+recovery: the original GATK_20260908_104312_85DA16-a1 and attempt 1 were retained. Step1-Step3 timestamps did not change. Step4 generation 1 remains failed audit evidence and generation 2 is success; Step5 generation 1 and Step6 generation 1 are success with receipts. AnalysisRun and Airflow are success at 2026-09-09 12:05 CST with no error summary.
+materialization: the BS10610 test runtime materialized 28 GiB and 960 files to /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/GATK_Clinical/20260816A/GATK_20260908_104312_85DA16. The frozen Step5 did not emit a download TransferJob progress row; terminal receipt and delivery validation are authoritative, while detailed GATK download projection remains follow-up work.
+deployment: current points to /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260909-t242-gatk-step4-export-wait-r2. The dedicated test frontend is http://172.17.106.10:12959 and health is OK.
+safety: the recovery retained the original DagRun, attempt, successful upload, Master, Step3 evidence, SFS data and OBS data. PostgreSQL/Redis data, WGS runs and Step1-Step3 were not reset or recreated.
 ```
 
 ## 2026-09-09 T240 Dashboard attention and Sample Information production release
