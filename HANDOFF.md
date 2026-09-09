@@ -1,5 +1,51 @@
 # HANDOFF.md
 
+## 2026-09-10 T250 Git cleanup handoff
+
+```text
+branch: jiucheng/ops/T250-worktree-branch-cleanup
+baseline: origin/main@fed0348e5af9ce5b9db7072c45c92c656247eec9
+remote: git@github.com:boksic1986/airflow-BS-demo.git
+worktree: D:/pipeline/airflow-demo-worktrees/T249-multirepo-governance
+runtime_environment: none; Git metadata and local worktree cleanup only
+```
+
+The approved T249 design was merged through GitHub PR 15. The safe cleanup pass
+then reduced registered worktrees from 23 to 11, deleted 28 local branches whose
+commits are contained in `origin/main`, and deleted 17 equivalent remote task
+branches that were not needed by a dirty worktree.
+
+Seven clean worktrees had unique commits. Their worktree directories were
+removed, but these branches were retained: T241 OBS throughput, T242 GATK Step4
+recovery, T219 rerun archive recovery, T221 DB handoff design, T238 GATK submit
+recovery, T244 GATK prepare rerun, and T248 finalize reconciliation.
+
+Ten registered worktrees still contain tracked or untracked changes and were
+left untouched. This includes the root T193 workspace. They require an explicit
+owner decision before cleanup; do not assume age means disposable.
+
+Three unregistered residual directories remain because Windows would not remove
+ignored/cache files or reported a file lock: T227, T214, and T248. Git no longer
+lists them as worktrees. Close possible Node/Python/editor processes and verify
+the exact paths before a later disk-only deletion.
+
+Validation:
+
+- every removed branch was checked as an ancestor of `origin/main`, or its worktree
+  was removed while the unique branch was retained;
+- ordinary `git branch -d` was used; no force branch deletion was used;
+- `git worktree list` reports 11 registered worktrees;
+- no application code, server, Docker, SFS, OBS, database or workflow state changed.
+
+Next step: review the ten dirty worktrees one at a time. For each, choose
+commit/PR, patch archive, or explicit discard, then remove the worktree. The
+classification and commands are recorded in
+`docs/superpowers/plans/2026-09-10-git-worktree-branch-cleanup.md`.
+
+Rollback: deleted merged branches can be recreated from `origin/main`; retained
+unique branches preserve unmerged commits. Dirty worktrees require no rollback
+because they were not modified.
+
 ## 2026-09-10 T249 governance design handoff
 
 ```text

@@ -1,10 +1,30 @@
 # TASKS.md
 
+## T250 - Git worktree and branch cleanup
+
+Owner: coordinator/ops/docs
+
+Status: completed safe pass; dirty-worktree review remains
+
+Acceptance:
+- [x] Merge the approved T249 governance design to `main` through PR 15.
+- [x] Classify every registered worktree by dirty state and ancestry to `origin/main`.
+- [x] Remove clean merged worktrees and delete only branches proven contained in `origin/main`.
+- [x] Remove clean worktrees with unique commits while retaining their branches.
+- [x] Delete merged remote task branches not required by a preserved dirty worktree.
+- [x] Preserve all worktrees with uncommitted changes and all branches with unique patches.
+- [x] Record unregistered Windows residual directories for a later file-lock cleanup pass.
+- [ ] Review the ten preserved dirty worktrees with their owners and choose commit/PR, patch archive, or explicit discard.
+
+Safety:
+- No force branch deletion, reset, clean, stash, or modification of dirty worktree content was performed.
+- No server, Docker, SFS, OBS, database, workflow, or analysis data was changed.
+
 ## T249 - Multi-repository release and data lifecycle governance
 
 Owner: coordinator/docs/security/QA
 
-Status: design complete; implementation plan pending written-spec review
+Status: design approved and merged to main; implementation split begins with T250
 
 Acceptance:
 - [x] Define independent airflow-demo, WGS, cce-pipeline and GATK ownership and versions with an airflow-demo-owned integration BOM.
@@ -14,7 +34,7 @@ Acceptance:
 - [x] Record that explicit user instruction authorizes one exact batch cleanup without a second confirmation.
 - [x] Keep OBS, database, Airflow history and final project results outside the default Step7 batch-cleanup scope.
 - [x] Design separate release-governance and data-lifecycle-safety skills.
-- [ ] User reviews the written design specification.
+- [x] User reviews and approves the written design specification.
 - [ ] Write and approve the implementation plan.
 - [ ] Implement the stable contracts, skills, BOM/PR templates and read-only inventory tooling in separate scoped PRs.
 
