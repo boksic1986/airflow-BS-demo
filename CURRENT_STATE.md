@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T252 obsolete airflow-demo worktree retirement
+
+```text
+decision: user confirmed old local work should be deleted and identified T193 as developed against the wrong project direction.
+removed: discarded T193 exact tracked/untracked Step7 changes; removed T210/T213/T222 worktrees; deleted their local branches; removed the temporary linked main worktree; deleted all 20 unattached local task branches; deleted patch-equivalent remote T236.
+local_state: D:/pipeline/airflow-demo is the clean canonical main checkout. The only linked worktree and non-main local branch is active jiucheng/platform/T242-wgs-420-control-plane at T220-main-sync.
+retained_remote: remote branches with unique patches are retained only as temporary recovery boundaries until WGS/GATK/cce-pipeline owner repositories confirm migration.
+disk: empty residual directories T166, T211 and T248 were removed. Valid clean bundle-backed cce-pipeline/GATK repositories and nonempty unregistered remnants were not treated as airflow-demo worktrees.
+safety: no remote host, Docker, SFS, OBS, database, workflow, original data or project result was touched.
+next: finish T242 in its own PR, then confirm owner-repository coverage before deleting remaining unique remote airflow-demo task branches.
+```
+
 ## 2026-09-10 T251 dirty worktree artifact triage
 
 ```text

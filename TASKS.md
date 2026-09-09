@@ -1,10 +1,30 @@
 # TASKS.md
 
+## T252 - Retire obsolete airflow-demo worktrees
+
+Owner: coordinator/ops/docs
+
+Status: completed; only main and active T242 remain locally
+
+Acceptance:
+- [x] Explicitly retire T193 because it targets the wrong project direction.
+- [x] Retire stale source-bearing T210, T213 and T222 worktrees and local branches.
+- [x] Restore `D:/pipeline/airflow-demo` as the clean canonical `main` checkout.
+- [x] Keep active `jiucheng/platform/T242-wgs-420-control-plane` untouched.
+- [x] Delete all 20 unattached local task branches with no worktree or open PR.
+- [x] Delete remote T236 only after proving its patch is equivalent to main.
+- [x] Preserve unique remote branches until their owner repositories confirm migration.
+- [x] Remove empty residual directories T166, T211 and T248.
+
+Safety:
+- User explicitly authorized deletion of the old local work, including T193.
+- No server, runtime, SFS, OBS, database, original data or project result was changed.
+
 ## T251 - Dirty worktree artifact triage
 
 Owner: coordinator/ops/docs
 
-Status: completed safe artifact pass; five source-bearing worktrees retained
+Status: completed and superseded by the user's T252 retirement decision
 
 Acceptance:
 - [x] Inspect every T250-preserved dirty worktree at file level.
@@ -14,7 +34,7 @@ Acceptance:
 - [x] Delete the merged T194 and T203 remote branches after ancestry checks.
 - [x] Retain five worktrees with source, test, migration, DAG or contract-document changes.
 - [x] Prove T193 and T213 are not exact duplicates: all 11 overlapping dirty files differ.
-- [ ] Select the canonical Step7 candidate after a functional T193/T213 diff and owner review.
+- [x] User retired both stale T193/T213 Step7 worktrees instead of selecting either as canonical.
 
 Safety:
 - Removed content was confined to local `.artifacts`, `.codex-artifacts`, or named source bundle files.
@@ -34,7 +54,7 @@ Acceptance:
 - [x] Delete merged remote task branches not required by a preserved dirty worktree.
 - [x] Preserve all worktrees with uncommitted changes and all branches with unique patches.
 - [x] Record unregistered Windows residual directories for a later file-lock cleanup pass.
-- [ ] Finish owner review for the five source-bearing worktrees retained by T251.
+- [x] User retired T193/T210/T213/T222 and retained only active T242.
 
 Safety:
 - No force branch deletion, reset, clean, stash, or modification of dirty worktree content was performed.
