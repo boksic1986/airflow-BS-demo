@@ -471,9 +471,9 @@ export type GatkSubmissionPreview = {
   fastq_total_bytes: number;
   samples: string[];
   validation: {
-    sample_sets_match: boolean;
-    fastq_pairs_complete: boolean;
-    paths_approved: boolean;
+    source_directory_readable: boolean;
+    scmc_sampleinfo_present: boolean;
+    scmc_samples_present: boolean;
   };
   expires_at: string;
 };

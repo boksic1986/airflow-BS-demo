@@ -77,10 +77,15 @@ Existing `/api/wgs/*` routes remain supported for WGS submission, intake, eviden
 - `GET /api/pipelines/gatk/release` returns the approved profile ID, profile
   revision, fixed `cce` execution target and the current execution-gate state.
   It contains no node path, command, credential or image reference.
-- `POST /api/pipelines/gatk/submission-preview` accepts only
-  `source_project_dir`. It returns an expiring draft/hash, batch, fixed profile,
-  sampleinfo basename, locked SCMC sample IDs, FASTQ count/bytes and safe check
-  results.
+- `POST /api/pipelines/gatk/submission-preview` accepts only an absolute,
+  readable `source_project_dir`. The project may belong to any `/sg2` owner;
+  Preview does not apply an owner/root allowlist. It requires the exact
+  `<batch-prefix>.sampleinfo.SCMC.txt`, a `data ID` column and at least one
+  unique sample. It returns an expiring draft/hash, batch, fixed profile,
+  SCMC sampleinfo basename, locked sample IDs and safe check results.
+- Config, barcode and FASTQ-pair validation is deliberately deferred to the
+  existing runtime prepare contract. Legacy FASTQ count/byte fields remain in
+  the response as best-effort compatibility values and do not gate Preview.
 - `POST /api/runs` confirms GATK with `pipeline=gatk`,
   `execution_mode=cce`, `submission_draft_id` and
   `submission_preview_hash`. Changed inputs return

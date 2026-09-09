@@ -18,25 +18,30 @@ The first release is fixed to:
 
 ## Submission contract
 
-An operator enters one directory below `/sg2/21.lijing/WES_Clinical`. The
-backend resolves the directory without following it outside the configured
-source root and validates:
+An operator enters an absolute WES project directory visible on `/sg2`. The
+backend resolves the directory and applies the deliberately small Preview
+contract:
 
-- `<batch-prefix>.sampleinfo.txt`;
-- `config.V7.6.0_hg38.yaml`;
-- `sample2hospitalBarCode.txt`;
-- one R1/R2 pair for every locked SCMC sample;
-- every FASTQ symlink target is below an approved FASTQ root. The initial
-  roots are `/sg2/T7new/result1/OutputFq` and `/bi/fastq/T7_Fastq`; both are
-  mounted read-only into the backend so absolute links under `a.raw` remain
-  resolvable without copying FASTQ data;
-- the sampleinfo, SCMC config and barcode sets are identical.
+- the project name contains one `YYYYMMDDX` batch identity;
+- the exact `<batch-prefix>.sampleinfo.SCMC.txt` exists as a regular,
+  non-symlink file and is readable;
+- the file contains the `data ID` column and at least one non-empty, unique
+  sample ID.
+
+The backend mounts `/sg2` read-only so projects owned by different teams can
+be previewed without adding one Compose mount per owner. Preview does not
+require the source config, barcode sidecar or directly named R1/R2 links.
+Those workflow-specific checks remain in the existing GATK builder/prepare
+runtime after submission.
 
 `POST /api/pipelines/gatk/submission-preview` stores a 30-minute immutable
-draft and returns only a draft ID, hash, safe basenames, sample IDs, counts,
-bytes and validation booleans. It does not return clinical columns or complete
-FASTQ paths. `POST /api/runs` re-reads the source, compares the hash and returns
-`409 GATK_INPUT_CHANGED` if any protected input changed.
+draft and returns only a draft ID, hash, safe basenames, sample IDs, counts and
+validation booleans. It does not return clinical columns or complete FASTQ
+paths. The fingerprint covers the resolved project identity, batch, SCMC
+sampleinfo SHA256 and selected sample IDs. `POST /api/runs` re-reads those
+inputs, compares the hash and returns `409 GATK_INPUT_CHANGED` if they changed.
+The immutable runtime request narrows `approved_source_roots` to the exact
+selected project directory.
 
 The confirmation transaction locks the draft and takes a PostgreSQL advisory
 lock for the batch. Only one GATK run may be created for that batch. A failed
@@ -64,8 +69,9 @@ gate accepts only a GATK analysis ID, attempt and enumerated stage. It reads
 immutable requests below the configured GATK runtime root; no request may
 provide an arbitrary command.
 
-The GATK handoff calls the existing builder and cce-pipeline 0.8.2 prepare
-logic. Manual GATK CLI behavior remains unchanged. The generated CCE bundle,
+The GATK handoff calls the existing builder and the shared nipttest
+cce-pipeline 0.8.3 prepare logic. Manual GATK CLI behavior remains unchanged.
+The generated CCE bundle,
 request, receipts and evidence remain under
 `runtime/gatk/<analysis_id>`. Step6 reuses the frozen bundle's
 `cce_delivery.materialize_results()` helper but supplies the approved result

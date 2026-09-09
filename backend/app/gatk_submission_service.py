@@ -9,7 +9,6 @@ import re
 import secrets
 from typing import Any
 
-import yaml
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -23,7 +22,6 @@ from app.models import (
 
 
 GATK_DAG_ID = "bio_gatk"
-GATK_HOSPITAL = "\u4e0a\u6d77\u4ea4\u901a\u5927\u5b66\u533b\u5b66\u9662\u9644\u5c5e\u4e0a\u6d77\u513f\u7ae5\u533b\u5b66\u4e2d\u5fc3"
 ANALYSIS_ID_PATTERN = re.compile(r"^GATK_[0-9]{8}_[0-9]{6}_[A-F0-9]{6}$")
 BATCH_PATTERN = re.compile(r"(?:^|_)([0-9]{8}[A-Z])(?:_|$)")
 SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
@@ -37,14 +35,6 @@ class GatkDraftConflict(ValueError):
     code = "GATK_DRAFT_CONFLICT"
 
 
-def _within(path: Path, roots: list[str], *, label: str) -> Path:
-    resolved = path.resolve(strict=True)
-    approved = [Path(root).resolve(strict=True) for root in roots]
-    if not any(resolved == root or root in resolved.parents for root in approved):
-        raise ValueError(f"{label} is outside every approved root")
-    return resolved
-
-
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -53,69 +43,37 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _source_paths(source: Path) -> tuple[Path, Path, Path]:
-    sampleinfo_name = f"{source.name.split('_V', 1)[0]}.sampleinfo.txt"
-    paths = (
-        source / sampleinfo_name,
-        source / "config.V7.6.0_hg38.yaml",
-        source / "sample2hospitalBarCode.txt",
-    )
-    for path in paths:
-        if not path.is_file() or path.is_symlink():
-            raise ValueError(f"Required GATK input is missing: {path.name}")
-    return paths
-
-
-def _read_source(source: Path, fastq_roots: list[str]) -> dict[str, Any]:
-    batch_match = BATCH_PATTERN.search(source.name)
-    if batch_match is None:
-        raise ValueError("WES project directory does not contain a YYYYMMDDX batch")
-    batch = batch_match.group(1)
-    sampleinfo, config_path, barcode_path = _source_paths(source)
-    with sampleinfo.open("r", encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle, delimiter="\t")
-        if reader.fieldnames is None or not {"\u6570\u636e\u7f16\u53f7", "\u9001\u68c0\u533b\u9662"}.issubset(reader.fieldnames):
-            raise ValueError("sampleinfo must contain data ID and hospital columns")
-        samples = sorted(
-            str(row.get("\u6570\u636e\u7f16\u53f7") or "").strip()
-            for row in reader
-            if str(row.get("\u9001\u68c0\u533b\u9662") or "").strip() == GATK_HOSPITAL
-        )
-    if not samples or any(not item for item in samples) or len(samples) != len(set(samples)):
-        raise ValueError("SCMC sample IDs must be non-empty and unique")
+def _read_scmc_sampleinfo(source: Path) -> tuple[Path, list[str]]:
+    sampleinfo = source / f"{source.name.split('_V', 1)[0]}.sampleinfo.SCMC.txt"
+    if not sampleinfo.is_file() or sampleinfo.is_symlink():
+        raise ValueError(f"Required GATK input is missing: {sampleinfo.name}")
     try:
-        config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as exc:
-        raise ValueError(f"Invalid GATK source config: {exc}") from exc
-    if not isinstance(config, dict):
-        raise ValueError("GATK source config must be a mapping")
-    configured_samples = config.get("SCMC")
-    configured_barcodes = config.get("sample2hospitalBarCode")
-    if not isinstance(configured_samples, list) or set(samples) != set(configured_samples):
-        raise ValueError("sampleinfo SCMC set does not match source config")
-    if not isinstance(configured_barcodes, dict):
-        raise ValueError("source config has no SCMC barcode mapping")
-    observed_barcodes: dict[str, str] = {}
-    for number, line in enumerate(barcode_path.read_text(encoding="utf-8-sig").splitlines(), start=1):
-        columns = line.split("\t")
-        if len(columns) != 2:
-            raise ValueError(f"sample2hospitalBarCode line {number} must have two tab-separated columns")
-        sample, barcode = (item.strip() for item in columns)
-        if not sample or not barcode or sample in observed_barcodes:
-            raise ValueError(f"sample2hospitalBarCode line {number} is invalid")
-        observed_barcodes[sample] = barcode
-    expected_barcodes = {sample: str(configured_barcodes.get(sample) or "").strip() for sample in samples}
-    if observed_barcodes != expected_barcodes or any(not item for item in expected_barcodes.values()):
-        raise ValueError("SCMC barcode sidecar does not match source config")
+        with sampleinfo.open("r", encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle, delimiter="\t")
+            if reader.fieldnames is None or "\u6570\u636e\u7f16\u53f7" not in reader.fieldnames:
+                raise ValueError("sampleinfo.SCMC.txt must contain the data ID column")
+            samples = sorted(
+                str(row.get("\u6570\u636e\u7f16\u53f7") or "").strip() for row in reader
+            )
+    except OSError as exc:
+        raise ValueError(f"sampleinfo.SCMC.txt is not readable: {exc}") from exc
+    if not samples or any(not item for item in samples) or len(samples) != len(set(samples)):
+        raise ValueError("sampleinfo.SCMC.txt sample IDs must be non-empty and unique")
+    return sampleinfo, samples
 
+
+def _best_effort_fastq_inventory(source: Path, samples: list[str]) -> list[dict[str, Any]]:
     files: list[dict[str, Any]] = []
     for sample in samples:
         for read in ("R1", "R2"):
             link = source / "a.raw" / f"{sample}.{read}.fq.gz"
-            if not link.is_file():
-                raise ValueError(f"Missing FASTQ pair member for {sample}.{read}")
-            resolved = _within(link, fastq_roots, label=f"FASTQ {sample}.{read}")
-            stat = resolved.stat()
+            try:
+                resolved = link.resolve(strict=True)
+                if not resolved.is_file():
+                    continue
+                stat = resolved.stat()
+            except OSError:
+                continue
             files.append(
                 {
                     "sample_id": sample,
@@ -125,13 +83,21 @@ def _read_source(source: Path, fastq_roots: list[str]) -> dict[str, Any]:
                     "resolved_path": str(resolved),
                 }
             )
+    return files
+
+
+def _read_source(source: Path) -> dict[str, Any]:
+    batch_match = BATCH_PATTERN.search(source.name)
+    if batch_match is None:
+        raise ValueError("WES project directory does not contain a YYYYMMDDX batch")
+    batch = batch_match.group(1)
+    sampleinfo, samples = _read_scmc_sampleinfo(source)
+    files = _best_effort_fastq_inventory(source, samples)
     fingerprint_source = {
         "source": str(source),
         "batch": batch,
         "sampleinfo_sha256": _sha256(sampleinfo),
-        "config_sha256": _sha256(config_path),
-        "barcode_sha256": _sha256(barcode_path),
-        "files": files,
+        "samples": samples,
     }
     fingerprint = hashlib.sha256(
         json.dumps(fingerprint_source, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -183,12 +149,13 @@ def _lock_batch_submission(session: Session, batch: str) -> None:
 def create_gatk_submission_preview(
     *, session: Session, settings, source_project_dir: str, owner_username: str
 ) -> dict[str, Any]:
-    source = _within(
-        Path(source_project_dir), list(settings.gatk_source_roots), label="source_project_dir"
-    )
-    if not source.is_dir() or source.is_symlink():
+    requested_source = Path(source_project_dir)
+    if not requested_source.is_absolute():
+        raise ValueError("source_project_dir must be absolute")
+    source = requested_source.resolve(strict=True)
+    if not source.is_dir():
         raise ValueError("source_project_dir must be a real directory")
-    evidence = _read_source(source, list(settings.gatk_fastq_roots))
+    evidence = _read_source(source)
     now = datetime.now(timezone.utc)
     draft = PipelineSubmissionDraft(
         draft_id=f"gatk-draft-{secrets.token_hex(12)}",
@@ -207,9 +174,9 @@ def create_gatk_submission_preview(
             "fastq_total_bytes": evidence["fastq_total_bytes"],
             "samples": evidence["samples"],
             "validation": {
-                "sample_sets_match": True,
-                "fastq_pairs_complete": True,
-                "paths_approved": True,
+                "source_directory_readable": True,
+                "scmc_sampleinfo_present": True,
+                "scmc_samples_present": True,
             },
         },
         created_at=now,
@@ -240,7 +207,7 @@ def _request_payload(*, settings, draft: PipelineSubmissionDraft, run: AnalysisR
         "attempt": 1,
         "generation": 1,
         "source_project_dir": draft.input_root,
-        "approved_source_roots": list(settings.gatk_source_roots),
+        "approved_source_roots": [draft.input_root],
         "approved_fastq_roots": list(settings.gatk_fastq_roots),
         "approved_output_roots": [str(node_root / "runs")],
         "output_root": str(output_root),
@@ -291,9 +258,7 @@ def confirm_gatk_submission(
     if preview_hash != draft.input_fingerprint:
         raise GatkInputChanged("GATK preview hash does not match the draft")
     try:
-        current = _read_source(
-            Path(draft.input_root), list(settings.gatk_fastq_roots)
-        )
+        current = _read_source(Path(draft.input_root))
     except (OSError, ValueError) as exc:
         raise GatkInputChanged(f"GATK inputs changed after preview: {exc}") from exc
     if current["fingerprint"] != draft.input_fingerprint:

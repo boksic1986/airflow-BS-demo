@@ -99,12 +99,12 @@ it("previews and confirms a locked GATK Cloud project", async () => {
       profile_id: "gatk-scmc-v7.6.0",
       profile_revision: "bd04f6d",
       batch: "20260908A",
-      sampleinfo_name: "WES_20260908A_T7.sampleinfo.txt",
+      sampleinfo_name: "WES_20260908A_T7.sampleinfo.SCMC.txt",
       sample_count: 2,
       fastq_file_count: 4,
       fastq_total_bytes: 4294967296,
       samples: ["SCMC001", "SCMC002"],
-      validation: {sample_sets_match: true, fastq_pairs_complete: true, paths_approved: true},
+      validation: {source_directory_readable: true, scmc_sampleinfo_present: true, scmc_samples_present: true},
       expires_at: "2026-09-08T12:30:00Z",
     });
     if (url.endsWith("/api/runs")) return json({analysis_id: "GATK_20260908_120000_A1B2C3", pipeline: "gatk", status: "submitted"});
@@ -114,10 +114,10 @@ it("previews and confirms a locked GATK Cloud project", async () => {
   render(<App />);
 
   expect(await screen.findByRole("heading", {name: "Submit GATK Cloud"})).toBeInTheDocument();
-  expect(screen.getByText(/SCMC samples are selected from sampleinfo/)).toBeInTheDocument();
+  expect(screen.getByText(/sampleinfo.SCMC.txt/)).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("WES project directory"), {target: {value: "/sg2/21.lijing/WES_Clinical/WES_20260908A_T7_V7.6.0_hg38"}});
   fireEvent.click(screen.getByRole("button", {name: "Preview project"}));
-  expect(await screen.findByText("WES_20260908A_T7.sampleinfo.txt")).toBeInTheDocument();
+  expect(await screen.findByText("WES_20260908A_T7.sampleinfo.SCMC.txt")).toBeInTheDocument();
   expect(screen.getByText("SCMC001")).toBeInTheDocument();
   expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", {name: "Confirm and submit"}));

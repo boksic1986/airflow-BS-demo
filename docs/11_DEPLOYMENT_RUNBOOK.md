@@ -130,9 +130,11 @@ Rollback by repointing `current` to the preceding physical release and recreatin
    and set mode 0600.
 3. Verify the GATK repository is exactly the approved release and the pinned
    Master image provides the `rule-status` logger contract.
-4. Verify the backend has same-path read-only mounts for every approved FASTQ
-   root. The initial deployment requires both `/sg2/T7new/result1/OutputFq`
-   and `/bi/fastq/T7_Fastq` because existing `a.raw` links use both spellings.
+4. Verify the backend mounts `/sg2` read-only. GATK Preview may accept projects
+   owned by any team but must open only the exact
+   `<batch-prefix>.sampleinfo.SCMC.txt`; confirmation freezes that project as
+   the runtime request's only approved source root. Keep any separate FASTQ
+   roots read-only for runtime compatibility.
 5. Run preview/prepare, CCE dry-run and logger smoke before any real transfer.
 6. Execute one controlled SCMC Step1-Step6 smoke. Confirm source FASTQ hashes,
    terminal rule evidence and the materialized result root.
