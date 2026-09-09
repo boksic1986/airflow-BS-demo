@@ -1,5 +1,35 @@
 # TASKS.md
 
+## T245 - GATK immutable-release prepare recovery
+
+Owner: GATK/runtime/Airflow/deployment/docs
+
+Status: completed in BS10610 test environment; Step1 running
+
+Acceptance:
+- [x] Start `airflow_handoff.py` from any working directory.
+- [x] Resolve repository-relative profile/runtime files against the immutable GATK release.
+- [x] Add the cce-pipeline 0.8.3 shared-permission contract for `bioinfo`.
+- [x] Remove the obsolete 0.8.2 `obs.download_parallelism` test-runtime field.
+- [x] Rerun `20260823A` Prepare with the `_hg38.sampleinfo.txt` input and enter Step1.
+
+Safety:
+- Only the failed test analysis control directory was removed before rerun.
+- Source WES data, PostgreSQL volumes, OBS credentials and unrelated workflows were not changed.
+
+## T244 - GATK prepare rerun generation fencing
+
+Owner: Airflow/runtime/QA/docs
+
+Status: completed in BS10610 test environment
+
+Acceptance:
+- [x] Propagate the backend generation from `bio_gatk` to the node200 forced command.
+- [x] Allow Prepare to reuse its immutable request while creating a new runtime generation.
+- [x] Prevent stale failed status from an older generation from satisfying a retry sensor.
+- [x] Persist the child process stderr/stdout tail as the actionable stage error.
+- [x] Keep the legacy no-generation forced-command invocation compatible.
+
 ## T243 - GATK cross-owner SCMC project discovery
 
 Owner: GATK/backend/frontend/deployment/docs

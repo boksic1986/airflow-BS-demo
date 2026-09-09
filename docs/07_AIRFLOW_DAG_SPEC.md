@@ -19,6 +19,12 @@ forced-command runtime and `gatk_cce_runs` pool. Step1/Step5 share the existing
 directional OBS pools and leases with WGS; GATK does not consume the WGS heavy
 work-pod quota.
 
+Each runner task passes the stage generation returned by the backend to the
+forced-command runtime. Prepare retries reuse the immutable generation-1 input
+request but write a new generation-specific status; older failed sidecars cannot
+satisfy the sensor. Child-process stderr/stdout tails are retained in the stage
+status for operator diagnosis.
+
 Airflow tasks remain project-level. Snakemake rule/sample events come from the
 GATK `rule-status` logger and are not expanded into Airflow tasks.
 

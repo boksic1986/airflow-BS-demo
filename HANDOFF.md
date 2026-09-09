@@ -1,5 +1,27 @@
 # HANDOFF.md
 
+## 2026-09-09 T244/T245 GATK Prepare rerun recovery
+
+The `20260823A` rerun exposed three sequential Prepare compatibility defects:
+the immutable GATK entry could not import from a non-repository cwd, its profile
+paths were still cwd-relative, and the GATK profile/operator config predated the
+cce-pipeline 0.8.3 permission and unified-transfer schema. These are corrected
+without changing the source WES project.
+
+Airflow commits are `c9bb1ac`, `f932f0c` and `25f7041` on
+`jiucheng/gatk/T244-gatk-prepare-rerun`. GATK commits are `5c6336c`, `9f6824f`
+and `6bed61e` on `jiucheng/gatk/T245-handoff-entrypoint`. BS10610 current points
+to `releases/20260909-t244-gatk-prepare-rerun-25f7041`; node200 uses GATK
+release `6bed61e` and the nipttest cce-pipeline 0.8.3 environment.
+
+Validation: GATK tests passed 13; Airflow gate/DAG tests passed 14; Compose
+config passed; Airflow import errors are empty. Prepare generation 7 succeeded
+for 14 samples/28 FASTQ and Airflow entered `wait_step1_upload`. Step1 remains
+active and must not be cleared or have its transfer lease released while it is
+running. The exact test control output from failed Prepare generations was only
+26 KiB and was removed as explicitly approved; no source FASTQ or database
+volume was removed.
+
 ## 2026-09-09 T243 GATK SCMC project discovery completed
 
 GATK Preview no longer assumes that every source project belongs to

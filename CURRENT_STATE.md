@@ -1,5 +1,21 @@
 # CURRENT_STATE.md
 
+## 2026-09-09 T244/T245 GATK Prepare rerun recovery
+
+`bio_gatk` now passes each registered stage generation to node200, so clearing
+Prepare cannot reuse a stale terminal sidecar. The runtime gate also projects
+the captured child-process error instead of a generic return-code message.
+
+GATK release `6bed61e` is active on node200. Its handoff entry is independent
+of the caller working directory, resolves frozen profile files from the release
+root and provides the cce-pipeline 0.8.3 shared-permission contract. The test
+operator config uses the unified 0.8.3 upload parallelism field.
+
+`GATK_20260909_071908_F45CF7` Prepare generation 7 succeeded from
+`WES_20260823A_T7_hg38.sampleinfo.txt` with 14 samples and 28 FASTQ files. The
+business projection is now `running / step1_upload`; the prior Step6 label was
+stale state from the failed downstream cleanup chain, not executed Step6 work.
+
 ## 2026-09-09 T243 GATK SCMC project discovery released to BS10610
 
 ```text

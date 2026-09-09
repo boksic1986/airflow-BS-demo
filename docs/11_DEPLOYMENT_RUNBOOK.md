@@ -131,9 +131,11 @@ Rollback by repointing `current` to the preceding physical release and recreatin
 3. Verify the GATK repository is exactly the approved release and the pinned
    Master image provides the `rule-status` logger contract.
 4. Verify the backend mounts `/sg2` read-only. GATK Preview may accept projects
-   owned by any team but must open only the exact
-   `<batch-prefix>.sampleinfo.SCMC.txt`; confirmation freezes that project as
-   the runtime request's only approved source root. Keep any separate FASTQ
+   owned by any team; confirmation freezes that project as the runtime request's
+   only approved source root. Runtime input selection prefers
+   `<batch-prefix>_hg38.sampleinfo.txt`, then the SCMC and legacy sampleinfo
+   names. Source project versions may be V7.6.x-V7.7.x, while the execution
+   profile remains the separately validated `gatk-scmc-v7.6.0`. Keep FASTQ
    roots read-only for runtime compatibility.
 5. Run preview/prepare, CCE dry-run and logger smoke before any real transfer.
 6. Execute one controlled SCMC Step1-Step6 smoke. Confirm source FASTQ hashes,
