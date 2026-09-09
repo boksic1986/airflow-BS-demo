@@ -1,5 +1,48 @@
 # HANDOFF.md
 
+## 2026-09-10 T252 obsolete worktree retirement handoff
+
+```text
+branch: jiucheng/ops/T252-retire-obsolete-worktrees
+baseline: origin/main@3ec7266d5e88bff0f21db483e2ab58dadf8208af
+runtime_environment: none; local Git and filesystem metadata only
+```
+
+The user explicitly retired the old local work and identified T193 as belonging
+to the wrong development direction. T193's 11 tracked changes and four
+untracked paths were discarded through an exact allowlist. The root checkout
+was then switched from T193 to clean `main`.
+
+T210, T213 and T222 worktrees and branches were removed. T210 and T222 contained
+unique local commits, but their deletion was authorized as part of retiring the
+old work. The temporary T249 linked main worktree was removed because the root
+checkout now owns main.
+
+All 20 remaining unattached local branches had no worktree and no open GitHub
+PR and were deleted. Remote T236 was deleted after `git cherry` reported zero
+unique patches and one patch equivalent to main. Other remote branches with
+unique patches remain as temporary recovery references pending confirmation
+that their WGS/GATK/cce-pipeline owner repositories contain the required work.
+
+Final local Git layout before this documentation PR:
+
+- `D:/pipeline/airflow-demo`: clean main;
+- `D:/pipeline/airflow-demo-worktrees/T220-main-sync`: active dirty T242.
+
+Empty T166, T211 and T248 residual directories were deleted. Valid clean
+bundle-backed repositories `T197-cce-pipeline-repo` and
+`T244-gatk-scmc-runtime` were preserved because they are independent repositories,
+not airflow-demo worktrees. Other nonempty unregistered directories need a
+separate disk-only review.
+
+No server/runtime/data action occurred. Next, finish or hand off T242, then
+verify cross-repository history before deleting the remaining unique remote
+task branches.
+
+Rollback: main and active T242 are unchanged. Deleted local-only old commits can
+only be recovered from Git reflogs; this is intentional under the user's explicit
+retirement decision. Remote-backed unique branches remain available.
+
 ## 2026-09-10 T251 dirty worktree triage handoff
 
 ```text
