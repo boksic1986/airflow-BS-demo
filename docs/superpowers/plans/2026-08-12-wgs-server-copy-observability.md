@@ -115,7 +115,7 @@
 - Local modify: `frontend/src/WgsProductionUi.test.tsx`
 - Local modify: `docs/05_API_CONTRACT.md`
 - Local modify: `docs/06_FRONTEND_SPEC.md`
-- Local modify: `docs/08_SNAKEMAKE_QSUB_INTEGRATION.md`
+- Historical target renamed by T247: `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`
 
 **Interfaces:**
 - Run detail adds `pipeline_snapshot_id`, `rule_event_schema_version`, and `observer` freshness/error.

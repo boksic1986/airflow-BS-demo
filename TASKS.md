@@ -1,5 +1,31 @@
 # TASKS.md
 
+## T247 - Environment boundary, legacy cleanup and Docker governance
+
+Owner: platform/infra/docs/QA
+
+Status: completed; production auto-dispatch policy drift remains explicitly gated
+
+Acceptance:
+- [x] Fix `ssh BS10610` as test and `ssh BS96` as production, including URLs, control roots, pipelines, data roots and permission checks.
+- [x] Record the production scanner/auto-dispatch/watermark contract separately from live observed state.
+- [x] Replace active qsub-era skill, integration and agent documents with WGS/GATK workflow-runtime ownership.
+- [x] Remove the reviewed obsolete combined design and mutating smoke script while retaining Alembic history and hygiene regression coverage.
+- [x] Create `archive/pre-t247-wgs-gatk-boundary-20260909` as the recovery point.
+- [x] Define environment-specific image keep sets and offline BS-local build rules.
+- [x] Run inventory, allowlist diff, exact cleanup and post-inventory on BS10610, BS96 and fengxian.
+- [x] Preserve every running container, Docker volume/network, generic base image and non-Airflow project asset.
+- [x] Save before/after inventories, exact delete lists and SHA-256 evidence on each host.
+- [x] Validate the exact T247 archive on BS10610: 353 backend tests collected, 62 frontend tests discovered and zero Airflow DAG import errors.
+- [x] Pass manifest/path, retired-reference, secret-pattern, Markdown-link, health and post-cleanup container checks.
+
+Remaining gate:
+- Production currently reports `WGS_INTAKE_SCAN_ENABLED=true` and `WGS_AUTO_DISPATCH_ENABLED=false`. Enabling dispatch is an analysis-policy change and needs a separate explicit rollout with a fresh not-before watermark.
+
+Safety:
+- No database, FASTQ, result, business log, volume, network, running workflow or non-Airflow image was deleted.
+- No unfiltered Docker prune command was used.
+
 ## T241 - WGS obsutil checkpoint progress restoration
 
 Owner: Airflow/frontend/QA

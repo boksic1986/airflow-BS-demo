@@ -15,13 +15,15 @@ Read context
 ## 2. 开始任务 checklist
 
 - [ ] 读取 `AGENTS.md`。
+- [ ] 读取 `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`。
 - [ ] 读取 `CURRENT_STATE.md`。
 - [ ] 读取 `TASKS.md`。
 - [ ] 读取任务相关 docs。
 - [ ] 检查 git status。
 - [ ] 检查 `git remote -v`，确认 `origin` 指向 `git@github.com:boksic1986/airflow-BS-demo.git`。
 - [ ] 检查当前分支；默认开发分支为 `main`，功能分支按任务需要从 `main` 创建。
-- [ ] 确认不修改生产数据。
+- [ ] 声明目标是 `test` 或 `production`，核对 SSH alias、hostname、control root、current 和实际容器挂载。
+- [ ] 确认测试验收不会被当作生产发布授权。
 - [ ] 确认运行时测试将在远端执行；本地只做编辑、Git 和文档一致性检查。
 - [ ] 确认任务 ID 和验收标准。
 
@@ -35,6 +37,7 @@ Read context
 - [ ] 更新相关 docs。
 - [ ] 写入 `HANDOFF.md`。
 - [ ] 在 `HANDOFF.md` 记录当前 branch、commit、dirty files 和 remote。
+- [ ] 记录目录权限、scanner/dispatch、变更与保留的服务和 Docker keep/delete 清单。
 - [ ] 给出下一步建议。
 
 ## 4. 失败时行为

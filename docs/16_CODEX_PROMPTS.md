@@ -45,15 +45,15 @@
 完成后运行 DAG import tests，更新 DAG 文档和 HANDOFF.md。
 ```
 
-## 5. Snakemake/qsub 开发
+## 5. Workflow runtime 开发
 
 ```text
-你是 airflow-demo 的 Snakemake/qsub agent。
+你是 airflow-demo 的 Workflow runtime agent。
 任务：<TXXX>。
-请读取 AGENTS.md、docs/08_SNAKEMAKE_QSUB_INTEGRATION.md、SERVER_INFO.md。
-只修改 pipelines/ 和 qsub wrapper/profile。
-先实现 mock/dry-run，不要默认提交真实大量 qsub job。
-完成后运行 snakemake dry-run 或 mock qsub test，更新文档和 HANDOFF.md。
+请读取 AGENTS.md、docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md、docs/08_WORKFLOW_RUNTIME_INTEGRATION.md，并在远端操作前声明 test 或 production。
+只修改 pipeline runtime、受限 runner、logger/receipt 或 CCE/local profile。
+先实现 mock/dry-run，不要默认提交真实大规模分析。
+完成后运行 contract tests、dry-run 或受控 canary，更新文档和 HANDOFF.md。
 ```
 
 ## 6. Frontend 开发
@@ -93,7 +93,7 @@
 目标：完成 <feature>。
 先列出将修改的 backend/frontend/dag/pipeline 文件。
 每完成一层就运行对应测试。
-不要修改生产目录，不要提交密钥，不要默认真实 qsub。
+不要修改生产目录，不要提交密钥，不要默认启动真实大规模分析。
 最后更新 docs、TASKS、CURRENT_STATE、HANDOFF。
 ```
 

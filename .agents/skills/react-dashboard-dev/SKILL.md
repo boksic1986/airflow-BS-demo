@@ -6,6 +6,7 @@ description: Develop React frontend for airflow-demo. Use for dashboard, submit 
 ## Required reading
 
 - `AGENTS.md`
+- `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`
 - `docs/06_FRONTEND_SPEC.md`
 - `docs/05_API_CONTRACT.md`
 
@@ -17,6 +18,7 @@ description: Develop React frontend for airflow-demo. Use for dashboard, submit 
 4. Tail logs instead of loading huge files.
 5. Failed rule should default to stderr view.
 6. Update UI spec if behavior changes.
+7. Verify the environment badge and capabilities against the selected host; similar UI does not prove test and production run the same release.
 
 ## Do not
 

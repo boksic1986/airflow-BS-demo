@@ -1,5 +1,48 @@
 # SERVER_INFO.md
 
+## T247 authoritative environment inventory (2026-09-09)
+
+Current selection rules are in `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`.
+Entries below this section are dated evidence and must not select a target host.
+
+```text
+test_ssh: ssh BS10610
+test_hostname: server10610
+test_url: http://172.17.106.10:12959
+test_control_root: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS
+test_current: releases/20260909-t246-gatk-tracker-f38156c
+test_pipelines: wgs,gatk
+test_scan: false
+test_auto_dispatch: false
+test_wgs_analysis: /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical
+test_wgs_runtime_host: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime
+test_wgs_runtime_node: /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime
+test_gatk_result: /sg2/33.chenjiucheng/wgs_test/WES_Clinical
+test_gatk_runtime: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-gatk/runtime
+test_cleanup_evidence: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T247-docker-governance-20260909
+
+production_ssh: ssh BS96
+production_hostname: server96
+production_url: http://172.17.61.96:12959
+production_control_root: /data/airflow-WGS
+production_current: releases/20260909-t241-obsutil-checkpoint-r1
+production_source_commit: 85506f6d7f696c7f035f0781f78a3f325865c646
+production_pipelines: wgs
+production_scan_observed: true
+production_auto_dispatch_observed: false
+production_not_before_observed: 2026-09-03T21:36:11Z
+production_policy_target: scan=true, auto_dispatch=true, fresh approved not-before watermark
+production_identity: ctapa:bioinfo
+production_result: /sg2/50.ctapa/project/HWcloud/WGS_Clinical
+production_runtime: /sg2/50.ctapa/project/HWcloud/airflow-wgs/runtime
+production_fastq: /bi/fastq/T7_Fastq (read-only mount)
+production_cleanup_evidence: /data/airflow-WGS/backups/T247-docker-governance-20260909
+
+fengxian_state: running legacy airflow-demo:0.1.0 stack preserved
+fengxian_new_builds: prohibited
+fengxian_cleanup_evidence: /home/jiucheng/project/airflow-demo/.artifacts/T247-docker-governance-20260909
+```
+
 ## T240 Dashboard attention and Sample Information production sync (2026-09-09)
 
 ```text

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-本文件是 airflow-demo 仓库的 Codex/agent 项目指令。任何 agent 在执行任务前必须先阅读本文件、`CURRENT_STATE.md`、`TASKS.md`、相关 `docs/` 文档和最近的 `HANDOFF.md`。
+本文件是 airflow-demo 仓库的 Codex/agent 项目指令。任何 agent 在执行任务前必须先阅读本文件、`docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`、`CURRENT_STATE.md`、`TASKS.md`、相关 `docs/` 文档和最近的 `HANDOFF.md`。
 
 ## 1. 项目目标
 
@@ -9,7 +9,7 @@
 - 前端按已部署 adapter 提交分析任务。
 - 上传或填写样本清单。
 - Airflow 负责项目级 DAG 调度、状态追踪、邮件通知。
-- Snakemake 负责 rule/file dependency、qsub 并行、断点续跑。
+- Workflow runtime 负责 rule/file dependency、CCE/local 执行和断点续跑。
 - CCE、本地或未来 SGE 流程能够记录运行身份、stdout、stderr 和结构化证据。
 - 前端展示 Airflow DAG 状态、Snakemake rule 状态、QC 指标、正常日志和失败错误日志。
 - 支持失败后 resume 或针对部分 rule/sample 重分析，默认不重新跑全部流程。
@@ -22,11 +22,11 @@
 - 执行项目级步骤：校验、准备目录、生成配置、运行 pipeline、收集 QC、发送通知。
 - 管理重试、状态、任务日志、邮件通知。
 
-### Snakemake 负责
+### Workflow runtime 负责
 
 - 管理生信流程 rule、文件依赖和并行。
 - 根据已有输出决定跳过已完成步骤。
-- 使用 qsub profile 提交集群任务。
+- 使用 adapter 声明并校验 CCE、本地或未来 SGE 执行目标。
 - 生成 rule/job 级日志和事件。
 
 ### FastAPI 后端负责
@@ -64,8 +64,8 @@ agent 不得执行以下操作，除非用户明确授权且已在 `HANDOFF.md` 
 
 ## 4. 数据和隐私规则
 
-- demo 样本表必须使用 mock/sample 数据。
-- 真实路径可以写成占位符或写入本地未跟踪的 `SERVER_INFO.local.md`。
+- 仓库内 fixture 和样本表必须使用 mock/synthetic 数据。
+- 受控真实数据只能在环境边界文档批准的远端测试目录中使用，不进入 Git、构建上下文或测试证据正文。
 - 真实患者姓名、证件号、手机号、家系隐私、临床诊断信息不得进入仓库。
 - 测试数据只保留最小 FASTQ/mock FASTQ 或 synthetic records。
 - 大型参考文件、BAM、VCF、FASTQ 不进入 Git。
@@ -86,15 +86,15 @@ agent 不得执行以下操作，除非用户明确授权且已在 `HANDOFF.md` 
 推荐分支命名：
 
 ```text
-codex/<area>/<task-id>-<short-name>
+jiucheng/<area>/<task-id>-<short-name>
 ```
 
 示例：
 
 ```text
-codex/backend/T020-run-api
-codex/airflow/T030-wes-dag
-codex/frontend/T050-run-detail-page
+jiucheng/backend/T020-run-api
+jiucheng/airflow/T030-wgs-dag
+jiucheng/frontend/T050-run-detail-page
 ```
 
 ## 6. 工作粒度
@@ -106,11 +106,11 @@ codex/frontend/T050-run-detail-page
 - 修改接口时必须同步更新 `docs/05_API_CONTRACT.md`。
 - 修改数据库模型时必须同步更新 `docs/04_DATABASE_SCHEMA.md`。
 - 修改 DAG 时必须同步更新 `docs/07_AIRFLOW_DAG_SPEC.md`。
-- 修改 Snakemake/qsub 行为时必须同步更新 `docs/08_SNAKEMAKE_QSUB_INTEGRATION.md`。
+- 修改 workflow runtime 行为时必须同步更新 `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`。
 
 ## 7. 测试要求
 
-本地 `D:\pipeline\airflow-demo` 只作为编辑、Git 和文档维护工作区，不作为运行时测试环境。由于本地默认没有完整 Docker、Python、Snakemake、Airflow 和生信依赖，backend/frontend/DAG/Compose/Snakemake 的验收测试一律在远端开发节点执行，当前默认是 `ssh fengxian`。本地可以做非运行时检查，例如 `git status`、文档搜索、manifest 计数；不得把本地 pytest、docker compose、snakemake 或服务启动结果作为验收证据。
+本地 `D:\pipeline\airflow-demo` 只作为编辑、Git 和文档维护工作区，不作为运行时测试环境。远端测试默认使用 `ssh BS10610`；生产检查或发布只使用 `ssh BS96`，并且必须获得当次任务的明确生产授权。任何远端命令前先按 `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md` 核对 hostname、control root、current release、实际容器挂载和执行门禁。本地非运行时检查不能替代远端验收。
 
 根据改动类型执行：
 
@@ -119,7 +119,7 @@ codex/frontend/T050-run-detail-page
 前端改动: npm test 或 npm run lint
 DAG 改动: python -m py_compile dags/*.py + airflow dags list/import check
 Docker 改动: docker compose config
-Snakemake 改动: snakemake -n --printshellcmds 或 mock profile dry-run
+Workflow runtime 改动: mock/dry-run、logger/receipt contract test 或受控 canary
 文档改动: 检查链接、路径、任务 ID 和验收标准是否一致
 ```
 
@@ -160,14 +160,14 @@ stderr 摘要:
 下一步建议:
 ```
 
-对于 qsub/Snakemake 失败，必须尽量定位到：
+对于 workflow runtime 失败，必须尽量定位到：
 
 ```text
 analysis_id
 rule
 sample_id
 snakemake jobid
-qsub jobid
+runtime job/pod id
 stdout path
 stderr path
 最后 100 行错误摘要
@@ -191,7 +191,7 @@ stderr path
 - 新增 API：更新 `docs/05_API_CONTRACT.md`。
 - 新增 DB 表/字段：更新 `docs/04_DATABASE_SCHEMA.md`。
 - 新增 DAG task：更新 `docs/07_AIRFLOW_DAG_SPEC.md`。
-- 新增 rule 事件字段：更新 `docs/08_SNAKEMAKE_QSUB_INTEGRATION.md`。
+- 新增 rule 事件字段：更新 `docs/08_WORKFLOW_RUNTIME_INTEGRATION.md`。
 - 新增前端页面：更新 `docs/06_FRONTEND_SPEC.md`。
 
 ## 12. 交接要求
@@ -212,7 +212,7 @@ stderr path
 - Infra agent 负责 Docker、部署、服务器路径。
 - Backend agent 负责 FastAPI、DB、Airflow client。
 - Airflow agent 负责 DAG 和 Airflow 配置。
-- Snakemake agent 负责 Snakefile、qsub profile、logger/qsub wrapper。
+- Workflow agent 负责 Snakefile、CCE/local profile、logger、receipt 和 restricted runner。
 - Frontend agent 负责 React 页面和 API client。
 - QA agent 负责测试、smoke、验收和失败复现。
 - Docs agent 负责文档一致性。
