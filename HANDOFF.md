@@ -1,5 +1,48 @@
 # HANDOFF.md
 
+## 2026-09-10 T242 WGS 4.2.0 control-plane production release
+
+T242 is deployed for new WGS submissions. Production serves frontend image
+`airflow-demo/frontend:t242-wgs420-5dc5023`; `/api/health` returns `ok`, and
+`current` points to
+`/data/airflow-WGS/releases/20260910-t242-wgs-420-control-plane-r2`.
+
+The Airflow runtime now selects the already installed nipttest
+`cce-pipeline 0.8.3` and does not inspect Git or revalidate pipeline/profile
+contents. Published source/profile hashes remain catalog evidence. A historical
+run can continue from its frozen binding; historical reprepare without one is
+blocked so mutable source cannot silently change old execution semantics.
+
+The 4.2 prepare handoff uses 0700 generation directories and 0600 request,
+manifest and pending-input files. Backend receipt projection imports selected
+samples before pending decisions, preserving mixed-batch pending rows and their
+privacy-safe reason text.
+
+Validation and deployment evidence:
+
+- pre-fix focused gate tests: 3 failed as expected;
+- post-fix gate tests: 3 passed;
+- backend mixed receipt plus decision projection: 2 passed;
+- prior complete T242 suites: script 76 passed, backend 357 passed/1 skipped,
+  frontend 17 files/61 tests, offline build passed;
+- production activation: zero active runs, zero transfer leases, automatic
+  dispatch false; no sample was submitted;
+- live health and frontend root passed; non-target scanner, Airflow, telemetry,
+  PostgreSQL and Redis container IDs were unchanged.
+
+All T242 evidence is under
+`/sg2/50.ctapa/project/HWcloud/WGS_test/cce-evidence/T242-wgs-420-control-plane-20260909`.
+The first direct remote Python test command failed because system Python lacks
+pytest; cached backend Docker tests were then used. A node200 syntax check first
+used its old system Python and stopped before installation; rerunning with the
+specified nipttest Python succeeded. Intermittent jump-host banner resets were
+retried without changing state.
+
+Rollback restores
+`/home/ctapa/.config/airflow-wgs/backups/T242-wgs-420-20260910/wgs_runtime_gate.py.before-r2`,
+repoints `current` to the r1 T242 release, and recreates only backend,
+wgs-run-observer and frontend-nginx. Production data and volumes are untouched.
+
 ## 2026-09-09 T241 WGS obsutil checkpoint progress production release
 
 T241 is implemented, synchronized to `main` and deployed. New WGS Step1 and

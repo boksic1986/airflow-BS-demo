@@ -7,6 +7,12 @@ dispatch disabled, preserve the 4.1.1 release mapping, and select the validated
 nipttest cce-pipeline 0.8.3. Production results remain under the ctapa
 WGS_Clinical root. Do not use Step7 or Step8 as an activation probe.
 
+Runtime execution does not invoke Git and does not revalidate pipeline/profile
+contents; release replacement and its published evidence are operator-owned.
+The gate verifies only that the configured cce-pipeline executable exists and
+reports the run-bound adapter version. Existing historical frozen bindings are
+reusable, but historical reprepare without a binding is rejected.
+
 ## T240 rollout boundary
 
 T240 changes backend projections and frontend presentation only. Validate the

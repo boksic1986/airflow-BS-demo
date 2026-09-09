@@ -4,7 +4,9 @@
 
 The DAG shape is unchanged. New 4.2 prepare stages use generation-scoped
 handoff requests and validate receipt identity, artifact keys, and hashes.
-Historical 4.1.1 runs continue to use their run-bound repository.
+Historical 4.1.1 runs continue from an existing frozen binding; unfrozen
+historical reprepare is rejected. The adapter does not inspect Git or validate
+pipeline/profile contents at runtime.
 
 ## Generic contract
 

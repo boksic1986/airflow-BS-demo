@@ -1,5 +1,18 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T242 WGS 4.2.0 control-plane production release
+
+```text
+scope: switch new WGS submissions to the operator-validated 4.2.0 release and adapt the Airflow/backend prepare boundary. Production result output remains /sg2/50.ctapa/project/HWcloud/WGS_Clinical. No pipeline content validation or formal sample submission was performed by Codex.
+runtime: node200 uses /sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/cce-pipeline 0.8.3. The runtime gate checks only adapter availability/version; profile and source hashes remain published evidence rather than runtime pipeline gates. Historical runs remain readable and can reuse an existing frozen binding, while an unfrozen 4.1.1 reprepare fails closed.
+handoff: generation-scoped prepare artifacts are private (directory 0700, request/manifest/pending input 0600). Mixed selected/pending receipts import the final selected table first and pending decisions second so pending samples are retained with privacy-safe reasons.
+validation: initial gate regressions failed 3/3 before the hardening patch, then passed 3/3. Backend mixed-receipt and decision projection tests passed 2/2. The preceding complete T242 validation passed 76 script tests, backend 357 passed/1 skipped, frontend 17 files/61 tests and an offline production build.
+deployment: current points to /data/airflow-WGS/releases/20260910-t242-wgs-420-control-plane-r2 at source c9dc58c. Frontend is airflow-demo/frontend:t242-wgs420-5dc5023 (sha256:9b7ec6143919a4af115d3c14239a21f6de78773f8ec2068f4a464063441d4ed). Backend and observer load the r2 source mount; public /api/health is ok.
+safety: activation began and ended with zero active runs and zero transfer leases. WGS_AUTO_DISPATCH_ENABLED remains false. Scanner, Airflow, metrics, PostgreSQL and Redis retained their container IDs; no workflow, database row, SFS directory or OBS object was created or changed.
+evidence: /sg2/50.ctapa/project/HWcloud/WGS_test/cce-evidence/T242-wgs-420-control-plane-20260909. Node gate backup is /home/ctapa/.config/airflow-wgs/backups/T242-wgs-420-20260910/wgs_runtime_gate.py.before-r2.
+rollback: restore the node gate backup, repoint current to /data/airflow-WGS/releases/20260910-t242-wgs-420-control-plane-r1 and recreate only backend, wgs-run-observer and frontend-nginx. Do not remove volumes or production data.
+```
+
 ## 2026-09-09 T241 WGS obsutil checkpoint progress production release
 
 ```text

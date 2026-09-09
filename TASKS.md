@@ -4,17 +4,17 @@
 
 Owner: platform/backend/Airflow/frontend/QA
 
-Status: in progress
+Status: completed in production
 
 Acceptance:
-- [ ] Make `wgs-4.2.0-b067c72` the release for new submissions with immutable profile and CLI evidence.
-- [ ] Preserve allowlisted 4.1.1 historical release resolution.
-- [ ] Use the 4.2.0 immutable prepare handoff and import privacy-safe pending reasons.
-- [ ] Select and verify the existing nipttest cce-pipeline 0.8.3 on node200
+- [x] Make `wgs-4.2.0-b067c72` the release for new submissions with published profile and CLI evidence.
+- [x] Preserve 4.1.1 historical status and frozen-binding execution while blocking unfrozen reprepare.
+- [x] Use the 4.2.0 immutable prepare handoff and import privacy-safe pending reasons.
+- [x] Select and verify the existing nipttest cce-pipeline 0.8.3 on node200
   with rollback copies of the runtime configuration.
-- [ ] Keep exact QCstat precedence and expose the updated release in the UI/API.
-- [ ] Pass remote cached/offline regressions and production smoke checks.
-- [ ] Keep automatic dispatch disabled and do not submit a formal batch.
+- [x] Keep exact QCstat precedence and expose the updated release in the UI/API.
+- [x] Pass remote cached/offline regressions and production smoke checks.
+- [x] Keep automatic dispatch disabled and do not submit a formal batch.
 
 Safety:
 - No formal WGS run, Step7 cleanup, Step8 delivery, database migration, or OBS/SFS data mutation.
