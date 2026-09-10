@@ -2,6 +2,9 @@
 
 ## T255 Current Master Heavy I/O integration and SWR release
 
+- [x] Follow-up simple SFS validation:3retained batches, readonlynewimage cloud probes and modelhash verified; no analysis submitted.
+- [ ] Recovery acceptance: align newWGS31de5fb/catalog/frozen configs, validate907C/908A reuse and908B pedigree conflict before selecting resume set. Livequota saturation/UI monitoring acceptance remains separate and incomplete.
+
 - [x] Follow-up user request: upgrade nipttest package via BS to0.8.3.post1 offline, preserving Python/dependencies and paused workflow policy; CLI/import verification passed.
 
 Status: image, WGS r2 and Airflow activation completed with user-provided ctapa key; workflows remain paused. Real cloud saturation acceptance awaits separately authorized resume.
