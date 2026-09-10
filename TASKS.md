@@ -2,6 +2,8 @@
 
 ## T255 Current Master Heavy I/O integration and SWR release
 
+- [x] Follow-up user request: upgrade nipttest package via BS to0.8.3.post1 offline, preserving Python/dependencies and paused workflow policy; CLI/import verification passed.
+
 Status: image, WGS r2 and Airflow activation completed with user-provided ctapa key; workflows remain paused. Real cloud saturation acceptance awaits separately authorized resume.
 
 - [x] Integrate/review current executor0.6.4+biosan5 and CCE0.8.3.post1; preserve current behavior.

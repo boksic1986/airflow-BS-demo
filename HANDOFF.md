@@ -1,5 +1,9 @@
 # HANDOFF.md
 
+## 2026-09-10 nipttest upgraded through BS on explicit user request
+
+User explicitly requests updating nipttest to0.8.3.post1 via BS. SSH BS verified node005, chenjc UID6708 and ownership of `/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest`. Existing CLI0.8.3; validated wheel SHA256a9175d375538fe270c0f9f0a7bcb1a3d6e8b06e5286b4a90983b3f9b7d28d626 from ctapa T255 evidence. Executed nipttest Python `-m pip install --no-index --no-deps --upgrade <verified wheel>`; exit0, removed old0.8.3 package and installed0.8.3.post1. CLI --version and importlib.metadata assertion passed; imported module is nipttest/lib/python3.9/site-packages/cce_pipeline/__init__.py. Python and other dependencies unchanged. Independent ctapa CLI remains installed and selected in production runtime.env; both installations now same version. No service restart, frozen-bundle rewrite, workflow resume/reset/rerun or data change. This supersedes previous instructions to retain nipttest0.8.3. Package rollback would require deliberate reinstall of a verified0.8.3 wheel; do not downgrade automatically.
+
 ## 2026-09-10 T255 legacy batch version policy clarification
 
 User directs legacy batches to use the new cce-pipeline too, while907D upload completes without subsequent automatic analysis. Read-only live check confirms907D upload running and bio_wgs paused=true, scanner exited. Exact907D attempt2 binding is runtime/runs/WGS_20260909_193702_44561E/attempt-2/batch-binding.json; bundle is ctapa WGS_Clinical/WGS_20260907D_T7Hg38V4.2.0/cce. Step1 wrapper freezes nipttest/bin/python3.9 but runs bundle-local cce_batch_runtime.py; normal imports are standalone/PyYAML, not installed cce_pipeline (there is a later delivery fallback import). Thus current obsutil upload is NOT sufficient evidence that the installed nipttest cce-pipeline package must remain. Previous explanation conflated Python interpreter with package dependency.
