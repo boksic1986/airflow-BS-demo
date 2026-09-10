@@ -34,6 +34,7 @@ from app.gatk_submission_service import (
 )
 from app.gatk_runtime_service import (
     finalize_gatk_run,
+    mark_gatk_dag_failed,
     register_gatk_stage,
     sync_gatk_stage_status,
 )
@@ -74,7 +75,7 @@ from app.auth_service import (
     require_role,
     revoke_session,
 )
-from app.wgs_platform_service import WgsPreparedArtifactPending, action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run, sync_prepared_samples, sync_sampleinfo_preview
+from app.wgs_platform_service import WgsPreparedArtifactPending, action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run, sync_prepared_samples, sync_prepare_handoff_decisions, sync_sampleinfo_preview
 from app.wgs_release_catalog import load_wgs_release_catalog
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunValidationIssue, Sample, TransferFileState, TransferJob, UserAccount, WgsExecutionDispatch, WgsStageExecution
 from app.wgs_timing_service import serialize_rule_states
@@ -314,6 +315,13 @@ class GatkRuntimeStageRequest(BaseModel):
     adapter: str = Field(pattern="^gatk-runtime-200$")
 
 
+class GatkDagTerminalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    attempt: int = Field(ge=1)
+    status: str = Field(pattern="^failed$")
+    failed_task_ids: list[str] = Field(default_factory=list, max_length=64)
+
+
 class WgsObserverLifecycleRequest(BaseModel):
     attempt: int = Field(ge=1)
 
@@ -439,6 +447,12 @@ def current_wgs_release() -> dict[str, object]:
         "release_id": release.release_id,
         "version": release.version,
         "source_commit": release.source_commit,
+        "profile_id": release.profile_id,
+        "profile_revision": release.profile_revision,
+        "profile_sha256": release.profile_sha256,
+        "cce_pipeline_version": release.cce_pipeline_version,
+        "pipeline_build_sha256": release.pipeline_build_sha256,
+        "resource_manifest_sha256": release.resource_manifest_sha256,
         "execution_enabled": _wgs_platform_execution_enabled(),
         "runtime_adapter_enabled": _wgs_runtime_adapter_enabled(),
         "submission_preview_enabled": _wgs_submission_preview_enabled(),
@@ -1750,14 +1764,18 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 )
             params = dict(run.params_json or {})
             release_id = str(params["pipeline_release_id"])
-            release = load_wgs_release_catalog(
+            catalog = load_wgs_release_catalog(
                 Path(get_settings().wgs_release_catalog_path)
-            ).release
+            )
+            try:
+                release = catalog.by_id(release_id)
+            except ValueError as exc:
+                raise ValueError(
+                    "release_unavailable: run WGS release is not cataloged"
+                ) from exc
             if stage_name in {"prepare", "prepare_sampleinfo", "prepare_analysis"}:
-                if release.release_id != release_id:
-                    raise ValueError("release_unavailable: run WGS release is not current")
                 if str(params.get("wgs_source_commit") or "") != release.source_commit:
-                    raise ValueError("release_unavailable: run WGS commit is not current")
+                    raise ValueError("release_unavailable: run WGS commit does not match its catalog release")
             if stage_name in {"acquire_input_transfer_slot", "acquire_result_transfer_slot"}:
                 transfer_kind = "input" if stage_name == "acquire_input_transfer_slot" else "result"
                 transfer_id = f"{analysis_id}-a{request.attempt}-{transfer_kind}"
@@ -2095,6 +2113,13 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 analysis_batch=str(params.get("analysis_batch") or "") or None,
                 validation_scope=str(params.get("validation_scope") or "") or None,
                 maintenance_action_id=request.maintenance_action_id,
+                profile_id=release.profile_id,
+                profile_revision=release.profile_revision,
+                profile_sha256=release.profile_sha256,
+                node200_profile_path=release.node200_profile_path,
+                cce_pipeline_version=release.cce_pipeline_version,
+                pipeline_build_sha256=release.pipeline_build_sha256,
+                resource_manifest_sha256=release.resource_manifest_sha256,
             )
             if step7_action is not None:
                 snapshot = dict(step7_action.target_snapshot_json or {})
@@ -2381,6 +2406,29 @@ def internal_gatk_stage_status(
 
 
 @app.post(
+    "/api/internal/gatk/runs/{analysis_id}/dag-terminal",
+    dependencies=[Depends(require_internal_service_token)],
+)
+def internal_gatk_dag_terminal(
+    analysis_id: str,
+    request: GatkDagTerminalRequest,
+) -> dict[str, object]:
+    try:
+        with get_sessionmaker()() as session:
+            return mark_gatk_dag_failed(
+                session=session,
+                analysis_id=analysis_id,
+                attempt=request.attempt,
+                failed_task_ids=request.failed_task_ids,
+            )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "GATK_DAG_TERMINAL_REJECTED", "message": str(exc)},
+        ) from exc
+
+
+@app.post(
     "/api/internal/wgs/runs/{analysis_id}/observer/activate",
     dependencies=[Depends(require_internal_service_token)],
 )
@@ -2430,6 +2478,14 @@ def internal_wgs_observer_deactivate(
         ) from exc
 
 
+def _post_prepare_submission_phase(
+    params: dict[str, object], review_phase: str
+) -> str:
+    if params.get("submission_mode") == "auto_dispatch":
+        return "approved"
+    return review_phase
+
+
 @app.get("/api/internal/wgs/runs/{analysis_id}/stage-status", dependencies=[Depends(require_internal_service_token)])
 def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=1), stage: str = Query(min_length=1)) -> dict[str, object]:
     if not _wgs_runtime_adapter_enabled():
@@ -2459,19 +2515,53 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
             run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.attempt == attempt))
             if run is not None:
                 params = dict(run.params_json or {})
+                handoff_receipt = payload.get("prepare_handoff_receipt")
+                handoff_required = (
+                    str(params.get("wgs_version") or "") == "V4.2.0"
+                    and stage in {"prepare_sampleinfo", "prepare_analysis"}
+                )
+                if handoff_required and not isinstance(handoff_receipt, dict):
+                    artifact_pending = True
+                    handoff_receipt = None
                 try:
-                    if stage == "prepare_sampleinfo":
+                    if artifact_pending:
+                        pass
+                    elif stage == "prepare_sampleinfo":
                         sync_sampleinfo_preview(session=session, settings=settings, run=run)
-                        params["submission_phase"] = "config_review"
+                        if isinstance(handoff_receipt, dict):
+                            sync_prepare_handoff_decisions(
+                                session=session,
+                                run=run,
+                                receipt=handoff_receipt,
+                            )
+                        params["submission_phase"] = _post_prepare_submission_phase(
+                            params, "config_review"
+                        )
+                    elif stage == "prepare_analysis" and isinstance(handoff_receipt, dict):
+                        if handoff_receipt.get("selected"):
+                            sync_prepared_samples(
+                                session=session, settings=settings, run=run
+                            )
+                        sync_prepare_handoff_decisions(
+                            session=session,
+                            run=run,
+                            receipt=handoff_receipt,
+                        )
+                        params["submission_phase"] = _post_prepare_submission_phase(
+                            params, "execution_review"
+                        )
                     else:
                         sync_prepared_samples(session=session, settings=settings, run=run)
                         if stage == "prepare_analysis":
-                            params["submission_phase"] = "execution_review"
+                            params["submission_phase"] = _post_prepare_submission_phase(
+                                params, "execution_review"
+                            )
                 except WgsPreparedArtifactPending:
                     artifact_pending = True
                 else:
-                    run.params_json = params
-                    session.commit()
+                    if not artifact_pending:
+                        run.params_json = params
+                        session.commit()
     return {
         "analysis_id": analysis_id,
         "attempt": attempt,

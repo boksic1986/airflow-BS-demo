@@ -1,5 +1,11 @@
 # Frontend specification
 
+## T242 WGS 4.2 release evidence
+
+The WGS submission page shows the immutable version and commit, profile
+revision, and cce-pipeline version. Historical run pages retain their
+run-bound release evidence.
+
 ## T240 attention dashboard and Sample Information
 
 - Command Center removes the duplicate Runs/Samples/QC/Workflow-fails strip,
@@ -56,6 +62,9 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 - GATK submission is a two-step manual flow: controlled project path preview,
   then one confirmation. SCMC samples are shown as locked rows. The Run Detail
   hides QC and reanalysis actions that GATK v1 does not provide.
+- Active GATK Run Tracker and Run Detail progress come from the same current
+  `RunStageState`. A cleared future Airflow task is not shown as the current
+  stage merely because it retains historical timestamps.
 
 ### T227 WGS detail refinements
 

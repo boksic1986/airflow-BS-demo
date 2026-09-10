@@ -4,6 +4,9 @@ Legacy PGT-A/NIPT names below document retained Alembic history only. They are
 not the active pipeline catalog. Current deployment capabilities come from the
 registry and `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`; never delete or
 renumber historical revisions to make the documentation look cleaner.
+## T242 WGS 4.2
+
+No schema migration. Only privacy-safe prepare decision fields are persisted.
 
 ## T240 privacy-safe sample metadata projection
 

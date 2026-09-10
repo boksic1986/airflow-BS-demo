@@ -1,5 +1,21 @@
 # TASKS.md
 
+## T253 - Synchronize test platform with published production updates
+
+Status: completed on BS10610; production inspected read only
+
+- [x] Merge latest main, published WGS 4.2 platform work and validated GATK fixes.
+- [x] Preserve both pipeline adapters and the successful GATK Step6 contract.
+- [x] Validate backend, runtime, frontend and DAG contracts offline on BS10610.
+- [x] Deploy combined test release and verify retained GATK success projections.
+- [x] Keep test scanner and automatic dispatch disabled.
+- [x] Correct test runtime account/path defaults and user-site package shadowing.
+- [x] Record release provenance and rollback without copying production data/secrets.
+
+Historical T248/T249 labels were independently used by WGS, GATK and governance
+branches; their descriptive titles and commit IDs distinguish those records.
+T253 is the integrated development entry point.
+
 ## T252 - Retire obsolete airflow-demo worktrees
 
 Owner: coordinator/ops/docs
@@ -81,6 +97,42 @@ Acceptance:
 Safety:
 - T249 design work performs no remote operation, release, workflow execution, data inventory or deletion.
 - The current dirty T193 worktree is preserved; T249 uses an isolated worktree from `origin/main@d90cac3`.
+## T249 - GATK Step6 frozen delivery contract repair
+
+Owner: GATK/Airflow/QA
+
+Status: completed in BS10610 test
+
+Acceptance:
+- [x] Reproduce Step6 failure when the frozen delivery helper imports its sibling permission module.
+- [x] Load the frozen bundle through an isolated temporary `sys.path` entry and remove it after import.
+- [x] Validate and pass the frozen `permissions` contract to `materialize_results`.
+- [x] Pass all 12 GATK runtime-gate tests on BS10610.
+- [x] Resume only Step6 and downstream tasks for `GATK_20260909_071908_F45CF7`.
+- [x] Reach Airflow/backend success with 21/21 tasks, 184/184 rules, 14/14 samples, verified download and materialized results.
+
+Safety:
+- Step1-Step5, source FASTQ and completed CCE outputs were not rerun or modified.
+- Test scanner and auto dispatch remain disabled; BS96 production was not changed.
+
+## T248 - GATK finalize visibility and terminal reconciliation
+
+Owner: GATK/Airflow/backend/QA
+
+Status: completed in BS10610 test
+
+Acceptance:
+- [x] Reproduce the shared-SFS `MissingOutputException` after a successful `cloud_gatk_finalize` job.
+- [x] Give the GATK CCE profile a 180-second output visibility window without changing analysis rules.
+- [x] Preserve the last valid rule progress when a terminal runtime sidecar has no counters.
+- [x] Project a failed `bio_gatk` DagRun into terminal run, rule and sample state.
+- [x] Keep the genuine failing rule failed and cancel only unfinished siblings.
+- [x] Use persisted GATK stage progress for terminal Run Tracker rows.
+- [x] Pass focused and complete backend tests, DAG contract/import checks and GATK profile tests on BS10610.
+- [x] Deploy the candidate to BS10610 and reconcile the retained failed test run without rerunning GATK.
+
+Safety:
+- No WGS behavior, GATK analysis rule, source FASTQ, CCE workload, OBS object or production BS96 service is changed.
 
 ## T247 - Environment boundary, legacy cleanup and Docker governance
 
@@ -107,6 +159,49 @@ Remaining gate:
 Safety:
 - No database, FASTQ, result, business log, volume, network, running workflow or non-Airflow image was deleted.
 - No unfiltered Docker prune command was used.
+# T248 - WGS 4.2.0 retained baseline and four-batch production run
+
+Owner: platform/backend/Airflow/runtime/QA
+
+Status: deployed; four production runs under scheduled monitoring
+
+Acceptance:
+- [x] Repair and complete 20260906B Step7 without deleting its retained OBS data.
+- [x] Remove obsolete test metadata and cloud data while preserving server source FASTQ and project analysis data.
+- [x] Keep only 20260906B as historical platform data, then register the four current batches.
+- [x] Make auto-dispatch use the 4.2 staged prepare path and preserve automatic approval through prepare projections.
+- [x] Generate a cce-pipeline 0.8.3-compatible operator config without obsolete OBS SDK fields.
+- [x] Preserve prior-attempt analysis directories intact when retrying an unbound prepare.
+- [x] Restore obsutil file identity when the destination flattens the frozen-plan directory prefix.
+- [x] Enable a 30-minute scanner and automatic dispatch with the eight obsolete chip directories ignored.
+- [x] Start all four approved 4.2.0 analyses and prove only one upload lease is active.
+- [x] Recover 20260907C in-place after restoring the missing CCE release marker and resolving the QC rule ambiguity; prove a 363-job DAG, six live workers and six frontend RuleState projections without rerunning Step1.
+- [ ] Observe all four analyses through Step2-Step6, verify at most 25 Heavy Slots, terminal Rule JSONL projection and frontend consistency.
+
+Safety:
+- Never delete `/bi/fastq/T7_Fastq` or `/sg2/50.ctapa/project/HWcloud/WGS_Clinical` project analysis data.
+- Do not alter WGS 4.2.0 pipeline source, credentials, network, Docker volumes or database schema.
+- Stop at an unresolved production anomaly rather than bypassing an execution or evidence gate.
+
+# T242 - WGS 4.2.0 control-plane upgrade
+
+Owner: platform/backend/Airflow/frontend/QA
+
+Status: completed in production
+
+Acceptance:
+- [x] Make `wgs-4.2.0-b067c72` the release for new submissions with published profile and CLI evidence.
+- [x] Preserve 4.1.1 historical status and frozen-binding execution while blocking unfrozen reprepare.
+- [x] Use the 4.2.0 immutable prepare handoff and import privacy-safe pending reasons.
+- [x] Select and verify the existing nipttest cce-pipeline 0.8.3 on node200
+  with rollback copies of the runtime configuration.
+- [x] Keep exact QCstat precedence and expose the updated release in the UI/API.
+- [x] Pass remote cached/offline regressions and production smoke checks.
+- [x] Keep automatic dispatch disabled and do not submit a formal batch.
+
+Safety:
+- No formal WGS run, Step7 cleanup, Step8 delivery, database migration, or OBS/SFS data mutation.
+- Do not expose operator config, credentials, clinical fields, raw orders, or storage endpoints in evidence.
 
 ## T241 - WGS obsutil checkpoint progress restoration
 
@@ -126,6 +221,94 @@ Acceptance:
 Safety:
 - Do not expose OBS configuration, URIs, credentials or absolute data paths in evidence/API output.
 - Do not modify CCE workflow behavior, database schema/data, scanner policy or non-transfer stages.
+## T246 - GATK Run Tracker runtime-stage projection
+
+Owner: backend/deployment/QA/docs
+
+Status: completed in BS10610 test environment
+
+Acceptance:
+- [x] Reproduce a cleared downstream Step6 task overriding an active Step3 row.
+- [x] Project active GATK Dashboard progress from the current attempt's `RunStageState`.
+- [x] Ignore cleared downstream Airflow task timestamps for the active GATK tracker row.
+- [x] Keep Run Detail and Run Tracker on the same exact rule count and percentage.
+- [x] Pass focused GATK workspace, adapter and Dashboard regressions on BS10610.
+- [x] Activate the backend-only release and verify the live running row.
+
+Safety:
+- The change is read-only projection logic; it does not clear tasks, mutate stage
+  evidence, restart Airflow or relaunch the active Master.
+
+## T245 - GATK immutable-release prepare recovery
+
+Owner: GATK/runtime/Airflow/deployment/docs
+
+Status: completed in BS10610 test environment; Step1 running
+
+Acceptance:
+- [x] Start `airflow_handoff.py` from any working directory.
+- [x] Resolve repository-relative profile/runtime files against the immutable GATK release.
+- [x] Add the cce-pipeline 0.8.3 shared-permission contract for `bioinfo`.
+- [x] Remove the obsolete 0.8.2 `obs.download_parallelism` test-runtime field.
+- [x] Rerun `20260823A` Prepare with the `_hg38.sampleinfo.txt` input and enter Step1.
+
+Safety:
+- Only the failed test analysis control directory was removed before rerun.
+- Source WES data, PostgreSQL volumes, OBS credentials and unrelated workflows were not changed.
+
+## T244 - GATK prepare rerun generation fencing
+
+Owner: Airflow/runtime/QA/docs
+
+Status: completed in BS10610 test environment
+
+Acceptance:
+- [x] Propagate the backend generation from `bio_gatk` to the node200 forced command.
+- [x] Allow Prepare to reuse its immutable request while creating a new runtime generation.
+- [x] Prevent stale failed status from an older generation from satisfying a retry sensor.
+- [x] Persist the child process stderr/stdout tail as the actionable stage error.
+- [x] Parse both legacy JSON and cce-pipeline 0.8.3 key/value Step3 status.
+- [x] Keep the legacy no-generation forced-command invocation compatible.
+
+## T243 - GATK cross-owner SCMC project discovery
+
+Owner: GATK/backend/frontend/deployment/docs
+
+Status: completed in BS10610 test environment
+
+Acceptance:
+- [x] Accept an absolute readable WES project directory without a fixed owner allowlist.
+- [x] Require only the exact `<batch-prefix>.sampleinfo.SCMC.txt` and at least one unique sample for Preview.
+- [x] Defer config, barcode and FASTQ-pair checks to the existing runtime prepare contract.
+- [x] Mount `/sg2` read-only and freeze the selected project as the runtime request's sole approved source root.
+- [x] Confirm the real `20260823A` project previews 14 samples without creating an AnalysisRun.
+- [x] Use the shared nipttest `cce-pipeline 0.8.3` runtime.
+- [x] Pass the complete backend and frontend regression suites and Compose rendering.
+
+Safety:
+- The change does not add a filesystem browsing API or expose clinical columns and complete FASTQ paths.
+- No GATK/WGS run, transfer, CCE workload, OBS object or result was created or changed.
+
+## T242 - GATK Step4 export visibility recovery
+
+Owner: GATK/backend/runtime/QA/docs
+
+Status: completed in BS10610 test environment
+
+Acceptance:
+- [x] Retry only the exact transient Step4 backend-export visibility result.
+- [x] Bound the wait and expose poll/wait settings in the node200 example.
+- [x] Preserve unrelated Step4 failures and their stderr as terminal errors.
+- [x] Reopen a failed GATK stage as a new fenced generation in the same attempt.
+- [x] Project real failed/canceled stage state to the business run.
+- [x] Pass targeted gate and backend GATK tests on BS10610.
+- [x] Recover the original GATK DagRun from Step4 through Step6 without rerunning Step1-Step3.
+- [x] Verify materialized results and terminal Airflow/backend state.
+
+Safety:
+- The existing analysis, Master, OBS objects, SFS outputs, database history and
+  attempt identity are retained.
+- Only the failed Step4 task and its downstream tail may be cleared.
 
 ## T240 - Dashboard attention and Sample Information
 

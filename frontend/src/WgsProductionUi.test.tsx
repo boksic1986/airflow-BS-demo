@@ -18,8 +18,8 @@ it("uses a pipeline-selectable staged WGS submission form", async () => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
     if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
-    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-6c98281", version: "V4.1.1", source_commit: "6c982817614db6a1157b6f287427ddf01ac91827", execution_enabled: false, runtime_adapter_enabled: false, submission_preview_enabled: false});
-    if (url.endsWith("/api/wgs/projects")) return json({items: [{project_id: "WGS_Clinical", display_name: "WGS Clinical", platforms: [{platform_id: "T7", display_name: "T7 / hg38 / V4.1.1"}], fastq_roots: [{root_id: "T7_Fastq", display_name: "T7 FASTQ"}], editable_config: {use_reference: {type: "enum", values: ["all", "ref", "no"], default: "all"}}}]});
+    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.2.0-b067c72", version: "V4.2.0", source_commit: "b067c72eed795e59b724b13324b0d380ae8b7e94", profile_id: "wgs-4.2.0", profile_revision: "r1", cce_pipeline_version: "0.8.3", execution_enabled: false, runtime_adapter_enabled: false, submission_preview_enabled: false});
+    if (url.endsWith("/api/wgs/projects")) return json({items: [{project_id: "WGS_Clinical", display_name: "WGS Clinical", platforms: [{platform_id: "T7", display_name: "T7 / hg38 / WGS V4.2.0"}], fastq_roots: [{root_id: "T7_Fastq", display_name: "T7 FASTQ"}], editable_config: {use_reference: {type: "enum", values: ["all", "ref", "no"], default: "all"}}}]});
     return json({items: [], total: 0});
   }));
 
@@ -32,7 +32,9 @@ it("uses a pipeline-selectable staged WGS submission form", async () => {
   expect(screen.getByLabelText("Batch")).toBeInTheDocument();
   expect(screen.queryByLabelText("Sequencing batch")).not.toBeInTheDocument();
   expect(screen.queryByLabelText("Analysis batch")).not.toBeInTheDocument();
-  expect(await screen.findByText("WGS V4.1.1 / 6c98281")).toBeInTheDocument();
+  expect(await screen.findByText("WGS V4.2.0 / b067c72")).toBeInTheDocument();
+  expect(screen.getByText("wgs-4.2.0/r1")).toBeInTheDocument();
+  expect(screen.getByText("0.8.3")).toBeInTheDocument();
   expect(screen.queryByLabelText("Variant caller")).not.toBeInTheDocument();
   expect(screen.queryByRole("combobox", {name: /WGS version/i})).not.toBeInTheDocument();
   expect(screen.queryByText(/READY/)).not.toBeInTheDocument();
@@ -99,12 +101,12 @@ it("previews and confirms a locked GATK Cloud project", async () => {
       profile_id: "gatk-scmc-v7.6.0",
       profile_revision: "bd04f6d",
       batch: "20260908A",
-      sampleinfo_name: "WES_20260908A_T7.sampleinfo.txt",
+      sampleinfo_name: "WES_20260908A_T7.sampleinfo.SCMC.txt",
       sample_count: 2,
       fastq_file_count: 4,
       fastq_total_bytes: 4294967296,
       samples: ["SCMC001", "SCMC002"],
-      validation: {sample_sets_match: true, fastq_pairs_complete: true, paths_approved: true},
+      validation: {source_directory_readable: true, scmc_sampleinfo_present: true, scmc_samples_present: true},
       expires_at: "2026-09-08T12:30:00Z",
     });
     if (url.endsWith("/api/runs")) return json({analysis_id: "GATK_20260908_120000_A1B2C3", pipeline: "gatk", status: "submitted"});
@@ -114,10 +116,10 @@ it("previews and confirms a locked GATK Cloud project", async () => {
   render(<App />);
 
   expect(await screen.findByRole("heading", {name: "Submit GATK Cloud"})).toBeInTheDocument();
-  expect(screen.getByText(/SCMC samples are selected from sampleinfo/)).toBeInTheDocument();
+  expect(screen.getByText(/sampleinfo.SCMC.txt/)).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("WES project directory"), {target: {value: "/sg2/21.lijing/WES_Clinical/WES_20260908A_T7_V7.6.0_hg38"}});
   fireEvent.click(screen.getByRole("button", {name: "Preview project"}));
-  expect(await screen.findByText("WES_20260908A_T7.sampleinfo.txt")).toBeInTheDocument();
+  expect(await screen.findByText("WES_20260908A_T7.sampleinfo.SCMC.txt")).toBeInTheDocument();
   expect(screen.getByText("SCMC001")).toBeInTheDocument();
   expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", {name: "Confirm and submit"}));

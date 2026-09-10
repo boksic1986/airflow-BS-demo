@@ -70,7 +70,6 @@ class Settings:
     wgs_local_admission_cpu_percent: float
     wgs_local_admission_load_ratio: float
     gatk_execution_enabled: bool
-    gatk_source_roots: list[str]
     gatk_fastq_roots: list[str]
     gatk_submission_draft_ttl_minutes: int
     gatk_runtime_profile_id: str
@@ -250,9 +249,6 @@ def get_settings() -> Settings:
         ),
         gatk_execution_enabled=_parse_bool(
             os.getenv("GATK_EXECUTION_ENABLED", "false")
-        ),
-        gatk_source_roots=_parse_list(
-            os.getenv("GATK_SOURCE_ROOTS", "/sg2/21.lijing/WES_Clinical")
         ),
         gatk_fastq_roots=_parse_list(
             os.getenv(

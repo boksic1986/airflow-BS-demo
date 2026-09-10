@@ -36,7 +36,7 @@ namespace. It may reuse generic status projections and WGS's directional OBS
 leases, but it must not write WGS stage history or enter the WGS intake
 scanner. The node200 handoff is an immutable file/receipt protocol behind a
 forced-command SSH boundary; node200 does not connect to the biodemo database.
-The backend reads the selected project's `sampleinfo.txt` and follows its
+The backend reads the selected project's exact `sampleinfo.SCMC.txt` and follows its
 project-local `a.raw` FASTQ links. Every absolute link target must remain below
 an explicit approved root, and each approved host root must be mounted
 read-only at the same absolute path inside backend. Equivalent storage aliases

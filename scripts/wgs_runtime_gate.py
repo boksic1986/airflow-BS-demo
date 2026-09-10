@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -75,6 +76,11 @@ WGS_REPO_ROOT = Path(
         "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
     )
 )
+DEFAULT_RELEASE_ROOTS = {
+    "wgs-4.1.1-6c98281": "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
+    "wgs-4.2.0-b067c72": "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0",
+}
+WGS_RELEASE_ROOTS_JSON = os.getenv("WGS_RELEASE_ROOTS_JSON", "").strip()
 WGS_PYTHON = os.getenv("WGS_PYTHON", "/bi/software/mamba/envs/WGS/bin/python")
 WGS_PREPARE_CONFIG = os.getenv(
     "WGS_PREPARE_CONFIG", str(WGS_REPO_ROOT / "prepare" / "config.yaml")
@@ -86,8 +92,12 @@ CCE_OPERATOR_CONFIG = os.getenv(
     "CCE_OPERATOR_CONFIG", "/home/ctapa/.config/wgs/cce.yaml"
 )
 CCE_PIPELINE_BIN = os.getenv("CCE_PIPELINE_BIN", "").strip()
-WGS_GIT_MNT_PREFIX = os.getenv("WGS_GIT_MNT_PREFIX", "/mnt/biodevrwbi")
-WGS_GIT_NODE_PREFIX = os.getenv("WGS_GIT_NODE_PREFIX", "/bi/biodevrwbi")
+CCE_PROFILE_ROOT = Path(
+    os.getenv(
+        "WGS_CCE_PROFILE_ROOT",
+        "/bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs",
+    )
+)
 MONITOR_INTERVAL_SECONDS = int(os.getenv("WGS_MONITOR_INTERVAL_SECONDS", "5"))
 MONITOR_TIMEOUT_SECONDS = int(os.getenv("WGS_MONITOR_TIMEOUT_SECONDS", "432000"))
 STEP4_MASTER_COMPLETION_GRACE_SECONDS = int(
@@ -95,8 +105,17 @@ STEP4_MASTER_COMPLETION_GRACE_SECONDS = int(
 )
 STEP7_COMPAT_OBS_FIELDS = {
     "download_parallelism",
+    "sdk_attach_crc64",
     "sdk_credentials_file",
+    "sdk_download_part_size_bytes",
+    "sdk_download_parallelism",
+    "sdk_multipart_part_size_mib",
+    "sdk_multipart_task_num",
+    "sdk_multipart_threshold_bytes",
     "sdk_python",
+    "sdk_transfer_adapter",
+    "sdk_upload_part_size_bytes",
+    "sdk_upload_parallelism",
     "transfer_adapter",
 }
 STEP5_TRANSFER_PLAN_GRACE_SECONDS = int(
@@ -157,7 +176,9 @@ def _sidecar_path(payload: dict[str, Any], suffix: str) -> Path:
     ).with_suffix(suffix)
 
 
-def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
+def _atomic_json(
+    path: Path, payload: dict[str, Any], *, mode: int = 0o644
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         dir=path.parent,
@@ -166,7 +187,7 @@ def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
     )
     temporary = Path(temporary_name)
     try:
-        os.fchmod(descriptor, 0o644)
+        os.fchmod(descriptor, mode)
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(
                 json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n"
@@ -300,49 +321,52 @@ def _truthy(name: str) -> bool:
     return os.getenv(name, "false").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def validate_release_repository(payload: dict[str, Any]) -> Path:
-    repo = WGS_REPO_ROOT.resolve()
-    prepare = repo / "prepare" / "prepare_wgs_batch.py"
-    if not repo.is_dir() or repo.is_symlink() or not prepare.is_file() or prepare.is_symlink():
-        raise RuntimeError("release_unavailable: fixed WGS repository is unavailable")
-    git = _git_repository_command(repo)
-    revision = subprocess.run(
-        [*git, "rev-parse", "HEAD"],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    if revision != str(payload.get("wgs_source_commit") or ""):
-        raise RuntimeError(
-            "release_unavailable: fixed WGS repository commit does not match the run"
-        )
-    status = subprocess.run(
-        [*git, "status", "--porcelain"],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.splitlines()
-    def is_documentation_change(line: str) -> bool:
-        path = line[3:].strip()
-        return path == "README.md" or path.startswith("docs/")
-
-    unsafe = [line for line in status if not is_documentation_change(line)]
-    if unsafe:
-        raise RuntimeError(
-            "release_unavailable: fixed WGS repository contains runtime changes"
-        )
+def _release_repository(payload: dict[str, Any]) -> Path:
+    if str(WGS_REPO_ROOT) not in set(DEFAULT_RELEASE_ROOTS.values()):
+        return WGS_REPO_ROOT.resolve()
+    roots = dict(DEFAULT_RELEASE_ROOTS)
+    if WGS_RELEASE_ROOTS_JSON:
+        configured = json.loads(WGS_RELEASE_ROOTS_JSON)
+        if not isinstance(configured, dict):
+            raise RuntimeError("release_unavailable: WGS release root map is invalid")
+        roots.update({str(key): str(value) for key, value in configured.items()})
+    release_id = str(payload.get("pipeline_release_id") or "")
+    value = roots.get(release_id)
+    if not value and release_id.startswith("wgs-4.1.1-") and str(
+        payload.get("wgs_version") or ""
+    ) == "V4.1.1":
+        value = DEFAULT_RELEASE_ROOTS["wgs-4.1.1-6c98281"]
+    if not value:
+        raise RuntimeError("release_unavailable: WGS release is not allowlisted")
+    repo = Path(value).resolve()
+    approved_root = Path("/bi/biodevrwbi/33.chenjiucheng/project").resolve()
+    if approved_root not in repo.parents or not repo.name.startswith("wgs-"):
+        raise RuntimeError("release_unavailable: WGS release root is outside the approved project")
     return repo
 
 
-def validate_prepare_config() -> Path:
-    config = Path(WGS_PREPARE_CONFIG)
+def validate_release_repository(payload: dict[str, Any]) -> Path:
+    version = str(payload.get("wgs_version") or "")
+    if version and version != "V4.2.0":
+        raise RuntimeError(
+            "release_unavailable: historical WGS release requires a frozen binding"
+        )
+    repo = _release_repository(payload)
+    prepare = repo / "prepare" / "prepare_wgs_batch.py"
+    if not repo.is_dir() or repo.is_symlink() or not prepare.is_file() or prepare.is_symlink():
+        raise RuntimeError("release_unavailable: fixed WGS repository is unavailable")
+    return repo
+
+
+def validate_prepare_config(payload: dict[str, Any] | None = None) -> Path:
+    repo = _release_repository(payload) if payload is not None else WGS_REPO_ROOT.resolve()
+    config = repo / "prepare" / "config.yaml" if payload is not None else Path(WGS_PREPARE_CONFIG)
     if not config.is_absolute() or not config.is_file() or config.is_symlink():
         raise RuntimeError("release_unavailable: WGS prepare config is unavailable")
     resolved = config.resolve()
-    approved_roots = {
-        (WGS_REPO_ROOT / "prepare").resolve(),
-        WGS_PREPARE_CONFIG_ROOT.resolve(),
-    }
+    approved_roots = {(repo / "prepare").resolve()}
+    if payload is None:
+        approved_roots.add(WGS_PREPARE_CONFIG_ROOT.resolve())
     if not any(
         root == resolved.parent or root in resolved.parents
         for root in approved_roots
@@ -351,30 +375,6 @@ def validate_prepare_config() -> Path:
             "release_unavailable: WGS prepare config is outside approved roots"
         )
     return resolved
-
-
-def _git_repository_command(repo: Path) -> list[str]:
-    marker = repo / ".git"
-    if marker.is_dir():
-        return ["git", "-C", str(repo)]
-    if not marker.is_file() or marker.is_symlink():
-        raise RuntimeError("release_unavailable: fixed WGS Git metadata is unavailable")
-    line = marker.read_text(encoding="utf-8").strip()
-    if not line.startswith("gitdir: "):
-        raise RuntimeError("release_unavailable: fixed WGS Git metadata is invalid")
-    gitdir = Path(line.removeprefix("gitdir: "))
-    if not gitdir.is_dir():
-        source_prefix = Path(WGS_GIT_MNT_PREFIX)
-        target_prefix = Path(WGS_GIT_NODE_PREFIX)
-        try:
-            gitdir = target_prefix / gitdir.relative_to(source_prefix)
-        except ValueError as error:
-            raise RuntimeError(
-                "release_unavailable: WGS worktree metadata is outside the approved mapping"
-            ) from error
-    if not gitdir.is_dir():
-        raise RuntimeError("release_unavailable: mapped WGS worktree metadata is unavailable")
-    return ["git", f"--git-dir={gitdir}", f"--work-tree={repo}"]
 
 
 def _workdir(payload: dict[str, Any]) -> Path:
@@ -394,6 +394,8 @@ def _binding_path(payload: dict[str, Any]) -> Path:
 
 
 def build_prepare_command(payload: dict[str, Any]) -> list[str]:
+    repository = _release_repository(payload)
+    prepare_config = repository / "prepare" / "config.yaml"
     analysis_project_root = Path(str(payload["analysis_project_root"]))
     project_name = str(payload["project_name"])
     batch_no = str(payload["batch_no"])
@@ -429,13 +431,16 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
         raise ValueError("unsupported WGS prepare stage")
     command = [
         WGS_PYTHON,
-        str(WGS_REPO_ROOT / "prepare" / "prepare_wgs_batch.py"),
+        str(repository / "prepare" / "prepare_wgs_batch.py"),
         subcommand,
         "--outpath",
         str(analysis_project_root),
         "--prepare-config",
-        WGS_PREPARE_CONFIG,
+        str(prepare_config),
     ]
+    handoff_request = _prepare_handoff_request(payload)
+    if handoff_request is not None:
+        command.extend(["--handoff-request", str(handoff_request)])
     platform = str(payload.get("platform") or "").strip()
     if platform:
         command.extend(["--platform", platform])
@@ -455,10 +460,12 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
             "--fastq-root",
             str(fastq_root),
             "--cce-config",
-            CCE_OPERATOR_CONFIG,
+            str(_release_operator_config(payload)),
             "--skip-samplelist-ready-check",
         ])
-        if CCE_PIPELINE_BIN:
+        if payload.get("cce_pipeline_version"):
+            if not CCE_PIPELINE_BIN:
+                raise RuntimeError("release_unavailable: cce-pipeline executable is not configured")
             cce_pipeline = Path(CCE_PIPELINE_BIN).expanduser()
             if not cce_pipeline.is_absolute():
                 raise ValueError("CCE_PIPELINE_BIN must be an absolute path")
@@ -475,6 +482,343 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
         ):
             command.extend(["--cce-from-zero", "clean"])
     return command
+
+
+def _release_operator_config(
+    payload: dict[str, Any], *, materialize: bool = False
+) -> Path:
+    target = Path(str(payload["control_workdir"])) / "release-runtime" / "cce-operator.yaml"
+    if not materialize:
+        return target
+    source = Path(CCE_OPERATOR_CONFIG).expanduser()
+    if not source.is_absolute() or not source.is_file() or source.is_symlink():
+        raise RuntimeError("release_unavailable: CCE operator config is unavailable")
+    config = yaml.safe_load(source.read_text(encoding="utf-8"))
+    paths = config.get("paths") if isinstance(config, dict) else None
+    if not isinstance(paths, dict):
+        raise RuntimeError("release_unavailable: CCE operator config paths are invalid")
+    paths["repository_root"] = str(_release_repository(payload))
+    obs = config.get("obs")
+    if isinstance(obs, dict):
+        for key in STEP7_COMPAT_OBS_FIELDS:
+            obs.pop(key, None)
+    target = _workdir(payload) / "release-runtime" / "cce-operator.yaml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    encoded = yaml.safe_dump(config, sort_keys=False).encode("utf-8")
+    if target.is_file() and not target.is_symlink():
+        if target.read_bytes() != encoded:
+            raise RuntimeError("release_unavailable: frozen CCE operator config changed")
+        return target
+    fd, temporary_name = tempfile.mkstemp(
+        prefix=target.name + ".", suffix=".partial", dir=target.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return target
+
+
+def validate_release_runtime(payload: dict[str, Any]) -> None:
+    expected_version = str(payload.get("cce_pipeline_version") or "")
+    if not expected_version:
+        return
+    if not CCE_PIPELINE_BIN:
+        raise RuntimeError("release_unavailable: cce-pipeline executable is unavailable")
+    executable = Path(CCE_PIPELINE_BIN).expanduser()
+    if not executable.is_absolute() or not executable.is_file() or executable.is_symlink():
+        raise RuntimeError("release_unavailable: cce-pipeline executable is unavailable")
+    version_output = subprocess.run(
+        [str(executable), "--version"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=_clean_env(),
+    ).stdout.strip()
+    if version_output.split()[-1:] != [expected_version]:
+        raise RuntimeError("release_unavailable: cce-pipeline version does not match the run")
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _uses_prepare_handoff(payload: dict[str, Any]) -> bool:
+    return str(payload.get("wgs_version") or "") == "V4.2.0" and str(
+        payload.get("stage") or ""
+    ) in {"prepare_sampleinfo", "prepare_analysis"}
+
+
+def _prepare_handoff_request(payload: dict[str, Any]) -> Path | None:
+    if not _uses_prepare_handoff(payload):
+        return None
+    stage = str(payload["stage"])
+    generation = int(payload.get("generation") or 1)
+    root = _workdir(payload) / "prepare-handoff" / stage / f"generation-{generation}"
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    root.chmod(0o700)
+    request_path = root / "handoff-request.json"
+    if request_path.is_file():
+        _validate_existing_handoff_request(payload, request_path)
+        return request_path
+    request: dict[str, Any] = {
+        "schema_version": "wgs.prepare-handoff.request.v1",
+        "analysis_id": payload["analysis_id"],
+        "attempt": int(payload["attempt"]),
+        "execution_id": str(payload.get("execution_id") or f"{stage}-legacy"),
+        "generation": generation,
+        "stage": stage,
+        "request_hash": str(payload.get("request_hash") or _sha256_file(_request_path(str(payload["analysis_id"]), int(payload["attempt"]), stage))),
+        "release_id": payload["pipeline_release_id"],
+        "artifact_root": str(root),
+    }
+    if stage == "prepare_sampleinfo":
+        request["artifact_keys"] = {"sampleinfo": "sampleinfo.snapshot.tsv"}
+    else:
+        source = Path(str(payload["analysis_project_root"])) / "sampleinfo" / f"{payload['batch_no']}.sampleinfo.txt"
+        if not source.is_file() or source.is_symlink():
+            raise RuntimeError("prepare_analysis source sampleinfo is unavailable")
+        pending_payload = root / "pending-input.tsv"
+        pending_rows = _write_pending_input(payload, source, pending_payload)
+        pending_manifest = root / "pending-input.manifest.json"
+        _atomic_json(
+            pending_manifest,
+            {
+                "schema_version": "wgs.pending-input.manifest.v1",
+                "project_id": str(payload["project_name"]),
+                "revision": generation,
+                "payload": {
+                    "path": str(pending_payload),
+                    "sha256": _sha256_file(pending_payload),
+                    "row_count": pending_rows,
+                },
+            },
+            mode=0o600,
+        )
+        request.update(
+            {
+                "artifact_keys": {
+                    "final_sampleinfo": "final-sampleinfo.snapshot.tsv",
+                    "private_pending_payload": "private-pending-output.tsv",
+                },
+                "source_sampleinfo": {
+                    "snapshot_id": f"{payload['analysis_id']}-a{payload['attempt']}-sampleinfo",
+                    "sha256": _sha256_file(source),
+                },
+                "pending_input": {
+                    "manifest_path": str(pending_manifest),
+                    "manifest_sha256": _sha256_file(pending_manifest),
+                    "revision": generation,
+                },
+            }
+        )
+    _atomic_json(request_path, request, mode=0o600)
+    return request_path
+
+
+def _validate_existing_handoff_request(
+    payload: dict[str, Any], request_path: Path
+) -> None:
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    stage = str(payload["stage"])
+    expected = {
+        "schema_version": "wgs.prepare-handoff.request.v1",
+        "analysis_id": payload["analysis_id"],
+        "attempt": int(payload["attempt"]),
+        "execution_id": str(payload.get("execution_id") or f"{stage}-legacy"),
+        "generation": int(payload.get("generation") or 1),
+        "stage": stage,
+        "request_hash": str(payload.get("request_hash") or _sha256_file(_request_path(str(payload["analysis_id"]), int(payload["attempt"]), stage))),
+        "release_id": payload["pipeline_release_id"],
+        "artifact_root": str(request_path.parent),
+    }
+    if any(request.get(key) != value for key, value in expected.items()):
+        raise RuntimeError("WGS prepare handoff request identity mismatch")
+    if stage == "prepare_analysis":
+        source = Path(str(payload["analysis_project_root"])) / "sampleinfo" / f"{payload['batch_no']}.sampleinfo.txt"
+        source_spec = request.get("source_sampleinfo")
+        if (
+            not source.is_file()
+            or source.is_symlink()
+            or not isinstance(source_spec, dict)
+            or source_spec.get("sha256") != _sha256_file(source)
+        ):
+            raise RuntimeError("WGS prepare handoff source sampleinfo changed")
+        pending = request.get("pending_input")
+        if not isinstance(pending, dict):
+            raise RuntimeError("WGS prepare handoff pending input is missing")
+        manifest = Path(str(pending.get("manifest_path") or "")).resolve()
+        if (
+            request_path.parent.resolve() not in manifest.parents
+            or not manifest.is_file()
+            or manifest.is_symlink()
+            or pending.get("manifest_sha256") != _sha256_file(manifest)
+        ):
+            raise RuntimeError("WGS prepare handoff pending input changed")
+
+
+def _write_pending_input(
+    payload: dict[str, Any], source: Path, pending_payload: Path
+) -> int:
+    generation = int(payload.get("generation") or 1)
+    if generation > 1:
+        previous_root = pending_payload.parent.parent / f"generation-{generation - 1}"
+        previous_request = previous_root / "handoff-request.json"
+        if previous_request.is_file() and not previous_request.is_symlink():
+            previous_payload = {**payload, "generation": generation - 1}
+            _validated_prepare_receipt(previous_payload, previous_request)
+            request = json.loads(previous_request.read_text(encoding="utf-8"))
+            receipt = json.loads(
+                (Path(str(request["artifact_root"])) / "prepare_analysis.receipt.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            descriptor = receipt["private_pending_payload"]
+            previous_artifact = previous_root / str(descriptor["artifact_key"])
+            pending_payload.touch(mode=0o600, exist_ok=False)
+            with previous_artifact.open("rb") as source_handle, pending_payload.open("wb") as target_handle:
+                shutil.copyfileobj(source_handle, target_handle, length=1024 * 1024)
+            return int(descriptor.get("row_count") or 0)
+    with source.open(encoding="utf-8-sig", newline="") as source_handle:
+        header = next(csv.reader(source_handle, delimiter="\t"))
+    pending_payload.touch(mode=0o600, exist_ok=False)
+    with pending_payload.open("w", encoding="utf-8", newline="") as pending_handle:
+        writer = csv.writer(pending_handle, delimiter="\t", lineterminator="\n")
+        writer.writerow(
+            header
+            + [
+                "pending_reason",
+                "pending_at",
+                "source_analysis_batch",
+                "source_sampleinfo",
+            ]
+        )
+    return 0
+
+
+def _validated_prepare_receipt(payload: dict[str, Any], request_path: Path) -> dict[str, Any]:
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    receipt_path = Path(str(request["artifact_root"])) / f"{payload['stage']}.receipt.json"
+    if not receipt_path.is_file() or receipt_path.is_symlink():
+        raise RuntimeError("WGS prepare handoff receipt is unavailable")
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    expected_schema = (
+        "wgs.prepare-sampleinfo.receipt.v1"
+        if payload["stage"] == "prepare_sampleinfo"
+        else "wgs.prepare-analysis.receipt.v1"
+    )
+    for key in ("analysis_id", "attempt", "execution_id", "generation", "request_hash", "release_id"):
+        if receipt.get(key) != request.get(key):
+            raise RuntimeError(f"WGS prepare handoff receipt {key} mismatch")
+    if receipt.get("schema_version") != expected_schema:
+        raise RuntimeError("WGS prepare handoff receipt schema mismatch")
+    pending_payload_sha: str | None = None
+    if payload["stage"] == "prepare_analysis":
+        source_spec = request.get("source_sampleinfo")
+        pending_spec = request.get("pending_input")
+        if not isinstance(source_spec, dict) or not isinstance(pending_spec, dict):
+            raise RuntimeError("WGS prepare handoff analysis inputs are missing")
+        artifact_root = Path(str(request["artifact_root"])).resolve()
+        pending_manifest_path = Path(str(pending_spec["manifest_path"])).resolve()
+        if (
+            artifact_root not in pending_manifest_path.parents
+            or not pending_manifest_path.is_file()
+            or pending_manifest_path.is_symlink()
+            or pending_spec.get("manifest_sha256")
+            != _sha256_file(pending_manifest_path)
+        ):
+            raise RuntimeError("WGS prepare handoff pending manifest changed")
+        pending_manifest = json.loads(
+            pending_manifest_path.read_text(encoding="utf-8")
+        )
+        pending_descriptor = pending_manifest.get("payload")
+        if not isinstance(pending_descriptor, dict):
+            raise RuntimeError("WGS prepare handoff pending manifest is invalid")
+        pending_payload_sha = str(pending_descriptor.get("sha256") or "")
+        pending_payload_path = Path(str(pending_descriptor.get("path") or "")).resolve()
+        if (
+            artifact_root not in pending_payload_path.parents
+            or not pending_payload_path.is_file()
+            or pending_payload_path.is_symlink()
+            or pending_payload_sha != _sha256_file(pending_payload_path)
+        ):
+            raise RuntimeError("WGS prepare handoff pending payload changed")
+        expected_inputs = {
+            "source_sampleinfo_snapshot_id": source_spec.get("snapshot_id"),
+            "source_sampleinfo_sha256": source_spec.get("sha256"),
+            "pending_input_revision": pending_spec.get("revision"),
+            "pending_input_sha256": pending_payload_sha,
+        }
+        if any(receipt.get(key) != value for key, value in expected_inputs.items()):
+            raise RuntimeError("WGS prepare handoff receipt input identity mismatch")
+    descriptor_names = (
+        ("sampleinfo",)
+        if payload["stage"] == "prepare_sampleinfo"
+        else ("final_sampleinfo", "private_pending_payload")
+    )
+    artifact_root = Path(str(request["artifact_root"])).resolve()
+    for name in descriptor_names:
+        descriptor = receipt.get(name)
+        if not isinstance(descriptor, dict):
+            raise RuntimeError(f"WGS prepare handoff {name} descriptor is missing")
+        if descriptor.get("artifact_key") != request["artifact_keys"][name]:
+            raise RuntimeError(f"WGS prepare handoff {name} artifact key mismatch")
+        artifact_sha = descriptor.get("sha256")
+        row_count = int(descriptor.get("row_count") or 0)
+        if artifact_sha is None and name == "final_sampleinfo" and row_count == 0:
+            continue
+        artifact = (artifact_root / str(descriptor["artifact_key"])).resolve()
+        if artifact_root not in artifact.parents or not artifact.is_file() or artifact.is_symlink():
+            raise RuntimeError(f"WGS prepare handoff {name} artifact is unavailable")
+        if artifact_sha != _sha256_file(artifact):
+            raise RuntimeError(f"WGS prepare handoff {name} SHA256 mismatch")
+    safe_keys = {
+        "sequencing_batch", "analysis_batch", "family_id", "sample_id", "data_id",
+        "sample_type", "family_relation", "sex", "decision", "reason_code", "reason_message",
+    }
+    projected: dict[str, Any] = {"schema_version": expected_schema}
+    expected_groups = (
+        {"safe_candidates": "candidate"}
+        if payload["stage"] == "prepare_sampleinfo"
+        else {"selected": "selected", "pending": "pending", "excluded": "excluded"}
+    )
+    seen_samples: set[str] = set()
+    for name, expected_decision in expected_groups.items():
+        rows = receipt.get(name)
+        if not isinstance(rows, list) or any(
+            not isinstance(row, dict)
+            or set(row) != safe_keys
+            or row.get("decision") != expected_decision
+            or not str(row.get("sample_id") or "").strip()
+            for row in rows
+        ):
+            raise RuntimeError("WGS prepare handoff safe decision rows are invalid")
+        sample_ids = [str(row["sample_id"]).strip() for row in rows]
+        if len(sample_ids) != len(set(sample_ids)) or seen_samples.intersection(sample_ids):
+            raise RuntimeError("WGS prepare handoff decision sample IDs are duplicated")
+        seen_samples.update(sample_ids)
+        projected[name] = rows
+    if payload["stage"] == "prepare_sampleinfo":
+        if int(receipt["sampleinfo"].get("row_count") or 0) != len(projected["safe_candidates"]):
+            raise RuntimeError("WGS prepare handoff sampleinfo decision count mismatch")
+    else:
+        if (
+            int(receipt["final_sampleinfo"].get("row_count") or 0)
+            != len(projected["selected"])
+            or int(receipt["private_pending_payload"].get("row_count") or 0)
+            != len(projected["pending"])
+        ):
+            raise RuntimeError("WGS prepare handoff analysis decision count mismatch")
+    return projected
 
 
 def _clean_env() -> dict[str, str]:
@@ -543,9 +887,11 @@ def _run_prepare(payload: dict[str, Any]) -> None:
         _load_binding(payload)
         return
     validate_release_repository(payload)
-    validate_prepare_config()
+    validate_prepare_config(payload)
+    validate_release_runtime(payload)
     workdir = _workdir(payload)
     workdir.mkdir(parents=True, exist_ok=True)
+    _release_operator_config(payload, materialize=True)
     project_root = Path(str(payload["analysis_project_root"])).resolve()
     expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
     expected = project_root / str(payload["batch_no"])
@@ -562,18 +908,45 @@ def _run_prepare(payload: dict[str, Any]) -> None:
 
 def _run_prepare_sampleinfo(payload: dict[str, Any]) -> None:
     validate_release_repository(payload)
-    validate_prepare_config()
+    validate_prepare_config(payload)
     workdir = _workdir(payload)
     workdir.mkdir(parents=True, exist_ok=True)
     project_root = Path(str(payload["analysis_project_root"])).resolve()
     sampleinfo = project_root / "sampleinfo" / f"{payload['batch_no']}.sampleinfo.txt"
+    handoff_request = _prepare_handoff_request(payload)
     if sampleinfo.is_file() and not sampleinfo.is_symlink():
+        if handoff_request is not None:
+            try:
+                payload["prepare_handoff_receipt"] = _validated_prepare_receipt(payload, handoff_request)
+            except RuntimeError as error:
+                if str(error) != "WGS prepare handoff receipt is unavailable":
+                    raise
+                history = (
+                    workdir
+                    / "history"
+                    / "prepare_sampleinfo"
+                    / f"before-generation-{int(payload.get('generation') or 1)}"
+                )
+                history.mkdir(parents=True, exist_ok=True)
+                archived = history / sampleinfo.name
+                if archived.exists() or archived.is_symlink():
+                    raise RuntimeError("WGS sampleinfo recovery archive already exists")
+                os.replace(sampleinfo, archived)
+                try:
+                    subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
+                except BaseException:
+                    if not sampleinfo.exists():
+                        os.replace(archived, sampleinfo)
+                    raise
+                payload["prepare_handoff_receipt"] = _validated_prepare_receipt(payload, handoff_request)
         return
     if not project_root.is_dir() or not os.access(project_root, os.W_OK):
         raise RuntimeError("WGS analysis project root is unavailable")
     subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
     if not sampleinfo.is_file() or sampleinfo.is_symlink():
         raise RuntimeError("WGS sampleinfo prepare did not publish the expected table")
+    if handoff_request is not None:
+        payload["prepare_handoff_receipt"] = _validated_prepare_receipt(payload, handoff_request)
 
 
 def _run_prepare_analysis(payload: dict[str, Any]) -> None:
@@ -583,14 +956,67 @@ def _run_prepare_analysis(payload: dict[str, Any]) -> None:
             _load_binding(payload)
             return
     validate_release_repository(payload)
-    validate_prepare_config()
+    validate_prepare_config(payload)
+    validate_release_runtime(payload)
+    _release_operator_config(payload, materialize=True)
     project_root = Path(str(payload["analysis_project_root"])).resolve()
     expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
     if expected_batch_root != project_root / str(payload["batch_no"]):
         raise RuntimeError("WGS analysis batch path is outside the approved project root")
+    existing_run_id = _prepared_batch_run_id(expected_batch_root)
+    expected_run_id = f"{payload['analysis_id']}-a{int(payload['attempt'])}"
+    if existing_run_id == expected_run_id:
+        _freeze_validation_execution_mode(payload, expected_batch_root)
+        _write_prepare_binding(payload)
+        return
+    if existing_run_id is not None:
+        _retain_prior_attempt_batch(payload, expected_batch_root, existing_run_id)
+    handoff_request = _prepare_handoff_request(payload)
     subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
+    if handoff_request is not None:
+        payload["prepare_handoff_receipt"] = _validated_prepare_receipt(payload, handoff_request)
+        if not payload["prepare_handoff_receipt"].get("selected"):
+            return
     _freeze_validation_execution_mode(payload, expected_batch_root)
     _write_prepare_binding(payload)
+
+
+def _prepared_batch_run_id(batch_root: Path) -> str | None:
+    if not batch_root.exists():
+        return None
+    if batch_root.is_symlink() or not batch_root.is_dir():
+        raise RuntimeError("existing WGS analysis batch path is invalid")
+    runtime_path = batch_root / "cce" / "BATCH_RUNTIME.yaml"
+    if not runtime_path.is_file() or runtime_path.is_symlink():
+        raise RuntimeError("existing WGS analysis batch has no frozen runtime identity")
+    runtime = yaml.safe_load(runtime_path.read_text(encoding="utf-8"))
+    identity = runtime.get("identity") if isinstance(runtime, dict) else None
+    run_id = str((identity or {}).get("run_id") or "")
+    if not run_id:
+        raise RuntimeError("existing WGS analysis batch runtime identity is invalid")
+    return run_id
+
+
+def _retain_prior_attempt_batch(
+    payload: dict[str, Any], batch_root: Path, existing_run_id: str
+) -> Path:
+    match = re.fullmatch(
+        rf"{re.escape(str(payload['analysis_id']))}-a([1-9][0-9]*)",
+        existing_run_id,
+    )
+    if match is None or int(match.group(1)) >= int(payload["attempt"]):
+        raise RuntimeError("existing WGS analysis batch belongs to an unexpected run")
+    history = (
+        _workdir(payload)
+        / "history"
+        / "prepare_analysis"
+        / f"prior-run-{existing_run_id}"
+    )
+    history.mkdir(parents=True, exist_ok=False)
+    history.chmod(0o700)
+    retained = history / batch_root.name
+    os.replace(batch_root, retained)
+    return retained
 
 
 def _archive_missing_prepare_binding(payload: dict[str, Any], binding_path: Path) -> bool:
@@ -671,6 +1097,20 @@ def _write_prepare_binding(payload: dict[str, Any]) -> None:
         ).hexdigest(),
     }
     resolved_runtime.update(_resolved_runtime_controls(profile))
+    expected_runtime = {
+        key: str(payload.get(key) or "")
+        for key in (
+            "cce_pipeline_version",
+            "profile_id",
+            "profile_revision",
+            "profile_sha256",
+            "pipeline_build_sha256",
+            "resource_manifest_sha256",
+        )
+        if payload.get(key) is not None
+    }
+    if any(resolved_runtime.get(key) != value for key, value in expected_runtime.items()):
+        raise RuntimeError("resolved CCE runtime does not match the frozen WGS release")
     _validate_heavy_io_contract(payload, resolved_runtime)
     analysis = runtime.get("analysis") if isinstance(runtime.get("analysis"), dict) else {}
     runtime_paths = runtime.get("paths") if isinstance(runtime.get("paths"), dict) else {}
@@ -1878,6 +2318,8 @@ def _run_worker(payload: dict[str, Any]) -> int:
         _write_status(payload, "failed", str(error), retry_no=retry_no)
         raise
     success_details = {"retry_no": retry_no}
+    if payload.get("prepare_handoff_receipt"):
+        success_details["prepare_handoff_receipt"] = payload["prepare_handoff_receipt"]
     if payload.get("step7_completion_mode"):
         success_details["completion_mode"] = payload["step7_completion_mode"]
     _write_status(payload, "success", **success_details)

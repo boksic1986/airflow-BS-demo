@@ -118,7 +118,7 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   }
   return <div className="page-stack submit-wizard">
     <section className="page-header"><div><p className="eyebrow">WGS production</p><h1>Submit run</h1><p>Submit one catalog-controlled WGS batch. The DAG runs native WGS sampleinfo and analysis preparation, then Step1-Step6.</p></div></section>
-    <section className="panel"><div className="definition-grid"><div><dt>Current WGS release</dt><dd>{release ? `WGS ${release.version} / ${release.source_commit.slice(0, 7)}` : "Loading release..."}</dd></div><div><dt>Release ID</dt><dd>{release?.release_id || "-"}</dd></div><div><dt>Execution</dt><dd>{executionEnabled ? "Enabled" : "Disabled"}</dd></div></div></section>
+    <section className="panel"><div className="definition-grid"><div><dt>Current WGS release</dt><dd>{release ? `WGS ${release.version} / ${release.source_commit.slice(0, 7)}` : "Loading release..."}</dd></div><div><dt>Release ID</dt><dd>{release?.release_id || "-"}</dd></div><div><dt>CCE profile</dt><dd>{release?.profile_id ? `${release.profile_id}/${release.profile_revision || "-"}` : "-"}</dd></div><div><dt>cce-pipeline</dt><dd>{release?.cce_pipeline_version || "-"}</dd></div><div><dt>Execution</dt><dd>{executionEnabled ? "Enabled" : "Disabled"}</dd></div></div></section>
     <ol className="wizard-steps"><li className={phase === "select" || phase === "preparing_sampleinfo" ? "active" : ""}>1. Select batch</li><li className={phase === "config_review" || phase === "preparing_analysis" ? "active" : ""}>2. Review samples and configuration</li><li className={phase === "execution_review" || phase === "approved" ? "active" : ""}>3. Confirm execution</li></ol>
     {!created ? <section className="panel"><form className="form-grid" onSubmit={prepare}>
       {pipelineSelector}
@@ -199,8 +199,8 @@ function GatkSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     <section className="panel">
       <form className="form-grid gatk-submit-form" onSubmit={loadPreview}>
         {pipelineSelector}
-        <label className="field full"><span>WES project directory</span><input aria-label="WES project directory" value={sourceProjectDir} placeholder="/sg2/21.lijing/WES_Clinical/WES_YYYYMMDDX_T7_V7.6.0_hg38" onChange={(event) => { setSourceProjectDir(event.target.value); setPreview(null); }} /></label>
-        <p className="field-help field full">SCMC samples are selected from sampleinfo and locked to the source configuration and barcode set.</p>
+        <label className="field full"><span>WES project directory</span><input aria-label="WES project directory" value={sourceProjectDir} placeholder="/sg2/&lt;owner&gt;/WES_Clinical/WES_YYYYMMDDX_T7_*_hg38" onChange={(event) => { setSourceProjectDir(event.target.value); setPreview(null); }} /></label>
+        <p className="field-help field full">Preview requires the batch sampleinfo.SCMC.txt file and at least one sample. Runtime validation continues after submission.</p>
         <button className="button primary" type="submit" disabled={busy || !sourceProjectDir.trim()}>{busy ? "Checking..." : "Preview project"}</button>
       </form>
     </section>
@@ -211,8 +211,7 @@ function GatkSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
         <div><dt>Runtime profile</dt><dd>{preview.profile_id}</dd></div>
         <div><dt>Sampleinfo</dt><dd>{preview.sampleinfo_name}</dd></div>
         <div><dt>SCMC samples</dt><dd>{preview.sample_count}</dd></div>
-        <div><dt>FASTQ</dt><dd>{preview.fastq_file_count} files · {formatBytes(preview.fastq_total_bytes)}</dd></div>
-        <div><dt>Input checks</dt><dd>{Object.values(preview.validation).every(Boolean) ? "Passed" : "Needs attention"}</dd></div>
+        <div><dt>SCMC manifest</dt><dd>{Object.values(preview.validation).every(Boolean) ? "Ready" : "Needs attention"}</dd></div>
       </dl>
       <div className="table-wrap"><table className="data-table compact"><thead><tr><th>SCMC sample</th><th>Selection</th></tr></thead><tbody>{preview.samples.map((sample) => <tr key={sample}><td>{sample}</td><td><StatusBadge status="locked" size="sm" /></td></tr>)}</tbody></table></div>
       <div className="panel-actions"><button className="button primary" type="button" disabled={busy || Boolean(created) || !executionEnabled} onClick={() => void confirm()}>{busy ? "Submitting..." : "Confirm and submit"}</button></div>
@@ -220,13 +219,6 @@ function GatkSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     {created ? <p className="success-note">GATK Cloud submitted: <Link to={`/runs/${created.analysis_id}`}>{created.analysis_id}</Link>.</p> : null}
     {error ? <div className="inline-error" role="alert">{error}</div> : null}
   </div>;
-}
-
-function formatBytes(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return "0 B";
-  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
-  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
-  return `${(value / (1024 ** index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
 function SamplePreview({samples}: {samples: Sample[]}) {

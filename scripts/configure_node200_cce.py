@@ -9,7 +9,7 @@ import yaml
 
 
 CONFIG_PATH = Path("/home/ctapa/.config/wgs/cce.yaml")
-REPOSITORY_ROOT = "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1"
+REPOSITORY_ROOT = "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0"
 EVIDENCE_ROOT = os.getenv(
     "WGS_CCE_EVIDENCE_ROOT",
     "/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime/cce-evidence",

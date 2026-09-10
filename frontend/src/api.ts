@@ -258,6 +258,10 @@ export type WgsRelease = {
   release_id: string;
   version: string;
   source_commit: string;
+  profile_id?: string | null;
+  profile_revision?: string | null;
+  profile_sha256?: string | null;
+  cce_pipeline_version?: string | null;
   execution_enabled: boolean;
   runtime_adapter_enabled: boolean;
   submission_preview_enabled: boolean;
@@ -472,9 +476,9 @@ export type GatkSubmissionPreview = {
   fastq_total_bytes: number;
   samples: string[];
   validation: {
-    sample_sets_match: boolean;
-    fastq_pairs_complete: boolean;
-    paths_approved: boolean;
+    source_directory_readable: boolean;
+    scmc_sampleinfo_present: boolean;
+    scmc_samples_present: boolean;
   };
   expires_at: string;
 };

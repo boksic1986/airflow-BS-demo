@@ -31,3 +31,19 @@ def test_gatk_dag_uses_shared_transfer_lease_contract() -> None:
     assert "acquire_result_transfer_slot" in text
     assert "release_leases" in text
     assert "gatk-runtime-200" in text
+    assert 'str(registered["generation"])' in text
+
+
+def test_gatk_dag_reports_terminal_failure_to_backend() -> None:
+    text = SOURCE.read_text(encoding="utf-8")
+
+    assert "on_failure_callback=report_dag_failure" in text
+    assert "/api/internal/gatk/runs/{analysis_id}/dag-terminal" in text
+
+
+def test_gatk_release_leaf_preserves_upstream_failure() -> None:
+    text = SOURCE.read_text(encoding="utf-8")
+
+    assert "def _upstream_failure_task_ids" in text
+    assert "upstream tasks failed after leases were released" in text
+    assert "python_callable=release_leases" in text
