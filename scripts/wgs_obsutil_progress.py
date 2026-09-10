@@ -132,7 +132,13 @@ def _public_file(arguments: list[str], plan_path: Path | None) -> dict[str, obje
         relative = str(entry.get("relative_path") or "").replace("\\", "/").lstrip("/")
         if not relative or relative.startswith("../") or "/../" in f"/{relative}/":
             continue
-        if any(value.endswith(f"/{relative}") or value == relative for value in normalized_arguments):
+        display_name = Path(relative).name
+        if any(
+            value.endswith(f"/{relative}")
+            or value == relative
+            or value.rsplit("/", 1)[-1] == display_name
+            for value in normalized_arguments
+        ):
             try:
                 matches.append((relative, int(entry.get("size_bytes") or 0)))
             except (TypeError, ValueError):

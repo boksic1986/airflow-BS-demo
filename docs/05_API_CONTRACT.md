@@ -1,5 +1,14 @@
 # API contract
 
+## T242 WGS 4.2
+
+The release API adds published profile identity and cce-pipeline version.
+Prepare stages resolve the run-bound catalog release and may import a validated
+privacy-safe prepare handoff receipt. For a mixed receipt, final selected rows
+are imported before pending decisions so pending samples are retained. Runtime
+checks adapter availability/version only; pipeline source/profile validation is
+an operator release responsibility. Unknown releases return 409.
+
 ## T240 dashboard attention and sample information
 
 - `GET /api/dashboard/overview` adds `attention_items`, an adapter-owned,

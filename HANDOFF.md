@@ -241,6 +241,108 @@ owned by `hanjj:bioinfo` while workflow runtime/results use `ctapa:bioinfo`.
 Also, BS10610's release `SOURCE_COMMIT` marker appears stale relative to its
 T246 release name; verify the actual service bind mounts before the next test
 deployment.
+## 2026-09-10 T248 WGS 4.2.0 retained-baseline recovery and live monitoring
+
+Production is running four WGS 4.2.0 analyses under a 30-minute thread
+heartbeat:
+
+- `WGS_20260909_193701_95105F-a6` / `20260907C`;
+- `WGS_20260909_193702_44561E-a2` / `20260907D`;
+- `WGS_20260909_193702_10CEB0-a2` / `20260908A`;
+- `WGS_20260909_193702_FE74F9-a2` / `20260908B`.
+
+The canary committed execution and is in Step1. It alone holds
+`wgs-obs-upload-01`; the other runs prepare and wait behind that lease. Scanner
+and auto-dispatch are enabled at 1800 seconds. Eight obsolete chip directories
+are configured in `WGS_INTAKE_IGNORED_CHIP_IDS`; the first final scan examined
+1859 directories, found five already registered batches and submitted zero.
+
+`20260907C` later failed before launching a Worker because the published 4.2.0
+copy lacked `PIPELINE_READY`. After restoring that marker, its exact analysis
+dry-run exposed `QC_SingleQC_merge` and `QC_collect_multiqc_qc` as ambiguous
+producers of `{sample}.multi.QC.tsv`. A test-first hotfix adds
+`ruleorder: QC_collect_multiqc_qc > QC_SingleQC_merge` only to the CCE published
+copy. The candidate built the complete 363-job DAG in a CCE dry-run. The same
+attempt was resumed from Step2 without rerunning Step1 or deleting any analysis
+data; the Master is healthy, six `pre_process_cleanFastq` Jobs are Active, and
+the backend has six corresponding running `RuleState` rows. The published
+marker identifies `qc-ruleorder-1`; rollback copies and the candidate are under
+`/sg2/50.ctapa/project/HWcloud/WGS_test/cce-evidence/T242-obsutil-checkpoint-20260909/20260907C-qc-ruleorder`.
+
+The production pointer is
+`/data/airflow-WGS/releases/20260910-t248-auto4-wgs420-r7`. Auto-dispatch now
+uses both 4.2 prepare stages and remains approved after their backend status
+projection. Runtime config generation strips retired OBS SDK keys before
+calling cce-pipeline 0.8.3. Earlier-attempt unbound project directories are
+moved intact below the current attempt history before regeneration. nipttest
+uses PyMongo 4.9.2 for MongoDB 4.0 wire compatibility; pipeline source was not
+changed or revalidated.
+
+The obsutil wrapper now matches a frozen transfer-plan item by unique basename
+when the CCE adapter flattens `raw/` in the destination. The first eight canary
+children started before the wrapper hotfix and remain aggregate-only. Later
+children and subsequent batches must create `transfer_file_state` rows; the
+heartbeat must treat their absence as actionable. Installed node200 SHA-256 is
+`5aaa986452451e5ceb3482b9e194ae2932aa662e35d419d97f7c3c577e1950f4` for the
+gate and `122bcaaeb7666a95b661dc75593b3d579b7b3180b7c05360401b8884ebb987fe` for
+the wrapper.
+
+Historical cleanup retained 20260906B, whose Step7 action
+`step7-sfs-4fa2543f5aea` generation 2 succeeded. Old SFS and OBS test data and
+obsolete Airflow/biodemo metadata were removed within the approved boundary.
+The retained OBS prefixes are the 20260906B `Project_fastq` and
+`Project_result` prefixes. Server original FASTQ and every project analysis
+directory were untouched. Pre-cleanup database dumps and checksums are below
+`/data/airflow-WGS/backups/T248-clean-retain-20260906B-20260910`.
+
+Validation passed: script suites 83, backend suites 82 and DAG suite 31.
+Public `/api/health` is OK.
+Continue checking single-upload serialization, Heavy Slot maximum 25, project
+and CCE artifacts, Step2/3 Rule JSONL, Step4, Step5 file rows, Step6 and UI/API
+agreement. Do not touch original data, project results or unrelated batches.
+
+## 2026-09-10 T242 WGS 4.2.0 control-plane production release
+
+T242 is deployed for new WGS submissions. Production serves frontend image
+`airflow-demo/frontend:t242-wgs420-5dc5023`; `/api/health` returns `ok`, and
+`current` points to
+`/data/airflow-WGS/releases/20260910-t242-wgs-420-control-plane-r2`.
+
+The Airflow runtime now selects the already installed nipttest
+`cce-pipeline 0.8.3` and does not inspect Git or revalidate pipeline/profile
+contents. Published source/profile hashes remain catalog evidence. A historical
+run can continue from its frozen binding; historical reprepare without one is
+blocked so mutable source cannot silently change old execution semantics.
+
+The 4.2 prepare handoff uses 0700 generation directories and 0600 request,
+manifest and pending-input files. Backend receipt projection imports selected
+samples before pending decisions, preserving mixed-batch pending rows and their
+privacy-safe reason text.
+
+Validation and deployment evidence:
+
+- pre-fix focused gate tests: 3 failed as expected;
+- post-fix gate tests: 3 passed;
+- backend mixed receipt plus decision projection: 2 passed;
+- prior complete T242 suites: script 76 passed, backend 357 passed/1 skipped,
+  frontend 17 files/61 tests, offline build passed;
+- production activation: zero active runs, zero transfer leases, automatic
+  dispatch false; no sample was submitted;
+- live health and frontend root passed; non-target scanner, Airflow, telemetry,
+  PostgreSQL and Redis container IDs were unchanged.
+
+All T242 evidence is under
+`/sg2/50.ctapa/project/HWcloud/WGS_test/cce-evidence/T242-wgs-420-control-plane-20260909`.
+The first direct remote Python test command failed because system Python lacks
+pytest; cached backend Docker tests were then used. A node200 syntax check first
+used its old system Python and stopped before installation; rerunning with the
+specified nipttest Python succeeded. Intermittent jump-host banner resets were
+retried without changing state.
+
+Rollback restores
+`/home/ctapa/.config/airflow-wgs/backups/T242-wgs-420-20260910/wgs_runtime_gate.py.before-r2`,
+repoints `current` to the r1 T242 release, and recreates only backend,
+wgs-run-observer and frontend-nginx. Production data and volumes are untouched.
 
 ## 2026-09-09 T241 WGS obsutil checkpoint progress production release
 

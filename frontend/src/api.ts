@@ -258,6 +258,10 @@ export type WgsRelease = {
   release_id: string;
   version: string;
   source_commit: string;
+  profile_id?: string | null;
+  profile_revision?: string | null;
+  profile_sha256?: string | null;
+  cce_pipeline_version?: string | null;
   execution_enabled: boolean;
   runtime_adapter_enabled: boolean;
   submission_preview_enabled: boolean;

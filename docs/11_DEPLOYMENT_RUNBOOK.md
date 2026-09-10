@@ -4,6 +4,50 @@ Environment selection, host aliases, directory ownership and image-retention
 rules are authoritative in `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`.
 Dated release sections below are historical evidence. They must not override a
 fresh `ssh BS10610` or `ssh BS96` preflight.
+## T248 retained-baseline recovery and automatic run
+
+Before retention cleanup, create Airflow and biodemo dumps below an explicit
+task evidence directory. Storage cleanup may target only approved SFS and OBS
+test prefixes. It must never remove the T7 source FASTQ root or any directory
+under the production WGS project-analysis root. Use exact guarded database
+transactions and inventory the post-delete retained rows before enabling the
+scanner.
+
+For WGS 4.2.0, node200 uses nipttest `cce-pipeline 0.8.3`. MongoDB 4.0 requires
+a compatible client; the validated nipttest runtime uses PyMongo 4.9.2. Do not
+use this compatibility requirement as authorization to modify or revalidate
+pipeline source.
+
+Automatic submissions must run `prepare_sampleinfo` and `prepare_analysis`,
+preserve `submission_phase=approved`, and commit execution before Step1. The
+generated operator config must omit legacy OBS SDK-only fields because Step1
+and Step5 use obsutil. If a failed earlier attempt left an unbound analysis
+directory, retain it intact below the new attempt's `history/prepare_analysis`
+tree before regeneration; never delete it.
+
+When an obsutil command flattens a transfer-plan directory prefix, the wrapper
+may use a unique basename match to emit the same SHA-256 file key. Ambiguous
+basenames fail closed to aggregate-only progress. After rollout, verify a
+subsequent batch creates file-level rows, not only aggregate bytes.
+
+Enable scanning only after obsolete source directories are listed in
+`WGS_INTAKE_IGNORED_CHIP_IDS`. The approved production interval is 1800
+seconds. Verify one upload lease, no duplicate dispatch, and no more than 25
+Heavy Slots. Monitor each approved analysis through Step6 and stop on an
+unresolved execution/evidence mismatch.
+
+## T242 WGS 4.2 activation
+
+Activate only with zero active WGS runs and transfer leases. Keep automatic
+dispatch disabled, preserve the 4.1.1 release mapping, and select the validated
+nipttest cce-pipeline 0.8.3. Production results remain under the ctapa
+WGS_Clinical root. Do not use Step7 or Step8 as an activation probe.
+
+Runtime execution does not invoke Git and does not revalidate pipeline/profile
+contents; release replacement and its published evidence are operator-owned.
+The gate verifies only that the configured cce-pipeline executable exists and
+reports the run-bound adapter version. Existing historical frozen bindings are
+reusable, but historical reprepare without a binding is rejected.
 
 ## T240 rollout boundary
 

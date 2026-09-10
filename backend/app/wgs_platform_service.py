@@ -478,6 +478,69 @@ def sync_sampleinfo_preview(*, session: Session, settings, run: AnalysisRun) -> 
     return len(selected)
 
 
+def sync_prepare_handoff_decisions(
+    *, session: Session, run: AnalysisRun, receipt: dict[str, object]
+) -> int:
+    """Import only the privacy-safe sample decisions emitted by WGS 4.2 prepare."""
+    schema = str(receipt.get("schema_version") or "")
+    if schema == "wgs.prepare-sampleinfo.receipt.v1":
+        groups = (("safe_candidates", "pending"),)
+    elif schema == "wgs.prepare-analysis.receipt.v1":
+        groups = (("selected", "running"), ("pending", "pending"))
+    else:
+        raise ValueError("unsupported WGS prepare handoff receipt")
+    existing = {
+        row.sample_id: row
+        for row in session.scalars(
+            select(Sample).where(Sample.analysis_id == run.analysis_id)
+        ).all()
+    }
+    imported = 0
+    for key, status in groups:
+        rows = receipt.get(key) or []
+        if not isinstance(rows, list):
+            raise ValueError("WGS prepare handoff decision rows are invalid")
+        for source in rows:
+            if not isinstance(source, dict):
+                raise ValueError("WGS prepare handoff decision row is invalid")
+            sample_id = str(source.get("sample_id") or "").strip()
+            if not sample_id:
+                raise ValueError("WGS prepare handoff decision is missing sample_id")
+            metadata = {
+                "data_id": str(source.get("data_id") or "").strip() or None,
+                "family_relation": str(source.get("family_relation") or "").strip() or None,
+                "sample_type": str(source.get("sample_type") or "").strip() or None,
+                "sex": str(source.get("sex") or "").strip() or None,
+                "sequencing_batch": str(source.get("sequencing_batch") or "").strip() or None,
+                "status_reason": str(source.get("reason_message") or "").strip() or None,
+                "status_reason_code": str(source.get("reason_code") or "").strip() or None,
+                "provider": "wgs_prepare_handoff_v1",
+            }
+            row = existing.get(sample_id)
+            if row is None:
+                row = Sample(
+                    analysis_id=run.analysis_id,
+                    sample_id=sample_id,
+                    family_id=str(source.get("family_id") or "").strip() or None,
+                    sample_type=metadata["sample_type"],
+                    sex=metadata["sex"],
+                    status=status,
+                    qc_status="unknown",
+                    metadata_json=metadata,
+                )
+                session.add(row)
+                existing[sample_id] = row
+            else:
+                row.family_id = str(source.get("family_id") or "").strip() or row.family_id
+                row.sample_type = metadata["sample_type"] or row.sample_type
+                row.sex = metadata["sex"] or row.sex
+                row.status = status
+                row.metadata_json = {**dict(row.metadata_json or {}), **metadata}
+            imported += 1
+    session.flush()
+    return imported
+
+
 def _revalidate_input(*, session: Session, settings, run: AnalysisRun, snapshot_row: WgsInputSnapshot, allow_rebuild: bool) -> None:
     for issue in session.scalars(select(RunValidationIssue).where(RunValidationIssue.analysis_id == run.analysis_id, RunValidationIssue.status == "open")).all():
         issue.status = "resolved"
