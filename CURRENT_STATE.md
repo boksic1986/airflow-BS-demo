@@ -1,5 +1,21 @@
 # CURRENT_STATE.md
 
+T255 latest supersedes build blocker below: SWR push/read-back succeeded (digestf3c197d7...14df458); new r2 profile published and WGS config-onlycommit400ba1c points to it. Independent CLI and syntheticprepare validated; candidate Airflow release5bb9e3f passed107 tests. Platform activation remains INCOMPLETE: BS96 chenjc cannot read ctapa0600 production.env and has no noninteractive sudo; no backend restart or runtime.env switch. Need approved ctapa/admin release entry. Keep submissions/cloud compute paused until catalog+CLI aligned; old nipttest and existing907D upload preserved. Final evidence archived to ctapa WGS_test with hash verification; newest HANDOFF gives exact continuation/rollback.
+
+T255 latest: reviewed biosan5+CCE0.8.3.post1 Master built (image a0112f0b8ef0), installed-image24 tests passed. SWR push denied (permission/authentication); NOT published and no image/profile/catalog/runtime activation. Independent ctapa CLI0.8.3.post1 installed without changing nipttest0.8.3. Reviewed evidence archived to ctapa WGS_test, hash verified. Await user SWR login refresh. DAG/scanner/cloud compute remain paused;907D existing upload retained. See newest HANDOFF for exact image/tag/commits and continuation gates.
+
+T255 integration in progress: current-source cce-pipeline0.8.3.post1 candidate and offline CLI wheel built; executor0.6.4+biosan5 safe-release review/test in progress. Airflow truthful-unavailable quota projection passed85 tests. No new Master image pushed or references deployed yet. User-approved temporary BS10610 evidence path and required ctapa archive recorded in HANDOFF. Cloud compute and automatic scheduling remain paused; no reset/rerun/data deletion.
+
+Cloud compute hold verified 2026-09-10 14:00 CST: 908A Master Job and4 active Worker Jobs suspended; Master Pod absent and remaining Worker Pods0 after bounded deletion wait. SFS/OBS/server data preserved. DAG/scanner/heartbeat remain paused. Existing907D upload was not terminated. No automatic resume; see HANDOFF exact identities.
+
+Emergency production hold (2026-09-10): user requests pause for version/Master repair. Airflow bio_wgs is_paused=true verified via REST; intake scanner container stopped/exited. Existing uploads and CCE Pods have not been terminated; awaiting user confirmation of Job suspension semantics. No reset/rerun or data deletion. Do not automatically resume scanner/DAG after repairs.
+
+Heavy I/O update (2026-09-10): repair is requested; reset/recovery/rerun remains paused. Current cached production Master digest d8886ad9 lacks the quota module despite executor version0.6.4+biosan4. Backend configured `0/25` is not proof of enforcement. Source now located on BS10610 under `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-cloud-platform/projects`: `huawei-cloud-runtime` at6c79070 (contains image-tag commit42d262c) and `snakemake-kubernetes-plugins` at1ca1e88. Both are clean and lack current Heavy I/O integration. Source-location blocker resolved; implementation/testing/deployment not yet done. See latest HANDOFF entry.
+
+## 2026-09-10 T254 908B reset preflight timeout
+
+User confirmed only20260908B cloud reset scope. Exact frozen paths, runWGS_20260909_193702_FE74F9 attempt2 and runtime UID6801 passed validation. Step0 `--inspect` timed out at90s; destructive `--confirm` was not reached. No data deletion, workflow restart, service deployment or SLOT change. Next: diagnose inspect/CCE query unavailability before retrying the authorized reset. See HANDOFF T254 for scope and command outcome.
+
 ## 2026-09-10 T252 obsolete airflow-demo worktree retirement
 
 ```text

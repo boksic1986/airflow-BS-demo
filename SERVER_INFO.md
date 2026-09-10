@@ -1,5 +1,11 @@
 # SERVER_INFO.md
 
+## T255 build and release observation (2026-09-10)
+
+BS10610/server10610 built reviewed Master imagea0112f0b8ef0 and pushed SWR digestf3c197d7ba30bec6c8318c80a949cb278d146ce6be783660e2b71e0b714df458. WGS public profile r2 references it; oldr1 retained. Independent ctapa CLI0.8.3.post1 is installed alongside unchanged nipttest0.8.3, not selected in runtime.env yet. Evidence archived to ctapa WGS_test/cce-evidence/T255-heavy-io.
+
+BS96/server96 remains current20260910-t249-upload-status-r1, source31dfde92ae3e63472d43075333025ac0b97d3f8c. SSH identitychenjc UID6708 cannot read production.env ownedctapa0600 and sudo requirespassword. Compose preflight failed before deployment; no containers recreated, runtime environment unchanged. Approved ctapa/admin release entry required for backend-only candidate5bb9e3f. Scanner remains exited and bio_wgs paused.
+
 ## T247 authoritative environment inventory (2026-09-09)
 
 Current selection rules are in `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`.
