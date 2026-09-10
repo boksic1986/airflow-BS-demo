@@ -159,6 +159,24 @@ Remaining gate:
 Safety:
 - No database, FASTQ, result, business log, volume, network, running workflow or non-Airflow image was deleted.
 - No unfiltered Docker prune command was used.
+# T249 - obsutil upload-status reconciliation
+
+Owner: Airflow/runtime/backend/QA
+
+Status: implementation and regression validation complete; production activation pending
+
+Acceptance:
+- [x] Reproduce the false failed file rows from cce-pipeline 0.8.3 destination `stat` preflight.
+- [x] Suppress transfer evidence for plan-backed non-`cp` obsutil commands without changing their exit code or output.
+- [x] Project every frozen-plan file as accepted before its first multipart checkpoint.
+- [x] Allow a historical false failed file row to recover from newer active or successful parent evidence.
+- [x] Pass local and BS10610 runtime regressions plus the complete backend observer suite.
+- [ ] Deploy only the runtime scripts, backend and observer; reconcile 20260908B to Step1 success and verify one-upload serialization continues.
+
+Safety:
+- Do not rerun or delete a completed upload, source FASTQ, OBS data, SFS data, or project analysis data.
+- Do not restart Airflow, scanner, database, Redis, frontend, or CCE workloads.
+
 # T248 - WGS 4.2.0 retained baseline and four-batch production run
 
 Owner: platform/backend/Airflow/runtime/QA

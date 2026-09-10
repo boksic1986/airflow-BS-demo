@@ -1804,6 +1804,61 @@ def test_file_keyed_obsutil_rows_project_the_frozen_plan_as_v2(
     assert [row["status"] for row in progress["files"]] == ["success", "running"]
 
 
+def test_frozen_plan_projects_unstarted_files_as_accepted_before_first_checkpoint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    payload = {
+        "analysis_id": "WGS_20260909_120000_A1B2C3",
+        "attempt": 1,
+        "stage": "step1_upload",
+    }
+    plan = {
+        "files_total": 2,
+        "bytes_total": 300,
+        "manifest_sha256": "a" * 64,
+        "entries": [
+            {"relative_path": "raw/S1_R1.fastq.gz", "size_bytes": 100},
+            {"relative_path": "raw/S1_R2.fastq.gz", "size_bytes": 200},
+        ],
+    }
+    (tmp_path / "stat-preflight.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wgs-runtime.transfer-progress.v1",
+                "analysis_id": payload["analysis_id"],
+                "attempt": 1,
+                "stage": "step1_upload",
+                "state": "failed",
+                "bytes_total": 0,
+                "bytes_done": 0,
+                "files_total": 1,
+                "files_done": 0,
+                "speed_bytes_per_second": 0,
+                "heartbeat_at": "2026-09-09T12:00:00+00:00",
+                "monitoring_health": "healthy",
+                "source": "obsutil-stream",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gate, "_transfer_progress_root", lambda _payload: tmp_path)
+
+    progress = gate._aggregate_transfer_progress(payload, plan)
+
+    assert progress is not None
+    assert progress["schema_version"] == "wgs-runtime.transfer-progress.v2"
+    assert progress["state"] == "running"
+    assert progress["bytes_done"] == 0
+    assert progress["files_done"] == 0
+    assert [row["status"] for row in progress["files"]] == [
+        "accepted",
+        "accepted",
+    ]
+    assert all(row["started_at"] is None for row in progress["files"])
+    assert all(row["ended_at"] is None for row in progress["files"])
+
+
 def test_file_keyed_obsutil_rows_supersede_stale_sdk_progress(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

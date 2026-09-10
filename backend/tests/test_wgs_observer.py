@@ -919,11 +919,15 @@ def test_terminal_stage_status_completes_file_rows_from_embedded_transfer(
                     attempt=1,
                     file_key="2" * 64,
                     display_name="S1_R2.fastq.gz",
-                    status="running",
+                    # A missing-object obsutil stat preflight was historically
+                    # projected as a terminal file failure before the actual
+                    # bounded transfer started.
+                    status="failed",
                     bytes_total=200,
-                    bytes_transferred=190,
-                    speed_bps=50,
+                    bytes_transferred=0,
+                    speed_bps=0,
                     started_at=running_at,
+                    ended_at=running_at,
                     updated_at=running_at,
                 ),
             ]

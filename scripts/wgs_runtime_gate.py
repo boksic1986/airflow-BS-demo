@@ -1711,8 +1711,6 @@ def _obsutil_file_progress(
             previous.get("heartbeat_at") or ""
         ):
             keyed_rows[file_key] = row
-    if not keyed_rows:
-        return None
     plan_keys = {
         hashlib.sha256(
             str(entry.get("relative_path") or "").encode("utf-8")

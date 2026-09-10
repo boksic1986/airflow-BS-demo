@@ -261,6 +261,14 @@ and file contract. Historical SDK and aggregate-only snapshots remain readable,
 but new file-keyed obsutil evidence supersedes a stale SDK snapshot from the
 same attempt.
 
+For a frozen plan, only checkpointed `obsutil cp` payload commands publish
+file evidence. The adapter's destination `stat` preflight is an existence probe:
+a missing object is expected and cannot create a failed transfer row. Until a
+payload checkpoint exists, every planned file is projected as `accepted` with
+zero observed bytes. A legacy false-failed row may be superseded by newer active
+or successful parent evidence, while successful and canceled rows remain
+terminal and immutable.
+
 The CCE 0.8.2 integration freezes three separate transfer controls. Operator
 config `obs.upload_parallelism` is the number of Step1 files uploaded at once,
 `obs.download_parallelism` is the number of Step5 files downloaded at once,

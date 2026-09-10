@@ -218,6 +218,47 @@ def test_wrapper_matches_plan_identity_when_obs_destination_flattens_raw_prefix(
     }
 
 
+def test_wrapper_does_not_publish_failed_stat_preflight_as_file_transfer(
+    tmp_path: Path,
+) -> None:
+    fake = tmp_path / "fake_obsutil.py"
+    fake.write_text("import sys\nraise SystemExit(3)\n", encoding="utf-8")
+    relative = "raw/S1_R1.fastq.gz"
+    plan = tmp_path / "transfer-plan.json"
+    plan.write_text(
+        json.dumps({"entries": [{"relative_path": relative, "size_bytes": 300}]}),
+        encoding="utf-8",
+    )
+    progress = tmp_path / "progress"
+    env = {
+        **os.environ,
+        "WGS_REAL_OBSUTIL_BIN": sys.executable,
+        "WGS_TRANSFER_PROGRESS_ROOT": str(progress),
+        "WGS_TRANSFER_PLAN_PATH": str(plan),
+        "WGS_TRANSFER_ANALYSIS_ID": "WGS_20260909_120000_A1B2C3",
+        "WGS_TRANSFER_ATTEMPT": "1",
+        "WGS_TRANSFER_STAGE": "step1_upload",
+        "WGS_TRANSFER_DIRECTION": "upload",
+    }
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            str(fake),
+            "stat",
+            "obs://secret/prefix/S1_R1.fastq.gz",
+            "-bf=raw",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 3
+    assert not list(progress.glob("*.json"))
+
+
 def test_wrapper_matches_step5_plan_created_after_process_start(tmp_path: Path) -> None:
     plan = tmp_path / "transfer-plan.json"
     checkpoint = tmp_path / "checkpoint"

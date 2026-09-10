@@ -364,6 +364,39 @@ owned by `hanjj:bioinfo` while workflow runtime/results use `ctapa:bioinfo`.
 Also, BS10610's release `SOURCE_COMMIT` marker appears stale relative to its
 T246 release name; verify the actual service bind mounts before the next test
 deployment.
+## 2026-09-10 T249 obsutil upload-status reconciliation
+
+The 20260908B screenshot did not represent four real upload failures. Its
+runtime status and worker log show that all 12 files eventually uploaded and
+verified. cce-pipeline 0.8.3 first runs `obsutil stat` for every destination;
+the expected missing-object exits were incorrectly captured by the transparent
+wrapper as terminal file failures. Only the eight files admitted to the upload
+pool immediately received newer running evidence, leaving four false failures
+visible until a slot opened.
+
+The wrapper now emits frozen-plan evidence only for checkpointed `obsutil cp`
+commands. The runtime gate projects the complete frozen plan, including
+accepted zero-byte rows before the first checkpoint, and ignores unrelated
+auxiliary failures when determining the payload state. The backend also allows
+a legacy failed row to recover when newer active or successful parent transfer
+evidence proves it was a preflight artifact. Successful and canceled rows stay
+immutable.
+
+Tests passed locally (wrapper 9, focused gate 6), on BS10610 Linux (runtime 85),
+and in the cached offline backend image (observer 58). The backend regression
+first reproduced `transfer file totals do not match frozen aggregate progress`
+before the fix. Linux evidence is under
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/T249-upload-status-20260910` because
+the requested ctapa WGS_test directory is not writable by the BS10610 test
+identity.
+
+Production activation must atomically update the node200 wrapper and gate,
+create a new immutable application release, and recreate only backend plus
+wgs-run-observer. Do not restart Airflow or the running CCE workflow. After
+activation, ingest the existing successful Step1 status for 20260908B, verify
+12/12 successful file rows and confirm the upload lease advances to only one
+waiting batch. No upload or workflow stage needs to be rerun.
+
 ## 2026-09-10 T248 WGS 4.2.0 retained-baseline recovery and live monitoring
 
 Production is running four WGS 4.2.0 analyses under a 30-minute thread
