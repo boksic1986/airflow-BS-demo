@@ -11,6 +11,27 @@ from app.models import AnalysisRun, Base, KubernetesWorkload, RuleState, RunStag
 from app.pipeline_registry_service import clear_pipeline_registry_cache
 
 
+class _StaleClearedAirflowTimeline:
+    def list_task_instances(self, dag_id: str, dag_run_id: str) -> dict:
+        assert dag_id == "bio_gatk"
+        assert dag_run_id == "GATK_20260908_120000_A1B2C3-a1"
+        return {
+            "task_instances": [
+                {
+                    "task_id": "wait_step3_analysis",
+                    "state": "up_for_reschedule",
+                    "start_date": "2026-09-08T12:10:00Z",
+                },
+                {
+                    "task_id": "wait_step6_materialize",
+                    "state": None,
+                    "start_date": "2026-09-08T12:20:00Z",
+                    "end_date": "2026-09-08T12:20:00Z",
+                },
+            ]
+        }
+
+
 def _settings(tmp_path: Path) -> SimpleNamespace:
     registry = tmp_path / "pipelines.yaml"
     registry.write_text(
@@ -67,8 +88,9 @@ def test_gatk_workspace_rules_and_pods_use_generic_run_projection(
                 dag_id="bio_gatk",
                 status="running",
                 current_stage="step3_monitor",
-                progress_percent=25,
+                progress_percent=0,
                 attempt=1,
+                dag_run_id=f"{analysis_id}-a1",
                 workdir="/runtime/gatk/GATK_20260908_120000_A1B2C3",
                 params_json={
                     "project_name": "WES_Clinical",
@@ -87,12 +109,12 @@ def test_gatk_workspace_rules_and_pods_use_generic_run_projection(
                 stage_label="Run GATK analysis",
                 stage_status="running",
                 progress_available=True,
-                progress_percent=25,
-                completed_units=1,
-                total_units=4,
-                    unit="rules",
-                    progress_source="gatk-runtime",
-                )
+                progress_percent=38,
+                completed_units=70,
+                total_units=184,
+                unit="rules",
+                progress_source="gatk-runtime",
+            )
         )
         session.add(
             RuleState(
@@ -119,15 +141,18 @@ def test_gatk_workspace_rules_and_pods_use_generic_run_projection(
 
     monkeypatch.setattr(main, "get_sessionmaker", lambda: sessions)
     monkeypatch.setattr(main, "get_settings", lambda: _settings(tmp_path))
+    monkeypatch.setattr(main, "get_airflow_client", lambda: _StaleClearedAirflowTimeline())
     clear_pipeline_registry_cache()
     client = TestClient(main.app)
 
     workspace = client.get(f"/api/runs/{analysis_id}/workspace")
+    dashboard = client.get("/api/dashboard/runs?pipeline=gatk")
     rules = client.get(f"/api/runs/{analysis_id}/rules")
     pods = client.get(f"/api/runs/{analysis_id}/pods")
 
     assert workspace.status_code == 200
     assert workspace.json()["progress"]["stage_label"] == "Run GATK analysis"
+    assert workspace.json()["progress"]["progress_percent"] == 38
     assert workspace.json()["progress"]["current_rule"] == "sentieon_mapping"
     assert workspace.json()["progress"]["orchestration_stages"][-1]["label"] == "Finalize"
     assert rules.status_code == 200
@@ -142,3 +167,20 @@ def test_gatk_workspace_rules_and_pods_use_generic_run_projection(
     ]
     assert pods.status_code == 200
     assert pods.json()["items"][0]["job_name"] == "gatk-worker"
+    assert dashboard.status_code == 200
+    dashboard_run = dashboard.json()["items"][0]
+    assert dashboard_run["current_stage_label"] == "Run GATK analysis"
+    assert dashboard_run["current_airflow_task"] is None
+    assert dashboard_run["percent"] == 38
+    assert dashboard_run["stage_progress"] == {
+        "available": True,
+        "percent": 38,
+        "completed_units": 70,
+        "total_units": 184,
+        "unit": "rules",
+        "current_item": None,
+        "speed_bps": None,
+        "eta_seconds": None,
+        "source": "gatk-runtime",
+        "updated_at": dashboard_run["stage_progress"]["updated_at"],
+    }

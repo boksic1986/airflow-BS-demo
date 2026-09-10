@@ -10,7 +10,8 @@ test_ssh: ssh BS10610
 test_hostname: server10610
 test_url: http://172.17.106.10:12959
 test_control_root: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS
-test_current: releases/20260909-t246-gatk-tracker-f38156c
+test_current: releases/20260910-t248-gatk-terminal-b816c91
+test_source_commit: b816c91bec1fcfb1013ed80276fb0ea635776c70
 test_pipelines: wgs,gatk
 test_scan: false
 test_auto_dispatch: false
@@ -41,6 +42,24 @@ production_cleanup_evidence: /data/airflow-WGS/backups/T247-docker-governance-20
 fengxian_state: running legacy airflow-demo:0.1.0 stack preserved
 fengxian_new_builds: prohibited
 fengxian_cleanup_evidence: /home/jiucheng/project/airflow-demo/.artifacts/T247-docker-governance-20260909
+```
+
+## T248 GATK finalize terminal repair (2026-09-10)
+
+```text
+environment: test
+ssh: ssh BS10610
+hostname: server10610
+control_release: releases/20260910-t248-gatk-terminal-b816c91
+control_code_commit: b816c91bec1fcfb1013ed80276fb0ea635776c70
+gatk_runtime_release: /bi/biodevrwbi/33.chenjiucheng/project/gatk-cloud-airflow/releases/4d6490a
+gatk_source_commit: 4d6490a
+gatk_cce_latency_wait_seconds: 180
+scanner: false
+auto_dispatch: false
+health: http://172.17.106.10:12959/api/health = 200
+validation: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/validation/T248-green
+production_changed: false
 ```
 
 ## T240 Dashboard attention and Sample Information production sync (2026-09-09)

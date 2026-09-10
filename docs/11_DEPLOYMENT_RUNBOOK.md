@@ -48,6 +48,12 @@ contents; release replacement and its published evidence are operator-owned.
 The gate verifies only that the configured cce-pipeline executable exists and
 reports the run-bound adapter version. Existing historical frozen bindings are
 reusable, but historical reprepare without a binding is rejected.
+## BS10610 test endpoint
+
+BS10610 (`server10610`) is the dedicated test deployment. Its user-facing
+frontend endpoint is `http://172.17.106.10:12959`. The address is bound to the
+host interface `172.17.106.10/24`; do not shorten it to `172.10.106.10` and do
+not use the production `.96` endpoint when validating this environment.
 
 ## T240 rollout boundary
 
@@ -191,9 +197,13 @@ Rollback by repointing `current` to the preceding physical release and recreatin
    and set mode 0600.
 3. Verify the GATK repository is exactly the approved release and the pinned
    Master image provides the `rule-status` logger contract.
-4. Verify the backend has same-path read-only mounts for every approved FASTQ
-   root. The initial deployment requires both `/sg2/T7new/result1/OutputFq`
-   and `/bi/fastq/T7_Fastq` because existing `a.raw` links use both spellings.
+4. Verify the backend mounts `/sg2` read-only. GATK Preview may accept projects
+   owned by any team; confirmation freezes that project as the runtime request's
+   only approved source root. Runtime input selection prefers
+   `<batch-prefix>_hg38.sampleinfo.txt`, then the SCMC and legacy sampleinfo
+   names. Source project versions may be V7.6.x-V7.7.x, while the execution
+   profile remains the separately validated `gatk-scmc-v7.6.0`. Keep FASTQ
+   roots read-only for runtime compatibility.
 5. Run preview/prepare, CCE dry-run and logger smoke before any real transfer.
 6. Execute one controlled SCMC Step1-Step6 smoke. Confirm source FASTQ hashes,
    terminal rule evidence and the materialized result root.
@@ -202,3 +212,16 @@ Rollback by repointing `current` to the preceding physical release and recreatin
 
 To rollback, set the gate false and recreate only affected control-plane
 services. Preserve database/evidence/result state for diagnosis.
+# GATK Step4 export wait and tail recovery
+
+When a GATK Master is successful but Step4 reports only
+`SFS backend export is not ready in OBS; retry Step4`, first verify the frozen
+run identity and both OBS terminal markers. Deploy the matching backend and
+node200 gate release, then clear `start_step4_publish` and its downstream tasks
+for the exact DagRun. Do not clear Prepare or Step1-Step3.
+
+The retried Step4 must register a new generation in the same attempt. Confirm
+that the business run reopens from the old terminal projection, then require
+Step4, Step5 download, Step6 materialization, finalize, and lease release to
+finish in that order. Any different Step4 error is non-retryable and requires
+diagnosis rather than another clear.
