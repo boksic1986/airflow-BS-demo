@@ -2,11 +2,9 @@
 
 更新时间：2026-09-01
 
-> 2026-09-02身份迁移更新：本文中的`chenjc` node200身份、旧共享runtime和
-> attempt内分析目录是当前线上/历史合同。已确认的新生产目标以
-> [文档29](29_WGS_HANJJ_RUNTIME_IDENTITY_MIGRATION_DESIGN.md)为准：运行账号替换为
-> `hanjj`，新控制根和`WGS_Clinical/<batch>`分析根迁到`14.hanjingjing`空间。
-> 设计已批准，代码和在线配置尚未切换。
+> 本文保留 WGS 4.1.1 历史合同。当前环境身份、路径和发布边界只以
+> [文档34](34_TEST_PRODUCTION_RELEASE_BOUNDARY.md)为准；不得继续使用本文早期的
+> `chenjc`/`hanjj`运行身份或旧测试目录。
 
 本文定义单一发布和正常Step1-Step6边界；T7 scan-only和Step4 repair的当前增量
 设计以[文档 26](26_WGS_T7_INTAKE_STEP4_REPAIR.md)为准。文档 22、T131-T142 中的

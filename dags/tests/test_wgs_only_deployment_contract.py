@@ -56,10 +56,20 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertIn("WGS_RUNTIME_UID=6801", env)
         self.assertIn("PLATFORM_METRICS_UID=6801", env)
         self.assertIn("PLATFORM_ENVIRONMENT=BS10610-Test", env)
+        self.assertIn("DEPLOYED_PIPELINES=wgs,gatk", env)
         self.assertIn(
-            "WGS_RUNTIME_BS_ROOT=/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime",
+            "WGS_RUNTIME_BS_ROOT=/sg2/50.ctapa/project/HWcloud/WGS_test/airflow-wgs/runtime",
             env,
         )
+        self.assertIn(
+            "WGS_ANALYSIS_PROJECT_NODE200_ROOT=/sg2/50.ctapa/project/HWcloud/WGS_test/WGS_Clinical",
+            env,
+        )
+        self.assertIn(
+            "GATK_RESULT_ROOT=/sg2/50.ctapa/project/HWcloud/WES_test/WES_Clinical",
+            env,
+        )
+        self.assertNotIn("/home/hanjj", env)
         self.assertIn("AIRFLOW_WEBSERVER_SECRET_KEY=<CHANGE_ME_LOCAL_ONLY>", env)
         self.assertIn("WGS_RUNNER_200_HOST=172.17.61.200", env)
         self.assertIn("WGS_RUNNER_200_ALIAS=wgs-node200", env)
@@ -86,6 +96,21 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
             payload["services"]["backend"]["user"],
             "${WGS_RUNTIME_UID:?set WGS_RUNTIME_UID}:${WGS_RUNTIME_SHARED_GID:-520}",
         )
+
+    def test_pipeline_scope_is_selected_by_the_environment_for_all_services(self):
+        payload = yaml.safe_load(
+            (REPO_ROOT / "docker-compose.wgs.yaml").read_text(encoding="utf-8")
+        )
+
+        for service_name in (
+            "backend",
+            "wgs-run-observer",
+            "platform-metrics-collector",
+            "airflow-worker",
+        ):
+            assert payload["services"][service_name]["environment"][
+                "DEPLOYED_PIPELINES"
+            ] == "${DEPLOYED_PIPELINES:-wgs}"
 
     def test_gatk_backend_can_follow_all_approved_raw_fastq_links(self):
         payload = yaml.safe_load(

@@ -152,7 +152,7 @@ class PipelineRegistry:
             "deployed_pipelines": list(self._deployed_pipeline_ids),
             "pipelines": [
                 self._definitions[pipeline_id].public_payload()
-                for pipeline_id in self._definitions
+                for pipeline_id in self._deployed_pipeline_ids
             ],
         }
 

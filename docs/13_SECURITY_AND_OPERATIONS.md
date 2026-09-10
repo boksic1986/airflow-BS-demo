@@ -13,6 +13,11 @@ or another separately reviewed future adapter without adding pipeline-name
 branches to shared authentication, navigation, run, sample, workflow, or
 capability endpoints.
 
+The current test and production runtime identity is `ctapa:bioinfo`, using
+environment-local configuration with the `id_rsa_ctapa` SSH identity. Test
+WGS/WES roots remain under `WGS_test` and `WES_test`; sharing an account never
+permits a test request to resolve a production path.
+
 The current production configuration deploys only WGS. WGS Step1-Step7,
 execution-choice, evidence, directional transfer leases, Heavy Slot and
 QCstat behavior remain WGS extension contracts and do not grant equivalent

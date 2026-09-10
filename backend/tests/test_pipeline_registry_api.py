@@ -56,9 +56,8 @@ def test_platform_capabilities_are_projected_from_pipeline_registry(tmp_path, mo
     assert response.status_code == 200
     payload = response.json()
     assert payload["deployed_pipelines"] == ["wgs"]
-    assert [item["id"] for item in payload["pipelines"]] == ["wgs", "wes"]
+    assert [item["id"] for item in payload["pipelines"]] == ["wgs"]
     assert payload["pipelines"][0]["execution_targets"] == ["cce", "local", "sge"]
-    assert payload["pipelines"][1]["enabled"] is False
 
 
 def test_generic_input_scan_reports_registry_errors(tmp_path, monkeypatch):

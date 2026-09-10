@@ -28,6 +28,7 @@ using a test path in production or a production credential in test.
 | Gateway | `http://172.17.106.10:12959` | `http://172.17.61.96:12959` |
 | Control root | `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS` | `/data/airflow-WGS` |
 | Pipelines | `wgs,gatk` | `wgs` only |
+| Runtime identity | `ctapa:bioinfo` via `id_rsa_ctapa` | `ctapa:bioinfo` via `id_rsa_ctapa` |
 | Intake scanner | disabled | enabled |
 | Auto dispatch | disabled | enabled by production policy |
 | Database | disposable test state | retained production state |
@@ -63,19 +64,28 @@ control/release root:
   /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS
 
 WGS analysis root:
-  /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/WGS_Clinical
+  /sg2/50.ctapa/project/HWcloud/WGS_test/WGS_Clinical
 
 WGS runtime:
-  BS mount  /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime
-  node path /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-wgs/runtime
+  /sg2/50.ctapa/project/HWcloud/WGS_test/airflow-wgs/runtime
 
 GATK source/result root:
-  /sg2/33.chenjiucheng/wgs_test/WES_Clinical
+  /sg2/50.ctapa/project/HWcloud/WES_test/WES_Clinical
 
 GATK runtime and evidence:
-  /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-gatk/runtime
-  /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/gatk-evidence
+  /sg2/50.ctapa/project/HWcloud/WES_test/airflow-gatk/runtime
+  /sg2/50.ctapa/project/HWcloud/WES_test/airflow-gatk/runtime/gatk-evidence
+
+SSH runtime identity:
+  user ctapa
+  key  id_rsa_ctapa
+  WGS  /home/ctapa/.config/airflow-wgs/forced-command.sh
+  GATK /home/ctapa/.config/airflow-gatk/forced-command.sh
 ```
+
+The retired `hanjj` SSH identity and the old `14.hanjingjing` or
+`33.chenjiucheng/WGS_test` roots are historical only. New test requests,
+receipts, evidence and results must not be written there.
 
 The test database, runtime, evidence and results are never promoted to
 production. Controlled real-data smoke tests may use these approved roots, but
@@ -103,7 +113,8 @@ authorize a production GATK mount, DAG, pipeline capability or execution gate.
 
 ## Permission contract
 
-- The production workflow identity is `ctapa:bioinfo`. The control root may be
+- The test and production workflow identity is `ctapa:bioinfo`. Each environment
+  has its own restricted runtime configuration and data roots. The control root may be
   administered by a separate approved owner; do not infer workflow authority
   from the owner of `/data/airflow-WGS`.
 - Immutable release directories use 0755 directories, 0644 data files and
@@ -123,11 +134,9 @@ non-clinical marker created, read and removed through the same runtime identity.
 An absent path, truncated ACL mask, unexpected owner/group or writable input
 fails closed.
 
-The 2026-09-09 observation also found two permission differences worth keeping
-visible: the test WGS runtime was 0775 rather than isolated 2770, and the
-production control root was owned by `hanjj:bioinfo` while workflow result and
-runtime roots were owned by `ctapa:bioinfo`. They are not silently corrected by
-documentation or Docker cleanup.
+The 2026-09-09 observation that test execution used `hanjj` and mode 0775 is
+historical. T254 requires every new ctapa test runtime, evidence and result
+directory to use group `bioinfo` and setgid mode 2770 before activation.
 
 ## Release preflight
 

@@ -2,6 +2,12 @@
 
 更新时间：2026-09-02
 
+> **Historical document.** T254 supersedes this identity and directory design.
+> Current test and production execution use `ctapa:bioinfo` with the dedicated
+> `id_rsa_ctapa` identity. Current paths are authoritative only in
+> [document 34](34_TEST_PRODUCTION_RELEASE_BOUNDARY.md); do not deploy from the
+> `hanjj` paths below.
+
 ## 2026-09-03 implementation status
 
 T171 implemented the request-v4 and runtime identity design on the `.96`
