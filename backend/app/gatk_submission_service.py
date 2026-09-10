@@ -200,6 +200,7 @@ def _request_payload(*, settings, draft: PipelineSubmissionDraft, run: AnalysisR
     preview = dict(draft.preview_json or {})
     node_root = Path(settings.gatk_runtime_node200_root)
     output_root = node_root / "runs" / run.analysis_id / "attempt-1"
+    result_project_name = f"{Path(draft.input_root).name}_GATK"
     payload: dict[str, Any] = {
         "schema_version": 1,
         "kind": "gatk-airflow-prepare",
@@ -219,7 +220,8 @@ def _request_payload(*, settings, draft: PipelineSubmissionDraft, run: AnalysisR
         "runtime_file": settings.gatk_runtime_file,
         "pipeline_root": settings.gatk_pipeline_root,
         "cce_pipeline": settings.gatk_cce_pipeline,
-        "result_root": str(Path(settings.gatk_result_root) / preview["batch"] / run.analysis_id),
+        "result_project_name": result_project_name,
+        "result_root": str(Path(settings.gatk_result_root) / result_project_name),
         "profile_id": settings.gatk_runtime_profile_id,
         "profile_revision": settings.gatk_runtime_profile_revision,
     }

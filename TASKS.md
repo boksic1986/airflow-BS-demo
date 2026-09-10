@@ -1,5 +1,21 @@
 # TASKS.md
 
+## T256 - Derive the GATK result project from the WES source
+
+Status: implemented; BS10610 deployment pending
+
+- [x] Confirm the retained `20260823A` run source project basename.
+- [x] Replace the generic `<batch>/<analysis_id>` destination for new requests
+  with `<source-project-name>_GATK`.
+- [x] Validate the derived name and approved result root in the runtime gate.
+- [x] Keep legacy frozen requests readable at their original destination.
+- [x] Pass GATK submission and runtime gate regression tests.
+- [ ] Deploy the branch to BS10610 with scanner and auto dispatch disabled.
+- [ ] Verify a synthetic frozen request resolves to the new test result path.
+
+Safety: this task does not move or delete the retained `20260823A` result and
+does not submit analysis or modify production.
+
 ## T255 - Restore BS10610 Cloud Eye spool
 
 Status: completed and deployed on BS10610

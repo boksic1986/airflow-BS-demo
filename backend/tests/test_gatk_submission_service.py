@@ -242,9 +242,10 @@ def test_confirm_rechecks_hash_and_submits_independent_dag(tmp_path: Path) -> No
         assert request["approved_output_roots"] == [
             "/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime/gatk/runs"
         ]
+        assert request["result_project_name"] == f"{source.name}_GATK"
         assert request["result_root"] == (
-            "/sg2/50.ctapa/project/HWcloud/WES_Clinical/20260908A/"
-            f"{run.analysis_id}"
+            "/sg2/50.ctapa/project/HWcloud/WES_Clinical/"
+            f"{source.name}_GATK"
         )
 
 

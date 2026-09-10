@@ -1,5 +1,18 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T256 GATK result project naming
+
+The retained `20260823A` GATK run identifies its source project as
+`WES_20260823A_T7_V7.6.1_hg38`. The old submission contract generated
+`GATK_RESULT_ROOT/<batch>/<analysis_id>`, which lost the source project's
+version/platform identity at the delivery boundary.
+
+New GATK prepare requests now freeze `result_project_name` as the source WES
+directory basename plus `_GATK`. Step6 accepts the result only when it is that
+exact direct child of the configured result root. Legacy requests without the
+new field retain their original directory contract so historical resume stays
+valid. No existing result has been moved.
+
 ## 2026-09-10 T255 test Cloud Eye spool repair
 
 The BS10610 dashboard Cloud Resources card is healthy again. Root cause was a

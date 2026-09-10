@@ -1,5 +1,22 @@
 # HANDOFF.md
 
+## 2026-09-10 T256 GATK result project naming
+
+Branch: `jiucheng/gatk/T256-source-project-result-name`, based on T255
+`69b399d`.
+
+Root cause: both the backend frozen prepare request and the node200 Step6 gate
+hard-coded `GATK_RESULT_ROOT/<batch>/<analysis_id>`. New requests instead use
+`GATK_RESULT_ROOT/<source-project-name>_GATK` and include the derived project
+name in the request hash. The gate recomputes the name from the frozen source
+directory and rejects mismatches or paths outside the configured result root.
+Requests without the new field retain the legacy validation path.
+
+BS10610 isolated Docker validation used the locally cached backend image and
+the staged branch sources: GATK submission tests passed 8/8 and runtime gate
+tests passed 13/13. The existing `20260823A` result was not moved, copied,
+deleted or rematerialized. Production was not accessed.
+
 ## 2026-09-10 T255 BS10610 Cloud Eye spool repair
 
 Branch: `jiucheng/infra/T255-test-cloud-spool`, based on T254 `7fda5e0`.

@@ -310,13 +310,16 @@ def test_step6_materializes_to_approved_gatk_result_root(
 
     prepare = request_root / analysis_id / "attempt-1" / "prepare.request.json"
     prepare.parent.mkdir(parents=True)
-    expected_result = result_root / "20260908A" / analysis_id
+    source_project_name = "WES_20260908A_T7_V7.6.0_hg38"
+    expected_result = result_root / f"{source_project_name}_GATK"
     prepare.write_text(
         json.dumps(
             {
                 "analysis_id": analysis_id,
                 "attempt": 1,
                 "batch": "20260908A",
+                "source_project_dir": f"/source/{source_project_name}",
+                "result_project_name": f"{source_project_name}_GATK",
                 "result_root": str(expected_result),
             }
         ),
@@ -382,6 +385,8 @@ def test_step6_rejects_result_root_outside_configured_root(
                 "analysis_id": analysis_id,
                 "attempt": 1,
                 "batch": "20260908A",
+                "source_project_dir": "/source/WES_20260908A_T7_V7.6.0_hg38",
+                "result_project_name": "WES_20260908A_T7_V7.6.0_hg38_GATK",
                 "result_root": str(tmp_path / "outside" / analysis_id),
             }
         ),
@@ -396,3 +401,33 @@ def test_step6_rejects_result_root_outside_configured_root(
         assert "approved delivery location" in str(exc)
     else:
         raise AssertionError("unsafe GATK result root was accepted")
+
+
+def test_step6_keeps_legacy_result_root_for_frozen_request(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    request_root = tmp_path / "requests"
+    configured_root = tmp_path / "results"
+    expected_result = configured_root / "20260908A" / analysis_id
+    prepare = request_root / analysis_id / "attempt-1" / "prepare.request.json"
+    prepare.parent.mkdir(parents=True)
+    prepare.write_text(
+        json.dumps(
+            {
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "batch": "20260908A",
+                "source_project_dir": "/source/WES_20260908A_T7_V7.6.0_hg38",
+                "result_root": str(expected_result),
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GATK_RUNTIME_REQUEST_ROOT", str(request_root))
+    monkeypatch.setenv("GATK_RESULT_ROOT", str(configured_root))
+
+    assert gate._materialize_result_root(
+        {"analysis_id": analysis_id, "attempt": 1}
+    ) == expected_result.resolve()

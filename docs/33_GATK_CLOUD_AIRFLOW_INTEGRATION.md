@@ -78,11 +78,16 @@ request, receipts and evidence remain under
 destination:
 
 ```text
-/sg2/50.ctapa/project/HWcloud/WES_Clinical/<batch>/<analysis_id>
+/sg2/50.ctapa/project/HWcloud/WES_Clinical/<source-project-name>_GATK
 ```
 
-The destination must exactly match `GATK_RESULT_ROOT/<batch>/<analysis_id>`;
-otherwise the runtime fails closed.
+For example, source project `WES_20260823A_T7_V7.6.1_hg38` materializes to
+`GATK_RESULT_ROOT/WES_20260823A_T7_V7.6.1_hg38_GATK`. The backend freezes both
+`source_project_dir` and the derived `result_project_name`; the node200 gate
+requires the requested destination to match that exact direct child of
+`GATK_RESULT_ROOT`. Frozen requests created before this contract remain
+readable at their legacy `GATK_RESULT_ROOT/<batch>/<analysis_id>` destination
+so a historical Step6 resume is not invalidated.
 
 For `backend_auto_export`, Step4 may reach OBS before the CCE export backend
 has made `payload-manifest.tsv` and `ANALYSIS_COMPLETE` visible. The node200

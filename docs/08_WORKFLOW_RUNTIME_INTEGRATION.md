@@ -17,6 +17,10 @@ WGS 4.2 runs prepare_sampleinfo and prepare_analysis before execution commit.
 Airflow freezes the release/profile identity and keeps historical bound runs
 readable. GATK materialization imports dependencies from its frozen delivery
 bundle and passes the bundle's permissions contract to materialize_results.
+New GATK requests derive the delivery project directory from the frozen WES
+source basename and append `_GATK`; the runtime validates that derivation and
+the configured result root before writing. Legacy frozen requests retain their
+original batch/analysis directory contract for resume compatibility.
 
 Test runners explicitly disable Python user-site packages with
 `PYTHONNOUSERSITE=1`; validate the actual cce-pipeline executable version under

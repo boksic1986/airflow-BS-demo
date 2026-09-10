@@ -334,11 +334,19 @@ def _materialize_result_root(payload: dict[str, Any]) -> Path:
     prepare = json.loads(prepare_path.read_text(encoding="utf-8"))
     configured_root = Path(os.environ["GATK_RESULT_ROOT"]).resolve()
     requested_root = Path(str(prepare.get("result_root") or "")).resolve()
-    expected_root = (
-        configured_root
-        / str(prepare.get("batch") or "")
-        / str(payload["analysis_id"])
-    ).resolve()
+    result_project_name = str(prepare.get("result_project_name") or "")
+    if result_project_name:
+        source_project_name = Path(str(prepare.get("source_project_dir") or "")).name
+        expected_project_name = f"{source_project_name}_GATK"
+        if not source_project_name or result_project_name != expected_project_name:
+            raise ValueError("GATK result project name does not match the frozen source project")
+        expected_root = (configured_root / result_project_name).resolve()
+    else:
+        expected_root = (
+            configured_root
+            / str(prepare.get("batch") or "")
+            / str(payload["analysis_id"])
+        ).resolve()
     if requested_root != expected_root or configured_root not in requested_root.parents:
         raise ValueError("GATK result_root is outside the approved delivery location")
     return requested_root
