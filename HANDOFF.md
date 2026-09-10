@@ -17,6 +17,15 @@ the staged branch sources: GATK submission tests passed 8/8 and runtime gate
 tests passed 13/13. The existing `20260823A` result was not moved, copied,
 deleted or rematerialized. Production was not accessed.
 
+Deployment: BS10610 `current` points to
+`releases/20260910-t256-gatk-result-de57033`; only backend was recreated. The
+node200 ctapa test gate matches repository SHA256
+`276314e4c2eef6971397be7bd985392d3af176a1b99821703e9299b531bbe0f1`.
+Backend `/api/health` returned OK, the active-run query was empty, and scanner
+and auto dispatch remained false. Rollback is to repoint `current` to
+`releases/20260910-t254-ctapa-boundary-f367e8b`, restore
+`gatk_runtime_gate.py.before-t256`, and recreate only backend.
+
 ## 2026-09-10 T255 BS10610 Cloud Eye spool repair
 
 Branch: `jiucheng/infra/T255-test-cloud-spool`, based on T254 `7fda5e0`.

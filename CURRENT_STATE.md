@@ -13,6 +13,12 @@ exact direct child of the configured result root. Legacy requests without the
 new field retain their original directory contract so historical resume stays
 valid. No existing result has been moved.
 
+BS10610 now points to
+`releases/20260910-t256-gatk-result-de57033`. The backend was recreated against
+that release and the matching GATK runtime gate was installed under the ctapa
+test identity on node200. Backend health is OK, no run is active, and both test
+scanner and automatic dispatch remain disabled. Production was not accessed.
+
 ## 2026-09-10 T255 test Cloud Eye spool repair
 
 The BS10610 dashboard Cloud Resources card is healthy again. Root cause was a
