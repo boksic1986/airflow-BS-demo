@@ -1,5 +1,11 @@
 # HANDOFF.md
 
+## 2026-09-10 T255 legacy batch version policy clarification
+
+User directs legacy batches to use the new cce-pipeline too, while907D upload completes without subsequent automatic analysis. Read-only live check confirms907D upload running and bio_wgs paused=true, scanner exited. Exact907D attempt2 binding is runtime/runs/WGS_20260909_193702_44561E/attempt-2/batch-binding.json; bundle is ctapa WGS_Clinical/WGS_20260907D_T7Hg38V4.2.0/cce. Step1 wrapper freezes nipttest/bin/python3.9 but runs bundle-local cce_batch_runtime.py; normal imports are standalone/PyYAML, not installed cce_pipeline (there is a later delivery fallback import). Thus current obsutil upload is NOT sufficient evidence that the installed nipttest cce-pipeline package must remain. Previous explanation conflated Python interpreter with package dependency.
+
+Legacy policy: target the reviewed new runtime for subsequent operations, not permanent old-version compatibility. Still distinguish global CLI switch from frozen batch scripts/profile/Master references:907D binding currently records b067c72/0.8.3. Those old references did not change automatically. Before legacy recovery, validate/update control-plane binding via supported recovery workflow while preserving inputs/results/completed transfers; do not blindly unsuspend an old Master Job. This clarification made no package uninstall, batch rewrite, reset/rerun/resume or data change.
+
 ## 2026-09-10 T255 activation completed with user-provided ctapa SSH key
 
 User supplied C:/Users/11217/.ssh/id_rsa_ctapa and authorized its use. SSH `-i <key> -l ctapa BS96` verified server96 UID6801, production.env readable; key contents were never read/copied/output. Permission blocker resolved through the intended owner identity, no ACL/sudo changes. The chenjc-owned T255 backup directory was not writable by ctapa; created separate ctapa-owned `/data/airflow-WGS/backups/T255-activation-ctapa` instead, without widening the old directory.
