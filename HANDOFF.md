@@ -5,7 +5,7 @@
 Branch: `jiucheng/gatk/T257-airflow-latency-overlay`, based on T256 `4aa42bf`.
 
 Investigation proved `latency-wait: 180` is absent from clean GATK
-`main@12170a7` but present in integration commit `975b782` and deployed runtime
+`main@8cb62b6` but present in integration commit `975b782` and deployed runtime
 copy `4d6490a`. The setting was introduced after a successful
 `cloud_gatk_finalize` produced a transient SFS `MissingOutputException`.
 
@@ -13,8 +13,20 @@ Airflow now owns `config/gatk_snakemake.airflow-overlay.yaml` and
 `scripts/materialize_gatk_runtime_profile.py`. The tool permits only a bounded
 integer `latency-wait`, writes the runtime profile atomically, proves the source
 was not modified and emits SHA256 provenance. Red/green tests pass 2/2 in an
-isolated BS10610 container. Rollout of the equivalent generated runtime copy is
-the remaining step; production and GATK main were not changed.
+isolated BS10610 container.
+
+Deployment: the generated test runtime is
+`gatk-cloud-airflow/releases/4d6490a-airflow-t257`. Its clean source profile,
+overlay and generated profile SHA256 values are respectively
+`fa88c069bb57c465a144997fbb0f57417f3e4e8574c057eefab230d2b0bd21b7`,
+`1f6b26c1a14ba320eed9cb9f7ef5036b4323e8c3e82b5c1637cf97471ff51a53`
+and `9f0dde94e60d5886bbfc1370e64393f3e2faed33659638bba365b91d38012342`.
+BS10610 backend and the node200 ctapa test runtime point to the generated
+release. Only backend was recreated; `/api/health` returned OK, the active-run
+query was empty, and scanner/auto dispatch remained false. The generated
+profile preserves the effective prior runtime setting, so no CCE pipeline asset
+was republished. Rollback restores the two `.pre-t257` runtime environment
+files and recreates only backend. Production and GATK main were not changed.
 
 ## 2026-09-10 T256 GATK result project naming
 

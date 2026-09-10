@@ -2,7 +2,7 @@
 
 ## T257 - Move GATK SFS latency into an Airflow runtime overlay
 
-Status: implemented; BS10610 rollout pending
+Status: completed and deployed on BS10610
 
 - [x] Confirm GATK `main` has no `latency-wait` setting.
 - [x] Trace the deployed setting to the Airflow-only runtime release.
@@ -10,7 +10,7 @@ Status: implemented; BS10610 rollout pending
 - [x] Record source, overlay and generated profile SHA256 provenance.
 - [x] Reject every override except `latency-wait` and preserve source bytes.
 - [x] Pass focused red/green tests.
-- [ ] Materialize a new BS10610 GATK runtime release from the clean source
+- [x] Materialize a new BS10610 GATK runtime release from the clean source
   profile and switch only the test environment to it.
 
 Safety: do not change GATK main, manual GATK defaults, production, active runs,

@@ -2,16 +2,25 @@
 
 ## 2026-09-10 T257 Airflow-owned GATK latency overlay
 
-GATK `main@12170a7` is clean and its `profiles/cce/config.yaml` has no
+GATK `main@8cb62b6` is clean and its `profiles/cce/config.yaml` has no
 `latency-wait`. The 180-second setting came from GATK integration commit
 `975b782` and is present only in the deployed Airflow runtime copy
 `gatk-cloud-airflow/releases/4d6490a`.
 
 The repository now owns a narrowly allowlisted Airflow overlay and an atomic
 materializer that records source/overlay/output SHA256 values. It preserves the
-source profile byte-for-byte and rejects unrelated Snakemake settings. The
-test deployment still uses the existing equivalent runtime until the new
-provenanced copy is materialized; no production or GATK main change occurred.
+source profile byte-for-byte and rejects unrelated Snakemake settings.
+
+BS10610 now uses the generated runtime release
+`gatk-cloud-airflow/releases/4d6490a-airflow-t257`. The backend environment and
+the node200 ctapa test gate both point to that release. Source, overlay and
+generated profile SHA256 values are recorded in
+`airflow-profile-provenance.json`; the generated profile contains only the
+allowlisted `latency-wait: 180` addition. The effective profile behavior is
+unchanged from the prior integration release, so no CCE pipeline asset was
+republished. Only backend was recreated, health returned OK, no run was active,
+and test scanner/auto dispatch remained disabled. Production and GATK main were
+not changed.
 
 ## 2026-09-10 T256 GATK result project naming
 

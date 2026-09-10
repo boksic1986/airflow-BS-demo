@@ -1,5 +1,28 @@
 # SERVER_INFO.md
 
+## T257 test GATK runtime profile ownership (2026-09-10)
+
+```text
+environment: BS10610 test
+gatk_source: main@8cb62b68862881e9bdccd66bd5f02af9410d7c86
+gatk_source_profile_sha256: fa88c069bb57c465a144997fbb0f57417f3e4e8574c057eefab230d2b0bd21b7
+airflow_overlay_sha256: 1f6b26c1a14ba320eed9cb9f7ef5036b4323e8c3e82b5c1637cf97471ff51a53
+generated_profile_sha256: 9f0dde94e60d5886bbfc1370e64393f3e2faed33659638bba365b91d38012342
+gatk_runtime_release: /bi/biodevrwbi/33.chenjiucheng/project/gatk-cloud-airflow/releases/4d6490a-airflow-t257
+effective_override: latency-wait=180
+recreated_services: backend
+preserved_services: frontend-nginx, airflow-api-server, airflow-scheduler, airflow-worker, postgres, redis, observers, collectors
+test_scan: false
+test_auto_dispatch: false
+active_runs_at_rollout: 0
+cce_asset_republished: false
+production_changed: false
+```
+
+The clean GATK source profile remains byte-identical. Airflow owns and records
+the test-only SFS visibility allowance when it materializes its separate runtime
+release; this is not a new GATK manual-execution default.
+
 ## T255 test Cloud Eye collector (2026-09-10)
 
 ```text
