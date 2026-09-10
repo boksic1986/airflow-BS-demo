@@ -16,6 +16,7 @@ Acceptance:
 - [x] Restore obsutil file identity when the destination flattens the frozen-plan directory prefix.
 - [x] Enable a 30-minute scanner and automatic dispatch with the eight obsolete chip directories ignored.
 - [x] Start all four approved 4.2.0 analyses and prove only one upload lease is active.
+- [x] Recover 20260907C in-place after restoring the missing CCE release marker and resolving the QC rule ambiguity; prove a 363-job DAG, six live workers and six frontend RuleState projections without rerunning Step1.
 - [ ] Observe all four analyses through Step2-Step6, verify at most 25 Heavy Slots, terminal Rule JSONL projection and frontend consistency.
 
 Safety:

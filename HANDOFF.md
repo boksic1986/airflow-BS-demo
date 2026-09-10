@@ -16,6 +16,18 @@ and auto-dispatch are enabled at 1800 seconds. Eight obsolete chip directories
 are configured in `WGS_INTAKE_IGNORED_CHIP_IDS`; the first final scan examined
 1859 directories, found five already registered batches and submitted zero.
 
+`20260907C` later failed before launching a Worker because the published 4.2.0
+copy lacked `PIPELINE_READY`. After restoring that marker, its exact analysis
+dry-run exposed `QC_SingleQC_merge` and `QC_collect_multiqc_qc` as ambiguous
+producers of `{sample}.multi.QC.tsv`. A test-first hotfix adds
+`ruleorder: QC_collect_multiqc_qc > QC_SingleQC_merge` only to the CCE published
+copy. The candidate built the complete 363-job DAG in a CCE dry-run. The same
+attempt was resumed from Step2 without rerunning Step1 or deleting any analysis
+data; the Master is healthy, six `pre_process_cleanFastq` Jobs are Active, and
+the backend has six corresponding running `RuleState` rows. The published
+marker identifies `qc-ruleorder-1`; rollback copies and the candidate are under
+`/sg2/50.ctapa/project/HWcloud/WGS_test/cce-evidence/T242-obsutil-checkpoint-20260909/20260907C-qc-ruleorder`.
+
 The production pointer is
 `/data/airflow-WGS/releases/20260910-t248-auto4-wgs420-r7`. Auto-dispatch now
 uses both 4.2 prepare stages and remains approved after their backend status
