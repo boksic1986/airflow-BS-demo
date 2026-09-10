@@ -78,6 +78,11 @@ GATK runtime and evidence:
   node200 /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/gatk-runtime
   evidence below the matching gatk-runtime root
 
+Cloud Eye test spool:
+  BS10610 /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/wgs-runtime/platform-metrics/cloud.json
+  node200 /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/wgs-runtime/platform-metrics/cloud.json
+  producer /home/ctapa/.config/airflow-wgs-test
+
 SSH runtime identity:
   user ctapa
   key  id_rsa_ctapa

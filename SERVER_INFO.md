@@ -1,5 +1,26 @@
 # SERVER_INFO.md
 
+## T255 test Cloud Eye collector (2026-09-10)
+
+```text
+environment: BS10610 test
+collector_identity: ctapa
+collector_config: /home/ctapa/.config/airflow-wgs-test
+collector_interval_seconds: 60
+cloud_spool_host: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/wgs-runtime/platform-metrics/cloud.json
+cloud_spool_node200: /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/wgs-runtime/platform-metrics/cloud.json
+schema: platform-cloud-metrics.v1
+database_resource: sfs-turbo-clinical
+database_status: healthy
+database_error: null
+production_changed: false
+```
+
+The old hanjj test collector still targets the retired
+`airflow-wgs/runtime/platform-metrics/cloud.json`; the active BS10610 platform
+does not read that file. Stop that legacy process only as its owner or root in
+a separately recorded cleanup.
+
 ## T254 observed test deployment (2026-09-10)
 
 ```text

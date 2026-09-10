@@ -1,5 +1,24 @@
 # TASKS.md
 
+## T255 - Restore BS10610 Cloud Eye spool
+
+Status: completed and deployed on BS10610
+
+- [x] Reproduce the missing Cloud Eye spool after the T254 runtime split.
+- [x] Prove the legacy test collector still writes only the retired runtime.
+- [x] Make the launcher pass its validated credential, project, resource and
+  output settings explicitly to the collector.
+- [x] Install an independent ctapa test collector under
+  `/home/ctapa/.config/airflow-wgs-test`.
+- [x] Verify the new spool advances across collection intervals.
+- [x] Verify the database projects `sfs-turbo-clinical` as healthy with no
+  error message.
+
+Safety: production services and the production ctapa collector were not
+changed. No analysis, scanner, dispatch, database migration or data deletion
+was performed. The disconnected legacy hanjj collector was not accessed with
+its private key and is not an active platform input.
+
 ## T254 - Synchronize ctapa test paths and runtime identity
 
 Status: completed and deployed on BS10610

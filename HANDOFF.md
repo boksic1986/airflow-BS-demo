@@ -1,5 +1,33 @@
 # HANDOFF.md
 
+## 2026-09-10 T255 BS10610 Cloud Eye spool repair
+
+Branch: `jiucheng/infra/T255-test-cloud-spool`, based on T254 `7fda5e0`.
+
+The Cloud Resources warning was reproduced from container evidence. The
+BS10610 metrics collector consumed the new
+`airflow-ctapa/wgs-runtime/platform-metrics/cloud.json`, which was absent. A
+legacy hanjj process continued to update only the retired
+`airflow-wgs/runtime` spool. Production's ctapa collector was healthy and was
+left unchanged.
+
+`scripts/start_sfs_cloud_eye_collector.sh` now passes all validated settings to
+the Python collector explicitly. A red/green launcher contract test failed
+before the fix and passed afterward. The updated collector and launcher were
+installed under `/home/ctapa/.config/airflow-wgs-test`; its configuration uses
+the existing ctapa credential file and writes only the T254 test control root.
+
+Remote validation: the one-shot collection produced
+`platform-cloud-metrics.v1`; the long-lived collector started as PID 17656;
+the spool advanced over a complete 60-second interval; the BS collector logged
+`sfs-turbo-clinical is healthy`; and the database row has status `healthy`, a
+fresh source timestamp and `error_message=None`. The platform metrics collector
+was the only Docker service restarted.
+
+No production service, scanner, dispatch gate, analysis, migration, FASTQ or
+result changed. The disconnected legacy hanjj collector was not stopped because
+T255 deliberately used no hanjj key; its owner or root may retire it separately.
+
 ## 2026-09-10 T254 ctapa test boundary synchronization
 
 Branch `jiucheng/platform/T254-ctapa-test-boundary-sync` is based on merged

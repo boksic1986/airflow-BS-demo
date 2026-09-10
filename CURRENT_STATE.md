@@ -1,5 +1,23 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T255 test Cloud Eye spool repair
+
+The BS10610 dashboard Cloud Resources card is healthy again. Root cause was a
+producer/consumer split after T254: the platform consumed
+`airflow-ctapa/wgs-runtime/platform-metrics/cloud.json`, while the legacy test
+collector still wrote the retired `airflow-wgs/runtime` path.
+
+An independent ctapa collector now runs from
+`/home/ctapa/.config/airflow-wgs-test` and writes the new shared test spool
+every 60 seconds. The launcher explicitly passes credential path, project ID,
+resource ID and output path instead of silently falling back to Python defaults.
+The spool advanced across a full interval; biodemo reports
+`sfs-turbo-clinical` healthy with a null error message.
+
+Production and its existing ctapa collector were not modified. The old hanjj
+collector remains disconnected from the active platform and requires its
+owner or root for separate retirement; no hanjj key was used by T255.
+
 ## 2026-09-10 T254 ctapa test boundary synchronization
 
 BS10610 test runs WGS and GATK from release

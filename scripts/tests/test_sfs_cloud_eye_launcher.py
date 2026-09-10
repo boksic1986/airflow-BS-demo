@@ -13,5 +13,9 @@ def test_sfs_collector_launcher_is_bounded_and_deduplicated() -> None:
     assert "SFS_CLOUD_EYE_CREDENTIALS:?" in source
     assert "HWC_PROJECT_ID:?" in source
     assert "SFS_CLOUD_EYE_RESOURCE_ID:?" in source
+    assert '--credentials "${SFS_CLOUD_EYE_CREDENTIALS}"' in source
+    assert '--project-id "${HWC_PROJECT_ID}"' in source
+    assert '--resource-id "${SFS_CLOUD_EYE_RESOURCE_ID}"' in source
+    assert '--output "${PLATFORM_CLOUD_METRICS_SPOOL}"' in source
     assert "credentials must use mode 600" in source
     assert "10485760" in source

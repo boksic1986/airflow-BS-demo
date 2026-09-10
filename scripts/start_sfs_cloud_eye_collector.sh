@@ -42,7 +42,12 @@ if [[ -f "${log_file}" ]] && (( $(stat -c '%s' "${log_file}") > 10485760 )); the
 fi
 
 nohup setsid flock -n "${lock_file}" \
-  "${python_bin}" "${collector}" --interval-seconds 60 \
+  "${python_bin}" "${collector}" \
+  --credentials "${SFS_CLOUD_EYE_CREDENTIALS}" \
+  --project-id "${HWC_PROJECT_ID}" \
+  --resource-id "${SFS_CLOUD_EYE_RESOURCE_ID}" \
+  --output "${PLATFORM_CLOUD_METRICS_SPOOL}" \
+  --interval-seconds 60 \
   </dev/null >>"${log_file}" 2>&1 &
 collector_pid=$!
 printf '%s\n' "${collector_pid}" >"${pid_file}"

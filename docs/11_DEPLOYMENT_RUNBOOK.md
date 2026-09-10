@@ -63,6 +63,15 @@ client. Keep runtime/evidence spools in the paired
 `/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa` control root and use
 `id_rsa_ctapa`; never restore the retired hanjj test key.
 
+The test Cloud Eye producer is independent from production. Start it from
+`/home/ctapa/.config/airflow-wgs-test` with
+`SFS_CLOUD_EYE_CONFIG_ROOT`, `WGS_PYTHON`, `SFS_CLOUD_EYE_CREDENTIALS`,
+`HWC_PROJECT_ID`, `SFS_CLOUD_EYE_RESOURCE_ID` and
+`PLATFORM_CLOUD_METRICS_SPOOL` set explicitly. Its output must be the
+`airflow-ctapa/wgs-runtime/platform-metrics/cloud.json` file visible through
+the BS and node200 control-root mappings. Verify two advancing timestamps
+before considering the producer durable.
+
 ## T240 rollout boundary
 
 T240 changes backend projections and frontend presentation only. Validate the
