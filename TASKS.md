@@ -1,5 +1,21 @@
 # TASKS.md
 
+## T253 - Synchronize test platform with published production updates
+
+Status: completed on BS10610; production inspected read only
+
+- [x] Merge latest main, published WGS 4.2 platform work and validated GATK fixes.
+- [x] Preserve both pipeline adapters and the successful GATK Step6 contract.
+- [x] Validate backend, runtime, frontend and DAG contracts offline on BS10610.
+- [x] Deploy combined test release and verify retained GATK success projections.
+- [x] Keep test scanner and automatic dispatch disabled.
+- [x] Correct test runtime account/path defaults and user-site package shadowing.
+- [x] Record release provenance and rollback without copying production data/secrets.
+
+Historical T248/T249 labels were independently used by WGS, GATK and governance
+branches; their descriptive titles and commit IDs distinguish those records.
+T253 is the integrated development entry point.
+
 ## T252 - Retire obsolete airflow-demo worktrees
 
 Owner: coordinator/ops/docs

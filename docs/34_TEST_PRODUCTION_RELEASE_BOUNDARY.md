@@ -49,6 +49,11 @@ The 2026-09-09 read-only observation found scanning enabled but auto dispatch
 disabled in both backend and scanner. That is recorded drift from the policy
 above, not permission for a documentation or cleanup task to enable analysis.
 
+The 2026-09-10 T253 read-only production check supersedes that observation:
+both gates are true, with not-before `2026-09-08T08:00:00Z`. Test still has both
+gates false. Synchronizing source from production must preserve the test gates,
+test runtime identity and test data roots.
+
 ## Directory contract
 
 ### BS10610 test

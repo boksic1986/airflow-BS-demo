@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+## T253 observed deployment (2026-09-10)
+
+BS10610 uses `releases/20260910-t253-platform-sync-66c41b5`, WGS 4.2 plus GATK,
+with scanner/auto dispatch disabled. Frontend is
+`airflow-demo/frontend:t253-platform-sync-66c41b5`.
+BS96 was inspected read only: current is
+`releases/20260910-t248-auto4-wgs420-r7`, WGS only, both automatic gates enabled.
+The integrated test source includes main, WGS T242 and GATK Step6 fixes.
+
 ## T247 authoritative environment inventory (2026-09-09)
 
 Current selection rules are in `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`.

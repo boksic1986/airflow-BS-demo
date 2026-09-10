@@ -1,5 +1,28 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T253 test platform integration
+
+The current test development baseline is `jiucheng/platform/T253-test-production-sync`.
+It merges main `1deca5f`, published WGS platform branch `47038e4`, and the
+validated GATK branch `dad09fd`. Production's release marker is `c9dc58c`;
+its actual WGS gate includes the later fixes and matches the merged gate SHA.
+Do not use the release marker alone to select source.
+
+BS10610 current is `releases/20260910-t253-platform-sync-66c41b5`.
+WGS reports V4.2.0, while GATK retains its independent validated runtime.
+Test Intake scanner and Auto dispatch are both false. Production was read only;
+its scanner and dispatch are true with watermark `2026-09-08T08:00:00Z`.
+
+Validation: 372 backend tests, 100 runtime tests, 4 GATK DAG contract tests,
+61 frontend tests, typecheck/build, Compose render, zero DAG import errors,
+gateway HTTP 200 and Celery ping passed. Both retained GATK runs remain
+success/100%. No analysis was submitted and no migration was needed.
+
+Test runtime drift was corrected: WGS uses the hanjj gate, test BS runtime
+root, WGS 4.2 prepare config and obsutil. `PYTHONNOUSERSITE=1` prevents the
+hanjj user-site 0.8.2 package from shadowing nipttest 0.8.3.
+Existing GATK gate SHA and result paths are unchanged.
+
 ## 2026-09-10 T252 obsolete airflow-demo worktree retirement
 
 ```text

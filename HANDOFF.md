@@ -1,5 +1,46 @@
 # HANDOFF.md
 
+## 2026-09-10 T253 integrated test platform
+
+Branch: `jiucheng/platform/T253-test-production-sync`.
+Sources: main `1deca5f`, WGS production branch `47038e4`, GATK `dad09fd`.
+Code commit: `66c41b5`; BS10610 release:
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260910-t253-platform-sync-66c41b5`.
+
+Merged WGS 4.2 prepare/automatic-dispatch/obsutil compatibility and GATK
+submission, terminal reconciliation and materialization. Conflict resolution
+preserves both histories and current environment governance; WGS runtime
+defaults retain the production-validated obsutil/0.8.3 contract.
+
+Remote validation: backend 372 passed, runtime 100 passed, GATK DAG contract
+4 passed, frontend 61 passed plus typecheck/build. Compose config, nginx config,
+Airflow import errors and worker ping pass. Gateway returns 200. Authenticated
+backend release/workspace/tracker APIs report WGS 4.2 and retained GATK
+success/100%. Frontend was checked through container/HTTP evidence, not a browser.
+
+The test WGS runtime now uses hanjj, nipttest Python with PYTHONNOUSERSITE=1,
+cce-pipeline 0.8.3, PyMongo 4.9.2 and the approved WGS 4.2 prepare/profile roots.
+The GATK gate remains SHA 741ae5df618042e969e8ce08693aa2ced6aa997536c2caf3d11188fe5d1b2b0b.
+Test scanner/auto dispatch remain false. No batch was submitted. Production
+BS96 was inspected only, with both automatic gates observed true.
+
+Only backend, run observer, Airflow API/scheduler/worker and frontend were
+recreated. PostgreSQL, Redis and telemetry container IDs were preserved.
+No database migration or history deletion occurred.
+
+Rollback: previous pointer and private environment are in control-root
+`backups/T253-platform-sync`; restore both and recreate the same six services.
+Node200 hanjj runtime originals are in
+`/home/hanjj/.config/airflow-wgs/backups/T253-platform-sync`.
+Preserve all volumes, analysis outputs and GATK runtime. Production credentials
+and data were not copied.
+
+Validation failures handled: one intermittent SSH gateway disconnect was retried;
+the initial internal frontend probe returned expected allowlist 403, while the
+host-facing gateway returned 200. The nonexistent plural release URL returned
+404; the documented `/api/wgs/release` passes. No new full WGS/GATK canary was
+run in this synchronization task; prepare/runtime behavior has mock coverage.
+
 ## 2026-09-10 T252 obsolete worktree retirement handoff
 
 ```text

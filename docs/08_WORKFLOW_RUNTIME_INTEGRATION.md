@@ -13,6 +13,15 @@ repository.
 
 ## Evidence contract
 
+WGS 4.2 runs prepare_sampleinfo and prepare_analysis before execution commit.
+Airflow freezes the release/profile identity and keeps historical bound runs
+readable. GATK materialization imports dependencies from its frozen delivery
+bundle and passes the bundle's permissions contract to materialize_results.
+
+Test runners explicitly disable Python user-site packages with
+`PYTHONNOUSERSITE=1`; validate the actual cce-pipeline executable version under
+the same account and environment used by the restricted gate.
+
 Workflow runners publish atomic, generation-fenced evidence. The observer
 validates identity and receipts before projecting rule, sample, QC, transfer
 and terminal state into PostgreSQL. Frontend code consumes only that projection.
