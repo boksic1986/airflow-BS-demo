@@ -1,5 +1,20 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T260 shared test cce-pipeline 0.8.4
+
+The shared test environment at
+`/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest` now contains
+`cce-pipeline 0.8.4`, built from source commit
+`8f1db532db0be18684fbe75fdec4efb29d6efc01`. The Python module, dist-info and
+console entrypoint agree, and node200 resolves the same shared entrypoint.
+No repeat installation was performed because the requested version was already
+active. Production `.96` was not accessed.
+
+`pip check` remains nonzero for pre-existing environment findings involving
+aioeasywebdav, eido, veracitools and the intentionally retained PyMongo 4.9.2
+compatibility boundary. These are not cce-pipeline 0.8.4 requirements and were
+not modified during T260.
+
 ## 2026-09-10 T259 GATK cce-pipeline 0.8.x compatibility
 
 The failed BS10610 test run `GATK_20260910_092625_867063` did not reach Step1.

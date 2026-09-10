@@ -1,5 +1,19 @@
 # HANDOFF.md
 
+## 2026-09-10 T260 shared nipttest cce-pipeline 0.8.4 verification
+
+The user requested upgrading the BS test nipttest site-packages to
+`cce-pipeline 0.8.4`. Live inspection found that exact version already active,
+so it was not reinstalled. BS10610 reports matching module, dist-info and CLI
+versions; provenance resolves to commit
+`8f1db532db0be18684fbe75fdec4efb29d6efc01`. node200 also reports
+`cce-pipeline 0.8.4` through the shared `/sg2` environment.
+
+The whole-environment `pip check` remains nonzero for unrelated legacy
+dependencies and the deliberate PyMongo 4.9.2 compatibility pin. No package
+other than the observed existing cce-pipeline installation was changed, and
+production `.96` was not accessed.
+
 ## 2026-09-10 T259 GATK 0.8.x runtime compatibility
 
 GATK branch `jiucheng/gatk/T259-cce-post-release` was created from

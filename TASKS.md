@@ -1,5 +1,18 @@
 # TASKS.md
 
+## T260 - Confirm shared test cce-pipeline 0.8.4 runtime
+
+Status: completed on BS10610 and node200
+
+- [x] Verify the shared nipttest module, dist-info and console entrypoint report
+  `cce-pipeline 0.8.4`.
+- [x] Record source commit `8f1db532db0be18684fbe75fdec4efb29d6efc01`.
+- [x] Verify node200 resolves the same shared `/sg2` entrypoint.
+- [x] Keep production `.96` unchanged.
+
+The environment-wide `pip check` still reports pre-existing unrelated package
+issues; no dependency was changed as part of this verification.
+
 ## T259 - Accept the cce-pipeline 0.8.x release series for GATK
 
 Status: completed and deployed on BS10610
