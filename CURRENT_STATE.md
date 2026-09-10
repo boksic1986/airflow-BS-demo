@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T249 obsutil upload-status reconciliation
+
+```text
+scope: correct the Step1 per-file and terminal upload projection observed on 20260908B without changing transfer data, cce-pipeline, the one-upload lease, or any workflow stage.
+root_cause: cce-pipeline 0.8.3 probes each frozen-plan destination with obsutil stat before starting the bounded cp pool. Missing objects are expected, but the transparent wrapper published those nonzero stat exits as failed file transfers. Later cp evidence replaced only the files whose upload had started, so the remaining unstarted files appeared failed. Historical failed rows were then treated as immutable by the backend and blocked the terminal 12/12 aggregate from reconciling.
+fix: plan-backed evidence is now emitted only for checkpointed obsutil cp commands. A frozen plan projects every not-yet-started file as accepted even before the first checkpoint. The backend permits a legacy failed file row to recover only when a newer parent transfer is active or successful; success and canceled rows remain immutable.
+validation: local wrapper tests passed 9 and focused gate tests passed 6. BS10610 Linux wrapper/gate tests passed 85. The cached offline backend observer suite passed 58 after the regression first reproduced the terminal aggregate mismatch.
+safety: no source FASTQ, project analysis output, OBS object, SFS workspace, database schema, credential, CCE workflow source, or cce-pipeline installation was changed by the fix.
+```
+
 ## 2026-09-10 T248 WGS 4.2.0 retained-baseline recovery and automatic run
 
 ```text

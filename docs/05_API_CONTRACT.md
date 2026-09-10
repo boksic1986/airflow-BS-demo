@@ -95,6 +95,13 @@ Existing `/api/wgs/*` routes remain supported for WGS submission, intake, eviden
   their existing exact byte, checksum and timestamp fields. Before obsutil
   creates multipart XML, a planned file is represented as `accepted` with
   zero observed bytes; this is not a sampled zero-percent measurement.
+- Destination `stat` and other plan-backed preflight commands do not publish
+  transfer-file evidence. Their nonzero missing-object result is not an upload
+  failure. Only checkpointed payload `cp` commands produce file snapshots.
+- A previously persisted `failed` row may recover only when a newer parent
+  transfer is accepted/running/successful. This compatibility rule repairs
+  legacy preflight artifacts; successful and canceled file rows remain
+  immutable.
 - Historical SDK v2 snapshots and aggregate-only obsutil v1 snapshots remain
   readable. Once file-keyed obsutil rows exist for a frozen plan, they are
   authoritative over a stale SDK snapshot from the same attempt.
