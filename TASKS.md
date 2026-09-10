@@ -4,7 +4,7 @@
 
 Owner: Airflow/runtime/backend/QA
 
-Status: implementation and regression validation complete; production activation pending
+Status: completed in production; separate 20260908B Step3 failure awaits evidence-backed recovery
 
 Acceptance:
 - [x] Reproduce the false failed file rows from cce-pipeline 0.8.3 destination `stat` preflight.
@@ -12,11 +12,11 @@ Acceptance:
 - [x] Project every frozen-plan file as accepted before its first multipart checkpoint.
 - [x] Allow a historical false failed file row to recover from newer active or successful parent evidence.
 - [x] Pass local and BS10610 runtime regressions plus the complete backend observer suite.
-- [ ] Deploy only the runtime scripts, backend and observer; reconcile 20260908B to Step1 success and verify one-upload serialization continues.
+- [x] Deploy only the runtime scripts, backend and observer; reconcile 20260908B to Step1 success and verify one-upload serialization continues.
 
 Safety:
 - Do not rerun or delete a completed upload, source FASTQ, OBS data, SFS data, or project analysis data.
-- Do not restart Airflow, scanner, database, Redis, frontend, or CCE workloads.
+- Do not restart Airflow, scanner, database, Redis, or CCE workloads. A frontend-nginx process restart is allowed only when the recreated backend changes its Docker address.
 
 # T248 - WGS 4.2.0 retained baseline and four-batch production run
 

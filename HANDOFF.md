@@ -26,12 +26,31 @@ before the fix. Linux evidence is under
 the requested ctapa WGS_test directory is not writable by the BS10610 test
 identity.
 
-Production activation must atomically update the node200 wrapper and gate,
-create a new immutable application release, and recreate only backend plus
-wgs-run-observer. Do not restart Airflow or the running CCE workflow. After
-activation, ingest the existing successful Step1 status for 20260908B, verify
-12/12 successful file rows and confirm the upload lease advances to only one
-waiting batch. No upload or workflow stage needs to be rerun.
+Production now points to
+`/data/airflow-WGS/releases/20260910-t249-upload-status-r1`. The node200 wrapper
+SHA is `d14f8a4520c8ab70849a0f63b4b6d1fd1770a7e3f986d28fb9adcf5567642eb8`
+and gate SHA is
+`589e1f9f3d870b1f081a8939e85e241a01691bfcaff73994d47b9159d1ea0e4e`;
+their rollback copies are below
+`/home/ctapa/.config/airflow-wgs/backups/T249-upload-status-20260910`.
+Only backend and wgs-run-observer were recreated. The public proxy initially
+returned 502 because nginx retained the recreated backend's old Docker address;
+restarting frontend-nginx, without recreating it, restored `/api/health=ok`.
+Airflow, scanner, PostgreSQL, Redis, telemetry and running CCE workloads were
+not restarted.
+
+The next Airflow sensor poke reconciled 20260908B without rerunning Step1:
+12/12 files are successful and exact totals are
+671838056543/671838056543 bytes. `wgs-obs-upload-01` was released and is now
+held only by 20260908A, proving serialization continued.
+
+20260908B then encountered a separate Step3 failure. Its master
+`cce-master-128759e0c23d891eca95` entered Kubernetes Pod phase Failed before
+emitting any Snakemake total, current rule or worker evidence. The published
+CCE contract sets `ttlSecondsAfterFinished=60`, so the Job/Pod and events were
+already absent when investigated. Do not retry or modify the workflow from the
+generic `Master Pod is in a fatal infrastructure state` projection; obtain a
+durable pod termination reason/log or operator direction first.
 
 ## 2026-09-10 T248 WGS 4.2.0 retained-baseline recovery and live monitoring
 
