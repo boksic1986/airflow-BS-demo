@@ -1,5 +1,29 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T254 ctapa test boundary synchronization
+
+BS10610 test runs WGS and GATK from release
+`releases/20260910-t254-ctapa-boundary-f367e8b`. Test scanner and automatic
+dispatch remain disabled; PostgreSQL, Redis and analysis data were preserved.
+
+WGS analysis/output is fixed at
+`/sg2/50.ctapa/project/HWcloud/WGS_test/WGS_Clinical`; GATK source/output is
+fixed at `/sg2/50.ctapa/project/HWcloud/WES_test/WES_Clinical`. Because the
+`50.ctapa` export is read-only on BS10610, container control state uses the
+fresh shared roots below `WGS_test/airflow-ctapa`, mapped as `/mnt/...` on
+BS10610 and `/sg2/...` on node200.
+
+All node200 WGS/GATK execution and `.96/.97` node probes now authenticate as
+`ctapa` with `id_rsa_ctapa` and strict host-key checking. The retired `hanjj`
+key and runtime are not mounted. WGS and GATK gates use independent `*-test`
+configuration directories under `/home/ctapa/.config`.
+
+Source includes production upload reconciliation commit `7a7b664` and T254
+boundary/capability commit `f367e8b`. Focused backend, runtime and Compose
+contract tests pass. Gateway/health, DAG imports, Celery, node metrics, mounts,
+zero active test runs and recent logs pass final remote checks. BS96 remains
+WGS-only with both automatic gates enabled and was not modified.
+
 ## 2026-09-10 T253 test platform integration
 
 The current test development baseline is `jiucheng/platform/T253-test-production-sync`.

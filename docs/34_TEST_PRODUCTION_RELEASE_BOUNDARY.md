@@ -67,25 +67,35 @@ WGS analysis root:
   /sg2/50.ctapa/project/HWcloud/WGS_test/WGS_Clinical
 
 WGS runtime:
-  /sg2/50.ctapa/project/HWcloud/WGS_test/airflow-wgs/runtime
+  BS10610 /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/wgs-runtime
+  node200 /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/wgs-runtime
 
 GATK source/result root:
   /sg2/50.ctapa/project/HWcloud/WES_test/WES_Clinical
 
 GATK runtime and evidence:
-  /sg2/50.ctapa/project/HWcloud/WES_test/airflow-gatk/runtime
-  /sg2/50.ctapa/project/HWcloud/WES_test/airflow-gatk/runtime/gatk-evidence
+  BS10610 /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/gatk-runtime
+  node200 /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/gatk-runtime
+  evidence below the matching gatk-runtime root
 
 SSH runtime identity:
   user ctapa
   key  id_rsa_ctapa
-  WGS  /home/ctapa/.config/airflow-wgs/forced-command.sh
-  GATK /home/ctapa/.config/airflow-gatk/forced-command.sh
+  WGS  /home/ctapa/.config/airflow-wgs-test/forced-command.sh
+  GATK /home/ctapa/.config/airflow-gatk-test/forced-command.sh
 ```
 
-The retired `hanjj` SSH identity and the old `14.hanjingjing` or
-`33.chenjiucheng/WGS_test` roots are historical only. New test requests,
-receipts, evidence and results must not be written there.
+The retired `hanjj` SSH identity, the old `14.hanjingjing` analysis tree and
+the earlier mixed `airflow-wgs/runtime` and `airflow-gatk/runtime` roots are
+historical only. New test requests, receipts and evidence use the dedicated
+`airflow-ctapa` control roots above; new analysis output uses only the approved
+`50.ctapa` WGS/WES test roots.
+
+The `50.ctapa` analysis roots are writable by `ctapa` on node200 but are
+read-only through the BS10610 NFS export. Therefore they must not be used for
+container-side runtime spools. BS10610 writes control state through the
+`/mnt/biodevrwsg2` mapping, and node200 sees the same control state through
+the `/sg2/biodevrwsg2` mapping.
 
 The test database, runtime, evidence and results are never promoted to
 production. Controlled real-data smoke tests may use these approved roots, but

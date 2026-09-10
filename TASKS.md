@@ -1,5 +1,22 @@
 # TASKS.md
 
+## T254 - Synchronize ctapa test paths and runtime identity
+
+Status: completed and deployed on BS10610
+
+- [x] Move WGS analysis/output to the approved `50.ctapa/WGS_test` root.
+- [x] Move GATK source/output to the approved `50.ctapa/WES_test` root.
+- [x] Replace the retired hanjj execution identity with `id_rsa_ctapa`.
+- [x] Separate BS10610-writable control runtime from node200 analysis roots.
+- [x] Keep WGS and GATK deployed while scanner and auto dispatch stay disabled.
+- [x] Synchronize the production upload-status reconciliation fix.
+- [x] Filter the public registry payload to deployed pipeline definitions only.
+- [x] Complete the final remote health, DAG, Celery and log tail check after the
+  transient BS jump-host timeout cleared.
+
+Safety: no analysis was submitted; no database, Docker volume, FASTQ, result,
+production service or production gate was modified.
+
 ## T253 - Synchronize test platform with published production updates
 
 Status: completed on BS10610; production inspected read only

@@ -1,5 +1,47 @@
 # HANDOFF.md
 
+## 2026-09-10 T254 ctapa test boundary synchronization
+
+Branch `jiucheng/platform/T254-ctapa-test-boundary-sync` is based on merged
+PR19 `0350536`. Commits are `7a7b664` (production obsutil upload reconciliation)
+and `f367e8b` (ctapa paths, capability filtering and Compose scope).
+
+BS10610 current points to
+`releases/20260910-t254-ctapa-boundary-f367e8b`. WGS analysis/output now uses
+`/sg2/50.ctapa/project/HWcloud/WGS_test/WGS_Clinical`; GATK source/output uses
+`/sg2/50.ctapa/project/HWcloud/WES_test/WES_Clinical`. Container runtime,
+evidence, intake and bindings use fresh shared control roots under
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa` on BS10610 and the
+equivalent `/sg2/biodevrwsg2/...` mapping on node200.
+
+The workflow worker and node metrics probe authenticate as `ctapa` with
+separate read-only copies of `id_rsa_ctapa` and strict host-key checking.
+Direct checks reached node200, server96 and server97 as `ctapa`; both node
+metrics probes returned healthy. Test scanner and automatic dispatch remain
+false. PostgreSQL and Redis were not recreated, and no analysis was submitted.
+
+Validation: the final isolated BS10610 Compose/environment contract bundle
+passed 11 tests; BS10610 registry/API/GATK tests passed 72 tests; runtime
+upload/gate tests passed 85 tests; Compose
+render passed; gateway root and health return 200; `bio_wgs` and `bio_gatk` are
+listed with no import errors; Celery returned `pong`; node96/node97 metrics
+contain current CPU, memory, load, disk and network counters; recent service
+logs contain no traceback, permission or read-only errors. The test database
+has zero active runs. Two transient `.18` jump-host timeouts occurred during
+validation and cleared without a runtime change.
+
+BS96 was inspected read only after deployment. It remains on
+`releases/20260910-t249-upload-status-r1`, deploys only WGS, has scanner and
+auto dispatch enabled with watermark `2026-09-08T08:00:00Z`, and retains the
+production WGS/runtime/FASTQ mount contract. No production container changed.
+
+The first runtime placement attempted to use the `50.ctapa` analysis tree for
+control spools. Live write checks proved that export read-only on BS10610, so
+it was corrected before any run submission. Old runtime evidence was not
+modified. Rollback environment and ACL evidence are under
+`backups/T254-ctapa-boundary-20260910`; restore the prior pointer/environment
+and recreate the same non-database services. Do not delete volumes or results.
+
 ## 2026-09-10 T253 integrated test platform
 
 Branch: `jiucheng/platform/T253-test-production-sync`.

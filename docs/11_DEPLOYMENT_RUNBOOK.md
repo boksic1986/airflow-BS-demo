@@ -55,6 +55,14 @@ frontend endpoint is `http://172.17.106.10:12959`. The address is bound to the
 host interface `172.17.106.10/24`; do not shorten it to `172.10.106.10` and do
 not use the production `.96` endpoint when validating this environment.
 
+Current test analysis roots are
+`/sg2/50.ctapa/project/HWcloud/WGS_test/WGS_Clinical` and
+`/sg2/50.ctapa/project/HWcloud/WES_test/WES_Clinical`. They are writable by
+the `ctapa` workflow identity on node200 but read-only from the BS10610 NFS
+client. Keep runtime/evidence spools in the paired
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa` control root and use
+`id_rsa_ctapa`; never restore the retired hanjj test key.
+
 ## T240 rollout boundary
 
 T240 changes backend projections and frontend presentation only. Validate the

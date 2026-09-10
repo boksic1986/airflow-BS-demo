@@ -1,5 +1,37 @@
 # SERVER_INFO.md
 
+## T254 observed test deployment (2026-09-10)
+
+```text
+test_ssh: ssh BS10610
+test_hostname: server10610
+test_url: http://172.17.106.10:12959
+test_current: releases/20260910-t254-ctapa-boundary-f367e8b
+test_source_commit: f367e8b0af193a120936f7b7b5dad9cf192c2a3a
+test_pipelines: wgs,gatk
+test_scan: false
+test_auto_dispatch: false
+test_identity: ctapa:bioinfo via id_rsa_ctapa
+test_wgs_analysis: /sg2/50.ctapa/project/HWcloud/WGS_test/WGS_Clinical
+test_wgs_runtime_host: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/wgs-runtime
+test_wgs_runtime_node: /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/wgs-runtime
+test_gatk_source_result: /sg2/50.ctapa/project/HWcloud/WES_test/WES_Clinical
+test_gatk_runtime_host: /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/gatk-runtime
+test_gatk_runtime_node: /sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/gatk-runtime
+test_wgs_gate: /home/ctapa/.config/airflow-wgs-test/forced-command.sh
+test_gatk_gate: /home/ctapa/.config/airflow-gatk-test/forced-command.sh
+production_changed: false
+production_observed_current: releases/20260910-t249-upload-status-r1
+production_observed_pipelines: wgs
+production_observed_scan: true
+production_observed_auto_dispatch: true
+production_observed_not_before: 2026-09-08T08:00:00Z
+```
+
+The `50.ctapa` roots are analysis/result roots and are read-only from the
+BS10610 NFS client. Airflow control spools therefore use the dedicated shared
+`airflow-ctapa` roots. Entries below are dated history, not target selection.
+
 ## T253 observed deployment (2026-09-10)
 
 BS10610 uses `releases/20260910-t253-platform-sync-66c41b5`, WGS 4.2 plus GATK,

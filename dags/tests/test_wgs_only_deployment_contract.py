@@ -58,7 +58,11 @@ class WgsOnlyDeploymentContractTests(unittest.TestCase):
         self.assertIn("PLATFORM_ENVIRONMENT=BS10610-Test", env)
         self.assertIn("DEPLOYED_PIPELINES=wgs,gatk", env)
         self.assertIn(
-            "WGS_RUNTIME_BS_ROOT=/sg2/50.ctapa/project/HWcloud/WGS_test/airflow-wgs/runtime",
+            "WGS_RUNTIME_BS_ROOT=/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/wgs-runtime",
+            env,
+        )
+        self.assertIn(
+            "WGS_RUNTIME_NODE200_ROOT=/sg2/biodevrwsg2/33.chenjiucheng/WGS_test/airflow-ctapa/wgs-runtime",
             env,
         )
         self.assertIn(
