@@ -214,6 +214,17 @@ Rollback by repointing `current` to the preceding physical release and recreatin
    and set mode 0600.
 3. Verify the GATK repository is exactly the approved release and the pinned
    Master image provides the `rule-status` logger contract.
+   Build the Airflow-only Snakemake profile in the staged runtime copy with:
+   ```bash
+   python scripts/materialize_gatk_runtime_profile.py \
+     --source /path/to/gatk-source/profiles/cce/config.yaml \
+     --overlay config/gatk_snakemake.airflow-overlay.yaml \
+     --output /path/to/gatk-cloud-airflow/profiles/cce/config.yaml \
+     --provenance /path/to/gatk-cloud-airflow/airflow-profile-provenance.json \
+     --source-commit <gatk-source-commit>
+   ```
+   The source profile must remain byte-identical. Do not commit the Airflow
+   visibility window to the GATK source repository.
 4. Verify the backend mounts `/sg2` read-only. GATK Preview may accept projects
    owned by any team; confirmation freezes that project as the runtime request's
    only approved source root. Runtime input selection prefers

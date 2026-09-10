@@ -1,5 +1,21 @@
 # HANDOFF.md
 
+## 2026-09-10 T257 Airflow-owned GATK latency overlay
+
+Branch: `jiucheng/gatk/T257-airflow-latency-overlay`, based on T256 `4aa42bf`.
+
+Investigation proved `latency-wait: 180` is absent from clean GATK
+`main@12170a7` but present in integration commit `975b782` and deployed runtime
+copy `4d6490a`. The setting was introduced after a successful
+`cloud_gatk_finalize` produced a transient SFS `MissingOutputException`.
+
+Airflow now owns `config/gatk_snakemake.airflow-overlay.yaml` and
+`scripts/materialize_gatk_runtime_profile.py`. The tool permits only a bounded
+integer `latency-wait`, writes the runtime profile atomically, proves the source
+was not modified and emits SHA256 provenance. Red/green tests pass 2/2 in an
+isolated BS10610 container. Rollout of the equivalent generated runtime copy is
+the remaining step; production and GATK main were not changed.
+
 ## 2026-09-10 T256 GATK result project naming
 
 Branch: `jiucheng/gatk/T256-source-project-result-name`, based on T255

@@ -1,0 +1,3 @@
+schema_version: 1
+snakemake_profile:
+  latency-wait: 180

@@ -107,10 +107,15 @@ checks all upstream task instances and fails itself if any upstream task is
 failed or upstream-failed. This prevents a successful cleanup leaf from
 incorrectly making a failed GATK DagRun appear successful.
 
-The CCE profile sets `latency-wait: 180` because final marker files are written
-through shared SFS. This changes only Snakemake's output visibility window; it
-does not retry or alter `cloud_gatk_finalize`, relax marker validation, or hide
-a genuinely missing output.
+The GATK source repository keeps its default CCE profile unchanged. During an
+Airflow runtime release, `scripts/materialize_gatk_runtime_profile.py` applies
+the allowlisted `config/gatk_snakemake.airflow-overlay.yaml` to a separate
+`gatk-cloud-airflow` release copy. The current overlay sets
+`latency-wait: 180` because final marker files are written through shared SFS.
+The generated provenance records the source commit and SHA256 of the source,
+overlay and result. This changes only Airflow's Snakemake output visibility
+window; it does not retry or alter `cloud_gatk_finalize`, relax marker
+validation, hide a genuinely missing output, or change manual GATK execution.
 
 When a runtime sidecar becomes terminal without progress fields, the backend
 retains the latest valid counters and current rule from logger evidence. The

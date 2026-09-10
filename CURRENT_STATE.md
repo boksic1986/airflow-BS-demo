@@ -1,5 +1,18 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T257 Airflow-owned GATK latency overlay
+
+GATK `main@12170a7` is clean and its `profiles/cce/config.yaml` has no
+`latency-wait`. The 180-second setting came from GATK integration commit
+`975b782` and is present only in the deployed Airflow runtime copy
+`gatk-cloud-airflow/releases/4d6490a`.
+
+The repository now owns a narrowly allowlisted Airflow overlay and an atomic
+materializer that records source/overlay/output SHA256 values. It preserves the
+source profile byte-for-byte and rejects unrelated Snakemake settings. The
+test deployment still uses the existing equivalent runtime until the new
+provenanced copy is materialized; no production or GATK main change occurred.
+
 ## 2026-09-10 T256 GATK result project naming
 
 The retained `20260823A` GATK run identifies its source project as
