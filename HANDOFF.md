@@ -1,5 +1,27 @@
 # HANDOFF.md
 
+## 2026-09-10 T259 GATK 0.8.x runtime compatibility
+
+GATK branch `jiucheng/gatk/T259-cce-post-release` was created from
+`main@8cb62b6`, committed as `81f347e`, and pushed. A test-first regression
+proved the old exact regex rejected `cce-pipeline 0.8.3.post1`. The new parser
+accepts valid versions whose major/minor are `0.8`, while rejecting malformed
+output and `0.7.x`/`0.9.x`. GATK tests pass 5/5; node200's actual
+`cce-pipeline 0.8.3.post1` passes the deployed test.
+
+The immutable BS10610 runtime is
+`/mnt/biodevrwbi/33.chenjiucheng/project/gatk-cloud-airflow/releases/81f347e-airflow-t259`.
+The backend environment and node200 ctapa runtime point to its `/bi/...`
+mapping. Backend, Airflow API server, scheduler and worker were recreated only
+after both DAGs reported no running runs. `/api/health` returned OK. The prior
+`4d6490a-airflow-t257` release remains available for rollback.
+
+Failed prepare-only run `GATK_20260910_092625_867063` was deleted from Airflow,
+biodemo and the exact GATK request/run directories. It never reached Step1, so
+there was no transfer, CCE Master or generated result to clean; both batch OBS
+prefixes were already empty. Batch `20260823A` is ready for a fresh manual
+submission. Scanner and auto-dispatch remain false. Production was not used.
+
 ## 2026-09-10 T258 BS10610 GATK 20260823A reset
 
 The user authorized deletion of generated test data for batch `20260823A` so

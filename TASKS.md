@@ -1,5 +1,19 @@
 # TASKS.md
 
+## T259 - Accept the cce-pipeline 0.8.x release series for GATK
+
+Status: completed and deployed on BS10610
+
+- [x] Add a regression that fails on the installed `0.8.3.post1` version.
+- [x] Accept valid `cce-pipeline 0.8.x` versions and reject malformed or other
+  major/minor series.
+- [x] Publish an immutable GATK runtime and verify it against node200.
+- [x] Remove the failed prepare-only `20260823A` run so it can be resubmitted.
+- [x] Keep scanner and auto-dispatch disabled and leave production untouched.
+
+Rollback: restore both test runtime environment files to
+`4d6490a-airflow-t257` and recreate only backend/Airflow control services.
+
 ## T258 - Reset the BS10610 GATK 20260823A test run
 
 Status: completed on BS10610

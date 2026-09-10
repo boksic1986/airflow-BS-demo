@@ -1,5 +1,24 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T259 GATK cce-pipeline 0.8.x compatibility
+
+The failed BS10610 test run `GATK_20260910_092625_867063` did not reach Step1.
+Its Airflow failure was the GATK prepare gate rejecting the installed version
+string `cce-pipeline 0.8.3.post1`; OBS remained empty and no CCE Master was
+created.
+
+GATK branch `jiucheng/gatk/T259-cce-post-release` commit `81f347e` now parses a
+valid cce-pipeline version and accepts the complete `0.8.x` major/minor series,
+including `.post` releases. Other series and malformed command output remain
+rejected. All five GATK repository tests pass, and the node200 test environment
+accepts its actual `0.8.3.post1` installation.
+
+BS10610 backend and the node200 ctapa gate now reference immutable runtime
+`gatk-cloud-airflow/releases/81f347e-airflow-t259`. Backend health is OK. The
+failed Airflow run, biodemo projection/draft and exact request/run directories
+were removed so `20260823A` can be submitted again. Test scanner and automatic
+dispatch remain disabled; production was not accessed.
+
 ## 2026-09-10 T258 GATK 20260823A test reset
 
 The completed BS10610 test run `GATK_20260909_071908_F45CF7` was removed so
