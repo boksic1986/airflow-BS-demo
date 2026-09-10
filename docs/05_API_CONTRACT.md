@@ -1,5 +1,9 @@
 # API contract
 
+## T255 unavailable global Heavy I/O telemetry
+
+Until an authoritative namespace-global producer is available, WGS global slot projection returns `available:false` with `used`, `limit`, `waiting`, and `mode` null (pool remains wgs-heavy-io). Configured limits, empty evidence directories, database rule labels and individual Master snapshots do not establish global occupancy. Consumers must display unavailable rather than0/25; runtime Lease enforcement is independent of this display contract.
+
 ## T240 dashboard attention and sample information
 
 - `GET /api/dashboard/overview` adds `attention_items`, an adapter-owned,

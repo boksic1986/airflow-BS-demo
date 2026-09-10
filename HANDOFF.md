@@ -1,5 +1,17 @@
 # HANDOFF.md
 
+## 2026-09-10 T255 activation completed with user-provided ctapa SSH key
+
+User supplied C:/Users/11217/.ssh/id_rsa_ctapa and authorized its use. SSH `-i <key> -l ctapa BS96` verified server96 UID6801, production.env readable; key contents were never read/copied/output. Permission blocker resolved through the intended owner identity, no ACL/sudo changes. The chenjc-owned T255 backup directory was not writable by ctapa; created separate ctapa-owned `/data/airflow-WGS/backups/T255-activation-ctapa` instead, without widening the old directory.
+
+Activated `/data/airflow-WGS/releases/20260910-t255-heavy-master-r1`, copying prior31dfde9 release and applying ONLY reviewed three-file overlay5bb9e3f (all source SHA checks passed). SOURCE_COMMIT records5bb9e3f and T255_SOURCE_OVERLAY records the production baseline plus overlay provenance. Compose validation passed with ctapa production.env and existing T242 WGS Compose base. Initial `up --no-deps` kept unchanged container because symlink path text was identical; explicitly `--force-recreate backend` loaded new source. New backend ID e38d0d69fe79dcdc25a97493127045ad84a48b5961fb682c0214b8039585785d. Before/after container comparison confirmed ONLY backend changed; all other IDs preserved.
+
+Node200 runtime.env updated atomically as ctapa ONLY CCE_PIPELINE_BIN and WGS_RELEASE_ROOTS_JSON addition400ba1c; every other line asserted byte-equivalent. Backup remains owner-only `/home/ctapa/.config/airflow-wgs/backups/T255-before-heavy-cli-runtime.env`, not in evidence/Git. New CLI selected at versioned0.8.3.post1 path; WGS_PYTHON/nipttest package unchanged. No worker restart, existing907D upload still running.
+
+Live verification: /api/health statusok; served source hashes match overlay. `/api/wgs/release` returns wgs-4.2.0-400ba1c, r2, renderedhash909cf122...916c, cce0.8.3.post1. Workspace quota now `{pool:wgs-heavy-io,used:null,limit:null,waiting:null,mode:null,available:false}` rather than false0/25. bio_wgs REST is_paused=true; scanner exited. No cloud Job submission, resume, reset, DB operation or data cleanup. Installed-image24, runtime focused38/full217 before final focused changes, telemetry85 and release107 offline test results recorded above; actual resumed-cloud saturation acceptance NOT run because user pause remains in force.
+
+Rollback: restore previous current symlink20260910-t249-upload-status-r1 and force-recreate ONLY backend using existing Compose/env; restore node200 runtime.env from its owner-only backup; restore WGS profile pointer to existingr1 with owner coordination if a complete reference rollback is required. Keep old/new profile files, CLI versions and images. Do not unsuspend existing Jobs or start scanner as part of rollback.
+
 ## 2026-09-10 T255 SWR published, WGS r2 linked — Airflow activation pending
 
 After user confirmed SWR login refresh, retry of the SAME reviewed tag succeeded. Registry digest `sha256:f3c197d7ba30bec6c8318c80a949cb278d146ce6be783660e2b71e0b714df458`. `docker manifest inspect` read-back confirms schema2,59 layers and config digest equals tested image `a0112f0b8ef003dd488c6c6ee2f13ca760c116d703e9ff7a83083e2857ce143e`. No image pull. Note inherited legacy image title/executor-version labels remain stale; installed-package probe and explicit executor revision label are authoritative (biosan5/capability1).

@@ -1,5 +1,7 @@
 # SERVER_INFO.md
 
+T255 activation final (2026-09-10): user-provided ctapa key selects correct BS96 UID6801; current release20260910-t255-heavy-master-r1 with three-file overlay5bb9e3f. Only backend recreated (e38d0d69fe79); all other containers preserved. CLI selection now versionedctapa0.8.3.post1, old nipttest0.8.3 unchanged. Live releaseWGS400ba1c/r2, healthok; DAG/scanner remain paused. Previous permission-blocker observation below is superseded.
+
 ## T255 build and release observation (2026-09-10)
 
 BS10610/server10610 built reviewed Master imagea0112f0b8ef0 and pushed SWR digestf3c197d7ba30bec6c8318c80a949cb278d146ce6be783660e2b71e0b714df458. WGS public profile r2 references it; oldr1 retained. Independent ctapa CLI0.8.3.post1 is installed alongside unchanged nipttest0.8.3, not selected in runtime.env yet. Evidence archived to ctapa WGS_test/cce-evidence/T255-heavy-io.

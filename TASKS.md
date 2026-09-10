@@ -2,15 +2,15 @@
 
 ## T255 Current Master Heavy I/O integration and SWR release
 
-Status: image published and WGS r2 linked; Airflow activation pending approved production identity.
+Status: image, WGS r2 and Airflow activation completed with user-provided ctapa key; workflows remain paused. Real cloud saturation acceptance awaits separately authorized resume.
 
 - [x] Integrate/review current executor0.6.4+biosan5 and CCE0.8.3.post1; preserve current behavior.
 - [x] Offline build and installed-image24 tests; runtime/candidate regressions recorded.
 - [x] Push SWR and read back immutable digestf3c197d7...14df458.
 - [x] Publish separate r2, syntheticprepare validation, WGS config-onlycommit400ba1c.
 - [x] Archive evidence to approved ctapa WGS_test path after temporary build authorization.
-- [ ] Activate new catalog/CLI and backend-only truthful telemetry release (107 candidate tests passed; production.env permission gate unresolved).
-- [ ] Verify live API/catalog/unchanged containers and retain paused state after activation.
+- [x] Activate new catalog/CLI and backend-only truthful telemetry release (107 candidate tests passed; ctapa identity resolved permission gate).
+- [x] Verify live API/catalog/unchanged containers and retain paused state after activation.
 
 Approved by user after emergency cloud stop. Owners: executor agent (current plugin integration/tests), CCE agent (0.8.3 config/env/profile propagation/tests), backend agent (truthful telemetry), coordinator (image build/push, WGS digest reference and release evidence). Preserve current shared permissions, terminal receipts and obsutil behavior. Use unique versions and immutable digest. Test offline in isolated BS10610 containers, include25/26 quota admission, fenced release/recovery, grouped work-pod accounting and absent/stale evidence. All task evidence under ctapa WGS_test/cce-evidence/T255-heavy-io. No production workflow submissions or resume; scanner/DAG/Jobs remain paused. Record prior digest/profile for rollback, then update only verified new references after push and read-back. No biological rule/model/data modifications.
 
