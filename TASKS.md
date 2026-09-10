@@ -1,5 +1,20 @@
 # TASKS.md
 
+## T258 - Reset the BS10610 GATK 20260823A test run
+
+Status: completed on BS10610
+
+- [x] Confirm the retained run, Airflow run and every GATK stage are terminal.
+- [x] Delete the exact CCE/SFS run and linkage roots and release the batch lock.
+- [x] Delete the exact OBS FASTQ and result prefixes for batch `20260823A`.
+- [x] Delete generated result, runtime, request and evidence directories.
+- [x] Delete the Airflow DAG run, biodemo run projection and consumed draft.
+- [x] Preserve and revalidate the source WES project and SCMC sampleinfo.
+- [x] Confirm GATK execution remains enabled while scanner/dispatch stay off.
+
+Safety: the source WES project, production, other batches, databases, Docker
+volumes and shared OBS prefixes were not deleted.
+
 ## T257 - Move GATK SFS latency into an Airflow runtime overlay
 
 Status: completed and deployed on BS10610

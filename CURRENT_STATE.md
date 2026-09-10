@@ -1,5 +1,20 @@
 # CURRENT_STATE.md
 
+## 2026-09-10 T258 GATK 20260823A test reset
+
+The completed BS10610 test run `GATK_20260909_071908_F45CF7` was removed so
+batch `20260823A` can be submitted as a new run. The exact CCE run/linkage
+roots, batch lock, OBS FASTQ/result prefixes, legacy materialized result,
+runtime, requests, evidence, Airflow DAG run, biodemo projection and consumed
+submission draft were deleted. OBS prefix sizes were verified as zero after
+deletion, and the old CCE run label has no remaining Job or Pod.
+
+The source WES project was preserved and revalidated through the deployed
+backend parser: 14 SCMC samples and 28 FASTQ files are readable. GATK execution
+is enabled and uses `gatk-cloud-airflow/releases/4d6490a-airflow-t257`; backend
+health is OK. Test intake scanning and automatic dispatch remain disabled.
+Production and every other batch were untouched.
+
 ## 2026-09-10 T257 Airflow-owned GATK latency overlay
 
 GATK `main@8cb62b6` is clean and its `profiles/cce/config.yaml` has no

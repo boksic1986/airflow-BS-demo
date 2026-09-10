@@ -1,5 +1,27 @@
 # HANDOFF.md
 
+## 2026-09-10 T258 BS10610 GATK 20260823A reset
+
+The user authorized deletion of generated test data for batch `20260823A` so
+it can be submitted again. Preflight found one terminal successful run,
+`GATK_20260909_071908_F45CF7`, with terminal Airflow and Step1-Step6 state and
+no other run for that batch.
+
+Cleanup removed the exact CCE/SFS run and linkage roots, the Master/cleanup
+Jobs and batch-lock ConfigMap; both OBS batch prefixes; the legacy local result,
+runtime, request and evidence directories; the Airflow DAG run; and the biodemo
+run, child projections, audit rows and consumed GATK draft. The old bundle's
+Step7 could not read its hanjj-owned mirror and its 0.8.2 cleanup payload lacked
+`cce_shared_permissions.py`; independent Kubernetes terminal checks preceded a
+direct, contract-scoped SFS cleanup. No hanjj SSH key was ultimately needed.
+
+Final verification found zero OBS bytes under both exact prefixes, no matching
+CCE Job/Pod/lock, no Airflow or biodemo record, and no generated directories.
+The source WES project remains readable with 14 SCMC samples and 28 FASTQ files.
+GATK execution and backend health are OK; test scanner/dispatch remain false.
+Production was not accessed. No rollback is intended for this explicitly
+destructive test reset.
+
 ## 2026-09-10 T257 Airflow-owned GATK latency overlay
 
 Branch: `jiucheng/gatk/T257-airflow-latency-overlay`, based on T256 `4aa42bf`.
