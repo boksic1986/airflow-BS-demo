@@ -5,12 +5,21 @@ DAG_PATH = Path(__file__).parents[1] / "bio_wgs.py"
 
 EXPECTED_TASKS = {
     "validate_request",
+    "choose_run_path",
+    "step7_cleanup",
+    "wait_step7_cleanup",
     "prepare_wgs_sampleinfo",
     "wait_prepare_wgs_sampleinfo",
     "wait_wgs_config_approval",
     "prepare_wgs_analysis",
     "wait_prepare_wgs_analysis",
     "wait_wgs_execution_approval",
+    "wait_execution_commit",
+    "choose_execution_target",
+    "local_execution.start_local_wgs",
+    "local_execution.wait_local_wgs",
+    "local_execution.finalize_local_wgs",
+    "sge_execution.submit_sge_wgs",
     "input_transfer.acquire_obs_transfer_slot",
     "input_transfer.start_step1_upload",
     "input_transfer.wait_step1_upload",
@@ -46,7 +55,7 @@ FORBIDDEN = {
 }
 
 
-def test_single_cce_dag_declares_4_1_1_runtime_contract() -> None:
+def test_current_wgs_dag_declares_restricted_runtime_contract() -> None:
     text = DAG_PATH.read_text(encoding="utf-8")
     assert 'dag_id="bio_wgs"' in text
     assert "is_paused_upon_creation=True" in text
@@ -87,6 +96,10 @@ def test_runtime_dag_has_exact_topology_and_reschedule_sensors() -> None:
         "wait_wgs_config_approval",
         "wait_prepare_wgs_analysis",
         "wait_wgs_execution_approval",
+        "wait_execution_commit",
+        "wait_step7_cleanup",
+        "wait_step6_materialize",
+        "local_execution.wait_local_wgs",
         "input_transfer.wait_step1_upload",
         "wait_step3_analysis",
         "wait_step4_publish",

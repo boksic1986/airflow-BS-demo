@@ -1,5 +1,9 @@
 # 04 数据库设计
 
+Config-review cancellation adds no table. AnalysisRun.params_json records submission_phase=cancelling_submission/cancelled and submission_cancel_attempt; status uses cancel_requested/cancelled. Existing RunAction action=cancel_submission records actor,attempt,retained_files and accepted/cancelled outcome. Current-attempt candidate Sample.status becomes cancelled without deleting metadata/history. Approval and cancellation use the AnalysisRun row lock. No pending ledger or analysis data removed.
+
+2026-09-11 no table/migration added. Existing Sample metadata stores selection_decision, selection_attempt, pending_reason and receipt/source provenance; AnalysisRun params stores sample_selection_scope attempt/status. Selection is independent of execution state; current-attempt pending/excluded/unresolved rows must not inherit parent running/success/failed. Preview enrichment preserves metadata and audit rows. See [release evidence](selection-refresh-20260911.md).
+
 Legacy PGT-A/NIPT names below document retained Alembic history only. They are
 not the active pipeline catalog. Current deployment capabilities come from the
 registry and `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`; never delete or

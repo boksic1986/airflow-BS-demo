@@ -7,7 +7,7 @@ import {listFailures} from "../api";
 import {FailureWorkspace} from "../features/failures/FailureWorkspace";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {deployedPipelineFilter} from "../lib/deployment";
-import {errorMessage} from "../lib/errors";
+import {useSilentRefresh} from "../lib/useSilentRefresh";
 
 const pageSize = 20;
 
@@ -30,8 +30,6 @@ export function FailuresPage() {
   const page = positivePage(searchParams.get("page"));
   const [payload, setPayload] = useState<FailureListResponse>({items: [], total: 0, limit: pageSize, offset: 0});
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { setKeywordDraft(keyword); }, [keyword]);
   useEffect(() => {
@@ -48,11 +46,8 @@ export function FailuresPage() {
     return () => window.clearTimeout(timer);
   }, [keyword, keywordDraft, setSearchParams]);
 
-  useEffect(() => {
-    let disposed = false;
-    setLoading(true);
-    setError(null);
-    listFailures({
+  const {loading, error} = useSilentRefresh(async ({isCurrent}) => {
+    const result = await listFailures({
       pipeline: pipeline === "all" ? "deployed" : pipeline,
       kind,
       period,
@@ -60,22 +55,12 @@ export function FailuresPage() {
       keyword: keyword.trim() || undefined,
       limit: pageSize,
       offset: (page - 1) * pageSize,
-    })
-      .then((result) => {
-        if (disposed) return;
-        setPayload(result);
-        setSelectedId(result.items.length ? failureKey(result.items[0]) : null);
-      })
-      .catch((loadError) => {
-        if (!disposed) setError(errorMessage(loadError));
-      })
-      .finally(() => {
-        if (!disposed) setLoading(false);
-      });
-    return () => {
-      disposed = true;
-    };
-  }, [keyword, kind, layer, page, period, pipeline]);
+    });
+    if (!isCurrent()) return;
+    setPayload(result);
+    setSelectedId((current) => result.items.some((item) => failureKey(item) === current)
+      ? current : result.items.length ? failureKey(result.items[0]) : null);
+  }, JSON.stringify([keyword, kind, layer, page, period, pipeline]));
 
   function updateFilter(name: string, value: string) {
     const next = new URLSearchParams(searchParams);
@@ -143,7 +128,7 @@ export function FailuresPage() {
       </section>
       {loading ? <p className="muted">Loading issue queue...</p> : null}
       {error ? <div className="inline-error" role="alert">{error}</div> : null}
-      {!loading && !error ? <FailureWorkspace items={payload.items} selectedId={selectedId} onSelect={setSelectedId} /> : null}
+      {!loading ? <FailureWorkspace items={payload.items} selectedId={selectedId} onSelect={setSelectedId} /> : null}
       <div className="pagination-controls" aria-label="Failure pagination">
         <span>{payload.total} issues · page {Math.min(page, pageCount)} / {pageCount}</span>
         <div>

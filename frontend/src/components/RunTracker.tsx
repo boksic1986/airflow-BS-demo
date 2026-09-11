@@ -8,7 +8,7 @@ import {RunProgressBar} from "./RunProgressBar";
 import {StatusBadge} from "./StatusBadge";
 import {OperationProjectCell, OperationRuntimeCell} from "./OperationCells";
 
-export type RunTrackerFilter = "all" | "active" | "created" | "failed" | "success";
+export type RunTrackerFilter = "all" | "active" | "created" | "failed" | "success" | "cancelled";
 
 const filters: Array<{value: RunTrackerFilter; label: string}> = [
   {value: "all", label: "All"},
@@ -16,6 +16,7 @@ const filters: Array<{value: RunTrackerFilter; label: string}> = [
   {value: "created", label: "Created only"},
   {value: "failed", label: "Failed"},
   {value: "success", label: "Success"},
+  {value: "cancelled", label: "已取消记录"},
 ];
 
 export function RunTracker({
@@ -29,7 +30,6 @@ export function RunTracker({
   onKeywordChange,
   onPageChange,
   onSubmit,
-  onSync,
 }: {
   rows: DashboardRunTrackerRow[];
   total: number;
@@ -41,7 +41,6 @@ export function RunTracker({
   onKeywordChange: (keyword: string) => void;
   onPageChange: (offset: number) => void;
   onSubmit: (analysisId: string) => void;
-  onSync: (analysisId: string) => void;
 }) {
   const pageStart = total === 0 ? 0 : offset + 1;
   const pageEnd = Math.min(offset + limit, total);
@@ -118,7 +117,6 @@ export function RunTracker({
                 <RunTrackerRow
                   key={row.analysis_id}
                   onSubmit={onSubmit}
-                  onSync={onSync}
                   row={row}
                   relativeNow={relativeNow}
                 />
@@ -147,17 +145,16 @@ export function RunTracker({
 function RunTrackerRow({
   row,
   onSubmit,
-  onSync,
   relativeNow,
 }: {
   row: DashboardRunTrackerRow;
   onSubmit: (analysisId: string) => void;
-  onSync: (analysisId: string) => void;
   relativeNow: Date;
 }) {
   const status = normalizeStatus(row.status);
   const pipelineName = compactPipelineName(row.pipeline);
-  const currentStep = row.current_stage_label || (row.not_in_airflow ? `Preparing ${pipelineName} batch` : `${pipelineName} stage unavailable`);
+  const cancelled = ["cancelled", "canceled"].includes(status);
+  const currentStep = cancelled ? "提交已取消" : row.current_stage_label || (row.not_in_airflow ? `Preparing ${pipelineName} batch` : `${pipelineName} stage unavailable`);
   const note = row.note || progressNote(row);
   const terminalAt = row.pipeline_finished_at || row.ended_at;
   const terminalAge = ["success", "failed", "terminated"].includes(status)
@@ -166,7 +163,7 @@ function RunTrackerRow({
   return (
     <tr className={isActiveStatus(status) ? "run-tracker-row active" : "run-tracker-row"}>
       <td className="tracker-project-cell">
-        <OperationProjectCell analysisId={row.analysis_id} fallbackId={row.analysis_id} projectName={row.project_name} sampleCount={row.sample_count ?? 0} source={row.run_source || "manual"} sourceBatchId={row.source_batch_id} submittedBy={row.operator_display_name || row.submitted_by} showOperatorPrefix={false} centerSource={false} />
+        <OperationProjectCell analysisId={row.analysis_id} fallbackId={row.analysis_id} projectName={row.project_name} sampleCount={row.sample_count ?? 0} sampleScopeStatus={cancelled ? "cancelled" : row.sample_scope_status} source={row.run_source || "manual"} sourceBatchId={row.source_batch_id} submittedBy={row.operator_display_name || row.submitted_by} showOperatorPrefix={false} centerSource={false} />
       </td>
       <td className="tracker-centered-cell"><strong>{row.batch_no || row.source_batch_id || "-"}</strong></td>
       <td className="tracker-centered-cell">{compactPipelineName(row.pipeline)}</td>
@@ -176,9 +173,6 @@ function RunTrackerRow({
           {row.not_in_airflow ? <span className="handoff-pill">Not in Airflow</span> : null}
           {status === "created" ? (
             <button className="mini-action" type="button" onClick={() => onSubmit(row.analysis_id)}>Submit</button>
-          ) : null}
-          {isActiveStatus(status) ? (
-            <button className="mini-action" type="button" onClick={() => onSync(row.analysis_id)}>Sync</button>
           ) : null}
         </div>
       </td>
@@ -191,8 +185,8 @@ function RunTrackerRow({
         </div>
       </td>
       <td className="tracker-centered-cell tracker-progress-cell">
-        <RunProgressBar analysisId={row.analysis_id} compact progress={{percent: row.stage_progress?.percent ?? row.percent ?? 0, available: row.stage_progress?.available ?? row.progress_available ?? false, label: row.stage_progress?.percent == null ? "Progress pending" : formatPercent(row.stage_progress.percent), currentStep, note, notInAirflow: row.not_in_airflow, status: row.stage_status || row.status}} />
-        {row.stage_progress?.available ? <small>{formatProgressUnits(row.stage_progress.completed_units, row.stage_progress.total_units, row.stage_progress.unit)}{row.stage_progress.speed_bps ? ` · ${formatBytes(row.stage_progress.speed_bps)}/s` : ""}{row.stage_progress.eta_seconds != null ? ` · ETA ${formatSecondsDuration(row.stage_progress.eta_seconds)}` : ""}</small> : null}
+        {cancelled ? <span className="muted">提交已取消</span> : <RunProgressBar analysisId={row.analysis_id} compact progress={{percent: row.stage_progress?.percent ?? row.percent ?? 0, available: row.stage_progress?.available ?? row.progress_available ?? false, label: row.stage_progress?.percent == null ? "Progress pending" : formatPercent(row.stage_progress.percent), currentStep, note, notInAirflow: row.not_in_airflow, status: row.stage_status || row.status}} />}
+        {!cancelled && row.stage_progress?.available ? <small>{formatProgressUnits(row.stage_progress.completed_units, row.stage_progress.total_units, row.stage_progress.unit)}{row.stage_progress.speed_bps ? ` · ${formatBytes(row.stage_progress.speed_bps)}/s` : ""}{row.stage_progress.eta_seconds != null ? ` · ETA ${formatSecondsDuration(row.stage_progress.eta_seconds)}` : ""}</small> : null}
       </td>
       <td className="tracker-centered-cell">
         <OperationRuntimeCell elapsedSeconds={row.elapsed_seconds} estimatedRemainingSeconds={row.estimated_remaining_seconds} status={row.status} submitted={Boolean(row.submitted_at)} />

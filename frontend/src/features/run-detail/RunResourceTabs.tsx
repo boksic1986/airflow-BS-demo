@@ -13,7 +13,7 @@ export function RunOverviewTab({detail, samples, sampleCount, manifestSummary}: 
         <div><dt>Attempt</dt><dd>{String(detail.params?.attempt || "1")}</dd></div>
         <div><dt>Status</dt><dd><StatusBadge status={detail.status} /></dd></div>
         <div><dt>DAG run</dt><dd className="path-text">{detail.dag_run_id || "not set"}</dd></div>
-        <div><dt>Samples</dt><dd>{sampleCount ?? samples.length}</dd></div>
+        <div><dt>Samples</dt><dd>{detail.sample_scope_status === "preparing" ? "待确定分析范围" : sampleCount ?? samples.length}</dd></div>
         <div><dt>Operator</dt><dd>{detail.submitted_by || "not captured"}</dd></div>
         <div><dt>Created</dt><dd>{formatDate(detail.created_at)}</dd></div>
         <div><dt>Submitted</dt><dd>{formatDate(detail.submitted_at)}</dd></div>

@@ -28,6 +28,7 @@ stages:
     predecessor: prepare_analysis
     predecessors_by_submission_mode:
       three_stage: prepare_analysis
+      auto_dispatch: prepare_analysis
       default: prepare
     timeout_seconds: 172800
     evidence_type: transfer_receipt

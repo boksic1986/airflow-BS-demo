@@ -8,6 +8,7 @@ from sqlalchemy import String, case, cast, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun, Sample
+from app.sample_selection_scope import selected_clause, scope_status
 from app.qc_highlights import qc_highlights_by_run
 from app.workflow_summary_service import workflow_summaries_by_run
 
@@ -67,7 +68,7 @@ def list_runs(
     sample_rows = (
         session.execute(
             select(Sample.analysis_id, Sample.qc_status).where(
-                Sample.analysis_id.in_([run.analysis_id for run in page])
+                Sample.analysis_id.in_([run.analysis_id for run in page]), selected_clause()
             )
         ).all()
         if page
@@ -117,7 +118,7 @@ def get_run_detail(*, session: Session, analysis_id: str) -> dict | None:
 def list_run_samples(*, session: Session, analysis_id: str) -> list[dict]:
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
     samples = session.scalars(
-        select(Sample).where(Sample.analysis_id == analysis_id).order_by(Sample.sample_id)
+        select(Sample).where(Sample.analysis_id == analysis_id, selected_clause()).order_by(Sample.sample_id)
     ).all()
     return [
         {
@@ -137,6 +138,8 @@ def list_run_samples(*, session: Session, analysis_id: str) -> list[dict]:
             "status": sample.status,
             "qc_status": sample.qc_status,
             "pending_source": str((sample.metadata_json or {}).get("pending_source") or "") or None,
+            "selection_decision": (sample.metadata_json or {}).get("selection_decision"),
+            "selection_attempt": (sample.metadata_json or {}).get("selection_attempt"),
             "pending_reason": str((sample.metadata_json or {}).get("pending_reason") or "") or None,
         }
         for sample in samples
@@ -156,6 +159,7 @@ def _run_payload(run: AnalysisRun, *, sample_count: int) -> dict:
         "attempt": getattr(run, "attempt", 1),
         "workdir": run.workdir,
         "sample_count": sample_count,
+        "sample_scope_status": scope_status(run),
         "params": params,
         "submitted_by": run.submitted_by,
         "submitted_at": run.submitted_at.isoformat() if run.submitted_at else None,
@@ -188,6 +192,7 @@ def _run_list_payload(
         "pipeline_finished_at": run.pipeline_finished_at.isoformat() if run.pipeline_finished_at else None,
         "submitted_by": run.submitted_by,
         "sample_count": sample_count,
+        "sample_scope_status": scope_status(run),
         "qc_status": projected_qc_status or _aggregate_sample_qc_status(sample_qc_statuses),
         "qc_highlights": qc_highlights,
         "workflow_summary": workflow_summary,
@@ -252,7 +257,7 @@ def _run_detail_payload(session: Session, run: AnalysisRun) -> dict:
     payload = _run_payload(
         run,
         sample_count=session.scalar(
-            select(func.count()).select_from(Sample).where(Sample.analysis_id == run.analysis_id)
+            select(func.count()).select_from(Sample).where(Sample.analysis_id == run.analysis_id, selected_clause())
         ) or 0,
     )
     payload.update(

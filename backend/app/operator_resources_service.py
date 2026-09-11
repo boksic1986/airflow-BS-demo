@@ -6,10 +6,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import PurePosixPath
 from typing import Any, Mapping
 
-from sqlalchemy import String, cast, desc, func, literal, or_, select, union_all
+from sqlalchemy import String, cast, desc, func, literal, or_, select, union_all, case, and_
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisRun, QcMetric, RuleState, RunStageState, Sample, SnakemakeRuleEvent
+from app.sample_selection_scope import selected_clause
 
 
 FAILED_STATUSES = {"failed", "fail", "error", "terminated"}
@@ -43,7 +44,11 @@ def list_samples_resource(
     else:
         query = query.where(AnalysisRun.pipeline_name.in_(deployed_pipelines))
     if status:
-        query = query.where(Sample.status == status)
+        projected_status = case((~selected_clause(), case((and_(
+            Sample.metadata_json['selection_decision'].as_string() == 'excluded',
+            Sample.metadata_json['selection_attempt'].as_integer() == AnalysisRun.attempt,
+        ), 'skipped'), else_='pending')), else_=Sample.status)
+        query = query.where(projected_status == status)
     if qc_status:
         query = query.where(Sample.qc_status == qc_status)
 

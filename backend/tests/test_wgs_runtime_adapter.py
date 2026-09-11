@@ -60,6 +60,52 @@ def test_stage_request_v4_separates_control_and_analysis_roots(
     assert "cce_pipeline_wheel_sha256" not in request
 
 
+def test_stage_request_carries_complete_420_runtime_identity(tmp_path: Path) -> None:
+    request = build_stage_request(
+        analysis_id="WGS_20260909_010203_A1B2C3",
+        attempt=1,
+        stage="prepare_analysis",
+        pipeline_release_id="wgs-4.2.0-b067c72",
+        wgs_version="V4.2.0",
+        wgs_source_commit="b067c72eed795e59b724b13324b0d380ae8b7e94",
+        control_runtime_root="/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime",
+        analysis_project_root="/sg2/50.ctapa/project/HWcloud/WGS_Clinical",
+        project_name="WGS_Clinical",
+        batch_no="20260909A",
+        fq_path="/bi/fastq/T7_Fastq",
+        profile_id="wgs-4.2.0",
+        profile_revision="r1",
+        profile_sha256="c" * 64,
+        node200_profile_path="/bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs/wgs-4.2.0-r1.yaml",
+        cce_pipeline_version="0.8.3",
+        pipeline_build_sha256="b" * 64,
+        resource_manifest_sha256="d" * 64,
+    )
+
+    assert request["analysis_project_root"] == "/sg2/50.ctapa/project/HWcloud/WGS_Clinical"
+    assert request["cce_pipeline_version"] == "0.8.3"
+    assert request["profile_revision"] == "r1"
+    assert request["pipeline_build_sha256"] == "b" * 64
+
+
+def test_stage_request_rejects_partial_420_runtime_identity() -> None:
+    with pytest.raises(ValueError, match="runtime evidence is incomplete"):
+        build_stage_request(
+            analysis_id="WGS_20260909_010203_A1B2C3",
+            attempt=1,
+            stage="prepare_analysis",
+            pipeline_release_id="wgs-4.2.0-b067c72",
+            wgs_version="V4.2.0",
+            wgs_source_commit="b067c72eed795e59b724b13324b0d380ae8b7e94",
+            control_runtime_root="/sg2/runtime",
+            analysis_project_root="/sg2/50.ctapa/project/HWcloud/WGS_Clinical",
+            project_name="WGS_Clinical",
+            batch_no="20260909A",
+            fq_path="/bi/fastq/T7_Fastq",
+            profile_id="wgs-4.2.0",
+        )
+
+
 @pytest.mark.parametrize(
     "stage",
     [

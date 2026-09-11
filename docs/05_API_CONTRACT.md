@@ -1,5 +1,30 @@
 # API contract
 
+Dashboard attention excludes cancelled/canceled runs before sample, QC, duplicate-family, reanalysis and overdue projection. Intake alerts linked to cancelled runs are excluded; unlinked intake warnings remain. This is read-only projection, not audit deletion; cancel_requested is not treated as confirmed cancellation.
+
+Dashboard runs: omitted status or `all` now excludes cancelled/canceled before total/count/pagination. Explicit `status=cancelled` or `canceled` retrieves both spellings; other run APIs and database records unchanged.
+
+## Config-review submission cancellation
+
+- Operator-authenticated GET `/api/runs/{analysis_id}/submission-cancel-preview?attempt=N`: checks current attempt/manual phase and Airflow preparation boundary; returns analysis_id,attempt,submission_phase,effects.409 when unsafe,503 when Airflow unavailable; no changes.
+- Operator-authenticated POST `/api/runs/{analysis_id}/actions/cancel-submission` with `{ "attempt": N }`: supports config_review only, plus same cancellation retry. Serializes with approval; commits cancellation fence before stopping original DAG through Airflow PATCH failed. Returns status cancelled only when verified.409 unsafe/stale identity,503 unconfirmed transport failure; retry same attempt, never new submission.
+- Audit and files retained. Current candidate statuses cancelled; pending and prior-attempt participation preserved. Cancellation requested after preparation/config approval is rejected. Generic `/actions/cancel` remains separate.
+
+2026-09-11 handoff repair: restricted gate's safe prepare receipt projection preserves already-validated analysis_id, attempt, execution_id, generation, request_hash and release_id with schema/decisions. It does not expose private artifact descriptors. Original request/receipt identity, schema and artifact SHA checks remain mandatory. Existing global `/api/samples` supports configuration candidate preview filtered by exact returned analysis_id and selection_attempt; `/api/runs/{id}/samples` remains selected-only. No new endpoint/table or direct production DB operation.
+
+2026-09-12 attention IDs include attempt; duplicate-family IDs also include family identity to avoid collisions across identical batch sets. Family alert detail includes family and batch codes for authenticated operator use. No new API/mutation endpoint; acknowledgement is browser-local only. SFS total_bps remains optional, with explicitly labelled frontend fallback when both read/write values are available.
+
+2026-09-11 additive sample scope: run payloads expose `sample_scope_status` (`preparing`, `ready`, `legacy`); existing `sample_count` is current-attempt selected count. Sample projections add `selection_decision`, `selection_attempt`, `pending_reason`. Global `/api/samples?status=pending` retains nonparticipating rows/reasons; run Samples and QC denominator use selected only. Synchronization endpoints remain compatible for operations, but UI no longer invokes manual Sync. See [release evidence](selection-refresh-20260911.md).
+
+Heavy telemetry (2026-09-11): `/api/platform/resources.heavy_slot` now reads
+`heavy-slot-global.json` schema `wgs-heavy-global.v1`. Complete namespace Lease
+inventory supplies used/limit; fresh snapshots for every nonterminal,
+nonsuspended Master supply waiting_jobs and attest mode/limit. Count reserved
+holders even if old; only executor may reclaim them. Freshness max180s, future
+clock tolerance10s. Incomplete/invalid/stale data returns available=false and
+nullable metrics, never synthetic0/25. Available responses add updated_at.
+With no active Masters and no holders mode is idle. No database migration.
+
 ## T255 unavailable global Heavy I/O telemetry
 
 Until an authoritative namespace-global producer is available, WGS global slot projection returns `available:false` with `used`, `limit`, `waiting`, and `mode` null (pool remains wgs-heavy-io). Configured limits, empty evidence directories, database rule labels and individual Master snapshots do not establish global occupancy. Consumers must display unavailable rather than0/25; runtime Lease enforcement is independent of this display contract.
@@ -119,3 +144,11 @@ Internal `/api/internal/gatk/runs/{analysis_id}/stages/{stage}` and
 ## Privacy
 
 Responses never include patient names, hospitals, credentials, raw absolute storage paths, or arbitrary filesystem content. Artifacts are accessed by controlled keys.
+# WGS recovery approval semantics (2026-09-11)
+
+For `three_stage` runs, `actions/resume` and `actions/rerun_failed` create a
+new attempt with `submission_phase=preparing_sampleinfo` and clear
+`config_approved_at`/`execution_approved_at`. Current-attempt preparation and
+normal config/execution approval endpoints must complete before execution
+commit. Analysis parameters remain unchanged; prior approvals do not bypass
+new-attempt gates. Legacy-mode behavior is unchanged.

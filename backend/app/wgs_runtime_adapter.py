@@ -68,6 +68,13 @@ def build_stage_request(
     predecessor_generation: int | None = None,
     predecessor_receipt_hash: str | None = None,
     validation_scope: str | None = None,
+    profile_id: str | None = None,
+    profile_revision: str | None = None,
+    profile_sha256: str | None = None,
+    node200_profile_path: str | None = None,
+    cce_pipeline_version: str | None = None,
+    pipeline_build_sha256: str | None = None,
+    resource_manifest_sha256: str | None = None,
 ) -> dict[str, object]:
     if ANALYSIS_ID_RE.fullmatch(analysis_id) is None:
         raise ValueError("invalid WGS analysis_id")
@@ -132,6 +139,19 @@ def build_stage_request(
         if validation_scope not in {"step1_only", "step3_dryrun", "node97_full"}:
             raise ValueError("unsupported WGS validation scope")
         payload["validation_scope"] = validation_scope
+    release_runtime = {
+        "profile_id": profile_id,
+        "profile_revision": profile_revision,
+        "profile_sha256": profile_sha256,
+        "node200_profile_path": node200_profile_path,
+        "cce_pipeline_version": cce_pipeline_version,
+        "pipeline_build_sha256": pipeline_build_sha256,
+        "resource_manifest_sha256": resource_manifest_sha256,
+    }
+    if any(value is not None for value in release_runtime.values()):
+        if any(not str(value or "").strip() for value in release_runtime.values()):
+            raise ValueError("WGS release runtime evidence is incomplete")
+        payload.update({key: str(value) for key, value in release_runtime.items()})
     if stage == "step7_cleanup":
         if not maintenance_action_id or SAFE_COMPONENT_RE.fullmatch(maintenance_action_id) is None:
             raise ValueError("Step7 cleanup requires a valid maintenance_action_id")

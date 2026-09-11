@@ -46,7 +46,7 @@ export function RunTable({
               </td>
               <td><strong>{run.batch_no || "-"}</strong></td>
               <td>{compactPipelineName(run.pipeline)}</td>
-              <td>{run.sample_count ?? 0}</td>
+              <td>{run.sample_scope_status === "preparing" ? "待确定分析范围" : run.sample_count ?? 0}</td>
               <td>
                 <StatusBadge status={run.status} />
               </td>

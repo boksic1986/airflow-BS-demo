@@ -148,11 +148,18 @@ def choose_after_step3(**context: Any) -> str:
     return "start_step4_publish"
 
 
+def uses_staged_prepare(conf: dict[str, Any]) -> bool:
+    return str(dict(conf.get("params") or {}).get("submission_mode") or "") in {
+        "three_stage",
+        "auto_dispatch",
+    }
+
+
 def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
     if conf.get("maintenance_mode") == "cleanup_step7":
         return stage == "step7_cleanup"
     if conf.get("maintenance_mode") != "repair_step4":
-        if stage == "prepare_analysis" and dict(conf.get("params") or {}).get("submission_mode") != "three_stage":
+        if stage == "prepare_analysis" and not uses_staged_prepare(conf):
             return False
         return True
     if stage == "step4_publish":
@@ -182,7 +189,7 @@ def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
 def effective_runner_stage(stage: str, conf: dict[str, Any]) -> str:
     if conf.get("maintenance_mode") == "repair_step4" and stage == "step4_publish":
         return "step4_repair_cram"
-    if stage == "prepare_sampleinfo" and dict(conf.get("params") or {}).get("submission_mode") != "three_stage":
+    if stage == "prepare_sampleinfo" and not uses_staged_prepare(conf):
         return "prepare"
     return stage
 

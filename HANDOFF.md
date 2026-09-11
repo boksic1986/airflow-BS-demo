@@ -1,5 +1,61 @@
 # HANDOFF.md
 
+## PROD-20260911 production release branch reconstruction
+
+User approved a dedicated production branch, isolated worktree and source/test/manifest
+collection, with no deployment. Worktree: `D:/pipeline/airflow-demo-worktrees/production-release`;
+branch `jiucheng/release/production`, parent `bd7849e`. Original dirty worktree preserved.
+No main merge, no production Git pull, no remote push or new deployed-release tag.
+
+Read-only server96 snapshot allowlisted backend Python/migrations/tests, DAGs, runtime
+helpers, build inputs and reviewed YAML/Compose. No secrets/env/DB/receipts/clinical
+data/runtime directories archived. All snapshot backend app hashes matched the
+actual-release candidate. Production marker5bb9e3f unavailable in Git/origin (fetch
+failed `not our ref`); marker is recorded but not invented as ancestry. Source
+manifest covers290 files; branch also contains synthetic regressions and docs.
+
+Verified node200/t640 gate hashddc28731 and Heavy collector9922d8aa/launcher5f2a8190;
+copied those existing sources without behavior edits. Source tree frontend is stale
+on server96, so collected known deployed local frontend source and rebuilt on test.
+JS2087f413 and CSS9e1d530d SHA-256 exactly equal served assets. No compiled assets
+committed. External cce0.8.4 helper hotpatchda01a7b7 and profile hashes are recorded,
+not absorbed into this repo. WGS prepare/MEI and cce ownership remain separate.
+
+BS10610 current20260910-t258-cce084-r1; isolated candidate
+`test-candidates/production-branch-20260911`, no test-stack or production-stack restart.
+Cached backend image8491604e, frontend6f6de70a, Airflow58195672; all Docker runs
+`--pull=never --network=none`.
+
+Validation:
+- Backend pytest: attention_cancel, attention_conditions, cancel_history,
+  submission_cancel, sample_selection_scope, observer_airflow_sync,
+  wgs_recovery_approval_reset, wgs_prepare_handoff_projection; plus scripts
+  handoff_identity, heavy_global_snapshot, wgs_obsutil_progress:46pass.
+- Vitest: IncompleteSubmission, RunTracker, AttentionRefresh, useSilentRefresh,
+  WgsTransfersTab, DashboardResourcePanels:22pass; tsc/Vite pass, byte-identical assets.
+- Airflow `/usr/local/bin/python`: unittest test_bio_wgs_dag31pass, two plain
+  cloud-orchestration contract functions pass, all DAG Python compilation pass.
+- Compose `docker compose -f docker-compose.wgs.yaml config --quiet` passes with
+  synthetic credentials, absolute synthetic roots and UID1000; no services started.
+
+Investigation failures: initial old handoff fixture lacked analysis_id/attempt and
+excluded list; corrected fixture only. DAG exact topology fixture omitted existing
+Step7/local/SGE/execution-commit branches; updated expected tasks/sensors only.
+Backend image lacks Airflow; Airflow image lacks pytest in both interpreters;
+used standard unittest/direct assertion functions rather than installing packages.
+Initial Compose dummy roots interpreted as named volumes; changed synthetic values
+to absolute paths. No runtime behavior was modified to satisfy tests.
+
+Not run: full backend/frontend suites, real WGS/SGE/CCE analysis, browser visual
+acceptance or new production deployment; outside this baseline-only task and no
+redundant real-data test authorized. Known pending reconciliation/group-start and
+post-config cancellation gaps remain in release policy. Rollback of branch work
+does not affect deployed files; future rollout must preserve audit/pending/results.
+
+Next: user may request push of this branch, then review selective fixes on top of it.
+Never overwrite production from test main or treat this baseline as a freshly
+deployed release. Read docs/releases/PRODUCTION_BRANCH.md before next release.
+
 ## 2026-09-10 SFS retained-batch read-only validation
 
 User requests simple validation of retained SFS progress before acceptance/release and restarting failed batches. This turn did NOT resume analyses. Namespace snakemake-ns/PVC biosan-clinical read-only inventory found exactly3 batch directories under /workspace/wgs/runs/WGS_Clinical:20260907C,20260908A,20260908B. Initial read-only exec used the already-running WGS assets Pod; after it completed, three bounded diagnostic Jobs t255-readonly-resume-probe, t255-readonly-model-probe, t255-readonly-resource-map-probe ran with the new immutable Master digest, read-only SFS and root filesystem, no service-account token, no analysis commands or Lease operations, deadline120s and completed-resource TTL600s. All probes completed successfully. No SFS/OBS/batch data written or removed. These are diagnostic Pods, NOT workflow Master restarts or a real25/26 slot load test.

@@ -3,7 +3,7 @@ pipelines:
   wgs:
     display_name: WGS
     dag_id: bio_wgs
-    version: 4.1.1
+    version: 4.2.0
     adapter: wgs
     enabled: true
     submit_enabled: true

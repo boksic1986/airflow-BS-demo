@@ -9,6 +9,7 @@ export function OperationProjectCell({
   fallbackId,
   submittedBy,
   sampleCount,
+  sampleScopeStatus,
   source,
   sourceBatchId,
   showOperatorPrefix = true,
@@ -19,6 +20,7 @@ export function OperationProjectCell({
   fallbackId: string;
   submittedBy?: string | null;
   sampleCount: number;
+  sampleScopeStatus?: string;
   source: "manual" | "intake";
   sourceBatchId?: string | null;
   showOperatorPrefix?: boolean;
@@ -34,7 +36,7 @@ export function OperationProjectCell({
       {analysisId ? (
         <Link className="mono tracker-run-link" to={`/runs/${encodeURIComponent(analysisId)}`}>{analysisId}</Link>
       ) : null}
-      <span className="muted">{showOperatorPrefix ? "Operator " : ""}{submittedBy || "not captured"} / {sampleCount} samples</span>
+      <span className="muted">{showOperatorPrefix ? "Operator " : ""}{submittedBy || "not captured"} / {sampleScopeStatus === "cancelled" ? "提交已取消" : sampleScopeStatus === "preparing" ? "待确定分析范围" : `${sampleCount} samples`}</span>
       <span className={centerSource ? "tracker-source-line tracker-source-line-centered" : "tracker-source-line"}>
         <span className={`run-source-tag source-${source}`}>{source === "intake" ? "Intake" : "Manual"}</span>
         {displaySourceBatchId ? <span title="Source batch">{displaySourceBatchId}</span> : null}

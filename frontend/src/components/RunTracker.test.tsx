@@ -20,10 +20,18 @@ const row: DashboardRunTrackerRow = {
   not_in_airflow: false,
 };
 
+it("offers cancelled history and does not show pending progress for a cancelled run", () => {
+  render(<MemoryRouter><RunTracker rows={[{...row,status:'cancelled',sample_scope_status:'preparing'}]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={()=>undefined} onKeywordChange={()=>undefined} onPageChange={()=>undefined} onSubmit={()=>undefined}/></MemoryRouter>);
+  expect(screen.getByRole('button',{name:'已取消记录'})).toBeInTheDocument();
+  expect(screen.queryByText('Waiting to start')).not.toBeInTheDocument();
+  expect(screen.queryByText(/待确定分析范围/)).not.toBeInTheDocument();
+  expect(screen.getAllByText('提交已取消').length).toBeGreaterThan(0);
+});
+
 it("keeps project content left aligned and omits the compact lifecycle column", () => {
   const {container} = render(
     <MemoryRouter>
-      <RunTracker rows={[row]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={() => undefined} onKeywordChange={() => undefined} onPageChange={() => undefined} onSubmit={() => undefined} onSync={() => undefined} />
+      <RunTracker rows={[row]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={() => undefined} onKeywordChange={() => undefined} onPageChange={() => undefined} onSubmit={() => undefined} />
     </MemoryRouter>,
   );
 
@@ -51,7 +59,7 @@ it("keeps project content left aligned and omits the compact lifecycle column", 
 it("left aligns the project source tag", () => {
   const {container} = render(
     <MemoryRouter>
-      <RunTracker rows={[row]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={() => undefined} onKeywordChange={() => undefined} onPageChange={() => undefined} onSubmit={() => undefined} onSync={() => undefined} />
+      <RunTracker rows={[row]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={() => undefined} onKeywordChange={() => undefined} onPageChange={() => undefined} onSubmit={() => undefined} />
     </MemoryRouter>,
   );
 
@@ -63,7 +71,7 @@ it("left aligns the project source tag", () => {
 it("right aligns the stage percentage above its progress bar", () => {
   render(
     <MemoryRouter>
-      <RunTracker rows={[{...row, stage_progress: {available: true, percent: 100, completed_units: 1, total_units: 1, unit: "workflow"}}]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={() => undefined} onKeywordChange={() => undefined} onPageChange={() => undefined} onSubmit={() => undefined} onSync={() => undefined} />
+      <RunTracker rows={[{...row, stage_progress: {available: true, percent: 100, completed_units: 1, total_units: 1, unit: "workflow"}}]} total={1} limit={10} offset={0} filter="all" keyword="" onFilterChange={() => undefined} onKeywordChange={() => undefined} onPageChange={() => undefined} onSubmit={() => undefined} />
     </MemoryRouter>,
   );
 

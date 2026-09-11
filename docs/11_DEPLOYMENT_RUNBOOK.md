@@ -1,5 +1,7 @@
 # Deployment runbook
 
+For the user-approved 2026-09-11 non-Git exact-source selection/refresh patch, use [release evidence and rollback](selection-refresh-20260911.md). Only backend/observer restarted; frontend updated hashed assets then atomic index; current Worker/scanner/Master must remain untouched. WGS prepare source writable alias verified on BS10610, not node200's read-only /bi mount. No environment variables or public ports added.
+
 Environment selection, host aliases, directory ownership and image-retention
 rules are authoritative in `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`.
 Dated release sections below are historical evidence. They must not override a

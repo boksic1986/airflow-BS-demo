@@ -1,0 +1,1278 @@
+{
+  "schema": "production-release-baseline.v1",
+  "date": "2026-09-11",
+  "branch": "jiucheng/release/production",
+  "git_parent": "bd7849ebe2584f5f62e8d3bcecdb56ae46f74c7d",
+  "status": "reconstructed_baseline_not_new_deployment",
+  "host": "server96",
+  "release": "/data/airflow-WGS/releases/20260910-t260-recovery-runtime-r1",
+  "source_marker": "5bb9e3f075f80a2a0104bf1d48fdc2b163249269",
+  "source_marker_resolvable": false,
+  "services": [
+    {
+      "name": "/airflow-wgs-backend-1",
+      "image_id": "sha256:0e2d6f0cdf4b89b5ade30b3855cdb8593f33e4c23085a0f5adcd644095cf6912",
+      "container_id": "0c96a1161eb367e84ee887b64426c8a06d9faada2426328c102c8656d2e5c7ff",
+      "started_at": "2026-09-11T06:48:59.140808428Z",
+      "gates": {
+        "WGS_INTAKE_SCAN_ENABLED": "true",
+        "WGS_AUTO_DISPATCH_ENABLED": "true",
+        "WGS_AUTO_DISPATCH_NOT_BEFORE": "2026-09-08T08:00:00Z",
+        "DEPLOYED_PIPELINES": "wgs"
+      }
+    },
+    {
+      "name": "/airflow-wgs-airflow-worker-1",
+      "image_id": "sha256:58195672af685cfa6551cfc44b37b6218bd2039c44b717163a6e8072f78dfd2b",
+      "container_id": "63067faeeafa7a57003b08adf986b9f25bd943334f5145d7fdabe26b6a372319",
+      "started_at": "2026-09-09T20:39:55.621121933Z",
+      "gates": {
+        "DEPLOYED_PIPELINES": "wgs"
+      }
+    },
+    {
+      "name": "/airflow-wgs-wgs-run-observer-1",
+      "image_id": "sha256:0e2d6f0cdf4b89b5ade30b3855cdb8593f33e4c23085a0f5adcd644095cf6912",
+      "container_id": "e5ad47bacb3becae69263b51bbc3f0d94be37c5652b3f9d06f6c4736904f4b18",
+      "started_at": "2026-09-10T20:19:14.787970905Z",
+      "gates": {
+        "DEPLOYED_PIPELINES": "wgs"
+      }
+    },
+    {
+      "name": "/airflow-wgs-wgs-intake-scanner-1",
+      "image_id": "sha256:0e2d6f0cdf4b89b5ade30b3855cdb8593f33e4c23085a0f5adcd644095cf6912",
+      "container_id": "6cde6c2b6c48b3bafdb8e66ac96f45cd92974a59e7bc368dd736f3b5c63e5f6a",
+      "started_at": "2026-09-10T18:54:11.49507571Z",
+      "gates": {
+        "WGS_INTAKE_SCAN_ENABLED": "true",
+        "WGS_AUTO_DISPATCH_ENABLED": "true",
+        "DEPLOYED_PIPELINES": "wgs"
+      }
+    },
+    {
+      "name": "/airflow-wgs-frontend-nginx-1",
+      "image_id": "sha256:9b7e0c6143919a4af115d3c14239a21f6de78773f8ec2068f4a464063441d4ed",
+      "container_id": "42f0dbe10317f7f151ae17df86c1340eae36e3cecefda60945d76af683e76aa9",
+      "started_at": "2026-09-10T02:35:58.569054142Z",
+      "gates": {}
+    }
+  ],
+  "frontend": {
+    "js": "index-xQ3eaWmc.js",
+    "js_sha256": "2087f413f55499f6bdfd9e0cb39d1589a897f5733f815c002743067b4c977a62",
+    "css": "index-CXQ9-KPd.css",
+    "css_sha256": "9e1d530d7e7f9d36a5dde6d6f1e426023e7ca6b54677c14646023060552f273e",
+    "rebuilt_byte_identical": true
+  },
+  "external_dependencies": {
+    "cce_pipeline": {
+      "version": "0.8.4",
+      "delivery_helper_sha256": "da01a7b7a2b437e8e3e2316e320da9d009ce3853bba38cd7adbed9b2723779fc",
+      "owner": "cce-pipeline repository; installed package has hotpatch"
+    },
+    "wgs": {
+      "release": "wgs-4.2.0-31de5fb",
+      "owner": "WGS repository"
+    },
+    "profile": {
+      "revision": "r2",
+      "file_sha256": "aa48b8f745a5842c810e36b7b919175d6ff250ad840111ceb7f5d35751863640",
+      "catalog_sha256": "909cf1223e6483a713f60ae64e8c8ad6283cf9249e140fa517b638f4fbba916c",
+      "note": "Do not equate catalog metadata and raw file digest; reconcile before next deployment."
+    }
+  },
+  "validation": {
+    "backend_runtime": 46,
+    "frontend": 22,
+    "dag_unittest": 31,
+    "dag_contracts": 2,
+    "compose": "synthetic env rendered",
+    "real_analysis_submitted": false
+  },
+  "files": {
+    "backend/Dockerfile": {
+      "sha256": "074768db7cddd13a1cbdf2670c42e1a3fec6ff72204a0e718e7b9e355e2033d0",
+      "provenance": "server96_release"
+    },
+    "backend/Dockerfile.release": {
+      "sha256": "7e3560242e956bef020693df32abcd6b1630ae08998a111908fdda0eadeb5085",
+      "provenance": "server96_release"
+    },
+    "backend/alembic.ini": {
+      "sha256": "f38ed5523c01a581fc0e2ad3dd64b3452c56f44365965663dbcb0e0f8501a7de",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/env.py": {
+      "sha256": "6abc78a9dd08986d741368e4a4ffcdc94f04fd77cee8a9fbc5f920b649f91368",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260702_0001_initial_biodemo_schema.py": {
+      "sha256": "3582ebd2ec0d1d80d57db09fb6d1be35830bae347180c4e69f577932d26753a2",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260708_0002_intake_discovery.py": {
+      "sha256": "85a2813e2b89f39fe443be7eb612c6b50a4fc5b41d190fe7393693edd506f59b",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260711_0003_pgta_s9_operations.py": {
+      "sha256": "e8d6e1ca4a47b14fac73fbfe7daea3576e18aabe08c109727d80ac906b48fb59",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260711_0004_pipeline_finish_time.py": {
+      "sha256": "4e4a9f638687cc5c7e811b56104d6336eb76ced8480eb58c915c775e19195466",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260713_0005_intake_lifecycle.py": {
+      "sha256": "bfb113fe6b127b82c31587acde0fca901ecf9b317866ccaf2c4a3013d5a34dea",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260812_0006_wgs_only_platform.py": {
+      "sha256": "b78aa78b16a59d017d7e186b6dcc378fd1dd2912a7682873e889d9bf4af0b751",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260812_0007_wgs_observer_cursors.py": {
+      "sha256": "cf13b513a9c7bffa740a1a55e132203f732747e611a34e5da40e2a2b32a1d7de",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260812_0008_wgs_cloud_orchestration.py": {
+      "sha256": "7bf8a814419514036c82c8c6c4811100f638ef57efe545f05b3e2a27e1d1c86f",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260826_0009_wgs_4_1_1_runtime.py": {
+      "sha256": "f11152171c682b78813206e59d7823f70cc34c24e8addf9f7497f0f1bd6737f6",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260827_0010_wgs_single_release.py": {
+      "sha256": "24967aabca0d0a02694c8ed297caee61c04ec0034b601340a88516a2b04a05fa",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260829_0011_wgs_t7_intake_step4_repair.py": {
+      "sha256": "f06f15383a8689d0dd535cafaea2c67cb1ab8561f3040d2908c3a7ee8383d53a",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260830_0012_wgs_observer_lifecycle.py": {
+      "sha256": "97bd14f8b932466af925854f0b15e5a9477d492998e9081981da4b601035f66b",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260901_0013_wgs_production_ui.py": {
+      "sha256": "fd7c4b9bf8a6b582cd57a31dc0f526a8c3bb9a11204f4ec7fb7eb7e60c909f0d",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260904_0014_wgs_contract_v2.py": {
+      "sha256": "04fa6300abeb68c73ccfb579584ca0d65bb70ed5f63094cf455e9a1662132fd7",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260906_0015_wgs_execution_dispatch.py": {
+      "sha256": "87681ebfe9c67fd2112b407a0ed3115604be0e02d59573b80bff68232d339183",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260907_0016_wgs_directional_obs_transfer.py": {
+      "sha256": "aea6188e0e0dde83ccbd9fcd099aafef8d3c3648a9c4c7c09b436adf4e68eb19",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260907_0017_wgs_lifecycle_status.py": {
+      "sha256": "f9afe656f80633c4d2fe2c8228c2e07a4b3fd3a53a91158a8e2c49004c2b1345",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260908_0018_wgs_step7_generations.py": {
+      "sha256": "61465b80e8f3482177dccd8a3645d2a3b28d0ef49d081428cce20d30d3e95953",
+      "provenance": "server96_release"
+    },
+    "backend/alembic/versions/20260908_0019_gatk_cloud_manual.py": {
+      "sha256": "9ea2c222402e587afb5c31528bb4f2b23a3aca38188d9f7c6e0059744bba886a",
+      "provenance": "server96_release"
+    },
+    "backend/app/__init__.py": {
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "provenance": "server96_release"
+    },
+    "backend/app/airflow_client.py": {
+      "sha256": "9e5b0d4e4be3c5f3bdf37bb621410c4b6ff0468d60ff6643a382c947365df24b",
+      "provenance": "server96_release"
+    },
+    "backend/app/airflow_idempotency.py": {
+      "sha256": "8888ca6ab9fa71035ea913c1f4178c0adea4f93bf044ae66c7ee0026e504a463",
+      "provenance": "server96_release"
+    },
+    "backend/app/auth_admin_cli.py": {
+      "sha256": "ac675151ad6f79d0b531789badb1ac96693ea5e4397b5ac67bc523616dcdea6a",
+      "provenance": "server96_release"
+    },
+    "backend/app/auth_service.py": {
+      "sha256": "008d15890f1d6bf59e406462699037f5f0c18a4acde301b1f38502a9e9068af7",
+      "provenance": "server96_release"
+    },
+    "backend/app/config.py": {
+      "sha256": "b7fea5740b7fd67b9a6b8aedf4a29ba2fff9ba699ca367a282f4f1db94e20534",
+      "provenance": "server96_release"
+    },
+    "backend/app/dashboard_service.py": {
+      "sha256": "12595460ff0720f9e19aaea116da6baf3b7b2983bb04e3ad055dbb3ae9de7d90",
+      "provenance": "server96_release"
+    },
+    "backend/app/db.py": {
+      "sha256": "77a806f548597d2debec7e032f2a872ce949e763712feeff356b95bc6d951fc8",
+      "provenance": "server96_release"
+    },
+    "backend/app/diagnostics_service.py": {
+      "sha256": "b28c7201c322f12a58f65f19555678d163cc6e72b435e554eb03dae062191dde",
+      "provenance": "server96_release"
+    },
+    "backend/app/gatk_runtime_service.py": {
+      "sha256": "c2180f77353648d3a6a53f65f5631a3abf969d04f637840b87b0fd232f6ee615",
+      "provenance": "server96_release"
+    },
+    "backend/app/gatk_stage_contract.py": {
+      "sha256": "3ac9385b0b2f0fdb01d087fcfab5384b74d61a0a9f455220d838c00d5600d9ba",
+      "provenance": "server96_release"
+    },
+    "backend/app/gatk_submission_service.py": {
+      "sha256": "1438efef7933124589d50130ead6a1b1b4c448ec0f26963ac9ae8a9ff750d1ff",
+      "provenance": "server96_release"
+    },
+    "backend/app/gatk_workspace_service.py": {
+      "sha256": "c240376b03644d6e99578c161dd4dabead46c76c4b97e9684873eb009590f16a",
+      "provenance": "server96_release"
+    },
+    "backend/app/heavy_global_snapshot.py": {
+      "sha256": "9922d8aa8c7db7d8666b3cc6379d9add644c47b79f78a6c52ab838535958ad50",
+      "provenance": "server96_release"
+    },
+    "backend/app/input_scanner.py": {
+      "sha256": "16c191a560343ac195b72f4efe851a2d4cf07f23f40db30c0e4e4411a88d97e4",
+      "provenance": "server96_release"
+    },
+    "backend/app/intake_retention_service.py": {
+      "sha256": "bedfec277b72b2c7830b14cc16273b7a3b2efbf4982321d04f69811819d7c308",
+      "provenance": "server96_release"
+    },
+    "backend/app/main.py": {
+      "sha256": "e0158aa36bd7828cae347901d0793095aab650536f4f32f09bd12a12ab3b8fa9",
+      "provenance": "server96_release"
+    },
+    "backend/app/models.py": {
+      "sha256": "0657bd5a8a4e46b7530e08f54f14ece44be19422911aed9ce0b674bb72afbd08",
+      "provenance": "server96_release"
+    },
+    "backend/app/observer_airflow_sync.py": {
+      "sha256": "f2fb3c84dcad9324a999176b477a749132f6371f549eaf7ddd5422ac2a8306b0",
+      "provenance": "server96_release"
+    },
+    "backend/app/operator_identity.py": {
+      "sha256": "34db0d7d73a7bb76ee6b113f44ebb98cc9a3da88d3ba734d231e1cda6eccbb50",
+      "provenance": "server96_release"
+    },
+    "backend/app/operator_resources_service.py": {
+      "sha256": "47251df45b85cc26499fa6b82a1c5106c0e774b5c81afa0ddf3b989cb59b9b73",
+      "provenance": "server96_release"
+    },
+    "backend/app/pipeline_registry.py": {
+      "sha256": "de3e46cf5787a4a0a60fc3640ac8551168e162b90ee6ff0a3b352604dd1f372b",
+      "provenance": "server96_release"
+    },
+    "backend/app/pipeline_registry_service.py": {
+      "sha256": "9bf482e8a1558b4bf0a2dfb27aa4cb514b5c9a63b72c882d7b19c9cbde24b826",
+      "provenance": "server96_release"
+    },
+    "backend/app/platform_metrics_collector_cli.py": {
+      "sha256": "2d7a30f1608c9fe019c874a7ff6e22361be66295ceb29fce53e10ae318c8e9ac",
+      "provenance": "server96_release"
+    },
+    "backend/app/platform_node_probe_cli.py": {
+      "sha256": "f5619a653cfb6dd5fb457ab6e996fd6438bea095c696fd5d140e74002bb638db",
+      "provenance": "server96_release"
+    },
+    "backend/app/platform_resources_service.py": {
+      "sha256": "3b8e4f67933c8234158468a748a71a2a42597864544586315dfce52e8cd262eb",
+      "provenance": "server96_release"
+    },
+    "backend/app/progress_service.py": {
+      "sha256": "070c89f410cf3a2035228f96ffb3c933275a2d5f7c30541dbe733cf2df1c3d63",
+      "provenance": "server96_release"
+    },
+    "backend/app/qc_highlights.py": {
+      "sha256": "462b7c365dc58dacdbc55c75167b380d007239fc8f745776d7ea96ec5dccf15a",
+      "provenance": "server96_release"
+    },
+    "backend/app/rule_event_service.py": {
+      "sha256": "d52d5a90146600cab5d2adf09aab290c2122d96f19f9f40098cacb7d03a014e4",
+      "provenance": "server96_release"
+    },
+    "backend/app/run_resources_service.py": {
+      "sha256": "104dbf064e45f3de4bfcde672fd4307916f913e82c4c27d3f048ed1000179467",
+      "provenance": "server96_release"
+    },
+    "backend/app/run_service.py": {
+      "sha256": "9b2dab9a938a5ecdc36fc9a3ed9d81cbd640b997882276ea59caca918c14e279",
+      "provenance": "server96_release"
+    },
+    "backend/app/sample_selection_repair.py": {
+      "sha256": "fe93f65692b5e8164aeb6bc32b01dd703fda79d13beedc1caf7ddf3547febed6",
+      "provenance": "server96_release"
+    },
+    "backend/app/sample_selection_scope.py": {
+      "sha256": "ea488006613c213b85c24a83e8b938bdca7ede7ab93fcfc730e151cc7b486d94",
+      "provenance": "server96_release"
+    },
+    "backend/app/system_resources.py": {
+      "sha256": "54a762c3c5d2196035815ca5aefb554f80a156ca93f0fc76c1e10d5873a52a87",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_artifact_selection.py": {
+      "sha256": "3bce5b8882cdb7e245627b3fb7ff62bac21a24150c35f70568d99785554c8693",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_auto_dispatch.py": {
+      "sha256": "75b202fa858d1f006c523494f24c1e10514fa14fc3b142bb4191340ebf86654c",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_dashboard_attention.py": {
+      "sha256": "c9481d27c5699880175b5dcb3c02f23d5008751cfcec6060469e6485f81b4e8f",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_evidence_binding.py": {
+      "sha256": "de428e176938ca90bb34f78bcb2da1f9c83867ca8b973c39ce9590a33f6268bc",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_execution_dispatch_service.py": {
+      "sha256": "651621f0c4b75845625a516ff3350796cb84b1617815e4fa59d70a3f8801e9d0",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_intake_cleanup.py": {
+      "sha256": "8d2451d8e49110cc8999252b892719af1948227e3e67229a0f3435b3e2366ba1",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_intake_cleanup_cli.py": {
+      "sha256": "16b930f05814c780e2d0cc5c6f9723c5d0fb2742f561c64177f8fe549a2ba0ea",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_intake_scanner_cli.py": {
+      "sha256": "29a2aba5c893853a48033e177f5d8d6741f309e78c8aae72d430cb1723ac2fd0",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_lifecycle_service.py": {
+      "sha256": "390dce1150bded27dd8d40855b6578faeb0aeb5fe0ed1c4629cf03212d72f0b4",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_observer.py": {
+      "sha256": "9ed1edf9a4df81dc8326770179dca68c224e097a0af7cd926fff4c0a3a01e6e2",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_observer_cli.py": {
+      "sha256": "a8889b3ca59711c728fba723c7e7f192c578dbe4d4fad0e187f3417b0518c957",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_observer_lifecycle.py": {
+      "sha256": "7f2b5d1a2c2287bdcc6f7cc48f012cb72b30cae7783fae0ae70fbc45a4468c1a",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_orchestration_service.py": {
+      "sha256": "d320aa8b63c6d316d66a3aba30b1341e40e304a6c2269a7e9b6d2c25660fad10",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_platform_service.py": {
+      "sha256": "1769fb5f55759a2335fd29908fff69e308e8c4804ae5d578a0f0755963e03a06",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_project_catalog.py": {
+      "sha256": "e917f16ce614b0b1ca00c78304a752a0213adda735740ed6649e49eec2f3eed8",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_release_catalog.py": {
+      "sha256": "d5d2df7036976b66526b2c4d9fe2a6caf87fa524656ca74793f1f36f6fb7f59a",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_rule_reconcile_cli.py": {
+      "sha256": "67b08d2a5204333fc1d6773bccdbde0232d8acd85ea480af1317a2c4c7865e2c",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_run_projection.py": {
+      "sha256": "40c0058fa8bbc84b5ecf0186e755f97280a122e6a46e5ab1675983b788e1be0f",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_runtime_adapter.py": {
+      "sha256": "c2bca574684bc37db66c2dae9a1e25feaf67d43e07d38b5e94fc47802fb64919",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_sample_projection.py": {
+      "sha256": "2877696931bc1a049b07de23abb343861cd68d29eb3cd2cf130a6294d89e8591",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_stage_catalog.py": {
+      "sha256": "6d7710ed57a0314f816b57b0dcba98e07b26158017a65a3421b9cb7a71b23ac8",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_stage_contract.py": {
+      "sha256": "c4d3c98f1490cce54386a5ef6397e139f3b7529b82162ee3c7aa683dd73a4dbb",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_stage_execution_service.py": {
+      "sha256": "ee21c8565ea275a0525fee85e47ca532ef2ae1aa8dcd193af93bcbad08f151da",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_step4_service.py": {
+      "sha256": "f55c9439cdc388ef7b0fafd8b59fa5101b0f347ea218e77b01b7725888b0254c",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_step7_service.py": {
+      "sha256": "caced6eab128f63a7aabe626767eaf916282c05c48d1ec5418801773b1b46b93",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_submission_cancel.py": {
+      "sha256": "8b4e8d085c5fcd08b06f81a6a79b6e7e6cb21733b8bd631574830bd646671e9e",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_submission_service.py": {
+      "sha256": "d03afb31178f853e2881da16a3273956283a74219d588a42d9a52687c5072cd2",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_t7_intake.py": {
+      "sha256": "3fe8985afd0a181d74d8eadbf4a13aad21b28f3f5c9cd3e766c011d521f2fb0d",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_timing_service.py": {
+      "sha256": "5a57c990767b5084c64c378816c7ff6a6d199bd1205198cc5285b149d4120a8b",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_transfer_lease.py": {
+      "sha256": "15ef1f70c351adc8663a490d4932d33bb39096385d3d6811e7204f79fcc7ccdc",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_transfer_projection.py": {
+      "sha256": "8d5fa700799695cd2eb610465d96fd17efba22a311cfbdb44952637537e7da8a",
+      "provenance": "server96_release"
+    },
+    "backend/app/wgs_workspace_service.py": {
+      "sha256": "ab949d98533cafaa809381d207e5a32a3281490aa2da58ebba459a6dd4de636d",
+      "provenance": "server96_release"
+    },
+    "backend/app/workflow_phases.py": {
+      "sha256": "381a2b1df2cfdab5c7e338c2a7c2383f8ab750b8046be9df7e3d0e539e7c877d",
+      "provenance": "server96_release"
+    },
+    "backend/app/workflow_summary_service.py": {
+      "sha256": "fd9225d1e2ee0903a63444b000fed891ecf72d529721f9b8bd2e6258850587f7",
+      "provenance": "server96_release"
+    },
+    "backend/requirements-dev.txt": {
+      "sha256": "446698dabb39bf58615845cdf1edf3c68dee2d81dac6a7797d9fa153a3fa0f7c",
+      "provenance": "server96_release"
+    },
+    "backend/requirements.txt": {
+      "sha256": "26cc57375d6b3916b98255ac4d2c7914f369f105e0c7234b3dd4b042a26c0868",
+      "provenance": "server96_release"
+    },
+    "backend/tests/test_airflow_client.py": {
+      "sha256": "dfd1863cea5906132cb7165929c66dad6bf3ce1a18eb975cc5d8baac5d09d6f0",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_auth_admin_cli.py": {
+      "sha256": "2a23c3086cdfa70af8daafc383aeb976a96eac6d48fbfe05cde679b62ad29ce6",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_cors.py": {
+      "sha256": "53602b9ad21d4260f9f87ab09cfd4d6436f730510155f1ed06038afadd730dcb",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_gatk_diagnostics.py": {
+      "sha256": "ee5f6eb01055cf4669f0df0509f1ffe45ddea4e59f97adbfa85117b25618cc3b",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_gatk_evidence_projection.py": {
+      "sha256": "29a7b013404764093877010be3ade19f12df0126615ec45ba649ba869ee3b4e7",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_gatk_migration_0019.py": {
+      "sha256": "b40a06895169b996c5b43dbde394c2c3b1b1b1e140e773d90926d0c1e438e31c",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_gatk_registry_api.py": {
+      "sha256": "7656e056b11ad17847148e6ae7af55ba43a5f8299426b2d8845b65e78de86d3b",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_gatk_submission_service.py": {
+      "sha256": "10ce13bdf039eba64b18171dd64d1923e723adc77ff3e637d316250858a84185",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_gatk_workspace_api.py": {
+      "sha256": "d578e69208c7f88ac1d3ab00e10c8784c12c5db90a227865baa3bd6fda79b5f4",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_health.py": {
+      "sha256": "d5c2bdc3b7dfa59d2b8c7d4c567df36ff14bb53e485266545aab40b6259f9341",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_health_dependencies.py": {
+      "sha256": "0a6870ad1db5d55dc3e1eaa4c92912596d74b6e0035100133c92b47f5feea6d4",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_input_scanner.py": {
+      "sha256": "06647aded294bfea86d390eb8cd1bfa65e020a239d6e2bd37122cf1b0832ac64",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_intake_retention_service.py": {
+      "sha256": "e3484a6bc51756ceecc294879b63b4795a23b4dee1509c4c1fff9fa16a1b2b66",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_models_metadata.py": {
+      "sha256": "637d4ef18e0820a8ab17af098cb6fe57c36f4e23aa4ff54d4ec6d4c87514556e",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_ngs_platform_hygiene.py": {
+      "sha256": "16868318e8d06555765b52cb8bf3c39fcf9d1694496a7452135fcd48418dd882",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_pipeline_adapter_projection.py": {
+      "sha256": "ee0cc35e09e9d80fa162a046f34a6550902195f9757e441c35d696ab8f02f430",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_pipeline_registry.py": {
+      "sha256": "71609b91e28237d019a618db4899d187d97219f93b4ae9d687eacd886717c7c9",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_pipeline_registry_api.py": {
+      "sha256": "7a40091745be147b26c15273aed2bb4cad07cf351bc08be1de9ae88c58b87f2b",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_platform_resources_service.py": {
+      "sha256": "9050083b305843e660cc00f6e06902d43cf3e0a6a06076372e9cc25d46b79fb1",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_system_resources.py": {
+      "sha256": "aff915c620f22b6c69e904f3b5c2969b02c118ab2872f9ed50df6bb8c8604dfe",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_t229_live_consistency.py": {
+      "sha256": "c97c6c0a4297efa915ca87ac08e1cfb80f82a0493dc6d32298c1165b736adfe6",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_t239_run_lifecycle_projection.py": {
+      "sha256": "ec4e24627d6153a79b83c6df5da4a9fceb322d67886b3bafbbdf6e042d721e61",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_t240_dashboard_attention.py": {
+      "sha256": "83afe366962a2efb8cd59c1b3f50621e115327c9be42e92b225751278ee9a70e",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_artifact_selection.py": {
+      "sha256": "879d11100be9474ffa7f28d4ca7193991fc2fc1a6e4477d18b68fefa024be71a",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_auto_dispatch.py": {
+      "sha256": "42d7415a9a7c24fc62691c0afef1df42a4b423bc7ae3cadb5281e39ae75c1086",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_cloud_orchestration.py": {
+      "sha256": "2590aa78786d5de4953dc2ce67434913aaf8d162f5f852b87e3a88cf0fa29b18",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_execution_dispatch.py": {
+      "sha256": "ea49d66eca1f2785910049ac9209c26e3601108694f8961adc53f28ac341ea57",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_intake_cleanup.py": {
+      "sha256": "16cbac487b0c84a2ecb875d57545e8d23012a92f7527fd026239d622c7d46fea",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_lifecycle.py": {
+      "sha256": "92b627db0cf4c3f36b436dad00de08f0ae50dd1ff728f4dcd36755afe11fccef",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_migration_0016.py": {
+      "sha256": "b6138fda761843059f5c5ecc6730257551d4e447f0767e1814850014371724d0",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_migration_0017.py": {
+      "sha256": "0c7c5dc8f679f41fbcd36d029e5857db0fd41393a3900989c1861c4510f3da83",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_observer.py": {
+      "sha256": "c4f361069ced347806ce90a3ecabc0403f5f1d6d1d73a6992f12423d4c36a088",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_observer_cli.py": {
+      "sha256": "1b140591e60d39f9b12a1d5a3475b0925eea590c7c193a83fc8685f905643d9d",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_observer_lifecycle.py": {
+      "sha256": "d5789130281ec431a33594e95e05dc130cf85c6959496c8ca142a273a9aad081",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_only_platform.py": {
+      "sha256": "2b4585657536ed39b44f63ccda1468e4ad6183c9c611094ffb0f37ae1bc5a3b9",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_prepare_handoff_projection.py": {
+      "sha256": "81e35e1472bb10d86fd4d9778c00153f8411c758d6242c0d6e367ffe21c23034",
+      "provenance": "regression_tests",
+      "release_directory_sha256": "764b47db52867d7f671d2b960223309c82346b10157c1d793d0b72f24729b776"
+    },
+    "backend/tests/test_wgs_release_catalog.py": {
+      "sha256": "f6b407e56be4e8560571f03b104b7a353d76d2069b2758598b04a3d49df7e099",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_runtime_adapter.py": {
+      "sha256": "ef21b142f5f7d862986e2eac441d6e0346863707818a789ba05f2f7ae6637f0b",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_runtime_config.py": {
+      "sha256": "a45c3a36000519a10f3195d3090039afc5b3b135fac159f1c4d65e412bbd03c6",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_stage_execution.py": {
+      "sha256": "2090f7a2b17b07c5e831b3dc238c75b46f47dba4016ff696e3b8ae6820d11286",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_step7_service.py": {
+      "sha256": "9e2fddec4939c082819289c507e40cf312f68d8c5873778a007d866a16f3f21e",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_submission_service.py": {
+      "sha256": "b00f819078f354a6f0052c5d00975e8b02033020c8daae46ae724efccec1eb9f",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_t7_intake.py": {
+      "sha256": "3cb78f626df95bd74d89619c7f927cf73266098130d2b740ddf2c43bd3c42845",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_timing_service.py": {
+      "sha256": "bd1296c5994d67fd02e16b759618f20735f5f65cfc7c36d7bf2b145fad0481e5",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_transfer_lease.py": {
+      "sha256": "abd64701bd5cc0ba34b4e31035ad52f33e7ad8ad81ec865831950927f77db1e8",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_wgs_transfer_projection.py": {
+      "sha256": "c3f7916f6291d6231349c22f316346b3ea2f7bbea9d3aad1245be95c85debf62",
+      "provenance": "regression_tests"
+    },
+    "backend/tests/test_workflow_phases.py": {
+      "sha256": "4e8a0bbdd1f9c87eb7e90cbb8a3219749c1e8220cdffb09ed64ce5c124af7573",
+      "provenance": "regression_tests"
+    },
+    "config/intake.wgs.yaml": {
+      "sha256": "144537461f878b2d469c4931c503ecf761a84e02905c02b254d6de2af5869650",
+      "provenance": "server96_release"
+    },
+    "config/pipeline_profiles.wgs.yaml": {
+      "sha256": "3838e79e50fb9371a98c248f5e69ddcc97b1f2db1ea887cd076a5f762242ee89",
+      "provenance": "server96_release"
+    },
+    "config/pipelines.yaml": {
+      "sha256": "6dcea6a3960d074ef59e943d940d10f5e9a01da983d7fa516413f444a634b310",
+      "provenance": "server96_release"
+    },
+    "config/wgs_projects.yaml": {
+      "sha256": "20cb6f432a6fa9a74b130ae0a230ff34310e6119344d647138cfad44926096d8",
+      "provenance": "server96_release"
+    },
+    "config/wgs_releases.yaml": {
+      "sha256": "30b38686f34aea7995aa52a7a8e41ee7811e2218f738654e4cf00f861b38bc58",
+      "provenance": "server96_release"
+    },
+    "config/wgs_stage_contract.yaml": {
+      "sha256": "2cbc19ffe8bba061283895efbd675f30935b6e2e61e7cad34b55c3f58d197c21",
+      "provenance": "server96_release"
+    },
+    "dags/.airflowignore": {
+      "sha256": "c0aac7d8ba7fc785b1771071043aa9aa1b28bed6c45f6d4fd89c30d1be0ccb50",
+      "provenance": "server96_release"
+    },
+    "dags/bio_gatk.py": {
+      "sha256": "afc9ff85795cedd37becd345d4ddab5cfa155bd0070c899f2cf0a2c67f2ac7f2",
+      "provenance": "server96_release"
+    },
+    "dags/bio_wgs.py": {
+      "sha256": "d01a797122325019f624a0a2748eafe5163ab2fbf0ca6a3a4ecda8a0d2138181",
+      "provenance": "server96_release"
+    },
+    "dags/common/__init__.py": {
+      "sha256": "25cda4289637b08beffe2305c9730ed123099247b38e3f49e607575c44d9dff1",
+      "provenance": "server96_release"
+    },
+    "dags/common/paths.py": {
+      "sha256": "d9e9336c163f2fc4cecb974149e4b205e3e79fef20bfa8f1464acc881d1517ea",
+      "provenance": "server96_release"
+    },
+    "dags/common/pipeline_profiles.py": {
+      "sha256": "2be3bbfc40adc3d4d2a140bdb7557f2910fe570400848b65084f5aba73df6962",
+      "provenance": "server96_release"
+    },
+    "dags/common/progress_events.py": {
+      "sha256": "8f1014da9fa9bbe177fd3fbf602145c2586f9d02beee8045b806724a6d5a7032",
+      "provenance": "server96_release"
+    },
+    "dags/common/resource_monitor.py": {
+      "sha256": "151ede83a554489364de0e18b89519809189757c4df3610e9991175fa589ce9e",
+      "provenance": "server96_release"
+    },
+    "dags/common/subprocess_utils.py": {
+      "sha256": "39c624f5dfbbd6e03c23a7352aff60f89ec84e981cd73392ec5db3f9a041d880",
+      "provenance": "server96_release"
+    },
+    "dags/snakemake_logger_plugin_airflow_demo/__init__.py": {
+      "sha256": "1056357299b12d65f7e857b2fb797cc7ec1cf7fdfed3e365e281aa2d4c67e362",
+      "provenance": "server96_release"
+    },
+    "dags/tests/test_bio_gatk_contract.py": {
+      "sha256": "56e5320911e5b0c72350b247530876f35745b45d3c8cb1f83d1a43843b9102f4",
+      "provenance": "regression_tests"
+    },
+    "dags/tests/test_bio_wgs_dag.py": {
+      "sha256": "304037e909007c3c5055c75beed7ca44c9b65378d0e745027cb4a9606d172c50",
+      "provenance": "regression_tests"
+    },
+    "dags/tests/test_progress_events.py": {
+      "sha256": "d3b285471aa7a8572915778d72d8c3991a82c220f4b70c681493a167397c84bf",
+      "provenance": "regression_tests"
+    },
+    "dags/tests/test_resource_monitor.py": {
+      "sha256": "406e2351983eceb62f9ee0417c73033e3218a4970df74ce28b757227f22c9fd7",
+      "provenance": "regression_tests"
+    },
+    "dags/tests/test_snakemake_logger_plugin.py": {
+      "sha256": "0b631b4181d547e5af36ff8ba30b648edea3772a4cf8dc4da9f26014a4d9a659",
+      "provenance": "regression_tests"
+    },
+    "dags/tests/test_wgs_cloud_orchestration_contract.py": {
+      "sha256": "ea6a0f8d432c42e2f22c0b9e75c54cbe705fcc01f5ebc67d4415d5d265ad2b42",
+      "provenance": "regression_tests",
+      "release_directory_sha256": "7f766789c0ed7adf096b98f3e25b38ea12fec06f431923afc81853c9fc1dd2be"
+    },
+    "dags/tests/test_wgs_host_runner.py": {
+      "sha256": "176b4fafa13ceaccf74cabe082a675a240f673fc831b6b5356f848a3c507ca81",
+      "provenance": "regression_tests"
+    },
+    "dags/tests/test_wgs_only_dags.py": {
+      "sha256": "7367ea56ec9465042ac870d478363221ce2ca5851f50797b61e91f68a76ca2f1",
+      "provenance": "regression_tests"
+    },
+    "dags/tests/test_wgs_only_deployment_contract.py": {
+      "sha256": "44ba11ceb110b053a4fc9c24766e9045e86b982b4ea9323ad730595eb2cfb2d3",
+      "provenance": "regression_tests"
+    },
+    "dags/wgs_host_runner.py": {
+      "sha256": "e58eaca809e473b16d580124ef28f34531231913795fdfdaea7d46b3877fb719",
+      "provenance": "server96_release"
+    },
+    "docker-compose.wgs.yaml": {
+      "sha256": "5839dd958cb67102b3cec3cb4373d48bef5125041f0517b739e2912ca754dd06",
+      "provenance": "server96_release"
+    },
+    "frontend/Dockerfile": {
+      "sha256": "b1aae38540e785379566687629a66b90fedce8178064eea01fda20ae7625813d",
+      "provenance": "server96_release"
+    },
+    "frontend/Dockerfile.offline-build": {
+      "sha256": "f5fd7bfffb24f6aa0393d6f672ce3b2bd09ad6c5def78414c101a2317796a2f9",
+      "provenance": "server96_release"
+    },
+    "frontend/Dockerfile.release": {
+      "sha256": "fd9faabca1242c6efdc3f703fcfdc8caf6225e0e6eff5bd4b6664436f877f6f1",
+      "provenance": "server96_release"
+    },
+    "frontend/index.html": {
+      "sha256": "f30b1b2a0bf458c2f98d7f0a4eb38bcc62b53855bc21f148920c9e94a7d14240",
+      "provenance": "server96_release"
+    },
+    "frontend/nginx.conf": {
+      "sha256": "17697178c757b3c41cb8a507edd6fd3940ae91e6c0be89ef8a23a5958347b25c",
+      "provenance": "server96_release"
+    },
+    "frontend/nginx.wgs.conf": {
+      "sha256": "5f2e1dfdde84ca3222eccf797436894cf79b7d7ad463e3fcbbb62c078b4e6a1d",
+      "provenance": "server96_release"
+    },
+    "frontend/package-lock.json": {
+      "sha256": "35420d5e3ec0f9555738f61e983cb05de30640db82f034d2659f87fd40a324b1",
+      "provenance": "server96_release"
+    },
+    "frontend/package.json": {
+      "sha256": "229deb933a29f685f9f2b4cbeb0dd39fd02568e5e3685d37a49d066b05a45538",
+      "provenance": "server96_release"
+    },
+    "frontend/src/ApiResponse.test.ts": {
+      "sha256": "63a360ec00376ed6f07bef57312622d3ad7026e6abcc5bfcd4de29a24b95c9e6",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/App.tsx": {
+      "sha256": "cf62d4d46a29918da7fc51f243e924b56922129455647cfc7e92cc81f7f4f01b",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/NginxContract.test.ts": {
+      "sha256": "f14e0f37ef9c173d5c007f499e495ffadee534b34a8751c118e234c909f3accd",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/WgsOnlyShell.test.tsx": {
+      "sha256": "e5b89d0d5b84a7c65ddf2eb8f1ffbc683c772ede418420c77adc56aa972113a2",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/WgsProductionUi.test.tsx": {
+      "sha256": "c1ef80d8ce7bef289694f725b7eee4aa1666baaba1d4e7c27b4ca8e62c598e6b",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "9365435b99d125f1ee5819299bc3f529cb7130a42bb2eb0f2f5bcbed109a6c72"
+    },
+    "frontend/src/api.ts": {
+      "sha256": "94e577a808dc15bb78f2bbcf79a43a126c813122912c1bbe7d50c21d641b4a05",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "80218ab19a7c40546eee3cfffed27e3fe2a6dd18151cb355dcfaa9cf12e9dcfa"
+    },
+    "frontend/src/components/ErrorPanel.tsx": {
+      "sha256": "50a5648cde3ccf8578cbe1ae81a1a016c5f8ed6761c378fc50ea040a6aee4ee8",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/components/IntakeDiscoveryTable.test.tsx": {
+      "sha256": "126c02e81d4df76f3aa9eca65653d1ffafc17b0aaf9795397f79b6a20c1e2fa7",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/components/IntakeDiscoveryTable.tsx": {
+      "sha256": "31270a1825445e2a2b9ba68b6b3f2ef20f19903f46f2324901a732c682d8532a",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/components/LogViewer.tsx": {
+      "sha256": "2d7ca1f57e7d74320b002d11cd529d98ab7344e6ae4c8cd2740bd61783b58295",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/components/MetricCard.tsx": {
+      "sha256": "a10e042c2a71f2281bd597c9ae954cf97623230a853894ff06a2cd71f400fbd7",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/components/OperationCells.tsx": {
+      "sha256": "4c7e2b7b96d69f4c2b0ae6b88a990d15d39b765700fc300d3ab13f069b7b4d2c",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "e28de38a8c72a91311e4a3ad77518a801f5822d74a4bf6c9e1aa60e45533e0a5"
+    },
+    "frontend/src/components/QcHighlights.tsx": {
+      "sha256": "4f9c3a76168216916f80c67df3ea6c2977a16540ac77710f62baf9b378affeae",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/components/QcMetricCard.tsx": {
+      "sha256": "c73afd262f1183858d0a76f99051ea09557809962456642a14f8a29e52f79aba",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/components/RunProgressBar.tsx": {
+      "sha256": "98212d1022422f290321a6466e815aefa05ce4478433af48a2b29c13f4171e8f",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/components/RunTable.test.tsx": {
+      "sha256": "d564e16340f00b40f3f561152bf526d9d1def74cd0413ba4f7262248816ce7ec",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/components/RunTable.tsx": {
+      "sha256": "bb9f2eeacaf16e9f779a563da11f0c72512625d72ac20f099ca1542d77862352",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "543608f9d139ce22009c7b958391696c5aefc0fb052c109ff5d9224c4eba3d98"
+    },
+    "frontend/src/components/RunTracker.test.tsx": {
+      "sha256": "0f005bc14a8b71cec5b368ae0ba1497f2a07bc59e77429eceb7aea53808e5a8e",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "2ba5992cccc3cc561eddd730c474ad7cbb110cac705820187e583e52589d72ee"
+    },
+    "frontend/src/components/RunTracker.tsx": {
+      "sha256": "44b080ac6a8afc227c1766754a6bef271120db93a277fcdf5f73c23b8d88d0ed",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "edaa3372603b49328aa8e3f2432ec39a2039e03373214fd767f46d8a983c814c"
+    },
+    "frontend/src/components/SampleSheetUploader.tsx": {
+      "sha256": "21149cfa2d2417215b653adaa1978e39079c350434a0172143a5280ecc6833e2",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/components/StatusBadge.tsx": {
+      "sha256": "4892c7640078a8c66f7918747dabde0da6f34617d3513020722a53281a76ad7e",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/components/WorkflowStageRail.tsx": {
+      "sha256": "df2b1f1a182a02804b7d4996fcdadbac1911343db573ae00d71aa4469547e496",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/components/WorkflowTimeline.tsx": {
+      "sha256": "e2b3ee6831e71a1b45a60cffb0dc840bd0d54147c57f3450b406b30c249b9ee2",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/auth/SessionContext.tsx": {
+      "sha256": "319ea90980ce2678cd38b4e597799bea6f57278b202b44d18317e1dea9f0c76b",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/dashboard/DashboardOverview.tsx": {
+      "sha256": "b7186e76b5d4817b002eff761301a5e82f34c92146e33c2a1984693d110fc51d",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "5ec863a62330a6c539e48fc3e7bb54bef612f78e39bf3a6aeaf8990eb3c2c5ff"
+    },
+    "frontend/src/features/dashboard/DashboardResourcePanels.test.tsx": {
+      "sha256": "1f64007eb5209d4b19a7fd8701d287b79a99263e3d4f34d35ecf39462a0e83e6",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "cfab5d4a0e942d405ac1c89018d2dcba4590827cacbf4acc5efce3f2e0a77ded"
+    },
+    "frontend/src/features/dashboard/DashboardResourcePanels.tsx": {
+      "sha256": "9d2c0595d19d3cd2a95e1eb730c67b738d428c78bf8e6337faf2bace715e62c8",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "22a5c7ef66da49ca0f4402fad743da700803d731aace362c3bcac43347b361c6"
+    },
+    "frontend/src/features/dashboard/IntakeScannerPanel.tsx": {
+      "sha256": "a6baae7cd55c865c4cfc3809e29c975965411db26be5026ac680390eb45bec7e",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/failures/FailureWorkspace.tsx": {
+      "sha256": "e15b9a3861f27d202bd7fc002dfd207c742c9aef0ac9beb5b73ab1e3dde0e5c6",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/platform/PlatformCapabilitiesContext.tsx": {
+      "sha256": "65833cddf284fed19142d502f4ea05d9e269c26ba1bfdc1886c26c71ed4ecfae",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/platform/submissionUiRegistry.ts": {
+      "sha256": "0cfc170861d823c367613104c378ae68c1d950209706512f4d45205ec201ef16",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/run-detail/CurrentProgressPanel.test.tsx": {
+      "sha256": "c53a2c07ab7bf4dc0cb5d93a25f7ea8f2344d091002c993822d9523342697a0f",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/run-detail/CurrentProgressPanel.tsx": {
+      "sha256": "2d41e18490d3b07302a58393f21a81b1c758b6aa2417d788c8f87d480c3427df",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/run-detail/DataLifecyclePanel.tsx": {
+      "sha256": "7cf5411cd80eea6f72e670212c0179621511077dcc9c7d699ecdee2a08660b3e",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/run-detail/RunQcTab.test.tsx": {
+      "sha256": "4d88adf49b775d714083f95b31dfb70cf95f6f1bfee59c2d1e468db28277147b",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/run-detail/RunQcTab.tsx": {
+      "sha256": "2f9ead9c6a9c791775cfd0d7716b37fa8afa04058370102057aed9dd1a4bec70",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/run-detail/RunResourceTabs.tsx": {
+      "sha256": "1be8fa93268e3fa622ee38d0768e1cdaa50122d3d8ed43923ecfd2a23539ab38",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "87a7271348c6317c6409eadaae2313427f1ed97dfd14bb196011bd5ac74d6894"
+    },
+    "frontend/src/features/run-detail/RunWorkflowTab.test.tsx": {
+      "sha256": "65c2e798c84a191e59a662d11d345e01fcb187fd22ad1ca2a951aeae924cb367",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/run-detail/RunWorkflowTab.tsx": {
+      "sha256": "f2c513d1f695a4320b96420602b5d38f49c1f16aefe0c9acf1a83a027f7df767",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/run-detail/Step4RepairPanel.test.tsx": {
+      "sha256": "aab66a3401240987be996838c49bc582eda0e000bdc1e0041e6010ee0194686f",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/run-detail/Step4RepairPanel.tsx": {
+      "sha256": "efc2b37504df961ebc2f1cda4fe31ead5b314e61447c1c910bab3da707cb028c",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/run-detail/Step7CleanupPanel.test.tsx": {
+      "sha256": "46f32182a3c2e5a947ce5a9436f0741556fe0e6b4b8c6b70b7d28e869d5b1446",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/run-detail/Step7CleanupPanel.tsx": {
+      "sha256": "1ce689024a1cc192560c2a36ba19dda903468886a3b561ca4ce5aab7e5353580",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/run-detail/WgsTransfersTab.test.tsx": {
+      "sha256": "fcd7361713bc4b931fc4aef7c4b4eb308af8aeab03f83d5061f85901e4c651e5",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "2497db84d421bc7aaa48915c8f92afface9048dcfacb925d755803fbd69e4a43"
+    },
+    "frontend/src/features/run-detail/WgsTransfersTab.tsx": {
+      "sha256": "b19c516e77648a649f2702c48a7acfbb73b49b690eef9c0c600f5f71b55b4c87",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "56e4777034ffc65f145d48ec4b183f10079c387e4e10e5a5b70ec3b5ce57f676"
+    },
+    "frontend/src/features/wgs/ExecutionTargetSelector.test.tsx": {
+      "sha256": "0d79a66bc2e035d7ee11362458d101aab870eff1c4bfb7a650aa1f290971b5b6",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/wgs/ExecutionTargetSelector.tsx": {
+      "sha256": "a74e0f4f696c6563fc9e2333b026afcee8dbcb49cc3b08246fdb951d70eb10b1",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/layout/AppShell.tsx": {
+      "sha256": "9b2a19b54ce264e20e6b04a4fa52a6854df2fe47ea79f62f5c83fa98a8a37081",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/lib/deployment.ts": {
+      "sha256": "246083a22ca66257aed8b3963d46117bdb01b74efa3e32a70a49878e520c491b",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/lib/errors.ts": {
+      "sha256": "d180ceede64033285d3155d13d43f79ec49b59d088b859a52b7568d6829498bd",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/lib/format.ts": {
+      "sha256": "302899607a0b40bae062b5c912f3816be1a36522a7f4706dea9776e02bbdf6a6",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/lib/intake.ts": {
+      "sha256": "57be30abb72414de34e8fb300d120a7571768d94d7bcac5789e862ff522f1c19",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/lib/qcFormat.ts": {
+      "sha256": "b053ef6081a900cb16415ec0d8b3a86839af7a9a079c3aae209b0572882c1065",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/lib/runProgress.ts": {
+      "sha256": "9c63b0aae7abc7a8e7653dc47401cea6f2542169f36a55904946ac1ffbe1041a",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/lib/sampleFiles.ts": {
+      "sha256": "f11db81f4054817fea6da93a344406ddedebd481b600632aa230c665c01c5930",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/lib/stageLabels.ts": {
+      "sha256": "6a40df6c9dea04dc1750f485850498a0500fe8c7853af4d0f344b18a55632d86",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/lib/status.test.ts": {
+      "sha256": "e5fd068fd12f2401606ab422521e6da94c26ed7a14d3c8dfd189b429289d5601",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/lib/status.ts": {
+      "sha256": "2285b1cc3a3969790225ef29ddd560e499f16dd79193a8ee4581d46a36f3e0ab",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/main.tsx": {
+      "sha256": "f2ea62ab9f188312222878f8def4952b72a2473f6282bca9cf55608fb4beb73a",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/pages/AccountsPage.tsx": {
+      "sha256": "c360d119d69820b0229b05588d7a97634448d361333c5ee4786f3eec3cb23a22",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/pages/DashboardPage.tsx": {
+      "sha256": "04b66db22af3aa2add86ea9d745ba6fb0928aa43ca8fc9612d15d14efe42a0a0",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "0037fb4339c28b1f47f48f1c7e45d799478417ff4388f2aff0dfa0f4194deb03"
+    },
+    "frontend/src/pages/FailuresPage.tsx": {
+      "sha256": "eefcfd7a11331473288bc49714ee41e18e78c94c63db818e9df76cd096d50244",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "c1540e127869a9e891f191d7117ca46516c12088a422917061729706b01ce80c"
+    },
+    "frontend/src/pages/LoginPage.tsx": {
+      "sha256": "a66225c799b6ed7bb7b090a13c784c34663d69ed9ff9e764fbb9f19b8005fcdc",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/pages/RunDetailPage.tsx": {
+      "sha256": "91dc7988b14137836e6ca19364adc2079ed752ac2c29866f83fb05762c2cb284",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "c120af19dd5a73529b00acf9c75adeefe039ddf4cfc2d4a2be2b2a0badafa8a7"
+    },
+    "frontend/src/pages/RunsPage.tsx": {
+      "sha256": "27bd3603145adb760e0919f4e56ec3a56d8d087512f7adb9961e2c84c7751c22",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "7d0bfb7ed2d4ac2302a648e6fb1e9b2ceea665debcdd076fb096e20c6fe3c32a"
+    },
+    "frontend/src/pages/SamplesPage.tsx": {
+      "sha256": "3f62d48d2c3cad8c411504bae363dfbb3fa9a8d136e44d68a55d3c3530ea330b",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "362cfa656a1c27347cd3fb528bd8ceda2859698dd66a12a0a0b04107f313905a"
+    },
+    "frontend/src/pages/SettingsPage.tsx": {
+      "sha256": "8859482bae6a555b48b2aa74a920216e8475d1bec76a9e6f95352d72bd412487",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/pages/SubmitPage.tsx": {
+      "sha256": "da1c431036154053e3eb56a4a2104d3cd6ce1a971e877a82daa457277a8848aa",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "cd7ebf51c0b312e7336ba98a3fc4d12c96fd907f616fd4cd02a012f8151bb0b3"
+    },
+    "frontend/src/pages/WorkflowsPage.test.tsx": {
+      "sha256": "a7be2b7ca97d9cf01d4fdf1dff29a09be3c20ce65b72b7a8998f44c72258b379",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/pages/WorkflowsPage.tsx": {
+      "sha256": "59c4e7fcd6cecfc7eab66fb7f1469ed6d75717dd4ed2d8470d6cc92e4f54abe0",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "0d33115c2285099207e47ebefca15ea739c727097989445d7948c777d8ffeb1e"
+    },
+    "frontend/src/styles.css": {
+      "sha256": "2b1b82f00df844c423e220f11b902decc7ec173306f3f8f27d72d1ad868642d9",
+      "provenance": "verified_frontend_rebuild",
+      "release_directory_sha256": "e56825317fa7675adad3ecf488480e70c8e06c52e25bafe05044622a92a95abb"
+    },
+    "frontend/tsconfig.json": {
+      "sha256": "f4655bda399857c3ba914600b5b6b852b70b51265d5c5fb6b517fa212d802fcb",
+      "provenance": "server96_release"
+    },
+    "frontend/tsconfig.node.json": {
+      "sha256": "66362d3973b411c9da6f18808a7149f5e1cf0c3e099815a107a61a71db792adc",
+      "provenance": "server96_release"
+    },
+    "frontend/vite.config.ts": {
+      "sha256": "e5f2157f9b1dd8faa1b6add5a764f04f5750827cf455cd5d3c3880c2e832df76",
+      "provenance": "server96_release"
+    },
+    "scripts/bs10610_wgs_phase1_smoke.py": {
+      "sha256": "1fd3088c482885777265226905ea98052beceeb2153815928e8be8aadb5808f1",
+      "provenance": "server96_release"
+    },
+    "scripts/build_frontend_builder_base.sh": {
+      "sha256": "006d6418d02fc5fb747bc7ec70d4d1a560c3a94bec5fe73177ecf6b9e6486eb9",
+      "provenance": "server96_release"
+    },
+    "scripts/build_frontend_offline.sh": {
+      "sha256": "81cdb037676d6d784ae552ca87f219b5a263fb5893b85b69053d17e46a678603",
+      "provenance": "server96_release"
+    },
+    "scripts/collect_sfs_cloud_eye.py": {
+      "sha256": "88ddf2b7220a77b8af4b7fd788c1c32ce81e0d804d45fa5474ea037b4141bc60",
+      "provenance": "server96_release"
+    },
+    "scripts/configure_node200_cce.py": {
+      "sha256": "38d70e6c67a9cf122edece3ab85b112d390922b9851b2104d64b4bbdc7671785",
+      "provenance": "server96_release"
+    },
+    "scripts/configure_node200_runtime_env.py": {
+      "sha256": "1a5a0af3633a59f9caad5381c10b6185d6a75ef741e1dfb3b383b8250fb0a9b3",
+      "provenance": "server96_release"
+    },
+    "scripts/deploy_wgs_s9_host.sh": {
+      "sha256": "a96defa9c429bc11259c746b8ec5a5125a5cf44b8e5989d1a059f14fa2f853d7",
+      "provenance": "server96_release"
+    },
+    "scripts/gatk_runtime_forced_command.sh": {
+      "sha256": "0c4fc77ccf3f12c991f418bf03a898287a0c4f3a4e7dfc93e7d647525276940a",
+      "provenance": "server96_release"
+    },
+    "scripts/gatk_runtime_gate.py": {
+      "sha256": "789613591599bcf29f5454c7fa9f66dc2ed31dda02ab60a432a5ebb0a29d7cfc",
+      "provenance": "server96_release"
+    },
+    "scripts/install_wgs_ssh_gate.sh": {
+      "sha256": "a9aefe2982ccf54388158b44d7bada7f3707de1e0905e46cbb017878ef28ee37",
+      "provenance": "server96_release"
+    },
+    "scripts/package_bs_platform_images.sh": {
+      "sha256": "ff7872ef25f2ca10339b929ff08490f0d7636edd5a4c897ef88f21bb0eb2e394",
+      "provenance": "server96_release"
+    },
+    "scripts/start_heavy_slot_collector.sh": {
+      "sha256": "5f2a8190c785819cbb2d31d4dc1f93a2c380ebe792842ea5723a7d11e19f071e",
+      "provenance": "node200_active_installation"
+    },
+    "scripts/start_sfs_cloud_eye_collector.sh": {
+      "sha256": "cf826b48ea64f3ad2eda54da389a6c2edf33db950178d6c13d09d4ddd59e17a9",
+      "provenance": "server96_release"
+    },
+    "scripts/tests/test_configure_node200_runtime_env.py": {
+      "sha256": "9027a5563a8531131a74b6637184504dd9bc6c0e48bd195d7c3aed84612fd4a4",
+      "provenance": "regression_tests"
+    },
+    "scripts/tests/test_frontend_offline_build_contract.py": {
+      "sha256": "a0db1cf3883abcd8288d3337911bd59a24b209eeb8ee3ffc178897b9143825fa",
+      "provenance": "regression_tests"
+    },
+    "scripts/tests/test_gatk_runtime_gate.py": {
+      "sha256": "b23a8f35f961b5c78e5aa408b7473aef94b397a21eb28b1885685136af12de40",
+      "provenance": "regression_tests"
+    },
+    "scripts/tests/test_sfs_cloud_eye_collector.py": {
+      "sha256": "25e33df76d087c7e266fcca7a757f6b52e739fa18ec8f0296880e5bff7109f60",
+      "provenance": "regression_tests"
+    },
+    "scripts/tests/test_sfs_cloud_eye_launcher.py": {
+      "sha256": "8485bd2517c25985f7c9f92f22952c39083e2e963abba54fa3a56ba07497f11a",
+      "provenance": "regression_tests"
+    },
+    "scripts/tests/test_wgs_420_handoff_gate.py": {
+      "sha256": "06101c18cfa2b6c552215f67829e59742148eebfedd55231ce0cd58a761b1832",
+      "provenance": "regression_tests"
+    },
+    "scripts/tests/test_wgs_evidence_bridge.py": {
+      "sha256": "4e48c235bd2e46f1f5cd5dead3a69b4cb14d90eb51f046e4a0a86eec766363ef",
+      "provenance": "regression_tests"
+    },
+    "scripts/tests/test_wgs_heavy_slot_probe.py": {
+      "sha256": "58d267c91ac7290fb02455a1689b89b155aed3869b5c2fc79481164a66b460b9",
+      "provenance": "regression_tests"
+    },
+    "scripts/tests/test_wgs_local_runtime_gate.py": {
+      "sha256": "db17f3c50385f741e2301cf39b985ed171515dd45c5eb67b8e987c00a713423d",
+      "provenance": "regression_tests"
+    },
+    "scripts/tests/test_wgs_obsutil_progress.py": {
+      "sha256": "3652b7214a64956058e1421d3ae1e6a4e7c519ea5386235c74f4b35ec5620f6c",
+      "provenance": "regression_tests"
+    },
+    "scripts/tests/test_wgs_rule_status_logger.py": {
+      "sha256": "ca6a29f0c303f67a8cd4a6f1a7477031d65022a1fb79ec247620ec35f7ac71e3",
+      "provenance": "regression_tests"
+    },
+    "scripts/tests/test_wgs_runtime_gate.py": {
+      "sha256": "906c6488e9f1503b2eb49b58c7904a4beb6237bf6a108086e6d716c6baf868bd",
+      "provenance": "regression_tests"
+    },
+    "scripts/validate_wgs_obsutil_multifile.sh": {
+      "sha256": "53f0b0abc8ad02150ca38b198e5064d1a9d1bdeb39cd6b6f9bd5651475c2f4a9",
+      "provenance": "server96_release"
+    },
+    "scripts/wgs_evidence_bridge.py": {
+      "sha256": "6b806320bd5940a10d14a070d2bf7d31a65af8d3737d2fa8f1feb9502f7699b1",
+      "provenance": "server96_release"
+    },
+    "scripts/wgs_heavy_slot_probe.py": {
+      "sha256": "e9216f0c2954efa28d5b7e47dfc774a3c8e97f4384408e31f97c767cb0c87627",
+      "provenance": "server96_release"
+    },
+    "scripts/wgs_local_runtime_gate.py": {
+      "sha256": "b4b1d3d50acd16a114145a0474cacd3888348d6a3c8d2b52b126c54d8daf232d",
+      "provenance": "server96_release"
+    },
+    "scripts/wgs_obsutil_progress.py": {
+      "sha256": "d14f8a4520c8ab70849a0f63b4b6d1fd1770a7e3f986d28fb9adcf5567642eb8",
+      "provenance": "server96_release"
+    },
+    "scripts/wgs_rule_status_logger.py": {
+      "sha256": "fba6c5d41c04ccaca331459684c79c5c51b05212e4b4e980fb885e4bb75933dd",
+      "provenance": "server96_release"
+    },
+    "scripts/wgs_runtime_forced_command.sh": {
+      "sha256": "0f0531297c00780d125f8221992aa0a51c5263843e10740d04246ef8c1edff37",
+      "provenance": "server96_release"
+    },
+    "scripts/wgs_runtime_gate.py": {
+      "sha256": "ddc287315878915e4017f300ac93d2ace2f2f694251f05acdfd2ca20ab238ca8",
+      "provenance": "node200_active_installation",
+      "release_directory_sha256": "589e1f9f3d870b1f081a8939e85e241a01691bfcaff73994d47b9159d1ea0e4e"
+    },
+    "scripts/wgs_ssh_gate.sh": {
+      "sha256": "c5c733738ec1ff56f9b0ddca90d659301e3e2dacdc57bc00f084b1fed2acdcda",
+      "provenance": "server96_release"
+    },
+    "scripts/heavy_global_snapshot.py": {
+      "sha256": "9922d8aa8c7db7d8666b3cc6379d9add644c47b79f78a6c52ab838535958ad50",
+      "provenance": "node200_active_installation"
+    },
+    "frontend/src/IncompleteSubmission.test.tsx": {
+      "sha256": "d9953ed89ca9ccaaef8bf2e0406c36afb50f1c3a0582569d0ddcbe789c449f4f",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/dashboard/AttentionRefresh.test.tsx": {
+      "sha256": "ab3b36fd8da9bb6b85394bc4f8b0afcd0e87527a51c692bac4cb801bced017f3",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/wgs/CancelSubmission.tsx": {
+      "sha256": "f65da8abfd2f083f975ce9a7e0e78c98d3abb2a230fff506686ae6aa86fd0d7e",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/features/wgs/IncompleteSubmissions.tsx": {
+      "sha256": "afdd3912d9cb5f4df8e78cb6751a39531931ec6cd04104bf6e34f195eda4e5f9",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/lib/useSilentRefresh.test.tsx": {
+      "sha256": "203781d005ab04c403134d478c9c5725eacef22a6ef8bc5989a562dde71893ff",
+      "provenance": "verified_frontend_rebuild"
+    },
+    "frontend/src/lib/useSilentRefresh.ts": {
+      "sha256": "4684c37e392352abb5ca26111d24126e8241f383dc7da5b83b1d92d7626b9d5a",
+      "provenance": "verified_frontend_rebuild"
+    }
+  }
+}

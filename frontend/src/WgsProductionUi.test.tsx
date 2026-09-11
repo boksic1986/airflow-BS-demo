@@ -12,14 +12,62 @@ afterEach(() => {
   window.history.pushState({}, "", "/");
 });
 
+it("restores an existing manual WGS submission after page reload without creating a run", async () => {
+  window.history.pushState({}, "", "/submit?pipeline=wgs&analysis_id=WGS_MOCK");
+  let creates = 0;
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (init?.method === "POST") { creates++; return json({}); }
+    if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
+    if (url.endsWith("/api/wgs/release")) return json({execution_enabled: true, runtime_adapter_enabled: true, source_commit: "mock"});
+    if (url.endsWith("/api/wgs/projects")) return json({items: []});
+    if (url.endsWith("/api/runs/WGS_MOCK")) return json({analysis_id: "WGS_MOCK", pipeline: "wgs", status: "running", attempt: 1, params: {sequencing_batch: "MOCK_BATCH", submission_phase: "config_review"}});
+    if (url.includes("/api/samples?")) return json({items: [
+      {analysis_id: "WGS_MOCK", sample_id: "CANDIDATE_1", selection_decision: "candidate", selection_attempt: 1, status: "pending"},
+      {analysis_id: "WGS_OTHER", sample_id: "OTHER_RUN", selection_decision: "candidate", selection_attempt: 1},
+      {analysis_id: "WGS_MOCK", sample_id: "OLD_ATTEMPT", selection_decision: "candidate", selection_attempt: 2},
+      {analysis_id: "WGS_MOCK", sample_id: "NOT_SELECTED", selection_decision: "pending", selection_attempt: 1},
+    ], total: 4});
+    return json({items: [], total: 0});
+  }));
+  render(<App />);
+  expect(await screen.findByRole("button", {name: "Confirm configuration"})).toBeInTheDocument();
+  expect(await screen.findByText("CANDIDATE_1")).toBeInTheDocument();
+  expect(screen.queryByText("OTHER_RUN")).not.toBeInTheDocument();
+  expect(screen.queryByText("OLD_ATTEMPT")).not.toBeInTheDocument();
+  expect(screen.queryByText("NOT_SELECTED")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", {name: "Prepare sample information"})).not.toBeInTheDocument();
+  expect(creates).toBe(0);
+  cleanup();
+  render(<App />);
+  expect(await screen.findByRole("button", {name: "Confirm configuration"})).toBeInTheDocument();
+  expect(creates).toBe(0);
+});
+
+it("keeps a failed restore from offering a duplicate submission", async () => {
+  window.history.pushState({}, "", "/submit?pipeline=wgs&analysis_id=WGS_MOCK");
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
+    if (url.endsWith("/api/wgs/release")) return json({execution_enabled: true, runtime_adapter_enabled: true, source_commit: "mock"});
+    if (url.endsWith("/api/runs/WGS_MOCK")) return Promise.resolve(new Response(JSON.stringify({detail: "Temporarily unavailable"}), {status: 503}));
+    return json({items: [], total: 0});
+  }));
+  render(<App />);
+  expect(await screen.findByRole("link", {name: "View existing run"})).toHaveAttribute("href", "/runs/WGS_MOCK");
+  expect(screen.queryByRole("button", {name: "Prepare sample information"})).not.toBeInTheDocument();
+});
+
 it("uses a pipeline-selectable staged WGS submission form", async () => {
   window.history.pushState({}, "", "/submit");
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
     if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
-    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.1.1-6c98281", version: "V4.1.1", source_commit: "6c982817614db6a1157b6f287427ddf01ac91827", execution_enabled: false, runtime_adapter_enabled: false, submission_preview_enabled: false});
-    if (url.endsWith("/api/wgs/projects")) return json({items: [{project_id: "WGS_Clinical", display_name: "WGS Clinical", platforms: [{platform_id: "T7", display_name: "T7 / hg38 / V4.1.1"}], fastq_roots: [{root_id: "T7_Fastq", display_name: "T7 FASTQ"}], editable_config: {use_reference: {type: "enum", values: ["all", "ref", "no"], default: "all"}}}]});
+    if (url.endsWith("/api/wgs/release")) return json({release_id: "wgs-4.2.0-b067c72", version: "V4.2.0", source_commit: "b067c72eed795e59b724b13324b0d380ae8b7e94", profile_id: "wgs-4.2.0", profile_revision: "r1", cce_pipeline_version: "0.8.3", execution_enabled: false, runtime_adapter_enabled: false, submission_preview_enabled: false});
+    if (url.endsWith("/api/wgs/projects")) return json({items: [{project_id: "WGS_Clinical", display_name: "WGS Clinical", platforms: [{platform_id: "T7", display_name: "T7 / hg38 / WGS V4.2.0"}], fastq_roots: [{root_id: "T7_Fastq", display_name: "T7 FASTQ"}], editable_config: {use_reference: {type: "enum", values: ["all", "ref", "no"], default: "all"}}}]});
     return json({items: [], total: 0});
   }));
 
@@ -32,7 +80,9 @@ it("uses a pipeline-selectable staged WGS submission form", async () => {
   expect(screen.getByLabelText("Batch")).toBeInTheDocument();
   expect(screen.queryByLabelText("Sequencing batch")).not.toBeInTheDocument();
   expect(screen.queryByLabelText("Analysis batch")).not.toBeInTheDocument();
-  expect(await screen.findByText("WGS V4.1.1 / 6c98281")).toBeInTheDocument();
+  expect(await screen.findByText("WGS V4.2.0 / b067c72")).toBeInTheDocument();
+  expect(screen.getByText("wgs-4.2.0/r1")).toBeInTheDocument();
+  expect(screen.getByText("0.8.3")).toBeInTheDocument();
   expect(screen.queryByLabelText("Variant caller")).not.toBeInTheDocument();
   expect(screen.queryByRole("combobox", {name: /WGS version/i})).not.toBeInTheDocument();
   expect(screen.queryByText(/READY/)).not.toBeInTheDocument();

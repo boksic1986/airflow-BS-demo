@@ -174,7 +174,7 @@ def _submit_wgs_run(*, session, airflow_client, analysis_id: str, **_) -> dict[s
 
 
 def _reanalyze_wgs_run(
-    *, session, airflow_client, analysis_id: str, request, user, **_
+    *, session, settings, airflow_client, analysis_id: str, request, user, **_
 ) -> dict[str, Any] | None:
     if not _enabled_env_flag("WGS_EXECUTION_ENABLED") or not _enabled_env_flag(
         "WGS_RUNTIME_ADAPTER_ENABLED"
@@ -184,6 +184,7 @@ def _reanalyze_wgs_run(
         )
     return action_wgs_run(
         session=session,
+        settings=settings,
         airflow_client=airflow_client,
         analysis_id=analysis_id,
         action=request.mode,
@@ -357,6 +358,7 @@ def _project_wgs_dashboard_metadata(*, run, **_) -> dict[str, Any]:
 
 
 def _project_wgs_sample_summary(*, run, sample, metadata, **_) -> dict[str, Any]:
+    from app.sample_selection_scope import nonparticipating_status
     run_status = str(run.status or "").lower()
     sample_status = (
         "success" if run_status == "success"
@@ -366,7 +368,10 @@ def _project_wgs_sample_summary(*, run, sample, metadata, **_) -> dict[str, Any]
     return {
         "batch_no": public_wgs_batch(run.params_json),
         "qc_status": None,
-        "status": sample_status,
+        "status": nonparticipating_status(sample, run) or sample_status,
+        "selection_decision": metadata.get("selection_decision"),
+        "selection_attempt": metadata.get("selection_attempt"),
+        "pending_reason": metadata.get("pending_reason") or metadata.get("status_reason"),
         "order_number_masked": metadata.get("order_number_masked"),
         "test_project": metadata.get("test_project"),
         "family_relation": metadata.get("family_relation") or metadata.get("relation"),

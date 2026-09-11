@@ -1501,7 +1501,14 @@ def _upsert_transfer_file_states(*, session, transfer: TransferJob, files: list[
         status = str(item.get("status") or "accepted").lower()
         if status not in {"accepted", "running", "success", "failed", "canceled"}:
             raise ValueError("transfer file status is invalid")
-        if row.status in {"success", "failed", "canceled"} and status != row.status:
+        if row.status in {"success", "canceled"} and status != row.status:
+            continue
+        if (
+            row.status == "failed"
+            and status != "failed"
+            and str(transfer.status or "").lower()
+            not in {"accepted", "submitted", "queued", "running", "started", "success"}
+        ):
             continue
         row.status = status
         row.bytes_transferred = done
@@ -1514,6 +1521,8 @@ def _upsert_transfer_file_states(*, session, transfer: TransferJob, files: list[
             row.started_at = heartbeat
         if status in {"success", "failed", "canceled"}:
             row.ended_at = heartbeat
+        else:
+            row.ended_at = None
         row.updated_at = heartbeat
     session.flush()
     rows = session.scalars(

@@ -1,5 +1,12 @@
 # SERVER_INFO.md
 
+PROD-20260911 read-only branch inventory: server96 current20260910-t260-recovery-runtime-r1;
+backend/worker/observer/scanner use current source mounts; nginx serves patched static
+assets, not release-directory frontend/src. Node200 hostt640 has active gateddc28731.
+BS10610 current20260910-t258-cce084-r1 used isolated cached-image tests only. No
+service restart or gate/config/data mutation. Manifest in docs/releases records
+actual container IDs/images, flags and source hashes; dated entries below are historical.
+
 T255 activation final (2026-09-10): user-provided ctapa key selects correct BS96 UID6801; current release20260910-t255-heavy-master-r1 with three-file overlay5bb9e3f. Only backend recreated (e38d0d69fe79); all other containers preserved. CLI selection now versionedctapa0.8.3.post1, old nipttest0.8.3 unchanged. Live releaseWGS400ba1c/r2, healthok; DAG/scanner remain paused. Previous permission-blocker observation below is superseded.
 
 ## T255 build and release observation (2026-09-10)

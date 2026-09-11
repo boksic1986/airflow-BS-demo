@@ -11,6 +11,19 @@ import bio_wgs
 
 
 class BioWgsDagTests(unittest.TestCase):
+    def test_auto_dispatch_uses_staged_wgs_420_prepare(self) -> None:
+        conf = {
+            "wgs_version": "V4.2.0",
+            "params": {"submission_mode": "auto_dispatch"},
+        }
+
+        self.assertTrue(bio_wgs.stage_should_run("prepare_sampleinfo", conf))
+        self.assertTrue(bio_wgs.stage_should_run("prepare_analysis", conf))
+        self.assertEqual(
+            bio_wgs.effective_runner_stage("prepare_sampleinfo", conf),
+            "prepare_sampleinfo",
+        )
+
     def test_dag_failure_callback_reports_only_root_failed_tasks(self) -> None:
         task_instances = [
             type("TI", (), {"task_id": "prepare_wgs_sampleinfo", "state": "failed"})(),

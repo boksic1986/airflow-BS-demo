@@ -1,5 +1,24 @@
 # CURRENT_STATE.md
 
+## PROD-20260911 production branch baseline
+
+This branch is `jiucheng/release/production`, reconstructed from verified live
+production sources, not merged from test main. See
+[release policy](docs/releases/PRODUCTION_BRANCH.md) and
+[source/dependency manifest](docs/releases/production-baseline-20260911.json).
+
+Server96 remains on `20260910-t260-recovery-runtime-r1`; no production files,
+services, gates, databases, jobs or analysis data changed during branch preparation.
+Backend release files match captured live SHA-256. Active node200 gate/Heavy
+collector supersede stale release-directory copies. Frontend rebuild is byte-identical
+to served `index-xQ3eaWmc.js` / `index-CXQ9-KPd.css`.
+
+Validation on isolated BS10610 cached images:46 backend/runtime tests,22 frontend
+tests,31 DAG unit tests,2 DAG contracts, DAG compilation and synthetic Compose
+render passed. No whole-WGS run or new deployment/release tag. External WGS/CCE
+dependencies and remaining owner issues are documented in the release policy.
+All earlier dated entries below are historical, not the current release authority.
+
 Latest SFS read-only validation:3 retained analysis batches907C/908A/908B. NewMaster diagnostic Pods start successfully and read SFS; exactDNAscope model file verified. NOT full recovery/25slot acceptance.907C has retainedoutputs;908A has33incomplete+2locks;908B failed preflight on multi-pedigree sample mapping with0submittedJobs. All frozen configs lack newDNAscopeModelT7 key. WGS owner now31de5fb/assets20260910.2-dnascope-db, Airflow still400ba1c; align versions/configs before recovery. No bioanalysis restart/reset/data cleanup, scanner remainsstopped. Details/evidence in newestHANDOFF.
 
 Latest explicit user update: via ssh BS/node005, nipttest cce-pipeline upgraded from0.8.3 to0.8.3.post1 using verified offline wheel and --no-deps. CLI/version/import path checks pass. Both nipttest and independentctapa installations now0.8.3.post1; production selector still independentctapa path. No workflow/service/batch configuration changes. Earlier statements that nipttest remains0.8.3 are superseded.

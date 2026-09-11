@@ -1,5 +1,10 @@
 # NGS Huawei Cloud
 
+This is the dedicated **production release branch**. Start with
+[production branch policy](docs/releases/PRODUCTION_BRANCH.md) and the
+[verified baseline manifest](docs/releases/production-baseline-20260911.json).
+Branch updates do not automatically deploy or start analysis.
+
 `ngs-huaweicloud` is an online NGS analysis control plane for Huawei Cloud CCE and local execution targets. Airflow coordinates pipeline-level work, adapters integrate workflow-specific behavior, FastAPI owns the business state, and React presents submission, monitoring, QC, logs, artifacts, and lifecycle state.
 
 The current production registry enables only the WGS adapter. WES, GATK, or another NGS workflow is added by registering an adapter and deployment capabilities; the platform core does not branch on pipeline names.

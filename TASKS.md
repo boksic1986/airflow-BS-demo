@@ -1,5 +1,19 @@
 # TASKS.md
 
+## PROD-20260911 — dedicated production release branch
+
+- Owner: current coordinator; no other worktree or production-service changes.
+- [x] Create isolated `jiucheng/release/production` from available production-work ancestry.
+- [x] Capture source-only server96 inventory and active node200 gate/collector hashes.
+- [x] Restore deployed frontend source and reproduce identical live build assets.
+- [x] Collect synthetic regressions and update two stale receipt/DAG test fixtures.
+- [x] Pass46 backend/runtime,22 frontend,31 DAG unit and2 DAG contract checks.
+- [x] Record manifest, external dependency boundaries, source-marker caveat and rollback policy.
+- [ ] Push branch only when requested; no remote branch/default-main change in this task.
+- [ ] Before a future deployment, reconcile external profile catalog/raw-file provenance and review owner pending/group-start fixes.
+
+Historical task cards below do not supersede this baseline summary.
+
 ## T255 Current Master Heavy I/O integration and SWR release
 
 - [x] Follow-up simple SFS validation:3retained batches, readonlynewimage cloud probes and modelhash verified; no analysis submitted.

@@ -6,6 +6,7 @@ import type {RunDetail, WgsTransfer, WgsTransferFile} from "../../api";
 import {StatusBadge} from "../../components/StatusBadge";
 import {errorMessage} from "../../lib/errors";
 import {formatBytes, formatDate, formatPercent} from "../../lib/format";
+import {useSilentRefresh} from "../../lib/useSilentRefresh";
 
 const PAGE_SIZE = 50;
 
@@ -43,26 +44,12 @@ function TransferFiles({transferId, refreshKey}: {transferId: string; refreshKey
   const [items, setItems] = useState<WgsTransferFile[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const loadedOnce = useRef(false);
-
-  const load = useCallback(async () => {
-    if (!loadedOnce.current) setLoading(true);
-    setError(null);
-    try {
+  const {loading, error, refresh: load} = useSilentRefresh(async ({isCurrent}) => {
       const result = await getTransferFiles(transferId, {limit: PAGE_SIZE, offset});
+      if (!isCurrent()) return;
       setItems(result.items);
       setTotal(result.total);
-    } catch (loadError) {
-      setError(errorMessage(loadError));
-    } finally {
-      loadedOnce.current = true;
-      setLoading(false);
-    }
-  }, [offset, transferId]);
-
-  useEffect(() => { if (document.visibilityState !== "hidden") void load(); }, [load, refreshKey]);
+  }, JSON.stringify([offset, transferId]));
 
   if (loading && items.length === 0) return <p className="muted">Loading file progress...</p>;
   return <div className="transfer-files">

@@ -51,6 +51,13 @@ class AirflowClient:
         response.raise_for_status()
         return response.json()
 
+    def stop_submission_dag(self, dag_id: str, dag_run_id: str) -> None:
+        response = self._client.patch(
+            f"/api/v1/dags/{quote(dag_id, safe='')}/dagRuns/{quote(dag_run_id, safe='')}",
+            json={"state": "failed"},
+        )
+        response.raise_for_status()
+
     def delete_dag_run(self, dag_id: str, dag_run_id: str) -> None:
         response = self._client.delete(
             f"/api/v1/dags/{quote(dag_id, safe='')}/dagRuns/{quote(dag_run_id, safe='')}"

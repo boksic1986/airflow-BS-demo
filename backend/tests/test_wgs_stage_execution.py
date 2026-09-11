@@ -164,6 +164,7 @@ def test_stage_contract_loads_heavy_slot_and_fails_closed(tmp_path) -> None:
     assert contract.stages["step5_download"].predecessor == "step4_publish"
     assert contract.stages["step1_upload"].predecessors_by_submission_mode == {
         "three_stage": "prepare_analysis",
+        "auto_dispatch": "prepare_analysis",
         "default": "prepare",
     }
     with pytest.raises(StageContractError, match="does not exist"):
@@ -266,7 +267,7 @@ def test_failed_terminal_marker_closes_append_only_execution_without_success_rec
         assert execution.receipt_hash is None
 
 
-def test_step1_predecessor_uses_prepare_for_auto_dispatch() -> None:
+def test_step1_predecessor_uses_prepare_analysis_for_auto_dispatch() -> None:
     factory = sessions()
     add_run(factory)
     contract = load_wgs_stage_contract(contract_path())
@@ -274,7 +275,9 @@ def test_step1_predecessor_uses_prepare_for_auto_dispatch() -> None:
     with factory.begin() as session:
         run = session.scalar(select(AnalysisRun))
         run.params_json = {**run.params_json, "submission_mode": "auto_dispatch"}
-        prepare = register_stage_execution(session=session, run=run, contract=contract, stage_code="prepare", request_payload={"batch": "A"}, now=now)
-        transition_stage_execution(session=session, execution_id=prepare.execution_id, generation=1, status="success", observed_at=now + timedelta(seconds=1), receipt_hash="d" * 64)
-        step1 = register_stage_execution(session=session, run=run, contract=contract, stage_code="step1_upload", request_payload={"batch": "A"}, now=now + timedelta(seconds=2))
-        assert step1.predecessor_execution_id == prepare.execution_id
+        sampleinfo = register_stage_execution(session=session, run=run, contract=contract, stage_code="prepare_sampleinfo", request_payload={"batch": "A"}, now=now)
+        transition_stage_execution(session=session, execution_id=sampleinfo.execution_id, generation=1, status="success", observed_at=now + timedelta(seconds=1), receipt_hash="c" * 64)
+        analysis = register_stage_execution(session=session, run=run, contract=contract, stage_code="prepare_analysis", request_payload={"batch": "A"}, now=now + timedelta(seconds=2))
+        transition_stage_execution(session=session, execution_id=analysis.execution_id, generation=1, status="success", observed_at=now + timedelta(seconds=3), receipt_hash="d" * 64)
+        step1 = register_stage_execution(session=session, run=run, contract=contract, stage_code="step1_upload", request_payload={"batch": "A"}, now=now + timedelta(seconds=4))
+        assert step1.predecessor_execution_id == analysis.execution_id

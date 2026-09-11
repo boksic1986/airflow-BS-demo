@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 
-import {fireEvent, render, screen, waitFor} from "@testing-library/react";
+import {act, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
 import * as api from "../../api";
@@ -103,11 +103,15 @@ describe("WgsTransfersTab", () => {
     const {rerender} = render(<WgsTransfersTab detail={detail} transfers={transfers} refreshKey="snapshot-1" />);
     fireEvent.click(screen.getByRole("button", {name: /File progress/i}));
     await screen.findByText("active.cram");
+    const previousTable = screen.getByRole("table");
 
     rerender(<WgsTransfersTab detail={detail} transfers={transfers} refreshKey="snapshot-2" />);
+    expect(files).toHaveBeenCalledTimes(1);
+    await act(async () => { window.dispatchEvent(new Event("focus")); });
 
     expect(files).toHaveBeenCalledTimes(2);
     expect(screen.getByText("active.cram")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBe(previousTable);
     expect(screen.queryByText("Loading file progress...")).not.toBeInTheDocument();
   });
 });

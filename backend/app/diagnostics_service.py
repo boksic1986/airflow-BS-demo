@@ -78,9 +78,11 @@ ARTIFACTS: list[ArtifactDefinition] = []
 
 
 def sync_wgs_airflow_status(*, session: Session, airflow_client, analysis_id: str, settings) -> dict[str, Any] | None:
-    run = _get_run(session, analysis_id)
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id).with_for_update().execution_options(populate_existing=True))
     if run is None:
         return None
+    if (run.params_json or {}).get('submission_phase') in {'cancelling_submission', 'cancelled'}:
+        return _run_payload(run)
     if not run.dag_id or not run.dag_run_id:
         raise MissingDagRunError("Run has no dag_id or dag_run_id to sync.")
 
@@ -823,12 +825,14 @@ def _map_airflow_state(state: str) -> str:
 
 
 def sync_sample_statuses(*, session: Session, analysis_id: str, run_status: str) -> None:
+    from app.sample_selection_scope import nonparticipating_status
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
     sample_status = _sample_status_for_run_status(run_status)
     if sample_status is None:
         return
     samples = session.scalars(select(Sample).where(Sample.analysis_id == analysis_id)).all()
     for sample in samples:
-        sample.status = sample_status
+        sample.status = (nonparticipating_status(sample, run) if run else None) or sample_status
 
 
 def _sample_status_for_run_status(run_status: str) -> str | None:

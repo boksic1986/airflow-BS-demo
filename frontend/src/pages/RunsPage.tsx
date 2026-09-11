@@ -7,7 +7,7 @@ import {listRuns} from "../api";
 import {RunTable} from "../components/RunTable";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {deployedPipelineFilter} from "../lib/deployment";
-import {errorMessage} from "../lib/errors";
+import {useSilentRefresh} from "../lib/useSilentRefresh";
 
 const pageSize = 20;
 const validStatuses = new Set(["all", "created", "submitted", "queued", "running", "success", "failed"]);
@@ -23,8 +23,6 @@ export function RunsPage() {
   const [keywordDraft, setKeywordDraft] = useState(keyword);
   const page = positivePage(searchParams.get("page"));
   const [payload, setPayload] = useState<RunListResponse>({items: [], total: 0});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { setKeywordDraft(keyword); }, [keyword]);
   useEffect(() => {
@@ -41,31 +39,17 @@ export function RunsPage() {
     return () => window.clearTimeout(timer);
   }, [keyword, keywordDraft, setSearchParams]);
 
-  useEffect(() => {
-    let disposed = false;
-    setLoading(true);
-    setError(null);
-    listRuns({
+  const {loading, error} = useSilentRefresh(async ({isCurrent}) => {
+    const result = await listRuns({
       pipeline: pipeline === "all" ? "deployed" : pipeline,
       status: status === "all" ? undefined : status,
       keyword: keyword.trim() || undefined,
       sort,
       limit: pageSize,
       offset: (page - 1) * pageSize,
-    })
-      .then((result) => {
-        if (!disposed) setPayload(result);
-      })
-      .catch((loadError) => {
-        if (!disposed) setError(errorMessage(loadError));
-      })
-      .finally(() => {
-        if (!disposed) setLoading(false);
-      });
-    return () => {
-      disposed = true;
-    };
-  }, [keyword, page, pipeline, sort, status]);
+    });
+    if (isCurrent()) setPayload(result);
+  }, JSON.stringify([keyword, page, pipeline, sort, status]));
 
   function updateFilter(name: string, value: string) {
     const next = new URLSearchParams(searchParams);
@@ -134,7 +118,7 @@ export function RunsPage() {
         </div>
         {loading ? <p className="muted">Loading runs...</p> : null}
         {error ? <div className="inline-error" role="alert">{error}</div> : null}
-        {!loading && !error ? <RunTable runs={payload.items as RunSummary[]} /> : null}
+        {!loading ? <RunTable runs={payload.items as RunSummary[]} /> : null}
         <div className="pagination-controls" aria-label="Run pagination">
           <span>{payload.total} runs · page {Math.min(page, pageCount)} / {pageCount}</span>
           <div>

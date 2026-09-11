@@ -1,4 +1,14 @@
 .env
+.env.*
+!.env.example
+.codex-runtime/
+.worktrees/
+*.pem
+*.key
+*.sqlite
+*.sqlite3
+*.db
+*.dump
 .venv/
 *.local.md
 shared/*

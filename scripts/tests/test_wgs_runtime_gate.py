@@ -154,7 +154,9 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
     )
     assert gate.WGS_PREPARE_CONFIG in command
     assert "/home/chenjc/.config/wgs/prepare.yaml" not in command
-    assert gate.CCE_OPERATOR_CONFIG in command
+    assert command[command.index("--cce-config") + 1].replace("\\", "/").endswith(
+        "/release-runtime/cce-operator.yaml"
+    )
     assert "--skip-samplelist-ready-check" in command
     assert command[command.index("--platform") + 1] == "T7"
     assert "--algo" not in command
@@ -179,6 +181,47 @@ def test_prepare_config_override_is_limited_to_approved_root(
     monkeypatch.setattr(gate, "WGS_PREPARE_CONFIG", str(outside))
     with pytest.raises(RuntimeError, match="outside approved roots"):
         gate.validate_prepare_config()
+
+
+def test_materialized_release_operator_config_strips_obsolete_obs_sdk_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    source = tmp_path / "cce.yaml"
+    source.write_text(
+        yaml.safe_dump(
+            {
+                "paths": {"repository_root": "/old/repository"},
+                "obs": {
+                    "endpoint": "private.example",
+                    "download_parallelism": 4,
+                    "sdk_attach_crc64": True,
+                    "sdk_credentials_file": "/protected/sdk.env",
+                    "sdk_multipart_part_size_mib": 64,
+                    "sdk_multipart_task_num": 4,
+                    "sdk_python": "/opt/nipttest/python",
+                    "transfer_adapter": "sdk",
+                },
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    runtime_root = tmp_path / "runtime" / "runs"
+    control_workdir = runtime_root / "analysis" / "attempt-1"
+    repository = tmp_path / "wgs-4.2.0"
+    repository.mkdir()
+    monkeypatch.setattr(gate, "CCE_OPERATOR_CONFIG", str(source))
+    monkeypatch.setattr(gate, "RUNTIME_RUN_ROOT", str(runtime_root))
+    monkeypatch.setattr(gate, "_release_repository", lambda _payload: repository)
+
+    target = gate._release_operator_config(
+        {"control_workdir": str(control_workdir)}, materialize=True
+    )
+
+    loaded = yaml.safe_load(target.read_text(encoding="utf-8"))
+    assert loaded["paths"]["repository_root"] == str(repository)
+    assert loaded["obs"] == {"endpoint": "private.example"}
 
 
 def test_prepare_config_override_rejects_symlink(
@@ -235,6 +278,45 @@ def test_split_prepare_commands_preserve_native_wgs_contract(tmp_path: Path) -> 
     assert analysis[analysis.index("--use-reference") + 1] == "ref"
 
 
+def test_wgs_420_prepare_uses_generation_scoped_handoff_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    repo = tmp_path / "wgs-4.2.0"
+    (repo / "prepare").mkdir(parents=True)
+    monkeypatch.setattr(gate, "WGS_REPO_ROOT", repo)
+    runtime_root = tmp_path / "runtime"
+    monkeypatch.setattr(gate, "RUNTIME_RUN_ROOT", str(runtime_root))
+    payload = {
+        "analysis_id": "WGS_20260909_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "prepare_sampleinfo",
+        "pipeline_release_id": "wgs-4.2.0-b067c72",
+        "wgs_version": "V4.2.0",
+        "wgs_source_commit": "b067c72eed795e59b724b13324b0d380ae8b7e94",
+        "control_workdir": str(runtime_root / "runs" / "WGS_20260909_010203_A1B2C3" / "attempt-1"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(tmp_path / "WGS_Clinical" / "20260909A"),
+        "project_name": "WGS_Clinical",
+        "batch_no": "20260909A",
+        "fq_path": "/bi/fastq/T7_Fastq",
+        "sequencing_batch": "20260909A",
+        "analysis_batch": "20260909A",
+        "execution_id": "wse-sampleinfo-g1",
+        "generation": 1,
+        "request_hash": "a" * 64,
+    }
+
+    command = gate.build_prepare_command(payload)
+
+    request_path = Path(command[command.index("--handoff-request") + 1])
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    assert request["schema_version"] == "wgs.prepare-handoff.request.v1"
+    assert request["release_id"] == "wgs-4.2.0-b067c72"
+    assert request["generation"] == 1
+    assert request_path.parent.name == "generation-1"
+
+
 def test_prepare_analysis_can_use_an_explicit_cce_pipeline(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -250,6 +332,7 @@ def test_prepare_analysis_can_use_an_explicit_cce_pipeline(
         "pipeline_release_id": "wgs-4.1.1-6c98281",
         "wgs_version": "V4.1.1",
         "wgs_source_commit": "6c982817614db6a1157b6f287427ddf01ac91827",
+        "cce_pipeline_version": "0.8.3",
         "control_workdir": str(tmp_path / "control" / "attempt-1"),
         "analysis_project_root": str(tmp_path / "WGS_Clinical"),
         "expected_batch_root": str(
@@ -267,6 +350,35 @@ def test_prepare_analysis_can_use_an_explicit_cce_pipeline(
     command = gate.build_prepare_command(payload)
 
     assert command[command.index("--cce-pipeline") + 1] == str(executable)
+
+
+def test_historical_prepare_analysis_uses_release_default_cce_pipeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    monkeypatch.setattr(gate, "CCE_PIPELINE_BIN", "/new/runtime/cce-pipeline")
+    payload = {
+        "analysis_id": "WGS_20260826_010203_A1B2C3",
+        "attempt": 1,
+        "stage": "prepare_analysis",
+        "pipeline_release_id": "wgs-4.1.1-6c98281",
+        "wgs_version": "V4.1.1",
+        "wgs_source_commit": "6c982817614db6a1157b6f287427ddf01ac91827",
+        "control_workdir": str(tmp_path / "control" / "attempt-1"),
+        "analysis_project_root": str(tmp_path / "WGS_Clinical"),
+        "expected_batch_root": str(tmp_path / "WGS_Clinical" / "WGS_20260902A_T7Hg38V4.1.1"),
+        "project_name": "WGS_Clinical",
+        "batch_no": "WGS_20260902A_T7Hg38V4.1.1",
+        "fq_path": "/bi/fastq/T7_Fastq",
+        "fastq_root": "/bi/fastq/T7_Fastq",
+        "sequencing_batch": "20260902A",
+        "analysis_batch": "20260902A",
+        "platform": "T7",
+    }
+
+    command = gate.build_prepare_command(payload)
+
+    assert "--cce-pipeline" not in command
 
 
 def test_node97_full_retry_explicitly_cleans_only_the_canary_batch(
@@ -405,130 +517,42 @@ def test_prepare_command_rejects_fastq_directory_for_another_batch(
         gate.build_prepare_command(payload)
 
 
-def test_release_repository_validation_rejects_commit_or_runtime_drift(
+def test_release_repository_validation_does_not_require_git(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     gate = load_gate()
-    repo = tmp_path / "wgs-4.1.1"
+    repo = tmp_path / "wgs-4.2.0"
     (repo / "prepare").mkdir(parents=True)
-    (repo / ".git").mkdir()
     (repo / "prepare" / "prepare_wgs_batch.py").write_text("# tracked\n")
-    calls: list[list[str]] = []
-
-    def fake_run(command, **kwargs):
-        calls.append(command)
-        if command[-2:] == ["rev-parse", "HEAD"]:
-            return type("Result", (), {"stdout": "wrong-commit\n"})()
-        return type("Result", (), {"stdout": ""})()
 
     monkeypatch.setattr(gate, "WGS_REPO_ROOT", repo)
-    monkeypatch.setattr(gate.subprocess, "run", fake_run)
-
-    with pytest.raises(RuntimeError, match="release_unavailable"):
-        gate.validate_release_repository(
-            {
-                "pipeline_release_id": "wgs-4.1.1-1656b5d",
-                "wgs_source_commit": "1656b5d7a6e2f24242c38149f6d1c92ac266cd37",
-            }
-        )
-    assert calls[0][-2:] == ["rev-parse", "HEAD"]
-
-
-def test_release_repository_validation_allows_documentation_only_drift(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    gate = load_gate()
-    repo = tmp_path / "wgs-4.1.1"
-    (repo / "prepare").mkdir(parents=True)
-    (repo / ".git").mkdir()
-    (repo / "prepare" / "prepare_wgs_batch.py").write_text("# tracked\n")
-    expected_commit = "2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68"
-
-    def fake_run(command, **kwargs):
-        if command[-2:] == ["rev-parse", "HEAD"]:
-            return type("Result", (), {"stdout": expected_commit + "\n"})()
-        if command[-2:] == ["status", "--porcelain"]:
-            return type(
-                "Result",
-                (),
-                {"stdout": " M README.md\n?? docs/runtime-contract.md\n"},
-            )()
-        raise AssertionError(f"unexpected git command: {command}")
-
-    monkeypatch.setattr(gate, "WGS_REPO_ROOT", repo)
-    monkeypatch.setattr(gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        gate.subprocess,
+        "run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("runtime repository validation must not invoke Git")
+        ),
+    )
 
     assert gate.validate_release_repository(
         {
-            "pipeline_release_id": "wgs-4.1.1-2499749",
-            "wgs_source_commit": expected_commit,
+            "pipeline_release_id": "wgs-4.2.0-b067c72",
+            "wgs_version": "V4.2.0",
+            "wgs_source_commit": "already-validated-before-publish",
         }
     ) == repo.resolve()
 
 
-def test_release_repository_validation_maps_registered_mnt_worktree_pointer(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_historical_release_cannot_be_reprepared_without_frozen_binding(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     gate = load_gate()
-    repo = tmp_path / "bi" / "biodevrwbi" / "project" / "wgs-4.1.1"
-    prepare = repo / "prepare" / "prepare_wgs_batch.py"
-    prepare.parent.mkdir(parents=True)
-    prepare.write_text("# tracked\n")
-    repo.joinpath(".git").write_text(
-        f"gitdir: {tmp_path / 'mnt' / 'biodevrwbi' / 'project' / 'wgs' / '.git' / 'worktrees' / 'wgs-4.1.1'}\n"
-    )
-    mapped = tmp_path / "bi" / "biodevrwbi" / "project" / "wgs" / ".git" / "worktrees" / "wgs-4.1.1"
-    mapped.mkdir(parents=True)
-    expected = "6c982817614db6a1157b6f287427ddf01ac91827"
-    calls: list[list[str]] = []
 
-    def fake_run(command, **kwargs):
-        calls.append(command)
-        return type("Result", (), {"stdout": expected + "\n" if command[-2:] == ["rev-parse", "HEAD"] else ""})()
-
-    monkeypatch.setattr(gate, "WGS_REPO_ROOT", repo)
-    monkeypatch.setattr(gate, "WGS_GIT_MNT_PREFIX", str(tmp_path / "mnt" / "biodevrwbi"))
-    monkeypatch.setattr(gate, "WGS_GIT_NODE_PREFIX", str(tmp_path / "bi" / "biodevrwbi"))
-    monkeypatch.setattr(gate.subprocess, "run", fake_run)
-
-    assert gate.validate_release_repository({"wgs_source_commit": expected}) == repo.resolve()
-    assert f"--git-dir={mapped}" in calls[0]
-    assert f"--work-tree={repo.resolve()}" in calls[0]
-
-
-@pytest.mark.parametrize(
-    "porcelain_status",
-    (
-        " M prepare/prepare_wgs_batch.py\n",
-        "?? README.md.bak\n",
-    ),
-)
-def test_release_repository_validation_still_rejects_runtime_or_similar_paths(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, porcelain_status: str
-) -> None:
-    gate = load_gate()
-    repo = tmp_path / "wgs-4.1.1"
-    (repo / "prepare").mkdir(parents=True)
-    (repo / ".git").mkdir()
-    (repo / "prepare" / "prepare_wgs_batch.py").write_text("# tracked\n")
-    expected_commit = "2499749ce7fd200d4269d1ee03d7b6a4e8d5bb68"
-
-    def fake_run(command, **kwargs):
-        stdout = (
-            expected_commit + "\n"
-            if command[-2:] == ["rev-parse", "HEAD"]
-            else porcelain_status
-        )
-        return type("Result", (), {"stdout": stdout})()
-
-    monkeypatch.setattr(gate, "WGS_REPO_ROOT", repo)
-    monkeypatch.setattr(gate.subprocess, "run", fake_run)
-
-    with pytest.raises(RuntimeError, match="runtime changes"):
+    with pytest.raises(RuntimeError, match="historical WGS release"):
         gate.validate_release_repository(
             {
-                "pipeline_release_id": "wgs-4.1.1-2499749",
-                "wgs_source_commit": expected_commit,
+                "pipeline_release_id": "wgs-4.1.1-1656b5d",
+                "wgs_version": "V4.1.1",
             }
         )
 
@@ -595,8 +619,13 @@ def test_prepare_analysis_new_generation_rebuilds_a_missing_frozen_bundle(
     monkeypatch.setattr(gate, "_binding_path", lambda _payload: binding)
     monkeypatch.setattr(gate, "_workdir", lambda _payload: workdir)
     monkeypatch.setattr(gate, "validate_release_repository", lambda _payload: calls.append("release"))
-    monkeypatch.setattr(gate, "validate_prepare_config", lambda: calls.append("config"))
+    monkeypatch.setattr(
+        gate,
+        "validate_prepare_config",
+        lambda _payload: calls.append("config"),
+    )
     monkeypatch.setattr(gate, "build_prepare_command", lambda _payload: ["prepare"])
+    monkeypatch.setattr(gate, "_release_operator_config", lambda *_args, **_kwargs: workdir / "cce.yaml")
     monkeypatch.setattr(gate.subprocess, "run", lambda *_args, **_kwargs: calls.append("prepare"))
     monkeypatch.setattr(gate, "_freeze_validation_execution_mode", lambda *_args: calls.append("freeze"))
     monkeypatch.setattr(gate, "_write_prepare_binding", lambda _payload: calls.append("binding"))
@@ -653,6 +682,58 @@ def test_prepare_analysis_new_generation_rejects_an_outside_frozen_bundle(
         gate._run_prepare_analysis(payload)
 
     assert binding.is_file()
+
+
+def test_prepare_analysis_retains_unbound_batch_from_an_earlier_attempt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gate = load_gate()
+    workdir = tmp_path / "runtime" / "attempt-5"
+    workdir.mkdir(parents=True)
+    project_root = tmp_path / "project"
+    batch_root = project_root / "WGS_20260907C_T7Hg38V4.2.0"
+    cce = batch_root / "cce"
+    cce.mkdir(parents=True)
+    (cce / "BATCH_RUNTIME.yaml").write_text(
+        yaml.safe_dump(
+            {"identity": {"run_id": "WGS_20260909_193701_95105F-a4"}},
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    payload = {
+        "analysis_id": "WGS_20260909_193701_95105F",
+        "attempt": 5,
+        "generation": 1,
+        "pipeline_release_id": "wgs-4.2.0-b067c72",
+        "analysis_project_root": str(project_root),
+        "expected_batch_root": str(batch_root),
+        "batch_no": batch_root.name,
+    }
+    calls: list[str] = []
+    monkeypatch.setattr(gate, "_binding_path", lambda _payload: workdir / "batch-binding.json")
+    monkeypatch.setattr(gate, "_workdir", lambda _payload: workdir)
+    monkeypatch.setattr(gate, "validate_release_repository", lambda _payload: calls.append("release"))
+    monkeypatch.setattr(gate, "validate_prepare_config", lambda _payload: calls.append("config"))
+    monkeypatch.setattr(gate, "validate_release_runtime", lambda _payload: calls.append("runtime"))
+    monkeypatch.setattr(gate, "_release_operator_config", lambda *_args, **_kwargs: workdir / "cce.yaml")
+    monkeypatch.setattr(gate, "build_prepare_command", lambda _payload: ["prepare"])
+    monkeypatch.setattr(gate.subprocess, "run", lambda *_args, **_kwargs: calls.append("prepare"))
+    monkeypatch.setattr(gate, "_freeze_validation_execution_mode", lambda *_args: calls.append("freeze"))
+    monkeypatch.setattr(gate, "_write_prepare_binding", lambda _payload: calls.append("binding"))
+
+    gate._run_prepare_analysis(payload)
+
+    retained = (
+        workdir
+        / "history"
+        / "prepare_analysis"
+        / "prior-run-WGS_20260909_193701_95105F-a4"
+        / batch_root.name
+    )
+    assert retained.is_dir()
+    assert not batch_root.exists()
+    assert calls == ["release", "config", "runtime", "prepare", "freeze", "binding"]
 
 
 def test_step3_status_contract_is_strict_and_master_only() -> None:
@@ -890,8 +971,17 @@ def test_step7_cleanup_sanitizes_new_transfer_fields_for_old_frozen_parser(
                 "obs": {
                     "endpoint": "private.example",
                     "download_parallelism": 8,
+                    "sdk_attach_crc64": True,
                     "sdk_credentials_file": "/protected/sdk.env",
+                    "sdk_download_part_size_bytes": 64 * 1024 * 1024,
+                    "sdk_download_parallelism": 4,
+                    "sdk_multipart_part_size_mib": 64,
+                    "sdk_multipart_task_num": 4,
+                    "sdk_multipart_threshold_bytes": 128 * 1024 * 1024,
                     "sdk_python": "/opt/nipttest/python",
+                    "sdk_transfer_adapter": "/opt/cce/cce_obs_sdk_transfer.py",
+                    "sdk_upload_part_size_bytes": 64 * 1024 * 1024,
+                    "sdk_upload_parallelism": 4,
                     "transfer_adapter": "sdk",
                 },
             },

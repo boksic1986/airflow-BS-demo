@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.db import get_sessionmaker
 from app.wgs_observer import ingest_observer_attempt_once
 from app.wgs_observer_lifecycle import OBSERVER_CHANNEL, list_observer_work
+from app.observer_airflow_sync import start_airflow_sync
 
 
 ObserverKey = tuple[str, int]
@@ -117,6 +118,7 @@ def main() -> int:
                 )
         return 0
 
+    start_airflow_sync(session_factory=session_factory, settings=settings)
     backoff = 1.0
     while True:
         source = None

@@ -8,6 +8,7 @@ from sqlalchemy import case, func, select
 
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState, RunValidationIssue, Sample, TransferJob
 from app.qc_highlights import aggregate_qc_status
+from app.sample_selection_scope import selected_clause
 from app.wgs_sample_projection import get_wgs_batch_qc_status
 from app.wgs_stage_contract import canonical_wgs_stage, project_wgs_orchestration, wgs_stage_definition
 from app.wgs_transfer_projection import serialize_transfer_job
@@ -28,7 +29,7 @@ FAILED_RULE_STATUSES = {"failed", "error", "terminated"}
 
 def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_slot_limit: int = 25, heavy_slot_mode: str = "monitor-only", evidence_root: str | None = None, settings=None) -> dict:
     sample_qc_statuses = list(session.scalars(
-        select(Sample.qc_status).where(Sample.analysis_id == run.analysis_id)
+        select(Sample.qc_status).where(Sample.analysis_id == run.analysis_id, selected_clause())
     ).all())
     sample_count = len(sample_qc_statuses)
     batch_qc_status = (
@@ -213,13 +214,12 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
             }
             for row in validation_issues
         ],
-        "slot_usage": {
-            "pool": "wgs-heavy-io",
-            "limit": heavy_slot_limit,
-            "used": _active_heavy_pod_count(session),
-            "waiting": _heavy_slot_waiting_count(evidence_root),
-            "mode": heavy_slot_mode,
-        },
+        "slot_usage": project_global_heavy_slot(
+            session=session,
+            limit=heavy_slot_limit,
+            mode=heavy_slot_mode,
+            evidence_root=evidence_root,
+        ),
     }
 
 
@@ -254,39 +254,9 @@ def _active_heavy_pod_count(session) -> int:
     return sum(1 for row in rows if bool((row.resources_json or {}).get("heavy_io")))
 
 
-def project_global_heavy_slot(
-    *,
-    session,
-    limit: int | None,
-    mode: str | None,
-    evidence_root: str | None,
-) -> dict[str, object]:
-    root = Path(evidence_root) if evidence_root else None
-    reliable = bool(
-        limit is not None
-        and int(limit) > 0
-        and str(mode or "").strip()
-        and root is not None
-        and root.is_dir()
-        and not root.is_symlink()
-    )
-    if not reliable:
-        return {
-            "pool": "wgs-heavy-io",
-            "used": None,
-            "limit": None,
-            "waiting": None,
-            "mode": None,
-            "available": False,
-        }
-    return {
-        "pool": "wgs-heavy-io",
-        "used": _active_heavy_pod_count(session),
-        "limit": int(limit),
-        "waiting": _heavy_slot_waiting_count(str(root)),
-        "mode": str(mode),
-        "available": True,
-    }
+def project_global_heavy_slot(*, session, limit, mode, evidence_root):
+    from app.heavy_global_snapshot import read_snapshot
+    return read_snapshot(evidence_root)
 
 
 def _heavy_slot_waiting_count(evidence_root: str | None) -> int:
