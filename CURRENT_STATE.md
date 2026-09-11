@@ -3,12 +3,17 @@
 ## OPT20260912 — implementation in progress, not deployed
 
 Test-only optimization in existing development worktree from e107f3b. Submission
-options/test-project implementation underway; rule/QC and resource research
-complete. BS10610 still serves81587fc, scan/dispatchfalse and no active test runs.
+options/test-project implementation and scoped review complete at d5a4e1d;
+Rule/QC/Step4-6 estimation implementation started. Resource research complete.
+BS10610 still serves81587fc, scan/dispatchfalse and no active test runs.
 Cloud namespace read-only observation found11/25 reserved Heavy Job leases;
 test aggregate snapshot absent, active-Master waiting snapshot unavailable.
 Actual quota unit is work Job/Pod, not individual grouped rule. No workload or
-production change. See task plan/progress ledger and OPT research documents.
+production change. Custom test execution remains disabled: test root sticky
+permission awaits approval, and shared owner source has drifted to68f5dcc with
+modified prepare configuration, unlike the audited cc9bde3 contract. Do not
+reset or overwrite the shared owner checkout. Other panel work continues.
+See task plan/progress ledger and OPT research documents.
 
 ## GATK-PROMOTION-20260912 — deployed, manual GATK enabled
 

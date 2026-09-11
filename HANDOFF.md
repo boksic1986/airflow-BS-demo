@@ -5,7 +5,8 @@
 User authorized full optimization implementation/deployment on BS10610 only.
 Worktree D:/pipeline/airflow-demo-worktrees/development, baselinee107f3b;
 production clone/current/main unchanged. Plan/progress ledger in docs/superpowers/plans.
-Submission agent owns first task; root environment/research evidence is separate.
+Task1 complete through d5a4e1d; independent scoped review closed all3 Important
+findings. Monitor agent now owns Task2; root environment/research evidence is separate.
 
 Read-only preflight server10610 current20260912-gatk-81587fcb; no active test DAG
 runs; scan/dispatchfalse. Backend6801 sees source /sg2 read-only; t640 test gate
@@ -19,7 +20,14 @@ resource research records official BSS endpoints/minimal read permission; no
 billing credential/request performed. Rule API lacks current-attempt fence;
 QC projection drops threshold/condition evidence. Findings are source-level.
 
-Continue task1 review then monitor/QC and resources; do not claim deployment or
+Task1 fix acceptance:97 backend/gate passed1optionalPGskip;16 focused UI passed,
+TypeScript passed. Earlier independent PostgreSQL concurrency test passed.
+Full UI still has2 known baseline expectations carried into Task2/3, not hidden.
+Custom execution remains disabled: exact test-root sticky change awaits user
+approval; shared WGS repo is now68f5dcc with modified prepare/config.yaml, unlike
+audited cc9bde3 pins. Do not reset/update the owner repo or silently move pins.
+
+Continue monitor/QC then resources; do not claim deployment or
 runtime acceptance until final checks. Rollback only task commits/test release,
 never delete pending/results/audit. Current7 production histories not accessed.
 

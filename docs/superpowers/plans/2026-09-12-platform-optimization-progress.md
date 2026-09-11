@@ -13,7 +13,7 @@ Baseline e107f3b, clean isolated jiucheng/development/next. User execution reque
 | Task4 internal | test acceptance vs production | No production deployment authorized. |
 
 - Task1 implementation a5aedc9: submission_opt delivered141 backend/gate passes plus separate PostgreSQL concurrency1pass;15 scoped UI passes, TypeScript/Vite build. Independent submission_review pending; task not yet accepted/deployed.
-- Task2 pending.
+- Task2 implementation started from d5a4e1d by monitor_opt; brief OPT20260912_TASK2_BRIEF.md. Sequential ownership excludes submission/resources; no deployment or real analysis permitted.
 - Task3 pending.
 - Task4 pending.
 
@@ -36,3 +36,9 @@ Task1 isolation review in implementation found that owner prepare derives cloud 
 Installed cce-pipeline0.8.4 read-only AST confirms lock key hashes project/batch; owner cc9bde3 uses the same namespace suffix for cloud storage. Task1 freezes unique WGS_TEST_<token> basename while retaining source sampleinfo bytes/batch. Two-project namespace test is included. Independent review must still validate complete handoff/cleanup scope.
 
 Task1 two preexisting WgsProductionUi full-file assertions (resource request count, duplicate dashboard totals) remain explicitly failed and are carried into Task2/3/final integration; do not report full frontend green yet.
+
+Task1 fix round1/5 started:3 open Important findings (descendant symlink/write race, actual effective configuration freeze, delayed obsolete preview); review at a5aedc9, root docs commit0de0c5f unchanged implementation. Full findings in OPT20260912_SUBMISSION_REVIEW.md. Resume submission_opt, covering focused gate/config and delayed UI regressions before scoped re-review. Task2 remains pending until these are resolved.
+
+Task1 fix round1/5 closed:3 addressed,0 open, fix d5a4e1d;97 backend/gate passed1optionalPGskip,UI16passed/tsc. Scoped submission_review approved the original findings and found no new Important/Critical. Task1: complete code (e107f3b..d5a4e1d, review clean); activation still requires sticky permission and matching audited owner source/config. No test deployment yet.
+
+Fresh owner-source preflight: shared node repository HEAD is now68f5dcc, not catalog cc9bde3; prepare/config.yaml modified and both prepare/template hashes differ from audited pins. Do not reset/downgrade/patch that shared WGS repository. Test custom feature remains gated until an approved aligned immutable owner release is selected. Task2/3 development and other panel deployment may proceed independently.
