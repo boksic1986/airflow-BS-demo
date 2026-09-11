@@ -1,6 +1,42 @@
 # HANDOFF.md
 
-## WGS421-ACTIVATE-20260911 (in progress)
+## WGS421-ACTIVATE-20260911 — deployed d8f5f05
+
+FINAL: new sibling profile published and prepare default updated without Git sync;
+old profile raw hash unchanged. Production main.py/catalog and actual node gate
+deployed with baseline-byte/hash guards. Only backend explicitly restarted;
+worker/observer IDs and start times unchanged. Nginx graceful reload repaired
+cached-upstream502 after backend restart; final public /api/health200.
+Release API confirms wgs-4.2.1-cc9bde3/r1/cce0.8.4. Actual nipttest rendered
+profile digest matches44d7398f; runtime identity can read prepare/profile, template
+isV4.2.1 and gate enables handoff. Seven prior runs/states preserved; no submit.
+Backend and scanner configuration both remain scan=false/dispatch=false.
+
+148 targeted/regression checks passed,3 known baseline failures excluded after
+reproducing on unmodified HEAD. No frontend source/build change: reload Submit
+page to fetch the new release API value. No whole-WGS, patient or cloud canary.
+External CCE wheel and Master unchanged. Production deployment not pushed to Git.
+
+Rollback: /data/airflow-WGS/current/rollback/wgs421-d8f5f05/{main.py,wgs_releases.yaml};
+/home/ctapa/.config/airflow-wgs/wgs_runtime_gate.py.rollback-wgs421-d8f5f05;
+private prepare config backup under owner task root airflow-private-rollback/
+prepare-config.before-421.yaml (0600 directory0700; never copied to repository).
+Prepare before SHA86c0a80fd91e2bd4f2fcfd4e41943a9a1ef73dd7f1239bd8677f199666333829,
+afterf083c8d94966541edbe19ea5aca67e7cd9792478a33072d5864a84af819e594a.
+Gate SHA cf17cd3c74f8c72371c7e48119772cb820ba2278e94d27045a9d2eb798c86d94;
+main SHA cad82aa3fd3f2e940883d4847c6e14197a7238ddef687bb28b144d34ead7ac78;
+catalog SHA f6784e971eb7fc0a29f2548348dd8db18ce4ebb2683fa921a46bd9f43ee208f2.
+
+Operational observation: disabled scanner exits0 and Docker unless-stopped keeps
+restarting it (same container, count276); agent did not restart/enable it. No
+state/config change to fix this unrelated restart-policy issue. Follow-up may
+stop the disabled service or make disabled-loop sleep, separately scoped.
+Failed diagnostics: wrong scp option placement interrupted then BatchMode transfer
+succeeded; inline Python quoting corrected via script; public gateway rejects
+internal service token403 as intended, final privileged reads used internal API.
+No credential contents printed by these deployment/verification scripts.
+
+### Implementation/preflight record
 
 User approved WGS4.2.1 Airflow adaptation and a new sibling wgs-4.2.1-r1.yaml;
 preserve old profiles, historical run bindings and false/false scan/dispatch.

@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+2026-09-11 WGS4.2.1 integration d8f5f05 deployed on server96 current existing
+20260910-t260-recovery-runtime-r1 via exact patches. API4.2.1/cc9bde3/r1/cce0.8.4;
+node gatecf17cd3c, new external wgs-4.2.1-r1.yaml and prepare default selected.
+Backend restarted only; nginx graceful reload resolved upstream cache502;
+health200. Worker/observer unchanged, scan/dispatchfalse; disabled scanner is
+self-restarting exit0 under existing unless-stopped policy, not agent-enabled.
+Rollback/current hashes and exact evidence in WGS421-ACTIVATE HANDOFF.
+
+
 2026-09-11 Logs UI/API hotfix deployed from `763137c`: backend main.py/diagnostics_service.py and `index-bc6dsZAw.js` (CSS unchanged). Backend restarted only; worker/observer/scanner unchanged. Rollback current/rollback/log-search-20260911. Live0907D126fastp matches/10child sources verified; API healthy.
 
 
