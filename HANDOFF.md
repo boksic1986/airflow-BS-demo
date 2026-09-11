@@ -1,5 +1,13 @@
 # HANDOFF.md
 
+## PULL-20260911 — read-only sample metadata check
+
+- User requested testing whether current local code can retrieve the three records implicated in0910A preparation. Ran current server WGS4.2 code on verified BS10610/server10610 against configured metadata read endpoints; no WGS CLI, callback, receipt, sampleinfo/pending write or submission.
+- HTTP1record/sample, active Mongo1record/sample, exact external-order match1/sample, in-memory sampleinfo3rows, no unique-match warning; metadata/generation8.65seconds.
+- Source `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0`: metadata.py SHA256 `67cb3a573430ee5fa0f0af6451b2df5cfbe4b7fb08002397865ecbbac1ff6e6c`, sampleinfo.py `b79026127dd24686b8c31a4bb71f735f349b10ef9bf4a0d0c1a4b0da48a07861`, prepare_wgs_batch.py `febdfdac3b6df97fa23496f8c4daf03e4350886287966d88862d0279cf97682a`.
+- This confirms current retrieval, not historical data state or complete Airflow preparation recovery. Earlier final exception is expected-table-not-published; current generator names output with full analysis_name whereas platform gate expects batch-only filename. This path-contract lead is not yet live verified/fixed. No production switch change or rerun.
+
+
 ## LOGS-20260911 — content search and child log registration
 
 - User reports Snakemake content search/child logs unavailable. Production 0907D Master has126 fastp matches in1,480,147bytes but zero in the last200lines; UI only filtered that tail. Child fastp logs exist under07_QC but only Master/worker sources were registered.

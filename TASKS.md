@@ -1,5 +1,11 @@
 # TASKS.md
 
+## PULL-20260911
+
+- [x] Test current WGS4.2 HTTP/Mongo metadata retrieval on BS10610 without writes:3/3 unique matches;3 generated in-memory rows.
+- [ ] Separately verify expected sampleinfo output-path contract before any0910A retry; no recovery requested in this diagnostic task.
+
+
 ## LOGS-20260911
 
 - [x] Confirm tail-only search and missing child source registration.
