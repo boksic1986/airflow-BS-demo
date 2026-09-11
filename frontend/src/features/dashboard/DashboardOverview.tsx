@@ -1,6 +1,8 @@
 import {Link} from "react-router-dom";
+import {useState} from 'react';
 
 import type {DashboardOverview, DashboardPipeline, PipelineCapability} from "../../api";
+import {SubmissionResumeCard, useIncompleteWgsSubmissions} from "../wgs/IncompleteSubmissions";
 
 export function PipelineRail({pipeline, onChange, pipelines}: {
   pipeline: DashboardPipeline;
@@ -46,25 +48,42 @@ export function OperationsOverview({overview, period, loading, onPeriodChange, s
 }
 
 function AttentionRequired({overview}: {overview: DashboardOverview | null}) {
+  const incomplete = useIncompleteWgsSubmissions(overview?.pipeline !== "gatk");
   const items = overview?.attention_items || [];
+  const [acknowledged, setAcknowledged] = useState<string[]>(() => {
+    try { const saved = JSON.parse(localStorage.getItem('attention-confirmed-v1') || '[]'); return Array.isArray(saved) ? saved.filter(x => typeof x === 'string') : []; } catch { return []; }
+  });
+  const [history, setHistory] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const identity = (item: typeof items[number]) => `${item.id}|${item.detail}`;
+  const isArchived = (item: typeof items[number]) => item.severity === 'info' || acknowledged.includes(identity(item));
+  const active = items.filter(item => !isArchived(item));
+  const archived = items.filter(isArchived);
+  const confirm = (item: typeof items[number], restore = false) => {
+    const next = restore ? acknowledged.filter(id => id !== identity(item)) : [...acknowledged, identity(item)].slice(-500);
+    setAcknowledged(next);
+    try { localStorage.setItem('attention-confirmed-v1', JSON.stringify(next)); setSaveError(false); } catch { setSaveError(true); }
+  };
   return (
     <article className="insight-card attention-card">
       <div className="section-heading-inline">
         <div>
           <h3>Attention required</h3>
-          <p>Items that may need an operator decision or follow-up.</p>
+          <p>待处理问题；确认仅在本浏览器收起，不改变流程状态。</p>
         </div>
-        <strong className="attention-total" aria-label={`${items.length} attention items`}>{items.length}</strong>
+        <strong className="attention-total" aria-label={`${active.length + incomplete.items.length} attention items`}>{active.length + incomplete.items.length}</strong>
       </div>
       <div className="attention-list">
-        {items.slice(0, 8).map((item) => {
-          const content = <><span className={`attention-marker ${item.severity}`} /><span><strong>{item.title}</strong><small>{item.detail}</small></span></>;
-          return item.analysis_id
-            ? <Link className="attention-item" key={item.id} to={`/runs/${encodeURIComponent(item.analysis_id)}`}>{content}</Link>
-            : <div className="attention-item" key={item.id}>{content}</div>;
+        {incomplete.items.map(run => <SubmissionResumeCard key={run.analysis_id} run={run} />)}
+        {(history ? [...active, ...archived] : active).map((item) => {
+          const saved = acknowledged.includes(identity(item));
+          return <div className="attention-item" key={identity(item)}><span className={`attention-marker ${item.severity}`} aria-label={item.severity} /><span><strong>{item.title}</strong><small>{item.detail}</small></span><span className="attention-actions">{item.analysis_id ? <Link to={`/runs/${encodeURIComponent(item.analysis_id)}`}>查看批次</Link> : <Link to="/samples">查看样本</Link>}{saved ? <button type="button" onClick={()=>confirm(item,true)}>恢复提醒</button> : <button type="button" aria-label="确认提醒" onClick={()=>confirm(item)}>已确认</button>}</span></div>;
         })}
-        {items.length === 0 ? <p className="empty-state compact">No current attention items.</p> : null}
+        {active.length === 0 && incomplete.items.length === 0 && !history ? <p className="empty-state compact">No current attention items.</p> : null}
       </div>
+      <button type="button" className="attention-history-toggle" aria-expanded={history} onClick={()=>setHistory(!history)}>{history ? '收起历史与已确认' : '历史与已确认'} ({archived.length})</button>
+      {saveError ? <small role="status">本浏览器无法保存确认记录，本次页面内仍有效。</small> : null}
+      {incomplete.error ? <small role="status">未完成提交刷新失败，保留上次结果；稍后自动重试。</small> : null}
     </article>
   );
 }

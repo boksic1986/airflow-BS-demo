@@ -1,10 +1,21 @@
 # Frontend specification
 
-## T242 WGS 4.2 release evidence
+2026-09-11 WGS Logs search is debounced350ms and sent to the registered-log API, not filtered against the last200lines. Query participates in silent refresh identity so old query/source responses cannot win. Keep previous excerpts while searching; label tail truncation and incomplete server scans. Current-attempt declared child logs appear in Other rule logs. No hidden-tab polling or workflow mutation.
 
-The WGS submission page shows the immutable version and commit, profile
-revision, and cce-pipeline version. Historical run pages retain their
-run-bound release evidence.
+
+Attention title/detail body is a separate grid with6px rowgap and1.45 lineheight, independent of trailing action controls. Deployed index-xQ3eaWmc.js/index-CXQ9-KPd.css.
+
+Run Tracker default excludes cancelled records; 已取消记录 filter opens retained history. Cancellation rows label project sample scope, current stage and progress as 提交已取消 without pending progress/ETA bar. Database audit is not deleted. Deployed index-TVfCIH75.js.
+
+Config-review cancellation: wizard header and incomplete Attention card expose separate Cancel submission control (never nested in resume link). GET server preview before confirmation; explicit red confirm POST includes attempt. Only config_review or cancelling_submission retry shown; no preparation/post-config control. Success removes card and shows cancelled, not preparation failed. Failure retains dialog/error; cancelling tasks remain discoverable. Modal discloses all files/pending retained. Deployed index-BhloDDFv.js supersedes prior bundles below.
+
+2026-09-11 incomplete manual WGS submissions appear in both Submit Run and Dashboard Attention required. Discover server-saved active runs through existing paginated run API and current details; show preparing_sampleinfo/config_review/preparing_analysis/execution_review only, exclude auto_dispatch and terminal/approved runs. Whole card resumes `/submit?pipeline=wgs&analysis_id=...` without creating/approving a run; include batch, phase, attempt and created timestamp. Shared silent refresh retains cards on error and removes them after approval. This is server task discovery, not browser-only draft storage; incomplete actions are not dismissed into ordinary alert history. Production bundle index-DyxeD4eP.js supersedes prior bundle below.
+
+2026-09-11 submission recovery: WGS wizard stores only opaque `analysis_id` and pipeline in URL after successful creation. Reload restores that existing run through GET; missing/error state keeps its link and blocks duplicate creation, without automatically approving configuration or execution. Config review uses existing sample inventory only when selected projection is empty, filters exact analysis_id/current selection_attempt/candidate, paginates all rows and labels candidate (not running). Run Detail remains selected-only. Candidate inventory failure retains last reliable state. Final production bundle index-BsfeK10d.js.
+
+2026-09-12 Attention:14px severity markers; compact independently scrolling list; information entries collapsed under history. Confirm/restore persisted in current browser only, condition ID/detail changes reappear; does not resolve workflow failure or remove audit data. Duplicate-family details identify family and batches. SFS Total shows cloud metric when present, otherwise complete read+write sum labelled “读＋写计算”; absent inputs produce unavailable/gaps, not invented zero. Read/write/Total share scale. Server96 production has no total_bps currently; fallback is not equivalent to console one-minute MAX aggregation.
+
+2026-09-11: shared `useSilentRefresh` replaces page timers: visible10s/hidden60s, foreground immediate, serialized requests, stale scope/attempt response fencing and20/40/60s error backoff. First load only shows loading; subsequent errors retain tables and show lightweight hints. Detail refreshes summary/current tab only; transfer cards/files retain stable keys and expansion. Remove Run Tracker Sync and Run Detail Sync Airflow. Unknown selected scope displays “待确定分析范围”; global pending remains visible with reason. Automated regressions passed; live browser visual acceptance remains open. See [release evidence](selection-refresh-20260911.md).
 
 ## T240 attention dashboard and Sample Information
 
@@ -62,9 +73,6 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 - GATK submission is a two-step manual flow: controlled project path preview,
   then one confirmation. SCMC samples are shown as locked rows. The Run Detail
   hides QC and reanalysis actions that GATK v1 does not provide.
-- Active GATK Run Tracker and Run Detail progress come from the same current
-  `RunStageState`. A cleared future Airflow task is not shown as the current
-  stage merely because it retains historical timestamps.
 
 ### T227 WGS detail refinements
 

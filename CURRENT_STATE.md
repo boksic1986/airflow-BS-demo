@@ -1,27 +1,93 @@
 # CURRENT_STATE.md
 
-## 2026-09-10 T253 test platform integration
+## GATK-PROMOTION-20260912 — implementation/acceptance in progress
 
-The current test development baseline is `jiucheng/platform/T253-test-production-sync`.
-It merges main `1deca5f`, published WGS platform branch `47038e4`, and the
-validated GATK branch `dad09fd`. Production's release marker is `c9dc58c`;
-its actual WGS gate includes the later fixes and matches the merged gate SHA.
-Do not use the release marker alone to select source.
+Independent normal production clone created at D:/pipeline/airflow-demo-production,
+baseline8e982c9, selectively porting donor4013f93. No unrelated test branch merge.
+GATK output WES_Clinical; unrestricted input selection retains frozen validation.
+Production private/runtime directories created separately, no gate activated.
+Initial GATK36 targeted tests passed; retry generation fixes under independent
+review. Frontend source unchanged, production build succeeded;77 tests report
+75 passed and2 preexisting WGS UI expectation failures (request-count and
+ambiguous Total locator). No real analysis submitted. Publication/deployment
+remain pending; see release ledger.
 
-BS10610 current is `releases/20260910-t253-platform-sync-66c41b5`.
-WGS reports V4.2.0, while GATK retains its independent validated runtime.
-Test Intake scanner and Auto dispatch are both false. Production was read only;
-its scanner and dispatch are true with watermark `2026-09-08T08:00:00Z`.
+## PREPARE-CONTRACT-REVIEW-20260912 — static interface review complete
 
-Validation: 372 backend tests, 100 runtime tests, 4 GATK DAG contract tests,
-61 frontend tests, typecheck/build, Compose render, zero DAG import errors,
-gateway HTTP 200 and Celery ping passed. Both retained GATK runs remain
-success/100%. No analysis was submitted and no migration was needed.
+[Prepare interface review](docs/superpowers/specs/2026-09-12-wgs-prepare-interface-review.md) records reusable receipt/pending internals and concrete AF/WGS tasks. Gate currently compares whole private ledger count to current-batch pending count; sampleinfo CLI writes output/callback script and is not a safe prefetch entry. WGS local HEAD a5e7ada is ahead of prior cc9bde3; no production alignment claimed. No code, tests, remote operations or gate changes in this review.
 
-Test runtime drift was corrected: WGS uses the hanjj gate, test BS runtime
-root, WGS 4.2 prepare config and obsutil. `PYTHONNOUSERSITE=1` prevents the
-hanjj user-site 0.8.2 package from shadowing nipttest 0.8.3.
-Existing GATK gate SHA and result paths are unchanged.
+
+## SAMPLE-INTAKE-DESIGN-20260912 — documentation only
+
+Approved [sample reference and batch pre-intake design](docs/superpowers/specs/2026-09-12-wgs-sample-reference-intake-design.md) documented. Future Sample writes are selected-only; shared pending files remain the handoff authority and the new reference table is read-only projection. Intake discovers Samplelist batches before chip directories exist and retains run linkage after submission. Implementation, migration, runtime testing and activation are pending. No remote checks, code/data/service changes or gate changes in this task; production statements below are dated prior observations, not reverified today.
+
+
+WGS421-ACTIVATE-20260911 DEPLOYED d8f5f05: API now4.2.1/cc9bde3/r1/cce0.8.4;
+new sibling profile and prepare default active.148 checks passed with3 confirmed
+baseline failures excluded. Public health200; seven historic runs preserved.
+Scan=false/dispatch=false; no analysis submission. Backend restarted, nginx
+gracefully reloaded; worker/observer preserved. See latest HANDOFF/rollback.
+
+
+2026-09-11 confirmed20260910A scoped cleanup completed:1 Airflow run,7 business records,7 runtime files, generated sampleinfo and empty platform workdir removed. Platform/Airflow404 verified, other7runs preserved. Scan/dispatch remain false; FASTQ/pending/SFS/OBS untouched. Actual filename mismatch was persisted batch V4.2.0 versus generated V4.2.1 (API normalizes batch display).
+
+
+2026-09-11 USER PAUSE: production scan=false and auto_dispatch=false, persisted and verified in backend/scanner. This supersedes earlier true/true records.20260910A deletion requested but exact scope awaits user confirmation; no files or records deleted.
+
+
+2026-09-11 read-only metadata retest: the three0910A records now retrieve and uniquely match HTTP/Mongo; current WGS4.2 in-memory generation returns3rows without warning. No files or run state changed. Complete Airflow preparation remains unverified; see PULL-20260911 HANDOFF.
+
+
+## LOGS-20260911
+
+WGS full-content bounded search and current-Master-referenced child log indexing deployed from `763137c`;4 backend/4 frontend tests and production build passed. Live0907D search returns126 fastp matches and10 child logs (sample read48lines). Bundle `index-bc6dsZAw.js`; health OK. Backend only restarted; worker/observer/scanner unchanged. Unreturned or unreferenced child logs remain outside the index; no analysis rerun.
+
+
+## STEP7-20260911 — cleanup gate repair
+
+0907D attempt 5 workflow is successful. Step7 generation 1 rejected the platform-generated frozen operator config before cleanup. Minimal patch passed 13 remote synthetic checks and real-request read-only validation. Gate installed from `f955ba9`, hash `bc32a5b77dca4062d966f2a54e89d336bc8c83ed2a910dbd0e709ab5fa568258`; health OK. Cleanup was not executed; user can retry the existing SFS release action. No service restart or switch changes. See latest HANDOFF.
+
+
+## PROD-20260911 production branch baseline
+
+This branch is `jiucheng/release/production`, reconstructed from verified live
+production sources, not merged from test main. See
+[release policy](docs/releases/PRODUCTION_BRANCH.md) and
+[source/dependency manifest](docs/releases/production-baseline-20260911.json).
+
+Server96 remains on `20260910-t260-recovery-runtime-r1`; no production files,
+services, gates, databases, jobs or analysis data changed during branch preparation.
+Backend release files match captured live SHA-256. Active node200 gate/Heavy
+collector supersede stale release-directory copies. Frontend rebuild is byte-identical
+to served `index-xQ3eaWmc.js` / `index-CXQ9-KPd.css`.
+
+Validation on isolated BS10610 cached images:46 backend/runtime tests,22 frontend
+tests,31 DAG unit tests,2 DAG contracts, DAG compilation and synthetic Compose
+render passed. No whole-WGS run or new deployment/release tag. External WGS/CCE
+dependencies and remaining owner issues are documented in the release policy.
+All earlier dated entries below are historical, not the current release authority.
+
+Latest SFS read-only validation:3 retained analysis batches907C/908A/908B. NewMaster diagnostic Pods start successfully and read SFS; exactDNAscope model file verified. NOT full recovery/25slot acceptance.907C has retainedoutputs;908A has33incomplete+2locks;908B failed preflight on multi-pedigree sample mapping with0submittedJobs. All frozen configs lack newDNAscopeModelT7 key. WGS owner now31de5fb/assets20260910.2-dnascope-db, Airflow still400ba1c; align versions/configs before recovery. No bioanalysis restart/reset/data cleanup, scanner remainsstopped. Details/evidence in newestHANDOFF.
+
+Latest explicit user update: via ssh BS/node005, nipttest cce-pipeline upgraded from0.8.3 to0.8.3.post1 using verified offline wheel and --no-deps. CLI/version/import path checks pass. Both nipttest and independentctapa installations now0.8.3.post1; production selector still independentctapa path. No workflow/service/batch configuration changes. Earlier statements that nipttest remains0.8.3 are superseded.
+
+T255 COMPLETE for image/reference/backend release: user ctapa SSH key resolved final permission gate. Production current20260910-t255-heavy-master-r1, reviewed overlay5bb9e3f; only backend recreated. Live API confirms WGS400ba1c/r2/CCE0.8.3.post1 and truthful quota unavailable. Master SWRdigestf3c197d7...14df458 published/read-back verified; versionedCLI selected, nipttest unchanged. Healthok;907D existing upload retained. DAG/scanner/cloud compute remain paused, NO resumed-cloud acceptance or automatic resume. Older blocker entries below are superseded; exact provenance/rollback in newest HANDOFF.
+
+T255 latest supersedes build blocker below: SWR push/read-back succeeded (digestf3c197d7...14df458); new r2 profile published and WGS config-onlycommit400ba1c points to it. Independent CLI and syntheticprepare validated; candidate Airflow release5bb9e3f passed107 tests. Platform activation remains INCOMPLETE: BS96 chenjc cannot read ctapa0600 production.env and has no noninteractive sudo; no backend restart or runtime.env switch. Need approved ctapa/admin release entry. Keep submissions/cloud compute paused until catalog+CLI aligned; old nipttest and existing907D upload preserved. Final evidence archived to ctapa WGS_test with hash verification; newest HANDOFF gives exact continuation/rollback.
+
+T255 latest: reviewed biosan5+CCE0.8.3.post1 Master built (image a0112f0b8ef0), installed-image24 tests passed. SWR push denied (permission/authentication); NOT published and no image/profile/catalog/runtime activation. Independent ctapa CLI0.8.3.post1 installed without changing nipttest0.8.3. Reviewed evidence archived to ctapa WGS_test, hash verified. Await user SWR login refresh. DAG/scanner/cloud compute remain paused;907D existing upload retained. See newest HANDOFF for exact image/tag/commits and continuation gates.
+
+T255 integration in progress: current-source cce-pipeline0.8.3.post1 candidate and offline CLI wheel built; executor0.6.4+biosan5 safe-release review/test in progress. Airflow truthful-unavailable quota projection passed85 tests. No new Master image pushed or references deployed yet. User-approved temporary BS10610 evidence path and required ctapa archive recorded in HANDOFF. Cloud compute and automatic scheduling remain paused; no reset/rerun/data deletion.
+
+Cloud compute hold verified 2026-09-10 14:00 CST: 908A Master Job and4 active Worker Jobs suspended; Master Pod absent and remaining Worker Pods0 after bounded deletion wait. SFS/OBS/server data preserved. DAG/scanner/heartbeat remain paused. Existing907D upload was not terminated. No automatic resume; see HANDOFF exact identities.
+
+Emergency production hold (2026-09-10): user requests pause for version/Master repair. Airflow bio_wgs is_paused=true verified via REST; intake scanner container stopped/exited. Existing uploads and CCE Pods have not been terminated; awaiting user confirmation of Job suspension semantics. No reset/rerun or data deletion. Do not automatically resume scanner/DAG after repairs.
+
+Heavy I/O update (2026-09-10): repair is requested; reset/recovery/rerun remains paused. Current cached production Master digest d8886ad9 lacks the quota module despite executor version0.6.4+biosan4. Backend configured `0/25` is not proof of enforcement. Source now located on BS10610 under `/mnt/biodevrwbi/33.chenjiucheng/project/wgs-cloud-platform/projects`: `huawei-cloud-runtime` at6c79070 (contains image-tag commit42d262c) and `snakemake-kubernetes-plugins` at1ca1e88. Both are clean and lack current Heavy I/O integration. Source-location blocker resolved; implementation/testing/deployment not yet done. See latest HANDOFF entry.
+
+## 2026-09-10 T254 908B reset preflight timeout
+
+User confirmed only20260908B cloud reset scope. Exact frozen paths, runWGS_20260909_193702_FE74F9 attempt2 and runtime UID6801 passed validation. Step0 `--inspect` timed out at90s; destructive `--confirm` was not reached. No data deletion, workflow restart, service deployment or SLOT change. Next: diagnose inspect/CCE query unavailability before retrying the authorized reset. See HANDOFF T254 for scope and command outcome.
 
 ## 2026-09-10 T252 obsolete airflow-demo worktree retirement
 
@@ -69,27 +135,6 @@ testing: implementation owners prove their own code, cross-repository work uses 
 environments: BS10610 is integration test and BS96 is currently production-shaped test. Environment paths and credentials remain isolated; data sensitivity does not become weaker merely because a host is test-oriented.
 data: original FASTQ, references, workflow source and final project results remain protected. A direct user instruction naming an environment and batch authorizes cleanup of that batch's Step7 SFS analysis/linkage and runtime residue without a second confirmation. OBS, DB, Airflow history and final results remain out of default scope unless explicitly named.
 status: design recorded in docs/superpowers/specs/2026-09-10-multirepo-release-data-governance-design.md. No runtime, remote host, data, branch protection, release tag or execution gate was changed. Implementation awaits user review of the written specification.
-## 2026-09-10 T249 GATK full-flow completion
-
-```text
-incident: after T248 resumed the retained test run through Step3-Step5, Step6 could not load cce_delivery.py's sibling cce_shared_permissions module. The next attempt loaded the helper but omitted its required permissions keyword argument.
-fix: gatk_runtime_gate temporarily prepends the frozen bundle directory while executing the delivery module, always removes it afterward, validates BATCH_RUNTIME.yaml permissions, and passes that immutable permission contract to materialize_results.
-validation: the focused regression failed on each missing contract before its fix, then the complete BS10610 gate suite passed 12 tests. The installed node200 gate was compiled with the shared nipttest Python 3.9 runtime.
-run: GATK_20260909_071908_F45CF7 attempt 1 completed without rerunning Step1-Step5. Airflow reports success with 21 successful tasks. biodemo reports success/100%, 14 successful samples, 184 successful RuleState rows and terminal success for every projected stage. Step6 generation 3 is success.
-artifacts: DOWNLOAD_VERIFIED and MATERIALIZED both report status=PASS. The approved test result root /sg2/33.chenjiucheng/wgs_test/WES_Clinical/20260823A/GATK_20260909_071908_F45CF7 contains 336 files and uses about 9.6 GiB. Step3 reports 184/184, Master/Snakemake success and zero active workers; no GATK gate process remains.
-frontend: the authenticated dashboard API projects the run as Completed, success, 100%, 14 samples with the final pipeline timestamp. Backend health is OK.
-safety: BS10610 test only. Scanner and auto dispatch remain false. Source FASTQ, completed CCE work, BS96 production, WGS and other pipelines were not changed.
-```
-
-## 2026-09-10 T248 GATK finalize and terminal-state repair
-
-```text
-incident: GATK_20260909_071908_F45CF7 reached 182/184 rules and the Kubernetes cloud_gatk_finalize Job succeeded, but Snakemake's default five-second output check did not see payload-manifest.tsv and ANALYSIS_COMPLETE through shared SFS quickly enough. The Master therefore exited failed even though both markers became visible. The terminal sidecar then cleared the prior 98% counters, and bio_gatk had no DagRun failure callback to close the last RuleState and Sample rows.
-fix: the GATK CCE profile uses latency-wait=180. Terminal sidecars without counters preserve the last valid stage counters/current item. bio_gatk posts a best-effort terminal callback to the internal backend, which preserves success, records the failed stage, closes unfinished rule/sample projections and keeps the true failing rule failed. Terminal Dashboard rows now use RunStageState instead of the generic task-weight fallback.
-validation: isolated BS10610 source passed 17 focused backend tests, 362 complete backend tests, 4 DAG contract tests and actual Airflow 2.9.3 DAG import/callback inspection. The final GATK release merges the deployed 6bed61e handoff/shared-permission line with main and the latency fix; all 14 GATK tests pass. The first complete-suite invocation lacked WGS_STAGE_CONTRACT_PATH and produced two configuration-only failures; rerunning with the repository contract path passed all 362 tests.
-deployment: BS10610 current points to releases/20260910-t248-gatk-terminal-b816c91 at code commit b816c91bec1fcfb1013ed80276fb0ea635776c70. Backend, Airflow API, scheduler and worker were recreated; nginx was restarted after backend replacement to refresh its cached Docker address. Root and /api/health return 200. The GATK host runtime uses release 4d6490a with latency-wait=180 and preserves the previously deployed handoff/shared-permission fixes.
-reconciliation: retained run GATK_20260909_071908_F45CF7 remains failed without rerun. Evidence-backed progress is restored to 98%, 182/184; cloud_gatk_finalize is failed, all 182 completed rules remain success and all 14 samples are terminal failed. The internal terminal endpoint is idempotent and returns the same projection.
-safety: test environment only. No new GATK run, CCE workload, OBS/SFS mutation, WGS run, scanner/auto-dispatch change or BS96 production change occurred. GATK commit 4d6490a exists in the writable BS checkout and deployed release, but two upstream GitLab push attempts were rejected by the configured HTTP credentials; no credential value was logged.
 ```
 
 ## 2026-09-09 T247 environment boundary and Docker governance
@@ -104,32 +149,6 @@ docker: removed 24 old airflow-demo tags and one stopped Airflow init container 
 evidence: BS10610 /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/backups/T247-docker-governance-20260909; BS96 /data/airflow-WGS/backups/T247-docker-governance-20260909; fengxian /home/jiucheng/project/airflow-demo/.artifacts/T247-docker-governance-20260909.
 image_policy: both BS nodes retain current running image IDs, one rollback where available, the lock-bound Node 22 builder, nginx 1.30.3 runtime alias, Airflow control base, PostgreSQL 15 and Redis 7. New Airflow source images are built locally on BS10610 or BS96 from preloaded bases and no longer staged through fengxian.
 validation: manifest declares exactly the 384 files present; git diff check, retired-path search, secret-pattern scan and Markdown relative-link check pass. On BS10610 the exact b47a3be source archive collected 353 backend tests and discovered 62 frontend tests offline; an isolated Airflow 2.9.3 SQLite metadata check returned zero DAG import errors. Test and production root plus /api/health returned HTTP 200 after cleanup.
-## 2026-09-10 T248 WGS 4.2.0 retained-baseline recovery and automatic run
-
-```text
-scope: retain only historical batch 20260906B in the platform databases and cloud test history, repair its Step7 release, then start the four newly discovered WGS 4.2.0 batches. Server source FASTQ and project analysis data are explicitly outside cleanup scope.
-retention: biodemo and Airflow metadata retain 20260906B plus the four newly accepted 20260907C/20260907D/20260908A/20260908B runs. Old SFS and OBS test data were removed, except the 20260906B Project_fastq and Project_result prefixes. The pre-cleanup Airflow dump is /data/airflow-WGS/backups/T248-clean-retain-20260906B-20260910/airflow-before-cleanup.dump; matching biodemo dump and checksums are in the same directory.
-step7: 20260906B action step7-sfs-4fa2543f5aea generation 2 completed successfully and released its SFS workspace. Local project analysis data, source T7 FASTQ and the retained OBS objects were not changed.
-runtime_fixes: auto_dispatch now follows prepare_sampleinfo -> prepare_analysis before Step1 and preserves approved submission phase through both prepare projections. Stale OBS SDK-only keys are removed from generated 0.8.3 operator config. A prior unbound batch from an earlier attempt is moved intact to attempt history before a retry regenerates it. The 4.2.0 published profile SHA is aligned to 2e7087a6ba646dfb67a940cd77d27ad18fc99e32d92c0ee5243614416f71f38b. The published CCE copy was missing PIPELINE_READY and exposed an ambiguous QC output producer; the marker was restored and WGS_pipe.smk now declares QC_collect_multiqc_qc ahead of QC_SingleQC_merge. Candidate validation built all 363 jobs before the same attempt resumed from Step2.
-compatibility: nipttest uses cce-pipeline 0.8.3 and PyMongo 4.9.2 because the production MongoDB 4.0 server supports wire version 7. The Git working source at b067c72 was not modified; the CCE published copy carries hotfix qc-ruleorder-1 with its original WGS_pipe.smk and PIPELINE_READY preserved in T242 evidence for rollback.
-transfer: Step1 and Step5 use obsutil. The progress wrapper now resolves a frozen-plan file by its unique basename when cce-pipeline flattens the plan's raw/ prefix in the OBS destination, restoring file-level rows without exposing source or OBS paths. The first canary started eight wrappers before this hotfix; those children remain aggregate-only, while later files and subsequent batches use the fixed wrapper.
-production: current points to /data/airflow-WGS/releases/20260910-t248-auto4-wgs420-r7. Node200 gate SHA is 5aaa986452451e5ceb3482b9e194ae2932aa662e35d419d97f7c3c577e1950f4 and wrapper SHA is 122bcaaeb7666a95b661dc75593b3d579b7b3180b7c05360401b8884ebb987fe. Scanner and automatic dispatch are enabled with interval 1800 seconds and eight obsolete chip directories ignored.
-active_runs: WGS_20260909_193701_95105F-a6, WGS_20260909_193702_44561E-a2, WGS_20260909_193702_10CEB0-a2 and WGS_20260909_193702_FE74F9-a2 remain active. Batch 20260907C is healthy in Step3 with six pre_process_cleanFastq workers and six projected running RuleState rows; the other three are preparing or waiting for the upload lease. A thread heartbeat monitors them every 30 minutes through Step6.
-validation: final script suites passed 83 tests, final backend suites passed 82 tests and the DAG suite passed 31 tests. Public /api/health is ok. The first scanner cycle examined 1859 directories, submitted zero duplicates and reported the five retained/active batches already registered.
-safety: no server original FASTQ, project analysis directory, database schema, WGS Git working source, credentials, Docker volume or unrelated workflow was deleted or changed. The 20260907C recovery removed only terminal failed Master Jobs and cleared Step2-Step6 task instances in the same attempt; Step1 was not rerun. An initial scanner activation rediscovered eight obsolete batches; it was stopped immediately, those failed metadata-only attempts were removed from both databases, and the source directories are now explicitly ignored.
-```
-
-## 2026-09-10 T242 WGS 4.2.0 control-plane production release
-
-```text
-scope: switch new WGS submissions to the operator-validated 4.2.0 release and adapt the Airflow/backend prepare boundary. Production result output remains /sg2/50.ctapa/project/HWcloud/WGS_Clinical. No pipeline content validation or formal sample submission was performed by Codex.
-runtime: node200 uses /sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/cce-pipeline 0.8.3. The runtime gate checks only adapter availability/version; profile and source hashes remain published evidence rather than runtime pipeline gates. Historical runs remain readable and can reuse an existing frozen binding, while an unfrozen 4.1.1 reprepare fails closed.
-handoff: generation-scoped prepare artifacts are private (directory 0700, request/manifest/pending input 0600). Mixed selected/pending receipts import the final selected table first and pending decisions second so pending samples are retained with privacy-safe reasons.
-validation: initial gate regressions failed 3/3 before the hardening patch, then passed 3/3. Backend mixed-receipt and decision projection tests passed 2/2. The preceding complete T242 validation passed 76 script tests, backend 357 passed/1 skipped, frontend 17 files/61 tests and an offline production build.
-deployment: current points to /data/airflow-WGS/releases/20260910-t242-wgs-420-control-plane-r2 at source c9dc58c. Frontend is airflow-demo/frontend:t242-wgs420-5dc5023 (sha256:9b7ec6143919a4af115d3c14239a21f6de78773f8ec2068f4a464063441d4ed). Backend and observer load the r2 source mount; public /api/health is ok.
-safety: activation began and ended with zero active runs and zero transfer leases. WGS_AUTO_DISPATCH_ENABLED remains false. Scanner, Airflow, metrics, PostgreSQL and Redis retained their container IDs; no workflow, database row, SFS directory or OBS object was created or changed.
-evidence: /sg2/50.ctapa/project/HWcloud/WGS_test/cce-evidence/T242-wgs-420-control-plane-20260909. Node gate backup is /home/ctapa/.config/airflow-wgs/backups/T242-wgs-420-20260910/wgs_runtime_gate.py.before-r2.
-rollback: restore the node gate backup, repoint current to /data/airflow-WGS/releases/20260910-t242-wgs-420-control-plane-r1 and recreate only backend, wgs-run-observer and frontend-nginx. Do not remove volumes or production data.
 ```
 
 ## 2026-09-09 T241 WGS obsutil checkpoint progress production release
@@ -143,69 +162,6 @@ evidence: all ctapa synthetic inputs, checkpoints and logs are below /sg2/50.cta
 deployment: origin/main contains 85506f6d7f696c7f035f0781f78a3f325865c646. Production current points to /data/airflow-WGS/releases/20260909-t241-obsutil-checkpoint-r1. Frontend uses airflow-demo/frontend:t241-obsutil-85506f6 at sha256:8035c222c4ca32d60a3d9ff11ea5927ef2d5cb3085fe226a97dbe2921e8e695b; backend and wgs-run-observer load T241 through the new release source mounts. /api/health and Compose config pass, and the served JavaScript contains the checkpoint-waiting marker.
 safety: activation started and ended with zero active AnalysisRuns and zero transfer leases. Automatic WGS dispatch remains false while the 30-minute discovery scan remains enabled. Scanner, Airflow, PostgreSQL, Redis and telemetry containers retained their IDs; no workflow, database row, SFS directory or OBS production object was created or changed by validation/deployment.
 rollback: node200 originals are preserved at /home/ctapa/.config/airflow-wgs/backups/T241-obsutil-20260909. Application rollback restores /data/airflow-WGS/env/production.env.pre-T241-20260909T190000, repoints current to /data/airflow-WGS/releases/20260909-t240-dashboard-attention-r1 and recreates only backend, wgs-run-observer and frontend-nginx.
-## 2026-09-09 T246 GATK Run Tracker runtime-stage projection
-
-The active GATK run was healthy in Step3 with exact runtime evidence, while Run
-Tracker displayed a stale Step6 label and Airflow-weight estimate. Run Detail
-already consumed `RunStageState`; the GATK registry adapter did not provide a
-Dashboard `project_progress` projector, so the generic fallback selected a
-cleared downstream task whose state was null but whose historical timestamps
-remained populated.
-
-Commit `d82f8ab` projects active GATK tracker rows from the current attempt's
-`RunStageState` and removes the stale Airflow task timeline from that display
-payload. The regression reproduces Step3 at 70/184 rules while a cleared Step6
-task remains in the Airflow response. Focused BS10610 tests pass 6/6.
-
-BS10610 now points to
-`releases/20260909-t246-gatk-tracker-f38156c`. Only backend was recreated.
-The live Dashboard and workspace APIs both report Step3, 70/184 rules and 38%;
-the Dashboard no longer returns a current Airflow task from the cleared Step6
-tail. Airflow API, scheduler, worker, observer, frontend, PostgreSQL and Redis
-container IDs did not change. The node200 generation-2 status continues to
-refresh with `Master and Snakemake are running normally`.
-
-## 2026-09-09 T244/T245 GATK Prepare rerun recovery
-
-`bio_gatk` now passes each registered stage generation to node200, so clearing
-Prepare cannot reuse a stale terminal sidecar. The runtime gate also projects
-the captured child-process error instead of a generic return-code message.
-
-GATK release `6bed61e` is active on node200. Its handoff entry is independent
-of the caller working directory, resolves frozen profile files from the release
-root and provides the cce-pipeline 0.8.3 shared-permission contract. The test
-operator config uses the unified 0.8.3 upload parallelism field.
-
-`GATK_20260909_071908_F45CF7` Prepare generation 7 succeeded from
-`WES_20260823A_T7_hg38.sampleinfo.txt` with 14 samples and 28 FASTQ files. The
-prior Step6 label was stale state from the failed downstream cleanup chain, not
-executed Step6 work. Step1 and Step2 then succeeded. Step3 initially rejected
-the cce-pipeline 0.8.3 key/value status as non-JSON while the Master remained
-healthy; runtime gate `caa5371` adds dual-format parsing. Only Step3 and its
-downstream tail were reopened. Step3 generation 2 is running and projects exact
-rule counts from the existing Master without relaunching it.
-
-## 2026-09-09 T243 GATK SCMC project discovery released to BS10610
-
-```text
-incident: GATK Preview was restricted to /sg2/21.lijing/WES_Clinical and the backend mounted only that owner path. A valid project under /sg2/5.chenmj therefore failed before the SCMC manifest could be read.
-contract: Preview now accepts an absolute readable project directory and requires only the exact <batch-prefix>.sampleinfo.SCMC.txt, its data-ID column and at least one unique sample. Config, barcode and FASTQ-pair validation remains in the existing runtime prepare step. The preview fingerprint covers the project identity, batch, SCMC manifest hash and sample set.
-safety: the backend mounts /sg2 read-only; confirmation freezes the exact selected project as the immutable runtime request's sole approved source root. The API still returns no clinical columns or complete FASTQ paths and provides no directory browser.
-validation: the complete backend suite passed 357 tests. The complete frontend suite passed 17 files/60 tests and the offline production build passed. Compose config rendered successfully. The live project WES_20260823A_T7_V7.6.1_hg38 resolved WES_20260823A_T7.sampleinfo.SCMC.txt and 14 samples; the validation draft was removed and no AnalysisRun was created.
-runtime: shared nipttest reports cce-pipeline 0.8.3. BS10610 current points to /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260909-t243-gatk-project-discovery-a71d681. Frontend uses airflow-demo/frontend:t243-gatk-project-discovery and /api/health is OK at http://172.17.106.10:12959.
-services: only backend and frontend-nginx were recreated. Airflow API/scheduler/worker, observer, collectors, PostgreSQL and Redis were not restarted; active run count was zero at release.
-```
-
-## 2026-09-09 T242 GATK Step4-Step6 recovery completed
-
-```text
-incident: GATK_20260908_104312_85DA16 completed Step1-Step3, but Step4 checked OBS before the asynchronous backend export exposed payload-manifest.tsv and ANALYSIS_COMPLETE. Both markers appeared about 64 seconds after wait_step4_publish had failed. Step5 and Step6 therefore never received a valid predecessor receipt.
-fix: the node200 gate now waits only for the exact backend-export-pending result, with a 30-second poll and two-hour default bound. All unrelated errors remain terminal. Backend stage registration creates a new fenced generation after failed/canceled state, clears stale terminal fields, and projects genuine stage failures to AnalysisRun. A previous-generation sidecar is treated as pending until the current generation becomes visible; same-generation hash mismatch and future generations remain invalid. The GATK release leaf releases leases and then preserves any upstream failure instead of producing a false-green DagRun.
-validation: BS10610 final tests passed the complete backend suite (353 passed, 1 skipped), scripts/tests/test_gatk_runtime_gate.py 9/9, GATK/deployment contract tests 13/13, WGS DAG unit tests 4/4, and Compose config. The candidate gate also compiles under node200 nipttest Python 3.9.23.
-recovery: the original GATK_20260908_104312_85DA16-a1 and attempt 1 were retained. Step1-Step3 timestamps did not change. Step4 generation 1 remains failed audit evidence and generation 2 is success; Step5 generation 1 and Step6 generation 1 are success with receipts. AnalysisRun and Airflow are success at 2026-09-09 12:05 CST with no error summary.
-materialization: the BS10610 test runtime materialized 28 GiB and 960 files to /sg2/14.hanjingjing/Cloud_WGS_Clinical/airflow_test/GATK_Clinical/20260816A/GATK_20260908_104312_85DA16. The frozen Step5 did not emit a download TransferJob progress row; terminal receipt and delivery validation are authoritative, while detailed GATK download projection remains follow-up work.
-deployment: current points to /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260909-t242-gatk-step4-export-wait-r2. The dedicated test frontend is http://172.17.106.10:12959 and health is OK.
-safety: the recovery retained the original DagRun, attempt, successful upload, Master, Step3 evidence, SFS data and OBS data. PostgreSQL/Redis data, WGS runs and Step1-Step3 were not reset or recreated.
 ```
 
 ## 2026-09-09 T240 Dashboard attention and Sample Information production release

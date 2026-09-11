@@ -19,6 +19,7 @@ from app.wgs_run_projection import public_wgs_batch
 
 FAILED_STATUSES = {"failed", "fail", "error", "terminated"}
 SUCCESS_STATUSES = {"success", "succeeded", "complete", "completed", "released", "delivered"}
+CANCELLED_STATUSES = {"cancelled", "canceled"}
 STEP7_ACTION = "cleanup_step7_sfs"
 
 
@@ -33,7 +34,7 @@ def project_wgs_dashboard_attention(
     """Project privacy-safe WGS conditions that still need operator attention."""
 
     current = _as_utc(now or datetime.now(timezone.utc))
-    selected = list(runs)
+    selected = [run for run in runs if _status(run.status) not in CANCELLED_STATUSES]
     run_ids = [run.analysis_id for run in selected]
     samples = list(
         session.scalars(select(Sample).where(Sample.analysis_id.in_(run_ids))).all()
@@ -110,7 +111,13 @@ def _append_intake_alerts(
     session: Session,
     since: datetime | None,
 ) -> None:
+    cancelled_ids = select(AnalysisRun.analysis_id).where(
+        AnalysisRun.status.in_(tuple(CANCELLED_STATUSES))
+    )
     query = select(WgsIntakeBatch).where(
+        WgsIntakeBatch.analysis_id.is_(None)
+        | WgsIntakeBatch.analysis_id.not_in(cancelled_ids)
+    ).where(
         (WgsIntakeBatch.state == "needs_review")
         | (WgsIntakeBatch.excluded_addon_pair_count > 0)
         | (WgsIntakeBatch.pair_issue_count > 0)
@@ -153,7 +160,7 @@ def _append_duplicate_families(
         if family:
             by_family.setdefault(family, set()).add(sample.analysis_id)
     runs_by_id = {run.analysis_id: run for run in runs}
-    for analysis_ids in by_family.values():
+    for family, analysis_ids in by_family.items():
         batches = {
             public_wgs_batch(runs_by_id[analysis_id].params_json or {})
             for analysis_id in analysis_ids
@@ -163,14 +170,14 @@ def _append_duplicate_families(
         if len(analysis_ids) < 2 or len(batches) < 2:
             continue
         fingerprint = hashlib.sha256(
-            "|".join(sorted(analysis_ids)).encode("utf-8")
+            (family + '|' + '|'.join(f'{aid}:a{runs_by_id[aid].attempt}' for aid in sorted(analysis_ids))).encode("utf-8")
         ).hexdigest()[:12]
         items.append({
             "id": f"duplicate-family-{fingerprint}",
             "category": "duplicate_family",
             "severity": "warning",
             "title": "Family appears in multiple batches",
-            "detail": f"One family is present in {len(batches)} batches and needs review.",
+            "detail": f"Family {family}: batches {', '.join(sorted(batches))}. Review whether this is expected family completion or reanalysis.",
             "analysis_id": None,
             "batch_id": None,
             "occurred_at": None,
@@ -269,7 +276,7 @@ def _item(
     batch: str | None,
 ) -> dict[str, Any]:
     return {
-        "id": item_id,
+        "id": f"{item_id}-a{run.attempt}",
         "category": category,
         "severity": severity,
         "title": title,

@@ -6,6 +6,9 @@ import {StatusBadge} from "../components/StatusBadge";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {hasRegisteredSubmissionUi} from "../features/platform/submissionUiRegistry";
 import {errorMessage} from "../lib/errors";
+import {getWgsSubmissionSnapshot} from "../api";
+import {IncompleteSubmissionsPanel} from "../features/wgs/IncompleteSubmissions";
+import {CancelSubmission} from "../features/wgs/CancelSubmission";
 
 export function SubmitPage() {
   const capabilities = usePlatformCapabilities();
@@ -37,6 +40,8 @@ function SubmissionPipelineField({pipelines, selectedId, onChange}: {pipelines: 
 
 function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const capabilities = usePlatformCapabilities();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedRun = searchParams.get("analysis_id");
   const [release, setRelease] = useState<WgsRelease | null>(null);
   const [catalog, setCatalog] = useState<WgsProjectCatalog | null>(null);
   const [projectId, setProjectId] = useState("WGS_Clinical");
@@ -48,6 +53,23 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const [created, setCreated] = useState<RunDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [restoring, setRestoring] = useState(Boolean(requestedRun));
+  useEffect(() => {
+    if (!requestedRun) { setCreated(null); setSamples([]); setRestoring(false); return; }
+    let stopped = false;
+    setRestoring(true); setError(null);
+    setCreated((current) => current?.analysis_id === requestedRun ? current : null);
+    setSamples([]);
+    getWgsSubmissionSnapshot(requestedRun).then(({detail, items}) => {
+      if (stopped) return;
+      setCreated(detail);
+      setSamples(items);
+      const reference = detail.params?.use_reference;
+      if (reference === "all" || reference === "ref" || reference === "no") setUseReference(reference);
+    }).catch((loadError) => { if (!stopped) setError(errorMessage(loadError)); })
+      .finally(() => { if (!stopped) setRestoring(false); });
+    return () => { stopped = true; };
+  }, [requestedRun]);
   const wgsDefinition = capabilities.pipelines.find((item) => (
     item.id === "wgs" && capabilities.isDeployed(item.id)
   ));
@@ -65,17 +87,14 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const project = useMemo(() => catalog?.items.find((item) => item.project_id === projectId) || catalog?.items[0], [catalog, projectId]);
   const executionEnabled = Boolean(release?.execution_enabled && release.runtime_adapter_enabled);
   const phase = String(created?.params?.submission_phase || "select");
-  const preparationFailed = Boolean(created && ["failed", "cancelled", "unknown_interrupted"].includes(created.status));
+  const preparationFailed = Boolean(created && ["failed", "unknown_interrupted"].includes(created.status));
   useEffect(() => {
     if (!created?.analysis_id || preparationFailed || ["success", "failed", "cancelled"].includes(created.status)) return;
     let stopped = false;
     const refresh = async () => {
       try {
-        const [detail, samplePayload] = await Promise.all([
-          getRunDetail(created.analysis_id),
-          getRunSamples(created.analysis_id),
-        ]);
-        if (!stopped) { setCreated(detail); setSamples(samplePayload.items); }
+        const {detail, items} = await getWgsSubmissionSnapshot(created.analysis_id);
+        if (!stopped) { setCreated(detail); setSamples(items); }
       } catch (loadError) {
         if (!stopped) setError(errorMessage(loadError));
       }
@@ -86,7 +105,11 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   }, [created?.analysis_id, phase, preparationFailed]);
   async function prepare(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSubmitting(true); setError(null);
-    try { setCreated(await createCatalogWgsRun({project_id: projectId, platform, batch, fastq_root_id: fastqRootId})); }
+    try {
+      const detail = await createCatalogWgsRun({project_id: projectId, platform, batch, fastq_root_id: fastqRootId});
+      setCreated(detail);
+      setSearchParams({pipeline: "wgs", analysis_id: detail.analysis_id}, {replace: true});
+    }
     catch (submitError) { setError(errorMessage(submitError)); }
     finally { setSubmitting(false); }
   }
@@ -117,10 +140,14 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     return <div className="page-stack"><section className="panel"><h1>Submission unavailable</h1><p>No deployed pipeline has a registered submission interface.</p></section></div>;
   }
   return <div className="page-stack submit-wizard">
-    <section className="page-header"><div><p className="eyebrow">WGS production</p><h1>Submit run</h1><p>Submit one catalog-controlled WGS batch. The DAG runs native WGS sampleinfo and analysis preparation, then Step1-Step6.</p></div></section>
+    {!requestedRun ? <IncompleteSubmissionsPanel /> : null}
+    <section className="page-header"><div><p className="eyebrow">WGS production</p><h1>Submit run</h1><p>Submit one catalog-controlled WGS batch. The DAG runs native WGS sampleinfo and analysis preparation, then Step1-Step6.</p></div>{created?<CancelSubmission key={`${created.analysis_id}-${created.attempt}`} run={created} onCancelled={()=>setCreated({...created,status:"cancelled",params:{...created.params,submission_phase:"cancelled"}})} />:null}</section>
     <section className="panel"><div className="definition-grid"><div><dt>Current WGS release</dt><dd>{release ? `WGS ${release.version} / ${release.source_commit.slice(0, 7)}` : "Loading release..."}</dd></div><div><dt>Release ID</dt><dd>{release?.release_id || "-"}</dd></div><div><dt>CCE profile</dt><dd>{release?.profile_id ? `${release.profile_id}/${release.profile_revision || "-"}` : "-"}</dd></div><div><dt>cce-pipeline</dt><dd>{release?.cce_pipeline_version || "-"}</dd></div><div><dt>Execution</dt><dd>{executionEnabled ? "Enabled" : "Disabled"}</dd></div></div></section>
     <ol className="wizard-steps"><li className={phase === "select" || phase === "preparing_sampleinfo" ? "active" : ""}>1. Select batch</li><li className={phase === "config_review" || phase === "preparing_analysis" ? "active" : ""}>2. Review samples and configuration</li><li className={phase === "execution_review" || phase === "approved" ? "active" : ""}>3. Confirm execution</li></ol>
-    {!created ? <section className="panel"><form className="form-grid" onSubmit={prepare}>
+    {phase === "cancelled" ? <section className="panel" role="status"><h2>提交已取消</h2><p>样本表和回执已保留作审计；未修改 pending 或删除分析数据。</p></section> : null}
+    {phase === "cancelling_submission" ? <section className="panel" role="status"><h2>取消尚未确认</h2><p>已禁止继续确认配置。请使用右上角“重试取消提交”完成停止确认。</p></section> : null}
+    {requestedRun ? <section className="panel"><Link to={`/runs/${requestedRun}`}>View existing run</Link>{restoring ? <p>Restoring submission...</p> : null}{!restoring && !created ? <p>The existing run could not be loaded. Refresh to retry; no new run has been submitted.</p> : null}</section> : null}
+    {!created && !requestedRun ? <section className="panel"><form className="form-grid" onSubmit={prepare}>
       {pipelineSelector}
       <label className="field"><span>Project</span><select aria-label="Project" value={projectId} onChange={(event) => setProjectId(event.target.value)}>{catalog?.items.map((item) => <option value={item.project_id} key={item.project_id}>{item.display_name}</option>)}</select></label>
       <label className="field"><span>Platform</span><select aria-label="Platform" value={platform} onChange={(event) => setPlatform(event.target.value)}>{project?.platforms.map((item) => <option value={item.platform_id} key={item.platform_id}>{item.display_name}</option>)}</select></label>
@@ -199,8 +226,8 @@ function GatkSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     <section className="panel">
       <form className="form-grid gatk-submit-form" onSubmit={loadPreview}>
         {pipelineSelector}
-        <label className="field full"><span>WES project directory</span><input aria-label="WES project directory" value={sourceProjectDir} placeholder="/sg2/&lt;owner&gt;/WES_Clinical/WES_YYYYMMDDX_T7_*_hg38" onChange={(event) => { setSourceProjectDir(event.target.value); setPreview(null); }} /></label>
-        <p className="field-help field full">Preview requires the batch sampleinfo.SCMC.txt file and at least one sample. Runtime validation continues after submission.</p>
+        <label className="field full"><span>WES project directory</span><input aria-label="WES project directory" value={sourceProjectDir} placeholder="/sg2/21.lijing/WES_Clinical/WES_YYYYMMDDX_T7_V7.6.0_hg38" onChange={(event) => { setSourceProjectDir(event.target.value); setPreview(null); }} /></label>
+        <p className="field-help field full">SCMC samples are selected from sampleinfo and locked to the source configuration and barcode set.</p>
         <button className="button primary" type="submit" disabled={busy || !sourceProjectDir.trim()}>{busy ? "Checking..." : "Preview project"}</button>
       </form>
     </section>
@@ -211,7 +238,8 @@ function GatkSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
         <div><dt>Runtime profile</dt><dd>{preview.profile_id}</dd></div>
         <div><dt>Sampleinfo</dt><dd>{preview.sampleinfo_name}</dd></div>
         <div><dt>SCMC samples</dt><dd>{preview.sample_count}</dd></div>
-        <div><dt>SCMC manifest</dt><dd>{Object.values(preview.validation).every(Boolean) ? "Ready" : "Needs attention"}</dd></div>
+        <div><dt>FASTQ</dt><dd>{preview.fastq_file_count} files · {formatBytes(preview.fastq_total_bytes)}</dd></div>
+        <div><dt>Input checks</dt><dd>{Object.values(preview.validation).every(Boolean) ? "Passed" : "Needs attention"}</dd></div>
       </dl>
       <div className="table-wrap"><table className="data-table compact"><thead><tr><th>SCMC sample</th><th>Selection</th></tr></thead><tbody>{preview.samples.map((sample) => <tr key={sample}><td>{sample}</td><td><StatusBadge status="locked" size="sm" /></td></tr>)}</tbody></table></div>
       <div className="panel-actions"><button className="button primary" type="button" disabled={busy || Boolean(created) || !executionEnabled} onClick={() => void confirm()}>{busy ? "Submitting..." : "Confirm and submit"}</button></div>
@@ -219,6 +247,13 @@ function GatkSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     {created ? <p className="success-note">GATK Cloud submitted: <Link to={`/runs/${created.analysis_id}`}>{created.analysis_id}</Link>.</p> : null}
     {error ? <div className="inline-error" role="alert">{error}</div> : null}
   </div>;
+}
+
+function formatBytes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "0 B";
+  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  return `${(value / (1024 ** index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
 function SamplePreview({samples}: {samples: Sample[]}) {

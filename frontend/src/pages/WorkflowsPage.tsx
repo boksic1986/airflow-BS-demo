@@ -6,7 +6,7 @@ import {listRuns} from "../api";
 import {StatusBadge} from "../components/StatusBadge";
 import {LifecycleStatusBadge} from "../features/run-detail/DataLifecyclePanel";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
-import {errorMessage} from "../lib/errors";
+import {useSilentRefresh} from "../lib/useSilentRefresh";
 import {formatDate} from "../lib/format";
 
 const PAGE_SIZE = 20;
@@ -15,8 +15,6 @@ type LifecycleKey = "cloud_release" | "downstream_release";
 export function WorkflowsPage() {
   const capabilities = usePlatformCapabilities();
   const [runs, setRuns] = useState<RunSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [pipelineFilter, setPipelineFilter] = useState("all");
   const [cloudFilter, setCloudFilter] = useState("all");
   const [deliveryFilter, setDeliveryFilter] = useState("all");
@@ -27,21 +25,11 @@ export function WorkflowsPage() {
   const visibleItems = capabilities.pipelines.filter((pipeline) => capabilities.isDeployed(pipeline.id));
   const visibleIds = visibleItems.map((pipeline) => pipeline.id).join(",");
 
-  useEffect(() => {
-    if (capabilities.loading) return;
-    if (!visibleIds) {
-      setLoading(false);
-      return;
-    }
-    let disposed = false;
-    setLoading(true);
-    setError(null);
-    listRuns({pipeline: "deployed", sort: "created_desc", limit: 200})
-      .then((payload) => { if (!disposed) setRuns(payload.items); })
-      .catch((loadError) => { if (!disposed) setError(errorMessage(loadError)); })
-      .finally(() => { if (!disposed) setLoading(false); });
-    return () => { disposed = true; };
-  }, [capabilities.loading, visibleIds]);
+  const {loading, error} = useSilentRefresh(async ({isCurrent}) => {
+    if (!visibleIds) return;
+    const payload = await listRuns({pipeline: "deployed", sort: "created_desc", limit: 200});
+    if (isCurrent()) setRuns(payload.items);
+  }, visibleIds, !capabilities.loading);
 
   useEffect(() => { setPage(0); }, [pipelineFilter, cloudFilter, deliveryFilter, qcFilter, keyword]);
 

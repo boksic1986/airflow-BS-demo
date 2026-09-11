@@ -294,6 +294,7 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
     if restart_failed_attempt:
         return action_wgs_run(
             session=session,
+            settings=settings,
             airflow_client=airflow_client,
             analysis_id=run.analysis_id,
             action="rerun_failed",
@@ -484,7 +485,7 @@ def mark_submission_dag_failed(
         .order_by(RunAction.id.desc())
     )
 
-    if run.status == "success":
+    if run.status == "success" or (run.params_json or {}).get("submission_phase") in {"cancelling_submission", "cancelled"}:
         return {
             "analysis_id": analysis_id,
             "attempt": attempt,

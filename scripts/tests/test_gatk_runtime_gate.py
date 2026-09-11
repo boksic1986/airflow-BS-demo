@@ -152,6 +152,307 @@ def test_start_is_idempotent_for_same_generation(tmp_path: Path, monkeypatch) ->
     assert gate.start(analysis_id, 1, "step1_upload")["status"] == "success"
 
 
+def test_step1_transfer_environment_uses_observer_progress_contract(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    monkeypatch.setenv("GATK_TRANSFER_SPOOL_ROOT", str(tmp_path / "spool"))
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 2,
+        "stage": "step1_upload",
+        "execution_id": f"{analysis_id}-a2-step1_upload-g3",
+        "generation": 3,
+        "request_hash": "b" * 64,
+        "orchestration_contract_version": 2,
+    }
+
+    environment = gate._transfer_environment(payload)
+
+    expected_root = (
+        tmp_path
+        / "spool"
+        / analysis_id
+        / "attempt-2"
+        / "step1_upload"
+        / "generation-3"
+    )
+    assert environment["WGS_TRANSFER_PROGRESS_ROOT"] == str(expected_root.resolve())
+    assert environment["WGS_TRANSFER_DIRECTION"] == "upload"
+    assert environment["WGS_TRANSFER_PLAN_PATH"] == str(
+        (expected_root / "transfer-plan.json").resolve()
+    )
+    assert "WGS_TRANSFER_SPOOL_ROOT" not in environment
+
+
+def test_step5_transfer_environment_keeps_legacy_observer_path(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    monkeypatch.setenv("GATK_TRANSFER_SPOOL_ROOT", str(tmp_path / "spool"))
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 2,
+        "stage": "step5_download",
+        "execution_id": f"{analysis_id}-a2-step5_download-g3",
+        "generation": 3,
+        "request_hash": "b" * 64,
+    }
+
+    environment = gate._transfer_environment(payload)
+
+    expected = tmp_path / "spool" / analysis_id / "attempt-2" / "step5_download"
+    assert environment["WGS_TRANSFER_PROGRESS_ROOT"] == str(expected.resolve())
+
+
+def test_step1_transfer_plan_freezes_target_labels_and_sizes(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    monkeypatch.setenv("GATK_TRANSFER_SPOOL_ROOT", str(tmp_path / "spool"))
+    first = tmp_path / "input" / "lane-1.fq.gz"
+    second = tmp_path / "input" / "lane-2.fq.gz"
+    first.parent.mkdir()
+    first.write_bytes(b"A" * 7)
+    second.write_bytes(b"B" * 11)
+    runtime = tmp_path / "runtime"
+    bundle = runtime / "cce"
+    bundle.mkdir(parents=True)
+    (bundle / "BATCH_RUNTIME.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": 3,
+                "transfer_sources": [
+                    {"source": str(first), "target": "S1.R1.fq.gz"},
+                    {"source": str(second), "target": "S1.R2.fq.gz"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "stage": "step1_upload",
+        "runtime_workdir": str(runtime),
+        "execution_id": f"{analysis_id}-a1-step1_upload-g1",
+        "generation": 1,
+        "request_hash": "c" * 64,
+        "orchestration_contract_version": 2,
+    }
+
+    plan = gate._create_step1_transfer_plan(payload)
+
+    assert plan["files_total"] == 2
+    assert plan["bytes_total"] == 18
+    assert [item["relative_path"] for item in plan["entries"]] == [
+        "S1.R1.fq.gz",
+        "S1.R2.fq.gz",
+    ]
+
+
+def test_step1_retry_keeps_generation_one_plan_and_creates_generation_two_plan(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    monkeypatch.setenv("GATK_TRANSFER_SPOOL_ROOT", str(tmp_path / "spool"))
+    source = tmp_path / "input" / "S1.R1.fq.gz"
+    source.parent.mkdir()
+    source.write_bytes(b"AAAA")
+    runtime = tmp_path / "runtime"
+    bundle = runtime / "cce"
+    bundle.mkdir(parents=True)
+    (bundle / "BATCH_RUNTIME.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": 3,
+                "transfer_sources": [
+                    {"source": str(source), "target": "S1.R1.fq.gz"}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    base = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "stage": "step1_upload",
+        "runtime_workdir": str(runtime),
+        "orchestration_contract_version": 2,
+    }
+    generation_one = {
+        **base,
+        "execution_id": f"{analysis_id}-a1-step1_upload-g1",
+        "generation": 1,
+        "request_hash": "1" * 64,
+    }
+    generation_two = {
+        **base,
+        "execution_id": f"{analysis_id}-a1-step1_upload-g2",
+        "generation": 2,
+        "request_hash": "2" * 64,
+    }
+
+    first = gate._create_step1_transfer_plan(generation_one)
+    generation_one_evidence = gate._transfer_progress_root(generation_one) / "failed.json"
+    generation_one_evidence.write_text(
+        json.dumps({"generation": 1, "state": "failed"}), encoding="utf-8"
+    )
+    second = gate._create_step1_transfer_plan(generation_two)
+
+    assert first["execution_id"].endswith("-g1")
+    assert second["execution_id"].endswith("-g2")
+    assert gate._transfer_plan_path(generation_one).is_file()
+    assert gate._transfer_plan_path(generation_two).is_file()
+    assert gate._transfer_plan_path(generation_one) != gate._transfer_plan_path(
+        generation_two
+    )
+    assert json.loads(generation_one_evidence.read_text(encoding="utf-8")) == {
+        "generation": 1,
+        "state": "failed",
+    }
+    assert gate._create_step1_transfer_plan(generation_two) == second
+
+
+def test_step1_aggregate_ignores_foreign_raw_identity_and_publishes_current(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    monkeypatch.setenv("GATK_TRANSFER_SPOOL_ROOT", str(tmp_path / "spool"))
+    monkeypatch.setenv("GATK_RUNTIME_REQUEST_ROOT", str(tmp_path / "requests"))
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "stage": "step1_upload",
+        "execution_id": f"{analysis_id}-a1-step1_upload-g2",
+        "generation": 2,
+        "request_hash": "2" * 64,
+        "orchestration_contract_version": 2,
+    }
+    label = "S1.R1.fq.gz"
+    key = __import__("hashlib").sha256(label.encode("utf-8")).hexdigest()
+    plan = {
+        "entries": [{"relative_path": label, "size_bytes": 100}],
+        "manifest_sha256": "a" * 64,
+    }
+    root = gate._transfer_progress_root(payload)
+    root.mkdir(parents=True)
+    request = (
+        tmp_path
+        / "requests"
+        / analysis_id
+        / "attempt-1"
+        / "step1_upload.request.json"
+    )
+    request.parent.mkdir(parents=True)
+    request.write_text(json.dumps(payload), encoding="utf-8")
+    common = {
+        "schema_version": "wgs-runtime.transfer-progress.v1",
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "stage": "step1_upload",
+        "file_key": key,
+        "state": "running",
+        "bytes_done": 99,
+        "heartbeat_at": "2026-09-12T10:00:00Z",
+        "execution_id": payload["execution_id"],
+        "generation": 2,
+        "request_hash": payload["request_hash"],
+    }
+    for name, overrides in (
+        ("wrong-generation.json", {"generation": 1}),
+        ("invalid-generation.json", {"generation": "not-a-number"}),
+        ("wrong-execution.json", {"execution_id": "foreign"}),
+        ("wrong-hash.json", {"request_hash": "f" * 64}),
+    ):
+        (root / name).write_text(
+            json.dumps({**common, **overrides}), encoding="utf-8"
+        )
+    current_without_optional_identity = {
+        key: value
+        for key, value in common.items()
+        if key not in {"execution_id", "generation", "request_hash"}
+    }
+    (root / "current.json").write_text(
+        json.dumps(
+            {
+                **current_without_optional_identity,
+                "bytes_done": 7,
+                "heartbeat_at": "2026-09-12T09:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    progress = gate._aggregate_step1_transfer_progress(payload, plan)
+
+    assert progress["bytes_done"] == 7
+    assert progress["generation"] == 2
+    public = (
+        tmp_path
+        / "spool"
+        / analysis_id
+        / "attempt-1"
+        / "step1_upload"
+        / "progress.json"
+    )
+    assert json.loads(public.read_text(encoding="utf-8"))["execution_id"] == payload[
+        "execution_id"
+    ]
+
+
+def test_late_generation_one_cannot_publish_after_generation_two_request(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    monkeypatch.setenv("GATK_TRANSFER_SPOOL_ROOT", str(tmp_path / "spool"))
+    monkeypatch.setenv("GATK_RUNTIME_REQUEST_ROOT", str(tmp_path / "requests"))
+    base = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "stage": "step1_upload",
+        "orchestration_contract_version": 2,
+    }
+    generation_one = {
+        **base,
+        "execution_id": f"{analysis_id}-a1-step1_upload-g1",
+        "generation": 1,
+        "request_hash": "1" * 64,
+    }
+    generation_two = {
+        **base,
+        "execution_id": f"{analysis_id}-a1-step1_upload-g2",
+        "generation": 2,
+        "request_hash": "2" * 64,
+    }
+    request = (
+        tmp_path
+        / "requests"
+        / analysis_id
+        / "attempt-1"
+        / "step1_upload.request.json"
+    )
+    request.parent.mkdir(parents=True)
+    request.write_text(json.dumps(generation_two), encoding="utf-8")
+    plan = {
+        "entries": [{"relative_path": "S1.R1.fq.gz", "size_bytes": 100}],
+        "manifest_sha256": "a" * 64,
+    }
+    gate._transfer_progress_root(generation_one).mkdir(parents=True)
+
+    progress = gate._aggregate_step1_transfer_progress(generation_one, plan)
+
+    assert progress["generation"] == 1
+    assert (gate._transfer_progress_root(generation_one) / "progress.json").is_file()
+    assert not (gate._transfer_stage_root(generation_one) / "progress.json").exists()
+
+
 def test_prepare_retry_starts_worker_for_new_generation(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -310,13 +611,16 @@ def test_step6_materializes_to_approved_gatk_result_root(
 
     prepare = request_root / analysis_id / "attempt-1" / "prepare.request.json"
     prepare.parent.mkdir(parents=True)
-    expected_result = result_root / "20260908A" / analysis_id
+    source_project_name = "WES_20260908A_T7_V7.6.0_hg38"
+    expected_result = result_root / f"{source_project_name}_GATK"
     prepare.write_text(
         json.dumps(
             {
                 "analysis_id": analysis_id,
                 "attempt": 1,
                 "batch": "20260908A",
+                "source_project_dir": f"/source/{source_project_name}",
+                "result_project_name": f"{source_project_name}_GATK",
                 "result_root": str(expected_result),
             }
         ),
@@ -382,6 +686,8 @@ def test_step6_rejects_result_root_outside_configured_root(
                 "analysis_id": analysis_id,
                 "attempt": 1,
                 "batch": "20260908A",
+                "source_project_dir": "/source/WES_20260908A_T7_V7.6.0_hg38",
+                "result_project_name": "WES_20260908A_T7_V7.6.0_hg38_GATK",
                 "result_root": str(tmp_path / "outside" / analysis_id),
             }
         ),
@@ -396,3 +702,33 @@ def test_step6_rejects_result_root_outside_configured_root(
         assert "approved delivery location" in str(exc)
     else:
         raise AssertionError("unsafe GATK result root was accepted")
+
+
+def test_step6_keeps_legacy_result_root_for_frozen_request(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    request_root = tmp_path / "requests"
+    configured_root = tmp_path / "results"
+    expected_result = configured_root / "20260908A" / analysis_id
+    prepare = request_root / analysis_id / "attempt-1" / "prepare.request.json"
+    prepare.parent.mkdir(parents=True)
+    prepare.write_text(
+        json.dumps(
+            {
+                "analysis_id": analysis_id,
+                "attempt": 1,
+                "batch": "20260908A",
+                "source_project_dir": "/source/WES_20260908A_T7_V7.6.0_hg38",
+                "result_root": str(expected_result),
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GATK_RUNTIME_REQUEST_ROOT", str(request_root))
+    monkeypatch.setenv("GATK_RESULT_ROOT", str(configured_root))
+
+    assert gate._materialize_result_root(
+        {"analysis_id": analysis_id, "attempt": 1}
+    ) == expected_result.resolve()

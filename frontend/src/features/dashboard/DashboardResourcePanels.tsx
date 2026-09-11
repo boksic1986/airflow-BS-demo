@@ -86,24 +86,30 @@ function SfsIoPanel({item}: {item?: PlatformResourceSnapshot}) {
   const [period, setPeriod] = useState<"1h" | "24h" | "7d">("24h");
   const allPoints = (item?.history || []).map((point) => ({
     at: Date.parse(String(point.at || "")),
-    read: numeric(point.read_bps) ?? 0,
-    write: numeric(point.write_bps) ?? 0,
+    read: numeric(point.read_bps),
+    write: numeric(point.write_bps),
+    total: totalBandwidth(point),
   })).filter((point) => Number.isFinite(point.at));
   const latestAt = Math.max(0, ...allPoints.map((point) => point.at));
   const window = chartWindow(period, latestAt);
   const points = allPoints.filter((point) => point.at >= window.startAt && point.at <= window.endAt);
   const current = item?.current || {};
-  return <section className="panel resource-dashboard-panel"><div className="section-heading split"><h2>SFS I/O</h2><div className="period-selector compact-period-selector" role="tablist" aria-label="SFS I/O period">{(["1h", "24h", "7d"] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={period === value} className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{value.toUpperCase()}</button>)}</div></div>{points.length > 1 ? <BandwidthChart points={points} startAt={window.startAt} endAt={window.endAt} ticks={window.ticks} period={period} /> : <p className="empty-state">SFS I/O history is not available yet.</p>}<div className="sfs-io-current"><span><i className="sfs-read-dot" />Read <strong>{formatRate(current.read_bps)}</strong></span><span><i className="sfs-write-dot" />Write <strong>{formatRate(current.write_bps)}</strong></span><span>Current IOPS <strong>{metric(current.iops)}</strong></span></div></section>;
+  return <section className="panel resource-dashboard-panel"><div className="section-heading split"><h2>SFS I/O</h2><div className="period-selector compact-period-selector" role="tablist" aria-label="SFS I/O period">{(["1h", "24h", "7d"] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={period === value} className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{value.toUpperCase()}</button>)}</div></div>{points.length > 1 ? <BandwidthChart points={points} startAt={window.startAt} endAt={window.endAt} ticks={window.ticks} period={period} /> : <p className="empty-state">SFS I/O history is not available yet.</p>}<div className="sfs-io-current"><span><i className="sfs-read-dot" />Read <strong>{formatRate(current.read_bps)}</strong></span><span><i className="sfs-write-dot" />Write <strong>{formatRate(current.write_bps)}</strong></span><span><i className="sfs-total-dot" />Total <strong>{formatRate(totalBandwidth(current))}</strong>{numeric(current.total_bps) == null && totalBandwidth(current) != null ? <small>读＋写计算</small> : null}</span><span>Current IOPS <strong>{metric(current.iops)}</strong></span></div></section>;
 }
 
-function BandwidthChart({points, startAt, endAt, ticks, period}: {points: Array<{at: number; read: number; write: number}>; startAt: number; endAt: number; ticks: number[]; period: "1h" | "24h" | "7d"}) {
-  const maximum = Math.max(1, ...points.flatMap((point) => [point.read, point.write]));
-  const coordinates = (key: "read" | "write") => points.map((point) => {
+function BandwidthChart({points, startAt, endAt, ticks, period}: {points: Array<{at: number; read: number | null; write: number | null; total: number | null}>; startAt: number; endAt: number; ticks: number[]; period: "1h" | "24h" | "7d"}) {
+  const maximum = Math.max(1, ...points.flatMap((point) => [point.read ?? 0, point.write ?? 0, point.total ?? 0]));
+  const segments = (key: "read" | "write" | "total") => {
+    const parts: string[][] = [[]];
+    points.forEach(point => {
+    if (point[key] == null) { if (parts[parts.length-1].length) parts.push([]); return; }
     const x = ((point.at - startAt) / Math.max(1, endAt - startAt)) * 300;
-    const y = 92 - (point[key] / maximum) * 82;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
-  return <div className="sfs-chart-layout"><div className="sfs-chart-y-axis" aria-label="SFS bandwidth Y axis"><span>{formatRate(maximum)}</span><span>{formatRate(maximum / 2)}</span><span>{formatRate(0)}</span></div><div className="sfs-chart-plot"><svg className="sfs-io-chart" viewBox="0 0 300 100" role="img" aria-label="SFS read and write bandwidth history" preserveAspectRatio="none"><line x1="0" y1="92" x2="300" y2="92" className="sfs-chart-axis" /><line x1="0" y1="51" x2="300" y2="51" className="sfs-chart-grid" /><line x1="0" y1="10" x2="300" y2="10" className="sfs-chart-grid" /><polyline points={coordinates("read")} className="sfs-chart-read" /><polyline points={coordinates("write")} className="sfs-chart-write" /></svg><div className="sfs-chart-x-axis" aria-label="SFS bandwidth X axis">{ticks.map((tick) => <span key={tick}>{formatTick(tick, period)}</span>)}</div></div></div>;
+    const y = 92 - (point[key]! / maximum) * 82;
+    parts[parts.length-1].push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    });
+    return parts.filter(part => part.length).map(part=>part.join(' '));
+  };
+  return <div className="sfs-chart-layout"><div className="sfs-chart-y-axis" aria-label="SFS bandwidth Y axis"><span>{formatRate(maximum)}</span><span>{formatRate(maximum / 2)}</span><span>{formatRate(0)}</span></div><div className="sfs-chart-plot"><svg className="sfs-io-chart" viewBox="0 0 300 100" role="img" aria-label="SFS read and write bandwidth history" preserveAspectRatio="none"><line x1="0" y1="92" x2="300" y2="92" className="sfs-chart-axis" /><line x1="0" y1="51" x2="300" y2="51" className="sfs-chart-grid" /><line x1="0" y1="10" x2="300" y2="10" className="sfs-chart-grid" />{(["read", "write", "total"] as const).flatMap(key => segments(key).map((points, index) => <polyline key={`${key}-${index}`} points={points} className={`sfs-chart-${key}`} />))}</svg><div className="sfs-chart-x-axis" aria-label="SFS bandwidth X axis">{ticks.map((tick) => <span key={tick}>{formatTick(tick, period)}</span>)}</div></div></div>;
 }
 
 function chartWindow(period: "1h" | "24h" | "7d", latestAt: number) {
@@ -133,6 +139,13 @@ function formatTick(value: number, period: "1h" | "24h" | "7d"): string {
 function formatRate(value: unknown): string {
   const number = numeric(value);
   return number == null ? "not reported" : `${formatBytes(number)}/s`;
+}
+
+function totalBandwidth(value: Record<string, unknown>): number | null {
+  const total = numeric(value.total_bps);
+  if (total != null) return total;
+  const read = numeric(value.read_bps), write = numeric(value.write_bps);
+  return read != null && write != null ? read + write : null;
 }
 
 function numeric(value: unknown): number | null {

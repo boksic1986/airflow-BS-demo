@@ -1,4 +1,5 @@
 export type RunSummary = {
+  sample_scope_status?: "legacy" | "preparing" | "ready";
   analysis_id: string;
   project_name?: string | null;
   batch_no?: string | null;
@@ -43,6 +44,9 @@ export type RunListOptions = {
 };
 
 export type OperatorSample = {
+  selection_decision?: string | null;
+  selection_attempt?: number | null;
+  pending_reason?: string | null;
   analysis_id: string;
   project_name: string;
   batch_no?: string | null;
@@ -99,6 +103,7 @@ export type FailureListResponse = {
 };
 
 export type RunDetail = {
+  sample_scope_status?: "legacy" | "preparing" | "ready";
   analysis_id: string;
   pipeline: string;
   status: string;
@@ -334,6 +339,8 @@ export type WgsTransferFile = {
 };
 
 export type Sample = {
+  selection_decision?: string | null;
+  selection_attempt?: number | null;
   sample_id: string;
   data_id?: string | null;
   family_id?: string | null;
@@ -476,9 +483,9 @@ export type GatkSubmissionPreview = {
   fastq_total_bytes: number;
   samples: string[];
   validation: {
-    source_directory_readable: boolean;
-    scmc_sampleinfo_present: boolean;
-    scmc_samples_present: boolean;
+    sample_sets_match: boolean;
+    fastq_pairs_complete: boolean;
+    paths_approved: boolean;
   };
   expires_at: string;
 };
@@ -652,6 +659,9 @@ export type RunQc = {
 export type LogStream = "metadata" | "stdout" | "stderr";
 
 export type RunLog = {
+  query?: string;
+  match_count?: number;
+  search_complete?: boolean;
   path?: string;
   stream: LogStream;
   truncated: boolean;
@@ -916,6 +926,7 @@ export type DashboardAttentionItem = {
 };
 
 export type DashboardRunTrackerRow = {
+  sample_scope_status?: "legacy" | "preparing" | "ready";
   analysis_id: string;
   project_name: string;
   batch_no?: string | null;
@@ -1524,12 +1535,73 @@ export function getRunDetail(analysisId: string): Promise<RunDetail> {
   return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}`);
 }
 
+export type SubmissionCancelPreview = {analysis_id: string; attempt: number; effects: string[]};
+export function previewSubmissionCancel(id: string, attempt: number): Promise<SubmissionCancelPreview> {
+  return requestJson(`/runs/${encodeURIComponent(id)}/submission-cancel-preview?attempt=${attempt}`);
+}
+export function cancelSubmission(id: string, attempt: number): Promise<{status: string}> {
+  return requestJson(`/runs/${encodeURIComponent(id)}/actions/cancel-submission`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({attempt})});
+}
+
+export const WGS_SUBMISSION_PHASES: Record<string, string> = {
+  cancelling_submission: "取消尚未确认，可重试取消",
+  preparing_sampleinfo: "正在准备样本信息",
+  config_review: "等待确认配置",
+  preparing_analysis: "正在准备分析目录",
+  execution_review: "等待确认执行",
+};
+
+export async function listIncompleteWgsSubmissions(): Promise<RunDetail[]> {
+  // Reuse retained server records: no browser-only draft and no new run POST.
+  const active = ["created", "submitted", "queued", "running", "cancel_requested"];
+  const pages = await Promise.all(active.map(async (status) => {
+    const ids: string[] = [];
+    let offset = 0;
+    while (true) {
+      const page = await listRuns({pipeline: "wgs", status, limit: 100, offset});
+      ids.push(...page.items.filter(run => run.pipeline === "wgs" && active.includes(run.status)).map(run => run.analysis_id));
+      offset += page.items.length;
+      if (!page.items.length || offset >= page.total) return ids;
+    }
+  }));
+  const ids = [...new Set(pages.flat())];
+  const drafts: RunDetail[] = [];
+  // Bound detail concurrency rather than fetching every historical run.
+  for (let offset = 0; offset < ids.length; offset += 4) {
+    const details = await Promise.all(ids.slice(offset, offset + 4).map(getRunDetail));
+    drafts.push(...details.filter(run => run.pipeline === "wgs" && active.includes(run.status)
+      && run.params?.submission_mode !== "auto_dispatch"
+      && Object.hasOwn(WGS_SUBMISSION_PHASES, String(run.params?.submission_phase || ""))));
+  }
+  return drafts.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+}
+
 export function getRunWorkspace(analysisId: string): Promise<RunWorkspaceResponse> {
   return requestJson<RunWorkspaceResponse>(`/runs/${encodeURIComponent(analysisId)}/workspace`);
 }
 
 export function getRunSamples(analysisId: string): Promise<{items: Sample[]; manifest?: WgsSampleManifestRow[]; manifest_summary?: WgsManifestSummary}> {
   return requestJson<{items: Sample[]; manifest?: WgsSampleManifestRow[]; manifest_summary?: WgsManifestSummary}>(`/runs/${encodeURIComponent(analysisId)}/samples`);
+}
+
+export async function getWgsSubmissionSnapshot(analysisId: string): Promise<{detail: RunDetail; items: Sample[]}> {
+  const detail = await getRunDetail(analysisId);
+  if (detail.pipeline !== "wgs" || detail.analysis_id !== analysisId) throw new Error("Submission identity mismatch");
+  const selected = await getRunSamples(analysisId);
+  if (detail.params?.submission_phase !== "config_review" || selected.items.length) return {detail, items: selected.items};
+  // Run Detail deliberately excludes candidates. Configuration review uses the
+  // existing inventory API, fenced to this exact run and preparation attempt.
+  const items: Sample[] = [];
+  let offset = 0;
+  while (true) {
+    const page = await listSamplesResource({pipeline: "wgs", keyword: analysisId, limit: 200, offset});
+    items.push(...page.items.filter((sample) => sample.analysis_id === analysisId
+      && sample.selection_attempt === detail.attempt && sample.selection_decision === "candidate")
+      .map((sample) => ({...sample, status: "candidate"})));
+    offset += page.items.length;
+    if (!page.items.length || offset >= page.total) break;
+  }
+  return {detail, items};
 }
 
 export function getRunFamilies(analysisId: string): Promise<{items: WgsFamily[]}> {
@@ -1590,9 +1662,10 @@ export function getRunConfig(analysisId: string): Promise<RunConfig> {
   return requestJson<RunConfig>(`/runs/${encodeURIComponent(analysisId)}/config`);
 }
 
-export function getRunLog(analysisId: string, stream: LogStream, key?: string): Promise<RunLog> {
+export function getRunLog(analysisId: string, stream: LogStream, key?: string, query?: string): Promise<RunLog> {
   const params = new URLSearchParams({stream, tail: "200"});
   if (key) params.set("key", key);
+  if (query?.trim()) params.set("query", query.trim());
   return requestJson<RunLog>(`/runs/${encodeURIComponent(analysisId)}/logs?${params.toString()}`);
 }
 

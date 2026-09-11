@@ -1,13 +1,34 @@
 # SERVER_INFO.md
 
-## T253 observed deployment (2026-09-10)
+2026-09-11 WGS4.2.1 integration d8f5f05 deployed on server96 current existing
+20260910-t260-recovery-runtime-r1 via exact patches. API4.2.1/cc9bde3/r1/cce0.8.4;
+node gatecf17cd3c, new external wgs-4.2.1-r1.yaml and prepare default selected.
+Backend restarted only; nginx graceful reload resolved upstream cache502;
+health200. Worker/observer unchanged, scan/dispatchfalse; disabled scanner is
+self-restarting exit0 under existing unless-stopped policy, not agent-enabled.
+Rollback/current hashes and exact evidence in WGS421-ACTIVATE HANDOFF.
 
-BS10610 uses `releases/20260910-t253-platform-sync-66c41b5`, WGS 4.2 plus GATK,
-with scanner/auto dispatch disabled. Frontend is
-`airflow-demo/frontend:t253-platform-sync-66c41b5`.
-BS96 was inspected read only: current is
-`releases/20260910-t248-auto4-wgs420-r7`, WGS only, both automatic gates enabled.
-The integrated test source includes main, WGS T242 and GATK Step6 fixes.
+
+2026-09-11 Logs UI/API hotfix deployed from `763137c`: backend main.py/diagnostics_service.py and `index-bc6dsZAw.js` (CSS unchanged). Backend restarted only; worker/observer/scanner unchanged. Rollback current/rollback/log-search-20260911. Live0907D126fastp matches/10child sources verified; API healthy.
+
+
+2026-09-11 Step7 hotfix: actual t640 gate `/home/ctapa/.config/airflow-wgs/wgs_runtime_gate.py` updated from production-branch commit `f955ba9`, SHA256 `bc32a5b77dca4062d966f2a54e89d336bc8c83ed2a910dbd0e709ab5fa568258`. Private sibling rollback `.rollback-step7-20260911` retains prior gate. This supersedes only the gate hash in the baseline inventory; no service/release symlink/image change. Production API healthy; cleanup not executed.
+
+
+PROD-20260911 read-only branch inventory: server96 current20260910-t260-recovery-runtime-r1;
+backend/worker/observer/scanner use current source mounts; nginx serves patched static
+assets, not release-directory frontend/src. Node200 hostt640 has active gateddc28731.
+BS10610 current20260910-t258-cce084-r1 used isolated cached-image tests only. No
+service restart or gate/config/data mutation. Manifest in docs/releases records
+actual container IDs/images, flags and source hashes; dated entries below are historical.
+
+T255 activation final (2026-09-10): user-provided ctapa key selects correct BS96 UID6801; current release20260910-t255-heavy-master-r1 with three-file overlay5bb9e3f. Only backend recreated (e38d0d69fe79); all other containers preserved. CLI selection now versionedctapa0.8.3.post1, old nipttest0.8.3 unchanged. Live releaseWGS400ba1c/r2, healthok; DAG/scanner remain paused. Previous permission-blocker observation below is superseded.
+
+## T255 build and release observation (2026-09-10)
+
+BS10610/server10610 built reviewed Master imagea0112f0b8ef0 and pushed SWR digestf3c197d7ba30bec6c8318c80a949cb278d146ce6be783660e2b71e0b714df458. WGS public profile r2 references it; oldr1 retained. Independent ctapa CLI0.8.3.post1 is installed alongside unchanged nipttest0.8.3, not selected in runtime.env yet. Evidence archived to ctapa WGS_test/cce-evidence/T255-heavy-io.
+
+BS96/server96 remains current20260910-t249-upload-status-r1, source31dfde92ae3e63472d43075333025ac0b97d3f8c. SSH identitychenjc UID6708 cannot read production.env ownedctapa0600 and sudo requirespassword. Compose preflight failed before deployment; no containers recreated, runtime environment unchanged. Approved ctapa/admin release entry required for backend-only candidate5bb9e3f. Scanner remains exited and bio_wgs paused.
 
 ## T247 authoritative environment inventory (2026-09-09)
 
@@ -19,8 +40,7 @@ test_ssh: ssh BS10610
 test_hostname: server10610
 test_url: http://172.17.106.10:12959
 test_control_root: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS
-test_current: releases/20260910-t248-gatk-terminal-b816c91
-test_source_commit: b816c91bec1fcfb1013ed80276fb0ea635776c70
+test_current: releases/20260909-t246-gatk-tracker-f38156c
 test_pipelines: wgs,gatk
 test_scan: false
 test_auto_dispatch: false
@@ -51,24 +71,6 @@ production_cleanup_evidence: /data/airflow-WGS/backups/T247-docker-governance-20
 fengxian_state: running legacy airflow-demo:0.1.0 stack preserved
 fengxian_new_builds: prohibited
 fengxian_cleanup_evidence: /home/jiucheng/project/airflow-demo/.artifacts/T247-docker-governance-20260909
-```
-
-## T248 GATK finalize terminal repair (2026-09-10)
-
-```text
-environment: test
-ssh: ssh BS10610
-hostname: server10610
-control_release: releases/20260910-t248-gatk-terminal-b816c91
-control_code_commit: b816c91bec1fcfb1013ed80276fb0ea635776c70
-gatk_runtime_release: /bi/biodevrwbi/33.chenjiucheng/project/gatk-cloud-airflow/releases/4d6490a
-gatk_source_commit: 4d6490a
-gatk_cce_latency_wait_seconds: 180
-scanner: false
-auto_dispatch: false
-health: http://172.17.106.10:12959/api/health = 200
-validation: /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/validation/T248-green
-production_changed: false
 ```
 
 ## T240 Dashboard attention and Sample Information production sync (2026-09-09)

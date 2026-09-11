@@ -18,30 +18,25 @@ The first release is fixed to:
 
 ## Submission contract
 
-An operator enters an absolute WES project directory visible on `/sg2`. The
-backend resolves the directory and applies the deliberately small Preview
-contract:
+An operator enters one directory below `/sg2/21.lijing/WES_Clinical`. The
+backend resolves the directory without following it outside the configured
+source root and validates:
 
-- the project name contains one `YYYYMMDDX` batch identity;
-- the exact `<batch-prefix>.sampleinfo.SCMC.txt` exists as a regular,
-  non-symlink file and is readable;
-- the file contains the `data ID` column and at least one non-empty, unique
-  sample ID.
-
-The backend mounts `/sg2` read-only so projects owned by different teams can
-be previewed without adding one Compose mount per owner. Preview does not
-require the source config, barcode sidecar or directly named R1/R2 links.
-Those workflow-specific checks remain in the existing GATK builder/prepare
-runtime after submission.
+- `<batch-prefix>.sampleinfo.txt`;
+- `config.V7.6.0_hg38.yaml`;
+- `sample2hospitalBarCode.txt`;
+- one R1/R2 pair for every locked SCMC sample;
+- every FASTQ symlink target is below an approved FASTQ root. The initial
+  roots are `/sg2/T7new/result1/OutputFq` and `/bi/fastq/T7_Fastq`; both are
+  mounted read-only into the backend so absolute links under `a.raw` remain
+  resolvable without copying FASTQ data;
+- the sampleinfo, SCMC config and barcode sets are identical.
 
 `POST /api/pipelines/gatk/submission-preview` stores a 30-minute immutable
-draft and returns only a draft ID, hash, safe basenames, sample IDs, counts and
-validation booleans. It does not return clinical columns or complete FASTQ
-paths. The fingerprint covers the resolved project identity, batch, SCMC
-sampleinfo SHA256 and selected sample IDs. `POST /api/runs` re-reads those
-inputs, compares the hash and returns `409 GATK_INPUT_CHANGED` if they changed.
-The immutable runtime request narrows `approved_source_roots` to the exact
-selected project directory.
+draft and returns only a draft ID, hash, safe basenames, sample IDs, counts,
+bytes and validation booleans. It does not return clinical columns or complete
+FASTQ paths. `POST /api/runs` re-reads the source, compares the hash and returns
+`409 GATK_INPUT_CHANGED` if any protected input changed.
 
 The confirmation transaction locks the draft and takes a PostgreSQL advisory
 lock for the batch. Only one GATK run may be created for that batch. A failed
@@ -69,9 +64,8 @@ gate accepts only a GATK analysis ID, attempt and enumerated stage. It reads
 immutable requests below the configured GATK runtime root; no request may
 provide an arbitrary command.
 
-The GATK handoff calls the existing builder and the shared nipttest
-cce-pipeline 0.8.3 prepare logic. Manual GATK CLI behavior remains unchanged.
-The generated CCE bundle,
+The GATK handoff calls the existing builder and cce-pipeline 0.8.2 prepare
+logic. Manual GATK CLI behavior remains unchanged. The generated CCE bundle,
 request, receipts and evidence remain under
 `runtime/gatk/<analysis_id>`. Step6 reuses the frozen bundle's
 `cce_delivery.materialize_results()` helper but supplies the approved result
@@ -83,36 +77,6 @@ destination:
 
 The destination must exactly match `GATK_RESULT_ROOT/<batch>/<analysis_id>`;
 otherwise the runtime fails closed.
-
-For `backend_auto_export`, Step4 may reach OBS before the CCE export backend
-has made `payload-manifest.tsv` and `ANALYSIS_COMPLETE` visible. The node200
-gate treats only the exact `SFS backend export is not ready in OBS; retry
-Step4` result as transient. It polls every 30 seconds for at most two hours by
-default (`GATK_PUBLISH_POLL_SECONDS` and `GATK_PUBLISH_WAIT_SECONDS`). All
-other Step4 errors fail immediately with captured stdout/stderr. A failed
-stage retry creates a new fenced generation in the same analysis attempt; it
-does not rerun Step1 upload, Step2 Master creation, or Step3 analysis.
-If shared-storage caching briefly exposes a sidecar from the previous
-generation, the backend returns pending until the current generation is
-visible. It never imports that stale terminal state. A same-generation hash or
-execution mismatch, or any future generation, remains a hard identity error.
-
-The final `release_leases` task uses `all_done` so cleanup always runs, then
-checks all upstream task instances and fails itself if any upstream task is
-failed or upstream-failed. This prevents a successful cleanup leaf from
-incorrectly making a failed GATK DagRun appear successful.
-
-The CCE profile sets `latency-wait: 180` because final marker files are written
-through shared SFS. This changes only Snakemake's output visibility window; it
-does not retry or alter `cloud_gatk_finalize`, relax marker validation, or hide
-a genuinely missing output.
-
-When a runtime sidecar becomes terminal without progress fields, the backend
-retains the latest valid counters and current rule from logger evidence. The
-DagRun failure callback then closes the business projection: the matching
-failed rule remains failed, unfinished siblings become canceled, samples
-become failed, and terminal Run Tracker rows retain the same stage progress as
-Run Detail. A previously successful run is never downgraded by the callback.
 
 ## State and evidence
 

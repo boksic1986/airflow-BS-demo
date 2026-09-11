@@ -12,6 +12,8 @@ PRODUCTION_RESULT_ROOT = "/sg2/50.ctapa/project/HWcloud/WGS_Clinical"
 WGS_420_ROOT = "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0"
 WGS_411_ROOT = "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1"
 RELEASE_ROOTS = {
+    "wgs-4.2.0-31de5fb": WGS_420_ROOT,
+    "wgs-4.2.0-400ba1c": WGS_420_ROOT,
     "wgs-4.2.0-b067c72": WGS_420_ROOT,
     "wgs-4.1.1-6c98281": WGS_411_ROOT,
     "wgs-4.1.1-2499749": WGS_411_ROOT,

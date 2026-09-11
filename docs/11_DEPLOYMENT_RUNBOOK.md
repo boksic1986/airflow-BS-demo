@@ -1,59 +1,34 @@
 # Deployment runbook
 
+## GATK selective promotion, 2026-09-12
+
+Use `docker-compose.gatk.yaml` as an optional overlay on the verified WGS
+Compose contract. Configure independent `GATK_RUNTIME_HOST_ROOT`,
+`GATK_RUNTIME_NODE200_ROOT`, `GATK_EVIDENCE_HOST_ROOT`, `GATK_RESULT_ROOT`,
+`GATK_REPOSITORY_ROOT`, `GATK_OPERATOR_CONFIG` and restricted runner command.
+`GATK_SOURCE_POLICY` is restricted by default; this user-approved release sets
+unrestricted for explicit valid input projects, never for writable outputs.
+`GATK_EXECUTION_ENABLED` remains false until profile, gate, mounts, permissions,
+API and DAG import acceptance. Create pool `gatk_cce_runs` with size 1 and
+unpause `bio_gatk` at final manual activation. Preserve WGS scan/dispatch.
+
+Production may reuse the verified `wgs-node200` SSH host alias with the separate
+GATK forced-command path; this avoids editing WGS SSH keys/configuration. The
+test environment continues its own `gatk-node200` alias and `airflow-gatk-test`
+private directory. No test credentials, results or runtime are promoted.
+
+The normal production clone is `D:/pipeline/airflow-demo-production`.
+New development worktrees must branch from the published production main,
+inherit research documents and run runtime tests only on BS10610. Original
+dirty repositories and historical test refs are retained, not merged wholesale.
+See `docs/releases/GATK_PROMOTION_20260912.md` for actual completion and rollback.
+
+For the user-approved 2026-09-11 non-Git exact-source selection/refresh patch, use [release evidence and rollback](selection-refresh-20260911.md). Only backend/observer restarted; frontend updated hashed assets then atomic index; current Worker/scanner/Master must remain untouched. WGS prepare source writable alias verified on BS10610, not node200's read-only /bi mount. No environment variables or public ports added.
+
 Environment selection, host aliases, directory ownership and image-retention
 rules are authoritative in `docs/34_TEST_PRODUCTION_RELEASE_BOUNDARY.md`.
 Dated release sections below are historical evidence. They must not override a
 fresh `ssh BS10610` or `ssh BS96` preflight.
-## T248 retained-baseline recovery and automatic run
-
-Before retention cleanup, create Airflow and biodemo dumps below an explicit
-task evidence directory. Storage cleanup may target only approved SFS and OBS
-test prefixes. It must never remove the T7 source FASTQ root or any directory
-under the production WGS project-analysis root. Use exact guarded database
-transactions and inventory the post-delete retained rows before enabling the
-scanner.
-
-For WGS 4.2.0, node200 uses nipttest `cce-pipeline 0.8.3`. MongoDB 4.0 requires
-a compatible client; the validated nipttest runtime uses PyMongo 4.9.2. Do not
-use this compatibility requirement as authorization to modify or revalidate
-pipeline source.
-
-Automatic submissions must run `prepare_sampleinfo` and `prepare_analysis`,
-preserve `submission_phase=approved`, and commit execution before Step1. The
-generated operator config must omit legacy OBS SDK-only fields because Step1
-and Step5 use obsutil. If a failed earlier attempt left an unbound analysis
-directory, retain it intact below the new attempt's `history/prepare_analysis`
-tree before regeneration; never delete it.
-
-When an obsutil command flattens a transfer-plan directory prefix, the wrapper
-may use a unique basename match to emit the same SHA-256 file key. Ambiguous
-basenames fail closed to aggregate-only progress. After rollout, verify a
-subsequent batch creates file-level rows, not only aggregate bytes.
-
-Enable scanning only after obsolete source directories are listed in
-`WGS_INTAKE_IGNORED_CHIP_IDS`. The approved production interval is 1800
-seconds. Verify one upload lease, no duplicate dispatch, and no more than 25
-Heavy Slots. Monitor each approved analysis through Step6 and stop on an
-unresolved execution/evidence mismatch.
-
-## T242 WGS 4.2 activation
-
-Activate only with zero active WGS runs and transfer leases. Keep automatic
-dispatch disabled, preserve the 4.1.1 release mapping, and select the validated
-nipttest cce-pipeline 0.8.3. Production results remain under the ctapa
-WGS_Clinical root. Do not use Step7 or Step8 as an activation probe.
-
-Runtime execution does not invoke Git and does not revalidate pipeline/profile
-contents; release replacement and its published evidence are operator-owned.
-The gate verifies only that the configured cce-pipeline executable exists and
-reports the run-bound adapter version. Existing historical frozen bindings are
-reusable, but historical reprepare without a binding is rejected.
-## BS10610 test endpoint
-
-BS10610 (`server10610`) is the dedicated test deployment. Its user-facing
-frontend endpoint is `http://172.17.106.10:12959`. The address is bound to the
-host interface `172.17.106.10/24`; do not shorten it to `172.10.106.10` and do
-not use the production `.96` endpoint when validating this environment.
 
 ## T240 rollout boundary
 
@@ -197,13 +172,9 @@ Rollback by repointing `current` to the preceding physical release and recreatin
    and set mode 0600.
 3. Verify the GATK repository is exactly the approved release and the pinned
    Master image provides the `rule-status` logger contract.
-4. Verify the backend mounts `/sg2` read-only. GATK Preview may accept projects
-   owned by any team; confirmation freezes that project as the runtime request's
-   only approved source root. Runtime input selection prefers
-   `<batch-prefix>_hg38.sampleinfo.txt`, then the SCMC and legacy sampleinfo
-   names. Source project versions may be V7.6.x-V7.7.x, while the execution
-   profile remains the separately validated `gatk-scmc-v7.6.0`. Keep FASTQ
-   roots read-only for runtime compatibility.
+4. Verify the backend has same-path read-only mounts for every approved FASTQ
+   root. The initial deployment requires both `/sg2/T7new/result1/OutputFq`
+   and `/bi/fastq/T7_Fastq` because existing `a.raw` links use both spellings.
 5. Run preview/prepare, CCE dry-run and logger smoke before any real transfer.
 6. Execute one controlled SCMC Step1-Step6 smoke. Confirm source FASTQ hashes,
    terminal rule evidence and the materialized result root.
@@ -212,16 +183,3 @@ Rollback by repointing `current` to the preceding physical release and recreatin
 
 To rollback, set the gate false and recreate only affected control-plane
 services. Preserve database/evidence/result state for diagnosis.
-# GATK Step4 export wait and tail recovery
-
-When a GATK Master is successful but Step4 reports only
-`SFS backend export is not ready in OBS; retry Step4`, first verify the frozen
-run identity and both OBS terminal markers. Deploy the matching backend and
-node200 gate release, then clear `start_step4_publish` and its downstream tasks
-for the exact DagRun. Do not clear Prepare or Step1-Step3.
-
-The retried Step4 must register a new generation in the same attempt. Confirm
-that the business run reopens from the old terminal projection, then require
-Step4, Step5 download, Step6 materialization, finalize, and lease release to
-finish in that order. Any different Step4 error is non-retryable and requires
-diagnosis rather than another clear.

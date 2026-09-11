@@ -144,6 +144,13 @@ it("shows compact node and SFS utilization bars with updated times in the headin
   expect(screen.queryByText("node-96")).not.toBeInTheDocument();
 });
 
+it('calculates total from complete read/write values when cloud total is absent', () => {
+  const fallback = {...resources, items: resources.items.map(item => ({...item, current: {...item.current, total_bps: null}}))};
+  render(<DashboardResourcePanels resources={fallback} resourceTab="all" overview={null} rows={[]} loading={false} error={null} onResourceTabChange={()=>{}} />);
+  expect(screen.getByText('12.0 KiB/s', {selector:'strong'})).toBeInTheDocument();
+  expect(screen.getByText('读＋写计算')).toBeInTheDocument();
+});
+
 it("replaces workflow activity with the SFS read and write history", () => {
   render(
     <MemoryRouter>
@@ -161,6 +168,8 @@ it("replaces workflow activity with the SFS read and write history", () => {
 
   expect(screen.queryByRole("heading", {name: "Workflow Activity"})).not.toBeInTheDocument();
   expect(screen.getByRole("heading", {name: "SFS I/O"})).toBeInTheDocument();
+  expect(screen.getByText('Total')).toBeInTheDocument();
+  expect(screen.getByText('12.0 KiB/s', {selector:'strong'})).toBeInTheDocument();
   expect(screen.queryByText("Bandwidth uses binary units (GiB/s).")).not.toBeInTheDocument();
   expect(screen.getByRole("tab", {name: "24H"})).toHaveAttribute("aria-selected", "true");
   expect(screen.getByRole("tab", {name: "1H"})).toBeInTheDocument();
@@ -171,12 +180,12 @@ it("replaces workflow activity with the SFS read and write history", () => {
   expect(readPoints).not.toMatch(/^0\.0,/);
   expect(readPoints).not.toMatch(/300\.0,/);
   const yAxis = screen.getByLabelText("SFS bandwidth Y axis");
-  expect(within(yAxis).getByText("8.0 KiB/s")).toBeInTheDocument();
-  expect(within(yAxis).getByText("4.0 KiB/s")).toBeInTheDocument();
+  expect(within(yAxis).getByText("12.0 KiB/s")).toBeInTheDocument();
+  expect(within(yAxis).getByText("6.0 KiB/s")).toBeInTheDocument();
   expect(within(yAxis).getByText("0 B/s")).toBeInTheDocument();
   expect(screen.getByText("Read")).toBeInTheDocument();
   expect(screen.getByText("Write")).toBeInTheDocument();
-  expect(screen.queryByText("Total")).not.toBeInTheDocument();
+  expect(screen.getByText("Total")).toBeInTheDocument();
   expect(screen.getByText("Current IOPS")).toBeInTheDocument();
   expect(screen.getByText("12")).toBeInTheDocument();
   const defaultAxis = screen.getByLabelText("SFS bandwidth X axis");

@@ -153,6 +153,18 @@ def _public_file(arguments: list[str], plan_path: Path | None) -> dict[str, obje
     }
 
 
+def _is_planned_payload_transfer(arguments: list[str]) -> bool:
+    """Limit plan-backed evidence to resumable payload copy commands.
+
+    cce-pipeline probes every destination with ``obsutil stat`` before it starts
+    the bounded upload pool.  A missing object is the expected result of that
+    probe, not a failed file transfer.  Payload uploads/downloads are the only
+    plan-backed commands that use both ``cp`` and a checkpoint directory.
+    """
+
+    return bool("cp" in arguments and _checkpoint_root(arguments))
+
+
 def main() -> int:
     real = os.environ.get("WGS_REAL_OBSUTIL_BIN", "").strip()
     root = os.environ.get("WGS_TRANSFER_PROGRESS_ROOT", "").strip()
@@ -166,6 +178,8 @@ def main() -> int:
     direction = os.environ.get("WGS_TRANSFER_DIRECTION")
     checkpoint_root = _checkpoint_root(arguments)
     plan_text = os.environ.get("WGS_TRANSFER_PLAN_PATH", "").strip()
+    if plan_text and not _is_planned_payload_transfer(arguments):
+        return subprocess.call([real, *arguments])
     public_file = _public_file(arguments, Path(plan_text) if plan_text else None)
     started_at = datetime.now(timezone.utc).isoformat()
     state = {

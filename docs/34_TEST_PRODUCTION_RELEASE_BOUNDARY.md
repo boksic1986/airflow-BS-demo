@@ -27,9 +27,9 @@ using a test path in production or a production credential in test.
 | Hostname | `server10610` | `server96` |
 | Gateway | `http://172.17.106.10:12959` | `http://172.17.61.96:12959` |
 | Control root | `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS` | `/data/airflow-WGS` |
-| Pipelines | `wgs,gatk` | `wgs` only |
-| Intake scanner | disabled | enabled |
-| Auto dispatch | disabled | enabled by production policy |
+| Pipelines | `wgs,gatk` | `wgs,gatk` after approved GATK promotion |
+| Intake scanner | disabled | preserve current approved setting (observed disabled 2026-09-12) |
+| Auto dispatch | disabled | preserve current approved setting (observed disabled 2026-09-12) |
 | Database | disposable test state | retained production state |
 
 Only frontend-nginx publishes port 12959. Backend, Airflow, PostgreSQL, Redis,
@@ -48,11 +48,6 @@ WGS_AUTO_DISPATCH_NOT_BEFORE=<approved ISO-8601 activation time>
 The 2026-09-09 read-only observation found scanning enabled but auto dispatch
 disabled in both backend and scanner. That is recorded drift from the policy
 above, not permission for a documentation or cleanup task to enable analysis.
-
-The 2026-09-10 T253 read-only production check supersedes that observation:
-both gates are true, with not-before `2026-09-08T08:00:00Z`. Test still has both
-gates false. Synchronizing source from production must preserve the test gates,
-test runtime identity and test data roots.
 
 ## Directory contract
 
@@ -98,8 +93,19 @@ WGS FASTQ input:
   /bi/fastq/T7_Fastq
 ```
 
-Production deploys WGS only. GATK code present in the repository does not
-authorize a production GATK mount, DAG, pipeline capability or execution gate.
+The 2026-09-12 user-approved selective promotion authorizes manual production
+GATK, with output `/sg2/50.ctapa/project/HWcloud/WES_Clinical`, independent
+runtime `/sg2/50.ctapa/project/HWcloud/airflow-gatk/runtime` and node private
+configuration `/home/ctapa/.config/airflow-gatk`. It does not authorize a real
+analysis submission or enabling WGS scanning/automatic dispatch. Deployment
+completion is recorded separately in `docs/releases/GATK_PROMOTION_20260912.md`.
+
+GATK input project directories have no business-root whitelist when explicitly
+configured with `GATK_SOURCE_POLICY=unrestricted`; the default remains restricted.
+Authentication, valid project structure, input fingerprint and frozen exact
+attempt identity still apply. Approved `/sg2` and `/bi` container visibility is
+read-only; neither input paths nor arbitrary host roots become writable.
+Never copy test runtime, evidence, credentials or database to production.
 
 ## Permission contract
 

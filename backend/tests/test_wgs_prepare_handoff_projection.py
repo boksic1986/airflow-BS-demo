@@ -36,6 +36,9 @@ def test_analysis_handoff_imports_safe_pending_reason_without_clinical_fields() 
             run=run,
             receipt={
                 "schema_version": "wgs.prepare-analysis.receipt.v1",
+                "analysis_id": run.analysis_id,
+                "attempt": run.attempt,
+                "excluded": [],
                 "selected": [{
                     "sample_id": "S1",
                     "family_id": "F1",

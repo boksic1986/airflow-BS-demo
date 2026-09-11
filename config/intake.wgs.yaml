@@ -8,11 +8,11 @@ pipelines:
       mode: t7_scan_only
       project_id: WGS_Clinical
       root_id: T7_Fastq
-      scheduled_scan_enabled: false
+      scheduled_scan_enabled: true
       interval_seconds: 1800
       completion_marker: BarcodeStat.txt
       chip_directory_pattern: '^\d+th_(\d{8}[A-Z])_[A-Za-z0-9.-]+$'
       exclude_addon_sample_pattern: '-S\d+$'
-      auto_dispatch_enabled: false
+      auto_dispatch_enabled: true
     auto_submit:
       enabled: false

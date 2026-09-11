@@ -18,7 +18,7 @@ import {
   getRunRules,
   getRunSamples,
   submitRun,
-  syncAirflow, cancelRun, cleanupStep7, rerunFailedRun, resumeRun, revalidateRun, repairStep4, updateWgsExecutionChoice,
+  cancelRun, cleanupStep7, rerunFailedRun, resumeRun, revalidateRun, repairStep4, updateWgsExecutionChoice,
 } from "../api";
 import {useSession} from "../features/auth/SessionContext";
 import {ErrorPanel} from "../components/ErrorPanel";
@@ -37,6 +37,7 @@ import {errorMessage, parseErrorSummary} from "../lib/errors";
 import {compactPipelineName, formatDate, formatDuration, formatPercent, formatSecondsDuration} from "../lib/format";
 import {progressFromResponse} from "../lib/runProgress";
 import {isActiveStatus, isFailedStatus} from "../lib/status";
+import {useSilentRefresh} from "../lib/useSilentRefresh";
 
 const allTabs = ["Overview", "Samples", "Rules", "Master", "Transfers", "QC", "Logs", "Files"] as const;
 type DetailTab = (typeof allTabs)[number];
@@ -65,37 +66,32 @@ export function RunDetailPage() {
   const capabilityKey = capabilities.deployed_pipelines.join(",");
   const [bundle, setBundle] = useState<Bundle>(emptyBundle);
   const [summary, setSummary] = useState({sample_count: 0, rule_count: 0, failed_rule_count: 0, batch_qc_status: "unknown"});
-  const [loadedTabs, setLoadedTabs] = useState<Set<DetailTab>>(new Set());
   const [tabError, setTabError] = useState<string | null>(null);
   const [log, setLog] = useState<RunLog | null>(null);
   const [logStream, setLogStream] = useState<LogStream>("metadata");
   const [logSources, setLogSources] = useState<RunLogIndexItem[]>([]);
   const [logKey, setLogKey] = useState<string | null>(null);
+  const [logQuery, setLogQuery] = useState("");
   const [activeTab, setActiveTab] = useState<DetailTab>("Overview");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [logError, setLogError] = useState<string | null>(null);
   const [logIndexError, setLogIndexError] = useState<string | null>(null);
   const [progressError, setProgressError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
   const [lastAutoSyncedAt, setLastAutoSyncedAt] = useState<string | null>(null);
-  const workspaceRequestInFlight = useRef(false);
+  const currentRoute = useRef(analysisId);
+  currentRoute.current = analysisId;
 
-  const loadDetail = useCallback(async (showSpinner = true) => {
+  const loadDetail = useCallback(async (_showSpinner = false, current?: () => boolean) => {
     if (!analysisId) return;
-    if (workspaceRequestInFlight.current) return;
-    workspaceRequestInFlight.current = true;
-    if (showSpinner) setLoading(true);
-    setError(null);
-    setProgressError(null);
-    try {
+    const isCurrent = current || (() => currentRoute.current === analysisId);
       let detail: RunDetail;
       let progress: RunProgressResponse | null;
       let validationIssues: WgsValidationIssue[];
       let slotUsage: Bundle["slotUsage"];
       try {
         const workspace = await getRunWorkspace(analysisId);
+        if (!isCurrent()) return;
         detail = workspace.run;
         progress = workspace.progress;
         validationIssues = workspace.validation_issues || [];
@@ -120,6 +116,7 @@ export function RunDetailPage() {
           getRunRules(analysisId, {limit: 1, status: "failed"}),
           getRunValidationIssues(analysisId).catch(() => ({items: []})),
         ]);
+        if (!isCurrent()) return;
         detail = legacyDetail;
         progress = legacyProgress;
         validationIssues = issues.items;
@@ -131,20 +128,15 @@ export function RunDetailPage() {
         throw new Error("This run belongs to a pipeline that is not deployed in this environment.");
       }
       setBundle((current) => ({...current, detail, progress, validationIssues, slotUsage}));
-    } catch (loadError) {
-      setError(errorMessage(loadError));
-    } finally {
-      if (showSpinner) setLoading(false);
-      workspaceRequestInFlight.current = false;
-    }
+      return detail;
   }, [analysisId, capabilities]);
 
   async function loadLog(stream: LogStream, key?: string | null) {
     if (!analysisId) return;
-    setLog(null);
     setLogError(null);
     try {
-      setLog(await getRunLog(analysisId, stream, key || undefined));
+      const result = await getRunLog(analysisId, stream, key || undefined);
+      if (currentRoute.current === analysisId) setLog(result);
     } catch (loadError) {
       setLogError(errorMessage(loadError));
     }
@@ -153,17 +145,10 @@ export function RunDetailPage() {
   useEffect(() => {
     setBundle(emptyBundle);
     setSummary({sample_count: 0, rule_count: 0, failed_rule_count: 0, batch_qc_status: "unknown"});
-    setLoadedTabs(new Set());
-    if (!capabilities.loading) void loadDetail();
-  }, [analysisId, capabilities.loading, capabilityKey]);
-  useEffect(() => {
-    const pipeline = bundle.detail?.pipeline;
-    if (
-      pipeline
-      && capabilities.isDeployed(pipeline as DeployedPipeline)
-      && (!["wgs", "gatk"].includes(pipeline) || Boolean(logKey))
-    ) void loadLog(logStream, logKey);
-  }, [analysisId, bundle.detail?.pipeline, capabilityKey, logKey, logStream]);
+    setLog(null);
+    setLogKey(null);
+    setLogQuery("");
+  }, [analysisId]);
 
   function handleLogKeyChange(nextKey: string) {
     const source = logSources.find((item) => item.key === nextKey);
@@ -178,79 +163,51 @@ export function RunDetailPage() {
     ? allTabs.filter((tab) => tab !== "QC")
     : [...allTabs];
 
-  useEffect(() => {
-    if (!analysisId || !detail || loadedTabs.has(activeTab)) return;
-    let canceled = false;
-    const loadTab = async () => {
+  const {loading, error, refresh: refreshDetail} = useSilentRefresh(async ({isCurrent}) => {
+    const freshDetail = await loadDetail(false, isCurrent);
+    if (!freshDetail || !isCurrent()) return;
+    const currentAttempt = freshDetail.attempt;
+    const publish = (update: (current: Bundle) => Bundle) => {
+      if (isCurrent()) setBundle((current) => current.detail?.attempt === currentAttempt ? update(current) : current);
+    };
       setTabError(null);
       try {
         if (activeTab === "Overview" || activeTab === "Samples" || activeTab === "QC") {
           const result = await getRunSamples(analysisId);
-          if (!canceled) setBundle((current) => ({...current, samples: result.items, manifest: result.manifest || [], manifestSummary: result.manifest_summary || null}));
+          publish((current) => ({...current, samples: result.items, manifest: result.manifest || [], manifestSummary: result.manifest_summary || null}));
         } else if (activeTab === "Rules") {
           const result = await getRunRules(analysisId, {limit: 50, sort: "active_first"});
-          if (!canceled) setBundle((current) => ({...current, rules: result.items}));
+          publish((current) => ({...current, rules: result.items}));
         } else if (activeTab === "Master") {
           const result = await getRunPods(analysisId);
-          if (!canceled) setBundle((current) => ({...current, pods: result.items}));
+          publish((current) => ({...current, pods: result.items}));
         } else if (activeTab === "Transfers") {
           const result = await getRunTransfers(analysisId);
-          if (!canceled) setBundle((current) => ({...current, transfers: result.items}));
+          publish((current) => ({...current, transfers: result.items}));
         } else if (activeTab === "Logs") {
           const result = await getRunLogIndex(analysisId);
-          if (!canceled) {
+          if (isCurrent()) {
             setLogSources(result.items);
-            const preferred = preferredLogSource(result.items, detail.status, bundle.progress?.current_step) || result.items[0];
-            if (preferred) {
+            const preferred = preferredLogSource(result.items, freshDetail.status, bundle.progress?.current_step) || result.items[0];
+            if (preferred && !logKey) {
               setLogKey(preferred.key);
               setLogStream(preferred.stream === "stderr" ? "stderr" : preferred.stream === "metadata" ? "metadata" : "stdout");
+            }
+            if (logKey) {
+              const nextLog = await getRunLog(analysisId, logStream, logKey, logQuery);
+              if (isCurrent()) setLog(nextLog);
             }
           }
         } else if (activeTab === "Files") {
           const result = await getRunArtifacts(analysisId);
-          if (!canceled) setBundle((current) => ({...current, artifacts: result.items}));
+          publish((current) => ({...current, artifacts: result.items}));
         }
-        if (!canceled) setLoadedTabs((current) => {
-          const next = new Set(current).add(activeTab);
-          if (activeTab === "Overview" || activeTab === "Samples" || activeTab === "QC") {
-            next.add("Overview");
-            next.add("Samples");
-            next.add("QC");
-          }
-          return next;
-        });
+        if (isCurrent()) setLastAutoSyncedAt(new Date().toISOString());
       } catch (loadError) {
-        if (!canceled) setTabError(errorMessage(loadError));
+        if (isCurrent()) setTabError(errorMessage(loadError));
+        throw loadError;
       }
-    };
-    void loadTab();
-    return () => { canceled = true; };
-  }, [activeTab, analysisId, detail?.status, loadedTabs]);
-
-  useEffect(() => {
-    const step7Status = detail?.step7_cleanup?.latest_action?.status?.toLowerCase();
-    const step7Active = step7Status === "requested" || step7Status === "queued" || step7Status === "running";
-    if (!analysisId || !detail || (!isActiveStatus(detail.status) && !step7Active)) return;
-    const refreshActiveRun = async () => {
-      if (document.visibilityState === "hidden") return;
-      await loadDetail(false);
-      if (activeTab === "Rules") {
-        const result = await getRunRules(analysisId, {limit: 50, sort: "active_first"});
-        setBundle((current) => ({...current, rules: result.items}));
-      } else if (activeTab === "Overview" || activeTab === "Samples" || activeTab === "QC") {
-        const result = await getRunSamples(analysisId);
-        setBundle((current) => ({...current, samples: result.items, manifest: result.manifest || [], manifestSummary: result.manifest_summary || null}));
-      } else if (activeTab === "Transfers") {
-        const result = await getRunTransfers(analysisId);
-        setBundle((current) => ({...current, transfers: result.items}));
-      }
-      setLastAutoSyncedAt(new Date().toISOString());
-    };
-    const interval = window.setInterval(() => void refreshActiveRun(), 5000);
-    const onVisibility = () => { if (document.visibilityState === "visible") void refreshActiveRun(); };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", onVisibility); };
-  }, [activeTab, analysisId, detail?.status, detail?.step7_cleanup?.latest_action?.status, loadDetail]);
+  }, JSON.stringify([analysisId, activeTab, detail?.attempt, capabilityKey, logKey, logStream, logQuery]), !capabilities.loading && Boolean(analysisId));
 
   const failedRule = bundle.rules.find((rule) => isFailedStatus(rule.status));
   const diagnosis = parseErrorSummary(
@@ -262,21 +219,20 @@ export function RunDetailPage() {
   const pipelineCapabilities = capabilities.pipelines.find((item) => item.id === detail?.pipeline)?.capabilities || [];
   const canResume = pipelineCapabilities.includes("resume");
   const canRerun = pipelineCapabilities.includes("rerun");
-  async function runAction(action: "sync" | "submit" | "resume" | "rerun_failed" | "cancel" | "revalidate" | "repair_step4") {
+  async function runAction(action: "submit" | "resume" | "rerun_failed" | "cancel" | "revalidate" | "repair_step4") {
     if (!analysisId) return;
     setActing(true);
     setActionError(null);
     try {
-      if (action === "sync") await syncAirflow(analysisId);
       if (action === "submit") await submitRun(analysisId);
       if (action === "resume") await resumeRun(analysisId);
       if (action === "rerun_failed") await rerunFailedRun(analysisId);
       if (action === "cancel") await cancelRun(analysisId);
       if (action === "revalidate") await revalidateRun(analysisId);
       if (action === "repair_step4") await repairStep4(analysisId);
-      await loadDetail();
-      await loadLog(action === "sync" ? logStream : "stdout");
-      if (action !== "sync") setLogStream("stdout");
+      await refreshDetail();
+      await loadLog("stdout");
+      setLogStream("stdout");
     } catch (actionFailure) {
       setActionError(errorMessage(actionFailure));
     } finally {
@@ -290,7 +246,7 @@ export function RunDetailPage() {
     setActing(true); setActionError(null);
     try {
       await cleanupStep7(analysisId, batchConfirmation, retryFailed && latestAction ? {retryFailed: true, expectedActionId: latestAction.action_id} : undefined);
-      await loadDetail();
+      await refreshDetail();
     } catch (actionFailure) { setActionError(errorMessage(actionFailure)); }
     finally { setActing(false); }
   }
@@ -298,7 +254,7 @@ export function RunDetailPage() {
   async function switchExecutionTarget(payload: WgsExecutionChoiceRequest) {
     if (!analysisId) return;
     await updateWgsExecutionChoice(analysisId, payload);
-    await loadDetail();
+    await refreshDetail();
   }
 
   if (loading && !detail) return <p className="muted">Loading run detail...</p>;
@@ -317,15 +273,14 @@ export function RunDetailPage() {
             {detail.status === "failed" && canResume ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("resume")}><RotateCcw size={15} />Resume</button> : null}
             {detail.status === "failed" && canRerun ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("rerun_failed")}><RotateCcw size={15} />Rerun failed</button> : null}
             {detail.pipeline !== "gatk" && isActiveStatus(detail.status) && !(detail.execution_dispatch?.desired_mode === "cce" && ["committed", "running"].includes(detail.execution_dispatch.dispatch_state)) ? <button className="button ghost" type="button" disabled={acting} onClick={() => void runAction("cancel")}><Square size={15} />Cancel</button> : null}
-            <button className="button ghost" type="button" disabled={acting || !detail.dag_run_id} onClick={() => void runAction("sync")}><RefreshCw size={15} />Sync Airflow</button>
           </div>
         </section>
         {actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
-        {detail.pipeline === "wgs" && detail.execution_dispatch ? <ExecutionTargetSelector attempt={detail.attempt || 1} batch={String(detail.params?.batch || detail.params?.sequencing_batch || detail.params?.batch_no || "-")} sampleCount={summary.sample_count} dispatch={detail.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={loadDetail} /> : null}
+        {detail.pipeline === "wgs" && detail.execution_dispatch ? <ExecutionTargetSelector attempt={detail.attempt || 1} batch={String(detail.params?.batch || detail.params?.sequencing_batch || detail.params?.batch_no || "-")} sampleCount={summary.sample_count} dispatch={detail.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={refreshDetail} /> : null}
         {detail.step4_repair?.available || detail.step4_repair?.latest_action ? <Step4RepairPanel capability={detail.step4_repair} canOperate={session.hasRole("operator")} acting={acting} onRepair={() => void runAction("repair_step4")} /> : null}
         {detail.status === "needs_review" ? <section className="panel validation-review"><div className="section-heading"><h2>Input needs review</h2><p>Correct the source links or metadata upstream, then revalidate. This page cannot edit sampleinfo.</p></div><WgsTable headers={["Severity", "Code", "Scope", "Message", "Status"]} rows={bundle.validationIssues.map((issue) => [issue.severity, issue.code, issue.sample_id || issue.family_id || issue.file_path || issue.scope_type || "batch", issue.message, issue.status])} empty="No structured issue was returned." /></section> : null}
         <section className="metric-grid" aria-label="Run summary metrics">
-          <MetricCard title="Samples" value={summary.sample_count} />
+          <MetricCard title="Samples" value={detail.sample_scope_status === "preparing" ? "待确定分析范围" : summary.sample_count} />
           <MetricCard title="Duration" value={formatDuration(detail.submitted_at || detail.started_at, detail.pipeline_finished_at || detail.ended_at)} status={detail.status} />
           <MetricCard title="Batch" value={String(detail.params?.batch_no || detail.params?.batch || "-")} />
           <MetricCard title="Rule events" value={summary.rule_count} status={summary.failed_rule_count ? "failed" : undefined} />
@@ -370,7 +325,7 @@ export function RunDetailPage() {
           {activeTab === "Master" ? <WgsMasterTab pods={bundle.pods} /> : null}
           {activeTab === "Transfers" ? <WgsTransfersTab detail={detail} transfers={bundle.transfers} refreshKey={bundle.snapshotAt} /> : null}
           {activeTab === "QC" ? <WgsQcTab samples={bundle.samples} /> : null}
-          {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} /></> : null}
+          {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError || tabError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} onSearch={detail?.pipeline === "wgs" ? setLogQuery : undefined} /></> : null}
           {activeTab === "Files" ? <RunFilesTab artifacts={bundle.artifacts} /> : null}
         </section>
       </> : null}

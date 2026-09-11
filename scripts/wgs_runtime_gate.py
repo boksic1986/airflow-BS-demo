@@ -79,6 +79,7 @@ WGS_REPO_ROOT = Path(
 DEFAULT_RELEASE_ROOTS = {
     "wgs-4.1.1-6c98281": "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
     "wgs-4.2.0-b067c72": "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0",
+    "wgs-4.2.1-cc9bde3": "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0",
 }
 WGS_RELEASE_ROOTS_JSON = os.getenv("WGS_RELEASE_ROOTS_JSON", "").strip()
 WGS_PYTHON = os.getenv("WGS_PYTHON", "/bi/software/mamba/envs/WGS/bin/python")
@@ -157,9 +158,18 @@ def _request_path(analysis_id: str, attempt: int, stage: str) -> Path:
 
 def load_request(analysis_id: str, attempt: int, stage: str) -> dict[str, Any]:
     path = _request_path(analysis_id, attempt, stage)
-    if not path.is_file() or path.is_symlink():
-        raise ValueError("registered runtime request is missing")
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    for visibility_attempt in range(7):
+        try:
+            if path.is_symlink():
+                raise ValueError("registered runtime request is unsafe")
+            if not path.is_file():
+                raise FileNotFoundError("registered runtime request is missing")
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            break
+        except FileNotFoundError as error:
+            if visibility_attempt == 6:
+                raise ValueError("registered runtime request is missing") from error
+            time.sleep(5)
     if (
         payload.get("schema_version") != "wgs-runtime.request.v4"
         or payload.get("analysis_id") != analysis_id
@@ -347,7 +357,7 @@ def _release_repository(payload: dict[str, Any]) -> Path:
 
 def validate_release_repository(payload: dict[str, Any]) -> Path:
     version = str(payload.get("wgs_version") or "")
-    if version and version != "V4.2.0":
+    if version and version not in {"V4.2.0", "V4.2.1"}:
         raise RuntimeError(
             "release_unavailable: historical WGS release requires a frozen binding"
         )
@@ -430,7 +440,7 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
     if subcommand is None:
         raise ValueError("unsupported WGS prepare stage")
     command = [
-        WGS_PYTHON,
+        "/bi/software/mamba/envs/WGS/bin/python",
         str(repository / "prepare" / "prepare_wgs_batch.py"),
         subcommand,
         "--outpath",
@@ -553,7 +563,7 @@ def _sha256_file(path: Path) -> str:
 
 
 def _uses_prepare_handoff(payload: dict[str, Any]) -> bool:
-    return str(payload.get("wgs_version") or "") == "V4.2.0" and str(
+    return str(payload.get("wgs_version") or "") in {"V4.2.0", "V4.2.1"} and str(
         payload.get("stage") or ""
     ) in {"prepare_sampleinfo", "prepare_analysis"}
 
@@ -785,7 +795,12 @@ def _validated_prepare_receipt(payload: dict[str, Any], request_path: Path) -> d
         "sequencing_batch", "analysis_batch", "family_id", "sample_id", "data_id",
         "sample_type", "family_relation", "sex", "decision", "reason_code", "reason_message",
     }
-    projected: dict[str, Any] = {"schema_version": expected_schema}
+    projected: dict[str, Any] = {
+        "schema_version": expected_schema,
+        **{key: receipt[key] for key in (
+            "analysis_id", "attempt", "execution_id", "generation", "request_hash", "release_id"
+        )},
+    }
     expected_groups = (
         {"safe_candidates": "candidate"}
         if payload["stage"] == "prepare_sampleinfo"
@@ -1285,13 +1300,35 @@ def _step7_compat_operator_config(
     pointer = bundle / "CCE_OPERATOR_CONFIG_PATH"
     if not pointer.is_file() or pointer.is_symlink():
         return None
-    source = Path(pointer.read_text(encoding="utf-8").strip()).expanduser().resolve()
-    configured = Path(CCE_OPERATOR_CONFIG).expanduser().resolve()
-    if source != configured or not source.is_file() or source.is_symlink():
+    source = Path(pointer.read_text(encoding="utf-8").strip()).expanduser()
+    configured = Path(CCE_OPERATOR_CONFIG).expanduser()
+    if not source.is_absolute() or not source.is_file() or source.is_symlink():
         raise RuntimeError("frozen Step7 operator config path is not approved")
     config = yaml.safe_load(source.read_text(encoding="utf-8"))
     if not isinstance(config, dict):
         raise RuntimeError("Step7 operator config is invalid")
+    if source.resolve() != configured.resolve():
+        frozen = _workdir(payload) / "release-runtime" / "cce-operator.yaml"
+        if (
+            source.resolve() != frozen.resolve()
+            or frozen.is_symlink()
+            or not configured.is_file()
+            or configured.is_symlink()
+        ):
+            raise RuntimeError("frozen Step7 operator config path is not approved")
+        # Match exactly the prepare-time transformation. Never rewrite a frozen
+        # config during cleanup, or trust a directory-wide config allowlist.
+        expected = yaml.safe_load(configured.read_text(encoding="utf-8"))
+        paths = expected.get("paths") if isinstance(expected, dict) else None
+        if not isinstance(paths, dict):
+            raise RuntimeError("frozen Step7 operator config is not approved")
+        paths["repository_root"] = str(_release_repository(payload))
+        expected_obs = expected.get("obs")
+        if isinstance(expected_obs, dict):
+            for key in STEP7_COMPAT_OBS_FIELDS:
+                expected_obs.pop(key, None)
+        if config != expected:
+            raise RuntimeError("frozen Step7 operator config changed; needs recovery")
     obs = config.get("obs")
     if not isinstance(obs, dict) or not STEP7_COMPAT_OBS_FIELDS.intersection(obs):
         return None
@@ -1711,8 +1748,6 @@ def _obsutil_file_progress(
             previous.get("heartbeat_at") or ""
         ):
             keyed_rows[file_key] = row
-    if not keyed_rows:
-        return None
     plan_keys = {
         hashlib.sha256(
             str(entry.get("relative_path") or "").encode("utf-8")

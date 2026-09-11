@@ -1,6 +1,45 @@
 schema_version: "4"
-current_release_id: wgs-4.2.0-b067c72
+current_release_id: wgs-4.2.1-cc9bde3
 releases:
+  - release_id: wgs-4.2.1-cc9bde3
+    version: V4.2.1
+    source_commit: cc9bde3c8ee6ad1cd2f85cf5d2ef49c5611ac081
+    bs10610_repo_path: /mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0
+    node200_repo_path: /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0
+    rule_event_schema_version: "1"
+    profile_id: wgs-4.2.1
+    profile_revision: r1
+    profile_sha256: 44d7398fd8fb1123220f15a0cef6480289a845c49f97b23b0231c30de9bd74ab
+    node200_profile_path: /bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs/wgs-4.2.1-r1.yaml
+    cce_pipeline_version: 0.8.4
+    pipeline_build_sha256: dcb9de59f96a8a7397b2f23b1b92a15c3c869490413b123a2a49a6b2ae894d62
+    resource_manifest_sha256: ab993050e27c860403def7592b81a2d004898aa10ce462c7920a4544bb17bc3a
+  - release_id: wgs-4.2.0-31de5fb
+    version: V4.2.0
+    source_commit: 31de5fb523401848b6e690b5b5be7036b7fba30f
+    bs10610_repo_path: /mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0
+    node200_repo_path: /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0
+    rule_event_schema_version: "1"
+    profile_id: wgs-4.2.0
+    profile_revision: r2
+    profile_sha256: 909cf1223e6483a713f60ae64e8c8ad6283cf9249e140fa517b638f4fbba916c
+    node200_profile_path: /bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs/wgs-4.2.0-r2.yaml
+    cce_pipeline_version: 0.8.4
+    pipeline_build_sha256: 71695b2a3ab1d83bab68454b1785d2b6791b26c6f57f5ecceda465975788b7f6
+    resource_manifest_sha256: 89ea682efe61f6a0202c41b01cdc10de2355dcc496834a61513d357d86a2b049
+  - release_id: wgs-4.2.0-400ba1c
+    version: V4.2.0
+    source_commit: 400ba1c8e008b83f2796a74794c1da10d448b082
+    bs10610_repo_path: /mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0
+    node200_repo_path: /bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0
+    rule_event_schema_version: "1"
+    profile_id: wgs-4.2.0
+    profile_revision: r2
+    profile_sha256: 909cf1223e6483a713f60ae64e8c8ad6283cf9249e140fa517b638f4fbba916c
+    node200_profile_path: /bi/biodevrwbi/33.chenjiucheng/project/cce-pipeline-profiles/wgs/wgs-4.2.0-r2.yaml
+    cce_pipeline_version: 0.8.3.post1
+    pipeline_build_sha256: 71695b2a3ab1d83bab68454b1785d2b6791b26c6f57f5ecceda465975788b7f6
+    resource_manifest_sha256: 89ea682efe61f6a0202c41b01cdc10de2355dcc496834a61513d357d86a2b049
   - release_id: wgs-4.2.0-b067c72
     version: V4.2.0
     source_commit: b067c72eed795e59b724b13324b0d380ae8b7e94

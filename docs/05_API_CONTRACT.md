@@ -1,13 +1,59 @@
 # API contract
 
-## T242 WGS 4.2
+## GATK selective production promotion (2026-09-12)
 
-The release API adds published profile identity and cce-pipeline version.
-Prepare stages resolve the run-bound catalog release and may import a validated
-privacy-safe prepare handoff receipt. For a mixed receipt, final selected rows
-are imported before pending decisions so pending samples are retained. Runtime
-checks adapter availability/version only; pipeline source/profile validation is
-an operator release responsibility. Unknown releases return 409.
+Manual GATK preview/confirmation retains the existing authenticated API. The
+server-side `GATK_SOURCE_POLICY` defaults to `restricted`; explicitly configured
+`unrestricted` accepts valid source projects and their resolved regular FASTQ
+files without business-root whitelists. Preview freezes source identity and
+input fingerprint; confirmation rechecks the owner-bound, expiring draft and
+unchanged files. This setting does not enable execution by itself.
+
+The internal authenticated POST
+`/api/internal/gatk/runs/{analysis_id}/dag-terminal` accepts the current
+attempt and terminal DAG evidence. Identity conflicts return 409 and cannot
+mark a later attempt failed. GATK progress projection reads persisted stage
+state rather than inheriting WGS stage labels. See the request model in
+`backend/app/main.py` and adapter in `gatk_runtime_service.py` for fields.
+
+WGS4.2.1 uses the existing GET /api/wgs/release catalog response; new requests
+read the current configured release, not a frontend literal or live Git HEAD.
+Existing run details retain frozen version identity. Internal prepare stage-status
+for4.2.0 and4.2.1 waits for the validated handoff receipt before becoming ready.
+This does not add endpoints, schema fields or automatically upgrade old attempts.
+
+
+2026-09-11 WGS `/api/runs/{analysis_id}/logs`: optional `query` (max256 characters) performs case-insensitive literal content search from file start through at most64MiB, returning at most `tail` matched excerpts. Response adds `query`, `match_count`, `search_complete`; `truncated` also covers response/scan limits. Oversized lines mark results incomplete. Empty query retains bounded tail behavior. Existing opaque key validation remains mandatory; no client filesystem paths. WGS log index additionally registers existing `.log/.out/.err` files explicitly declared by current-attempt Master `log:` lines, under the bound batch only, without symlinks/traversal. Index parses at most8MiB/2000 files; unavailable/unreferenced child logs are not fabricated. Other adapters retain existing tail-only search UI.
+
+
+Dashboard attention excludes cancelled/canceled runs before sample, QC, duplicate-family, reanalysis and overdue projection. Intake alerts linked to cancelled runs are excluded; unlinked intake warnings remain. This is read-only projection, not audit deletion; cancel_requested is not treated as confirmed cancellation.
+
+Dashboard runs: omitted status or `all` now excludes cancelled/canceled before total/count/pagination. Explicit `status=cancelled` or `canceled` retrieves both spellings; other run APIs and database records unchanged.
+
+## Config-review submission cancellation
+
+- Operator-authenticated GET `/api/runs/{analysis_id}/submission-cancel-preview?attempt=N`: checks current attempt/manual phase and Airflow preparation boundary; returns analysis_id,attempt,submission_phase,effects.409 when unsafe,503 when Airflow unavailable; no changes.
+- Operator-authenticated POST `/api/runs/{analysis_id}/actions/cancel-submission` with `{ "attempt": N }`: supports config_review only, plus same cancellation retry. Serializes with approval; commits cancellation fence before stopping original DAG through Airflow PATCH failed. Returns status cancelled only when verified.409 unsafe/stale identity,503 unconfirmed transport failure; retry same attempt, never new submission.
+- Audit and files retained. Current candidate statuses cancelled; pending and prior-attempt participation preserved. Cancellation requested after preparation/config approval is rejected. Generic `/actions/cancel` remains separate.
+
+2026-09-11 handoff repair: restricted gate's safe prepare receipt projection preserves already-validated analysis_id, attempt, execution_id, generation, request_hash and release_id with schema/decisions. It does not expose private artifact descriptors. Original request/receipt identity, schema and artifact SHA checks remain mandatory. Existing global `/api/samples` supports configuration candidate preview filtered by exact returned analysis_id and selection_attempt; `/api/runs/{id}/samples` remains selected-only. No new endpoint/table or direct production DB operation.
+
+2026-09-12 attention IDs include attempt; duplicate-family IDs also include family identity to avoid collisions across identical batch sets. Family alert detail includes family and batch codes for authenticated operator use. No new API/mutation endpoint; acknowledgement is browser-local only. SFS total_bps remains optional, with explicitly labelled frontend fallback when both read/write values are available.
+
+2026-09-11 additive sample scope: run payloads expose `sample_scope_status` (`preparing`, `ready`, `legacy`); existing `sample_count` is current-attempt selected count. Sample projections add `selection_decision`, `selection_attempt`, `pending_reason`. Global `/api/samples?status=pending` retains nonparticipating rows/reasons; run Samples and QC denominator use selected only. Synchronization endpoints remain compatible for operations, but UI no longer invokes manual Sync. See [release evidence](selection-refresh-20260911.md).
+
+Heavy telemetry (2026-09-11): `/api/platform/resources.heavy_slot` now reads
+`heavy-slot-global.json` schema `wgs-heavy-global.v1`. Complete namespace Lease
+inventory supplies used/limit; fresh snapshots for every nonterminal,
+nonsuspended Master supply waiting_jobs and attest mode/limit. Count reserved
+holders even if old; only executor may reclaim them. Freshness max180s, future
+clock tolerance10s. Incomplete/invalid/stale data returns available=false and
+nullable metrics, never synthetic0/25. Available responses add updated_at.
+With no active Masters and no holders mode is idle. No database migration.
+
+## T255 unavailable global Heavy I/O telemetry
+
+Until an authoritative namespace-global producer is available, WGS global slot projection returns `available:false` with `used`, `limit`, `waiting`, and `mode` null (pool remains wgs-heavy-io). Configured limits, empty evidence directories, database rule labels and individual Master snapshots do not establish global occupancy. Consumers must display unavailable rather than0/25; runtime Lease enforcement is independent of this display contract.
 
 ## T240 dashboard attention and sample information
 
@@ -104,15 +150,10 @@ Existing `/api/wgs/*` routes remain supported for WGS submission, intake, eviden
 - `GET /api/pipelines/gatk/release` returns the approved profile ID, profile
   revision, fixed `cce` execution target and the current execution-gate state.
   It contains no node path, command, credential or image reference.
-- `POST /api/pipelines/gatk/submission-preview` accepts only an absolute,
-  readable `source_project_dir`. The project may belong to any `/sg2` owner;
-  Preview does not apply an owner/root allowlist. It requires the exact
-  `<batch-prefix>.sampleinfo.SCMC.txt`, a `data ID` column and at least one
-  unique sample. It returns an expiring draft/hash, batch, fixed profile,
-  SCMC sampleinfo basename, locked sample IDs and safe check results.
-- Config, barcode and FASTQ-pair validation is deliberately deferred to the
-  existing runtime prepare contract. Legacy FASTQ count/byte fields remain in
-  the response as best-effort compatibility values and do not gate Preview.
+- `POST /api/pipelines/gatk/submission-preview` accepts only
+  `source_project_dir`. It returns an expiring draft/hash, batch, fixed profile,
+  sampleinfo basename, locked SCMC sample IDs, FASTQ count/bytes and safe check
+  results.
 - `POST /api/runs` confirms GATK with `pipeline=gatk`,
   `execution_mode=cce`, `submission_draft_id` and
   `submission_preview_hash`. Changed inputs return
@@ -121,21 +162,19 @@ Existing `/api/wgs/*` routes remain supported for WGS submission, intake, eviden
 - GATK reuses `/workspace`, `/rules`, `/pods`, `/transfers`, `/logs` and
   `/artifacts`. It deliberately does not expose QC, intake or clone-reanalysis
   capability in v1.
-- For an active GATK run, `GET /api/dashboard/runs` obtains `stage_code`,
-  `stage_label`, `stage_status`, exact progress units and percent from the
-  current attempt's `RunStageState`. Cleared downstream Airflow tasks with a
-  null state cannot replace that runtime stage in the tracker response.
 
 Internal `/api/internal/gatk/runs/{analysis_id}/stages/{stage}` and
 `/stage-status` routes require the service token and the fixed
 `gatk-runtime-200` adapter identity.
 
-`POST /api/internal/gatk/runs/{analysis_id}/dag-terminal` is also service-token
-only. It accepts the exact attempt, `status=failed` and the failed Airflow task
-IDs. The operation is idempotent, never overwrites a successful run, preserves
-the last stage counters, marks the genuine failing rule failed, cancels other
-unfinished rules and closes sample projections as failed.
-
 ## Privacy
 
 Responses never include patient names, hospitals, credentials, raw absolute storage paths, or arbitrary filesystem content. Artifacts are accessed by controlled keys.
+# WGS recovery approval semantics (2026-09-11)
+
+For `three_stage` runs, `actions/resume` and `actions/rerun_failed` create a
+new attempt with `submission_phase=preparing_sampleinfo` and clear
+`config_approved_at`/`execution_approved_at`. Current-attempt preparation and
+normal config/execution approval endpoints must complete before execution
+commit. Analysis parameters remain unchanged; prior approvals do not bypass
+new-attempt gates. Legacy-mode behavior is unchanged.

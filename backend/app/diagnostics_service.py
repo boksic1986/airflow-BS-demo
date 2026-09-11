@@ -78,9 +78,11 @@ ARTIFACTS: list[ArtifactDefinition] = []
 
 
 def sync_wgs_airflow_status(*, session: Session, airflow_client, analysis_id: str, settings) -> dict[str, Any] | None:
-    run = _get_run(session, analysis_id)
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id).with_for_update().execution_options(populate_existing=True))
     if run is None:
         return None
+    if (run.params_json or {}).get('submission_phase') in {'cancelling_submission', 'cancelled'}:
+        return _run_payload(run)
     if not run.dag_id or not run.dag_run_id:
         raise MissingDagRunError("Run has no dag_id or dag_run_id to sync.")
 
@@ -244,7 +246,8 @@ def get_run_log(
 
 
 def get_wgs_run_log(
-    *, session: Session, analysis_id: str, stream: str, tail: int, settings, key: str | None = None
+    *, session: Session, analysis_id: str, stream: str, tail: int, settings, key: str | None = None,
+    query: str | None = None,
 ) -> dict[str, Any] | None:
     run = _get_run(session, analysis_id)
     if run is None:
@@ -260,6 +263,9 @@ def get_wgs_run_log(
     log_path = Path(str(log_item["_path"]))
     if not log_path.is_file():
         raise LogNotFoundError(f"Log file not found for registered key: {key}")
+    if query and query.strip():
+        return {**_search_log_file(log_path, query=query.strip(), limit=tail),
+                "stream": stream, "path": log_item.get("relative_path"), "key": key}
     lines, truncated, file_size = _tail_log_file(log_path, tail=tail)
     return {
         "stream": stream,
@@ -332,6 +338,78 @@ def _tail_log_file(
     available_lines = text.splitlines()
     truncated = position > 0 or len(available_lines) > tail
     return available_lines[-tail:], truncated, file_size
+
+
+def _search_log_file(path: Path, *, query: str, limit: int,
+                     max_bytes: int = 64 * 1024 * 1024) -> dict[str, Any]:
+    """Literal, bounded-memory search from the beginning, not a tail filter."""
+    needle = query.casefold()
+    lines: list[str] = []
+    matches = 0
+    consumed = 0
+    oversized = False
+    with path.open("rb") as handle:
+        size = path.stat().st_size
+        while consumed < min(size, max_bytes):
+            raw = handle.readline(min(65536, max_bytes - consumed, size - consumed))
+            if not raw:
+                break
+            consumed += len(raw)
+            if not raw.endswith(b"\n") and consumed < size:
+                oversized = True
+            line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+            if needle in line.casefold():
+                matches += 1
+                if len(lines) < limit:
+                    lines.append(line)
+    complete = consumed >= size and not oversized
+    return {"lines": lines, "file_size": size, "query": query,
+            "match_count": matches, "search_complete": complete,
+            "truncated": matches > len(lines) or not complete}
+
+
+def _referenced_rule_logs(master: Path, batch: Path, *, attempt: int,
+                          run_id: str) -> list[dict[str, Any]]:
+    """Index existing log declarations from this attempt's Master evidence."""
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    rule = ""
+    with master.open("rb") as handle:
+        consumed = 0
+        while consumed < 8 * 1024 * 1024 and len(items) < 2000:
+            raw = handle.readline(65536)
+            if not raw:
+                break
+            consumed += len(raw)
+            line = raw.decode("utf-8", errors="replace").strip()
+            match = re.fullmatch(r"(?:local)?rule ([A-Za-z0-9_]+):", line)
+            if match:
+                rule = match.group(1)
+            if not line.startswith("log: "):
+                continue
+            for value in line[5:].split(", "):
+                relative = Path(value.strip())
+                if (relative.is_absolute() or ".." in relative.parts
+                        or relative.suffix not in {".log", ".out", ".err"}
+                        or value in seen):
+                    continue
+                raw_path = batch / relative
+                if any((batch / Path(*relative.parts[:i])).is_symlink()
+                       for i in range(1, len(relative.parts) + 1)):
+                    continue
+                try:
+                    path = _contained_path(batch, relative)
+                except InvalidRunPathError:
+                    continue
+                if not path.is_file():
+                    continue
+                seen.add(value)
+                item = _wgs_log_item(path=path, token=f"rule:{attempt}:{run_id}:{relative.as_posix()}",
+                    label=f"{rule or 'Rule'} · {relative.as_posix()}", stream="stderr" if relative.suffix == ".err" else "stdout",
+                    source="rule_log", stage="step3_monitor", relative_path=relative.as_posix())
+                item["rule"] = rule or "rule"
+                items.append(item)
+    return items
 
 
 def list_run_logs(*, session: Session, analysis_id: str, settings) -> dict[str, list[dict[str, Any]]] | None:
@@ -540,6 +618,7 @@ def _wgs_run_log_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
                     ).as_posix(),
                 ),
             )
+            items.extend(_referenced_rule_logs(analysis_log, local_batch, attempt=attempt, run_id=run_id))
     except (KeyError, TypeError, ValueError, InvalidRunPathError):
         pass
     return items
@@ -823,12 +902,14 @@ def _map_airflow_state(state: str) -> str:
 
 
 def sync_sample_statuses(*, session: Session, analysis_id: str, run_status: str) -> None:
+    from app.sample_selection_scope import nonparticipating_status
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id))
     sample_status = _sample_status_for_run_status(run_status)
     if sample_status is None:
         return
     samples = session.scalars(select(Sample).where(Sample.analysis_id == analysis_id)).all()
     for sample in samples:
-        sample.status = sample_status
+        sample.status = (nonparticipating_status(sample, run) if run else None) or sample_status
 
 
 def _sample_status_for_run_status(run_status: str) -> str | None:

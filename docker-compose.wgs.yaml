@@ -23,7 +23,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_WEBSERVER_SECRET_KEY:?set AIRFLOW_WEBSERVER_SECRET_KEY}
     BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://backend:8000}
     INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
-    DEPLOYED_PIPELINES: wgs,gatk
+    DEPLOYED_PIPELINES: wgs
     WGS_EXECUTION_ENABLED: "${WGS_EXECUTION_ENABLED:-false}"
     WGS_RUNTIME_ADAPTER_ENABLED: "${WGS_RUNTIME_ADAPTER_ENABLED:-false}"
     WGS_STEP1_CANARY_ENABLED: "${WGS_STEP1_CANARY_ENABLED:-false}"
@@ -36,14 +36,9 @@ x-airflow-common: &airflow-common
     WGS_RUNNER_200_COMMAND: ${WGS_RUNNER_200_COMMAND:-/home/ctapa/.config/airflow-wgs/forced-command.sh}
     WGS_RUNNER_NODE97_ALIAS: ${WGS_RUNNER_NODE97_ALIAS:-wgs-node97}
     WGS_RUNNER_NODE97_COMMAND: ${WGS_RUNNER_NODE97_COMMAND:-/home/ctapa/.config/airflow-wgs/forced-command-node97.sh}
-    GATK_EXECUTION_ENABLED: "${GATK_EXECUTION_ENABLED:-false}"
-    GATK_SSH_CONFIG_PATH: /opt/airflow/ssh/config
-    GATK_RUNNER_200_ALIAS: ${GATK_RUNNER_200_ALIAS:-gatk-node200}
-    GATK_RUNNER_200_COMMAND: ${GATK_RUNNER_200_COMMAND:-/home/ctapa/.config/airflow-gatk/forced-command.sh}
     PIPELINE_PROFILE_CONFIG_PATH: /opt/airflow/config/pipeline_profiles.wgs.yaml
   volumes:
     - ./dags/bio_wgs.py:/opt/airflow/dags/bio_wgs.py:ro
-    - ./dags/bio_gatk.py:/opt/airflow/dags/bio_gatk.py:ro
     - ./dags/common:/opt/airflow/dags/common:ro
     - ./config/pipeline_profiles.wgs.yaml:/opt/airflow/config/pipeline_profiles.wgs.yaml:ro
     - ./shared:/data/airflow-demo
@@ -159,7 +154,7 @@ services:
       AIRFLOW_API_USERNAME: ${AIRFLOW_API_USERNAME:-admin}
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
       CONTAINER_SHARED_ROOT: /data/airflow-demo
-      DEPLOYED_PIPELINES: wgs,gatk
+      DEPLOYED_PIPELINES: wgs
       PLATFORM_ENVIRONMENT: "${PLATFORM_ENVIRONMENT:-Demo}"
       AUTH_REQUIRED: "true"
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
@@ -209,22 +204,6 @@ services:
       WGS_STAGE_CONTRACT_PATH: /config/wgs_stage_contract.yaml
       WGS_CONTRACT_V2_ENABLED: "${WGS_CONTRACT_V2_ENABLED:-false}"
       WGS_TRANSFER_ADAPTER: "${WGS_TRANSFER_ADAPTER:-obs_sdk}"
-      GATK_EXECUTION_ENABLED: "${GATK_EXECUTION_ENABLED:-false}"
-      GATK_FASTQ_ROOTS: "${GATK_FASTQ_ROOTS:-/sg2/T7new/result1/OutputFq,/bi/fastq/T7_Fastq}"
-      GATK_SUBMISSION_DRAFT_TTL_MINUTES: "30"
-      GATK_RUNTIME_PROFILE_ID: gatk-scmc-v7.6.0
-      GATK_RUNTIME_PROFILE_REVISION: bd04f6d
-      GATK_RUNTIME_REQUEST_ROOT: /data/gatk-runtime/requests
-      GATK_TRANSFER_SPOOL_ROOT: /data/gatk-runtime/transfer-progress
-      GATK_RUNTIME_NODE200_ROOT: ${GATK_RUNTIME_NODE200_ROOT:-/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime/gatk}
-      GATK_EVIDENCE_ROOT: /data/gatk-evidence
-      GATK_RESULT_ROOT: ${GATK_RESULT_ROOT:-/sg2/50.ctapa/project/HWcloud/WES_Clinical}
-      GATK_REPOSITORY_ROOT: ${GATK_REPOSITORY_ROOT:-/bi/biodevrwbi/33.chenjiucheng/project/gatk-cloud}
-      GATK_OPERATOR_CONFIG: ${GATK_OPERATOR_CONFIG:-/home/ctapa/.config/cce-pipeline/operator.yaml}
-      GATK_PROFILE_FILE: ${GATK_PROFILE_FILE:-profiles/cce-pipeline/gatk.yaml}
-      GATK_RUNTIME_FILE: ${GATK_RUNTIME_FILE:-profiles/cce/runtime.yaml}
-      GATK_PIPELINE_ROOT: ${GATK_PIPELINE_ROOT:-/workspace/gatk-cloud/pipelines/7.6.0}
-      GATK_CCE_PIPELINE: ${GATK_CCE_PIPELINE:-/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/cce-pipeline}
     volumes:
       - ./backend:/app:ro
       - ./shared:/data/airflow-demo
@@ -235,11 +214,6 @@ services:
       - ${WGS_EVIDENCE_HOST_ROOT:?set WGS_EVIDENCE_HOST_ROOT}:/data/wgs-evidence:ro
       - ${WGS_BINDING_HOST_ROOT:?set WGS_BINDING_HOST_ROOT}:/data/wgs-bindings:rw
       - ${WGS_RUNTIME_HOST_ROOT:?set WGS_RUNTIME_HOST_ROOT}:/data/wgs-runtime:rw
-      - ${GATK_RUNTIME_HOST_ROOT:?set GATK_RUNTIME_HOST_ROOT}:/data/gatk-runtime:rw
-      - ${GATK_EVIDENCE_HOST_ROOT:?set GATK_EVIDENCE_HOST_ROOT}:/data/gatk-evidence:ro
-      - /sg2:/sg2:ro
-      - ${GATK_FASTQ_HOST_ROOT:-/sg2/T7new/result1/OutputFq}:/sg2/T7new/result1/OutputFq:ro
-      - ${GATK_T7_FASTQ_HOST_ROOT:-/bi/fastq/T7_Fastq}:/bi/fastq/T7_Fastq:ro
       - ./config:/config:ro
     networks: [wgs-platform]
     logging: *bounded-logging
@@ -255,7 +229,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
-      DEPLOYED_PIPELINES: wgs,gatk
+      DEPLOYED_PIPELINES: wgs
       WGS_EVIDENCE_ROOT: /data/wgs-evidence
       WGS_OBSERVER_INTERVAL: "5"
       WGS_TRANSFER_SPOOL_ROOT: /data/wgs-runtime/transfer-progress
@@ -298,7 +272,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
       AIRFLOW_API_PASSWORD: ${AIRFLOW_API_PASSWORD:?set AIRFLOW_API_PASSWORD}
-      DEPLOYED_PIPELINES: wgs,gatk
+      DEPLOYED_PIPELINES: wgs
       PLATFORM_METRICS_INTERVAL_SECONDS: "60"
       PLATFORM_NODE_METRICS_SPOOL: /data/wgs-runtime/platform-metrics/nodes.json
       PLATFORM_CLOUD_METRICS_SPOOL: /data/wgs-runtime/platform-metrics/cloud.json
@@ -347,7 +321,6 @@ services:
         airflow pools set wgs_obs_transfer 1 "Legacy serialized private OBS transfer gate"
         airflow pools set wgs_obs_upload 1 "Serialized private OBS upload gate"
         airflow pools set wgs_obs_download 1 "Serialized private OBS download gate"
-        airflow pools set gatk_cce_runs 1 "Maximum concurrent GATK Cloud masters"
         users_json="$$(airflow users list --output json)"
         if AIRFLOW_USERS_JSON="$${users_json}" python - "$${AIRFLOW_ADMIN_USERNAME}" <<'PY'
         import json

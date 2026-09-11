@@ -861,6 +861,34 @@ def create_catalog_wgs_run(
         raise HTTPException(status_code=400, detail={"code": "WGS_RUN_INVALID", "message": str(exc)}) from exc
 
 
+class WgsSubmissionCancelRequest(BaseModel):
+    attempt: int = Field(ge=1)
+
+
+@app.get("/api/runs/{analysis_id}/submission-cancel-preview")
+def preview_wgs_submission_cancel(analysis_id: str, attempt: int, user: AuthenticatedUser = Depends(operator_user)):
+    from app.wgs_submission_cancel import preview_config_cancellation
+    try:
+        with get_sessionmaker()() as session:
+            return preview_config_cancellation(session=session, airflow_client=get_airflow_client(), analysis_id=analysis_id, attempt=attempt)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={"code":"SUBMISSION_CANCEL_BLOCKED","message":str(exc)}) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=503, detail={"code":"AIRFLOW_UNAVAILABLE","message":"无法核验 Airflow 状态，请稍后重试。"}) from exc
+
+
+@app.post("/api/runs/{analysis_id}/actions/cancel-submission")
+def cancel_wgs_submission(analysis_id: str, request: WgsSubmissionCancelRequest, user: AuthenticatedUser = Depends(operator_user)):
+    from app.wgs_submission_cancel import cancel_config_submission
+    try:
+        with get_sessionmaker()() as session:
+            return cancel_config_submission(session=session, airflow_client=get_airflow_client(), analysis_id=analysis_id, attempt=request.attempt, requested_by=user.username)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={"code":"SUBMISSION_CANCEL_BLOCKED","message":str(exc)}) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=503, detail={"code":"CANCELLATION_UNCONFIRMED","message":"Airflow 停止结果尚未确认；请重试取消，不要重新提交。"}) from exc
+
+
 @app.post("/api/runs/{analysis_id}/actions/approve-wgs-config")
 def approve_wgs_run_config(
     analysis_id: str,
@@ -2517,7 +2545,7 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
                 params = dict(run.params_json or {})
                 handoff_receipt = payload.get("prepare_handoff_receipt")
                 handoff_required = (
-                    str(params.get("wgs_version") or "") == "V4.2.0"
+                    str(params.get("wgs_version") or "") in {"V4.2.0", "V4.2.1"}
                     and stage in {"prepare_sampleinfo", "prepare_analysis"}
                 )
                 if handoff_required and not isinstance(handoff_receipt, dict):
@@ -2560,6 +2588,8 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
                     artifact_pending = True
                 else:
                     if not artifact_pending:
+                        if "sample_selection_scope" in (run.params_json or {}):
+                            params["sample_selection_scope"] = run.params_json["sample_selection_scope"]
                         run.params_json = params
                         session.commit()
     return {
@@ -2770,7 +2800,7 @@ def _wgs_action(analysis_id: str, action: str, user: AuthenticatedUser) -> dict[
             )
     try:
         with get_sessionmaker()() as session:
-            payload = action_wgs_run(session=session, airflow_client=get_airflow_client(), analysis_id=analysis_id, action=action, requested_by=user.username)
+            payload = action_wgs_run(session=session, settings=get_settings(), airflow_client=get_airflow_client(), analysis_id=analysis_id, action=action, requested_by=user.username)
             if payload is not None:
                 audit(session=session, username=user.username, action=f"run.{action}", analysis_id=analysis_id)
     except ExecutionDispatchConflict as exc:
@@ -2897,6 +2927,7 @@ def run_logs(
     stream: str = Query(default="stderr", pattern="^(stdout|stderr|metadata)$"),
     key: str | None = Query(default=None, max_length=64),
     tail: int = Query(default=200, ge=1, le=1000),
+    query: str | None = Query(default=None, max_length=256),
 ) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
@@ -2916,6 +2947,7 @@ def run_logs(
                 tail=tail,
                 settings=get_settings(),
                 key=key,
+                **({"query": query} if query and run is not None and run.pipeline_name == "wgs" else {}),
             )
     except UnsupportedLogStreamError as exc:
         raise HTTPException(

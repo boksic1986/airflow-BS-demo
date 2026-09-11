@@ -118,13 +118,13 @@ def test_catalog_rejects_release_id_that_does_not_match_commit(tmp_path: Path) -
         )
 
 
-def test_checked_in_catalog_pins_420_and_retains_411_history() -> None:
+def test_checked_in_catalog_pins_421_and_retains_frozen_history() -> None:
     catalog = load_wgs_release_catalog(
         Path(__file__).resolve().parents[2] / "config" / "wgs_releases.yaml"
     )
 
-    assert catalog.release.release_id == "wgs-4.2.0-b067c72"
-    assert catalog.release.source_commit == "b067c72eed795e59b724b13324b0d380ae8b7e94"
+    assert catalog.release.release_id == "wgs-4.2.1-cc9bde3"
+    assert catalog.release.source_commit == "cc9bde3c8ee6ad1cd2f85cf5d2ef49c5611ac081"
     assert catalog.release.bs10610_repo_path == (
         "/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0"
     )
@@ -132,6 +132,8 @@ def test_checked_in_catalog_pins_420_and_retains_411_history() -> None:
         "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0"
     )
     assert catalog.release.profile_sha256 == (
-        "2e7087a6ba646dfb67a940cd77d27ad18fc99e32d92c0ee5243614416f71f38b"
+        "44d7398fd8fb1123220f15a0cef6480289a845c49f97b23b0231c30de9bd74ab"
     )
+    assert catalog.release.version == 'V4.2.1'
+    assert catalog.by_id('wgs-4.2.0-31de5fb').profile_revision == 'r2'
     assert catalog.by_id(RELEASE_ID).source_commit == WGS_COMMIT

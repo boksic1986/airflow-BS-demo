@@ -70,6 +70,8 @@ class Settings:
     wgs_local_admission_cpu_percent: float
     wgs_local_admission_load_ratio: float
     gatk_execution_enabled: bool
+    gatk_source_policy: str
+    gatk_source_roots: list[str]
     gatk_fastq_roots: list[str]
     gatk_submission_draft_ttl_minutes: int
     gatk_runtime_profile_id: str
@@ -250,6 +252,12 @@ def get_settings() -> Settings:
         gatk_execution_enabled=_parse_bool(
             os.getenv("GATK_EXECUTION_ENABLED", "false")
         ),
+        gatk_source_policy=_parse_gatk_source_policy(
+            os.getenv("GATK_SOURCE_POLICY", "restricted")
+        ),
+        gatk_source_roots=_parse_list(
+            os.getenv("GATK_SOURCE_ROOTS", "/sg2/21.lijing/WES_Clinical")
+        ),
         gatk_fastq_roots=_parse_list(
             os.getenv(
                 "GATK_FASTQ_ROOTS",
@@ -310,6 +318,15 @@ def _parse_list(value: str | None) -> list[str]:
 
 def _parse_bool(value: str | None) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _parse_gatk_source_policy(value: str | None) -> str:
+    policy = str(value or "restricted").strip().lower()
+    if policy not in {"restricted", "unrestricted"}:
+        raise RuntimeError(
+            "GATK_SOURCE_POLICY must be restricted or unrestricted"
+        )
+    return policy
 
 
 def _parse_int(value: str | None, *, default: int) -> int:

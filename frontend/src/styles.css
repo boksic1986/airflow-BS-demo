@@ -665,7 +665,7 @@ h3 {
 .attention-item {
   min-width: 0;
   display: grid;
-  grid-template-columns: 8px minmax(0, 1fr);
+  grid-template-columns: 14px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   border: 1px solid var(--color-border-soft);
@@ -679,10 +679,11 @@ h3 {
 .attention-item:hover {
   border-color: rgba(23, 107, 135, 0.4);
 }
-.attention-item > span:last-child {
+.attention-item > span:nth-child(2) {
   min-width: 0;
   display: grid;
-  gap: 2px;
+  gap: 6px;
+  line-height: 1.45;
 }
 
 .attention-item small {
@@ -691,8 +692,8 @@ h3 {
 }
 
 .attention-marker {
-  width: 8px;
-  height: 8px;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
   background: var(--color-running);
 }
@@ -700,6 +701,15 @@ h3 {
 .attention-marker.danger { background: var(--color-danger); }
 .attention-marker.warning { background: var(--color-warning); }
 .attention-marker.info { background: var(--color-running); }
+
+.insight-card.attention-card { align-content: start; }
+.attention-list { max-height: 320px; overflow-y: auto; }
+.attention-item .attention-actions { display: flex; flex-direction: row; gap: 10px; align-items: center; font-size: 12px; }
+.attention-actions button, .attention-history-toggle { border: 1px solid var(--color-border-soft); border-radius: 5px; background: var(--color-surface); padding: 4px 8px; color: var(--color-primary); cursor: pointer; }
+.attention-history-toggle { justify-self: start; }
+.sfs-total-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #356af0; }
+.sfs-chart-total { fill: none; stroke: #356af0; stroke-width: 1.8; }
+@media (max-width: 860px) { .attention-item { grid-template-columns: 14px minmax(0, 1fr); } .attention-item .attention-actions { grid-column: 2; } }
 
 .sample-total-metric {
   grid-column: 1 / -1;
@@ -2925,6 +2935,11 @@ textarea {
   padding: 20px;
   background: rgba(15, 23, 42, 0.36);
 }
+
+.submission-resume-row { display: flex; align-items: center; gap: 12px; }
+.submission-resume-row > a { flex: 1; min-width: 0; }
+.submission-resume-card > span:nth-child(2) { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.button.danger { background: #b42318; color: white; border-color: #b42318; }
 
 .modal-panel {
   width: min(720px, 100%);

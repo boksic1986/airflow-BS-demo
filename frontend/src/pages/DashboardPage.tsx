@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useState} from "react";
+import {useEffect, useState} from "react";
 import {Link} from "react-router-dom";
 
 import type {
@@ -18,7 +18,6 @@ import {
   getIntakeStatus,
   getPlatformResources,
   submitRun,
-  syncAirflow,
 } from "../api";
 import {RunTracker} from "../components/RunTracker";
 import {
@@ -30,7 +29,7 @@ import {IntakeScannerPanel} from "../features/dashboard/IntakeScannerPanel";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {hasRegisteredSubmissionUi} from "../features/platform/submissionUiRegistry";
 import {errorMessage} from "../lib/errors";
-import {isActiveStatus} from "../lib/status";
+import {useSilentRefresh} from "../lib/useSilentRefresh";
 
 const trackerLimit = 10;
 const intakeLimit = 10;
@@ -51,14 +50,7 @@ export function DashboardPage() {
   const [resources, setResources] = useState<PlatformResourcesResponse | null>(null);
   const [intakeItems, setIntakeItems] = useState<IntakeDiscovery[]>([]);
   const [intakeScanner, setIntakeScanner] = useState<IntakeScannerStateResponse | null>(null);
-  const [overviewLoading, setOverviewLoading] = useState(true);
-  const [trackerLoading, setTrackerLoading] = useState(true);
-  const [intakeLoading, setIntakeLoading] = useState(true);
-  const [resourcesLoading, setResourcesLoading] = useState(true);
-  const [overviewError, setOverviewError] = useState<string | null>(null);
-  const [trackerError, setTrackerError] = useState<string | null>(null);
-  const [intakeError, setIntakeError] = useState<string | null>(null);
-  const [resourcesError, setResourcesError] = useState<string | null>(null);
+  const [submitError, setTrackerError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const deployedDefinitions = capabilities.pipelines.filter((item) => capabilities.isDeployed(item.id));
   const selectedPipeline = deployedDefinitions.find((item) => item.id === pipeline) || deployedDefinitions[0];
@@ -72,48 +64,30 @@ export function DashboardPage() {
   const dashboardReady = !capabilities.loading
     && (!onlyDeployedPipeline || pipeline === onlyDeployedPipeline);
 
-  const loadOverview = useCallback(async (showSpinner = true) => {
-    if (showSpinner) setOverviewLoading(true);
-    setOverviewError(null);
-    try {
-      setOverview(await getDashboardOverview({pipeline: deployedPipeline, period}));
-    } catch (loadError) {
-      setOverviewError(errorMessage(loadError));
-    } finally {
-      if (showSpinner) setOverviewLoading(false);
-    }
-  }, [deployedPipeline, period]);
+  const {refresh: loadOverview, loading: overviewLoading, error: overviewError} = useSilentRefresh(async ({isCurrent}) => {
+    const result = await getDashboardOverview({pipeline: deployedPipeline, period});
+    if (isCurrent()) setOverview(result);
+  }, JSON.stringify([deployedPipeline, period]), dashboardReady);
 
-  const loadTracker = useCallback(async (showSpinner = true) => {
-    if (showSpinner) setTrackerLoading(true);
-    setTrackerError(null);
-    try {
-      setTrackerPayload(await getDashboardRuns({
+  const {refresh: loadTracker, loading: trackerLoading, error: trackerRefreshError} = useSilentRefresh(async ({isCurrent}) => {
+      const result = await getDashboardRuns({
         pipeline: deployedPipeline,
         status: trackerStatusParam(trackerFilter),
         keyword: trackerKeyword.trim() || undefined,
         limit: trackerLimit,
         offset: trackerOffset,
-      }));
-    } catch (loadError) {
-      setTrackerError(errorMessage(loadError));
-    } finally {
-      if (showSpinner) setTrackerLoading(false);
-    }
-  }, [deployedPipeline, trackerFilter, trackerKeyword, trackerOffset]);
+      });
+      if (isCurrent()) setTrackerPayload(result);
+  }, JSON.stringify([deployedPipeline, trackerFilter, trackerKeyword, trackerOffset]), dashboardReady);
+  const trackerError = submitError || trackerRefreshError;
 
-  const loadIntake = useCallback(async (showSpinner = true) => {
+  const {refresh: loadIntake, loading: intakeLoading, error: intakeError} = useSilentRefresh(async ({isCurrent}) => {
     if (!showIntake) {
       setIntakeItems([]);
       setIntakeTotal(0);
       setIntakeScanner(null);
-      setIntakeError(null);
-      if (showSpinner) setIntakeLoading(false);
       return;
     }
-    if (showSpinner) setIntakeLoading(true);
-    setIntakeError(null);
-    try {
       const [payloadResult, scannerResult] = await Promise.allSettled([
         getIntakeStatus({
           pipeline: deployedPipeline,
@@ -125,6 +99,7 @@ export function DashboardPage() {
         }),
         getIntakeScannerState(),
       ]);
+      if (!isCurrent()) return;
       if (payloadResult.status === "fulfilled") {
         setIntakeItems(payloadResult.value.items);
         setIntakeTotal(payloadResult.value.total ?? payloadResult.value.items.length);
@@ -135,40 +110,13 @@ export function DashboardPage() {
         : scannerResult.status === "rejected"
           ? scannerResult.reason
           : null;
-      if (failure) setIntakeError(errorMessage(failure));
-    } finally {
-      if (showSpinner) setIntakeLoading(false);
-    }
-  }, [deployedPipeline, intakeOffset, showIntake, trackerKeyword]);
+      if (failure) throw failure;
+  }, JSON.stringify([deployedPipeline, intakeOffset, showIntake, trackerKeyword]), dashboardReady);
 
-  const loadResources = useCallback(async (showSpinner = true) => {
-    if (showSpinner) setResourcesLoading(true);
-    setResourcesError(null);
-    try {
-      setResources(await getPlatformResources());
-    } catch (loadError) {
-      setResourcesError(errorMessage(loadError));
-    } finally {
-      if (showSpinner) setResourcesLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { if (dashboardReady) void loadOverview(); }, [dashboardReady, loadOverview]);
-  useEffect(() => { if (dashboardReady) void loadTracker(); }, [dashboardReady, loadTracker]);
-  useEffect(() => { if (dashboardReady) void loadIntake(); }, [dashboardReady, loadIntake]);
-  useEffect(() => { if (dashboardReady) void loadResources(); }, [dashboardReady, loadResources]);
-  useEffect(() => {
-    if (!dashboardReady) return undefined;
-    const refresh = () => {
-      if (document.visibilityState === "visible") void loadResources(false);
-    };
-    const timer = window.setInterval(refresh, 60_000);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", refresh);
-    };
-  }, [dashboardReady, loadResources]);
+  const {loading: resourcesLoading, error: resourcesError} = useSilentRefresh(async ({isCurrent}) => {
+    const result = await getPlatformResources();
+    if (isCurrent()) setResources(result);
+  }, 'resources', dashboardReady);
   useEffect(() => {
     if (capabilities.deployed_pipelines.length === 1) {
       const onlyPipeline = capabilities.deployed_pipelines[0]!;
@@ -177,28 +125,6 @@ export function DashboardPage() {
     }
   }, [capabilities.deployed_pipelines]);
 
-  const activeRunIds = useMemo(
-    () => [...new Set((trackerPayload?.items || []).filter((row) => isActiveStatus(row.status)).map((row) => row.analysis_id))],
-    [trackerPayload],
-  );
-  const activeRunKey = activeRunIds.join("|");
-
-  useEffect(() => {
-    if (!activeRunKey) return undefined;
-    let disposed = false;
-    async function refreshActiveRuns() {
-      if (document.visibilityState === "hidden") return;
-      if (!disposed) await Promise.all([loadOverview(false), loadTracker(false), loadIntake(false)]);
-    }
-    const timer = window.setInterval(() => { void refreshActiveRuns(); }, 10_000);
-    const onVisibility = () => { if (document.visibilityState === "visible") void refreshActiveRuns(); };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      disposed = true;
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [activeRunKey, loadIntake, loadOverview, loadTracker]);
 
   function handlePipelineChange(nextPipeline: DashboardPipeline) {
     setPipeline(nextPipeline);
@@ -225,23 +151,12 @@ export function DashboardPage() {
     try {
       const submitted = await submitRun(analysisId);
       setActionMessage(`Submitted ${analysisId} to Airflow${submitted.dag_run_id ? ` as ${submitted.dag_run_id}` : ""}.`);
-      await Promise.all([loadOverview(false), loadTracker(false), loadIntake(false)]);
+      await Promise.all([loadOverview(), loadTracker(), loadIntake()]);
     } catch (submitError) {
       setTrackerError(errorMessage(submitError));
     }
   }
 
-  async function handleTrackerSync(analysisId: string) {
-    setActionMessage(null);
-    setTrackerError(null);
-    try {
-      await syncAirflow(analysisId);
-      setActionMessage(`Synced ${analysisId} from Airflow.`);
-      await Promise.all([loadOverview(false), loadTracker(false), loadIntake(false)]);
-    } catch (syncError) {
-      setTrackerError(errorMessage(syncError));
-    }
-  }
 
   const showQc = pipeline === "all"
     ? deployedDefinitions.some((item) => item.capabilities.includes("qc"))
@@ -287,7 +202,6 @@ export function DashboardPage() {
               onKeywordChange={handleKeywordChange}
               onPageChange={setTrackerOffset}
               onSubmit={(analysisId) => void handleTrackerSubmit(analysisId)}
-              onSync={(analysisId) => void handleTrackerSync(analysisId)}
             />
           </div>
           {showIntake ? <IntakeScannerPanel

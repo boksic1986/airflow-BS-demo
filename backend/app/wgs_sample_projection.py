@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import select
 
 from app.models import AnalysisRun, RuleState, Sample, WgsLifecycleStatus
+from app.sample_selection_scope import selected_clause
 from app.qc_highlights import aggregate_qc_status
 from app.wgs_artifact_selection import select_batch_qcstat
 from app.wgs_run_projection import load_wgs_runtime_binding, resolve_bound_wgs_batch_root
@@ -39,7 +40,7 @@ def get_wgs_sample_projection(*, session, settings, run: AnalysisRun) -> dict[st
     )
     qc = _read_qc(batch_root) if batch_root else {}
     samples = session.scalars(
-        select(Sample).where(Sample.analysis_id == run.analysis_id).order_by(Sample.sample_id)
+        select(Sample).where(Sample.analysis_id == run.analysis_id, selected_clause()).order_by(Sample.sample_id)
     ).all()
     rules = session.scalars(
         select(RuleState).where(
@@ -91,7 +92,7 @@ def get_wgs_batch_qc_status(*, session, settings, run: AnalysisRun) -> str:
     batch_root = _batch_root(settings=settings, run=run)
     qc = _read_qc(batch_root) if batch_root else {}
     samples = session.scalars(
-        select(Sample).where(Sample.analysis_id == run.analysis_id).order_by(Sample.sample_id)
+        select(Sample).where(Sample.analysis_id == run.analysis_id, selected_clause()).order_by(Sample.sample_id)
     ).all()
     return aggregate_qc_status(
         [_qc_value_for_sample(sample=sample, qc=qc).get("status") for sample in samples]

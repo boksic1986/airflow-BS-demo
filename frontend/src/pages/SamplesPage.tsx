@@ -7,7 +7,7 @@ import {listSamplesResource} from "../api";
 import {StatusBadge} from "../components/StatusBadge";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {deployedPipelineFilter} from "../lib/deployment";
-import {errorMessage} from "../lib/errors";
+import {useSilentRefresh} from "../lib/useSilentRefresh";
 
 const pageSize = 25;
 
@@ -20,8 +20,6 @@ export function SamplesPage() {
   const [keywordDraft, setKeywordDraft] = useState(keyword);
   const page = positivePage(searchParams.get("page"));
   const [payload, setPayload] = useState<OperatorSampleResponse>({items: [], total: 0, limit: pageSize, offset: 0});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { setKeywordDraft(keyword); }, [keyword]);
   useEffect(() => {
@@ -38,30 +36,16 @@ export function SamplesPage() {
     return () => window.clearTimeout(timer);
   }, [keyword, keywordDraft, setSearchParams]);
 
-  useEffect(() => {
-    let disposed = false;
-    setLoading(true);
-    setError(null);
-    listSamplesResource({
+  const {loading, error} = useSilentRefresh(async ({isCurrent}) => {
+    const result = await listSamplesResource({
       pipeline: pipeline === "all" ? "deployed" : pipeline,
       status: status === "all" ? undefined : status,
       keyword: keyword.trim() || undefined,
       limit: pageSize,
       offset: (page - 1) * pageSize,
-    })
-      .then((result) => {
-        if (!disposed) setPayload(result);
-      })
-      .catch((loadError) => {
-        if (!disposed) setError(errorMessage(loadError));
-      })
-      .finally(() => {
-        if (!disposed) setLoading(false);
-      });
-    return () => {
-      disposed = true;
-    };
-  }, [keyword, page, pipeline, status]);
+    });
+    if (isCurrent()) setPayload(result);
+  }, JSON.stringify([keyword, page, pipeline, status]));
 
   function updateFilter(name: string, value: string) {
     const next = new URLSearchParams(searchParams);
@@ -114,7 +98,7 @@ export function SamplesPage() {
         </div>
         {loading ? <p className="muted">Loading samples...</p> : null}
         {error ? <div className="inline-error" role="alert">{error}</div> : null}
-        {!loading && !error ? (
+        {!loading ? (
           <div className="table-wrap">
             <table className="data-table sample-resource-table">
               <thead>
@@ -133,7 +117,7 @@ export function SamplesPage() {
                     </td>
                     <td>
                       <StatusBadge status={row.status} />
-                      {row.status_reason ? <small className="block muted">{row.status_reason}</small> : null}
+                      {row.pending_reason || row.status_reason ? <small className="block muted">{row.pending_reason || row.status_reason}</small> : null}
                     </td>
                   </tr>
                 ))}

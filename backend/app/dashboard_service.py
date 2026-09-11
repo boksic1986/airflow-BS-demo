@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.sample_selection_scope import selected_clause, scope_status
 
 from datetime import datetime, timedelta, timezone
 import logging
@@ -116,7 +117,11 @@ def get_dashboard_runs(
         )
         .exists()
     )
-    if status:
+    if not status or status == "all":
+        base_query = base_query.where(~AnalysisRun.status.in_(("cancelled", "canceled")))
+    elif status in {"cancelled", "canceled"}:
+        base_query = base_query.where(AnalysisRun.status.in_(("cancelled", "canceled")))
+    elif status:
         normalized_status = _status(status)
         if normalized_status == "active":
             base_query = base_query.where(AnalysisRun.status.in_(ACTIVE_STATUSES))
@@ -290,6 +295,7 @@ def _tracker_row(
             or ""
         ) or None,
         "sample_count": len(sample_qc_statuses),
+        "sample_scope_status": scope_status(run),
         "created_at": _iso(run.created_at),
         "submitted_at": _iso(run.submitted_at),
         "submitted_by": run.submitted_by,
@@ -429,7 +435,7 @@ def _sample_qc_by_run(*, session: Session, runs: list[AnalysisRun]) -> dict[str,
         return {}
     values: dict[str, list[str | None]] = {}
     for analysis_id, qc_status in session.execute(
-        select(Sample.analysis_id, Sample.qc_status).where(Sample.analysis_id.in_(run_ids))
+        select(Sample.analysis_id, Sample.qc_status).where(Sample.analysis_id.in_(run_ids), selected_clause())
     ).all():
         values.setdefault(analysis_id, []).append(qc_status)
     return values
@@ -469,6 +475,7 @@ def _duration_estimates_by_run(
         select(failed_sample.id)
         .where(
             failed_sample.analysis_id == AnalysisRun.analysis_id,
+            selected_clause(failed_sample),
             func.lower(failed_sample.qc_status).in_(["fail", "failed", "error"]),
         )
         .exists()
@@ -478,6 +485,7 @@ def _duration_estimates_by_run(
         .join(counted_sample, counted_sample.analysis_id == AnalysisRun.analysis_id)
         .where(
             AnalysisRun.pipeline_name.in_(pipelines),
+            selected_clause(counted_sample),
             AnalysisRun.status == "success",
             AnalysisRun.mode == "new",
             AnalysisRun.submitted_at.is_not(None),
@@ -648,7 +656,7 @@ def _samples_for_period(*, session: Session, pipeline_names: tuple[str, ...], si
     query = (
         select(Sample)
         .join(AnalysisRun, AnalysisRun.analysis_id == Sample.analysis_id)
-        .where(AnalysisRun.created_at >= since)
+        .where(AnalysisRun.created_at >= since, selected_clause())
     )
     query = query.where(AnalysisRun.pipeline_name.in_(pipeline_names))
     return list(session.scalars(query).all())

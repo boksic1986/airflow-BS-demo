@@ -12,6 +12,54 @@ afterEach(() => {
   window.history.pushState({}, "", "/");
 });
 
+it("restores an existing manual WGS submission after page reload without creating a run", async () => {
+  window.history.pushState({}, "", "/submit?pipeline=wgs&analysis_id=WGS_MOCK");
+  let creates = 0;
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (init?.method === "POST") { creates++; return json({}); }
+    if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
+    if (url.endsWith("/api/wgs/release")) return json({execution_enabled: true, runtime_adapter_enabled: true, source_commit: "mock"});
+    if (url.endsWith("/api/wgs/projects")) return json({items: []});
+    if (url.endsWith("/api/runs/WGS_MOCK")) return json({analysis_id: "WGS_MOCK", pipeline: "wgs", status: "running", attempt: 1, params: {sequencing_batch: "MOCK_BATCH", submission_phase: "config_review"}});
+    if (url.includes("/api/samples?")) return json({items: [
+      {analysis_id: "WGS_MOCK", sample_id: "CANDIDATE_1", selection_decision: "candidate", selection_attempt: 1, status: "pending"},
+      {analysis_id: "WGS_OTHER", sample_id: "OTHER_RUN", selection_decision: "candidate", selection_attempt: 1},
+      {analysis_id: "WGS_MOCK", sample_id: "OLD_ATTEMPT", selection_decision: "candidate", selection_attempt: 2},
+      {analysis_id: "WGS_MOCK", sample_id: "NOT_SELECTED", selection_decision: "pending", selection_attempt: 1},
+    ], total: 4});
+    return json({items: [], total: 0});
+  }));
+  render(<App />);
+  expect(await screen.findByRole("button", {name: "Confirm configuration"})).toBeInTheDocument();
+  expect(await screen.findByText("CANDIDATE_1")).toBeInTheDocument();
+  expect(screen.queryByText("OTHER_RUN")).not.toBeInTheDocument();
+  expect(screen.queryByText("OLD_ATTEMPT")).not.toBeInTheDocument();
+  expect(screen.queryByText("NOT_SELECTED")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", {name: "Prepare sample information"})).not.toBeInTheDocument();
+  expect(creates).toBe(0);
+  cleanup();
+  render(<App />);
+  expect(await screen.findByRole("button", {name: "Confirm configuration"})).toBeInTheDocument();
+  expect(creates).toBe(0);
+});
+
+it("keeps a failed restore from offering a duplicate submission", async () => {
+  window.history.pushState({}, "", "/submit?pipeline=wgs&analysis_id=WGS_MOCK");
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/auth/me")) return json({username: "operator", role: "operator"});
+    if (url.endsWith("/api/platform/capabilities")) return json(wgsCapabilities());
+    if (url.endsWith("/api/wgs/release")) return json({execution_enabled: true, runtime_adapter_enabled: true, source_commit: "mock"});
+    if (url.endsWith("/api/runs/WGS_MOCK")) return Promise.resolve(new Response(JSON.stringify({detail: "Temporarily unavailable"}), {status: 503}));
+    return json({items: [], total: 0});
+  }));
+  render(<App />);
+  expect(await screen.findByRole("link", {name: "View existing run"})).toHaveAttribute("href", "/runs/WGS_MOCK");
+  expect(screen.queryByRole("button", {name: "Prepare sample information"})).not.toBeInTheDocument();
+});
+
 it("uses a pipeline-selectable staged WGS submission form", async () => {
   window.history.pushState({}, "", "/submit");
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
@@ -101,12 +149,12 @@ it("previews and confirms a locked GATK Cloud project", async () => {
       profile_id: "gatk-scmc-v7.6.0",
       profile_revision: "bd04f6d",
       batch: "20260908A",
-      sampleinfo_name: "WES_20260908A_T7.sampleinfo.SCMC.txt",
+      sampleinfo_name: "WES_20260908A_T7.sampleinfo.txt",
       sample_count: 2,
       fastq_file_count: 4,
       fastq_total_bytes: 4294967296,
       samples: ["SCMC001", "SCMC002"],
-      validation: {source_directory_readable: true, scmc_sampleinfo_present: true, scmc_samples_present: true},
+      validation: {sample_sets_match: true, fastq_pairs_complete: true, paths_approved: true},
       expires_at: "2026-09-08T12:30:00Z",
     });
     if (url.endsWith("/api/runs")) return json({analysis_id: "GATK_20260908_120000_A1B2C3", pipeline: "gatk", status: "submitted"});
@@ -116,10 +164,10 @@ it("previews and confirms a locked GATK Cloud project", async () => {
   render(<App />);
 
   expect(await screen.findByRole("heading", {name: "Submit GATK Cloud"})).toBeInTheDocument();
-  expect(screen.getByText(/sampleinfo.SCMC.txt/)).toBeInTheDocument();
+  expect(screen.getByText(/SCMC samples are selected from sampleinfo/)).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("WES project directory"), {target: {value: "/sg2/21.lijing/WES_Clinical/WES_20260908A_T7_V7.6.0_hg38"}});
   fireEvent.click(screen.getByRole("button", {name: "Preview project"}));
-  expect(await screen.findByText("WES_20260908A_T7.sampleinfo.SCMC.txt")).toBeInTheDocument();
+  expect(await screen.findByText("WES_20260908A_T7.sampleinfo.txt")).toBeInTheDocument();
   expect(screen.getByText("SCMC001")).toBeInTheDocument();
   expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", {name: "Confirm and submit"}));

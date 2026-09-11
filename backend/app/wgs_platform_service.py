@@ -1,4 +1,5 @@
-﻿from __future__ import annotations
+from __future__ import annotations
+from app.sample_selection_scope import selected_clause, nonparticipating_status, scope_status
 
 from datetime import datetime, timezone
 import csv
@@ -86,6 +87,7 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
         sample_sheet_path=str(config_dir / "sampleinfo.tsv"),
         workdir=str(workdir),
         params_json={
+            "sample_selection_scope": {"attempt": 1, "status": "preparing"},
             "project_name": project_name,
             "execution_mode": execution_mode,
             "batch_no": batch_no,
@@ -164,12 +166,55 @@ def submit_wgs_run(*, session: Session, airflow_client, analysis_id: str) -> dic
     run.submitted_at = datetime.now(timezone.utc)
     run.current_stage = "queued"
     for sample in session.scalars(select(Sample).where(Sample.analysis_id == analysis_id)).all():
-        sample.status = "running"
+        sample.status = nonparticipating_status(sample, run) or "running"
     session.commit()
     return run_payload(session, run)
 
 
-def action_wgs_run(*, session: Session, airflow_client, analysis_id: str, action: str, requested_by: str) -> dict | None:
+def _refresh_recovery_release(*, run: AnalysisRun, settings) -> dict[str, str]:
+    release = load_wgs_release_catalog(
+        Path(settings.wgs_release_catalog_path)
+    ).release
+    params = dict(run.params_json or {})
+    previous_release_id = str(params.get("pipeline_release_id") or "")
+    previous_version = str(params.get("wgs_version") or "")
+    if previous_release_id == release.release_id:
+        return {}
+    if previous_version != release.version:
+        raise ValueError(
+            "WGS recovery cannot switch across pipeline versions; clone a new run instead."
+        )
+    params.update(
+        {
+            "pipeline_release_id": release.release_id,
+            "wgs_version": release.version,
+            "wgs_source_commit": release.source_commit,
+            "rule_event_schema_version": release.rule_event_schema_version,
+        }
+    )
+    for key in (
+        "profile_id",
+        "profile_revision",
+        "profile_sha256",
+        "node200_profile_path",
+        "cce_pipeline_version",
+        "pipeline_build_sha256",
+        "resource_manifest_sha256",
+    ):
+        value = getattr(release, key, None)
+        if value is not None:
+            params[key] = value
+        else:
+            params.pop(key, None)
+    params.pop("resolved_runtime", None)
+    run.params_json = params
+    return {
+        "previous_release_id": previous_release_id,
+        "pipeline_release_id": release.release_id,
+    }
+
+
+def action_wgs_run(*, session: Session, settings, airflow_client, analysis_id: str, action: str, requested_by: str) -> dict | None:
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
     if run is None:
         return None
@@ -197,7 +242,16 @@ def action_wgs_run(*, session: Session, airflow_client, analysis_id: str, action
         raise ValueError("Unsupported WGS action.")
     if run.status not in {"failed", "cancelled", "unknown_interrupted"}:
         raise ValueError(f"Run status {run.status} cannot be resumed.")
+    release_audit = _refresh_recovery_release(run=run, settings=settings)
     run.attempt += 1
+    params = dict(run.params_json or {})
+    if params.get("submission_mode") == "three_stage":
+        params.update({
+            "submission_phase": "preparing_sampleinfo",
+            "config_approved_at": None,
+            "execution_approved_at": None,
+        })
+        run.params_json = params
     run.mode = action
     run.status = "created"
     run.started_at = None
@@ -208,7 +262,7 @@ def action_wgs_run(*, session: Session, airflow_client, analysis_id: str, action
     run.error_summary = None
     session.add(RunAttempt(analysis_id=analysis_id, attempt=run.attempt, execution_mode=run.execution_mode, status="created"))
     reset_execution_dispatch_for_attempt(session=session, run=run)
-    session.add(RunAction(analysis_id=analysis_id, action=action, requested_by=requested_by, result_status="accepted", payload_json={"attempt": run.attempt}))
+    session.add(RunAction(analysis_id=analysis_id, action=action, requested_by=requested_by, result_status="accepted", payload_json={"attempt": run.attempt, **release_audit}))
     session.commit()
     return submit_wgs_run(session=session, airflow_client=airflow_client, analysis_id=analysis_id)
 
@@ -333,8 +387,8 @@ def _is_terminal_transfer_status(value: str | None) -> bool:
 
 
 def run_payload(session: Session, run: AnalysisRun) -> dict:
-    count = len(session.scalars(select(Sample).where(Sample.analysis_id == run.analysis_id)).all())
-    return {"analysis_id": run.analysis_id, "pipeline": "wgs", "dag_id": run.dag_id, "dag_run_id": run.dag_run_id, "execution_mode": run.execution_mode, "attempt": run.attempt, "status": run.status, "sample_count": count, "workdir": run.workdir, "params": run.params_json, "submitted_by": run.submitted_by}
+    count = len(session.scalars(select(Sample).where(Sample.analysis_id == run.analysis_id, selected_clause())).all())
+    return {"analysis_id": run.analysis_id, "pipeline": "wgs", "dag_id": run.dag_id, "dag_run_id": run.dag_run_id, "execution_mode": run.execution_mode, "attempt": run.attempt, "status": run.status, "sample_count": count, "sample_scope_status": scope_status(run), "workdir": run.workdir, "params": run.params_json, "submitted_by": run.submitted_by}
 
 
 def masked_order_number(value: object) -> str | None:
@@ -408,11 +462,8 @@ def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> in
             row.family_id = str(source.get("家系编号") or "").strip() or None
             row.sample_type = metadata["sample_type"]
             row.sex = metadata["sex"]
-            row.status = "running"
-            row.metadata_json = metadata
-    for sample_id, row in existing.items():
-        if sample_id not in selected:
-            session.delete(row)
+            row.status = run.status if run.status in {"success", "failed", "canceled"} else "running"
+            row.metadata_json = {**dict(row.metadata_json or {}), **metadata}
     session.flush()
     return len(selected)
 
@@ -469,11 +520,7 @@ def sync_sampleinfo_preview(*, session: Session, settings, run: AnalysisRun) -> 
             row.family_id = str(source.get("家系编号") or "").strip() or None
             row.sample_type = metadata["sample_type"]
             row.sex = metadata["sex"]
-            row.status = "pending"
-            row.metadata_json = metadata
-    for sample_id, row in existing.items():
-        if sample_id not in selected:
-            session.delete(row)
+            row.metadata_json = {**dict(row.metadata_json or {}), **metadata}
     session.flush()
     return len(selected)
 
@@ -482,13 +529,29 @@ def sync_prepare_handoff_decisions(
     *, session: Session, run: AnalysisRun, receipt: dict[str, object]
 ) -> int:
     """Import only the privacy-safe sample decisions emitted by WGS 4.2 prepare."""
+    if receipt.get("analysis_id") != run.analysis_id or receipt.get("attempt") != int(run.attempt):
+        raise ValueError("WGS prepare handoff does not match the current run attempt")
     schema = str(receipt.get("schema_version") or "")
     if schema == "wgs.prepare-sampleinfo.receipt.v1":
         groups = (("safe_candidates", "pending"),)
     elif schema == "wgs.prepare-analysis.receipt.v1":
-        groups = (("selected", "running"), ("pending", "pending"))
+        execution_status = run.status if run.status in {"success", "failed", "canceled"} else "running"
+        groups = (("selected", execution_status), ("pending", "pending"), ("excluded", "skipped"))
     else:
         raise ValueError("unsupported WGS prepare handoff receipt")
+    scope = (run.params_json or {}).get("sample_selection_scope") or {}
+    if schema == "wgs.prepare-sampleinfo.receipt.v1" and scope == {"attempt": int(run.attempt), "status": "ready"}:
+        return 0  # Late preview must not undo the final decision for this attempt.
+    seen = set()
+    for key, _ in groups:
+        values = receipt.get(key)
+        if not isinstance(values, list):
+            raise ValueError("WGS prepare handoff must contain complete decision groups")
+        for value in values:
+            sample_id = str(value.get("sample_id") or "").strip() if isinstance(value, dict) else ""
+            if not sample_id or sample_id in seen:
+                raise ValueError("WGS prepare handoff sample sets overlap or contain invalid identities")
+            seen.add(sample_id)
     existing = {
         row.sample_id: row
         for row in session.scalars(
@@ -507,6 +570,10 @@ def sync_prepare_handoff_decisions(
             if not sample_id:
                 raise ValueError("WGS prepare handoff decision is missing sample_id")
             metadata = {
+                "selection_decision": "candidate" if key == "safe_candidates" else key,
+                "selection_attempt": int(run.attempt),
+                "pending_reason": str(source.get("reason_message") or "").strip() or None,
+                "pending_source": "wgs_prepare_handoff_v1" if key == "pending" else None,
                 "data_id": str(source.get("data_id") or "").strip() or None,
                 "family_relation": str(source.get("family_relation") or "").strip() or None,
                 "sample_type": str(source.get("sample_type") or "").strip() or None,
@@ -537,6 +604,13 @@ def sync_prepare_handoff_decisions(
                 row.status = status
                 row.metadata_json = {**dict(row.metadata_json or {}), **metadata}
             imported += 1
+    for sample_id, row in existing.items():
+        if sample_id not in seen:
+            row.metadata_json = {**dict(row.metadata_json or {}), "selection_decision": "unresolved", "selection_attempt": int(run.attempt)}
+            row.status = "pending"
+    run.params_json = {**dict(run.params_json or {}), "sample_selection_scope": {
+        "attempt": int(run.attempt), "status": "ready" if schema == "wgs.prepare-analysis.receipt.v1" else "preparing"
+    }}
     session.flush()
     return imported
 
