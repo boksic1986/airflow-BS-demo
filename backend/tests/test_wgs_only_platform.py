@@ -3606,6 +3606,7 @@ def test_wgs_sample_projection_excludes_clinical_fields_and_server_paths(tmp_pat
         "elapsed_seconds": None,
         "qc_status": "unknown",
         "qc_metrics": {},
+        "qc_judgments": {},
     }
     assert response.json()["manifest"] == []
     assert "/private/fastq" not in response.text

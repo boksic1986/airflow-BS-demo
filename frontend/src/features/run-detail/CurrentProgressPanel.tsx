@@ -1,4 +1,5 @@
-import type {RunDetail} from "../../api";
+import type {RunDetail, StageEstimate} from "../../api";
+import {EstimatedStageProgress} from "../../components/EstimatedStageProgress";
 import type {RunProgress} from "../../lib/runProgress";
 
 import {RunProgressBar} from "../../components/RunProgressBar";
@@ -9,7 +10,7 @@ export function CurrentProgressPanel({detail, progress, source, stage}: {
   detail: RunDetail;
   progress: RunProgress | null;
   source?: string | null;
-  stage?: {completed_units?: number | null; total_units?: number | null; unit?: string | null; speed_bps?: number | null; eta_seconds?: number | null; current_item?: string | null} | null;
+  stage?: StageEstimate & {completed_units?: number | null; total_units?: number | null; unit?: string | null; speed_bps?: number | null; eta_seconds?: number | null; current_item?: string | null} | null;
   slotUsage?: {pool: string; used: number; limit: number; waiting: number; mode: string} | null;
 }) {
   return (
@@ -29,7 +30,7 @@ export function CurrentProgressPanel({detail, progress, source, stage}: {
             Elapsed {formatDuration(detail.submitted_at || detail.started_at, detail.pipeline_finished_at || detail.ended_at)}
             {isActiveStatus(detail.status) ? " / ETA based on recent successful runs" : ""}
           </small>
-          <RunProgressBar analysisId={detail.analysis_id} progress={progress} />
+          {progress.available === false && stage?.estimated_progress_percent != null ? <EstimatedStageProgress stage={stage} /> : <RunProgressBar analysisId={detail.analysis_id} progress={progress} />}
         </div>
       ) : <p className="empty-state">Progress has not been captured for this run.</p>}
     </section>

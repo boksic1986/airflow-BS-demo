@@ -29,6 +29,8 @@ import {CurrentProgressPanel} from "../features/run-detail/CurrentProgressPanel"
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {RunFilesTab, RunOverviewTab} from "../features/run-detail/RunResourceTabs";
 import {RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
+import {QcMetric} from "../features/run-detail/QcMetric";
+import type {RulePage, RuleQuery} from "../api";
 import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
 import {DataLifecyclePanel} from "../features/run-detail/DataLifecyclePanel";
 import {WgsTransfersTab} from "../features/run-detail/WgsTransfersTab";
@@ -73,6 +75,8 @@ export function RunDetailPage() {
   const [logKey, setLogKey] = useState<string | null>(null);
   const [logQuery, setLogQuery] = useState("");
   const [activeTab, setActiveTab] = useState<DetailTab>("Overview");
+  const [ruleQuery, setRuleQuery] = useState<RuleQuery>({});
+  const [rulePage, setRulePage] = useState<RulePage | undefined>();
   const [logError, setLogError] = useState<string | null>(null);
   const [logIndexError, setLogIndexError] = useState<string | null>(null);
   const [progressError, setProgressError] = useState<string | null>(null);
@@ -148,6 +152,8 @@ export function RunDetailPage() {
     setLog(null);
     setLogKey(null);
     setLogQuery("");
+    setRuleQuery({});
+    setRulePage(undefined);
   }, [analysisId]);
 
   function handleLogKeyChange(nextKey: string) {
@@ -176,7 +182,8 @@ export function RunDetailPage() {
           const result = await getRunSamples(analysisId);
           publish((current) => ({...current, samples: result.items, manifest: result.manifest || [], manifestSummary: result.manifest_summary || null}));
         } else if (activeTab === "Rules") {
-          const result = await getRunRules(analysisId, {limit: 50, sort: "active_first"});
+          const result = await getRunRules(analysisId, {limit: 50, sort: "active_first", ...ruleQuery});
+          if (isCurrent()) setRulePage(result);
           publish((current) => ({...current, rules: result.items}));
         } else if (activeTab === "Master") {
           const result = await getRunPods(analysisId);
@@ -207,7 +214,7 @@ export function RunDetailPage() {
         if (isCurrent()) setTabError(errorMessage(loadError));
         throw loadError;
       }
-  }, JSON.stringify([analysisId, activeTab, detail?.attempt, capabilityKey, logKey, logStream, logQuery]), !capabilities.loading && Boolean(analysisId));
+  }, JSON.stringify([analysisId, activeTab, detail?.attempt, capabilityKey, logKey, logStream, logQuery, ruleQuery]), !capabilities.loading && Boolean(analysisId));
 
   const failedRule = bundle.rules.find((rule) => isFailedStatus(rule.status));
   const diagnosis = parseErrorSummary(
@@ -321,7 +328,7 @@ export function RunDetailPage() {
           {tabError ? <div className="inline-error" role="alert">This tab could not be loaded: {tabError}</div> : null}
           {activeTab === "Overview" ? <RunOverviewTab detail={detail} samples={bundle.manifest} sampleCount={summary.sample_count} manifestSummary={bundle.manifestSummary} /> : null}
           {activeTab === "Samples" ? <WgsSamplesTab samples={bundle.samples} manifest={bundle.manifest} showQc={detail.pipeline !== "gatk"} /> : null}
-          {activeTab === "Rules" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} onOpenLog={(key) => { setLogKey(key); setLogStream("stdout"); setActiveTab("Logs"); }} /> : null}
+          {activeTab === "Rules" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} page={rulePage} query={ruleQuery} onQueryChange={setRuleQuery} onOpenLog={(key) => { setLogKey(key); setLogStream("stdout"); setActiveTab("Logs"); }} /> : null}
           {activeTab === "Master" ? <WgsMasterTab pods={bundle.pods} /> : null}
           {activeTab === "Transfers" ? <WgsTransfersTab detail={detail} transfers={bundle.transfers} refreshKey={bundle.snapshotAt} /> : null}
           {activeTab === "QC" ? <WgsQcTab samples={bundle.samples} /> : null}
@@ -346,7 +353,7 @@ function WgsSamplesTab({samples, manifest, showQc = true}: {samples: Sample[]; m
 }
 
 function WgsQcTab({samples}: {samples: Sample[]}) {
-  return <WgsTable headers={["Sample", "QC status", "Q30", "Mapped", "Average depth", "≥20X", "Contamination"]} rows={samples.map((sample) => [
+  return <WgsTable headers={["Sample", "Source QC status", "Q30", "Mapped", "Average depth", "≥20X", "Contamination", "All release criteria"]} rows={samples.map((sample) => [
     sample.sample_id,
     <StatusBadge status={qcDisplayStatus(sample)} size="sm" />,
     qcMetric(sample, "clean_q30_percent"),
@@ -354,6 +361,7 @@ function WgsQcTab({samples}: {samples: Sample[]}) {
     qcMetric(sample, "average_depth"),
     qcMetric(sample, "coverage_20x_percent"),
     qcMetric(sample, "contamination"),
+    <details><summary>Metric judgments</summary>{Object.entries(sample.qc_judgments || {}).map(([key, judgment]) => <div key={key}><strong>{key.replaceAll("_", " ")}</strong><QcMetric judgment={judgment} /></div>)}</details>,
   ])} empty="QC is pending or unavailable because the batch QCstat has not been projected yet." />;
 }
 
@@ -375,7 +383,7 @@ function qcDisplayStatus(sample: Sample): string {
   return isActiveStatus(sample.status || "") ? "pending" : "unavailable";
 }
 
-function qcMetric(sample: Sample, key: string): string | number {
+function qcMetric(sample: Sample, key: string): ReactNode {
   const value = sample.qc_metrics?.[key];
-  return value == null || value === "" ? "-" : value;
+  return <QcMetric value={value} judgment={sample.qc_judgments?.[key]} />;
 }

@@ -326,6 +326,7 @@ def _project_gatk_rule_context(*, run, **_) -> dict[str, Any]:
 
 
 def _project_gatk_progress(*, session, run, payload, **_) -> dict[str, Any]:
+    from app.wgs_stage_estimates import attach_stage_estimates
     stage = gatk_stage_definition(run.current_stage)
     stage_rows = list(
         session.scalars(
@@ -342,7 +343,7 @@ def _project_gatk_progress(*, session, run, payload, **_) -> dict[str, Any]:
         return payload
     progress_available = bool(stage_row.progress_available)
     stage_percent = stage_row.progress_percent if progress_available else None
-    return {
+    result = {
         **payload,
         "percent": stage_percent,
         "current_step": stage.label,
@@ -368,6 +369,7 @@ def _project_gatk_progress(*, session, run, payload, **_) -> dict[str, Any]:
         ),
         "airflow_tasks": [],
     }
+    return attach_stage_estimates(session, run, result)
 
 
 def _project_wgs_rule_context(*, run, **_) -> dict[str, Any]:
@@ -381,7 +383,7 @@ def _project_wgs_rule_context(*, run, **_) -> dict[str, Any]:
 
 def _project_wgs_progress(*, session, run, payload, **_) -> dict[str, Any]:
     if str(run.status or "").lower() == "success":
-        return {
+        result = {
             **payload,
             **terminal_wgs_progress(
                 updated_at=(run.pipeline_finished_at or run.ended_at).isoformat()
@@ -390,6 +392,8 @@ def _project_wgs_progress(*, session, run, payload, **_) -> dict[str, Any]:
                 validation_scope=str((run.params_json or {}).get("validation_scope") or "") or None,
             ),
         }
+        from app.wgs_stage_estimates import attach_stage_estimates
+        return attach_stage_estimates(session, run, result)
     return enrich_progress(session=session, run=run, payload=payload)
 
 

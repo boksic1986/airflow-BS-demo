@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import csv
+import hashlib
+import yaml
 from datetime import datetime, timezone
 from pathlib import Path
 import re
@@ -38,7 +40,7 @@ def get_wgs_sample_projection(*, session, settings, run: AnalysisRun) -> dict[st
     manifest, manifest_summary = (
         _read_manifest(batch_root / "sampleinfo.tsv") if batch_root else ([], {})
     )
-    qc = _read_qc(batch_root) if batch_root else {}
+    qc = _read_qc(batch_root, release_id=str((run.params_json or {}).get("pipeline_release_id") or "")) if batch_root else {}
     samples = session.scalars(
         select(Sample).where(Sample.analysis_id == run.analysis_id, selected_clause()).order_by(Sample.sample_id)
     ).all()
@@ -185,11 +187,14 @@ def _read_manifest(path: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     }
 
 
-def _read_qc(batch_root: Path) -> dict[str, dict[str, Any]]:
+def _read_qc(batch_root: Path, *, release_id: str = "") -> dict[str, dict[str, Any]]:
+    from app.wgs_qc_policy import evaluate_metrics
     qc_path = select_batch_qcstat(batch_root)
     if qc_path is None:
         return {}
     output: dict[str, dict[str, Any]] = {}
+    contexts = _qc_contexts(batch_root)
+    artifact_hash = hashlib.sha256(qc_path.read_bytes()).hexdigest()
     with qc_path.open(encoding="utf-8-sig", newline="") as handle:
         for source in csv.DictReader(handle, delimiter="\t"):
             identifiers = {_text(source.get("Sample_ID")), _text(source.get("Name"))}
@@ -200,10 +205,56 @@ def _read_qc(batch_root: Path) -> dict[str, dict[str, Any]]:
                 for column, public in QC_FIELDS.items()
                 if _text(source.get(column)) is not None
             }
-            value = {"status": status, "metrics": metrics}
+            data_id = _text(source.get("Sample_ID"))
+            context = contexts.get(data_id, {})
+            judgments = evaluate_metrics(source, release_id=release_id, context=context, multiqc=_multi_qc_row(batch_root, data_id))
+            for judgment in judgments.values():
+                judgment["qcstat_sha256"] = artifact_hash
+            value = {"status": status, "metrics": metrics, "judgments": judgments}
             for identifier in identifiers:
                 output[str(identifier)] = value
     return output
+
+
+def _qc_contexts(batch_root):
+    """Read condition fields privately; never return manifest rows/identities."""
+    path = batch_root / "sampleinfo.tsv"
+    if not path.is_file() or path.is_symlink():
+        return {}
+    bkw = None
+    config_path = batch_root / "config.yaml"
+    if config_path.is_file() and not config_path.is_symlink():
+        try:
+            config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+            if isinstance(config, dict) and isinstance(config.get("BKWsampleList", []), list):
+                bkw = set(config.get("BKWsampleList", []))
+        except (OSError, ValueError, TypeError, yaml.YAMLError):
+            pass
+    rows = {}
+    manifest_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+    duplicates = set()
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        for row in csv.DictReader(handle, delimiter="\t"):
+            identifier = _text(row.get("数据编号"))
+            if not identifier:
+                continue
+            if identifier in rows:
+                duplicates.add(identifier)
+            rows[identifier] = {"item_id": _text(row.get("项目编号")), "relation": _text(row.get("家系关系")), "sample_type": _text(row.get("样本类型")), "rare_disease": bool(re.search(r"F57J|UPC", identifier)), "manifest_sha256": manifest_hash}
+            if bkw is not None:
+                rows[identifier]["bkw"] = identifier in bkw
+    return {key: value for key, value in rows.items() if key not in duplicates}
+
+
+def _multi_qc_row(batch_root, data_id):
+    if not data_id or not re.fullmatch(r"[A-Za-z0-9_.-]+", data_id):
+        return {}
+    path = batch_root / "07_QC" / f"{data_id}.multi.QC.tsv"
+    if not path.is_file() or path.is_symlink() or path.parent.is_symlink():
+        return {}
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        rows = [row for row in csv.DictReader(handle, delimiter="\t") if row.get("Sample") == data_id]
+    return {**rows[0], "_artifact_sha256": hashlib.sha256(path.read_bytes()).hexdigest()} if len(rows) == 1 else {}
 
 
 def _matching_rules(*, sample: Sample, by_sample: dict[str, list[RuleState]]) -> list[RuleState]:
@@ -273,6 +324,7 @@ def _matrix_row(*, sample: Sample, run: AnalysisRun, rules: list[RuleState], exp
         "elapsed_seconds": elapsed,
         "qc_status": qc_value.get("status", sample.qc_status or "unknown"),
         "qc_metrics": dict(qc_value.get("metrics") or {}),
+        "qc_judgments": dict(qc_value.get("judgments") or {}),
     }
 
 

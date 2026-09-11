@@ -1,6 +1,7 @@
 import {useMemo, useState} from "react";
 
-import type {AirflowTaskProgress, RuleEvent, RunProgressResponse} from "../../api";
+import type {AirflowTaskProgress, RuleEvent, RulePage, RuleQuery, RunProgressResponse} from "../../api";
+import {EstimatedStageProgress} from "../../components/EstimatedStageProgress";
 import {StatusBadge} from "../../components/StatusBadge";
 import {formatDate, formatProgressUnits} from "../../lib/format";
 import {humanStageLabel} from "../../lib/stageLabels";
@@ -40,17 +41,28 @@ function summarizeRulePhases(rules: RuleEvent[]): RulePhaseSummary[] {
   });
 }
 
-export function RunWorkflowTab({progress, rules, onOpenLog}: {
+export function RunWorkflowTab({progress, rules, onOpenLog, page, query, onQueryChange}: {
   progress: RunProgressResponse | null;
   rules: RuleEvent[];
   onOpenLog?: (key: string) => void;
+  page?: RulePage;
+  query?: RuleQuery;
+  onQueryChange?: (query: RuleQuery) => void;
 }) {
   const airflowTasks = (progress?.airflow_tasks || []).filter((task) => normalizeStatus(task.state) !== "skipped");
-  const phases = useMemo(() => summarizeRulePhases(rules), [rules]);
+  const phases = useMemo(() => page?.phase_summaries || summarizeRulePhases(rules), [rules, page]);
   const [phaseFilter, setPhaseFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [sampleFilter, setSampleFilter] = useState("");
-  const filteredRules = rules.filter((rule) => (!phaseFilter || rule.phase === phaseFilter) && (!statusFilter || rule.status === statusFilter) && (!sampleFilter || rule.sample_id === sampleFilter || rule.family_id === sampleFilter));
+  const [familyFilter, setFamilyFilter] = useState("");
+  const filteredRules = onQueryChange ? rules : rules.filter((rule) => (!phaseFilter || rule.phase === phaseFilter) && (!statusFilter || rule.status === statusFilter) && (!sampleFilter || rule.sample_id === sampleFilter) && (!familyFilter || rule.family_id === familyFilter));
+  function change(key: keyof RuleQuery, value: string) {
+    onQueryChange?.({...query, [key]: key === "attempt" ? (value ? Number(value) : undefined) : value, offset: 0});
+    if (key === "phase") setPhaseFilter(value);
+    if (key === "status") setStatusFilter(value);
+    if (key === "sampleId") setSampleFilter(value);
+    if (key === "familyId") setFamilyFilter(value);
+  }
 
   return (
     <div className="workflow-tab-stack">
@@ -80,7 +92,26 @@ export function RunWorkflowTab({progress, rules, onOpenLog}: {
           </table>
         </div>
       </section>
-      <section><div className="section-heading"><div><h2>Rule instances</h2><p>Active rules are listed first; times are shown only when recorded.</p></div></div><div className="rule-filters"><label>Phase<select aria-label="Rule phase filter" value={phaseFilter} onChange={(event) => setPhaseFilter(event.target.value)}><option value="">All</option>{[...new Set(rules.map((rule) => rule.phase).filter(isText))].map((phase) => <option key={phase} value={phase}>{phase}</option>)}</select></label><label>Status<select aria-label="Rule status filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">All</option>{[...new Set(rules.map((rule) => rule.status))].map((status) => <option key={status} value={status}>{status}</option>)}</select></label><label>Sample / family<select aria-label="Rule sample filter" value={sampleFilter} onChange={(event) => setSampleFilter(event.target.value)}><option value="">All</option>{[...new Set(rules.flatMap((rule) => [rule.sample_id, rule.family_id]).filter(isText))].map((sample) => <option key={sample} value={sample}>{sample}</option>)}</select></label></div><div className="table-wrap"><table className="data-table rule-instance-table" aria-label="Pipeline rule instances"><thead><tr><th>Phase</th><th>Rule</th><th>Sample</th><th>Family</th><th>Order</th><th>Job</th><th>Status</th><th>Started</th><th>Finished</th><th>Elapsed</th><th>Remaining</th><th>Message / failure excerpt</th></tr></thead><tbody>{filteredRules.map((rule, index) => <tr key={`${rule.rule}-${rule.sample_id || "all"}-${rule.sequence ?? index}`}><td>{rule.phase || "-"}</td><td className="rule-name-cell">{rule.rule}</td><td>{rule.sample_id || "-"}</td><td>{rule.family_id || "-"}</td><td>{rule.sequence ?? "-"}</td><td>{rule.snakemake_jobid || "-"}</td><td><StatusBadge status={displayRuleStatus(rule.status)} /></td><td>{rule.started_at || rule.start_time ? formatDate(rule.started_at || rule.start_time) : "-"}</td><td>{rule.ended_at || rule.end_time ? formatDate(rule.ended_at || rule.end_time) : "-"}</td><td>{duration(rule.elapsed_seconds)}</td><td>{duration(rule.estimated_remaining_seconds)}</td><td className="rule-message-cell">{rule.stderr_excerpt ? <details><summary>{rule.message || "Show failure excerpt"}</summary><pre>{rule.stderr_excerpt}</pre><small>The full registered analysis log is available in Logs.</small></details> : (rule.message || "-")}{rule.analysis_log_key && onOpenLog ? <button type="button" className="text-button" aria-label={`Open log for ${rule.rule}`} onClick={() => onOpenLog(rule.analysis_log_key!)}>Open log</button> : null}</td></tr>)}{filteredRules.length === 0 ? <tr><td colSpan={12} className="empty-cell">No matching Rule instances.</td></tr> : null}</tbody></table></div></section>
+      <section>
+        <div className="toolbar">
+          {page ? <label>Attempt<select aria-label="Attempt" value={query?.attempt ?? ""} onChange={(e) => change("attempt", e.target.value)}><option value="">Current ({page.current_attempt ?? page.attempt})</option>{(page.attempts || []).map((a) => <option key={a} value={a}>Attempt {a}</option>)}</select></label> : null}
+          <label>Phase<input aria-label="Phase" value={query?.phase ?? phaseFilter} onChange={(e) => change("phase", e.target.value)} placeholder="Exact phase" /></label>
+          <label>Status<select aria-label="Rule status" value={query?.status ?? statusFilter} onChange={(e) => change("status", e.target.value)}><option value="">All</option>{["planned", "running", "success", "failed", "canceled"].map((v) => <option key={v}>{v}</option>)}</select></label>
+          <label>Sample<input aria-label="Sample" value={query?.sampleId ?? sampleFilter} onChange={(e) => change("sampleId", e.target.value)} placeholder="Exact sample ID" /></label>
+          <label>Family<input aria-label="Family" value={query?.familyId ?? familyFilter} onChange={(e) => change("familyId", e.target.value)} placeholder="Exact family ID" /></label>
+        </div>
+        <div className="table-wrap"><table className="data-table rule-instance-table" aria-label="Pipeline rule instances">
+          <thead><tr>{["Phase", "Rule", "Sample", "Family", "Order", "Job / origin", "Status", "Started", "Finished", "Elapsed", "Remaining", "Message / failure excerpt"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+          <tbody>{filteredRules.map((rule, index) => <tr key={JSON.stringify([rule.attempt, rule.rule_instance_id || [rule.rule, rule.sample_id, rule.family_id, rule.sequence, rule.snakemake_jobid, index]])}>
+            <td>{rule.phase || "Unknown"}</td><td className="rule-name-cell">{rule.rule}</td><td>{rule.sample_id || "-"}</td><td>{rule.family_id || "-"}</td><td>{rule.sequence ?? "-"}</td>
+            <td>{rule.snakemake_jobid || "-"}{rule.origin ? <small>{rule.origin}</small> : null}{rule.execution_group ? <details><summary>Execution group</summary>{rule.execution_group}<p>Group start is not an individual rule start.</p></details> : null}</td>
+            <td><StatusBadge status={displayRuleStatus(rule.status)} />{rule.status_inferred ? <small>Inferred from run success</small> : null}</td>
+            <td>{rule.started_at || rule.start_time ? formatDate(rule.started_at || rule.start_time) : "-"}</td><td>{rule.ended_at || rule.end_time ? formatDate(rule.ended_at || rule.end_time) : "-"}</td><td>{duration(rule.elapsed_seconds)}</td><td>{duration(rule.estimated_remaining_seconds)}</td>
+            <td className="rule-message-cell">{rule.stderr_excerpt ? <details><summary>{rule.message || "Show failure excerpt"}</summary><pre>{rule.stderr_excerpt}</pre></details> : (rule.message || "-")}{rule.analysis_log_key && onOpenLog ? <button type="button" className="text-button" aria-label={`Open log for ${rule.rule}`} onClick={() => onOpenLog(rule.analysis_log_key!)}>Open log</button> : null}</td>
+          </tr>)}{filteredRules.length === 0 ? <tr><td colSpan={12} className="empty-cell">No matching Rule instances.</td></tr> : null}</tbody>
+        </table></div>
+        {page && onQueryChange ? <nav aria-label="Rule pages"><button disabled={page.offset === 0} onClick={() => onQueryChange({...query, offset: Math.max(0, page.offset - page.limit)})}>Previous</button><span>{page.total ? page.offset + 1 : 0}–{Math.min(page.offset + page.items.length, page.total)} of {page.total}</span><button disabled={page.offset + page.limit >= page.total} onClick={() => onQueryChange({...query, offset: page.offset + page.limit})}>Next</button></nav> : null}
+      </section>
     </div>
   );
 }
@@ -90,10 +121,6 @@ function duration(value?: number | null): string {
   if (value < 60) return `${Math.round(value)}s`;
   if (value < 3600) return `${Math.round(value / 60)}m`;
   return `${(value / 3600).toFixed(1)}h`;
-}
-
-function isText(value: string | null | undefined): value is string {
-  return typeof value === "string" && value.length > 0;
 }
 
 function displayRuleStatus(value: string): string {
@@ -118,7 +145,7 @@ function LayeredWorkflowTimeline({airflowTasks, phases, pipeline: _pipeline, pro
 
 function PipelineStageGraph({progress}: {progress: RunProgressResponse | null}) {
   const stages = progress?.orchestration_stages || [];
-  return <div className="wgs-stage-graph" aria-label="Pipeline stage dependency graph">{stages.map((stage) => <div key={stage.stage_code} className={`wgs-stage-node ${normalizeStatus(stage.status)}`}><span>Step{stage.step_number}</span><strong>{stage.label}</strong>{stage.progress_available ? <small>{formatProgressUnits(stage.completed_units ?? 0, stage.total_units, stage.unit)}</small> : null}</div>)}{stages.length === 0 ? <p className="empty-state">No orchestration stage evidence captured.</p> : null}</div>;
+  return <div className="wgs-stage-graph" aria-label="Pipeline stage dependency graph">{stages.map((stage) => <div key={stage.stage_code} className={`wgs-stage-node ${normalizeStatus(stage.status)}`}><span>Step{stage.step_number}</span><strong>{stage.label}</strong>{stage.progress_available ? <small>{formatProgressUnits(stage.completed_units ?? 0, stage.total_units, stage.unit)}</small> : <EstimatedStageProgress stage={stage} />}</div>)}{stages.length === 0 ? <p className="empty-state">No orchestration stage evidence captured.</p> : null}</div>;
 }
 
 function TimelineLane({title, items, empty}: {title: string; items: Array<{id: string; label: string; status: string; meta: string}>; empty: string}) {

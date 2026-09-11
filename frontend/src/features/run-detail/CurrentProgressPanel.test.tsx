@@ -7,6 +7,14 @@ import type {RunDetail} from "../../api";
 import {CurrentProgressPanel} from "./CurrentProgressPanel";
 
 describe("CurrentProgressPanel", () => {
+  it("labels an estimate separately and never replaces observed progress", () => {
+    const detail = {analysis_id: "E", pipeline: "wgs", status: "running"} as RunDetail;
+    const {rerender} = render(<CurrentProgressPanel detail={detail} progress={{percent: 0, available: false, label: "", currentStep: "Publish", note: "", notInAirflow: false}} stage={{estimated_progress_percent: 62.6, estimate_overrun: true}} />);
+    expect(screen.getByText("Estimated 62.6%")).toBeInTheDocument();
+    expect(screen.getByText(/Still executing/)).toBeInTheDocument();
+    rerender(<CurrentProgressPanel detail={detail} progress={{percent: 25, available: true, label: "25%", currentStep: "Publish", note: "", notInAirflow: false}} stage={{estimated_progress_percent: 62.6}} />);
+    expect(screen.queryByText("Estimated 62.6%")).not.toBeInTheDocument();
+  });
   it("formats byte-based transfer progress in readable units", () => {
     const detail = {
       analysis_id: "WGS_TRANSFER",

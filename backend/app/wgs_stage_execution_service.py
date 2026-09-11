@@ -100,12 +100,18 @@ def transition_stage_execution(*, session, execution_id: str, generation: int, s
     row.message = message
     if normalized == "running" and row.started_at is None:
         row.started_at = observed_at
+        from app.wgs_stage_estimates import freeze_stage_baseline
+        freeze_stage_baseline(session, row)
     if normalized in TERMINAL:
         row.ended_at = observed_at
         row.receipt_hash = receipt_hash
         row.evidence_type = evidence_type
         row.evidence_key = evidence_key
+        from app.wgs_stage_estimates import KEY
+        snapshot = (row.terminal_payload_json or {}).get(KEY)
         row.terminal_payload_json = dict(terminal_payload or {})
+        if snapshot is not None:
+            row.terminal_payload_json = {**row.terminal_payload_json, KEY: snapshot}
     return True
 
 

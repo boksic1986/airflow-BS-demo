@@ -7,6 +7,33 @@ import type {RuleEvent, RunProgressResponse} from "../../api";
 import {RunWorkflowTab} from "./RunWorkflowTab";
 
 describe("RunWorkflowTab", () => {
+  it("keeps duplicate rule instances attached to their own expanded evidence after reordering", () => {
+    const a = {attempt: 2, rule_instance_id: "a", rule: "mapping", sample_id: "S1", sequence: 1, status: "running", execution_group: "group-a"};
+    const b = {...a, rule_instance_id: "b", execution_group: "group-b"};
+    const {rerender} = render(<RunWorkflowTab progress={null} rules={[a, b]} />);
+    const original = screen.getByText("group-a").closest("details")!;
+    original.open = true;
+    rerender(<RunWorkflowTab progress={null} rules={[b, a]} />);
+    expect(screen.getByText("group-a").closest("details")).toBe(original);
+    expect(screen.getByText("group-a").closest("details")).toHaveAttribute("open");
+    expect(screen.getByText("group-b").closest("details")).not.toHaveAttribute("open");
+  });
+
+  it("filters samples and families independently with exact identifiers", () => {
+    render(<RunWorkflowTab progress={null} rules={[
+      {rule: "sample-match", sample_id: "S1", family_id: "F1", status: "running"},
+      {rule: "family-only", sample_id: "S2", family_id: "S1", status: "running"},
+      {rule: "prefix-only", sample_id: "S10", family_id: "F1", status: "running"},
+    ]} />);
+    fireEvent.change(screen.getByLabelText("Sample"), {target: {value: "S1"}});
+    const table = screen.getByRole("table", {name: "Pipeline rule instances"});
+    expect(within(table).getByText("sample-match")).toBeInTheDocument();
+    expect(within(table).queryByText("family-only")).not.toBeInTheDocument();
+    expect(within(table).queryByText("prefix-only")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Family"), {target: {value: "S1"}});
+    expect(within(table).queryByText("sample-match")).not.toBeInTheDocument();
+  });
+
   it("groups adapter-projected rule phases", () => {
     const rules: RuleEvent[] = [
       {rule: "align", phase: "Mapping", sample_id: "S001", status: "success"},

@@ -61,7 +61,7 @@ def build_gatk_workspace(*, session, run: AnalysisRun, run_payload: dict) -> dic
         if stage_row is not None and stage_row.progress_available
         else int(run.progress_percent or 0)
     )
-    return {
+    result = {
         "run": run_payload,
         "summary": {
             "sample_count": int(sample_count),
@@ -113,6 +113,9 @@ def build_gatk_workspace(*, session, run: AnalysisRun, run_payload: dict) -> dic
             "mode": "project_serial",
         },
     }
+    from app.wgs_stage_estimates import attach_stage_estimates
+    attach_stage_estimates(session, run, result["progress"])
+    return result
 
 def _serialize_transfer(row: TransferJob | None) -> dict | None:
     if row is None:

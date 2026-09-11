@@ -134,7 +134,7 @@ WGS_RULE_PREFIX_PHASES = (
     ("SMA_", "Variant analysis"),
     ("CS_", "Variant analysis"),
 )
-WGS_UNKNOWN_RULE_PHASE = "Variant analysis"
+WGS_UNKNOWN_RULE_PHASE = "Unknown"
 WGS_PHASE_ORDER = {
     "Pre-calling": 10,
     "Variant analysis": 20,

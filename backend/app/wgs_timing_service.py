@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from statistics import median
+import hashlib
 
 from sqlalchemy import select
 
-from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState
+from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState, RuleEventRaw
 from app.diagnostics_service import gatk_rule_log_contexts, wgs_rule_log_contexts
 from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_for_rule, wgs_phase_order
 from app.wgs_stage_contract import (
@@ -27,24 +28,41 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
     else:
         rule_logs = {}
     items = []
+    evidence = {}
+    if rows:
+        raw_rows = session.scalars(select(RuleEventRaw).where(RuleEventRaw.analysis_id == run.analysis_id, RuleEventRaw.attempt.in_({row.attempt for row in rows}), RuleEventRaw.payload_json["rule_instance_id"].as_string().in_({row.rule_instance_id for row in rows}))).all()
+        for raw in raw_rows:
+            event = raw.payload_json or {}
+            evidence.setdefault((raw.attempt, event.get("rule_instance_id")), []).append(event)
     for row in rows:
+        events = evidence.get((row.attempt, row.rule_instance_id), [])
+        groups = [event for event in events if event.get("group_member") or event.get("timing_provenance") == "group_only"]
+        child_starts = [event for event in events if not event.get("group_member") and event.get("timing_provenance") != "group_only" and (event.get("event") == "job_started" or (event.get("event") == "job_info" and event.get("status") == "running"))]
+        started_at = row.started_at if not groups or child_starts else None
+        origin_event = events[0] if events else {}
+        role = origin_event.get("role") if origin_event.get("role") in {"master", "worker"} else "unknown"
+        origin = f"{role}:{hashlib.sha256(str(origin_event.get('stream_id') or '').encode()).hexdigest()[:12]}" if events else None
         phase = phase_for_rule(row.rule_name, pipeline_name=run.pipeline_name)
         durations = duration_history.get((row.rule_name, row.layer), [])
         history_median = median(durations) if len(durations) >= 3 else None
         projected_status = row.status
         projected_ended_at = row.ended_at
         projected_message = row.message
+        status_inferred = False
         if (
+            row.attempt == int(run.attempt or 1)
+            and
             str(run.status or "").lower() == "success"
             and str(row.status or "").lower()
             in {"planned", "accepted", "pending", "queued", "submitted", "running", "started"}
         ):
             projected_status = "success"
+            status_inferred = True
             projected_ended_at = run.pipeline_finished_at or run.ended_at
             projected_message = (
                 "Terminal event reconciled from the verified successful run."
             )
-        elapsed = _seconds(row.started_at, projected_ended_at or now) if row.started_at else None
+        elapsed = _seconds(started_at, projected_ended_at or now) if started_at else None
         remaining = max(0.0, history_median - elapsed) if history_median is not None and elapsed is not None and projected_status == "running" else None
         items.append(
             {
@@ -60,13 +78,17 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
                 "family_id": row.family_id,
                 "wildcards": dict(row.wildcards_json or {}),
                 "status": projected_status,
+                "status_inferred": status_inferred,
+                "origin": origin,
+                "execution_group": f"{origin}:{groups[0].get('execution_group') or 'legacy-group'}" if groups else None,
+                "timing_provenance": "group_only" if groups and not child_starts else "individual" if started_at else "unavailable",
                 "message": projected_message,
                 "log_keys": list(row.log_paths_json or []),
                 "stderr_excerpt": (rule_logs.get(row.rule_instance_id) or {}).get("stderr_excerpt"),
                 "analysis_log_key": (rule_logs.get(row.rule_instance_id) or {}).get("analysis_log_key"),
-                "start_time": _iso(row.started_at),
+                "start_time": _iso(started_at),
                 "end_time": _iso(projected_ended_at),
-                "started_at": _iso(row.started_at),
+                "started_at": _iso(started_at),
                 "ended_at": _iso(projected_ended_at),
                 "elapsed_seconds": elapsed,
                 "historical_median_seconds": history_median,
@@ -81,6 +103,8 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
 
 
 def enrich_progress(*, session, run: AnalysisRun, payload: dict) -> dict:
+    from app.wgs_stage_estimates import stage_estimates
+    estimates = stage_estimates(session, run, now=datetime.now(timezone.utc))
     raw_stage = str(run.current_stage or payload.get("current_step") or "created")
     stage = canonical_wgs_stage(raw_stage, run.status)
     stage_rows = session.scalars(
@@ -133,7 +157,10 @@ def enrich_progress(*, session, run: AnalysisRun, payload: dict) -> dict:
             "analysis_eta_history_count": 0,
         }
     )
-    active = None if str(run.status or "").lower() == "success" else session.scalar(select(RuleState).where(RuleState.analysis_id == run.analysis_id, RuleState.status == "running").order_by(RuleState.updated_at.desc()))
+    payload.update(estimates.get(stage, {}))
+    for rail_stage in payload["orchestration_stages"]:
+        rail_stage.update(estimates.get(rail_stage["stage_code"], {}))
+    active = None if str(run.status or "").lower() == "success" else session.scalar(select(RuleState).where(RuleState.analysis_id == run.analysis_id, RuleState.attempt == run.attempt, RuleState.status == "running").order_by(RuleState.updated_at.desc()))
     current_rule = active.rule_name if active else payload.get("current_rule")
     if not current_rule:
         master = session.scalar(

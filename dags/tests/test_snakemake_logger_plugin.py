@@ -102,7 +102,7 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
         self.assertTrue(payload["rule_instance_id"])
         self.assertIsInstance(payload["timestamp"], float)
 
-    def test_group_job_start_emits_running_event_for_each_member(self) -> None:
+    def test_group_job_start_describes_members_without_fabricating_child_starts(self) -> None:
         from snakemake_logger_plugin_airflow_demo import LogHandler, LogHandlerSettings
 
         class Rule:
@@ -144,7 +144,10 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
             payloads = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
         self.assertEqual([payload["rule_name"] for payload in payloads], ["pre_process_mapping", "pre_process_Dedup"])
-        self.assertEqual([payload["status"] for payload in payloads], ["running", "running"])
+        self.assertEqual([payload["status"] for payload in payloads], ["planned", "planned"])
+        self.assertTrue(all(payload["event"] == "rule_planned" for payload in payloads))
+        self.assertTrue(all(payload["timing_provenance"] == "group_only" for payload in payloads))
+        self.assertEqual(payloads[0]["execution_group"], payloads[1]["execution_group"])
         self.assertEqual([payload["job_id"] for payload in payloads], ["54", "53"])
 
     def test_dry_run_logger_marks_planned_jobs_as_skipped(self) -> None:

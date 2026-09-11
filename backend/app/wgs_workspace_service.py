@@ -12,6 +12,7 @@ from app.sample_selection_scope import selected_clause
 from app.wgs_sample_projection import get_wgs_batch_qc_status
 from app.wgs_stage_contract import canonical_wgs_stage, project_wgs_orchestration, wgs_stage_definition
 from app.wgs_transfer_projection import serialize_transfer_job
+from app.wgs_stage_estimates import attach_stage_estimates
 
 
 ACTIVE_TRANSFER_STATUSES = {
@@ -195,7 +196,7 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
             "failed_rule_count": int(failed_rule_count or 0),
             "batch_qc_status": batch_qc_status,
         },
-        "progress": progress,
+        "progress": attach_stage_estimates(session, run, progress),
         "active_transfer": transfer_payload,
         "validation_issues": [
             {

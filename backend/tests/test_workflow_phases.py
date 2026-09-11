@@ -40,7 +40,7 @@ def test_wgs_rule_classifier_exhaustively_covers_repo_owned_snakemake_catalog() 
 def test_wgs_mapping_and_unknown_rules_stay_in_the_wgs_projection() -> None:
     assert wgs_phase_for_rule("mapping") == "Pre-calling"
     assert phase_for_rule("mapping") == "Pipeline"
-    assert wgs_phase_for_rule("unregistered_future_wgs_rule") == "Variant analysis"
+    assert wgs_phase_for_rule("unregistered_future_wgs_rule") == "Unknown"
 
 
 @pytest.mark.parametrize(

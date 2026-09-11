@@ -1,5 +1,36 @@
 # API contract
 
+## OPT20260912 Rule/QC/display estimates
+
+`GET /api/runs/{id}/rules` defaults to the current attempt; optional positive
+`attempt=N` selects history. Exact sample_id and family_id filters are ANDed.
+Response adds attempt, current_attempt, attempts and phase_summaries computed
+over the complete filtered query before pagination. Status filtering uses the
+same current-attempt success reconciliation as serialized rows. Historical
+attempts never inherit current run success. Rows add status_inferred, origin
+(role plus opaque stream hash), execution_group and timing_provenance.
+Unknown rule names remain Unknown. Stream identities are not merged without
+cross-stream execution correlation. Missing individual starts remain null.
+
+WGS sample/QC projection preserves qc_status and qc_metrics and adds
+qc_judgments: numeric/status value, unit, threshold bounds and inclusivity,
+status, reason, release/source Git blob identity, policy SHA256 and controlled
+artifact provenance. Only audited wgs-4.2.1-cc9bde3 has numeric policy support;
+other releases remain unknown, even if their qc_config is identical. Conditional
+item/type/relation/BKW inputs are private. Missing metrics/conditions are unknown,
+not passed; source aggregate is never recomputed from this partial display.
+
+WGS and GATK Step4/6 add display-only estimated_progress_percent,
+estimate_baseline_seconds, estimate_history_count/model/execution_id/generation
+and estimate_overrun to workspace/progress stage and orchestration rail, and
+dashboard stage_progress. Exact observed progress wins in UI. A baseline is
+persisted on the first actual running observation, from the latest20 successful
+same pipeline/release/execution target stages ending before that start; at least
+3 complete positive durations are required. Accepted/queued stages do not grow.
+Estimate is eased, capped99 until observed success100; failure/cancellation
+freezes at terminal time and a new execution generation resets it. GET is read-only.
+Existing already-running rows without a persisted baseline stay indeterminate.
+
 OPT20260912 review fix: WGS submission_options now supplies audited defaults
 and effective_config hashes. Test preview returns source_project_dir and the
 safe effective_config manifest; these are frozen in the saved descriptor and
@@ -159,7 +190,7 @@ Existing `/api/wgs/*` routes remain supported for WGS submission, intake, eviden
 - `GET /api/runs` obtains WGS `qc_status` through the same registry-owned batch QC projector, so Run lifecycle filtering and Run Detail cannot disagree merely because historical `sample.qc_status` rows were not rewritten.
 - WGS workflow lifecycle `updated_by` uses the same privacy-safe operator display name as the run projection. Scanner-created runs therefore display `wgs-scanner` instead of an empty operator.
 - Step7 eligibility treats a successful master workload as authoritative only for active child workload observations at or before that master success. A newer Pending/Running/Active observation still blocks cleanup, as do the existing transfer lease and Step5/Step6 gates.
-- Grouped Snakemake `job_started` events are expanded into one member event per Rule/job identity so future runs can persist starts for rules such as `pre_process_mapping` and `pre_process_Dedup`. Historical starts that were never emitted remain unrecorded and are not fabricated.
+- Grouped starts now emit descriptive `rule_planned` members with group-only provenance, not individual running events. Legacy group_member starts are ignored for individual timing. Producer/image activation is independent of backend deployment.
 
 ### T241 obsutil checkpoint transfer projection
 

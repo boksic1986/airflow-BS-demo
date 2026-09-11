@@ -331,6 +331,7 @@ def _tracker_row(
         "stage_status": progress.get("stage_status") if progress else None,
         "stage_progress": (
             {
+                **{key: value for key, value in progress.items() if key.startswith("estimate_") or key == "estimated_progress_percent"},
                 "available": bool(progress.get("progress_available")),
                 "percent": progress.get("progress_percent"),
                 "completed_units": progress.get("completed_units"),

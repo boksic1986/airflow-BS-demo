@@ -384,7 +384,7 @@ def test_rule_projection_contains_order_identity_and_registered_logs() -> None:
         item = serialize_rule_states(session=session, run=run, rows=[row])[0]
 
     assert item["sequence"] == 42
-    assert item["phase"] == "Variant analysis"
+    assert item["phase"] == "Unknown"
     assert item["snakemake_jobid"] == "321"
     assert item["sample_id"] == "WGS001"
     assert item["family_id"] == "F001"

@@ -4147,3 +4147,12 @@ textarea {
   .snapshot-panel-stretch { height: auto; }
   .current-progress-content-centered { padding-block: 0; }
 }
+/* Display-only, evidence-labelled monitor additions. */
+.qc-value-fail { color: #c53030; font-weight: 700; }
+.qc-value-warn { color: #9c6500; font-weight: 700; }
+.qc-value-pass { color: #237447; }
+.qc-value-unknown { color: #64748b; }
+.qc-metric details { font-size: 0.75rem; max-width: 28rem; }
+.qc-metric pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.estimated-stage-progress { display: grid; gap: 0.25rem; font-size: 0.8rem; }
+.estimated-stage-progress progress { width: 100%; accent-color: #7186ad; }

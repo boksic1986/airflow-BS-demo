@@ -1726,6 +1726,7 @@ def transfer_files(transfer_id: str, status_filter: str | None = Query(default=N
 @app.get("/api/runs/{analysis_id}/rules")
 def run_rules(
     analysis_id: str,
+    attempt: int | None = Query(default=None, ge=1),
     status_filter: str | None = Query(default=None, alias="status"),
     rule: str | None = None,
     sample_id: str | None = None,
@@ -1740,24 +1741,40 @@ def run_rules(
         if run is None:
             raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"})
         require_pipeline(get_settings(), run.pipeline_name, capability="rules")
-        query = select(RuleState).where(RuleState.analysis_id == analysis_id)
+        selected_attempt = attempt if attempt is not None else int(run.attempt or 1)
+        query = select(RuleState).where(RuleState.analysis_id == analysis_id, RuleState.attempt == selected_attempt)
+        displayed_status = RuleState.status
+        if selected_attempt == int(run.attempt or 1) and run.status == "success":
+            displayed_status = case((RuleState.status.in_(("planned", "accepted", "pending", "queued", "submitted", "running", "started")), "success"), else_=RuleState.status)
         if status_filter:
-            query = query.where(RuleState.status == status_filter)
+            query = query.where(displayed_status == status_filter)
         if rule:
             query = query.where(RuleState.rule_name == rule)
         if sample_id:
             query = query.where(RuleState.sample_id == sample_id)
         if family_id:
             query = query.where(RuleState.family_id == family_id)
+        from app.workflow_phases import phase_for_rule
         if phase:
-            query = query.where(RuleState.phase == phase)
-        total = session.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
+            names = session.scalars(query.with_only_columns(RuleState.rule_name).distinct()).all()
+            query = query.where(RuleState.rule_name.in_([name for name in names if phase_for_rule(name, pipeline_name=run.pipeline_name) == phase]))
+        phase_summaries = {}
+        for name, state, count in session.execute(query.with_only_columns(RuleState.rule_name, displayed_status, func.count()).group_by(RuleState.rule_name, displayed_status)):
+            label = phase_for_rule(name, pipeline_name=run.pipeline_name)
+            summary = phase_summaries.setdefault(label, dict(phase=label, total=0, running=0, success=0, failed=0, canceled=0))
+            summary["total"] += count
+            key = "running" if state in {"running", "started"} else "canceled" if state in {"cancelled", "canceled"} else state
+            if key in {"running", "success", "failed", "canceled"}:
+                summary[key] += count
+        for summary in phase_summaries.values():
+            summary["status"] = "failed" if summary["failed"] else "running" if summary["running"] else "success" if summary["success"] == summary["total"] else "planned"
+        total = sum(summary["total"] for summary in phase_summaries.values())
         ordering = []
         if sort == "active_first":
             ordering.append(
                 case(
-                    (RuleState.status.in_(("running", "started")), 0),
-                    (RuleState.status.in_(("accepted", "submitted", "queued", "pending")), 1),
+                    (displayed_status.in_(("running", "started")), 0),
+                    (displayed_status.in_(("accepted", "submitted", "queued", "pending")), 1),
                     else_=2,
                 )
             )
@@ -1780,6 +1797,10 @@ def run_rules(
                 else wgs_phase_definitions()
             ),
             "total": int(total),
+            "attempt": selected_attempt,
+            "current_attempt": int(run.attempt or 1),
+            "phase_summaries": list(phase_summaries.values()),
+            "attempts": sorted(set(session.scalars(select(RuleState.attempt).where(RuleState.analysis_id == analysis_id).distinct()).all()) | {int(run.attempt or 1)}),
             "limit": limit,
             "offset": offset,
         }

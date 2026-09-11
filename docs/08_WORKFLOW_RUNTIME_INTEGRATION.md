@@ -1,5 +1,33 @@
 # Workflow runtime integration
 
+## OPT20260912 monitoring evidence
+
+Logger group starts retain stream-local identity and emit rule_planned member
+descriptions with group_member, timing_provenance=group_only and an opaque
+execution_group. They do not authorize child starts or terminal propagation.
+Observer ignores legacy group-only starts for timing and clears prior
+start/end when an explicit same-instance retry starts after a terminal event.
+Raw events remain retained. Origin is exposed as role plus opaque stream hash;
+no ambiguous Master/worker job-ID merge was introduced. The logger plugin
+source is tested but active Master/worker images are not rebuilt or restarted.
+
+WgsStageExecution and GATK PipelineStageExecution retain a reserved
+terminal_payload_json._display_estimate_v1 snapshot, written by existing
+backend/observer stage transitions only on first running observation. It is
+not a receipt or runtime progress measurement and is preserved beside terminal
+evidence. Snapshot includes baseline/history execution IDs and generation.
+Terminal-only observations never fabricate a start. Same-generation terminal
+GATK replay no longer advances terminal time. No migration/DAG change needed;
+old executions without a snapshot remain indeterminate on read.
+
+WGS QC display policy is packaged at app/policies/wgs_qc_cc9bde3.json, with
+source commit and cfg/g1/g2/QC.smk Git blob hashes. Policy selection never reads
+runtime Git or mutable latest source. The same frozen batch supplies QCstat,
+private sampleinfo conditions and optional sample.multi.QC.tsv; responses carry
+hashes and allowlisted judgments, not private condition rows or peddy identities.
+Source aggregate remains unchanged. Historical31de5fb differs in g1/rule code
+and intentionally has no inferred current-policy numeric judgments.
+
 ## OPT20260912 submission
 
 The additive `test_project` request descriptor freezes original sampleinfo/config

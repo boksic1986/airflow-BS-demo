@@ -260,16 +260,20 @@ def sync_gatk_stage_status(
         ):
             raise ValueError("GATK stage sidecar identity mismatch")
         state = str(value.get("status") or "running").lower()
-        if state in {"running", "success", "failed", "canceled"}:
+        if state in {"running", "success", "failed", "canceled"} and row.status not in {"success", "failed", "canceled"}:
             now = datetime.now(timezone.utc)
             row.status = state
             row.message = str(value.get("message") or "") or None
             row.heartbeat_at = now
-            row.started_at = row.started_at or now
+            from app.wgs_stage_estimates import freeze_stage_baseline, KEY
+            if state == "running" and row.started_at is None:
+                row.started_at = now
+                freeze_stage_baseline(session, row)
             if state in {"success", "failed", "canceled"}:
                 row.ended_at = now
                 row.receipt_hash = str(value.get("receipt_hash") or _canonical_hash(value))
-                row.terminal_payload_json = value
+                snapshot = (row.terminal_payload_json or {}).get(KEY)
+                row.terminal_payload_json = {**value, **({KEY: snapshot} if snapshot is not None else {})}
             _upsert_gatk_stage_state(
                 session,
                 analysis_id=analysis_id,

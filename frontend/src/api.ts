@@ -366,6 +366,7 @@ export type Sample = {
   progress_percent?: number | null;
   elapsed_seconds?: number | null;
   qc_metrics?: Record<string, string | number | null>;
+  qc_judgments?: Record<string, QcJudgment>;
 };
 
 export type WgsSampleManifestRow = {
@@ -519,6 +520,12 @@ export type ReanalysisResponse = {
 };
 
 export type RuleEvent = {
+  attempt?: number;
+  rule_instance_id?: string;
+  status_inferred?: boolean;
+  origin?: string | null;
+  execution_group?: string | null;
+  timing_provenance?: string | null;
   sequence?: number | null;
   rule: string;
   phase?: string;
@@ -563,7 +570,9 @@ export type AirflowTaskProgress = {
   operator?: string | null;
 };
 
-export type RunProgressResponse = {
+export type QcJudgment = {value?: string | number | null; unit?: string; status: string; reason?: string; threshold?: unknown; provenance?: Record<string, unknown>};
+export type StageEstimate = {estimated_progress_percent?: number | null; estimate_baseline_seconds?: number | null; estimate_history_count?: number; estimate_model?: string; estimate_execution_id?: string | null; estimate_generation?: number | null; estimate_overrun?: boolean};
+export type RunProgressResponse = StageEstimate & {
   analysis_id: string;
   pipeline: string;
   status: string;
@@ -599,7 +608,7 @@ export type RunProgressResponse = {
   speed_bps?: number | null;
   eta_seconds?: number | null;
   stage_updated_at?: string | null;
-  orchestration_stages?: Array<{
+  orchestration_stages?: Array<StageEstimate & {
     stage_code: string;
     step_number: number;
     label: string;
@@ -957,7 +966,7 @@ export type DashboardRunTrackerRow = {
   step_number?: number | null;
   stage_status?: string | null;
   progress_available?: boolean;
-  stage_progress?: {
+  stage_progress?: StageEstimate & {
     available: boolean;
     percent?: number | null;
     completed_units?: number | null;
@@ -1622,17 +1631,21 @@ export function getRunFamilies(analysisId: string): Promise<{items: WgsFamily[]}
   return requestJson<{items: WgsFamily[]}>(`/runs/${encodeURIComponent(analysisId)}/families`);
 }
 
-export function getRunRules(analysisId: string, options: {limit?: number; offset?: number; status?: string; rule?: string; sampleId?: string; familyId?: string; phase?: string; sort?: "execution_order" | "active_first"} = {}): Promise<{items: RuleEvent[]; total: number; limit: number; offset: number}> {
+export type RuleQuery = {attempt?: number; limit?: number; offset?: number; status?: string; rule?: string; sampleId?: string; familyId?: string; phase?: string; sort?: "execution_order" | "active_first"};
+export type RulePhaseSummary = {phase: string; status: string; total: number; running: number; success: number; failed: number; canceled: number};
+export type RulePage = {items: RuleEvent[]; total: number; limit: number; offset: number; attempt?: number; current_attempt?: number; attempts?: number[]; phase_summaries?: RulePhaseSummary[]};
+export function getRunRules(analysisId: string, options: RuleQuery = {}): Promise<RulePage> {
   const params = new URLSearchParams();
   params.set("limit", String(options.limit ?? 50));
   params.set("offset", String(options.offset ?? 0));
+  if (options.attempt != null) params.set("attempt", String(options.attempt));
   if (options.status) params.set("status", options.status);
   if (options.rule) params.set("rule", options.rule);
   if (options.sampleId) params.set("sample_id", options.sampleId);
   if (options.familyId) params.set("family_id", options.familyId);
   if (options.phase) params.set("phase", options.phase);
   if (options.sort) params.set("sort", options.sort);
-  return requestJson<{items: RuleEvent[]; total: number; limit: number; offset: number}>(`/runs/${encodeURIComponent(analysisId)}/rules?${params.toString()}`);
+  return requestJson<RulePage>(`/runs/${encodeURIComponent(analysisId)}/rules?${params.toString()}`);
 }
 
 export function getRunPods(analysisId: string): Promise<{items: WgsPod[]}> {

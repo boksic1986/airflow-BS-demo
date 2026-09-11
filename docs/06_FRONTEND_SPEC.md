@@ -1,5 +1,25 @@
 # Frontend specification
 
+## OPT20260912 monitoring
+
+Rules offers current/default or explicit historical attempt, exact separate
+Sample/Family inputs and server-backed Previous/Next pagination. Complete
+filtered phase summaries come from the API, not just the visible50 rows.
+Full attempt/instance React identity preserves expanded evidence on refresh
+and reordering. Origin/group evidence remains expandable and inferred terminal
+success is labelled. Missing start/elapsed values remain dashes.
+
+QC retains the source aggregate and shows colored per-metric judgments,
+contamination status badges, expandable bounds/reasons/source provenance and
+all additional release criteria. Missing evidence and unsupported historical
+policies display unknown, never a green default. Clinical notes are not shown.
+
+Current Progress, orchestration graph and Run Tracker show explicitly labelled
+estimated Step4/6 progress only when measured progress is absent. Estimates
+never modify displayed runtime status or observed transfer bytes/percent.
+Overrun says still executing. Without a fixed sufficient-history snapshot,
+the stage remains indeterminate. GATK uses its separate generation model.
+
 ## OPT20260912 submission
 
 Submit uses a vertical WGS/GATK rail matching Command Center and a responsive

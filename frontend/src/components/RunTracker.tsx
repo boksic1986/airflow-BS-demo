@@ -5,6 +5,7 @@ import type {DashboardRunTrackerRow} from "../api";
 import {compactPipelineName, displayTimeZoneLabel, formatBytes, formatDate, formatPercent, formatProgressUnits, formatRelativeAge, formatSecondsDuration} from "../lib/format";
 import {isActiveStatus, normalizeStatus} from "../lib/status";
 import {RunProgressBar} from "./RunProgressBar";
+import {EstimatedStageProgress} from "./EstimatedStageProgress";
 import {StatusBadge} from "./StatusBadge";
 import {OperationProjectCell, OperationRuntimeCell} from "./OperationCells";
 
@@ -185,7 +186,7 @@ function RunTrackerRow({
         </div>
       </td>
       <td className="tracker-centered-cell tracker-progress-cell">
-        {cancelled ? <span className="muted">提交已取消</span> : <RunProgressBar analysisId={row.analysis_id} compact progress={{percent: row.stage_progress?.percent ?? row.percent ?? 0, available: row.stage_progress?.available ?? row.progress_available ?? false, label: row.stage_progress?.percent == null ? "Progress pending" : formatPercent(row.stage_progress.percent), currentStep, note, notInAirflow: row.not_in_airflow, status: row.stage_status || row.status}} />}
+        {cancelled ? <span className="muted">提交已取消</span> : !row.stage_progress?.available && row.stage_progress?.estimated_progress_percent != null ? <EstimatedStageProgress stage={row.stage_progress} /> : <RunProgressBar analysisId={row.analysis_id} compact progress={{percent: row.stage_progress?.percent ?? row.percent ?? 0, available: row.stage_progress?.available ?? row.progress_available ?? false, label: row.stage_progress?.percent == null ? "Progress pending" : formatPercent(row.stage_progress.percent), currentStep, note, notInAirflow: row.not_in_airflow, status: row.stage_status || row.status}} />}
         {!cancelled && row.stage_progress?.available ? <small>{formatProgressUnits(row.stage_progress.completed_units, row.stage_progress.total_units, row.stage_progress.unit)}{row.stage_progress.speed_bps ? ` · ${formatBytes(row.stage_progress.speed_bps)}/s` : ""}{row.stage_progress.eta_seconds != null ? ` · ETA ${formatSecondsDuration(row.stage_progress.eta_seconds)}` : ""}</small> : null}
       </td>
       <td className="tracker-centered-cell">

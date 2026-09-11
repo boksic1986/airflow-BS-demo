@@ -2106,9 +2106,14 @@ def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
         for event in ordered:
             event_type = str(event.get("event"))
             when = _event_time(event)
+            if event.get("group_member") or event.get("timing_provenance") == "group_only":
+                continue
             if event_type == "job_started" or (
                 event_type == "job_info" and event.get("status") == "running"
             ):
+                if state.ended_at is not None:
+                    state.started_at = None
+                    state.ended_at = None
                 state.status = "running"
                 state.started_at = state.started_at or when
             elif event_type in TERMINAL_RULE_EVENTS:

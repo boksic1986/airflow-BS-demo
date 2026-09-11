@@ -311,7 +311,9 @@ it("loads WGS resource tabs for an active run", async () => {
   expect(screen.getByText(/Stage status is available/)).toBeInTheDocument();
   expect(screen.queryByLabelText("FASTQ upload progress")).not.toBeInTheDocument();
   expect(screen.queryByText(/0 B\/s/)).not.toBeInTheDocument();
-  expect(urls.filter((url) => url.includes("/api/runs/WGS_001/samples"))).toHaveLength(1);
+  // Overview, Samples and QC each refresh their visible sample projection.
+  // Master and Transfers must not issue additional sample requests.
+  expect(urls.filter((url) => url.includes("/api/runs/WGS_001/samples"))).toHaveLength(3);
   expect(urls.some((url) => url.includes("/api/runs/WGS_001/pods"))).toBe(true);
 });
 
