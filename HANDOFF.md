@@ -1,5 +1,12 @@
 # HANDOFF.md
 
+## WGS421-REVIEW-20260911 — read-only upgrade assessment
+
+Local WGS worktree HEAD `cc9bde3` selects pipeline4.2.1/resourceswgs-4.2.1-r1, follows SMA digest update `d716723` and Snakemake-log packaging `bc9cc74`. Verified server10610 WGS source remains `9df4c54` at the directory still namedwgs-4.2.0, using old pipeline/resources; external inspected profile directory contains no4.2.1 file. Production catalog stillwgs-4.2.0-31de5fb, gatesfalse/false. New assets may have been published elsewhere; no SFS/SWR asset verification performed.
+
+Required platform changes: release catalog/path/hash/profile binding; runtime explicit V4.2.0 validation and prepare-handoff gate; consistent versioned batch/sampleinfo naming and receipt-first handoff; consume new log archive layout and review IPMCH phase projection (currently falls into generic Variant analysis). Local prepare/config.yaml still defaults to4.2.0-r2 profile. Do not change historical frozen runs, restart analysis, or assume cce-pipeline/Master must upgrade. No code/deploy/switch changes in this assessment.
+
+
 ## DELETE-0910A-20260911 — explicit scoped deletion authorization
 
 User confirmed deletion of20260910A platform/Airflow records and this submission's generated sampleinfo/preparation files. Authorized analysis identity `WGS_20260911_075423_C1D477`, attempt1. Direct business DB inspection/deletion is limited to this identity and its batch intake/draft links; Airflow deletion uses REST API. Inventory and inactive-state checks required before deletion. Original FASTQ, other batches, pending ledger, SFS and OBS are excluded. Automatic scanning/analysis must remain disabled. No blanket project/root cleanup.
