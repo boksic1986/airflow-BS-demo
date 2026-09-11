@@ -14,11 +14,15 @@ def test_current_release_offers_only_actual_owner_callers():
         {'value': 'Haplotyper', 'label': 'Sentieon Haplotyper'},
     ]
     assert options['reference_values'] == ['all', 'ref', 'no']
+    assert options['defaults']=={'algo':'DNAscope','use_reference':'all'}
+    assert len(options['effective_config']['prepare_sha256'])==64
+    assert options['effective_config']['source_commit']==release.source_commit
 
 
 def test_unknown_release_never_inherits_current_options():
     options = getattr(wgs_release_catalog, 'submission_options', lambda _: {})(SimpleNamespace(source_commit='0'*40))
     assert options.get('callers') == []
+    assert 'defaults' not in options
 
 
 def test_configuration_review_cannot_change_first_step_frozen_reference():

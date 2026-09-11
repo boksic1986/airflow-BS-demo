@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState, type FormEvent, type ReactNode} from "react";
+import {useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode} from "react";
 import {Link, useSearchParams} from "react-router-dom";
 import {approveWgsConfig, createCatalogWgsRun, createRun, getGatkRelease, getRunDetail, getRunSamples, getWgsProjects, getWgsRelease, previewGatkSubmission, startWgsExecution, updateWgsExecutionChoice, type GatkRelease, type GatkSubmissionPreview, type PipelineCapability, type RunDetail, type Sample, type WgsExecutionChoiceRequest, type WgsProjectCatalog, type WgsRelease} from "../api";
 import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
@@ -50,12 +50,30 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const [platform, setPlatform] = useSubmissionDraft("wgs", "platform", "T7");
   const [batch, setBatch] = useSubmissionDraft("wgs", "batch", "");
   const [fastqRootId, setFastqRootId] = useSubmissionDraft("wgs", "fastq", "T7_Fastq");
-  const [useReference, setUseReference] = useSubmissionDraft<"all" | "ref" | "no">("wgs", "reference", "all");
-  const [algo, setAlgo] = useSubmissionDraft("wgs", "algo", "DNAscope");
+  const [useReference, setUseReference] = useSubmissionDraft("wgs", "reference", "");
+  const [algo, setAlgo] = useSubmissionDraft("wgs", "algo", "");
+  const [optionsRelease, setOptionsRelease] = useSubmissionDraft('wgs','options-release','');
   const [testSource, setTestSource] = useSubmissionDraft('wgs','test-source','');
   const [testChild, setTestChild] = useSubmissionDraft('wgs','test-child','');
   const [inputMode, setInputMode] = useSubmissionDraft('wgs','input-mode','catalog');
   const [testPreview, setTestPreview] = useState<WgsTestPreview | null>(null);
+  const previewInputs=JSON.stringify([inputMode,testSource,testChild,algo,useReference,release?.release_id]);
+  const currentPreviewInputs=useRef(previewInputs);
+  currentPreviewInputs.current=previewInputs;
+  const acceptedPreviewInputs=useRef<string|null>(null);
+  const previewGeneration=useRef(0);
+  useEffect(()=>()=>{previewGeneration.current+=1;},[]);
+  useEffect(()=>{
+    const contract=release?.submission_options;
+    if (!release || requestedRun) return;
+    const identity=release.release_id || release.source_commit;
+    const valid=contract?.defaults && contract.callers.some(item=>item.value===contract.defaults?.algo) && contract.reference_values.includes(contract.defaults.use_reference);
+    if(!valid){setAlgo('');setUseReference('');return;}
+    if(optionsRelease!==identity || !contract.callers.some(item=>item.value===algo) || !contract.reference_values.includes(useReference)){
+      setAlgo(contract.defaults!.algo);setUseReference(contract.defaults!.use_reference);setOptionsRelease(identity);
+      setTestPreview(null);
+    }
+  },[release,requestedRun,optionsRelease,algo,useReference]);
   useEffect(()=>{if(release && !release.test_project_enabled && inputMode!=='catalog')setInputMode('catalog');},[release,inputMode,setInputMode]);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [created, setCreated] = useState<RunDetail | null>(null);
@@ -115,10 +133,13 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     event.preventDefault(); setSubmitting(true); setError(null);
     try {
       if (inputMode==='test' && release?.test_project_enabled) {
-        setTestPreview(await previewWgsTestProject({source_project_dir:testSource,output_child:testChild,algo,use_reference:useReference}));
+        const generation=++previewGeneration.current;
+        const snapshot=previewInputs;
+        const result=await previewWgsTestProject({source_project_dir:testSource,output_child:testChild,algo,use_reference:useReference});
+        if(generation===previewGeneration.current && currentPreviewInputs.current===snapshot){acceptedPreviewInputs.current=snapshot;setTestPreview(result);}
         return;
       }
-      const detail = await createCatalogWgsRun({project_id: projectId, platform, batch, fastq_root_id: fastqRootId, ...(release?.submission_options?.callers.length ? {algo, use_reference: useReference} : {})});
+      const detail = await createCatalogWgsRun({project_id: projectId, platform, batch, fastq_root_id: fastqRootId, ...(release?.submission_options?.defaults && algo && ['all','ref','no'].includes(useReference) ? {algo, use_reference: useReference as 'all'|'ref'|'no'} : {})});
       setCreated(detail);
       setSearchParams({pipeline: "wgs", analysis_id: detail.analysis_id}, {replace: true});
     }
@@ -126,7 +147,7 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     finally { setSubmitting(false); }
   }
   async function confirmTestSource() {
-    if (!testPreview) return;
+    if (!testPreview || acceptedPreviewInputs.current!==currentPreviewInputs.current) return;
     setSubmitting(true);setError(null);
     try {
       const detail=await confirmWgsTestProject(testPreview);
@@ -137,7 +158,8 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     if (!created) return;
     setSubmitting(true); setError(null);
     try {
-      await approveWgsConfig(created.analysis_id, {use_reference: useReference, resource_set: "default"});
+      if(!['all','ref','no'].includes(useReference))throw new Error('No audited or frozen reference selection is available');
+      await approveWgsConfig(created.analysis_id, {use_reference: useReference as 'all'|'ref'|'no', resource_set: "default"});
       setCreated({...created, params: {...created.params, submission_phase: "preparing_analysis", use_reference: useReference, resource_set: "default"}});
     } catch (submitError) { setError(errorMessage(submitError)); }
     finally { setSubmitting(false); }
@@ -182,8 +204,8 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
       <label className="field"><span>FASTQ root</span><select aria-label="FASTQ root" value={fastqRootId} onChange={(event) => setFastqRootId(event.target.value)}>{project?.fastq_roots.map((item) => <option value={item.root_id} key={item.root_id}>{item.display_name}</option>)}</select></label>
       </>}
       </fieldset><fieldset><legend>Analysis parameters</legend>
-      <label className="field"><span>Variant caller</span><select aria-label="Variant caller" value={algo} onChange={event=>{setAlgo(event.target.value);setTestPreview(null);}} disabled={!release?.submission_options?.callers.length}>{release?.submission_options?.callers.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-      <label className="field"><span>Reference selection</span><select aria-label="Use reference" value={useReference} onChange={event=>{setUseReference(event.target.value as "all" | "ref" | "no");setTestPreview(null);}}>{(release?.submission_options?.reference_values || ['all','ref','no']).map(value=><option key={value} value={value}>{value}</option>)}</select></label>
+      <label className="field"><span>Variant caller</span><select aria-label="Variant caller" value={algo} onChange={event=>{setAlgo(event.target.value);setTestPreview(null);}} disabled={!release?.submission_options?.defaults}><option value="" disabled>Release defaults unavailable</option>{release?.submission_options?.defaults && release.submission_options.callers.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+      <label className="field"><span>Reference selection</span><select aria-label="Use reference" value={useReference} disabled={!release?.submission_options?.defaults} onChange={event=>{setUseReference(event.target.value);setTestPreview(null);}}><option value="" disabled>Release defaults unavailable</option>{release?.submission_options?.defaults && release.submission_options.reference_values.map(value=><option key={value} value={value}>{value}</option>)}</select></label>
       <p className="field-help">Genome: {release?.submission_options?.reference_genome || 'Release default'}. {release?.submission_options?.cnv || 'CNV configuration is fixed by the release.'}</p>
       {!release?.submission_options?.callers.length ? <p className="field-help">Caller options unavailable for this release; legacy release defaults apply.</p> : null}
       </fieldset>
@@ -191,11 +213,11 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
       <button className="button primary" type="submit" disabled={!executionEnabled || (inputMode==='test' ? !testSource || !testChild : !projectId || !platform || !batch || !fastqRootId) || submitting}>{submitting ? "Preparing..." : inputMode==='test' ? 'Preview exact test project' : "Prepare sample information"}</button>
       {!executionEnabled ? <p className="inline-error" role="note">Execution is disabled. No AnalysisRun, OBS transfer or CCE task can start.</p> : null}
     </form></section> : null}
-    {!created && testPreview && inputMode==='test' ? <section className="panel"><h2>Review frozen source scope</h2><p>{testPreview.sample_count} samples · {testPreview.fastq_file_count} FASTQ files · {testPreview.release_id} · Sentieon {testPreview.algo} · Reference {testPreview.use_reference}</p><p>Output: {testPreview.output_child}. {testPreview.write_check}</p><p>{testPreview.samples.join(', ')}</p><button type="button" className="button primary" disabled={submitting} onClick={()=>void confirmTestSource()}>Confirm test source and prepare</button></section> : null}
+    {!created && testPreview && inputMode==='test' && acceptedPreviewInputs.current===previewInputs ? <section className="panel"><h2>Review frozen source scope</h2><p>Source: {testPreview.source_project_dir}</p><p>{testPreview.sample_count} samples · {testPreview.fastq_file_count} FASTQ files · {testPreview.release_id} · Sentieon {testPreview.algo} · Reference {testPreview.use_reference}</p><p>Output: {testPreview.output_child}. {testPreview.write_check}</p><p>Frozen release configuration: {JSON.stringify(testPreview.effective_config)}</p><p>{testPreview.samples.join(', ')}</p><button type="button" className="button primary" disabled={submitting} onClick={()=>void confirmTestSource()}>Confirm test source and prepare</button></section> : null}
     {created && preparationFailed ? <section className="panel" role="alert"><h2>Sample information preparation failed</h2><p>{created.error_summary || "The preparation task failed before sample information became available."}</p><Link className="button primary" to={`/runs/${created.analysis_id}`}>View failure details</Link></section> : null}
     {created && !preparationFailed && phase === "preparing_sampleinfo" ? <section className="panel"><h2>Preparing sample information</h2><p>The WGS sampleinfo task is running. This page refreshes automatically.</p></section> : null}
-    {created?.params?.submission_options ? <section className="panel"><h2>Frozen analysis parameters</h2><p>Caller: Sentieon {String(created.params.algo)} · Reference: {String(created.params.use_reference)} · Release: {String(created.params.pipeline_release_id)}</p><p>These options were fixed at the first confirmation. The following review cannot change them.</p></section> : null}
-    {created && phase === "config_review" ? <section className="panel"><h2>Review samples and configuration</h2><SamplePreview samples={samples} /><div className="form-grid"><label className="field"><span>Reference selection</span><select aria-label="Use reference" disabled={Boolean(created.params?.submission_options)} value={useReference} onChange={(event) => setUseReference(event.target.value as "all" | "ref" | "no")}><option value="all">All</option><option value="ref">Reference only</option><option value="no">No reference</option></select></label><label className="field"><span>Resource set</span><select aria-label="Resource set" value="default" disabled><option value="default">WGS release default</option></select></label><button className="button primary" type="button" disabled={submitting} onClick={() => void confirmConfiguration()}>Confirm configuration</button></div></section> : null}
+    {created?.params?.submission_options ? <section className="panel"><h2>Frozen analysis parameters</h2><p>Caller: Sentieon {String(created.params.algo)} · Reference: {String(created.params.use_reference)} · Release: {String(created.params.pipeline_release_id)}</p><p>These options were fixed at the first confirmation. The following review cannot change them.</p>{created.params.test_project ? <p>Frozen release configuration: {JSON.stringify((created.params.test_project as Record<string,unknown>).effective_config)}</p> : null}</section> : null}
+    {created && phase === "config_review" ? <section className="panel"><h2>Review samples and configuration</h2><SamplePreview samples={samples} /><div className="form-grid"><label className="field"><span>Reference selection</span><select aria-label="Use reference" disabled={Boolean(created.params?.submission_options) || !release?.submission_options?.defaults} value={useReference} onChange={(event) => setUseReference(event.target.value)}>{(release?.submission_options?.defaults ? release.submission_options.reference_values : [useReference]).map(value=><option key={value} value={value}>{value || 'Frozen selection unavailable'}</option>)}</select></label><label className="field"><span>Resource set</span><select aria-label="Resource set" value="default" disabled><option value="default">WGS release default</option></select></label><button className="button primary" type="button" disabled={submitting} onClick={() => void confirmConfiguration()}>Confirm configuration</button></div></section> : null}
     {created && phase === "preparing_analysis" ? <section className="panel"><h2>Preparing analysis directory</h2><p>WGS is resolving eligible and pending samples and freezing the CCE bundle.</p></section> : null}
     {created && phase === "execution_review" ? <section className="panel"><h2>Confirm WGS execution</h2><SamplePreview samples={samples} />{created.execution_dispatch ? <ExecutionTargetSelector attempt={created.attempt || 1} batch={batch || String(created.params?.batch || created.params?.sequencing_batch || "-")} sampleCount={samples.length} dispatch={created.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={async () => setCreated(await getRunDetail(created.analysis_id))} /> : null}<p>Review the final selected samples before starting the selected execution backend.</p><button className="button primary" type="button" disabled={submitting || samples.length === 0} onClick={() => void startExecution()}>Start WGS workflow</button></section> : null}
     {created && phase === "approved" ? <>{created.execution_dispatch ? <ExecutionTargetSelector attempt={created.attempt || 1} batch={batch || String(created.params?.batch || created.params?.sequencing_batch || "-")} sampleCount={samples.length} dispatch={created.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={async () => setCreated(await getRunDetail(created.analysis_id))} /> : null}<p className="success-note">WGS execution approved: <Link to={`/runs/${created.analysis_id}`}>{created.analysis_id}</Link>.</p></> : null}

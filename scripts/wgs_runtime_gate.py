@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -96,6 +97,106 @@ CCE_PIPELINE_BIN = os.getenv("CCE_PIPELINE_BIN", "").strip()
 TEST_PROJECT_ROOT = Path('/sg2/50.ctapa/project/HWcloud/WGS_test')
 
 
+def _test_directory_fd(path: Path, *, private: bool = False) -> int:
+    """Open a non-replaceable chain; untrusted group writers need sticky parents.
+
+    Root and the runtime UID are the trust boundary. A hostile process running
+    as that same UID can always modify runtime credentials and is not isolated
+    by filesystem permissions. No chmod of pre-existing/live parents is done.
+    """
+    descriptor=os.open('/',os.O_RDONLY|os.O_DIRECTORY)
+    try:
+        for part in path.parts[1:]:
+            next_fd=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=descriptor)
+            os.close(descriptor);descriptor=next_fd
+            info=os.fstat(descriptor)
+            if info.st_uid not in {0,os.geteuid()} or (info.st_mode & 0o022 and not info.st_mode & stat.S_ISVTX):
+                raise RuntimeError('Test output ancestor is replaceable; trusted ownership and sticky shared parents are required')
+        info=os.fstat(descriptor)
+        if private and (info.st_uid!=os.geteuid() or info.st_mode & 0o077):
+            raise RuntimeError('Test output requires a runtime-owned private directory')
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def _test_same_directory(path: Path, descriptor: int) -> None:
+    fresh=_test_directory_fd(path)
+    try:
+        old,new=os.fstat(descriptor),os.fstat(fresh)
+        if (old.st_dev,old.st_ino)!=(new.st_dev,new.st_ino):
+            raise RuntimeError('Test output ancestor was replaced')
+    finally: os.close(fresh)
+
+
+def _test_write_file(directory_fd: int, name: str, content: bytes) -> None:
+    """Exclusive publication through a pinned directory; retries verify bytes."""
+    try:
+        descriptor=os.open(name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=directory_fd)
+    except FileExistsError:
+        descriptor=os.open(name,os.O_RDONLY|os.O_NOFOLLOW,dir_fd=directory_fd)
+        with os.fdopen(descriptor,'rb') as handle:
+            info=os.fstat(handle.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_uid!=os.geteuid() or handle.read()!=content:
+                raise RuntimeError('Frozen private test file is unsafe or changed')
+    else:
+        with os.fdopen(descriptor,'wb') as handle:
+            handle.write(content);handle.flush();os.fsync(handle.fileno())
+
+
+def _test_secure_output(payload: dict[str, Any], *, create: bool) -> None:
+    data=payload['test_project'];target=Path(data['target_root']);output=Path(data['output_root'])
+    identity={'analysis_id':payload['analysis_id'],'fingerprint':data['fingerprint']}
+    parent_fd=_test_directory_fd(target.parent)
+    try:
+        # Portable on the deployed glibc2.17 host. Directory creation itself is
+        # exclusive; parent flock serializes publication/recovery by this gate.
+        # A crash before the inode marker is durable is ambiguous and must NOT
+        # be auto-adopted. Existing unidentified targets always fail closed.
+        fcntl.flock(parent_fd,fcntl.LOCK_EX)
+        _test_same_directory(target.parent,parent_fd)
+        for directory in (target,output):
+            created=False
+            if create:
+                container_fd=_test_directory_fd(directory.parent)
+                try:
+                    try:
+                        os.mkdir(directory.name,mode=0o700,dir_fd=container_fd)
+                        created=True
+                    except FileExistsError: pass
+                    _test_same_directory(directory.parent,container_fd)
+                finally: os.close(container_fd)
+            try: descriptor=_test_directory_fd(directory,private=True)
+            except FileNotFoundError:
+                if not create: return
+                raise
+            try:
+                info=os.fstat(descriptor)
+                expected={**identity,'device':info.st_dev,'inode':info.st_ino}
+                if created:
+                    _test_write_file(descriptor,'.airflow-test-project.json',json.dumps(expected,sort_keys=True).encode())
+                    os.fsync(descriptor)
+                marker_fd=os.open('.airflow-test-project.json',os.O_RDONLY|os.O_NOFOLLOW,dir_fd=descriptor)
+                with os.fdopen(marker_fd) as handle: record=json.load(handle)
+                if record!=expected:
+                    raise RuntimeError('Test output inode is not owned by this analysis')
+            finally: os.close(descriptor)
+        # Private roots deny traversal to other UIDs. Reject contaminated write
+        # descendants on every entry, including owner pending and staging.
+        for base,directories,files in os.walk(output,followlinks=False):
+            for name in directories:
+                if (Path(base)/name).is_symlink():
+                    raise RuntimeError('Test output descendant directory symlinks are unsafe')
+            for name in files:
+                path=Path(base)/name
+                if path.is_symlink() and 'raw' not in path.relative_to(output).parts and 'pipeline' not in path.relative_to(output).parts:
+                    raise RuntimeError('Test output writable file symlinks are unsafe')
+    except (OSError,ValueError) as exc:
+        raise RuntimeError('Test output is unsafe, incomplete or unwritable; audit recovery is required, no fallback is permitted') from exc
+    finally: os.close(parent_fd)
+
+
 def _validate_test_project(payload: dict[str, Any], *, create: bool = False) -> Path | None:
     data = payload.get('test_project')
     if data is None:
@@ -138,20 +239,10 @@ def _validate_test_project(payload: dict[str, Any], *, create: bool = False) -> 
             prepared_link=prepared_raw/f"{item['data_id']}.{item['read']}.fq.gz"
             if prepared_link.resolve(strict=True)!=path:
                 raise RuntimeError('Prepared test FASTQ differs from frozen source')
-    identity={'analysis_id':payload['analysis_id'],'fingerprint':data['fingerprint']}
-    for directory in (target,output):
-        marker=directory/'.airflow-test-project.json'
-        if directory.exists():
-            if marker.is_symlink() or not marker.is_file() or json.loads(marker.read_text())!=identity:
-                raise RuntimeError('Test output already exists and is not owned by this analysis')
-        elif create:
-            if not directory.parent.is_dir() or not os.access(directory.parent,os.W_OK):
-                raise RuntimeError('Test output parent is missing or unwritable; no fallback is permitted')
-            try:
-                directory.mkdir(mode=0o2770,exist_ok=False)
-                with marker.open('x') as handle: json.dump(identity,handle)
-            except OSError as exc:
-                raise RuntimeError('Test output is unwritable; no fallback is permitted') from exc
+    _test_secure_output(payload,create=create)
+    prepared_config=Path(payload['expected_batch_root'])/'config.yaml'
+    if prepared_config.exists():
+        _test_validate_prepared_config(payload,yaml.safe_load(prepared_config.read_text()))
     return output
 
 
@@ -168,15 +259,22 @@ def _prepare_test_sampleinfo(payload: dict[str, Any]) -> None:
     output=_validate_test_project(payload,create=True)
     assert output is not None
     data=payload['test_project']
+    _test_effective_prepare(payload)
     source=Path(data['source'])/'sampleinfo.tsv'
     expected_batch=data['batch']
     if data['analysis_batch'] != expected_batch or payload.get('analysis_batch') != expected_batch:
         raise RuntimeError('Test analysis batch identity mismatch')
     destination=output/'sampleinfo'/f"{payload['batch_no']}.sampleinfo.txt"
-    destination.parent.mkdir(exist_ok=True)
-    if destination.is_symlink(): raise RuntimeError('Test sampleinfo symlinks are forbidden')
-    if not destination.exists():
-        with source.open('rb') as reader,destination.open('xb') as writer: shutil.copyfileobj(reader,writer)
+    output_fd=_test_directory_fd(output,private=True)
+    try:
+        fcntl.flock(output_fd,fcntl.LOCK_EX)
+        _test_same_directory(output,output_fd)
+        try: os.mkdir('sampleinfo',mode=0o700,dir_fd=output_fd)
+        except FileExistsError: pass
+        destination_fd=_test_directory_fd(destination.parent,private=True)
+        try: _test_write_file(destination_fd,destination.name,source.read_bytes())
+        finally: os.close(destination_fd)
+    finally: os.close(output_fd)
     if _sha256_file(destination)!=data['sampleinfo_sha256']: raise RuntimeError('Frozen test sampleinfo changed')
     request_path=_prepare_handoff_request(payload)
     request=json.loads(request_path.read_text())
@@ -503,6 +601,9 @@ def _binding_path(payload: dict[str, Any]) -> Path:
 def build_prepare_command(payload: dict[str, Any]) -> list[str]:
     repository = _release_repository(payload)
     prepare_config = repository / "prepare" / "config.yaml"
+    frozen_template = None
+    if payload.get('test_project'):
+        prepare_config,frozen_template,_ = _test_effective_prepare(payload)
     analysis_project_root = Path(str(payload["analysis_project_root"]))
     project_name = str(payload["project_name"])
     batch_no = str(payload["batch_no"])
@@ -545,6 +646,8 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
         "--prepare-config",
         str(prepare_config),
     ]
+    if frozen_template is not None:
+        command.extend(['--config-template',str(frozen_template)])
     handoff_request = _prepare_handoff_request(payload)
     if handoff_request is not None:
         command.extend(["--handoff-request", str(handoff_request)])
@@ -594,6 +697,82 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
         ):
             command.extend(["--cce-from-zero", "clean"])
     return command
+
+
+def _test_effective_prepare(payload: dict[str, Any]) -> tuple[Path,Path,dict]:
+    """Freeze audited bytes, never arbitrary source-project commands/paths.
+
+    A changed live default before first preparation rejects; after snapshotting,
+    all retries use verified private bytes even if the live repository changes.
+    """
+    data=payload['test_project'];contract=data['effective_config']
+    if contract.get('source_commit')!=payload.get('wgs_source_commit'):
+        raise RuntimeError('Frozen prepare release identity mismatch')
+    output=Path(data['output_root']);repository=_release_repository(payload)
+    output_fd=_test_directory_fd(output,private=True)
+    try:
+        fcntl.flock(output_fd,fcntl.LOCK_EX)
+        _test_same_directory(output,output_fd)
+        try: os.mkdir('.frozen-prepare',mode=0o700,dir_fd=output_fd)
+        except FileExistsError: pass
+        frozen=output/'.frozen-prepare';frozen_fd=_test_directory_fd(frozen,private=True)
+        try:
+            values={}
+            for filename,relative,key in [('prepare.source.yaml','prepare/config.yaml','prepare_sha256'),('template.yaml','cfg/config.template.yaml','template_sha256')]:
+                try: descriptor=os.open(filename,os.O_RDONLY|os.O_NOFOLLOW,dir_fd=frozen_fd)
+                except FileNotFoundError:
+                    descriptor=os.open(repository/relative,os.O_RDONLY|os.O_NOFOLLOW)
+                with os.fdopen(descriptor,'rb') as handle:
+                    info=os.fstat(handle.fileno())
+                    if not stat.S_ISREG(info.st_mode): raise RuntimeError('Frozen prepare source is unsafe')
+                    content=handle.read()
+                if hashlib.sha256(content).hexdigest()!=contract.get(key):
+                    raise RuntimeError('Audited effective prepare configuration changed')
+                _test_write_file(frozen_fd,filename,content)
+                values[filename]=yaml.safe_load(content)
+            config=values['prepare.source.yaml']
+            if not isinstance(config,dict) or not isinstance(values['template.yaml'],dict):
+                raise RuntimeError('Frozen prepare configuration must be mappings')
+            # Normalize audited relative paths before moving the config file.
+            for key in ('project_root','resource_root'):
+                path=Path(str(config[key]))
+                config[key]=str(path if path.is_absolute() else (repository/'prepare'/path).resolve())
+            if Path(config['project_root'])!=repository:
+                raise RuntimeError('Frozen prepare repository identity mismatch')
+            config['config_template']=str(frozen/'template.yaml')
+            normalized=yaml.safe_dump(config,sort_keys=True).encode()
+            _test_write_file(frozen_fd,'prepare.yaml',normalized)
+            return frozen/'prepare.yaml',frozen/'template.yaml',config
+        finally: os.close(frozen_fd)
+    finally: os.close(output_fd)
+
+
+def _test_validate_prepared_config(payload: dict[str, Any], actual: dict) -> None:
+    _,template_path,prepare=_test_effective_prepare(payload)
+    expected=yaml.safe_load(template_path.read_text())
+    batch=Path(payload['expected_batch_root']);pipeline=batch/'pipeline'
+    for group in ('src','biosoft','genome','bed','database','cnv_native'):
+        root=str(pipeline) if group in {'src','biosoft'} else prepare['resource_root']
+        expected[group]={key:value.replace('/projectDir',root) if isinstance(value,str) else value for key,value in expected.get(group,{}).items()}
+    for key in ('mail_cfg','qc_cfg'):
+        if isinstance(expected.get(key),str):expected[key]=expected[key].replace('/projectDir',str(pipeline))
+    for key in ('images','containers','container_tools','workloads','runtime','runtime_binds','sentieon_license_secret','VariantTypeSet'):
+        expected.pop(key,None)
+    expected.update({'algo':payload['algo'],'use_reference':payload['use_reference'],'batch':payload['batch_no'],'fastqDir':str(batch/'raw'),'fastqPath':str(batch/'raw'),'sample_info':str(batch/'sampleinfo.tsv'),'new_sample_info':str(batch/'sampleinfo.tsv'),'workDir':str(batch),'execution':{'executor':'cce'},'workflow':{'schema_version':3,'snakefile':'WGS_pipe.smk','target':'all'},'delivery':{'materialized_marker':'cce/cloud_delivery/MATERIALIZED'}})
+    if expected.get('newWebPath'):expected['newSampleinfoPath']=str(Path(expected['newWebPath'])/'sampleinfo')
+    keyword=expected.get('database',{}).get('keyWords2GeneFile')
+    if keyword and not Path(str(keyword)).is_absolute():expected['database']['keyWords2GeneFile']=str(batch/keyword)
+    metadata={'panel','phenotype','sample','pedigree','sample2pedigree','trio','trioPair','CS','mtPedigreeList','SHHCsampleList','ZDFSsampleList','BJXHsampleList','SHEYsampleList','SHXHsampleList','SDSZsampleList','BKWsampleList','BKWpedigree','BKWprobandonly','HZJNsampleList','ZDFYsampleList','IPMCHsampleList','BJXH_PiFuKesampleList'}
+    if not isinstance(actual,dict) or set(actual)-set(expected)-metadata or any(actual.get(key)!=value for key,value in expected.items()):
+        raise RuntimeError('Prepared WGS configuration differs from the frozen effective release configuration')
+    # Freeze the complete generated config too, including owner-derived sample
+    # metadata, so subsequent stages cannot consume altered additive settings.
+    descriptor=_test_directory_fd(template_path.parent,private=True)
+    try:
+        fcntl.flock(descriptor,fcntl.LOCK_EX)
+        digest=hashlib.sha256(json.dumps(actual,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        _test_write_file(descriptor,'prepared-config.sha256',digest.encode())
+    finally: os.close(descriptor)
 
 
 def _release_operator_config(
@@ -1070,6 +1249,23 @@ def _run_prepare_sampleinfo(payload: dict[str, Any]) -> None:
 
 
 def _run_prepare_analysis(payload: dict[str, Any]) -> None:
+    if not payload.get('test_project'):
+        return _run_prepare_analysis_impl(payload)
+    _validate_test_project(payload)
+    # The stage dispatcher already serializes registered generations. Keep an
+    # inode check around the owner process as well; private sticky-protected
+    # ancestors prevent other UIDs from replacing its pathname after resolve().
+    output=Path(payload['test_project']['output_root'])
+    descriptor=_test_directory_fd(output,private=True)
+    try:
+        _test_same_directory(output,descriptor)
+        _run_prepare_analysis_impl(payload)
+        _test_same_directory(output,descriptor)
+        _validate_test_project(payload)
+    finally: os.close(descriptor)
+
+
+def _run_prepare_analysis_impl(payload: dict[str, Any]) -> None:
     _validate_test_project(payload)
     binding_path = _binding_path(payload)
     if binding_path.is_file():
@@ -1192,6 +1388,7 @@ def _write_prepare_binding(payload: dict[str, Any]) -> None:
         if not isinstance(config,dict) or config.get('algo')!=payload['algo'] or str(config.get('use_reference'))!=str(payload.get('use_reference')):
             raise RuntimeError('Prepared WGS config differs from frozen submission options')
     if payload.get('test_project'):
+        _test_validate_prepared_config(payload,config)
         for item in payload['test_project']['fastq']:
             path=batch_root/'raw'/f"{item['data_id']}.{item['read']}.fq.gz"
             if path.resolve(strict=True)!=Path(item['path']):

@@ -136,3 +136,88 @@ fingerprint is metadata, not full file-content hashing. No local lint/full
 frontend suite or live Compose rollout was used as a substitute for that
 acceptance. Rollback disables the new flag and restores matching services/gate;
 preserve draft/run/output audit, do not delete projects or formal pending.
+
+## Review fix round 1
+
+Addresses all three Important findings in OPT20260912_SUBMISSION_REVIEW:
+
+1. Output namespaces now require runtime/root-owned ancestors. Group/other-
+   writable parents must have sticky protection; existing directories are never
+   chmodded. Target and namespace are private 0700, initialized via no-follow
+   directory descriptors, portable atomic mkdir and parent-directory flock.
+   Competing creators cannot overwrite a target. A crash after mkdir but before
+   the marker is durable leaves an ambiguous private directory: it is retained
+   and explicitly requires manual audit recovery, never automatically adopted.
+   Marker identity also binds device/inode, not just copied JSON.
+   All writable descendant directory symlinks and non-input file symlinks reject
+   before owner execution. Private file creation uses O_NOFOLLOW/O_EXCL and
+   verifies existing bytes on retry. Parent inode revalidation detects a replaced
+   parent before publication. The threat boundary trusts root and the runtime
+   UID; a hostile process already holding that UID can also alter runtime keys
+   and is not a separate filesystem security principal.
+2. The audited release contract now provides defaults plus SHA256 pins for
+   owner prepare/config.yaml and cfg/config.template.yaml at cc9bde3. Only the
+   private node namespace stores their verified bytes (0600; never public API,
+   Git or report content). Audited relative paths are normalized, and owner CLI
+   receives explicit private --prepare-config/--config-template. Mutation before
+   initial snapshot rejects; later retries use the frozen verified snapshot.
+   Every template setting surviving the owner's documented transformations is
+   checked against prepared config (including genome/database/CNV/software/script
+   paths), in addition to explicit caller/reference and exact sample/FASTQ fences.
+   Checks run before binding and before later stages. The UI exposes safe frozen
+   release/options/genome/CNV/hash provenance in preview and saved review.
+   Source-project config remains provenance/compatibility input only.
+3. Preview requests capture an input snapshot and request generation; stale
+   replies after edits/unmount cannot recreate a confirmation. Confirmation also
+   checks the currently displayed snapshot, and review identifies the frozen
+   source. Caller/reference start unset, take audited release defaults, and reset
+   old or invalid release drafts. Unknown defaults remain unavailable rather than
+   claiming frontend-invented defaults; legacy catalog requests omit options.
+
+### Focused red/green evidence
+
+Old behavior reproduced on BS10610: escaping prepare symlink did not raise;
+stale release draft used DNAscope instead of contract Haplotyper/ref. Added real
+synthetic regressions for sampleinfo/prepare escapes, parent replacement, sticky
+permission fail-closed/acceptance, four concurrent namespace creators, same-inode
+retry, copied-marker replacement, mutable effective defaults/templates, prepared
+genome drift, delayed preview reply and release-default reset.
+
+Commands use the same cached offline containers as above. Because the mounted
+source directory is owned by the host editor rather than the container runtime
+UID, the security test correctly rejected that ancestor. Synthetic filesystem
+fixtures now use a container-private `/WGS_test` tmpfs, mode0700 (not `/tmp`),
+with exec enabled for existing fake-executable gate fixtures; no host/live
+permissions were modified. Initial tmpfs noexec caused one existing Step7
+fake-kubectl check to fail; enabling exec only on that disposable fixture mount
+resolved it without code changes.
+
+```text
+docker run --rm --network none --tmpfs /WGS_test:rw,exec,mode=700 ...
+ pytest -q /src/scripts/tests/test_wgs_test_project_gate.py
+ /src/scripts/tests/test_wgs_runtime_gate.py tests/test_submission_options.py
+ tests/test_wgs_test_project.py
+ --basetemp=/WGS_test/OPT20260912-fix1-verified --tb=short
+vitest run src/SubmissionOptions.test.tsx src/IncompleteSubmission.test.tsx
+vitest run src/WgsProductionUi.test.tsx -t "submission|GATK|stage one|preparation screen"
+tsc --noEmit
+```
+
+Backend/gate: **97 passed, 1 skipped** (unchanged optional PostgreSQL test; this
+round does not change DB concurrency logic). Frontend: **9 + 7 passed**;
+TypeScript passed. No unrelated full suite or real analysis was run.
+
+### Activation remains gated
+
+Coordinator's node namei inspection found `/sg2`, `/sg2/50.ctapa`, project and
+HWcloud protected, but WGS_test currently2770 (not sticky). The new gate rejects
+this state. Requested2770→3770 requires separate explicit user authorization;
+this patch does not perform it. Coordinator confirmed t640 glibc2.17/kernel
+3.10.0-1160.81.1.el7.x86_64 has no libc renameat2 symbol, so the initially tested
+renameat2 approach was replaced with portable mkdir plus flock before delivery.
+There is no syscall probe, covering rename fallback or new library dependency.
+Non-audited live prepare/template bytes also reject
+until a separately reviewed release contract is supplied. No new env key,
+receipt schema or observer producer was introduced in this fix. Existing test
+drafts made before the effective_config contract must be previewed anew; no
+silent migration invents their missing frozen values.

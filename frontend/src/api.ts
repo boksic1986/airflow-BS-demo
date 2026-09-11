@@ -261,7 +261,7 @@ export type LoginRequest = {username: string; password: string};
 
 export type WgsRelease = {
   test_project_enabled?: boolean;
-  submission_options?: {callers: {value: string; label: string}[]; reference_values: string[]; reference_genome?: string; cnv?: string; provenance?: string};
+  submission_options?: {defaults?: {algo:string;use_reference:string};callers: {value: string; label: string}[]; reference_values: string[]; reference_genome?: string; cnv?: string; provenance?: string};
   release_id: string;
   version: string;
   source_commit: string;
@@ -1477,7 +1477,7 @@ export function getWgsProjects(): Promise<WgsProjectCatalog> {
   return requestJson<WgsProjectCatalog>("/wgs/projects");
 }
 
-export type WgsTestPreview = {draft_id:string; preview_hash:string; samples:string[]; batch:string; output_child:string; sample_count:number; fastq_file_count:number; algo:string; use_reference:string; release_id:string; write_check:string; expires_at:string};
+export type WgsTestPreview = {draft_id:string; preview_hash:string; source_project_dir:string;effective_config:Record<string,unknown>;samples:string[]; batch:string; output_child:string; sample_count:number; fastq_file_count:number; algo:string; use_reference:string; release_id:string; write_check:string; expires_at:string};
 export function previewWgsTestProject(payload: {source_project_dir:string;output_child:string;algo:string;use_reference:string}): Promise<WgsTestPreview> {
   return requestJson('/wgs/test-projects/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
 }

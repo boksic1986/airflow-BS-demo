@@ -115,10 +115,10 @@ def preview(*,session,settings,username,source_project_dir,output_child,algo,use
     now=datetime.now(timezone.utc)
     namespace='WGS_TEST_'+secrets.token_hex(8).upper()
     analysis_batch=source['batch']
-    data={**source,'output_child':output_child,'target_root':str(target),'project_namespace':namespace,'output_root':str(target/namespace),'analysis_batch':analysis_batch,'algo':algo,'use_reference':use_reference,'release_id':release.release_id}
+    data={**source,'output_child':output_child,'target_root':str(target),'project_namespace':namespace,'output_root':str(target/namespace),'analysis_batch':analysis_batch,'algo':algo,'use_reference':use_reference,'release_id':release.release_id,'effective_config':{**supported['effective_config'],'algo':algo,'use_reference':use_reference}}
     draft=PipelineSubmissionDraft(draft_id=f'wgs-test-{secrets.token_hex(12)}',pipeline_name='wgs',owner_username=username,input_root=source['source'],input_fingerprint=source['fingerprint'],preview_json=data,status='previewed',created_at=now,updated_at=now,expires_at=now+timedelta(hours=2))
     session.add(draft);session.commit()
-    return {'draft_id':draft.draft_id,'preview_hash':draft.input_fingerprint,'samples':source['samples'],'batch':source['batch'],'analysis_batch':analysis_batch,'output_child':output_child+'/'+namespace,'sample_count':len(source['samples']),'fastq_file_count':len(source['fastq']),'algo':algo,'use_reference':use_reference,'release_id':release.release_id,'write_check':'Restricted test node checks write access at preparation; no fallback output root','expires_at':draft.expires_at.isoformat()}
+    return {'draft_id':draft.draft_id,'preview_hash':draft.input_fingerprint,'source_project_dir':source['source'],'effective_config':data['effective_config'],'samples':source['samples'],'batch':source['batch'],'analysis_batch':analysis_batch,'output_child':output_child+'/'+namespace,'sample_count':len(source['samples']),'fastq_file_count':len(source['fastq']),'algo':algo,'use_reference':use_reference,'release_id':release.release_id,'write_check':'Restricted test node checks protected parents and write access at preparation; no fallback output root','expires_at':draft.expires_at.isoformat()}
 
 
 def confirm(*,session,settings,airflow_client,username,draft_id,preview_hash):

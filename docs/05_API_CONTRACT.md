@@ -1,5 +1,12 @@
 # API contract
 
+OPT20260912 review fix: WGS submission_options now supplies audited defaults
+and effective_config hashes. Test preview returns source_project_dir and the
+safe effective_config manifest; these are frozen in the saved descriptor and
+review. Source config is not a source of executable defaults. Unknown contracts
+do not receive frontend fallback enums/defaults. Old test drafts without this
+manifest require a new preview, not a silent upgrade.
+
 ## OPT20260912 submission
 
 - WGS release adds release-audited `submission_options` (caller enum, reference

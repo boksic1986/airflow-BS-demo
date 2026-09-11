@@ -11,6 +11,15 @@ the existing `/home/ctapa/.config/airflow-wgs-test/runtime.env`; retain its test
 runtime/request roots and all existing execution gates. Never set these in the
 production node gate. Keep scanner/dispatch unchanged.
 
+Review fix requires runtime/root-owned output ancestors and sticky protection
+on group-writable parents. The current test WGS_test2770 directory fails closed;
+an exact2770→3770 change requires separate user approval and is not performed by
+the gate. New target/namespace directories are private0700 with no-follow inode
+markers and portable atomic mkdir/flock (compatible with node glibc2.17; no
+renameat2 dependency). A mkdir/marker crash gap requires manual audit recovery,
+never automatic adoption. Audited prepare/template hashes are verified before
+private snapshotting; a changed live configuration needs a reviewed contract.
+
 Backend needs same-path read-only /sg2 and /bi visibility already supplied by
 the current test deployment. Do not grant backend write access or silently
 change mounts. Node ctapa checks write permission on the requested output's

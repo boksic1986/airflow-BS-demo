@@ -86,7 +86,7 @@ it("uses a pipeline-selectable staged WGS submission form", async () => {
   expect(screen.getByLabelText("Variant caller")).toBeDisabled();
   expect(screen.queryByRole("combobox", {name: /WGS version/i})).not.toBeInTheDocument();
   expect(screen.queryByText(/READY/)).not.toBeInTheDocument();
-  expect(screen.getByLabelText("Use reference")).toHaveValue("all");
+  expect(screen.getByLabelText("Use reference")).toBeDisabled();
   expect(screen.getByRole("button", {name: "Prepare sample information"})).toBeDisabled();
   expect(screen.getByText(/WGS first generates sampleinfo/)).toBeInTheDocument();
   expect(screen.queryByText(/preview is not enabled/)).not.toBeInTheDocument();
