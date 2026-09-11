@@ -164,3 +164,14 @@ Submit navigation and dashboard calls-to-action are visible only when a deployed
 ## Branding
 
 The product label is `NGS Huawei Cloud` with the subtitle `Online analysis platform`. WGS names remain only where they identify the currently deployed workflow or extension.
+
+## OPT20260912 monitoring review corrections
+
+Workflow groups expand the recorded member rule names and job IDs, not only
+an opaque group ID; historical missing inventory explicitly says unavailable.
+Unknown release phases and rules remain Unknown. Complete and canceled phases
+are shown as canceled, while active or unresolved members retain precedence.
+QC status source text is separate from its judgment badge: only judgment.status
+sets color, so a source PASS under an unknown policy cannot appear green.
+Terminal stage estimates say `Estimate frozen — execution ended`, never
+`Still executing`; measured progress continues to take precedence.

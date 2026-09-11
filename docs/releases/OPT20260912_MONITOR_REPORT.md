@@ -131,3 +131,63 @@ Rollback reverts this implementation commit/restores the prior test source
 release, retaining raw events, execution records and result files. Do not delete
 test/production databases, shared source, pending ledgers or analysis outputs.
 Production authorization and deployment are explicitly outside this task.
+
+## Review fix round1 (base7033185, coordination parent760dbd0)
+
+All three Important findings and both carried Minor findings are addressed.
+Fine phases now use exact rule inventories, including prefixed aliases actually
+declared by WGS_pipe.smk, rather than accepting arbitrary module prefixes.
+The packaged WGS phase catalog records source blob IDs at cc9bde3 for each
+module and cloud wrapper. GATK uses bd04f6d:workflow/SCMC_GATK.smk,
+blob0ee4e0033a1d5e0dbf0e62c0264136749173304a. APIs, registry progress,
+observer projections and sample current-stage labels pass the run release.
+Unsupported/missing release or unlisted rule returns Unknown. No current
+owner source was modified or read via mutable HEAD.
+
+Group events now carry full member rule/job-ID inventories, and the UI expands
+those names even across Rule API page boundaries. Stream-scoped group identity
+and group-only/no-child-start semantics remain intact. Legacy missing inventory
+is explicitly unavailable; neither a synthetic member list nor child times are
+inferred. QC source PASS with unknown judgment has no successful green badge.
+Phase precedence is failure > running > unresolved planned > terminal canceled
+> success (possibly with skipped) > all skipped. Terminal estimates retain the
+frozen percentage with terminal wording rather than Still executing.
+
+Red evidence: fix-red-backend.log has17 failed/3 passed (new release argument
+absent and Mapping phase filter returned0); fix-red-ui.log has3 failed/10 passed
+(member expansion, unknown PASS color and terminal wording). The initial UI
+cancel assertion matched a table header and was tightened to assert the status
+badge before final green; API mixed terminal coverage checks the returned status.
+First green:45 passed/1 existing skip backend,13 passed UI. Extended regression
+then exposed one obsolete historical phase-order assertion:82 passed/1 failed/
+1 skip. Its historical1656b5d fixture now explicitly expects Unknown, consistent
+with the release audit boundary, and was rerun successfully.
+
+Final backend command (same isolated cached environment as above):
+
+```text
+pytest -q tests/test_monitor_phases.py tests/test_monitor_rules.py tests/test_monitor_estimates.py tests/test_monitor_qc.py tests/test_workflow_phases.py tests/test_gatk_evidence_projection.py tests/test_gatk_workspace_api.py tests/test_gatk_runtime_service.py tests/test_wgs_timing_service.py tests/test_wgs_only_platform.py::test_wgs_rules_use_sql_pagination_and_batched_eta_queries tests/test_wgs_only_platform.py::test_wgs_detail_rules_and_pods_are_database_only_authenticated_reads tests/test_wgs_observer.py::test_master_rule_status_uses_binding_attempt_for_logger_local_attempt ../dags/tests/test_snakemake_logger_plugin.py
+```
+
+Result83 passed/1 preexisting skip, one upstream anyio deprecation, exit0
+(fix-final-backend.log). Includes explicit GATK mismatched pipeline/release/
+target exclusions; failed and canceled generations freeze at62.6%, late old
+evidence cannot mutate retry, and newly running retry starts at0%. SQL query
+budget and current/history inference remain green. No full WGS suite was run.
+
+Final UI: vitest run QcMetric, RunWorkflowTab, EstimatedStageProgress,
+CurrentProgressPanel and RunTracker test files:20 passed, exit0
+(fix-final-ui.log). npm run build: tsc/Vite exit0 (fix-build.log),
+JS index-BWshhGpf.js and CSS index-icRWI_4z.css. Task3's previously disclosed
+Dashboard ambiguity is outside this focused run and is not claimed fixed.
+
+Additional owned paths: policies/wgs_phases_cc9bde3.json,
+test_monitor_phases.py, test_gatk_workspace_api.py, test_wgs_observer.py,
+EstimatedStageProgress.test.tsx, plus amended Task2 files listed above.
+Local git diff --check passes. Runtime preflight again verified server10610,
+current81587fc, actual backend source mount and scan/dispatchfalse. An initial
+read-only inspect used the wrong container name and returned No such object;
+the actual airflow-wgs-backend-1 was then verified before tests. No deployment,
+worker/Master restart, shared WGS edit, live database or real job occurred.
+Producer image activation and historical evidence gaps remain unchanged;
+coordinator owns scoped re-review, central state and test-panel deployment.

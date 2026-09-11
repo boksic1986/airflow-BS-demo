@@ -148,6 +148,11 @@ class SnakemakeLoggerPluginTests(unittest.TestCase):
         self.assertTrue(all(payload["event"] == "rule_planned" for payload in payloads))
         self.assertTrue(all(payload["timing_provenance"] == "group_only" for payload in payloads))
         self.assertEqual(payloads[0]["execution_group"], payloads[1]["execution_group"])
+        self.assertEqual(payloads[0]["execution_group_members"], [
+            {"rule": "pre_process_Dedup", "snakemake_jobid": "53"},
+            {"rule": "pre_process_mapping", "snakemake_jobid": "54"},
+        ])
+        self.assertEqual(payloads[0]["execution_group_members"], payloads[1]["execution_group_members"])
         self.assertEqual([payload["job_id"] for payload in payloads], ["54", "53"])
 
     def test_dry_run_logger_marks_planned_jobs_as_skipped(self) -> None:

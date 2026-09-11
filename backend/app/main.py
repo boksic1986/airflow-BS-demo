@@ -80,7 +80,7 @@ from app.wgs_release_catalog import load_wgs_release_catalog
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunValidationIssue, Sample, TransferFileState, TransferJob, UserAccount, WgsExecutionDispatch, WgsStageExecution
 from app.wgs_timing_service import serialize_rule_states
 from app.wgs_workspace_service import build_wgs_workspace
-from app.workflow_phases import gatk_phase_definitions, phase_for_rule, phase_order, wgs_phase_definitions
+from app.workflow_phases import phase_for_rule, phase_order, run_phase_release, pinned_phase_definitions
 from app.wgs_runtime_adapter import build_stage_request, container_workdir_to_host, write_stage_request
 from app.wgs_observer import (
     SUPPORTED_RUNTIME_SYNC_STAGES,
@@ -1757,17 +1757,18 @@ def run_rules(
         from app.workflow_phases import phase_for_rule
         if phase:
             names = session.scalars(query.with_only_columns(RuleState.rule_name).distinct()).all()
-            query = query.where(RuleState.rule_name.in_([name for name in names if phase_for_rule(name, pipeline_name=run.pipeline_name) == phase]))
+            query = query.where(RuleState.rule_name.in_([name for name in names if phase_for_rule(name, pipeline_name=run.pipeline_name, release_id=run_phase_release(run)) == phase]))
         phase_summaries = {}
         for name, state, count in session.execute(query.with_only_columns(RuleState.rule_name, displayed_status, func.count()).group_by(RuleState.rule_name, displayed_status)):
-            label = phase_for_rule(name, pipeline_name=run.pipeline_name)
-            summary = phase_summaries.setdefault(label, dict(phase=label, total=0, running=0, success=0, failed=0, canceled=0))
+            label = phase_for_rule(name, pipeline_name=run.pipeline_name, release_id=run_phase_release(run))
+            summary = phase_summaries.setdefault(label, dict(phase=label, total=0, running=0, success=0, failed=0, canceled=0, skipped=0))
             summary["total"] += count
-            key = "running" if state in {"running", "started"} else "canceled" if state in {"cancelled", "canceled"} else state
-            if key in {"running", "success", "failed", "canceled"}:
+            key = "running" if state in {"running", "started"} else "canceled" if state in {"cancelled", "canceled", "terminated"} else "failed" if state in {"fail", "error"} else state
+            if key in {"running", "success", "failed", "canceled", "skipped"}:
                 summary[key] += count
         for summary in phase_summaries.values():
-            summary["status"] = "failed" if summary["failed"] else "running" if summary["running"] else "success" if summary["success"] == summary["total"] else "planned"
+            terminal = summary["success"] + summary["canceled"] + summary["skipped"]
+            summary["status"] = "failed" if summary["failed"] else "running" if summary["running"] else "planned" if terminal < summary["total"] else "canceled" if summary["canceled"] else "success" if summary["success"] else "skipped"
         total = sum(summary["total"] for summary in phase_summaries.values())
         ordering = []
         if sort == "active_first":
@@ -1791,15 +1792,11 @@ def run_rules(
         ).all())
         return {
             "items": serialize_rule_states(session=session, run=run, rows=page, settings=get_settings()),
-            "phases": (
-                gatk_phase_definitions()
-                if run.pipeline_name == "gatk"
-                else wgs_phase_definitions()
-            ),
+            "phases": pinned_phase_definitions(run.pipeline_name, run_phase_release(run)),
             "total": int(total),
             "attempt": selected_attempt,
             "current_attempt": int(run.attempt or 1),
-            "phase_summaries": list(phase_summaries.values()),
+            "phase_summaries": sorted(phase_summaries.values(), key=lambda item: phase_order(item["phase"], pipeline_name=run.pipeline_name)),
             "attempts": sorted(set(session.scalars(select(RuleState.attempt).where(RuleState.analysis_id == analysis_id).distinct()).all()) | {int(run.attempt or 1)}),
             "limit": limit,
             "offset": offset,

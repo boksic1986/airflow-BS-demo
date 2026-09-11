@@ -525,6 +525,7 @@ export type RuleEvent = {
   status_inferred?: boolean;
   origin?: string | null;
   execution_group?: string | null;
+  execution_group_members?: {rule: string; snakemake_jobid?: string | null}[];
   timing_provenance?: string | null;
   sequence?: number | null;
   rule: string;
@@ -571,7 +572,7 @@ export type AirflowTaskProgress = {
 };
 
 export type QcJudgment = {value?: string | number | null; unit?: string; status: string; reason?: string; threshold?: unknown; provenance?: Record<string, unknown>};
-export type StageEstimate = {estimated_progress_percent?: number | null; estimate_baseline_seconds?: number | null; estimate_history_count?: number; estimate_model?: string; estimate_execution_id?: string | null; estimate_generation?: number | null; estimate_overrun?: boolean};
+export type StageEstimate = {estimated_progress_percent?: number | null; estimate_baseline_seconds?: number | null; estimate_history_count?: number; estimate_model?: string; estimate_execution_id?: string | null; estimate_generation?: number | null; estimate_frozen?: boolean; estimate_overrun?: boolean};
 export type RunProgressResponse = StageEstimate & {
   analysis_id: string;
   pipeline: string;

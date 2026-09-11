@@ -128,3 +128,15 @@ with `/bi/software/mamba/envs/WGS/bin/python`. This does not change the gate's
 Cloud Eye collectors, which retain the approved nipttest environment. CCE
 bundle generation receives the explicit CLI path and preserves its associated
 interpreter. Do not replace global PATH or reinterpret existing frozen bundles.
+
+## OPT20260912 monitoring review corrections
+
+The logger records the full group's rule-name/job-ID inventory as
+`execution_group_members` on every group-only descriptive member event. This
+supports expansion across paginated Rule API results without inventing child
+starts or merging master/worker streams. Existing images do not gain these
+fields until separately reviewed activation; historical inventory remains
+unavailable. WGS phase inventory pins cc9bde3 rule/*.smk, WGS_pipe.smk and
+WGS_cloud.smk source blob IDs in policies/wgs_phases_cc9bde3.json. GATK pins
+bd04f6d workflow/SCMC_GATK.smk blob0ee4e0033a1d5e0dbf0e62c0264136749173304a.
+The catalogs are display classifications, not scheduling/dependency graphs.

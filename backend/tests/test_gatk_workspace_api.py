@@ -158,12 +158,20 @@ def test_gatk_workspace_rules_and_pods_use_generic_run_projection(
     assert rules.status_code == 200
     assert rules.json()["items"][0]["phase"] == "Mapping"
     assert [item["label"] for item in rules.json()["phases"]] == [
+        "Preflight",
         "FASTQ QC",
         "Mapping",
-        "MarkDuplicates",
-        "GATK",
+        "Duplicate marking",
+        "Base recalibration",
+        "Small variant calling",
+        "Genotyping",
         "chrM realignment",
+        "Mitochondrial analysis",
+        "Nuclear variant filtering",
+        "Variant packaging",
         "Delivery",
+        "Workflow targets",
+        "Unknown",
     ]
     assert pods.status_code == 200
     assert pods.json()["items"][0]["job_name"] == "gatk-worker"

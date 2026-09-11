@@ -2,6 +2,47 @@ from __future__ import annotations
 
 from collections import Counter
 from typing import Any
+import json
+from pathlib import Path
+
+
+# Exact module inventories, not prefix guesses; source blob IDs are packaged.
+PINNED_WGS_PHASES = json.loads((Path(__file__).parent / "policies/wgs_phases_cc9bde3.json").read_text())
+PINNED_GATK_PHASES = {
+    "cloud_gatk_preflight": "Preflight", "all": "Workflow targets",
+    "fastp_clean": "FASTQ QC", "sentieon_mapping": "Mapping",
+    "gatk_mark_duplicates": "Duplicate marking",
+    "gatk_bqsr": "Base recalibration", "gatk_apply_bqsr": "Base recalibration",
+    "gatk_haplotype_caller": "Small variant calling", "gatk_genotype": "Genotyping",
+    "sentieon_mt_realign": "chrM realignment", "gatk_mity": "Mitochondrial analysis",
+    "gatk_nuclear_post": "Nuclear variant filtering", "gatk_rename_gvcf": "Variant packaging",
+    "gatk_concat_vcf": "Variant packaging", "gatk_publish": "Delivery",
+    "cloud_gatk_finalize": "Delivery", "cloud_gatk_all": "Workflow targets",
+}  # bd04f6d:workflow/SCMC_GATK.smk, blob 0ee4e0033a1d5e0dbf0e62c0264136749173304a
+BIOLOGICAL_PHASE_ORDER = {name: i * 10 for i, name in enumerate([
+    "Preflight", "FASTQ QC", "Mapping", "Duplicate marking", "Alignment QC",
+    "Base recalibration", "Small variant calling", "Genotyping", "chrM realignment",
+    "SNV analysis", "SV analysis", "CNV analysis", "MEI analysis", "ROH analysis",
+    "Mitochondrial analysis", "Repeat expansion", "Targeted gene analysis",
+    "Carrier screening", "Noncoding analysis", "Nuclear variant filtering", "QC",
+    "Alignment packaging", "Variant packaging", "Cloud delivery", "Delivery",
+    "Workflow targets", "Unknown",
+], 1)}
+BIOLOGICAL_PHASE_ORDER["Unknown"] = 999
+
+
+def run_phase_release(run) -> str:
+    params = run.params_json or {}
+    if run.pipeline_name == "gatk":
+        if params.get("runtime_profile_id") and params.get("runtime_profile_revision"):
+            return f"{params['runtime_profile_id']}@{params['runtime_profile_revision']}"
+        return str(params.get("pipeline_release_id") or "unavailable")
+    return str(params.get("pipeline_release_id") or "unavailable")
+
+
+def pinned_phase_definitions(pipeline_name, release_id):
+    rules = PINNED_WGS_PHASES["rules"] if pipeline_name == "wgs" and release_id == PINNED_WGS_PHASES["release_id"] else PINNED_GATK_PHASES if pipeline_name == "gatk" and release_id == "gatk-scmc-v7.6.0@bd04f6d" else {}
+    return [{"key": p.lower().replace(" ", "_"), "label": p, "order": order} for p, order in BIOLOGICAL_PHASE_ORDER.items() if p in set(rules.values()) | {"Unknown"}]
 
 
 WGS_PRE_CALLING_RULES = frozenset(
@@ -167,27 +208,28 @@ def phase_for_rule(
     *,
     pipeline_name: str | None = None,
     pipeline_stage: str | None = None,
+    release_id: str | None = None,
 ) -> str:
     if str(pipeline_name or "").lower() == "wgs":
-        return wgs_phase_for_rule(rule, pipeline_stage=pipeline_stage)
+        return wgs_phase_for_rule(rule, pipeline_stage=pipeline_stage, release_id=release_id)
     if str(pipeline_name or "").lower() == "gatk":
-        return gatk_phase_for_rule(rule)
+        return gatk_phase_for_rule(rule, release_id=release_id)
     return "Pipeline"
 
 
-def gatk_phase_for_rule(rule: str | None) -> str:
+def gatk_phase_for_rule(rule: str | None, *, release_id: str | None = None) -> str:
     name = str(rule or "").strip()
+    if release_id is not None:
+        return PINNED_GATK_PHASES.get(name, "Unknown") if release_id == "gatk-scmc-v7.6.0@bd04f6d" else "Unknown"
     if name in GATK_RULE_PHASES:
         return GATK_RULE_PHASES[name]
-    if name.startswith("gatk_"):
-        return "GATK"
-    if name.startswith("cloud_"):
-        return "Delivery"
-    return "GATK"
+    return "Unknown"
 
 
-def wgs_phase_for_rule(rule: str | None, *, pipeline_stage: str | None = None) -> str:
+def wgs_phase_for_rule(rule: str | None, *, pipeline_stage: str | None = None, release_id: str | None = None) -> str:
     name = str(rule or "").strip()
+    if release_id is not None:
+        return PINNED_WGS_PHASES["rules"].get(name, "Unknown") if release_id == PINNED_WGS_PHASES["release_id"] else "Unknown"
     if name == "all":
         return "Pre-calling" if str(pipeline_stage or "").strip().lower() == "precalling" else "QC"
     for prefix, phase in WGS_RULE_PREFIX_PHASES:
@@ -198,6 +240,8 @@ def wgs_phase_for_rule(rule: str | None, *, pipeline_stage: str | None = None) -
 
 def phase_order(phase: str | None, *, pipeline_name: str | None = None) -> int:
     """Return a stable UI sort order without deriving execution dependencies."""
+    if phase in BIOLOGICAL_PHASE_ORDER:
+        return BIOLOGICAL_PHASE_ORDER[phase]
     if str(pipeline_name or "").lower() == "wgs":
         return wgs_phase_order(phase)
     if str(pipeline_name or "").lower() == "gatk":

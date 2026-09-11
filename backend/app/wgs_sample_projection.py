@@ -15,7 +15,7 @@ from app.sample_selection_scope import selected_clause
 from app.qc_highlights import aggregate_qc_status
 from app.wgs_artifact_selection import select_batch_qcstat
 from app.wgs_run_projection import load_wgs_runtime_binding, resolve_bound_wgs_batch_root
-from app.workflow_phases import wgs_phase_for_rule
+from app.workflow_phases import wgs_phase_for_rule, run_phase_release
 
 
 TERMINAL_SUCCESS = {"success", "succeeded", "complete", "completed"}
@@ -306,7 +306,7 @@ def _matrix_row(*, sample: Sample, run: AnalysisRun, rules: list[RuleState], exp
     data_id = str(metadata.get("data_id") or sample.sample_id)
     qc_value = _qc_value_for_sample(sample=sample, qc=qc)
     current_stage = "Workflow completed" if workflow_success else (
-        (current.phase or wgs_phase_for_rule(current.rule_name))
+        wgs_phase_for_rule(current.rule_name, release_id=run_phase_release(run))
         if current
         else _text(run.current_stage)
     )

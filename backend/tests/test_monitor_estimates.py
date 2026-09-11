@@ -53,6 +53,7 @@ def test_fixed_stage_baseline_queue_freeze_retry_and_read_consistency():
         transition_stage_execution(session=session, execution_id="EX1", generation=1, status="failed", observed_at=now+timedelta(seconds=120))
         session.commit()
         assert stage_estimate(row, now=now+timedelta(days=1))["estimated_progress_percent"] == 62.6
+        assert stage_estimate(row, now=now+timedelta(days=1))["estimate_frozen"] is True
         retry = WgsStageExecution(analysis_id="EST", attempt=1, execution_id="EX2", generation=2, stage_code="step4_publish", request_hash="b"*64, release_id="rel", status="accepted")
         session.add(retry)
         session.commit()
@@ -118,3 +119,72 @@ def test_gatk_sidecar_writer_starts_only_running_and_preserves_terminal_clock(tm
         assert workspace["progress"]["estimate_baseline_seconds"] == 120
         assert progress["estimate_baseline_seconds"] == 120
         assert workspace["progress"]["estimated_progress_percent"] == progress["estimated_progress_percent"]
+
+
+@pytest.mark.parametrize("terminal", ["failed", "canceled"])
+def test_gatk_matching_history_and_terminal_retry_generation(tmp_path, monkeypatch, terminal):
+    import json
+    from pathlib import Path
+    import app.gatk_runtime_service as service
+    from test_gatk_runtime_service import _sessions, _settings, _run, _execution, ANALYSIS_ID
+    from app.wgs_stage_estimates import stage_estimate, stage_estimates, KEY
+    now = datetime(2026, 9, 12, tzinfo=timezone.utc)
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now
+    monkeypatch.setattr(service, "datetime", Clock)
+    settings = _settings(tmp_path)
+    with _sessions()() as session:
+        run = _run()
+        run.execution_mode = "cce"
+        session.add(run)
+        for i, mismatch in enumerate([None, None, None, "pipeline", "release", "target"]):
+            old = _run()
+            old.analysis_id = f"H{i}"
+            old.pipeline_name = "wgs" if mismatch == "pipeline" else "gatk"
+            old.execution_mode = "cce"
+            old.params_json = {"execution_target": "local" if mismatch == "target" else "cce"}
+            session.add(old)
+            h = _execution("step4_publish", i+10, "success")
+            h.analysis_id = old.analysis_id
+            h.pipeline_name = old.pipeline_name
+            h.release_id = "different-release" if mismatch == "release" else h.release_id
+            h.started_at = now-timedelta(days=1, seconds=999 if mismatch else 120)
+            h.ended_at = now-timedelta(days=1)
+            session.add(h)
+        first = _execution("step4_publish", 1, "accepted")
+        session.add(first)
+        session.commit()
+        path = Path(settings.gatk_runtime_request_root) / ANALYSIS_ID / "attempt-1" / "step4_publish.request.status.json"
+        path.parent.mkdir(parents=True)
+        def observe(row, status):
+            path.write_text(json.dumps({"analysis_id": ANALYSIS_ID, "attempt": 1, "stage": "step4_publish", "generation": row.generation, "execution_id": row.execution_id, "request_hash": row.request_hash, "status": status}))
+            return service.sync_gatk_stage_status(session=session, settings=settings, analysis_id=ANALYSIS_ID, attempt=1, stage="step4_publish")
+        observe(first, "running")
+        assert stage_estimate(first)["estimate_history_count"] == 3
+        assert stage_estimate(first)["estimate_baseline_seconds"] == 120
+        assert len(first.terminal_payload_json[KEY]["history_execution_ids"]) == 3
+        now += timedelta(seconds=120)
+        observe(first, terminal)
+        assert stage_estimate(first)["estimated_progress_percent"] == 62.6
+        assert stage_estimate(first)["estimate_frozen"] is True
+        ended = first.ended_at
+        now += timedelta(days=1)
+        observe(first, "running")
+        assert first.ended_at == ended
+        assert stage_estimate(first)["estimated_progress_percent"] == 62.6
+        retry = _execution("step4_publish", 2, "accepted")
+        session.add(retry)
+        run.status = "running"
+        run.ended_at = None
+        run.pipeline_finished_at = None
+        session.commit()
+        assert stage_estimates(session, run)["step4_publish"]["estimated_progress_percent"] is None
+        observe(first, "success")  # Late generation 1 cannot start or complete generation 2.
+        assert retry.status == "accepted"
+        observe(retry, "running")
+        fresh = stage_estimates(session, run, now=now)["step4_publish"]
+        assert fresh["estimate_generation"] == 2
+        assert fresh["estimated_progress_percent"] == 0
+        assert fresh["estimate_frozen"] is False

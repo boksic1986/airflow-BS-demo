@@ -243,3 +243,20 @@ new attempt with `submission_phase=preparing_sampleinfo` and clear
 normal config/execution approval endpoints must complete before execution
 commit. Analysis parameters remain unchanged; prior approvals do not bypass
 new-attempt gates. Legacy-mode behavior is unchanged.
+
+## OPT20260912 monitoring review corrections
+
+Fine biological phases use exact release catalogs: WGS `wgs-4.2.1-cc9bde3`
+and GATK `gatk-scmc-v7.6.0@bd04f6d`. Unknown/missing releases and unlisted
+rules return `Unknown`; module prefixes alone are not evidence. Rules, filters,
+complete phase summaries, registry progress, observer and sample projections
+share this policy. Legacy coarse helper defaults are not used by run APIs.
+Phase precedence: failure, active running, unresolved planned, terminal canceled,
+success (including success+skipped), all-skipped. Cancellation aliases include
+cancelled/terminated. An incomplete canceled+planned phase remains planned.
+
+Rule items add `execution_group_members: [{rule, snakemake_jobid}]` from the
+same event's source inventory, including members outside the current page.
+Missing historical inventory is `[]`, not guessed across unrelated streams.
+Stage estimates add `estimate_frozen` for terminal display; baseline and percent
+remain unchanged. No measured-progress or execution authority is added.

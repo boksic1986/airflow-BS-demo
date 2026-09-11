@@ -37,7 +37,7 @@ from app.wgs_stage_execution_service import (
     transition_stage_execution,
     validate_current_stage_execution,
 )
-from app.workflow_phases import phase_for_rule
+from app.workflow_phases import phase_for_rule, run_phase_release
 
 
 RULE_EVENT_TYPES = {
@@ -2066,6 +2066,7 @@ def _rebuild_rule_projection(session, analysis_id: str, attempt: int) -> None:
         state.phase = phase_for_rule(
             state.rule_name,
             pipeline_name=pipeline_name,
+            release_id=run_phase_release(run) if run else "unavailable",
             pipeline_stage=str((run.params_json or {}).get("stage") or "")
             if run is not None
             else None,

@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState, RuleEventRaw
 from app.diagnostics_service import gatk_rule_log_contexts, wgs_rule_log_contexts
-from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_for_rule, wgs_phase_order
+from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_for_rule, wgs_phase_order, run_phase_release
 from app.wgs_stage_contract import (
     canonical_wgs_stage,
     project_wgs_orchestration,
@@ -37,12 +37,14 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
     for row in rows:
         events = evidence.get((row.attempt, row.rule_instance_id), [])
         groups = [event for event in events if event.get("group_member") or event.get("timing_provenance") == "group_only"]
+        group_inventory = groups[0].get("execution_group_members") if groups else None
+        group_inventory = group_inventory if isinstance(group_inventory, list) else []
         child_starts = [event for event in events if not event.get("group_member") and event.get("timing_provenance") != "group_only" and (event.get("event") == "job_started" or (event.get("event") == "job_info" and event.get("status") == "running"))]
         started_at = row.started_at if not groups or child_starts else None
         origin_event = events[0] if events else {}
         role = origin_event.get("role") if origin_event.get("role") in {"master", "worker"} else "unknown"
         origin = f"{role}:{hashlib.sha256(str(origin_event.get('stream_id') or '').encode()).hexdigest()[:12]}" if events else None
-        phase = phase_for_rule(row.rule_name, pipeline_name=run.pipeline_name)
+        phase = phase_for_rule(row.rule_name, pipeline_name=run.pipeline_name, release_id=run_phase_release(run))
         durations = duration_history.get((row.rule_name, row.layer), [])
         history_median = median(durations) if len(durations) >= 3 else None
         projected_status = row.status
@@ -81,6 +83,11 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
                 "status_inferred": status_inferred,
                 "origin": origin,
                 "execution_group": f"{origin}:{groups[0].get('execution_group') or 'legacy-group'}" if groups else None,
+                "execution_group_members": [
+                    {"rule": str(member["rule"]), "snakemake_jobid": str(member.get("snakemake_jobid") or "")}
+                    for member in group_inventory
+                    if isinstance(member, dict) and member.get("rule")
+                ] if groups else [],
                 "timing_provenance": "group_only" if groups and not child_starts else "individual" if started_at else "unavailable",
                 "message": projected_message,
                 "log_keys": list(row.log_paths_json or []),

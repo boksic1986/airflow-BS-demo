@@ -153,6 +153,7 @@ class LogHandler(LogHandlerBase):
             payload["status"] = "planned"
             payload["timing_provenance"] = "group_only"
             payload["execution_group"] = getattr(record, "execution_group", None)
+            payload["execution_group_members"] = getattr(record, "execution_group_members", [])
             payload["message"] = "Execution group started; individual child start not observed."
         self._fill_payload_from_job_context(payload)
         if self.dry_run and payload.get("rule") and payload["status"] in {"running", "success"}:
@@ -241,6 +242,8 @@ def _expand_group_member_records(record: logging.LogRecord) -> tuple[logging.Log
     expanded: list[logging.LogRecord] = []
     group_identity = json.dumps(sorted((str(_first_present(m, "job_id", "jobid", "snakemake_jobid")), str(getattr(getattr(m, "rule", None), "name", ""))) for m in members))
     group_id = hashlib.sha256(group_identity.encode()).hexdigest()[:16]
+    group_members = [{"rule": str(getattr(getattr(m, "rule", None), "name", "")), "snakemake_jobid": str(job_id) if (job_id := _first_present(m, "job_id", "jobid", "snakemake_jobid")) is not None else ""} for m in members]
+    group_members.sort(key=lambda member: (member["rule"], member["snakemake_jobid"]))
     for member in members:
         member_record = copy.copy(record)
         member_record.job = member
@@ -252,6 +255,7 @@ def _expand_group_member_records(record: logging.LogRecord) -> tuple[logging.Log
         )
         member_record.group_member = True
         member_record.execution_group = group_id
+        member_record.execution_group_members = group_members
         expanded.append(member_record)
     return tuple(expanded)
 

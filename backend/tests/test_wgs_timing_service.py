@@ -338,7 +338,7 @@ def test_successful_run_reconciles_missing_cloud_finalize_terminal_event() -> No
         item = serialize_rule_states(session=session, run=run, rows=[row])[0]
 
     assert item["status"] == "success"
-    assert item["phase"] == "Cloud delivery"
+    assert item["phase"] == "Unknown"  # Historical source is not an audited phase catalog.
     assert "verified successful run" in item["message"]
 
 

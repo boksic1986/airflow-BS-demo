@@ -7,6 +7,17 @@ import type {RuleEvent, RunProgressResponse} from "../../api";
 import {RunWorkflowTab} from "./RunWorkflowTab";
 
 describe("RunWorkflowTab", () => {
+  it("expands group member rules, including members outside the current page", () => {
+    render(<RunWorkflowTab progress={null} rules={[{rule: "mapping", status: "planned", execution_group: "master:group", execution_group_members: [{rule: "mapping", snakemake_jobid: "1"}, {rule: "Dedup", snakemake_jobid: "2"}]}]} />);
+    const detail = screen.getByText("master:group").closest("details")!;
+    expect(within(detail).getByText("Dedup")).toBeInTheDocument();
+  });
+
+  it("summarizes completed and canceled terminal members as canceled", () => {
+    render(<RunWorkflowTab progress={null} rules={[{rule: "a", phase: "Mapping", status: "success"}, {rule: "b", phase: "Mapping", status: "canceled"}]} />);
+    const summary = screen.getByRole("table", {name: /Pipeline phase summary/i});
+    expect(within(summary).getByText("canceled").closest(".status-badge")).toBeInTheDocument();
+  });
   it("keeps duplicate rule instances attached to their own expanded evidence after reordering", () => {
     const a = {attempt: 2, rule_instance_id: "a", rule: "mapping", sample_id: "S1", sequence: 1, status: "running", execution_group: "group-a"};
     const b = {...a, rule_instance_id: "b", execution_group: "group-b"};

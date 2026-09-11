@@ -2110,7 +2110,7 @@ def test_biosan_jsonl_contract_and_degraded_marker(tmp_path: Path) -> None:
         assert state.sequence == 1
         assert state.sample_id == "S1"
         assert state.family_id == "F1"
-        assert state.phase == "Pre-calling"
+        assert state.phase == "Unknown"  # This historical release has no audited fine-phase catalog.
         assert state.snakemake_jobid == "7"
         assert state.wildcards_json == {"sample": "S1"}
         assert state.message == "done"

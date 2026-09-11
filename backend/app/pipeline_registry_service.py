@@ -29,7 +29,7 @@ from app.wgs_t7_intake import get_wgs_t7_scanner_state, list_wgs_t7_intake
 from app.wgs_timing_service import enrich_progress
 from app.wgs_run_projection import public_wgs_batch
 from app.wgs_dashboard_attention import project_wgs_dashboard_attention
-from app.workflow_phases import wgs_phase_for_rule
+from app.workflow_phases import wgs_phase_for_rule, run_phase_release
 from app.diagnostics_service import (
     get_gatk_run_log,
     get_wgs_run_log,
@@ -321,7 +321,7 @@ def _project_gatk_rule_context(*, run, **_) -> dict[str, Any]:
     return {
         "pipeline_name": run.pipeline_name,
         "pipeline_stage": "full",
-        "phase_projector": lambda rule, **_: gatk_phase_for_rule(rule),
+        "phase_projector": lambda rule, **_: gatk_phase_for_rule(rule, release_id=run_phase_release(run)),
     }
 
 
@@ -377,7 +377,7 @@ def _project_wgs_rule_context(*, run, **_) -> dict[str, Any]:
     return {
         "pipeline_name": run.pipeline_name,
         "pipeline_stage": str(params.get("wgs_stage") or params.get("stage") or "full"),
-        "phase_projector": wgs_phase_for_rule,
+        "phase_projector": lambda rule, **kwargs: wgs_phase_for_rule(rule, release_id=run_phase_release(run), **kwargs),
     }
 
 

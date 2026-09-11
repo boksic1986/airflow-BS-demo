@@ -25,13 +25,13 @@ function summarizeRulePhases(rules: RuleEvent[]): RulePhaseSummary[] {
   }
   return [...grouped.entries()].map(([phase, items]) => {
     const statuses = items.map((item) => normalizeStatus(item.status));
-    const failed = statuses.filter((value) => value === "failed").length;
-    const running = statuses.filter((value) => value === "running" || value === "queued").length;
+    const failed = statuses.filter((value) => ["failed", "fail", "error"].includes(value)).length;
+    const running = statuses.filter((value) => ["running", "started"].includes(value)).length;
     const success = statuses.filter((value) => value === "success").length;
-    const canceled = statuses.filter((value) => value === "canceled").length;
+    const canceled = statuses.filter((value) => ["canceled", "cancelled", "terminated"].includes(value)).length;
     return {
       phase,
-      status: failed ? "failed" : running ? "running" : success === items.length ? "success" : "queued",
+      status: failed ? "failed" : running ? "running" : success + canceled + statuses.filter((value) => value === "skipped").length < items.length ? "planned" : canceled ? "canceled" : success ? "success" : "skipped",
       total: items.length,
       running,
       success,
@@ -104,7 +104,7 @@ export function RunWorkflowTab({progress, rules, onOpenLog, page, query, onQuery
           <thead><tr>{["Phase", "Rule", "Sample", "Family", "Order", "Job / origin", "Status", "Started", "Finished", "Elapsed", "Remaining", "Message / failure excerpt"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
           <tbody>{filteredRules.map((rule, index) => <tr key={JSON.stringify([rule.attempt, rule.rule_instance_id || [rule.rule, rule.sample_id, rule.family_id, rule.sequence, rule.snakemake_jobid, index]])}>
             <td>{rule.phase || "Unknown"}</td><td className="rule-name-cell">{rule.rule}</td><td>{rule.sample_id || "-"}</td><td>{rule.family_id || "-"}</td><td>{rule.sequence ?? "-"}</td>
-            <td>{rule.snakemake_jobid || "-"}{rule.origin ? <small>{rule.origin}</small> : null}{rule.execution_group ? <details><summary>Execution group</summary>{rule.execution_group}<p>Group start is not an individual rule start.</p></details> : null}</td>
+            <td>{rule.snakemake_jobid || "-"}{rule.origin ? <small>{rule.origin}</small> : null}{rule.execution_group ? <details><summary>Execution group</summary><span>{rule.execution_group}</span>{rule.execution_group_members?.length ? <ul>{rule.execution_group_members.map((member, index) => <li key={`${member.rule}:${member.snakemake_jobid}:${index}`}><span>{member.rule}</span> · job {member.snakemake_jobid || "unknown"}</li>)}</ul> : <p>Member inventory unavailable in this event stream.</p>}<p>Group start is not an individual rule start.</p></details> : null}</td>
             <td><StatusBadge status={displayRuleStatus(rule.status)} />{rule.status_inferred ? <small>Inferred from run success</small> : null}</td>
             <td>{rule.started_at || rule.start_time ? formatDate(rule.started_at || rule.start_time) : "-"}</td><td>{rule.ended_at || rule.end_time ? formatDate(rule.ended_at || rule.end_time) : "-"}</td><td>{duration(rule.elapsed_seconds)}</td><td>{duration(rule.estimated_remaining_seconds)}</td>
             <td className="rule-message-cell">{rule.stderr_excerpt ? <details><summary>{rule.message || "Show failure excerpt"}</summary><pre>{rule.stderr_excerpt}</pre></details> : (rule.message || "-")}{rule.analysis_log_key && onOpenLog ? <button type="button" className="text-button" aria-label={`Open log for ${rule.rule}`} onClick={() => onOpenLog(rule.analysis_log_key!)}>Open log</button> : null}</td>

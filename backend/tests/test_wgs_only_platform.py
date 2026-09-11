@@ -3407,9 +3407,10 @@ def test_wgs_detail_rules_and_pods_are_database_only_authenticated_reads(tmp_pat
     assert detail.json()["observer"]["monitoring_health"] == "healthy"
     assert detail.json()["observer"]["lifecycle_status"] == "stopped"
     assert [item["rule"] for item in rules.json()["items"]] == ["mapping", "QCall"]
-    assert rules.json()["items"][0]["phase_order"] == 10
+    assert rules.json()["items"][0]["phase"] == "Unknown"
+    assert rules.json()["items"][0]["phase_order"] == 999
     assert rules.json()["items"][0]["family_id"] == "F1"
-    assert [item["key"] for item in rules.json()["phases"]] == ["pre_calling", "variant_analysis", "qc", "cloud_delivery"]
+    assert [item["key"] for item in rules.json()["phases"]] == ["unknown"]
     assert len(pods.json()["items"]) == 1
     assert pods.json()["items"][0] == {
         "attempt": 1,

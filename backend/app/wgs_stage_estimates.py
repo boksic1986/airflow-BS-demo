@@ -62,6 +62,7 @@ def stage_estimate(row, *, now=None, run_terminal=False, stopped_at=None):
         "estimate_execution_id": row.execution_id if row else None,
         "estimate_generation": row.generation if row else None,
         "estimate_overrun": bool(elapsed is not None and baseline and elapsed >= baseline),
+        "estimate_frozen": bool(row and (run_terminal or row.status in {"failed", "canceled", "cancelled", "terminated"})),
     }
 
 

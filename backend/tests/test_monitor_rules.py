@@ -1,5 +1,20 @@
 from app.models import AnalysisRun, RuleState
 from test_wgs_only_platform import make_client, login
+import pytest
+
+
+@pytest.mark.parametrize("states,expected", [(["canceled"], "canceled"), (["success", "cancelled"], "canceled"), (["running", "canceled"], "running"), (["planned", "canceled"], "planned"), (["failed", "canceled"], "failed")])
+def test_phase_terminal_precedence(tmp_path, monkeypatch, states, expected):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    with sessions() as session:
+        session.add(AnalysisRun(analysis_id="PHASE", pipeline_name="wgs", dag_id="bio_wgs", workdir=str(tmp_path), attempt=1, status="running", params_json={"pipeline_release_id": "wgs-4.2.1-cc9bde3"}))
+        for i, status in enumerate(states):
+            session.add(RuleState(analysis_id="PHASE", attempt=1, rule_instance_id=str(i), rule_name="mapping", status=status))
+        session.commit()
+    page = client.get("/api/runs/PHASE/rules?phase=Mapping&limit=1", headers=login(client, "viewer", "viewer-pass")).json()
+    assert page["total"] == len(states)
+    assert page["phase_summaries"][0]["status"] == expected
+    assert page["items"][0]["phase"] == "Mapping"
 
 
 def test_group_only_start_is_not_child_execution(tmp_path, monkeypatch):
@@ -15,6 +30,25 @@ def test_group_only_start_is_not_child_execution(tmp_path, monkeypatch):
     page = client.get("/api/runs/GROUP/rules", headers=login(client, "viewer", "viewer-pass")).json()
     assert page["items"][0]["started_at"] is None
     assert page["items"][0]["status"] == "planned"
+    assert page["items"][0]["execution_group_members"] == []
+
+
+def test_group_members_survive_pagination_and_keep_stream_identity(tmp_path, monkeypatch):
+    from app.models import RuleEventRaw
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    members = [{"rule": "mapping", "snakemake_jobid": "1"}, {"rule": "Dedup", "snakemake_jobid": "2"}]
+    with sessions() as session:
+        session.add(AnalysisRun(analysis_id="MEMBERS", pipeline_name="wgs", dag_id="bio_wgs", workdir=str(tmp_path), attempt=1, status="running"))
+        for stream in ["master", "worker"]:
+            session.add(RuleState(analysis_id="MEMBERS", attempt=1, rule_instance_id=stream, rule_name="mapping", status="planned"))
+            session.add(RuleEventRaw(analysis_id="MEMBERS", attempt=1, event_id=stream, event_type="rule_planned", payload_json={"rule_instance_id": stream, "group_member": True, "role": stream, "stream_id": stream, "execution_group": "same-group", "execution_group_members": members}))
+        session.commit()
+    headers = login(client, "viewer", "viewer-pass")
+    first = client.get("/api/runs/MEMBERS/rules?limit=1", headers=headers).json()["items"][0]
+    second = client.get("/api/runs/MEMBERS/rules?limit=1&offset=1", headers=headers).json()["items"][0]
+    assert first["execution_group_members"] == second["execution_group_members"] == members
+    assert first["execution_group"] != second["execution_group"]
+    assert first["started_at"] is second["started_at"] is None
 
 
 def test_current_attempt_default_history_and_exact_filters(tmp_path, monkeypatch):
