@@ -10,6 +10,11 @@ QC must preserve old source-produced aggregate and add traceable numeric/status 
 
 Estimate active Step4/6 stage execution uses actual started_at, not accepted/queued timestamp. WgsStageExecution generation is retry boundary; RunStageState is attempt-stage only. Fixed baseline must survive page/backend refresh and not be recomputed with later completed runs. Prefer existing metadata storage and writer-side persistence, no GET side effects. Display fields only; observed transfer percent unchanged. Test run and orchestration rail/API/dashboard consistency plus failure/cancel/success/retry with fake time.
 
+Both WGS WgsStageExecution and GATK PipelineStageExecution are in scope. The
+model names above describe existing WGS storage, not a restriction to WGS.
+Use explicit pipeline/release/target matching in both writer paths; test GATK
+history selection and generation boundaries without activating new DAG code.
+
 Remote-only runtime tests BS10610; preflight already verified current81587fc, no active test runs, scan/dispatchfalse. Use unique isolated synthetic source root below /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/OPT20260912-monitor. Backend cached airflow-demo/backend:t235-232154f; Node cached airflow-demo/frontend-builder:node22-lock-35420d5e3ec0. No Docker Hub/npm installs. Do not deploy source gate/logger into active Master or rebuild Master. Any logger/image integration not test-deployable must be explicitly reported as deferred external acceptance.
 
 Task1 landed a5aedc9 (review status in ledger). Preserve its submission code. Existing WgsProductionUi baseline includes stale exact request-count assertions for workspace/samples after tab selection and a dashboard duplicate-total assertion; Task1 scoped15 tests passed but full file was not green. Resolve directly affected run-detail assertions against intentional visible-tab refresh semantics, not by skipping them. Dashboard assertion belongs Task3. New query params may require matching test fixture URLs correctly. Report all full-file failures honestly.

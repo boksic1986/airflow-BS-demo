@@ -1,4 +1,19 @@
-# Task1 review at a5aedc9 — fix round1 required
+# Task1 review — accepted after fix round1
+
+## Scoped re-review at d5a4e1d
+
+submission_review closed all three findings below and found no new Important or
+Critical issues. The fixed paths use private no-follow namespaces/portable
+mkdir+flock, pinned effective prepare/template snapshots, and request-generation
+guards with release-owned defaults. Reviewer checked the owner transformations
+against audited cc9bde3. Tests were not rerun by the reviewer; the reported
+97 backend/gate passes (1 optional skip),16 focused UI passes and TypeScript pass
+are implementation acceptance evidence. See OPT20260912_SUBMISSION_REPORT.md.
+
+This is code acceptance, not activation or live analysis acceptance. The test
+root sticky prerequisite and drifted shared owner source remain separate gates.
+
+## Original findings at a5aedc9 (resolved)
 
 Independent submission_review: spec not yet compliant;3 Important, no Critical. Read-only source review; no tests/deployment/SSH by reviewer. Existing synthetic141+PG1/UI15 build evidence accepted, not sufficient for gaps below.
 

@@ -41,6 +41,39 @@ Desktop direct gateway access timed out; server-side health succeeded. A tempora
 
 ## Acceptance still required
 
+### Candidate cutover recipe (not executed)
+
+1. Freeze the reviewed implementation commit. Export only tracked source via
+   `git archive`; do not upload local .env, runtime evidence, node credentials,
+   node_modules or source-project data. Record archive SHA256 and SOURCE_COMMIT.
+2. Stage a new immutable `releases/20260912-opt-<commit>` under the verified test
+   control root. Preserve the old shared bind through an explicit Compose
+   override at `/data/airflow-demo`; do not create an independent mutable root.
+3. Build frontend with the cached lock-bound Node22/nginx images, pull=false and
+   network=none. Backend uses the verified existing cached dependency image
+   with the new readonly source mount; do not invoke its network-installing
+   Dockerfile. Compare requirement/lock files before relying on this image.
+4. Retain both existing external test env files. Render Compose into process
+   memory and validate changed service mounts, readonly /sg2 and /bi, switch
+   values and networks; print only the approved safe fingerprint, never secrets.
+5. Use `up -d --no-deps --no-build --pull never` for the explicitly reviewed
+   affected service names only. Do not run a blanket Compose up, migration/init,
+   worker recreation or network/volume cleanup. Gate replacement is independently
+   checksum recorded and restricted to the test private path if activated.
+6. Health/API/browser checks precede changing the test current symlink. Compare
+   all protected service IDs with the baseline and ensure existing source mounts
+   remain pinned. If failed, recreate affected services with prior source/image
+   contract; retain all runtime, database, pending and project data.
+
+The source-based rule logger correction does not replace an already running
+Master image. Synthetic producer/consumer contract tests prove the patch only;
+new live child-rule event capture needs a separately compatible producer release.
+
+Source packaging precheck through7033185: backend requirements and frontend lock
+files are unchanged from e107f3b. Tracked-file name scan found no .env, secret,
+credential or id_rsa paths. Repeat after Task3 before exporting the final archive;
+this does not replace content/security review.
+
 - Task1/2/3 scoped reviews and integration review.
 - Exact candidate targeted backend, gate and UI tests plus cached frontend production build.
 - Feature environment rejection, synthetic isolated project preparation, API contracts and no source/pending changes.
