@@ -1,5 +1,28 @@
 # HANDOFF.md
 
+## OPT20260912 — active implementation checkpoint
+
+User authorized full optimization implementation/deployment on BS10610 only.
+Worktree D:/pipeline/airflow-demo-worktrees/development, baselinee107f3b;
+production clone/current/main unchanged. Plan/progress ledger in docs/superpowers/plans.
+Submission agent owns first task; root environment/research evidence is separate.
+
+Read-only preflight server10610 current20260912-gatk-81587fcb; no active test DAG
+runs; scan/dispatchfalse. Backend6801 sees source /sg2 read-only; t640 test gate
+identityctapa6801 can write designated WGS_test output and independent test runtime.
+No permission widening, source/pending edits, real preparation or submission.
+Baseline timing/phase/heavy26 passed remotely with cached image/networknone.
+
+Heavy source probe found25 Lease inventory/11 holders, one active global Master;
+waiting snapshot unavailable in test evidence root. No cloud mutation. Published
+resource research records official BSS endpoints/minimal read permission; no
+billing credential/request performed. Rule API lacks current-attempt fence;
+QC projection drops threshold/condition evidence. Findings are source-level.
+
+Continue task1 review then monitor/QC and resources; do not claim deployment or
+runtime acceptance until final checks. Rollback only task commits/test release,
+never delete pending/results/audit. Current7 production histories not accessed.
+
 ## GATK-PROMOTION-20260912 — final deployment acceptance
 
 Code81587fc published forward to main, exactly reviewed production candidate

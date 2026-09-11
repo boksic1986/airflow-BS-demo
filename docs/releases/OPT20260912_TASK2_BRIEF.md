@@ -1,0 +1,15 @@
+# Task2 implementation brief — Rule/QC/estimated progress
+
+Requirements: Task2 in ../superpowers/plans/2026-09-12-platform-optimization.md and Global Constraints. Read OPT20260912_RULE_QC_RESEARCH.md first as source map, verify findings rather than trusting conclusions. Existing source baseline e107f3b; Task1 submission changes will precede this work and must remain intact.
+
+Own Rule API/frontend/logger projection, WGS QC, timing Step4/6, matching tests. Do not edit submission options/custom-test-project modules or resource collection/dashboard resources. Shared api.ts/main.py changes allowed only relevant symbols, sequential implementation.
+
+No source-only test tautologies. First reproduce current-attempt API omission with real SQLite synthetic records; DOM exact sample/family filters, duplicate-instance keys; group start must not fabricate child starts. Do not remove stream_id and merge ambiguous job IDs; require explicit execution correlation or expose origin separately. Old attempt success must not be inferred from current attempt run success. Rule list pagination and summaries must agree.
+
+QC must preserve old source-produced aggregate and add traceable numeric/status judgments according to known release policy. cc9bde3 scripts contain conditional rules beyond JSON. Missing item/relation/type/provenance cannot be guessed. Safe private manifest may supply condition fields internally; never publish patient identity. Use version-pinned policy artifacts/hashes rather than runtime Git or mutable latest source. Unknown release reports provenance unavailable, not latest policy. Test conditional boundaries and historical-version selection.
+
+Estimate active Step4/6 stage execution uses actual started_at, not accepted/queued timestamp. WgsStageExecution generation is retry boundary; RunStageState is attempt-stage only. Fixed baseline must survive page/backend refresh and not be recomputed with later completed runs. Prefer existing metadata storage and writer-side persistence, no GET side effects. Display fields only; observed transfer percent unchanged. Test run and orchestration rail/API/dashboard consistency plus failure/cancel/success/retry with fake time.
+
+Remote-only runtime tests BS10610; preflight already verified current81587fc, no active test runs, scan/dispatchfalse. Use unique isolated synthetic source root below /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/OPT20260912-monitor. Backend cached airflow-demo/backend:t235-232154f; Node cached airflow-demo/frontend-builder:node22-lock-35420d5e3ec0. No Docker Hub/npm installs. Do not deploy source gate/logger into active Master or rebuild Master. Any logger/image integration not test-deployable must be explicitly reported as deferred external acceptance.
+
+Report docs/releases/OPT20260912_MONITOR_REPORT.md: exact files, failing regression and green commands/results, remaining upstream/runtime acceptance. No subagents, no central state edits, no production or real submissions.

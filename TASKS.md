@@ -1,5 +1,17 @@
 # TASKS.md
 
+## OPT20260912 — WGS/GATK test-panel optimization
+
+- Owner: coordinator; test-only development branch jiucheng/development/next.
+- [x] Read-only BS10610/node test boundary, baseline timing/phase/Heavy26 tests.
+- [ ] Submission rail, release-driven options, isolated existing-project test flow.
+- [ ] Attempt-correct Rule/group/timing and release-pinned per-metric QC.
+- [ ] Step4/6 labelled monotonic estimated progress, generation fence.
+- [ ] Heavy collector/partial telemetry and official resource-package cache/UI.
+- [ ] Independent review, targeted tests/build, BS10610 deployment/browser acceptance.
+- Production, scan/dispatch switches, formal pending and real analyses unchanged.
+- Plan: [approved implementation](docs/superpowers/plans/2026-09-12-platform-optimization.md).
+
 ## GATK-PROMOTION-20260912
 
 - [x] Preserve dirty original repo; create ordinary production clone and pin donor.
