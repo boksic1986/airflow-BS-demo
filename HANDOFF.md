@@ -1,5 +1,17 @@
 # HANDOFF.md
 
+## STEP7-20260911 — frozen operator configuration approval
+
+- User requested production 20260907D Step7 repair. No analysis rerun or direct storage deletion.
+- Verified server96/current `20260910-t260-recovery-runtime-r1`, worker mounts, WGS-only deployment, scanner/dispatch true, and node t640.
+- Prepare freezes a per-attempt operator config, but Step7 only approved the global path. Patch requires the exact current frozen path and full parsed content equality with the approved prepare transformation; other attempts, changed namespace/storage paths, missing files and symlinks remain rejected. No frozen config rewrite.
+- BS10610 cached synthetic tests: reproduced 1 expected failure / 5 passes, then 13 targeted tests passed. No image pulls or real WGS tests.
+- Live candidate read-only validation passed using 0907D attempt 5 request; exact DELETE-SFS command built but NOT executed.
+- Candidate SHA256 `bc32a5b77dca4062d966f2a54e89d336bc8c83ed2a910dbd0e709ab5fa568258`; old live SHA256 `ddc287315878915e4017f300ac93d2ace2f2f694251f05acdfd2ca20ab238ca8`.
+- Authorized deployment scope: atomic replacement of `/home/ctapa/.config/airflow-wgs/wgs_runtime_gate.py` only, preserving mode and a private rollback copy. No restarts, DB modifications, cleanup or scanner changes. Installation outcome pending below.
+- Rollback restores the old gate only, never removes pending/sample/results data.
+
+
 ## PROD-20260911 production release branch reconstruction
 
 User approved a dedicated production branch, isolated worktree and source/test/manifest

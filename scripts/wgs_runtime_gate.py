@@ -1299,13 +1299,35 @@ def _step7_compat_operator_config(
     pointer = bundle / "CCE_OPERATOR_CONFIG_PATH"
     if not pointer.is_file() or pointer.is_symlink():
         return None
-    source = Path(pointer.read_text(encoding="utf-8").strip()).expanduser().resolve()
-    configured = Path(CCE_OPERATOR_CONFIG).expanduser().resolve()
-    if source != configured or not source.is_file() or source.is_symlink():
+    source = Path(pointer.read_text(encoding="utf-8").strip()).expanduser()
+    configured = Path(CCE_OPERATOR_CONFIG).expanduser()
+    if not source.is_absolute() or not source.is_file() or source.is_symlink():
         raise RuntimeError("frozen Step7 operator config path is not approved")
     config = yaml.safe_load(source.read_text(encoding="utf-8"))
     if not isinstance(config, dict):
         raise RuntimeError("Step7 operator config is invalid")
+    if source.resolve() != configured.resolve():
+        frozen = _workdir(payload) / "release-runtime" / "cce-operator.yaml"
+        if (
+            source.resolve() != frozen.resolve()
+            or frozen.is_symlink()
+            or not configured.is_file()
+            or configured.is_symlink()
+        ):
+            raise RuntimeError("frozen Step7 operator config path is not approved")
+        # Match exactly the prepare-time transformation. Never rewrite a frozen
+        # config during cleanup, or trust a directory-wide config allowlist.
+        expected = yaml.safe_load(configured.read_text(encoding="utf-8"))
+        paths = expected.get("paths") if isinstance(expected, dict) else None
+        if not isinstance(paths, dict):
+            raise RuntimeError("frozen Step7 operator config is not approved")
+        paths["repository_root"] = str(_release_repository(payload))
+        expected_obs = expected.get("obs")
+        if isinstance(expected_obs, dict):
+            for key in STEP7_COMPAT_OBS_FIELDS:
+                expected_obs.pop(key, None)
+        if config != expected:
+            raise RuntimeError("frozen Step7 operator config changed; needs recovery")
     obs = config.get("obs")
     if not isinstance(obs, dict) or not STEP7_COMPAT_OBS_FIELDS.intersection(obs):
         return None

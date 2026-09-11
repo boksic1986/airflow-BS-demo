@@ -1,5 +1,10 @@
 # CURRENT_STATE.md
 
+## STEP7-20260911 — cleanup gate repair
+
+0907D attempt 5 workflow is successful. Step7 generation 1 rejected the platform-generated frozen operator config before cleanup. Minimal patch passed 13 remote synthetic checks and real-request read-only validation. Gate installation pending; cleanup retry remains a separate user action. See latest HANDOFF.
+
+
 ## PROD-20260911 production branch baseline
 
 This branch is `jiucheng/release/production`, reconstructed from verified live

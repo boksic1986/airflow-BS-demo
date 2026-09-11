@@ -1,5 +1,13 @@
 # TASKS.md
 
+## STEP7-20260911 — frozen operator configuration approval
+
+- [x] Confirm 0907D attempt 5 request and pointer mismatch.
+- [x] Reproduce, implement exact-path/content validation, pass 13 remote tests.
+- [x] Validate live request without executing cleanup.
+- [ ] Install gate atomically and verify installed hash, preserving services/data.
+
+
 ## PROD-20260911 — dedicated production release branch
 
 - Owner: current coordinator; no other worktree or production-service changes.
