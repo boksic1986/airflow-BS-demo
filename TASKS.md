@@ -5,10 +5,10 @@
 - [x] Preserve dirty original repo; create ordinary production clone and pin donor.
 - [x] Port only GATK runtime/DAG/shared hunks and unrestricted source policy.
 - [x] Initial targeted test acceptance and offline frontend production build.
-- [ ] Finish independent retry-generation review and tests.
-- [ ] Publish approved production tree forward to main; create development worktree.
-- [ ] Sync BS10610 and BS96 with isolated GATK runtime/manual gate; verify APIs/DAG.
-- [ ] Record exact release, service changes, Git refs and rollback.
+- [x] Finish independent retry-generation review and tests (fixed commit40 passed).
+- [x] Publish approved production tree forward to main; create development worktree.
+- [x] Sync BS10610 and BS96 with isolated GATK runtime/manual gate; verify APIs/DAG.
+- [x] Record exact release, service changes, Git refs and rollback.
 
 ## PREPARE-CONTRACT-REVIEW-20260912
 

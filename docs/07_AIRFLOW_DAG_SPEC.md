@@ -1,5 +1,12 @@
 # Airflow DAG specification
 
+GATK production promotion81587fc adds generation-aware terminal reconciliation:
+`bio_gatk` reports failed current attempts through the authenticated internal
+dag-terminal endpoint. Runtime status transitions preserve attempt/execution
+identity; successful workflow stages are not inferred from a failed transport.
+Manual GATK uses `gatk_cce_runs=1`; WGS pools and automatic scanning policy are
+unchanged. Production activation registers/unpauses bio_gatk but submits no run.
+
 ## Generic contract
 
 Each deployed adapter declares one DAG ID. FastAPI submits through the adapter and stores the analysis-to-DagRun binding. Airflow coordinates project-level stages; rule/file dependency remains workflow-owned.

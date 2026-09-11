@@ -1,5 +1,15 @@
 # SERVER_INFO.md
 
+2026-09-12 GATK promotion: test server10610 and production server96 current
+releases/20260912-gatk-81587fcb, code81587fc. Manual GATK true/unpaused, pool1;
+WGS scan/dispatchfalse. Production output /sg2/50.ctapa/project/HWcloud/WES_Clinical,
+runtime /sg2/50.ctapa/project/HWcloud/airflow-gatk/runtime and node private
+/home/ctapa/.config/airflow-gatk. Test retains WES_test and airflow-gatk-test.
+Both schema0019. Production backend1c337b2e9568/APIc0a18f5c8b9f/scheduler0714fa13abf9/
+worker4eabb4931970; observere5ad47bacb3b/front42f0dbe10317/DB957f05931b74/
+Redis8b60aeff5e06 preserved. Code/image/mount and rollback detail in GATK release
+ledger; no analysis submitted. No runtime test or production data copied across.
+
 2026-09-11 WGS4.2.1 integration d8f5f05 deployed on server96 current existing
 20260910-t260-recovery-runtime-r1 via exact patches. API4.2.1/cc9bde3/r1/cce0.8.4;
 node gatecf17cd3c, new external wgs-4.2.1-r1.yaml and prepare default selected.

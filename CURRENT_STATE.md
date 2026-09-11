@@ -1,16 +1,18 @@
 # CURRENT_STATE.md
 
-## GATK-PROMOTION-20260912 — implementation/acceptance in progress
+## GATK-PROMOTION-20260912 — deployed, manual GATK enabled
 
 Independent normal production clone created at D:/pipeline/airflow-demo-production,
 baseline8e982c9, selectively porting donor4013f93. No unrelated test branch merge.
 GATK output WES_Clinical; unrestricted input selection retains frozen validation.
-Production private/runtime directories created separately, no gate activated.
-Initial GATK36 targeted tests passed; retry generation fixes under independent
-review. Frontend source unchanged, production build succeeded;77 tests report
+Production private/runtime directories created separately; manual GATK is now
+enabled in test and production at code81587fc, both bio_gatk imports healthy.
+Final pinned GATK40 targeted tests passed; retry fixes independently reviewed.
+Frontend source unchanged, production build succeeded;77 tests report
 75 passed and2 preexisting WGS UI expectation failures (request-count and
-ambiguous Total locator). No real analysis submitted. Publication/deployment
-remain pending; see release ledger.
+ambiguous Total locator). No real analysis submitted. Both environments retain
+scan/dispatchfalse and historic runs; production now schema0019. Main published
+with forward history and development worktree created; see release ledger.
 
 ## PREPARE-CONTRACT-REVIEW-20260912 — static interface review complete
 

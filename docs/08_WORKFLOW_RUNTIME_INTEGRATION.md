@@ -1,5 +1,15 @@
 # Workflow runtime integration
 
+GATK81587fc: Step1 transfer plans/raw evidence are scoped to generation-specific
+directories. Explicit foreign execution/generation/hash fields are rejected;
+identity-less obsutil rows are accepted only from the generation-private spool.
+The legacy current progress publication uses a lock and monotonic generation
+check so a late older writer cannot replace an already-published newer one.
+Step5 retains its observer-visible legacy progress path. Exact limitations and
+regression evidence are in GATK_REVIEW_20260912 and GATK_PORT_REPORT_20260912.
+GATK pending OBS export polling and terminal callbacks are confined to its
+adapter; no WGS workflow/core rule change is part of this promotion.
+
 WGS4.2.1 uses the existing prepare request/receipt v1 schema and generation fence,
 like4.2.0. Release cc9bde3 maps to the existing directory named wgs-4.2.0 (name is
 not version authority), with templateV4.2.1 and separate wgs-4.2.1-r1 profile.

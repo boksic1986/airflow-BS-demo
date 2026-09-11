@@ -1,5 +1,52 @@
 # HANDOFF.md
 
+## GATK-PROMOTION-20260912 — final deployment acceptance
+
+Code81587fc published forward to main, exactly reviewed production candidate
+treeb0dfafb; no unrelated test merge/force push. Ordinary production clone
+D:/pipeline/airflow-demo-production; new development worktree
+D:/pipeline/airflow-demo-worktrees/development inherits research documents.
+Both BS10610/server10610 and BS96/server96 now current20260912-gatk-81587fcb.
+Manual GATK enabled with independent node runtime/private config; production
+outputWES_Clinical, testWES_test/WES_Clinical, unrestricted validated inputs.
+
+Root verified fixed-commit40 GATK tests pass on BS10610 cached/no-network image.
+Independent review R1-R4 resolved. Frontend build passed; produced JS/CSS match
+production byte-for-byte, so production frontend container retained/reloaded.
+Two existing frontend and3 WGS broader-test failures documented, not masked.
+No real analysis or browser submit, no pipeline core change, no cloud cleanup.
+
+Final API health/capability/release and Airflow checks: both manual gatestrue,
+bio_gatk active/unpaused/no import errors, pool1, no active/new runs; production
+7 business histories/24 WGS Airflow runs and test3 GATK histories preserved.
+Production schema0019 additive migration complete, test already0019. Runtime
+I/O probe passed as UID6801. Both WGS scan/dispatchfalse. Production backend
+and Airflow trio recreated; observer/frontend/DB/Redis IDs preserved. Test also
+refreshed observer/metrics/probes/frontend. Direct workstation test12959 times
+out; host-side public gateway health succeeds. No network repair attempted.
+
+Production rollbackrelease20260910-t260-recovery-runtime-r1; test rollback
+20260910-t258-cce084-r1. Use both base private env and gatk-81587fcb.env for
+current deployment, paths in COMPOSE_ENV_FILES. Retain additive0019 tables
+on rollback; never downgrade/drop audit, delete pending/data or originalrepos.
+Test gate prior code retained .pre-81587fc. Full service IDs/hash/test details
+in docs/releases/GATK_PROMOTION_20260912.md and per-release private manifests.
+
+Next development starts from new test worktree and runs on BS10610. Pending
+sample reference/Intake design remains unimplemented and must not be confused
+with this GATK release. Real GATK batch acceptance requires an explicitly chosen
+user submission; none was fabricated as a smoke test.
+
+### GATK activation database prerequisite (2026-09-12, before execution)
+
+Current user explicitly authorized completing production manual GATK deployment.
+Read-only `alembic current` via the deployed backend found production0018 versus
+test0019. Reviewed existing migration20260908_0019 in full: upgrade creates only
+pipeline_submission_draft/pipeline_stage_execution and their indexes; it does
+not delete/update existing analysis/sample rows. Apply only upgrade0019 as the
+necessary GATK activation prerequisite. Do not downgrade on rollback (would
+drop the new tables); retain them and disable GATK/restore code if required.
+
 ## GATK-PROMOTION-20260912 — reviewed source candidate, deployment pending
 
 User approved selective GATK promotion to production/main, ordinary production

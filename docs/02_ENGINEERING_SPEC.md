@@ -1,5 +1,13 @@
 # Engineering specification
 
+Manual GATK deployment may layer `docker-compose.gatk.yaml` over the verified
+WGS Compose contract. GATK has separate host/node runtime, evidence, result,
+repository and private operator configuration. `GATK_SOURCE_POLICY` is
+restricted by default; the approved production configuration uses unrestricted
+explicit input selection with read-only storage and frozen identity validation.
+No new public port or service is introduced. See the deployment runbook and
+GATK_PROMOTION_20260912 release ledger for active paths and gate settings.
+
 ## Repository layout
 
 - `backend/`: FastAPI, database projections, registry, adapters, observers.
