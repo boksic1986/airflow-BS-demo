@@ -1,5 +1,26 @@
 # API contract
 
+## OPT20260912 resources
+
+`GET /api/platform/resources` adds `resource_packages` with status, safe reason,
+source, updated_at, checked_at, interval_seconds=3600 and items. Each item has
+an opaque key, category (cpu_hours/memory_hours/obs_storage/obs_requests/other),
+Decimal-string total/remaining, dictionary unit, period_start/period_end,
+expires_at, cycle and cycle_type. Never sum units or reset cycles. Refresh
+failure retains last-good rows and original timestamp with stale/reason;
+source older than90 minutes is stale. Missing spool is unavailable; only the
+collector can establish not_configured/dedicated_billing_credentials_missing.
+No order/resource/account identifiers, raw errors, credentials or network call
+are returned or executed by this GET. API projects allowlisted fields only.
+
+`heavy_slot` retains nullable used/limit/waiting/mode/available and adds
+unit=heavy_work_job, updated_at and per-field status/reason/updated_at.
+`available` is true only when all fields are fresh. A complete Lease inventory
+can provide fresh used/limit while waiting is unavailable. Stale last-known
+values are retained with stale metadata, not promoted to current readings.
+Configured frontend/backend limits and business Pod rows are never used as
+namespace occupancy. One grouped work Job uses one lease; not per-rule quota.
+
 ## OPT20260912 Rule/QC/display estimates
 
 `GET /api/runs/{id}/rules` defaults to the current attempt; optional positive
@@ -107,7 +128,7 @@ Dashboard runs: omitted status or `all` now excludes cancelled/canceled before t
 
 2026-09-11 additive sample scope: run payloads expose `sample_scope_status` (`preparing`, `ready`, `legacy`); existing `sample_count` is current-attempt selected count. Sample projections add `selection_decision`, `selection_attempt`, `pending_reason`. Global `/api/samples?status=pending` retains nonparticipating rows/reasons; run Samples and QC denominator use selected only. Synchronization endpoints remain compatible for operations, but UI no longer invokes manual Sync. See [release evidence](selection-refresh-20260911.md).
 
-Heavy telemetry (2026-09-11): `/api/platform/resources.heavy_slot` now reads
+Historical Heavy telemetry (2026-09-11; superseded by OPT20260912 above): `/api/platform/resources.heavy_slot` reads
 `heavy-slot-global.json` schema `wgs-heavy-global.v1`. Complete namespace Lease
 inventory supplies used/limit; fresh snapshots for every nonterminal,
 nonsuspended Master supply waiting_jobs and attest mode/limit. Count reserved

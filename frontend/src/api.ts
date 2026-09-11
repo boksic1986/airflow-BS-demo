@@ -1043,6 +1043,16 @@ export type PlatformResourcesResponse = {
   status: string;
   items: PlatformResourceSnapshot[];
   updated_at: string;
+  resource_packages?: {
+    status: string;
+    reason: string | null;
+    source: string;
+    updated_at: string | null;
+    checked_at: string | null;
+    interval_seconds: number;
+    items: Array<{key: string; category: string; unit: string; total: string; remaining: string;
+      period_start: string; period_end: string; expires_at: string; cycle: string; cycle_type: string}>;
+  };
   heavy_slot?: {
     pool: string;
     used: number | null;
@@ -1050,6 +1060,9 @@ export type PlatformResourcesResponse = {
     waiting: number | null;
     mode: string | null;
     available: boolean;
+    unit?: string;
+    updated_at?: string | null;
+    fields?: Partial<Record<"used" | "limit" | "waiting" | "mode", {status: string; reason?: string | null; updated_at?: string | null}>>;
   };
 };
 

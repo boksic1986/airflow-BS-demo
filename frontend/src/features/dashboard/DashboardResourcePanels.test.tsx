@@ -114,7 +114,7 @@ it("shows compact node and SFS utilization bars with updated times in the headin
   const nodePanel = screen.getByRole("heading", {name: "Analysis Node Health"}).closest("section");
   const cloudPanel = screen.getByRole("heading", {name: "Cloud Resources"}).closest("section");
   expect(within(nodePanel!).getByText(/Updated/)).toBeInTheDocument();
-  expect(within(cloudPanel!).getByText(/Updated/)).toBeInTheDocument();
+  expect(cloudPanel?.querySelector('.resource-panel-heading .resource-updated')).toHaveTextContent('Updated');
   expect(nodePanel).toHaveClass("resource-overview-panel");
   expect(cloudPanel).toHaveClass("resource-overview-panel");
   expect(nodePanel).toHaveClass("resource-dashboard-panel");

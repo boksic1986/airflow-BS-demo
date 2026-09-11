@@ -24,7 +24,7 @@ export function DashboardResourcePanels({resources, loading, error}: {
   const selectedSfs = cloud[0];
   return <section className="dashboard-ops-grid" aria-busy={loading}>
     <section className="panel resource-overview-panel resource-dashboard-panel"><ResourceHeading title="Analysis Node Health" updatedAt={selectedNode?.source_updated_at} /><div className="resource-control-row">{nodes.length > 0 ? <div className="resource-tabs" role="tablist" aria-label="Analysis node">{nodes.map((node) => <button key={node.resource_key} type="button" role="tab" aria-selected={selectedNode?.resource_key === node.resource_key} className={`${selectedNode?.resource_key === node.resource_key ? "active " : ""}resource-tag resource-node-tab resource-control-token`} onClick={() => setSelectedNodeKey(node.resource_key)}>{nodeTabLabel(node)}</button>)}</div> : <span />}{selectedNode ? <StatusBadge className="resource-control-token" status={selectedNode.status} size="sm" /> : null}</div>{error ? <div className="inline-error" role="alert">Resources unavailable: {error}</div> : null}<div className="resource-card-list">{selectedNode ? <NodeResource item={selectedNode} /> : <p className="empty-state">Node metrics are not available yet.</p>}</div></section>
-    <section className="panel resource-overview-panel resource-dashboard-panel"><ResourceHeading title="Cloud Resources" updatedAt={selectedSfs?.source_updated_at} /><div className="resource-control-row">{selectedSfs ? <strong className="resource-tag resource-control-token">{selectedSfs.display_name}</strong> : <span />}{selectedSfs ? <StatusBadge className="resource-control-token" status={selectedSfs.status} size="sm" /> : null}</div><div className="resource-card-list">{selectedSfs ? <CloudResource item={selectedSfs} heavySlot={resources?.heavy_slot} /> : <p className="empty-state">SFS metrics are not available yet. WGS execution is unaffected.</p>}</div></section>
+    <section className="panel resource-overview-panel resource-dashboard-panel"><ResourceHeading title="Cloud Resources" updatedAt={selectedSfs?.source_updated_at} /><div className="resource-control-row">{selectedSfs ? <strong className="resource-tag resource-control-token">{selectedSfs.display_name}</strong> : <span />}{selectedSfs ? <StatusBadge className="resource-control-token" status={selectedSfs.status} size="sm" /> : null}</div><div className="resource-card-list"><CloudResource item={selectedSfs} heavySlot={resources?.heavy_slot} /><ResourcePackages value={resources?.resource_packages} /></div></section>
     <SfsIoPanel item={selectedSfs} />
   </section>;
 }
@@ -53,22 +53,31 @@ function nodeTabLabel(item: PlatformResourceSnapshot): string {
   return suffix ? `172.17.61.${suffix}` : item.display_name;
 }
 
-function CloudResource({item, heavySlot}: {item: PlatformResourceSnapshot; heavySlot?: PlatformResourcesResponse["heavy_slot"]}) {
-  const value = item.current;
+function CloudResource({item, heavySlot}: {item?: PlatformResourceSnapshot; heavySlot?: PlatformResourcesResponse["heavy_slot"]}) {
+  const value = item?.current || {};
   const percent = numeric(value.capacity_used_percent);
   const used = numeric(value.capacity_used_bytes);
   const total = percent != null && percent > 0 && used != null ? used / (percent / 100) : null;
   const detail = used != null && total != null
     ? `${formatBytes(used)} / ${formatBytes(total)}`
     : percent == null ? "not reported" : `${percent.toFixed(1)}% used`;
-  const slotPercent = heavySlot?.available && heavySlot.limit && heavySlot.used != null
+  const occupancyFresh = heavySlot?.fields
+    ? heavySlot.fields.used?.status === "fresh" && heavySlot.fields.limit?.status === "fresh"
+    : heavySlot?.available;
+  const occupancyKnown = heavySlot?.used != null && heavySlot?.limit != null;
+  const slotPercent = occupancyFresh && heavySlot?.limit && heavySlot.used != null
     ? (heavySlot.used / heavySlot.limit) * 100
     : null;
-  const slotDetail = slotPercent == null ? "unavailable" : `${heavySlot?.used} / ${heavySlot?.limit}`;
-  const slotNote = heavySlot?.available
-    ? `${heavySlot.waiting ?? 0} waiting · ${heavySlot.mode || "unavailable"}`
-    : "waiting and mode unavailable";
-  return <article className="resource-snapshot"><div className="resource-meter-stack"><UtilizationBar label="SFS capacity utilization" percent={percent} detail={detail} /><UtilizationBar label="Heavy slots utilization" percent={slotPercent} detail={slotDetail} tone={loadTone(slotPercent)} /><small className="resource-slot-note">{slotNote}</small></div>{item.error_message ? <p className="inline-error">{item.error_message}</p> : null}</article>;
+  const slotDetail = occupancyKnown ? `${heavySlot?.used} / ${heavySlot?.limit}${occupancyFresh ? "" : " (last known, stale)"}` : "unavailable";
+  const waitingFresh = heavySlot?.fields ? heavySlot.fields.waiting?.status === "fresh" : heavySlot?.available;
+  const modeFresh = heavySlot?.fields ? heavySlot.fields.mode?.status === "fresh" : heavySlot?.available;
+  const slotNote = `${waitingFresh && heavySlot?.waiting != null ? `${heavySlot.waiting} waiting` : "waiting unavailable"} · ${modeFresh ? heavySlot?.mode : "mode unavailable"}`;
+  return <article className="resource-snapshot"><h3>Runtime metrics</h3><div className="resource-meter-stack">{!item ? <p>SFS metrics are not available yet. WGS execution is unaffected.</p> : null}<UtilizationBar label="SFS capacity utilization" percent={percent} detail={detail} /><UtilizationBar label="Heavy slots utilization" percent={slotPercent} detail={slotDetail} tone={loadTone(slotPercent)} /><small className="resource-slot-note">{slotNote}</small><small>Reserved heavy work Jobs; one grouped Job consumes one lease. Not individual rules.</small><small>Heavy updated: {formatDate(heavySlot?.updated_at)}</small>{Object.entries(heavySlot?.fields || {}).filter(([, field]) => field?.reason).map(([key, field]) => <small key={key}>{key}: {field?.status} · {field?.reason}</small>)}<small>Cloud CPU / memory realtime: not reported (no verified cloud telemetry source).</small></div>{item?.error_message ? <p className="inline-error">{item.error_message}</p> : null}</article>;
+}
+
+function ResourcePackages({value}: {value?: PlatformResourcesResponse["resource_packages"]}) {
+  const labels: Record<string, string> = {cpu_hours: "CPU hours", memory_hours: "Memory hours", obs_storage: "OBS storage", obs_requests: "OBS requests", other: "Other allowance"};
+  return <article className="resource-snapshot"><h3>Resource package balances</h3><p>Huawei Cloud BSS · hourly cache · not realtime utilization</p><p>{value?.status || "unavailable"}{value?.reason ? ` · ${value.reason}` : !value ? " · cache_not_reported" : ""}</p><small>Updated: {formatDate(value?.updated_at)} · Checked: {formatDate(value?.checked_at)}</small>{value?.items.length ? value.items.map(item => <div key={item.key} className="resource-package"><strong>{labels[item.category] || "Allowance"}</strong><p>{item.remaining} / {item.total} {item.unit} remaining / total</p><small>{item.cycle} · {item.cycle_type} · {formatDate(item.period_start)} – {formatDate(item.period_end)}</small><p>Expires: {formatDate(item.expires_at)}</p></div>) : <p>No package balance reported; absent allowance is unknown, not zero.</p>}</article>;
 }
 
 function UtilizationBar({label, percent, detail, tone = "healthy"}: {label: string; percent: number | null; detail: string; tone?: "healthy" | "warning" | "danger"}) {

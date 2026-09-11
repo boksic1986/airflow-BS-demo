@@ -298,7 +298,7 @@ def test_successful_sfs_snapshot_hides_legacy_missing_spool_placeholder() -> Non
     assert payload["status"] == "healthy"
 
 
-def test_platform_resources_projects_global_heavy_slot_usage(tmp_path) -> None:
+def test_platform_resources_never_infers_global_heavy_from_business_pods(tmp_path) -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -332,13 +332,13 @@ def test_platform_resources_projects_global_heavy_slot_usage(tmp_path) -> None:
             evidence_root=str(tmp_path),
         )
 
-    assert payload["heavy_slot"] == {
+    assert {key: payload['heavy_slot'][key] for key in ('pool', 'used', 'limit', 'waiting', 'mode', 'available')} == {
         "pool": "wgs-heavy-io",
-        "used": 1,
-        "limit": 25,
-        "waiting": 0,
-        "mode": "enforce",
-        "available": True,
+        "used": None,
+        "limit": None,
+        "waiting": None,
+        "mode": None,
+        "available": False,
     }
 
 
@@ -349,7 +349,7 @@ def test_platform_resources_marks_heavy_slot_unavailable_without_reliable_config
     with sessions() as session:
         payload = get_platform_resources(session=session)
 
-    assert payload["heavy_slot"] == {
+    assert {key: payload['heavy_slot'][key] for key in ('pool', 'used', 'limit', 'waiting', 'mode', 'available')} == {
         "pool": "wgs-heavy-io",
         "used": None,
         "limit": None,

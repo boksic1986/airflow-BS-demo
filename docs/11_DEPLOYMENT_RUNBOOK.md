@@ -1,5 +1,50 @@
 # Deployment runbook
 
+## OPT20260912 test resource producers
+
+Deploy only after current test preflight/review. Do not replace the production
+`/home/ctapa/.config/airflow-wgs` launcher or existing SFS Cloud Eye process.
+Private test root is `/home/ctapa/.config/airflow-wgs-test` (owner ctapa,0700).
+Install script files0700 from the exact reviewed commit:
+
+| Repository file | Private test filename |
+| --- | --- |
+| scripts/heavy_global_snapshot.py | heavy_global_snapshot.py |
+| backend/app/heavy_global_snapshot.py | heavy_snapshot_core.py |
+| scripts/start_heavy_slot_collector.sh | start_heavy_slot_collector.sh |
+| scripts/collect_bss_resources.py | collect_bss_resources.py |
+| backend/app/bss_resource_snapshot.py | bss_resource_snapshot.py |
+| scripts/start_bss_resource_collector.sh | start_bss_resource_collector.sh |
+
+Use `config/resource_collectors.test.env.example` as a non-secret variable map.
+Export the reviewed variables (`set -a; source <private collector env>; set +a`)
+before invoking a launcher; do not overwrite the existing runtime.env.
+Required Heavy variables: HEAVY_COLLECTOR_CONFIG_ROOT, WGS_PYTHON,
+CCE_OPERATOR_CONFIG, HEAVY_EVIDENCE_ROOT. BSS requires BSS_COLLECTOR_CONFIG_ROOT,
+WGS_PYTHON, BSS_EVIDENCE_ROOT. Launchers use flock; no boot service is installed.
+Node backend source/collector validation code must match the same commit.
+
+Dedicated BSS credentials are currently **not configured/authorized**. Leave
+BSS_READONLY_CREDENTIALS unset; `collect_bss_resources.py --root <test evidence>
+--once` publishes not_configured without loading SDK or making a request.
+For future separately approved activation, provide an owner-only0600 JSON in
+an owner-only0700 directory containing exactly ak, sk, domain_id and
+purpose=billing_readonly. Identity requires billing:resourcePackages:view.
+Never reuse Cloud Eye regional credentials or copy keys into Git/spool/images.
+No endpoint override is supported; HTTPS global bss.myhuaweicloud.com only,
+no redirects or environment proxy/netrc forwarding. SDK GlobalCredentials uses
+explicit domain and signs only three read-only official routes, never IAM
+auto-discovery. The package query covers the official default account scope;
+it does not claim enterprise-project aggregation outside that API scope.
+
+Root validation: invoke Heavy `--config <existing private CCE config> --root
+<test evidence> --once`; this only queries Leases/Masters and writes telemetry.
+Verify actual spool/API field states; do not label enforcement tested.
+Start separate launchers only after reviewed install. Preserve SFS producer,
+private runtime.env, workloads and scan/dispatchfalse. Backend needs only the
+existing read-only evidence mount. Rollback exact collector files/owned process
+and application release, retain telemetry/evidence; never reclaim/delete quota.
+
 ## OPT20260912 test submission rollout
 
 After fresh BS10610 active-state preflight, deploy matching backend/frontend and

@@ -1,5 +1,18 @@
 # Frontend specification
 
+## OPT20260912 resource panels
+
+Cloud Resources always renders Heavy independently of SFS. It labels the
+reserved work-Job unit, known occupancy, independently unknown waiting/mode,
+source time and safe field reasons. Stale occupancy is labelled last known
+and does not fill a live utilization meter. No missing-as-zero fallback.
+SFS capacity and read/write/total history/source labels remain unchanged.
+Cloud CPU/memory realtime is explicitly not reported without verified cloud
+telemetry; local node measurements and purchased allowance hours do not fill it.
+Resource package balances are separate from runtime metrics, show hourly cache
+status/reason, exact decimal totals/remaining, original units, quota periods,
+cycle/reset basis and expiry. No cross-unit totals or browser BSS queries.
+
 ## OPT20260912 monitoring
 
 Rules offers current/default or explicit historical attempt, exact separate

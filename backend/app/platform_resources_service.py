@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.models import PlatformResourceSnapshot
 from app.wgs_workspace_service import project_global_heavy_slot
+from app.bss_resource_snapshot import read_snapshot as read_bss_snapshot
 
 
 RESOURCE_STALE_AFTER = {
@@ -128,6 +129,7 @@ def get_platform_resources(
         "status": overall,
         "items": items,
         "updated_at": observed.isoformat(),
+        "resource_packages": read_bss_snapshot(evidence_root, now=observed),
         "heavy_slot": project_global_heavy_slot(
             session=session,
             limit=heavy_slot_limit,

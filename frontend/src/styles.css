@@ -3837,6 +3837,8 @@ textarea {
 .resource-snapshot dl div { min-width: 0; }
 .resource-snapshot dt { color: var(--muted); }
 .resource-snapshot dd { margin: 0.15rem 0 0; overflow-wrap: anywhere; }
+.resource-snapshot > .resource-package { display: grid; gap: 0.35rem; padding-block: 0.6rem; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.resource-package p { margin: 0; }
 
 .resource-panel-heading {
   align-items: flex-start;

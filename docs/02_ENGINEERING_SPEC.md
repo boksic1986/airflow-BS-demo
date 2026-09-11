@@ -1,5 +1,15 @@
 # Engineering specification
 
+## OPT20260912 resource collection
+
+Heavy and BSS are standalone read-only node producers. The existing backend
+evidence mount reads `heavy-slot-global.json` and `bss-resources.json`; no DB
+migration, public port, package installation, frontend cloud polling or SDK
+import in backend is added. Separate BSS hourly collection uses node's existing
+core SDK/requests, dedicated private GlobalCredentials and numeric-only spool.
+Launcher environment and standalone packaging are specified in document11.
+Existing SFS Cloud Eye/node producers, executor admission and Master remain unchanged.
+
 ## OPT20260912 submission
 
 `WGS_TEST_PROJECT_ENABLED` defaults false. It enables existing-project preview

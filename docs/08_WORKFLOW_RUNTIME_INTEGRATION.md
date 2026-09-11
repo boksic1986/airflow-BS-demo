@@ -1,5 +1,25 @@
 # Workflow runtime integration
 
+## OPT20260912 read-only resource evidence
+
+Heavy v2 snapshot `complete` means complete named Lease inventory, not complete
+waiting evidence. Per-Master fresh waiting snapshots must match active Master
+mode/limit/run identity; their oldest timestamp is retained independently.
+Missing waiting does not discard authoritative reserved holders, including old
+holders. Only executor owns acquire/release/reclaim. No executor/Master rebuild,
+per-rule admission change or live quota enforcement test is part of this task.
+Refresh failure retains last-known snapshot with refresh_failed; API marks it
+stale. The canonical backend heavy module is packaged beside the standalone
+entry point as heavy_snapshot_core.py to avoid two divergent implementations.
+
+BSS uses a separate hourly daemon and validated numeric JSON spool. The
+canonical backend bss_resource_snapshot.py is also packaged beside the BSS
+collector. It contains no SDK dependencies. Atomic publication occurs only
+after bounded complete pagination,100-ID usage batches and dictionary/Decimal
+validation. Empty/malformed/incomplete refreshes cannot erase last-good rows.
+Legitimate complete empty package inventory is reported healthy with no rows,
+not as zero CPU/OBS allowance. No runtime execution or SFS collector change.
+
 ## OPT20260912 monitoring evidence
 
 Logger group starts retain stream-local identity and emit rule_planned member
@@ -83,8 +103,8 @@ It neither acquires/releases Leases nor restarts workloads. Startup launcher
 `/home/ctapa/.config/airflow-wgs/start_heavy_slot_collector.sh` uses flock to
 avoid duplicate collectors. This is a detached process, not a boot service;
 after execution-host reboot run this launcher again. Failure/absence becomes
-unavailable; it does not block analysis. Backend deployed module and standalone
-collector must remain identical when changing snapshot validation.
+unavailable; it does not block analysis. OPT20260912 supersedes the duplicate
+module packaging with one canonical core and a thin standalone entry point.
 
 ## T255 Heavy I/O producer and release binding
 

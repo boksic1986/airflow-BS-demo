@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 
-import {act, cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
+import {act, cleanup, fireEvent, render, screen, waitFor, within} from "@testing-library/react";
 import {afterEach, expect, it, vi} from "vitest";
 
 import App from "./App";
@@ -579,7 +579,8 @@ it("replaces duplicate dashboard metrics with actionable attention and total thr
   expect(await screen.findByRole("heading", {name: "Command Center"})).toBeInTheDocument();
   expect(screen.getByRole("heading", {name: "Attention required"})).toBeInTheDocument();
   expect(await screen.findByText("QC failed")).toBeInTheDocument();
-  expect(screen.getByText("Total")).toBeInTheDocument();
+  const throughput = screen.getByText("63").closest("section");
+  expect(within(throughput!).getByText("Total")).toBeInTheDocument();
   expect(screen.getByText("63")).toBeInTheDocument();
   expect(screen.getByText("QC failed samples")).toBeInTheDocument();
   expect(screen.queryByLabelText("Command center summary")).not.toBeInTheDocument();
