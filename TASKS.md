@@ -1,5 +1,19 @@
 # TASKS.md
 
+## T262 - Restore GATK Step1 transfer progress evidence
+
+Status: completed and installed on the node200 GATK test gate
+
+- [x] Prove the reported run is active on node200 rather than stalled.
+- [x] Trace the missing UI evidence to the GATK/callback environment mismatch.
+- [x] Add a stage-scoped frozen Step1 transfer plan and aggregate progress.
+- [x] Preserve execution ID, generation and request-hash fencing.
+- [x] Pass the focused remote runtime tests (15 passed).
+- [x] Atomically install the test gate and verify the current run remains active.
+
+Rollback: restore the prior node200 GATK test gate file. No Airflow service,
+database, OBS object or active transfer is changed by the rollout.
+
 ## T260 - Confirm shared test cce-pipeline 0.8.4 runtime
 
 Status: completed on BS10610 and node200

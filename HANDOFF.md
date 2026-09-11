@@ -1,5 +1,25 @@
 # HANDOFF.md
 
+## 2026-09-11 T262 GATK Step1 progress diagnosis and fix
+
+The `20260907B` GATK run only appeared stuck. Live inspection of the real
+Airflow target (`gatk-node200`, `172.17.61.200`, hostname `t640`) found the
+GATK gate worker, Step1 runtime and obsutil children active. The frozen plan
+contains 98 FASTQ files and 620,833,114,556 bytes. The frontend remained at
+`Waiting for runtime evidence` because the GATK gate used the wrong spool
+environment name and did not create the observer's aggregate progress file.
+
+The T262 branch now creates an immutable Step1 transfer plan, passes the
+callback's exact progress variables, aggregates safe per-file events, and
+writes generation-fenced `progress.json`. A test-first BS10610 container run
+failed on the missing functions, then passed 15/15 after implementation.
+The gate was atomically installed with SHA-256
+`ffdde7f6285e41b6209e35c17f64b475a2a5d008345b4ca41ce942e55fb26e19`.
+The active upload was not stopped or restarted, so it continues with the old
+already-loaded environment and may remain without detailed UI progress until
+Step1 terminates. Subsequent Step1 launches use the installed evidence fix;
+the shared production WGS runtime and BS96 were not modified.
+
 ## 2026-09-10 T260 shared nipttest cce-pipeline 0.8.4 verification
 
 The user requested upgrading the BS test nipttest site-packages to

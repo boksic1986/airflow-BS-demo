@@ -1,5 +1,18 @@
 # CURRENT_STATE.md
 
+## 2026-09-11 T262 GATK Step1 transfer progress evidence
+
+Run `GATK_20260911_014645_8F6FDD` is actively uploading 98 FASTQ objects on
+node200 (`t640`); it was not scheduler-stalled. The UI lacked progress because
+the GATK gate exported `WGS_TRANSFER_SPOOL_ROOT`, while the obsutil callback and
+observer contract require a stage-scoped `WGS_TRANSFER_PROGRESS_ROOT`, transfer
+direction, frozen plan and aggregate `progress.json`.
+
+Branch `jiucheng/gatk/T262-transfer-progress-evidence` adds the missing Step1
+evidence contract without changing GATK workflow computation or interrupting
+the active upload. Test deployment is limited to the node200 GATK test gate;
+production is unchanged.
+
 ## 2026-09-10 T260 shared test cce-pipeline 0.8.4
 
 The shared test environment at

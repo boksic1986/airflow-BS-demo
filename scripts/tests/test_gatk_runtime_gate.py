@@ -152,6 +152,82 @@ def test_start_is_idempotent_for_same_generation(tmp_path: Path, monkeypatch) ->
     assert gate.start(analysis_id, 1, "step1_upload")["status"] == "success"
 
 
+def test_step1_transfer_environment_uses_observer_progress_contract(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    monkeypatch.setenv("GATK_TRANSFER_SPOOL_ROOT", str(tmp_path / "spool"))
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 2,
+        "stage": "step1_upload",
+        "execution_id": f"{analysis_id}-a2-step1_upload-g3",
+        "generation": 3,
+        "request_hash": "b" * 64,
+        "orchestration_contract_version": 2,
+    }
+
+    environment = gate._transfer_environment(payload)
+
+    expected_root = (
+        tmp_path / "spool" / analysis_id / "attempt-2" / "step1_upload"
+    )
+    assert environment["WGS_TRANSFER_PROGRESS_ROOT"] == str(expected_root.resolve())
+    assert environment["WGS_TRANSFER_DIRECTION"] == "upload"
+    assert environment["WGS_TRANSFER_PLAN_PATH"] == str(
+        (expected_root / "transfer-plan.json").resolve()
+    )
+    assert "WGS_TRANSFER_SPOOL_ROOT" not in environment
+
+
+def test_step1_transfer_plan_freezes_target_labels_and_sizes(
+    tmp_path: Path, monkeypatch
+) -> None:
+    gate = load_gate()
+    analysis_id = "GATK_20260908_120000_A1B2C3"
+    monkeypatch.setenv("GATK_TRANSFER_SPOOL_ROOT", str(tmp_path / "spool"))
+    first = tmp_path / "input" / "lane-1.fq.gz"
+    second = tmp_path / "input" / "lane-2.fq.gz"
+    first.parent.mkdir()
+    first.write_bytes(b"A" * 7)
+    second.write_bytes(b"B" * 11)
+    runtime = tmp_path / "runtime"
+    bundle = runtime / "cce"
+    bundle.mkdir(parents=True)
+    (bundle / "BATCH_RUNTIME.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": 3,
+                "transfer_sources": [
+                    {"source": str(first), "target": "S1.R1.fq.gz"},
+                    {"source": str(second), "target": "S1.R2.fq.gz"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = {
+        "analysis_id": analysis_id,
+        "attempt": 1,
+        "stage": "step1_upload",
+        "runtime_workdir": str(runtime),
+        "execution_id": f"{analysis_id}-a1-step1_upload-g1",
+        "generation": 1,
+        "request_hash": "c" * 64,
+        "orchestration_contract_version": 2,
+    }
+
+    plan = gate._create_step1_transfer_plan(payload)
+
+    assert plan["files_total"] == 2
+    assert plan["bytes_total"] == 18
+    assert [item["relative_path"] for item in plan["entries"]] == [
+        "S1.R1.fq.gz",
+        "S1.R2.fq.gz",
+    ]
+
+
 def test_prepare_retry_starts_worker_for_new_generation(
     tmp_path: Path, monkeypatch
 ) -> None:
