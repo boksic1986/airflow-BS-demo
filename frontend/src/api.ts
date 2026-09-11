@@ -659,6 +659,9 @@ export type RunQc = {
 export type LogStream = "metadata" | "stdout" | "stderr";
 
 export type RunLog = {
+  query?: string;
+  match_count?: number;
+  search_complete?: boolean;
   path?: string;
   stream: LogStream;
   truncated: boolean;
@@ -1659,9 +1662,10 @@ export function getRunConfig(analysisId: string): Promise<RunConfig> {
   return requestJson<RunConfig>(`/runs/${encodeURIComponent(analysisId)}/config`);
 }
 
-export function getRunLog(analysisId: string, stream: LogStream, key?: string): Promise<RunLog> {
+export function getRunLog(analysisId: string, stream: LogStream, key?: string, query?: string): Promise<RunLog> {
   const params = new URLSearchParams({stream, tail: "200"});
   if (key) params.set("key", key);
+  if (query?.trim()) params.set("query", query.trim());
   return requestJson<RunLog>(`/runs/${encodeURIComponent(analysisId)}/logs?${params.toString()}`);
 }
 

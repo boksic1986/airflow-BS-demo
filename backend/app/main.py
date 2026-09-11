@@ -2896,6 +2896,7 @@ def run_logs(
     stream: str = Query(default="stderr", pattern="^(stdout|stderr|metadata)$"),
     key: str | None = Query(default=None, max_length=64),
     tail: int = Query(default=200, ge=1, le=1000),
+    query: str | None = Query(default=None, max_length=256),
 ) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
@@ -2915,6 +2916,7 @@ def run_logs(
                 tail=tail,
                 settings=get_settings(),
                 key=key,
+                **({"query": query} if query and run is not None and run.pipeline_name == "wgs" else {}),
             )
     except UnsupportedLogStreamError as exc:
         raise HTTPException(

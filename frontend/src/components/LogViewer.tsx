@@ -1,5 +1,5 @@
 import {Copy, Search} from "lucide-react";
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 
 import type {LogStream, RunLog, RunLogIndexItem} from "../api";
 
@@ -13,6 +13,7 @@ export function LogViewer({
   sources = [],
   activeKey,
   onKeyChange,
+  onSearch,
 }: {
   stream: LogStream;
   onStreamChange: (stream: LogStream) => void;
@@ -21,15 +22,22 @@ export function LogViewer({
   sources?: RunLogIndexItem[];
   activeKey?: string | null;
   onKeyChange?: (key: string) => void;
+  onSearch?: (query: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  useEffect(() => {
+    if (!onSearch) return;
+    const timer = setTimeout(() => onSearch(query.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [query, onSearch]);
+  const searching = Boolean(onSearch && (log?.query || "") !== query.trim());
   const lines = log?.lines || [];
   const groupedSources = useMemo(() => groupLogSources(sources), [sources]);
   const matching = useMemo(() => {
-    if (!query.trim()) return lines;
+    if (onSearch || !query.trim()) return lines;
     const needle = query.toLowerCase();
     return lines.filter((line) => line.toLowerCase().includes(needle));
-  }, [lines, query]);
+  }, [lines, query, onSearch]);
 
   async function copyVisible() {
     await navigator.clipboard?.writeText(matching.join("\n"));
@@ -74,9 +82,9 @@ export function LogViewer({
       <label className="search-field">
         <Search size={15} />
         <span className="sr-only">Search logs</span>
-        <input aria-label="Search logs" value={query} placeholder="Search logs" onChange={(event) => setQuery(event.target.value)} />
+        <input aria-label="Search logs" maxLength={256} value={query} placeholder={onSearch ? "Search file content" : "Search loaded excerpt"} onChange={(event) => setQuery(event.target.value)} />
       </label>
-      {query ? <p className="muted">{matching.length} matching line{matching.length === 1 ? "" : "s"}</p> : null}
+      {searching ? <p className="muted">Searching log content… Previous result remains visible.</p> : query ? <p className="muted">{log?.match_count ?? matching.length} matching lines · showing {matching.length}{log?.search_complete === false ? " · Scan limit reached; results are incomplete" : ""}</p> : <p className="muted">Latest log excerpt{log?.truncated ? " (truncated)" : ""}. {onSearch ? "Search checks file content, not just these lines." : "Search filters this excerpt only."}</p>}
       {error ? <div className="inline-error" role="alert">{error}</div> : null}
       <div className="log-viewer" aria-label={`${stream} log`}>
         {matching.length ? (

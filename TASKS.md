@@ -1,5 +1,12 @@
 # TASKS.md
 
+## LOGS-20260911
+
+- [x] Confirm tail-only search and missing child source registration.
+- [x] Add bounded server search, child path validation, debounced UI and tests/build.
+- [ ] Deploy precise backend/frontend patch and verify live fastp search/child log reads.
+
+
 ## STEP7-20260911 — frozen operator configuration approval
 
 - [x] Confirm 0907D attempt 5 request and pointer mismatch.

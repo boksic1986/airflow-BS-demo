@@ -71,6 +71,7 @@ export function RunDetailPage() {
   const [logStream, setLogStream] = useState<LogStream>("metadata");
   const [logSources, setLogSources] = useState<RunLogIndexItem[]>([]);
   const [logKey, setLogKey] = useState<string | null>(null);
+  const [logQuery, setLogQuery] = useState("");
   const [activeTab, setActiveTab] = useState<DetailTab>("Overview");
   const [logError, setLogError] = useState<string | null>(null);
   const [logIndexError, setLogIndexError] = useState<string | null>(null);
@@ -146,6 +147,7 @@ export function RunDetailPage() {
     setSummary({sample_count: 0, rule_count: 0, failed_rule_count: 0, batch_qc_status: "unknown"});
     setLog(null);
     setLogKey(null);
+    setLogQuery("");
   }, [analysisId]);
 
   function handleLogKeyChange(nextKey: string) {
@@ -192,7 +194,7 @@ export function RunDetailPage() {
               setLogStream(preferred.stream === "stderr" ? "stderr" : preferred.stream === "metadata" ? "metadata" : "stdout");
             }
             if (logKey) {
-              const nextLog = await getRunLog(analysisId, logStream, logKey);
+              const nextLog = await getRunLog(analysisId, logStream, logKey, logQuery);
               if (isCurrent()) setLog(nextLog);
             }
           }
@@ -205,7 +207,7 @@ export function RunDetailPage() {
         if (isCurrent()) setTabError(errorMessage(loadError));
         throw loadError;
       }
-  }, JSON.stringify([analysisId, activeTab, detail?.attempt, capabilityKey, logKey, logStream]), !capabilities.loading && Boolean(analysisId));
+  }, JSON.stringify([analysisId, activeTab, detail?.attempt, capabilityKey, logKey, logStream, logQuery]), !capabilities.loading && Boolean(analysisId));
 
   const failedRule = bundle.rules.find((rule) => isFailedStatus(rule.status));
   const diagnosis = parseErrorSummary(
@@ -323,7 +325,7 @@ export function RunDetailPage() {
           {activeTab === "Master" ? <WgsMasterTab pods={bundle.pods} /> : null}
           {activeTab === "Transfers" ? <WgsTransfersTab detail={detail} transfers={bundle.transfers} refreshKey={bundle.snapshotAt} /> : null}
           {activeTab === "QC" ? <WgsQcTab samples={bundle.samples} /> : null}
-          {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} /></> : null}
+          {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError || tabError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} onSearch={detail?.pipeline === "wgs" ? setLogQuery : undefined} /></> : null}
           {activeTab === "Files" ? <RunFilesTab artifacts={bundle.artifacts} /> : null}
         </section>
       </> : null}

@@ -1,5 +1,13 @@
 # HANDOFF.md
 
+## LOGS-20260911 — content search and child log registration
+
+- User reports Snakemake content search/child logs unavailable. Production 0907D Master has126 fastp matches in1,480,147bytes but zero in the last200lines; UI only filtered that tail. Child fastp logs exist under07_QC but only Master/worker sources were registered.
+- Minimal backend/frontend fix: WGS literal bounded content search; debounce and stale-response fencing; index only existing current-Master-declared child log paths under validated batch, rejecting symlinks/traversal. No DB/schema, DAG, runtime, Master or transfer changes.
+- BS10610 cached tests: new search/index tests first failed, then4 backend and4 frontend/refresh checks passed. Production build passed: index-bc6dsZAw.js / index-CXQ9-KPd.css. Full WGS tests skipped (read-only UI/API change).
+- Approved production-fix scope: exact main.py and diagnostics_service.py patch plus built static assets. Restart backend only; preserve worker/observer/scanner, runtime and data. Rollback will be `/data/airflow-WGS/current/rollback/log-search-20260911`; no Git sync or image pull. Installation/real API verification pending.
+
+
 ## STEP7-20260911 — frozen operator configuration approval
 
 - User requested production 20260907D Step7 repair. No analysis rerun or direct storage deletion.

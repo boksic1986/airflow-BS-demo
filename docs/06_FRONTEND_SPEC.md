@@ -1,5 +1,8 @@
 # Frontend specification
 
+2026-09-11 WGS Logs search is debounced350ms and sent to the registered-log API, not filtered against the last200lines. Query participates in silent refresh identity so old query/source responses cannot win. Keep previous excerpts while searching; label tail truncation and incomplete server scans. Current-attempt declared child logs appear in Other rule logs. No hidden-tab polling or workflow mutation.
+
+
 Attention title/detail body is a separate grid with6px rowgap and1.45 lineheight, independent of trailing action controls. Deployed index-xQ3eaWmc.js/index-CXQ9-KPd.css.
 
 Run Tracker default excludes cancelled records; 已取消记录 filter opens retained history. Cancellation rows label project sample scope, current stage and progress as 提交已取消 without pending progress/ETA bar. Database audit is not deleted. Deployed index-TVfCIH75.js.

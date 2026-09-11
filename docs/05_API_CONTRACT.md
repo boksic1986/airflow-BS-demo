@@ -1,5 +1,8 @@
 # API contract
 
+2026-09-11 WGS `/api/runs/{analysis_id}/logs`: optional `query` (max256 characters) performs case-insensitive literal content search from file start through at most64MiB, returning at most `tail` matched excerpts. Response adds `query`, `match_count`, `search_complete`; `truncated` also covers response/scan limits. Oversized lines mark results incomplete. Empty query retains bounded tail behavior. Existing opaque key validation remains mandatory; no client filesystem paths. WGS log index additionally registers existing `.log/.out/.err` files explicitly declared by current-attempt Master `log:` lines, under the bound batch only, without symlinks/traversal. Index parses at most8MiB/2000 files; unavailable/unreferenced child logs are not fabricated. Other adapters retain existing tail-only search UI.
+
+
 Dashboard attention excludes cancelled/canceled runs before sample, QC, duplicate-family, reanalysis and overdue projection. Intake alerts linked to cancelled runs are excluded; unlinked intake warnings remain. This is read-only projection, not audit deletion; cancel_requested is not treated as confirmed cancellation.
 
 Dashboard runs: omitted status or `all` now excludes cancelled/canceled before total/count/pagination. Explicit `status=cancelled` or `canceled` retrieves both spellings; other run APIs and database records unchanged.
