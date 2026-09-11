@@ -1,5 +1,8 @@
 # CURRENT_STATE.md
 
+2026-09-11 USER PAUSE: production scan=false and auto_dispatch=false, persisted and verified in backend/scanner. This supersedes earlier true/true records.20260910A deletion requested but exact scope awaits user confirmation; no files or records deleted.
+
+
 2026-09-11 read-only metadata retest: the three0910A records now retrieve and uniquely match HTTP/Mongo; current WGS4.2 in-memory generation returns3rows without warning. No files or run state changed. Complete Airflow preparation remains unverified; see PULL-20260911 HANDOFF.
 
 

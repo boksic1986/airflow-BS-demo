@@ -1,5 +1,11 @@
 # TASKS.md
 
+## PAUSE-20260911
+
+- [x] Persist and verify production automatic scanning/dispatch disabled.
+- [ ] Confirm20260910A deletion scope, inventory exact targets, then controlled deletion. Preserve source FASTQ unless explicitly authorized otherwise.
+
+
 ## PULL-20260911
 
 - [x] Test current WGS4.2 HTTP/Mongo metadata retrieval on BS10610 without writes:3/3 unique matches;3 generated in-memory rows.

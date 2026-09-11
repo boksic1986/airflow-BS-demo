@@ -1,5 +1,13 @@
 # HANDOFF.md
 
+## PAUSE-20260911 — user-requested version-mismatch pause
+
+- User explicitly requested disabling automatic scanning and analysis, plus deletion of the affected batch. Batch inferred as20260910A; deletion scope awaiting confirmation, nothing deleted.
+- Confirmed generated sampleinfo is full `WGS_20260910A_T7Hg38V4.2.1.sampleinfo.txt` (10lines), while platform gate expects batch-only filename. Do not describe this as Airflow4.2.1 upgrade.
+- Verified server96/current release and cached backend/scanner image identity. Stopped scanner immediately; set both WGS_INTAKE_SCAN_ENABLED and WGS_AUTO_DISPATCH_ENABLED=false in private production.env; recreated only backend/scanner with `--profile intake --no-deps --no-build --pull never`. Both live containers report false/false. Worker, observer, Master and analysis data untouched.
+- First config inspection omitted intake profile (KeyError before env write); corrected explicitly. No version/source/image promotion. Re-enable only after explicit approval and version/path reconciliation.
+
+
 ## PULL-20260911 — read-only sample metadata check
 
 - User requested testing whether current local code can retrieve the three records implicated in0910A preparation. Ran current server WGS4.2 code on verified BS10610/server10610 against configured metadata read endpoints; no WGS CLI, callback, receipt, sampleinfo/pending write or submission.
