@@ -1,5 +1,22 @@
 # Deployment runbook
 
+### OPT20260912 retained-gate catalog guard
+
+Keep `WGS_CONFIG_OPTIONS_ENABLED=false` and
+`WGS_CONFIG_OPTIONS_RUNTIME_CONTRACT=` in the current candidate deployment.
+Compose forwards both to backend, defaulting false/empty. The retained private
+node gate lacks the new caller/effective-configuration contract; owner source
+drift is not repaired by this release. `WGS_TEST_PROJECT_ENABLED=false` alone
+does not guard ordinary catalog overrides.
+
+Only a separately verified paired runtime/owner rollout may declare
+`WGS_CONFIG_OPTIONS_RUNTIME_CONTRACT=wgs-submission-options.v1` and enable
+`WGS_CONFIG_OPTIONS_ENABLED=true`. Setting the flag alone is insufficient.
+This is an explicit operator compatibility declaration, not observed runtime
+identity. No node gate, owner, live environment or service change is performed
+by the activation-guard patch. Legacy requests without overrides and existing
+stored submissions remain usable.
+
 ## OPT20260912 test resource producers
 
 Deploy only after current test preflight/review. Do not replace the production

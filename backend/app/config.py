@@ -31,6 +31,8 @@ class Settings:
     deployed_pipelines: tuple[str, ...]
     platform_environment: str
     wgs_test_project_enabled: bool
+    wgs_config_options_enabled: bool
+    wgs_config_options_runtime_contract: str
     public_airflow_url: str
     auth_required: bool
     session_cookie_secure: bool
@@ -159,6 +161,8 @@ def get_settings() -> Settings:
         deployed_pipelines=deployed_pipelines,
         platform_environment=os.getenv("PLATFORM_ENVIRONMENT", "Demo").strip() or "Demo",
         wgs_test_project_enabled=_parse_bool(os.getenv("WGS_TEST_PROJECT_ENABLED", "false")),
+        wgs_config_options_enabled=_parse_bool(os.getenv("WGS_CONFIG_OPTIONS_ENABLED", "false")),
+        wgs_config_options_runtime_contract=os.getenv("WGS_CONFIG_OPTIONS_RUNTIME_CONTRACT", "").strip(),
         public_airflow_url=os.getenv("PUBLIC_AIRFLOW_URL", "").strip(),
         auth_required=_parse_bool(os.getenv("AUTH_REQUIRED", "true")),
         session_cookie_secure=_parse_bool(os.getenv("SESSION_COOKIE_SECURE", "true")),

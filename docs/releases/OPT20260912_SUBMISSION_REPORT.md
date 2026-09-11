@@ -1,5 +1,45 @@
 # OPT20260912 Task1 submission report
 
+## Final integration review P1 activation fix
+
+On f08d6b3 the candidate advertised audited caller/configuration options while
+the retained private node gate did not forward/validate that contract. Custom
+test-mode gating was insufficient. Added independent default-off backend
+`WGS_CONFIG_OPTIONS_ENABLED` and empty-default
+`WGS_CONFIG_OPTIONS_RUNTIME_CONTRACT`; activation requires true plus the exact
+reviewed declaration `wgs-submission-options.v1` and an audited release. The
+declaration is configured compatibility, not a claimed runtime observation.
+Current deployment must remain false/empty; owner HEAD drift and old gate are
+not modified, deployed or silently accepted by this change.
+
+Release API exposes activation/reason separately from informative audited
+enums/defaults. Inactive explicit algo/reference overrides reject in the
+submission service before catalog resolution/record creation/DAG trigger.
+Inactive UI controls are read-only, explain that defaults are informational,
+and omit both override fields on a legacy catalog request. Existing stored run
+recovery, approvals and no-override submission behavior remain intact.
+
+BS10610 cached offline containers only; no local runtime test or real analysis:
+
+```text
+pytest -q tests/test_submission_options.py -k 'unactivated or activation'
+ --basetemp=/src/test-activation-red --tb=short
+# Before implementation: 9 failed (missing guard/API activation status).
+pytest -q tests/test_submission_options.py tests/test_wgs_submission_service.py
+ --basetemp=/src/test-activation-final --tb=short
+# After implementation: 29 passed; one third-party anyio deprecation.
+vitest run src/SubmissionOptions.test.tsx src/IncompleteSubmission.test.tsx
+tsc --noEmit
+# 10 passed; TypeScript passed.
+```
+
+Regressions cover each false/missing/mismatched activation combination even
+with test-project flag true; release API stays inactive until both independent
+settings match; inactive UI sends no overrides; existing submission recovery
+and legacy service tests still pass. Root owns the deployment helper and final
+integration review. No owner/node gate, permission, service, pending or real
+run change belongs to this fix.
+
 ## Scope and state
 
 Implemented on `jiucheng/development/next` from e107f3b. This is a code/test

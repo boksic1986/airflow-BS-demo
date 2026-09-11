@@ -455,7 +455,7 @@ def health() -> dict[str, str]:
 
 @app.get("/api/wgs/release")
 def current_wgs_release() -> dict[str, object]:
-    from app.wgs_release_catalog import submission_options
+    from app.wgs_release_catalog import submission_options, config_options_activation
     release = load_wgs_release_catalog(
         Path(get_settings().wgs_release_catalog_path)
     ).release
@@ -473,6 +473,7 @@ def current_wgs_release() -> dict[str, object]:
         "runtime_adapter_enabled": _wgs_runtime_adapter_enabled(),
         "submission_preview_enabled": _wgs_submission_preview_enabled(),
         "submission_options": submission_options(release),
+        **config_options_activation(get_settings(), release),
         "test_project_enabled": str(getattr(get_settings(), "platform_environment", "")).lower() in {"test", "bs10610-test"} and getattr(get_settings(), "wgs_test_project_enabled", False),
     }
 

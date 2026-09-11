@@ -1,5 +1,15 @@
 # API contract
 
+### OPT20260912 catalog option activation
+
+`GET /api/wgs/release` separates informational `submission_options` from
+`config_options_enabled` and `config_options_reason`. When inactive, explicit
+`algo` or `use_reference` in `POST /api/wgs/runs` fails with a clear validation
+error before any run creation/submission. Omitting both preserves the legacy
+catalog path. Existing stored run recovery/configuration/execution approvals
+retain their original contracts. Visible audited enums are not evidence that
+the retained node gate implements them.
+
 ## OPT20260912 resources
 
 `GET /api/platform/resources` adds `resource_packages` with status, safe reason,

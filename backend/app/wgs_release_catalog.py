@@ -44,6 +44,17 @@ class WgsReleaseCatalog:
         raise ValueError(f"WGS release is not cataloged: {release_id}")
 
 
+def config_options_activation(settings, release: WgsRelease) -> dict:
+    """Deployment attestation, not an observed runtime probe or test-mode alias."""
+    enabled = bool(
+        getattr(settings, 'wgs_config_options_enabled', False)
+        and getattr(settings, 'wgs_config_options_runtime_contract', '') == 'wgs-submission-options.v1'
+        and submission_options(release).get('defaults')
+    )
+    return {'config_options_enabled': enabled,
+            'config_options_reason': None if enabled else 'Catalog configuration options are not activated: compatible runtime contract and explicit activation are required; legacy release defaults remain in effect'}
+
+
 def submission_options(release: WgsRelease) -> dict:
     """Audited owner CLI contract; unknown releases must not inherit it."""
     if release.source_commit != "cc9bde3c8ee6ad1cd2f85cf5d2ef49c5611ac081":

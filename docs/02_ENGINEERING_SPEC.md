@@ -12,6 +12,13 @@ Existing SFS Cloud Eye/node producers, executor admission and Master remain unch
 
 ## OPT20260912 submission
 
+New catalog caller/configuration overrides have an independent default-off
+`WGS_CONFIG_OPTIONS_ENABLED` switch and empty-default
+`WGS_CONFIG_OPTIONS_RUNTIME_CONTRACT`. Activation requires both the switch and
+the exact reviewed compatibility declaration `wgs-submission-options.v1`, plus
+an audited release. The declaration is operator configuration, not a live probe.
+The test-project switch does not activate ordinary catalog options.
+
 `WGS_TEST_PROJECT_ENABLED` defaults false. It enables existing-project preview
 and independent test submission only together with the explicit environment
 allowlist `PLATFORM_ENVIRONMENT=BS10610-Test` or `test`.

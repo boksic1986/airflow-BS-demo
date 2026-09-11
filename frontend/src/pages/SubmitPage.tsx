@@ -139,7 +139,7 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
         if(generation===previewGeneration.current && currentPreviewInputs.current===snapshot){acceptedPreviewInputs.current=snapshot;setTestPreview(result);}
         return;
       }
-      const detail = await createCatalogWgsRun({project_id: projectId, platform, batch, fastq_root_id: fastqRootId, ...(release?.submission_options?.defaults && algo && ['all','ref','no'].includes(useReference) ? {algo, use_reference: useReference as 'all'|'ref'|'no'} : {})});
+      const detail = await createCatalogWgsRun({project_id: projectId, platform, batch, fastq_root_id: fastqRootId, ...(release?.config_options_enabled && release.submission_options?.defaults && algo && ['all','ref','no'].includes(useReference) ? {algo, use_reference: useReference as 'all'|'ref'|'no'} : {})});
       setCreated(detail);
       setSearchParams({pipeline: "wgs", analysis_id: detail.analysis_id}, {replace: true});
     }
@@ -203,7 +203,8 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
       <label className="field"><span>Batch</span><input aria-label="Batch" placeholder="20260901B" value={batch} onChange={(event) => setBatch(event.target.value)} /></label>
       <label className="field"><span>FASTQ root</span><select aria-label="FASTQ root" value={fastqRootId} onChange={(event) => setFastqRootId(event.target.value)}>{project?.fastq_roots.map((item) => <option value={item.root_id} key={item.root_id}>{item.display_name}</option>)}</select></label>
       </>}
-      </fieldset><fieldset><legend>Analysis parameters</legend>
+      </fieldset><fieldset disabled={inputMode==='catalog' && !release?.config_options_enabled}><legend>Analysis parameters</legend>
+      {inputMode==='catalog' && !release?.config_options_enabled ? <p role="note">Configuration options are not activated. The values below describe the audited release only; legacy runtime defaults will be used, without explicit overrides.</p> : null}
       <label className="field"><span>Variant caller</span><select aria-label="Variant caller" value={algo} onChange={event=>{setAlgo(event.target.value);setTestPreview(null);}} disabled={!release?.submission_options?.defaults}><option value="" disabled>Release defaults unavailable</option>{release?.submission_options?.defaults && release.submission_options.callers.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
       <label className="field"><span>Reference selection</span><select aria-label="Use reference" value={useReference} disabled={!release?.submission_options?.defaults} onChange={event=>{setUseReference(event.target.value);setTestPreview(null);}}><option value="" disabled>Release defaults unavailable</option>{release?.submission_options?.defaults && release.submission_options.reference_values.map(value=><option key={value} value={value}>{value}</option>)}</select></label>
       <p className="field-help">Genome: {release?.submission_options?.reference_genome || 'Release default'}. {release?.submission_options?.cnv || 'CNV configuration is fixed by the release.'}</p>

@@ -261,6 +261,8 @@ export type LoginRequest = {username: string; password: string};
 
 export type WgsRelease = {
   test_project_enabled?: boolean;
+  config_options_enabled?: boolean;
+  config_options_reason?: string | null;
   submission_options?: {defaults?: {algo:string;use_reference:string};callers: {value: string; label: string}[]; reference_values: string[]; reference_genome?: string; cnv?: string; provenance?: string};
   release_id: string;
   version: string;

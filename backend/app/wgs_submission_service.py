@@ -249,13 +249,16 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
     """Create one catalog-bound run; WGS prepare owns sampleinfo and selection."""
     if validation_scope not in {None, "step1_only", "step3_dryrun", "node97_full"}:
         raise ValueError("unsupported WGS validation scope")
-    from app.wgs_release_catalog import submission_options
+    from app.wgs_release_catalog import submission_options, config_options_activation
     release = load_wgs_release_catalog(Path(settings.wgs_release_catalog_path)).release
     selected_options = None
     if algo is not None or use_reference is not None:
-        algo = algo or 'DNAscope'
-        use_reference = use_reference or 'all'
+        activation = config_options_activation(settings, release)
+        if not activation['config_options_enabled']:
+            raise ValueError(activation['config_options_reason'])
         supported = submission_options(release)
+        algo = algo or supported['defaults']['algo']
+        use_reference = use_reference or supported['defaults']['use_reference']
         if algo not in {item["value"] for item in supported["callers"]}:
             raise ValueError("caller is not supported by the selected WGS release")
         if use_reference not in supported["reference_values"]:
