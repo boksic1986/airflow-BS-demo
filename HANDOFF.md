@@ -1,5 +1,49 @@
 # HANDOFF.md
 
+## OPT20260912 — test deployment handoff
+
+Goal: approved WGS/GATK submission, Rule/QC/estimates and resources optimization,
+BS10610 only. Runtime source4d3d24e6c0308b682a92e2b09824026b7a888818; branch
+jiucheng/development/next preserved in D:/pipeline/airflow-demo-worktrees/development.
+Production clone/main untouched; no push/merge. Root final changes are docs only.
+
+Current /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260912-opt-4d3d24e6
+on sshBS10610/server10610. Rollback releases/20260912-gatk-81587fcb with both
+original external test env files. Onlybackend,observer,frontend recreated;
+7protected service IDs preserved, no worker/scheduler/API/DB/metrics restart.
+Old shared runtime mount remains pinned. /sg2,/bi remainreadonly. No real run,
+data deletion, formal pending/source mutation or scanner/dispatch change.
+
+Changed code groups/review evidence: SUBMISSION_REPORT/REVIEW (Task1 + final
+activationguard), MONITOR_REPORT/REVIEW (Rule/QC/Step4/6), RESOURCES_REPORT/REVIEW;
+INTEGRATION_REVIEW final2findingsclosed. API/runtime/frontend/deploydocs updated.
+Details and exact commands/provenance: docs/releases/OPT20260912_TEST_RELEASE.md.
+Final frontend93passed/tsc/Vite; activationfix29backend+10UI, node signedprobe
+6fakecalls0network, operationalrollback5syntheticpasses. Combined regression
+86passed1optionalPGskip+5harness ancestry failures;7gate tests thenpassed under
+private tmpfs without relaxingcode. One upstreamanyio warning disclosed.
+
+Health/assets/API verified,3historicGATKsuccess records retained,0active test
+DAGs. NewHeavy/BSS collectors testprivate onlyPIDs148291/148292; priorSFSPID17658
+unchanged. ActualHeavy0/25fresh,enforce,waitingunknown; no enforcement/saturation
+claim. BSSnot_configured; no dedicatedidentity accessed/network request.
+
+Not activated/tested: customproject output parentstickypermission awaitinguser,
+sharedowner68f5dcc/config drift versuscc9bde3; newcatalogoptionguardfalse/empty
+contract therefore UIreadonly/serverrejectsoverrides. Legacy submissions intact.
+Do not enableflag or replace retainednodegate without aligning approvedowner
+contract. ExistingMasterlogger not changed, historicalmissingrule/QC data cannot
+be fabricated. No realWGS pipeline rerun, no billing/CPU telemetry credentials.
+Authenticatedbrowser visual/no-flash acceptance stillawaits userlogin; loopback
+tunnel127.0.0.1:22959 retained for that acceptance, no firewall/portchange.
+
+Next: userlogintestpanel, visualacceptance; obtain explicit owner/gate activation
+decision and separate minimalbillingidentity if needed. Production requires
+separate exactreleaseapproval. Rollback exact3services/images/source thenhealth
+and atomicallyrestorecurrent; deploymenthelper validates this and5syntheticcases.
+Newcollector rollback stoponly verifiedownedPIDs; retain evidence/records; never
+reclaimLeases, stopMaster ordelete results. Do not repeatcompleted taskreviews.
+
 ## OPT20260912 — active implementation checkpoint
 
 User authorized full optimization implementation/deployment on BS10610 only.

@@ -1,6 +1,29 @@
 # CURRENT_STATE.md
 
-## OPT20260912 — implementation in progress, not deployed
+## OPT20260912 — BS10610 panel deployed; activation holds remain
+
+Reviewed runtime source4d3d24e6c0308b682a92e2b09824026b7a888818 deployed to
+server10610 test current releases/20260912-opt-4d3d24e6. Backend722fbe887bf6,
+observer3ecae082215d and frontend5abf5827d3ba replaced;7protected service IDs
+unchanged. Health/assets/API and3retained GATK histories verified;no active test
+DAG runs. Scan/dispatchfalse, production/main and cloud workloads untouched.
+Task1/2/3 scoped reviews plus final integrated fix review closed all findings.
+Final frontend93passed/build; final activation29backend/10UI; rollback5synthetic
+passes. See OPT20260912_TEST_RELEASE for full tests, harness failure and provenance.
+
+New Heavy test collector reports fresh actual0/25,modeenforce,waitingunknown
+(missing Master snapshot); work Job/Pod quota unit, not per-rule enforcement
+proof. BSS collector publishesnot_configured, no billing credential/network.
+Existing SFS producer remains; live cloud CPU/memory not available.
+
+Custom projects remain disabled (sticky parent approval and owner68f5dcc drift
+vs auditedcc9bde3). New catalog overrides independentlydisabled until compatible
+node gate is approved; legacy no-override submissions unchanged. No private gate,
+shared owner source/config or pending edits. Existing Master logger not upgraded;
+historic unknown QC/missing child start times remain explicit. Authenticated
+browser visual acceptance awaits user login; no claim of full runtime acceptance.
+
+## OPT20260912 — earlier implementation checkpoint (superseded)
 
 Test-only optimization in existing development worktree from e107f3b. Submission
 options/test-project implementation and scoped review complete at d5a4e1d;

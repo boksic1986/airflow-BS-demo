@@ -54,3 +54,31 @@ Task2 fix1 intermediate:45 backendpassed1existing skip,UI13passed. Covers pinned
 Task2 fix1 submitted d9543a0:83 backendpassed1preexisting skip,20focusedUIpassed,tsc/Vitegreen. Exact WGS cc9bde3/GATK bd04f6d phase inventories, full stream-scoped group members, neutral unknownPASS, canceled terminal precedence and GATK retry/history cases. Scoped monitor_review resumed7033185..d9543a0; awaiting verdict, Task3 still pending.
 
 Task 2: complete (commits09efb4f..d9543a0, review clean). Fix round1/5 closed5findings,0open; monitor_review found no new Critical/Important. Existing Dashboard Total failure owned by Task3; upstream anyio warning/skip disclosed. Producer activation/historical missing evidence still external acceptance. Task3 begins fromd9543a0.
+
+Task3 intermediate tests:full backend resource/SFS36passed including seven-day10080-point retention; later focused36passed1retentiondeselected (earlier full run retained). Full UI90passed/build;2additional edge cases await final rerun. Node synthetic SDK GET signing4calls passed,0network; probe extended to both POST routes, finalnodeverification pending. Task3 not yet committed/reviewed/deployed.
+
+Task3 submitted f08d6b3:full backend37passed plus final collector/projection18passed,
+fullUI92passed25files/buildgreen. Independent resource_review dispatched with
+d9543a0..f08d6b3 scoped package. Final node SDK probe6synthetic calls/0network
+passed. Review and deployment still pending; no protected service changed.
+
+Task3: complete code f08d6b3, resource_review approved with0findings. Full-branch
+integration_review dispatched e107f3b..f08d6b3. Candidate staged immutably at
+releases/20260912-opt-f08d6b3a, archive SHA256
+e719603ffea014a5cb6098d8c54c5b3edb48ec8dd7d04d8b519986baf47cf54a.
+Cached offline full frontend92passed/buildgreen; image13dc750988a7.
+Compose guard verified only panel source/image changes, existing shared mount
+and7protectedserviceIDs preserved. No service cutover or collector install yet.
+
+Final review fixwave1: P1ordinarycataloggateactivation (submission_opt4d3d24e)
+and P2operationalrollbackpointer (roothelper) closed byoriginalintegration_review;
+2addressed0open0newblocking. No repeatedwholebranchreview. FinalUI93passed/build,
+guard29backend/10UI,rollback5syntheticpasses. Task3collectorinstalledtestprivate
+with existinggate/runtime/SFShashesunchanged; live0/25fresh,enforce,waitingunknown.
+
+Task4 paneldeployment complete at4d3d24e, source/archive/image/serviceIDs and
+rollback inOPT20260912_TEST_RELEASE. Health/staticassets/APIsverified,3historic
+GATKsuccessrecords retained,0activeDAGs,scan/dispatchfalse,7protectedIDsunchanged.
+Conditional acceptance stillopen: userloginbrowservisual, customsticky/ownergate
+alignment, actualproducer/enforcement/billingtelemetry. No productionpush/merge,
+realrun or data deletion. Existingdevelopmentworktree retained.

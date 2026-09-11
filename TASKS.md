@@ -6,9 +6,12 @@
 - [x] Read-only BS10610/node test boundary, baseline timing/phase/Heavy26 tests.
 - [x] Submission rail, release-driven options, isolated existing-project test flow (d5a4e1d scoped review clean; activation gated pending directory permission and owner release alignment).
 - [x] Attempt-correct Rule/group/timing and release-pinned per-metric QC (d9543a0 reviewed; unsupported historical policy/evidence explicitly unavailable).
-- [x] Step4/6 labelled monotonic estimated progress, generation fence (WGS/GATK, d9543a0 reviewed; not yet test-deployed).
-- [ ] Heavy collector/partial telemetry and official resource-package cache/UI.
-- [ ] Independent review, targeted tests/build, BS10610 deployment/browser acceptance.
+- [x] Step4/6 labelled monotonic estimated progress, generation fence (WGS/GATK; test panel deployed4d3d24e).
+- [x] Heavy collector/partial telemetry and official resource-package cache/UI (actual0/25fresh; waiting unknown; billing not configured).
+- [x] Independent task and integration reviews, targeted tests/build, BS10610 panel deployment/health/API/protected-service acceptance.
+- [ ] Authenticated browser desktop/narrow/no-flash visual acceptance (user login pending).
+- [ ] Activate custom projects/catalog options only after approved sticky parent and matched owner/gate contract; currently defaultoff, no source rewrite.
+- [ ] Actual child-rule producer, real batch/enforcement and dedicated BSS/live cloud telemetry acceptance; no real run authorized this turn.
 - Production, scan/dispatch switches, formal pending and real analyses unchanged.
 - Plan: [approved implementation](docs/superpowers/plans/2026-09-12-platform-optimization.md).
 
