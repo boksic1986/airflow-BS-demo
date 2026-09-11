@@ -1,5 +1,13 @@
 # TASKS.md
 
+## WGS421-ACTIVATE-20260911
+
+- [x] Verify owner release markers, rendered profile digest and minimal4.2.1 gates.
+- [x] Add catalog release and receipt-fence regressions; confirm3 unrelated baseline failures.
+- [ ] Publish sibling profile, update prepare default and exact production code.
+- [ ] Verify release API, node CLI/profile/path contract and unchanged seven runs/gates.
+
+
 ## PAUSE-20260911
 
 - [x] Persist and verify production automatic scanning/dispatch disabled.

@@ -79,6 +79,7 @@ WGS_REPO_ROOT = Path(
 DEFAULT_RELEASE_ROOTS = {
     "wgs-4.1.1-6c98281": "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.1.1",
     "wgs-4.2.0-b067c72": "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0",
+    "wgs-4.2.1-cc9bde3": "/bi/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0",
 }
 WGS_RELEASE_ROOTS_JSON = os.getenv("WGS_RELEASE_ROOTS_JSON", "").strip()
 WGS_PYTHON = os.getenv("WGS_PYTHON", "/bi/software/mamba/envs/WGS/bin/python")
@@ -356,7 +357,7 @@ def _release_repository(payload: dict[str, Any]) -> Path:
 
 def validate_release_repository(payload: dict[str, Any]) -> Path:
     version = str(payload.get("wgs_version") or "")
-    if version and version != "V4.2.0":
+    if version and version not in {"V4.2.0", "V4.2.1"}:
         raise RuntimeError(
             "release_unavailable: historical WGS release requires a frozen binding"
         )
@@ -562,7 +563,7 @@ def _sha256_file(path: Path) -> str:
 
 
 def _uses_prepare_handoff(payload: dict[str, Any]) -> bool:
-    return str(payload.get("wgs_version") or "") == "V4.2.0" and str(
+    return str(payload.get("wgs_version") or "") in {"V4.2.0", "V4.2.1"} and str(
         payload.get("stage") or ""
     ) in {"prepare_sampleinfo", "prepare_analysis"}
 

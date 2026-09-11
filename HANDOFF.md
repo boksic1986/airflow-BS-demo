@@ -1,5 +1,39 @@
 # HANDOFF.md
 
+## WGS421-ACTIVATE-20260911 (in progress)
+
+User approved WGS4.2.1 Airflow adaptation and a new sibling wgs-4.2.1-r1.yaml;
+preserve old profiles, historical run bindings and false/false scan/dispatch.
+No WGS core change, package installation, analysis submission or data deletion.
+Production server96/current20260910-t260-recovery-runtime-r1 verified; backend,
+worker, observer and scanner bind current sources. All seven runs terminal.
+Node t640 gate baseline bc32a5b7; no Running cloud Pods at preflight.
+
+WGS owner release evidence located at /mnt/biodevrwbi/33.chenjiucheng/WGS_test/wgs421-step3-20260911.
+Read-only SFS inspector verified4.2.1 build wgs421-cc9bde3 and resource READY;
+temporary Pod airflow-wgs421-inspect-5ef62939 deleted, no SFS writes.
+Profile retains Heavy25/enforce, permissions, storage and Master f3c197d7 digest.
+Pipeline artifact SHA dcb9de59f96a8a7397b2f23b1b92a15c3c869490413b123a2a49a6b2ae894d62;
+resource candidate-manifest SHA ab993050e27c860403def7592b81a2d004898aa10ce462c7920a4544bb17bc3a.
+New profile raw SHA deb0cd78714102191a6229b3f744c7d6df033ec6e4c53277b03bc298caf84090;
+rendered revision SHA44d7398fd8fb1123220f15a0cef6480289a845c49f97b23b0231c30de9bd74ab.
+Old raw versus catalog discrepancy resolved: catalog909cf122 is the rendered
+revision digest, not raw YAML SHA. Historical catalog values remain unchanged.
+
+Scope: gate release allowlist+4.2.1 handoff; backend requires4.2.1 receipt;
+catalog additive current release; external prepare/config.yaml exact profile-path
+replacement only (private rollback, no credentials copied locally). No frontend
+build needed: existing /api/wgs/release provides page version on load.
+Tests: initial2 new gate failures then green; required-receipt test reproduced
+missing fence on4.2.1 then green. Broad151 checks148pass/3fail; all3 failures
+reproduced against HEAD baseline (pending selection fixtures and old quota25
+assertion). Initial new fixture omitted updated_at, corrected before RED check.
+No complete-WGS validation or real run per user request. Deployment pending.
+
+Rollback restores main.py/catalog/node gate and private prepare config only;
+retain new/old profiles and all pending, sample, workflow and storage data.
+
+
 ## WGS421-REVIEW-20260911 — read-only upgrade assessment
 
 Local WGS worktree HEAD `cc9bde3` selects pipeline4.2.1/resourceswgs-4.2.1-r1, follows SMA digest update `d716723` and Snakemake-log packaging `bc9cc74`. Verified server10610 WGS source remains `9df4c54` at the directory still namedwgs-4.2.0, using old pipeline/resources; external inspected profile directory contains no4.2.1 file. Production catalog stillwgs-4.2.0-31de5fb, gatesfalse/false. New assets may have been published elsewhere; no SFS/SWR asset verification performed.

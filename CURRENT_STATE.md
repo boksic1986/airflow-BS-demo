@@ -1,5 +1,11 @@
 # CURRENT_STATE.md
 
+WGS421-ACTIVATE-20260911 in progress: owner-published cloud4.2.1/cc9bde3 and
+resource READY verified. New r1 profile and catalog/runtime/backend adaptation
+validated; production activation pending. Preserve scan=false, dispatch=false,
+historical bindings and installed cce0.8.4. See latest HANDOFF.
+
+
 2026-09-11 confirmed20260910A scoped cleanup completed:1 Airflow run,7 business records,7 runtime files, generated sampleinfo and empty platform workdir removed. Platform/Airflow404 verified, other7runs preserved. Scan/dispatch remain false; FASTQ/pending/SFS/OBS untouched. Actual filename mismatch was persisted batch V4.2.0 versus generated V4.2.1 (API normalizes batch display).
 
 

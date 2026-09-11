@@ -1,5 +1,13 @@
 # Workflow runtime integration
 
+WGS4.2.1 uses the existing prepare request/receipt v1 schema and generation fence,
+like4.2.0. Release cc9bde3 maps to the existing directory named wgs-4.2.0 (name is
+not version authority), with templateV4.2.1 and separate wgs-4.2.1-r1 profile.
+Catalog constructs versioned analysis/sampleinfo names from release.version.
+Old profiles and frozen attempt bindings remain unchanged. cce-pipeline0.8.4,
+Master Heavy25/enforce and the WGS-prepare/nipttest-monitor interpreter split stay.
+
+
 2026-09-11 Step7 accepts the global approved operator configuration or the exact current attempt's `release-runtime/cce-operator.yaml`. The latter must equal the prepare transformation of the approved configuration (allowlisted release repository and obsolete transfer fields removed). Foreign attempt paths, symlinks, absent files and changed config remain rejected. Cleanup never rewrites the frozen config or widens SFS target scope.
 
 

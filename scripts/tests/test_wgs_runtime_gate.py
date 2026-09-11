@@ -278,8 +278,9 @@ def test_split_prepare_commands_preserve_native_wgs_contract(tmp_path: Path) -> 
     assert analysis[analysis.index("--use-reference") + 1] == "ref"
 
 
-def test_wgs_420_prepare_uses_generation_scoped_handoff_request(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize('version,release', [('V4.2.0', 'wgs-4.2.0-b067c72'), ('V4.2.1', 'wgs-4.2.1-cc9bde3')])
+def test_wgs_42_prepare_uses_generation_scoped_handoff_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, version: str, release: str
 ) -> None:
     gate = load_gate()
     repo = tmp_path / "wgs-4.2.0"
@@ -291,8 +292,8 @@ def test_wgs_420_prepare_uses_generation_scoped_handoff_request(
         "analysis_id": "WGS_20260909_010203_A1B2C3",
         "attempt": 1,
         "stage": "prepare_sampleinfo",
-        "pipeline_release_id": "wgs-4.2.0-b067c72",
-        "wgs_version": "V4.2.0",
+        "pipeline_release_id": release,
+        "wgs_version": version,
         "wgs_source_commit": "b067c72eed795e59b724b13324b0d380ae8b7e94",
         "control_workdir": str(runtime_root / "runs" / "WGS_20260909_010203_A1B2C3" / "attempt-1"),
         "analysis_project_root": str(tmp_path / "WGS_Clinical"),
@@ -312,7 +313,7 @@ def test_wgs_420_prepare_uses_generation_scoped_handoff_request(
     request_path = Path(command[command.index("--handoff-request") + 1])
     request = json.loads(request_path.read_text(encoding="utf-8"))
     assert request["schema_version"] == "wgs.prepare-handoff.request.v1"
-    assert request["release_id"] == "wgs-4.2.0-b067c72"
+    assert request["release_id"] == release
     assert request["generation"] == 1
     assert request_path.parent.name == "generation-1"
 
@@ -517,8 +518,9 @@ def test_prepare_command_rejects_fastq_directory_for_another_batch(
         gate.build_prepare_command(payload)
 
 
+@pytest.mark.parametrize('version,release', [('V4.2.0', 'wgs-4.2.0-b067c72'), ('V4.2.1', 'wgs-4.2.1-cc9bde3')])
 def test_release_repository_validation_does_not_require_git(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, version: str, release: str
 ) -> None:
     gate = load_gate()
     repo = tmp_path / "wgs-4.2.0"
@@ -536,8 +538,8 @@ def test_release_repository_validation_does_not_require_git(
 
     assert gate.validate_release_repository(
         {
-            "pipeline_release_id": "wgs-4.2.0-b067c72",
-            "wgs_version": "V4.2.0",
+            "pipeline_release_id": release,
+            "wgs_version": version,
             "wgs_source_commit": "already-validated-before-publish",
         }
     ) == repo.resolve()

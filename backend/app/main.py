@@ -2514,7 +2514,7 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
                 params = dict(run.params_json or {})
                 handoff_receipt = payload.get("prepare_handoff_receipt")
                 handoff_required = (
-                    str(params.get("wgs_version") or "") == "V4.2.0"
+                    str(params.get("wgs_version") or "") in {"V4.2.0", "V4.2.1"}
                     and stage in {"prepare_sampleinfo", "prepare_analysis"}
                 )
                 if handoff_required and not isinstance(handoff_receipt, dict):

@@ -3153,6 +3153,38 @@ def test_prepare_analysis_status_waits_for_final_sampleinfo_nfs_visibility(
         assert [item.sample_id for item in samples] == ["SAMPLE-1"]
 
 
+@pytest.mark.parametrize('version', ['V4.2.0', 'V4.2.1'])
+def test_prepare_status_waits_for_required_handoff(tmp_path, monkeypatch, version):
+    monkeypatch.setenv('WGS_RUNTIME_ADAPTER_ENABLED', 'true')
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    headers = login(client, 'operator', 'operator-pass')
+    created = client.post('/api/runs', headers=headers, json={
+        'pipeline': 'wgs', 'project_name': 'WGS_Clinical', 'execution_mode': 'cce',
+        'batch_no': f'WGS_20260909A_T7Hg38{version}', 'fq_path': str(tmp_path),
+    }).json()
+    aid = created['analysis_id']
+    with sessions.begin() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == aid))
+        run.params_json = {**dict(run.params_json or {}), 'wgs_version': version,
+                           'submission_phase': 'preparing_sampleinfo'}
+    marker = Path(main.get_settings().wgs_runtime_request_root) / aid / 'attempt-1' / 'prepare_sampleinfo.status.json'
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(json.dumps({'schema_version': 'wgs-runtime.stage-status.v1',
+        'analysis_id': aid, 'attempt': 1, 'stage': 'prepare_sampleinfo', 'status': 'success',
+        'updated_at': '2026-09-11T00:00:00Z'}))
+    # Receipt absence must stop preview import, even if sampleinfo is already visible.
+    monkeypatch.setattr(main, 'sync_sampleinfo_preview', lambda **_: None)
+    response = client.get(f'/api/internal/wgs/runs/{aid}/stage-status',
+        params={'attempt': 1, 'stage': 'prepare_sampleinfo'},
+        headers={'X-Airflow-Demo-Token': 'internal-test-token'})
+    assert response.status_code == 200, response.text
+    assert response.json()['artifact_pending'] is True
+    assert response.json()['ready'] is False
+    with sessions() as session:
+        run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == aid))
+        assert run.params_json['submission_phase'] == 'preparing_sampleinfo'
+
+
 def test_prepare_analysis_status_imports_final_selection_before_pending_decisions(
     tmp_path, monkeypatch
 ):

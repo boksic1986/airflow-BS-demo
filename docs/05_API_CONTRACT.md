@@ -1,5 +1,12 @@
 # API contract
 
+WGS4.2.1 uses the existing GET /api/wgs/release catalog response; new requests
+read the current configured release, not a frontend literal or live Git HEAD.
+Existing run details retain frozen version identity. Internal prepare stage-status
+for4.2.0 and4.2.1 waits for the validated handoff receipt before becoming ready.
+This does not add endpoints, schema fields or automatically upgrade old attempts.
+
+
 2026-09-11 WGS `/api/runs/{analysis_id}/logs`: optional `query` (max256 characters) performs case-insensitive literal content search from file start through at most64MiB, returning at most `tail` matched excerpts. Response adds `query`, `match_count`, `search_complete`; `truncated` also covers response/scan limits. Oversized lines mark results incomplete. Empty query retains bounded tail behavior. Existing opaque key validation remains mandatory; no client filesystem paths. WGS log index additionally registers existing `.log/.out/.err` files explicitly declared by current-attempt Master `log:` lines, under the bound batch only, without symlinks/traversal. Index parses at most8MiB/2000 files; unavailable/unreferenced child logs are not fabricated. Other adapters retain existing tail-only search UI.
 
 
