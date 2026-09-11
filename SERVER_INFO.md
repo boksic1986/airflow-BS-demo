@@ -1,5 +1,8 @@
 # SERVER_INFO.md
 
+2026-09-11 Logs UI/API hotfix deployed from `763137c`: backend main.py/diagnostics_service.py and `index-bc6dsZAw.js` (CSS unchanged). Backend restarted only; worker/observer/scanner unchanged. Rollback current/rollback/log-search-20260911. Live0907D126fastp matches/10child sources verified; API healthy.
+
+
 2026-09-11 Step7 hotfix: actual t640 gate `/home/ctapa/.config/airflow-wgs/wgs_runtime_gate.py` updated from production-branch commit `f955ba9`, SHA256 `bc32a5b77dca4062d966f2a54e89d336bc8c83ed2a910dbd0e709ab5fa568258`. Private sibling rollback `.rollback-step7-20260911` retains prior gate. This supersedes only the gate hash in the baseline inventory; no service/release symlink/image change. Production API healthy; cleanup not executed.
 
 

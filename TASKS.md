@@ -4,7 +4,7 @@
 
 - [x] Confirm tail-only search and missing child source registration.
 - [x] Add bounded server search, child path validation, debounced UI and tests/build.
-- [ ] Deploy precise backend/frontend patch and verify live fastp search/child log reads.
+- [x] Deploy precise backend/frontend patch and verify live126 fastp matches,10 child sources,48lines from a child log; health OK.
 
 
 ## STEP7-20260911 — frozen operator configuration approval

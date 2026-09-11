@@ -2,7 +2,7 @@
 
 ## LOGS-20260911
 
-WGS full-content bounded search and current-Master-referenced child log indexing implemented;4 backend/4 frontend tests and production build passed. Deployment pending. 0907D actual child fastp logs are present in07_QC; no analysis rerun required.
+WGS full-content bounded search and current-Master-referenced child log indexing deployed from `763137c`;4 backend/4 frontend tests and production build passed. Live0907D search returns126 fastp matches and10 child logs (sample read48lines). Bundle `index-bc6dsZAw.js`; health OK. Backend only restarted; worker/observer/scanner unchanged. Unreturned or unreferenced child logs remain outside the index; no analysis rerun.
 
 
 ## STEP7-20260911 — cleanup gate repair
