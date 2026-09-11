@@ -1,5 +1,28 @@
 # Workflow runtime integration
 
+## OPT20260912 submission
+
+The additive `test_project` request descriptor freezes original sampleinfo/config
+SHA256, ordered sample IDs and FASTQ resolved-path/size/mtime_ns fingerprints.
+The test node checks source identity and exclusively creates a relative child
+under WGS_test, marked with analysis identity; source results are never copied.
+prepare_sampleinfo copies only the frozen table and emits the existing v1
+handoff receipt, without metadata lookup or family expansion. Owner analysis
+uses this independent outpath, so its prepare/pending_samples.tsv is test-local.
+The gate requires exact final selected IDs with no pending/excluded entries,
+matches prepared FASTQ targets, and checks generated caller/reference options
+before binding Step1-Step6. It retains the standard request v4, prepare receipt
+v1, stage-generation and execution-approval contracts. Test mode is CCE-only;
+target switching into non-isolated local/SGE gates is server-rejected.
+No owner core, formal pending or production workflow is modified.
+
+The requested child contains a frozen `WGS_TEST_<16 hex>` project namespace.
+Its basename is the owner-generated cloud project identity; the original batch
+and sample table bytes are retained. Owner cc9bde3 uses `project/batch` for OBS,
+SFS and linkage suffixes; installed cce-pipeline 0.8.4 derives its batch lock
+from SHA256 of that same identity. Thus two tests of the same source do not
+share results or locks. Existing Step7 frozen-binding targeting remains intact.
+
 GATK81587fc: Step1 transfer plans/raw evidence are scoped to generation-specific
 directories. Explicit foreign execution/generation/hash fields are rejected;
 identity-less obsutil rows are accepted only from the generation-private spool.

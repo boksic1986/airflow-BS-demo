@@ -1,5 +1,32 @@
 # API contract
 
+## OPT20260912 submission
+
+- WGS release adds release-audited `submission_options` (caller enum, reference
+  enum, fixed genome/CNV description/provenance) and `test_project_enabled`.
+  Unknown releases expose no invented options. POST `/api/wgs/runs` accepts
+  optional `algo` and `use_reference`; explicit choices are frozen at stage 1,
+  checked in configuration approval and propagated to the owner CLI. Old
+  requests without options retain legacy defaults.
+- GATK release adds `caller` and `runtime_identity.configured/observed/reason`.
+  No release-wide runtime probe exists: observed version/profile/Master/check
+  time remain null, never copied from configured profile values.
+- Authenticated operator POST `/api/wgs/test-projects/preview` accepts
+  `source_project_dir`, `output_child`, `algo`, `use_reference`. Source is an
+  existing WGS `sampleinfo.tsv`, `config.yaml`, `raw/<data_id>.R{1,2}.fq.gz`
+  project inside the approved WGS_test root. It returns draft/hash, exact safe
+  sample IDs, input counts and frozen choices, not FASTQ paths or raw rows.
+- POST `/api/wgs/test-projects/{draft_id}/confirm` accepts `preview_hash`.
+  Owner, expiry, current release and exact source fingerprint are rechecked;
+  one locked draft creates one independent AnalysisRun and deterministic
+  DagRun. PostgreSQL advisory locking serializes competing output identities.
+  The gate creates the output only on the restricted test node. Configuration
+  and execution still require the existing second and third confirmations.
+- Production rejects this mode in service and node gate, even if the feature
+  flag is erroneously true. Errors are `WGS_TEST_PROJECT_INVALID` (400),
+  `WGS_TEST_PROJECT_CONFLICT` (409), or existing execution/registry errors.
+  Target existence/traversal/symlinks are rejected; no output fallback exists.
+
 ## GATK selective production promotion (2026-09-12)
 
 Manual GATK preview/confirmation retains the existing authenticated API. The

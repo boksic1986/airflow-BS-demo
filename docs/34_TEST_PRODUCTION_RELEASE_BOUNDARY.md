@@ -1,5 +1,17 @@
 # Test and production release boundary
 
+## OPT20260912 independent WGS test projects
+
+Existing-source preview and new independent outputs are limited to
+`/sg2/50.ctapa/project/HWcloud/WGS_test/<safe-relative-child>`. Backend reads
+source paths only; the existing test restricted node identity creates the new
+output and owns its isolated pending ledger. A read-only backend mount is not
+evidence that the node cannot write. Both layers require the explicit test
+environment and feature flag. Production rejects the interface server-side.
+No source project/results are copied wholesale, overwritten or deleted; no
+formal shared pending is accessed by this mode. Manual test execution still
+requires all three confirmations and existing execution gates.
+
 This document is the stable authority for selecting an airflow-demo runtime
 environment. Release names and commits are observations, not permanent
 configuration. Before any remote action, inspect the target host and the

@@ -9,6 +9,8 @@ import {errorMessage} from "../lib/errors";
 import {getWgsSubmissionSnapshot} from "../api";
 import {IncompleteSubmissionsPanel} from "../features/wgs/IncompleteSubmissions";
 import {CancelSubmission} from "../features/wgs/CancelSubmission";
+import {useSubmissionDraft} from "../features/platform/useSubmissionDraft";
+import {previewWgsTestProject, confirmWgsTestProject, type WgsTestPreview} from '../api';
 
 export function SubmitPage() {
   const capabilities = usePlatformCapabilities();
@@ -29,13 +31,13 @@ export function SubmitPage() {
     selectedId={selected.id}
     onChange={(pipelineId) => setSearchParams({pipeline: pipelineId})}
   />;
-  return selected.id === "gatk"
-    ? <GatkSubmitForm pipelineSelector={pipelineSelector} />
-    : <WgsSubmitForm pipelineSelector={pipelineSelector} />;
+  return <div className="submission-layout">{pipelineSelector}<div className="submission-main">{selected.id === "gatk"
+    ? <GatkSubmitForm pipelineSelector={null} />
+    : <WgsSubmitForm pipelineSelector={null} />}</div></div>;
 }
 
 function SubmissionPipelineField({pipelines, selectedId, onChange}: {pipelines: PipelineCapability[]; selectedId: string; onChange: (pipelineId: string) => void}) {
-  return <div className="field submission-pipeline-field"><span>Pipeline</span><div className="segmented-control submission-pipeline-switcher" role="tablist" aria-label="Submission pipeline">{pipelines.map((pipeline) => <button className={pipeline.id === selectedId ? "active" : ""} type="button" role="tab" aria-selected={pipeline.id === selectedId} key={pipeline.id} onClick={() => onChange(pipeline.id)}>{pipeline.display_name}</button>)}</div></div>;
+  return <aside className="pipeline-rail submission-pipeline-field" role="tablist" aria-orientation="vertical" aria-label="Submission pipeline">{pipelines.map((pipeline) => <button aria-label={pipeline.display_name} className={pipeline.id === selectedId ? "active" : ""} type="button" role="tab" aria-selected={pipeline.id === selectedId} key={pipeline.id} onClick={() => onChange(pipeline.id)}><strong>{pipeline.display_name}</strong><span>{pipeline.dag_id}</span></button>)}</aside>;
 }
 
 function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
@@ -44,11 +46,17 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const requestedRun = searchParams.get("analysis_id");
   const [release, setRelease] = useState<WgsRelease | null>(null);
   const [catalog, setCatalog] = useState<WgsProjectCatalog | null>(null);
-  const [projectId, setProjectId] = useState("WGS_Clinical");
-  const [platform, setPlatform] = useState("T7");
-  const [batch, setBatch] = useState("");
-  const [fastqRootId, setFastqRootId] = useState("T7_Fastq");
-  const [useReference, setUseReference] = useState<"all" | "ref" | "no">("all");
+  const [projectId, setProjectId] = useSubmissionDraft("wgs", "project", "WGS_Clinical");
+  const [platform, setPlatform] = useSubmissionDraft("wgs", "platform", "T7");
+  const [batch, setBatch] = useSubmissionDraft("wgs", "batch", "");
+  const [fastqRootId, setFastqRootId] = useSubmissionDraft("wgs", "fastq", "T7_Fastq");
+  const [useReference, setUseReference] = useSubmissionDraft<"all" | "ref" | "no">("wgs", "reference", "all");
+  const [algo, setAlgo] = useSubmissionDraft("wgs", "algo", "DNAscope");
+  const [testSource, setTestSource] = useSubmissionDraft('wgs','test-source','');
+  const [testChild, setTestChild] = useSubmissionDraft('wgs','test-child','');
+  const [inputMode, setInputMode] = useSubmissionDraft('wgs','input-mode','catalog');
+  const [testPreview, setTestPreview] = useState<WgsTestPreview | null>(null);
+  useEffect(()=>{if(release && !release.test_project_enabled && inputMode!=='catalog')setInputMode('catalog');},[release,inputMode,setInputMode]);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [created, setCreated] = useState<RunDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -106,12 +114,24 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   async function prepare(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSubmitting(true); setError(null);
     try {
-      const detail = await createCatalogWgsRun({project_id: projectId, platform, batch, fastq_root_id: fastqRootId});
+      if (inputMode==='test' && release?.test_project_enabled) {
+        setTestPreview(await previewWgsTestProject({source_project_dir:testSource,output_child:testChild,algo,use_reference:useReference}));
+        return;
+      }
+      const detail = await createCatalogWgsRun({project_id: projectId, platform, batch, fastq_root_id: fastqRootId, ...(release?.submission_options?.callers.length ? {algo, use_reference: useReference} : {})});
       setCreated(detail);
       setSearchParams({pipeline: "wgs", analysis_id: detail.analysis_id}, {replace: true});
     }
     catch (submitError) { setError(errorMessage(submitError)); }
     finally { setSubmitting(false); }
+  }
+  async function confirmTestSource() {
+    if (!testPreview) return;
+    setSubmitting(true);setError(null);
+    try {
+      const detail=await confirmWgsTestProject(testPreview);
+      setCreated(detail);setSearchParams({pipeline:'wgs',analysis_id:detail.analysis_id},{replace:true});
+    } catch (failure) {setError(errorMessage(failure));} finally {setSubmitting(false);}
   }
   async function confirmConfiguration() {
     if (!created) return;
@@ -147,19 +167,35 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     {phase === "cancelled" ? <section className="panel" role="status"><h2>提交已取消</h2><p>样本表和回执已保留作审计；未修改 pending 或删除分析数据。</p></section> : null}
     {phase === "cancelling_submission" ? <section className="panel" role="status"><h2>取消尚未确认</h2><p>已禁止继续确认配置。请使用右上角“重试取消提交”完成停止确认。</p></section> : null}
     {requestedRun ? <section className="panel"><Link to={`/runs/${requestedRun}`}>View existing run</Link>{restoring ? <p>Restoring submission...</p> : null}{!restoring && !created ? <p>The existing run could not be loaded. Refresh to retry; no new run has been submitted.</p> : null}</section> : null}
-    {!created && !requestedRun ? <section className="panel"><form className="form-grid" onSubmit={prepare}>
+    {!created && !requestedRun ? <section className="panel"><form className="form-grid wgs-grouped-form" onSubmit={prepare}>
       {pipelineSelector}
+      <fieldset><legend>Input and project</legend>
+      {release?.test_project_enabled ? <label className="field"><span>Input mode</span><select aria-label="Input mode" value={inputMode} onChange={event=>{setInputMode(event.target.value);setTestPreview(null);}}><option value="catalog">Catalog batch</option><option value="test">Existing project → independent test project</option></select></label> : null}
+      {inputMode==='test' && release?.test_project_enabled ? <>
+      <label className="field"><span>Existing WGS project</span><input aria-label="Existing WGS project" value={testSource} onChange={event=>{setTestSource(event.target.value);setTestPreview(null);}} /></label>
+      <label className="field"><span>New relative output directory</span><input aria-label="New relative output directory" value={testChild} onChange={event=>{setTestChild(event.target.value);setTestPreview(null);}} /></label>
+      <p className="field-help">Test only: /sg2/50.ctapa/project/HWcloud/WGS_test. Source sampleinfo.tsv/config.yaml and exact raw FASTQ pairs are frozen; existing results and formal pending are never copied.</p>
+      </> : <>
       <label className="field"><span>Project</span><select aria-label="Project" value={projectId} onChange={(event) => setProjectId(event.target.value)}>{catalog?.items.map((item) => <option value={item.project_id} key={item.project_id}>{item.display_name}</option>)}</select></label>
       <label className="field"><span>Platform</span><select aria-label="Platform" value={platform} onChange={(event) => setPlatform(event.target.value)}>{project?.platforms.map((item) => <option value={item.platform_id} key={item.platform_id}>{item.display_name}</option>)}</select></label>
       <label className="field"><span>Batch</span><input aria-label="Batch" placeholder="20260901B" value={batch} onChange={(event) => setBatch(event.target.value)} /></label>
       <label className="field"><span>FASTQ root</span><select aria-label="FASTQ root" value={fastqRootId} onChange={(event) => setFastqRootId(event.target.value)}>{project?.fastq_roots.map((item) => <option value={item.root_id} key={item.root_id}>{item.display_name}</option>)}</select></label>
+      </>}
+      </fieldset><fieldset><legend>Analysis parameters</legend>
+      <label className="field"><span>Variant caller</span><select aria-label="Variant caller" value={algo} onChange={event=>{setAlgo(event.target.value);setTestPreview(null);}} disabled={!release?.submission_options?.callers.length}>{release?.submission_options?.callers.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+      <label className="field"><span>Reference selection</span><select aria-label="Use reference" value={useReference} onChange={event=>{setUseReference(event.target.value as "all" | "ref" | "no");setTestPreview(null);}}>{(release?.submission_options?.reference_values || ['all','ref','no']).map(value=><option key={value} value={value}>{value}</option>)}</select></label>
+      <p className="field-help">Genome: {release?.submission_options?.reference_genome || 'Release default'}. {release?.submission_options?.cnv || 'CNV configuration is fixed by the release.'}</p>
+      {!release?.submission_options?.callers.length ? <p className="field-help">Caller options unavailable for this release; legacy release defaults apply.</p> : null}
+      </fieldset>
       <p className="field-help">WGS first generates sampleinfo. Analysis and cloud execution start only after the following confirmations.</p>
-      <button className="button primary" type="submit" disabled={!executionEnabled || !projectId || !platform || !batch || !fastqRootId || submitting}>{submitting ? "Preparing..." : "Prepare sample information"}</button>
+      <button className="button primary" type="submit" disabled={!executionEnabled || (inputMode==='test' ? !testSource || !testChild : !projectId || !platform || !batch || !fastqRootId) || submitting}>{submitting ? "Preparing..." : inputMode==='test' ? 'Preview exact test project' : "Prepare sample information"}</button>
       {!executionEnabled ? <p className="inline-error" role="note">Execution is disabled. No AnalysisRun, OBS transfer or CCE task can start.</p> : null}
     </form></section> : null}
+    {!created && testPreview && inputMode==='test' ? <section className="panel"><h2>Review frozen source scope</h2><p>{testPreview.sample_count} samples · {testPreview.fastq_file_count} FASTQ files · {testPreview.release_id} · Sentieon {testPreview.algo} · Reference {testPreview.use_reference}</p><p>Output: {testPreview.output_child}. {testPreview.write_check}</p><p>{testPreview.samples.join(', ')}</p><button type="button" className="button primary" disabled={submitting} onClick={()=>void confirmTestSource()}>Confirm test source and prepare</button></section> : null}
     {created && preparationFailed ? <section className="panel" role="alert"><h2>Sample information preparation failed</h2><p>{created.error_summary || "The preparation task failed before sample information became available."}</p><Link className="button primary" to={`/runs/${created.analysis_id}`}>View failure details</Link></section> : null}
     {created && !preparationFailed && phase === "preparing_sampleinfo" ? <section className="panel"><h2>Preparing sample information</h2><p>The WGS sampleinfo task is running. This page refreshes automatically.</p></section> : null}
-    {created && phase === "config_review" ? <section className="panel"><h2>Review samples and configuration</h2><SamplePreview samples={samples} /><div className="form-grid"><label className="field"><span>Reference selection</span><select aria-label="Use reference" value={useReference} onChange={(event) => setUseReference(event.target.value as "all" | "ref" | "no")}><option value="all">All</option><option value="ref">Reference only</option><option value="no">No reference</option></select></label><label className="field"><span>Resource set</span><select aria-label="Resource set" value="default" disabled><option value="default">WGS release default</option></select></label><button className="button primary" type="button" disabled={submitting} onClick={() => void confirmConfiguration()}>Confirm configuration</button></div></section> : null}
+    {created?.params?.submission_options ? <section className="panel"><h2>Frozen analysis parameters</h2><p>Caller: Sentieon {String(created.params.algo)} · Reference: {String(created.params.use_reference)} · Release: {String(created.params.pipeline_release_id)}</p><p>These options were fixed at the first confirmation. The following review cannot change them.</p></section> : null}
+    {created && phase === "config_review" ? <section className="panel"><h2>Review samples and configuration</h2><SamplePreview samples={samples} /><div className="form-grid"><label className="field"><span>Reference selection</span><select aria-label="Use reference" disabled={Boolean(created.params?.submission_options)} value={useReference} onChange={(event) => setUseReference(event.target.value as "all" | "ref" | "no")}><option value="all">All</option><option value="ref">Reference only</option><option value="no">No reference</option></select></label><label className="field"><span>Resource set</span><select aria-label="Resource set" value="default" disabled><option value="default">WGS release default</option></select></label><button className="button primary" type="button" disabled={submitting} onClick={() => void confirmConfiguration()}>Confirm configuration</button></div></section> : null}
     {created && phase === "preparing_analysis" ? <section className="panel"><h2>Preparing analysis directory</h2><p>WGS is resolving eligible and pending samples and freezing the CCE bundle.</p></section> : null}
     {created && phase === "execution_review" ? <section className="panel"><h2>Confirm WGS execution</h2><SamplePreview samples={samples} />{created.execution_dispatch ? <ExecutionTargetSelector attempt={created.attempt || 1} batch={batch || String(created.params?.batch || created.params?.sequencing_batch || "-")} sampleCount={samples.length} dispatch={created.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={async () => setCreated(await getRunDetail(created.analysis_id))} /> : null}<p>Review the final selected samples before starting the selected execution backend.</p><button className="button primary" type="button" disabled={submitting || samples.length === 0} onClick={() => void startExecution()}>Start WGS workflow</button></section> : null}
     {created && phase === "approved" ? <>{created.execution_dispatch ? <ExecutionTargetSelector attempt={created.attempt || 1} batch={batch || String(created.params?.batch || created.params?.sequencing_batch || "-")} sampleCount={samples.length} dispatch={created.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={async () => setCreated(await getRunDetail(created.analysis_id))} /> : null}<p className="success-note">WGS execution approved: <Link to={`/runs/${created.analysis_id}`}>{created.analysis_id}</Link>.</p></> : null}
@@ -169,7 +205,7 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
 
 function GatkSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const [release, setRelease] = useState<GatkRelease | null>(null);
-  const [sourceProjectDir, setSourceProjectDir] = useState("");
+  const [sourceProjectDir, setSourceProjectDir] = useSubmissionDraft("gatk", "source", "");
   const [preview, setPreview] = useState<GatkSubmissionPreview | null>(null);
   const [created, setCreated] = useState<RunDetail | null>(null);
   const [busy, setBusy] = useState(false);
@@ -221,6 +257,9 @@ function GatkSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     <section className="page-header"><div><p className="eyebrow">GATK V7.6.0 · CCE</p><h1>Submit GATK Cloud</h1><p>Select one controlled WES project, review its locked SCMC sample set, then submit the Step1-Step6 workflow.</p></div></section>
     <section className="panel">
       <dl className="definition-grid"><div><dt>Runtime profile</dt><dd>{release?.profile_id || "Loading profile..."}</dd></div><div><dt>Revision</dt><dd>{release?.profile_revision || "-"}</dd></div><div><dt>Execution</dt><dd>{release ? (executionEnabled ? "Enabled" : "Disabled") : "Loading..."}</dd></div></dl>
+      <p>Caller: {release?.caller || 'GATK HaplotypeCaller'}. Profile above is configured, not an observed Master identity.</p>
+      <dl className="definition-grid"><div><dt>Observed cce-pipeline</dt><dd>{release?.runtime_identity?.observed.cce_pipeline_version || 'Not observed'}</dd></div><div><dt>Observed profile</dt><dd>{release?.runtime_identity?.observed.profile_id || 'Not observed'}</dd></div><div><dt>Observed Master</dt><dd>{release?.runtime_identity?.observed.master || 'Not observed'}</dd></div><div><dt>Runtime checked at</dt><dd>{release?.runtime_identity?.observed.checked_at || 'Not recorded'}</dd></div></dl>
+      {release?.runtime_identity?.reason ? <p className="field-help">{release.runtime_identity.reason}</p> : null}
       {release && !executionEnabled ? <p className="inline-error" role="note">GATK execution is disabled in this environment. Preview remains read-only.</p> : null}
     </section>
     <section className="panel">

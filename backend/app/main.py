@@ -370,6 +370,8 @@ class WgsCatalogRunRequest(BaseModel):
     platform: str = Field(min_length=1, max_length=64)
     batch: str = Field(pattern="^[0-9]{8}[A-Z]$")
     fastq_root_id: str = Field(min_length=1, max_length=128)
+    use_reference: str | None = Field(default=None, pattern="^(all|ref|no)$")
+    algo: str | None = Field(default=None, pattern="^(DNAscope|Haplotyper)$")
     validation_scope: str | None = Field(
         default=None, pattern="^(step1_only|step3_dryrun|node97_full)$"
     )
@@ -379,6 +381,19 @@ class WgsConfigApprovalRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     use_reference: str = Field(pattern="^(all|ref|no)$")
     resource_set: str = Field(default="default", pattern="^default$")
+
+
+class WgsTestPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_project_dir: str = Field(min_length=1, max_length=2048)
+    output_child: str = Field(min_length=1, max_length=256)
+    algo: str = Field(pattern="^(DNAscope|Haplotyper)$")
+    use_reference: str = Field(pattern="^(all|ref|no)$")
+
+
+class WgsTestConfirmRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    preview_hash: str = Field(pattern="^[0-9a-f]{64}$")
 
 
 class WgsSubmissionDraftResultRequest(BaseModel):
@@ -440,6 +455,7 @@ def health() -> dict[str, str]:
 
 @app.get("/api/wgs/release")
 def current_wgs_release() -> dict[str, object]:
+    from app.wgs_release_catalog import submission_options
     release = load_wgs_release_catalog(
         Path(get_settings().wgs_release_catalog_path)
     ).release
@@ -456,6 +472,8 @@ def current_wgs_release() -> dict[str, object]:
         "execution_enabled": _wgs_platform_execution_enabled(),
         "runtime_adapter_enabled": _wgs_runtime_adapter_enabled(),
         "submission_preview_enabled": _wgs_submission_preview_enabled(),
+        "submission_options": submission_options(release),
+        "test_project_enabled": str(getattr(get_settings(), "platform_environment", "")).lower() in {"test", "bs10610-test"} and getattr(get_settings(), "wgs_test_project_enabled", False),
     }
 
 
@@ -534,6 +552,12 @@ def gatk_release() -> dict[str, object]:
         "profile_revision": settings.gatk_runtime_profile_revision,
         "execution_target": "cce",
         "execution_enabled": bool(settings.gatk_execution_enabled),
+        "caller": "GATK HaplotypeCaller",
+        "runtime_identity": {
+            "configured": {"profile_id": settings.gatk_runtime_profile_id, "profile_revision": settings.gatk_runtime_profile_revision},
+            "observed": {"cce_pipeline_version": None, "profile_id": None, "profile_revision": None, "master": None, "checked_at": None},
+            "reason": "No release-wide verified runtime observation is published; consult the exact run receipt",
+        },
     }
 
 
@@ -777,6 +801,30 @@ def gatk_submission_preview(
 def wgs_projects() -> dict[str, object]:
     settings = get_settings()
     return public_project_catalog(load_wgs_projects(settings.wgs_project_catalog_path))
+
+
+@app.post("/api/wgs/test-projects/preview", status_code=201)
+def preview_wgs_test_project(request: WgsTestPreviewRequest, user: AuthenticatedUser = Depends(operator_user)):
+    from app.wgs_test_project import preview
+    try:
+        require_pipeline(get_settings(), "wgs", capability="submit")
+        with get_sessionmaker()() as session:
+            return preview(session=session, settings=get_settings(), username=user.username, **request.model_dump())
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail={"code":"WGS_TEST_PROJECT_INVALID","message":str(exc)}) from exc
+
+
+@app.post("/api/wgs/test-projects/{draft_id}/confirm", status_code=201)
+def confirm_wgs_test_project(draft_id: str, request: WgsTestConfirmRequest, user: AuthenticatedUser = Depends(operator_user)):
+    from app.wgs_test_project import confirm
+    if not _wgs_platform_execution_enabled() or not _wgs_runtime_adapter_enabled():
+        raise HTTPException(status_code=409, detail={"code":"WGS_EXECUTION_DISABLED","message":"WGS execution remains disabled"})
+    try:
+        require_pipeline(get_settings(), "wgs", capability="submit")
+        with get_sessionmaker()() as session:
+            return confirm(session=session, settings=get_settings(), airflow_client=get_airflow_client(), username=user.username, draft_id=draft_id, **request.model_dump())
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail={"code":"WGS_TEST_PROJECT_CONFLICT","message":str(exc)}) from exc
 
 
 @app.get("/api/platform/resources")
@@ -2138,6 +2186,7 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 sequencing_batch=str(params.get("sequencing_batch") or "") or None,
                 fastq_root=str(params.get("fastq_root") or "") or None,
                 use_reference=str(params.get("use_reference") or "") or None,
+                algo=str(params.get("algo") or "") or None,
                 analysis_batch=str(params.get("analysis_batch") or "") or None,
                 validation_scope=str(params.get("validation_scope") or "") or None,
                 maintenance_action_id=request.maintenance_action_id,
@@ -2149,6 +2198,16 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 pipeline_build_sha256=release.pipeline_build_sha256,
                 resource_manifest_sha256=release.resource_manifest_sha256,
             )
+            if params.get("test_project"):
+                from app.wgs_test_project import require_test, TEST_ROOT
+                require_test(settings)
+                test_project = dict(params["test_project"])
+                test_root = Path(str(test_project["output_root"]))
+                if TEST_ROOT not in test_root.parents or ".." in test_root.parts:
+                    raise ValueError("Test project output escapes approved root")
+                payload["test_project"] = test_project
+                payload["analysis_project_root"] = str(test_root)
+                payload["expected_batch_root"] = str(test_root / str(params["batch_no"]))
             if step7_action is not None:
                 snapshot = dict(step7_action.target_snapshot_json or {})
                 snapshot.update(

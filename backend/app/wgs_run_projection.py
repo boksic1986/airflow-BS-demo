@@ -36,6 +36,11 @@ def wgs_params_match_batch(
 def public_wgs_params(params: Mapping[str, Any] | None) -> dict[str, Any]:
     projected = dict(params or {})
     projected["batch_no"] = public_wgs_batch(projected)
+    if projected.get('test_project'):
+        data=projected['test_project']
+        projected['test_project']={key:data[key] for key in ['output_child','algo','use_reference','release_id'] if key in data}
+        for key in ['fq_path','fastq_root','input_manifest_path']:
+            projected.pop(key,None)
     return projected
 
 

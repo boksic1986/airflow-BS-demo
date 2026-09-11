@@ -1,5 +1,26 @@
 # Deployment runbook
 
+## OPT20260912 test submission rollout
+
+After fresh BS10610 active-state preflight, deploy matching backend/frontend and
+the standalone test node gate. Backend Compose now forwards
+`WGS_TEST_PROJECT_ENABLED` (false by default). Test-only activation requires
+`PLATFORM_ENVIRONMENT=BS10610-Test` (existing display label; `test` is also
+accepted for isolated tests) and `WGS_TEST_PROJECT_ENABLED=true` in backend and
+the existing `/home/ctapa/.config/airflow-wgs-test/runtime.env`; retain its test
+runtime/request roots and all existing execution gates. Never set these in the
+production node gate. Keep scanner/dispatch unchanged.
+
+Backend needs same-path read-only /sg2 and /bi visibility already supplied by
+the current test deployment. Do not grant backend write access or silently
+change mounts. Node ctapa checks write permission on the requested output's
+existing parent; missing/unwritable parents fail explicitly without fallback.
+The observer consumes unchanged receipt schemas and needs no new test-mode
+environment value or new producer; normal source-version coordination applies.
+No Airflow DAG/schema migration is required. Rollback disables the test flag
+and restores backend/frontend/test gate; retain drafts, run records and output
+for audit. Never rollback by deleting a project or touching formal pending.
+
 ## GATK selective promotion, 2026-09-12
 
 Use `docker-compose.gatk.yaml` as an optional overlay on the verified WGS

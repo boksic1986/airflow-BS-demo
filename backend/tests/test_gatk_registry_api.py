@@ -56,10 +56,13 @@ pipelines:
     release = TestClient(main.app).get("/api/pipelines/gatk/release")
 
     assert release.status_code == 200
-    assert release.json() == {
+    assert {key:release.json()[key] for key in ('pipeline','profile_id','profile_revision','execution_target','execution_enabled')} == {
         "pipeline": "gatk",
         "profile_id": "gatk-scmc-v7.6.0",
         "profile_revision": "bd04f6d",
         "execution_target": "cce",
         "execution_enabled": False,
     }
+    assert release.json()['caller']=='GATK HaplotypeCaller'
+    assert release.json()['runtime_identity']['configured']['profile_revision']=='bd04f6d'
+    assert release.json()['runtime_identity']['observed']=={'cce_pipeline_version':None,'profile_id':None,'profile_revision':None,'master':None,'checked_at':None}

@@ -109,6 +109,8 @@ def _display_batch(value: Any) -> str | None:
 
 def _batch_root(*, settings, run: AnalysisRun) -> Path | None:
     try:
+        from app.wgs_test_project import project_root
+        test_root = project_root(settings, run)
         binding = load_wgs_runtime_binding(
             run_root=settings.wgs_runtime_run_root,
             analysis_id=run.analysis_id,
@@ -116,8 +118,8 @@ def _batch_root(*, settings, run: AnalysisRun) -> Path | None:
         )
         return resolve_bound_wgs_batch_root(
             binding=binding,
-            node_analysis_root=settings.wgs_results_host_root,
-            local_analysis_root=settings.host_results_root,
+            node_analysis_root=test_root or settings.wgs_results_host_root,
+            local_analysis_root=test_root or settings.host_results_root,
         )
     except (KeyError, OSError, TypeError, ValueError):
         return None

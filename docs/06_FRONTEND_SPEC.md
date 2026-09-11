@@ -1,5 +1,19 @@
 # Frontend specification
 
+## OPT20260912 submission
+
+Submit uses a vertical WGS/GATK rail matching Command Center and a responsive
+two-column WGS input/project and analysis-parameter layout. First-step choices
+come from the release API. Explicit choices become read-only in review;
+DNAscope, Sentieon Haplotyper and GATK HaplotypeCaller are distinct names.
+Account/pipeline-scoped session drafts retain input fields across switches and
+reloads; server-bound WGS analysis recovery and all three confirmations remain.
+GATK shows configured profile separately from unobserved runtime identity.
+Only the server's `test_project_enabled` capability exposes independent test
+source/relative-output inputs. Source/parameter edits invalidate a test preview.
+The test flow confirms exact source, reviews prepared configuration, then
+confirms execution; it never treats preview as successful workflow execution.
+
 2026-09-11 WGS Logs search is debounced350ms and sent to the registered-log API, not filtered against the last200lines. Query participates in silent refresh identity so old query/source responses cannot win. Keep previous excerpts while searching; label tail truncation and incomplete server scans. Current-attempt declared child logs appear in Other rule logs. No hidden-tab polling or workflow mutation.
 
 

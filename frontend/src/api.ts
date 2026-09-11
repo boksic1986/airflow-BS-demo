@@ -260,6 +260,8 @@ export type SessionUser = {
 export type LoginRequest = {username: string; password: string};
 
 export type WgsRelease = {
+  test_project_enabled?: boolean;
+  submission_options?: {callers: {value: string; label: string}[]; reference_values: string[]; reference_genome?: string; cnv?: string; provenance?: string};
   release_id: string;
   version: string;
   source_commit: string;
@@ -491,6 +493,8 @@ export type GatkSubmissionPreview = {
 };
 
 export type GatkRelease = {
+  caller?: string;
+  runtime_identity?: {configured: {profile_id: string; profile_revision: string}; observed: {cce_pipeline_version: string | null; profile_id: string | null; profile_revision: string | null; master: string | null; checked_at: string | null}; reason: string};
   pipeline: "gatk";
   profile_id: string;
   profile_revision: string;
@@ -1473,11 +1477,21 @@ export function getWgsProjects(): Promise<WgsProjectCatalog> {
   return requestJson<WgsProjectCatalog>("/wgs/projects");
 }
 
+export type WgsTestPreview = {draft_id:string; preview_hash:string; samples:string[]; batch:string; output_child:string; sample_count:number; fastq_file_count:number; algo:string; use_reference:string; release_id:string; write_check:string; expires_at:string};
+export function previewWgsTestProject(payload: {source_project_dir:string;output_child:string;algo:string;use_reference:string}): Promise<WgsTestPreview> {
+  return requestJson('/wgs/test-projects/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+}
+export function confirmWgsTestProject(draft: WgsTestPreview): Promise<RunDetail> {
+  return requestJson(`/wgs/test-projects/${encodeURIComponent(draft.draft_id)}/confirm`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({preview_hash:draft.preview_hash})});
+}
+
 export function createCatalogWgsRun(payload: {
   project_id: string;
   platform: string;
   batch: string;
   fastq_root_id: string;
+  algo?: string;
+  use_reference?: "all" | "ref" | "no";
 }): Promise<RunDetail> {
   return requestJson<RunDetail>("/wgs/runs", {
     method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload),

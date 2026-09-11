@@ -44,6 +44,22 @@ class WgsReleaseCatalog:
         raise ValueError(f"WGS release is not cataloged: {release_id}")
 
 
+def submission_options(release: WgsRelease) -> dict:
+    """Audited owner CLI contract; unknown releases must not inherit it."""
+    if release.source_commit != "cc9bde3c8ee6ad1cd2f85cf5d2ef49c5611ac081":
+        return {"callers": [], "reference_values": [], "reason": "Release options have not been audited"}
+    return {
+        "callers": [
+            {"value": "DNAscope", "label": "Sentieon DNAscope"},
+            {"value": "Haplotyper", "label": "Sentieon Haplotyper"},
+        ],
+        "reference_values": ["all", "ref", "no"],
+        "reference_genome": "GRCh38",
+        "cnv": "Release-pinned CNV native/reference configuration (not independently switchable)",
+        "provenance": "cc9bde3:prepare/prepare_wgs_batch.py;cfg/config.template.yaml",
+    }
+
+
 def load_wgs_release_catalog(path: Path | str) -> WgsReleaseCatalog:
     source = Path(path)
     payload = yaml.safe_load(source.read_text(encoding="utf-8"))

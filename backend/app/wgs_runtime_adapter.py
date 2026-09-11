@@ -60,6 +60,7 @@ def build_stage_request(
     analysis_batch: str | None = None,
     fastq_root: str | None = None,
     use_reference: str | None = None,
+    algo: str | None = None,
     maintenance_action_id: str | None = None,
     execution_id: str | None = None,
     generation: int | None = None,
@@ -135,6 +136,10 @@ def build_stage_request(
         if str(use_reference) not in {"all", "ref", "no"}:
             raise ValueError("use_reference must be all, ref, or no")
         payload["use_reference"] = str(use_reference)
+    if algo is not None:
+        if algo not in {"DNAscope", "Haplotyper"}:
+            raise ValueError("unsupported WGS caller")
+        payload["algo"] = algo
     if validation_scope is not None:
         if validation_scope not in {"step1_only", "step3_dryrun", "node97_full"}:
             raise ValueError("unsupported WGS validation scope")

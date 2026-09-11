@@ -388,7 +388,9 @@ def _is_terminal_transfer_status(value: str | None) -> bool:
 
 def run_payload(session: Session, run: AnalysisRun) -> dict:
     count = len(session.scalars(select(Sample).where(Sample.analysis_id == run.analysis_id, selected_clause())).all())
-    return {"analysis_id": run.analysis_id, "pipeline": "wgs", "dag_id": run.dag_id, "dag_run_id": run.dag_run_id, "execution_mode": run.execution_mode, "attempt": run.attempt, "status": run.status, "sample_count": count, "sample_scope_status": scope_status(run), "workdir": run.workdir, "params": run.params_json, "submitted_by": run.submitted_by}
+    from app.wgs_run_projection import public_wgs_params
+    params = public_wgs_params(run.params_json) if (run.params_json or {}).get('test_project') else run.params_json
+    return {"analysis_id": run.analysis_id, "pipeline": "wgs", "dag_id": run.dag_id, "dag_run_id": run.dag_run_id, "execution_mode": run.execution_mode, "attempt": run.attempt, "status": run.status, "sample_count": count, "sample_scope_status": scope_status(run), "workdir": run.workdir, "params": params, "submitted_by": run.submitted_by}
 
 
 def masked_order_number(value: object) -> str | None:
@@ -425,14 +427,16 @@ def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> in
         raise WgsPreparedArtifactPending(
             "WGS prepared batch binding is not visible yet"
         ) from error
+    from app.wgs_test_project import project_root
+    test_root = project_root(settings, run)
     batch_root = resolve_bound_wgs_batch_root(
         binding=value,
-        node_analysis_root=getattr(
+        node_analysis_root=test_root or getattr(
             settings,
             "wgs_analysis_project_node200_root",
             settings.wgs_results_host_root,
         ),
-        local_analysis_root=getattr(
+        local_analysis_root=test_root or getattr(
             settings,
             "wgs_analysis_project_container_root",
             settings.host_results_root,
@@ -471,9 +475,11 @@ def sync_prepared_samples(*, session: Session, settings, run: AnalysisRun) -> in
 def sync_sampleinfo_preview(*, session: Session, settings, run: AnalysisRun) -> int:
     """Import the safe sample/family projection produced before analysis prepare."""
     params = dict(run.params_json or {})
+    from app.wgs_test_project import project_root
+    test_root = project_root(settings, run)
     sampleinfo = (
         Path(
-            getattr(
+            test_root or getattr(
                 settings,
                 "wgs_analysis_project_container_root",
                 settings.host_results_root,

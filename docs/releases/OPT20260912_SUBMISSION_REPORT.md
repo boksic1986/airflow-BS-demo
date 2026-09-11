@@ -1,0 +1,138 @@
+# OPT20260912 Task1 submission report
+
+## Scope and state
+
+Implemented on `jiucheng/development/next` from e107f3b. This is a code/test
+delivery, not deployment or a real WGS/CCE analysis acceptance. No production
+access, live database writes, source edits, formal pending writes, workflow
+owner core changes, real analysis dispatch or cloud jobs were performed.
+Coordinator owns CURRENT_STATE/TASKS/HANDOFF and subsequent Task2/Task3.
+
+## Implementation
+
+- Vertical pipeline selector; WGS source fields and analysis fields separated;
+  responsive layout and per-account/per-pipeline session drafts. Existing
+  server recovery preserves the three confirmation phases.
+- Audited WGS cc9bde3 release options: DNAscope/Haplotyper and all/ref/no.
+  Explicit choices are validated, frozen before submission, propagated through
+  runtime request and owner CLI, then checked against prepared config. Unknown
+  releases do not inherit unverified option claims. Native CNV is descriptive,
+  not an invented toggle. GATK retains HaplotypeCaller and reports configured
+  profile separately from unknown/unobserved runtime/operator identity.
+- Operator-only test preview freezes source sampleinfo/config hashes, ordered
+  sample/data identifiers and exact FASTQ pairs with resolved path/size/mtime.
+  Preview creates only a saved draft, not an analysis, directory or DAG.
+- Confirmation locks the draft, verifies owner/hash/expiry/current source and
+  release, reserves the destination and creates one resumable three-stage
+  analysis. PostgreSQL row/advisory locks cover concurrent requests; retries
+  reuse the deterministic DAG identity. Another draft cannot reserve the same
+  destination already bound to a test run.
+- Node-only preparation copies the frozen source table, never existing results
+  or source pending. Owner analysis runs with a private outpath, so its native
+  prepare/pending ledger remains private. Exact selected-set, no-pending/no-
+  excluded, FASTQ target and caller/reference fences precede frozen binding.
+  The existing approved CCE Step1-6 and Step7 binding paths remain connected.
+  Legacy combined prepare and non-isolated local/SGE target switching reject
+  test descriptors. This is not a disconnected prepare-only API.
+- Runtime/project projections and diagnostics use the private root; public
+  run JSON redacts full test source descriptors and FASTQ paths.
+
+## Isolation and source provenance
+
+Owner inspected at exact deployed commit
+`cc9bde3c8ee6ad1cd2f85cf5d2ef49c5611ac081` (WGS4.2.1), not newer local HEAD.
+Source contract is sampleinfo.tsv, config.yaml and raw/<data-id>.R[12].fq.gz.
+FASTQ targets follow the source config's approved absolute fastqPath. No patient
+rows were placed in Git or evidence. Full owner column validation remains the
+owner's responsibility; malformed/incomplete source tables fail preparation.
+
+Under the user-requested relative child the platform creates a frozen unique
+`WGS_TEST_<16 hex>` directory. This is the owner outpath basename and therefore
+the cloud project identity. Source analysis batch and sampleinfo bytes remain
+unchanged. `prepare/cce_pipeline_adapter.py` at cc9bde3 scopes SFS run root,
+linkage, OBS FASTQ/results and run identity to project/batch. Coordinator's
+read-only AST inspection of installed cce-pipeline0.8.4 confirmed batch lock
+name `cce-batch-lock-` plus SHA256(project/batch)[:20]. Tests assert two projects
+from one source have different project/output roots and lock digests. Existing
+Step7 uses the frozen binding rather than a guessed source scope.
+
+## Verification (BS10610 only)
+
+Evidence/source root:
+`/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/cce-evidence/OPT20260912-submission`.
+Cached backend `airflow-demo/backend:t235-232154f`, cached Node22 builder
+`airflow-demo/frontend-builder:node22-lock-35420d5e3ec0`; no pulls/installs.
+Containers used network none; optional DB test used only its disposable
+PostgreSQL container namespace. All inputs synthetic; tests used task-local
+basetemp. The disposable DB container and anonymous volume were removed after
+verification; no durable project or live DB was removed.
+
+Final backend command (PYTHONPATH=/src/backend, cwd=/src/backend):
+
+```text
+pytest -q tests/test_wgs_test_project.py tests/test_submission_options.py
+ tests/test_wgs_submission_service.py tests/test_wgs_runtime_adapter.py
+ tests/test_pipeline_registry_api.py tests/test_gatk_registry_api.py
+ tests/test_gatk_submission_service.py
+ /src/scripts/tests/test_wgs_test_project_gate.py
+ /src/scripts/tests/test_wgs_runtime_gate.py --basetemp=/src/test-tmp8 --tb=short
+```
+
+Result: **141 passed, 1 skipped**, one third-party anyio deprecation. The
+skipped PostgreSQL concurrency test was run separately against disposable
+postgres:15-alpine: **1 passed**, four simultaneous confirmations, one analysis
+and one deterministic fake Airflow DAG identity. Initial new tests were red
+for missing option/test service/gate contracts before implementation; later
+regression exposed one transient indentation mistake and a fixture model-field
+mistake, both fixed before this final green run. One intermediate scp used the
+wrong local cwd; corrected by explicit worktree cwd and re-upload, with the
+final suite run against the correct source. No blind retry of failing logic.
+
+Frontend remote cached builder:
+
+```text
+vitest run src/SubmissionOptions.test.tsx src/IncompleteSubmission.test.tsx
+vitest run src/WgsProductionUi.test.tsx -t "submission|GATK|stage one|preparation screen"
+tsc --noEmit
+vite build
+```
+
+Result: **8 + 7 passed**, 10 unrelated tests deselected, TypeScript and production
+build passed (1849 modules). A broader WgsProductionUi run previously exposed
+two unrelated baseline expectations in resource-request counts and duplicate
+dashboard totals; these are not represented as passing and remain coordinator
+Task2/3 scope. Directly affected legacy caller/reference and WGS4.2.0 catalog
+expectations were updated to current audited release behavior, not suppressed.
+Local `git diff --check` passed; no local pytest/node runtime tests were run.
+
+## Activation, compatibility and limitations
+
+Current preflight supplied by coordinator: server10610 current release
+20260912-gatk-81587fcb; scan/dispatch false, no active WGS/GATK runs. Gateway
+binds 172.17.106.10:12959. Backend source mount /sg2 is read-only. Node t640 ctapa
+UID6801/GID520 can write `/sg2/50.ctapa/project/HWcloud/WGS_test`; output creation
+belongs to the existing restricted test gate, never backend mount expansion.
+
+New key: `WGS_TEST_PROJECT_ENABLED`, false by default, must explicitly be true
+in backend and `/home/ctapa/.config/airflow-wgs-test/runtime.env`. Preserve
+`PLATFORM_ENVIRONMENT=BS10610-Test` (also accepts test, case-insensitive);
+production labels reject even if the flag is true. Preserve existing
+`WGS_EXECUTION_ENABLED`, `WGS_RUNTIME_ADAPTER_ENABLED`, execution approvals,
+test runtime/request roots and server dispatch policy. The gate additionally
+requires WGS_test in RUNTIME_RUN_ROOT. No new secret or writable mount is needed.
+Missing/unwritable requested parent fails explicitly with no fallback.
+
+Backend/frontend and restricted test gate must be released together; existing
+observer needs matching source/image when coordinating the release but no new
+observer-specific environment key. Request v4 and prepare receipt v1 schemas
+are additive/unchanged; existing DB draft/run tables need no migration and
+Airflow DAGs need no new task. New test drafts require the new gate; legacy
+non-test runs retain prior behavior.
+
+Synthetic tests do not claim a real owner prepare, Step1 transfer, CCE Master,
+Step5/6 result collection or Step7 cleanup ran. A controlled real test project
+still requires deployment plus user confirmation of all three phases. FASTQ
+fingerprint is metadata, not full file-content hashing. No local lint/full
+frontend suite or live Compose rollout was used as a substitute for that
+acceptance. Rollback disables the new flag and restores matching services/gate;
+preserve draft/run/output audit, do not delete projects or formal pending.

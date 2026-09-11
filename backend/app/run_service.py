@@ -148,6 +148,9 @@ def list_run_samples(*, session: Session, analysis_id: str) -> list[dict]:
 
 def _run_payload(run: AnalysisRun, *, sample_count: int) -> dict:
     params = dict(run.params_json or {})
+    if run.pipeline_name == 'wgs':
+        from app.wgs_run_projection import public_wgs_params
+        params = public_wgs_params(params)
     params["batch_no"] = _public_batch(params)
     return {
         "analysis_id": run.analysis_id,

@@ -93,6 +93,103 @@ CCE_OPERATOR_CONFIG = os.getenv(
     "CCE_OPERATOR_CONFIG", "/home/ctapa/.config/wgs/cce.yaml"
 )
 CCE_PIPELINE_BIN = os.getenv("CCE_PIPELINE_BIN", "").strip()
+TEST_PROJECT_ROOT = Path('/sg2/50.ctapa/project/HWcloud/WGS_test')
+
+
+def _validate_test_project(payload: dict[str, Any], *, create: bool = False) -> Path | None:
+    data = payload.get('test_project')
+    if data is None:
+        return None
+    if os.getenv('PLATFORM_ENVIRONMENT', '').lower() not in {'test','bs10610-test'} or not _truthy('WGS_TEST_PROJECT_ENABLED'):
+        raise RuntimeError('Independent test project node gate is disabled')
+    if '/WGS_test/' not in RUNTIME_RUN_ROOT:
+        raise RuntimeError('Independent test project requires the test control runtime root')
+    output = Path(str(data.get('output_root') or ''))
+    source = Path(str(data.get('source') or ''))
+    target = Path(str(data.get('target_root') or ''))
+    namespace = str(data.get('project_namespace') or '')
+    if not re.fullmatch(r'WGS_TEST_[A-F0-9]{16}',namespace) or output != target / namespace:
+        raise RuntimeError('Test project namespace identity mismatch')
+    for path in (target, output, source):
+        if not path.is_absolute() or '..' in path.parts or TEST_PROJECT_ROOT not in path.parents:
+            raise RuntimeError('Test project path escapes approved root')
+        relative = path.relative_to(TEST_PROJECT_ROOT)
+        current = TEST_PROJECT_ROOT
+        for part in relative.parts:
+            current /= part
+            if current.is_symlink():
+                raise RuntimeError('Test project symlinks are forbidden')
+    if str(output) != payload.get('analysis_project_root') or str(output / str(payload['batch_no'])) != payload.get('expected_batch_root'):
+        raise RuntimeError('Test project output identity mismatch')
+    for name, key in [('sampleinfo.tsv','sampleinfo_sha256'), ('config.yaml','config_sha256')]:
+        path=source/name
+        if not path.is_file() or path.is_symlink() or _sha256_file(path)!=data.get(key):
+            raise RuntimeError('Frozen test source input changed')
+    for item in data.get('fastq',[]):
+        path=Path(item['path'])
+        link=source/'raw'/f"{item['data_id']}.{item['read']}.fq.gz"
+        if link.resolve(strict=True)!=path or not path.is_file():
+            raise RuntimeError('Frozen test FASTQ target changed')
+        stat=path.stat()
+        if stat.st_size!=item['size'] or stat.st_mtime_ns!=item['mtime_ns']:
+            raise RuntimeError('Frozen test FASTQ fingerprint changed')
+        prepared_raw=Path(str(payload['expected_batch_root']))/'raw'
+        if prepared_raw.is_dir():
+            prepared_link=prepared_raw/f"{item['data_id']}.{item['read']}.fq.gz"
+            if prepared_link.resolve(strict=True)!=path:
+                raise RuntimeError('Prepared test FASTQ differs from frozen source')
+    identity={'analysis_id':payload['analysis_id'],'fingerprint':data['fingerprint']}
+    for directory in (target,output):
+        marker=directory/'.airflow-test-project.json'
+        if directory.exists():
+            if marker.is_symlink() or not marker.is_file() or json.loads(marker.read_text())!=identity:
+                raise RuntimeError('Test output already exists and is not owned by this analysis')
+        elif create:
+            if not directory.parent.is_dir() or not os.access(directory.parent,os.W_OK):
+                raise RuntimeError('Test output parent is missing or unwritable; no fallback is permitted')
+            try:
+                directory.mkdir(mode=0o2770,exist_ok=False)
+                with marker.open('x') as handle: json.dump(identity,handle)
+            except OSError as exc:
+                raise RuntimeError('Test output is unwritable; no fallback is permitted') from exc
+    return output
+
+
+def _test_selection_fence(payload: dict[str, Any], receipt: dict[str, Any]) -> None:
+    if not payload.get('test_project'):
+        return
+    expected=set(payload['test_project']['samples'])
+    selected=[str(row.get('sample_id') or '') for row in receipt.get('selected',[])]
+    if set(selected)!=expected or len(selected)!=len(expected) or receipt.get('pending') or receipt.get('excluded'):
+        raise RuntimeError('Prepared selection differs from frozen exact test samples')
+
+
+def _prepare_test_sampleinfo(payload: dict[str, Any]) -> None:
+    output=_validate_test_project(payload,create=True)
+    assert output is not None
+    data=payload['test_project']
+    source=Path(data['source'])/'sampleinfo.tsv'
+    expected_batch=data['batch']
+    if data['analysis_batch'] != expected_batch or payload.get('analysis_batch') != expected_batch:
+        raise RuntimeError('Test analysis batch identity mismatch')
+    destination=output/'sampleinfo'/f"{payload['batch_no']}.sampleinfo.txt"
+    destination.parent.mkdir(exist_ok=True)
+    if destination.is_symlink(): raise RuntimeError('Test sampleinfo symlinks are forbidden')
+    if not destination.exists():
+        with source.open('rb') as reader,destination.open('xb') as writer: shutil.copyfileobj(reader,writer)
+    if _sha256_file(destination)!=data['sampleinfo_sha256']: raise RuntimeError('Frozen test sampleinfo changed')
+    request_path=_prepare_handoff_request(payload)
+    request=json.loads(request_path.read_text())
+    artifact=Path(request['artifact_root'])/request['artifact_keys']['sampleinfo']
+    if not artifact.exists():
+        with destination.open('rb') as reader,artifact.open('xb') as writer: shutil.copyfileobj(reader,writer)
+    with destination.open(encoding='utf-8-sig',newline='') as handle: rows=list(csv.DictReader(handle,delimiter='\t'))
+    mapping={'sequencing_batch':'上机批次','analysis_batch':'分析批次','family_id':'家系编号','sample_id':'样本编号','data_id':'数据编号','sample_type':'样本类型','family_relation':'家系关系','sex':'性别'}
+    safe=[{**{key:str(row.get(column) or '') for key,column in mapping.items()},'decision':'candidate','reason_code':None,'reason_message':None} for row in rows]
+    if [row['sample_id'] for row in safe]!=data['samples']: raise RuntimeError('Frozen sample list differs from source table')
+    receipt={**{key:request[key] for key in ['analysis_id','attempt','execution_id','generation','request_hash','release_id']},'schema_version':'wgs.prepare-sampleinfo.receipt.v1','sampleinfo':{'artifact_key':request['artifact_keys']['sampleinfo'],'sha256':data['sampleinfo_sha256'],'row_count':len(safe)},'safe_candidates':safe,'created_at':datetime.now(timezone.utc).isoformat()}
+    _atomic_json(Path(request['artifact_root'])/'prepare_sampleinfo.receipt.json',receipt,mode=0o600)
+    payload['prepare_handoff_receipt']=_validated_prepare_receipt(payload,request_path)
 CCE_PROFILE_ROOT = Path(
     os.getenv(
         "WGS_CCE_PROFILE_ROOT",
@@ -481,6 +578,11 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
                 raise ValueError("CCE_PIPELINE_BIN must be an absolute path")
             command.extend(["--cce-pipeline", str(cce_pipeline)])
         use_reference = str(payload.get("use_reference") or "").strip()
+        algo = payload.get("algo")
+        if algo is not None:
+            if algo not in {"DNAscope", "Haplotyper"}:
+                raise ValueError("unsupported WGS caller")
+            command.extend(["--algo", algo])
         if use_reference:
             if use_reference not in {"all", "ref", "no"}:
                 raise ValueError("use_reference must be all, ref, or no")
@@ -924,6 +1026,9 @@ def _run_prepare(payload: dict[str, Any]) -> None:
 def _run_prepare_sampleinfo(payload: dict[str, Any]) -> None:
     validate_release_repository(payload)
     validate_prepare_config(payload)
+    if payload.get('test_project'):
+        _prepare_test_sampleinfo(payload)
+        return
     workdir = _workdir(payload)
     workdir.mkdir(parents=True, exist_ok=True)
     project_root = Path(str(payload["analysis_project_root"])).resolve()
@@ -965,10 +1070,14 @@ def _run_prepare_sampleinfo(payload: dict[str, Any]) -> None:
 
 
 def _run_prepare_analysis(payload: dict[str, Any]) -> None:
+    _validate_test_project(payload)
     binding_path = _binding_path(payload)
     if binding_path.is_file():
         if not _archive_missing_prepare_binding(payload, binding_path):
             _load_binding(payload)
+            if payload.get('test_project'):
+                request_path=_prepare_handoff_request(payload)
+                _test_selection_fence(payload,_validated_prepare_receipt(payload,request_path))
             return
     validate_release_repository(payload)
     validate_prepare_config(payload)
@@ -981,6 +1090,8 @@ def _run_prepare_analysis(payload: dict[str, Any]) -> None:
     existing_run_id = _prepared_batch_run_id(expected_batch_root)
     expected_run_id = f"{payload['analysis_id']}-a{int(payload['attempt'])}"
     if existing_run_id == expected_run_id:
+        if payload.get('test_project'):
+            _test_selection_fence(payload,_validated_prepare_receipt(payload,_prepare_handoff_request(payload)))
         _freeze_validation_execution_mode(payload, expected_batch_root)
         _write_prepare_binding(payload)
         return
@@ -990,6 +1101,7 @@ def _run_prepare_analysis(payload: dict[str, Any]) -> None:
     subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
     if handoff_request is not None:
         payload["prepare_handoff_receipt"] = _validated_prepare_receipt(payload, handoff_request)
+        _test_selection_fence(payload,payload['prepare_handoff_receipt'])
         if not payload["prepare_handoff_receipt"].get("selected"):
             return
     _freeze_validation_execution_mode(payload, expected_batch_root)
@@ -1072,6 +1184,18 @@ def _write_prepare_binding(payload: dict[str, Any]) -> None:
     project_root = Path(str(payload["analysis_project_root"])).resolve()
     expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()
     batch_root = expected_batch_root
+    if payload.get('algo'):
+        config_path=batch_root/'config.yaml'
+        if config_path.is_symlink() or not config_path.is_file():
+            raise RuntimeError('Prepared WGS config is unavailable')
+        config=yaml.safe_load(config_path.read_text())
+        if not isinstance(config,dict) or config.get('algo')!=payload['algo'] or str(config.get('use_reference'))!=str(payload.get('use_reference')):
+            raise RuntimeError('Prepared WGS config differs from frozen submission options')
+    if payload.get('test_project'):
+        for item in payload['test_project']['fastq']:
+            path=batch_root/'raw'/f"{item['data_id']}.{item['read']}.fq.gz"
+            if path.resolve(strict=True)!=Path(item['path']):
+                raise RuntimeError('Prepared test FASTQ differs from frozen source')
     if not (batch_root / "cce" / "BATCH_RUNTIME.yaml").is_file():
         raise RuntimeError("WGS prepare did not create the expected frozen CCE batch")
     runtime = yaml.safe_load(
@@ -2056,6 +2180,10 @@ def _step3_success_matches_binding(payload: dict[str, Any]) -> bool:
 
 
 def run_stage(payload: dict[str, Any]) -> None:
+    if payload.get('test_project'):
+        if payload.get('stage') == 'prepare':
+            raise RuntimeError('Test projects require split preparation confirmations')
+        _validate_test_project(payload)
     if not _truthy("WGS_EXECUTION_ENABLED") or not _truthy(
         "WGS_RUNTIME_ADAPTER_ENABLED"
     ):

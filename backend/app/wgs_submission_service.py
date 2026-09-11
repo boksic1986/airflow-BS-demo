@@ -244,10 +244,23 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
                           project_id: str, platform: str, batch: str,
                           fastq_root_id: str,
                           use_reference: str | None = None,
+                          algo: str | None = None,
                           validation_scope: str | None = None) -> dict:
     """Create one catalog-bound run; WGS prepare owns sampleinfo and selection."""
     if validation_scope not in {None, "step1_only", "step3_dryrun", "node97_full"}:
         raise ValueError("unsupported WGS validation scope")
+    from app.wgs_release_catalog import submission_options
+    release = load_wgs_release_catalog(Path(settings.wgs_release_catalog_path)).release
+    selected_options = None
+    if algo is not None or use_reference is not None:
+        algo = algo or 'DNAscope'
+        use_reference = use_reference or 'all'
+        supported = submission_options(release)
+        if algo not in {item["value"] for item in supported["callers"]}:
+            raise ValueError("caller is not supported by the selected WGS release")
+        if use_reference not in supported["reference_values"]:
+            raise ValueError("reference is not supported by the selected WGS release")
+        selected_options = {"algo": algo, "use_reference": use_reference, "release_id": release.release_id}
     spec = _catalog_run_spec(
         settings=settings,
         project_id=project_id,
@@ -264,6 +277,8 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
         spec=spec,
     )
     existing_scope = (run.params_json or {}).get("validation_scope")
+    if existed and selected_options is not None and (run.params_json or {}).get("submission_options") != selected_options:
+        raise ValueError("existing WGS run has different frozen submission options")
     if existed and existing_scope != validation_scope:
         raise ValueError("existing WGS run uses a different validation scope")
     if run.status == "success":
@@ -278,6 +293,9 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
         "unknown_interrupted",
     }
     params = dict(run.params_json or {})
+    if selected_options is not None:
+        params["submission_options"] = selected_options
+        params["algo"] = algo
     if validation_scope is not None:
         params["validation_scope"] = validation_scope
     params.update(
@@ -579,6 +597,9 @@ def approve_wgs_config(*, session, analysis_id: str, requested_by: str,
     params = dict(run.params_json or {})
     if params.get("submission_mode") != "three_stage":
         raise ValueError("WGS run does not use staged submission")
+    frozen = params.get("submission_options")
+    if frozen and frozen.get("use_reference") != use_reference:
+        raise ValueError("WGS submission options are frozen at the first confirmation")
     if params.get("config_approved_at"):
         if params.get("use_reference") != use_reference or params.get("resource_set") != resource_set:
             raise ValueError("WGS configuration was already approved with different values")

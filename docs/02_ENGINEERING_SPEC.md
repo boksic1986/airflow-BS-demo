@@ -1,5 +1,13 @@
 # Engineering specification
 
+## OPT20260912 submission
+
+`WGS_TEST_PROJECT_ENABLED` defaults false. It enables existing-project preview
+and independent test submission only together with the explicit environment
+allowlist `PLATFORM_ENVIRONMENT=BS10610-Test` or `test`.
+Backend source access remains read-only; the restricted test node owns output
+creation. No new service, public port, dependency or migration is introduced.
+
 Manual GATK deployment may layer `docker-compose.gatk.yaml` over the verified
 WGS Compose contract. GATK has separate host/node runtime, evidence, result,
 repository and private operator configuration. `GATK_SOURCE_POLICY` is

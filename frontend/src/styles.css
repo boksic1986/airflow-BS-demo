@@ -3145,9 +3145,16 @@ textarea {
 }
 
 .submission-pipeline-field {
-  flex: 0 0 auto;
-  min-width: 280px;
+  min-width: 0;
 }
+
+.submission-layout {display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 20px; align-items: start;}
+.submission-main {min-width: 0;}
+.wgs-grouped-form {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));}
+.wgs-grouped-form fieldset {min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--border); border-radius: 10px; display: grid; gap: 14px;}
+.wgs-grouped-form legend {font-weight: 600; padding: 0 6px;}
+.wgs-grouped-form > .field-help {grid-column: 1 / -1;}
+@media (max-width: 900px) {.submission-layout {grid-template-columns: 1fr;} .wgs-grouped-form {grid-template-columns: 1fr;}}
 
 .submission-pipeline-switcher {
   width: fit-content;

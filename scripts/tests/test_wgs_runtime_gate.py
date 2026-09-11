@@ -263,6 +263,7 @@ def test_split_prepare_commands_preserve_native_wgs_contract(tmp_path: Path) -> 
         "analysis_batch": "20260902A",
         "platform": "T7",
         "use_reference": "ref",
+        "algo": "Haplotyper",
     }
 
     sampleinfo = gate.build_prepare_command({**payload, "stage": "prepare_sampleinfo"})
@@ -276,6 +277,7 @@ def test_split_prepare_commands_preserve_native_wgs_contract(tmp_path: Path) -> 
         tmp_path / "WGS_Clinical" / "sampleinfo" / "WGS_20260902A_T7Hg38V4.1.1.sampleinfo.txt"
     )
     assert analysis[analysis.index("--use-reference") + 1] == "ref"
+    assert analysis[analysis.index("--algo") + 1] == "Haplotyper"
 
 
 @pytest.mark.parametrize('version,release', [('V4.2.0', 'wgs-4.2.0-b067c72'), ('V4.2.1', 'wgs-4.2.1-cc9bde3')])

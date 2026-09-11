@@ -591,10 +591,12 @@ def _wgs_run_log_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
             analysis_id=run.analysis_id,
             attempt=attempt,
         )
+        from app.wgs_test_project import project_root
+        test_root = project_root(settings, run)
         local_batch = resolve_bound_wgs_batch_root(
             binding=binding,
-            node_analysis_root=settings.wgs_results_host_root,
-            local_analysis_root=settings.host_results_root,
+            node_analysis_root=test_root or settings.wgs_results_host_root,
+            local_analysis_root=test_root or settings.host_results_root,
         )
         run_id = str(binding["run_id"])
         if not run_id or "/" in run_id or "\\" in run_id:
@@ -750,6 +752,8 @@ def list_gatk_run_artifacts(*, session: Session, analysis_id: str, settings) -> 
 
 def _wgs_artifact_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
     try:
+        from app.wgs_test_project import project_root
+        test_root = project_root(settings, run)
         binding = load_wgs_runtime_binding(
             run_root=settings.wgs_runtime_run_root,
             analysis_id=run.analysis_id,
@@ -757,8 +761,8 @@ def _wgs_artifact_items(*, run: AnalysisRun, settings) -> list[dict[str, Any]]:
         )
         batch_root = resolve_bound_wgs_batch_root(
             binding=binding,
-            node_analysis_root=settings.wgs_results_host_root,
-            local_analysis_root=settings.host_results_root,
+            node_analysis_root=test_root or settings.wgs_results_host_root,
+            local_analysis_root=test_root or settings.host_results_root,
         )
     except (KeyError, OSError, TypeError, ValueError, InvalidRunPathError):
         return []
