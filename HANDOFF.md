@@ -1,5 +1,14 @@
 # HANDOFF.md
 
+## DELETE-0910A-20260911 — explicit scoped deletion authorization
+
+User confirmed deletion of20260910A platform/Airflow records and this submission's generated sampleinfo/preparation files. Authorized analysis identity `WGS_20260911_075423_C1D477`, attempt1. Direct business DB inspection/deletion is limited to this identity and its batch intake/draft links; Airflow deletion uses REST API. Inventory and inactive-state checks required before deletion. Original FASTQ, other batches, pending ledger, SFS and OBS are excluded. Automatic scanning/analysis must remain disabled. No blanket project/root cleanup.
+
+Completed: removed1 Airflow failed DAG run via REST;7 business records (analysis_run, run_action, run_attempt, run_stage_state, wgs_execution_dispatch, wgs_input_snapshot, wgs_intake_batch each1); two exact runtime subtrees containing3+4files; generated6188byte V4.2.1 sampleinfo; empty platform runs/<analysis_id>/config directory and parent. No backup created; deleted files/records are not recoverable through platform undo. Kept remaining7 AnalysisRun identities exactly unchanged. Verified platform/Airflow both404, scoped files absent, gates false/false, public health OK. No SFS/OBS operations or original FASTQ/pending changes.
+
+Inventory corrections: API projects batch number to20260910A, but persisted batch_no is `WGS_20260910A_T7Hg38V4.2.0`; actual expected filename therefore includes V4.2.0, not bare20260910A. Prior explanation of bare filename was inaccurate; actual failure is4.2.0 versus4.2.1 output naming. First count attempt encountered a model table absent from production; corrected by inspecting actual table names, without migration. No deletion until exact counts and inactive Airflow tasks verified.
+
+
 ## PAUSE-20260911 — user-requested version-mismatch pause
 
 - User explicitly requested disabling automatic scanning and analysis, plus deletion of the affected batch. Batch inferred as20260910A; deletion scope awaiting confirmation, nothing deleted.

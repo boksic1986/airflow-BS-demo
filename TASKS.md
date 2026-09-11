@@ -3,7 +3,7 @@
 ## PAUSE-20260911
 
 - [x] Persist and verify production automatic scanning/dispatch disabled.
-- [ ] Confirm20260910A deletion scope, inventory exact targets, then controlled deletion. Preserve source FASTQ unless explicitly authorized otherwise.
+- [x] Confirm20260910A deletion scope, inventory exact targets, then controlled deletion. Source FASTQ/pending/SFS/OBS preserved; platform/Airflow404 verified.
 
 
 ## PULL-20260911

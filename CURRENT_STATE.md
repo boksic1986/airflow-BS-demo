@@ -1,5 +1,8 @@
 # CURRENT_STATE.md
 
+2026-09-11 confirmed20260910A scoped cleanup completed:1 Airflow run,7 business records,7 runtime files, generated sampleinfo and empty platform workdir removed. Platform/Airflow404 verified, other7runs preserved. Scan/dispatch remain false; FASTQ/pending/SFS/OBS untouched. Actual filename mismatch was persisted batch V4.2.0 versus generated V4.2.1 (API normalizes batch display).
+
+
 2026-09-11 USER PAUSE: production scan=false and auto_dispatch=false, persisted and verified in backend/scanner. This supersedes earlier true/true records.20260910A deletion requested but exact scope awaits user confirmation; no files or records deleted.
 
 
