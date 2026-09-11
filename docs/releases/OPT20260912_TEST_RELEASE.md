@@ -74,6 +74,25 @@ files are unchanged from e107f3b. Tracked-file name scan found no .env, secret,
 credential or id_rsa paths. Repeat after Task3 before exporting the final archive;
 this does not replace content/security review.
 
+### Node gate drift precheck
+
+Readonly test-private gate SHA256:
+`589e1f9f3d870b1f081a8939e85e241a01691bfcaff73994d47b9159d1ea0e4e`;
+forced-command wrapper SHA256:
+`0f0531297c00780d125f8221992aa0a51c5263843e10740d04246ef8c1edff37`.
+Compared privately with e107f3b source: node gate lacks4.2.1 allowlisting,
+request visibility retries, projected handoff identity fields and the newer
+frozen Step7 operator-config validation. It uses configured WGS_PYTHON, whose
+test runtime.env currently points to nipttest, rather than the audited source's
+WGS preparation interpreter. No private env/wrapper was copied or changed.
+The non-secret gate source was retained only in ignored local review artifacts.
+
+Do not claim source-mounted panel release also activates a matching node gate.
+Resolve its interpreter/release contract with the already-recorded shared owner
+drift before execution activation; preserve the old hash until a reviewed
+test-only replacement is explicitly recorded. Monitoring/resource panel deployment
+does not depend on enabling custom projects or running owner prepare.
+
 - Task1/2/3 scoped reviews and integration review.
 - Exact candidate targeted backend, gate and UI tests plus cached frontend production build.
 - Feature environment rejection, synthetic isolated project preparation, API contracts and no source/pending changes.

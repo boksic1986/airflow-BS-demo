@@ -4,7 +4,8 @@
 
 Test-only optimization in existing development worktree from e107f3b. Submission
 options/test-project implementation and scoped review complete at d5a4e1d;
-Rule/QC/Step4-6 estimation implementation started. Resource research complete.
+Rule/QC/Step4-6 estimates accepted after scoped review at d9543a0. Resource
+collector/UI implementation now underway. No candidate deployed yet.
 BS10610 still serves81587fc, scan/dispatchfalse and no active test runs.
 Cloud namespace read-only observation found11/25 reserved Heavy Job leases;
 test aggregate snapshot absent, active-Master waiting snapshot unavailable.

@@ -5,8 +5,8 @@
 - Owner: coordinator; test-only development branch jiucheng/development/next.
 - [x] Read-only BS10610/node test boundary, baseline timing/phase/Heavy26 tests.
 - [x] Submission rail, release-driven options, isolated existing-project test flow (d5a4e1d scoped review clean; activation gated pending directory permission and owner release alignment).
-- [ ] Attempt-correct Rule/group/timing and release-pinned per-metric QC.
-- [ ] Step4/6 labelled monotonic estimated progress, generation fence.
+- [x] Attempt-correct Rule/group/timing and release-pinned per-metric QC (d9543a0 reviewed; unsupported historical policy/evidence explicitly unavailable).
+- [x] Step4/6 labelled monotonic estimated progress, generation fence (WGS/GATK, d9543a0 reviewed; not yet test-deployed).
 - [ ] Heavy collector/partial telemetry and official resource-package cache/UI.
 - [ ] Independent review, targeted tests/build, BS10610 deployment/browser acceptance.
 - Production, scan/dispatch switches, formal pending and real analyses unchanged.
