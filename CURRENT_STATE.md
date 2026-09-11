@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## PREPARE-CONTRACT-REVIEW-20260912 — static interface review complete
+
+[Prepare interface review](docs/superpowers/specs/2026-09-12-wgs-prepare-interface-review.md) records reusable receipt/pending internals and concrete AF/WGS tasks. Gate currently compares whole private ledger count to current-batch pending count; sampleinfo CLI writes output/callback script and is not a safe prefetch entry. WGS local HEAD a5e7ada is ahead of prior cc9bde3; no production alignment claimed. No code, tests, remote operations or gate changes in this review.
+
+
+## SAMPLE-INTAKE-DESIGN-20260912 — documentation only
+
+Approved [sample reference and batch pre-intake design](docs/superpowers/specs/2026-09-12-wgs-sample-reference-intake-design.md) documented. Future Sample writes are selected-only; shared pending files remain the handoff authority and the new reference table is read-only projection. Intake discovers Samplelist batches before chip directories exist and retains run linkage after submission. Implementation, migration, runtime testing and activation are pending. No remote checks, code/data/service changes or gate changes in this task; production statements below are dated prior observations, not reverified today.
+
+
 WGS421-ACTIVATE-20260911 DEPLOYED d8f5f05: API now4.2.1/cc9bde3/r1/cce0.8.4;
 new sibling profile and prepare default active.148 checks passed with3 confirmed
 baseline failures excluded. Public health200; seven historic runs preserved.

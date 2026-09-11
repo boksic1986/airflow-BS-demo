@@ -18,6 +18,10 @@ The current production registry enables only the WGS adapter. WES, GATK, or anot
 5. `docs/05_API_CONTRACT.md` — generic and WGS extension APIs.
 6. `docs/11_DEPLOYMENT_RUNBOOK.md` — offline-capable deployment rules.
 
+## Approved designs awaiting implementation
+
+- [WGS sample reference, selected-only analysis samples and batch pre-intake](docs/superpowers/specs/2026-09-12-wgs-sample-reference-intake-design.md) — design only; no migration or production activation yet.
+
 ## Core boundaries
 
 - React talks only to FastAPI.

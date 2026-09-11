@@ -1,5 +1,33 @@
 # HANDOFF.md
 
+## PREPARE-CONTRACT-REVIEW-20260912 — step 1 complete, no fixes deployed
+
+Goal: inspect prepare receipt completeness, shared pending and independent metadata prefetch before implementation. Used runtime/planning and handoff boundaries; work was local source inspection, not a production or runtime test.
+
+Evidence: platform HEAD4c194cd and WGS clean HEADa5e7ada; compared WGS cc9bde3..HEAD (only algorithm default change in prepare main; other changes in template/CCE empty-list adapter). Preserved prior five documentation edits. New interface-review document contains producer/consumer symbols/line anchors, count mismatch conditions, excluded scope, private vs safe identity, CLI writes, source-cache risks and AF/WGS task tables. Linked it from design and updated TASKS/CURRENT_STATE.
+
+Findings not fixes: gate private_pending row_count wrongly requires current pending count; run_sampleinfo writes sampleinfo and non-handoff callback script, so cannot directly serve prefetch. Shared ledger writes occur before final directory/receipt publication; recovery acceptance is needed. Existing pending lock/identity and receipt infrastructure are reusable. Source inspection does not establish upstream POST side-effect freedom or production failure cause.
+
+Checks: git status/log/diff, targeted rg/Get-Content and existing synthetic test source inspection. No pytest/Vitest, imports, metadata requests, SSH, production DB, file preparation or code changes. Mis-targeted optional paths failed before corrected source reads; exact categories recorded in interface review. Static links and whitespace checked before handoff. Production release/hostname/mount/permission and scanner states not reverified; no services changed.
+
+Next: AF-01 followed by selected-only platform changes; WGS isolated prefetch and receipt/recovery acceptance are explicit owner tasks, not delegated or implemented here. Rollback removes only the new review and this turn's document additions, preserving prior design. No commit/push or deploy.
+
+
+## SAMPLE-INTAKE-DESIGN-20260912 — approved design documented, not implemented
+
+Goal: persist the confirmed design separating reference-only sample/pending data, batch pre-intake and actual analysis samples. User explicitly requested documentation only.
+
+Completed: added `docs/superpowers/specs/2026-09-12-wgs-sample-reference-intake-design.md`; updated README entry, CURRENT_STATE and TASKS. Recorded selected-only Sample writes, retained historical attempt evidence/QC Pending, file-authoritative handoff, reference projection with offline catch-up, Samplelist discovery, exact batch-token directory binding, nullable pre-intake chip/path and post-submit run linkage. Historical cleanup remains a separate approved operation.
+
+Environment: local isolated `D:/pipeline/airflow-demo-worktrees/production-release`, branch `jiucheng/release/production`, baseline `4c194cd91065d6fc0c7412d2bd28fa112d6a1d7a`; clean before edits. No SSH, production hostname/release/mount/permission verification or runtime commands performed. No service, scanner/dispatch gate, WGS file or data changed. Earlier deployed-state entries are historical, not live observations in this task.
+
+Checks: `git diff --check` passed; PowerShell validation of the new design's relative links and incoming design links passed. Git status confirms exactly four modified state/index documents plus the new design document. An initial optional search of `docs/README.md` returned exit 2 because that file does not exist; used the actual README entry instead. No pytest/Vitest/build/remote tests: documentation-only change; runtime acceptance remains pending on BS10610.
+
+Risks/next: implementation must not treat source absence as analysis success, use a sample-only identity, discard prior-attempt samples, or remove post-submit dedup linkage. No code/migration/API implementation claimed. A/B/C implementation tasks remain unchecked. Contract docs and historical release records are not rewritten to imply the new schema is already deployed.
+
+Rollback: revert only this task's five documentation changes; no runtime rollback or data deletion is involved. No commit, push or production release requested/performed.
+
+
 ## WGS421-ACTIVATE-20260911 — deployed d8f5f05
 
 FINAL: new sibling profile published and prepare default updated without Git sync;

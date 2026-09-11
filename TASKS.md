@@ -1,5 +1,29 @@
 # TASKS.md
 
+## PREPARE-CONTRACT-REVIEW-20260912
+
+- [x] Read WGS producer/pending/metadata/Samplelist and platform gate/importer; compare local WGS HEAD with cc9bde3 without changing source.
+- [x] Record interface findings and AF-01..05 / WGS-01..03 ownership with acceptance criteria in [interface review](docs/superpowers/specs/2026-09-12-wgs-prepare-interface-review.md).
+- [ ] AF-01: correct shared-ledger vs current-pending count and preserve strict identity/hash/content validation.
+- [ ] AF-02/03: selected-only Sample writes, review snapshots and attempt-scoped history.
+- [ ] WGS-01/02/03: isolated prefetch, explicit receipt scope fixtures and post-ledger publication recovery acceptance.
+- No runtime tests, fixes, production checks or deployment performed in step 1.
+
+
+## SAMPLE-INTAKE-DESIGN-20260912
+
+- Owner: current coordinator; local documentation only.
+- [x] Document user-approved selected-only Sample, independent reference projection and batch-only Intake design.
+- [x] Specify file authority, offline catch-up, identity/conflict handling, safe historical migration and formal activation boundary.
+- [x] Add design entry and align CURRENT_STATE/HANDOFF; validate local document links and diff.
+- [ ] A: implement selected-only writes, current-attempt scope and review-snapshot compatibility.
+- [ ] B: implement reference table/read APIs, file projection and offline catch-up without DB-to-file writes.
+- [ ] C: implement Samplelist pre-intake, exact batch directory binding and retained post-submit idempotency.
+- [ ] Run synthetic targeted acceptance on BS10610; separately approve production release and activation.
+- Design: [2026-09-12 sample reference / Intake](docs/superpowers/specs/2026-09-12-wgs-sample-reference-intake-design.md).
+- Historical test cleanup and deletion of legacy pending Sample rows are not authorized by this documentation task.
+
+
 ## WGS421-ACTIVATE-20260911
 
 - [x] Verify owner release markers, rendered profile digest and minimal4.2.1 gates.
