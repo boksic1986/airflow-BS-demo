@@ -2,7 +2,7 @@
 
 ## STEP7-20260911 — cleanup gate repair
 
-0907D attempt 5 workflow is successful. Step7 generation 1 rejected the platform-generated frozen operator config before cleanup. Minimal patch passed 13 remote synthetic checks and real-request read-only validation. Gate installation pending; cleanup retry remains a separate user action. See latest HANDOFF.
+0907D attempt 5 workflow is successful. Step7 generation 1 rejected the platform-generated frozen operator config before cleanup. Minimal patch passed 13 remote synthetic checks and real-request read-only validation. Gate installed from `f955ba9`, hash `bc32a5b77dca4062d966f2a54e89d336bc8c83ed2a910dbd0e709ab5fa568258`; health OK. Cleanup was not executed; user can retry the existing SFS release action. No service restart or switch changes. See latest HANDOFF.
 
 
 ## PROD-20260911 production branch baseline

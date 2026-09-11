@@ -8,7 +8,9 @@
 - BS10610 cached synthetic tests: reproduced 1 expected failure / 5 passes, then 13 targeted tests passed. No image pulls or real WGS tests.
 - Live candidate read-only validation passed using 0907D attempt 5 request; exact DELETE-SFS command built but NOT executed.
 - Candidate SHA256 `bc32a5b77dca4062d966f2a54e89d336bc8c83ed2a910dbd0e709ab5fa568258`; old live SHA256 `ddc287315878915e4017f300ac93d2ace2f2f694251f05acdfd2ca20ab238ca8`.
-- Authorized deployment scope: atomic replacement of `/home/ctapa/.config/airflow-wgs/wgs_runtime_gate.py` only, preserving mode and a private rollback copy. No restarts, DB modifications, cleanup or scanner changes. Installation outcome pending below.
+- Installed code commit `f955ba9` atomically at `/home/ctapa/.config/airflow-wgs/wgs_runtime_gate.py`, preserving mode 0755. Rollback `/home/ctapa/.config/airflow-wgs/wgs_runtime_gate.py.rollback-step7-20260911`. Installed hash matches candidate; fresh import and real-request command build passed. No command execution or cleanup retry.
+- `/api/health` on production interface returned OK. Worker/observer/scanner start times remain September 9/10; no service restart or gate switch changes. The generation-1 failure remains historical until the user retries SFS release.
+- Diagnostic command failures: initial PowerShell quoting exit 1 corrected with literal cmd pipeline; health at 127.0.0.1:12959 refused (gateway binds production interface), corrected to 172.17.61.96:12959. No runtime mutation from failed checks.
 - Rollback restores the old gate only, never removes pending/sample/results data.
 
 

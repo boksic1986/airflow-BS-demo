@@ -5,7 +5,8 @@
 - [x] Confirm 0907D attempt 5 request and pointer mismatch.
 - [x] Reproduce, implement exact-path/content validation, pass 13 remote tests.
 - [x] Validate live request without executing cleanup.
-- [ ] Install gate atomically and verify installed hash, preserving services/data.
+- [x] Install gate atomically and verify installed hash, preserving services/data.
+- [ ] User retries SFS release; actual deletion/completion not claimed by this patch.
 
 
 ## PROD-20260911 — dedicated production release branch

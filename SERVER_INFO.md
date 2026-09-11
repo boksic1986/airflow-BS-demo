@@ -1,5 +1,8 @@
 # SERVER_INFO.md
 
+2026-09-11 Step7 hotfix: actual t640 gate `/home/ctapa/.config/airflow-wgs/wgs_runtime_gate.py` updated from production-branch commit `f955ba9`, SHA256 `bc32a5b77dca4062d966f2a54e89d336bc8c83ed2a910dbd0e709ab5fa568258`. Private sibling rollback `.rollback-step7-20260911` retains prior gate. This supersedes only the gate hash in the baseline inventory; no service/release symlink/image change. Production API healthy; cleanup not executed.
+
+
 PROD-20260911 read-only branch inventory: server96 current20260910-t260-recovery-runtime-r1;
 backend/worker/observer/scanner use current source mounts; nginx serves patched static
 assets, not release-directory frontend/src. Node200 hostt640 has active gateddc28731.
