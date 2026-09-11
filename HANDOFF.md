@@ -6,6 +6,7 @@
 - Confirmed generated sampleinfo is full `WGS_20260910A_T7Hg38V4.2.1.sampleinfo.txt` (10lines), while platform gate expects batch-only filename. Do not describe this as Airflow4.2.1 upgrade.
 - Verified server96/current release and cached backend/scanner image identity. Stopped scanner immediately; set both WGS_INTAKE_SCAN_ENABLED and WGS_AUTO_DISPATCH_ENABLED=false in private production.env; recreated only backend/scanner with `--profile intake --no-deps --no-build --pull never`. Both live containers report false/false. Worker, observer, Master and analysis data untouched.
 - First config inspection omitted intake profile (KeyError before env write); corrected explicitly. No version/source/image promotion. Re-enable only after explicit approval and version/path reconciliation.
+- Backend recreation changed its address; gateway briefly502 despite internal health200. Nginx config test and graceful reload restored public `/api/health`=ok (one in-flight request timed out during reload). No frontend restart/build change.
 
 
 ## PULL-20260911 — read-only sample metadata check
