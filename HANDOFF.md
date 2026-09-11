@@ -1,5 +1,35 @@
 # HANDOFF.md
 
+## GATK-PROMOTION-20260912 — reviewed source candidate, deployment pending
+
+User approved selective GATK promotion to production/main, ordinary production
+clone, new test worktree and both environments. Created independent
+D:/pipeline/airflow-demo-production from8e982c9; preserved original dirty repo.
+Pinned donor4013f93, no unrelated branch merge. Added explicit unrestricted
+GATK input policy with frozen scope and WES_Clinical production output.
+
+GATK backend15 passed; initial gate/materializer/DAG21 passed; broader84 passed
+with3 documented preexisting WGS failures. Independent review found retry/raw
+generation issues; corrections accepted with final21 gate/evidence tests passed.
+Frontend unchanged:75/77 tests passed,2 baseline WGS UI expectation failures;
+production build passed and actual production JS/CSS hashes match exactly.
+No full WGS validation or real GATK analysis performed. No local runtime tests.
+
+Preflight: server10610 test current20260910-t258-cce084-r1 and server96 production
+current20260910-t260-recovery-runtime-r1; zero active Airflow runs observed.
+WGS scan/dispatchfalse. Production private GATK config and runtime created on
+t640 independently; no gate installed/activated yet. Both Compose overlays
+rendered with executionfalse. SSH/config failures resolved by verified existing
+production wgs-node200 alias; do not copy test secrets. Frontend test artifact
+ba282860cddd is cached/offline built. Full evidence and remaining activation
+steps in docs/releases/GATK_PROMOTION_20260912.md and review/port reports.
+
+Next: pin candidate commit, publish approved tree forward to main, create test
+worktree, stage/deploy both environments, verify health/capabilities/DAG while
+preserving data. Recheck active runs before affected service recreation.
+Rollback code/config pointers only; never delete runtime, pending, results,
+database or other repos. No deployment/main publication completion claimed yet.
+
 ## PREPARE-CONTRACT-REVIEW-20260912 — step 1 complete, no fixes deployed
 
 Goal: inspect prepare receipt completeness, shared pending and independent metadata prefetch before implementation. Used runtime/planning and handoff boundaries; work was local source inspection, not a production or runtime test.

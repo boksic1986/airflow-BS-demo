@@ -1,0 +1,45 @@
+# Optional manual GATK adapter. Layer on the environment's VERIFIED WGS
+# Compose contract, never substitute test environment files in production.
+x-gatk-airflow-env: &gatk-airflow-env
+  DEPLOYED_PIPELINES: wgs,gatk
+  GATK_EXECUTION_ENABLED: "${GATK_EXECUTION_ENABLED:-false}"
+  GATK_SSH_CONFIG_PATH: /opt/airflow/ssh/config
+  GATK_RUNNER_200_ALIAS: ${GATK_RUNNER_200_ALIAS:-gatk-node200}
+  GATK_RUNNER_200_COMMAND: ${GATK_RUNNER_200_COMMAND:?set GATK_RUNNER_200_COMMAND}
+
+services:
+  backend:
+    environment:
+      DEPLOYED_PIPELINES: wgs,gatk
+      GATK_EXECUTION_ENABLED: "${GATK_EXECUTION_ENABLED:-false}"
+      GATK_SOURCE_POLICY: ${GATK_SOURCE_POLICY:-restricted}
+      GATK_SOURCE_ROOTS: ${GATK_SOURCE_ROOTS:-/sg2/21.lijing/WES_Clinical}
+      GATK_FASTQ_ROOTS: ${GATK_FASTQ_ROOTS:-/bi/fastq/T7_Fastq}
+      GATK_RUNTIME_REQUEST_ROOT: /data/gatk-runtime/requests
+      GATK_TRANSFER_SPOOL_ROOT: /data/gatk-runtime/transfer-progress
+      GATK_EVIDENCE_ROOT: /data/gatk-evidence
+      GATK_RUNTIME_NODE200_ROOT: ${GATK_RUNTIME_NODE200_ROOT:?set GATK_RUNTIME_NODE200_ROOT}
+      GATK_RESULT_ROOT: ${GATK_RESULT_ROOT:?set GATK_RESULT_ROOT}
+      GATK_REPOSITORY_ROOT: ${GATK_REPOSITORY_ROOT:?set GATK_REPOSITORY_ROOT}
+      GATK_OPERATOR_CONFIG: ${GATK_OPERATOR_CONFIG:?set GATK_OPERATOR_CONFIG}
+      GATK_RUNTIME_PROFILE_ID: ${GATK_RUNTIME_PROFILE_ID:-gatk-scmc-v7.6.0}
+      GATK_RUNTIME_PROFILE_REVISION: ${GATK_RUNTIME_PROFILE_REVISION:-bd04f6d}
+      GATK_PROFILE_FILE: ${GATK_PROFILE_FILE:-profiles/cce-pipeline/gatk.yaml}
+      GATK_RUNTIME_FILE: ${GATK_RUNTIME_FILE:-profiles/cce/runtime.yaml}
+    volumes:
+      - ${GATK_RUNTIME_HOST_ROOT:?set GATK_RUNTIME_HOST_ROOT}:/data/gatk-runtime:rw
+      - ${GATK_EVIDENCE_HOST_ROOT:?set GATK_EVIDENCE_HOST_ROOT}:/data/gatk-evidence:ro
+      - ${GATK_SG2_HOST_ROOT:-/sg2}:/sg2:ro
+      - ${GATK_BI_HOST_ROOT:-/bi}:/bi:ro
+  airflow-api-server:
+    environment: *gatk-airflow-env
+    volumes:
+      - ./dags/bio_gatk.py:/opt/airflow/dags/bio_gatk.py:ro
+  airflow-scheduler:
+    environment: *gatk-airflow-env
+    volumes:
+      - ./dags/bio_gatk.py:/opt/airflow/dags/bio_gatk.py:ro
+  airflow-worker:
+    environment: *gatk-airflow-env
+    volumes:
+      - ./dags/bio_gatk.py:/opt/airflow/dags/bio_gatk.py:ro

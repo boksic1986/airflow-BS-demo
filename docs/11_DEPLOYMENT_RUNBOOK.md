@@ -1,5 +1,28 @@
 # Deployment runbook
 
+## GATK selective promotion, 2026-09-12
+
+Use `docker-compose.gatk.yaml` as an optional overlay on the verified WGS
+Compose contract. Configure independent `GATK_RUNTIME_HOST_ROOT`,
+`GATK_RUNTIME_NODE200_ROOT`, `GATK_EVIDENCE_HOST_ROOT`, `GATK_RESULT_ROOT`,
+`GATK_REPOSITORY_ROOT`, `GATK_OPERATOR_CONFIG` and restricted runner command.
+`GATK_SOURCE_POLICY` is restricted by default; this user-approved release sets
+unrestricted for explicit valid input projects, never for writable outputs.
+`GATK_EXECUTION_ENABLED` remains false until profile, gate, mounts, permissions,
+API and DAG import acceptance. Create pool `gatk_cce_runs` with size 1 and
+unpause `bio_gatk` at final manual activation. Preserve WGS scan/dispatch.
+
+Production may reuse the verified `wgs-node200` SSH host alias with the separate
+GATK forced-command path; this avoids editing WGS SSH keys/configuration. The
+test environment continues its own `gatk-node200` alias and `airflow-gatk-test`
+private directory. No test credentials, results or runtime are promoted.
+
+The normal production clone is `D:/pipeline/airflow-demo-production`.
+New development worktrees must branch from the published production main,
+inherit research documents and run runtime tests only on BS10610. Original
+dirty repositories and historical test refs are retained, not merged wholesale.
+See `docs/releases/GATK_PROMOTION_20260912.md` for actual completion and rollback.
+
 For the user-approved 2026-09-11 non-Git exact-source selection/refresh patch, use [release evidence and rollback](selection-refresh-20260911.md). Only backend/observer restarted; frontend updated hashed assets then atomic index; current Worker/scanner/Master must remain untouched. WGS prepare source writable alias verified on BS10610, not node200's read-only /bi mount. No environment variables or public ports added.
 
 Environment selection, host aliases, directory ownership and image-retention

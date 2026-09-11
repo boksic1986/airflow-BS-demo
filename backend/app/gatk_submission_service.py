@@ -66,7 +66,12 @@ def _source_paths(source: Path) -> tuple[Path, Path, Path]:
     return paths
 
 
-def _read_source(source: Path, fastq_roots: list[str]) -> dict[str, Any]:
+def _read_source(
+    source: Path,
+    fastq_roots: list[str],
+    *,
+    unrestricted_inputs: bool = False,
+) -> dict[str, Any]:
     batch_match = BATCH_PATTERN.search(source.name)
     if batch_match is None:
         raise ValueError("WES project directory does not contain a YYYYMMDDX batch")
@@ -114,7 +119,12 @@ def _read_source(source: Path, fastq_roots: list[str]) -> dict[str, Any]:
             link = source / "a.raw" / f"{sample}.{read}.fq.gz"
             if not link.is_file():
                 raise ValueError(f"Missing FASTQ pair member for {sample}.{read}")
-            resolved = _within(link, fastq_roots, label=f"FASTQ {sample}.{read}")
+            if unrestricted_inputs:
+                resolved = link.resolve(strict=True)
+            else:
+                resolved = _within(link, fastq_roots, label=f"FASTQ {sample}.{read}")
+            if not resolved.is_file() or resolved.is_symlink():
+                raise ValueError(f"FASTQ {sample}.{read} must resolve to a regular file")
             stat = resolved.stat()
             files.append(
                 {
@@ -183,12 +193,27 @@ def _lock_batch_submission(session: Session, batch: str) -> None:
 def create_gatk_submission_preview(
     *, session: Session, settings, source_project_dir: str, owner_username: str
 ) -> dict[str, Any]:
-    source = _within(
-        Path(source_project_dir), list(settings.gatk_source_roots), label="source_project_dir"
-    )
+    requested_source = Path(source_project_dir)
+    if not requested_source.is_absolute():
+        raise ValueError("source_project_dir must be absolute")
+    source_policy = str(settings.gatk_source_policy).strip().lower()
+    if source_policy == "restricted":
+        source = _within(
+            requested_source,
+            list(settings.gatk_source_roots),
+            label="source_project_dir",
+        )
+    elif source_policy == "unrestricted":
+        source = requested_source.resolve(strict=True)
+    else:
+        raise ValueError("GATK source policy is invalid")
     if not source.is_dir() or source.is_symlink():
         raise ValueError("source_project_dir must be a real directory")
-    evidence = _read_source(source, list(settings.gatk_fastq_roots))
+    evidence = _read_source(
+        source,
+        list(settings.gatk_fastq_roots),
+        unrestricted_inputs=source_policy == "unrestricted",
+    )
     now = datetime.now(timezone.utc)
     draft = PipelineSubmissionDraft(
         draft_id=f"gatk-draft-{secrets.token_hex(12)}",
@@ -206,6 +231,10 @@ def create_gatk_submission_preview(
             "fastq_file_count": evidence["fastq_file_count"],
             "fastq_total_bytes": evidence["fastq_total_bytes"],
             "samples": evidence["samples"],
+            "source_policy": source_policy,
+            "resolved_fastq_roots": sorted(
+                {str(Path(item["resolved_path"]).parent) for item in evidence["file_evidence"]}
+            ),
             "validation": {
                 "sample_sets_match": True,
                 "fastq_pairs_complete": True,
@@ -233,6 +262,7 @@ def _request_payload(*, settings, draft: PipelineSubmissionDraft, run: AnalysisR
     preview = dict(draft.preview_json or {})
     node_root = Path(settings.gatk_runtime_node200_root)
     output_root = node_root / "runs" / run.analysis_id / "attempt-1"
+    result_project_name = f"{Path(draft.input_root).name}_GATK"
     payload: dict[str, Any] = {
         "schema_version": 1,
         "kind": "gatk-airflow-prepare",
@@ -240,8 +270,16 @@ def _request_payload(*, settings, draft: PipelineSubmissionDraft, run: AnalysisR
         "attempt": 1,
         "generation": 1,
         "source_project_dir": draft.input_root,
-        "approved_source_roots": list(settings.gatk_source_roots),
-        "approved_fastq_roots": list(settings.gatk_fastq_roots),
+        "approved_source_roots": (
+            [draft.input_root]
+            if preview.get("source_policy") == "unrestricted"
+            else list(settings.gatk_source_roots)
+        ),
+        "approved_fastq_roots": (
+            list(preview.get("resolved_fastq_roots") or [])
+            if preview.get("source_policy") == "unrestricted"
+            else list(settings.gatk_fastq_roots)
+        ),
         "approved_output_roots": [str(node_root / "runs")],
         "output_root": str(output_root),
         "project_name": "WES_Clinical",
@@ -252,7 +290,8 @@ def _request_payload(*, settings, draft: PipelineSubmissionDraft, run: AnalysisR
         "runtime_file": settings.gatk_runtime_file,
         "pipeline_root": settings.gatk_pipeline_root,
         "cce_pipeline": settings.gatk_cce_pipeline,
-        "result_root": str(Path(settings.gatk_result_root) / preview["batch"] / run.analysis_id),
+        "result_project_name": result_project_name,
+        "result_root": str(Path(settings.gatk_result_root) / result_project_name),
         "profile_id": settings.gatk_runtime_profile_id,
         "profile_revision": settings.gatk_runtime_profile_revision,
     }
@@ -292,7 +331,10 @@ def confirm_gatk_submission(
         raise GatkInputChanged("GATK preview hash does not match the draft")
     try:
         current = _read_source(
-            Path(draft.input_root), list(settings.gatk_fastq_roots)
+            Path(draft.input_root),
+            list(settings.gatk_fastq_roots),
+            unrestricted_inputs=(draft.preview_json or {}).get("source_policy")
+            == "unrestricted",
         )
     except (OSError, ValueError) as exc:
         raise GatkInputChanged(f"GATK inputs changed after preview: {exc}") from exc

@@ -37,6 +37,7 @@ class RecordingAirflow:
 def _settings(tmp_path: Path, source_root: Path, fastq_root: Path):
     return SimpleNamespace(
         gatk_execution_enabled=True,
+        gatk_source_policy="restricted",
         gatk_source_roots=[str(source_root)],
         gatk_fastq_roots=[str(fastq_root)],
         gatk_submission_draft_ttl_minutes=30,
@@ -53,6 +54,66 @@ def _settings(tmp_path: Path, source_root: Path, fastq_root: Path):
         gatk_pipeline_root="/workspace/gatk-cloud/pipelines/7.6.0",
         gatk_cce_pipeline="/sg2/33.chenjiucheng/software/miniforge3/envs/nipttest/bin/cce-pipeline",
     )
+
+
+def test_preview_rejects_source_outside_configured_roots_by_default(tmp_path: Path) -> None:
+    _, source, fastq_root = _source_fixture(tmp_path)
+    different_root = tmp_path / "different-root"
+    different_root.mkdir()
+    different_fastq_root = tmp_path / "different-fastq-root"
+    different_fastq_root.mkdir()
+    settings = _settings(tmp_path, different_root, different_fastq_root)
+
+    with _sessions()() as session, pytest.raises(
+        ValueError, match="outside every approved root"
+    ):
+        create_gatk_submission_preview(
+            session=session,
+            settings=settings,
+            source_project_dir=str(source),
+            owner_username="operator",
+        )
+
+
+def test_unrestricted_policy_accepts_explicit_valid_project_and_freezes_exact_path(
+    tmp_path: Path,
+) -> None:
+    _, source, _ = _source_fixture(tmp_path)
+    different_root = tmp_path / "different-root"
+    different_root.mkdir()
+    different_fastq_root = tmp_path / "different-fastq-root"
+    different_fastq_root.mkdir()
+    settings = _settings(tmp_path, different_root, different_fastq_root)
+    settings.gatk_source_policy = "unrestricted"
+
+    with _sessions()() as session:
+        preview = create_gatk_submission_preview(
+            session=session,
+            settings=settings,
+            source_project_dir=str(source),
+            owner_username="operator",
+        )
+        draft = session.scalar(select(PipelineSubmissionDraft))
+
+    assert preview["validation"]["paths_approved"] is True
+    assert draft is not None
+    assert draft.input_root == str(source.resolve(strict=True))
+
+
+def test_invalid_source_policy_fails_closed(tmp_path: Path) -> None:
+    allowed_source, source, fastq_root = _source_fixture(tmp_path)
+    settings = _settings(tmp_path, allowed_source, fastq_root)
+    settings.gatk_source_policy = "anything"
+
+    with _sessions()() as session, pytest.raises(
+        ValueError, match="source policy is invalid"
+    ):
+        create_gatk_submission_preview(
+            session=session,
+            settings=settings,
+            source_project_dir=str(source),
+            owner_username="operator",
+        )
 
 
 def _source_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
@@ -170,9 +231,10 @@ def test_confirm_rechecks_hash_and_submits_independent_dag(tmp_path: Path) -> No
         assert request["approved_output_roots"] == [
             "/sg2/50.ctapa/project/HWcloud/ngs-huaweicloud/runtime/gatk/runs"
         ]
+        assert request["result_project_name"] == f"{source.name}_GATK"
         assert request["result_root"] == (
-            "/sg2/50.ctapa/project/HWcloud/WES_Clinical/20260908A/"
-            f"{run.analysis_id}"
+            "/sg2/50.ctapa/project/HWcloud/WES_Clinical/"
+            f"{source.name}_GATK"
         )
 
 

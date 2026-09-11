@@ -13,7 +13,8 @@ or another separately reviewed future adapter without adding pipeline-name
 branches to shared authentication, navigation, run, sample, workflow, or
 capability endpoints.
 
-The current production configuration deploys only WGS. WGS Step1-Step7,
+The approved 2026-09-12 promotion adds manual GATK to production; consult its
+release ledger for actual activation state. WGS Step1-Step7,
 execution-choice, evidence, directional transfer leases, Heavy Slot and
 QCstat behavior remain WGS extension contracts and do not grant equivalent
 authority to future adapters.
@@ -59,6 +60,10 @@ they never fall back to arbitrary host paths.
   identities and fixed server-side allowlists.
 - FASTQ roots and analysis roots are separate configured authorities. Do not
   broaden either to `/sg2` or infer a sibling path.
+- Exception explicitly approved for manual GATK on 2026-09-12: unrestricted
+  input project selection, with read-only storage visibility, structural and
+  fingerprint validation, and frozen exact attempt scope. This does not widen
+  WGS input policy or GATK writable output/runtime roots.
 - Workflow evidence is immutable/replayable. The observer validates attempt,
   generation, request hash and receipt identity before database projection.
 - CCE, local-node and future SGE credentials are isolated by adapter and

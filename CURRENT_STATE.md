@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## GATK-PROMOTION-20260912 — implementation/acceptance in progress
+
+Independent normal production clone created at D:/pipeline/airflow-demo-production,
+baseline8e982c9, selectively porting donor4013f93. No unrelated test branch merge.
+GATK output WES_Clinical; unrestricted input selection retains frozen validation.
+Production private/runtime directories created separately, no gate activated.
+Initial GATK36 targeted tests passed; retry generation fixes under independent
+review. Frontend source unchanged, production build succeeded;77 tests report
+75 passed and2 preexisting WGS UI expectation failures (request-count and
+ambiguous Total locator). No real analysis submitted. Publication/deployment
+remain pending; see release ledger.
+
 ## PREPARE-CONTRACT-REVIEW-20260912 — static interface review complete
 
 [Prepare interface review](docs/superpowers/specs/2026-09-12-wgs-prepare-interface-review.md) records reusable receipt/pending internals and concrete AF/WGS tasks. Gate currently compares whole private ledger count to current-batch pending count; sampleinfo CLI writes output/callback script and is not a safe prefetch entry. WGS local HEAD a5e7ada is ahead of prior cc9bde3; no production alignment claimed. No code, tests, remote operations or gate changes in this review.

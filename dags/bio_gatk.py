@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import json
+import logging
 import os
 import subprocess
 from typing import Any
@@ -13,6 +14,9 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.sensors.python import PythonSensor
 from airflow.utils.trigger_rule import TriggerRule
+
+
+LOG = logging.getLogger(__name__)
 
 
 RUNNER_STAGES = {
@@ -95,6 +99,7 @@ def run_stage(stage: str, **context: Any) -> dict[str, Any]:
         str(conf["analysis_id"]),
         str(conf["attempt"]),
         stage,
+        str(registered["generation"]),
     ]
     completed = subprocess.run(
         command,
@@ -135,6 +140,74 @@ def release_stage(stage: str, **context: Any) -> dict[str, Any]:
     return register_stage(stage, **context)
 
 
+def _upstream_failure_task_ids(context: dict[str, Any]) -> list[str]:
+    task_instance = context.get("ti") or context.get("task_instance")
+    if task_instance is None:
+        return []
+    dag_run = task_instance.get_dagrun()
+    current_task_id = str(getattr(task_instance, "task_id", "release_leases"))
+    failed: list[str] = []
+    for candidate in dag_run.get_task_instances():
+        task_id = str(getattr(candidate, "task_id", ""))
+        raw_state = getattr(candidate, "state", None)
+        state = str(getattr(raw_state, "value", raw_state) or "").lower()
+        if task_id != current_task_id and state in {"failed", "upstream_failed"}:
+            failed.append(task_id)
+    return sorted(failed)
+
+
+def release_leases(**context: Any) -> dict[str, Any]:
+    released = release_stage("release_leases", **context)
+    failed_tasks = _upstream_failure_task_ids(context)
+    if failed_tasks:
+        raise RuntimeError(
+            "GATK upstream tasks failed after leases were released: "
+            + ", ".join(failed_tasks)
+        )
+    return released
+
+
+def report_dag_failure(context: dict[str, Any]) -> None:
+    """Best-effort projection of a failed GATK DagRun into biodemo."""
+    dag_run = context.get("dag_run")
+    if dag_run is None:
+        LOG.error("Cannot report GATK DAG failure without dag_run context")
+        return
+    conf = dict(dag_run.conf or {})
+    analysis_id = str(conf.get("analysis_id") or "")
+    attempt = int(conf.get("attempt") or 0)
+    if not analysis_id.startswith("GATK_") or attempt < 1:
+        LOG.error("Cannot report GATK DAG failure with invalid run identity")
+        return
+
+    failed_task_ids: list[str] = []
+    for task_instance in dag_run.get_task_instances():
+        raw_state = getattr(task_instance, "state", None)
+        state = str(getattr(raw_state, "value", raw_state) or "").lower()
+        if state == "failed":
+            failed_task_ids.append(str(getattr(task_instance, "task_id", "")))
+    failed_task_ids = sorted({task_id for task_id in failed_task_ids if task_id})
+    if len(failed_task_ids) > 1 and "release_leases" in failed_task_ids:
+        failed_task_ids.remove("release_leases")
+
+    try:
+        _backend_json(
+            f"/api/internal/gatk/runs/{analysis_id}/dag-terminal",
+            method="POST",
+            payload={
+                "attempt": attempt,
+                "status": "failed",
+                "failed_task_ids": failed_task_ids,
+            },
+        )
+    except Exception:
+        LOG.exception(
+            "Failed to project terminal GATK DagRun state for %s attempt %s",
+            analysis_id,
+            attempt,
+        )
+
+
 def _runner_task(task_id: str, stage: str, *, pool: str | None = None) -> PythonOperator:
     return PythonOperator(
         task_id=task_id,
@@ -163,6 +236,7 @@ with DAG(
     schedule=None,
     catchup=False,
     max_active_runs=1,
+    on_failure_callback=report_dag_failure,
     default_args={"retries": 0},
     tags=["ngs", "gatk", "cce", "manual"],
 ) as dag:
@@ -218,8 +292,7 @@ with DAG(
     )
     release = PythonOperator(
         task_id="release_leases",
-        python_callable=release_stage,
-        op_kwargs={"stage": "release_leases"},
+        python_callable=release_leases,
         trigger_rule=TriggerRule.ALL_DONE,
     )
 

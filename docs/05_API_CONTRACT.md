@@ -1,5 +1,21 @@
 # API contract
 
+## GATK selective production promotion (2026-09-12)
+
+Manual GATK preview/confirmation retains the existing authenticated API. The
+server-side `GATK_SOURCE_POLICY` defaults to `restricted`; explicitly configured
+`unrestricted` accepts valid source projects and their resolved regular FASTQ
+files without business-root whitelists. Preview freezes source identity and
+input fingerprint; confirmation rechecks the owner-bound, expiring draft and
+unchanged files. This setting does not enable execution by itself.
+
+The internal authenticated POST
+`/api/internal/gatk/runs/{analysis_id}/dag-terminal` accepts the current
+attempt and terminal DAG evidence. Identity conflicts return 409 and cannot
+mark a later attempt failed. GATK progress projection reads persisted stage
+state rather than inheriting WGS stage labels. See the request model in
+`backend/app/main.py` and adapter in `gatk_runtime_service.py` for fields.
+
 WGS4.2.1 uses the existing GET /api/wgs/release catalog response; new requests
 read the current configured release, not a frontend literal or live Git HEAD.
 Existing run details retain frozen version identity. Internal prepare stage-status

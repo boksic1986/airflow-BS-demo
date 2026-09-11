@@ -40,7 +40,7 @@ from app.diagnostics_service import (
     sync_wgs_airflow_status,
 )
 from app.gatk_submission_service import confirm_gatk_submission
-from app.gatk_stage_contract import project_gatk_orchestration
+from app.gatk_stage_contract import gatk_stage_definition, project_gatk_orchestration
 from app.workflow_phases import gatk_phase_for_rule
 
 
@@ -325,6 +325,51 @@ def _project_gatk_rule_context(*, run, **_) -> dict[str, Any]:
     }
 
 
+def _project_gatk_progress(*, session, run, payload, **_) -> dict[str, Any]:
+    stage = gatk_stage_definition(run.current_stage)
+    stage_rows = list(
+        session.scalars(
+            select(RunStageState).where(
+                RunStageState.analysis_id == run.analysis_id,
+                RunStageState.attempt == run.attempt,
+            )
+        ).all()
+    )
+    stage_row = next(
+        (row for row in stage_rows if row.stage_code == stage.code), None
+    )
+    if stage_row is None:
+        return payload
+    progress_available = bool(stage_row.progress_available)
+    stage_percent = stage_row.progress_percent if progress_available else None
+    return {
+        **payload,
+        "percent": stage_percent,
+        "current_step": stage.label,
+        "current_source": "gatk-runtime",
+        "progress_source": stage_row.progress_source,
+        "stage_code": stage.code,
+        "step_number": stage_row.step_number,
+        "stage_label": stage_row.stage_label,
+        "stage_status": stage_row.stage_status,
+        "progress_available": progress_available,
+        "progress_percent": stage_percent,
+        "completed_units": stage_row.completed_units,
+        "total_units": stage_row.total_units,
+        "unit": stage_row.unit,
+        "current_item": stage_row.current_item,
+        "speed_bps": stage_row.speed_bps,
+        "eta_seconds": stage_row.eta_seconds,
+        "stage_updated_at": stage_row.updated_at.isoformat(),
+        "orchestration_stages": project_gatk_orchestration(
+            run_status=run.status,
+            current_stage=run.current_stage,
+            stage_rows=stage_rows,
+        ),
+        "airflow_tasks": [],
+    }
+
+
 def _project_wgs_rule_context(*, run, **_) -> dict[str, Any]:
     params = run.params_json or {}
     return {
@@ -437,6 +482,7 @@ ADAPTERS = {
         project_samples=_project_gatk_samples,
         project_workflows=_project_gatk_workflows,
         project_rule_context=_project_gatk_rule_context,
+        project_progress=_project_gatk_progress,
         project_dashboard_metadata=_project_gatk_dashboard_metadata,
         project_sample_summary=_project_gatk_sample_summary,
         get_log=get_gatk_run_log,

@@ -1,5 +1,15 @@
 # TASKS.md
 
+## GATK-PROMOTION-20260912
+
+- [x] Preserve dirty original repo; create ordinary production clone and pin donor.
+- [x] Port only GATK runtime/DAG/shared hunks and unrestricted source policy.
+- [x] Initial targeted test acceptance and offline frontend production build.
+- [ ] Finish independent retry-generation review and tests.
+- [ ] Publish approved production tree forward to main; create development worktree.
+- [ ] Sync BS10610 and BS96 with isolated GATK runtime/manual gate; verify APIs/DAG.
+- [ ] Record exact release, service changes, Git refs and rollback.
+
 ## PREPARE-CONTRACT-REVIEW-20260912
 
 - [x] Read WGS producer/pending/metadata/Samplelist and platform gate/importer; compare local WGS HEAD with cc9bde3 without changing source.

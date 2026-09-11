@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import fcntl
 import hashlib
 import importlib.util
 import json
@@ -13,7 +14,7 @@ import re
 import subprocess
 import sys
 import time
-from typing import Any
+from typing import Any, Callable
 
 import yaml
 
@@ -39,6 +40,7 @@ CCE_OPERATOR_CONFIG = os.environ.get(
     "GATK_CCE_OPERATOR_CONFIG",
     "/home/ctapa/.config/cce-pipeline/operator.yaml",
 )
+STEP4_EXPORT_PENDING = "SFS backend export is not ready in OBS; retry Step4"
 
 
 def _root() -> Path:
@@ -59,7 +61,12 @@ def _request_path(analysis_id: str, attempt: int, stage: str) -> Path:
     return path
 
 
-def _load(analysis_id: str, attempt: int, stage: str) -> tuple[Path, dict[str, Any]]:
+def _load(
+    analysis_id: str,
+    attempt: int,
+    stage: str,
+    generation: int | None = None,
+) -> tuple[Path, dict[str, Any]]:
     path = _request_path(analysis_id, attempt, stage)
     if not path.is_file():
         raise RuntimeError("GATK runtime request does not exist")
@@ -69,6 +76,10 @@ def _load(analysis_id: str, attempt: int, stage: str) -> tuple[Path, dict[str, A
         raise ValueError("GATK runtime request is not valid JSON") from exc
     if payload.get("analysis_id") != analysis_id or payload.get("attempt") != attempt:
         raise ValueError("GATK request identity mismatch")
+    request_generation = int(payload.get("generation") or 1)
+    generation = request_generation if generation is None else generation
+    if generation < 1:
+        raise ValueError("GATK runtime generation must be positive")
     if stage != "prepare" and payload.get("stage") != stage:
         raise ValueError("GATK request stage mismatch")
     if stage != "prepare":
@@ -79,6 +90,12 @@ def _load(analysis_id: str, attempt: int, stage: str) -> tuple[Path, dict[str, A
         )
         if payload.get("execution_id") != expected_execution_id:
             raise ValueError("GATK runtime execution identity mismatch")
+        if request_generation != generation:
+            raise ValueError("GATK runtime generation does not match its request")
+    else:
+        payload = dict(payload)
+        payload["generation"] = generation
+        payload["execution_id"] = f"{analysis_id}-a{attempt}-prepare-g{generation}"
     return path, payload
 
 
@@ -265,6 +282,52 @@ def _step(payload: dict[str, Any], stage: str) -> list[str]:
     return ["bash", str(script)]
 
 
+def _run_frozen_stage(
+    command: list[str],
+    *,
+    stage: str,
+    environment: dict[str, str],
+    on_wait: Callable[[str], None] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    wait_seconds = max(0, int(os.environ.get("GATK_PUBLISH_WAIT_SECONDS", "7200")))
+    poll_seconds = max(1, int(os.environ.get("GATK_PUBLISH_POLL_SECONDS", "30")))
+    deadline = time.monotonic() + wait_seconds
+    attempts = 0
+    while True:
+        attempts += 1
+        completed = subprocess.run(
+            command,
+            check=False,
+            text=True,
+            capture_output=True,
+            env=environment,
+        )
+        if completed.returncode == 0:
+            return completed
+        detail = "\n".join(
+            value.strip()
+            for value in (completed.stdout, completed.stderr)
+            if value and value.strip()
+        )[-2000:]
+        retryable = stage == "step4_publish" and STEP4_EXPORT_PENDING in detail
+        if not retryable:
+            raise RuntimeError(
+                detail or f"{stage} command failed with exit code {completed.returncode}"
+            )
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"GATK Step4 timed out after {wait_seconds}s waiting for the SFS "
+                f"backend export to become visible in OBS: {detail}"
+            )
+        message = (
+            "Waiting for the SFS backend export to become visible in OBS "
+            f"(check {attempts})"
+        )
+        if on_wait is not None:
+            on_wait(message)
+        time.sleep(poll_seconds)
+
+
 def _materialize_result_root(payload: dict[str, Any]) -> Path:
     prepare_path = _request_path(
         str(payload["analysis_id"]), int(payload["attempt"]), "prepare"
@@ -272,14 +335,315 @@ def _materialize_result_root(payload: dict[str, Any]) -> Path:
     prepare = json.loads(prepare_path.read_text(encoding="utf-8"))
     configured_root = Path(os.environ["GATK_RESULT_ROOT"]).resolve()
     requested_root = Path(str(prepare.get("result_root") or "")).resolve()
-    expected_root = (
-        configured_root
-        / str(prepare.get("batch") or "")
-        / str(payload["analysis_id"])
-    ).resolve()
+    result_project_name = str(prepare.get("result_project_name") or "")
+    if result_project_name:
+        source_project_name = Path(str(prepare.get("source_project_dir") or "")).name
+        expected_project_name = f"{source_project_name}_GATK"
+        if not source_project_name or result_project_name != expected_project_name:
+            raise ValueError("GATK result project name does not match the frozen source project")
+        expected_root = (configured_root / result_project_name).resolve()
+    else:
+        expected_root = (
+            configured_root
+            / str(prepare.get("batch") or "")
+            / str(payload["analysis_id"])
+        ).resolve()
     if requested_root != expected_root or configured_root not in requested_root.parents:
         raise ValueError("GATK result_root is outside the approved delivery location")
     return requested_root
+
+
+def _transfer_stage_root(payload: dict[str, Any]) -> Path:
+    configured_root = os.environ.get("GATK_TRANSFER_SPOOL_ROOT", "").strip()
+    spool_root = (
+        Path(configured_root).resolve()
+        if configured_root
+        else (_root().parent / "transfer-progress").resolve()
+    )
+    path = (
+        spool_root
+        / str(payload["analysis_id"])
+        / f"attempt-{int(payload['attempt'])}"
+        / str(payload["stage"])
+    ).resolve()
+    if spool_root not in path.parents:
+        raise ValueError("GATK transfer progress path escapes spool root")
+    return path
+
+
+def _transfer_progress_root(payload: dict[str, Any]) -> Path:
+    stage_root = _transfer_stage_root(payload)
+    if payload.get("stage") != "step1_upload":
+        return stage_root
+    generation = int(payload.get("generation") or 1)
+    if generation < 1:
+        raise ValueError("GATK transfer generation must be positive")
+    path = (stage_root / f"generation-{generation}").resolve()
+    if stage_root not in path.parents:
+        raise ValueError("GATK transfer generation path escapes stage root")
+    return path
+
+
+def _transfer_plan_path(payload: dict[str, Any]) -> Path:
+    return _transfer_progress_root(payload) / "transfer-plan.json"
+
+
+def _transfer_environment(payload: dict[str, Any]) -> dict[str, str]:
+    root = _transfer_progress_root(payload)
+    return {
+        "WGS_TRANSFER_PROGRESS_ROOT": str(root),
+        "WGS_TRANSFER_ANALYSIS_ID": str(payload["analysis_id"]),
+        "WGS_TRANSFER_ATTEMPT": str(payload["attempt"]),
+        "WGS_TRANSFER_STAGE": str(payload["stage"]),
+        "WGS_TRANSFER_DIRECTION": (
+            "upload" if payload["stage"] == "step1_upload" else "download"
+        ),
+        "WGS_TRANSFER_PLAN_PATH": str(_transfer_plan_path(payload)),
+        "WGS_ORCHESTRATION_CONTRACT_VERSION": str(
+            payload.get("orchestration_contract_version") or 1
+        ),
+        "WGS_STAGE_EXECUTION_ID": str(payload.get("execution_id") or ""),
+        "WGS_STAGE_GENERATION": str(payload.get("generation") or 1),
+        "WGS_STAGE_REQUEST_HASH": str(payload.get("request_hash") or ""),
+    }
+
+
+def _create_step1_transfer_plan(payload: dict[str, Any]) -> dict[str, Any]:
+    path = _transfer_plan_path(payload)
+    if path.is_file() and not path.is_symlink():
+        existing = json.loads(path.read_text(encoding="utf-8"))
+        if (
+            existing.get("schema_version") == "wgs-runtime.transfer-plan.v1"
+            and existing.get("analysis_id") == payload["analysis_id"]
+            and int(existing.get("attempt") or 0) == int(payload["attempt"])
+            and existing.get("stage") == "step1_upload"
+            and existing.get("execution_id") == payload.get("execution_id")
+            and int(existing.get("generation") or 0)
+            == int(payload.get("generation") or 1)
+            and existing.get("request_hash") == payload.get("request_hash")
+        ):
+            return existing
+        raise RuntimeError("existing GATK transfer plan identity mismatch")
+
+    runtime = yaml.safe_load(
+        (_bundle(payload) / "BATCH_RUNTIME.yaml").read_text(encoding="utf-8")
+    )
+    sources = runtime.get("transfer_sources") if isinstance(runtime, dict) else None
+    if not isinstance(sources, list) or not sources:
+        raise RuntimeError("GATK Step1 transfer sources are unavailable")
+    entries: list[dict[str, Any]] = []
+    labels: set[str] = set()
+    for item in sources:
+        if not isinstance(item, dict):
+            raise RuntimeError("GATK Step1 transfer source is invalid")
+        source = Path(str(item.get("source") or "")).expanduser().resolve(strict=True)
+        label = str(item.get("target") or "")
+        if not source.is_file() or source.stat().st_size <= 0:
+            raise RuntimeError("GATK Step1 transfer source is missing or empty")
+        if not label or Path(label).name != label or label in labels:
+            raise RuntimeError("GATK Step1 transfer target is invalid or duplicated")
+        labels.add(label)
+        entries.append({"relative_path": label, "size_bytes": source.stat().st_size})
+    canonical = json.dumps(entries, sort_keys=True, separators=(",", ":"))
+    plan = {
+        "schema_version": "wgs-runtime.transfer-plan.v1",
+        "analysis_id": payload["analysis_id"],
+        "attempt": int(payload["attempt"]),
+        "stage": "step1_upload",
+        "execution_id": payload.get("execution_id"),
+        "generation": int(payload.get("generation") or 1),
+        "request_hash": payload.get("request_hash"),
+        "entries": entries,
+        "files_total": len(entries),
+        "bytes_total": sum(int(item["size_bytes"]) for item in entries),
+        "manifest_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _atomic_json(path, plan)
+    return plan
+
+
+def _raw_transfer_identity_matches(
+    row: dict[str, Any], payload: dict[str, Any]
+) -> bool:
+    if row.get("execution_id") not in {None, "", payload.get("execution_id")}:
+        return False
+    if row.get("request_hash") not in {None, "", payload.get("request_hash")}:
+        return False
+    generation = row.get("generation")
+    if generation in {None, ""}:
+        return True
+    try:
+        return int(generation) == int(payload.get("generation") or 1)
+    except (TypeError, ValueError):
+        return False
+
+
+def _aggregate_step1_transfer_progress(
+    payload: dict[str, Any], plan: dict[str, Any]
+) -> dict[str, Any]:
+    root = _transfer_progress_root(payload)
+    rows: dict[str, dict[str, Any]] = {}
+    for path in root.glob("*.json"):
+        try:
+            row = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        key = str(row.get("file_key") or "")
+        if (
+            row.get("schema_version") == "wgs-runtime.transfer-progress.v1"
+            and row.get("analysis_id") == payload["analysis_id"]
+            and int(row.get("attempt") or 0) == int(payload["attempt"])
+            and row.get("stage") == "step1_upload"
+            and _raw_transfer_identity_matches(row, payload)
+            and re.fullmatch(r"[0-9a-f]{64}", key)
+            and str(row.get("heartbeat_at") or "")
+            >= str(rows.get(key, {}).get("heartbeat_at") or "")
+        ):
+            rows[key] = row
+    files = []
+    for entry in plan["entries"]:
+        label = str(entry["relative_path"])
+        total = int(entry["size_bytes"])
+        key = hashlib.sha256(label.encode("utf-8")).hexdigest()
+        row = rows.get(key, {})
+        status = str(row.get("state") or "accepted").lower()
+        if status not in {"accepted", "running", "success", "failed", "canceled"}:
+            status = "running"
+        done = min(max(0, int(row.get("bytes_done") or 0)), total)
+        if status == "success":
+            done = total
+        files.append(
+            {
+                "file_key": key,
+                "display_name": label,
+                "bytes_total": total,
+                "bytes_done": done,
+                "speed_bps": max(0, int(row.get("speed_bytes_per_second") or 0)),
+                "status": status,
+                "checksum_status": str(row.get("checksum_status") or "pending"),
+                "error_message": str(row.get("error_summary") or "")[-2000:] or None,
+            }
+        )
+    states = {item["status"] for item in files}
+    completed = sum(item["status"] == "success" for item in files)
+    state = (
+        "failed"
+        if "failed" in states
+        else "success"
+        if files and completed == len(files)
+        else "running"
+    )
+    total = sum(int(item["bytes_total"]) for item in files)
+    done = sum(int(item["bytes_done"]) for item in files)
+    speed = sum(
+        int(item["speed_bps"]) for item in files if item["status"] == "running"
+    )
+    progress = {
+        "schema_version": "wgs-runtime.transfer-progress.v2",
+        "transfer_id": f"{payload['analysis_id']}-a{int(payload['attempt'])}-input",
+        "analysis_id": payload["analysis_id"],
+        "attempt": int(payload["attempt"]),
+        "stage": "step1_upload",
+        "direction": "upload",
+        "state": state,
+        "bytes_total": total,
+        "bytes_done": done,
+        "files_total": len(files),
+        "files_done": completed,
+        "current_file": next(
+            (item["display_name"] for item in files if item["status"] == "running"),
+            None,
+        ),
+        "speed_bytes_per_second": speed,
+        "eta_seconds": int((total - done) / speed) if speed and done < total else None,
+        "heartbeat_at": datetime.now(timezone.utc).isoformat(),
+        "monitoring_health": "healthy",
+        "source": "obsutil-checkpoint",
+        "checkpoint_ref": "obsutil-multipart",
+        "manifest_sha256": plan["manifest_sha256"],
+        "orchestration_contract_version": int(
+            payload.get("orchestration_contract_version") or 1
+        ),
+        "execution_id": payload.get("execution_id"),
+        "generation": int(payload.get("generation") or 1),
+        "request_hash": payload.get("request_hash"),
+        "files": files,
+    }
+    root.mkdir(parents=True, exist_ok=True)
+    _atomic_json(root / "progress.json", progress)
+    _publish_step1_progress(payload, progress)
+    return progress
+
+
+def _publish_step1_progress(
+    payload: dict[str, Any], progress: dict[str, Any]
+) -> bool:
+    stage_root = _transfer_stage_root(payload)
+    stage_root.mkdir(parents=True, exist_ok=True)
+    lock_path = stage_root / ".progress.lock"
+    with lock_path.open("a+", encoding="utf-8") as lock_handle:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        try:
+            try:
+                current = json.loads(
+                    _request_path(
+                        str(payload["analysis_id"]),
+                        int(payload["attempt"]),
+                        "step1_upload",
+                    ).read_text(encoding="utf-8")
+                )
+            except (OSError, json.JSONDecodeError):
+                return False
+            expected_identity = (
+                payload.get("analysis_id"),
+                int(payload.get("attempt") or 0),
+                payload.get("stage"),
+                payload.get("execution_id"),
+                int(payload.get("generation") or 1),
+                payload.get("request_hash"),
+            )
+            current_identity = (
+                current.get("analysis_id"),
+                int(current.get("attempt") or 0),
+                current.get("stage"),
+                current.get("execution_id"),
+                int(current.get("generation") or 1),
+                current.get("request_hash"),
+            )
+            if current_identity != expected_identity:
+                return False
+            public_path = stage_root / "progress.json"
+            if public_path.is_file() and not public_path.is_symlink():
+                try:
+                    existing = json.loads(public_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    return False
+                existing_generation = int(existing.get("generation") or 0)
+                if existing_generation > expected_identity[4]:
+                    return False
+                if existing_generation == expected_identity[4] and (
+                    existing.get("execution_id") != payload.get("execution_id")
+                    or existing.get("request_hash") != payload.get("request_hash")
+                ):
+                    return False
+            _atomic_json(public_path, progress)
+            return True
+        finally:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+
+
+def _run_step1_with_progress(
+    payload: dict[str, Any], environment: dict[str, str]
+) -> None:
+    plan = _create_step1_transfer_plan(payload)
+    process = subprocess.Popen(_step(payload, "step1_upload"), env=environment)
+    while process.poll() is None:
+        _aggregate_step1_transfer_progress(payload, plan)
+        time.sleep(1)
+    _aggregate_step1_transfer_progress(payload, plan)
+    if process.returncode:
+        raise subprocess.CalledProcessError(process.returncode, process.args)
 
 
 def _materialize(payload: dict[str, Any]) -> Path:
@@ -289,6 +653,9 @@ def _materialize(payload: dict[str, Any]) -> Path:
         raise RuntimeError("GATK BATCH_RUNTIME.yaml is invalid")
     identity = runtime.get("identity") or {}
     tools = runtime.get("tools") or {}
+    permissions = runtime.get("permissions")
+    if not isinstance(permissions, dict):
+        raise RuntimeError("GATK BATCH_RUNTIME.yaml permissions are invalid")
     expected_run_id = f"{payload['analysis_id']}-a{int(payload['attempt'])}"
     if identity.get("run_id") != expected_run_id:
         raise RuntimeError("GATK materialization identifies another analysis attempt")
@@ -302,7 +669,12 @@ def _materialize(payload: dict[str, Any]) -> Path:
     if spec is None or spec.loader is None:
         raise RuntimeError("frozen GATK delivery helper cannot be loaded")
     delivery = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(delivery)
+    bundle_path = str(bundle)
+    sys.path.insert(0, bundle_path)
+    try:
+        spec.loader.exec_module(delivery)
+    finally:
+        sys.path.remove(bundle_path)
 
     result_root = _materialize_result_root(payload)
     delivery.materialize_results(
@@ -312,6 +684,7 @@ def _materialize(payload: dict[str, Any]) -> Path:
         run_id=expected_run_id,
         zstd_bin=str(tools.get("zstd_bin") or ""),
         project_name=str(identity.get("project") or ""),
+        permissions=permissions,
     )
     return result_root
 
@@ -324,11 +697,46 @@ def _parse_step3(stdout: str) -> dict[str, Any]:
             continue
         if isinstance(value, dict) and value.get("master_state") in {"PENDING", "RUNNING", "SUCCEEDED", "FAILED"}:
             return value
+    master_match = re.search(
+        r"(?m)^master_state=(PENDING|RUNNING|SUCCEEDED|FAILED)(?:\s|$)", stdout
+    )
+    if master_match:
+        progress_match = re.search(
+            r"(?m)^progress=(\d+)/(\d+).*?\(([0-9]+(?:\.[0-9]+)?)%\)",
+            stdout,
+        )
+
+        def text_value(name: str) -> str | None:
+            match = re.search(rf"(?m)^{re.escape(name)}=(.*)$", stdout)
+            return match.group(1).strip() if match else None
+
+        return {
+            "master_state": master_match.group(1),
+            "completed": int(progress_match.group(1)) if progress_match else 0,
+            "total": int(progress_match.group(2)) if progress_match else 0,
+            "percent": float(progress_match.group(3)) if progress_match else 0.0,
+            "current_rule": text_value("current_rule_or_group"),
+            "bioinformatics_stage": text_value("bioinformatics_stage"),
+            "message": text_value("message"),
+        }
     raise RuntimeError("Step3 did not return a valid Master status")
 
 
-def _execute(analysis_id: str, attempt: int, stage: str) -> None:
-    request_path, payload = _load(analysis_id, attempt, stage)
+def _failure_message(error: Exception) -> str:
+    if isinstance(error, subprocess.CalledProcessError):
+        detail = error.stderr or error.stdout
+        if detail:
+            return str(detail).strip()[-2000:]
+    return str(error)
+
+
+def _execute(
+    analysis_id: str,
+    attempt: int,
+    stage: str,
+    generation: int | None = None,
+) -> None:
+    request_path, payload = _load(analysis_id, attempt, stage, generation)
     _write_status(request_path, payload, "running", f"{stage} started")
     environment = {
         **os.environ,
@@ -341,11 +749,9 @@ def _execute(analysis_id: str, attempt: int, stage: str) -> None:
         "WGS_STAGE_EXECUTION_ID": str(payload.get("execution_id") or ""),
         "WGS_STAGE_GENERATION": str(payload.get("generation") or 1),
         "WGS_STAGE_REQUEST_HASH": str(payload.get("request_hash") or ""),
-        "WGS_TRANSFER_SPOOL_ROOT": os.environ.get(
-            "GATK_TRANSFER_SPOOL_ROOT",
-            str(_root().parent / "transfer-progress"),
-        ),
     }
+    if stage in {"step1_upload", "step5_download"}:
+        environment.update(_transfer_environment(payload))
     try:
         if stage == "prepare":
             completed = subprocess.run(
@@ -395,6 +801,14 @@ def _execute(analysis_id: str, attempt: int, stage: str) -> None:
                     **progress,
                 )
                 time.sleep(int(os.environ.get("GATK_MONITOR_INTERVAL_SECONDS", "30")))
+        elif stage == "step1_upload":
+            _run_step1_with_progress(payload, environment)
+            _write_status(
+                request_path,
+                payload,
+                "success",
+                "step1_upload completed with transfer progress evidence",
+            )
         elif stage == "step6_materialize":
             _materialize(payload)
             _write_status(
@@ -404,24 +818,45 @@ def _execute(analysis_id: str, attempt: int, stage: str) -> None:
                 "GATK delivery materialized to the approved result root",
             )
         else:
-            completed = subprocess.run(
-                _step(payload, stage), check=True, text=True, capture_output=True, env=environment
+            completed = _run_frozen_stage(
+                _step(payload, stage),
+                stage=stage,
+                environment=environment,
+                on_wait=lambda message: _write_status(
+                    request_path, payload, "running", message
+                ),
             )
             _write_status(request_path, payload, "success", completed.stdout[-2000:] or f"{stage} completed")
     except Exception as exc:
-        _write_status(request_path, payload, "failed", str(exc))
+        _write_status(request_path, payload, "failed", _failure_message(exc))
         raise
 
 
-def start(analysis_id: str, attempt: int, stage: str) -> dict[str, Any]:
-    request_path, payload = _load(analysis_id, attempt, stage)
+def start(
+    analysis_id: str,
+    attempt: int,
+    stage: str,
+    generation: int | None = None,
+) -> dict[str, Any]:
+    request_path, payload = _load(analysis_id, attempt, stage, generation)
     status_path = _status_path(request_path)
     if status_path.is_file():
         existing = json.loads(status_path.read_text(encoding="utf-8"))
-        if existing.get("status") in {"running", "success"}:
+        if (
+            int(existing.get("generation") or 1) == int(payload["generation"])
+            and existing.get("status") in {"running", "success"}
+        ):
             return {"status": existing["status"], "stage": stage}
     log_path = request_path.with_suffix(".worker.log")
-    command = [sys.executable, str(Path(__file__).resolve()), "_worker", analysis_id, str(attempt), stage]
+    command = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "_worker",
+        analysis_id,
+        str(attempt),
+        stage,
+        str(payload["generation"]),
+    ]
     with log_path.open("a", encoding="utf-8") as log:
         subprocess.Popen(
             command,
@@ -435,14 +870,22 @@ def start(analysis_id: str, attempt: int, stage: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    if len(sys.argv) != 5 or sys.argv[1] not in {"gatk-runtime", "_worker"}:
-        raise SystemExit("usage: gatk_runtime_gate.py gatk-runtime ANALYSIS_ID ATTEMPT STAGE")
-    mode, analysis_id, attempt_text, stage = sys.argv[1:]
+    if len(sys.argv) not in {5, 6} or sys.argv[1] not in {"gatk-runtime", "_worker"}:
+        raise SystemExit(
+            "usage: gatk_runtime_gate.py gatk-runtime ANALYSIS_ID ATTEMPT STAGE [GENERATION]"
+        )
+    mode, analysis_id, attempt_text, stage, *generation_text = sys.argv[1:]
+    generation = int(generation_text[0]) if generation_text else None
     try:
         if mode == "_worker":
-            _execute(analysis_id, int(attempt_text), stage)
+            _execute(analysis_id, int(attempt_text), stage, generation)
         else:
-            print(json.dumps(start(analysis_id, int(attempt_text), stage), sort_keys=True))
+            print(
+                json.dumps(
+                    start(analysis_id, int(attempt_text), stage, generation),
+                    sort_keys=True,
+                )
+            )
     except (OSError, RuntimeError, ValueError) as exc:
         raise SystemExit(f"GATK runtime rejected: {exc}") from exc
 
