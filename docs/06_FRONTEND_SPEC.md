@@ -1,5 +1,19 @@
 # Frontend specification
 
+## SUBMIT-STEPS-20260912
+
+WGS submission uses three vertically stacked numbered sections. Every step
+heading remains visible; the server submission phase selects the expanded body.
+Large teal current, green completed and neutral pending markers are paired
+with explicit text and aria-current/aria-disabled, not color alone. Titles,
+secondary descriptions and status pills have separate spacing and hierarchy.
+Completed steps show read-only summaries: no new back/edit/reset operation is
+introduced for an already-created task. Restore/cancel uncertainty locks all
+steps. Existing configuration and final execution confirmations remain required.
+Platform options show platform/reference identity without a legacy WGS version
+suffix; the release API card remains the sole current-version display. No
+platform ID, frozen config, API payload, feature gate or workflow behavior changes.
+
 ## OPT20260912 resource panels
 
 Cloud Resources always renders Heavy independently of SFS. It labels the

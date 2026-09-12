@@ -3756,24 +3756,47 @@ textarea {
 }
 .wizard-steps {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
   list-style: none;
   padding: 0;
   margin: 1rem 0 0;
 }
 
-.wizard-steps li {
+.wizard-steps > .submission-step {
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 0.75rem;
+  padding: 1.25rem;
   color: var(--muted);
+  background: #f8fafc;
+  min-width: 0;
 }
 
-.wizard-steps li.active {
+.wizard-steps > .submission-step.active {
   border-color: var(--accent);
   color: var(--text);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: #fff;
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+.submission-step-heading { display: flex; align-items: flex-start; gap: 1rem; }
+.submission-step-number { display: grid; place-items: center; flex: 0 0 44px; height: 44px; border-radius: 50%; background: #e8eef3; color: #52677b; font-size: 1.1rem; font-weight: 750; }
+.submission-step-text { flex: 1; min-width: 0; }
+.submission-step-text h2 { margin: 0; font-size: 1.2rem; line-height: 1.5; font-weight: 750; color: #33485c; }
+.submission-step-text p { margin: .5rem 0 0; font-size: .875rem; line-height: 1.6; color: #60758b; }
+.submission-step-status { flex-shrink: 0; padding: .3rem .65rem; border-radius: 20px; background: #e8eef3; color: #52677b; font-size: .8rem; font-weight: 650; }
+.submission-step.active .submission-step-number { background: #176e85; color: #fff; }
+.submission-step.active .submission-step-text h2 { color: #114c60; }
+.submission-step.active .submission-step-status { background: #e4f3f7; color: #115c72; }
+.submission-step.completed .submission-step-number,
+.submission-step.completed .submission-step-status { background: #e3f3eb; color: #126342; }
+.submission-step-content { margin: 1.25rem 0 0 60px; border-top: 1px solid #e2eaf0; padding-top: 1.25rem; }
+.submission-step-content > .panel { border: 0; box-shadow: none; padding: 0; background: transparent; }
+.submission-step-summary { margin: .75rem 0 0 60px; font-size: .875rem; line-height: 1.6; }
+@media (max-width: 700px) {
+  .submission-step-heading { flex-wrap: wrap; gap: .75rem; }
+  .submission-step-text { flex-basis: calc(100% - 60px); }
+  .submission-step-status { margin-left: 56px; }
+  .submission-step-content, .submission-step-summary { margin-left: 0; }
 }
 
 .wgs-stage-graph {

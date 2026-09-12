@@ -39,6 +39,11 @@ it("restores an existing manual WGS submission after page reload without creatin
   expect(screen.queryByText("NOT_SELECTED")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", {name: "Prepare sample information"})).not.toBeInTheDocument();
   expect(creates).toBe(0);
+  const steps = screen.getByRole('list', {name: 'WGS 提交步骤'});
+  expect(within(steps).getAllByRole('heading', {level: 2})).toHaveLength(3);
+  expect(within(steps).getByText('复核样本与配置').closest('li')).toHaveAttribute('aria-current', 'step');
+  expect(within(steps).getByText('选择批次与参数').closest('li')).not.toHaveAttribute('aria-current');
+  expect(within(steps).getByText('确认并启动分析').closest('li')).toHaveAttribute('aria-disabled', 'true');
   cleanup();
   render(<App />);
   expect(await screen.findByRole("button", {name: "Confirm configuration"})).toBeInTheDocument();
@@ -89,6 +94,11 @@ it("uses a pipeline-selectable staged WGS submission form", async () => {
   expect(screen.getByLabelText("Use reference")).toBeDisabled();
   expect(screen.getByRole("button", {name: "Prepare sample information"})).toBeDisabled();
   expect(screen.getByText(/WGS first generates sampleinfo/)).toBeInTheDocument();
+  const steps = screen.getByRole('list', {name: 'WGS 提交步骤'});
+  expect(within(steps).getAllByRole('heading', {level: 2})).toHaveLength(3);
+  expect(within(steps).getByText('选择批次与参数').closest('li')).toHaveAttribute('aria-current', 'step');
+  expect(within(steps).getByText('复核样本与配置').closest('li')).toHaveAttribute('aria-disabled', 'true');
+  expect(screen.getByRole('option', {name: 'T7 / hg38'})).toHaveValue('T7');
   expect(screen.queryByText(/preview is not enabled/)).not.toBeInTheDocument();
 });
 

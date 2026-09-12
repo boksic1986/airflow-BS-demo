@@ -113,6 +113,10 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const project = useMemo(() => catalog?.items.find((item) => item.project_id === projectId) || catalog?.items[0], [catalog, projectId]);
   const executionEnabled = Boolean(release?.execution_enabled && release.runtime_adapter_enabled);
   const phase = String(created?.params?.submission_phase || "select");
+  const currentStep = restoring || (requestedRun && !created) || ['cancelled', 'cancelling_submission'].includes(phase)
+    ? 0 : ['config_review', 'preparing_analysis'].includes(phase) ? 2
+    : ['execution_review', 'approved'].includes(phase) ? 3 : 1;
+  const frozenParameters = created?.params?.submission_options ? <section className="panel"><h3>Frozen analysis parameters</h3><p>Caller: Sentieon {String(created.params.algo)} · Reference: {String(created.params.use_reference)} · Release: {String(created.params.pipeline_release_id)}</p><p>These options were fixed at the first confirmation. The following review cannot change them.</p>{created.params.test_project ? <p>Frozen release configuration: {JSON.stringify((created.params.test_project as Record<string,unknown>).effective_config)}</p> : null}</section> : null;
   const preparationFailed = Boolean(created && ["failed", "unknown_interrupted"].includes(created.status));
   useEffect(() => {
     if (!created?.analysis_id || preparationFailed || ["success", "failed", "cancelled"].includes(created.status)) return;
@@ -185,10 +189,11 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     {!requestedRun ? <IncompleteSubmissionsPanel /> : null}
     <section className="page-header"><div><p className="eyebrow">WGS production</p><h1>Submit run</h1><p>Submit one catalog-controlled WGS batch. The DAG runs native WGS sampleinfo and analysis preparation, then Step1-Step6.</p></div>{created?<CancelSubmission key={`${created.analysis_id}-${created.attempt}`} run={created} onCancelled={()=>setCreated({...created,status:"cancelled",params:{...created.params,submission_phase:"cancelled"}})} />:null}</section>
     <section className="panel"><div className="definition-grid"><div><dt>Current WGS release</dt><dd>{release ? `WGS ${release.version} / ${release.source_commit.slice(0, 7)}` : "Loading release..."}</dd></div><div><dt>Release ID</dt><dd>{release?.release_id || "-"}</dd></div><div><dt>CCE profile</dt><dd>{release?.profile_id ? `${release.profile_id}/${release.profile_revision || "-"}` : "-"}</dd></div><div><dt>cce-pipeline</dt><dd>{release?.cce_pipeline_version || "-"}</dd></div><div><dt>Execution</dt><dd>{executionEnabled ? "Enabled" : "Disabled"}</dd></div></div></section>
-    <ol className="wizard-steps"><li className={phase === "select" || phase === "preparing_sampleinfo" ? "active" : ""}>1. Select batch</li><li className={phase === "config_review" || phase === "preparing_analysis" ? "active" : ""}>2. Review samples and configuration</li><li className={phase === "execution_review" || phase === "approved" ? "active" : ""}>3. Confirm execution</li></ol>
     {phase === "cancelled" ? <section className="panel" role="status"><h2>提交已取消</h2><p>样本表和回执已保留作审计；未修改 pending 或删除分析数据。</p></section> : null}
     {phase === "cancelling_submission" ? <section className="panel" role="status"><h2>取消尚未确认</h2><p>已禁止继续确认配置。请使用右上角“重试取消提交”完成停止确认。</p></section> : null}
     {requestedRun ? <section className="panel"><Link to={`/runs/${requestedRun}`}>View existing run</Link>{restoring ? <p>Restoring submission...</p> : null}{!restoring && !created ? <p>The existing run could not be loaded. Refresh to retry; no new run has been submitted.</p> : null}</section> : null}
+    <ol className="wizard-steps" aria-label="WGS 提交步骤">
+    <SubmissionStep number={1} current={currentStep} title="选择批次与参数" description="选择输入来源和批次，生成样本预览；此时不会启动云上分析。" summary={created ? `已保存提交 · ${String(created.params?.sequencing_batch || created.params?.batch || created.analysis_id)}` : undefined}>
     {!created && !requestedRun ? <section className="panel"><form className="form-grid wgs-grouped-form" onSubmit={prepare}>
       {pipelineSelector}
       <fieldset><legend>Input and project</legend>
@@ -199,7 +204,7 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
       <p className="field-help">Test only: /sg2/50.ctapa/project/HWcloud/WGS_test. Source sampleinfo.tsv/config.yaml and exact raw FASTQ pairs are frozen; existing results and formal pending are never copied.</p>
       </> : <>
       <label className="field"><span>Project</span><select aria-label="Project" value={projectId} onChange={(event) => setProjectId(event.target.value)}>{catalog?.items.map((item) => <option value={item.project_id} key={item.project_id}>{item.display_name}</option>)}</select></label>
-      <label className="field"><span>Platform</span><select aria-label="Platform" value={platform} onChange={(event) => setPlatform(event.target.value)}>{project?.platforms.map((item) => <option value={item.platform_id} key={item.platform_id}>{item.display_name}</option>)}</select></label>
+      <label className="field"><span>Platform</span><select aria-label="Platform" value={platform} onChange={(event) => setPlatform(event.target.value)}>{project?.platforms.map((item) => <option value={item.platform_id} key={item.platform_id}>{item.display_name.replace(/\s*\/\s*WGS\s+V?\d+(?:\.\d+)+(?:[-\w.]*)?\s*$/i, '')}</option>)}</select><small className="field-help">流程版本见上方 Current WGS release；平台仅表示测序平台与参考组。</small></label>
       <label className="field"><span>Batch</span><input aria-label="Batch" placeholder="20260901B" value={batch} onChange={(event) => setBatch(event.target.value)} /></label>
       <label className="field"><span>FASTQ root</span><select aria-label="FASTQ root" value={fastqRootId} onChange={(event) => setFastqRootId(event.target.value)}>{project?.fastq_roots.map((item) => <option value={item.root_id} key={item.root_id}>{item.display_name}</option>)}</select></label>
       </>}
@@ -215,15 +220,38 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
       {!executionEnabled ? <p className="inline-error" role="note">Execution is disabled. No AnalysisRun, OBS transfer or CCE task can start.</p> : null}
     </form></section> : null}
     {!created && testPreview && inputMode==='test' && acceptedPreviewInputs.current===previewInputs ? <section className="panel"><h2>Review frozen source scope</h2><p>Source: {testPreview.source_project_dir}</p><p>{testPreview.sample_count} samples · {testPreview.fastq_file_count} FASTQ files · {testPreview.release_id} · Sentieon {testPreview.algo} · Reference {testPreview.use_reference}</p><p>Output: {testPreview.output_child}. {testPreview.write_check}</p><p>Frozen release configuration: {JSON.stringify(testPreview.effective_config)}</p><p>{testPreview.samples.join(', ')}</p><button type="button" className="button primary" disabled={submitting} onClick={()=>void confirmTestSource()}>Confirm test source and prepare</button></section> : null}
-    {created && preparationFailed ? <section className="panel" role="alert"><h2>Sample information preparation failed</h2><p>{created.error_summary || "The preparation task failed before sample information became available."}</p><Link className="button primary" to={`/runs/${created.analysis_id}`}>View failure details</Link></section> : null}
     {created && !preparationFailed && phase === "preparing_sampleinfo" ? <section className="panel"><h2>Preparing sample information</h2><p>The WGS sampleinfo task is running. This page refreshes automatically.</p></section> : null}
-    {created?.params?.submission_options ? <section className="panel"><h2>Frozen analysis parameters</h2><p>Caller: Sentieon {String(created.params.algo)} · Reference: {String(created.params.use_reference)} · Release: {String(created.params.pipeline_release_id)}</p><p>These options were fixed at the first confirmation. The following review cannot change them.</p>{created.params.test_project ? <p>Frozen release configuration: {JSON.stringify((created.params.test_project as Record<string,unknown>).effective_config)}</p> : null}</section> : null}
-    {created && phase === "config_review" ? <section className="panel"><h2>Review samples and configuration</h2><SamplePreview samples={samples} /><div className="form-grid"><label className="field"><span>Reference selection</span><select aria-label="Use reference" disabled={Boolean(created.params?.submission_options) || !release?.submission_options?.defaults} value={useReference} onChange={(event) => setUseReference(event.target.value)}>{(release?.submission_options?.defaults ? release.submission_options.reference_values : [useReference]).map(value=><option key={value} value={value}>{value || 'Frozen selection unavailable'}</option>)}</select></label><label className="field"><span>Resource set</span><select aria-label="Resource set" value="default" disabled><option value="default">WGS release default</option></select></label><button className="button primary" type="button" disabled={submitting} onClick={() => void confirmConfiguration()}>Confirm configuration</button></div></section> : null}
+    </SubmissionStep>
+    <SubmissionStep number={2} current={currentStep} title="复核样本与配置" description="核对样本范围及最终配置，确认后准备分析目录。" summary="配置已确认；已冻结的提交不会在此重复创建。">
+    {frozenParameters}
+    {created && phase === "config_review" ? <section className="panel"><h3>Review samples and configuration</h3><SamplePreview samples={samples} /><div className="form-grid"><label className="field"><span>Reference selection</span><select aria-label="Use reference" disabled={Boolean(created.params?.submission_options) || !release?.submission_options?.defaults} value={useReference} onChange={(event) => setUseReference(event.target.value)}>{(release?.submission_options?.defaults ? release.submission_options.reference_values : [useReference]).map(value=><option key={value} value={value}>{value || 'Frozen selection unavailable'}</option>)}</select></label><label className="field"><span>Resource set</span><select aria-label="Resource set" value="default" disabled><option value="default">WGS release default</option></select></label><button className="button primary" type="button" disabled={submitting} onClick={() => void confirmConfiguration()}>Confirm configuration</button></div></section> : null}
     {created && phase === "preparing_analysis" ? <section className="panel"><h2>Preparing analysis directory</h2><p>WGS is resolving eligible and pending samples and freezing the CCE bundle.</p></section> : null}
+    </SubmissionStep>
+    <SubmissionStep number={3} current={currentStep} approved={phase === 'approved'} title="确认并启动分析" description="最终确认入选样本和执行目标，提交后才启动分析。">
+    {frozenParameters}
     {created && phase === "execution_review" ? <section className="panel"><h2>Confirm WGS execution</h2><SamplePreview samples={samples} />{created.execution_dispatch ? <ExecutionTargetSelector attempt={created.attempt || 1} batch={batch || String(created.params?.batch || created.params?.sequencing_batch || "-")} sampleCount={samples.length} dispatch={created.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={async () => setCreated(await getRunDetail(created.analysis_id))} /> : null}<p>Review the final selected samples before starting the selected execution backend.</p><button className="button primary" type="button" disabled={submitting || samples.length === 0} onClick={() => void startExecution()}>Start WGS workflow</button></section> : null}
     {created && phase === "approved" ? <>{created.execution_dispatch ? <ExecutionTargetSelector attempt={created.attempt || 1} batch={batch || String(created.params?.batch || created.params?.sequencing_batch || "-")} sampleCount={samples.length} dispatch={created.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={async () => setCreated(await getRunDetail(created.analysis_id))} /> : null}<p className="success-note">WGS execution approved: <Link to={`/runs/${created.analysis_id}`}>{created.analysis_id}</Link>.</p></> : null}
+    </SubmissionStep>
+    </ol>
+    {created && preparationFailed ? <section className="panel" role="alert"><h2>Sample information preparation failed</h2><p>{created.error_summary || "The preparation task failed before sample information became available."}</p><Link className="button primary" to={`/runs/${created.analysis_id}`}>View failure details</Link></section> : null}
     {error ? <div className="inline-error" role="alert">{error}</div> : null}
   </div>;
+}
+
+function SubmissionStep({number, current, title, description, summary, approved = false, children}: {
+  number: number; current: number; title: string; description: string; summary?: string; approved?: boolean; children: ReactNode;
+}) {
+  const active = number === current && !approved;
+  const completed = current > number || approved;
+  const state = completed ? 'completed' : active ? 'active' : 'pending';
+  return <li className={`submission-step ${state}`} aria-current={active ? 'step' : undefined} aria-disabled={!active && !completed ? true : undefined}>
+    <header className="submission-step-heading">
+      <span className="submission-step-number" aria-hidden="true">{completed ? '✓' : String(number).padStart(2, '0')}</span>
+      <div className="submission-step-text"><h2>{title}</h2><p>{description}</p></div>
+      <span className="submission-step-status">{approved ? '已提交' : completed ? '已完成' : active ? '当前步骤' : current === 0 ? '暂不可操作' : number === 3 ? '尚未提交' : '待完成上一步'}</span>
+    </header>
+    {active || approved ? <div className="submission-step-content">{children}</div> : completed && summary ? <p className="submission-step-summary">{summary}</p> : null}
+  </li>;
 }
 
 function GatkSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
