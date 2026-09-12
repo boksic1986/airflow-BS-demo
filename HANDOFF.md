@@ -1,5 +1,51 @@
 # HANDOFF.md
 
+## 2026-09-12 SUBMIT-STEPS frontend-only deployment
+
+Goal: user-approved vertical WGS steps and clearer text hierarchy. Implemented
+e0eb715 on jiucheng/development/next in existing development worktree; no push/main
+merge. Changed SubmitPage.tsx, styles.css, WgsProductionUi.test.tsx and frontend spec.
+Completed steps retain read-only summaries; existing run restoration, parameter
+gates and all confirmation handlers retained. Platform strips stale version suffix
+only, leaves ID unchanged; release API remains4.2.1. Did not activate caller options.
+
+BS10610/server10610 and BS96/server96 preflight verified current paths, actual
+mounts, false scan/dispatch/custom/catalog gates and no active runs. Onlyfrontend
+recreated: testd2cab64aa403/prodecfe66fc6820. All other fingerprints and retained
+3test/7production run identity/status digests unchanged. Health passed on both.
+93UItests and TypeScript/Vite offline builds passed on both cached Node22 hosts.
+Initial RED harness lacked vite config (window undefined); mounting actual config
+produced intended2test failures; corrected implementation passed21targeted tests.
+No Docker Hub pull, real submissions, data writes or workflow restarts.
+
+UI connection via cua.getState failed (browser fetch unavailable), so authenticated
+desktop/narrow visual review not performed. Keep user visual check open; do not
+claim screenshot acceptance. Local current root is not implementation source.
+Deployment, rollback/image pins in docs/releases/SUBMIT_STEPS_20260912.md; remote
+helper under candidates/submit-steps-20260912 only touches frontend and retains all
+data. Current symlinks/backend remain4d3d24e; pass UI overlay on future recreation.
+Prior uncommitted production-deployment documentation preserved and finalized with
+this handoff. Next: user visual review, separate owner/gate alignment for options.
+
+## 2026-09-12 BS96 panel optimization promotion complete
+
+User requested yesterday's tested WGS/GATK panel on96 because test login unavailable.
+Verified BS96/server96 production81587fc and BS10610 test4d3d24e via SSH. Promoted
+exact4d3d24e under ctapa to /data/airflow-WGS/releases/20260912-panel-opt-4d3d24e6.
+Onlybackend/observer/frontend changed; eight protected service fingerprints stable.
+93UItests/tsc/Vite offline passed. Health/assets/seven history identity+statuses and
+allworkspace/rule reads passed. Scan/dispatch/custom/catalog remainfalse; no real
+analysis, source/gate/DB/data changes or Git merge/push. Heavy0/25idle available;
+packages spool missing. Authenticated visual and real enforcement acceptance pending.
+Modified release ledger,CURRENT_STATE,TASKS,SERVER_INFO,HANDOFF; ignored promotion
+helper retained locally and remote candidates/panel-opt-20260912. Runtime rollback
+helper restores onlythree services and current to81587fc, preserving data.
+Defaultaccount permission failure resolved using existing authorizedctapa key;
+preflight false mount-order mismatch corrected before cutover. Details, exactpaths,
+IDs,tests and limitations in docs/releases/OPT20260912_PRODUCTION_RELEASE.md.
+Production Git repository remainscleanmain; documentation updates in development
+are uncommitted. Next: user visual check; do not infer activation or newprepare work.
+
 ## OPT20260912 — test deployment handoff
 
 Goal: approved WGS/GATK submission, Rule/QC/estimates and resources optimization,

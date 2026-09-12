@@ -1,5 +1,21 @@
 # TASKS.md
 
+## SUBMIT-STEPS-20260912
+
+- [x] Vertical numbered steps, distinct title/description/status and locked future steps.
+- [x] Preserve server recovery/three confirmations/gates; remove legacy platform version suffix only.
+- [x] RED2 failures then GREEN21 targeted; full93UI tests and offline build on both hosts.
+- [x] Frontend-only BS10610/96 deployment, health and protected-service/history checks.
+- [ ] User visual acceptance (browser connector unavailable); parameter activation remains separately gated.
+
+## OPT20260912 production panel promotion
+
+- [x] Explicit current user authorization; verify BS96/ctapa/predecessor/gates.
+- [x] Pin tested4d3d24e, offline93UI/build, promote backend/observer/frontend only.
+- [x] Health/assets/seven histories/workspace/rules, eight protected services and gates verified.
+- [ ] Authenticated visual acceptance; missing billing spool and real child-rule/enforcement evidence remain unverified.
+- Sample-reference/Intake and WGS prepare development remain unimplemented by this release.
+
 ## OPT20260912 — WGS/GATK test-panel optimization
 
 - Owner: coordinator; test-only development branch jiucheng/development/next.

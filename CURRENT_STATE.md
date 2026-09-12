@@ -1,5 +1,28 @@
 # CURRENT_STATE.md
 
+## SUBMIT-STEPS-20260912 — vertical wizard deployed
+
+Frontend-only e0eb715 deployed to BS10610 and BS96 after user approval.
+Three numbered steps have distinct heading/description/status, current body and
+read-only completed summaries. Platform no longer repeats the stale version suffix;
+release remains API-driven4.2.1. No gate or payload changes. Both hosts93UItests/build
+and health passed; retained3test/7production histories and every non-frontend
+container unchanged. Frontend IDs testd2cab64aa403/prodecfe66fc6820.
+Current backend release/symlinks remain4d3d24e; UI is a documented image overlay,
+not a main Git sync. Browser connection failed; visual acceptance remains pending.
+See docs/releases/SUBMIT_STEPS_20260912.md.
+
+## OPT20260912 — user-approved production panel promotion
+
+96/server96 now serves reviewed4d3d24e from releases/20260912-panel-opt-4d3d24e6.
+Only backend/observer/frontend recreated; eight other service fingerprints preserved.
+93 frontend tests/build passed, health/assets and all seven histories/workspace/rules
+verified; zero active runs. Scan/dispatch and new feature activation remain false.
+Heavy reports0/25idle; packages spool unavailable. No source-owner/gate/DB/data
+changes or Git main publication. Authenticated visual acceptance remains pending.
+See docs/releases/OPT20260912_PRODUCTION_RELEASE.md; this supersedes prior test-only
+deployment status, not the pending sample-reference/Intake design.
+
 ## OPT20260912 — BS10610 panel deployed; activation holds remain
 
 Reviewed runtime source4d3d24e6c0308b682a92e2b09824026b7a888818 deployed to

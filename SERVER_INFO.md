@@ -1,5 +1,19 @@
 # SERVER_INFO.md
 
+2026-09-12 SUBMIT-STEPS frontend overlay e0eb715 supersedes frontend IDs below:
+testd2cab64aa403, productionecfe66fc6820; imageairflow-demo/frontend:submit-e0eb715.
+Both current symlinks/backend/observer and all other service IDs remain unchanged.
+Use candidates/submit-steps-20260912/compose.frontend.json with existing Compose
+files for subsequent frontend recreation; current alone still names4d3d24e sources.
+Rollback script and exact image provenance are in that same candidate directory.
+
+2026-09-12 live production panel promotion: BS96/server96 current
+/data/airflow-WGS/releases/20260912-panel-opt-4d3d24e6, code4d3d24e.
+Backend45c880e61e92/observer410663a6d4b6/frontendcb620c371dde; eight other services
+unchanged. WGS/GATK retained; scan/dispatchfalse; custom/catalogfalse. Predecessor
+20260912-gatk-81587fcb retained. Health/static/API accepted. See production release
+ledger; older environment observations below are historical.
+
 2026-09-12 GATK promotion: test server10610 and production server96 current
 releases/20260912-gatk-81587fcb, code81587fc. Manual GATK true/unpaused, pool1;
 WGS scan/dispatchfalse. Production output /sg2/50.ctapa/project/HWcloud/WES_Clinical,
