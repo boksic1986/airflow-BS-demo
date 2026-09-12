@@ -1,5 +1,13 @@
 # Frontend specification
 
+## RESOURCE-COMPACT-20260912
+
+User requested restoring compact Cloud Resources: show SFS capacity and Heavy
+occupancy/waiting/mode, retain freshness semantics and SFS I/O. Remove resource
+package balances and unimplemented cloud CPU/memory placeholders. Heavy identity
+and diagnostic details are available in a closed-by-default disclosure. Backend
+billing response/collectors are unchanged and billing activation is abandoned.
+
 ## SUBMIT-STEPS-20260912
 
 WGS submission uses three vertically stacked numbered sections. Every step
