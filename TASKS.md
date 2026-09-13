@@ -1,5 +1,15 @@
 # TASKS.md
 
+## AF05-SCAN-20260913
+
+- [x] Selective scan-only backport2121061; preserve development/next3440aa0.
+- [x] Independent code/deployment-script review;129 scoped backend and97UI tests/build.
+- [x] Disposable PostgreSQL0019-to0021 preservation, baseline/dedup/no-analysis acceptance.
+- [x] Test panel deployment; production authorized migration/backend/frontend/scanner deployment.
+- [x] Production scan enabled1800s, auto disabled;10 historical files baselined; retained counts and protected services verified.
+- [ ] User visual acceptance and natural future Samplelist waiting-sequencing/data/ready observation.
+- Reference/pending/provider synchronization and automatic analysis remain outside this release.
+
 ## SUBMIT-STEPS-20260912
 
 - [x] Vertical numbered steps, distinct title/description/status and locked future steps.

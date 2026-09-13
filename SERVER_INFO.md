@@ -1,5 +1,15 @@
 # SERVER_INFO.md
 
+2026-09-13 AF05 scan-only supersedes backend/frontend and production scanner:
+release suffix releases/20260913-af05-scan-2121061 under each existing control root.
+Actual /app mounts point to that release/backend; frontend af05-scan-2121061.
+BS96 scan=true/auto=false1800s; BS10610 scan=false/auto=false. Schema0021 both.
+Existing current symlinks intentionally unchanged4d3d24e6; deploy using combined
+Compose argv in candidates/af05-scan-20260913/command.json, not bare current.
+Private before/after.json retain exact service/image/mount inventory;
+rollback-command.json pins old images, deploy.py rollback preserves schema/data.
+See docs/releases/AF05_SCAN_ONLY_20260913.md. Older gate observations below are historical.
+
 2026-09-12 SUBMIT-STEPS frontend overlay e0eb715 supersedes frontend IDs below:
 testd2cab64aa403, productionecfe66fc6820; imageairflow-demo/frontend:submit-e0eb715.
 Both current symlinks/backend/observer and all other service IDs remain unchanged.

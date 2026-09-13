@@ -1,5 +1,34 @@
 # HANDOFF.md
 
+## 2026-09-13 AF05 scan-only deployed on96
+
+Completed authorized release2121061 to BS10610 and BS96 with additive0020/0021
+migrations, private pre-migration dumps and pinned code-only rollback commands.
+Production scan enabled, auto disabled; sourceTarget_Capture,1800s. Persistent
+baseline10observations, errors0, created0 on repeat;7runs/67samples/22attempts/
+11Intake retained. Test scanfalse,3runs/103samples/3attempts unchanged.
+Only backend/frontend (plus production scanner) recreated; all unrelated IDs
+unchanged. APIhealth/config/scanner-state200; static assets match tested build.
+No WGS prepare/local/SGE/pending/provider/analysis action or deletion performed.
+129backend/97UI passed;5 known baseline failures excluded after reproduction;
+real disposablePG migration/scan preservation passed. Browser visual acceptance
+and future natural scheduled discovery not claimed. Migration rollback is NOT a
+schema downgrade: preserve records/0021, restore old code and disable scan.
+See docs/releases/AF05_SCAN_ONLY_20260913.md for paths, images, failures and
+commands. Release source from69f581c; development/next3440aa0 remains preserved;
+no main merge/push. Scripts retained privately in release deployment directory.
+
+## 2026-09-13 AF05 scan-only release authorization
+
+User approved BS96 production release/scan-only activation after acceptance.
+Scoped additive biodemo migration and Intake baseline authorized; auto dispatch
+false, no reference sync/analysis/pending/runtime change or data deletion.
+Production preflight verified server96 ctapa6801/current4d3d24e6/schema0019,
+7terminal runs,67samples,22attempts,11Intake. See
+docs/releases/AF05_SCAN_ONLY_20260913.md for exact candidate and rollback scope.
+New release branch in existing worktree from69f581c; development/next retained
+at3440aa0. Production repository layout unchanged; no main push/merge performed.
+
 ## 2026-09-12 SUBMIT-STEPS frontend-only deployment
 
 Goal: user-approved vertical WGS steps and clearer text hierarchy. Implemented

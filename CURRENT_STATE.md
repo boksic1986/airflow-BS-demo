@@ -1,5 +1,21 @@
 # CURRENT_STATE.md
 
+## AF05-SCAN-20260913 — scan-only deployed
+
+BS10610 and BS96 backend/frontend now pin2121061; BS96 scanner also pins it.
+Production scan=true, auto-dispatch=false in both environment and policy. Source
+is /sg2/50.ctapa/project/Target_Capture, interval1800s, mode samplelist_batches.
+10 existing Samplelists permanently baselined; repeat scan errors0/created0.
+Production7runs/67samples/22attempts/11legacyIntake retained, active0. Test3runs/
+103samples/3attempts retained, scanfalse. Schema0021 on both; inactive0020 tables
+are migration prerequisites only, no reference sync enabled. Other service IDs
+unchanged. Current symlinks still4d3d24e6: use recorded AF05 overlay, not bare
+current Compose. No main publication or WGS/local/SGE/pending changes.
+129 scoped backend tests,97UI tests/build and disposable PostgreSQL acceptance
+passed;5 excluded tests independently fail on unchanged baseline. Authenticated
+visual review and next natural new-file cycle remain pending. See
+docs/releases/AF05_SCAN_ONLY_20260913.md for deployment and code-only rollback.
+
 ## SUBMIT-STEPS-20260912 — vertical wizard deployed
 
 Frontend-only e0eb715 deployed to BS10610 and BS96 after user approval.

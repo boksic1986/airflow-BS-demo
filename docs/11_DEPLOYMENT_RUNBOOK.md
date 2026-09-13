@@ -1,5 +1,18 @@
 # Deployment runbook
 
+### AF05 scan-only overlay (2026-09-13)
+
+BS96 scanner/backend/frontend use release2121061 with `compose.af05.json`;
+BS10610 backend/frontend use the same source with scanner disabled. Existing
+current symlinks are not sufficient to recreate these services. Use private
+`candidates/af05-scan-20260913/command.json` for the exact Compose file set.
+Scanner-only `/af05-config/source.json` fixes discovery to Target_Capture and
+does not alter WGS prepare defaults. Keep auto dispatch false. Preserve source
+identity path and baseline records on future releases; do not replay old files.
+Schema0021 includes inactive0020 prerequisites. Code-only rollback retains the
+additive schema/data and disables scan; do not downgrade/drop reference or intake
+tables. See [AF05 release ledger](releases/AF05_SCAN_ONLY_20260913.md).
+
 ### OPT20260912 retained-gate catalog guard
 
 Keep `WGS_CONFIG_OPTIONS_ENABLED=false` and
