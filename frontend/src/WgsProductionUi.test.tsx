@@ -659,7 +659,7 @@ it("keeps scanner metadata when the discovery list has a transiently unavailable
 
   render(<App />);
 
-  expect(await screen.findByText("本轮检查 1843 个批次目录")).toBeInTheDocument();
+  expect(await screen.findByText("本轮检查 1843 个扫描项")).toBeInTheDocument();
   expect(await screen.findByText(/Intake unavailable: Failed to fetch/)).toBeInTheDocument();
   expect(intakeAttempts).toBe(2);
 });

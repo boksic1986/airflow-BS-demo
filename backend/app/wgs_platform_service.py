@@ -3,6 +3,7 @@ from app.sample_selection_scope import selected_clause, nonparticipating_status,
 
 from datetime import datetime, timezone
 import csv
+import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import re
@@ -10,7 +11,7 @@ import secrets
 
 from app.airflow_idempotency import ensure_dag_run
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.input_scanner import ensure_allowed_path
@@ -47,7 +48,7 @@ class WgsPreparedArtifactPending(ValueError):
     """A successful remote prepare marker is visible before its NFS artifact."""
 
 
-def create_wgs_platform_run(*, session: Session, settings, project_name: str, execution_mode: str, batch_no: str, fq_path: str, submitted_by: str, commit: bool = True, validate_input: bool = True, platform: str | None = None, sequencing_batch: str | None = None, analysis_batch: str | None = None, fastq_root: str | None = None, use_reference: str = "all") -> dict:
+def create_wgs_platform_run(*, session: Session, settings, project_name: str, execution_mode: str, batch_no: str, fq_path: str, submitted_by: str, commit: bool = True, validate_input: bool = True, platform: str | None = None, sequencing_batch: str | None = None, analysis_batch: str | None = None, fastq_root: str | None = None, use_reference: str = "all", project_id: str | None = None) -> dict:
     if execution_mode not in EXECUTION_MODES:
         raise ValueError("execution_mode must be cce for the cloud orchestration release.")
     batch_no = batch_no.strip()
@@ -66,10 +67,17 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
     release = load_wgs_release_catalog(
         Path(settings.wgs_release_catalog_path)
     ).release
+    # Shared by direct/manual/draft and catalog automatic initial creation.
+    if session.get_bind().dialect.name == "postgresql":
+        lock_id = int.from_bytes(hashlib.sha256(json.dumps([batch_no, canonical_source]).encode()).digest()[:8], "big", signed=True)
+        session.execute(text("SELECT pg_advisory_xact_lock(:lock_id)"), {"lock_id": lock_id})
     existing_snapshot = session.scalar(select(WgsInputSnapshot).where(WgsInputSnapshot.batch_no == batch_no, WgsInputSnapshot.fq_path == canonical_source))
     if existing_snapshot is not None:
         existing = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == existing_snapshot.analysis_id))
         if existing is not None:
+            if (dict(existing.params_json or {}).get("project_name") != project_name
+                    or (project_id is not None and dict(existing.params_json or {}).get("project_id") != project_id)):
+                raise ValueError("existing WGS input belongs to a different or unknown project")
             return run_payload(session, existing)
     analysis_id = f"WGS_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}_{secrets.token_hex(3).upper()}"
     workdir = Path(getattr(settings, "host_results_root", settings.container_shared_root)) / "runs" / analysis_id
@@ -89,6 +97,7 @@ def create_wgs_platform_run(*, session: Session, settings, project_name: str, ex
         params_json={
             "sample_selection_scope": {"attempt": 1, "status": "preparing"},
             "project_name": project_name,
+            **({"project_id": project_id} if project_id is not None else {}),
             "execution_mode": execution_mode,
             "batch_no": batch_no,
             "fq_path": canonical_source,

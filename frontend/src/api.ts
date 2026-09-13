@@ -723,10 +723,16 @@ export type HealthResponse = {
 
 export type IntakeDiscovery = {
   pipeline: string;
+  intake_id?: number;
+  discovery_mode?: string;
+  project_id?: string | null;
+  platform_id?: string | null;
+  reason_code?: string | null;
+  source_version?: string | null;
   root_path?: string;
-  chip_id?: string;
+  chip_id?: string | null;
   batch_id: string;
-  sequencing_batch?: string;
+  sequencing_batch?: string | null;
   fingerprint?: string;
   file_count?: number;
   total_bytes?: number;
@@ -757,9 +763,9 @@ export type IntakeDiscovery = {
   eta_model?: string | null;
   estimated_remaining_seconds?: number | null;
   estimated_finish_at?: string | null;
-  eligible_pair_count?: number;
-  excluded_addon_pair_count?: number;
-  pair_issue_count?: number;
+  eligible_pair_count?: number | null;
+  excluded_addon_pair_count?: number | null;
+  pair_issue_count?: number | null;
 };
 
 export type IntakeStatusResponse = {
@@ -769,7 +775,7 @@ export type IntakeStatusResponse = {
   offset?: number;
 };
 
-export type IntakeDiscoveryState = "bootstrap" | "observed" | "ready" | "submitted" | "error" | "disabled" | "waiting_barcode_stat" | "no_new_wgs" | "needs_review" | "bootstrap_ignored";
+export type IntakeDiscoveryState = "bootstrap" | "observed" | "ready" | "submitted" | "error" | "disabled" | "waiting_barcode_stat" | "waiting_sequencing" | "waiting_data" | "no_new_wgs" | "needs_review" | "bootstrap_ignored";
 export type IntakeLifecycle = "active" | "archived" | "all";
 
 export type IntakeScanPreviewItem = {

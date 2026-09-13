@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 from pathlib import Path, PurePosixPath
 
 import yaml
@@ -36,6 +38,11 @@ class WgsIntakePolicy:
     interval_seconds: int
     scheduled_scan_enabled: bool
     auto_dispatch_enabled: bool
+    mode: str = "t7_scan_only"
+    platform_id: str = "T7"
+    samplelist_root: str | None = None
+    prepare_config_path: str | None = None
+    configured_source_identity: str | None = None
 
 
 def load_wgs_projects(path: str | Path) -> tuple[WgsProject, ...]:
@@ -112,6 +119,33 @@ def load_wgs_intake_policy(
     auto_dispatch = intake.get("auto_dispatch_enabled")
     if not isinstance(auto_dispatch, bool):
         raise ValueError("WGS intake auto_dispatch_enabled must be boolean")
+    mode = intake.get("mode", "t7_scan_only")
+    if mode not in {"t7_scan_only", "samplelist_batches"}:
+        raise ValueError("WGS intake mode is unsupported")
+    platform_id = str(intake.get("platform_id") or "T7")
+    source_path = None
+    prepare_path = None
+    configured_source_identity = None
+    if mode == "samplelist_batches":
+        if not intake.get("platform_id") or platform_id != "T7":
+            raise ValueError("Samplelist discovery requires an explicit T7 platform_id")
+        project.platform(platform_id)
+        prepare_path = _absolute_source(intake.get("prepare_config_path"))
+        try:
+            prepare = yaml.safe_load(Path(prepare_path).read_text(encoding="utf-8"))
+            source_path = _absolute_source(prepare["defaults"]["samplelist_dir"])
+            configured_source_identity = hashlib.sha256(
+                json.dumps([prepare_path, source_path], separators=(",", ":")).encode()
+            ).hexdigest()
+        except (OSError, KeyError, TypeError, yaml.YAMLError) as error:
+            raise ValueError("WGS prepare Samplelist configuration is invalid") from None
+        mapping = intake.get("samplelist_mount")
+        if mapping is not None:
+            if not isinstance(mapping, dict) or set(mapping) != {"source", "target"}:
+                raise ValueError("Samplelist mount requires source and target")
+            if _absolute_source(mapping["source"]) != source_path:
+                raise ValueError("Samplelist mount source differs from prepare configuration")
+            source_path = _absolute_source(mapping["target"])
     return WgsIntakePolicy(
         project_id=project_id,
         root_id=root_id,
@@ -119,7 +153,21 @@ def load_wgs_intake_policy(
         interval_seconds=interval_seconds,
         scheduled_scan_enabled=bool(pipeline.get("enabled")) and scheduled,
         auto_dispatch_enabled=auto_dispatch,
+        mode=mode,
+        platform_id=platform_id,
+        samplelist_root=source_path,
+        prepare_config_path=prepare_path,
+        configured_source_identity=configured_source_identity,
     )
+
+
+def _absolute_source(value) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("Samplelist configuration requires an absolute source path")
+    path = PurePosixPath(value.strip())
+    if not path.is_absolute() or ".." in path.parts:
+        raise ValueError("Samplelist configuration requires an absolute source path")
+    return str(path)
 
 
 def public_project_catalog(projects: tuple[WgsProject, ...]) -> dict:

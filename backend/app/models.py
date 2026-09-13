@@ -333,11 +333,20 @@ class WgsIntakeBatch(Base):
     __table_args__ = (
         Index("ix_wgs_intake_batch_state", "state"),
         Index("ix_wgs_intake_batch_sequencing_batch", "sequencing_batch"),
+        UniqueConstraint("project_id", "platform_id", "sequencing_batch", name="uq_wgs_intake_scoped_batch"),
     )
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
-    source_path: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-    chip_id: Mapped[str] = mapped_column(String(256), nullable=False, unique=True)
+    source_path: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
+    chip_id: Mapped[str | None] = mapped_column(String(256), nullable=True, unique=True)
+    discovery_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="t7_scan_only", server_default="t7_scan_only")
+    project_id: Mapped[str | None] = mapped_column(String(128))
+    platform_id: Mapped[str | None] = mapped_column(String(64))
+    root_id: Mapped[str | None] = mapped_column(String(128))
+    source_identity: Mapped[str | None] = mapped_column(String(64))
+    source_version: Mapped[str | None] = mapped_column(String(64))
+    bound_directory_identity: Mapped[str | None] = mapped_column(String(128))
+    reason_code: Mapped[str | None] = mapped_column(String(64))
     sequencing_batch: Mapped[str] = mapped_column(String(16), nullable=False)
     analysis_id: Mapped[str | None] = mapped_column(
         ForeignKey("analysis_run.analysis_id", ondelete="SET NULL"),
@@ -358,6 +367,29 @@ class WgsIntakeBatch(Base):
     ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class WgsSamplelistSource(Base):
+    __tablename__ = "wgs_samplelist_source"
+    source_identity: Mapped[str] = mapped_column(String(64), primary_key=True)
+    baseline_complete: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    first_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reason_code: Mapped[str | None] = mapped_column(String(64))
+
+
+class WgsSamplelistObservation(Base):
+    __tablename__ = "wgs_samplelist_observation"
+    __table_args__ = (UniqueConstraint("source_identity", "file_identity", name="uq_wgs_samplelist_file"),)
+    id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    source_identity: Mapped[str] = mapped_column(ForeignKey("wgs_samplelist_source.source_identity"), nullable=False)
+    file_identity: Mapped[str] = mapped_column(String(64), nullable=False)
+    is_baseline: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    observed_version: Mapped[str | None] = mapped_column(String(64))
+    observation_token: Mapped[str | None] = mapped_column(String(64))
+    stable_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    reason_code: Mapped[str | None] = mapped_column(String(64))
 
 
 class WgsIntakeScannerState(Base):

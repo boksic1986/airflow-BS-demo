@@ -7,8 +7,9 @@ import json
 from pathlib import Path
 import re
 import secrets
+from typing import Callable
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.models import AnalysisRun, RunAction, Sample, WgsInputSnapshot, WgsSubmissionDraft
 from app.wgs_orchestration_service import build_fastq_snapshot, fastq_source_fingerprint
@@ -331,7 +332,8 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
 def create_automatic_wgs_run(*, session, settings, airflow_client, username: str,
                              project_id: str, platform: str, batch: str,
                              fastq_root_id: str,
-                             use_reference: str | None = None) -> dict:
+                             use_reference: str | None = None,
+                             before_submit_guard: Callable[[AnalysisRun], bool] | None = None) -> dict:
     """Create one pre-approved intake run without reviving a terminal attempt."""
     spec = _catalog_run_spec(
         settings=settings,
@@ -347,6 +349,10 @@ def create_automatic_wgs_run(*, session, settings, airflow_client, username: str
         username=username,
         spec=spec,
     )
+    # Validate/claim the actual locked record, not a dispatcher's earlier list.
+    # A rejected guard cannot approve or submit this retained run.
+    if before_submit_guard is not None and not before_submit_guard(run):
+        return run_payload(session, run)
     params = dict(run.params_json or {})
     if existed and params.get("submission_mode") != "auto_dispatch":
         return run_payload(session, run)
@@ -414,6 +420,10 @@ def _catalog_run_spec(*, settings, project_id: str, platform: str, batch: str,
 
 def _create_catalog_run_record(*, session, settings, username: str,
                                spec: CatalogRunSpec) -> tuple[AnalysisRun, bool]:
+    if session.get_bind().dialect.name == "postgresql":
+        identity = [spec.project.project_id, spec.platform, spec.analysis_batch]
+        lock_id = int.from_bytes(hashlib.sha256(json.dumps(identity).encode()).digest()[:8], "big", signed=True)
+        session.execute(text("SELECT pg_advisory_xact_lock(:lock_id)"), {"lock_id": lock_id})
     existed = session.scalar(
         select(WgsInputSnapshot).where(
             WgsInputSnapshot.batch_no == spec.batch_no,
@@ -424,6 +434,7 @@ def _create_catalog_run_record(*, session, settings, username: str,
         session=session,
         settings=settings,
         project_name=spec.project.project_name,
+        project_id=spec.project.project_id,
         execution_mode="cce",
         batch_no=spec.batch_no,
         fq_path=spec.node_root,
@@ -442,6 +453,8 @@ def _create_catalog_run_record(*, session, settings, username: str,
     if run is None:
         raise RuntimeError("created WGS run is missing")
     params = dict(run.params_json or {})
+    if existed and params.get("project_id") != spec.project.project_id:
+        raise ValueError("existing WGS run has ambiguous project ownership")
     if params.get("project_id") != spec.project.project_id:
         params["project_id"] = spec.project.project_id
         run.params_json = params

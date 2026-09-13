@@ -1,5 +1,30 @@
 # API contract
 
+## AF-05 candidate: preregistered WGS batches
+
+Authenticated existing `GET /api/intake/status?pipeline=wgs` additionally returns
+`intake_id`, `discovery_mode`, `project_id`, `platform_id`, `reason_code` and
+`source_version`. New Samplelist rows have `discovery_mode=samplelist_batches`,
+full content `sequencing_batch`, nullable `chip_id/analysis_id`, and stable
+`batch_id=intake:<id>` before and after binding. Legacy rows retain chip batch IDs.
+`source_version` is a 64-hex content digest, never a filename or source path.
+
+The normal/pending view includes `waiting_sequencing` (no directory yet) and
+`waiting_data` (bound directory awaiting BarcodeStat). Pair counts are null while
+waiting, not zero. Existing ready/needs_review/no_new_wgs semantics remain.
+The Intake attention view, used by the Dashboard queue, also includes unlinked
+waiting rows; this does not turn waiting into a global Attention alert.
+`last_seen_at` remains the latest directory observation time.
+No sample IDs, TSV content, source paths or raw parser errors enter this response.
+Safe reasons include `sequencing_directory_pending`, `barcode_pending`,
+`ambiguous_sequencing_directory`, `bound_directory_unavailable`,
+`directory_owned_by_other_intake`, `source_context_conflict`,
+`unsafe_barcode_marker`, `bound_data_changed`, `input_readiness_conflict` and
+`ambiguous_analysis_owner` and `incompatible_analysis_owner`. Discovery does not
+create Sample or AnalysisRun rows. An existing automatic run with a different
+frozen root or another Intake owner remains unsubmitted and requires review;
+already linked failed/canceled runs retain their identity.
+
 ### OPT20260912 catalog option activation
 
 `GET /api/wgs/release` separates informational `submission_options` from
@@ -161,8 +186,8 @@ Until an authoritative namespace-global producer is available, WGS global slot p
   the selected dashboard scope. Legacy overview fields remain available for
   rolling-version compatibility but the T240 dashboard no longer renders the
   duplicate summary cards and trend panels.
-- `GET /api/intake/status?pipeline=wgs&view=attention` returns only unlinked
-  `ready`, `needs_review`, and linked failed analysis rows. `no_new_wgs`,
+- `GET /api/intake/status?pipeline=wgs&view=attention` returns unlinked
+  `ready`/`waiting_sequencing`/`waiting_data`, `needs_review`, and linked failed analysis rows. `no_new_wgs`,
   queued/running and successful linked analyses are excluded. The response
   contains controlled batch identity and status only; source paths are not
   returned.

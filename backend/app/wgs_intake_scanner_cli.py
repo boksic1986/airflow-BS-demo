@@ -10,6 +10,17 @@ import httpx
 from app.db import get_sessionmaker
 from app.wgs_project_catalog import load_wgs_intake_policy
 from app.wgs_t7_intake import scan_wgs_t7_intake
+from app.wgs_samplelist_intake import scan_wgs_samplelist_intake
+
+
+def scan_intake_policy(*, policy, **kwargs):
+    if policy.mode == "samplelist_batches":
+        return scan_wgs_samplelist_intake(**kwargs, samplelist_root=policy.samplelist_root,
+            configured_source_identity=policy.configured_source_identity,
+            project_id=policy.project_id, platform_id=policy.platform_id, root_id=policy.root_id)
+    if policy.mode != "t7_scan_only":
+        raise ValueError("unsupported_intake_mode")
+    return scan_wgs_t7_intake(**kwargs)
 
 
 def run_intake_worker(
@@ -69,7 +80,8 @@ def main() -> int:
     while True:
         cycle_started = time.monotonic()
         try:
-            result = scan_wgs_t7_intake(
+            result = scan_intake_policy(
+                policy=policy,
                 session_factory=session_factory,
                 root=Path(policy.control_plane_path),
                 scan_interval_seconds=interval,

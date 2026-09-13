@@ -23,7 +23,7 @@ NON_CLINICAL_SAMPLE_PREFIX = "YF"
 SCANNER_STATE_ID = 1
 SCANNER_ADVISORY_LOCK_ID = 743_701_143_829
 FINGERPRINT_FROZEN_STATES = {"ready"}
-PERSISTED_STATES = {"ready", "needs_review", "no_new_wgs"}
+PERSISTED_STATES = {"ready", "needs_review", "no_new_wgs", "waiting_sequencing", "waiting_data"}
 
 
 @dataclass(frozen=True)
@@ -106,6 +106,8 @@ def scan_wgs_t7_intake(
                     continue
                 source_path = str(directory.resolve())
                 row = existing_by_path.get(source_path)
+                if row is not None and row.discovery_mode == "samplelist_batches":
+                    continue
                 if row is None:
                     barcode = directory / "BarcodeStat.txt"
                     if (
@@ -283,7 +285,7 @@ def list_wgs_t7_intake(
                 or_(
                     WgsIntakeBatch.state == "needs_review",
                     and_(
-                        WgsIntakeBatch.state == "ready",
+                        WgsIntakeBatch.state.in_(("ready", "waiting_sequencing", "waiting_data")),
                         WgsIntakeBatch.analysis_id.is_(None),
                     ),
                     func.lower(AnalysisRun.status).in_(
@@ -333,7 +335,7 @@ def list_wgs_t7_intake(
     if state in PERSISTED_STATES:
         query = query.where(WgsIntakeBatch.state == state)
     elif view == "pending":
-        query = query.where(WgsIntakeBatch.state.in_(("ready", "needs_review")))
+        query = query.where(WgsIntakeBatch.state.in_(("ready", "needs_review", "waiting_sequencing", "waiting_data")))
     elif view == "history":
         query = query.where(WgsIntakeBatch.state == "no_new_wgs")
     if keyword:
@@ -397,15 +399,21 @@ def _public_batch_payload(
     )
     payload = {
         "pipeline": "wgs",
+        "intake_id": row.id,
+        "discovery_mode": row.discovery_mode,
+        "project_id": row.project_id,
+        "platform_id": row.platform_id,
+        "reason_code": row.reason_code,
+        "source_version": row.source_version,
         "chip_id": row.chip_id,
-        "batch_id": row.chip_id,
+        "batch_id": f"intake:{row.id}" if row.discovery_mode == "samplelist_batches" else row.chip_id,
         "sequencing_batch": row.sequencing_batch,
         "ready_state": row.state,
         "submit_state": "submitted" if row.analysis_id else "disabled",
         "analysis_id": row.analysis_id,
-        "eligible_pair_count": row.eligible_pair_count,
-        "excluded_addon_pair_count": row.excluded_addon_pair_count,
-        "pair_issue_count": row.pair_issue_count,
+        "eligible_pair_count": None if row.state in {"waiting_sequencing", "waiting_data"} else row.eligible_pair_count,
+        "excluded_addon_pair_count": None if row.state in {"waiting_sequencing", "waiting_data"} else row.excluded_addon_pair_count,
+        "pair_issue_count": None if row.state in {"waiting_sequencing", "waiting_data"} else row.pair_issue_count,
         "last_error": row.last_error,
         "last_seen_at": _iso_datetime(row.last_scanned_at),
     }
@@ -450,7 +458,9 @@ def _apply_observation(
 
     if (
         (
-            previous_state in FINGERPRINT_FROZEN_STATES
+            row.analysis_id is not None
+            or (row.discovery_mode == "samplelist_batches" and row.ready_at is not None)
+            or previous_state in FINGERPRINT_FROZEN_STATES
             or (
                 previous_state == "needs_review"
                 and previous_error == "eligible WGS input changed after ready"

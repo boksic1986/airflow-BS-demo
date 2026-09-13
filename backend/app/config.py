@@ -90,6 +90,8 @@ class Settings:
     gatk_runtime_file: str
     gatk_pipeline_root: str
     gatk_cce_pipeline: str
+    wgs_intake_mode: str = "t7_scan_only"
+    wgs_samplelist_root: str | None = None
 
 
 def get_cors_origins() -> list[str]:
@@ -130,6 +132,8 @@ def get_settings() -> Settings:
     scan_enabled = False
     auto_dispatch_enabled = False
     scan_interval_seconds = 1800
+    intake_mode = "t7_scan_only"
+    samplelist_root = None
     if Path(intake_config_path).is_file() and Path(project_catalog_path).is_file():
         intake_policy = load_wgs_intake_policy(
             intake_path=intake_config_path,
@@ -142,7 +146,11 @@ def get_settings() -> Settings:
             and intake_policy.auto_dispatch_enabled
         )
         scan_interval_seconds = intake_policy.interval_seconds
+        intake_mode = intake_policy.mode
+        samplelist_root = intake_policy.samplelist_root
     return Settings(
+        wgs_intake_mode=intake_mode,
+        wgs_samplelist_root=samplelist_root,
         database_url=_required_env("DATABASE_URL"),
         airflow_base_url=os.getenv("AIRFLOW_BASE_URL", "http://airflow-api-server:8080"),
         airflow_api_username=os.getenv("AIRFLOW_API_USERNAME", "admin"),

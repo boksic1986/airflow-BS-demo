@@ -1185,6 +1185,29 @@ def test_internal_step7_cannot_bypass_admin_maintenance_action(tmp_path, monkeyp
         assert stage.stage_label == "Cleaning WGS SFS workspace"
 
 
+def test_samplelist_waiting_states_are_filterable_and_private(tmp_path, monkeypatch):
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    with sessions() as session:
+        session.add(WgsIntakeBatch(discovery_mode="samplelist_batches", project_id="SYN-PROJECT",
+            platform_id="T7", root_id="SYN-ROOT", sequencing_batch="20990101A", state="waiting_sequencing",
+            reason_code="sequencing_directory_pending", source_identity="a" * 64, source_version="b" * 64))
+        session.commit()
+    login(client, "viewer", "viewer-pass")
+    response = client.get("/api/intake/status?pipeline=wgs&state=waiting_sequencing&view=pending")
+    assert response.status_code == 200
+    row, = response.json()["items"]
+    assert row["batch_id"] == "intake:1"
+    assert row["chip_id"] is None
+    assert row["eligible_pair_count"] is None
+    assert row["source_version"] == "b" * 64
+    assert "source_identity" not in row
+    assert "source_path" not in row
+    assert client.get("/api/intake/status?pipeline=wgs&state=waiting_data").status_code == 200
+    attention = client.get("/api/intake/status?pipeline=wgs&view=attention")
+    assert attention.status_code == 200
+    assert [item["batch_id"] for item in attention.json()["items"]] == ["intake:1"]
+
+
 def test_wgs_t7_intake_endpoints_are_read_only_and_do_not_expose_sample_ids(tmp_path, monkeypatch):
     client, sessions, _ = make_client(tmp_path, monkeypatch)
     observed_at = datetime(2026, 8, 29, 8, 30, tzinfo=timezone.utc)
@@ -1225,6 +1248,12 @@ def test_wgs_t7_intake_endpoints_are_read_only_and_do_not_expose_sample_ids(tmp_
             "pipeline": "wgs",
             "chip_id": "2201th_20260821B_E250208844",
             "batch_id": "2201th_20260821B_E250208844",
+            "intake_id": 1,
+            "discovery_mode": "t7_scan_only",
+            "project_id": None,
+            "platform_id": None,
+            "reason_code": None,
+            "source_version": None,
             "sequencing_batch": "20260821B",
             "ready_state": "ready",
             "submit_state": "disabled",

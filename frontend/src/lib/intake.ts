@@ -12,6 +12,8 @@ export function intakeDisplay(item: IntakeDiscovery): IntakeDisplay {
   }
   const ready = item.ready_state.toLowerCase();
   const submit = item.submit_state.toLowerCase();
+  if (ready === "waiting_sequencing") return {label: "待下机", tone: "neutral"};
+  if (ready === "waiting_data") return {label: "待数据就绪", tone: "neutral"};
   if (ready === "waiting_barcode_stat") return {label: "waiting", tone: "neutral"};
   if (ready === "no_new_wgs") return {label: "no-new-WGS", tone: "muted"};
   if (ready === "needs_review") return {label: "needs review", tone: "warning"};

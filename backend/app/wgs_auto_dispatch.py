@@ -4,10 +4,14 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select, text
 
-from app.models import AnalysisRun, WgsIntakeBatch
+from app.models import AnalysisRun, WgsIntakeBatch, WgsInputSnapshot
 from app.wgs_platform_service import submit_wgs_run
 from app.wgs_run_projection import wgs_params_match_batch
 from app.wgs_submission_service import create_automatic_wgs_run
+from app.wgs_project_catalog import load_wgs_projects
+from pathlib import Path
+import stat
+from app.wgs_t7_intake import inspect_chip_directory
 
 
 DISPATCH_ADVISORY_LOCK_ID = 743_701_143_830
@@ -48,9 +52,45 @@ def dispatch_ready_wgs_intake(
 
     for row in rows:
         result["examined"] = int(result["examined"]) + 1
-        existing = _find_batch_run(runs, row.sequencing_batch)
+        samplelist = row.discovery_mode == "samplelist_batches"
+        if samplelist and not getattr(settings, "wgs_intake_scan_enabled", False):
+            continue
+        # Linked ownership is authoritative even after failure/cancellation.
+        if row.analysis_id:
+            linked = next((run for run in runs if run.analysis_id == row.analysis_id), None)
+            if (samplelist and linked is not None and linked.status == "created"
+                    and not _compatible_run_root(session, row, linked, settings)):
+                _ownership_review(session, row)
+                continue
+            if (linked is not None and linked.status == "created"
+                    and dict(linked.params_json or {}).get("submission_mode") == "auto_dispatch"
+                    and (not samplelist or _bound_ready(row, settings))):
+                submit_wgs_run(session=session, airflow_client=airflow_client, analysis_id=linked.analysis_id)
+            result["already_registered"] = int(result["already_registered"]) + 1
+            result["analysis_ids"].append(row.analysis_id)
+            continue
+        if samplelist and not _bound_ready(row, settings):
+            continue
+        candidates = [run for run in runs if wgs_params_match_batch(run.params_json, row.sequencing_batch)]
+        if samplelist:
+            scoped = [run for run in candidates if dict(run.params_json or {}).get("project_id") == row.project_id
+                      and dict(run.params_json or {}).get("platform") == row.platform_id]
+            unknown = [run for run in candidates if not dict(run.params_json or {}).get("project_id")
+                       or not dict(run.params_json or {}).get("platform")]
+            if len(scoped) > 1 or unknown:
+                row.state, row.reason_code = "needs_review", "ambiguous_analysis_owner"
+                session.commit()
+                continue
+            existing = scoped[0] if scoped else None
+        else:
+            existing = _find_batch_run(runs, row.sequencing_batch)
         if existing is not None:
-            _link_intake_row(session, row, existing.analysis_id)
+            if samplelist and not _compatible_run_root(session, row, existing, settings):
+                _ownership_review(session, row)
+                continue
+            if not _link_intake_row(session, row, existing.analysis_id):
+                _ownership_review(session, row)
+                continue
             if (
                 existing.status == "created"
                 and dict(existing.params_json or {}).get("submission_mode") == "auto_dispatch"
@@ -69,19 +109,32 @@ def dispatch_ready_wgs_intake(
         if ready_at < not_before:
             result["baseline_skipped"] = int(result["baseline_skipped"]) + 1
             continue
+        claimed = False
+        def claim_actual_run(run):
+            nonlocal claimed
+            if not _bound_ready(row, settings) or not _compatible_run_root(session, row, run, settings):
+                return False
+            claimed = _link_intake_row(session, row, run.analysis_id, commit=False)
+            return claimed
         payload = create_automatic_wgs_run(
             session=session,
             settings=settings,
             airflow_client=airflow_client,
             username="wgs-intake-scanner",
-            project_id="WGS_Clinical",
-            platform="T7",
+            project_id=row.project_id if samplelist else "WGS_Clinical",
+            platform=row.platform_id if samplelist else "T7",
             batch=row.sequencing_batch,
-            fastq_root_id="T7_Fastq",
+            fastq_root_id=row.root_id if samplelist else "T7_Fastq",
             use_reference="all",
+            **({"before_submit_guard": claim_actual_run} if samplelist else {}),
         )
         analysis_id = str(payload["analysis_id"])
-        _link_intake_row(session, row, analysis_id)
+        if samplelist and not claimed:
+            _ownership_review(session, row)
+            continue
+        if not _link_intake_row(session, row, analysis_id):
+            _ownership_review(session, row)
+            continue
         session.commit()
         result["submitted"] = int(result["submitted"]) + 1
         cast_ids = result["analysis_ids"]
@@ -104,7 +157,14 @@ def _find_batch_run(runs: list[AnalysisRun], batch: str) -> AnalysisRun | None:
     return None
 
 
-def _link_intake_row(session, row: WgsIntakeBatch, analysis_id: str) -> None:
+def _link_intake_row(session, row: WgsIntakeBatch, analysis_id: str, *, commit: bool = True) -> bool:
+    if row.analysis_id is not None:
+        return row.analysis_id == analysis_id
+    # Lock the retained run identity before the ownership query. A missing owner
+    # row alone cannot provide a row lock for competing Intake claims.
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id).with_for_update())
+    if run is None:
+        return False
     owner = session.scalar(
         select(WgsIntakeBatch).where(
             WgsIntakeBatch.analysis_id == analysis_id,
@@ -114,7 +174,55 @@ def _link_intake_row(session, row: WgsIntakeBatch, analysis_id: str) -> None:
     if owner is None:
         row.analysis_id = analysis_id
         row.updated_at = datetime.now(timezone.utc)
-        session.commit()
+        session.flush()
+        if commit:
+            session.commit()
+        return True
+    return False
+
+
+def _ownership_review(session, row):
+    row.state = "needs_review"
+    row.reason_code = "incompatible_analysis_owner"
+    row.last_error = row.reason_code
+    session.commit()
+
+
+def _compatible_run_root(session, row, run, settings):
+    params = dict(run.params_json or {})
+    if (params.get("project_id") != row.project_id or params.get("platform") != row.platform_id
+            or params.get("sequencing_batch") != row.sequencing_batch):
+        return False
+    try:
+        project = next(item for item in load_wgs_projects(settings.wgs_project_catalog_path) if item.project_id == row.project_id)
+        expected_root = project.fastq_root(row.root_id)["node200_path"]
+    except (OSError, ValueError, StopIteration):
+        return False
+    snapshot = session.scalar(select(WgsInputSnapshot).where(
+        WgsInputSnapshot.analysis_id == run.analysis_id, WgsInputSnapshot.attempt == run.attempt))
+    return (params.get("fastq_root") == expected_root and params.get("fq_path") == expected_root
+            and snapshot is not None and snapshot.fq_path == expected_root)
+
+
+def _bound_ready(row, settings):
+    if not (row.source_path and row.chip_id and row.bound_directory_identity
+            and row.project_id and row.platform_id and row.root_id and row.eligible_fingerprint):
+        return False
+    try:
+        project = next(item for item in load_wgs_projects(settings.wgs_project_catalog_path) if item.project_id == row.project_id)
+        project.platform(row.platform_id)
+        root = Path(project.fastq_root(row.root_id)["control_plane_path"])
+        path = Path(row.source_path)
+        if path.parent != root or path.name != row.chip_id or any(part.is_symlink() for part in (path, *path.parents)):
+            return False
+        value = path.lstat()
+        if not stat.S_ISDIR(value.st_mode) or f"{value.st_dev}:{value.st_ino}" != row.bound_directory_identity:
+            return False
+        observation = inspect_chip_directory(path, sequencing_batch=row.sequencing_batch)
+        return (observation.barcode_present and observation.eligible_pair_count > 0
+                and observation.pair_issue_count == 0 and observation.fingerprint == row.eligible_fingerprint)
+    except (OSError, ValueError, StopIteration):
+        return False
 
 
 def _activation_watermark(settings) -> datetime:

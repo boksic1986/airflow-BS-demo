@@ -1385,7 +1385,7 @@ def intake_status(
     state_filter: str | None = Query(
         default=None,
         alias="state",
-        pattern="^(bootstrap|observed|ready|submitted|error|disabled|waiting_barcode_stat|no_new_wgs|needs_review|bootstrap_ignored)$",
+        pattern="^(bootstrap|observed|ready|submitted|error|disabled|waiting_barcode_stat|waiting_sequencing|waiting_data|no_new_wgs|needs_review|bootstrap_ignored)$",
     ),
     lifecycle: str = Query(default="active", pattern="^(active|archived|all)$"),
     view_filter: str = Query(default="all", alias="view", pattern="^(attention|pending|history|all)$"),

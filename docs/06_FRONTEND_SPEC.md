@@ -1,5 +1,18 @@
 # Frontend specification
 
+## AF-05 candidate: waiting Samplelist batches
+
+The WGS Intake Queue includes preregistered Samplelist batches before a T7 chip
+directory exists. An unbound batch displays `待下机`, `待绑定`, and dashes for
+unknown pair counts; after exact directory binding it displays `待数据就绪`
+until BarcodeStat readiness. The stable Intake batch identity remains unchanged
+across binding and silent refresh, and no analysis link is shown before an
+`analysis_id` exists. The existing visibility-aware refresh, attention query,
+filters, pagination, legacy/non-WGS rendering, and linked-analysis behavior are
+unchanged. Scanner metadata describes its total as `扫描项`, because Samplelist
+mode counts source files rather than only FASTQ directories. This candidate does
+not activate scanning, dispatch, deployment, or browser acceptance.
+
 ## RESOURCE-COMPACT-20260912
 
 User requested restoring compact Cloud Resources: show SFS capacity and Heavy

@@ -1,5 +1,46 @@
 # 04 数据库设计
 
+AF05 scan-only release retains the published `0019 -> 0020 -> 0021` ancestry.
+Revision 0020 is included unchanged from `b5d0b67` as an inactive additive schema
+prerequisite only. Its reference tables have no model/API/consumer activation in
+this selective release; no historical sample-reference or synchronization code
+is imported. The existing pre-release application models remain otherwise intact.
+
+## AF-05 candidate: batch-only Samplelist intake
+
+Revision `20260912_0021` retains existing Intake rows and makes `chip_id` and
+`source_path` nullable, preserving their non-null uniqueness. New optional
+`project_id/platform_id/root_id`, `source_identity/source_version`,
+`bound_directory_identity`, `reason_code` and `discovery_mode` support preregistration.
+The new unique key is `(project_id, platform_id, sequencing_batch)`; legacy
+context remains NULL and legacy mode remains `t7_scan_only`. Migration does not
+guess project ownership, relabel or merge historical rows. Binding refuses an
+already owned chip/path; unknown or multiple historical analysis owners require review.
+
+`wgs_samplelist_source` records the digest of configured source/root/context,
+baseline completion and scan timestamps. `wgs_samplelist_observation` records a
+source-scoped filename digest, permanent baseline membership, observed content
+digest/stat token, stability count, last seen and safe reason code. Neither table
+stores TSV payloads or sample IDs. Source changes get an independent baseline.
+The source digest includes the policy's declared prepare/source identity as well
+as its resolved access path; remounting another declared source at the same
+container target must not inherit that target's previous baseline.
+`source_version` is SHA256 content provenance, not an input-freezing fingerprint.
+
+Existing `wgs_execution_dispatch` uniqueness `(project_id,batch)` remains stricter
+than Intake identity; this candidate supports only T7/WGS and does not generalize
+dispatch schema. Initial create uses shared transaction advisory locks before
+reading ownership, in addition to retained database unique constraints.
+Adopting an existing run requires compatible project/platform/batch and frozen
+node-root/snapshot identity. The retained AnalysisRun is row-locked before the
+exclusive Intake-link check; a failed claim never authorizes existing-run submit.
+The new-mode guard also runs inside automatic creation against its actual returned
+record, before approval or Airflow submit, covering runs published after the
+dispatcher's initial query. The successful claim is flushed in that same transaction.
+Downgrade refuses before DDL or revision changes: rollback restores code while
+retaining revision 0021 and all Intake/source observations. SQLite retention and
+offline PostgreSQL DDL tests do not constitute live PostgreSQL contention acceptance.
+
 ## OPT20260912 submission
 
 No migration. Existing PipelineSubmissionDraft stores owner/expiry/fingerprint
