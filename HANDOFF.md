@@ -1,5 +1,20 @@
 # HANDOFF.md
 
+## 2026-09-13 main publication scope
+
+User requested production code synchronization to main. Verified origin/main
+e107f3b is an ancestor of release4ee7ca6; backend/frontend trees exactly match
+deployed2121061. Added only this publication record to CURRENT_STATE/TASKS/HANDOFF.
+Integrate by fast-forward in clean normal clone D:/pipeline/airflow-demo-production,
+then normal push and compare remote SHA. Preserve development/next3440aa0 and
+existing worktree; untouched legacy D:/pipeline/airflow-demo has unrelated dirty
+files. No remote services/DB/gates changed. Runtime tests are not rerun for this
+Git/documentation-only synchronization: existing exact-tree acceptance is129
+scoped backend/97UI/build plus PostgreSQL migration tests, with5 known baseline
+failures documented in AF05 ledger. Static check git diff --check and exact-tree
+comparison required. Failed push must not be force-pushed; inspect remote drift.
+Recovery is a reviewed Git revert if needed, not production rollback or deletion.
+
 ## 2026-09-13 AF05 scan-only deployed on96
 
 Completed authorized release2121061 to BS10610 and BS96 with additive0020/0021

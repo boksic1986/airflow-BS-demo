@@ -1,5 +1,12 @@
 # TASKS.md
 
+## MAIN-SYNC-20260913
+
+- [x] User-authorized production release lineage; clean production clone verified.
+- [x] Remote main e107f3b ancestor verified; backend/frontend identical to deployed2121061.
+- Publish by fast-forward and normal push; retain development/next and worktree.
+- No runtime deployment or feature activation included.
+
 ## AF05-SCAN-20260913
 
 - [x] Selective scan-only backport2121061; preserve development/next3440aa0.

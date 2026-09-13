@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## MAIN-SYNC-20260913 — production source promotion
+
+User authorized main publication of the deployed AF05 release lineage only.
+Promotion target is this release branch (runtime tree unchanged from2121061);
+main predecessor e107f3b is an ancestor, so use fast-forward without merging
+development/next3440aa0. Production normal clone remains
+D:/pipeline/airflow-demo-production. This is Git-only: no deployment, database,
+scanner or automatic-analysis gate changes. See latest HANDOFF for verification.
+
 ## AF05-SCAN-20260913 — scan-only deployed
 
 BS10610 and BS96 backend/frontend now pin2121061; BS96 scanner also pins it.
