@@ -1,5 +1,18 @@
 # Deployment runbook
 
+## GATK terminal transfer recovery (2026-09-14)
+
+After BS10610 targeted backend and DAG tests, compare actual mounted backend
+gatk_runtime_service.py/wgs_observer.py and bio_gatk.py against the exact patch.
+Check zero executing Airflow tasks; restart only backend to load its GATK
+evidence reader, preserving the separate WGS observer release and cloud Masters.
+For a prior stuck transfer, call the existing authenticated GATK stage-status
+endpoint for its exact attempt/Step1 or Step5. The handler validates latest
+receipt identity and repairs/releases idempotently; do not directly update DB
+or forcibly clear a lease. Verify successor acquisition and actual upload start.
+Rollback copies retained .pre-transfer-terminal-20260914 bytes back to the same
+mounted files and reloads backend; retain all receipts, transfer rows and data.
+
 ### AF05 scan-only overlay (2026-09-13)
 
 BS96 scanner/backend/frontend use release2121061 with `compose.af05.json`;
@@ -114,8 +127,24 @@ Compose contract. Configure independent `GATK_RUNTIME_HOST_ROOT`,
 `GATK_SOURCE_POLICY` is restricted by default; this user-approved release sets
 unrestricted for explicit valid input projects, never for writable outputs.
 `GATK_EXECUTION_ENABLED` remains false until profile, gate, mounts, permissions,
-API and DAG import acceptance. Create pool `gatk_cce_runs` with size 1 and
-unpause `bio_gatk` at final manual activation. Preserve WGS scan/dispatch.
+API and DAG import acceptance. GATK inherits global active-run concurrency and
+Step2 uses default_pool; no dedicated GATK one-slot pool is required.
+Unpause `bio_gatk` at final manual activation. Preserve WGS scan/dispatch.
+
+### GATK concurrency update (2026-09-14)
+
+First run `dags/tests/test_gatk_concurrency.py` in cached BS10610 Airflow using
+`/usr/local/bin/python` and fresh processes with global defaults16 and7; run
+`test_gatk_success_dependencies.py` too. Do not use the Snakemake venv Python.
+Before authorized production switch, verify API-wide running task count is0,
+global default, actual DAG mounts, OBS pools both1, and existing Master UID.
+Patch only the two concurrency declarations in the actual mounted DAG with
+old-content hash guard and retained rollback bytes. Individually bind-mounted
+files require preserving inode; do not replace their parent symlink or restart
+workers/Masters. Confirm scheduler-parsed DAG reports16 and queued run advances.
+Retain OBS pools, durable leases, scan/dispatch settings and all run state.
+Rollback restores prior bytes only after another zero-running-task check;
+it does not stop existing external workloads or delete any state.
 
 Production may reuse the verified `wgs-node200` SSH host alias with the separate
 GATK forced-command path; this avoids editing WGS SSH keys/configuration. The
@@ -288,3 +317,10 @@ Rollback by repointing `current` to the preceding physical release and recreatin
 
 To rollback, set the gate false and recreate only affected control-plane
 services. Preserve database/evidence/result state for diagnosis.
+# 2026-09-14 Heavy producer compatibility
+
+Keep node200 `/home/ctapa/.config/airflow-wgs/heavy_global_snapshot.py` aligned
+with `backend/app/heavy_global_snapshot.py`. Backend-only deployment does not
+update this standalone producer. Restart only the verified collector under its
+existing lock; validate at least two fresh snapshots. Preserve its code backup.
+Do not restart Masters or alter quota Leases to repair telemetry.

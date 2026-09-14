@@ -1,5 +1,21 @@
 # API contract
 
+GATK acquire-slot polling now persists queued Step1/Step5 presentation, with
+stage_label `等待上传`/`等待下载`, progress_available=false, and current_item
+distinguishing waiting capacity from acquired-but-not-started. Run status stays
+running; real stage registration resets the standard stage label. This is based
+on actual acquire calls, not guessed from elapsed time or missing telemetry.
+
+## GATK terminal transfer convergence (2026-09-14)
+
+Existing internal GATK stage-status polling now idempotently reconciles the
+current Step1/Step5 terminal receipt into its TransferJob and releases only the
+matching directional lease. Response schema is unchanged. Receipt identity must
+match the latest generation/current attempt; missing or ambiguous evidence is
+not a release authorization. Transfer status/progress completion may be backed
+by the stage receipt while measured byte/file counts remain unchanged, with an
+explicit reconciliation message. This is not a checksum verification claim.
+
 ## AF-05 candidate: preregistered WGS batches
 
 Authenticated existing `GET /api/intake/status?pipeline=wgs` additionally returns
@@ -316,3 +332,9 @@ same event's source inventory, including members outside the current page.
 Missing historical inventory is `[]`, not guessed across unrelated streams.
 Stage estimates add `estimate_frozen` for terminal display; baseline and percent
 remain unchanged. No measured-progress or execution authority is added.
+# 2026-09-14 transfer projection clarification
+
+GATK Step1/Step5 status-only running updates retain measured stage progress for
+the same execution. Generation reopen clears prior measurements. WGS Heavy
+quota excludes explicit nonparticipating GATK Masters; idle WGS counts do not
+describe GATK compute utilization. Unknown telemetry is not converted to zero.

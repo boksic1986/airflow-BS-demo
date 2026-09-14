@@ -3849,6 +3849,22 @@ textarea {
 }
 
 .rule-filters label { display: grid; gap: 0.25rem; }
+.workflow-tab-stack > section > .toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+  align-items: end;
+}
+.workflow-tab-stack > section > .toolbar > label {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.workflow-tab-stack > section > .toolbar input,
+.workflow-tab-stack > section > .toolbar select { width: 100%; min-width: 0; box-sizing: border-box; }
+.rule-instance-table td:nth-child(6) > small { display: block; margin-top: 0.25rem; color: var(--muted); overflow-wrap: anywhere; }
 .rule-name-cell, .rule-message-cell { min-width: 170px; white-space: normal; overflow-wrap: anywhere; }
 
 .resource-card-list { display: grid; gap: 0.75rem; }

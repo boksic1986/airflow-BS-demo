@@ -80,6 +80,17 @@ otherwise the runtime fails closed.
 
 ## State and evidence
 
+Step1/Step5 terminal status synchronization also converges the exact directional
+TransferJob and releases its owned OBS lease. A validated latest-generation
+receipt (analysis/attempt/stage/execution/request hash) is required, including
+repeat synchronization after a prior DB/release failure. Missing progress rows
+can be reconstructed as terminal without inventing byte/file counts. Old or
+nonterminal progress cannot reopen a receipt-terminal GATK transfer. Wrong
+attempt/generation or another owner's lease is never reclaimed. A retained
+release response fails the DAG release task explicitly instead of reporting
+success. An unknown outcome stays retained for investigation; age alone is not
+permission to release. No TTL-based forced release is added.
+
 GATK writes append-only stage attempts to `pipeline_stage_execution`, not
 `wgs_stage_execution`. Every stage is fenced by pipeline, analysis, attempt,
 stage, generation, request hash and predecessor receipt.
@@ -96,8 +107,11 @@ logger JSONL exists. The Run Detail workspace, Rules, Master, Transfers, Logs
 and Files views use the same database projections as WGS while preserving the
 GATK pipeline namespace.
 
-GATK and WGS share the directional OBS upload/download leases. GATK has its
-own one-slot `gatk_cce_runs` Airflow pool and `max_active_runs=1`. GATK rules do
+GATK and WGS share the one-slot directional OBS upload/download pools and leases.
+GATK inherits Airflow global active-run concurrency (production16 verified
+2026-09-14); Step2 uses the default pool, not an exclusive GATK pool. Multiple
+batch Masters can run concurrently; same-batch identity guards are unchanged.
+An existing unused `gatk_cce_runs` pool may remain for audit/rollback. GATK rules do
 not consume the WGS 25-slot heavy-I/O quota until a separate I/O study defines
 their classification.
 

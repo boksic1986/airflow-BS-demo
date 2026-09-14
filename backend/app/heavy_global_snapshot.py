@@ -105,6 +105,12 @@ def collect(kube, root, limit=25):
         terminal = any(c.get('type') in ('Complete','Failed') and c.get('status')=='True'
                        for c in job.get('status', {}).get('conditions', []))
         if terminal or job.get('spec', {}).get('suspend'): continue
+        env = {e['name']: e.get('value') for c in job['spec']['template']['spec']['containers'] for e in c.get('env', [])}
+        profile = job['metadata'].get('labels', {}).get('cce.biosan.cn/profile-id', '')
+        # GATK Masters do not participate in WGS quota. Unknown Masters still
+        # fail closed; a GATK Master advertising WGS quota must be validated.
+        if profile.startswith('gatk-scmc-') and not any(k.startswith('WGS_HEAVY_SLOT_') for k in env):
+            continue
         active.append(job)
     snapshots = {}
     for p in Path(root).glob('*/attempt-*/heavy-slot-status.json'):

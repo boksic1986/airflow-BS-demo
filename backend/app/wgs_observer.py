@@ -1575,12 +1575,17 @@ def _current_execution_from_payload(*, session, analysis_id: str, attempt: int, 
                 PipelineStageExecution.analysis_id == analysis_id,
                 PipelineStageExecution.attempt == attempt,
                 PipelineStageExecution.stage_code == stage_code,
-                PipelineStageExecution.execution_id == str(payload.get("execution_id") or ""),
-                PipelineStageExecution.generation == generation,
-                PipelineStageExecution.request_hash == str(payload.get("request_hash") or ""),
-            )
+            ).order_by(PipelineStageExecution.generation.desc()).limit(1)
         )
-        return row if row is not None and row.status in {"accepted", "running", "success"} else None
+        if (row is None or row.execution_id != str(payload.get("execution_id") or "")
+                or row.generation != generation
+                or row.request_hash != str(payload.get("request_hash") or "")):
+            return None
+        # Once a validated terminal receipt exists, old progress cannot reopen
+        # the transfer (including delayed snapshots with a newer heartbeat).
+        if row.status in {"success", "failed", "canceled"}:
+            return row if _canonical_terminal_status(str(payload.get("status"))) == row.status else None
+        return row if row.status in {"accepted", "running"} else None
     return validate_current_stage_execution(
         session=session,
         analysis_id=analysis_id,
@@ -2272,6 +2277,7 @@ def ingest_bound_pipeline_evidence_once(
             result["errors"] += int(had_error)
         except (OSError, UnicodeError, ValueError):
             result["errors"] += 1
+    _enrich_from_registered_analysis_log(session_factory=session_factory, binding=binding)
     if transfer_spool_root is not None:
         transfer_root = transfer_spool_root.resolve()
         attempt_root = (transfer_root / analysis_id / f"attempt-{attempt}").resolve()

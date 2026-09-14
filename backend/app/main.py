@@ -35,6 +35,7 @@ from app.gatk_submission_service import (
 from app.gatk_runtime_service import (
     finalize_gatk_run,
     mark_gatk_dag_failed,
+    record_gatk_transfer_wait,
     register_gatk_stage,
     sync_gatk_stage_status,
 )
@@ -2439,6 +2440,8 @@ def internal_gatk_runtime_stage(
                     transfer_id=transfer_id,
                     transfer_kind=transfer_kind,
                 )
+                record_gatk_transfer_wait(session=session, analysis_id=analysis_id,
+                    attempt=request.attempt, kind=transfer_kind, acquired=bool(slot))
                 return {
                     "analysis_id": analysis_id,
                     "attempt": request.attempt,

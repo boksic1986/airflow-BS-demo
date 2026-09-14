@@ -1,5 +1,10 @@
 # Frontend specification
 
+Rule instance filters use responsive columns with labels above controls and
+explicit inter-field spacing. Job origin is shown on its own secondary line.
+This changes layout only; exact sample/family filtering and attempt semantics
+remain unchanged.
+
 ## AF-05 candidate: waiting Samplelist batches
 
 The WGS Intake Queue includes preregistered Samplelist batches before a T7 chip

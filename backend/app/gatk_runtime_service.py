@@ -16,6 +16,7 @@ from app.models import (
     RuleState,
     RunStageState,
     Sample,
+    TransferJob,
 )
 from app.wgs_observer import ingest_bound_pipeline_evidence_once
 
@@ -194,6 +195,34 @@ def register_gatk_stage(
     return _execution_payload(execution)
 
 
+def record_gatk_transfer_wait(*, session: Session, analysis_id: str, attempt: int,
+                              kind: str, acquired: bool) -> None:
+    """Record the actual acquire-task boundary, never infer waiting from age."""
+    stage = {"input": "step1_upload", "result": "step5_download"}[kind]
+    run = session.scalar(select(AnalysisRun).where(
+        AnalysisRun.analysis_id == analysis_id,
+        AnalysisRun.pipeline_name == "gatk").with_for_update())
+    if run is None or run.attempt != attempt or run.status not in {"running", "submitted", "queued"}:
+        return
+    if session.scalar(select(PipelineStageExecution.execution_id).where(
+        PipelineStageExecution.analysis_id == analysis_id,
+        PipelineStageExecution.pipeline_name == "gatk",
+        PipelineStageExecution.attempt == attempt,
+        PipelineStageExecution.stage_code == stage).limit(1)) is not None:
+        return  # A delayed acquire response cannot replace actual stage evidence.
+    now = datetime.now(timezone.utc)
+    row = _upsert_gatk_stage_state(session, analysis_id=analysis_id, attempt=attempt,
+        stage_code=stage, stage_status="queued", updated_at=now,
+        progress_available=False, progress_percent=None, completed_units=None,
+        total_units=None, unit=None, progress_source="gatk-transfer-slot")
+    row.stage_label = "等待上传" if kind == "input" else "等待下载"
+    row.current_item = "槽位已取得，等待启动传输" if acquired else "等待 OBS 传输槽位"
+    run.current_stage = stage
+    run.progress_percent = 0
+    run.progress_updated_at = now
+    session.commit()
+
+
 def _execution_payload(row: PipelineStageExecution) -> dict[str, Any]:
     return {
         "analysis_id": row.analysis_id,
@@ -304,6 +333,7 @@ def sync_gatk_stage_status(
                     run.ended_at = run.ended_at or now
                     run.progress_updated_at = now
             session.commit()
+    _reconcile_terminal_transfer(session=session, row=row)
     failed = row.status in {"failed", "canceled"}
     return {
         **_execution_payload(row),
@@ -311,6 +341,61 @@ def sync_gatk_stage_status(
         "failed": failed,
         "message": row.message,
     }
+
+
+def _reconcile_terminal_transfer(*, session: Session, row: PipelineStageExecution) -> None:
+    """A fenced stage receipt is authoritative even when progress stopped early.
+
+    Repeat for already-terminal stages: a previous DB/release failure must be
+    repairable. Byte/file counters remain measured evidence, not inferred totals.
+    """
+    kind = {"step1_upload": "input", "step5_download": "result"}.get(row.stage_code)
+    if kind is None or row.status not in {"success", "failed", "canceled"}:
+        return
+    payload = row.terminal_payload_json or {}
+    expected = dict(analysis_id=row.analysis_id, attempt=row.attempt,
+                    stage=row.stage_code, generation=row.generation,
+                    execution_id=row.execution_id, request_hash=row.request_hash,
+                    status=row.status)
+    if not row.receipt_hash or any(payload.get(k) != v for k, v in expected.items()):
+        return
+    run = session.scalar(select(AnalysisRun).where(
+        AnalysisRun.analysis_id == row.analysis_id,
+        AnalysisRun.pipeline_name == "gatk").with_for_update())
+    if run is None or run.attempt != row.attempt:
+        return
+    latest = session.scalar(select(PipelineStageExecution).where(
+        PipelineStageExecution.pipeline_name == "gatk",
+        PipelineStageExecution.analysis_id == row.analysis_id,
+        PipelineStageExecution.attempt == row.attempt,
+        PipelineStageExecution.stage_code == row.stage_code
+    ).order_by(PipelineStageExecution.generation.desc()).limit(1))
+    if latest.execution_id != row.execution_id:
+        return
+    transfer_id = f"{row.analysis_id}-a{row.attempt}-{kind}"
+    direction = "upload" if kind == "input" else "download"
+    transfer = session.scalar(select(TransferJob).where(TransferJob.transfer_id == transfer_id))
+    if transfer is None:
+        transfer = TransferJob(transfer_id=transfer_id, analysis_id=row.analysis_id,
+                               attempt=row.attempt, direction=direction, status=row.status,
+                               transfer_type="input_upload" if kind == "input" else "result_download")
+        session.add(transfer)
+    elif (transfer.analysis_id != row.analysis_id or transfer.attempt != row.attempt
+          or transfer.direction != direction):
+        raise ValueError("GATK terminal transfer identity mismatch")
+    transfer.status = row.status
+    transfer.ended_at = row.ended_at or transfer.ended_at or datetime.now(timezone.utc)
+    transfer.speed_bps = 0
+    transfer.eta_seconds = None
+    transfer.estimated_finish_at = None
+    if row.status == "success":
+        transfer.progress_percent = 100
+    transfer.message = "Terminal status reconciled from validated GATK stage receipt"
+    session.flush()
+    from app.wgs_platform_service import release_obs_transfer_slot
+    release_obs_transfer_slot(session=session, analysis_id=row.analysis_id,
+                              attempt=row.attempt, transfer_id=transfer_id, transfer_kind=kind)
+    session.commit()
 
 
 def _ingest_gatk_evidence(
@@ -539,8 +624,11 @@ def _upsert_gatk_stage_state(
         row.started_at = updated_at
         row.ended_at = None
     row.stage_status = stage_status
+    row.stage_label = definition.label
     preserve_progress = (
-        stage_status in {"success", "failed", "canceled"}
+        (stage_status in {"success", "failed", "canceled"}
+         or (stage_status == "running" and stage_code in {"step1_upload", "step5_download"}))
+        and not reopen_terminal
         and not progress_available
         and row.progress_available
     )

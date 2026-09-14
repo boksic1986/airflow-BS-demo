@@ -137,7 +137,10 @@ def acquire_transfer_slot(kind: str, **context: Any) -> bool:
 
 
 def release_stage(stage: str, **context: Any) -> dict[str, Any]:
-    return register_stage(stage, **context)
+    result = register_stage(stage, **context)
+    if stage in {"release_input_transfer_slot", "release_result_transfer_slot", "release_leases"} and result.get("retained"):
+        raise RuntimeError("GATK transfer lease was not released: " + str(result.get("reason") or "unknown"))
+    return result
 
 
 def _upstream_failure_task_ids(context: dict[str, Any]) -> list[str]:
@@ -235,7 +238,6 @@ with DAG(
     start_date=datetime(2026, 1, 1),
     schedule=None,
     catchup=False,
-    max_active_runs=1,
     on_failure_callback=report_dag_failure,
     default_args={"retries": 0},
     tags=["ngs", "gatk", "cce", "manual"],
@@ -260,7 +262,7 @@ with DAG(
         op_kwargs={"stage": "release_input_transfer_slot"},
         trigger_rule=TriggerRule.ALL_DONE,
     )
-    step2 = _runner_task("submit_step2_master", "step2_master", pool="gatk_cce_runs")
+    step2 = _runner_task("submit_step2_master", "step2_master")
     wait_step2 = _stage_sensor("wait_step2_master", "step2_master", 2)
     step3 = _runner_task("start_step3_monitor", "step3_monitor")
     wait_step3 = _stage_sensor("wait_step3_analysis", "step3_monitor", 72)
@@ -300,3 +302,6 @@ with DAG(
     wait_step1 >> release_input >> step2 >> wait_step2 >> step3 >> wait_step3
     wait_step3 >> step4 >> wait_step4 >> acquire_result >> step5 >> wait_step5
     wait_step5 >> release_result >> step6 >> wait_step6 >> finalize >> release
+    # ALL_DONE cleanup releases capacity; it does not prove the stage succeeded.
+    wait_step1 >> step2
+    wait_step5 >> step6
