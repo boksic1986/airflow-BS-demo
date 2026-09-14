@@ -2827,15 +2827,18 @@ def cleanup_step7(
     request: WgsStep7CleanupRequest,
     user: AuthenticatedUser = Depends(admin_user),
 ) -> dict[str, object]:
-    if not _wgs_platform_execution_enabled() or not _wgs_runtime_adapter_enabled():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "WGS_RUNTIME_DISABLED", "message": "WGS runtime is not enabled; SFS cleanup was not started."},
-        )
     try:
         with get_sessionmaker()() as session:
-            payload = request_step7_cleanup(
+            pipeline = session.scalar(select(AnalysisRun.pipeline_name).where(AnalysisRun.analysis_id == analysis_id))
+            if pipeline is None:
+                raise HTTPException(status_code=404, detail={"code":"RUN_NOT_FOUND", "message":f"Run not found: {analysis_id}"})
+            settings = get_settings()
+            adapter = get_pipeline_registry(settings).require(pipeline).adapter
+            if adapter.request_cleanup_step7 is None:
+                raise ValueError("Pipeline does not provide guarded SFS cleanup")
+            payload = adapter.request_cleanup_step7(
                 session=session,
+                settings=settings,
                 airflow_client=get_airflow_client(),
                 analysis_id=analysis_id,
                 batch_confirmation=request.batch_confirmation,
@@ -2854,11 +2857,47 @@ def cleanup_step7(
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "STEP7_CLEANUP_UNAVAILABLE", "message": str(exc)},
+            detail={"code": getattr(exc, "code", "STEP7_CLEANUP_UNAVAILABLE"), "message": str(exc)},
         ) from exc
     if payload is None:
         raise HTTPException(status_code=404, detail={"code": "RUN_NOT_FOUND", "message": f"Run not found: {analysis_id}"})
     return payload
+
+
+@app.post("/api/internal/gatk/runs/{analysis_id}/maintenance/{action_id}",
+    dependencies=[Depends(require_internal_service_token)])
+def internal_gatk_maintenance(analysis_id: str, action_id: str, request: GatkRuntimeStageRequest):
+    from app.gatk_step7_service import register_cleanup
+    try:
+        with get_sessionmaker()() as session:
+            return register_cleanup(session=session, settings=get_settings(),
+                analysis_id=analysis_id, attempt=request.attempt, action_id=action_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={"code":"GATK_MAINTENANCE_INVALID", "message":str(exc)}) from exc
+
+
+@app.get("/api/internal/gatk/runs/{analysis_id}/maintenance/{action_id}",
+    dependencies=[Depends(require_internal_service_token)])
+def internal_gatk_maintenance_status(analysis_id: str, action_id: str, attempt: int = Query(ge=1)):
+    from app.gatk_step7_service import sync_cleanup
+    try:
+        with get_sessionmaker()() as session:
+            return sync_cleanup(session=session, settings=get_settings(),
+                analysis_id=analysis_id, attempt=attempt, action_id=action_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={"code":"GATK_MAINTENANCE_INVALID", "message":str(exc)}) from exc
+
+
+@app.post("/api/internal/gatk/runs/{analysis_id}/maintenance/{action_id}/failed",
+    dependencies=[Depends(require_internal_service_token)])
+def internal_gatk_maintenance_failed(analysis_id: str, action_id: str, request: GatkRuntimeStageRequest):
+    from app.gatk_step7_service import mark_cleanup_failed
+    try:
+        with get_sessionmaker()() as session:
+            return mark_cleanup_failed(session=session, analysis_id=analysis_id,
+                attempt=request.attempt, action_id=action_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={"code":"GATK_MAINTENANCE_INVALID", "message":str(exc)}) from exc
 
 
 @app.post("/api/runs/{analysis_id}/actions/cancel")

@@ -1,5 +1,14 @@
 # Airflow DAG specification
 
+## Explicit GATK Step7 maintenance
+
+`bio_gatk_maintenance` is a separate admin-requested DAG containing
+`step7_cleanup -> wait_step7_cleanup`. No destructive ALL_DONE tail is added to
+`bio_gatk`. Conf binds pipeline, analysis, current attempt and maintenance action.
+Its failure callback changes only the corresponding maintenance action, never
+analysis or Sample success. Node-side generation/receipt and maintenance flock
+guards make repeated dispatch safe; status polling tolerates transient outages.
+
 GATK production promotion81587fc adds generation-aware terminal reconciliation:
 `bio_gatk` reports failed current attempts through the authenticated internal
 dag-terminal endpoint. Runtime status transitions preserve attempt/execution
@@ -40,6 +49,26 @@ GATK `rule-status` logger and are not expanded into Airflow tasks.
 
 Terminal Airflow failures must be projected into the business database. An observer or rerun must be able to recover from persisted generation and receipt evidence without launching a duplicate stage.
 # GATK success barriers (2026-09-14)
+
+## Bounded GATK observation retries (2026-09-14)
+
+Only the `stage_ready` GET sensors retry transient backend failures: connection
+refusal/reset, read timeout/disconnect/incomplete response, or HTTP408/429/500/
+502/503/504. Airflow allows six retries, starting at30 seconds with exponential
+backoff and a five-minute maximum delay. Existing reschedule mode and stage
+timeouts remain in force. Retry counts belong to the Airflow task `try_number`,
+not to the analysis attempt or runtime generation. Exhaustion reports an
+orchestration failure; it is not permission to terminate or delete cloud work.
+
+Non-transient HTTP responses, malformed JSON/non-object payloads and explicit
+terminal failed stage receipts use `AirflowFailException` and bypass remaining
+retries. HTTP error bodies and transport details are not copied into task logs.
+Stage registration, SSH dispatch, transfer acquire/release and finalization
+retain zero automatic task retries: they cannot be blindly replayed after an
+ambiguous POST/SSH response. This patch does not rebuild Masters, change frozen
+attempt identity, release a live transfer lease or rerun biological computation.
+
+## Success dependencies
 
 `submit_step2_master` requires both `wait_step1_upload` success and input-slot
 release. `materialize_step6_results` requires both `wait_step5_download` success

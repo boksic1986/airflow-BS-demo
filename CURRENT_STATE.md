@@ -2482,3 +2482,21 @@ Not changed:
   `WGS_20260812_152720_643D8D` created run artifacts and submit returned 409;
   no CCE or OBS command ran.
 - Upstream `/mnt/biodevrwbi/33.chenjiucheng/project/wgs` was not modified.
+# 2026-09-14 recovery/lifecycle checkpoint (not completed)
+
+Immediate implementation is approved and candidate-tested:bounded polling retry,
+GATK Sample reconciliation and independent guarded Step7.0823A same-attempt
+resume completed with replacement MasterUID52fbf32c-d474-4a63-b5c7-a862cb69f167;
+native START handed off; retained original workdir/versions/outputs. Production
+control-plane switch and business-state verification are pending. No batch
+completion or Step7 deletion claimed; older proposal status below is historical.
+
+Work isolated from acee110 on jiucheng/ops/recovery-20260914. Production checked
+read-only by coordinator; original task confirmed0907A existing-task recovery:
+DAGrunning, wait_step3_analysis up_for_reschedule, attempt1/generation1 unchanged.
+Whole-batch completion is not claimed.0823A Master failed
+BackoffLimitExceeded and requires a safe same-workdir resume contract; Step0 is
+destructive and excluded. User's WGS cleanup/new batches are authorized but not
+executed: preserve latest0910A (3samples) and reconcile29pending rows before
+local0911B, cloud0911A and next ordered0912D. New release/API/lock architecture
+awaits design confirmation. See latest HANDOFF and RECOVERY-LIFECYCLE task card.

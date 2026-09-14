@@ -2,12 +2,9 @@
 import logging
 import threading
 import time
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from app.models import AnalysisRun
 from app.airflow_client import AirflowClient
-from app.diagnostics_service import sync_wgs_airflow_status
-
-ACTIVE = {'submitted', 'queued', 'running'}
 
 
 class _SnapshotClient:
@@ -24,22 +21,36 @@ class _SnapshotClient:
 
 
 def sync_active_airflow_once(*, session_factory, airflow_client, settings):
+    from app.pipeline_registry_service import get_pipeline_registry
+
     result = {'synced': 0, 'errors': 0}
+    registry = get_pipeline_registry(settings)
+    adapters = {}
+    for pipeline in registry.deployed_pipeline_ids:
+        adapter = registry.require(pipeline).adapter
+        if adapter.sync_airflow_status is not None and adapter.airflow_sync_states:
+            adapters[pipeline] = adapter
+    if not adapters:
+        return result
     with session_factory() as session:
         targets = session.execute(select(AnalysisRun.analysis_id, AnalysisRun.attempt,
-            AnalysisRun.dag_id, AnalysisRun.dag_run_id).where(
-            AnalysisRun.pipeline_name == 'wgs', AnalysisRun.status.in_(ACTIVE),
+            AnalysisRun.dag_id, AnalysisRun.dag_run_id, AnalysisRun.pipeline_name).where(
+            or_(*(and_(AnalysisRun.pipeline_name == pipeline,
+                       AnalysisRun.status.in_(adapter.airflow_sync_states))
+                  for pipeline, adapter in adapters.items())),
             AnalysisRun.dag_run_id.is_not(None))).all()
-    for analysis_id, attempt, dag_id, dag_run_id in targets:
+    for analysis_id, attempt, dag_id, dag_run_id, pipeline in targets:
         try:
             payload = airflow_client.get_dag_run(dag_id, dag_run_id)
             if payload.get('state') not in {'queued', 'running', 'success', 'failed'}:
                 raise ValueError('Airflow returned no authoritative execution state')
             with session_factory() as session:
                 run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id).with_for_update())
-                if run is None or (run.attempt, run.dag_run_id) != (attempt, dag_run_id) or run.status not in ACTIVE:
+                adapter = adapters[pipeline]
+                eligible = adapter.airflow_sync_states
+                if run is None or (run.attempt, run.dag_id, run.dag_run_id, run.pipeline_name) != (attempt, dag_id, dag_run_id, pipeline) or run.status not in eligible:
                     continue
-                sync_wgs_airflow_status(session=session, analysis_id=analysis_id, settings=settings,
+                adapter.sync_airflow_status(session=session, analysis_id=analysis_id, settings=settings,
                     airflow_client=_SnapshotClient(airflow_client, dag_id, dag_run_id, payload))
                 result['synced'] += 1
         except Exception as error:

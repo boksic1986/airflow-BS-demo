@@ -40,6 +40,7 @@ from app.diagnostics_service import (
     sync_wgs_airflow_status,
 )
 from app.gatk_submission_service import confirm_gatk_submission
+from app.gatk_airflow_sync import sync_gatk_airflow_status
 from app.gatk_stage_contract import gatk_stage_definition, project_gatk_orchestration
 from app.workflow_phases import gatk_phase_for_rule
 
@@ -122,9 +123,22 @@ def _project_gatk_samples(*, session, run, **_) -> dict[str, Any]:
     }
 
 
-def _project_gatk_run_detail(*, run, **_) -> dict[str, Any]:
+def _project_gatk_run_detail(*, run, session, settings, **_) -> dict[str, Any]:
+    from app.gatk_step7_service import capability
+    cleanup = capability(session=session, settings=settings, run=run)
+    action = cleanup.get("latest_action") or {}
     params = dict(run.params_json or {})
     return {
+        "step7_cleanup": cleanup,
+        "lifecycle": {"workflow":{"status":run.status,"updated_at":None,"updated_by":None,"message":None},
+            "raw_fastq_backup":{"status":"not_started","updated_at":None,"updated_by":None,
+                "message":"No independent backup receipt is registered."},
+            "downstream_release":{"status":"not_started","updated_at":None,"updated_by":None,
+                "message":"Local materialization is not downstream delivery confirmation."},
+            "cloud_release": {"status": {"requested":"pending", "queued":"pending"}.get(
+            action.get("status"), action.get("status") or "not_started"),
+            "updated_at": action.get("ended_at") or action.get("started_at"),
+            "updated_by": action.get("requested_by"), "message": action.get("error_message")}},
         "pipeline_release_id": (
             f"{params.get('runtime_profile_id')}@{params.get('runtime_profile_revision')}"
         ),
@@ -452,10 +466,24 @@ def _wgs_scanner_state(*, session, settings, **_) -> dict[str, Any]:
     )
 
 
+def _cleanup_wgs_step7(*, settings, **kwargs):
+    from app.wgs_step7_service import request_step7_cleanup
+    from app.pipeline_registry import PipelineCleanupUnavailable
+    if not _enabled_env_flag("WGS_EXECUTION_ENABLED") or not _enabled_env_flag("WGS_RUNTIME_ADAPTER_ENABLED"):
+        raise PipelineCleanupUnavailable("WGS_RUNTIME_DISABLED", "WGS runtime is not enabled; SFS cleanup was not started.")
+    return request_step7_cleanup(**kwargs)
+
+
+def _cleanup_gatk_step7(*, settings, **kwargs):
+    from app.gatk_step7_service import request_cleanup
+    return request_cleanup(settings=settings, **kwargs)
+
+
 ADAPTERS = {
     "generic": PipelineAdapter(adapter_id="generic"),
     "wgs": PipelineAdapter(
         adapter_id="wgs",
+        request_cleanup_step7=_cleanup_wgs_step7,
         sample_qc_failures=False,
         create_run=_create_wgs_run,
         submit_run=_submit_wgs_run,
@@ -472,6 +500,7 @@ ADAPTERS = {
         project_dashboard_attention=project_wgs_dashboard_attention,
         project_sample_summary=_project_wgs_sample_summary,
         sync_airflow_status=sync_wgs_airflow_status,
+        airflow_sync_states=("submitted", "queued", "running"),
         get_log=get_wgs_run_log,
         list_logs=list_wgs_run_logs,
         list_artifacts=list_wgs_run_artifacts,
@@ -480,6 +509,9 @@ ADAPTERS = {
     ),
     "gatk": PipelineAdapter(
         adapter_id="gatk",
+        request_cleanup_step7=_cleanup_gatk_step7,
+        sync_airflow_status=sync_gatk_airflow_status,
+        airflow_sync_states=("submitted", "queued", "running", "publishing", "downloading", "failed"),
         sample_qc_failures=False,
         create_run=_create_gatk_run,
         project_run_detail=_project_gatk_run_detail,

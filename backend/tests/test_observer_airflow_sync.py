@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import json
 import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -46,3 +47,42 @@ def test_old_attempt_response_is_discarded(factory):
     assert result['synced'] == 0
     with factory() as session:
         assert session.scalar(select(AnalysisRun)).status == 'submitted'
+
+
+def _registry_settings(tmp_path, pipelines, deployed):
+    path = tmp_path / 'registry.json'
+    path.write_text(json.dumps({'version': 1, 'pipelines': {
+        name: {'display_name': name, 'dag_id': 'bio_wgs', 'adapter': 'wgs',
+               'enabled': True, 'submit_enabled': False,
+               'capabilities': [], 'execution_targets': ['cce']}
+        for name in pipelines}}))
+    return SimpleNamespace(pipeline_registry_path=str(path), deployed_pipelines=deployed)
+
+
+def test_registered_adapter_syncs_without_pipeline_name_branch(factory, tmp_path):
+    with factory() as session:
+        session.scalar(select(AnalysisRun)).pipeline_name = 'synthetic'
+        session.commit()
+    settings = _registry_settings(tmp_path, ['synthetic'], ('synthetic',))
+    sync_active_airflow_once(session_factory=factory, settings=settings,
+        airflow_client=SimpleNamespace(get_dag_run=lambda *_: {'state': 'running'}))
+    with factory() as session:
+        assert session.scalar(select(AnalysisRun)).status == 'running'
+
+
+def test_registered_but_not_deployed_pipeline_is_not_polled(factory, tmp_path):
+    settings = _registry_settings(tmp_path, ['wgs', 'synthetic'], ('synthetic',))
+    sync_active_airflow_once(session_factory=factory, settings=settings,
+        airflow_client=SimpleNamespace(get_dag_run=lambda *_: {'state': 'running'}))
+    with factory() as session:
+        assert session.scalar(select(AnalysisRun)).status == 'submitted'
+
+
+def test_failed_wgs_remains_outside_automatic_recovery(factory):
+    with factory() as session:
+        session.scalar(select(AnalysisRun)).status = 'failed'
+        session.commit()
+    sync_active_airflow_once(session_factory=factory, settings=SimpleNamespace(),
+        airflow_client=SimpleNamespace(get_dag_run=lambda *_: {'state': 'running'}))
+    with factory() as session:
+        assert session.scalar(select(AnalysisRun)).status == 'failed'

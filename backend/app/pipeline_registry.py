@@ -41,6 +41,12 @@ class PipelineCapabilityUnavailable(PipelineRegistryError):
     code = "PIPELINE_CAPABILITY_UNAVAILABLE"
 
 
+class PipelineCleanupUnavailable(ValueError):
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+
+
 @dataclass(frozen=True)
 class PipelineAdapter:
     adapter_id: str
@@ -65,11 +71,13 @@ class PipelineAdapter:
     project_dashboard_attention: Callable[..., list[dict[str, Any]]] | None = None
     project_sample_summary: Callable[..., dict[str, Any]] | None = None
     sync_airflow_status: Callable[..., dict[str, Any] | None] | None = None
+    airflow_sync_states: tuple[str, ...] = ()
     get_log: Callable[..., dict[str, Any] | None] | None = None
     list_logs: Callable[..., dict[str, list[dict[str, Any]]] | None] | None = None
     list_artifacts: Callable[..., dict[str, list[dict[str, Any]]] | None] | None = None
     intake_status: Callable[..., dict[str, Any]] | None = None
     scanner_state: Callable[..., dict[str, Any]] | None = None
+    request_cleanup_step7: Callable[..., dict[str, Any] | None] | None = None
 
 
 @dataclass(frozen=True)

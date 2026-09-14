@@ -173,3 +173,26 @@ local/SGE behavior and existing execution flow are unchanged. No new lock,
 producer journal, binding or real_prepare_only protocol is enabled. Dormant
 reader dependencies retained from the deployed package are not rollout approval.
 Use docs/WGS_FILE_REFERENCE_MINIMAL.md; register only the approved wgs_files source.
+# GATK guarded recovery and maintenance (2026-09-14)
+
+`scripts/gatk_resume.py` is an operator-only same-attempt helper, dry-run by
+default. It validates analysis/attempt, explicit binding/contract SHA256,
+immutable Master manifest, failed Job UID/resourceVersion and inactive current
+and archived Workers/maintenance Jobs. It shares the attempt request directory's
+`.maintenance.lock` with Step7. Local pre-refresh evidence and a fsynced recovery
+journal precede a Kubernetes DeleteOptions UID/RV-preconditioned replacement.
+It invokes the frozen native Step2 (metadata handoff, not FASTQ re-upload), never
+Step0 or forceall. Native pre-start rollback semantics remain unchanged.
+An unproven replacement UID after a lost response requires reconciliation;
+repeating the command never deletes that new UID. Frozen versions are retained.
+Control-plane Step3 generation reopening and exact downstream Airflow recovery
+are separate actions after the replacement is verified.
+
+GATK `step7_cleanup` is explicit independent maintenance. Its request freezes
+the exact binding SHA and latest successful Step6 execution/generation/receipt.
+The node gate validates the standard request hash, safe exact attempt paths,
+native Master handoff UID, terminal Jobs/Pods and frozen cleanup image/command/
+SFS targets. Native Step7 again requires DOWNLOAD_VERIFIED, MATERIALIZED and
+no active historical Workers. Unverified cleanup is never enabled. It deletes
+only frozen SFS run/linkage and their terminal job/batch-lock resources;
+approved local delivery, local evidence, OBS input, release and references remain.

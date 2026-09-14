@@ -1,5 +1,128 @@
 # HANDOFF.md
 
+## 2026-09-14 approved GATK retry, resume, Step7 and Sample repair
+
+User explicitly approved prior plan1/2 implementation and added GATK Step7
+consistent with WGS and Sample status repair. Scope: bounded network polling
+retries; diagnose0823A Master failure and controlled same-workdir resume;
+independent guarded Step7 maintenance; authoritative current-attempt sample
+projection. Test on BS10610, then scoped production deployment/recovery on BS96
+and its configured ctapa node200 runtime. No WGS historical cleanup/new batches
+or automatic version upgrade is included in this immediate implementation.
+Production workflow runtime recovery modifications are authorized to preserve
+successful outputs; no scientific rule changes, forceall, Step0 reset, broad
+SFS deletion or stale-lock bypass. Step7 must remain blocked until verified
+Step5/6 delivery and no live workloads/leases, and target exact frozen SFS scope.
+
+Owners: dag_retry owns bio_gatk/retry tests/DAGspec; sample_status owns adapter
+reconciliation/observer/sample tests; gatk_step7 owns independent maintenance
+API/DAG/gate/tests; coordinator owns exact runtime diagnosis/resume/deployment
+and state docs. Shared worktree recovery-20260914; main/development preserved.
+Preflight: BS96server96 currentpanel-opt-4d3d24e6 backendc787bfd06e5b,
+scheduler0714fa13abf9, mounts verified unchanged. BS10610server10610 current
+20260912-opt-4d3d24e6; isolated cached-image tests only, no live test data edits.
+Live API evidence:0907A Airflowwaitup_for_reschedule but businessrunfailed and
+14Samplefailed;0823Afailed/14Samplefailed. Thus UI correction needs persistent
+recovery reconciliation, not frontend relabeling. Node alias t640 was not
+resolvable through NGS; original task supplied existing direct ctapa node200
+SSH via BS. First attempt jumpkex aborted exit1; no remote mutation occurred.
+
+Recovery diagnostics:0823A finalizer failed after its14 dependency outputs.
+Original worker Pod/stderr had already expired; exact underlying errno is not
+known. Same-image exclusive fsync/readback and synthetic tar--zstd probes passed;
+their files were removed. Only two bounded diagnostic Jobs were created, each
+TTL86400; no clinical output was deleted. Wrong-UID raw Kubernetes DELETE on
+our completed tar probe returned exit1/precondition rejection and preserved UID.
+0823A failed Master UID18282066-de80-4f8c-87ef-d1226a837a12/RV39482764 unchanged.
+Real resume dry-run failed closed (exit1): Master Pod inventory unavailable.
+Cause: frozen kubectl helper returns None for empty --ignore-not-found query.
+Do not interpret unknown/empty output as proof of inactivity. A dedicated
+non-suppressing PodList query and regression tests are being added. No Master
+deletion, replacement submission, Step0, new attempt or OBS mutation occurred.
+
+Review gates:Step7 must freeze approved project/batch and runtime/script/manifest
+hashes; an orchestration failure must not allow overwriting a still-running
+maintenance generation. Sample success reconciliation must not hide another
+latest failed stage. These are being corrected before production publication.
+BS96 defaultchenjc cannot read production.env; existingctapa key verifies
+ctapaUID6801 and envread access. No permissions or secrets were copied/changed.
+
+Unified candidate verification:BS10610 backend/gate/resume focused55passed2.48s,
+existing GATK runtime/registry/transfer/workspace42passed4.04s; frontend27files/
+99tests passed and TypeScript/Vite build succeeded (1852modules). Existing WGS
+lifecycle regression found in first run was fixed by rendering from lifecycle
+capability independently of optional Step7. New UI test normalizes the configured
+API origin when checking the exact cleanup endpoint/body. No old test weakened.
+Airflow network6tests/concurrency/success-dependency/maintenance contracts passed.
+Maintenance script initially needed PYTHONPATH=/candidate/dags; wrong optional
+test filenames were corrected after collection exit1. No metadata DB initialized
+for isolated DAG-list; actual imported DAG contracts tested instead.
+
+Real resume dry-run passed after strict PodList and sourcing the existing private
+runtime.env (outside-env OBS wrapper diagnostic exited127; no config changed).
+Executed script SHA256bf6b82a76371415bfd3b1d7045fc4a10e1f3d825dff6806988e6a145d945dd41.
+Exact failed Master UID was conditionally deleted; same frozen Step2 submitted
+replacement UID52fbf32c-d474-4a63-b5c7-a862cb69f167 at2026-09-14T14:21:00Z.
+Resume journal is completed; native START handoff returned successfully, exit0.
+Attempt1/run-id/workdir/frozen versions and existing SFS/OBS outputs preserved.
+This is runtime recovery, not whole-batch completion. Private request-directory
+resume-execute-20260914.log and UID-keyed journal retain audit. Control-plane
+deployment, Sample verification and Airflow downstream reopening still pending.
+
+
+## 2026-09-14 recovery and lifecycle coordination (in progress)
+
+Current user authorizes recovery of both production GATK runs, coherent CSS
+deployment, release discovery/API panels, retry/recovery improvements, and a
+precisely scoped WGS cleanup preserving latest0910A, followed by local0911B and
+cloud0911A plus the next ordered batch. This is not authorization to erase raw
+FASTQ, references, workflow releases, GATK, unrelated projects or test results.
+No WGS deletion or submission has occurred in this coordinator task.
+
+Production preflight via BS96: server96; current resolves to
+/data/airflow-WGS/releases/20260912-panel-opt-4d3d24e6; backendc787bfd06e5b,
+frontend60049e7897bc, scheduler0714fa13abf9, worker4eabb4931970. Prior verified
+service mounts remain pinned separately; do not deploy by current symlink alone.
+Internal authenticated API reports Production/wgs,gatk, scantrue/autofalse;
+8WGS and2GATK records. Keep WGS_20260913_164341_4B5DBA (0910A), success,
+3samples, releasewgs-4.2.1-34bfcbf. Shared pending projection29/source ready.
+Result root has historical batches absent from run records; deletion requires
+an exact run/batch/path/foreign-key inventory and recoverable backup first.
+Earlier audited order is0910A,0911B,0911A,0912D,0912C,0912B; confirm current
+input/readiness and shared pending ownership before submitting anything.
+
+User-designated original task019fa8d1-0d81-7e92-abee-8154dd1cf0a7 owns existing
+GATK recovery operations, with authorization recorded in its HANDOFF. Latest
+reported0907A MasterRunning/ready/restart0,166/184. Execution owner subsequently
+confirmed exact11-task clear dry-run followed by HTTP200; independent GET found
+DAGrunning and wait_step3_analysis up_for_reschedule, downstream pending.
+Prepare/upload/Step2/startmonitor remain success try1; attempt1 and monitor
+generation1/requesthash unchanged. No Master/monitor/service restart. This is
+orchestration recovery, not whole-batch completion.0823A JobBackoffLimitExceeded
+at10:08:19Z, noMasterpod;
+no existing safe failedMaster resume interface identified. No Step0, lock or
+Job deletion permitted as an implicit workaround. Coordination task
+019f9d79-be3f-7701-af33-3595d72bbfac confirmed Step0 deletes SFSrun/linkage and
+batch ConfigMap locks only bind run_id. Its local source observations may be
+older than deployed frozen bundles; verify exact bundle before implementation.
+
+Proposed architecture awaiting design confirmation: verified immutable release
+discovery with compatibility validation and automatic default selection for new
+attempts; existing attempts stay pinned. Backend API/DB serves configured,
+available and observed identities distinctly, including GATK SFS panels. Separate
+network polling retry from scientific workflow retry; same-run Master resume
+must fence exact terminalUID and worker inactivity, preserve SFS and versions,
+and never use forceall. Compile existing CSS source into a coherent frontend
+artifact without the historical whole-stylesheet overlay.
+
+Checks: production authenticated read-only API and filesystem inventory passed;
+one SSH preflight failed exit1 at jump172.17.61.18 (kex connection aborted), later
+bounded read succeeded without configuration changes. No runtime tests run:
+coordinator has changed documentation only, with implementation/design gate
+pending. Future tests belong on BS10610 per docs34, not local Windows. Rollback:
+discard/revert these scoped documentation changes; preserve all runtime data.
+
+
 ## 2026-09-14 release branch synchronization
 
 User authorizes new completed development to main and production, then push.

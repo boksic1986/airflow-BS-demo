@@ -27,6 +27,7 @@ STAGE_SCRIPTS = {
     "step4_publish": "Step4_publish_results.sh",
     "step5_download": "Step5_download_verify.sh",
     "step6_materialize": "Step6_materialize_results.sh",
+    "step7_cleanup": "Step7_cleanup_sfs.sh",
 }
 TERMINAL = {"success", "failed", "canceled"}
 EVIDENCE_BRIDGE = Path(__file__).with_name("wgs_evidence_bridge.py")
@@ -737,6 +738,11 @@ def _execute(
     generation: int | None = None,
 ) -> None:
     request_path, payload = _load(analysis_id, attempt, stage, generation)
+    if stage == "step7_cleanup":
+        from gatk_maintenance_gate import execute_cleanup
+        execute_cleanup(payload, _root(),
+            lambda state, message: _write_status(request_path, payload, state, message))
+        return
     _write_status(request_path, payload, "running", f"{stage} started")
     environment = {
         **os.environ,
@@ -841,12 +847,21 @@ def start(
     request_path, payload = _load(analysis_id, attempt, stage, generation)
     status_path = _status_path(request_path)
     if status_path.is_file():
-        existing = json.loads(status_path.read_text(encoding="utf-8"))
+        if stage == "step7_cleanup":
+            from gatk_maintenance_gate import _safe_bytes
+            existing = json.loads(_safe_bytes(status_path, _root()))
+        else:
+            existing = json.loads(status_path.read_text(encoding="utf-8"))
         if (
             int(existing.get("generation") or 1) == int(payload["generation"])
             and existing.get("status") in {"running", "success"}
+            and (stage != "step7_cleanup" or all(existing.get(key) == payload.get(key)
+                for key in ("analysis_id", "attempt", "stage", "execution_id", "request_hash")))
         ):
             return {"status": existing["status"], "stage": stage}
+    if stage == "step7_cleanup":
+        from gatk_maintenance_gate import check_start
+        check_start(payload, _root())
     log_path = request_path.with_suffix(".worker.log")
     command = [
         sys.executable,

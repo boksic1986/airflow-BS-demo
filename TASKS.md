@@ -1,5 +1,29 @@
 # TASKS.md
 
+## RECOVERY-LIFECYCLE-20260914 (in progress)
+
+Immediate approved implementation:network retry, same-attempt0823A resume,
+guarded independent GATK Step7 and persistent Sample recovery. Broader items
+below remain deferred; no WGS data cleanup/new batch submitted.
+
+- [x] Implement and remote-test transient GET retries (6), authoritative Sample sync and Step7 safeguards.
+- [x] Exact-UID0823A resume completed; replacement Master START handed off, original attempt/output retained.
+- [x] Independent review and BS10610 candidate tests/build (backend/gate97, frontend99, DAG contracts).
+- [ ] Production source/mount rollout and both batches' Airflow/Sample verification.
+
+- [x] Read-only production fingerprint; coordinate GATK recovery with original task.
+- [x] Consult cce-pipeline owner on lock/release contracts; identify unsafe Step0.
+- [x] Original execution task verified0907A DAGrunning/waitup_for_reschedule after exact11-task clear.
+- [ ] Verify both whole-batch completion after runtime/Airflow recovery.
+- [ ] Confirm design: immutable automatic release discovery, pinned attempts, API panels.
+- [ ] Add bounded transient-network retry and distinguish attempts from task tries.
+- [ ] Deploy coherent source CSS and Heavy collector with exact tested provenance.
+- [ ] GATK SFS release/resource/observed runtime panel parity via backend contract.
+- [ ] Map and back up exact old WGS data; preserve0910A and its pending dependencies.
+- [ ] Clean only verified scope; local0911B then cloud0911A/0912D handoff acceptance.
+- [ ] Remote tests, production verification, final state/commit alignment.
+
+
 ## RELEASE-SYNC-20260914
 
 - [x] Isolate deployed ledger/UI/GATK-version changes from paused development.

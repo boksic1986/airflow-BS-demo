@@ -293,7 +293,7 @@ export function RunDetailPage() {
           <MetricCard title="Rule events" value={summary.rule_count} status={summary.failed_rule_count ? "failed" : undefined} />
           {detail.pipeline === "wgs" ? <MetricCard title="Batch QC" value={summary.batch_qc_status} status={summary.batch_qc_status} /> : null}
         </section>
-        {detail.pipeline === "wgs" && detail.lifecycle ? <DataLifecyclePanel lifecycle={detail.lifecycle} step7={detail.step7_cleanup} canManageStep7={session.hasRole("admin")} acting={acting} onStep7Cleanup={(batchConfirmation, retryFailed) => void runStep7Cleanup(batchConfirmation, retryFailed)} /> : null}
+        {detail.lifecycle ? <DataLifecyclePanel lifecycle={detail.lifecycle} step7={detail.step7_cleanup} canManageStep7={session.hasRole("admin")} acting={acting} onStep7Cleanup={(batchConfirmation, retryFailed) => void runStep7Cleanup(batchConfirmation, retryFailed)} /> : null}
         {isFailedStatus(detail.status) ? <ErrorPanel diagnosis={diagnosis} showErrorLogPath={detail.pipeline !== "wgs"} /> : null}
         {progressError ? <div className="inline-error" role="alert">Current progress unavailable: {progressError}</div> : null}
         {detail.pipeline === "wgs" ? <div className="run-detail-snapshot-grid">

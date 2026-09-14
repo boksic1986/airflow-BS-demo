@@ -8,6 +8,9 @@ x-gatk-airflow-env: &gatk-airflow-env
   GATK_RUNNER_200_COMMAND: ${GATK_RUNNER_200_COMMAND:?set GATK_RUNNER_200_COMMAND}
 
 services:
+  wgs-run-observer:
+    environment:
+      DEPLOYED_PIPELINES: wgs,gatk
   backend:
     environment:
       DEPLOYED_PIPELINES: wgs,gatk
@@ -35,11 +38,14 @@ services:
     environment: *gatk-airflow-env
     volumes:
       - ./dags/bio_gatk.py:/opt/airflow/dags/bio_gatk.py:ro
+      - ./dags/bio_gatk_maintenance.py:/opt/airflow/dags/bio_gatk_maintenance.py:ro
   airflow-scheduler:
     environment: *gatk-airflow-env
     volumes:
       - ./dags/bio_gatk.py:/opt/airflow/dags/bio_gatk.py:ro
+      - ./dags/bio_gatk_maintenance.py:/opt/airflow/dags/bio_gatk_maintenance.py:ro
   airflow-worker:
     environment: *gatk-airflow-env
     volumes:
       - ./dags/bio_gatk.py:/opt/airflow/dags/bio_gatk.py:ro
+      - ./dags/bio_gatk_maintenance.py:/opt/airflow/dags/bio_gatk_maintenance.py:ro

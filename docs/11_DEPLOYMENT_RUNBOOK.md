@@ -1,5 +1,39 @@
 # Deployment runbook
 
+## GATK recovery/Step7 candidate (2026-09-14)
+
+Validate the candidate on BS10610 before production. Deploy bio_gatk.py network
+polling retries and the independent bio_gatk_maintenance.py to all three Airflow
+services. Inspect actual per-file mounts; replacing a host inode alone does not
+replace the file already bind-mounted in a running container. Check no executing
+Airflow task before a scoped control-plane recreation; retain CCE Masters and
+all task/run identities. Existing rescheduled TaskInstances may retain old
+max_tries: inspect them and clear only the exact wait task if needed, never
+upload/prepare/Master submission just to adopt a polling retry policy.
+
+Backend and observer must consume the same tested registry/reconciliation code.
+The observer's GATK overlay sets DEPLOYED_PIPELINES=wgs,gatk explicitly; its
+Airflow synchronizer requires DB/Airflow access, not a new GATK filesystem mount.
+Install gatk_maintenance_gate.py adjacent to the restricted gatk_runtime_gate.py;
+preserve private runtime.env, SSH identity and existing execution gates. Verify
+the external forced-command dispatcher accepts the authorized Step7 invocation.
+
+Step7 is an explicit administrator maintenance action, not an ALL_DONE analysis
+tail and not a deployment smoke-test deletion. Its approved identity/hashes,
+latest Step5/6 receipts, no-live-workload checks and shared maintenance lock must
+pass. Unknown runtime status blocks retry; retain local results/OBS/evidence.
+
+For0823A use scripts/gatk_resume.py first without --execute, with freshly read
+binding/contract SHA256 and exact failed Master UID. Validate raw Kubernetes
+DeleteOptions preconditions against an owned diagnostic Job before execution.
+Preserve attempt/workdir/run-id/frozen versions and successful outputs. Never
+use Step0, --forceall, arbitrary unlock or an unverified replacement UID.
+Record exact runtime and control-plane recovery separately from batch completion.
+
+Rollback restores recorded service source/images and node gate copies only.
+Preserve databases, leases, runtime receipts, diagnostic evidence and outputs;
+do not roll back a resumed Master by deleting it.
+
 ## 2026-09-14 original-file ledger / compact controls
 
 Git promotion does not deploy services. BS96 currently uses backend/source worker

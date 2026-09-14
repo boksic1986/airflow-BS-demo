@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from http.client import IncompleteRead, RemoteDisconnected
 import json
 import logging
 import os
@@ -11,6 +12,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from airflow import DAG
+from airflow.exceptions import AirflowException, AirflowFailException
 from airflow.operators.python import PythonOperator
 from airflow.sensors.python import PythonSensor
 from airflow.utils.trigger_rule import TriggerRule
@@ -49,12 +51,20 @@ def _backend_json(
         with urlopen(request, timeout=30) as response:
             value = json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[-2000:]
-        raise RuntimeError(f"GATK backend rejected {path}: {detail}") from exc
-    except URLError as exc:
-        raise RuntimeError(f"GATK backend unavailable for {path}: {exc}") from exc
+        # Do not put upstream response bodies or credential-bearing URLs in logs.
+        if exc.code in {408, 429, 500, 502, 503, 504}:
+            raise AirflowException(
+                f"GATK backend temporarily unavailable (HTTP {exc.code})"
+            ) from None
+        raise AirflowFailException(
+            f"GATK backend rejected request (HTTP {exc.code})"
+        ) from None
+    except (URLError, TimeoutError, ConnectionError, IncompleteRead, RemoteDisconnected):
+        raise AirflowException("GATK backend transport temporarily unavailable") from None
+    except (ValueError, UnicodeError):
+        raise AirflowFailException("GATK backend response is not valid UTF-8 JSON") from None
     if not isinstance(value, dict):
-        raise RuntimeError("GATK backend response must be an object")
+        raise AirflowFailException("GATK backend response must be an object")
     return value
 
 
@@ -127,7 +137,8 @@ def stage_ready(stage: str, **context: Any) -> bool:
         f"/api/internal/gatk/runs/{conf['analysis_id']}/stage-status?{query}"
     )
     if value.get("failed"):
-        raise RuntimeError(str(value.get("message") or f"GATK stage failed: {stage}"))
+        # A terminal runtime receipt is not a transient polling failure.
+        raise AirflowFailException(str(value.get("message") or f"GATK stage failed: {stage}"))
     return bool(value.get("ready"))
 
 
@@ -229,6 +240,12 @@ def _stage_sensor(task_id: str, stage: str, timeout_hours: int = 48) -> PythonSe
         mode="reschedule",
         poke_interval=30,
         timeout=timeout_hours * 3600,
+        # Retry only observation, never stage registration/SSH dispatch. Airflow
+        # persists try_number across reschedules; analysis attempt stays fixed.
+        retries=6,
+        retry_delay=timedelta(seconds=30),
+        retry_exponential_backoff=True,
+        max_retry_delay=timedelta(minutes=5),
     )
 
 

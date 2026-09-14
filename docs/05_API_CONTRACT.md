@@ -1,5 +1,31 @@
 # API contract
 
+## GATK recovery and explicit Step7 (2026-09-14)
+
+The existing sync-airflow operation dispatches through the GATK adapter.
+Background synchronization is opt-in through each adapter's declared observed
+states. GATK checks the exact current DagRun identity and latest generation of
+each runtime stage before restoring a failed orchestration projection. A live
+DagRun cannot override a failed runtime receipt. Actual recovery resets failed
+run timestamps and selected Sample status and records one reconciliation audit;
+successful DAG plus successful materialization are needed for terminal success.
+No new sample table or frontend-only status override is introduced.
+
+The admin-only existing `POST /api/runs/{analysis_id}/actions/cleanup-step7`
+dispatches via the registered adapter callback. GATK requires typed batch
+confirmation, successful current attempt, latest Step5/6 receipts, no active
+transfer leases/workloads and frozen binding identity. Failed-action retry needs
+`retry_failed=true` and `expected_action_id`; a new generation preserves history.
+Run detail supplies `step7_cleanup` eligibility/history and independent
+`lifecycle.cloud_release`. Local materialization is not proof of downstream
+delivery or raw FASTQ backup. Cleanup never changes scientific Sample/run state.
+
+Service-token-only GATK maintenance routes are POST/GET
+`/api/internal/gatk/runs/{analysis_id}/maintenance/{action_id}` and POST of its
+`/failed` suffix. They fence current attempt, action and request identity; the
+fixed `gatk-runtime-200` adapter applies. No client command or storage path is
+accepted. Network failures must not authorize deletion or release a live lock.
+
 ## Original-file ledger promotion (2026-09-14)
 
 Authenticated read-only GET `/api/sample-references`, `/api/sample-references/sources`

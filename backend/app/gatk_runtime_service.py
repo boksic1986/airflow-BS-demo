@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.gatk_stage_contract import gatk_stage_definition
+from app.diagnostics_service import sync_sample_statuses
 from app.models import (
     AnalysisRun,
     PipelineStageExecution,
@@ -80,7 +81,7 @@ def register_gatk_stage(
         select(AnalysisRun).where(
             AnalysisRun.analysis_id == analysis_id,
             AnalysisRun.pipeline_name == "gatk",
-        )
+        ).with_for_update()
     )
     if run is None or run.attempt != attempt:
         raise ValueError("unknown active GATK attempt")
@@ -94,12 +95,11 @@ def register_gatk_stage(
                 PipelineStageExecution.analysis_id == analysis_id,
                 PipelineStageExecution.attempt == attempt,
                 PipelineStageExecution.stage_code == predecessor_stage,
-                PipelineStageExecution.status == "success",
             )
             .order_by(PipelineStageExecution.generation.desc())
             .limit(1)
         )
-        if predecessor is None or not predecessor.receipt_hash:
+        if predecessor is None or predecessor.status != "success" or not predecessor.receipt_hash:
             raise ValueError(f"GATK predecessor {predecessor_stage} has no successful receipt")
     latest = session.scalar(
         select(PipelineStageExecution)
@@ -167,13 +167,15 @@ def register_gatk_stage(
         predecessor_receipt_hash=predecessor.receipt_hash if predecessor else None,
     )
     session.add(execution)
+    resuming_failed_run = run.status == "failed"
     run.status = "running"
     run.current_stage = stage
     run.started_at = run.started_at or datetime.now(timezone.utc)
-    if reopening_terminal_stage:
+    if reopening_terminal_stage or resuming_failed_run:
         run.ended_at = None
         run.pipeline_finished_at = None
         run.error_summary = None
+    sync_sample_statuses(session=session, analysis_id=analysis_id, run_status="running")
     if stage != "prepare":
         _atomic_json(request_path, request)
     _upsert_gatk_stage_state(

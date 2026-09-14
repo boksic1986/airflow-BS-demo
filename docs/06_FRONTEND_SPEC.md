@@ -1,5 +1,16 @@
 # Frontend specification
 
+## GATK recovery and explicit SFS maintenance (2026-09-14)
+
+Run Detail renders lifecycle/Step7 from the adapter's API capability, not a WGS
+pipeline-name check. GATK uses the same administrator-only exact-batch and
+destructive acknowledgement controls. Missing eligibility stays blocked; a
+failed cleanup does not relabel successful analysis or Sample rows as failed.
+Run/Sample recovery status is persisted by the backend's current-attempt and
+latest-stage reconciliation; the browser must not locally infer recovery.
+Build the existing source styles into the versioned frontend bundle. No
+additional historical rule-layout stylesheet is required by this feature.
+
 ## 2026-09-14 deployed sample ledger and compact controls
 
 Samples separates Analysis records from a read-only sample reference/handoff

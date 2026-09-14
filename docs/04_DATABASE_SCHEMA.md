@@ -1,5 +1,15 @@
 # 04 数据库设计
 
+## GATK recovery/Step7 (2026-09-14, no migration)
+
+Adapter-owned reconciliation updates existing AnalysisRun/Sample and adds
+RunAction `gatk_airflow_reconciled` only when current-attempt failure recovers.
+GATK Step7 reuses the existing maintenance table with distinct action_type
+`gatk_cleanup_step7_sfs`; all queries filter that type and exact attempt.
+Generation, predecessor receipt and binding SHA are frozen in target_snapshot_json.
+This maintenance state is independent of scientific run/Sample status. No
+historical data deletion or schema downgrade is part of this change.
+
 AF05 scan-only release retains the published `0019 -> 0020 -> 0021` ancestry.
 Revision 0020 is included unchanged from `b5d0b67` as an inactive additive schema
 prerequisite only. Its reference tables have no model/API/consumer activation in
