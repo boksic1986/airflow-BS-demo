@@ -49,9 +49,12 @@ none is enabled by adding this implementation.
   plus sample ID, sequencing batch and data ID. Raw task/order IDs, patient names,
   free text and unrecognized columns never enter DB or API. Only safe sample,
   family, data, sequencing-batch and analysis-batch fields are stored.
-- An explicit `reason_code` column is used only for existing allowlisted reason
-  enums. Missing, unknown or free-text reasons become pending_reason_unclassified.
-  No clinical blocker is inferred from arbitrary text.
+- Current pending source analysis batch comes from explicit source_analysis_batch
+  with analysis_batch fallback; sequencing_batch remains identity metadata only.
+- `reason_code`, or pending_reason when absent, accepts existing allowlisted
+  enums. The native missing-sequencing-batch phrase is mapped to its existing enum
+  without retaining sample names/free text. Other missing/unknown reasons become
+  pending_reason_unclassified. UI renders finite Chinese labels, not raw text.
 - Existing reference/source/snapshot tables are reused without migration.
   Unchanged safe content does not create another snapshot; complete header-only
   input clears current pending membership. Disappearance is not consumption.
@@ -84,8 +87,10 @@ potentially changed current candidate sampleinfo is deliberately not reread.
 Missing or inconsistent evidence is an error, not inferred identity or execution.
 
 Each accepted selection creates an immutable sample_reference_operation and
-decision_selected history rows, never clears current pending. origin_batch is
-the selected sequencing_batch; destination_batch is the selected analysis_batch.
+decision_selected history rows, never clears current pending. For compatibility,
+immutable history origin_batch remains selected sequencing_batch (legacy wire
+semantics), not current pending's source analysis batch; UI no longer shows this
+legacy origin arrow. destination_batch is the selected analysis_batch.
 No batch is derived from a directory name. Repeated destinations/executions remain
 history, not overwritten into one potentially stale latest target. A bad receipt
 or immutable replay cannot block later valid entries; DB failures retry safely.

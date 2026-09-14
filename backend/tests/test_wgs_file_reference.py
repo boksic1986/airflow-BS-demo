@@ -35,7 +35,7 @@ def test_original_file_without_lock_journal_or_receipts_is_idempotent_and_privat
     with factory() as s:
         row=s.scalar(select(Ref)); key=row.record_key
         assert row.pending and row.sample_id=="S1" and row.reason_code=="pending_reason_unclassified"
-        assert row.origin_batch=="SEQ1" and row.destination_batch is None
+        assert row.origin_batch=="AB1" and row.destination_batch is None
         assert s.scalar(select(func.count()).select_from(Snapshot))==1
         assert s.scalar(select(Op)) is None and s.scalar(select(Sample)) is None
         dump="\n".join(s.connection().connection.driver_connection.iterdump())
@@ -117,3 +117,38 @@ def test_operator_only_config_routes_files_without_producer_registration(tmp_pat
     assert reconcile_registered(factory,load_reference_config())=={"file-test":"ready"}
     item["pending_path"]="/not-allowed"; config_path.write_text(json.dumps([item]))
     with pytest.raises(SourceError): load_reference_config()
+
+
+def test_pending_source_batch_does_not_change_identity_or_selection_history(tmp_path):
+    source,factory,sync,path=setup(tmp_path)
+    from app.wgs_file_reference import project_rows
+    from app.models import SampleReference as Ref
+    baseline=project_rows(path.read_bytes(),source,SECRET,pending=False)
+    content=HEADER.rstrip("\n")+"\tsource_analysis_batch\tpending_reason\n"
+    content+=material().splitlines()[1]+"\tORIGIN1\tsequencing_batch_missing\n"
+    path.write_text(content,encoding="utf-8")
+    before=path.read_bytes()
+    assert sync(factory,source,SECRET)=="ready"
+    with factory() as s:
+        row=s.scalar(select(Ref))
+        assert row.origin_batch=="ORIGIN1"
+        assert row.reason_code=="sequencing_batch_missing"
+        assert row.record_key==baseline[0]["record_key"]
+    assert project_rows(before,source,SECRET,pending=False)==baseline
+    assert path.read_bytes()==before
+
+
+def test_pending_api_filters_absent_rows_before_pagination(tmp_path,monkeypatch):
+    source,factory,sync,path=setup(tmp_path)
+    from app.models import SampleReference as Ref, utc_now
+    from app import sample_reference_api as api
+    assert sync(factory,source,SECRET)=="ready"
+    with factory.begin() as s:
+        s.add(Ref(source_id=source.source_id,record_key="0"*64,sample_id="STALE",
+                  pending=True,present_in_latest_complete=False,content_version="0"*64,
+                  last_good_generation=1,last_good_at=utc_now()))
+    monkeypatch.setattr(api,"get_sessionmaker",lambda:factory)
+    result=api.references(source_id=None,sample_id=None,family_id=None,origin_batch=None,
+        destination_batch=None,pending=True,sync_error=None,limit=1,offset=0)
+    assert result["total"]==1
+    assert result["items"][0]["sample_id"]=="S1"

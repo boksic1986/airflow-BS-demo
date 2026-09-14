@@ -32,6 +32,8 @@ def references(source_id:str|None=Query(None,max_length=128),sample_id:str|None=
     for name,value in (("source_id",source_id),("sample_id",sample_id),("family_id",family_id),
                        ("origin_batch",origin_batch),("destination_batch",destination_batch),("pending",pending)):
         if value is not None: query=query.where(getattr(SampleReference,name)==value)
+    if pending is True:
+        query=query.where(SampleReference.present_in_latest_complete.is_(True))
     if sync_error is not None:
         query=query.where((SampleReferenceSource.sync_status=="error") if sync_error else (SampleReferenceSource.sync_status!="error"))
     query=query.order_by(SampleReference.source_id,SampleReference.record_key)

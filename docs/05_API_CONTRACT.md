@@ -1,5 +1,17 @@
 # API contract
 
+## LEDGER-01 current pending presentation (not deployed)
+
+GET /api/sample-references with pending=true now requires
+present_in_latest_complete=true before counting/pagination. Omitting pending
+retains the historical/all-record API; no reference/sample deletion occurs.
+For wgs_files current membership, origin_batch is explicit source_analysis_batch
+or the row's analysis_batch, never sequencing_batch. This is applied by normal
+worker sync, not a DB migration/backfill. Historical operation payload/identity
+and request/receipt validation remain unchanged; UI does not present legacy
+operation origin_batch as source analysis provenance.
+
+
 ## Shared WGS transfer progress (2026-09-15, not deployed)
 
 Tracker stage_progress and Run detail workspace progress reuse the existing

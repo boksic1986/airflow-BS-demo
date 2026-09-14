@@ -62,10 +62,17 @@ def project_rows(raw,source,secret,*,pending=True):
             if value not in ("", ".", "None", "nan"):
                 group=prefix+value; break
         identity=[group or "sample:"+safe["sample_id"],safe["sample_id"],safe["sequencing_batch"],safe["data_id"]]
-        code=row.get("reason_code","").strip()
+        code=(row.get("reason_code","").strip() or row.get("pending_reason","").strip())
+        if "缺少上机批次" in code:
+            code="sequencing_batch_missing"
         code=(code if code in REASONS else "pending_reason_unclassified") if pending else None
+        origin={}
+        if pending:
+            batch=row.get("source_analysis_batch","").strip() or safe["analysis_batch"]
+            require(len(batch)<=128 and not any(c in batch for c in "\r\n\t\x00"),"source_invalid")
+            origin["origin_batch"]=batch or None
         result.append({**safe,"record_key":opaque(secret,source.scope_id,"identity",identity),
-            "reason_code":code,"reason_codes":[code] if code else []})
+            "reason_code":code,"reason_codes":[code] if code else [],**origin})
     return result
 
 
@@ -123,7 +130,7 @@ def _apply(factory,source,token,rows):
             if record is None:
                 record=SampleReference(source_id=source.source_id,record_key=key); session.add(record)
             for name in (*SAFE_COLUMNS,"reason_code","reason_codes"): setattr(record,name,row[name])
-            record.origin_batch=row["sequencing_batch"]
+            record.origin_batch=row["origin_batch"]
             record.pending=True; record.present_in_latest_complete=True
             record.content_version=digest(canonical(row)); record.last_good_generation=token
             record.last_good_at=now; record.updated_at=now

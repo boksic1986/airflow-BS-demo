@@ -1,5 +1,16 @@
 # Frontend specification
 
+## LEDGER-01 Sample-aligned ledger (not deployed)
+
+Ledger uses Sample's sample-resource-table, common filters, pagination and
+StatusBadge. Default view requests current pending only; history view retains
+all reference records and on-demand receipt details. Main columns are sample /
+family, source analysis batch, Status with Chinese reason, and details. No
+Origin-to-target or Last-good/sync column; sync diagnostics are collapsed while
+errors remain visible. Selected receipts mean included, consumed receipts with
+destination mean handed off; neither means analysis/QC success. No new CSS overlay.
+
+
 ## RESOURCE-LOAD-20260915
 
 Resource panels distinguish first-request loading/failure from a successful
