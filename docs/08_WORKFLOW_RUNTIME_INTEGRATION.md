@@ -1,5 +1,10 @@
 # Workflow runtime integration
 
+GATK September14 status projection preserves measured Step1/Step5 progress and
+reconciles only identity-validated latest terminal receipts. Bound rule evidence
+uses registered log enrichment for sample identity. No pipeline selection or
+local/SGE execution behavior changes. Details: 33_GATK_CLOUD_AIRFLOW_INTEGRATION.md.
+
 ## OPT20260912 read-only resource evidence
 
 Heavy v2 snapshot `complete` means complete named Lease inventory, not complete

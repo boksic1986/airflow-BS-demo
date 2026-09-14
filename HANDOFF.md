@@ -1,5 +1,22 @@
 # HANDOFF.md
 
+## 2026-09-14 GATK commit and branch synchronization
+
+User requested archiving prior GATK fixes and syncing main/production branch.
+Development e5b9325 is selectively replayed as main ddf062a; only documentation
+context conflicts resolved, excluding WGS development paragraphs. Includes
+concurrency, success barriers, fenced transfer release/progress/wait, rule sample
+enrichment and nonparticipating GATK Master handling in Heavy collection.
+BS96 server96 isolated scratch gatk-git-sync-20260914: backend31 passed;
+three real-Airflow standalone contracts passed; frontend npm run build passed.
+Airflow image has no pytest in either Python; standalone test entrypoints were
+used without installing packages. All containers used --pull=never/network none.
+No deployment/restart/DB/analysis/pending mutation. Prior live CSS overlay still
+requires inclusion in a future rebuilt deployment image; Git sync is not rollout.
+Production branch previously diverged from main: reconcile with main tree and
+both parents, preserving history (normal fast-forward push, never force).
+Rollback Git fix through reviewed revert; do not remove runtime data.
+
 ## 2026-09-13 main publication scope
 
 User requested production code synchronization to main. Verified origin/main

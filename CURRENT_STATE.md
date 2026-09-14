@@ -1,5 +1,13 @@
 # CURRENT_STATE.md
 
+## 2026-09-14 GATK fixes archived
+
+GATK scoped fix ddf062a (development e5b9325) is on main. Production branch
+will reconcile to this approved main tree while retaining both histories.
+WGS prepare/ledger development commits are excluded. No services are restarted.
+Fresh BS96 isolated validation: 31 backend tests, three real-Airflow contract
+scripts and frontend production build passed. See docs/releases/GATK_GIT_SYNC_20260914.md.
+
 ## MAIN-SYNC-20260913 — production source promotion
 
 User authorized main publication of the deployed AF05 release lineage only.

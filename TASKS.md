@@ -1,5 +1,12 @@
 # TASKS.md
 
+## GATK-GIT-SYNC-20260914
+
+- [x] Select only prior GATK/related Heavy and rule-layout fixes.
+- [x] Main candidate: BS96 backend31, Airflow contract scripts and frontend build.
+- [x] Preserve WGS prepare WIP and historical production ancestry.
+- [ ] Verify remote main/production refs after atomic push.
+
 ## MAIN-SYNC-20260913
 
 - [x] User-authorized production release lineage; clean production clone verified.
