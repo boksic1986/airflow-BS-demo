@@ -7,6 +7,7 @@
 - [x] Require explicit management flag, authenticated admin/internal identity and CSRF.
 - [x] Pin CCE recovery to its recorded release; preserve local/SGE refresh behavior.
 - [x] Pass the 7-test focused BS10610 isolated cached-image suite.
+- [x] Close required-field review gap, pass its existing negative case, approve final review, and record the single integration/wheel delivery.
 - [ ] Deployment, writable shared catalog mount and activation require separate approval.
 
 ## RECOVERY-LIFECYCLE-20260914 (in progress)

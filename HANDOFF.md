@@ -2,6 +2,12 @@
 
 ## 2026-09-15 CCE 0.8.5 Airflow release consumer candidate
 
+Final code is `994a9c2`; managed blank-field rejection is fixed without changing
+legacy catalog reads. Its existing negative case passed and scoped review approved.
+CCE `b7f98e9` wheel and one synthetic client/API smoke are recorded in
+[delivery evidence](docs/releases/2026-09-15-cce-085-release.md). No additional
+suite, production operation, merge or push was performed.
+
 Implemented only the approved Airflow consumer on
 `jiucheng/backend/cce-release-085` from `33598aa`: exact `cce-release.v1`
 validation, inactive/idempotent registration, conflict protection, read listing,

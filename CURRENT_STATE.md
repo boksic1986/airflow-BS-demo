@@ -2,6 +2,10 @@
 
 ## 2026-09-15 CCE 0.8.5 Airflow release consumer candidate
 
+Final review approved CCE `b7f98e9` / Airflow `994a9c2`; wheel built and the single
+synthetic integration passed. See [delivery record](docs/releases/2026-09-15-cce-085-release.md).
+This remains unmerged, unpushed and undeployed; management stays disabled.
+
 Implemented the default-disabled `cce-release.v1` registration, listing and
 explicit activation API on branch `jiucheng/backend/cce-release-085`. Catalog
 writes are locked, validated and atomic; schema-3/4 history and unknown metadata
