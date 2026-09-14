@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import fcntl
+import csv
+import io
 import hashlib
 import importlib.util
 import json
@@ -374,7 +376,7 @@ def _transfer_stage_root(payload: dict[str, Any]) -> Path:
 
 def _transfer_progress_root(payload: dict[str, Any]) -> Path:
     stage_root = _transfer_stage_root(payload)
-    if payload.get("stage") != "step1_upload":
+    if payload.get("stage") not in {"step1_upload", "step5_download"}:
         return stage_root
     generation = int(payload.get("generation") or 1)
     if generation < 1:
@@ -464,6 +466,122 @@ def _create_step1_transfer_plan(payload: dict[str, Any]) -> dict[str, Any]:
     return plan
 
 
+def _marker_values(path: Path) -> dict[str, str]:
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("transfer marker is unavailable")
+    return dict(line.split("=", 1) for line in path.read_text().splitlines() if "=" in line)
+
+
+def _create_step5_transfer_plan(payload: dict[str, Any], *, persist: bool = True) -> dict[str, Any] | None:
+    """Discover totals only after READY and its bound manifest have been published."""
+    delivery = _bundle(payload) / "cloud_delivery"
+    try:
+        runtime = yaml.safe_load((_bundle(payload) / "BATCH_RUNTIME.yaml").read_text())
+        identity = runtime["identity"]
+        if identity["run_id"] != f"{payload['analysis_id']}-a{int(payload['attempt'])}":
+            return None
+        ready = _marker_values(delivery / "READY")
+        if ready.get("status") != "READY" or any(ready.get(key) != identity.get(key) for key in ("project", "batch", "run_id")):
+            return None
+        manifest = delivery / "payload-manifest.tsv"
+        if delivery.is_symlink() or manifest.is_symlink():
+            return None
+        content = manifest.read_bytes()
+        if hashlib.md5(content).hexdigest() != ready.get("manifest_md5"):
+            return None
+        entries = []
+        labels = set()
+        for row in csv.DictReader(io.StringIO(content.decode("utf-8")), delimiter="\t"):
+            label = row["relative_path"]
+            target = delivery / label
+            if (not label or Path(label).is_absolute() or ".." in Path(label).parts
+                    or "\\" in label or label in labels or target.is_symlink()
+                    or delivery.resolve() not in target.resolve().parents):
+                return None
+            total = int(row["size_bytes"])
+            if total < 0 or not re.fullmatch(r"[0-9a-f]{32}", row["md5"]):
+                return None
+            if row.get("status") != "source_verified":
+                return None
+            labels.add(label)
+            entries.append(dict(relative_path=label, size_bytes=total, md5=row["md5"]))
+        if not entries:
+            return None
+    except (OSError, ValueError, KeyError, TypeError, yaml.YAMLError):
+        return None
+    plan = {
+        "schema_version": "wgs-runtime.transfer-plan.v1",
+        **{key: payload.get(key) for key in ("analysis_id", "attempt", "stage", "execution_id", "request_hash")},
+        "generation": int(payload.get("generation") or 1),
+        "entries": entries, "files_total": len(entries),
+        "bytes_total": sum(item["size_bytes"] for item in entries),
+        "manifest_sha256": hashlib.sha256(content).hexdigest(),
+        "manifest_md5": ready["manifest_md5"],
+        "delivery_identity": {key: identity[key] for key in ("project", "batch", "run_id")},
+    }
+    path = _transfer_plan_path(payload)
+    if not persist:
+        return plan
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        existing = json.loads(path.read_text())
+        if existing != plan:
+            raise RuntimeError("GATK download transfer plan changed within one generation")
+    else:
+        _atomic_json(path, plan)
+    return plan
+
+
+def _finalize_step5_transfer_progress(payload: dict[str, Any], plan: dict[str, Any], *, publish: bool = True) -> dict[str, Any]:
+    """Publish completion from the successful stage receipt and unchanged verified files."""
+    request = _request_path(str(payload["analysis_id"]), int(payload["attempt"]), "step5_download")
+    receipt = json.loads(_status_path(request).read_text())
+    expected_hash = receipt.pop("receipt_hash", None)
+    actual_hash = hashlib.sha256(json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    if (receipt.get("status") != "success" or actual_hash != expected_hash
+            or any(receipt.get(key) != payload.get(key) for key in
+                   ("analysis_id", "attempt", "stage", "execution_id", "generation", "request_hash"))):
+        raise ValueError("GATK download has no matching successful stage receipt")
+    delivery = _bundle(payload) / "cloud_delivery"
+    marker = _marker_values(delivery / "DOWNLOAD_VERIFIED")
+    ledger_path = delivery / "DOWNLOAD_VERIFIED.json"
+    if ledger_path.is_symlink():
+        raise ValueError("unsafe download verification ledger")
+    ledger = json.loads(ledger_path.read_text())
+    expected = {**plan["delivery_identity"], "manifest_md5": plan["manifest_md5"]}
+    if (marker.get("status") != "PASS"
+            or any(marker.get(key) != value or ledger.get(key) != value for key, value in expected.items())
+            or int(marker.get("total_bytes", -1)) != plan["bytes_total"]
+            or int(marker.get("file_count", -1)) != len(plan["entries"])):
+        raise ValueError("download verification does not match manifest")
+    verified = {item["relative_path"]: item for item in ledger["files"]}
+    if len(verified) != len(plan["entries"]):
+        raise ValueError("download verification file count mismatch")
+    for entry in plan["entries"]:
+        target = delivery / entry["relative_path"]
+        stat = target.stat()
+        record = verified.get(entry["relative_path"], {})
+        if (target.is_symlink() or delivery.resolve() not in target.resolve().parents
+                or stat.st_size != entry["size_bytes"]
+                or any(record.get(key) != entry[key] for key in ("size_bytes", "md5"))
+                or any(record.get(key) != getattr(stat, key) for key in ("st_dev", "st_ino", "st_mtime_ns"))):
+            raise ValueError("downloaded file changed since MD5 verification")
+    progress = _aggregate_transfer_progress(payload, plan, publish=False)
+    progress.update(state="success", bytes_done=plan["bytes_total"], files_done=len(plan["entries"]),
+                    source="verified-download-receipt", completed_at=receipt["updated_at"],
+                    heartbeat_at=receipt["updated_at"], recorded_at=datetime.now(timezone.utc).isoformat(),
+                    verification_status="verified", message="Download manifest and MD5 verification completed",
+                    receipt_hash=expected_hash, current_file=None, speed_bytes_per_second=0, eta_seconds=0)
+    for item in progress["files"]:
+        item.update(status="success", bytes_done=item["bytes_total"], checksum_status="verified")
+    if publish:
+        _transfer_progress_root(payload).mkdir(parents=True, exist_ok=True)
+        _atomic_json(_transfer_progress_root(payload) / "progress.json", progress)
+        if not _publish_step1_progress(payload, progress):
+            raise ValueError("download progress request superseded; public snapshot unchanged")
+    return progress
+
+
 def _raw_transfer_identity_matches(
     row: dict[str, Any], payload: dict[str, Any]
 ) -> bool:
@@ -480,8 +598,8 @@ def _raw_transfer_identity_matches(
         return False
 
 
-def _aggregate_step1_transfer_progress(
-    payload: dict[str, Any], plan: dict[str, Any]
+def _aggregate_transfer_progress(
+    payload: dict[str, Any], plan: dict[str, Any], *, publish: bool = True
 ) -> dict[str, Any]:
     root = _transfer_progress_root(payload)
     rows: dict[str, dict[str, Any]] = {}
@@ -495,7 +613,7 @@ def _aggregate_step1_transfer_progress(
             row.get("schema_version") == "wgs-runtime.transfer-progress.v1"
             and row.get("analysis_id") == payload["analysis_id"]
             and int(row.get("attempt") or 0) == int(payload["attempt"])
-            and row.get("stage") == "step1_upload"
+            and row.get("stage") == payload["stage"]
             and _raw_transfer_identity_matches(row, payload)
             and re.fullmatch(r"[0-9a-f]{64}", key)
             and str(row.get("heartbeat_at") or "")
@@ -535,6 +653,10 @@ def _aggregate_step1_transfer_progress(
         if files and completed == len(files)
         else "running"
     )
+    download = payload["stage"] == "step5_download"
+    # File-copy completion does not certify manifest/MD5 verification.
+    if download and state == "success":
+        state = "running"
     total = sum(int(item["bytes_total"]) for item in files)
     done = sum(int(item["bytes_done"]) for item in files)
     speed = sum(
@@ -542,16 +664,17 @@ def _aggregate_step1_transfer_progress(
     )
     progress = {
         "schema_version": "wgs-runtime.transfer-progress.v2",
-        "transfer_id": f"{payload['analysis_id']}-a{int(payload['attempt'])}-input",
+        "transfer_id": f"{payload['analysis_id']}-a{int(payload['attempt'])}-{'result' if download else 'input'}",
         "analysis_id": payload["analysis_id"],
         "attempt": int(payload["attempt"]),
-        "stage": "step1_upload",
-        "direction": "upload",
+        "stage": payload["stage"],
+        "direction": "download" if download else "upload",
         "state": state,
         "bytes_total": total,
         "bytes_done": done,
         "files_total": len(files),
         "files_done": completed,
+        "message": "Verifying downloaded results" if download and files and completed == len(files) else None,
         "current_file": next(
             (item["display_name"] for item in files if item["status"] == "running"),
             None,
@@ -571,10 +694,17 @@ def _aggregate_step1_transfer_progress(
         "request_hash": payload.get("request_hash"),
         "files": files,
     }
-    root.mkdir(parents=True, exist_ok=True)
-    _atomic_json(root / "progress.json", progress)
-    _publish_step1_progress(payload, progress)
+    if publish:
+        root.mkdir(parents=True, exist_ok=True)
+        _atomic_json(root / "progress.json", progress)
+        _publish_step1_progress(payload, progress)
     return progress
+
+
+def _aggregate_step1_transfer_progress(
+    payload: dict[str, Any], plan: dict[str, Any]
+) -> dict[str, Any]:
+    return _aggregate_transfer_progress(payload, plan)
 
 
 def _publish_step1_progress(
@@ -591,7 +721,7 @@ def _publish_step1_progress(
                     _request_path(
                         str(payload["analysis_id"]),
                         int(payload["attempt"]),
-                        "step1_upload",
+                        str(payload["stage"]),
                     ).read_text(encoding="utf-8")
                 )
             except (OSError, json.JSONDecodeError):
@@ -643,6 +773,34 @@ def _run_step1_with_progress(
         _aggregate_step1_transfer_progress(payload, plan)
         time.sleep(1)
     _aggregate_step1_transfer_progress(payload, plan)
+    if process.returncode:
+        raise subprocess.CalledProcessError(process.returncode, process.args)
+
+
+def _run_step5_with_progress(payload: dict[str, Any], environment: dict[str, str]) -> None:
+    ready_path = _bundle(payload) / "cloud_delivery" / "READY"
+    def ready_stamp():
+        try:
+            stat = ready_path.stat()
+            return stat.st_ino, stat.st_mtime_ns, stat.st_size
+        except OSError:
+            return None
+    before = ready_stamp()
+    process = subprocess.Popen(_step(payload, "step5_download"), env=environment)
+    while True:
+        # Metadata is downloaded first; the wrapper discovers this plan while copying.
+        try:
+            # Do not freeze a previous generation's READY while new metadata downloads.
+            stamp = ready_stamp()
+            plan = _create_step5_transfer_plan(payload) if stamp is not None and stamp != before else None
+            if plan is not None:
+                _aggregate_transfer_progress(payload, plan)
+        except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+            # A monitoring failure must not orphan or restart a real transfer.
+            print(f"GATK download progress unavailable: {type(exc).__name__}", flush=True)
+        if process.poll() is not None:
+            break
+        time.sleep(1)
     if process.returncode:
         raise subprocess.CalledProcessError(process.returncode, process.args)
 
@@ -815,6 +973,16 @@ def _execute(
                 "success",
                 "step1_upload completed with transfer progress evidence",
             )
+        elif stage == "step5_download":
+            _run_step5_with_progress(payload, environment)
+            _write_status(request_path, payload, "success", "GATK download and verification completed")
+            # Telemetry cannot change an already verified stage outcome.
+            try:
+                plan = _create_step5_transfer_plan(payload)
+                if plan is not None:
+                    _finalize_step5_transfer_progress(payload, plan)
+            except (OSError, ValueError, KeyError, RuntimeError) as exc:
+                print(f"GATK download progress finalization unavailable: {type(exc).__name__}", flush=True)
         elif stage == "step6_materialize":
             _materialize(payload)
             _write_status(

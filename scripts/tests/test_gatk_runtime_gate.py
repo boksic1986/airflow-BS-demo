@@ -186,7 +186,7 @@ def test_step1_transfer_environment_uses_observer_progress_contract(
     assert "WGS_TRANSFER_SPOOL_ROOT" not in environment
 
 
-def test_step5_transfer_environment_keeps_legacy_observer_path(
+def test_step5_transfer_environment_isolates_retry_generation(
     tmp_path: Path, monkeypatch
 ) -> None:
     gate = load_gate()
@@ -203,7 +203,7 @@ def test_step5_transfer_environment_keeps_legacy_observer_path(
 
     environment = gate._transfer_environment(payload)
 
-    expected = tmp_path / "spool" / analysis_id / "attempt-2" / "step5_download"
+    expected = tmp_path / "spool" / analysis_id / "attempt-2" / "step5_download" / "generation-3"
     assert environment["WGS_TRANSFER_PROGRESS_ROOT"] == str(expected.resolve())
 
 
