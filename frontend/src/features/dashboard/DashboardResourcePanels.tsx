@@ -22,6 +22,22 @@ export function DashboardResourcePanels({resources, loading, error}: {
     || nodes.find((node) => node.resource_key === "node-96")
     || nodes[0];
   const selectedSfs = cloud[0];
+  // No response yet is not evidence that the collectors have no telemetry.
+  // Keep the last snapshot visible during subsequent refreshes and failures.
+  if (resources === null) {
+    return <section className="dashboard-ops-grid" aria-busy={loading}>
+      {['Analysis Node Health', 'Cloud Resources', 'SFS I/O'].map((title, index) => (
+        <section key={title} className="panel resource-overview-panel resource-dashboard-panel">
+          <div className="section-heading resource-panel-heading"><h2>{title}</h2></div>
+          {error
+            ? index === 0
+              ? <div className="inline-error" role="alert">Resources unavailable: {error}</div>
+              : <p className="muted">资源请求失败，正在等待自动重试。</p>
+            : <p className="muted panel-loading" role="status">正在加载资源指标与历史数据…</p>}
+        </section>
+      ))}
+    </section>;
+  }
   return <section className="dashboard-ops-grid" aria-busy={loading}>
     <section className="panel resource-overview-panel resource-dashboard-panel"><ResourceHeading title="Analysis Node Health" updatedAt={selectedNode?.source_updated_at} /><div className="resource-control-row">{nodes.length > 0 ? <div className="resource-tabs" role="tablist" aria-label="Analysis node">{nodes.map((node) => <button key={node.resource_key} type="button" role="tab" aria-selected={selectedNode?.resource_key === node.resource_key} className={`${selectedNode?.resource_key === node.resource_key ? "active " : ""}resource-tag resource-node-tab resource-control-token`} onClick={() => setSelectedNodeKey(node.resource_key)}>{nodeTabLabel(node)}</button>)}</div> : <span />}{selectedNode ? <StatusBadge className="resource-control-token" status={selectedNode.status} size="sm" /> : null}</div>{error ? <div className="inline-error" role="alert">Resources unavailable: {error}</div> : null}<div className="resource-card-list">{selectedNode ? <NodeResource item={selectedNode} /> : <p className="empty-state">Node metrics are not available yet.</p>}</div></section>
     <section className="panel resource-overview-panel resource-dashboard-panel"><ResourceHeading title="Cloud Resources" updatedAt={selectedSfs?.source_updated_at} /><div className="resource-control-row">{selectedSfs ? <strong className="resource-tag resource-control-token">{selectedSfs.display_name}</strong> : <span />}{selectedSfs ? <StatusBadge className="resource-control-token" status={selectedSfs.status} size="sm" /> : null}</div><div className="resource-card-list"><CloudResource item={selectedSfs} heavySlot={resources?.heavy_slot} /></div></section>

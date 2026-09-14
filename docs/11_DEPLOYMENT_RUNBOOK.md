@@ -1,5 +1,17 @@
 # Deployment runbook
 
+## Resource response compression (2026-09-15)
+
+Both nginx templates enable gzip only for exact `/api/platform/resources`
+responses (JSON, minimum 1024 bytes, level 5, Vary: Accept-Encoding). Auth and
+other API routes are unchanged. This does not cache or downsample telemetry.
+For an existing gateway, preserve its approved allowlist and apply only this
+location block; do not overwrite a live config with a generic template.
+Validate `nginx -t` before graceful reload. Frontend assets must be copied before
+switching index.html; retain the previous index/assets for rollback. Backend,
+collectors, scanner and Airflow need no restart. See the dated resource loading
+release note for exact deployment evidence.
+
 ## GATK recovery/Step7 candidate (2026-09-14)
 
 Validate the candidate on BS10610 before production. Deploy bio_gatk.py network

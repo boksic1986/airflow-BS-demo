@@ -1,5 +1,13 @@
 # Frontend specification
 
+## RESOURCE-LOAD-20260915
+
+Resource panels distinguish first-request loading/failure from a successful
+empty telemetry response. Loading never claims collectors are unavailable.
+Background refresh failures retain the last successful resource snapshot.
+Only the resource JSON route negotiates gzip; all history points, timestamps,
+freshness and unknown-value semantics remain unchanged.
+
 ## GATK recovery and explicit SFS maintenance (2026-09-14)
 
 Run Detail renders lifecycle/Step7 from the adapter's API capability, not a WGS
