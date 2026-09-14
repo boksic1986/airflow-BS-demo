@@ -96,3 +96,10 @@ runtime image. It does not run `npm ci`, pull an image, or contact a registry.
 Changing the lockfile, Node major, nginx contract or approved base is an image
 contract change and requires a newly identified base rather than silently
 reusing an incompatible cache.
+# 2026-09-14 independent ledger projection
+
+The standalone app.sample_reference_worker synchronizes registered original WGS
+files into the business ledger, separate from Airflow/scanner execution. It uses
+a dedicated bounded DB pool and pass-plus60s polling; prepare offers only a
+nonblocking hint. No new published port. Operator configuration and rollback are
+documented in docs/11_DEPLOYMENT_RUNBOOK.md. No WGS writer or local/SGE changes.

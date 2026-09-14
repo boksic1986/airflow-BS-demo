@@ -129,6 +129,8 @@ from sqlalchemy import func, or_, select
 
 logger = logging.getLogger(__name__)
 app = FastAPI(title="airflow-demo backend")
+from app.sample_reference_api import router as sample_reference_router
+app.include_router(sample_reference_router)
 INTAKE_SCANNER_DAG_ID = "bio_intake_scan"
 app.add_middleware(
     CORSMiddleware,
@@ -2673,6 +2675,9 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
                             params["sample_selection_scope"] = run.params_json["sample_selection_scope"]
                         run.params_json = params
                         session.commit()
+        if stage == "prepare_analysis" and not artifact_pending:
+            from app.sample_reference_service import notify_prepare_sync
+            notify_prepare_sync()
     return {
         "analysis_id": analysis_id,
         "attempt": attempt,

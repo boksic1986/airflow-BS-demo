@@ -1,144 +1,240 @@
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import {Link, useSearchParams} from "react-router-dom";
-
-import type {OperatorSampleResponse} from "../api";
-
-import {listSamplesResource} from "../api";
+import {listSampleReferenceOperations, listSampleReferences, listSampleReferenceSources, listSamplesResource, type OperatorSampleResponse, type Page, type SampleReference, type SampleReferenceOperation, type SampleReferenceSource} from "../api";
 import {StatusBadge} from "../components/StatusBadge";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {deployedPipelineFilter} from "../lib/deployment";
 import {useSilentRefresh} from "../lib/useSilentRefresh";
 
-const pageSize = 25;
+const size = 25;
 
 export function SamplesPage() {
-  const capabilities = usePlatformCapabilities();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const pipeline = deployedPipelineFilter(searchParams.get("pipeline"), capabilities.deployed_pipelines);
-  const status = searchParams.get("status") || "all";
-  const keyword = searchParams.get("keyword") || "";
-  const [keywordDraft, setKeywordDraft] = useState(keyword);
-  const page = positivePage(searchParams.get("page"));
-  const [payload, setPayload] = useState<OperatorSampleResponse>({items: [], total: 0, limit: pageSize, offset: 0});
-
-  useEffect(() => { setKeywordDraft(keyword); }, [keyword]);
-  useEffect(() => {
-    if (keywordDraft === keyword) return undefined;
-    const timer = window.setTimeout(() => {
-      setSearchParams((current) => {
-        const next = new URLSearchParams(current);
-        if (keywordDraft.trim()) next.set("keyword", keywordDraft);
-        else next.delete("keyword");
-        next.delete("page");
-        return next;
-      }, {replace: true});
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [keyword, keywordDraft, setSearchParams]);
-
-  const {loading, error} = useSilentRefresh(async ({isCurrent}) => {
-    const result = await listSamplesResource({
-      pipeline: pipeline === "all" ? "deployed" : pipeline,
-      status: status === "all" ? undefined : status,
-      keyword: keyword.trim() || undefined,
-      limit: pageSize,
-      offset: (page - 1) * pageSize,
-    });
-    if (isCurrent()) setPayload(result);
-  }, JSON.stringify([keyword, page, pipeline, status]));
-
-  function updateFilter(name: string, value: string) {
-    const next = new URLSearchParams(searchParams);
-    if (!value || value === "all") next.delete(name);
-    else next.set(name, value);
-    next.delete("page");
-    setSearchParams(next);
-  }
-
-  function goToPage(nextPage: number) {
-    const next = new URLSearchParams(searchParams);
-    if (nextPage <= 1) next.delete("page");
-    else next.set("page", String(nextPage));
-    setSearchParams(next);
-  }
-
-  const pageCount = Math.max(1, Math.ceil(payload.total / pageSize));
-
-  return (
-    <div className="page-stack">
-      <section className="page-header">
-        <div>
-          <p className="eyebrow">Sample resource</p>
-          <h1>Sample Information</h1>
-        </div>
-      </section>
-      <section className="panel">
-        <div className="filter-bar resource-filter-bar">
-          <label>
-            <span>Pipeline</span>
-            <select aria-label="Sample pipeline" value={pipeline} onChange={(event) => updateFilter("pipeline", event.target.value)}>
-              <option value="all">All deployed</option>
-              {capabilities.pipelines.filter((item) => capabilities.isDeployed(item.id)).map((item) => <option key={item.id} value={item.id}>{item.display_name}</option>)}
-            </select>
-          </label>
-          <label>
-            <span>Status</span>
-            <select aria-label="Sample status" value={status} onChange={(event) => updateFilter("status", event.target.value)}>
-              <option value="all">All</option>
-              <option value="pending">pending</option>
-              <option value="running">running</option>
-              <option value="success">success</option>
-              <option value="failed">failed</option>
-            </select>
-          </label>
-          <label className="grow">
-            <span>Keyword</span>
-            <input aria-label="Sample keyword" value={keywordDraft} placeholder="sample, family, batch, project or run ID" onChange={(event) => setKeywordDraft(event.target.value)} />
-          </label>
-        </div>
-        {loading ? <p className="muted">Loading samples...</p> : null}
-        {error ? <div className="inline-error" role="alert">{error}</div> : null}
-        {!loading ? (
-          <div className="table-wrap">
-            <table className="data-table sample-resource-table">
-              <thead>
-                <tr><th>Sample / family</th><th>Batch</th><th>Order</th><th>Relation / type</th><th>Project / run</th><th>Status</th></tr>
-              </thead>
-              <tbody>
-                {payload.items.map((row) => (
-                  <tr key={`${row.analysis_id}-${row.sample_id}`}>
-                    <td><strong>{row.sample_id}</strong>{row.family_id ? <small className="block muted">Family {row.family_id}</small> : null}</td>
-                    <td>{row.batch_no || "-"}</td>
-                    <td>{row.order_number_masked || "-"}</td>
-                    <td>{row.family_relation || "-"}<small className="block muted">{[row.sample_type, row.sex].filter(Boolean).join(" / ") || "-"}</small></td>
-                    <td>
-                      <Link className="resource-link" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>{row.test_project || row.project_name}</Link>
-                      <Link className="resource-link secondary mono" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>{row.test_project ? `${row.project_name} · ` : ""}{row.analysis_id}</Link>
-                    </td>
-                    <td>
-                      <StatusBadge status={row.status} />
-                      {row.pending_reason || row.status_reason ? <small className="block muted">{row.pending_reason || row.status_reason}</small> : null}
-                    </td>
-                  </tr>
-                ))}
-                {payload.items.length === 0 ? <tr><td className="empty-cell" colSpan={6}>No samples match the current filters.</td></tr> : null}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-        <div className="pagination-controls" aria-label="Sample pagination">
-          <span>{payload.total} samples · page {Math.min(page, pageCount)} / {pageCount}</span>
-          <div>
-            <button type="button" disabled={page <= 1} onClick={() => goToPage(page - 1)}>Previous</button>
-            <button type="button" disabled={page >= pageCount} onClick={() => goToPage(page + 1)}>Next</button>
-          </div>
-        </div>
-      </section>
+  const [params, setParams] = useSearchParams();
+  const view = params.get("view") === "ledger" ? "ledger" : "analysis";
+  return <div className="page-stack">
+    <section className="page-header"><div><p className="eyebrow">Sample resource</p><h1>Sample Information</h1></div></section>
+    <div className="tab-row" role="tablist" aria-label="Sample information views">
+      <button role="tab" aria-selected={view === "analysis"} className={view === "analysis" ? "active" : ""} onClick={() => setParams({})}>分析记录</button>
+      <button role="tab" aria-selected={view === "ledger"} className={view === "ledger" ? "active" : ""} onClick={() => setParams({view: "ledger"})}>样本资料／交接台账</button>
     </div>
-  );
+    {view === "analysis" ? <Analysis /> : <Ledger />}
+  </div>;
 }
 
-function positivePage(value: string | null): number {
-  const parsed = Number(value || "1");
-  return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : 1;
+function Analysis() {
+  const caps = usePlatformCapabilities();
+  const [params, setParams] = useSearchParams();
+  const pipeline = deployedPipelineFilter(params.get("pipeline"), caps.deployed_pipelines);
+  const status = params.get("status") || "all";
+  const keyword = params.get("keyword") || "";
+  const page = pageOf(params);
+  const [draft, setDraft] = useState(keyword);
+  const [data, setData] = useState<OperatorSampleResponse>({items: [], total: 0, limit: size, offset: 0});
+
+  useEffect(() => setDraft(keyword), [keyword]);
+  useEffect(() => {
+    if (draft === keyword) return;
+    const timeout = setTimeout(() => change("keyword", draft.trim(), params, setParams), 300);
+    return () => clearTimeout(timeout);
+  }, [draft, keyword]);
+
+  const {loading, error} = useSilentRefresh(async ({isCurrent}) => {
+    const response = await listSamplesResource({
+      pipeline: pipeline === "all" ? "deployed" : pipeline,
+      status: status === "all" ? undefined : status,
+      keyword: keyword || undefined,
+      limit: size,
+      offset: (page - 1) * size,
+    });
+    if (isCurrent()) setData(response);
+  }, JSON.stringify([pipeline, status, keyword, page]));
+
+  return <section className="panel">
+    <div className="filter-bar resource-filter-bar">
+      <label><span>Pipeline</span><select aria-label="Sample pipeline" value={pipeline} onChange={event => change("pipeline", event.target.value, params, setParams)}><option value="all">All deployed</option>{caps.pipelines.filter(item => caps.isDeployed(item.id)).map(item => <option key={item.id} value={item.id}>{item.display_name}</option>)}</select></label>
+      <label><span>Status</span><select aria-label="Sample status" value={status} onChange={event => change("status", event.target.value, params, setParams)}><option value="all">All</option>{["pending", "running", "success", "failed"].map(item => <option key={item}>{item}</option>)}</select></label>
+      <label className="grow"><span>Keyword</span><input aria-label="Sample keyword" value={draft} placeholder="sample, family, batch, project or run ID" onChange={event => setDraft(event.target.value)} /></label>
+    </div>
+    {loading ? <p className="muted">Loading samples...</p> : null}
+    {error ? <div className="inline-error" role="alert">{error}</div> : null}
+    {!loading ? <div className="table-wrap"><table className="data-table sample-resource-table"><thead><tr><th>Sample / family</th><th>Batch</th><th>Order</th><th>Relation / type</th><th>Project / run</th><th>Status</th></tr></thead><tbody>
+      {data.items.map(row => <tr key={`${row.analysis_id}-${row.sample_id}`}><td><strong>{row.sample_id}</strong>{row.family_id ? <small className="block muted">Family {row.family_id}</small> : null}</td><td>{row.batch_no || "-"}</td><td>{row.order_number_masked || "-"}</td><td>{row.family_relation || "-"}<small className="block muted">{[row.sample_type, row.sex].filter(Boolean).join(" / ") || "-"}</small></td><td><Link className="resource-link" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>{row.test_project || row.project_name}</Link><Link className="resource-link secondary mono" to={`/runs/${encodeURIComponent(row.analysis_id)}`}>{row.test_project ? `${row.project_name} · ` : ""}{row.analysis_id}</Link></td><td><StatusBadge status={row.status} />{row.pending_reason || row.status_reason ? <small className="block muted">{row.pending_reason || row.status_reason}</small> : null}</td></tr>)}
+      {!data.items.length ? <tr><td className="empty-cell" colSpan={6}>No samples match the current filters.</td></tr> : null}
+    </tbody></table></div> : null}
+    <Pager label="Sample" total={data.total} page={page} go={next => go(next, params, setParams)} />
+  </section>;
+}
+
+function Ledger() {
+  const [params, setParams] = useSearchParams();
+  const page = pageOf(params);
+  const filters = {
+    sourceId: params.get("source_id") || "", sampleId: params.get("sample_id") || "",
+    familyId: params.get("family_id") || "", originBatch: params.get("origin_batch") || "",
+    destinationBatch: params.get("destination_batch") || "", pending: bool(params.get("pending")),
+    syncError: bool(params.get("sync_error")),
+  };
+  const [data, setData] = useState<Page<SampleReference>>({items: [], total: 0, limit: size, offset: 0});
+  const [sources, setSources] = useState<Page<SampleReferenceSource>>({items: [], total: 0, limit: size, offset: 0});
+  const [sourcePage, setSourcePage] = useState(1);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [history, setHistory] = useState<Record<string, Page<SampleReferenceOperation>>>({});
+  const [historyPage, setHistoryPage] = useState<Record<string, number>>({});
+  const [historyErrors, setHistoryErrors] = useState<Record<string, string>>({});
+  const historyRequests = useRef<Record<string, number>>({});
+  const historyGenerations = useRef<Record<string, number | null | undefined>>({});
+  const historyPending = useRef<Record<string, {generation: number | null | undefined; page: number}>>({});
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  useEffect(() => setSourcePage(1), [filters.syncError]);
+
+  const refreshKey = JSON.stringify([filters, page, sourcePage]);
+  const {loading, error} = useSilentRefresh(async ({isCurrent}) => {
+    const [rows, health] = await Promise.all([
+      listSampleReferences({...filters, limit: size, offset: (page - 1) * size}),
+      listSampleReferenceSources({syncError: filters.syncError, limit: size, offset: (sourcePage - 1) * size}),
+    ]);
+    if (isCurrent()) { setData(rows); setSources(health); }
+  }, refreshKey);
+
+  useEffect(() => {
+    for (const row of data.items) {
+      const key = `${row.source_id}:${row.record_key}`;
+      const pending = historyPending.current[key];
+      if (open[key] && historyGenerations.current[key] !== row.last_good_generation &&
+          !(pending && pending.generation === row.last_good_generation && pending.page === (historyPage[key] || 1))) {
+        void loadHistory(row, historyPage[key] || 1);
+      }
+    }
+  }, [data]);
+
+  async function loadHistory(row: SampleReference, nextPage: number) {
+    const key = `${row.source_id}:${row.record_key}`;
+    const request = (historyRequests.current[key] || 0) + 1;
+    historyRequests.current[key] = request;
+    historyPending.current[key] = {generation: row.last_good_generation, page: nextPage};
+    setHistoryPage(value => ({...value, [key]: nextPage}));
+    try {
+      const result = await listSampleReferenceOperations({sourceId: row.source_id, recordKey: row.record_key, limit: size, offset: (nextPage - 1) * size});
+      if (!mounted.current || historyRequests.current[key] !== request) return;
+      historyGenerations.current[key] = row.last_good_generation;
+      setHistory(value => ({...value, [key]: result}));
+      setHistoryErrors(value => ({...value, [key]: ""}));
+    } catch (failure) {
+      if (!mounted.current || historyRequests.current[key] !== request) return;
+      setHistoryErrors(value => ({...value, [key]: failure instanceof Error ? failure.message : String(failure)}));
+    } finally {
+      if (historyRequests.current[key] === request) delete historyPending.current[key];
+    }
+  }
+
+  function toggle(row: SampleReference) {
+    const key = `${row.source_id}:${row.record_key}`;
+    if (open[key]) {
+      historyRequests.current[key] = (historyRequests.current[key] || 0) + 1;
+      delete historyPending.current[key];
+    }
+    setOpen(value => ({...value, [key]: !value[key]}));
+    // Reopening revalidates even cached history; keep last-good content visible.
+    if (!open[key]) void loadHistory(row, historyPage[key] || 1);
+  }
+
+  const textFilters = [["source_id", "Source", filters.sourceId], ["sample_id", "Sample", filters.sampleId], ["family_id", "Family", filters.familyId], ["origin_batch", "Origin batch", filters.originBatch], ["destination_batch", "Target batch", filters.destinationBatch]];
+  return <>
+    <section className="panel">
+      <h2>交接台账</h2>
+      <p className="muted">只读投影。QC Pending 表示分析 QC 尚未完成，不表示交接 pending，也不会在此修改共享 pending。</p>
+      <div className="filter-bar resource-filter-bar">
+        {textFilters.map(([name, label, value]) => <label key={name}><span>{label}</span><input aria-label={label} value={String(value)} onChange={event => change(String(name), event.target.value.trim(), params, setParams)} /></label>)}
+        <Choice label="Pending" name="pending" value={params.get("pending") || "all"} onChange={value => change("pending", value, params, setParams)} />
+        <Choice label="Sync issue" name="sync_error" value={params.get("sync_error") || "all"} onChange={value => change("sync_error", value, params, setParams)} />
+      </div>
+      {loading ? <p className="muted">Loading ledger...</p> : null}
+      {error ? <div className="inline-error" role="alert">Refresh failed; retained last-good ledger. {error}</div> : null}
+      <div className="table-wrap"><table className="data-table"><thead><tr><th>Sample / family</th><th>Origin → target</th><th>Pending reason</th><th>Last good / sync</th><th>History</th></tr></thead><tbody>
+        {data.items.map(row => { const key = `${row.source_id}:${row.record_key}`; return <Rows key={key} row={row} open={Boolean(open[key])} operations={history[key]} page={historyPage[key] || 1} error={historyErrors[key]} toggle={() => toggle(row)} go={next => void loadHistory(row, next)} />; })}
+        {!data.items.length && !loading ? <tr><td colSpan={5} className="empty-cell">No ledger records match the exact filters.</td></tr> : null}
+      </tbody></table></div>
+      <Pager label="Ledger" total={data.total} page={page} go={next => go(next, params, setParams)} />
+    </section>
+    <section className="panel"><h2>Source health</h2>
+      {sources.items.map(source => <p key={source.source_id}><strong>{source.source_id}</strong> · {source.sync_status}{source.sync_reason ? ` · ${source.sync_reason}` : ""} · last good generation {source.last_good_generation ?? "-"} at {source.last_good_at || "-"}</p>)}
+      {!sources.items.length ? <p className="muted">No registered sources match the sync filter.</p> : null}
+      <Pager label="Source health" total={sources.total} page={sourcePage} go={setSourcePage} />
+    </section>
+  </>;
+}
+
+function Rows({row, open, operations, page, error, toggle, go}: {row: SampleReference; open: boolean; operations?: Page<SampleReferenceOperation>; page: number; error?: string; toggle: () => void; go: (page: number) => void}) {
+  return <>
+    <tr>
+      <td><strong>{row.sample_id}</strong><small className="block muted">{row.family_id || "No family"} · {row.source_id}</small></td>
+      <td>{row.origin_batch || "-"} → {row.destination_batch || "-"}</td>
+      <td>{row.pending ? "Pending" : "Not pending"}<small className="block muted">{row.reason_codes?.join(", ") || row.reason_code || "-"}</small>
+        {row.needs_review ? <strong className="block inline-error">Needs review · {row.conflict_reason || "ambiguous identity"}</strong> : null}
+      </td>
+      <td>{row.sync_status}{row.sync_reason ? ` · ${row.sync_reason}` : ""}<small className="block muted">generation {row.last_good_generation ?? "-"} · {row.last_good_at || "-"}</small></td>
+      <td><button type="button" className="button ghost" aria-expanded={open} onClick={toggle}>{open ? "Hide history" : "View history"}</button></td>
+    </tr>
+    {open ? <tr><td colSpan={5}>
+      {error ? <div className="inline-error" role="alert">History refresh failed; retained last-good history. {error}</div> : null}
+      {!operations ? <span className="muted">Loading history...</span> : <>
+        {operations.items.length ? operations.items.map(operation => <div className="ledger-operation" key={operation.operation_id}>
+          <strong>#{operation.sequence} · {operation.mode}</strong>
+          <small className="block muted">Logical transaction time: {operation.logical_transaction_at || "unknown"} · {operation.logical_transaction_time_semantics || "unknown legacy provenance"}</small>
+          {operation.observed_at ? <small className="block muted">Collection observed: {operation.observed_at}</small> : null}
+          {operation.analysis_id ? <> · <Link to={`/runs/${encodeURIComponent(operation.analysis_id)}`}>{operation.analysis_id}</Link></> : " · no analysis run"}
+          {operation.links.filter(link => link.record_key === row.record_key || link.resolved_key === row.record_key).map((link, index) => <div key={`${link.role}-${index}`}>
+            <span>{link.role}: {link.origin_batch || "-"} → {link.destination_batch || "-"}</span>
+            {link.resolved_key && link.resolved_key !== link.record_key ? <small className="block muted">Alias lineage: {link.record_key} → {link.resolved_key}</small> : null}
+            {link.reason_codes.length ? <small className="block muted">{link.reason_codes.join(", ")}</small> : null}
+            {link.role === "consumed" ? <small className="block muted">Consumed by this handoff; does not establish analysis success or QC.</small> : null}
+          </div>)}
+          {!operation.links.some(link => link.record_key === row.record_key || link.resolved_key === row.record_key) ? <small className="block muted">{operation.links_truncated ? "Member decisions unavailable in this truncated response." : "Snapshot observation only; no selected, pending or consumed decision for this member."}</small> : null}
+          {operation.links_truncated ? <small className="block muted">Showing {operation.links.length} of {operation.links_total} links; use exact member filtering.</small> : null}
+        </div>) : <span className="muted">No recorded operations.</span>}
+        <Pager label={`${row.sample_id} history`} total={operations.total} page={page} go={go} />
+      </>}
+    </td></tr> : null}
+  </>;
+}
+function Choice({label, name, value, onChange}: {label: string; name: string; value: string; onChange: (value: string) => void}) {
+  return <label><span>{label}</span><select aria-label={label} value={value} onChange={event => onChange(event.target.value)}><option value="all">All</option><option value="true">{name === "pending" ? "Yes" : "Errors"}</option><option value="false">{name === "pending" ? "No" : "Healthy"}</option></select></label>;
+}
+
+function Pager({label, total, page, go}: {label: string; total: number; page: number; go: (page: number) => void}) {
+  const pages = Math.max(1, Math.ceil(total / size));
+  return <div className="pagination-controls" aria-label={`${label} pagination`}>
+    <span>{total} records · page {Math.min(page, pages)} / {pages}</span>
+    <div><button type="button" disabled={page <= 1} onClick={() => go(page - 1)}>Previous</button><button type="button" disabled={page >= pages} onClick={() => go(page + 1)}>Next</button></div>
+  </div>;
+}
+
+type SetParams = ReturnType<typeof useSearchParams>[1];
+
+function pageOf(params: URLSearchParams) {
+  const page = Number(params.get("page") || 1);
+  return Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1;
+}
+
+function bool(value: string | null) {
+  return value === "true" ? true : value === "false" ? false : undefined;
+}
+
+function change(name: string, value: string, params: URLSearchParams, setParams: SetParams) {
+  const next = new URLSearchParams(params);
+  if (!value || value === "all") next.delete(name);
+  else next.set(name, value);
+  next.delete("page");
+  setParams(next);
+}
+
+function go(page: number, params: URLSearchParams, setParams: SetParams) {
+  const next = new URLSearchParams(params);
+  if (page <= 1) next.delete("page");
+  else next.set("page", String(page));
+  setParams(next);
 }

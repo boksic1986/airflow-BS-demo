@@ -489,3 +489,13 @@ T131 originally added WGS input snapshots, validation issues, one legacy OBS
 lease row and aggregate transfer progress in Alembic `20260812_0008`. T213
 supersedes that singleton for new work with the two directional rows above.
 Rule timing remains derived from `rule_state.started_at/ended_at/layer`.
+# 2026-09-14 retained ledger migration chain
+
+Additive revisions 0022 -> 0023 -> 0024 match the already deployed BS96 chain.
+0022 retains attempt-scope/member tables for migration continuity; this promotion
+does not replace existing sample-selection behavior with experimental scope code.
+0023 adds source generation/error metadata and independent operation/history
+relations; 0024 adds explicitly sourced logical-operation time. Current pending,
+selection history and AnalysisRun/Sample remain separate. Missing/read-failed
+sources preserve last-good rows; no migration deletes old samples or audit data.
+Rollback restores code/turns off synchronization, never downgrades these revisions.

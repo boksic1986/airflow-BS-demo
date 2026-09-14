@@ -1765,3 +1765,45 @@ export function cleanupStep7(analysisId: string, batchConfirmation: string, retr
     body: JSON.stringify({batch_confirmation: batchConfirmation, retry_failed: retry?.retryFailed || false, expected_action_id: retry?.expectedActionId || null}),
   });
 }
+
+export type SampleReference = {
+  source_id: string; record_key: string; sample_id: string; family_id?: string | null;
+  sequencing_batch?: string | null; analysis_batch?: string | null; data_id?: string | null;
+  pending: boolean; present_in_latest_complete: boolean; reason_code?: string | null; reason_codes: string[];
+  origin_batch?: string | null; destination_batch?: string | null; needs_review: boolean;
+  conflict_reason?: string | null; last_good_generation?: number | null; last_good_at?: string | null;
+  sync_status: "never" | "ready" | "error"; sync_reason?: string | null;
+};
+export type SampleReferenceSource = {source_id: string; source_type: string; sync_status: "never" | "ready" | "error"; sync_reason?: string | null; latest_applied_generation?: number | null; last_good_generation?: number | null; last_good_at?: string | null; last_checked_at?: string | null};
+export type SampleReferenceLink = {role: "selected" | "pending" | "consumed"; record_key: string; resolved_key?: string | null; origin_batch?: string | null; destination_batch?: string | null; sample_id?: string | null; family_id?: string | null; reason_codes: string[]};
+export type SampleReferenceOperation = {source_id: string; operation_id: string; sequence: number; mode: string; analysis_id?: string | null; attempt?: number | null; producer_commit: string; logical_transaction_at?: string | null; logical_transaction_time_source?: string | null; logical_transaction_time_semantics: string; completed_at?: string | null; observed_at?: string | null; observed_time_source?: string | null; links: SampleReferenceLink[]; links_total: number; links_truncated: boolean};
+export type Page<T> = {items: T[]; total: number; limit: number; offset: number};
+
+
+function addExact(params: URLSearchParams, name: string, value: string | boolean | undefined) {
+  if (value !== undefined && value !== "") params.set(name, String(value));
+}
+
+export function listSampleReferences(options: {sourceId?: string; sampleId?: string; familyId?: string; originBatch?: string; destinationBatch?: string; pending?: boolean; syncError?: boolean; limit?: number; offset?: number} = {}): Promise<Page<SampleReference>> {
+  const params = new URLSearchParams();
+  addExact(params, "source_id", options.sourceId); addExact(params, "sample_id", options.sampleId);
+  addExact(params, "family_id", options.familyId); addExact(params, "origin_batch", options.originBatch);
+  addExact(params, "destination_batch", options.destinationBatch); addExact(params, "pending", options.pending);
+  addExact(params, "sync_error", options.syncError); params.set("limit", String(options.limit ?? 25)); params.set("offset", String(options.offset ?? 0));
+  return requestJson(`/sample-references?${params}`);
+}
+
+export function listSampleReferenceSources(options: {syncError?: boolean; limit?: number; offset?: number} = {}): Promise<Page<SampleReferenceSource>> {
+  const params = new URLSearchParams(); addExact(params, "sync_error", options.syncError);
+  params.set("limit", String(options.limit ?? 50)); params.set("offset", String(options.offset ?? 0));
+  return requestJson(`/sample-references/sources?${params}`);
+}
+
+export function listSampleReferenceOperations(options: {sourceId?: string; recordKey?: string; sampleId?: string; familyId?: string; originBatch?: string; destinationBatch?: string; limit?: number; offset?: number} = {}): Promise<Page<SampleReferenceOperation>> {
+  if (options.recordKey && !options.sourceId) throw new Error("source_id is required with record_key");
+  const params = new URLSearchParams(); addExact(params, "source_id", options.sourceId); addExact(params, "record_key", options.recordKey);
+  addExact(params, "sample_id", options.sampleId); addExact(params, "family_id", options.familyId);
+  addExact(params, "origin_batch", options.originBatch); addExact(params, "destination_batch", options.destinationBatch);
+  params.set("limit", String(options.limit ?? 25)); params.set("offset", String(options.offset ?? 0));
+  return requestJson(`/sample-references/operations?${params}`);
+}

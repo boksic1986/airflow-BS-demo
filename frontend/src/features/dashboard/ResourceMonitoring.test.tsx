@@ -11,7 +11,8 @@ it('shows known heavy occupancy independently of missing SFS and unknown waiting
   render(<DashboardResourcePanels resources={resources} resourceTab="all" overview={null} rows={[]} loading={false} error={null} onResourceTabChange={() => {}} />);
   expect(screen.getByText('11 / 25')).toBeInTheDocument();
   expect(screen.getByText(/waiting unavailable/)).toBeInTheDocument();
-  expect(screen.getByText(/one grouped Job/)).toBeInTheDocument();
+  expect(screen.queryByText(/one grouped Job/)).not.toBeInTheDocument();
+  expect(screen.queryByText('采集详情')).not.toBeInTheDocument();
   expect(screen.queryByText(/0 waiting/)).not.toBeInTheDocument();
   expect(screen.queryByText(/Resource package balances/)).not.toBeInTheDocument();
   expect(screen.queryByText(/not_configured/)).not.toBeInTheDocument();

@@ -919,3 +919,8 @@ class ObserverRunState(Base):
     @status.setter
     def status(self, value: str) -> None:
         self.monitoring_health = value
+
+from app.sample_reference_models import (
+    SampleReference, SampleReferenceSource, SampleReferenceSnapshot,
+    SampleReferenceOperation, SampleReferenceHistory,
+)

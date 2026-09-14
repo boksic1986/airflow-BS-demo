@@ -1,5 +1,20 @@
 # HANDOFF.md
 
+## 2026-09-14 release branch synchronization
+
+User authorizes new completed development to main and production, then push.
+Start both29ade68, clean production checkout. Package exact deployed BS96 backend
+ledger source and minimal main/models hooks, UI/API, GATK config compatibility;
+preserve existing Sample selection and runtime. Do not merge development wholesale.
+Dormant cloud/journal readers remain as already deployed configuration dependencies,
+but only original wgs_files is approved. Gate/config/auto-dispatch uncommitted
+experiments and attempt-projection replacement stay development-only. No dirty
+development file discarded. Prior GATK fix commit was already promoted.
+BS96 readonly fingerprint: backendc787bfd06e5b/frontend60049e7897bc; no services
+ modified. Cached isolated candidate25tests passed5.96s; frontend build passed3.07s,
+ existing3 resource UI tests passed9.55s. Push awaits remote verification.
+Git rollback reverts promotion; retain database/files and never downgrade0022-24.
+
 ## 2026-09-14 GATK commit and branch synchronization
 
 User requested archiving prior GATK fixes and syncing main/production branch.

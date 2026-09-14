@@ -1,5 +1,22 @@
 # Deployment runbook
 
+## 2026-09-14 original-file ledger / compact controls
+
+Git promotion does not deploy services. BS96 currently uses backend/source worker
+from /data/airflow-WGS/releases/20260914-ledger-c2e491c and frontend controls-20260914.
+Use that release/private/compose.json with compose.controls.json for frontend;
+the current symlink alone is not the actual service composition. Never remove
+orphans. Source registration and identity secret stay server-private, not in Git.
+Worker: python -m app.sample_reference_worker; SAMPLE_REFERENCE_ENABLED defaults
+false, SAMPLE_REFERENCE_SOURCES_FILE names operator registration, and
+SAMPLE_REFERENCE_IDENTITY_SECRET must be stable and private. Only wgs_files is
+approved, using registered project_root and optional runtime_root. Polling is
+one pass plus60s; no public registration or write endpoint. Preserve scan/dispatch.
+See releases/WGS_LEDGER_BS96_20260914.md and UI_CONTROLS_BS96_20260914.md.
+Do not restart backend during active GATK waits: outage tolerance/recovery is
+deferred. Rollback retains all files, schema and rows. Future formal path reset
+requires separate explicit authority.
+
 ## GATK terminal transfer recovery (2026-09-14)
 
 After BS10610 targeted backend and DAG tests, compare actual mounted backend

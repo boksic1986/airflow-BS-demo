@@ -1,5 +1,14 @@
 # TASKS.md
 
+## RELEASE-SYNC-20260914
+
+- [x] Isolate deployed ledger/UI/GATK-version changes from paused development.
+- [x] Preserve original WGS handoff, local/SGE and Sample execution behavior.
+- [x] Existing ledger/GATK configuration tests:25 passed on BS96 candidate.
+- [x] Candidate frontend build and existing3 resource UI tests passed.
+- [ ] Atomic push main/production (awaiting remote verification).
+- No runtime deployment, data deletion, new batch or backend restart authorized.
+
 ## GATK-GIT-SYNC-20260914
 
 - [x] Select only prior GATK/related Heavy and rule-layout fixes.

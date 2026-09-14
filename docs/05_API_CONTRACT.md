@@ -1,5 +1,18 @@
 # API contract
 
+## Original-file ledger promotion (2026-09-14)
+
+Authenticated read-only GET `/api/sample-references`, `/api/sample-references/sources`
+and `/api/sample-references/operations` expose paginated safe ledger/source/history
+projections. See `app/sample_reference_api.py` for exact query filters and
+`docs/WGS_FILE_REFERENCE_MINIMAL.md` for current pending versus selected history.
+No mutable pending endpoint, DB-to-file writes or analysis submission is added.
+Successful original prepare emits a best-effort nonblocking sync hint; the
+independent worker provides recovery. Operator history-start settings optionally
+bound visible history by retained analysis/attempt, never current pending.
+This promotion preserves existing prepare/sample APIs; experimental preparation
+preview and immutable-attempt selection replacement are not activated here.
+
 GATK acquire-slot polling now persists queued Step1/Step5 presentation, with
 stage_label `等待上传`/`等待下载`, progress_available=false, and current_item
 distinguishing waiting capacity from acquired-but-not-started. Run status stays

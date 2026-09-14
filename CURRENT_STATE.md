@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-14 selective deployed-code promotion
+
+Promoted original-file ledger and compact Samples/Rules controls from verified
+BS96 source, plus deployed GATK7.6.X/7.7.X preview and compact resources. This is
+Git synchronization only, not a service rollout. Existing selected Sample logic
+and local/SGE remain unchanged. Dormant ledger reader dependencies and0022 table
+migration are retained for the deployed0022->0024 chain, not activation of the
+paused prepare-only/attempt-selection experiments. Runtime gate/config/auto-
+dispatch WIP stays on the development worktree. See release synchronization note.
+Ledger ready, pending29/history1; WGS owner confirmed no remaining pending work.
+User confirmed refreshed button appearance. GATK orchestration recovery deferred.
+
 ## 2026-09-14 GATK fixes archived
 
 GATK scoped fix ddf062a (development e5b9325) is on main. Production branch

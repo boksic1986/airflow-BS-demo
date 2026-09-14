@@ -1,5 +1,10 @@
 # SERVER_INFO.md
 
+2026-09-14 Git-only promotion: BS96 actual backendc787bfd06e5b/worker061ff3623876
+mount release20260914-ledger-c2e491c; frontend60049e7897bc imagecontrols-20260914.
+No service deployment/restart during promotion. Current symlink remains older;
+use service-specific release composition documented in the release ledger.
+
 2026-09-13 AF05 scan-only supersedes backend/frontend and production scanner:
 release suffix releases/20260913-af05-scan-2121061 under each existing control root.
 Actual /app mounts point to that release/backend; frontend af05-scan-2121061.

@@ -1,5 +1,15 @@
 # Frontend specification
 
+## 2026-09-14 deployed sample ledger and compact controls
+
+Samples separates Analysis records from a read-only sample reference/handoff
+ledger, with independent source/member/history pagination and sync health.
+Pending membership is not analysis QC pending. No file mutations are available.
+controls.css, imported after base styles, standardizes Samples tabs and Rules/table
+pagination: white background, subtle border, 8px radius/gaps, minimum32px height,
+selected light teal, muted disabled state and visible keyboard focus. Rules page
+counts remain separate from controls. User confirmed refreshed browser appearance.
+
 Rule instance filters use responsive columns with labels above controls and
 explicit inter-field spacing. Job origin is shown on its own secondary line.
 This changes layout only; exact sample/family filtering and attempt semantics

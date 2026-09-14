@@ -136,3 +136,9 @@ submission path. Enabling GATK requires all of the following:
 Rollback sets the gate to false and recreates the control-plane services. It
 does not delete database rows, OBS objects, CCE evidence, runtime bundles or
 materialized results.
+## 2026-09-14 source configuration compatibility
+
+Preview resolves the project V7.6.X or V7.7.X hg38 version and requires its matching
+config.V<version>_hg38.yaml rather than hard-coding7.6.0. Existing hg38/SCMC/plain
+sampleinfo naming variants are supported in that order; malformed/unsupported
+project versions fail closed. This is already deployed behavior, not a new run.

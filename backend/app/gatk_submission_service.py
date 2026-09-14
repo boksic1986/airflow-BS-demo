@@ -54,10 +54,20 @@ def _sha256(path: Path) -> str:
 
 
 def _source_paths(source: Path) -> tuple[Path, Path, Path]:
-    sampleinfo_name = f"{source.name.split('_V', 1)[0]}.sampleinfo.txt"
+    version_match = re.search(r"_V(7\.[67]\.[0-9]+)_hg38$", source.name)
+    if version_match is None:
+        raise ValueError("GATK source project must identify a supported V7.6.X or V7.7.X hg38 version")
+    version = version_match.group(1)
+    batch_name = source.name[:version_match.start()]
+    sampleinfo_candidates = [source / name for name in (
+        f"{batch_name}_hg38.sampleinfo.txt",
+        f"{batch_name}.sampleinfo.SCMC.txt",
+        f"{batch_name}.sampleinfo.txt",
+    )]
+    sampleinfo_path = next((path for path in sampleinfo_candidates if path.is_file()), sampleinfo_candidates[0])
     paths = (
-        source / sampleinfo_name,
-        source / "config.V7.6.0_hg38.yaml",
+        sampleinfo_path,
+        source / f"config.V{version}_hg38.yaml",
         source / "sample2hospitalBarCode.txt",
     )
     for path in paths:

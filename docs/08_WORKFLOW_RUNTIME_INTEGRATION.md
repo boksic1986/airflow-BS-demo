@@ -165,3 +165,11 @@ unavailable. WGS phase inventory pins cc9bde3 rule/*.smk, WGS_pipe.smk and
 WGS_cloud.smk source blob IDs in policies/wgs_phases_cc9bde3.json. GATK pins
 bd04f6d workflow/SCMC_GATK.smk blob0ee4e0033a1d5e0dbf0e62c0264136749173304a.
 The catalogs are display classifications, not scheduling/dependency graphs.
+# 2026-09-14 original-file ledger consumer
+
+This release only projects the existing shared pending and retained original
+prepare request/receipt/final-sampleinfo files. WGS owns file selection/handoff;
+local/SGE behavior and existing execution flow are unchanged. No new lock,
+producer journal, binding or real_prepare_only protocol is enabled. Dormant
+reader dependencies retained from the deployed package are not rollout approval.
+Use docs/WGS_FILE_REFERENCE_MINIMAL.md; register only the approved wgs_files source.
