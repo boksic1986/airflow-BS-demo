@@ -1,5 +1,18 @@
 # Airflow DAG specification
 
+## REL-01 WGS pre-execution SSH reconnect
+
+`run_stage_on_200` reuses one stage registration and identical SSH command for
+up to two reconnects (5s,10s) after allowlisted OpenSSH pre-session failures.
+Return255 alone is insufficient; nonempty stdout or unrecognized diagnostics
+disable reconnect. Authentication, host-key and business failures do not retry.
+The connection budget is shared across the existing request-visibility loop,
+not reset by it. Task retries/generation creation remain unchanged. Ambiguous
+disconnects retain the existing bounded, generation-aware terminal-status check,
+then fail without replay; this does not promise automatic recovery of a running
+remote process. GATK and local execution paths are unchanged in REL-01.
+
+
 ## Explicit GATK Step7 maintenance
 
 `bio_gatk_maintenance` is a separate admin-requested DAG containing

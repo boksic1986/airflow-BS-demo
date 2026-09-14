@@ -56,6 +56,26 @@ STAGE_GENERATION_VISIBILITY_TIMEOUT_SECONDS = 120.0
 STAGE_PREDECESSOR_VISIBILITY_ATTEMPTS = 5
 STAGE_PREDECESSOR_VISIBILITY_DELAY_SECONDS = 5.0
 FAILED_STAGE_SYNC_TIMEOUT_SECONDS = 30.0
+SSH_RECONNECT_DELAYS_SECONDS = (5.0, 10.0)
+
+
+def _ssh_failed_before_execution(completed: subprocess.CompletedProcess[str]) -> bool:
+    """Fail closed: only known pre-session OpenSSH diagnostics permit replay."""
+    if completed.returncode != 255 or (completed.stdout or "").strip():
+        return False
+    lines = [line.strip() for line in (completed.stderr or "").splitlines() if line.strip()]
+    primary = (
+        r"Connection timed out during banner exchange",
+        r"ssh: connect to host \S+ port \d+: (?:Connection timed out|Connection refused|No route to host)",
+        r"(?:kex_exchange_identification|ssh_exchange_identification): (?:read: Connection reset(?: by peer)?|Connection closed by remote host)",
+    )
+    trailer = r"Connection (?:closed|reset) by \S+ port \d+"
+    return bool(lines) and any(
+        re.fullmatch(pattern, line) for line in lines for pattern in primary
+    ) and all(
+        any(re.fullmatch(pattern, line) for pattern in (*primary, trailer))
+        for line in lines
+    )
 
 
 def _runner_request_not_yet_visible(completed: subprocess.CompletedProcess[str]) -> bool:
@@ -253,7 +273,9 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
         str(conf["attempt"]),
         runner_stage,
     ]
-    for invocation in range(1, RUNNER_REQUEST_VISIBILITY_ATTEMPTS + 1):
+    connection_failures = 0
+    invocation = 1
+    while True:
         completed = subprocess.run(
             command,
             check=False,
@@ -261,6 +283,18 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
             capture_output=True,
             text=True,
         )
+        if _ssh_failed_before_execution(completed):
+            if connection_failures >= len(SSH_RECONNECT_DELAYS_SECONDS):
+                LOG.warning("WGS SSH pre-execution connection attempts exhausted (3/3)")
+                break
+            delay = SSH_RECONNECT_DELAYS_SECONDS[connection_failures]
+            connection_failures += 1
+            LOG.warning(
+                "WGS SSH pre-execution connection failure; reconnecting (%s/3) in %ss",
+                connection_failures + 1, delay,
+            )
+            time.sleep(delay)
+            continue
         if not _runner_request_not_yet_visible(completed):
             break
         if invocation == RUNNER_REQUEST_VISIBILITY_ATTEMPTS:
@@ -272,7 +306,13 @@ def run_stage_on_200(stage: str, **context: Any) -> dict[str, Any]:
             RUNNER_REQUEST_VISIBILITY_ATTEMPTS,
         )
         time.sleep(RUNNER_REQUEST_VISIBILITY_DELAY_SECONDS)
+        invocation += 1
     if completed.returncode != 0:
+        if completed.returncode == 255 and not _ssh_failed_before_execution(completed):
+            LOG.warning(
+                "WGS SSH failure is not proven pre-execution; command will not be "
+                "replayed. Checking the registered generation's terminal evidence."
+            )
         _wait_for_terminal_stage_projection(
             analysis_id=str(conf["analysis_id"]),
             attempt=int(conf["attempt"]),

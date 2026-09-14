@@ -1,5 +1,12 @@
 # Workflow runtime integration
 
+REL-01 (2026-09-15): WGS node200 dispatch reconnects only for proven SSH
+pre-execution transport failures, within the original registration/generation.
+No node runner, original prepare interface, request/receipt format or pending
+behavior changes. Unknown post-dispatch outcomes are synchronized by the
+existing terminal-status query and never automatically re-executed. See DAG spec.
+
+
 GATK September14 status projection preserves measured Step1/Step5 progress and
 reconciles only identity-validated latest terminal receipts. Bound rule evidence
 uses registered log enrichment for sample identity. No pipeline selection or
