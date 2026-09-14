@@ -1,12 +1,47 @@
 from __future__ import annotations
 
-from sqlalchemy import case
+from sqlalchemy import case, select
 
 from app.models import TransferFileState
 from app.models import TransferJob
 
 
 SUCCESS_STATES = {"success", "succeeded", "complete", "completed"}
+ACTIVE_TRANSFER_STATUSES = {
+    "accepted", "submitted", "queued", "running", "started", "retrying",
+    "publishing", "downloading",
+}
+TRANSFER_STAGES = {"step1_upload": "upload", "step5_download": "download"}
+
+
+def active_transfer_snapshot(*, session, run, stage: str) -> dict | None:
+    query = select(TransferJob).where(
+        TransferJob.analysis_id == run.analysis_id,
+        TransferJob.attempt == run.attempt,
+        TransferJob.status.in_(ACTIVE_TRANSFER_STATUSES),
+    )
+    if stage in TRANSFER_STAGES:
+        query = query.where(TransferJob.direction == TRANSFER_STAGES[stage])
+    row = session.scalar(query.order_by(TransferJob.updated_at.desc(), TransferJob.id.desc()).limit(1))
+    return serialize_transfer_job(row)
+
+
+def transfer_stage_progress(snapshot: dict | None) -> dict:
+    """One presentation mapping for Tracker and Run detail; no second formula."""
+    snapshot = snapshot or {}
+    return {
+        "progress_available": bool(snapshot.get("progress_detail_available")),
+        "percent": snapshot.get("progress_percent"),
+        "progress_percent": snapshot.get("progress_percent"),
+        "completed_units": snapshot.get("bytes_transferred"),
+        "total_units": snapshot.get("bytes_total"),
+        "unit": "bytes",
+        "current_item": snapshot.get("current_file"),
+        "speed_bps": snapshot.get("speed_bps"),
+        "eta_seconds": snapshot.get("eta_seconds"),
+        "stage_updated_at": snapshot.get("heartbeat_at"),
+        "progress_source": "transfer-job-snapshot",
+    }
 
 
 def transfer_file_order_by():

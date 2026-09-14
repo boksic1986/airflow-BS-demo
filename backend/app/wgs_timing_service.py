@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState, RuleEventRaw
 from app.diagnostics_service import gatk_rule_log_contexts, wgs_rule_log_contexts
+from app.wgs_transfer_projection import TRANSFER_STAGES, active_transfer_snapshot, transfer_stage_progress
 from app.workflow_phases import phase_for_rule, phase_order, wgs_phase_for_rule, wgs_phase_order, run_phase_release
 from app.wgs_stage_contract import (
     canonical_wgs_stage,
@@ -155,6 +156,10 @@ def enrich_progress(*, session, run: AnalysisRun, payload: dict) -> dict:
             ),
         }
     )
+    if stage in TRANSFER_STAGES:
+        payload.update(transfer_stage_progress(
+            active_transfer_snapshot(session=session, run=run, stage=stage)
+        ))
     # A stage label is not a quantitative progress model. Until the runtime
     # emits an exact whole-analysis ETA, expose only the active stage ETA above.
     payload.update(

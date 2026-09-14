@@ -1,5 +1,16 @@
 # API contract
 
+## Shared WGS transfer progress (2026-09-15, not deployed)
+
+Tracker stage_progress and Run detail workspace progress reuse the existing
+transfer serializer and one stage-field mapping for Step1 upload/Step5 download.
+Active transfer selection filters analysis, current attempt and stage direction.
+Percent retains the serializer's one decimal; bytes, speed, ETA, current item and
+heartbeat come from that same snapshot. No detailed/current transfer means
+unavailable numeric progress, not fallback to stale integer stage progress.
+No endpoint/schema/DB migration or workflow state mutation is introduced.
+
+
 ## GATK recovery and explicit Step7 (2026-09-14)
 
 The existing sync-airflow operation dispatches through the GATK adapter.

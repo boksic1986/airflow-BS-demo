@@ -6,25 +6,18 @@ from pathlib import Path
 
 from sqlalchemy import case, func, select
 
-from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState, RunValidationIssue, Sample, TransferJob
+from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunStageState, RunValidationIssue, Sample
 from app.qc_highlights import aggregate_qc_status
 from app.sample_selection_scope import selected_clause
 from app.wgs_sample_projection import get_wgs_batch_qc_status
 from app.wgs_stage_contract import canonical_wgs_stage, project_wgs_orchestration, wgs_stage_definition
-from app.wgs_transfer_projection import serialize_transfer_job
+from app.wgs_transfer_projection import (
+    ACTIVE_TRANSFER_STATUSES, TRANSFER_STAGES, active_transfer_snapshot,
+    transfer_stage_progress,
+)
 from app.wgs_stage_estimates import attach_stage_estimates
 
 
-ACTIVE_TRANSFER_STATUSES = {
-    "accepted",
-    "submitted",
-    "queued",
-    "running",
-    "started",
-    "retrying",
-    "publishing",
-    "downloading",
-}
 FAILED_RULE_STATUSES = {"failed", "error", "terminated"}
 
 
@@ -61,16 +54,6 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
             RuleState.status.in_(("accepted", "submitted", "running", "started")),
         )
         .order_by(RuleState.updated_at.desc())
-        .limit(1)
-    )
-    active_transfer = session.scalar(
-        select(TransferJob)
-        .where(
-            TransferJob.analysis_id == run.analysis_id,
-            TransferJob.attempt == run.attempt,
-            TransferJob.status.in_(ACTIVE_TRANSFER_STATUSES),
-        )
-        .order_by(TransferJob.updated_at.desc())
         .limit(1)
     )
     validation_issues = list(session.scalars(
@@ -127,10 +110,8 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
         if stage_row is not None and stage_row.progress_available
         else int(run.progress_percent or 0)
     )
-    transfer_payload = serialize_transfer_job(active_transfer)
-    transfer_stage = stage_code in {"step1_upload", "step5_download"}
-    if transfer_stage and transfer_payload is not None:
-        progress_percent = transfer_payload["progress_percent"]
+    transfer_payload = active_transfer_snapshot(session=session, run=run, stage=stage_code)
+    transfer_stage = stage_code in TRANSFER_STAGES
     progress = {
         "analysis_id": run.analysis_id,
         "pipeline": run.pipeline_name,
@@ -157,29 +138,13 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
             else stage_row and stage_row.progress_available
         ),
         "progress_percent": progress_percent,
-        "completed_units": (
-            transfer_payload["bytes_transferred"]
-            if transfer_stage and transfer_payload is not None
-            else stage_row.completed_units if stage_row is not None else None
-        ),
-        "total_units": (
-            transfer_payload["bytes_total"]
-            if transfer_stage and transfer_payload is not None
-            else stage_row.total_units if stage_row is not None else None
-        ),
+        "completed_units": stage_row.completed_units if stage_row is not None else None,
+        "total_units": stage_row.total_units if stage_row is not None else None,
         "unit": stage_row.unit if stage_row is not None else None,
         "current_item": stage_row.current_item if stage_row is not None else None,
-        "speed_bps": (
-            transfer_payload["speed_bps"]
-            if transfer_stage and transfer_payload is not None
-            else stage_row.speed_bps if stage_row is not None else None
-        ),
+        "speed_bps": stage_row.speed_bps if stage_row is not None else None,
         "eta_seconds": stage_row.eta_seconds if stage_row is not None else None,
-        "stage_updated_at": (
-            transfer_payload["heartbeat_at"]
-            if transfer_stage and transfer_payload is not None
-            else stage_row.updated_at.isoformat() if stage_row is not None else None
-        ),
+        "stage_updated_at": stage_row.updated_at.isoformat() if stage_row is not None else None,
         "orchestration_stages": _workspace_stages(
             run_status=run.status,
             current_stage=raw_stage,
@@ -187,6 +152,8 @@ def build_wgs_workspace(*, session, run: AnalysisRun, run_payload: dict, heavy_s
             validation_scope=validation_scope,
         ),
     }
+    if transfer_stage:
+        progress.update(transfer_stage_progress(transfer_payload))
     return {
         "snapshot_at": datetime.now(timezone.utc).isoformat(),
         "run": run_payload,
