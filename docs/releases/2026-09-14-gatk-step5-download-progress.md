@@ -58,3 +58,31 @@ analysis, receipts, download files and telemetry. Do not rerun successful downlo
 
 Shared CURRENT_STATE/TASKS/HANDOFF are maintained by the coordinating recovery
 task and intentionally excluded from this narrowly staged change.
+
+## Deployment receipt
+
+- Code commit: `b841d2a`; node200 gate SHA256:
+  `d82bf7722b80758667a5561f981b01802ad097c4fbfedf5025da6c0b4fb229e2`.
+- Fresh previous-hash fence passed; installed atomically with
+  `gatk_runtime_gate.py.pre-b841d2a` backup. Existing pre-0436dce retained.
+- Adjacent maintenance gate remains
+  `15e7e9e8032340670c7c5370a53ae026524a53e25b88902c52dd2affa82d041d`;
+  resume helper remains
+  `bf6b82a76371415bfd3b1d7045fc4a10e1f3d825dff6806988e6a145d945dd41`.
+- Supplemental progress published at 2026-09-14T15:10:53.147354+00:00, preserving
+  original verified completion 2026-09-14T15:00:16.226174+00:00.
+- The existing adapter `_ingest_gatk_evidence` was invoked for this analysis and
+  attempt only, using normal request/generation validation, not SQL corrections.
+  API `result_download` now reports success, 100%, 11106608093/11106608093 bytes,
+  2/2 files, detailed progress, verification=verified, and the original completion.
+  Repeating ingestion kept the same transfer ID/row, totals, and timestamps.
+- No BS96 service restart, downloads rerun, Step7 action, or WGS mutation.
+
+Known boundary: this existing download completed before the fix, so its Step5
+polling had already ended. The persistent WGS observer does not automatically
+ingest new GATK post-terminal transfer evidence; a bounded normal adapter ingest
+was necessary. This change fixes future Step5 runtime publication during normal
+Airflow polling, not general post-terminal automatic backfill. Future live
+incremental-progress validation awaits the next independently authorized GATK run.
+The API's legacy `progress_basis` enum remains unchanged; completion evidence is
+explicitly identified by the verified source and receipt in the spool.
