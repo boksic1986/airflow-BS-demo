@@ -170,6 +170,26 @@ def test_registration_rejects_binding_and_receipt_mismatches_without_writing(
     catalog_path = Path(settings.wgs_release_catalog_path)
     original = catalog_path.read_bytes()
     variants = []
+    for field in (
+        "profile_id",
+        "profile_revision",
+        "cce_pipeline_version",
+        "node200_profile_path",
+    ):
+        empty_release_field = _managed_payload()
+        empty_release_field["release"][field] = ""
+        if field in {"profile_id", "profile_revision"}:
+            empty_release_field["assets"][field] = ""
+        empty_release_field["receipt_sha256"] = _receipt_sha256(
+            empty_release_field
+        )
+        variants.append(empty_release_field)
+    empty_asset_release_id = _managed_payload()
+    empty_asset_release_id["assets"]["release_id"] = " "
+    empty_asset_release_id["receipt_sha256"] = _receipt_sha256(
+        empty_asset_release_id
+    )
+    variants.append(empty_asset_release_id)
     wrong_source = _managed_payload()
     wrong_source["assets"]["source_commit"] = "f" * 40
     wrong_source["receipt_sha256"] = _receipt_sha256(wrong_source)

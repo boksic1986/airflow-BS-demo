@@ -34,11 +34,11 @@ class WgsManagedRelease(BaseModel):
     bs10610_repo_path: str
     node200_repo_path: str
     rule_event_schema_version: str
-    profile_id: str
-    profile_revision: str
+    profile_id: str = Field(min_length=1)
+    profile_revision: str = Field(min_length=1)
     profile_sha256: str = Field(pattern=SHA256_PATTERN)
-    cce_pipeline_version: str
-    node200_profile_path: str
+    cce_pipeline_version: str = Field(min_length=1)
+    node200_profile_path: str = Field(min_length=1)
     pipeline_build_sha256: str = Field(pattern=SHA256_PATTERN)
     resource_manifest_sha256: str = Field(pattern=SHA256_PATTERN)
 
@@ -46,7 +46,7 @@ class WgsManagedRelease(BaseModel):
 class WgsManagedAssets(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    release_id: str
+    release_id: str = Field(min_length=1, pattern=r"^.*\S.*$")
     asset_manifest_sha256: str = Field(pattern=SHA256_PATTERN)
     profile_id: str
     profile_revision: str
