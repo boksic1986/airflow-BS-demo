@@ -9,7 +9,7 @@ below remain deferred; no WGS data cleanup/new batch submitted.
 - [x] Implement and remote-test transient GET retries (6), authoritative Sample sync and Step7 safeguards.
 - [x] Exact-UID0823A resume completed; replacement Master START handed off, original attempt/output retained.
 - [x] Independent review and BS10610 candidate tests/build (backend/gate97, frontend99, DAG contracts).
-- [ ] Production source/mount rollout and both batches' Airflow/Sample verification.
+- [x] Production source/mount rollout and both batches' Airflow/Sample verification (28running;0823AStep5,0907Afinalizer).
 
 - [x] Read-only production fingerprint; coordinate GATK recovery with original task.
 - [x] Consult cce-pipeline owner on lock/release contracts; identify unsafe Step0.

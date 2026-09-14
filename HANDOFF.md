@@ -2,6 +2,18 @@
 
 ## 2026-09-14 approved GATK retry, resume, Step7 and Sample repair
 
+LATEST:code0436dce committed and deployed; six affected control-plane services
+only. Backend8388a8e8b600/observer05aa580c5932; schedulerb0501dadc048/worker
+f1ac3a1df310/API773850a151d2; frontendddba6fa13eed. Actual new release mounts,
+gateway health200, both DAG imports and retry6 verified. Temporary pause removed.
+0823A12downstream tasks and0907AonlywaitStep3 cleared after exact dry-run; all
+protected task state/try numbers retained. Both runs and28Samples nowrunning;
+0823A Step3/4success, Step5downloading;0907A finalizer. Step7 deployed but not
+executed. Scanner/DB/ledger/probes andWGS8records/latest0910Asuccess retained.
+Complete evidence, failures, retained diagnosticJobs, composition paths and
+rollback in docs/releases/GATK_RECOVERY_20260914.md. No whole-batch completion
+claimed. Earlier pending-deployment paragraphs below are superseded.
+
 User explicitly approved prior plan1/2 implementation and added GATK Step7
 consistent with WGS and Sample status repair. Scope: bounded network polling
 retries; diagnose0823A Master failure and controlled same-workdir resume;

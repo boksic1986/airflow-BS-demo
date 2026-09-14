@@ -2484,6 +2484,18 @@ Not changed:
 - Upstream `/mnt/biodevrwbi/33.chenjiucheng/project/wgs` was not modified.
 # 2026-09-14 recovery/lifecycle checkpoint (not completed)
 
+Production code0436dce is deployed in immutable gatk-recovery-0436dce release;
+actual backend/observer and three Airflow DAG mounts verified. Frontend has the
+coherent compiled styles, no additional rule-layout link. Six affected services
+only; DB/scanner/ledger worker/probes retained. Both GATK runs and28Samples now
+running.0823A new Master completed, Step3/4 succeeded and Step5 is downloading;
+0907A original workflow continues finalizer. Step7 is deployed as independent
+guarded admin maintenance, currently ineligible; no SFS cleanup executed.
+Polling retry6 verified in parsed DAG, exact scoped task clears accepted and
+GATK unpaused. See docs/releases/GATK_RECOVERY_20260914.md for tests/rollback.
+Implementation/deployment complete; full batch completion and broader lifecycle
+follow-ups remain. Earlier pending-deployment statements below are superseded.
+
 Immediate implementation is approved and candidate-tested:bounded polling retry,
 GATK Sample reconciliation and independent guarded Step7.0823A same-attempt
 resume completed with replacement MasterUID52fbf32c-d474-4a63-b5c7-a862cb69f167;

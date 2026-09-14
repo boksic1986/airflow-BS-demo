@@ -1,5 +1,15 @@
 # SERVER_INFO.md
 
+2026-09-14 GATK recovery release0436dce:actual backend8388a8e8b600 and observer
+05aa580c5932 mount /data/airflow-WGS/releases/20260914-gatk-recovery-0436dce/backend.
+Airflow schedulerb0501dadc048/workerf1ac3a1df310/API773850a151d2 mount new GATK
+analysis+maintenance DAGs; frontendddba6fa13eed uses gatk-recovery-0436dce image.
+Historical current symlink unchanged; private per-service compositions and
+rollback are recorded in docs/releases/GATK_RECOVERY_20260914.md. No changes to
+DB, scanner, ledger worker or probe container IDs. Scantrue/autofalse retained.
+Node200gate759902ff paired withmaintenance helper15e7e9e8. Both batches/Samples
+recoveredrunning;0823A advanceStep5,0907Afinalizer, no Step7 deletion performed.
+
 2026-09-14 Git-only promotion: BS96 actual backendc787bfd06e5b/worker061ff3623876
 mount release20260914-ledger-c2e491c; frontend60049e7897bc imagecontrols-20260914.
 No service deployment/restart during promotion. Current symlink remains older;
