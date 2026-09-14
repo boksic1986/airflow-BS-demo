@@ -12,7 +12,10 @@ experiments and attempt-projection replacement stay development-only. No dirty
 development file discarded. Prior GATK fix commit was already promoted.
 BS96 readonly fingerprint: backendc787bfd06e5b/frontend60049e7897bc; no services
  modified. Cached isolated candidate25tests passed5.96s; frontend build passed3.07s,
- existing3 resource UI tests passed9.55s. Push awaits remote verification.
+ existing3 resource UI tests passed9.55s. Atomic push succeeded; ls-remote confirmed
+ both main/jiucheng/release/production at f4d275d602559dc9ff2c94d1d4e0001da6948e89.
+ This final documentation receipt adds no code changes. Production checkout clean
+ after the code commit; development worktree and its uncommitted WIP preserved.
 Git rollback reverts promotion; retain database/files and never downgrade0022-24.
 
 ## 2026-09-14 GATK commit and branch synchronization

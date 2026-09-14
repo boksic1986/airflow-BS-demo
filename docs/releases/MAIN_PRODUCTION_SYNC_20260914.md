@@ -40,3 +40,8 @@ confirmed refreshed button appearance before this Git synchronization.
 Both destination refs must point to the identical promotion commit after atomic
 push; verify by git ls-remote. Preserve old commit29ade68 for code-only rollback.
 No forced push, worktree deletion or data/schema downgrade.
+
+Code promotion f4d275d602559dc9ff2c94d1d4e0001da6948e89 pushed atomically to both
+refs; git ls-remote independently confirmed equality. Final receipt commit is
+documentation-only. Local production branch fast-forwarded with expected-old-ref
+check; production checkout clean, original dirty development worktree retained.

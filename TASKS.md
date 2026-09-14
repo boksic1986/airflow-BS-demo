@@ -6,7 +6,7 @@
 - [x] Preserve original WGS handoff, local/SGE and Sample execution behavior.
 - [x] Existing ledger/GATK configuration tests:25 passed on BS96 candidate.
 - [x] Candidate frontend build and existing3 resource UI tests passed.
-- [ ] Atomic push main/production (awaiting remote verification).
+- [x] Atomic push main/production; ls-remote confirmed same f4d275d code release.
 - No runtime deployment, data deletion, new batch or backend restart authorized.
 
 ## GATK-GIT-SYNC-20260914
