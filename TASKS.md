@@ -1,5 +1,14 @@
 # TASKS.md
 
+## CCE-RELEASE-085 Airflow consumer
+
+- [x] Consume exact `cce-release.v1` with release/asset binding and digest checks.
+- [x] Add locked atomic registration, replay/conflict, read listing and CAS activation.
+- [x] Require explicit management flag, authenticated admin/internal identity and CSRF.
+- [x] Pin CCE recovery to its recorded release; preserve local/SGE refresh behavior.
+- [x] Pass the 7-test focused BS10610 isolated cached-image suite.
+- [ ] Deployment, writable shared catalog mount and activation require separate approval.
+
 ## RECOVERY-LIFECYCLE-20260914 (in progress)
 
 Immediate approved implementation:network retry, same-attempt0823A resume,

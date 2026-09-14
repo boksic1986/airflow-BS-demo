@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 CCE 0.8.5 Airflow release consumer candidate
+
+Implemented the default-disabled `cce-release.v1` registration, listing and
+explicit activation API on branch `jiucheng/backend/cce-release-085`. Catalog
+writes are locked, validated and atomic; schema-3/4 history and unknown metadata
+are retained. CCE recovery now keeps the attempt's recorded catalog release and
+params, while local/SGE refresh behavior remains unchanged. Focused BS10610
+isolated cached-image validation passed 7 tests. This is source development only:
+no live catalog, mount, service, DB, gate, package, cloud workload, production
+activation, prepare/pending flow, or SFS asset was changed.
+
 ## 2026-09-14 selective deployed-code promotion
 
 Promoted original-file ledger and compact Samples/Rules controls from verified

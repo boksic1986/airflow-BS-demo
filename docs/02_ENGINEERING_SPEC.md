@@ -1,5 +1,23 @@
 # Engineering specification
 
+## CCE 0.8.5 release catalog consumer (inactive by default)
+
+The backend consumes the exact `cce-release.v1` producer receipt and keeps
+managed receipts in the same schema-4 YAML entry as each release. Registration
+upgrades schema 3 to 4 while preserving historical releases and unknown root or
+entry metadata. Writers serialize through a sibling Linux file lock, validate
+the old and replacement catalogs, fsync a same-directory temporary file, preserve
+the catalog mode, atomically replace it, and fsync the parent directory. The
+catalog path comes only from `WGS_RELEASE_CATALOG_PATH`; requests cannot select a
+filesystem or network target.
+
+`WGS_RELEASE_MANAGEMENT_ENABLED` defaults false. Registration never changes the
+current release; activation is a separate receipt-bound compare-and-swap. The API
+attests the supplied verified receipt and deliberately does not probe CCE, install
+a wheel, write SFS assets, or infer that `APPLIED` is ready. CCE recovery resolves
+the attempt's recorded release with `by_id` and retains its original params even
+after another candidate becomes current.
+
 Local WGS runtime uses the fixed process environment `TZ=Asia/Shanghai` before
 worker preparation and for analysis descendants. This is not a host timezone
 change or a user-overridable workflow parameter. API/status timestamps retain UTC.

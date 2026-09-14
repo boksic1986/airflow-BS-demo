@@ -1,5 +1,36 @@
 # HANDOFF.md
 
+## 2026-09-15 CCE 0.8.5 Airflow release consumer candidate
+
+Implemented only the approved Airflow consumer on
+`jiucheng/backend/cce-release-085` from `33598aa`: exact `cce-release.v1`
+validation, inactive/idempotent registration, conflict protection, read listing,
+receipt-bound explicit CAS activation, and default-off/admin/auth/CSRF gates.
+The WGS release ID and CCE asset-transaction release ID are independent; only
+the shared source/profile/build/resource bindings are required to match.
+Schema-3 registration upgrades atomically to schema 4 while preserving catalog
+history, unknown metadata and file mode. Linux writes use a sibling lock,
+same-directory replacement and file/directory fsync. No request chooses a path or
+network target; registration performs no cloud probe or package install.
+
+CCE recovery now validates `pipeline_release_id` with historical `by_id` and
+leaves frozen params/profile unchanged after a new activation; missing or unknown
+recorded releases fail closed. The pre-existing local/SGE refresh branch is
+otherwise unchanged. RED on the prepared server10610 source was 7 failed (all
+new routes 404). GREEN in cached `airflow-demo/backend:t235-232154f`, network none,
+UID/GID 6708:520, read-only `/work` and writable task evidence scratch was 7 passed.
+The producer-ID clarification then reproduced 6 failed/1 passed with distinct WGS
+and CCE asset release IDs; after removing only that invalid cross-binding, the same
+7 tests passed in 1.64s with one upstream Starlette/anyio deprecation warning.
+
+Release management remains disabled. Future enablement requires a separately
+provisioned writable catalog directory mounted identically to backend,
+worker/observer readers; mount the parent, not one file, so atomic replacement is
+visible. Inactive registration does not protect in-place SFS writes: retain old
+assets through new frozen paths and keep the existing active-Master gate. No live
+mount/config/service/DB/prepare/pending/local/SGE/gate/analysis/asset was changed.
+Rollback is a source revert while retaining all catalog/assets/run evidence.
+
 ## 2026-09-14 approved GATK retry, resume, Step7 and Sample repair
 
 LATEST:code0436dce committed and deployed; six affected control-plane services

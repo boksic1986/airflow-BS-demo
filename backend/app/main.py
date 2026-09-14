@@ -78,6 +78,15 @@ from app.auth_service import (
 )
 from app.wgs_platform_service import WgsPreparedArtifactPending, action_wgs_run, acquire_obs_transfer_slot, create_wgs_platform_run, release_obs_transfer_slot, revalidate_wgs_run, submit_wgs_run, sync_prepared_samples, sync_prepare_handoff_decisions, sync_sampleinfo_preview
 from app.wgs_release_catalog import load_wgs_release_catalog
+from app.wgs_release_management import (
+    WgsReleaseActivation,
+    WgsReleaseManagementError,
+    WgsReleaseRegistration,
+    activate_wgs_release,
+    list_wgs_releases,
+    register_wgs_release,
+    require_release_writes_enabled,
+)
 from app.models import AnalysisRun, KubernetesWorkload, RuleState, RunValidationIssue, Sample, TransferFileState, TransferJob, UserAccount, WgsExecutionDispatch, WgsStageExecution
 from app.wgs_timing_service import serialize_rule_states
 from app.wgs_workspace_service import build_wgs_workspace
@@ -479,6 +488,47 @@ def current_wgs_release() -> dict[str, object]:
         **config_options_activation(get_settings(), release),
         "test_project_enabled": str(getattr(get_settings(), "platform_environment", "")).lower() in {"test", "bs10610-test"} and getattr(get_settings(), "wgs_test_project_enabled", False),
     }
+
+
+def _raise_release_management_error(exc: WgsReleaseManagementError) -> None:
+    raise HTTPException(
+        status_code=exc.status_code,
+        detail={"code": exc.code, "message": exc.message},
+    ) from exc
+
+
+@app.get("/api/wgs/releases")
+def wgs_releases() -> dict[str, object]:
+    return list_wgs_releases(Path(get_settings().wgs_release_catalog_path))
+
+
+@app.post("/api/wgs/releases")
+def register_managed_wgs_release(
+    request: WgsReleaseRegistration,
+    user: AuthenticatedUser = Depends(admin_user),
+) -> dict[str, object]:
+    settings = get_settings()
+    try:
+        require_release_writes_enabled(settings)
+        return register_wgs_release(settings.wgs_release_catalog_path, request)
+    except WgsReleaseManagementError as exc:
+        _raise_release_management_error(exc)
+
+
+@app.post("/api/wgs/releases/{release_id}/activate")
+def activate_managed_wgs_release(
+    release_id: str,
+    request: WgsReleaseActivation,
+    user: AuthenticatedUser = Depends(admin_user),
+) -> dict[str, object]:
+    settings = get_settings()
+    try:
+        require_release_writes_enabled(settings)
+        return activate_wgs_release(
+            settings.wgs_release_catalog_path, release_id, request
+        )
+    except WgsReleaseManagementError as exc:
+        _raise_release_management_error(exc)
 
 
 @app.post("/api/auth/login")
