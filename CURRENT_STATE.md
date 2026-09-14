@@ -1,5 +1,18 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 production source synchronization
+
+User requested Git synchronization only. Production checkout
+`D:/pipeline/airflow-demo-production` main fast-forwarded from8e0d79a to8cbcd60,
+including deployed GATK Step5 progress b841d2a/receipt5dadb58 and resource loading
+8cbcd60. This entry is a documentation-only synchronization receipt; code tree
+is unchanged from8cbcd60. Main and production release branch are published together.
+Fresh server96 checks matched86 backend/GATK DAG files, served JS/CSS release
+hashes and resource gzip block; node200/t640 gate matchedd82bf7722b80.
+No runtime deployment, service restart, database/pending mutation or analysis.
+Uncommitted repair plans and operational notes remain in the recovery worktree.
+
+
 ## 2026-09-14 selective deployed-code promotion
 
 Promoted original-file ledger and compact Samples/Rules controls from verified

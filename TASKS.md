@@ -1,5 +1,15 @@
 # TASKS.md
 
+## PROD-GIT-SYNC-20260915
+
+- [x] Verify deployed server96 backend/DAG/static resource and node200 gate hashes.
+- [x] Fast-forward clean production main to deployed code8cbcd60, retaining history.
+- Publish this documentation receipt with main and jiucheng/release/production
+  in one normal atomic push; verify both remote SHA values after publication.
+- No runtime code changes or new acceptance run: retain original bounded test
+  evidence in the Step5 download and resource-loading release records.
+
+
 ## RECOVERY-LIFECYCLE-20260914 (in progress)
 
 Immediate approved implementation:network retry, same-attempt0823A resume,

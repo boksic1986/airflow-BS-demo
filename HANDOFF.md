@@ -1,5 +1,36 @@
 # HANDOFF.md
 
+## 2026-09-15 production Git synchronization
+
+Authority: user explicitly requested production code to main and production repo.
+Clean checkout D:/pipeline/airflow-demo-production was main8e0d79a, equal to both
+origin/main and origin/jiucheng/release/production after fetch. Fast-forward to
+8cbcd60 incorporates only b841d2a,5dadb58,8cbcd60 already deployed changes.
+Added this receipt in CURRENT_STATE/TASKS/HANDOFF and SERVER_INFO; excluded all
+dirty recovery/development files, pending data, private helpers and repair plan.
+
+Read-only production fingerprint: BS96=server96/ctapa; current remains
+/data/airflow-WGS/releases/20260912-panel-opt-4d3d24e6. Backend/observer actually
+mount releases/20260914-gatk-recovery-0436dce/backend.86 backend/app and GATK DAG
+file SHA256 comparisons match recovery code (local CRLF normalized). Frontend
+ddba6fa13eed serves resource overlay index-DFs-sj5Z.js SHA84da2025861d52ebdeea056855f28d8df2991efa598d13784c1d225adb24dacc
+and unchanged CSS SHAed4e11e3c3bbbbdecbf78a0107bb9800b332d9045c640d464f777348ec5cf291.
+Exact resources gzip block verified; live allowlist untouched. Node200/t640 GATK
+gate SHAd82bf7722b80758667a5561f981b01802ad097c4fbfedf5025da6c0b4fb229e2 matchesb841d2a.
+Historical service-specific scanner/ledger/probe mounts intentionally retained.
+
+Checks: git fetch, clean-checkout check, ancestor checks, source hashes and
+git diff --check. Tests/build not rerun: source is already deployed/tested,
+this operation only promotes exact commits plus documentation; original results
+are in docs/releases/2026-09-14-gatk-step5-download-progress.md and
+docs/releases/2026-09-15-resource-loading.md. No services/gates/DB/pending changed.
+Publish main and production branch atomically without force, then verify remote
+SHA and clean checkout. Rollback is reviewed Git revert, not runtime rollback.
+Open: planned reliability/ledger/QC fixes are not included or claimed complete.
+Local inspection typos (First=sixty; wildcard passed to rg) failed without writes;
+corrected to numeric range and explicit known paths, no remote failures.
+
+
 ## 2026-09-14 approved GATK retry, resume, Step7 and Sample repair
 
 LATEST:code0436dce committed and deployed; six affected control-plane services

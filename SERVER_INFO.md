@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+2026-09-15 Git-only synchronization preflight: BS96/server96 confirmed existing
+backend8388a8e8b600/observer05aa580c5932 recovery-source mounts and frontend
+ddba6fa13eed resource overlay assets.86 backend/GATK DAG files match code8cbcd60;
+node200/t640 gate matches deployedb841d2a. Current symlink remains panel-opt4d3d24e6.
+No server repository/release files, service definitions, gates or data changed.
+Local production Git checkout is D:/pipeline/airflow-demo-production; source
+promotion does not replace intentionally older per-service mounts.
+
+
 2026-09-14 GATK recovery release0436dce:actual backend8388a8e8b600 and observer
 05aa580c5932 mount /data/airflow-WGS/releases/20260914-gatk-recovery-0436dce/backend.
 Airflow schedulerb0501dadc048/workerf1ac3a1df310/API773850a151d2 mount new GATK
