@@ -4,6 +4,9 @@ import importlib.util
 import json
 from pathlib import Path
 import subprocess
+import os
+import sys
+import time
 
 import pytest
 import yaml
@@ -112,6 +115,42 @@ def test_terminal_status_contains_contract_identity(tmp_path: Path, monkeypatch)
     assert value["generation"] == 1
     assert value["request_hash"] == "a" * 64
     assert value["status"] == "success"
+    assert value["updated_at"].endswith("+00:00")
+
+
+def test_local_child_and_grandchild_use_shanghai_despite_parent_utc(monkeypatch):
+    monkeypatch.setenv("TZ", "UTC")
+    env = gate._runtime_environment({"analysis_id": "synthetic", "attempt": 1})
+    probe = "import time; print(time.strftime('%Y-%m-%d %H:%M', time.localtime(0)))"
+    parent = (
+        "import subprocess,sys,time; "
+        "print(time.strftime('%Y-%m-%d %H:%M',time.localtime(0)),flush=True); "
+        f"subprocess.run([sys.executable,'-c',{probe!r}],check=True)"
+    )
+    result = subprocess.run([sys.executable, "-c", parent], env=env,
+                            capture_output=True, text=True, check=True)
+    assert result.stdout.splitlines() == ["1970-01-01 08:00", "1970-01-01 08:00"]
+    assert os.environ["TZ"] == "UTC"
+
+
+def test_direct_worker_entry_sets_clock_before_prepare(monkeypatch):
+    previous = os.environ.get("TZ")
+    try:
+        monkeypatch.setenv("TZ", "UTC")
+        time.tzset()
+        observed = []
+        def worker(*args):
+            observed.append((os.environ["TZ"], time.strftime("%H:%M", time.localtime(0))))
+            return 0
+        monkeypatch.setattr(gate, "_worker", worker)
+        assert gate.main(["--worker", "synthetic", "1", "local_analysis"]) == 0
+        assert observed == [("Asia/Shanghai", "08:00")]
+    finally:
+        if previous is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = previous
+        time.tzset()
 
 
 def test_run_local_analysis_surfaces_process_failure(tmp_path: Path, monkeypatch):

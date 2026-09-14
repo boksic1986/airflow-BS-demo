@@ -1,5 +1,13 @@
 # Workflow runtime integration
 
+REL-02 (2026-09-15, source only): `wgs_local_runtime_gate.py` initializes
+`TZ=Asia/Shanghai` and calls POSIX `time.tzset()` before local dispatch/worker
+entry. Background workers inherit it; local analysis subprocess environments
+explicitly enforce it. This applies wherever the approved local gate is installed
+on selected96/97; it does not enable an unavailable target or redirect preparation.
+UTC status timestamps, node200 cloud gate and original WGS scripts are unchanged.
+
+
 REL-01 (2026-09-15): WGS node200 dispatch reconnects only for proven SSH
 pre-execution transport failures, within the original registration/generation.
 No node runner, original prepare interface, request/receipt format or pending

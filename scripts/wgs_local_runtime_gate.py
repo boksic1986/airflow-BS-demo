@@ -12,6 +12,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 import traceback
 from typing import Any
 
@@ -396,6 +397,7 @@ def build_smoke_command(payload: dict[str, Any]) -> tuple[Path, list[str]]:
 def _runtime_environment(payload: dict[str, Any]) -> dict[str, str]:
     return {
         **os.environ,
+        "TZ": "Asia/Shanghai",
         "PYTHONNOUSERSITE": "1",
         "PYTHONPATH": os.pathsep.join(
             [str(LOGGER_ROOT), os.environ.get("PYTHONPATH", "")]
@@ -514,6 +516,9 @@ def _start(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def main(argv: list[str]) -> int:
+    # Process-local only; initialize before preparing snapshots or spawning workers.
+    os.environ["TZ"] = "Asia/Shanghai"
+    time.tzset()
     if argv and argv[0] == "--worker":
         if len(argv) != 4:
             raise ValueError("invalid local worker invocation")

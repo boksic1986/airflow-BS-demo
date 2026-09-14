@@ -1,5 +1,25 @@
 # Deployment runbook
 
+## REL-02 local WGS process timezone (not deployed)
+
+On an explicitly selected96/97 target, the approved local gate initializes
+Asia/Shanghai for itself and inherited workers. Its POSIX runtime requires the
+host timezone database to provide Asia/Shanghai. Keep system timezone and UTC
+receipt/API timestamps unchanged. Do not use timedatectl or change /etc/localtime.
+
+For an authorized direct invocation of original prepare outside the gate, prefix
+the existing approved Python command with `TZ=Asia/Shanghai`; retain the exact
+original script path and arguments. This is a shell process environment prefix,
+not a new prepare argument. Do not generate projects on18 (jump only exceptqsub).
+Cloud preparation remains on200; this change neither moves it nor modifies its gate.
+
+User requested no publication: installing this gate on96/97 still requires a
+separate rollout and fresh target/identity/active-worker check. No existing worker
+needs restarting to change future-launch behavior. Verify a non-workflow clock
+probe on the actual selected host before enabling new work; no full prepare or
+pending mutation is an acceptance test. Restore the previous gate for rollback.
+
+
 ## Resource response compression (2026-09-15)
 
 Both nginx templates enable gzip only for exact `/api/platform/resources`

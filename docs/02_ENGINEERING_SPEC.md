@@ -1,5 +1,10 @@
 # Engineering specification
 
+Local WGS runtime uses the fixed process environment `TZ=Asia/Shanghai` before
+worker preparation and for analysis descendants. This is not a host timezone
+change or a user-overridable workflow parameter. API/status timestamps retain UTC.
+Deployment remains pending for REL-02; see its dated release note.
+
 ## OPT20260912 resource collection
 
 Heavy and BSS are standalone read-only node producers. The existing backend
