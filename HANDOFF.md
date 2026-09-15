@@ -2,6 +2,10 @@
 
 ## 2026-09-15 prior-fixes Git integration
 
+Result: code merge05a28a874d893fbd517d4545c0e496546843acb4 atomically pushed;
+ls-remote confirmed main and production release equal, production checkout clean.
+CCE08573aa0ce is not an ancestor. This follow-up only records verified publication.
+
 Authority: latest user requests prior fixes on main and production repository;
 this overrides earlier commit delay, not the production deployment gate.
 Merge evidence3091b2c/recovery0860412 with main93ad66c on the evidence branch.

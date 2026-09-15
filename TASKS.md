@@ -5,7 +5,8 @@
 - [x] Confirm explicit Git-only authority, clean production checkout and exact scope.
 - [x] Fresh BS10610 isolated136 backend/runtime,40 DAG,16 UI and build checks.
 - [x] Preserve main93ad66c documentation; no source conflict or unrelated CCE085 merge.
-- [ ] Fast-forward main and production release branch; atomic push and ref verification.
+- [x] Fast-forward main and production release branch; atomic push and remote refs
+  verified equal at code merge05a28a8; production checkout clean.
 - No BS96 deployment/restart, pending operation, analysis action or worktree cleanup.
 - Known baseline deployment-contract failures remain outside this repair sync.
 

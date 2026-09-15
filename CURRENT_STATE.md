@@ -10,6 +10,8 @@ BS10610 checks:136 backend/runtime,40 affected DAG,16 UI passed; build passed.
 Two broader deployment-contract failures reproduce on unchanged main; cached
 Airflow lacks pytest for another module. Not a full-suite-green claim.
 Only Git source changes; BS96 services, gates and running workflows untouched.
+Code merge05a28a8 was pushed atomically to main/production; independent ls-remote
+confirmed equal refs and a clean production checkout. This follow-up is docs only.
 See docs/releases/2026-09-15-prior-fixes-git-sync.md.
 
 ## 2026-09-15 WGS evidence repair: Git integration authorized, deployment deferred

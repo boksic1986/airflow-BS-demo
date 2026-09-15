@@ -1,5 +1,10 @@
 # Prior repairs: Git synchronization, 2026-09-15
 
+Verified publication: code merge05a28a874d893fbd517d4545c0e496546843acb4 was pushed
+atomically to both refs; separate ls-remote and four local/tracking refs matched.
+Production checkout was clean; CCE08573aa0ce is not in main ancestry. Subsequent
+receipt commit changes documentation only; no BS96 rollout occurred.
+
 ## Scope
 
 Latest user approval: synchronize prior repairs to main and production repository.
