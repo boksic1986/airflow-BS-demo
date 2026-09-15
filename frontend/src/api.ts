@@ -612,6 +612,8 @@ export type RunProgressResponse = StageEstimate & {
   eta_seconds?: number | null;
   stage_updated_at?: string | null;
   orchestration_stages?: Array<StageEstimate & {
+    started_at?: string | null;
+    ended_at?: string | null;
     stage_code: string;
     step_number: number;
     label: string;

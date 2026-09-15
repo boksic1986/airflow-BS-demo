@@ -1075,6 +1075,29 @@ h3 {
   overflow: auto;
 }
 
+.wgs-qc-table-wrap .data-table {
+  width: max-content;
+  min-width: 100%;
+}
+.wgs-qc-table-wrap th {
+  min-width: 9rem;
+  max-width: 25rem;
+}
+.wgs-qc-table-wrap td {
+  white-space: nowrap;
+}
+.wgs-qc-table-wrap .qc-reason-cell {
+  min-width: 18rem;
+  max-width: 30rem;
+  white-space: normal;
+}
+.log-search-match {
+  background: #fde68a;
+  color: #172033;
+  border-radius: 2px;
+  font-weight: 700;
+}
+
 .resource-filter-bar {
   align-items: end;
 }

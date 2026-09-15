@@ -1,14 +1,32 @@
 # Frontend specification
 
+## UI-SIMPLIFY-20260915 (source only; supersedes disclosure UI below)
+
+- WGS QC is one horizontally scrollable table: Sample, Source QC status, all
+  eligible metric columns, Reason. Threshold follows each metric heading;
+  differing sample thresholds use “按样本” plus the actual bound in each cell.
+  No Review all metrics, Raw diagnostic fields, Threshold or Provenance columns.
+  Only available pass/fail/warn metrics; zero retained. Failed/warning reasons
+  appear in the last column. Unexplained source QC failure stays explicit.
+  Contamination shows actual CHARR/AB with the source-matching joint judgment,
+  not a bare PASS string. Source aggregate is not recalculated.
+- Log search marks literal case-insensitive matching text, including punctuation,
+  using React text nodes. No HTML interpretation; copy remains plain text.
+- Rules defaults to running and20 rows/page, using the same default in the page
+  request and table controls. Other statuses remain selectable. Filters reset
+  pagination. No execution-group member inventory or opaque-origin disclosures.
+- Six-stage graph hover shows recorded start/finish, or 未记录. No Step4/6
+  estimate/missing-history text or estimate bars inside stage nodes.
+  RunTracker and Current Progress retain their shared estimate component.
+
 ## Platform follow-up (2026-09-15, source only)
 
 - Tracker and Run detail share `runStageLabel`: authoritative overall success
   renders Completed across pipelines. A successful individual stage/QC result
   must not mark an active or failed workflow complete.
-- WGS QC reuses data-table and StatusBadge. Available key metric cells contain value,
-  unit and judgment; one per-sample disclosure contains friendly metric names,
-  Chinese known reasons, thresholds and provenance. Raw keys/JSON are diagnostic
-  details. Source QC status remains separate and is never recomputed in the UI.
+- WGS QC reuses data-table and StatusBadge. Metric cells contain value, unit
+  and judgment; friendly metric headings include thresholds, and Reason is last.
+  Source QC status remains separate and is never recomputed in the UI.
   Per the latest user scope, show only source-derived pass/fail/warn judgments
   with available values. Missing, inapplicable, informational-only and unknown
   metric entries are omitted, including raw diagnostic details. Entire missing
@@ -39,6 +57,7 @@ GATK estimates and measured upload/download/rule progress remain unchanged.
 
 ## WGS rule evidence repair (2026-09-15, not deployed)
 
+Historical design, superseded by UI-SIMPLIFY-20260915 (inventory remains API-only):
 Execution group inventory expands below its rule across the full table width,
 reusing the same rule table and StatusBadge. Inventory-only members have unknown
 status and no invented sample/time; missing inventory remains explicit. Main Job
@@ -144,18 +163,18 @@ cycle/reset basis and expiry. No cross-unit totals or browser BSS queries.
 
 Rules offers current/default or explicit historical attempt, exact separate
 Sample/Family inputs and server-backed Previous/Next pagination. Complete
-filtered phase summaries come from the API, not just the visible50 rows.
-Full attempt/instance React identity preserves expanded evidence on refresh
-and reordering. Origin/group evidence remains expandable and inferred terminal
-success is labelled. Missing start/elapsed values remain dashes.
+filtered phase summaries come from the API, not just the visible20 rows.
+Full attempt/instance React identity is retained on refresh and reordering.
+Origin/group evidence is no longer displayed. Inferred terminal success is
+labelled. Missing start/elapsed values remain dashes.
 
 QC retains the source aggregate and shows colored per-metric judgments,
-contamination status badges, expandable bounds/reasons/source provenance and
+contamination numeric-pair/status cells, column bounds, final Reason and
 all available applicable release criteria. Missing evidence and unsupported
 historical metric judgments are omitted, never defaulted green; the source
 aggregate remains visible even when no metrics qualify. Clinical notes are not shown.
 
-Current Progress, orchestration graph and Run Tracker show explicitly labelled
+Current Progress and Run Tracker show explicitly labelled
 estimated Step4/6 progress only when measured progress is absent. Estimates
 never modify displayed runtime status or observed transfer bytes/percent.
 Overrun says still executing. Without a fixed sufficient-history snapshot,

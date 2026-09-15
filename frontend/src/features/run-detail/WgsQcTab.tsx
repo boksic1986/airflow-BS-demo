@@ -2,14 +2,6 @@ import type {QcJudgment, Sample} from "../../api";
 import {StatusBadge} from "../../components/StatusBadge";
 import {QcMetric} from "./QcMetric";
 
-const keyMetrics = [
-  ["clean_q30_percent", "Clean Q30"],
-  ["mapped_reads_percent", "Mapped reads"],
-  ["average_depth", "Average depth"],
-  ["coverage_20x_percent", "Coverage ≥20X"],
-  ["contamination", "Contamination"],
-] as const;
-
 const metricLabels: Record<string, string> = {
   mapped_reads_percent: "Mapped reads",
   raw_gc_percent: "Raw GC",
@@ -36,6 +28,7 @@ const metricLabels: Record<string, string> = {
 };
 
 const reasonLabels: Record<string, string> = {
+  "Contamination measurements exceed release criterion": "污染指标超出当前版本阈值",
   "Release policy provenance unavailable": "当前流程版本暂无已审核 QC 判定策略",
   "Within release criterion": "符合当前版本阈值",
   "Outside release criterion": "超出当前版本阈值",
@@ -52,58 +45,41 @@ const reasonLabels: Record<string, string> = {
 };
 
 export function WgsQcTab({samples}: {samples: Sample[]}) {
-  const visibleKeyMetrics = keyMetrics.filter(([key]) => samples.some((sample) => hasAvailableJudgment(sample, key)));
-  return <div className="table-wrap">
+  const received = new Set(samples.flatMap(orderedMetricKeys));
+  const keys = [...Object.keys(metricLabels).filter((key) => received.delete(key)), ...Array.from(received).sort()];
+  const columns = keys.map((key) => {
+    const thresholds = new Set(samples.filter((sample) => hasAvailableJudgment(sample, key)).map((sample) => formatThreshold(sample.qc_judgments?.[key])));
+    return {key, threshold: [...thresholds][0], variable: thresholds.size > 1};
+  });
+  return <div className="table-wrap wgs-qc-table-wrap" tabIndex={0} aria-label="QC table horizontal scroll">
     <table className="data-table" aria-label="WGS QC summary">
       <thead><tr>
         <th>Sample</th>
         <th>Source QC status</th>
-        {visibleKeyMetrics.map(([, label]) => <th key={label}>{label}</th>)}
-        <th>Available QC criteria</th>
+        {columns.map(({key, threshold, variable}) => <th key={key}>{metricLabel(key)}{variable ? " (按样本)" : threshold ? ` (${threshold})` : ""}</th>)}
+        <th>Reason</th>
       </tr></thead>
       <tbody>
         {samples.map((sample) => <tr key={sample.sample_id}>
           <td>{sample.sample_id}</td>
           <td><StatusBadge status={sample.qc_status || "unknown"} size="sm" /></td>
-          {visibleKeyMetrics.map(([key]) => <td key={key}>{hasAvailableJudgment(sample, key)
-            ? <QcMetric value={sample.qc_metrics?.[key]} judgment={sample.qc_judgments?.[key]} /> : "-"}</td>)}
-          <td><SampleQcDetails sample={sample} /></td>
+          {columns.map(({key, variable}) => <td key={key}>{hasAvailableJudgment(sample, key)
+            ? <><QcMetric value={sample.qc_metrics?.[key]} judgment={sample.qc_judgments?.[key]} />{variable && formatThreshold(sample.qc_judgments?.[key]) ? <small>({formatThreshold(sample.qc_judgments?.[key])})</small> : null}</> : "-"}</td>)}
+          <td className="qc-reason-cell">{sampleReason(sample)}</td>
         </tr>)}
-        {samples.length === 0 ? <tr><td className="empty-cell" colSpan={visibleKeyMetrics.length + 3}>QC is pending or unavailable because the batch QCstat has not been projected yet.</td></tr> : null}
+        {samples.length === 0 ? <tr><td className="empty-cell" colSpan={columns.length + 3}>QC is pending or unavailable because the batch QCstat has not been projected yet.</td></tr> : null}
       </tbody>
     </table>
   </div>;
 }
 
-function SampleQcDetails({sample}: {sample: Sample}) {
+function sampleReason(sample: Sample): string {
   const keys = orderedMetricKeys(sample);
-  if (keys.length === 0) return <span className="muted">暂无可展示的质控判定指标</span>;
-  return <details>
-    <summary>Review all metrics</summary>
-    <div className="table-wrap">
-      <table className="data-table compact" aria-label={`QC metric details for ${sample.sample_id}`}>
-        <thead><tr><th>Metric</th><th>Value</th><th>Judgment</th><th>Reason</th><th>Threshold</th><th>Provenance</th></tr></thead>
-        <tbody>{keys.map((key) => {
-          const judgment = sample.qc_judgments?.[key];
-          return <tr key={key}>
-            <td>{metricLabel(key)}</td>
-            <td>{formatValue(sample.qc_metrics?.[key], judgment)}</td>
-            <td><StatusBadge status={judgment?.status || "unknown"} size="sm" /></td>
-            <td>{friendlyReason(judgment?.reason)}</td>
-            <td>{formatThreshold(judgment)}</td>
-            <td>{formatProvenance(judgment)}</td>
-          </tr>;
-        })}</tbody>
-      </table>
-    </div>
-    <details>
-      <summary>Raw diagnostic fields</summary>
-      <pre>{JSON.stringify({
-        qc_metrics: Object.fromEntries(keys.map((key) => [key, sample.qc_metrics?.[key]])),
-        qc_judgments: Object.fromEntries(keys.map((key) => [key, sample.qc_judgments?.[key]])),
-      }, null, 2)}</pre>
-    </details>
-  </details>;
+  const reasons = keys.filter((key) => ["fail", "warn"].includes(sample.qc_judgments![key].status))
+    .map((key) => `${metricLabel(key)}：${friendlyReason(sample.qc_judgments![key].reason)}`);
+  if (reasons.length) return reasons.join("；");
+  if (["fail", "failed", "warn", "warning"].includes(sample.qc_status || "")) return "来源汇总 QC 未通过；缺少可展示的原因证据";
+  return keys.length ? "-" : "暂无可展示的质控判定指标";
 }
 
 function orderedMetricKeys(sample: Sample): string[] {
@@ -123,12 +99,6 @@ function metricLabel(key: string): string {
   return metricLabels[key] || key.replaceAll("_", " ").replace(/^./, (character) => character.toUpperCase());
 }
 
-function formatValue(fallback: string | number | null | undefined, judgment?: QcJudgment): string {
-  const value = judgment?.value ?? fallback;
-  if (value == null || value === "") return "-";
-  return `${value}${judgment?.unit && judgment.unit !== "status" ? ` ${judgment.unit}` : ""}`;
-}
-
 function friendlyReason(reason?: string): string {
   if (!reason) return "判定原因不可用";
   return reasonLabels[reason] || reason;
@@ -136,9 +106,9 @@ function friendlyReason(reason?: string): string {
 
 function formatThreshold(judgment?: QcJudgment): string {
   const threshold = judgment?.threshold;
-  if (threshold == null) return "不适用或不可用";
+  if (threshold == null) return "";
   if (typeof threshold === "string") return threshold;
-  if (typeof threshold !== "object" || Array.isArray(threshold)) return "详见诊断信息";
+  if (typeof threshold !== "object" || Array.isArray(threshold)) return "";
   const bounds = threshold as Record<string, unknown>;
   const unit = judgment?.unit && judgment.unit !== "status" ? ` ${judgment.unit}` : "";
   const minimum = finiteBound(bounds.min);
@@ -150,22 +120,9 @@ function formatThreshold(judgment?: QcJudgment): string {
   }
   if (minimum != null) return `${bounds.min_inclusive === false ? ">" : "≥"} ${minimum}${unit}`;
   if (maximum != null) return `${bounds.max_inclusive === false ? "<" : "≤"} ${maximum}${unit}`;
-  return "详见诊断信息";
+  return "";
 }
 
 function finiteBound(value: unknown): string | null {
   return typeof value === "number" && Number.isFinite(value) ? String(value) : typeof value === "string" && value.trim() ? value : null;
-}
-
-function formatProvenance(judgment?: QcJudgment): string {
-  const provenance = judgment?.provenance || {};
-  const extended = (judgment || {}) as QcJudgment & {source_artifact?: string; source_sha256?: string};
-  const values = [
-    typeof provenance.release_id === "string" ? provenance.release_id : null,
-    extended.source_artifact || null,
-    typeof provenance.source_commit === "string" ? `commit ${provenance.source_commit.slice(0, 8)}` : null,
-    typeof provenance.policy_sha256 === "string" ? `policy ${provenance.policy_sha256.slice(0, 12)}` : null,
-    extended.source_sha256 ? `artifact ${extended.source_sha256.slice(0, 12)}` : null,
-  ].filter(Boolean);
-  return values.join(" · ") || "不可用";
 }

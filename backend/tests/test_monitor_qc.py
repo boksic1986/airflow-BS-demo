@@ -84,7 +84,7 @@ def test_verified_qc_release_uses_identical_policy_with_exact_provenance():
     from app.wgs_qc_policy import evaluate_metrics
     source = {"Clean_Q30%": "85", "Mapped_Reads%": "99.9", "Average_Depth": "29.9",
               "Raw_GC%": "39.36", "SNV_count": "8000", "contamination": "WARNING",
-              "性别是否符合": "Yes"}
+              "性别是否符合": "Yes", "CHARR": ".03", "INCONSISTENT_AB_HET_RATE": ".15"}
     context = {"item_id": "Q0079", "relation": "先证者", "sample_type": "全血", "bkw": True, "rare_disease": True}
     multi = {"Mean_Depth": "40", "Clean_Q30%": "85", "Duplicated_reads%": "10"}
     previous = evaluate_metrics(source, release_id="wgs-4.2.1-cc9bde3", context=context, multiqc=multi)
@@ -110,3 +110,16 @@ def test_verified_qc_release_uses_identical_policy_with_exact_provenance():
     unknown = evaluate_metrics(source, release_id="wgs-4.2.1-34bfcbf-unreviewed", context=context)
     assert unknown["mapped_reads_percent"]["status"] == "unknown"
     assert unknown["mapped_reads_percent"]["reason"] == "Release policy provenance unavailable"
+
+
+@pytest.mark.parametrize("charr,ab,want", [(None,".1","unknown"),("nan",".2","unknown"),(".03",".15","warn"),(".031",".151","fail"),(".04",".05","pass"),("0","0","pass")])
+def test_contamination_requires_measurements_and_uses_joint_native_cutoffs(charr,ab,want):
+    from app.wgs_qc_policy import evaluate_metrics
+    result=evaluate_metrics({"CHARR":charr,"INCONSISTENT_AB_HET_RATE":ab,"contamination":"PASS"},release_id="wgs-4.2.1-34bfcbf",context={})["contamination"]
+    assert result["status"] == want
+    assert result["source_status"] == "PASS"
+    if want == "unknown":
+        assert result["value"] is None
+    else:
+        assert result["measurements"] == {"CHARR":float(charr),"INCONSISTENT_AB_HET_RATE":float(ab)}
+        assert result["value"].startswith("CHARR ")

@@ -1,5 +1,40 @@
 # HANDOFF.md
 
+## 2026-09-15 UI-SIMPLIFY-20260915 source delivery; not deployed
+
+Goal: implement the five screenshot corrections, without expanding workflow scope.
+Base16cc5c4 on jiucheng/fix/wgs-eta-20260915 isolated worktree. QC is one
+scrollable table with only valued judgments, correct per-column/sample bounds
+and final Reason. Remove raw/provenance/nested metric UI. Native34bfcbf g1 QC
+source confirms contamination strict joint AND cutoffs; API now derives this
+judgment from both measurements instead of blindly trusting PASS text.
+Missing/nonfinite inputs stay unknown (hidden in UI); source aggregate unchanged.
+Logs highlight literal case-insensitive matches as React text/mark, never HTML.
+Rules request running/20 by default and paginate; no group/member/origin
+disclosures. Stage nodes expose recorded start/end, not estimated bars; shared
+Tracker/Current Progress estimation untouched.
+
+Files: two backend evaluator/projection modules, two backend tests; WgsQcTab,
+RunWorkflowTab,LogViewer and three tests; RunDetailPage,api.ts,styles.css;
+API/frontend/QC/state/task/handoff docs and dated report.
+Only BS10610/server10610 isolated candidate tests ran: backend27 passed,
+frontend14 passed, tsc+Vite build passed. Red: seven backend failures and
+eight frontend failures matched new contracts; details/commands in report.
+No full suite, browser/live workflow tests or BS96 publication: user limits
+verification to the affected change and did not authorize another deployment.
+No service changes, production DB access, runtime/gate/CCE/prepare/pending
+mutation,0911A action or data deletion. Local worktree is editing/Git only.
+
+Failures before tests: one scp connection reset before SSH banner, one reconnect
+succeeded. Initial duplicate Delete/Add patch rejected without mutation; split
+patches succeeded. Some local rg/read attempts used absent paths/globs, corrected
+to actual files; no runtime effect. No application test failures remain.
+Next: review source then separately authorize96 release. Historical current
+symlinks and actual mounts remain as prior deployment record; do not assume
+current points to the new release. Production remainsf69c577. Rollback this
+source-only slice by reverting its eventual commit; no schema/data rollback.
+Original dirty workspace and generated untracked .superpowers artifacts preserved.
+
 ## 2026-09-15 production publication completed; recovery canceled by user
 
 Latest user answer: publish only, do not handle0911A. No compatibility code,

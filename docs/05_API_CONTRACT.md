@@ -1,5 +1,21 @@
 # API contract
 
+## UI-SIMPLIFY-20260915 (source only)
+
+WGS orchestration stage entries add nullable started_at/ended_at from the
+existing stage row. Run success does not fabricate missing stage timestamps.
+Rules UI sends status=running,limit=20,sort=active_first by default; the API
+default and optional all-status/history queries are unchanged.
+
+For audited WGS releases, qc_judgments.contamination.status uses both finite
+QCstat measurements: CHARR>0.03 AND INCONSISTENT_AB_HET_RATE>0.15 =>fail,
+otherwise CHARR>0.02 AND INCONSISTENT_AB_HET_RATE>0.1 =>warn, otherwise pass.
+Missing/nonfinite input or unaudited release =>unknown. Value now contains the
+CHARR/AB numeric pair rather than the source PASS text. Additive source_status
+retains the original label; measurements retains both named numeric values.
+Existing computed_status/provenance and qc_metrics/source aggregate remain.
+No DB schema change, workflow threshold change or source QC aggregate rewrite.
+
 ## Incomplete WGS submission summaries (2026-09-15, source only)
 
 `GET /api/wgs/submissions/incomplete?limit=100&offset=0` uses existing session

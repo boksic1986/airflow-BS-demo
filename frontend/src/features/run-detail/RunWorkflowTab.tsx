@@ -1,11 +1,12 @@
-import {Fragment, useMemo, useState} from "react";
+import {useMemo, useState} from "react";
 
 import type {AirflowTaskProgress, RuleEvent, RulePage, RuleQuery, RunProgressResponse} from "../../api";
-import {EstimatedStageProgress} from "../../components/EstimatedStageProgress";
 import {StatusBadge} from "../../components/StatusBadge";
 import {formatDate, formatProgressUnits} from "../../lib/format";
 import {humanStageLabel} from "../../lib/stageLabels";
 import {normalizeStatus} from "../../lib/status";
+
+export const DEFAULT_RULE_QUERY: RuleQuery = {status: "running", limit: 20, sort: "active_first", offset: 0};
 
 type RulePhaseSummary = {
   phase: string;
@@ -52,12 +53,21 @@ export function RunWorkflowTab({progress, rules, onOpenLog, page, query, onQuery
   const airflowTasks = (progress?.airflow_tasks || []).filter((task) => normalizeStatus(task.state) !== "skipped");
   const phases = useMemo(() => page?.phase_summaries || summarizeRulePhases(rules), [rules, page]);
   const [phaseFilter, setPhaseFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("running");
+  const [offset, setOffset] = useState(0);
+  const effectiveQuery = {...DEFAULT_RULE_QUERY, ...query};
   const [sampleFilter, setSampleFilter] = useState("");
   const [familyFilter, setFamilyFilter] = useState("");
   const filteredRules = onQueryChange ? rules : rules.filter((rule) => (!phaseFilter || rule.phase === phaseFilter) && (!statusFilter || rule.status === statusFilter) && (!sampleFilter || rule.sample_id === sampleFilter) && (!familyFilter || rule.family_id === familyFilter));
+  const visibleRules = onQueryChange ? filteredRules : filteredRules.slice(offset, offset + 20);
+  const paging = page && onQueryChange ? page : {offset, limit: 20, total: filteredRules.length, items: visibleRules};
+  function goTo(next: number) {
+    if (onQueryChange) onQueryChange({...effectiveQuery, offset: next});
+    else setOffset(next);
+  }
   function change(key: keyof RuleQuery, value: string) {
-    onQueryChange?.({...query, [key]: key === "attempt" ? (value ? Number(value) : undefined) : value, offset: 0});
+    setOffset(0);
+    onQueryChange?.({...effectiveQuery, [key]: key === "attempt" ? (value ? Number(value) : undefined) : value, offset: 0});
     if (key === "phase") setPhaseFilter(value);
     if (key === "status") setStatusFilter(value);
     if (key === "sampleId") setSampleFilter(value);
@@ -100,22 +110,20 @@ export function RunWorkflowTab({progress, rules, onOpenLog, page, query, onQuery
           <label>Sample<input aria-label="Sample" value={query?.sampleId ?? sampleFilter} onChange={(e) => change("sampleId", e.target.value)} placeholder="Exact sample ID" /></label>
           <label>Family<input aria-label="Family" value={query?.familyId ?? familyFilter} onChange={(e) => change("familyId", e.target.value)} placeholder="Exact family ID" /></label>
         </div>
-        <RuleInstanceTable rules={filteredRules} onOpenLog={onOpenLog} />
-        {page && onQueryChange ? <nav aria-label="Rule pages"><button disabled={page.offset === 0} onClick={() => onQueryChange({...query, offset: Math.max(0, page.offset - page.limit)})}>Previous</button><span>{page.total ? page.offset + 1 : 0}–{Math.min(page.offset + page.items.length, page.total)} of {page.total}</span><button disabled={page.offset + page.limit >= page.total} onClick={() => onQueryChange({...query, offset: page.offset + page.limit})}>Next</button></nav> : null}
+        <RuleInstanceTable rules={visibleRules} onOpenLog={onOpenLog} />
+        <nav aria-label="Rule pages"><button disabled={paging.offset === 0} onClick={() => goTo(Math.max(0, paging.offset - paging.limit))}>Previous</button><span>{paging.total ? paging.offset + 1 : 0}–{Math.min(paging.offset + paging.items.length, paging.total)} of {paging.total}</span><button disabled={paging.offset + paging.limit >= paging.total} onClick={() => goTo(paging.offset + paging.limit)}>Next</button></nav>
       </section>
     </div>
   );
 }
 
-function RuleInstanceTable({rules, onOpenLog, membersOnly = false}: {
+function RuleInstanceTable({rules, onOpenLog}: {
   rules: RuleEvent[];
   onOpenLog?: (key: string) => void;
-  membersOnly?: boolean;
 }) {
-  return <div className="table-wrap"><table className="data-table rule-instance-table" aria-label={membersOnly ? "Execution group members" : "Pipeline rule instances"}>
+  return <div className="table-wrap"><table className="data-table rule-instance-table" aria-label="Pipeline rule instances">
     <thead><tr>{["Phase", "Rule", "Sample", "Family", "Order", "Job", "Status", "Started", "Finished", "Elapsed", "Remaining", "Message / failure excerpt"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
-    <tbody>{rules.map((rule, index) => <Fragment key={JSON.stringify([rule.attempt, rule.rule_instance_id || [rule.rule, rule.sample_id, rule.family_id, rule.sequence, rule.snakemake_jobid, index]])}>
-      <tr>
+    <tbody>{rules.map((rule, index) => <tr key={JSON.stringify([rule.attempt, rule.rule_instance_id || [rule.rule, rule.sample_id, rule.family_id, rule.sequence, rule.snakemake_jobid, index]])}>
         <td>{rule.phase || "Unknown"}</td><td className="rule-name-cell">{rule.rule}</td><td>{rule.sample_id || "-"}</td><td>{rule.family_id || "-"}</td><td>{rule.sequence ?? "-"}</td>
         <td>{rule.snakemake_jobid || "-"}</td>
         <td><StatusBadge status={displayRuleStatus(rule.status)} />{rule.status_inferred ? <small>Inferred from run success</small> : null}</td>
@@ -123,17 +131,8 @@ function RuleInstanceTable({rules, onOpenLog, membersOnly = false}: {
         <td className="rule-message-cell">
           {rule.stderr_excerpt ? <details><summary>{rule.message || "Show failure excerpt"}</summary><pre>{rule.stderr_excerpt}</pre></details> : (rule.message || "-")}
           {rule.analysis_log_key && onOpenLog ? <button type="button" className="text-button" aria-label={`Open log for ${rule.rule}`} onClick={() => onOpenLog(rule.analysis_log_key!)}>Open log</button> : null}
-          {rule.origin ? <details><summary>Diagnostic details</summary><span>{rule.origin}</span></details> : null}
         </td>
-      </tr>
-      {!membersOnly && rule.execution_group ? <tr><td colSpan={12}>
-        <details><summary role="button">Execution group · {rule.rule} · job {rule.snakemake_jobid || "unknown"}</summary>
-          <span>{rule.execution_group}</span>
-          <p>Member inventory only. Group start is not an individual rule start; uncollected status and times remain unknown.</p>
-          {rule.execution_group_members?.length ? <RuleInstanceTable membersOnly rules={rule.execution_group_members.map((member) => ({...member, attempt: rule.attempt, status: "unknown"}))} /> : <p>Member inventory unavailable in this event stream.</p>}
-        </details>
-      </td></tr> : null}
-    </Fragment>)}{rules.length === 0 ? <tr><td colSpan={12} className="empty-cell">No matching Rule instances.</td></tr> : null}</tbody>
+      </tr>)}{rules.length === 0 ? <tr><td colSpan={12} className="empty-cell">No matching Rule instances.</td></tr> : null}</tbody>
   </table></div>;
 }
 
@@ -156,7 +155,7 @@ function LayeredWorkflowTimeline({airflowTasks, phases, pipeline: _pipeline, pro
 }) {
   const title = "Workflow execution path";
   return (
-    <section className="layered-timeline" aria-label="Layered workflow timeline" title="Airflow shows project stages; pipeline events show the current bioinformatics phase.">
+    <section className="layered-timeline" aria-label="Layered workflow timeline">
       <div className="section-heading"><h2>{title}</h2><p>Project orchestration and biological analysis phases</p></div>
       {(progress?.orchestration_stages || []).length ? <PipelineStageGraph progress={progress} /> : <div aria-label="Selected Airflow execution path"><TimelineLane title="Airflow project tasks" empty="No Airflow task instances returned yet." items={airflowTasks.map((task) => ({id: task.task_id, label: humanStageLabel(task.task_id), status: task.state || "unknown", meta: `try ${task.try_number ?? "not captured"}`}))} /></div>}
       <TimelineLane title="Pipeline phases" empty="No rule events captured for this run." items={phases.map((phase) => ({id: phase.phase, label: phase.phase, status: phase.status, meta: `${phase.success}/${phase.total} jobs complete`}))} />
@@ -166,7 +165,7 @@ function LayeredWorkflowTimeline({airflowTasks, phases, pipeline: _pipeline, pro
 
 function PipelineStageGraph({progress}: {progress: RunProgressResponse | null}) {
   const stages = progress?.orchestration_stages || [];
-  return <div className="wgs-stage-graph" aria-label="Pipeline stage dependency graph">{stages.map((stage) => <div key={stage.stage_code} className={`wgs-stage-node ${normalizeStatus(stage.status)}`}><span>Step{stage.step_number}</span><strong>{stage.label}</strong>{stage.progress_available ? <small>{formatProgressUnits(stage.completed_units ?? 0, stage.total_units, stage.unit)}</small> : <EstimatedStageProgress stage={stage} />}</div>)}{stages.length === 0 ? <p className="empty-state">No orchestration stage evidence captured.</p> : null}</div>;
+  return <div className="wgs-stage-graph" aria-label="Pipeline stage dependency graph">{stages.map((stage) => <div key={stage.stage_code} className={`wgs-stage-node ${normalizeStatus(stage.status)}`} title={`开始：${stage.started_at ? formatDate(stage.started_at) : "未记录"}\n完成：${stage.ended_at ? formatDate(stage.ended_at) : "未记录"}`}><span>Step{stage.step_number}</span><strong>{stage.label}</strong>{stage.progress_available ? <small>{formatProgressUnits(stage.completed_units ?? 0, stage.total_units, stage.unit)}</small> : null}</div>)}{stages.length === 0 ? <p className="empty-state">No orchestration stage evidence captured.</p> : null}</div>;
 }
 
 function TimelineLane({title, items, empty}: {title: string; items: Array<{id: string; label: string; status: string; meta: string}>; empty: string}) {

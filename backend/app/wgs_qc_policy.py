@@ -82,9 +82,18 @@ def evaluate_metrics(source, *, release_id, context, multiqc=None):
     # g1 joins the two contamination measurements, not independent cutoffs.
     charr, inconsistent = number(source.get("CHARR")), number(source.get("INCONSISTENT_AB_HET_RATE"))
     level = str(source.get("contamination") or "").upper()
-    contamination_status = {"PASS": "pass", "WARNING": "warn", "FAIL": "fail"}.get(level, "unknown")
     computed = None if charr is None or inconsistent is None else "fail" if charr > .03 and inconsistent > .15 else "warn" if charr > .02 and inconsistent > .1 else "pass"
-    result["contamination"] = {"value": level if level in {"PASS", "WARNING", "FAIL"} else None, "unit": "status", "threshold": "FAIL: CHARR > 0.03 AND AB > 0.15; WARNING: CHARR > 0.02 AND AB > 0.1" if available else None, "status": contamination_status if available else "unknown", "reason": "Source-produced contamination status" if available and contamination_status != "unknown" else "Value or release provenance unavailable", "provenance": provenance, "computed_status": computed if available else None, "source_artifact": "QCstat.tsv", "source_field": "contamination"}
+    contamination_reason = "Release policy provenance unavailable" if not available else "Value unavailable" if computed is None else "Within release criterion" if computed == "pass" else "Contamination measurements exceed release criterion"
+    result["contamination"] = {
+        "value": f"CHARR {charr:g} / AB {inconsistent:g}" if computed is not None else None,
+        "unit": "status",
+        "threshold": "FAIL: CHARR > 0.03 AND AB > 0.15; WARNING: CHARR > 0.02 AND AB > 0.1" if available else None,
+        "status": (computed or "unknown") if available else "unknown",
+        "reason": contamination_reason, "provenance": provenance,
+        "computed_status": computed if available else None, "source_status": level or None,
+        "measurements": {"CHARR": charr, "INCONSISTENT_AB_HET_RATE": inconsistent},
+        "source_artifact": "QCstat.tsv", "source_field": "CHARR,INCONSISTENT_AB_HET_RATE",
+    }
     if context.get("rare_disease"):
         for key, column, unit, bounds in [
             ("multi_dedup_bases", "Dedup_bases", "bases", (120000000000, None, True, True)),

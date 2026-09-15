@@ -391,3 +391,15 @@ def test_rule_projection_contains_order_identity_and_registered_logs() -> None:
     assert item["wildcards"] == {"sample": "WGS001"}
     assert item["message"] == "worker exited 1"
     assert item["log_keys"] == ["stderr:rule-1"]
+def test_orchestration_hover_times_use_recorded_stage_times_not_run_success():
+    from types import SimpleNamespace
+    from datetime import datetime, timezone
+    from app.wgs_stage_contract import project_wgs_orchestration
+    started=datetime(2026,9,15,tzinfo=timezone.utc)
+    ended=datetime(2026,9,15,0,5,tzinfo=timezone.utc)
+    row=SimpleNamespace(stage_code="step4_publish",stage_status="success",progress_available=False,current_item=None,progress_source="runtime",updated_at=ended,started_at=started,ended_at=ended)
+    stages=project_wgs_orchestration(run_status="success",current_stage="step6_materialize",stage_rows=[row])
+    assert stages[3]["started_at"] == "2026-09-15T00:00:00+00:00"
+    assert stages[3]["ended_at"] == "2026-09-15T00:05:00+00:00"
+    assert stages[5]["started_at"] is None
+    assert stages[5]["ended_at"] is None

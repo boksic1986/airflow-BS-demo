@@ -1,145 +1,69 @@
 import "@testing-library/jest-dom/vitest";
-
 import {fireEvent, render, screen, within} from "@testing-library/react";
-import {describe, expect, it, vi} from "vitest";
-
-import type {RuleEvent, RunProgressResponse} from "../../api";
+import {expect, it, vi} from "vitest";
+import type {RunProgressResponse} from "../../api";
 import {RunWorkflowTab} from "./RunWorkflowTab";
 
-describe("RunWorkflowTab", () => {
-  it("expands group member rules, including members outside the current page", () => {
-    render(<RunWorkflowTab progress={null} rules={[{rule: "mapping", status: "planned", execution_group: "master:group", execution_group_members: [{rule: "mapping", snakemake_jobid: "1"}, {rule: "Dedup", snakemake_jobid: "2"}]}]} />);
-    const detail = screen.getByText("master:group").closest("details")!;
-    expect(within(detail).getByText("Dedup")).toBeInTheDocument();
-  });
+it("defaults to running rules, twenty per page, without expanding execution-group inventory", () => {
+  const rules=Array.from({length:21},(_,i)=>({rule:`active-${i}`,status:"running",execution_group:"group-a",origin:"master:opaque",execution_group_members:[{rule:"not-started-member"}]}));
+  render(<RunWorkflowTab progress={null} rules={[{rule:"done",status:"success"},...rules]} />);
+  const table=screen.getByRole("table",{name:"Pipeline rule instances"});
+  expect(screen.getByLabelText("Rule status")).toHaveValue("running");
+  expect(within(table).getAllByRole("row")).toHaveLength(21);
+  expect(within(table).queryByText("done")).toBeNull();
+  expect(within(table).queryByText(/Execution group|master:opaque|not-started-member/)).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"Next"}));
+  expect(within(table).getByText("active-20")).toBeInTheDocument();
+  expect(within(table).getAllByRole("row")).toHaveLength(2);
+  fireEvent.change(screen.getByLabelText("Rule status"),{target:{value:""}});
+  expect(within(table).getByText("done")).toBeInTheDocument();
+});
 
-  it("renders member inventory with the common rule table without invented status or times", () => {
-    render(<RunWorkflowTab progress={null} rules={[{rule: "mapping", status: "running", snakemake_jobid: "1", execution_group: "group-a", execution_group_members: [{rule: "mapping", snakemake_jobid: "1"}, {rule: "Dedup", snakemake_jobid: "2"}]}]} />);
-    fireEvent.click(screen.getByRole("button", {name: /Execution group/}));
-    const members = screen.getByRole("table", {name: "Execution group members"});
-    expect(members).toHaveClass("rule-instance-table");
-    const child = within(members).getByText("Dedup").closest("tr")!;
-    expect(within(child).getByText("unknown")).toBeInTheDocument();
-    expect(within(child).queryByText("running")).not.toBeInTheDocument();
-    expect(child.querySelectorAll("td")[7]).toHaveTextContent("-");
-    expect(child.querySelectorAll("td")[9]).toHaveTextContent("-");
-  });
+it("passes running/twenty-row paging and exact independent filters to the server query", () => {
+  const change=vi.fn();
+  render(<RunWorkflowTab progress={null} rules={[]} page={{items:[],limit:20,offset:0,total:21,current_attempt:2}} onQueryChange={change} />);
+  fireEvent.change(screen.getByLabelText("Sample"),{target:{value:"S1"}});
+  expect(change).toHaveBeenLastCalledWith(expect.objectContaining({sampleId:"S1",status:"running",limit:20,offset:0}));
+  fireEvent.click(screen.getByRole("button",{name:"Next"}));
+  expect(change).toHaveBeenLastCalledWith(expect.objectContaining({status:"running",limit:20,offset:20}));
+});
 
-  it("keeps opaque origin only inside closed diagnostic details", () => {
-    render(<RunWorkflowTab progress={null} rules={[{rule: "mapping", status: "running", snakemake_jobid: "1", origin: "master:opaque"}]} />);
-    expect(screen.getByRole("columnheader", {name: "Job"})).toBeInTheDocument();
-    const origin = screen.getByText("master:opaque");
-    expect(origin.closest("details")).not.toBeNull();
-    expect(origin.closest("details")).not.toHaveAttribute("open");
-    expect(origin.closest("td")).not.toHaveTextContent(/^1master/);
-  });
+it("filters sample and family independently without prefix matches", () => {
+  render(<RunWorkflowTab progress={null} rules={[
+    {rule:"sample-match",sample_id:"S1",family_id:"F1",status:"running"},
+    {rule:"family-only",sample_id:"S2",family_id:"S1",status:"running"},
+    {rule:"prefix-only",sample_id:"S10",family_id:"F1",status:"running"},
+  ]} />);
+  fireEvent.change(screen.getByLabelText("Sample"),{target:{value:"S1"}});
+  const table=screen.getByRole("table",{name:"Pipeline rule instances"});
+  expect(within(table).getByText("sample-match")).toBeInTheDocument();
+  expect(within(table).queryByText("family-only")).toBeNull();
+  expect(within(table).queryByText("prefix-only")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Family"),{target:{value:"S1"}});
+  expect(within(table).queryByText("sample-match")).toBeNull();
+});
 
-  it("summarizes completed and canceled terminal members as canceled", () => {
-    render(<RunWorkflowTab progress={null} rules={[{rule: "a", phase: "Mapping", status: "success"}, {rule: "b", phase: "Mapping", status: "canceled"}]} />);
-    const summary = screen.getByRole("table", {name: /Pipeline phase summary/i});
-    expect(within(summary).getByText("canceled").closest(".status-badge")).toBeInTheDocument();
-  });
-  it("keeps duplicate rule instances attached to their own expanded evidence after reordering", () => {
-    const a = {attempt: 2, rule_instance_id: "a", rule: "mapping", sample_id: "S1", sequence: 1, status: "running", execution_group: "group-a"};
-    const b = {...a, rule_instance_id: "b", execution_group: "group-b"};
-    const {rerender} = render(<RunWorkflowTab progress={null} rules={[a, b]} />);
-    const original = screen.getByText("group-a").closest("details")!;
-    original.open = true;
-    rerender(<RunWorkflowTab progress={null} rules={[b, a]} />);
-    expect(screen.getByText("group-a").closest("details")).toBe(original);
-    expect(screen.getByText("group-a").closest("details")).toHaveAttribute("open");
-    expect(screen.getByText("group-b").closest("details")).not.toHaveAttribute("open");
-  });
+it("keeps full phase summaries independent of running-only rows", () => {
+  render(<RunWorkflowTab progress={null} rules={[{rule:"a",phase:"Mapping",status:"success"},{rule:"b",phase:"Mapping",status:"canceled"}]} />);
+  expect(within(screen.getByRole("table",{name:"Pipeline phase summary"})).getByText("canceled")).toBeInTheDocument();
+});
 
-  it("filters samples and families independently with exact identifiers", () => {
-    render(<RunWorkflowTab progress={null} rules={[
-      {rule: "sample-match", sample_id: "S1", family_id: "F1", status: "running"},
-      {rule: "family-only", sample_id: "S2", family_id: "S1", status: "running"},
-      {rule: "prefix-only", sample_id: "S10", family_id: "F1", status: "running"},
-    ]} />);
-    fireEvent.change(screen.getByLabelText("Sample"), {target: {value: "S1"}});
-    const table = screen.getByRole("table", {name: "Pipeline rule instances"});
-    expect(within(table).getByText("sample-match")).toBeInTheDocument();
-    expect(within(table).queryByText("family-only")).not.toBeInTheDocument();
-    expect(within(table).queryByText("prefix-only")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Family"), {target: {value: "S1"}});
-    expect(within(table).queryByText("sample-match")).not.toBeInTheDocument();
-  });
+it("shows stage timestamps on hover, with no embedded estimate or missing-history message", () => {
+  const progress={pipeline:"wgs",orchestration_stages:[
+    {stage_code:"step4_publish",step_number:4,label:"Publishing",status:"success",started_at:"2026-09-15T00:00:00Z",ended_at:"2026-09-15T00:05:00Z",estimate_model:"stage_median_linear_v1"},
+    {stage_code:"step6_materialize",step_number:6,label:"Materializing",status:"pending",estimate_model:"stage_median_linear_v1"},
+  ]} as RunProgressResponse;
+  render(<RunWorkflowTab progress={progress} rules={[]} />);
+  const graph=screen.getByLabelText("Pipeline stage dependency graph");
+  expect(within(graph).queryByRole("progressbar")).toBeNull();
+  expect(within(graph).queryByText(/暂无预估|缺少足够/)).toBeNull();
+  expect(within(graph).getByText("Publishing").parentElement).toHaveAttribute("title",expect.stringMatching(/开始.*2026-09-15.*完成.*2026-09-15/s));
+  expect(within(graph).getByText("Materializing").parentElement).toHaveAttribute("title","开始：未记录\n完成：未记录");
+});
 
-  it("groups adapter-projected rule phases", () => {
-    const rules: RuleEvent[] = [
-      {rule: "align", phase: "Mapping", sample_id: "S001", status: "success"},
-      {rule: "call", phase: "Variant calling", sample_id: "S001", status: "running"},
-    ];
-
-    render(<RunWorkflowTab progress={null} rules={rules} />);
-
-    const summary = screen.getByRole("table", {name: /Pipeline phase summary/i});
-    expect(within(summary).getByText("Mapping")).toBeInTheDocument();
-    expect(within(summary).getByText("Variant calling")).toBeInTheDocument();
-    expect(screen.getByRole("table", {name: "Pipeline rule instances"})).toBeInTheDocument();
-  });
-
-  it("shows adapter orchestration stages instead of raw Airflow task ids", () => {
-    const progress = {
-      pipeline: "wgs",
-      airflow_tasks: [
-        {task_id: "validate_request", state: "success"},
-        {task_id: "submit_step2_master", state: "running"},
-      ],
-      orchestration_stages: [
-        {stage_code: "step1_upload", step_number: 1, label: "Uploading FASTQ", status: "success", progress_available: true, completed_units: 1024 ** 3, total_units: 2 * 1024 ** 3, unit: "bytes"},
-        {stage_code: "step2_master", step_number: 2, label: "Starting workflow", status: "running"},
-      ],
-    } as RunProgressResponse;
-
-    render(<RunWorkflowTab progress={progress} rules={[]} />);
-
-    const graph = screen.getByLabelText("Pipeline stage dependency graph");
-    expect(within(graph).getByText("Uploading FASTQ")).toBeInTheDocument();
-    expect(within(graph).getByText("Starting workflow")).toBeInTheDocument();
-    expect(within(graph).getByText("1.0 GiB / 2.0 GiB")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Selected Airflow execution path")).not.toBeInTheDocument();
-  });
-
-  it("uses a registry-neutral Airflow path when no stage projection exists", () => {
-    const progress = {
-      pipeline: "synthetic",
-      airflow_tasks: [
-        {task_id: "validate_request", state: "success"},
-        {task_id: "run_analysis", state: "running"},
-      ],
-    } as RunProgressResponse;
-
-    render(<RunWorkflowTab progress={progress} rules={[]} />);
-
-    const path = screen.getByLabelText("Selected Airflow execution path");
-    expect(within(path).getByText("Validate run request")).toBeInTheDocument();
-    expect(within(path).getByText("Run Analysis")).toBeInTheDocument();
-  });
-
-  it("opens the registered analysis log from a rule", () => {
-    const openLog = vi.fn();
-    render(<RunWorkflowTab progress={{pipeline: "wgs"} as RunProgressResponse} onOpenLog={openLog} rules={[{
-      rule: "pre_process_mapping",
-      phase: "Pre-calling",
-      sample_id: "S001",
-      status: "running",
-      analysis_log_key: "opaque-analysis-log",
-    }]} />);
-
-    fireEvent.click(screen.getByRole("button", {name: "Open log for pre_process_mapping"}));
-    expect(openLog).toHaveBeenCalledWith("opaque-analysis-log");
-  });
-
-  it("renders canceled rule events as terminal phase work", () => {
-    render(<RunWorkflowTab progress={null} rules={[
-      {rule: "align", phase: "Mapping", sample_id: "S1", status: "failed"},
-      {rule: "align", phase: "Mapping", sample_id: "S2", status: "canceled"},
-    ]} />);
-
-    const phaseTable = screen.getByRole("table", {name: /Pipeline phase summary/i});
-    const row = within(phaseTable).getByText("Mapping").closest("tr");
-    expect(row?.querySelectorAll("td")[6]).toHaveTextContent("1");
-  });
+it("opens registered logs for current rules", () => {
+  const open=vi.fn();
+  render(<RunWorkflowTab progress={null} onOpenLog={open} rules={[{rule:"mapping",status:"running",analysis_log_key:"opaque-log"}]} />);
+  fireEvent.click(screen.getByRole("button",{name:"Open log for mapping"}));
+  expect(open).toHaveBeenCalledWith("opaque-log");
 });

@@ -1,5 +1,20 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 UI-SIMPLIFY-20260915 completed (not deployed)
+
+Targeted user feedback implemented on base16cc5c4: flat scrollable WGS QC
+columns with per-column/per-sample thresholds and final failure Reason; no raw
+JSON/provenance disclosures. Contamination uses actual CHARR/AB joint bounds,
+not the source PASS string; missing/nonfinite inputs cannot pass. Source QC
+aggregate and native workflow remain unchanged.
+Logs highlight literal matches safely. Rules default running,20 rows/page and
+omit execution-group/opaque-origin display. Stage graph hover shows recorded
+start/finish; estimates stay in shared Tracker/Current Progress only.
+BS10610 isolated backend27/frontend14/build passed. No BS96 action,0911A
+recovery, DB, DAG, CCE, prepare, pending or data changes. Deployment remains
+f69c577; this entry is source delivery only. See
+docs/releases/2026-09-15-ui-simplification.md.
+
 ## 2026-09-15 platform source f69c577 published to96;0911A deferred
 
 User authorized96 release, then explicitly chose publication only and deferred

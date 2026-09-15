@@ -1,5 +1,15 @@
 # TASKS.md
 
+## UI-SIMPLIFY-20260915
+
+- [x] Flatten eligible QC metrics; thresholds follow columns or sample-specific values; Reason last.
+- [x] Recheck native contamination AND conditions; derive judgment from both numeric inputs, preserve aggregate.
+- [x] Literal safe log highlight; running/20 rule query and pagination; remove group/origin clutter.
+- [x] Recorded stage timestamp hover; estimate remains shared by Tracker and Current Progress.
+- [x] BS10610 bounded backend27/frontend14/build; API/frontend/QC/handoff docs.
+- [ ] New production publication requires authorization;0911A remains deferred.
+- No extra tests, workflow changes, production reads/writes or cleanup.
+
 ## PLATFORM-BS96-PUBLISH-20260915
 
 - [x] User-authorized pinnedf69c577 source rollout; zero running/queued task preflight.

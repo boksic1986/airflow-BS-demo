@@ -1,5 +1,5 @@
 import {Copy, Search} from "lucide-react";
-import {useEffect, useMemo, useState} from "react";
+import {type ReactNode, useEffect, useMemo, useState} from "react";
 
 import type {LogStream, RunLog, RunLogIndexItem} from "../api";
 
@@ -35,7 +35,7 @@ export function LogViewer({
   const groupedSources = useMemo(() => groupLogSources(sources), [sources]);
   const matching = useMemo(() => {
     if (onSearch || !query.trim()) return lines;
-    const needle = query.toLowerCase();
+    const needle = query.trim().toLowerCase();
     return lines.filter((line) => line.toLowerCase().includes(needle));
   }, [lines, query, onSearch]);
 
@@ -90,7 +90,7 @@ export function LogViewer({
         {matching.length ? (
           matching.map((line, index) => (
             <div className={/error|exception|failed|traceback/i.test(line) ? "log-line error-line" : "log-line"} key={`${line}-${index}`}>
-              {line}
+              {highlightMatches(line, onSearch ? log?.query || "" : query.trim())}
             </div>
           ))
         ) : (
@@ -100,6 +100,23 @@ export function LogViewer({
       {log ? <p className="muted path-text">Path: {log.path}</p> : null}
     </section>
   );
+}
+
+function highlightMatches(line: string, query: string): ReactNode {
+  if (!query) return line;
+  const parts: ReactNode[] = [];
+  const haystack = line.toLowerCase();
+  const needle = query.toLowerCase();
+  let cursor = 0;
+  let index = haystack.indexOf(needle);
+  while (index !== -1) {
+    parts.push(line.slice(cursor, index));
+    parts.push(<mark className="log-search-match" key={index}>{line.slice(index, index + query.length)}</mark>);
+    cursor = index + query.length;
+    index = haystack.indexOf(needle, cursor);
+  }
+  parts.push(line.slice(cursor));
+  return parts;
 }
 
 function groupLogSources(sources: RunLogIndexItem[]): Array<{label: string; items: RunLogIndexItem[]}> {

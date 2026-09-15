@@ -177,6 +177,8 @@ def project_wgs_orchestration(
                 "eta_seconds": row.eta_seconds if progress_available else None,
                 "progress_source": row.progress_source if row is not None else "run-status-projection",
                 "updated_at": _iso(row.updated_at) if row is not None else None,
+                "started_at": _iso(getattr(row, "started_at", None)),
+                "ended_at": _iso(getattr(row, "ended_at", None)),
             }
         )
     return items

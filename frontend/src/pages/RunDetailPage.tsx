@@ -28,7 +28,7 @@ import {StatusBadge} from "../components/StatusBadge";
 import {CurrentProgressPanel} from "../features/run-detail/CurrentProgressPanel";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {RunFilesTab, RunOverviewTab} from "../features/run-detail/RunResourceTabs";
-import {RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
+import {DEFAULT_RULE_QUERY, RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
 import {WgsQcTab} from "../features/run-detail/WgsQcTab";
 import type {RulePage, RuleQuery} from "../api";
 import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
@@ -76,7 +76,7 @@ export function RunDetailPage() {
   const [logKey, setLogKey] = useState<string | null>(null);
   const [logQuery, setLogQuery] = useState("");
   const [activeTab, setActiveTab] = useState<DetailTab>("Overview");
-  const [ruleQuery, setRuleQuery] = useState<RuleQuery>({});
+  const [ruleQuery, setRuleQuery] = useState<RuleQuery>({...DEFAULT_RULE_QUERY});
   const [rulePage, setRulePage] = useState<RulePage | undefined>();
   const [logError, setLogError] = useState<string | null>(null);
   const [logIndexError, setLogIndexError] = useState<string | null>(null);
@@ -153,7 +153,7 @@ export function RunDetailPage() {
     setLog(null);
     setLogKey(null);
     setLogQuery("");
-    setRuleQuery({});
+    setRuleQuery({...DEFAULT_RULE_QUERY});
     setRulePage(undefined);
   }, [analysisId]);
 
@@ -183,7 +183,7 @@ export function RunDetailPage() {
           const result = await getRunSamples(analysisId);
           publish((current) => ({...current, samples: result.items, manifest: result.manifest || [], manifestSummary: result.manifest_summary || null}));
         } else if (activeTab === "Rules") {
-          const result = await getRunRules(analysisId, {limit: 50, sort: "active_first", ...ruleQuery});
+          const result = await getRunRules(analysisId, {...DEFAULT_RULE_QUERY, ...ruleQuery});
           if (isCurrent()) setRulePage(result);
           publish((current) => ({...current, rules: result.items}));
         } else if (activeTab === "Master") {
