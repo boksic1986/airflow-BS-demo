@@ -40,8 +40,14 @@ def run_phase_release(run) -> str:
     return str(params.get("pipeline_release_id") or "unavailable")
 
 
+def _pinned_wgs_rules(release_id):
+    # Equivalent releases are explicitly audited against every packaged source blob.
+    supported = {PINNED_WGS_PHASES["release_id"], *PINNED_WGS_PHASES.get("verified_equivalent_releases", {})}
+    return PINNED_WGS_PHASES["rules"] if release_id in supported else {}
+
+
 def pinned_phase_definitions(pipeline_name, release_id):
-    rules = PINNED_WGS_PHASES["rules"] if pipeline_name == "wgs" and release_id == PINNED_WGS_PHASES["release_id"] else PINNED_GATK_PHASES if pipeline_name == "gatk" and release_id == "gatk-scmc-v7.6.0@bd04f6d" else {}
+    rules = _pinned_wgs_rules(release_id) if pipeline_name == "wgs" else PINNED_GATK_PHASES if pipeline_name == "gatk" and release_id == "gatk-scmc-v7.6.0@bd04f6d" else {}
     return [{"key": p.lower().replace(" ", "_"), "label": p, "order": order} for p, order in BIOLOGICAL_PHASE_ORDER.items() if p in set(rules.values()) | {"Unknown"}]
 
 
@@ -229,7 +235,7 @@ def gatk_phase_for_rule(rule: str | None, *, release_id: str | None = None) -> s
 def wgs_phase_for_rule(rule: str | None, *, pipeline_stage: str | None = None, release_id: str | None = None) -> str:
     name = str(rule or "").strip()
     if release_id is not None:
-        return PINNED_WGS_PHASES["rules"].get(name, "Unknown") if release_id == PINNED_WGS_PHASES["release_id"] else "Unknown"
+        return _pinned_wgs_rules(release_id).get(name, "Unknown")
     if name == "all":
         return "Pre-calling" if str(pipeline_stage or "").strip().lower() == "precalling" else "QC"
     for prefix, phase in WGS_RULE_PREFIX_PHASES:

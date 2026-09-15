@@ -13,6 +13,27 @@ describe("RunWorkflowTab", () => {
     expect(within(detail).getByText("Dedup")).toBeInTheDocument();
   });
 
+  it("renders member inventory with the common rule table without invented status or times", () => {
+    render(<RunWorkflowTab progress={null} rules={[{rule: "mapping", status: "running", snakemake_jobid: "1", execution_group: "group-a", execution_group_members: [{rule: "mapping", snakemake_jobid: "1"}, {rule: "Dedup", snakemake_jobid: "2"}]}]} />);
+    fireEvent.click(screen.getByRole("button", {name: /Execution group/}));
+    const members = screen.getByRole("table", {name: "Execution group members"});
+    expect(members).toHaveClass("rule-instance-table");
+    const child = within(members).getByText("Dedup").closest("tr")!;
+    expect(within(child).getByText("unknown")).toBeInTheDocument();
+    expect(within(child).queryByText("running")).not.toBeInTheDocument();
+    expect(child.querySelectorAll("td")[7]).toHaveTextContent("-");
+    expect(child.querySelectorAll("td")[9]).toHaveTextContent("-");
+  });
+
+  it("keeps opaque origin only inside closed diagnostic details", () => {
+    render(<RunWorkflowTab progress={null} rules={[{rule: "mapping", status: "running", snakemake_jobid: "1", origin: "master:opaque"}]} />);
+    expect(screen.getByRole("columnheader", {name: "Job"})).toBeInTheDocument();
+    const origin = screen.getByText("master:opaque");
+    expect(origin.closest("details")).not.toBeNull();
+    expect(origin.closest("details")).not.toHaveAttribute("open");
+    expect(origin.closest("td")).not.toHaveTextContent(/^1master/);
+  });
+
   it("summarizes completed and canceled terminal members as canceled", () => {
     render(<RunWorkflowTab progress={null} rules={[{rule: "a", phase: "Mapping", status: "success"}, {rule: "b", phase: "Mapping", status: "canceled"}]} />);
     const summary = screen.getByRole("table", {name: /Pipeline phase summary/i});

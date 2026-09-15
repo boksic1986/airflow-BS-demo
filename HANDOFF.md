@@ -1,5 +1,28 @@
 # HANDOFF.md
 
+## 2026-09-15 WGS evidence repair candidate (Git integration authorized)
+
+Latest user instruction authorizes syncing prior repairs to main/production,
+superseding the earlier wait for0911A/0912D before commit. No deployment,
+service restart/prepare/pending/CCE085 work. Isolated local worktree
+wgs-evidence-repair-20260915, branch jiucheng/fix/wgs-evidence-20260915 base0860412.
+Changed observer projection, phase registry/policy, RunWorkflowTab/shared table,
+two new backend test files plus existing observer/UI tests and API/UI/runtime/state/release docs.
+No DB migration, direct DB access, live receipt edit or analysis action.
+BS10610 final cached isolated backend115, UI11 and build passed; RED reproduced.
+One failed scp was corrected with checksum verification; no Docker Hub pulls.
+BS96 read-only API44total/44items:23groups,0inventories; no made-up child evidence.
+Independent review caught an older matching-terminal file/lease enrichment
+regression; strengthened fixture reproduced it, corrected guard preserves existing
+enrichment without reversing aggregate state/time. Malformed worker dict guard
+also tested. Reviewer rechecked and found no remaining P1/P2; no browser/production acceptance. Exact paths,
+commands, scope and test limitations are in
+docs/releases/2026-09-15-wgs-evidence-projection-repair.md.
+Next: verify the integrated source, preserve existing main release documentation,
+then publish main/production together. Production runtime rollout remains
+separately gated. Rollback code only; preserve all workflow/data state.
+
+
 ## 2026-09-14 approved GATK retry, resume, Step7 and Sample repair
 
 LATEST:code0436dce committed and deployed; six affected control-plane services

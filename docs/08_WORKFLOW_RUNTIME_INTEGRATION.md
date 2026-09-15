@@ -1,5 +1,14 @@
 # Workflow runtime integration
 
+WGS-EVIDENCE-20260915 (source only): the observer can recognize a legacy
+same-attempt Step1/5 restart from the existing registered request and worker
+launch sidecar, including retry_no0. Exact identity/hash and a launch after the
+failed projection are required; old status/progress cannot reopen success.
+This is read-model recovery only: no gate, receipt format, prepare, pending,
+Master or CCE producer changes. Current API group-only evidence with an empty
+member inventory remains explicitly unavailable rather than fabricated.
+
+
 REL-02 (2026-09-15, source only): `wgs_local_runtime_gate.py` initializes
 `TZ=Asia/Shanghai` and calls POSIX `time.tzset()` before local dispatch/worker
 entry. Background workers inherit it; local analysis subprocess environments

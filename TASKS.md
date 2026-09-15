@@ -1,5 +1,18 @@
 # TASKS.md
 
+## WGS-EVIDENCE-20260915 (source only)
+
+- [x] Reproduce and repair legacy same-attempt failed transfer projection with
+  validated worker/request identity; preserve success and stale/attempt fences.
+- [x] Audit34bfcbf phase source blobs; explicitly register equivalent inventory.
+- [x] Reuse rule table for group inventory; move opaque origin into diagnostics.
+- [x] BS10610 final targeted backend115, UI11 and build pass.
+- [x] Independent review and matching-terminal enrichment correction; final hand-off.
+- [ ] Integrate prior repairs into main/production under latest explicit Git approval.
+- [ ] Separate production deployment approval/verification; no services changed.
+- Current0911A API member inventory absent; do not fabricate or restart its Master.
+
+
 ## RECOVERY-LIFECYCLE-20260914 (in progress)
 
 Immediate approved implementation:network retry, same-attempt0823A resume,

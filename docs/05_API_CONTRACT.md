@@ -1,5 +1,17 @@
 # API contract
 
+## WGS evidence projection repair (2026-09-15, not deployed)
+
+Legacy Step1/5 same-attempt recovery may use matching registered request SHA and
+worker launch identity/time when retry_no is zero. Only a verified launch after
+the failed stage can reopen its projection; stale and cross-attempt evidence
+cannot, and success remains monotonic. Reopened transfer/stage start reflects
+that launch, old end fields clear. Progress alone is not restart authority.
+No new endpoint, schema, execution authorization or source receipt mutation.
+Fine phases additionally support wgs-4.2.1-34bfcbf through verified identical
+source blobs; unregistered releases and rules still return Unknown.
+
+
 ## LEDGER-01 current pending presentation (not deployed)
 
 GET /api/sample-references with pending=true now requires

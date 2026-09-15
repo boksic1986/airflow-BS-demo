@@ -1,5 +1,19 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 WGS evidence repair: Git integration authorized, deployment deferred
+
+Independent branch jiucheng/fix/wgs-evidence-20260915 (base0860412) implements
+verified legacy transfer restart projection, audited34bfcbf phases and shared
+group inventory table/closed origin diagnostics. BS10610 final backend115 and UI11
+pass; build passes. No service/runtime/prepare/pending change.
+Current0911A API has23 group-marked rows but no member inventory in44total rows;
+missing producer/API evidence remains a limitation. Independent review complete;
+its matching-terminal file-enrichment regression was reproduced and corrected.
+See docs/releases/2026-09-15-wgs-evidence-projection-repair.md. The latest user
+instruction authorizes Git synchronization of prior repairs to main and production,
+superseding the earlier commit wait. Production deployment still needs approval.
+
+
 ## 2026-09-14 selective deployed-code promotion
 
 Promoted original-file ledger and compact Samples/Rules controls from verified

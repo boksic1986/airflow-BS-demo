@@ -1017,6 +1017,11 @@ def test_older_terminal_progress_backfills_nonterminal_file_rows(
     progress_at = datetime(2026, 9, 5, 16, 5, 54, tzinfo=timezone.utc)
     aggregate_at = progress_at + timedelta(seconds=4)
     with sessions() as session:
+        # Real aggregate status ingestion also persists the stage projection.
+        upsert_stage_state(
+            session, analysis_id=analysis_id, attempt=1,
+            stage_code="step1_upload", stage_status="success", updated_at=aggregate_at,
+        )
         run = session.scalar(
             select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id)
         )

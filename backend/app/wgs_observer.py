@@ -495,6 +495,51 @@ def sync_runtime_stage_artifacts(
     return result
 
 
+def _legacy_transfer_worker_start(request_root: Path, payload: dict) -> datetime | None:
+    """Read launch evidence, never infer a restart from progress or file mtime."""
+    identity = {key: payload.get(key) for key in ("analysis_id", "attempt", "stage")}
+    folder = request_root / str(identity["analysis_id"]) / f"attempt-{identity['attempt']}"
+    stage = str(identity["stage"])
+    request_path, worker_path = folder / f"{stage}.json", folder / f"{stage}.worker.json"
+    try:
+        if any(path.is_symlink() or request_root not in path.resolve().parents
+               for path in (request_path, worker_path)):
+            return None
+        raw_request = request_path.read_bytes()
+        request, worker = json.loads(raw_request), json.loads(worker_path.read_text())
+        if not isinstance(request, dict) or not isinstance(worker, dict):
+            return None
+        if any(value.get(key) != expected for value in (request, worker)
+               for key, expected in identity.items()):
+            return None
+        if int(request.get("orchestration_contract_version") or 1) != 1:
+            return None
+        if worker.get("request_sha256") != hashlib.sha256(raw_request).hexdigest():
+            return None
+        if not (type(worker.get("pid")) is int and worker["pid"] > 0
+                and worker.get("boot_id") and worker.get("process_start_time")):
+            return None
+        started = datetime.fromisoformat(str(worker["started_at"]).replace("Z", "+00:00"))
+        return started if started.tzinfo else None
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
+
+
+def _stage_rejects_transfer_update(
+    stage_row, status: str, heartbeat: datetime, *, retry=False, allow_terminal_backfill=False,
+) -> bool:
+    if stage_row is None:
+        return False
+    terminal = _canonical_terminal_status(stage_row.stage_status)
+    matching_terminal = terminal is not None and terminal == _canonical_terminal_status(status)
+    previous = stage_row.updated_at
+    if previous is not None and heartbeat < previous.replace(tzinfo=previous.tzinfo or timezone.utc):
+        if not (allow_terminal_backfill and matching_terminal):
+            return True
+    return (terminal is not None and terminal != _canonical_terminal_status(status)
+            and not (terminal == "failed" and retry))
+
+
 def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path) -> bool:
     resolved = path.resolve()
     if request_root not in resolved.parents:
@@ -698,13 +743,29 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                     RunStageState.stage_code == stage,
                 )
             )
+            worker_start = None if contract_v2 else _legacy_transfer_worker_start(request_root, payload)
+            if worker_start is not None and heartbeat < worker_start:
+                return False
+            previous_end = current_stage_row.updated_at if current_stage_row is not None else None
+            legacy_restart = bool(
+                worker_start is not None and previous_end is not None
+                and _canonical_terminal_status(current_stage_row.stage_status) == "failed"
+                and worker_start > previous_end.replace(tzinfo=previous_end.tzinfo or timezone.utc)
+            )
+            allow_retry = retry_no > 0 or legacy_restart
+            if _stage_rejects_transfer_update(current_stage_row, status, heartbeat, retry=allow_retry):
+                return False
+            if row is not None and (row.analysis_id != analysis_id or row.attempt != attempt):
+                raise ValueError("transfer_id is already bound to another attempt")
+            if row is not None and _canonical_terminal_status(row.status) == "success" and _canonical_terminal_status(status) != "success":
+                return False
             if row is not None and row.heartbeat_at is not None:
                 previous = row.heartbeat_at
                 if previous.tzinfo is None:
                     previous = previous.replace(tzinfo=timezone.utc)
                 retry_projection_pending = (
                     heartbeat == previous
-                    and retry_no > 0
+                    and allow_retry
                     and current_stage_row is not None
                     and _canonical_terminal_status(current_stage_row.stage_status)
                     == "failed"
@@ -748,6 +809,9 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                     heartbeat=heartbeat,
                 )
             row.heartbeat_at = heartbeat
+            if legacy_restart:
+                row.started_at = worker_start
+                row.ended_at = None
             if status in {"accepted", "submitted", "queued", "running", "started"} and row.started_at is None:
                 row.started_at = heartbeat
             if _canonical_terminal_status(status) is not None:
@@ -783,7 +847,8 @@ def _ingest_runtime_stage_status(session_factory, request_root: Path, path: Path
                 evidence_key=str(resolved.relative_to(request_root)),
                 receipt_hash=terminal_receipt_hash,
                 progress_source=progress_source,
-                allow_terminal_retry=retry_no > 0,
+                allow_terminal_retry=allow_retry,
+                restart_started_at=worker_start if legacy_restart else None,
             )
         elif stage == "step7_cleanup":
             action_query = select(WgsMaintenanceAction).where(
@@ -1121,6 +1186,19 @@ def _ingest_transfer_progress(session_factory, spool_root: Path, path: Path) -> 
             ) is None:
                 return False
         row = session.scalar(select(TransferJob).where(TransferJob.transfer_id == str(payload["transfer_id"])))
+        stage_code = "step1_upload" if str(payload.get("direction")) == "upload" else "step5_download"
+        stage_row = session.scalar(select(RunStageState).where(
+            RunStageState.analysis_id == analysis.analysis_id,
+            RunStageState.attempt == analysis.attempt,
+            RunStageState.stage_code == stage_code,
+        ))
+        # Progress alone cannot authorize reopening a failed execution or undo success.
+        if _stage_rejects_transfer_update(
+            stage_row, str(payload["status"]), heartbeat, allow_terminal_backfill=True,
+        ):
+            return False
+        if row is not None and _canonical_terminal_status(row.status) == "success" and _canonical_terminal_status(str(payload["status"])) != "success":
+            return False
         if row is not None and row.heartbeat_at is not None:
             previous = row.heartbeat_at if row.heartbeat_at.tzinfo else row.heartbeat_at.replace(tzinfo=timezone.utc)
             files = payload.get("files") if isinstance(payload.get("files"), list) else []
@@ -1314,6 +1392,7 @@ def upsert_stage_state(
     evidence_key: str | None = None,
     progress_source: str = "wgs-runtime.stage-status.v1",
     allow_terminal_retry: bool = False,
+    restart_started_at: datetime | None = None,
     receipt_hash: str | None = None,
 ) -> RunStageState:
     definition = wgs_stage_definition(stage_code)
@@ -1358,6 +1437,9 @@ def upsert_stage_state(
             # generation and positive retry_no prove this is newer execution.
             if incoming_terminal is None or incoming_terminal != previous_terminal:
                 return row
+        if retrying_failed_stage:
+            row.started_at = restart_started_at or updated_at
+            row.ended_at = None
     row.stage_status = stage_status
     row.progress_available = progress_available
     row.progress_percent = progress_percent if progress_available else None

@@ -1,4 +1,4 @@
-import {useMemo, useState} from "react";
+import {Fragment, useMemo, useState} from "react";
 
 import type {AirflowTaskProgress, RuleEvent, RulePage, RuleQuery, RunProgressResponse} from "../../api";
 import {EstimatedStageProgress} from "../../components/EstimatedStageProgress";
@@ -100,20 +100,41 @@ export function RunWorkflowTab({progress, rules, onOpenLog, page, query, onQuery
           <label>Sample<input aria-label="Sample" value={query?.sampleId ?? sampleFilter} onChange={(e) => change("sampleId", e.target.value)} placeholder="Exact sample ID" /></label>
           <label>Family<input aria-label="Family" value={query?.familyId ?? familyFilter} onChange={(e) => change("familyId", e.target.value)} placeholder="Exact family ID" /></label>
         </div>
-        <div className="table-wrap"><table className="data-table rule-instance-table" aria-label="Pipeline rule instances">
-          <thead><tr>{["Phase", "Rule", "Sample", "Family", "Order", "Job / origin", "Status", "Started", "Finished", "Elapsed", "Remaining", "Message / failure excerpt"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
-          <tbody>{filteredRules.map((rule, index) => <tr key={JSON.stringify([rule.attempt, rule.rule_instance_id || [rule.rule, rule.sample_id, rule.family_id, rule.sequence, rule.snakemake_jobid, index]])}>
-            <td>{rule.phase || "Unknown"}</td><td className="rule-name-cell">{rule.rule}</td><td>{rule.sample_id || "-"}</td><td>{rule.family_id || "-"}</td><td>{rule.sequence ?? "-"}</td>
-            <td>{rule.snakemake_jobid || "-"}{rule.origin ? <small>{rule.origin}</small> : null}{rule.execution_group ? <details><summary>Execution group</summary><span>{rule.execution_group}</span>{rule.execution_group_members?.length ? <ul>{rule.execution_group_members.map((member, index) => <li key={`${member.rule}:${member.snakemake_jobid}:${index}`}><span>{member.rule}</span> · job {member.snakemake_jobid || "unknown"}</li>)}</ul> : <p>Member inventory unavailable in this event stream.</p>}<p>Group start is not an individual rule start.</p></details> : null}</td>
-            <td><StatusBadge status={displayRuleStatus(rule.status)} />{rule.status_inferred ? <small>Inferred from run success</small> : null}</td>
-            <td>{rule.started_at || rule.start_time ? formatDate(rule.started_at || rule.start_time) : "-"}</td><td>{rule.ended_at || rule.end_time ? formatDate(rule.ended_at || rule.end_time) : "-"}</td><td>{duration(rule.elapsed_seconds)}</td><td>{duration(rule.estimated_remaining_seconds)}</td>
-            <td className="rule-message-cell">{rule.stderr_excerpt ? <details><summary>{rule.message || "Show failure excerpt"}</summary><pre>{rule.stderr_excerpt}</pre></details> : (rule.message || "-")}{rule.analysis_log_key && onOpenLog ? <button type="button" className="text-button" aria-label={`Open log for ${rule.rule}`} onClick={() => onOpenLog(rule.analysis_log_key!)}>Open log</button> : null}</td>
-          </tr>)}{filteredRules.length === 0 ? <tr><td colSpan={12} className="empty-cell">No matching Rule instances.</td></tr> : null}</tbody>
-        </table></div>
+        <RuleInstanceTable rules={filteredRules} onOpenLog={onOpenLog} />
         {page && onQueryChange ? <nav aria-label="Rule pages"><button disabled={page.offset === 0} onClick={() => onQueryChange({...query, offset: Math.max(0, page.offset - page.limit)})}>Previous</button><span>{page.total ? page.offset + 1 : 0}–{Math.min(page.offset + page.items.length, page.total)} of {page.total}</span><button disabled={page.offset + page.limit >= page.total} onClick={() => onQueryChange({...query, offset: page.offset + page.limit})}>Next</button></nav> : null}
       </section>
     </div>
   );
+}
+
+function RuleInstanceTable({rules, onOpenLog, membersOnly = false}: {
+  rules: RuleEvent[];
+  onOpenLog?: (key: string) => void;
+  membersOnly?: boolean;
+}) {
+  return <div className="table-wrap"><table className="data-table rule-instance-table" aria-label={membersOnly ? "Execution group members" : "Pipeline rule instances"}>
+    <thead><tr>{["Phase", "Rule", "Sample", "Family", "Order", "Job", "Status", "Started", "Finished", "Elapsed", "Remaining", "Message / failure excerpt"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+    <tbody>{rules.map((rule, index) => <Fragment key={JSON.stringify([rule.attempt, rule.rule_instance_id || [rule.rule, rule.sample_id, rule.family_id, rule.sequence, rule.snakemake_jobid, index]])}>
+      <tr>
+        <td>{rule.phase || "Unknown"}</td><td className="rule-name-cell">{rule.rule}</td><td>{rule.sample_id || "-"}</td><td>{rule.family_id || "-"}</td><td>{rule.sequence ?? "-"}</td>
+        <td>{rule.snakemake_jobid || "-"}</td>
+        <td><StatusBadge status={displayRuleStatus(rule.status)} />{rule.status_inferred ? <small>Inferred from run success</small> : null}</td>
+        <td>{rule.started_at || rule.start_time ? formatDate(rule.started_at || rule.start_time) : "-"}</td><td>{rule.ended_at || rule.end_time ? formatDate(rule.ended_at || rule.end_time) : "-"}</td><td>{duration(rule.elapsed_seconds)}</td><td>{duration(rule.estimated_remaining_seconds)}</td>
+        <td className="rule-message-cell">
+          {rule.stderr_excerpt ? <details><summary>{rule.message || "Show failure excerpt"}</summary><pre>{rule.stderr_excerpt}</pre></details> : (rule.message || "-")}
+          {rule.analysis_log_key && onOpenLog ? <button type="button" className="text-button" aria-label={`Open log for ${rule.rule}`} onClick={() => onOpenLog(rule.analysis_log_key!)}>Open log</button> : null}
+          {rule.origin ? <details><summary>Diagnostic details</summary><span>{rule.origin}</span></details> : null}
+        </td>
+      </tr>
+      {!membersOnly && rule.execution_group ? <tr><td colSpan={12}>
+        <details><summary role="button">Execution group · {rule.rule} · job {rule.snakemake_jobid || "unknown"}</summary>
+          <span>{rule.execution_group}</span>
+          <p>Member inventory only. Group start is not an individual rule start; uncollected status and times remain unknown.</p>
+          {rule.execution_group_members?.length ? <RuleInstanceTable membersOnly rules={rule.execution_group_members.map((member) => ({...member, attempt: rule.attempt, status: "unknown"}))} /> : <p>Member inventory unavailable in this event stream.</p>}
+        </details>
+      </td></tr> : null}
+    </Fragment>)}{rules.length === 0 ? <tr><td colSpan={12} className="empty-cell">No matching Rule instances.</td></tr> : null}</tbody>
+  </table></div>;
 }
 
 function duration(value?: number | null): string {

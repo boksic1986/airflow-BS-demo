@@ -1,5 +1,15 @@
 # Frontend specification
 
+## WGS rule evidence repair (2026-09-15, not deployed)
+
+Execution group inventory expands below its rule across the full table width,
+reusing the same rule table and StatusBadge. Inventory-only members have unknown
+status and no invented sample/time; missing inventory remains explicit. Main Job
+column contains only job ID. Opaque stream origin is retained in closed diagnostic
+details, not repeated in the main cell. Attempt identity preserves disclosures
+on refresh/reordering. No extra polling, CSS overlay or producer restart.
+
+
 ## LEDGER-01 Sample-aligned ledger (not deployed)
 
 Ledger uses Sample's sample-resource-table, common filters, pagination and
