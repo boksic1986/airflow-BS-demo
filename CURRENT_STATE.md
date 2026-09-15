@@ -1,5 +1,37 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 Rule-summary/Attempt Git integration (no deployment)
+
+User authorizes committing the two shared phase-summary corrections and Rules
+Attempt selector removal to main and jiucheng/release/production together.
+Preflight local main/production checkout and both remote branches match4b5234e;
+production checkout is clean. Only the scoped nine source/test/doc files are
+included; untracked .superpowers assets and original workspace remain untouched.
+Retain accepted BS10610 backend11/frontend2 results without redundant tests.
+Use fast-forward plus atomic dual-ref push and verify exact remote SHA afterward.
+No BS96 publication, production service/database/workflow or0911A operation.
+
+## 2026-09-15 Attempt selector removed; summary fixes accepted (source only)
+
+Removed only the Rules Attempt control and unused numeric filter conversion.
+Page retains current-attempt default; API history/identities/recovery unchanged.
+BS10610 SSH recovered; preceding summary fix now accepted: backend monitor_rules
+11 passed, two targeted frontend contracts passed. Actual server10610 fingerprint
+unchanged. No full suite, publication, production access, commit or main push.
+This supersedes the prior acceptance-blocked state below.
+
+## 2026-09-15 Rule phase summary isolation (source changed; acceptance blocked)
+
+Rules API now aggregates phase_summaries from the complete selected attempt,
+not filtered table rows. Filtered items/total retain their original semantics.
+Both Pipeline phases and phase summary already consume this shared field; no
+frontend runtime change, new API call, DAG/runtime/data change or production access.
+Added GATK/WGS endpoint regression and shared-view regression. BS10610 initial
+test exposed missing GATK registry in the fixture; fixture corrected locally.
+Subsequent SSH/SCP failed at the BS jump-host handshake, so corrected tests and
+fix have not been run remotely. Not committed, main-synchronized or deployed.
+
+
 ## 2026-09-15 QC/sample-flow Git promotion (no deployment)
 
 User authorizes main and production repository synchronization only. Promotion

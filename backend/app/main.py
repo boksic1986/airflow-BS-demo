@@ -1831,6 +1831,7 @@ def run_rules(
         require_pipeline(get_settings(), run.pipeline_name, capability="rules")
         selected_attempt = attempt if attempt is not None else int(run.attempt or 1)
         query = select(RuleState).where(RuleState.analysis_id == analysis_id, RuleState.attempt == selected_attempt)
+        summary_query = query  # Attempt-wide context; table filters must not alter phase totals.
         displayed_status = RuleState.status
         if selected_attempt == int(run.attempt or 1) and run.status == "success":
             displayed_status = case((RuleState.status.in_(("planned", "accepted", "pending", "queued", "submitted", "running", "started")), "success"), else_=RuleState.status)
@@ -1847,7 +1848,7 @@ def run_rules(
             names = session.scalars(query.with_only_columns(RuleState.rule_name).distinct()).all()
             query = query.where(RuleState.rule_name.in_([name for name in names if phase_for_rule(name, pipeline_name=run.pipeline_name, release_id=run_phase_release(run)) == phase]))
         phase_summaries = {}
-        for name, state, count in session.execute(query.with_only_columns(RuleState.rule_name, displayed_status, func.count()).group_by(RuleState.rule_name, displayed_status)):
+        for name, state, count in session.execute(summary_query.with_only_columns(RuleState.rule_name, displayed_status, func.count()).group_by(RuleState.rule_name, displayed_status)):
             label = phase_for_rule(name, pipeline_name=run.pipeline_name, release_id=run_phase_release(run))
             summary = phase_summaries.setdefault(label, dict(phase=label, total=0, running=0, success=0, failed=0, canceled=0, skipped=0))
             summary["total"] += count
@@ -1857,7 +1858,7 @@ def run_rules(
         for summary in phase_summaries.values():
             terminal = summary["success"] + summary["canceled"] + summary["skipped"]
             summary["status"] = "failed" if summary["failed"] else "running" if summary["running"] else "planned" if terminal < summary["total"] else "canceled" if summary["canceled"] else "success" if summary["success"] else "skipped"
-        total = sum(summary["total"] for summary in phase_summaries.values())
+        total = session.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
         ordering = []
         if sort == "active_first":
             ordering.append(

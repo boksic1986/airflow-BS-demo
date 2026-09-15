@@ -1,5 +1,85 @@
 # HANDOFF.md
 
+## 2026-09-15 Authorized rule-summary/Attempt source integration
+
+Scope: commit and merge the preceding shared-summary and Attempt-selector fixes
+to main and production branch. No96 release requested or performed. Preflight
+origin/main, origin/jiucheng/release/production, editing HEAD and clean production
+checkout all4b5234e162c0b016e8d7bf773ef23c8317aa5d34. Fresh diff check passed;
+accepted BS10610 backend11/frontend2 source unchanged, no redundant tests.
+Only nine scoped source/test/doc files staged; .superpowers not included.
+Review scoped changes, then ff-only merge in D:/pipeline/airflow-demo-production
+and atomic main+production push; final tool receipt verifies exact remote SHA
+and clean production checkout. Preserve working branch/worktree and unrelated
+original workspace. No credentials/patient data, service, DB, pending, CCE or
+0911A operation. Rollback by a scoped Git revert; runtime rollback unnecessary.
+
+## 2026-09-15 Attempt selector removed; preceding summary regression accepted
+
+User asks to remove Rules Attempt filtering. Removed its select and unused
+numeric conversion from RunWorkflowTab; remaining four filters/pagination use
+the current-attempt API default. API history, run identity and resume unchanged.
+Updated existing frontend query regression to assert no Attempt control; added
+summary-view test from prior slice still covers both displays. UI/state/tasks/
+handoff updated; other preceding uncommitted summary changes preserved.
+
+SSH recovered. BS10610/server10610 rechecked: same control/current/backend mount
+as preceding entry; execution true, scan/auto false. Isolated candidate only,
+no service changes or production calls. Fixed test-only registry settings and
+missing GATK request/evidence paths (all synthetic temporary paths). Before the
+fix, WGS and GATK both demonstrated the actual filtered-summary assertion failure;
+frontend absence assertion failed against the old select. Then copied source fix.
+Backend image t235-232154f: pytest -q -p no:cacheprovider --tb=short
+tests/test_monitor_rules.py =>11 passed (existing Starlette deprecation warning).
+Node22-lock-35420d5e3ec0: npm test -- --run
+src/features/run-detail/RunWorkflowTab.test.tsx -t 'passes running|uses attempt-wide'
+=>2 passed,5 deselected. Tests use offline ephemeral containers, read-only source,
+no production DB/network/workflows. No full suite/build: narrow query/control
+changes covered by targeted tests, per user's minimal-validation constraint.
+
+Both source fixes now accepted, superseding the previous blocked acceptance.
+Not committed, synchronized to main, or deployed. No BS96/0911A/task/data action.
+Next: user-authorized source integration/publication only when requested.
+Rollback these scoped diffs; production runtime has not changed.
+
+## 2026-09-15 Rule phase summary filter isolation; test transport blocked
+
+User requests both Pipeline phases and Pipeline phase summary to remain global
+when lower rule-table filters change. Root cause: run_rules in backend/app/main.py
+aggregated from query after status/phase/sample/family/rule filters. Capture the
+immutable attempt-scoped SQL query before filters; aggregate from that, and use
+a separate filtered count for pagination. Existing displayed-status reconciliation
+and selected attempt remain unchanged. Both frontend views already share the API
+summary; no production frontend change or extra polling/API request needed.
+
+Changed main.py, backend/tests/test_monitor_rules.py, RunWorkflowTab.test.tsx,
+API/UI contracts and state/task/handoff docs. New tests cover GATK and WGS,
+running/success/all/empty filters, phase/sample/family/rule, pagination, historical
+attempt isolation, and both phase displays. Source base4b5234e; existing isolated
+branch jiucheng/fix/wgs-eta-20260915; untracked .superpowers assets preserved.
+
+BS10610 preflight: hostname server10610; control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; current20260912-opt-4d3d24e6,
+actual backend mount20260913-panel-1fb971b/backend. Execution true, scan/auto false.
+No running service or gate changes. Created isolated candidate
+candidates/rule-summary-20260915 from tracked source plus new backend test.
+Offline ephemeral backend image t235-232154f, read-only source/config, synthetic
+SQLite fixture and tmpfs only. Initial pytest -k summary_ignores:2 failed because
+fixture enabled GATK without registry path; not yet a valid failing regression.
+Added config/pipelines.yaml fixture path locally. Subsequent SCP/SSH retries fail
+before authentication at172.17.61.18:22 with kex/banner Connection aborted/reset
+(SCP exit1). No corrected test, source fix or frontend test reached the candidate.
+Do not treat the initial failures as acceptance or a reproduced assertion bug.
+
+Next after SSH recovers: copy corrected backend test, run its two cases against
+unchanged candidate main.py to establish red; copy fixed main.py and run the
+single test_monitor_rules.py file. Copy frontend test and run only the added
+shared-view case in node22-lock-35420d5e3ec0 builder. No full/build/live tests needed
+for the unchanged frontend runtime; local execution prohibited by project boundary.
+No production/96 access, main synchronization, commit, data or workflow operation.
+Rollback only this scoped source diff; no runtime rollback is necessary.
+
+
 ## 2026-09-15 user-authorized QC/sample-flow Git synchronization
 
 Scope: synchronize main and production repository only. Source commits4366de6

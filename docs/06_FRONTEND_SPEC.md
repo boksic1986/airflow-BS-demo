@@ -1,5 +1,15 @@
 # Frontend specification
 
+## Rule summary filter isolation (2026-09-15, source only)
+
+Pipeline phases and Pipeline phase summary both reuse the existing API
+phase_summaries for the full selected attempt. Status/phase/sample/family/rule
+filters and pagination affect only the lower rule table, not either summary.
+The Rules toolbar has only Phase, Status, Sample and Family; the Attempt
+selector is removed. The page uses the API's current-attempt default. Historical
+attempt API support and stored evidence remain intact; live refresh still updates
+actual counts. No new request, polling loop or frontend aggregation formula.
+
 ## Sample flow compact table (2026-09-15, source only)
 
 Latest user supersedes expandable ledger details: primary tab/heading 样本流转,

@@ -1,5 +1,24 @@
 # TASKS.md
 
+## RULE-SUMMARY-GIT-SYNC-20260915
+
+- [x] User explicitly authorizes combined main/production source integration.
+- [x] Verify clean production checkout and equal local/remote base4b5234e.
+- Include rule summary isolation, both shared phase displays and Attempt removal.
+- Commit scoped files; fast-forward main and atomically push both remote refs.
+- Verify resulting SHA equality; no production deployment or repeated tests.
+
+## RULE-SUMMARY-FILTER-20260915
+
+- [x] Follow-up: remove Rules Attempt selector only; retain API history and current default.
+
+- [x] Trace both phase displays to the same filtered API aggregate.
+- [x] Separate attempt-wide summaries from filtered row count/page; no new endpoint.
+- [x] Add GATK/WGS filter/attempt and shared-view regressions, update API/UI contracts.
+- [x] BS10610 acceptance after SSH recovery: backend11/frontend2 passed.
+- No production deployment, workflow action, schema/data change or main push.
+
+
 ## QC-SAMPLE-FLOW-GIT-SYNC-20260915
 
 - [x] Confirm clean production checkout and equal main/production basea0ff5c9.

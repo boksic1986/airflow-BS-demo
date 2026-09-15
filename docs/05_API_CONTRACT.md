@@ -237,7 +237,10 @@ namespace occupancy. One grouped work Job uses one lease; not per-rule quota.
 `GET /api/runs/{id}/rules` defaults to the current attempt; optional positive
 `attempt=N` selects history. Exact sample_id and family_id filters are ANDed.
 Response adds attempt, current_attempt, attempts and phase_summaries computed
-over the complete filtered query before pagination. Status filtering uses the
+over every rule in the selected attempt, independent of status, rule, phase,
+sample_id, family_id, sort and pagination. Only items and total apply those row
+filters; an empty filtered page still carries the full attempt summary.
+Status filtering and summaries use the
 same current-attempt success reconciliation as serialized rows. Historical
 attempts never inherit current run success. Rows add status_inferred, origin
 (role plus opaque stream hash), execution_group and timing_provenance.
