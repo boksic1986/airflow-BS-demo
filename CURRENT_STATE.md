@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 prior repairs Git integration (not deployed)
+
+Latest user explicitly requests prior repairs on main and the production repo.
+Integrate c353ef6,76d58d5,33598aa,0860412 and3091b2c, retaining main93ad66c release
+documentation and both histories. GATK/download/resource fixes are already in
+main. Exclude CCE085 and unrelated dirty development/recovery notes. Fresh isolated
+BS10610 checks:136 backend/runtime,40 affected DAG,16 UI passed; build passed.
+Two broader deployment-contract failures reproduce on unchanged main; cached
+Airflow lacks pytest for another module. Not a full-suite-green claim.
+Only Git source changes; BS96 services, gates and running workflows untouched.
+See docs/releases/2026-09-15-prior-fixes-git-sync.md.
+
 ## 2026-09-15 WGS evidence repair: Git integration authorized, deployment deferred
 
 Independent branch jiucheng/fix/wgs-evidence-20260915 (base0860412) implements
@@ -12,6 +24,18 @@ its matching-terminal file-enrichment regression was reproduced and corrected.
 See docs/releases/2026-09-15-wgs-evidence-projection-repair.md. The latest user
 instruction authorizes Git synchronization of prior repairs to main and production,
 superseding the earlier commit wait. Production deployment still needs approval.
+
+## 2026-09-15 production source synchronization
+
+User requested Git synchronization only. Production checkout
+`D:/pipeline/airflow-demo-production` main fast-forwarded from8e0d79a to8cbcd60,
+including deployed GATK Step5 progress b841d2a/receipt5dadb58 and resource loading
+8cbcd60. This entry is a documentation-only synchronization receipt; code tree
+is unchanged from8cbcd60. Main and production release branch are published together.
+Fresh server96 checks matched86 backend/GATK DAG files, served JS/CSS release
+hashes and resource gzip block; node200/t640 gate matchedd82bf7722b80.
+No runtime deployment, service restart, database/pending mutation or analysis.
+Uncommitted repair plans and operational notes remain in the recovery worktree.
 
 
 ## 2026-09-14 selective deployed-code promotion

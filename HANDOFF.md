@@ -1,5 +1,34 @@
 # HANDOFF.md
 
+## 2026-09-15 prior-fixes Git integration
+
+Authority: latest user requests prior fixes on main and production repository;
+this overrides earlier commit delay, not the production deployment gate.
+Merge evidence3091b2c/recovery0860412 with main93ad66c on the evidence branch.
+Only three additive state-document conflicts; retain both entries and SERVER_INFO.
+Source matches tested staged tree198bb7a519f644a2d68a092e49dd187081143812.
+Clean normal production checkout remains D:/pipeline/airflow-demo-production.
+Both main and jiucheng/release/production are to advance together without force.
+No recovery dirty notes, private archives or CCE085 branch are included.
+
+Fresh BS10610/server10610 preflight confirms currentopt4d3d24e6, backendpanel1fb971b,
+workerGATK81587fcb, scanfalse/autofalse. Candidate git-sync-20260915 isolated under
+the approved control root; cached images only, networknone/pullnever, no credentials
+or live data mounts.136 backend/runtime tests,40 affected DAG tests,16 UI tests
+and TypeScript/Vite build passed. Broad DAG discovery failed: two old deployment
+assertions also fail on unchanged main93ad66c; cached Airflow lacks pytest for
+host-runner module. Do not report whole-suite acceptance. No dependencies installed.
+Synthetic evidence directory was inadvertently set0777 then immediately corrected
+to0775; no shared/runtime path permission changed. No other command failure.
+
+No BS96 access/deployment/restart, database/pending modification, task clear or
+workflow submission in this integration. Runtime remains separately pinned and
+not necessarily equal to main. Full biological/browser/production acceptance not
+run: outside Git-only authority. Next: verify both remote refs and clean production
+checkout; later scoped rollout needs fresh approval/preflight. Code rollback uses
+reviewed revert; preserve all workflow data/history and other worktrees.
+Detailed commands/results: docs/releases/2026-09-15-prior-fixes-git-sync.md.
+
 ## 2026-09-15 WGS evidence repair candidate (Git integration authorized)
 
 Latest user instruction authorizes syncing prior repairs to main/production,
@@ -21,6 +50,36 @@ docs/releases/2026-09-15-wgs-evidence-projection-repair.md.
 Next: verify the integrated source, preserve existing main release documentation,
 then publish main/production together. Production runtime rollout remains
 separately gated. Rollback code only; preserve all workflow/data state.
+
+## 2026-09-15 production Git synchronization
+
+Authority: user explicitly requested production code to main and production repo.
+Clean checkout D:/pipeline/airflow-demo-production was main8e0d79a, equal to both
+origin/main and origin/jiucheng/release/production after fetch. Fast-forward to
+8cbcd60 incorporates only b841d2a,5dadb58,8cbcd60 already deployed changes.
+Added this receipt in CURRENT_STATE/TASKS/HANDOFF and SERVER_INFO; excluded all
+dirty recovery/development files, pending data, private helpers and repair plan.
+
+Read-only production fingerprint: BS96=server96/ctapa; current remains
+/data/airflow-WGS/releases/20260912-panel-opt-4d3d24e6. Backend/observer actually
+mount releases/20260914-gatk-recovery-0436dce/backend.86 backend/app and GATK DAG
+file SHA256 comparisons match recovery code (local CRLF normalized). Frontend
+ddba6fa13eed serves resource overlay index-DFs-sj5Z.js SHA84da2025861d52ebdeea056855f28d8df2991efa598d13784c1d225adb24dacc
+and unchanged CSS SHAed4e11e3c3bbbbdecbf78a0107bb9800b332d9045c640d464f777348ec5cf291.
+Exact resources gzip block verified; live allowlist untouched. Node200/t640 GATK
+gate SHAd82bf7722b80758667a5561f981b01802ad097c4fbfedf5025da6c0b4fb229e2 matchesb841d2a.
+Historical service-specific scanner/ledger/probe mounts intentionally retained.
+
+Checks: git fetch, clean-checkout check, ancestor checks, source hashes and
+git diff --check. Tests/build not rerun: source is already deployed/tested,
+this operation only promotes exact commits plus documentation; original results
+are in docs/releases/2026-09-14-gatk-step5-download-progress.md and
+docs/releases/2026-09-15-resource-loading.md. No services/gates/DB/pending changed.
+Publish main and production branch atomically without force, then verify remote
+SHA and clean checkout. Rollback is reviewed Git revert, not runtime rollback.
+Open: planned reliability/ledger/QC fixes are not included or claimed complete.
+Local inspection typos (First=sixty; wildcard passed to rg) failed without writes;
+corrected to numeric range and explicit known paths, no remote failures.
 
 
 ## 2026-09-14 approved GATK retry, resume, Step7 and Sample repair

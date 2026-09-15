@@ -1,5 +1,14 @@
 # TASKS.md
 
+## PRIOR-FIXES-GIT-SYNC-20260915
+
+- [x] Confirm explicit Git-only authority, clean production checkout and exact scope.
+- [x] Fresh BS10610 isolated136 backend/runtime,40 DAG,16 UI and build checks.
+- [x] Preserve main93ad66c documentation; no source conflict or unrelated CCE085 merge.
+- [ ] Fast-forward main and production release branch; atomic push and ref verification.
+- No BS96 deployment/restart, pending operation, analysis action or worktree cleanup.
+- Known baseline deployment-contract failures remain outside this repair sync.
+
 ## WGS-EVIDENCE-20260915 (source only)
 
 - [x] Reproduce and repair legacy same-attempt failed transfer projection with
@@ -8,9 +17,18 @@
 - [x] Reuse rule table for group inventory; move opaque origin into diagnostics.
 - [x] BS10610 final targeted backend115, UI11 and build pass.
 - [x] Independent review and matching-terminal enrichment correction; final hand-off.
-- [ ] Integrate prior repairs into main/production under latest explicit Git approval.
+- [x] Commit prior repairs under latest explicit Git approval; publication tracked above.
 - [ ] Separate production deployment approval/verification; no services changed.
 - Current0911A API member inventory absent; do not fabricate or restart its Master.
+
+## PROD-GIT-SYNC-20260915
+
+- [x] Verify deployed server96 backend/DAG/static resource and node200 gate hashes.
+- [x] Fast-forward clean production main to deployed code8cbcd60, retaining history.
+- Publish this documentation receipt with main and jiucheng/release/production
+  in one normal atomic push; verify both remote SHA values after publication.
+- No runtime code changes or new acceptance run: retain original bounded test
+  evidence in the Step5 download and resource-loading release records.
 
 
 ## RECOVERY-LIFECYCLE-20260914 (in progress)
