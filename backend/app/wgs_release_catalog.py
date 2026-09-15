@@ -89,14 +89,14 @@ def load_wgs_release_catalog(path: Path | str) -> WgsReleaseCatalog:
         raw = payload.get("release")
         if not isinstance(raw, dict):
             raise ValueError("WGS release catalog requires one release mapping")
-        release = _parse_release(raw)
+        release = parse_wgs_release(raw)
         return WgsReleaseCatalog(release=release, releases=(release,))
     if schema_version != "4":
         raise ValueError("WGS release catalog schema_version must be 3 or 4")
     raw_releases = payload.get("releases")
     if not isinstance(raw_releases, list) or not raw_releases:
         raise ValueError("WGS release catalog requires releases")
-    releases = tuple(_parse_release(raw) for raw in raw_releases if isinstance(raw, dict))
+    releases = tuple(parse_wgs_release(raw) for raw in raw_releases if isinstance(raw, dict))
     if len(releases) != len(raw_releases):
         raise ValueError("WGS release catalog entries must be mappings")
     if len({item.release_id for item in releases}) != len(releases):
@@ -111,7 +111,7 @@ def load_wgs_release_catalog(path: Path | str) -> WgsReleaseCatalog:
     return WgsReleaseCatalog(release=current, releases=releases)
 
 
-def _parse_release(raw: dict[str, object]) -> WgsRelease:
+def parse_wgs_release(raw: dict[str, object]) -> WgsRelease:
     release = WgsRelease(
         release_id=str(raw.get("release_id") or ""),
         version=str(raw.get("version") or ""),

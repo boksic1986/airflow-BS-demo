@@ -1,5 +1,34 @@
 # HANDOFF.md
 
+## 2026-09-15 CCE0.8.5 paired API integration
+
+Goal: finish the CCE/Airflow development integration after user confirms0.8.5
+complete, and include it in the previously requested main/production Git sync.
+Merged candidate73aa0ce into5241068 on the existing isolated delivery worktree.
+Backend config/routes/catalog/recovery service and new release management/tests
+are the original reviewed code. Five top-of-doc additive conflicts resolved by
+retaining both histories; no application code conflict or new business behavior.
+
+Read-only BS10610 preflight server10610/current20260912-opt-4d3d24e6; actual
+backend378bd2b8eb10 mounts20260913-panel-1fb971b, workerfdaf00067050 remains on
+20260912-gatk-81587fcb. Scanfalse/autofalse/executiontrue retained. Candidate-only
+source archived under candidates/platform-followup-20260915/cce-api-integration-source.
+Cached backend:t235-232154f, network none, read-only candidate and disposable
+/scratch tmpfs: pytest test_wgs_release_management.py test_wgs_resume_stage.py
+11passed in1.64s, one known Starlette/anyio deprecation. No full suite, frontend
+rebuild, real CCE call, production check or task execution; unchanged prior UI/DAG
+evidence remains applicable. No test failure or remote command failure this turn.
+
+Latest supplied wheel52cb638 SHA4104572b9e3c3f73bfb3118962bcd974a5e04edd3cd9bf95651a2fa52141c097;
+read-only zip entry hashes release.py/cli.py equal reviewed producer sources.
+Reuse prior synthetic producer/consumer smoke, do not install or rebuild wheel.
+Default release-management false and AUTH_REQUIRED/admin/CSRF gates retained.
+Main and production Git refs are publication targets; source integration does
+not provision writable catalogs, install packages, publish assets or activate.
+Remaining backend latency/QC policy/display/resource tasks remain open. Rollback
+this integration commit's source only; preserve release catalogs and all outputs.
+See docs/releases/2026-09-15-cce-api-main-integration.md for exact scope and hashes.
+
 ## 2026-09-15 completed repair Git synchronization authorization
 
 Completed: atomic push of a9c899f to both remote refs exited0; independent
@@ -215,6 +244,42 @@ Open: planned reliability/ledger/QC fixes are not included or claimed complete.
 Local inspection typos (First=sixty; wildcard passed to rg) failed without writes;
 corrected to numeric range and explicit known paths, no remote failures.
 
+## 2026-09-15 CCE 0.8.5 Airflow release consumer candidate
+
+Final code is `994a9c2`; managed blank-field rejection is fixed without changing
+legacy catalog reads. Its existing negative case passed and scoped review approved.
+CCE `b7f98e9` wheel and one synthetic client/API smoke are recorded in
+[delivery evidence](docs/releases/2026-09-15-cce-085-release.md). No additional
+suite, production operation, merge or push was performed.
+
+Implemented only the approved Airflow consumer on
+`jiucheng/backend/cce-release-085` from `33598aa`: exact `cce-release.v1`
+validation, inactive/idempotent registration, conflict protection, read listing,
+receipt-bound explicit CAS activation, and default-off/admin/auth/CSRF gates.
+The WGS release ID and CCE asset-transaction release ID are independent; only
+the shared source/profile/build/resource bindings are required to match.
+Schema-3 registration upgrades atomically to schema 4 while preserving catalog
+history, unknown metadata and file mode. Linux writes use a sibling lock,
+same-directory replacement and file/directory fsync. No request chooses a path or
+network target; registration performs no cloud probe or package install.
+
+CCE recovery now validates `pipeline_release_id` with historical `by_id` and
+leaves frozen params/profile unchanged after a new activation; missing or unknown
+recorded releases fail closed. The pre-existing local/SGE refresh branch is
+otherwise unchanged. RED on the prepared server10610 source was 7 failed (all
+new routes 404). GREEN in cached `airflow-demo/backend:t235-232154f`, network none,
+UID/GID 6708:520, read-only `/work` and writable task evidence scratch was 7 passed.
+The producer-ID clarification then reproduced 6 failed/1 passed with distinct WGS
+and CCE asset release IDs; after removing only that invalid cross-binding, the same
+7 tests passed in 1.64s with one upstream Starlette/anyio deprecation warning.
+
+Release management remains disabled. Future enablement requires a separately
+provisioned writable catalog directory mounted identically to backend,
+worker/observer readers; mount the parent, not one file, so atomic replacement is
+visible. Inactive registration does not protect in-place SFS writes: retain old
+assets through new frozen paths and keep the existing active-Master gate. No live
+mount/config/service/DB/prepare/pending/local/SGE/gate/analysis/asset was changed.
+Rollback is a source revert while retaining all catalog/assets/run evidence.
 
 ## 2026-09-14 approved GATK retry, resume, Step7 and Sample repair
 

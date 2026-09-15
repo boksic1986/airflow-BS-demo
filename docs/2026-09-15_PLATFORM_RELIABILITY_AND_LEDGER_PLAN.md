@@ -5,11 +5,11 @@
 ## 当前交付台账（2026-09-15 续作）
 
 - 已在 main f241149：REL-01、REL-02、LEDGER-01、共享传输进度、重启执行投影及 phase/group 展示。生产是否应用以独立发布记录为准。
-- 当前候选分支已有：WGS resume_stage ead029f、Step4/6 线性 ETA f2e0957；未合入 main、未部署。
+- 已合入 main5241068：WGS resume_stage ead029f、Step4/6 线性 ETA f2e0957，以及本轮 UI/查询修复；尚未部署到96。
 - 本轮源码完成：线上/线下删除边界、TRACKER-01 完成文案、QC-01 展示、LIST-01 分页汇总 API；SUBMIT-01 完成单飞/防旧响应/准备期2秒刷新，未证明后端等待达标。
 - 未完成：三阶段系统等待 <=60 秒验收、34bfcbf QC 策略来源审核、DISPLAY-01、RESOURCE-01、EXEC-01 后续统一及 UI-02 剩余事项；不能仅因基础修复或 UI 完成而勾选整体完成。
 - 本轮 BS10610 匹配测试：后端2项、前端18项通过，构建通过；复用既有 resume/ETA 证据，不重复运行。详见 [交付记录](releases/2026-09-15-platform-followup.md)。
-- CCE 发布 API 候选73aa0ce另行集成；CCE0.8.5单次MD5提交52cb638及同版本新wheel由cce-pipeline任务交付，本轮不安装、不改在跑冻结bundle。
+- CCE 发布 API73aa0ce现已完成与 main 的代码集成，BS10610 API/续跑11项通过；52cb638 wheel 的发布模块/CLI与已联调源码一致。接下来仅同步Git，不安装、不激活、不改在跑冻结bundle；之前“另行集成”状态由本条取代。
 - 仅 BS10610 匹配改动的最小测试；禁止全量/冗余验证、生产发布/重启/恢复任务、删除数据或修改原 prepare/pending。遇到必须扩大范围的变更先向用户确认。
 
 ## 1. 范围与原则

@@ -1,5 +1,19 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 CCE0.8.5 API integration completed (Git only)
+
+User confirms CCE0.8.5 development complete and requests continuation. Integrated
+Airflow candidate73aa0ce (8fb3529/994a9c2) with main5241068; code merged without
+conflicts and additive docs retained both histories. This supersedes earlier
+statements that the CCE consumer is excluded from completed repair integration.
+Fresh BS10610 isolated release API7 plus resume_stage4 =11passed, one existing
+Starlette deprecation warning. Latest52cb638 wheel SHA4104572b...2141c097 verified;
+release.py/cli.py exactly match the previously reviewed producer source, so no
+repeat wheel build/client smoke. Management remains disabled; no deployment,
+package installation, catalog activation, active task or data change.
+Git-only publication targets main and production refs under the prior request.
+Details: docs/releases/2026-09-15-cce-api-main-integration.md.
+
 ## 2026-09-15 approved repair Git synchronization
 
 Publication verified: main and jiucheng/release/production atomically advanced
@@ -97,6 +111,20 @@ hashes and resource gzip block; node200/t640 gate matchedd82bf7722b80.
 No runtime deployment, service restart, database/pending mutation or analysis.
 Uncommitted repair plans and operational notes remain in the recovery worktree.
 
+## 2026-09-15 CCE 0.8.5 Airflow release consumer candidate
+
+Final review approved CCE `b7f98e9` / Airflow `994a9c2`; wheel built and the single
+synthetic integration passed. See [delivery record](docs/releases/2026-09-15-cce-085-release.md).
+This remains unmerged, unpushed and undeployed; management stays disabled.
+
+Implemented the default-disabled `cce-release.v1` registration, listing and
+explicit activation API on branch `jiucheng/backend/cce-release-085`. Catalog
+writes are locked, validated and atomic; schema-3/4 history and unknown metadata
+are retained. CCE recovery now keeps the attempt's recorded catalog release and
+params, while local/SGE refresh behavior remains unchanged. Focused BS10610
+isolated cached-image validation passed 7 tests. This is source development only:
+no live catalog, mount, service, DB, gate, package, cloud workload, production
+activation, prepare/pending flow, or SFS asset was changed.
 
 ## 2026-09-14 selective deployed-code promotion
 

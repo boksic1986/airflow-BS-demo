@@ -181,11 +181,22 @@ def submit_wgs_run(*, session: Session, airflow_client, analysis_id: str) -> dic
 
 
 def _refresh_recovery_release(*, run: AnalysisRun, settings) -> dict[str, str]:
-    release = load_wgs_release_catalog(
+    catalog = load_wgs_release_catalog(
         Path(settings.wgs_release_catalog_path)
-    ).release
+    )
     params = dict(run.params_json or {})
     previous_release_id = str(params.get("pipeline_release_id") or "")
+    if run.execution_mode == "cce":
+        if not previous_release_id:
+            raise ValueError("WGS CCE recovery requires a recorded pipeline release.")
+        try:
+            catalog.by_id(previous_release_id)
+        except ValueError as exc:
+            raise ValueError(
+                "WGS CCE recovery recorded pipeline release is not cataloged."
+            ) from exc
+        return {}
+    release = catalog.release
     previous_version = str(params.get("wgs_version") or "")
     if previous_release_id == release.release_id:
         return {}

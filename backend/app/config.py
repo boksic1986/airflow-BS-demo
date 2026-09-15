@@ -92,6 +92,7 @@ class Settings:
     gatk_cce_pipeline: str
     wgs_intake_mode: str = "t7_scan_only"
     wgs_samplelist_root: str | None = None
+    wgs_release_management_enabled: bool = False
 
 
 def get_cors_origins() -> list[str]:
@@ -180,6 +181,9 @@ def get_settings() -> Settings:
         wgs_transfer_spool_root=os.getenv("WGS_TRANSFER_SPOOL_ROOT", "/data/wgs-transfer-spool"),
         wgs_release_catalog_path=os.getenv(
             "WGS_RELEASE_CATALOG_PATH", "/config/wgs_releases.yaml"
+        ),
+        wgs_release_management_enabled=_parse_bool(
+            os.getenv("WGS_RELEASE_MANAGEMENT_ENABLED", "false")
         ),
         wgs_project_catalog_path=project_catalog_path,
         wgs_submission_draft_root=os.getenv(

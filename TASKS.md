@@ -1,5 +1,16 @@
 # TASKS.md
 
+## CCE-API-MAIN-INTEGRATION-20260915
+
+- [x] Integrate reviewed73aa0ce with latest main5241068, preserving prior repairs.
+- [x] Resolve only additive documentation conflicts; no workflow code rewrite.
+- [x] Verify current52cb638 wheel release/CLI matches reviewed producer bytes.
+- [x] BS10610 merged-source API7/resume4 passed; no full suite/wheel rebuild.
+- [x] Update joint release/remaining-work docs and package Git-only dual-ref sync.
+- [ ] Production package/catalog-directory deployment and management enablement
+  remain separately authorized work; registration is not automatic activation.
+- No prepare/pending/local/SGE/core/DB/schema/active-task change in this integration.
+
 ## COMPLETED-REPAIRS-GIT-SYNC-20260915
 
 - [x] Confirm clean production main checkout and equal remote main/production f241149.
@@ -75,6 +86,15 @@
 - No runtime code changes or new acceptance run: retain original bounded test
   evidence in the Step5 download and resource-loading release records.
 
+## CCE-RELEASE-085 Airflow consumer
+
+- [x] Consume exact `cce-release.v1` with release/asset binding and digest checks.
+- [x] Add locked atomic registration, replay/conflict, read listing and CAS activation.
+- [x] Require explicit management flag, authenticated admin/internal identity and CSRF.
+- [x] Pin CCE recovery to its recorded release; preserve local/SGE refresh behavior.
+- [x] Pass the 7-test focused BS10610 isolated cached-image suite.
+- [x] Close required-field review gap, pass its existing negative case, approve final review, and record the single integration/wheel delivery.
+- [ ] Deployment, writable shared catalog mount and activation require separate approval.
 
 ## RECOVERY-LIFECYCLE-20260914 (in progress)
 

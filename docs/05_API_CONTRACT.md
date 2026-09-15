@@ -55,6 +55,32 @@ worker sync, not a DB migration/backfill. Historical operation payload/identity
 and request/receipt validation remain unchanged; UI does not present legacy
 operation origin_batch as source analysis provenance.
 
+## CCE 0.8.5 managed WGS release API (2026-09-15, inactive)
+
+`POST /api/wgs/releases` accepts only `cce-release.v1`: a complete managed
+`release`, its verified `assets` record (`status=PASS`, `state_verified=true`),
+and `receipt_sha256`, the SHA-256 of canonical JSON without that digest field.
+Profile/source/build/resource fields must match across both components. The WGS
+`release.release_id` and CCE asset-transaction `assets.release_id` are independent
+namespaces and are both retained in the receipt.
+Registration is an authenticated deployment attestation: it adds an inactive
+candidate, is idempotent for an identical receipt, conflicts for changed content,
+and performs no Kubernetes, node200, package-installation, or cloud operation.
+
+`GET /api/wgs/releases` returns `current_release_id`, `current`, and inactive
+`candidates`, including the registered receipt digest. `POST
+/api/wgs/releases/{release_id}/activate` accepts only `receipt_sha256` and
+`expected_current_release_id`; both the registered receipt and compare-and-swap
+current value must match. Activation changes only catalog current selection.
+It never rewrites runs, attempts, queued requests, configuration capabilities,
+or runtime gates. Existing singular `GET /api/wgs/release` remains unchanged.
+
+Both writes require an admin identity, `AUTH_REQUIRED=true`, and
+`WGS_RELEASE_MANAGEMENT_ENABLED=true`. Browser sessions retain the existing CSRF
+requirement; the existing `X-Airflow-Demo-Token` internal identity is accepted by
+the unchanged authentication middleware. CCE recovery validates and retains its
+recorded catalog release and frozen params; a missing/unknown recorded release
+fails closed. Existing local/SGE refresh behavior is unchanged.
 
 ## Shared WGS transfer progress (2026-09-15, not deployed)
 

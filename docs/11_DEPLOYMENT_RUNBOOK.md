@@ -11,6 +11,30 @@ change their stage generation. Source0.8.4 compatibility inspection is not live
 production acceptance. Validate the actual frozen bundle in a separately approved
 production task before executing recovery. No real0911A resume was performed.
 Detailed evidence and rollback: releases/2026-09-15-wgs-resume-stage.md.
+## CCE 0.8.5 release-management enablement prerequisite (not deployed)
+
+Keep `WGS_RELEASE_MANAGEMENT_ENABLED=false` until a separately authorized
+deployment provisions a writable catalog directory and points
+`WGS_RELEASE_CATALOG_PATH` at the catalog inside it. Do not chmod or remount the
+current read-only `/config`. The same catalog directory must be visible to every
+consumer: backend writer plus worker/observer readers. Mount the parent directory,
+not the single YAML file, because atomic replacement is not visible through an
+old file bind mount. Retain `AUTH_REQUIRED=true` and the existing private internal
+service token; never place that token in the receipt or catalog.
+
+Before a future enablement, verify the directory owner/group/mode, sibling lock
+creation, atomic replacement visibility from every consumer, schema-3/4 readback,
+and keep the feature flag false until those checks pass. Registration accepts a
+producer-attested `PASS` receipt; it is not evidence that a node200 wheel was
+installed or that a fresh Kubernetes probe ran. Explicit activation changes only
+the catalog current pointer and does not enable execution or configuration gates.
+
+An inactive catalog does not make in-place SFS asset replacement safe. Retaining
+old releases requires new frozen profile and asset paths, while the existing
+active-Master gate remains mandatory. No replace/delete manifest, old-asset
+cleanup, package installation, mount change, production activation, or analysis
+submission is authorized by this source release. Rollback disables the flag and
+restores the prior catalog bytes; retain all release assets and run evidence.
 
 ## REL-02 local WGS process timezone (not deployed)
 
