@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import {cleanup, fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {cleanup, fireEvent, render, screen, within} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
 import {vi} from 'vitest';
 import {SamplesPage} from './SamplesPage';
@@ -22,11 +22,11 @@ it('requests current pending and uses Sample table and status badge', async () =
   open();
   const sample = await screen.findByText('SYNTHETIC');
   expect(api.listSampleReferences).toHaveBeenCalledWith(expect.objectContaining({pending: true}));
-  expect(screen.getByRole('tablist', {name: '交接台账范围'})).toHaveClass('tab-row');
-  expect(screen.getByRole('tab', {name: '当前待交接'})).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('tablist', {name: '样本流转范围'})).toHaveClass('tab-row');
+  expect(screen.getByRole('tab', {name: '待纳入'})).toHaveAttribute('aria-selected', 'true');
   expect(sample.closest('table')).toHaveClass('sample-resource-table');
-  expect(screen.getByText('Pending').closest('.status-badge')).not.toBeNull();
-  expect(screen.getByText('缺少上机批次')).toBeInTheDocument();
+  expect(within(sample.closest('tr')!).getByText('待纳入').closest('.status-badge')).not.toBeNull();
+  expect(screen.queryByText('缺少上机批次')).toBeNull();
   expect(screen.getByRole('columnheader', {name: '来源分析批次'})).toBeInTheDocument();
   expect(screen.queryByText('Last good / sync')).not.toBeInTheDocument();
   expect(screen.queryByText('Origin → target')).not.toBeInTheDocument();
@@ -36,22 +36,23 @@ it('keeps removed records accessible in history without inventing a receiving ba
   open();
   await screen.findByText('SYNTHETIC');
   vi.mocked(api.listSampleReferences).mockResolvedValue(page([{...row, pending: false, present_in_latest_complete: false}]) as api.Page<api.SampleReference>);
-  fireEvent.click(screen.getByRole('tab', {name: '历史记录'}));
-  expect(await screen.findByText('当前不在 pending；未找到精确关联凭据')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', {name: '纳入记录'}));
+  expect(await screen.findByText('待关联')).toBeInTheDocument();
   expect(screen.queryByText(/→/)).not.toBeInTheDocument();
 });
 
-it.each(['selected', 'consumed'] as const)('labels %s only according to its receipt', async role => {
-  vi.mocked(api.listSampleReferenceOperations).mockResolvedValue(page([{
-    operation_id: 'op', sequence: 1, mode: 'unknown', source_id: 'source', producer_commit: 'unknown',
-    logical_transaction_time_semantics: 'unknown', links_total: 1, links_truncated: false,
-    links: [{role, record_key: row.record_key, destination_batch: 'BATCH-B', reason_codes: []}],
-  }]) as api.Page<api.SampleReferenceOperation>);
-  open();
-  await screen.findByText('SYNTHETIC');
-  fireEvent.click(screen.getByRole('button', {name: '查看详情'}));
-  await waitFor(() => expect(screen.getByText(role === 'selected' ? '已纳入 BATCH-B' : '已交接至 BATCH-B')).toBeInTheDocument());
-  expect(screen.queryByText(role === 'selected' ? '已交接至 BATCH-B' : '已纳入 BATCH-B')).not.toBeInTheDocument();
+it.each(['selected', 'consumed'] as const)('separates %s status from the included batch', async role => {
+  vi.mocked(api.listSampleReferences).mockResolvedValue(page([{...row,pending:false,present_in_latest_complete:false,
+    latest_decision:{role,destination_batch:'BATCH-B',operation_id:'op',analysis_id:'RUN-B'}}]) as api.Page<api.SampleReference>);
+  render(<MemoryRouter initialEntries={['/samples?view=ledger&ledger_scope=history']}><SamplesPage /></MemoryRouter>);
+  const sample=await screen.findByText('SYNTHETIC');
+  const cells=within(sample.closest('tr')!).getAllByRole('cell');
+  expect(cells).toHaveLength(4);
+  expect(cells[2]).toHaveTextContent(role==='selected' ? '已纳入' : '已交接');
+  expect(cells[2]).not.toHaveTextContent('BATCH-B');
+  expect(cells[2].querySelector('small')).toBeNull();
+  expect(within(cells[3]).getByRole('link',{name:'BATCH-B'})).toHaveAttribute('href','/runs/RUN-B');
+  expect(api.listSampleReferenceOperations).not.toHaveBeenCalled();
 });
 
 it('keeps sync failure visible and replaces unclassified reason with safe text', async () => {
@@ -59,14 +60,16 @@ it('keeps sync failure visible and replaces unclassified reason with safe text',
   open();
   await screen.findByText('SYNTHETIC');
   expect(screen.getByRole('alert')).toHaveTextContent('交接来源同步异常');
-  expect(screen.getByText('待核对原因')).toBeInTheDocument();
+  expect(screen.queryByText('待核对原因')).toBeNull();
   expect(screen.queryByText('unrecognized_private_text')).not.toBeInTheDocument();
 });
-it('shows exact recorded batch before opening details, without per-row history requests', async () => {
-  vi.mocked(api.listSampleReferences).mockResolvedValue(page([{...row, pending:false, present_in_latest_complete:false,
-    latest_decision:{role:'selected',destination_batch:'BATCH-B',operation_id:'op',analysis_id:null}}]) as api.Page<api.SampleReference>);
-  render(<MemoryRouter initialEntries={['/samples?view=ledger&ledger_scope=history']}><SamplesPage /></MemoryRouter>);
-  expect(await screen.findByText('已纳入 BATCH-B')).toBeInTheDocument();
-  expect(api.listSampleReferenceOperations).not.toHaveBeenCalled();
-  expect(screen.queryByText(/批次未确认|已交接至/)).toBeNull();
+it('uses workflow names and removes detail controls and explanatory copy', async () => {
+  open();
+  await screen.findByText('SYNTHETIC');
+  expect(screen.getByRole('tab',{name:'样本流转'})).toBeInTheDocument();
+  expect(screen.getByRole('heading',{name:'样本流转'})).toBeInTheDocument();
+  expect(screen.getByRole('columnheader',{name:'纳入批次'})).toBeInTheDocument();
+  expect(screen.queryByRole('columnheader',{name:'详情'})).toBeNull();
+  expect(screen.queryByRole('button',{name:'查看详情'})).toBeNull();
+  expect(screen.queryByText(/当前待交接仅显示|包含当前与已移出记录|最近凭据/)).toBeNull();
 });

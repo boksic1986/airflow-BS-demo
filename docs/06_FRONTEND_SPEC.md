@@ -1,5 +1,18 @@
 # Frontend specification
 
+## Sample flow compact table (2026-09-15, source only)
+
+Latest user supersedes expandable ledger details: primary tab/heading 样本流转,
+subviews 待纳入 and 纳入记录. Keep existing route/query and pending filter
+semantics, including unmatched historical records; this is naming/layout only.
+Columns are Sample/family, 来源分析批次, Status and 纳入批次.
+Status is one badge (待纳入/已纳入/已交接/待关联 or identity warning), no subtext
+or embedded batch. Batch is a separate destination value, linked to its known
+run when available; '-' for pending or no exact evidence. No inferred batch.
+Remove details column, lazy detail requests, disclosure CSS and the two
+explanatory paragraphs. Existing source health/errors and pagination remain.
+Backend operation history persists; no API/data deletion.
+
 ## Latest QC/ledger correction (2026-09-15, source only)
 
 User supersedes prior threshold design: no QC thresholds anywhere in the table,

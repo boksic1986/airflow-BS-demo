@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 Sample flow table simplified (source only)
+
+User requests no details column and concise workflow terminology. Renamed tab/
+heading 样本流转, subviews 待纳入/纳入记录. Four columns: sample/family,
+origin analysis batch,status,included batch. Status contains badge only; known
+destination is a separate link when analysis_id exists. Current pending has no
+current included batch; unmatched history remains visible as 待关联, never guessed.
+Removed explanatory copy, lazy detail state/requests and unused detail CSS.
+Build and six targeted page cases accepted (5pass + corrected selector1pass).
+No backend changes/tests, main sync,96 access/deployment or data mutation.
+Depends on preceding4366de6 API source; production remains93069eb.
+
 ## 2026-09-15 QC/ledger follow-up implemented (source only)
 
 User resolved header choice: hide every QC threshold in UI; policy remains

@@ -1,5 +1,13 @@
 # TASKS.md
 
+## SAMPLE-FLOW-COMPACT-20260915
+
+- [x] Rename 样本流转 with 待纳入/纳入记录 subviews.
+- [x] Replace details with included batch; badge-only status and no explanatory paragraphs.
+- [x] Remove unused per-row history loading; retain pending filters and sync errors.
+- [x] BS10610 targeted six page cases/build; no backend/full suite.
+- [ ] Pending user authorization for source synchronization/publication.
+
 ## QC-LEDGER-FOLLOWUP-20260915 completion
 
 - [x] User chose no threshold display; backend QC rules remain unchanged.

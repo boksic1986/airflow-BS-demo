@@ -1,5 +1,31 @@
 # HANDOFF.md
 
+## 2026-09-15 Sample flow table simplified; not published
+
+Latest user directs replacing details with included batch, status-only cells,
+workflow-appropriate names and removal of two explanatory paragraphs.
+Implemented on4366de6: SamplesPage now uses 样本流转/待纳入/纳入记录,
+four columns and batch link from existing latest_decision. Pending rows show
+待纳入 and '-' batch; selected/consumed history shows 已纳入/已交接 respectively,
+unmatched history remains 待关联. Identity warning is a single status badge.
+Removed lazy per-row history fetch/state and unused detail CSS; API/data retained.
+No threshold display regression or backend code change in this slice.
+
+BS10610/server10610 isolated candidate fingerprint unchanged: current4d3d24e6,
+backend actual20260913-panel-1fb971b. Matched SamplesLedger tests red6failed;
+green5passed plus one selector ambiguity (tab and badge both 待纳入); corrected
+test to scope the row, reran that1only and passed. Same production source, no
+redundant rerun of5passed. tsc/Vite build passed; assets index-CZdMkAXC.js and
+index-DGwH5nbN.css. No full/backend/live workflow tests because frontend-only.
+Tar warned local timestamp14s ahead; no runtime clock changes made.
+
+Changed SamplesPage.tsx, SamplesLedger.test.tsx, styles.css, UI spec/state/tasks/
+handoff. No BS96 calls/deployment, main push, pending edits, DB/source identity
+changes or0911A action. Uses preceding4366de6 additive backend summary, which is
+also not deployed. Next: separately authorize combined release when ready.
+Rollback source slice by reverting its commit. .superpowers artifacts remain
+untracked; original dirty workspace preserved.
+
 ## 2026-09-15 QC/ledger follow-up complete; source only
 
 Latest user chooses no thresholds and challenges receiver-unconfirmed wording.
