@@ -1,5 +1,18 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 UI93069eb published to96
+
+User authorized main/production Git synchronization and BS96 publication.
+Application93069eb is now deployed at releases/20260915-ui-93069eb under
+/data/airflow-WGS for backend/observer/frontend only. main and production
+received93069eb atomically; this documentation receipt follows on both refs.
+Backend c1be8d79ea43, observer bc2da01ec68c; frontend121e64a9e5f4 imageui-93069eb.
+Health200, served bundle hash and backend source hashes accepted; all environment
+values and retained mounts/ports/networks match. Nine unrelated IDs unchanged,
+including all Airflow services.0911A remains failed attempt2/original DagRun.
+No DB/data/pending/CCE/node changes. Previous source-only UI entry is superseded.
+Details and private rollback: docs/releases/2026-09-15-ui-bs96.md.
+
 ## 2026-09-15 UI-SIMPLIFY-20260915 completed (not deployed)
 
 Targeted user feedback implemented on base16cc5c4: flat scrollable WGS QC

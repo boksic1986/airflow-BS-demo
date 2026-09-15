@@ -1,5 +1,17 @@
 # Deployment runbook
 
+## Latest96 UI composition (2026-09-15)
+
+UI93069eb now supplies backend/observer/frontend through ctapa-private
+/data/airflow-WGS/candidates/ui-93069eb-control/compose.json.
+Its rollback.json restores only those three services to platform-f69c577.
+Airflow API/scheduler/worker still use the preceding f69c577 DAG composition;
+do not run generic current or recreate all services to align them.
+Use explicit service names with --no-deps --pull never; retain protected services,
+environment and data. Health/static/source parity passed,0911A untouched.
+See releases/2026-09-15-ui-bs96.md. This supersedes the three app services below,
+not the retained DAG/runtime gates or deferred recovery restrictions.
+
 ## Current96 application composition (2026-09-15)
 
 Sourcef69c577 is deployed for backend/observer/frontend and bio_wgs only; retained

@@ -1,5 +1,14 @@
 # TASKS.md
 
+## UI-BS96-PUBLISH-20260915
+
+- [x] Fast-forward clean production main and atomically push main/production to93069eb.
+- [x] Authorized96 preflight: exact mounts/gates; no WGS/GATK running/queued tasks.
+- [x] Offline pinned build; recreate backend/observer/frontend only.
+- [x] Health/static/source hashes, environment/mount parity and nine preserved service IDs.
+- [x] Record source/UI delivery and keep0911A failed attempt2 without recovery.
+- No repeated test suite, workflow submission, data cleanup or runtime gate update.
+
 ## UI-SIMPLIFY-20260915
 
 - [x] Flatten eligible QC metrics; thresholds follow columns or sample-specific values; Reason last.

@@ -1,5 +1,15 @@
 # SERVER_INFO.md
 
+2026-09-15 BS96 UI93069eb supersedes backend/observer/frontend only:
+backendc1be8d79ea43, observerbc2da01ec68c mount
+/data/airflow-WGS/releases/20260915-ui-93069eb/backend; frontend121e64a9e5f4
+imageairflow-demo/frontend:ui-93069eb (2ffba073caa3).
+All three Airflow services retainf69c577 DAG pins/IDs; six other services also
+unchanged. Current symlink remains4d3d24e6. Private three-service composition
+and rollback:candidates/ui-93069eb-control. Health200/static SHA matched;
+all environment values retained,0911A unchanged failed attempt2.
+Record: docs/releases/2026-09-15-ui-bs96.md.
+
 2026-09-15 BS96/server96 platform f69c577 application rollout:
 backend669a59d50eb5/observer6eaf7246eb02 mount
 /data/airflow-WGS/releases/20260915-platform-f69c577/backend.

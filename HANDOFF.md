@@ -1,5 +1,46 @@
 # HANDOFF.md
 
+## 2026-09-15 authorized UI93069eb Git sync and96 publication complete
+
+Goal: user explicitly requests main/production sync and deployment to96.
+Clean D:/pipeline/airflow-demo-production main fast-forwarded16cc5c4→93069eb;
+atomic remote main and jiucheng/release/production push succeeded. Application
+commit93069eb is deployed; this docs-only receipt accompanies dual-ref sync.
+
+BS96/server96 preflight matched priorf69c577 mounts/gates; WGS/GATK API-wide
+running/queued TaskInstances0 before build and immediately before recreation.
+Physical source:/data/airflow-WGS/releases/20260915-ui-93069eb (ctapa:bioinfo,
+inherited setgid2755; no ACL widening). Historical current stays4d3d24e6.
+Only backendc1be8d79ea43/observerbc2da01ec68c/frontend121e64a9e5f4 recreated.
+Nine unrelated IDs unchanged, including scheduler/worker/API/scanner/DB.
+All environment values, original data/config mounts, ports and networks match.
+0911A remains failed attempt2/DagRun WGS_20260914_172238_C702AE-a2; other four
+business runs remain success. No DB/direct SQL, DAG/node gate, CCE, pending,
+task clear, Master operation or data deletion.
+
+Commands/results: git archive SHA79919012...e92b6bd8 verified; cached offline
+Node22 build + runtime-overlay image passed. Compose config --quiet passed,
+three-service up --no-deps --pull never succeeded. Health200/nginx-t passed;
+JS index-D0dEP3V_.js served hash8c674c5d...049faa68 matches build; backend two
+changed module hashes match release. Earlier BS10610 27+14 tests reused, no full,
+redundant or biological test. Removed only artifact-copy container4d050a0ddfe3
+after copying dist; no analysis/container/data cleanup.
+
+Operational failures (all resolved, no application fix): sudo-n required password;
+used authorized Docker identity6801:520 without sudo/password or ACL changes.
+Docker status template expected absent Health key (health endpoint itself passed).
+Initial environment comparison incorrectly compared array order; key/value
+comparison confirmed equality. Container-IP nginx probe got403 due retained
+allowlist; host gateway probe passed, no allowlist change. Local absent-path
+lookups corrected. Compose orphan warning intentionally ignored, no removal.
+
+New private ctapa0700/0600 inventory/before/after/compose/rollback JSON:
+candidates/ui-93069eb-control under control root. Never publish credentials.
+Rollback only the three changed services from rollback.json, after fresh
+active-task review; preserve all data and existing Airflow mount pins.
+Details: docs/releases/2026-09-15-ui-bs96.md. No further tests needed.
+Untracked .superpowers packaging helpers and original dirty workspace retained.
+
 ## 2026-09-15 UI-SIMPLIFY-20260915 source delivery; not deployed
 
 Goal: implement the five screenshot corrections, without expanding workflow scope.
