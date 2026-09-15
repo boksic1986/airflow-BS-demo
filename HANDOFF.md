@@ -1,5 +1,24 @@
 # HANDOFF.md
 
+## 2026-09-15 completed repair Git synchronization authorization
+
+User asks all completed repairs committed to main and production repository.
+Target is D:/pipeline/airflow-demo-production main and origin main plus
+jiucheng/release/production; this does not deploy /data/airflow-WGS services.
+Live Git read verified both remote refs f241149 and a clean production checkout.
+Candidate d774727 is a fast-forward descendant; all12 audited anchors included.
+Included five new commits: ETA f2e0957, same-attempt resume ead029f, deletion
+constraints9b49c08, list query9ace7b7, completion/QC/refreshd774727. Full matrix and
+retained test evidence in docs/releases/2026-09-15-completed-repairs-git-sync.md.
+Only this synchronization receipt modifies docs after the validated code tree;
+use normal fast-forward and atomic push, then independently compare remote refs.
+Do not force-push, remove worktrees, install CCE wheel, publish to96 or restart.
+No tests rerun: exact tested code retained, no merge conflict/runtime edit.
+Original dirty clone/recovery notes and four .superpowers transfer archives remain
+unmodified. Independent CCE release management73aa0ce stays excluded and visible.
+Missing backend latency acceptance/QC release provenance are not marked fixed.
+Rollback uses scoped source revert only, preserving runtime, DB and analysis data.
+
 ## 2026-09-15 platform follow-up source delivery
 
 Goal: continue the approved remaining platform repair plan without expanding

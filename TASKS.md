@@ -1,5 +1,17 @@
 # TASKS.md
 
+## COMPLETED-REPAIRS-GIT-SYNC-20260915
+
+- [x] Confirm clean production main checkout and equal remote main/production f241149.
+- [x] Audit12 repair anchors and exact five-commit candidate delta; retain prior fixes.
+- [x] Package source/documentation for user-authorized fast-forward and atomic dual-ref push.
+- Git publication completion requires matching local/remote main and production refs;
+  record the resulting SHA in the user handoff. No production runtime release.
+- Reuse matching BS10610 test reports: no changed runtime code or merged conflict
+  justifies repeating tests. Preserve worktrees and generated transfer artifacts.
+- Independent CCE release management73aa0ce is not part of this delivered repair
+  set; backend latency/QC policy provenance and other unfinished plan items stay open.
+
 ## PLATFORM-FOLLOWUP-20260915 (bounded source slice complete; overall plan remains open)
 
 - [x] Carry forward the user-mandated online/offline deletion boundary without unrelated dirty operational notes.

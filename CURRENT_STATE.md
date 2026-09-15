@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 approved repair Git synchronization
+
+Latest user authorizes completed repairs on main and the production repository,
+superseding the earlier source-only merge/push prohibition, not deployment gates.
+Audited candidate d774727 contains all12 named repair anchors; five commits since
+published main f241149: f2e0957,ead029f,9b49c08,9ace7b7,d774727. This documentation
+commit accompanies their fast-forward Git publication. No runtime code changed
+after the recorded bounded BS10610 tests. No full/redundant suite, BS96 deployment,
+restart, task recovery or data change. Independent CCE management candidate73aa0ce
+and dirty operational notes remain explicitly excluded, not presumed delivered.
+See docs/releases/2026-09-15-completed-repairs-git-sync.md for inclusion/omissions.
+
 ## 2026-09-15 platform follow-up source slice (not deployed)
 
 On combined resume/ETA branch ead029f, completed common Completed wording,
