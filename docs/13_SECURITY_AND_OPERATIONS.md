@@ -118,6 +118,18 @@ they never fall back to arbitrary host paths.
 
 ## Backup, recovery and cleanup
 
+- User override (2026-09-15): default cleanup scope is explicitly authorized
+  online resources only. Offline/local data is user-managed, even on remote
+  hosts/NFS. Protect WGS_Clinical project/results, source FASTQ, sampleinfo,
+  pending and evidence unless the user explicitly requests offline deletion
+  for named batches and an exact scope. Same cloud/local batch identity and
+  "keep only X" are not offline deletion authority.
+- Before deletion, resolve each target, classify it as online/offline, record
+  the current authorization and protected paths in HANDOFF, and resolve any
+  ambiguity in versions or scope with the user. Never batch-delete unapproved
+  offline directories by regex/glob or rerun old cleanup helpers. Record each
+  actual deletion separately and state known recovery options honestly.
+
 - Business database dumps and controlled evidence are recovery assets; raw
   FASTQ backup is a separate lifecycle operation.
 - Reanalysis defaults to resume/rerun-failed semantics. Never default to

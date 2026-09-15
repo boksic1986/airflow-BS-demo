@@ -19,6 +19,24 @@ containers that are actually running.
 
 ## Authority order
 
+### Deletion scope override (user instruction, 2026-09-15)
+
+Cleanup is limited to explicitly authorized online resources. It is not blanket
+permission to delete cloud resources or platform records. Offline/local project,
+result, FASTQ, sampleinfo, pending and evidence files are protected by default,
+including files on remote compute hosts and NFS. In particular,
+`/sg2/50.ctapa/project/HWcloud/WGS_Clinical` is not implicitly included in a
+cloud SFS/OBS or Airflow database cleanup. An Airflow-created directory or a
+same-named cloud batch does not change this boundary.
+
+The user deletes offline data personally unless they explicitly request offline
+deletion of named batches and scope. Resolve exact paths/versions first; ask
+when ambiguous. "Keep only batch X", "reset WGS", or "delete old data" must
+never expand into deleting other offline batches. Do not use historical scripts
+or glob/regex matches as authorization. Record an itemized approved target list
+and actual per-target outcome, not counts alone. Historical cleanup entries are
+observations, not reusable authorization. No deletion is authorized by this policy.
+
 Use the first applicable source:
 
 1. the user's explicit instruction for the current task;
