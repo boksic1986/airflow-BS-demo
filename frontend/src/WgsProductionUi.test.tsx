@@ -12,6 +12,44 @@ afterEach(() => {
   window.history.pushState({}, "", "/");
 });
 
+it("keeps log search context without rescanning on automatic page refresh", async () => {
+  window.history.pushState({}, "", "/runs/LOG_MOCK");
+  let searches = 0;
+  let indexReads = 0;
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+    const url = new URL(String(input), "http://localhost");
+    if (url.pathname.endsWith("/auth/me")) return json({username:"operator",role:"operator"});
+    if (url.pathname.endsWith("/platform/capabilities")) return json(wgsCapabilities());
+    if (url.pathname.endsWith("/workspace")) return json({run:{analysis_id:"LOG_MOCK",pipeline:"wgs",status:"running",attempt:1,params:{}},summary:{sample_count:0,rule_count:0,failed_rule_count:0},progress:null});
+    if (url.pathname.endsWith("/logs/index")) { indexReads++; return json({items:[{key:"approved",label:"Analysis log",stream:"stdout"}]}); }
+    if (url.pathname.endsWith("/logs")) {
+      const query = url.searchParams.get("query");
+      if (query) {
+        searches++;
+        return json({stream:"stdout",key:"approved",lines:["before",`${query} rule`,"input: retained"],query,match_index:Number(url.searchParams.get("match_index")),match_line:1,match_count:2,truncated:false,search_complete:true});
+      }
+      return json({stream:"stdout",key:"approved",lines:["tail content"],truncated:true});
+    }
+    return json({items:[]});
+  }));
+  render(<App />);
+  fireEvent.click(await screen.findByRole("tab",{name:"Logs"}));
+  await screen.findByText("tail content");
+  fireEvent.change(screen.getByLabelText("Search logs"),{target:{value:"mapping"}});
+  await screen.findByText("input: retained");
+  expect(searches).toBe(1);
+  const previousReads = indexReads;
+  fireEvent.focus(window);
+  await waitFor(() => expect(indexReads).toBeGreaterThan(previousReads));
+  expect(searches).toBe(1);
+  fireEvent.click(screen.getByRole("button",{name:"下一个"}));
+  await screen.findByText("2 / 2");
+  expect(searches).toBe(2);
+  fireEvent.change(screen.getByLabelText("Search logs"),{target:{value:""}});
+  await screen.findByText("tail content");
+  expect(searches).toBe(2);
+});
+
 it("restores an existing manual WGS submission after page reload without creating a run", async () => {
   window.history.pushState({}, "", "/submit?pipeline=wgs&analysis_id=WGS_MOCK");
   let creates = 0;

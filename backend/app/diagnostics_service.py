@@ -247,7 +247,7 @@ def get_run_log(
 
 def get_wgs_run_log(
     *, session: Session, analysis_id: str, stream: str, tail: int, settings, key: str | None = None,
-    query: str | None = None,
+    query: str | None = None, match_index: int = 0,
 ) -> dict[str, Any] | None:
     run = _get_run(session, analysis_id)
     if run is None:
@@ -264,7 +264,7 @@ def get_wgs_run_log(
     if not log_path.is_file():
         raise LogNotFoundError(f"Log file not found for registered key: {key}")
     if query and query.strip():
-        return {**_search_log_file(log_path, query=query.strip(), limit=tail),
+        return {**_search_log_file(log_path, query=query.strip(), limit=tail, match_index=match_index),
                 "stream": stream, "path": log_item.get("relative_path"), "key": key}
     lines, truncated, file_size = _tail_log_file(log_path, tail=tail)
     return {
@@ -278,7 +278,8 @@ def get_wgs_run_log(
 
 
 def get_gatk_run_log(
-    *, session: Session, analysis_id: str, stream: str, tail: int, settings, key: str | None = None
+    *, session: Session, analysis_id: str, stream: str, tail: int, settings, key: str | None = None,
+    query: str | None = None, match_index: int = 0,
 ) -> dict[str, Any] | None:
     run = _get_run(session, analysis_id)
     if run is None:
@@ -292,6 +293,9 @@ def get_gatk_run_log(
     if item is None:
         raise LogNotFoundError(f"Unknown or unavailable log key: {key}")
     path = Path(str(item["_path"]))
+    if query and query.strip():
+        return {**_search_log_file(path, query=query.strip(), limit=tail, match_index=match_index),
+                "stream": str(item["stream"]), "path": item["relative_path"], "key": key}
     lines, truncated, file_size = _tail_log_file(path, tail=tail)
     return {
         "stream": str(item["stream"]),
@@ -340,11 +344,22 @@ def _tail_log_file(
     return available_lines[-tail:], truncated, file_size
 
 
-def _search_log_file(path: Path, *, query: str, limit: int,
+def _search_log_file(path: Path, *, query: str, limit: int, match_index: int = 0,
                      max_bytes: int = 64 * 1024 * 1024) -> dict[str, Any]:
-    """Literal, bounded-memory search from the beginning, not a tail filter."""
+    """Scan a file snapshot; return one continuous window, never filtered lines."""
+    from collections import deque
+
     needle = query.casefold()
+    before: deque[str] = deque(maxlen=limit // 2)
+    initial: list[str] = []
     lines: list[str] = []
+    match_line = None
+    window_bytes = initial_bytes = 0
+    window_full = False
+    initial_full = False
+    context_bytes = 1024 * 1024 - 16384  # Reserve envelope/registered path metadata.
+    def line_size(value: str) -> int:
+        return len(json.dumps(value, ensure_ascii=False).encode("utf-8")) + 2
     matches = 0
     consumed = 0
     oversized = False
@@ -358,14 +373,32 @@ def _search_log_file(path: Path, *, query: str, limit: int,
             if not raw.endswith(b"\n") and consumed < size:
                 oversized = True
             line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+            line_bytes = line_size(line)
+            if not initial_full and len(initial) < limit and initial_bytes + line_bytes <= context_bytes:
+                initial.append(line)
+                initial_bytes += line_bytes
+            else:
+                initial_full = True
             if needle in line.casefold():
+                if matches == match_index:
+                    lines = list(before)
+                    window_bytes = sum(line_size(value) for value in lines)
+                    while lines and window_bytes > context_bytes // 2:
+                        window_bytes -= line_size(lines.pop(0))
+                    match_line = len(lines)
                 matches += 1
-                if len(lines) < limit:
+            if match_line is not None and not window_full:
+                if len(lines) < limit and window_bytes + line_bytes <= context_bytes:
                     lines.append(line)
+                    window_bytes += line_bytes
+                else:
+                    window_full = True
+            before.append(line)
     complete = consumed >= size and not oversized
-    return {"lines": lines, "file_size": size, "query": query,
+    return {"lines": lines if match_line is not None else initial, "file_size": size, "query": query,
+            "match_index": match_index, "match_line": match_line,
             "match_count": matches, "search_complete": complete,
-            "truncated": matches > len(lines) or not complete}
+            "truncated": window_full or initial_full or not complete}
 
 
 def _referenced_rule_logs(master: Path, batch: Path, *, attempt: int,

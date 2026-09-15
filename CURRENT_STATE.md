@@ -1,5 +1,50 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 Log and resource source integration (no deployment)
+
+User authorizes committing the completed log-context search and bounded SFS
+history/rendering changes to main and jiucheng/release/production. This source
+integration contains both changes, their targeted tests and API/UI handoff docs;
+it supersedes the uncommitted status in the dated entries below. Pre-integration
+local/remote refs allab23ca6; production checkout clean. Existing BS10610 test
+and build receipts below apply unchanged; no redundant suite rerun. Temporary
+.superpowers artifacts and unrelated branches are excluded. BS96 publication
+is not authorized by this Git synchronization and remains pending.
+
+## 2026-09-15 SFS I/O history optimization (not deployed)
+
+User approved bounded resource-history/rendering optimization. Dashboard now
+requests selected1h/24h/7d, at most600 original SFS points with chart-only fields;
+stored10080-point history and old no-parameter API are preserved. Existing
+refresh-key fencing protects time-window changes; memo/useMemo avoids unrelated
+parent refresh recalculation. No scheduler, collector, workflow or data change.
+BS10610 targeted backend3/frontend2 passed; tsc/Vite passed (BQVVDtTK/BFPGoplr).
+Bounded read-only code review found no important issue. Source docs updated.
+Log search changes remain intact. Neither change is committed or published;
+main/production source remainab23ca6. No production performance improvement is
+claimed yet; previous measured history payload identified the optimization target.
+
+## 2026-09-15 Log context search and Tracker diagnosis (not deployed)
+
+Implemented registered WGS/GATK content search with continuous bounded context,
+matching-line index, shared previous/next controls and highlighting. Search is
+separate from automatic refresh; no scan on normal refresh while searching.
+BS10610 backend7/component2/page integration1 passed; tsc/Vite build passed.
+Review caught JSON escaping inflation; corrected serialized size with16KiB
+metadata reserve and accepted its targeted regression plus context case.
+No commit/main sync/publication yet; code baseab23ca6. No workflow/data changes.
+
+BS96 read-only Tracker timing: all0.597/0.551s, deployed0.545s,7rows/~12KB;
+overview0.056s. Resources0.160s but1,880,830 uncompressed response bytes, with
+10,080 SFS history points plus60 per node. Almost all payload is history.
+Nginx JSON gzip already enabled. Dashboard fetches resources every10s; SFS
+history conversion/filter/SVG paths recompute on parent updates without memo.
+This is a concrete performance suspect, not proof of the browser stall: no
+browser performance trace was taken. Tracker also synchronously queries Airflow
+for active runs before adapter projection, but no long API stall reproduced.
+At diagnosis time no Tracker/resource implementation changed; the subsequently
+approved bounded history optimization is recorded above.
+
 ## 2026-09-15 Rule-summary/Attempt Git integration (no deployment)
 
 User authorizes committing the two shared phase-summary corrections and Rules

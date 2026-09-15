@@ -10,7 +10,8 @@ def test_search_finds_content_before_tail_and_is_literal(tmp_path):
     path = tmp_path / 'analysis.log'
     path.write_text('FASTP [ok]\n' + 'finished\n' * 300)
     result = logs._search_log_file(path, query='fastp [', limit=200)
-    assert result['lines'] == ['FASTP [ok]']
+    assert result['lines'] == ['FASTP [ok]'] + ['finished'] * 199
+    assert result['match_line'] == 0
     assert result['match_count'] == 1
     assert result['search_complete'] is True
 
@@ -39,16 +40,40 @@ def test_rule_log_index_uses_only_existing_safe_references(tmp_path):
     assert items[0]['source'] == 'rule_log'
 
 
-def test_registered_wgs_log_search_and_unknown_key_rejection(tmp_path, monkeypatch):
+@pytest.mark.parametrize('pipeline', ['wgs', 'gatk'])
+def test_registered_wgs_log_search_and_unknown_key_rejection(tmp_path, monkeypatch, pipeline):
     path = tmp_path / 'analysis.log'
     path.write_text('fastp earlier\n' + 'done\n' * 300)
     monkeypatch.setattr(logs, '_get_run', lambda *_: SimpleNamespace(attempt=5))
-    monkeypatch.setattr(logs, '_wgs_run_log_items', lambda **_: [
-        {'key':'approved', '_path':str(path), 'relative_path':'mirror/analysis.log'}])
-    result = logs.get_wgs_run_log(session=None, analysis_id='mock', stream='stdout',
+    monkeypatch.setattr(logs, f'_{pipeline}_run_log_items', lambda **_: [
+        {'key':'approved', '_path':str(path), 'relative_path':'mirror/analysis.log', 'stream':'stdout'}])
+    handler = getattr(logs, f'get_{pipeline}_run_log')
+    result = handler(session=None, analysis_id='mock', stream='stdout',
         tail=200, settings=None, key='approved', query='fastp')
-    assert result['lines'] == ['fastp earlier']
+    assert result['lines'] == ['fastp earlier'] + ['done'] * 199
     assert result['path'] == 'mirror/analysis.log'
     with pytest.raises(logs.LogNotFoundError):
-        logs.get_wgs_run_log(session=None, analysis_id='mock', stream='stdout',
+        handler(session=None, analysis_id='mock', stream='stdout',
             tail=200, settings=None, key='../secret', query='fastp')
+
+
+def test_search_navigates_with_continuous_context_and_handles_missing_match(tmp_path):
+    path = tmp_path / 'analysis.log'
+    path.write_text('before\nrule mapping:\n  input: a\n  output: b\nbetween\nrule mapping:\n  input: c\n  output: d\nafter\n')
+    result = logs._search_log_file(path, query='mapping', limit=5, match_index=1)
+    assert result['lines'] == ['  output: b', 'between', 'rule mapping:', '  input: c', '  output: d']
+    assert (result['match_count'], result['match_index'], result['match_line']) == (2, 1, 2)
+    missing = logs._search_log_file(path, query='absent', limit=5)
+    assert missing['match_count'] == 0
+    assert missing['lines'] == ['before', 'rule mapping:', '  input: a', '  output: b', 'between']
+    assert missing['match_line'] is None
+
+
+def test_search_context_caps_serialized_payload_even_with_escaped_text(tmp_path):
+    import json
+    path = tmp_path / 'analysis.log'
+    path.write_text('hit\n' + ('\t' * 6000 + '\n') * 200)
+    result = logs._search_log_file(path, query='hit', limit=200)
+    assert len(json.dumps(result, ensure_ascii=False).encode('utf-8')) <= 1024 * 1024
+    assert result['lines'][0] == 'hit'
+    assert result['match_line'] == 0

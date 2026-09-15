@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+2026-09-15 Tracker read-only timing (no deployment): BS96/server96 backend
+c1be8d79ea43 still uses20260915-ui-93069eb; current symlink4d3d24e6;
+executiontrue/scantrue/autofalse unchanged. Internal authenticated GETs:
+dashboard/runs all0.597s and0.551s; deployed0.545s,7rows/~12KB;
+overview0.056s; platform/resources0.160s,1,880,830 uncompressed bytes.
+Resources include10,080 SFS history points and60 each node96/97; nginx JSON
+gzip already enabled. No browser trace; resource payload/rendering is a
+candidate contributor, not a confirmed sole cause. No DB or workload mutation.
+
 2026-09-15 BS96 UI93069eb supersedes backend/observer/frontend only:
 backendc1be8d79ea43, observerbc2da01ec68c mount
 /data/airflow-WGS/releases/20260915-ui-93069eb/backend; frontend121e64a9e5f4

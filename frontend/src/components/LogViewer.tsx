@@ -1,5 +1,5 @@
 import {Copy, Search} from "lucide-react";
-import {type ReactNode, useEffect, useMemo, useState} from "react";
+import {type ReactNode, useEffect, useMemo, useRef, useState} from "react";
 
 import type {LogStream, RunLog, RunLogIndexItem} from "../api";
 
@@ -22,25 +22,40 @@ export function LogViewer({
   sources?: RunLogIndexItem[];
   activeKey?: string | null;
   onKeyChange?: (key: string) => void;
-  onSearch?: (query: string) => void;
+  onSearch?: (query: string, matchIndex: number) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [matchIndex, setMatchIndex] = useState(0);
+  const viewer = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!onSearch) return;
-    const timer = setTimeout(() => onSearch(query.trim()), 350);
+    const timer = setTimeout(() => onSearch(query.trim(), 0), 350);
     return () => clearTimeout(timer);
   }, [query, onSearch]);
-  const searching = Boolean(onSearch && (log?.query || "") !== query.trim());
+  const searching = Boolean(onSearch && ((log?.query || "") !== query.trim() || (query.trim() && (log?.match_index ?? 0) !== matchIndex)));
   const lines = log?.lines || [];
   const groupedSources = useMemo(() => groupLogSources(sources), [sources]);
-  const matching = useMemo(() => {
-    if (onSearch || !query.trim()) return lines;
+  const matchingLines = useMemo(() => {
+    if (!query.trim()) return [];
     const needle = query.trim().toLowerCase();
-    return lines.filter((line) => line.toLowerCase().includes(needle));
-  }, [lines, query, onSearch]);
+    return lines.flatMap((line, index) => line.toLowerCase().includes(needle) ? [index] : []);
+  }, [lines, query]);
+  const matchCount = onSearch ? log?.match_count ?? 0 : matchingLines.length;
+  const activeLine = onSearch ? log?.match_line : matchingLines[matchIndex];
+  useEffect(() => {
+    if (searching || !query.trim() || activeLine == null) return;
+    const container = viewer.current;
+    const target = container?.children[activeLine] as HTMLElement | undefined;
+    if (container && target) container.scrollTop += target.getBoundingClientRect().top - container.getBoundingClientRect().top - container.clientHeight / 3;
+  }, [log, activeLine, searching, query]);
+  function navigate(delta: number) {
+    const next = Math.max(0, Math.min(matchCount - 1, matchIndex + delta));
+    setMatchIndex(next);
+    onSearch?.(query.trim(), next);
+  }
 
   async function copyVisible() {
-    await navigator.clipboard?.writeText(matching.join("\n"));
+    await navigator.clipboard?.writeText(lines.join("\n"));
   }
 
   return (
@@ -79,17 +94,21 @@ export function LogViewer({
           ))}
         </div>
       )}
-      <label className="search-field">
+      <div className="log-search-toolbar"><label className="search-field">
         <Search size={15} />
         <span className="sr-only">Search logs</span>
-        <input aria-label="Search logs" maxLength={256} value={query} placeholder={onSearch ? "Search file content" : "Search loaded excerpt"} onChange={(event) => setQuery(event.target.value)} />
+        <input aria-label="Search logs" maxLength={256} value={query} placeholder={onSearch ? "Search file content" : "Search loaded excerpt"} onChange={(event) => { setQuery(event.target.value); setMatchIndex(0); }} />
       </label>
-      {searching ? <p className="muted">Searching log content… Previous result remains visible.</p> : query ? <p className="muted">{log?.match_count ?? matching.length} matching lines · showing {matching.length}{log?.search_complete === false ? " · Scan limit reached; results are incomplete" : ""}</p> : <p className="muted">Latest log excerpt{log?.truncated ? " (truncated)" : ""}. {onSearch ? "Search checks file content, not just these lines." : "Search filters this excerpt only."}</p>}
+      <span className="muted" aria-live="polite">{query.trim() && !searching ? `${activeLine != null ? matchIndex + 1 : 0} / ${matchCount}` : "—"}</span>
+      <button className="button ghost" type="button" disabled={searching || !query.trim() || matchIndex <= 0} onClick={() => navigate(-1)}>上一个</button>
+      <button className="button ghost" type="button" disabled={searching || !query.trim() || matchIndex + 1 >= matchCount} onClick={() => navigate(1)}>下一个</button>
+      </div>
+      {searching ? <p className="muted">Searching log content… Previous result remains visible.</p> : query.trim() ? <p className="muted">{matchCount ? "保留匹配位置的连续上下文" : "未找到匹配内容"}{log?.search_complete === false ? " · 已达到扫描上限，结果不完整" : ""}</p> : <p className="muted">Latest log excerpt{log?.truncated ? " (truncated)" : ""}. {onSearch ? "Search checks file content, not just these lines." : "Search locates text within this excerpt."}</p>}
       {error ? <div className="inline-error" role="alert">{error}</div> : null}
-      <div className="log-viewer" aria-label={`${stream} log`}>
-        {matching.length ? (
-          matching.map((line, index) => (
-            <div className={/error|exception|failed|traceback/i.test(line) ? "log-line error-line" : "log-line"} key={`${line}-${index}`}>
+      <div ref={viewer} className="log-viewer" aria-label={`${stream} log`}>
+        {lines.length ? (
+          lines.map((line, index) => (
+            <div className={`log-line${/error|exception|failed|traceback/i.test(line) ? " error-line" : ""}${query.trim() && index === activeLine ? " log-search-current" : ""}`} key={`${line}-${index}`}>
               {highlightMatches(line, onSearch ? log?.query || "" : query.trim())}
             </div>
           ))

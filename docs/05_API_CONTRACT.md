@@ -1,5 +1,37 @@
 # API contract
 
+## Resource history projection (2026-09-15, source only)
+
+`GET /api/platform/resources?history_period=1h|24h|7d` returns the selected
+SFS chart window, plus `history_period` in the response. Other values fail
+parameter validation. Omitting the parameter preserves the original response.
+The window retains the existing chart's UTC tick alignment and latest-sample
+anchor (15-minute, 6-hour, 1-day ticks respectively). SFS history includes only
+`at`, `read_bps`, `write_bps`, `total_bps`; missing values remain null. At most
+600 evenly spaced original observations are returned, including first/last.
+This is a sampled trend, not an exhaustive peak report; no averages are invented.
+Non-SFS history is empty in this projection; all current/freshness/heavy-slot
+fields remain unchanged. Collector retention and stored seven-day history are
+untouched. This reduces response serialization/transfer, not DB JSON loading.
+
+## Log search navigation (2026-09-15, source only)
+
+GET /api/runs/{id}/logs supports query and nonnegative match_index (default0)
+for registered WGS and GATK opaque log keys. Search returns a continuous window
+around the indexed matching line, not a concatenation of matching-only lines.
+match_count counts matching lines (not occurrences); match_index is zero-based,
+and nullable match_line is the zero-based selected row within lines. No match
+or an index no longer present returns initial context with match_line=null.
+Normal requests without query retain the existing tail behavior.
+
+Window is bounded by tail (frontend200) and1MiB serialized JSON (including
+escaped text and reserved metadata overhead); literal
+case-insensitive scanning retains the existing64MiB/64KiB-line safety limits.
+search_complete=false explicitly reports incomplete scanning; counts are partial
+in that case. Search does not promise coverage beyond the scan cap. Existing
+registered-key authorization/path checks remain; no arbitrary path, DB schema,
+search service or persistent index. Added fields are optional for old clients.
+
 ## QC/ledger follow-up (2026-09-15, source only)
 
 GET /api/sample-references adds nullable latest_decision:

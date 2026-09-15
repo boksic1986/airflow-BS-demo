@@ -916,12 +916,13 @@ def confirm_wgs_test_project(draft_id: str, request: WgsTestConfirmRequest, user
 
 
 @app.get("/api/platform/resources")
-def platform_resources() -> dict[str, object]:
+def platform_resources(history_period: str | None = Query(default=None, pattern="^(1h|24h|7d)$")) -> dict[str, object]:
     settings = get_settings()
     with get_sessionmaker()() as session:
         return get_platform_resources(
             session=session,
             heavy_slot_limit=int(settings.wgs_heavy_slot_limit),
+            history_period=history_period,
             heavy_slot_mode=str(settings.wgs_heavy_slot_mode),
             evidence_root=str(settings.wgs_evidence_root or ""),
         )
@@ -3161,6 +3162,7 @@ def run_logs(
     key: str | None = Query(default=None, max_length=64),
     tail: int = Query(default=200, ge=1, le=1000),
     query: str | None = Query(default=None, max_length=256),
+    match_index: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
     try:
         with get_sessionmaker()() as session:
@@ -3180,7 +3182,7 @@ def run_logs(
                 tail=tail,
                 settings=get_settings(),
                 key=key,
-                **({"query": query} if query and run is not None and run.pipeline_name == "wgs" else {}),
+                **({"query": query, "match_index": match_index} if query and run is not None and run.pipeline_name in {"wgs", "gatk"} else {}),
             )
     except UnsupportedLogStreamError as exc:
         raise HTTPException(

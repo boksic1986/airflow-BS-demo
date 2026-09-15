@@ -1,5 +1,34 @@
 # TASKS.md
 
+## LOG-RESOURCE-GIT-SYNC-20260915
+
+- User explicitly authorizes commit and main/production branch integration.
+- Scope: LOG-CONTEXT-SEARCH-20260915 and RESOURCE-HISTORY-20260915 only.
+- Preflight: clean production checkout; HEAD/main/production/local remote refs
+  allab23ca6 after fetch. Use fast-forward integration and atomic dual-ref push.
+- Reuse accepted BS10610 targeted tests/build; no runtime source changes since.
+- Exclude .superpowers packaging artifacts; retain editing worktree.
+- No BS96 deployment, service restart or workflow/data action.
+
+## RESOURCE-HISTORY-20260915
+
+- [x] User-approved SFS I/O history and rendering scope only.
+- [x] Optional period projection,600-point ceiling, preserve DB history/current values.
+- [x] Selected-period requests, stale-response isolation and memoized chart work.
+- [x] BS10610 backend3/frontend2 and build; bounded review and API/UI docs.
+- No commit, main sync or production deployment requested in this turn.
+
+## LOG-CONTEXT-SEARCH-20260915
+
+- [x] WGS/GATK registered-key search returns continuous bounded context.
+- [x] Matching-line previous/next, literal highlight, counter and shared UI.
+- [x] Debounce and stale-response fencing; recurring refresh does not rescan.
+- [x] BS10610 targeted backend7/frontend3 and build; API/UI contracts updated.
+- [x] Review correction: bound serialized JSON, not just raw text; escaped-line test passed.
+- [x] Read-only Tracker diagnosis: ~0.55s/~12KB; resource history ~1.88MB.
+- [x] User approved resource-history optimization; delivered separately above.
+- No production deployment, main sync, workflow or data action.
+
 ## RULE-SUMMARY-GIT-SYNC-20260915
 
 - [x] User explicitly authorizes combined main/production source integration.

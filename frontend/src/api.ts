@@ -679,6 +679,8 @@ export type LogStream = "metadata" | "stdout" | "stderr";
 export type RunLog = {
   query?: string;
   match_count?: number;
+  match_index?: number;
+  match_line?: number | null;
   search_complete?: boolean;
   path?: string;
   stream: LogStream;
@@ -1049,7 +1051,10 @@ export type PlatformResourceSnapshot = {
   error_message?: string | null;
 };
 
+export type ResourceHistoryPeriod = "1h" | "24h" | "7d";
+
 export type PlatformResourcesResponse = {
+  history_period?: ResourceHistoryPeriod;
   status: string;
   items: PlatformResourceSnapshot[];
   updated_at: string;
@@ -1339,8 +1344,8 @@ export function getSystemResources(): Promise<SystemResourcesResponse> {
   return requestJson<SystemResourcesResponse>("/system/resources");
 }
 
-export function getPlatformResources(): Promise<PlatformResourcesResponse> {
-  return requestJson<PlatformResourcesResponse>("/platform/resources");
+export function getPlatformResources(historyPeriod?: ResourceHistoryPeriod): Promise<PlatformResourcesResponse> {
+  return requestJson<PlatformResourcesResponse>(`/platform/resources${historyPeriod ? `?history_period=${historyPeriod}` : ""}`);
 }
 
 export function getRunResources(analysisId: string): Promise<RunResourceSummary> {
@@ -1700,10 +1705,13 @@ export function getRunConfig(analysisId: string): Promise<RunConfig> {
   return requestJson<RunConfig>(`/runs/${encodeURIComponent(analysisId)}/config`);
 }
 
-export function getRunLog(analysisId: string, stream: LogStream, key?: string, query?: string): Promise<RunLog> {
+export function getRunLog(analysisId: string, stream: LogStream, key?: string, query?: string, matchIndex = 0): Promise<RunLog> {
   const params = new URLSearchParams({stream, tail: "200"});
   if (key) params.set("key", key);
-  if (query?.trim()) params.set("query", query.trim());
+  if (query?.trim()) {
+    params.set("query", query.trim());
+    params.set("match_index", String(matchIndex));
+  }
   return requestJson<RunLog>(`/runs/${encodeURIComponent(analysisId)}/logs?${params.toString()}`);
 }
 

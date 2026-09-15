@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from math import ceil
 from typing import Any
 
 from sqlalchemy import select
@@ -89,6 +90,7 @@ def get_platform_resources(
     heavy_slot_limit: int | None = None,
     heavy_slot_mode: str | None = None,
     evidence_root: str | None = None,
+    history_period: str | None = None,
 ) -> dict[str, Any]:
     observed = now or datetime.now(timezone.utc)
     rows = session.scalars(
@@ -114,7 +116,10 @@ def get_platform_resources(
                 "display_name": row.display_name,
                 "status": status,
                 "current": dict(row.current_json or {}),
-                "history": list(row.history_json or []),
+                "history": (
+                    _dashboard_history(row.history_json or [], history_period)
+                    if row.resource_type == "sfs" else []
+                ) if history_period else list(row.history_json or []),
                 "source_updated_at": source_at.isoformat() if source_at else None,
                 "collected_at": _aware(row.collected_at).isoformat() if row.collected_at else None,
                 "error_message": row.error_message,
@@ -129,6 +134,7 @@ def get_platform_resources(
         "status": overall,
         "items": items,
         "updated_at": observed.isoformat(),
+        **({"history_period": history_period} if history_period else {}),
         "resource_packages": read_bss_snapshot(evidence_root, now=observed),
         "heavy_slot": project_global_heavy_slot(
             session=session,
@@ -137,6 +143,29 @@ def get_platform_resources(
             evidence_root=evidence_root,
         ),
     }
+
+
+def _dashboard_history(history: list[dict[str, Any]], period: str) -> list[dict[str, Any]]:
+    # Response-only projection: never shorten the collector's seven-day ring.
+    seconds, tick = {"1h": (3600, 900), "24h": (86400, 21600), "7d": (604800, 86400)}[period]
+    dated = []
+    for point in history:
+        try:
+            at = _aware(datetime.fromisoformat(str(point.get("at", "")).replace("Z", "+00:00")))
+        except ValueError:
+            continue
+        dated.append((at.timestamp(), point))
+    if not dated:
+        return []
+    dated.sort(key=lambda entry: entry[0])
+    # Match the existing chart's tick-aligned window, anchored to its last sample.
+    end = ceil(dated[-1][0] / tick) * tick
+    points = [point for at, point in dated if end - seconds <= at <= end]
+    if len(points) > 600:
+        # Evenly spaced original observations, including both endpoints. No
+        # invented averages/zeros; this trend view is not a peak-value report.
+        points = [points[index * (len(points) - 1) // 599] for index in range(600)]
+    return [{key: point.get(key) for key in ("at", "read_bps", "write_bps", "total_bps")} for point in points]
 
 
 def _aware(value: datetime | None) -> datetime | None:

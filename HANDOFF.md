@@ -1,5 +1,118 @@
 # HANDOFF.md
 
+## 2026-09-15 Authorized log/resource main and production source integration
+
+User requests commit and merge into main/production; not a production rollout.
+Scope is the completed log-context navigation and resource-history projection
+documented below. Baseab23ca639c2da90b23b7c1ab0c6d02a61c8ddd9e confirmed equal
+for HEAD, main, jiucheng/release/production and both fetched origin refs;
+D:/pipeline/airflow-demo-production clean. Integration targets are that main
+checkout and refs/heads/jiucheng/release/production; atomic push preserves their
+alignment. This commit includes all scoped API/UI/test/state changes; excludes
+.superpowers scratch archives and every unrelated worktree/branch.
+Previous bounded reviews found no remaining important issues. BS10610 log
+backend7/frontend3 and resource backend3/frontend2 accepted; final combined
+frontend tsc/Vite build passed BQVVDtTK/BFPGoplr. No code changed after those
+checks. Only Git diff/status/ref checks are repeated per user's no-redundancy
+constraint. No remote runtime commands, production database/service/mount edits
+or workload operations are part of integration. BS96 remains on its previously
+recorded release, not this source revision. Deployment requires separate user
+authorization and standard live preflight. Source rollback uses an explicit
+revert, never reset/delete data; preserve editing worktree and scratch files.
+
+## 2026-09-15 Resource history bounded projection and chart rendering
+
+User approved continuing only the identified SFS I/O history/rendering work.
+Changed backend platform_resources_service and its main route; frontend api,
+DashboardPage, DashboardResourcePanels; new test_resource_history_projection.py
+and selected panel tests. Prior uncommitted log-search changes preserved.
+API optionalhistory_period is validated1h/24h/7d, uses old tick-aligned window,
+returns only at/read/write/total and at most600 equally spaced original points
+including endpoints. Missing values remain null; node history omitted only in
+projection. No DB/collector retention change; no-parameter contract unchanged.
+Sampling is a trend view, may omit individual peaks, and is not aggregation.
+Dashboard defaults24h, uses existing refresh-key stale fencing, hides prior
+window while new history loads. SFS memo/useMemo avoids unrelated rerenders.
+No new cache/service, retry/interval policy, scheduler or workflow modifications.
+
+BS10610 preflight: hostname server10610; control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS, current20260912-opt-4d3d24e6,
+actual backend mount20260913-panel-1fb971b. Executiontrue/scanfalse/autofalse.
+Only isolated candidates/rule-summary-20260915 was overlaid; no service restart.
+Ephemeral offline images backend:t235-232154f and frontend-builder:
+node22-lock-35420d5e3ec0 with read-only source/config, synthetic SQLite fixtures.
+Commands/results:
+- pytest -q -p no:cacheprovider --tb=short tests/test_resource_history_projection.py:
+  red3 expected unexpected-keyword failures; green3 passed (1.11s). Checks all
+  periods,600 ceiling, nulls, current values, unchanged10080 DB records, and
+  synthetic serialized response below one tenth of unprojected response.
+- npm test -- --run src/features/dashboard/DashboardResourcePanels.test.tsx
+  -t 'requests selected history|replaces workflow activity': green2 passed,
+  3 deselected after new request case first failed against old API as expected.
+  Includes controlled selection, missing old-window chart and no extra Date.parse
+  on unrelated parent rerender.
+- npm run build: tsc/Vite passed; index-BQVVDtTK.js/index-BFPGoplr.css.
+- git diff --check passed. Read-only bounded reviewer found no important issues;
+  reviewer did not retest or connect remotely. No full suite, browser benchmark
+  or production test run per scope. Existing browser symptom improvement remains
+  unmeasured until authorized release; this does not eliminate DB JSON loading.
+
+API/UI/state/task docs updated. No commit/push/main/production checkout sync or
+BS96 deployment; source baseab23ca6. Next step is user-authorized integration/
+release, not data cleanup or workflow recovery. Rollback this incremental source
+diff only; no data rollback required. Do not undo prior log-search source edits.
+
+## 2026-09-15 Log search context delivered; Tracker read-only diagnosis
+
+User approves file-content matching with continuous context and prev/next, then
+asks to inspect Tracker stalls without widening implementation. Changed only
+log search API/runtime UI, tests and docs; baseab23ca6. WGS/GATK share bounded
+scanner, selected matching-line ordinal and200-line/1MiB context. Existing64MiB
+scan and64KiB line bounds retained and incomplete scans explicitly labeled.
+No arbitrary paths or new service/cache/index. No query keeps normal tail.
+UI has button ghost previous/next, current/total, active-line scroll, safe marks;
+Copy retains displayed context. Search350ms debounce, separate RunDetail effect,
+no recurring full scan, stale identity responses ignored, tail cannot overwrite
+search, and source/rule selection resets search. No workflow/core script changes.
+
+BS10610 preflight unchanged: server10610, control/current4d3d24e6 and actual
+backend20260913-panel-1fb971b; executiontrue/scanfalse/autofalse. Isolated candidate
+candidates/rule-summary-20260915 only; offline ephemeral backendt235 and locked
+node22 builder, read-only source/config and synthetic fixtures. Red backend4
+expected failures/2pass, UI2expected failures. Green test_log_content_search.py
+6pass; LogViewer.test.tsx2pass; new WgsProductionUi case 'keeps log search context'
+1pass,17deselected verifies focus-triggered refresh does not rescan, navigation
+and clear restore tail. tsc/Vite build passed; initial bundle BAcBkQ8-/BFPGoplr.
+No full suite/live workflow tests per minimal scope. Final source diff checked.
+
+Bounded reviewer found raw-text cap could inflate after JSON escaping. New
+escaped-tab fixture reproduced2,088,849bytes against1MiB target; corrected
+line-size accounting to JSON UTF8 plus delimiters, reserving16KiB for metadata.
+Only that case and continuous-window case rerun:2passed. Total unique accepted
+backend cases7, frontend3. No unrelated fixes. Context truncation uses explicit
+initial/window-full flags, so missing-match context remains a continuous prefix.
+
+Then BS96 read-only diagnostic, unchanged ui93069eb backendc1be8d79ea43/current
+4d3d24e6 and executiontrue/scantrue/autofalse. No direct DB access. Authenticated
+HTTP measured Tracker all0.597/0.551s and exact deployed0.545s,7rows/~12KB;
+overview0.056s. Resources0.160s yet1,880,830 uncompressed JSON bytes; later JSON
+field sizing shows >99% item payload is history, SFS10,080 points plus60/node.
+Existing nginx gzip on for JSON confirmed. Code: Dashboard requests resources
+every10s; SfsIoPanel reparses history/filters/rebuilds SVG on parent rerenders.
+Active Tracker rows also call synchronous Airflow task lookup before adapter
+DB-stage projection. No multi-second API delay reproduced, and no browser
+profiling performed; do not claim a proven frontend root cause. Proposed next
+scope: bounded on-demand chart history + memoization, retaining DB history,
+subject to user's approval. No Tracker code changed in this task.
+
+Diagnostic failures: first BS SSH handshake aborted, successful reconnect;
+GET /health404 (wrong diagnostic route), business API checks200. No service or
+data change to fix these. Local rg guessed missing paths returned errors only;
+subsequent existing files used. No patient payload/body or secrets printed.
+Not committed/pushed/deployed; production remains93069eb,0911A untouched.
+Rollback only this source slice; runtime rollback not needed. .superpowers
+packages remain untracked, original workspace and all production data retained.
+
 ## 2026-09-15 Authorized rule-summary/Attempt source integration
 
 Scope: commit and merge the preceding shared-summary and Attempt-selector fixes

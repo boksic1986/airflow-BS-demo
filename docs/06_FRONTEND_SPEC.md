@@ -1,5 +1,34 @@
 # Frontend specification
 
+## Resource history rendering (2026-09-15, source only)
+
+Dashboard requests the selected SFS I/O period (default24h) through the existing
+resource API; 1h/24h/7d selection changes its silent-refresh key. Old in-flight
+responses cannot replace the new period. While its history is pending, do not
+draw the previous period under the new label; current resource values remain.
+The response bounds trend points to600 and removes unused historical fields.
+SFS panel/chart memoization and memoized history conversion isolate the chart
+from Tracker/overview/node-tab rerenders. No new cache, polling service or
+interval change; existing gzip/freshness/error behavior remains. Full stored
+history is preserved. Source optimization is not a measured production fix
+until separately authorized deployment and observation.
+
+## Log context navigation (2026-09-15, source only)
+
+Search highlights and scrolls to a matching line without filtering surrounding
+lines. Reuse button ghost controls for 上一个/下一个 and a current/total counter
+on the right of the search input; disable navigation at bounds/while loading.
+Keep Copy as the complete displayed continuous window, never matched-only text.
+No-match and incomplete-scan states are explicit; query text is rendered safely.
+
+Both WGS/GATK use file-content search with a200-line bounded context. Debounce
+query edits350ms; navigation requests another window. Run detail search is an
+effect keyed by route/source/attempt/query/index, not part of recurring refresh.
+During search, automatic refresh cannot rescan or overwrite the context with
+a tail; late search responses are ignored after identity changes. Clearing
+search returns to the latest tail. Other LogViewer consumers retain local
+loaded-excerpt navigation without filtering. No Dashboard/Tracker request added.
+
 ## Rule summary filter isolation (2026-09-15, source only)
 
 Pipeline phases and Pipeline phase summary both reuse the existing API
@@ -122,8 +151,9 @@ destination mean handed off; neither means analysis/QC success. No new CSS overl
 Resource panels distinguish first-request loading/failure from a successful
 empty telemetry response. Loading never claims collectors are unavailable.
 Background refresh failures retain the last successful resource snapshot.
-Only the resource JSON route negotiates gzip; all history points, timestamps,
-freshness and unknown-value semantics remain unchanged.
+Only the resource JSON route negotiates gzip. The later optional history-period
+projection above limits response points; stored history, timestamps, freshness
+and unknown-value semantics remain unchanged.
 
 ## GATK recovery and explicit SFS maintenance (2026-09-14)
 
