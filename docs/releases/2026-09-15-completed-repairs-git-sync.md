@@ -1,5 +1,10 @@
 # Completed repairs: main / production Git synchronization
 
+Completed publication: atomic push to both refs succeeded at
+`a9c899fb7a69e3a60ec25f7b3c3a8b5bb7257415`. Independent remote read and local
+main/production/HEAD matched; checkout clean,12/12 anchors present, application
+code identical to tested d774727. This final documentation receipt adds no code.
+
 User authority: publish already completed Airflow repairs to main and production
 repository, no omissions. Git-only: no service deployment, restart, CCE upgrade,
 batch resume, schema/data/prepare/pending action or offline deletion.

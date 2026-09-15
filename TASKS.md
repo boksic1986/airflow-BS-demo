@@ -5,6 +5,8 @@
 - [x] Confirm clean production main checkout and equal remote main/production f241149.
 - [x] Audit12 repair anchors and exact five-commit candidate delta; retain prior fixes.
 - [x] Package source/documentation for user-authorized fast-forward and atomic dual-ref push.
+- [x] Publish a9c899f atomically; independent remote/local main+production equality,
+  clean production checkout,12/12 ancestry and exact tested-code tree confirmed.
 - Git publication completion requires matching local/remote main and production refs;
   record the resulting SHA in the user handoff. No production runtime release.
 - Reuse matching BS10610 test reports: no changed runtime code or merged conflict

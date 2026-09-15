@@ -2,6 +2,11 @@
 
 ## 2026-09-15 approved repair Git synchronization
 
+Publication verified: main and jiucheng/release/production atomically advanced
+to a9c899fb7a69e3a60ec25f7b3c3a8b5bb7257415; independent ls-remote matched both,
+production checkout clean,12/12 anchors on main and runtime code exactly d774727.
+This final receipt is documentation only and accompanies the same dual-ref sync.
+
 Latest user authorizes completed repairs on main and the production repository,
 superseding the earlier source-only merge/push prohibition, not deployment gates.
 Audited candidate d774727 contains all12 named repair anchors; five commits since

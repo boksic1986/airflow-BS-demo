@@ -2,6 +2,12 @@
 
 ## 2026-09-15 completed repair Git synchronization authorization
 
+Completed: atomic push of a9c899f to both remote refs exited0; independent
+ls-remote returned the same full SHA for main and production. Local main,
+production branch and checkout HEAD matched; checkout clean. All12 anchors
+present; backend/frontend/dags/scripts diff against tested d774727 is empty.
+This follow-up records completion only, not a new runtime change or test run.
+
 User asks all completed repairs committed to main and production repository.
 Target is D:/pipeline/airflow-demo-production main and origin main plus
 jiucheng/release/production; this does not deploy /data/airflow-WGS services.
