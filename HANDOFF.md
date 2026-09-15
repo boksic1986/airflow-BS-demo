@@ -1,5 +1,17 @@
 # HANDOFF.md
 
+## 2026-09-15 combined source delivery handoff
+
+ETA f2e0957 plus recovery7543827 integrated into this independent delivery branch;
+base f241149, no unrelated unreleased work imported. Combined static review fixed
+HTTP-only UI key generation, uncertain/rejected dispatch handling, JSON persistence,
+scope-limited query retry and stale cleanup ordering. Both focused test reports
+are retained below and under docs/releases; no extra combined/full suite run.
+Code merged cleanly; three additive state documents were resolved retaining both
+histories. No main/production-repo push, BS96 deployment, actual0911A recovery or
+data change. Next is separately authorized live compatibility/release review.
+Rollback source commits only; preserve data, frozen bundles and active executors.
+
 ## 2026-09-15 WGS ETA source-only handoff
 
 Goal: approved Step4/6 linear99cap estimates and common display, no new telemetry.
@@ -16,9 +28,51 @@ reset retried; archive clock-skew warning did not affect test/build success.
 No full suite, production probe, real analysis or data mutation. Scope remains
 source only. Commands and limitations are in dated ETA release note. Rollback
 this code only; no DB migration/data restoration. Resume/API runtime work remains
-owned by the separate wgs-resume-stage worktree; do not claim whole plan complete.
+owned by the separate wgs-resume-stage worktree, subsequently integrated above.
 An initial empty worktree from old airflow-demo clone was not edited; actual
 implementation uses production clone f241149, not oldclone1deca5f. No branch reset.
+
+## 2026-09-15 WGS resume_stage source completion
+
+Completed approved API→RunAction→frozen generation→bio_wgs→restricted helper→UI
+slice in independent f241149 worktree. Preserves analysis/attempt/release/workdir;
+no Step0/prepare/pending/core/OBS-empty/CCE-upgrade/real0911A/production action.
+Changes: backend main/resume service/submission callback; bio_wgs; gate and sibling
+wgs_resume.py; API client/ResumeStagePanel/RunDetail import+render; four bounded
+test files; API/DAG/runtime/runbook/state/task docs and dated release report.
+
+BS10610 isolated cached-container validation: backend4+runtime4+realAirflow2+UI1
+passed; frontend build passed1851modules. Exact commands, setup failures and
+corrected assertions are recorded in docs/releases/2026-09-15-wgs-resume-stage.md.
+No broad suite, local runtime, downloads, real cloud operation or production probe.
+Future live compatibility and real lock/handoff recovery were intentionally not
+run: they need separately approved frozen-bundle/environment access.
+
+Parent completed combined static review and integrated the separate ETA commit.
+No push/main/deployment by this implementer. Rollback is scoped source revert;
+future packaging installs helper beside gate and retains prior immutable release.
+Keep runtime evidence/output and active executors when rolling back.
+
+## 2026-09-15 WGS resume_stage implementation authorization
+
+User approved code implementation sections1–3 via coordinator. Preserve original
+analysis/attempt/release/workdir, stagegeneration only; no prepare/Step0/forceall/
+pending/line-of-business rule change/CCE upgrade/OBS-empty precondition. Same-task
+existing locks can be inherited; three guard categories only. No production
+deployment or actual0911A recovery in this task. Coordinator owns ETA modules;
+RunDetail edits limited to recovery action import/render. Plan in
+docs/superpowers/plans/2026-09-15-wgs-resume-stage.md. One integrated implementer
+owns backend/DAG/runtime/actionUI; parent coordinates bounded tests and review.
+
+Fresh BS10610 read-only fingerprint: server10610 uid6708:520 bioinfo/docker;
+currentreleases/20260912-opt-4d3d24e6, backend378bd2b8eb10 mountedpanel1fb971b/app,
+workerfdaf00067050 unchanged; scanfalse/autofalse. Cached backendt235-232154f,
+frontendnode22-lock35420d5e3ec0 and airflowbs-control841eb55 available. No test
+performed yet. No local runtime tests/dependency downloads; source-only edits
+and Git operations on new f241149 branch. Incorrect D:/pipeline/airflow-demo
+clone's1deca5f was never used; main merge check was already-up-to-date.
+Initial Git Bash path C:/Program Files missing; corrected D:/Program Files,
+SDD plan workspace/brief created successfully. No remote operation failed.
 
 ## 2026-09-15 prior-fixes Git integration
 

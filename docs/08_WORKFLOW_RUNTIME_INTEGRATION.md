@@ -1,5 +1,35 @@
 # Workflow runtime integration
 
+## WGS resume_stage (2026-09-15, source only)
+
+Backend reserves only the actual stage's new generation, retains old execution/
+receipt rows and request-history, and resets that stage's terminal timing.
+Subsequent necessary stages register at dispatch. Frozen requests carry
+resume_action_id and exact resume_previous_execution. Stale generations cannot
+finish or overwrite the current stage projection.
+
+Sibling wgs_resume.py reuses Step1/5 transfer checkpoints, Step4 publishing and
+Step6 materialization journals. A live executor keeps its existing worker lock.
+Async recovery records a follower inside existing worker.json, waits for that
+lock, then archives/translates only the exact original terminal receipt.
+Synchronous recovery waits on the same lock. No terminal receipt means explicit
+failure. Dead executors archive old sidecars before the recovery branch executes.
+
+Step2/3 query and compare the frozen Master manifest/image. Active/successful
+Masters are reused; failed replacement requires inactive exact-owner Pods and
+native worker/lock checks. Old evidence is retained before native refresh.
+DeleteOptions pins observed UID/resourceVersion. The frozen runtime's low-level
+create submits original master-job.yaml and reconciles uncertain responses by
+query. Native payload/START handoff is completed idempotently for pre-start Jobs.
+Step3 current Master UID fences old failure mirrors. Runtime primitive
+availability is checked before replacement.
+
+No Step0, prepare, forceall, OBS-empty precondition, original workflow edit,
+on-prem output deletion, pending edit or CCE upgrade. Source inspection used
+retained candidate0.8.4, not an asserted live0911A bundle. Production compatibility
+and actual recovery require separate approval. Validation:
+`releases/2026-09-15-wgs-resume-stage.md`.
+
 WGS-EVIDENCE-20260915 (source only): the observer can recognize a legacy
 same-attempt Step1/5 restart from the existing registered request and worker
 launch sidecar, including retry_no0. Exact identity/hash and a launch after the

@@ -32,6 +32,7 @@ import {RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
 import {QcMetric} from "../features/run-detail/QcMetric";
 import type {RulePage, RuleQuery} from "../api";
 import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
+import {ResumeStagePanel} from '../features/run-detail/ResumeStagePanel';
 import {DataLifecyclePanel} from "../features/run-detail/DataLifecyclePanel";
 import {WgsTransfersTab} from "../features/run-detail/WgsTransfersTab";
 import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
@@ -283,6 +284,7 @@ export function RunDetailPage() {
           </div>
         </section>
         {actionError ? <div className="inline-error" role="alert">{actionError}</div> : null}
+        {detail.pipeline === 'wgs' && ['failed', 'canceled', 'cancelled', 'terminated', 'interrupted', 'unknown_interrupted', 'needs_recovery'].includes(detail.status) && (detail.execution_dispatch?.desired_mode || detail.execution_mode) === 'cce' && /^step[1-6]_/.test(bundle.progress?.stage_code || '') ? <ResumeStagePanel key={`${analysisId}-${detail.attempt}-${bundle.progress?.stage_code}`} analysisId={analysisId} attempt={detail.attempt || 1} stage={bundle.progress!.stage_code!} canOperate={session.hasRole('operator')} onAccepted={() => void refreshDetail()} /> : null}
         {detail.pipeline === "wgs" && detail.execution_dispatch ? <ExecutionTargetSelector attempt={detail.attempt || 1} batch={String(detail.params?.batch || detail.params?.sequencing_batch || detail.params?.batch_no || "-")} sampleCount={summary.sample_count} dispatch={detail.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={refreshDetail} /> : null}
         {detail.step4_repair?.available || detail.step4_repair?.latest_action ? <Step4RepairPanel capability={detail.step4_repair} canOperate={session.hasRole("operator")} acting={acting} onRepair={() => void runAction("repair_step4")} /> : null}
         {detail.status === "needs_review" ? <section className="panel validation-review"><div className="section-heading"><h2>Input needs review</h2><p>Correct the source links or metadata upstream, then revalidate. This page cannot edit sampleinfo.</p></div><WgsTable headers={["Severity", "Code", "Scope", "Message", "Status"]} rows={bundle.validationIssues.map((issue) => [issue.severity, issue.code, issue.sample_id || issue.family_id || issue.file_path || issue.scope_type || "batch", issue.message, issue.status])} empty="No structured issue was returned." /></section> : null}

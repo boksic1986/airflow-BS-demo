@@ -37,6 +37,20 @@ Only DAGs for deployed real adapters ship in the active tree. Retired demo DAGs 
 
 ## Current WGS DAG
 
+Source-only resume_stage binds resume_action_id and ordered resume_stages.
+Existing task callables bypass prepare, approvals, target commit and completed
+stages, retaining frozen CCE target and attempt. Only selected/necessary stages
+register recovery requests; transfer leases apply only to selected transfers.
+Finalize and transfer success dependencies are preserved. Old DagRun lease
+cleanup must pass the action fence before deactivating the current observer.
+
+Canonical WGS CCE Step1–6 status GET sensors use six retries after the initial
+query:30s delay, exponential backoff, max_retry_delay300s per delay. HTTP408/429/
+5xx and transient connection interruptions retry. Authentication, business,
+malformed payload and terminal failures use AirflowFailException. A failed
+observer-deactivation POST is not retried by the sensor. Preparation, Step7,
+GATK/local sensors and side-effect task retry settings are unchanged.
+
 `bio_wgs` remains the current production workflow. It preserves the accepted prepare, execution commit barrier, Step1–Step6, Step6 materialization wait, finalize, and maintenance boundaries. CCE and enabled local targets are mutually exclusive branches. Directional upload/download leases and heavy-slot quotas remain independent scheduling controls.
 
 ## GATK Cloud DAG

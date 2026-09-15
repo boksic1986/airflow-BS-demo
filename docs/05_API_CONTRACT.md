@@ -394,6 +394,25 @@ Internal `/api/internal/gatk/runs/{analysis_id}/stages/{stage}` and
 Responses never include patient names, hospitals, credentials, raw absolute storage paths, or arbitrary filesystem content. Artifacts are accessed by controlled keys.
 # WGS recovery approval semantics (2026-09-11)
 
+## Same-attempt stage recovery (2026-09-15, source only)
+
+Operator POST `/api/runs/{analysis_id}/actions/resume-stage` accepts
+`{attempt, stage, idempotency_key}`. Stage is exactly step1_upload, step2_master,
+step3_monitor, step4_publish, step5_download or step6_materialize. WGS CCE and
+contract-v2 execution gates, frozen request identity and current attempt must
+match. Preparation/maintenance and client-supplied paths/commands are rejected.
+Response is `{analysis_id, attempt, stage, generation, action_id, status}`.
+
+RunAction retains original and deterministic recovery DagRun identities.
+Analysis, attempt, release and workdir are preserved. Repeated keys and identical
+active operations dedupe; different active stages conflict. An uncertain dispatch
+stays visibly recoverable and reconciles the same DagRun before any new POST.
+Auth/parameter rejection is explicit, retained and never treated as transient.
+Internal stage registration adds resume_action_id; dag-terminal adds dag_run_id
+and resume_action_id. Original callbacks cannot close current recovery, while
+identity-matching recovery failures propagate. Generic resume/rerun_failed retain
+their existing new-attempt semantics below.
+
 For `three_stage` runs, `actions/resume` and `actions/rerun_failed` create a
 new attempt with `submission_phase=preparing_sampleinfo` and clear
 `config_approved_at`/`execution_approved_at`. Current-attempt preparation and

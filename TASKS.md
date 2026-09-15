@@ -3,9 +3,18 @@
 ## WGS-RESUME-ETA-20260915
 
 - [x] ETA source and minimal tests: backend7/UI4/build on BS10610.
-- [ ] Integrate separately owned resume_stage API/runtime/DAG/button implementation.
+- [x] Integrate separately owned resume_stage API/runtime/DAG/button implementation.
 - [ ] Production deployment and real0911A recovery require separate scope check.
 - No additional feature, cleanup, production probe, or full suite in this task.
+
+## WGS-RESUME-STAGE-20260915
+
+- [x] Confirm approved scope, correct production-clone f241149 baseline and independent worktree.
+- [x] Freeze interface/body and retry semantics in bounded implementation plan.
+- [x] Implement same-attempt action/DAG/runtime recovery, generation fence and action UI.
+- [x] One necessary BS10610 RED/GREEN regression set; backend4/runtime4/Airflow2/UI1 and build pass.
+- [x] Parent combined static review; no production probe.
+- [x] Independent scoped commit for SHA handoff to ETA coordinator; no main merge/deployment.
 
 ## PRIOR-FIXES-GIT-SYNC-20260915
 

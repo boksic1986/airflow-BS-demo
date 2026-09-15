@@ -1866,6 +1866,12 @@ def _monitor_step3(payload: dict[str, Any]) -> None:
                 continue
             raise RuntimeError(message)
         value = parse_step3_status_output(completed.stdout)
+        if payload.get('resume_master_uid'):
+            from wgs_resume import _runtime, fence_master_status
+            runtime = _runtime(Path(binding['cce_bundle']))
+            contract, config, _ = runtime._load(Path(binding['cce_bundle']), None)
+            live = runtime._kubectl_json(config, 'job', contract['kubernetes']['master_job'])
+            value = fence_master_status(value, live, expected_uid=payload['resume_master_uid'])
         terminal = value["master_state"] in {"SUCCEEDED", "FAILED"}
         if terminal:
             monitoring_error = _sync_rule_evidence(payload, binding, terminal=True)
@@ -2386,6 +2392,10 @@ def run_stage(payload: dict[str, Any]) -> None:
     ):
         raise RuntimeError("WGS execution gate is disabled")
     stage = str(payload["stage"])
+    if payload.get('resume_action_id'):
+        from wgs_resume import run_resume_stage
+        run_resume_stage(payload, gate=sys.modules[__name__])
+        return
     if stage == "prepare":
         _run_prepare(payload)
     elif stage == "prepare_sampleinfo":
@@ -2568,6 +2578,34 @@ def start_async_stage(payload: dict[str, Any]) -> dict[str, Any]:
     with launch_lock.open("a+", encoding="utf-8") as lock_handle:
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
         previous = _read_json(state_path)
+        old_executor_locked = False
+        if payload.get('resume_action_id'):
+            with worker_lock.open('a+') as probe:
+                try:
+                    fcntl.flock(probe.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    fcntl.flock(probe.fileno(), fcntl.LOCK_UN)
+                except BlockingIOError:
+                    old_executor_locked = True
+            if not previous and old_executor_locked:
+                previous = _read_json(_sidecar_path(payload, '.status.json'))
+        if payload.get('resume_action_id') and previous and int(previous.get('generation') or 0) < int(payload['generation']) and (_process_matches(previous) or old_executor_locked):
+            expected = payload.get('resume_previous_execution') or {}
+            if any(previous.get(key) != expected.get(key) for key in ('execution_id', 'generation', 'request_hash')):
+                raise RuntimeError('active executor identity differs from recovery predecessor')
+            follower = previous.get('reattach') or {}
+            if follower and _process_matches(follower):
+                if follower.get('execution_id') != payload['execution_id']:
+                    raise RuntimeError('another recovery follower is active')
+                return {'status': 'running', 'pid': follower['pid']}
+            command = build_async_worker_command(analysis_id=payload['analysis_id'], attempt=payload['attempt'], stage=payload['stage'], lock_path=worker_lock)
+            command.remove('-n')  # Wait for the existing executor to release its original lock.
+            command[command.index('--worker')] = '--reattach'
+            with log_path.open('ab', buffering=0) as log_handle:
+                process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log_handle, stderr=subprocess.STDOUT, close_fds=True)
+            follower = {'pid': process.pid, 'boot_id': _boot_id(), 'process_start_time': _process_start_time(process.pid), 'execution_id': payload['execution_id']}
+            previous['reattach'] = follower
+            _atomic_json(state_path, previous)
+            return {'status': 'running', 'pid': process.pid}
         archived_generation = _prepare_contract_generation(
             payload, request_sha=request_sha
         )
@@ -2699,20 +2737,45 @@ def _run_synchronous_stage(payload: dict[str, Any]) -> int:
                 lock_handle.fileno(), fcntl.LOCK_EX | getattr(fcntl, "LOCK_NB", 4)
             )
         except BlockingIOError as error:
+            if payload.get('resume_action_id'):
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+                return _finish_reattached_stage(payload)
             raise RuntimeError("stage worker is already active") from error
         _prepare_contract_generation(payload, request_sha=request_sha)
         return _run_worker(payload)
 
 
+def _finish_reattached_stage(payload):
+    # The command already owns the original worker lock; serialize with launch
+    # bookkeeping before archiving the previous writer's final receipt.
+    with _sidecar_path(payload, '.launch.lock').open('a+') as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        previous = _read_json(_sidecar_path(payload, '.status.json'))
+        expected = payload.get('resume_previous_execution') or {}
+        if any(previous.get(key) != expected.get(key) for key in ('execution_id', 'generation', 'request_hash')):
+            raise RuntimeError('reattached receipt does not match the original executor')
+        terminal = previous.get('status')
+        if terminal not in {'success', 'failed'}:
+            terminal = 'failed'
+            previous['message'] = 'Original executor ended without a terminal receipt; request recovery again'
+        _archive_contract_generation(payload, int(expected['generation']))
+        details = {key: value for key, value in previous.items() if key not in {'schema_version', 'analysis_id', 'attempt', 'stage', 'status', 'message', 'updated_at', 'orchestration_contract_version', 'execution_id', 'generation', 'request_hash', 'retry_no'}}
+        _write_status(payload, terminal, previous.get('message', ''), retry_no=int(payload['generation']) - 1, **details)
+    return 0
+
+
 def main() -> int:
+    reattach_mode = len(sys.argv) > 1 and sys.argv[1] == '--reattach'
     worker_mode = len(sys.argv) > 1 and sys.argv[1] == "--worker"
     command = (
         " ".join(sys.argv[2:])
-        if worker_mode
+        if worker_mode or reattach_mode
         else os.getenv("SSH_ORIGINAL_COMMAND", "") or " ".join(sys.argv[1:])
     )
     analysis_id, attempt, stage = parse_command(command)
     payload = load_request(analysis_id, attempt, stage)
+    if reattach_mode:
+        return _finish_reattached_stage(payload)
     if worker_mode:
         return _run_worker(payload)
     if stage in ASYNC_STAGES:

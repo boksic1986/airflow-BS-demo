@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from http.client import IncompleteRead, RemoteDisconnected
 import json
 import logging
 import os
@@ -13,6 +14,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from airflow import DAG
+from airflow.exceptions import AirflowFailException
 from airflow.operators.python import BranchPythonOperator, PythonOperator
 from airflow.sensors.python import PythonSensor
 from airflow.utils.task_group import TaskGroup
@@ -40,6 +42,7 @@ ASYNC_RUNNER_STAGES = {
     "step7_cleanup",
 }
 LOG = logging.getLogger(__name__)
+RECOVERY_STAGES = {'step1_upload', 'step2_master', 'step3_monitor', 'step4_publish', 'step5_download', 'step6_materialize'}
 
 
 class BackendTransportUnavailable(RuntimeError):
@@ -116,6 +119,10 @@ def validate_request(**context: Any) -> dict[str, Any]:
         if not str(params.get(field) or "").strip():
             raise ValueError(f"{field} is required")
     maintenance_mode = conf.get("maintenance_mode")
+    if conf.get('resume_action_id'):
+        stages = conf.get('resume_stages')
+        if maintenance_mode or conf.get('resume_stage') not in RECOVERY_STAGES or not isinstance(stages, list) or not stages or stages[0] != conf['resume_stage'] or any(stage not in RECOVERY_STAGES for stage in stages):
+            raise AirflowFailException('invalid WGS recovery stage selection')
     if maintenance_mode is not None:
         if maintenance_mode not in {"repair_step4", "cleanup_step7"}:
             raise ValueError("unsupported WGS maintenance mode")
@@ -176,6 +183,13 @@ def uses_staged_prepare(conf: dict[str, Any]) -> bool:
 
 
 def stage_should_run(stage: str, conf: dict[str, Any]) -> bool:
+    if conf.get('resume_action_id'):
+        stages = conf['resume_stages']
+        if stage in {'acquire_input_transfer_slot', 'release_input_transfer_slot'}:
+            return 'step1_upload' in stages
+        if stage in {'acquire_result_transfer_slot', 'release_result_transfer_slot'}:
+            return 'step5_download' in stages
+        return stage in stages or stage in {'finalize_run', 'release_leases'}
     if conf.get("maintenance_mode") == "cleanup_step7":
         return stage == "step7_cleanup"
     if conf.get("maintenance_mode") != "repair_step4":
@@ -225,6 +239,7 @@ def register_stage(stage: str, **context: Any) -> dict[str, Any]:
         "adapter": "wgs-runtime-200",
         "command": f"wgs-runtime {conf['analysis_id']} {conf['attempt']} {runner_stage}",
         "maintenance_action_id": conf.get("maintenance_action_id"),
+        "resume_action_id": conf.get("resume_action_id"),
     }
     task_instance = context.get("ti") or context.get("task_instance")
     if int(getattr(task_instance, "try_number", 1) or 1) > 1:
@@ -440,7 +455,8 @@ def stage_ready(stage: str, **context: Any) -> bool:
     _require_runtime_enabled()
     runner_stage = effective_runner_stage(stage, conf)
     query = urlencode({"attempt": conf["attempt"], "stage": runner_stage})
-    payload = _sensor_backend_json(
+    query_json = _stage_query_json if runner_stage in RECOVERY_STAGES else _sensor_backend_json
+    payload = query_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/stage-status?{query}"
     )
     if payload is None:
@@ -448,13 +464,17 @@ def stage_ready(stage: str, **context: Any) -> bool:
     if runner_stage == "step3_monitor" and (
         payload.get("failed") or payload.get("ready")
     ):
-        _backend_json(
-            f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/deactivate",
-            method="POST",
-            payload={"attempt": conf["attempt"]},
-        )
+        try:
+            _backend_json(
+                f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/deactivate",
+                method="POST",
+                payload={"attempt": conf["attempt"]},
+            )
+        except Exception as error:
+            raise AirflowFailException('Observer deactivation outcome requires reconciliation') from error
     if payload.get("failed"):
-        raise RuntimeError(str(payload.get("message") or f"WGS stage failed: {stage}"))
+        error_type = AirflowFailException if runner_stage in RECOVERY_STAGES else RuntimeError
+        raise error_type(str(payload.get("message") or f"WGS stage failed: {stage}"))
     return bool(payload.get("ready"))
 
 
@@ -462,6 +482,8 @@ def submission_gate_ready(gate: str, **context: Any) -> bool:
     if gate not in {"config", "execution"}:
         raise ValueError("unsupported WGS submission gate")
     conf = dict(context["dag_run"].conf or {})
+    if conf.get('resume_action_id'):
+        return True
     if dict(conf.get("params") or {}).get("submission_mode") != "three_stage":
         return True
     query = urlencode({"attempt": conf["attempt"]})
@@ -486,9 +508,26 @@ def _sensor_backend_json(
         return None
 
 
+def _stage_query_json(path: str) -> dict[str, Any]:
+    """Only read-only CCE stage polling consumes the Airflow retry budget."""
+    try:
+        value = _backend_json(path)
+        if not isinstance(value, dict):
+            raise AirflowFailException('WGS stage query returned a non-object payload')
+        return value
+    except BackendTransportUnavailable:
+        raise
+    except (ConnectionError, IncompleteRead, RemoteDisconnected) as error:
+        raise BackendTransportUnavailable('WGS stage query connection interrupted') from error
+    except (RuntimeError, ValueError) as error:
+        raise AirflowFailException(str(error)) from error
+
+
 def execution_commit_ready(**context: Any) -> bool:
     """Atomically commit the latest database-backed target when its slot is ready."""
     conf = dict(context["dag_run"].conf or {})
+    if conf.get('resume_action_id'):
+        return True
     if dict(conf.get("params") or {}).get("maintenance_action"):
         return True
     payload = _sensor_backend_json(
@@ -502,6 +541,8 @@ def execution_commit_ready(**context: Any) -> bool:
 def choose_execution_target(**context: Any) -> str:
     """Route exactly once using the target frozen by ``execution_commit_ready``."""
     conf = dict(context["dag_run"].conf or {})
+    if conf.get('resume_action_id'):
+        return 'input_transfer.acquire_obs_transfer_slot'
     if dict(conf.get("params") or {}).get("maintenance_action"):
         return "input_transfer.acquire_obs_transfer_slot"
     payload = _backend_json(
@@ -640,17 +681,17 @@ def release_leases(**context: Any) -> dict[str, Any]:
     conf = dict(context["dag_run"].conf or {})
     if not _runtime_enabled():
         return {"released": False, "reason": "runtime adapter disabled"}
+    released = _backend_json(
+        f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/release_leases",
+        method="POST",
+        payload={"attempt": conf["attempt"], "adapter": "wgs-runtime-200", "resume_action_id": conf.get('resume_action_id')},
+    )
+    _raise_if_transfer_lease_retained(stage="release_leases", response=released)
     observer = _backend_json(
         f"/api/internal/wgs/runs/{conf['analysis_id']}/observer/deactivate",
         method="POST",
         payload={"attempt": conf["attempt"]},
     )
-    released = _backend_json(
-        f"/api/internal/wgs/runs/{conf['analysis_id']}/stages/release_leases",
-        method="POST",
-        payload={"attempt": conf["attempt"], "adapter": "wgs-runtime-200"},
-    )
-    _raise_if_transfer_lease_retained(stage="release_leases", response=released)
     failed_tasks = _upstream_failure_task_ids(context)
     if failed_tasks:
         raise RuntimeError(
@@ -715,6 +756,8 @@ def report_dag_failure(context: dict[str, Any]) -> None:
                 "attempt": attempt,
                 "status": "failed",
                 "failed_task_ids": failed_task_ids,
+                "dag_run_id": dag_run.run_id,
+                "resume_action_id": conf.get('resume_action_id'),
             },
         )
     except Exception:
@@ -726,6 +769,8 @@ def report_dag_failure(context: dict[str, Any]) -> None:
 
 
 def acquire_transfer_slot(stage: str, **context: Any) -> bool:
+    if not stage_should_run(stage, dict(context['dag_run'].conf or {})):
+        return True
     return bool(register_stage(stage, **context).get("acquired"))
 
 
@@ -756,7 +801,7 @@ def _backend_json(
             message = str(detail.get("message") or exc)
             if exc.code == 409 and code == "WGS_STAGE_PREDECESSOR_PENDING":
                 raise BackendStagePredecessorPending(message) from exc
-        if 500 <= exc.code < 600:
+        if 500 <= exc.code < 600 or (method == 'GET' and exc.code in {408, 429}):
             raise BackendTransportUnavailable(
                 f"backend WGS stage API is temporarily unavailable: {exc}"
             ) from exc
@@ -840,9 +885,12 @@ def stage_sensor(
     pool: str | None = None,
     timeout_hours: int = 72,
 ) -> PythonSensor:
+    retry_options = dict(retries=6, retry_delay=timedelta(seconds=30), retry_exponential_backoff=True,
+                         max_retry_delay=timedelta(minutes=5)) if stage in RECOVERY_STAGES else {}
     return PythonSensor(
         task_id=task_id,
         python_callable=stage_ready,
+        **retry_options,
         op_kwargs={"stage": stage},
         mode="reschedule",
         poke_interval=5,

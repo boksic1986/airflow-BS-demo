@@ -1,11 +1,33 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 combined WGS source delivery
+
+Integrated ETA f2e0957 and recovery source7543827 in an isolated delivery branch.
+Combined static review completed; the two scoped BS10610 test records remain
+separate (ETA backend7/UI4; recovery backend4/runtime4/Airflow2/UI1; builds passed).
+Only additive state-document conflicts required resolution; API type changes
+merged without replacing either feature. No main/push/production/runtime action.
+Live0911A compatibility/recovery remains outside this source-only delivery.
+
 ## 2026-09-15 WGS ETA implementation, not deployed
 
 Step4/6 linear DB estimate reuses existing median and shared progress bar;
 50percent halfway, cap99, stage success100, unknown history honest, GATK unchanged.
 BS10610 backend7/UI4/build passed. Resume-stage implementation is separately
-owned by wgs-resume-stage-20260915; not complete or deployed by this ETA change.
+owned by wgs-resume-stage-20260915; now integrated above, still not deployed.
+
+## 2026-09-15 explicit resume_stage implementation (source complete)
+
+User approved independent WGS stage recovery preserving analysis/attempt/release/
+workdir and native checkpoint/journal reuse. New isolated worktree
+wgs-resume-stage-20260915, branch jiucheng/feat/wgs-resume-stage-20260915 from
+production-clone f241149. No old dirty work imported. ETA is coordinated separately.
+No main changes, deployment or real0911A recovery authorized by this code task.
+Only one bounded RED/GREEN collection on BS10610; no broad tests/production probes.
+API/DAG/runtime/action UI implemented; backend4+runtime4+realAirflow2+UI1 passed,
+frontend production build passed. Parent combined review/integration completed above.
+No live frozen-bundle compatibility or real recovery is asserted. Evidence and
+setup/fix history: docs/releases/2026-09-15-wgs-resume-stage.md.
 
 ## 2026-09-15 prior repairs Git integration (not deployed)
 

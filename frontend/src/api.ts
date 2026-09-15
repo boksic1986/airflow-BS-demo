@@ -1754,6 +1754,10 @@ export function cancelRun(analysisId: string): Promise<RunDetail> {
   return requestJson<RunDetail>(`/runs/${encodeURIComponent(analysisId)}/actions/cancel`, {method: "POST"});
 }
 
+export function resumeStage(analysisId: string, payload: {attempt: number; stage: string; idempotency_key: string}): Promise<{analysis_id: string; attempt: number; stage: string; generation: number; action_id: string; status: string}> {
+  return requestJson(`/runs/${encodeURIComponent(analysisId)}/actions/resume-stage`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+}
+
 export function repairStep4(analysisId: string): Promise<WgsMaintenanceAction> {
   return requestJson<WgsMaintenanceAction>(`/runs/${encodeURIComponent(analysisId)}/actions/repair-step4`, {method: "POST"});
 }

@@ -310,6 +310,7 @@ class WgsRuntimeStageRequest(BaseModel):
     command: str | None = None
     maintenance_action_id: str | None = Field(default=None, max_length=128)
     force_new_generation: bool = False
+    resume_action_id: str | None = Field(default=None, max_length=128)
 
 
 class GatkRuntimeStageRequest(BaseModel):
@@ -334,6 +335,30 @@ class WgsDagTerminalRequest(BaseModel):
     attempt: int = Field(ge=1)
     status: str = Field(pattern="^failed$")
     failed_task_ids: list[str] = Field(default_factory=list, max_length=64)
+    dag_run_id: str | None = None
+    resume_action_id: str | None = None
+
+
+class WgsResumeStageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    attempt: int = Field(ge=1)
+    stage: str
+    idempotency_key: str = Field(min_length=1, max_length=128)
+
+
+@app.post('/api/runs/{analysis_id}/actions/resume-stage')
+def resume_wgs_stage(analysis_id: str, request: WgsResumeStageRequest,
+                     user: AuthenticatedUser = Depends(operator_user)):
+    from app.wgs_resume_service import request_resume_stage
+    if not _wgs_platform_execution_enabled() or not _wgs_runtime_adapter_enabled():
+        raise HTTPException(status_code=409, detail='WGS execution is disabled')
+    try:
+        with get_sessionmaker()() as session:
+            return request_resume_stage(session=session, settings=get_settings(), airflow_client=get_airflow_client(),
+                analysis_id=analysis_id, attempt=request.attempt, stage=request.stage,
+                idempotency_key=request.idempotency_key, requested_by=user.username)
+    except (ValueError, OSError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 class WgsExecutionChoiceRequest(BaseModel):
@@ -1841,6 +1866,19 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
             run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
             if run is None or run.attempt != request.attempt:
                 raise ValueError("unknown active WGS attempt")
+            if request.resume_action_id:
+                from app.wgs_resume_service import STAGES, recovery_action, register_recovery_stage
+                action = recovery_action(session, run, request.resume_action_id)
+                if stage_name in STAGES:
+                    if request.command != f'wgs-runtime {analysis_id} {request.attempt} {stage_name}':
+                        raise ValueError('runtime command differs from recovery stage')
+                    payload = register_recovery_stage(session=session, settings=get_settings(), run=run,
+                        stage=stage_name, action=action)
+                    session.commit()
+                    return {'analysis_id': analysis_id, 'attempt': request.attempt, 'stage': stage_name,
+                        'status': 'accepted', 'generation': payload['generation'], 'execution_id': payload['execution_id']}
+            elif (run.params_json or {}).get('resume_action_id'):
+                raise ValueError('stage registration requires the current recovery identity')
             dispatch = session.scalar(
                 select(WgsExecutionDispatch).where(
                     WgsExecutionDispatch.analysis_id == analysis_id
@@ -2620,6 +2658,14 @@ def internal_wgs_runtime_stage_status(analysis_id: str, attempt: int = Query(ge=
     ):
         raise HTTPException(status_code=500, detail={"code": "WGS_STAGE_STATUS_INVALID", "message": "stage status identity mismatch"})
     status_value = str(payload.get("status") or "pending")
+    if payload.get('orchestration_contract_version') == 2:
+        from app.wgs_resume_service import _latest
+        with get_sessionmaker()() as session:
+            run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.attempt == attempt))
+            current = _latest(session, run, stage) if run else None
+            if current and any(payload.get(key) != getattr(current, key) for key in ('execution_id', 'generation', 'request_hash')):
+                payload = {}
+                status_value = 'pending'
     artifact_pending = False
     if stage in {"prepare", "prepare_sampleinfo", "prepare_analysis"} and status_value in {"success", "complete", "succeeded"}:
         with get_sessionmaker()() as session:
@@ -2727,6 +2773,8 @@ def internal_wgs_dag_terminal(
                 analysis_id=analysis_id,
                 attempt=request.attempt,
                 failed_task_ids=request.failed_task_ids,
+                dag_run_id=request.dag_run_id,
+                resume_action_id=request.resume_action_id,
             )
     except ValueError as exc:
         raise HTTPException(

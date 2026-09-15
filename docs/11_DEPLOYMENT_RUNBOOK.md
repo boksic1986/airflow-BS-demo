@@ -1,5 +1,17 @@
 # Deployment runbook
 
+## WGS resume_stage packaging (2026-09-15, not deployed)
+
+Future approved rollout must include backend wgs_resume_service.py, updated
+bio_wgs DAG and frontend assets. Install scripts/wgs_resume.py beside the existing
+restricted wgs_runtime_gate.py under the same owner/mode/launcher; no original
+bundle, native workflow, CCE package or cluster settings are upgraded. Preserve
+old gates/releases for rollback and do not restart running executors merely to
+change their stage generation. Source0.8.4 compatibility inspection is not live
+production acceptance. Validate the actual frozen bundle in a separately approved
+production task before executing recovery. No real0911A resume was performed.
+Detailed evidence and rollback: releases/2026-09-15-wgs-resume-stage.md.
+
 ## REL-02 local WGS process timezone (not deployed)
 
 On an explicitly selected96/97 target, the approved local gate initializes

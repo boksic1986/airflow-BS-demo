@@ -489,6 +489,8 @@ def mark_submission_dag_failed(
     analysis_id: str,
     attempt: int,
     failed_task_ids: list[str],
+    dag_run_id: str | None = None,
+    resume_action_id: str | None = None,
 ) -> dict:
     """Project a terminal Airflow failure into the staged submission state."""
     run = session.scalar(
@@ -499,6 +501,10 @@ def mark_submission_dag_failed(
     )
     if run is None or run.attempt != attempt:
         raise ValueError("unknown active WGS attempt")
+
+    recovery_id = (run.params_json or {}).get('resume_action_id')
+    if recovery_id and (dag_run_id != run.dag_run_id or resume_action_id != recovery_id):
+        return {'analysis_id': analysis_id, 'attempt': attempt, 'status': run.status, 'ignored': True}
 
     root_failures = sorted(
         {
