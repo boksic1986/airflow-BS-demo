@@ -19,9 +19,10 @@ function fixture() {
     if(p==='/api/platform/capabilities')return json({environment:'test',deployed_pipelines:['wgs'],pipelines:[{id:'wgs',display_name:'WGS',dag_id:'bio_wgs',enabled:true,submit_enabled:true,capabilities:['submit'],execution_targets:['cce']}]});
     if(p==='/api/wgs/release')return json({source_commit:'mock',version:'4.2.0',execution_enabled:true,runtime_adapter_enabled:true});
     if(p==='/api/wgs/projects')return json({items:[]});
-    if(p==='/api/runs'){
+    if(p==='/api/wgs/submissions/incomplete'){
       if(unavailable)return Promise.resolve(new Response('{}',{status:503}));
-      return json({items:u.searchParams.get('status')==='running'?['SAVED','AUTO','APPROVED'].map(id=>({analysis_id:id,pipeline:'wgs',status:'running'})):[],total:u.searchParams.get('status')==='running'?3:0});
+      const items=['approved','cancelled'].includes(phase)?[]:[{analysis_id:'SAVED',pipeline:'wgs',status:'running',attempt:1,created_at:'2026-09-11T01:00:00Z',params:{sequencing_batch:'MOCK_BATCH',submission_phase:phase,submission_mode:'manual'}}];
+      return json({items,total:items.length,limit:100,offset:0});
     }
     if(/^\/api\/runs\/(SAVED|AUTO|APPROVED)$/.test(p)){
       const id=p.split('/').pop();return json({analysis_id:id,pipeline:'wgs',attempt:1,status:'running',created_at:'2026-09-11T01:00:00Z',params:{sequencing_batch:id==='SAVED'?'MOCK_BATCH':id,submission_phase:id==='APPROVED'?'approved':phase,submission_mode:id==='AUTO'?'auto_dispatch':'manual'}});

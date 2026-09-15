@@ -1,5 +1,26 @@
 # API contract
 
+## Incomplete WGS submission summaries (2026-09-15, source only)
+
+`GET /api/wgs/submissions/incomplete?limit=100&offset=0` uses existing session
+authentication and deployed-WGS guard, with the same read visibility as runs.
+Limit is 1–200 (default100); offset is nonnegative. Returns `items,total,limit,offset`.
+Each item contains `analysis_id,pipeline,status,attempt,created_at,params` only.
+Params are allowlisted scalar `sequencing_batch,analysis_batch,batch_no,
+submission_phase,submission_mode,config_approved_at`; no paths, clinical fields,
+samples, logs or hydrated run details are returned.
+
+SQL filters WGS statuses created/submitted/queued/running/cancel_requested and
+phases preparing_sampleinfo/config_review/preparing_analysis/execution_review/
+cancelling_submission, excluding auto_dispatch, before count and pagination.
+Order is created_at descending then analysis_id descending. Count and page use
+two database queries, with no per-item Airflow/filesystem/runtime query. This is
+offset pagination, not a frozen cross-page snapshot; clients deduplicate IDs.
+Opening a selected submission still fetches its existing run/sample snapshot.
+No creation, cancellation, prepare, attempt, pending or schema behavior changes.
+Deploy backend endpoint before or together with its frontend consumer; API
+failure is visible and retains the last card snapshot, not an N+1 fallback.
+
 ## WGS Step4/6 linear display estimates (source only)
 
 Existing StageEstimate fields remain display-only and never replace measured

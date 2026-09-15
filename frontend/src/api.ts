@@ -1597,28 +1597,15 @@ export const WGS_SUBMISSION_PHASES: Record<string, string> = {
 };
 
 export async function listIncompleteWgsSubmissions(): Promise<RunDetail[]> {
-  // Reuse retained server records: no browser-only draft and no new run POST.
-  const active = ["created", "submitted", "queued", "running", "cancel_requested"];
-  const pages = await Promise.all(active.map(async (status) => {
-    const ids: string[] = [];
-    let offset = 0;
-    while (true) {
-      const page = await listRuns({pipeline: "wgs", status, limit: 100, offset});
-      ids.push(...page.items.filter(run => run.pipeline === "wgs" && active.includes(run.status)).map(run => run.analysis_id));
-      offset += page.items.length;
-      if (!page.items.length || offset >= page.total) return ids;
-    }
-  }));
-  const ids = [...new Set(pages.flat())];
-  const drafts: RunDetail[] = [];
-  // Bound detail concurrency rather than fetching every historical run.
-  for (let offset = 0; offset < ids.length; offset += 4) {
-    const details = await Promise.all(ids.slice(offset, offset + 4).map(getRunDetail));
-    drafts.push(...details.filter(run => run.pipeline === "wgs" && active.includes(run.status)
-      && run.params?.submission_mode !== "auto_dispatch"
-      && Object.hasOwn(WGS_SUBMISSION_PHASES, String(run.params?.submission_phase || ""))));
+  const drafts = new Map<string, RunDetail>();
+  let offset = 0;
+  while (true) {
+    const page = await requestJson<{items: RunDetail[]; total: number}>(
+      `/wgs/submissions/incomplete?limit=100&offset=${offset}`);
+    for (const item of page.items) drafts.set(item.analysis_id, item);
+    offset += page.items.length;
+    if (!page.items.length || offset >= page.total) return [...drafts.values()];
   }
-  return drafts.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
 }
 
 export function getRunWorkspace(analysisId: string): Promise<RunWorkspaceResponse> {

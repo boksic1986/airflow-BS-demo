@@ -9,7 +9,7 @@ import re
 import secrets
 from typing import Callable
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 
 from app.models import AnalysisRun, RunAction, Sample, WgsInputSnapshot, WgsSubmissionDraft
 from app.wgs_orchestration_service import build_fastq_snapshot, fastq_source_fingerprint
@@ -30,6 +30,35 @@ SAFE_SAMPLE_FIELDS = {
     "sex", "sequencing_batch", "r1_filename", "r2_filename", "status",
     "pending_source", "pending_reason", "fastq_pair_status",
 }
+
+
+def list_incomplete_submissions(*, session, limit: int = 100, offset: int = 0) -> dict:
+    """Read card summaries without hydrating runs or querying execution services."""
+    filters = (
+        AnalysisRun.pipeline_name == "wgs",
+        AnalysisRun.status.in_(("created", "submitted", "queued", "running", "cancel_requested")),
+        AnalysisRun.params_json["submission_phase"].as_string().in_((
+            "preparing_sampleinfo", "config_review", "preparing_analysis",
+            "execution_review", "cancelling_submission",
+        )),
+        func.coalesce(AnalysisRun.params_json["submission_mode"].as_string(), "") != "auto_dispatch",
+    )
+    total = session.scalar(select(func.count()).select_from(AnalysisRun).where(*filters)) or 0
+    rows = session.scalars(select(AnalysisRun).where(*filters)
+        .order_by(AnalysisRun.created_at.desc(), AnalysisRun.analysis_id.desc())
+        .limit(limit).offset(offset)).all()
+    card_fields = ("sequencing_batch", "analysis_batch", "batch_no", "submission_phase",
+                   "submission_mode", "config_approved_at")
+    return {
+        "items": [{
+            "analysis_id": row.analysis_id, "pipeline": row.pipeline_name,
+            "status": row.status, "attempt": row.attempt, "created_at": row.created_at,
+            "params": {key: value for key in card_fields
+                       if isinstance(value := (row.params_json or {}).get(key), (str, int, float, bool))
+                       or value is None},
+        } for row in rows],
+        "total": total, "limit": limit, "offset": offset,
+    }
 
 
 @dataclass(frozen=True)

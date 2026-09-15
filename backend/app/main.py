@@ -101,6 +101,7 @@ from app.wgs_stage_execution_service import (
 )
 from app.wgs_project_catalog import load_wgs_projects, public_project_catalog
 from app.wgs_submission_service import (
+    list_incomplete_submissions,
     approve_wgs_config,
     approve_wgs_execution,
     complete_draft,
@@ -830,6 +831,14 @@ def gatk_submission_preview(
 def wgs_projects() -> dict[str, object]:
     settings = get_settings()
     return public_project_catalog(load_wgs_projects(settings.wgs_project_catalog_path))
+
+
+@app.get("/api/wgs/submissions/incomplete")
+def incomplete_wgs_submissions(limit: int = Query(default=100, ge=1, le=200),
+                               offset: int = Query(default=0, ge=0)) -> dict[str, object]:
+    _guard_pipeline_deployed("wgs")
+    with get_sessionmaker()() as session:
+        return list_incomplete_submissions(session=session, limit=limit, offset=offset)
 
 
 @app.post("/api/wgs/test-projects/preview", status_code=201)
