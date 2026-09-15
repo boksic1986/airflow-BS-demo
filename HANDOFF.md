@@ -1,5 +1,57 @@
 # HANDOFF.md
 
+## 2026-09-16 Authorized Git integration: GATK batch and BS10610 release record
+
+User explicitly approves including the prior deployment docs with this small
+fix. Scope: one params.batch fallback line, test_run_batch_display.py and API
+contract; BS10610 release record plus state/task/server/runbook/handoff docs.
+No frontend/runtime/DAG/package change. Prior red/green regression1pass reused;
+only diff/status/ref checks for integration. Production checkout was clean and
+local base/main/production359df11. Initial GitHub SSH22 fetch and bounded retry
+failed with connection timeout, not an authorization or test failure. Remote
+refs require verification through available normal Git transport; no force push,
+credential exposure, source reset or production publication is authorized.
+Both main and jiucheng/release/production are intended to receive the same commit.
+Excluded .superpowers archives/helper scripts remain local. BS10610 continues
+running359df11; this batch-display fix needs a separately requested publication.
+
+## 2026-09-16 Minimal GATK Batch Runs display correction
+
+User requests only missing WES batch display. Root cause: run_service._public_batch
+omitted params.batch, used by GATK, while RunTable correctly consumes API batch_no.
+One production-code line adds that final fallback, preserving existing WGS priority.
+New backend/tests/test_run_batch_display.py exercises the real list serializer
+with synthetic GATK/WGS/missing values. BS10610 hostname/control/current/actual
+mount/gates preflight matches the preceding deployment. Only isolated candidate
+source overlaid, not release/live containers. Offline backend:t235-232154f:
+python -m pytest -q -p no:cacheprovider --tb=short tests/test_run_batch_display.py
+first reproduced None vs MOCK_WES_BATCH, then1passed0.36s after fix. No full tests,
+frontend build, query/filter expansion, DB write, production read/write or deploy.
+Updated API/state/tasks/handoff; previous deployment docs preserved. Source-only,
+uncommitted. Rollback removes that fallback; no data rollback necessary.
+
+## 2026-09-15 BS10610 latest-main test rollout completed
+
+User explicitly requested BS10610 update to latest commit, then restricted
+acceptance to a simple code/check smoke and allowed disposable DB data.
+Pinned origin/main359df11; no app source changes. Read-only preflight found
+server10610/chenjc, expected control root, old per-service mounts, scanfalse/
+autofalse, no active WGS/GATK runs. Existing schema0021. Published new release
+20260915-main-359df11 through private main-359df11-control Compose, retaining
+all actual environment values/data/config mounts and dependency images.
+Eight app/DAG/collector/probe services updated; PostgreSQL/Redis unchanged.
+Existing migrations0022–0024 completed; no backup/reset/retention tests needed.
+Offline cached build/config check then one smoke round passed: gateway/API200,
+resources24h57,991bytes/600cap, Tracker200, Airflow importErrors0, static names
+BQVVDtTK/BFPGoplr. No full/redundant tests, CCE/native gate change or submission.
+No96 operation. Historical current symlink intentionally retained; use the new
+private composition rather than generic current. Exact source/image/service
+IDs, commands and source-only rollback in docs/releases/2026-09-15-main-bs10610.md.
+Documentation-only edits: that release note, CURRENT_STATE/TASKS/SERVER_INFO/
+HANDOFF and deployment runbook. Operational helper and archives stay untracked
+under .superpowers locally and private test-host control; never commit secrets.
+Next step: user can inspect the test UI; production rollout remains separate.
+
 ## 2026-09-15 Authorized log/resource main and production source integration
 
 User requests commit and merge into main/production; not a production rollout.

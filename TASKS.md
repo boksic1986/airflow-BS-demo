@@ -1,5 +1,26 @@
 # TASKS.md
 
+## GATK-BATCH-GIT-SYNC-20260916
+
+- User explicitly approves main/production integration of the batch fallback,
+  regression and previously uncommitted BS10610 deployment documentation.
+- Reuse BS10610 one-case regression; no repeated suite or runtime deployment.
+- Preserve .superpowers scratch files; use fast-forward and atomic dual-ref push.
+
+## GATK-BATCH-DISPLAY-20260916
+
+- [x] Add missing params.batch fallback to existing public batch serializer.
+- [x] One synthetic BS10610 regression: observed null failure then1pass.
+- API documentation updated; no deployment/DB change/extra UI logic.
+
+## BS10610-MAIN-359DF11-20260915
+
+- [x] User authorizes latest-main test update and only minimal acceptance.
+- [x] Pin359df11, preflight hostname/mounts/gates/no active runs.
+- [x] Cached build, existing schema migration and explicit eight-service update.
+- [x] One health/resources/Tracker/static/DAG smoke; state and rollback recorded.
+- No96 publication, full tests, data cleanup or workflow submission.
+
 ## LOG-RESOURCE-GIT-SYNC-20260915
 
 - User explicitly authorizes commit and main/production branch integration.

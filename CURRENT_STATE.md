@@ -1,5 +1,34 @@
 # CURRENT_STATE.md
 
+## 2026-09-16 Authorized batch-display and test-release documentation integration
+
+User approves committing the one-line GATK batch fallback, its targeted regression
+and the previously uncommitted BS10610 main359df11 release record together to
+main/production. No other application changes or deployment included. Source
+base359df11; production checkout clean. The source-only/uncommitted entries below
+describe the pre-integration state. Remote Git SSH22 timed out; integration must
+use normal fast-forward/atomic push and verify both refs, never force-push.
+
+## 2026-09-16 Batch Runs GATK batch display (source only)
+
+Fixed shared run_service._public_batch fallback to params.batch, after existing
+analysis_batch/sequencing_batch/batch_no priority. GATK stores its batch in that
+field; list previously returned null. One BS10610 isolated serializer regression
+passed (0.36s), covering GATK, WGS priority and missing batch. No frontend,
+database, workflow or deployed-service changes; not committed/published.
+
+## 2026-09-15 BS10610 updated to main359df11
+
+Test platform application/DAG sources now use releases/20260915-main-359df11;
+eight application services updated, PostgreSQL/Redis retained. All existing
+environment/data/config mounts and scanfalse/autofalse preserved. Historical
+current symlink remains old; use the private main-359df11-control composition.
+Existing additive migrations0021→0024 completed; no reset/backup needed despite
+user permitting disposable test data. Offline build and one simple smoke passed:
+health200, resources24h57,991bytes/<=600points, Tracker200, importErrors0, new
+assets BQVVDtTK/BFPGoplr. No full suite, analysis submission or96 change.
+See docs/releases/2026-09-15-main-bs10610.md for exact inventory and rollback.
+
 ## 2026-09-15 Log and resource source integration (no deployment)
 
 User authorizes committing the completed log-context search and bounded SFS

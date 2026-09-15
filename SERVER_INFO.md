@@ -1,5 +1,15 @@
 # SERVER_INFO.md
 
+2026-09-15 BS10610/server10610 latest-main359df11: actual /app and DAG sources
+releases/20260915-main-359df11; current remains historical20260912-opt-4d3d24e6.
+Backend0216d8c01387, observer41aee0d5dba8, API7136a3004faf, scheduler9ac92d49cf0e,
+worker3c29bb247a51, probe f8d3f7b2311b, metrics163cfcd5e5af, frontend65ebf491b521.
+Frontend main-359df11 imagec4225c70fe3e; dependency images retained. PostgreSQL/
+Redis IDs unchanged; all env values retained; scanfalse/autofalse/v2true.
+Schema0024; health200/importErrors0/assets BQVVDtTK/BFPGoplr; resources24h57991B.
+Private composition+rollback candidates/main-359df11-control; no96 change.
+Full record docs/releases/2026-09-15-main-bs10610.md.
+
 2026-09-15 Tracker read-only timing (no deployment): BS96/server96 backend
 c1be8d79ea43 still uses20260915-ui-93069eb; current symlink4d3d24e6;
 executiontrue/scantrue/autofalse unchanged. Internal authenticated GETs:

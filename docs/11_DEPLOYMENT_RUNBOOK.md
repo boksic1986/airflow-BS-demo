@@ -1,5 +1,17 @@
 # Deployment runbook
 
+## Latest BS10610 test composition (2026-09-15)
+
+Main359df11 is deployed to all eight running application/DAG/probe/collector
+services through `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/
+main-359df11-control/compose.json` (join the line; private0600). Actual code
+mounts use releases/20260915-main-359df11. Historical current symlink remains
+old and is not the active application source. Preserve environment/config/data
+mounts, external network, PostgreSQL/Redis and scanfalse/autofalse. Existing
+schema0024 is additive and not downgraded during rollback. Use explicit service
+names and --no-deps --pull never, never remove-orphans. See
+releases/2026-09-15-main-bs10610.md for exact receipt and rollback.json command.
+
 ## Latest96 UI composition (2026-09-15)
 
 UI93069eb now supplies backend/observer/frontend through ctapa-private

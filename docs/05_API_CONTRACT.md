@@ -1,5 +1,11 @@
 # API contract
 
+## GATK Batch Runs batch display (2026-09-16)
+
+Public run batch projection keeps analysis_batch → sequencing_batch → batch_no
+priority and adds params.batch as the final fallback for GATK/WES. Batch Runs
+continues consuming the existing batch_no response field. No schema/data change.
+
 ## Resource history projection (2026-09-15, source only)
 
 `GET /api/platform/resources?history_period=1h|24h|7d` returns the selected
