@@ -1,4 +1,4 @@
-"""Audited cc9bde3 QC display policy. No runtime Git or latest-version fallback.
+"""Audited QC display policy and exact source-equivalent releases.
 
 Source aggregate remains authoritative; missing inputs are never imputed.
 Clinical free-text notes and identity are not returned by this projection.
@@ -24,8 +24,12 @@ def number(value):
 def evaluate_metrics(source, *, release_id, context, multiqc=None):
     raw_policy = POLICY_FILE.read_bytes()
     policy = json.loads(raw_policy)
-    available = release_id in RELEASES
+    equivalent_commit = policy.get("verified_equivalent_releases", {}).get(release_id)
+    available = release_id in RELEASES or equivalent_commit is not None
     provenance = {**policy["provenance"], "policy_sha256": hashlib.sha256(raw_policy).hexdigest(), "release_id": release_id} if available else {"release_id": release_id, "reason": "Release policy provenance unavailable"}
+    if equivalent_commit is not None:
+        # All four packaged QC source blobs were compared at both exact commits.
+        provenance.update(policy_source_commit=policy["provenance"]["source_commit"], source_commit=equivalent_commit)
     if context.get("manifest_sha256"):
         provenance["condition_manifest_sha256"] = context["manifest_sha256"]
     result = {}

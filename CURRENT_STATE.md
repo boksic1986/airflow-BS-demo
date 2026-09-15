@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 WGS QC policy and available-metric display completed
+
+Exact34bfcbf QC support now reuses the audited cc9bde3 policy: all four native
+QC source blobs matched in read-only BS10610 Git inspection. No thresholds or
+source aggregate changed. WGS UI follows the user's latest scope: only valued
+pass/fail/warn judgments; no missing/inapplicable/unknown metric placeholders,
+including diagnostic disclosure. Backend diagnostics remain unchanged.
+BS10610 bounded QC backend20/frontend3/build passed. Source-only Git delivery;
+no BS96 deployment, DB/task/pending changes. Backend preparation latency remains
+open. Audit and handoff: docs/releases/2026-09-15-wgs-qc-policy.md.
+This supersedes earlier entries listing34bfcbf QC provenance as unresolved.
+
 ## 2026-09-15 CCE0.8.5 API integration completed (Git only)
 
 User confirms CCE0.8.5 development complete and requests continuation. Integrated

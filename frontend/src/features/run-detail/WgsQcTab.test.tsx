@@ -27,16 +27,17 @@ const sample: Sample = {
   },
 };
 
-it("keeps source QC separate while showing compact key metric judgments", () => {
+it("keeps source QC separate and shows only available source judgments", () => {
   const {container} = render(<WgsQcTab samples={[sample]} />);
   const summary = screen.getByRole("table", {name: "WGS QC summary"});
   const row = within(summary).getByText("SAMPLE-01").closest("tr");
 
   expect(row).not.toBeNull();
   expect(row!.querySelector("td:nth-child(2) .status-badge[title='pass']")).toBeInTheDocument();
-  expect(row!.querySelectorAll(":scope > td > .qc-metric .status-badge[title='unknown']")).toHaveLength(4);
-  expect(row!.querySelector(":scope > td:nth-child(4) > .qc-metric .qc-value-fail")).toHaveTextContent("99.8 %");
-  expect(row!.querySelector(":scope > td:nth-child(5) > .qc-metric .qc-value-unknown")).toHaveTextContent("-");
+  expect(row!.querySelectorAll(".status-badge[title='unknown']")).toHaveLength(0);
+  expect(row!.querySelector(":scope > td > .qc-metric .qc-value-fail")).toHaveTextContent("99.8 %");
+  expect(within(summary).queryByRole("columnheader", {name: "Average depth"})).toBeNull();
+  expect(within(summary).queryByRole("columnheader", {name: "Clean Q30"})).toBeNull();
   expect(container.querySelectorAll(".qc-metric details")).toHaveLength(0);
 });
 
@@ -47,16 +48,34 @@ it("uses one sample disclosure for friendly complete details and isolates raw di
   expect(disclosure).not.toBeNull();
   const detailsTable = within(disclosure!).getByRole("table", {name: "QC metric details for SAMPLE-01"});
   expect(within(detailsTable).getByText("Raw GC")).toBeInTheDocument();
-  expect(within(detailsTable).getByText("Sex consistency")).toBeInTheDocument();
-  expect(within(detailsTable).getByText("当前流程版本暂无已审核 QC 判定策略")).toBeInTheDocument();
-  expect(within(detailsTable).getByText("当前版本不适用此判定")).toBeInTheDocument();
-  expect(within(detailsTable).getByText("个体级安全证据不可用；来源汇总 QC 仍包含此项检查")).toBeInTheDocument();
+  expect(within(detailsTable).queryByText("Sex consistency")).toBeNull();
+  expect(within(detailsTable).queryByText("Coverage ≥20X")).toBeNull();
+  expect(within(detailsTable).getAllByRole("row")).toHaveLength(3);
   expect(within(detailsTable).getByText("≥ 99.9 %")).toBeInTheDocument();
-  expect(within(detailsTable).getAllByText(/wgs-4\.2\.1-34bfcbf/).length).toBeGreaterThan(0);
 
   const diagnostics = within(disclosure!).getByText("Raw diagnostic fields").closest("details");
   expect(diagnostics).not.toBeNull();
-  expect(within(diagnostics!).getByText(/clean_q30_percent/)).toBeInTheDocument();
-  expect(within(diagnostics!).getByText(/Release policy provenance unavailable/)).toBeInTheDocument();
+  expect(within(diagnostics!).getByText(/mapped_reads_percent/)).toBeInTheDocument();
+  expect(within(diagnostics!).queryByText(/clean_q30_percent/)).toBeNull();
+  expect(within(diagnostics!).queryByText(/Release policy provenance unavailable/)).toBeNull();
   expect(within(detailsTable).queryByText("clean_q30_percent")).toBeNull();
+});
+
+it("retains zero and explicit source results without inventing missing sample judgments", () => {
+  render(<WgsQcTab samples={[
+    {...sample, qc_metrics: {average_depth: 0, contamination: "WARNING"}, qc_judgments: {
+      average_depth: {value: 0, status: "fail", unit: "×"},
+      contamination: {value: "WARNING", status: "warn", unit: "status"},
+      raw_gc_percent: {value: " ", status: "pass"},
+    }},
+    {sample_id: "SAMPLE-02", status: "success", qc_status: "pass", qc_metrics: {raw_gc_percent: 40}},
+  ]} />);
+  const summary = screen.getByRole("table", {name: "WGS QC summary"});
+  expect(within(summary).getByRole("columnheader", {name: "Average depth"})).toBeInTheDocument();
+  expect(within(summary).getAllByText("0 ×").length).toBeGreaterThan(0);
+  expect(within(summary).getAllByText("WARNING").length).toBeGreaterThan(0);
+  expect(within(summary).queryByText("Raw GC")).toBeNull();
+  const missingRow = within(summary).getByText("SAMPLE-02").closest("tr")!;
+  expect(within(missingRow).getByText("暂无可展示的质控判定指标")).toBeInTheDocument();
+  expect(missingRow.querySelector(".status-badge[title='unknown']")).toBeNull();
 });

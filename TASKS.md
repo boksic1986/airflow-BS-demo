@@ -1,5 +1,14 @@
 # TASKS.md
 
+## WGS-QC-POLICY-20260915
+
+- [x] Verify all four QC Git blobs at exact cc9bde3/34bfcbf source commits.
+- [x] Register exact equivalent release with provenance; retain all thresholds.
+- [x] Filter WGS UI to available source judgments; preserve zero/fail/warn and source aggregate.
+- [x] BS10610 QC backend20/frontend3/build passed; API/UI/plan/handoff synchronized.
+- [ ] Production deployment remains separately authorized; no batch or data changes.
+- Supersedes prior open34bfcbf policy item, not the open preparation-latency item.
+
 ## CCE-API-MAIN-INTEGRATION-20260915
 
 - [x] Integrate reviewed73aa0ce with latest main5241068, preserving prior repairs.

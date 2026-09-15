@@ -64,16 +64,49 @@ def test_effective_bases_bkw_and_type_boundaries():
     assert dna["snv_count"]["status"] == "fail"
 
 
-def test_qc_projection_keeps_aggregate_and_private_conditions(tmp_path):
+@pytest.mark.parametrize("release_id", ["wgs-4.2.1-cc9bde3", "wgs-4.2.1-34bfcbf"])
+def test_qc_projection_keeps_aggregate_and_private_conditions(tmp_path, release_id):
     from app.wgs_sample_projection import _read_qc
     batch = tmp_path / "SYNTHETIC"
     (batch / "07_QC").mkdir(parents=True)
     (batch / "sampleinfo.tsv").write_text("数据编号\t项目编号\t家系关系\t样本类型\t姓名\nS-F57J\tQ0079\t先证者\t全血\tPRIVATE_SYNTHETIC\n", encoding="utf-8")
     (batch / "07_QC" / "SYNTHETIC.QCstat.tsv").write_text("Sample_ID\t是否通过质控\tClean_Q30%\nS-F57J\tYes\t85%\n", encoding="utf-8")
     (batch / "07_QC" / "S-F57J.multi.QC.tsv").write_text("Sample\tMean_Depth\nS-F57J\t40\n", encoding="utf-8")
-    result = _read_qc(batch, release_id="wgs-4.2.1-cc9bde3")["S-F57J"]
+    result = _read_qc(batch, release_id=release_id)["S-F57J"]
     assert result["status"] == "pass"
     assert result["metrics"]["clean_q30_percent"] == "85%"
     assert result["judgments"]["clean_q30_percent"]["status"] == "fail"
     assert result["judgments"]["multi_average_depth"]["status"] == "pass"
     assert "PRIVATE_SYNTHETIC" not in str(result)
+
+
+def test_verified_qc_release_uses_identical_policy_with_exact_provenance():
+    from app.wgs_qc_policy import evaluate_metrics
+    source = {"Clean_Q30%": "85", "Mapped_Reads%": "99.9", "Average_Depth": "29.9",
+              "Raw_GC%": "39.36", "SNV_count": "8000", "contamination": "WARNING",
+              "性别是否符合": "Yes"}
+    context = {"item_id": "Q0079", "relation": "先证者", "sample_type": "全血", "bkw": True, "rare_disease": True}
+    multi = {"Mean_Depth": "40", "Clean_Q30%": "85", "Duplicated_reads%": "10"}
+    previous = evaluate_metrics(source, release_id="wgs-4.2.1-cc9bde3", context=context, multiqc=multi)
+    current = evaluate_metrics(source, release_id="wgs-4.2.1-34bfcbf", context=context, multiqc=multi)
+    assert current["mapped_reads_percent"]["status"] == "pass"
+    assert current["clean_q30_percent"]["status"] == "fail"
+    assert current["average_depth"]["status"] == "fail"
+    assert current["contamination"]["status"] == "warn"
+    assert current["sex_match"]["status"] == "pass"
+    assert current["peddy"]["status"] == "unknown"
+    assert current["clean_gc_percent"]["reason"] == "Value unavailable"
+    assert current["coverage_1x_percent"]["reason"] == "No applicable criterion in this release"
+    for key in previous:
+        assert {k: v for k, v in current[key].items() if k != "provenance"} == {k: v for k, v in previous[key].items() if k != "provenance"}
+    provenance = current["mapped_reads_percent"]["provenance"]
+    assert provenance["release_id"] == "wgs-4.2.1-34bfcbf"
+    assert provenance["source_commit"] == "34bfcbf82238af684d005314360c9c9739377351"
+    assert provenance["policy_source_commit"] == "cc9bde3c8ee6ad1cd2f85cf5d2ef49c5611ac081"
+    assert provenance["source_git_blobs"] == previous["mapped_reads_percent"]["provenance"]["source_git_blobs"]
+    missing = evaluate_metrics(source, release_id="wgs-4.2.1-34bfcbf", context={})
+    assert missing["clean_q30_percent"]["reason"] == "Project item unavailable"
+    assert missing["raw_gc_percent"]["reason"] == "Sample type unavailable"
+    unknown = evaluate_metrics(source, release_id="wgs-4.2.1-34bfcbf-unreviewed", context=context)
+    assert unknown["mapped_reads_percent"]["status"] == "unknown"
+    assert unknown["mapped_reads_percent"]["reason"] == "Release policy provenance unavailable"

@@ -5,12 +5,17 @@
 - Tracker and Run detail share `runStageLabel`: authoritative overall success
   renders Completed across pipelines. A successful individual stage/QC result
   must not mark an active or failed workflow complete.
-- WGS QC reuses data-table and StatusBadge. Five key metric cells contain value,
+- WGS QC reuses data-table and StatusBadge. Available key metric cells contain value,
   unit and judgment; one per-sample disclosure contains friendly metric names,
   Chinese known reasons, thresholds and provenance. Raw keys/JSON are diagnostic
   details. Source QC status remains separate and is never recomputed in the UI.
-  Missing values and unaudited release policy retain unknown;34bfcbf policy
-  equivalence is not inferred from the earlier rule-phase blob audit.
+  Per the latest user scope, show only source-derived pass/fail/warn judgments
+  with available values. Missing, inapplicable, informational-only and unknown
+  metric entries are omitted, including raw diagnostic details. Entire missing
+  columns are hidden; a missing cell in a mixed sample column is a dash, not an
+  unknown badge. Zero is a valid value. An empty sample says
+  `暂无可展示的质控判定指标`; it does not imply PASS. API diagnostics remain intact.
+  Exact34bfcbf equivalence now has a separate four-file QC source audit.
 - Submit uses existing single-flight `useSilentRefresh`; preparation interval2s,
   normal interval10s, hidden60s, existing bounded error backoff. Route/attempt/phase
   changes and mutations fence old reads. Terminal/approved stops polling. Restore
@@ -146,8 +151,9 @@ success is labelled. Missing start/elapsed values remain dashes.
 
 QC retains the source aggregate and shows colored per-metric judgments,
 contamination status badges, expandable bounds/reasons/source provenance and
-all additional release criteria. Missing evidence and unsupported historical
-policies display unknown, never a green default. Clinical notes are not shown.
+all available applicable release criteria. Missing evidence and unsupported
+historical metric judgments are omitted, never defaulted green; the source
+aggregate remains visible even when no metrics qualify. Clinical notes are not shown.
 
 Current Progress, orchestration graph and Run Tracker show explicitly labelled
 estimated Step4/6 progress only when measured progress is absent. Estimates

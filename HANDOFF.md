@@ -1,5 +1,26 @@
 # HANDOFF.md
 
+## 2026-09-15 WGS QC policy completion and user-directed filtering
+
+Goal: complete the exact current WGS QC policy and show only sourced, available
+judged metrics. Existing isolated delivery branch, base cab5ba3. Changed packaged
+QC metadata/evaluator, WgsQcTab, their two tests, API/UI/plan/state/task docs and
+docs/releases/2026-09-15-wgs-qc-policy.md. Native scripts/thresholds untouched.
+Read-only BS10610 verified four identical QC blobs (full identities in report).
+Preflight server10610/current20260912-opt-4d3d24e6, backend378bd2b8eb10 actual
+mount20260913-panel-1fb971b, scanfalse/autofalse/executiontrue; services preserved.
+Candidate-only isolated containers: network none, source read-only, synthetic
+fixtures and disposable outputs; no production/DB/clinical mount or analysis.
+Expected RED: backend2failed/1passed/17deselected (new release unknown), UI3failed
+(old unfiltered display), exit1; fixed with exact mapping/display filtering.
+GREEN: pytest tests/test_monitor_qc.py 20passed/0.36s; targeted WgsQcTab Vitest
+3passed; tsc/vite build passed. No full suite, biological rerun or unrelated test.
+Git-only source delivery under prior main/production sync request, not deployment.
+Source policy unknown diagnostics remain in API; UI absence is not a PASS.
+Remaining: production release separately authorized, backend preparation latency.
+Rollback: scoped source revert; no data cleanup/backfill or release switch needed.
+Original dirty workspaces and generated untracked transfer archives preserved.
+
 ## 2026-09-15 CCE0.8.5 paired API integration
 
 Goal: finish the CCE/Airflow development integration after user confirms0.8.5

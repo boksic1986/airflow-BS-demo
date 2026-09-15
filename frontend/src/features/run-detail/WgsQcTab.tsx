@@ -52,22 +52,24 @@ const reasonLabels: Record<string, string> = {
 };
 
 export function WgsQcTab({samples}: {samples: Sample[]}) {
+  const visibleKeyMetrics = keyMetrics.filter(([key]) => samples.some((sample) => hasAvailableJudgment(sample, key)));
   return <div className="table-wrap">
     <table className="data-table" aria-label="WGS QC summary">
       <thead><tr>
         <th>Sample</th>
         <th>Source QC status</th>
-        {keyMetrics.map(([, label]) => <th key={label}>{label}</th>)}
-        <th>All release criteria</th>
+        {visibleKeyMetrics.map(([, label]) => <th key={label}>{label}</th>)}
+        <th>Available QC criteria</th>
       </tr></thead>
       <tbody>
         {samples.map((sample) => <tr key={sample.sample_id}>
           <td>{sample.sample_id}</td>
           <td><StatusBadge status={sample.qc_status || "unknown"} size="sm" /></td>
-          {keyMetrics.map(([key]) => <td key={key}><QcMetric value={sample.qc_metrics?.[key]} judgment={sample.qc_judgments?.[key]} /></td>)}
+          {visibleKeyMetrics.map(([key]) => <td key={key}>{hasAvailableJudgment(sample, key)
+            ? <QcMetric value={sample.qc_metrics?.[key]} judgment={sample.qc_judgments?.[key]} /> : "-"}</td>)}
           <td><SampleQcDetails sample={sample} /></td>
         </tr>)}
-        {samples.length === 0 ? <tr><td className="empty-cell" colSpan={keyMetrics.length + 3}>QC is pending or unavailable because the batch QCstat has not been projected yet.</td></tr> : null}
+        {samples.length === 0 ? <tr><td className="empty-cell" colSpan={visibleKeyMetrics.length + 3}>QC is pending or unavailable because the batch QCstat has not been projected yet.</td></tr> : null}
       </tbody>
     </table>
   </div>;
@@ -75,6 +77,7 @@ export function WgsQcTab({samples}: {samples: Sample[]}) {
 
 function SampleQcDetails({sample}: {sample: Sample}) {
   const keys = orderedMetricKeys(sample);
+  if (keys.length === 0) return <span className="muted">暂无可展示的质控判定指标</span>;
   return <details>
     <summary>Review all metrics</summary>
     <div className="table-wrap">
@@ -95,15 +98,25 @@ function SampleQcDetails({sample}: {sample: Sample}) {
     </div>
     <details>
       <summary>Raw diagnostic fields</summary>
-      <pre>{JSON.stringify({qc_metrics: sample.qc_metrics || {}, qc_judgments: sample.qc_judgments || {}}, null, 2)}</pre>
+      <pre>{JSON.stringify({
+        qc_metrics: Object.fromEntries(keys.map((key) => [key, sample.qc_metrics?.[key]])),
+        qc_judgments: Object.fromEntries(keys.map((key) => [key, sample.qc_judgments?.[key]])),
+      }, null, 2)}</pre>
     </details>
   </details>;
 }
 
 function orderedMetricKeys(sample: Sample): string[] {
-  const received = new Set([...Object.keys(sample.qc_metrics || {}), ...Object.keys(sample.qc_judgments || {})]);
+  const received = new Set(Object.keys(sample.qc_judgments || {}).filter((key) => hasAvailableJudgment(sample, key)));
   const ordered = Object.keys(metricLabels).filter((key) => received.delete(key));
   return [...ordered, ...Array.from(received).sort()];
+}
+
+function hasAvailableJudgment(sample: Sample, key: string): boolean {
+  const judgment = sample.qc_judgments?.[key];
+  if (!judgment || !["pass", "fail", "warn"].includes(judgment.status)) return false;
+  const value = judgment.value ?? sample.qc_metrics?.[key];
+  return typeof value === "number" ? Number.isFinite(value) : typeof value === "string" && value.trim().length > 0;
 }
 
 function metricLabel(key: string): string {
