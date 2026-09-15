@@ -8,7 +8,7 @@ export function RunProgressBar({analysisId, progress, compact = false}: {analysi
     const active = isActiveStatus(status);
     const terminalSuccess = status === "success";
     const failed = isFailedStatus(status);
-    const label = active
+    const label = progress.estimated ? progress.label : active
       ? "Waiting for runtime evidence"
       : terminalSuccess
         ? "Stage complete"
@@ -52,6 +52,12 @@ export function RunProgressBar({analysisId, progress, compact = false}: {analysi
 }
 
 function progressTone(progress: RunProgress): "queued" | "running" | "success" | "warning" | "failed" {
+  if (progress.estimated) {
+    const status = normalizeStatus(progress.status);
+    if (isFailedStatus(status)) return "failed";
+    if (status === "success") return "success";
+    return isActiveStatus(status) ? "running" : "queued";
+  }
   const text = `${progress.currentStep} ${progress.note}`.toLowerCase();
   if (text.includes("fail") || text.includes("error") || progress.failedStep) return "failed";
   if (progress.percent >= 100) return "success";

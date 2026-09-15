@@ -1,5 +1,16 @@
 # Frontend specification
 
+## WGS Step4/6 ETA progress (source only)
+
+Tracker and Current Progress render WGS `stage_median_linear_v1` through the
+existing EstimatedStageProgress wrapper and common RunProgressBar. Label is
+预估进度; insufficient history/start is 暂无预估. Current-stage elapsed and
+baseline replace whole-run elapsed in this estimate view. At the baseline the
+bar stays99 with 已超过预计时间，等待完成; only stage success reaches100.
+Failed/canceled estimates freeze, and active generation>1 displays 续跑中.
+No separate CSS/overlay or timer; existing API refresh drives both views.
+GATK estimates and measured upload/download/rule progress remain unchanged.
+
 ## WGS rule evidence repair (2026-09-15, not deployed)
 
 Execution group inventory expands below its rule across the full table width,

@@ -1,5 +1,25 @@
 # HANDOFF.md
 
+## 2026-09-15 WGS ETA source-only handoff
+
+Goal: approved Step4/6 linear99cap estimates and common display, no new telemetry.
+Changed wgs_stage_estimates, StageEstimate optional timing fields, common estimate
+wrapper/bar, Tracker and CurrentProgressPanel, targeted tests and contract/UI docs.
+BS10610 server10610 verified current20260912-opt-4d3d24e6 with actual backend
+20260913-panel-1fb971b, scan/autofalse, executiontrue. Used isolated cached-image
+containers with network none and candidate-only mounts, not running services.
+RED backend3failed/4pass and UI3failed demonstrated prior behavior. GREEN
+backend7/UI4/build passed; CSS CdK5PwQa unchanged, final JS DlfxtMEO. Review fixed
+frozen estimates retaining stale active color; same UI4/build passed after fix.
+First SSH handshake
+reset retried; archive clock-skew warning did not affect test/build success.
+No full suite, production probe, real analysis or data mutation. Scope remains
+source only. Commands and limitations are in dated ETA release note. Rollback
+this code only; no DB migration/data restoration. Resume/API runtime work remains
+owned by the separate wgs-resume-stage worktree; do not claim whole plan complete.
+An initial empty worktree from old airflow-demo clone was not edited; actual
+implementation uses production clone f241149, not oldclone1deca5f. No branch reset.
+
 ## 2026-09-15 prior-fixes Git integration
 
 Result: code merge05a28a874d893fbd517d4545c0e496546843acb4 atomically pushed;

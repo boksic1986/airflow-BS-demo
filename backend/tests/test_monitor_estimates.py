@@ -31,7 +31,7 @@ def test_fixed_stage_baseline_queue_freeze_retry_and_read_consistency():
         result = stage_estimate(row, now=now+timedelta(seconds=120))
         assert result["estimate_baseline_seconds"] == 120
         assert result["estimate_history_count"] == 3
-        assert result["estimated_progress_percent"] == pytest.approx(62.6)
+        assert result["estimated_progress_percent"] == 99
         assert result["estimate_overrun"] is True
         session.add(WgsStageExecution(analysis_id="OLD0", attempt=2, execution_id="LATER", generation=1, stage_code="step4_publish", request_hash="a"*64, release_id="rel", status="success", started_at=now, ended_at=now+timedelta(seconds=999)))
         session.commit()
@@ -48,11 +48,11 @@ def test_fixed_stage_baseline_queue_freeze_retry_and_read_consistency():
         assert workspace["progress"]["estimated_progress_percent"] == payload["estimated_progress_percent"]
         run.status = "cancelled"
         run.ended_at = now + timedelta(seconds=120)
-        assert stage_estimates(session, run, now=now+timedelta(days=1))["step4_publish"]["estimated_progress_percent"] == 62.6
+        assert stage_estimates(session, run, now=now+timedelta(days=1))["step4_publish"]["estimated_progress_percent"] == 99
         run.status = "running"
         transition_stage_execution(session=session, execution_id="EX1", generation=1, status="failed", observed_at=now+timedelta(seconds=120))
         session.commit()
-        assert stage_estimate(row, now=now+timedelta(days=1))["estimated_progress_percent"] == 62.6
+        assert stage_estimate(row, now=now+timedelta(days=1))["estimated_progress_percent"] == 99
         assert stage_estimate(row, now=now+timedelta(days=1))["estimate_frozen"] is True
         retry = WgsStageExecution(analysis_id="EST", attempt=1, execution_id="EX2", generation=2, stage_code="step4_publish", request_hash="b"*64, release_id="rel", status="accepted")
         session.add(retry)
@@ -65,6 +65,29 @@ def test_insufficient_history_and_success_without_fabricated_start():
     from app.wgs_stage_estimates import stage_estimate
     row = WgsStageExecution(execution_id="x", generation=1, status="running")
     assert stage_estimate(row)["estimated_progress_percent"] is None
+    row.status = "success"
+    assert stage_estimate(row)["estimated_progress_percent"] == 100
+
+
+@pytest.mark.parametrize("stage", ["step4_publish", "step6_materialize"])
+def test_wgs_linear_eta_caps_freezes_and_restarts(stage):
+    from app.wgs_stage_estimates import stage_estimate, KEY
+    now = datetime(2026, 9, 15, tzinfo=timezone.utc)
+    row = WgsStageExecution(execution_id="linear", generation=1, stage_code=stage,
+        status="running", started_at=now,
+        terminal_payload_json={KEY: {"baseline_seconds": 120, "history_count": 3}})
+    halfway = stage_estimate(row, now=now+timedelta(seconds=60))
+    assert halfway["estimated_progress_percent"] == 50
+    assert halfway["estimate_remaining_seconds"] == 60
+    for seconds in (120, 180):
+        result = stage_estimate(row, now=now+timedelta(seconds=seconds))
+        assert result["estimated_progress_percent"] == 99
+        assert result["estimate_remaining_seconds"] == 0
+    row.status, row.ended_at = "failed", now+timedelta(seconds=60)
+    assert stage_estimate(row, now=now+timedelta(days=1))["estimated_progress_percent"] == 50
+    row.status, row.ended_at, row.generation = "running", None, 2
+    row.started_at = now+timedelta(days=1)
+    assert stage_estimate(row, now=row.started_at)["estimated_progress_percent"] == 0
     row.status = "success"
     assert stage_estimate(row)["estimated_progress_percent"] == 100
 

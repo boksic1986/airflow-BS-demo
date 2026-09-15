@@ -45,20 +45,23 @@ def freeze_stage_baseline(session, row):
 def stage_estimate(row, *, now=None, run_terminal=False, stopped_at=None):
     snapshot = (row.terminal_payload_json or {}).get(KEY, {}) if row else {}
     baseline = snapshot.get("baseline_seconds")
+    linear = isinstance(row, WgsStageExecution)
     percent = None
     elapsed = None
     if row and row.status == "success":
         percent = 100
-    elif row and row.started_at and baseline and row.status in {"running", "failed", "canceled", "cancelled"}:
+    elif row and row.started_at and baseline and row.status in {"running", "failed", "canceled", "cancelled", "terminated"}:
         stop = row.ended_at if row.status != "running" else stopped_at if run_terminal else now or datetime.now(timezone.utc)
         if stop is not None:
             elapsed = max(0, (_aware(stop) - _aware(row.started_at)).total_seconds())
-            percent = min(99, round(99 * (1 - exp(-elapsed / baseline)), 1))
+            percent = min(99, round(elapsed / baseline * 100 if linear else 99 * (1 - exp(-elapsed / baseline)), 1))
     return {
         "estimated_progress_percent": percent,
         "estimate_baseline_seconds": baseline,
         "estimate_history_count": snapshot.get("history_count", 0),
-        "estimate_model": "stage_median_eased_v1" if baseline else "insufficient_history",
+        "estimate_model": "stage_median_linear_v1" if linear else "stage_median_eased_v1" if baseline else "insufficient_history",
+        **({"estimate_elapsed_seconds": elapsed,
+            "estimate_remaining_seconds": 0 if row.status == "success" else max(0, baseline - elapsed) if baseline and elapsed is not None else None} if linear else {}),
         "estimate_execution_id": row.execution_id if row else None,
         "estimate_generation": row.generation if row else None,
         "estimate_overrun": bool(elapsed is not None and baseline and elapsed >= baseline),
@@ -70,7 +73,11 @@ def stage_estimates(session, run, *, now=None):
     model = PipelineStageExecution if run.pipeline_name == "gatk" else WgsStageExecution
     rows = session.scalars(select(model).where(model.analysis_id == run.analysis_id, model.attempt == run.attempt, model.stage_code.in_(STAGES), *([model.pipeline_name == run.pipeline_name] if model is PipelineStageExecution else [])).order_by(model.generation)).all()
     terminal = str(run.status or "").lower() in {"failed", "canceled", "cancelled", "terminated"}
-    return {r.stage_code: stage_estimate(r, now=now, run_terminal=terminal, stopped_at=run.pipeline_finished_at or run.ended_at) for r in rows}
+    estimates = {r.stage_code: stage_estimate(r, now=now, run_terminal=terminal, stopped_at=run.pipeline_finished_at or run.ended_at) for r in rows}
+    if run.pipeline_name == "wgs":
+        for stage in STAGES:
+            estimates.setdefault(stage, {**stage_estimate(None), "estimate_model": "stage_median_linear_v1"})
+    return estimates
 
 
 def attach_stage_estimates(session, run, payload, *, now=None):

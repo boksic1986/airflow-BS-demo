@@ -1,5 +1,12 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 WGS ETA implementation, not deployed
+
+Step4/6 linear DB estimate reuses existing median and shared progress bar;
+50percent halfway, cap99, stage success100, unknown history honest, GATK unchanged.
+BS10610 backend7/UI4/build passed. Resume-stage implementation is separately
+owned by wgs-resume-stage-20260915; not complete or deployed by this ETA change.
+
 ## 2026-09-15 prior repairs Git integration (not deployed)
 
 Latest user explicitly requests prior repairs on main and the production repo.

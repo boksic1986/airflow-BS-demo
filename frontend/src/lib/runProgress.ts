@@ -12,6 +12,7 @@ export type RunProgress = {
   notInAirflow: boolean;
   failedStep?: string;
   status?: string;
+  estimated?: boolean;
 };
 
 const terminalRuleStatuses = new Set(["success", "failed", "fail", "error", "skipped", "canceled", "cancelled", "terminated"]);

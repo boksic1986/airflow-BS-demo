@@ -1,5 +1,12 @@
 # TASKS.md
 
+## WGS-RESUME-ETA-20260915
+
+- [x] ETA source and minimal tests: backend7/UI4/build on BS10610.
+- [ ] Integrate separately owned resume_stage API/runtime/DAG/button implementation.
+- [ ] Production deployment and real0911A recovery require separate scope check.
+- No additional feature, cleanup, production probe, or full suite in this task.
+
 ## PRIOR-FIXES-GIT-SYNC-20260915
 
 - [x] Confirm explicit Git-only authority, clean production checkout and exact scope.

@@ -1,5 +1,16 @@
 # API contract
 
+## WGS Step4/6 linear display estimates (source only)
+
+Existing StageEstimate fields remain display-only and never replace measured
+runtime progress or status. WGS uses `estimate_model=stage_median_linear_v1`:
+elapsed/baseline *100, capped99 until current-stage success100. Baseline selection
+and generation-scoped storage are unchanged. Missing baseline/start stays null.
+Optional `estimate_elapsed_seconds` and `estimate_remaining_seconds` are shared
+by progress/workspace and dashboard stage_progress; remaining clamps to zero at
+overrun. Failed/canceled execution freezes the estimate. GATK retains its existing
+model. No migration, new endpoint, runtime request or producer change.
+
 ## WGS evidence projection repair (2026-09-15, not deployed)
 
 Legacy Step1/5 same-attempt recovery may use matching registered request SHA and
