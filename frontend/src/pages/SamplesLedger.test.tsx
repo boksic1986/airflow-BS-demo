@@ -22,6 +22,8 @@ it('requests current pending and uses Sample table and status badge', async () =
   open();
   const sample = await screen.findByText('SYNTHETIC');
   expect(api.listSampleReferences).toHaveBeenCalledWith(expect.objectContaining({pending: true}));
+  expect(screen.getByRole('tablist', {name: '交接台账范围'})).toHaveClass('tab-row');
+  expect(screen.getByRole('tab', {name: '当前待交接'})).toHaveAttribute('aria-selected', 'true');
   expect(sample.closest('table')).toHaveClass('sample-resource-table');
   expect(screen.getByText('Pending').closest('.status-badge')).not.toBeNull();
   expect(screen.getByText('缺少上机批次')).toBeInTheDocument();
@@ -34,8 +36,8 @@ it('keeps removed records accessible in history without inventing a receiving ba
   open();
   await screen.findByText('SYNTHETIC');
   vi.mocked(api.listSampleReferences).mockResolvedValue(page([{...row, pending: false, present_in_latest_complete: false}]) as api.Page<api.SampleReference>);
-  fireEvent.click(screen.getByRole('button', {name: '历史记录'}));
-  expect(await screen.findByText('已移出待交接，接收批次未确认')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', {name: '历史记录'}));
+  expect(await screen.findByText('当前不在 pending；未找到精确关联凭据')).toBeInTheDocument();
   expect(screen.queryByText(/→/)).not.toBeInTheDocument();
 });
 
@@ -59,4 +61,12 @@ it('keeps sync failure visible and replaces unclassified reason with safe text',
   expect(screen.getByRole('alert')).toHaveTextContent('交接来源同步异常');
   expect(screen.getByText('待核对原因')).toBeInTheDocument();
   expect(screen.queryByText('unrecognized_private_text')).not.toBeInTheDocument();
+});
+it('shows exact recorded batch before opening details, without per-row history requests', async () => {
+  vi.mocked(api.listSampleReferences).mockResolvedValue(page([{...row, pending:false, present_in_latest_complete:false,
+    latest_decision:{role:'selected',destination_batch:'BATCH-B',operation_id:'op',analysis_id:null}}]) as api.Page<api.SampleReference>);
+  render(<MemoryRouter initialEntries={['/samples?view=ledger&ledger_scope=history']}><SamplesPage /></MemoryRouter>);
+  expect(await screen.findByText('已纳入 BATCH-B')).toBeInTheDocument();
+  expect(api.listSampleReferenceOperations).not.toHaveBeenCalled();
+  expect(screen.queryByText(/批次未确认|已交接至/)).toBeNull();
 });

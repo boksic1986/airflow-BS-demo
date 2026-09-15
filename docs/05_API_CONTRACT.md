@@ -1,5 +1,17 @@
 # API contract
 
+## QC/ledger follow-up (2026-09-15, source only)
+
+GET /api/sample-references adds nullable latest_decision:
+role(selected|consumed),destination_batch,operation_id,analysis_id.
+One page-scoped query matches source plus exact record_key/resolved_key,
+chooses the latest known decision by operation sequence/history ID, and reuses
+the operations endpoint's history-start boundary. No fuzzy sample matching or
+data mutation. Null means no exact recorded decision found, not no receiving
+batch exists. Current pending flags and source aggregate remain authoritative.
+Selection does not prove consumption, completed analysis or QC.
+QC thresholds remain in API/backend policy but are entirely hidden by the UI.
+
 ## UI-SIMPLIFY-20260915 (source only)
 
 WGS orchestration stage entries add nullable started_at/ended_at from the

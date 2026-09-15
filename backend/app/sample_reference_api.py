@@ -45,7 +45,40 @@ def references(source_id:str|None=Query(None,max_length=128),sample_id:str|None=
                 "origin_batch","destination_batch","needs_review","conflict_reason","last_good_generation","last_good_at")}
             value.update(sync_status=states[row.source_id].sync_status,sync_reason=states[row.source_id].sync_reason)
             return value
-        return page(session,query,limit,offset,serialize)
+        result=page(session,query,limit,offset,serialize)
+        decisions=latest_decisions(session,result["items"])
+        for row in result["items"]:
+            row["latest_decision"]=decisions.get((row["source_id"],row["record_key"]))
+        return result
+
+def visible_history(query):
+    from app.wgs_file_reference import history_start
+    start=history_start()
+    if start:
+        file_sources=select(SampleReferenceSource.source_id).where(SampleReferenceSource.source_type=="wgs_files")
+        query=query.where(or_(SampleReferenceOperation.source_id.not_in(file_sources),
+            SampleReferenceOperation.analysis_id>start[0],
+            and_(SampleReferenceOperation.analysis_id==start[0],SampleReferenceOperation.attempt>=start[1])))
+    return query
+
+
+def latest_decisions(session, rows):
+    if not rows: return {}
+    ref, hist, op = SampleReference, SampleReferenceHistory, SampleReferenceOperation
+    query=select(ref.source_id,ref.record_key,hist.role,hist.safe_json,op.operation_id,op.analysis_id,
+        func.row_number().over(partition_by=ref.id,order_by=(op.sequence.desc(),hist.id.desc())).label("rank")
+    ).select_from(ref).join(op,op.source_id==ref.source_id).join(hist,and_(
+        hist.operation_pk==op.id,or_(hist.record_key==ref.record_key,hist.resolved_key==ref.record_key)
+    )).where(or_(*(and_(ref.source_id==r["source_id"],ref.record_key==r["record_key"]) for r in rows)),
+        hist.role.in_(("decision_selected","decision_consumed")),
+        hist.safe_json["destination_batch"].as_string().is_not(None),
+        hist.safe_json["destination_batch"].as_string()!="")
+    ranked=visible_history(query).subquery()
+    return {(r.source_id,r.record_key):{
+        "role":r.role.removeprefix("decision_"),"destination_batch":r.safe_json["destination_batch"],
+        "operation_id":r.operation_id,"analysis_id":r.analysis_id
+    } for r in session.execute(select(ranked).where(ranked.c.rank==1))}
+
 
 @router.get("/operations")
 def operations(source_id:str|None=Query(None,max_length=128),record_key:str|None=Query(None,pattern="^[0-9a-f]{64}$"),
@@ -55,13 +88,7 @@ def operations(source_id:str|None=Query(None,max_length=128),record_key:str|None
     if record_key and not source_id:
         raise HTTPException(422,detail={"code":"SOURCE_REQUIRED","message":"record_key requires source_id."})
     query=select(SampleReferenceOperation)
-    from app.wgs_file_reference import history_start
-    start=history_start()
-    if start:
-        file_sources=select(SampleReferenceSource.source_id).where(SampleReferenceSource.source_type=="wgs_files")
-        query=query.where(or_(SampleReferenceOperation.source_id.not_in(file_sources),
-            SampleReferenceOperation.analysis_id>start[0],
-            and_(SampleReferenceOperation.analysis_id==start[0],SampleReferenceOperation.attempt>=start[1])))
+    query=visible_history(query)
     if source_id is not None: query=query.where(SampleReferenceOperation.source_id==source_id)
     # Each filter is scoped to rows of this operation. Identity filters match the
     # original or resolved alias, never approximate sample/order matching.

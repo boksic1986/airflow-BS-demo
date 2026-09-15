@@ -4216,6 +4216,10 @@ textarea {
 .qc-value-warn { color: #9c6500; font-weight: 700; }
 .qc-value-pass { color: #237447; }
 .qc-value-unknown { color: #64748b; }
+.qc-metric { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.qc-metric > .status-badge { flex-shrink: 0; }
+.ledger-history-panel { margin: 8px 0; }
+.ledger-history-panel .ledger-operation { padding: 12px 0; border-bottom: 1px solid #e4ecf2; }
 .qc-metric details { font-size: 0.75rem; max-width: 28rem; }
 .qc-metric pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .estimated-stage-progress { display: grid; gap: 0.25rem; font-size: 0.8rem; }

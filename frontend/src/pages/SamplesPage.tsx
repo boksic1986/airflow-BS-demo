@@ -149,9 +149,9 @@ function Ledger() {
     <section className="panel">
       <h2>交接台账</h2>
       <p className="muted">当前待交接仅显示共享 pending 中的样本；捞回后保留历史，不代表分析或 QC 已完成。此处不修改 pending 文件。</p>
-      <div className="tab-row" aria-label="交接台账范围">
-        <button className={!historyView ? "active" : ""} onClick={() => change("ledger_scope", "", params, setParams)}>当前待交接</button>
-        <button className={historyView ? "active" : ""} onClick={() => change("ledger_scope", "history", params, setParams)}>历史记录</button>
+      <div className="tab-row" role="tablist" aria-label="交接台账范围">
+        <button role="tab" aria-selected={!historyView} className={!historyView ? "active" : ""} onClick={() => change("ledger_scope", "", params, setParams)}>当前待交接</button>
+        <button role="tab" aria-selected={historyView} className={historyView ? "active" : ""} onClick={() => change("ledger_scope", "history", params, setParams)}>历史记录</button>
       </div>
       {historyView ? <p className="muted">包含当前与已移出记录；查看详情可核对已记录的交接凭据。</p> : null}
       <div className="filter-bar resource-filter-bar">
@@ -163,7 +163,7 @@ function Ledger() {
       {sources.items.some(source => source.sync_status === "error") || data.items.some(row => row.sync_status === "error") ? <div className="inline-error" role="alert">交接来源同步异常，当前显示最后一次成功同步的数据，请查看同步详情。</div> : null}
       <div className="table-wrap"><table className="data-table sample-resource-table"><thead><tr><th>Sample / family</th><th>来源分析批次</th><th>Status</th><th>详情</th></tr></thead><tbody>
         {visibleRows.map(row => { const key = `${row.source_id}:${row.record_key}`; return <Rows key={key} row={row} open={Boolean(open[key])} operations={history[key]} page={historyPage[key] || 1} error={historyErrors[key]} toggle={() => toggle(row)} go={next => void loadHistory(row, next)} />; })}
-        {!visibleRows.length && !loading ? <tr><td colSpan={4} className="empty-cell">{historyView ? "没有匹配的台账记录。" : "当前没有待交接样本。"}</td></tr> : null}
+        {!visibleRows.length && !loading ? <tr><td colSpan={4} className="empty-cell">{historyView ? "没有匹配的台账记录。" : <>当前没有待交接样本。<button className="text-button" onClick={() => change("ledger_scope", "history", params, setParams)}>查看历史记录</button></>}</td></tr> : null}
       </tbody></table></div>
       <Pager label="Ledger" total={data.total} page={page} go={next => go(next, params, setParams)} />
     </section>
@@ -176,19 +176,19 @@ function Ledger() {
 }
 
 function Rows({row, open, operations, page, error, toggle, go}: {row: SampleReference; open: boolean; operations?: Page<SampleReferenceOperation>; page: number; error?: string; toggle: () => void; go: (page: number) => void}) {
-  const recorded = operations?.items.flatMap(operation => operation.links).find(link =>
+  const recorded = row.latest_decision || operations?.items.flatMap(operation => operation.links).find(link =>
     (link.record_key === row.record_key || link.resolved_key === row.record_key) &&
     (link.role === "consumed" || link.role === "selected") && link.destination_batch);
   return <>
     <tr>
       <td><strong>{row.sample_id}</strong>{row.family_id ? <small className="block muted">Family {row.family_id}</small> : null}</td>
       <td>{row.origin_batch || "待核对来源批次"}</td>
-      <td><StatusBadge status={row.pending && row.present_in_latest_complete ? "pending" : "已移出待交接"} /><small className="block muted">{row.pending && row.present_in_latest_complete ? pendingReason(row.reason_codes, row.reason_code) : recorded ? `最近凭据：${recorded.role === "consumed" ? "已交接至" : "已纳入"} ${recorded.destination_batch}` : "已移出待交接，接收批次未确认"}</small>
+      <td><StatusBadge status={row.pending && row.present_in_latest_complete ? "pending" : recorded ? "accepted" : "unknown"} label={row.pending && row.present_in_latest_complete ? undefined : recorded ? `${recorded.role === "consumed" ? "已交接至" : "已纳入"} ${recorded.destination_batch}` : "历史身份待关联"} /><small className="block muted">{row.pending && row.present_in_latest_complete ? pendingReason(row.reason_codes, row.reason_code) : recorded ? "当前不在 pending；纳入或交接不代表分析或 QC 完成" : "当前不在 pending；未找到精确关联凭据"}</small>
         {row.needs_review ? <strong className="block inline-error">样本身份需核对</strong> : null}
       </td>
       <td><button type="button" className="button ghost" aria-expanded={open} onClick={toggle}>{open ? "收起详情" : "查看详情"}</button></td>
     </tr>
-    {open ? <tr><td colSpan={4}>
+    {open ? <tr><td colSpan={4}><section className="panel ledger-history-panel" aria-label={`${row.sample_id} 交接详情`}>
       <p className="muted">来源：{row.source_id} · 同步：{row.sync_status}{row.sync_reason ? ` · ${row.sync_reason}` : ""} · generation {row.last_good_generation ?? "-"} · {row.last_good_at || "未记录"}</p>
       {error ? <div className="inline-error" role="alert">History refresh failed; retained last-good history. {error}</div> : null}
       {!operations ? <span className="muted">Loading history...</span> : <>
@@ -198,7 +198,7 @@ function Rows({row, open, operations, page, error, toggle, go}: {row: SampleRefe
           {operation.observed_at ? <small className="block muted">Collection observed: {operation.observed_at}</small> : null}
           {operation.analysis_id ? <> · <Link to={`/runs/${encodeURIComponent(operation.analysis_id)}`}>{operation.analysis_id}</Link></> : " · no analysis run"}
           {operation.links.filter(link => link.record_key === row.record_key || link.resolved_key === row.record_key).map((link, index) => <div key={`${link.role}-${index}`}>
-            <span>{link.role === "consumed" && link.destination_batch ? `已交接至 ${link.destination_batch}` : link.role === "selected" && link.destination_batch ? `已纳入 ${link.destination_batch}` : link.role === "pending" ? "仍待交接" : "已移出待交接，接收批次未确认"}</span>
+            <span>{link.role === "consumed" && link.destination_batch ? `已交接至 ${link.destination_batch}` : link.role === "selected" && link.destination_batch ? `已纳入 ${link.destination_batch}` : link.role === "pending" ? "仍待交接" : "未记录接收决定"}</span>
             {link.resolved_key && link.resolved_key !== link.record_key ? <small className="block muted">Alias lineage: {link.record_key} → {link.resolved_key}</small> : null}
             {link.reason_codes.length ? <small className="block muted">{pendingReason(link.reason_codes)}</small> : null}
             {link.role === "consumed" ? <small className="block muted">Consumed by this handoff; does not establish analysis success or QC.</small> : null}
@@ -208,7 +208,7 @@ function Rows({row, open, operations, page, error, toggle, go}: {row: SampleRefe
         </div>) : <span className="muted">No recorded operations.</span>}
         <Pager label={`${row.sample_id} history`} total={operations.total} page={page} go={go} />
       </>}
-    </td></tr> : null}
+    </section></td></tr> : null}
   </>;
 }
 const pendingReasons: Record<string, string> = {

@@ -1,4 +1,4 @@
-import type {QcJudgment, Sample} from "../../api";
+import type {Sample} from "../../api";
 import {StatusBadge} from "../../components/StatusBadge";
 import {QcMetric} from "./QcMetric";
 
@@ -47,27 +47,23 @@ const reasonLabels: Record<string, string> = {
 export function WgsQcTab({samples}: {samples: Sample[]}) {
   const received = new Set(samples.flatMap(orderedMetricKeys));
   const keys = [...Object.keys(metricLabels).filter((key) => received.delete(key)), ...Array.from(received).sort()];
-  const columns = keys.map((key) => {
-    const thresholds = new Set(samples.filter((sample) => hasAvailableJudgment(sample, key)).map((sample) => formatThreshold(sample.qc_judgments?.[key])));
-    return {key, threshold: [...thresholds][0], variable: thresholds.size > 1};
-  });
   return <div className="table-wrap wgs-qc-table-wrap" tabIndex={0} aria-label="QC table horizontal scroll">
     <table className="data-table" aria-label="WGS QC summary">
       <thead><tr>
         <th>Sample</th>
         <th>Source QC status</th>
-        {columns.map(({key, threshold, variable}) => <th key={key}>{metricLabel(key)}{variable ? " (按样本)" : threshold ? ` (${threshold})` : ""}</th>)}
+        {keys.map((key) => <th key={key}>{metricLabel(key)}</th>)}
         <th>Reason</th>
       </tr></thead>
       <tbody>
         {samples.map((sample) => <tr key={sample.sample_id}>
           <td>{sample.sample_id}</td>
           <td><StatusBadge status={sample.qc_status || "unknown"} size="sm" /></td>
-          {columns.map(({key, variable}) => <td key={key}>{hasAvailableJudgment(sample, key)
-            ? <><QcMetric value={sample.qc_metrics?.[key]} judgment={sample.qc_judgments?.[key]} />{variable && formatThreshold(sample.qc_judgments?.[key]) ? <small>({formatThreshold(sample.qc_judgments?.[key])})</small> : null}</> : "-"}</td>)}
+          {keys.map((key) => <td key={key}>{hasAvailableJudgment(sample, key)
+            ? <QcMetric value={sample.qc_metrics?.[key]} judgment={sample.qc_judgments?.[key]} /> : "-"}</td>)}
           <td className="qc-reason-cell">{sampleReason(sample)}</td>
         </tr>)}
-        {samples.length === 0 ? <tr><td className="empty-cell" colSpan={columns.length + 3}>QC is pending or unavailable because the batch QCstat has not been projected yet.</td></tr> : null}
+        {samples.length === 0 ? <tr><td className="empty-cell" colSpan={keys.length + 3}>QC is pending or unavailable because the batch QCstat has not been projected yet.</td></tr> : null}
       </tbody>
     </table>
   </div>;
@@ -102,27 +98,4 @@ function metricLabel(key: string): string {
 function friendlyReason(reason?: string): string {
   if (!reason) return "判定原因不可用";
   return reasonLabels[reason] || reason;
-}
-
-function formatThreshold(judgment?: QcJudgment): string {
-  const threshold = judgment?.threshold;
-  if (threshold == null) return "";
-  if (typeof threshold === "string") return threshold;
-  if (typeof threshold !== "object" || Array.isArray(threshold)) return "";
-  const bounds = threshold as Record<string, unknown>;
-  const unit = judgment?.unit && judgment.unit !== "status" ? ` ${judgment.unit}` : "";
-  const minimum = finiteBound(bounds.min);
-  const maximum = finiteBound(bounds.max);
-  if (minimum != null && maximum != null) {
-    const lower = bounds.min_inclusive === false ? ">" : "≥";
-    const upper = bounds.max_inclusive === false ? "<" : "≤";
-    return `${lower} ${minimum}${unit} and ${upper} ${maximum}${unit}`;
-  }
-  if (minimum != null) return `${bounds.min_inclusive === false ? ">" : "≥"} ${minimum}${unit}`;
-  if (maximum != null) return `${bounds.max_inclusive === false ? "<" : "≤"} ${maximum}${unit}`;
-  return "";
-}
-
-function finiteBound(value: unknown): string | null {
-  return typeof value === "number" && Number.isFinite(value) ? String(value) : typeof value === "string" && value.trim() ? value : null;
 }

@@ -1,5 +1,21 @@
 # TASKS.md
 
+## QC-LEDGER-FOLLOWUP-20260915 completion
+
+- [x] User chose no threshold display; backend QC rules remain unchanged.
+- [x] Shared metric badge gap, semantic tabs and consistent detail panel; history shortcut.
+- [x] Batch latest exact decision in reference API; no per-record history fetch on initial display.
+- [x] No same-sample fuzzy association; distinguish selected/consumed and unlinked history.
+- [x] BS10610 backend3/frontend9/build; docs synchronized.
+- [ ] Separate approval before publishing new code; do not relink the3 unmatched rows implicitly.
+
+## QC-LEDGER-FOLLOWUP-20260915
+
+- [x] Diagnose current0/history6 via96 read-only API; locate missing tab semantics.
+- [ ] Confirm multiple real thresholds in headings; never substitute the first sample criterion.
+- [ ] Fix QC headings/spacing and shared ledger UI; retain actual pending semantics.
+- [ ] Matched BS10610 frontend checks only; no new publication authorized.
+
 ## UI-BS96-PUBLISH-20260915
 
 - [x] Fast-forward clean production main and atomically push main/production to93069eb.

@@ -1,5 +1,28 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 QC/ledger follow-up implemented (source only)
+
+User resolved header choice: hide every QC threshold in UI; policy remains
+unchanged. Added8px metric/badge spacing, shared ledger tab semantics/details
+panel and empty-current history shortcut. Reference list now returns one
+batched exact-key/alias latest_decision projection, honoring history start.
+Known selection/consumption appears without opening details; absent exact
+evidence is Historical identity pending association, not invented handoff.
+BS96 read-only audit found3 exact selected receipts into20260911A and3 same-name
+only records; no associations/data changed. Pending0/history6 retained.
+BS10610 backend3/QC3/ledger6 and build passed. No publication/main push this turn;
+production remains93069eb. Supersedes pending-design notes immediately below.
+
+## 2026-09-15 QC/ledger follow-up diagnosis; implementation pending
+
+BS96 read-only API: current pending0, all/history6; all6 pending=false and
+present=false. Source ready generation1412 at2026-09-15T09:36:57Z. No records
+were deleted; shared source pending files were not independently audited.
+Ledger markup lacks role=tablist/aria-selected required by controls.css.
+QC needs actual multi-threshold headings and value/badge gap; Contamination
+heading should omit threshold text. Design confirmation pending; no code or
+runtime mutation. Production remains93069eb.
+
 ## 2026-09-15 UI93069eb published to96
 
 User authorized main/production Git synchronization and BS96 publication.

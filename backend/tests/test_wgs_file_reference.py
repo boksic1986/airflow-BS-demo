@@ -152,3 +152,35 @@ def test_pending_api_filters_absent_rows_before_pagination(tmp_path,monkeypatch)
         destination_batch=None,pending=True,sync_error=None,limit=1,offset=0)
     assert result["total"]==1
     assert result["items"][0]["sample_id"]=="S1"
+
+
+@pytest.mark.parametrize("alias,role", [(False,"selected"), (True,"consumed")])
+def test_reference_list_projects_exact_latest_decision_not_same_sample(tmp_path,monkeypatch,alias,role):
+    source,factory,sync,path=setup(tmp_path)
+    from app.models import SampleReference as Ref, SampleReferenceOperation as Op, SampleReferenceHistory as Hist, utc_now
+    from app import sample_reference_api as api
+    monkeypatch.delenv("SAMPLE_REFERENCE_HISTORY_START_ANALYSIS_ID",raising=False)
+    assert sync(factory,source,SECRET)=="ready"
+    with factory.begin() as s:
+        row=s.scalar(select(Ref)); key=row.record_key
+        row.pending=False; row.present_in_latest_complete=False
+        s.add(Ref(source_id=source.source_id,record_key="9"*64,sample_id="S1",
+                  pending=False,present_in_latest_complete=False,content_version="0"*64,
+                  last_good_generation=1,last_good_at=utc_now()))
+        for sequence in [1,2]:
+            op=Op(source_id=source.source_id,operation_id=str(sequence),sequence=sequence,
+                  intent_hash="a"*64,commit_hash="b"*64,pending_hash="c"*64,
+                  execution_key=str(sequence)*64,request_hash="d"*64,mode="unknown",
+                  producer_commit="unknown",completed_at=utc_now())
+            s.add(op);s.flush()
+            s.add(Hist(operation_pk=op.id,role="decision_"+role,row_number=1,
+                record_key=("1"*64 if alias else key) if sequence==1 else "8"*64,
+                resolved_key=key if alias and sequence==1 else None,
+                safe_json={"sample_id":"S1","destination_batch":"BATCH-B" if sequence==1 else "WRONG"}))
+    monkeypatch.setattr(api,"get_sessionmaker",lambda:factory)
+    result=api.references(source_id=None,sample_id=None,family_id=None,origin_batch=None,
+        destination_batch=None,pending=None,sync_error=None,limit=25,offset=0)
+    by_key={r["record_key"]:r for r in result["items"]}
+    assert by_key[key]["latest_decision"]["destination_batch"]=="BATCH-B"
+    assert by_key[key]["latest_decision"]["role"]==role
+    assert by_key["9"*64]["latest_decision"] is None

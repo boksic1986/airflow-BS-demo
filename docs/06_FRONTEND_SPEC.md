@@ -1,5 +1,22 @@
 # Frontend specification
 
+## Latest QC/ledger correction (2026-09-15, source only)
+
+User supersedes prior threshold design: no QC thresholds anywhere in the table,
+including per-row bounds and Contamination heading. Metric names, values,
+judgments and final Reason remain; original backend policy unchanged.
+QcMetric uses8px gap between value and badge; StatusBadge accepts an optional
+display label without normalizing that label, preserving batch-ID capitalization.
+
+Ledger current/history tabs now use the same tablist/aria-selected contract as
+Sample controls and the same shared details panel. Current empty state links
+to history; it does not substitute historical rows for current pending.
+Initial rows consume API latest_decision, not per-row lazy requests: selected
+shows 已纳入 plus batch, consumed shows 已交接至 plus batch. No precise link
+shows 历史身份待关联 and 当前不在 pending；未找到精确关联凭据.
+These labels do not imply workflow/QC success. Existing operation details and
+exact identity rules remain; do not infer aliases from matching sample names.
+
 ## UI-SIMPLIFY-20260915 (source only; supersedes disclosure UI below)
 
 - WGS QC is one horizontally scrollable table: Sample, Source QC status, all

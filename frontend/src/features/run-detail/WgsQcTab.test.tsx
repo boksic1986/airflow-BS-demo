@@ -11,10 +11,10 @@ const sample: Sample = {sample_id: "SAMPLE-01", qc_status: "fail", qc_judgments:
   sex_match: {value: "Yes", status: "pass", reason: "Source-produced sex consistency judgment"},
 }};
 
-it("shows all available QC columns directly with thresholds and failure reasons, without diagnostic disclosures", () => {
+it("shows all available QC columns directly without thresholds and with failure reasons, without diagnostic disclosures", () => {
   const {container} = render(<WgsQcTab samples={[sample]} />);
   const table = screen.getByRole("table", {name: "WGS QC summary"});
-  expect(within(table).getByRole("columnheader", {name: "Clean Q30 (≥ 85 %)"})).toBeInTheDocument();
+  expect(within(table).getByRole("columnheader", {name: "Clean Q30"})).toBeInTheDocument();
   expect(within(table).getByRole("columnheader", {name: /Raw GC/})).toBeInTheDocument();
   expect(within(table).getByRole("columnheader", {name: "Sex consistency"})).toBeInTheDocument();
   expect(within(table).queryByRole("columnheader", {name: /Average depth/})).toBeNull();
@@ -34,12 +34,13 @@ it("does not apply one sample's threshold to another and keeps zero and warnings
     contamination: {value: "CHARR 0.025 / AB 0.12", status: "warn", reason: "Contamination measurements exceed release criterion"},
   }});
   render(<WgsQcTab samples={[make("S1",30,0),make("S2",20,25)]} />);
-  expect(screen.getByRole("columnheader", {name: /Average depth.*按样本/})).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", {name: "Average depth"})).toBeInTheDocument();
   const one=screen.getByText("S1").closest("tr")!;
   const two=screen.getByText("S2").closest("tr")!;
   expect(within(one).getByText("0 ×")).toBeInTheDocument();
-  expect(within(one).getByText("(≥ 30 ×)")).toBeInTheDocument();
-  expect(within(two).getByText("(≥ 20 ×)")).toBeInTheDocument();
+  expect(within(one).queryByText(/≥|按样本/)).toBeNull();
+  expect(within(two).queryByText(/≥|按样本/)).toBeNull();
+  expect(screen.getByRole("columnheader", {name: "Contamination"})).toBeInTheDocument();
   expect(one.lastElementChild).toHaveTextContent("污染指标超出当前版本阈值");
 });
 

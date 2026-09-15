@@ -1760,6 +1760,7 @@ export function cleanupStep7(analysisId: string, batchConfirmation: string, retr
 }
 
 export type SampleReference = {
+  latest_decision?: {role: "selected" | "consumed"; destination_batch: string; operation_id: string; analysis_id?: string | null} | null;
   source_id: string; record_key: string; sample_id: string; family_id?: string | null;
   sequencing_batch?: string | null; analysis_batch?: string | null; data_id?: string | null;
   pending: boolean; present_in_latest_complete: boolean; reason_code?: string | null; reason_codes: string[];

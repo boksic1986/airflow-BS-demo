@@ -1,5 +1,63 @@
 # HANDOFF.md
 
+## 2026-09-15 QC/ledger follow-up complete; source only
+
+Latest user chooses no thresholds and challenges receiver-unconfirmed wording.
+Implemented only UI/API display fixes: WgsQcTab removes all threshold labels;
+styles.css adds8px inline-flex value/badge gap; SamplesPage restores tablist/tab
+semantics to reuse controls.css, shared panel details, empty-current history link.
+StatusBadge gains optional display label so batch IDs retain case independently
+of normalized status. No effect on callers without label.
+
+sample_reference_api now adds latest_decision using one page-scoped window query
+joined on exact source+record_key or recorded resolved_key; no same-name matches,
+N+1 requests or database writes. Existing operations history-start condition is
+reused. Fields role(selected/consumed),destination_batch,operation_id,analysis_id.
+UI shows explicit batch immediately. No proof =>历史身份待关联 plus no-exact-receipt
+explanation; pending remains determined only by existing current-source fields.
+
+BS96 read-only current UI93069eb backend verified. API audit:
+3 records exactly selected into20260911A;3 have same sample names in that run
+but no exact/alias key match. Do not rewrite identities or label all6 handed off.
+No consumed receipts established, no source pending-file audit or mutation.
+Initial httpx empty relative URL got307 trailing-slash redirect; corrected to
+exact read URL without changing server. No production mutation/DB access.
+
+Tests on existing isolated BS10610 candidate: red backend2 expected missing
+latest_decision, frontend5 expected missing display contracts. Green backend3
+(targeted test_wgs_file_reference.py -k 'reference_list_projects or pending_api'),
+QC3 and ledger6 tests, then tsc/Vite build. First green ledger failure exposed
+StatusBadge lowercasing batch labels; fixed optional label, reran only ledger6
+plus build. Assets index-k_rLNdRT.js / index-BWt8piRC.css. No full/redundant tests.
+A local whole-file patch on api.ts rejected after output truncation; no file
+mutation, corrected to contextual patch. Tar14s future timestamp warning only.
+
+Changed API,UI,3 test files and API/frontend/state/task/handoff docs. No
+DAG/runtime/prepare/pending/core QC policy/CCE changes. No main sync or96 release
+in this task; current isolated branch basea0ff5c9, .superpowers untracked.
+Next: user reviews remaining3 unresolved identities; deployment requires separate
+authorization. Source rollback by reverting this slice; no data/schema rollback.
+
+## 2026-09-15 QC/ledger follow-up diagnosis; awaiting design confirmation
+
+User requests actual threshold headings instead of 按样本, Contamination name
+only, badge spacing, empty-ledger investigation and consistent controls/details.
+No application code change. BS96 server96 fingerprint matches current historical
+4d3d24e6 and actual backendc1be8d79ea43/UI93069eb. Authenticated reference API
+returns current pending0, all/history6; every record pending=false/present=false.
+Source ready generation1412 at09:36:57Z; three retained operations selected12/7/3.
+No consumed state inferred; source-file cause not independently established.
+Local controls.css requires tablist/aria-selected missing in Ledger markup.
+QC has distinct real sample bounds and no shared value/badge gap. Proposed
+bounded fix lists distinct actual thresholds in heading parentheses, retains
+exact per-row criteria, removes contamination threshold heading and reuses UI.
+Design-skill confirmation required before implementation; no tests yet because
+no code changed. Only state notes modified on a0ff5c9 isolated branch; existing
+.superpowers untracked, original dirty workspace untouched. No commit/push,
+BS96 mutation, DB connection, pending edit,0911A operation or cleanup.
+Next: confirm header representation, then minimal frontend implementation/tests.
+No runtime rollback needed.
+
 ## 2026-09-15 authorized UI93069eb Git sync and96 publication complete
 
 Goal: user explicitly requests main/production sync and deployment to96.
