@@ -1,5 +1,17 @@
 # SERVER_INFO.md
 
+2026-09-15 BS96/server96 platform f69c577 application rollout:
+backend669a59d50eb5/observer6eaf7246eb02 mount
+/data/airflow-WGS/releases/20260915-platform-f69c577/backend.
+Airflow API26e38ae52781/scheduler0fcc0a7b85b5/workere4ba99805fd3 mount its
+bio_wgs.py; unchanged GATK/common/config mounts. Frontend37b18d30d156 image
+airflow-demo/frontend:platform-f69c577. Current remains old4d3d24e6 deliberately.
+Private composition/rollback: candidates/platform-f69c577-control under control
+root, ctapa0700/0600. Health200/importErrors0; WGS sensor retries6.
+Scantrue/autofalse, contractv2false, managementfalse and six other container IDs
+unchanged.0911A failed attempt2 preserved at user's request; no node200 action.
+Full record: docs/releases/2026-09-15-platform-bs96.md.
+
 2026-09-15 Git-only synchronization preflight: BS96/server96 confirmed existing
 backend8388a8e8b600/observer05aa580c5932 recovery-source mounts and frontend
 ddba6fa13eed resource overlay assets.86 backend/GATK DAG files match code8cbcd60;

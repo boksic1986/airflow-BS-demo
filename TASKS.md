@@ -1,5 +1,15 @@
 # TASKS.md
 
+## PLATFORM-BS96-PUBLISH-20260915
+
+- [x] User-authorized pinnedf69c577 source rollout; zero running/queued task preflight.
+- [x] BS96 cached offline build, exact live-environment/mount retention and private rollback.
+- [x] Publish backend/observer/frontend and matching bio_wgs DAG in three Airflow services.
+- [x] Health/static hash, Airflow import0/retries6, protected six container IDs accepted.
+- [x] Follow latest user instruction: leave0911A failed attempt2; no recovery action.
+- [ ] Legacy v1 recovery compatibility and node runtime deployment remain deferred.
+- No CCE upgrade/management enablement, DB migration, pending edit or data cleanup.
+
 ## WGS-QC-POLICY-20260915
 
 - [x] Verify all four QC Git blobs at exact cc9bde3/34bfcbf source commits.

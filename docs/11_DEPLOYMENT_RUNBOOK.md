@@ -1,5 +1,17 @@
 # Deployment runbook
 
+## Current96 application composition (2026-09-15)
+
+Sourcef69c577 is deployed for backend/observer/frontend and bio_wgs only; retained
+GATK/common/config and other-service mounts remain pinned. Use ctapa's private
+`/data/airflow-WGS/candidates/platform-f69c577-control/compose.json`, not the old
+current symlink or a generic mainline Compose. Its rollback.json captures exact
+previous six-service images/environment/mounts. Use explicit service names with
+`up -d --no-deps --pull never`; never remove orphans. See
+releases/2026-09-15-platform-bs96.md. Runtime gates/packages and contractv2 remain
+unchanged/disabled; this application rollout does not make old v1 runs compatible
+with resume_stage. User explicitly deferred0911A, including recovery operations.
+
 ## WGS resume_stage packaging (2026-09-15, not deployed)
 
 Future approved rollout must include backend wgs_resume_service.py, updated

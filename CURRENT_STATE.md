@@ -1,5 +1,19 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 platform source f69c577 published to96;0911A deferred
+
+User authorized96 release, then explicitly chose publication only and deferred
+0911A/v1 compatibility. Actual backend/observer and bio_wgs mounts now use
+/data/airflow-WGS/releases/20260915-platform-f69c577; frontend image platform-f69c577.
+Health/static assets and Airflow API accepted; import errors0, WGS waitStep3
+retries6. Six unrelated service IDs and all selected service environment values
+preserved (scantrue/autofalse; contractv2false; release managementfalse).
+0911A remains failed attempt2/original DagRun; no resume/clear/Master operation.
+No node gate/package/catalog activation or data cleanup. Historical current
+symlink remains4d3d24e6; actual private composition/rollback in release record:
+docs/releases/2026-09-15-platform-bs96.md. This supersedes source-only status
+for deployed application/DAG files, not the deferred node runtime/v1 work.
+
 ## 2026-09-15 WGS QC policy and available-metric display completed
 
 Exact34bfcbf QC support now reuses the audited cc9bde3 policy: all four native

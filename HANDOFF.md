@@ -1,5 +1,61 @@
 # HANDOFF.md
 
+## 2026-09-15 production publication completed; recovery canceled by user
+
+Latest user answer: publish only, do not handle0911A. No compatibility code,
+resume API call, task clear, node gate update or Master operation was performed.
+Published tested sourcef69c577 to BS96/server96, physical release20260915-platform-f69c577.
+Current symlink stays historical4d3d24e6; six selected services consume explicit
+private composition at /data/airflow-WGS/candidates/platform-f69c577-control.
+before/rollback/compose/after JSON remain ctapa-private, never copied to Git.
+Selected environments exactly equal before/after; protected scanner, ledger,
+DB/Redis/probes retain all six IDs. No workflow data or schema mutation.
+
+Commands: git archive source SHA b4458b4e...53493abd; source extracted into new
+0755 release asctapa; Compose config --quiet passed. Cached Node22 lock matched,
+Docker --network none --pull=false build-only passed (no repeated test suite).
+Explicit six-service up --no-deps --pull never exited0. Gateway health200,
+served JS SHA d38ca41a...5dd0ecd9 matches build, nginx -t passed; Airflow
+importErrors0, waitStep3 retries6, DAG pause states unchanged. API confirms0911A
+failed/attempt2/originalDagRun and other four runs success. Fresh isolated test
+evidence from prior turn reused; no production biological/fixture/full test.
+
+Setup failures: initial private parent /home/ctapa/.config absent (exit1), before
+service mutation; used existing approved ctapa-owned control candidate root, no
+ACL widening. First post-start Airflow request refused at17s while API starting;
+logs showed normal gunicorn startup, next bounded read succeeded without a fix.
+Compose orphan warning intentionally ignored; no remove-orphans. Temporary
+artifact-only build container removed after docker cp; no data/image cleanup.
+
+Changed only release/state/task/server/runbook docs locally, plus untracked
+operational packaging helper (no secrets); original dirty workspaces preserved.
+Exact service IDs/images, retained mounts and rollback command in
+docs/releases/2026-09-15-platform-bs96.md. Runtime gates and v2 enablement remain
+deferred; source-only node code must not be described as activated. Next step
+requires renewed user authority for0911A/v1 recovery. Rollback selected six
+services from private rollback.json only after fresh active-task check; preserve
+all DBs, task state, data and remote execution identities.
+
+## 2026-09-15 authorized96 release /0911A recovery in progress
+
+User explicitly authorizes publishing completed main f69c577 to96 and repairing
+20260911A. Production BS96/server96 preflight: current remains4d3d24e6, actual
+backend/observer0436dce; all five listed business runs terminal (four success,
+0911A failed). Both WGS/GATK have zero running/queued Airflow tasks. Preserve
+scantrue/autofalse, private credentials/mounts, DB/Redis, ledger/scanner/probes.
+Planned changes: pinned backend/observer/frontend and matching Airflow DAG source,
+with exact prior private compositions/images retained. No data deletion, CCE
+upgrade/activation, prepare or pending mutation. Further active-task check before
+recreation. Original directory/result protection remains mandatory.
+0911A is WGS_20260914_172238_C702AE attempt2, failed wait_step3_analysis:
+Master fatal infrastructure state at370/440 rules (84.1percent). Its frozen
+orchestration contract is v1; current resume_stage accepts only v2. Asked user
+for minimal v1 compatibility authority; do not silently change frozen contract.
+Initial read-only auth probe used wrong header and returned401; corrected to
+existing X-Airflow-Demo-Token in-container, no credential emitted. Private
+ctapa control directory cannot be listed by chenjc; preserve ACLs and use the
+approved account-specific composition or actual inspected service definitions.
+
 ## 2026-09-15 WGS QC policy completion and user-directed filtering
 
 Goal: complete the exact current WGS QC policy and show only sourced, available
