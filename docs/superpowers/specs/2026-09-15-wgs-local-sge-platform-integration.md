@@ -21,7 +21,8 @@ WGS-pipeline 任务提供候选源码 `ba7b27276a55ed3ce1fb2efe81c99c89b52d0f8b`
 - 原生 `log/step1.<ID>.metadata.tsv`、`.exitcode` 供绑定读取；后台启动返回0不代表分析成功。没有 Local/SGE JSON identity receipt 或 ANALYSIS_COMPLETE，不能虚构 CCE 成功标记。
 - local/sge profile 沿用 WGS；SGE 由原生 profile 投递子任务。现阶段无需 WGS 新增接口或算法修改。
 
-当前仅完成平台配置确认时的冻结基础代码及定向测试。新任务合同标记尚未接入创建入口；原生准备路由/产物绑定完成前不开放该能力。
+当前完成配置确认时的冻结基础、原生 prepare 请求路由/产物绑定及定向测试。
+新任务合同标记尚未接入创建入口；原生启动衔接完成前不开放该能力，不宣称全流程已接通。
 
 ## 1. 已确认目标与边界
 

@@ -5,9 +5,29 @@
 Native interface candidate `ba7b272` is confirmed by WGS-pipeline; no release
 catalog update or WGS script change. Preparation-target freeze foundation is
 implemented but not activated by submission creation. Existing CCE prepare and
-legacy Local conversion remain unchanged. Native mode argv, non-CCE binding,
-shared monitored wrapper, SGE controller and CLI resume remain pending under
+legacy Local conversion remain unchanged. Native mode argv and non-CCE prepare
+binding are now implemented; shared monitored wrapper, SGE controller and CLI resume remain pending under
 `WGS-LOCAL-SGE-20260915`; do not infer end-to-end support from the freeze tests.
+
+Native prepare uses the existing staged sampleinfo/analysis handoff and WGS
+receipt validator. It passes `--run-mode local|sge` without `--run-id`, CCE
+operator/config/CLI/from-zero arguments. It never rewrites config, Step1 or raw
+links, never generates a CCE bundle, and never reselects samples.
+
+`batch-binding.v2` native bindings contain `prepare_execution`, native mode/target
+in `resolved_runtime`, and hashes of only four small prepared artifacts:
+config.yaml, Step1_run.sh, the chosen profile config and the final sampleinfo.
+The final sampleinfo must match the validated WGS receipt. No whole-project,
+FASTQ or result hashing; no CCE identities invented. Binding load rejects changed
+artifacts, outside paths, different attempts/releases/targets and CCE/native mixing.
+
+Retry reuses the exact validated receipt and binding. A lost binding may be
+rebuilt from an intact project plus the exact receipt; an unidentified existing
+directory, absent selected output, or missing/wrong receipt fails without rerunning
+prepare or changing pending. Completed all-pending receipts are reused without
+creating a binding or repeating preparation. These tests use synthetic native
+artifacts, not a real WGS or node96/97/18 run. Observer native projection belongs
+to Task2 and is not yet enabled.
 
 ## WGS resume_stage (2026-09-15, source only)
 

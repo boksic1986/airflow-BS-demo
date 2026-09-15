@@ -6,8 +6,9 @@ User authorizes sequential implementation of WGS-LOCAL-SGE-20260915 with minimal
 matched tests and no scope expansion. Worktree `wgs-local-sge-20260915`, branch
 `jiucheng/feat/wgs-local-sge-20260915`, freshly fetched main base `4b5234e`.
 Imported only the two approved design/plan documents from docs commit `ad3c44b`.
-Task 1 freeze foundation implemented, 7 targeted BS10610 tests passed; native
-route/binding and creation activation pending. Tasks 2–4 pending. Native interface confirmed by WGS owner at
+Task 1 freeze foundation implemented (previous7 tests); native request transport
+and prepare route/binding now passed11 runtime +6 request checks on BS10610.
+Creation activation and native launch handoff pending. Tasks 2–4 pending. Native interface confirmed by WGS owner at
 candidate `ba7b272`; no WGS algorithm changes or catalog activation required now.
 BS10610 read-only preflight: server10610/chenjc; current `20260912-opt-4d3d24e6`,
 backend actually mounts `20260913-panel-1fb971b/backend`, scan/auto false,

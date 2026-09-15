@@ -1,5 +1,42 @@
 # HANDOFF.md
 
+## 2026-09-15 native prepare route/binding implementation (not enabled)
+
+Continues WGS-LOCAL-SGE-20260915 on isolated branch after4f90018. User reiterated
+no WGS prepare/Local/SGE script changes. Implemented only platform runtime gate,
+backend runtime request adapter and its main.py call site. Frozen mode/target is
+carried to the native staged prepare; Local/SGE omit CCE CLI/operator/profile and
+Heavy slot contracts. Native config/Step1/profile/sampleinfo are only read/bound,
+never rewritten; selected/pending decisions pass through the existing validator.
+An exact completed receipt prevents duplicate prepare, including all-pending.
+Unknown existing output or absent selected artifacts fail without changing pending.
+Two synthetic test files added; API/runtime/design/plan/state/tasks updated.
+
+BS10610 preflight unchanged: server10610,current4d3d24e6, actual backend1fb971b,
+image8491604e, scan/auto false, execution true. Candidate path unchanged from
+previous entry. Cached Docker tests --pull never --network none, no data/service
+mounts, no live DB/workflows. Runtime RED7failed/1passed (fixed cce argv, CCE
+dependency and missing target guards); additional all-pending RED1failed.
+Runtime GREEN scripts/tests/test_wgs_native_prepare.py plus existing
+test_split_prepare_commands_preserve_native_wgs_contract and
+test_prepare_analysis_new_generation_rebuilds_a_missing_frozen_bundle:11passed.
+Request RED4failed(missing optional field); GREEN
+tests/test_wgs_native_prepare_request.py plus existing
+test_stage_request_v4_separates_control_and_analysis_roots and
+test_stage_request_carries_complete_420_runtime_identity:6passed.
+Remote py_compile of main.py, wgs_runtime_adapter.py and wgs_runtime_gate.py
+also passed; local git diff --check passed. No repeated successful tests.
+No repeated prior freeze tests, whole suites, build or real pipeline acceptance.
+One scp failed exit1: gateway172.17.61.18 reset SSH key exchange; a single bounded
+retry succeeded. Tar noted local timestamp~14s ahead; clocks were not changed.
+
+Task1 NOT fully complete: creation/automatic approval activation and bypass of
+legacy Local conversion must be connected with Task2 native launcher. Keep marker
+unassigned by submission creation until then. No new API permission, WGS release
+catalog activation, scanner toggle, BS96 access/deployment, commit promotion or
+analysis submission. All deployed services preserved. Rollback is scoped source
+revert; do not delete identities, project files, pending, ledger or results.
+
 ## 2026-09-15 WGS Local/SGE isolated implementation start
 
 Goal: execute approved WGS-LOCAL-SGE-20260915 sequentially, with only matched

@@ -9,7 +9,14 @@ locked transaction. Repeated approval returns the same snapshot; a later
 execution-choice change raises `PREPARE_EXECUTION_FROZEN`, and `allow_switch`
 is false. This does not reserve resources or start analysis. Historical runs
 without the marker retain their contract. Creation endpoints do not yet set
-the marker; native prepare routing/binding must land before activation.
+the marker; creation wiring and native launch handoff remain required before activation.
+
+Native runtime request transport is now implemented: `wgs-runtime.request.v4`
+carries a copy of `prepare_execution`; attempt/mode/target/revision are validated.
+Local/SGE preparation omits CCE profile/CLI metadata and Heavy slot requirements.
+The backend rejects requests for CCE stages using a native frozen target.
+Creation activation and actual native analysis launch remain pending; this is
+not a new public execution endpoint or permission to start jobs.
 
 ## QC/ledger follow-up (2026-09-15, source only)
 

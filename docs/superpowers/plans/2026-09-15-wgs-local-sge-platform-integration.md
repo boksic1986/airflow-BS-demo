@@ -58,6 +58,14 @@ revision，在配置确认事务中保存 attempt/mode/target/revision；重复�
 这里验证的是事务入口的顺序与幂等行为，不宣称已完成 PostgreSQL 双会话并发或实际节点验收。
 下一项仍为 Task 1：原生 prepare 参数、产物绑定、创建入口/自动预批准接线；完整 Task 1 未完成。
 
+**下一步实施记录（2026-09-15）：** 已完成后端冻结目标的 runtime request 传递、原生
+Local/SGE prepare 参数及非 CCE 产物绑定。沿用现有 WGS 回执校验；精确回执与已发布
+sampleinfo 对齐，重复请求不重做准备，全部 pending 时也不重复执行。未修改 WGS 脚本、
+profile、样本/pending 算法或原生项目文件。BS10610 新增/相关运行时11项、请求6项通过，
+没有重复上轮7项冻结测试。仅 synthetic 文件模拟外部 WGS 发布，不是实际分析验收。
+创建入口/自动预批准接线、新 Local 路径撤除旧转换及 Task2 启动入口仍待衔接；在此之前
+保持合同标记未开放，不把阶段性代码当成可运行的 Local/SGE 全流程。
+
 ## Task 2 — Local / SGE 共用启动与证据入口
 
 **Owner:** Airflow 平台运行接入；WGS 仅提供原生入口能力。

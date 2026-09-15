@@ -598,7 +598,30 @@ def _binding_path(payload: dict[str, Any]) -> Path:
     return _workdir(payload) / "batch-binding.json"
 
 
+def _prepare_mode(payload: dict[str, Any]) -> str:
+    frozen = payload.get("prepare_execution")
+    if frozen is None:
+        return "cce"  # Historical requests retain the CCE-prepared contract.
+    targets = {"cce": "cce", "node-96": "local", "node-97": "local", "sge-default": "sge"}
+    if (
+        not isinstance(frozen, dict)
+        or frozen.get("attempt") != payload.get("attempt")
+        or type(frozen.get("revision")) is not int
+        or frozen["revision"] < 1
+        or frozen.get("mode") not in {"cce", "local", "sge"}
+        or targets.get(frozen.get("target")) != frozen.get("mode")
+    ):
+        raise ValueError("frozen prepare execution identity is invalid")
+    mode = frozen["mode"]
+    if mode != "cce" and payload.get("test_project"):
+        raise ValueError("Independent test projects require CCE execution")
+    if mode != "cce" and payload.get("validation_scope"):
+        raise ValueError("CCE validation scopes cannot use native execution")
+    return mode
+
+
 def build_prepare_command(payload: dict[str, Any]) -> list[str]:
+    mode = _prepare_mode(payload)
     repository = _release_repository(payload)
     prepare_config = repository / "prepare" / "config.yaml"
     frozen_template = None
@@ -637,6 +660,8 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
     }.get(stage)
     if subcommand is None:
         raise ValueError("unsupported WGS prepare stage")
+    if mode != "cce" and subcommand == "all":
+        raise ValueError("Native execution requires staged sampleinfo/analysis preparation")
     command = [
         "/bi/software/mamba/envs/WGS/bin/python",
         str(repository / "prepare" / "prepare_wgs_batch.py"),
@@ -664,16 +689,17 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
             ])
         command.extend([
             "--run-mode",
-            "cce",
-            "--run-id",
-            f"{payload['analysis_id']}-a{int(payload['attempt'])}",
+            mode,
             "--fastq-root",
             str(fastq_root),
-            "--cce-config",
-            str(_release_operator_config(payload)),
             "--skip-samplelist-ready-check",
         ])
-        if payload.get("cce_pipeline_version"):
+        if mode == "cce":
+            command.extend([
+                "--run-id", f"{payload['analysis_id']}-a{int(payload['attempt'])}",
+                "--cce-config", str(_release_operator_config(payload)),
+            ])
+        if mode == "cce" and payload.get("cce_pipeline_version"):
             if not CCE_PIPELINE_BIN:
                 raise RuntimeError("release_unavailable: cce-pipeline executable is not configured")
             cce_pipeline = Path(CCE_PIPELINE_BIN).expanduser()
@@ -691,7 +717,7 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
                 raise ValueError("use_reference must be all, ref, or no")
             command.extend(["--use-reference", use_reference])
         if (
-            subcommand == "analysis"
+            mode == "cce" and subcommand == "analysis"
             and payload.get("validation_scope") == "node97_full"
             and int(payload["attempt"]) > 1
         ):
@@ -1266,6 +1292,8 @@ def _run_prepare_analysis(payload: dict[str, Any]) -> None:
 
 
 def _run_prepare_analysis_impl(payload: dict[str, Any]) -> None:
+    if _prepare_mode(payload) != "cce":
+        return _run_native_prepare_analysis(payload)
     _validate_test_project(payload)
     binding_path = _binding_path(payload)
     if binding_path.is_file():
@@ -1302,6 +1330,85 @@ def _run_prepare_analysis_impl(payload: dict[str, Any]) -> None:
             return
     _freeze_validation_execution_mode(payload, expected_batch_root)
     _write_prepare_binding(payload)
+
+
+def _run_native_prepare_analysis(payload: dict[str, Any]) -> None:
+    """Consume native artifacts/receipt without converting config or Step1."""
+    binding_path = _binding_path(payload)
+    if binding_path.exists():
+        _load_binding(payload)
+    else:
+        validate_release_repository(payload)
+        validate_prepare_config(payload)
+    project_root = Path(str(payload["analysis_project_root"]))
+    batch_root = Path(str(payload["expected_batch_root"]))
+    if batch_root != project_root / str(payload["batch_no"]) or batch_root.is_symlink():
+        raise ValueError("native execution batch path is invalid")
+    request_path = _prepare_handoff_request(payload)
+    if request_path is None:
+        raise ValueError("native execution requires a prepare handoff receipt")
+    if not batch_root.exists():
+        if (request_path.parent / "prepare_analysis.receipt.json").exists():
+            receipt = _validated_prepare_receipt(payload, request_path)
+            if receipt["selected"]:
+                raise RuntimeError("native execution output is missing after completed prepare")
+            payload["prepare_handoff_receipt"] = receipt
+            return
+        subprocess.run(build_prepare_command(payload), check=True, env=_clean_env())
+    # An existing directory is not proof of ownership. Missing/wrong receipts
+    # stop here; never rerun prepare over unidentified output or shared pending.
+    receipt = _validated_prepare_receipt(payload, request_path)
+    payload["prepare_handoff_receipt"] = receipt
+    if receipt["selected"] and not binding_path.exists():
+        _write_prepare_binding(payload)
+
+
+def _native_prepare_files(payload: dict[str, Any]) -> dict[str, str]:
+    mode = _prepare_mode(payload)
+    root = Path(str(payload["expected_batch_root"]))
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError("native execution batch is unavailable")
+    names = ["config.yaml", "Step1_run.sh", f"pipeline/cfg/profiles/{mode}/config.yaml",
+             f"{payload['batch_no']}.sampleinfo.txt"]
+    files = {}
+    for name in names:
+        path = root / name
+        if path.is_symlink() or not path.is_file() or root.resolve() not in path.resolve().parents:
+            raise ValueError("native execution artifact is unavailable or outside batch")
+        files[name] = _sha256_file(path)
+    config = yaml.safe_load((root / "config.yaml").read_text(encoding="utf-8"))
+    execution = config.get("execution") if isinstance(config, dict) else None
+    if not isinstance(execution, dict) or execution.get("executor") != mode:
+        raise ValueError("native execution config mode mismatch")
+    for key in ("algo", "use_reference"):
+        if payload.get(key) is not None and config.get(key) != payload[key]:
+            raise ValueError("native execution config differs from frozen options")
+    return files
+
+
+def _write_native_prepare_binding(payload: dict[str, Any]) -> None:
+    request_path = _prepare_handoff_request(payload)
+    if request_path is None:
+        raise ValueError("native execution requires a prepare handoff receipt")
+    receipt = _validated_prepare_receipt(payload, request_path)
+    if not receipt["selected"]:
+        raise ValueError("native execution cannot bind an empty selection")
+    files = _native_prepare_files(payload)
+    raw_receipt = json.loads((request_path.parent / "prepare_analysis.receipt.json").read_text(encoding="utf-8"))
+    if raw_receipt["final_sampleinfo"]["sha256"] != files[f"{payload['batch_no']}.sampleinfo.txt"]:
+        raise ValueError("native execution sampleinfo differs from prepare receipt")
+    mode = _prepare_mode(payload)
+    _atomic_json(_binding_path(payload), {
+        "schema_version": BINDING_SCHEMA,
+        **{key: payload[key] for key in (
+            "analysis_id", "attempt", "pipeline_release_id", "wgs_version", "wgs_source_commit",
+            "control_workdir", "analysis_project_root", "expected_batch_root", "prepare_execution",
+        )},
+        "batch_root": payload["expected_batch_root"],
+        "resolved_runtime": {"execution_mode": mode, "execution_target": payload["prepare_execution"]["target"]},
+        "native_artifacts": files,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
 
 
 def _prepared_batch_run_id(batch_root: Path) -> str | None:
@@ -1375,6 +1482,8 @@ def _archive_missing_prepare_binding(payload: dict[str, Any], binding_path: Path
 
 
 def _write_prepare_binding(payload: dict[str, Any]) -> None:
+    if _prepare_mode(payload) != "cce":
+        return _write_native_prepare_binding(payload)
     binding_path = _binding_path(payload)
     workdir = _workdir(payload)
     project_root = Path(str(payload["analysis_project_root"])).resolve()
@@ -1512,6 +1621,17 @@ def _load_binding(payload: dict[str, Any]) -> dict[str, Any]:
         or value.get("pipeline_release_id") != payload["pipeline_release_id"]
     ):
         raise ValueError("batch binding identity mismatch")
+    if value.get("prepare_execution") is not None:
+        if (
+            value["prepare_execution"] != payload.get("prepare_execution")
+            or value.get("wgs_source_commit") != payload.get("wgs_source_commit")
+            or value.get("batch_root") != payload.get("expected_batch_root")
+            or value.get("native_artifacts") != _native_prepare_files(payload)
+        ):
+            raise ValueError("native execution binding changed or identity mismatch")
+        return value
+    if _prepare_mode(payload) != "cce":
+        raise ValueError("CCE binding cannot be used for native execution")
     _validate_heavy_io_contract(payload, dict(value.get("resolved_runtime") or {}))
     bundle = Path(str(value["cce_bundle"])).resolve()
     expected_batch_root = Path(str(payload["expected_batch_root"])).resolve()

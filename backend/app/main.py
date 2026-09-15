@@ -2316,6 +2316,7 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 cce_pipeline_version=release.cce_pipeline_version,
                 pipeline_build_sha256=release.pipeline_build_sha256,
                 resource_manifest_sha256=release.resource_manifest_sha256,
+                prepare_execution=params.get("prepare_execution"),
             )
             if params.get("test_project"):
                 from app.wgs_test_project import require_test, TEST_ROOT
@@ -2348,11 +2349,12 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 contract = load_wgs_stage_contract(
                     Path(settings.wgs_stage_contract_path)
                 )
-                payload["heavy_io_contract"] = {
-                    "limit": contract.heavy_io.limit,
-                    "mode": contract.heavy_io.mode,
-                    "unit": "work_pod",
-                }
+                if (payload.get("prepare_execution") or {}).get("mode", "cce") == "cce":
+                    payload["heavy_io_contract"] = {
+                        "limit": contract.heavy_io.limit,
+                        "mode": contract.heavy_io.mode,
+                        "unit": "work_pod",
+                    }
                 if (
                     request.force_new_generation
                     and stage_name in SUPPORTED_RUNTIME_SYNC_STAGES

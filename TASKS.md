@@ -6,7 +6,8 @@
 - [x] Read approved design/plan; native interface confirmed by WGS-pipeline at candidate `ba7b272`.
 - [ ] Task 1 in progress: freeze mode/target before configuration; native prepare routing/binding.
   - [x] Freeze foundation and audit; same-transaction revision, idempotency, late-change refusal and attempt reset; 7 matched tests passed.
-  - [ ] Native route/binding plus creation/automatic approval wiring; no new contract marker enabled yet.
+  - [x] Native request mode transport and prepare route/binding; 11 runtime + 6 request checks passed on BS10610.
+  - [ ] Creation/automatic approval wiring and native launch handoff; no new contract marker enabled yet.
 - [ ] Task 2: shared Local/SGE monitored launcher and evidence.
 - [ ] Task 3: command-line continuation registration and monitor-only recovery.
 - [ ] Task 4: reuse UI and perform bounded integration checks.
