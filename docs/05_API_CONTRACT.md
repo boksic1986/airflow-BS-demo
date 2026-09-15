@@ -1,5 +1,16 @@
 # API contract
 
+## WGS native preparation freeze foundation (2026-09-15, inactive)
+
+Submission state adds nullable `prepare_execution` with `attempt`, `mode`,
+`target`, `revision`. For a run carrying internal `native_prepare_contract=1`,
+configuration approval freezes the current dispatch choice in the existing
+locked transaction. Repeated approval returns the same snapshot; a later
+execution-choice change raises `PREPARE_EXECUTION_FROZEN`, and `allow_switch`
+is false. This does not reserve resources or start analysis. Historical runs
+without the marker retain their contract. Creation endpoints do not yet set
+the marker; native prepare routing/binding must land before activation.
+
 ## QC/ledger follow-up (2026-09-15, source only)
 
 GET /api/sample-references adds nullable latest_decision:

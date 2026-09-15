@@ -1,5 +1,14 @@
 # Workflow runtime integration
 
+## Local/SGE implementation checkpoint (2026-09-15, not enabled)
+
+Native interface candidate `ba7b272` is confirmed by WGS-pipeline; no release
+catalog update or WGS script change. Preparation-target freeze foundation is
+implemented but not activated by submission creation. Existing CCE prepare and
+legacy Local conversion remain unchanged. Native mode argv, non-CCE binding,
+shared monitored wrapper, SGE controller and CLI resume remain pending under
+`WGS-LOCAL-SGE-20260915`; do not infer end-to-end support from the freeze tests.
+
 ## WGS resume_stage (2026-09-15, source only)
 
 Backend reserves only the actual stage's new generation, retains old execution/

@@ -1,5 +1,17 @@
 # TASKS.md
 
+## WGS-LOCAL-SGE-20260915 — implementation
+
+- [x] Create isolated worktree from fetched main `4b5234e`; preserve production checkout.
+- [x] Read approved design/plan; native interface confirmed by WGS-pipeline at candidate `ba7b272`.
+- [ ] Task 1 in progress: freeze mode/target before configuration; native prepare routing/binding.
+  - [x] Freeze foundation and audit; same-transaction revision, idempotency, late-change refusal and attempt reset; 7 matched tests passed.
+  - [ ] Native route/binding plus creation/automatic approval wiring; no new contract marker enabled yet.
+- [ ] Task 2: shared Local/SGE monitored launcher and evidence.
+- [ ] Task 3: command-line continuation registration and monitor-only recovery.
+- [ ] Task 4: reuse UI and perform bounded integration checks.
+- No production deployment/real workflow acceptance authorized. Do not enlarge tests or WGS logic.
+
 ## QC-SAMPLE-FLOW-GIT-SYNC-20260915
 
 - [x] Confirm clean production checkout and equal main/production basea0ff5c9.

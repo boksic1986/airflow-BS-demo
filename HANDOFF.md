@@ -1,5 +1,35 @@
 # HANDOFF.md
 
+## 2026-09-15 WGS Local/SGE isolated implementation start
+
+Goal: execute approved WGS-LOCAL-SGE-20260915 sequentially, with only matched
+tests and continuous progress documentation. New branch
+`jiucheng/feat/wgs-local-sge-20260915` at main `4b5234e`, worktree
+`D:/pipeline/airflow-demo-worktrees/wgs-local-sge-20260915`.
+Only approved spec/plan imported from `ad3c44b`; old state/handoff not imported.
+WGS owner confirmed candidate `ba7b272` native interface; release catalog unchanged.
+Task 1 freeze foundation is implemented in wgs_execution_dispatch_service.py and
+wgs_submission_service.py, tested by test_wgs_prepare_execution.py. Internal
+native_prepare_contract=1 gates the new snapshot; creation does NOT set it yet.
+This is intentionally inactive until native route/binding is implemented.
+Read-only BS10610 preflight matches known split mounts: current4d3d24e6,
+backend1fb971b, cached backend image8491604e; scanner/auto disabled, execution enabled.
+No production access, deployment, active task/data changes or algorithm changes.
+Tests: cached backend image8491604e, --pull never --network none; isolated
+candidate `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/wgs-local-sge-20260915`.
+Red: pytest tests/test_wgs_prepare_execution.py ->4failed/1passed, exit1;
+missing snapshot and retained prior target are the expected causes.
+Green: same5 plus test_wgs_execution_dispatch.py::test_stale_revision_is_rejected_without_mutation
+and test_wgs_submission_service.py::test_three_stage_approvals_are_server_controlled_and_idempotent
+->7passed in1.08s, exit0. No repeated green runs or full suites. SQLite sequential
+transaction tests do not prove live PostgreSQL concurrency or actual node execution.
+No DAG/frontend/runtime tests or builds yet: those sources are unchanged.
+API/runtime/design/plan/state/task docs updated. No DB schema migration.
+Next: Task1 native-mode argv and non-CCE prepared binding, then wire creation and
+automatic approval; do not enable the marker in isolation. Task2–4 untouched.
+Report any plan gap before adding interfaces. Rollback is scoped source revert
+only; keep identities, pending, ledger and analysis data. All deployed services preserved.
+
 ## 2026-09-15 user-authorized QC/sample-flow Git synchronization
 
 Scope: synchronize main and production repository only. Source commits4366de6
