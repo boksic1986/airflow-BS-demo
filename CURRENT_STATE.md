@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 QC/sample-flow Git promotion (no deployment)
+
+User authorizes main and production repository synchronization only. Promotion
+includes4366de6 (hidden QC thresholds/exact ledger evidence) andc281876 (compact
+sample flow/status/batch columns), plus this docs-only receipt. Production Git
+checkout was clean and remote main/production botha0ff5c9 at preflight. Existing
+BS10610 matched tests/build retained; no code changes or repeated tests.
+BS96 application remains93069eb; no publication or production task/data action.
+
 ## 2026-09-15 Sample flow table simplified (source only)
 
 User requests no details column and concise workflow terminology. Renamed tab/

@@ -1,5 +1,12 @@
 # TASKS.md
 
+## QC-SAMPLE-FLOW-GIT-SYNC-20260915
+
+- [x] Confirm clean production checkout and equal main/production basea0ff5c9.
+- [x] Include both4366de6 andc281876 without unrelated artifacts.
+- Promote by fast-forward and atomic dual-ref push; verify exact resulting SHA.
+- No96 deployment, backend/runtime tests or data changes in this Git-only task.
+
 ## SAMPLE-FLOW-COMPACT-20260915
 
 - [x] Rename 样本流转 with 待纳入/纳入记录 subviews.

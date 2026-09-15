@@ -1,5 +1,18 @@
 # HANDOFF.md
 
+## 2026-09-15 user-authorized QC/sample-flow Git synchronization
+
+Scope: synchronize main and production repository only. Source commits4366de6
+andc281876 include all latest QC/table/ledger corrections; this receipt changes
+only documentation. Preflight production main checkout clean ata0ff5c9, both
+remote refs same; isolated branch has only untracked .superpowers artifacts,
+excluded from promotion. Use ff-only merge in D:/pipeline/airflow-demo-production
+and atomic push to main plus jiucheng/release/production; final tool receipt
+must confirm matching SHAs and clean checkout. No repeated tests: accepted
+BS10610 evidence unchanged. No BS96 calls/release, DB/pending/0911A operations.
+Production application remains93069eb. Rollback Git by a scoped revert, not
+reset; runtime rollback unnecessary because nothing deployed.
+
 ## 2026-09-15 Sample flow table simplified; not published
 
 Latest user directs replacing details with included batch, status-only cells,
