@@ -1,5 +1,26 @@
 # Frontend specification
 
+## Platform follow-up (2026-09-15, source only)
+
+- Tracker and Run detail share `runStageLabel`: authoritative overall success
+  renders Completed across pipelines. A successful individual stage/QC result
+  must not mark an active or failed workflow complete.
+- WGS QC reuses data-table and StatusBadge. Five key metric cells contain value,
+  unit and judgment; one per-sample disclosure contains friendly metric names,
+  Chinese known reasons, thresholds and provenance. Raw keys/JSON are diagnostic
+  details. Source QC status remains separate and is never recomputed in the UI.
+  Missing values and unaudited release policy retain unknown;34bfcbf policy
+  equivalence is not inferred from the earlier rule-phase blob audit.
+- Submit uses existing single-flight `useSilentRefresh`; preparation interval2s,
+  normal interval10s, hidden60s, existing bounded error backoff. Route/attempt/phase
+  changes and mutations fence old reads. Terminal/approved stops polling. Restore
+  no longer duplicates polling; background reads do not overwrite unconfirmed
+  reference choices. These changes do not establish a <=60s backend preparation.
+- Submit and Attention required reuse the paginated incomplete-submission API,
+  100 cards/page, no five-status query and per-card detail request. Existing
+  cancellation and confirmation controls/identity remain unchanged.
+- No new CSS overlay, producer changes or workflow business-rule changes.
+
 ## WGS Step4/6 ETA progress (source only)
 
 Tracker and Current Progress render WGS `stage_median_linear_v1` through the

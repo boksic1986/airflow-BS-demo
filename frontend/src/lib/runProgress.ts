@@ -17,6 +17,11 @@ export type RunProgress = {
 
 const terminalRuleStatuses = new Set(["success", "failed", "fail", "error", "skipped", "canceled", "cancelled", "terminated"]);
 
+/** Overall run success, never individual stage or QC success. */
+export function runStageLabel(status: string | null | undefined, label: string): string {
+  return normalizeStatus(status) === "success" ? "Completed" : label;
+}
+
 export function getProjectDisplayName(run: RunSummary, detail?: RunDetail | null): string {
   const projectName = detail?.params?.project_name;
   if (typeof projectName === "string" && projectName.trim()) return projectName.trim();
@@ -52,7 +57,7 @@ export function computeRunProgress(run: RunSummary, detail?: RunDetail | null, r
     return {
       percent: 100,
       label: "100%",
-      currentStep: "Workflow complete",
+      currentStep: runStageLabel(status, "Workflow complete"),
       note: "Airflow success",
       notInAirflow: false,
     };
@@ -106,7 +111,7 @@ export function progressFromResponse(progress: RunProgressResponse): RunProgress
     percent: Math.max(0, Math.min(100, value)),
     available,
     label: available ? formatPercent(value) : "Detailed progress unavailable",
-    currentStep: progress.stage_label || progress.current_step || "Unknown",
+    currentStep: runStageLabel(progress.status, progress.stage_label || progress.current_step || "Unknown"),
     note: progress.current_item || progress.note || (available ? `Progress source: ${progress.progress_source}` : "The runtime has not supplied an exact progress measurement."),
     notInAirflow: progress.not_in_airflow,
     failedStep: (progress.rule_events || []).find((rule) => isFailedStatus(rule.status))?.rule,

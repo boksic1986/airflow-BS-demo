@@ -1,5 +1,36 @@
 # HANDOFF.md
 
+## 2026-09-15 platform follow-up source delivery
+
+Goal: continue the approved remaining platform repair plan without expanding
+runtime/production scope. Worktree wgs-eta-production-20260915, base ead029f;
+existing resume_stage/ETA implementation retained. Completed TRACKER-01, QC-01
+presentation, SUBMIT-01 UI refresh slice, LIST-01 endpoint/consumer, and explicit
+online-only deletion constraints. Modified backend main/submission service;
+frontend API/Submit/shared refresh/progress labels/QC extraction; matching tests;
+AGENTS, API/UI/security/boundary/plan/state/task/release docs.
+
+Isolated BS10610 cached containers, network none, candidate-only mounts:
+backend2/frontend18 targeted tests passed; final build JS index-3IjEWu6r and
+unchanged CSS index-CdK5PwQa. Tests were RED before implementation; a final review
+found background refresh overwriting unconfirmed reference selection, reproduced
+within the one existing refresh test and fixed. Only that test/build repeated.
+Initial backend fixture lacked required workdir (corrected setup failure before
+valid RED); initial completion assertion matched two elements (fixed selector).
+One SSH banner reset retried; no service command or production check performed.
+Exact commands/results/known omissions: docs/releases/2026-09-15-platform-followup.md.
+
+Remaining: real preparation latency and34bfcbf QC policy provenance, plus the
+dated plan's remaining DISPLAY/RESOURCE/EXEC work. Neither <=60s nor a complete
+QC policy fix is claimed. CCE52cb638 wheel is separately delivered, not installed
+here; do not mix the CCE release-API candidate or old dirty Step6 work into this.
+No main merge/push/deploy, actual batch recovery, DB/pending/prepare modification
+or data deletion. Next backend timing/release-source access needs explicit scope
+if outside the approved isolated test workspace. Rollback source commits only;
+the new summary endpoint must ship before/together with its frontend. No migration.
+Local .superpowers/platform-followup files are generated test-transfer artifacts,
+not part of source delivery. Preserve unrelated worktrees and offline data.
+
 ## 2026-09-15 combined source delivery handoff
 
 ETA f2e0957 plus recovery7543827 integrated into this independent delivery branch;

@@ -29,7 +29,7 @@ import {CurrentProgressPanel} from "../features/run-detail/CurrentProgressPanel"
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {RunFilesTab, RunOverviewTab} from "../features/run-detail/RunResourceTabs";
 import {RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
-import {QcMetric} from "../features/run-detail/QcMetric";
+import {WgsQcTab} from "../features/run-detail/WgsQcTab";
 import type {RulePage, RuleQuery} from "../api";
 import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
 import {ResumeStagePanel} from '../features/run-detail/ResumeStagePanel';
@@ -354,19 +354,6 @@ function WgsSamplesTab({samples, manifest, showQc = true}: {samples: Sample[]; m
   })} empty="No analysis sample state returned." />;
 }
 
-function WgsQcTab({samples}: {samples: Sample[]}) {
-  return <WgsTable headers={["Sample", "Source QC status", "Q30", "Mapped", "Average depth", "≥20X", "Contamination", "All release criteria"]} rows={samples.map((sample) => [
-    sample.sample_id,
-    <StatusBadge status={qcDisplayStatus(sample)} size="sm" />,
-    qcMetric(sample, "clean_q30_percent"),
-    qcMetric(sample, "mapped_reads_percent"),
-    qcMetric(sample, "average_depth"),
-    qcMetric(sample, "coverage_20x_percent"),
-    qcMetric(sample, "contamination"),
-    <details><summary>Metric judgments</summary>{Object.entries(sample.qc_judgments || {}).map(([key, judgment]) => <div key={key}><strong>{key.replaceAll("_", " ")}</strong><QcMetric judgment={judgment} /></div>)}</details>,
-  ])} empty="QC is pending or unavailable because the batch QCstat has not been projected yet." />;
-}
-
 function WgsMasterTab({pods}: {pods: WgsPod[]}) {
   return <WgsTable headers={["Master Job", "Pod hash", "Phase", "Reason", "Exit", "Node", "Resources", "Message"]} rows={pods.map((pod) => [pod.job_name ?? "-", pod.pod_hash, pod.phase ?? "-", pod.reason ?? "-", pod.exit_code ?? "-", pod.node_name ?? "-", compactResources(pod.resources), pod.message ?? "-"])} empty="Master Pod evidence is not available yet." />;
 }
@@ -383,9 +370,4 @@ function compactResources(resources?: Record<string, unknown> | null): string {
 function qcDisplayStatus(sample: Sample): string {
   if (sample.qc_status && sample.qc_status !== "unknown") return sample.qc_status;
   return isActiveStatus(sample.status || "") ? "pending" : "unavailable";
-}
-
-function qcMetric(sample: Sample, key: string): ReactNode {
-  const value = sample.qc_metrics?.[key];
-  return <QcMetric value={value} judgment={sample.qc_judgments?.[key]} />;
 }

@@ -1,6 +1,7 @@
 import type {RunDetail, StageEstimate} from "../../api";
 import {EstimatedStageProgress} from "../../components/EstimatedStageProgress";
 import type {RunProgress} from "../../lib/runProgress";
+import {runStageLabel} from "../../lib/runProgress";
 
 import {RunProgressBar} from "../../components/RunProgressBar";
 import {formatBytes, formatDuration, formatPercent, formatProgressUnits, formatSecondsDuration} from "../../lib/format";
@@ -22,7 +23,7 @@ export function CurrentProgressPanel({detail, progress, source, stage}: {
       </div>
       {progress ? (
         <div className="current-progress-hero current-progress-content-centered">
-          <strong>{progress.currentStep}</strong>
+          <strong>{runStageLabel(detail.status, progress.currentStep)}</strong>
           {!linear ? <span>{progress.available === false ? "Detailed progress unavailable" : `${formatPercent(progress.percent)} complete`}</span> : null}
           {progress.available !== false && stage?.total_units != null ? <span>{formatProgressUnits(stage.completed_units ?? 0, stage.total_units, stage.unit || "units")}</span> : null}
           {stage?.current_item ? <small className="path-text">Current: {stage.current_item}</small> : null}

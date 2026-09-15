@@ -4,7 +4,7 @@ import {errorMessage} from './errors';
 export type RefreshContext = {isCurrent: () => boolean; initial: boolean};
 
 /** One in-flight request per mounted consumer, with stale-route fencing. */
-export function useSilentRefresh(task: (context: RefreshContext) => Promise<unknown>, key: string, enabled = true) {
+export function useSilentRefresh(task: (context: RefreshContext) => Promise<unknown>, key: string, enabled = true, intervalMs = 10000) {
   const taskRef = useRef(task);
   taskRef.current = task;
   const keyRef = useRef(key);
@@ -22,7 +22,7 @@ export function useSilentRefresh(task: (context: RefreshContext) => Promise<unkn
     let failures = 0;
     let scheduled = false;
     const isCurrent = () => alive && keyRef.current === key;
-    const delay = () => Math.max(document.visibilityState === 'hidden' ? 60000 : 10000,
+    const delay = () => Math.max(document.visibilityState === 'hidden' ? 60000 : intervalMs,
       failures ? Math.min(60000, 20000 * 2 ** (failures - 1)) : 0);
     const schedule = () => {
       window.clearTimeout(timer);
@@ -64,7 +64,7 @@ export function useSilentRefresh(task: (context: RefreshContext) => Promise<unkn
       document.removeEventListener('visibilitychange', visibility);
       window.removeEventListener('focus', focus);
     };
-  }, [key, enabled]);
+  }, [key, enabled, intervalMs]);
   const refresh = useCallback(() => trigger.current(), []);
   return {loading, error, refresh};
 }

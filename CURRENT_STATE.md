@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-15 platform follow-up source slice (not deployed)
+
+On combined resume/ETA branch ead029f, completed common Completed wording,
+compact Sample-aligned WGS QC details, shared single-flight preparation refresh,
+and paginated incomplete-submission summaries. Carried only user-mandated
+online/offline deletion constraints from dirty recovery docs, not operational WIP.
+BS10610 isolated backend2/frontend18 targeted tests and build passed. No full
+suite or repeat resume/ETA test; no main/push/BS96/real recovery/data action.
+QC34bfcbf policy provenance and backend minutes-long artifact generation remain
+unresolved; UI speed and honest unknown display are not acceptance for those.
+See docs/releases/2026-09-15-platform-followup.md and the dated platform plan.
+
 ## 2026-09-15 combined WGS source delivery
 
 Integrated ETA f2e0957 and recovery source7543827 in an isolated delivery branch.

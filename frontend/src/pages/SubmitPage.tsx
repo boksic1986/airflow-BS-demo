@@ -6,6 +6,7 @@ import {StatusBadge} from "../components/StatusBadge";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
 import {hasRegisteredSubmissionUi} from "../features/platform/submissionUiRegistry";
 import {errorMessage} from "../lib/errors";
+import {useSilentRefresh} from "../lib/useSilentRefresh";
 import {getWgsSubmissionSnapshot} from "../api";
 import {IncompleteSubmissionsPanel} from "../features/wgs/IncompleteSubmissions";
 import {CancelSubmission} from "../features/wgs/CancelSubmission";
@@ -82,19 +83,9 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const [restoring, setRestoring] = useState(Boolean(requestedRun));
   useEffect(() => {
     if (!requestedRun) { setCreated(null); setSamples([]); setRestoring(false); return; }
-    let stopped = false;
     setRestoring(true); setError(null);
     setCreated((current) => current?.analysis_id === requestedRun ? current : null);
     setSamples([]);
-    getWgsSubmissionSnapshot(requestedRun).then(({detail, items}) => {
-      if (stopped) return;
-      setCreated(detail);
-      setSamples(items);
-      const reference = detail.params?.use_reference;
-      if (reference === "all" || reference === "ref" || reference === "no") setUseReference(reference);
-    }).catch((loadError) => { if (!stopped) setError(errorMessage(loadError)); })
-      .finally(() => { if (!stopped) setRestoring(false); });
-    return () => { stopped = true; };
   }, [requestedRun]);
   const wgsDefinition = capabilities.pipelines.find((item) => (
     item.id === "wgs" && capabilities.isDeployed(item.id)
@@ -118,21 +109,25 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     : ['execution_review', 'approved'].includes(phase) ? 3 : 1;
   const frozenParameters = created?.params?.submission_options ? <section className="panel"><h3>Frozen analysis parameters</h3><p>Caller: Sentieon {String(created.params.algo)} · Reference: {String(created.params.use_reference)} · Release: {String(created.params.pipeline_release_id)}</p><p>These options were fixed at the first confirmation. The following review cannot change them.</p>{created.params.test_project ? <p>Frozen release configuration: {JSON.stringify((created.params.test_project as Record<string,unknown>).effective_config)}</p> : null}</section> : null;
   const preparationFailed = Boolean(created && ["failed", "unknown_interrupted"].includes(created.status));
-  useEffect(() => {
-    if (!created?.analysis_id || preparationFailed || ["success", "failed", "cancelled"].includes(created.status)) return;
-    let stopped = false;
-    const refresh = async () => {
-      try {
-        const {detail, items} = await getWgsSubmissionSnapshot(created.analysis_id);
-        if (!stopped) { setCreated(detail); setSamples(items); }
-      } catch (loadError) {
-        if (!stopped) setError(errorMessage(loadError));
-      }
-    };
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), 5000);
-    return () => { stopped = true; window.clearInterval(timer); };
-  }, [created?.analysis_id, phase, preparationFailed]);
+  const refreshId = requestedRun || created?.analysis_id;
+  const refreshEnabled = Boolean(refreshId && !submitting && (!created || created.analysis_id !== refreshId ||
+    (!preparationFailed && !["success", "failed", "cancelled", "canceled"].includes(created.status) && phase !== "approved")));
+  const preparationRefresh = useSilentRefresh(async ({isCurrent}) => {
+    if (!refreshId) return;
+    try {
+      const {detail, items} = await getWgsSubmissionSnapshot(refreshId);
+      if (!isCurrent()) return;
+      setCreated(detail); setSamples(items);
+      const reference = detail.params?.use_reference;
+      // Restore saved choices once; background status refresh must not overwrite
+      // an operator's unconfirmed selection in configuration review.
+      if ((!created || created.analysis_id !== detail.analysis_id) &&
+        (reference === "all" || reference === "ref" || reference === "no")) setUseReference(reference);
+    } finally {
+      if (isCurrent()) setRestoring(false);
+    }
+  }, `${refreshId || "none"}:${created?.attempt || 0}:${phase}`, refreshEnabled,
+  ["select", "preparing_sampleinfo", "preparing_analysis"].includes(phase) ? 2000 : 10000);
   async function prepare(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSubmitting(true); setError(null);
     try {
@@ -234,7 +229,7 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     </SubmissionStep>
     </ol>
     {created && preparationFailed ? <section className="panel" role="alert"><h2>Sample information preparation failed</h2><p>{created.error_summary || "The preparation task failed before sample information became available."}</p><Link className="button primary" to={`/runs/${created.analysis_id}`}>View failure details</Link></section> : null}
-    {error ? <div className="inline-error" role="alert">{error}</div> : null}
+    {error || preparationRefresh.error ? <div className="inline-error" role="alert">{error || preparationRefresh.error}</div> : null}
   </div>;
 }
 

@@ -1,5 +1,19 @@
 # TASKS.md
 
+## PLATFORM-FOLLOWUP-20260915 (bounded source slice complete; overall plan remains open)
+
+- [x] Carry forward the user-mandated online/offline deletion boundary without unrelated dirty operational notes.
+- [x] Track all previously discussed remaining items in docs/2026-09-15_PLATFORM_RELIABILITY_AND_LEDGER_PLAN.md.
+- [x] TRACKER-01: common Completed label only for authoritative overall success.
+- [x] QC-01 presentation: flat metric cells, one sample detail, honest unknown reasons and unchanged judgments.
+- [x] SUBMIT-01 UI: shared single-flight refresh,2s preparation interval, stale/action fence, preserve unconfirmed choice.
+- [x] LIST-01: paginated DB card summary replaces five status queries plus N details.
+- [x] BS10610 backend2/frontend18 targeted tests and build; release/API/UI/state docs updated.
+- [ ] SUBMIT-01 overall: backend artifact-generation bottleneck and <=60s acceptance remain unresolved.
+- [ ] New WGS QC release policy needs source provenance, not a guessed frontend PASS.
+- Existing resume/ETA test evidence is retained; do not rerun it without matching changes.
+- No main merge, push, production release, actual recovery, pending or workflow-core change.
+
 ## WGS-RESUME-ETA-20260915
 
 - [x] ETA source and minimal tests: backend7/UI4/build on BS10610.

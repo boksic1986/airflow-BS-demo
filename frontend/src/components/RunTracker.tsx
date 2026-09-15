@@ -4,6 +4,7 @@ import type {DashboardRunTrackerRow} from "../api";
 
 import {compactPipelineName, displayTimeZoneLabel, formatBytes, formatDate, formatPercent, formatProgressUnits, formatRelativeAge, formatSecondsDuration} from "../lib/format";
 import {isActiveStatus, normalizeStatus} from "../lib/status";
+import {runStageLabel} from "../lib/runProgress";
 import {RunProgressBar} from "./RunProgressBar";
 import {EstimatedStageProgress} from "./EstimatedStageProgress";
 import {StatusBadge} from "./StatusBadge";
@@ -155,7 +156,7 @@ function RunTrackerRow({
   const status = normalizeStatus(row.status);
   const pipelineName = compactPipelineName(row.pipeline);
   const cancelled = ["cancelled", "canceled"].includes(status);
-  const currentStep = cancelled ? "提交已取消" : row.current_stage_label || (row.not_in_airflow ? `Preparing ${pipelineName} batch` : `${pipelineName} stage unavailable`);
+  const currentStep = cancelled ? "提交已取消" : runStageLabel(row.status, row.current_stage_label || (row.not_in_airflow ? `Preparing ${pipelineName} batch` : `${pipelineName} stage unavailable`));
   const note = row.note || progressNote(row);
   const terminalAt = row.pipeline_finished_at || row.ended_at;
   const terminalAge = ["success", "failed", "terminated"].includes(status)

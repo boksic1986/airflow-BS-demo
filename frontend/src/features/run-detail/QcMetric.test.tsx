@@ -7,12 +7,14 @@ it("does not color an unsupported policy source PASS as successful", () => {
   const {container} = render(<QcMetric value="PASS" judgment={{value: "PASS", unit: "status", status: "unknown", reason: "Policy unavailable"}} />);
   expect(screen.getByText("PASS")).toHaveClass("qc-value-unknown");
   expect(container.querySelector(".status-success")).toBeNull();
+  expect(screen.getByText("unknown")).toBeInTheDocument();
+  expect(container.querySelector("details")).toBeNull();
 });
 
-it("renders abnormal numeric status, units and inspectable provenance without losing missingness", () => {
+it("renders a numeric value with its unit and compact judgment badge", () => {
   render(<QcMetric value="85%" judgment={{value: 85, unit: "%", status: "fail", reason: "Outside release criterion", threshold: {min: 85, min_inclusive: false}, provenance: {source_commit: "cc9bde3"}}} />);
   expect(screen.getByText("85 %")).toHaveClass("qc-value-fail");
-  expect(screen.getByText(/cc9bde3/)).toBeInTheDocument();
+  expect(screen.getByText("fail").closest(".status-badge")).toBeInTheDocument();
 });
 
 it("keeps unknown numeric evidence and renders contamination as a status badge", () => {
