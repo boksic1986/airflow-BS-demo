@@ -1,5 +1,34 @@
 # TASKS.md
 
+## WGS-SAMPLEINFO-REVIEW-20260916
+
+- [x] Trace source writes: initial private batch replacement before SHA; no
+  preview/approval rewrite; native final tables are separate.
+- [x] Native-required columns, atomic publication and pre-analysis SHA fence.
+- [x] Shared target dialog uses restored analysis batch, not browser draft.
+- [x] BS10610 targeted backend/runtime14 passed; no real submission.
+- [x] Frontend six cases passed; final affected case and tsc/Vite build passed.
+- [ ] Production promotion: isolate from unapproved Local/SGE branch changes.
+- [ ] New Clinical root switch requires decision on old binding compatibility.
+- [ ] Publish exact source, paths and scan configuration after boundary resolved.
+
+## WGS-SAMPLEINFO-SUBMIT-20260916
+
+Latest acceptance supersedes the completed prototype items below:
+- [x] Replace upload input with a controlled server sampleinfo.tsv path.
+- [x] Show input samples and standard custom-batch project path in step2.
+- [x] User declined no-pending mode; retain original native selection and pending.
+- [x] Step3 continues to confirm the final selected samples before CCE execution.
+- [x] Minimal BS10610 verification: 12 backend/runtime, 5 frontend, build passed.
+No owner-prepare change or additional authorization is needed for this final scope.
+
+- [x] Existing WGS Submit input mode: file plus custom analysis batch, same root.
+- [x] Preserve source metadata; change only imported copy's analysis batch.
+- [x] Reuse catalog creation identity, existing confirmations and native analysis.
+- [x] Reject reused batch/changed duplicate inputs; do not overwrite old output.
+- [x] Targeted BS10610 synthetic backend/runtime tests and frontend test/build.
+- [x] Update API/frontend/runtime documentation; no owner-script or DB changes.
+- [ ] Commit/integration and publication await separate instruction; no BS96 work.
 ## FRONTEND-PRODUCTION-20260916
 
 - [x] Verify c281876 sample-flow UI exists in production5cd5542.

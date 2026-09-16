@@ -1,5 +1,56 @@
 # CURRENT_STATE.md
 
+## 2026-09-16 Import review fixes and production path preflight
+
+User approved the bounded import fixes and production update. Read-only owner
+inspection confirms source input is unchanged between import and analysis;
+only the initial private analysis-batch replacement precedes hashing. Added
+pre-analysis imported-hash check, native-required-column validation, atomic
+no-overwrite input/receipt publication and restored-run batch display.
+BS10610 targeted backend/runtime:14 passed. Frontend verification recorded in
+HANDOFF. No native prepare/pending, schema or DAG change.
+
+Production preflight found distinct old/new roots, not aliases. Confirmed requested
+roots: /sg2/50.ctapa/Clinical/WGS_Clinical and Clinical/WES_Clinical; scan root
+Clinical/WGS_Clinical/HWcloud_Target_Capture. Existing bindings enforce the old
+single root, so switching it alone breaks old-run access/recovery. Await explicit
+choice for minimal legacy-root compatibility or code-only release. Nothing on96
+has been changed; no data migration/deletion, service restart or analysis launch.
+
+## 2026-09-16 Final scope: server file path, original pending behavior
+
+User declined any no-pending feature and requested original logic unchanged.
+The previous hold/exact-set proposal is superseded. Completed server-path input
+and source/target project-path display in the existing second confirmation.
+Native prepare and pending remain unchanged; final selected samples are reviewed
+in step3. No additional directory layer, DAG, schema or owner-script option.
+BS10610 synthetic verification: 12 backend/runtime tests, 5 frontend tests and
+production bundle build passed. Candidate remains uncommitted/unpublished in
+the existing server worktree; no BS96 action or real analysis was performed.
+
+## 2026-09-16 Follow-up: file path / exact sample set / no pending (on hold)
+
+User approved server-readable sampleinfo.tsv path plus custom batch, followed by
+confirmation of exactly those samples and the standard project path, then CCE.
+No shared pending read/recovery/write/removal throughout preparation/submission.
+This supersedes the uploaded-text/native-pending candidate described below.
+Read-only inspection found no existing native analysis option for this behavior:
+prepare_wgs_batch.py unconditionally reads and updates project pending.
+Implementation paused for explicit permission to add an opt-in owner-prepare
+mode; prior user instruction forbids changing that interface. No workaround,
+monkey patch, source modification, test run or deployment in this follow-up.
+Existing candidate remains uncommitted/unpublished and is not this final design.
+
+## 2026-09-16 WGS sampleinfo upload / custom analysis batch candidate
+
+User clarified: use the existing WGS project root and a new custom batch, not
+additional output directories. Implemented optional sampleinfo import through
+the existing WGS Submit/API/runtime receipt flow. Only the uploaded copy's
+analysis batch changes; sequencing/other fields remain intact. Native analysis,
+pending and CCE confirmations are retained. `prepare_wgs_batch.py` is unchanged.
+Authoritative edits are in BS10610 development/wgs-local-sge-20260915, based on
+7eefe2d. No main/production merge, commit, release, DB write or real analysis.
+Minimal verification and deployment boundary are recorded in HANDOFF.md below.
 ## 2026-09-16 Production frontend5cd5542 published
 
 User approved frontend release. Complete frontend source5cd5542 matches the

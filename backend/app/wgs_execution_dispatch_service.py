@@ -150,9 +150,9 @@ def project_execution_dispatch(*, session, settings, run: AnalysisRun) -> dict[s
     ]
     allow_switch = row.dispatch_state not in LOCKED_STATES and row.committed_at is None
     blocking_reason = row.blocking_reason
-    if (run.params_json or {}).get('test_project'):
+    if (run.params_json or {}).get('test_project') or (run.params_json or {}).get('sampleinfo_upload'):
         allow_switch = False
-        blocking_reason = 'Independent test projects use the isolated CCE runtime only'
+        blocking_reason = 'This input mode supports CCE execution only'
     if not allow_switch:
         blocking_reason = blocking_reason or "Execution target is locked after dispatch commit"
     return {
@@ -191,8 +191,8 @@ def change_execution_choice(
     )
     if run is None:
         raise ValueError("WGS run was not found")
-    if (run.params_json or {}).get('test_project') and desired_mode != 'cce':
-        raise ValueError('Independent test projects use the isolated CCE runtime only')
+    if ((run.params_json or {}).get('test_project') or (run.params_json or {}).get('sampleinfo_upload')) and desired_mode != 'cce':
+        raise ValueError('This input mode supports CCE execution only')
     attempt = session.scalar(
         select(RunAttempt)
         .where(RunAttempt.analysis_id == analysis_id, RunAttempt.attempt == run.attempt)

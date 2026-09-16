@@ -57,6 +57,7 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const [testSource, setTestSource] = useSubmissionDraft('wgs','test-source','');
   const [testChild, setTestChild] = useSubmissionDraft('wgs','test-child','');
   const [inputMode, setInputMode] = useSubmissionDraft('wgs','input-mode','catalog');
+  const [sampleinfoPath, setSampleinfoPath] = useSubmissionDraft('wgs', 'sampleinfo-path', '');
   const [testPreview, setTestPreview] = useState<WgsTestPreview | null>(null);
   const previewInputs=JSON.stringify([inputMode,testSource,testChild,algo,useReference,release?.release_id]);
   const currentPreviewInputs=useRef(previewInputs);
@@ -75,7 +76,7 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
       setTestPreview(null);
     }
   },[release,requestedRun,optionsRelease,algo,useReference]);
-  useEffect(()=>{if(release && !release.test_project_enabled && inputMode!=='catalog')setInputMode('catalog');},[release,inputMode,setInputMode]);
+  useEffect(()=>{if(release && !release.test_project_enabled && inputMode==='test')setInputMode('catalog');},[release,inputMode,setInputMode]);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [created, setCreated] = useState<RunDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +105,7 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
   const project = useMemo(() => catalog?.items.find((item) => item.project_id === projectId) || catalog?.items[0], [catalog, projectId]);
   const executionEnabled = Boolean(release?.execution_enabled && release.runtime_adapter_enabled);
   const phase = String(created?.params?.submission_phase || "select");
+  const executionBatch = String(created?.params?.analysis_batch || created?.params?.batch || created?.params?.sequencing_batch || created?.params?.batch_no || "-");
   const currentStep = restoring || (requestedRun && !created) || ['cancelled', 'cancelling_submission'].includes(phase)
     ? 0 : ['config_review', 'preparing_analysis'].includes(phase) ? 2
     : ['execution_review', 'approved'].includes(phase) ? 3 : 1;
@@ -138,7 +140,9 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
         if(generation===previewGeneration.current && currentPreviewInputs.current===snapshot){acceptedPreviewInputs.current=snapshot;setTestPreview(result);}
         return;
       }
-      const detail = await createCatalogWgsRun({project_id: projectId, platform, batch, fastq_root_id: fastqRootId, ...(release?.config_options_enabled && release.submission_options?.defaults && algo && ['all','ref','no'].includes(useReference) ? {algo, use_reference: useReference as 'all'|'ref'|'no'} : {})});
+      if (inputMode === 'sampleinfo' && !sampleinfoPath.trim()) throw new Error('请输入服务器上的 sampleinfo.tsv 路径');
+      const uploaded = inputMode === 'sampleinfo' ? {sampleinfo_path: sampleinfoPath.trim()} : {};
+      const detail = await createCatalogWgsRun({project_id: projectId, platform, batch, fastq_root_id: fastqRootId, ...uploaded, ...(release?.config_options_enabled && release.submission_options?.defaults && algo && ['all','ref','no'].includes(useReference) ? {algo, use_reference: useReference as 'all'|'ref'|'no'} : {})});
       setCreated(detail);
       setSearchParams({pipeline: "wgs", analysis_id: detail.analysis_id}, {replace: true});
     }
@@ -191,8 +195,8 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
     <SubmissionStep number={1} current={currentStep} title="选择批次与参数" description="选择输入来源和批次，生成样本预览；此时不会启动云上分析。" summary={created ? `已保存提交 · ${String(created.params?.sequencing_batch || created.params?.batch || created.analysis_id)}` : undefined}>
     {!created && !requestedRun ? <section className="panel"><form className="form-grid wgs-grouped-form" onSubmit={prepare}>
       {pipelineSelector}
-      <fieldset><legend>Input and project</legend>
-      {release?.test_project_enabled ? <label className="field"><span>Input mode</span><select aria-label="Input mode" value={inputMode} onChange={event=>{setInputMode(event.target.value);setTestPreview(null);}}><option value="catalog">Catalog batch</option><option value="test">Existing project → independent test project</option></select></label> : null}
+      <fieldset disabled={submitting}><legend>Input and project</legend>
+      {release ? <label className="field"><span>Input mode</span><select aria-label="Input mode" value={inputMode} onChange={event=>{setInputMode(event.target.value);setTestPreview(null);}}><option value="catalog">Catalog batch</option><option value="sampleinfo">已有 sampleinfo 文件</option>{release.test_project_enabled ? <option value="test">Existing project → independent test project</option> : null}</select></label> : null}
       {inputMode==='test' && release?.test_project_enabled ? <>
       <label className="field"><span>Existing WGS project</span><input aria-label="Existing WGS project" value={testSource} onChange={event=>{setTestSource(event.target.value);setTestPreview(null);}} /></label>
       <label className="field"><span>New relative output directory</span><input aria-label="New relative output directory" value={testChild} onChange={event=>{setTestChild(event.target.value);setTestPreview(null);}} /></label>
@@ -200,32 +204,37 @@ function WgsSubmitForm({pipelineSelector}: {pipelineSelector: ReactNode}) {
       </> : <>
       <label className="field"><span>Project</span><select aria-label="Project" value={projectId} onChange={(event) => setProjectId(event.target.value)}>{catalog?.items.map((item) => <option value={item.project_id} key={item.project_id}>{item.display_name}</option>)}</select></label>
       <label className="field"><span>Platform</span><select aria-label="Platform" value={platform} onChange={(event) => setPlatform(event.target.value)}>{project?.platforms.map((item) => <option value={item.platform_id} key={item.platform_id}>{item.display_name.replace(/\s*\/\s*WGS\s+V?\d+(?:\.\d+)+(?:[-\w.]*)?\s*$/i, '')}</option>)}</select><small className="field-help">流程版本见上方 Current WGS release；平台仅表示测序平台与参考组。</small></label>
-      <label className="field"><span>Batch</span><input aria-label="Batch" placeholder="20260901B" value={batch} onChange={(event) => setBatch(event.target.value)} /></label>
+      <label className="field"><span>{inputMode === 'sampleinfo' ? '自定义分析批次号' : 'Batch'}</span><input aria-label="Batch" placeholder={inputMode === 'sampleinfo' ? '20260910A_CCE_TEST' : '20260901B'} value={batch} onChange={(event) => setBatch(event.target.value)} /></label>
       <label className="field"><span>FASTQ root</span><select aria-label="FASTQ root" value={fastqRootId} onChange={(event) => setFastqRootId(event.target.value)}>{project?.fastq_roots.map((item) => <option value={item.root_id} key={item.root_id}>{item.display_name}</option>)}</select></label>
+      {inputMode === 'sampleinfo' ? <>
+      <label className="field"><span>Sampleinfo 路径</span><input aria-label="Sampleinfo path" value={sampleinfoPath} maxLength={2048} placeholder="/sg2/.../sampleinfo.tsv" onChange={event=>setSampleinfoPath(event.target.value)} /></label>
+      <p className="field-help">读取服务器上的样本表，在原 WGS 项目根目录生成自定义批次目录。仅替换副本的分析批次，原文件不动；已有批次不覆盖。</p>
+      </> : null}
       </>}
-      </fieldset><fieldset disabled={inputMode==='catalog' && !release?.config_options_enabled}><legend>Analysis parameters</legend>
-      {inputMode==='catalog' && !release?.config_options_enabled ? <p role="note">Configuration options are not activated. The values below describe the audited release only; legacy runtime defaults will be used, without explicit overrides.</p> : null}
+      </fieldset><fieldset disabled={submitting || (inputMode!=='test' && !release?.config_options_enabled)}><legend>Analysis parameters</legend>
+      {inputMode!=='test' && !release?.config_options_enabled ? <p role="note">Configuration options are not activated. The values below describe the audited release only; legacy runtime defaults will be used, without explicit overrides.</p> : null}
       <label className="field"><span>Variant caller</span><select aria-label="Variant caller" value={algo} onChange={event=>{setAlgo(event.target.value);setTestPreview(null);}} disabled={!release?.submission_options?.defaults}><option value="" disabled>Release defaults unavailable</option>{release?.submission_options?.defaults && release.submission_options.callers.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
       <label className="field"><span>Reference selection</span><select aria-label="Use reference" value={useReference} disabled={!release?.submission_options?.defaults} onChange={event=>{setUseReference(event.target.value);setTestPreview(null);}}><option value="" disabled>Release defaults unavailable</option>{release?.submission_options?.defaults && release.submission_options.reference_values.map(value=><option key={value} value={value}>{value}</option>)}</select></label>
       <p className="field-help">Genome: {release?.submission_options?.reference_genome || 'Release default'}. {release?.submission_options?.cnv || 'CNV configuration is fixed by the release.'}</p>
       {!release?.submission_options?.callers.length ? <p className="field-help">Caller options unavailable for this release; legacy release defaults apply.</p> : null}
       </fieldset>
-      <p className="field-help">WGS first generates sampleinfo. Analysis and cloud execution start only after the following confirmations.</p>
-      <button className="button primary" type="submit" disabled={!executionEnabled || (inputMode==='test' ? !testSource || !testChild : !projectId || !platform || !batch || !fastqRootId) || submitting}>{submitting ? "Preparing..." : inputMode==='test' ? 'Preview exact test project' : "Prepare sample information"}</button>
+      <p className="field-help">{inputMode === 'sampleinfo' ? '导入已有样本表，不重新查询生成；样本筛选和 pending 仍由原生 analysis 决定。' : 'WGS first generates sampleinfo.'} Analysis and cloud execution start only after the following confirmations.</p>
+      <button className="button primary" type="submit" disabled={!executionEnabled || (inputMode==='test' ? !testSource || !testChild : !projectId || !platform || !batch || !fastqRootId || (inputMode==='sampleinfo' && !sampleinfoPath.trim())) || submitting}>{submitting ? "Preparing..." : inputMode==='test' ? 'Preview exact test project' : inputMode==='sampleinfo' ? '导入样本信息' : "Prepare sample information"}</button>
       {!executionEnabled ? <p className="inline-error" role="note">Execution is disabled. No AnalysisRun, OBS transfer or CCE task can start.</p> : null}
     </form></section> : null}
     {!created && testPreview && inputMode==='test' && acceptedPreviewInputs.current===previewInputs ? <section className="panel"><h2>Review frozen source scope</h2><p>Source: {testPreview.source_project_dir}</p><p>{testPreview.sample_count} samples · {testPreview.fastq_file_count} FASTQ files · {testPreview.release_id} · Sentieon {testPreview.algo} · Reference {testPreview.use_reference}</p><p>Output: {testPreview.output_child}. {testPreview.write_check}</p><p>Frozen release configuration: {JSON.stringify(testPreview.effective_config)}</p><p>{testPreview.samples.join(', ')}</p><button type="button" className="button primary" disabled={submitting} onClick={()=>void confirmTestSource()}>Confirm test source and prepare</button></section> : null}
-    {created && !preparationFailed && phase === "preparing_sampleinfo" ? <section className="panel"><h2>Preparing sample information</h2><p>The WGS sampleinfo task is running. This page refreshes automatically.</p></section> : null}
+    {created && !preparationFailed && phase === "preparing_sampleinfo" ? <section className="panel"><h2>{created.params?.sampleinfo_upload ? '正在导入样本信息' : 'Preparing sample information'}</h2><p>{created.params?.sampleinfo_upload ? '正在导入已有样本表，完成后进入样本与项目路径确认。' : 'The WGS sampleinfo task is running. This page refreshes automatically.'}</p></section> : null}
     </SubmissionStep>
     <SubmissionStep number={2} current={currentStep} title="复核样本与配置" description="核对样本范围及最终配置，确认后准备分析目录。" summary="配置已确认；已冻结的提交不会在此重复创建。">
     {frozenParameters}
+    {created?.params?.sampleinfo_source_path && currentStep === 2 ? <section className="panel"><h3>项目路径</h3><dl className="detail-grid"><div><dt>样本表</dt><dd>{String(created.params.sampleinfo_source_path)}</dd></div><div><dt>目标项目</dt><dd>{String(created.params.prepared_project_path || '')}</dd></div></dl><p>确认后按原 prepare 处理样本与 pending；下一步核对最终分析样本。</p></section> : null}
     {created && phase === "config_review" ? <section className="panel"><h3>Review samples and configuration</h3><SamplePreview samples={samples} /><div className="form-grid"><label className="field"><span>Reference selection</span><select aria-label="Use reference" disabled={Boolean(created.params?.submission_options) || !release?.submission_options?.defaults} value={useReference} onChange={(event) => setUseReference(event.target.value)}>{(release?.submission_options?.defaults ? release.submission_options.reference_values : [useReference]).map(value=><option key={value} value={value}>{value || 'Frozen selection unavailable'}</option>)}</select></label><label className="field"><span>Resource set</span><select aria-label="Resource set" value="default" disabled><option value="default">WGS release default</option></select></label><button className="button primary" type="button" disabled={submitting} onClick={() => void confirmConfiguration()}>Confirm configuration</button></div></section> : null}
     {created && phase === "preparing_analysis" ? <section className="panel"><h2>Preparing analysis directory</h2><p>WGS is resolving eligible and pending samples and freezing the CCE bundle.</p></section> : null}
     </SubmissionStep>
     <SubmissionStep number={3} current={currentStep} approved={phase === 'approved'} title="确认并启动分析" description="最终确认入选样本和执行目标，提交后才启动分析。">
     {frozenParameters}
-    {created && phase === "execution_review" ? <section className="panel"><h2>Confirm WGS execution</h2><SamplePreview samples={samples} />{created.execution_dispatch ? <ExecutionTargetSelector attempt={created.attempt || 1} batch={batch || String(created.params?.batch || created.params?.sequencing_batch || "-")} sampleCount={samples.length} dispatch={created.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={async () => setCreated(await getRunDetail(created.analysis_id))} /> : null}<p>Review the final selected samples before starting the selected execution backend.</p><button className="button primary" type="button" disabled={submitting || samples.length === 0} onClick={() => void startExecution()}>Start WGS workflow</button></section> : null}
-    {created && phase === "approved" ? <>{created.execution_dispatch ? <ExecutionTargetSelector attempt={created.attempt || 1} batch={batch || String(created.params?.batch || created.params?.sequencing_batch || "-")} sampleCount={samples.length} dispatch={created.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={async () => setCreated(await getRunDetail(created.analysis_id))} /> : null}<p className="success-note">WGS execution approved: <Link to={`/runs/${created.analysis_id}`}>{created.analysis_id}</Link>.</p></> : null}
+{created && phase === "execution_review" ? <section className="panel"><h2>Confirm WGS execution</h2><SamplePreview samples={samples} />{created.execution_dispatch ? <ExecutionTargetSelector attempt={created.attempt || 1} batch={executionBatch} sampleCount={samples.length} dispatch={created.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={async () => setCreated(await getRunDetail(created.analysis_id))} /> : null}<p>Review the final selected samples before starting the selected execution backend.</p><button className="button primary" type="button" disabled={submitting || samples.length === 0} onClick={() => void startExecution()}>Start WGS workflow</button></section> : null}
+    {created && phase === "approved" ? <>{created.execution_dispatch ? <ExecutionTargetSelector attempt={created.attempt || 1} batch={executionBatch} sampleCount={samples.length} dispatch={created.execution_dispatch} onSwitch={switchExecutionTarget} onRefresh={async () => setCreated(await getRunDetail(created.analysis_id))} /> : null}<p className="success-note">WGS execution approved: <Link to={`/runs/${created.analysis_id}`}>{created.analysis_id}</Link>.</p></> : null}
     </SubmissionStep>
     </ol>
     {created && preparationFailed ? <section className="panel" role="alert"><h2>Sample information preparation failed</h2><p>{created.error_summary || "The preparation task failed before sample information became available."}</p><Link className="button primary" to={`/runs/${created.analysis_id}`}>View failure details</Link></section> : null}
