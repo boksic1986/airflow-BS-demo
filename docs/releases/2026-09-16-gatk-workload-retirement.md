@@ -59,4 +59,55 @@ file deltas and two GATK-private scripts. Preserve unrelated source changes,
 Reload backend only after checking active task continuity. Retain exact backups.
 Reconcile the four already-completed GATK runs through the same new collector
 and existing evidence importer; never fabricate success or submit cleanup.
-Deployment result and rollback receipt will be appended after verification.
+## Deployment receipt
+
+Server code089dc93 committed on2026-09-16, main and jiucheng/release/production
+fast-forwarded from6bd69af and pushed atomically. No unrelated dirty work included.
+Review found no must-fix issues. No additional test suite after76-pass result.
+
+At07:36Z, installed the two GATK-private scripts on ctapa/t640 (node200), with
+original-hash guards, mode preservation, exact backups and atomic replacement:
+
+| File | Previous SHA256 | Installed SHA256 |
+| --- | --- | --- |
+| gatk_runtime_gate.py | e67f461c721344005205477929e62969ade064f054231d033596cd63de8d9f29 | b3230de8fcdba8806a91e247679c38d40ae57cd8b02280276e64f33e6f88ec0f |
+| wgs_evidence_bridge.py | 9bf5ad6a47074caab187eedca1137fa8b81f32df525dca83cb082774b5f362ac | 1b1a05b96bc3e50edc01d50d26a31e313dd67d8c3320d24d480f2066cf4eaaf6 |
+
+Private backups: `/home/ctapa/.config/airflow-gatk-workloads-089dc93/rollback`.
+No runtime process restart; WGS-private bridge not modified.
+
+On96, copied the three backend files from its actual deployed93069eb source and
+applied only the server-exported089dc93 diff (git apply --check succeeded).
+Files reside at `/data/airflow-WGS/releases/20260916-gatk-workloads-089dc93/backend/app`:
+gatk_step7_service.py, gatk_runtime_service.py, wgs_observer.py.
+Existing image/environment/network/mounts retained; only these files overlay /app.
+Private Compose `/data/airflow-WGS/gatk-workloads-089dc93-control/compose.json`
+passed config --quiet; deployed with up -d --no-deps --pull never backend.
+Compose orphan warning refers to deliberately excluded services; none removed.
+Old backendc1be8d79ea43 replaced byd4f942288f8f600a7c518e7f53e8d23b6c09de8464fbd46f4d00342205b4d5cf.
+Other11 container IDs unchanged. Before release, existing Airflow REST queries
+returned zero running/queued runs for bio_gatk,bio_wgs,bio_gatk_maintenance.
+
+One collector-only workload snapshot (no reader Job/log sync) and existing bound
+evidence import for each completed run restored Step7 capability:
+
+| Run | New workload events | Capability | Analysis / attempt |
+| --- | --- | --- | --- |
+| GATK_20260915_114302_B2BA53 | 2 | available | success / 1 |
+| GATK_20260915_102309_7D0AC0 | 2 | available | success / 1 |
+| GATK_20260914_045846_789C29 | 1 | available | success / 1 |
+| GATK_20260913_155423_30EFFE | 2 | available | success / 1 |
+
+No cleanup request, analysis rerun, job deletion or result mutation performed.
+Backend internal `/api/health` returned200. Initial host-loopback nginx12959 health
+request returned403 under its access policy; internal backend check confirmed
+health without changing the access policy. Earlier SSH18 disconnects were retried;
+Git fetch transport stalled but normal authenticated HTTPS atomic push succeeded.
+
+## Rollback
+
+On96: `docker compose -p airflow-wgs -f /data/airflow-WGS/gatk-workloads-089dc93-control/rollback.json up -d --no-deps --pull never backend`.
+On node200 restore only the two saved private scripts from the rollback directory
+to `/home/ctapa/.config/airflow-gatk`, preserving modes with atomic replacement.
+Do not restart Airflow/Masters, reset task state or remove analysis/evidence data.
+Confirmed-absence observations remain valid historical evidence after rollback.

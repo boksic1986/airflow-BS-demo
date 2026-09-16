@@ -6,8 +6,8 @@
 - [x] Reuse bridge/importer with confirmed-absence and late-event fencing.
 - [x] Final Step6 collection/ingestion; keep analysis outcome independent.
 - [x] BS10610 targeted RED/GREEN;76 tests passed, no full regression.
-- [ ] Server commit and main/production push; selective96 release authorized.
-- [ ] Refresh exact completed-run records and check capability, no SFS cleanup.
+- [x] Server code089dc93 committed and atomically pushed to main/production; selective96 release.
+- [x] Refresh four exact completed-run records; all four capabilities available, no SFS cleanup.
 
 ## POD-EXIT-EVIDENCE-RELEASE-20260916
 

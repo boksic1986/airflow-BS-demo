@@ -1,12 +1,16 @@
 # CURRENT_STATE.md
 
-## 2026-09-16 GATK stale workload fix ready for approved selective release
+## 2026-09-16 GATK stale workload fix deployed selectively
 
 GATK bridge retires confirmed absent Pods; old events cannot resurrect them.
 Final collection and Step6 refresh converge reader/Master state; Step7 keeps
 active/unknown workloads blocked. Reuses existing evidence and stage polling,
 without API/schema/image/DAG changes or cleanup execution. BS10610 isolated
-76 affected tests passed. Server source starts6bd69af; Windows is editing only.
+76 affected tests passed. Server code089dc93 pushed to main/production. At07:36Z,
+96 backend received only three file deltas and node200 two GATK-private scripts.
+Four completed runs now have Step7 available; success/attempt1 unchanged. Only
+backend recreated, other11 containers unchanged, internal API health200. No SFS
+cleanup or rerun executed. Windows is editing only.
 See docs/releases/2026-09-16-gatk-workload-retirement.md for scope and release.
 
 ## 2026-09-16 Pod-exit monitoring fix deployed to production private scripts

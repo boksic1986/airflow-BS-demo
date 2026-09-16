@@ -1,5 +1,17 @@
 # SERVER_INFO.md
 
+## 2026-09-16 GATK workload retirement selective release089dc93
+
+server96 current symlink unchanged. Backend /app remains20260915-ui-93069eb,
+with three read-only file overlays from releases/20260916-gatk-workloads-089dc93.
+Backend ID d4f942288f8f600a7c518e7f53e8d23b6c09de8464fbd46f4d00342205b4d5cf;
+other11 containers unchanged. Private Compose and rollback are under
+/data/airflow-WGS/gatk-workloads-089dc93-control (not candidates).
+Node200 GATK gate/bridge installed07:36Z; backup private root
+/home/ctapa/.config/airflow-gatk-workloads-089dc93/rollback. WGS-private files,
+Airflow/DAG/frontend/observer and data unchanged. Internal backend health200.
+See docs/releases/2026-09-16-gatk-workload-retirement.md for exact hashes/rollback.
+
 ## 2026-09-16 Pod-exit private monitor release1770800
 
 server96 control/current/application/DAG pins unchanged; all12 Airflow containers

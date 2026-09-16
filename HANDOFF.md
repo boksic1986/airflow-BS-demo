@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-## 2026-09-16 GATK workload retirement candidate
+## 2026-09-16 GATK workload retirement committed and deployed
 
 User approves fix, server Git main/production push and96 selective release.
 Scope: bridge Pod disappearance, importer late-event fence, strict Step7 known
@@ -13,9 +13,16 @@ Tests: targeted RED9failed/3passed and Step6 RED2failed; GREEN76passed5.58s.
 Runtime tests used cached8491604 image, networknone, read-only source and
 disposable synthetic data. No full regression per user instruction.
 Failures and exact source/runtime boundary recorded in
-docs/releases/2026-09-16-gatk-workload-retirement.md. Production promotion pending
-this entry; preserve backend/runtime rollback copies and all data. Do not run
-Step7 for validation. Reload only backend; do not restart Airflow/Masters.
+docs/releases/2026-09-16-gatk-workload-retirement.md. Server code089dc93 pushed
+atomically to main/production;07:36Z selective production release complete.
+Only backend recreated; three file deltas overlay actual93069eb /app source.
+Two GATK-private scripts installed atomically on node200; no process restarted.
+One existing collector/importer reconciliation retired stale Pod observations for
+the four retained completed GATK runs. All four Step7 capabilities available;
+analysis success/attempt1 unchanged. Other11 containers unchanged, internal
+backend health200. Host-loopback nginx health request403 (access policy), not a
+backend health failure. No additional test suite, cleanup or rerun executed.
+Preserve rollback copies; do not run Step7 for validation or restart Airflow.
 
 ## 2026-09-16 Pod-exit fix committed and released (user authorized)
 
