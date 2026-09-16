@@ -1,5 +1,12 @@
 # TASKS.md
 
+## FRONTEND-PRODUCTION-20260916
+
+- [x] Verify c281876 sample-flow UI exists in production5cd5542.
+- [x] Reuse previously accepted frontend tree; offline build, no repeated suite.
+- [x] Deploy only frontend; preserve gateway configuration and backend.
+- [x] Served assets/new labels and proxied health200; other11 containers unchanged.
+
 ## BACKEND-FULL-PRODUCTION-20260916
 
 - [x] Verify production5cd5542 and compare full backend with actual96 source.

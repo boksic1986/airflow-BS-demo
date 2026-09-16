@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+## 2026-09-16 Frontend full5cd5542
+
+08:32Z frontend5041172f8f5edf9277ed0ba58fcbd948538cf26ac81f2143ba38be55f03e5adc,
+image52d8afab851c17202d39a8e9fcedc6da309ae21955df242940852f91338e6a9a.
+Tag airflow-demo/frontend:full-5cd5542; JS BQVVDtTK, CSS BFPGoplr.
+Old nginx config bind, port12959 and env unchanged. Backend3b66af0a06c7 and other
+services unchanged. Private compose/rollback frontend-full-5cd5542-control under
+/data/airflow-WGS. Served index/assets/proxied API200. See frontend release receipt.
+
 ## 2026-09-16 Full backend source5cd5542
 
 08:08Z backend3b66af0a06c77c1b07d5a7aad71bf07747e2526dcb70a3bf1d0c8a4835e06063

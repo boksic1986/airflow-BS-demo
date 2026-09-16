@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-16 Production frontend5cd5542 published
+
+User approved frontend release. Complete frontend source5cd5542 matches the
+previously accepted359df11 frontend tree. Offline96 build passed; only nginx
+frontend recreated08:32Z. Served index-BQVVDtTK.js/index-BFPGoplr.css contain
+sample-flow labels and included-batch column; index/assets/proxied health200.
+Backend full5cd5542 and other10 containers unchanged. Frontend and backend now
+both use production5cd5542 application code; Airflow/runtime pins remain separate.
+Receipt docs/releases/2026-09-16-frontend-full-bs96.md.
+
 ## 2026-09-16 Complete production backend5cd5542 deployed
 
 User approved full backend rollout after confirming no active tasks. Backend now

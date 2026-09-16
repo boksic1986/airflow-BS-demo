@@ -1,5 +1,19 @@
 # HANDOFF.md
 
+## 2026-09-16 Frontend5cd5542 production release
+
+User approved publication after screenshot showed old93069eb frontend. Verified
+production5cd5542 includes c281876 sample-flow UI. Frontend tree identical359df11
+(previous BS10610 acceptance reused). Built96 offline with locked Node22 builder;
+tsc/vite passed, no full test suite or dependency upgrade. Initial runtime build
+used bare sha256 ID in FROM, interpreted as repository and failed metadata/DNS
+before any service change; corrected to verified cached ui-93069eb tag.
+At08:32Z frontend-only recreation succeeded, image52d8afab851c, container5041172f8f5e.
+One HTTP asset check: index/JS/CSS and proxied health200; new sample-flow labels
+present. Other11 container IDs, gateway mount, ports and env unchanged.
+No data changes, backend/Airflow/runtime restart or new implementation.
+Receipt/rollback docs/releases/2026-09-16-frontend-full-bs96.md.
+
 ## 2026-09-16 Full backend production publication
 
 User explicitly authorized production-branch verification and complete backend
