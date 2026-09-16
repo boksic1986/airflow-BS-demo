@@ -1,5 +1,13 @@
 # Workflow runtime integration
 
+## GATK logger release (2026-09-17)
+
+New GATK prepares use profile r2 and an independent SFS root, pinned
+Master/Worker Snakemake9.24/logger images. Existing bundles retain their own
+images and root; no automatic migration on resume. All GATK groups share the
+gatk_worker image; gatk_sentieon is bound to the same digest. WGS unchanged.
+See [release evidence](releases/GATK_LOGGER_20260917.md).
+
 ## Existing production runtime reconciliation (2026-09-17, Git only)
 
 The stored request is validated before wgs_release_runtime selects a server-pinned

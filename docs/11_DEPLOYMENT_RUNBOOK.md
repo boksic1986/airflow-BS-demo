@@ -1,5 +1,15 @@
 # Deployment runbook
 
+## GATK logger settings and proxy verification (2026-09-17)
+
+Latest GATK private effective Compose is gatk-logger924-r2-20260917-control on
+both hosts (under candidates on BS10610). It preserves the existing application
+source and WGS gates; do not restore an older full Compose merely to change GATK.
+After backend recreation, run nginx -t and graceful reload, then check actual
+gateway /api/health and an empty-JSON /api/auth/login request (expected422).
+HTML or backend-direct health alone will miss nginx caching a retired backend IP.
+See [exact settings and rollback](releases/GATK_LOGGER_20260917.md).
+
 ## 2026-09-17 WGS sampleinfo/v2 follow-up
 
 Production runs the complete f72a12e backend source, with user-approved

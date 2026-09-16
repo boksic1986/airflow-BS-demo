@@ -1,5 +1,13 @@
 # SERVER_INFO.md
 
+## 2026-09-17 GATK logger reference promotion
+
+BS96 backend77e65737b68b; BS10610 backend9943939015f6. Application mounts unchanged
+(production sampleinfo-f72a12e; test onprem-main-d705a46). GATK sourceaeff617,
+profile r2, SFS7.6.0-logger924-20260917. Both node200 ctapa gates use
+the same GATK release. Other container IDs retained. Private effective Compose
+and rollback now gatk-logger924-r2-20260917-control; see release record for full paths.
+
 ## 2026-09-17 Sampleinfo f72a12e + WGS v2
 
 Backend/observer/scanner/reference-worker complete source:

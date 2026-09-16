@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 GATK group logger published and activated
+
+GATK codeaeff617 on GitLab main; new independent SFS root7.6.0-logger924-20260917.
+BS10610/BS96 backend and node200 gate now use that release/r2. Only
+backend recreated; nginx gracefully reloaded. All other services and latest WGS
+v2/Clinical settings preserved.8GATK tests passed; both gateway health200 and
+login-validation422. No real batch submitted; historical bundles retain old
+images. Details: docs/releases/GATK_LOGGER_20260917.md.
+
 ## 2026-09-17 Sampleinfo fix deployed; production WGS v2 enabled
 
 f72a12e fast-forwarded and atomically pushed to GitHub main/production. BS96 four

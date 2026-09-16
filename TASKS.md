@@ -1,5 +1,14 @@
 # TASKS.md
 
+## GATK-GROUP-LOGGER-20260917
+
+- [x] Pin tested Master and all GATK group aliases to Snakemake9.24/logger images.
+- [x] Reconcile deployed prepare entrypoint; preserve main biological rules.
+- [x] 8 targeted tests; GitLab main push; independent SFS asset publication.
+- [x] BS10610 then BS96 backend/gate reference updates; real proxy health checks.
+- [x] Preserve WGS, existing bundles and other services; document rollback.
+- Next real batch: observe group-child event ingestion, without auto-submission.
+
 ## SAMPLEINFO-SOURCE-PATH-20260917
 
 - [x] Remove source-directory allowlist only; preserve output and file validation.

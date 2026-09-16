@@ -1,5 +1,21 @@
 # HANDOFF.md
 
+## 2026-09-17 GATK group logger release complete
+
+Approved chain completed: GATK mainaeff617, independent SFS root, BS10610 then
+BS96 Airflow settings.8minimal GATK tests passed. No biological workflow change,
+host CLI install, WGS change or real batch submission. See exact digests,
+failures, source permissions and rollback in docs/releases/GATK_LOGGER_20260917.md.
+Backend IDs test9943939015f6/production77e65737b68b; all other service IDs retained.
+nginx -t/reload and gateway health200/login422 passed. Latest private production
+Compose is gatk-logger924-r2-20260917-control, preserving sampleinfo-f72a12e source
+and WGS v2/Clinical settings. Test remains onprem-main-d705a46 source.
+Node200 both gate runtime.env changed only GATK_REPOSITORY_ROOT, private rollback
+saved. Business counts4test/8production unchanged; no active GATK DAG runs.
+Full real GATK run intentionally not repeated; per-release observed identity
+stays unverified until actual batch evidence. Historical reruns keep old pins.
+Includes the other task's nginx stale-IP502 recovery and required proxy API check.
+
 ## 2026-09-17 Sampleinfo production release f72a12e and v2 activation
 
 User requested merge/main/production and96 rollout; then explicitly approved
