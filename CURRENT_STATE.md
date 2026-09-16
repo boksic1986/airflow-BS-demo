@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-16 Pod-exit monitoring fix deployed to production private scripts
+
+Code1770800 committed and pushed to main/jiucheng/release/production; excluded
+0914A resume compatibility and all prior dirty changes. Authorized script-only
+release installed3 files on ctapa/node200 used by96. GATK matches source; older
+WGS bridge received only the race-fix delta. All12 server96 containers unchanged,
+health200; no task restart or other app rollout. Release/rollback evidence:
+docs/releases/2026-09-16-pod-exit-monitor-bs96.md. Earlier source-only note below
+is superseded for this race fix; latency-wait180 remains out of scope.
+
 ## 2026-09-16 Pod-exit evidence race fixed in source; not deployed
 
 POD-EXIT-EVIDENCE-RACE-20260916: the shared WGS/GATK bridge rechecks once after

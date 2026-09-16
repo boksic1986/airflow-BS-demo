@@ -1,5 +1,14 @@
 # TASKS.md
 
+## POD-EXIT-EVIDENCE-RELEASE-20260916
+
+- [x] Commit only approved race fix; keep0914A compatibility uncommitted.
+- [x] Fast-forward main/production and atomically push code1770800.
+- [x] Verify96 actual mounts and node200 private runtime callers/hashes.
+- [x] Install3 scripts with rollback copies; preserve older WGS unrelated behavior.
+- [x] Check installed parity,12 unchanged containers and health200.
+- [x] Document exact release/rollback; no rerun, broad deployment or extra tests.
+
 ## POD-EXIT-EVIDENCE-RACE-20260916
 
 - [x] Reproduce exit race and GATK success/log-failure coupling with targeted tests.

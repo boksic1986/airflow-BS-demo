@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+## 2026-09-16 Pod-exit private monitor release1770800
+
+server96 control/current/application/DAG pins unchanged; all12 Airflow containers
+retain IDs and health200. Effective runtime node200=t640/ctapa, private gates in
+/home/ctapa/.config/airflow-{wgs,gatk}. Three monitoring files patched atomically
+02:48:40Z; backups in /home/ctapa/.config/airflow-monitor-pod-exit-1770800/rollback.
+Exact hashes, original modes and bounded WGS patch recorded in
+docs/releases/2026-09-16-pod-exit-monitor-bs96.md. No gate config or data changes.
+
 2026-09-15 BS10610/server10610 latest-main359df11: actual /app and DAG sources
 releases/20260915-main-359df11; current remains historical20260912-opt-4d3d24e6.
 Backend0216d8c01387, observer41aee0d5dba8, API7136a3004faf, scheduler9ac92d49cf0e,

@@ -1,5 +1,19 @@
 # HANDOFF.md
 
+## 2026-09-16 Pod-exit fix committed and released (user authorized)
+
+Only race-fix code/tests and related docs committed as1770800; main and production
+fast-forwarded and pushed atomically. gatk_resume compatibility/tests and earlier
+operational notes remain unstaged/uncommitted as requested; no files discarded.
+Production96 callers use ctapa/node200 private gates. Installed3 monitoring files
+at02:48:40Z, preserving modes and exact backups. WGS received only the approved
+two-hunk delta, not its unrelated newer GATK-label support. GATK files match1770800.
+Prior BS10610 tests48passed; one production candidate syntax/patch check, installed
+cmp checks,12 unchanged96 container IDs and APIhealth200. No runtime tests, analysis
+or process restart. Future normal gate invocations adopt the change; no hot reload.
+Details/rollback: docs/releases/2026-09-16-pod-exit-monitor-bs96.md. Production
+frontend/backend/DAG pins remain unchanged; no other unshipped changes released.
+
 ## 2026-09-16 POD-EXIT-EVIDENCE-RACE-20260916 (source complete, not deployed)
 
 Scope: approved shared evidence-reader race fix and GATK monitor tolerance only.
