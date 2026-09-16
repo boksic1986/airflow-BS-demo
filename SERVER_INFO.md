@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+## 2026-09-16 GATK batch fallback overlay e583833
+
+07:55Z server96 backend b702a4dc47fb41be245231597f4458bb622c0601ee01e881a004357942d8d165.
+/app source remains93069eb; three089dc93 overlays retained plus run_service.py
+from /data/airflow-WGS/releases/20260916-gatk-batch-e583833/backend/app.
+Private Compose/rollback: /data/airflow-WGS/gatk-batch-e583833-control.
+Other11 containers and node200 private scripts unchanged; health200.
+See docs/releases/2026-09-16-gatk-batch-bs96.md.
+
 ## 2026-09-16 GATK workload retirement selective release089dc93
 
 server96 current symlink unchanged. Backend /app remains20260915-ui-93069eb,

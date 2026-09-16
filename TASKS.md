@@ -1,5 +1,12 @@
 # TASKS.md
 
+## GATK-BATCH-RELEASE-20260916
+
+- [x] Publish existing tested e583833 batch fallback to96 on user authorization.
+- [x] Preserve all089dc93 overlays; restart backend only.
+- [x] One list payload/health check: four GATK batches present, health200.
+- [x] Record release and rollback; no redundant suite or data changes.
+
 ## GATK-CLEANUP-STALE-WORKLOAD-20260916
 
 - [x] Trace old Running Pod/reader records blocking completed runs.

@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-16 GATK batch fallback published to96
+
+User authorized the missing e583833 batch fallback plus retention of the current
+089dc93 workload/Step7 fixes. At07:55Z only backend was recreated with a fourth
+read-only file overlay (run_service.py). Four GATK list rows now return batch
+20260914A,20260914B,20260907A,20260823A. Health200, other11 containers unchanged.
+No frontend/DAG/runtime rollout, test rerun or data mutation. This is still a
+selective release on93069eb, not a full main deployment. Receipt:
+docs/releases/2026-09-16-gatk-batch-bs96.md.
+
 ## 2026-09-16 GATK stale workload fix deployed selectively
 
 GATK bridge retires confirmed absent Pods; old events cannot resurrect them.

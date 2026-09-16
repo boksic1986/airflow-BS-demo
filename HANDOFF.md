@@ -1,5 +1,19 @@
 # HANDOFF.md
 
+## 2026-09-16 GATK batch display selective publication
+
+User requested96 publication and inclusion of the current update. Published only
+the existing e583833 one-line params.batch fallback while preserving all089dc93
+Master/Step7 overlays and node200 scripts. No new code or frontend build.
+Airflow active/queued runs and active business runs0 before backend restart.
+Prior BS10610 regression1passed reused; git apply --check and Compose config
+passed. One production list serializer check returns all four GATK batches;
+health200. Only backend changed to b702a4dc47fb; other11 containers unchanged.
+No rerun/cleanup/data write. Receipt and exact rollback:
+docs/releases/2026-09-16-gatk-batch-bs96.md. Other unshipped changes not included.
+Initial local boundary-doc read used the artifact directory where it was absent;
+read the actual workspace boundary before remote deployment instead.
+
 ## 2026-09-16 GATK workload retirement committed and deployed
 
 User approves fix, server Git main/production push and96 selective release.
