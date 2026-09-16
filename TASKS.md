@@ -1,5 +1,13 @@
 # TASKS.md
 
+## BACKEND-FULL-PRODUCTION-20260916
+
+- [x] Verify production5cd5542 and compare full backend with actual96 source.
+- [x] Confirm no active tasks; no dependency/model changes or migration required.
+- [x] One isolated BS10610 import smoke; no full or repeated regression.
+- [x] Deploy complete backend directory; remove4 file mounts, preserve other services.
+- [x] Health/batch/capability and mount check; record rollback and source identity.
+
 ## GATK-BATCH-RELEASE-20260916
 
 - [x] Publish existing tested e583833 batch fallback to96 on user authorization.

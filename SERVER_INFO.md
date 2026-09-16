@@ -1,5 +1,15 @@
 # SERVER_INFO.md
 
+## 2026-09-16 Full backend source5cd5542
+
+08:08Z backend3b66af0a06c77c1b07d5a7aad71bf07747e2526dcb70a3bf1d0c8a4835e06063
+now mounts /data/airflow-WGS/releases/20260916-backend-full-5cd5542/backend at/app.
+No per-file app overlays remain. Same image0e2d6f0cdf4b and environment; other11
+containers retain IDs. Global current symlink remains historical4d3d24e6 because
+this is a backend-only rollout. Compose/rollback private control:
+/data/airflow-WGS/backend-full-5cd5542-control. Health200. Full source and rollback
+receipt docs/releases/2026-09-16-backend-full-bs96.md.
+
 ## 2026-09-16 GATK batch fallback overlay e583833
 
 07:55Z server96 backend b702a4dc47fb41be245231597f4458bb622c0601ee01e881a004357942d8d165.

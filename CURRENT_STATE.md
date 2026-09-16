@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-16 Complete production backend5cd5542 deployed
+
+User approved full backend rollout after confirming no active tasks. Backend now
+uses one complete Git archive at releases/20260916-backend-full-5cd5542/backend;
+all four per-file overrides removed. Source matches production5cd5542, including
+batch/Step7, rule summaries, log context, resource-history projection and sample
+handoff decisions. No dependency/schema changes. Frontend/Airflow/runtime scripts
+and other11 containers remain pinned and unchanged; this is backend-only parity.
+BS10610 one isolated import smoke passed; production health200 and expected GATK
+batch/action states confirmed. Receipt docs/releases/2026-09-16-backend-full-bs96.md.
+
 ## 2026-09-16 GATK batch fallback published to96
 
 User authorized the missing e583833 batch fallback plus retention of the current

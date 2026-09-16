@@ -1,5 +1,22 @@
 # HANDOFF.md
 
+## 2026-09-16 Full backend production publication
+
+User explicitly authorized production-branch verification and complete backend
+release, with no running tasks. Pinned production5cd55427ad5983572ce35f089050af135f6ff601
+via GitHub ref API after server ls-remote failed transport EOF. Server checkout
+clean; exported backend with git archive, SHA verified after transfer. Eight app
+files differ from actual93069eb base; no unexpected files/dependencies/models.
+One BS10610 isolated import smoke passed98routes; no redundant regression suite.
+At08:08Z switched only backend /app to complete20260916-backend-full-5cd5542,
+removing4 overlays. Backend3b66af0a06c7; other11 IDs, env and image unchanged.
+Health200,0914A/B batches and cleanup available. Initial assertion incorrectly
+expected all4 historical cleanup actions still available; bounded reason lookup
+confirmed0907A/0823A already cleanup_completed/success, not a rollout failure.
+No task/state/result modifications by this release. Old directories retained.
+Full rollback/source receipt docs/releases/2026-09-16-backend-full-bs96.md.
+Frontend remains old: new backend capabilities do not deploy corresponding UI.
+
 ## 2026-09-16 GATK batch display selective publication
 
 User requested96 publication and inclusion of the current update. Published only
