@@ -1,5 +1,117 @@
 # API contract
 
+## Native RunDetail view (2026-09-16 enabled on BS10610 only)
+
+Authenticated GET `/api/runs/{analysis_id}/native-view` only supports WGS
+native_monitor_only runs. It never launches, changes pending, or calls CCE.
+Query: execution_id optional (default current); section samples|rules|logs|qc
+(default samples); offset>=0; limit1..100 default25; history_offset>=0 (50 choices
+per page); query max256 (literal case-insensitive main-log search);
+match_index>=0 default0 selects the match with surrounding log context, not
+filtered isolated lines. Unknown run
+or foreign execution gives404 NATIVE_EXECUTION_NOT_FOUND under existing auth.
+
+Response: current_execution_id, selected, executions/history_total/history_offset,
+configuration (hash-checked allowlisted frozen parameters, mode/target/Linux user),
+samples/sample_total, rules/rule_total/rules_incomplete, log, qc, evidence_health,
+monitoring, configured_scope_only=true. Samples/Rules paginate, log tails200 lines
+within1MiB or searches8MiB max200 matches, Rules scan8MiB and mark incomplete.
+Missing evidence remains unavailable; Rule declarations alone do not prove start.
+
+QC scope is run_latest, independent of execution_id: items, sha256, updated_at
+(file time, not execution provenance), health available|stale|unavailable. Only
+samples/QC requests refresh the one last-good allowlisted cache in run.params;
+this internal GET-side cache update never alters WGS files or execution status.
+Read exact current config.batch QC after project binding validation; invalid or
+partially written source retains last reliable result. No historical QC API.
+Current run/workspace native projection skips CCE lifecycle/transfer projections.
+Run lists count the exact current execution snapshot's configured scope in bulk;
+registration does not create candidate Sample rows or cloud phase projections.
+
+## Native monitor attachment and final observation (2026-09-16 candidate)
+
+POST /api/wgs/onprem/executions/{execution_id}/monitor uses original personal
+owner/session/CSRF and the four claim identity fields, with monitor gate enabled.
+Returns wgs.onprem-monitor-attachment.v1 and fixed native__execution_id DagRun.
+Conflicts409, owner403, transport503 (retry monitor only, never launch). Existing
+Airflow409 is reconciled only on exact ID+conf match. Binding persists per stage.
+The internal observe response now reports done=true only after validated direct
+child-wait receipt, or an already persisted terminal state. Result includes
+wait_returncode, completion_scope=requested_command, relaunch_eligible and waited
+times; no patient/input/credential payload. Signal/SGE-nonzero completion does not
+permit automatic relaunch. No new signal/cancel/review API. See the
+[terminal/attachment contract](superpowers/specs/2026-09-15-wgs-onprem-execution-contract.md).
+
+## Native observation candidate (2026-09-15, disabled)
+
+POST /api/internal/wgs/onprem/runs/{analysis_id}/executions/{execution_id}/observe
+requires a configured internal token and WGS_ONPREM_MONITOR_ENABLED. Body contains
+strict positive integer attempt/generation only. Current project/run/execution
+identity mismatch409; missing/wrong token401, unconfigured token403, schema422.
+HTTP200 summary includes identity, status, done, observation, checked_at,
+monitoring_health/error_code and optional native_started_at/native_finished_at/
+native_exitcode. Raw metadata command, hostname, filesystem paths and contents are
+not exposed. This POST performs only bounded file observation and DB projection.
+
+Observation is awaiting_claim/awaiting_start/running/native_result_reported.
+Missing/invalid evidence preserves last reliable run state, reports degraded,
+and never triggers or fails native analysis. Native result markers do not prove
+wrapper exit, so done=false without the direct-child wait receipt added2026-09-16.
+Repeated polling does not prove process liveness. Attachment is a separate call.
+
+## R2-3 one-shot native launch claim (2026-09-15, candidate only)
+
+POST /api/wgs/onprem/executions/{execution_id}/claim requires original personal
+owner/session/CSRF, operation_id, generation, manifest_sha256 and platform_instance_id.
+Separate launch gate defaults false. Checks registered/current identities and
+file hashes before conditional accepted→launching. HTTP200 grants one automatic
+launch attempt; replay/unknown result must never cause another grant or process.
+Registration receipts remain idempotent and launch_allowed=false; they are not
+launch permissions. No process, Airflow dispatch, real started time or run success
+is emitted by this API. [Exact claim contract](superpowers/specs/2026-09-15-wgs-onprem-execution-contract.md).
+
+## R2-2 native execution registration (2026-09-15, candidate only)
+
+POST /api/wgs/onprem/projects/{project_uuid}/executions registers immutable current
+inputs with an operation UUID under the original personal owner. Same operation
+is idempotent; new operation creates a new execution/generation, same analysis_id
+and attempt, only after prior execution is terminal. Location changes verify
+binding and reject duplicate copies. It never starts a controller/Airflow task.
+Receipt explicitly returns launch_allowed=false until R2-3 integration exists.
+[Exact execution request/response and errors](superpowers/specs/2026-09-15-wgs-onprem-execution-contract.md).
+11 execution +8 registration checks passed; no enabled endpoint or launch claim.
+
+## R2-1 native project registration (2026-09-15, tested candidate, not deployed)
+
+POST /api/wgs/onprem/projects now exists in candidate source only. Requires a
+personal operator/admin session cookie wgs_session + X-CSRF-Token; internal-service
+or disabled-auth compatibility actors are rejected. Creates UUID-keyed project
+records in created state, without Sample, stage execution, prepare or Airflow work.
+Default off. Same UUID/owner/initial payload yields the same HTTP200 registration
+receipt; changed payload409, different owner403. New UUID at same path is distinct.
+Full field/error/auth and initial-summary semantics:
+[R2-1 contract](superpowers/specs/2026-09-15-wgs-onprem-registration-contract.md).
+After8 RED failures, GREEN now passed8 registration,1 migration and2 related
+submission checks on BS10610. Python syntax checks passed. Not an enabled API.
+
+## Local/SGE R2 planning override (2026-09-15, not implemented)
+
+Existing-source correction checkpoint: native runner now produces private
+per-execution snapshots and returns an internal execution_snapshot reference.
+13 matched tests passed; no new public registration, auth or history endpoint
+is implemented, and no credentials/clinical snapshot content is added to APIs.
+
+[R2 design](superpowers/specs/2026-09-15-wgs-local-sge-platform-integration.md)
+adds optional first-time backend project registration after native analysis prepare,
+without a web-created run. Registration uses project UUID, not batch/path matching.
+Each start/resume registers current config/sample/argv snapshot and actors under
+the same analysis_id/attempt but a new execution_id/generation; request retries
+remain idempotent. CLI-origin first launch and resume are monitor-only in Airflow.
+These are planned semantics, not new callable endpoints. Auth, routes and field
+contracts must be confirmed in R2-1 before implementation. Existing clients and
+CCE contracts remain unchanged. R1 freeze notes below describe current candidate
+source, not a restriction on editing inputs in the planned native monitor path.
+
 ## WGS native preparation freeze foundation (2026-09-15, inactive)
 
 Submission state adds nullable `prepare_execution` with `attempt`, `mode`,
@@ -8,15 +120,18 @@ configuration approval freezes the current dispatch choice in the existing
 locked transaction. Repeated approval returns the same snapshot; a later
 execution-choice change raises `PREPARE_EXECUTION_FROZEN`, and `allow_switch`
 is false. This does not reserve resources or start analysis. Historical runs
-without the marker retain their contract. Creation endpoints do not yet set
-the marker; creation wiring and native launch handoff remain required before activation.
+without the marker retain their contract. Creation endpoints leave the marker
+unset by default; opt-in creation wiring below is source-only and unverified.
+Native launch integration must be completed before activation.
 
 Native runtime request transport is now implemented: `wgs-runtime.request.v4`
 carries a copy of `prepare_execution`; attempt/mode/target/revision are validated.
 Local/SGE preparation omits CCE profile/CLI metadata and Heavy slot requirements.
 The backend rejects requests for CCE stages using a native frozen target.
-Creation activation and actual native analysis launch remain pending; this is
-not a new public execution endpoint or permission to start jobs.
+Creation wiring is implemented in unverified source behind the default-off
+WGS_NATIVE_PREPARE_ENABLED flag (requires contractv2); only new normal catalog
+runs receive the marker. Automatic runs freeze CCE before submission; historical
+runs are not upgraded. No deployment/activation or new public execution endpoint.
 
 ## QC/ledger follow-up (2026-09-15, source only)
 

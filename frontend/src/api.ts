@@ -679,6 +679,8 @@ export type LogStream = "metadata" | "stdout" | "stderr";
 export type RunLog = {
   query?: string;
   match_count?: number;
+  match_index?: number;
+  match_line?: number | null;
   search_complete?: boolean;
   path?: string;
   stream: LogStream;
@@ -1049,7 +1051,10 @@ export type PlatformResourceSnapshot = {
   error_message?: string | null;
 };
 
+export type ResourceHistoryPeriod = "1h" | "24h" | "7d";
+
 export type PlatformResourcesResponse = {
+  history_period?: ResourceHistoryPeriod;
   status: string;
   items: PlatformResourceSnapshot[];
   updated_at: string;
@@ -1339,8 +1344,8 @@ export function getSystemResources(): Promise<SystemResourcesResponse> {
   return requestJson<SystemResourcesResponse>("/system/resources");
 }
 
-export function getPlatformResources(): Promise<PlatformResourcesResponse> {
-  return requestJson<PlatformResourcesResponse>("/platform/resources");
+export function getPlatformResources(historyPeriod?: ResourceHistoryPeriod): Promise<PlatformResourcesResponse> {
+  return requestJson<PlatformResourcesResponse>(`/platform/resources${historyPeriod ? `?history_period=${historyPeriod}` : ""}`);
 }
 
 export function getRunResources(analysisId: string): Promise<RunResourceSummary> {
@@ -1614,6 +1619,28 @@ export function getRunWorkspace(analysisId: string): Promise<RunWorkspaceRespons
   return requestJson<RunWorkspaceResponse>(`/runs/${encodeURIComponent(analysisId)}/workspace`);
 }
 
+export type NativeExecution = {
+  execution_id: string; generation: number; attempt: number; status: string;
+  registered_by: string; sample_count: number; created_at?: string | null;
+  started_at?: string | null; ended_at?: string | null;
+};
+export type NativeViewQuery = {execution_id?: string; section?: string; offset?: number; history_offset?: number; query?: string; match_index?: number};
+export type NativeRunView = {
+  analysis_id: string; current_execution_id: string | null; selected: NativeExecution | null;
+  executions: NativeExecution[]; history_total: number; history_offset: number;
+  samples: Array<{data_id: string; sample_id: string; family_id: string | null}>; sample_total: number;
+  rules: Array<{rule: string; job_id: string; sample_id: string | null; family_id: string | null; status: string; source_line: number}>;
+  rule_total: number; rules_incomplete: boolean; log: RunLog | null; offset: number; limit: number;
+  evidence_health: string; monitoring?: {monitoring_health?: string; checked_at?: string} | null;
+  configuration?: {health: string; parameters: Record<string, string | number | boolean>; execution_mode?: string; execution_target?: string; execution_user?: string; manifest_sha256?: string} | null;
+  qc: {scope: 'run_latest'; health: string; updated_at?: string | null; items: Sample[]};
+};
+export function getNativeRunView(analysisId: string, options: NativeViewQuery): Promise<NativeRunView> {
+  const params = new URLSearchParams();
+  Object.entries(options).forEach(([key, value]) => {if (value !== undefined && value !== '') params.set(key, String(value));});
+  return requestJson<NativeRunView>(`/runs/${encodeURIComponent(analysisId)}/native-view?${params}`);
+}
+
 export function getRunSamples(analysisId: string): Promise<{items: Sample[]; manifest?: WgsSampleManifestRow[]; manifest_summary?: WgsManifestSummary}> {
   return requestJson<{items: Sample[]; manifest?: WgsSampleManifestRow[]; manifest_summary?: WgsManifestSummary}>(`/runs/${encodeURIComponent(analysisId)}/samples`);
 }
@@ -1700,10 +1727,13 @@ export function getRunConfig(analysisId: string): Promise<RunConfig> {
   return requestJson<RunConfig>(`/runs/${encodeURIComponent(analysisId)}/config`);
 }
 
-export function getRunLog(analysisId: string, stream: LogStream, key?: string, query?: string): Promise<RunLog> {
+export function getRunLog(analysisId: string, stream: LogStream, key?: string, query?: string, matchIndex = 0): Promise<RunLog> {
   const params = new URLSearchParams({stream, tail: "200"});
   if (key) params.set("key", key);
-  if (query?.trim()) params.set("query", query.trim());
+  if (query?.trim()) {
+    params.set("query", query.trim());
+    params.set("match_index", String(matchIndex));
+  }
   return requestJson<RunLog>(`/runs/${encodeURIComponent(analysisId)}/logs?${params.toString()}`);
 }
 

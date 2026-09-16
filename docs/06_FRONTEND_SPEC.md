@@ -1,5 +1,30 @@
 # Frontend specification
 
+2026-09-16: Native views deployed to BS10610; user browser check passed.
+Search preserves continuous log context and forwards match_index for navigation.
+Native current scope counts do not imply new candidate Sample records.
+See [test release](releases/2026-09-16-onprem-bs10610.md).
+
+## Native Local/SGE RunDetail (2026-09-16 candidate)
+
+Existing RunDetail routes native_monitor_only runs to NativeExecutionPanel; no
+new page or direct filesystem/Airflow/DB connection. Native view polls one backend
+endpoint and skips cloud workspace/panel requests. Default current execution,
+paged50 execution choices, Samples/Rules pages25, and existing StatusBadge,
+LogViewer and button/table classes. Show original Operator, execution submitter,
+Linux user/target, exact frozen parameters, recorded start/end, configured count.
+No OBS/SFS/CCE or web cancel/resume actions. Missing facts are explicitly unknown.
+
+Samples use selected immutable scope, not inferred completed sample rows. Rules
+show only native main-log evidence and exact frozen sample mapping; incomplete
+scans are labelled, not treated as a full DAG. Logs read the exact selected
+execution stdout/stderr main log, with backend literal search. Query/selection
+response keys prevent stale execution rows; search input remains mounted while
+refreshing. QC is labelled 本 run 最新 QC, shared across execution selectors;
+show last source timestamp, raw key metrics/source status and stale/unavailable
+message. No fabricated per-execution QC history or sample-rename mapping.
+Candidate tests/build passed; enabled service/browser acceptance still pending.
+
 ## Sample flow compact table (2026-09-15, source only)
 
 Latest user supersedes expandable ledger details: primary tab/heading 样本流转,

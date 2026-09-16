@@ -7,7 +7,7 @@ from typing import Any, Callable
 from sqlalchemy import String, case, cast, desc, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import AnalysisRun, Sample
+from app.models import AnalysisRun, Sample, WgsOnpremExecutionSnapshot
 from app.sample_selection_scope import selected_clause, scope_status
 from app.qc_highlights import qc_highlights_by_run
 from app.workflow_summary_service import workflow_summaries_by_run
@@ -77,6 +77,12 @@ def list_runs(
     sample_qc: dict[str, list[str | None]] = {}
     for analysis_id, qc_status in sample_rows:
         sample_qc.setdefault(analysis_id, []).append(qc_status)
+    native_ids = {run.analysis_id: (run.params_json or {}).get('current_native_execution_id')
+                  for run in page if (run.params_json or {}).get('native_monitor_only')}
+    native_counts = {row.analysis_id: len(row.sample_scope_json) for row in session.scalars(
+        select(WgsOnpremExecutionSnapshot).where(WgsOnpremExecutionSnapshot.execution_id.in_(
+            [value for value in native_ids.values() if value])))
+        if native_ids.get(row.analysis_id) == row.execution_id} if native_ids else {}
     qc_highlights = qc_highlights_by_run(session=session, runs=page)
     workflow_summaries = workflow_summaries_by_run(
         session=session,
@@ -97,7 +103,7 @@ def list_runs(
         "items": [
             _run_list_payload(
                 run,
-                sample_count=len(sample_qc.get(run.analysis_id, [])),
+                sample_count=native_counts.get(run.analysis_id, len(sample_qc.get(run.analysis_id, []))),
                 sample_qc_statuses=sample_qc.get(run.analysis_id, []),
                 projected_qc_status=projected_qc_statuses.get(run.analysis_id),
                 qc_highlights=qc_highlights.get(run.analysis_id, []),

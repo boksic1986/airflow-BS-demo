@@ -397,6 +397,7 @@ def create_automatic_wgs_run(*, session, settings, airflow_client, username: str
             }
         )
         run.params_json = params
+        freeze_prepare_execution(session=session, run=run)
         session.commit()
     if run.status == "created":
         return submit_wgs_run(
@@ -459,6 +460,13 @@ def _create_catalog_run_record(*, session, settings, username: str,
             WgsInputSnapshot.fq_path == spec.node_root,
         )
     ) is not None
+    native_prepare = (
+        not existed
+        and bool(getattr(settings, "wgs_native_prepare_enabled", False))
+        and spec.analysis_batch == spec.batch
+    )
+    if native_prepare and not bool(getattr(settings, "wgs_contract_v2_enabled", False)):
+        raise ValueError("Native preparation requires orchestration contract v2")
     created = create_wgs_platform_run(
         session=session,
         settings=settings,
@@ -484,7 +492,9 @@ def _create_catalog_run_record(*, session, settings, username: str,
     params = dict(run.params_json or {})
     if existed and params.get("project_id") != spec.project.project_id:
         raise ValueError("existing WGS run has ambiguous project ownership")
-    if params.get("project_id") != spec.project.project_id:
+    if native_prepare:
+        params["native_prepare_contract"] = 1
+    if native_prepare or params.get("project_id") != spec.project.project_id:
         params["project_id"] = spec.project.project_id
         run.params_json = params
         session.flush()

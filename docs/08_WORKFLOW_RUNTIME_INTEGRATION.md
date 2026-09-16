@@ -1,5 +1,138 @@
 # Workflow runtime integration
 
+## Native read-only view evidence (2026-09-16 candidate)
+
+No WGS prepare/runtime/profile/logger changes for these views. Native main log:
+log/step1.{analysis_id}-a{attempt}-g{generation}-{execution_id}.log. Only selected
+execution is read; shared child logs and prepare projection.jsonl are not runtime
+Rule evidence. Parse explicit rule/job/sample wildcard/completion facts within
+bounded text; no complete DAG, timestamps or success inferred from group/exit0.
+History configuration reads hash-verified private snapshots, not mutable config.
+
+User explicitly wants one latest QC per run, not per-execution QC. Original
+QC.smk mergeQC uses config.batch; read current config.yaml and exact
+07_QC/{batch}.QCstat.tsv, not project basename or newest glob match. Validate
+project binding/path, reject symlink escape, cap reads, require complete header/
+rows/newline and stable read. Preserve previous normalized cache on failure.
+QC mtime describes source freshness only. No new archive protocol, pending
+selection, cleanup, sample rename mapping, observer-side rerun or file writes.
+
+## Controller completion and monitor attachment (2026-09-16 candidate)
+
+This checkpoint supersedes the terminal/attachment limitations below. The WGS
+owner679a3e thin supervisor waits for original foreground Step1 to exit and
+publishes controller-exit.json once. Platform validates fixed path, complete
+identity and frozen manifest hash before terminal projection. Raw native result
+markers still do not prove cleanup/controller completion. Success is for the
+requested command, not proof of full QC/sample completion. Signal exit or failed
+SGE controller keeps relaunch blocked pending remaining-job review.
+
+The helper attaches bio_wgs_native_monitor after spawning. Personal-session
+monitor API is idempotent by execution ID and fixed conf; network retry performs
+attachment only. No prepare/claim/launch replay. Generic/WGS Airflow status sync
+does not derive analysis status from this monitor DAG. Contract:
+[controller exit and monitor attachment](superpowers/specs/2026-09-15-wgs-onprem-execution-contract.md).
+BS1061018backend+2DAG checks, including actual owner synthetic receipt consumed
+against a real platform snapshot. Candidate default off, no live deployment.
+Execution-scoped rule/sample/QC/log/history views remain pending.
+
+## Native observation checkpoint (2026-09-15)
+
+Generation-fenced observation reads only exact registered native metadata/result
+files, never launches or signals work. New monitor-only DAG is isolated from CCE.
+Raw .exitcode/finished_at are recorded as native_result_reported, not controller
+termination: original Step1 cleanup follows them. No terminal permission release
+or automatic monitor attachment until the final controller-exit adapter is agreed.
+The independent WGS helper still acknowledges only its background parent. No PID
+reuse/liveness inference or command replay. Current started/status projection is
+implemented; per-execution rule/QC/history views remain pending.
+
+WGS tests now use deployed34bfcbf plus thin hooks (b07bbc4); newer ba7b272-based
+code retained but excluded. Owner and platform verified native runtime/sampleinfo/
+profiles unchanged. Six-file snapshot contract remains applicable to this baseline.
+
+## R2-3 one-shot claim checkpoint (2026-09-15, disabled candidate)
+
+Personal-session POST /api/wgs/onprem/executions/{execution_id}/claim grants
+one automatic launch attempt using a conditional accepted→launching transition.
+It starts no process or DAG. Separate WGS_ONPREM_LAUNCH_ENABLED defaults false.
+Current native mode's config.yaml/runtime.yaml profile bytes join the existing
+four input refs; runtime.yaml is prepare provenance, not re-applied at startup.
+Exact [execution/claim contract](superpowers/specs/2026-09-15-wgs-onprem-execution-contract.md).
+BS10610:25 targeted claim/execution checks passed. WGS owner confirmed standard
+profile layout is project-local. Thin caller and observer/DAG integration remain
+pending; keep gates off.
+
+## R2-1/2 checkpoint (2026-09-15, source only)
+
+WGS owner reports thin hook commit5485c8a31795cba17291698903b2388f3ad8d700,
+task branchjiucheng/wgs-onprem-registration-r2; not merged/pushed/deployed. It adds
+only optional analysis/local|sge registration, stable binding and register-only
+retry; native algorithms/pending/profile/Step1 unchanged. Owner reports32 matched
+synthetic checks. Platform candidate execution registration separately passed11
+execution/8 registration checks. These are not a joint live-system acceptance.
+Execution uses config.sample data IDs as configured scope, not metadata rows.
+[R2-2 contract](superpowers/specs/2026-09-15-wgs-onprem-execution-contract.md)
+preserves same-run generations and private inputs; launch_allowed=false.
+No monitored script, launch claim, argv forwarding, terminal observer or
+execution-scoped Sample/QC UI yet. Older snapshot launcher below remains inactive.
+
+## Earlier R2-1 thin-hook checkpoint (superseded by source checkpoint above)
+
+WGS owner confirmed optional analysis-only post-success registration, with no
+project/registration when native selection is empty. Stable project UUID and
+initial summary survive failed registration; retry only the HTTP registration,
+not prepare or pending. Current platform candidate accepts personal-session
+project registration with11 matched checks passed, but WGS hook is not implemented.
+No monitored launch script may bypass the still-pending execution API. Native
+mv may require user repair of original absolute paths; platform does not rewrite
+Step1/profile. [Exact schema](superpowers/specs/2026-09-15-wgs-onprem-registration-contract.md).
+
+## R2 existing native launcher correction (2026-09-15, tested source only)
+
+The launcher now requests identity/target/entry/profile binding validation without
+requiring mutable config/sample files to match prepare hashes. Default prepare
+validation is unchanged. Before native launch, executions/<execution_id>/snapshot
+stores current config and its actual sample_info/new_sample_info files, generated
+argv and effective Linux uid/user; private permissions, exclusive creation and
+manifest-last writes preserve earlier executions. Same-execution replay refuses
+launch, rather than overwriting evidence. Invalid current mode/missing samples or
+changed entry/profile remain errors. No sample selection or pending write occurs.
+
+13 matched BS10610 cached synthetic checks and syntax checks passed. This does
+not deliver the R2 project registry, movable project identity, user-supplied argv
+forwarding, Sample/DB history projection or monitor-only DAG. Existing prepared
+payload is still required; feature remains off. Earlier R1 notes below are history.
+
+## Local/SGE R2 planning override (2026-09-15, not implemented)
+
+[R2 design](superpowers/specs/2026-09-15-wgs-local-sge-platform-integration.md)
+supersedes the old fixed-prepare-input assumption for the new optional monitor
+entry. Native sampleinfo stays unchanged; analysis may opt into post-prepare
+project registration. The original Step1/profile and pending decisions remain
+native. First CLI launch and every resume register then run locally, while
+Airflow only monitors/collects. No web prerequisite or repeated prepare.
+
+Each execution snapshots actual config, referenced samples and argv; edits are
+allowed before start/resume. Hashes verify snapshot integrity, not equality to
+prepare. Identity/target/access checks remain. Stable project binding survives mv;
+old-path reuse gets a new project identity; history cannot read a different
+project at the old path. These changes require R2 implementation; the strict
+binding code described below is still R1 candidate code and must stay inactive.
+
+## Native launcher source checkpoint (2026-09-15, unverified)
+
+New scripts/wgs_onprem_runtime.py shares direct native Step1 invocation for
+Local/SGE without changing config/profile or resource arguments. The existing
+Local gate uses it only for native frozen requests; legacy conversion is retained.
+Native execution/generation gets its own WGS_ATTEMPT_ID and evidence directory;
+controller exit0 alone is insufficient without matching native exitcode/metadata.
+Shared validation loads the sibling wgs_runtime_gate.py for its existing binding
+checks; both scripts must be installed together, without copying WGS private config.
+SGE restricted runner/DAG, node mapping, observer stream discovery and monitored
+command-line entry are not yet wired. Source awaits BS10610 GREEN after SSH failure;
+do not activate merely because the library accepts SGE fixtures.
+
 ## Local/SGE implementation checkpoint (2026-09-15, not enabled)
 
 Native interface candidate `ba7b272` is confirmed by WGS-pipeline; no release

@@ -30,6 +30,7 @@ import {usePlatformCapabilities} from "../features/platform/PlatformCapabilities
 import {RunFilesTab, RunOverviewTab} from "../features/run-detail/RunResourceTabs";
 import {DEFAULT_RULE_QUERY, RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
 import {WgsQcTab} from "../features/run-detail/WgsQcTab";
+import {NativeExecutionPanel} from "../features/run-detail/NativeExecutionPanel";
 import type {RulePage, RuleQuery} from "../api";
 import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
 import {ResumeStagePanel} from '../features/run-detail/ResumeStagePanel';
@@ -75,6 +76,13 @@ export function RunDetailPage() {
   const [logSources, setLogSources] = useState<RunLogIndexItem[]>([]);
   const [logKey, setLogKey] = useState<string | null>(null);
   const [logQuery, setLogQuery] = useState("");
+  const [logMatchIndex, setLogMatchIndex] = useState(0);
+  const logSearchIdentity = useRef("");
+  logSearchIdentity.current = JSON.stringify([analysisId, logKey, logStream, logQuery, logMatchIndex]);
+  const searchLog = useCallback((query: string, index: number) => {
+    setLogQuery(query);
+    setLogMatchIndex(index);
+  }, []);
   const [activeTab, setActiveTab] = useState<DetailTab>("Overview");
   const [ruleQuery, setRuleQuery] = useState<RuleQuery>({...DEFAULT_RULE_QUERY});
   const [rulePage, setRulePage] = useState<RulePage | undefined>();
@@ -153,6 +161,7 @@ export function RunDetailPage() {
     setLog(null);
     setLogKey(null);
     setLogQuery("");
+    setLogMatchIndex(0);
     setRuleQuery({...DEFAULT_RULE_QUERY});
     setRulePage(undefined);
   }, [analysisId]);
@@ -160,6 +169,9 @@ export function RunDetailPage() {
   function handleLogKeyChange(nextKey: string) {
     const source = logSources.find((item) => item.key === nextKey);
     setLogKey(nextKey);
+    setLogQuery("");
+    setLogMatchIndex(0);
+    setLog(null);
     if (source?.stream === "stderr" || source?.stream === "metadata" || source?.stream === "stdout") {
       setLogStream(source.stream);
     }
@@ -170,9 +182,21 @@ export function RunDetailPage() {
     ? allTabs.filter((tab) => tab !== "QC")
     : [...allTabs];
 
+  useEffect(() => {
+    if (activeTab !== "Logs" || !analysisId || !logKey || !logQuery) return;
+    let current = true;
+    setLogError(null);
+    void getRunLog(analysisId, logStream, logKey, logQuery, logMatchIndex).then(
+      (result) => { if (current) setLog(result); },
+      (failure) => { if (current) setLogError(errorMessage(failure)); },
+    );
+    return () => { current = false; };
+  }, [analysisId, activeTab, detail?.attempt, logKey, logStream, logQuery, logMatchIndex]);
+
   const {loading, error, refresh: refreshDetail} = useSilentRefresh(async ({isCurrent}) => {
     const freshDetail = await loadDetail(false, isCurrent);
     if (!freshDetail || !isCurrent()) return;
+    if (freshDetail.params?.native_monitor_only) return;
     const currentAttempt = freshDetail.attempt;
     const publish = (update: (current: Bundle) => Bundle) => {
       if (isCurrent()) setBundle((current) => current.detail?.attempt === currentAttempt ? update(current) : current);
@@ -201,9 +225,10 @@ export function RunDetailPage() {
               setLogKey(preferred.key);
               setLogStream(preferred.stream === "stderr" ? "stderr" : preferred.stream === "metadata" ? "metadata" : "stdout");
             }
-            if (logKey) {
-              const nextLog = await getRunLog(analysisId, logStream, logKey, logQuery);
-              if (isCurrent()) setLog(nextLog);
+            if (logKey && !logQuery) {
+              const identity = logSearchIdentity.current;
+              const nextLog = await getRunLog(analysisId, logStream, logKey);
+              if (isCurrent() && identity === logSearchIdentity.current) setLog(nextLog);
             }
           }
         } else if (activeTab === "Files") {
@@ -215,7 +240,7 @@ export function RunDetailPage() {
         if (isCurrent()) setTabError(errorMessage(loadError));
         throw loadError;
       }
-  }, JSON.stringify([analysisId, activeTab, detail?.attempt, capabilityKey, logKey, logStream, logQuery, ruleQuery]), !capabilities.loading && Boolean(analysisId));
+  }, JSON.stringify([analysisId, activeTab, detail?.attempt, capabilityKey, logKey, logStream, Boolean(logQuery), ruleQuery]), !capabilities.loading && Boolean(analysisId) && !detail?.params?.native_monitor_only);
 
   const failedRule = bundle.rules.find((rule) => isFailedStatus(rule.status));
   const diagnosis = parseErrorSummary(
@@ -266,6 +291,7 @@ export function RunDetailPage() {
   }
 
   if (loading && !detail) return <p className="muted">Loading run detail...</p>;
+  if (detail?.params?.native_monitor_only) return <NativeExecutionPanel key={analysisId} detail={detail} />;
 
   return (
     <div className="page-stack run-detail-page">
@@ -330,11 +356,11 @@ export function RunDetailPage() {
           {tabError ? <div className="inline-error" role="alert">This tab could not be loaded: {tabError}</div> : null}
           {activeTab === "Overview" ? <RunOverviewTab detail={detail} samples={bundle.manifest} sampleCount={summary.sample_count} manifestSummary={bundle.manifestSummary} /> : null}
           {activeTab === "Samples" ? <WgsSamplesTab samples={bundle.samples} manifest={bundle.manifest} showQc={detail.pipeline !== "gatk"} /> : null}
-          {activeTab === "Rules" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} page={rulePage} query={ruleQuery} onQueryChange={setRuleQuery} onOpenLog={(key) => { setLogKey(key); setLogStream("stdout"); setActiveTab("Logs"); }} /> : null}
+          {activeTab === "Rules" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} page={rulePage} query={ruleQuery} onQueryChange={setRuleQuery} onOpenLog={(key) => { handleLogKeyChange(key); setLogStream("stdout"); setActiveTab("Logs"); }} /> : null}
           {activeTab === "Master" ? <WgsMasterTab pods={bundle.pods} /> : null}
           {activeTab === "Transfers" ? <WgsTransfersTab detail={detail} transfers={bundle.transfers} refreshKey={bundle.snapshotAt} /> : null}
           {activeTab === "QC" ? <WgsQcTab samples={bundle.samples} /> : null}
-          {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer stream={logStream} onStreamChange={setLogStream} log={log} error={logError || tabError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} onSearch={detail?.pipeline === "wgs" ? setLogQuery : undefined} /></> : null}
+          {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer key={`${analysisId}:${logKey}:${detail?.attempt}`} stream={logStream} onStreamChange={setLogStream} log={log} error={logError || tabError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} onSearch={logKey ? searchLog : undefined} /></> : null}
           {activeTab === "Files" ? <RunFilesTab artifacts={bundle.artifacts} /> : null}
         </section>
       </> : null}

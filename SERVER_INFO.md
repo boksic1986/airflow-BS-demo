@@ -1,5 +1,13 @@
 # SERVER_INFO.md
 
+2026-09-16 BS10610/server10610 test deployment: releases/20260916-onprem-review
+under /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS.
+Backend e95d75c0695b, observer75bca7473155, API fc89ad88c70e,
+scheduler f4c89955a36b, worker7adcb7a790a9, frontend346c262603d8.
+Current symlink still20260912-opt-4d3d24e6; actual mounts identify deployed source.
+Schema0026; scanner/auto-dispatch false. No BS96 changes.
+See docs/releases/2026-09-16-onprem-bs10610.md; older fingerprints below are history.
+
 2026-09-15 BS96 UI93069eb supersedes backend/observer/frontend only:
 backendc1be8d79ea43, observerbc2da01ec68c mount
 /data/airflow-WGS/releases/20260915-ui-93069eb/backend; frontend121e64a9e5f4

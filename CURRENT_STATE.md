@@ -1,5 +1,243 @@
 # CURRENT_STATE.md
 
+## 2026-09-16 R2 — BS10610 deployed and accepted
+
+Final bounded acceptance and test deployment are complete; user confirmed the
+browser check succeeded. Backend6 tests, frontend5 tests/build and two live
+synthetic controller/monitor executions passed. Same run retains two snapshots
+and latest QC. No real Local/SGE/WGS computation was submitted.
+See [deployment record](docs/releases/2026-09-16-onprem-bs10610.md).
+Only the newly generated775894-byte DB backup was deleted as authorized; existing
+test rows/results/pending are retained. HTTP/HTTPS client support is delivered
+by WGS owner34b487d. No main merge/push or BS96 deployment; source work remains
+on jiucheng/feat/wgs-local-sge-20260915. Earlier candidate-only entries are history.
+
+## 2026-09-16 R2-4 native execution views — candidate verified
+
+User resolved the QC choice: resumes keep analysis_id; QC is the one latest
+run/project result, not per-execution history. This supersedes the pause below.
+Existing RunDetail now has native current/history configuration and configured
+sample scope, exact execution main logs, bounded text-evidenced Rules, and shared
+latest QC. QC uses config.batch -> 07_QC/{batch}.QCstat.tsv, not directory naming;
+incomplete/unreadable output preserves the last reliable cache. No invented QC
+execution provenance, start times, complete DAG counts or shared child-log links.
+
+BS10610 candidate-only cached/no-network verification:3 backend tests passed
+(2.29s), 3 frontend tests passed (2.60s), tsc + Vite production build passed.
+No WGS source/profile/prepare/pending changes, real analysis, live migration,
+service restart, scanner change, BS96 action, commit or push this turn.
+Next: bounded enabled candidate UI/API acceptance and remaining list integration
+review; whole Local/SGE feature is NOT deployed or fully accepted. Global Sample
+rows are not created from configured snapshots by this slice.
+
+## 2026-09-16 R2-4 evidence contract review — implementation paused
+
+User requested next step while prohibiting scope expansion. Before implementing
+execution views, WGS owner inspected candidate679a3e/deployed34bfcbf source:
+execution-specific log/step1.<native_id>.log and metadata exist, but there is no
+native structured rule JSONL/logger configured. QC and child rule logs are shared
+sample/batch paths, overwritten and without execution identity. File presence,
+mtime or controller exit0 cannot establish current-execution QC provenance.
+
+Existing frozen configured sample scope and exact native main log can be exposed;
+complete rule/QC execution history needs an explicit collection/provenance choice.
+Per user boundary, no speculative logger, QC copy protocol or new pipeline change
+was implemented. Recommended decision:keep WGS unchanged, expose snapshots/main
+logs first, parse only provable rule text and leave unbound QC uncollected. Await
+user confirmation of this staged acceptance instead of calling R2-4 complete.
+This turn changed documentation only; previous R2-3 candidate checks still stand.
+
+## 2026-09-16 R2-3 controller terminal and monitor attachment — candidate only
+
+The next bounded slice is implemented: fixed identity-bound controller-exit
+receipt consumption, terminal projection and idempotent monitor DAG attachment.
+Monitor transport retry never repeats claim/launch. Generic and WGS Airflow
+status sync skip native_monitor_only runs; sensor failure cannot replace native
+analysis status. Signal exit and nonzero SGE controller exit remain blocked for
+another launch until remaining jobs are reviewed. No automatic recovery added.
+
+BS10610 isolated cached/no-network containers:18 backend checks passed6.19s,
+2 monitor DAG checks passed4.091s. Includes one actual WGS679a3e controller
+running a synthetic exit-0 entry against a real platform-generated manifest and
+claim; its real receipt was accepted by the observer. Not a real WGS/SGE run or
+enabled Airflow-service test. WGS owner log independently inspected:19passed;
+native runtime/sampleinfo/profiles unchanged against deployed34bfcbf.
+
+Candidate source remains uncommitted/default off. No live migration, service,
+BS96, scanner, main or production change. Next:execution-scoped sample/rule/log/
+QC current and history readers; enabled-environment acceptance remains separate.
+
+## 2026-09-15 R2-3 observation candidate and deployed-WGS baseline
+
+User requested next step and no incomplete newer WGS as test baseline. WGS owner
+isolated deployment base34bfcbf82238af684d005314360c9c9739377351 with thin integration
+only; branch jiucheng/wgs-onprem-deployed-34bfcbf, HEADb07bbc4290b30ab82591645442e0889b3008489f.
+Old/new development branches retained, no cloud deployment. Independently checked
+remote Git: native runtime/sampleinfo/local+sge profiles have zero diff to base;
+seven changed files are thin registration/launcher/hooks/docs/tests. Remote log
+confirms15 passed. Baseline evidence is deployed catalog and matching completed
+WGS Job configuration, not exhaustive per-worker filesystem verification.
+
+Platform added generation-fenced native metadata/result observation and a separate,
+paused bio_wgs_native_monitor DAG. Only reads registered project evidence; no
+prepare/launch/cancel/resource action. Default-off WGS_ONPREM_MONITOR_ENABLED;
+new endpoint requires configured internal token even when legacy auth permits none.
+Updates current native started/running evidence, records collection degradation
+without failing analysis. Native result files are not proof controller exited;
+stage remains nonterminal and next launch stays blocked until a terminal adapter.
+No true heartbeat/liveness is inferred from repeated file reads.
+
+BS10610 cached tests:5 backend observation passed2.64s;2 DAG checks passed3.961s;
+syntax checks passed. Main/production/Compose/live services untouched. Automatic
+monitor attachment, final controller-exit evidence and execution-scoped UI remain
+pending. Source is uncommitted, feature gates remain off; not an enabled full flow.
+
+## 2026-09-15 R2-3 one-shot claim — isolated candidate verified
+
+User confirmed the BS10610 backend mount change was an intentional main sync.
+The earlier pause below is resolved; tests continue only in the existing candidate,
+not the mounted release. Added personal-session one-shot claim endpoint and separate
+default-off WGS_ONPREM_LAUNCH_ENABLED. Conditional accepted→launching consumes the
+permission once; registration replay is not launch permission. No process/Airflow
+start, no live state/migration/service changes. Current inputs now also bind the
+two files of the selected native profile (config direct input; runtime provenance).
+
+BS10610 cached image, --pull never/--network none: 25 passed (14 claim +11 execution,
+7.06s). Profile edit test first reproduced an incorrect200, then passed with409.
+WGS owner is implementing only the independent thin caller using the six-file
+contract. WGS owner verified5485c8a copies pipeline/cfg into the project and the
+four supported profile files are ordinary files, resolving the standard-layout
+concern without allowing external symlinks. Terminal observer, monitor-only DAG
+and execution-scoped views remain unfinished. Syntax and git diff --check passed.
+Do not enable the candidate or equate launch permission with observed execution.
+
+## 2026-09-15 R2-3 launch claim started — remote validation paused
+
+User approved next step after duplicate-identity explanation. Added synthetic
+launch-claim test cases only; no claim/launcher implementation yet and no tests
+executed this turn. Read-only BS10610 preflight found backend /app now mounted
+from releases/20260915-main-359df11/backend, previously20260913-panel-1fb971b.
+current remains20260912-opt-4d3d24e6; cached image ID, hostname/account,
+candidate permissions and scanfalse/autofalse/executiontrue are unchanged.
+Local commit359df11 resolves to UI log/resource-history fixes. Change is an
+unconfirmed service/source fingerprint update, not proof that deployment is bad.
+Paused remote writes/tests under runtime skill gate; asked user whether to keep
+testing only the existing isolated candidate without touching current services.
+
+WGS owner verified unchanged native Step1 metadata/exitcode and background argv
+semantics. Started metadata precedes Snakemake; exitcode precedes finished_at and
+post-success cleanup. One-shot claim permits at most one automatic launch attempt,
+not a guarantee of launch. Full claim/observer/monitored entry still pending.
+
+## 2026-09-15 R2-2 execution registration/input history — candidate only
+
+New endpoint registers same-analysis/attempt executions with new generation and
+private immutable input evidence; exact operation retries return the same receipt.
+Existing WgsStageExecution reused; additive0026 input-reference/configured-scope
+table leaves Sample untouched. Old/new location binding checks handle move and
+same-path new UUID while refusing copies/active runs. No controller/Airflow launch;
+receipt launch_allowed=false. WGS_ONPREM_SNAPSHOT_ROOT default empty/private0700.
+
+WGS owner corrected configured scope to config.sample data IDs, joined to current
+sample_info; new_sample_info frozen separately, never expands scope. Partial argv
+targets do not prove every configured sample should complete QC. Reported Linux
+identity/release are explicitly not independently authenticated/observed runtime.
+19 execution+registration checks passed on BS10610; additive migration tests2
+passed separately. A migration-test SQLAlchemy type-object comparison was corrected
+to compare SQLite DDL; no migration implementation failure. Existing warning only.
+
+WGS task delivered candidate5485c8a onjiucheng/wgs-onprem-registration-r2 (owner
+reports32 targeted checks); not deployed/pushed. Local contract document reviewed.
+No joint actual producer/API check or native monitored start yet. Next: execution
+snapshot-aware Sample/readers and R2-3 once-only monitored launcher/DAG, retaining
+original Local/SGE operations. Platform source remains uncommitted; BS96, live DB,
+scanner/dispatch and real analyses untouched. Earlier checkpoints below are history.
+
+## 2026-09-15 R2-1 connectivity restored — 11 checks passed, not deployed
+
+User confirmed interactive BS10610 login. Fresh same-alias noninteractive SSH and
+scp succeeded as chenjc/server10610; preflight matches prior test fingerprint.
+Candidate registration8 + additive migration1 + prior submission2 =11passed in4.57s
+in cached offline disposable Docker/SQLite, one pre-existing Starlette/AnyIO warning.
+Changed backend/migration Python syntax checks passed. No live database migration,
+service restart, production access or feature activation. Source remains uncommitted.
+Verified archive wgs-register-green.tar SHA256
+8cd8e05b79fdaa4cc0569bf17bbe9164112eaa1573625e0fb3a3340fa48d60a7 matches both hosts.
+The prior SSH blocker is resolved, not an account-authentication failure.
+WGS owner already accepted exact contract; next scoped work is the WGS thin hook,
+not deployment or monitored execution. Full R2-1 joint acceptance remains pending.
+
+## 2026-09-15 R2-1 registration API — unverified source, SSH blocked
+
+WGS owner confirmed analysis-only optional hook AFTER full native success;
+empty selection does not register, retries only register and never redo pending.
+Exact candidate contract: docs/superpowers/specs/2026-09-15-wgs-onprem-registration-contract.md.
+Source adds personal-session POST /api/wgs/onprem/projects, UUID-keyed idempotent
+AnalysisRun/RunAttempt creation without Sample, dispatch or Airflow work. Default
+off, explicit platform instance and project roots; local/sge target validation.
+New nullable unique onprem_project_uuid requires additive migration0025. Plain
+platform submit/recovery/cancel rejects native monitor records to avoid double launch.
+
+8 RED endpoint tests reproduced missing route; implementation and migration test
+written, GREEN and migration validation NOT RUN: scp and SSH test invocation both
+aborted at172.17.61.18 before session establishment. Stop retries; no BS96 fallback.
+Earlier 13 launcher passes do not cover these changes. Nothing deployed/migrated,
+no real credentials or analysis; source uncommitted. WGS received contract for
+review only, explicitly not implementation until platform GREEN.
+
+## 2026-09-15 R2 existing launcher correction — tested, not enabled
+
+Corrected the existing native launcher, without building R2 first registration:
+native launch validates binding identity/target and original Step1/profile, but
+no longer requires config/sample hashes to equal prepare. Prepare receipt/binding
+validation remains strict. Each execution writes a private, exclusive snapshot
+of current config, actual sample_info/new_sample_info references, generated argv,
+release provenance and effective Linux uid/user; same execution cannot overwrite
+the snapshot or launch again through this call. New execution keeps analysis_id.
+No new native argument forwarding/API, project-move registry, Sample/DB history
+projection or monitor-only DAG delivered in this slice; keep flags disabled.
+
+BS10610 connectivity restored and fingerprint matched existing test services;
+isolated cached synthetic tests: 13 passed in1.86s, targeted Python syntax check
+passed. RED first reproduced old hash rejection; one actor check reproduced
+environment-user misattribution before correction. No BS96 access, production
+deployment, WGS source/profile/prepare edits, scanner/dispatch change or real run.
+Source remains uncommitted on isolated branch; no main/production promotion.
+
+## 2026-09-15 Local/SGE R2 — documentation only, implementation paused
+
+User clarified first-time backend submission via an optional analysis-prepare
+monitor flag, after sampleinfo; no prior web-created run is required. R2 replaces
+the immutable prepare-config assumption with per-execution config/sample/argv
+snapshots, supporting edits before first launch and each resume. Same project:
+same analysis_id/attempt, new execution_id/generation. Project binding survives mv;
+a new project at the old path gets a new identity. No name/path-based merging.
+Pending handoff history is not rewritten from edited execution sample scope.
+Platform submitter and actual Linux execution account are recorded separately.
+
+R2 spec/plan and API/DB/runtime planning notes updated; no code/test/remote/service
+changes this turn. Existing uncommitted source and earlier GREEN blocker remain;
+old tests are not evidence of R2. Feature stays off. Next implementation begins
+with R2-1 platform/WGS thin-hook contract, not activation of the old frozen-config
+launcher. WGS task has not been dispatched in this documentation-only turn.
+
+The older entries below are historical implementation checkpoints, not the
+current specification. See docs/superpowers/specs/2026-09-15-wgs-local-sge-platform-integration.md.
+
+## 2026-09-15 submission/native launcher wiring — source pending verification
+
+After e34bc45, added source for default-off WGS_NATIVE_PREPARE_ENABLED: only new
+non-canary catalog runs receive native_prepare_contract=1; old runs are not
+upgraded and automatic new runs freeze CCE before dispatch. New Local execution
+uses shared wgs_onprem_runtime.py to validate its prepared binding and call native
+Step1 unchanged. The same library accepts SGE mode without an outer qsub or profile
+override; the SGE deployed runner/DAG is not yet connected. No monitored CLI wrapper
+or resume registration delivered yet.
+Six targeted RED cases reproduced missing wiring/legacy conversion. GREEN is NOT
+run: scp to BS10610 failed twice consecutively at SSH gateway172.17.61.18 banner/
+key exchange. Stop retrying; do not use BS96 or local runtime tests as fallback.
+Current source is uncommitted/unverified; flags and deployed services unchanged.
+
 ## 2026-09-15 WGS Local/SGE implementation started (isolated, not deployed)
 
 User authorizes sequential implementation of WGS-LOCAL-SGE-20260915 with minimal

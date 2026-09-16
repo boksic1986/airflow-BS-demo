@@ -235,6 +235,10 @@ def _project_wgs_dashboard_qc_statuses(*, session, settings, runs, **_) -> dict[
 
 
 def _project_wgs_run_detail(*, session, settings, run, **_) -> dict[str, Any]:
+    if (run.params_json or {}).get('native_monitor_only'):
+        from app.wgs_onprem_views import current_scope
+        return {'sample_count': len(current_scope(session, run)), 'lifecycle': None,
+                'step7_cleanup': None, 'step4_repair': None, 'execution_dispatch': None}
     observer = session.scalar(
         select(ObserverRunState).where(
             ObserverRunState.analysis_id == run.analysis_id,
@@ -285,6 +289,7 @@ def _observer_payload(observer) -> dict[str, Any] | None:
 
 
 def _project_wgs_workflows(*, session, runs, **_) -> dict[str, list[dict[str, Any]]]:
+    runs = [run for run in runs if not (run.params_json or {}).get('native_monitor_only')]
     if not runs:
         return {}
     attempts = {(run.analysis_id, run.attempt) for run in runs}

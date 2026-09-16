@@ -1611,7 +1611,7 @@ def _write_prepare_binding(payload: dict[str, Any]) -> None:
     )
 
 
-def _load_binding(payload: dict[str, Any]) -> dict[str, Any]:
+def _load_binding(payload: dict[str, Any], *, native_launch: bool = False) -> dict[str, Any]:
     path = _binding_path(payload)
     value = json.loads(path.read_text(encoding="utf-8"))
     if (
@@ -1622,14 +1622,31 @@ def _load_binding(payload: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("batch binding identity mismatch")
     if value.get("prepare_execution") is not None:
+        if native_launch:
+            mode = _prepare_mode(payload)
+            if mode not in {"local", "sge"} or payload.get("stage") != f"{mode}_analysis":
+                raise ValueError("native launch binding requires a native analysis stage")
+            # Prepared config/sample hashes remain handoff provenance, not an
+            # edit prohibition. Entry/profile still belong to the bound release.
+            root = Path(str(payload["expected_batch_root"]))
+            if root.is_symlink() or not root.is_dir():
+                raise ValueError("native execution batch is unavailable")
+            for name in ("Step1_run.sh", f"pipeline/cfg/profiles/{mode}/config.yaml"):
+                artifact = root / name
+                if (artifact.is_symlink() or not artifact.is_file()
+                        or root.resolve() not in artifact.resolve().parents
+                        or (value.get("native_artifacts") or {}).get(name) != _sha256_file(artifact)):
+                    raise ValueError("native execution entry/profile changed or unavailable")
         if (
             value["prepare_execution"] != payload.get("prepare_execution")
             or value.get("wgs_source_commit") != payload.get("wgs_source_commit")
             or value.get("batch_root") != payload.get("expected_batch_root")
-            or value.get("native_artifacts") != _native_prepare_files(payload)
+            or (not native_launch and value.get("native_artifacts") != _native_prepare_files(payload))
         ):
             raise ValueError("native execution binding changed or identity mismatch")
         return value
+    if native_launch:
+        raise ValueError("CCE binding cannot be used for native execution")
     if _prepare_mode(payload) != "cce":
         raise ValueError("CCE binding cannot be used for native execution")
     _validate_heavy_io_contract(payload, dict(value.get("resolved_runtime") or {}))

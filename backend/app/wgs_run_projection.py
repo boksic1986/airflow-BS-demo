@@ -35,6 +35,7 @@ def wgs_params_match_batch(
 
 def public_wgs_params(params: Mapping[str, Any] | None) -> dict[str, Any]:
     projected = dict(params or {})
+    projected.pop('native_latest_qc', None)  # Served once by the scoped native view, not every run summary.
     projected["batch_no"] = public_wgs_batch(projected)
     if projected.get('test_project'):
         data=projected['test_project']

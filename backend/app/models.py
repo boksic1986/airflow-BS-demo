@@ -45,10 +45,12 @@ class AnalysisRun(Base):
     __table_args__ = (
         UniqueConstraint("analysis_id", name="uq_analysis_run_analysis_id"),
         Index("ix_analysis_run_pipeline_status", "pipeline_name", "status"),
+        Index("uq_analysis_run_onprem_project_uuid", "onprem_project_uuid", unique=True),
     )
 
     id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
     analysis_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    onprem_project_uuid: Mapped[str | None] = mapped_column(String(36), nullable=True)
     pipeline_name: Mapped[str] = mapped_column(String(128), nullable=False)
     dag_id: Mapped[str] = mapped_column(String(256), nullable=False)
     dag_run_id: Mapped[str | None] = mapped_column(String(256))
@@ -695,6 +697,24 @@ class WgsStageExecution(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class WgsOnpremExecutionSnapshot(Base):
+    """Immutable native execution inputs, separate from mutable Sample rows."""
+    __tablename__ = "wgs_onprem_execution_snapshot"
+    __table_args__ = (
+        UniqueConstraint("analysis_id", "operation_id", name="uq_wgs_onprem_execution_operation"),
+    )
+
+    execution_id: Mapped[str] = mapped_column(ForeignKey("wgs_stage_execution.execution_id"), primary_key=True)
+    analysis_id: Mapped[str] = mapped_column(ForeignKey("analysis_run.analysis_id"), nullable=False)
+    operation_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    snapshot_path: Mapped[str] = mapped_column(Text, nullable=False)
+    manifest_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    file_refs_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    sample_scope_json: Mapped[list] = mapped_column(JSON, nullable=False)
+    registered_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
 
 class PipelineStageExecution(Base):
