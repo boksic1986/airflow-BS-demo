@@ -276,18 +276,63 @@ def _prepare_test_sampleinfo(payload: dict[str, Any]) -> None:
         finally: os.close(destination_fd)
     finally: os.close(output_fd)
     if _sha256_file(destination)!=data['sampleinfo_sha256']: raise RuntimeError('Frozen test sampleinfo changed')
+    _publish_imported_sampleinfo_receipt(payload, destination, data['sampleinfo_sha256'], data['samples'])
+
+
+def _publish_imported_sampleinfo_receipt(payload, destination, digest, expected_samples=None):
+    """Same preview receipt for a copied test input or an uploaded TSV."""
     request_path=_prepare_handoff_request(payload)
     request=json.loads(request_path.read_text())
     artifact=Path(request['artifact_root'])/request['artifact_keys']['sampleinfo']
-    if not artifact.exists():
-        with destination.open('rb') as reader,artifact.open('xb') as writer: shutil.copyfileobj(reader,writer)
+    _publish_imported_file(artifact, destination.read_bytes(), digest, mode=0o600)
     with destination.open(encoding='utf-8-sig',newline='') as handle: rows=list(csv.DictReader(handle,delimiter='\t'))
     mapping={'sequencing_batch':'上机批次','analysis_batch':'分析批次','family_id':'家系编号','sample_id':'样本编号','data_id':'数据编号','sample_type':'样本类型','family_relation':'家系关系','sex':'性别'}
     safe=[{**{key:str(row.get(column) or '') for key,column in mapping.items()},'decision':'candidate','reason_code':None,'reason_message':None} for row in rows]
-    if [row['sample_id'] for row in safe]!=data['samples']: raise RuntimeError('Frozen sample list differs from source table')
-    receipt={**{key:request[key] for key in ['analysis_id','attempt','execution_id','generation','request_hash','release_id']},'schema_version':'wgs.prepare-sampleinfo.receipt.v1','sampleinfo':{'artifact_key':request['artifact_keys']['sampleinfo'],'sha256':data['sampleinfo_sha256'],'row_count':len(safe)},'safe_candidates':safe,'created_at':datetime.now(timezone.utc).isoformat()}
+    if expected_samples is not None and [row['sample_id'] for row in safe]!=expected_samples: raise RuntimeError('Frozen sample list differs from source table')
+    receipt={**{key:request[key] for key in ['analysis_id','attempt','execution_id','generation','request_hash','release_id']},'schema_version':'wgs.prepare-sampleinfo.receipt.v1','sampleinfo':{'artifact_key':request['artifact_keys']['sampleinfo'],'sha256':digest,'row_count':len(safe)},'safe_candidates':safe,'created_at':datetime.now(timezone.utc).isoformat()}
     _atomic_json(Path(request['artifact_root'])/'prepare_sampleinfo.receipt.json',receipt,mode=0o600)
     payload['prepare_handoff_receipt']=_validated_prepare_receipt(payload,request_path)
+
+
+def _publish_imported_file(target, content, digest, *, mode=0o640):
+    if hashlib.sha256(content).hexdigest() != digest:
+        raise RuntimeError('Imported sampleinfo changed; not overwriting')
+    fd, name = tempfile.mkstemp(prefix='.sampleinfo-', suffix='.partial', dir=target.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(fd, 'wb') as writer:
+            os.fchmod(writer.fileno(), mode)
+            writer.write(content)
+            writer.flush()
+            os.fsync(writer.fileno())
+        try:
+            os.link(temporary, target)
+        except FileExistsError:
+            if target.is_symlink() or _sha256_file(target) != digest:
+                raise RuntimeError('Imported sampleinfo changed; not overwriting')
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _prepare_uploaded_sampleinfo(payload):
+    data = payload['sampleinfo_upload']
+    source = REQUEST_ROOT / payload['analysis_id'] / 'sampleinfo-upload.tsv'
+    if source.is_symlink() or not source.is_file() or _sha256_file(source) != data['sha256']:
+        raise RuntimeError('Uploaded sampleinfo is unavailable or changed')
+    root = Path(payload['analysis_project_root'])
+    if (not root.is_absolute() or '..' in root.parts or not root.is_dir()
+            or any(path.is_symlink() for path in (root, *root.parents))):
+        raise RuntimeError('Uploaded sampleinfo project root is unavailable')
+    batch_root = root / payload['batch_no']
+    if batch_root.exists() or batch_root.is_symlink():
+        raise RuntimeError('Analysis batch directory already exists; not overwriting')
+    directory = root / 'sampleinfo'
+    if directory.is_symlink():
+        raise RuntimeError('Sampleinfo output directory cannot be a symlink')
+    directory.mkdir(mode=0o2770, exist_ok=True)
+    destination = directory / f"{payload['batch_no']}.sampleinfo.txt"
+    _publish_imported_file(destination, source.read_bytes(), data['sha256'])
+    _publish_imported_sampleinfo_receipt(payload, destination, data['sha256'])
 CCE_PROFILE_ROOT = Path(
     os.getenv(
         "WGS_CCE_PROFILE_ROOT",
@@ -879,6 +924,10 @@ def _prepare_handoff_request(payload: dict[str, Any]) -> Path | None:
     if not _uses_prepare_handoff(payload):
         return None
     stage = str(payload["stage"])
+    if stage == 'prepare_analysis' and payload.get('sampleinfo_upload'):
+        source = Path(payload['analysis_project_root']) / 'sampleinfo' / f"{payload['batch_no']}.sampleinfo.txt"
+        if source.is_symlink() or not source.is_file() or _sha256_file(source) != payload['sampleinfo_upload']['sha256']:
+            raise RuntimeError('Imported sampleinfo changed since preview')
     generation = int(payload.get("generation") or 1)
     root = _workdir(payload) / "prepare-handoff" / stage / f"generation-{generation}"
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -1231,6 +1280,9 @@ def _run_prepare(payload: dict[str, Any]) -> None:
 def _run_prepare_sampleinfo(payload: dict[str, Any]) -> None:
     validate_release_repository(payload)
     validate_prepare_config(payload)
+    if payload.get('sampleinfo_upload'):
+        _prepare_uploaded_sampleinfo(payload)
+        return
     if payload.get('test_project'):
         _prepare_test_sampleinfo(payload)
         return
@@ -2520,6 +2572,8 @@ def _step3_success_matches_binding(payload: dict[str, Any]) -> bool:
 
 
 def run_stage(payload: dict[str, Any]) -> None:
+    if payload.get('sampleinfo_upload') and payload.get('stage') == 'prepare':
+        raise RuntimeError('Uploaded sampleinfo requires split preparation confirmations')
     if payload.get('test_project'):
         if payload.get('stage') == 'prepare':
             raise RuntimeError('Test projects require split preparation confirmations')

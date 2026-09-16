@@ -1,5 +1,175 @@
 # HANDOFF.md
 
+## 2026-09-16 Import review corrections; production directory decision pending
+
+Scope: user authorized prior review2/3/4, requested validation of SHA logic1 and
+production update. Corrected swapped user path names by explicit confirmation:
+WGS=/sg2/50.ctapa/Clinical/WGS_Clinical, WES=Clinical/WES_Clinical,
+scan=Clinical/WGS_Clinical/HWcloud_Target_Capture. No offline move/delete allowed.
+
+Owner ebf1f4b prepare/prepare_wgs_batch.py reads source at383/389, writes final
+selected table to staged project at492; no source rewrite during analysis.
+Backend normalizes only private analysis batch before hashing; stage1 copies
+bytes; approval writes DB state only. Added stage2 source-vs-import hash check,
+not an output hash check. Column validation reuses SAMPLEINFO_ORDER minus the
+native three optional tail columns. Backend and runtime publish complete input
+files using fsync + same-directory temporary hardlink without overwrite; receipt
+artifact uses the same runtime helper. Existing different files remain protected.
+Frontend shared target modal uses server run analysis_batch. Clarification of
+prior review: batch appears in target-switch modal; imported CCE-only runs cannot
+open it, so that display defect affects shared switchable catalog runs.
+
+Affected source: backend/app/wgs_sampleinfo_upload.py, scripts/wgs_runtime_gate.py,
+frontend/src/pages/SubmitPage.tsx; three focused test files; docs05/06/08 and state.
+Testing: BS10610/server10610 same7eefe2d feature worktree, cached8491604 backend
+and25e83a56052d Node, --network none, synthetic tmpfs, read-only source mounts.
+RED confirmed missing-column acceptance and partial final files after fsync
+failure. GREEN backend/test_wgs_sampleinfo_upload + runtime import + existing
+test-source receipt14passed7.65s. Frontend initial fixture lacked source_commit;
+fixed fixture, six tests passed; build caught nonexistent RunDetail.batch_no,
+removed that fallback. Final focused restored-batch test passed (five unrelated
+cases skipped after their successful run); tsc + Vite build passed, JS431.14kB
+raw/125.93kB gzip. No additional regression loop or analysis execution.
+No full regression, live DB test or real workflow run; not required for scope.
+
+BS96 read-only preflight:server96, control/data/airflow-WGS; backend actual
+20260916-backend-full-5cd5542/backend, observer20260915-ui-93069eb/backend,
+frontend image52d8afab851c, current symlink remains old panel release. Scanner
+enabled; auto-dispatchfalse. Old WGS root2770 and new root0755 are different
+inodes; both ctapa:bioinfo. WES roots and scan roots also distinct. Existing
+resolve_bound_wgs_batch_root only permits configured single root; naive switch
+rejects all historical old-root bindings. Asked user for minimal old-root
+compatibility or code-only release; no production writes/restarts performed.
+Candidate feature branch also contains unapproved Local/SGE changes, so promote
+only this scoped commit, not whole branch. No active-run claim yet: production
+execution/transfer checks must be refreshed before actual deployment.
+
+Command issues: first BS96 inspect contained a PowerShell-expanded substitution,
+local docker-not-found exit1; only read-only hostname/list completed. Replaced by
+literal stdin-to-Bash scripts. SSH gateway18 resets were transient; reconnected.
+No secrets, patient data, destructive operation or workflow source edit.
+Rollback: no deployment to undo; preserve all existing source and analysis data.
+
+Commit note: server Git initially rejected commit because this shell had no
+user identity. Reuse verified prior7eefe2d/d705a46 author/committer jiucheng
+through per-command Git -c options, not global configuration. Windows tar
+timestamp warned about an approximately12-second host-clock difference; archive
+extraction completed and git diff --check passed. No test evidence inferred
+from that clock warning. Production compatibility decision remains pending.
+
+## 2026-09-16 Final scope accepted: keep native prepare and pending
+
+User explicitly declined the proposed no-pending option: keep original logic.
+This resolves the hold below and supersedes its exact-set/no-pending requirement.
+Finished the remaining WGS Submit changes: server-readable sampleinfo.tsv path
+and custom batch; second confirmation shows input samples/source path/final
+standard-root project path. Existing native preparation processes pending and
+selection unchanged; third confirmation reviews its final selected samples.
+No prepare_wgs_batch.py edit, new option, copied native selection logic or extra
+directory hierarchy. Normal catalog, GATK and local/SGE behavior unchanged.
+
+Latest code edits: existing candidate backend submission service/import helper,
+request model, frontend API/SubmitPage and two focused test files. Public request
+now uses sampleinfo_path, not unpublished sampleinfo_text. Backend uses existing
+analysis/config/on-prem allowed roots and node-to-container analysis mapping;
+bounded regular-file read, escaped/symlinked-outside files rejected. Source stays
+untouched; only the private copy changes analysis batch. The existing import
+runtime and CCE identity remain the prior candidate implementation.
+
+BS10610 only, same server worktree/HEAD7eefe2d and mounts recorded below.
+Preflight hostname/status reconfirmed. Isolated cached images8491604/25e83a56052d,
+network none and read-only source mounts. Red tests caught missing path request
+support and missing path UI. Final backend/runtime affected files:12passed6.97s;
+frontend SubmissionOptions.test.tsx:5passed; npm run build passed (tsc+Vite).
+No full regression, live API analysis submission, production DB or service test.
+No runtime/native change after the prior tests; included its small import/receipt
+tests only. Documentation consistency and git diff --check complete handoff.
+
+Candidate remains uncommitted/unpublished. All running containers, scanner,
+dispatch gates, shared pending and analysis data remain untouched. Next action
+is separately requested server commit/integration or test publication; production
+requires explicit approval. Rollback needs no operation because nothing deployed.
+Current symlink is not the mounted release authority; preserve the mount-based
+preflight for any later deployment. Earlier uploaded-file and no-pending notes
+are historical and must not override this final instruction.
+
+## 2026-09-16 Follow-up acceptance: server file path, exact samples, no pending
+
+User confirmed server-readable sampleinfo.tsv path plus custom analysis batch;
+step2 reviews exactly the file's samples and final standard-root project path;
+step3 submits CCE. No shared pending participation at any stage, including native
+preparation. This supersedes the earlier uploaded-text/native-selection candidate.
+
+Read-only BS10610 preflight: hostname server10610; control airflow-WGS; backend
+mount still releases/20260916-onprem-main-d705a46/backend, current symlink remains
+20260912-opt-4d3d24e6. Scanner/auto-dispatch false; execution/runtime gates true.
+Source worktree still contains only the previous candidate changes. No production
+access, database connection, submission, permission change or service restart.
+
+Blocker verified in owner worktree
+/mnt/biodevrwbi/33.chenjiucheng/project/wgs-4.2.0 (HEAD ebf1f4b):
+prepare/prepare_wgs_batch.py lines429-435 always reads/reconciles local pending;
+lines461-462 and592 update it; parser _add_analysis lines663-690 has no disabling
+flag. prepare/pending.py read_pending/update_pending have no environment bypass.
+Removing the Airflow handoff argument alone would still access local pending.
+The user's earlier explicit prohibition on prepare interface/core changes requires
+confirmation before adding an opt-in exact-file/no-pending mode. No runtime hacks
+or separate project-root workaround are approved or implemented.
+
+Only CURRENT_STATE/TASKS/HANDOFF changed in this follow-up. No tests run because
+no executable change; prior candidate test results do not validate the new design.
+One read command exited1 due to a guessed prepare/selection.py path not existing;
+select_analysis_samples was found in prepare/pending.py instead, with no writes.
+Next: request permission for minimal additive owner-prepare behavior, keeping
+ordinary defaults unchanged; then finish path input, sample/path preview and CCE
+integration. Candidate is not ready for commit/publication as the final design.
+Rollback: none required, running services and all analysis data are untouched.
+
+## 2026-09-16 WGS-SAMPLEINFO-SUBMIT-20260916 candidate
+
+Goal: upload an existing sampleinfo through WGS Submit, then use the normal CCE
+flow. Latest user instruction supersedes directory proposal: the only custom
+path component is the analysis batch. The initial extra-directory prototype
+was removed before delivery. Same configured project root and project identity;
+no output_child parameter or generated namespace. The uploaded copy's analysis
+batch is replaced while original sequencing batches/metadata remain unchanged.
+Native analysis derives its directory from that column; its CLI is unchanged.
+
+Files: new backend/app/wgs_sampleinfo_upload.py plus existing submission service,
+main runtime payload, execution-choice guard; frontend API/SubmitPage and focused
+tests; scripts/wgs_runtime_gate.py imports into the existing receipt flow.
+API/frontend/runtime docs and these state records are updated. No schema/DAG,
+prepare_wgs_batch.py, GATK, local/SGE, release or pending-rule changes.
+
+Authoritative server Git worktree: BS10610
+`/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/development/wgs-local-sge-20260915`,
+branch jiucheng/feat/wgs-local-sge-20260915 at 7eefe2d. Windows task-artifacts is
+only an editing mirror, no Git commit there. Changes are uncommitted/unpublished.
+No production access, live submission, data cleanup or database mutation.
+
+Verification on BS10610 only: disposable network-none/read-only source containers,
+backend image 8491604 and frontend builder25e83a56052d. Pytest targets:
+backend/tests/test_wgs_sampleinfo_upload.py,
+scripts/tests/test_wgs_sampleinfo_upload.py and the existing frozen-table receipt
+test in scripts/tests/test_wgs_test_project_gate.py. Frontend:
+Targeted backend/runtime result: 10 passed; no broader regression.
+`vitest run src/SubmissionOptions.test.tsx` (5 passed) and `npm run build` passed.
+No full regression or real workflow test. The backend tests use in-memory SQLite;
+runtime fixtures are synthetic and use tmpfs, with subprocess execution forbidden.
+
+During development, the new always-visible mode selector exposed release-loading
+races in tests and the old non-catalog reset incorrectly reset file mode. Fixed
+selector readiness/reset; one catalog test now waits for loaded input options.
+An isolated argv test initially lacked a synthetic release root; fixture corrected.
+SSH gateway resets were before remote execution and did not change live state.
+
+Next: user review, then separately requested server commit/publication. Deploy
+backend, frontend and private WGS runtime gate together after checking actual
+mounts/current release; current symlink on BS10610 is historically stale, not an
+authoritative mounted source. No running service was changed. Rollback is simply
+not publishing this candidate; after any future release restore matching prior
+components without deleting input, project, results or pending data.
+
 ## 2026-09-16 Authorized main -> Local/SGE test integration
 
 Direction explicitly main into feature, not feature into main. Windows worktree

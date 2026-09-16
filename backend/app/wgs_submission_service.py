@@ -275,8 +275,15 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
                           fastq_root_id: str,
                           use_reference: str | None = None,
                           algo: str | None = None,
-                          validation_scope: str | None = None) -> dict:
+                          validation_scope: str | None = None,
+                          sampleinfo_text: str | None = None,
+                          sampleinfo_path: str | None = None) -> dict:
     """Create one catalog-bound run; WGS prepare owns sampleinfo and selection."""
+    if sampleinfo_path is not None:
+        if sampleinfo_text is not None:
+            raise ValueError('Choose one sampleinfo input source')
+        from app.wgs_sampleinfo_upload import read_sampleinfo_path
+        sampleinfo_text = read_sampleinfo_path(settings, sampleinfo_path)
     if validation_scope not in {None, "step1_only", "step3_dryrun", "node97_full"}:
         raise ValueError("unsupported WGS validation scope")
     from app.wgs_release_catalog import submission_options, config_options_activation
@@ -302,7 +309,16 @@ def create_and_submit_run(*, session, settings, airflow_client, username: str,
         fastq_root_id=fastq_root_id,
         use_reference=use_reference,
         validation_scope=validation_scope,
+        custom_analysis_batch=sampleinfo_text is not None,
     )
+    if sampleinfo_text is not None:
+        if validation_scope is not None:
+            raise ValueError('Uploaded sampleinfo does not use validation scope')
+        from app.wgs_sampleinfo_upload import create_uploaded_run
+        return create_uploaded_run(
+            session=session, settings=settings, airflow_client=airflow_client,
+            username=username, spec=spec, sampleinfo_text=sampleinfo_text,
+            selected_options=selected_options, sampleinfo_path=sampleinfo_path)
     run, existed = _create_catalog_run_record(
         session=session,
         settings=settings,
@@ -411,7 +427,8 @@ def create_automatic_wgs_run(*, session, settings, airflow_client, username: str
 def _catalog_run_spec(*, settings, project_id: str, platform: str, batch: str,
                       fastq_root_id: str,
                       use_reference: str | None,
-                      validation_scope: str | None = None) -> CatalogRunSpec:
+                      validation_scope: str | None = None,
+                      custom_analysis_batch: bool = False) -> CatalogRunSpec:
     project = _project(settings, project_id)
     project.platform(platform)
     root = project.fastq_root(fastq_root_id)
@@ -423,7 +440,7 @@ def _catalog_run_spec(*, settings, project_id: str, platform: str, batch: str,
     normalized_batch = batch.strip()
     if (
         SAFE_BATCH.fullmatch(normalized_batch) is None
-        or not re.fullmatch(r"[0-9]{8}[A-Z]", normalized_batch)
+        or (not custom_analysis_batch and not re.fullmatch(r"[0-9]{8}[A-Z]", normalized_batch))
     ):
         raise ValueError("batch must use YYYYMMDDX format")
     normalized_reference = "all" if use_reference is None else use_reference

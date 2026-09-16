@@ -1,5 +1,39 @@
 # API contract
 
+## WGS server sampleinfo path (2026-09-16 candidate, not deployed)
+
+`POST /api/wgs/runs` accepts optional `sampleinfo_path` (absolute server TSV/TXT
+path, UTF-8 file at most 512 KiB). Existing `batch` is the custom analysis batch; safe letters,
+digits, underscores, dots and hyphens are allowed in this mode. Catalog mode
+retains YYYYMMDDX validation. Project/platform/FASTQ choices and authentication
+are unchanged. No output-directory API field or new endpoint is introduced.
+
+The private input copy changes only its analysis-batch column to `batch`; original
+sequencing batches and all other field values are preserved. The original file
+is untouched. The batch must differ from the source analysis batch and must not
+reuse an existing run/directory. Exact repeat requests reuse the same submission;
+different content/options/owner at that identity are rejected. The existing
+catalog creation lock is reused. Imported text lives only in the private runtime
+request spool, not DB params, DAG conf, audit logs or browser draft storage.
+Read access is bounded to existing configured WGS analysis/config/on-prem project
+roots; node analysis paths map to the existing container mount. Escaping paths,
+symlink escapes, unavailable/nonregular files and oversized inputs are rejected.
+No new path permission or mount is enabled. `sampleinfo_source_path` and
+`prepared_project_path` in run params support the existing second-stage review.
+The unpublished text-upload request field is replaced, not another public mode.
+
+Import validates the native 31 required columns (the trailing analysisTaskId,
+taskSampleId and version remain optional); it never manufactures missing clinical
+values. Private files are published atomically without overwriting a different
+existing input. The normalized analysis-batch copy is the frozen checksum input.
+
+The existing three-stage confirmation protocol remains: import sampleinfo,
+review configuration/native analysis preparation, then confirm CCE execution.
+There are no schema migrations. The user's final decision explicitly retains
+native pending read/write/recovery and selection rules; preview candidates are
+not a guarantee of the final analysis set. The third confirmation shows the final
+selected set. No exact-file or no-pending mode is introduced.
+
 ## Native RunDetail view (2026-09-16 enabled on BS10610 only)
 
 Authenticated GET `/api/runs/{analysis_id}/native-view` only supports WGS

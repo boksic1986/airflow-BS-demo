@@ -1528,6 +1528,7 @@ export function createCatalogWgsRun(payload: {
   platform: string;
   batch: string;
   fastq_root_id: string;
+  sampleinfo_path?: string;
   algo?: string;
   use_reference?: "all" | "ref" | "no";
 }): Promise<RunDetail> {

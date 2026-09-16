@@ -421,8 +421,9 @@ class WgsCatalogRunRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     project_id: str = Field(min_length=1, max_length=128)
     platform: str = Field(min_length=1, max_length=64)
-    batch: str = Field(pattern="^[0-9]{8}[A-Z]$")
+    batch: str = Field(pattern="^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$")
     fastq_root_id: str = Field(min_length=1, max_length=128)
+    sampleinfo_path: str | None = Field(default=None, min_length=1, max_length=2048)
     use_reference: str | None = Field(default=None, pattern="^(all|ref|no)$")
     algo: str | None = Field(default=None, pattern="^(DNAscope|Haplotyper)$")
     validation_scope: str | None = Field(
@@ -2441,6 +2442,8 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 resource_manifest_sha256=release.resource_manifest_sha256,
                 prepare_execution=params.get("prepare_execution"),
             )
+            if params.get("sampleinfo_upload"):
+                payload['sampleinfo_upload'] = dict(params['sampleinfo_upload'])
             if params.get("test_project"):
                 from app.wgs_test_project import require_test, TEST_ROOT
                 require_test(settings)

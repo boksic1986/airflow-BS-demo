@@ -1,5 +1,38 @@
 # Workflow runtime integration
 
+## WGS custom-batch sampleinfo import (2026-09-16 candidate)
+
+An additive `sampleinfo_upload` descriptor carries checksum, source checksum and
+row count, not the uploaded text. The private request spool stores the uploaded
+copy after replacement of only its analysis-batch column. `prepare_sampleinfo`
+imports that copy into the standard `sampleinfo/<batch_no>.sampleinfo.txt`,
+using the existing handoff receipt; it does not query/regenerate metadata or
+touch pending. Repeated import requires matching bytes, and an existing batch
+directory is rejected. The catalog project identity and configured analysis root
+remain unchanged; no isolated namespace, marker hierarchy or alternate root.
+
+After confirmation, the unchanged native `prepare_wgs_batch.py analysis
+--sampleinfo ... --outpath ... --run-mode cce` path determines selection,
+family/basecount and pending behavior. No exact-selection test-project fence is
+applied. This mode is CCE-only and retains the existing split prepare/execution
+confirmations, runtime execution gates and stage records. No native workflow
+script, DAG, release, lock system or database schema is modified.
+
+Final input interface: the backend reads `sampleinfo_path` under configured WGS
+roots into that private copy, so the runtime does not need arbitrary file-read
+commands. The original file is never modified. User explicitly declined a
+no-pending option: existing pending and native selection behavior remains in
+force during analysis preparation. Import-time preview and final selected samples
+remain separate confirmations. No additional owner-script capability is needed.
+
+Review hardening: analysis preparation compares the imported source copy with
+its post-batch-replacement SHA256 before creating/reusing the handoff request.
+Preview/config approval never rewrites this copy. Native analysis reads it and
+writes selected/final tables elsewhere; those outputs are not compared with the
+import checksum. Imports and their receipt artifacts use fsynced temporary files
+and atomic no-overwrite publication, so interrupted writes do not expose partial
+final inputs. Native prepare/pending code remains untouched.
+
 ## Native read-only view evidence (2026-09-16 candidate)
 
 No WGS prepare/runtime/profile/logger changes for these views. Native main log:

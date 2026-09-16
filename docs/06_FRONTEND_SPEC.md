@@ -1,5 +1,24 @@
 # Frontend specification
 
+## WGS existing sampleinfo input (2026-09-16 candidate)
+
+Submit Run -> WGS offers an existing-sampleinfo path mode. Enter a server-readable
+UTF-8 TSV/TXT path and a custom analysis batch in the existing Batch field. Retain
+the catalog project, platform, FASTQ source and release parameters. There is no
+additional project-directory field, namespace or directory layer. The native
+output is `<configured WGS root>/WGS_<custom batch>_<platform>Hg38<version>`.
+Only the private copy's analysis batch is changed; source sequencing metadata
+is retained. Existing batches cannot be overwritten. The browser sends the path,
+not file contents. Step2 displays input samples, source path and target project
+path; after confirmation, original prepare still processes pending and selection.
+Step3 displays the final selected samples before CCE starts. No exact-set promise.
+The existing three confirmations and common controls are reused. Candidate only;
+no BS96 publication or real CCE launch accompanies this change.
+
+Execution-target confirmation derives its batch from the restored run's
+analysis_batch, never an unrelated browser submission draft. Imported CCE-only
+runs still cannot switch targets; this also corrects the shared catalog dialog.
+
 2026-09-16: Native views deployed to BS10610; user browser check passed.
 Search preserves continuous log context and forwards match_index for navigation.
 Native current scope counts do not imply new candidate Sample records.
