@@ -7,6 +7,73 @@ scheduler f4c89955a36b, worker7adcb7a790a9, frontend346c262603d8.
 Current symlink still20260912-opt-4d3d24e6; actual mounts identify deployed source.
 Schema0026; scanner/auto-dispatch false. No BS96 changes.
 See docs/releases/2026-09-16-onprem-bs10610.md; older fingerprints below are history.
+## 2026-09-16 Frontend full5cd5542
+
+08:32Z frontend5041172f8f5edf9277ed0ba58fcbd948538cf26ac81f2143ba38be55f03e5adc,
+image52d8afab851c17202d39a8e9fcedc6da309ae21955df242940852f91338e6a9a.
+Tag airflow-demo/frontend:full-5cd5542; JS BQVVDtTK, CSS BFPGoplr.
+Old nginx config bind, port12959 and env unchanged. Backend3b66af0a06c7 and other
+services unchanged. Private compose/rollback frontend-full-5cd5542-control under
+/data/airflow-WGS. Served index/assets/proxied API200. See frontend release receipt.
+
+## 2026-09-16 Full backend source5cd5542
+
+08:08Z backend3b66af0a06c77c1b07d5a7aad71bf07747e2526dcb70a3bf1d0c8a4835e06063
+now mounts /data/airflow-WGS/releases/20260916-backend-full-5cd5542/backend at/app.
+No per-file app overlays remain. Same image0e2d6f0cdf4b and environment; other11
+containers retain IDs. Global current symlink remains historical4d3d24e6 because
+this is a backend-only rollout. Compose/rollback private control:
+/data/airflow-WGS/backend-full-5cd5542-control. Health200. Full source and rollback
+receipt docs/releases/2026-09-16-backend-full-bs96.md.
+
+## 2026-09-16 GATK batch fallback overlay e583833
+
+07:55Z server96 backend b702a4dc47fb41be245231597f4458bb622c0601ee01e881a004357942d8d165.
+/app source remains93069eb; three089dc93 overlays retained plus run_service.py
+from /data/airflow-WGS/releases/20260916-gatk-batch-e583833/backend/app.
+Private Compose/rollback: /data/airflow-WGS/gatk-batch-e583833-control.
+Other11 containers and node200 private scripts unchanged; health200.
+See docs/releases/2026-09-16-gatk-batch-bs96.md.
+
+## 2026-09-16 GATK workload retirement selective release089dc93
+
+server96 current symlink unchanged. Backend /app remains20260915-ui-93069eb,
+with three read-only file overlays from releases/20260916-gatk-workloads-089dc93.
+Backend ID d4f942288f8f600a7c518e7f53e8d23b6c09de8464fbd46f4d00342205b4d5cf;
+other11 containers unchanged. Private Compose and rollback are under
+/data/airflow-WGS/gatk-workloads-089dc93-control (not candidates).
+Node200 GATK gate/bridge installed07:36Z; backup private root
+/home/ctapa/.config/airflow-gatk-workloads-089dc93/rollback. WGS-private files,
+Airflow/DAG/frontend/observer and data unchanged. Internal backend health200.
+See docs/releases/2026-09-16-gatk-workload-retirement.md for exact hashes/rollback.
+
+## 2026-09-16 Pod-exit private monitor release1770800
+
+server96 control/current/application/DAG pins unchanged; all12 Airflow containers
+retain IDs and health200. Effective runtime node200=t640/ctapa, private gates in
+/home/ctapa/.config/airflow-{wgs,gatk}. Three monitoring files patched atomically
+02:48:40Z; backups in /home/ctapa/.config/airflow-monitor-pod-exit-1770800/rollback.
+Exact hashes, original modes and bounded WGS patch recorded in
+docs/releases/2026-09-16-pod-exit-monitor-bs96.md. No gate config or data changes.
+
+2026-09-15 BS10610/server10610 latest-main359df11: actual /app and DAG sources
+releases/20260915-main-359df11; current remains historical20260912-opt-4d3d24e6.
+Backend0216d8c01387, observer41aee0d5dba8, API7136a3004faf, scheduler9ac92d49cf0e,
+worker3c29bb247a51, probe f8d3f7b2311b, metrics163cfcd5e5af, frontend65ebf491b521.
+Frontend main-359df11 imagec4225c70fe3e; dependency images retained. PostgreSQL/
+Redis IDs unchanged; all env values retained; scanfalse/autofalse/v2true.
+Schema0024; health200/importErrors0/assets BQVVDtTK/BFPGoplr; resources24h57991B.
+Private composition+rollback candidates/main-359df11-control; no96 change.
+Full record docs/releases/2026-09-15-main-bs10610.md.
+
+2026-09-15 Tracker read-only timing (no deployment): BS96/server96 backend
+c1be8d79ea43 still uses20260915-ui-93069eb; current symlink4d3d24e6;
+executiontrue/scantrue/autofalse unchanged. Internal authenticated GETs:
+dashboard/runs all0.597s and0.551s; deployed0.545s,7rows/~12KB;
+overview0.056s; platform/resources0.160s,1,880,830 uncompressed bytes.
+Resources include10,080 SFS history points and60 each node96/97; nginx JSON
+gzip already enabled. No browser trace; resource payload/rendering is a
+candidate contributor, not a confirmed sole cause. No DB or workload mutation.
 
 2026-09-15 BS96 UI93069eb supersedes backend/observer/frontend only:
 backendc1be8d79ea43, observerbc2da01ec68c mount

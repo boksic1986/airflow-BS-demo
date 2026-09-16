@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-16 Main integration into Local/SGE test branch
+
+User authorized main -> test branch integration and BS10610 publication only.
+Server worktree development/wgs-local-sge-20260915 preserves the accepted dirty
+Local/SGE source as cfe822f, following original e34bc45. Main d3a031a includes
+production application5cd5542 plus deployment-only records. Integration keeps
+native_monitor_only refresh isolation and main log/rule/resource/batch fixes.
+Historical entries below describe their own environment/date; no reverse merge
+to main/production or BS96 publication. Deployment receipt will record acceptance.
+
 ## 2026-09-16 R2 — BS10610 deployed and accepted
 
 Final bounded acceptance and test deployment are complete; user confirmed the
@@ -252,6 +262,176 @@ BS10610 read-only preflight: server10610/chenjc; current `20260912-opt-4d3d24e6`
 backend actually mounts `20260913-panel-1fb971b/backend`, scan/auto false,
 execution true. Only isolated cached synthetic tests planned; no service restart,
 BS96 access, real analysis, source/pending changes or production promotion.
+## 2026-09-16 Production frontend5cd5542 published
+
+User approved frontend release. Complete frontend source5cd5542 matches the
+previously accepted359df11 frontend tree. Offline96 build passed; only nginx
+frontend recreated08:32Z. Served index-BQVVDtTK.js/index-BFPGoplr.css contain
+sample-flow labels and included-batch column; index/assets/proxied health200.
+Backend full5cd5542 and other10 containers unchanged. Frontend and backend now
+both use production5cd5542 application code; Airflow/runtime pins remain separate.
+Receipt docs/releases/2026-09-16-frontend-full-bs96.md.
+
+## 2026-09-16 Complete production backend5cd5542 deployed
+
+User approved full backend rollout after confirming no active tasks. Backend now
+uses one complete Git archive at releases/20260916-backend-full-5cd5542/backend;
+all four per-file overrides removed. Source matches production5cd5542, including
+batch/Step7, rule summaries, log context, resource-history projection and sample
+handoff decisions. No dependency/schema changes. Frontend/Airflow/runtime scripts
+and other11 containers remain pinned and unchanged; this is backend-only parity.
+BS10610 one isolated import smoke passed; production health200 and expected GATK
+batch/action states confirmed. Receipt docs/releases/2026-09-16-backend-full-bs96.md.
+
+## 2026-09-16 GATK batch fallback published to96
+
+User authorized the missing e583833 batch fallback plus retention of the current
+089dc93 workload/Step7 fixes. At07:55Z only backend was recreated with a fourth
+read-only file overlay (run_service.py). Four GATK list rows now return batch
+20260914A,20260914B,20260907A,20260823A. Health200, other11 containers unchanged.
+No frontend/DAG/runtime rollout, test rerun or data mutation. This is still a
+selective release on93069eb, not a full main deployment. Receipt:
+docs/releases/2026-09-16-gatk-batch-bs96.md.
+
+## 2026-09-16 GATK stale workload fix deployed selectively
+
+GATK bridge retires confirmed absent Pods; old events cannot resurrect them.
+Final collection and Step6 refresh converge reader/Master state; Step7 keeps
+active/unknown workloads blocked. Reuses existing evidence and stage polling,
+without API/schema/image/DAG changes or cleanup execution. BS10610 isolated
+76 affected tests passed. Server code089dc93 pushed to main/production. At07:36Z,
+96 backend received only three file deltas and node200 two GATK-private scripts.
+Four completed runs now have Step7 available; success/attempt1 unchanged. Only
+backend recreated, other11 containers unchanged, internal API health200. No SFS
+cleanup or rerun executed. Windows is editing only.
+See docs/releases/2026-09-16-gatk-workload-retirement.md for scope and release.
+
+## 2026-09-16 Pod-exit monitoring fix deployed to production private scripts
+
+Code1770800 committed and pushed to main/jiucheng/release/production; excluded
+0914A resume compatibility and all prior dirty changes. Authorized script-only
+release installed3 files on ctapa/node200 used by96. GATK matches source; older
+WGS bridge received only the race-fix delta. All12 server96 containers unchanged,
+health200; no task restart or other app rollout. Release/rollback evidence:
+docs/releases/2026-09-16-pod-exit-monitor-bs96.md. Earlier source-only note below
+is superseded for this race fix; latency-wait180 remains out of scope.
+
+## 2026-09-16 Pod-exit evidence race fixed in source; not deployed
+
+POD-EXIT-EVIDENCE-RACE-20260916: the shared WGS/GATK bridge rechecks once after
+exec failure, defers nonterminal reads or uses the existing terminal reader only
+for the same terminal Pod/confirmed absence. Partial reads do not advance cursors.
+GATK authoritative runtime success now survives terminal evidence failure with
+monitoring_health=degraded and a concise warning. WGS scheduling is unchanged.
+BS10610 isolated offline targeted tests: RED 10 failed/6 passed; GREEN 48 passed
+in 1.30s. No production deployment, 0914A rerun, latency-wait change or data changes.
+Earlier recovery/operational edits remain separate and uncommitted.
+
+## 2026-09-16 Authorized batch-display and test-release documentation integration
+
+User approves committing the one-line GATK batch fallback, its targeted regression
+and the previously uncommitted BS10610 main359df11 release record together to
+main/production. No other application changes or deployment included. Source
+base359df11; production checkout clean. The source-only/uncommitted entries below
+describe the pre-integration state. Remote Git SSH22 timed out; integration must
+use normal fast-forward/atomic push and verify both refs, never force-push.
+
+## 2026-09-16 Batch Runs GATK batch display (source only)
+
+Fixed shared run_service._public_batch fallback to params.batch, after existing
+analysis_batch/sequencing_batch/batch_no priority. GATK stores its batch in that
+field; list previously returned null. One BS10610 isolated serializer regression
+passed (0.36s), covering GATK, WGS priority and missing batch. No frontend,
+database, workflow or deployed-service changes; not committed/published.
+
+## 2026-09-15 BS10610 updated to main359df11
+
+Test platform application/DAG sources now use releases/20260915-main-359df11;
+eight application services updated, PostgreSQL/Redis retained. All existing
+environment/data/config mounts and scanfalse/autofalse preserved. Historical
+current symlink remains old; use the private main-359df11-control composition.
+Existing additive migrations0021→0024 completed; no reset/backup needed despite
+user permitting disposable test data. Offline build and one simple smoke passed:
+health200, resources24h57,991bytes/<=600points, Tracker200, importErrors0, new
+assets BQVVDtTK/BFPGoplr. No full suite, analysis submission or96 change.
+See docs/releases/2026-09-15-main-bs10610.md for exact inventory and rollback.
+
+## 2026-09-15 Log and resource source integration (no deployment)
+
+User authorizes committing the completed log-context search and bounded SFS
+history/rendering changes to main and jiucheng/release/production. This source
+integration contains both changes, their targeted tests and API/UI handoff docs;
+it supersedes the uncommitted status in the dated entries below. Pre-integration
+local/remote refs allab23ca6; production checkout clean. Existing BS10610 test
+and build receipts below apply unchanged; no redundant suite rerun. Temporary
+.superpowers artifacts and unrelated branches are excluded. BS96 publication
+is not authorized by this Git synchronization and remains pending.
+
+## 2026-09-15 SFS I/O history optimization (not deployed)
+
+User approved bounded resource-history/rendering optimization. Dashboard now
+requests selected1h/24h/7d, at most600 original SFS points with chart-only fields;
+stored10080-point history and old no-parameter API are preserved. Existing
+refresh-key fencing protects time-window changes; memo/useMemo avoids unrelated
+parent refresh recalculation. No scheduler, collector, workflow or data change.
+BS10610 targeted backend3/frontend2 passed; tsc/Vite passed (BQVVDtTK/BFPGoplr).
+Bounded read-only code review found no important issue. Source docs updated.
+Log search changes remain intact. Neither change is committed or published;
+main/production source remainab23ca6. No production performance improvement is
+claimed yet; previous measured history payload identified the optimization target.
+
+## 2026-09-15 Log context search and Tracker diagnosis (not deployed)
+
+Implemented registered WGS/GATK content search with continuous bounded context,
+matching-line index, shared previous/next controls and highlighting. Search is
+separate from automatic refresh; no scan on normal refresh while searching.
+BS10610 backend7/component2/page integration1 passed; tsc/Vite build passed.
+Review caught JSON escaping inflation; corrected serialized size with16KiB
+metadata reserve and accepted its targeted regression plus context case.
+No commit/main sync/publication yet; code baseab23ca6. No workflow/data changes.
+
+BS96 read-only Tracker timing: all0.597/0.551s, deployed0.545s,7rows/~12KB;
+overview0.056s. Resources0.160s but1,880,830 uncompressed response bytes, with
+10,080 SFS history points plus60 per node. Almost all payload is history.
+Nginx JSON gzip already enabled. Dashboard fetches resources every10s; SFS
+history conversion/filter/SVG paths recompute on parent updates without memo.
+This is a concrete performance suspect, not proof of the browser stall: no
+browser performance trace was taken. Tracker also synchronously queries Airflow
+for active runs before adapter projection, but no long API stall reproduced.
+At diagnosis time no Tracker/resource implementation changed; the subsequently
+approved bounded history optimization is recorded above.
+
+## 2026-09-15 Rule-summary/Attempt Git integration (no deployment)
+
+User authorizes committing the two shared phase-summary corrections and Rules
+Attempt selector removal to main and jiucheng/release/production together.
+Preflight local main/production checkout and both remote branches match4b5234e;
+production checkout is clean. Only the scoped nine source/test/doc files are
+included; untracked .superpowers assets and original workspace remain untouched.
+Retain accepted BS10610 backend11/frontend2 results without redundant tests.
+Use fast-forward plus atomic dual-ref push and verify exact remote SHA afterward.
+No BS96 publication, production service/database/workflow or0911A operation.
+
+## 2026-09-15 Attempt selector removed; summary fixes accepted (source only)
+
+Removed only the Rules Attempt control and unused numeric filter conversion.
+Page retains current-attempt default; API history/identities/recovery unchanged.
+BS10610 SSH recovered; preceding summary fix now accepted: backend monitor_rules
+11 passed, two targeted frontend contracts passed. Actual server10610 fingerprint
+unchanged. No full suite, publication, production access, commit or main push.
+This supersedes the prior acceptance-blocked state below.
+
+## 2026-09-15 Rule phase summary isolation (source changed; acceptance blocked)
+
+Rules API now aggregates phase_summaries from the complete selected attempt,
+not filtered table rows. Filtered items/total retain their original semantics.
+Both Pipeline phases and phase summary already consume this shared field; no
+frontend runtime change, new API call, DAG/runtime/data change or production access.
+Added GATK/WGS endpoint regression and shared-view regression. BS10610 initial
+test exposed missing GATK registry in the fixture; fixture corrected locally.
+Subsequent SSH/SCP failed at the BS jump-host handshake, so corrected tests and
+fix have not been run remotely. Not committed, main-synchronized or deployed.
+
 
 ## 2026-09-15 QC/sample-flow Git promotion (no deployment)
 

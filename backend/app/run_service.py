@@ -302,6 +302,7 @@ def _public_batch(params: dict) -> str | None:
         params.get("analysis_batch")
         or params.get("sequencing_batch")
         or params.get("batch_no")
+        or params.get("batch")
         or ""
     ) or None
 

@@ -65,9 +65,9 @@ export function RunWorkflowTab({progress, rules, onOpenLog, page, query, onQuery
     if (onQueryChange) onQueryChange({...effectiveQuery, offset: next});
     else setOffset(next);
   }
-  function change(key: keyof RuleQuery, value: string) {
+  function change(key: "phase" | "status" | "sampleId" | "familyId", value: string) {
     setOffset(0);
-    onQueryChange?.({...effectiveQuery, [key]: key === "attempt" ? (value ? Number(value) : undefined) : value, offset: 0});
+    onQueryChange?.({...effectiveQuery, [key]: value, offset: 0});
     if (key === "phase") setPhaseFilter(value);
     if (key === "status") setStatusFilter(value);
     if (key === "sampleId") setSampleFilter(value);
@@ -104,7 +104,6 @@ export function RunWorkflowTab({progress, rules, onOpenLog, page, query, onQuery
       </section>
       <section>
         <div className="toolbar">
-          {page ? <label>Attempt<select aria-label="Attempt" value={query?.attempt ?? ""} onChange={(e) => change("attempt", e.target.value)}><option value="">Current ({page.current_attempt ?? page.attempt})</option>{(page.attempts || []).map((a) => <option key={a} value={a}>Attempt {a}</option>)}</select></label> : null}
           <label>Phase<input aria-label="Phase" value={query?.phase ?? phaseFilter} onChange={(e) => change("phase", e.target.value)} placeholder="Exact phase" /></label>
           <label>Status<select aria-label="Rule status" value={query?.status ?? statusFilter} onChange={(e) => change("status", e.target.value)}><option value="">All</option>{["planned", "running", "success", "failed", "canceled"].map((v) => <option key={v}>{v}</option>)}</select></label>
           <label>Sample<input aria-label="Sample" value={query?.sampleId ?? sampleFilter} onChange={(e) => change("sampleId", e.target.value)} placeholder="Exact sample ID" /></label>

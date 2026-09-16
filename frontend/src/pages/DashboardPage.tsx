@@ -8,6 +8,7 @@ import type {
   IntakeDiscovery,
   IntakeScannerStateResponse,
   PlatformResourcesResponse,
+  ResourceHistoryPeriod,
 } from "../api";
 import type {RunTrackerFilter} from "../components/RunTracker";
 
@@ -48,6 +49,7 @@ export function DashboardPage() {
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [trackerPayload, setTrackerPayload] = useState<DashboardRunsResponse | null>(null);
   const [resources, setResources] = useState<PlatformResourcesResponse | null>(null);
+  const [resourceHistoryPeriod, setResourceHistoryPeriod] = useState<ResourceHistoryPeriod>("24h");
   const [intakeItems, setIntakeItems] = useState<IntakeDiscovery[]>([]);
   const [intakeScanner, setIntakeScanner] = useState<IntakeScannerStateResponse | null>(null);
   const [submitError, setTrackerError] = useState<string | null>(null);
@@ -114,9 +116,9 @@ export function DashboardPage() {
   }, JSON.stringify([deployedPipeline, intakeOffset, showIntake, trackerKeyword]), dashboardReady);
 
   const {loading: resourcesLoading, error: resourcesError} = useSilentRefresh(async ({isCurrent}) => {
-    const result = await getPlatformResources();
+    const result = await getPlatformResources(resourceHistoryPeriod);
     if (isCurrent()) setResources(result);
-  }, 'resources', dashboardReady);
+  }, `resources:${resourceHistoryPeriod}`, dashboardReady);
   useEffect(() => {
     if (capabilities.deployed_pipelines.length === 1) {
       const onlyPipeline = capabilities.deployed_pipelines[0]!;
@@ -215,6 +217,8 @@ export function DashboardPage() {
               onPageChange={setIntakeOffset}
             /> : null}
           <DashboardResourcePanels
+            historyPeriod={resourceHistoryPeriod}
+            onHistoryPeriodChange={setResourceHistoryPeriod}
             resources={resources}
             resourceTab={resourceTab}
             overview={overview}

@@ -1,5 +1,13 @@
 # TASKS.md
 
+## ONPREM-MAIN-SYNC-20260916
+
+- [x] Preserve58 dirty source/docs files in server feature commit cfe822f.
+- [x] Resolve main d3a031a merge; retain native polling guard and both doc histories.
+- [ ] Minimal affected verification/build, then BS10610 application publication.
+- [ ] Preserve existing schema0026, records, snapshots, gates and native DAG.
+- [ ] Publish branch/receipt; no main reverse merge, BS96 action or real analysis.
+
 ## 2026-09-16 acceptance checkpoint (supersedes candidate holds below)
 
 - [x] R2 registration, execution snapshot, once-only launch, monitor and views
@@ -46,6 +54,126 @@ No further expanded tests or real compute are implied by this checkpoint.
 - Historical foundation: `4f90018`/`e34bc45`; 7 freeze, 11 runtime, 6 request checks passed under R1. Not R2 acceptance.
 - Previous SSH block cleared during existing-code correction; current launcher/submission subset passed the 13 matched checks. Source remains uncommitted; no feature activation/deployment.
 - No original pipeline/core edits by platform, production changes or real native launch. WGS owner implements only its scoped optional hook; new APIs/snapshot storage remain inactive/uncommitted platform source.
+## FRONTEND-PRODUCTION-20260916
+
+- [x] Verify c281876 sample-flow UI exists in production5cd5542.
+- [x] Reuse previously accepted frontend tree; offline build, no repeated suite.
+- [x] Deploy only frontend; preserve gateway configuration and backend.
+- [x] Served assets/new labels and proxied health200; other11 containers unchanged.
+
+## BACKEND-FULL-PRODUCTION-20260916
+
+- [x] Verify production5cd5542 and compare full backend with actual96 source.
+- [x] Confirm no active tasks; no dependency/model changes or migration required.
+- [x] One isolated BS10610 import smoke; no full or repeated regression.
+- [x] Deploy complete backend directory; remove4 file mounts, preserve other services.
+- [x] Health/batch/capability and mount check; record rollback and source identity.
+
+## GATK-BATCH-RELEASE-20260916
+
+- [x] Publish existing tested e583833 batch fallback to96 on user authorization.
+- [x] Preserve all089dc93 overlays; restart backend only.
+- [x] One list payload/health check: four GATK batches present, health200.
+- [x] Record release and rollback; no redundant suite or data changes.
+
+## GATK-CLEANUP-STALE-WORKLOAD-20260916
+
+- [x] Trace old Running Pod/reader records blocking completed runs.
+- [x] Reuse bridge/importer with confirmed-absence and late-event fencing.
+- [x] Final Step6 collection/ingestion; keep analysis outcome independent.
+- [x] BS10610 targeted RED/GREEN;76 tests passed, no full regression.
+- [x] Server code089dc93 committed and atomically pushed to main/production; selective96 release.
+- [x] Refresh four exact completed-run records; all four capabilities available, no SFS cleanup.
+
+## POD-EXIT-EVIDENCE-RELEASE-20260916
+
+- [x] Commit only approved race fix; keep0914A compatibility uncommitted.
+- [x] Fast-forward main/production and atomically push code1770800.
+- [x] Verify96 actual mounts and node200 private runtime callers/hashes.
+- [x] Install3 scripts with rollback copies; preserve older WGS unrelated behavior.
+- [x] Check installed parity,12 unchanged containers and health200.
+- [x] Document exact release/rollback; no rerun, broad deployment or extra tests.
+
+## POD-EXIT-EVIDENCE-RACE-20260916
+
+- [x] Reproduce exit race and GATK success/log-failure coupling with targeted tests.
+- [x] Requery Pod once after failed exec; terminal reader fallback or defer polling.
+- [x] Preserve errors for active/unknown/replaced Pods and failed status queries.
+- [x] Preserve incremental cursors until the complete read succeeds.
+- [x] Keep authoritative GATK success with degraded monitoring when logs fail.
+- [x] BS10610 isolated affected tests: 48 passed; WGS state separation unchanged.
+- [x] Update runtime contract, current state and handoff; preserve prior dirty work.
+- [ ] Production release requires separate approval and actual private-path check.
+- Excludes latency-wait180, DAG/image/CCE/lock/attempt changes and rerunning0914A.
+
+## GATK-BATCH-GIT-SYNC-20260916
+
+- User explicitly approves main/production integration of the batch fallback,
+  regression and previously uncommitted BS10610 deployment documentation.
+- Reuse BS10610 one-case regression; no repeated suite or runtime deployment.
+- Preserve .superpowers scratch files; use fast-forward and atomic dual-ref push.
+
+## GATK-BATCH-DISPLAY-20260916
+
+- [x] Add missing params.batch fallback to existing public batch serializer.
+- [x] One synthetic BS10610 regression: observed null failure then1pass.
+- API documentation updated; no deployment/DB change/extra UI logic.
+
+## BS10610-MAIN-359DF11-20260915
+
+- [x] User authorizes latest-main test update and only minimal acceptance.
+- [x] Pin359df11, preflight hostname/mounts/gates/no active runs.
+- [x] Cached build, existing schema migration and explicit eight-service update.
+- [x] One health/resources/Tracker/static/DAG smoke; state and rollback recorded.
+- No96 publication, full tests, data cleanup or workflow submission.
+
+## LOG-RESOURCE-GIT-SYNC-20260915
+
+- User explicitly authorizes commit and main/production branch integration.
+- Scope: LOG-CONTEXT-SEARCH-20260915 and RESOURCE-HISTORY-20260915 only.
+- Preflight: clean production checkout; HEAD/main/production/local remote refs
+  allab23ca6 after fetch. Use fast-forward integration and atomic dual-ref push.
+- Reuse accepted BS10610 targeted tests/build; no runtime source changes since.
+- Exclude .superpowers packaging artifacts; retain editing worktree.
+- No BS96 deployment, service restart or workflow/data action.
+
+## RESOURCE-HISTORY-20260915
+
+- [x] User-approved SFS I/O history and rendering scope only.
+- [x] Optional period projection,600-point ceiling, preserve DB history/current values.
+- [x] Selected-period requests, stale-response isolation and memoized chart work.
+- [x] BS10610 backend3/frontend2 and build; bounded review and API/UI docs.
+- No commit, main sync or production deployment requested in this turn.
+
+## LOG-CONTEXT-SEARCH-20260915
+
+- [x] WGS/GATK registered-key search returns continuous bounded context.
+- [x] Matching-line previous/next, literal highlight, counter and shared UI.
+- [x] Debounce and stale-response fencing; recurring refresh does not rescan.
+- [x] BS10610 targeted backend7/frontend3 and build; API/UI contracts updated.
+- [x] Review correction: bound serialized JSON, not just raw text; escaped-line test passed.
+- [x] Read-only Tracker diagnosis: ~0.55s/~12KB; resource history ~1.88MB.
+- [x] User approved resource-history optimization; delivered separately above.
+- No production deployment, main sync, workflow or data action.
+
+## RULE-SUMMARY-GIT-SYNC-20260915
+
+- [x] User explicitly authorizes combined main/production source integration.
+- [x] Verify clean production checkout and equal local/remote base4b5234e.
+- Include rule summary isolation, both shared phase displays and Attempt removal.
+- Commit scoped files; fast-forward main and atomically push both remote refs.
+- Verify resulting SHA equality; no production deployment or repeated tests.
+
+## RULE-SUMMARY-FILTER-20260915
+
+- [x] Follow-up: remove Rules Attempt selector only; retain API history and current default.
+
+- [x] Trace both phase displays to the same filtered API aggregate.
+- [x] Separate attempt-wide summaries from filtered row count/page; no new endpoint.
+- [x] Add GATK/WGS filter/attempt and shared-view regressions, update API/UI contracts.
+- [x] BS10610 acceptance after SSH recovery: backend11/frontend2 passed.
+- No production deployment, workflow action, schema/data change or main push.
+
 
 ## QC-SAMPLE-FLOW-GIT-SYNC-20260915
 

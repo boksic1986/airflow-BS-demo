@@ -2,8 +2,11 @@ import "@testing-library/jest-dom";
 
 import {fireEvent, render, screen, within} from "@testing-library/react";
 import {MemoryRouter} from "react-router-dom";
+import {useState} from "react";
+import {vi} from "vitest";
 
 import type {PlatformResourcesResponse} from "../../api";
+import {getPlatformResources} from "../../api";
 import {DashboardResourcePanels} from "./DashboardResourcePanels";
 
 const resources: PlatformResourcesResponse & {heavy_slot: {pool: string; used: number; limit: number; waiting: number; mode: string; available: boolean}} = {
@@ -152,17 +155,15 @@ it('calculates total from complete read/write values when cloud total is absent'
 });
 
 it("replaces workflow activity with the SFS read and write history", () => {
+  function ControlledPanels() {
+    const [historyPeriod, setHistoryPeriod] = useState<"1h" | "24h" | "7d">("24h");
+    return <DashboardResourcePanels resources={resources} resourceTab="all" overview={null}
+      rows={[]} loading={false} error={null} onResourceTabChange={() => undefined}
+      historyPeriod={historyPeriod} onHistoryPeriodChange={setHistoryPeriod} />;
+  }
   render(
     <MemoryRouter>
-      <DashboardResourcePanels
-        resources={resources}
-        resourceTab="all"
-        overview={null}
-        rows={[]}
-        loading={false}
-        error={null}
-        onResourceTabChange={() => undefined}
-      />
+      <ControlledPanels />
     </MemoryRouter>,
   );
 
@@ -198,6 +199,32 @@ it("replaces workflow activity with the SFS read and write history", () => {
   fireEvent.click(screen.getByRole("tab", {name: "7D"}));
   const weekAxis = screen.getByLabelText("SFS bandwidth X axis");
   expect(within(weekAxis).getAllByText(/\d{2}-\d{2}/)).toHaveLength(8);
+});
+
+it("requests selected history only and does not recompute I/O for unrelated parent updates", async () => {
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(resources), {status: 200}));
+  const parseSpy = vi.spyOn(Date, "parse");
+  try {
+    await getPlatformResources("1h");
+    expect(String(fetchSpy.mock.calls[0][0])).toContain("/platform/resources?history_period=1h");
+    const changePeriod = vi.fn();
+    const base = {resources, resourceTab: "all" as const, overview: null, rows: [],
+      loading: false, error: null, onResourceTabChange: () => undefined,
+      historyPeriod: "24h" as const, onHistoryPeriodChange: changePeriod};
+    const {rerender} = render(<DashboardResourcePanels {...base} />);
+    parseSpy.mockClear();
+    rerender(<DashboardResourcePanels {...base} rows={[]} />);
+    expect(parseSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("tab", {name: "7D"}));
+    expect(changePeriod).toHaveBeenCalledWith("7d");
+    rerender(<DashboardResourcePanels {...base} historyPeriod="7d"
+      resources={{...resources, history_period: "24h"}} />);
+    expect(screen.queryByRole("img", {name: "SFS read and write bandwidth history"})).not.toBeInTheDocument();
+    expect(screen.getByText("正在加载所选时段…")).toBeInTheDocument();
+  } finally {
+    fetchSpy.mockRestore();
+    parseSpy.mockRestore();
+  }
 });
 
 it("does not report zero utilization when a metric is unavailable", () => {

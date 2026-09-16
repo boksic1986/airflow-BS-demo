@@ -3,6 +3,7 @@ import base64
 import json
 from pathlib import Path
 import subprocess
+import pytest
 
 
 def load_module():
@@ -12,6 +13,88 @@ def load_module():
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.fixture
+def exit_race(tmp_path, monkeypatch):
+    module = load_module()
+    config = tmp_path / 'operator.yaml'
+    config.write_text('{}\n')
+    output = tmp_path / 'out'
+    line = b'{"event":"job_finished"}\n'
+    chunk = {'name': 'master.jsonl', 'source_offset': 0, 'next_offset': len(line),
+             'data_base64': base64.b64encode(line).decode()}
+    monkeypatch.setattr(module, '_sync_workload_snapshots', lambda **kw: 0)
+    monkeypatch.setattr(module, '_fetch_rule_chunks', lambda *a: [chunk])
+    def fail_exec(*args):
+        raise subprocess.CalledProcessError(1, ['kubectl', 'exec'])
+    # Fail after fetching rules, before committing any cursor/output.
+    monkeypatch.setattr(module, '_fetch_file_chunk', fail_exec)
+    readers = []
+    def reader(*args):
+        readers.append(args)
+        assert not (output / '.rule-cursor.json').exists()
+        return [chunk], {'source_offset': 0, 'next_offset': 5,
+                         'data_base64': base64.b64encode(b'done\n').decode()}, None
+    monkeypatch.setattr(module, '_final_reader_chunks', reader)
+    options = dict(operator_config=config, namespace='mock', master_job='master',
+                   master_manifest=tmp_path/'master.yaml',
+                   source_dir='/workspace/run/evidence/a1/rule-status/raw',
+                   analysis_log_source='/workspace/run/evidence/a1/analysis.log', output=output)
+    return module, options, readers, line
+
+
+@pytest.mark.parametrize('observed', [('pod-a', 'Succeeded'), ('pod-a', 'Failed'), None])
+@pytest.mark.parametrize('terminal', [True, False])
+def test_pod_exit_race_switches_reader_or_defers_without_partial_cursor(
+    exit_race, monkeypatch, observed, terminal
+):
+    module, options, readers, line = exit_race
+    queries = []
+    def pod(*args):
+        queries.append(args)
+        assert len(queries) <= 2
+        return ('pod-a', 'Running') if len(queries) == 1 else observed
+    monkeypatch.setattr(module, '_master_pod', pod)
+    applied = module.sync_rule_events_once(**options, terminal=terminal)
+    assert len(queries) == 2
+    output = options['output']
+    if terminal:
+        assert len(readers) == 1
+        assert applied == len(line) + 5
+        assert (output/'rule-status/raw/master.jsonl').read_bytes() == line
+        assert json.loads((output/'.rule-cursor.json').read_text()) == {'master.jsonl': len(line)}
+        assert (output/'mirror/analysis.log').read_bytes() == b'done\n'
+    else:
+        assert applied == 0 and not readers
+        assert not (output/'.rule-cursor.json').exists()
+
+
+@pytest.mark.parametrize('observed', [('pod-a', 'Running'), ('pod-a', 'Unknown'),
+                                     ('pod-b', 'Succeeded'), 'query_error'])
+def test_pod_exit_race_preserves_unconfirmed_exec_error(exit_race, monkeypatch, observed):
+    module, options, readers, _ = exit_race
+    queries = []
+    def pod(*args):
+        queries.append(args)
+        if len(queries) == 1:
+            return 'pod-a', 'Running'
+        if observed == 'query_error':
+            raise subprocess.CalledProcessError(1, ['kubectl', 'get'])
+        return observed
+    monkeypatch.setattr(module, '_master_pod', pod)
+    with pytest.raises(subprocess.CalledProcessError):
+        module.sync_rule_events_once(**options, terminal=True)
+    assert not readers
+    assert not (options['output']/'.rule-cursor.json').exists()
+
+
+def test_invalid_pod_inventory_is_not_absence(monkeypatch):
+    module = load_module()
+    monkeypatch.setattr(module, '_kubectl', lambda *a: [])
+    monkeypatch.setattr(module, '_run_json', lambda *a: {})
+    with pytest.raises(ValueError):
+        module._master_pod({}, 'mock', 'master')
 
 
 def test_pod_snapshot_maps_to_observer_event_without_patient_name() -> None:

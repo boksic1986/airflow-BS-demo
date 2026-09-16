@@ -132,6 +132,43 @@ Creation wiring is implemented in unverified source behind the default-off
 WGS_NATIVE_PREPARE_ENABLED flag (requires contractv2); only new normal catalog
 runs receive the marker. Automatic runs freeze CCE before submission; historical
 runs are not upgraded. No deployment/activation or new public execution endpoint.
+## GATK Batch Runs batch display (2026-09-16)
+
+Public run batch projection keeps analysis_batch → sequencing_batch → batch_no
+priority and adds params.batch as the final fallback for GATK/WES. Batch Runs
+continues consuming the existing batch_no response field. No schema/data change.
+
+## Resource history projection (2026-09-15, source only)
+
+`GET /api/platform/resources?history_period=1h|24h|7d` returns the selected
+SFS chart window, plus `history_period` in the response. Other values fail
+parameter validation. Omitting the parameter preserves the original response.
+The window retains the existing chart's UTC tick alignment and latest-sample
+anchor (15-minute, 6-hour, 1-day ticks respectively). SFS history includes only
+`at`, `read_bps`, `write_bps`, `total_bps`; missing values remain null. At most
+600 evenly spaced original observations are returned, including first/last.
+This is a sampled trend, not an exhaustive peak report; no averages are invented.
+Non-SFS history is empty in this projection; all current/freshness/heavy-slot
+fields remain unchanged. Collector retention and stored seven-day history are
+untouched. This reduces response serialization/transfer, not DB JSON loading.
+
+## Log search navigation (2026-09-15, source only)
+
+GET /api/runs/{id}/logs supports query and nonnegative match_index (default0)
+for registered WGS and GATK opaque log keys. Search returns a continuous window
+around the indexed matching line, not a concatenation of matching-only lines.
+match_count counts matching lines (not occurrences); match_index is zero-based,
+and nullable match_line is the zero-based selected row within lines. No match
+or an index no longer present returns initial context with match_line=null.
+Normal requests without query retain the existing tail behavior.
+
+Window is bounded by tail (frontend200) and1MiB serialized JSON (including
+escaped text and reserved metadata overhead); literal
+case-insensitive scanning retains the existing64MiB/64KiB-line safety limits.
+search_complete=false explicitly reports incomplete scanning; counts are partial
+in that case. Search does not promise coverage beyond the scan cap. Existing
+registered-key authorization/path checks remain; no arbitrary path, DB schema,
+search service or persistent index. Added fields are optional for old clients.
 
 ## QC/ledger follow-up (2026-09-15, source only)
 
@@ -370,7 +407,10 @@ namespace occupancy. One grouped work Job uses one lease; not per-rule quota.
 `GET /api/runs/{id}/rules` defaults to the current attempt; optional positive
 `attempt=N` selects history. Exact sample_id and family_id filters are ANDed.
 Response adds attempt, current_attempt, attempts and phase_summaries computed
-over the complete filtered query before pagination. Status filtering uses the
+over every rule in the selected attempt, independent of status, rule, phase,
+sample_id, family_id, sort and pagination. Only items and total apply those row
+filters; an empty filtered page still carries the full attempt summary.
+Status filtering and summaries use the
 same current-attempt success reconciliation as serialized rows. Historical
 attempts never inherit current run success. Rows add status_inferred, origin
 (role plus opaque stream hash), execution_group and timing_provenance.
@@ -656,3 +696,11 @@ GATK Step1/Step5 status-only running updates retain measured stage progress for
 the same execution. Generation reopen clears prior measurements. WGS Heavy
 quota excludes explicit nonparticipating GATK Masters; idle WGS counts do not
 describe GATK compute utilization. Unknown telemetry is not converted to zero.
+# GATK workload retirement (2026-09-16)
+
+No endpoint change. The existing Step7 capability accepts terminal workloads
+or a collector-confirmed Deleted/PodNotFound projection. Unknown, live or
+unconfirmed deletion records remain blocked as cce_workload_active. Read-time
+eligibility does not replace node-side fresh workload/UID/target validation.
+The existing GATK Step6 status poll ingests final workload evidence; no browser
+Kubernetes access, cleanup-on-read or automatic destructive action is added.

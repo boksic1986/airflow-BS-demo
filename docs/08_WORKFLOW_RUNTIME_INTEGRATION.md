@@ -161,6 +161,37 @@ prepare or changing pending. Completed all-pending receipts are reused without
 creating a binding or repeating preparation. These tests use synthetic native
 artifacts, not a real WGS or node96/97/18 run. Observer native projection belongs
 to Task2 and is not yet enabled.
+## GATK workload retirement (2026-09-16)
+
+The common bridge's GATK label path uses complete namespace Pod inventory to
+distinguish disappearance from changed labels. Previously observed absent Pods
+emit existing pod-events with phaseDeleted/reasonPodNotFound; incomplete queries
+and identity drift cannot retire them. GATK importer rejects older observed
+snapshots. WGS's scoped polling and execution behavior are unchanged.
+Final reader collection and Step6 delivery refresh workload evidence once;
+Step6 stage-status ingests it using the existing cursor importer. Reader cleanup
+stays asynchronous, collection failure cannot fail successful delivery, and
+Step7 still checks current runtime Jobs/Pods/UID and verified delivery before
+the administrator-authorized destructive action. No new API/table/daemon.
+
+## Pod-exit log collection race (2026-09-16, source only)
+
+The common wgs_evidence_bridge reads directly from a Running Master. If exec
+fails, it queries Pod status once. A confirmed absent Pod or the same Pod in
+Succeeded/Failed permits the existing read-only reader Job for terminal calls;
+nonterminal calls defer to subsequent status/terminal polling. Active/unknown or
+different Pods, malformed inventories and lookup failures retain the error.
+Only a complete read applies log/rule chunks and advances incremental cursors.
+Reader timeout, mount permissions and cleanup are unchanged.
+
+gatk_runtime_gate still requires the runtime's authoritative Master SUCCEEDED
+result and existing request/generation validation. Terminal collection failure
+or missing rule logs no longer converts that success to failure: existing status
+and terminal records retain monitoring_health=degraded, monitoring_error and
+message "分析完成，日志采集异常". Healthy collection records healthy monitoring.
+Real Master failure or unconfirmed/invalid runtime identity/state remains failure.
+No API/schema change, WGS scheduling change or automatic analysis restart.
+Validation: BS10610 offline isolated targeted tests, 48 passed. Not deployed.
 
 ## WGS resume_stage (2026-09-15, source only)
 

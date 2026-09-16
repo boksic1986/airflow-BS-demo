@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import {fireEvent, render, screen, within} from "@testing-library/react";
 import {expect, it, vi} from "vitest";
-import type {RunProgressResponse} from "../../api";
+import type {RulePage, RunProgressResponse} from "../../api";
 import {RunWorkflowTab} from "./RunWorkflowTab";
 
 it("defaults to running rules, twenty per page, without expanding execution-group inventory", () => {
@@ -22,6 +22,7 @@ it("defaults to running rules, twenty per page, without expanding execution-grou
 it("passes running/twenty-row paging and exact independent filters to the server query", () => {
   const change=vi.fn();
   render(<RunWorkflowTab progress={null} rules={[]} page={{items:[],limit:20,offset:0,total:21,current_attempt:2}} onQueryChange={change} />);
+  expect(screen.queryByRole("combobox",{name:"Attempt"})).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("Sample"),{target:{value:"S1"}});
   expect(change).toHaveBeenLastCalledWith(expect.objectContaining({sampleId:"S1",status:"running",limit:20,offset:0}));
   fireEvent.click(screen.getByRole("button",{name:"Next"}));
@@ -46,6 +47,26 @@ it("filters sample and family independently without prefix matches", () => {
 it("keeps full phase summaries independent of running-only rows", () => {
   render(<RunWorkflowTab progress={null} rules={[{rule:"a",phase:"Mapping",status:"success"},{rule:"b",phase:"Mapping",status:"canceled"}]} />);
   expect(within(screen.getByRole("table",{name:"Pipeline phase summary"})).getByText("canceled")).toBeInTheDocument();
+});
+
+it("uses attempt-wide server summaries for both phase displays while row status changes", () => {
+  const phase_summaries = [{phase:"FASTQ QC",status:"running",total:71,running:20,success:51,failed:0,canceled:0}];
+  const renderPage = (status: string, total: number) => {
+    const items = total ? [{rule:`row-${status}`,phase:"FASTQ QC",status}] : [];
+    const page: RulePage = {items,total,limit:20,offset:0,attempt:1,phase_summaries};
+    return <RunWorkflowTab progress={null} rules={items} page={page} query={{status,limit:20,offset:0}} onQueryChange={() => {}} />;
+  };
+  const view = render(renderPage("running",20));
+  for (const [status,total] of [["running",20],["success",51],["failed",0],["",71]] as const) {
+    view.rerender(renderPage(status,total));
+    const summary = screen.getByRole("table",{name:"Pipeline phase summary"});
+    const cells = within(within(summary).getAllByRole("row")[1]).getAllByRole("cell");
+    expect(cells.map(cell => cell.textContent)).toEqual(["FASTQ QC","running","71","20","51","0","0"]);
+    expect(within(screen.getByLabelText("Layered workflow timeline")).getByText("51/71 jobs complete")).toBeInTheDocument();
+    const rows = screen.getByRole("table",{name:"Pipeline rule instances"});
+    if (total) expect(within(rows).getByText(`row-${status}`)).toBeInTheDocument();
+    else expect(within(rows).getByText("No matching Rule instances.")).toBeInTheDocument();
+  }
 });
 
 it("shows stage timestamps on hover, with no embedded estimate or missing-history message", () => {

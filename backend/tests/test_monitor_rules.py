@@ -3,6 +3,53 @@ from test_wgs_only_platform import make_client, login
 import pytest
 
 
+@pytest.mark.parametrize("pipeline,clean,map_rule,release", [
+    ("gatk", "fastp_clean", "sentieon_mapping", "gatk-scmc-v7.6.0@bd04f6d"),
+    ("wgs", "pre_process_cleanFastq", "mapping", "wgs-4.2.1-cc9bde3"),
+])
+def test_phase_summary_ignores_row_filters_but_preserves_attempt(tmp_path, monkeypatch, pipeline, clean, map_rule, release):
+    from app import main
+    from pathlib import Path
+
+    client, sessions, _ = make_client(tmp_path, monkeypatch)
+    main.get_settings().deployed_pipelines = ("wgs", "gatk")
+    main.get_settings().pipeline_registry_path = str(Path(__file__).resolve().parents[2] / "config" / "pipelines.yaml")
+    main.get_settings().gatk_runtime_request_root = str(tmp_path / "gatk-requests")
+    main.get_settings().gatk_evidence_root = str(tmp_path / "gatk-evidence")
+    with sessions() as session:
+        session.add(AnalysisRun(analysis_id="SUMMARY", pipeline_name=pipeline, dag_id=f"bio_{pipeline}", workdir=str(tmp_path), attempt=2, status="running", params_json={"pipeline_release_id": release}))
+        for attempt, instance, name, status, sample, family in [
+            (1, "old", clean, "failed", "S0", "F0"),
+            (2, "active", clean, "running", "S1", "F1"),
+            (2, "done", clean, "success", "S2", "F2"),
+            (2, "next", map_rule, "running", "S2", "F2"),
+        ]:
+            session.add(RuleState(analysis_id="SUMMARY", attempt=attempt, rule_instance_id=instance, rule_name=name, status=status, sample_id=sample, family_id=family))
+        session.commit()
+    headers = login(client, "viewer", "viewer-pass")
+    for filters, expected_total in [
+        ({}, 3), ({"status": "running"}, 2), ({"status": "success"}, 1),
+        ({"status": "failed"}, 0), ({"phase": "Mapping"}, 1),
+        ({"sample_id": "S1"}, 1), ({"family_id": "F1"}, 1),
+        ({"rule": map_rule}, 1), ({"status": "running", "offset": 1}, 2),
+    ]:
+        response = client.get("/api/runs/SUMMARY/rules", params={"limit": 1, **filters}, headers=headers)
+        assert response.status_code == 200
+        page = response.json()
+        assert page["total"] == expected_total
+        assert len(page["items"]) == min(1, expected_total)
+        if page["items"] and filters.get("status"):
+            assert page["items"][0]["status"] == filters["status"]
+        summaries = {item["phase"]: item for item in page["phase_summaries"]}
+        assert set(summaries) == {"FASTQ QC", "Mapping"}
+        assert [summaries["FASTQ QC"][key] for key in ("total", "running", "success", "failed", "status")] == [2, 1, 1, 0, "running"]
+        assert [summaries["Mapping"][key] for key in ("total", "running", "success")] == [1, 1, 0]
+    old = client.get("/api/runs/SUMMARY/rules?attempt=1&status=success", headers=headers).json()
+    assert old["total"] == 0
+    assert old["items"] == []
+    assert [(item["phase"], item["total"], item["failed"]) for item in old["phase_summaries"]] == [("FASTQ QC", 1, 1)]
+
+
 @pytest.mark.parametrize("states,expected", [(["canceled"], "canceled"), (["success", "cancelled"], "canceled"), (["running", "canceled"], "running"), (["planned", "canceled"], "planned"), (["failed", "canceled"], "failed")])
 def test_phase_terminal_precedence(tmp_path, monkeypatch, states, expected):
     client, sessions, _ = make_client(tmp_path, monkeypatch)

@@ -1,5 +1,19 @@
 # HANDOFF.md
 
+## 2026-09-16 Authorized main -> Local/SGE test integration
+
+Direction explicitly main into feature, not feature into main. Windows worktree
+remains preserved; authoritative server worktree is development/wgs-local-sge-20260915
+under BS10610 airflow-WGS control. Imported original e34bc45 history via bundle;
+58 dirty source/docs files saved in cfe822f. No local Windows commit or data deletion.
+Merged main d3a031a (application5cd5542 plus recent deployment docs). Single code
+conflict RunDetail refresh resolved keeping native_monitor_only exclusion; main
+continuous log search preserved. Eight documentation conflicts concatenate
+independent histories/contracts; this entry supersedes earlier integration holds.
+Next: bounded affected checks and test application deployment, preserve schema0026,
+native monitor DAG, native gates, test records/snapshots; no BS96 or real compute.
+Initial object lookup e34bc45 absent on server was expected; imported exact bundle.
+
 ## 2026-09-16 BS10610 review rollout — completed
 
 Supersedes the in-progress entry below. Six planned services are deployed;
@@ -682,6 +696,365 @@ Next: Task1 native-mode argv and non-CCE prepared binding, then wire creation an
 automatic approval; do not enable the marker in isolation. Task2–4 untouched.
 Report any plan gap before adding interfaces. Rollback is scoped source revert
 only; keep identities, pending, ledger and analysis data. All deployed services preserved.
+## 2026-09-16 Frontend5cd5542 production release
+
+User approved publication after screenshot showed old93069eb frontend. Verified
+production5cd5542 includes c281876 sample-flow UI. Frontend tree identical359df11
+(previous BS10610 acceptance reused). Built96 offline with locked Node22 builder;
+tsc/vite passed, no full test suite or dependency upgrade. Initial runtime build
+used bare sha256 ID in FROM, interpreted as repository and failed metadata/DNS
+before any service change; corrected to verified cached ui-93069eb tag.
+At08:32Z frontend-only recreation succeeded, image52d8afab851c, container5041172f8f5e.
+One HTTP asset check: index/JS/CSS and proxied health200; new sample-flow labels
+present. Other11 container IDs, gateway mount, ports and env unchanged.
+No data changes, backend/Airflow/runtime restart or new implementation.
+Receipt/rollback docs/releases/2026-09-16-frontend-full-bs96.md.
+
+## 2026-09-16 Full backend production publication
+
+User explicitly authorized production-branch verification and complete backend
+release, with no running tasks. Pinned production5cd55427ad5983572ce35f089050af135f6ff601
+via GitHub ref API after server ls-remote failed transport EOF. Server checkout
+clean; exported backend with git archive, SHA verified after transfer. Eight app
+files differ from actual93069eb base; no unexpected files/dependencies/models.
+One BS10610 isolated import smoke passed98routes; no redundant regression suite.
+At08:08Z switched only backend /app to complete20260916-backend-full-5cd5542,
+removing4 overlays. Backend3b66af0a06c7; other11 IDs, env and image unchanged.
+Health200,0914A/B batches and cleanup available. Initial assertion incorrectly
+expected all4 historical cleanup actions still available; bounded reason lookup
+confirmed0907A/0823A already cleanup_completed/success, not a rollout failure.
+No task/state/result modifications by this release. Old directories retained.
+Full rollback/source receipt docs/releases/2026-09-16-backend-full-bs96.md.
+Frontend remains old: new backend capabilities do not deploy corresponding UI.
+
+## 2026-09-16 GATK batch display selective publication
+
+User requested96 publication and inclusion of the current update. Published only
+the existing e583833 one-line params.batch fallback while preserving all089dc93
+Master/Step7 overlays and node200 scripts. No new code or frontend build.
+Airflow active/queued runs and active business runs0 before backend restart.
+Prior BS10610 regression1passed reused; git apply --check and Compose config
+passed. One production list serializer check returns all four GATK batches;
+health200. Only backend changed to b702a4dc47fb; other11 containers unchanged.
+No rerun/cleanup/data write. Receipt and exact rollback:
+docs/releases/2026-09-16-gatk-batch-bs96.md. Other unshipped changes not included.
+Initial local boundary-doc read used the artifact directory where it was absent;
+read the actual workspace boundary before remote deployment instead.
+
+## 2026-09-16 GATK workload retirement committed and deployed
+
+User approves fix, server Git main/production push and96 selective release.
+Scope: bridge Pod disappearance, importer late-event fence, strict Step7 known
+inactive gate, Step6 final collection/status ingestion. No API/table/DAG/image
+change, no cleanup or analysis rerun. Five code files plus one synthetic test.
+Server repo development/gatk-cleanup-20260916 under approved airflow-WGS control
+root, branchjiucheng/fix/gatk-cleanup-stale-workloads based6bd69af. Other work in
+Windows and BS10610 onprem-review release remains untouched. Server Git only.
+Tests: targeted RED9failed/3passed and Step6 RED2failed; GREEN76passed5.58s.
+Runtime tests used cached8491604 image, networknone, read-only source and
+disposable synthetic data. No full regression per user instruction.
+Failures and exact source/runtime boundary recorded in
+docs/releases/2026-09-16-gatk-workload-retirement.md. Server code089dc93 pushed
+atomically to main/production;07:36Z selective production release complete.
+Only backend recreated; three file deltas overlay actual93069eb /app source.
+Two GATK-private scripts installed atomically on node200; no process restarted.
+One existing collector/importer reconciliation retired stale Pod observations for
+the four retained completed GATK runs. All four Step7 capabilities available;
+analysis success/attempt1 unchanged. Other11 containers unchanged, internal
+backend health200. Host-loopback nginx health request403 (access policy), not a
+backend health failure. No additional test suite, cleanup or rerun executed.
+Preserve rollback copies; do not run Step7 for validation or restart Airflow.
+
+## 2026-09-16 Pod-exit fix committed and released (user authorized)
+
+Only race-fix code/tests and related docs committed as1770800; main and production
+fast-forwarded and pushed atomically. gatk_resume compatibility/tests and earlier
+operational notes remain unstaged/uncommitted as requested; no files discarded.
+Production96 callers use ctapa/node200 private gates. Installed3 monitoring files
+at02:48:40Z, preserving modes and exact backups. WGS received only the approved
+two-hunk delta, not its unrelated newer GATK-label support. GATK files match1770800.
+Prior BS10610 tests48passed; one production candidate syntax/patch check, installed
+cmp checks,12 unchanged96 container IDs and APIhealth200. No runtime tests, analysis
+or process restart. Future normal gate invocations adopt the change; no hot reload.
+Details/rollback: docs/releases/2026-09-16-pod-exit-monitor-bs96.md. Production
+frontend/backend/DAG pins remain unchanged; no other unshipped changes released.
+
+## 2026-09-16 POD-EXIT-EVIDENCE-RACE-20260916 (source complete, not deployed)
+
+Scope: approved shared evidence-reader race fix and GATK monitor tolerance only.
+Changed scripts/wgs_evidence_bridge.py and scripts/gatk_runtime_gate.py plus
+test_wgs_evidence_bridge.py, test_gatk_runtime_gate.py, test_wgs_runtime_gate.py
+under scripts/tests; documented in docs/08, TASKS and CURRENT_STATE.
+The bridge rechecks once after exec failure, uses the existing reader for terminal
+same-Pod/absent-Pod cases, defers nonterminal reads and retains other errors.
+Partial chunks never commit cursors. GATK runtime SUCCEEDED remains success when
+terminal collection fails/misses JSONL, with degraded monitoring and a short
+warning; failed/unconfirmed runtime results and identity checks are unchanged.
+
+BS10610 hostname server10610 verified; control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS. Actual backend /app mount was
+releases/20260916-onprem-review/backend (current symlink still historical).
+Synthetic candidate: candidates/pod-exit-race. Used observed cached image
+8491604ee01d with docker run --rm --network none, read-only candidate mount,
+PYTHONDONTWRITEBYTECODE=1 and pytest -p no:cacheprovider. No service changes.
+RED targeted selection: 10 failed, 6 passed, 30 deselected (expected failures).
+GREEN once: python -m pytest -q -p no:cacheprovider
+scripts/tests/test_wgs_evidence_bridge.py scripts/tests/test_gatk_runtime_gate.py
+scripts/tests/test_wgs_runtime_gate.py::test_step3_terminal_success_is_written_with_frozen_master_identity
+--tb=short: 48 passed in 1.30s. No full regression or real analysis submitted.
+
+Branch jiucheng/fix/pod-exit-evidence-race; prior gatk_resume edits/tests and
+operational docs remain uncommitted and must not be mixed into this patch.
+No production release, restart, 0914A rerun, latency-wait180 wiring or data deletion.
+Next: separately approved script-only release after checking actual private caller
+paths; do not restart existing monitors/Airflow/Master. Rollback restores those
+scripts only, never task state or analysis outputs. Historical recovery notes below
+describe the pre-fix state; this entry supersedes their race-fix TODO only.
+
+## 2026-09-16 Authorized Git integration: GATK batch and BS10610 release record
+
+User explicitly approves including the prior deployment docs with this small
+fix. Scope: one params.batch fallback line, test_run_batch_display.py and API
+contract; BS10610 release record plus state/task/server/runbook/handoff docs.
+No frontend/runtime/DAG/package change. Prior red/green regression1pass reused;
+only diff/status/ref checks for integration. Production checkout was clean and
+local base/main/production359df11. Initial GitHub SSH22 fetch and bounded retry
+failed with connection timeout, not an authorization or test failure. Remote
+refs require verification through available normal Git transport; no force push,
+credential exposure, source reset or production publication is authorized.
+Both main and jiucheng/release/production are intended to receive the same commit.
+Excluded .superpowers archives/helper scripts remain local. BS10610 continues
+running359df11; this batch-display fix needs a separately requested publication.
+
+## 2026-09-16 Minimal GATK Batch Runs display correction
+
+User requests only missing WES batch display. Root cause: run_service._public_batch
+omitted params.batch, used by GATK, while RunTable correctly consumes API batch_no.
+One production-code line adds that final fallback, preserving existing WGS priority.
+New backend/tests/test_run_batch_display.py exercises the real list serializer
+with synthetic GATK/WGS/missing values. BS10610 hostname/control/current/actual
+mount/gates preflight matches the preceding deployment. Only isolated candidate
+source overlaid, not release/live containers. Offline backend:t235-232154f:
+python -m pytest -q -p no:cacheprovider --tb=short tests/test_run_batch_display.py
+first reproduced None vs MOCK_WES_BATCH, then1passed0.36s after fix. No full tests,
+frontend build, query/filter expansion, DB write, production read/write or deploy.
+Updated API/state/tasks/handoff; previous deployment docs preserved. Source-only,
+uncommitted. Rollback removes that fallback; no data rollback necessary.
+
+## 2026-09-15 BS10610 latest-main test rollout completed
+
+User explicitly requested BS10610 update to latest commit, then restricted
+acceptance to a simple code/check smoke and allowed disposable DB data.
+Pinned origin/main359df11; no app source changes. Read-only preflight found
+server10610/chenjc, expected control root, old per-service mounts, scanfalse/
+autofalse, no active WGS/GATK runs. Existing schema0021. Published new release
+20260915-main-359df11 through private main-359df11-control Compose, retaining
+all actual environment values/data/config mounts and dependency images.
+Eight app/DAG/collector/probe services updated; PostgreSQL/Redis unchanged.
+Existing migrations0022–0024 completed; no backup/reset/retention tests needed.
+Offline cached build/config check then one smoke round passed: gateway/API200,
+resources24h57,991bytes/600cap, Tracker200, Airflow importErrors0, static names
+BQVVDtTK/BFPGoplr. No full/redundant tests, CCE/native gate change or submission.
+No96 operation. Historical current symlink intentionally retained; use the new
+private composition rather than generic current. Exact source/image/service
+IDs, commands and source-only rollback in docs/releases/2026-09-15-main-bs10610.md.
+Documentation-only edits: that release note, CURRENT_STATE/TASKS/SERVER_INFO/
+HANDOFF and deployment runbook. Operational helper and archives stay untracked
+under .superpowers locally and private test-host control; never commit secrets.
+Next step: user can inspect the test UI; production rollout remains separate.
+
+## 2026-09-15 Authorized log/resource main and production source integration
+
+User requests commit and merge into main/production; not a production rollout.
+Scope is the completed log-context navigation and resource-history projection
+documented below. Baseab23ca639c2da90b23b7c1ab0c6d02a61c8ddd9e confirmed equal
+for HEAD, main, jiucheng/release/production and both fetched origin refs;
+D:/pipeline/airflow-demo-production clean. Integration targets are that main
+checkout and refs/heads/jiucheng/release/production; atomic push preserves their
+alignment. This commit includes all scoped API/UI/test/state changes; excludes
+.superpowers scratch archives and every unrelated worktree/branch.
+Previous bounded reviews found no remaining important issues. BS10610 log
+backend7/frontend3 and resource backend3/frontend2 accepted; final combined
+frontend tsc/Vite build passed BQVVDtTK/BFPGoplr. No code changed after those
+checks. Only Git diff/status/ref checks are repeated per user's no-redundancy
+constraint. No remote runtime commands, production database/service/mount edits
+or workload operations are part of integration. BS96 remains on its previously
+recorded release, not this source revision. Deployment requires separate user
+authorization and standard live preflight. Source rollback uses an explicit
+revert, never reset/delete data; preserve editing worktree and scratch files.
+
+## 2026-09-15 Resource history bounded projection and chart rendering
+
+User approved continuing only the identified SFS I/O history/rendering work.
+Changed backend platform_resources_service and its main route; frontend api,
+DashboardPage, DashboardResourcePanels; new test_resource_history_projection.py
+and selected panel tests. Prior uncommitted log-search changes preserved.
+API optionalhistory_period is validated1h/24h/7d, uses old tick-aligned window,
+returns only at/read/write/total and at most600 equally spaced original points
+including endpoints. Missing values remain null; node history omitted only in
+projection. No DB/collector retention change; no-parameter contract unchanged.
+Sampling is a trend view, may omit individual peaks, and is not aggregation.
+Dashboard defaults24h, uses existing refresh-key stale fencing, hides prior
+window while new history loads. SFS memo/useMemo avoids unrelated rerenders.
+No new cache/service, retry/interval policy, scheduler or workflow modifications.
+
+BS10610 preflight: hostname server10610; control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS, current20260912-opt-4d3d24e6,
+actual backend mount20260913-panel-1fb971b. Executiontrue/scanfalse/autofalse.
+Only isolated candidates/rule-summary-20260915 was overlaid; no service restart.
+Ephemeral offline images backend:t235-232154f and frontend-builder:
+node22-lock-35420d5e3ec0 with read-only source/config, synthetic SQLite fixtures.
+Commands/results:
+- pytest -q -p no:cacheprovider --tb=short tests/test_resource_history_projection.py:
+  red3 expected unexpected-keyword failures; green3 passed (1.11s). Checks all
+  periods,600 ceiling, nulls, current values, unchanged10080 DB records, and
+  synthetic serialized response below one tenth of unprojected response.
+- npm test -- --run src/features/dashboard/DashboardResourcePanels.test.tsx
+  -t 'requests selected history|replaces workflow activity': green2 passed,
+  3 deselected after new request case first failed against old API as expected.
+  Includes controlled selection, missing old-window chart and no extra Date.parse
+  on unrelated parent rerender.
+- npm run build: tsc/Vite passed; index-BQVVDtTK.js/index-BFPGoplr.css.
+- git diff --check passed. Read-only bounded reviewer found no important issues;
+  reviewer did not retest or connect remotely. No full suite, browser benchmark
+  or production test run per scope. Existing browser symptom improvement remains
+  unmeasured until authorized release; this does not eliminate DB JSON loading.
+
+API/UI/state/task docs updated. No commit/push/main/production checkout sync or
+BS96 deployment; source baseab23ca6. Next step is user-authorized integration/
+release, not data cleanup or workflow recovery. Rollback this incremental source
+diff only; no data rollback required. Do not undo prior log-search source edits.
+
+## 2026-09-15 Log search context delivered; Tracker read-only diagnosis
+
+User approves file-content matching with continuous context and prev/next, then
+asks to inspect Tracker stalls without widening implementation. Changed only
+log search API/runtime UI, tests and docs; baseab23ca6. WGS/GATK share bounded
+scanner, selected matching-line ordinal and200-line/1MiB context. Existing64MiB
+scan and64KiB line bounds retained and incomplete scans explicitly labeled.
+No arbitrary paths or new service/cache/index. No query keeps normal tail.
+UI has button ghost previous/next, current/total, active-line scroll, safe marks;
+Copy retains displayed context. Search350ms debounce, separate RunDetail effect,
+no recurring full scan, stale identity responses ignored, tail cannot overwrite
+search, and source/rule selection resets search. No workflow/core script changes.
+
+BS10610 preflight unchanged: server10610, control/current4d3d24e6 and actual
+backend20260913-panel-1fb971b; executiontrue/scanfalse/autofalse. Isolated candidate
+candidates/rule-summary-20260915 only; offline ephemeral backendt235 and locked
+node22 builder, read-only source/config and synthetic fixtures. Red backend4
+expected failures/2pass, UI2expected failures. Green test_log_content_search.py
+6pass; LogViewer.test.tsx2pass; new WgsProductionUi case 'keeps log search context'
+1pass,17deselected verifies focus-triggered refresh does not rescan, navigation
+and clear restore tail. tsc/Vite build passed; initial bundle BAcBkQ8-/BFPGoplr.
+No full suite/live workflow tests per minimal scope. Final source diff checked.
+
+Bounded reviewer found raw-text cap could inflate after JSON escaping. New
+escaped-tab fixture reproduced2,088,849bytes against1MiB target; corrected
+line-size accounting to JSON UTF8 plus delimiters, reserving16KiB for metadata.
+Only that case and continuous-window case rerun:2passed. Total unique accepted
+backend cases7, frontend3. No unrelated fixes. Context truncation uses explicit
+initial/window-full flags, so missing-match context remains a continuous prefix.
+
+Then BS96 read-only diagnostic, unchanged ui93069eb backendc1be8d79ea43/current
+4d3d24e6 and executiontrue/scantrue/autofalse. No direct DB access. Authenticated
+HTTP measured Tracker all0.597/0.551s and exact deployed0.545s,7rows/~12KB;
+overview0.056s. Resources0.160s yet1,880,830 uncompressed JSON bytes; later JSON
+field sizing shows >99% item payload is history, SFS10,080 points plus60/node.
+Existing nginx gzip on for JSON confirmed. Code: Dashboard requests resources
+every10s; SfsIoPanel reparses history/filters/rebuilds SVG on parent rerenders.
+Active Tracker rows also call synchronous Airflow task lookup before adapter
+DB-stage projection. No multi-second API delay reproduced, and no browser
+profiling performed; do not claim a proven frontend root cause. Proposed next
+scope: bounded on-demand chart history + memoization, retaining DB history,
+subject to user's approval. No Tracker code changed in this task.
+
+Diagnostic failures: first BS SSH handshake aborted, successful reconnect;
+GET /health404 (wrong diagnostic route), business API checks200. No service or
+data change to fix these. Local rg guessed missing paths returned errors only;
+subsequent existing files used. No patient payload/body or secrets printed.
+Not committed/pushed/deployed; production remains93069eb,0911A untouched.
+Rollback only this source slice; runtime rollback not needed. .superpowers
+packages remain untracked, original workspace and all production data retained.
+
+## 2026-09-15 Authorized rule-summary/Attempt source integration
+
+Scope: commit and merge the preceding shared-summary and Attempt-selector fixes
+to main and production branch. No96 release requested or performed. Preflight
+origin/main, origin/jiucheng/release/production, editing HEAD and clean production
+checkout all4b5234e162c0b016e8d7bf773ef23c8317aa5d34. Fresh diff check passed;
+accepted BS10610 backend11/frontend2 source unchanged, no redundant tests.
+Only nine scoped source/test/doc files staged; .superpowers not included.
+Review scoped changes, then ff-only merge in D:/pipeline/airflow-demo-production
+and atomic main+production push; final tool receipt verifies exact remote SHA
+and clean production checkout. Preserve working branch/worktree and unrelated
+original workspace. No credentials/patient data, service, DB, pending, CCE or
+0911A operation. Rollback by a scoped Git revert; runtime rollback unnecessary.
+
+## 2026-09-15 Attempt selector removed; preceding summary regression accepted
+
+User asks to remove Rules Attempt filtering. Removed its select and unused
+numeric conversion from RunWorkflowTab; remaining four filters/pagination use
+the current-attempt API default. API history, run identity and resume unchanged.
+Updated existing frontend query regression to assert no Attempt control; added
+summary-view test from prior slice still covers both displays. UI/state/tasks/
+handoff updated; other preceding uncommitted summary changes preserved.
+
+SSH recovered. BS10610/server10610 rechecked: same control/current/backend mount
+as preceding entry; execution true, scan/auto false. Isolated candidate only,
+no service changes or production calls. Fixed test-only registry settings and
+missing GATK request/evidence paths (all synthetic temporary paths). Before the
+fix, WGS and GATK both demonstrated the actual filtered-summary assertion failure;
+frontend absence assertion failed against the old select. Then copied source fix.
+Backend image t235-232154f: pytest -q -p no:cacheprovider --tb=short
+tests/test_monitor_rules.py =>11 passed (existing Starlette deprecation warning).
+Node22-lock-35420d5e3ec0: npm test -- --run
+src/features/run-detail/RunWorkflowTab.test.tsx -t 'passes running|uses attempt-wide'
+=>2 passed,5 deselected. Tests use offline ephemeral containers, read-only source,
+no production DB/network/workflows. No full suite/build: narrow query/control
+changes covered by targeted tests, per user's minimal-validation constraint.
+
+Both source fixes now accepted, superseding the previous blocked acceptance.
+Not committed, synchronized to main, or deployed. No BS96/0911A/task/data action.
+Next: user-authorized source integration/publication only when requested.
+Rollback these scoped diffs; production runtime has not changed.
+
+## 2026-09-15 Rule phase summary filter isolation; test transport blocked
+
+User requests both Pipeline phases and Pipeline phase summary to remain global
+when lower rule-table filters change. Root cause: run_rules in backend/app/main.py
+aggregated from query after status/phase/sample/family/rule filters. Capture the
+immutable attempt-scoped SQL query before filters; aggregate from that, and use
+a separate filtered count for pagination. Existing displayed-status reconciliation
+and selected attempt remain unchanged. Both frontend views already share the API
+summary; no production frontend change or extra polling/API request needed.
+
+Changed main.py, backend/tests/test_monitor_rules.py, RunWorkflowTab.test.tsx,
+API/UI contracts and state/task/handoff docs. New tests cover GATK and WGS,
+running/success/all/empty filters, phase/sample/family/rule, pagination, historical
+attempt isolation, and both phase displays. Source base4b5234e; existing isolated
+branch jiucheng/fix/wgs-eta-20260915; untracked .superpowers assets preserved.
+
+BS10610 preflight: hostname server10610; control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; current20260912-opt-4d3d24e6,
+actual backend mount20260913-panel-1fb971b/backend. Execution true, scan/auto false.
+No running service or gate changes. Created isolated candidate
+candidates/rule-summary-20260915 from tracked source plus new backend test.
+Offline ephemeral backend image t235-232154f, read-only source/config, synthetic
+SQLite fixture and tmpfs only. Initial pytest -k summary_ignores:2 failed because
+fixture enabled GATK without registry path; not yet a valid failing regression.
+Added config/pipelines.yaml fixture path locally. Subsequent SCP/SSH retries fail
+before authentication at172.17.61.18:22 with kex/banner Connection aborted/reset
+(SCP exit1). No corrected test, source fix or frontend test reached the candidate.
+Do not treat the initial failures as acceptance or a reproduced assertion bug.
+
+Next after SSH recovers: copy corrected backend test, run its two cases against
+unchanged candidate main.py to establish red; copy fixed main.py and run the
+single test_monitor_rules.py file. Copy frontend test and run only the added
+shared-view case in node22-lock-35420d5e3ec0 builder. No full/build/live tests needed
+for the unchanged frontend runtime; local execution prohibited by project boundary.
+No production/96 access, main synchronization, commit, data or workflow operation.
+Rollback only this scoped source diff; no runtime rollback is necessary.
+
 
 ## 2026-09-15 user-authorized QC/sample-flow Git synchronization
 

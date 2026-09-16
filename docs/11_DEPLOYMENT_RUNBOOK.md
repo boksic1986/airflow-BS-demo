@@ -115,6 +115,17 @@ BS10610 source transfer failed twice at the SSH gateway before GREEN verificatio
 No deployment environment, running service, scanner or dispatch setting changed.
 Restore test connectivity and run the focused tests recorded in `HANDOFF.md`
 before any commit/activation; do not use BS96 as a testing fallback.
+## Latest BS10610 test composition (2026-09-15)
+
+Main359df11 is deployed to all eight running application/DAG/probe/collector
+services through `/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/candidates/
+main-359df11-control/compose.json` (join the line; private0600). Actual code
+mounts use releases/20260915-main-359df11. Historical current symlink remains
+old and is not the active application source. Preserve environment/config/data
+mounts, external network, PostgreSQL/Redis and scanfalse/autofalse. Existing
+schema0024 is additive and not downgraded during rollback. Use explicit service
+names and --no-deps --pull never, never remove-orphans. See
+releases/2026-09-15-main-bs10610.md for exact receipt and rollback.json command.
 
 ## Latest96 UI composition (2026-09-15)
 

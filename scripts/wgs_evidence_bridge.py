@@ -332,20 +332,43 @@ def _sync_workload_snapshots(
     cursor = _read_snapshot_cursor(cursor_path)
     observed = datetime.now(timezone.utc).isoformat()
     emitted = 0
+    reconcile_missing = run_label_key == "cce.biosan.cn/run-id"
     pod_collection = _run_json(
         _kubectl(
             config,
             namespace,
             "get",
             "pods",
-            "-l",
-            f"{run_label_key}={run_label}",
+            *([] if reconcile_missing else ["-l", f"{run_label_key}={run_label}"]),
             "-o",
             "json",
         )
     )
+    pods = pod_collection.get("items")
+    if not isinstance(pods, list) or (pod_collection.get("metadata") or {}).get("continue"):
+        raise ValueError("complete Pod inventory unavailable")
+    missing = []
+    if reconcile_missing:
+        # An unfiltered namespace inventory distinguishes deletion from label drift.
+        inventory = {}
+        for pod in pods:
+            metadata = pod.get("metadata") or {}
+            name = str(metadata.get("name") or "")
+            if not name:
+                raise ValueError("Pod inventory identity unavailable")
+            inventory[name] = pod
+        for key, version in cursor.items():
+            if not key.startswith("pods:"):
+                continue
+            name = key[5:]
+            pod = inventory.get(name)
+            if pod is None:
+                missing.append((key, name, version))
+            elif ((pod.get("metadata") or {}).get("labels") or {}).get(run_label_key) != run_label:
+                raise ValueError("previous Pod no longer matches bound run")
+        pods = [p for p in pods if ((p.get("metadata") or {}).get("labels") or {}).get(run_label_key) == run_label]
     snapshots = (
-        ("pods", pod_event, "pod-events.jsonl", pod_collection.get("items") or []),
+        ("pods", pod_event, "pod-events.jsonl", pods),
         (
             "jobs",
             job_event,
@@ -378,6 +401,16 @@ def _sync_workload_snapshots(
             _atomic_append(output / "raw" / target, payload)
             cursor[f"{kind}:{name}"] = version
             emitted += 1
+    for key, name, version in missing:
+        pod_hash = hashlib.sha256(name.encode()).hexdigest()[:24]
+        _atomic_append(output / "raw" / "pod-events.jsonl", {
+            "event_key": f"pod-absent:{pod_hash}:{version}:{observed}",
+            "workload_role": "work", "run_label": run_label,
+            "pod_hash": pod_hash, "resource_version": version,
+            "observed_at_utc": observed, "phase": "Deleted", "reason": "PodNotFound",
+        })
+        del cursor[key]
+        emitted += 1
     _atomic_json(cursor_path, cursor)
     return emitted
 
@@ -508,7 +541,9 @@ def _master_pod(config: dict, namespace: str, master_job: str) -> tuple[str, str
             "json",
         )
     )
-    items = value.get("items") or []
+    items = value.get("items")
+    if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+        raise ValueError("Pod inventory is not a valid list")
     if not items:
         return None
     items = sorted(items, key=lambda item: str((item.get("metadata") or {}).get("creationTimestamp") or ""))
@@ -747,18 +782,31 @@ def sync_rule_events_once(
     chunks: list[dict] = []
     log_chunk: dict | None = None
     heavy_slot_chunk: dict | None = None
-    if master is not None and master[0] and master[1] == "Running":
-        chunks = _fetch_rule_chunks(
-            config, namespace, master[0], source_dir, cursor
-        )
-        if analysis_log_source:
-            log_chunk = _fetch_file_chunk(
-                config, namespace, master[0], analysis_log_source, analysis_offset
+    read_from_master = master is not None and bool(master[0]) and master[1] == "Running"
+    if read_from_master:
+        try:
+            chunks = _fetch_rule_chunks(
+                config, namespace, master[0], source_dir, cursor
             )
-        heavy_slot_chunk = _fetch_file_chunk(
-            config, namespace, master[0], heavy_slot_source, 0
-        )
-    elif terminal:
+            if analysis_log_source:
+                log_chunk = _fetch_file_chunk(
+                    config, namespace, master[0], analysis_log_source, analysis_offset
+                )
+            heavy_slot_chunk = _fetch_file_chunk(
+                config, namespace, master[0], heavy_slot_source, 0
+            )
+        except subprocess.CalledProcessError:
+            # A successful Running observation does not guarantee exec is still
+            # possible. Recheck once; never switch to a different execution.
+            observed = _master_pod(config, namespace, master_job)
+            if observed is not None and (
+                observed[0] != master[0] or observed[1] not in {"Succeeded", "Failed"}
+            ):
+                raise
+            if not terminal:
+                return applied  # No partial log/rule read or cursor is committed.
+            read_from_master = False
+    if terminal and not read_from_master:
         chunks, log_chunk, heavy_slot_chunk = _final_reader_chunks(
             config,
             namespace,
@@ -774,6 +822,11 @@ def sync_rule_events_once(
     if log_chunk is not None:
         applied += _apply_file_chunk(output, analysis_cursor_path, log_chunk)
     applied += _apply_heavy_slot_snapshot(output, heavy_slot_chunk)
+    if terminal and run_label_key == "cce.biosan.cn/run-id":
+        applied += _sync_workload_snapshots(
+            config=config, namespace=namespace, master_job=master_job,
+            master_manifest=master_manifest, output=output, run_label_key=run_label_key,
+        )
     return applied
 
 

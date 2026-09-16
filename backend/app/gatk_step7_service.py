@@ -55,10 +55,12 @@ def _check(session, settings, run):
         ObsTransferLease.analysis_id == run.analysis_id,
         ObsTransferLease.attempt == run.attempt).limit(1)):
         raise ValueError('transfer_lease_active')
-    if session.scalar(select(KubernetesWorkload.id).where(
+    workloads = session.scalars(select(KubernetesWorkload).where(
         KubernetesWorkload.analysis_id == run.analysis_id,
-        KubernetesWorkload.attempt == run.attempt,
-        KubernetesWorkload.phase.in_(['Pending', 'Running', 'Active'])).limit(1)):
+        KubernetesWorkload.attempt == run.attempt)).all()
+    if any(row.phase not in {'Succeeded', 'Failed'} and not (
+        row.phase == 'Deleted' and row.reason == 'PodNotFound'
+    ) for row in workloads):
         raise ValueError('cce_workload_active')
     return receipt
 

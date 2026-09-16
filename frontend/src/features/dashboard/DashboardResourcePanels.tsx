@@ -1,10 +1,12 @@
-import {useState} from "react";
+import {memo, useMemo, useState} from "react";
 
-import type {DashboardOverview, DashboardPipeline, DashboardRunTrackerRow, PlatformResourceSnapshot, PlatformResourcesResponse} from "../../api";
+import type {DashboardOverview, DashboardPipeline, DashboardRunTrackerRow, PlatformResourceSnapshot, PlatformResourcesResponse, ResourceHistoryPeriod} from "../../api";
 import {StatusBadge} from "../../components/StatusBadge";
 import {displayTimeZoneLabel, formatBytes, formatDate} from "../../lib/format";
 
-export function DashboardResourcePanels({resources, loading, error}: {
+export function DashboardResourcePanels({resources, loading, error, historyPeriod = "24h", onHistoryPeriodChange}: {
+  historyPeriod?: ResourceHistoryPeriod;
+  onHistoryPeriodChange?: (period: ResourceHistoryPeriod) => void;
   resources: PlatformResourcesResponse | null;
   resourceTab: DashboardPipeline;
   overview: DashboardOverview | null;
@@ -41,7 +43,8 @@ export function DashboardResourcePanels({resources, loading, error}: {
   return <section className="dashboard-ops-grid" aria-busy={loading}>
     <section className="panel resource-overview-panel resource-dashboard-panel"><ResourceHeading title="Analysis Node Health" updatedAt={selectedNode?.source_updated_at} /><div className="resource-control-row">{nodes.length > 0 ? <div className="resource-tabs" role="tablist" aria-label="Analysis node">{nodes.map((node) => <button key={node.resource_key} type="button" role="tab" aria-selected={selectedNode?.resource_key === node.resource_key} className={`${selectedNode?.resource_key === node.resource_key ? "active " : ""}resource-tag resource-node-tab resource-control-token`} onClick={() => setSelectedNodeKey(node.resource_key)}>{nodeTabLabel(node)}</button>)}</div> : <span />}{selectedNode ? <StatusBadge className="resource-control-token" status={selectedNode.status} size="sm" /> : null}</div>{error ? <div className="inline-error" role="alert">Resources unavailable: {error}</div> : null}<div className="resource-card-list">{selectedNode ? <NodeResource item={selectedNode} /> : <p className="empty-state">Node metrics are not available yet.</p>}</div></section>
     <section className="panel resource-overview-panel resource-dashboard-panel"><ResourceHeading title="Cloud Resources" updatedAt={selectedSfs?.source_updated_at} /><div className="resource-control-row">{selectedSfs ? <strong className="resource-tag resource-control-token">{selectedSfs.display_name}</strong> : <span />}{selectedSfs ? <StatusBadge className="resource-control-token" status={selectedSfs.status} size="sm" /> : null}</div><div className="resource-card-list"><CloudResource item={selectedSfs} heavySlot={resources?.heavy_slot} /></div></section>
-    <SfsIoPanel item={selectedSfs} />
+    <SfsIoPanel item={selectedSfs} period={historyPeriod} onPeriodChange={onHistoryPeriodChange}
+      historyReady={!resources.history_period || resources.history_period === historyPeriod} error={error} />
   </section>;
 }
 
@@ -102,22 +105,30 @@ function loadTone(percent: number | null): "healthy" | "warning" | "danger" {
   return "danger";
 }
 
-function SfsIoPanel({item}: {item?: PlatformResourceSnapshot}) {
-  const [period, setPeriod] = useState<"1h" | "24h" | "7d">("24h");
-  const allPoints = (item?.history || []).map((point) => ({
-    at: Date.parse(String(point.at || "")),
-    read: numeric(point.read_bps),
-    write: numeric(point.write_bps),
-    total: totalBandwidth(point),
-  })).filter((point) => Number.isFinite(point.at));
-  const latestAt = Math.max(0, ...allPoints.map((point) => point.at));
-  const window = chartWindow(period, latestAt);
-  const points = allPoints.filter((point) => point.at >= window.startAt && point.at <= window.endAt);
+const SfsIoPanel = memo(function SfsIoPanel({item, period, onPeriodChange, historyReady, error}: {
+  item?: PlatformResourceSnapshot;
+  period: ResourceHistoryPeriod;
+  onPeriodChange?: (period: ResourceHistoryPeriod) => void;
+  historyReady: boolean;
+  error: string | null;
+}) {
+  const {points, window} = useMemo(() => {
+    const allPoints = (item?.history || []).map((point) => ({
+      at: Date.parse(String(point.at || "")),
+      read: numeric(point.read_bps),
+      write: numeric(point.write_bps),
+      total: totalBandwidth(point),
+    })).filter((point) => Number.isFinite(point.at));
+    const latestAt = Math.max(0, ...allPoints.map((point) => point.at));
+    const window = chartWindow(period, latestAt);
+    const points = allPoints.filter((point) => point.at >= window.startAt && point.at <= window.endAt);
+    return {points, window};
+  }, [item?.history, period]);
   const current = item?.current || {};
-  return <section className="panel resource-dashboard-panel"><div className="section-heading split"><h2>SFS I/O</h2><div className="period-selector compact-period-selector" role="tablist" aria-label="SFS I/O period">{(["1h", "24h", "7d"] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={period === value} className={period === value ? "active" : ""} onClick={() => setPeriod(value)}>{value.toUpperCase()}</button>)}</div></div>{points.length > 1 ? <BandwidthChart points={points} startAt={window.startAt} endAt={window.endAt} ticks={window.ticks} period={period} /> : <p className="empty-state">SFS I/O history is not available yet.</p>}<div className="sfs-io-current"><span><i className="sfs-read-dot" />Read <strong>{formatRate(current.read_bps)}</strong></span><span><i className="sfs-write-dot" />Write <strong>{formatRate(current.write_bps)}</strong></span><span><i className="sfs-total-dot" />Total <strong>{formatRate(totalBandwidth(current))}</strong>{numeric(current.total_bps) == null && totalBandwidth(current) != null ? <small>读＋写计算</small> : null}</span><span>Current IOPS <strong>{metric(current.iops)}</strong></span></div></section>;
-}
+  return <section className="panel resource-dashboard-panel"><div className="section-heading split"><h2>SFS I/O</h2><div className="period-selector compact-period-selector" role="tablist" aria-label="SFS I/O period">{(["1h", "24h", "7d"] as const).map((value) => <button key={value} type="button" role="tab" aria-selected={period === value} className={period === value ? "active" : ""} onClick={() => onPeriodChange?.(value)}>{value.toUpperCase()}</button>)}</div></div>{!historyReady ? <p className="muted">{error ? "所选时段加载失败，等待重试。" : "正在加载所选时段…"}</p> : points.length > 1 ? <BandwidthChart points={points} startAt={window.startAt} endAt={window.endAt} ticks={window.ticks} period={period} /> : <p className="empty-state">SFS I/O history is not available yet.</p>}<div className="sfs-io-current"><span><i className="sfs-read-dot" />Read <strong>{formatRate(current.read_bps)}</strong></span><span><i className="sfs-write-dot" />Write <strong>{formatRate(current.write_bps)}</strong></span><span><i className="sfs-total-dot" />Total <strong>{formatRate(totalBandwidth(current))}</strong>{numeric(current.total_bps) == null && totalBandwidth(current) != null ? <small>读＋写计算</small> : null}</span><span>Current IOPS <strong>{metric(current.iops)}</strong></span></div></section>;
+});
 
-function BandwidthChart({points, startAt, endAt, ticks, period}: {points: Array<{at: number; read: number | null; write: number | null; total: number | null}>; startAt: number; endAt: number; ticks: number[]; period: "1h" | "24h" | "7d"}) {
+const BandwidthChart = memo(function BandwidthChart({points, startAt, endAt, ticks, period}: {points: Array<{at: number; read: number | null; write: number | null; total: number | null}>; startAt: number; endAt: number; ticks: number[]; period: "1h" | "24h" | "7d"}) {
   const maximum = Math.max(1, ...points.flatMap((point) => [point.read ?? 0, point.write ?? 0, point.total ?? 0]));
   const segments = (key: "read" | "write" | "total") => {
     const parts: string[][] = [[]];
@@ -130,7 +141,7 @@ function BandwidthChart({points, startAt, endAt, ticks, period}: {points: Array<
     return parts.filter(part => part.length).map(part=>part.join(' '));
   };
   return <div className="sfs-chart-layout"><div className="sfs-chart-y-axis" aria-label="SFS bandwidth Y axis"><span>{formatRate(maximum)}</span><span>{formatRate(maximum / 2)}</span><span>{formatRate(0)}</span></div><div className="sfs-chart-plot"><svg className="sfs-io-chart" viewBox="0 0 300 100" role="img" aria-label="SFS read and write bandwidth history" preserveAspectRatio="none"><line x1="0" y1="92" x2="300" y2="92" className="sfs-chart-axis" /><line x1="0" y1="51" x2="300" y2="51" className="sfs-chart-grid" /><line x1="0" y1="10" x2="300" y2="10" className="sfs-chart-grid" />{(["read", "write", "total"] as const).flatMap(key => segments(key).map((points, index) => <polyline key={`${key}-${index}`} points={points} className={`sfs-chart-${key}`} />))}</svg><div className="sfs-chart-x-axis" aria-label="SFS bandwidth X axis">{ticks.map((tick) => <span key={tick}>{formatTick(tick, period)}</span>)}</div></div></div>;
-}
+});
 
 function chartWindow(period: "1h" | "24h" | "7d", latestAt: number) {
   const interval = period === "1h" ? 15 * 60_000 : period === "24h" ? 6 * 60 * 60_000 : 24 * 60 * 60_000;

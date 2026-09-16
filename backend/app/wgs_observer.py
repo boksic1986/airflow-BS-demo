@@ -1982,6 +1982,7 @@ def _apply_pod_event(
         )
     )
     incoming_version = str(payload.get("resource_version") or "0")
+    observed = _iso_time(payload.get("observed_at_utc"))
     if row is None:
         row = KubernetesWorkload(
             analysis_id=binding.analysis_id,
@@ -1995,11 +1996,16 @@ def _apply_pod_event(
         session.flush()
     elif _resource_version(incoming_version) < _resource_version(row.resource_version):
         return
+    elif (binding.analysis_id.startswith("GATK_") and row.observed_at is not None
+          and observed.astimezone(timezone.utc) < (
+              row.observed_at.replace(tzinfo=timezone.utc) if row.observed_at.tzinfo is None
+              else row.observed_at.astimezone(timezone.utc))):
+        return  # A replayed pre-deletion snapshot cannot resurrect a removed Pod.
     row.event_id = str(payload["event_key"])
     row.resource_version = incoming_version
     row.job_name = str(payload.get("job") or row.job_name or "") or None
     row.phase = str(payload.get("phase") or row.phase or "Unknown")
-    row.observed_at = _iso_time(payload.get("observed_at_utc"))
+    row.observed_at = observed
     row.node_name = str(payload.get("node_name") or row.node_name or "") or None
     container = payload.get("container") if isinstance(payload.get("container"), dict) else {}
     container_status = payload.get("container_status") if isinstance(payload.get("container_status"), dict) else {}
@@ -2016,7 +2022,7 @@ def _apply_pod_event(
     if isinstance(container.get("resources"), dict) and container["resources"]:
         row.resources_json = container["resources"]
     labels = payload.get("workload_labels") if isinstance(payload.get("workload_labels"), dict) else {}
-    if str(payload.get("workload_role") or "master") == "work":
+    if str(payload.get("workload_role") or "master") == "work" and row.phase != "Deleted":
         row.resources_json = {
             **dict(row.resources_json or {}),
             "workload_role": "work",

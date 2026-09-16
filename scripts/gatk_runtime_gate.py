@@ -261,7 +261,8 @@ def _sync_evidence(
         text=True,
     )
     if completed.returncode:
-        return (completed.stderr or completed.stdout or "GATK evidence bridge failed")[-2000:]
+        # Keep a concise diagnostic, not kubectl arguments/private paths from a traceback.
+        return f"GATK evidence bridge failed (exit {completed.returncode})"
     if terminal:
         rule_root = Path(str(binding["evidence_output"])) / "rule-status" / "raw"
         if not any(path.is_file() and path.stat().st_size for path in rule_root.glob("*.jsonl")):
@@ -944,13 +945,13 @@ def _execute(
                 }
                 if master == "SUCCEEDED":
                     monitoring_error = _sync_evidence(payload, binding, terminal=True)
-                    if monitoring_error:
-                        raise RuntimeError(monitoring_error)
                     _write_status(
                         request_path,
                         payload,
                         "success",
-                        "GATK Master and logger evidence completed",
+                        "分析完成，日志采集异常" if monitoring_error else "GATK Master and logger evidence completed",
+                        monitoring_health="degraded" if monitoring_error else "healthy",
+                        monitoring_error=monitoring_error,
                         **progress,
                     )
                     return
@@ -985,11 +986,19 @@ def _execute(
                 print(f"GATK download progress finalization unavailable: {type(exc).__name__}", flush=True)
         elif stage == "step6_materialize":
             _materialize(payload)
+            # The terminal reader is deleted asynchronously. Refresh once after
+            # delivery so its earlier Running observation cannot strand Step7.
+            try:
+                monitoring_error = _sync_evidence(payload, _load_binding(payload), terminal=False)
+            except (OSError, ValueError, RuntimeError) as exc:
+                monitoring_error = f"GATK workload finalization unavailable: {type(exc).__name__}"
             _write_status(
                 request_path,
                 payload,
                 "success",
                 "GATK delivery materialized to the approved result root",
+                monitoring_health="degraded" if monitoring_error else "healthy",
+                monitoring_error=monitoring_error,
             )
         else:
             completed = _run_frozen_stage(

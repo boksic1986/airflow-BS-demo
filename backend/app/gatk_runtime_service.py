@@ -240,7 +240,7 @@ def _execution_payload(row: PipelineStageExecution) -> dict[str, Any]:
 def sync_gatk_stage_status(
     *, session: Session, settings, analysis_id: str, attempt: int, stage: str
 ) -> dict[str, Any]:
-    if stage in {"step1_upload", "step3_monitor", "step5_download"}:
+    if stage in {"step1_upload", "step3_monitor", "step5_download", "step6_materialize"}:
         _ingest_gatk_evidence(session=session, settings=settings, analysis_id=analysis_id, attempt=attempt)
     row = session.scalar(
         select(PipelineStageExecution)

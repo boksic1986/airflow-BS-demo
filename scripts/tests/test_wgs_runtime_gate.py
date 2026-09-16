@@ -2623,9 +2623,11 @@ def test_step3_worker_does_not_publish_generic_running_status(
     assert statuses == ["success"]
 
 
+@pytest.mark.parametrize('monitoring_error', [None, 'log collection failed'])
 def test_step3_terminal_success_is_written_with_frozen_master_identity(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    monitoring_error,
 ) -> None:
     gate = load_gate()
     cce_bundle = tmp_path / "cce"
@@ -2650,7 +2652,7 @@ def test_step3_terminal_success_is_written_with_frozen_master_identity(
     monkeypatch.setattr(
         gate,
         "_sync_rule_evidence",
-        lambda _payload, _binding, *, terminal: None,
+        lambda _payload, _binding, *, terminal: monitoring_error,
     )
     monkeypatch.setattr(
         gate.subprocess,
@@ -2691,7 +2693,8 @@ def test_step3_terminal_success_is_written_with_frozen_master_identity(
     assert details["namespace"] == "snakemake-ns"
     assert details["run_label"] == "cce-run-0123456789abcdef"
     assert details["master"]["master_state"] == "SUCCEEDED"
-    assert details["monitoring_health"] == "healthy"
+    assert details["monitoring_health"] == ("degraded" if monitoring_error else "healthy")
+    assert details["monitoring_error"] == monitoring_error
 
 
 def test_step3_monitor_retries_transient_kubectl_query_without_failing(
