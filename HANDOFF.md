@@ -1,5 +1,22 @@
 # HANDOFF.md
 
+## 2026-09-16 GATK workload retirement candidate
+
+User approves fix, server Git main/production push and96 selective release.
+Scope: bridge Pod disappearance, importer late-event fence, strict Step7 known
+inactive gate, Step6 final collection/status ingestion. No API/table/DAG/image
+change, no cleanup or analysis rerun. Five code files plus one synthetic test.
+Server repo development/gatk-cleanup-20260916 under approved airflow-WGS control
+root, branchjiucheng/fix/gatk-cleanup-stale-workloads based6bd69af. Other work in
+Windows and BS10610 onprem-review release remains untouched. Server Git only.
+Tests: targeted RED9failed/3passed and Step6 RED2failed; GREEN76passed5.58s.
+Runtime tests used cached8491604 image, networknone, read-only source and
+disposable synthetic data. No full regression per user instruction.
+Failures and exact source/runtime boundary recorded in
+docs/releases/2026-09-16-gatk-workload-retirement.md. Production promotion pending
+this entry; preserve backend/runtime rollback copies and all data. Do not run
+Step7 for validation. Reload only backend; do not restart Airflow/Masters.
+
 ## 2026-09-16 Pod-exit fix committed and released (user authorized)
 
 Only race-fix code/tests and related docs committed as1770800; main and production

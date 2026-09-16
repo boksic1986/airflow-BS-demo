@@ -564,3 +564,11 @@ GATK Step1/Step5 status-only running updates retain measured stage progress for
 the same execution. Generation reopen clears prior measurements. WGS Heavy
 quota excludes explicit nonparticipating GATK Masters; idle WGS counts do not
 describe GATK compute utilization. Unknown telemetry is not converted to zero.
+# GATK workload retirement (2026-09-16)
+
+No endpoint change. The existing Step7 capability accepts terminal workloads
+or a collector-confirmed Deleted/PodNotFound projection. Unknown, live or
+unconfirmed deletion records remain blocked as cce_workload_active. Read-time
+eligibility does not replace node-side fresh workload/UID/target validation.
+The existing GATK Step6 status poll ingests final workload evidence; no browser
+Kubernetes access, cleanup-on-read or automatic destructive action is added.

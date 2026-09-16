@@ -1,5 +1,14 @@
 # TASKS.md
 
+## GATK-CLEANUP-STALE-WORKLOAD-20260916
+
+- [x] Trace old Running Pod/reader records blocking completed runs.
+- [x] Reuse bridge/importer with confirmed-absence and late-event fencing.
+- [x] Final Step6 collection/ingestion; keep analysis outcome independent.
+- [x] BS10610 targeted RED/GREEN;76 tests passed, no full regression.
+- [ ] Server commit and main/production push; selective96 release authorized.
+- [ ] Refresh exact completed-run records and check capability, no SFS cleanup.
+
 ## POD-EXIT-EVIDENCE-RELEASE-20260916
 
 - [x] Commit only approved race fix; keep0914A compatibility uncommitted.

@@ -986,11 +986,19 @@ def _execute(
                 print(f"GATK download progress finalization unavailable: {type(exc).__name__}", flush=True)
         elif stage == "step6_materialize":
             _materialize(payload)
+            # The terminal reader is deleted asynchronously. Refresh once after
+            # delivery so its earlier Running observation cannot strand Step7.
+            try:
+                monitoring_error = _sync_evidence(payload, _load_binding(payload), terminal=False)
+            except (OSError, ValueError, RuntimeError) as exc:
+                monitoring_error = f"GATK workload finalization unavailable: {type(exc).__name__}"
             _write_status(
                 request_path,
                 payload,
                 "success",
                 "GATK delivery materialized to the approved result root",
+                monitoring_health="degraded" if monitoring_error else "healthy",
+                monitoring_error=monitoring_error,
             )
         else:
             completed = _run_frozen_stage(

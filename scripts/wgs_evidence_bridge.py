@@ -332,20 +332,43 @@ def _sync_workload_snapshots(
     cursor = _read_snapshot_cursor(cursor_path)
     observed = datetime.now(timezone.utc).isoformat()
     emitted = 0
+    reconcile_missing = run_label_key == "cce.biosan.cn/run-id"
     pod_collection = _run_json(
         _kubectl(
             config,
             namespace,
             "get",
             "pods",
-            "-l",
-            f"{run_label_key}={run_label}",
+            *([] if reconcile_missing else ["-l", f"{run_label_key}={run_label}"]),
             "-o",
             "json",
         )
     )
+    pods = pod_collection.get("items")
+    if not isinstance(pods, list) or (pod_collection.get("metadata") or {}).get("continue"):
+        raise ValueError("complete Pod inventory unavailable")
+    missing = []
+    if reconcile_missing:
+        # An unfiltered namespace inventory distinguishes deletion from label drift.
+        inventory = {}
+        for pod in pods:
+            metadata = pod.get("metadata") or {}
+            name = str(metadata.get("name") or "")
+            if not name:
+                raise ValueError("Pod inventory identity unavailable")
+            inventory[name] = pod
+        for key, version in cursor.items():
+            if not key.startswith("pods:"):
+                continue
+            name = key[5:]
+            pod = inventory.get(name)
+            if pod is None:
+                missing.append((key, name, version))
+            elif ((pod.get("metadata") or {}).get("labels") or {}).get(run_label_key) != run_label:
+                raise ValueError("previous Pod no longer matches bound run")
+        pods = [p for p in pods if ((p.get("metadata") or {}).get("labels") or {}).get(run_label_key) == run_label]
     snapshots = (
-        ("pods", pod_event, "pod-events.jsonl", pod_collection.get("items") or []),
+        ("pods", pod_event, "pod-events.jsonl", pods),
         (
             "jobs",
             job_event,
@@ -378,6 +401,16 @@ def _sync_workload_snapshots(
             _atomic_append(output / "raw" / target, payload)
             cursor[f"{kind}:{name}"] = version
             emitted += 1
+    for key, name, version in missing:
+        pod_hash = hashlib.sha256(name.encode()).hexdigest()[:24]
+        _atomic_append(output / "raw" / "pod-events.jsonl", {
+            "event_key": f"pod-absent:{pod_hash}:{version}:{observed}",
+            "workload_role": "work", "run_label": run_label,
+            "pod_hash": pod_hash, "resource_version": version,
+            "observed_at_utc": observed, "phase": "Deleted", "reason": "PodNotFound",
+        })
+        del cursor[key]
+        emitted += 1
     _atomic_json(cursor_path, cursor)
     return emitted
 
@@ -789,6 +822,11 @@ def sync_rule_events_once(
     if log_chunk is not None:
         applied += _apply_file_chunk(output, analysis_cursor_path, log_chunk)
     applied += _apply_heavy_slot_snapshot(output, heavy_slot_chunk)
+    if terminal and run_label_key == "cce.biosan.cn/run-id":
+        applied += _sync_workload_snapshots(
+            config=config, namespace=namespace, master_job=master_job,
+            master_manifest=master_manifest, output=output, run_label_key=run_label_key,
+        )
     return applied
 
 

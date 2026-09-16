@@ -1,5 +1,18 @@
 # Workflow runtime integration
 
+## GATK workload retirement (2026-09-16)
+
+The common bridge's GATK label path uses complete namespace Pod inventory to
+distinguish disappearance from changed labels. Previously observed absent Pods
+emit existing pod-events with phaseDeleted/reasonPodNotFound; incomplete queries
+and identity drift cannot retire them. GATK importer rejects older observed
+snapshots. WGS's scoped polling and execution behavior are unchanged.
+Final reader collection and Step6 delivery refresh workload evidence once;
+Step6 stage-status ingests it using the existing cursor importer. Reader cleanup
+stays asynchronous, collection failure cannot fail successful delivery, and
+Step7 still checks current runtime Jobs/Pods/UID and verified delivery before
+the administrator-authorized destructive action. No new API/table/daemon.
+
 ## Pod-exit log collection race (2026-09-16, source only)
 
 The common wgs_evidence_bridge reads directly from a Running Master. If exec
