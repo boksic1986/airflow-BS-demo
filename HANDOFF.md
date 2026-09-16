@@ -14,6 +14,20 @@ Next: bounded affected checks and test application deployment, preserve schema00
 native monitor DAG, native gates, test records/snapshots; no BS96 or real compute.
 Initial object lookup e34bc45 absent on server was expected; imported exact bundle.
 
+Completed merge d705a46. Compared actual20260916-onprem-review: only backend
+gatk_runtime_service.py,gatk_step7_service.py,wgs_observer.py differ; frontend/src
+and alembic unchanged. Targeted test_gatk_workload_retirement.py plus
+test_wgs_onprem_airflow_sync.py16passed3.01s, one dependency deprecation warning.
+No full regression, frontend rebuild, migration or synthetic/real submission.
+Published17:20+08 to releases/20260916-onprem-main-d705a46; only backend294cb11c1731
+and observer0e425a5aecea recreated. Other8 IDs/image/env unchanged. Health200,
+native run success/attempt1/two snapshots retained; all test gates unchanged.
+First post-release SSH reset before execution; reconnect succeeded, not a test
+failure. Rollback/receipt docs/releases/2026-09-16-onprem-main-sync-bs10610.md.
+Authoritative server feature worktree now contains committed integration. Original
+Windows worktree remains unchanged at its pre-merge dirty state; do not mistake
+that copy for deployed source or overwrite the server merge with it.
+
 ## 2026-09-16 BS10610 review rollout — completed
 
 Supersedes the in-progress entry below. Six planned services are deployed;

@@ -4,9 +4,9 @@
 
 - [x] Preserve58 dirty source/docs files in server feature commit cfe822f.
 - [x] Resolve main d3a031a merge; retain native polling guard and both doc histories.
-- [ ] Minimal affected verification/build, then BS10610 application publication.
-- [ ] Preserve existing schema0026, records, snapshots, gates and native DAG.
-- [ ] Publish branch/receipt; no main reverse merge, BS96 action or real analysis.
+- [x] Minimal affected verification16passed; BS10610 backend/observer publication.
+- [x] Preserve existing schema0026, records, snapshots, gates and native DAG.
+- [x] Commit branch/receipt; no main reverse merge, BS96 action or real analysis.
 
 ## 2026-09-16 acceptance checkpoint (supersedes candidate holds below)
 

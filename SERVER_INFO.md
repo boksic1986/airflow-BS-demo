@@ -1,5 +1,15 @@
 # SERVER_INFO.md
 
+## 2026-09-16 BS10610 main -> native test branch integration
+
+Release /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260916-onprem-main-d705a46,
+commit d705a46914204426399cec98e5b70322297d33cc. Backend294cb11c1731f20e130cf63d9217e98a5372e4ee5848da2e852420fa12d6c400
+and observer0e425a5aecea388814a60799d890189798d4dea9710a3f52028b11d9a5600f9a
+mount new release/backend. Other8 containers retain source/IDs; frontend already
+matches merged source. Existing native DAG and0026 schema unchanged. Private
+compose/rollback candidates/onprem-main-d705a46-control; current remains historical.
+Health200; native test run/snapshots preserved. No96 operation.
+
 2026-09-16 BS10610/server10610 test deployment: releases/20260916-onprem-review
 under /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS.
 Backend e95d75c0695b, observer75bca7473155, API fc89ad88c70e,

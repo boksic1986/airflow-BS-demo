@@ -10,6 +10,14 @@ native_monitor_only refresh isolation and main log/rule/resource/batch fixes.
 Historical entries below describe their own environment/date; no reverse merge
 to main/production or BS96 publication. Deployment receipt will record acceptance.
 
+Integration committed d705a46 and deployed17:20+08 to BS10610 backend/observer.
+Only3 backend app files differ from prior test release; frontend source and
+migrations identical, so no redundant rebuild/migration. Targeted16passed3.01s;
+health200, native run success/attempt1/two snapshots and gates retained.
+Server feature worktree is authoritative; original Windows dirty copy preserved
+as pre-merge editing evidence, not the deployed revision. Release details:
+docs/releases/2026-09-16-onprem-main-sync-bs10610.md.
+
 ## 2026-09-16 R2 — BS10610 deployed and accepted
 
 Final bounded acceptance and test deployment are complete; user confirmed the
