@@ -24,10 +24,11 @@ reuse an existing run/directory. Exact repeat requests reuse the same submission
 different content/options/owner at that identity are rejected. The existing
 catalog creation lock is reused. Imported text lives only in the private runtime
 request spool, not DB params, DAG conf, audit logs or browser draft storage.
-Read access is bounded to existing configured WGS analysis/config/on-prem project
-roots; node analysis paths map to the existing container mount. Escaping paths,
-symlink escapes, unavailable/nonregular files and oversized inputs are rejected.
-No new path permission or mount is enabled. `sampleinfo_source_path` and
+Read access has no WGS source-directory allowlist (2026-09-17). Absolute TSV/TXT
+paths may refer to any ordinary file visible/readable to the backend, including
+resolved symlink targets. Node analysis paths retain existing container mapping.
+Invalid path syntax, unavailable/nonregular files and oversized inputs are rejected.
+No OS permission, mount or output-root constraint changes. `sampleinfo_source_path` and
 `prepared_project_path` in run params support the existing second-stage review.
 The unpublished text-upload request field is replaced, not another public mode.
 

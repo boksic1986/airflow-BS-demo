@@ -106,16 +106,34 @@ def test_server_path_import_preserves_source_and_returns_standard_project_path(t
         assert not (source.parent.parent / 'prepare').exists()
 
 
-def test_server_path_rejects_outside_file_and_escaping_symlink_before_submission(tmp_path):
+@pytest.mark.parametrize('use_symlink', [False, True])
+def test_server_path_imports_readable_source_outside_wgs_roots(tmp_path, use_symlink):
     settings, airflow, engine = setup(tmp_path)
     outside = tmp_path / 'sampleinfo.tsv'
     outside.write_text(TABLE)
     link = Path(settings.wgs_analysis_project_container_root) / 'sampleinfo.tsv'
     link.symlink_to(outside)
     with Session(engine) as session:
-        for source in (outside, link):
-            with pytest.raises(ValueError):
-                submit(session, settings, airflow, sampleinfo_text=None, sampleinfo_path=str(source))
+        source = link if use_symlink else outside
+        result = submit(session, settings, airflow, sampleinfo_text=None, sampleinfo_path=str(source))
+        assert result['params']['sampleinfo_source_path'] == str(source)
+        assert result['params']['prepared_project_path'] == str(
+            Path(settings.wgs_analysis_project_node200_root) / 'WGS_20260910A_CCE_TEST_T7Hg38V4.2.1')
+        saved = Path(settings.wgs_runtime_request_root) / result['analysis_id'] / 'sampleinfo-upload.tsv'
+        assert saved.is_file()
+        assert outside.read_text() == TABLE
+        assert 'PRIVATE_SYNTHETIC' not in str(result) + str(airflow.calls)
+
+
+@pytest.mark.parametrize('source_kind', ['missing', 'directory'])
+def test_server_path_still_rejects_unavailable_or_nonregular_source(tmp_path, source_kind):
+    settings, airflow, engine = setup(tmp_path)
+    source = tmp_path / 'sampleinfo.tsv'
+    if source_kind == 'directory':
+        source.mkdir()
+    with Session(engine) as session:
+        with pytest.raises(ValueError):
+            submit(session, settings, airflow, sampleinfo_text=None, sampleinfo_path=str(source))
         assert session.scalar(select(AnalysisRun)) is None
         assert not airflow.calls
 

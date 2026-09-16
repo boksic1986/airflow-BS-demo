@@ -1,5 +1,12 @@
 # TASKS.md
 
+## SAMPLEINFO-SOURCE-PATH-20260917
+
+- [x] Remove source-directory allowlist only; preserve output and file validation.
+- [x] BS10610: reproduce external path/link rejection, affected file15 tests pass.
+- [x] Update API contract and handoff; no native prepare/pending or frontend edits.
+- [ ] Publish after separate production confirmation; v2 gate remains unchanged.
+
 ## PRODUCTION-SOURCE-SYNC-20260917
 
 - [x] Selectively port sampleinfo import; exclude Local/SGE branch ancestors.

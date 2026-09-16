@@ -25,12 +25,10 @@ def read_sampleinfo_path(settings, value: str) -> str:
     node_root = Path(settings.wgs_analysis_project_node200_root)
     if node_root in source.parents:
         source = container_root / source.relative_to(node_root)
-    roots = [container_root, *map(Path, getattr(settings, 'wgs_config_roots', [])),
-             *map(Path, getattr(settings, 'wgs_onprem_project_roots', []))]
     try:
         resolved = source.resolve(strict=True)
-        if not any(root.is_absolute() and root.resolve() in resolved.parents for root in roots):
-            raise ValueError('Sampleinfo is outside configured WGS input roots')
+        # Sources may be anywhere visible/readable to the backend. Output paths
+        # remain constrained separately; opening the source never modifies it.
         fd = os.open(resolved, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         with os.fdopen(fd, 'rb') as handle:
             if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):

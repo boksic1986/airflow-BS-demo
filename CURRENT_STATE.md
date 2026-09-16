@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Sampleinfo source-directory restriction removed (not deployed)
+
+Approved single-point fix removes the WGS input-root allowlist from
+read_sampleinfo_path. Backend-visible/readable absolute TSV/TXT sources, including
+resolved symlinks, are accepted. Existing node/container mapping, file checks,
+private copy, configured output root and pending/prepare behavior unchanged.
+BS10610 synthetic-only affected test file:15 passed7.38s after two RED cases.
+Branch jiucheng/fix/sampleinfo-source-path based on b466f22; no96 deployment or
+runtime gate change. Last production release recorded contract_v2=false; imported
+sampleinfo still requires v2. Enabling that gate is a separate release decision.
+
 ## 2026-09-17 Clinical release e9a6644 deployed
 
 BS96 full frontend plus four complete backend/collector source mounts now use

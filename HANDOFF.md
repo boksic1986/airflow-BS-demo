@@ -1,5 +1,35 @@
 # HANDOFF.md
 
+## 2026-09-17 Sampleinfo unrestricted source paths, code-only fix
+
+User approved removing the source-directory restriction, not changing output
+roots or pending. On server10610 existing linked worktree
+development/gatk-cleanup-20260916, clean b466f22 base; created branch
+jiucheng/fix/sampleinfo-source-path. Windows remains an editing mirror only.
+Modified backend/app/wgs_sampleinfo_upload.py: removed roots list/containment
+rejection. Existing absolute TSV/TXT syntax, readable regular UTF-8 file<=512KiB,
+node/container mapping and private-copy/output validation retained. OS permissions
+and container visibility still determine which source files are readable.
+Tests replace old outside-root rejection with successful ordinary/symlink import,
+preserved source contents/configured output; add missing/nonregular rejection.
+No real file contents read, no analysis submitted, no clinical data or DB changed.
+
+BS10610 preflight hostname server10610, control root /mnt/biodevrwbi/33.chenjiucheng/
+project/airflow-WGS, current historical20260912-opt-4d3d24e6, cached backend8491604.
+Isolated docker run --rm --network none --read-only --tmpfs /testwork;
+source mounted /src:ro, PYTHONPATH=/src/backend, no service mounts/config altered.
+RED: pytest backend/tests/test_wgs_sampleinfo_upload.py -k imports_readable_source
+--import-mode=importlib -q --basetemp=/testwork/tests -p no:cacheprovider:
+two failures at the exact reported input-roots error. After minimal fix, same
+test file WITHOUT -k:15 passed7.38s. No repeated/full/frontend/runtime tests.
+
+API doc updated; no schema/DAG/runtime/frontend changes. Not merged/pushed to
+main/production or deployed96 in this task. Last verified96 configuration had
+WGS_CONTRACT_V2_ENABLED=false, while create_uploaded_run requires v2; do not
+claim this path fix alone enables production import or silently change that gate.
+Next: obtain production release/gate decision, use complete source release, not
+file overlay. Code rollback is a revert of this small commit; no data rollback.
+
 ## 2026-09-17 Clinical release execution and exact SFS cleanup authorization
 
 FINAL OUTCOME: complete application source e9a6644 deployed to96 frontend and
