@@ -608,7 +608,73 @@ def validate_release_repository(payload: dict[str, Any]) -> Path:
     return repo
 
 
+def _skip_prepare_checks(payload: dict[str, Any]) -> bool:
+    """Operator-owned exact release/batch overrides; never trust a browser flag."""
+    try:
+        policies = json.loads(os.getenv('WGS_PREPARE_CHECK_OVERRIDES_JSON', '{}'))
+        if not isinstance(policies, dict) or any(type(v) is not bool for v in policies.values()):
+            raise ValueError('invalid policy')
+        key = str(payload.get('pipeline_release_id', '')) + ':' + str(payload.get('sequencing_batch', ''))
+        return policies.get(key, False)
+    except (TypeError, ValueError) as error:
+        raise RuntimeError('invalid server prepare check policy') from error
+
+
+def _release_prepare_config(payload: dict[str, Any]) -> Path | None:
+    """Server-owned release pins; never accept a config path from a request."""
+    if payload.get("execution_target", "cce") != "cce" or payload.get("test_project"):
+        return None
+    try:
+        mapping = json.loads(os.environ.get("WGS_RELEASE_PREPARE_CONFIGS_JSON", "{}"))
+        if not isinstance(mapping, dict):
+            raise ValueError()
+        pin = mapping.get(str(payload.get("pipeline_release_id") or ""))
+        if pin is None:
+            return None
+        if not isinstance(pin, dict) or set(pin) != {"path", "sha256"}:
+            raise ValueError()
+        config = Path(pin["path"])
+        root = WGS_PREPARE_CONFIG_ROOT.resolve()
+        if not config.is_absolute() or config.is_symlink() or root not in config.resolve().parents:
+            raise ValueError()
+        raw = config.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != pin["sha256"]:
+            raise ValueError()
+        data = yaml.safe_load(raw)
+        profile = Path(data["cce"]["profile_file"])
+        expected = str(payload.get("node200_profile_path") or "")
+        if not profile.is_absolute() or profile.is_symlink() or str(profile) != expected:
+            raise ValueError()
+        if hashlib.sha256(profile.read_bytes()).hexdigest() != payload.get("profile_sha256"):
+            raise ValueError()
+        return config.resolve()
+    except (ValueError, TypeError, KeyError, OSError, yaml.YAMLError):
+        raise RuntimeError("release_unavailable: pinned prepare configuration or profile validation failed") from None
+
+
+def _expected_profile_revision_sha256(payload: dict[str, Any]) -> str:
+    """Direct-profile catalog pins bytes; CCE metadata pins rendered revision."""
+    if _release_prepare_config(payload) is None:
+        return str(payload.get("profile_sha256") or "")
+    from importlib.metadata import version
+    from cce_pipeline.profiles import _validated_source
+    if version("cce-pipeline") != str(payload.get("cce_pipeline_version") or ""):
+        raise RuntimeError("profile digest parser version differs from frozen CCE version")
+    source = Path(str(payload["node200_profile_path"])).read_bytes()
+    if hashlib.sha256(source).hexdigest() != payload["profile_sha256"]:
+        raise RuntimeError("source profile changed during fingerprint validation")
+    # Match profiles._write_revision -> load_revision -> revision_digest without
+    # creating a temporary revision or changing any profile/bundle files.
+    resolved = yaml.safe_load(yaml.safe_dump(_validated_source(yaml.safe_load(source)), allow_unicode=True, sort_keys=False))
+    canonical = json.dumps(resolved, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def validate_prepare_config(payload: dict[str, Any] | None = None) -> Path:
+    if payload is not None:
+        pinned = _release_prepare_config(payload)
+        if pinned is not None:
+            return pinned
     repo = _release_repository(payload) if payload is not None else WGS_REPO_ROOT.resolve()
     config = repo / "prepare" / "config.yaml" if payload is not None else Path(WGS_PREPARE_CONFIG)
     if not config.is_absolute() or not config.is_file() or config.is_symlink():
@@ -645,7 +711,7 @@ def _binding_path(payload: dict[str, Any]) -> Path:
 
 def build_prepare_command(payload: dict[str, Any]) -> list[str]:
     repository = _release_repository(payload)
-    prepare_config = repository / "prepare" / "config.yaml"
+    prepare_config = _release_prepare_config(payload) or repository / "prepare" / "config.yaml"
     frozen_template = None
     if payload.get('test_project'):
         prepare_config,frozen_template,_ = _test_effective_prepare(payload)
@@ -716,8 +782,9 @@ def build_prepare_command(payload: dict[str, Any]) -> list[str]:
             str(fastq_root),
             "--cce-config",
             str(_release_operator_config(payload)),
-            "--skip-samplelist-ready-check",
         ])
+        if _skip_prepare_checks(payload):
+            command.append("--skip-samplelist-ready-check")
         if payload.get("cce_pipeline_version"):
             if not CCE_PIPELINE_BIN:
                 raise RuntimeError("release_unavailable: cce-pipeline executable is not configured")
@@ -1045,6 +1112,62 @@ def _write_pending_input(
     return 0
 
 
+def _handoff_table(path: Path) -> list[dict[str, str]]:
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        fields = reader.fieldnames or []
+        if not fields or len(fields) != len(set(fields)):
+            raise RuntimeError("WGS prepare handoff table header is invalid")
+        rows = list(reader)
+    if any(None in row or any(value is None for value in row.values()) for row in rows):
+        raise RuntimeError("WGS prepare handoff table shape is invalid")
+    return rows
+
+
+def _validate_pending_decisions(payload, request, projected, tables):
+    # Safe receipts deliberately omit order/task identifiers. Use the bound
+    # private source, never sample_id alone, to identify current ledger rows.
+    source = Path(str(payload["analysis_project_root"])) / "sampleinfo" / f"{payload['batch_no']}.sampleinfo.txt"
+    if source.is_symlink() or not source.is_file() or _sha256_file(source) != request["source_sampleinfo"]["sha256"]:
+        raise RuntimeError("WGS prepare handoff source identity changed")
+    source_rows = _handoff_table(source)
+    by_sample = {row.get("样本编号", "").strip(): row for row in source_rows}
+    decisions = [row for group in ("selected", "pending", "excluded") for row in projected[group]]
+    if len(by_sample) != len(source_rows) or set(by_sample) != {row["sample_id"] for row in decisions}:
+        raise RuntimeError("WGS prepare handoff source decision coverage mismatch")
+    mapping = {"sequencing_batch": "上机批次", "analysis_batch": "分析批次", "family_id": "家系编号",
+               "sample_id": "样本编号", "data_id": "数据编号", "sample_type": "样本类型",
+               "family_relation": "家系关系", "sex": "性别"}
+    def blank(value):
+        return str(value).strip() in {"", ".", "None", "nan"}
+    def order(row):
+        for column, prefix in (("analysisTaskId", "task:"), ("订单编号", "order:")):
+            if not blank(row.get(column, "")):
+                return prefix + row[column].strip()
+        return "sample:" + row.get("样本编号", "").strip()
+    def identity(row):
+        return (order(row), *(row.get(column, "").strip() for column in ("样本编号", "上机批次", "数据编号")))
+    ledger = tables["private_pending_payload"]
+    for decision in decisions:
+        original = by_sample[decision["sample_id"]]
+        for field, column in mapping.items():
+            # WGS can recover a previously absent sequencing batch. The safe
+            # decision and unique private ledger identity must agree below.
+            if field == "sequencing_batch" and blank(original.get(column, "")):
+                continue
+            if original.get(column, "").strip() != str(decision[field]).strip():
+                raise RuntimeError("WGS prepare handoff source decision identity mismatch")
+        resolved = {**original, "上机批次": decision["sequencing_batch"]}
+        matches = [row for row in ledger if identity(row) == identity(resolved)]
+        if decision["decision"] == "pending":
+            if len(matches) != 1 or any(matches[0].get(column, "").strip() != str(decision[field]).strip() for field, column in mapping.items()):
+                raise RuntimeError("WGS prepare handoff pending identity missing or ambiguous")
+        elif decision["decision"] == "selected":
+            final = [row for row in tables.get("final_sampleinfo", []) if identity(row) == identity(resolved)]
+            if matches or len(final) != 1:
+                raise RuntimeError("WGS prepare handoff selected identity mismatch")
+
+
 def _validated_prepare_receipt(payload: dict[str, Any], request_path: Path) -> dict[str, Any]:
     request = json.loads(request_path.read_text(encoding="utf-8"))
     receipt_path = Path(str(request["artifact_root"])) / f"{payload['stage']}.receipt.json"
@@ -1106,6 +1229,7 @@ def _validated_prepare_receipt(payload: dict[str, Any], request_path: Path) -> d
         else ("final_sampleinfo", "private_pending_payload")
     )
     artifact_root = Path(str(request["artifact_root"])).resolve()
+    tables = {}
     for name in descriptor_names:
         descriptor = receipt.get(name)
         if not isinstance(descriptor, dict):
@@ -1113,14 +1237,19 @@ def _validated_prepare_receipt(payload: dict[str, Any], request_path: Path) -> d
         if descriptor.get("artifact_key") != request["artifact_keys"][name]:
             raise RuntimeError(f"WGS prepare handoff {name} artifact key mismatch")
         artifact_sha = descriptor.get("sha256")
-        row_count = int(descriptor.get("row_count") or 0)
+        row_count = descriptor.get("row_count")
+        if type(row_count) is not int or row_count < 0:
+            raise RuntimeError("WGS prepare handoff row count is invalid")
         if artifact_sha is None and name == "final_sampleinfo" and row_count == 0:
             continue
-        artifact = (artifact_root / str(descriptor["artifact_key"])).resolve()
-        if artifact_root not in artifact.parents or not artifact.is_file() or artifact.is_symlink():
+        artifact = artifact_root / str(descriptor["artifact_key"])
+        if artifact.is_symlink() or artifact_root not in artifact.resolve().parents or not artifact.is_file():
             raise RuntimeError(f"WGS prepare handoff {name} artifact is unavailable")
         if artifact_sha != _sha256_file(artifact):
             raise RuntimeError(f"WGS prepare handoff {name} SHA256 mismatch")
+        tables[name] = _handoff_table(artifact)
+        if len(tables[name]) != row_count:
+            raise RuntimeError(f"WGS prepare handoff {name} row count mismatch")
     safe_keys = {
         "sequencing_batch", "analysis_batch", "family_id", "sample_id", "data_id",
         "sample_type", "family_relation", "sex", "decision", "reason_code", "reason_message",
@@ -1159,10 +1288,9 @@ def _validated_prepare_receipt(payload: dict[str, Any], request_path: Path) -> d
         if (
             int(receipt["final_sampleinfo"].get("row_count") or 0)
             != len(projected["selected"])
-            or int(receipt["private_pending_payload"].get("row_count") or 0)
-            != len(projected["pending"])
         ):
             raise RuntimeError("WGS prepare handoff analysis decision count mismatch")
+        _validate_pending_decisions(payload, request, projected, tables)
     return projected
 
 
@@ -1497,6 +1625,11 @@ def _write_prepare_binding(payload: dict[str, Any]) -> None:
         )
         if payload.get(key) is not None
     }
+    if "profile_sha256" in expected_runtime:
+        expected_runtime["profile_sha256"] = _expected_profile_revision_sha256(payload)
+        if _release_prepare_config(payload) is not None:
+            resolved_runtime["profile_source_sha256"] = str(payload["profile_sha256"])
+            resolved_runtime["profile_revision_sha256"] = expected_runtime["profile_sha256"]
     if any(resolved_runtime.get(key) != value for key, value in expected_runtime.items()):
         raise RuntimeError("resolved CCE runtime does not match the frozen WGS release")
     _validate_heavy_io_contract(payload, resolved_runtime)
@@ -2819,6 +2952,9 @@ def _finish_reattached_stage(payload):
 
 
 def main() -> int:
+    global CCE_PIPELINE_BIN
+    from wgs_release_runtime import select_release_runtime
+
     reattach_mode = len(sys.argv) > 1 and sys.argv[1] == '--reattach'
     worker_mode = len(sys.argv) > 1 and sys.argv[1] == "--worker"
     command = (
@@ -2828,6 +2964,7 @@ def main() -> int:
     )
     analysis_id, attempt, stage = parse_command(command)
     payload = load_request(analysis_id, attempt, stage)
+    CCE_PIPELINE_BIN = select_release_runtime(payload, default_cli=CCE_PIPELINE_BIN)
     if reattach_mode:
         return _finish_reattached_stage(payload)
     if worker_mode:

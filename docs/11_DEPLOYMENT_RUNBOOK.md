@@ -1,5 +1,16 @@
 # Deployment runbook
 
+## 2026-09-17 Git-first checkpoint; release not performed
+
+The user requested source synchronization before the remaining production work.
+Future complete release must include wgs_release_runtime.py beside the WGS gate,
+retain private release runtime/config/profile pins, and preserve existing resume
+and test gates. Do not replace the gate with an older live snapshot or add backend
+file-overlay mounts. CCE packages/versions are not upgraded by this source sync.
+Pending and exact two GATK result copies, Clinical roots, scanner configuration
+and verified WGS/GATK SFS cleanup remain pending. No offline/OBS/FASTQ/DB deletion.
+Use the latest HANDOFF inventory and refresh live mounts/gates before publishing.
+
 ## Latest BS10610 test composition (2026-09-15)
 
 Main359df11 is deployed to all eight running application/DAG/probe/collector

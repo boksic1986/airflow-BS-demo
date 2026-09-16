@@ -1,5 +1,27 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Source synchronization; production operations deferred
+
+Latest user instruction: commit and synchronize main/production first. No service
+release, path switch, copy or SFS deletion in this checkpoint. Selectively ported
+sampleinfo import cb84ec2 as079834a onto d3a031a, excluding Local/SGE ancestors.
+GATK lifecycle lists now consume current-attempt/latest-generation Step7 actions
+using the existing detail projection. On96 both0914A/0914B detail actions were
+already successful; only list lifecycle was missing.
+
+Retained node200's previously deployed release-specific CCE interpreter/CLI,
+pinned prepare/profile fingerprints, exact server-owned check override and
+private pending identity validation. No native prepare/pending algorithm change;
+main's existing test gates/resume implementation were not deleted by live sync.
+BS10610:14 import/lifecycle tests,6 frontend tests+build passed; runtime targets
+11 passed initially, remaining pin test passed on exec-enabled isolated tmpfs.
+See HANDOFF for commands and remaining directory/cleanup work.
+
+User resolved old-root question: no legacy-root compatibility. Future roots:
+Clinical/WGS_Clinical and Clinical/WES_Clinical; scan under the former's
+HWcloud_Target_Capture. Copy pending and GATK0914A/0914B only; preserve offline
+sources. WGS/GATK SFS cleanup approved, but exact inventory/deletion remains undone.
+
 ## 2026-09-16 Import review fixes and production path preflight
 
 User approved the bounded import fixes and production update. Read-only owner

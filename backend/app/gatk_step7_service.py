@@ -17,6 +17,40 @@ ACTIVE = {'requested', 'queued', 'running'}
 FROZEN_FILES = {'BATCH_RUNTIME.yaml','cleanup-job.yaml','Step7_cleanup_sfs.sh','cce_batch_runtime.py'}
 
 
+def project_gatk_lifecycles(*, session, runs):
+    """Read current-attempt Step7 records for a page; never trigger cleanup."""
+    runs = [run for run in runs if run.pipeline_name == 'gatk']
+    if not runs:
+        return {}
+    latest = {}
+    for row in session.scalars(select(WgsMaintenanceAction).where(
+        WgsMaintenanceAction.analysis_id.in_([run.analysis_id for run in runs]),
+        WgsMaintenanceAction.action_type == ACTION,
+    ).order_by(WgsMaintenanceAction.generation.desc(), WgsMaintenanceAction.id.desc())):
+        latest.setdefault((row.analysis_id, row.attempt), row)
+    result = {}
+    for run in runs:
+        action = latest.get((run.analysis_id, run.attempt))
+        result[run.analysis_id] = project_gatk_lifecycle(
+            run=run, action=serialize_maintenance_action(action) if action else {})
+    return result
+
+
+def project_gatk_lifecycle(*, run, action):
+    """Same lifecycle fields for list and detail, independent of workflow success."""
+    return {
+        'workflow': {'status': run.status, 'updated_at': None, 'updated_by': None, 'message': None},
+        'raw_fastq_backup': {'status': 'not_started', 'updated_at': None, 'updated_by': None,
+            'message': 'No independent backup receipt is registered.'},
+        'downstream_release': {'status': 'not_started', 'updated_at': None, 'updated_by': None,
+            'message': 'Local materialization is not downstream delivery confirmation.'},
+        'cloud_release': {'status': {'requested': 'pending', 'queued': 'pending'}.get(
+            action.get('status'), action.get('status') or 'not_started'),
+            'updated_at': action.get('ended_at') or action.get('started_at'),
+            'updated_by': action.get('requested_by'), 'message': action.get('error_message')},
+    }
+
+
 def _safe_bytes(path, root):
     path,root=Path(path),Path(root)
     if root not in path.parents or any(item.is_symlink() for item in (path,*path.parents) if item == root or root in item.parents):

@@ -1,5 +1,20 @@
 # TASKS.md
 
+## PRODUCTION-SOURCE-SYNC-20260917
+
+- [x] Selectively port sampleinfo import; exclude Local/SGE branch ancestors.
+- [x] GATK list lifecycle reuses detail fields and exact current Step7 action.
+- [x] Preserve existing node200 release runtime/prepare-profile/pending checks.
+- [x] BS10610 only: minimal affected tests and frontend build; no real analysis.
+- [ ] Commit and verify main/production remote refs at the same source head.
+- [ ] Later publication: complete release, not file overlays; keep gates unchanged.
+- [ ] Later path switch: copy pending/two GATK result directories without overwrite.
+- [ ] Later WGS/GATK SFS cleanup: exact inactive owned targets only; no other data.
+
+The latest user requested Git synchronization first; no deployment or deletion
+should be inferred from this checkpoint. Old compatibility-decision holds below
+are superseded: user declined legacy-root support.
+
 ## WGS-SAMPLEINFO-REVIEW-20260916
 
 - [x] Trace source writes: initial private batch replacement before SHA; no

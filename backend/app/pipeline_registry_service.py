@@ -41,6 +41,7 @@ from app.diagnostics_service import (
 )
 from app.gatk_submission_service import confirm_gatk_submission
 from app.gatk_airflow_sync import sync_gatk_airflow_status
+from app.gatk_step7_service import project_gatk_lifecycle, project_gatk_lifecycles
 from app.gatk_stage_contract import gatk_stage_definition, project_gatk_orchestration
 from app.workflow_phases import gatk_phase_for_rule
 
@@ -130,15 +131,7 @@ def _project_gatk_run_detail(*, run, session, settings, **_) -> dict[str, Any]:
     params = dict(run.params_json or {})
     return {
         "step7_cleanup": cleanup,
-        "lifecycle": {"workflow":{"status":run.status,"updated_at":None,"updated_by":None,"message":None},
-            "raw_fastq_backup":{"status":"not_started","updated_at":None,"updated_by":None,
-                "message":"No independent backup receipt is registered."},
-            "downstream_release":{"status":"not_started","updated_at":None,"updated_by":None,
-                "message":"Local materialization is not downstream delivery confirmation."},
-            "cloud_release": {"status": {"requested":"pending", "queued":"pending"}.get(
-            action.get("status"), action.get("status") or "not_started"),
-            "updated_at": action.get("ended_at") or action.get("started_at"),
-            "updated_by": action.get("requested_by"), "message": action.get("error_message")}},
+        "lifecycle": project_gatk_lifecycle(run=run, action=action),
         "pipeline_release_id": (
             f"{params.get('runtime_profile_id')}@{params.get('runtime_profile_revision')}"
         ),
@@ -520,6 +513,7 @@ ADAPTERS = {
         project_rule_context=_project_gatk_rule_context,
         project_progress=_project_gatk_progress,
         project_dashboard_metadata=_project_gatk_dashboard_metadata,
+        project_dashboard_lifecycles=project_gatk_lifecycles,
         project_sample_summary=_project_gatk_sample_summary,
         get_log=get_gatk_run_log,
         list_logs=list_gatk_run_logs,

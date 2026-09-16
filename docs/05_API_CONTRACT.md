@@ -1,5 +1,14 @@
 # API contract
 
+## GATK lifecycle list parity (2026-09-17, source only)
+
+Existing run/dashboard list lifecycle uses the same payload as GATK detail.
+Cloud release is projected from the latest generation of gatk_cleanup_step7_sfs
+for the current attempt: requested/queued=pending, success=SFS released. Missing
+action is not_started, not success inferred from workflow completion. No new
+endpoint, schema or cleanup operation. Backup/downstream status retains the
+existing detail semantics; materialization is not downstream confirmation.
+
 ## WGS server sampleinfo path (2026-09-16 candidate, not deployed)
 
 `POST /api/wgs/runs` accepts optional `sampleinfo_path` (absolute server TSV/TXT

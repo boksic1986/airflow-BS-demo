@@ -1,5 +1,65 @@
 # HANDOFF.md
 
+## 2026-09-17 Selective production source integration; Git-first checkpoint
+
+Latest instruction: commit/sync main and production before further operations.
+Authoritative server worktree: BS10610/server10610,
+development/gatk-cleanup-20260916, branch jiucheng/release/clinical-roots-20260917.
+Clean d3a031a base. Ported cb84ec2 as079834a; resolved seven conflicts by keeping
+only import changes/docs, not Local/SGE implementation or its state history.
+Remote main/jiucheng/release/production independently read at5cd5542 before push.
+Git=/sg2/33.chenjiucheng/software/miniforge3/bin/git2.49.0; per-command existing
+jiucheng identity, no credential/config changes or Windows Git commits.
+
+GATK bug: ADAPTERS.gatk lacked project_dashboard_lifecycles. Added one batch
+query over current-attempt/latest-generation gatk_cleanup_step7_sfs, extracting
+the existing detail payload into a shared helper. Detail capability checks stay
+unchanged; no cleanup trigger, DB schema or workflow-state changes. No inference
+of cleanup success from workflow success. Backup/delivery fields retain the
+existing detail meaning, not an invented completion. files: gatk_step7_service,
+pipeline_registry_service and test_gatk_lifecycle.
+
+Node200 live gate differs from main and was not overwritten. Preserved existing
+release-private CCE0.8.5 interpreter/CLI selection, prepare config/profile pins,
+source-vs-rendered profile digest, exact administrator release/batch skip policy,
+and private pending receipt row/identity validation. These are existing deployed
+behaviors, not changes to prepare_wgs_batch.py or pending selection. Main already
+contains additional test/resume code absent live; kept it rather than copying the
+older live gate wholesale. New wgs_release_runtime.py matches the live helper.
+No CCE install, runtime.env/pins/credentials copied into source or Git.
+
+Verification: BS10610 isolated cached8491604 backend (--network none, read-only
+source, tmpfs),25e83a56052d frontend. GATK RED reproduced lifecycle=None.
+GREEN import/lifecycle14 passed7.35s; frontend SubmissionOptions6 passed and
+tsc/Vite build succeeded (JS423.27kB raw/124.17kB gzip). Runtime sync/420-handoff/
+identity/fixed-prepare targets11 passed; one runtime pin case initially failed
+os.access(X_OK) because Docker tmpfs defaults noexec. Re-ran ONLY that case with
+--tmpfs /testwork:exec:1 passed0.79s. No full/redundant suite, live submission,
+clinical fixture or real analysis. Profile canonicalization retained verbatim
+from live; no new live CCE/profile execution test claimed.
+
+Read-only production: BS96/server96, backend20260916-backend-full-5cd5542,
+observer20260915-ui-93069eb, stale current symlink20260912-panel-opt-4d3d24e6.
+API listed7 runs: six success/one failed, no active business runs. Exact GATK
+0914A action gatk-step7-2ef583db94b5 and0914B gatk-step7-b91ccfb68cbe are success;
+detail cloud_release success, list lifecycle null before fix. Node200=t640 ctapa
+uid6801. kubectl with /home/ctapa/bioinfo-cce-kubeconfig.yaml showed two unrelated
+Pending inspection pods; do not delete them. Jobs read failed HTTP2 stream;
+no complete SFS inventory or deletion claim. SSH18 occasional connection resets
+were reconnected. Tar timestamp warnings reflect about14s clock offset only.
+
+Remaining approved operations, NOT performed: switch WGS/WES to matching
+/sg2/50.ctapa/Clinical roots and scan WGS_Clinical/HWcloud_Target_Capture;
+copy old WGS prepare/pending_samples.tsv (515bytes observed) to new prepare root;
+copy old WES_Clinical/WES_20260914A_T7_V7.7.0_hg38_GATK and matching0914B dirs.
+New WES root already has same-batch NON-_GATK clinical projects: never overwrite.
+User permits WGS+GATK SFS cleanup only after exact ownership/inactivity check;
+OBS,FASTQ,old offline projects,DB rows and historical Jobs remain protected.
+Old-root compatibility explicitly declined. No service, live config, project,
+pending file, database or cloud data changed. Publication must use complete
+committed source and refresh actual mounts/gates; no file-overlay patches.
+Rollback for this checkpoint is a source revert only, no data rollback needed.
+
 ## 2026-09-16 Import review corrections; production directory decision pending
 
 Scope: user authorized prior review2/3/4, requested validation of SHA logic1 and

@@ -1,5 +1,20 @@
 # Workflow runtime integration
 
+## Existing production runtime reconciliation (2026-09-17, Git only)
+
+The stored request is validated before wgs_release_runtime selects a server-pinned
+interpreter/CCE CLI. Exact release/version pins are private configuration, not
+request-supplied paths. Re-exec preserves arguments and repeats request validation.
+Unmapped releases retain their existing runtime. Prepare config/profile source
+hashes remain release-pinned; rendered profile revisions use that CCE version's
+canonical digest. The operator skip-check policy matches exact release+batch;
+normal batches do not skip checks. No prepare_wgs_batch.py interface change.
+
+Private pending output can contain earlier batches. Validate its actual row count
+and current source identity instead of equating all shared rows with this batch's
+pending decisions. Preserve the original WGS selection and private artifacts.
+Source synchronization is not deployment; existing resume/test gates stay intact.
+
 ## WGS custom-batch sampleinfo import (2026-09-16 candidate)
 
 An additive `sampleinfo_upload` descriptor carries checksum, source checksum and

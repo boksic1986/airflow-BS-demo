@@ -157,7 +157,7 @@ def test_prepare_command_uses_fixed_shared_wgs_repository(tmp_path: Path) -> Non
     assert command[command.index("--cce-config") + 1].replace("\\", "/").endswith(
         "/release-runtime/cce-operator.yaml"
     )
-    assert "--skip-samplelist-ready-check" in command
+    assert "--skip-samplelist-ready-check" not in command
     assert command[command.index("--platform") + 1] == "T7"
     assert "--algo" not in command
     assert not any("SECRET" in item for item in command)

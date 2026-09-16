@@ -1,5 +1,14 @@
 # Engineering specification
 
+## WGS deployed runtime pins recorded in source (2026-09-17)
+
+Administrator-only WGS_RELEASE_RUNTIMES_JSON maps release ID to python,
+cce_pipeline and version; WGS_RELEASE_RUNTIME_ROOT confines those executables.
+WGS_RELEASE_PREPARE_CONFIGS_JSON maps release ID to config path+sha256 under
+WGS_PREPARE_CONFIG_ROOT. WGS_PREPARE_CHECK_OVERRIDES_JSON maps exact release:batch
+to boolean. These existing production settings are retained, not activated or
+copied from test. No values/credentials belong in Git. Runtime contract: docs08.
+
 ## CCE 0.8.5 release catalog consumer (inactive by default)
 
 The backend consumes the exact `cce-release.v1` producer receipt and keeps
