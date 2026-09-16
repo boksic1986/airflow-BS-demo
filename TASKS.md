@@ -7,13 +7,13 @@
 - [x] Preserve existing node200 release runtime/prepare-profile/pending checks.
 - [x] BS10610 only: minimal affected tests and frontend build; no real analysis.
 - [x] Server commits079834a/f37e3db; atomic GitHub main/production push succeeded.
-- [ ] Later publication: complete release, not file overlays; keep gates unchanged.
-- [ ] Later path switch: copy pending/two GATK result directories without overwrite.
-- [ ] Later WGS/GATK SFS cleanup: exact inactive owned targets only; no other data.
+- [x] Approved continuation: complete e9a6644 application release on96, gates retained.
+- [x] Clinical path switch; pending unchanged, GATK0914A/B copies complete, no overwrite.
+- [x] WGS/GATK SFS cleanup: only remaining0911A run/linkage removed; others absent.
 
-The latest user requested Git synchronization first; no deployment or deletion
-should be inferred from this checkpoint. Old compatibility-decision holds below
-are superseded: user declined legacy-root support.
+Git-first checkpoint completed, followed by the user's explicit continuation
+authorization for the Clinical release and exact SFS cleanup. The release receipt
+records the limited actual actions. User declined legacy-root support.
 
 ## WGS-SAMPLEINFO-REVIEW-20260916
 

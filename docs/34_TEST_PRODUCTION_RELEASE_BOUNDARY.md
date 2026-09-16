@@ -1,5 +1,15 @@
 # Test and production release boundary
 
+## 2026-09-17 approved production root switch
+
+For NEW production tasks, WGS analysis/results now use
+`/sg2/50.ctapa/Clinical/WGS_Clinical`; GATK results use
+`/sg2/50.ctapa/Clinical/WES_Clinical`. Scanner source is
+`/sg2/50.ctapa/Clinical/WGS_Clinical/HWcloud_Target_Capture`.
+Runtime/evidence/FASTQ roots are unchanged. No legacy-root fallback was added.
+Old offline projects remain protected; historical paths below are observations.
+See docs/releases/2026-09-17-clinical-roots-bs96.md for this release only.
+
 ## OPT20260912 independent WGS test projects
 
 Existing-source preview and new independent outputs are limited to

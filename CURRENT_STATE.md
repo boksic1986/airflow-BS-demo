@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Clinical release e9a6644 deployed
+
+BS96 full frontend plus four complete backend/collector source mounts now use
+e9a6644; node200 WGS private runner bundle synchronized, private CCE pins retained.
+New Clinical WGS/WES roots and requested scanner path active; auto-dispatch false.
+GATK0914A/B list cloud_release now success, no longer unavailable. Seven business
+records retained; Airflow/DB containers not restarted. Pending copied unchanged.
+WGS0911A exact two SFS directories removed by succeeded cleanup Job; all other
+seven-run frozen SFS targets already absent. OBS/FASTQ/offline/DB retained.
+GATK0914A/0914B copies both completed (14G/51G); originals retained.
+See docs/releases/2026-09-17-clinical-roots-bs96.md and latest HANDOFF for receipt.
+
 ## 2026-09-17 Source synchronization; production operations deferred
 
 Source commits079834a andf37e3db were committed on the server and atomically

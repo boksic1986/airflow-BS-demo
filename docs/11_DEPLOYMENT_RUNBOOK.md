@@ -1,5 +1,13 @@
 # Deployment runbook
 
+## 2026-09-17 Clinical release executed
+
+The Git-first checkpoint below is superseded by the approved e9a6644 production
+rollout. Use docs/releases/2026-09-17-clinical-roots-bs96.md for exact source,
+five-service Compose/rollback, root configuration, data copies and SFS outcomes.
+No legacy-root compatibility was added; existing historical frozen request files
+were not rewritten. Native prepare defaults and CCE release pins remain intact.
+
 ## 2026-09-17 Git-first checkpoint; release not performed
 
 The user requested source synchronization before the remaining production work.

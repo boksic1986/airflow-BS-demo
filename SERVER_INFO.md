@@ -1,5 +1,17 @@
 # SERVER_INFO.md
 
+## 2026-09-17 Clinical application release e9a6644
+
+BS96 actual /app mounts for backend, observer, scanner and sample-reference-worker:
+/data/airflow-WGS/releases/20260917-clinical-e9a6644/backend.
+Frontend image4ae6428f2a32; tagairflow-demo/frontend:clinical-e9a6644.
+Private five-service Compose/rollback: /data/airflow-WGS/clinical-e9a6644-control.
+WGS/WES result roots now matching /sg2/50.ctapa/Clinical directories; scanner
+WGS_Clinical/HWcloud_Target_Capture. Auto-dispatch false, CCE catalog retained.
+Airflow/Postgres/Redis/metrics/probe containers unchanged; global current pointer
+historical, use actual mounts. Node200 runner backup:
+/home/ctapa/.config/clinical-e9a6644-rollback. See clinical release receipt.
+
 ## 2026-09-16 Frontend full5cd5542
 
 08:32Z frontend5041172f8f5edf9277ed0ba58fcbd948538cf26ac81f2143ba38be55f03e5adc,

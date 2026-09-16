@@ -1,5 +1,47 @@
 # HANDOFF.md
 
+## 2026-09-17 Clinical release execution and exact SFS cleanup authorization
+
+FINAL OUTCOME: complete application source e9a6644 deployed to96 frontend and
+four backend/collector services. API seven records retained; GATK0914A/B list
+cloud_release success now matches detail. New roots/scan path active, automatic
+dispatch false. Frontend served BB3HH1ey/BFPGoplr assets. No Airflow/DB restart.
+GATK0914A and0914B copy commands both exited0 (14G/51G); pending unchanged.
+Exact SFS cleanup Job clinical-sfs-cleanup-e9a6644 succeeded1, with absence
+assertions for both0911A targets. No other data or historical Jobs deleted.
+See docs/releases/2026-09-17-clinical-roots-bs96.md for private rollback paths,
+operational exceptions and minimal acceptance. Documentation-only follow-up
+commit synchronizes main/production; deployed application source remains e9a6644.
+The chronological authorization checkpoint below preceded the actual cleanup.
+
+User authorized continuation after GitHub main/production reached e9a6644.
+96 preflight: seven business runs, six success/one failed, no running runs;
+node200 no gate/CCE processes; CCE only two unrelated Pending inspection pods.
+Do not delete those pods or historical Jobs. No database/OBS/FASTQ/offline deletion.
+Clean e9a6644 archive staged as /data/airflow-WGS/releases/20260917-clinical-e9a6644.
+Full frontend built on96 using cached Node22 lock-matched builder, network none;
+JS index-BB3HH1ey.js, CSS index-BFPGoplr.css. Five-service Compose and rollback
+are staged privately in /data/airflow-WGS/clinical-e9a6644-control.
+Node200 full WGS gate/release helper/resume/evidence bundle installed from archive;
+root env switches only, private pins preserved. Backup is
+/home/ctapa/.config/clinical-e9a6644-rollback. No native prepare edits.
+Pending copied unchanged to Clinical/WGS_Clinical/prepare/pending_samples.tsv.
+0914A GATK result copy completed;0914B copy is still in progress at this checkpoint.
+
+Read-only Job clinical-sfs-inventory-e9a6644 mounted ONLY biosan-clinical PVC.
+Exact frozen paths for WGS0910A/0912D and GATK0823A/0907A/0914A/0914B are absent.
+The only remaining approved deletion targets are the following two directories
+on that SFS PVC, belonging to WGS_20260914_172238_C702AE-a2 / master
+cce-master-c7f548d835872766825f (failed, no active executor):
+- /workspace/wgs/runs/WGS_Clinical/WGS_20260911A_T7Hg38V4.2.1
+- /workspace/wgs-obs-sync/Project_result/WGS_Clinical/WGS_20260911A_T7Hg38V4.2.1
+
+Deletion has NOT run at this checkpoint. Recheck no active target Job/Pod before
+the exact-path cleanup. Neither path is an OBS mount; cleanup Job has only SFS
+and ephemeral tmp volumes. Preserve all object storage and offline originals.
+SFS deletion cannot be undone from this release; retained offline/OBS data are
+not a claim that every unfinished intermediate has a backup.
+
 ## 2026-09-17 Selective production source integration; Git-first checkpoint
 
 Git outcome: server079834a (sampleinfo import),f37e3db (live runtime/lifecycle)
