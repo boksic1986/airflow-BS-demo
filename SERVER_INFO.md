@@ -1,5 +1,16 @@
 # SERVER_INFO.md
 
+## 2026-09-17 Sampleinfo f72a12e + WGS v2
+
+Backend/observer/scanner/reference-worker complete source:
+/data/airflow-WGS/releases/20260917-sampleinfo-f72a12e/backend.
+Effective private Compose/rollback: /data/airflow-WGS/sampleinfo-f72a12e-control.
+WGS_CONTRACT_V2_ENABLED=true in backend/reference-worker and all three Airflow
+services, explicitly authorized for new runs. Existing WGS three runs remain v1.
+Frontend remains clinical-e9a6644 (no frontend change). Main DAG matches actual
+mounted platform-f69c577 bio_wgs.py. Existing Clinical roots and gates retained.
+Airflow /health metadatabase/scheduler healthy; no real task launched by release.
+
 ## 2026-09-17 Clinical application release e9a6644
 
 BS96 actual /app mounts for backend, observer, scanner and sample-reference-worker:

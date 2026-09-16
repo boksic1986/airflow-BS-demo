@@ -1,5 +1,14 @@
 # Deployment runbook
 
+## 2026-09-17 WGS sampleinfo/v2 follow-up
+
+Production runs the complete f72a12e backend source, with user-approved
+WGS_CONTRACT_V2_ENABLED=true for new WGS tasks. The former false value was legacy
+configuration, not evidence that v2 code was absent. Existing tasks retain their
+frozen version. See latest HANDOFF and sampleinfo-f72a12e-control private Compose
+for exact service restart/rollback scope. Do not disable v2 after new v2 runs
+have started without considering their continuation. No native prepare changes.
+
 ## 2026-09-17 Clinical release executed
 
 The Git-first checkpoint below is superseded by the approved e9a6644 production

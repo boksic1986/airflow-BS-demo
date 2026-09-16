@@ -1,5 +1,18 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Sampleinfo fix deployed; production WGS v2 enabled
+
+f72a12e fast-forwarded and atomically pushed to GitHub main/production. BS96 four
+backend source mounts now use releases/20260917-sampleinfo-f72a12e. Complete
+source, not per-file overlay; frontend code unchanged. User separately approved
+new WGS requests using v2 after compatibility inspection. Live bio_wgs.py SHA
+equals main; backend/reference worker and three Airflow services now explicitly
+WGS_CONTRACT_V2_ENABLED=true. All other gates unchanged; historical v1 rows retained.
+Screenshot source path reads successfully through the deployed function, without
+printing contents or creating analysis. Seven records at acceptance; Airflow
+/health reports metadatabase/scheduler healthy. No additional test suite.
+Private Compose/rollback: /data/airflow-WGS/sampleinfo-f72a12e-control.
+
 ## 2026-09-17 Sampleinfo source-directory restriction removed (not deployed)
 
 Approved single-point fix removes the WGS input-root allowlist from

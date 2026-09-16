@@ -1,5 +1,49 @@
 # HANDOFF.md
 
+## 2026-09-17 Sampleinfo production release f72a12e and v2 activation
+
+User requested merge/main/production and96 rollout; then explicitly approved
+enabling v2 for new WGS runs after compatibility inspection. Server Git branches
+fast-forwarded b466f22->f72a12e and atomic GitHub push succeeded. No code edits
+beyond the previously tested sampleinfo source allowlist removal.
+
+Live preflight BS96/server96: control /data/airflow-WGS, current historical
+20260912-panel-opt-4d3d24e6, actual backend clinical-e9a6644. No active business
+run; all three existing WGS rows had orchestration_contract_version=1. Backend,
+reference worker and Airflow containers explicitly had WGS_CONTRACT_V2_ENABLED=false.
+Reason: previous deployments preserved legacy false configuration even though
+the source supports v2. Runtime binding schema v2 and WGS orchestration contract
+v2 are separate concepts. Existing DAG only reads that env switch for canaries;
+normal run version is frozen at backend creation. No historical conversion.
+
+Compatibility: live /opt/airflow/dags/bio_wgs.py SHA256
+e2c1e9c7bfd5bae03609bd77b33ef457653b473b7efe02d8c9cac39421a5a889
+matches production source, including three-stage prepare and resume routing.
+Node200 runner already contains the matching v2 receipt/generation handling.
+No native prepare, CCE package, image, DAG graph or biological parameter changes.
+
+Full archive source: /data/airflow-WGS/releases/20260917-sampleinfo-f72a12e.
+Four /app mounts: backend, observer, scanner, reference worker. Recreated these
+and three Airflow services for explicit v2 env activation. Frontend, metrics,
+probe, PostgreSQL/Redis and external network unchanged. Auto-dispatch/canary/
+local/SGE settings preserved. Compose config --quiet passed before recreation.
+Private effective Compose, rollback and inspection: sampleinfo-f72a12e-control
+under production control root. Older platform Compose file was owner-unreadable;
+no permission bypass or chmod: recovered only authorized live service definition
+from Docker inspect. Existing mounts/images/commands/env retained except stated
+source binds and WGS v2 switch.
+
+Acceptance: backend settings v2 true; five relevant containers env true/running;
+deployed reader successfully opened the user-specified external sampleinfo path,
+contents not emitted and no real analysis submission. API count7 unchanged at
+check. Airflow /health: metadatabase/scheduler healthy. Initial /api/v2/monitor/health
+probe404 was a wrong Airflow endpoint (not a WGS contract failure); used the
+existing /health route. No repeated test suites; prior15 synthetic tests stand.
+Rollback: private rollback.json targeted seven services, restoring old source/env;
+first consider any NEW v2 runs created after release, do not silently disable
+their resume gate. No data/DB deletion or rollback. Docs-only release receipt
+committed and synchronized afterward; running application source stays f72a12e.
+
 ## 2026-09-17 Sampleinfo unrestricted source paths, code-only fix
 
 User approved removing the source-directory restriction, not changing output

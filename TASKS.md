@@ -5,7 +5,8 @@
 - [x] Remove source-directory allowlist only; preserve output and file validation.
 - [x] BS10610: reproduce external path/link rejection, affected file15 tests pass.
 - [x] Update API contract and handoff; no native prepare/pending or frontend edits.
-- [ ] Publish after separate production confirmation; v2 gate remains unchanged.
+- [x] User-approved main/production merge and96 complete-source publication.
+- [x] Separately approved production new-run v2 activation after DAG compatibility check.
 
 ## PRODUCTION-SOURCE-SYNC-20260917
 
