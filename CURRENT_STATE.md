@@ -2,6 +2,11 @@
 
 ## 2026-09-17 Source synchronization; production operations deferred
 
+Source commits079834a andf37e3db were committed on the server and atomically
+pushed to GitHub main and jiucheng/release/production. Both server local branches
+fast-forwarded to the same commit with a clean checkout. This final receipt is
+documentation-only and advances both refs together; no further tests or rollout.
+
 Latest user instruction: commit and synchronize main/production first. No service
 release, path switch, copy or SFS deletion in this checkpoint. Selectively ported
 sampleinfo import cb84ec2 as079834a onto d3a031a, excluding Local/SGE ancestors.

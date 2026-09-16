@@ -6,7 +6,7 @@
 - [x] GATK list lifecycle reuses detail fields and exact current Step7 action.
 - [x] Preserve existing node200 release runtime/prepare-profile/pending checks.
 - [x] BS10610 only: minimal affected tests and frontend build; no real analysis.
-- [ ] Commit and verify main/production remote refs at the same source head.
+- [x] Server commits079834a/f37e3db; atomic GitHub main/production push succeeded.
 - [ ] Later publication: complete release, not file overlays; keep gates unchanged.
 - [ ] Later path switch: copy pending/two GATK result directories without overwrite.
 - [ ] Later WGS/GATK SFS cleanup: exact inactive owned targets only; no other data.
