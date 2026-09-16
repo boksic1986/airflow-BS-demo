@@ -1,5 +1,37 @@
 # HANDOFF.md
 
+## 2026-09-16 POD-EXIT-EVIDENCE-RACE-20260916 (source complete, not deployed)
+
+Scope: approved shared evidence-reader race fix and GATK monitor tolerance only.
+Changed scripts/wgs_evidence_bridge.py and scripts/gatk_runtime_gate.py plus
+test_wgs_evidence_bridge.py, test_gatk_runtime_gate.py, test_wgs_runtime_gate.py
+under scripts/tests; documented in docs/08, TASKS and CURRENT_STATE.
+The bridge rechecks once after exec failure, uses the existing reader for terminal
+same-Pod/absent-Pod cases, defers nonterminal reads and retains other errors.
+Partial chunks never commit cursors. GATK runtime SUCCEEDED remains success when
+terminal collection fails/misses JSONL, with degraded monitoring and a short
+warning; failed/unconfirmed runtime results and identity checks are unchanged.
+
+BS10610 hostname server10610 verified; control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS. Actual backend /app mount was
+releases/20260916-onprem-review/backend (current symlink still historical).
+Synthetic candidate: candidates/pod-exit-race. Used observed cached image
+8491604ee01d with docker run --rm --network none, read-only candidate mount,
+PYTHONDONTWRITEBYTECODE=1 and pytest -p no:cacheprovider. No service changes.
+RED targeted selection: 10 failed, 6 passed, 30 deselected (expected failures).
+GREEN once: python -m pytest -q -p no:cacheprovider
+scripts/tests/test_wgs_evidence_bridge.py scripts/tests/test_gatk_runtime_gate.py
+scripts/tests/test_wgs_runtime_gate.py::test_step3_terminal_success_is_written_with_frozen_master_identity
+--tb=short: 48 passed in 1.30s. No full regression or real analysis submitted.
+
+Branch jiucheng/fix/pod-exit-evidence-race; prior gatk_resume edits/tests and
+operational docs remain uncommitted and must not be mixed into this patch.
+No production release, restart, 0914A rerun, latency-wait180 wiring or data deletion.
+Next: separately approved script-only release after checking actual private caller
+paths; do not restart existing monitors/Airflow/Master. Rollback restores those
+scripts only, never task state or analysis outputs. Historical recovery notes below
+describe the pre-fix state; this entry supersedes their race-fix TODO only.
+
 ## 2026-09-16 Authorized Git integration: GATK batch and BS10610 release record
 
 User explicitly approves including the prior deployment docs with this small

@@ -508,7 +508,9 @@ def _master_pod(config: dict, namespace: str, master_job: str) -> tuple[str, str
             "json",
         )
     )
-    items = value.get("items") or []
+    items = value.get("items")
+    if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+        raise ValueError("Pod inventory is not a valid list")
     if not items:
         return None
     items = sorted(items, key=lambda item: str((item.get("metadata") or {}).get("creationTimestamp") or ""))
@@ -747,18 +749,31 @@ def sync_rule_events_once(
     chunks: list[dict] = []
     log_chunk: dict | None = None
     heavy_slot_chunk: dict | None = None
-    if master is not None and master[0] and master[1] == "Running":
-        chunks = _fetch_rule_chunks(
-            config, namespace, master[0], source_dir, cursor
-        )
-        if analysis_log_source:
-            log_chunk = _fetch_file_chunk(
-                config, namespace, master[0], analysis_log_source, analysis_offset
+    read_from_master = master is not None and bool(master[0]) and master[1] == "Running"
+    if read_from_master:
+        try:
+            chunks = _fetch_rule_chunks(
+                config, namespace, master[0], source_dir, cursor
             )
-        heavy_slot_chunk = _fetch_file_chunk(
-            config, namespace, master[0], heavy_slot_source, 0
-        )
-    elif terminal:
+            if analysis_log_source:
+                log_chunk = _fetch_file_chunk(
+                    config, namespace, master[0], analysis_log_source, analysis_offset
+                )
+            heavy_slot_chunk = _fetch_file_chunk(
+                config, namespace, master[0], heavy_slot_source, 0
+            )
+        except subprocess.CalledProcessError:
+            # A successful Running observation does not guarantee exec is still
+            # possible. Recheck once; never switch to a different execution.
+            observed = _master_pod(config, namespace, master_job)
+            if observed is not None and (
+                observed[0] != master[0] or observed[1] not in {"Succeeded", "Failed"}
+            ):
+                raise
+            if not terminal:
+                return applied  # No partial log/rule read or cursor is committed.
+            read_from_master = False
+    if terminal and not read_from_master:
         chunks, log_chunk, heavy_slot_chunk = _final_reader_chunks(
             config,
             namespace,

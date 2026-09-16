@@ -1,5 +1,17 @@
 # TASKS.md
 
+## POD-EXIT-EVIDENCE-RACE-20260916
+
+- [x] Reproduce exit race and GATK success/log-failure coupling with targeted tests.
+- [x] Requery Pod once after failed exec; terminal reader fallback or defer polling.
+- [x] Preserve errors for active/unknown/replaced Pods and failed status queries.
+- [x] Preserve incremental cursors until the complete read succeeds.
+- [x] Keep authoritative GATK success with degraded monitoring when logs fail.
+- [x] BS10610 isolated affected tests: 48 passed; WGS state separation unchanged.
+- [x] Update runtime contract, current state and handoff; preserve prior dirty work.
+- [ ] Production release requires separate approval and actual private-path check.
+- Excludes latency-wait180, DAG/image/CCE/lock/attempt changes and rerunning0914A.
+
 ## GATK-BATCH-GIT-SYNC-20260916
 
 - User explicitly approves main/production integration of the batch fallback,

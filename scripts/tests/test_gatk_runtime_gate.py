@@ -23,6 +23,49 @@ def load_gate():
     return module
 
 
+@pytest.mark.parametrize('master,error', [
+    ('SUCCEEDED', None), ('SUCCEEDED', 'exec failed'),
+    ('SUCCEEDED', 'GATK rule logger produced no terminal JSONL evidence'),
+    ('FAILED', 'exec failed'), ('invalid', None),
+])
+def test_monitor_result_is_independent_of_log_collection(tmp_path, monkeypatch, master, error):
+    gate = load_gate()
+    aid = 'GATK_20260908_120000_A1B2C3'
+    monkeypatch.setenv('GATK_RUNTIME_REQUEST_ROOT', str(tmp_path))
+    request = tmp_path/aid/'attempt-1/step3_monitor.request.json'
+    request.parent.mkdir(parents=True)
+    payload = dict(analysis_id=aid, attempt=1, stage='step3_monitor', generation=2,
+                   orchestration_contract_version=2, request_hash='a'*64,
+                   execution_id=aid+'-a1-step3_monitor-g2')
+    request.write_text(json.dumps(payload))
+    monkeypatch.setattr(gate, '_load_binding', lambda p: {})
+    monkeypatch.setattr(gate, '_step', lambda *a: ['frozen-step3'])
+    reads = []
+    def evidence(*args, terminal):
+        reads.append(terminal)
+        return error
+    monkeypatch.setattr(gate, '_sync_evidence', evidence)
+    monkeypatch.setattr(gate.subprocess, 'run', lambda *a, **kw:
+        SimpleNamespace(returncode=0, stdout=json.dumps(dict(
+            master_state=master, percent=100, completed=2, total=2, message='runtime verdict')), stderr=''))
+    if master != 'SUCCEEDED':
+        with pytest.raises(RuntimeError):
+            gate._execute(aid, 1, 'step3_monitor', 2)
+        assert json.loads(request.with_suffix('.status.json').read_text())['status'] == 'failed'
+        assert reads == [False]
+        return
+    gate._execute(aid, 1, 'step3_monitor', 2)
+    receipt = json.loads(request.with_suffix('.status.json').read_text())
+    assert receipt['status'] == 'success'
+    assert receipt['monitoring_health'] == ('degraded' if error else 'healthy')
+    assert bool(receipt['monitoring_error']) == bool(error)
+    assert receipt['generation'] == 2 and receipt['execution_id'] == payload['execution_id']
+    assert len(receipt['receipt_hash']) == 64
+    assert reads == [False, True]
+    if error:
+        assert '日志采集异常' in receipt['message']
+
+
 def test_forced_command_loads_runtime_from_its_install_directory() -> None:
     source = (ROOT / "gatk_runtime_forced_command.sh").read_text(encoding="utf-8")
 

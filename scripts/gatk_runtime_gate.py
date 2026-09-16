@@ -261,7 +261,8 @@ def _sync_evidence(
         text=True,
     )
     if completed.returncode:
-        return (completed.stderr or completed.stdout or "GATK evidence bridge failed")[-2000:]
+        # Keep a concise diagnostic, not kubectl arguments/private paths from a traceback.
+        return f"GATK evidence bridge failed (exit {completed.returncode})"
     if terminal:
         rule_root = Path(str(binding["evidence_output"])) / "rule-status" / "raw"
         if not any(path.is_file() and path.stat().st_size for path in rule_root.glob("*.jsonl")):
@@ -944,13 +945,13 @@ def _execute(
                 }
                 if master == "SUCCEEDED":
                     monitoring_error = _sync_evidence(payload, binding, terminal=True)
-                    if monitoring_error:
-                        raise RuntimeError(monitoring_error)
                     _write_status(
                         request_path,
                         payload,
                         "success",
-                        "GATK Master and logger evidence completed",
+                        "分析完成，日志采集异常" if monitoring_error else "GATK Master and logger evidence completed",
+                        monitoring_health="degraded" if monitoring_error else "healthy",
+                        monitoring_error=monitoring_error,
                         **progress,
                     )
                     return

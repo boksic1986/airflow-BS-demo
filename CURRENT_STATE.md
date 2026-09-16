@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-16 Pod-exit evidence race fixed in source; not deployed
+
+POD-EXIT-EVIDENCE-RACE-20260916: the shared WGS/GATK bridge rechecks once after
+exec failure, defers nonterminal reads or uses the existing terminal reader only
+for the same terminal Pod/confirmed absence. Partial reads do not advance cursors.
+GATK authoritative runtime success now survives terminal evidence failure with
+monitoring_health=degraded and a concise warning. WGS scheduling is unchanged.
+BS10610 isolated offline targeted tests: RED 10 failed/6 passed; GREEN 48 passed
+in 1.30s. No production deployment, 0914A rerun, latency-wait change or data changes.
+Earlier recovery/operational edits remain separate and uncommitted.
+
 ## 2026-09-16 Authorized batch-display and test-release documentation integration
 
 User approves committing the one-line GATK batch fallback, its targeted regression
