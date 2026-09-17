@@ -1,5 +1,20 @@
 # HANDOFF.md
 
+## 2026-09-17 GATK child timing repair
+
+Screenshot concerns GATK CCE smoke, not WGS Local table. Worker rule_planned,
+job_started, job_info and job_finished events reach the database. BQSR RuleState
+has an individual start; serialization incorrectly suppressed it because the
+unnamed start event lacks rule_instance_id and worker job_info lacks status.
+Fix uses explicit worker group_member=false job_info to preserve recorded start;
+does not derive starts from group inventory or change planned/success statuses.
+Touched wgs_timing_service.py, focused test and docs only. Initial synthetic test
+missed required event_type (IntegrityError), corrected fixture then reproduced
+hidden start; 17 tests pass on cached BS10610 image. No compute restart, image
+upgrade, preparation, DB migration or pending edit. Main/production excluded.
+Backend-only publication should preserve current GATK phase overlay and native UI.
+
+
 ## 2026-09-17 ONPREM-UI-PARITY test publication receipt
 
 Application commit95b0144 on jiucheng/test/wgs-local-main-sync-20260917 deployed

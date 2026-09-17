@@ -1,5 +1,13 @@
 # TASKS.md
 
+## GATK-CHILD-TIMING-20260917
+
+- [x] Trace worker raw events, RuleState and serialized timing for test smoke.
+- [x] Fix hiding of already recorded individual starts; preserve group-only unknowns.
+- [x] Reproduce failure, then pass 17 targeted timing tests.
+- [ ] Publish backend-only test fix and verify live serialized child times.
+
+
 ## ONPREM-UI-PARITY-20260917
 
 - [x] Short native batch, mode, current snapshot count and execution timing.

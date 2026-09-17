@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 GATK Worker child timing projection
+
+Worker child events are present in the test smoke run. API hid recorded starts
+because unnamed job_started is joined in RuleState but omitted from the per-instance
+raw-event query, and worker job_info has no status field. Preserve recorded times
+when an explicit individual worker job_info exists. Planned children remain planned.
+17 timing tests passed on BS10610 cached backend; no workflow/image change needed.
+
+
 ## 2026-09-17 Native UI parity published to BS10610
 
 Application commit 95b0144 deployed as releases/20260917-native-ui-95b0144.
