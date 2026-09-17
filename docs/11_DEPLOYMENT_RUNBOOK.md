@@ -1,5 +1,12 @@
 # Deployment runbook
 
+## Automatic intake activation (2026-09-17)
+
+Production WGS scan period is now600 seconds and automatic analysis is enabled
+for the Clinical Samplelist source. See [activation receipt and rollback](releases/2026-09-17-auto-intake-bs96.md).
+Do not restore older auto-disabled or1800-second settings from historical
+release descriptions. Preserve current per-service sources and recorded gates.
+
 ## Complete QC count publication (2026-09-17)
 
 BS96 backend/frontend now use qc-all-counts-4e9196d-control/compose.json;

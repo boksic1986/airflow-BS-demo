@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Production automatic intake enabled
+
+BS96 now scans /sg2/50.ctapa/Clinical/WGS_Clinical/HWcloud_Target_Capture every
+600 seconds with automatic WGS dispatch enabled (17:34 China time). Existing
+backend/scanner sources retained; only these two services recreated. Ten other
+service IDs unchanged. First scan registered20260917A without errors, currently
+waiting_sequencing: matching FASTQ sequencing directory not yet present.
+No new AnalysisRun submitted; later scans submit only after readiness checks.
+See docs/releases/2026-09-17-auto-intake-bs96.md for configuration and rollback.
+
 ## 2026-09-17 GATK phase and child timing source promotion
 
 User authorized main/production branch synchronization only. On production

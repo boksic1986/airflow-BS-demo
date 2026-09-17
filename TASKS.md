@@ -1,5 +1,12 @@
 # TASKS.md
 
+## PROD-AUTO-INTAKE-20260917
+
+- [x] Verify exact Clinical Samplelist directory on BS96 and existing gates.
+- [x] Configure600-second scan and enable existing automatic WGS dispatch.
+- [x] Validate policy/Compose, preserve ten other services, check first scan/API.
+- Current20260917A waits for sequencing data; no readiness bypass or forced run.
+
 ## GATK-PHASE-TIMING-PROMOTION-20260917
 
 - [x] Isolate production baseline c6ac6ce from unfinished test development.

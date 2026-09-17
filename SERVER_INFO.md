@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+## 2026-09-17 Automatic WGS intake configuration
+
+BS96/server96 backend1dc96daabc2d and scanner b4a90d98aebe now consume
+/data/airflow-WGS/auto-intake-20260917-config at /af05-config. Source/image pins
+unchanged; private Compose/rollback in auto-intake-20260917-control. Other ten
+service IDs unchanged. Effective scan600 seconds,auto-enabled; exact source
+/sg2/50.ctapa/Clinical/WGS_Clinical/HWcloud_Target_Capture. Initial scan successful,
+20260917A waiting_sequencing. This does not deploy the Local/SGE test branch.
+
 ## 2026-09-17 Complete QC criteria/counts release4e9196d
 
 BS96 backend2950f374ab8a mounts

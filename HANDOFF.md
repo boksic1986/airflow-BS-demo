@@ -1,5 +1,39 @@
 # HANDOFF.md
 
+## 2026-09-17 Authorized production automatic intake activation
+
+User explicitly requested scanning /sg2/50.ctapa/Clinical/WGS_Clinical/HWcloud_Target_Capture
+every10 minutes and automatic WGS analysis. Supplied Samplelist_20260917-145653.txt
+contains eligible WGS batch20260917A (read batch identifiers only). Scope is BS96
+configuration only: existing scanner/backend sources, no code promotion, no DB
+repair, no workflow changes. Production API reports existing runs terminal.
+Baseline: server96, backend2950f374ab8a qc-all-counts-4e9196d, scanner0a2de512cdba
+sampleinfo-f72a12e; scan-enabled true, interval1800, auto false. Source mount is
+already the requested exact directory and read-only. Keep other services intact.
+Activation uses existing ready-at watermark set at enable time to avoid historical
+unlinked backlog. Existing current source identity is retained.
+
+Enabled at2026-09-17T09:34:19.655673Z (17:34 China time). New backend1dc96daabc2d,
+scanner b4a90d98aebe; ten other airflow-wgs service IDs unchanged. Code/image pins
+unchanged. Public config /data/airflow-WGS/auto-intake-20260917-config; private
+compose/rollback/inventory /data/airflow-WGS/auto-intake-20260917-control0700.
+Updated affected saved per-service Compose entries; no current symlink change.
+Only interval600, automatic/scan gates and existing activation watermark changed;
+same source.json content and container path retain source identity.
+Validation: deployed scanner parser accepts staged config with network none;
+Compose config and nginx checks pass. Live authenticated scanner-state returns
+schedule_seconds600,auto_dispatch_enabled=true,last_error=null. First scan at
+09:34:41Z created intake32 for20260917A; waiting_sequencing with
+sequencing_directory_pending, no matching directory under /bi/fastq/T7_Fastq.
+Dispatch enabled, submitted0; existing0910A linked run not rerun. No true clinical
+analysis can start until existing readiness checks pass; do not fabricate readiness.
+Initial helper exit1 because saved Compose environment was a list rather than
+mapping; failed before mutation, normalized representation and succeeded.
+No biological/frontend tests needed for configuration-only activation; no local
+runtime tests, DB connections/repairs, credential publication or data deletions.
+Rollback: saved rollback.json targets backend/scanner only and retains data;
+turning off auto-dispatch does not cancel any analysis already submitted.
+
 ## 2026-09-17 Authorized phase/timing main and production source integration
 
 Goal: synchronize only b3abd65 and08e6744 to main and
