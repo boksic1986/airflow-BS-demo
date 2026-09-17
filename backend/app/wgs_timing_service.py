@@ -40,7 +40,15 @@ def serialize_rule_states(*, session, run: AnalysisRun, rows: list[RuleState], s
         groups = [event for event in events if event.get("group_member") or event.get("timing_provenance") == "group_only"]
         group_inventory = groups[0].get("execution_group_members") if groups else None
         group_inventory = group_inventory if isinstance(group_inventory, list) else []
-        child_starts = [event for event in events if not event.get("group_member") and event.get("timing_provenance") != "group_only" and (event.get("event") == "job_started" or (event.get("event") == "job_info" and event.get("status") == "running"))]
+        # Worker job_started may have only stream_id/job_id; the state projector
+        # joins it to job_info. That individual job_info has no status field.
+        # Preserve the already recorded start, never manufacture one from inventory.
+        child_starts = [event for event in events
+            if not event.get("group_member") and event.get("timing_provenance") != "group_only"
+            and (event.get("event") == "job_started" or
+                 (event.get("event") == "job_info" and
+                  (event.get("status") == "running" or
+                   (event.get("role") == "worker" and event.get("group_member") is False))))]
         started_at = row.started_at if not groups or child_starts else None
         origin_event = events[0] if events else {}
         role = origin_event.get("role") if origin_event.get("role") in {"master", "worker"} else "unknown"

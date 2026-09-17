@@ -1,5 +1,12 @@
 # TASKS.md
 
+## GATK-PHASE-TIMING-PROMOTION-20260917
+
+- [x] Isolate production baseline c6ac6ce from unfinished test development.
+- [x] Port b3abd65 and08e6744 code/tests unchanged, plus API timing note.
+- [x] Run the two affected test files once on BS10610:21 passed in0.91s.
+- Scope: synchronize main/production Git branches only;96 deployment excluded.
+
 ## QC-ALL-COUNTS-20260917
 
 - [x] Audit native g1 and SingleQC_merge count inputs; no native script change.

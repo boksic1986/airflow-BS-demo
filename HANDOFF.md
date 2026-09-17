@@ -1,5 +1,34 @@
 # HANDOFF.md
 
+## 2026-09-17 Authorized phase/timing main and production source integration
+
+Goal: synchronize only b3abd65 and08e6744 to main and
+jiucheng/release/production. Remote preflight confirmed both at c6ac6ce.
+Commit workspace is server10610 under airflow-WGS/development/
+gatk-phase-timing-production-20260917, branch
+jiucheng/fix/gatk-phase-timing-production-20260917. User-authorized source
+promotion is distinct from runtime deployment; no BS96 commands or service
+recreation, workflow submission, pending changes or database access performed.
+
+Applied original source/test diffs without functional modification. Files:
+backend/app/workflow_phases.py, backend/app/wgs_timing_service.py,
+backend/tests/test_gatk_phase_revisions.py, backend/tests/test_wgs_timing_service.py,
+docs/05_API_CONTRACT.md and the three state/handoff documents. No Local/SGE,
+native-log, UI, migration, DAG or unrelated unfinished test changes included.
+
+Verification:git diff --check; cached backend image8491604ee01d with network
+none, read-only source, temporary /tmp, nonroot user; python -m pytest
+tests/test_gatk_phase_revisions.py tests/test_wgs_timing_service.py -q
+-p no:cacheprovider returned21 passed in0.91s. No redundant/full-suite tests.
+GitHub SSH first timed out before ref discovery; bounded reconnect succeeded.
+Server creates the commit; a bundle relay permits the authenticated normal
+atomic fast-forward push of both approved branches without force.
+
+Existing dirty worktrees and test branch are preserved. Production runtime
+stays at its previous release. Future deployment requires separate approval.
+Rollback if needed:revert this isolated source integration; do not modify
+analysis states, data or existing task attempts.
+
 ## 2026-09-17 All QC criteria production publication complete
 
 User explicitly authorized main/production merge and BS96 publication. Code

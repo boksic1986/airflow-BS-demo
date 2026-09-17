@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 GATK phase and child timing source promotion
+
+User authorized main/production branch synchronization only. On production
+baseline c6ac6ce, port the exact b3abd65 GATK r2/r3 phase mapping and08e6744
+recorded worker-child start-time fix, with their tests and API timing note.
+BS10610 isolated targeted tests:21 passed in0.91s. No Local/SGE feature,
+schema/DAG change or96 deployment. Live production remains unchanged until
+separately authorized publication; this entry describes source integration.
+
 ## 2026-09-17 Complete QC metrics published to BS96
 
 User-approved4e9196d pushed to main/production; normal production clone synced.

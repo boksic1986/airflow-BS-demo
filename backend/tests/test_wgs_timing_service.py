@@ -9,6 +9,33 @@ from app.models import AnalysisRun, Base, KubernetesWorkload, RuleState, RunStag
 from app.wgs_timing_service import enrich_progress, serialize_rule_states
 
 
+@pytest.mark.parametrize('child_info,recorded_start,visible', [(True, True, True), (False, True, False), (True, False, False)])
+def test_worker_child_info_preserves_only_recorded_individual_time(child_info, recorded_start, visible):
+    from app.models import RuleEventRaw
+    engine = create_engine('sqlite+pysqlite://')
+    Base.metadata.create_all(engine)
+    with sessionmaker(bind=engine)() as session:
+        run = AnalysisRun(analysis_id='SYN_GROUP', pipeline_name='gatk', dag_id='bio_gatk',
+            execution_mode='cce', status='running', attempt=1, workdir='/synthetic/group')
+        started = datetime(2026, 9, 17, 6, 40, 53, tzinfo=timezone.utc)
+        row = RuleState(analysis_id=run.analysis_id, attempt=1, rule_instance_id='child-1',
+            rule_name='gatk_bqsr', status='running' if recorded_start else 'planned',
+            started_at=started if recorded_start else None)
+        session.add_all([run, row])
+        payloads = [dict(event='rule_planned', group_member=True)]
+        if child_info:
+            payloads.append(dict(event='job_info', group_member=False))
+        for index, payload in enumerate(payloads):
+            session.add(RuleEventRaw(analysis_id=run.analysis_id, attempt=1,
+                event_id=f'synthetic-{index}', event_type=payload['event'], payload_json={**payload, 'rule_instance_id':'child-1',
+                    'role':'worker', 'stream_id':'worker-synthetic', 'job_id':1, 'rule_name':'gatk_bqsr'}))
+        session.commit()
+        item = serialize_rule_states(session=session, run=run, rows=[row])[0]
+        assert (item['started_at'] is not None) is visible
+        assert (item['elapsed_seconds'] is not None) is visible
+        assert item['status'] == ('running' if recorded_start else 'planned')
+
+
 def test_analysis_eta_is_not_inferred_from_coarse_stage_position() -> None:
     engine = create_engine(
         "sqlite+pysqlite://",

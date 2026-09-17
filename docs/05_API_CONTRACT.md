@@ -637,3 +637,9 @@ unconfirmed deletion records remain blocked as cce_workload_active. Read-time
 eligibility does not replace node-side fresh workload/UID/target validation.
 The existing GATK Step6 status poll ingests final workload evidence; no browser
 Kubernetes access, cleanup-on-read or automatic destructive action is added.
+# Worker child timing projection (2026-09-17)
+
+Rule responses retain recorded individual start/elapsed when the matching instance
+has explicit worker job_info with group_member=false, even if that event omits
+status. Unnamed job_started is already joined by stream/job in RuleState. Neither
+group inventory nor an individual declaration without recorded start creates time.
