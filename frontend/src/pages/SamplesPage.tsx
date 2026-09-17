@@ -77,14 +77,12 @@ function Ledger() {
   };
   const [data, setData] = useState<Page<SampleReference>>({items: [], total: 0, limit: size, offset: 0});
   const [sources, setSources] = useState<Page<SampleReferenceSource>>({items: [], total: 0, limit: size, offset: 0});
-  const [sourcePage, setSourcePage] = useState(1);
-  useEffect(() => setSourcePage(1), [filters.syncError]);
 
-  const refreshKey = JSON.stringify([filters, page, sourcePage]);
+  const refreshKey = JSON.stringify([filters, page]);
   const {loading, error} = useSilentRefresh(async ({isCurrent}) => {
     const [rows, health] = await Promise.all([
       listSampleReferences({...filters, limit: size, offset: (page - 1) * size}),
-      listSampleReferenceSources({syncError: filters.syncError, limit: size, offset: (sourcePage - 1) * size}),
+      listSampleReferenceSources({syncError: true, limit: 1, offset: 0}),
     ]);
     if (isCurrent()) { setData(rows); setSources(health); }
   }, refreshKey);
@@ -92,7 +90,7 @@ function Ledger() {
   const textFilters = [["source_id", "Source", filters.sourceId], ["sample_id", "Sample", filters.sampleId], ["family_id", "Family", filters.familyId], ["origin_batch", "来源分析批次", filters.originBatch]];
   const visibleRows = historyView ? data.items : data.items.filter(row => row.pending && row.present_in_latest_complete);
   return <>
-    <section className="panel">
+    <section className="panel ledger-panel">
       <h2>样本流转</h2>
       <div className="tab-row" role="tablist" aria-label="样本流转范围">
         <button role="tab" aria-selected={!historyView} className={!historyView ? "active" : ""} onClick={() => change("ledger_scope", "", params, setParams)}>待纳入</button>
@@ -104,18 +102,13 @@ function Ledger() {
       </div>
       {loading ? <p className="muted">Loading ledger...</p> : null}
       {error ? <div className="inline-error" role="alert">Refresh failed; retained last-good ledger. {error}</div> : null}
-      {sources.items.some(source => source.sync_status === "error") || data.items.some(row => row.sync_status === "error") ? <div className="inline-error" role="alert">交接来源同步异常，当前显示最后一次成功同步的数据，请查看同步详情。</div> : null}
+      {sources.total > 0 || data.items.some(row => row.sync_status === "error") ? <div className="inline-error" role="alert">交接来源同步异常，当前显示最后一次成功同步的数据。</div> : null}
       <div className="table-wrap"><table className="data-table sample-resource-table"><thead><tr><th>Sample / family</th><th>来源分析批次</th><th>Status</th><th>纳入批次</th></tr></thead><tbody>
         {visibleRows.map(row => <FlowRow key={`${row.source_id}:${row.record_key}`} row={row} />)}
         {!visibleRows.length && !loading ? <tr><td colSpan={4} className="empty-cell">{historyView ? "没有匹配的流转记录。" : <>当前没有待纳入样本。<button className="text-button" onClick={() => change("ledger_scope", "history", params, setParams)}>查看纳入记录</button></>}</td></tr> : null}
       </tbody></table></div>
       <Pager label="Ledger" total={data.total} page={page} go={next => go(next, params, setParams)} />
     </section>
-    <section className="panel"><details><summary>同步详情</summary>
-      {sources.items.map(source => <p key={source.source_id}><strong>{source.source_id}</strong> · {source.sync_status}{source.sync_reason ? ` · ${source.sync_reason}` : ""} · last good generation {source.last_good_generation ?? "-"} at {source.last_good_at || "-"}</p>)}
-      {!sources.items.length ? <p className="muted">No registered sources match the sync filter.</p> : null}
-      <Pager label="Source health" total={sources.total} page={sourcePage} go={setSourcePage} />
-    </details></section>
   </>;
 }
 

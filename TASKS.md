@@ -1,5 +1,16 @@
 # TASKS.md
 
+## RUN-DETAIL-UI-20260918
+
+- [x] User approved field order and dropdowns; default status remains running.
+- [x] Simplify ledger spacing/Overview/Samples; hide sync details and Files.
+- [x] Scoped WGS sample details and attempt-wide Rule filter options.
+- [x] BS10610 focused verification:23 backend,17 frontend, production build.
+- [x] Final read-only review: no blocking findings; no extra runtime tests.
+- [ ] Source promotion to main/production.
+- No BS96 deploy/restart, real workflow test, database or pending changes.
+
+
 ## WGS-PHASE-EBF1F4B
 
 - [x] Audit actual release rule inventory; no prefix guessing or WGS edits.

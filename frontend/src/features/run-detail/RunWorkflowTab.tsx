@@ -2,6 +2,7 @@ import {useMemo, useState} from "react";
 
 import type {AirflowTaskProgress, RuleEvent, RulePage, RuleQuery, RunProgressResponse} from "../../api";
 import {StatusBadge} from "../../components/StatusBadge";
+import {SearchableSelect} from "../../components/SearchableSelect";
 import {formatDate, formatProgressUnits} from "../../lib/format";
 import {humanStageLabel} from "../../lib/stageLabels";
 import {normalizeStatus} from "../../lib/status";
@@ -58,6 +59,9 @@ export function RunWorkflowTab({progress, rules, onOpenLog, page, query, onQuery
   const effectiveQuery = {...DEFAULT_RULE_QUERY, ...query};
   const [sampleFilter, setSampleFilter] = useState("");
   const [familyFilter, setFamilyFilter] = useState("");
+  const phaseOptions = [...new Set([...(page?.phases || []).map(item => item.label), ...phases.map(item => item.phase)])];
+  const sampleOptions = page?.filter_options?.sample_ids ?? [...new Set(rules.map(item => item.sample_id).filter((value): value is string => Boolean(value)))].sort();
+  const familyOptions = page?.filter_options?.family_ids ?? [...new Set(rules.map(item => item.family_id).filter((value): value is string => Boolean(value)))].sort();
   const filteredRules = onQueryChange ? rules : rules.filter((rule) => (!phaseFilter || rule.phase === phaseFilter) && (!statusFilter || rule.status === statusFilter) && (!sampleFilter || rule.sample_id === sampleFilter) && (!familyFilter || rule.family_id === familyFilter));
   const visibleRules = onQueryChange ? filteredRules : filteredRules.slice(offset, offset + 20);
   const paging = page && onQueryChange ? page : {offset, limit: 20, total: filteredRules.length, items: visibleRules};
@@ -104,10 +108,10 @@ export function RunWorkflowTab({progress, rules, onOpenLog, page, query, onQuery
       </section>
       <section>
         <div className="toolbar">
-          <label>Phase<input aria-label="Phase" value={query?.phase ?? phaseFilter} onChange={(e) => change("phase", e.target.value)} placeholder="Exact phase" /></label>
+          <label>Phase<select aria-label="Phase" value={query?.phase ?? phaseFilter} onChange={(e) => change("phase", e.target.value)}><option value="">All</option>{phaseOptions.map(value => <option key={value}>{value}</option>)}</select></label>
           <label>Status<select aria-label="Rule status" value={query?.status ?? statusFilter} onChange={(e) => change("status", e.target.value)}><option value="">All</option>{["planned", "running", "success", "failed", "canceled"].map((v) => <option key={v}>{v}</option>)}</select></label>
-          <label>Sample<input aria-label="Sample" value={query?.sampleId ?? sampleFilter} onChange={(e) => change("sampleId", e.target.value)} placeholder="Exact sample ID" /></label>
-          <label>Family<input aria-label="Family" value={query?.familyId ?? familyFilter} onChange={(e) => change("familyId", e.target.value)} placeholder="Exact family ID" /></label>
+          <SearchableSelect label="Sample" value={query?.sampleId ?? sampleFilter} options={sampleOptions} onChange={value => change("sampleId", value)} />
+          <SearchableSelect label="Family" value={query?.familyId ?? familyFilter} options={familyOptions} onChange={value => change("familyId", value)} />
         </div>
         <RuleInstanceTable rules={visibleRules} onOpenLog={onOpenLog} />
         <nav aria-label="Rule pages"><button disabled={paging.offset === 0} onClick={() => goTo(Math.max(0, paging.offset - paging.limit))}>Previous</button><span>{paging.total ? paging.offset + 1 : 0}–{Math.min(paging.offset + paging.items.length, paging.total)} of {paging.total}</span><button disabled={paging.offset + paging.limit >= paging.total} onClick={() => goTo(paging.offset + paging.limit)}>Next</button></nav>

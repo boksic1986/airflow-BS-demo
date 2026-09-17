@@ -3,37 +3,24 @@ import type {Artifact, RunConfig, RunDetail, WgsManifestSummary, WgsSampleManife
 import {StatusBadge} from "../../components/StatusBadge";
 import {compactPipelineName, formatBytes, formatDate, safeJson} from "../../lib/format";
 
-export function RunOverviewTab({detail, samples, sampleCount, manifestSummary}: {detail: RunDetail; samples: WgsSampleManifestRow[]; sampleCount?: number; manifestSummary?: WgsManifestSummary | null}) {
+export function RunOverviewTab({detail, samples, sampleCount, manifestSummary, batchQcStatus = "unknown"}: {detail: RunDetail; samples: WgsSampleManifestRow[]; sampleCount?: number; manifestSummary?: WgsManifestSummary | null; batchQcStatus?: string}) {
   return (
     <div className="overview-stack">
       <div className="definition-grid">
+        <div><dt>Batch</dt><dd>{manifestSummary?.batch || String(detail.params?.analysis_batch || detail.params?.batch_no || detail.params?.batch || "not set")}</dd></div>
         <div><dt>Pipeline</dt><dd>{compactPipelineName(detail.pipeline)}</dd></div>
-        <div><dt>Batch</dt><dd>{String(detail.params?.batch_no || detail.params?.batch || "not set")}</dd></div>
-        <div><dt>Pipeline release</dt><dd>{detail.pipeline_release_id || "not pinned"}</dd></div>
-        <div><dt>Attempt</dt><dd>{String(detail.params?.attempt || "1")}</dd></div>
         <div><dt>Status</dt><dd><StatusBadge status={detail.status} /></dd></div>
-        <div><dt>DAG run</dt><dd className="path-text">{detail.dag_run_id || "not set"}</dd></div>
-        <div><dt>Samples</dt><dd>{detail.sample_scope_status === "preparing" ? "待确定分析范围" : sampleCount ?? samples.length}</dd></div>
+        <div><dt>Batch QC</dt><dd><StatusBadge status={batchQcStatus} /></dd></div>
+        <div><dt>Samples / families</dt><dd>{detail.sample_scope_status === "preparing" ? "待确定分析范围" : `${sampleCount ?? manifestSummary?.sample_count ?? samples.length} / ${manifestSummary?.family_count ?? "-"}`}</dd></div>
+        <div><dt>Orders</dt><dd>{manifestSummary?.order_count ?? "-"}</dd></div>
         <div><dt>Operator</dt><dd>{detail.submitted_by || "not captured"}</dd></div>
         <div><dt>Created</dt><dd>{formatDate(detail.created_at)}</dd></div>
         <div><dt>Submitted</dt><dd>{formatDate(detail.submitted_at)}</dd></div>
-        <div><dt>Airflow started</dt><dd>{formatDate(detail.started_at)}</dd></div>
+        <div><dt>Started</dt><dd>{formatDate(detail.started_at)}</dd></div>
         <div><dt>Finished</dt><dd>{formatDate(detail.pipeline_finished_at || detail.ended_at)}</dd></div>
+        <div><dt>Attempt</dt><dd>{String(detail.attempt || detail.params?.attempt || "1")}</dd></div>
+        <div><dt>DAG run</dt><dd className="path-text">{detail.dag_run_id || "not set"}</dd></div>
       </div>
-      <section>
-        <div className="section-heading"><h2>Batch manifest summary</h2><p>Privacy-safe aggregates from the frozen sampleinfo.tsv.</p></div>
-        <div className="definition-grid manifest-summary-grid">
-          <div><dt>Samples / families</dt><dd>{manifestSummary ? `${manifestSummary.sample_count ?? sampleCount ?? samples.length} / ${manifestSummary.family_count ?? "-"}` : "Pending"}</dd></div>
-          <div><dt>Orders</dt><dd>{manifestSummary?.order_count ?? "-"}</dd></div>
-          <div><dt>Sample types</dt><dd>{manifestSummary?.sample_types?.join(", ") || "-"}</dd></div>
-          <div><dt>Received</dt><dd>{dateRange(manifestSummary?.received_date_range)}</dd></div>
-          <div><dt>Estimated report</dt><dd>{dateRange(manifestSummary?.estimated_report_date_range)}</dd></div>
-          <div><dt>Test project</dt><dd>{manifestSummary?.test_projects?.join(", ") || "-"}</dd></div>
-          <div><dt>Method</dt><dd>{manifestSummary?.test_methods?.join(", ") || "-"}</dd></div>
-          <div><dt>Result delivery</dt><dd><StatusBadge status={manifestSummary?.result_delivery_status || "not_started"} /></dd></div>
-          <div><dt>Project path</dt><dd className="path-text">{manifestSummary?.project_path || "not recorded"}</dd></div>
-        </div>
-      </section>
     </div>
   );
 }
@@ -82,11 +69,6 @@ export function RunConfigTab({detail, artifacts, config}: {detail: RunDetail; ar
       </details>
     </div>
   );
-}
-
-function dateRange(value?: {start: string; end: string} | null): string {
-  if (!value) return "-";
-  return value.start === value.end ? value.start : `${value.start} – ${value.end}`;
 }
 
 function ArtifactRow({artifact}: {artifact: Artifact}) {

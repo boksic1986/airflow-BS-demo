@@ -1,5 +1,24 @@
 # Frontend specification
 
+## 2026-09-18 approved batch/sample presentation (source only)
+
+- Ledger heading, inner tabs and filters have14px separation. Hide sync
+  details and its pagination; retain a short error/last-good warning.
+- Overview order: Batch, Pipeline, Status, Batch QC, Samples / families,
+  Orders, Operator, Created, Submitted, Started, Finished, Attempt, DAG run.
+  Reuse workspace batch QC; no browser-side inference. Remove the separate
+  Batch manifest summary and duplicated release/path/method/sample attributes.
+- Samples order: Sample ID, Name, Family / relation, Sample types, Order,
+  Test project, 送检医院, Received, Estimated report, Status. Missing fields
+  show `-`; no Current stage/Rule, Rules, Progress, Elapsed or QC columns here.
+  The dedicated QC tab retains all existing criteria and judgments.
+- Rules keeps default status `running` and existing20-row paging. Phase is
+  a dropdown; Sample/Family are searchable exact-option comboboxes. Other
+  filters default All. Options are independent of status/pagination, search
+  is local, and selecting an option resets offset without resetting status.
+- Hide Files tab and stop its request; retain backend artifact interfaces.
+- No BS96 publication is included. Tests run only in the BS10610 candidate.
+
 ## Complete QC criterion columns (2026-09-17 candidate; supersedes view below)
 
 WGS QC always lists the22 named criteria from metricLabels, including SNV/CNV

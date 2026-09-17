@@ -1692,6 +1692,7 @@ def run_samples(analysis_id: str) -> dict[str, object]:
                 session=session,
                 settings=get_settings(),
                 run=run,
+                include_sample_details=True,
             )
     except PipelineRegistryError as exc:
         raise _pipeline_http_exception(exc) from exc
@@ -1834,6 +1835,14 @@ def run_rules(
         selected_attempt = attempt if attempt is not None else int(run.attempt or 1)
         query = select(RuleState).where(RuleState.analysis_id == analysis_id, RuleState.attempt == selected_attempt)
         summary_query = query  # Attempt-wide context; table filters must not alter phase totals.
+        identities = list(session.execute(summary_query.with_only_columns(RuleState.sample_id, RuleState.family_id).distinct()))
+        if selected_attempt == int(run.attempt or 1):
+            from app.sample_selection_scope import selected_clause
+            identities.extend(session.execute(select(Sample.sample_id, Sample.family_id).where(Sample.analysis_id == analysis_id, selected_clause())))
+        filter_options = {
+            "sample_ids": sorted({sample for sample, _ in identities if sample}),
+            "family_ids": sorted({family for _, family in identities if family}),
+        }
         displayed_status = RuleState.status
         if selected_attempt == int(run.attempt or 1) and run.status == "success":
             displayed_status = case((RuleState.status.in_(("planned", "accepted", "pending", "queued", "submitted", "running", "started")), "success"), else_=RuleState.status)
@@ -1884,6 +1893,7 @@ def run_rules(
         return {
             "items": serialize_rule_states(session=session, run=run, rows=page, settings=get_settings()),
             "phases": pinned_phase_definitions(run.pipeline_name, run_phase_release(run)),
+            "filter_options": filter_options,
             "total": int(total),
             "attempt": selected_attempt,
             "current_attempt": int(run.attempt or 1),

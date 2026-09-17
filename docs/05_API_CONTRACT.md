@@ -506,7 +506,8 @@ Until an authoritative namespace-global producer is available, WGS global slot p
 - WGS sample projections may add `order_number_masked`, `test_project`, and an
   optional future `status_reason`. The order value is always `****` plus at
   most the last four source characters; the raw order number is neither stored
-  in sample metadata nor returned by the API. An absent db_v2 reason remains
+  in sample metadata nor returned by global APIs. The explicitly approved
+  run-detail exception is documented under2026-09-18 below. An absent db_v2 reason remains
   absent rather than being fabricated.
 
 ## Generic platform endpoints
@@ -540,7 +541,7 @@ Existing `/api/wgs/*` routes remain supported for WGS submission, intake, eviden
 
 - `GET /api/runs/{analysis_id}/workspace` returns one `snapshot_at` and the complete `active_transfer`; Current Progress and Transfers must render that same object during Step1 or Step5.
 - Transfer percentages are derived from `bytes_transferred / bytes_total`, serialized to one decimal place, and fixed at `100.0` for successful terminal transfers. Per-file rows expose privacy-safe display name, bytes, speed, checksum state, `started_at`, and `ended_at`.
-- `GET /api/runs/{analysis_id}/samples` adds `manifest_summary`. It contains only aggregate batch/sample/family/order counts, allowlisted project/method/date/type summaries, delivery status, and a controlled relative project path. It never returns order identifiers or clinical identity fields.
+- `GET /api/runs/{analysis_id}/samples` adds `manifest_summary`. That summary contains only aggregate batch/sample/family/order counts, allowlisted project/method/date/type summaries, delivery status, and a controlled relative project path. The2026-09-18 run-detail manifest exception below permits selected sample identity fields, never in the summary.
 - `GET /api/runs` returns `workflow_status` and `workflow_label` as a stable fallback when detailed stage rail evidence is unavailable.
 - `GET /api/runs/{analysis_id}/rules?sort=active_first` orders running/started records before planned and terminal records while retaining server pagination and explicit start/end/elapsed fields.
 - `POST /api/runs/{analysis_id}/actions/cleanup-step7` accepts the existing first-run body. A failed-action retry additionally requires `retry_failed=true` and the current `expected_action_id`; stale or non-failed generations return conflict.
@@ -602,7 +603,7 @@ Internal `/api/internal/gatk/runs/{analysis_id}/stages/{stage}` and
 
 ## Privacy
 
-Responses never include patient names, hospitals, credentials, raw absolute storage paths, or arbitrary filesystem content. Artifacts are accessed by controlled keys.
+Except for the explicitly approved WGS run-detail sample fields below, responses exclude patient names and hospitals. Credentials, raw absolute storage paths and arbitrary filesystem content remain excluded. Artifacts are accessed by controlled keys.
 # WGS recovery approval semantics (2026-09-11)
 
 ## Same-attempt stage recovery (2026-09-15, source only)
@@ -667,3 +668,20 @@ Rule responses retain recorded individual start/elapsed when the matching instan
 has explicit worker job_info with group_member=false, even if that event omits
 status. Unnamed job_started is already joined by stream/job in RuleState. Neither
 group inventory nor an individual declaration without recorded start creates time.
+## 2026-09-18 run-detail presentation fields (source only)
+
+User-approved exception to the historical clinical-field exclusion below:
+authenticated `GET /api/runs/{analysis_id}/samples` may return WGS manifest
+`name`, `hospital`, `order_number` and `test_project`, alongside the existing
+sample type/dates/family fields. These are allowlisted from the bound frozen
+sampleinfo, only for participating Sample IDs. They are not newly persisted.
+The opt-in exists only at this run-detail endpoint; global sample search,
+workspace and QC responses keep their existing privacy-safe projections.
+Missing values remain null. Arbitrary clinical columns are not exposed.
+
+`GET /api/runs/{analysis_id}/rules` adds `filter_options.sample_ids` and
+`filter_options.family_ids`: sorted distinct identities for the selected
+attempt, plus participating samples for the current attempt. They do not
+depend on row filters, limit or offset. Historical attempts do not inherit
+current Sample rows. Existing `phases` supplies the full pinned phase catalog.
+No new endpoint, migration, analysis behavior or QC threshold is introduced.

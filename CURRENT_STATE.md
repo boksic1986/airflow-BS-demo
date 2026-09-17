@@ -1,5 +1,19 @@
 # CURRENT_STATE.md
 
+## 2026-09-18 run-detail/ledger presentation simplification
+
+Approved UI scope implemented on jiucheng/frontend/run-detail-simplify-20260918:
+batch-only Overview/QC, reordered sample business fields, exact dropdown
+filters (default running), hidden Files/sync details and ledger spacing.
+WGS detail-only clinical allowlist is opt-in/authenticated/selected-sample
+scoped; no new persistence/global clinical disclosure. No workflow/QC change.
+BS10610 isolated verification:23 backend +17 frontend tests passed; build passed.
+One pre-existing unrelated submission UI fixture failure was observed before
+implementation and left unchanged; no whole-suite success is claimed.
+Final read-only review passed with no blocking findings; source promotion next.
+BS96 deployment excluded.
+
+
 ## 2026-09-17 WGS ebf1f4b Phase source fix
 
 Unknown Phase is missing exact release registration, not missing rule events.

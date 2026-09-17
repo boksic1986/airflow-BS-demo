@@ -2093,10 +2093,11 @@ def test_finalize_run_rejects_step6_marker_from_another_attempt(tmp_path, monkey
     assert "Step6 materialization is not complete" in response.text
 
 
-def test_wgs_samples_endpoint_returns_safe_manifest_and_backend_state_matrix(
+def test_wgs_samples_endpoint_returns_authorized_manifest_and_backend_state_matrix(
     tmp_path, monkeypatch
 ):
     client, sessions, _ = make_client(tmp_path, monkeypatch)
+    assert client.get("/api/runs/UNAUTHENTICATED/samples").status_code == 401
     headers = login(client, "operator", "operator-pass")
     created = client.post(
         "/api/runs",
@@ -2172,6 +2173,8 @@ def test_wgs_samples_endpoint_returns_safe_manifest_and_backend_state_matrix(
                 metadata_json={
                     "data_id": "DATA-1-WGS",
                     "family_relation": "先证者",
+                    "selection_decision": "selected",
+                    "selection_attempt": 1,
                 },
             )
         )
@@ -2214,11 +2217,19 @@ def test_wgs_samples_endpoint_returns_safe_manifest_and_backend_state_matrix(
             "family_relation": "先证者",
             "received_date": "2026-09-01",
             "estimated_report_date": "2026-09-20",
+            "name": "PRIVATE NAME",
+            "hospital": "PRIVATE HOSPITAL",
+            "order_number": "PRIVATE-ORDER-001",
+            "test_project": "全基因组测序",
         }
     ]
-    assert "PRIVATE NAME" not in response.text
-    assert "PRIVATE HOSPITAL" not in response.text
-    assert "PRIVATE-ORDER-001" not in response.text
+    # Explicit run-detail fields do not expand global sample/QC projections.
+    for path in ("/api/samples", f"/api/runs/{analysis_id}/qc", f"/api/runs/{analysis_id}/workspace"):
+        safe = client.get(path, headers=headers)
+        assert safe.status_code == 200
+        assert "PRIVATE NAME" not in safe.text
+        assert "PRIVATE HOSPITAL" not in safe.text
+        assert "PRIVATE-ORDER-001" not in safe.text
     assert payload["manifest_summary"] == {
         "batch": "20260904A",
         "sample_count": 1,
@@ -2249,6 +2260,12 @@ def test_wgs_samples_endpoint_returns_safe_manifest_and_backend_state_matrix(
     assert qc_artifact["path"] == (
         "07_QC/WGS_20260904A_T7Hg38V4.1.1.QCstat.tsv"
     )
+    # An unrelated manifest row must not disclose identity via this run.
+    with (batch_root / "sampleinfo.tsv").open("a", encoding="utf-8") as handle:
+        handle.write("EXCLUDED NAME\tEXCLUDED HOSPITAL\tNOT-SELECTED\tOTHER-DATA\tblood\tOTHER-FAMILY\n")
+    scoped = client.get(f"/api/runs/{analysis_id}/samples", headers=headers)
+    assert len(scoped.json()["manifest"]) == 1
+    assert "EXCLUDED" not in scoped.text
 
 
 def test_wgs_qc_free_text_exception_is_warning_not_unknown():

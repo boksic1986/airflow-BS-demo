@@ -6,7 +6,6 @@ import type {Artifact, DeployedPipeline, LogStream, RuleEvent, RunDetail, RunLog
 
 import {
   ApiError,
-  getRunArtifacts,
   getRunDetail,
   getRunPods,
   getRunProgress,
@@ -27,7 +26,7 @@ import {MetricCard} from "../components/MetricCard";
 import {StatusBadge} from "../components/StatusBadge";
 import {CurrentProgressPanel} from "../features/run-detail/CurrentProgressPanel";
 import {usePlatformCapabilities} from "../features/platform/PlatformCapabilitiesContext";
-import {RunFilesTab, RunOverviewTab} from "../features/run-detail/RunResourceTabs";
+import {RunOverviewTab} from "../features/run-detail/RunResourceTabs";
 import {DEFAULT_RULE_QUERY, RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
 import {WgsQcTab} from "../features/run-detail/WgsQcTab";
 import type {RulePage, RuleQuery} from "../api";
@@ -37,12 +36,12 @@ import {DataLifecyclePanel} from "../features/run-detail/DataLifecyclePanel";
 import {WgsTransfersTab} from "../features/run-detail/WgsTransfersTab";
 import {ExecutionTargetSelector} from "../features/wgs/ExecutionTargetSelector";
 import {errorMessage, parseErrorSummary} from "../lib/errors";
-import {compactPipelineName, formatDate, formatDuration, formatPercent, formatSecondsDuration} from "../lib/format";
+import {compactPipelineName, formatDate, formatDuration} from "../lib/format";
 import {progressFromResponse} from "../lib/runProgress";
 import {isActiveStatus, isFailedStatus} from "../lib/status";
 import {useSilentRefresh} from "../lib/useSilentRefresh";
 
-const allTabs = ["Overview", "Samples", "Rules", "Master", "Transfers", "QC", "Logs", "Files"] as const;
+const allTabs = ["Overview", "Samples", "Rules", "Master", "Transfers", "QC", "Logs"] as const;
 type DetailTab = (typeof allTabs)[number];
 
 type Bundle = {
@@ -229,9 +228,6 @@ export function RunDetailPage() {
               if (isCurrent() && identity === logSearchIdentity.current) setLog(nextLog);
             }
           }
-        } else if (activeTab === "Files") {
-          const result = await getRunArtifacts(analysisId);
-          publish((current) => ({...current, artifacts: result.items}));
         }
         if (isCurrent()) setLastAutoSyncedAt(new Date().toISOString());
       } catch (loadError) {
@@ -351,29 +347,25 @@ export function RunDetailPage() {
         <section className="panel">
           <div className="tabs" role="tablist" aria-label="Run detail tabs">{tabs.map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} role="tab" type="button" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}</div>
           {tabError ? <div className="inline-error" role="alert">This tab could not be loaded: {tabError}</div> : null}
-          {activeTab === "Overview" ? <RunOverviewTab detail={detail} samples={bundle.manifest} sampleCount={summary.sample_count} manifestSummary={bundle.manifestSummary} /> : null}
-          {activeTab === "Samples" ? <WgsSamplesTab samples={bundle.samples} manifest={bundle.manifest} showQc={detail.pipeline !== "gatk"} /> : null}
+          {activeTab === "Overview" ? <RunOverviewTab detail={detail} samples={bundle.manifest} sampleCount={summary.sample_count} manifestSummary={bundle.manifestSummary} batchQcStatus={summary.batch_qc_status} /> : null}
+          {activeTab === "Samples" ? <WgsSamplesTab samples={bundle.samples} manifest={bundle.manifest} /> : null}
           {activeTab === "Rules" ? <RunWorkflowTab progress={bundle.progress} rules={bundle.rules} page={rulePage} query={ruleQuery} onQueryChange={setRuleQuery} onOpenLog={(key) => { handleLogKeyChange(key); setLogStream("stdout"); setActiveTab("Logs"); }} /> : null}
           {activeTab === "Master" ? <WgsMasterTab pods={bundle.pods} /> : null}
           {activeTab === "Transfers" ? <WgsTransfersTab detail={detail} transfers={bundle.transfers} refreshKey={bundle.snapshotAt} /> : null}
           {activeTab === "QC" ? <WgsQcTab samples={bundle.samples} /> : null}
           {activeTab === "Logs" ? <>{logIndexError ? <div className="inline-error" role="alert">Log index unavailable: {logIndexError}</div> : null}<LogViewer key={`${analysisId}:${logKey}:${detail?.attempt}`} stream={logStream} onStreamChange={setLogStream} log={log} error={logError || tabError} sources={logSources} activeKey={logKey} onKeyChange={handleLogKeyChange} onSearch={logKey ? searchLog : undefined} /></> : null}
-          {activeTab === "Files" ? <RunFilesTab artifacts={bundle.artifacts} /> : null}
         </section>
       </> : null}
     </div>
   );
 }
 
-function WgsSamplesTab({samples, manifest, showQc = true}: {samples: Sample[]; manifest: WgsSampleManifestRow[]; showQc?: boolean}) {
+function WgsSamplesTab({samples, manifest}: {samples: Sample[]; manifest: WgsSampleManifestRow[]}) {
   const manifestBySample = new Map(manifest.map((item) => [item.sample_id, item]));
-  const headers = ["Sample", "Family / relation", "Received", "Estimated report", "Current stage", "Current Rule", "Rules", "Progress", "Status", "Elapsed"];
-  if (showQc) headers.push("QC");
+  const headers = ["Sample ID", "Name", "Family / relation", "Sample types", "Order", "Test project", "送检医院", "Received", "Estimated report", "Status"];
   return <WgsTable headers={headers} rows={samples.map((sample) => {
     const frozen = manifestBySample.get(sample.sample_id);
-    const row: ReactNode[] = [sample.sample_id, [sample.family_id || frozen?.family_id, sample.family_relation || frozen?.family_relation].filter(Boolean).join(" / ") || "-", frozen?.received_date || "-", frozen?.estimated_report_date || "-", sample.current_stage || "-", sample.current_rule || "-", `${sample.completed_rules ?? 0}/${sample.total_rules ?? 0}`, formatPercent(sample.progress_percent), <StatusBadge status={sample.status || "unknown"} size="sm" />, sample.elapsed_seconds == null ? "-" : formatSecondsDuration(sample.elapsed_seconds)];
-    if (showQc) row.push(<StatusBadge status={qcDisplayStatus(sample)} size="sm" />);
-    return row;
+    return [sample.sample_id, frozen?.name || "-", [sample.family_id || frozen?.family_id, sample.family_relation || frozen?.family_relation].filter(Boolean).join(" / ") || "-", frozen?.sample_type || sample.sample_type || "-", frozen?.order_number || "-", frozen?.test_project || "-", frozen?.hospital || "-", frozen?.received_date || "-", frozen?.estimated_report_date || "-", <StatusBadge status={sample.status || "unknown"} size="sm" />];
   })} empty="No analysis sample state returned." />;
 }
 
@@ -388,9 +380,4 @@ function WgsTable({headers, rows, empty}: {headers: string[]; rows: Array<Array<
 function compactResources(resources?: Record<string, unknown> | null): string {
   if (!resources || Object.keys(resources).length === 0) return "-";
   return JSON.stringify(resources);
-}
-
-function qcDisplayStatus(sample: Sample): string {
-  if (sample.qc_status && sample.qc_status !== "unknown") return sample.qc_status;
-  return isActiveStatus(sample.status || "") ? "pending" : "unavailable";
 }

@@ -304,7 +304,7 @@ it("loads WGS resource tabs for an active run", async () => {
       slot_usage: {pool: "wgs-heavy-io", limit: 25, used: 0, waiting: 0, mode: "monitor-only"},
     });
     if (url.includes("/api/runs/WGS_001/samples")) return json({
-      manifest: [{sample_id: "S1", data_id: "S1-WGS", sample_type: "blood", family_id: "F1", family_relation: "proband", received_date: "2026-08-20", estimated_report_date: "2026-09-10"}],
+      manifest: [{sample_id: "S1", name: "Synthetic name", hospital: "Synthetic hospital", order_number: "MOCK-ORDER", test_project: "Synthetic project", data_id: "S1-WGS", sample_type: "blood", family_id: "F1", family_relation: "proband", received_date: "2026-08-20", estimated_report_date: "2026-09-10"}],
       items: [{sample_id: "S1", data_id: "S1-WGS", family_id: "F1", family_relation: "proband", current_stage: "Mapping", current_rule: "mapping", completed_rules: 2, total_rules: 10, progress_percent: 20, status: "running", elapsed_seconds: 90, qc_status: "pass", qc_metrics: {clean_q30_percent: "98.5%", mapped_reads_percent: "99.8%", average_depth: "58.83", coverage_20x_percent: "96.78%", contamination: "PASS"}}],
     });
     if (url.includes("/api/runs/WGS_001/rules")) return json({items: []});
@@ -342,7 +342,11 @@ it("loads WGS resource tabs for an active run", async () => {
   expect(screen.queryByRole("columnheader", {name: "Data"})).not.toBeInTheDocument();
   expect(screen.getByText("2026-08-20")).toBeInTheDocument();
   expect(screen.queryByRole("columnheader", {name: "Safe QC metrics"})).not.toBeInTheDocument();
-  expect(screen.getByRole("columnheader", {name: "QC"})).toBeInTheDocument();
+  expect(screen.getAllByRole("columnheader").map(cell => cell.textContent)).toEqual(["Sample ID", "Name", "Family / relation", "Sample types", "Order", "Test project", "送检医院", "Received", "Estimated report", "Status"]);
+  expect(screen.getByText("Synthetic name")).toBeInTheDocument();
+  expect(screen.getByText("Synthetic hospital")).toBeInTheDocument();
+  expect(screen.getByText("MOCK-ORDER")).toBeInTheDocument();
+  expect(screen.queryByRole("tab", {name: "Files"})).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("tab", {name: "QC"}));
   expect(await screen.findByRole("columnheader", {name: "Average depth"})).toBeInTheDocument();
   expect(screen.getByText("98.5%")).toBeInTheDocument();
@@ -402,7 +406,7 @@ it("renders independent WGS data lifecycle states without replacing workflow suc
   expect(screen.getByText("Post-run action failed; workflow results remain successful.")).toBeInTheDocument();
   expect(screen.getAllByText("Result delivery").length).toBeGreaterThan(0);
   expect(screen.getAllByText("success").length).toBeGreaterThan(0);
-  expect(screen.getByText("Batch QC")).toBeInTheDocument();
+  expect(screen.getAllByText("Batch QC")).toHaveLength(2);
   expect(screen.getAllByText("pass").length).toBeGreaterThan(0);
   expect(screen.getByText("wgs-scanner")).toBeInTheDocument();
 });

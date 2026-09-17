@@ -1,5 +1,51 @@
 # HANDOFF.md
 
+## 2026-09-18 run-detail UI simplification; no deployment
+
+User approved exact Overview/Samples field ordering, searchable Sample/Family
+and Phase dropdowns, retaining default running, hidden Files/sync details,
+and ledger14px heading/tab/filter gaps. Requested main/production source push,
+not runtime deployment; later reiterated minimal testing and no scope growth.
+
+Changes: RunResourceTabs, RunDetailPage, RunWorkflowTab, SearchableSelect,
+SamplesPage, controls.css, API types; backend detail sample projection/adapter
+opt-in and attempt-scoped Rule filter options; focused tests/API/UI/state docs.
+Clinical fields are read only from the bound frozen manifest for participating
+Sample IDs, on the authenticated run-specific endpoint. No new persistence,
+global API identity exposure, schema, pipeline, QC policy or pending changes.
+
+BS10610 preflight: hostname server10610, chenjc6708:bioinfo520, control root
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; current still opt-4d3d24e6,
+backendc497d821b719 mounts releases/20260917-native-ui-76915d8-r2/backend.
+Frontend a764527b365c uses main-359df11. Scanner/dispatch false; unchanged.
+Candidate: candidates/run-detail-ui-20260918 under this control root, owner
+chenjc:bioinfo. Cached backend8491604ee01d and Node22 lock35420d5e3ec0 builder;
+network none, synthetic fixtures, no live container/database mutation.
+
+Commands/results:
+- pytest tests/test_monitor_rules.py plus the authenticated-manifest test:
+  RED3failed/9passed (missing options/fields). GREEN plus selection-scope and
+  adapter-projection tests:23passed6.38s; one existing Starlette deprecation.
+- vitest RunOverviewTab,RunWorkflowTab,SamplesLedger:15passed2.79s;
+  WgsProductionUi targeted resource-tab/lifecycle cases:2passed3.49s.
+- npm run build (tsc + Vite):passed; index-BQSJdqVH.js/index-UzgQaua7.css.
+- Initial broader4-file UI run found a pre-existing submission fixture failure
+  (`starts stage one...`, missing S1) even in RED; no submission code changed.
+  It is outside this request and not repaired; no whole-suite claim.
+- New selected-manifest guard exposed old fixture missing selection_decision;
+  corrected synthetic fixture, did not weaken production participation filter.
+- New SSH/SCP sessions failed pre-auth connection reset (exit1). Existing
+  verified SSH session remained healthy; source archive transferred through
+  it using base64. No SSH/server configuration or permissions changed.
+
+No browser/live-runtime acceptance, full suite or real analysis performed:
+source-only scope/user asked minimal tests. Final independent read-only review
+found no blocking issues; no extra tests or changes requested. Source push next.
+Rollback is revert this source change; no data migration/recovery is needed.
+Earlier0915B ledger heartbeat retains its narrow existing authorization; do not
+bundle this UI or Phase changes into its deployment without user authority.
+
+
 ## 2026-09-17 WGS Phase Unknown repair and source promotion
 
 Completed: e7f0373 atomically pushed to main and jiucheng/release/production;
