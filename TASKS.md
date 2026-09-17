@@ -7,7 +7,7 @@
 - [x] Scoped WGS sample details and attempt-wide Rule filter options.
 - [x] BS10610 focused verification:23 backend,17 frontend, production build.
 - [x] Final read-only review: no blocking findings; no extra runtime tests.
-- [ ] Source promotion to main/production.
+- [x] Source347e4ed fast-forwarded/atomically pushed to main/production.
 - No BS96 deploy/restart, real workflow test, database or pending changes.
 
 

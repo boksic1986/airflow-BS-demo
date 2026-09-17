@@ -2,6 +2,11 @@
 
 ## 2026-09-18 run-detail UI simplification; no deployment
 
+Completed source promotion: application347e4ed fast-forwarded and atomically
+pushed to main and jiucheng/release/production. Git push acknowledged both refs;
+this documentation-only completion commit follows. Worktrees retained, no
+user files removed. BS96 remains unchanged and requires separate publication.
+
 User approved exact Overview/Samples field ordering, searchable Sample/Family
 and Phase dropdowns, retaining default running, hidden Files/sync details,
 and ledger14px heading/tab/filter gaps. Requested main/production source push,
@@ -40,7 +45,7 @@ Commands/results:
 
 No browser/live-runtime acceptance, full suite or real analysis performed:
 source-only scope/user asked minimal tests. Final independent read-only review
-found no blocking issues; no extra tests or changes requested. Source push next.
+found no blocking issues; no extra tests or changes requested. Source pushed.
 Rollback is revert this source change; no data migration/recovery is needed.
 Earlier0915B ledger heartbeat retains its narrow existing authorization; do not
 bundle this UI or Phase changes into its deployment without user authority.
