@@ -1,5 +1,39 @@
 # HANDOFF.md
 
+## 2026-09-17 All QC criteria and missing count inputs candidate
+
+User asked to check CNV count as well and list all metrics. Native ebf1f4b g1
+_snv_cnv_counts uses pandas row counts of flt.tsv/CNV.tsv; _build_row omits those
+columns. SingleQC_merge binds01_SNV/<sample>.flt.tsv and
+03_CNV/Annot/<sample>.CNV.tsv. Read-only requested clinical sample verified both
+inputs; SNV above its threshold, CNV within range. No real records in fixtures.
+
+Changed wgs_sample_projection/test_monitor_qc and WgsQcTab/test plus contract/
+state docs. Missing count columns fall back to project-contained native inputs,
+with SHA256/source provenance and bounded path/size/mtime cache. Explicit QCstat
+counts win. Header-only zero retained, unavailable/outside/mutating data unknown.
+All22 criterion columns visible, no threshold text; missing and inapplicable
+labelled, source aggregate untouched. No WGS source, DAG, DB, CCE/pending change.
+
+BS10610 tests under candidates/qc-policy-20260917 using existing caches:
+RED backend2fail/32pass and UI3fail/1pass. GREEN34backend/4frontend; tsc/Vite
+pass, JS index-B9fxb3fV.js. Exact commands remain pytest tests/test_monitor_qc.py
+and npm test -- --run src/features/run-detail/WgsQcTab.test.tsx plus build,
+disposable --pull never --network none containers. No broad suite or other batch.
+
+Direct10610 and default18jump SSH failed(exit255); explicit ProxyCommand
+`ssh -o ProxyJump=none -o BatchMode=yes -W %h:%p BS96` reached server10610.
+Tests stayed on10610, no production substitute. BS96 source audit used the
+shared WGS repository visible there after10610 read connection failed.
+Later candidate shadow replay on96 failed at SSH handshake on both routes;
+no candidate script ran and no source/service write occurred. Do not claim
+live deployment validation. Current production remains prior fcc3fc9 release.
+
+Branch jiucheng/fix/qc-columns-20260917 based on b373ad2, scoped change only.
+Next: paired backend/frontend publication after approval/connectivity recovery,
+verify requested sample count statuses. Rollback code only; never data/DB.
+GATK smoke remains paused. Final completion commit contains this checkpoint.
+
 ## 2026-09-17 QC correction production release complete
 
 Explicit user authorization: merge main/production and publish96. fcc3fc9

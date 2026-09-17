@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+from functools import lru_cache
 import yaml
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,7 +27,11 @@ QC_FIELDS = {
     "Average_Depth": "average_depth",
     ">=20X": "coverage_20x_percent",
     "contamination": "contamination",
+    "SNV_count": "snv_count",
+    "CNV_count": "cnv_count",
 }
+
+COUNT_INPUTS = {"SNV_count": "01_SNV/{sample}.flt.tsv", "CNV_count": "03_CNV/Annot/{sample}.CNV.tsv"}
 
 
 def get_wgs_sample_projection(*, session, settings, run: AnalysisRun) -> dict[str, list[dict[str, Any]]]:
@@ -200,20 +205,67 @@ def _read_qc(batch_root: Path, *, release_id: str = "") -> dict[str, dict[str, A
             identifiers = {_text(source.get("Sample_ID")), _text(source.get("Name"))}
             identifiers.discard(None)
             status = _qc_status(_text(source.get("是否通过质控")))
+            data_id = _text(source.get("Sample_ID"))
+            count_sources = {}
+            for column in COUNT_INPUTS:
+                if not _text(source.get(column)):
+                    count = _variant_count(batch_root, data_id, column)
+                    if count is not None:
+                        source[column] = str(count["value"])
+                        count_sources[QC_FIELDS[column]] = count
             metrics = {
                 public: _text(source.get(column))
                 for column, public in QC_FIELDS.items()
                 if _text(source.get(column)) is not None
             }
-            data_id = _text(source.get("Sample_ID"))
             context = contexts.get(data_id, {})
             judgments = evaluate_metrics(source, release_id=release_id, context=context, multiqc=_multi_qc_row(batch_root, data_id))
+            for key, count in count_sources.items():
+                metrics[key] = count["value"]
+                judgments[key].update(source_artifact=count["source_artifact"], source_sha256=count["source_sha256"], source_field="data rows excluding header")
             for judgment in judgments.values():
                 judgment["qcstat_sha256"] = artifact_hash
             value = {"status": status, "metrics": metrics, "judgments": judgments}
             for identifier in identifiers:
                 output[str(identifier)] = value
     return output
+
+
+def _variant_count(batch_root, data_id, column):
+    """Use the same two tables as native SingleQC_merge, without exporting variants."""
+    if not data_id or not re.fullmatch(r"[A-Za-z0-9_.-]+", data_id):
+        return None
+    relative = COUNT_INPUTS[column].format(sample=data_id)
+    path = batch_root / relative
+    try:
+        resolved = path.resolve()
+        if not resolved.is_relative_to(batch_root.resolve()) or not resolved.is_file():
+            return None
+        stat = resolved.stat()
+        value, digest = _count_tsv_rows(str(resolved), stat.st_size, stat.st_mtime_ns)
+        return {"value": value, "source_sha256": digest, "source_artifact": relative}
+    except (OSError, UnicodeError, csv.Error, ValueError):
+        return None
+
+
+@lru_cache(maxsize=256)
+def _count_tsv_rows(path, size, mtime_ns):
+    # File-version cache avoids rereading variant tables on every dashboard poll.
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        def lines():
+            for raw in handle:
+                digest.update(raw)
+                yield raw.decode("utf-8-sig")
+        rows = csv.reader(lines(), delimiter="\t", strict=True)
+        header = next((row for row in rows if any(v.strip() for v in row)), None)
+        if header is None:
+            raise ValueError("Variant table header unavailable")
+        count = sum(1 for row in rows if any(v.strip() for v in row))
+    current = Path(path).stat()
+    if (current.st_size, current.st_mtime_ns) != (size, mtime_ns):
+        raise ValueError("Variant table changed during counting")
+    return count, digest.hexdigest()
 
 
 def _qc_contexts(batch_root):

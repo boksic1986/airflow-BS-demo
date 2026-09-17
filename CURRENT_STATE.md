@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Complete QC metrics candidate, not deployed
+
+Native g1 checks both SNV/CNV table row counts but does not export them in QCstat.
+Platform fallback now reads those exact project inputs, caches versioned counts,
+attaches provenance and applies existing thresholds. UI retains all22 criterion
+columns, marks missing/inapplicable instead of hiding. Targeted BS10610 backend
+34pass/frontend4pass/build pass. Actual requested sample input counts confirmed
+read-only; source warning is an SNV upper-bound issue, CNV within range.
+Final in-memory candidate replay on96 hit SSH connectivity failures and was not
+completed. No96 service change, push, main merge or biological run this turn.
+GATK remains paused. See HANDOFF for route and verification details.
+
 ## 2026-09-17 QC correction published to BS96
 
 User-approved fcc3fc9 atomically pushed to main/production; normal production

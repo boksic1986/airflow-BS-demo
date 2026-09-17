@@ -1,5 +1,15 @@
 # TASKS.md
 
+## QC-ALL-COUNTS-20260917
+
+- [x] Audit native g1 and SingleQC_merge count inputs; no native script change.
+- [x] Supplement missing SNV/CNV counts with safe project-local cached reads.
+- [x] Keep all22 criterion columns, missing/inapplicable markers and judgments.
+- [x] BS10610 RED/GREEN34backend,4frontend tests and build.
+- [ ] Final deployed verification and paired publication; not deployed this turn.
+
+No extra batch analysis or threshold changes. Production still b373ad2/fcc3fc9.
+
 ## QC-POLICY-EBF1F4B-20260917
 
 - [x] Audit exact native QC delta, not a blanket4.2.1 equivalence.

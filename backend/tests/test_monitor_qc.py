@@ -143,3 +143,42 @@ def test_ebf1f4b_checks_20x_for_other_projects_without_changing_history(value, e
         assert previous["coverage_20x_percent"]["reason"] == "No applicable criterion in this release"
     unknown = evaluate_metrics(source, release_id="wgs-4.2.1-ebf1f4b-unreviewed", context=context)
     assert unknown["coverage_20x_percent"]["reason"] == "Release policy provenance unavailable"
+
+
+def test_qc_counts_use_native_input_tables_and_keep_source_warning(tmp_path):
+    from app.wgs_sample_projection import _read_qc
+    batch = tmp_path / "SYNTHETIC"
+    for directory in ("07_QC", "01_SNV", "03_CNV/Annot"):
+        (batch / directory).mkdir(parents=True, exist_ok=True)
+    (batch / "sampleinfo.tsv").write_text("数据编号\t项目编号\t家系关系\t样本类型\nS1\tOTHER\t先证者\t全血\n", encoding="utf-8")
+    (batch / "config.yaml").write_text("BKWsampleList: []\n", encoding="utf-8")
+    (batch / "07_QC/SYNTHETIC.QCstat.tsv").write_text("Sample_ID\t是否通过质控\nS1\tSNV数量(1)偏低\n", encoding="utf-8")
+    snv = batch / "01_SNV/S1.flt.tsv"
+    snv.write_text('Variant\tNote\n1\t"quoted\nrecord"\n\n', encoding="utf-8")
+    (batch / "03_CNV/Annot/S1.CNV.tsv").write_text("Region\n" + "synthetic\n" * 4000, encoding="utf-8")
+    result = _read_qc(batch, release_id="wgs-4.2.1-ebf1f4b")["S1"]
+    assert result["status"] == "warn"
+    assert result["metrics"]["snv_count"] == 1
+    assert result["metrics"]["cnv_count"] == 4000
+    assert result["judgments"]["snv_count"]["status"] == "fail"
+    assert result["judgments"]["cnv_count"]["status"] == "pass"
+    assert result["judgments"]["snv_count"]["source_artifact"] == "01_SNV/S1.flt.tsv"
+    assert len(result["judgments"]["cnv_count"]["source_sha256"]) == 64
+    snv.write_text("Variant\n", encoding="utf-8")
+    assert _read_qc(batch, release_id="wgs-4.2.1-ebf1f4b")["S1"]["metrics"]["snv_count"] == 0
+    # A new QC artifact containing explicit counts takes precedence over fallback.
+    (batch / "07_QC/SYNTHETIC.QCstat.tsv").write_text("Sample_ID\t是否通过质控\tSNV_count\nS1\tYes\t900\n", encoding="utf-8")
+    assert _read_qc(batch, release_id="wgs-4.2.1-ebf1f4b")["S1"]["judgments"]["snv_count"]["value"] == 900
+
+
+def test_qc_count_missing_or_outside_project_never_becomes_zero(tmp_path):
+    from app.wgs_sample_projection import _variant_count
+    batch = tmp_path / "SYNTHETIC"
+    batch.mkdir()
+    assert _variant_count(batch, "S1", "SNV_count") is None
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "S1.flt.tsv").write_text("Variant\nprivate\n", encoding="utf-8")
+    (batch / "01_SNV").symlink_to(outside, target_is_directory=True)
+    assert _variant_count(batch, "S1", "SNV_count") is None
+    assert _variant_count(batch, "../S1", "SNV_count") is None

@@ -1,5 +1,22 @@
 # API contract
 
+## WGS SNV/CNV count evidence (2026-09-17 candidate)
+
+When the selected batch QCstat omits SNV_count/CNV_count, WGS sample projection
+counts data rows in the same inputs used by SingleQC_merge:
+01_SNV/<data_id>.flt.tsv and03_CNV/Annot/<data_id>.CNV.tsv. Header excluded,
+blank lines ignored, quoted multiline records counted once. Explicit QCstat
+counts take precedence. Both counts enter qc_metrics and the existing pinned
+qc_judgments policy; no threshold or aggregate-source change.
+
+Fallback judgments name the relative source_artifact, source_sha256 and row-count
+source_field. Full variant contents never enter the API. Missing/unreadable/
+outside-project/changing inputs stay unknown, never zero; a header-only table
+legitimately counts as zero. File-version-keyed bounded caching avoids repeated
+reads on unchanged polls. No new API endpoint or DB schema is introduced.
+All22 criterion columns remain visible in the UI, even unknown/inapplicable ones;
+this supersedes the prior pass/fail/warn-only presentation statements below.
+
 ## GATK lifecycle list parity (2026-09-17, source only)
 
 Existing run/dashboard list lifecycle uses the same payload as GATK detail.

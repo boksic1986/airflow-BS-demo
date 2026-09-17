@@ -1,5 +1,12 @@
 # QC, logging, and reporting
 
+2026-09-17 complete-metrics candidate supersedes column omission: all22 named
+QC criteria remain visible, with missing/inapplicable evidence labelled rather
+than hidden. Native g1 computes SNV/CNV counts but omits them from its exported
+row. The platform now supplements missing count columns from the exact native
+input TSVs within the bound project, preserving artifact hashes and pinned
+thresholds. It does not rewrite the source warning or native QC script.
+
 2026-09-17 candidate supersedes the threshold-label wording below: preserve
 the original judged-metric columns, values and colored statuses, but hide
 threshold text in headings/cells. The backend retains threshold checks and

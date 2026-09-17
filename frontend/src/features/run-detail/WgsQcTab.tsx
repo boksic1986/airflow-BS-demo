@@ -45,8 +45,7 @@ const reasonLabels: Record<string, string> = {
 };
 
 export function WgsQcTab({samples}: {samples: Sample[]}) {
-  const received = new Set(samples.flatMap(orderedMetricKeys));
-  const keys = [...Object.keys(metricLabels).filter((key) => received.delete(key)), ...Array.from(received).sort()];
+  const keys = Object.keys(metricLabels);
   return <div className="table-wrap wgs-qc-table-wrap" tabIndex={0} aria-label="QC table horizontal scroll">
     <table className="data-table" aria-label="WGS QC summary">
       <thead><tr>
@@ -59,8 +58,15 @@ export function WgsQcTab({samples}: {samples: Sample[]}) {
         {samples.map((sample) => <tr key={sample.sample_id}>
           <td>{sample.sample_id}</td>
           <td><StatusBadge status={sample.qc_status || "unknown"} size="sm" /></td>
-          {keys.map((key) => <td key={key}>{hasAvailableJudgment(sample, key)
-            ? <QcMetric value={sample.qc_metrics?.[key]} judgment={sample.qc_judgments?.[key]} /> : "-"}</td>)}
+          {keys.map((key) => {
+            const judgment = sample.qc_judgments?.[key];
+            const inapplicable = judgment?.reason === "No applicable criterion in this release";
+            return <td key={key} title={friendlyReason(judgment?.reason)}>
+              {hasAvailableValue(sample, key)
+                ? <QcMetric value={sample.qc_metrics?.[key]} judgment={judgment} /> : <span>未提供</span>}
+              {inapplicable ? <small>不适用</small> : null}
+            </td>;
+          })}
           <td className="qc-reason-cell">{sampleReason(sample)}</td>
         </tr>)}
         {samples.length === 0 ? <tr><td className="empty-cell" colSpan={keys.length + 3}>QC is pending or unavailable because the batch QCstat has not been projected yet.</td></tr> : null}
@@ -70,7 +76,7 @@ export function WgsQcTab({samples}: {samples: Sample[]}) {
 }
 
 function sampleReason(sample: Sample): string {
-  const keys = orderedMetricKeys(sample);
+  const keys = Object.keys(metricLabels);
   const reasons = keys.filter((key) => ["fail", "warn"].includes(sample.qc_judgments?.[key]?.status || ""))
     .map((key) => `${metricLabel(key)}：${friendlyReason(sample.qc_judgments![key].reason)}`);
   if (reasons.length) return reasons.join("；");
@@ -78,15 +84,8 @@ function sampleReason(sample: Sample): string {
   return keys.length ? "-" : "暂无可展示的质控判定指标";
 }
 
-function orderedMetricKeys(sample: Sample): string[] {
-  const received = new Set(Object.keys(sample.qc_judgments || {}).filter((key) => hasAvailableJudgment(sample, key)));
-  const ordered = Object.keys(metricLabels).filter((key) => received.delete(key));
-  return [...ordered, ...Array.from(received).sort()];
-}
-
-function hasAvailableJudgment(sample: Sample, key: string): boolean {
+function hasAvailableValue(sample: Sample, key: string): boolean {
   const judgment = sample.qc_judgments?.[key];
-  if (!judgment || !["pass", "fail", "warn"].includes(judgment.status)) return false;
   const value = judgment?.value ?? sample.qc_metrics?.[key];
   return typeof value === "number" ? Number.isFinite(value) : typeof value === "string" && value.trim().length > 0;
 }

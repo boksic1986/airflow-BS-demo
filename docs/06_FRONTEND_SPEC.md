@@ -1,5 +1,16 @@
 # Frontend specification
 
+## Complete QC criterion columns (2026-09-17 candidate; supersedes view below)
+
+WGS QC always lists the22 named criteria from metricLabels, including SNV/CNV
+counts, contamination, sex, relatedness and conditional MultiQC criteria. No
+column is removed because it lacks a value, has unknown status or is inapplicable.
+Missing values show 未提供, inapplicable judgments are labelled 不适用; available
+values keep their backend status/color, including unknown. Reasons are available
+on cells; failure reasons remain in the final Reason column. Threshold numbers
+stay absent from headings/cells. Source aggregate is never inferred from the
+displayed subset. Raw clinical diagnostics and arbitrary API fields stay hidden.
+
 ## QC judged-metric view restored (2026-09-17 candidate)
 
 User approved returning to the pre-column-restoration display: available
