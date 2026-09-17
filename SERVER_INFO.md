@@ -1,5 +1,16 @@
 # SERVER_INFO.md
 
+## 2026-09-17 QC policy fcc3fc9 release
+
+BS96 backend8450fcef0b9f mounts
+/data/airflow-WGS/releases/20260917-qc-policy-fcc3fc9/backend.
+Frontend a64a0ab29b10, airflow-demo/frontend:qc-policy-fcc3fc9,
+sha256:8574521bdf9c973b618533539cf916eaa7ff36b2d5459d99b7012522149d29fb;
+served JS index-ijHpYiTo.js. Private paired Compose/rollback:
+/data/airflow-WGS/qc-policy-fcc3fc9-control. Other10services unchanged.
+Existing gates/env/nginx allowlist retained; actual client health200/login422.
+Current symlink remains historical. Receipt: releases/2026-09-17-qc-policy-ebf1f4b.md.
+
 ## 2026-09-17 QC column frontend release0353723
 
 BS96 frontend9402a4fbb41b, imageairflow-demo/frontend:qc-columns-0353723

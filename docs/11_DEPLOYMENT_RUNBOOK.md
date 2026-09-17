@@ -1,5 +1,14 @@
 # Deployment runbook
 
+## QC policy and UI publication (2026-09-17)
+
+BS96 backend/frontend now use qc-policy-fcc3fc9-control/compose.json;
+rollback.json restores the exact preceding two services. Other services retain
+their independent composition. Source mounted at releases/20260917-qc-policy-fcc3fc9/backend,
+frontend image airflow-demo/frontend:qc-policy-fcc3fc9. Preserve GATK r2, WGSv2,
+scantrue/autofalse and all unrelated settings. Do not deploy QC UI without its
+audited backend policy. See releases/2026-09-17-qc-policy-ebf1f4b.md.
+
 ## GATK logger settings and proxy verification (2026-09-17)
 
 Latest GATK private effective Compose is gatk-logger924-r2-20260917-control on

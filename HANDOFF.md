@@ -1,5 +1,27 @@
 # HANDOFF.md
 
+## 2026-09-17 QC correction production release complete
+
+Explicit user authorization: merge main/production and publish96. fcc3fc9
+pushed atomically; normal production clone synced. BS10610 targeted QC32pass
+rerun; BS96 frontend build passed in cached network-isolated builder.
+Compared effective private Compose against live settings and full backend app
+hashes; only the two expected QC files differ. Compose config and nginx-t pass.
+At02:20Z recreated only backend/frontend; other10IDs and all env values retained.
+Backend8450fcef0b9f, frontend a64a0ab29b10. Source and rollback documented in
+docs/releases/2026-09-17-qc-policy-ebf1f4b.md; frontend index-ijHpYiTo.js.
+
+Host127.0.0.1 gateway curl403 stopped that verification(exit22); cause confined
+to ingress/allowlist path, no access-rule edits. Actual client96 URL health/
+index/asset200 and login empty-body422; backend live QC API six samples,66pass
+individual metrics,30legitimate unknown, no missing-policy errors. Aggregate
+5pass/1warn unchanged. No automated browser visual test, no extra batch test,
+analysis/rerun or DB change. GATK smoke remains paused. No broad cleanup.
+
+Rollback private qc-policy-fcc3fc9-control/rollback.json for only backend and
+frontend-nginx; reload nginx and verify real gateway. Do not roll back DB/data.
+Docs-only completion commit follows release, without changing deployed code.
+
 ## 2026-09-17 QC exact-release correction candidate
 
 Scope: restore pre0353723 judged metric columns/badges, keep threshold text

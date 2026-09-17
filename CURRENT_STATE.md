@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 QC correction published to BS96
+
+User-approved fcc3fc9 atomically pushed to main/production; normal production
+clone synced. BS96 backend8450fcef0b9f mounts20260917-qc-policy-fcc3fc9/backend;
+frontend a64a0ab29b10 serves index-ijHpYiTo.js. Other10container IDs and all
+environment gates unchanged. Actual gateway health/assets200, login422.
+Deployed screenshot batch:6samples,66pass judgments, no missing-release-policy
+reasons; source aggregate5pass/1warn preserved. GATK smoke remains paused.
+Private rollback: qc-policy-fcc3fc9-control. Full receipt:
+docs/releases/2026-09-17-qc-policy-ebf1f4b.md. Supersedes candidate status below.
+
 ## 2026-09-17 QC policy correction ready, not deployed
 
 User approved original judged-metric table with threshold labels hidden plus

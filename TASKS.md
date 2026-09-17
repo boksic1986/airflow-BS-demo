@@ -7,7 +7,8 @@
 - [x] Restore original judged-metric presentation, hiding only threshold text.
 - [x] BS10610 targeted RED/GREEN:32backend,4frontend; build passes.
 - [x] Read-only shadow check of screenshot batch; raw/source QC unchanged.
-- [ ] Approve and publish paired backend/frontend toBS96; no current deployment.
+- [x] User-approved main/production push and paired backend/frontend BS96 publication.
+- [x] Actual gateway and deployed QC API checked; other10services/gates retained.
 
 No native WGS change, rerun, DB migration or additional batch testing.
 

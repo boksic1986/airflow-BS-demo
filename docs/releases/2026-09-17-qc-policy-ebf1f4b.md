@@ -1,5 +1,43 @@
 # WGS QC ebf1f4b policy and original metric presentation
 
+## Production publication completed
+
+User explicitly approved main/production merge and BS96 publication after
+candidate acceptance. Commit fcc3fc9 pushed atomically to both GitHub refs;
+normal local production main and production branch fast-forwarded. The
+candidate-only statements below describe the preceding validation checkpoint.
+
+- BS96/server96, chenjc6708:bioinfo520. No active analysis runs at preflight.
+- Exact source release: /data/airflow-WGS/releases/20260917-qc-policy-fcc3fc9.
+  Complete backend tree; comparison against the previously mounted application
+  found exactly two changed files: wgs_qc_policy.py and its packaged JSON policy.
+- Backend77e65737b68b ->8450fcef0b9f; image/dependencies unchanged,
+  /app now mounts the new backend release read-only.
+- Frontend9402a4fbb41b ->a64a0ab29b10;
+  airflow-demo/frontend:qc-policy-fcc3fc9,
+  sha256:8574521bdf9c973b618533539cf916eaa7ff36b2d5459d99b7012522149d29fb.
+  Served JS index-ijHpYiTo.js, CSS index-BFPGoplr.css.
+- Exact environments, other binds, nginx allowlist, ports and networks retained.
+  Other10container IDs unchanged. Scantrue, autofalse, contract_v2true,
+  GATK profile r2 unchanged. No analysis submitted or resumed.
+- BS10610 backend targeted verification rerun32passed. BS96 cached isolated
+  frontend build passed without dependency downloads. Compose config and nginx
+  syntax checks passed; nginx gracefully reloaded after backend replacement.
+- Actual client URL health/index/newJS200; empty login body422. Host-loopback
+  gateway curl returned403 (Docker ingress path), so verified through the real
+  approved client address instead; no whitelist changed.
+- Deployed API:6samples,66pass individual judgments,30unknown only due to
+  missing/inapplicable/individual-safe evidence. No unavailable-release reasons.
+  All6coverage20X pass. Source aggregate remains5pass/1warn; no metric recompute
+  silently promotes that warning. Automated browser visual check not performed.
+
+Private effective Compose, rollback and before inventory:
+`/data/airflow-WGS/qc-policy-fcc3fc9-control/{compose,rollback,before}.json`.
+Only backend and frontend-nginx were recreated with --no-deps --pull never.
+Global current symlink remains historical; actual mounts/images are authority.
+Rollback: validate rollback.json, recreate only backend/frontend-nginx, then
+nginx reload and real gateway checks. Preserve data and other services.
+
 ## Scope and cause
 
 User approved restoring the original QC table while hiding threshold labels,
