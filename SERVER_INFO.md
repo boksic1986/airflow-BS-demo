@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+## 2026-09-17 CCE log download / native labels
+
+BS10610/server10610 backend c497d821b719 and frontend a764527b365c use
+releases/20260917-native-ui-76915d8-r2 under the existing airflow-WGS control root.
+Private configuration/rollback/inventory: candidates/native-ui-76915d8-r2-control.
+Health/assets200, eight other containers and all environments unchanged. Existing
+GATK phase overlay retained. No new mounts, ports, gates or production operation.
+Actual current symlink remains historical; service mounts are authoritative.
+
 ## 2026-09-17 Native display simplification
 
 BS10610 backend621cdc5e4a49/frontendbe24e052b2b5 use

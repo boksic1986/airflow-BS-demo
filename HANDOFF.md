@@ -1,6 +1,24 @@
 # HANDOFF.md
 
-## 2026-09-17 CCE download / native labels candidate
+## 2026-09-17 CCE download / native labels publication
+
+Code76915d8; BS10610/server10610 control
+/mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS;
+release releases/20260917-native-ui-76915d8-r2, backend c497d821b719,
+frontend a764527b365c. Prior app release d76edd3-r2 preserved; rollback composition
+and private before-inventory in candidates/native-ui-76915d8-r2-control.
+Read-only preflight checked actual mounts, permissions, source and native/scanner
+gates; current symlink remains the historical opt release, not actual app source.
+Compose config and nginx checks passed. Health/assets200, source bytes match
+tested candidate except explicitly preserved GATK phase overlay. All environment
+values and eight unrelated container IDs unchanged. No new mounts/permissions.
+Actual tracker WGS_Clinical, node-97,20260910A,3 samples,node97 analysis verified.
+Actual running GATK smoke bound bundle exists with zero archive packages; disabled
+state is expected until Step5 materializes one. Synthetic HTTP test proves auth,
+attachment bytes and stale-key rejection. No real export or full workflow test.
+Verification helper initially read stage_label at wrong nesting (exit1); corrected
+to existing current_stage_label and reran successfully, without application edit.
+Browser visual acceptance not claimed. Test branch only; no main/production push.
 
 Approved scope: existing Step5 archive download replacing Copy for CCE WGS/GATK;
 native labels node96/node97/SGE and WGS_Clinical. No pipeline/core/DAG/DB change,
@@ -12,7 +30,7 @@ BS10610 cached pytest test_log_archive/test_wgs_onprem_views:19 passed;
 Vitest LogViewer/RunTracker/NativeExecutionPanel:14 passed; TypeScript/Vite passed
 (index-D6sRdr3N.js). Corrupt/truncated archives and FIFO checksum sidecars reject
 without blocking; authenticated attachment bytes checked with synthetic package.
-Deployment receipt follows after verification. No real export jobs used as tests.
+No real export jobs used as tests.
 Preflight accidentally requested nonexistent airflow-demo-backend-1 (exit1);
 docker ps confirmed actual airflow-wgs-backend-1 and expected IDs; no mutation.
 Rollback is prior backend/frontend composition only; no data deletion.

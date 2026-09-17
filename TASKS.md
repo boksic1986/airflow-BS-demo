@@ -5,7 +5,8 @@
 - [x] Replace CCE Copy with existing Step5 package download; no export jobs.
 - [x] Shared authenticated streaming API with current-attempt binding and validation.
 - [x] Show WGS_Clinical and registered node96/node97/SGE labels.
-- [ ] Finish focused regression and publish only BS10610; preserve running compute.
+- [x] 19 backend / 14 frontend tests and build; BS10610 published76915d8.
+  Eight other services/config preserved; native labels and archive readiness verified.
 
 ## NODE97-NATIVE-STOP-20260917
 

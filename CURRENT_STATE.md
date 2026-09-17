@@ -1,6 +1,6 @@
 # CURRENT_STATE.md
 
-## 2026-09-17 CCE log download and native target labels (candidate)
+## 2026-09-17 CCE log download and native target labels (BS10610)
 
 Implemented read-only existing Step5 archive download for WGS/GATK CCE, with
 session auth, attempt/run binding, checksum/manifest/path checks and disabled
@@ -8,7 +8,13 @@ unavailable state. Native project display is WGS_Clinical; registered targets
 render node96/node97/SGE. No workflow, database, logger or DAG changes.
 BS10610 cached regression: 19 backend / 14 frontend tests and build passed,
 including authenticated download, wrong-attempt key and corrupt package rejection.
-Deployment and final verification pending; no main or production promotion.
+Published76915d8 at releases/20260917-native-ui-76915d8-r2:
+backend c497d821b719, frontend a764527b365c, JS index-D6sRdr3N.js.
+Health/assets200; all environments and eight unrelated services unchanged;
+GATK phase overlay preserved. Live native tracker is WGS_Clinical/node-97,
+20260910A/3 samples, node97 analysis. Current GATK smoke binding resolves correctly
+but has zero Step5 log packages while running; Download is correctly unavailable.
+No main/production promotion and no new analysis or export Job.
 
 ## 2026-09-17 Node97 Local test stopped on user request
 
