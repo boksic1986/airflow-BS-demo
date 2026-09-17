@@ -17,7 +17,10 @@ it("shows all available QC columns directly without thresholds and with failure 
   expect(within(table).getByRole("columnheader", {name: "Clean Q30"})).toBeInTheDocument();
   expect(within(table).getByRole("columnheader", {name: /Raw GC/})).toBeInTheDocument();
   expect(within(table).getByRole("columnheader", {name: "Sex consistency"})).toBeInTheDocument();
-  expect(within(table).getByRole("columnheader", {name: "Average depth"})).toBeInTheDocument();
+  expect(within(table).queryByRole("columnheader", {name: "Average depth"})).toBeNull();
+  expect(screen.getByText("84 %")).toHaveClass("qc-value-fail");
+  expect(screen.getByText("40 %")).toHaveClass("qc-value-pass");
+  expect(within(table).getByRole("columnheader", {name: "Raw GC"})).toBeInTheDocument();
   expect(within(table).getAllByRole("columnheader").at(-1)).toHaveTextContent("Reason");
   expect(container.querySelectorAll("details")).toHaveLength(0);
   expect(container.querySelectorAll("table")).toHaveLength(1);
@@ -38,6 +41,9 @@ it("does not apply one sample's threshold to another and keeps zero and warnings
   const one=screen.getByText("S1").closest("tr")!;
   const two=screen.getByText("S2").closest("tr")!;
   expect(within(one).getByText("0 ×")).toBeInTheDocument();
+  expect(within(one).getByText("0 ×")).toHaveClass("qc-value-fail");
+  expect(within(two).getByText("25 ×")).toHaveClass("qc-value-pass");
+  expect(within(one).getByText("CHARR 0.025 / AB 0.12")).toHaveClass("qc-value-warn");
   expect(within(one).queryByText(/≥|按样本/)).toBeNull();
   expect(within(two).queryByText(/≥|按样本/)).toBeNull();
   expect(screen.getByRole("columnheader", {name: "Contamination"})).toBeInTheDocument();
@@ -46,11 +52,11 @@ it("does not apply one sample's threshold to another and keeps zero and warnings
 
 it("retains failed source QC when metric evidence cannot explain it", () => {
   render(<WgsQcTab samples={[{sample_id:"S0",qc_status:"fail",qc_judgments:{contamination:{value:null,status:"unknown"}}}]} />);
-  expect(screen.getByRole("columnheader",{name:"Contamination"})).toBeInTheDocument();
+  expect(screen.queryByRole("columnheader",{name:"Contamination"})).toBeNull();
   expect(screen.getByText(/来源汇总 QC 未通过.*缺少可展示的原因证据/)).toBeInTheDocument();
 });
 
-it("keeps measured columns and values when release judgments are unknown or absent", () => {
+it("restores the judged-metric view without inventing a pass for unaudited data", () => {
   render(<WgsQcTab samples={[{
     sample_id: "UNREVIEWED", qc_status: "warn",
     qc_metrics: {average_depth: 31.5, snv_count: 0, raw_diagnostic_note: "not a QC column"},
@@ -59,12 +65,10 @@ it("keeps measured columns and values when release judgments are unknown or abse
       average_depth: {value: null, unit: "×", status: "unknown"},
     },
   }]} />);
-  expect(screen.getByRole("columnheader", {name: "Clean Q30"})).toBeInTheDocument();
-  expect(screen.getByRole("columnheader", {name: "Average depth"})).toBeInTheDocument();
-  expect(screen.getByRole("columnheader", {name: "SNV count"})).toBeInTheDocument();
-  expect(screen.getByText("98.4 %")).toHaveClass("qc-value-unknown");
-  expect(screen.getByText("31.5 ×")).toHaveClass("qc-value-unknown");
-  expect(screen.getByText("0")).toHaveClass("qc-value-unknown");
+  expect(screen.queryByRole("columnheader", {name: "Clean Q30"})).toBeNull();
+  expect(screen.queryByRole("columnheader", {name: "Average depth"})).toBeNull();
+  expect(screen.queryByRole("columnheader", {name: "SNV count"})).toBeNull();
+  expect(screen.getByText("warn")).toBeInTheDocument();
   expect(screen.queryByText("not a QC column")).toBeNull();
   expect(screen.queryByText("暂无可展示的质控判定指标")).toBeNull();
 });

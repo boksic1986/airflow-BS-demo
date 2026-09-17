@@ -1,4 +1,4 @@
-"""Audited QC display policy and exact source-equivalent releases.
+"""Audited QC display policy with exact release equivalents and variants.
 
 Source aggregate remains authoritative; missing inputs are never imputed.
 Clinical free-text notes and identity are not returned by this projection.
@@ -25,11 +25,19 @@ def evaluate_metrics(source, *, release_id, context, multiqc=None):
     raw_policy = POLICY_FILE.read_bytes()
     policy = json.loads(raw_policy)
     equivalent_commit = policy.get("verified_equivalent_releases", {}).get(release_id)
-    available = release_id in RELEASES or equivalent_commit is not None
+    variant = policy.get("verified_release_variants", {}).get(release_id)
+    available = release_id in RELEASES or equivalent_commit is not None or variant is not None
     provenance = {**policy["provenance"], "policy_sha256": hashlib.sha256(raw_policy).hexdigest(), "release_id": release_id} if available else {"release_id": release_id, "reason": "Release policy provenance unavailable"}
     if equivalent_commit is not None:
         # All four packaged QC source blobs were compared at both exact commits.
         provenance.update(policy_source_commit=policy["provenance"]["source_commit"], source_commit=equivalent_commit)
+    if variant is not None:
+        # Exact audited g1 delta; unchanged thresholds/blobs remain pinned to the base.
+        provenance.update(
+            policy_source_commit=policy["provenance"]["source_commit"],
+            source_commit=variant["source_commit"],
+            source_git_blobs={**policy["provenance"]["source_git_blobs"], **variant["source_git_blob_overrides"]},
+        )
     if context.get("manifest_sha256"):
         provenance["condition_manifest_sha256"] = context["manifest_sha256"]
     result = {}
@@ -72,7 +80,8 @@ def evaluate_metrics(source, *, release_id, context, multiqc=None):
     check("average_depth", "Average_Depth", "×", (30 if special or relation == "先证者" else 20, None, True, True), missing=item_missing or ("Family relation unavailable" if not special and not relation else None))
     check("fold80", "FOLD_80_BASE_PENALTY", "ratio", (None, 2, True, True))
     check("duplication_percent", "Duplicated_reads%", "%", (None, 10, True, False) if special else None, missing=item_missing)
-    check("coverage_20x_percent", ">=20X", "%", (90, None, False, True) if special else None, missing=item_missing)
+    coverage_20x_all_projects = bool(variant and variant.get("coverage_20x_all_projects"))
+    check("coverage_20x_percent", ">=20X", "%", (90, None, False, True) if special or coverage_20x_all_projects else None, missing=None if coverage_20x_all_projects else item_missing)
     check("coverage_1x_percent", ">=1X", "%", (95, None, True, True) if not special else None, missing=item_missing)
     check("raw_bases", "Raw_bases", "bases", (115000000000, None, True, True) if not special else None, missing=item_missing)
     raw_reads, dup_reads = number(source.get("Raw_reads")), number(source.get("Duplicated_reads"))

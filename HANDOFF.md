@@ -1,5 +1,29 @@
 # HANDOFF.md
 
+## 2026-09-17 QC exact-release correction candidate
+
+Scope: restore pre0353723 judged metric columns/badges, keep threshold text
+hidden, support ebf1f4b without applying its new20X ordinary-item rule to history.
+Changed WgsQcTab/test, wgs_qc_policy, packaged policy metadata, monitor QC tests
+and API/UI/QC/state/release docs. No native workflow modifications.
+
+Audit found only g1 two-line20X delta; metadata contains exact source hashes.
+BS10610/server10610 cache-isolated RED backend6fail/26pass ->32pass; UI3fail/
+1pass ->4pass; TypeScript/Vite pass. No running test services changed.
+BS96 configured SSH alias used after direct SSH handshake failed(exit255);
+no security changes. Read-only API and in-memory shadow evaluate only existing
+screenshot batch:6unique rows,11judged columns,66pass/30unknown; unknowns are
+missing/inapplicable/safe-evidence exclusions, not absent release policy.
+Original source aggregate and raw values unchanged; no clinical contents logged.
+
+Branch jiucheng/fix/qc-columns-20260917, based on e04f6bb, scoped candidate
+changes only. No push/main merge/deploy in this task. Next paired backend/UI
+publication requires production approval; frontend-only change cannot fix API
+judgments. Keep active workflows and scanner gates unchanged. Full suite and
+biological runs deliberately skipped per bounded scope. GATK smoke still paused.
+Rollback code only, no DB/pending/results changes. Release receipt:
+docs/releases/2026-09-17-qc-policy-ebf1f4b.md.
+
 ## 2026-09-17 QC columns production publication complete
 
 User explicitly requested commit/main/production sync then BS96. Targeted

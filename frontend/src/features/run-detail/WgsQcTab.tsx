@@ -59,7 +59,7 @@ export function WgsQcTab({samples}: {samples: Sample[]}) {
         {samples.map((sample) => <tr key={sample.sample_id}>
           <td>{sample.sample_id}</td>
           <td><StatusBadge status={sample.qc_status || "unknown"} size="sm" /></td>
-          {keys.map((key) => <td key={key}>{hasAvailableValue(sample, key)
+          {keys.map((key) => <td key={key}>{hasAvailableJudgment(sample, key)
             ? <QcMetric value={sample.qc_metrics?.[key]} judgment={sample.qc_judgments?.[key]} /> : "-"}</td>)}
           <td className="qc-reason-cell">{sampleReason(sample)}</td>
         </tr>)}
@@ -79,18 +79,14 @@ function sampleReason(sample: Sample): string {
 }
 
 function orderedMetricKeys(sample: Sample): string[] {
-  // Values remain useful when this release has no audited judgment policy.
-  // Only known metric fields may fall back to the raw API projection.
-  const received = new Set([
-    ...Object.keys(sample.qc_judgments || {}),
-    ...Object.keys(sample.qc_metrics || {}).filter((key) => key in metricLabels),
-  ]);
+  const received = new Set(Object.keys(sample.qc_judgments || {}).filter((key) => hasAvailableJudgment(sample, key)));
   const ordered = Object.keys(metricLabels).filter((key) => received.delete(key));
   return [...ordered, ...Array.from(received).sort()];
 }
 
-function hasAvailableValue(sample: Sample, key: string): boolean {
+function hasAvailableJudgment(sample: Sample, key: string): boolean {
   const judgment = sample.qc_judgments?.[key];
+  if (!judgment || !["pass", "fail", "warn"].includes(judgment.status)) return false;
   const value = judgment?.value ?? sample.qc_metrics?.[key];
   return typeof value === "number" ? Number.isFinite(value) : typeof value === "string" && value.trim().length > 0;
 }

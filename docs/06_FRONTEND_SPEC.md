@@ -1,14 +1,16 @@
 # Frontend specification
 
-## QC metric visibility correction (2026-09-17; supersedes omission rules below)
+## QC judged-metric view restored (2026-09-17 candidate)
 
-Removing threshold text must not remove QC columns or measured values. WgsQcTab
-uses all API judgment keys plus known metric keys from qc_metrics, independent
-of pass/fail/warn/unknown status. Empty cells remain dashes; zero is retained.
-Unreviewed-release values show unknown judgment, never inferred pass. Existing
-metric names, source QC status, final failure Reason and horizontal scrolling
-remain. No threshold text is reintroduced, raw diagnostic fields stay hidden,
-and no backend policy, API, database or analysis behavior changes.
+User approved returning to the pre-column-restoration display: available
+pass/fail/warn metrics are columns, with their numeric/status values and colored
+badges. Threshold text alone stays hidden, both in headings and cells. Empty
+cells remain dashes; zero, source QC status, failure Reason and horizontal
+scrolling remain. No raw diagnostic disclosure or frontend threshold calculation.
+Unknown/inapplicable metrics remain in the API, not fabricated passes in the UI.
+The ebf1f4b policy is now explicitly audited, so measured applicable metrics no
+longer disappear due to an unregistered release. This supersedes the temporary
+0353723 unknown-value display; it is not a whole-repository rollback.
 
 ## WGS existing sampleinfo input (2026-09-16 candidate)
 

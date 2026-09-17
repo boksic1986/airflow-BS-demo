@@ -1,5 +1,16 @@
 # TASKS.md
 
+## QC-POLICY-EBF1F4B-20260917
+
+- [x] Audit exact native QC delta, not a blanket4.2.1 equivalence.
+- [x] Register exact variant and extended20X check; preserve historical rules.
+- [x] Restore original judged-metric presentation, hiding only threshold text.
+- [x] BS10610 targeted RED/GREEN:32backend,4frontend; build passes.
+- [x] Read-only shadow check of screenshot batch; raw/source QC unchanged.
+- [ ] Approve and publish paired backend/frontend toBS96; no current deployment.
+
+No native WGS change, rerun, DB migration or additional batch testing.
+
 ## QC-COLUMNS-20260917
 
 - [x] Locate frontend pass/fail/warn-only filtering that drops unknown-release values.

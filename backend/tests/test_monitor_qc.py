@@ -64,7 +64,7 @@ def test_effective_bases_bkw_and_type_boundaries():
     assert dna["snv_count"]["status"] == "fail"
 
 
-@pytest.mark.parametrize("release_id", ["wgs-4.2.1-cc9bde3", "wgs-4.2.1-34bfcbf"])
+@pytest.mark.parametrize("release_id", ["wgs-4.2.1-cc9bde3", "wgs-4.2.1-34bfcbf", "wgs-4.2.1-ebf1f4b"])
 def test_qc_projection_keeps_aggregate_and_private_conditions(tmp_path, release_id):
     from app.wgs_sample_projection import _read_qc
     batch = tmp_path / "SYNTHETIC"
@@ -123,3 +123,23 @@ def test_contamination_requires_measurements_and_uses_joint_native_cutoffs(charr
     else:
         assert result["measurements"] == {"CHARR":float(charr),"INCONSISTENT_AB_HET_RATE":float(ab)}
         assert result["value"].startswith("CHARR ")
+
+
+@pytest.mark.parametrize("value,expected", [("89.99", "fail"), ("90", "fail"), ("90.01", "pass"), (None, "unknown"), ("nan", "unknown")])
+def test_ebf1f4b_checks_20x_for_other_projects_without_changing_history(value, expected):
+    from app.wgs_qc_policy import evaluate_metrics
+    source = {">=20X": value, "Mapped_Reads%": "99.9", "Clean_Q30%": "85", "Average_Depth": "20"}
+    context = {"item_id": "OTHER", "relation": "父亲", "sample_type": "全血"}
+    current = evaluate_metrics(source, release_id="wgs-4.2.1-ebf1f4b", context=context)
+    assert current["coverage_20x_percent"]["status"] == expected
+    assert current["coverage_20x_percent"]["threshold"] == {"min": 90, "max": None, "min_inclusive": False, "max_inclusive": True}
+    for key in ("mapped_reads_percent", "clean_q30_percent", "average_depth"):
+        assert current[key]["status"] == "pass"
+    provenance = current["coverage_20x_percent"]["provenance"]
+    assert provenance["source_commit"] == "ebf1f4bf2512feecdc3762e463145130192ca8bb"
+    assert provenance["source_git_blobs"]["script/g1.Collect_QC.py"] == "6f873080049af713f57e7dc993ef391108bcc3e7"
+    for release in ("wgs-4.2.1-cc9bde3", "wgs-4.2.1-34bfcbf"):
+        previous = evaluate_metrics(source, release_id=release, context=context)
+        assert previous["coverage_20x_percent"]["reason"] == "No applicable criterion in this release"
+    unknown = evaluate_metrics(source, release_id="wgs-4.2.1-ebf1f4b-unreviewed", context=context)
+    assert unknown["coverage_20x_percent"]["reason"] == "Release policy provenance unavailable"

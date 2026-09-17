@@ -335,12 +335,17 @@ artifact provenance. Audited wgs-4.2.1-cc9bde3 and exact source-equivalent
 wgs-4.2.1-34bfcbf have numeric policy support. The latter records its actual
 source_commit and additive policy_source_commit (the original audited commit).
 All four QC source blobs were verified identical; qc_config alone is insufficient.
+The exact wgs-4.2.1-ebf1f4b variant is separately audited: g1 adds coverage
+>=20X >90% for other project items; all other audited QC source content is
+unchanged. Its provenance records the actual g1 blob and source commit, not
+source equivalence. Historical cc9bde3/34bfcbf keep their conditional rule.
 Other releases remain unknown, with no latest-version fallback. Conditional
 item/type/relation/BKW inputs are private. Missing metrics/conditions are unknown,
 not passed; source aggregate is never recomputed from this partial display.
 The API retains unavailable/unknown diagnostics; WGS UI only presents available
 source-derived pass/fail/warn judgments, without altering this contract.
 Audit: releases/2026-09-15-wgs-qc-policy.md.
+Current variant: releases/2026-09-17-qc-policy-ebf1f4b.md.
 
 WGS and GATK Step4/6 add display-only estimated_progress_percent,
 estimate_baseline_seconds, estimate_history_count/model/execution_id/generation

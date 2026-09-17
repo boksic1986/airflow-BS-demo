@@ -115,6 +115,15 @@
   "verified_equivalent_releases": {
     "wgs-4.2.1-34bfcbf": "34bfcbf82238af684d005314360c9c9739377351"
   },
+  "verified_release_variants": {
+    "wgs-4.2.1-ebf1f4b": {
+      "source_commit": "ebf1f4bf2512feecdc3762e463145130192ca8bb",
+      "source_git_blob_overrides": {
+        "script/g1.Collect_QC.py": "6f873080049af713f57e7dc993ef391108bcc3e7"
+      },
+      "coverage_20x_all_projects": true
+    }
+  },
   "provenance": {
     "source_commit": "cc9bde3c8ee6ad1cd2f85cf5d2ef49c5611ac081",
     "source_git_blobs": {

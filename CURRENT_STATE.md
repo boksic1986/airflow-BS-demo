@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 QC policy correction ready, not deployed
+
+User approved original judged-metric table with threshold labels hidden plus
+exact ebf1f4b QC support. Native g1 adds >90%20X coverage for ordinary items;
+other source rules unchanged. Historical policies retained. BS1061032backend/
+4frontend tests and build pass. BS96 read-only shadow check of screenshot batch:
+6rows,66pass metric judgments,30legitimate missing/inapplicable unknown;
+all6coverage20X pass, source aggregate unchanged. No service/file/DB mutation.
+Details: docs/releases/2026-09-17-qc-policy-ebf1f4b.md. Not pushed/deployed;
+needs paired backend/frontend publication. GATK smoke remains paused.
+
 ## 2026-09-17 QC columns published to BS96
 
 User approved main/production synchronization and frontend-only publication.

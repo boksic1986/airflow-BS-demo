@@ -1,5 +1,12 @@
 # QC, logging, and reporting
 
+2026-09-17 candidate supersedes the threshold-label wording below: preserve
+the original judged-metric columns, values and colored statuses, but hide
+threshold text in headings/cells. The backend retains threshold checks and
+provenance. Exact release ebf1f4b additionally applies >90% coverage >=20X to
+ordinary projects, matching native g1. Historical policies and source aggregate
+QC are unchanged. See releases/2026-09-17-qc-policy-ebf1f4b.md.
+
 2026-09-15 UI simplification: all eligible WGS metrics appear as columns, with
 thresholds in headings (sample-specific bounds in cells when they differ) and
 one final Reason column. No raw/provenance disclosure. Contamination display
