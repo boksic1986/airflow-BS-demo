@@ -1,5 +1,19 @@
 # SERVER_INFO.md
 
+## 2026-09-18 UI/Phase/ledger release4f4d45a
+
+BS96/server96 owner chenjc6708:bioinfo520. Backend342e86a9f10c now mounts
+/data/airflow-WGS/releases/20260918-ui-4f4d45a/backend (read-only).
+Frontendb92af6923f78 uses airflow-demo/frontend:ui-4f4d45a,
+imageb77dc1142fbe097ac9a8e05bf368528c835c91accfb4b4e2c7d782d7e30349d3;
+served index-BQSJdqVH.js/index-UzgQaua7.css verified200.
+Reference-workerdeb7a4d5b7aa mounts this release's sample-reference-worker/backend,
+cloned from sampleinfo-f72a12e with only ledger reader replaced. Other9IDs kept.
+Private paired compose/rollback/before: /data/airflow-WGS/ui-4f4d45a-control.
+Global current remains historical; actual mounts take precedence. Scanner600s,
+auto-enabled, approved roots, credentials and all other settings unchanged.
+Source wgs-clinical-shared ready, pending0;0915B success. Receipt below docs/releases.
+
 ## 2026-09-17 Ledger registration rebind only
 
 BS96 wgs-clinical-shared registration_key repaired to approved Clinical root;

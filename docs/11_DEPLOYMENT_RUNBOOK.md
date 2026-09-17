@@ -1,5 +1,15 @@
 # Deployment runbook
 
+## UI/Phase/ledger publication (2026-09-18)
+
+BS96 backend/frontend-nginx/sample-reference-worker now use
+ui-4f4d45a-control/compose.json; rollback.json contains their exact prior pins.
+Worker has ONLY the tested ledger reader delta on its independent baseline.
+Other services must retain their existing compositions. Run config --quiet,
+then up -d --no-deps --pull never only for the affected services and gracefully
+reload nginx after backend address changes. No global current redeployment.
+See [publication and acceptance](releases/2026-09-18-ui-phase-ledger-bs96.md).
+
 ## Automatic intake activation (2026-09-17)
 
 Production WGS scan period is now600 seconds and automatic analysis is enabled

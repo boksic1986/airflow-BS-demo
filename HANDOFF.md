@@ -1,5 +1,40 @@
 # HANDOFF.md
 
+## 2026-09-18 Authorized BS96 deployment complete
+
+Goal: publish existing verified updates and diagnose screenshot Failed to fetch.
+Source4f4d45a deployed via configured BS96/chenjc6708 on server96; current link
+historical, actual mounts authoritative. Release20260918-ui-4f4d45a; private
+compose/rollback/before in ui-4f4d45a-control. Backend/frontend/reference-worker
+only restarted; other9IDs preserved. Worker changed only ledger reader against
+its prior independent baseline. All runtime gates/mounts/environment retained.
+
+0915B success and Airflow tasks success/skipped before restart; no active run.
+Offline frontend build passed, Compose config/nginx syntax passed. Gateway
+health/assets/APIs200;390known Phases;6selected business manifests; ledgerready,
+pending0. No analysis/QC policy/script change, rerun, database migration/manual
+write, pending/result/history deletion. Existing reconciler resumes normal sync.
+Details/rollback in docs/releases/2026-09-18-ui-phase-ledger-bs96.md.
+
+Failed-to-fetch not reproduced before or after publication. Before APIs200
+within0.019-0.145s and2h gateway logs no499/502/503/504. Do not call the screenshot
+a confirmed backend crash, data loss or a diagnosed browser-cache issue. If it
+recurs, capture failing browser Network request/time/status, not broad tests.
+
+Changed only release/state/server/runbook docs this turn. Application source
+already passed scoped BS10610 tests; no repeated suites/browser login or new
+biological test. New build/live endpoint checks are deployment acceptance.
+Read-only diagnostic failures: first SSH lacked tty/stdin; reopened with tty.
+One inspect used frontend-1 instead of observed frontend-nginx-1; corrected.
+One environment comparison assumed dict but old Compose uses list; normalized
+and exact comparison passed before mutation. No service changes from failures.
+
+Heartbeat0915b has fulfilled its deployment condition: MUST NOT deploy again.
+Tool view rendered only a card, no fields; partial pause updates rejected missing
+schema fields (no mutation); local automation TOML unavailable. Pause was not
+confirmed; next heartbeat must recognize this receipt and pause itself. Do not
+invent/overwrite its existing prompt/schedule. No further release work required.
+
 ## 2026-09-18 run-detail UI simplification; no deployment
 
 Completed source promotion: application347e4ed fast-forwarded and atomically

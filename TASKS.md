@@ -1,5 +1,15 @@
 # TASKS.md
 
+## BS96-UI-DEPLOY-20260918
+
+- [x] Explicit production authorization, owner login and live mount/gate preflight.
+- [x] Verify0915B and Airflow terminal; bounded Failed-to-fetch diagnostics.
+- [x] Cached offline build; deploy source4f4d45a to3affected services only.
+- [x] Gateway/API/assets,390known Phases,6business manifests,ready ledger/pending0.
+- [x] Preserve9other services, all gates/configuration, analysis and pending data.
+- Client transient failure not reproduced; do not claim a proven network cause.
+- Heartbeat0915b deployment condition fulfilled; next wake must pause, not redeploy.
+
 ## RUN-DETAIL-UI-20260918
 
 - [x] User approved field order and dropdowns; default status remains running.
@@ -26,7 +36,7 @@
 - [x] Main and jiucheng/release/production fast-forwarded and atomically pushed
   to9ed3b49; source repair cb1c3fe included. Deployment remains deferred.
 - [x] Thread heartbeat0915b created,30-minute interval, quiet while running.
-- [ ] After0915B completes and safe-task/permission checks pass, publish only
+- [x] After0915B completes and safe-task/permission checks pass, publish only
   tested reader to backend/reference-worker and verify normal ledger health.
 
 ## BS96-0915B-AUTO-20260917

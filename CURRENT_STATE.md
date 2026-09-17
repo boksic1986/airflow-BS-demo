@@ -1,5 +1,21 @@
 # CURRENT_STATE.md
 
+## 2026-09-18 BS96 approved UI/Phase/ledger publication
+
+Published verified source4f4d45a to server96 at releases/20260918-ui-4f4d45a.
+Only backend/frontend-nginx/reference-worker recreated; other9containers kept
+IDs. Worker retains its prior source baseline with only wgs_file_reference.py
+replaced. Scan600seconds/auto-enabled and all service configuration preserved.
+0915B was success, Airflow tasks success/skipped, no active platform run.
+Live gateway: new assets/API200; all390Rules have known Phases;6selected
+sample manifests contain requested business fields. Ledger now ready/pending0.
+Screenshot Failed to fetch did not reproduce before or after publication:
+three APIs200 in0.019-0.145s before,0.014-0.220s after through gateway. No
+499/502/503/504 in preceding2h gateway logs. Exact client failure cause unknown;
+no speculative networking/authentication change. See release receipt.
+Heartbeat0915b must recognize completion and avoid another deployment; pause
+could not be confirmed through tool (see HANDOFF). No data/history deletion.
+
 ## 2026-09-18 run-detail/ledger presentation simplification
 
 Approved UI scope implemented on jiucheng/frontend/run-detail-simplify-20260918:
