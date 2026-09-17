@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+## 2026-09-17 QC column frontend release0353723
+
+BS96 frontend9402a4fbb41b, imageairflow-demo/frontend:qc-columns-0353723
+(sha256:1b7c87c3f21ed6b155a68eafcc8cb9ad98afefa71a6459536644e10ccb11fb83).
+Serves index-Dl8g1B15.js/index-BFPGoplr.css. Source/build under
+/data/airflow-WGS/releases/20260917-qc-columns-0353723; frontend-only private
+Compose/rollback /data/airflow-WGS/qc-columns-0353723-control. Old nginx
+configuration/allowlist and other11containers retained; backend77e65737b68b.
+
 ## 2026-09-17 GATK logger reference promotion
 
 BS96 backend77e65737b68b; BS10610 backend9943939015f6. Application mounts unchanged

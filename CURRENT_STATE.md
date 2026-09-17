@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 QC columns published to BS96
+
+User approved main/production synchronization and frontend-only publication.
+Code0353723 pushed atomically to both refs; local production clone fast-forwarded.
+BS96 frontend9402a4fbb41b serves index-Dl8g1B15.js; health/asset200. Other11
+container IDs unchanged. Screenshot run API retains6samples/16judgment fields.
+No backend/QC policy/workflow change; GATK smoke still paused. Release receipt:
+docs/releases/2026-09-17-qc-columns-bs96.md. This supersedes candidate status below.
+
 ## 2026-09-17 QC metric columns restored in candidate
 
 WgsQcTab no longer requires pass/fail/warn judgment to render a metric column

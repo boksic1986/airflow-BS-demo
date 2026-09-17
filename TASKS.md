@@ -5,7 +5,9 @@
 - [x] Locate frontend pass/fail/warn-only filtering that drops unknown-release values.
 - [x] Restore API-provided metric columns and values without threshold text.
 - [x] BS10610 targeted RED3fail/1pass, GREEN4pass; TypeScript/Vite build passed.
-- [ ] Approved frontend-only publication and screenshot-run visual check on BS96.
+- [x] User-approved main/production push and BS96 frontend-only publication.
+- [x] Served index/assets/API200; screenshot-run API6samples/16judgment fields.
+- [ ] User browser refresh/visual confirmation (no automated browser login).
 
 No backend, QC rules, source data or GATK smoke execution changes.
 

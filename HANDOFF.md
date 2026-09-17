@@ -1,5 +1,25 @@
 # HANDOFF.md
 
+## 2026-09-17 QC columns production publication complete
+
+User explicitly requested commit/main/production sync then BS96. Targeted
+BS10610 test rerun4/4 passed.0353723 atomically pushed to GitHub main and
+jiucheng/release/production; D:/pipeline/airflow-demo-production ff synced.
+BS96 frontend built from that exact frontend archive using cached builder,
+tsc/Vite success, --network none, no dependency install or Docker Hub pull.
+Image-only frontend Compose change; config check/nginx test pass. At01:43Z
+frontend27a65ebd33c1->9402a4fbb41b;11other IDs retained. Served index/newJS/API
+all200. Existing nginx allowlist/mount/env/port/network preserved.
+Read-only API confirms screenshot run WGS_20260916_180936_43867F has6samples
+and16judgment fields; clinical payloads not printed or copied. No automated
+browser login/visual check; user refresh still needed. No workflow rerun.
+GATK smoke paused and CCE configuration untouched this turn.
+Exact release/rollback details: docs/releases/2026-09-17-qc-columns-bs96.md.
+Git SSH22 timeout resolved with officialssh.github.com443 and existing trusted
+github.com HostKeyAlias; no host-key verification bypass. BS96 direct SSH used
+after18jump reset. Broad historical .git discovery hit permission-denied and
+stopped before writes; no permissions changed. No unrelated worktrees cleaned.
+
 ## 2026-09-17 QC columns candidate; no deployment
 
 User clarified only threshold text should be removed, not metric columns.
