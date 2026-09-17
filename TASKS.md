@@ -1,5 +1,14 @@
 # TASKS.md
 
+## LEDGER-READER-PROMOTION-20260917
+
+- [x] User authorized main/production synchronization and delayed BS96 release.
+- [x] Fresh affected regression suite:19passed; no expanded workflow tests.
+- [ ] Fast-forward main and jiucheng/release/production; atomic push and verify refs.
+- [x] Thread heartbeat0915b created,30-minute interval, quiet while running.
+- [ ] After0915B completes and safe-task/permission checks pass, publish only
+  tested reader to backend/reference-worker and verify normal ledger health.
+
 ## BS96-0915B-AUTO-20260917
 
 - [x] User explicitly authorized0915B production auto analysis.
@@ -10,8 +19,8 @@
 - [x] Authorized one-row registration rebind; retained all prior row IDs.
 - [x]0915B one operation/six selected history links imported; pending0, no duplicates.
 - [ ] Historical scanner still flags old-root receipts and incomplete0912C generations;
-  reader fix cb1c3fe has19passing tests; rollout deferred by user. Accept pending0
-  as next handoff baseline; no additional historical backfill/repair now.
+  reader fix cb1c3fe has19passing tests; deployment deferred until0915B completes.
+  Pending0 is the next handoff baseline; preserve historical records.
 
 ## BS96-SEQUENTIAL-PENDING-20260917
 

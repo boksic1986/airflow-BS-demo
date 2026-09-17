@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Ledger fix promotion; deploy only after0915B completes
+
+User clarified that the anomaly must still be fixed: promote completed repair
+to main and production now, defer BS96 deployment until current0915B finishes.
+Only application delta is wgs_file_reference.py from cb1c3fe; no Local/SGE test
+branch integration. Fresh BS10610 targeted verification:19passed in1.73s.
+Heartbeat0915b checks every30minutes, quiet while unchanged; no live restart now.
+Deployment must retain current service pins and requires readable private
+Compose plus a safe Airflow task window. Existing historical sync error is not
+yet fixed in production. No historical data deletion or pending modification.
+
 ## 2026-09-17 User stopped further historical-ledger rollout
 
 User accepts current pending0 as the next handoff baseline and asked not to

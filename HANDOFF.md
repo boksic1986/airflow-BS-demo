@@ -1,5 +1,38 @@
 # HANDOFF.md
 
+## 2026-09-17 Promote verified repair; defer BS96 until0915B completion
+
+Latest user instruction supersedes the previous indefinite deferral: anomalies
+still need repair; synchronize completed fixes to main and production, then
+deploy BS96 after this batch finishes, with no urgency. This task interprets
+the current batch as20260915B/WGS_20260917_144921_6CC4BB. No current production
+restart, workflow rerun, historical deletion or pending edit is authorized.
+
+Both remote refs verified at0b384cc before promotion. The work branch descends
+from that exact main; only application delta is cb1c3fe wgs_file_reference.py,
+plus focused tests and operation/release documentation. Main worktree clean.
+Fresh server10610 preflight: backendc497d821b719 still native-ui-76915d8-r2;
+isolated cached8491604ee01d,network none,nonroot/read-only source with/testwork
+tmpfs: pytest tests/test_wgs_file_history.py tests/test_wgs_file_reference.py
+-q -p no:cacheprovider returned19passed in1.73s. Full suite omitted per user's
+minimal-testing constraint; no live services changed or real analyses launched.
+
+First local fetch ended without usable output; bounded local BatchMode SSH
+fetch/ls-remote succeeded. A remote GitHub probe failed host-key verification;
+no trust/config/credential changes were made, and local authenticated Git is
+used for promotion. Thread heartbeat0915b is ACTIVE every30minutes; creation
+first rejected missing thread destination, corrected to destination=thread.
+It stays quiet while unchanged, never deploys during this batch, and pauses
+after verified publication or a decision/permission blocker. Known BS96 private
+Compose read denial must not be bypassed by broad permissions. Retain backend
+and worker's different source baselines when applying only this tested reader.
+New batches/tasks may require waiting for a safe restart window; do not disable
+the user's automatic scanner or stop computation to create one.
+
+Rollback restores exact old backend/reference-worker composition/code only;
+keep all source records, snapshots, operations, pending, analysis and data.
+Production health is still unresolved until fresh deployed acceptance passes.
+
 ## 2026-09-17 Stop rollout per user's scope reduction
 
 User: current pending is0; do not over-focus on history, subsequent handoff can
