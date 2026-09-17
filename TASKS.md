@@ -13,6 +13,12 @@
 - [x] On explicit user request, verify and terminate only20260910A native tree.
 - [x] Verify no active descendants, preserve terminal/data, confirm controller rc=-15.
 
+## GATK-PHASE-TEST-INTEGRATION-20260917
+
+- [x] Port only b3abd65 phase mapping and its regression test onto25bf260.
+- [x] Run the four phase revision cases once on isolated BS10610:4 passed.
+- Scope: test branch only; preserve concurrent uncommitted work and live services.
+
 ## NATIVE-COMMON-VIEW-20260917
 
 - [x] Remove technical-history UI; retain stored execution history.

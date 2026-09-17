@@ -2,6 +2,13 @@
 
 ## 2026-09-17 CCE download / native labels publication
 
+Initial push was rejected non-fast-forward: concurrent c60bac8 added the already
+deployed GATK phase mapping. Merged it without changing code; append-only state
+conflicts retain both histories. SHA25608aa01da...e5ff43 confirms merged phase
+file exactly matches live preserved overlay. Combined focused backend regression
+23 passed (including four phase cases); frontend remains the tested14/build.
+No extra service rollout required: deployed application bytes already match.
+
 Code76915d8; BS10610/server10610 control
 /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS;
 release releases/20260917-native-ui-76915d8-r2, backend c497d821b719,
@@ -54,6 +61,26 @@ First SSH attempt failed during jump-host handshake (exit255), before script
 execution; same verified command then connected successfully. No workflow retry.
 Killed processes cannot be restored; no automatic rerun authorized. Normal
 monitor may report signal termination as failed/canceled; UI state not force-edited.
+
+## 2026-09-17 GATK phase test-branch integration
+
+User requested integrating b3abd65 into the current test branch, not production.
+Prepared server10610 isolated worktree development/gatk-phase-test-20260917
+from25bf260 on jiucheng/fix/gatk-phase-test-20260917; target remote branch is
+jiucheng/test/wgs-local-main-sync-20260917. Original phase code/test applied
+unchanged; current documentation added separately to avoid importing obsolete
+state notes or disturbing concurrent uncommitted development.
+Files:backend/app/workflow_phases.py, backend/tests/test_gatk_phase_revisions.py,
+CURRENT_STATE.md,TASKS.md,HANDOFF.md. No API/schema/runtime behavior additions.
+Verification:git diff --check; isolated cached backend image8491604ee01d,
+network none/read-only source, python -m pytest tests/test_gatk_phase_revisions.py
+-q -p no:cacheprovider:4 passed in0.05s. No broad tests or analysis submissions.
+Live backend remains releases/20260917-native-ui-d76edd3-r2/backend; its existing
+GATK phase preservation is not republished. Main/production untouched.
+Git history was relayed by bundle to perform the commit on the server; unrelated
+dirty worktrees retained. Initial SCP brace path was unsupported and copied
+nothing; explicit filenames succeeded. Server GitHub query stalled; no force push.
+Rollback if later needed:revert this integration commit; no data rollback needed.
 
 ## 2026-09-17 Native common view and Snakemake log
 

@@ -15,6 +15,8 @@ GATK phase overlay preserved. Live native tracker is WGS_Clinical/node-97,
 20260910A/3 samples, node97 analysis. Current GATK smoke binding resolves correctly
 but has zero Step5 log packages while running; Download is correctly unavailable.
 No main/production promotion and no new analysis or export Job.
+Concurrent c60bac8 test-branch phase fix merged; its file hash matches deployed
+overlay exactly. Combined targeted backend regression23 passed, no extra rollout.
 
 ## 2026-09-17 Node97 Local test stopped on user request
 
@@ -23,6 +25,14 @@ Verified no non-zombie target descendants/session processes remain; interactive
 shell preserved. Controller wrote confirmed exit receipt at08:46:53Z, rc=-15.
 SIGTERM followed by SIGKILL for remaining Snakemake2581488. No files deleted,
 no pending/DB edits, no GATK/CCE or production changes; no rerun authorized.
+
+## 2026-09-17 GATK phase repair integrated into test source
+
+Port b3abd65 without functional changes onto test baseline25bf260. Verified
+GATK r2/r3 phase mapping and its four focused tests now belong to the test
+source tree, instead of being present only in the deployed preserved file.
+BS10610 cached isolated image:4 passed in0.05s. Git integration only; no service
+deployment, main/production update, database or workflow action.
 
 ## 2026-09-17 Native common phases and Snakemake log
 
