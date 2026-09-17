@@ -1,5 +1,13 @@
 # Deployment runbook
 
+## BS10610 main + Local/SGE refresh (2026-09-17)
+
+Test application282dfb0 includes mainc6ac6ce plus accepted native integration.
+Use candidates/onprem-main-282dfb0-control/compose.json, explicit backend,
+wgs-run-observer, frontend-nginx; --no-deps --pull never. Rollback.json restores
+those3 services only, followed by nginx reload. No DB migration, DAG update or
+production gate/root copy. Receipt: releases/2026-09-17-onprem-main-sync-bs10610.md.
+
 ## Complete QC count publication (2026-09-17)
 
 BS96 backend/frontend now use qc-all-counts-4e9196d-control/compose.json;

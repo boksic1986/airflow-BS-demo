@@ -35,12 +35,44 @@ The first backend test container lacked repository /config and13 sampleinfo test
 failed with FileNotFoundError; mounting read-only repository config resolved all.
 Application code was unchanged by that harness correction.
 
-Pending source parity, bounded test-only service rollout and post-release checks.
+## Published test application
+
+Application commit282dfb09a950496a6e998ec797f913923db41e65 is deployed under
+`releases/20260917-onprem-main-282dfb0`. Backend82958ac39f8a and
+observerde8573f1b972 mount its complete backend; frontend31d12b50e275 mounts
+its frontend-dist. Native schema/mounted DAG files compare identical, so no
+Airflow restart or migration. Other7 container IDs, all environment key-values,
+image IDs, non-code mounts, network and ports are unchanged.
+
+Private composition/rollback/inventory:
+`candidates/onprem-main-282dfb0-control`. Compose config passed; only backend,
+wgs-run-observer, frontend-nginx recreated with --no-deps --pull never. The
+orphan warning refers to preserved other services; no --remove-orphans used.
+Nginx configuration/reload passed. Actual gateway /api/health and JS return200;
+empty login request422 proves API proxy routing. Internal health/db/Airflow200,
+scheduler and metadatabase healthy; optional triggerer/dag-processor remain null.
+
+Authenticated native route inventory and existing synthetic native-view GET200:
+2 executions retained, current wse_7dce0d6aef85f76d2206983d,1 rule. Existing5 run
+records remain4success/1failed; GATK smoke remains paused, no new run. Registration,
+launch and monitor flags true, platform instance bs10610-onprem-review; native
+webpage prepare remains false, scan/auto-dispatch false. Approved project roots
+and snapshots unchanged. This proves API readiness, not new real Local/SGE compute.
+
+Rollout helper initially used str.removeprefix unsupported by host Python; fixed
+the helper only before any service mutation. Post-check initially requested
+authenticated OpenAPI anonymously (401), then succeeded with existing in-memory
+internal token. Environment list order changed in Compose; comparison by actual
+key/value confirmed no setting changed. No credentials were printed or copied.
+
+Neither main/production ref nor BS96 service was modified by this publication.
 No DB migration is expected: accepted native schema0026 already exists. Do not
 copy production DB, Clinical paths, credentials or scanner configuration.
 
 ## Rollback
 
-Retain preceding code and exact private service composition. Rollback changes
+Retain preceding code and exact private service composition. Use private
+rollback.json with explicit backend wgs-run-observer frontend-nginx only,
+--no-deps --pull never, followed by nginx reload. Rollback changes
 application source/static assets only; preserve DB, snapshots, pending, projects,
 GATK smoke pause and existing runtime/image/environment pins.

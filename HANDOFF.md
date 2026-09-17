@@ -1,5 +1,26 @@
 # HANDOFF.md
 
+## 2026-09-17 BS10610 main/native refresh complete
+
+Application282dfb0 on jiucheng/test/wgs-local-main-sync-20260917 integrates latest
+main c6ac6ce and authoritative native cb84ec2. Only backend82958ac39f8a,
+observerde8573f1b972 and frontend31d12b50e275 recreated. Other7 IDs/image/environment
+key-values retained; native DAG and schema identical, no migration/restart.
+Health/db/Airflow, actual gateway and native-view200; JSindex-t9Ucf9lx.js200,
+login validation422. Native flags enabled, scan/dispatch false, same test roots.
+Existing5 records retained; no new analysis, GATK smoke still failed/paused.
+
+Targeted cached backend/native/QC/sampleinfo/runtime100pass/1optional owner-source
+skip; frontend13pass and production build. First missing /config fixture mount
+corrected without application change. Helper host-Python incompatibility fixed
+before mutation; OpenAPI401 corrected using existing internal auth, no secret output.
+Full commands/scope/rollback: docs/releases/2026-09-17-onprem-main-sync-bs10610.md.
+
+Use new integration worktree, not original dirty Windows native tree, for further
+changes. No main/production push or BS96 publication. Rollback3services only via
+candidates/onprem-main-282dfb0-control/rollback.json; preserve data/snapshots/gates.
+Next: user's real Local/SGE retest, no automatically submitted batches.
+
 ## 2026-09-17 Test-only main/native refresh in progress
 
 User authorizes BS10610 application refresh including existing Local/SGE APIs.

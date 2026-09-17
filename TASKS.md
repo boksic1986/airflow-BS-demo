@@ -5,7 +5,9 @@
 - [x] Recover authoritative native Git source and inspect actual BS10610 mounts.
 - [x] Integrate main fixes preserving native APIs, test gates and original worktrees.
 - [x] Targeted cached tests100 passed/1 optional skip, frontend13 passed and build.
-- [ ] BS10610 rollout and health/native/QC interface checks; no real analysis.
+- [x] BS10610 rollout, health/native view/API/static checks; no real analysis.
+
+Ready for user Local/SGE retest; main/production unchanged. Application282dfb0.
 
 ## QC-ALL-COUNTS-20260917
 

@@ -1,10 +1,12 @@
 # CURRENT_STATE.md
 
-## 2026-09-17 BS10610 main/native refresh in progress
+## 2026-09-17 BS10610 main/native refresh deployed
 
-Integrating production/main c6ac6ce with native cb84ec2 on an isolated test branch.
-Existing Local/SGE APIs and test settings retained; no main/production merge or
-BS96 deployment. See docs/releases/2026-09-17-onprem-main-sync-bs10610.md.
+Commit282dfb0 integrates production/main c6ac6ce and native cb84ec2 on the isolated
+test branch. Backend/observer/frontend deployed; native view and health checks200,
+100backend tests/13frontend tests pass (1 optional owner integration skipped).
+Existing Local/SGE APIs,5 records and test settings retained; no main/production
+merge, BS96 deployment or analysis. Receipt: docs/releases/2026-09-17-onprem-main-sync-bs10610.md.
 
 ## 2026-09-17 Complete QC metrics published to BS96
 

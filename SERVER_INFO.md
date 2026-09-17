@@ -1,5 +1,15 @@
 # SERVER_INFO.md
 
+## 2026-09-17 BS10610 refreshed main/native test application
+
+Actual backend82958ac39f8a/observerde8573f1b972 source is control root
+releases/20260917-onprem-main-282dfb0/backend; frontend31d12b50e275 uses matching
+frontend-dist, JSindex-t9Ucf9lx.js. Private Compose/rollback/inventory under
+candidates/onprem-main-282dfb0-control. Current symlink remains historical.
+Other7services and all environment values/imageIDs retained; Local registration,
+launch/monitor true, scan/dispatch false, instancebs10610-onprem-review.
+No BS96 update. Full receipt: docs/releases/2026-09-17-onprem-main-sync-bs10610.md.
+
 ## 2026-09-17 Complete QC criteria/counts release4e9196d
 
 BS96 backend2950f374ab8a mounts
