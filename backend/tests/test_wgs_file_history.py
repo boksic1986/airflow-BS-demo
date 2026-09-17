@@ -126,3 +126,48 @@ def test_valid_history_still_imports_when_current_file_missing_and_no_run_is_cre
     with factory() as s:
         assert s.scalar(select(SampleReferenceOperation)).analysis_id is None
         assert s.scalar(select(AnalysisRun)) is None and s.scalar(select(Sample)) is None
+
+
+def test_shared_runtime_filters_other_project_roots_without_deleting_imported_history(tmp_path,monkeypatch):
+    source,factory,_,directory=configured(tmp_path,monkeypatch)
+    config=load_reference_config()
+    assert reconcile_once(factory,config)=={source.source_id:"ready"}
+    with factory() as s:
+        previous=s.scalar(select(SampleReferenceOperation)).id
+    # A retained, self-consistent binding for a different project root is not
+    # evidence for this registered source. Do not read that root or erase history.
+    binding_path=directory.parents[2]/"batch-binding.json"
+    binding=json.loads(binding_path.read_bytes())
+    binding.update(analysis_project_root="/other-clinical-root",
+        batch_root="/other-clinical-root/WGS_AB1",
+        expected_batch_root="/other-clinical-root/WGS_AB1")
+    binding_path.write_bytes(encoded(binding))
+    assert reconcile_once(factory,config)=={source.source_id:"ready"}
+    with factory() as s:
+        assert s.scalar(select(SampleReferenceOperation)).id==previous
+        assert s.scalar(select(func.count()).select_from(SampleReferenceHistory))==2
+    # An independent source must not import that other-root selection at all.
+    config=replace(config,sources=(replace(config.sources[0],source_id="second-source"),))
+    assert reconcile_once(factory,config)=={"second-source":"ready"}
+    with factory() as s:
+        assert s.scalar(select(func.count()).select_from(SampleReferenceOperation))==1
+
+
+def test_unpublished_generation_waits_for_receipt_then_imports_once(tmp_path,monkeypatch):
+    source,factory,_,directory=configured(tmp_path,monkeypatch)
+    config=load_reference_config()
+    receipt=directory/"prepare_analysis.receipt.json"
+    receipt_bytes=receipt.read_bytes(); receipt.unlink()
+    later=history(source,config.sources[0].runtime_root,2)
+    assert reconcile_once(factory,config)=={source.source_id:"ready"}
+    with factory() as s:
+        assert s.scalar(select(func.count()).select_from(SampleReferenceOperation))==1
+        assert s.scalar(select(SampleReferenceOperation)).generation==2
+    receipt.write_bytes(receipt_bytes)
+    assert reconcile_once(factory,config)=={source.source_id:"ready"}
+    assert reconcile_once(factory,config)=={source.source_id:"ready"}
+    with factory() as s:
+        assert s.scalar(select(func.count()).select_from(SampleReferenceOperation))==2
+    # Once a receipt exists, missing published artifacts must still be an error.
+    (later/"final-sampleinfo.snapshot.tsv").unlink()
+    assert reconcile_once(factory,config)=={source.source_id:"error"}

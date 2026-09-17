@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+## 2026-09-17 Ledger registration rebind only
+
+BS96 wgs-clinical-shared registration_key repaired to approved Clinical root;
+old-root key and unchanged scope/secret verified before locked transaction.
+Backend1dc96daabc2d/reference-worker3a490c0d1d53 unchanged. No service restart.
+Normal sync now imports0915B6selected rows,pending0; source error still reports
+history_binding_mismatch for old-root history. No false ready health override.
+Private audit: Clinical/WGS_Clinical/prepare/ledger-registration-repair-20260917.json.
+
 ## 2026-09-17 Automatic WGS intake configuration
 
 BS96/server96 backend1dc96daabc2d and scanner b4a90d98aebe now consume

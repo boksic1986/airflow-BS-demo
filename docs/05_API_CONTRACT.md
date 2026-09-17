@@ -1,5 +1,18 @@
 # API contract
 
+## File-ledger history discovery (2026-09-17)
+
+The shared runtime may retain receipts for multiple project roots. The file
+reference reconciler validates request/receipt identity and the binding's own
+root/batch/control-path consistency before ignoring a different project root.
+It never opens that foreign project root or deletes its previously imported DB
+history. A generation without a published prepare_analysis receipt is not a
+completed selection and is revisited on later passes. Existing invalid receipts,
+inconsistent bindings and missing/hash-mismatched published artifacts still
+report synchronization errors. Current pending membership remains file-owned;
+directly selected samples are not fabricated as pending/consumed records.
+No endpoint, schema, source identity or history-visibility cutoff changes.
+
 ## WGS SNV/CNV count evidence (2026-09-17 candidate)
 
 When the selected batch QCstat omits SNV_count/CNV_count, WGS sample projection

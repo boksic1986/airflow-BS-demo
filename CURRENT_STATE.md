@@ -1,5 +1,76 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Ledger reader fix awaiting production activation
+
+User approved remaining history-reader correction. Self-consistent foreign-root
+bindings are outside the registered source; unpublished generations wait for a
+receipt. Invalid published evidence still fails. BS10610 isolated RED/GREEN:
+2expected failures, then19passed. No prepare/pending/analysis changes.
+BS96 backend/reference-worker rollout and fresh API acceptance pending.
+
+## 2026-09-17 Ledger registration repaired; historical scan exception remains
+
+Explicitly authorized one-row source registration repair completed15:23:18Z.
+Stored key matched old HWcloud root with unchanged configured scope/secret;
+registration_key now binds Clinical root. All previous6reference rows,3operations,
+4snapshots and25history IDs retained. Normal sync imported0915B exactly1operation
+with6selected links; pending0. Repeated background passes advance generation
+without duplicate0915B links. Current0915B stillrunning/Step1upload, no restart.
+Remaining sync_status error is history_binding_mismatch from old-root receipts;
+temporary0912C generations1-4 also lack complete receipts. These are additional
+history-scanner scope/completion bugs, not a failed registration repair. No code
+or evidence edits applied. Further sync-reader change needs separate scope approval.
+
+## 2026-09-170915B analysis running; ledger registration mismatch found
+
+Automatic runWGS_20260917_144921_6CC4BB prepared6 selected samples, exact
+hanjj identity match,algoHaplotyper/use_reference all,pending0. Prepare and
+execution commit succeeded; Step1 FASTQ upload started. Published WGS ebf1f4b.
+Independent ledger is NOT fresh: worker reserve fails registration_mismatch
+for wgs-clinical-shared at new Clinical root; file read succeeds,pending0.
+API falsely retains old ready/last_checked2026-09-16T17:10Z because reservation
+fails before error projection. No direct DB repair authorized/performed yet.
+Analysis is unaffected. Need controlled source-registration reconciliation,
+preserving ledger history and files, then normal replay from retained receipts.
+
+## 2026-09-17 Authorized0915B automatic analysis submitted
+
+Exact0915B Samplelist copied to BS96 active scan root, hash verified. Existing
+scanner --once observed two stable reads and auto-dispatch submitted exactly1:
+WGS_20260917_144921_6CC4BB, DagRunWGS_20260917_144921_6CC4BB-a1.
+Initial status running/prepare_wgs_analysis; final selected/pending verification
+pending. No manual duplicate submission, gates/readiness bypass or service change.
+
+## 2026-09-17 Formal pending replay accepted through0915B
+
+BS96 ctapa/published ebf1f4b normal selection replay from formal0912C completed.
+Nine new-intake batches match hanjj selected identities exactly.0912F3pending
+retrieved by0912E;0914D6pending retrieved by0914C; no unmatched identities.
+Final0915B pending0 is byte-identical to current formal pending; no replacement.
+20260917A supplied Samplelist hash unchanged, scan600s and auto-dispatch enabled,
+last scan14:34:41Z no error; intake waits sequencing_directory_pending, no run.
+Historical reconstruction accepted, actual new automatic analysis awaits FASTQ.
+See docs/releases/2026-09-17-bs96-pending-replay.md. No application/service changes.
+
+## 2026-09-17 Formal0912C sequential replay in progress
+
+User clarified0912C-6-samples is temporary and excluded. BS96 ctapa replay of
+published ebf1f4b with normal checks and initially empty replay pending:
+0912C12/12 match,pending0;0912B12/12 match,pending0;0912F9/9 match,pending3.
+Match compares order/sample/sequencing-batch/data identities, not count alone.
+Only prepare/replay-from-20260912C is mutated; official pending and active scanner
+input remain unchanged until sequence validation completes. No workflow launch.
+
+## 2026-09-17 BS96 sequential pending baseline review
+
+User authorized BS96 sequential validation starting at0912C. Read-only check:
+current successful0912C is a6-sample subset of hanjj's12-sample completed batch;
+all6 match,6 historical samples absent. Both Clinical and old HWcloud pending
+files currently contain0 rows. Next historical preparation is0912B, then0912F,
+0912E,0913B (final sampleinfo and Step1 timestamps agree). Do not treat the
+six-sample run or empty pending as a verified full-batch baseline. No historical
+Samplelist copied into active scanner; no pending overwritten or run submitted.
+
 ## 2026-09-17 Isolated pending selection result
 
 Current20260917A sampleinfo11 rows, empty isolated pending, normal readiness/data

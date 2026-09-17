@@ -1,5 +1,225 @@
 # HANDOFF.md
 
+## 2026-09-17 Ledger history-reader repair authorized and tested
+
+User explicitly approved the remaining reader correction and BS96 repair.
+Scope: wgs_file_reference.py only, with synthetic regression tests and docs.
+No WGS prepare/selection, pending writes, manual DB edits, history deletion,
+source-secret changes or new workflow submission. Only backend and reference
+worker need the new reader; scanner/observer/Airflow and analysis stay untouched.
+
+Fresh preflight: server10610 chenjc, backend c497d821b719 mounts native-ui-76915d8-r2,
+scan/dispatch false; server96 ctapa, backend1dc96daabc2d qc-all-counts-4e9196d,
+reference-worker3a490c0d1d53 sampleinfo-f72a12e. Both production reader hashes
+match the local pre-fix eeb47954e9542cc9a76dec5f7a524fdfbaaccc605c891f72f38ab36b9ee73c45.
+Production source API still error/history_binding_mismatch;0915B uploading89.3%.
+Initial non-PTY SSH calls aborted before authentication on both hosts (exit1).
+After inspecting alias routes, persistent PTY sessions connected successfully:
+BS10610 through normal alias; BS96 direct ctapa key. No blind mutation/retry.
+
+BS10610 isolated candidate ledger-reader-20260917 uses cached8491604ee01d,
+network none, read-only source/root, nonroot6708:520, tmpfs /testwork.
+RED: pytest tests/test_wgs_file_history.py -q -p no:cacheprovider:2failed/6passed,
+both expected discovery failures. GREEN: same plus test_wgs_file_reference.py:
+19passed in1.71s. Covers unrelated-root exclusion/history retention, late
+receipt publication/idempotency, invalid binding/hash/identity and missing
+published artifacts; no full workflow or clinical-data tests.
+
+BS96 rollout pending: clone each affected service's exact complete backend
+source, change only this module, retain exact private Compose rollback, validate
+Compose and active tasks before scoped restart; refresh nginx if backend IP
+changes. Verify fresh source ready/pending0/0915B one operation six links,
+retained history, unchanged scanner settings and other service IDs. No main or
+production Git merge/push requested in this turn. Rollback code/Compose only;
+never delete imported history, files or analysis state.
+
+## 2026-09-17 Source registration repaired; additional reader bugs isolated
+
+User approved preceding single-source DB rebind and catch-up. Fresh BS96 ctapa
+preflight verified unchanged backend/reference-worker mounts and IDs. Read-only
+check proves stored registration exactly matches old HWcloud root under CURRENT
+scope/secret and differs from newClinical root. No secret drift. First diagnostic
+used ORM get with string source_id although PK is numeric, failed/rolled back;
+corrected to select where source_id. No data mutation from that failure.
+
+Approved repair15:23:18Z uses existing source advisory and row locks, asserts old
+registration, updates only registration_key. No IDs,scope,secret or history keys
+changed. Helper D:/pipeline/task-artifacts/repair-wgs-ledger-registration.py;
+SCP failed pre-session, so executed same helper through persistent96 session and
+docker exec stdin, without copying clinical data locally or changing app source.
+Private numeric audit at
+/sg2/50.ctapa/Clinical/WGS_Clinical/prepare/ledger-registration-repair-20260917.json.
+All retained IDs verified:6reference,3operation,4snapshot,25history records.
+No full DB backup, no deletes. Rollback if specifically required is the same
+locked/CAS key update computed from old root; do not roll back newly imported
+operations or history. Old-root rollback would restore the known mismatch with
+current configured root and is not recommended as a sync fix.
+
+Normal reconciliation then imported current0915B:API operation029a1d33-2918-38b0-f02f-9c953b9054bb,
+analysisWGS_20260917_144921_6CC4BB,attempt1,links_total6; scoped DB count confirms
+6decision_selected history rows. API pending0. Repeated worker cycles continue
+fresh15:26:23Z,generation3296,one operation/no duplicate links. Run stillrunning
+input_transfer.wait_step1_upload; no analysis/service restart or resubmission.
+
+Do NOT mark full synchronization healthy: current sync_reason history_binding_mismatch.
+Read-only per-entry diagnosis finds old-root3completed receipts (0910A/0911A/0912D)
+rejected against new source root. Temporary0912C attempt1 generations1-4 lack
+receipt files;generation5 reads6selected successfully. Current0915B reads6successfully.
+Worker indiscriminately scans all runtime generations; it reports these historical
+scope/incomplete cases even though current pending and0915B history are applied.
+Need separately scoped reader correction (source-bound history discovery and
+incomplete-generation handling), not evidence rewrites, deletion, health forcing,
+new source IDs, history truncation or broad schema changes. No code fix attempted;
+request direction before expanding beyond the approved registration-only repair.
+No application tests required for guarded data repair; checks were old/new key
+proof, retained ID assertions, normal reconcile and fresh authenticated APIs.
+git diff --check passes; documents uncommitted, no main/production code promotion.
+
+## 2026-09-17 Ledger source registration repair authorized
+
+User explicitly approved repairing the existing production source registration
+and catch-up sync. Scope: wgs-clinical-shared registration_key only, after proving
+stored digest matches old HWcloud root with unchanged configured scope/secret.
+New root is approved /sg2/50.ctapa/Clinical/WGS_Clinical. Retain source ID, scope,
+all snapshots/operations/history/sample rows and pending files. No analysis or
+service restart;0915B run/upload continues. Use existing source advisory lock and
+row lock; assert old value, then let normal reconciler perform idempotent catch-up.
+Do not bypass mismatched secrets or unknown old registration. Small private
+one-row audit only, no whole production database dump or broad DB modifications.
+
+## 2026-09-170915B prepare verified, ledger blocker diagnosed
+
+Authorized automatic0915B runWGS_20260917_144921_6CC4BB-a1 is running.
+Actual project /sg2/50.ctapa/Clinical/WGS_Clinical/WGS_20260915B_T7Hg38V4.2.1
+sampleinfo.tsv contains6 rows, exact order/sample/sequencing-batch/data identity
+set matches hanjj final6. Config confirmsHaplotyper/all,V4.2.1. Both prepare
+sensors,execution approval/commit,target choice and start_step1_upload succeeded;
+current wait_step1_upload sensor reschedules normally. No error_summary.
+An attempted read of optional cce/config.yaml failed FileNotFoundError; correct
+top-level project config and selected file were already validated. No repair needed.
+
+File pending0 is correct, but database ledger freshness is not accepted:
+sample-reference-worker3a490c0d1d53 running, logs repeatedly unavailable sources;
+API source last_checked/last_good2026-09-16T17:10:13Z,generation3291,still ready.
+Using deployed reconciliation with a process-local diagnostic wrapper proves
+_reserve raises SourceError registration_mismatch for wgs-clinical-shared.
+Config points /sg2/50.ctapa/Clinical/WGS_Clinical, runtime unchanged. File reader
+succeeds0 rows. Registration digest includes project root; previous Clinical root
+switch copied pending/config without DB registration migration (release note).
+Likely missing root rebind; must verify old registered identity/secret continuity
+as part of approved repair, not blindly replace identity or create another source.
+No direct SQL/database edits, source/history deletion, code/service change made.
+Normal reconcile returns error before generation/write and cannot update health.
+Initial diagnostic import read_files failed(no such exported function); corrected
+to actual read_pending plus normal reconcile_once. No disk monkeypatch persisted.
+
+Next requires explicit production DB repair approval per AGENTS: reconcile only
+the existing source registration to approved Clinical root, retaining all records,
+snapshots/operations/pending and secrets; then normal background sync must show
+fresh successful source and this run's6selected decision history. Do not report
+ledger done merely because stale API and file both show0 pending. Analysis/upload
+is independent and continues; do not cancel or resubmit. Existing0917A table and
+600-second automatic scanner unchanged. No application-code tests required for
+input copy/diagnosis. Local documentation changes remain uncommitted.
+
+## 2026-09-17 Authorized0915B automatic submission
+
+User explicitly requested copying0915B Samplelist to BS96 active intake and
+running analysis with hanjj-equivalent selection/options and pending handoff.
+Preflight server96 ctapa6801, backend1dc96daabc2d/scannerb4a90d98aebe unchanged;
+formal pending0 matches sequential baseline. Source exact file:
+/clinical/Data_Reception/Target_Capture2/Samplelist_20260915-144237_20260915B.txt.
+Destination same basename under Clinical/WGS_Clinical/HWcloud_Target_Capture.
+Native parser selects6 eligible WGS samples; existing replay exactly matches
+hanjj6. Offline config algoHaplotyper/use_reference all, normal checks retained.
+No0915B intake exists at preflight. Published WGS remains approved V4.2.1
+ebf1f4b (offline historical project V4.2.0); no workflow downgrade or code change.
+Use normal scanner CLI --once to observe stable input and existing automatic
+dispatcher; no direct DB mutation or manual duplicate run submission.
+
+Copy published atomically as ctapa,mode0640,bytes26128,
+SHA256a15c0b559112676f1340e7ff28a5aa9146badec0816ddc26686b52bb7f5eb590.
+No original/other scan input overwritten. Scanner --once twice: first observes
+stable_count1, second creates1ready intake and dispatches1newrun,errors0.
+RunWGS_20260917_144921_6CC4BB at14:49:21Z;DagRun sameID-a1,attempt1.
+API14:50Z running/prepare_wgs_analysis,selected scope not published yet.
+Existing0910A registered run reported by dispatcher but not re-submitted.
+
+## 2026-09-17 Sequential pending replay completed through0915B
+
+Completed approved BS96 ctapa reconstruction from formal0912C; temporary6-sample
+run excluded. Nine new-intake batch selected sets exactly match historical final
+sampleinfo on order/sample/sequencing-batch/data identity. Results(selected,pending):
+0912C(12,0),0912B(12,0),0912F(9,3),0912E(13,0),0913B(12,0),0914D(8,6),
+0914C(8,0),0915C(12,0),0915B(6,0). Separate comparison confirms all3 prior0912F
+pending identities occur in0912E selected and all6 prior0914D in0914C selected;
+unmatched0 in both. Recovered missing sequencing-batch fields1 and3 respectively.
+R projects use pre-baseline reanalysis inputs; not treated as new intake.0915B
+has a final prepared sample list, not an independently verified analysis-success
+claim. No inference of workflow completion from selection.
+Final replay pending SHA256ad67759bec7c38dfab7cd9a631dbdcdc5b23c6171fbd59b691dbef079c2a9360
+equals current formal pending bytes, both0 rows. No official file rewrite needed.
+Provided0917A scanner input SHA25601add18651fc6eec8570ad3c1c1fabae0565331bd7b97ecf0a01887a36d9ea8d
+unchanged. Authenticated API:600s scan,auto enabled,last14:34:41Z,error null;
+0917A reason sequencing_directory_pending,analysis_id null;all existing runs
+terminal. No new workflow submitted, no callbacks executed, no historical inputs
+copied to active scanner, no DB writes, service restarts or workflow-code changes.
+All metadata/log/selection/pending snapshots private on96 under
+/sg2/50.ctapa/Clinical/WGS_Clinical/prepare/replay-from-20260912C (0700 root).
+Helper0600 runs only original published functions; operational credential config
+loaded in memory from existing prepare config; no credentials copied to artifacts.
+Local changes are three state docs and one release note; helper outside Git.
+No full/unit suite: no application code changed; one sequential real-data check
+per approved new-intake batch. git diff --check passes. Preserve snapshots; no
+rollback required as official state unchanged. Next action is ordinary automatic
+0917A readiness and analysis; do not force readiness or resubmit historical runs.
+
+## 2026-09-17 Formal0912C replay authorized
+
+User confirmed the6-sample run was temporary; start from formal0912C. BS96
+ctapa identity verified(uid6801); published ebf1f4b source is mounted under
+/bi/biodevrwbi/33.chenjiucheng/project/wgs-releases/20260916.1-wgs421/wgs-4.2.1-ebf1f4b.
+Historical preparation replay uses a private subdirectory of Clinical prepare:
+prepare/replay-from-20260912C. It queries current sampleinfo then invokes the
+unmodified published selection/recovery/pending functions, with both skip flags
+false, comparing order/sample/sequencing-batch/data identities against historical
+final sampleinfo. Historical biological calculations are not restarted.
+Replay helper stored in prepare/replay-wgs-pending-from-0912C.py(mode0600).
+Formal pending is not replaced until sequential comparisons are resolved; no
+historical Samplelist is copied into the live scanner during reconstruction.
+SSH intermittently reset before authentication; persistent direct ctapa session
+established after read-only diagnosis. No SSH or permission policy changed.
+
+Sequential observed results(selected/historical,pending-after):0912C12/12,0;
+0912B12/12,0;0912F9/9,3;0912E13/13,0;0913B12/12,0;0914D8/8,6.
+All exact identity sets match.0912E recovers1 missing sequencing-batch field
+and clears all3 prior pending identities.0914C next. Historical0913R/0911R
+interleave after0913B but use pre-baseline0906B/0908A/0908B inputs and no new
+matching Samplelists; excluded from automatic new-intake replay/submission.
+Later normal sequence established by final sampleinfo/Step1 timestamps:
+0914D ->0914C ->0915C ->0915B.0916R similarly uses old inputs, not new intake.
+
+## 2026-09-17 BS96 sequential historical comparison preflight
+
+User selected BS96 and requested proceeding from0912C in hanjj order. Verified
+server96/current, backend1dc96daabc2d and scannerb4a90d98aebe actual mounts and
+auto gates. API existing runs terminal;20260917A still waiting_sequencing.
+Clinical results contain only0912C-6-samples, successful6-sample run. Its source
+sampleinfo has6 unique samples, all present in hanjj completed0912C's12 unique
+samples;6 historical-only and0 cloud-only. Both currentClinical and oldHWcloud
+prepare/pending_samples.tsv contain0 records. Not a verified full0912C baseline.
+Historical final sampleinfo/Step1 timestamps establish0912C ->0912B ->0912F ->
+0912E ->0913B; do not order these by batch label or directory last modification.
+Read-only metadata listed later0913R/0914D/0914C/0915C/0915B/0916R, but completion
+and restart ordering for that later range not yet validated; no full-range claim.
+One file lookup failed StopIteration because cloud delivered project does not
+contain top-level sampleinfo; corrected to retained source sampleinfo directory.
+No mutating command executed, no historical lists staged in active scanner,
+no pending replacement, services changed, workflow rerun or direct DB access.
+Next: user confirmation of reconstructing full0912C baseline without re-running
+the existing6-sample workflow. Then one batch at a time; keep original analysis.
+No tests needed for read-only diagnosis. No rollback necessary.
+
 ## 2026-09-17 Isolated selection/pending check
 
 User asked how many samples remain for analysis after pending. Reused current

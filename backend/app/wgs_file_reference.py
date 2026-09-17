@@ -205,6 +205,10 @@ def _object(raw):
 
 def _read_history(tree,source,entry,secret):
     analysis,attempt,generation,base=entry
+    # A generation directory/request is not a completed handoff. Revisit it on
+    # later passes; an existing but invalid receipt still fails validation below.
+    if not tree.exists(base+"/prepare_analysis.receipt.json"):
+        return None
     request_raw=_read_stable(tree,base+"/handoff-request.json")
     receipt_raw=_read_stable(tree,base+"/prepare_analysis.receipt.json")
     request=_object(request_raw); receipt=_object(receipt_raw)
@@ -223,11 +227,18 @@ def _read_history(tree,source,entry,secret):
     require(binding.get("schema_version")=="wgs-runtime.batch-binding.v2" and binding.get("analysis_id")==analysis
         and type(binding.get("attempt")) is int and binding["attempt"]==attempt
         and binding.get("pipeline_release_id")==request["release_id"]
-        and binding.get("analysis_project_root")==str(source.project_root)
         and binding.get("control_workdir")==str(source.runtime_root/attempt_path),"history_binding_mismatch")
     batch=binding.get("batch")
     require(type(batch) is str and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}",batch),"history_binding_mismatch")
-    require(binding.get("batch_root")==binding.get("expected_batch_root")==str(source.project_root/batch),"history_binding_mismatch")
+    root=binding.get("analysis_project_root")
+    require(type(root) is str and Path(root).is_absolute() and ".." not in Path(root).parts
+        and str(Path(root))==root,"history_binding_mismatch")
+    require(binding.get("batch_root")==binding.get("expected_batch_root")==str(Path(root)/batch),"history_binding_mismatch")
+    # The runtime retains multiple project roots. A self-consistent foreign
+    # binding is outside this source, not a failed current-root handoff. Never
+    # read its project files or delete already imported historical operations.
+    if root!=str(source.project_root):
+        return None
     source_spec=request.get("source_sampleinfo")
     require(type(source_spec) is dict and type(source_spec.get("snapshot_id")) is str and bool(source_spec["snapshot_id"])
         and type(source_spec.get("sha256")) is str and re.fullmatch(r"[0-9a-f]{64}",source_spec["sha256"])
@@ -313,6 +324,7 @@ def reconcile_file_source(factory,source,secret):
                         value=_read_history(tree,source,entry,secret)
                     except SourceError as exc: errors.append(exc.code); continue
                     except Exception: errors.append("history_unavailable"); continue
+                    if value is None: continue
                     try:
                         if _apply_history(factory,source,token,value,secret)=="superseded": return "superseded"
                     except SourceError as exc: errors.append(exc.code); continue

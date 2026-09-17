@@ -1,5 +1,31 @@
 # TASKS.md
 
+## BS96-0915B-AUTO-20260917
+
+- [x] User explicitly authorized0915B production auto analysis.
+- [x] Exact source copy and checksum;6 eligible WGS input records.
+- [x] Two normal scanner observations;exactly1 automatic run submitted.
+- [x] Actual prepare selected6,hanjj exact identities/options and file pending0.
+- [x] Downstream execution entered Step1 upload via existing Step1-Step6 DAG.
+- [x] Authorized one-row registration rebind; retained all prior row IDs.
+- [x]0915B one operation/six selected history links imported; pending0, no duplicates.
+- [ ] Historical scanner still flags old-root receipts and incomplete0912C generations;
+  reader-code correction approved;19targeted tests passed, BS96 rollout pending.
+
+## BS96-SEQUENTIAL-PENDING-20260917
+
+- [x] Confirm BS96 authority, live service mounts/gates and terminal runs via API.
+- [x] Compare0912C: cloud6 are a subset of historical12; current pending empty.
+- [x] Identify next preparation sequence0912B,0912F,0912E,0913B.
+- [x] User confirmed full0912C baseline; temporary6-sample analysis excluded.
+- [x] BS96 formal0912C12/12,0912B12/12,0912F9/9 identity comparisons pass.
+- [x]0912E13/13 retrieves previous3 pending;0913B12/12 match.
+- [x]0914D8/8 leaves6 pending;0914C8/8 clears pending;0915C12/12 match.
+- [x] Nine sequential new-intake comparisons through0915B pass, final pending0.
+- [x] Formal pending byte-identical; scanner input present,600s/auto still enabled.
+- [ ] Actual20260917A auto-analysis: waiting for sequencing FASTQ availability.
+- No scanner input, pending, database or workflow changes in baseline review.
+
 ## SAMPLEINFO-READ-CHECK-20260917A
 
 - [x] Run only sampleinfo in BS10610 isolated test output, not production.
