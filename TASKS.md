@@ -5,7 +5,8 @@
 - [x] Remove technical-history UI; retain stored execution history.
 - [x] Reuse phases/steps/summary without CCE-only modules; plain Rule names.
 - [x] Select execution-scoped Snakemake log; preserve tail/search/path fencing.
-- [ ] Complete scoped cached tests/build and BS10610-only publication.
+- [x] 9 backend/15 frontend tests and cached build passed; BS10610 d76edd3
+  published, actual Snakemake log/phases/progress and eight services verified.
 
 ## NATIVE-DISPLAY-SIMPLE-20260917
 

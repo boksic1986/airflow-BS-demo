@@ -2,6 +2,19 @@
 
 ## 2026-09-17 Native common view and Snakemake log
 
+Publication: d76edd3, releases/20260917-native-ui-d76edd3-r2;
+backend2f3fcfff2c9f/frontend038f41a1e291. Private rollback/inventory saved at
+candidates/native-ui-d76edd3-r2-control. Same runtime images, all environments,
+approved native root, GATK phase overlay and eight unrelated services retained.
+Commands: cached pytest test_wgs_onprem_views.py=9 passed; Vitest NativeExecutionPanel,
+RunWorkflowTab,RunTracker=15 passed; npm run build passed (index-WqPzfR7d.js).
+Compose config/nginx checks and gateway health/assets200. Live log resolver reads
+19207-byte Snakemake log, 200 tail lines; phases FASTQ QC3success/Mapping3running/
+CNV1success; native detail/tracker4/208=1.92%. Existing execution unchanged.
+First verification compared unordered environment arrays and failed; key/value
+comparison confirmed no differences. No credentials printed or state changed by
+that check. Browser visual acceptance not performed; no new analysis tests.
+
 Scope: user requested common CCE phase/step summary UI without cloud modules,
 no technical-history section, Snakemake log only. Reuse RunWorkflowTab, remove
 unused native-history CSS and retain backend history. native-view adds phase

@@ -2,11 +2,16 @@
 
 ## 2026-09-17 Native common phases and Snakemake log
 
-Test candidate: remove execution-history/technical UI without deleting history;
+Published d76edd3 on BS10610: backend2f3fcfff2c9f/frontend038f41a1e291,
+releases/20260917-native-ui-d76edd3-r2. 9 backend/15 frontend tests and cached
+build passed. Live Snakemake log19207 bytes; phases total7 observed rules,
+4 successful/3 running; measured progress4/208=1.92% in detail/tracker.
+Health200, new assets, unchanged environments and eight other services verified.
+Remove execution-history/technical UI without deleting history;
 reuse CCE Pipeline phases/steps/summary and plain rules, hide cloud orchestration.
 Summary covers all observed rules before filters. Logs reads the unique current
-execution Snakemake log instead of mixed Step1 output. BS10610 verification and
-publication in progress; no main/production or workflow execution changes.
+execution Snakemake log instead of mixed Step1 output. No main/production or
+workflow execution changes. User browser visual review remains unclaimed.
 
 ## 2026-09-17 Native display simplification
 
