@@ -1,5 +1,34 @@
 # HANDOFF.md
 
+## 2026-09-17 Authorized 20260917S test record cleanup — completed
+
+User requests deleting paused batch20260917S to resubmit personally. Scope is
+BS10610 online platform/Airflow records only. Exact AnalysisRun
+GATK_20260916_184617_5798F2, attempt1, bio_gatk DagRun
+GATK_20260916_184617_5798F2-a1; draftgatk-draft-e9a46d0be5f3aa56e3c5aeab.
+Delete its1run,2sample associations,1attempt,1stage state,1pipeline stage and
+1submission draft using exact identity; retain audit history. Verified live FKs
+CASCADE for dependent runtime rows and SET NULL for draft (delete exact draft
+explicitly). No other active related lease/workload rows in preflight.
+
+Prepare failed, wait_prepare_gatk_contract failed; upload/master tasks upstream_failed.
+No cloud deletion is needed or performed. Protect original0914A input, independent
+WES_test/WES_20260917S_SMOKE0914A_T7_V7.7.0_hg38 source, original FASTQs, node/NFS
+prepare/runtime/results/logs and all other runs. No BS96 or workflow rerun.
+Delete no offline path. Existing request uses an analysis-ID-scoped output root;
+a fresh submission receives a new identity. No new DB backup is created; deleted
+platform/Airflow records have no guaranteed recovery. Failed evidence remains.
+
+Preflight server10610/chenjc, backend82958ac39f8a at onprem-main-282dfb0; scanner/
+dispatchfalse. Read-only probe initially used nonexistent app.database; corrected
+to app.db. One SSH gateway18 reset before execution; direct test SSH succeeded.
+Completed exact terminal-state/lease recheck, Airflow delete_dag_run API, and
+transactional deletion of the one draft/run with verified dependent cascades.
+Platform run and Airflow DagRun now both404; other4run identities unchanged,
+all other target-linked ORM rows absent (audit intentionally retained), health200.
+No filesystem/cloud/service/config/code change. User will resubmit; no auto rerun.
+No tests beyond live bounded deletion/absence checks: no application code changed.
+
 ## 2026-09-17 BS10610 main/native refresh complete
 
 Application282dfb0 on jiucheng/test/wgs-local-main-sync-20260917 integrates latest

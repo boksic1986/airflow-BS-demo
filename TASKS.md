@@ -1,5 +1,12 @@
 # TASKS.md
 
+## GATK-SMOKE-RESET-20260917
+
+- [x] Confirm exact20260917S terminal prepare failure; no upload/Master launch.
+- [x] Delete exact test platform record/draft/dependents and Airflow DagRun.
+- [x] Verify both404, other4records retained, health200; protect all offline files.
+- Next: user manually resubmits; no automatic analysis.
+
 ## ONPREM-MAIN-SYNC-20260917
 
 - [x] Recover authoritative native Git source and inspect actual BS10610 mounts.

@@ -1,5 +1,12 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Paused GATK smoke record removed on user request
+
+BS10610 batch20260917S / GATK_20260916_184617_5798F2 platform run, associated
+sample/attempt/stage/draft rows and exact Airflow DagRun deleted; both APIs404.
+Other4runs retained. Source/FASTQ/prepare/runtime/evidence files unchanged;
+no cloud delete or new analysis. User resubmits manually. See latest HANDOFF.
+
 ## 2026-09-17 BS10610 main/native refresh deployed
 
 Commit282dfb0 integrates production/main c6ac6ce and native cb84ec2 on the isolated
