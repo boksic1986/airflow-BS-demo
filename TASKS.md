@@ -5,6 +5,8 @@
 - [x] Run only sampleinfo in BS10610 isolated test output, not production.
 - [x] Confirm11 metadata records and key fields; distinguish9 known/2 blank batches.
 - [x] No analysis, callback execution, pending or platform changes.
+- [x] Follow-up explicitly authorized isolated pending check:11 pending/0 selected
+  before FASTQ readiness; normal rules retained, formal pending untouched.
 
 ## PROD-AUTO-INTAKE-20260917
 

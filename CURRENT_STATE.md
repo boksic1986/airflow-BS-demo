@@ -1,5 +1,12 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Isolated pending selection result
+
+Current20260917A sampleinfo11 rows, empty isolated pending, normal readiness/data
+checks:0 selected/11 pending. FASTQ batch directory still absent; some families
+also lack member sequencing batch. This is not the final post-downloading count.
+Only BS10610 isolated pending generated; no real analysis or production mutation.
+
 ## 2026-09-17 Sampleinfo availability checked in isolation
 
 BS10610 WGS V4.2.1 ebf1f4b sampleinfo-only query for20260917A succeeded:

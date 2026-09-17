@@ -1,5 +1,19 @@
 # HANDOFF.md
 
+## 2026-09-17 Isolated selection/pending check
+
+User asked how many samples remain for analysis after pending. Reused current
+WGS ebf1f4b selection/recover/update_pending functions on the existing isolated
+sampleinfo, copied Samplelist and EMPTY isolated pending. Normal FASTQ/data-check
+flags both retained false (no skipping). No project generation or workflow launch.
+Result:11 candidates,0 selected,11 pending. All blocked by absent FASTQ readiness;
+4 pending rows also carry family-incomplete reason from missing sequencing batch.
+This is current pre-downloading state, not a prediction of final selected count.
+Pending written only to the existing test root's prepare/pending_samples.tsv;
+private selection-check.log and selection-summary.json retained there. No formal
+pending read/write, metadata refetch, production service change or analysis run.
+Jump-host SSH failed before execution via96 and18; direct BS10610 succeeded.
+
 ## 2026-09-17 Isolated sampleinfo-only query
 
 User requested checking20260917A sample metadata and explicitly prohibited
