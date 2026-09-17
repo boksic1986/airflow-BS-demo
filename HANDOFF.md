@@ -1,6 +1,11 @@
 # HANDOFF.md
 
-## 2026-09-18 WGS Phase Unknown repair and source promotion
+## 2026-09-17 WGS Phase Unknown repair and source promotion
+
+Completed: e7f0373 atomically pushed to main and jiucheng/release/production;
+fresh ls-remote confirms both e7f0373918cabea10c6ea68b73662f63795599a4.
+Remote-tested policy/module/test hashes match local source. Worktree clean.
+Documentation-only completion/date correction follows; no runtime publication.
 
 User screenshot of0915B shows pre_process_cleanFastq with Unknown Phase;
 requested fix and main/production commits. Source-only, explicitly no live

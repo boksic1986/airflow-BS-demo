@@ -1,11 +1,11 @@
 # CURRENT_STATE.md
 
-## 2026-09-18 WGS ebf1f4b Phase source fix
+## 2026-09-17 WGS ebf1f4b Phase source fix
 
 Unknown Phase is missing exact release registration, not missing rule events.
 Audited all14 source blobs:12identical; ROH/SNV internal changes preserve rule
 inventory/phase. Added exact phase equivalence and source-override provenance.
-BS10610 RED1failed/6passed, GREEN30passed. Main/production promotion requested;
+BS10610 RED1failed/6passed, GREEN30passed. Main/production pushed and verified e7f0373;
 no BS96 deployment or live-service change. See phase release note.
 
 ## 2026-09-17 Ledger fix promotion; deploy only after0915B completes

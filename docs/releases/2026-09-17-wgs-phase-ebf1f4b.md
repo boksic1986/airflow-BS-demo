@@ -1,5 +1,9 @@
 # WGS ebf1f4b Phase mapping
 
+Source promotion completed: both remote main and jiucheng/release/production
+verified at e7f0373918cabea10c6ea68b73662f63795599a4. The documentation-only
+completion commit follows it; no additional application changes or deployment.
+
 Scope: user requested fixing Unknown Phase and promoting code to main and
 jiucheng/release/production. This is source-only; no BS96 deployment, restart,
 database update, workflow run or WGS script modification in this task.

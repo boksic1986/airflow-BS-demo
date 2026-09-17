@@ -5,7 +5,7 @@
 - [x] Audit actual release rule inventory; no prefix guessing or WGS edits.
 - [x] Reproduce exact-release Unknown via API; fix shared phase policy.
 - [x] BS10610 affected tests30passed; historical/unknown mappings retained.
-- [ ] Promote verified source to main and production, push both refs.
+- [x] Promote verified source e7f0373 to main and production, push/verify both refs.
 - BS96 deployment excluded from this task; no running analysis interruption.
 
 ## LEDGER-READER-PROMOTION-20260917
