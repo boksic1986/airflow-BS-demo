@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+## 2026-09-17 GATK child timing backend-only update
+
+BS10610 backend8131b8a1134c: releases/20260917-child-timing-08e6744/backend.
+Private deployment/rollback candidates/child-timing-08e6744-control.
+Frontendac0662b4f601 and eight other services retained; all environment unchanged.
+Saved native-ui and main-sync compositions retain the updated backend source.
+GATK phase overlay and approved native root preserved. Health200 verified.
+
+
 ## 2026-09-17 Native UI parity deployment
 
 BS10610 backend0e1fb77dc754 and frontendac0662b4f601 use

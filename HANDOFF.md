@@ -2,6 +2,18 @@
 
 ## 2026-09-17 GATK child timing repair
 
+Publication:08e6744, BS10610 backend8131b8a1134c uses
+releases/20260917-child-timing-08e6744/backend. Copy of previous live backend
+with only wgs_timing_service.py changed; preserved GATK phase overlay and native
+UI/root settings. Private candidates/child-timing-08e6744-control holds exact
+rollback.json, inventory and canonical composition backups. Config validation
+passed; backend-only up --no-deps --pull never and nginx graceful reload done.
+Nine other service IDs unchanged; health200. Read-only actual serializer confirms
+two individual BQSR starts06:40:53/06:41:38UTC plus mity terminal/running evidence;
+apply-BQSR/HaplotypeCaller remain planned. No DB writes/reprojection or rerun.
+Rollback only backend composition and matching saved configuration; preserve data.
+SSH via18 was intermittently reset; alternate jump via96 used only for transport.
+
 Screenshot concerns GATK CCE smoke, not WGS Local table. Worker rule_planned,
 job_started, job_info and job_finished events reach the database. BQSR RuleState
 has an individual start; serialization incorrectly suppressed it because the

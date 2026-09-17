@@ -5,7 +5,8 @@
 - [x] Trace worker raw events, RuleState and serialized timing for test smoke.
 - [x] Fix hiding of already recorded individual starts; preserve group-only unknowns.
 - [x] Reproduce failure, then pass 17 targeted timing tests.
-- [ ] Publish backend-only test fix and verify live serialized child times.
+- [x] Publish backend-only test fix 08e6744; live BQSR and mity individual times
+  verified, planned children unchanged, health200 and nine services preserved.
 
 
 ## ONPREM-UI-PARITY-20260917

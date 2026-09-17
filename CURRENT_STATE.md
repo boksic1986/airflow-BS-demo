@@ -2,6 +2,11 @@
 
 ## 2026-09-17 GATK Worker child timing projection
 
+Published 08e6744 to BS10610 backend8131b8a1134c, source
+releases/20260917-child-timing-08e6744/backend. Health200; nine other services
+unchanged. Live API serializer now returns individual BQSR/mity start/elapsed,
+while apply-BQSR/HaplotypeCaller remain planned without invented times.
+
 Worker child events are present in the test smoke run. API hid recorded starts
 because unnamed job_started is joined in RuleState but omitted from the per-instance
 raw-event query, and worker job_info has no status field. Preserve recorded times
