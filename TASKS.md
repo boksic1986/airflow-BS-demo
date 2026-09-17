@@ -1,5 +1,12 @@
 # TASKS.md
 
+## ONPREM-MAIN-SYNC-20260917
+
+- [x] Recover authoritative native Git source and inspect actual BS10610 mounts.
+- [x] Integrate main fixes preserving native APIs, test gates and original worktrees.
+- [x] Targeted cached tests100 passed/1 optional skip, frontend13 passed and build.
+- [ ] BS10610 rollout and health/native/QC interface checks; no real analysis.
+
 ## QC-ALL-COUNTS-20260917
 
 - [x] Audit native g1 and SingleQC_merge count inputs; no native script change.
@@ -95,6 +102,61 @@ No owner-prepare change or additional authorization is needed for this final sco
 - [x] Targeted BS10610 synthetic backend/runtime tests and frontend test/build.
 - [x] Update API/frontend/runtime documentation; no owner-script or DB changes.
 - [ ] Commit/integration and publication await separate instruction; no BS96 work.
+
+## ONPREM-MAIN-SYNC-20260916
+
+- [x] Preserve58 dirty source/docs files in server feature commit cfe822f.
+- [x] Resolve main d3a031a merge; retain native polling guard and both doc histories.
+- [x] Minimal affected verification16passed; BS10610 backend/observer publication.
+- [x] Preserve existing schema0026, records, snapshots, gates and native DAG.
+- [x] Commit branch/receipt; no main reverse merge, BS96 action or real analysis.
+
+## 2026-09-16 acceptance checkpoint (supersedes candidate holds below)
+
+- [x] R2 registration, execution snapshot, once-only launch, monitor and views
+  integrated and deployed to BS10610; migrations0025/0026 applied additively.
+- [x] Final6 backend/5 frontend tests and production build; actual authenticated
+  synthetic first/resume controller with two successful monitor DAG executions.
+- [x] User browser retest confirmed successful; HTTP explicitly permitted and
+  WGS owner URL gate updated. No original local/SGE analysis rules changed.
+- [x] Delete only newly generated DB backup; retain test rows/files/evidence.
+- [ ] Main/production integration remains intentionally unapproved/not done.
+
+Scope/provenance: [release record](docs/releases/2026-09-16-onprem-bs10610.md).
+No further expanded tests or real compute are implied by this checkpoint.
+
+## WGS-LOCAL-SGE-20260915 — implementation
+
+- [x] Isolated worktree from main `4b5234e`; preserve production checkout.
+- [x] R2 documentation: optional analysis-prepare registration, first backend launch, editable config/sample inputs, per-execution snapshots and stable project identity.
+- [ ] R2-1: platform registration and WGS thin hook contract/implementation; no web prerequisite, no repeated pending handoff on registration retry.
+  - [x] WGS owner confirmed analysis-only post-success hook, selected-empty skip, stable UUID/initial request and register-only retry; exact contract documented.
+  - [x] Platform personal-session registration and additive UUID migration candidate:8 registration +1 migration +2 submission tests passed on BS10610; syntax checks passed. Default off, source uncommitted, no live migration/deployment.
+  - [x] WGS owner delivered thin-hook candidate5485c8a (reports32 synthetic checks); local delivery document reviewed. Not merged/pushed/deployed.
+  - [ ] Joint producer-to-platform check and enabled environment acceptance remain pending.
+- [ ] R2-2: identity/location handling and execution snapshots; same analysis_id, new execution_id; mv followed by same-path new project must not mix records.
+  - [x] Correct existing launcher: mutable config/sample inputs, private write-once per-execution snapshot and effective Linux user; preserve prepare and entry/profile checks. 13 matched BS10610 tests + syntax check passed.
+  - [x] Candidate execution registration: operation idempotency, active-generation gate, allowed location update/copy conflict, private immutable inputs and DB configured scope.11 execution +8 registry checks passed; migrations0025/0026 each passed disposable SQLite checks.
+  - [x] WGS owner confirmed config.sample data IDs define configured scope; sample_info joins metadata, new_sample_info does not expand scope. See exact execution contract.
+  - [x] Native RunDetail reads current/history configured scope and frozen parameter summaries; QC follows the user-confirmed run-latest model, not per-execution QC history. Once-only launch progress is recorded under R2-3.
+- [ ] R2-3: shared Local/SGE launcher plus monitor-only DAG for both first CLI launch and resume.
+  - [x] User requested deployed WGS baseline: owner candidate b07bbc4 on34bfcbf, newer branches retained; native runtime/sampleinfo/profiles unchanged. Verified remote Git and15-pass owner test log.
+  - [x] Generation-fenced native start/result observation and paused sensor-only DAG candidate;5 backend +2 DAG checks passed. Monitoring errors do not fail or restart analysis.
+  - [x] Candidate controller-exit receipt/terminal projection and automatic idempotent monitor DAG attachment. Raw native result still does not release the active-execution guard; only validated direct-child wait receipt does, subject to abnormal-exit review.
+  - [x] BS10610:18 targeted backend checks +2 DAG checks, including WGS679a3e actual synthetic controller receipt -> platform-generated snapshot/claim -> real consumer. Monitor Airflow status is fenced from native analysis status. No enabled service or real WGS/SGE test.
+  - [x] User confirmed deliberate BS10610 main sync; candidate-only tests without service changes. One-shot claim/default-off gate plus selected-mode two-file profile fingerprint:25 checks passed (14 claim +11 execution).
+  - [x] WGS owner checked5485c8a standard pipeline is copied into project; supported profile files ordinary100644, consistent with snapshot boundary.
+  - [x] Native caller/terminal observer/monitor-only DAG candidate integration; WGS owner19 checks and platform producer-consumer check passed. Claim permission is not observed start.
+  - [ ] Enabled-environment acceptance/release after execution-scoped views; no live deployment yet.
+- [ ] R2-4: current/history sample/rule/log views and run-latest QC; candidate implemented, enabled acceptance pending.
+  - [x] Read-only WGS679a3e/34bfcbf evidence audit:exact perexecution main log exists; no structured native rule events; shared QC/child logs lack execution identity.
+  - [x] User confirmed same run on resume and only latest QC. No per-execution QC collector or WGS logger changes required; prior pause resolved.
+  - [x] Native-view API and existing RunDetail branch: execution/configured samples/config summaries, exact main log/search, evidenced Rules, latest QC with last-good cache. No cloud actions or mixed execution rows.
+  - [x] BS10610 cached containers:3 backend +3 frontend checks and production frontend build passed. No running service changes or real analysis.
+  - [ ] Bounded enabled candidate UI/API acceptance; review project-list/global sample integration without expanding to real Local/SGE or BS96 rollout.
+- Historical foundation: `4f90018`/`e34bc45`; 7 freeze, 11 runtime, 6 request checks passed under R1. Not R2 acceptance.
+- Previous SSH block cleared during existing-code correction; current launcher/submission subset passed the 13 matched checks. Source remains uncommitted; no feature activation/deployment.
+- No original pipeline/core edits by platform, production changes or real native launch. WGS owner implements only its scoped optional hook; new APIs/snapshot storage remain inactive/uncommitted platform source.
 ## FRONTEND-PRODUCTION-20260916
 
 - [x] Verify c281876 sample-flow UI exists in production5cd5542.

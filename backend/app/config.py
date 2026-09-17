@@ -68,6 +68,7 @@ class Settings:
     wgs_local_node97_enabled: bool
     wgs_local_node96_enabled: bool
     wgs_sge_enabled: bool
+    wgs_native_prepare_enabled: bool
     wgs_local_min_logical_cpus: int
     wgs_local_admission_samples: int
     wgs_local_admission_cpu_percent: float
@@ -93,6 +94,12 @@ class Settings:
     wgs_intake_mode: str = "t7_scan_only"
     wgs_samplelist_root: str | None = None
     wgs_release_management_enabled: bool = False
+    wgs_onprem_registration_enabled: bool = False
+    wgs_onprem_launch_enabled: bool = False
+    wgs_onprem_monitor_enabled: bool = False
+    wgs_onprem_snapshot_root: str = ""
+    wgs_platform_instance_id: str = ""
+    wgs_onprem_project_roots: tuple[str, ...] = ()
 
 
 def get_cors_origins() -> list[str]:
@@ -150,6 +157,12 @@ def get_settings() -> Settings:
         intake_mode = intake_policy.mode
         samplelist_root = intake_policy.samplelist_root
     return Settings(
+        wgs_onprem_registration_enabled=_parse_bool(os.getenv("WGS_ONPREM_REGISTRATION_ENABLED", "false")),
+        wgs_onprem_launch_enabled=_parse_bool(os.getenv("WGS_ONPREM_LAUNCH_ENABLED", "false")),
+        wgs_onprem_monitor_enabled=_parse_bool(os.getenv("WGS_ONPREM_MONITOR_ENABLED", "false")),
+        wgs_onprem_snapshot_root=os.getenv("WGS_ONPREM_SNAPSHOT_ROOT", "").strip(),
+        wgs_platform_instance_id=os.getenv("WGS_PLATFORM_INSTANCE_ID", "").strip(),
+        wgs_onprem_project_roots=tuple(_parse_list(os.getenv("WGS_ONPREM_PROJECT_ROOTS", ""))),
         wgs_intake_mode=intake_mode,
         wgs_samplelist_root=samplelist_root,
         database_url=_required_env("DATABASE_URL"),
@@ -255,6 +268,7 @@ def get_settings() -> Settings:
             os.getenv("WGS_LOCAL_NODE96_ENABLED", "false")
         ),
         wgs_sge_enabled=_parse_bool(os.getenv("WGS_SGE_ENABLED", "false")),
+        wgs_native_prepare_enabled=_parse_bool(os.getenv("WGS_NATIVE_PREPARE_ENABLED", "false")),
         wgs_local_min_logical_cpus=_parse_int(
             os.getenv("WGS_LOCAL_MIN_LOGICAL_CPUS", "96"), default=96
         ),

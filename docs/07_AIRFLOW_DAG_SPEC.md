@@ -1,5 +1,19 @@
 # Airflow DAG specification
 
+## R2-3 isolated native monitoring candidate (2026-09-15)
+
+New bio_wgs_native_monitor deliberately leaves the existing bio_wgs CCE graph
+unchanged. One PythonSensor observe_native_execution uses reschedule every30s,
+timeout24h and3 transport-task retries with30s exponential backoff. Paused on
+creation, no schedule, default-off WGS_ONPREM_MONITOR_ENABLED. Strict conf contains
+pipeline=wgs, monitor_only=true, analysis_id, execution_id, attempt, generation.
+It only calls the internal native observation endpoint, checking response identity.
+No prepare, launcher, SSH, qsub, transfer pool, cleanup or business-failure callback.
+Sensor timeout/API failure must not mark the native analysis failed or retry work.
+It does not interpret a native .exitcode alone as controller termination. Candidate
+attachment now uses fixed native__execution_id and exact monitor-only conf; only
+the validated direct-child wait receipt closes the observed execution. No deployment.
+
 ## REL-01 WGS pre-execution SSH reconnect
 
 `run_stage_on_200` reuses one stage registration and identical SSH command for

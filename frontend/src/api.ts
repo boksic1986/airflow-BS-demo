@@ -1620,6 +1620,28 @@ export function getRunWorkspace(analysisId: string): Promise<RunWorkspaceRespons
   return requestJson<RunWorkspaceResponse>(`/runs/${encodeURIComponent(analysisId)}/workspace`);
 }
 
+export type NativeExecution = {
+  execution_id: string; generation: number; attempt: number; status: string;
+  registered_by: string; sample_count: number; created_at?: string | null;
+  started_at?: string | null; ended_at?: string | null;
+};
+export type NativeViewQuery = {execution_id?: string; section?: string; offset?: number; history_offset?: number; query?: string; match_index?: number};
+export type NativeRunView = {
+  analysis_id: string; current_execution_id: string | null; selected: NativeExecution | null;
+  executions: NativeExecution[]; history_total: number; history_offset: number;
+  samples: Array<{data_id: string; sample_id: string; family_id: string | null}>; sample_total: number;
+  rules: Array<{rule: string; job_id: string; sample_id: string | null; family_id: string | null; status: string; source_line: number}>;
+  rule_total: number; rules_incomplete: boolean; log: RunLog | null; offset: number; limit: number;
+  evidence_health: string; monitoring?: {monitoring_health?: string; checked_at?: string} | null;
+  configuration?: {health: string; parameters: Record<string, string | number | boolean>; execution_mode?: string; execution_target?: string; execution_user?: string; manifest_sha256?: string} | null;
+  qc: {scope: 'run_latest'; health: string; updated_at?: string | null; items: Sample[]};
+};
+export function getNativeRunView(analysisId: string, options: NativeViewQuery): Promise<NativeRunView> {
+  const params = new URLSearchParams();
+  Object.entries(options).forEach(([key, value]) => {if (value !== undefined && value !== '') params.set(key, String(value));});
+  return requestJson<NativeRunView>(`/runs/${encodeURIComponent(analysisId)}/native-view?${params}`);
+}
+
 export function getRunSamples(analysisId: string): Promise<{items: Sample[]; manifest?: WgsSampleManifestRow[]; manifest_summary?: WgsManifestSummary}> {
   return requestJson<{items: Sample[]; manifest?: WgsSampleManifestRow[]; manifest_summary?: WgsManifestSummary}>(`/runs/${encodeURIComponent(analysisId)}/samples`);
 }

@@ -76,6 +76,7 @@ def build_stage_request(
     cce_pipeline_version: str | None = None,
     pipeline_build_sha256: str | None = None,
     resource_manifest_sha256: str | None = None,
+    prepare_execution: dict[str, object] | None = None,
 ) -> dict[str, object]:
     if ANALYSIS_ID_RE.fullmatch(analysis_id) is None:
         raise ValueError("invalid WGS analysis_id")
@@ -115,6 +116,22 @@ def build_stage_request(
         "batch_no": str(batch_no).strip(),
         "fq_path": str(fastq),
     }
+    mode = "cce"
+    if prepare_execution is not None:
+        targets = {"cce": "cce", "node-96": "local", "node-97": "local", "sge-default": "sge"}
+        if (
+            not isinstance(prepare_execution, dict)
+            or prepare_execution.get("attempt") != attempt
+            or type(prepare_execution.get("revision")) is not int
+            or prepare_execution["revision"] < 1
+            or prepare_execution.get("mode") not in {"cce", "local", "sge"}
+            or targets.get(prepare_execution.get("target")) != prepare_execution.get("mode")
+        ):
+            raise ValueError("invalid frozen prepare execution")
+        mode = str(prepare_execution["mode"])
+        if mode != "cce" and stage not in {"prepare_sampleinfo", "prepare_analysis", "local_analysis"}:
+            raise ValueError("native execution cannot use a CCE runtime stage")
+        payload["prepare_execution"] = dict(prepare_execution)
     if sequencing_batch is not None:
         if SAFE_COMPONENT_RE.fullmatch(str(sequencing_batch)) is None:
             raise ValueError("invalid sequencing batch")
@@ -153,7 +170,7 @@ def build_stage_request(
         "pipeline_build_sha256": pipeline_build_sha256,
         "resource_manifest_sha256": resource_manifest_sha256,
     }
-    if any(value is not None for value in release_runtime.values()):
+    if mode == "cce" and any(value is not None for value in release_runtime.values()):
         if any(not str(value or "").strip() for value in release_runtime.values()):
             raise ValueError("WGS release runtime evidence is incomplete")
         payload.update({key: str(value) for key, value in release_runtime.items()})

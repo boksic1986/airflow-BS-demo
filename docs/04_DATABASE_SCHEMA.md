@@ -1,5 +1,86 @@
 # 04 数据库设计
 
+## Native run-latest QC cache (2026-09-16 candidate)
+
+No new migration in this slice. WgsOnpremExecutionSnapshot retains immutable
+configured sample scope per execution. Native views do not create candidate
+Sample rows or overwrite older execution snapshots. AnalysisRun.params_json
+native_latest_qc holds ONE latest reliable normalized QC payload per run:
+scope=run_latest, items (sample_id, source QC status, existing five key metrics),
+sha256 and source updated_at. No full clinical rows/config, per-execution QC
+history, new thresholds or database writeback to pending. Public bulk params
+exclude this cache; native-view returns it explicitly. A run row lock protects
+the cache JSON merge; unchanged payload avoids rewriting it. Partial/read failures
+preserve last-good values; source health is returned per request, not invented QC.
+No live migration or production DB operation was performed.
+
+## Native controller terminal and monitor binding (2026-09-16 candidate)
+
+No new migration. WgsStageExecution.terminal_payload_json stores monitor_binding
+and controller_exit independently; observation merges rather than overwrites.
+receipt_hash/evidence_type/evidence_key retain the verified final's hash and
+relative path. Controller rc sets stage/run status and actual wait end, without
+changing Sample or asserting QC. Unsafe descendant completion sets
+controller_exit.relaunch_eligible=false, checked by execution registration even
+when the prior stage is failed. Current run DAG fields bind only monitoring;
+historical stage bindings stay retained. No automatic terminal history cleanup.
+
+## Native observation projection (2026-09-15, candidate)
+
+No migration: current safe summary in AnalysisRun.params_json.native_monitor,
+fenced by current_native_execution_id/attempt/generation. Only valid exact native
+started evidence transitions launching→running and sets current execution times.
+WgsStageExecution ended_at remains null for raw native result markers; controller
+exit confirmation remains pending. No Sample/QC changes. checked_at is collector
+time, not a native process heartbeat. Collection failure preserves analysis state.
+
+## R2-3 launch permission state (2026-09-15, inactive)
+
+The native_analysis WgsStageExecution row can move accepted→launching through
+one conditional update. launching means permission consumed, not observed start;
+started_at remains null. No new schema/migration is needed. New operations treat
+launching as nonterminal and cannot supersede it. Lost permission responses or
+unknown process state never reset it to accepted on a timeout. Future observer
+must explicitly validate native evidence before transitioning this state; generic
+CCE stage handlers are not silently used as native monitoring.
+
+## R2-2 execution input history candidate (2026-09-15, not deployed)
+
+Migration0026 after0025 adds wgs_onprem_execution_snapshot: execution_id FK/PK to
+wgs_stage_execution, analysis_id FK, operation_id, snapshot_path, manifest_hash,
+file_refs_json, sample_scope_json, registered_by and created_at; unique
+(analysis_id, operation_id). Reuses existing stage generation/status storage.
+Configured scope comes from config.sample data IDs joined to current sample_info,
+not table row count or new_sample_info. Full clinical/config input stays in private
+files. No changes/deletions to Sample, no current/QC projection delivered yet.
+Both additive migrations passed disposable SQLite checks, not live/PostgreSQL
+migration or concurrency acceptance. Downgrade refuses history deletion.
+See [execution contract](superpowers/specs/2026-09-15-wgs-onprem-execution-contract.md).
+
+## R2-1 project identity candidate (2026-09-15, migration not applied)
+
+New migration20260915_0025 follows20260914_0024 and adds nullable String(36)
+analysis_run.onprem_project_uuid plus unique index uq_analysis_run_onprem_project_uuid.
+Historical rows remain null; no deletion/backfill or table replacement. Registration
+stores initial request in params_json.onprem_registration, marks native_monitor_only,
+creates one RunAttempt and audit entry, not Sample/dispatch/stage records. A unique
+UUID key arbitrates duplicate registration; paths/batches are not deduplication keys.
+This does not implement per-execution Sample history. Migration test is written
+and passed on disposable SQLite after SSH recovery. ORM source requires this migration even while flag off;
+do not deploy before additive migration validation. Downgrade refuses identity loss.
+
+## Local/SGE R2 snapshot planning (2026-09-15, no migration this turn)
+
+See [R2 design](superpowers/specs/2026-09-15-wgs-local-sge-platform-integration.md).
+Project identity must not depend on reused names/paths. Same-project CLI resume
+retains analysis_id/attempt and adds execution_id/generation with immutable input
+snapshot references. Sample scope, counts and QC history must resolve by execution,
+not overwrite old rows when names/config change. Prepare summaries are provisional,
+not final analysis Sample rows; original pending handoff provenance stays separate.
+Reuse existing run/stage/snapshot storage where possible; R2-2 must inspect unique
+keys and historical queries before choosing additive fields/migrations. No schema
+change, data cleanup or assertion of zero required migrations is made here.
+
 ## GATK recovery/Step7 (2026-09-14, no migration)
 
 Adapter-owned reconciliation updates existing AnalysisRun/Sample and adds

@@ -53,6 +53,7 @@ LOGGER_ROOT = Path(
     )
 )
 LOCAL_CORES = int(os.getenv("WGS_LOCAL_CORES", "96"))
+LOCAL_TARGET = os.getenv("WGS_LOCAL_TARGET", "node-97")
 LOCAL_SNAKEMAKE_PYTHON = Path(
     os.getenv(
         "WGS_LOCAL_SNAKEMAKE_PYTHON",
@@ -424,7 +425,13 @@ def run_node97_smoke(payload: dict[str, Any]) -> None:
         raise subprocess.CalledProcessError(completed.returncode, command)
 
 
-def run_local_analysis(payload: dict[str, Any]) -> None:
+def run_local_analysis(payload: dict[str, Any]) -> dict[str, Any] | None:
+    if payload.get("prepare_execution"):
+        native = _load_module("wgs_native_controller", Path(__file__).with_name("wgs_onprem_runtime.py"))
+        return native.run_analysis(
+            payload, request_root=REQUEST_ROOT, analysis_root=ANALYSIS_ROOT,
+            evidence_root=EVIDENCE_ROOT, logger_root=LOGGER_ROOT, target=LOCAL_TARGET,
+        )
     if payload.get("validation_scope") == "node97_smoke":
         run_node97_smoke(payload)
         return
@@ -450,7 +457,7 @@ def _worker(analysis_id: str, attempt: int, stage: str) -> int:
     payload = load_request(analysis_id, attempt, stage)
     write_status(payload, "running", "WGS local workflow is running on node97")
     try:
-        run_local_analysis(payload)
+        details = run_local_analysis(payload) or {}
     except BaseException as error:
         write_status(
             payload,
@@ -459,7 +466,7 @@ def _worker(analysis_id: str, attempt: int, stage: str) -> int:
             traceback=traceback.format_exc()[-12000:],
         )
         return 1
-    write_status(payload, "success", "WGS local workflow completed on node97")
+    write_status(payload, "success", "WGS local workflow completed", **details)
     return 0
 
 

@@ -105,8 +105,44 @@ def reset_execution_dispatch_for_attempt(*, session, run: AnalysisRun) -> WgsExe
     run.execution_mode = "cce"
     params = dict(run.params_json or {})
     params["execution_mode"] = "cce"
+    params["execution_target"] = "cce"
+    params.pop("prepare_execution", None)
     run.params_json = params
     return row
+
+
+def freeze_prepare_execution(*, session, run: AnalysisRun) -> dict[str, Any] | None:
+    """Freeze native preparation in the caller's locked AnalysisRun transaction.
+
+    Older attempts retain their original CCE-prepared contract. This is not an
+    execution/resource claim: the existing dispatch admission still runs later.
+    """
+    params = dict(run.params_json or {})
+    if params.get("native_prepare_contract") != 1:
+        return None
+    frozen = params.get("prepare_execution")
+    if frozen is not None:
+        return dict(frozen)
+    row = _locked_dispatch(session, run.analysis_id)
+    if row is None:
+        row = ensure_execution_dispatch(session=session, run=run)
+    if TARGET_MODES.get(row.desired_target) != row.desired_mode:
+        raise ValueError("execution mode and target do not match")
+    row.dispatch_revision += 1
+    row.updated_at = _now()
+    frozen = {
+        "attempt": run.attempt,
+        "mode": row.desired_mode,
+        "target": row.desired_target,
+        "revision": row.dispatch_revision,
+    }
+    params.update({
+        "prepare_execution": frozen,
+        "execution_mode": row.desired_mode,
+        "execution_target": row.desired_target,
+    })
+    run.params_json = params
+    return frozen
 
 
 def mark_execution_waiting(*, session, run: AnalysisRun) -> WgsExecutionDispatch:
@@ -148,7 +184,12 @@ def project_execution_dispatch(*, session, settings, run: AnalysisRun) -> dict[s
         _local_target(session=session, settings=settings, target="node-96", analysis_id=run.analysis_id),
         _sge_target(settings),
     ]
-    allow_switch = row.dispatch_state not in LOCKED_STATES and row.committed_at is None
+    prepare_frozen = bool((run.params_json or {}).get("prepare_execution"))
+    allow_switch = (
+        row.dispatch_state not in LOCKED_STATES
+        and row.committed_at is None
+        and not prepare_frozen
+    )
     blocking_reason = row.blocking_reason
     if (run.params_json or {}).get('test_project') or (run.params_json or {}).get('sampleinfo_upload'):
         allow_switch = False
@@ -193,6 +234,11 @@ def change_execution_choice(
         raise ValueError("WGS run was not found")
     if ((run.params_json or {}).get('test_project') or (run.params_json or {}).get('sampleinfo_upload')) and desired_mode != 'cce':
         raise ValueError('This input mode supports CCE execution only')
+    if (run.params_json or {}).get("prepare_execution"):
+        raise ExecutionDispatchConflict(
+            "PREPARE_EXECUTION_FROZEN",
+            "Execution target was frozen before analysis preparation; create a new attempt to change it",
+        )
     attempt = session.scalar(
         select(RunAttempt)
         .where(RunAttempt.analysis_id == analysis_id, RunAttempt.attempt == run.attempt)

@@ -158,6 +158,8 @@ def submit_wgs_run(*, session: Session, airflow_client, analysis_id: str) -> dic
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
     if run is None:
         return None
+    if (run.params_json or {}).get("native_monitor_only"):
+        raise ValueError("Native monitor projects must start through their registered native entry")
     if run.status == "submitted" and run.dag_run_id:
         return run_payload(session, run)
     if run.status not in {"created", "failed", "cancelled"}:
@@ -238,6 +240,8 @@ def action_wgs_run(*, session: Session, settings, airflow_client, analysis_id: s
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id, AnalysisRun.pipeline_name == "wgs"))
     if run is None:
         return None
+    if (run.params_json or {}).get("native_monitor_only"):
+        raise ValueError("Native monitor projects do not support platform recovery/cancel actions")
     if action == "cancel":
         dispatch = session.scalar(
             select(WgsExecutionDispatch).where(

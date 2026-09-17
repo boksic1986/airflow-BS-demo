@@ -55,6 +55,121 @@ Pending and exact two GATK result copies, Clinical roots, scanner configuration
 and verified WGS/GATK SFS cleanup remain pending. No offline/OBS/FASTQ/DB deletion.
 Use the latest HANDOFF inventory and refresh live mounts/gates before publishing.
 
+## 2026-09-16 BS10610 enabled test deployment
+
+Native registration/claim/monitor enabled, additive schema0026, bounded synthetic
+API/controller acceptance and user browser retest passed. HTTP is explicitly
+authorized; no TLS gateway required. Use actual composition/mounts, not unchanged
+current symlink, to identify test source. Scanner/auto-dispatch remain false.
+See [release and rollback details](releases/2026-09-16-onprem-bs10610.md).
+The new DB dump was deleted at user request; rollback preserves schema/data and
+restores code composition only. No BS96/main publication was authorized.
+
+## Native views candidate verification (2026-09-16)
+
+Views add no service, environment variable, migration or scheduler. They require
+the earlier approved native snapshot/project readable mounts at enablement;
+do not widen filesystem permissions or silently use another project directory.
+Latest QC cache resides in existing params JSON; keep it and private execution
+snapshots on rollback. Production/native feature gates remain unchanged.
+
+BS10610 candidate root candidates/wgs-local-sge-20260915 only: backend3 tests,
+frontend3 tests and tsc/Vite build passed using cached backend:t235-232154f and
+frontend-test:gatk-recovery-20260914 images, --pull never --network none.
+Frontend package-lock matched the cache before testing; no dependency download.
+Evidence native-view-backend-check.log and native-view-frontend-check.log under
+candidate root. No running container/mount/release/DB was modified. Next bounded
+enabled candidate API/browser acceptance needs a separate installation decision;
+do not promote to BS96, main or production as a side effect of these checks.
+
+## Native terminal/attachment candidate (2026-09-16)
+
+Source adds fixed-path controller-exit consumption and personal-session monitor
+attachment. Keep all native gates off and bio_wgs_native_monitor paused until
+joint acceptance and separately approved install. No Compose/live migration.
+Helper spawn succeeds independently of monitor attachment; on attachment503 or
+lost response use monitor-only repair, never rerun the analysis command. Missing
+final or supervisor loss remains unknown. Signal/SGE-error needs remaining-job
+verification before new execution; no automatic qdel or override endpoint.
+Retain binding/receipts/history on rollback and keep needed existing monitoring
+running. Do not revert a running supervisor into replaying its saved launch context.
+
+## Native monitor candidate hold / WGS baseline (2026-09-15)
+
+Keep WGS_ONPREM_MONITOR_ENABLED=false; bio_wgs_native_monitor remains paused and
+is not added to deployed mounts. Only isolated BS10610 cached synthetic tests run.
+Automatic monitoring attachment and final controller-exit evidence are not ready.
+Candidate observation cannot authorize new native analysis after raw result files.
+No live migration, actual service update or analysis was performed.
+
+Per user instruction the WGS task uses deployed source34bfcbf with isolated thin
+integration commitb07bbc4 on jiucheng/wgs-onprem-deployed-34bfcbf. Newer ba7b272
+and integration7115ea6 branches are retained, not deleted or deployed. This pins
+the declared deployment baseline supported by completed Job/profile configuration,
+not an assertion that all worker files were independently inspected. Native
+runtime/sampleinfo/local+sge profiles were verified unchanged against34bfcbf.
+
+## R2-3 one-shot launch candidate hold (2026-09-15)
+
+User confirmed BS10610 backend was deliberately synchronized with main: actual
+/app source is releases/20260915-main-359df11/backend, despite current still
+pointing to20260912-opt-4d3d24e6. Use inspected mount, not current, for identity.
+Only independent candidate tests were resumed; no current service modified.
+Keep WGS_ONPREM_LAUNCH_ENABLED=false. Claim API tests are not caller/observer/DAG
+acceptance. Never enable a route that consumes permission without an accepted
+caller/recovery observation path; unknown launching must not be auto-requeued.
+
+## R2-2 deployment hold (2026-09-15)
+
+New candidate migration0026 adds immutable execution input references; tested on
+disposable SQLite only. Future authorized rollout must apply0025 then0026 and
+configure WGS_ONPREM_SNAPSHOT_ROOT as backend-private0700 outside project storage.
+Do not relax source permissions automatically. Registration remains disabled and
+execution receipt explicitly has launch_allowed=false: monitored launcher/DAG,
+scope-aware readers and joint acceptance are not delivered. No current mount,
+container, scanner, credential or database changed. Rollback disables registration
+or restores code without removing binding, input evidence, identities or history.
+
+## R2-1 registry deployment hold (2026-09-15)
+
+Do not deploy current registration candidate without joint acceptance/authorization:
+GREEN and disposable SQLite migration0025 checks passed after SSH recovery, not
+a live or PostgreSQL migration. Later rollout must validate/apply additive
+0025 before starting source with the new AnalysisRun ORM column, even if registration
+is disabled. Keep WGS_ONPREM_REGISTRATION_ENABLED=false meanwhile; no changes to
+current services, DB, mounts, instance ID, registration roots or credentials.
+Use personal session cookie/CSRF in private client config, never distribute the
+internal service token; require HTTPS or separately approved secure transport.
+See [exact contract](superpowers/specs/2026-09-15-wgs-onprem-registration-contract.md).
+
+## Local/SGE R2 documentation gate (2026-09-15)
+
+Follow [R2 implementation plan](superpowers/plans/2026-09-15-wgs-local-sge-platform-integration.md)
+before enabling native monitoring. Prior GREEN instructions below cover only R1
+source, not the newly required backend-first registration, editable execution
+snapshots or project movement handling. Keep the flag off; do not deploy old
+strict-hash launch checks as R2. No deployment or credential/account permissions
+changed in this turn. Multi-account and real-node acceptance require separate
+authorization; do not store secrets in project scripts or relax directory access.
+
+## Local/SGE source checkpoint (2026-09-15, not deployed)
+
+Keep `WGS_NATIVE_PREPARE_ENABLED=false` (the default). The new source requires
+`WGS_CONTRACT_V2_ENABLED=true` before opting new normal catalog submissions into
+the frozen native prepare contract. Do not enable yet: targeted GREEN tests,
+native target/DAG routing and observer integration are still pending. Existing
+runs are not retroactively upgraded by this flag.
+
+The native Local controller reads `WGS_LOCAL_TARGET`, default `node-97`; a future
+approved node-96 installation must explicitly configure `node-96`. This is a
+binding check, not automatic host selection. Deploy the shared
+`scripts/wgs_onprem_runtime.py` alongside both runtime gate modules when the
+complete integration is approved; no new service or port is introduced here.
+
+BS10610 source transfer failed twice at the SSH gateway before GREEN verification.
+No deployment environment, running service, scanner or dispatch setting changed.
+Restore test connectivity and run the focused tests recorded in `HANDOFF.md`
+before any commit/activation; do not use BS96 as a testing fallback.
 ## Latest BS10610 test composition (2026-09-15)
 
 Main359df11 is deployed to all eight running application/DAG/probe/collector

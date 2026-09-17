@@ -62,6 +62,23 @@ Airflow/Postgres/Redis/metrics/probe containers unchanged; global current pointe
 historical, use actual mounts. Node200 runner backup:
 /home/ctapa/.config/clinical-e9a6644-rollback. See clinical release receipt.
 
+## 2026-09-16 BS10610 main -> native test branch integration
+
+Release /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS/releases/20260916-onprem-main-d705a46,
+commit d705a46914204426399cec98e5b70322297d33cc. Backend294cb11c1731f20e130cf63d9217e98a5372e4ee5848da2e852420fa12d6c400
+and observer0e425a5aecea388814a60799d890189798d4dea9710a3f52028b11d9a5600f9a
+mount new release/backend. Other8 containers retain source/IDs; frontend already
+matches merged source. Existing native DAG and0026 schema unchanged. Private
+compose/rollback candidates/onprem-main-d705a46-control; current remains historical.
+Health200; native test run/snapshots preserved. No96 operation.
+
+2026-09-16 BS10610/server10610 test deployment: releases/20260916-onprem-review
+under /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS.
+Backend e95d75c0695b, observer75bca7473155, API fc89ad88c70e,
+scheduler f4c89955a36b, worker7adcb7a790a9, frontend346c262603d8.
+Current symlink still20260912-opt-4d3d24e6; actual mounts identify deployed source.
+Schema0026; scanner/auto-dispatch false. No BS96 changes.
+See docs/releases/2026-09-16-onprem-bs10610.md; older fingerprints below are history.
 ## 2026-09-16 Frontend full5cd5542
 
 08:32Z frontend5041172f8f5edf9277ed0ba58fcbd948538cf26ac81f2143ba38be55f03e5adc,

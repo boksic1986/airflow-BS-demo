@@ -8,6 +8,60 @@ WGS_RELEASE_PREPARE_CONFIGS_JSON maps release ID to config path+sha256 under
 WGS_PREPARE_CONFIG_ROOT. WGS_PREPARE_CHECK_OVERRIDES_JSON maps exact release:batch
 to boolean. These existing production settings are retained, not activated or
 copied from test. No values/credentials belong in Git. Runtime contract: docs08.
+## Native monitor switch (2026-09-15, candidate)
+
+WGS_ONPREM_MONITOR_ENABLED defaults false in backend and the native monitor DAG.
+It is independent of registration/launch gates: stopping new launches must not
+require stopping an already accepted monitor. Configured INTERNAL_SERVICE_TOKEN
+is mandatory for the new observer route. No new port/container/Compose mounts;
+activation is not part of this checkpoint.2026-09-16 adds personal-session
+idempotent monitor attachment using the existing Airflow client, no new service.
+
+## R2-3 launch claim gate (2026-09-15, inactive)
+
+WGS_ONPREM_LAUNCH_ENABLED defaults false, separate from project registration.
+When explicitly enabled in a later approved installation, the one-shot claim API
+validates the registered native inputs and consumes permission accepted→launching.
+It never launches a process or marks the run started; no new service/port/lease
+or database migration. Keep false until the caller and observer integration is
+accepted. Lost/ambiguous claim replies must not automatically repeat a native call.
+
+## R2-2 private execution snapshot root (2026-09-15, inactive)
+
+WGS_ONPREM_SNAPSHOT_ROOT defaults empty. Execution registration requires an
+existing0700 directory outside the mutable project, writable by backend; each
+snapshot directory0700/files0600. It stores small config/sample/Step1 inputs only.
+No new daemon, port, account impersonation or scheduling service. Requires existing
+R2-1 registration gates and later authorized migration/permissions deployment.
+Unset configuration fails closed; no fallback into the project or production root.
+
+## R2-1 registry settings (2026-09-15, unverified candidate only)
+
+WGS_ONPREM_REGISTRATION_ENABLED defaults false; WGS_PLATFORM_INSTANCE_ID defaults
+empty; WGS_ONPREM_PROJECT_ROOTS defaults empty (comma-separated absolute roots).
+All must be explicitly configured before registration. They do not enable native
+execution, scanning or dispatch and are separate from WGS_NATIVE_PREPARE_ENABLED.
+Existing personal sessions are reused; no new auth service or port. Suggested WGS
+client private config and transport rules are in the
+[registration contract](superpowers/specs/2026-09-15-wgs-onprem-registration-contract.md).
+No deployed configuration was changed; candidate registration/migration/submission
+checks now pass11 cases after SSH recovery, with WGS integration still pending.
+
+## Local/SGE R2 planning status (2026-09-15)
+
+The [R2 design](superpowers/specs/2026-09-15-wgs-local-sge-platform-integration.md)
+requires optional backend-first registration and per-execution editable-input
+snapshots. The flag below only describes existing unverified R1 source; it does
+not provide R2 CLI registration/authentication. No service, port, credential or
+environment setting is added/changed by this documentation revision.
+
+## Native preparation rollout flag (2026-09-15, unverified source)
+
+`WGS_NATIVE_PREPARE_ENABLED=false` by default. Explicit enablement with
+`WGS_CONTRACT_V2_ENABLED=true` lets new normal catalog submissions pin the native
+prepare contract; existing runs and independent test/canary paths are unchanged.
+Keep disabled until Local/SGE launch/monitor integration is accepted. This flag
+does not toggle scanning/auto dispatch or override any execution permission.
 
 ## CCE 0.8.5 release catalog consumer (inactive by default)
 

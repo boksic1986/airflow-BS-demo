@@ -13,6 +13,12 @@ from sqlalchemy import case
 
 from app.airflow_client import AirflowClient
 from app.config import get_cors_origins, get_internal_service_token, get_settings
+from app.wgs_onprem_execution_service import (OnpremProjectRegistration, OnpremExecutionRegistration,
+    RegistrationConflict, register_project, register_execution)
+from app.wgs_onprem_launch_service import NativeLaunchClaim, claim_native_launch
+from app.wgs_onprem_monitor_service import NativeObservationRequest, observe_native_execution
+from app.wgs_onprem_monitor_attach import attach_native_monitor
+from app.wgs_onprem_views import native_view
 from app.dashboard_service import get_dashboard_overview, get_dashboard_runs
 from app.db import check_database, get_sessionmaker
 from app.diagnostics_service import (
@@ -264,6 +270,15 @@ def require_internal_service_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "INTERNAL_SERVICE_AUTH_REQUIRED", "message": "Valid internal service token required."},
         )
+
+
+def require_native_monitor_token(
+    x_airflow_demo_token: str | None = Header(default=None, alias="X-Airflow-Demo-Token"),
+) -> None:
+    if not get_internal_service_token():
+        raise HTTPException(status_code=403, detail={"code": "NATIVE_MONITOR_AUTH_NOT_CONFIGURED",
+                                                    "message": "Native monitoring requires internal authentication."})
+    require_internal_service_token(x_airflow_demo_token)
 
 
 class InputScanRequest(BaseModel):
@@ -798,6 +813,97 @@ def pipeline_config_validate(request: PipelineConfigValidationRequest) -> dict[s
         )
     except PipelineRegistryError as exc:
         raise _pipeline_http_exception(exc) from exc
+
+
+@app.post("/api/wgs/onprem/projects")
+def register_wgs_onprem_project(request: OnpremProjectRegistration,
+                               user: AuthenticatedUser = Depends(operator_user)) -> dict:
+    settings = get_settings()
+    if not getattr(settings, "auth_required", False) or user.id <= 0:
+        raise HTTPException(status_code=403, detail={"code": "PERSONAL_SESSION_REQUIRED",
+                                                    "message": "A personal platform session is required."})
+    try:
+        with get_sessionmaker()() as session:
+            return register_project(session=session, settings=settings, request=request, username=user.username)
+    except RegistrationConflict as exc:
+        raise HTTPException(status_code=409, detail={"code": "ONPREM_REGISTRATION_CONFLICT", "message": str(exc)}) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail={"code": "FORBIDDEN", "message": str(exc)}) from exc
+    except (ValueError, OSError) as exc:
+        raise HTTPException(status_code=400, detail={"code": "ONPREM_PROJECT_INVALID",
+                                                    "message": "Project binding or registered path is invalid/unavailable."}) from exc
+
+
+@app.post("/api/wgs/onprem/projects/{project_uuid}/executions")
+def register_wgs_onprem_execution(project_uuid: str, request: OnpremExecutionRegistration,
+                                  user: AuthenticatedUser = Depends(operator_user)) -> dict:
+    settings = get_settings()
+    if not getattr(settings, "auth_required", False) or user.id <= 0:
+        raise HTTPException(status_code=403, detail={"code": "PERSONAL_SESSION_REQUIRED",
+                                                    "message": "A personal platform session is required."})
+    try:
+        with get_sessionmaker()() as session:
+            return register_execution(session=session, settings=settings, project_uuid=project_uuid,
+                                      request=request, username=user.username)
+    except RegistrationConflict as exc:
+        raise HTTPException(status_code=409, detail={"code": "ONPREM_EXECUTION_CONFLICT", "message": str(exc)}) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail={"code": "FORBIDDEN", "message": str(exc)}) from exc
+    except (ValueError, OSError) as exc:
+        raise HTTPException(status_code=400, detail={"code": "ONPREM_EXECUTION_INVALID",
+                                                    "message": "Native identity, inputs or private snapshot storage are invalid/unavailable."}) from exc
+
+
+@app.post("/api/wgs/onprem/executions/{execution_id}/claim")
+def claim_wgs_onprem_launch(execution_id: str, request: NativeLaunchClaim,
+                            user: AuthenticatedUser = Depends(operator_user)) -> dict:
+    settings = get_settings()
+    if not getattr(settings, "auth_required", False) or user.id <= 0:
+        raise HTTPException(status_code=403, detail={"code": "PERSONAL_SESSION_REQUIRED",
+                                                    "message": "A personal platform session is required."})
+    try:
+        with get_sessionmaker()() as session:
+            return claim_native_launch(session=session, settings=settings, execution_id=execution_id,
+                                       request=request, username=user.username)
+    except RegistrationConflict as exc:
+        raise HTTPException(status_code=409, detail={"code": "ONPREM_LAUNCH_CONFLICT", "message": str(exc)}) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail={"code": "FORBIDDEN", "message": str(exc)}) from exc
+    except (ValueError, OSError) as exc:
+        raise HTTPException(status_code=400, detail={"code": "ONPREM_LAUNCH_INVALID",
+                                                    "message": "Native launch inputs or evidence are invalid/unavailable."}) from exc
+
+
+@app.post("/api/internal/wgs/onprem/runs/{analysis_id}/executions/{execution_id}/observe",
+          dependencies=[Depends(require_native_monitor_token)])
+def observe_wgs_onprem_execution(analysis_id: str, execution_id: str,
+                                 request: NativeObservationRequest) -> dict:
+    try:
+        with get_sessionmaker()() as session:
+            return observe_native_execution(session=session, settings=get_settings(),
+                analysis_id=analysis_id, execution_id=execution_id, request=request)
+    except RegistrationConflict as exc:
+        raise HTTPException(status_code=409, detail={"code": "ONPREM_OBSERVATION_CONFLICT",
+                                                    "message": str(exc)}) from exc
+
+
+@app.post("/api/wgs/onprem/executions/{execution_id}/monitor")
+def attach_wgs_onprem_monitor(execution_id: str, request: NativeLaunchClaim,
+                             user: AuthenticatedUser = Depends(operator_user)) -> dict:
+    settings = get_settings()
+    if not getattr(settings, 'auth_required', False) or user.id <= 0:
+        raise HTTPException(status_code=403, detail={"code": "PERSONAL_SESSION_REQUIRED"})
+    try:
+        with get_sessionmaker()() as session:
+            return attach_native_monitor(session=session, settings=settings, execution_id=execution_id,
+                request=request, username=user.username, airflow=get_airflow_client())
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail={"code": "FORBIDDEN", "message": str(exc)}) from exc
+    except RegistrationConflict as exc:
+        raise HTTPException(status_code=409, detail={"code": "ONPREM_MONITOR_CONFLICT", "message": str(exc)}) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=503, detail={"code": "ONPREM_MONITOR_UNAVAILABLE",
+            "message": "Retry monitor attachment only; do not repeat claim or launch."}) from exc
 
 
 @app.post("/api/runs", status_code=status.HTTP_201_CREATED)
@@ -1697,6 +1803,21 @@ def run_samples(analysis_id: str) -> dict[str, object]:
         raise _pipeline_http_exception(exc) from exc
 
 
+@app.get("/api/runs/{analysis_id}/native-view")
+def run_native_view(analysis_id: str, execution_id: str | None = Query(default=None, max_length=128),
+                    section: str = Query(default='samples', pattern='^(samples|rules|logs|qc)$'),
+                    offset: int = Query(default=0, ge=0), limit: int = Query(default=25, ge=1, le=100),
+                    history_offset: int = Query(default=0, ge=0), query: str = Query(default='', max_length=256),
+                    match_index: int = Query(default=0, ge=0)):
+    with get_sessionmaker()() as session:
+        payload = native_view(session=session, settings=get_settings(), analysis_id=analysis_id,
+            execution_id=execution_id, section=section, offset=offset, limit=limit,
+            history_offset=history_offset, query=query, match_index=match_index)
+        if payload is None:
+            raise HTTPException(404, detail={'code': 'NATIVE_EXECUTION_NOT_FOUND', 'message': 'Native run/execution not found'})
+        return payload
+
+
 @app.get("/api/runs/{analysis_id}/workspace")
 def run_workspace(analysis_id: str) -> dict[str, object]:
     # Reuse the public run-detail projection while keeping the browser's first
@@ -2319,6 +2440,7 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 cce_pipeline_version=release.cce_pipeline_version,
                 pipeline_build_sha256=release.pipeline_build_sha256,
                 resource_manifest_sha256=release.resource_manifest_sha256,
+                prepare_execution=params.get("prepare_execution"),
             )
             if params.get("sampleinfo_upload"):
                 payload['sampleinfo_upload'] = dict(params['sampleinfo_upload'])
@@ -2353,11 +2475,12 @@ def internal_wgs_runtime_stage(analysis_id: str, stage_name: str, request: WgsRu
                 contract = load_wgs_stage_contract(
                     Path(settings.wgs_stage_contract_path)
                 )
-                payload["heavy_io_contract"] = {
-                    "limit": contract.heavy_io.limit,
-                    "mode": contract.heavy_io.mode,
-                    "unit": "work_pod",
-                }
+                if (payload.get("prepare_execution") or {}).get("mode", "cce") == "cce":
+                    payload["heavy_io_contract"] = {
+                        "limit": contract.heavy_io.limit,
+                        "mode": contract.heavy_io.mode,
+                        "unit": "work_pod",
+                    }
                 if (
                     request.force_new_generation
                     and stage_name in SUPPORTED_RUNTIME_SYNC_STAGES

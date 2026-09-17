@@ -81,6 +81,9 @@ def sync_wgs_airflow_status(*, session: Session, airflow_client, analysis_id: st
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id).with_for_update().execution_options(populate_existing=True))
     if run is None:
         return None
+    if (run.params_json or {}).get('native_monitor_only'):
+        # Only the generation-bound native observer may project analysis state.
+        return _run_payload(run)
     if (run.params_json or {}).get('submission_phase') in {'cancelling_submission', 'cancelled'}:
         return _run_payload(run)
     if not run.dag_id or not run.dag_run_id:
@@ -180,6 +183,8 @@ def sync_airflow_status(*, session: Session, airflow_client, analysis_id: str, s
     run = _get_run(session, analysis_id)
     if run is None:
         return None
+    if (run.params_json or {}).get('native_monitor_only'):
+        return _run_payload(run)
     if not run.dag_id or not run.dag_run_id:
         raise MissingDagRunError("Run has no dag_id or dag_run_id to sync.")
     airflow_payload = airflow_client.get_dag_run(run.dag_id, run.dag_run_id)

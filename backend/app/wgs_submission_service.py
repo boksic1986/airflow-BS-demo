@@ -21,7 +21,7 @@ from app.wgs_platform_service import (
 )
 from app.wgs_project_catalog import WgsProject, load_wgs_projects
 from app.wgs_release_catalog import load_wgs_release_catalog
-from app.wgs_execution_dispatch_service import mark_execution_waiting
+from app.wgs_execution_dispatch_service import freeze_prepare_execution, mark_execution_waiting
 
 
 SAFE_BATCH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
@@ -413,6 +413,7 @@ def create_automatic_wgs_run(*, session, settings, airflow_client, username: str
             }
         )
         run.params_json = params
+        freeze_prepare_execution(session=session, run=run)
         session.commit()
     if run.status == "created":
         return submit_wgs_run(
@@ -476,6 +477,13 @@ def _create_catalog_run_record(*, session, settings, username: str,
             WgsInputSnapshot.fq_path == spec.node_root,
         )
     ) is not None
+    native_prepare = (
+        not existed
+        and bool(getattr(settings, "wgs_native_prepare_enabled", False))
+        and spec.analysis_batch == spec.batch
+    )
+    if native_prepare and not bool(getattr(settings, "wgs_contract_v2_enabled", False)):
+        raise ValueError("Native preparation requires orchestration contract v2")
     created = create_wgs_platform_run(
         session=session,
         settings=settings,
@@ -501,7 +509,9 @@ def _create_catalog_run_record(*, session, settings, username: str,
     params = dict(run.params_json or {})
     if existed and params.get("project_id") != spec.project.project_id:
         raise ValueError("existing WGS run has ambiguous project ownership")
-    if params.get("project_id") != spec.project.project_id:
+    if native_prepare:
+        params["native_prepare_contract"] = 1
+    if native_prepare or params.get("project_id") != spec.project.project_id:
         params["project_id"] = spec.project.project_id
         run.params_json = params
         session.flush()
@@ -526,6 +536,7 @@ def submission_state(*, session, analysis_id: str, attempt: int) -> dict:
         "submission_phase": params.get("submission_phase") if staged else "approved",
         "config_approved": (not staged) or bool(params.get("config_approved_at")),
         "execution_approved": (not staged) or bool(params.get("execution_approved_at")),
+        "prepare_execution": params.get("prepare_execution"),
     }
 
 
@@ -678,6 +689,8 @@ def approve_wgs_config(*, session, analysis_id: str, requested_by: str,
         return submission_state(session=session, analysis_id=analysis_id, attempt=run.attempt)
     if params.get("submission_phase") not in {"config_review", "preparing_analysis"}:
         raise ValueError("WGS sample information is not ready for configuration review")
+    prepare_execution = freeze_prepare_execution(session=session, run=run)
+    params = dict(run.params_json or {})
     approved_at = datetime.now(timezone.utc).isoformat()
     params.update({
         "use_reference": use_reference,
@@ -691,7 +704,10 @@ def approve_wgs_config(*, session, analysis_id: str, requested_by: str,
         action="approve_wgs_config",
         requested_by=requested_by,
         result_status="accepted",
-        payload_json={"use_reference": use_reference, "resource_set": resource_set},
+        payload_json={
+            "use_reference": use_reference, "resource_set": resource_set,
+            **({"prepare_execution": prepare_execution} if prepare_execution else {}),
+        },
     ))
     session.commit()
     return submission_state(session=session, analysis_id=analysis_id, attempt=run.attempt)

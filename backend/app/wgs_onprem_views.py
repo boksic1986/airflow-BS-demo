@@ -1,0 +1,209 @@
+"""Read native execution snapshots and one latest project QC; never launch work."""
+import csv
+from datetime import datetime, timezone
+import hashlib
+import io
+import json
+from pathlib import Path
+import re
+import yaml
+
+from sqlalchemy import select, func
+
+from app.models import AnalysisRun, WgsOnpremExecutionSnapshot, WgsStageExecution
+from app.wgs_onprem_execution_service import _project_root
+from app.wgs_sample_projection import QC_FIELDS, _qc_status
+from app.diagnostics_service import _tail_log_file, _search_log_file
+from app.operator_resources_service import _sanitize_excerpt
+
+
+def current_scope(session, run):
+    snapshot = session.get(WgsOnpremExecutionSnapshot, (run.params_json or {}).get('current_native_execution_id', ''))
+    return snapshot.sample_scope_json if snapshot and snapshot.analysis_id == run.analysis_id else []
+
+
+def _summary(stage, snapshot):
+    return dict(execution_id=stage.execution_id, generation=stage.generation,
+        attempt=stage.attempt, status=stage.status, registered_by=snapshot.registered_by,
+        sample_count=len(snapshot.sample_scope_json), created_at=stage.created_at,
+        started_at=stage.started_at, ended_at=stage.ended_at)
+
+
+def _configuration(settings, snapshot):
+    try:
+        base = Path(settings.wgs_onprem_snapshot_root)
+        directory = Path(snapshot.snapshot_path)
+        if directory.is_symlink() or directory.resolve().parent != base.resolve():
+            raise ValueError('Snapshot outside configured storage')
+        manifest_path = _file(directory, Path('manifest.json'))
+        with manifest_path.open('rb') as handle:
+            raw = handle.read(2 * 1024 * 1024 + 1)
+        if hashlib.sha256(raw).hexdigest() != snapshot.manifest_hash:
+            raise ValueError('Snapshot manifest changed')
+        manifest = json.loads(raw)
+        if manifest['analysis_id'] != snapshot.analysis_id or manifest['execution_id'] != snapshot.execution_id:
+            raise ValueError('Snapshot identity differs')
+        with _file(directory, Path('config.yaml')).open('rb') as handle:
+            config_raw = handle.read(16 * 1024 * 1024 + 1)
+        if hashlib.sha256(config_raw).hexdigest() != manifest['files']['config.yaml']['sha256']:
+            raise ValueError('Snapshot configuration changed')
+        config = yaml.safe_load(config_raw)
+        parameters = {key: config[key] for key in ('algo', 'caller', 'use_reference', 'genome')
+            if key in config and isinstance(config[key], (str, bool, int, float))
+            and len(str(config[key])) <= 96 and '/' not in str(config[key])}
+        return dict(health='available', parameters=parameters, execution_mode=manifest['execution_mode'],
+            execution_target=manifest['execution_target'], execution_user=manifest['execution_user'],
+            manifest_sha256=snapshot.manifest_hash)
+    except (AttributeError, ValueError, KeyError, TypeError, OSError, yaml.YAMLError):
+        return dict(health='unavailable', parameters={})
+
+
+def _file(root, relative):
+    path = root / relative
+    if any(part.is_symlink() for part in [path, *path.parents] if part != root and root in part.parents):
+        raise ValueError('Symlink evidence')
+    if root not in path.resolve().parents or not path.is_file():
+        raise ValueError('Evidence unavailable')
+    return path
+
+
+def _latest_qc(session, run, root):
+    previous = (run.params_json or {}).get('native_latest_qc')
+    try:
+        # Native QC.smk uses config["batch"], not the (possibly renamed) directory.
+        with _file(root, Path('config.yaml')).open('rb') as handle:
+            config_raw = handle.read(16 * 1024 * 1024 + 1)
+        if len(config_raw) > 16 * 1024 * 1024:
+            raise ValueError('Config exceeds limit')
+        config = yaml.safe_load(config_raw)
+        batch = config.get('batch') if isinstance(config, dict) else None
+        if not isinstance(batch, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,255}', batch):
+            raise ValueError('QC batch is unavailable')
+        path = _file(root, Path('07_QC') / f'{batch}.QCstat.tsv')
+        before = path.stat()
+        with path.open('rb') as handle:
+            raw = handle.read(2 * 1024 * 1024 + 1)
+        after = path.stat()
+        if (len(raw) > 2 * 1024 * 1024 or not raw.endswith(b'\n')
+                or (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns)):
+            raise ValueError('QC incomplete')
+        table = csv.DictReader(io.StringIO(raw.decode('utf-8-sig')), delimiter='\t')
+        if not {'Sample_ID', '是否通过质控'}.issubset(table.fieldnames or []):
+            raise ValueError('QC header incomplete')
+        items, seen = [], set()
+        for row in table:
+            identifier = row.get('Sample_ID')
+            if not identifier or identifier in seen or None in row or any(value is None for value in row.values()):
+                raise ValueError('QC row incomplete or duplicate')
+            seen.add(identifier)
+            items.append(dict(sample_id=identifier, qc_status=_qc_status(row['是否通过质控']),
+                qc_metrics={public: row[key] for key, public in QC_FIELDS.items() if row.get(key)}))
+        if not items:
+            raise ValueError('QC not ready')
+        result = dict(scope='run_latest', items=items, sha256=hashlib.sha256(raw).hexdigest(),
+            updated_at=datetime.fromtimestamp(after.st_mtime, timezone.utc).isoformat())
+        if result != previous:
+            run.params_json = {**run.params_json, 'native_latest_qc': result}
+            session.flush()
+        return {**result, 'health': 'available'}
+    except (ValueError, OSError, UnicodeError, csv.Error, yaml.YAMLError):
+        return {**(previous or dict(scope='run_latest', items=[], updated_at=None)),
+                'health': 'stale' if previous else 'unavailable'}
+
+
+def _rules(path, scope):
+    # Text is evidence of declarations/completions, not a complete scheduled DAG.
+    with path.open('rb') as handle:
+        raw = handle.read(8 * 1024 * 1024)
+        incomplete = bool(handle.read(1))
+    lines = raw.decode('utf-8', errors='replace').splitlines()
+    if raw and not raw.endswith(b'\n'):
+        lines = lines[:-1]
+        incomplete = True
+    identities = {item['data_id']: item for item in scope}
+    result, latest, current = [], {}, None
+    for number, line in enumerate(lines):
+        rule = re.fullmatch(r'(?:local)?rule ([A-Za-z0-9_]+):', line.strip())
+        if rule:
+            current = dict(rule=rule[1], job_id=None, sample_id=None, family_id=None,
+                           status='unknown', source_line=number + 1)
+            continue
+        finished = re.fullmatch(r'Finished job(?:id:)? (\d+)\.', line.strip())
+        if finished:
+            if finished[1] in latest:
+                latest[finished[1]]['status'] = 'success'
+            current = None
+            continue
+        if current is not None:
+            job = re.fullmatch(r'\s+jobid: (\d+)\s*', line)
+            if job:
+                current['job_id'] = job[1]
+                result.append(current)
+                latest[job[1]] = current
+            wildcards = re.fullmatch(r'\s+wildcards: (.*)', line)
+            if wildcards:
+                values = dict(item.strip().split('=', 1) for item in wildcards[1].split(',') if '=' in item)
+                identity = identities.get(values.get('sample'))
+                if identity:
+                    current.update(sample_id=identity['sample_id'], family_id=identity.get('family_id'))
+            if not line.strip():
+                current = None
+    return result, incomplete
+
+
+def native_view(*, session, settings, analysis_id, execution_id=None, section='samples',
+                offset=0, limit=25, history_offset=0, query='', match_index=0):
+    run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id).with_for_update())
+    if (run is None or not (run.params_json or {}).get('native_monitor_only')
+            or 'wgs' not in getattr(settings, 'deployed_pipelines', ())):
+        return None
+    stmt = select(WgsStageExecution, WgsOnpremExecutionSnapshot).join(
+        WgsOnpremExecutionSnapshot, WgsOnpremExecutionSnapshot.execution_id == WgsStageExecution.execution_id).where(
+        WgsStageExecution.analysis_id == analysis_id, WgsStageExecution.stage_code == 'native_analysis')
+    total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    pairs = session.execute(stmt.order_by(WgsStageExecution.id.desc()).offset(history_offset).limit(50)).all()
+    selected_id = execution_id or run.params_json.get('current_native_execution_id')
+    pair = session.execute(stmt.where(WgsStageExecution.execution_id == selected_id)).first() if selected_id else None
+    if selected_id and pair is None:
+        return None
+    result = dict(analysis_id=analysis_id, current_execution_id=run.params_json.get('current_native_execution_id'),
+        executions=[_summary(*row) for row in pairs], history_total=total, history_offset=history_offset,
+        selected=_summary(*pair) if pair else None, samples=[], sample_total=0, rules=[], rule_total=0,
+        rules_incomplete=False, log=None, qc=dict(scope='run_latest', items=[], health='unavailable'),
+        evidence_health='available', offset=offset, limit=limit,
+        monitoring=run.params_json.get('native_monitor'), configured_scope_only=True)
+    scope = pair[1].sample_scope_json if pair else []
+    result.update(samples=scope[offset:offset + limit], sample_total=len(scope))
+    result['configuration'] = _configuration(settings, pair[1]) if pair else None
+    try:
+        initial = run.params_json['onprem_registration']
+        root = _project_root(settings, run.workdir, run.onprem_project_uuid, initial['platform_instance_id']).resolve()
+    except (ValueError, OSError, KeyError):
+        root = None
+        result['evidence_health'] = 'unavailable'
+    # QC belongs to the run, never to selected execution or renamed sample metadata.
+    if section in {'samples', 'qc'}:
+        result['qc'] = _latest_qc(session, run, root) if root else {
+            **(run.params_json.get('native_latest_qc') or result['qc']), 'health': 'stale' if run.params_json.get('native_latest_qc') else 'unavailable'}
+    if pair and section in {'logs', 'rules'}:
+        stage = pair[0]
+        relative = Path('log') / f'step1.{analysis_id}-a{stage.attempt}-g{stage.generation}-{stage.execution_id}.log'
+        result['log'] = dict(analysis_id=analysis_id, stream='stdout', path=relative.as_posix(), lines=[], truncated=False, query=query)
+        try:
+            if root is None:
+                raise ValueError('Project binding unavailable')
+            path = _file(root, relative)
+            if section == 'rules':
+                rows, truncated = _rules(path, scope)
+                result.update(rules=rows[offset:offset + limit], rule_total=len(rows), rules_incomplete=truncated)
+            else:
+                if query:
+                    result['log'].update(_search_log_file(path, query=query, match_index=match_index, limit=200, max_bytes=8 * 1024 * 1024))
+                else:
+                    lines, truncated, size = _tail_log_file(path, tail=200, max_bytes=1024 * 1024)
+                    result['log'].update(lines=lines, truncated=truncated, file_size=size)
+                result['log']['lines'] = [_sanitize_excerpt(line) for line in result['log']['lines']]
+        except (OSError, ValueError):
+            result['evidence_health'] = 'unavailable'
+    session.commit()  # Only the last-good, allowlisted QC cache may have changed.
+    return result

@@ -30,6 +30,7 @@ import {usePlatformCapabilities} from "../features/platform/PlatformCapabilities
 import {RunFilesTab, RunOverviewTab} from "../features/run-detail/RunResourceTabs";
 import {DEFAULT_RULE_QUERY, RunWorkflowTab} from "../features/run-detail/RunWorkflowTab";
 import {WgsQcTab} from "../features/run-detail/WgsQcTab";
+import {NativeExecutionPanel} from "../features/run-detail/NativeExecutionPanel";
 import type {RulePage, RuleQuery} from "../api";
 import {Step4RepairPanel} from "../features/run-detail/Step4RepairPanel";
 import {ResumeStagePanel} from '../features/run-detail/ResumeStagePanel';
@@ -195,6 +196,7 @@ export function RunDetailPage() {
   const {loading, error, refresh: refreshDetail} = useSilentRefresh(async ({isCurrent}) => {
     const freshDetail = await loadDetail(false, isCurrent);
     if (!freshDetail || !isCurrent()) return;
+    if (freshDetail.params?.native_monitor_only) return;
     const currentAttempt = freshDetail.attempt;
     const publish = (update: (current: Bundle) => Bundle) => {
       if (isCurrent()) setBundle((current) => current.detail?.attempt === currentAttempt ? update(current) : current);
@@ -238,7 +240,7 @@ export function RunDetailPage() {
         if (isCurrent()) setTabError(errorMessage(loadError));
         throw loadError;
       }
-  }, JSON.stringify([analysisId, activeTab, detail?.attempt, capabilityKey, logKey, logStream, Boolean(logQuery), ruleQuery]), !capabilities.loading && Boolean(analysisId));
+  }, JSON.stringify([analysisId, activeTab, detail?.attempt, capabilityKey, logKey, logStream, Boolean(logQuery), ruleQuery]), !capabilities.loading && Boolean(analysisId) && !detail?.params?.native_monitor_only);
 
   const failedRule = bundle.rules.find((rule) => isFailedStatus(rule.status));
   const diagnosis = parseErrorSummary(
@@ -289,6 +291,7 @@ export function RunDetailPage() {
   }
 
   if (loading && !detail) return <p className="muted">Loading run detail...</p>;
+  if (detail?.params?.native_monitor_only) return <NativeExecutionPanel key={analysisId} detail={detail} />;
 
   return (
     <div className="page-stack run-detail-page">
