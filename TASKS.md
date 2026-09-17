@@ -1,5 +1,11 @@
 # TASKS.md
 
+## SAMPLEINFO-READ-CHECK-20260917A
+
+- [x] Run only sampleinfo in BS10610 isolated test output, not production.
+- [x] Confirm11 metadata records and key fields; distinguish9 known/2 blank batches.
+- [x] No analysis, callback execution, pending or platform changes.
+
 ## PROD-AUTO-INTAKE-20260917
 
 - [x] Verify exact Clinical Samplelist directory on BS96 and existing gates.

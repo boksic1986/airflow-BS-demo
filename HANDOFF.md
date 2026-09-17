@@ -1,5 +1,29 @@
 # HANDOFF.md
 
+## 2026-09-17 Isolated sampleinfo-only query
+
+User requested checking20260917A sample metadata and explicitly prohibited
+execution in production directories. Only preliminary production service metadata
+was read; catalog host read returned PermissionError, no production command ran.
+Actual sampleinfo executed on BS10610 from isolated writable test root
+/mnt/biodevrwsg2/33.chenjiucheng/WGS_test/sampleinfo-check-20260917A-20260917.
+Source WGS checkout HEAD ebf1f4bf2512feecdc3762e463145130192ca8bb/V4.2.1.
+The provided Samplelist was copied into test/input and SHA256 matched; no patient
+rows copied into Git or local artifacts. Logs/output remain private0700/0600.
+Command: prepare_wgs_batch.py sampleinfo --outpath <test-root> --samplelist-dir
+<test-root>/input --batch20260917A --analysis-batch20260917A --platformT7.
+Normal metadata source used; no test LIMS substitution, refetch, analysis,
+callback execution, pending operation, platform registration or service change.
+Exit0:11 rows/34 columns; all11 have sample/order/family/relation/sex and task IDs.
+9 have current sequencing batch;2 have blank sequencing batch. Input WGS IDs7,
+plus4 family-expanded records; original unsuffixed .true evidence confirms all4
+belong to input families, including the2 blank-batch members. Raw families3;
+normal output has5 after existing naming rules. No final selected-count claim.
+Initial attempt to create test directory via /sg2 failed read-only before creation;
+used approved writable /mnt/biodevrwsg2 test mount. No permissions widened.
+Only callback script generated, not executed. No formal project/pending modified.
+No code changes or broad tests required; output can be reviewed in remote test root.
+
 ## 2026-09-17 Authorized production automatic intake activation
 
 User explicitly requested scanning /sg2/50.ctapa/Clinical/WGS_Clinical/HWcloud_Target_Capture

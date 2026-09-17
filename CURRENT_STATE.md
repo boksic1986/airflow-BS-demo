@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Sampleinfo availability checked in isolation
+
+BS10610 WGS V4.2.1 ebf1f4b sampleinfo-only query for20260917A succeeded:
+11 rows/34 columns from7 input WGS identifiers plus4 family-expanded records.
+9 rows carry current sequencing batch;2 expanded relatives have blank batch.
+Key sample/order/family/relation/sex/task-ID fields present in all11. Output only
+under /mnt/biodevrwsg2/33.chenjiucheng/WGS_test/sampleinfo-check-20260917A-20260917;
+no production-directory execution, analysis, callback, pending or platform mutation.
+
 ## 2026-09-17 Production automatic intake enabled
 
 BS96 now scans /sg2/50.ctapa/Clinical/WGS_Clinical/HWcloud_Target_Capture every
