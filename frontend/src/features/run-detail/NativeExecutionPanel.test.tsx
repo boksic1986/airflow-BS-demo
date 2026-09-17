@@ -58,7 +58,7 @@ it('keeps the log search input mounted across a server search refresh', async ()
   expect(search).toHaveValue('mapping');
 });
 
-it('shows native measured progress and expands the shared rule evidence table', async () => {
+it('shows percentage progress and plain rules without expansion controls', async () => {
   vi.mocked(getNativeRunView).mockResolvedValue({...response(),
     progress: {available: true, percent: 25, completed_units: 2, total_units: 8, observed_rules: 3},
     rules: [{rule: 'pre_process_mapping', rule_instance_id: 'E2:3', job_id: '3',
@@ -68,6 +68,7 @@ it('shows native measured progress and expands the shared rule evidence table', 
   expect(await screen.findByRole('progressbar')).toHaveAttribute('aria-valuenow', '25');
   fireEvent.click(screen.getByRole('tab', {name: 'Rules'}));
   const table = await screen.findByRole('table', {name: 'Pipeline rule instances'});
-  fireEvent.click(within(table).getByRole('button', {name: 'Details for pre_process_mapping'}));
+  expect(within(table).queryByRole('button', {name: 'Details for pre_process_mapping'})).toBeNull();
+  expect(within(table).getByText('pre_process_mapping')).toBeInTheDocument();
   expect(within(table).getByText('Native log line 8')).toBeInTheDocument();
 });

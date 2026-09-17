@@ -1,5 +1,14 @@
 # TASKS.md
 
+## NATIVE-DISPLAY-SIMPLE-20260917
+
+- [x] Remove rule expansion controls and unused expansion styles.
+- [x] Restore measured percent for native logs larger than 8 MiB.
+- [x] Reuse exact-name phase catalog when native cloud release ID is absent.
+- [x] Check GATK evidence without inventing child starts; scoped tests/build pass.
+- [ ] Publish BS10610 and verify actual tracker percent and phase labels.
+
+
 ## GATK-CHILD-TIMING-20260917
 
 - [x] Trace worker raw events, RuleState and serialized timing for test smoke.

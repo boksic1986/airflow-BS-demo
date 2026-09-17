@@ -74,7 +74,7 @@ export function NativeExecutionPanel({detail}: {detail: RunDetail}) {
         {tab === 'Samples' ? <><p className="muted">本次冻结配置范围；不代表所有样本均重新执行。</p><div className="table-wrap"><table className="data-table" aria-label="Execution samples"><thead><tr><th>Data ID</th><th>Sample</th><th>Family</th></tr></thead><tbody>
           {view.samples.map(row => <tr key={row.data_id}><td>{row.data_id}</td><td>{row.sample_id}</td><td>{row.family_id || '-'}</td></tr>)}
           {!view.samples.length ? <tr><td colSpan={3}>尚无执行样本快照</td></tr> : null}</tbody></table></div></> : null}
-        {tab === 'Rules' ? <><p className="muted">本次日志中的 Rule；展开查看证据。时间按执行节点本地时间显示。{view.rules_incomplete ? ' 日志扫描未覆盖全部内容。' : ''}</p>
+        {tab === 'Rules' ? <><p className="muted">本次日志中的 Rule；时间按执行节点本地时间显示。</p>
           <div className="rule-filters">
             <label>Status<select aria-label="Rule status" value={ruleStatus} onChange={e => {setRuleStatus(e.target.value); setOffset(0);}}><option value="">All</option>{['running','success','failed','unknown'].map(s => <option key={s}>{s}</option>)}</select></label>
             <label>Sample<input aria-label="Exact sample" value={sampleId} onChange={e => {setSampleId(e.target.value); setOffset(0);}} placeholder="Exact sample ID" /></label>

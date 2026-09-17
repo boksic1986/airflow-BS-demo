@@ -1,5 +1,25 @@
 # HANDOFF.md
 
+## 2026-09-17 Native display simplification requested by user
+
+Scope: no rule expansion, common numeric percentage bars, native phase labels and
+GATK child status recheck. No new UI panels, pipeline logic, logger, image or rerun.
+Root cause: native log grew to 11.5 MB; 8 MiB prefix parser marked progress false
+despite earlier completed/total. Streaming complete lines now reads later events
+without holding entire log in memory; partial final line cannot invalidate prior
+complete measurement. Rules/progress remain exact execution-file fenced.
+No cloud release ID is registered for native run; use shared exact-name catalog
+solely for module labels, without claiming verified source release.
+Tests: red reproduced Unknown mapping and unavailable large-log progress; frontend
+red reproduced unwanted expansion button. Green: 13 backend, 15 frontend and
+TypeScript/Vite build using cached BS10610 images. GATK evidence includes worker
+BQSR starts but only planned apply-BQSR/HaplotypeCaller; no status override added.
+Files: wgs_onprem_views.py, shared Rule table/native panel/styles, tests and docs.
+SSH via18 intermittently aborted; alternate via96 transport succeeded. No compute,
+pending, database schema or production changed. Publish backend/frontend only;
+preserve prior GATK child timing and phase overlay. Rollback code/config only.
+
+
 ## 2026-09-17 GATK child timing repair
 
 Publication:08e6744, BS10610 backend8131b8a1134c uses

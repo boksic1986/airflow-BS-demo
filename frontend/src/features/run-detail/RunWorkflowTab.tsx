@@ -1,4 +1,4 @@
-import {Fragment, useMemo, useState} from "react";
+import {useMemo, useState} from "react";
 
 import type {AirflowTaskProgress, RuleEvent, RulePage, RuleQuery, RunProgressResponse} from "../../api";
 import {StatusBadge} from "../../components/StatusBadge";
@@ -120,13 +120,12 @@ export function RuleInstanceTable({rules, onOpenLog}: {
   rules: RuleEvent[];
   onOpenLog?: (key: string) => void;
 }) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   return <div className="table-wrap"><table className="data-table rule-instance-table" aria-label="Pipeline rule instances">
     <thead><tr>{["Phase", "Rule", "Sample", "Family", "Order", "Job", "Status", "Started", "Finished", "Elapsed", "Remaining", "Message / failure excerpt"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
     <tbody>{rules.map((rule, index) => {
       const key = JSON.stringify([rule.attempt, rule.rule_instance_id || [rule.rule, rule.sample_id, rule.family_id, rule.sequence, rule.snakemake_jobid, index]]);
-      return <Fragment key={key}><tr>
-        <td>{rule.phase || "Unknown"}</td><td className="rule-name-cell"><button className="text-button rule-expand" aria-label={`Details for ${rule.rule}`} aria-expanded={expanded.has(key)} onClick={() => setExpanded(previous => {const next = new Set(previous); if (next.has(key)) next.delete(key); else next.add(key); return next;})}><span aria-hidden="true">{expanded.has(key) ? '▾' : '▸'}</span> <span>{rule.rule}</span></button></td><td>{rule.sample_id || "-"}</td><td>{rule.family_id || "-"}</td><td>{rule.sequence ?? "-"}</td>
+      return <tr key={key}>
+        <td>{rule.phase || "Unknown"}</td><td className="rule-name-cell">{rule.rule}</td><td>{rule.sample_id || "-"}</td><td>{rule.family_id || "-"}</td><td>{rule.sequence ?? "-"}</td>
         <td>{rule.snakemake_jobid || "-"}</td>
         <td><StatusBadge status={displayRuleStatus(rule.status)} />{rule.status_inferred ? <small>Inferred from run success</small> : null}</td>
         <td>{rule.started_at || rule.start_time ? formatDate(rule.started_at || rule.start_time) : rule.native_started_at || "未采集"}</td><td>{rule.ended_at || rule.end_time ? formatDate(rule.ended_at || rule.end_time) : rule.native_ended_at || "未采集"}</td><td>{duration(rule.elapsed_seconds)}</td><td>{duration(rule.estimated_remaining_seconds)}</td>
@@ -134,12 +133,7 @@ export function RuleInstanceTable({rules, onOpenLog}: {
           {rule.stderr_excerpt ? <details><summary>{rule.message || "Show failure excerpt"}</summary><pre>{rule.stderr_excerpt}</pre></details> : (rule.message || "-")}
           {rule.analysis_log_key && onOpenLog ? <button type="button" className="text-button" aria-label={`Open log for ${rule.rule}`} onClick={() => onOpenLog(rule.analysis_log_key!)}>Open log</button> : null}
         </td>
-      </tr>{expanded.has(key) ? <tr className="rule-expanded-row"><td colSpan={12}><dl className="definition-grid">
-        <div><dt>Rule instance</dt><dd>{rule.rule_instance_id || rule.snakemake_jobid || '-'}</dd></div>
-        <div><dt>Evidence source</dt><dd>{rule.origin || 'Runtime events'}</dd></div>
-        <div><dt>Timing source</dt><dd>{rule.timing_provenance === 'native_log_local_time' ? 'Native log · 节点本地时间' : rule.timing_provenance || '未采集'}</dd></div>
-        <div><dt>Execution group</dt><dd>{rule.execution_group || '-'}</dd></div>
-      </dl>{rule.execution_group_members?.length ? <p className="muted">Group members（仅成员关系，不推断状态）：{rule.execution_group_members.map(member => member.rule).join(', ')}</p> : null}</td></tr> : null}</Fragment>;
+      </tr>;
     })}{rules.length === 0 ? <tr><td colSpan={12} className="empty-cell">No matching Rule instances.</td></tr> : null}</tbody>
   </table></div>;
 }

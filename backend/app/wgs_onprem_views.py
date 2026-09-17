@@ -117,20 +117,25 @@ def _rules(path, scope):
 
 
 def _rule_evidence(path, scope):
+    # Scan line-by-line: verbose alignment logs exceed 8 MiB long before the
+    # next completion. Keep memory bounded without discarding later evidence.
+    with path.open('r', encoding='utf-8', errors='replace') as handle:
+        return _parse_rule_lines(handle, scope)
+
+
+def _parse_rule_lines(lines, scope):
     # Text is evidence of declarations/completions, not a complete scheduled DAG.
-    with path.open('rb') as handle:
-        raw = handle.read(8 * 1024 * 1024)
-        incomplete = bool(handle.read(1))
-    lines = raw.decode('utf-8', errors='replace').splitlines()
-    if raw and not raw.endswith(b'\n'):
-        lines = lines[:-1]
-        incomplete = True
+    incomplete = False
     identities = {item['data_id']: item for item in scope}
     result, latest, current = [], {}, None
     timestamp = None
     total, completed = None, None
     in_stats = False
     for number, line in enumerate(lines):
+        if not line.endswith('\n'):
+            incomplete = True
+            continue  # Ignore only the unfinished line, not earlier measurements.
+        line = line.rstrip('\r\n')
         stamp = re.fullmatch(r'\[(\w{3} \w{3} +\d{1,2} \d{2}:\d{2}:\d{2} \d{4})\]', line.strip())
         if stamp:
             timestamp = stamp[1]  # Native local time; do not silently invent a timezone.
@@ -187,7 +192,7 @@ def _rule_evidence(path, scope):
                     current.update(sample_id=identity['sample_id'], family_id=identity.get('family_id'))
             if not line.strip():
                 current = None
-    available = bool(total and completed is not None and not incomplete)
+    available = bool(total and completed is not None)
     return result, incomplete, dict(available=available,
         percent=round(completed / total * 100, 2) if available else None,
         completed_units=completed, total_units=total, unit='rules', source='native_step1_log',
@@ -233,9 +238,13 @@ def native_view(*, session, settings, analysis_id, execution_id=None, section='s
             rows, truncated, progress = native_rule_evidence(settings, run, pair[0], scope)
             result.update(progress=progress, rules_incomplete=truncated)
             if section == 'rules':
-                from app.workflow_phases import wgs_phase_for_rule, run_phase_release
+                from app.workflow_phases import wgs_phase_for_rule, run_phase_release, PINNED_WGS_PHASES
                 for row in rows:
-                    row['phase'] = wgs_phase_for_rule(row['rule'], release_id=run_phase_release(run))
+                    release = run_phase_release(run)
+                    # Native registration may lack a cloud release ID. Use the
+                    # shared exact-name catalog for display, not runtime attestation.
+                    row['phase'] = (PINNED_WGS_PHASES['rules'].get(row['rule'], 'Unknown')
+                        if release == 'unavailable' else wgs_phase_for_rule(row['rule'], release_id=release))
                 rows = [row for row in rows if (not rule_status or row['status'] == rule_status)
                     and (not sample_id or row['sample_id'] == sample_id)
                     and (not family_id or row['family_id'] == family_id)]

@@ -133,9 +133,24 @@ def test_native_log_progress_and_rule_details_use_only_current_execution(context
     assert payload['rules'][1]['rule_instance_id'] != payload['rules'][0]['rule_instance_id']
     assert payload['rules'][1]['sample_id'] == 'SYN_METADATA'
     assert payload['rules'][1]['timing_provenance'] == 'native_log_local_time'
+    assert payload['rules'][0]['phase'] == 'Mapping'
     old = client.get(url, params={'execution_id': first['execution_id'], 'section': 'rules'}).json()
     assert old['progress']['available'] is False
     assert old['rule_total'] == 0
+
+
+def test_native_progress_survives_large_log_and_partial_tail(tmp_path):
+    from app.wgs_onprem_views import _rule_evidence
+    path = tmp_path / 'step1.synthetic.log'
+    with path.open('w') as handle:
+        handle.write('Job stats:\ntotal 208\n4 of 208 steps (1%) done\n')
+        for _ in range(9000):
+            handle.write('worker diagnostic ' + 'x' * 1000 + '\n')
+        handle.write('5 of 208 steps (2%) done\n6 of 208 steps (2%) do')
+    _, _, progress = _rule_evidence(path, [])
+    assert progress['available'] is True
+    assert progress['completed_units'] == 5
+    assert progress['percent'] == 2.4
 
 
 def test_native_dashboard_and_sample_resource_project_scope_without_sample_rows(context, tmp_path):

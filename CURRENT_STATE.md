@@ -1,5 +1,17 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Native display simplification
+
+User requested removal of per-rule expansion. Shared table now renders rule names
+directly. Native log reader streams all complete lines instead of truncating at
+8 MiB; latest complete progress remains valid while a trailing line is being
+written. Both existing progress bars consume that same numeric progress.
+Native rules without cloud release ID use shared exact-name phase catalog for
+display only, not runtime/version attestation. 13 backend / 15 frontend tests
+and cached production build passed. GATK raw worker evidence still has no
+apply-BQSR/HaplotypeCaller start; statuses intentionally not fabricated.
+
+
 ## 2026-09-17 GATK Worker child timing projection
 
 Published 08e6744 to BS10610 backend8131b8a1134c, source

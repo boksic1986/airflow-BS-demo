@@ -798,3 +798,10 @@ Rule responses retain recorded individual start/elapsed when the matching instan
 has explicit worker job_info with group_member=false, even if that event omits
 status. Unnamed job_started is already joined by stream/job in RuleState. Neither
 group inventory nor an individual declaration without recorded start creates time.
+# Native log progress and phase display (2026-09-17)
+
+Native rule/progress parsing streams complete lines beyond 8 MiB; progress remains
+available from the latest complete measurement despite an unfinished final line.
+The native-only phase label falls back to the shared exact-name WGS catalog if
+registration has no cloud pipeline_release_id. This classifies displayed modules;
+it does not attest the native source version or change execution/selection logic.

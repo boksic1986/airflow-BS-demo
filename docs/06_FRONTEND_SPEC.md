@@ -484,3 +484,8 @@ QC status source text is separate from its judgment badge: only judgment.status
 sets color, so a source PASS under an unknown policy cannot appear green.
 Terminal stage estimates say `Estimate frozen — execution ended`, never
 `Still executing`; measured progress continues to take precedence.
+# Native/CCE rule display simplification (2026-09-17)
+
+Rule names are plain table text, with no per-rule expansion. Keep existing columns
+and Open log. Native detail and tracker use the existing RunProgressBar percentage
+with measured completed/total from the same execution log. No extra progress UI.
