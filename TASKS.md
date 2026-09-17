@@ -7,7 +7,9 @@
 - [x] Shared CCE/native expandable Rule component; native running filter/25 rows.
 - [x] SQL-paged current snapshot sample projection without Sample duplication.
 - [x] Bounded review and 22 backend / 15 frontend tests plus build.
-- [ ] Publish test branch and BS10610 backend/frontend, preserve live GATK phases.
+- [x] Commit 95b0144 to test branch and publish BS10610 backend/frontend;
+  preserve live GATK phases and other eight service identities. Measured 4/208,
+  3 samples and unchanged native execution verified after publication.
 
 
 ## ONPREM-ROOT-DRIFT-20260917

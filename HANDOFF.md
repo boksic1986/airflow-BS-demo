@@ -1,5 +1,38 @@
 # HANDOFF.md
 
+## 2026-09-17 ONPREM-UI-PARITY test publication receipt
+
+Application commit95b0144 on jiucheng/test/wgs-local-main-sync-20260917 deployed
+to BS10610 releases/20260917-native-ui-95b0144. Backend0e1fb77dc754,
+frontendac0662b4f601. Eight other service IDs unchanged. No native execution
+identity, prepare state, database schema, pending or running compute changed.
+Private control candidates/native-ui-95b0144-control contains compose.json,
+rollback.json and inventory. Compose configuration validated before recreation.
+Preserved live GATK workflow_phases.py from b3abd65 via hash-recorded overlay;
+release/PRESERVED_GATK_PHASE.json records source and hash. All other app sources
+match tested candidate. Approved root saved in both live and previous canonical
+composition so later same-config restart will not omit it.
+
+Post-deploy gateway /api/health and new JS asset HTTP200; deployed read-only
+projections show batch20260910A, 3 samples, 4/208 rules (1.92%), 3 running rules,
+current execution unchanged and fresh monitor timestamp06:55:13UTC. Environment
+diff contains only approved project roots; existing gates preserved.
+
+Verification-only errors: loopback127.0.0.1 connection refused because gateway
+binds host IP; correct host URL passed. Native-view entry uses SELECT FOR UPDATE
+for its existing QC cache, so read-only transaction refused it; used its pure
+native_rule_evidence reader plus tracker/sample projections under READ ONLY,
+without relaxing transaction or modifying application for this probe. SSH jump
+viaBS96 briefly aborted, direct configured BS10610 succeeded. Browser connector
+inventory failed network request; no browser visual acceptance claimed. Existing
+component tests/build and deployed assets verified; user can refresh test page.
+
+Rollback: restore only backend/frontend using private rollback.json, and saved
+canonical composition from private saved-compose-0.json as needed. Do not remove
+other service containers despite the expected partial-compose orphan warning.
+No main/production merge, force push or analysis rerun performed.
+
+
 ## 2026-09-17 ONPREM-UI-PARITY implementation and review
 
 User approved native UI repair and commit to test branch, with CCE-style rule

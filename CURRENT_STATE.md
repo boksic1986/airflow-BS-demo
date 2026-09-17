@@ -1,5 +1,16 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Native UI parity published to BS10610
+
+Application commit 95b0144 deployed as releases/20260917-native-ui-95b0144.
+Backend 0e1fb77dc754, frontend ac0662b4f601; other eight service IDs unchanged.
+Live tracker now shows short batch, 3 samples, running and measured 4/208 (1.92%)
+at verification. Same execution retained. Current GATK phase overlay preserved.
+Gateway health/new assets HTTP200; approved roots saved in deployment composition.
+No main/production merge. Browser inspection unavailable due connector networking;
+UI component tests/build passed, visual user review remains available on test panel.
+
+
 ## 2026-09-17 Native UI parity ready for BS10610 publication
 
 ONPREM-UI-PARITY: current-snapshot samples/count, short batch, actual native-log

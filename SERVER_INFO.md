@@ -1,5 +1,15 @@
 # SERVER_INFO.md
 
+## 2026-09-17 Native UI parity deployment
+
+BS10610 backend0e1fb77dc754 and frontendac0662b4f601 use
+releases/20260917-native-ui-95b0144. Private composition/rollback:
+candidates/native-ui-95b0144-control. Actual mounts supersede stale current symlink.
+SOURCE_COMMIT95b0144 plus preserved live b3abd65 GATK phase hash overlay.
+Other eight services retained; main-sync saved composition backend/frontend
+entries also updated, including approved Local project root. Test gateway health200.
+
+
 ## 2026-09-17 Native root restoration supersedes earlier entry
 
 Backend b8125409b663 uses private candidates/onprem-root-restore-20260917-control/
