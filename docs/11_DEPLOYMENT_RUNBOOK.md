@@ -1,5 +1,13 @@
 # Deployment runbook
 
+## Complete QC count publication (2026-09-17)
+
+BS96 backend/frontend now use qc-all-counts-4e9196d-control/compose.json;
+rollback.json retains the preceding paired QC policy release. Other services
+keep their existing compositions. Use only backend/frontend-nginx with --no-deps
+--pull never, then nginx reload and real-client API checks. Do not redeploy an
+old global current composition. Receipt: releases/2026-09-17-qc-all-counts-bs96.md.
+
 ## QC policy and UI publication (2026-09-17)
 
 BS96 backend/frontend now use qc-policy-fcc3fc9-control/compose.json;

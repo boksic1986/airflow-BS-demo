@@ -1,5 +1,16 @@
 # SERVER_INFO.md
 
+## 2026-09-17 Complete QC criteria/counts release4e9196d
+
+BS96 backend2950f374ab8a mounts
+/data/airflow-WGS/releases/20260917-qc-all-counts-4e9196d/backend.
+Frontend721f3e76239e, airflow-demo/frontend:qc-all-counts-4e9196d,
+image0ac25241b52174e0bbf6840d1ab33ff1637c0fde025ab0c76e320c3062840e96.
+Served JS index-B9fxb3fV.js. Paired private Compose/rollback:
+/data/airflow-WGS/qc-all-counts-4e9196d-control. Other10services unchanged.
+All env/gates retained; actual gateway/API checks passed. Full receipt:
+docs/releases/2026-09-17-qc-all-counts-bs96.md.
+
 ## 2026-09-17 QC policy fcc3fc9 release
 
 BS96 backend8450fcef0b9f mounts

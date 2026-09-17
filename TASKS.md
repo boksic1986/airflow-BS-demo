@@ -6,9 +6,10 @@
 - [x] Supplement missing SNV/CNV counts with safe project-local cached reads.
 - [x] Keep all22 criterion columns, missing/inapplicable markers and judgments.
 - [x] BS10610 RED/GREEN34backend,4frontend tests and build.
-- [ ] Final deployed verification and paired publication; not deployed this turn.
+- [x] User-approved main/production push and paired BS96 publication.
+- [x] Deployed requested-sample SNV/CNV count judgments and gateway verified.
 
-No extra batch analysis or threshold changes. Production still b373ad2/fcc3fc9.
+No extra batch analysis or threshold changes. Production application4e9196d.
 
 ## QC-POLICY-EBF1F4B-20260917
 

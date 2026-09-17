@@ -1,5 +1,15 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Complete QC metrics published to BS96
+
+User-approved4e9196d pushed to main/production; normal production clone synced.
+Backend2950f374ab8a uses20260917-qc-all-counts-4e9196d/backend; frontend
+721f3e76239e serves index-B9fxb3fV.js. Targeted34backend/4frontend and build pass.
+Actual gateway health/assets200, login422; requested sample SNVfail/CNVpass
+and source warn verified. Other10service IDs and exact environments preserved.
+Receipt: docs/releases/2026-09-17-qc-all-counts-bs96.md. This supersedes candidate
+status below; no analysis triggered, GATK smoke remains paused.
+
 ## 2026-09-17 Complete QC metrics candidate, not deployed
 
 Native g1 checks both SNV/CNV table row counts but does not export them in QCstat.

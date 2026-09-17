@@ -1,5 +1,27 @@
 # HANDOFF.md
 
+## 2026-09-17 All QC criteria production publication complete
+
+User explicitly authorized main/production merge and BS96 publication. Code
+4e9196d atomically pushed; normal local main/production ff synced. Full backend
+app hashes compared against live: only wgs_sample_projection.py changed.
+Private candidate copied exact live config and changed only /app source and
+frontend image. BS10610 targeted34passed; BS96 source-build UI4passed/build
+passed, using cached network-isolated containers. No broad tests/analysis.
+
+At03:00Z recreated backend2950f374ab8a and frontend721f3e76239e. Other10IDs and
+all env values unchanged. Actual gateway health/newJS200, empty login422;
+deployed requested-sample SNV/CNV values/statuses verified against prior direct
+input counts, source warn preserved. No patient rows written/logged in evidence.
+No automatic browser login, no rerun or DB/pending change. GATK smoke paused.
+
+Direct96 SSH failed at handshake(exit255) before cutover; normal route worked
+and old IDs were reconfirmed. No ACL/security changes. Receipt/rollback:
+docs/releases/2026-09-17-qc-all-counts-bs96.md and private
+/data/airflow-WGS/qc-all-counts-4e9196d-control/rollback.json. Roll back only
+backend/frontend code, reload nginx; preserve data and other services.
+Completion docs commit does not change tested/deployed application source.
+
 ## 2026-09-17 All QC criteria and missing count inputs candidate
 
 User asked to check CNV count as well and list all metrics. Native ebf1f4b g1
