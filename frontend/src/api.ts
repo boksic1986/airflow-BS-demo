@@ -1628,12 +1628,13 @@ export type NativeExecution = {
   registered_by: string; sample_count: number; created_at?: string | null;
   started_at?: string | null; ended_at?: string | null;
 };
-export type NativeViewQuery = {execution_id?: string; section?: string; offset?: number; history_offset?: number; query?: string; match_index?: number; rule_status?: string; sample_id?: string; family_id?: string};
+export type NativeViewQuery = {execution_id?: string; section?: string; offset?: number; history_offset?: number; query?: string; match_index?: number; rule_status?: string; sample_id?: string; family_id?: string; phase?: string};
 export type NativeRunView = {
   analysis_id: string; current_execution_id: string | null; selected: NativeExecution | null;
   executions: NativeExecution[]; history_total: number; history_offset: number;
   samples: Array<{data_id: string; sample_id: string; family_id: string | null}>; sample_total: number;
   rules: Array<RuleEvent & {job_id: string; source_line: number}>;
+  phase_summaries?: RulePage['phase_summaries']; log_error?: string | null;
   progress?: {available: boolean; percent: number | null; completed_units?: number | null; total_units?: number | null; observed_rules: number};
   rule_total: number; rules_incomplete: boolean; log: RunLog | null; offset: number; limit: number;
   evidence_health: string; monitoring?: {monitoring_health?: string; checked_at?: string} | null;

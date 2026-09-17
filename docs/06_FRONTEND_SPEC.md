@@ -2,11 +2,14 @@
 
 ## Native run presentation parity (2026-09-17 test branch)
 
-Native run details separate summary and measured-progress cards, folded execution
-history/technical identity, and data tabs. Reuse RunProgressBar and RuleInstanceTable
-for native and CCE evidence; Rule-name buttons expand identity/source/timing/group
-metadata, never fabricate child states. Local Rules default running,25/page with
-independent exact sample/family filters. Preserve expansion during same-view refresh.
+Native run details show summary, measured-progress cards and data tabs. Execution
+history/technical identity is not displayed; stored history remains intact.
+Reuse RunProgressBar and RunWorkflowTab (Pipeline phases, Pipeline steps, phase
+summary and plain Rule names) for native and CCE evidence. Native mode hides the
+cloud orchestration graph; no Master or transfer tabs. Local Rules default
+running,25/page with exact phase/sample/family filters. Phase totals cover all
+observed execution rules, independent of filters/paging, not unseen future rules.
+Logs uses the confirmed execution's Snakemake log, not mixed Step1 stdout/stderr.
 Native local timestamps remain labelled node-local, never silently converted to UTC.
 Dashboard shows short batch plus Local/SGE badge, configured count and actual start;
 it never offers CCE Submit for a registered native project. Samples shows native

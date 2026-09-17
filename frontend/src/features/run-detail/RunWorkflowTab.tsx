@@ -42,13 +42,14 @@ function summarizeRulePhases(rules: RuleEvent[]): RulePhaseSummary[] {
   });
 }
 
-export function RunWorkflowTab({progress, rules, onOpenLog, page, query, onQueryChange}: {
+export function RunWorkflowTab({progress, rules, onOpenLog, page, query, onQueryChange, native = false}: {
   progress: RunProgressResponse | null;
   rules: RuleEvent[];
   onOpenLog?: (key: string) => void;
   page?: RulePage;
   query?: RuleQuery;
   onQueryChange?: (query: RuleQuery) => void;
+  native?: boolean;
 }) {
   const airflowTasks = (progress?.airflow_tasks || []).filter((task) => normalizeStatus(task.state) !== "skipped");
   const phases = useMemo(() => page?.phase_summaries || summarizeRulePhases(rules), [rules, page]);
@@ -76,11 +77,11 @@ export function RunWorkflowTab({progress, rules, onOpenLog, page, query, onQuery
 
   return (
     <div className="workflow-tab-stack">
-      <LayeredWorkflowTimeline airflowTasks={airflowTasks} phases={phases} pipeline={progress?.pipeline} progress={progress} />
+      {native ? <PipelinePhases phases={phases} /> : <LayeredWorkflowTimeline airflowTasks={airflowTasks} phases={phases} pipeline={progress?.pipeline} progress={progress} />}
       <section>
         <div className="section-heading">
           <div><h2>Pipeline steps</h2><h3>Pipeline phase summary</h3></div>
-          <p>Rule events are grouped into production phases; failed and current rule logs are available in Logs.</p>
+          <p>{native ? '本次日志中已采集的规则；汇总不受下方筛选影响。' : 'Rule events are grouped into production phases; failed and current rule logs are available in Logs.'}</p>
         </div>
         <div className="table-wrap">
           <table className="data-table" aria-label="Pipeline phase summary">
@@ -105,7 +106,7 @@ export function RunWorkflowTab({progress, rules, onOpenLog, page, query, onQuery
       <section>
         <div className="toolbar">
           <label>Phase<input aria-label="Phase" value={query?.phase ?? phaseFilter} onChange={(e) => change("phase", e.target.value)} placeholder="Exact phase" /></label>
-          <label>Status<select aria-label="Rule status" value={query?.status ?? statusFilter} onChange={(e) => change("status", e.target.value)}><option value="">All</option>{["planned", "running", "success", "failed", "canceled"].map((v) => <option key={v}>{v}</option>)}</select></label>
+          <label>Status<select aria-label="Rule status" value={query?.status ?? statusFilter} onChange={(e) => change("status", e.target.value)}><option value="">All</option>{(native ? ["running", "success", "failed", "unknown"] : ["planned", "running", "success", "failed", "canceled"]).map((v) => <option key={v}>{v}</option>)}</select></label>
           <label>Sample<input aria-label="Sample" value={query?.sampleId ?? sampleFilter} onChange={(e) => change("sampleId", e.target.value)} placeholder="Exact sample ID" /></label>
           <label>Family<input aria-label="Family" value={query?.familyId ?? familyFilter} onChange={(e) => change("familyId", e.target.value)} placeholder="Exact family ID" /></label>
         </div>
@@ -160,9 +161,13 @@ function LayeredWorkflowTimeline({airflowTasks, phases, pipeline: _pipeline, pro
     <section className="layered-timeline" aria-label="Layered workflow timeline">
       <div className="section-heading"><h2>{title}</h2><p>Project orchestration and biological analysis phases</p></div>
       {(progress?.orchestration_stages || []).length ? <PipelineStageGraph progress={progress} /> : <div aria-label="Selected Airflow execution path"><TimelineLane title="Airflow project tasks" empty="No Airflow task instances returned yet." items={airflowTasks.map((task) => ({id: task.task_id, label: humanStageLabel(task.task_id), status: task.state || "unknown", meta: `try ${task.try_number ?? "not captured"}`}))} /></div>}
-      <TimelineLane title="Pipeline phases" empty="No rule events captured for this run." items={phases.map((phase) => ({id: phase.phase, label: phase.phase, status: phase.status, meta: `${phase.success}/${phase.total} jobs complete`}))} />
+      <PipelinePhases phases={phases} />
     </section>
   );
+}
+
+function PipelinePhases({phases}: {phases: RulePhaseSummary[]}) {
+  return <TimelineLane title="Pipeline phases" empty="No rule events captured for this run." items={phases.map((phase) => ({id: phase.phase, label: phase.phase, status: phase.status, meta: `${phase.success}/${phase.total} jobs complete`}))} />;
 }
 
 function PipelineStageGraph({progress}: {progress: RunProgressResponse | null}) {

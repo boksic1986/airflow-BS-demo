@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import {cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
+import {cleanup, fireEvent, render, screen, within} from '@testing-library/react';
 import {afterEach, expect, it, vi} from 'vitest';
 import {NativeExecutionPanel} from './NativeExecutionPanel';
 import {getNativeRunView} from '../../api';
@@ -18,13 +18,12 @@ function response(execution = 'E2') {
     qc: {scope: 'run_latest', health: 'available', updated_at: '2026-09-16T01:00:00Z', items: [{sample_id: 'QC_LATEST', qc_status: 'pass', qc_metrics: {average_depth: '41'}}]}, offset: 0, limit: 25};
 }
 
-it('defaults to current scope, switches history, and keeps QC run-wide without cloud actions', async () => {
+it('shows current scope and latest QC without technical history or cloud actions', async () => {
   vi.mocked(getNativeRunView).mockImplementation(async (_id, options) => response(options.execution_id || 'E2') as never);
   render(<NativeExecutionPanel detail={detail} />);
   expect(await screen.findByText('RENAMED')).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText('Execution'), {target: {value: 'E1'}});
-  expect(await screen.findByText('ORIGINAL')).toBeInTheDocument();
-  expect(screen.queryByText('RENAMED')).toBeNull();
+  expect(screen.queryByLabelText('Execution')).toBeNull();
+  expect(screen.queryByText('执行历史与技术信息')).toBeNull();
   fireEvent.click(screen.getByRole('tab', {name: 'QC'}));
   expect(await screen.findByText('QC_LATEST')).toBeInTheDocument();
   expect(screen.getByText(/本 run 最新 QC/)).toBeInTheDocument();
@@ -32,18 +31,19 @@ it('defaults to current scope, switches history, and keeps QC run-wide without c
   expect(screen.queryByRole('button', {name: /Submit|Cancel|Resume|SFS|repair/i})).toBeNull();
 });
 
-it('does not display the previous execution while a new selection is loading', async () => {
-  let resolveOld!: (value: never) => void;
-  vi.mocked(getNativeRunView).mockImplementation(async (_id, options) => options.execution_id === 'E1'
-    ? new Promise(resolve => {resolveOld = resolve;}) : response() as never);
+it('reuses phase summaries without CCE orchestration modules', async () => {
+  vi.mocked(getNativeRunView).mockResolvedValue({...response(), phase_summaries: [
+    {phase:'Mapping',status:'running',total:3,running:3,success:0,failed:0,canceled:0},
+    {phase:'FASTQ QC',status:'success',total:3,running:0,success:3,failed:0,canceled:0},
+  ]} as never);
   render(<NativeExecutionPanel detail={detail} />);
   await screen.findByText('RENAMED');
-  fireEvent.change(screen.getByLabelText('Execution'), {target: {value: 'E1'}});
-  await waitFor(() => expect(resolveOld).toBeDefined());
-  expect(screen.queryByText('RENAMED')).toBeNull();
-  resolveOld(response('E1') as never);
-  const table = await screen.findByRole('table', {name: 'Execution samples'});
-  expect(await within(table).findByText('ORIGINAL')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', {name:'Rules'}));
+  expect(await screen.findByText('Pipeline phases')).toBeInTheDocument();
+  expect(screen.getByRole('table', {name:'Pipeline phase summary'})).toBeInTheDocument();
+  expect(screen.getByText('3/3 jobs complete')).toBeInTheDocument();
+  expect(screen.queryByText('Workflow execution path')).toBeNull();
+  expect(screen.queryByText('Airflow project tasks')).toBeNull();
 });
 
 it('keeps the log search input mounted across a server search refresh', async () => {
@@ -53,6 +53,7 @@ it('keeps the log search input mounted across a server search refresh', async ()
   await screen.findByText('RENAMED');
   fireEvent.click(screen.getByRole('tab', {name: 'Logs'}));
   const search = await screen.findByRole('textbox', {name: 'Search logs'});
+  expect(screen.getByRole('option', {name: 'Snakemake log'})).toBeInTheDocument();
   fireEvent.change(search, {target: {value: 'mapping'}});
   await screen.findByText('matched', {exact: false});
   expect(search).toHaveValue('mapping');

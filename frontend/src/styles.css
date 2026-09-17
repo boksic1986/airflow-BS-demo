@@ -3886,9 +3886,6 @@ textarea {
 .native-run-page .definition-grid { row-gap: 1.1rem; }
 .native-progress-panel { display: flex; flex-direction: column; gap: 0.8rem; }
 .native-progress-panel p { margin: 0; }
-.native-history summary { cursor: pointer; font-weight: 600; }
-.native-history .rule-filters { margin-top: 1rem; align-items: end; }
-.native-history .rule-filters .field { flex: 1; min-width: 180px; }
 .native-data-panel .tabs { margin-bottom: 1rem; }
 .native-data-panel .rule-filters { margin: 1rem 0; gap: 1rem; }
 .native-data-panel .rule-filters label { flex: 1; min-width: 150px; gap: 0.5rem; }

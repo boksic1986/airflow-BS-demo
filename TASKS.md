@@ -1,5 +1,12 @@
 # TASKS.md
 
+## NATIVE-COMMON-VIEW-20260917
+
+- [x] Remove technical-history UI; retain stored execution history.
+- [x] Reuse phases/steps/summary without CCE-only modules; plain Rule names.
+- [x] Select execution-scoped Snakemake log; preserve tail/search/path fencing.
+- [ ] Complete scoped cached tests/build and BS10610-only publication.
+
 ## NATIVE-DISPLAY-SIMPLE-20260917
 
 - [x] Remove rule expansion controls and unused expansion styles.

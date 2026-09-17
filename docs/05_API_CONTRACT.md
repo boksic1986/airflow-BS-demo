@@ -4,11 +4,19 @@
 
 native-view additionally returns progress (available, percent, completed_units,
 total_units, observed_rules, source=native_step1_log). Rules and progress share
-the exact execution-specific Step1 log; bounded8MiB scans do not claim complete
-progress if truncated. rule_status/sample_id/family_id filters run before25-row
+the exact execution-specific Step1 log, streaming complete lines and retaining
+the last complete progress measurement. rule_status/phase/sample_id/family_id filters run before25-row
 paging. Rule rows add stable line identity, phase, native-local timestamps and
 timing provenance; missing evidence stays unknown and group declarations do not
 establish child start/completion. No new workflow logger or native command.
+
+native-view rules includes phase_summaries over all observed rules before filters
+and paging. Logs selects a unique `.snakemake/log/*.snakemake.log` timestamped
+within the execution's recorded start/end interval (current time for active runs).
+The execution-specific metadata start must match the registered stage start.
+Existing project binding/path checks remain; ambiguous, missing or unreadable
+logs return log_error and no content, never an arbitrary newest file. Log tail,
+search context and sanitization remain shared. No history deletion or DB change.
 
 Dashboard native rows expose native_monitor_only/execution_mode, use snapshot
 sample count and actual native start time, and use monitor-cached progress without

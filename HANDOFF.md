@@ -1,5 +1,21 @@
 # HANDOFF.md
 
+## 2026-09-17 Native common view and Snakemake log
+
+Scope: user requested common CCE phase/step summary UI without cloud modules,
+no technical-history section, Snakemake log only. Reuse RunWorkflowTab, remove
+unused native-history CSS and retain backend history. native-view adds phase
+filter and unfiltered phase_summaries; unique Snakemake log interval must match
+execution metadata and existing project binding. Missing/ambiguous log is an
+explicit log_error, no arbitrary newest-log fallback. No pipeline/logger change.
+Files: native views/API/tests, NativeExecutionPanel/shared workflow tab/styles,
+API client and interface/state docs. Tests first reproduced missing phases/log
+resolver and unwanted history controls. Corrected a failed SCP from wrong cwd;
+earlier tests against old remote files were not accepted as current validation.
+Test/build and deployment receipts follow. Test branch/BS10610 only, no main,
+production, DB schema, pending, prepare, rerun or compute restart. Preserve live
+GATK overlay and unrelated services. Rollback code/mounts only; retain all data.
+
 ## 2026-09-17 Native display simplification requested by user
 
 Publication38bdca1: releases/20260917-native-ui-38bdca1-r2,

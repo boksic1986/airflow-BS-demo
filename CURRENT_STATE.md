@@ -1,5 +1,13 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Native common phases and Snakemake log
+
+Test candidate: remove execution-history/technical UI without deleting history;
+reuse CCE Pipeline phases/steps/summary and plain rules, hide cloud orchestration.
+Summary covers all observed rules before filters. Logs reads the unique current
+execution Snakemake log instead of mixed Step1 output. BS10610 verification and
+publication in progress; no main/production or workflow execution changes.
+
 ## 2026-09-17 Native display simplification
 
 Published38bdca1 on BS10610: backend621cdc5e4a49, frontendbe24e052b2b5,

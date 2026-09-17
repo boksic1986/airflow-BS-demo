@@ -58,7 +58,8 @@ def test_current_and_history_scope_share_latest_qc_not_current_names(context, tm
 
 
 def test_exact_log_and_rule_inventory_never_reads_reused_project(context, tmp_path):
-    client, _, _, data = context
+    from datetime import datetime, timezone
+    client, factory, _, data = context
     first, second, url = history(context, tmp_path)
     root = Path(data['project_dir'])
     (root / 'log').mkdir()
@@ -72,8 +73,19 @@ def test_exact_log_and_rule_inventory_never_reads_reused_project(context, tmp_pa
     assert old.json()['rules'][0]['status'] == 'success'
     assert old.json()['rules'][1]['sample_id'] is None
     assert old.json()['rules'][1]['status'] == 'unknown'
+    (root / '.snakemake' / 'log').mkdir(parents=True)
+    (root / '.snakemake' / 'log' / '2026-09-17T140001.000000.snakemake.log').write_text(
+        'rule pre_process_mapping:\n    jobid: 3\nrule other:\n')
+    (root / 'log' / f'step1.{native_id}.metadata.tsv').write_text(
+        'started_at\t2026-09-17T14:00:00+0800\nfinished_at\t2026-09-17T15:00:00+0800\n')
+    with factory() as session:
+        stage = session.scalar(select(WgsStageExecution).where(WgsStageExecution.execution_id == first['execution_id']))
+        stage.started_at = datetime(2026, 9, 17, 6, tzinfo=timezone.utc)
+        stage.ended_at = datetime(2026, 9, 17, 7, tzinfo=timezone.utc)
+        session.commit()
     log = client.get(url, params={'execution_id': first['execution_id'], 'section': 'logs', 'query': 'MAPPING'}).json()
     assert log['log']['match_count'] == 1
+    assert log['log']['path'].startswith('.snakemake/log/')
     assert 'mapping' in log['log']['lines'][log['log']['match_line']]
     assert '    jobid: 3' in log['log']['lines']
     next_match = client.get(url, params={'execution_id': first['execution_id'], 'section': 'logs', 'query': 'rule', 'match_index': 1}).json()['log']
@@ -134,6 +146,10 @@ def test_native_log_progress_and_rule_details_use_only_current_execution(context
     assert payload['rules'][1]['sample_id'] == 'SYN_METADATA'
     assert payload['rules'][1]['timing_provenance'] == 'native_log_local_time'
     assert payload['rules'][0]['phase'] == 'Mapping'
+    filtered = client.get(url, params={'section': 'rules', 'rule_status': 'running'}).json()
+    assert filtered['rule_total'] == 1
+    assert sum(p['total'] for p in filtered['phase_summaries']) == 2
+    assert next(p for p in filtered['phase_summaries'] if p['phase'] == 'Mapping')['success'] == 1
     old = client.get(url, params={'execution_id': first['execution_id'], 'section': 'rules'}).json()
     assert old['progress']['available'] is False
     assert old['rule_total'] == 0
@@ -151,6 +167,29 @@ def test_native_progress_survives_large_log_and_partial_tail(tmp_path):
     assert progress['available'] is True
     assert progress['completed_units'] == 5
     assert progress['percent'] == 2.4
+
+
+def test_snake_log_selection_rejects_ambiguous_or_old_logs(tmp_path):
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+    from app.wgs_onprem_views import _snakemake_log
+    import pytest
+    root = tmp_path
+    (root / 'log').mkdir()
+    directory = root / '.snakemake' / 'log'
+    directory.mkdir(parents=True)
+    metadata = root / 'log' / 'step1.synthetic.metadata.tsv'
+    metadata.write_text('started_at\t2026-09-17T14:00:00+0800\nfinished_at\t2026-09-17T15:00:00+0800\n')
+    stage = SimpleNamespace(started_at=datetime(2026,9,17,6,tzinfo=timezone.utc), ended_at=None)
+    (directory / '2026-09-16T140001.000000.snakemake.log').write_text('old\n')
+    with pytest.raises(ValueError):
+        _snakemake_log(root, Path('log/step1.synthetic.metadata.tsv'), stage)
+    current = directory / '2026-09-17T140001.000000.snakemake.log'
+    current.write_text('current\n')
+    assert _snakemake_log(root, Path('log/step1.synthetic.metadata.tsv'), stage) == current
+    (directory / '2026-09-17T140002.000000.snakemake.log').write_text('ambiguous\n')
+    with pytest.raises(ValueError):
+        _snakemake_log(root, Path('log/step1.synthetic.metadata.tsv'), stage)
 
 
 def test_native_dashboard_and_sample_resource_project_scope_without_sample_rows(context, tmp_path):

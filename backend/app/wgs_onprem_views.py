@@ -207,9 +207,43 @@ def native_rule_evidence(settings, run, stage, scope):
     return _rule_evidence(_file(root, relative), scope)
 
 
+def _snakemake_log(root, metadata_relative, stage):
+    """Select the unique Snakemake log within this execution's recorded interval."""
+    with _file(root, metadata_relative).open('r') as handle:
+        raw = handle.read(65537)
+    if len(raw) > 65536:
+        raise ValueError('Metadata too large')
+    meta = dict(line.split('\t', 1) for line in raw.splitlines() if '\t' in line)
+    started = datetime.fromisoformat(meta['started_at'])
+    recorded = stage.started_at
+    if recorded and recorded.tzinfo is None:
+        recorded = recorded.replace(tzinfo=timezone.utc)
+    if started.tzinfo is None or recorded != started:
+        raise ValueError('Unconfirmed native start')
+    ended = datetime.fromisoformat(meta['finished_at']) if meta.get('finished_at') else stage.ended_at
+    if ended and ended.tzinfo is None:
+        ended = ended.replace(tzinfo=timezone.utc)
+    upper = (ended or datetime.now(timezone.utc)).astimezone(started.tzinfo).replace(tzinfo=None)
+    lower = started.replace(tzinfo=None)
+    directory = root / '.snakemake' / 'log'
+    if directory.is_symlink() or directory.parent.is_symlink():
+        raise ValueError('Symlink log directory')
+    matches = []
+    for path in directory.glob('*.snakemake.log'):
+        try:
+            stamp = datetime.strptime(path.name, '%Y-%m-%dT%H%M%S.%f.snakemake.log')
+        except ValueError:
+            continue
+        if lower <= stamp <= upper:
+            matches.append(_file(root, path.relative_to(root)))
+    if len(matches) != 1:
+        raise ValueError('No unique Snakemake log for this execution')
+    return matches[0]
+
+
 def native_view(*, session, settings, analysis_id, execution_id=None, section='samples',
                 offset=0, limit=25, history_offset=0, query='', match_index=0,
-                rule_status='', sample_id='', family_id=''):
+                rule_status='', sample_id='', family_id='', phase=''):
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id).with_for_update())
     if (run is None or not (run.params_json or {}).get('native_monitor_only')
             or 'wgs' not in getattr(settings, 'deployed_pipelines', ())):
@@ -226,7 +260,8 @@ def native_view(*, session, settings, analysis_id, execution_id=None, section='s
     result = dict(analysis_id=analysis_id, current_execution_id=run.params_json.get('current_native_execution_id'),
         executions=[_summary(*row) for row in pairs], history_total=total, history_offset=history_offset,
         selected=_summary(*pair) if pair else None, samples=[], sample_total=0, rules=[], rule_total=0,
-        rules_incomplete=False, log=None, qc=dict(scope='run_latest', items=[], health='unavailable'),
+        rules_incomplete=False, phase_summaries=[], log=None, log_error=None,
+        qc=dict(scope='run_latest', items=[], health='unavailable'),
         evidence_health='available', offset=offset, limit=limit,
         progress=dict(available=False, percent=None, observed_rules=0),
         monitoring=run.params_json.get('native_monitor'), configured_scope_only=True)
@@ -245,7 +280,16 @@ def native_view(*, session, settings, analysis_id, execution_id=None, section='s
                     # shared exact-name catalog for display, not runtime attestation.
                     row['phase'] = (PINNED_WGS_PHASES['rules'].get(row['rule'], 'Unknown')
                         if release == 'unavailable' else wgs_phase_for_rule(row['rule'], release_id=release))
+                from app.workflow_phases import summarize_rule_events, phase_order
+                labels = {row['rule']: row['phase'] for row in rows}
+                summaries = summarize_rule_events(rows, phase_projector=lambda rule, **_: labels[rule])['phases']
+                for summary in summaries:
+                    summary.update(canceled=0, status='failed' if summary['failed'] else
+                        'running' if summary['running'] else
+                        'success' if summary['success'] == summary['total'] else 'unknown')
+                result['phase_summaries'] = sorted(summaries, key=lambda item: phase_order(item['phase'], pipeline_name='wgs'))
                 rows = [row for row in rows if (not rule_status or row['status'] == rule_status)
+                    and (not phase or row['phase'] == phase)
                     and (not sample_id or row['sample_id'] == sample_id)
                     and (not family_id or row['family_id'] == family_id)]
                 result.update(rules=rows[offset:offset + limit], rule_total=len(rows))
@@ -270,13 +314,18 @@ def native_view(*, session, settings, analysis_id, execution_id=None, section='s
                 raise ValueError('Project binding unavailable')
             path = _file(root, relative)
             if section == 'logs':
+                path = _snakemake_log(root, relative.with_suffix('.metadata.tsv'), stage)
+                result['log']['path'] = path.relative_to(root).as_posix()
                 if query:
                     result['log'].update(_search_log_file(path, query=query, match_index=match_index, limit=200, max_bytes=8 * 1024 * 1024))
                 else:
                     lines, truncated, size = _tail_log_file(path, tail=200, max_bytes=1024 * 1024)
                     result['log'].update(lines=lines, truncated=truncated, file_size=size)
                 result['log']['lines'] = [_sanitize_excerpt(line) for line in result['log']['lines']]
-        except (OSError, ValueError):
-            result['evidence_health'] = 'unavailable'
+        except (OSError, ValueError, KeyError):
+            if section == 'logs':
+                result['log_error'] = '本次执行的 Snakemake 日志尚不可确认。'
+            else:
+                result['evidence_health'] = 'unavailable'
     session.commit()  # Only the last-good, allowlisted QC cache may have changed.
     return result
