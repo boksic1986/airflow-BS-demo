@@ -2,6 +2,13 @@
 
 ## 2026-09-17 Promote verified repair; defer BS96 until0915B completion
 
+Promotion result: atomic push advanced both remote main and
+jiucheng/release/production from0b384cc to9ed3b49. Local main had lagged at
+c6ac6ce and also fast-forwarded through the already-published GATK commit;
+that is not a new GATK change in this push. Both local worktrees clean after
+promotion. No production deployment performed. Final documentation-only
+completion commit follows9ed3b49 on both branches; reader/test bytes unchanged.
+
 Latest user instruction supersedes the previous indefinite deferral: anomalies
 still need repair; synchronize completed fixes to main and production, then
 deploy BS96 after this batch finishes, with no urgency. This task interprets

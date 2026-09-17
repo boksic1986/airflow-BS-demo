@@ -4,7 +4,8 @@
 
 - [x] User authorized main/production synchronization and delayed BS96 release.
 - [x] Fresh affected regression suite:19passed; no expanded workflow tests.
-- [ ] Fast-forward main and jiucheng/release/production; atomic push and verify refs.
+- [x] Main and jiucheng/release/production fast-forwarded and atomically pushed
+  to9ed3b49; source repair cb1c3fe included. Deployment remains deferred.
 - [x] Thread heartbeat0915b created,30-minute interval, quiet while running.
 - [ ] After0915B completes and safe-task/permission checks pass, publish only
   tested reader to backend/reference-worker and verify normal ledger health.
