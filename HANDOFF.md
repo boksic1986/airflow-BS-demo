@@ -1,5 +1,46 @@
 # HANDOFF.md
 
+## 2026-09-17 WGS/GATK CCE connection recovery design only
+
+User approved the unified Step1–6 design, then requested documentation committed
+to the test branch for future development. Baseline test e17c2ac; observed
+main/production0b384cc are not targets. Target branch:
+jiucheng/test/wgs-local-main-sync-20260917. No application implementation.
+
+Files: docs/superpowers/specs/2026-09-17-wgs-gatk-cce-connection-recovery-design.md,
+CURRENT_STATE.md, TASKS.md and HANDOFF.md only. Design distinguishes transport,
+control, monitoring and authoritative execution failure; retains bounded retry,
+frozen identity/checkpoints/journals/leases and generation fencing. GATK recovery
+needs adapter implementation; the WGS-only action is not claimed to work today.
+An opaque kubectl error must not be assumed transient. Any required producer
+error-contract change belongs to its source repository, not a frozen bundle patch.
+
+Read-only environment fingerprint: ssh BS10610 -> server10610, chenjc6708:520;
+control /mnt/biodevrwbi/33.chenjiucheng/project/airflow-WGS; current symlink still
+releases/20260912-opt-4d3d24e6, actual backend source mount
+releases/20260917-native-ui-76915d8-r2/backend -> /app. Git2.49.0 at the approved
+miniforge3/bin/git. Isolated server worktree used for the documentation commit;
+local files/bundle are transport only. Existing dirty/other worktrees preserved.
+No service/config/gate/permission changes, no running-workload or database writes.
+Production was not accessed. Permission probes and runtime tests are unnecessary
+for documentation-only delivery and were not run; no runtime acceptance claimed.
+
+Validation for this commit: Markdown link/task/scope review, git diff --check and
+four-file Markdown-only staged allowlist. Push only the test branch, then compare
+the remote target SHA with the server commit; no force push. Runtime tests and
+builds are deliberately excluded, not silently reported as passing.
+Initial SCP/SSH transfer failed during pre-session banner exchange (exit1),
+before any remote command or copy ran. A bounded retry transferred the same four
+documentation files successfully; no workflow command or state change occurred.
+The first commit attempt stopped because server Git had no author identity
+(exit128). Use the existing repository author via per-command -c options only;
+do not change global Git configuration. The staged documentation remains intact.
+
+Next: wait for user instruction to implement the approved design. Develop against
+then-current source; use focused synthetic tests on BS10610. Production rollout,
+CCE wheel/source release and 20260917S actual recovery need separate confirmation.
+Rollback: revert this docs-only commit; no runtime or data rollback is required.
+
 ## 2026-09-17 CCE download / native labels publication
 
 Initial push was rejected non-fast-forward: concurrent c60bac8 added the already

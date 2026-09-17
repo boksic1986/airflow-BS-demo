@@ -1,5 +1,14 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 CCE connection recovery design approved, development deferred
+
+CCE-CONNECTION-RECOVERY-20260917: approved WGS/GATK CCE Step1–6 design is
+archived in [the design](docs/superpowers/specs/2026-09-17-wgs-gatk-cce-connection-recovery-design.md).
+Scope: bounded reconnect, execution/monitoring status separation and idempotent
+adapter recovery. Design only; no implementation, runtime tests, task recovery,
+main/production integration or deployment. Future implementation requires a new
+instruction; preserve successful outputs, frozen identity and existing leases.
+
 ## 2026-09-17 CCE log download and native target labels (BS10610)
 
 Implemented read-only existing Step5 archive download for WGS/GATK CCE, with

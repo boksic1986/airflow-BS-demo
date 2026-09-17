@@ -1,5 +1,17 @@
 # TASKS.md
 
+## CCE-CONNECTION-RECOVERY-20260917 — approved design, deferred development
+
+- [x] User approved unified WGS/GATK CCE Step1–6 recovery boundaries.
+- [x] Archive [design](docs/superpowers/specs/2026-09-17-wgs-gatk-cce-connection-recovery-design.md)
+  with retry ownership, state semantics, recovery rules and minimal acceptance.
+- [ ] Future: source-level error classification and bounded runtime reconnect.
+- [ ] Future: Airflow/backend status separation and GATK adapter recovery entry.
+- [ ] Future: shared stale/monitoring display and focused BS10610 tests.
+- [ ] Separate authorization: actual task recovery, production promotion/deployment.
+- This task is not implemented. No Local/SGE, prepare/pending, Step7 cleanup,
+  automatic Master replacement or whole-workflow retry is included.
+
 ## LOG-DOWNLOAD-NATIVE-LABELS-20260917
 
 - [x] Replace CCE Copy with existing Step5 package download; no export jobs.
