@@ -1,5 +1,14 @@
 # SERVER_INFO.md
 
+## 2026-09-17 Native display simplification
+
+BS10610 backend621cdc5e4a49/frontendbe24e052b2b5 use
+releases/20260917-native-ui-38bdca1-r2; private composition/rollback at
+candidates/native-ui-38bdca1-r2-control. Saved per-service and main-sync
+compositions aligned. GATK phase/timing patches and all gates retained.
+Other eight service IDs unchanged; health200, native-view/tracker1.92% verified.
+
+
 ## 2026-09-17 GATK child timing backend-only update
 
 BS10610 backend8131b8a1134c: releases/20260917-child-timing-08e6744/backend.

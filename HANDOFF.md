@@ -2,6 +2,19 @@
 
 ## 2026-09-17 Native display simplification requested by user
 
+Publication38bdca1: releases/20260917-native-ui-38bdca1-r2,
+backend621cdc5e4a49/frontendbe24e052b2b5. Eight other services unchanged. Preserved
+GATK phase overlay and child timing fixes, native roots and all execution gates.
+Private rollback/config/inventory: candidates/native-ui-38bdca1-r2-control.
+First assembly failed copying root-owned synthetic .native-simple-* test dirs;
+no running service changed. Excluded those test dirs and published fresh r2 path;
+partial unused release38bdca1 retained, not deleted. Config validation passed.
+Native-view rules read (no QC write) returns Mapping/1.92%/4of208 in0.69seconds;
+readonly tracker returns same measured percent after normal monitor tick.
+Health200 and index-CmuaaFu8.js verified. Main/production excluded.
+Rollback restores only prior backend/frontend private composition; retain all
+project/evidence/pending/DB data and active analyses.
+
 Scope: no rule expansion, common numeric percentage bars, native phase labels and
 GATK child status recheck. No new UI panels, pipeline logic, logger, image or rerun.
 Root cause: native log grew to 11.5 MB; 8 MiB prefix parser marked progress false

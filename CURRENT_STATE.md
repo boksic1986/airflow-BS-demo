@@ -2,6 +2,11 @@
 
 ## 2026-09-17 Native display simplification
 
+Published38bdca1 on BS10610: backend621cdc5e4a49, frontendbe24e052b2b5,
+releases/20260917-native-ui-38bdca1-r2. Live native-view/tracker both return
+available=true,1.92%,4/208; active phases are Mapping. Native-view read0.69s.
+Health200 and new frontend asset verified; eight other service IDs unchanged.
+
 User requested removal of per-rule expansion. Shared table now renders rule names
 directly. Native log reader streams all complete lines instead of truncating at
 8 MiB; latest complete progress remains valid while a trailing line is being
