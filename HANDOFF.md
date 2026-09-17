@@ -1,5 +1,25 @@
 # HANDOFF.md
 
+## 2026-09-17 GATK phase test-branch integration
+
+User requested integrating b3abd65 into the current test branch, not production.
+Prepared server10610 isolated worktree development/gatk-phase-test-20260917
+from25bf260 on jiucheng/fix/gatk-phase-test-20260917; target remote branch is
+jiucheng/test/wgs-local-main-sync-20260917. Original phase code/test applied
+unchanged; current documentation added separately to avoid importing obsolete
+state notes or disturbing concurrent uncommitted development.
+Files:backend/app/workflow_phases.py, backend/tests/test_gatk_phase_revisions.py,
+CURRENT_STATE.md,TASKS.md,HANDOFF.md. No API/schema/runtime behavior additions.
+Verification:git diff --check; isolated cached backend image8491604ee01d,
+network none/read-only source, python -m pytest tests/test_gatk_phase_revisions.py
+-q -p no:cacheprovider:4 passed in0.05s. No broad tests or analysis submissions.
+Live backend remains releases/20260917-native-ui-d76edd3-r2/backend; its existing
+GATK phase preservation is not republished. Main/production untouched.
+Git history was relayed by bundle to perform the commit on the server; unrelated
+dirty worktrees retained. Initial SCP brace path was unsupported and copied
+nothing; explicit filenames succeeded. Server GitHub query stalled; no force push.
+Rollback if later needed:revert this integration commit; no data rollback needed.
+
 ## 2026-09-17 Native common view and Snakemake log
 
 Publication: d76edd3, releases/20260917-native-ui-d76edd3-r2;

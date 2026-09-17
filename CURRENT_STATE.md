@@ -1,5 +1,13 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 GATK phase repair integrated into test source
+
+Port b3abd65 without functional changes onto test baseline25bf260. Verified
+GATK r2/r3 phase mapping and its four focused tests now belong to the test
+source tree, instead of being present only in the deployed preserved file.
+BS10610 cached isolated image:4 passed in0.05s. Git integration only; no service
+deployment, main/production update, database or workflow action.
+
 ## 2026-09-17 Native common phases and Snakemake log
 
 Published d76edd3 on BS10610: backend2f3fcfff2c9f/frontend038f41a1e291,

@@ -19,6 +19,12 @@ PINNED_GATK_PHASES = {
     "gatk_concat_vcf": "Variant packaging", "gatk_publish": "Delivery",
     "cloud_gatk_finalize": "Delivery", "cloud_gatk_all": "Workflow targets",
 }  # bd04f6d:workflow/SCMC_GATK.smk, blob 0ee4e0033a1d5e0dbf0e62c0264136749173304a
+# Audited SCMC_GATK.smk inventories; r2/r3 retain the same 17 rule names.
+GATK_PHASE_RELEASES = {
+    "gatk-scmc-v7.6.0@bd04f6d": "0ee4e0033a1d5e0dbf0e62c0264136749173304a",
+    "gatk-scmc-v7.6.0@r2": "1cf9fe6f1672e919517bd1392bb2fd4496eab702",
+    "gatk-scmc-v7.6.0@r3": "1cf9fe6f1672e919517bd1392bb2fd4496eab702",
+}
 BIOLOGICAL_PHASE_ORDER = {name: i * 10 for i, name in enumerate([
     "Preflight", "FASTQ QC", "Mapping", "Duplicate marking", "Alignment QC",
     "Base recalibration", "Small variant calling", "Genotyping", "chrM realignment",
@@ -46,8 +52,12 @@ def _pinned_wgs_rules(release_id):
     return PINNED_WGS_PHASES["rules"] if release_id in supported else {}
 
 
+def _pinned_gatk_rules(release_id):
+    return PINNED_GATK_PHASES if release_id in GATK_PHASE_RELEASES else {}
+
+
 def pinned_phase_definitions(pipeline_name, release_id):
-    rules = _pinned_wgs_rules(release_id) if pipeline_name == "wgs" else PINNED_GATK_PHASES if pipeline_name == "gatk" and release_id == "gatk-scmc-v7.6.0@bd04f6d" else {}
+    rules = _pinned_wgs_rules(release_id) if pipeline_name == "wgs" else _pinned_gatk_rules(release_id) if pipeline_name == "gatk" else {}
     return [{"key": p.lower().replace(" ", "_"), "label": p, "order": order} for p, order in BIOLOGICAL_PHASE_ORDER.items() if p in set(rules.values()) | {"Unknown"}]
 
 
@@ -226,7 +236,7 @@ def phase_for_rule(
 def gatk_phase_for_rule(rule: str | None, *, release_id: str | None = None) -> str:
     name = str(rule or "").strip()
     if release_id is not None:
-        return PINNED_GATK_PHASES.get(name, "Unknown") if release_id == "gatk-scmc-v7.6.0@bd04f6d" else "Unknown"
+        return _pinned_gatk_rules(release_id).get(name, "Unknown")
     if name in GATK_RULE_PHASES:
         return GATK_RULE_PHASES[name]
     return "Unknown"
