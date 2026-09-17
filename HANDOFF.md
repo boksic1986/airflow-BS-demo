@@ -1,5 +1,20 @@
 # HANDOFF.md
 
+## 2026-09-17 User-approved Local project root addition
+
+User explicitly approved adding /sg2/33.chenjiucheng/wgs_test/WGS_Clinical to
+BS10610 WGS_ONPREM_PROJECT_ROOTS. This is an application allowlist addition,
+not a filesystem permission change or production update. Existing roots retained.
+Only backend recreated with existing282dfb0 source/image/mounts. Private exact
+composition/rollback/inventory: candidates/onprem-root-20260917-control.
+Compose config and nginx test/reload passed; live settings include exact root,
+provided0910A sampleinfo readable; native flags true and scan/dispatchfalse retained.
+No prepare/registration/analysis invoked, no credentials/DB/input files modified.
+Preflight five terminal records includes the user's newly submitted failed GATK;
+not touched by this task. Initial mount comparison used list order; corrected
+comparison verifies actual mount identities/options, without changing configuration.
+Rollback only backend via private rollback.json and nginx reload; keep all data.
+
 ## 2026-09-17 Authorized 20260917S test record cleanup — completed
 
 User requests deleting paused batch20260917S to resubmit personally. Scope is

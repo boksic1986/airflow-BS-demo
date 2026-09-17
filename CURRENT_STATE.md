@@ -1,5 +1,11 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Local test root approved
+
+BS10610 now permits native project registration below
+/sg2/33.chenjiucheng/wgs_test/WGS_Clinical, retaining previous roots and gates.
+Provided0910A sampleinfo is readable; no prepare or analysis started.
+
 ## 2026-09-17 Paused GATK smoke record removed on user request
 
 BS10610 batch20260917S / GATK_20260916_184617_5798F2 platform run, associated

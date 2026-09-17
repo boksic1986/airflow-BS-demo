@@ -1,5 +1,11 @@
 # TASKS.md
 
+## ONPREM-ROOT-20260917
+
+- [x] Add only user-approved WGS_Clinical root to BS10610 native allowlist.
+- [x] Validate effective setting/source readability, preserve existing gates.
+- Next: user performs native prepare with personal platform configuration.
+
 ## GATK-SMOKE-RESET-20260917
 
 - [x] Confirm exact20260917S terminal prepare failure; no upload/Master launch.

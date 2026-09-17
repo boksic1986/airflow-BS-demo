@@ -1,5 +1,11 @@
 # SERVER_INFO.md
 
+## 2026-09-17 BS10610 native root allowlist
+
+Backend effective composition now candidates/onprem-root-20260917-control/compose.json
+with exact rollback.json. Only WGS_ONPREM_PROJECT_ROOTS appended
+/sg2/33.chenjiucheng/wgs_test/WGS_Clinical; source282dfb0/image/mounts unchanged.
+
 ## 2026-09-17 BS10610 refreshed main/native test application
 
 Actual backend82958ac39f8a/observerde8573f1b972 source is control root
