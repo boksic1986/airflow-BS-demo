@@ -1,5 +1,27 @@
 # API contract
 
+## Native monitoring display parity (BS10610 test, 2026-09-17)
+
+native-view additionally returns progress (available, percent, completed_units,
+total_units, observed_rules, source=native_step1_log). Rules and progress share
+the exact execution-specific Step1 log; bounded8MiB scans do not claim complete
+progress if truncated. rule_status/sample_id/family_id filters run before25-row
+paging. Rule rows add stable line identity, phase, native-local timestamps and
+timing provenance; missing evidence stays unknown and group declarations do not
+establish child start/completion. No new workflow logger or native command.
+
+Dashboard native rows expose native_monitor_only/execution_mode, use snapshot
+sample count and actual native start time, and use monitor-cached progress without
+calling CCE/Airflow progress. Generated WGS_<batch>_T7Hg38V<version> names are
+normalized for display only; registration requests, UUIDs and paths stay unchanged.
+
+/samples includes current native snapshot identities via a SQL-paged union with
+ordinary Sample rows. Native items carry data_id/execution_id/execution_mode and
+configured_scope_only=true; status is the owning run status, not proof each rule
+ran. Previous execution scopes remain accessible via native-view only. No Sample
+inserts, schema migration or pending edits; unknown native per-sample QC is not pass.
+
+
 ## WGS SNV/CNV count evidence (2026-09-17 candidate)
 
 When the selected batch QCstat omits SNV_count/CNV_count, WGS sample projection

@@ -1,5 +1,16 @@
 # Workflow runtime integration
 
+## Native UI evidence adapter (2026-09-17 test)
+
+Native monitor and native-view share a bounded reader of
+log/step1.<analysis_id>-a<attempt>-g<generation>-<execution_id>.log.
+Snakemake Job stats total and explicit completed-step lines supply real progress;
+timestamped rule/job blocks supply observed starts, explicit job completion/failure
+supplies states. Unobserved times remain absent; group status is not propagated.
+This is a platform reader only: no prepare, Local/SGE launch, logger, config,
+pending or workflow changes. Controller receipts still determine run termination.
+
+
 ## GATK logger release (2026-09-17)
 
 New GATK prepares use profile r2 and an independent SFS root, pinned

@@ -57,3 +57,17 @@ it('keeps the log search input mounted across a server search refresh', async ()
   await screen.findByText('matched', {exact: false});
   expect(search).toHaveValue('mapping');
 });
+
+it('shows native measured progress and expands the shared rule evidence table', async () => {
+  vi.mocked(getNativeRunView).mockResolvedValue({...response(),
+    progress: {available: true, percent: 25, completed_units: 2, total_units: 8, observed_rules: 3},
+    rules: [{rule: 'pre_process_mapping', rule_instance_id: 'E2:3', job_id: '3',
+      snakemake_jobid: '3', phase: 'Mapping', status: 'running', sample_id: 'RENAMED',
+      source_line: 8, message: 'Native log line 8', timing_provenance: 'native_log_local_time'}], rule_total: 1} as never);
+  render(<NativeExecutionPanel detail={detail} />);
+  expect(await screen.findByRole('progressbar')).toHaveAttribute('aria-valuenow', '25');
+  fireEvent.click(screen.getByRole('tab', {name: 'Rules'}));
+  const table = await screen.findByRole('table', {name: 'Pipeline rule instances'});
+  fireEvent.click(within(table).getByRole('button', {name: 'Details for pre_process_mapping'}));
+  expect(within(table).getByText('Native log line 8')).toBeInTheDocument();
+});

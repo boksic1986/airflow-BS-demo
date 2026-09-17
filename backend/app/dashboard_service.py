@@ -233,6 +233,9 @@ def _tracker_row(
     lifecycle: dict[str, dict] | None,
     adapter: Any | None,
 ) -> dict[str, Any]:
+    if (run.params_json or {}).get('native_monitor_only'):
+        from app.wgs_onprem_projection import native_tracker_row
+        return native_tracker_row(session, run)
     progress = _progress_for_tracker_row(
         session=session,
         airflow_client=airflow_client,

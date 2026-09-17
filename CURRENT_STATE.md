@@ -1,5 +1,31 @@
 # CURRENT_STATE.md
 
+## 2026-09-17 Native UI parity ready for BS10610 publication
+
+ONPREM-UI-PARITY: current-snapshot samples/count, short batch, actual native-log
+progress, shared expandable Rule table and spaced native detail UI implemented.
+22 backend tests, 15 frontend tests and production build passed on BS10610 cached
+images. Read-only PostgreSQL projection confirms 3 configured samples. Resume
+tracker uses current stage timing/status, never previous execution timestamps.
+Test branch only; no main/production changes or native workflow restart.
+
+
+## 2026-09-17 Native root restored on user approval
+
+BS10610 backend b8125409b663 includes the approved chenjiucheng Local test root.
+Exact existing project passes read-only path/binding validation; status remains
+prepared. Only WGS_ONPREM_PROJECT_ROOTS changed, nine other containers retained.
+Gateway health200/login-validation422. No registration/prepare/analysis invoked.
+
+
+## 2026-09-17 Native registration blocked
+
+Current BS10610 backend5bc76d74e21c has lost the approved chenjiucheng Local
+test root from its allowlist. Project/binding readable; path validator fails
+outside-configured-roots. Restore that root without reverting other deployment
+changes before supplementing registration. No prepare or analysis retried.
+
+
 ## 2026-09-17 Local test root approved
 
 BS10610 now permits native project registration below

@@ -167,13 +167,13 @@ function RunTrackerRow({
       <td className="tracker-project-cell">
         <OperationProjectCell analysisId={row.analysis_id} fallbackId={row.analysis_id} projectName={row.project_name} sampleCount={row.sample_count ?? 0} sampleScopeStatus={cancelled ? "cancelled" : row.sample_scope_status} source={row.run_source || "manual"} sourceBatchId={row.source_batch_id} submittedBy={row.operator_display_name || row.submitted_by} showOperatorPrefix={false} centerSource={false} />
       </td>
-      <td className="tracker-centered-cell"><strong>{row.batch_no || row.source_batch_id || "-"}</strong></td>
+      <td className="tracker-centered-cell tracker-batch-cell"><strong>{row.batch_no || row.source_batch_id || "-"}</strong>{row.native_monitor_only ? <span className="handoff-pill">{row.execution_mode === 'sge' ? 'SGE' : 'Local'}</span> : null}</td>
       <td className="tracker-centered-cell">{compactPipelineName(row.pipeline)}</td>
       <td className="tracker-centered-cell">
         <div className="tracker-badges stacked">
           <StatusBadge status={row.display_status || normalizeStatus(row.status)} />
           {row.not_in_airflow ? <span className="handoff-pill">Not in Airflow</span> : null}
-          {status === "created" ? (
+          {status === "created" && !row.native_monitor_only ? (
             <button className="mini-action" type="button" onClick={() => onSubmit(row.analysis_id)}>Submit</button>
           ) : null}
         </div>
@@ -191,9 +191,9 @@ function RunTrackerRow({
         {!cancelled && row.stage_progress?.available ? <small>{formatProgressUnits(row.stage_progress.completed_units, row.stage_progress.total_units, row.stage_progress.unit)}{row.stage_progress.speed_bps ? ` · ${formatBytes(row.stage_progress.speed_bps)}/s` : ""}{row.stage_progress.eta_seconds != null ? ` · ETA ${formatSecondsDuration(row.stage_progress.eta_seconds)}` : ""}</small> : null}
       </td>
       <td className="tracker-centered-cell">
-        <OperationRuntimeCell elapsedSeconds={row.elapsed_seconds} estimatedRemainingSeconds={row.estimated_remaining_seconds} status={row.status} submitted={Boolean(row.submitted_at)} />
+        <OperationRuntimeCell elapsedSeconds={row.elapsed_seconds} estimatedRemainingSeconds={row.estimated_remaining_seconds} status={row.status} submitted={Boolean(row.native_monitor_only ? row.started_at : row.submitted_at)} />
       </td>
-      <td className="tracker-centered-cell tracker-time-cell" title={`Airflow handoff time, displayed in ${displayTimeZoneLabel()}`}><CompactDate value={row.submitted_at} fallback="Not submitted" /></td>
+      <td className="tracker-centered-cell tracker-time-cell" title={`${row.native_monitor_only ? 'Native execution start' : 'Airflow handoff time'}, displayed in ${displayTimeZoneLabel()}`}><CompactDate value={row.native_monitor_only ? row.started_at : row.submitted_at} fallback={row.native_monitor_only ? 'Waiting to start' : 'Not submitted'} /></td>
       <td className="tracker-centered-cell tracker-time-cell" title={`Pipeline completion time, displayed in ${displayTimeZoneLabel()}`}><CompactDate value={row.pipeline_finished_at || row.ended_at} fallback={isActiveStatus(normalizeStatus(row.status)) ? "In progress" : "Not captured"} /></td>
     </tr>
   );

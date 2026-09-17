@@ -394,6 +394,9 @@ def _project_wgs_rule_context(*, run, **_) -> dict[str, Any]:
 
 
 def _project_wgs_progress(*, session, run, payload, **_) -> dict[str, Any]:
+    if (run.params_json or {}).get('native_monitor_only'):
+        from app.wgs_onprem_projection import current_native_stage, native_progress
+        return {**payload, **native_progress(run, current_native_stage(session, run))}
     if str(run.status or "").lower() == "success":
         result = {
             **payload,

@@ -1,5 +1,16 @@
 # Deployment runbook
 
+## BS10610 native root preservation (2026-09-17)
+
+User-approved native registration root /sg2/33.chenjiucheng/wgs_test/WGS_Clinical
+must be retained in WGS_ONPREM_PROJECT_ROOTS by future test backend deployments.
+Read current live container config and latest code mounts; do not replay an old
+main-sync composition that omits this entry. Native source/view updates need only
+backend/frontend recreation, never restart Local/SGE controllers or Airflow workers.
+Preserve the user-deployed GATK workflow_phases.py r2/r3 fix when layering this
+test branch on the current test deployment. No promotion to main/BS96 is implied.
+
+
 ## BS10610 main + Local/SGE refresh (2026-09-17)
 
 Test application282dfb0 includes mainc6ac6ce plus accepted native integration.

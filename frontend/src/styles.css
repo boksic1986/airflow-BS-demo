@@ -3881,6 +3881,23 @@ textarea {
 }
 
 .rule-filters label { display: grid; gap: 0.25rem; }
+.native-summary-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 1rem; }
+.native-run-page .panel h2 { margin-bottom: 1rem; }
+.native-run-page .definition-grid { row-gap: 1.1rem; }
+.native-progress-panel { display: flex; flex-direction: column; gap: 0.8rem; }
+.native-progress-panel p { margin: 0; }
+.native-history summary { cursor: pointer; font-weight: 600; }
+.native-history .rule-filters { margin-top: 1rem; align-items: end; }
+.native-history .rule-filters .field { flex: 1; min-width: 180px; }
+.native-data-panel .tabs { margin-bottom: 1rem; }
+.native-data-panel .rule-filters { margin: 1rem 0; gap: 1rem; }
+.native-data-panel .rule-filters label { flex: 1; min-width: 150px; gap: 0.5rem; }
+.native-data-panel .rule-filters input, .native-data-panel .rule-filters select { width: 100%; box-sizing: border-box; }
+.rule-expanded-row > td { background: var(--color-surface, #f5f9fc); padding: 1rem; }
+.rule-expand { text-align: left; }
+.tracker-batch-cell { overflow-wrap: anywhere; }
+.tracker-batch-cell .handoff-pill { display: block; width: fit-content; margin: 0.4rem auto 0; }
+@media (max-width: 900px) { .native-summary-grid { grid-template-columns: 1fr; } }
 .workflow-tab-stack > section > .toolbar {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

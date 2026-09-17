@@ -1,5 +1,13 @@
 # SERVER_INFO.md
 
+## 2026-09-17 Native root restoration supersedes earlier entry
+
+Backend b8125409b663 uses private candidates/onprem-root-restore-20260917-control/
+compose.json. rollback.json captures the immediately preceding backend5bc76d74e21c
+configuration, not the older root-add deployment. Only the approved root appended;
+image/source/mounts unchanged. Other nine service containers preserved.
+
+
 ## 2026-09-17 BS10610 native root allowlist
 
 Backend effective composition now candidates/onprem-root-20260917-control/compose.json

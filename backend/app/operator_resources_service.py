@@ -6,10 +6,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import PurePosixPath
 from typing import Any, Mapping
 
-from sqlalchemy import String, cast, desc, func, literal, or_, select, union_all, case, and_
+from sqlalchemy import String, cast, desc, func, literal, or_, select, union_all, case, and_, true
 from sqlalchemy.orm import Session
 
-from app.models import AnalysisRun, QcMetric, RuleState, RunStageState, Sample, SnakemakeRuleEvent
+from app.models import AnalysisRun, QcMetric, RuleState, RunStageState, Sample, SnakemakeRuleEvent, WgsOnpremExecutionSnapshot
 from app.sample_selection_scope import selected_clause
 
 
@@ -79,21 +79,58 @@ def list_samples_resource(
                 ).like(pattern),
             )
         )
-    total = session.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
-    page = list(
-        session.execute(
-            query.order_by(desc(AnalysisRun.created_at), Sample.sample_id).limit(limit).offset(offset)
-        ).all()
-    )
+    # Page over identities from both stores in SQL; never copy snapshots into Sample.
+    cloud = query.with_only_columns(literal('sample').label('kind'),
+        cast(Sample.id, String).label('identity'), AnalysisRun.analysis_id.label('analysis_id'),
+        AnalysisRun.created_at.label('created_at'), Sample.sample_id.label('sample_id'),
+        cast(literal(None), String).label('scope'))
+    snapshot = WgsOnpremExecutionSnapshot
+    sqlite = session.bind.dialect.name == 'sqlite'
+    values = (func.json_each(snapshot.sample_scope_json) if sqlite else
+              func.json_array_elements(snapshot.sample_scope_json)).table_valued('value', joins_implicitly=True)
+    field = lambda name: func.json_extract(values.c.value, f'$.{name}') if sqlite else values.c.value.op('->>')(name)
+    native = select(literal('native').label('kind'), field('data_id').label('identity'),
+        AnalysisRun.analysis_id, AnalysisRun.created_at, field('sample_id').label('sample_id'),
+        cast(values.c.value, String).label('scope')).select_from(snapshot).join(AnalysisRun,
+            and_(AnalysisRun.analysis_id == snapshot.analysis_id,
+                 AnalysisRun.params_json['current_native_execution_id'].as_string() == snapshot.execution_id)
+        ).join(values, true()).where(AnalysisRun.params_json['native_monitor_only'].as_boolean() == True)
+    native = _filter_pipeline_runs(native, pipeline=pipeline or 'deployed', deployed_pipelines=deployed_pipelines)
+    if status:
+        native = native.where(AnalysisRun.status == status)
+    if qc_status:  # Snapshots do not assert per-sample QC for an execution.
+        native = native.where(literal('unknown') == qc_status)
+    if keyword:
+        pattern = f'%{keyword.strip().lower()}%'
+        native = native.where(or_(*[func.lower(expr).like(pattern) for expr in (
+            field('sample_id'), field('data_id'), field('family_id'), AnalysisRun.analysis_id,
+            AnalysisRun.params_json['project_name'].as_string(), AnalysisRun.params_json['batch_no'].as_string())]))
+    combined = union_all(cloud, native).subquery()
+    total = session.scalar(select(func.count()).select_from(combined)) or 0
+    page = session.execute(select(combined).order_by(desc(combined.c.created_at),
+        combined.c.analysis_id, combined.c.sample_id, combined.c.identity).limit(limit).offset(offset)).all()
+    runs = {run.analysis_id: run for run in session.scalars(select(AnalysisRun).where(
+        AnalysisRun.analysis_id.in_([row.analysis_id for row in page])))}
+    samples = {str(sample.id): sample for sample in session.scalars(select(Sample).where(
+        Sample.id.in_([int(row.identity) for row in page if row.kind == 'sample'])))}
+    items = []
+    for row in page:
+        run = runs[row.analysis_id]
+        if row.kind == 'sample':
+            items.append(_sample_item(sample=samples[row.identity], run=run,
+                adapter=(pipeline_adapters or {}).get(run.pipeline_name)))
+        else:
+            from app.wgs_onprem_projection import native_batch
+            scope = json.loads(row.scope)
+            items.append(dict(analysis_id=run.analysis_id, project_name='WGS', pipeline='wgs',
+                batch_no=native_batch(run.params_json), data_id=scope['data_id'],
+                sample_id=scope['sample_id'], family_id=scope.get('family_id'),
+                status=run.status, qc_status=None, execution_mode=run.execution_mode,
+                execution_id=run.params_json['current_native_execution_id'],
+                configured_scope_only=True, status_reason='执行配置范围；状态为所属运行状态',
+                source_folder=None, r1_name=None, r2_name=None, report_status='unknown'))
     return {
-        "items": [
-            _sample_item(
-                sample=sample,
-                run=run,
-                adapter=(pipeline_adapters or {}).get(run.pipeline_name),
-            )
-            for sample, run in page
-        ],
+        "items": items,
         "total": total,
         "limit": limit,
         "offset": offset,

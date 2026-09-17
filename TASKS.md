@@ -1,5 +1,29 @@
 # TASKS.md
 
+## ONPREM-UI-PARITY-20260917
+
+- [x] Short native batch, mode, current snapshot count and execution timing.
+- [x] Exact execution log supplies rule inventory and measured progress.
+- [x] Shared CCE/native expandable Rule component; native running filter/25 rows.
+- [x] SQL-paged current snapshot sample projection without Sample duplication.
+- [x] Bounded review and 22 backend / 15 frontend tests plus build.
+- [ ] Publish test branch and BS10610 backend/frontend, preserve live GATK phases.
+
+
+## ONPREM-ROOT-DRIFT-20260917
+
+- Completed on explicit user approval: appended exact root to current live
+  backend config, recreated backend only and gracefully reloaded nginx.
+  Path/binding validation passes; health200, login-validation422, nine unrelated
+  service IDs preserved. User may now supplement registration; no launch done.
+
+- Diagnosed: current BS10610 backend lacks the approved Local test root;
+  read-only path validation reproduces registration400.
+- Previous blocker: restore the exact approved allowlist entry,
+  retain other updates, then supplement existing project registration only.
+- No prepare, pending change or analysis launch authorized by this diagnostic.
+
+
 ## ONPREM-ROOT-20260917
 
 - [x] Add only user-approved WGS_Clinical root to BS10610 native allowlist.

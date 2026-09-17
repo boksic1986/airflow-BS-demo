@@ -1,5 +1,18 @@
 # Frontend specification
 
+## Native run presentation parity (2026-09-17 test branch)
+
+Native run details separate summary and measured-progress cards, folded execution
+history/technical identity, and data tabs. Reuse RunProgressBar and RuleInstanceTable
+for native and CCE evidence; Rule-name buttons expand identity/source/timing/group
+metadata, never fabricate child states. Local Rules default running,25/page with
+independent exact sample/family filters. Preserve expansion during same-view refresh.
+Native local timestamps remain labelled node-local, never silently converted to UTC.
+Dashboard shows short batch plus Local/SGE badge, configured count and actual start;
+it never offers CCE Submit for a registered native project. Samples shows native
+current configured scope with its mode, separate from pending ledger records.
+
+
 ## Complete QC criterion columns (2026-09-17 candidate; supersedes view below)
 
 WGS QC always lists the22 named criteria from metricLabels, including SNV/CNV

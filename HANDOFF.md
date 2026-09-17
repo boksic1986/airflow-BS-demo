@@ -1,5 +1,60 @@
 # HANDOFF.md
 
+## 2026-09-17 ONPREM-UI-PARITY implementation and review
+
+User approved native UI repair and commit to test branch, with CCE-style rule
+expansion. Changes limited to backend read projections, frontend components,
+targeted tests and API/runtime/UI/schema/deployment documentation. No schema
+migration, Sample insertion, pending edit, prepare, launch or workflow change.
+Native snapshot samples are already persisted; /samples now projects current
+execution rows with database pagination. Rules/progress use one exact Step1 log.
+Backend 22 tests passed; frontend 15 tests and TypeScript/Vite build passed using
+BS10610 cached images. Actual read-only PostgreSQL probe found 3 samples and
+4/208 log progress at observation time. No hardcoded progress or sample IDs in code.
+Reviewer identified previous-execution timestamps leaking into resumed tracker;
+added failing regression then current-stage projection fix, passing 22 tests.
+Publication must preserve live b3abd65 GATK workflow_phases.py and persist approved
+Local test root in saved composition; restart backend/frontend only. Current
+GATK and native controllers, Airflow services and databases stay untouched.
+Rollback is previous private backend/frontend composition, not data deletion.
+See docs/releases/2026-09-17-native-ui-parity-bs10610.md for detailed evidence.
+
+
+## 2026-09-17 Native root restored, registration remains user-operated
+
+User approved retaining the existing project and adding its root. Constructed
+backend-only composition from currently deployed5bc76d74e21c configuration after
+matching all environment values/image/mounts. Added only
+/sg2/33.chenjiucheng/wgs_test/WGS_Clinical to WGS_ONPREM_PROJECT_ROOTS.
+Private composition/rollback/inventory: candidates/onprem-root-restore-20260917-control.
+Compose config --quiet passed, up -d --no-deps --pull never backend completed;
+nginx -t and graceful reload passed. Backend now b8125409b663; nine other IDs
+unchanged, only approved environment field differs, image/mount identities same.
+Initial comparison of raw mount lists failed because order changed; semantic
+source/destination/RW/type/propagation comparison passed, no extra change made.
+Read-only _project_root on the user's existing project passes; binding remains
+prepared. Gateway health200/login-validation422; scanfalse/autofalse retained.
+No registration POST, execution creation, prepare, pending edit, launch or BS96
+change. User should rerun supplemental registration with the existing UUID.
+Rollback restores backend only from private rollback.json then reloads nginx;
+retain all project and database data. No application code or database change.
+
+
+## 2026-09-17 Native registration blocked by test allowlist drift
+
+Read-only BS10610 inspection: backend5bc76d74e21c still mounts282dfb0 source,
+but WGS_ONPREM_PROJECT_ROOTS no longer includes the previously approved
+/sg2/33.chenjiucheng/wgs_test/WGS_Clinical. The existing project and prepared
+binding are readable through backend uid6801. Calling only _project_root
+reproduces ValueError: Native project is outside configured registration roots.
+The personal registration POST returned400. No prepare, registration retry,
+execution creation, launch, pending/config/credential mutation or service change
+was performed. Stop at deployment drift: restore only this approved root after
+coordination with the current test deployment owner; preserve their other updates.
+Then user may supplement registration with the same project UUID, not reprepare.
+No runtime code changed; this bounded read-only validator is the relevant check.
+
+
 ## 2026-09-17 User-approved Local project root addition
 
 User explicitly approved adding /sg2/33.chenjiucheng/wgs_test/WGS_Clinical to

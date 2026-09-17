@@ -1,5 +1,13 @@
 # 04 数据库设计
 
+## Native presentation projections (2026-09-17)
+
+No schema or Sample writes. Existing WgsOnpremExecutionSnapshot.sample_scope_json
+is read through a current-execution-only SQL union for /samples. Native monitor
+stores measured log progress within its existing AnalysisRun.params_json.native_monitor
+document; execution_id fences the cached progress. Full clinical inputs remain private.
+
+
 ## Native run-latest QC cache (2026-09-16 candidate)
 
 No new migration in this slice. WgsOnpremExecutionSnapshot retains immutable

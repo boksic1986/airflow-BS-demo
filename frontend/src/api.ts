@@ -44,6 +44,7 @@ export type RunListOptions = {
 };
 
 export type OperatorSample = {
+  data_id?: string; execution_id?: string; execution_mode?: string; configured_scope_only?: boolean;
   selection_decision?: string | null;
   selection_attempt?: number | null;
   pending_reason?: string | null;
@@ -522,6 +523,7 @@ export type ReanalysisResponse = {
 };
 
 export type RuleEvent = {
+  native_started_at?: string | null; native_ended_at?: string | null;
   attempt?: number;
   rule_instance_id?: string;
   status_inferred?: boolean;
@@ -952,6 +954,7 @@ export type DashboardAttentionItem = {
 };
 
 export type DashboardRunTrackerRow = {
+  native_monitor_only?: boolean; execution_mode?: string;
   sample_scope_status?: "legacy" | "preparing" | "ready";
   analysis_id: string;
   project_name: string;
@@ -1625,12 +1628,13 @@ export type NativeExecution = {
   registered_by: string; sample_count: number; created_at?: string | null;
   started_at?: string | null; ended_at?: string | null;
 };
-export type NativeViewQuery = {execution_id?: string; section?: string; offset?: number; history_offset?: number; query?: string; match_index?: number};
+export type NativeViewQuery = {execution_id?: string; section?: string; offset?: number; history_offset?: number; query?: string; match_index?: number; rule_status?: string; sample_id?: string; family_id?: string};
 export type NativeRunView = {
   analysis_id: string; current_execution_id: string | null; selected: NativeExecution | null;
   executions: NativeExecution[]; history_total: number; history_offset: number;
   samples: Array<{data_id: string; sample_id: string; family_id: string | null}>; sample_total: number;
-  rules: Array<{rule: string; job_id: string; sample_id: string | null; family_id: string | null; status: string; source_line: number}>;
+  rules: Array<RuleEvent & {job_id: string; source_line: number}>;
+  progress?: {available: boolean; percent: number | null; completed_units?: number | null; total_units?: number | null; observed_rules: number};
   rule_total: number; rules_incomplete: boolean; log: RunLog | null; offset: number; limit: number;
   evidence_health: string; monitoring?: {monitoring_health?: string; checked_at?: string} | null;
   configuration?: {health: string; parameters: Record<string, string | number | boolean>; execution_mode?: string; execution_target?: string; execution_user?: string; manifest_sha256?: string} | null;

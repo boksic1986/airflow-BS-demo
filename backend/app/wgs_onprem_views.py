@@ -112,6 +112,11 @@ def _latest_qc(session, run, root):
 
 
 def _rules(path, scope):
+    rows, incomplete, _ = _rule_evidence(path, scope)
+    return rows, incomplete
+
+
+def _rule_evidence(path, scope):
     # Text is evidence of declarations/completions, not a complete scheduled DAG.
     with path.open('rb') as handle:
         raw = handle.read(8 * 1024 * 1024)
@@ -122,22 +127,56 @@ def _rules(path, scope):
         incomplete = True
     identities = {item['data_id']: item for item in scope}
     result, latest, current = [], {}, None
+    timestamp = None
+    total, completed = None, None
+    in_stats = False
     for number, line in enumerate(lines):
+        stamp = re.fullmatch(r'\[(\w{3} \w{3} +\d{1,2} \d{2}:\d{2}:\d{2} \d{4})\]', line.strip())
+        if stamp:
+            timestamp = stamp[1]  # Native local time; do not silently invent a timezone.
+            continue
+        if line.strip() == 'Job stats:':
+            in_stats = True
+        stats = re.fullmatch(r'total\s+(\d+)', line.strip()) if in_stats else None
+        if stats:
+            total, completed, in_stats = int(stats[1]), 0, False
+        progress = re.fullmatch(r'(\d+) of (\d+) steps \(\d+(?:\.\d+)?%\) done', line.strip())
+        if progress and 0 <= int(progress[1]) <= int(progress[2]):
+            completed, total = int(progress[1]), int(progress[2])
         rule = re.fullmatch(r'(?:local)?rule ([A-Za-z0-9_]+):', line.strip())
+        failed_rule = re.fullmatch(r'Error in rule ([A-Za-z0-9_]+):', line.strip())
+        if failed_rule:
+            current = dict(rule=failed_rule[1], status='failed', failure_block=True)
+            continue
         if rule:
             current = dict(rule=rule[1], job_id=None, sample_id=None, family_id=None,
-                           status='unknown', source_line=number + 1)
+                           status='running' if timestamp else 'unknown', source_line=number + 1,
+                           rule_instance_id=f'line:{number + 1}', sequence=len(result) + 1,
+                           timing_provenance='native_log_local_time' if timestamp else 'not_collected',
+                           native_started_at=timestamp, native_ended_at=None,
+                           message=f'Native log line {number + 1}', origin='native_step1_log')
+            timestamp = None
             continue
-        finished = re.fullmatch(r'Finished job(?:id:)? (\d+)\.', line.strip())
+        finished = re.fullmatch(r'Finished job(?:id:)? (\d+)(?:\.| \(Rule: [A-Za-z0-9_]+\))', line.strip())
         if finished:
             if finished[1] in latest:
                 latest[finished[1]]['status'] = 'success'
+                latest[finished[1]]['native_ended_at'] = timestamp
+            timestamp = None
             current = None
             continue
         if current is not None:
             job = re.fullmatch(r'\s+jobid: (\d+)\s*', line)
             if job:
+                if current.get('failure_block'):
+                    prior = latest.get(job[1])
+                    if prior and prior['rule'] == current['rule']:
+                        prior['status'] = 'failed'
+                        prior['native_ended_at'] = timestamp
+                    current = None
+                    continue
                 current['job_id'] = job[1]
+                current['snakemake_jobid'] = job[1]
                 result.append(current)
                 latest[job[1]] = current
             wildcards = re.fullmatch(r'\s+wildcards: (.*)', line)
@@ -148,11 +187,24 @@ def _rules(path, scope):
                     current.update(sample_id=identity['sample_id'], family_id=identity.get('family_id'))
             if not line.strip():
                 current = None
-    return result, incomplete
+    available = bool(total and completed is not None and not incomplete)
+    return result, incomplete, dict(available=available,
+        percent=round(completed / total * 100, 2) if available else None,
+        completed_units=completed, total_units=total, unit='rules', source='native_step1_log',
+        observed_rules=len(result))
+
+
+def native_rule_evidence(settings, run, stage, scope):
+    """One bounded, execution-specific file supplies rule rows and measured progress."""
+    initial = run.params_json['onprem_registration']
+    root = _project_root(settings, run.workdir, run.onprem_project_uuid, initial['platform_instance_id']).resolve()
+    relative = Path('log') / f'step1.{run.analysis_id}-a{stage.attempt}-g{stage.generation}-{stage.execution_id}.log'
+    return _rule_evidence(_file(root, relative), scope)
 
 
 def native_view(*, session, settings, analysis_id, execution_id=None, section='samples',
-                offset=0, limit=25, history_offset=0, query='', match_index=0):
+                offset=0, limit=25, history_offset=0, query='', match_index=0,
+                rule_status='', sample_id='', family_id=''):
     run = session.scalar(select(AnalysisRun).where(AnalysisRun.analysis_id == analysis_id).with_for_update())
     if (run is None or not (run.params_json or {}).get('native_monitor_only')
             or 'wgs' not in getattr(settings, 'deployed_pipelines', ())):
@@ -171,10 +223,25 @@ def native_view(*, session, settings, analysis_id, execution_id=None, section='s
         selected=_summary(*pair) if pair else None, samples=[], sample_total=0, rules=[], rule_total=0,
         rules_incomplete=False, log=None, qc=dict(scope='run_latest', items=[], health='unavailable'),
         evidence_health='available', offset=offset, limit=limit,
+        progress=dict(available=False, percent=None, observed_rules=0),
         monitoring=run.params_json.get('native_monitor'), configured_scope_only=True)
     scope = pair[1].sample_scope_json if pair else []
     result.update(samples=scope[offset:offset + limit], sample_total=len(scope))
     result['configuration'] = _configuration(settings, pair[1]) if pair else None
+    if pair:
+        try:
+            rows, truncated, progress = native_rule_evidence(settings, run, pair[0], scope)
+            result.update(progress=progress, rules_incomplete=truncated)
+            if section == 'rules':
+                from app.workflow_phases import wgs_phase_for_rule, run_phase_release
+                for row in rows:
+                    row['phase'] = wgs_phase_for_rule(row['rule'], release_id=run_phase_release(run))
+                rows = [row for row in rows if (not rule_status or row['status'] == rule_status)
+                    and (not sample_id or row['sample_id'] == sample_id)
+                    and (not family_id or row['family_id'] == family_id)]
+                result.update(rules=rows[offset:offset + limit], rule_total=len(rows))
+        except (OSError, ValueError, KeyError):
+            result['evidence_health'] = 'unavailable'
     try:
         initial = run.params_json['onprem_registration']
         root = _project_root(settings, run.workdir, run.onprem_project_uuid, initial['platform_instance_id']).resolve()
@@ -193,10 +260,7 @@ def native_view(*, session, settings, analysis_id, execution_id=None, section='s
             if root is None:
                 raise ValueError('Project binding unavailable')
             path = _file(root, relative)
-            if section == 'rules':
-                rows, truncated = _rules(path, scope)
-                result.update(rules=rows[offset:offset + limit], rule_total=len(rows), rules_incomplete=truncated)
-            else:
+            if section == 'logs':
                 if query:
                     result['log'].update(_search_log_file(path, query=query, match_index=match_index, limit=200, max_bytes=8 * 1024 * 1024))
                 else:

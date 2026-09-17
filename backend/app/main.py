@@ -1808,11 +1808,14 @@ def run_native_view(analysis_id: str, execution_id: str | None = Query(default=N
                     section: str = Query(default='samples', pattern='^(samples|rules|logs|qc)$'),
                     offset: int = Query(default=0, ge=0), limit: int = Query(default=25, ge=1, le=100),
                     history_offset: int = Query(default=0, ge=0), query: str = Query(default='', max_length=256),
-                    match_index: int = Query(default=0, ge=0)):
+                    match_index: int = Query(default=0, ge=0),
+                    rule_status: str = Query(default='', pattern='^(|running|success|failed|unknown)$'),
+                    sample_id: str = Query(default='', max_length=256), family_id: str = Query(default='', max_length=256)):
     with get_sessionmaker()() as session:
         payload = native_view(session=session, settings=get_settings(), analysis_id=analysis_id,
             execution_id=execution_id, section=section, offset=offset, limit=limit,
-            history_offset=history_offset, query=query, match_index=match_index)
+            history_offset=history_offset, query=query, match_index=match_index,
+            rule_status=rule_status, sample_id=sample_id, family_id=family_id)
         if payload is None:
             raise HTTPException(404, detail={'code': 'NATIVE_EXECUTION_NOT_FOUND', 'message': 'Native run/execution not found'})
         return payload

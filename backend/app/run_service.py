@@ -298,6 +298,9 @@ def _aggregate_sample_qc_status(statuses: list[str | None]) -> str:
 
 
 def _public_batch(params: dict) -> str | None:
+    if params.get('native_monitor_only'):
+        from app.wgs_onprem_projection import native_batch
+        return native_batch(params)
     return str(
         params.get("analysis_batch")
         or params.get("sequencing_batch")

@@ -70,6 +70,11 @@ def observe_native_execution(*, session, settings, analysis_id, execution_id, re
             terminal = consume_controller_exit(session=session, settings=settings,
                 run=run, stage=stage, root=root)
             if terminal is not None:
+                from app.wgs_onprem_views import current_scope, native_rule_evidence
+                try:
+                    _, _, result['progress'] = native_rule_evidence(settings, run, stage, current_scope(session, run))
+                except (ValueError, OSError, KeyError):
+                    pass  # Controller completion does not invent missing rule evidence.
                 result.update(terminal, status=stage.status, done=True, observation='terminal')
                 run.params_json = {**run.params_json, 'native_monitor': result}
                 session.commit()
@@ -128,6 +133,11 @@ def observe_native_execution(*, session, settings, analysis_id, execution_id, re
                 run.pipeline_finished_at = None
                 run.current_stage = 'native_analysis'
                 result['status'] = 'running'
+                from app.wgs_onprem_views import current_scope, native_rule_evidence
+                try:
+                    _, _, result['progress'] = native_rule_evidence(settings, run, stage, current_scope(session, run))
+                except (ValueError, OSError, KeyError):
+                    result.update(monitoring_health='degraded', error_code='NATIVE_RULE_EVIDENCE_UNAVAILABLE')
         except (ValueError, OSError, KeyError, UnicodeError):
             result.update(observation=previous.get('observation', 'unavailable'),
                           monitoring_health='degraded', error_code='NATIVE_EVIDENCE_UNAVAILABLE')
